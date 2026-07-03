@@ -243,6 +243,15 @@ public class ToolManager : MonoBehaviour
         }
 
         var pickupName = collider.gameObject.name;
+        var pickupRoot = collider.gameObject;
+        
+        // Check if this is a visual child, if so get the parent (root pickup)
+        if (pickupRoot.transform.parent != null && pickupRoot.transform.parent.name.StartsWith("Pickup_"))
+        {
+            pickupRoot = pickupRoot.transform.parent.gameObject;
+            pickupName = pickupRoot.name;
+        }
+        
         Debug.Log($"TryPickupTool: hit {pickupName}");
         if (!pickupName.StartsWith("Pickup_"))
             return false;
@@ -251,7 +260,7 @@ public class ToolManager : MonoBehaviour
         AddItem(itemType, 1);
         SoundManager.Instance?.Play("pop");
         _uiManager.ShowMessage($"Picked up {itemType}.", 1.5f);
-        Destroy(collider.gameObject);
+        Destroy(pickupRoot);
         return true;
     }
 

@@ -214,11 +214,12 @@ public class WorldBuilder : MonoBehaviour
 
     private void SpawnToolPickups()
     {
-        var toolTypes = new[] { "axe", "hammer", "hoe", "gun" };
-        var positions = new[] { new Vector3(2f, 0.5f, -2f), new Vector3(5f, 0.5f, -4f), new Vector3(-4f, 0.5f, -3f), new Vector3(8f, 0.5f, -1f) };
+        var toolTypes = new[] { "axe", "pickaxe", "hoe", "gun", "hammer", "seed", "corn", "potato" };
+        // Arrange all items in a single row along X axis for easy testing
         for (int i = 0; i < toolTypes.Length; i++)
         {
-            CreateToolPickup(toolTypes[i], positions[i]);
+            var position = new Vector3(-15f + i * 3f, 0.5f, -15f);
+            CreateToolPickup(toolTypes[i], position);
         }
     }
 
@@ -585,21 +586,26 @@ public class WorldBuilder : MonoBehaviour
         CreateWall(houseRoot.transform, new Vector3(10f, 5f, 0.5f), new Vector3(0f, 2.5f, -5f), new Color(0.63f, 0.39f, 0.18f));
         CreateWall(houseRoot.transform, new Vector3(10f, 5f, 0.5f), new Vector3(0f, 2.5f, 5f), new Color(0.63f, 0.39f, 0.18f));
         CreateWall(houseRoot.transform, new Vector3(0.5f, 5f, 10f), new Vector3(-5f, 2.5f, 0f), new Color(0.63f, 0.39f, 0.18f));
+        CreateWall(houseRoot.transform, new Vector3(0.5f, 5f, 10f), new Vector3(5f, 2.5f, 0f), new Color(0.63f, 0.39f, 0.18f));
         CreateWall(houseRoot.transform, new Vector3(10f, 0.5f, 10f), new Vector3(0f, 0f, 0f), new Color(0.63f, 0.39f, 0.18f));
+        CreateRoof(houseRoot.transform, new Vector3(10.5f, 0.5f, 10.5f), new Vector3(0f, 5.3f, 0f), new Color(0.4f, 0.25f, 0.15f));
+        CreateDoor(houseRoot.transform, new Vector3(1.5f, 3f, 0.2f), new Vector3(0f, 1.5f, -5.1f), new Color(0.6f, 0.4f, 0.2f));
     }
 
     private void BuildShop()
     {
         var shopRoot = new GameObject("Shop");
         shopRoot.transform.SetParent(_worldRoot.transform);
-        shopRoot.transform.position = new Vector3(-10f, 0f, 0f);
+        shopRoot.transform.position = new Vector3(14f, 0f, -30f);
         CreateWall(shopRoot.transform, new Vector3(8f, 4f, 0.5f), new Vector3(0f, 2f, -4f), new Color(0.4f, 0.4f, 0.55f));
         CreateWall(shopRoot.transform, new Vector3(8f, 4f, 0.5f), new Vector3(0f, 2f, 4f), new Color(0.4f, 0.4f, 0.55f));
         CreateWall(shopRoot.transform, new Vector3(0.5f, 4f, 8f), new Vector3(-4f, 2f, 0f), new Color(0.4f, 0.4f, 0.55f));
         CreateWall(shopRoot.transform, new Vector3(0.5f, 4f, 8f), new Vector3(4f, 2f, 0f), new Color(0.4f, 0.4f, 0.55f));
-        CreateWall(shopRoot.transform, new Vector3(8.5f, 0.5f, 8.5f), new Vector3(0f, 3.3f, 0f), new Color(0.37f, 0.32f, 0.21f));
+        CreateWall(shopRoot.transform, new Vector3(8.5f, 0.5f, 8.5f), new Vector3(0f, 0f, 0f), new Color(0.37f, 0.32f, 0.21f));
+        CreateRoof(shopRoot.transform, new Vector3(8.5f, 0.5f, 8.5f), new Vector3(0f, 4.2f, 0f), new Color(0.37f, 0.32f, 0.21f));
         CreateSign(shopRoot.transform, "Vendor", new Vector3(2f, 0.6f, 0.2f), new Vector3(0f, 3.9f, -3.9f));
         CreateVendorCart(shopRoot.transform, new Vector3(0f, 0f, -3.5f));
+        SpawnVendorNPC(shopRoot.transform, new Vector3(0f, 0f, -2f));
     }
 
     private void BuildWifeHouse()
@@ -610,7 +616,10 @@ public class WorldBuilder : MonoBehaviour
         CreateWall(spouseRoot.transform, new Vector3(7f, 4f, 0.5f), new Vector3(0f, 2f, -3.5f), new Color(0.52f, 0.34f, 0.18f));
         CreateWall(spouseRoot.transform, new Vector3(7f, 4f, 0.5f), new Vector3(0f, 2f, 3.5f), new Color(0.52f, 0.34f, 0.18f));
         CreateWall(spouseRoot.transform, new Vector3(0.5f, 4f, 7f), new Vector3(-3f, 2f, 0f), new Color(0.52f, 0.34f, 0.18f));
+        CreateWall(spouseRoot.transform, new Vector3(0.5f, 4f, 7f), new Vector3(3f, 2f, 0f), new Color(0.52f, 0.34f, 0.18f));
         CreateWall(spouseRoot.transform, new Vector3(7.5f, 0.5f, 7.5f), new Vector3(0f, 0f, 0f), new Color(0.45f, 0.26f, 0.16f));
+        CreateRoof(spouseRoot.transform, new Vector3(7.5f, 0.5f, 7.5f), new Vector3(0f, 4.2f, 0f), new Color(0.4f, 0.25f, 0.15f));
+        CreateDoor(spouseRoot.transform, new Vector3(1.2f, 2.8f, 0.2f), new Vector3(0f, 1.4f, -3.6f), new Color(0.6f, 0.4f, 0.2f));
         CreateSign(spouseRoot.transform, "Home", new Vector3(1.5f, 0.5f, 0.2f), new Vector3(0f, 3.7f, 0f));
         SpawnWifeNPC(spouseRoot.transform, new Vector3(1f, 1f, 0f));
     }
@@ -636,7 +645,7 @@ public class WorldBuilder : MonoBehaviour
     private bool IsReservedSpawnLocation(int x, int z)
     {
         bool nearHouse = Mathf.Abs(x) <= 8 && Mathf.Abs(z) <= 8;
-        bool nearShop = Mathf.Abs(x) <= 6 && z >= 46 && z <= 74;
+        bool nearShop = x >= 10 && x <= 18 && z >= -34 && z <= -26;
         bool nearRoad = x >= (_roadCenterX - _roadHalfWidth - 3f) && x <= (_roadCenterX + _roadHalfWidth + 3f)
                         && z >= _roadZStart - 10f && z <= _roadZEnd + 10f;
         bool nearWifeHouse = x >= 22 && x <= 38 && Mathf.Abs(z) <= 8;
@@ -725,6 +734,32 @@ public class WorldBuilder : MonoBehaviour
         if (renderer != null)
             renderer.material.color = new Color(1f, 0.8f, 0.7f);
         Destroy(wife.GetComponent<Collider>());
+    }
+
+    private void SpawnVendorNPC(Transform parent, Vector3 localPosition)
+    {
+        var vendor = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        vendor.name = "Vendor";
+        vendor.transform.SetParent(parent);
+        vendor.transform.localPosition = localPosition;
+        vendor.transform.localScale = new Vector3(0.75f, 1.8f, 0.75f);
+        var renderer = vendor.GetComponent<Renderer>();
+        if (renderer != null)
+            renderer.material.color = new Color(0.8f, 0.6f, 0.3f);
+        Destroy(vendor.GetComponent<Collider>());
+    }
+
+    private void CreateDoor(Transform parent, Vector3 scale, Vector3 position, Color color)
+    {
+        var door = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        door.name = "Door";
+        door.transform.SetParent(parent);
+        door.transform.localScale = scale;
+        door.transform.localPosition = position;
+        var renderer = door.GetComponent<Renderer>();
+        if (renderer != null)
+            renderer.material.color = color;
+        Destroy(door.GetComponent<Collider>());
     }
 
     private void CreateSign(Transform parent, string text, Vector3 scale, Vector3 localPosition)
