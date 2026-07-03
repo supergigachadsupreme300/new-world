@@ -7,14 +7,22 @@ public class ToolManager : MonoBehaviour
 {
     public static ToolManager Instance { get; private set; }
 
+    [Header("Tool Graphics Overrides")]
+    public GameObject ToolModelPrefab;
+    public Material ToolMaterial;
+    public Texture2D ToolTexture;
+
     private UIManager _uiManager;
     private WorldBuilder _worldBuilder;
     private readonly InventorySlot[] _inventory = new InventorySlot[10];
     private int _selectedSlot;
     private readonly Dictionary<string, GameObject> _toolModels = new Dictionary<string, GameObject>();
     private GameObject _toolContainer;
+    private LineRenderer _rayRenderer;
     private int _gunAmmo;
     private const int GunMaxAmmo = 6;
+    private const float PickupRayDistance = 4f;
+    private const float UseRayDistance = 10f;
 
     public void Initialize(UIManager uiManager, WorldBuilder worldBuilder)
     {
@@ -27,6 +35,7 @@ public class ToolManager : MonoBehaviour
         _uiManager = uiManager;
         _worldBuilder = worldBuilder;
         CreateToolContainer();
+        CreateRayVisualizer();
         CreateToolModels();
         ResetSelection();
         UpdateInventoryUI();
@@ -77,7 +86,9 @@ public class ToolManager : MonoBehaviour
             return;
         }
 
-        if (Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out var hit, 10f))
+        var useRay = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
+        ShowRayLine(useRay.origin, useRay.origin + useRay.direction * UseRayDistance);
+        if (Physics.Raycast(useRay, out var hit, UseRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
         {
             if (selectedItem == "axe" && IsTree(hit.collider))
             {
@@ -200,7 +211,8 @@ public class ToolManager : MonoBehaviour
             return;
 
         var ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
-        if (Physics.Raycast(ray, out var hit, 4f))
+        ShowRayLine(ray.origin, ray.origin + ray.direction * PickupRayDistance);
+        if (Physics.Raycast(ray, out var hit, PickupRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
         {
             Debug.Log($"TryPickupNearby: ray hit {hit.collider.gameObject.name}");
             if (TryPickupTool(hit.collider))
@@ -450,6 +462,39 @@ public class ToolManager : MonoBehaviour
         _toolContainer.transform.localPosition = new Vector3(0.7f, -0.6f, 1.5f);
     }
 
+    private void CreateRayVisualizer()
+    {
+        var rayObject = new GameObject("PickupRayVisualizer");
+        rayObject.transform.SetParent(transform);
+        _rayRenderer = rayObject.AddComponent<LineRenderer>();
+        _rayRenderer.material = new Material(Shader.Find("Sprites/Default"));
+        _rayRenderer.startWidth = 0.02f;
+        _rayRenderer.endWidth = 0.02f;
+        _rayRenderer.positionCount = 2;
+        _rayRenderer.startColor = Color.red;
+        _rayRenderer.endColor = Color.red;
+        _rayRenderer.useWorldSpace = true;
+        _rayRenderer.enabled = false;
+    }
+
+    private void ShowRayLine(Vector3 start, Vector3 end)
+    {
+        if (_rayRenderer == null)
+            CreateRayVisualizer();
+
+        _rayRenderer.SetPosition(0, start);
+        _rayRenderer.SetPosition(1, end);
+        _rayRenderer.enabled = true;
+        CancelInvoke(nameof(HideRayLine));
+        Invoke(nameof(HideRayLine), 0.15f);
+    }
+
+    private void HideRayLine()
+    {
+        if (_rayRenderer != null)
+            _rayRenderer.enabled = false;
+    }
+
     private void CreateToolModels()
     {
         // Base item
@@ -490,12 +535,23 @@ public class ToolManager : MonoBehaviour
         root.transform.localPosition = Vector3.zero;
         root.transform.localRotation = Quaternion.identity;
 
-        switch (toolType)
+        if (ToolModelPrefab != null)
         {
-            case "arm":
-                CreateCubePart(root.transform, color, new Vector3(0f, 0f, 0f), new Vector3(0.3f, 1f, 0.3f));
-                break;
-            case "axe":
+            var prefabInstance = Instantiate(ToolModelPrefab, root.transform);
+            prefabInstance.name = toolType + "_Model";
+            prefabInstance.transform.localPosition = Vector3.zero;
+            prefabInstance.transform.localRotation = Quaternion.identity;
+            prefabInstance.transform.localScale = Vector3.one;
+            ApplyToolMaterial(prefabInstance);
+        }
+        else
+        {
+            switch (toolType)
+            {
+                case "arm":
+                    CreateCubePart(root.transform, color, new Vector3(0f, 0f, 0f), new Vector3(0.3f, 1f, 0.3f));
+                    break;
+                case "axe":
                 CreateCubePart(root.transform, color * 0.6f, new Vector3(0f, 0f, 0f), new Vector3(0.15f, 0.8f, 0.15f));
                 CreateCubePart(root.transform, color * 0.9f, new Vector3(0f, 0.5f, 0.25f), new Vector3(0.2f, 0.3f, 0.7f));
                 CreateCubePart(root.transform, color * 0.9f, new Vector3(0f, 0.5f, 0.5f), new Vector3(0.2f, 0.5f, 0.2f));
@@ -591,11 +647,11 @@ public class ToolManager : MonoBehaviour
                 CreateCubePart(root.transform, color, new Vector3(0f, 0.1f, 0f), new Vector3(0.25f, 0.2f, 0.15f));
                 break;
         }
-
         root.SetActive(false);
         _toolModels[toolType] = root;
         DestroyAllColliders(root);
     }
+}
 
     private void ShowActiveToolModel()
     {
@@ -689,8 +745,47 @@ public class ToolManager : MonoBehaviour
     private void ApplyColor(GameObject go, Color color)
     {
         var renderer = go.GetComponent<Renderer>();
-        if (renderer != null)
+        if (renderer == null)
+            return;
+
+        if (ToolMaterial != null)
+        {
+            renderer.material = ToolMaterial;
+            if (ToolTexture != null)
+                renderer.material.mainTexture = ToolTexture;
+        }
+        else if (ToolTexture != null)
+        {
+            var textureMaterial = new Material(Shader.Find("Standard"));
+            textureMaterial.mainTexture = ToolTexture;
+            renderer.material = textureMaterial;
+        }
+        else
+        {
             renderer.material.color = color;
+        }
+    }
+
+    private void ApplyToolMaterial(GameObject root)
+    {
+        if (ToolMaterial == null && ToolTexture == null)
+            return;
+
+        foreach (var renderer in root.GetComponentsInChildren<Renderer>())
+        {
+            if (ToolMaterial != null)
+            {
+                renderer.material = ToolMaterial;
+                if (ToolTexture != null)
+                    renderer.material.mainTexture = ToolTexture;
+            }
+            else if (ToolTexture != null)
+            {
+                var textureMaterial = new Material(Shader.Find("Standard"));
+                textureMaterial.mainTexture = ToolTexture;
+                renderer.material = textureMaterial;
+            }
+        }
     }
 
     private void UpdateBuildingPreviewVisibility()

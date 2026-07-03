@@ -14,6 +14,14 @@ public class WorldBuilder : MonoBehaviour
     public float TileSize = 2f;
     public string TerrainBlockResourcePath = "Models/TerrainBlock";
 
+    [Header("World Graphics Overrides")]
+    public GameObject TerrainBlockPrefab;
+    public Texture2D GroundTexture;
+    public Material GroundMaterial;
+    public GameObject TreePrefab;
+    public GameObject RockPrefab;
+    public Material WorldMaterial;
+
     public Light SunLight;
     public GameObject GroundObject;
     public GameObject RoadObject;
@@ -99,7 +107,7 @@ public class WorldBuilder : MonoBehaviour
 
     private bool CreateTerrainGrid()
     {
-        var terrainPrefab = Resources.Load<GameObject>(TerrainBlockResourcePath);
+        var terrainPrefab = TerrainBlockPrefab != null ? TerrainBlockPrefab : Resources.Load<GameObject>(TerrainBlockResourcePath);
         if (terrainPrefab == null)
         {
             Debug.LogWarning($"[WorldBuilder] Terrain block prefab not found at Resources/{TerrainBlockResourcePath}. Using fallback ground mesh.");
@@ -470,11 +478,26 @@ public class WorldBuilder : MonoBehaviour
         var renderer = GroundObject.GetComponent<Renderer>();
         if (renderer != null)
         {
-            var texture = Resources.Load<Texture2D>("Textures/grass");
-            if (texture != null)
-                renderer.material.mainTexture = texture;
+            if (GroundMaterial != null)
+            {
+                renderer.material = GroundMaterial;
+            }
             else
-                renderer.material.color = new Color(0.3f, 0.6f, 0.25f);
+            {
+                if (GroundTexture != null)
+                {
+                    renderer.material = new Material(Shader.Find("Standard"));
+                    renderer.material.mainTexture = GroundTexture;
+                }
+                else
+                {
+                    var texture = Resources.Load<Texture2D>("Textures/grass");
+                    if (texture != null)
+                        renderer.material.mainTexture = texture;
+                    else
+                        renderer.material.color = new Color(0.3f, 0.6f, 0.25f);
+                }
+            }
         }
         var groundCollider = GroundObject.AddComponent<BoxCollider>();
         groundCollider.size = new Vector3(10f, 0.01f, 10f);
@@ -523,7 +546,16 @@ public class WorldBuilder : MonoBehaviour
                     break;
             }
 
-            var treeRoot = new GameObject("Tree" + i);
+GameObject treeRoot;
+        if (TreePrefab != null)
+        {
+            treeRoot = Instantiate(TreePrefab, _worldRoot.transform);
+            treeRoot.name = "Tree" + i;
+            treeRoot.transform.position = new Vector3(x, 0f, z);
+        }
+        else
+        {
+            treeRoot = new GameObject("Tree" + i);
             treeRoot.transform.SetParent(_worldRoot.transform);
             treeRoot.transform.position = new Vector3(x, 0f, z);
 
@@ -546,6 +578,7 @@ public class WorldBuilder : MonoBehaviour
             if (leafRenderer != null)
                 leafRenderer.material.color = new Color(0.17f, 0.55f, 0.12f);
             Destroy(leaves.GetComponent<Collider>());
+        }
 
             _trees.Add(treeRoot);
         }
@@ -565,14 +598,24 @@ public class WorldBuilder : MonoBehaviour
                     break;
             }
 
-            var rock = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            rock.name = "Rock" + i;
-            rock.transform.SetParent(_worldRoot.transform);
-            rock.transform.position = new Vector3(x, 1f, z);
-            rock.transform.localScale = new Vector3(2f, 1.2f, 2f);
-            var renderer = rock.GetComponent<Renderer>();
-            if (renderer != null)
-                renderer.material.color = new Color(0.45f, 0.45f, 0.45f);
+            GameObject rock;
+            if (RockPrefab != null)
+            {
+                rock = Instantiate(RockPrefab, _worldRoot.transform);
+                rock.name = "Rock" + i;
+                rock.transform.position = new Vector3(x, 0f, z);
+            }
+            else
+            {
+                rock = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                rock.name = "Rock" + i;
+                rock.transform.SetParent(_worldRoot.transform);
+                rock.transform.position = new Vector3(x, 1f, z);
+                rock.transform.localScale = new Vector3(2f, 1.2f, 2f);
+                var renderer = rock.GetComponent<Renderer>();
+                if (renderer != null)
+                    renderer.material.color = new Color(0.45f, 0.45f, 0.45f);
+            }
             _rocks.Add(rock);
         }
     }
