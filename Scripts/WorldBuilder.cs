@@ -653,7 +653,7 @@ GameObject treeRoot;
         CreateWall(shopRoot.transform, new Vector3(8.5f, 0.5f, 8.5f), new Vector3(0f, 0f, 0f), new Color(0.37f, 0.32f, 0.21f));
         CreateRoof(shopRoot.transform, new Vector3(8.5f, 0.5f, 8.5f), new Vector3(0f, 4.2f, 0f), new Color(0.37f, 0.32f, 0.21f));
         CreateSign(shopRoot.transform, "Vendor", new Vector3(2f, 0.6f, 0.2f), new Vector3(0f, 3.9f, -3.9f));
-        CreateVendorCart(shopRoot.transform, new Vector3(0f, 0f, -3.5f));
+        CreateVendor(shopRoot.transform, new Vector3(0f, 0f, -3.5f));
         SpawnVendorNPC(shopRoot.transform, new Vector3(0f, 0f, -2f));
     }
 
@@ -662,13 +662,16 @@ GameObject treeRoot;
         var spouseRoot = new GameObject("WifeHouse");
         spouseRoot.transform.SetParent(_worldRoot.transform);
         spouseRoot.transform.position = new Vector3(30f, 0f, 0f);
-        CreateWall(spouseRoot.transform, new Vector3(7f, 4f, 0.5f), new Vector3(0f, 2f, -3.5f), new Color(0.52f, 0.34f, 0.18f));
-        CreateWall(spouseRoot.transform, new Vector3(7f, 4f, 0.5f), new Vector3(0f, 2f, 3.5f), new Color(0.52f, 0.34f, 0.18f));
-        CreateWall(spouseRoot.transform, new Vector3(0.5f, 4f, 7f), new Vector3(-3f, 2f, 0f), new Color(0.52f, 0.34f, 0.18f));
-        CreateWall(spouseRoot.transform, new Vector3(0.5f, 4f, 7f), new Vector3(3f, 2f, 0f), new Color(0.52f, 0.34f, 0.18f));
-        CreateWall(spouseRoot.transform, new Vector3(7.5f, 0.5f, 7.5f), new Vector3(0f, 0f, 0f), new Color(0.45f, 0.26f, 0.16f));
+        
+        // Only 3 walls - no wall on the side facing the road (west side at -X direction toward road at x=14)
+        CreateWall(spouseRoot.transform, new Vector3(7f, 4f, 0.5f), new Vector3(0f, 2f, -3.5f), new Color(0.52f, 0.34f, 0.18f)); // Front wall
+        CreateWall(spouseRoot.transform, new Vector3(7f, 4f, 0.5f), new Vector3(0f, 2f, 3.5f), new Color(0.52f, 0.34f, 0.18f));  // Back wall
+        CreateWall(spouseRoot.transform, new Vector3(0.5f, 4f, 7f), new Vector3(3f, 2f, 0f), new Color(0.52f, 0.34f, 0.18f));    // Right wall
+        CreateWall(spouseRoot.transform, new Vector3(7.5f, 0.5f, 7.5f), new Vector3(0f, 0f, 0f), new Color(0.45f, 0.26f, 0.16f)); // Floor
+        
         CreateRoof(spouseRoot.transform, new Vector3(7.5f, 0.5f, 7.5f), new Vector3(0f, 4.2f, 0f), new Color(0.4f, 0.25f, 0.15f));
-        CreateDoor(spouseRoot.transform, new Vector3(1.2f, 2.8f, 0.2f), new Vector3(0f, 1.4f, -3.6f), new Color(0.6f, 0.4f, 0.2f));
+        // Door facing toward the road (west side at -X)
+        CreateDoor(spouseRoot.transform, new Vector3(1.2f, 2.8f, 0.2f), new Vector3(-3.1f, 1.4f, 0f), new Color(0.6f, 0.4f, 0.2f));
         CreateSign(spouseRoot.transform, "Home", new Vector3(1.5f, 0.5f, 0.2f), new Vector3(0f, 3.7f, 0f));
         SpawnWifeNPC(spouseRoot.transform, new Vector3(1f, 1f, 0f));
     }
@@ -715,61 +718,82 @@ GameObject treeRoot;
         CreateWall(buffaloShop.transform, new Vector3(0.5f, 3f, 6f), new Vector3(3f, 1.5f, 0f), new Color(0.43f, 0.28f, 0.16f));
         CreateRoof(buffaloShop.transform, new Vector3(7f, 0.5f, 7f), new Vector3(0f, 4f, 0f), new Color(0.28f, 0.18f, 0.10f));
         CreateSign(buffaloShop.transform, "Buffalo Shop", new Vector3(3f, 1f, 0.2f), new Vector3(0f, 3.3f, 0f));
-        CreateVendorCart(buffaloShop.transform, new Vector3(0f, 0f, 0f));
+        CreateVendor(buffaloShop.transform, new Vector3(0f, 0f, 0f));
     }
 
-    private void CreateMarketStall(Transform parent, Vector3 scale, Vector3 localPosition, Color color)
+    private void CreateVendor(Transform parent, Vector3 localPosition)
     {
-        var stall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        stall.name = "MarketStall";
-        stall.transform.SetParent(parent);
-        stall.transform.localScale = scale;
-        stall.transform.localPosition = localPosition;
-        var renderer = stall.GetComponent<Renderer>();
-        if (renderer != null)
-            renderer.material.color = color;
-        Destroy(stall.GetComponent<Collider>());
-    }
+        // Reference: Python vendor structure with cart body and wheels
+        var vendorRoot = new GameObject("Vendor");
+        vendorRoot.transform.SetParent(parent);
+        vendorRoot.transform.localPosition = localPosition;
 
-    private void CreateVendorCart(Transform parent, Vector3 localPosition)
-    {
-        var cartRoot = new GameObject("VendorCart");
-        cartRoot.transform.SetParent(parent);
-        cartRoot.transform.localPosition = localPosition;
+        // Generate random cart color (similar to Python)
+        Color cartColor = new Color(
+            Random.Range(80f, 255f) / 255f,
+            Random.Range(50f, 220f) / 255f,
+            Random.Range(50f, 220f) / 255f
+        );
 
-        var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        body.name = "CartBody";
-        body.transform.SetParent(cartRoot.transform);
-        body.transform.localPosition = new Vector3(0f, 0.5f, 0f);
-        body.transform.localScale = new Vector3(1.8f, 0.4f, 1.2f);
-        var bodyRenderer = body.GetComponent<Renderer>();
-        if (bodyRenderer != null)
-            bodyRenderer.material.color = new Color(0.8f, 0.45f, 0.26f);
-        Destroy(body.GetComponent<Collider>());
+        // Cart body - main container
+        CreateCartPart(vendorRoot.transform, "CartBody", new Vector3(0f, 0.9f, 0f), 
+                       new Vector3(4f, 1.4f, 2f), cartColor);
 
-        var canopy = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        canopy.name = "CartCanopy";
-        canopy.transform.SetParent(cartRoot.transform);
-        canopy.transform.localPosition = new Vector3(0f, 1.0f, 0f);
-        canopy.transform.localScale = new Vector3(2.0f, 0.2f, 1.4f);
-        var canopyRenderer = canopy.GetComponent<Renderer>();
-        if (canopyRenderer != null)
-            canopyRenderer.material.color = new Color(0.9f, 0.65f, 0.2f);
-        Destroy(canopy.GetComponent<Collider>());
+        // Cart top - darker shade
+        Color darkColor = new Color(
+            Mathf.Max(0, cartColor.r - (20f / 255f)),
+            Mathf.Max(0, cartColor.g - (40f / 255f)),
+            Mathf.Max(0, cartColor.b - (20f / 255f))
+        );
+        CreateCartPart(vendorRoot.transform, "CartTop", new Vector3(0f, 1.6f, 0f), 
+                       new Vector3(4.2f, 0.4f, 2.2f), darkColor);
 
-        for (int i = 0; i < 4; i++)
+        // Cart stand/support
+        CreateCartPart(vendorRoot.transform, "CartStand", new Vector3(2f, 1.1f, 0f), 
+                       new Vector3(0.2f, 0.5f, 1.8f), Color.gray);
+
+        // Cart stand front wheel support
+        CreateCartPart(vendorRoot.transform, "CartStandFront", new Vector3(2f, 0.5f, 0f), 
+                       new Vector3(0.5f, 0.7f, 2f), Color.white);
+
+        // Create wheels
+        Vector3[] wheelPositions = new Vector3[]
         {
-            var wheel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            wheel.name = "CartWheel" + i;
-            wheel.transform.SetParent(cartRoot.transform);
-            wheel.transform.localScale = new Vector3(0.3f, 0.15f, 0.3f);
-            wheel.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-            wheel.transform.localPosition = new Vector3((i < 2 ? -0.7f : 0.7f), 0.2f, (i % 2 == 0 ? -0.45f : 0.45f));
+            new Vector3(-1.4f, -0.35f, -1f),
+            new Vector3(1.4f, -0.35f, -1f),
+            new Vector3(-1.4f, -0.35f, 1f),
+            new Vector3(1.4f, -0.35f, 1f)
+        };
+
+        foreach (Vector3 pos in wheelPositions)
+        {
+            var wheel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            wheel.name = "CartWheel";
+            wheel.transform.SetParent(vendorRoot.transform);
+            wheel.transform.localPosition = pos;
+            wheel.transform.localScale = new Vector3(0.8f, 0.8f, 0.2f);
+            Destroy(wheel.GetComponent<Collider>());
             var wheelRenderer = wheel.GetComponent<Renderer>();
             if (wheelRenderer != null)
                 wheelRenderer.material.color = Color.black;
-            Destroy(wheel.GetComponent<Collider>());
+
+            // Wheel rim
+            CreateCartPart(wheel.transform, "WheelRim", Vector3.zero, 
+                          new Vector3(0.4f, 0.4f, 0.06f), cartColor);
         }
+    }
+
+    private void CreateCartPart(Transform parent, string name, Vector3 localPosition, Vector3 scale, Color color)
+    {
+        var part = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        part.name = name;
+        part.transform.SetParent(parent);
+        part.transform.localPosition = localPosition;
+        part.transform.localScale = scale;
+        var renderer = part.GetComponent<Renderer>();
+        if (renderer != null)
+            renderer.material.color = color;
+        Destroy(part.GetComponent<Collider>());
     }
 
     private void SpawnWifeNPC(Transform parent, Vector3 localPosition)
