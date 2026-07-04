@@ -31,6 +31,7 @@ public class WorldBuilder : MonoBehaviour
     private readonly List<FieldState> _fields = new List<FieldState>();
     private readonly List<BuildingState> _buildings = new List<BuildingState>();
     private GameObject _worldRoot;
+    public GameObject WorldRoot => _worldRoot;
     private GameObject _buildingPreview;
     // road bounds (published when building the road)
     private float _roadCenterX = 14f;
@@ -638,6 +639,7 @@ GameObject treeRoot;
         CreateWall(houseRoot.transform, new Vector3(0.5f, 5f, 10f), new Vector3(5f, 2.5f, 0f), new Color(0.63f, 0.39f, 0.18f));
         CreateWall(houseRoot.transform, new Vector3(10f, 0.5f, 10f), new Vector3(0f, 0f, 0f), new Color(0.63f, 0.39f, 0.18f));
         CreateRoof(houseRoot.transform, new Vector3(10.5f, 0.5f, 10.5f), new Vector3(0f, 5.3f, 0f), new Color(0.4f, 0.25f, 0.15f));
+        // Door on front wall (facing toward lower Z)
         CreateDoor(houseRoot.transform, new Vector3(1.5f, 3f, 0.2f), new Vector3(0f, 1.5f, -5.1f), new Color(0.6f, 0.4f, 0.2f));
     }
 

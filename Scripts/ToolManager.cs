@@ -12,6 +12,18 @@ public class ToolManager : MonoBehaviour
     public Material ToolMaterial;
     public Texture2D ToolTexture;
 
+    [Header("Item Textures")]
+    public Texture2D FertilizerTexture;
+    public Texture2D SeedTexture;
+    public Texture2D PeashooterSeedTexture;
+    public Texture2D CornSeedTexture;
+
+    [Header("Special Item Models")]
+    public GameObject WheatModel;
+    public Texture2D WheatTexture;
+    public GameObject MiHaoHaoModel;
+    public Texture2D MiHaoHaoTexture;
+
     private UIManager _uiManager;
     private WorldBuilder _worldBuilder;
     private readonly InventorySlot[] _inventory = new InventorySlot[10];
@@ -588,7 +600,7 @@ public class ToolManager : MonoBehaviour
         CreateToolModel("damaged_wheat", new Color(0.6f, 0.4f, 0.2f));
         CreateToolModel("corn", new Color(1f, 0.85f, 0.2f));
         CreateToolModel("damaged_corn", new Color(0.6f, 0.4f, 0.2f));
-        CreateToolModel("potato", new Color(0.7f, 0.5f, 0.2f));
+        CreateToolModel("potato", new Color(0.627f, 0.431f, 0.235f));
         CreateToolModel("damaged_potato", new Color(0.6f, 0.4f, 0.2f));
         CreateToolModel("field", new Color(0.45f, 0.28f, 0.12f));
         CreateToolModel("mobspawner", new Color(0.25f, 0.25f, 0.25f));
@@ -621,122 +633,170 @@ public class ToolManager : MonoBehaviour
                     CreateCubePart(root.transform, color, new Vector3(0f, 0f, 0f), new Vector3(0.3f, 1f, 0.3f));
                     break;
                 case "axe":
-                CreateCubePart(root.transform, color * 0.6f, new Vector3(0f, 0f, 0f), new Vector3(0.15f, 0.8f, 0.15f));
-                CreateCubePart(root.transform, color * 0.9f, new Vector3(0f, 0.5f, 0.25f), new Vector3(0.2f, 0.3f, 0.7f));
-                CreateCubePart(root.transform, color * 0.9f, new Vector3(0f, 0.5f, 0.5f), new Vector3(0.2f, 0.5f, 0.2f));
-                break;
-            case "pickaxe":
-                CreateCubePart(root.transform, color * 0.6f, new Vector3(0f, 0f, 0f), new Vector3(0.15f, 0.8f, 0.15f));
-                CreateCubePart(root.transform, color * 0.75f, new Vector3(0f, 0.5f, 0f), new Vector3(0.2f, 0.2f, 0.8f));
-                CreateCubePart(root.transform, color * 0.75f, new Vector3(0f, 0.4f, 0.35f), new Vector3(0.25f, 0.125f, 0.25f));
-                CreateCubePart(root.transform, color * 0.75f, new Vector3(0f, 0.4f, -0.35f), new Vector3(0.25f, 0.125f, 0.25f));
-                break;
-            case "hoe":
-                CreateCubePart(root.transform, color * 0.6f, new Vector3(0f, 0f, 0f), new Vector3(0.18f, 0.8f, 0.18f));
-                CreateCubePart(root.transform, color * 0.8f, new Vector3(0f, 0.4f, 0.3f), new Vector3(0.3f, 0.15f, 0.7f));
-                break;
-            case "hammer":
-                CreateCubePart(root.transform, color * 0.8f, new Vector3(0f, 0f, 0f), new Vector3(0.15f, 0.8f, 0.15f));
-                CreateCubePart(root.transform, color, new Vector3(0f, 0.5f, 0f), new Vector3(0.3f, 0.2f, 0.4f));
-                break;
-            case "sword":
-                CreateCubePart(root.transform, color * 0.8f, new Vector3(0f, 0f, 0f), new Vector3(0.1f, 0.4f, 0.1f));
-                CreateCubePart(root.transform, new Color(1f, 0.84f, 0f), new Vector3(0f, 0.25f, 0f), new Vector3(0.2f, 0.05f, 0.2f));
-                CreateCubePart(root.transform, Color.white, new Vector3(0f, 0.7f, 0f), new Vector3(0.05f, 1f, 0.3f));
-                var swordTip = new GameObject("Sword_Tip");
-                swordTip.transform.SetParent(root.transform);
-                swordTip.transform.localPosition = new Vector3(0f, 1.15f, 0f);
-                swordTip.transform.localRotation = Quaternion.Euler(45f, 0f, 0f);
-                var tip = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                tip.transform.SetParent(swordTip.transform, false);
-                tip.transform.localScale = new Vector3(0.05f, 0.3f, 0.3f);
-                ApplyColor(tip, Color.white);
-                break;
-            case "gun":
-                CreateCubePart(root.transform, Color.black, new Vector3(0f, 0f, 0f), new Vector3(0.15f, 0.5f, 0.15f));
-                CreateCubePart(root.transform, color * 0.9f, new Vector3(0f, 0.2f, 0.4f), new Vector3(0.2f, 0.2f, 1f));
-                break;
-            case "scythe":
-                CreateCubePart(root.transform, color * 0.8f, new Vector3(0f, 0f, 0f), new Vector3(0.1f, 0.8f, 0.1f));
-                CreateCubePart(root.transform, color, new Vector3(0.1f, 0.5f, 0f), new Vector3(0.05f, 0.35f, 0.05f), Quaternion.Euler(0f, 0f, 45f));
-                CreateCubePart(root.transform, color, new Vector3(0.2f, 0.7f, 0f), new Vector3(0.05f, 0.2f, 0.05f));
-                CreateCubePart(root.transform, color, new Vector3(0.1f, 0.9f, 0f), new Vector3(0.05f, 0.35f, 0.05f), Quaternion.Euler(0f, 0f, -45f));
-                break;
-            case "ammo":
-                CreateCubePart(root.transform, color * 0.95f, new Vector3(0f, 0.1f, 0f), new Vector3(0.4f, 0.2f, 0.15f));
-                CreateCubePart(root.transform, color * 0.8f, new Vector3(0f, 0.3f, 0f), new Vector3(0.35f, 0.1f, 0.1f));
-                break;
-            case "mobspawner":
-                CreateCubePart(root.transform, color, new Vector3(0f, 0.1f, 0f), new Vector3(0.4f, 0.4f, 0.4f));
-                var mobSphereHolder = new GameObject("MobSpawner_Sphere");
-                mobSphereHolder.transform.SetParent(root.transform);
-                mobSphereHolder.transform.localPosition = new Vector3(0f, 0.45f, 0f);
-                CreateSphere(mobSphereHolder.transform, Color.red, 0.22f);
-                CreateCubePart(root.transform, Color.black, new Vector3(0f, 0.05f, 0f), new Vector3(0.15f, 0.6f, 0.15f));
-                break;
-            case "wood":
-                CreateCubePart(root.transform, color, new Vector3(0f, 0.3f, 0f), new Vector3(0.6f, 0.2f, 0.2f));
-                break;
-            case "stone":
-                CreateCubePart(root.transform, color, new Vector3(0f, 0.3f, 0f), new Vector3(0.6f, 0.6f, 0.6f));
-                break;
-            case "field":
-                CreateCubePart(root.transform, color, new Vector3(0f, 0.1f, 0f), new Vector3(1f, 0.2f, 1f));
-                break;
-            case "fertilizer":
-                CreateCubePart(root.transform, color, new Vector3(0f, 0.1f, 0f), new Vector3(0.3f, 0.3f, 0.3f));
-                break;
-            case "seed":
-                CreateCubePart(root.transform, color, new Vector3(0f, 0.15f, 0f), new Vector3(0.2f, 0.2f, 0.1f));
-                break;
-            case "peashooter_seed":
-                CreateCubePart(root.transform, color, new Vector3(0f, 0.15f, 0f), new Vector3(0.2f, 0.2f, 0.1f));
-                break;
-            case "corn_seed":
-                CreateCubePart(root.transform, color, new Vector3(0f, 0.15f, 0f), new Vector3(0.2f, 0.2f, 0.1f));
-                break;
-            case "potato_seed":
-                CreateCubePart(root.transform, color, new Vector3(0f, 0.15f, 0f), new Vector3(0.2f, 0.2f, 0.1f));
-                break;
-            case "wheat":
-                CreateCubePart(root.transform, color, new Vector3(0f, 0.1f, 0f), new Vector3(0.2f, 0.2f, 0.2f));
-                break;
-            case "damaged_wheat":
-                CreateCubePart(root.transform, color, new Vector3(0f, 0.1f, 0f), new Vector3(0.2f, 0.2f, 0.2f));
-                break;
-            case "corn":
-                // 5 rotated rectangles
-                for (int i = 0; i < 5; i++)
-                {
-                    float angle = i * 72f;
-                    var rotated = Quaternion.Euler(0f, angle, 0f);
-                    CreateCubePart(root.transform, color, new Vector3(0f, 0.08f, 0f), new Vector3(0.05f, 0.27f, 0.15f), rotated);
-                }
-                break;
-            case "potato":
-                // 2 overlapping spheres
-                CreateSphere(root.transform, color, 0.18f);
-                var potatoSmall = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                potatoSmall.transform.SetParent(root.transform);
-                potatoSmall.transform.localPosition = new Vector3(0.08f, 0.05f, 0f);
-                potatoSmall.transform.localScale = Vector3.one * 0.14f;
-                ApplyColor(potatoSmall, color * 0.9f);
-                break;
-            case "damaged_corn":
-                CreateCubePart(root.transform, color, new Vector3(0f, 0.1f, 0f), new Vector3(0.2f, 0.2f, 0.2f));
-                break;
-            case "damaged_potato":
-                CreateCubePart(root.transform, color, new Vector3(0f, 0.1f, 0f), new Vector3(0.2f, 0.2f, 0.2f));
-                break;
-            case "mi_hao_hao":
-                // Simplified noodle representation
-                CreateCubePart(root.transform, color, new Vector3(0f, 0.08f, 0f), new Vector3(0.2f, 0.15f, 0.2f));
-                CreateCubePart(root.transform, color * 1.1f, new Vector3(0f, 0.01f, 0f), new Vector3(0.25f, 0.08f, 0.15f));
-                break;
-            default:
-                CreateCubePart(root.transform, color, new Vector3(0f, 0.1f, 0f), new Vector3(0.25f, 0.2f, 0.15f));
-                break;
-        }
+                    CreateCubePart(root.transform, new Color(0.5f, 0.2f, 0.05f), new Vector3(0f, 0f, 0f), new Vector3(0.15f, 0.8f, 0.15f));
+                    CreateCubePart(root.transform, Color.gray, new Vector3(0f, 0.5f, 0.25f), new Vector3(0.2f, 0.3f, 0.7f));
+                    CreateCubePart(root.transform, Color.gray, new Vector3(0f, 0.5f, 0.5f), new Vector3(0.2f, 0.5f, 0.2f));
+                    break;
+                case "pickaxe":
+                    CreateCubePart(root.transform, new Color(0.5f, 0.2f, 0.05f), new Vector3(0f, 0f, 0f), new Vector3(0.15f, 0.8f, 0.15f));
+                    CreateCubePart(root.transform, Color.gray, new Vector3(0f, 0.5f, 0f), new Vector3(0.2f, 0.2f, 0.8f));
+                    CreateCubePart(root.transform, Color.gray, new Vector3(0f, 0.4f, 0.35f), new Vector3(0.25f, 0.125f, 0.25f));
+                    CreateCubePart(root.transform, Color.gray, new Vector3(0f, 0.4f, -0.35f), new Vector3(0.25f, 0.125f, 0.25f));
+                    break;
+                case "hoe":
+                    CreateCubePart(root.transform, new Color(0.5f, 0.2f, 0.05f), new Vector3(0f, 0f, 0f), new Vector3(0.18f, 0.8f, 0.18f));
+                    CreateCubePart(root.transform, Color.gray, new Vector3(0f, 0.4f, 0.3f), new Vector3(0.3f, 0.15f, 0.7f));
+                    break;
+                case "hammer":
+                    CreateCubePart(root.transform, Color.gray, new Vector3(0f, 0f, 0f), new Vector3(0.15f, 0.8f, 0.15f));
+                    CreateCubePart(root.transform, Color.black, new Vector3(0f, 0.5f, 0f), new Vector3(0.3f, 0.2f, 0.4f));
+                    break;
+                case "sword":
+                    CreateCubePart(root.transform, Color.gray, new Vector3(0f, 0f, 0f), new Vector3(0.1f, 0.4f, 0.1f));
+                    CreateCubePart(root.transform, new Color(1f, 0.84f, 0f), new Vector3(0f, 0.25f, 0f), new Vector3(0.2f, 0.05f, 0.2f));
+                    CreateCubePart(root.transform, Color.white, new Vector3(0f, 0.7f, 0f), new Vector3(0.05f, 1f, 0.3f));
+                    CreateCubePart(root.transform, Color.white, new Vector3(0f, 1.15f, 0f), new Vector3(0.05f, 0.3f, 0.3f), Quaternion.Euler(45f, 0f, 0f));
+                    break;
+                case "gun":
+                    CreateCubePart(root.transform, Color.black, new Vector3(0f, 0f, 0f), new Vector3(0.15f, 0.5f, 0.15f), Quaternion.Euler(45f, 0f, 0f));
+                    CreateCubePart(root.transform, Color.gray, new Vector3(0f, 0.2f, 0.4f), new Vector3(0.2f, 0.2f, 1f));
+                    break;
+                case "scythe":
+                    CreateCubePart(root.transform, new Color(0.5f, 0.2f, 0.05f), new Vector3(0f, 0f, 0f), new Vector3(0.1f, 0.8f, 0.1f));
+                    CreateCubePart(root.transform, Color.gray, new Vector3(0.1f, 0.5f, 0f), new Vector3(0.05f, 0.35f, 0.05f), Quaternion.Euler(0f, 0f, 45f));
+                    CreateCubePart(root.transform, Color.gray, new Vector3(0.2f, 0.7f, 0f), new Vector3(0.05f, 0.2f, 0.05f));
+                    CreateCubePart(root.transform, Color.gray, new Vector3(0.1f, 0.9f, 0f), new Vector3(0.05f, 0.35f, 0.05f), Quaternion.Euler(0f, 0f, -45f));
+                    break;
+                case "ammo":
+                    CreateCubePart(root.transform, new Color(0.85f, 0.85f, 0.85f), new Vector3(0f, 0.2f, 0f), new Vector3(0.4f, 0.2f, 0.15f));
+                    CreateCubePart(root.transform, new Color(0.4f, 0.4f, 0.4f), new Vector3(0f, 0.3f, 0f), new Vector3(0.35f, 0.1f, 0.1f));
+                    break;
+                case "mobspawner":
+                    CreateCubePart(root.transform, new Color(0.25f, 0.25f, 0.25f), new Vector3(0f, 0.2f, 0f), new Vector3(0.4f, 0.4f, 0.4f));
+                    // Create sphere with red color at position
+                    var mobSphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    mobSphere.name = "MobSpawner_Sphere";
+                    mobSphere.transform.SetParent(root.transform);
+                    mobSphere.transform.localPosition = new Vector3(0f, 0.65f, 0f);
+                    mobSphere.transform.localScale = Vector3.one * 0.11f;
+                    ApplyColor(mobSphere, Color.red);
+                    Destroy(mobSphere.GetComponent<Collider>());
+                    CreateCubePart(root.transform, Color.black, new Vector3(0f, 0.05f, 0f), new Vector3(0.15f, 0.6f, 0.15f));
+                    break;
+                case "wood":
+                    CreateCubePart(root.transform, new Color(0.6f, 0.4f, 0.2f), new Vector3(0f, 0.3f, 0f), new Vector3(0.6f, 0.2f, 0.2f));
+                    break;
+                case "stone":
+                    CreateCubePart(root.transform, Color.gray, new Vector3(0f, 0.5f, 0f), new Vector3(0.6f, 0.6f, 0.6f));
+                    break;
+                case "field":
+                    CreateCubePart(root.transform, new Color(0.45f, 0.28f, 0.12f), new Vector3(0f, 0.1f, 0f), new Vector3(1f, 0.2f, 1f));
+                    break;
+                case "fertilizer":
+                    var fertPart = new GameObject("Fertilizer");
+                    fertPart.transform.SetParent(root.transform);
+                    fertPart.transform.localPosition = Vector3.zero;
+                    CreateCubePart(fertPart.transform, new Color(0.2f, 0.7f, 0.2f), new Vector3(0f, 0.2f, 0f), new Vector3(0.3f, 0.3f, 0.3f));
+                    if (FertilizerTexture != null)
+                        ApplyTextureToAllChildren(fertPart, FertilizerTexture);
+                    break;
+                case "seed":
+                    var seedPart = new GameObject("Seed");
+                    seedPart.transform.SetParent(root.transform);
+                    seedPart.transform.localPosition = Vector3.zero;
+                    CreateCubePart(seedPart.transform, new Color(0.7f, 0.5f, 0.2f), new Vector3(0f, 0.2f, 0f), new Vector3(0.3f, 0.3f, 0.1f));
+                    if (SeedTexture != null)
+                        ApplyTextureToAllChildren(seedPart, SeedTexture);
+                    break;
+                case "peashooter_seed":
+                    var peashooterPart = new GameObject("PeashooterSeed");
+                    peashooterPart.transform.SetParent(root.transform);
+                    peashooterPart.transform.localPosition = Vector3.zero;
+                    CreateCubePart(peashooterPart.transform, new Color(1f, 0.86f, 0.31f), new Vector3(0f, 0.2f, 0f), new Vector3(0.3f, 0.3f, 0.1f));
+                    if (PeashooterSeedTexture != null)
+                        ApplyTextureToAllChildren(peashooterPart, PeashooterSeedTexture);
+                    break;
+                case "corn_seed":
+                    var cornSeedPart = new GameObject("CornSeed");
+                    cornSeedPart.transform.SetParent(root.transform);
+                    cornSeedPart.transform.localPosition = Vector3.zero;
+                    CreateCubePart(cornSeedPart.transform, new Color(1f, 0.86f, 0.24f), new Vector3(0f, 0.2f, 0f), new Vector3(0.35f, 0.35f, 0.1f));
+                    if (CornSeedTexture != null)
+                        ApplyTextureToAllChildren(cornSeedPart, CornSeedTexture);
+                    break;
+                case "potato_seed":
+                    CreateCubePart(root.transform, new Color(0.7f, 0.5f, 0.2f), new Vector3(0f, 0.2f, 0f), new Vector3(0.3f, 0.3f, 0.1f));
+                    break;
+                case "wheat":
+                    if (WheatModel != null)
+                    {
+                        var wheatInstance = Instantiate(WheatModel, root.transform);
+                        wheatInstance.name = "Wheat_Model";
+                        wheatInstance.transform.localPosition = Vector3.zero;
+                        wheatInstance.transform.localRotation = Quaternion.identity;
+                        wheatInstance.transform.localScale = Vector3.one;
+                        if (WheatTexture != null)
+                            ApplyTextureToAllChildren(wheatInstance, WheatTexture);
+                    }
+                    else
+                    {
+                        CreateCubePart(root.transform, new Color(1f, 1f, 0.5f), new Vector3(0f, 0.1f, 0f), new Vector3(0.3f, 0.3f, 0.3f));
+                    }
+                    break;
+                case "damaged_wheat":
+                    CreateCubePart(root.transform, new Color(0.6f, 0.4f, 0.2f), new Vector3(0f, 0.2f, 0f), new Vector3(0.3f, 0.3f, 0.3f));
+                    break;
+                case "corn":
+                    // 5 rotated rectangles
+                    Color cornColor = new Color(1f, 0.85f, 0.2f);
+                    for (int i = 0; i < 5; i++)
+                    {
+                        float angle = i * 72f;
+                        var rotated = Quaternion.Euler(0f, angle, 0f);
+                        CreateCubePart(root.transform, cornColor, new Vector3(0f, 0.12f, 0f), new Vector3(0.05f, 0.25f, 0.12f), rotated);
+                    }
+                    break;
+                case "damaged_corn":
+                    CreateCubePart(root.transform, new Color(0.6f, 0.4f, 0.2f), new Vector3(0f, 0.2f, 0f), new Vector3(0.3f, 0.3f, 0.3f));
+                    break;
+                case "potato":
+                    // 2 overlapping spheres at different positions and scales
+                    var potatoBig = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    potatoBig.transform.SetParent(root.transform);
+                    potatoBig.transform.localPosition = new Vector3(-0.04f, 0.06f, 0f);
+                    potatoBig.transform.localScale = new Vector3(0.14f, 0.14f, 0.14f);
+                    ApplyColor(potatoBig, new Color(0.627f, 0.431f, 0.235f));
+                    Destroy(potatoBig.GetComponent<Collider>());
+                    var potatoSmall = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    potatoSmall.transform.SetParent(root.transform);
+                    potatoSmall.transform.localPosition = new Vector3(0.06f, 0.03f, 0f);
+                    potatoSmall.transform.localScale = new Vector3(0.11f, 0.09f, 0.11f);
+                    ApplyColor(potatoSmall, new Color(0.588f, 0.392f, 0.216f));
+                    Destroy(potatoSmall.GetComponent<Collider>());
+                    break;
+                case "damaged_potato":
+                    CreateCubePart(root.transform, new Color(0.6f, 0.4f, 0.2f), new Vector3(0f, 0.15f, 0f), new Vector3(0.3f, 0.25f, 0.3f));
+                    break;
+                case "mi_hao_hao":
+                    if (MiHaoHaoModel != null)
+                    {
+                        var miHaoHaoInstance = Instantiate(MiHaoHaoModel, root.transform);
+                        miHaoHaoInstance.name = "MiHaoHao_Model";
+                        miHaoHaoInstance.transform.localPosition = Vector3.zero;
+                        miHaoHaoInstance.transform.localRotation = Quaternion.identity;
+                        miHaoHaoInstance.transform.localScale = Vector3.one;
+                        if (MiHaoHaoTexture != null)
+                            ApplyTextureToAllChildren(miHaoHaoInstance, MiHaoHaoTexture);
+                    }
+                    else
+                    {
+                        CreateCubePart(root.transform, Color.red, new Vector3(0f, 0.2f, 0f), new Vector3(0.3f, 0.1f, 0.3f));
+                    }
+                    break;
+                default:
+                    CreateCubePart(root.transform, Color.white, new Vector3(0f, 0.3f, 0f), new Vector3(0.3f, 0.3f, 0.3f));
+                    break;
+            }
         root.SetActive(false);
         _toolModels[toolType] = root;
         DestroyAllColliders(root);
@@ -875,6 +935,19 @@ public class ToolManager : MonoBehaviour
                 textureMaterial.mainTexture = ToolTexture;
                 renderer.material = textureMaterial;
             }
+        }
+    }
+
+    private void ApplyTextureToAllChildren(GameObject go, Texture2D texture)
+    {
+        if (texture == null)
+            return;
+
+        foreach (var renderer in go.GetComponentsInChildren<Renderer>())
+        {
+            var textureMaterial = new Material(Shader.Find("Standard"));
+            textureMaterial.mainTexture = texture;
+            renderer.material = textureMaterial;
         }
     }
 
