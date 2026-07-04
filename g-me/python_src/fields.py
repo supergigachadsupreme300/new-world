@@ -111,7 +111,7 @@ def _make_crop_patch(field_data, crop_type, offset_x, offset_z, initial_height, 
     patch.crop_style = style
     return patch
 
-
+#  update
 def _update_crop_patch(field_data, stage):
     crop_type = field_data["crop_type"]
     if crop_type is None:
