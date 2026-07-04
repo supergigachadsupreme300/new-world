@@ -41,7 +41,17 @@ public class UIManager : MonoBehaviour
         if (_canvas == null || _canvas.gameObject.name != "HUD_Canvas")
             _canvas = CreateCanvas();
 
-        // Top-left HUD items (tránh căn giữa để không bị "bay" ra ngoài)
+        // Calculate responsive sizes based on screen dimensions
+        float screenHeight = Screen.height;
+        float screenWidth = Screen.width;
+        float hudWidthPercent = screenWidth * 0.3f; // 30% of screen width for HUD
+        float fontSize = Mathf.Max(14f, screenHeight / 36f); // Font scales with height
+        float largefontSize = fontSize * 1.4f;
+        float padding = screenHeight * 0.02f; // 2% of height for padding
+        float buttonHeight = screenHeight * 0.08f; // Buttons are 8% of height
+        float lineHeight = screenHeight * 0.05f; // Line spacing
+        float panelWidth = Mathf.Min(screenWidth * 0.4f, 560f);
+        float panelHeight = Mathf.Min(screenHeight * 0.8f, 520f);
         _timeText = EnsureText(
             "TimeText",
             new Vector2(20f, -20f),
@@ -128,30 +138,31 @@ public class UIManager : MonoBehaviour
         );
         _ammoText.gameObject.SetActive(false);
 
-        // Inventory: giữ ở đáy (center-bottom) như ban đầu, nhưng không wrap và overflow để nằm trên 1 hàng
+        // Inventory: center-bottom, raised up for visibility
         _inventoryText = EnsureText(
             "InventoryText",
-            new Vector2(0f, 50f),
+            new Vector2(0f, padding * 3f),
             "Inventory",
-            15,
+            (int)fontSize,
             null,
             TextAlignmentOptions.Center,
             false,
-            new Vector2(800f, 30f),
+            new Vector2(screenWidth * 0.8f, lineHeight),
             new Vector2(0.5f, 0f),
             new Vector2(0.5f, 0f),
             new Vector2(0.5f, 0f)
         );
 
+        // Message text: center of screen
         _messageText = EnsureText(
             "MessageText",
-            new Vector2(0f, 180f),
+            new Vector2(0f, screenHeight * 0.15f),
             "",
-            20,
+            (int)largefontSize,
             null,
             TextAlignmentOptions.Center,
             true,
-            new Vector2(600f, 40f),
+            new Vector2(screenWidth * 0.6f, lineHeight * 1.5f),
             new Vector2(0.5f, 0.5f),
             new Vector2(0.5f, 0.5f),
             new Vector2(0.5f, 0.5f)
@@ -159,65 +170,65 @@ public class UIManager : MonoBehaviour
 
         _mobSpawnerText = EnsureText(
             "MobSpawnerText",
-            new Vector2(0f, -140f),
+            new Vector2(0f, -padding - buttonHeight),
             "",
-            18,
+            (int)fontSize,
             null,
             TextAlignmentOptions.Center,
             true,
-            new Vector2(400f, 30f),
+            new Vector2(screenWidth * 0.3f, lineHeight),
             new Vector2(0.5f, 0.5f),
             new Vector2(0.5f, 0.5f),
             new Vector2(0.5f, 0.5f)
         );
-        _mobSpawnerText.gameObject.SetActive(false);
 
         _crosshairText = EnsureText(
             "CrosshairText",
             Vector2.zero,
             "+",
-            32,
+            (int)(fontSize * 1.6f),
             null,
             TextAlignmentOptions.Center,
             true,
-            new Vector2(60f, 60f),
+            new Vector2(lineHeight, lineHeight),
             new Vector2(0.5f, 0.5f),
             new Vector2(0.5f, 0.5f),
             new Vector2(0.5f, 0.5f)
         );
         _crosshairText.gameObject.SetActive(false);
 
-        // Panels
-        _pauseMenuPanel = CreateMenuPanel("PauseMenu", Vector2.zero, new Vector2(420f, 520f));
-        CreateButton("ContinueButton", _pauseMenuPanel.transform, "Continue", new Vector2(0f, 140f), () => GameManager.Instance?.TogglePause(false));
-        CreateButton("SaveButton", _pauseMenuPanel.transform, "Save Game", new Vector2(0f, 70f), () => SaveManager.Instance?.SaveGame());
-        CreateButton("StatsButton", _pauseMenuPanel.transform, "Stats", new Vector2(0f, 0f), () => ShowStatsPanel(true));
-        CreateButton("QuestsButton", _pauseMenuPanel.transform, "Quests", new Vector2(0f, -70f), () => ShowQuestPanel(true));
-        CreateButton("InstructionsButton", _pauseMenuPanel.transform, "Instructions", new Vector2(0f, -140f), () => ShowInstructions(true));
-        CreateButton("ExitButton", _pauseMenuPanel.transform, "Exit", new Vector2(0f, -210f), () => Application.Quit());
+        // Panels - responsive sizes
+        _pauseMenuPanel = CreateMenuPanel("PauseMenu", Vector2.zero, new Vector2(panelWidth, panelHeight));
+        CreateButton("ContinueButton", _pauseMenuPanel.transform, "Continue", new Vector2(0f, buttonHeight * 1.8f), () => GameManager.Instance?.TogglePause(false));
+        CreateButton("SaveButton", _pauseMenuPanel.transform, "Save Game", new Vector2(0f, buttonHeight * 0.9f), () => SaveManager.Instance?.SaveGame());
+        CreateButton("BuffaloShopButton", _pauseMenuPanel.transform, "Buffalo Shop", new Vector2(0f, 0f), () => OpenBuffaloShop());
+        CreateButton("StatsButton", _pauseMenuPanel.transform, "Stats", new Vector2(0f, -buttonHeight * 0.9f), () => ShowStatsPanel(true));
+        CreateButton("QuestsButton", _pauseMenuPanel.transform, "Quests", new Vector2(0f, -buttonHeight * 1.8f), () => ShowQuestPanel(true));
+        CreateButton("InstructionsButton", _pauseMenuPanel.transform, "Instructions", new Vector2(0f, -buttonHeight * 2.7f), () => ShowInstructions(true));
+        CreateButton("ExitButton", _pauseMenuPanel.transform, "Exit", new Vector2(0f, -buttonHeight * 3.6f), () => Application.Quit());
         _pauseMenuPanel.SetActive(false);
 
-        _statsPanel = CreateMenuPanel("StatsPanel", Vector2.zero, new Vector2(560f, 520f));
-        EnsureText("StatsTitle", new Vector2(0f, 190f), "PLAYER STATS", 28, _statsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(520f, 40f));
-        EnsureText("StatsLines", new Vector2(0f, 120f), "Harvested wheat: 0\nEnemies killed: 0\nMoney earned: 0\nMoney stolen: 0", 18, _statsPanel.transform, TextAlignmentOptions.Left, true, new Vector2(520f, 200f));
-        CreateButton("StatsBackButton", _statsPanel.transform, "Back", new Vector2(0f, -200f), () => ShowStatsPanel(false));
+        _statsPanel = CreateMenuPanel("StatsPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
+        EnsureText("StatsTitle", new Vector2(0f, panelHeight * 0.35f), "PLAYER STATS", (int)largefontSize, _statsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
+        EnsureText("StatsLines", new Vector2(0f, panelHeight * 0.1f), "Harvested wheat: 0\nEnemies killed: 0\nMoney earned: 0\nMoney stolen: 0", (int)fontSize, _statsPanel.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.4f));
+        CreateButton("StatsBackButton", _statsPanel.transform, "Back", new Vector2(0f, -panelHeight * 0.35f), () => ShowStatsPanel(false));
         _statsPanel.SetActive(false);
 
-        _questPanel = CreateMenuPanel("QuestPanel", Vector2.zero, new Vector2(520f, 520f));
-        EnsureText("QuestTitle", new Vector2(0f, 190f), "QUESTS", 28, _questPanel.transform, TextAlignmentOptions.Center, true, new Vector2(480f, 40f));
-        EnsureText("QuestLines", new Vector2(0f, 60f), "1. Harvest wheat\n2. Earn coins\n3. Slay monsters", 16, _questPanel.transform, TextAlignmentOptions.Left, true, new Vector2(480f, 200f));
-        CreateButton("QuestCloseButton", _questPanel.transform, "Close", new Vector2(0f, -220f), () => ShowQuestPanel(false));
+        _questPanel = CreateMenuPanel("QuestPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
+        EnsureText("QuestTitle", new Vector2(0f, panelHeight * 0.35f), "QUESTS", (int)largefontSize, _questPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
+        EnsureText("QuestLines", new Vector2(0f, panelHeight * 0.1f), "1. Harvest wheat\n2. Earn coins\n3. Slay monsters", (int)fontSize, _questPanel.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.3f));
+        CreateButton("QuestCloseButton", _questPanel.transform, "Close", new Vector2(0f, -panelHeight * 0.35f), () => ShowQuestPanel(false));
         _questPanel.SetActive(false);
 
-        _instructionsPanel = CreateMenuPanel("InstructionsPanel", Vector2.zero, new Vector2(620f, 520f));
-        EnsureText("InstructionsTitle", new Vector2(0f, 190f), "HƯỚNG DẪN", 28, _instructionsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(580f, 40f));
-        EnsureText("InstructionsContent", new Vector2(0f, 20f), "WASD: Move\nSpace: Jump\nE: Interact\nQ: Drop item\nR: Reload\nLeft click: Use tool\nB/N: Change building type", 18, _instructionsPanel.transform, TextAlignmentOptions.Left, true, new Vector2(580f, 300f));
-        CreateButton("InstructionsBackButton", _instructionsPanel.transform, "Back", new Vector2(0f, -220f), () => ShowInstructions(false));
+        _instructionsPanel = CreateMenuPanel("InstructionsPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
+        EnsureText("InstructionsTitle", new Vector2(0f, panelHeight * 0.35f), "HƯƠNG DẪN", (int)largefontSize, _instructionsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
+        EnsureText("InstructionsContent", new Vector2(0f, panelHeight * 0.05f), "WASD: Move\nSpace: Jump\nE: Interact\nQ: Drop item\nR: Reload\nLeft click: Use tool\nB/N: Change building type", (int)fontSize, _instructionsPanel.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.4f));
+        CreateButton("InstructionsBackButton", _instructionsPanel.transform, "Back", new Vector2(0f, -panelHeight * 0.35f), () => ShowInstructions(false));
         _instructionsPanel.SetActive(false);
 
-        _mainMenuPanel = CreateMenuPanel("MainMenuPanel", Vector2.zero, new Vector2(520f, 520f));
-        EnsureText("TitleText", new Vector2(0f, 160f), "NÔNG TRẠI SINH TỒN", 30, _mainMenuPanel.transform, TextAlignmentOptions.Center, true, new Vector2(480f, 50f));
-        CreateButton("NewGameButton", _mainMenuPanel.transform, "Game Mới", new Vector2(0f, 60f), () => MainMenuController.Instance?.OnNewGameClicked());
+        _mainMenuPanel = CreateMenuPanel("MainMenuPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
+        EnsureText("TitleText", new Vector2(0f, panelHeight * 0.3f), "NÔNG TRẠI SINH TỒN", (int)(largefontSize * 1.1f), _mainMenuPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight * 1.5f));
+        CreateButton("NewGameButton", _mainMenuPanel.transform, "Game Mới", new Vector2(0f, buttonHeight * 0.5f), () => MainMenuController.Instance?.OnNewGameClicked());
         CreateButton("LoadGameButton", _mainMenuPanel.transform, "Tiếp tục (Load)", new Vector2(0f, 0f), () => MainMenuController.Instance?.OnLoadGameClicked());
         CreateButton("QuitButton", _mainMenuPanel.transform, "Thoát", new Vector2(0f, -60f), () => MainMenuController.Instance?.OnQuitClicked());
         _mainMenuPanel.SetActive(false);
@@ -336,6 +347,10 @@ public class UIManager : MonoBehaviour
 
     private Button CreateButton(string name, Transform parent, string label, Vector2 position, UnityEngine.Events.UnityAction callback)
     {
+        float screenHeight = Screen.height;
+        float buttonWidth = Mathf.Max(180f, screenHeight * 0.35f);
+        float buttonHeight = screenHeight * 0.07f;
+
         var buttonObject = GameObject.Find(name);
         if (buttonObject == null)
         {
@@ -347,7 +362,7 @@ public class UIManager : MonoBehaviour
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = position;
-            rect.sizeDelta = new Vector2(280f, 56f);
+            rect.sizeDelta = new Vector2(buttonWidth, buttonHeight);
 
             var image = buttonObject.AddComponent<Image>();
             image.color = new Color(0.18f, 0.18f, 0.25f, 1f);
@@ -362,7 +377,7 @@ public class UIManager : MonoBehaviour
             if (defaultTmpFont != null)
                 text.font = defaultTmpFont;
             text.text = label;
-            text.fontSize = 22;
+            text.fontSize = Mathf.Max(14, (int)(screenHeight * 0.028f));
             text.color = Color.white;
             text.alignment = TextAlignmentOptions.Center;
 
@@ -522,5 +537,17 @@ public class UIManager : MonoBehaviour
         yield return new WaitForSeconds(delay);
         if (_messageText != null)
             _messageText.text = string.Empty;
+    }
+
+    private void OpenBuffaloShop()
+    {
+        var shop = Object.FindAnyObjectByType<BuffaloShopManager>();
+        if (shop == null)
+        {
+            var go = new GameObject("BuffaloShopManager");
+            shop = go.AddComponent<BuffaloShopManager>();
+            shop.Initialize();
+        }
+        shop.Open();
     }
 }

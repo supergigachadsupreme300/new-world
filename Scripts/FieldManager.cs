@@ -15,7 +15,7 @@ public class FieldManager : MonoBehaviour
 
     private List<FieldData> _fields = new List<FieldData>();
     private GameObject _fieldPreview;
-    private readonly float _fieldSize = 1f;
+    private readonly float _fieldSize = 2f; // Match WorldBuilder field tile size
     private Dictionary<FieldData, float> _growthTimers = new Dictionary<FieldData, float>();
 
     // Crop visual configurations
@@ -88,7 +88,14 @@ public class FieldManager : MonoBehaviour
         foreach (var field in fieldsToRemove)
             _growthTimers.Remove(field);
 
-        // Update field preview position based on raycast
+        // Update field preview only when the player is holding the hoe
+        if (ToolManager.Instance == null || ToolManager.Instance.GetSelectedItemType() != "hoe")
+        {
+            if (_fieldPreview != null)
+                _fieldPreview.SetActive(false);
+            return;
+        }
+
         UpdateFieldPreview();
     }
 
@@ -101,12 +108,13 @@ public class FieldManager : MonoBehaviour
         if (worldBuilder != null && worldBuilder.WorldRoot != null)
             fieldRoot.transform.SetParent(worldBuilder.WorldRoot.transform);
 
-        // Create visual ground indicator - match Python cube scale (1, 0.2, 1)
-        var groundIndicator = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        // Create visual ground indicator to match WorldBuilder field tile
+        var groundIndicator = GameObject.CreatePrimitive(PrimitiveType.Quad);
         groundIndicator.name = "FieldVisual";
         groundIndicator.transform.SetParent(fieldRoot.transform);
-        groundIndicator.transform.localPosition = Vector3.up * 0.1f;
-        groundIndicator.transform.localScale = new Vector3(_fieldSize, 0.2f, _fieldSize);
+        groundIndicator.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        groundIndicator.transform.localPosition = Vector3.up * 0.01f;
+        groundIndicator.transform.localScale = new Vector3(_fieldSize, _fieldSize, 1f);
         
         var renderer = groundIndicator.GetComponent<Renderer>();
         if (renderer != null)
@@ -126,7 +134,7 @@ public class FieldManager : MonoBehaviour
         var fieldData = new FieldData
         {
             Entity = fieldRoot,
-            Position = new Vector3(pos.x, 0.1f, pos.z),
+            Position = new Vector3(pos.x, 0.01f, pos.z),
             CropType = null,
             WheatStage = 0,
             WheatHP = 0,
@@ -217,46 +225,74 @@ public class FieldManager : MonoBehaviour
     private GameObject MakeCropPatch(FieldData fieldData, string cropType, float offsetX, float offsetZ, float initialHeight, float width, float depth)
     {
         var visuals = CropVisuals[cropType];
-        var patch = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        patch.name = $"{cropType}_Patch";
+        var patch = new GameObject($"{cropType}_Patch");
         patch.transform.SetParent(fieldData.Entity.transform);
-        Destroy(patch.GetComponent<Collider>());
-
-        var renderer = patch.GetComponent<Renderer>();
-        if (renderer != null)
-            renderer.material.color = visuals.YoungColor;
-
-        // Store patch metadata
+        patch.transform.localPosition = new Vector3(offsetX, 0f, offsetZ);
+        patch.transform.localRotation = Quaternion.identity;
+        // Store patch metadata and child pieces
         var patchData = patch.AddComponent<CropPatchData>();
         patchData.InitialHeight = initialHeight;
         patchData.CropStyle = visuals.Style;
+        patchData.Parts = new List<Transform>();
 
-        // Match Python crop model specifications exactly
-        float scaleY;
-        float posY;
-        float patchWidth = width;
-        float patchDepth = depth;
-
-        switch (visuals.Style)
+        if (visuals.Style == CropStyle.Tall)
         {
-            case CropStyle.Stalk:  // corn - fixed width/depth
-                scaleY = initialHeight * 0.25f;
-                posY = 0.1f + initialHeight * 0.25f / 2f;
-                patchWidth = 0.12f;
-                patchDepth = 0.12f;
-                break;
-            case CropStyle.Low:    // potato - shorter scale
-                scaleY = initialHeight * 0.2f;
-                posY = 0.08f + initialHeight * 0.2f / 2f;
-                break;
-            default:               // wheat/tall
-                scaleY = initialHeight * 0.25f;
-                posY = 0.1f + initialHeight * 0.25f / 2f;
-                break;
+            int stalkCount = Random.Range(2, 5);
+            for (int i = 0; i < stalkCount; i++)
+            {
+                float stalkWidth = Random.Range(0.06f, 0.1f);
+                float stalkDepth = Random.Range(0.02f, 0.05f);
+                float stalkHeight = initialHeight * 0.25f;
+                float x = Random.Range(-0.15f, 0.15f);
+                float z = Random.Range(-0.05f, 0.05f);
+                var stalk = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                stalk.transform.SetParent(patch.transform);
+                stalk.transform.localScale = new Vector3(stalkWidth, stalkHeight, stalkDepth);
+                stalk.transform.localPosition = new Vector3(x, stalkHeight / 2f + 0.05f, z);
+                ApplyColor(stalk, visuals.YoungColor);
+                Destroy(stalk.GetComponent<Collider>());
+                patchData.Parts.Add(stalk.transform);
+            }
         }
+        else if (visuals.Style == CropStyle.Stalk)
+        {
+            float bottomHeight = initialHeight * 0.25f;
+            var bottom = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            bottom.transform.SetParent(patch.transform);
+            bottom.transform.localScale = new Vector3(0.12f, bottomHeight, 0.12f);
+            bottom.transform.localPosition = new Vector3(0f, bottomHeight / 2f + 0.05f, 0f);
+            ApplyColor(bottom, visuals.YoungColor);
+            Destroy(bottom.GetComponent<Collider>());
+            patchData.Parts.Add(bottom.transform);
+        }
+        else // Low / potato
+        {
+            var root = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            root.transform.SetParent(patch.transform);
+            root.transform.localScale = new Vector3(0.08f, 0.06f, 0.07f);
+            root.transform.localPosition = new Vector3(0f, 0.03f, 0f);
+            ApplyColor(root, new Color(0.65f, 0.45f, 0.2f));
+            Destroy(root.GetComponent<Collider>());
+            patchData.Parts.Add(root.transform);
 
-        patch.transform.localScale = new Vector3(patchWidth, scaleY, patchDepth);
-        patch.transform.localPosition = new Vector3(offsetX, posY, offsetZ);
+            int leafCount = Random.Range(3, 5);
+            for (int i = 0; i < leafCount; i++)
+            {
+                float angle = i * Mathf.PI * 2f / leafCount;
+                var leaf = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                leaf.transform.SetParent(patch.transform);
+                leaf.transform.localScale = new Vector3(0.06f, 0.01f, 0.08f);
+                leaf.transform.localRotation = Quaternion.Euler(30f, i * 360f / leafCount, 0f);
+                leaf.transform.localPosition = new Vector3(
+                    Mathf.Cos(angle) * 0.05f,
+                    0.09f,
+                    Mathf.Sin(angle) * 0.05f
+                );
+                ApplyColor(leaf, visuals.YoungColor);
+                Destroy(leaf.GetComponent<Collider>());
+                patchData.Parts.Add(leaf.transform);
+            }
+        }
 
         return patch;
     }
@@ -268,7 +304,7 @@ public class FieldManager : MonoBehaviour
 
         var visuals = CropVisuals[fieldData.CropType];
         float targetRatio = stage / (float)CropMaxStages;
-        Color patchColor = stage >= CropMaxStages ? visuals.RipeColor : visuals.YoungColor;
+        bool isRipe = stage >= CropMaxStages;
 
         foreach (var patch in fieldData.WheatNodes)
         {
@@ -280,39 +316,90 @@ public class FieldManager : MonoBehaviour
                 continue;
 
             float targetHeight = patchData.InitialHeight * targetRatio;
+            Color baseColor = isRipe ? visuals.RipeColor : visuals.YoungColor;
 
-            switch (patchData.CropStyle)
+            if (patchData.CropStyle == CropStyle.Tall)
             {
-                case CropStyle.Stalk:
-                    patch.transform.localScale = new Vector3(patch.transform.localScale.x, targetHeight, patch.transform.localScale.z);
-                    patch.transform.localPosition = new Vector3(
-                        patch.transform.localPosition.x,
-                        0.1f + targetHeight / 2f,
-                        patch.transform.localPosition.z
-                    );
-                    break;
-                case CropStyle.Low:
-                    float scaledHeight = targetHeight * 0.25f;
-                    patch.transform.localScale = new Vector3(patch.transform.localScale.x, scaledHeight, patch.transform.localScale.z);
-                    patch.transform.localPosition = new Vector3(
-                        patch.transform.localPosition.x,
-                        0.08f + scaledHeight / 2f,
-                        patch.transform.localPosition.z
-                    );
-                    break;
-                default: // Tall
-                    patch.transform.localScale = new Vector3(patch.transform.localScale.x, targetHeight, patch.transform.localScale.z);
-                    patch.transform.localPosition = new Vector3(
-                        patch.transform.localPosition.x,
-                        0.1f + targetHeight / 2f,
-                        patch.transform.localPosition.z
-                    );
-                    break;
+                for (int i = 0; i < patchData.Parts.Count; i++)
+                {
+                    var part = patchData.Parts[i];
+                    float partHeight = targetHeight;
+                    part.localScale = new Vector3(part.localScale.x, partHeight, part.localScale.z);
+                    part.localPosition = new Vector3(part.localPosition.x, partHeight / 2f + 0.05f, part.localPosition.z);
+                    ApplyColor(part.gameObject, baseColor);
+                }
             }
+            else if (patchData.CropStyle == CropStyle.Stalk)
+            {
+                if (patchData.Parts.Count >= 1)
+                {
+                    var bottom = patchData.Parts[0];
+                    float bottomHeight = targetHeight;
+                    bottom.localScale = new Vector3(bottom.localScale.x, bottomHeight, bottom.localScale.z);
+                    bottom.localPosition = new Vector3(0f, bottomHeight / 2f + 0.05f, 0f);
+                    ApplyColor(bottom.gameObject, visuals.YoungColor);
 
-            var renderer = patch.GetComponent<Renderer>();
-            if (renderer != null)
-                renderer.material.color = patchColor;
+                    if (isRipe)
+                    {
+                        if (patchData.Parts.Count < 2)
+                        {
+                            float earHeight = targetHeight * 0.4f;
+                            var top = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                            top.transform.SetParent(patch.transform);
+                            top.transform.localScale = new Vector3(0.18f, earHeight, 0.14f);
+                            top.transform.localPosition = new Vector3(0f, bottomHeight + earHeight / 2f + 0.05f, 0f);
+                            ApplyColor(top, visuals.RipeColor);
+                            Destroy(top.GetComponent<Collider>());
+                            patchData.Parts.Add(top.transform);
+                        }
+                        else
+                        {
+                            var top = patchData.Parts[1];
+                            float earHeight = targetHeight * 0.4f;
+                            top.localScale = new Vector3(top.localScale.x, earHeight, top.localScale.z);
+                            top.localPosition = new Vector3(0f, bottomHeight + earHeight / 2f + 0.05f, 0f);
+                            ApplyColor(top.gameObject, visuals.RipeColor);
+                        }
+                    }
+                }
+            }
+            else // Low/potato
+            {
+                for (int i = 0; i < patchData.Parts.Count; i++)
+                {
+                    var part = patchData.Parts[i];
+                    if (i == 0)
+                    {
+                        float rootScale = 1f + 0.3f * targetRatio;
+                        part.localScale = new Vector3(0.08f * rootScale, 0.06f * rootScale, 0.07f * rootScale);
+                        part.localPosition = new Vector3(0f, 0.03f * rootScale, 0f);
+                        ApplyColor(part.gameObject, new Color(0.65f, 0.45f, 0.2f));
+                    }
+                    else
+                    {
+                        float leafHeight = 0.09f + 0.07f * targetRatio;
+                        float radius = 0.05f + 0.07f * targetRatio;
+                        int leafIndex = i - 1;
+                        int totalLeaves = patchData.Parts.Count - 1;
+                        if (totalLeaves > 0)
+                        {
+                            float angle = leafIndex * Mathf.PI * 2f / totalLeaves;
+                            part.localScale = new Vector3(
+                                0.05f + 0.05f * targetRatio,
+                                0.01f,
+                                0.07f + 0.06f * targetRatio
+                            );
+                            part.transform.localRotation = Quaternion.Euler(30f, leafIndex * 360f / totalLeaves, 0f);
+                            part.localPosition = new Vector3(
+                                Mathf.Cos(angle) * radius,
+                                leafHeight,
+                                Mathf.Sin(angle) * radius
+                            );
+                        }
+                        ApplyColor(part.gameObject, visuals.YoungColor);
+                    }
+                }
+            }
         }
     }
 
@@ -386,10 +473,10 @@ public class FieldManager : MonoBehaviour
 
     private void CreateFieldPreview()
     {
-        // Use Cube instead of Quad - matches Python field creation scale(1, 0.2, 1)
-        _fieldPreview = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        _fieldPreview = GameObject.CreatePrimitive(PrimitiveType.Quad);
         _fieldPreview.name = "FieldPreview";
-        _fieldPreview.transform.localScale = new Vector3(_fieldSize, 0.2f, _fieldSize);
+        _fieldPreview.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        _fieldPreview.transform.localScale = new Vector3(_fieldSize, _fieldSize, 1f);
         
         var renderer = _fieldPreview.GetComponent<Renderer>();
         if (renderer != null)
@@ -407,58 +494,39 @@ public class FieldManager : MonoBehaviour
             return;
 
         var ray = new Ray(cam.transform.position + cam.transform.forward * 0.3f, cam.transform.forward);
-        
-        // Check if raycast hits an existing field
-        FieldData hitField = null;
-        Vector3 hitNormal = Vector3.up;
-        
-        foreach (var field in _fields)
-        {
-            if (field.Entity == null) continue;
-            
-            var fieldVisual = field.Entity.GetComponentInChildren<Renderer>();
-            if (fieldVisual != null)
-            {
-                var fieldCollider = fieldVisual.GetComponent<Collider>();
-                if (fieldCollider == null)
-                {
-                    fieldCollider = field.Entity.GetComponent<Collider>();
-                }
-                
-                if (fieldCollider != null && Physics.Raycast(ray, out RaycastHit fieldHit, 10f))
-                {
-                    if (fieldHit.collider == fieldCollider || fieldHit.collider.transform.IsChildOf(fieldCollider.transform))
-                    {
-                        hitField = field;
-                        hitNormal = fieldHit.normal;
-                        break;
-                    }
-                }
-            }
-        }
-        
-        if (hitField != null)
-        {
-            // Place adjacent field based on which face was hit
-            Vector3 adjacentPos = CalculateAdjacentPosition(hitField.Entity.transform.position, hitNormal);
-            _fieldPreview.transform.position = adjacentPos;
-            _fieldPreview.SetActive(true);
-            return;
-        }
-        
-        // If no field hit, check for ground
         if (Physics.Raycast(ray, out var hit, 10f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
         {
+            if (hit.collider.name == "FieldTile")
+            {
+                // Compute adjacent placement toward the player/camera direction
+                Vector3 fieldCenter = hit.collider.transform.position;
+                Vector3 cameraDir = cam.transform.position - fieldCenter;
+                Vector3 cameraDirXZ = new Vector3(cameraDir.x, 0f, cameraDir.z);
+
+                Vector3 adjacentPos = fieldCenter;
+                if (cameraDirXZ.sqrMagnitude > 0.001f)
+                {
+                    if (Mathf.Abs(cameraDirXZ.x) > Mathf.Abs(cameraDirXZ.z))
+                        adjacentPos.x += Mathf.Sign(cameraDirXZ.x) * _fieldSize;
+                    else
+                        adjacentPos.z += Mathf.Sign(cameraDirXZ.z) * _fieldSize;
+                }
+
+                adjacentPos.y = 0.01f;
+                _fieldPreview.transform.position = adjacentPos;
+                _fieldPreview.SetActive(true);
+                return;
+            }
+
             if (hit.collider.name == "Ground" || hit.collider.name == "FieldVisual")
             {
-                // Snap preview to nearest field grid position (1 unit = field size)
                 Vector3 hitPos = hit.point;
                 Vector3 gridPos = new Vector3(
                     Mathf.Round(hitPos.x),
-                    0.1f,  // Field height = 0.1 (cube with height 0.2, positioned at y=0.1)
+                    0.01f,
                     Mathf.Round(hitPos.z)
                 );
-                
+
                 _fieldPreview.transform.position = gridPos;
                 _fieldPreview.SetActive(true);
                 return;
@@ -470,22 +538,9 @@ public class FieldManager : MonoBehaviour
     
     private Vector3 CalculateAdjacentPosition(Vector3 fieldPos, Vector3 hitNormal)
     {
-        // Determine which face was hit based on normal
-        float absX = Mathf.Abs(hitNormal.x);
-        float absZ = Mathf.Abs(hitNormal.z);
-        
+        // Unused by current hit logic, but kept for compatibility
         Vector3 adjacentPos = fieldPos;
-        
-        if (absX > absZ)  // Hit X-facing side
-        {
-            adjacentPos.x += Mathf.Sign(hitNormal.x) * _fieldSize;
-        }
-        else  // Hit Z-facing side
-        {
-            adjacentPos.z += Mathf.Sign(hitNormal.z) * _fieldSize;
-        }
-        
-        adjacentPos.y = 0.1f;  // Position at field height
+        adjacentPos.y = 0.01f;
         return adjacentPos;
     }
 
@@ -493,6 +548,24 @@ public class FieldManager : MonoBehaviour
     {
         if (_fieldPreview != null)
             _fieldPreview.SetActive(visible);
+    }
+
+    private void ApplyColor(GameObject go, Color color)
+    {
+        var renderer = go.GetComponent<Renderer>();
+        if (renderer == null)
+            return;
+        renderer.material.color = color;
+    }
+
+    public bool TryGetPreviewPosition(out Vector3 previewPosition)
+    {
+        previewPosition = Vector3.zero;
+        if (_fieldPreview == null || !_fieldPreview.activeSelf)
+            return false;
+
+        previewPosition = _fieldPreview.transform.position;
+        return true;
     }
 
     public List<FieldData> GetAllFields() => _fields;
@@ -532,4 +605,5 @@ public class CropPatchData : MonoBehaviour
 {
     public float InitialHeight;
     public CropStyle CropStyle;
+    public List<Transform> Parts;
 }

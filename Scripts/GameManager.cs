@@ -71,8 +71,17 @@ public class GameManager : MonoBehaviour
 
         UpdateTimeUI();
 
+        if (WorldBuilder != null)
+            WorldBuilder.UpdateWorld(Time.deltaTime);
+
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
         {
+            var shop = Object.FindAnyObjectByType<BuffaloShopManager>();
+            if (shop != null && shop.IsOpen())
+            {
+                shop.Close();
+                return;
+            }
             TogglePause(true);
         }
     }

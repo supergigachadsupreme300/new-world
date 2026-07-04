@@ -192,6 +192,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c18f9cec7b393ca4f945b90dd67188bf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UIManager
+  defaultTmpFont: {fileID: 0}
 --- !u!4 &160458241
 Transform:
   m_ObjectHideFlags: 0
@@ -219,6 +220,7 @@ GameObject:
   - component: {fileID: 330585545}
   - component: {fileID: 330585544}
   - component: {fileID: 330585547}
+  - component: {fileID: 330585548}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -344,6 +346,21 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &330585548
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 330585543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ec726c9034ea8f4eb6a8c087792c429, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CameraFollow
+  Target: {fileID: 1560784579}
+  Offset: {x: 0, y: 1.5, z: -4}
+  SmoothSpeed: 10
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -640,6 +657,16 @@ MonoBehaviour:
   TreeCount: 200
   RockCount: 100
   GroundSize: {x: 150, y: 0.2, z: 150}
+  MapWidth: 20
+  MapDepth: 20
+  TileSize: 2
+  TerrainBlockResourcePath: Models/TerrainBlock
+  TerrainBlockPrefab: {fileID: 0}
+  GroundTexture: {fileID: 0}
+  GroundMaterial: {fileID: 0}
+  TreePrefab: {fileID: 0}
+  RockPrefab: {fileID: 0}
+  WorldMaterial: {fileID: 0}
   SunLight: {fileID: 0}
   GroundObject: {fileID: 0}
   RoadObject: {fileID: 0}
@@ -743,6 +770,7 @@ MonoBehaviour:
   StaminaRegenRate: 25
   SprintCost: 35
   Money: 10000000000
+  AutoEnableInput: 1
 --- !u!143 &1560784578
 CharacterController:
   m_ObjectHideFlags: 0
@@ -820,6 +848,9 @@ MonoBehaviour:
   UIManager: {fileID: 160458240}
   ToolManager: {fileID: 1665573198}
   CutsceneManager: {fileID: 938851013}
+  Pets: []
+  Enemies: []
+  AutoStartGame: 1
 --- !u!4 &1587196748
 Transform:
   m_ObjectHideFlags: 0
@@ -933,6 +964,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1665573199}
   - component: {fileID: 1665573198}
+  - component: {fileID: 1665573200}
   m_Layer: 0
   m_Name: ToolManager
   m_TagString: Untagged
@@ -952,6 +984,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6273b7f2f34d46c4992eac069a131ba8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ToolManager
+  ToolModelPrefab: {fileID: 0}
+  ToolMaterial: {fileID: 0}
+  ToolTexture: {fileID: 0}
+  FertilizerTexture: {fileID: 2800000, guid: 3bb6709064295bc4bac858cf2c328986, type: 3}
+  SeedTexture: {fileID: 2800000, guid: c709ddb34ed39624b855ddd3d7875e52, type: 3}
+  PeashooterSeedTexture: {fileID: 2800000, guid: ddfeae6968ca46541afe85171049c1e4, type: 3}
+  CornSeedTexture: {fileID: 2800000, guid: b764a96d2cc4b7c40b61264dfdd869a5, type: 3}
+  WheatModel: {fileID: 919132149155446097, guid: af8559dbced17ea43a07b3f51010f81b, type: 3}
+  WheatTexture: {fileID: 2800000, guid: 6a5f0eab88f9ad644bc99fe4b1e939fe, type: 3}
+  MiHaoHaoModel: {fileID: 0}
+  MiHaoHaoTexture: {fileID: 2800000, guid: 856b3b9ca68d3b44594d4aeb26554aac, type: 3}
 --- !u!4 &1665573199
 Transform:
   m_ObjectHideFlags: 0
@@ -967,6 +1010,22 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1665573200
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1665573197}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e27ceeadc4f2fc14c9771629c1cdef08, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FieldManager
+  FieldTexture: {fileID: 2800000, guid: f00c2bd828c2e9e499a83b1c35b1d191, type: 3}
+  FieldMaterial: {fileID: 0}
+  FieldPreviewMaterial: {fileID: 0}
+  FieldPreviewColor: {r: 0.5882353, g: 0.39215687, b: 0.19607843, a: 0.54901963}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
