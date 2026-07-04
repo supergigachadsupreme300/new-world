@@ -49,10 +49,17 @@ public class ToolManager : MonoBehaviour
         if (Keyboard.current == null)
             return;
 
+        EnsureToolContainerAttached();
+
         if (Keyboard.current.leftBracketKey.wasPressedThisFrame)
             SelectSlot(_selectedSlot - 1);
         if (Keyboard.current.rightBracketKey.wasPressedThisFrame)
             SelectSlot(_selectedSlot + 1);
+    }
+
+    private void LateUpdate()
+    {
+        EnsureToolContainerAttached();
     }
 
     public void ResetSelection()
@@ -86,7 +93,11 @@ public class ToolManager : MonoBehaviour
             return;
         }
 
-        var useRay = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
+        var cam = GetActiveCamera();
+        if (cam == null)
+            return;
+
+        var useRay = new Ray(cam.transform.position, cam.transform.forward);
         ShowRayLine(useRay.origin, useRay.origin + useRay.direction * UseRayDistance);
         if (Physics.Raycast(useRay, out var hit, UseRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
         {
@@ -187,7 +198,8 @@ public class ToolManager : MonoBehaviour
                 return;
             }
 
-            if (selectedItem == "scythe" && Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out hit, 5f))
+            var cam = GetActiveCamera();
+            if (selectedItem == "scythe" && cam != null && Physics.Raycast(cam.transform.position, cam.transform.forward, out hit, 5f))
             {
                 var field = _worldBuilder.GetFieldAt(hit.point);
                 if (field != null && field.HasCrop && field.Stage >= 3)
@@ -207,10 +219,11 @@ public class ToolManager : MonoBehaviour
 
     public void TryPickupNearby()
     {
-        if (Camera.main == null)
+        var cam = GetActiveCamera();
+        if (cam == null)
             return;
 
-        var ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
+        var ray = new Ray(cam.transform.position, cam.transform.forward);
         ShowRayLine(ray.origin, ray.origin + ray.direction * PickupRayDistance);
         if (Physics.Raycast(ray, out var hit, PickupRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
         {
@@ -289,8 +302,16 @@ public class ToolManager : MonoBehaviour
         if (itemType == null)
             return;
 
+        var player = GameManager.Instance?.Player;
+        var dropPosition = Vector3.zero;
+        if (player != null)
+            dropPosition = player.transform.position + player.transform.forward * 1.5f + Vector3.up * 0.5f;
+
         if (RemoveItem(_selectedSlot, 1))
         {
+            if (_worldBuilder != null)
+                _worldBuilder.SpawnPickup(itemType, dropPosition);
+
             _uiManager.ShowMessage($"Dropped {itemType}.", 1.5f);
             UpdateInventoryUI();
         }
@@ -460,6 +481,8 @@ public class ToolManager : MonoBehaviour
         _toolContainer = new GameObject("ToolContainer");
         _toolContainer.transform.SetParent(Camera.main != null ? Camera.main.transform : transform);
         _toolContainer.transform.localPosition = new Vector3(0.7f, -0.6f, 1.5f);
+        _toolContainer.transform.localRotation = Quaternion.identity;
+        _toolContainer.transform.localScale = Vector3.one;
     }
 
     private void CreateRayVisualizer()
@@ -493,6 +516,29 @@ public class ToolManager : MonoBehaviour
     {
         if (_rayRenderer != null)
             _rayRenderer.enabled = false;
+    }
+
+    private Camera GetActiveCamera()
+    {
+        return Camera.main != null ? Camera.main : Camera.current ?? FindObjectOfType<Camera>();
+    }
+
+    private void EnsureToolContainerAttached()
+    {
+        if (_toolContainer == null)
+            return;
+
+        var cam = GetActiveCamera();
+        if (cam == null)
+            return;
+
+        if (_toolContainer.transform.parent != cam.transform)
+        {
+            _toolContainer.transform.SetParent(cam.transform);
+            _toolContainer.transform.localPosition = new Vector3(0.7f, -0.6f, 1.5f);
+            _toolContainer.transform.localRotation = Quaternion.identity;
+            _toolContainer.transform.localScale = Vector3.one;
+        }
     }
 
     private void CreateToolModels()

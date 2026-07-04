@@ -19,7 +19,17 @@ public class GameBootstrap : MonoBehaviour
         var uiManager = root.AddComponent<UIManager>();
         var worldBuilder = root.AddComponent<WorldBuilder>();
         var toolManager = root.AddComponent<ToolManager>();
-        var playerController = root.AddComponent<PlayerController>();
+        var existingPlayer = Object.FindObjectOfType<PlayerController>();
+        PlayerController playerController;
+        if (existingPlayer != null)
+        {
+            playerController = existingPlayer;
+            Object.DontDestroyOnLoad(playerController.gameObject);
+        }
+        else
+        {
+            playerController = root.AddComponent<PlayerController>();
+        }
         var mainMenuController = root.AddComponent<MainMenuController>();
         var saveManager = root.AddComponent<SaveManager>();
         var soundManager = root.AddComponent<SoundManager>();

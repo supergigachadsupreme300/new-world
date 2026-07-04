@@ -231,7 +231,12 @@ public class WorldBuilder : MonoBehaviour
         }
     }
 
-    private void CreateToolPickup(string toolType, Vector3 position)
+    public GameObject SpawnPickup(string toolType, Vector3 position)
+    {
+        return CreateToolPickup(toolType, position);
+    }
+
+    private GameObject CreateToolPickup(string toolType, Vector3 position)
     {
         // Create a pickup root and composite visual children to match Python models
         var pickup = new GameObject("Pickup_" + toolType);
@@ -268,6 +273,7 @@ public class WorldBuilder : MonoBehaviour
         var rootCollider = pickup.AddComponent<BoxCollider>();
         rootCollider.isTrigger = true;
         rootCollider.size = new Vector3(0.6f, 0.6f, 0.6f);
+        return pickup;
     }
 
     private void CreatePickupCube(Transform parent, Vector3 localPosition, Vector3 localScale, Color color)

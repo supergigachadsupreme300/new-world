@@ -39,25 +39,12 @@ public class PlayerController : MonoBehaviour
                 Destroy(listener);
         }
 
-        // Ensure camera pivot exists and the main camera is parented so mouse look works
+        // Ensure the player camera exists and will follow this player.
         if (Camera.main == null)
         {
             CreateCamera();
         }
-        else
-        {
-            if (_cameraPivot == null)
-            {
-                _cameraPivot = new GameObject("CameraPivot").transform;
-                _cameraPivot.SetParent(transform);
-                _cameraPivot.localPosition = new Vector3(0f, 1.5f, 0f);
-                _cameraPivot.localRotation = Quaternion.identity;
-            }
-            var cam = Camera.main.transform;
-            cam.SetParent(_cameraPivot);
-            cam.localPosition = Vector3.zero;
-            cam.localRotation = Quaternion.identity;
-        }
+        SetupPlayerCamera();
 
         // Ensure exactly one audio listener on the camera
         var cameraObj = Camera.main.gameObject;
@@ -276,13 +263,27 @@ public class PlayerController : MonoBehaviour
         var cameraComponent = cameraObject.AddComponent<Camera>();
         cameraComponent.fieldOfView = 60f;
         cameraComponent.clearFlags = CameraClearFlags.Skybox;
+        cameraObject.transform.position = transform.position + new Vector3(0f, 1.5f, -4f);
+        cameraObject.transform.rotation = Quaternion.LookRotation(transform.position + Vector3.up * 1.5f - cameraObject.transform.position);
+    }
 
-        _cameraPivot = new GameObject("CameraPivot").transform;
-        _cameraPivot.SetParent(transform);
-        _cameraPivot.localPosition = new Vector3(0f, 1.5f, 0f);
-        cameraObject.transform.SetParent(_cameraPivot);
-        cameraObject.transform.localPosition = new Vector3(0f, 0f, 0f);
-        cameraObject.transform.localRotation = Quaternion.identity;
+    private void SetupPlayerCamera()
+    {
+        var cam = Camera.main;
+        if (cam == null)
+            return;
+
+        cam.tag = "MainCamera";
+        if (cam.transform.parent != null)
+            cam.transform.SetParent(null);
+
+        var follow = cam.GetComponent<CameraFollow>();
+        if (follow == null)
+            follow = cam.gameObject.AddComponent<CameraFollow>();
+
+        follow.Target = transform;
+        follow.Offset = new Vector3(0f, 1.5f, -4f);
+        follow.SmoothSpeed = 10f;
     }
 
     private void LoadPlayerModel()
