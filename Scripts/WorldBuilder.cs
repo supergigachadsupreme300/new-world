@@ -457,7 +457,7 @@ public class WorldBuilder : MonoBehaviour
 
     private void CreateSkyAndLight()
     {
-        var sky = GameObject.FindObjectOfType<Light>();
+        var sky = Object.FindAnyObjectByType<Light>();
         if (sky == null)
         {
             var sunObject = new GameObject("SunLight");

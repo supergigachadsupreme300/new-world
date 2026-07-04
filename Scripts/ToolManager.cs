@@ -97,7 +97,8 @@ public class ToolManager : MonoBehaviour
         if (cam == null)
             return;
 
-        var useRay = new Ray(cam.transform.position, cam.transform.forward);
+        var origin = cam.transform.position + cam.transform.forward * 0.3f;
+        var useRay = new Ray(origin, cam.transform.forward);
         ShowRayLine(useRay.origin, useRay.origin + useRay.direction * UseRayDistance);
         if (Physics.Raycast(useRay, out var hit, UseRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
         {
@@ -198,7 +199,6 @@ public class ToolManager : MonoBehaviour
                 return;
             }
 
-            var cam = GetActiveCamera();
             if (selectedItem == "scythe" && cam != null && Physics.Raycast(cam.transform.position, cam.transform.forward, out hit, 5f))
             {
                 var field = _worldBuilder.GetFieldAt(hit.point);
@@ -223,7 +223,8 @@ public class ToolManager : MonoBehaviour
         if (cam == null)
             return;
 
-        var ray = new Ray(cam.transform.position, cam.transform.forward);
+        var origin = cam.transform.position + cam.transform.forward * 0.3f;
+        var ray = new Ray(origin, cam.transform.forward);
         ShowRayLine(ray.origin, ray.origin + ray.direction * PickupRayDistance);
         if (Physics.Raycast(ray, out var hit, PickupRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
         {
@@ -352,7 +353,8 @@ public class ToolManager : MonoBehaviour
         SoundManager.Instance?.Play("gun");
         _uiManager.ShowMessage("Bang!", 1f);
 
-        if (Physics.Raycast(origin, direction, out var hit, 20f))
+        var shotOrigin = origin + direction * 0.3f;
+        if (Physics.Raycast(shotOrigin, direction, out var hit, 20f))
         {
             if (IsTree(hit.collider))
             {
@@ -375,6 +377,7 @@ public class ToolManager : MonoBehaviour
 
     public void AddItem(string itemType, int amount)
     {
+        itemType = NormalizeItemType(itemType);
         if (string.IsNullOrEmpty(itemType) || amount <= 0)
             return;
 
@@ -441,7 +444,7 @@ public class ToolManager : MonoBehaviour
         foreach (var slot in data)
         {
             if (slot.Slot >= 0 && slot.Slot < _inventory.Length)
-                _inventory[slot.Slot] = new InventorySlot {Type = slot.Type, Count = slot.Count};
+                _inventory[slot.Slot] = new InventorySlot {Type = NormalizeItemType(slot.Type), Count = slot.Count};
         }
 
         UpdateInventoryUI();
@@ -458,12 +461,27 @@ public class ToolManager : MonoBehaviour
 
     private int FindSlotFor(string itemType)
     {
+        itemType = NormalizeItemType(itemType);
         for (int i = 0; i < _inventory.Length; i++)
         {
             if (_inventory[i] != null && _inventory[i].Type == itemType)
                 return i;
         }
         return -1;
+    }
+
+    private string NormalizeItemType(string itemType)
+    {
+        if (string.IsNullOrEmpty(itemType))
+            return itemType;
+
+        var normalized = itemType.Trim().ToLowerInvariant().Replace(" ", "_");
+
+        // Map variant names from Python source / user data to canonical internal keys
+        if (normalized == "mì_hảo_hảo" || normalized == "mi_hao_hao" || normalized == "mi_hao_hao")
+            return "mi_hao_hao";
+
+        return normalized;
     }
 
     private int FindEmptySlot()
@@ -520,7 +538,7 @@ public class ToolManager : MonoBehaviour
 
     private Camera GetActiveCamera()
     {
-        return Camera.main != null ? Camera.main : Camera.current ?? FindObjectOfType<Camera>();
+        return Camera.main != null ? Camera.main : Camera.current ?? Object.FindAnyObjectByType<Camera>();
     }
 
     private void EnsureToolContainerAttached()
@@ -556,6 +574,7 @@ public class ToolManager : MonoBehaviour
         CreateToolModel("scythe", new Color(0.4f, 0.4f, 0.4f));
         
         // Items & seeds
+        CreateToolModel("ammo", new Color(0.85f, 0.85f, 0.85f));
         CreateToolModel("fertilizer", new Color(0.2f, 0.7f, 0.2f));
         CreateToolModel("seed", new Color(0.7f, 0.5f, 0.2f));
         CreateToolModel("peashooter_seed", new Color(1f, 0.86f, 0.31f));
@@ -563,12 +582,16 @@ public class ToolManager : MonoBehaviour
         CreateToolModel("potato_seed", new Color(0.7f, 0.5f, 0.2f));
         
         // Crops & resources
+        CreateToolModel("wood", new Color(0.6f, 0.4f, 0.2f));
+        CreateToolModel("stone", new Color(0.5f, 0.5f, 0.5f));
         CreateToolModel("wheat", new Color(1f, 1f, 0.5f));
         CreateToolModel("damaged_wheat", new Color(0.6f, 0.4f, 0.2f));
         CreateToolModel("corn", new Color(1f, 0.85f, 0.2f));
-        CreateToolModel("potato", new Color(0.7f, 0.5f, 0.2f));
         CreateToolModel("damaged_corn", new Color(0.6f, 0.4f, 0.2f));
+        CreateToolModel("potato", new Color(0.7f, 0.5f, 0.2f));
         CreateToolModel("damaged_potato", new Color(0.6f, 0.4f, 0.2f));
+        CreateToolModel("field", new Color(0.45f, 0.28f, 0.12f));
+        CreateToolModel("mobspawner", new Color(0.25f, 0.25f, 0.25f));
         
         // Special items
         CreateToolModel("mi_hao_hao", new Color(0.8f, 0.3f, 0.2f));
@@ -638,6 +661,27 @@ public class ToolManager : MonoBehaviour
                 CreateCubePart(root.transform, color, new Vector3(0.1f, 0.5f, 0f), new Vector3(0.05f, 0.35f, 0.05f), Quaternion.Euler(0f, 0f, 45f));
                 CreateCubePart(root.transform, color, new Vector3(0.2f, 0.7f, 0f), new Vector3(0.05f, 0.2f, 0.05f));
                 CreateCubePart(root.transform, color, new Vector3(0.1f, 0.9f, 0f), new Vector3(0.05f, 0.35f, 0.05f), Quaternion.Euler(0f, 0f, -45f));
+                break;
+            case "ammo":
+                CreateCubePart(root.transform, color * 0.95f, new Vector3(0f, 0.1f, 0f), new Vector3(0.4f, 0.2f, 0.15f));
+                CreateCubePart(root.transform, color * 0.8f, new Vector3(0f, 0.3f, 0f), new Vector3(0.35f, 0.1f, 0.1f));
+                break;
+            case "mobspawner":
+                CreateCubePart(root.transform, color, new Vector3(0f, 0.1f, 0f), new Vector3(0.4f, 0.4f, 0.4f));
+                var mobSphereHolder = new GameObject("MobSpawner_Sphere");
+                mobSphereHolder.transform.SetParent(root.transform);
+                mobSphereHolder.transform.localPosition = new Vector3(0f, 0.45f, 0f);
+                CreateSphere(mobSphereHolder.transform, Color.red, 0.22f);
+                CreateCubePart(root.transform, Color.black, new Vector3(0f, 0.05f, 0f), new Vector3(0.15f, 0.6f, 0.15f));
+                break;
+            case "wood":
+                CreateCubePart(root.transform, color, new Vector3(0f, 0.3f, 0f), new Vector3(0.6f, 0.2f, 0.2f));
+                break;
+            case "stone":
+                CreateCubePart(root.transform, color, new Vector3(0f, 0.3f, 0f), new Vector3(0.6f, 0.6f, 0.6f));
+                break;
+            case "field":
+                CreateCubePart(root.transform, color, new Vector3(0f, 0.1f, 0f), new Vector3(1f, 0.2f, 1f));
                 break;
             case "fertilizer":
                 CreateCubePart(root.transform, color, new Vector3(0f, 0.1f, 0f), new Vector3(0.3f, 0.3f, 0.3f));

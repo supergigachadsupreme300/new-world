@@ -79,19 +79,19 @@ public class GameManager : MonoBehaviour
 
     public void AutoResolveReferences()
     {
-        Player = FindObjectOfType<PlayerController>();
-        WorldBuilder = FindObjectOfType<WorldBuilder>();
-        UIManager = FindObjectOfType<UIManager>();
-        ToolManager = FindObjectOfType<ToolManager>();
-        CutsceneManager = FindObjectOfType<CutsceneManager>();
-        Pets = new List<PetController>(FindObjectsOfType<PetController>());
-        Enemies = new List<EnemyController>(FindObjectsOfType<EnemyController>());
+        Player = Object.FindAnyObjectByType<PlayerController>();
+        WorldBuilder = Object.FindAnyObjectByType<WorldBuilder>();
+        UIManager = Object.FindAnyObjectByType<UIManager>();
+        ToolManager = Object.FindAnyObjectByType<ToolManager>();
+        CutsceneManager = Object.FindAnyObjectByType<CutsceneManager>();
+        Pets = new List<PetController>(Object.FindObjectsByType<PetController>(FindObjectsSortMode.None));
+        Enemies = new List<EnemyController>(Object.FindObjectsByType<EnemyController>(FindObjectsSortMode.None));
 
         if (UIManager == null)
             UIManager = gameObject.AddComponent<UIManager>();
         if (ToolManager == null)
             ToolManager = gameObject.AddComponent<ToolManager>();
-        if (FindObjectOfType<MainMenuController>() == null)
+        if (Object.FindAnyObjectByType<MainMenuController>() == null)
             gameObject.AddComponent<MainMenuController>();
 
         if (MainMenuController.Instance != null)

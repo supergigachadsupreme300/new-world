@@ -3,7 +3,7 @@ using UnityEngine.EventSystems;
 
 public class GameBootstrap : MonoBehaviour
 {
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void InitializeGameRoot()
     {
         if (GameManager.Instance != null)
@@ -19,7 +19,7 @@ public class GameBootstrap : MonoBehaviour
         var uiManager = root.AddComponent<UIManager>();
         var worldBuilder = root.AddComponent<WorldBuilder>();
         var toolManager = root.AddComponent<ToolManager>();
-        var existingPlayer = Object.FindObjectOfType<PlayerController>();
+        var existingPlayer = Object.FindAnyObjectByType<PlayerController>();
         PlayerController playerController;
         if (existingPlayer != null)
         {

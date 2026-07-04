@@ -32,7 +32,7 @@ public class PlayerController : MonoBehaviour
         EnsurePlayerPhysics();
 
         // Remove any existing audio listeners to prevent duplicates
-        var existingListeners = FindObjectsOfType<AudioListener>();
+        var existingListeners = Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None);
         foreach (var listener in existingListeners)
         {
             if (listener.gameObject != gameObject)
@@ -269,6 +269,14 @@ public class PlayerController : MonoBehaviour
 
     private void SetupPlayerCamera()
     {
+        if (_cameraPivot == null)
+        {
+            _cameraPivot = new GameObject("CameraPivot").transform;
+            _cameraPivot.SetParent(transform);
+            _cameraPivot.localPosition = new Vector3(0f, 1.5f, 0f);
+            _cameraPivot.localRotation = Quaternion.identity;
+        }
+
         var cam = Camera.main;
         if (cam == null)
             return;
@@ -281,9 +289,12 @@ public class PlayerController : MonoBehaviour
         if (follow == null)
             follow = cam.gameObject.AddComponent<CameraFollow>();
 
-        follow.Target = transform;
-        follow.Offset = new Vector3(0f, 1.5f, -4f);
-        follow.SmoothSpeed = 10f;
+        cam.transform.position = _cameraPivot.position;
+        cam.transform.rotation = _cameraPivot.rotation;
+
+        follow.Target = _cameraPivot;
+        follow.Offset = Vector3.zero;
+        follow.SmoothSpeed = 20f;
     }
 
     private void LoadPlayerModel()

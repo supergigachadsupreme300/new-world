@@ -37,7 +37,7 @@ public class UIManager : MonoBehaviour
     public void InitializeUI()
     {
         EnsureEventSystem();
-        _canvas = FindObjectOfType<Canvas>();
+        _canvas = Object.FindAnyObjectByType<Canvas>();
         if (_canvas == null || _canvas.gameObject.name != "HUD_Canvas")
             _canvas = CreateCanvas();
 
@@ -240,7 +240,7 @@ public class UIManager : MonoBehaviour
 
     private void EnsureEventSystem()
     {
-        var eventSystem = FindObjectOfType<EventSystem>();
+        var eventSystem = Object.FindAnyObjectByType<EventSystem>();
         if (eventSystem == null)
         {
             eventSystem = new GameObject("EventSystem").AddComponent<EventSystem>();
@@ -306,7 +306,7 @@ public class UIManager : MonoBehaviour
         textComponent.fontSize = fontSize;
         textComponent.color = Color.white;
         textComponent.alignment = alignment;
-        textComponent.enableWordWrapping = enableWrapping;
+        textComponent.textWrappingMode = enableWrapping ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
         textComponent.overflowMode = enableWrapping ? TextOverflowModes.Truncate : TextOverflowModes.Overflow;
 
         return textComponent;

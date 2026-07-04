@@ -13,7 +13,7 @@ public class PetController : MonoBehaviour
 
     private void Awake()
     {
-        _player = FindObjectOfType<PlayerController>()?.transform;
+        _player = Object.FindAnyObjectByType<PlayerController>()?.transform;
     }
 
     private void Update()
@@ -38,7 +38,7 @@ public class PetController : MonoBehaviour
 
     private void AttackNearby()
     {
-        var enemies = FindObjectsOfType<EnemyController>();
+        var enemies = Object.FindObjectsByType<EnemyController>(FindObjectsSortMode.None);
         foreach (var enemy in enemies)
         {
             if (enemy == null)

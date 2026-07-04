@@ -23,7 +23,7 @@ public class EnemyController : MonoBehaviour
         _health = MaxHealth;
         _origin = transform.position;
         _patrolTarget = GetRandomPatrolPoint();
-        _player = FindObjectOfType<PlayerController>()?.transform;
+        _player = Object.FindAnyObjectByType<PlayerController>()?.transform;
     }
 
     private void Update()
