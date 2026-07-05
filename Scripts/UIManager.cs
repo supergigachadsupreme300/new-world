@@ -222,15 +222,16 @@ public class UIManager : MonoBehaviour
 
         _instructionsPanel = CreateMenuPanel("InstructionsPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
         EnsureText("InstructionsTitle", new Vector2(0f, panelHeight * 0.35f), "HƯƠNG DẪN", (int)largefontSize, _instructionsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
-        EnsureText("InstructionsContent", new Vector2(0f, panelHeight * 0.05f), "WASD: Move\nSpace: Jump\nE: Interact\nQ: Drop item\nR: Reload\nLeft click: Use tool\nB/N: Change building type", (int)fontSize, _instructionsPanel.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.4f));
+        EnsureText("InstructionsContent", new Vector2(0f, panelHeight * 0.05f), "WASD: Move\nSpace: Jump\nE: Interact\nQ: Drop item\nR: Reload\nLeft click: Use tool\nB/N: Change building type\nF5: Intro cutscene\nF6: Happy ending\nF7: Sad ending", (int)fontSize, _instructionsPanel.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.4f));
         CreateButton("InstructionsBackButton", _instructionsPanel.transform, "Back", new Vector2(0f, -panelHeight * 0.35f), () => ShowInstructions(false));
         _instructionsPanel.SetActive(false);
 
         _mainMenuPanel = CreateMenuPanel("MainMenuPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
         EnsureText("TitleText", new Vector2(0f, panelHeight * 0.3f), "NÔNG TRẠI SINH TỒN", (int)(largefontSize * 1.1f), _mainMenuPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight * 1.5f));
-        CreateButton("NewGameButton", _mainMenuPanel.transform, "Game Mới", new Vector2(0f, buttonHeight * 0.5f), () => MainMenuController.Instance?.OnNewGameClicked());
-        CreateButton("LoadGameButton", _mainMenuPanel.transform, "Tiếp tục (Load)", new Vector2(0f, 0f), () => MainMenuController.Instance?.OnLoadGameClicked());
-        CreateButton("QuitButton", _mainMenuPanel.transform, "Thoát", new Vector2(0f, -60f), () => MainMenuController.Instance?.OnQuitClicked());
+        CreateButton("NewGameButton", _mainMenuPanel.transform, "Game Mới", new Vector2(0f, buttonHeight * 1.2f), () => MainMenuController.Instance?.OnNewGameClicked());
+        CreateButton("LoadGameButton", _mainMenuPanel.transform, "Tiếp tục (Load)", new Vector2(0f, buttonHeight * 0.4f), () => MainMenuController.Instance?.OnLoadGameClicked());
+        CreateButton("WatchIntroButton", _mainMenuPanel.transform, "Xem mở đầu", new Vector2(0f, -buttonHeight * 0.4f), () => MainMenuController.Instance?.OnWatchIntroClicked());
+        CreateButton("QuitButton", _mainMenuPanel.transform, "Thoát", new Vector2(0f, -buttonHeight * 1.2f), () => MainMenuController.Instance?.OnQuitClicked());
         _mainMenuPanel.SetActive(false);
 
         ShowAllGameUI(true);
@@ -348,8 +349,8 @@ public class UIManager : MonoBehaviour
     private Button CreateButton(string name, Transform parent, string label, Vector2 position, UnityEngine.Events.UnityAction callback)
     {
         float screenHeight = Screen.height;
-        float buttonWidth = Mathf.Max(180f, screenHeight * 0.35f);
-        float buttonHeight = screenHeight * 0.07f;
+        float buttonWidth = Mathf.Max(160f, screenHeight * 0.25f);
+        float buttonHeight = screenHeight * 0.05f;
 
         var buttonObject = GameObject.Find(name);
         if (buttonObject == null)
@@ -377,7 +378,7 @@ public class UIManager : MonoBehaviour
             if (defaultTmpFont != null)
                 text.font = defaultTmpFont;
             text.text = label;
-            text.fontSize = Mathf.Max(14, (int)(screenHeight * 0.028f));
+            text.fontSize = Mathf.Max(12, (int)(screenHeight * 0.022f));
             text.color = Color.white;
             text.alignment = TextAlignmentOptions.Center;
 

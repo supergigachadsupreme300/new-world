@@ -79,10 +79,7 @@ public class SaveManager : MonoBehaviour
         }
 
         if (_worldBuilder != null)
-        {
-            _worldBuilder.ResetWorld();
-            _worldBuilder.CreateWorld();
-        }
+            _worldBuilder.ClearPersistentData();
 
         if (_gameManager != null)
         {

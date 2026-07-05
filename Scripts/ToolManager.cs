@@ -64,6 +64,20 @@ public class ToolManager : MonoBehaviour
 
         EnsureToolContainerAttached();
 
+        if (GetSelectedItemType() == "hammer" && _worldBuilder != null)
+        {
+            var cam = GetActiveCamera();
+            if (cam != null)
+            {
+                var origin = cam.transform.position + cam.transform.forward * 0.3f;
+                var ray = new Ray(origin, cam.transform.forward);
+                if (Physics.Raycast(ray, out var hit, UseRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
+                    _worldBuilder.UpdatePreviewPosition(hit.point, true);
+                else
+                    _worldBuilder.UpdatePreviewPosition(Vector3.zero, false);
+            }
+        }
+
         if (Keyboard.current.leftBracketKey.wasPressedThisFrame)
             SelectSlot(_selectedSlot - 1);
         if (Keyboard.current.rightBracketKey.wasPressedThisFrame)
@@ -115,13 +129,26 @@ public class ToolManager : MonoBehaviour
         ShowRayLine(useRay.origin, useRay.origin + useRay.direction * UseRayDistance);
         if (Physics.Raycast(useRay, out var hit, UseRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
         {
-            if (selectedItem == "axe" && IsTree(hit.collider))
+            if (selectedItem == "axe")
             {
-                if (_worldBuilder.RemoveTree(hit.collider.gameObject))
+                var treeRoot = FindTreeRoot(hit.collider);
+                if (treeRoot != null)
                 {
-                    AddItem("wood", 1);
-                    SoundManager.Instance?.Play("axe");
-                    _uiManager.ShowMessage("Chopped wood!", 1.5f);
+                    if (treeRoot.transform.Find("Trunk") == null)
+                    {
+                        if (_worldBuilder.RemoveTree(treeRoot))
+                        {
+                            AddItem("wood", 1);
+                            SoundManager.Instance?.Play("axe");
+                            _uiManager.ShowMessage("Chopped wood!", 1.5f);
+                        }
+                    }
+                    else if (_worldBuilder.ChopTree(treeRoot, hit.point, hit.normal))
+                    {
+                        AddItem("wood", 1);
+                        SoundManager.Instance?.Play("axe");
+                        _uiManager.ShowMessage("Chopped wood!", 1.5f);
+                    }
                 }
                 return;
             }
@@ -272,7 +299,8 @@ public class ToolManager : MonoBehaviour
 
             if (IsTree(hit.collider))
             {
-                if (_worldBuilder.RemoveTree(hit.collider.gameObject))
+                var treeRoot = FindTreeRoot(hit.collider);
+                if (treeRoot != null && _worldBuilder.RemoveTree(treeRoot))
                 {
                     AddItem("wood", 1);
                     SoundManager.Instance?.Play("axe");
@@ -295,7 +323,27 @@ public class ToolManager : MonoBehaviour
     {
         if (collider == null)
             return false;
-        return collider.gameObject.name.StartsWith("Tree");
+        var t = collider.transform;
+        while (t != null)
+        {
+            if (t.name.StartsWith("Tree"))
+                return true;
+            t = t.parent;
+        }
+        return false;
+    }
+
+    private GameObject FindTreeRoot(Collider collider)
+    {
+        if (collider == null) return null;
+        var t = collider.transform;
+        while (t != null)
+        {
+            if (t.name.StartsWith("Tree"))
+                return t.gameObject;
+            t = t.parent;
+        }
+        return null;
     }
 
     private bool TryPickupTool(Collider collider)
@@ -396,7 +444,8 @@ public class ToolManager : MonoBehaviour
         {
             if (IsTree(hit.collider))
             {
-                if (_worldBuilder.RemoveTree(hit.collider.gameObject))
+                var treeRoot = FindTreeRoot(hit.collider);
+                if (treeRoot != null && _worldBuilder.RemoveTree(treeRoot))
                 {
                     AddItem("wood", 1);
                     _uiManager.ShowMessage("Shot down a tree.", 1.5f);
@@ -697,20 +746,7 @@ public class ToolManager : MonoBehaviour
                         ApplyTextureToAllChildren(peashooterPart, PeashooterSeedTexture);
                     break;
                 case "wheat":
-                    if (WheatModel != null)
-                    {
-                        var wheatInstance = Instantiate(WheatModel, root.transform);
-                        wheatInstance.name = "Wheat_Model";
-                        wheatInstance.transform.localPosition = Vector3.zero;
-                        wheatInstance.transform.localRotation = Quaternion.identity;
-                        wheatInstance.transform.localScale = Vector3.one;
-                        if (WheatTexture != null)
-                            ApplyTextureToAllChildren(wheatInstance, WheatTexture);
-                    }
-                    else
-                    {
-                        ItemBuilder.BuildWheatPickup(root.transform, new Color(1f, 1f, 0.5f));
-                    }
+                    ItemBuilder.BuildWheatPickup(root.transform, new Color(1f, 1f, 0.5f));
                     break;
                 case "mi_hao_hao":
                     if (MiHaoHaoModel != null)

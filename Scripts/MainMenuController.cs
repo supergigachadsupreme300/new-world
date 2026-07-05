@@ -36,4 +36,15 @@ public class MainMenuController : MonoBehaviour
     {
         Application.Quit();
     }
+
+    public void OnWatchIntroClicked()
+    {
+        if (_gameManager == null) return;
+        _gameManager.ShowMainMenu(false);
+
+        if (CutsceneManager.Instance != null)
+            CutsceneManager.Instance.PlayIntroCutscene(() => _gameManager.ShowMainMenu(true));
+        else
+            _gameManager.ShowMainMenu(true);
+    }
 }

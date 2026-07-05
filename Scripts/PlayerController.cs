@@ -119,6 +119,15 @@ public class PlayerController : MonoBehaviour
             GameManager.Instance.UIManager?.SetCrosshairVisible(enabled);
     }
 
+    public void SetLookRotation(float yaw, float pitch)
+    {
+        _yaw = yaw;
+        _pitch = pitch;
+        transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
+        if (_cameraPivot != null)
+            _cameraPivot.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
+    }
+
     public void TakeDamage(int amount)
     {
         HP -= amount;
@@ -195,7 +204,13 @@ public class PlayerController : MonoBehaviour
             return;
 
         if (Keyboard.current.eKey.wasPressedThisFrame)
-            ToolManager.Instance?.TryPickupNearby();
+        {
+            var wb = WorldBuilder.Instance;
+            if (wb != null && wb.IsNearVendorSpawnButton(transform.position))
+                wb.SpawnVendorCart();
+            else
+                ToolManager.Instance?.TryPickupNearby();
+        }
         if (Keyboard.current.qKey.wasPressedThisFrame)
             ToolManager.Instance?.DropSelectedItem();
         if (Keyboard.current.rKey.wasPressedThisFrame)

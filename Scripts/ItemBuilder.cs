@@ -163,7 +163,7 @@ public static class ItemBuilder
         for (int i = 0; i < count; i++)
         {
             float width = 0.05f;
-            float height = Random.Range(0.2f, 0.4f);
+            float height = Random.Range(0.5f, 0.7f);
             float x = Random.Range(-0.05f, 0.05f);
             float z = Random.Range(-0.05f, 0.05f);
             CreatePickupCube(parent, new Vector3(x, height / 2f, z), new Vector3(width, height, width), color);

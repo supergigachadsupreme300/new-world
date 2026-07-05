@@ -19,7 +19,7 @@ public class GameManager : MonoBehaviour
     public CutsceneManager CutsceneManager;
     public List<PetController> Pets = new List<PetController>();
     public List<EnemyController> Enemies = new List<EnemyController>();
-    public bool AutoStartGame = true;
+    public bool AutoStartGame = false;
 
     private void Awake()
     {
@@ -29,6 +29,7 @@ public class GameManager : MonoBehaviour
             return;
         }
         Instance = this;
+        AutoStartGame = false;
     }
 
     private void Start()
@@ -59,6 +60,31 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
+        // Handle Escape for Buffalo Shop even when paused
+        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+        {
+            if (CutsceneManager != null && CutsceneManager.JustCancelledCutscene)
+                return;
+
+            var shop = Object.FindAnyObjectByType<BuffaloShopManager>();
+            if (shop != null && shop.IsOpen())
+            {
+                shop.Close();
+                return;
+            }
+        }
+
+        // Cutscene test shortcuts (work even when paused)
+        if (CutsceneManager != null && Keyboard.current != null)
+        {
+            if (Keyboard.current.f5Key.wasPressedThisFrame)
+                CutsceneManager.PlayIntroCutscene(null);
+            else if (Keyboard.current.f6Key.wasPressedThisFrame)
+                CutsceneManager.RequestHappyEnding();
+            else if (Keyboard.current.f7Key.wasPressedThisFrame)
+                CutsceneManager.PlaySadEnding();
+        }
+
         if (!InGame || GamePaused)
             return;
 
@@ -76,12 +102,8 @@ public class GameManager : MonoBehaviour
 
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
         {
-            var shop = Object.FindAnyObjectByType<BuffaloShopManager>();
-            if (shop != null && shop.IsOpen())
-            {
-                shop.Close();
+            if (CutsceneManager != null && CutsceneManager.JustCancelledCutscene)
                 return;
-            }
             TogglePause(true);
         }
     }
@@ -170,7 +192,10 @@ public class GameManager : MonoBehaviour
             ToolManager.ResetSelection();
 
         if (CutsceneManager != null)
+        {
             CutsceneManager.CancelCutscene();
+            CutsceneManager.PlayIntroCutscene(null);
+        }
 
         UpdateTimeUI();
     }
@@ -222,8 +247,6 @@ public class GameManager : MonoBehaviour
     public void RequestHappyEnding()
     {
         if (CutsceneManager != null)
-            CutsceneManager.PlaySadEnding();
-        else if (UIManager != null)
-            UIManager.ShowEndScreen("KẾT THÚC ĐAU BUỒN", "\"Skibidi.\ndop dop.\"");
+            CutsceneManager.RequestHappyEnding();
     }
 }
