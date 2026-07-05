@@ -39,9 +39,7 @@ public static class MapBuilder
         float trunkW = Random.Range(0.4f, 0.9f);
         int maxBranches = Random.Range(10, 28);
 
-        AddTrunk(root.transform, trunkH, trunkW, wood);
-
-        Vector3 tip = root.transform.up * trunkH;
+        Vector3 tip = AddTrunk(root.transform, trunkH, trunkW, wood);
         int count = 0;
         int numInitial = Random.Range(3, 6);
         for (int i = 0; i < numInitial; i++)
@@ -59,23 +57,25 @@ public static class MapBuilder
         return root;
     }
 
-    private static void AddTrunk(Transform root, float height, float width, Color color)
+    private static Vector3 AddTrunk(Transform root, float height, float width, Color color)
     {
         var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
         go.name = "Trunk";
         go.transform.SetParent(root);
         go.transform.localPosition = new Vector3(0, height * 0.5f, 0);
         go.transform.localScale = new Vector3(width, height, width);
-        go.transform.localRotation = Quaternion.Euler(Random.Range(0, 10), 0, Random.Range(0, 10));
+        Quaternion rot = Quaternion.Euler(Random.Range(0, 10), 0, Random.Range(0, 10));
+        go.transform.localRotation = rot;
         var r = go.GetComponent<Renderer>();
         if (r != null) r.material.color = color;
+        return go.transform.localPosition + rot * new Vector3(0, height * 0.5f, 0);
     }
 
     private static void GrowBranches(Transform root, Vector3 startPos, Vector3 dir, float length, float width, ref int count, int maxCount, int depth, Color wood, Color leaf)
     {
         if (count >= maxCount || depth > 5 || length < 0.3f || width < 0.06f)
         {
-            SpawnLeaves(root, startPos, leaf);
+            if (depth > 0) SpawnLeaves(root, startPos, leaf);
             return;
         }
 
@@ -122,7 +122,7 @@ public static class MapBuilder
         go.name = "Leaf";
         go.transform.SetParent(root);
         go.transform.localPosition = position;
-        float s = Random.Range(0.35f, 0.65f);
+        float s = Random.Range(0.8f, 1.4f);
         go.transform.localScale = new Vector3(s, s, s);
         var r = go.GetComponent<Renderer>();
         if (r != null) r.material.color = color;
