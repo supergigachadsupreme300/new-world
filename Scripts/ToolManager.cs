@@ -34,6 +34,7 @@ public class ToolManager : MonoBehaviour
     private LineRenderer _rayRenderer;
     private int _gunAmmo;
     private const int GunMaxAmmo = 6;
+    private GameObject _carriedObject;
     private const float PickupRayDistance = 4f;
     private const float UseRayDistance = 10f;
 
@@ -98,6 +99,9 @@ public class ToolManager : MonoBehaviour
 
     public void SelectSlot(int index)
     {
+        if (_carriedObject != null)
+            DropCarriedObject(GameManager.Instance?.Player);
+
         _selectedSlot = Mathf.Clamp(index, 0, _inventory.Length - 1);
         ShowActiveToolModel();
         UpdateInventoryUI();
@@ -111,18 +115,28 @@ public class ToolManager : MonoBehaviour
         if (player == null)
             return;
 
-        if (selectedItem == null)
+        var cam = GetActiveCamera();
+        if (cam == null)
             return;
+
+        if (selectedItem == null)
+        {
+            if (_carriedObject != null)
+            {
+                DropCarriedObject(player);
+            }
+            else
+            {
+                TryPickupFelledTree(cam, player);
+            }
+            return;
+        }
 
         if (selectedItem == "gun")
         {
             ShootGun(player.transform.position, player.transform.forward);
             return;
         }
-
-        var cam = GetActiveCamera();
-        if (cam == null)
-            return;
 
         var origin = cam.transform.position + cam.transform.forward * 0.3f;
         var useRay = new Ray(origin, cam.transform.forward);
@@ -405,6 +419,12 @@ public class ToolManager : MonoBehaviour
 
     public void DropSelectedItem()
     {
+        if (_carriedObject != null)
+        {
+            DropCarriedObject(GameManager.Instance?.Player);
+            return;
+        }
+
         var itemType = GetSelectedItemType();
         if (itemType == null)
             return;
@@ -422,6 +442,58 @@ public class ToolManager : MonoBehaviour
             _uiManager.ShowMessage($"Dropped {itemType}.", 1.5f);
             UpdateInventoryUI();
         }
+    }
+
+    private void TryPickupFelledTree(Camera cam, PlayerController player)
+    {
+        var origin = cam.transform.position + cam.transform.forward * 0.3f;
+        var useRay = new Ray(origin, cam.transform.forward);
+        ShowRayLine(useRay.origin, useRay.origin + useRay.direction * PickupRayDistance);
+        if (!Physics.Raycast(useRay, out var hit, PickupRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
+            return;
+
+        var root = hit.collider.gameObject;
+        while (root.transform.parent != null && root.transform.parent.name != "WorldRoot")
+            root = root.transform.parent.gameObject;
+
+        if (root.name != "TreeFelled" && root.name != "BranchTop")
+            return;
+
+        if (root.GetComponent<Rigidbody>() == null) return;
+
+        _carriedObject = root;
+        root.GetComponent<Rigidbody>().isKinematic = true;
+        var cols = root.GetComponentsInChildren<Collider>();
+        foreach (var c in cols)
+            c.enabled = false;
+        root.transform.SetParent(cam.transform);
+        root.transform.localPosition = new Vector3(0.7f, -0.4f, 1.8f);
+        root.transform.localRotation = Quaternion.identity;
+        _uiManager.ShowMessage("Lifted.", 1f);
+    }
+
+    private void DropCarriedObject(PlayerController player)
+    {
+        if (_carriedObject == null) return;
+
+        _carriedObject.transform.SetParent(null);
+        var rb = _carriedObject.GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.isKinematic = false;
+            rb.linearVelocity = Vector3.zero;
+        }
+        var cols = _carriedObject.GetComponentsInChildren<Collider>();
+        foreach (var c in cols)
+            c.enabled = true;
+
+        if (player != null)
+        {
+            var dropPos = player.transform.position + player.transform.forward * 1.5f + Vector3.up * 0.5f;
+            _carriedObject.transform.position = dropPos;
+        }
+        _carriedObject = null;
+        _uiManager.ShowMessage("Dropped.", 1f);
     }
 
     public void ReloadGun()
