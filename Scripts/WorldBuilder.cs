@@ -31,6 +31,7 @@ public class WorldBuilder : MonoBehaviour
     private readonly List<GameObject> _rocks = new List<GameObject>();
     private readonly List<FieldState> _fields = new List<FieldState>();
     private readonly List<BuildingState> _buildings = new List<BuildingState>();
+    private readonly List<BlueprintState> _blueprints = new List<BlueprintState>();
     private GameObject _worldRoot;
     public GameObject WorldRoot => _worldRoot;
     private GameObject _buildingPreview;
@@ -110,12 +111,12 @@ public class WorldBuilder : MonoBehaviour
 
     private readonly BuildingDefinition[] _availableBuildings = new[]
     {
-        new BuildingDefinition("wood_wall", new Vector3(6f, 3f, 0.5f), new Color(0.63f, 0.39f, 0.18f)),
-        new BuildingDefinition("stone_wall", new Vector3(5f, 3f, 0.5f), new Color(0.41f, 0.41f, 0.41f)),
-        new BuildingDefinition("fence", new Vector3(4f, 1.5f, 0.3f), new Color(0.69f, 0.51f, 0.25f)),
-        new BuildingDefinition("watchtower", new Vector3(3f, 8f, 3f), new Color(0.51f, 0.33f, 0.16f)),
-        new BuildingDefinition("small_house", new Vector3(8f, 5f, 8f), new Color(0.78f, 0.63f, 0.39f)),
-        new BuildingDefinition("wood_floor", new Vector3(4f, 0.3f, 4f), new Color(0.71f, 0.53f, 0.27f))
+        new BuildingDefinition("wood_wall", new Vector3(6f, 3f, 0.5f), new Color(0.63f, 0.39f, 0.18f), 4, 0),
+        new BuildingDefinition("stone_wall", new Vector3(5f, 3f, 0.5f), new Color(0.41f, 0.41f, 0.41f), 0, 4),
+        new BuildingDefinition("fence", new Vector3(4f, 1.5f, 0.3f), new Color(0.69f, 0.51f, 0.25f), 2, 0),
+        new BuildingDefinition("watchtower", new Vector3(3f, 8f, 3f), new Color(0.51f, 0.33f, 0.16f), 8, 4),
+        new BuildingDefinition("small_house", new Vector3(8f, 5f, 8f), new Color(0.78f, 0.63f, 0.39f), 10, 6),
+        new BuildingDefinition("wood_floor", new Vector3(4f, 0.3f, 4f), new Color(0.71f, 0.53f, 0.27f), 3, 0)
     };
 
     private int _currentBuildingIndex;
@@ -233,6 +234,12 @@ public class WorldBuilder : MonoBehaviour
             if (building.Entity != null) Destroy(building.Entity);
         }
         _buildings.Clear();
+
+        foreach (var bp in _blueprints)
+        {
+            if (bp.Entity != null) Destroy(bp.Entity);
+        }
+        _blueprints.Clear();
 
         if (_buildingPreview != null)
             Destroy(_buildingPreview);
@@ -756,13 +763,14 @@ public class WorldBuilder : MonoBehaviour
         if (branchObj == null) return;
 
         Transform branch = branchObj.transform;
+        Transform parent = branch.parent;
         Vector3 branchPos = branch.localPosition;
         Quaternion branchRot = branch.localRotation;
         float fullH = branch.localScale.y;
         float fullW = branch.localScale.x;
         Vector3 branchUp = branchRot * Vector3.up;
 
-        Vector3 chopLocal = branch.parent.InverseTransformPoint(state.CenterWorld);
+        Vector3 chopLocal = parent.InverseTransformPoint(state.CenterWorld);
         Vector3 bottomLocal = branchPos + branchRot * new Vector3(0, -fullH / 2f, 0);
         float cutHeight = Mathf.Max(0.1f, Vector3.Dot(chopLocal - bottomLocal, branchUp));
         float topH = fullH - cutHeight;
@@ -773,8 +781,8 @@ public class WorldBuilder : MonoBehaviour
         if (topH > 0.2f)
         {
             var topRoot = new GameObject("BranchTop");
-            topRoot.transform.position = branch.parent.TransformPoint(chopLocal + branchUp * (topH / 2f));
-            topRoot.transform.rotation = branch.parent.rotation;
+            topRoot.transform.position = parent.TransformPoint(chopLocal + branchUp * (topH / 2f));
+            topRoot.transform.rotation = parent.rotation;
             var rb = topRoot.AddComponent<Rigidbody>();
             rb.mass = 3f;
 
@@ -790,6 +798,16 @@ public class WorldBuilder : MonoBehaviour
                 var origR = branchObj.GetComponent<Renderer>();
                 r.material.color = origR != null ? origR.material.color : new Color(0.36f, 0.23f, 0.12f);
             }
+
+            var toMove = new List<Transform>();
+            foreach (Transform child in parent)
+            {
+                if (child.name != "Branch") continue;
+                if (Vector3.Dot(child.localPosition - chopLocal, branchUp) > 0)
+                    toMove.Add(child);
+            }
+            foreach (var child in toMove)
+                child.SetParent(topRoot.transform, true);
         }
 
         if (state.ChopMark != null)
@@ -971,26 +989,122 @@ public class WorldBuilder : MonoBehaviour
     {
         Vector3 origin = rockRoot.transform.position;
         var rock = rockRoot.transform.Find("Rock");
-        float avgSize = 0.3f;
+        float totalVolume = 0.027f;
         if (rock != null)
-            avgSize = (rock.localScale.x + rock.localScale.y + rock.localScale.z) / 3f;
+        {
+            Vector3 s = rock.localScale;
+            totalVolume = s.x * s.y * s.z;
+        }
 
         int count = Random.Range(4, 7);
+        float[] fractions = new float[count];
+        float sum = 0;
         for (int i = 0; i < count; i++)
         {
+            fractions[i] = Random.Range(0.5f, 1.5f);
+            sum += fractions[i];
+        }
+        float efficiency = 0.85f;
+        const float minVolume = 0.008f;
+
+        for (int i = 0; i < count; i++)
+        {
+            float volume = fractions[i] / sum * totalVolume * efficiency;
+            if (volume < minVolume) continue;
+
+            float s = Mathf.Pow(volume, 1f / 3f);
             var piece = GameObject.CreatePrimitive(PrimitiveType.Cube);
             piece.name = "RockDebris";
-            piece.transform.position = origin + Random.insideUnitSphere * avgSize * 0.3f;
-            float s = Random.Range(0.2f, 0.45f) * avgSize;
+            piece.transform.position = origin + Random.insideUnitSphere * s * 0.5f;
             piece.transform.localScale = Vector3.one * s;
             var r = piece.GetComponent<Renderer>();
             if (r != null) r.material.color = Color.Lerp(Color.gray, Color.black, Random.value * 0.5f);
             var rb = piece.AddComponent<Rigidbody>();
-            rb.mass = s * 10f;
+            rb.mass = volume * 1000f;
             Vector3 vel = new Vector3(Random.Range(-2f, 2f), Random.Range(4f, 8f), Random.Range(-2f, 2f));
             rb.linearVelocity = vel;
             rb.angularVelocity = Random.insideUnitSphere * 5f;
         }
+    }
+
+    public void SmashDebris(GameObject piece)
+    {
+        if (piece == null) return;
+        var s = piece.transform.localScale;
+        float volume = s.x * s.y * s.z;
+        const float minVolume = 0.008f;
+
+        int splitCount = Random.Range(2, 4);
+        float[] fractions = new float[splitCount];
+        float sum = 0;
+        for (int i = 0; i < splitCount; i++)
+        {
+            fractions[i] = Random.Range(0.3f, 0.7f);
+            sum += fractions[i];
+        }
+        float efficiency = 0.7f;
+
+        Vector3 pos = piece.transform.position;
+        Destroy(piece);
+
+        for (int i = 0; i < splitCount; i++)
+        {
+            float vol = fractions[i] / sum * volume * efficiency;
+            if (vol < minVolume) continue;
+
+            float side = Mathf.Pow(vol, 1f / 3f);
+            var p = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            p.name = "RockDebris";
+            p.transform.position = pos + Random.insideUnitSphere * side * 0.3f;
+            p.transform.localScale = Vector3.one * side;
+            var r = p.GetComponent<Renderer>();
+            if (r != null) r.material.color = Color.Lerp(Color.gray, Color.black, Random.value * 0.5f);
+            var rb = p.AddComponent<Rigidbody>();
+            rb.mass = vol * 1000f;
+            rb.linearVelocity = Random.insideUnitSphere * 3f + Vector3.up * 2f;
+            rb.angularVelocity = Random.insideUnitSphere * 5f;
+        }
+    }
+
+    public void SplitWoodDebris(GameObject debris)
+    {
+        if (debris == null) return;
+        string partName = debris.name == "TreeFelled" ? "Trunk" : "BranchTopPart";
+        var part = debris.transform.Find(partName);
+        if (part == null) return;
+
+        var s = part.localScale;
+        float halfH = s.y * 0.5f;
+        const float minH = 0.1f;
+
+        if (halfH < minH)
+        {
+            Destroy(debris);
+            return;
+        }
+
+        Vector3 worldPos = part.position;
+        Vector3 up = part.up;
+        var matColor = part.GetComponent<Renderer>()?.material.color ?? new Color(0.36f, 0.23f, 0.12f);
+
+        part.localScale = new Vector3(s.x, halfH, s.z);
+        part.position = worldPos - up * halfH * 0.5f;
+
+        var split = new GameObject(debris.name);
+        split.transform.position = worldPos + up * halfH * 0.5f;
+        split.transform.rotation = debris.transform.rotation;
+        var rb = split.AddComponent<Rigidbody>();
+        rb.mass = s.x * halfH * s.z * 500f;
+
+        var splitPart = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        splitPart.name = partName;
+        splitPart.transform.SetParent(split.transform);
+        splitPart.transform.localScale = new Vector3(s.x, halfH, s.z);
+        splitPart.transform.localPosition = Vector3.zero;
+        splitPart.transform.localRotation = part.localRotation;
+        var r = splitPart.GetComponent<Renderer>();
+        if (r != null)
+            r.material.color = matColor;
     }
 
     private void GetFaceGeometry(int face, float w, float h, float d,
@@ -1073,30 +1187,34 @@ public class WorldBuilder : MonoBehaviour
         UpdateBuildingPreview();
     }
 
-    public bool PlaceBuilding(Vector3 position)
+    public bool PlaceBlueprint(Vector3 position)
     {
         var definition = _availableBuildings[_currentBuildingIndex];
         var size = definition.Size;
         if (!CanPlaceBuilding(position, size, _currentRotation))
             return false;
 
-        var building = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        building.name = definition.Name;
-        building.transform.position = position + Vector3.up * (size.y * 0.5f);
-        building.transform.rotation = Quaternion.Euler(0f, _currentRotation, 0f);
-        building.transform.localScale = size;
-        building.GetComponent<MeshRenderer>().material.color = definition.Color;
-        building.AddComponent<BoxCollider>();
-        building.transform.SetParent(_worldRoot.transform);
+        var blueprint = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        blueprint.name = "Blueprint";
+        blueprint.transform.position = position + Vector3.up * (size.y * 0.5f);
+        blueprint.transform.rotation = Quaternion.Euler(0f, _currentRotation, 0f);
+        blueprint.transform.localScale = size;
+        var renderer = blueprint.GetComponent<MeshRenderer>();
+        var mat = new Material(Shader.Find("Transparent/Diffuse"));
+        mat.color = new Color(definition.Color.r, definition.Color.g, definition.Color.b, 0.3f);
+        renderer.material = mat;
+        var collider = blueprint.GetComponent<BoxCollider>();
+        collider.isTrigger = true;
+        blueprint.transform.SetParent(_worldRoot.transform);
 
-        _buildings.Add(new BuildingState
+        _blueprints.Add(new BlueprintState
         {
-            Entity = building,
+            Entity = blueprint,
             Type = definition.Name,
             Position = position,
             Rotation = _currentRotation,
-            CurrentHealth = 100,
-            MaxHealth = 100
+            WoodDeposited = 0,
+            StoneDeposited = 0
         });
         return true;
     }
@@ -1113,7 +1231,98 @@ public class WorldBuilder : MonoBehaviour
             if (bounds.Intersects(building.Entity.GetComponent<Collider>().bounds))
                 return false;
         }
+        foreach (var bp in _blueprints)
+        {
+            if (bp.Entity == null)
+                continue;
+            if (bounds.Intersects(bp.Entity.GetComponent<Collider>().bounds))
+                return false;
+        }
         return true;
+    }
+
+    public bool IsBlueprint(GameObject obj)
+    {
+        while (obj.transform.parent != null && obj.transform.parent.name != "WorldRoot")
+            obj = obj.transform.parent.gameObject;
+        return obj.name == "Blueprint";
+    }
+
+    public BlueprintState FindBlueprint(GameObject obj)
+    {
+        while (obj.transform.parent != null && obj.transform.parent.name != "WorldRoot")
+            obj = obj.transform.parent.gameObject;
+        foreach (var bp in _blueprints)
+        {
+            if (bp.Entity == obj)
+                return bp;
+        }
+        return null;
+    }
+
+    public bool DepositMaterial(BlueprintState bp, string materialType, float amount)
+    {
+        if (bp == null) return false;
+        var def = System.Array.Find(_availableBuildings, d => d.Name == bp.Type);
+        if (def == null) return false;
+
+        if (materialType == "wood")
+            bp.WoodDeposited += amount;
+        else if (materialType == "stone")
+            bp.StoneDeposited += amount;
+        else
+            return false;
+
+        if (bp.WoodDeposited >= def.WoodCost && bp.StoneDeposited >= def.StoneCost)
+        {
+            CompleteBlueprint(bp, def);
+            return true;
+        }
+        return false;
+    }
+
+    private GameObject CreateBuildingEntity(string typeName, Vector3 position, int rotation)
+    {
+        var def = System.Array.Find(_availableBuildings, d => d.Name == typeName);
+        if (def == null) return null;
+        var building = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        building.name = def.Name;
+        building.transform.position = position + Vector3.up * (def.Size.y * 0.5f);
+        building.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
+        building.transform.localScale = def.Size;
+        building.GetComponent<MeshRenderer>().material.color = def.Color;
+        building.AddComponent<BoxCollider>();
+        building.transform.SetParent(_worldRoot.transform);
+        return building;
+    }
+
+    public BuildingDefinition GetBuildingDefinition(string typeName)
+    {
+        return System.Array.Find(_availableBuildings, d => d.Name == typeName);
+    }
+
+    public bool SpawnBuildingDirect(string typeName, Vector3 position, int rotation)
+    {
+        var building = CreateBuildingEntity(typeName, position, rotation);
+        if (building == null) return false;
+        _buildings.Add(new BuildingState
+        {
+            Entity = building,
+            Type = typeName,
+            Position = position,
+            Rotation = rotation,
+            CurrentHealth = 100,
+            MaxHealth = 100
+        });
+        return true;
+    }
+
+    private void CompleteBlueprint(BlueprintState bp, BuildingDefinition def)
+    {
+        SpawnBuildingDirect(def.Name, bp.Position, bp.Rotation);
+        if (bp.Entity != null)
+            Destroy(bp.Entity);
+        _blueprints.Remove(bp);
     }
 
     private void CreateSkyAndLight()
@@ -1775,7 +1984,7 @@ GameObject treeRoot;
                 }
             }
             _currentRotation = build.rotation;
-            if (PlaceBuilding(build.position))
+            if (SpawnBuildingDirect(build.type, build.position, build.rotation))
             {
                 var last = _buildings[_buildings.Count - 1];
                 last.CurrentHealth = build.currentHealth;
@@ -1831,17 +2040,31 @@ GameObject treeRoot;
         public int MaxHealth;
     }
 
-    private class BuildingDefinition
+    public class BlueprintState
+    {
+        public GameObject Entity;
+        public string Type;
+        public Vector3 Position;
+        public int Rotation;
+        public float WoodDeposited;
+        public float StoneDeposited;
+    }
+
+    public class BuildingDefinition
     {
         public string Name;
         public Vector3 Size;
         public Color Color;
+        public int WoodCost;
+        public int StoneCost;
 
-        public BuildingDefinition(string name, Vector3 size, Color color)
+        public BuildingDefinition(string name, Vector3 size, Color color, int woodCost, int stoneCost)
         {
             Name = name;
             Size = size;
             Color = color;
+            WoodCost = woodCost;
+            StoneCost = stoneCost;
         }
     }
 }

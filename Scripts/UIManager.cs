@@ -26,6 +26,7 @@ public class UIManager : MonoBehaviour
     private TMP_Text _messageText;
     private TMP_Text _mobSpawnerText;
     private TMP_Text _crosshairText;
+    private TMP_Text _infoText;
 
     public TMP_FontAsset defaultTmpFont;
 
@@ -196,6 +197,21 @@ public class UIManager : MonoBehaviour
             new Vector2(0.5f, 0.5f)
         );
         _crosshairText.gameObject.SetActive(false);
+
+        _infoText = EnsureText(
+            "InfoText",
+            new Vector2(0f, -(lineHeight * 1.5f)),
+            "",
+            (int)fontSize,
+            null,
+            TextAlignmentOptions.Center,
+            true,
+            new Vector2(screenWidth * 0.6f, lineHeight * 1.5f),
+            new Vector2(0.5f, 0.5f),
+            new Vector2(0.5f, 0.5f),
+            new Vector2(0.5f, 0.5f)
+        );
+        _infoText.gameObject.SetActive(false);
 
         // Panels - responsive sizes
         _pauseMenuPanel = CreateMenuPanel("PauseMenu", Vector2.zero, new Vector2(panelWidth, panelHeight));
@@ -411,12 +427,23 @@ public class UIManager : MonoBehaviour
         _inventoryText?.gameObject.SetActive(show);
         _messageText?.gameObject.SetActive(show);
         _mobSpawnerText?.gameObject.SetActive(show);
+        _crosshairText?.gameObject.SetActive(show);
+        _infoText?.gameObject.SetActive(show);
     }
 
     public void SetCrosshairVisible(bool visible)
     {
         if (_crosshairText != null)
             _crosshairText.gameObject.SetActive(visible);
+    }
+
+    public void SetInfoText(string text)
+    {
+        if (_infoText != null)
+        {
+            _infoText.text = text ?? "";
+            _infoText.gameObject.SetActive(!string.IsNullOrEmpty(text));
+        }
     }
 
     public void ShowMainMenu(bool show)

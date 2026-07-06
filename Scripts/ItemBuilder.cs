@@ -29,8 +29,7 @@ public static class ItemBuilder
             case "scythe": BuildScythe(parent); break;
             case "ammo": BuildAmmo(parent); break;
             case "mobspawner": BuildMobSpawner(parent); break;
-            case "wood": BuildWood(parent); break;
-            case "stone": BuildStone(parent); break;
+
             case "field": BuildField(parent); break;
             case "fertilizer": BuildFertilizer(parent); break;
             case "wheat_seed": BuildSeed(parent, new Color(1f, 0.85f, 0.3f)); break;
@@ -112,16 +111,6 @@ public static class ItemBuilder
         CreatePickupCube(parent, new Vector3(0f, 0.2f, 0f), new Vector3(0.4f, 0.4f, 0.4f), new Color(0.25f, 0.25f, 0.25f));
         CreatePickupSphere(parent, new Vector3(0f, 0.65f, 0f), 0.11f, Color.red);
         CreatePickupCube(parent, new Vector3(0f, 0.05f, 0f), new Vector3(0.15f, 0.6f, 0.15f), Color.black);
-    }
-
-    public static void BuildWood(Transform parent)
-    {
-        CreatePickupCube(parent, new Vector3(0f, 0.3f, 0f), new Vector3(0.6f, 0.2f, 0.2f), new Color(0.6f, 0.4f, 0.2f));
-    }
-
-    public static void BuildStone(Transform parent)
-    {
-        CreatePickupCube(parent, new Vector3(0f, 0.5f, 0f), new Vector3(0.6f, 0.6f, 0.6f), Color.gray);
     }
 
     public static void BuildField(Transform parent)

@@ -83,6 +83,73 @@ public class ToolManager : MonoBehaviour
             SelectSlot(_selectedSlot - 1);
         if (Keyboard.current.rightBracketKey.wasPressedThisFrame)
             SelectSlot(_selectedSlot + 1);
+
+        TryAutoDeposit();
+
+        UpdateResourceInfo();
+    }
+
+    private void UpdateResourceInfo()
+    {
+        if (_worldBuilder == null || _uiManager == null) return;
+
+        if (_carriedObject != null)
+        {
+            var (material, amount) = GetCarriedResourceInfo(_carriedObject);
+            if (material != null)
+                _uiManager.SetInfoText("Carrying: " + amount.ToString("F2") + " " + material);
+            else
+                _uiManager.SetInfoText(null);
+            return;
+        }
+
+        if (GetSelectedItemType() != "empty")
+        {
+            _uiManager.SetInfoText(null);
+            return;
+        }
+
+        var cam = GetActiveCamera();
+        if (cam == null) return;
+
+        var origin = cam.transform.position + cam.transform.forward * 0.3f;
+        var ray = new Ray(origin, cam.transform.forward);
+        if (!Physics.Raycast(ray, out var hit, PickupRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
+        {
+            _uiManager.SetInfoText(null);
+            return;
+        }
+
+        var root = hit.collider.gameObject;
+        while (root.transform.parent != null && root.transform.parent.name != "WorldRoot")
+            root = root.transform.parent.gameObject;
+
+        if (root.name == "Blueprint")
+        {
+            var bp = _worldBuilder.FindBlueprint(root);
+            if (bp != null)
+            {
+                var def = _worldBuilder.GetBuildingDefinition(bp.Type);
+                if (def != null)
+                    _uiManager.SetInfoText(def.Name + ": " + bp.WoodDeposited.ToString("F1") + "/" + def.WoodCost + " wood, " + bp.StoneDeposited.ToString("F1") + "/" + def.StoneCost + " stone");
+                else
+                    _uiManager.SetInfoText(null);
+            }
+            else
+            {
+                _uiManager.SetInfoText(null);
+            }
+        }
+        else if (root.name == "TreeFelled" || root.name == "BranchTop" || root.name == "RockDebris")
+        {
+            var (material, amount) = GetCarriedResourceInfo(root);
+            string typeName = root.name == "TreeFelled" ? "Tree" : root.name == "BranchTop" ? "Branch" : "Debris";
+            _uiManager.SetInfoText(typeName + " provides " + amount.ToString("F2") + " " + material);
+        }
+        else
+        {
+            _uiManager.SetInfoText(null);
+        }
     }
 
     private void LateUpdate()
@@ -123,6 +190,36 @@ public class ToolManager : MonoBehaviour
         {
             if (_carriedObject != null)
             {
+                var depOrigin = cam.transform.position + cam.transform.forward * 0.3f;
+                var depRay = new Ray(depOrigin, cam.transform.forward);
+                if (Physics.Raycast(depRay, out var depHit, UseRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
+                {
+                    if (_worldBuilder.IsBlueprint(depHit.collider.gameObject))
+                    {
+                        var bp = _worldBuilder.FindBlueprint(depHit.collider.gameObject);
+                        var (material, amount) = GetCarriedResourceInfo(_carriedObject);
+                        if (material != null && bp != null)
+                        {
+                            if (amount < 0.05f)
+                            {
+                                _uiManager.ShowMessage("Too small to use.", 1f);
+                                return;
+                            }
+                            if (_worldBuilder.DepositMaterial(bp, material, amount))
+                            {
+                                _uiManager.ShowMessage("Building completed!", 1.5f);
+                                SoundManager.Instance?.Play("hammer");
+                            }
+                            else
+                            {
+                                _uiManager.ShowMessage("Supplied " + material + " x" + amount.ToString("F2") + ".", 1.5f);
+                            }
+                            Destroy(_carriedObject);
+                            _carriedObject = null;
+                            return;
+                        }
+                    }
+                }
                 DropCarriedObject(player);
             }
             else
@@ -178,6 +275,17 @@ public class ToolManager : MonoBehaviour
                         SoundManager.Instance?.Play("axe");
                     }
                 }
+                else
+                {
+                    var debrisRoot = hit.collider.gameObject;
+                    while (debrisRoot.transform.parent != null && debrisRoot.transform.parent.name != "WorldRoot")
+                        debrisRoot = debrisRoot.transform.parent.gameObject;
+                    if (debrisRoot.name == "BranchTop" || debrisRoot.name == "TreeFelled")
+                    {
+                        _worldBuilder.SplitWoodDebris(debrisRoot);
+                        SoundManager.Instance?.Play("axe");
+                    }
+                }
                 return;
             }
 
@@ -187,7 +295,12 @@ public class ToolManager : MonoBehaviour
                 while (rockRoot.transform.parent != null && rockRoot.transform.parent.name != "WorldRoot")
                     rockRoot = rockRoot.transform.parent.gameObject;
 
-                if (_worldBuilder.HitRock(rockRoot, hit.point, hit.normal))
+                if (rockRoot.name == "RockDebris")
+                {
+                    _worldBuilder.SmashDebris(rockRoot);
+                    SoundManager.Instance?.Play("pickaxe");
+                }
+                else if (_worldBuilder.HitRock(rockRoot, hit.point, hit.normal))
                 {
                     SoundManager.Instance?.Play("pickaxe");
                 }
@@ -214,14 +327,14 @@ public class ToolManager : MonoBehaviour
             if (selectedItem == "hammer")
             {
                 var placePos = hit.point;
-                if (_worldBuilder.PlaceBuilding(placePos))
+                if (_worldBuilder.PlaceBlueprint(placePos))
                 {
                     SoundManager.Instance?.Play("hammer");
-                    _uiManager.ShowMessage("Building placed.", 1.5f);
+                    _uiManager.ShowMessage("Blueprint placed. Supply wood & stone.", 1.5f);
                 }
                 else
                 {
-                    _uiManager.ShowMessage("Cannot place building here.", 1.5f);
+                    _uiManager.ShowMessage("Cannot place blueprint here.", 1.5f);
                 }
                 return;
             }
@@ -332,9 +445,7 @@ public class ToolManager : MonoBehaviour
                 var treeRoot = FindTreeRoot(hit.collider);
                 if (treeRoot != null && _worldBuilder.RemoveTree(treeRoot))
                 {
-                    AddItem("wood", 1);
                     SoundManager.Instance?.Play("axe");
-                    _uiManager.ShowMessage("Picked up wood from tree.", 1.5f);
                 }
             }
             else if (IsRock(hit.collider))
@@ -475,22 +586,84 @@ public class ToolManager : MonoBehaviour
 
         _carriedObject.transform.SetParent(null);
         var rb = _carriedObject.GetComponent<Rigidbody>();
-        if (rb != null)
-        {
-            rb.isKinematic = false;
-            rb.linearVelocity = Vector3.zero;
-        }
         var cols = _carriedObject.GetComponentsInChildren<Collider>();
         foreach (var c in cols)
             c.enabled = true;
 
-        if (player != null)
+        if (rb != null)
         {
-            var dropPos = player.transform.position + player.transform.forward * 1.5f + Vector3.up * 0.5f;
-            _carriedObject.transform.position = dropPos;
+            rb.isKinematic = false;
+            var cam = GetActiveCamera();
+            var throwDir = (cam != null ? cam.transform.forward : Vector3.forward) + Vector3.up * 0.3f;
+            rb.linearVelocity = throwDir.normalized * 5f;
+            rb.angularVelocity = Random.insideUnitSphere * 3f;
+            _carriedObject.transform.position = cam != null ? cam.transform.position + cam.transform.forward * 1.2f : player.transform.position + Vector3.up;
+        }
+        else if (player != null)
+        {
+            _carriedObject.transform.position = player.transform.position + player.transform.forward * 1.5f + Vector3.up * 0.5f;
         }
         _carriedObject = null;
         _uiManager.ShowMessage("Dropped.", 1f);
+    }
+
+    private (string material, float amount) GetCarriedResourceInfo(GameObject obj)
+    {
+        if (obj.name == "TreeFelled")
+        {
+            var trunk = obj.transform.Find("Trunk");
+            float amount = trunk != null ? trunk.localScale.x * trunk.localScale.z * 20f : 0.05f;
+            return ("wood", amount);
+        }
+        if (obj.name == "BranchTop")
+        {
+            var part = obj.transform.Find("BranchTopPart");
+            float amount = part != null ? part.localScale.x * part.localScale.z * 20f : 0.05f;
+            return ("wood", amount);
+        }
+        if (obj.name == "RockDebris")
+        {
+            var s = obj.transform.localScale;
+            float amount = s.x * s.y * s.z * 20f;
+            return ("stone", amount);
+        }
+        return (null, 0);
+    }
+
+    private void TryAutoDeposit()
+    {
+        if (_carriedObject == null || _worldBuilder == null || _uiManager == null) return;
+
+        var cols = Physics.OverlapSphere(_carriedObject.transform.position, 0.6f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
+        foreach (var c in cols)
+        {
+            if (!_worldBuilder.IsBlueprint(c.gameObject)) continue;
+            var bp = _worldBuilder.FindBlueprint(c.gameObject);
+            if (bp == null) continue;
+
+            var (material, amount) = GetCarriedResourceInfo(_carriedObject);
+            if (material == null) return;
+
+            if (amount < 0.05f)
+            {
+                _uiManager.ShowMessage("Too small to use.", 1f);
+                return;
+            }
+
+            if (_worldBuilder.DepositMaterial(bp, material, amount))
+            {
+                _uiManager.ShowMessage("Building completed!", 1.5f);
+                SoundManager.Instance?.Play("hammer");
+            }
+            else
+            {
+                _uiManager.ShowMessage("Supplied " + material + " x" + amount.ToString("F2") + ".", 1.5f);
+            }
+            Destroy(_carriedObject);
+            _carriedObject = null;
+            _uiManager?.SetInfoText(null);
+            return;
+        }
     }
 
     public void ReloadGun()
@@ -536,7 +709,6 @@ public class ToolManager : MonoBehaviour
                 var treeRoot = FindTreeRoot(hit.collider);
                 if (treeRoot != null && _worldBuilder.RemoveTree(treeRoot))
                 {
-                    AddItem("wood", 1);
                     _uiManager.ShowMessage("Shot down a tree.", 1.5f);
                 }
             }
