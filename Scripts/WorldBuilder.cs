@@ -73,6 +73,20 @@ public class WorldBuilder : MonoBehaviour
         public bool IsChopped;
     }
     private readonly Dictionary<GameObject, TreeChopState> _treeChopStates = new Dictionary<GameObject, TreeChopState>();
+    private readonly Dictionary<GameObject, BranchChopState> _branchChopStates = new Dictionary<GameObject, BranchChopState>();
+
+    private class BranchChopState
+    {
+        public GameObject BranchObject;
+        public GameObject ChopMark;
+        public float ChopProgress;
+        public Vector3 HitWorldPoint;
+        public Vector3 HitNormal;
+        public float HitLocalY;
+        public bool IsHitOnX;
+        public Vector3 CenterWorld;
+        public float InitialDepth;
+    }
 
     private readonly BuildingDefinition[] _availableBuildings = new[]
     {
@@ -586,25 +600,16 @@ public class WorldBuilder : MonoBehaviour
         trunk.localScale = new Vector3(fullW, cutHeight, fullW);
 
         float topH = fullH - cutHeight;
-        var topRoot = new GameObject("FallenTreeTop");
-        topRoot.transform.position = state.TreeRoot.transform.position;
-        topRoot.transform.rotation = state.TreeRoot.transform.rotation;
-        var rb = topRoot.AddComponent<Rigidbody>();
-        rb.mass = 10f;
-
-        var topTrunk = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        topTrunk.name = "TopTrunk";
-        topTrunk.transform.SetParent(topRoot.transform);
-        topTrunk.transform.localScale = new Vector3(fullW, topH, fullW);
-        topTrunk.transform.localPosition = chopLocal + trunkUp * (topH / 2f);
-        topTrunk.transform.localRotation = trunkRot;
-        var topTrunkR = topTrunk.GetComponent<Renderer>();
-        if (topTrunkR != null) topTrunkR.material.color = new Color(0.36f, 0.23f, 0.12f);
 
         var toMove = new List<Transform>();
         foreach (Transform child in state.TreeRoot.transform)
         {
             if (child.name == "Trunk") continue;
+            if (child.name == "Leaf")
+            {
+                Object.Destroy(child.gameObject);
+                continue;
+            }
             if (Vector3.Dot(child.localPosition, trunkUp) > Vector3.Dot(chopLocal, trunkUp) + 0.3f)
             {
                 if (child.GetComponent<Collider>() == null)
@@ -612,8 +617,160 @@ public class WorldBuilder : MonoBehaviour
                 toMove.Add(child);
             }
         }
-        foreach (var child in toMove)
-            child.SetParent(topRoot.transform, true);
+
+        if (topH > 0.3f)
+        {
+            var topRoot = new GameObject("TreeFelled");
+            topRoot.transform.position = state.TreeRoot.transform.position;
+            topRoot.transform.rotation = state.TreeRoot.transform.rotation;
+            var rb = topRoot.AddComponent<Rigidbody>();
+            rb.mass = 10f;
+
+            var topTrunk = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            topTrunk.name = "Trunk";
+            topTrunk.transform.SetParent(topRoot.transform);
+            topTrunk.transform.localScale = new Vector3(fullW, topH, fullW);
+            topTrunk.transform.localPosition = chopLocal + trunkUp * (topH / 2f);
+            topTrunk.transform.localRotation = trunkRot;
+            var topTrunkR = topTrunk.GetComponent<Renderer>();
+            if (topTrunkR != null) topTrunkR.material.color = new Color(0.36f, 0.23f, 0.12f);
+
+            foreach (var child in toMove)
+                child.SetParent(topRoot.transform, true);
+
+            _trees.Add(topRoot);
+        }
+
+        if (state.ChopMark != null)
+        {
+            Destroy(state.ChopMark);
+            state.ChopMark = null;
+        }
+
+        _treeChopStates.Remove(state.TreeRoot);
+    }
+
+    public bool ChopBranch(GameObject treeRoot, GameObject branch, Vector3 hitPoint, Vector3 hitNormal)
+    {
+        if (branch == null) return false;
+
+        if (_branchChopStates.TryGetValue(branch, out var state))
+        {
+            state.ChopProgress = Mathf.Min(1f, state.ChopProgress + 0.25f);
+            UpdateBranchChopMarkVisual(state);
+
+            if (state.ChopProgress >= 1f)
+            {
+                CutBranch(state);
+                _branchChopStates.Remove(branch);
+                return true;
+            }
+            return false;
+        }
+
+        var bt = branch.transform;
+        float branchH = bt.localScale.y;
+        float branchW = bt.localScale.x;
+
+        Vector3 trunkLocal = bt.InverseTransformPoint(hitPoint);
+        Vector3 localNormal = bt.InverseTransformDirection(hitNormal);
+        bool isHitOnX = Mathf.Abs(localNormal.x) > Mathf.Abs(localNormal.z);
+
+        if (isHitOnX) trunkLocal.z = 0f;
+        else trunkLocal.x = 0f;
+
+        state = new BranchChopState
+        {
+            BranchObject = branch,
+            ChopProgress = 0.25f,
+            HitWorldPoint = hitPoint,
+            HitNormal = hitNormal,
+            HitLocalY = trunkLocal.y,
+            IsHitOnX = isHitOnX,
+            CenterWorld = bt.TransformPoint(trunkLocal),
+            InitialDepth = Mathf.Lerp(0.05f, branchW * 1.2f, 0.25f),
+        };
+
+        CreateBranchChopMark(state);
+        _branchChopStates[branch] = state;
+        return false;
+    }
+
+    private void CreateBranchChopMark(BranchChopState state)
+    {
+        var mark = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        mark.name = "ChopMark";
+        Destroy(mark.GetComponent<Collider>());
+
+        mark.transform.SetParent(state.BranchObject.transform.parent, true);
+        mark.transform.position = state.CenterWorld;
+        mark.transform.rotation = state.BranchObject.transform.rotation * Quaternion.Euler(0f, 90f, 0f);
+
+        var r = mark.GetComponent<Renderer>();
+        if (r != null) r.material.color = Color.black;
+        state.ChopMark = mark;
+        UpdateBranchChopMarkVisual(state);
+    }
+
+    private void UpdateBranchChopMarkVisual(BranchChopState state)
+    {
+        if (state.ChopMark == null) return;
+        float tw = state.BranchObject.transform.localScale.x;
+        Transform mt = state.ChopMark.transform;
+
+        Vector3 inward = -state.HitNormal.normalized;
+        float depth = Mathf.Lerp(0.05f, tw * 1.2f, state.ChopProgress);
+        float depthExtra = depth - state.InitialDepth;
+
+        if (state.IsHitOnX)
+            mt.localScale = new Vector3(tw * 1.2f, 0.08f, depth);
+        else
+            mt.localScale = new Vector3(depth, 0.08f, tw * 1.2f);
+
+        mt.position = state.CenterWorld + inward * depthExtra * 0.5f;
+    }
+
+    private void CutBranch(BranchChopState state)
+    {
+        GameObject branchObj = state.BranchObject;
+        if (branchObj == null) return;
+
+        Transform branch = branchObj.transform;
+        Vector3 branchPos = branch.localPosition;
+        Quaternion branchRot = branch.localRotation;
+        float fullH = branch.localScale.y;
+        float fullW = branch.localScale.x;
+        Vector3 branchUp = branchRot * Vector3.up;
+
+        Vector3 chopLocal = branch.parent.InverseTransformPoint(state.CenterWorld);
+        Vector3 bottomLocal = branchPos + branchRot * new Vector3(0, -fullH / 2f, 0);
+        float cutHeight = Mathf.Max(0.1f, Vector3.Dot(chopLocal - bottomLocal, branchUp));
+        float topH = fullH - cutHeight;
+
+        branch.localPosition = Vector3.Lerp(bottomLocal, chopLocal, 0.5f);
+        branch.localScale = new Vector3(fullW, cutHeight, fullW);
+
+        if (topH > 0.2f)
+        {
+            var topRoot = new GameObject("BranchTop");
+            topRoot.transform.position = branch.parent.TransformPoint(chopLocal + branchUp * (topH / 2f));
+            topRoot.transform.rotation = branch.parent.rotation;
+            var rb = topRoot.AddComponent<Rigidbody>();
+            rb.mass = 3f;
+
+            var topBranch = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            topBranch.name = "BranchTopPart";
+            topBranch.transform.SetParent(topRoot.transform);
+            topBranch.transform.localScale = new Vector3(fullW, topH, fullW);
+            topBranch.transform.localPosition = Vector3.zero;
+            topBranch.transform.localRotation = branchRot;
+            var r = topBranch.GetComponent<Renderer>();
+            if (r != null)
+            {
+                var origR = branchObj.GetComponent<Renderer>();
+                r.material.color = origR != null ? origR.material.color : new Color(0.36f, 0.23f, 0.12f);
+            }
+        }
 
         if (state.ChopMark != null)
         {
@@ -1236,6 +1393,12 @@ GameObject treeRoot;
             if (kvp.Value.ChopMark != null) Destroy(kvp.Value.ChopMark);
         }
         _treeChopStates.Clear();
+
+        foreach (var kvp in _branchChopStates)
+        {
+            if (kvp.Value.ChopMark != null) Destroy(kvp.Value.ChopMark);
+        }
+        _branchChopStates.Clear();
 
         foreach (var field in _fields)
         {

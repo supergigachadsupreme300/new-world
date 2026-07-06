@@ -131,19 +131,39 @@ public class ToolManager : MonoBehaviour
         {
             if (selectedItem == "axe")
             {
-                var treeRoot = FindTreeRoot(hit.collider);
-                if (treeRoot != null)
+                var hitObj = hit.collider.gameObject;
+
+                if (hitObj.name == "Leaf")
                 {
-                    if (treeRoot.transform.Find("Trunk") == null)
+                    Destroy(hitObj);
+                    return;
+                }
+
+                if (hitObj.name == "Branch")
+                {
+                    var treeRoot = FindTreeRoot(hit.collider);
+                    if (treeRoot != null && _worldBuilder.ChopBranch(treeRoot, hitObj, hit.point, hit.normal))
                     {
-                        if (_worldBuilder.RemoveTree(treeRoot))
+                        AddItem("wood", 1);
+                        SoundManager.Instance?.Play("axe");
+                        _uiManager.ShowMessage("Chopped wood!", 1.5f);
+                    }
+                    return;
+                }
+
+                var treeRoot2 = FindTreeRoot(hit.collider);
+                if (treeRoot2 != null)
+                {
+                    if (treeRoot2.transform.Find("Trunk") == null)
+                    {
+                        if (_worldBuilder.RemoveTree(treeRoot2))
                         {
                             AddItem("wood", 1);
                             SoundManager.Instance?.Play("axe");
                             _uiManager.ShowMessage("Chopped wood!", 1.5f);
                         }
                     }
-                    else if (_worldBuilder.ChopTree(treeRoot, hit.point, hit.normal))
+                    else if (_worldBuilder.ChopTree(treeRoot2, hit.point, hit.normal))
                     {
                         AddItem("wood", 1);
                         SoundManager.Instance?.Play("axe");
