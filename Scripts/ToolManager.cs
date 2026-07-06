@@ -158,9 +158,7 @@ public class ToolManager : MonoBehaviour
                     var treeRoot = FindTreeRoot(hit.collider);
                     if (treeRoot != null && _worldBuilder.ChopBranch(treeRoot, hitObj, hit.point, hit.normal))
                     {
-                        AddItem("wood", 1);
                         SoundManager.Instance?.Play("axe");
-                        _uiManager.ShowMessage("Chopped wood!", 1.5f);
                     }
                     return;
                 }
@@ -172,16 +170,12 @@ public class ToolManager : MonoBehaviour
                     {
                         if (_worldBuilder.RemoveTree(treeRoot2))
                         {
-                            AddItem("wood", 1);
                             SoundManager.Instance?.Play("axe");
-                            _uiManager.ShowMessage("Chopped wood!", 1.5f);
                         }
                     }
                     else if (_worldBuilder.ChopTree(treeRoot2, hit.point, hit.normal))
                     {
-                        AddItem("wood", 1);
                         SoundManager.Instance?.Play("axe");
-                        _uiManager.ShowMessage("Chopped wood!", 1.5f);
                     }
                 }
                 return;
@@ -189,11 +183,13 @@ public class ToolManager : MonoBehaviour
 
             if (selectedItem == "pickaxe" && IsRock(hit.collider))
             {
-                if (_worldBuilder.RemoveRock(hit.collider.gameObject))
+                var rockRoot = hit.collider.gameObject;
+                while (rockRoot.transform.parent != null && rockRoot.transform.parent.name != "WorldRoot")
+                    rockRoot = rockRoot.transform.parent.gameObject;
+
+                if (_worldBuilder.HitRock(rockRoot, hit.point, hit.normal))
                 {
-                    AddItem("stone", 1);
                     SoundManager.Instance?.Play("pickaxe");
-                    _uiManager.ShowMessage("Collected stone!", 1.5f);
                 }
                 return;
             }
@@ -343,11 +339,12 @@ public class ToolManager : MonoBehaviour
             }
             else if (IsRock(hit.collider))
             {
-                if (_worldBuilder.RemoveRock(hit.collider.gameObject))
+                var rockRoot = hit.collider.gameObject;
+                while (rockRoot.transform.parent != null && rockRoot.transform.parent.name != "WorldRoot")
+                    rockRoot = rockRoot.transform.parent.gameObject;
+                if (_worldBuilder.RemoveRock(rockRoot))
                 {
-                    AddItem("stone", 1);
                     SoundManager.Instance?.Play("pickaxe");
-                    _uiManager.ShowMessage("Picked up stone.", 1.5f);
                 }
             }
         }
@@ -456,7 +453,7 @@ public class ToolManager : MonoBehaviour
         while (root.transform.parent != null && root.transform.parent.name != "WorldRoot")
             root = root.transform.parent.gameObject;
 
-        if (root.name != "TreeFelled" && root.name != "BranchTop")
+        if (root.name != "TreeFelled" && root.name != "BranchTop" && root.name != "RockDebris")
             return;
 
         if (root.GetComponent<Rigidbody>() == null) return;
@@ -545,9 +542,11 @@ public class ToolManager : MonoBehaviour
             }
             else if (IsRock(hit.collider))
             {
-                if (_worldBuilder.RemoveRock(hit.collider.gameObject))
+                var rockRoot = hit.collider.gameObject;
+                while (rockRoot.transform.parent != null && rockRoot.transform.parent.name != "WorldRoot")
+                    rockRoot = rockRoot.transform.parent.gameObject;
+                if (_worldBuilder.RemoveRock(rockRoot))
                 {
-                    AddItem("stone", 1);
                     _uiManager.ShowMessage("Shot rock apart.", 1.5f);
                 }
             }

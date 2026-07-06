@@ -155,17 +155,19 @@ public static class MapBuilder
         float h = Random.Range(0.4f, 1.4f);
         float d = Random.Range(0.8f, 2f);
 
-        MakeBlock("Rock", root.transform, new Vector3(w, h, d), new Vector3(0, h * 0.5f, 0), stoneC, true);
+        var mainRock = MakeBlock("Rock", root.transform, new Vector3(w, h, d), new Vector3(0, h * 0.5f, 0), stoneC);
+        mainRock.GetComponent<Collider>().isTrigger = true;
 
         if (Random.value > 0.4f)
         {
             float w2 = w * Random.Range(0.4f, 0.8f);
             float h2 = h * Random.Range(0.3f, 0.6f);
             float d2 = d * Random.Range(0.4f, 0.8f);
-            MakeBlock("RockDetail", root.transform,
+            var detail = MakeBlock("RockDetail", root.transform,
                 new Vector3(w2, h2, d2),
                 new Vector3(Random.Range(-0.3f, 0.3f), h + h2 * 0.5f, Random.Range(-0.3f, 0.3f)),
-                stoneC, true);
+                stoneC);
+            detail.GetComponent<Collider>().isTrigger = true;
         }
 
         return root;
