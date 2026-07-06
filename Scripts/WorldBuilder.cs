@@ -571,40 +571,41 @@ public class WorldBuilder : MonoBehaviour
     {
         state.IsChopped = true;
 
-        Vector3 trunkLocalHit = new Vector3(0, state.HitLocalY, 0);
-        float relY = (trunkLocalHit.y + state.TrunkHeight / 2f) / state.TrunkHeight;
-        relY = Mathf.Clamp01(relY);
+        Transform trunk = state.TrunkObject.transform;
+        Vector3 trunkPos = trunk.localPosition;
+        Quaternion trunkRot = trunk.localRotation;
+        float fullH = state.TrunkHeight;
+        float fullW = state.TrunkWidth;
+        Vector3 trunkUp = trunkRot * Vector3.up;
 
-        float stumpHeight = Mathf.Max(0.1f, relY * state.TrunkHeight);
-        float topHeight = state.TrunkHeight - stumpHeight;
+        Vector3 chopLocal = state.TreeRoot.transform.InverseTransformPoint(state.CenterWorld);
+        Vector3 bottomLocal = trunkPos + trunkRot * new Vector3(0, -fullH / 2f, 0);
+        float cutHeight = Mathf.Max(0.1f, Vector3.Dot(chopLocal - bottomLocal, trunkUp));
 
-        var trunkScale = state.TrunkObject.transform.localScale;
-        trunkScale.y = stumpHeight;
-        state.TrunkObject.transform.localScale = trunkScale;
-        state.TrunkObject.transform.localPosition = new Vector3(0, stumpHeight * 0.5f, 0);
+        trunk.localPosition = Vector3.Lerp(bottomLocal, chopLocal, 0.5f);
+        trunk.localScale = new Vector3(fullW, cutHeight, fullW);
 
+        float topH = fullH - cutHeight;
         var topRoot = new GameObject("FallenTreeTop");
         topRoot.transform.position = state.TreeRoot.transform.position;
         topRoot.transform.rotation = state.TreeRoot.transform.rotation;
         var rb = topRoot.AddComponent<Rigidbody>();
         rb.mass = 10f;
 
-        float trunkW = state.TrunkWidth;
-        float trunkBottomY = stumpHeight;
         var topTrunk = GameObject.CreatePrimitive(PrimitiveType.Cube);
         topTrunk.name = "TopTrunk";
         topTrunk.transform.SetParent(topRoot.transform);
-        topTrunk.transform.localScale = new Vector3(trunkW, topHeight, trunkW);
-        topTrunk.transform.localPosition = new Vector3(0, trunkBottomY + topHeight * 0.5f, 0);
+        topTrunk.transform.localScale = new Vector3(fullW, topH, fullW);
+        topTrunk.transform.localPosition = chopLocal + trunkUp * (topH / 2f);
+        topTrunk.transform.localRotation = trunkRot;
         var topTrunkR = topTrunk.GetComponent<Renderer>();
         if (topTrunkR != null) topTrunkR.material.color = new Color(0.36f, 0.23f, 0.12f);
 
-        float worldCutY = state.TreeRoot.transform.position.y + stumpHeight;
         var toMove = new List<Transform>();
         foreach (Transform child in state.TreeRoot.transform)
         {
             if (child.name == "Trunk") continue;
-            if (child.position.y > worldCutY + 0.3f)
+            if (Vector3.Dot(child.localPosition, trunkUp) > Vector3.Dot(chopLocal, trunkUp) + 0.3f)
             {
                 if (child.GetComponent<Collider>() == null)
                     child.gameObject.AddComponent<BoxCollider>();
