@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using TMPro;
 using static CountryLife.Helpers.PickupVisualHelper;
 
 public class WorldBuilder : MonoBehaviour
@@ -237,6 +238,7 @@ public class WorldBuilder : MonoBehaviour
 
         foreach (var bp in _blueprints)
         {
+            DestroyBlueprintLabel(bp);
             if (bp.Entity != null) Destroy(bp.Entity);
         }
         _blueprints.Clear();
@@ -274,7 +276,8 @@ public class WorldBuilder : MonoBehaviour
             }
         }
 
-        // Vendor cart movement
+        UpdateBlueprintLabels();
+
         var toRemove = new List<VendorCart>();
         foreach (var v in _vendorCarts)
         {
@@ -1217,24 +1220,27 @@ public class WorldBuilder : MonoBehaviour
         var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         if (mat != null)
         {
-            mat.SetFloat("_Surface", 1f); // Transparent
-            mat.SetFloat("_Blend", 0f);   // Alpha
+            mat.SetFloat("_Surface", 1f);
+            mat.SetFloat("_Blend", 0f);
             mat.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
             mat.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
             mat.SetFloat("_ZWrite", 0f);
+            mat.SetFloat("_Cull", 0f);
+            mat.SetFloat("_Metallic", 0f);
+            mat.SetFloat("_Smoothness", 0f);
             mat.renderQueue = 3000;
         }
         else
         {
             mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
         }
-        mat.color = new Color(definition.Color.r, definition.Color.g, definition.Color.b, 0.1f);
+        mat.color = new Color(definition.Color.r, definition.Color.g, definition.Color.b, 0.15f);
         renderer.material = mat;
         var collider = blueprint.GetComponent<BoxCollider>();
         collider.isTrigger = true;
         blueprint.transform.SetParent(_worldRoot.transform);
 
-        _blueprints.Add(new BlueprintState
+        var bpState = new BlueprintState
         {
             Entity = blueprint,
             Type = definition.Name,
@@ -1242,7 +1248,9 @@ public class WorldBuilder : MonoBehaviour
             Rotation = _currentRotation,
             WoodDeposited = 0,
             StoneDeposited = 0
-        });
+        };
+        CreateBlueprintLabel(blueprint, bpState, definition);
+        _blueprints.Add(bpState);
         return true;
     }
 
@@ -1300,6 +1308,14 @@ public class WorldBuilder : MonoBehaviour
         else
             return false;
 
+        // Update label text to reflect remaining materials needed
+        if (bp.Label != null)
+        {
+            var tmp = bp.Label.GetComponent<TextMeshPro>();
+            if (tmp != null)
+                tmp.text = GetBlueprintRemainingText(bp, def);
+        }
+
         if (bp.WoodDeposited >= def.WoodCost && bp.StoneDeposited >= def.StoneCost)
         {
             CompleteBlueprint(bp, def);
@@ -1347,9 +1363,65 @@ public class WorldBuilder : MonoBehaviour
     private void CompleteBlueprint(BlueprintState bp, BuildingDefinition def)
     {
         SpawnBuildingDirect(def.Name, bp.Position, bp.Rotation);
+        DestroyBlueprintLabel(bp);
         if (bp.Entity != null)
             Destroy(bp.Entity);
         _blueprints.Remove(bp);
+    }
+
+    private void CreateBlueprintLabel(GameObject blueprint, BlueprintState bp, BuildingDefinition def)
+    {
+        var labelObj = new GameObject("BlueprintLabel");
+        labelObj.transform.SetParent(blueprint.transform, false);
+        labelObj.transform.localPosition = Vector3.zero;
+
+        var tmp = labelObj.AddComponent<TextMeshPro>();
+        tmp.text = GetBlueprintRemainingText(bp, def);
+        tmp.fontSize = Mathf.Clamp(def.Size.y * 0.18f, 0.5f, 1f);
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = Color.white;
+        tmp.outlineWidth = 0.3f;
+        tmp.outlineColor = Color.black;
+
+        bp.Label = labelObj;
+    }
+
+    private void DestroyBlueprintLabel(BlueprintState bp)
+    {
+        if (bp.Label != null)
+        {
+            Object.Destroy(bp.Label);
+            bp.Label = null;
+        }
+    }
+
+    private string GetBlueprintRemainingText(BlueprintState bp, BuildingDefinition def)
+    {
+        float woodRemaining = def.WoodCost - bp.WoodDeposited;
+        float stoneRemaining = def.StoneCost - bp.StoneDeposited;
+        var parts = new List<string>();
+        if (woodRemaining > 0.01f)
+            parts.Add($"Wood: {woodRemaining:F1}");
+        if (stoneRemaining > 0.01f)
+            parts.Add($"Stone: {stoneRemaining:F1}");
+        if (parts.Count == 0)
+            return "Complete!";
+        return "Need: " + string.Join(", ", parts);
+    }
+
+    private void UpdateBlueprintLabels()
+    {
+        var cam = Camera.main;
+        if (cam == null) return;
+
+        foreach (var bp in _blueprints)
+        {
+            if (bp.Label != null)
+            {
+                bp.Label.transform.LookAt(bp.Label.transform.position + cam.transform.rotation * Vector3.forward,
+                    cam.transform.rotation * Vector3.up);
+            }
+        }
     }
 
     private void CreateSkyAndLight()
@@ -1697,6 +1769,9 @@ GameObject treeRoot;
             mat.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
             mat.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
             mat.SetFloat("_ZWrite", 0f);
+            mat.SetFloat("_Cull", 0f);
+            mat.SetFloat("_Metallic", 0f);
+            mat.SetFloat("_Smoothness", 0f);
             mat.renderQueue = 3000;
         }
         else
@@ -1716,7 +1791,7 @@ GameObject treeRoot;
         _buildingPreview.transform.rotation = Quaternion.Euler(0f, _currentRotation, 0f);
         var renderer = _buildingPreview.GetComponent<Renderer>();
         if (renderer != null)
-            renderer.material.color = new Color(definition.Color.r, definition.Color.g, definition.Color.b, 0.15f);
+            renderer.material.color = new Color(definition.Color.r, definition.Color.g, definition.Color.b, 0.04f);
     }
 
     public void UpdatePreviewPosition(Vector3 position, bool isValid)
@@ -1739,7 +1814,7 @@ GameObject treeRoot;
 
         var renderer = _buildingPreview.GetComponent<Renderer>();
         if (renderer != null)
-            renderer.material.color = new Color(definition.Color.r, definition.Color.g, definition.Color.b, 0.15f);
+            renderer.material.color = new Color(definition.Color.r, definition.Color.g, definition.Color.b, 0.04f);
     }
 
     private Vector3 GetRandomWorldPosition()
@@ -2091,6 +2166,7 @@ GameObject treeRoot;
         public int Rotation;
         public float WoodDeposited;
         public float StoneDeposited;
+        public GameObject Label;
     }
 
     public class BuildingDefinition

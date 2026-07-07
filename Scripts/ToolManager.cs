@@ -142,7 +142,17 @@ public class ToolManager : MonoBehaviour
             {
                 var def = _worldBuilder.GetBuildingDefinition(bp.Type);
                 if (def != null)
-                    _uiManager.SetInfoText(def.Name + ": " + bp.WoodDeposited.ToString("F1") + "/" + def.WoodCost + " wood, " + bp.StoneDeposited.ToString("F1") + "/" + def.StoneCost + " stone");
+                {
+                    float woodRemaining = def.WoodCost - bp.WoodDeposited;
+                    float stoneRemaining = def.StoneCost - bp.StoneDeposited;
+                    var parts = new System.Collections.Generic.List<string>();
+                    if (woodRemaining > 0.01f)
+                        parts.Add(woodRemaining.ToString("F1") + " wood");
+                    if (stoneRemaining > 0.01f)
+                        parts.Add(stoneRemaining.ToString("F1") + " stone");
+                    string remainingText = parts.Count > 0 ? "Need: " + string.Join(", ", parts) : "Complete!";
+                    _uiManager.SetInfoText(def.Name + " - " + remainingText);
+                }
                 else
                     _uiManager.SetInfoText(null);
             }
@@ -451,30 +461,47 @@ public class ToolManager : MonoBehaviour
         var origin = cam.transform.position + cam.transform.forward * 0.3f;
         var ray = new Ray(origin, cam.transform.forward);
         ShowRayLine(ray.origin, ray.origin + ray.direction * PickupRayDistance);
-        if (Physics.Raycast(ray, out var hit, PickupRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
-        {
-            Debug.Log($"TryPickupNearby: ray hit {hit.collider.gameObject.name}");
-            if (TryPickupTool(hit.collider))
-                return;
+        if (!Physics.Raycast(ray, out var hit, PickupRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
+            return;
 
-            if (IsTree(hit.collider))
-            {
-                var treeRoot = FindTreeRoot(hit.collider);
-                if (treeRoot != null && _worldBuilder.RemoveTree(treeRoot))
-                {
-                    SoundManager.Instance?.Play("axe");
-                }
-            }
-            else if (IsRock(hit.collider))
-            {
-                var rockRoot = hit.collider.gameObject;
-                while (rockRoot.transform.parent != null && rockRoot.transform.parent.name != "WorldRoot")
-                    rockRoot = rockRoot.transform.parent.gameObject;
-                if (_worldBuilder.RemoveRock(rockRoot))
-                {
-                    SoundManager.Instance?.Play("pickaxe");
-                }
-            }
+        Debug.Log($"TryPickupNearby: ray hit {hit.collider.gameObject.name}");
+
+        if (TryPickupTool(hit.collider))
+            return;
+
+        // Check for felled tree / branch / debris first (carry them, don't delete)
+        var root = hit.collider.gameObject;
+        while (root.transform.parent != null && root.transform.parent.name != "WorldRoot")
+            root = root.transform.parent.gameObject;
+
+        if (root.name == "TreeFelled" || root.name == "BranchTop" || root.name == "RockDebris")
+        {
+            if (root.GetComponent<Rigidbody>() == null) return;
+            _carriedObject = root;
+            root.GetComponent<Rigidbody>().isKinematic = true;
+            var cols = root.GetComponentsInChildren<Collider>();
+            foreach (var c in cols)
+                c.enabled = false;
+            root.transform.SetParent(cam.transform);
+            root.transform.localPosition = new Vector3(0.7f, -0.4f, 1.8f);
+            root.transform.localRotation = Quaternion.identity;
+            _uiManager.ShowMessage("Lifted.", 1f);
+            return;
+        }
+
+        if (IsTree(hit.collider))
+        {
+            var treeRoot = FindTreeRoot(hit.collider);
+            if (treeRoot != null && _worldBuilder.RemoveTree(treeRoot))
+                SoundManager.Instance?.Play("axe");
+        }
+        else if (IsRock(hit.collider))
+        {
+            var rockRoot = hit.collider.gameObject;
+            while (rockRoot.transform.parent != null && rockRoot.transform.parent.name != "WorldRoot")
+                rockRoot = rockRoot.transform.parent.gameObject;
+            if (_worldBuilder.RemoveRock(rockRoot))
+                SoundManager.Instance?.Play("pickaxe");
         }
     }
 
@@ -629,13 +656,13 @@ public class ToolManager : MonoBehaviour
         if (obj.name == "TreeFelled")
         {
             var trunk = obj.transform.Find("Trunk");
-            float amount = trunk != null ? trunk.localScale.x * trunk.localScale.z * 20f : 0.05f;
+            float amount = trunk != null ? trunk.localScale.x * trunk.localScale.y * trunk.localScale.z * 5f : 0.05f;
             return ("wood", amount);
         }
         if (obj.name == "BranchTop")
         {
             var part = obj.transform.Find("BranchTopPart");
-            float amount = part != null ? part.localScale.x * part.localScale.z * 20f : 0.05f;
+            float amount = part != null ? part.localScale.x * part.localScale.y * part.localScale.z * 5f : 0.05f;
             return ("wood", amount);
         }
         if (obj.name == "RockDebris")

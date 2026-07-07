@@ -211,6 +211,7 @@ public class PlayerController : MonoBehaviour
                 wb.SpawnVendorCart();
                 return;
             }
+            ToolManager.Instance?.TryPickupNearby();
         }
         if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
             ToolManager.Instance?.UseSelectedItem();
