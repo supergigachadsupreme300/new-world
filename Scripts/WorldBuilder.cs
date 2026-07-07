@@ -1250,6 +1250,7 @@ public class WorldBuilder : MonoBehaviour
             StoneDeposited = 0
         };
         CreateBlueprintLabel(blueprint, bpState, definition);
+        blueprint.AddComponent<BlueprintAutoDeposit>();
         _blueprints.Add(bpState);
         return true;
     }
@@ -2169,6 +2170,29 @@ GameObject treeRoot;
         public GameObject Label;
     }
 
+    public (string material, float amount) GetResourceAmount(GameObject obj)
+    {
+        if (obj.name == "TreeFelled")
+        {
+            var trunk = obj.transform.Find("Trunk");
+            float amount = trunk != null ? trunk.localScale.x * trunk.localScale.y * trunk.localScale.z * 5f : 0.05f;
+            return ("wood", amount);
+        }
+        if (obj.name == "BranchTop")
+        {
+            var part = obj.transform.Find("BranchTopPart");
+            float amount = part != null ? part.localScale.x * part.localScale.y * part.localScale.z * 5f : 0.05f;
+            return ("wood", amount);
+        }
+        if (obj.name == "RockDebris")
+        {
+            var s = obj.transform.localScale;
+            float amount = s.x * s.y * s.z * 20f;
+            return ("stone", amount);
+        }
+        return (null, 0);
+    }
+
     public class BuildingDefinition
     {
         public string Name;
@@ -2185,5 +2209,30 @@ GameObject treeRoot;
             WoodCost = woodCost;
             StoneCost = stoneCost;
         }
+    }
+}
+
+public class BlueprintAutoDeposit : MonoBehaviour
+{
+    private void OnTriggerEnter(Collider other)
+    {
+        var root = other.gameObject;
+        while (root.transform.parent != null && root.transform.parent.name != "WorldRoot")
+            root = root.transform.parent.gameObject;
+
+        if (root.name != "TreeFelled" && root.name != "BranchTop" && root.name != "RockDebris")
+            return;
+
+        var wb = WorldBuilder.Instance;
+        if (wb == null) return;
+
+        var bp = wb.FindBlueprint(gameObject);
+        if (bp == null) return;
+
+        var info = wb.GetResourceAmount(root);
+        if (info.material == null || info.amount < 0.05f) return;
+
+        wb.DepositMaterial(bp, info.material, info.amount);
+        Destroy(root);
     }
 }
