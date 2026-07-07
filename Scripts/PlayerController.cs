@@ -207,16 +207,17 @@ public class PlayerController : MonoBehaviour
         {
             var wb = WorldBuilder.Instance;
             if (wb != null && wb.IsNearVendorSpawnButton(transform.position))
+            {
                 wb.SpawnVendorCart();
-            else
-                ToolManager.Instance?.TryPickupNearby();
+                return;
+            }
         }
+        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+            ToolManager.Instance?.UseSelectedItem();
         if (Keyboard.current.qKey.wasPressedThisFrame)
             ToolManager.Instance?.DropSelectedItem();
         if (Keyboard.current.rKey.wasPressedThisFrame)
             ToolManager.Instance?.ReloadGun();
-        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
-            ToolManager.Instance?.UseSelectedItem();
         if (Keyboard.current.bKey.wasPressedThisFrame)
             WorldBuilder.Instance?.CycleBuildingType(1);
         if (Keyboard.current.nKey.wasPressedThisFrame)

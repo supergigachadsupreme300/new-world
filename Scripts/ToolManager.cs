@@ -7,6 +7,7 @@ using static CountryLife.Helpers.PickupVisualHelper;
 public class ToolManager : MonoBehaviour
 {
     public static ToolManager Instance { get; private set; }
+    public static bool EscapeHandledThisFrame { get; private set; }
 
     [Header("Tool Graphics Overrides")]
     public GameObject ToolModelPrefab;
@@ -76,6 +77,16 @@ public class ToolManager : MonoBehaviour
                     _worldBuilder.UpdatePreviewPosition(hit.point, true);
                 else
                     _worldBuilder.UpdatePreviewPosition(Vector3.zero, false);
+            }
+
+            if (Keyboard.current.rKey.wasPressedThisFrame)
+                _worldBuilder.RotateBuildingPreview(90);
+
+            if (Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                EscapeHandledThisFrame = true;
+                SelectSlot(_selectedSlot - 1);
+                return;
             }
         }
 
@@ -154,6 +165,7 @@ public class ToolManager : MonoBehaviour
 
     private void LateUpdate()
     {
+        EscapeHandledThisFrame = false;
         EnsureToolContainerAttached();
     }
 
@@ -220,12 +232,17 @@ public class ToolManager : MonoBehaviour
                         }
                     }
                 }
-                DropCarriedObject(player);
+                return;
             }
-            else
+            var pickupOrigin = cam.transform.position + cam.transform.forward * 0.3f;
+            var pickupRay = new Ray(pickupOrigin, cam.transform.forward);
+            ShowRayLine(pickupRay.origin, pickupRay.origin + pickupRay.direction * PickupRayDistance);
+            if (Physics.Raycast(pickupRay, out var hitE, PickupRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
             {
-                TryPickupFelledTree(cam, player);
+                if (TryPickupTool(hitE.collider))
+                    return;
             }
+            TryPickupFelledTree(cam, player);
             return;
         }
 

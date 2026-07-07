@@ -1214,16 +1214,21 @@ public class WorldBuilder : MonoBehaviour
         blueprint.transform.rotation = Quaternion.Euler(0f, _currentRotation, 0f);
         blueprint.transform.localScale = size;
         var renderer = blueprint.GetComponent<MeshRenderer>();
-        var mat = new Material(Shader.Find("Standard"));
-        mat.SetFloat("_Mode", 2);
-        mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-        mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-        mat.SetInt("_ZWrite", 0);
-        mat.DisableKeyword("_ALPHATEST_ON");
-        mat.EnableKeyword("_ALPHABLEND_ON");
-        mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-        mat.renderQueue = 3000;
-        mat.color = new Color(definition.Color.r, definition.Color.g, definition.Color.b, 0.3f);
+        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        if (mat != null)
+        {
+            mat.SetFloat("_Surface", 1f); // Transparent
+            mat.SetFloat("_Blend", 0f);   // Alpha
+            mat.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetFloat("_ZWrite", 0f);
+            mat.renderQueue = 3000;
+        }
+        else
+        {
+            mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
+        }
+        mat.color = new Color(definition.Color.r, definition.Color.g, definition.Color.b, 0.1f);
         renderer.material = mat;
         var collider = blueprint.GetComponent<BoxCollider>();
         collider.isTrigger = true;
@@ -1683,6 +1688,22 @@ GameObject treeRoot;
         _buildingPreview.transform.SetParent(_worldRoot.transform);
         _buildingPreview.GetComponent<Collider>().enabled = false;
         _buildingPreview.SetActive(false);
+        var renderer = _buildingPreview.GetComponent<Renderer>();
+        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        if (mat != null)
+        {
+            mat.SetFloat("_Surface", 1f);
+            mat.SetFloat("_Blend", 0f);
+            mat.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetFloat("_ZWrite", 0f);
+            mat.renderQueue = 3000;
+        }
+        else
+        {
+            mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
+        }
+        renderer.material = mat;
     }
 
     private void UpdateBuildingPreview()
@@ -1695,7 +1716,7 @@ GameObject treeRoot;
         _buildingPreview.transform.rotation = Quaternion.Euler(0f, _currentRotation, 0f);
         var renderer = _buildingPreview.GetComponent<Renderer>();
         if (renderer != null)
-            renderer.material.color = new Color(definition.Color.r, definition.Color.g, definition.Color.b, 0.4f);
+            renderer.material.color = new Color(definition.Color.r, definition.Color.g, definition.Color.b, 0.15f);
     }
 
     public void UpdatePreviewPosition(Vector3 position, bool isValid)
@@ -1718,7 +1739,7 @@ GameObject treeRoot;
 
         var renderer = _buildingPreview.GetComponent<Renderer>();
         if (renderer != null)
-            renderer.material.color = new Color(definition.Color.r, definition.Color.g, definition.Color.b, 0.4f);
+            renderer.material.color = new Color(definition.Color.r, definition.Color.g, definition.Color.b, 0.15f);
     }
 
     private Vector3 GetRandomWorldPosition()

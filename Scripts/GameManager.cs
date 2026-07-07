@@ -104,6 +104,8 @@ public class GameManager : MonoBehaviour
         {
             if (CutsceneManager != null && CutsceneManager.JustCancelledCutscene)
                 return;
+            if (ToolManager != null && ToolManager.EscapeHandledThisFrame)
+                return;
             TogglePause(true);
         }
     }

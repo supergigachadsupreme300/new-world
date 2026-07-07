@@ -183,20 +183,27 @@ public class UIManager : MonoBehaviour
             new Vector2(0.5f, 0.5f)
         );
 
+        var crosshairSize = (int)(fontSize * 2f);
         _crosshairText = EnsureText(
             "CrosshairText",
             Vector2.zero,
             "+",
-            (int)(fontSize * 1.6f),
+            crosshairSize,
             null,
             TextAlignmentOptions.Center,
-            true,
-            new Vector2(lineHeight, lineHeight),
+            false,
+            new Vector2(lineHeight * 2f, lineHeight * 2f),
             new Vector2(0.5f, 0.5f),
             new Vector2(0.5f, 0.5f),
             new Vector2(0.5f, 0.5f)
         );
-        _crosshairText.gameObject.SetActive(false);
+        _crosshairText.color = Color.white;
+        var crossMat = new Material(_crosshairText.fontSharedMaterial);
+        crossMat.EnableKeyword("OUTLINE_ON");
+        crossMat.SetFloat("_OutlineWidth", 0.3f);
+        crossMat.SetColor("_OutlineColor", Color.black);
+        _crosshairText.fontSharedMaterial = crossMat;
+        _crosshairText.gameObject.SetActive(true);
 
         _infoText = EnsureText(
             "InfoText",
