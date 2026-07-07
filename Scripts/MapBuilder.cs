@@ -88,7 +88,6 @@ public static class MapBuilder
         go.transform.localScale = new Vector3(width, length, width);
         var r = go.GetComponent<Renderer>();
         if (r != null) r.material.color = wood;
-        Object.Destroy(go.GetComponent<Collider>());
         count++;
 
         Vector3 tip = startPos + dir.normalized * length;

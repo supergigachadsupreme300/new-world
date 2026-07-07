@@ -781,7 +781,8 @@ public class WorldBuilder : MonoBehaviour
         if (topH > 0.2f)
         {
             var topRoot = new GameObject("BranchTop");
-            topRoot.transform.position = parent.TransformPoint(chopLocal + branchUp * (topH / 2f));
+            Vector3 topCenter = chopLocal + branchUp * (topH / 2f);
+            topRoot.transform.position = parent.TransformPoint(topCenter);
             topRoot.transform.rotation = parent.rotation;
             var rb = topRoot.AddComponent<Rigidbody>();
             rb.mass = 3f;
@@ -799,21 +800,34 @@ public class WorldBuilder : MonoBehaviour
                 r.material.color = origR != null ? origR.material.color : new Color(0.36f, 0.23f, 0.12f);
             }
 
-            var toMove = new List<Transform>();
-            foreach (Transform child in parent)
-            {
-                if (child.name != "Branch") continue;
-                if (Vector3.Dot(child.localPosition - chopLocal, branchUp) > 0)
-                    toMove.Add(child);
-            }
-            foreach (var child in toMove)
-                child.SetParent(topRoot.transform, true);
+            Vector3 origTipLocal = branchPos + branchRot * new Vector3(0, fullH / 2f, 0);
+            MoveSubBranches(parent, topRoot.transform, origTipLocal, fullW);
         }
 
         if (state.ChopMark != null)
         {
             Destroy(state.ChopMark);
             state.ChopMark = null;
+        }
+    }
+
+    private void MoveSubBranches(Transform parent, Transform target, Vector3 tipLocal, float tipWidth)
+    {
+        var matches = new List<(Transform t, Vector3 childTip, float childWidth)>();
+        foreach (Transform child in parent)
+        {
+            if (child.name != "Branch") continue;
+            Vector3 childBottom = child.localPosition + child.localRotation * new Vector3(0, -child.localScale.y / 2f, 0);
+            if (Vector3.Distance(childBottom, tipLocal) < (tipWidth + child.localScale.x) * 0.5f)
+            {
+                Vector3 childTip = child.localPosition + child.localRotation * new Vector3(0, child.localScale.y / 2f, 0);
+                matches.Add((child, childTip, child.localScale.x));
+            }
+        }
+        foreach (var (t, childTip, childWidth) in matches)
+        {
+            t.SetParent(target, true);
+            MoveSubBranches(parent, target, childTip, childWidth);
         }
     }
 
@@ -1200,7 +1214,15 @@ public class WorldBuilder : MonoBehaviour
         blueprint.transform.rotation = Quaternion.Euler(0f, _currentRotation, 0f);
         blueprint.transform.localScale = size;
         var renderer = blueprint.GetComponent<MeshRenderer>();
-        var mat = new Material(Shader.Find("Transparent/Diffuse"));
+        var mat = new Material(Shader.Find("Standard"));
+        mat.SetFloat("_Mode", 2);
+        mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        mat.SetInt("_ZWrite", 0);
+        mat.DisableKeyword("_ALPHATEST_ON");
+        mat.EnableKeyword("_ALPHABLEND_ON");
+        mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        mat.renderQueue = 3000;
         mat.color = new Color(definition.Color.r, definition.Color.g, definition.Color.b, 0.3f);
         renderer.material = mat;
         var collider = blueprint.GetComponent<BoxCollider>();
