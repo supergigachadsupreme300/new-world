@@ -174,6 +174,7 @@ public class WorldBuilder : MonoBehaviour
         SpawnBuffalo();
         CreateVendorSpawnButton();
         SpawnToolPickups();
+        CreateCropDemo();
         InitializeBuildingPreview();
     }
 
@@ -267,8 +268,25 @@ public class WorldBuilder : MonoBehaviour
             if (!field.HasCrop || field.IsHarvested)
                 continue;
 
+            if (field.WaterTimer > 0f)
+            {
+                field.WaterTimer -= deltaTime;
+                if (field.WaterTimer <= 0f)
+                {
+                    field.Watered = false;
+                    UpdateFieldVisual(field);
+                }
+            }
+
+            if (!field.Watered)
+                continue;
+
+            float growTime = field.NextStageTime;
+            if (field.Fertilized)
+                growTime *= 0.5f;
+
             field.GrowTimer += deltaTime;
-            if (field.GrowTimer >= field.NextStageTime && field.Stage < 4)
+            if (field.GrowTimer >= growTime && field.Stage < 4)
             {
                 field.GrowTimer = 0f;
                 field.Stage++;
@@ -361,14 +379,13 @@ public class WorldBuilder : MonoBehaviour
 
     private void SpawnToolPickups()
     {
-        var toolTypes = new[] { "axe", "pickaxe", "hoe", "gun", "hammer", "wheat_seed", "corn_seed", "wheat", "corn", "potato", "peashooter_seed", "fertilizer", "mobspawner", "scythe", "ammo" };
-        // Arrange all items in a grid for easy testing: 3 rows, easy to see
-        int itemsPerRow = 5;
+        var toolTypes = new[] { "axe", "pickaxe", "hoe", "gun", "hammer", "scythe", "watering_can", "wheat_seed", "corn_seed", "carrot_seed", "tomato_seed", "strawberry_seed", "pumpkin_seed", "onion_seed", "sugarcane_seed", "rice_seed", "wheat", "corn", "potato", "carrot", "tomato", "strawberry", "pumpkin", "onion", "sugarcane", "rice", "peashooter_seed", "fertilizer", "mobspawner", "ammo" };
+        int itemsPerRow = 8;
         for (int i = 0; i < toolTypes.Length; i++)
         {
             int row = i / itemsPerRow;
             int col = i % itemsPerRow;
-            var position = new Vector3(-12f + col * 4f, 0.5f, -12f - row * 4f);
+            var position = new Vector3(-14f + col * 4f, 0.5f, -12f - row * 4f);
             CreateToolPickup(toolTypes[i], position);
         }
     }
@@ -393,7 +410,66 @@ public class WorldBuilder : MonoBehaviour
         return pickup;
     }
 
+    private void CreateCropDemo()
+    {
+        var demoRoot = new GameObject("CropDemo");
+        demoRoot.transform.SetParent(_worldRoot.transform);
 
+        string[] cropTypes = { "wheat", "corn", "potato", "carrot", "tomato", "strawberry", "pumpkin", "onion", "sugarcane", "rice" };
+        string[] cropLabels = { "Lúa", "Ngô", "Khoai tây", "Cà rốt", "Cà chua", "Dâu tây", "Bí ngô", "Hành tây", "Mía", "Lúa nước" };
+        float startX = -12f;
+        float startZ = 6f;
+        float xStep = 3.5f;
+        float zStep = 2.8f;
+
+        for (int c = 0; c < cropTypes.Length; c++)
+        {
+            for (int s = 1; s <= 4; s++)
+            {
+                float x = startX + (s - 1) * xStep;
+                float z = startZ + c * zStep;
+
+                var plot = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                plot.name = "FieldTile";
+                plot.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                plot.transform.position = new Vector3(x, 0.01f, z);
+                plot.transform.localScale = new Vector3(2f, 2f, 2f);
+                plot.transform.SetParent(demoRoot.transform);
+                plot.GetComponent<MeshRenderer>().material.color = new Color(0.35f, 0.2f, 0.08f);
+                Destroy(plot.GetComponent<Collider>());
+
+                var plotLabel = new GameObject("PlotLabel");
+                plotLabel.transform.SetParent(demoRoot.transform);
+                plotLabel.transform.position = new Vector3(x, 1f, z);
+                var tmp = plotLabel.AddComponent<TextMeshPro>();
+                tmp.text = cropLabels[c] + "\nS" + s;
+                tmp.fontSize = 0.3f;
+                tmp.alignment = TextAlignmentOptions.Center;
+                tmp.color = Color.white;
+                tmp.outlineWidth = 0.2f;
+                tmp.outlineColor = Color.black;
+
+                var cropRoot = new GameObject(cropTypes[c] + "_Stage" + s);
+                cropRoot.transform.SetParent(plot.transform, false);
+                cropRoot.transform.localPosition = Vector3.up * 0.05f;
+                cropRoot.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+
+                switch (cropTypes[c])
+                {
+                    case "corn": CreateFieldCorn(cropRoot.transform, s); break;
+                    case "potato": CreateFieldPotato(cropRoot.transform, s); break;
+                    case "carrot": CreateFieldCarrot(cropRoot.transform, s); break;
+                    case "tomato": CreateFieldTomato(cropRoot.transform, s); break;
+                    case "strawberry": CreateFieldStrawberry(cropRoot.transform, s); break;
+                    case "pumpkin": CreateFieldPumpkin(cropRoot.transform, s); break;
+                    case "onion": CreateFieldOnion(cropRoot.transform, s); break;
+                    case "sugarcane": CreateFieldSugarcane(cropRoot.transform, s); break;
+                    case "rice": CreateFieldRice(cropRoot.transform, s); break;
+                    default: CreateFieldWheat(cropRoot.transform, s); break;
+                }
+            }
+        }
+    }
 
     public FieldState GetFieldAt(Vector3 position)
     {
@@ -432,7 +508,10 @@ public class WorldBuilder : MonoBehaviour
             Stage = 0,
             HasCrop = false,
             GrowTimer = 0f,
-            NextStageTime = 12f
+            NextStageTime = 12f,
+            Watered = false,
+            Fertilized = false,
+            WaterTimer = 0f
         };
         _fields.Add(field);
         return field;
@@ -443,7 +522,6 @@ public class WorldBuilder : MonoBehaviour
         if (field == null || !field.Tilled || field.HasCrop)
             return false;
 
-        // Only specific seed types can plant crops
         string actualCropType = cropType switch
         {
             "wheat_seed" => "wheat",
@@ -451,6 +529,21 @@ public class WorldBuilder : MonoBehaviour
             "wheat" => "wheat",
             "corn" => "corn",
             "potato" => "potato",
+            "potato_seed" => "potato",
+            "carrot_seed" => "carrot",
+            "carrot" => "carrot",
+            "tomato_seed" => "tomato",
+            "tomato" => "tomato",
+            "strawberry_seed" => "strawberry",
+            "strawberry" => "strawberry",
+            "pumpkin_seed" => "pumpkin",
+            "pumpkin" => "pumpkin",
+            "onion_seed" => "onion",
+            "onion" => "onion",
+            "sugarcane_seed" => "sugarcane",
+            "sugarcane" => "sugarcane",
+            "rice_seed" => "rice",
+            "rice" => "rice",
             _ => null
         };
 
@@ -477,6 +570,13 @@ public class WorldBuilder : MonoBehaviour
             "wheat" => "wheat",
             "corn" => "corn",
             "potato" => "potato",
+            "carrot" => "carrot",
+            "tomato" => "tomato",
+            "strawberry" => "strawberry",
+            "pumpkin" => "pumpkin",
+            "onion" => "onion",
+            "sugarcane" => "sugarcane",
+            "rice" => "rice",
             _ => field.CropType
         };
 
@@ -487,6 +587,27 @@ public class WorldBuilder : MonoBehaviour
         field.IsHarvested = true;
         field.CropType = null;
         field.Stage = 0;
+        UpdateFieldVisual(field);
+        return true;
+    }
+
+    public bool WaterField(Vector3 position)
+    {
+        var field = GetFieldAt(position);
+        if (field == null || !field.Tilled || !field.HasCrop || field.IsHarvested)
+            return false;
+        field.Watered = true;
+        field.WaterTimer = 30f;
+        UpdateFieldVisual(field);
+        return true;
+    }
+
+    public bool FertilizeField(Vector3 position)
+    {
+        var field = GetFieldAt(position);
+        if (field == null || !field.Tilled || !field.HasCrop || field.IsHarvested)
+            return false;
+        field.Fertilized = true;
         UpdateFieldVisual(field);
         return true;
     }
@@ -1831,21 +1952,30 @@ GameObject treeRoot;
         if (field == null)
             return;
 
+        var renderer = field.FieldObject.GetComponent<MeshRenderer>();
+
         if (field.IsHarvested)
         {
-            field.FieldObject.GetComponent<MeshRenderer>().material.color = new Color(0.25f, 0.15f, 0.1f);
+            renderer.material.color = new Color(0.25f, 0.15f, 0.1f);
             return;
         }
 
         if (field.HasCrop)
         {
-            field.FieldObject.GetComponent<MeshRenderer>().material.color = new Color(0.35f, 0.2f, 0.08f);
+            if (field.Watered && field.Fertilized)
+                renderer.material.color = new Color(0.20f, 0.40f, 0.20f);
+            else if (field.Fertilized)
+                renderer.material.color = new Color(0.25f, 0.45f, 0.15f);
+            else if (field.Watered)
+                renderer.material.color = new Color(0.30f, 0.35f, 0.18f);
+            else
+                renderer.material.color = new Color(0.55f, 0.32f, 0.10f);
             if (field.CropObject == null)
                 UpdateCropVisual(field);
             return;
         }
 
-        field.FieldObject.GetComponent<MeshRenderer>().material.color = field.Tilled ? new Color(0.45f, 0.28f, 0.12f) : new Color(0.6f, 0.4f, 0.2f);
+        renderer.material.color = field.Tilled ? new Color(0.45f, 0.28f, 0.12f) : new Color(0.6f, 0.4f, 0.2f);
     }
 
     private void UpdateCropVisual(FieldState field)
@@ -1874,6 +2004,27 @@ GameObject treeRoot;
             case "potato":
                 CreateFieldPotato(cropRoot.transform, field.Stage);
                 break;
+            case "carrot":
+                CreateFieldCarrot(cropRoot.transform, field.Stage);
+                break;
+            case "tomato":
+                CreateFieldTomato(cropRoot.transform, field.Stage);
+                break;
+            case "strawberry":
+                CreateFieldStrawberry(cropRoot.transform, field.Stage);
+                break;
+            case "pumpkin":
+                CreateFieldPumpkin(cropRoot.transform, field.Stage);
+                break;
+            case "onion":
+                CreateFieldOnion(cropRoot.transform, field.Stage);
+                break;
+            case "sugarcane":
+                CreateFieldSugarcane(cropRoot.transform, field.Stage);
+                break;
+            case "rice":
+                CreateFieldRice(cropRoot.transform, field.Stage);
+                break;
             default:
                 CreateFieldWheat(cropRoot.transform, field.Stage);
                 break;
@@ -1884,21 +2035,21 @@ GameObject treeRoot;
 
     private void CreateFieldWheat(Transform parent, int stage)
     {
-        int bladeCount = Random.Range(3, 6);
-        float height = 0.15f + stage * 0.05f;
+        int bladeCount = Random.Range(8, 14);
+        float height = 0.25f + stage * 0.08f;
         Color color = stage >= 3 ? new Color(1f, 0.9f, 0.2f) : new Color(0.85f, 0.8f, 0.2f);
 
         for (int i = 0; i < bladeCount; i++)
         {
-            float width = Random.Range(0.04f, 0.06f);
-            float depth = 0.02f;
-            float x = Random.Range(-0.2f, 0.2f);
-            float z = Random.Range(-0.15f, 0.15f);
+            float width = Random.Range(0.05f, 0.08f);
+            float depth = 0.03f;
+            float x = Random.Range(-0.3f, 0.3f);
+            float z = Random.Range(-0.3f, 0.3f);
             var blade = GameObject.CreatePrimitive(PrimitiveType.Cube);
             blade.transform.SetParent(parent, false);
             blade.transform.localScale = new Vector3(width, height, depth);
             blade.transform.localPosition = new Vector3(x, height / 2f, z);
-            blade.transform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(-10f, 10f));
+            blade.transform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(-15f, 15f));
             var rend = blade.GetComponent<Renderer>();
             if (rend != null)
                 rend.material.color = color;
@@ -1908,35 +2059,55 @@ GameObject treeRoot;
 
     private void CreateFieldCorn(Transform parent, int stage)
     {
-        float stalkHeight = 0.18f + stage * 0.07f;
+        float stalkHeight = 0.3f + stage * 0.1f;
         var stalk = GameObject.CreatePrimitive(PrimitiveType.Cube);
         stalk.transform.SetParent(parent, false);
-        stalk.transform.localScale = new Vector3(0.06f, stalkHeight, 0.06f);
+        stalk.transform.localScale = new Vector3(0.08f, stalkHeight, 0.08f);
         stalk.transform.localPosition = new Vector3(0f, stalkHeight / 2f, 0f);
         var rendStalk = stalk.GetComponent<Renderer>();
         if (rendStalk != null)
             rendStalk.material.color = new Color(0.3f, 0.7f, 0.25f);
         Destroy(stalk.GetComponent<Collider>());
 
+        if (stage >= 3)
+            CreateCornEar(parent, 0f, 0f, stalkHeight);
+
         if (stage >= 4)
         {
-            Color cornColor = new Color(1f, 0.85f, 0.2f);
-            float earY = stalkHeight * 0.65f;
-            for (int i = 0; i < 5; i++)
+            for (int t = 0; t < 2; t++)
             {
-                for (int j = 0; j < 5; j++)
-                {
-                    float angle = j * 72f;
-                    var kernel = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    kernel.transform.SetParent(parent, false);
-                    kernel.transform.localScale = new Vector3(0.1f, 0.02f, 0.025f);
-                    kernel.transform.localRotation = Quaternion.Euler(0f, angle + i * 18f, 0f);
-                    kernel.transform.localPosition = new Vector3(0f, earY + i * 0.02f, 0f);
-                    var rend = kernel.GetComponent<Renderer>();
-                    if (rend != null)
-                        rend.material.color = cornColor;
-                    Destroy(kernel.GetComponent<Collider>());
-                }
+                float stalk2X = Random.Range(-0.15f, 0.15f);
+                float stalk2Z = Random.Range(-0.15f, 0.15f);
+                float h = 0.25f + stage * 0.08f;
+                var stalk2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                stalk2.transform.SetParent(parent, false);
+                stalk2.transform.localScale = new Vector3(0.06f, h, 0.06f);
+                stalk2.transform.localPosition = new Vector3(stalk2X, h / 2f, stalk2Z);
+                stalk2.GetComponent<Renderer>().material.color = new Color(0.3f, 0.7f, 0.25f);
+                Destroy(stalk2.GetComponent<Collider>());
+                CreateCornEar(parent, stalk2X, stalk2Z, h);
+            }
+        }
+    }
+
+    private void CreateCornEar(Transform parent, float xOff, float zOff, float stalkH)
+    {
+        Color cornColor = new Color(1f, 0.85f, 0.2f);
+        float earY = stalkH * 1.0f;
+        for (int i = 0; i < 5; i++)
+        {
+            for (int j = 0; j < 5; j++)
+            {
+                float angle = j * 72f;
+                var kernel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                kernel.transform.SetParent(parent, false);
+                kernel.transform.localScale = new Vector3(0.12f, 0.02f, 0.03f);
+                kernel.transform.localRotation = Quaternion.Euler(0f, angle + i * 18f, 0f);
+                kernel.transform.localPosition = new Vector3(xOff, earY + i * 0.02f, zOff);
+                var rend = kernel.GetComponent<Renderer>();
+                if (rend != null)
+                    rend.material.color = cornColor;
+                Destroy(kernel.GetComponent<Collider>());
             }
         }
     }
@@ -1945,19 +2116,24 @@ GameObject treeRoot;
     {
         float targetRatio = stage / 4f;
 
-        var tuber = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        tuber.transform.SetParent(parent, false);
-        float rootScale = 1f + 0.3f * targetRatio;
-        tuber.transform.localScale = new Vector3(0.08f * rootScale, 0.06f * rootScale, 0.07f * rootScale);
-        tuber.transform.localPosition = new Vector3(0f, 0.03f * rootScale, 0f);
-        var rendTuber = tuber.GetComponent<Renderer>();
-        if (rendTuber != null)
-            rendTuber.material.color = new Color(0.65f, 0.45f, 0.2f);
-        Destroy(tuber.GetComponent<Collider>());
+        for (int t = 0; t < 3; t++)
+        {
+            float xOff = Random.Range(-0.08f, 0.08f);
+            float zOff = Random.Range(-0.08f, 0.08f);
+            var tuber = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            tuber.transform.SetParent(parent, false);
+            float rootScale = 1f + 0.3f * targetRatio;
+            tuber.transform.localScale = new Vector3(0.1f * rootScale, 0.08f * rootScale, 0.09f * rootScale);
+            tuber.transform.localPosition = new Vector3(xOff, 0.03f * rootScale, zOff);
+            var rendTuber = tuber.GetComponent<Renderer>();
+            if (rendTuber != null)
+                rendTuber.material.color = new Color(0.65f, 0.45f, 0.2f);
+            Destroy(tuber.GetComponent<Collider>());
+        }
 
-        int leafCount = 4;
-        float radius = 0.05f + 0.07f * targetRatio;
-        float leafHeight = 0.09f + 0.07f * targetRatio;
+        int leafCount = 6 + stage;
+        float radius = 0.08f + 0.1f * targetRatio;
+        float leafHeight = 0.12f + 0.1f * targetRatio;
         Color leafColor = new Color(0.3f, 0.7f, 0.25f);
 
         for (int i = 0; i < leafCount; i++)
@@ -1966,9 +2142,9 @@ GameObject treeRoot;
             var leaf = GameObject.CreatePrimitive(PrimitiveType.Cube);
             leaf.transform.SetParent(parent, false);
             leaf.transform.localScale = new Vector3(
-                0.05f + 0.05f * targetRatio,
-                0.01f,
-                0.07f + 0.06f * targetRatio
+                0.06f + 0.06f * targetRatio,
+                0.015f,
+                0.08f + 0.08f * targetRatio
             );
             leaf.transform.localRotation = Quaternion.Euler(30f, i * 360f / leafCount, 0f);
             leaf.transform.localPosition = new Vector3(
@@ -1980,6 +2156,228 @@ GameObject treeRoot;
             if (rendLeaf != null)
                 rendLeaf.material.color = leafColor;
             Destroy(leaf.GetComponent<Collider>());
+        }
+    }
+
+    private void CreateFieldCarrot(Transform parent, int stage)
+    {
+        float ratio = stage / 4f;
+        for (int c = 0; c < 3; c++)
+        {
+            float xOff = Random.Range(-0.1f, 0.1f);
+            float zOff = Random.Range(-0.1f, 0.1f);
+            float rootSize = 0.05f + ratio * 0.06f;
+            float topHeight = 0.08f + ratio * 0.12f;
+            float leafBaseY = 0.01f + rootSize * 0.5f;
+            float leafSpread = 0.025f + ratio * 0.02f;
+            for (int i = 0; i < 5; i++)
+            {
+                float angle = i * 72f + c * 30f;
+                float rad = angle * Mathf.Deg2Rad;
+                var leaf = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                leaf.transform.SetParent(parent, false);
+                leaf.transform.localScale = new Vector3(0.025f, topHeight, 0.05f);
+                leaf.transform.localRotation = Quaternion.Euler(35f, angle, 0f);
+                leaf.transform.localPosition = new Vector3(xOff + Mathf.Sin(rad) * leafSpread, leafBaseY + topHeight * 0.5f, zOff + Mathf.Cos(rad) * leafSpread);
+                var rend = leaf.GetComponent<Renderer>();
+                if (rend != null) rend.material.color = new Color(0.2f, 0.6f, 0.15f);
+                Destroy(leaf.GetComponent<Collider>());
+            }
+            var root = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            root.transform.SetParent(parent, false);
+            root.transform.localScale = new Vector3(0.04f + ratio * 0.04f, rootSize, 0.04f + ratio * 0.04f);
+            root.transform.localPosition = new Vector3(xOff, 0.01f, zOff);
+            var rendRoot = root.GetComponent<Renderer>();
+            if (rendRoot != null) rendRoot.material.color = new Color(1f, 0.55f, 0.1f);
+            Destroy(root.GetComponent<Collider>());
+        }
+    }
+
+    private void CreateFieldTomato(Transform parent, int stage)
+    {
+        float ratio = stage / 4f;
+        float stalkHeight = 0.15f + ratio * 0.12f;
+        var stalk = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        stalk.transform.SetParent(parent, false);
+        stalk.transform.localScale = new Vector3(0.05f, stalkHeight, 0.05f);
+        stalk.transform.localPosition = new Vector3(0f, stalkHeight / 2f, 0f);
+        var rendStalk = stalk.GetComponent<Renderer>();
+        if (rendStalk != null) rendStalk.material.color = new Color(0.2f, 0.5f, 0.15f);
+        Destroy(stalk.GetComponent<Collider>());
+
+        if (stage >= 2)
+        {
+            for (int t = 0; t < stage; t++)
+            {
+                float fruitSize = 0.05f + (stage - 1) * 0.03f;
+                float angle = t * 90f;
+                var fruit = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                fruit.transform.SetParent(parent, false);
+                fruit.transform.localScale = Vector3.one * fruitSize;
+                fruit.transform.localPosition = new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad) * 0.06f, stalkHeight * 0.3f + t * stalkHeight * 0.2f, Mathf.Sin(angle * Mathf.Deg2Rad) * 0.06f);
+                var rendFruit = fruit.GetComponent<Renderer>();
+                if (rendFruit != null) rendFruit.material.color = stage >= 4 ? new Color(1f, 0.2f, 0.1f) : new Color(0.5f, 0.8f, 0.2f);
+                Destroy(fruit.GetComponent<Collider>());
+            }
+        }
+    }
+
+    private void CreateFieldStrawberry(Transform parent, int stage)
+    {
+        float ratio = stage / 4f;
+        float bushSize = 0.08f + ratio * 0.08f;
+        for (int i = 0; i < 6; i++)
+        {
+            float angle = i * 60f;
+            var leaf = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            leaf.transform.SetParent(parent, false);
+            leaf.transform.localScale = new Vector3(0.04f, 0.012f, bushSize * 0.5f);
+            leaf.transform.localRotation = Quaternion.Euler(20f, angle, 0f);
+            leaf.transform.localPosition = new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad) * bushSize * 0.35f, bushSize * 0.4f, Mathf.Sin(angle * Mathf.Deg2Rad) * bushSize * 0.35f);
+            var rend = leaf.GetComponent<Renderer>();
+            if (rend != null) rend.material.color = new Color(0.15f, 0.55f, 0.1f);
+            Destroy(leaf.GetComponent<Collider>());
+        }
+        if (stage >= 3)
+        {
+            int fruitCount = stage == 3 ? 5 : 8;
+            for (int i = 0; i < fruitCount; i++)
+            {
+                float angle = i * (360f / fruitCount) + 10f;
+                var fruit = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                fruit.transform.SetParent(parent, false);
+                float fSize = 0.04f;
+                fruit.transform.localScale = Vector3.one * fSize;
+                fruit.transform.localPosition = new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad) * bushSize * 0.5f, 0.025f, Mathf.Sin(angle * Mathf.Deg2Rad) * bushSize * 0.5f);
+                var rend = fruit.GetComponent<Renderer>();
+                if (rend != null) rend.material.color = new Color(1f, 0.15f, 0.15f);
+                Destroy(fruit.GetComponent<Collider>());
+            }
+        }
+    }
+
+    private void CreateFieldPumpkin(Transform parent, int stage)
+    {
+        float ratio = stage / 4f;
+        for (int i = 0; i < 4; i++)
+        {
+            float angle = i * 90f;
+            var vine = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            vine.transform.SetParent(parent, false);
+            float vineLen = 0.06f + ratio * 0.12f;
+            vine.transform.localScale = new Vector3(0.03f, 0.015f, vineLen);
+            vine.transform.localRotation = Quaternion.Euler(0f, angle, 20f);
+            vine.transform.localPosition = new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad) * vineLen * 0.3f, 0.015f, Mathf.Sin(angle * Mathf.Deg2Rad) * vineLen * 0.3f);
+            var rend = vine.GetComponent<Renderer>();
+            if (rend != null) rend.material.color = new Color(0.2f, 0.5f, 0.1f);
+            Destroy(vine.GetComponent<Collider>());
+        }
+        for (int p = 0; p < 2; p++)
+        {
+            float xOff = Random.Range(-0.06f, 0.06f);
+            float zOff = Random.Range(-0.06f, 0.06f);
+            var pumpkin = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            pumpkin.transform.SetParent(parent, false);
+            float pSize = 0.06f + ratio * 0.1f;
+            pumpkin.transform.localScale = Vector3.one * pSize;
+            pumpkin.transform.localPosition = new Vector3(xOff, pSize * 0.5f, zOff);
+            var rendP = pumpkin.GetComponent<Renderer>();
+            if (rendP != null) rendP.material.color = stage >= 3 ? new Color(1f, 0.6f, 0.1f) : new Color(0.8f, 0.7f, 0.3f);
+            Destroy(pumpkin.GetComponent<Collider>());
+        }
+    }
+
+    private void CreateFieldOnion(Transform parent, int stage)
+    {
+        float ratio = stage / 4f;
+        int shootCount = 5 + stage * 2;
+        for (int i = 0; i < shootCount; i++)
+        {
+            float shootHeight = 0.08f + ratio * 0.12f;
+            var shoot = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            shoot.transform.SetParent(parent, false);
+            shoot.transform.localScale = new Vector3(0.02f, shootHeight, 0.02f);
+            float xOff = Random.Range(-0.08f, 0.08f);
+            float zOff = Random.Range(-0.08f, 0.08f);
+            shoot.transform.localPosition = new Vector3(xOff, shootHeight / 2f, zOff);
+            shoot.transform.localRotation = Quaternion.Euler(Random.Range(-20f, 20f), 0f, Random.Range(-20f, 20f));
+            var rend = shoot.GetComponent<Renderer>();
+            if (rend != null) rend.material.color = new Color(0.2f, 0.5f, 0.1f);
+            Destroy(shoot.GetComponent<Collider>());
+        }
+        var bulb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        bulb.transform.SetParent(parent, false);
+        float bSize = 0.07f + ratio * 0.08f;
+        bulb.transform.localScale = Vector3.one * bSize;
+        bulb.transform.localPosition = new Vector3(0f, 0.02f, 0f);
+        var rendB = bulb.GetComponent<Renderer>();
+        if (rendB != null) rendB.material.color = stage >= 3 ? new Color(0.8f, 0.5f, 0.2f) : new Color(0.7f, 0.6f, 0.4f);
+        Destroy(bulb.GetComponent<Collider>());
+    }
+
+    private void CreateFieldSugarcane(Transform parent, int stage)
+    {
+        int stalkCount = 2 + stage;
+        for (int s = 0; s < stalkCount; s++)
+        {
+            float stalkHeight = 0.2f + stage * 0.08f;
+            float xOff = Random.Range(-0.12f, 0.12f);
+            float zOff = Random.Range(-0.12f, 0.12f);
+            var stalk = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            stalk.transform.SetParent(parent, false);
+            stalk.transform.localScale = new Vector3(0.05f, stalkHeight, 0.05f);
+            stalk.transform.localPosition = new Vector3(xOff, stalkHeight / 2f, zOff);
+            var rend = stalk.GetComponent<Renderer>();
+            if (rend != null) rend.material.color = new Color(0.3f, 0.7f, 0.15f);
+            Destroy(stalk.GetComponent<Collider>());
+
+            for (int i = 1; i < stage; i++)
+            {
+                float yPos = i * (stalkHeight / stage);
+                var segment = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                segment.transform.SetParent(parent, false);
+                segment.transform.localScale = new Vector3(0.06f, 0.015f, 0.06f);
+                segment.transform.localPosition = new Vector3(xOff, yPos, zOff);
+                var rendS = segment.GetComponent<Renderer>();
+                if (rendS != null) rendS.material.color = new Color(0.6f, 0.8f, 0.3f);
+                Destroy(segment.GetComponent<Collider>());
+            }
+        }
+    }
+
+    private void CreateFieldRice(Transform parent, int stage)
+    {
+        int stalkCount = 3 + stage;
+        for (int s = 0; s < stalkCount; s++)
+        {
+            float stalkHeight = 0.15f + stage * 0.08f;
+            float xOff = Random.Range(-0.15f, 0.15f);
+            float zOff = Random.Range(-0.15f, 0.15f);
+            var stalk = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            stalk.transform.SetParent(parent, false);
+            stalk.transform.localScale = new Vector3(0.03f, stalkHeight, 0.03f);
+            stalk.transform.localPosition = new Vector3(xOff, stalkHeight / 2f, zOff);
+            var rend = stalk.GetComponent<Renderer>();
+            if (rend != null) rend.material.color = new Color(0.25f, 0.6f, 0.15f);
+            Destroy(stalk.GetComponent<Collider>());
+
+            if (stage >= 3)
+            {
+                int grainCount = stage == 3 ? 5 : 8;
+                Color grainColor = stage >= 4 ? new Color(1f, 0.9f, 0.3f) : new Color(0.8f, 0.8f, 0.4f);
+                for (int i = 0; i < grainCount; i++)
+                {
+                    float angle = i * (360f / grainCount);
+                    var grain = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    grain.transform.SetParent(parent, false);
+                    grain.transform.localScale = new Vector3(0.04f, 0.08f, 0.025f);
+                    grain.transform.localRotation = Quaternion.Euler(0f, angle, 25f);
+                    grain.transform.localPosition = new Vector3(xOff + Mathf.Cos(angle * Mathf.Deg2Rad) * 0.05f, stalkHeight + 0.02f, zOff + Mathf.Sin(angle * Mathf.Deg2Rad) * 0.05f);
+                    var rendG = grain.GetComponent<Renderer>();
+                    if (rendG != null) rendG.material.color = grainColor;
+                    Destroy(grain.GetComponent<Collider>());
+                }
+            }
         }
     }
 
@@ -2018,6 +2416,9 @@ GameObject treeRoot;
             if (building.Entity != null) Destroy(building.Entity);
         }
         _buildings.Clear();
+
+        var demo = _worldRoot?.transform.Find("CropDemo");
+        if (demo != null) Destroy(demo.gameObject);
     }
 
     public IEnumerable<FieldState> GetAllFields() => _fields;
@@ -2037,7 +2438,10 @@ GameObject treeRoot;
                 cropType = field.CropType,
                 stage = field.Stage,
                 growTimer = field.GrowTimer,
-                isHarvested = field.IsHarvested
+                isHarvested = field.IsHarvested,
+                watered = field.Watered,
+                fertilized = field.Fertilized,
+                waterTimer = field.WaterTimer
             };
         }
         return saved;
@@ -2055,6 +2459,9 @@ GameObject treeRoot;
             {
                 field.Tilled = fieldSave.tilled;
                 field.IsHarvested = fieldSave.isHarvested;
+                field.Watered = fieldSave.watered;
+                field.Fertilized = fieldSave.fertilized;
+                field.WaterTimer = fieldSave.waterTimer;
                 if (fieldSave.hasCrop && !string.IsNullOrEmpty(fieldSave.cropType))
                 {
                     field.HasCrop = true;
@@ -2122,6 +2529,9 @@ GameObject treeRoot;
         public int stage;
         public float growTimer;
         public bool isHarvested;
+        public bool watered;
+        public bool fertilized;
+        public float waterTimer;
     }
 
     [System.Serializable]
@@ -2146,6 +2556,9 @@ GameObject treeRoot;
         public int Stage;
         public float GrowTimer;
         public float NextStageTime;
+        public bool Watered;
+        public bool Fertilized;
+        public float WaterTimer;
     }
 
     [System.Serializable]

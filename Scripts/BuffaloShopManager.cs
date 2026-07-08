@@ -36,7 +36,15 @@ public class BuffaloShopManager : MonoBehaviour
     {
         new ShopItem { Type = "wheat_seed", Label = "Hạt lúa", Price = 3 },
         new ShopItem { Type = "corn_seed", Label = "Hạt ngô", Price = 4 },
+        new ShopItem { Type = "carrot_seed", Label = "Hạt cà rốt", Price = 3 },
+        new ShopItem { Type = "tomato_seed", Label = "Hạt cà chua", Price = 4 },
+        new ShopItem { Type = "strawberry_seed", Label = "Hạt dâu tây", Price = 5 },
+        new ShopItem { Type = "pumpkin_seed", Label = "Hạt bí ngô", Price = 4 },
+        new ShopItem { Type = "onion_seed", Label = "Hạt hành tây", Price = 3 },
+        new ShopItem { Type = "sugarcane_seed", Label = "Hạt mía", Price = 4 },
+        new ShopItem { Type = "rice_seed", Label = "Hạt lúa nước", Price = 3 },
         new ShopItem { Type = "fertilizer", Label = "Phân bón", Price = 8 },
+        new ShopItem { Type = "watering_can", Label = "Bình tưới", Price = 6 },
         new ShopItem { Type = "peashooter_seed", Label = "Hạt peashooter", Price = 10 },
     };
 
@@ -48,6 +56,20 @@ public class BuffaloShopManager : MonoBehaviour
         new ShopItem { Type = "damaged_corn", Label = "Ngô hỏng", Price = 4 },
         new ShopItem { Type = "potato", Label = "Khoai tây", Price = 11 },
         new ShopItem { Type = "damaged_potato", Label = "Khoai hỏng", Price = 3 },
+        new ShopItem { Type = "carrot", Label = "Cà rốt", Price = 9 },
+        new ShopItem { Type = "damaged_carrot", Label = "Cà rốt hỏng", Price = 2 },
+        new ShopItem { Type = "tomato", Label = "Cà chua", Price = 13 },
+        new ShopItem { Type = "damaged_tomato", Label = "Cà chua hỏng", Price = 3 },
+        new ShopItem { Type = "strawberry", Label = "Dâu tây", Price = 15 },
+        new ShopItem { Type = "damaged_strawberry", Label = "Dâu tây hỏng", Price = 4 },
+        new ShopItem { Type = "pumpkin", Label = "Bí ngô", Price = 14 },
+        new ShopItem { Type = "damaged_pumpkin", Label = "Bí ngô hỏng", Price = 3 },
+        new ShopItem { Type = "onion", Label = "Hành tây", Price = 10 },
+        new ShopItem { Type = "damaged_onion", Label = "Hành tây hỏng", Price = 2 },
+        new ShopItem { Type = "sugarcane", Label = "Mía", Price = 11 },
+        new ShopItem { Type = "damaged_sugarcane", Label = "Mía hỏng", Price = 3 },
+        new ShopItem { Type = "rice", Label = "Lúa nước", Price = 12 },
+        new ShopItem { Type = "damaged_rice", Label = "Lúa nước hỏng", Price = 3 },
     };
 
     private List<ShopItem> _currentItems => _activeTab == "buy" ? _buyItems : _sellItems;

@@ -167,6 +167,51 @@ public class ToolManager : MonoBehaviour
             string typeName = root.name == "TreeFelled" ? "Tree" : root.name == "BranchTop" ? "Branch" : "Debris";
             _uiManager.SetInfoText(typeName + " provides " + amount.ToString("F2") + " " + material);
         }
+        else if (root.name == "FieldTile")
+        {
+            var field = _worldBuilder.GetFieldAt(root.transform.position);
+            if (field != null)
+            {
+                string info;
+                if (field.IsHarvested)
+                {
+                    info = "Field (harvested — till again)";
+                }
+                else if (field.HasCrop)
+                {
+                    string cropDisplay = field.CropType switch
+                    {
+                        "wheat" => "Lúa",
+                        "corn" => "Ngô",
+                        "potato" => "Khoai tây",
+                        "carrot" => "Cà rốt",
+                        "tomato" => "Cà chua",
+                        "strawberry" => "Dâu tây",
+                        "pumpkin" => "Bí ngô",
+                        "onion" => "Hành tây",
+                        "sugarcane" => "Mía",
+                        "rice" => "Lúa nước",
+                        _ => field.CropType
+                    };
+                    info = $"{cropDisplay} • Stage {field.Stage}/4";
+                    if (field.Watered) info += " 💧";
+                    if (field.Fertilized) info += " 🌱";
+                }
+                else if (field.Tilled)
+                {
+                    info = "Tilled field — plant a seed";
+                }
+                else
+                {
+                    info = "Field — use hoe to till";
+                }
+                _uiManager.SetInfoText(info);
+            }
+            else
+            {
+                _uiManager.SetInfoText(null);
+            }
+        }
         else
         {
             _uiManager.SetInfoText(null);
@@ -366,73 +411,45 @@ public class ToolManager : MonoBehaviour
                 return;
             }
 
-            if (selectedItem == "wheat_seed")
+            if (selectedItem == "watering_can")
             {
                 var field = _worldBuilder.GetFieldAt(hit.point);
-                if (field != null && field.Tilled && !field.HasCrop)
+                if (field != null && field.Tilled && field.HasCrop && !field.IsHarvested)
                 {
-                    if (_worldBuilder.PlantCrop(field, "wheat"))
+                    if (_worldBuilder.WaterField(hit.point))
                     {
-                        RemoveItem(_selectedSlot, 1);
                         SoundManager.Instance?.Play("pop");
-                        _uiManager.ShowMessage("Planted wheat.", 1.5f);
+                        _uiManager.ShowMessage("Field watered.", 1.5f);
                     }
                 }
                 else
                 {
-                    _uiManager.ShowMessage("Use seed on a tilled field.", 1.5f);
+                    _uiManager.ShowMessage("Use watering can on a growing crop.", 1.5f);
                 }
                 return;
             }
 
-            if (selectedItem == "corn_seed")
+            if (selectedItem == "fertilizer")
             {
                 var field = _worldBuilder.GetFieldAt(hit.point);
-                if (field != null && field.Tilled && !field.HasCrop)
+                if (field != null && field.Tilled && field.HasCrop && !field.IsHarvested)
                 {
-                    if (_worldBuilder.PlantCrop(field, "corn"))
+                    if (_worldBuilder.FertilizeField(hit.point))
                     {
                         RemoveItem(_selectedSlot, 1);
                         SoundManager.Instance?.Play("pop");
-                        _uiManager.ShowMessage("Planted corn.", 1.5f);
+                        _uiManager.ShowMessage("Field fertilized!", 1.5f);
                     }
                 }
                 else
                 {
-                    _uiManager.ShowMessage("Use corn seed on a tilled field.", 1.5f);
+                    _uiManager.ShowMessage("Use fertilizer on a growing crop.", 1.5f);
                 }
                 return;
             }
 
-            if (selectedItem == "corn")
-            {
-                var field = _worldBuilder.GetFieldAt(hit.point);
-                if (field != null && field.Tilled && !field.HasCrop)
-                {
-                    if (_worldBuilder.PlantCrop(field, "corn"))
-                    {
-                        RemoveItem(_selectedSlot, 1);
-                        SoundManager.Instance?.Play("pop");
-                        _uiManager.ShowMessage("Planted corn.", 1.5f);
-                    }
-                }
+            if (TryPlantSeed(selectedItem, hit.point))
                 return;
-            }
-
-            if (selectedItem == "potato" || selectedItem == "potato_seed")
-            {
-                var field = _worldBuilder.GetFieldAt(hit.point);
-                if (field != null && field.Tilled && !field.HasCrop)
-                {
-                    if (_worldBuilder.PlantCrop(field, "potato"))
-                    {
-                        RemoveItem(_selectedSlot, 1);
-                        SoundManager.Instance?.Play("pop");
-                        _uiManager.ShowMessage("Planted potato.", 1.5f);
-                    }
-                }
-                return;
-            }
 
             if (selectedItem == "scythe")
             {
@@ -450,6 +467,66 @@ public class ToolManager : MonoBehaviour
                 return;
             }
         }
+    }
+
+    private bool TryPlantSeed(string itemType, Vector3 hitPoint)
+    {
+        var seedToCrop = new Dictionary<string, string>
+        {
+            { "wheat_seed", "wheat" },
+            { "corn_seed", "corn" },
+            { "potato_seed", "potato" },
+            { "carrot_seed", "carrot" },
+            { "tomato_seed", "tomato" },
+            { "strawberry_seed", "strawberry" },
+            { "pumpkin_seed", "pumpkin" },
+            { "onion_seed", "onion" },
+            { "sugarcane_seed", "sugarcane" },
+            { "rice_seed", "rice" },
+            { "wheat", "wheat" },
+            { "corn", "corn" },
+            { "potato", "potato" },
+            { "carrot", "carrot" },
+            { "tomato", "tomato" },
+            { "strawberry", "strawberry" },
+            { "pumpkin", "pumpkin" },
+            { "onion", "onion" },
+            { "sugarcane", "sugarcane" },
+            { "rice", "rice" },
+        };
+
+        if (!seedToCrop.TryGetValue(itemType, out var cropType))
+            return false;
+
+        var field = _worldBuilder.GetFieldAt(hitPoint);
+        if (field != null && field.Tilled && !field.HasCrop)
+        {
+            if (_worldBuilder.PlantCrop(field, cropType))
+            {
+                RemoveItem(_selectedSlot, 1);
+                SoundManager.Instance?.Play("pop");
+                string displayName = cropType switch
+                {
+                    "wheat" => "lúa",
+                    "corn" => "ngô",
+                    "potato" => "khoai tây",
+                    "carrot" => "cà rốt",
+                    "tomato" => "cà chua",
+                    "strawberry" => "dâu tây",
+                    "pumpkin" => "bí ngô",
+                    "onion" => "hành tây",
+                    "sugarcane" => "mía",
+                    "rice" => "lúa nước",
+                    _ => cropType
+                };
+                _uiManager.ShowMessage($"Đã trồng {displayName}.", 1.5f);
+            }
+        }
+        else
+        {
+            _uiManager.ShowMessage("Dùng hạt giống trên đất đã cày.", 1.5f);
+        }
+        return true;
     }
 
     public void TryPickupNearby()
@@ -999,6 +1076,14 @@ public class ToolManager : MonoBehaviour
         CreateToolModel("peashooter_seed", new Color(1f, 0.86f, 0.31f));
         CreateToolModel("corn_seed", new Color(1f, 0.86f, 0.24f));
         CreateToolModel("potato_seed", new Color(0.7f, 0.5f, 0.2f));
+        CreateToolModel("carrot_seed", new Color(1f, 0.5f, 0f));
+        CreateToolModel("tomato_seed", new Color(1f, 0.3f, 0.1f));
+        CreateToolModel("strawberry_seed", new Color(1f, 0.2f, 0.2f));
+        CreateToolModel("pumpkin_seed", new Color(1f, 0.7f, 0.1f));
+        CreateToolModel("onion_seed", new Color(0.7f, 0.5f, 0.3f));
+        CreateToolModel("sugarcane_seed", new Color(0.4f, 0.7f, 0.2f));
+        CreateToolModel("rice_seed", new Color(0.9f, 0.85f, 0.4f));
+        CreateToolModel("watering_can", new Color(0.4f, 0.5f, 0.6f));
         
         // Crops & resources
         CreateToolModel("wood", new Color(0.6f, 0.4f, 0.2f));
@@ -1009,6 +1094,20 @@ public class ToolManager : MonoBehaviour
         CreateToolModel("damaged_corn", new Color(0.6f, 0.4f, 0.2f));
         CreateToolModel("potato", new Color(0.627f, 0.431f, 0.235f));
         CreateToolModel("damaged_potato", new Color(0.6f, 0.4f, 0.2f));
+        CreateToolModel("carrot", new Color(1f, 0.55f, 0.1f));
+        CreateToolModel("damaged_carrot", new Color(0.6f, 0.4f, 0.2f));
+        CreateToolModel("tomato", new Color(1f, 0.2f, 0.1f));
+        CreateToolModel("damaged_tomato", new Color(0.6f, 0.4f, 0.2f));
+        CreateToolModel("strawberry", new Color(1f, 0.15f, 0.15f));
+        CreateToolModel("damaged_strawberry", new Color(0.6f, 0.4f, 0.2f));
+        CreateToolModel("pumpkin", new Color(1f, 0.6f, 0.1f));
+        CreateToolModel("damaged_pumpkin", new Color(0.6f, 0.4f, 0.2f));
+        CreateToolModel("onion", new Color(0.8f, 0.5f, 0.2f));
+        CreateToolModel("damaged_onion", new Color(0.6f, 0.4f, 0.2f));
+        CreateToolModel("sugarcane", new Color(0.3f, 0.7f, 0.15f));
+        CreateToolModel("damaged_sugarcane", new Color(0.6f, 0.4f, 0.2f));
+        CreateToolModel("rice", new Color(1f, 0.9f, 0.3f));
+        CreateToolModel("damaged_rice", new Color(0.6f, 0.4f, 0.2f));
         CreateToolModel("field", new Color(0.45f, 0.28f, 0.12f));
         CreateToolModel("mobspawner", new Color(0.25f, 0.25f, 0.25f));
         
