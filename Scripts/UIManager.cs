@@ -224,8 +224,7 @@ public class UIManager : MonoBehaviour
         _pauseMenuPanel = CreateMenuPanel("PauseMenu", Vector2.zero, new Vector2(panelWidth, panelHeight));
         CreateButton("ContinueButton", _pauseMenuPanel.transform, "Continue", new Vector2(0f, buttonHeight * 1.8f), () => GameManager.Instance?.TogglePause(false));
         CreateButton("SaveButton", _pauseMenuPanel.transform, "Save Game", new Vector2(0f, buttonHeight * 0.9f), () => SaveManager.Instance?.SaveGame());
-        CreateButton("BuffaloShopButton", _pauseMenuPanel.transform, "Buffalo Shop", new Vector2(0f, 0f), () => OpenBuffaloShop());
-        CreateButton("StatsButton", _pauseMenuPanel.transform, "Stats", new Vector2(0f, -buttonHeight * 0.9f), () => ShowStatsPanel(true));
+        CreateButton("StatsButton", _pauseMenuPanel.transform, "Stats", new Vector2(0f, 0f), () => ShowStatsPanel(true));
         CreateButton("QuestsButton", _pauseMenuPanel.transform, "Quests", new Vector2(0f, -buttonHeight * 1.8f), () => ShowQuestPanel(true));
         CreateButton("InstructionsButton", _pauseMenuPanel.transform, "Instructions", new Vector2(0f, -buttonHeight * 2.7f), () => ShowInstructions(true));
         CreateButton("ExitButton", _pauseMenuPanel.transform, "Exit", new Vector2(0f, -buttonHeight * 3.6f), () => Application.Quit());

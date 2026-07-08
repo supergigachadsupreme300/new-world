@@ -437,6 +437,7 @@ public class WorldBuilder : MonoBehaviour
                 plot.transform.SetParent(demoRoot.transform);
                 plot.GetComponent<MeshRenderer>().material.color = new Color(0.35f, 0.2f, 0.08f);
                 Destroy(plot.GetComponent<Collider>());
+                AddFieldBorder(plot.transform);
 
                 var plotLabel = new GameObject("PlotLabel");
                 plotLabel.transform.SetParent(demoRoot.transform);
@@ -500,6 +501,7 @@ public class WorldBuilder : MonoBehaviour
         tile.transform.SetParent(_worldRoot.transform);
         tile.GetComponent<MeshRenderer>().material.color = new Color(0.45f, 0.28f, 0.12f);
         tile.AddComponent<BoxCollider>().isTrigger = true;
+        AddFieldBorder(tile.transform);
 
         field = new FieldState
         {
@@ -2031,6 +2033,26 @@ GameObject treeRoot;
         }
 
         field.CropObject = cropRoot;
+    }
+
+    private void AddFieldBorder(Transform tile)
+    {
+        var borderColor = new Color(0.2f, 0.1f, 0.03f);
+        var rot = Quaternion.Euler(-90f, 0f, 0f);
+        for (int i = 0; i < 4; i++)
+        {
+            var edge = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            edge.transform.SetParent(tile, false);
+            edge.transform.localRotation = rot;
+            edge.transform.localPosition = i < 2
+                ? new Vector3(0f, (i == 0 ? -0.5f : 0.5f), -0.005f)
+                : new Vector3((i == 2 ? -0.5f : 0.5f), 0f, -0.005f);
+            edge.transform.localScale = i < 2
+                ? new Vector3(1f, 0.02f, 0.01f)
+                : new Vector3(0.01f, 0.02f, 1f);
+            edge.GetComponent<Renderer>().material.color = borderColor;
+            Destroy(edge.GetComponent<Collider>());
+        }
     }
 
     private void CreateFieldWheat(Transform parent, int stage)

@@ -215,6 +215,30 @@ public class PlayerController : MonoBehaviour
         }
         if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
             ToolManager.Instance?.UseSelectedItem();
+        if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame)
+        {
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                var ray = new Ray(cam.transform.position, cam.transform.forward);
+                var hits = Physics.RaycastAll(ray, 5f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
+                for (int i = 0; i < hits.Length; i++)
+                {
+                    if (hits[i].collider.transform.root.name == "BuffaloEntity")
+                    {
+                        var shop = Object.FindAnyObjectByType<BuffaloShopManager>();
+                        if (shop == null)
+                        {
+                            var go = new GameObject("BuffaloShopManager");
+                            shop = go.AddComponent<BuffaloShopManager>();
+                            shop.Initialize();
+                        }
+                        shop.Open();
+                        return;
+                    }
+                }
+            }
+        }
         if (Keyboard.current.qKey.wasPressedThisFrame)
             ToolManager.Instance?.DropSelectedItem();
         if (Keyboard.current.rKey.wasPressedThisFrame)
