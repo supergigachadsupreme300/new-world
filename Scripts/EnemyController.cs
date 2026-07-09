@@ -94,6 +94,7 @@ public class EnemyController : MonoBehaviour
     private void Die()
     {
         _isDead = true;
+        QuestManager.Instance?.AddProgress("enemies", 1);
         gameObject.SetActive(false);
         Invoke(nameof(Respawn), 5f);
     }

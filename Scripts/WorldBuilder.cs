@@ -22,7 +22,6 @@ public class WorldBuilder : MonoBehaviour
     public Material GroundMaterial;
     public GameObject TreePrefab;
     public GameObject RockPrefab;
-    public Material WorldMaterial;
 
     public Light SunLight;
     public GameObject GroundObject;
@@ -52,8 +51,10 @@ public class WorldBuilder : MonoBehaviour
         public Vector3 ArrivalPos;
         public Vector3? ExitTarget;
         public float Speed;
+        public bool Rising;
         public bool Moving;
         public bool Exiting;
+        public float TargetGroundY;
         public float ModelBaseY;
     }
     private readonly List<VendorCart> _vendorCarts = new List<VendorCart>();
@@ -314,6 +315,18 @@ public class WorldBuilder : MonoBehaviour
                     v.Root.transform.position += dir.normalized * v.Speed * deltaTime;
                 }
             }
+            else if (v.Rising)
+            {
+                var pos = v.Root.transform.position;
+                pos.y += 4f * deltaTime;
+                if (pos.y >= v.TargetGroundY)
+                {
+                    pos.y = v.TargetGroundY;
+                    v.Rising = false;
+                    v.Moving = true;
+                }
+                v.Root.transform.position = pos;
+            }
             else if (v.Moving)
             {
                 var dir = v.ArrivalPos - v.Root.transform.position;
@@ -330,13 +343,13 @@ public class WorldBuilder : MonoBehaviour
             }
 
             // Rotate wheels
-            if (v.Wheels != null && (v.Moving || v.Exiting))
+            if (v.Wheels != null && (v.Rising || v.Moving || v.Exiting))
             {
                 float rot = 360f * deltaTime;
                 foreach (var w in v.Wheels)
                 {
                     if (w != null)
-                        w.transform.Rotate(rot, 0f, 0f);
+                        w.transform.Rotate(0f, 0f, rot);
                 }
             }
 
@@ -1568,11 +1581,11 @@ public class WorldBuilder : MonoBehaviour
 
     private void CreateGround()
     {
-        GroundObject = GameObject.CreatePrimitive(PrimitiveType.Plane);
+        GroundObject = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         GroundObject.name = "Ground";
         GroundObject.transform.SetParent(_worldRoot.transform);
-        GroundObject.transform.localScale = new Vector3(GroundSize.x / 10f, 1f, GroundSize.z / 10f);
-        GroundObject.transform.position = Vector3.zero;
+        GroundObject.transform.localScale = new Vector3(GroundSize.x, GroundSize.y, GroundSize.z);
+        GroundObject.transform.position = new Vector3(0f, -GroundSize.y, 0f);
 
         var renderer = GroundObject.GetComponent<Renderer>();
         if (renderer != null)
@@ -1598,9 +1611,8 @@ public class WorldBuilder : MonoBehaviour
                 }
             }
         }
-        var groundCollider = GroundObject.AddComponent<BoxCollider>();
-        groundCollider.size = new Vector3(10f, 0.01f, 10f);
-        groundCollider.center = Vector3.zero;
+        Destroy(GroundObject.GetComponent<CapsuleCollider>());
+        var mc = GroundObject.AddComponent<MeshCollider>();
     }
 
     private GameObject MakeBlock(string name, Transform parent, Vector3 scale, Vector3 position, Color color, bool removeCollider = false, bool addCollider = false)
@@ -1744,12 +1756,13 @@ GameObject treeRoot;
     private void BuildWifeHouse()
     {
         MapBuilder.BuildWifeHouse(_worldRoot.transform, new Vector3(33f, 0f, 0f));
+        MapBuilder.BuildWifeNpc(_worldRoot.transform, new Vector3(30f, 0.86f, 0f), 1f, Quaternion.Euler(0f, 90f, 0f));
     }
 
     private void SpawnBuffalo()
     {
         if (_shopRoot == null) return;
-        MapBuilder.BuildBuffalo(_shopRoot, new Vector3(-3.8f, 0f, 0f), 1.5f, Quaternion.Euler(0f, 90f, 0f));
+        MapBuilder.BuildBuffalo(_shopRoot, new Vector3(-4.8f, 0f, 0f), 1.5f, Quaternion.Euler(0f, 0f, 0f));
     }
 
     private bool IsReservedSpawnLocation(int x, int z)
@@ -1799,11 +1812,12 @@ GameObject treeRoot;
         var cart = new VendorCart();
         cart.Root = new GameObject("VendorCart");
         cart.Root.transform.SetParent(_worldRoot.transform);
-        cart.Root.transform.position = new Vector3(15f, 0.5f, -30f);
+        cart.Root.transform.position = new Vector3(15f, -4f, -30f);
         cart.Root.transform.rotation = Quaternion.Euler(0f, -90f, 0f);
         cart.ArrivalPos = new Vector3(15f, 0.5f, -8f);
+        cart.TargetGroundY = 0.5f;
         cart.Speed = 6f;
-        cart.Moving = true;
+        cart.Rising = true;
         cart.Wheels = new List<GameObject>();
 
         Color cartColor = new Color(

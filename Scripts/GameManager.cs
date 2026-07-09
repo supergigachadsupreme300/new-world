@@ -195,9 +195,41 @@ public class GameManager : MonoBehaviour
 
         if (CutsceneManager != null)
         {
-            CutsceneManager.CancelCutscene();
             CutsceneManager.PlayIntroCutscene(null);
         }
+
+        UpdateTimeUI();
+    }
+
+    public void StartNewGameSkipIntro()
+    {
+        InGame = true;
+        GamePaused = false;
+        CurrentDay = 1;
+        TimeOfDay = 8f;
+
+        if (WorldBuilder != null)
+        {
+            WorldBuilder.ResetWorld();
+            WorldBuilder.GenerateWorld();
+            WorldBuilder.SetDayNight(TimeOfDay);
+        }
+
+        if (Player != null)
+        {
+            Player.EnableInput(true);
+            Player.ResetPlayer();
+        }
+
+        if (UIManager != null)
+        {
+            UIManager.ShowAllGameUI(true);
+            UIManager.ShowPauseMenu(false);
+            UIManager.ShowMainMenu(false);
+        }
+
+        if (ToolManager != null)
+            ToolManager.ResetSelection();
 
         UpdateTimeUI();
     }

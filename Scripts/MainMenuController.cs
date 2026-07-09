@@ -47,4 +47,9 @@ public class MainMenuController : MonoBehaviour
         else
             _gameManager.ShowMainMenu(true);
     }
+
+    public void OnSkipIntroClicked()
+    {
+        _gameManager?.StartNewGameSkipIntro();
+    }
 }

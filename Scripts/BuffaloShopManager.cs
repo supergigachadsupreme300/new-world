@@ -6,7 +6,18 @@ using UnityEngine.InputSystem;
 
 public class BuffaloShopManager : MonoBehaviour
 {
+    private bool _initialized;
     private Canvas _canvas;
+
+    void Update()
+    {
+        if (_shopPanel != null && _shopPanel.activeSelf && Keyboard.current != null)
+        {
+            if (Keyboard.current.escapeKey.wasPressedThisFrame || Keyboard.current.xKey.wasPressedThisFrame)
+                Close();
+        }
+    }
+
     private GameObject _shopPanel;
     private Button _tabBuy;
     private Button _tabSell;
@@ -85,13 +96,17 @@ public class BuffaloShopManager : MonoBehaviour
 
     void Start()
     {
-        Initialize();
+        if (!_initialized)
+            Initialize();
     }
 
     public void Initialize()
     {
+        if (_initialized)
+            return;
+        _initialized = true;
         _canvas = Object.FindAnyObjectByType<Canvas>();
-        if (_canvas == null || _canvas.gameObject.name != "HUD_Canvas")
+        if (_canvas == null)
             return;
 
         float sw = Screen.width;
@@ -191,27 +206,32 @@ public class BuffaloShopManager : MonoBehaviour
 
     public void Open()
     {
+        if (_shopPanel == null)
+        {
+            Debug.LogError("BuffaloShopManager: _shopPanel is null. Initialize() may have failed.");
+            return;
+        }
         _page = 1;
         _activeTab = "buy";
         _shopPanel.SetActive(true);
         _wasPausedBeforeOpen = GameManager.Instance != null && GameManager.Instance.GamePaused;
-        SwitchTab("buy");
-
-        var player = GameManager.Instance?.Player;
-        if (player != null)
-            player.EnableInput(false);
-
-        GameManager.Instance.TogglePause(true);
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
 
         if (GameManager.Instance?.UIManager != null)
         {
-            GameManager.Instance.UIManager.ShowPauseMenu(false);
+            GameManager.Instance.UIManager.ShowInstructions(false);
             GameManager.Instance.UIManager.ShowStatsPanel(false);
             GameManager.Instance.UIManager.ShowQuestPanel(false);
-            GameManager.Instance.UIManager.ShowInstructions(false);
         }
+
+        if (GameManager.Instance != null)
+            GameManager.Instance.TogglePause(true);
+
+        if (GameManager.Instance?.UIManager != null)
+            GameManager.Instance.UIManager.ShowPauseMenu(false);
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        SwitchTab("buy");
     }
 
     public void Close()
@@ -225,7 +245,8 @@ public class BuffaloShopManager : MonoBehaviour
             if (player != null)
                 player.EnableInput(true);
 
-            GameManager.Instance.TogglePause(false);
+            if (GameManager.Instance != null)
+                GameManager.Instance.TogglePause(false);
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
@@ -341,6 +362,7 @@ public class BuffaloShopManager : MonoBehaviour
         tm.RemoveAllItems(item.Type);
         int earned = owned * item.Price;
         player.Money += earned;
+        QuestManager.Instance?.AddProgress("money_earned", earned);
         ShowMessage($"Đã bán {owned} {item.Label} (+{earned} vàng)");
         UpdatePage();
     }
@@ -365,6 +387,7 @@ public class BuffaloShopManager : MonoBehaviour
         if (totalEarned > 0)
         {
             player.Money += totalEarned;
+            QuestManager.Instance?.AddProgress("money_earned", totalEarned);
             ShowMessage($"Đã bán tất cả (+{totalEarned} vàng)");
             UpdatePage();
         }

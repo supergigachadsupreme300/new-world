@@ -192,6 +192,7 @@ public class CutsceneManager : MonoBehaviour
 
         DisablePlayerControl();
         DetachCamera();
+        HideHUD();
 
         if (_mainCamera != null)
         {
@@ -240,7 +241,9 @@ public class CutsceneManager : MonoBehaviour
         yield return StartCoroutine(FadeOverlay(1, 1.5f));
         DestroyOverlay();
 
+        HideSkipButton();
         CleanupSpawned();
+        ShowHUD();
         RestorePlayerControl();
         IsActive = false;
         _cutsceneRoutine = null;
@@ -284,7 +287,8 @@ public class CutsceneManager : MonoBehaviour
 
         var wagonParts = CreateWagon(wx, wz);
         var groom = CreateGroom(wx + 0.35f, 1.05f, wz);
-        var wife = CreateWife(wx - 0.3f, 1.05f, wz);
+        var wife = MapBuilder.BuildWifeNpc(null, new Vector3(wx - 0.3f, 1.05f, wz), 1f, Quaternion.identity);
+        RegisterSpawned(wife);
 
         float t = 0;
         float wallTimeout = rideDur * 3f;
@@ -333,6 +337,7 @@ public class CutsceneManager : MonoBehaviour
 
         yield return StartCoroutine(FadeOverlay(1, 2f));
 
+        HideSkipButton();
         CleanupSpawned();
         DestroyLetterboxBars();
         DestroyOverlay();
@@ -487,6 +492,7 @@ public class CutsceneManager : MonoBehaviour
             yield return null;
         }
 
+        HideSkipButton();
         DestroyHappyEndingUI();
         CleanupHearts();
         if (_tetoRoot != null)
@@ -833,17 +839,6 @@ public class CutsceneManager : MonoBehaviour
         RegisterSpawned(body);
         RegisterSpawned(head);
         return (body, head);
-    }
-
-    private GameObject CreateWife(float x, float y, float z)
-    {
-        var root = new GameObject("WifeCutscene");
-        root.transform.position = new Vector3(x, y, z);
-        CreateBlock(root.transform, new Vector3(0.45f, 0.9f, 0.3f), new Vector3(0, 0.45f, 0), new Color(0.9f, 0.9f, 0.9f));
-        CreateBlock(root.transform, new Vector3(0.38f, 0.38f, 0.38f), new Vector3(0, 1.1f, 0), new Color(220f / 255f, 178f / 255f, 132f / 255f));
-        CreateBlock(root.transform, new Vector3(0.45f, 0.18f, 0.45f), new Vector3(0, 1.38f, 0), new Color(0.4f, 0.2f, 0.1f));
-        RegisterSpawned(root);
-        return root;
     }
 
     // ── Teto (happy ending) ──

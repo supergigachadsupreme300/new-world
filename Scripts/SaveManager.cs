@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -53,7 +54,7 @@ public class SaveManager : MonoBehaviour
             gunAmmo = _toolManager.GetGunAmmo(),
             fields = _worldBuilder.GetAllFieldsAsSave(),
             buildings = _worldBuilder.GetAllBuildingsAsSave(),
-            quest = _questManager?.GetQuestSave()
+            quests = _questManager?.GetQuestSaves()
         };
 
         var json = JsonUtility.ToJson(data, true);
@@ -102,7 +103,7 @@ public class SaveManager : MonoBehaviour
         _toolManager?.SetGunAmmo(data.gunAmmo);
         _worldBuilder?.LoadFieldsFromSave(data.fields);
         _worldBuilder?.LoadBuildingsFromSave(data.buildings);
-        _questManager?.LoadQuestSave(data.quest);
+        _questManager?.LoadQuestSaves(data.quests);
 
         GameManager.Instance?.ShowMainMenu(false);
         _uiManager?.ShowAllGameUI(true);
@@ -126,7 +127,7 @@ public class SaveManager : MonoBehaviour
         public int gunAmmo;
         public WorldBuilder.FieldSaveData[] fields;
         public WorldBuilder.BuildingSaveData[] buildings;
-        public QuestManager.QuestSave quest;
+        public List<QuestManager.QuestSave> quests;
     }
 
     [System.Serializable]

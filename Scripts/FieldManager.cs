@@ -439,38 +439,6 @@ public class FieldManager : MonoBehaviour
         };
     }
 
-    public void DestroyWheat(FieldData fieldData)
-    {
-        if (fieldData == null)
-            return;
-
-        foreach (var patch in fieldData.WheatNodes)
-        {
-            if (patch != null)
-                Destroy(patch);
-        }
-        fieldData.WheatNodes.Clear();
-        fieldData.CropType = null;
-        fieldData.WheatStage = 0;
-        fieldData.WheatHP = 0;
-
-        if (fieldData.HealthBar != null)
-        {
-            Destroy(fieldData.HealthBar);
-            fieldData.HealthBar = null;
-        }
-    }
-
-    public void UpdateWheatHealthBar(FieldData fieldData)
-    {
-        if (fieldData.HealthBar == null)
-            return;
-
-        float hpRatio = fieldData.WheatHP / CropMaxHP;
-        fieldData.HealthBar.transform.localScale = new Vector3(hpRatio, 0.1f, 0.1f);
-        fieldData.HealthBar.transform.localPosition = new Vector3(-0.5f + hpRatio / 2f, 1.5f, 0);
-    }
-
     private void CreateFieldPreview()
     {
         _fieldPreview = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -536,20 +504,6 @@ public class FieldManager : MonoBehaviour
         _fieldPreview.SetActive(false);
     }
     
-    private Vector3 CalculateAdjacentPosition(Vector3 fieldPos, Vector3 hitNormal)
-    {
-        // Unused by current hit logic, but kept for compatibility
-        Vector3 adjacentPos = fieldPos;
-        adjacentPos.y = 0.01f;
-        return adjacentPos;
-    }
-
-    public void ShowFieldPreview(bool visible)
-    {
-        if (_fieldPreview != null)
-            _fieldPreview.SetActive(visible);
-    }
-
     private void ApplyColor(GameObject go, Color color)
     {
         var renderer = go.GetComponent<Renderer>();
@@ -567,8 +521,6 @@ public class FieldManager : MonoBehaviour
         previewPosition = _fieldPreview.transform.position;
         return true;
     }
-
-    public List<FieldData> GetAllFields() => _fields;
 }
 
 public class FieldData

@@ -173,51 +173,6 @@ public static class MapBuilder
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  BUSH
-    // ═══════════════════════════════════════════════════════════════
-
-    public static GameObject BuildBush(Transform parent, Vector3 position, float scale = 1f, Quaternion rotation = default)
-    {
-        var root = new GameObject("Bush");
-        root.transform.SetParent(parent);
-        root.transform.position = position;
-        root.transform.rotation = (rotation == default) ? Quaternion.identity : rotation;
-        root.transform.localScale = Vector3.one * scale;
-
-        Color green = new Color(Random.Range(0.12f, 0.45f), Random.Range(0.4f, 0.7f), Random.Range(0.1f, 0.3f));
-        int n = Random.Range(3, 7);
-
-        for (int i = 0; i < n; i++)
-        {
-            float s = Random.Range(0.3f, 0.8f);
-            Vector3 pos = new Vector3(Random.Range(-0.5f, 0.5f), Random.Range(0.1f, 0.6f), Random.Range(-0.5f, 0.5f));
-            MakeBlock("BushPart", root.transform, Vector3.one * s, pos, green, true);
-        }
-
-        return root;
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  FENCE POST
-    // ═══════════════════════════════════════════════════════════════
-
-    public static GameObject BuildFencePost(Transform parent, Vector3 position, float scale = 1f, Quaternion rotation = default)
-    {
-        var root = new GameObject("FencePost");
-        root.transform.SetParent(parent);
-        root.transform.position = position;
-        root.transform.rotation = (rotation == default) ? Quaternion.identity : rotation;
-        root.transform.localScale = Vector3.one * scale;
-
-        Color wood = new Color(0.45f, 0.3f, 0.12f);
-
-        MakeBlock("Post", root.transform, new Vector3(0.2f, 1.2f, 0.2f), new Vector3(0, 0.6f, 0), wood, true);
-        MakeBlock("Top", root.transform, new Vector3(0.35f, 0.08f, 0.35f), new Vector3(0, 1.2f, 0), wood, true);
-
-        return root;
-    }
-
-    // ═══════════════════════════════════════════════════════════════
     //  PLAYER HOUSE  (10 x 5 x 10, gabled roof, chimney, porch, bed)
     // ═══════════════════════════════════════════════════════════════
 
@@ -532,9 +487,13 @@ public static class MapBuilder
         MakeBlock("Ceiling", root.transform, new Vector3(14f, 0.3f, 14f),
             new Vector3(0f, h1 + h2 + 0.4f, 0f), floorC);
 
-        // ── Open side (-X) with balcony access ──
-        MakeBlock("WallSide", root.transform, new Vector3(0.5f, h1 + h2 + 0.5f, 14f),
-            new Vector3(-7f, (h1 + h2 + 0.5f) / 2f, 0f), wallC);
+        // ── Open side (-X) with entrance gap ──
+        float wallH = h1 + h2 + 0.5f;
+        float wallY = wallH / 2f;
+        MakeBlock("WallSideL", root.transform, new Vector3(0.5f, wallH, 5.5f),
+            new Vector3(-7f, wallY, -4.25f), wallC);
+        MakeBlock("WallSideR", root.transform, new Vector3(0.5f, wallH, 5.5f),
+            new Vector3(-7f, wallY, 4.25f), wallC);
 
         // ── Gabled roof ──
         float rise = 3.5f;
@@ -677,10 +636,9 @@ public static class MapBuilder
         // Horns
         for (int s = -1; s <= 1; s += 2)
         {
-            float z = s * 0.22f;
-            MakeBlock("Horn" + (s > 0 ? "R" : "L") + "B", root.transform, new Vector3(0.25f, 0.04f, 0.04f), new Vector3(1.05f, 0.85f, z), hornC, true);
-            MakeBlock("Horn" + (s > 0 ? "R" : "L") + "M", root.transform, new Vector3(0.04f, 0.04f, 0.2f), new Vector3(1.1f, 0.88f, z + s * 0.12f), hornC, true);
-            MakeBlock("Horn" + (s > 0 ? "R" : "L") + "T", root.transform, new Vector3(0.03f, 0.03f, 0.14f), new Vector3(1.05f, 0.9f, z + s * 0.28f), hornC, true);
+            float z = s * 0.18f;
+            MakeBlock("Horn" + (s > 0 ? "R" : "L") + "B", root.transform, new Vector3(0.15f, 0.04f, 0.04f), new Vector3(1.05f, 0.82f, z), hornC, true);
+            MakeBlock("Horn" + (s > 0 ? "R" : "L") + "T", root.transform, new Vector3(0.04f, 0.04f, 0.14f), new Vector3(1.0f, 0.84f, z + s * 0.12f), hornC, true);
         }
         // Eyes
         MakeBlock("EyeL", root.transform, new Vector3(0.05f, 0.04f, 0.04f), new Vector3(1.2f, 0.73f, -0.14f), eyeC, true);
@@ -708,122 +666,100 @@ public static class MapBuilder
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  VENDOR SPAWN BUTTON
+    //  WIFE NPC
     // ═══════════════════════════════════════════════════════════════
 
-    public static GameObject BuildVendorSpawnButton(Transform parent, Vector3 position, float scale = 1f, Quaternion rotation = default)
+    public static GameObject BuildWifeNpc(Transform parent, Vector3 position, float scale = 1f, Quaternion rotation = default)
     {
-        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = "VendorSpawnButton";
-        go.transform.SetParent(parent);
-        go.transform.position = position;
-        go.transform.rotation = (rotation == default) ? Quaternion.identity : rotation;
-        go.transform.localScale = Vector3.one * scale;
-
-        var r = go.GetComponent<Renderer>();
-        if (r != null) r.material.color = new Color(0.761f, 0.647f, 0.137f);
-        var col = go.GetComponent<Collider>();
-        if (col != null) col.isTrigger = true;
-
-        return go;
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  VENDOR CART  (cart body + 4 wheels + blocky vendor character)
-    // ═══════════════════════════════════════════════════════════════
-
-    public static GameObject BuildVendorCart(Transform parent, Vector3 position, float scale = 1f, Quaternion rotation = default)
-    {
-        var root = new GameObject("VendorCart");
+        var root = new GameObject("WifeNpc");
         root.transform.SetParent(parent);
-        root.transform.position = position;
-        root.transform.rotation = (rotation == default) ? Quaternion.identity : rotation;
+        root.transform.localPosition = position;
+        root.transform.localRotation = rotation;
         root.transform.localScale = Vector3.one * scale;
 
-        Color cartC = new Color(
-            Random.Range(80f, 255f) / 255f,
-            Random.Range(50f, 220f) / 255f,
-            Random.Range(50f, 220f) / 255f
-        );
-        Color darkC = new Color(
-            Mathf.Max(0, cartC.r - 20f / 255f),
-            Mathf.Max(0, cartC.g - 40f / 255f),
-            Mathf.Max(0, cartC.b - 20f / 255f)
-        );
+        Color skinC = new Color(220f / 255f, 178f / 255f, 132f / 255f);
+        Color dressC = new Color(0.9f, 0.9f, 0.9f);
+		Color hairC = new Color(0.95f, 0.85f, 0.55f);
+		Color eyeC = new Color(0.5f, 0.75f, 1f);
+		Color shoeC = new Color(0.2f, 0.2f, 0.2f);
 
-        // Cart body
-        MakeBlock("CartBody", root.transform, new Vector3(4f, 1.4f, 2f), new Vector3(0f, 0.9f, 0f), cartC, true);
-        MakeBlock("CartTop", root.transform, new Vector3(4.2f, 0.4f, 2.2f), new Vector3(0f, 1.6f, 0f), darkC, true);
-        MakeBlock("CartStand", root.transform, new Vector3(0.2f, 0.5f, 1.8f), new Vector3(2f, 1.1f, 0f), Color.gray, true);
-        MakeBlock("CartStandFront", root.transform, new Vector3(0.5f, 0.7f, 2f), new Vector3(2f, 0.5f, 0f), Color.white, true);
+		// Legs
+		MakeBlock("LegL", root.transform, new Vector3(0.1f, 0.5f, 0.1f), new Vector3(-0.12f, -0.55f, 0f), skinC, true);
+		MakeBlock("LegR", root.transform, new Vector3(0.1f, 0.5f, 0.1f), new Vector3(0.12f, -0.55f, 0f), skinC, true);
+		MakeBlock("ShoeL", root.transform, new Vector3(0.14f, 0.08f, 0.22f), new Vector3(-0.14f, -0.82f, 0f), shoeC, true);
+		MakeBlock("ShoeR", root.transform, new Vector3(0.14f, 0.08f, 0.22f), new Vector3(0.14f, -0.82f, 0f), shoeC, true);
 
-        // Wheels (named "Wheel" for runtime lookup)
-        Vector3[] wheelPos = {
-            new Vector3(-1.4f, -0.35f, -1f), new Vector3(1.4f, -0.35f, -1f),
-            new Vector3(-1.4f, -0.35f, 1f),  new Vector3(1.4f, -0.35f, 1f)
-        };
-        foreach (var wp in wheelPos)
-        {
-            var w = MakeBlock("Wheel", root.transform, new Vector3(0.8f, 0.8f, 0.2f), wp, Color.black, true);
-            MakeBlock("WheelRim", w.transform, new Vector3(0.4f, 0.4f, 0.06f), new Vector3(0f, 0f, 0.08f), cartC, true);
-        }
+		// Curvy dress — hourglass silhouette
+		MakeBlock("Skirt", root.transform, new Vector3(0.6f, 0.35f, 0.38f), new Vector3(0f, -0.22f, 0f), dressC, true);
+		MakeBlock("Hips", root.transform, new Vector3(0.52f, 0.2f, 0.32f), new Vector3(0f, 0f, 0f), dressC, true);
+		MakeBlock("Waist", root.transform, new Vector3(0.35f, 0.2f, 0.24f), new Vector3(0f, 0.2f, 0f), dressC, true);
+		MakeBlock("Bust", root.transform, new Vector3(0.48f, 0.25f, 0.3f), new Vector3(0f, 0.42f, 0f), dressC, true);
 
-        // Vendor character
-        var vendor = new GameObject("Vendor");
-        vendor.transform.SetParent(root.transform);
-        vendor.transform.localPosition = new Vector3(0f, 0f, 1.8f);
-        MakeBlock("VendorBody", vendor.transform, new Vector3(0.5f, 1f, 0.4f), new Vector3(0f, 1f, 0f),
-            new Color(0.565f, 0.78f, 0.945f), true);
-        MakeBlock("VendorHead", vendor.transform, new Vector3(0.45f, 0.45f, 0.45f), new Vector3(0f, 1.9f, 0f),
-            Color.white, true);
-        MakeBlock("VendorArmL", vendor.transform, new Vector3(0.15f, 0.6f, 0.15f), new Vector3(-0.35f, 1.2f, 0f),
-            new Color(0.565f, 0.78f, 0.945f), true);
-        MakeBlock("VendorArmR", vendor.transform, new Vector3(0.15f, 0.6f, 0.15f), new Vector3(0.35f, 1.2f, 0f),
-            new Color(0.565f, 0.78f, 0.945f), true);
-        MakeBlock("VendorLegL", vendor.transform, new Vector3(0.18f, 0.7f, 0.18f), new Vector3(-0.15f, 0.35f, 0f),
-            Color.blue, true);
-        MakeBlock("VendorLegR", vendor.transform, new Vector3(0.18f, 0.7f, 0.18f), new Vector3(0.15f, 0.35f, 0f),
-            Color.blue, true);
+		// Neck
+		MakeBlock("Neck", root.transform, new Vector3(0.15f, 0.1f, 0.15f), new Vector3(0f, 0.6f, 0f), skinC, true);
+
+		// Head
+		MakeBlock("Head", root.transform, new Vector3(0.36f, 0.32f, 0.34f), new Vector3(0f, 0.8f, 0f), skinC, true);
+
+		// Hair — long blonde
+		MakeBlock("HairBack", root.transform, new Vector3(0.5f, 0.6f, 0.15f), new Vector3(0f, 0.55f, 0.18f), hairC, true).transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+		MakeBlock("HairTop", root.transform, new Vector3(0.42f, 0.08f, 0.38f), new Vector3(0f, 0.98f, 0f), hairC, true);
+		MakeBlock("HairL", root.transform, new Vector3(0.12f, 0.5f, 0.15f), new Vector3(-0.4f, 0.7f, 0f), hairC, true);
+		MakeBlock("HairR", root.transform, new Vector3(0.12f, 0.5f, 0.15f), new Vector3(0.4f, 0.7f, 0f), hairC, true);
+
+		// Eyes — light blue
+		MakeBlock("EyeL", root.transform, new Vector3(0.06f, 0.05f, 0.04f), new Vector3(-0.1f, 0.86f, -0.18f), eyeC, true);
+		MakeBlock("EyeR", root.transform, new Vector3(0.06f, 0.05f, 0.04f), new Vector3(0.1f, 0.86f, -0.18f), eyeC, true);
+
+        // Arms
+        MakeBlock("ArmL", root.transform, new Vector3(0.1f, 0.45f, 0.1f), new Vector3(-0.33f, 0.3f, 0f), skinC, true);
+        MakeBlock("ArmR", root.transform, new Vector3(0.1f, 0.45f, 0.1f), new Vector3(0.33f, 0.3f, 0f), skinC, true);
+
+        var col = root.AddComponent<BoxCollider>();
+        col.size = new Vector3(0.8f, 1.7f, 0.6f);
+        col.center = new Vector3(0f, 0.25f, 0f);
+        col.isTrigger = true;
 
         return root;
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  SIMPLE HOUSE  (quick generic variant)
+    //  PLAYER MODEL  (blocky farmer character)
     // ═══════════════════════════════════════════════════════════════
 
-    public static GameObject BuildHouse(Transform parent, Vector3 position, float scale = 1f, Quaternion rotation = default)
+    public static GameObject BuildPlayerModel(Transform parent, float scale = 1f)
     {
-        var root = new GameObject("House");
+        var root = new GameObject("PlayerModel");
         root.transform.SetParent(parent);
-        root.transform.position = position;
-        root.transform.rotation = (rotation == default) ? Quaternion.identity : rotation;
+        root.transform.localPosition = Vector3.zero;
+        root.transform.localRotation = Quaternion.identity;
         root.transform.localScale = Vector3.one * scale;
 
-        Color wallC = new Color(0.63f, 0.39f, 0.18f);
-        Color roofC = new Color(0.58f, 0.18f, 0.12f);
-        Color roofRidge = new Color(0.3f, 0.1f, 0.04f);
+        Color skinC = new Color(220f / 255f, 178f / 255f, 132f / 255f);
+        Color shirtC = new Color(0.2f, 0.6f, 0.9f);
+        Color pantsC = new Color(0.25f, 0.25f, 0.35f);
+        Color hairC = new Color(0.2f, 0.12f, 0.05f);
+        Color eyeC = new Color(0.05f, 0.03f, 0.01f);
+        Color shoeC = new Color(0.2f, 0.2f, 0.2f);
 
-        float hw = 5f, wallH = 3f, depth = 5f, rise = 2.5f;
-
-        MakeBlock("Floor", root.transform, new Vector3(hw * 2f, 0.3f, depth * 2f), Vector3.zero, wallC);
-        MakeBlock("WallBack", root.transform, new Vector3(hw * 2f, wallH, 0.3f), new Vector3(0, wallH * 0.5f, -depth), wallC);
-        MakeBlock("WallLeft", root.transform, new Vector3(0.3f, wallH, depth * 2f), new Vector3(-hw, wallH * 0.5f, 0), wallC);
-        MakeBlock("WallRight", root.transform, new Vector3(0.3f, wallH, depth * 2f), new Vector3(hw, wallH * 0.5f, 0), wallC);
-        MakeBlock("WallFrontL", root.transform, new Vector3(hw * 0.8f, wallH, 0.3f), new Vector3(-hw * 0.4f, wallH * 0.5f, depth), wallC);
-        MakeBlock("WallFrontR", root.transform, new Vector3(hw * 0.8f, wallH, 0.3f), new Vector3(hw * 0.4f, wallH * 0.5f, depth), wallC);
-
-        float panelLen = Mathf.Sqrt(hw * hw + rise * rise);
-        float tilt = Mathf.Atan2(rise, hw) * Mathf.Rad2Deg;
-        float roofZ = depth * 0.8f;
-
-        MakeBlock("RoofL", root.transform, new Vector3(panelLen, 0.4f, roofZ * 2f),
-            new Vector3(-hw * 0.5f, wallH + rise * 0.5f, 0), roofC).transform.rotation = Quaternion.Euler(0, 0, tilt);
-        MakeBlock("RoofR", root.transform, new Vector3(panelLen, 0.4f, roofZ * 2f),
-            new Vector3(hw * 0.5f, wallH + rise * 0.5f, 0), roofC).transform.rotation = Quaternion.Euler(0, 0, -tilt);
-        MakeBlock("Ridge", root.transform, new Vector3(0.5f, 0.3f, roofZ * 2f + 0.3f),
-            new Vector3(0, wallH + rise + 0.05f, 0), roofRidge);
+        MakeBlock("Body", root.transform, new Vector3(0.5f, 0.6f, 0.25f), new Vector3(0f, 0.05f, 0f), shirtC, true);
+        MakeBlock("Head", root.transform, new Vector3(0.3f, 0.3f, 0.3f), new Vector3(0f, 0.65f, 0f), skinC, true);
+        MakeBlock("Neck", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0f, 0.4f, 0f), skinC, true);
+        MakeBlock("ArmL", root.transform, new Vector3(0.12f, 0.5f, 0.12f), new Vector3(-0.33f, 0.12f, 0f), shirtC, true);
+        MakeBlock("ArmR", root.transform, new Vector3(0.12f, 0.5f, 0.12f), new Vector3(0.33f, 0.12f, 0f), shirtC, true);
+        MakeBlock("HandL", root.transform, new Vector3(0.12f, 0.08f, 0.12f), new Vector3(-0.33f, -0.14f, 0f), skinC, true);
+        MakeBlock("HandR", root.transform, new Vector3(0.12f, 0.08f, 0.12f), new Vector3(0.33f, -0.14f, 0f), skinC, true);
+        MakeBlock("LegL", root.transform, new Vector3(0.14f, 0.5f, 0.14f), new Vector3(-0.13f, -0.5f, 0f), pantsC, true);
+        MakeBlock("LegR", root.transform, new Vector3(0.14f, 0.5f, 0.14f), new Vector3(0.13f, -0.5f, 0f), pantsC, true);
+        MakeBlock("ShoeL", root.transform, new Vector3(0.16f, 0.08f, 0.22f), new Vector3(-0.13f, -0.82f, 0f), shoeC, true);
+        MakeBlock("ShoeR", root.transform, new Vector3(0.16f, 0.08f, 0.22f), new Vector3(0.13f, -0.82f, 0f), shoeC, true);
+        MakeBlock("Hair", root.transform, new Vector3(0.32f, 0.08f, 0.3f), new Vector3(0f, 0.82f, 0f), hairC, true);
+        MakeBlock("HairL", root.transform, new Vector3(0.06f, 0.18f, 0.1f), new Vector3(-0.18f, 0.78f, 0f), hairC, true);
+        MakeBlock("HairR", root.transform, new Vector3(0.06f, 0.18f, 0.1f), new Vector3(0.18f, 0.78f, 0f), hairC, true);
+        MakeBlock("EyeL", root.transform, new Vector3(0.04f, 0.04f, 0.04f), new Vector3(-0.08f, 0.72f, -0.16f), eyeC, true);
+        MakeBlock("EyeR", root.transform, new Vector3(0.04f, 0.04f, 0.04f), new Vector3(0.08f, 0.72f, -0.16f), eyeC, true);
 
         return root;
     }
+
 }

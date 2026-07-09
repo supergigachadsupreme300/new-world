@@ -6,7 +6,6 @@ public class QuestManager : MonoBehaviour
     public static QuestManager Instance { get; private set; }
 
     private readonly List<QuestSave> _quests = new List<QuestSave>();
-    private int _focusedIndex;
 
     private void Awake()
     {
@@ -26,7 +25,6 @@ public class QuestManager : MonoBehaviour
         _quests.Add(CreateQuest("Harvest wheat", "wheat", 100, 250));
         _quests.Add(CreateQuest("Slay monsters", "enemies", 30, 500));
         _quests.Add(CreateQuest("Earn coins", "money_earned", 100000, 1000));
-        _focusedIndex = 0;
         UpdateQuestUI();
     }
 
@@ -35,46 +33,65 @@ public class QuestManager : MonoBehaviour
         if (string.IsNullOrEmpty(target))
             return;
 
+        bool anyJustCompleted = false;
         foreach (var quest in _quests)
         {
             if (quest.Completed)
                 continue;
 
-            if (quest.Target == target || quest.Target == "money_earned")
+            if (quest.Target == target)
             {
                 quest.Progress += amount;
                 if (quest.Progress >= quest.Count)
                 {
                     quest.Progress = quest.Count;
                     quest.Completed = true;
+                    anyJustCompleted = true;
                 }
             }
         }
 
         UpdateQuestUI();
 
+        if (anyJustCompleted)
+            AwardCompleted();
         if (AllQuestsCompleted())
-        {
             GameManager.Instance?.RequestHappyEnding();
+    }
+
+    private void AwardCompleted()
+    {
+        long total = 0;
+        foreach (var q in _quests)
+        {
+            if (q.Completed && !q.RewardClaimed)
+            {
+                total += q.RewardMoney;
+                q.RewardClaimed = true;
+            }
+        }
+        if (total > 0 && GameManager.Instance?.Player != null)
+        {
+            GameManager.Instance.Player.Money += total;
+            var msg = $"Nhiệm vụ hoàn thành! Nhận {total} vàng!";
+            GameManager.Instance?.UIManager?.ShowMessage(msg, 3f);
         }
     }
 
-    public void LoadQuestSave(QuestSave saved)
+    public void LoadQuestSaves(List<QuestSave> saved)
     {
-        if (saved == null)
+        if (saved == null || saved.Count == 0)
             return;
 
         _quests.Clear();
-        _quests.Add(saved);
-        _focusedIndex = 0;
+        foreach (var q in saved)
+            _quests.Add(q);
         UpdateQuestUI();
     }
 
-    public QuestSave GetQuestSave()
+    public List<QuestSave> GetQuestSaves()
     {
-        if (_quests.Count == 0)
-            return null;
-        return _quests[_focusedIndex];
+        return new List<QuestSave>(_quests);
     }
 
     private bool AllQuestsCompleted()
@@ -96,18 +113,31 @@ public class QuestManager : MonoBehaviour
             Count = count,
             Progress = 0,
             RewardMoney = reward,
+            RewardClaimed = false,
             Completed = false
         };
     }
 
     private void UpdateQuestUI()
     {
-        if (GameManager.Instance != null && GameManager.Instance.UIManager != null)
+        if (GameManager.Instance == null || GameManager.Instance.UIManager == null)
+            return;
+
+        string hud = "";
+        string panel = "";
+        for (int i = 0; i < _quests.Count; i++)
         {
-            var quest = _quests.Count > 0 ? _quests[_focusedIndex] : null;
-            if (quest != null)
-                GameManager.Instance.UIManager.UpdateQuestText(quest.Name, quest.Progress, quest.Count);
+            var q = _quests[i];
+            string status = q.Completed ? "Done" : $"{q.Progress}/{q.Count}";
+            hud += $"{i + 1}. {q.Name}: {status}\n";
+            panel += $"{i + 1}. {q.Name}: {status}";
+            if (i < _quests.Count - 1)
+                panel += "\n";
         }
+        hud = hud.TrimEnd('\n');
+
+        GameManager.Instance.UIManager.UpdateQuestHud(hud);
+        GameManager.Instance.UIManager.UpdateQuestPanelText(hud);
     }
 
     [System.Serializable]
@@ -118,6 +148,7 @@ public class QuestManager : MonoBehaviour
         public int Count;
         public int Progress;
         public int RewardMoney;
+        public bool RewardClaimed;
         public bool Completed;
     }
 }

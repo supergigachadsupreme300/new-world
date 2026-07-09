@@ -24,7 +24,6 @@ public class PlayerController : MonoBehaviour
     private float _yaw;
     private float _pitch;
     private const float MouseSensitivity = 2.5f;
-    private const string PlayerModelResourcePath = "Models/Player/PlayerModel";
     private GameObject _playerModelInstance;
 
     private void Awake()
@@ -224,7 +223,7 @@ public class PlayerController : MonoBehaviour
                 var hits = Physics.RaycastAll(ray, 5f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
                 for (int i = 0; i < hits.Length; i++)
                 {
-                    if (hits[i].collider.transform.root.name == "BuffaloEntity")
+                    if (hits[i].collider.transform.name == "BuffaloEntity")
                     {
                         var shop = Object.FindAnyObjectByType<BuffaloShopManager>();
                         if (shop == null)
@@ -347,35 +346,6 @@ public class PlayerController : MonoBehaviour
         if (existing != null)
             Destroy(existing.gameObject);
 
-        var capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        capsule.name = "PlayerModel";
-        capsule.transform.SetParent(transform);
-        capsule.transform.localPosition = Vector3.zero;
-        capsule.transform.localRotation = Quaternion.identity;
-        capsule.transform.localScale = new Vector3(1f, 1.8f, 1f);
-        var renderer = capsule.GetComponent<Renderer>();
-        if (renderer != null)
-            renderer.material.color = new Color(0.2f, 0.6f, 0.9f);
-
-        Destroy(capsule.GetComponent<Collider>());
-        _playerModelInstance = capsule;
-    }
-
-    private void CreateBlockyPlayerModel()
-    {
-        // This method is no longer used. Player model is now a capsule.
-    }
-
-    private void CreatePart(Transform parent, string name, Vector3 scale, Vector3 localPosition, Color color)
-    {
-        var part = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        part.name = name;
-        part.transform.SetParent(parent);
-        part.transform.localScale = scale;
-        part.transform.localPosition = localPosition;
-        var renderer = part.GetComponent<Renderer>();
-        if (renderer != null)
-            renderer.material.color = color;
-        Destroy(part.GetComponent<Collider>());
+        _playerModelInstance = MapBuilder.BuildPlayerModel(transform);
     }
 }

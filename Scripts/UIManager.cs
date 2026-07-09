@@ -22,6 +22,7 @@ public class UIManager : MonoBehaviour
     private TMP_Text _staminaText;
     private TMP_Text _moneyText;
     private TMP_Text _questText;
+    private TMP_Text _questLinesText;
     private TMP_Text _inventoryText;
     private TMP_Text _messageText;
     private TMP_Text _mobSpawnerText;
@@ -238,7 +239,7 @@ public class UIManager : MonoBehaviour
 
         _questPanel = CreateMenuPanel("QuestPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
         EnsureText("QuestTitle", new Vector2(0f, panelHeight * 0.35f), "QUESTS", (int)largefontSize, _questPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
-        EnsureText("QuestLines", new Vector2(0f, panelHeight * 0.1f), "1. Harvest wheat\n2. Earn coins\n3. Slay monsters", (int)fontSize, _questPanel.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.3f));
+        _questLinesText = EnsureText("QuestLines", new Vector2(0f, panelHeight * 0.1f), "1. Harvest wheat 0/100\n2. Slay monsters 0/30\n3. Earn coins 0/100000", (int)fontSize, _questPanel.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.3f));
         CreateButton("QuestCloseButton", _questPanel.transform, "Close", new Vector2(0f, -panelHeight * 0.35f), () => ShowQuestPanel(false));
         _questPanel.SetActive(false);
 
@@ -253,7 +254,8 @@ public class UIManager : MonoBehaviour
         CreateButton("NewGameButton", _mainMenuPanel.transform, "Game Mới", new Vector2(0f, buttonHeight * 1.2f), () => MainMenuController.Instance?.OnNewGameClicked());
         CreateButton("LoadGameButton", _mainMenuPanel.transform, "Tiếp tục (Load)", new Vector2(0f, buttonHeight * 0.4f), () => MainMenuController.Instance?.OnLoadGameClicked());
         CreateButton("WatchIntroButton", _mainMenuPanel.transform, "Xem mở đầu", new Vector2(0f, -buttonHeight * 0.4f), () => MainMenuController.Instance?.OnWatchIntroClicked());
-        CreateButton("QuitButton", _mainMenuPanel.transform, "Thoát", new Vector2(0f, -buttonHeight * 1.2f), () => MainMenuController.Instance?.OnQuitClicked());
+        CreateButton("SkipIntroButton", _mainMenuPanel.transform, "Bỏ qua (vào game)", new Vector2(0f, -buttonHeight * 1.2f), () => MainMenuController.Instance?.OnSkipIntroClicked());
+        CreateButton("QuitButton", _mainMenuPanel.transform, "Thoát", new Vector2(0f, -buttonHeight * 2.0f), () => MainMenuController.Instance?.OnQuitClicked());
         _mainMenuPanel.SetActive(false);
 
         ShowAllGameUI(true);
@@ -548,13 +550,16 @@ public class UIManager : MonoBehaviour
         _ammoText.gameObject.SetActive(true);
     }
 
-    public void UpdateQuestText(string name, int progress, int goal)
+    public void UpdateQuestHud(string text)
     {
         if (_questText != null)
-        {
-            var status = progress >= goal ? "Completed" : $"{progress}/{goal}";
-            _questText.text = $"Quest: {name} {status}";
-        }
+            _questText.text = text;
+    }
+
+    public void UpdateQuestPanelText(string text)
+    {
+        if (_questLinesText != null)
+            _questLinesText.text = text;
     }
 
     public void ShowMessage(string text, float duration)
@@ -573,15 +578,4 @@ public class UIManager : MonoBehaviour
             _messageText.text = string.Empty;
     }
 
-    private void OpenBuffaloShop()
-    {
-        var shop = Object.FindAnyObjectByType<BuffaloShopManager>();
-        if (shop == null)
-        {
-            var go = new GameObject("BuffaloShopManager");
-            shop = go.AddComponent<BuffaloShopManager>();
-            shop.Initialize();
-        }
-        shop.Open();
-    }
 }

@@ -16,13 +16,9 @@ public class ToolManager : MonoBehaviour
 
     [Header("Item Textures")]
     public Texture2D FertilizerTexture;
-    public Texture2D SeedTexture;
     public Texture2D PeashooterSeedTexture;
-    public Texture2D CornSeedTexture;
 
     [Header("Special Item Models")]
-    public GameObject WheatModel;
-    public Texture2D WheatTexture;
     public GameObject MiHaoHaoModel;
     public Texture2D MiHaoHaoTexture;
 
@@ -542,6 +538,19 @@ public class ToolManager : MonoBehaviour
             return;
 
         Debug.Log($"TryPickupNearby: ray hit {hit.collider.gameObject.name}");
+
+        if (hit.collider.transform.name == "BuffaloEntity")
+        {
+            var shop = Object.FindAnyObjectByType<BuffaloShopManager>();
+            if (shop == null)
+            {
+                var go = new GameObject("BuffaloShopManager");
+                shop = go.AddComponent<BuffaloShopManager>();
+                shop.Initialize();
+            }
+            shop.Open();
+            return;
+        }
 
         if (TryPickupTool(hit.collider))
             return;
