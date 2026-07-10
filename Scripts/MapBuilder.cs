@@ -128,6 +128,96 @@ public static class MapBuilder
         Object.Destroy(go.GetComponent<Collider>());
     }
 
+    public static GameObject BuildCoconutTree(Transform parent, Vector3 position, float scale = 1f)
+    {
+        var root = new GameObject("CoconutTree");
+        root.transform.SetParent(parent);
+        root.transform.position = position;
+        root.transform.localScale = Vector3.one * scale;
+
+        Color wood = new Color(0.55f, 0.4f, 0.2f);
+        Color leaf = new Color(0.25f, 0.65f, 0.15f);
+
+        float trunkH = Random.Range(3f, 5f);
+        float trunkW = Random.Range(0.5f, 0.8f);
+
+        AddSegmentedTrunk(root.transform, trunkH, trunkW, wood);
+        Vector3 tip = new Vector3(0f, trunkH, 0f);
+
+        float angle = Random.Range(65f, 85f) * Mathf.Deg2Rad;
+        float azimuth = Random.Range(0f, Mathf.PI * 2f);
+        Vector3 perp = GetPerpendicular(root.transform.up);
+        Vector3 horz = Quaternion.AngleAxis(azimuth * Mathf.Rad2Deg, root.transform.up) * perp;
+        Vector3 branchDir = (root.transform.up * Mathf.Cos(angle) + horz * Mathf.Sin(angle)).normalized;
+        float branchLen = trunkH * Random.Range(0.6f, 0.8f);
+        float branchW = trunkW * Random.Range(0.25f, 0.4f);
+
+        var branchGo = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        branchGo.name = "Branch";
+        branchGo.transform.SetParent(root.transform);
+        Vector3 branchCenter = tip + branchDir.normalized * (branchLen * 0.5f);
+        branchGo.transform.localPosition = branchCenter;
+        branchGo.transform.localRotation = Quaternion.FromToRotation(Vector3.up, branchDir.normalized);
+        branchGo.transform.localScale = new Vector3(branchW, branchLen, branchW);
+        var br = branchGo.GetComponent<Renderer>();
+        if (br != null) br.material.color = wood;
+        Object.Destroy(branchGo.GetComponent<Collider>());
+
+        Vector3 branchTip = tip + branchDir.normalized * branchLen;
+        for (int j = 0; j < 3; j++)
+        {
+            Vector3 leafDir = Quaternion.AngleAxis((j - 1) * 55f, Vector3.up) * branchDir;
+            GrowLeafChain(root.transform, branchTip, leafDir.normalized, 3, leaf);
+        }
+
+        return root;
+    }
+
+    private static void AddSegmentedTrunk(Transform root, float height, float width, Color color)
+    {
+        int segments = Mathf.Max(3, Mathf.RoundToInt(height));
+        float segH = height / segments;
+        for (int i = 0; i < segments; i++)
+        {
+            float t = (float)i / segments;
+            float w = width * (1f - t * 0.3f);
+            float wobble = 0.05f;
+            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = "TrunkSeg";
+            go.transform.SetParent(root);
+            go.transform.localPosition = new Vector3(Random.Range(-wobble, wobble), segH * i + segH * 0.5f, Random.Range(-wobble, wobble));
+            go.transform.localScale = new Vector3(w, segH * 1.1f, w);
+            go.transform.localRotation = Quaternion.Euler(Random.Range(-1.5f, 1.5f), 0, Random.Range(-1.5f, 1.5f));
+            var r = go.GetComponent<Renderer>();
+            if (r != null) r.material.color = color;
+            Object.Destroy(go.GetComponent<Collider>());
+        }
+    }
+
+    private static void GrowLeafChain(Transform root, Vector3 startPos, Vector3 dir, int remaining, Color color)
+    {
+        if (remaining <= 0) return;
+
+        float len = Random.Range(0.8f, 1.4f);
+        float wid = Random.Range(0.7f, 1.1f);
+        Vector3 d = dir.normalized;
+
+        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        go.name = "CoconutLeaf";
+        go.transform.SetParent(root);
+        go.transform.localPosition = startPos + d * (len * 0.5f);
+        go.transform.localScale = new Vector3(wid, len, 0.01f);
+        go.transform.localRotation = Quaternion.FromToRotation(Vector3.up, d);
+        var r = go.GetComponent<Renderer>();
+        if (r != null) r.material.color = color;
+        Object.Destroy(go.GetComponent<Collider>());
+
+        Vector3 head = startPos + d * len;
+        Vector3 perp = GetPerpendicular(d);
+        Vector3 nextDir = Quaternion.AngleAxis(Random.Range(-6f, -2f), perp) * d;
+        GrowLeafChain(root, head, nextDir.normalized, remaining - 1, color);
+    }
+
     private static Vector3 GetPerpendicular(Vector3 v)
     {
         v.Normalize();
@@ -702,10 +792,10 @@ public static class MapBuilder
 		MakeBlock("Head", root.transform, new Vector3(0.36f, 0.32f, 0.34f), new Vector3(0f, 0.8f, 0f), skinC, true);
 
 		// Hair — long blonde
-		MakeBlock("HairBack", root.transform, new Vector3(0.5f, 0.6f, 0.15f), new Vector3(0f, 0.55f, 0.18f), hairC, true).transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+		MakeBlock("HairBack", root.transform, new Vector3(0.5f, 0.6f, 0.15f), new Vector3(0f, 0.55f, 0.18f), hairC, true).transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
 		MakeBlock("HairTop", root.transform, new Vector3(0.42f, 0.08f, 0.38f), new Vector3(0f, 0.98f, 0f), hairC, true);
-		MakeBlock("HairL", root.transform, new Vector3(0.12f, 0.5f, 0.15f), new Vector3(-0.4f, 0.7f, 0f), hairC, true);
-		MakeBlock("HairR", root.transform, new Vector3(0.12f, 0.5f, 0.15f), new Vector3(0.4f, 0.7f, 0f), hairC, true);
+		MakeBlock("HairL", root.transform, new Vector3(0.4f, 0.7f, 0.15f), new Vector3(-0.4f, 0.7f, 0f), hairC, true);
+		MakeBlock("HairR", root.transform, new Vector3(0.4f, 0.7f, 0.15f), new Vector3(0.4f, 0.7f, 0f), hairC, true);
 
 		// Eyes — light blue
 		MakeBlock("EyeL", root.transform, new Vector3(0.06f, 0.05f, 0.04f), new Vector3(-0.1f, 0.86f, -0.18f), eyeC, true);

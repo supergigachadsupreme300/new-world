@@ -170,6 +170,7 @@ public class WorldBuilder : MonoBehaviour
         SpawnTrees(TreeCount);
         SpawnRocks(RockCount);
         BuildHouse();
+        BuildBeach();
         BuildShop();
         BuildWifeHouse();
         SpawnBuffalo();
@@ -1581,11 +1582,11 @@ public class WorldBuilder : MonoBehaviour
 
     private void CreateGround()
     {
-        GroundObject = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        GroundObject = GameObject.CreatePrimitive(PrimitiveType.Plane);
         GroundObject.name = "Ground";
         GroundObject.transform.SetParent(_worldRoot.transform);
-        GroundObject.transform.localScale = new Vector3(GroundSize.x, GroundSize.y, GroundSize.z);
-        GroundObject.transform.position = new Vector3(0f, -GroundSize.y, 0f);
+        GroundObject.transform.localScale = new Vector3(GroundSize.x / 10f, 1f, GroundSize.z / 10f);
+        GroundObject.transform.position = Vector3.zero;
 
         var renderer = GroundObject.GetComponent<Renderer>();
         if (renderer != null)
@@ -1611,8 +1612,9 @@ public class WorldBuilder : MonoBehaviour
                 }
             }
         }
-        Destroy(GroundObject.GetComponent<CapsuleCollider>());
-        var mc = GroundObject.AddComponent<MeshCollider>();
+        var groundCollider = GroundObject.AddComponent<BoxCollider>();
+        groundCollider.size = new Vector3(10f, 0.01f, 10f);
+        groundCollider.center = Vector3.zero;
     }
 
     private GameObject MakeBlock(string name, Transform parent, Vector3 scale, Vector3 position, Color color, bool removeCollider = false, bool addCollider = false)
@@ -1745,6 +1747,29 @@ GameObject treeRoot;
     private void BuildHouse()
     {
         MapBuilder.BuildPlayerHouse(_worldRoot.transform, Vector3.zero);
+    }
+
+    private void BuildBeach()
+    {
+        float beachX = -88f;
+        float sandW = 25f;
+        float sandD = 150f;
+        Color sandC = new Color(0.85f, 0.76f, 0.55f);
+        Color seaC = new Color(0.2f, 0.5f, 0.8f);
+
+        MakeBlock("Sand", _worldRoot.transform, new Vector3(sandW, 0.02f, sandD),
+            new Vector3(beachX, 0f, 0f), sandC, false, true);
+
+        MakeBlock("Sea", _worldRoot.transform, new Vector3(8f, 0.06f, sandD),
+            new Vector3(beachX - sandW * 0.5f - 4f, 0.03f, 0f), seaC, false, true);
+
+        int numTrees = Random.Range(4, 7);
+        for (int i = 0; i < numTrees; i++)
+        {
+            float x = beachX + Random.Range(-sandW * 0.35f, sandW * 0.35f);
+            float z = Random.Range(-sandD * 0.4f, sandD * 0.4f);
+            MapBuilder.BuildCoconutTree(_worldRoot.transform, new Vector3(x, 0f, z), Random.Range(0.8f, 1.2f));
+        }
     }
 
     private void BuildShop()
