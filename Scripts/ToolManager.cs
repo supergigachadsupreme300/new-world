@@ -328,6 +328,16 @@ public class ToolManager : MonoBehaviour
                     return;
                 }
 
+                if (hitObj.name == "TrunkSeg")
+                {
+                    var treeRoot = FindTreeRoot(hit.collider);
+                    if (treeRoot != null && _worldBuilder.ChopBranch(treeRoot, hitObj, hit.point, hit.normal))
+                    {
+                        SoundManager.Instance?.Play("axe");
+                    }
+                    return;
+                }
+
                 var treeRoot2 = FindTreeRoot(hit.collider);
                 if (treeRoot2 != null)
                 {

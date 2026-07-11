@@ -81,6 +81,7 @@ public class WorldBuilder : MonoBehaviour
     private class BranchChopState
     {
         public GameObject BranchObject;
+        public GameObject TreeRoot;
         public GameObject ChopMark;
         public float ChopProgress;
         public Vector3 HitWorldPoint;
@@ -853,6 +854,7 @@ public class WorldBuilder : MonoBehaviour
         state = new BranchChopState
         {
             BranchObject = branch,
+            TreeRoot = branch.name == "TrunkSeg" ? treeRoot : null,
             ChopProgress = 0.25f,
             HitWorldPoint = hitPoint,
             HitNormal = hitNormal,
@@ -946,6 +948,25 @@ public class WorldBuilder : MonoBehaviour
 
             Vector3 origTipLocal = branchPos + branchRot * new Vector3(0, fullH / 2f, 0);
             MoveSubBranches(parent, topRoot.transform, origTipLocal, fullW);
+
+            if (state.TreeRoot != null)
+            {
+                topRoot.name = "TreeFelled";
+                rb.mass = 10f;
+
+                foreach (Transform child in state.TreeRoot.transform)
+                {
+                    if (child == branchObj.transform || child.name == "Trunk" || child.name == "Leaf") continue;
+                    if (Vector3.Dot(child.localPosition, branchUp) > Vector3.Dot(chopLocal, branchUp) + 0.3f)
+                    {
+                        if (child.GetComponent<Collider>() == null)
+                            child.gameObject.AddComponent<BoxCollider>();
+                        child.SetParent(topRoot.transform, true);
+                    }
+                }
+
+                _trees.Add(topRoot);
+            }
         }
 
         if (state.ChopMark != null)

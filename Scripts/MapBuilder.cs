@@ -151,7 +151,7 @@ public static class MapBuilder
             dir = (Quaternion.AngleAxis(perSegAngle, bendAxis.Value) * dir.normalized).normalized;
 
         string segName = chainRemaining > 0
-            ? (depth == 0 ? chainSegName : chainSegName + "Seg")
+            ? (depth == 0 ? chainSegName : (chainSegName == "Trunk" ? "TrunkSeg" : chainSegName))
             : "Branch";
 
         var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
