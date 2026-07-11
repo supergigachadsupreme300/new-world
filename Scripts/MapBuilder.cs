@@ -141,14 +141,14 @@ public static class MapBuilder
         float trunkH = Random.Range(3f, 5f);
         float trunkW = Random.Range(0.5f, 0.8f);
 
-        AddSegmentedTrunk(root.transform, trunkH, trunkW, wood);
-        Vector3 tip = new Vector3(0f, trunkH, 0f);
+        float bendYaw = Random.Range(0f, 360f);
+        Quaternion topRot = Quaternion.identity;
+        Vector3 tip = AddSegmentedTrunk(root.transform, trunkH, trunkW, wood, bendYaw, out topRot);
 
         float angle = Random.Range(20f, 40f) * Mathf.Deg2Rad;
-        float azimuth = Random.Range(0f, Mathf.PI * 2f);
-        Vector3 perp = GetPerpendicular(root.transform.up);
-        Vector3 horz = Quaternion.AngleAxis(azimuth * Mathf.Rad2Deg, root.transform.up) * perp;
-        Vector3 branchDir = (root.transform.up * Mathf.Cos(angle) + horz * Mathf.Sin(angle)).normalized;
+        Vector3 tiltDir = Quaternion.Euler(0f, bendYaw, 0f) * Vector3.forward;
+        Vector3 horz = Vector3.ProjectOnPlane(tiltDir, topRot * Vector3.up).normalized;
+        Vector3 branchDir = (topRot * Vector3.up * Mathf.Cos(angle) + horz * Mathf.Sin(angle)).normalized;
         float branchLen = trunkH * Random.Range(0.25f, 0.4f);
         float branchW = trunkW * Random.Range(0.5f, 0.7f);
 
@@ -177,25 +177,38 @@ public static class MapBuilder
         return root;
     }
 
-    private static void AddSegmentedTrunk(Transform root, float height, float width, Color color)
+    private static Vector3 AddSegmentedTrunk(Transform root, float height, float width, Color color, float bendYaw, out Quaternion topRot)
     {
         int segments = Mathf.Max(3, Mathf.RoundToInt(height));
         float segH = height / segments;
+        Vector3 bottomPos = Vector3.zero;
+        topRot = Quaternion.identity;
+        Vector3 tiltAxis = Quaternion.Euler(0f, bendYaw, 0f) * Vector3.right;
         for (int i = 0; i < segments; i++)
         {
             float t = (float)i / segments;
             float w = width * (1f - t * 0.3f);
-            float wobble = 0.05f;
+            Quaternion rot = Quaternion.AngleAxis((i + 1) * 5f, tiltAxis);
+            Vector3 halfUp = rot * new Vector3(0f, segH * 1.1f * 0.5f, 0f);
+            Vector3 center = bottomPos + halfUp;
+
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = "TrunkSeg";
             go.transform.SetParent(root);
-            go.transform.localPosition = new Vector3(Random.Range(-wobble, wobble), segH * i + segH * 0.5f, Random.Range(-wobble, wobble));
+            go.transform.localPosition = center;
             go.transform.localScale = new Vector3(w, segH * 1.1f, w);
-            go.transform.localRotation = Quaternion.Euler(Random.Range(-1.5f, 1.5f), 0, Random.Range(-1.5f, 1.5f));
+            go.transform.localRotation = rot;
             var r = go.GetComponent<Renderer>();
             if (r != null) r.material.color = color;
             Object.Destroy(go.GetComponent<Collider>());
+
+            bottomPos = center + halfUp;
+            if (i == segments - 1)
+            {
+                topRot = rot;
+            }
         }
+        return bottomPos;
     }
 
     private static void GrowLeafChain(Transform root, Vector3 startPos, Vector3 dir, Vector3 branchDir, Vector3 horzAxis, float segLen, int remaining, Color color)
