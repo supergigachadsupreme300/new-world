@@ -168,7 +168,10 @@ public static class MapBuilder
         for (int j = 0; j < 3; j++)
         {
             Vector3 leafDir = Quaternion.AngleAxis(j * 120f, branchDir) * perpBranch;
-            GrowLeafChain(root.transform, branchTip, leafDir.normalized, branchDir, Random.Range(0.9f, 1.3f), 3, leaf);
+            Vector3 leafHorz = Vector3.Cross(leafDir.normalized, Vector3.up).normalized;
+            if (leafHorz.sqrMagnitude < 0.01f) leafHorz = Vector3.Cross(leafDir.normalized, Vector3.forward).normalized;
+            float segLen = Random.Range(0.9f, 1.3f);
+            GrowLeafChain(root.transform, branchTip, leafDir.normalized, branchDir, leafHorz, segLen, 3, leaf);
         }
 
         return root;
@@ -195,7 +198,7 @@ public static class MapBuilder
         }
     }
 
-    private static void GrowLeafChain(Transform root, Vector3 startPos, Vector3 dir, Vector3 branchDir, float segLen, int remaining, Color color)
+    private static void GrowLeafChain(Transform root, Vector3 startPos, Vector3 dir, Vector3 branchDir, Vector3 horzAxis, float segLen, int remaining, Color color)
     {
         float wid = Random.Range(0.7f, 1.1f);
         Vector3 d = dir.normalized;
@@ -205,7 +208,7 @@ public static class MapBuilder
         go.transform.SetParent(root);
         go.transform.localPosition = startPos + d * (segLen * 0.5f);
         go.transform.localScale = new Vector3(wid, segLen, 0.01f);
-        go.transform.localRotation = Quaternion.LookRotation(branchDir, d) * Quaternion.Euler(Random.Range(-1.5f, 1.5f), Random.Range(-4f, 4f), 0);
+        go.transform.localRotation = Quaternion.LookRotation(branchDir, d) * Quaternion.Euler((3 - remaining) * -12f, 0f, 0f);
         var r = go.GetComponent<Renderer>();
         if (r != null) r.material.color = color;
         Object.Destroy(go.GetComponent<Collider>());
@@ -213,11 +216,9 @@ public static class MapBuilder
         remaining--;
         if (remaining <= 0) return;
 
-        Vector3 head = startPos + d * segLen;
-        Vector3 horzAxis = Vector3.Cross(d, Vector3.up).normalized;
-        if (horzAxis.sqrMagnitude < 0.01f) horzAxis = Vector3.Cross(d, Vector3.forward).normalized;
-        Vector3 nextDir = Quaternion.AngleAxis(-Random.Range(3f, 6f), horzAxis) * d;
-        GrowLeafChain(root, head, nextDir.normalized, branchDir, segLen, remaining, color);
+        Vector3 head = startPos + d * segLen * 0.85f;
+        Vector3 nextDir = Quaternion.AngleAxis(-Random.Range(10f, 16f), horzAxis) * d;
+        GrowLeafChain(root, head, nextDir.normalized, branchDir, horzAxis, segLen, remaining, color);
     }
 
     private static Vector3 GetPerpendicular(Vector3 v)
