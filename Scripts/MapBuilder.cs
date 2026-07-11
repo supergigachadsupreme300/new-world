@@ -130,7 +130,7 @@ public static class MapBuilder
 
     public static GameObject BuildCoconutTree(Transform parent, Vector3 position, float scale = 1f)
     {
-        var root = new GameObject("CoconutTree");
+        var root = new GameObject("TreeCoconut");
         root.transform.SetParent(parent);
         root.transform.position = position;
         root.transform.localScale = Vector3.one * scale;
@@ -152,26 +152,41 @@ public static class MapBuilder
         float branchLen = trunkH * Random.Range(0.25f, 0.4f);
         float branchW = trunkW * Random.Range(0.5f, 0.7f);
 
-        var branchGo = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        branchGo.name = "Branch";
-        branchGo.transform.SetParent(root.transform);
-        Vector3 branchCenter = tip + branchDir.normalized * (branchLen * 0.5f);
-        branchGo.transform.localPosition = branchCenter;
-        branchGo.transform.localRotation = Quaternion.FromToRotation(Vector3.up, branchDir.normalized);
-        branchGo.transform.localScale = new Vector3(branchW, branchLen, branchW);
-        var br = branchGo.GetComponent<Renderer>();
-        if (br != null) br.material.color = wood;
-        Object.Destroy(branchGo.GetComponent<Collider>());
+        Vector3 tiltAxis = Quaternion.Euler(0f, bendYaw, 0f) * Vector3.right;
+        int branchSegs = 3;
+        float branchSegLen = branchLen / branchSegs;
+        Vector3 currentTip = tip;
+        Quaternion finalBranchRot = Quaternion.identity;
+        for (int i = 0; i < branchSegs; i++)
+        {
+            Quaternion rot = Quaternion.AngleAxis((i + 1) * 5f, tiltAxis);
+            Vector3 segDir = rot * branchDir.normalized;
+            Vector3 half = segDir * branchSegLen * 0.5f;
+            Vector3 center = currentTip + half;
 
-        Vector3 branchTip = tip + branchDir.normalized * branchLen;
-        Vector3 perpBranch = GetPerpendicular(branchDir);
+            var seg = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            seg.name = "Branch";
+            seg.transform.SetParent(root.transform);
+            seg.transform.localPosition = center;
+            seg.transform.localRotation = Quaternion.FromToRotation(Vector3.up, segDir);
+            float t = (float)i / branchSegs;
+            seg.transform.localScale = new Vector3(branchW * (1f - t * 0.3f), branchSegLen, branchW * (1f - t * 0.3f));
+            var r = seg.GetComponent<Renderer>();
+            if (r != null) r.material.color = wood;
+
+            currentTip = center + half;
+            finalBranchRot = rot;
+        }
+
+        Vector3 finalBranchDir = finalBranchRot * branchDir.normalized;
+        Vector3 perpBranch = GetPerpendicular(finalBranchDir);
+        float leafSegLen = Random.Range(0.9f, 1.3f);
         for (int j = 0; j < 3; j++)
         {
-            Vector3 leafDir = Quaternion.AngleAxis(j * 120f, branchDir) * perpBranch;
+            Vector3 leafDir = Quaternion.AngleAxis(j * 120f, finalBranchDir) * perpBranch;
             Vector3 leafHorz = Vector3.Cross(leafDir.normalized, Vector3.up).normalized;
             if (leafHorz.sqrMagnitude < 0.01f) leafHorz = Vector3.Cross(leafDir.normalized, Vector3.forward).normalized;
-            float segLen = Random.Range(0.9f, 1.3f);
-            GrowLeafChain(root.transform, branchTip, leafDir.normalized, branchDir, leafHorz, segLen, 3, leaf);
+            GrowLeafChain(root.transform, currentTip, leafDir.normalized, finalBranchDir, leafHorz, leafSegLen, 3, leaf);
         }
 
         return root;
@@ -193,15 +208,13 @@ public static class MapBuilder
             Vector3 center = bottomPos + halfUp;
 
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = "TrunkSeg";
+            go.name = i == 0 ? "Trunk" : "TrunkSeg";
             go.transform.SetParent(root);
             go.transform.localPosition = center;
             go.transform.localScale = new Vector3(w, segH * 1.1f, w);
             go.transform.localRotation = rot;
             var r = go.GetComponent<Renderer>();
             if (r != null) r.material.color = color;
-            Object.Destroy(go.GetComponent<Collider>());
-
             bottomPos = center + halfUp;
             if (i == segments - 1)
             {
@@ -217,7 +230,7 @@ public static class MapBuilder
         Vector3 d = dir.normalized;
 
         var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = "CoconutLeaf";
+        go.name = "Leaf";
         go.transform.SetParent(root);
         go.transform.localPosition = startPos + d * (segLen * 0.5f);
         go.transform.localScale = new Vector3(wid, segLen, 0.01f);

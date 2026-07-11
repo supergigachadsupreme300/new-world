@@ -800,7 +800,11 @@ public class WorldBuilder : MonoBehaviour
             topTrunk.transform.localPosition = chopLocal + trunkUp * (topH / 2f);
             topTrunk.transform.localRotation = trunkRot;
             var topTrunkR = topTrunk.GetComponent<Renderer>();
-            if (topTrunkR != null) topTrunkR.material.color = new Color(0.36f, 0.23f, 0.12f);
+            if (topTrunkR != null)
+            {
+                var origR = state.TrunkObject.GetComponent<Renderer>();
+                topTrunkR.material.color = origR != null ? origR.material.color : new Color(0.36f, 0.23f, 0.12f);
+            }
 
             foreach (var child in toMove)
                 child.SetParent(topRoot.transform, true);
@@ -1768,7 +1772,8 @@ GameObject treeRoot;
         {
             float x = beachX + Random.Range(-sandW * 0.35f, sandW * 0.35f);
             float z = Random.Range(-sandD * 0.4f, sandD * 0.4f);
-            MapBuilder.BuildCoconutTree(_worldRoot.transform, new Vector3(x, 0f, z), Random.Range(0.8f, 1.2f));
+            var tree = MapBuilder.BuildCoconutTree(_worldRoot.transform, new Vector3(x, 0f, z), Random.Range(0.8f, 1.2f));
+            _trees.Add(tree);
         }
     }
 
