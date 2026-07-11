@@ -39,8 +39,14 @@ public static class MapBuilder
         float trunkW = Random.Range(0.4f, 0.9f);
         int maxBranches = Random.Range(10, 28);
 
-        Vector3 tip = AddTrunk(root.transform, trunkH, trunkW, wood);
+        Vector3 trunkDir = Quaternion.Euler(Random.Range(0, 10), 0, Random.Range(0, 10)) * Vector3.up;
+        Vector3 tip;
         int count = 0;
+        GrowBranchSegment(root.transform, Vector3.zero, trunkDir, trunkH, trunkW, wood, leaf,
+            ref count, maxBranches, 0,
+            1, null, 0f, 1f, 0, "Trunk",
+            out tip, out _);
+
         int numInitial = Random.Range(3, 6);
         for (int i = 0; i < numInitial; i++)
         {
@@ -51,81 +57,13 @@ public static class MapBuilder
             Vector3 branchDir = (root.transform.up * Mathf.Cos(angle) + horz * Mathf.Sin(angle)).normalized;
             float branchLen = trunkH * Random.Range(0.5f, 0.75f);
             float branchW = trunkW * Random.Range(0.3f, 0.5f);
-            GrowBranches(root.transform, tip, branchDir, branchLen, branchW, ref count, maxBranches, 0, wood, leaf);
+            GrowBranchSegment(root.transform, tip, branchDir, branchLen, branchW, wood, leaf,
+                ref count, maxBranches, 0,
+                0, null, 0f, 1f, -1, "",
+                out _, out _);
         }
 
         return root;
-    }
-
-    private static Vector3 AddTrunk(Transform root, float height, float width, Color color)
-    {
-        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = "Trunk";
-        go.transform.SetParent(root);
-        go.transform.localPosition = new Vector3(0, height * 0.5f, 0);
-        go.transform.localScale = new Vector3(width, height, width);
-        Quaternion rot = Quaternion.Euler(Random.Range(0, 10), 0, Random.Range(0, 10));
-        go.transform.localRotation = rot;
-        var r = go.GetComponent<Renderer>();
-        if (r != null) r.material.color = color;
-        return go.transform.localPosition + rot * new Vector3(0, height * 0.5f, 0);
-    }
-
-    private static void GrowBranches(Transform root, Vector3 startPos, Vector3 dir, float length, float width, ref int count, int maxCount, int depth, Color wood, Color leaf)
-    {
-        if (count >= maxCount || depth > 5 || length < 0.3f || width < 0.06f)
-        {
-            if (depth > 0) SpawnLeaves(root, startPos, leaf);
-            return;
-        }
-
-        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = "Branch";
-        go.transform.SetParent(root);
-        Vector3 center = startPos + dir.normalized * (length * 0.5f);
-        go.transform.localPosition = center;
-        go.transform.localRotation = Quaternion.FromToRotation(Vector3.up, dir.normalized);
-        go.transform.localScale = new Vector3(width, length, width);
-        var r = go.GetComponent<Renderer>();
-        if (r != null) r.material.color = wood;
-        count++;
-
-        Vector3 tip = startPos + dir.normalized * length;
-        int numSub = Random.Range(1, 4);
-        for (int i = 0; i < numSub; i++)
-        {
-            float angle = Random.Range(20f, 50f) * Mathf.Deg2Rad;
-            float azimuth = Random.Range(0f, Mathf.PI * 2f);
-
-            Vector3 perp = GetPerpendicular(dir);
-            Vector3 horz = Quaternion.AngleAxis(azimuth * Mathf.Rad2Deg, dir) * perp;
-
-            Vector3 subDir = (dir.normalized * Mathf.Cos(angle) + horz * Mathf.Sin(angle)).normalized;
-
-            float subLen = length * Random.Range(0.45f, 0.7f);
-            float subW = width * Random.Range(0.35f, 0.6f);
-
-            if (subW < 0.06f)
-            {
-                SpawnLeaves(root, tip + subDir * subLen * 0.5f, leaf);
-                continue;
-            }
-
-            GrowBranches(root, tip, subDir, subLen, subW, ref count, maxCount, depth + 1, wood, leaf);
-        }
-    }
-
-    private static void SpawnLeaves(Transform root, Vector3 position, Color color)
-    {
-        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = "Leaf";
-        go.transform.SetParent(root);
-        go.transform.localPosition = position;
-        float s = Random.Range(0.8f, 1.4f);
-        go.transform.localScale = new Vector3(s, s, s);
-        var r = go.GetComponent<Renderer>();
-        if (r != null) r.material.color = color;
-        Object.Destroy(go.GetComponent<Collider>());
     }
 
     public static GameObject BuildCoconutTree(Transform parent, Vector3 position, float scale = 1f)
@@ -142,43 +80,36 @@ public static class MapBuilder
         float trunkW = Random.Range(0.5f, 0.8f);
 
         float bendYaw = Random.Range(0f, 360f);
-        Quaternion topRot = Quaternion.identity;
-        Vector3 tip = AddSegmentedTrunk(root.transform, trunkH, trunkW, wood, bendYaw, out topRot);
+        Vector3 tiltAxis = Quaternion.Euler(0f, bendYaw, 0f) * Vector3.right;
+
+        int segCount = Mathf.Max(3, Mathf.RoundToInt(trunkH));
+        float segLen = trunkH / segCount * 1.1f;
+        Quaternion topRot;
+        Vector3 tip;
+        int dummy = 0;
+        GrowBranchSegment(root.transform, Vector3.zero, Vector3.up, segLen, trunkW, wood, leaf,
+            ref dummy, 0, 0,
+            segCount, tiltAxis, 5f, 0.92f, 0, "Trunk",
+            out tip, out topRot);
 
         float angle = Random.Range(20f, 40f) * Mathf.Deg2Rad;
         Vector3 tiltDir = Quaternion.Euler(0f, bendYaw, 0f) * Vector3.forward;
-        Vector3 horz = Vector3.ProjectOnPlane(tiltDir, topRot * Vector3.up).normalized;
-        Vector3 branchDir = (topRot * Vector3.up * Mathf.Cos(angle) + horz * Mathf.Sin(angle)).normalized;
+        Vector3 horzDir = Vector3.ProjectOnPlane(tiltDir, topRot * Vector3.up).normalized;
+        Vector3 branchDir = (topRot * Vector3.up * Mathf.Cos(angle) + horzDir * Mathf.Sin(angle)).normalized;
         float branchLen = trunkH * Random.Range(0.25f, 0.4f);
         float branchW = trunkW * Random.Range(0.5f, 0.7f);
 
-        Vector3 tiltAxis = Quaternion.Euler(0f, bendYaw, 0f) * Vector3.right;
         int branchSegs = 3;
         float branchSegLen = branchLen / branchSegs;
-        Vector3 currentTip = tip;
-        Quaternion finalBranchRot = Quaternion.identity;
-        for (int i = 0; i < branchSegs; i++)
-        {
-            Quaternion rot = Quaternion.AngleAxis((i + 1) * 5f, tiltAxis);
-            Vector3 segDir = rot * branchDir.normalized;
-            Vector3 half = segDir * branchSegLen * 0.5f;
-            Vector3 center = currentTip + half;
+        Vector3 branchTip;
+        Quaternion finalBranchRot;
+        int branchDummy = 0;
+        GrowBranchSegment(root.transform, tip, branchDir, branchSegLen, branchW, wood, leaf,
+            ref branchDummy, 0, 0,
+            branchSegs, tiltAxis, 5f, 0.92f, 0, "Branch",
+            out branchTip, out finalBranchRot);
 
-            var seg = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            seg.name = "Branch";
-            seg.transform.SetParent(root.transform);
-            seg.transform.localPosition = center;
-            seg.transform.localRotation = Quaternion.FromToRotation(Vector3.up, segDir);
-            float t = (float)i / branchSegs;
-            seg.transform.localScale = new Vector3(branchW * (1f - t * 0.3f), branchSegLen, branchW * (1f - t * 0.3f));
-            var r = seg.GetComponent<Renderer>();
-            if (r != null) r.material.color = wood;
-
-            currentTip = center + half;
-            finalBranchRot = rot;
-        }
-
-        Vector3 finalBranchDir = finalBranchRot * branchDir.normalized;
+        Vector3 finalBranchDir = finalBranchRot * Vector3.up;
         Vector3 perpBranch = GetPerpendicular(finalBranchDir);
         float leafSegLen = Random.Range(0.9f, 1.3f);
         for (int j = 0; j < 3; j++)
@@ -186,42 +117,99 @@ public static class MapBuilder
             Vector3 leafDir = Quaternion.AngleAxis(j * 120f, finalBranchDir) * perpBranch;
             Vector3 leafHorz = Vector3.Cross(leafDir.normalized, Vector3.up).normalized;
             if (leafHorz.sqrMagnitude < 0.01f) leafHorz = Vector3.Cross(leafDir.normalized, Vector3.forward).normalized;
-            GrowLeafChain(root.transform, currentTip, leafDir.normalized, finalBranchDir, leafHorz, leafSegLen, 3, leaf);
+            GrowLeafChain(root.transform, branchTip, leafDir.normalized, finalBranchDir, leafHorz, leafSegLen, 3, leaf);
         }
 
         return root;
     }
 
-    private static Vector3 AddSegmentedTrunk(Transform root, float height, float width, Color color, float bendYaw, out Quaternion topRot)
+    private static void GrowBranchSegment(
+        Transform root, Vector3 segStart, Vector3 dir,
+        float segLen, float width, Color wood, Color leaf,
+        ref int count, int maxCount, int depth,
+        int chainRemaining,
+        Vector3? bendAxis,
+        float perSegAngle,
+        float widthTaper,
+        int subBranchOverride,
+        string chainSegName,
+        out Vector3 tipPos,
+        out Quaternion tipRot)
     {
-        int segments = Mathf.Max(3, Mathf.RoundToInt(height));
-        float segH = height / segments;
-        Vector3 bottomPos = Vector3.zero;
-        topRot = Quaternion.identity;
-        Vector3 tiltAxis = Quaternion.Euler(0f, bendYaw, 0f) * Vector3.right;
-        for (int i = 0; i < segments; i++)
+        if (chainRemaining == 0)
         {
-            float t = (float)i / segments;
-            float w = width * (1f - t * 0.3f);
-            Quaternion rot = Quaternion.AngleAxis((i + 1) * 5f, tiltAxis);
-            Vector3 halfUp = rot * new Vector3(0f, segH * 1.1f * 0.5f, 0f);
-            Vector3 center = bottomPos + halfUp;
-
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = i == 0 ? "Trunk" : "TrunkSeg";
-            go.transform.SetParent(root);
-            go.transform.localPosition = center;
-            go.transform.localScale = new Vector3(w, segH * 1.1f, w);
-            go.transform.localRotation = rot;
-            var r = go.GetComponent<Renderer>();
-            if (r != null) r.material.color = color;
-            bottomPos = center + halfUp;
-            if (i == segments - 1)
+            if (count >= maxCount || depth > 5 || segLen < 0.3f || width < 0.06f)
             {
-                topRot = rot;
+                if (depth > 0) SpawnLeaves(root, segStart, leaf);
+                tipPos = segStart;
+                tipRot = Quaternion.identity;
+                return;
             }
         }
-        return bottomPos;
+
+        if (chainRemaining > 0 && bendAxis.HasValue)
+            dir = (Quaternion.AngleAxis(perSegAngle, bendAxis.Value) * dir.normalized).normalized;
+
+        string segName = chainRemaining > 0
+            ? (depth == 0 ? chainSegName : chainSegName + "Seg")
+            : "Branch";
+
+        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        go.name = segName;
+        go.transform.SetParent(root);
+        go.transform.localPosition = segStart + dir.normalized * (segLen * 0.5f);
+        go.transform.localRotation = Quaternion.FromToRotation(Vector3.up, dir.normalized);
+        go.transform.localScale = new Vector3(width, segLen, width);
+        var r = go.GetComponent<Renderer>();
+        if (r != null) r.material.color = wood;
+
+        tipPos = segStart + dir.normalized * segLen;
+        tipRot = go.transform.localRotation;
+
+        if (chainRemaining == 0) count++;
+
+        if (chainRemaining > 1)
+        {
+            GrowBranchSegment(root, tipPos, dir.normalized, segLen, width * widthTaper, wood, leaf,
+                ref count, maxCount, depth + 1,
+                chainRemaining - 1, bendAxis, perSegAngle, widthTaper, subBranchOverride, chainSegName,
+                out tipPos, out tipRot);
+            return;
+        }
+
+        int numSub = subBranchOverride >= 0 ? subBranchOverride : Random.Range(1, 4);
+        for (int i = 0; i < numSub; i++)
+        {
+            float a = Random.Range(20f, 50f) * Mathf.Deg2Rad;
+            float azi = Random.Range(0f, Mathf.PI * 2f);
+            Vector3 p = GetPerpendicular(dir.normalized);
+            Vector3 h = Quaternion.AngleAxis(azi * Mathf.Rad2Deg, dir.normalized) * p;
+            Vector3 subDir = (dir.normalized * Mathf.Cos(a) + h * Mathf.Sin(a)).normalized;
+            float subLen = segLen * Random.Range(0.45f, 0.7f);
+            float subW = width * Random.Range(0.35f, 0.6f);
+            if (subW < 0.06f)
+            {
+                SpawnLeaves(root, tipPos + subDir * subLen * 0.5f, leaf);
+                continue;
+            }
+            GrowBranchSegment(root, tipPos, subDir, subLen, subW, wood, leaf,
+                ref count, maxCount, depth + 1,
+                0, null, 0f, 1f, -1, "",
+                out _, out _);
+        }
+    }
+
+    private static void SpawnLeaves(Transform root, Vector3 position, Color color)
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        go.name = "Leaf";
+        go.transform.SetParent(root);
+        go.transform.localPosition = position;
+        float s = Random.Range(0.8f, 1.4f);
+        go.transform.localScale = new Vector3(s, s, s);
+        var r = go.GetComponent<Renderer>();
+        if (r != null) r.material.color = color;
+        Object.Destroy(go.GetComponent<Collider>());
     }
 
     private static void GrowLeafChain(Transform root, Vector3 startPos, Vector3 dir, Vector3 branchDir, Vector3 horzAxis, float segLen, int remaining, Color color)
