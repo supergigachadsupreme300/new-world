@@ -13,7 +13,7 @@ public class WorldBuilder : MonoBehaviour
 
     public int MapWidth = 20;
     public int MapDepth = 20;
-    public float TileSize = 2f;
+    public float TileSize = 1f;
     public string TerrainBlockResourcePath = "Models/TerrainBlock";
 
     [Header("World Graphics Overrides")]
@@ -118,7 +118,16 @@ public class WorldBuilder : MonoBehaviour
         new BuildingDefinition("stone_wall", new Vector3(5f, 3f, 0.5f), new Color(0.41f, 0.41f, 0.41f), 0, 4),
         new BuildingDefinition("fence", new Vector3(4f, 1.5f, 0.3f), new Color(0.69f, 0.51f, 0.25f), 2, 0),
         new BuildingDefinition("watchtower", new Vector3(3f, 8f, 3f), new Color(0.51f, 0.33f, 0.16f), 8, 4),
-        new BuildingDefinition("small_house", new Vector3(8f, 5f, 8f), new Color(0.78f, 0.63f, 0.39f), 10, 6),
+        new BuildingDefinition("small_house", new Vector3(8f, 5f, 8f), new Color(0.78f, 0.63f, 0.39f), 10, 6,
+            new BuildingPartDefinition[]
+            {
+                new BuildingPartDefinition { PartName = "Floor",    LocalPosition = new Vector3(0f, -2.35f, 0f),   LocalScale = new Vector3(8f, 0.3f, 8f),   MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Front", LocalPosition = new Vector3(0f, 0f, 3.85f),  LocalScale = new Vector3(7.7f, 4.7f, 0.3f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Back",  LocalPosition = new Vector3(0f, 0f, -3.85f), LocalScale = new Vector3(7.7f, 4.7f, 0.3f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Left",  LocalPosition = new Vector3(-3.85f, 0f, 0f), LocalScale = new Vector3(0.3f, 4.7f, 7.7f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Right", LocalPosition = new Vector3(3.85f, 0f, 0f),  LocalScale = new Vector3(0.3f, 4.7f, 7.7f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Roof",      LocalPosition = new Vector3(0f, 2.35f, 0f),   LocalScale = new Vector3(8.3f, 0.3f, 8.3f), MaterialType = "stone" },
+            }),
         new BuildingDefinition("wood_floor", new Vector3(4f, 0.3f, 4f), new Color(0.71f, 0.53f, 0.27f), 3, 0)
     };
 
@@ -1370,12 +1379,13 @@ public class WorldBuilder : MonoBehaviour
     {
         var definition = _availableBuildings[_currentBuildingIndex];
         var size = definition.Size;
-        if (!CanPlaceBuilding(position, size, _currentRotation))
+        Vector3 snapped = SnapToGrid(position);
+        if (!CanPlaceBuilding(snapped, size, _currentRotation))
             return false;
 
         var blueprint = GameObject.CreatePrimitive(PrimitiveType.Cube);
         blueprint.name = "Blueprint";
-        blueprint.transform.position = position + Vector3.up * (size.y * 0.5f);
+        blueprint.transform.position = snapped + Vector3.up * (size.y * 0.5f);
         blueprint.transform.rotation = Quaternion.Euler(0f, _currentRotation, 0f);
         blueprint.transform.localScale = size;
         var renderer = blueprint.GetComponent<MeshRenderer>();
@@ -1396,7 +1406,7 @@ public class WorldBuilder : MonoBehaviour
         {
             mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
         }
-        mat.color = new Color(definition.Color.r, definition.Color.g, definition.Color.b, 0.15f);
+        mat.color = new Color(0.2f, 0.5f, 1f, 0.15f);
         renderer.material = mat;
         var collider = blueprint.GetComponent<BoxCollider>();
         collider.isTrigger = true;
@@ -1406,7 +1416,7 @@ public class WorldBuilder : MonoBehaviour
         {
             Entity = blueprint,
             Type = definition.Name,
-            Position = position,
+            Position = snapped,
             Rotation = _currentRotation,
             WoodDeposited = 0,
             StoneDeposited = 0
@@ -1487,19 +1497,57 @@ public class WorldBuilder : MonoBehaviour
         return false;
     }
 
-    private GameObject CreateBuildingEntity(string typeName, Vector3 position, int rotation)
+    private GameObject CreateBuildingEntity(string typeName, Vector3 position, int rotation, out List<BuildingPartState> partStates)
     {
+        partStates = null;
         var def = System.Array.Find(_availableBuildings, d => d.Name == typeName);
         if (def == null) return null;
-        var building = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        building.name = def.Name;
-        building.transform.position = position + Vector3.up * (def.Size.y * 0.5f);
-        building.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
-        building.transform.localScale = def.Size;
-        building.GetComponent<MeshRenderer>().material.color = def.Color;
-        building.AddComponent<BoxCollider>();
-        building.transform.SetParent(_worldRoot.transform);
-        return building;
+
+        if (def.Parts != null && def.Parts.Length > 0)
+        {
+            var root = new GameObject(def.Name);
+            root.transform.position = position + Vector3.up * (def.Size.y * 0.5f);
+            root.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
+            root.transform.SetParent(_worldRoot.transform);
+            var rootCollider = root.AddComponent<BoxCollider>();
+            rootCollider.size = Vector3.one;
+            rootCollider.isTrigger = false;
+
+            partStates = new List<BuildingPartState>();
+            foreach (var partDef in def.Parts)
+            {
+                var part = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                part.name = "BuildingPart_" + partDef.PartName;
+                part.transform.SetParent(root.transform);
+                part.transform.localPosition = partDef.LocalPosition;
+                part.transform.localScale = partDef.LocalScale;
+                part.transform.localRotation = Quaternion.identity;
+
+                Color partColor = partDef.MaterialType == "stone" ? def.StoneColor : def.WoodColor;
+                part.GetComponent<MeshRenderer>().material.color = partColor;
+                part.AddComponent<BoxCollider>();
+
+                partStates.Add(new BuildingPartState
+                {
+                    PartName = partDef.PartName,
+                    Entity = part,
+                    CurrentHealth = 4
+                });
+            }
+            return root;
+        }
+        else
+        {
+            var building = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            building.name = def.Name;
+            building.transform.position = position + Vector3.up * (def.Size.y * 0.5f);
+            building.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
+            building.transform.localScale = def.Size;
+            building.GetComponent<MeshRenderer>().material.color = def.Color;
+            building.AddComponent<BoxCollider>();
+            building.transform.SetParent(_worldRoot.transform);
+            return building;
+        }
     }
 
     public BuildingDefinition GetBuildingDefinition(string typeName)
@@ -1507,16 +1555,18 @@ public class WorldBuilder : MonoBehaviour
         return System.Array.Find(_availableBuildings, d => d.Name == typeName);
     }
 
-    public bool SpawnBuildingDirect(string typeName, Vector3 position, int rotation)
+    public bool SpawnBuildingDirect(string typeName, Vector3 position, int rotation, List<BuildingPartState> partStates = null)
     {
-        var building = CreateBuildingEntity(typeName, position, rotation);
+        var building = CreateBuildingEntity(typeName, position, rotation, out var createdParts);
         if (building == null) return false;
+        if (partStates != null) createdParts = partStates;
         _buildings.Add(new BuildingState
         {
             Entity = building,
             Type = typeName,
             Position = position,
             Rotation = rotation,
+            PartStates = createdParts,
             CurrentHealth = 100,
             MaxHealth = 100
         });
@@ -1529,6 +1579,133 @@ public class WorldBuilder : MonoBehaviour
         DestroyBlueprintLabel(bp);
         if (bp.Entity != null)
             Destroy(bp.Entity);
+        _blueprints.Remove(bp);
+    }
+
+    public BuildingState FindBuilding(GameObject obj)
+    {
+        Transform t = obj.transform;
+        while (t.parent != null && t.parent.name != "WorldRoot")
+            t = t.parent;
+        foreach (var b in _buildings)
+        {
+            if (b.Entity == t.gameObject)
+                return b;
+        }
+        return null;
+    }
+
+    public void DamageBuilding(GameObject hitObj)
+    {
+        var building = FindBuilding(hitObj);
+        if (building == null) return;
+
+        if (building.PartStates != null && building.PartStates.Count > 0)
+        {
+            bool partFound = false;
+            foreach (var ps in building.PartStates)
+            {
+                if (ps.Entity == null) continue;
+                if (hitObj == ps.Entity || (hitObj.transform.parent != null && hitObj.transform.parent.gameObject == ps.Entity))
+                {
+                    ps.CurrentHealth--;
+                    if (ps.CurrentHealth <= 0)
+                    {
+                        Object.Destroy(ps.Entity);
+                        ps.Entity = null;
+                    }
+                    partFound = true;
+                    break;
+                }
+            }
+            if (!partFound)
+            {
+                foreach (var ps in building.PartStates)
+                {
+                    if (ps.Entity != null)
+                    {
+                        ps.CurrentHealth--;
+                        if (ps.CurrentHealth <= 0)
+                        {
+                            Object.Destroy(ps.Entity);
+                            ps.Entity = null;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (building.TotalParts > 0 && (float)building.DestroyedParts / building.TotalParts > 0.6f)
+                RevertBuildingToBlueprint(building);
+        }
+        else
+        {
+            building.CurrentHealth -= 25;
+            if (building.CurrentHealth <= 0)
+                RevertBuildingToBlueprint(building);
+        }
+    }
+
+    private void RevertBuildingToBlueprint(BuildingState state)
+    {
+        var def = System.Array.Find(_availableBuildings, d => d.Name == state.Type);
+        if (def == null) return;
+
+        if (state.Entity != null)
+            Object.Destroy(state.Entity);
+        _buildings.Remove(state);
+
+        var blueprint = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        blueprint.name = "Blueprint";
+        Vector3 size = def.Size;
+        blueprint.transform.position = state.Position + Vector3.up * (size.y * 0.5f);
+        blueprint.transform.rotation = Quaternion.Euler(0f, state.Rotation, 0f);
+        blueprint.transform.localScale = size;
+        var renderer = blueprint.GetComponent<MeshRenderer>();
+        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        if (mat != null)
+        {
+            mat.SetFloat("_Surface", 1f);
+            mat.SetFloat("_Blend", 0f);
+            mat.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetFloat("_ZWrite", 0f);
+            mat.SetFloat("_Cull", 0f);
+            mat.SetFloat("_Metallic", 0f);
+            mat.SetFloat("_Smoothness", 0f);
+            mat.renderQueue = 3000;
+        }
+        else
+        {
+            mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
+        }
+        mat.color = new Color(0.2f, 0.5f, 1f, 0.15f);
+        renderer.material = mat;
+        var collider = blueprint.GetComponent<BoxCollider>();
+        collider.isTrigger = true;
+        blueprint.transform.SetParent(_worldRoot.transform);
+
+        var bpState = new BlueprintState
+        {
+            Entity = blueprint,
+            Type = state.Type,
+            Position = state.Position,
+            Rotation = state.Rotation,
+            WoodDeposited = 0,
+            StoneDeposited = 0
+        };
+        CreateBlueprintLabel(blueprint, bpState, def);
+        blueprint.AddComponent<BlueprintAutoDeposit>();
+        _blueprints.Add(bpState);
+    }
+
+    public void RemoveBlueprint(GameObject hitObj)
+    {
+        var bp = FindBlueprint(hitObj);
+        if (bp == null) return;
+        DestroyBlueprintLabel(bp);
+        if (bp.Entity != null)
+            Object.Destroy(bp.Entity);
         _blueprints.Remove(bp);
     }
 
@@ -1983,6 +2160,18 @@ GameObject treeRoot;
             renderer.material.color = new Color(definition.Color.r, definition.Color.g, definition.Color.b, 0.04f);
     }
 
+    public float SnapSize = 1f;
+
+    private Vector3 SnapToGrid(Vector3 position)
+    {
+        float grid = SnapSize;
+        return new Vector3(
+            Mathf.Round(position.x / grid) * grid,
+            position.y,
+            Mathf.Round(position.z / grid) * grid
+        );
+    }
+
     public void UpdatePreviewPosition(Vector3 position, bool isValid)
     {
         if (_buildingPreview == null)
@@ -1998,8 +2187,9 @@ GameObject treeRoot;
         if (!_buildingPreview.activeInHierarchy)
             _buildingPreview.SetActive(true);
 
+        Vector3 snapped = SnapToGrid(position);
         var definition = _availableBuildings[_currentBuildingIndex];
-        _buildingPreview.transform.position = position + Vector3.up * (definition.Size.y * 0.5f);
+        _buildingPreview.transform.position = snapped + Vector3.up * (definition.Size.y * 0.5f);
 
         var renderer = _buildingPreview.GetComponent<Renderer>();
         if (renderer != null)
@@ -2568,13 +2758,21 @@ GameObject treeRoot;
         for (int i = 0; i < _buildings.Count; i++)
         {
             var b = _buildings[i];
+            int[] partHealths = null;
+            if (b.PartStates != null)
+            {
+                partHealths = new int[b.PartStates.Count];
+                for (int j = 0; j < b.PartStates.Count; j++)
+                    partHealths[j] = b.PartStates[j].CurrentHealth;
+            }
             result[i] = new BuildingSaveData
             {
                 type = b.Type,
                 position = b.Position,
                 rotation = b.Rotation,
                 currentHealth = b.CurrentHealth,
-                maxHealth = b.MaxHealth
+                maxHealth = b.MaxHealth,
+                partHealths = partHealths
             };
         }
         return result;
@@ -2602,6 +2800,12 @@ GameObject treeRoot;
                 var last = _buildings[_buildings.Count - 1];
                 last.CurrentHealth = build.currentHealth;
                 last.MaxHealth = build.maxHealth;
+                if (last.PartStates != null && build.partHealths != null)
+                {
+                    int count = Mathf.Min(last.PartStates.Count, build.partHealths.Length);
+                    for (int p = 0; p < count; p++)
+                        last.PartStates[p].CurrentHealth = build.partHealths[p];
+                }
             }
         }
     }
@@ -2629,6 +2833,7 @@ GameObject treeRoot;
         public int rotation;
         public int currentHealth;
         public int maxHealth;
+        public int[] partHealths;
     }
 
     [System.Serializable]
@@ -2649,14 +2854,38 @@ GameObject treeRoot;
     }
 
     [System.Serializable]
+    public class BuildingPartState
+    {
+        public string PartName;
+        public GameObject Entity;
+        public int CurrentHealth;
+    }
+
+    [System.Serializable]
     public class BuildingState
     {
         public GameObject Entity;
         public string Type;
         public Vector3 Position;
         public int Rotation;
+        public List<BuildingPartState> PartStates;
         public int CurrentHealth;
         public int MaxHealth;
+
+        public int TotalParts => PartStates?.Count ?? 1;
+        public int DestroyedParts
+        {
+            get
+            {
+                if (PartStates == null || PartStates.Count == 0) return CurrentHealth <= 0 ? 1 : 0;
+                int count = 0;
+                foreach (var ps in PartStates)
+                {
+                    if (ps.Entity == null) count++;
+                }
+                return count;
+            }
+        }
     }
 
     public class BlueprintState
@@ -2693,6 +2922,15 @@ GameObject treeRoot;
         return (null, 0);
     }
 
+    [System.Serializable]
+    public class BuildingPartDefinition
+    {
+        public string PartName;
+        public Vector3 LocalPosition;
+        public Vector3 LocalScale;
+        public string MaterialType;
+    }
+
     public class BuildingDefinition
     {
         public string Name;
@@ -2700,14 +2938,21 @@ GameObject treeRoot;
         public Color Color;
         public int WoodCost;
         public int StoneCost;
+        public BuildingPartDefinition[] Parts;
+        public Color WoodColor;
+        public Color StoneColor;
 
-        public BuildingDefinition(string name, Vector3 size, Color color, int woodCost, int stoneCost)
+        public BuildingDefinition(string name, Vector3 size, Color color, int woodCost, int stoneCost,
+            BuildingPartDefinition[] parts = null, Color? woodColor = null, Color? stoneColor = null)
         {
             Name = name;
             Size = size;
             Color = color;
             WoodCost = woodCost;
             StoneCost = stoneCost;
+            Parts = parts;
+            WoodColor = woodColor ?? new Color(0.63f, 0.39f, 0.18f);
+            StoneColor = stoneColor ?? new Color(0.41f, 0.41f, 0.41f);
         }
     }
 }

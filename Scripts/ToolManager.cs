@@ -70,7 +70,13 @@ public class ToolManager : MonoBehaviour
                 var origin = cam.transform.position + cam.transform.forward * 0.3f;
                 var ray = new Ray(origin, cam.transform.forward);
                 if (Physics.Raycast(ray, out var hit, UseRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
-                    _worldBuilder.UpdatePreviewPosition(hit.point, true);
+                {
+                    var hitObj = hit.collider.gameObject;
+                    if (_worldBuilder.FindBuilding(hitObj) != null || _worldBuilder.IsBlueprint(hitObj))
+                        _worldBuilder.UpdatePreviewPosition(Vector3.zero, false);
+                    else
+                        _worldBuilder.UpdatePreviewPosition(hit.point, true);
+                }
                 else
                     _worldBuilder.UpdatePreviewPosition(Vector3.zero, false);
             }
@@ -404,6 +410,22 @@ public class ToolManager : MonoBehaviour
 
             if (selectedItem == "hammer")
             {
+                var hitObj = hit.collider.gameObject;
+
+                if (_worldBuilder.FindBuilding(hitObj) != null)
+                {
+                    _worldBuilder.DamageBuilding(hitObj);
+                    SoundManager.Instance?.Play("hammer");
+                    return;
+                }
+
+                if (_worldBuilder.IsBlueprint(hitObj))
+                {
+                    _worldBuilder.RemoveBlueprint(hitObj);
+                    SoundManager.Instance?.Play("hammer");
+                    return;
+                }
+
                 var placePos = hit.point;
                 if (_worldBuilder.PlaceBlueprint(placePos))
                 {
