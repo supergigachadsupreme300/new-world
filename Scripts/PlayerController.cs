@@ -235,6 +235,19 @@ public class PlayerController : MonoBehaviour
                         shop.Open();
                         return;
                     }
+
+                    if (hits[i].collider.transform.name == "VendorNPC")
+                    {
+                        var shop = Object.FindAnyObjectByType<VendorShopManager>();
+                        if (shop == null)
+                        {
+                            var go = new GameObject("VendorShopManager");
+                            shop = go.AddComponent<VendorShopManager>();
+                            shop.Initialize();
+                        }
+                        shop.Open();
+                        return;
+                    }
                 }
             }
         }

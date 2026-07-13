@@ -584,6 +584,19 @@ public class ToolManager : MonoBehaviour
             return;
         }
 
+        if (hit.collider.transform.name == "VendorNPC")
+        {
+            var shop = Object.FindAnyObjectByType<VendorShopManager>();
+            if (shop == null)
+            {
+                var go = new GameObject("VendorShopManager");
+                shop = go.AddComponent<VendorShopManager>();
+                shop.Initialize();
+            }
+            shop.Open();
+            return;
+        }
+
         if (TryPickupTool(hit.collider))
             return;
 

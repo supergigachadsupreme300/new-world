@@ -4,7 +4,7 @@ using UnityEngine.UI;
 using TMPro;
 using UnityEngine.InputSystem;
 
-public class BuffaloShopManager : MonoBehaviour
+public class VendorShopManager : MonoBehaviour
 {
     private bool _initialized;
     private Canvas _canvas;
@@ -45,6 +45,12 @@ public class BuffaloShopManager : MonoBehaviour
 
     private List<ShopItem> _buyItems = new List<ShopItem>
     {
+        new ShopItem { Type = "axe", Label = "Rìu", Price = 25 },
+        new ShopItem { Type = "pickaxe", Label = "Cúp", Price = 25 },
+        new ShopItem { Type = "hoe", Label = "Cuốc", Price = 20 },
+        new ShopItem { Type = "gun", Label = "Súng", Price = 60 },
+        new ShopItem { Type = "ammo", Label = "Đạn", Price = 5 },
+        new ShopItem { Type = "mi_hao_hao", Label = "Mì Hảo Hảo", Price = 10 },
         new ShopItem { Type = "wheat_seed", Label = "Hạt lúa", Price = 3 },
         new ShopItem { Type = "corn_seed", Label = "Hạt ngô", Price = 4 },
         new ShopItem { Type = "carrot_seed", Label = "Hạt cà rốt", Price = 3 },
@@ -117,7 +123,7 @@ public class BuffaloShopManager : MonoBehaviour
         float btnH = sh * 0.065f;
         float padding = sh * 0.02f;
 
-        _shopPanel = new GameObject("BuffaloShop");
+        _shopPanel = new GameObject("VendorShop");
         _shopPanel.transform.SetParent(_canvas.transform, false);
         var rect = _shopPanel.AddComponent<RectTransform>();
         rect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -128,7 +134,7 @@ public class BuffaloShopManager : MonoBehaviour
         img.color = new Color(0.18f, 0.2f, 0.27f, 0.95f);
         img.raycastTarget = false;
 
-        _titleText = MakeText("ShopTitle", _shopPanel.transform, "Cửa hàng Trâu",
+        _titleText = MakeText("ShopTitle", _shopPanel.transform, "Cửa hàng lưu động",
             new Vector2(0f, panelH * 0.42f), new Vector2(panelW - padding * 4, fontS * 1.8f),
             (int)(fontS * 1.4f), TextAlignmentOptions.Center);
 
@@ -210,7 +216,7 @@ public class BuffaloShopManager : MonoBehaviour
     {
         if (_shopPanel == null)
         {
-            Debug.LogError("BuffaloShopManager: _shopPanel is null. Initialize() may have failed.");
+            Debug.LogError("VendorShopManager: _shopPanel is null. Initialize() may have failed.");
             return;
         }
         _page = 1;

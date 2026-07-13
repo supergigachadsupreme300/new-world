@@ -250,7 +250,7 @@ public class UIManager : MonoBehaviour
         _instructionsPanel.SetActive(false);
 
         _mainMenuPanel = CreateMenuPanel("MainMenuPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
-        EnsureText("TitleText", new Vector2(0f, panelHeight * 0.3f), "NÔNG TRẠI SINH TỒN", (int)(largefontSize * 1.1f), _mainMenuPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight * 1.5f));
+        EnsureText("TitleText", new Vector2(0f, panelHeight * 0.3f), "BUILD YOUR FARM", (int)(largefontSize * 1.1f), _mainMenuPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight * 1.5f));
         CreateButton("NewGameButton", _mainMenuPanel.transform, "Game Mới", new Vector2(0f, buttonHeight * 1.2f), () => MainMenuController.Instance?.OnNewGameClicked());
         CreateButton("LoadGameButton", _mainMenuPanel.transform, "Tiếp tục (Load)", new Vector2(0f, buttonHeight * 0.4f), () => MainMenuController.Instance?.OnLoadGameClicked());
         CreateButton("WatchIntroButton", _mainMenuPanel.transform, "Xem mở đầu", new Vector2(0f, -buttonHeight * 0.4f), () => MainMenuController.Instance?.OnWatchIntroClicked());

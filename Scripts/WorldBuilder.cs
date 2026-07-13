@@ -56,6 +56,12 @@ public class WorldBuilder : MonoBehaviour
         public bool Exiting;
         public float TargetGroundY;
         public float ModelBaseY;
+        public bool VendorExiting;
+        public bool VendorReady;
+        public GameObject VendorNPC;
+        public Vector3 VendorExitStart;
+        public Vector3 VendorExitTarget;
+        public float VendorExitTimer;
     }
     private readonly List<VendorCart> _vendorCarts = new List<VendorCart>();
 
@@ -364,13 +370,13 @@ public class WorldBuilder : MonoBehaviour
                 }
             }
 
-            // Bob vendor model
-            if (v.VendorModel != null)
+            // Bob vendor NPC (inside the truck)
+            if (v.VendorReady && v.VendorNPC != null)
             {
-                float bob = Mathf.Sin(Time.time * 2f) * 0.05f;
-                var lp = v.VendorModel.transform.localPosition;
+                float bob = Mathf.Sin(Time.time * 2f) * 0.04f;
+                var lp = v.VendorNPC.transform.localPosition;
                 lp.y = v.ModelBaseY + bob;
-                v.VendorModel.transform.localPosition = lp;
+                v.VendorNPC.transform.localPosition = lp;
             }
         }
         foreach (var v in toRemove)
@@ -2041,7 +2047,7 @@ GameObject treeRoot;
         cart.Root = new GameObject("VendorCart");
         cart.Root.transform.SetParent(_worldRoot.transform);
         cart.Root.transform.position = new Vector3(15f, -4f, -30f);
-        cart.Root.transform.rotation = Quaternion.Euler(0f, -90f, 0f);
+        cart.Root.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
         cart.ArrivalPos = new Vector3(15f, 0.5f, -8f);
         cart.TargetGroundY = 0.5f;
         cart.Speed = 6f;
@@ -2053,58 +2059,94 @@ GameObject treeRoot;
             Random.Range(50f, 220f) / 255f,
             Random.Range(50f, 220f) / 255f
         );
-
-        // Cart body
-        MakeBlock("CartBody", cart.Root.transform, new Vector3(4f, 1.4f, 2f),
-            new Vector3(0f, 0.9f, 0f), cartColor, true);
         Color darkColor = new Color(
             Mathf.Max(0, cartColor.r - 20f / 255f),
             Mathf.Max(0, cartColor.g - 40f / 255f),
             Mathf.Max(0, cartColor.b - 20f / 255f)
         );
-        MakeBlock("CartTop", cart.Root.transform, new Vector3(4.2f, 0.4f, 2.2f),
-            new Vector3(0f, 1.6f, 0f), darkColor, true);
-        MakeBlock("CartStand", cart.Root.transform, new Vector3(0.2f, 0.5f, 1.8f),
-            new Vector3(2f, 1.1f, 0f), Color.gray, true);
-        MakeBlock("CartStandFront", cart.Root.transform, new Vector3(0.5f, 0.7f, 2f),
-            new Vector3(2f, 0.5f, 0f), Color.white, true);
 
-        // Wheels
+        // ── Food truck body (window on left side -X) ──
+
+        float halfW = 1.8f;  // half width (X)
+        float halfD = 1.3f;  // half depth (Z)
+        float wallH = 1.6f;
+        float floorY = 0.2f;
+        float roofY = 2.0f;
+
+        var modelRoot = new GameObject("Model");
+        modelRoot.transform.SetParent(cart.Root.transform);
+        modelRoot.transform.localPosition = Vector3.zero;
+        modelRoot.transform.localRotation = Quaternion.identity;
+
+        // Floor
+        MakeBlock("TruckFloor", modelRoot.transform, new Vector3(halfW * 2f, 0.2f, halfD * 2f),
+            new Vector3(0f, floorY, 0f), darkColor, true);
+        // Right wall
+        MakeBlock("TruckWallR", modelRoot.transform, new Vector3(0.2f, wallH, halfD * 2f),
+            new Vector3(halfW, floorY + wallH * 0.5f, 0f), cartColor, true);
+        // Back wall (-Z)
+        MakeBlock("TruckWallBack", modelRoot.transform, new Vector3(halfW * 2f - 0.2f, wallH, 0.2f),
+            new Vector3(0f, floorY + wallH * 0.5f, -halfD), cartColor, true);
+        // Front wall (+Z) — solid
+        MakeBlock("TruckWallFront", modelRoot.transform, new Vector3(halfW * 2f - 0.2f, wallH, 0.2f),
+            new Vector3(0f, floorY + wallH * 0.5f, halfD), cartColor, true);
+        // Left counter (lower half, upper is open window)
+        MakeBlock("TruckCounterL", modelRoot.transform, new Vector3(0.2f, 0.6f, halfD * 2f - 0.4f),
+            new Vector3(-halfW, floorY + 0.3f, 0f), darkColor, true);
+        // Roof
+        MakeBlock("TruckRoof", modelRoot.transform, new Vector3(halfW * 2f + 0.4f, 0.2f, halfD * 2f + 0.6f),
+            new Vector3(0f, roofY, 0f), darkColor, true);
+        // Awning / roof extension at left side (over the window)
+        MakeBlock("TruckAwning", modelRoot.transform, new Vector3(0.5f, 0.1f, halfD * 2f + 0.6f),
+            new Vector3(-halfW - 0.3f, roofY + 0.05f, 0f), darkColor, true);
+        // Decorative stripe
+        MakeBlock("TruckStripe", modelRoot.transform, new Vector3(halfW * 2f - 0.4f, 0.1f, 0.1f),
+            new Vector3(0f, floorY + 0.4f, 0f), Color.white, true);
+
+        // Wheels (4 corners)
         Vector3[] wheelPos = new Vector3[]
         {
-            new Vector3(-1.4f, -0.35f, -1f),
-            new Vector3(1.4f, -0.35f, -1f),
-            new Vector3(-1.4f, -0.35f, 1f),
-            new Vector3(1.4f, -0.35f, 1f)
+            new Vector3(-halfW - 0.6f, -0.3f, -halfD + 0.4f),
+            new Vector3(halfW + 0.6f, -0.3f, -halfD + 0.4f),
+            new Vector3(-halfW - 0.6f, -0.3f, halfD - 0.4f),
+            new Vector3(halfW + 0.6f, -0.3f, halfD - 0.4f)
         };
         foreach (var wp in wheelPos)
         {
-            var w = MakeBlock("Wheel", cart.Root.transform, new Vector3(0.8f, 0.8f, 0.2f),
+            var w = MakeBlock("Wheel", modelRoot.transform, new Vector3(0.9f, 0.9f, 0.25f),
                 wp, Color.black, true);
-            MakeBlock("WheelRim", w.transform, new Vector3(0.4f, 0.4f, 0.06f),
+            MakeBlock("WheelRim", w.transform, new Vector3(0.45f, 0.45f, 0.08f),
                 new Vector3(0f, 0f, 0.08f), cartColor, true);
             cart.Wheels.Add(w);
         }
 
-        // Vendor character (simple blocky version)
+        // ── Vendor NPC inside the truck ──
         var vendorRoot = new GameObject("Vendor");
         vendorRoot.transform.SetParent(cart.Root.transform);
-        vendorRoot.transform.localPosition = new Vector3(0f, 0f, 1.8f);
-        MakeBlock("VendorBody", vendorRoot.transform, new Vector3(0.5f, 1f, 0.4f),
-            new Vector3(0f, 1f, 0f), new Color(0.565f, 0.78f, 0.945f), true);
-        MakeBlock("VendorHead", vendorRoot.transform, new Vector3(0.45f, 0.45f, 0.45f),
+        vendorRoot.transform.localPosition = new Vector3(-halfW + 0.6f, floorY, 0f);
+        MakeBlock("VendorBody", vendorRoot.transform, new Vector3(0.6f, 1.2f, 0.5f),
+            new Vector3(0f, 1.0f, 0f), new Color(0.565f, 0.78f, 0.945f), true);
+        MakeBlock("VendorHead", vendorRoot.transform, new Vector3(0.5f, 0.5f, 0.5f),
             new Vector3(0f, 1.9f, 0f), Color.white, true);
         MakeBlock("VendorArmL", vendorRoot.transform, new Vector3(0.15f, 0.6f, 0.15f),
-            new Vector3(-0.35f, 1.2f, 0f), new Color(0.565f, 0.78f, 0.945f), true);
+            new Vector3(-0.4f, 1.3f, 0f), new Color(0.565f, 0.78f, 0.945f), true);
         MakeBlock("VendorArmR", vendorRoot.transform, new Vector3(0.15f, 0.6f, 0.15f),
-            new Vector3(0.35f, 1.2f, 0f), new Color(0.565f, 0.78f, 0.945f), true);
-        MakeBlock("VendorLegL", vendorRoot.transform, new Vector3(0.18f, 0.7f, 0.18f),
-            new Vector3(-0.15f, 0.35f, 0f), Color.blue, true);
-        MakeBlock("VendorLegR", vendorRoot.transform, new Vector3(0.18f, 0.7f, 0.18f),
-            new Vector3(0.15f, 0.35f, 0f), Color.blue, true);
+            new Vector3(0.4f, 1.3f, 0f), new Color(0.565f, 0.78f, 0.945f), true);
 
         cart.VendorModel = vendorRoot;
         cart.ModelBaseY = vendorRoot.transform.localPosition.y;
+
+        // Interaction trigger at the left window
+        var interactGO = new GameObject("VendorNPC");
+        interactGO.transform.SetParent(cart.Root.transform);
+        interactGO.transform.localPosition = new Vector3(-halfW - 0.1f, 1.0f, 0f);
+        var interactCol = interactGO.AddComponent<BoxCollider>();
+        interactCol.isTrigger = true;
+        interactCol.size = new Vector3(0.4f, 1.2f, halfD * 2f - 0.4f);
+
+        // NPC bobbing
+        cart.VendorReady = true;
+        cart.VendorNPC = vendorRoot;
 
         _vendorCarts.Add(cart);
     }
