@@ -137,6 +137,14 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    public bool SpendStamina(float amount)
+    {
+        if (Stamina < amount)
+            return false;
+        Stamina -= amount;
+        return true;
+    }
+
     private void HandleMouseLook()
     {
         if (Mouse.current == null)

@@ -34,6 +34,84 @@ public class ToolManager : MonoBehaviour
     private GameObject _carriedObject;
     private const float PickupRayDistance = 4f;
     private const float UseRayDistance = 10f;
+    private bool _isSwinging;
+
+    private static readonly Dictionary<string, float> ToolStaminaCost = new Dictionary<string, float>
+    {
+        { "axe", 15f },
+        { "pickaxe", 15f },
+        { "hoe", 12f },
+        { "hammer", 20f },
+        { "gun", 5f },
+        { "scythe", 10f },
+        { "watering_can", 8f },
+        { "fertilizer", 5f },
+    };
+
+    private float StaminaCostFor(string item)
+    {
+        if (ToolStaminaCost.TryGetValue(item, out var cost))
+            return cost;
+        return 10f;
+    }
+
+    private bool TryUseTool(PlayerController player)
+    {
+        var item = GetSelectedItemType();
+        if (item == null) return false;
+        if (!player.SpendStamina(StaminaCostFor(item)))
+        {
+            _uiManager?.ShowMessage("Too tired!", 1f);
+            return false;
+        }
+        PlaySwing();
+        return true;
+    }
+
+    private void PlaySwing()
+    {
+        if (_isSwinging) return;
+        StartCoroutine(SwingAnimation());
+    }
+
+    private IEnumerator SwingAnimation()
+    {
+        _isSwinging = true;
+        var tool = GetActiveToolModel();
+        if (tool != null)
+        {
+            float dur = 0.12f;
+            float elapsed = 0f;
+            Quaternion start = tool.transform.localRotation;
+            Quaternion swing = start * Quaternion.Euler(-50f, 0f, 0f);
+
+            while (elapsed < dur)
+            {
+                tool.transform.localRotation = Quaternion.Slerp(start, swing, elapsed / dur);
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            elapsed = 0f;
+            while (elapsed < dur)
+            {
+                tool.transform.localRotation = Quaternion.Slerp(swing, start, elapsed / dur);
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            tool.transform.localRotation = start;
+        }
+        _isSwinging = false;
+    }
+
+    private GameObject GetActiveToolModel()
+    {
+        var type = GetSelectedItemType();
+        if (type == null) return null;
+        _toolModels.TryGetValue(type, out var model);
+        return model;
+    }
 
     public void Initialize(UIManager uiManager, WorldBuilder worldBuilder)
     {
@@ -302,6 +380,10 @@ public class ToolManager : MonoBehaviour
             TryPickupFelledTree(cam, player);
             return;
         }
+
+        // Consume stamina + play swing animation for any tool/item use
+        if (selectedItem != null && !TryUseTool(player))
+            return;
 
         if (selectedItem == "gun")
         {

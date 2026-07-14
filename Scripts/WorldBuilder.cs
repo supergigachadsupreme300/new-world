@@ -1477,8 +1477,6 @@ public class WorldBuilder : MonoBehaviour
     public bool DepositMaterial(BlueprintState bp, string materialType, float amount)
     {
         if (bp == null) return false;
-        var def = System.Array.Find(_availableBuildings, d => d.Name == bp.Type);
-        if (def == null) return false;
 
         if (materialType == "wood")
             bp.WoodDeposited += amount;
@@ -1487,15 +1485,30 @@ public class WorldBuilder : MonoBehaviour
         else
             return false;
 
+        float woodCost, stoneCost;
+        BuildingDefinition def = null;
+        if (bp.IsEssential)
+        {
+            woodCost = bp.WoodCost;
+            stoneCost = bp.StoneCost;
+        }
+        else
+        {
+            def = System.Array.Find(_availableBuildings, d => d.Name == bp.Type);
+            if (def == null) return false;
+            woodCost = def.WoodCost;
+            stoneCost = def.StoneCost;
+        }
+
         // Update label text to reflect remaining materials needed
         if (bp.Label != null)
         {
             var tmp = bp.Label.GetComponent<TextMeshPro>();
             if (tmp != null)
-                tmp.text = GetBlueprintRemainingText(bp, def);
+                tmp.text = GetBlueprintRemainingText(bp, woodCost, stoneCost);
         }
 
-        if (bp.WoodDeposited >= def.WoodCost && bp.StoneDeposited >= def.StoneCost)
+        if (bp.WoodDeposited >= woodCost && bp.StoneDeposited >= stoneCost)
         {
             CompleteBlueprint(bp, def);
             return true;
@@ -1581,11 +1594,50 @@ public class WorldBuilder : MonoBehaviour
 
     private void CompleteBlueprint(BlueprintState bp, BuildingDefinition def)
     {
-        SpawnBuildingDirect(def.Name, bp.Position, bp.Rotation);
+        if (bp.IsEssential)
+        {
+            RebuildEssentialBuilding(bp);
+        }
+        else
+        {
+            SpawnBuildingDirect(def.Name, bp.Position, bp.Rotation);
+        }
         DestroyBlueprintLabel(bp);
         if (bp.Entity != null)
             Destroy(bp.Entity);
         _blueprints.Remove(bp);
+    }
+
+    private void RebuildEssentialBuilding(BlueprintState bp)
+    {
+        GameObject root = null;
+        switch (bp.Type)
+        {
+            case "PlayerHouse":
+                root = MapBuilder.BuildPlayerHouse(_worldRoot.transform, bp.Position);
+                break;
+            case "Shop":
+                root = MapBuilder.BuildShop(_worldRoot.transform, bp.Position);
+                _shopRoot = root.transform;
+                break;
+            case "WifeHouse":
+                root = MapBuilder.BuildWifeHouse(_worldRoot.transform, bp.Position);
+                break;
+        }
+        if (root != null)
+        {
+            _buildings.Add(new BuildingState
+            {
+                Entity = root,
+                Type = bp.Type,
+                Position = bp.Position,
+                Rotation = bp.Rotation,
+                PartStates = null,
+                CurrentHealth = 100,
+                MaxHealth = 100,
+                IsEssential = true
+            });
+        }
     }
 
     public BuildingState FindBuilding(GameObject obj)
@@ -1650,10 +1702,95 @@ public class WorldBuilder : MonoBehaviour
             if (building.CurrentHealth <= 0)
                 RevertBuildingToBlueprint(building);
         }
+
+        UpdateBuildingDurabilityLabel(building);
+    }
+
+    private float GetBuildingTopY(GameObject entity)
+    {
+        var renderers = entity.GetComponentsInChildren<Renderer>();
+        if (renderers.Length > 0)
+        {
+            Bounds bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+                bounds.Encapsulate(renderers[i].bounds);
+            return bounds.max.y;
+        }
+        return entity.transform.position.y + 2f;
+    }
+
+    private void UpdateBuildingDurabilityLabel(BuildingState building)
+    {
+        if (building.Entity == null) return;
+
+        int current, max;
+        if (building.PartStates != null && building.PartStates.Count > 0)
+        {
+            int total = building.TotalParts;
+            int destroyed = building.DestroyedParts;
+            int remaining = total - destroyed;
+            current = remaining;
+            max = total;
+        }
+        else
+        {
+            current = building.CurrentHealth;
+            max = building.MaxHealth;
+        }
+
+        if (current >= max)
+        {
+            if (building.DurabilityLabel != null)
+            {
+                Object.Destroy(building.DurabilityLabel);
+                building.DurabilityLabel = null;
+            }
+            return;
+        }
+
+        string text = $"{current}/{max}";
+
+        if (building.DurabilityLabel == null)
+        {
+            var labelObj = new GameObject("DurabilityLabel");
+            labelObj.transform.SetParent(_worldRoot.transform);
+            var tmp = labelObj.AddComponent<TextMeshPro>();
+            tmp.fontSize = 1.5f;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.color = Color.yellow;
+            tmp.outlineWidth = 0.3f;
+            tmp.outlineColor = Color.black;
+            building.DurabilityLabel = labelObj;
+        }
+
+        float topY = GetBuildingTopY(building.Entity);
+        building.DurabilityLabel.transform.position = new Vector3(building.Entity.transform.position.x, topY + 0.5f, building.Entity.transform.position.z);
+
+        var tmp2 = building.DurabilityLabel.GetComponent<TextMeshPro>();
+        if (tmp2 != null)
+        {
+            tmp2.text = text;
+            tmp2.color = current <= max * 0.25f ? Color.red : Color.yellow;
+        }
     }
 
     private void RevertBuildingToBlueprint(BuildingState state)
     {
+        if (state.DurabilityLabel != null)
+        {
+            Object.Destroy(state.DurabilityLabel);
+            state.DurabilityLabel = null;
+        }
+
+        if (state.IsEssential)
+        {
+            if (state.Entity != null)
+                Object.Destroy(state.Entity);
+            _buildings.Remove(state);
+            CreateEssentialBlueprint(state);
+            return;
+        }
+
         var def = System.Array.Find(_availableBuildings, d => d.Name == state.Type);
         if (def == null) return;
 
@@ -1705,10 +1842,90 @@ public class WorldBuilder : MonoBehaviour
         _blueprints.Add(bpState);
     }
 
+    private void CreateEssentialBlueprint(BuildingState state)
+    {
+        float size = 6f;
+        var blueprint = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        blueprint.name = "Blueprint";
+        blueprint.transform.position = state.Position + Vector3.up * (size * 0.5f);
+        blueprint.transform.localScale = Vector3.one * size;
+        var renderer = blueprint.GetComponent<MeshRenderer>();
+        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        if (mat != null)
+        {
+            mat.SetFloat("_Surface", 1f);
+            mat.SetFloat("_Blend", 0f);
+            mat.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetFloat("_ZWrite", 0f);
+            mat.SetFloat("_Cull", 0f);
+            mat.SetFloat("_Metallic", 0f);
+            mat.SetFloat("_Smoothness", 0f);
+            mat.renderQueue = 3000;
+        }
+        else
+        {
+            mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
+        }
+        mat.color = new Color(0.2f, 0.5f, 1f, 0.15f);
+        renderer.material = mat;
+        var collider = blueprint.GetComponent<BoxCollider>();
+        collider.isTrigger = true;
+        blueprint.transform.SetParent(_worldRoot.transform);
+
+        float woodCost, stoneCost;
+        GetEssentialCosts(state.Type, out woodCost, out stoneCost);
+
+        var bpState = new BlueprintState
+        {
+            Entity = blueprint,
+            Type = state.Type,
+            Position = state.Position,
+            Rotation = state.Rotation,
+            WoodDeposited = 0,
+            StoneDeposited = 0,
+            IsEssential = true,
+            WoodCost = woodCost,
+            StoneCost = stoneCost
+        };
+        CreateEssentialBlueprintLabel(blueprint, bpState);
+        blueprint.AddComponent<BlueprintAutoDeposit>();
+        _blueprints.Add(bpState);
+    }
+
+    private void GetEssentialCosts(string type, out float wood, out float stone)
+    {
+        switch (type)
+        {
+            case "PlayerHouse": wood = 50; stone = 30; break;
+            case "Shop":        wood = 40; stone = 20; break;
+            case "WifeHouse":   wood = 60; stone = 40; break;
+            default:            wood = 30; stone = 20; break;
+        }
+    }
+
+    private void CreateEssentialBlueprintLabel(GameObject blueprint, BlueprintState bp)
+    {
+        var labelObj = new GameObject("BlueprintLabel");
+        labelObj.transform.SetParent(blueprint.transform, false);
+        labelObj.transform.localPosition = Vector3.zero;
+
+        var tmp = labelObj.AddComponent<TextMeshPro>();
+        tmp.text = GetBlueprintRemainingText(bp, bp.WoodCost, bp.StoneCost);
+        tmp.fontSize = 1f;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = Color.white;
+        tmp.outlineWidth = 0.3f;
+        tmp.outlineColor = Color.black;
+
+        bp.Label = labelObj;
+    }
+
     public void RemoveBlueprint(GameObject hitObj)
     {
         var bp = FindBlueprint(hitObj);
         if (bp == null) return;
+        if (bp.IsEssential) return;
         DestroyBlueprintLabel(bp);
         if (bp.Entity != null)
             Object.Destroy(bp.Entity);
@@ -1722,7 +1939,7 @@ public class WorldBuilder : MonoBehaviour
         labelObj.transform.localPosition = Vector3.zero;
 
         var tmp = labelObj.AddComponent<TextMeshPro>();
-        tmp.text = GetBlueprintRemainingText(bp, def);
+        tmp.text = GetBlueprintRemainingText(bp, def.WoodCost, def.StoneCost);
         tmp.fontSize = Mathf.Clamp(def.Size.y * 0.18f, 0.5f, 1f);
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.color = Color.white;
@@ -1741,10 +1958,10 @@ public class WorldBuilder : MonoBehaviour
         }
     }
 
-    private string GetBlueprintRemainingText(BlueprintState bp, BuildingDefinition def)
+    private string GetBlueprintRemainingText(BlueprintState bp, float woodCost, float stoneCost)
     {
-        float woodRemaining = def.WoodCost - bp.WoodDeposited;
-        float stoneRemaining = def.StoneCost - bp.StoneDeposited;
+        float woodRemaining = woodCost - bp.WoodDeposited;
+        float stoneRemaining = stoneCost - bp.StoneDeposited;
         var parts = new List<string>();
         if (woodRemaining > 0.01f)
             parts.Add($"Wood: {woodRemaining:F1}");
@@ -1765,6 +1982,15 @@ public class WorldBuilder : MonoBehaviour
             if (bp.Label != null)
             {
                 bp.Label.transform.LookAt(bp.Label.transform.position + cam.transform.rotation * Vector3.forward,
+                    cam.transform.rotation * Vector3.up);
+            }
+        }
+
+        foreach (var building in _buildings)
+        {
+            if (building.DurabilityLabel != null)
+            {
+                building.DurabilityLabel.transform.LookAt(building.DurabilityLabel.transform.position + cam.transform.rotation * Vector3.forward,
                     cam.transform.rotation * Vector3.up);
             }
         }
@@ -1954,7 +2180,18 @@ GameObject treeRoot;
 
     private void BuildHouse()
     {
-        MapBuilder.BuildPlayerHouse(_worldRoot.transform, Vector3.zero);
+        var house = MapBuilder.BuildPlayerHouse(_worldRoot.transform, Vector3.zero);
+        _buildings.Add(new BuildingState
+        {
+            Entity = house,
+            Type = "PlayerHouse",
+            Position = house.transform.position,
+            Rotation = 0,
+            PartStates = null,
+            CurrentHealth = 100,
+            MaxHealth = 100,
+            IsEssential = true
+        });
     }
 
     private void BuildBeach()
@@ -1985,11 +2222,33 @@ GameObject treeRoot;
     {
         var shop = MapBuilder.BuildShop(_worldRoot.transform, new Vector3(0f, 0f, 60f));
         _shopRoot = shop.transform;
+        _buildings.Add(new BuildingState
+        {
+            Entity = shop,
+            Type = "Shop",
+            Position = shop.transform.position,
+            Rotation = 0,
+            PartStates = null,
+            CurrentHealth = 100,
+            MaxHealth = 100,
+            IsEssential = true
+        });
     }
 
     private void BuildWifeHouse()
     {
-        MapBuilder.BuildWifeHouse(_worldRoot.transform, new Vector3(33f, 0f, 0f));
+        var wifeHouse = MapBuilder.BuildWifeHouse(_worldRoot.transform, new Vector3(33f, 0f, 0f));
+        _buildings.Add(new BuildingState
+        {
+            Entity = wifeHouse,
+            Type = "WifeHouse",
+            Position = wifeHouse.transform.position,
+            Rotation = 0,
+            PartStates = null,
+            CurrentHealth = 100,
+            MaxHealth = 100,
+            IsEssential = true
+        });
         MapBuilder.BuildWifeNpc(_worldRoot.transform, new Vector3(30f, 0.86f, 0f), 1f, Quaternion.Euler(0f, 90f, 0f));
     }
 
@@ -2065,13 +2324,17 @@ GameObject treeRoot;
             Mathf.Max(0, cartColor.b - 20f / 255f)
         );
 
-        // ── Food truck body (window on left side -X) ──
+        // ── Classic food truck ──
+        // Identity rotation: local +Z = world +Z = front (movement), local -X = world -X = window toward player
 
-        float halfW = 1.8f;  // half width (X)
-        float halfD = 1.3f;  // half depth (Z)
+        float halfW = 1.3f;  // half width (X), truck is 2.6m wide
+        float halfD = 1.8f;  // half depth (Z), truck is 3.6m long
         float wallH = 1.6f;
         float floorY = 0.2f;
         float roofY = 2.0f;
+        float cabDepth = 0.8f;
+        float cabFrontZ = halfD;
+        float cabBackZ = halfD - cabDepth;
 
         var modelRoot = new GameObject("Model");
         modelRoot.transform.SetParent(cart.Root.transform);
@@ -2081,35 +2344,68 @@ GameObject treeRoot;
         // Floor
         MakeBlock("TruckFloor", modelRoot.transform, new Vector3(halfW * 2f, 0.2f, halfD * 2f),
             new Vector3(0f, floorY, 0f), darkColor, true);
-        // Right wall
-        MakeBlock("TruckWallR", modelRoot.transform, new Vector3(0.2f, wallH, halfD * 2f),
-            new Vector3(halfW, floorY + wallH * 0.5f, 0f), cartColor, true);
-        // Back wall (-Z)
-        MakeBlock("TruckWallBack", modelRoot.transform, new Vector3(halfW * 2f - 0.2f, wallH, 0.2f),
-            new Vector3(0f, floorY + wallH * 0.5f, -halfD), cartColor, true);
-        // Front wall (+Z) — solid
-        MakeBlock("TruckWallFront", modelRoot.transform, new Vector3(halfW * 2f - 0.2f, wallH, 0.2f),
-            new Vector3(0f, floorY + wallH * 0.5f, halfD), cartColor, true);
-        // Left counter (lower half, upper is open window)
-        MakeBlock("TruckCounterL", modelRoot.transform, new Vector3(0.2f, 0.6f, halfD * 2f - 0.4f),
-            new Vector3(-halfW, floorY + 0.3f, 0f), darkColor, true);
-        // Roof
-        MakeBlock("TruckRoof", modelRoot.transform, new Vector3(halfW * 2f + 0.4f, 0.2f, halfD * 2f + 0.6f),
-            new Vector3(0f, roofY, 0f), darkColor, true);
-        // Awning / roof extension at left side (over the window)
-        MakeBlock("TruckAwning", modelRoot.transform, new Vector3(0.5f, 0.1f, halfD * 2f + 0.6f),
-            new Vector3(-halfW - 0.3f, roofY + 0.05f, 0f), darkColor, true);
-        // Decorative stripe
-        MakeBlock("TruckStripe", modelRoot.transform, new Vector3(halfW * 2f - 0.4f, 0.1f, 0.1f),
-            new Vector3(0f, floorY + 0.4f, 0f), Color.white, true);
 
-        // Wheels (4 corners)
+        // ── Front face (local +Z) ──
+        MakeBlock("WallFront", modelRoot.transform, new Vector3(halfW * 2f - 0.2f, wallH, 0.15f),
+            new Vector3(0f, floorY + wallH * 0.5f, cabFrontZ), cartColor, true);
+        MakeBlock("Bumper", modelRoot.transform, new Vector3(halfW * 2f - 0.4f, 0.3f, 0.2f),
+            new Vector3(0f, 0.15f, cabFrontZ + 0.1f), Color.gray, true);
+        MakeBlock("Grille", modelRoot.transform, new Vector3(halfW * 2f - 0.4f, 0.5f, 0.1f),
+            new Vector3(0f, floorY + 0.35f, cabFrontZ + 0.01f), new Color(0.15f, 0.15f, 0.15f), true);
+        MakeBlock("Windshield", modelRoot.transform, new Vector3(halfW * 2f - 0.6f, 0.7f, 0.1f),
+            new Vector3(0f, floorY + 1.05f, cabFrontZ + 0.01f), new Color(0.5f, 0.75f, 1f), true);
+        MakeBlock("HeadlightL", modelRoot.transform, new Vector3(0.2f, 0.2f, 0.08f),
+            new Vector3(-halfW + 0.3f, floorY + 0.5f, cabFrontZ + 0.12f), Color.white, true);
+        MakeBlock("HeadlightR", modelRoot.transform, new Vector3(0.2f, 0.2f, 0.08f),
+            new Vector3(halfW - 0.3f, floorY + 0.5f, cabFrontZ + 0.12f), Color.white, true);
+
+        // ── Back wall (local -Z) ──
+        MakeBlock("WallBack", modelRoot.transform, new Vector3(halfW * 2f - 0.2f, wallH, 0.15f),
+            new Vector3(0f, floorY + wallH * 0.5f, -halfD), cartColor, true);
+
+        // ── Right wall (local +X) — solid, full length ──
+        MakeBlock("WallRight", modelRoot.transform, new Vector3(0.2f, wallH, halfD * 2f - 0.2f),
+            new Vector3(halfW, floorY + wallH * 0.5f, 0f), cartColor, true);
+
+        // ── Left side (local -X) — cab wall + counter (window above) + back wall ──
+        float cabBackOffset = 0.1f;
+        float winFrontZ = cabBackZ - cabBackOffset;
+        float winBackZ = -halfD + 0.6f;
+        float winLen = winFrontZ - winBackZ;
+        float winCenterZ = (winFrontZ + winBackZ) * 0.5f;
+        float xL = -halfW;
+
+        MakeBlock("CabWallL", modelRoot.transform, new Vector3(0.17f, wallH, cabDepth - cabBackOffset),
+            new Vector3(xL, floorY + wallH * 0.5f, halfD - cabDepth * 0.5f - cabBackOffset * 0.5f), cartColor, true);
+
+        float counterH = 0.6f;
+        MakeBlock("Counter", modelRoot.transform, new Vector3(0.17f, counterH, winLen),
+            new Vector3(xL, floorY + counterH * 0.5f, winCenterZ), darkColor, true);
+
+        float backLenL = winBackZ - (-halfD);
+        float backCenterZ = (-halfD + winBackZ) * 0.5f;
+        MakeBlock("WallBackL", modelRoot.transform, new Vector3(0.17f, wallH, backLenL),
+            new Vector3(xL, floorY + wallH * 0.5f, backCenterZ), cartColor, true);
+
+        // ── Roof ──
+        MakeBlock("Roof", modelRoot.transform, new Vector3(halfW * 2f + 0.4f, 0.2f, halfD * 2f + 0.6f),
+            new Vector3(0f, roofY, 0f), darkColor, true);
+
+        // ── Awning over the window (left side) ──
+        MakeBlock("Awning", modelRoot.transform, new Vector3(0.5f, 0.1f, winLen + 0.2f),
+            new Vector3(xL - 0.3f, roofY - 0.05f, winCenterZ), darkColor, true);
+
+        // ── Stripe along the body (on right wall) ──
+        MakeBlock("Stripe", modelRoot.transform, new Vector3(0.08f, 0.08f, halfD * 2f - 0.4f),
+            new Vector3(halfW + 0.06f, floorY + 0.45f, 0f), Color.white, true);
+
+        // ── Wheels ──
         Vector3[] wheelPos = new Vector3[]
         {
-            new Vector3(-halfW - 0.6f, -0.3f, -halfD + 0.4f),
-            new Vector3(halfW + 0.6f, -0.3f, -halfD + 0.4f),
-            new Vector3(-halfW - 0.6f, -0.3f, halfD - 0.4f),
-            new Vector3(halfW + 0.6f, -0.3f, halfD - 0.4f)
+            new Vector3(-halfW - 0.5f, -0.3f, -halfD + 0.5f),
+            new Vector3(halfW + 0.5f, -0.3f, -halfD + 0.5f),
+            new Vector3(-halfW - 0.5f, -0.3f, halfD - 0.5f),
+            new Vector3(halfW + 0.5f, -0.3f, halfD - 0.5f)
         };
         foreach (var wp in wheelPos)
         {
@@ -2120,29 +2416,30 @@ GameObject treeRoot;
             cart.Wheels.Add(w);
         }
 
-        // ── Vendor NPC inside the truck ──
+        // ── Vendor NPC inside, near the window opening ──
         var vendorRoot = new GameObject("Vendor");
         vendorRoot.transform.SetParent(cart.Root.transform);
-        vendorRoot.transform.localPosition = new Vector3(-halfW + 0.6f, floorY, 0f);
+        vendorRoot.transform.localPosition = new Vector3(xL + 0.5f, 0f, winCenterZ);
+        vendorRoot.transform.localRotation = Quaternion.identity;
         MakeBlock("VendorBody", vendorRoot.transform, new Vector3(0.6f, 1.2f, 0.5f),
-            new Vector3(0f, 1.0f, 0f), new Color(0.565f, 0.78f, 0.945f), true);
+            new Vector3(0f, floorY + 1.0f, 0f), new Color(0.565f, 0.78f, 0.945f), true);
         MakeBlock("VendorHead", vendorRoot.transform, new Vector3(0.5f, 0.5f, 0.5f),
-            new Vector3(0f, 1.9f, 0f), Color.white, true);
+            new Vector3(0f, floorY + 1.9f, 0f), Color.white, true);
         MakeBlock("VendorArmL", vendorRoot.transform, new Vector3(0.15f, 0.6f, 0.15f),
-            new Vector3(-0.4f, 1.3f, 0f), new Color(0.565f, 0.78f, 0.945f), true);
+            new Vector3(-0.4f, floorY + 1.3f, 0f), new Color(0.565f, 0.78f, 0.945f), true);
         MakeBlock("VendorArmR", vendorRoot.transform, new Vector3(0.15f, 0.6f, 0.15f),
-            new Vector3(0.4f, 1.3f, 0f), new Color(0.565f, 0.78f, 0.945f), true);
+            new Vector3(0.4f, floorY + 1.3f, 0f), new Color(0.565f, 0.78f, 0.945f), true);
 
         cart.VendorModel = vendorRoot;
         cart.ModelBaseY = vendorRoot.transform.localPosition.y;
 
-        // Interaction trigger at the left window
+        // Interaction trigger at the window (local -X side)
         var interactGO = new GameObject("VendorNPC");
         interactGO.transform.SetParent(cart.Root.transform);
-        interactGO.transform.localPosition = new Vector3(-halfW - 0.1f, 1.0f, 0f);
+        interactGO.transform.localPosition = new Vector3(xL - 0.1f, 1.0f, winCenterZ);
         var interactCol = interactGO.AddComponent<BoxCollider>();
         interactCol.isTrigger = true;
-        interactCol.size = new Vector3(0.4f, 1.2f, halfD * 2f - 0.4f);
+        interactCol.size = new Vector3(0.4f, 1.2f, winLen - 0.2f);
 
         // NPC bobbing
         cart.VendorReady = true;
@@ -2733,6 +3030,7 @@ GameObject treeRoot;
         foreach (var building in _buildings)
         {
             if (building.Entity != null) Destroy(building.Entity);
+            if (building.DurabilityLabel != null) Destroy(building.DurabilityLabel);
         }
         _buildings.Clear();
 
@@ -2913,6 +3211,8 @@ GameObject treeRoot;
         public List<BuildingPartState> PartStates;
         public int CurrentHealth;
         public int MaxHealth;
+        public bool IsEssential;
+        public GameObject DurabilityLabel;
 
         public int TotalParts => PartStates?.Count ?? 1;
         public int DestroyedParts
@@ -2939,6 +3239,9 @@ GameObject treeRoot;
         public float WoodDeposited;
         public float StoneDeposited;
         public GameObject Label;
+        public bool IsEssential;
+        public float WoodCost;
+        public float StoneCost;
     }
 
     public (string material, float amount) GetResourceAmount(GameObject obj)
