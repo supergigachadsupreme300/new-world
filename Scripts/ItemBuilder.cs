@@ -214,27 +214,45 @@ public static class ItemBuilder
 
     public static void BuildWateringCan(Transform parent)
     {
+        Color metalC = new Color(0.4f, 0.5f, 0.6f);
+        Color darkC = new Color(0.3f, 0.35f, 0.4f);
+
         var body = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         body.transform.SetParent(parent, false);
-        body.transform.localScale = new Vector3(0.08f, 0.2f, 0.08f);
-        body.transform.localPosition = new Vector3(0f, 0.1f, 0f);
-        body.GetComponent<Renderer>().material.color = new Color(0.4f, 0.5f, 0.6f);
+        body.transform.localScale = new Vector3(0.12f, 0.22f, 0.12f);
+        body.transform.localPosition = new Vector3(0f, 0.12f, 0f);
+        body.GetComponent<Renderer>().material.color = metalC;
         Object.Destroy(body.GetComponent<Collider>());
 
         var spout = GameObject.CreatePrimitive(PrimitiveType.Cube);
         spout.transform.SetParent(parent, false);
-        spout.transform.localScale = new Vector3(0.02f, 0.02f, 0.25f);
-        spout.transform.localPosition = new Vector3(0f, 0.18f, 0.18f);
-        spout.transform.localRotation = Quaternion.Euler(30f, 0f, 0f);
-        spout.GetComponent<Renderer>().material.color = new Color(0.4f, 0.5f, 0.6f);
+        spout.transform.localScale = new Vector3(0.03f, 0.03f, 0.2f);
+        spout.transform.localPosition = new Vector3(0f, 0.22f, 0.2f);
+        spout.transform.localRotation = Quaternion.Euler(20f, 0f, 0f);
+        spout.GetComponent<Renderer>().material.color = metalC;
         Object.Destroy(spout.GetComponent<Collider>());
+
+        var rose = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        rose.transform.SetParent(parent, false);
+        rose.transform.localScale = new Vector3(0.06f, 0.02f, 0.06f);
+        rose.transform.localPosition = new Vector3(0f, 0.26f, 0.34f);
+        rose.transform.localRotation = Quaternion.Euler(20f, 0f, 0f);
+        rose.GetComponent<Renderer>().material.color = darkC;
+        Object.Destroy(rose.GetComponent<Collider>());
 
         var handle = GameObject.CreatePrimitive(PrimitiveType.Cube);
         handle.transform.SetParent(parent, false);
-        handle.transform.localScale = new Vector3(0.06f, 0.02f, 0.06f);
-        handle.transform.localPosition = new Vector3(0f, 0.28f, -0.05f);
-        handle.GetComponent<Renderer>().material.color = new Color(0.3f, 0.35f, 0.4f);
+        handle.transform.localScale = new Vector3(0.06f, 0.04f, 0.15f);
+        handle.transform.localPosition = new Vector3(0f, 0.28f, -0.1f);
+        handle.GetComponent<Renderer>().material.color = darkC;
         Object.Destroy(handle.GetComponent<Collider>());
+
+        var handleGrip = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        handleGrip.transform.SetParent(handle.transform, false);
+        handleGrip.transform.localScale = new Vector3(0.07f, 0.05f, 0.06f);
+        handleGrip.transform.localPosition = new Vector3(0f, 0.04f, 0f);
+        handleGrip.GetComponent<Renderer>().material.color = new Color(0.2f, 0.12f, 0.06f);
+        Object.Destroy(handleGrip.GetComponent<Collider>());
     }
 
     public static void BuildCarrotPickup(Transform parent)

@@ -134,11 +134,13 @@ public class WorldBuilder : MonoBehaviour
                 new BuildingPartDefinition { PartName = "Wall_Right", LocalPosition = new Vector3(3.85f, 0f, 0f),  LocalScale = new Vector3(0.3f, 4.7f, 7.7f), MaterialType = "wood" },
                 new BuildingPartDefinition { PartName = "Roof",      LocalPosition = new Vector3(0f, 2.35f, 0f),   LocalScale = new Vector3(8.3f, 0.3f, 8.3f), MaterialType = "stone" },
             }),
-        new BuildingDefinition("wood_floor", new Vector3(4f, 0.3f, 4f), new Color(0.71f, 0.53f, 0.27f), 3, 0)
+        new BuildingDefinition("wood_floor", new Vector3(4f, 0.3f, 4f), new Color(0.71f, 0.53f, 0.27f), 3, 0),
+        new BuildingDefinition("stone_floor", new Vector3(4f, 0.3f, 4f), new Color(0.41f, 0.41f, 0.41f), 0, 3)
     };
 
     private int _currentBuildingIndex;
     private int _currentRotation;
+    private readonly HashSet<Vector3Int> _floorPositions = new HashSet<Vector3Int>();
 
     private void Awake()
     {
@@ -192,6 +194,7 @@ public class WorldBuilder : MonoBehaviour
         SpawnBuffalo();
         CreateVendorSpawnButton();
         SpawnToolPickups();
+        SpawnMobs();
         CreateCropDemo();
         InitializeBuildingPreview();
     }
@@ -254,11 +257,13 @@ public class WorldBuilder : MonoBehaviour
             if (building.Entity != null) Destroy(building.Entity);
         }
         _buildings.Clear();
+        _floorPositions.Clear();
 
         foreach (var bp in _blueprints)
         {
             DestroyBlueprintLabel(bp);
             if (bp.Entity != null) Destroy(bp.Entity);
+            _blueprints.Clear();
         }
         _blueprints.Clear();
 
@@ -438,6 +443,27 @@ public class WorldBuilder : MonoBehaviour
         rootCollider.isTrigger = true;
         rootCollider.size = new Vector3(0.6f, 0.6f, 0.6f);
         return pickup;
+    }
+
+    private void SpawnMobs()
+    {
+        var mobPositions = new[]
+        {
+            new { pos = new Vector3(8f, 0.5f, 5f), type = Mob.MobType.Mouse },
+            new { pos = new Vector3(-5f, 0.5f, 10f), type = Mob.MobType.Mouse },
+            new { pos = new Vector3(15f, 0.5f, 40f), type = Mob.MobType.Crab },
+            new { pos = new Vector3(20f, 0.5f, -5f), type = Mob.MobType.Mouse },
+            new { pos = new Vector3(-85f, 0.5f, -20f), type = Mob.MobType.Crab },
+        };
+
+        foreach (var m in mobPositions)
+        {
+            var go = new GameObject(m.type.ToString());
+            go.transform.SetParent(_worldRoot.transform);
+            go.transform.position = m.pos;
+            var mob = go.AddComponent<Mob>();
+            mob.Type = m.type;
+        }
     }
 
     private void CreateCropDemo()
@@ -1386,6 +1412,11 @@ public class WorldBuilder : MonoBehaviour
         var definition = _availableBuildings[_currentBuildingIndex];
         var size = definition.Size;
         Vector3 snapped = SnapToGrid(position);
+        if (!IsFloorType(definition.Name) && !HasFloorAt(snapped))
+        {
+            Debug.Log("Must place on a floor first!");
+            return false;
+        }
         if (!CanPlaceBuilding(snapped, size, _currentRotation))
             return false;
 
@@ -1602,6 +1633,11 @@ public class WorldBuilder : MonoBehaviour
         {
             SpawnBuildingDirect(def.Name, bp.Position, bp.Rotation);
         }
+        if (IsFloorType(bp.Type))
+        {
+            var key = new Vector3Int(Mathf.RoundToInt(bp.Position.x), 0, Mathf.RoundToInt(bp.Position.z));
+            _floorPositions.Add(key);
+        }
         DestroyBlueprintLabel(bp);
         if (bp.Entity != null)
             Destroy(bp.Entity);
@@ -1632,7 +1668,7 @@ public class WorldBuilder : MonoBehaviour
                 Type = bp.Type,
                 Position = bp.Position,
                 Rotation = bp.Rotation,
-                PartStates = null,
+                PartStates = CollectColliderParts(root, bp.Type),
                 CurrentHealth = 100,
                 MaxHealth = 100,
                 IsEssential = true
@@ -1780,6 +1816,12 @@ public class WorldBuilder : MonoBehaviour
         {
             Object.Destroy(state.DurabilityLabel);
             state.DurabilityLabel = null;
+        }
+
+        if (IsFloorType(state.Type))
+        {
+            var key = new Vector3Int(Mathf.RoundToInt(state.Position.x), 0, Mathf.RoundToInt(state.Position.z));
+            _floorPositions.Remove(key);
         }
 
         if (state.IsEssential)
@@ -2187,11 +2229,47 @@ GameObject treeRoot;
             Type = "PlayerHouse",
             Position = house.transform.position,
             Rotation = 0,
-            PartStates = null,
+            PartStates = CollectColliderParts(house, "PlayerHouse"),
             CurrentHealth = 100,
             MaxHealth = 100,
             IsEssential = true
         });
+    }
+
+    private List<BuildingPartState> CollectColliderParts(GameObject root, string prefix)
+    {
+        var parts = new List<BuildingPartState>();
+        var colliders = root.GetComponentsInChildren<BoxCollider>();
+        int index = 0;
+        foreach (var col in colliders)
+        {
+            if (col.isTrigger) continue;
+            parts.Add(new BuildingPartState
+            {
+                PartName = $"{prefix}_{index}",
+                Entity = col.gameObject,
+                CurrentHealth = 4
+            });
+            index++;
+        }
+        return parts;
+    }
+
+    private bool IsFloorType(string typeName)
+    {
+        return typeName == "wood_floor" || typeName == "stone_floor";
+    }
+
+    private bool HasFloorAt(Vector3 position)
+    {
+        int px = Mathf.RoundToInt(position.x);
+        int pz = Mathf.RoundToInt(position.z);
+        foreach (var fp in _floorPositions)
+        {
+            if (Mathf.Abs(fp.x - px) <= 2 && Mathf.Abs(fp.z - pz) <= 2)
+                return true;
+        }
+        return false;
     }
 
     private void BuildBeach()
@@ -2228,7 +2306,7 @@ GameObject treeRoot;
             Type = "Shop",
             Position = shop.transform.position,
             Rotation = 0,
-            PartStates = null,
+            PartStates = CollectColliderParts(shop, "Shop"),
             CurrentHealth = 100,
             MaxHealth = 100,
             IsEssential = true
@@ -2244,7 +2322,7 @@ GameObject treeRoot;
             Type = "WifeHouse",
             Position = wifeHouse.transform.position,
             Rotation = 0,
-            PartStates = null,
+            PartStates = CollectColliderParts(wifeHouse, "WifeHouse"),
             CurrentHealth = 100,
             MaxHealth = 100,
             IsEssential = true
@@ -2516,7 +2594,11 @@ GameObject treeRoot;
         if (_buildingPreview == null)
             return;
 
-        if (!isValid)
+        var definition = _availableBuildings[_currentBuildingIndex];
+        Vector3 snapped = SnapToGrid(position);
+        bool floorOk = IsFloorType(definition.Name) || HasFloorAt(snapped);
+
+        if (!isValid || !floorOk)
         {
             if (_buildingPreview.activeInHierarchy)
                 _buildingPreview.SetActive(false);
@@ -2526,8 +2608,6 @@ GameObject treeRoot;
         if (!_buildingPreview.activeInHierarchy)
             _buildingPreview.SetActive(true);
 
-        Vector3 snapped = SnapToGrid(position);
-        var definition = _availableBuildings[_currentBuildingIndex];
         _buildingPreview.transform.position = snapped + Vector3.up * (definition.Size.y * 0.5f);
 
         var renderer = _buildingPreview.GetComponent<Renderer>();
@@ -3033,6 +3113,7 @@ GameObject treeRoot;
             if (building.DurabilityLabel != null) Destroy(building.DurabilityLabel);
         }
         _buildings.Clear();
+        _floorPositions.Clear();
 
         var demo = _worldRoot?.transform.Find("CropDemo");
         if (demo != null) Destroy(demo.gameObject);
@@ -3146,6 +3227,21 @@ GameObject treeRoot;
                     for (int p = 0; p < count; p++)
                         last.PartStates[p].CurrentHealth = build.partHealths[p];
                 }
+            }
+        }
+
+        RebuildFloorPositions();
+    }
+
+    private void RebuildFloorPositions()
+    {
+        _floorPositions.Clear();
+        foreach (var building in _buildings)
+        {
+            if (IsFloorType(building.Type))
+            {
+                var key = new Vector3Int(Mathf.RoundToInt(building.Position.x), 0, Mathf.RoundToInt(building.Position.z));
+                _floorPositions.Add(key);
             }
         }
     }

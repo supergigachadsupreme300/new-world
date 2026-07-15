@@ -83,7 +83,7 @@ public class ToolManager : MonoBehaviour
             float dur = 0.12f;
             float elapsed = 0f;
             Quaternion start = tool.transform.localRotation;
-            Quaternion swing = start * Quaternion.Euler(-50f, 0f, 0f);
+            Quaternion swing = start * Quaternion.Euler(50f, 0f, 0f);
 
             while (elapsed < dur)
             {
