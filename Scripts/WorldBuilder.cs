@@ -2274,7 +2274,7 @@ public class WorldBuilder : MonoBehaviour
     private void BuildRockyBorder()
     {
         float half = GroundSize.x * 0.5f;
-        float spacing = 3f;
+        float spacing = 2.5f;
         float westX = -200f;
 
         void SpawnBorderSegment(Vector3 pos, float scale)
@@ -2285,30 +2285,22 @@ public class WorldBuilder : MonoBehaviour
 
         for (float x = westX; x <= half; x += spacing)
         {
-            float jitter = Random.Range(-0.5f, 0.5f);
-            float scaleJitter = Random.Range(0.8f, 1.2f);
-            SpawnBorderSegment(new Vector3(x + jitter, 0f, half + Random.Range(-1f, 1f)), scaleJitter);
+            SpawnBorderSegment(new Vector3(x, 0f, half), Random.Range(0.8f, 1.2f));
         }
 
         for (float x = westX; x <= half; x += spacing)
         {
-            float jitter = Random.Range(-0.5f, 0.5f);
-            float scaleJitter = Random.Range(0.8f, 1.2f);
-            SpawnBorderSegment(new Vector3(x + jitter, 0f, -half + Random.Range(-1f, 1f)), scaleJitter);
+            SpawnBorderSegment(new Vector3(x, 0f, -half), Random.Range(0.8f, 1.2f));
         }
 
         for (float z = -half; z <= half; z += spacing)
         {
-            float jitter = Random.Range(-0.5f, 0.5f);
-            float scaleJitter = Random.Range(0.8f, 1.2f);
-            SpawnBorderSegment(new Vector3(half + Random.Range(-1f, 1f), 0f, z + jitter), scaleJitter);
+            SpawnBorderSegment(new Vector3(half, 0f, z), Random.Range(0.8f, 1.2f));
         }
 
         for (float z = -half; z <= half; z += spacing)
         {
-            float jitter = Random.Range(-0.5f, 0.5f);
-            float scaleJitter = Random.Range(0.8f, 1.2f);
-            SpawnBorderSegment(new Vector3(westX + Random.Range(-1f, 1f), 0f, z + jitter), scaleJitter);
+            SpawnBorderSegment(new Vector3(westX, 0f, z), Random.Range(0.8f, 1.2f));
         }
     }
 

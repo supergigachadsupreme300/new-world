@@ -24,6 +24,8 @@ public class UIManager : MonoBehaviour
     private TMP_Text _questText;
     private TMP_Text _questLinesText;
     private TMP_Text _inventoryText;
+    private RectTransform _inventoryBg;
+    private RectTransform _statsBg;
     private TMP_Text _messageText;
     private TMP_Text _mobSpawnerText;
     private TMP_Text _crosshairText;
@@ -56,8 +58,10 @@ public class UIManager : MonoBehaviour
         if (_inventoryText == null) return;
         var rect = _inventoryText.GetComponent<RectTransform>();
         if (rect != null)
-            rect.sizeDelta = new Vector2(Screen.width, Screen.height * 0.05f);
+            rect.sizeDelta = new Vector2(Screen.width * 0.65f, Screen.height * 0.05f);
         _inventoryText.fontSize = Mathf.Clamp(Screen.width / 100f, 12f, 30f);
+        if (_inventoryBg != null)
+            _inventoryBg.sizeDelta = new Vector2(Screen.width * 0.65f, Screen.height * 0.05f + 12f);
     }
 
     public void InitializeUI()
@@ -78,6 +82,12 @@ public class UIManager : MonoBehaviour
         float lineHeight = screenHeight * 0.05f; // Line spacing
         float panelWidth = Mathf.Min(screenWidth * 0.4f, 560f);
         float panelHeight = Mathf.Min(screenHeight * 0.8f, 520f);
+        // Stats background panel (behind Time, HP, Stamina, Money, Quest)
+        _statsBg = CreateHudBackground("StatsBg",
+            new Vector2(15f, -10f),
+            new Vector2(250f, 225f),
+            new Vector2(0f, 1f));
+
         _timeText = EnsureText(
             "TimeText",
             new Vector2(20f, -20f),
@@ -164,6 +174,12 @@ public class UIManager : MonoBehaviour
         );
         _ammoText.gameObject.SetActive(false);
 
+        // Inventory background panel (behind text)
+        _inventoryBg = CreateHudBackground("InventoryBg",
+            new Vector2(0f, padding * 3f),
+            new Vector2(screenWidth * 0.65f, lineHeight + 12f),
+            new Vector2(0.5f, 0f));
+
         // Inventory: center-bottom, raised up for visibility
         _inventoryText = EnsureText(
             "InventoryText",
@@ -173,7 +189,7 @@ public class UIManager : MonoBehaviour
             null,
             TextAlignmentOptions.Center,
             false,
-            new Vector2(screenWidth, lineHeight),
+            new Vector2(screenWidth * 0.65f, lineHeight),
             new Vector2(0.5f, 0f),
             new Vector2(0.5f, 0f),
             new Vector2(0.5f, 0f)
@@ -370,6 +386,29 @@ public class UIManager : MonoBehaviour
         textComponent.overflowMode = enableWrapping ? TextOverflowModes.Truncate : TextOverflowModes.Overflow;
 
         return textComponent;
+    }
+
+    private RectTransform CreateHudBackground(string name, Vector2 position, Vector2 size, Vector2 anchor)
+    {
+        var existing = GameObject.Find(name);
+        if (existing != null)
+        {
+            var existingRect = existing.GetComponent<RectTransform>();
+            if (existingRect != null) return existingRect;
+        }
+
+        var go = new GameObject(name);
+        go.transform.SetParent(_canvas.transform, false);
+        go.transform.SetAsFirstSibling();
+        var rect = go.AddComponent<RectTransform>();
+        rect.anchorMin = anchor;
+        rect.anchorMax = anchor;
+        rect.pivot = anchor;
+        rect.anchoredPosition = position;
+        rect.sizeDelta = size;
+        var img = go.AddComponent<Image>();
+        img.color = new Color(0.35f, 0.2f, 0.08f, 0.8f);
+        return rect;
     }
 
     private GameObject CreateMenuPanel(string name, Vector2 position, Vector2 size)

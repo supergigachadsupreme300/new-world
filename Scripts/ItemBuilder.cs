@@ -152,20 +152,20 @@ public static class ItemBuilder
             float size = Random.Range(0.03f, 0.05f);
             float x = Random.Range(-0.08f, 0.08f);
             float z = Random.Range(-0.08f, 0.08f);
-            CreatePickupCube(parent, new Vector3(x, size * 0.5f, z), new Vector3(size, size, size), color);
+            CreatePickupCube(parent, new Vector3(x, size * 0.5f, z), new Vector3(size, size, size), color, false);
         }
     }
 
     public static void BuildPeashooterSeed(Transform parent)
     {
-        CreatePickupCube(parent, new Vector3(0f, 0.05f, 0f), new Vector3(0.06f, 0.1f, 0.06f), new Color(0.8f, 0.7f, 0.3f));
+        CreatePickupCube(parent, new Vector3(0f, 0.05f, 0f), new Vector3(0.06f, 0.1f, 0.06f), new Color(0.8f, 0.7f, 0.3f), false);
     }
 
     public static void BuildPotatoSeed(Transform parent)
     {
         Color potatoSeedColor = new Color(0.7f, 0.5f, 0.2f);
-        CreatePickupSphere(parent, new Vector3(-0.05f, 0.05f, 0f), 0.08f, potatoSeedColor);
-        CreatePickupSphere(parent, new Vector3(0.05f, 0.05f, 0f), 0.08f, potatoSeedColor);
+        CreatePickupSphere(parent, new Vector3(-0.05f, 0.05f, 0f), 0.08f, potatoSeedColor, false);
+        CreatePickupSphere(parent, new Vector3(0.05f, 0.05f, 0f), 0.08f, potatoSeedColor, false);
     }
 
     public static void BuildWheatPickup(Transform parent, Color color)
@@ -177,9 +177,9 @@ public static class ItemBuilder
             float height = Random.Range(0.5f, 0.7f);
             float x = Random.Range(-0.05f, 0.05f);
             float z = Random.Range(-0.05f, 0.05f);
-            CreatePickupCube(parent, new Vector3(x, height / 2f, z), new Vector3(width, height, width), color);
+            CreatePickupCube(parent, new Vector3(x, height / 2f, z), new Vector3(width, height, width), color, false);
         }
-        CreatePickupCube(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.2f, 0.05f, 0.2f), new Color(0.627f, 0.431f, 0.235f));
+        CreatePickupCube(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.2f, 0.05f, 0.2f), new Color(0.627f, 0.431f, 0.235f), false);
     }
 
     public static void BuildCornPickup(Transform parent)
@@ -190,21 +190,21 @@ public static class ItemBuilder
             for (int j = 0; j < 5; j++)
             {
                 float angle = j * 72f;
-                CreatePickupCube(parent, new Vector3(0f, 0.5f+0.04f*i, 0f), new Vector3(0.2f, 0.04f, 0.05f), new Vector3(0f, angle + i*18f, 0f), cornColor);
+                CreatePickupCube(parent, new Vector3(0f, 0.5f+0.04f*i, 0f), new Vector3(0.2f, 0.04f, 0.05f), new Vector3(0f, angle + i*18f, 0f), cornColor, false);
             }
         }
-        CreatePickupCube(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.06f, 0.8f, 0.06f), new Color(0.3f, 0.7f, 0.25f));
+        CreatePickupCube(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.06f, 0.8f, 0.06f), new Color(0.3f, 0.7f, 0.25f), false);
     }
 
     public static void BuildPotatoPickup(Transform parent)
     {
-        CreatePickupSphere(parent, new Vector3(-0.04f, 0.06f, 0f), 0.14f, new Color(0.627f, 0.431f, 0.235f));
-        CreatePickupSphere(parent, new Vector3(0.04f, -0.06f, 0f), 0.14f, new Color(0.3f, 0.2f, 0.1f));
+        CreatePickupSphere(parent, new Vector3(-0.04f, 0.06f, 0f), 0.14f, new Color(0.627f, 0.431f, 0.235f), false);
+        CreatePickupSphere(parent, new Vector3(0.04f, -0.06f, 0f), 0.14f, new Color(0.3f, 0.2f, 0.1f), false);
     }
 
     public static void BuildDamagedCrop(Transform parent)
     {
-        CreatePickupCube(parent, new Vector3(0f, 0.15f, 0f), new Vector3(0.3f, 0.25f, 0.3f), new Color(0.6f, 0.4f, 0.2f));
+        CreatePickupCube(parent, new Vector3(0f, 0.15f, 0f), new Vector3(0.3f, 0.25f, 0.3f), new Color(0.6f, 0.4f, 0.2f), false);
     }
 
     public static void BuildMiHaoHao(Transform parent)
@@ -257,49 +257,49 @@ public static class ItemBuilder
 
     public static void BuildCarrotPickup(Transform parent)
     {
-        CreatePickupCube(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.06f, 0.15f, 0.06f), new Color(1f, 0.55f, 0.1f));
-        CreatePickupCube(parent, new Vector3(0f, 0.2f, 0f), new Vector3(0.04f, 0.06f, 0.04f), new Color(0.2f, 0.6f, 0.15f));
-        CreatePickupCube(parent, new Vector3(0.03f, 0.2f, 0f), new Vector3(0.02f, 0.04f, 0.02f), new Color(0.2f, 0.6f, 0.15f));
-        CreatePickupCube(parent, new Vector3(-0.03f, 0.2f, 0f), new Vector3(0.02f, 0.04f, 0.02f), new Color(0.2f, 0.6f, 0.15f));
+        CreatePickupCube(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.06f, 0.15f, 0.06f), new Color(1f, 0.55f, 0.1f), false);
+        CreatePickupCube(parent, new Vector3(0f, 0.2f, 0f), new Vector3(0.04f, 0.06f, 0.04f), new Color(0.2f, 0.6f, 0.15f), false);
+        CreatePickupCube(parent, new Vector3(0.03f, 0.2f, 0f), new Vector3(0.02f, 0.04f, 0.02f), new Color(0.2f, 0.6f, 0.15f), false);
+        CreatePickupCube(parent, new Vector3(-0.03f, 0.2f, 0f), new Vector3(0.02f, 0.04f, 0.02f), new Color(0.2f, 0.6f, 0.15f), false);
     }
 
     public static void BuildTomatoPickup(Transform parent)
     {
-        CreatePickupSphere(parent, new Vector3(0f, 0.08f, 0f), 0.18f, new Color(1f, 0.2f, 0.1f));
-        CreatePickupCube(parent, new Vector3(0f, 0.18f, 0f), new Vector3(0.03f, 0.04f, 0.03f), new Color(0.2f, 0.5f, 0.15f));
+        CreatePickupSphere(parent, new Vector3(0f, 0.08f, 0f), 0.18f, new Color(1f, 0.2f, 0.1f), false);
+        CreatePickupCube(parent, new Vector3(0f, 0.18f, 0f), new Vector3(0.03f, 0.04f, 0.03f), new Color(0.2f, 0.5f, 0.15f), false);
     }
 
     public static void BuildStrawberryPickup(Transform parent)
     {
-        CreatePickupSphere(parent, new Vector3(0f, 0.05f, 0f), 0.12f, new Color(1f, 0.15f, 0.15f));
-        CreatePickupCube(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.06f, 0.02f, 0.06f), new Color(0.15f, 0.55f, 0.1f));
+        CreatePickupSphere(parent, new Vector3(0f, 0.05f, 0f), 0.12f, new Color(1f, 0.15f, 0.15f), false);
+        CreatePickupCube(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.06f, 0.02f, 0.06f), new Color(0.15f, 0.55f, 0.1f), false);
     }
 
     public static void BuildPumpkinPickup(Transform parent)
     {
-        CreatePickupSphere(parent, new Vector3(0f, 0.08f, 0f), 0.2f, new Color(1f, 0.6f, 0.1f));
-        CreatePickupCube(parent, new Vector3(0f, 0.18f, 0f), new Vector3(0.04f, 0.03f, 0.04f), new Color(0.2f, 0.5f, 0.1f));
+        CreatePickupSphere(parent, new Vector3(0f, 0.08f, 0f), 0.2f, new Color(1f, 0.6f, 0.1f), false);
+        CreatePickupCube(parent, new Vector3(0f, 0.18f, 0f), new Vector3(0.04f, 0.03f, 0.04f), new Color(0.2f, 0.5f, 0.1f), false);
     }
 
     public static void BuildOnionPickup(Transform parent)
     {
-        CreatePickupSphere(parent, new Vector3(0f, 0.06f, 0f), 0.16f, new Color(0.8f, 0.5f, 0.2f));
+        CreatePickupSphere(parent, new Vector3(0f, 0.06f, 0f), 0.16f, new Color(0.8f, 0.5f, 0.2f), false);
         for (int i = 0; i < 3; i++)
         {
             CreatePickupCube(parent, new Vector3(Random.Range(-0.03f, 0.03f), 0.15f, Random.Range(-0.03f, 0.03f)),
-                new Vector3(0.015f, 0.04f, 0.015f), new Color(0.2f, 0.5f, 0.1f));
+                new Vector3(0.015f, 0.04f, 0.015f), new Color(0.2f, 0.5f, 0.1f), false);
         }
     }
 
     public static void BuildSugarcanePickup(Transform parent)
     {
-        CreatePickupCube(parent, new Vector3(0f, 0.15f, 0f), new Vector3(0.05f, 0.3f, 0.05f), new Color(0.3f, 0.7f, 0.15f));
-        CreatePickupCube(parent, new Vector3(0f, 0.3f, 0f), new Vector3(0.06f, 0.015f, 0.06f), new Color(0.6f, 0.8f, 0.3f));
+        CreatePickupCube(parent, new Vector3(0f, 0.15f, 0f), new Vector3(0.05f, 0.3f, 0.05f), new Color(0.3f, 0.7f, 0.15f), false);
+        CreatePickupCube(parent, new Vector3(0f, 0.3f, 0f), new Vector3(0.06f, 0.015f, 0.06f), new Color(0.6f, 0.8f, 0.3f), false);
     }
 
     public static void BuildRicePickup(Transform parent)
     {
-        CreatePickupCube(parent, new Vector3(0f, 0.15f, 0f), new Vector3(0.025f, 0.3f, 0.025f), new Color(0.25f, 0.6f, 0.15f));
-        CreatePickupSphere(parent, new Vector3(0f, 0.32f, 0f), 0.08f, new Color(1f, 0.9f, 0.3f));
+        CreatePickupCube(parent, new Vector3(0f, 0.15f, 0f), new Vector3(0.025f, 0.3f, 0.025f), new Color(0.25f, 0.6f, 0.15f), false);
+        CreatePickupSphere(parent, new Vector3(0f, 0.32f, 0f), 0.08f, new Color(1f, 0.9f, 0.3f), false);
     }
 }
