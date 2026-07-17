@@ -31,9 +31,33 @@ public class UIManager : MonoBehaviour
 
     public TMP_FontAsset defaultTmpFont;
 
+    private int _lastScreenWidth;
+    private int _lastScreenHeight;
+
     void Start()
     {
+        _lastScreenWidth = Screen.width;
+        _lastScreenHeight = Screen.height;
         InitializeUI();
+    }
+
+    void Update()
+    {
+        if (Screen.width != _lastScreenWidth || Screen.height != _lastScreenHeight)
+        {
+            _lastScreenWidth = Screen.width;
+            _lastScreenHeight = Screen.height;
+            ResizeInventory();
+        }
+    }
+
+    private void ResizeInventory()
+    {
+        if (_inventoryText == null) return;
+        var rect = _inventoryText.GetComponent<RectTransform>();
+        if (rect != null)
+            rect.sizeDelta = new Vector2(Screen.width, Screen.height * 0.05f);
+        _inventoryText.fontSize = Mathf.Clamp(Screen.width / 100f, 12f, 30f);
     }
 
     public void InitializeUI()
@@ -145,11 +169,11 @@ public class UIManager : MonoBehaviour
             "InventoryText",
             new Vector2(0f, padding * 3f),
             "Inventory",
-            (int)fontSize,
+            (int)Mathf.Clamp(screenWidth / 100f, 12f, 30f),
             null,
             TextAlignmentOptions.Center,
             false,
-            new Vector2(screenWidth * 0.8f, lineHeight),
+            new Vector2(screenWidth, lineHeight),
             new Vector2(0.5f, 0f),
             new Vector2(0.5f, 0f),
             new Vector2(0.5f, 0f)

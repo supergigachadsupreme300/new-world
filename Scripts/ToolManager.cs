@@ -369,15 +369,6 @@ public class ToolManager : MonoBehaviour
                 }
                 return;
             }
-            var pickupOrigin = cam.transform.position + cam.transform.forward * 0.3f;
-            var pickupRay = new Ray(pickupOrigin, cam.transform.forward);
-            ShowRayLine(pickupRay.origin, pickupRay.origin + pickupRay.direction * PickupRayDistance);
-            if (Physics.Raycast(pickupRay, out var hitE, PickupRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
-            {
-                if (TryPickupTool(hitE.collider))
-                    return;
-            }
-            TryPickupFelledTree(cam, player);
             return;
         }
 
@@ -645,6 +636,9 @@ public class ToolManager : MonoBehaviour
         if (cam == null)
             return;
 
+        if (_carriedObject != null)
+            return;
+
         var origin = cam.transform.position + cam.transform.forward * 0.3f;
         var ray = new Ray(origin, cam.transform.forward);
         ShowRayLine(ray.origin, ray.origin + ray.direction * PickupRayDistance);
@@ -815,6 +809,9 @@ public class ToolManager : MonoBehaviour
         var useRay = new Ray(origin, cam.transform.forward);
         ShowRayLine(useRay.origin, useRay.origin + useRay.direction * PickupRayDistance);
         if (!Physics.Raycast(useRay, out var hit, PickupRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
+            return;
+
+        if (_carriedObject != null)
             return;
 
         var root = hit.collider.gameObject;

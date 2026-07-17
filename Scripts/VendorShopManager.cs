@@ -48,8 +48,6 @@ public class VendorShopManager : MonoBehaviour
         new ShopItem { Type = "axe", Label = "Rìu", Price = 25 },
         new ShopItem { Type = "pickaxe", Label = "Cúp", Price = 25 },
         new ShopItem { Type = "hoe", Label = "Cuốc", Price = 20 },
-        new ShopItem { Type = "gun", Label = "Súng", Price = 60 },
-        new ShopItem { Type = "ammo", Label = "Đạn", Price = 5 },
         new ShopItem { Type = "mi_hao_hao", Label = "Mì Hảo Hảo", Price = 10 },
         new ShopItem { Type = "wheat_seed", Label = "Hạt lúa", Price = 3 },
         new ShopItem { Type = "corn_seed", Label = "Hạt ngô", Price = 4 },

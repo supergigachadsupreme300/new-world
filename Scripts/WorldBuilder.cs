@@ -7,9 +7,9 @@ public class WorldBuilder : MonoBehaviour
 {
     public static WorldBuilder Instance { get; private set; }
 
-    public int TreeCount = 0;
+    public int TreeCount = 100;
     public int RockCount = 0;
-    public Vector3 GroundSize = new Vector3(150f, 0.2f, 150f);
+    public Vector3 GroundSize = new Vector3(300f, 0.2f, 300f);
 
     public int MapWidth = 20;
     public int MapDepth = 20;
@@ -185,6 +185,7 @@ public class WorldBuilder : MonoBehaviour
 
         CreateSkyAndLight();
         BuildRoad();
+        BuildRockyBorder();
         SpawnTrees(TreeCount);
         SpawnRocks(RockCount);
         BuildHouse();
@@ -255,6 +256,11 @@ public class WorldBuilder : MonoBehaviour
         foreach (var building in _buildings)
         {
             if (building.Entity != null) Destroy(building.Entity);
+            if (building.PartStates != null)
+            {
+                foreach (var ps in building.PartStates)
+                    ps.GhostEntity = null;
+            }
         }
         _buildings.Clear();
         _floorPositions.Clear();
@@ -414,7 +420,7 @@ public class WorldBuilder : MonoBehaviour
 
     private void SpawnToolPickups()
     {
-        var toolTypes = new[] { "axe", "pickaxe", "hoe", "gun", "hammer", "scythe", "watering_can", "wheat_seed", "corn_seed", "carrot_seed", "tomato_seed", "strawberry_seed", "pumpkin_seed", "onion_seed", "sugarcane_seed", "rice_seed", "wheat", "corn", "potato", "carrot", "tomato", "strawberry", "pumpkin", "onion", "sugarcane", "rice", "peashooter_seed", "fertilizer", "mobspawner", "ammo" };
+        var toolTypes = new[] { "axe", "pickaxe", "hoe", "hammer", "scythe", "watering_can", "wheat_seed", "corn_seed", "carrot_seed", "tomato_seed", "strawberry_seed", "pumpkin_seed", "onion_seed", "sugarcane_seed", "rice_seed", "wheat", "corn", "potato", "carrot", "tomato", "strawberry", "pumpkin", "onion", "sugarcane", "rice", "peashooter_seed", "fertilizer", "mobspawner" };
         int itemsPerRow = 8;
         for (int i = 0; i < toolTypes.Length; i++)
         {
@@ -1705,8 +1711,7 @@ public class WorldBuilder : MonoBehaviour
                     ps.CurrentHealth--;
                     if (ps.CurrentHealth <= 0)
                     {
-                        Object.Destroy(ps.Entity);
-                        ps.Entity = null;
+                        ReplacePartWithGhost(building, ps);
                     }
                     partFound = true;
                     break;
@@ -1721,8 +1726,7 @@ public class WorldBuilder : MonoBehaviour
                         ps.CurrentHealth--;
                         if (ps.CurrentHealth <= 0)
                         {
-                            Object.Destroy(ps.Entity);
-                            ps.Entity = null;
+                            ReplacePartWithGhost(building, ps);
                         }
                         break;
                     }
@@ -1740,6 +1744,87 @@ public class WorldBuilder : MonoBehaviour
         }
 
         UpdateBuildingDurabilityLabel(building);
+    }
+
+    private void ReplacePartWithGhost(BuildingState building, BuildingPartState ps)
+    {
+        if (ps.GhostEntity != null)
+        {
+            Object.Destroy(ps.GhostEntity);
+            ps.GhostEntity = null;
+        }
+
+        var ghost = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        ghost.name = "PartGhost_" + ps.PartName;
+        ghost.transform.SetParent(building.Entity.transform);
+        ghost.transform.localPosition = ps.Entity.transform.localPosition;
+        ghost.transform.localRotation = ps.Entity.transform.localRotation;
+        ghost.transform.localScale = ps.Entity.transform.localScale;
+
+        var renderer = ghost.GetComponent<MeshRenderer>();
+        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        if (mat != null)
+        {
+            mat.SetFloat("_Surface", 1f);
+            mat.SetFloat("_Blend", 0f);
+            mat.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetFloat("_ZWrite", 0f);
+            mat.SetFloat("_Cull", 0f);
+            mat.SetFloat("_Metallic", 0f);
+            mat.SetFloat("_Smoothness", 0f);
+            mat.renderQueue = 3000;
+        }
+        else
+        {
+            mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
+        }
+        mat.color = new Color(0.2f, 0.5f, 1f, 0.15f);
+        renderer.material = mat;
+
+        var collider = ghost.GetComponent<BoxCollider>();
+        collider.isTrigger = true;
+
+        float woodCost = 1f, stoneCost = 0f;
+        int partCount = building.TotalParts;
+        if (partCount > 0)
+        {
+            if (building.IsEssential)
+            {
+                GetEssentialCosts(building.Type, out float totalWood, out float totalStone);
+                woodCost = totalWood / partCount;
+                stoneCost = totalStone / partCount;
+            }
+            else
+            {
+                var def = System.Array.Find(_availableBuildings, d => d.Name == building.Type);
+                if (def != null)
+                {
+                    woodCost = (float)def.WoodCost / partCount;
+                    stoneCost = (float)def.StoneCost / partCount;
+                }
+            }
+        }
+
+        var labelObj = new GameObject("GhostLabel");
+        labelObj.transform.SetParent(ghost.transform, false);
+        float labelY = ps.Entity.transform.localScale.y * 0.5f + 0.3f;
+        labelObj.transform.localPosition = new Vector3(0f, labelY, 0f);
+
+        var tmp = labelObj.AddComponent<TextMeshPro>();
+        tmp.fontSize = 0.4f;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = Color.white;
+        tmp.outlineWidth = 0.2f;
+        tmp.outlineColor = Color.black;
+        var parts = new List<string>();
+        if (woodCost > 0.01f) parts.Add($"W:{woodCost:F1}");
+        if (stoneCost > 0.01f) parts.Add($"S:{stoneCost:F1}");
+        tmp.text = string.Join(" ", parts);
+
+        Object.Destroy(ps.Entity);
+        ps.Entity = null;
+        ps.GhostEntity = ghost;
     }
 
     private float GetBuildingTopY(GameObject entity)
@@ -1816,6 +1901,18 @@ public class WorldBuilder : MonoBehaviour
         {
             Object.Destroy(state.DurabilityLabel);
             state.DurabilityLabel = null;
+        }
+
+        if (state.PartStates != null)
+        {
+            foreach (var ps in state.PartStates)
+            {
+                if (ps.GhostEntity != null)
+                {
+                    Object.Destroy(ps.GhostEntity);
+                    ps.GhostEntity = null;
+                }
+            }
         }
 
         if (IsFloorType(state.Type))
@@ -2035,6 +2132,21 @@ public class WorldBuilder : MonoBehaviour
                 building.DurabilityLabel.transform.LookAt(building.DurabilityLabel.transform.position + cam.transform.rotation * Vector3.forward,
                     cam.transform.rotation * Vector3.up);
             }
+            if (building.PartStates != null)
+            {
+                foreach (var ps in building.PartStates)
+                {
+                    if (ps.GhostEntity != null)
+                    {
+                        var ghostLabel = ps.GhostEntity.transform.Find("GhostLabel");
+                        if (ghostLabel != null)
+                        {
+                            ghostLabel.LookAt(ghostLabel.position + cam.transform.rotation * Vector3.forward,
+                                cam.transform.rotation * Vector3.up);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -2111,7 +2223,7 @@ public class WorldBuilder : MonoBehaviour
     {
         float roadCx = 14f;
         float roadHw = 3.8f;
-        float roadLen = 150f;
+        float roadLen = 300f;
         float roadZc = 17f;
 
         Color curbC = new Color(0.46f, 0.45f, 0.42f);
@@ -2157,6 +2269,47 @@ public class WorldBuilder : MonoBehaviour
         _roadHalfWidth = roadHw;
         _roadZStart = roadZc - roadLen / 2f;
         _roadZEnd = roadZc + roadLen / 2f;
+    }
+
+    private void BuildRockyBorder()
+    {
+        float half = GroundSize.x * 0.5f;
+        float spacing = 3f;
+        float westX = -200f;
+
+        void SpawnBorderSegment(Vector3 pos, float scale)
+        {
+            var rock = MapBuilder.BuildBorderRock(_worldRoot.transform, pos, scale);
+            rock.name = "BorderRock";
+        }
+
+        for (float x = westX; x <= half; x += spacing)
+        {
+            float jitter = Random.Range(-0.5f, 0.5f);
+            float scaleJitter = Random.Range(0.8f, 1.2f);
+            SpawnBorderSegment(new Vector3(x + jitter, 0f, half + Random.Range(-1f, 1f)), scaleJitter);
+        }
+
+        for (float x = westX; x <= half; x += spacing)
+        {
+            float jitter = Random.Range(-0.5f, 0.5f);
+            float scaleJitter = Random.Range(0.8f, 1.2f);
+            SpawnBorderSegment(new Vector3(x + jitter, 0f, -half + Random.Range(-1f, 1f)), scaleJitter);
+        }
+
+        for (float z = -half; z <= half; z += spacing)
+        {
+            float jitter = Random.Range(-0.5f, 0.5f);
+            float scaleJitter = Random.Range(0.8f, 1.2f);
+            SpawnBorderSegment(new Vector3(half + Random.Range(-1f, 1f), 0f, z + jitter), scaleJitter);
+        }
+
+        for (float z = -half; z <= half; z += spacing)
+        {
+            float jitter = Random.Range(-0.5f, 0.5f);
+            float scaleJitter = Random.Range(0.8f, 1.2f);
+            SpawnBorderSegment(new Vector3(westX + Random.Range(-1f, 1f), 0f, z + jitter), scaleJitter);
+        }
     }
 
     private void SpawnTrees(int count)
@@ -2274,19 +2427,19 @@ GameObject treeRoot;
 
     private void BuildBeach()
     {
-        float beachX = -88f;
-        float sandW = 25f;
-        float sandD = 150f;
+        float beachX = -90f;
+        float sandW = 35f;
+        float sandD = 300f;
         Color sandC = new Color(0.85f, 0.76f, 0.55f);
         Color seaC = new Color(0.2f, 0.5f, 0.8f);
 
         MakeBlock("Sand", _worldRoot.transform, new Vector3(sandW, 0.02f, sandD),
             new Vector3(beachX, 0f, 0f), sandC, false, true);
 
-        MakeBlock("Sea", _worldRoot.transform, new Vector3(8f, 0.06f, sandD),
-            new Vector3(beachX - sandW * 0.5f - 4f, 0.03f, 0f), seaC, false, true);
+        MakeBlock("Sea", _worldRoot.transform, new Vector3(120f, 0.06f, sandD),
+            new Vector3(beachX - sandW * 0.5f - 60f, 0.03f, 0f), seaC, false, true);
 
-        int numTrees = Random.Range(4, 7);
+        int numTrees = 50;
         for (int i = 0; i < numTrees; i++)
         {
             float x = beachX + Random.Range(-sandW * 0.35f, sandW * 0.35f);
@@ -3111,6 +3264,11 @@ GameObject treeRoot;
         {
             if (building.Entity != null) Destroy(building.Entity);
             if (building.DurabilityLabel != null) Destroy(building.DurabilityLabel);
+            if (building.PartStates != null)
+            {
+                foreach (var ps in building.PartStates)
+                    ps.GhostEntity = null;
+            }
         }
         _buildings.Clear();
         _floorPositions.Clear();
@@ -3295,6 +3453,7 @@ GameObject treeRoot;
         public string PartName;
         public GameObject Entity;
         public int CurrentHealth;
+        public GameObject GhostEntity;
     }
 
     [System.Serializable]

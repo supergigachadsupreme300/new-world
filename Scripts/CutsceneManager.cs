@@ -260,7 +260,7 @@ public class CutsceneManager : MonoBehaviour
 
     private IEnumerator SadEndingRoutine()
     {
-        float rideDur = 8f;
+        float rideDur = 16f;
         if (_uiManager == null)
             _uiManager = Object.FindAnyObjectByType<UIManager>();
 
@@ -627,11 +627,11 @@ public class CutsceneManager : MonoBehaviour
 
     private GameObject CreateLetterbar(string name, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot)
     {
-        var go = new GameObject(name);
+        var go = new GameObject(name, typeof(RectTransform));
         go.transform.SetParent(_canvas.transform, false);
         var img = go.AddComponent<Image>();
         img.color = Color.black;
-        var rt = go.AddComponent<RectTransform>();
+        var rt = go.GetComponent<RectTransform>();
         rt.anchorMin = anchorMin;
         rt.anchorMax = anchorMax;
         rt.pivot = pivot;
