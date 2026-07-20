@@ -1,7 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.InputSystem;
+using TMPro;
 using static CountryLife.Helpers.PickupVisualHelper;
 
 public class ToolManager : MonoBehaviour
@@ -28,6 +30,9 @@ public class ToolManager : MonoBehaviour
     private int _selectedSlot = -1;
     private readonly Dictionary<string, GameObject> _toolModels = new Dictionary<string, GameObject>();
     private GameObject _toolContainer;
+    private GameObject _buildingMenuPanel;
+    private bool _buildingMenuOpen;
+    private bool _buildingChosen;
     private LineRenderer _rayRenderer;
     private int _gunAmmo;
     private const int GunMaxAmmo = 6;
@@ -35,6 +40,7 @@ public class ToolManager : MonoBehaviour
     private const float PickupRayDistance = 4f;
     private const float UseRayDistance = 10f;
     private bool _isSwinging;
+    private bool _initialized;
 
     private static readonly Dictionary<string, float> ToolStaminaCost = new Dictionary<string, float>
     {
@@ -120,6 +126,7 @@ public class ToolManager : MonoBehaviour
             Destroy(this);
             return;
         }
+        if (_initialized) return;
         Instance = this;
         _uiManager = uiManager;
         _worldBuilder = worldBuilder;
@@ -128,14 +135,30 @@ public class ToolManager : MonoBehaviour
         CreateToolModels();
         ResetSelection();
         UpdateInventoryUI();
+        _initialized = true;
     }
 
     private void Update()
     {
-        if (GameManager.Instance == null || !GameManager.Instance.InGame || GameManager.Instance.GamePaused)
+        if (GameManager.Instance == null || !GameManager.Instance.InGame)
             return;
 
         if (Keyboard.current == null)
+            return;
+
+        if (_buildingMenuOpen)
+        {
+            if (Keyboard.current.fKey.wasPressedThisFrame)
+                CloseBuildingMenu();
+            else if (Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                EscapeHandledThisFrame = true;
+                CloseBuildingMenu();
+            }
+            return;
+        }
+
+        if (GameManager.Instance.GamePaused)
             return;
 
         EnsureToolContainerAttached();
@@ -149,11 +172,7 @@ public class ToolManager : MonoBehaviour
                 var ray = new Ray(origin, cam.transform.forward);
                 if (Physics.Raycast(ray, out var hit, UseRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
                 {
-                    var hitObj = hit.collider.gameObject;
-                    if (_worldBuilder.FindBuilding(hitObj) != null || _worldBuilder.IsBlueprint(hitObj))
-                        _worldBuilder.UpdatePreviewPosition(Vector3.zero, false);
-                    else
-                        _worldBuilder.UpdatePreviewPosition(hit.point, true);
+                    _worldBuilder.UpdatePreviewPosition(hit.point, true);
                 }
                 else
                     _worldBuilder.UpdatePreviewPosition(Vector3.zero, false);
@@ -162,8 +181,12 @@ public class ToolManager : MonoBehaviour
             if (Keyboard.current.rKey.wasPressedThisFrame)
                 _worldBuilder.RotateBuildingPreview(90);
 
+            if (Keyboard.current.fKey.wasPressedThisFrame)
+                ToggleBuildingMenu();
+
             if (Keyboard.current.escapeKey.wasPressedThisFrame)
             {
+                _buildingChosen = false;
                 EscapeHandledThisFrame = true;
                 SelectSlot(_selectedSlot - 1);
                 return;
@@ -483,6 +506,26 @@ public class ToolManager : MonoBehaviour
 
             if (selectedItem == "hammer")
             {
+                if (_buildingMenuOpen)
+                    return;
+
+                var placePos = hit.point;
+
+                if (_buildingChosen)
+                {
+                    if (_worldBuilder.PlaceBlueprint(placePos))
+                    {
+                        SoundManager.Instance?.Play("hammer");
+                        _uiManager.ShowMessage("Blueprint placed. Supply wood & stone.", 1.5f);
+                    }
+                    else
+                    {
+                        _uiManager.ShowMessage("Cannot place blueprint here.", 1.5f);
+                    }
+                    _buildingChosen = false;
+                    return;
+                }
+
                 var hitObj = hit.collider.gameObject;
 
                 if (_worldBuilder.FindBuilding(hitObj) != null)
@@ -499,15 +542,10 @@ public class ToolManager : MonoBehaviour
                     return;
                 }
 
-                var placePos = hit.point;
                 if (_worldBuilder.PlaceBlueprint(placePos))
                 {
                     SoundManager.Instance?.Play("hammer");
                     _uiManager.ShowMessage("Blueprint placed. Supply wood & stone.", 1.5f);
-                }
-                else
-                {
-                    _uiManager.ShowMessage("Cannot place blueprint here.", 1.5f);
                 }
                 return;
             }
@@ -1419,5 +1457,222 @@ public class ToolManager : MonoBehaviour
         public int Slot;
         public string Type;
         public int Count;
+    }
+
+    private void ToggleBuildingMenu()
+    {
+        if (_buildingMenuOpen)
+        {
+            CloseBuildingMenu();
+            return;
+        }
+
+        if (_buildingMenuPanel == null)
+            CreateBuildingMenu();
+
+        _buildingMenuOpen = true;
+        _buildingMenuPanel.SetActive(true);
+        GameManager.Instance?.TogglePause(true);
+        GameManager.Instance?.UIManager?.ShowPauseMenu(false);
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
+    private void CloseBuildingMenu()
+    {
+        _buildingMenuOpen = false;
+        if (_buildingMenuPanel != null)
+            _buildingMenuPanel.SetActive(false);
+        GameManager.Instance?.TogglePause(false);
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+        UpdateBuildingPreviewVisibility();
+    }
+
+    private void CreateBuildingMenu()
+    {
+        var canvas = Object.FindAnyObjectByType<Canvas>();
+        if (canvas == null) return;
+
+        float sw = Screen.width;
+        float sh = Screen.height;
+        float panelW = Mathf.Min(sw * 0.50f, 500f);
+        float panelH = Mathf.Min(sh * 0.65f, 420f);
+        float fontS = Mathf.Max(14f, sh / 42f);
+        float btnH = sh * 0.065f;
+        float padding = sh * 0.015f;
+
+        _buildingMenuPanel = new GameObject("BuildingMenu");
+        _buildingMenuPanel.transform.SetParent(canvas.transform, false);
+        var panelRect = _buildingMenuPanel.AddComponent<RectTransform>();
+        panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        panelRect.pivot = new Vector2(0.5f, 0.5f);
+        panelRect.sizeDelta = new Vector2(panelW, panelH);
+        var panelImg = _buildingMenuPanel.AddComponent<Image>();
+        panelImg.color = new Color(0.18f, 0.2f, 0.27f, 0.95f);
+
+        var title = MakeBMText("BuildTitle", _buildingMenuPanel.transform, "Xây dựng",
+            new Vector2(0f, panelH * 0.42f), new Vector2(panelW - 80, fontS * 1.6f), (int)(fontS * 1.3f));
+
+        MakeBMButton("BuildClose", _buildingMenuPanel.transform, "X",
+            new Vector2(panelW * 0.44f, panelH * 0.42f), new Vector2(btnH, btnH),
+            (int)fontS, new Color(0.75f, 0.38f, 0.41f), CloseBuildingMenu);
+
+        float headerH = panelH * 0.18f;
+        float viewportH = panelH - headerH - padding * 2;
+
+        var viewport = new GameObject("Viewport");
+        viewport.transform.SetParent(_buildingMenuPanel.transform, false);
+        var vpRect = viewport.AddComponent<RectTransform>();
+        vpRect.anchorMin = new Vector2(0.5f, 0.5f);
+        vpRect.anchorMax = new Vector2(0.5f, 0.5f);
+        vpRect.pivot = new Vector2(0.5f, 0.5f);
+        vpRect.anchoredPosition = new Vector2(0f, -padding);
+        vpRect.sizeDelta = new Vector2(panelW - padding * 2, viewportH);
+        var vpImg = viewport.AddComponent<Image>();
+        vpImg.color = new Color(0.12f, 0.13f, 0.18f, 1f);
+        viewport.AddComponent<Mask>().showMaskGraphic = true;
+
+        var content = new GameObject("Content");
+        content.transform.SetParent(viewport.transform, false);
+        var contentRect = content.AddComponent<RectTransform>();
+        contentRect.anchorMin = new Vector2(0f, 1f);
+        contentRect.anchorMax = new Vector2(1f, 1f);
+        contentRect.pivot = new Vector2(0.5f, 1f);
+        contentRect.anchoredPosition = Vector2.zero;
+        contentRect.sizeDelta = new Vector2(0f, 0f);
+
+        var csf = content.AddComponent<ContentSizeFitter>();
+        csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        var layout = content.AddComponent<VerticalLayoutGroup>();
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.spacing = padding;
+        layout.padding = new RectOffset((int)padding, (int)padding, (int)padding, (int)padding);
+
+        var scrollRect = _buildingMenuPanel.AddComponent<ScrollRect>();
+        scrollRect.viewport = vpRect;
+        scrollRect.content = contentRect;
+        scrollRect.horizontal = false;
+        scrollRect.vertical = true;
+        scrollRect.movementType = ScrollRect.MovementType.Elastic;
+        scrollRect.elasticity = 0.1f;
+
+        var wb = WorldBuilder.Instance;
+        int count = wb != null ? wb.BuildingCount : 0;
+
+        for (int i = 0; i < count; i++)
+        {
+            var def = wb.GetBuildingByIndex(i);
+            int index = i;
+
+            string costLabel = "";
+            if (def.WoodCost > 0) costLabel += def.WoodCost + "🪵 ";
+            if (def.StoneCost > 0) costLabel += def.StoneCost + "🪨";
+            costLabel = costLabel.Trim();
+            string btnLabel = GetVietnameseBuildingName(def.Name) + "    " + costLabel;
+
+            var btn = MakeBMButton("BuildBtn_" + i, content.transform, btnLabel,
+                Vector2.zero, new Vector2(panelW - padding * 4, btnH),
+                (int)fontS, new Color(0.26f, 0.3f, 0.37f),
+                () => SelectBuilding(index));
+
+            var le = btn.gameObject.GetComponent<LayoutElement>();
+            if (le == null) le = btn.gameObject.AddComponent<LayoutElement>();
+            le.preferredHeight = btnH;
+        }
+
+        _buildingMenuPanel.SetActive(false);
+    }
+
+    private void SelectBuilding(int index)
+    {
+        var wb = WorldBuilder.Instance;
+        if (wb == null) return;
+        wb.CurrentBuildingIndex = index;
+        _buildingChosen = true;
+        var def = wb.GetBuildingByIndex(index);
+        CloseBuildingMenu();
+        _uiManager?.ShowMessage("Da chon: " + GetVietnameseBuildingName(def.Name) + ". Nhap trai de dat.", 2f);
+    }
+
+    private string GetVietnameseBuildingName(string name)
+    {
+        return name switch
+        {
+            "wood_wall" => "Tuong go",
+            "stone_wall" => "Tuong da",
+            "fence" => "Hang rao",
+            "watchtower" => "Thap canh",
+            "small_house" => "Nha nho",
+            "wood_floor" => "San go",
+            "stone_floor" => "San da",
+            "stair" => "Cau thang",
+            "table" => "Ban",
+            "chair" => "Ghe",
+            "sofa" => "Ghe so pha",
+            _ => name
+        };
+    }
+
+    private TMP_Text MakeBMText(string name, Transform parent, string text,
+        Vector2 pos, Vector2 size, int fontSize)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = pos;
+        rt.sizeDelta = size;
+        var tmp = go.AddComponent<TextMeshProUGUI>();
+        if (_uiManager != null && _uiManager.defaultTmpFont != null)
+            tmp.font = _uiManager.defaultTmpFont;
+        tmp.text = text;
+        tmp.fontSize = fontSize;
+        tmp.color = Color.white;
+        tmp.alignment = TextAlignmentOptions.Center;
+        return tmp;
+    }
+
+    private Button MakeBMButton(string name, Transform parent, string label,
+        Vector2 pos, Vector2 size, int fontSize, Color color,
+        UnityEngine.Events.UnityAction callback)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = pos;
+        rt.sizeDelta = size;
+        var img = go.AddComponent<Image>();
+        img.color = color;
+        var btn = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+        btn.onClick.AddListener(callback);
+
+        var textGO = new GameObject("Text");
+        textGO.transform.SetParent(go.transform, false);
+        var tr = textGO.AddComponent<RectTransform>();
+        tr.anchorMin = Vector2.zero;
+        tr.anchorMax = Vector2.one;
+        tr.offsetMin = Vector2.zero;
+        tr.offsetMax = Vector2.zero;
+        var tmp = textGO.AddComponent<TextMeshProUGUI>();
+        if (_uiManager != null && _uiManager.defaultTmpFont != null)
+            tmp.font = _uiManager.defaultTmpFont;
+        tmp.text = label;
+        tmp.fontSize = fontSize;
+        tmp.color = Color.white;
+        tmp.alignment = TextAlignmentOptions.Center;
+
+        return btn;
     }
 }

@@ -30,14 +30,6 @@ public class PlayerController : MonoBehaviour
     {
         EnsurePlayerPhysics();
 
-        // Remove any existing audio listeners to prevent duplicates
-        var existingListeners = Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None);
-        foreach (var listener in existingListeners)
-        {
-            if (listener.gameObject != gameObject)
-                Destroy(listener);
-        }
-
         // Ensure the player camera exists and will follow this player.
         if (Camera.main == null)
         {
@@ -45,10 +37,9 @@ public class PlayerController : MonoBehaviour
         }
         SetupPlayerCamera();
 
-        // Ensure exactly one audio listener on the camera
+        // Ensure the camera has exactly one audio listener
         var cameraObj = Camera.main.gameObject;
-        var audioListener = cameraObj.GetComponent<AudioListener>();
-        if (audioListener == null)
+        if (cameraObj.GetComponent<AudioListener>() == null)
             cameraObj.AddComponent<AudioListener>();
 
         LoadPlayerModel();
@@ -263,10 +254,6 @@ public class PlayerController : MonoBehaviour
             ToolManager.Instance?.DropSelectedItem();
         if (Keyboard.current.rKey.wasPressedThisFrame)
             ToolManager.Instance?.ReloadGun();
-        if (Keyboard.current.bKey.wasPressedThisFrame)
-            WorldBuilder.Instance?.CycleBuildingType(1);
-        if (Keyboard.current.nKey.wasPressedThisFrame)
-            WorldBuilder.Instance?.CycleBuildingType(-1);
         if (Keyboard.current.tKey.wasPressedThisFrame)
             WorldBuilder.Instance?.RotateBuildingPreview(90);
         if (Keyboard.current.digit1Key.wasPressedThisFrame)

@@ -6,19 +6,16 @@ public class GameBootstrap : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void InitializeGameRoot()
     {
-        if (GameManager.Instance != null)
-            return;
-
         if (GameObject.Find("GameRoot") != null)
             return;
 
         var root = new GameObject("GameRoot");
         Object.DontDestroyOnLoad(root);
 
-        var gameManager = root.AddComponent<GameManager>();
-        var uiManager = root.AddComponent<UIManager>();
-        var worldBuilder = root.AddComponent<WorldBuilder>();
-        var toolManager = root.AddComponent<ToolManager>();
+        var gameManager = Object.FindAnyObjectByType<GameManager>() ?? root.AddComponent<GameManager>();
+        var uiManager = Object.FindAnyObjectByType<UIManager>() ?? root.AddComponent<UIManager>();
+        var worldBuilder = Object.FindAnyObjectByType<WorldBuilder>() ?? root.AddComponent<WorldBuilder>();
+        var toolManager = Object.FindAnyObjectByType<ToolManager>() ?? root.AddComponent<ToolManager>();
         var existingPlayer = Object.FindAnyObjectByType<PlayerController>();
         PlayerController playerController;
         if (existingPlayer != null)
@@ -30,11 +27,11 @@ public class GameBootstrap : MonoBehaviour
         {
             playerController = root.AddComponent<PlayerController>();
         }
-        var mainMenuController = root.AddComponent<MainMenuController>();
-        var saveManager = root.AddComponent<SaveManager>();
-        var soundManager = root.AddComponent<SoundManager>();
-        var questManager = root.AddComponent<QuestManager>();
-        var cutsceneManager = root.AddComponent<CutsceneManager>();
+        var mainMenuController = Object.FindAnyObjectByType<MainMenuController>() ?? root.AddComponent<MainMenuController>();
+        var saveManager = Object.FindAnyObjectByType<SaveManager>() ?? root.AddComponent<SaveManager>();
+        var soundManager = Object.FindAnyObjectByType<SoundManager>() ?? root.AddComponent<SoundManager>();
+        var questManager = Object.FindAnyObjectByType<QuestManager>() ?? root.AddComponent<QuestManager>();
+        var cutsceneManager = Object.FindAnyObjectByType<CutsceneManager>() ?? root.AddComponent<CutsceneManager>();
 
         gameManager.UIManager = uiManager;
         gameManager.WorldBuilder = worldBuilder;

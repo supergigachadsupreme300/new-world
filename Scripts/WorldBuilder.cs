@@ -135,7 +135,11 @@ public class WorldBuilder : MonoBehaviour
                 new BuildingPartDefinition { PartName = "Roof",      LocalPosition = new Vector3(0f, 2.35f, 0f),   LocalScale = new Vector3(8.3f, 0.3f, 8.3f), MaterialType = "stone" },
             }),
         new BuildingDefinition("wood_floor", new Vector3(4f, 0.3f, 4f), new Color(0.71f, 0.53f, 0.27f), 3, 0),
-        new BuildingDefinition("stone_floor", new Vector3(4f, 0.3f, 4f), new Color(0.41f, 0.41f, 0.41f), 0, 3)
+        new BuildingDefinition("stone_floor", new Vector3(4f, 0.3f, 4f), new Color(0.41f, 0.41f, 0.41f), 0, 3),
+        new BuildingDefinition("stair", new Vector3(3f, 3f, 1.5f), new Color(0.60f, 0.40f, 0.20f), 3, 1),
+        new BuildingDefinition("table", new Vector3(2f, 1f, 2f), new Color(0.65f, 0.45f, 0.22f), 2, 0),
+        new BuildingDefinition("chair", new Vector3(1f, 1.5f, 1f), new Color(0.58f, 0.38f, 0.18f), 1, 0),
+        new BuildingDefinition("sofa", new Vector3(2f, 1f, 1.5f), new Color(0.55f, 0.35f, 0.16f), 3, 0)
     };
 
     private int _currentBuildingIndex;
@@ -1401,6 +1405,10 @@ public class WorldBuilder : MonoBehaviour
         return false;
     }
 
+    public int CurrentBuildingIndex { get => _currentBuildingIndex; set { _currentBuildingIndex = value; UpdateBuildingPreview(); } }
+    public int BuildingCount => _availableBuildings.Length;
+    public BuildingDefinition GetBuildingByIndex(int i) => _availableBuildings[i];
+
     public void CycleBuildingType(int delta)
     {
         _currentBuildingIndex = (_currentBuildingIndex + delta + _availableBuildings.Length) % _availableBuildings.Length;
@@ -1479,14 +1487,20 @@ public class WorldBuilder : MonoBehaviour
         {
             if (building.Entity == null)
                 continue;
-            if (bounds.Intersects(building.Entity.GetComponent<Collider>().bounds))
+            var col = building.Entity.GetComponent<Collider>();
+            if (col == null)
+                continue;
+            if (bounds.Intersects(col.bounds))
                 return false;
         }
         foreach (var bp in _blueprints)
         {
             if (bp.Entity == null)
                 continue;
-            if (bounds.Intersects(bp.Entity.GetComponent<Collider>().bounds))
+            var col = bp.Entity.GetComponent<Collider>();
+            if (col == null)
+                continue;
+            if (bounds.Intersects(col.bounds))
                 return false;
         }
         return true;
@@ -2526,6 +2540,7 @@ GameObject treeRoot;
         }
 
         var cart = new VendorCart();
+        SoundManager.Instance?.Play("mexican_truck");
         cart.Root = new GameObject("VendorCart");
         cart.Root.transform.SetParent(_worldRoot.transform);
         cart.Root.transform.position = new Vector3(15f, -4f, -30f);

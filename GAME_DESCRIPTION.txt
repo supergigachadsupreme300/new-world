@@ -1,0 +1,358 @@
+================================================================================
+                    COUNTRY LIFE - Game Description
+================================================================================
+
+GENRE:        Open-World Farming & Life Simulation
+SETTING:      Rural Vietnamese countryside
+ENGINE:       Unity (URP)
+PERSPECTIVE:  First-person
+
+================================================================================
+                          OVERVIEW
+================================================================================
+
+Country Life is a first-person open-world farming and life simulation game set
+in a rural Vietnamese countryside. The player arrives by car at a small village
+and must build a life from scratch: farm crops, build structures, trade with
+merchants, defeat monsters, and complete quests.
+
+The game features a full day/night cycle, farming mechanics, a construction
+system, NPC shops, enemy encounters, a pet companion, and a story with two
+possible endings (happy and sad).
+
+================================================================================
+                          CONTROLS
+================================================================================
+
+Movement:
+  W/A/S/D          Move
+  Space             Jump
+  Left Shift        Sprint (costs stamina)
+  Mouse             Look around
+
+Tools & Items:
+  Left Click        Use selected tool/item
+  Right Click       Open shop (near NPC/Buffalo)
+  E                 Interact / Pick up nearby items
+  Q                 Drop selected item
+  R                 Reload gun / Rotate building preview (Hammer)
+  F                 Open building selection menu (Hammer only)
+  Escape            Deselect hammer / Close menus
+
+Inventory:
+  1-0               Select inventory slot 1-10
+  [ / ]             Cycle inventory slots
+
+Building:
+  T                 Rotate building preview
+
+UI:
+  Escape            Pause menu
+  F5                Play intro cutscene (debug)
+  F6                Happy ending (debug)
+  F7                Sad ending (debug)
+
+================================================================================
+                          PLAYER STATS
+================================================================================
+
+  HP:               100 / 100
+  Stamina:          1000 / 1000
+  Stamina Regen:    25 per second
+  Sprint Cost:      35 stamina per second
+  Move Speed:       5.0
+  Sprint Speed:     10.0 (2x multiplier)
+  Jump Height:      1.5
+  Starting Money:   10,000,000,000 (10 Billion)
+  Mouse Sensitivity: 2.5
+  Camera FOV:       60
+
+================================================================================
+                          TOOLS & ITEMS
+================================================================================
+
+TOOLS (with stamina cost per use):
+
+  Axe               15 stamina  - Chop trees, break branches, split wood debris
+  Pickaxe           15 stamina  - Mine rocks, smash rock debris
+  Hoe               12 stamina  - Till ground into farmable field tiles
+  Hammer            20 stamina  - Place building blueprints, damage/remove
+                                  buildings, open building menu (F key)
+  Scythe            10 stamina  - Harvest mature crops (stage 4), cut grass
+  Watering Can       8 stamina  - Water crops to help them grow
+  Fertilizer         5 stamina  - Fertilize crops to boost growth (consumes 1)
+  Gun                5 stamina  - Shoot to destroy trees and rocks at range
+
+GUN SYSTEM:
+  Max Ammo:         6 bullets
+  Shoot Range:      20 units
+  Ammo Item:        "ammo" (found as pickup)
+  Reload:           Press R, consumes ammo items from inventory
+  Effect:           Destroys trees and rocks on hit
+
+================================================================================
+                          FARMING
+================================================================================
+
+FARMING PROCESS:
+  1. Use HOE on ground to create a tilled field tile
+  2. Select a SEED in inventory
+  3. Left-click on the field to plant
+  4. Water with WATERING CAN to help growth
+  5. Fertilize with FERTILIZER for faster growth (consumes 1 fertilizer)
+  6. Wait for crops to reach Stage 4 (fully grown)
+  7. Harvest with SCYTHE
+
+GROWTH:
+  - 4 growth stages total (Stage 0 = empty, Stage 4 = harvestable)
+  - Each stage takes 4 seconds to grow
+  - Total growth time: ~16 seconds
+  - Watering and fertilizing speed up growth
+
+CROP TYPES (10 total):
+
+  Crop         Seed Name       Vietnamese     Harvest Value   Sell Price
+  ----------   -----------     ------------   -------------   ----------
+  Wheat        wheat_seed      Lua            wheat           10 gold
+  Corn         corn_seed       Ngo            corn            12 gold
+  Potato       potato_seed     Khoai tay      potato          11 gold
+  Carrot       carrot_seed     Ca rot         carrot           9 gold
+  Tomato       tomato_seed     Ca chua        tomato          13 gold
+  Strawberry   strawberry_seed Dau tay        strawberry      15 gold
+  Pumpkin      pumpkin_seed    Bi ngo         pumpkin         14 gold
+  Onion        onion_seed      Hanh tay       onion           10 gold
+  Sugarcane    sugarcane_seed  Mia            sugarcane       11 gold
+  Rice         rice_seed       Lua nuoc       rice            12 gold
+
+DAMAGED CROPS (harvested before full maturity):
+  Each crop has a "damaged_" variant worth ~25-30% of normal price.
+
+SEED PRICES (buy from shops):
+  wheat_seed: 3    corn_seed: 4    carrot_seed: 3    tomato_seed: 4
+  strawberry_seed: 5    pumpkin_seed: 4    onion_seed: 3
+  sugarcane_seed: 4    rice_seed: 3
+
+================================================================================
+                          BUILDING SYSTEM
+================================================================================
+
+HAMMER TOOL:
+  - Left-click in demolish mode: destroy buildings, remove blueprints
+  - Press F: open building selection menu
+  - Choose a structure from the menu
+  - Left-click in place mode: place blueprint (even through existing structures)
+  - After placing, automatically returns to demolish mode
+  - R key: rotate building preview
+  - Escape: deselect hammer
+
+BUILDING PROCESS:
+  1. Equip HAMMER
+  2. Press F to open building menu
+  3. Select a building type
+  4. Place the blueprint (transparent ghost shows where)
+  5. Carry WOOD or STONE resources near the blueprint
+  6. Resources auto-deposit when nearby
+  7. Building completes when fully supplied
+
+BUILDING TYPES (11 total):
+
+  Building       Vietnamese     Size          Wood  Stone
+  ----------     -----------    ----------    ----  -----
+  wood_wall      Tuong go       6 x 3 x 0.5   4     0
+  stone_wall     Tuong da       5 x 3 x 0.5   0     4
+  fence          Hang rao       4 x 1.5 x 0.3 2     0
+  watchtower     Thap canh      3 x 8 x 3     8     4
+  small_house    Nha nho        8 x 5 x 8     10    6
+  wood_floor     San go         4 x 0.3 x 4   3     0
+  stone_floor    San da         4 x 0.3 x 4   0     3
+  stair          Cau thang      3 x 3 x 1.5   3     1
+  table          Ban            2 x 1 x 2     2     0
+  chair          Ghe            1 x 1.5 x 1   1     0
+  sofa           Ghe so pha     2 x 1 x 1.5   3     0
+
+Note: Non-floor buildings require a floor tile underneath to be placed.
+
+================================================================================
+                          SHOPS & COMMERCE
+================================================================================
+
+VENDOR SHOP (Mobile Merchant - "Cua hang luu dong"):
+  Accessed by: Right-click near Vendor NPC
+  Can BUY:  Tools (axe, pickaxe, hoe), seeds, fertilizer, watering can,
+            ammo, Mi Hao Hao noodles
+  Can SELL: All harvested crops and their damaged variants
+
+BUFFALO SHOP:
+  Accessed by: Right-click near Buffalo NPC
+  Can BUY:  Seeds, fertilizer, watering can (no tools)
+  Can SELL: Same as vendor (crops + damaged variants)
+
+SELL PRICES:
+
+  Item              Sell Price    Damaged Version     Damaged Price
+  ----------        ----------    ---------------     -------------
+  Wheat (Lua)       10 gold       damaged_wheat        3 gold
+  Corn (Ngo)        12 gold       damaged_corn         4 gold
+  Potato            11 gold       damaged_potato       3 gold
+  Carrot             9 gold       damaged_carrot       2 gold
+  Tomato            13 gold       damaged_tomato       3 gold
+  Strawberry        15 gold       damaged_strawberry   4 gold
+  Pumpkin           14 gold       damaged_pumpkin      3 gold
+  Onion             10 gold       damaged_onion        2 gold
+  Sugarcane         11 gold       damaged_sugarcane    3 gold
+  Rice              12 gold       damaged_rice         3 gold
+
+================================================================================
+                          ENEMIES & MOBS
+================================================================================
+
+ENEMY (Hostile):
+  Health:           50
+  Damage:           10 per hit
+  Move Speed:       2.5 (chase), 1.5 (patrol)
+  Chase Range:      8 units
+  Attack Range:     1.5 units
+  Attack Cooldown:  1.2 seconds
+  Patrol Range:     6 units
+  Death Reward:     +1 quest progress for "enemies"
+  Respawn:          5 seconds after death
+
+MOBS (Passive Creatures):
+  Types:            Mouse, Crab
+  Health:           10
+  Move Speed:       1.0
+  Wander Range:     4 units
+  Behavior:         Idle wander, bobbing animation
+
+  Spawn Locations:
+    Mouse at (8, 0.5, 5)
+    Mouse at (-5, 0.5, 10)
+    Mouse at (20, 0.5, -5)
+    Crab at (15, 0.5, 40)
+    Crab at (-85, 0.5, -20)
+
+================================================================================
+                          PET SYSTEM
+================================================================================
+
+PET COMPANION (Teto):
+  Follow Speed:     2.5
+  Follow Distance:  2.2 units behind player
+  Attack Range:     4 units
+  Damage:           8 per hit
+  Attack Cooldown:  1.2 seconds
+  Behavior:         Follows player, auto-attacks nearby enemies
+  Spawn Position:   (2, 0.5, 2)
+
+================================================================================
+                          QUESTS
+================================================================================
+
+Three quests available:
+
+  1. HARVEST WHEAT
+     Target: collect 100 wheat
+     Reward: 250 gold
+
+  2. SLAY MONSTERS
+     Target: defeat 30 enemies
+     Reward: 500 gold
+
+  3. EARN COINS
+     Target: accumulate 100,000 gold
+     Reward: 1,000 gold
+
+All quests completed triggers the HAPPY ENDING cutscene.
+
+================================================================================
+                          INVENTORY
+================================================================================
+
+  - 10 inventory slots
+  - Select with number keys 1-0 or bracket keys [ ]
+  - Items stack automatically
+  - Drop items with Q key
+  - Resources (wood/stone) auto-deposit to nearby blueprints
+
+  AVAILABLE PICKUP ITEMS (spawned in world):
+  Tools:     axe, pickaxe, hoe, hammer, scythe, watering_can
+  Seeds:     wheat_seed, corn_seed, carrot_seed, tomato_seed,
+             strawberry_seed, pumpkin_seed, onion_seed,
+             sugarcane_seed, rice_seed, peashooter_seed
+  Crops:     wheat, corn, potato, carrot, tomato, strawberry,
+             pumpkin, onion, sugarcane, rice
+  Other:     fertilizer, ammo, mobspawner, mi_hao_hao
+
+================================================================================
+                          DAY/NIGHT CYCLE
+================================================================================
+
+  Start Time:       8:00 AM (Day 1)
+  Time Speed:       1x (real-time)
+  Day Duration:     24 hours (in-game)
+  Lighting:         Dynamic day/night based on TimeOfDay
+  World updates:    Trees regrow, environment changes
+
+================================================================================
+                          MAP
+================================================================================
+
+  World Size:       300 x 300 units
+  Road Length:      300 units (runs through the map)
+  Features:
+    - Village center with houses
+    - Farm area
+    - Beach with sand and sea
+    - Rocky border (indestructible boulders around the perimeter)
+    - Shop areas (Vendor cart, Buffalo)
+    - Trees (deciduous, palm/coconut) and rocks scattered throughout
+    - Fields for farming
+
+================================================================================
+                          SAVE SYSTEM
+================================================================================
+
+  Format:           JSON
+  Location:         Application.persistentDataPath/savegame.json
+  Saved Data:
+    - Current day and time of day
+    - Player position, rotation, HP, stamina, money
+    - Full inventory (all 10 slots with item type and count)
+    - Gun ammo count
+    - All crop fields (position, crop type, growth stage, watered, fertilized)
+    - All placed buildings (type, position, rotation)
+    - Quest progress and completion status
+
+================================================================================
+                          STORY & ENDINGS
+================================================================================
+
+INTRO CUTSCENE:
+  A blue car drives along the road into the village. The player arrives
+  to start their new life in the countryside.
+
+HAPPY ENDING (all quests completed):
+  Player walks with Teto (pink-haired companion NPC) down a path.
+  Hearts appear. End screen: "HAPPY ENDING"
+  "Ban va Teto da cung nhau den cuoi con duong!"
+  (You and Teto have walked together to the end of the road!)
+  Player can press Enter to continue playing.
+
+SAD ENDING (triggered manually / fail state):
+  A wagon with a groom and wife NPC travels down the road.
+  End screen: "KET THUC DAU BUONG" (Sad Ending)
+
+================================================================================
+                          TECHNICAL NOTES
+================================================================================
+
+  - All UI is code-generated (no prefabs for HUD or menus)
+  - Unity New Input System (Keyboard.current, Mouse.current)
+  - CharacterController for player movement
+  - URP (Universal Render Pipeline) for rendering
+  - Building preview: translucent ghost cube follows crosshair
+  - Building menu: ScrollRect with VerticalLayoutGroup for scrollable list
+  - Inventory HUD: always visible at bottom of screen
+  - Stats HUD: always visible at top-left of screen
+
+================================================================================
