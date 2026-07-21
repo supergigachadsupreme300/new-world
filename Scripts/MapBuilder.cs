@@ -20,6 +20,54 @@ public static class MapBuilder
         return go;
     }
 
+    public static GameObject MakeTriangleBlock(string name, Transform parent, Vector3 scale, Vector3 position, Color color, bool removeCollider = false)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent);
+        go.transform.localScale = scale;
+        go.transform.localPosition = position;
+
+        var mesh = new Mesh();
+        mesh.vertices = new[]
+        {
+            new Vector3(-0.5f, -0.5f, -0.5f),
+            new Vector3(0.5f, -0.5f, -0.5f),
+            new Vector3(0.0f, 0.5f, -0.5f),
+            new Vector3(-0.5f, -0.5f, 0.5f),
+            new Vector3(0.5f, -0.5f, 0.5f),
+            new Vector3(0.0f, 0.5f, 0.5f)
+        };
+        mesh.triangles = new[]
+        {
+            0, 2, 1,
+            3, 4, 5,
+            0, 1, 4, 0, 4, 3,
+            0, 3, 5, 0, 5, 2,
+            1, 2, 5, 1, 5, 4
+        };
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+
+        var mf = go.AddComponent<MeshFilter>();
+        mf.mesh = mesh;
+
+        var mr = go.AddComponent<MeshRenderer>();
+        mr.material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        if (mr.material != null) mr.material.color = color;
+
+        if (removeCollider)
+        {
+            var col = go.GetComponent<Collider>();
+            if (col != null) Object.Destroy(col);
+        }
+        else
+        {
+            go.AddComponent<MeshCollider>();
+        }
+
+        return go;
+    }
+
     // ═══════════════════════════════════════════════════════════════
     //  TREES  (recursive branching)
     // ═══════════════════════════════════════════════════════════════
@@ -849,10 +897,10 @@ public static class MapBuilder
 		MakeBlock("Head", root.transform, new Vector3(0.36f, 0.32f, 0.34f), new Vector3(0f, 0.8f, 0f), skinC, true);
 
 		// Hair — long blonde
-		MakeBlock("HairBack", root.transform, new Vector3(0.5f, 0.6f, 0.15f), new Vector3(0f, 0.55f, 0.18f), hairC, true).transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+		MakeBlock("HairBack", root.transform, new Vector3(0.5f, 0.6f, 0.15f), new Vector3(0f, 0.65f, 0.18f), hairC, true).transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
 		MakeBlock("HairTop", root.transform, new Vector3(0.42f, 0.08f, 0.38f), new Vector3(0f, 0.98f, 0f), hairC, true);
-		MakeBlock("HairL", root.transform, new Vector3(0.4f, 0.7f, 0.15f), new Vector3(-0.4f, 0.7f, 0f), hairC, true);
-		MakeBlock("HairR", root.transform, new Vector3(0.4f, 0.7f, 0.15f), new Vector3(0.4f, 0.7f, 0f), hairC, true);
+		MakeTriangleBlock("HairL", root.transform, new Vector3(0.5f, 0.6f, 0.15f), new Vector3(-0.25f, 0.65f, 0f), hairC, true);
+		MakeTriangleBlock("HairR", root.transform, new Vector3(0.5f, 0.6f, 0.15f), new Vector3(0.25f, 0.65f, 0f), hairC, true);
 
 		// Eyes — light blue
 		MakeBlock("EyeL", root.transform, new Vector3(0.06f, 0.05f, 0.04f), new Vector3(-0.1f, 0.86f, -0.18f), eyeC, true);
@@ -878,7 +926,7 @@ public static class MapBuilder
     {
         var root = new GameObject("PlayerModel");
         root.transform.SetParent(parent);
-        root.transform.localPosition = Vector3.zero;
+        root.transform.localPosition = new Vector3(0f, 0.86f, 0f);
         root.transform.localRotation = Quaternion.identity;
         root.transform.localScale = Vector3.one * scale;
 

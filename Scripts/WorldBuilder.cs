@@ -122,7 +122,16 @@ public class WorldBuilder : MonoBehaviour
     {
         new BuildingDefinition("wood_wall", new Vector3(6f, 3f, 0.5f), new Color(0.63f, 0.39f, 0.18f), 4, 0),
         new BuildingDefinition("stone_wall", new Vector3(5f, 3f, 0.5f), new Color(0.41f, 0.41f, 0.41f), 0, 4),
-        new BuildingDefinition("fence", new Vector3(4f, 1.5f, 0.3f), new Color(0.69f, 0.51f, 0.25f), 2, 0),
+        new BuildingDefinition("fence", new Vector3(4f, 1.5f, 0.3f), new Color(0.69f, 0.51f, 0.25f), 2, 0,
+            new BuildingPartDefinition[]
+            {
+                new BuildingPartDefinition { PartName = "PostLeft",   LocalPosition = new Vector3(-1.85f, 0f, 0f), LocalScale = new Vector3(0.15f, 1.5f, 0.15f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "PostCenter", LocalPosition = new Vector3(0f, 0f, 0f),      LocalScale = new Vector3(0.15f, 1.5f, 0.15f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "PostRight",  LocalPosition = new Vector3(1.85f, 0f, 0f),  LocalScale = new Vector3(0.15f, 1.5f, 0.15f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "RailTop",    LocalPosition = new Vector3(0f, 0.55f, 0f),  LocalScale = new Vector3(3.85f, 0.1f, 0.1f),  MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "RailMid",    LocalPosition = new Vector3(0f, 0f, 0f),      LocalScale = new Vector3(3.85f, 0.1f, 0.1f),  MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "RailBottom", LocalPosition = new Vector3(0f, -0.55f, 0f), LocalScale = new Vector3(3.85f, 0.1f, 0.1f),  MaterialType = "wood" }
+            }),
         new BuildingDefinition("watchtower", new Vector3(3f, 8f, 3f), new Color(0.51f, 0.33f, 0.16f), 8, 4),
         new BuildingDefinition("small_house", new Vector3(8f, 5f, 8f), new Color(0.78f, 0.63f, 0.39f), 10, 6,
             new BuildingPartDefinition[]
@@ -139,7 +148,28 @@ public class WorldBuilder : MonoBehaviour
         new BuildingDefinition("stair", new Vector3(3f, 3f, 1.5f), new Color(0.60f, 0.40f, 0.20f), 3, 1),
         new BuildingDefinition("table", new Vector3(2f, 1f, 2f), new Color(0.65f, 0.45f, 0.22f), 2, 0),
         new BuildingDefinition("chair", new Vector3(1f, 1.5f, 1f), new Color(0.58f, 0.38f, 0.18f), 1, 0),
-        new BuildingDefinition("sofa", new Vector3(2f, 1f, 1.5f), new Color(0.55f, 0.35f, 0.16f), 3, 0)
+        new BuildingDefinition("sofa", new Vector3(2f, 1f, 1.5f), new Color(0.55f, 0.35f, 0.16f), 3, 0),
+        new BuildingDefinition("wife_house", new Vector3(14f, 9f, 14f), new Color(0.522f, 0.337f, 0.18f), 20, 10,
+            new BuildingPartDefinition[]
+            {
+                new BuildingPartDefinition { PartName = "Floor_1F",    LocalPosition = new Vector3(0f, -2.25f, 0f),   LocalScale = new Vector3(14f, 0.5f, 14f),   MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_1F_Front", LocalPosition = new Vector3(0f, 0f, 6.75f),  LocalScale = new Vector3(14f, 5f, 0.5f),    MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_1F_Back",  LocalPosition = new Vector3(0f, 0f, -6.75f), LocalScale = new Vector3(14f, 5f, 0.5f),    MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_1F_Right", LocalPosition = new Vector3(6.75f, 0f, 0f),  LocalScale = new Vector3(0.5f, 5f, 14f),     MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Floor_2F",    LocalPosition = new Vector3(0f, 2.75f, 0f),   LocalScale = new Vector3(14f, 0.5f, 14f),   MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_2F_Front", LocalPosition = new Vector3(0f, 4.5f, 6.75f), LocalScale = new Vector3(14f, 4f, 0.5f),    MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_2F_Back",  LocalPosition = new Vector3(0f, 4.5f, -6.75f), LocalScale = new Vector3(14f, 4f, 0.5f),   MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_2F_Right", LocalPosition = new Vector3(6.75f, 4.5f, 0f), LocalScale = new Vector3(0.5f, 4f, 14f),     MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Ceiling",     LocalPosition = new Vector3(0f, 6.65f, 0f),   LocalScale = new Vector3(14f, 0.3f, 14f),   MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Left_Upper", LocalPosition = new Vector3(-6.75f, 4.5f, -4.25f), LocalScale = new Vector3(0.5f, 9f, 5.5f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Left_Lower", LocalPosition = new Vector3(-6.75f, 4.5f, 4.25f),  LocalScale = new Vector3(0.5f, 9f, 5.5f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Foundation",  LocalPosition = new Vector3(0f, -2.53f, 0f),   LocalScale = new Vector3(15.5f, 0.5f, 15.5f), MaterialType = "stone" },
+                new BuildingPartDefinition { PartName = "Roof_Left",  LocalPosition = new Vector3(3.5f, 7.95f, 0f),  LocalScale = new Vector3(8.5f, 0.6f, 17.6f), MaterialType = "stone" },
+                new BuildingPartDefinition { PartName = "Roof_Right", LocalPosition = new Vector3(-3.5f, 7.95f, 0f), LocalScale = new Vector3(8.5f, 0.6f, 17.6f), MaterialType = "stone" },
+                new BuildingPartDefinition { PartName = "Ridge",      LocalPosition = new Vector3(0f, 9.15f, 0f),    LocalScale = new Vector3(0.7f, 0.35f, 18f),  MaterialType = "stone" }
+            },
+            woodColor: new Color(0.522f, 0.337f, 0.18f),
+            stoneColor: new Color(0.439f, 0.4f, 0.361f))
     };
 
     private int _currentBuildingIndex;
@@ -438,6 +468,28 @@ public class WorldBuilder : MonoBehaviour
     public GameObject SpawnPickup(string toolType, Vector3 position)
     {
         return CreateToolPickup(toolType, position);
+    }
+
+    public GameObject ThrowPickup(string toolType, Vector3 position, Vector3 velocity)
+    {
+        var pickup = CreateToolPickup(toolType, position);
+
+        var triggerCol = pickup.GetComponent<BoxCollider>();
+        if (triggerCol != null)
+            triggerCol.isTrigger = false;
+
+        var rb = pickup.AddComponent<Rigidbody>();
+        rb.mass = 0.5f;
+        rb.linearDamping = 0f;
+        rb.angularDamping = 0.05f;
+        rb.useGravity = true;
+        rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+        rb.linearVelocity = velocity;
+        rb.angularVelocity = Random.insideUnitSphere * 2f;
+
+        pickup.AddComponent<ThrownItem>();
+
+        return pickup;
     }
 
     private GameObject CreateToolPickup(string toolType, Vector3 position)
@@ -2587,15 +2639,18 @@ GameObject treeRoot;
         MakeBlock("WallFront", modelRoot.transform, new Vector3(halfW * 2f - 0.2f, wallH, 0.15f),
             new Vector3(0f, floorY + wallH * 0.5f, cabFrontZ), cartColor, true);
         MakeBlock("Bumper", modelRoot.transform, new Vector3(halfW * 2f - 0.4f, 0.3f, 0.2f),
-            new Vector3(0f, 0.15f, cabFrontZ + 0.1f), Color.gray, true);
+            new Vector3(0f, 0.15f, cabFrontZ + 0.6f), Color.gray, true);
         MakeBlock("Grille", modelRoot.transform, new Vector3(halfW * 2f - 0.4f, 0.5f, 0.1f),
-            new Vector3(0f, floorY + 0.35f, cabFrontZ + 0.01f), new Color(0.15f, 0.15f, 0.15f), true);
+            new Vector3(0f, floorY + 0.35f, cabFrontZ + 0.55f), new Color(0.15f, 0.15f, 0.15f), true);
         MakeBlock("Windshield", modelRoot.transform, new Vector3(halfW * 2f - 0.6f, 0.7f, 0.1f),
             new Vector3(0f, floorY + 1.05f, cabFrontZ + 0.01f), new Color(0.5f, 0.75f, 1f), true);
+        // ── Hood (between grille and windshield) ──
+        MakeBlock("Hood", modelRoot.transform, new Vector3(halfW * 2f - 0.4f, 0.5f, 0.5f),
+            new Vector3(0f, floorY + 0.85f, cabFrontZ + 0.25f), darkColor, true);
         MakeBlock("HeadlightL", modelRoot.transform, new Vector3(0.2f, 0.2f, 0.08f),
-            new Vector3(-halfW + 0.3f, floorY + 0.5f, cabFrontZ + 0.12f), Color.white, true);
+            new Vector3(-halfW + 0.3f, floorY + 0.5f, cabFrontZ + 0.55f), Color.white, true);
         MakeBlock("HeadlightR", modelRoot.transform, new Vector3(0.2f, 0.2f, 0.08f),
-            new Vector3(halfW - 0.3f, floorY + 0.5f, cabFrontZ + 0.12f), Color.white, true);
+            new Vector3(halfW - 0.3f, floorY + 0.5f, cabFrontZ + 0.55f), Color.white, true);
 
         // ── Back wall (local -Z) ──
         MakeBlock("WallBack", modelRoot.transform, new Vector3(halfW * 2f - 0.2f, wallH, 0.15f),
@@ -2640,17 +2695,18 @@ GameObject treeRoot;
         // ── Wheels ──
         Vector3[] wheelPos = new Vector3[]
         {
-            new Vector3(-halfW - 0.5f, -0.3f, -halfD + 0.5f),
-            new Vector3(halfW + 0.5f, -0.3f, -halfD + 0.5f),
-            new Vector3(-halfW - 0.5f, -0.3f, halfD - 0.5f),
-            new Vector3(halfW + 0.5f, -0.3f, halfD - 0.5f)
+            new Vector3(-halfW - 0.5f, -0.1f, -halfD + 0.2f),
+            new Vector3(halfW + 0.5f, -0.1f, -halfD + 0.2f),
+            new Vector3(-halfW - 0.5f, -0.1f, halfD - 0.2f),
+            new Vector3(halfW + 0.5f, -0.1f, halfD - 0.2f)
         };
         foreach (var wp in wheelPos)
         {
             var w = MakeBlock("Wheel", modelRoot.transform, new Vector3(0.9f, 0.9f, 0.25f),
                 wp, Color.black, true);
-            MakeBlock("WheelRim", w.transform, new Vector3(0.45f, 0.45f, 0.08f),
-                new Vector3(0f, 0f, 0.08f), cartColor, true);
+            w.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+            MakeBlock("WheelRim", w.transform, new Vector3(0.08f, 0.45f, 0.45f),
+                new Vector3(0.08f, 0f, 0f), cartColor, true);
             cart.Wheels.Add(w);
         }
 
@@ -2658,7 +2714,7 @@ GameObject treeRoot;
         var vendorRoot = new GameObject("Vendor");
         vendorRoot.transform.SetParent(cart.Root.transform);
         vendorRoot.transform.localPosition = new Vector3(xL + 0.5f, 0f, winCenterZ);
-        vendorRoot.transform.localRotation = Quaternion.identity;
+        vendorRoot.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
         MakeBlock("VendorBody", vendorRoot.transform, new Vector3(0.6f, 1.2f, 0.5f),
             new Vector3(0f, floorY + 1.0f, 0f), new Color(0.565f, 0.78f, 0.945f), true);
         MakeBlock("VendorHead", vendorRoot.transform, new Vector3(0.5f, 0.5f, 0.5f),
@@ -3586,5 +3642,54 @@ public class BlueprintAutoDeposit : MonoBehaviour
 
         wb.DepositMaterial(bp, info.material, info.amount);
         Destroy(root);
+    }
+}
+
+public class ThrownItem : MonoBehaviour
+{
+    private float _spawnTime;
+    private Rigidbody _rb;
+
+    private void Awake()
+    {
+        _spawnTime = Time.time;
+        _rb = GetComponent<Rigidbody>();
+    }
+
+    private void FixedUpdate()
+    {
+        if (_rb == null) return;
+        if (Time.time - _spawnTime < 0.3f) return;
+
+        if (_rb.linearVelocity.sqrMagnitude < 0.01f)
+        {
+            Land();
+        }
+    }
+
+    private void Land()
+    {
+        if (_rb != null)
+        {
+            Destroy(_rb);
+        }
+
+        var cols = GetComponents<Collider>();
+        foreach (var c in cols)
+        {
+            if (c is BoxCollider bc)
+            {
+                bc.isTrigger = true;
+                bc.size = new Vector3(0.6f, 0.6f, 0.6f);
+            }
+        }
+
+        var pos = transform.position;
+        pos.y = Mathf.Max(pos.y, 0.3f);
+        transform.position = pos;
+
+        transform.rotation = Quaternion.identity;
+
+        Destroy(this);
     }
 }

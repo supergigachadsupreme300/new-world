@@ -29,7 +29,6 @@ public class SoundManager : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
-            Debug.LogWarning($"SoundManager: Destroying duplicate on {gameObject.name}, keeping existing on {Instance.gameObject.name}");
             Destroy(gameObject);
             return;
         }
@@ -53,10 +52,7 @@ public class SoundManager : MonoBehaviour
             var clip = Resources.Load<AudioClip>($"Sounds/{name}");
             if (clip != null)
                 _clips[name] = clip;
-            else
-                Debug.LogWarning($"SoundManager: Failed to load Sounds/{name}");
         }
-        Debug.Log($"SoundManager: Loaded {_clips.Count} clips: {string.Join(", ", _clips.Keys)}");
     }
 
     private void RegisterOverrides()
@@ -76,13 +72,8 @@ public class SoundManager : MonoBehaviour
     {
         if (!_overrides.TryGetValue(name, out var clip) || clip == null)
             _clips.TryGetValue(name, out clip);
-        if (clip == null)
-        {
-            Debug.LogWarning($"SoundManager: No clip found for '{name}'");
-            return;
-        }
+        if (clip == null) return;
 
-        Debug.Log($"SoundManager: Playing '{name}', pitch={_source.pitch}");
         _source.pitch = (name == "mexican_truck") ? 1f : Random.Range(PitchMin, PitchMax);
         _source.PlayOneShot(clip);
     }

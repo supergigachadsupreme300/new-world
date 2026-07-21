@@ -83,6 +83,18 @@ public class ToolManager : MonoBehaviour
     private IEnumerator SwingAnimation()
     {
         _isSwinging = true;
+
+        var itemType = GetSelectedItemType();
+        if (itemType != null)
+        {
+            var sound = itemType switch
+            {
+                "scythe" => "sword",
+                _ => itemType
+            };
+            SoundManager.Instance?.Play(sound);
+        }
+
         var tool = GetActiveToolModel();
         if (tool != null)
         {
@@ -827,16 +839,21 @@ public class ToolManager : MonoBehaviour
             return;
 
         var player = GameManager.Instance?.Player;
-        var dropPosition = Vector3.zero;
-        if (player != null)
-            dropPosition = player.transform.position + player.transform.forward * 1.5f + Vector3.up * 0.5f;
+        if (player == null) return;
+
+        var cam = Camera.main;
+        var throwOrigin = cam != null
+            ? cam.transform.position + cam.transform.forward * 0.5f
+            : player.transform.position + Vector3.up * 1.5f + player.transform.forward * 0.5f;
+        var throwDir = cam != null ? cam.transform.forward : player.transform.forward;
+        var throwVelocity = throwDir * 8f + Vector3.up * 3.5f;
 
         if (RemoveItem(_selectedSlot, 1))
         {
             if (_worldBuilder != null)
-                _worldBuilder.SpawnPickup(itemType, dropPosition);
+                _worldBuilder.ThrowPickup(itemType, throwOrigin, throwVelocity);
 
-            _uiManager.ShowMessage($"Dropped {itemType}.", 1.5f);
+            _uiManager.ShowMessage($"Threw {itemType}.", 1.5f);
             UpdateInventoryUI();
         }
     }
