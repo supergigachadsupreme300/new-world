@@ -26,6 +26,7 @@ public class CutsceneManager : MonoBehaviour
     private readonly List<GameObject> _spawned = new List<GameObject>();
     private Coroutine _cutsceneRoutine;
     private Coroutine _pendingCheckRoutine;
+    private Coroutine _menuVisualRoutine;
 
     private bool _happyPending;
     private GameObject _tetoRoot;
@@ -37,6 +38,11 @@ public class CutsceneManager : MonoBehaviour
     private readonly List<GameObject> _hearts = new List<GameObject>();
     private GameObject _happyUI;
     private GameObject _skipButton;
+
+    private GameObject _introCar;
+    private GameObject _introPlayer;
+    private Transform _introSteeringWheel;
+    private Coroutine _steeringAnimRoutine;
 
     private const float RoadX = 14f;
     private const float IntroStartZ = -55f;
@@ -183,7 +189,7 @@ public class CutsceneManager : MonoBehaviour
 
     private IEnumerator IntroRoutine(System.Action onComplete)
     {
-        float rideDur = 4.5f;
+        float rideDur = 5f;
         if (_uiManager == null)
             _uiManager = Object.FindAnyObjectByType<UIManager>();
 
@@ -194,55 +200,71 @@ public class CutsceneManager : MonoBehaviour
         DetachCamera();
         HideHUD();
 
-        if (_mainCamera != null)
-        {
-            _mainCamera.transform.position = new Vector3(RoadX - 12, 2.2f, IntroEndZ);
-            _mainCamera.transform.LookAt(new Vector3(RoadX, 1f, IntroStartZ + 15));
-        }
-
         yield return StartCoroutine(CreateFadeOverlay());
         ShowSkipButton();
         yield return StartCoroutine(FadeOverlay(0, 1.5f));
 
         float deltaZ = IntroEndZ - IntroStartZ;
 
-        var car = CreateBlock(new Vector3(2f, 0.6f, 4f), new Vector3(RoadX, 0.3f, IntroStartZ), new Color(0.2f, 0.6f, 1f));
-        CreateBlock(car.transform, new Vector3(1.6f, 0.4f, 2f), new Vector3(0, 0.5f, -0.2f), new Color(0.3f, 0.3f, 0.8f));
-        foreach (var ox in new[] { -0.9f, 0.9f })
+        // ── Build proper car + seated player ──
+        _introCar = MapBuilder.BuildCar(null, new Vector3(RoadX, 0f, IntroStartZ));
+        RegisterSpawned(_introCar);
+
+        _introPlayer = MapBuilder.BuildSeatedPlayerModel(_introCar.transform);
+        RegisterSpawned(_introPlayer);
+
+        // Find steering wheel for animation
+        if (_introCar != null)
+            _introSteeringWheel = _introCar.transform.Find("SteeringWheel");
+
+        // Start steering wheel + hands animation
+        _steeringAnimRoutine = StartCoroutine(AnimateSteering());
+
+        // ── Camera: start very wide, track car as it drives ──
+        Vector3 camStart = new Vector3(12f, 1.5f, -8.3f);
+        Vector3 camEnd = new Vector3(RoadX - 8f, 3f, IntroEndZ + 3f);
+        Vector3 lookEnd = new Vector3(RoadX, 0.8f, IntroEndZ);
+
+        if (_mainCamera != null)
         {
-            CreateBlock(car.transform, new Vector3(0.2f, 0.4f, 0.4f), new Vector3(ox, -0.2f, -1.5f), Color.black);
-            CreateBlock(car.transform, new Vector3(0.2f, 0.4f, 0.4f), new Vector3(ox, -0.2f, 1.5f), Color.black);
+            _mainCamera.transform.position = camStart;
+            _mainCamera.transform.rotation = Quaternion.Euler(13f, 130f, -2.5f);
         }
-        RegisterSpawned(car);
+
+        Quaternion rotStart = Quaternion.Euler(13f, 130f, -2.5f);
+        Quaternion rotEnd = Quaternion.LookRotation(lookEnd - camEnd);
 
         float t = 0;
-        Vector3 camStart = new Vector3(RoadX - 12, 2.2f, IntroEndZ);
-        Vector3 lookStart = new Vector3(RoadX, 1f, IntroStartZ + 15);
-        Vector3 lookEnd = new Vector3(RoadX, 1f, IntroStartZ + 3);
-
         while (t < rideDur)
         {
             t += Time.deltaTime;
             float p = t / rideDur;
-            if (car != null)
-                car.transform.position = new Vector3(RoadX, 0.3f, IntroStartZ + deltaZ * p);
+            float smooth = p * p * (3f - 2f * p); // smoothstep
+
+            if (_introCar != null)
+                _introCar.transform.position = new Vector3(RoadX, 0f, IntroStartZ + deltaZ * p);
+
             if (_mainCamera != null)
             {
-                _mainCamera.transform.position = Vector3.Lerp(camStart, new Vector3(RoadX - 9, 2.5f, IntroEndZ - 3), p);
-                _mainCamera.transform.LookAt(Vector3.Lerp(lookStart, lookEnd, p));
+                _mainCamera.transform.position = Vector3.Lerp(camStart, camEnd, smooth);
+                _mainCamera.transform.rotation = Quaternion.Slerp(rotStart, rotEnd, smooth);
             }
             yield return null;
         }
 
-        if (car != null)
-            car.transform.position = new Vector3(RoadX, 0.3f, IntroEndZ);
+        if (_introCar != null)
+            _introCar.transform.position = new Vector3(RoadX, 0f, IntroEndZ);
 
+        StopSteeringAnim();
         yield return new WaitForSeconds(0.3f);
         yield return StartCoroutine(FadeOverlay(1, 1.5f));
         DestroyOverlay();
 
         HideSkipButton();
         CleanupSpawned();
+        _introCar = null;
+        _introPlayer = null;
+        _introSteeringWheel = null;
         ShowHUD();
         RestorePlayerControl();
         IsActive = false;
@@ -252,6 +274,96 @@ public class CutsceneManager : MonoBehaviour
 
         if (onComplete == null && _uiManager != null && GameManager.Instance != null && !GameManager.Instance.InGame)
             _uiManager.ShowMainMenu(true);
+    }
+
+    // ═══════════════════════════════════════════════
+    //  STEERING WHEEL + HANDS ANIMATION
+    // ═══════════════════════════════════════════════
+
+    private IEnumerator AnimateSteering()
+    {
+        Vector3 restHandL = new Vector3(-0.26f, 0.42f, 0.38f);
+        Vector3 restHandR = new Vector3(0.26f, 0.42f, 0.38f);
+        while (true)
+        {
+            if (_introSteeringWheel != null)
+            {
+                float angle = -Mathf.Sin(Time.time * 2f) * 15f;
+                _introSteeringWheel.localRotation = Quaternion.Euler(60f, 0f, angle);
+            }
+            if (_introPlayer != null)
+            {
+                var handL = _introPlayer.transform.Find("HandL");
+                var handR = _introPlayer.transform.Find("HandR");
+                float push = Mathf.Sin(Time.time * 2f) * 0.06f;
+                if (handL != null) handL.localPosition = restHandL + new Vector3(0f, 0f, push);
+                if (handR != null) handR.localPosition = restHandR + new Vector3(0f, 0f, -push);
+            }
+            yield return null;
+        }
+    }
+
+    private void StopSteeringAnim()
+    {
+        if (_steeringAnimRoutine != null)
+        {
+            StopCoroutine(_steeringAnimRoutine);
+            _steeringAnimRoutine = null;
+        }
+    }
+
+    // ═══════════════════════════════════════════════
+    //  MAIN MENU VISUAL  (close-up of player driving)
+    // ═══════════════════════════════════════════════
+
+    public void PlayMainMenuVisual()
+    {
+        if (_menuVisualRoutine != null) return;
+        StopMainMenuVisual();
+        _menuVisualRoutine = StartCoroutine(MenuVisualRoutine());
+    }
+
+    public void StopMainMenuVisual()
+    {
+        if (_menuVisualRoutine != null)
+        {
+            StopCoroutine(_menuVisualRoutine);
+            _menuVisualRoutine = null;
+        }
+        StopSteeringAnim();
+        CleanupSpawned();
+        _introCar = null;
+        _introPlayer = null;
+        _introSteeringWheel = null;
+    }
+
+    private IEnumerator MenuVisualRoutine()
+    {
+        DetachCamera();
+        DisablePlayerControl();
+
+        // Build car + player on the road
+        _introCar = MapBuilder.BuildCar(null, new Vector3(RoadX, 0f, -10f));
+        RegisterSpawned(_introCar);
+        _introPlayer = MapBuilder.BuildSeatedPlayerModel(_introCar.transform);
+        RegisterSpawned(_introPlayer);
+
+        if (_introCar != null)
+            _introSteeringWheel = _introCar.transform.Find("SteeringWheel");
+
+        // Start steering animation
+        _steeringAnimRoutine = StartCoroutine(AnimateSteering());
+
+        // Wide camera: shows the car driving past on the road
+        if (_mainCamera != null)
+        {
+            _mainCamera.transform.position = new Vector3(12f, 1.5f, -8.3f);
+            _mainCamera.transform.rotation = Quaternion.Euler(13f, 130f, -2.5f);
+        }
+
+        // Idle — just keep the visual running
+        while (true)
+            yield return null;
     }
 
     // ═══════════════════════════════════════════════
@@ -555,12 +667,26 @@ public class CutsceneManager : MonoBehaviour
 
     private void HideHUD()
     {
-        if (_uiManager != null) _uiManager.ShowAllGameUI(false);
+        if (_uiManager != null)
+        {
+            _uiManager.ShowAllGameUI(false);
+            var statsBg = GameObject.Find("StatsBg");
+            var invBg = GameObject.Find("InventoryBg");
+            if (statsBg != null) statsBg.SetActive(false);
+            if (invBg != null) invBg.SetActive(false);
+        }
     }
 
     private void ShowHUD()
     {
-        if (_uiManager != null) _uiManager.ShowAllGameUI(true);
+        if (_uiManager != null)
+        {
+            _uiManager.ShowAllGameUI(true);
+            var statsBg = GameObject.Find("StatsBg");
+            var invBg = GameObject.Find("InventoryBg");
+            if (statsBg != null) statsBg.SetActive(true);
+            if (invBg != null) invBg.SetActive(true);
+        }
     }
 
     // ── Overlay ──
@@ -794,11 +920,16 @@ public class CutsceneManager : MonoBehaviour
     private void CleanupAll()
     {
         HideSkipButton();
+        StopSteeringAnim();
+        StopMainMenuVisual();
         CleanupSpawned();
         DestroyOverlay();
         DestroyLetterboxBars();
         DestroyHappyEndingUI();
         CleanupHearts();
+        _introCar = null;
+        _introPlayer = null;
+        _introSteeringWheel = null;
         if (_tetoRoot != null)
         {
             Destroy(_tetoRoot);

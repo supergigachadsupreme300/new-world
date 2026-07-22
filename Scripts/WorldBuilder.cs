@@ -220,6 +220,7 @@ public class WorldBuilder : MonoBehaviour
         CreateSkyAndLight();
         BuildRoad();
         BuildRockyBorder();
+        LoadTreeTextures();
         SpawnTrees(TreeCount);
         SpawnRocks(RockCount);
         BuildHouse();
@@ -617,7 +618,15 @@ public class WorldBuilder : MonoBehaviour
         tile.transform.position = position + Vector3.up * 0.01f;
         tile.transform.localScale = new Vector3(2f, 2f, 2f);
         tile.transform.SetParent(_worldRoot.transform);
-        tile.GetComponent<MeshRenderer>().material.color = new Color(0.45f, 0.28f, 0.12f);
+        var tileRenderer = tile.GetComponent<MeshRenderer>();
+        var dirtTex = Resources.Load<Texture2D>("texture/dirt_texture");
+        if (dirtTex != null)
+        {
+            tileRenderer.material = new Material(Shader.Find("Standard"));
+            tileRenderer.material.mainTexture = dirtTex;
+        }
+        else
+            tileRenderer.material.color = new Color(0.45f, 0.28f, 0.12f);
         tile.AddComponent<BoxCollider>().isTrigger = true;
         AddFieldBorder(tile.transform);
 
@@ -2258,11 +2267,19 @@ public class WorldBuilder : MonoBehaviour
                 }
                 else
                 {
-                    var texture = Resources.Load<Texture2D>("Textures/grass");
+                    var urpShader = Shader.Find("Universal Render Pipeline/Lit");
+                    var groundMat = new Material(urpShader != null ? urpShader : Shader.Find("Standard"));
+                    var texture = Resources.Load<Texture2D>("texture/grass_blade");
                     if (texture != null)
-                        renderer.material.mainTexture = texture;
+                    {
+                        groundMat.mainTexture = texture;
+                        groundMat.mainTextureScale = new Vector2(GroundSize.x / 5f, GroundSize.z / 5f);
+                    }
                     else
-                        renderer.material.color = new Color(0.3f, 0.6f, 0.25f);
+                    {
+                        groundMat.color = new Color(0.3f, 0.6f, 0.25f);
+                    }
+                    renderer.material = groundMat;
                 }
             }
         }
@@ -2367,6 +2384,21 @@ public class WorldBuilder : MonoBehaviour
         for (float z = -half; z <= half; z += spacing)
         {
             SpawnBorderSegment(new Vector3(westX, 0f, z), Random.Range(0.8f, 1.2f));
+        }
+    }
+
+    private void LoadTreeTextures()
+    {
+        var woodTex = Resources.Load<Texture2D>("texture/wood_texture");
+        var leafTex = Resources.Load<Texture2D>("texture/leaves_texture");
+        if (woodTex != null || leafTex != null)
+        {
+            MapBuilder.SetTreeTextures(woodTex, leafTex);
+            Debug.Log("[WorldBuilder] Tree textures loaded.");
+        }
+        else
+        {
+            Debug.Log("[WorldBuilder] No tree textures found in Resources/texture/. Using flat colors.");
         }
     }
 
@@ -2867,7 +2899,22 @@ GameObject treeRoot;
             return;
         }
 
-        renderer.material.color = field.Tilled ? new Color(0.45f, 0.28f, 0.12f) : new Color(0.6f, 0.4f, 0.2f);
+        if (field.Tilled)
+        {
+            var dirtTex = Resources.Load<Texture2D>("texture/dirt_texture");
+            if (dirtTex != null)
+            {
+                renderer.material.mainTexture = dirtTex;
+            }
+            else
+            {
+                renderer.material.color = new Color(0.45f, 0.28f, 0.12f);
+            }
+        }
+        else
+        {
+            renderer.material.color = new Color(0.6f, 0.4f, 0.2f);
+        }
     }
 
     private void UpdateCropVisual(FieldState field)

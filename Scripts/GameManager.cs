@@ -41,7 +41,7 @@ public class GameManager : MonoBehaviour
 
         // Ensure UI is visible after initialization (fix cases where UI stays hidden)
         if (UIManager != null)
-            UIManager.ShowAllGameUI(true);
+            UIManager.ShowMainMenuOnly(true);
 
         if (ToolManager != null)
             ToolManager.ResetSelection();
@@ -152,13 +152,27 @@ public class GameManager : MonoBehaviour
     {
         if (UIManager != null)
         {
-            UIManager.ShowMainMenu(show);
+            if (show)
+                UIManager.ShowMainMenuOnly(true);
+            else
+                UIManager.ShowMainMenu(false);
+
             if (show)
             {
                 if (Player != null)
                     Player.EnableInput(false);
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
+
+                // Show car driving visual in background
+                if (CutsceneManager != null)
+                    CutsceneManager.PlayMainMenuVisual();
+            }
+            else
+            {
+                // Stop car visual when leaving menu
+                if (CutsceneManager != null)
+                    CutsceneManager.StopMainMenuVisual();
             }
         }
     }
@@ -195,6 +209,7 @@ public class GameManager : MonoBehaviour
 
         if (CutsceneManager != null)
         {
+            CutsceneManager.StopMainMenuVisual();
             CutsceneManager.PlayIntroCutscene(null);
         }
 
@@ -230,6 +245,9 @@ public class GameManager : MonoBehaviour
 
         if (ToolManager != null)
             ToolManager.ResetSelection();
+
+        if (CutsceneManager != null)
+            CutsceneManager.StopMainMenuVisual();
 
         UpdateTimeUI();
     }

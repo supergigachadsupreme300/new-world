@@ -119,10 +119,13 @@ public class FieldManager : MonoBehaviour
         var renderer = groundIndicator.GetComponent<Renderer>();
         if (renderer != null)
         {
-            if (FieldTexture != null)
+            var tex = FieldTexture;
+            if (tex == null)
+                tex = Resources.Load<Texture2D>("texture/dirt_texture");
+            if (tex != null)
             {
                 renderer.material = new Material(Shader.Find("Standard"));
-                renderer.material.mainTexture = FieldTexture;
+                renderer.material.mainTexture = tex;
             }
             else
             {

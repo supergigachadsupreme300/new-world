@@ -290,6 +290,16 @@ public class UIManager : MonoBehaviour
         _instructionsPanel.SetActive(false);
 
         _mainMenuPanel = CreateMenuPanel("MainMenuPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
+        // Anchor menu to far left side, stretched vertically
+        var menuRect = _mainMenuPanel.GetComponent<RectTransform>();
+        if (menuRect != null)
+        {
+            menuRect.anchorMin = new Vector2(0f, 0f);
+            menuRect.anchorMax = new Vector2(0f, 1f);
+            menuRect.pivot = new Vector2(0f, 0.5f);
+            menuRect.anchoredPosition = new Vector2(5f, 0f);
+            menuRect.sizeDelta = new Vector2(panelWidth, 0f);
+        }
         EnsureText("TitleText", new Vector2(0f, panelHeight * 0.3f), "BUILD YOUR FARM", (int)(largefontSize * 1.1f), _mainMenuPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight * 1.5f));
         CreateButton("NewGameButton", _mainMenuPanel.transform, "Game Mới", new Vector2(0f, buttonHeight * 1.2f), () => MainMenuController.Instance?.OnNewGameClicked());
         CreateButton("LoadGameButton", _mainMenuPanel.transform, "Tiếp tục (Load)", new Vector2(0f, buttonHeight * 0.4f), () => MainMenuController.Instance?.OnLoadGameClicked());
@@ -522,7 +532,35 @@ public class UIManager : MonoBehaviour
         if (_mainMenuPanel != null)
             _mainMenuPanel.SetActive(show);
         if (show)
+        {
             _pauseMenuPanel?.SetActive(false);
+            _statsPanel?.SetActive(false);
+            _questPanel?.SetActive(false);
+            _instructionsPanel?.SetActive(false);
+        }
+        else
+        {
+            _statsBg?.gameObject.SetActive(true);
+            _inventoryBg?.gameObject.SetActive(true);
+        }
+    }
+
+    public void ShowMainMenuOnly(bool show)
+    {
+        ShowMainMenu(show);
+        if (show)
+        {
+            ShowAllGameUI(false);
+            _statsBg?.gameObject.SetActive(false);
+            _inventoryBg?.gameObject.SetActive(false);
+            if (_mainMenuPanel != null)
+                _mainMenuPanel.SetActive(true);
+        }
+        else
+        {
+            _statsBg?.gameObject.SetActive(true);
+            _inventoryBg?.gameObject.SetActive(true);
+        }
     }
 
     public void ShowPauseMenu(bool show)
