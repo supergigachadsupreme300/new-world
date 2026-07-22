@@ -280,6 +280,9 @@ public class CutsceneManager : MonoBehaviour
         IsActive = false;
         _cutsceneRoutine = null;
 
+        if (WorldBuilder.Instance != null)
+            WorldBuilder.Instance.CloseBorderGap();
+
         onComplete?.Invoke();
 
         if (onComplete == null && _uiManager != null && GameManager.Instance != null && !GameManager.Instance.InGame)

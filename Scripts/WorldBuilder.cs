@@ -2497,6 +2497,18 @@ public class WorldBuilder : MonoBehaviour
         }
     }
 
+    public void CloseBorderGap()
+    {
+        float half = GroundSize.x * 0.5f;
+        float spacing = 2.5f;
+
+        for (float x = 8f; x <= 20f; x += spacing)
+        {
+            var rock = MapBuilder.BuildBorderRock(_worldRoot.transform, new Vector3(x, 0f, -half), Random.Range(0.8f, 1.2f));
+            rock.name = "BorderRock";
+        }
+    }
+
     private void LoadTreeTextures()
     {
         var woodTex = Resources.Load<Texture2D>("texture/wood_texture");
