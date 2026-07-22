@@ -42,6 +42,7 @@ public class CutsceneManager : MonoBehaviour
     private GameObject _introCar;
     private GameObject _introPlayer;
     private Transform _introSteeringWheel;
+    private readonly List<Transform> _introWheels = new List<Transform>();
     private Coroutine _steeringAnimRoutine;
 
     private const float RoadX = 14f;
@@ -215,7 +216,15 @@ public class CutsceneManager : MonoBehaviour
 
         // Find steering wheel for animation
         if (_introCar != null)
+        {
             _introSteeringWheel = _introCar.transform.Find("SteeringWheel");
+            _introWheels.Clear();
+            foreach (string wn in new[] { "WheelFL", "WheelFR", "WheelRL", "WheelRR" })
+            {
+                var wt = _introCar.transform.Find(wn);
+                if (wt != null) _introWheels.Add(wt);
+            }
+        }
 
         // Start steering wheel + hands animation
         _steeringAnimRoutine = StartCoroutine(AnimateSteering());
@@ -265,6 +274,7 @@ public class CutsceneManager : MonoBehaviour
         _introCar = null;
         _introPlayer = null;
         _introSteeringWheel = null;
+        _introWheels.Clear();
         ShowHUD();
         RestorePlayerControl();
         IsActive = false;
@@ -284,6 +294,9 @@ public class CutsceneManager : MonoBehaviour
     {
         Vector3 restHandL = new Vector3(-0.26f, 0.42f, 0.38f);
         Vector3 restHandR = new Vector3(0.26f, 0.42f, 0.38f);
+        Vector3 restArmL = new Vector3(-0.26f, 0.35f, 0.15f);
+        Vector3 restArmR = new Vector3(0.26f, 0.35f, 0.15f);
+        float wheelSpin = 0f;
         while (true)
         {
             if (_introSteeringWheel != null)
@@ -293,12 +306,21 @@ public class CutsceneManager : MonoBehaviour
             }
             if (_introPlayer != null)
             {
+                float push = Mathf.Sin(Time.time * 2f) * 0.06f;
+
                 var handL = _introPlayer.transform.Find("HandL");
                 var handR = _introPlayer.transform.Find("HandR");
-                float push = Mathf.Sin(Time.time * 2f) * 0.06f;
                 if (handL != null) handL.localPosition = restHandL + new Vector3(0f, 0f, push);
                 if (handR != null) handR.localPosition = restHandR + new Vector3(0f, 0f, -push);
+
+                var armL = _introPlayer.transform.Find("UpperArmL");
+                var armR = _introPlayer.transform.Find("UpperArmR");
+                if (armL != null) armL.localPosition = restArmL + new Vector3(0f, 0f, push);
+                if (armR != null) armR.localPosition = restArmR + new Vector3(0f, 0f, -push);
             }
+            wheelSpin += Time.deltaTime * 120f;
+            foreach (var w in _introWheels)
+                if (w != null) w.localRotation = Quaternion.Euler(wheelSpin, 0f, 90f);
             yield return null;
         }
     }
@@ -335,6 +357,7 @@ public class CutsceneManager : MonoBehaviour
         _introCar = null;
         _introPlayer = null;
         _introSteeringWheel = null;
+        _introWheels.Clear();
     }
 
     private IEnumerator MenuVisualRoutine()
@@ -349,7 +372,15 @@ public class CutsceneManager : MonoBehaviour
         RegisterSpawned(_introPlayer);
 
         if (_introCar != null)
+        {
             _introSteeringWheel = _introCar.transform.Find("SteeringWheel");
+            _introWheels.Clear();
+            foreach (string wn in new[] { "WheelFL", "WheelFR", "WheelRL", "WheelRR" })
+            {
+                var wt = _introCar.transform.Find(wn);
+                if (wt != null) _introWheels.Add(wt);
+            }
+        }
 
         // Start steering animation
         _steeringAnimRoutine = StartCoroutine(AnimateSteering());
@@ -930,6 +961,7 @@ public class CutsceneManager : MonoBehaviour
         _introCar = null;
         _introPlayer = null;
         _introSteeringWheel = null;
+        _introWheels.Clear();
         if (_tetoRoot != null)
         {
             Destroy(_tetoRoot);

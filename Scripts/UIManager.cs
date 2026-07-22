@@ -297,7 +297,7 @@ public class UIManager : MonoBehaviour
             menuRect.anchorMin = new Vector2(0f, 0f);
             menuRect.anchorMax = new Vector2(0f, 1f);
             menuRect.pivot = new Vector2(0f, 0.5f);
-            menuRect.anchoredPosition = new Vector2(5f, 0f);
+            menuRect.anchoredPosition = new Vector2(-20f, 0f);
             menuRect.sizeDelta = new Vector2(panelWidth, 0f);
         }
         EnsureText("TitleText", new Vector2(0f, panelHeight * 0.3f), "BUILD YOUR FARM", (int)(largefontSize * 1.1f), _mainMenuPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight * 1.5f));
