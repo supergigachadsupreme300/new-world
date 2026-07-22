@@ -45,9 +45,22 @@ public class CutsceneManager : MonoBehaviour
     private readonly List<Transform> _introWheels = new List<Transform>();
     private Coroutine _steeringAnimRoutine;
 
+    private readonly List<GameObject> _drivingSegments = new List<GameObject>();
+    private Material _drivingRoadMat;
+    private Material _drivingGrassMat;
+
     private const float RoadX = 14f;
-    private const float IntroStartZ = -55f;
+    private const float IntroStartZ = -160f;
     private const float IntroEndZ = -5f;
+    private const float DrivingSpeed = 8f;
+    private const float SegmentLength = 10f;
+    private const float SegmentWidth = 60f;
+    private const float SegmentSpawnAhead = 200f;
+    private const float SegmentDespawnBehind = 120f;
+    private const float TransitionTime = 4f;
+    private const float CamOffsetX = -3.5f;
+    private const float CamOffsetY = 2.5f;
+    private const float CamOffsetZ = 7f;
     private const float SadStartZ = 25f;
     private const float SadEndZ = -35f;
     private const float HappyStartZ = -18f;
@@ -190,7 +203,6 @@ public class CutsceneManager : MonoBehaviour
 
     private IEnumerator IntroRoutine(System.Action onComplete)
     {
-        float rideDur = 5f;
         if (_uiManager == null)
             _uiManager = Object.FindAnyObjectByType<UIManager>();
 
@@ -200,75 +212,63 @@ public class CutsceneManager : MonoBehaviour
         DisablePlayerControl();
         DetachCamera();
         HideHUD();
-
-        yield return StartCoroutine(CreateFadeOverlay());
         ShowSkipButton();
-        yield return StartCoroutine(FadeOverlay(0, 1.5f));
 
-        float deltaZ = IntroEndZ - IntroStartZ;
+        InitDrivingMaterials();
 
-        // ── Build proper car + seated player ──
-        _introCar = MapBuilder.BuildCar(null, new Vector3(RoadX, 0f, IntroStartZ));
-        RegisterSpawned(_introCar);
-
-        _introPlayer = MapBuilder.BuildSeatedPlayerModel(_introCar.transform);
-        RegisterSpawned(_introPlayer);
-
-        // Find steering wheel for animation
-        if (_introCar != null)
+        // Reuse car from menu visual if it exists, otherwise build new one
+        if (_introCar == null)
         {
-            _introSteeringWheel = _introCar.transform.Find("SteeringWheel");
-            _introWheels.Clear();
-            foreach (string wn in new[] { "WheelFL", "WheelFR", "WheelRL", "WheelRR" })
-            {
-                var wt = _introCar.transform.Find(wn);
-                if (wt != null) _introWheels.Add(wt);
-            }
-        }
+            _introCar = MapBuilder.BuildCar(null, new Vector3(RoadX, 0f, IntroStartZ));
+            RegisterSpawned(_introCar);
 
-        // Start steering wheel + hands animation
-        _steeringAnimRoutine = StartCoroutine(AnimateSteering());
-
-        // ── Camera: start very wide, track car as it drives ──
-        Vector3 camStart = new Vector3(12f, 1.5f, -8.3f);
-        Vector3 camEnd = new Vector3(RoadX - 8f, 3f, IntroEndZ + 3f);
-        Vector3 lookEnd = new Vector3(RoadX, 0.8f, IntroEndZ);
-
-        if (_mainCamera != null)
-        {
-            _mainCamera.transform.position = camStart;
-            _mainCamera.transform.rotation = Quaternion.Euler(13f, 130f, -2.5f);
-        }
-
-        Quaternion rotStart = Quaternion.Euler(13f, 130f, -2.5f);
-        Quaternion rotEnd = Quaternion.LookRotation(lookEnd - camEnd);
-
-        float t = 0;
-        while (t < rideDur)
-        {
-            t += Time.deltaTime;
-            float p = t / rideDur;
-            float smooth = p * p * (3f - 2f * p); // smoothstep
+            _introPlayer = MapBuilder.BuildSeatedPlayerModel(_introCar.transform);
+            RegisterSpawned(_introPlayer);
 
             if (_introCar != null)
-                _introCar.transform.position = new Vector3(RoadX, 0f, IntroStartZ + deltaZ * p);
-
-            if (_mainCamera != null)
             {
-                _mainCamera.transform.position = Vector3.Lerp(camStart, camEnd, smooth);
-                _mainCamera.transform.rotation = Quaternion.Slerp(rotStart, rotEnd, smooth);
+                _introSteeringWheel = _introCar.transform.Find("SteeringWheel");
+                _introWheels.Clear();
+                foreach (string wn in new[] { "WheelFL", "WheelFR", "WheelRL", "WheelRR" })
+                {
+                    var wt = _introCar.transform.Find(wn);
+                    if (wt != null) _introWheels.Add(wt);
+                }
             }
+        }
+        else
+        {
+            _introCar.transform.SetParent(null);
+        }
+
+        _steeringAnimRoutine = StartCoroutine(AnimateSteering());
+
+        Quaternion camRot = Quaternion.Euler(13f, 130f, -2.5f);
+        if (_mainCamera != null)
+        {
+            _mainCamera.transform.position = new Vector3(RoadX + CamOffsetX, CamOffsetY, IntroStartZ + CamOffsetZ);
+            _mainCamera.transform.rotation = camRot;
+        }
+
+        DestroyDrivingSegments();
+
+        float driveZ = IntroStartZ;
+        UpdateDrivingSegments(driveZ, 0f, 0f, false);
+        while (driveZ < IntroEndZ)
+        {
+            driveZ += DrivingSpeed * Time.deltaTime;
+            if (_introCar != null)
+                _introCar.transform.position = new Vector3(RoadX, 0f, driveZ);
+            if (_mainCamera != null)
+                _mainCamera.transform.position = new Vector3(RoadX + CamOffsetX, CamOffsetY, driveZ + CamOffsetZ);
+            UpdateDrivingSegments(driveZ, 0f, 0f, false);
             yield return null;
         }
 
-        if (_introCar != null)
-            _introCar.transform.position = new Vector3(RoadX, 0f, IntroEndZ);
-
         StopSteeringAnim();
-        yield return new WaitForSeconds(0.3f);
-        yield return StartCoroutine(FadeOverlay(1, 1.5f));
-        DestroyOverlay();
+        yield return new WaitForSeconds(0.5f);
 
+        DestroyDrivingSegments();
         HideSkipButton();
         CleanupSpawned();
         _introCar = null;
@@ -284,6 +284,163 @@ public class CutsceneManager : MonoBehaviour
 
         if (onComplete == null && _uiManager != null && GameManager.Instance != null && !GameManager.Instance.InGame)
             _uiManager.ShowMainMenu(true);
+    }
+
+    // ═══════════════════════════════════════════════
+    //  DRIVING GROUND SEGMENTS
+    // ═══════════════════════════════════════════════
+
+    private void InitDrivingMaterials()
+    {
+        if (_drivingRoadMat != null) return;
+        var urp = Shader.Find("Universal Render Pipeline/Lit");
+        var shader = urp != null ? urp : Shader.Find("Standard");
+        _drivingRoadMat = new Material(shader);
+        _drivingRoadMat.color = new Color(0.235f, 0.243f, 0.275f);
+        _drivingGrassMat = new Material(shader);
+        var tex = Resources.Load<Texture2D>("texture/grass_blade");
+        if (tex != null)
+        {
+            _drivingGrassMat.mainTexture = tex;
+            _drivingGrassMat.mainTextureScale = new Vector2(4f, SegmentLength / 5f);
+        }
+        else
+        {
+            _drivingGrassMat.color = new Color(0.3f, 0.6f, 0.25f);
+        }
+    }
+
+    private void UpdateDrivingSegments(float baseZ, float groundOffset, float scrollSpeed, bool despawn)
+    {
+        if (despawn)
+        {
+            for (int i = _drivingSegments.Count - 1; i >= 0; i--)
+            {
+                if (_drivingSegments[i] == null) { _drivingSegments.RemoveAt(i); continue; }
+                float segZ = _drivingSegments[i].transform.position.z;
+                if (segZ < baseZ - SegmentDespawnBehind)
+                {
+                    Destroy(_drivingSegments[i]);
+                    _drivingSegments.RemoveAt(i);
+                }
+            }
+        }
+
+        float farZ = float.MinValue;
+        float nearZ = float.MaxValue;
+        foreach (var seg in _drivingSegments)
+        {
+            if (seg == null) continue;
+            float sz = seg.transform.position.z;
+            if (sz > farZ) farZ = sz;
+            if (sz < nearZ) nearZ = sz;
+        }
+
+        float carZ = baseZ + groundOffset;
+        float needed = carZ + SegmentSpawnAhead;
+        float needBehind = carZ - SegmentDespawnBehind;
+
+        if (_drivingSegments.Count == 0)
+        {
+            float startZ = needBehind;
+            while (startZ < needed)
+            {
+                startZ += SegmentLength;
+                _drivingSegments.Add(SpawnDrivingSegment(startZ));
+            }
+        }
+        else
+        {
+            while (farZ < needed)
+            {
+                farZ += SegmentLength;
+                _drivingSegments.Add(SpawnDrivingSegment(farZ));
+            }
+
+            while (nearZ > needBehind)
+            {
+                nearZ -= SegmentLength;
+                _drivingSegments.Add(SpawnDrivingSegment(nearZ));
+            }
+        }
+
+        if (scrollSpeed > 0f)
+        {
+            float move = scrollSpeed * Time.deltaTime;
+            foreach (var seg in _drivingSegments)
+                if (seg != null)
+                    seg.transform.position += new Vector3(0f, 0f, -move);
+        }
+    }
+
+    private GameObject SpawnDrivingSegment(float centerZ)
+    {
+        var seg = new GameObject("DrivingSeg");
+
+        // Road
+        var road = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        road.name = "Road";
+        road.transform.SetParent(seg.transform);
+        road.transform.localScale = new Vector3(7.6f, 0.06f, SegmentLength);
+        road.transform.localPosition = new Vector3(RoadX, 0.03f, 0f);
+        road.GetComponent<Renderer>().material = _drivingRoadMat;
+        Destroy(road.GetComponent<Collider>());
+
+        // Grass left
+        float roadLeft = RoadX - 3.8f;
+        var grassL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        grassL.name = "GrassL";
+        grassL.transform.SetParent(seg.transform);
+        grassL.transform.localScale = new Vector3(roadLeft + 150f, 0.05f, SegmentLength);
+        grassL.transform.localPosition = new Vector3((roadLeft - 150f) / 2f, 0f, 0f);
+        grassL.GetComponent<Renderer>().material = _drivingGrassMat;
+        Destroy(grassL.GetComponent<Collider>());
+
+        // Grass right
+        float roadRight = RoadX + 3.8f;
+        var grassR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        grassR.name = "GrassR";
+        grassR.transform.SetParent(seg.transform);
+        grassR.transform.localScale = new Vector3(200f - roadRight, 0.05f, SegmentLength);
+        grassR.transform.localPosition = new Vector3((roadRight + 200f) / 2f, 0f, 0f);
+        grassR.GetComponent<Renderer>().material = _drivingGrassMat;
+        Destroy(grassR.GetComponent<Collider>());
+
+        // Trees scattered across grass
+        SpawnScatteredTrees(seg, SegmentLength);
+
+        seg.transform.position = new Vector3(0f, 0f, centerZ);
+        return seg;
+    }
+
+    private void SpawnScatteredTrees(GameObject parent, float segLen)
+    {
+        float roadLeft = RoadX - 3.8f;
+        float roadRight = RoadX + 3.8f;
+        int count = Mathf.FloorToInt(segLen / 4f);
+
+        for (int i = 0; i < count; i++)
+        {
+            float z = -segLen / 2f + Random.Range(0f, segLen);
+
+            float x;
+            if (Random.value < 0.5f)
+                x = Random.Range(-150f, roadLeft - 2f);
+            else
+                x = Random.Range(roadRight + 2f, 200f);
+
+            float treeScale = Random.Range(0.6f, 1.2f);
+            var tree = MapBuilder.BuildTree(parent.transform, new Vector3(x, 0f, z), treeScale);
+            if (tree != null)
+                tree.name = "ScatteredTree";
+        }
+    }
+
+    private void DestroyDrivingSegments()
+    {
+        foreach (var seg in _drivingSegments)
+            if (seg != null) Destroy(seg);
+        _drivingSegments.Clear();
     }
 
     // ═══════════════════════════════════════════════
@@ -353,11 +510,7 @@ public class CutsceneManager : MonoBehaviour
             _menuVisualRoutine = null;
         }
         StopSteeringAnim();
-        CleanupSpawned();
-        _introCar = null;
-        _introPlayer = null;
-        _introSteeringWheel = null;
-        _introWheels.Clear();
+        DestroyDrivingSegments();
     }
 
     private IEnumerator MenuVisualRoutine()
@@ -365,8 +518,9 @@ public class CutsceneManager : MonoBehaviour
         DetachCamera();
         DisablePlayerControl();
 
-        // Build car + player on the road
-        _introCar = MapBuilder.BuildCar(null, new Vector3(RoadX, 0f, -10f));
+        InitDrivingMaterials();
+
+        _introCar = MapBuilder.BuildCar(null, new Vector3(RoadX, 0f, IntroStartZ));
         RegisterSpawned(_introCar);
         _introPlayer = MapBuilder.BuildSeatedPlayerModel(_introCar.transform);
         RegisterSpawned(_introPlayer);
@@ -382,19 +536,21 @@ public class CutsceneManager : MonoBehaviour
             }
         }
 
-        // Start steering animation
         _steeringAnimRoutine = StartCoroutine(AnimateSteering());
 
-        // Wide camera: shows the car driving past on the road
         if (_mainCamera != null)
         {
-            _mainCamera.transform.position = new Vector3(12f, 1.5f, -8.3f);
+            _mainCamera.transform.position = new Vector3(RoadX + CamOffsetX, CamOffsetY, IntroStartZ + CamOffsetZ);
             _mainCamera.transform.rotation = Quaternion.Euler(13f, 130f, -2.5f);
         }
 
-        // Idle — just keep the visual running
+        float groundOffset = 0f;
         while (true)
+        {
+            groundOffset += DrivingSpeed * 0.5f * Time.deltaTime;
+            UpdateDrivingSegments(IntroStartZ, groundOffset, DrivingSpeed, true);
             yield return null;
+        }
     }
 
     // ═══════════════════════════════════════════════
@@ -954,6 +1110,7 @@ public class CutsceneManager : MonoBehaviour
         StopSteeringAnim();
         StopMainMenuVisual();
         CleanupSpawned();
+        DestroyDrivingSegments();
         DestroyOverlay();
         DestroyLetterboxBars();
         DestroyHappyEndingUI();

@@ -42,6 +42,7 @@ public class WorldBuilder : MonoBehaviour
     private float _roadZEnd = 100f;
     private Transform _shopRoot;
     private GameObject _vendorSpawnButton;
+    private GameObject _alignmentStrip;
 
     private class VendorCart
     {
@@ -233,6 +234,114 @@ public class WorldBuilder : MonoBehaviour
         SpawnMobs();
         CreateCropDemo();
         InitializeBuildingPreview();
+    }
+
+    // ═══════════════════════════════════════════════
+    //  ALIGNMENT STRIP + WORLD VISIBILITY
+    // ═══════════════════════════════════════════════
+
+    public void CreateAlignmentStrip()
+    {
+        if (_alignmentStrip != null) return;
+
+        _alignmentStrip = new GameObject("AlignmentStrip");
+
+        float roadCx = 14f;
+        float roadHw = 3.8f;
+        float stripLen = 70f;
+        float stripCenterZ = -150f - stripLen / 2f;
+
+        // Road extension south of map edge
+        Color asphaltC = new Color(0.235f, 0.243f, 0.275f);
+        var road = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        road.name = "RoadExtension";
+        road.transform.SetParent(_alignmentStrip.transform);
+        road.transform.localScale = new Vector3(roadHw * 2f, 0.06f, stripLen);
+        road.transform.localPosition = new Vector3(roadCx, 0.03f, stripCenterZ);
+        road.GetComponent<Renderer>().material.color = asphaltC;
+
+        // Curbs
+        Color curbC = new Color(0.46f, 0.45f, 0.42f);
+        foreach (int side in new[] { -1, 1 })
+        {
+            var curb = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            curb.name = "KerbExtension";
+            curb.transform.SetParent(_alignmentStrip.transform);
+            curb.transform.localScale = new Vector3(0.55f, 0.22f, stripLen);
+            curb.transform.localPosition = new Vector3(roadCx + side * (roadHw + 0.27f), 0.11f, stripCenterZ);
+            curb.GetComponent<Renderer>().material.color = curbC;
+            Destroy(curb.GetComponent<Collider>());
+        }
+
+        // White edge lines
+        Color whiteC = Color.white;
+        foreach (int side in new[] { -1, 1 })
+        {
+            var line = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            line.name = "EdgeLineExtension";
+            line.transform.SetParent(_alignmentStrip.transform);
+            line.transform.localScale = new Vector3(0.18f, 0.03f, stripLen);
+            line.transform.localPosition = new Vector3(roadCx + side * (roadHw - 0.22f), 0.03f, stripCenterZ);
+            line.GetComponent<Renderer>().material.color = whiteC;
+            Destroy(line.GetComponent<Collider>());
+        }
+
+        // Ground left of road (grass)
+        var urpShader = Shader.Find("Universal Render Pipeline/Lit");
+        var grassMat = new Material(urpShader != null ? urpShader : Shader.Find("Standard"));
+        var tex = Resources.Load<Texture2D>("texture/grass_blade");
+        if (tex != null)
+        {
+            grassMat.mainTexture = tex;
+            grassMat.mainTextureScale = new Vector2(4f, stripLen / 5f);
+        }
+        else
+        {
+            grassMat.color = new Color(0.3f, 0.6f, 0.25f);
+        }
+
+        float groundLeftX = -150f;
+        float groundWidth = (roadCx - roadHw) - groundLeftX;
+        var groundL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        groundL.name = "GroundExtensionL";
+        groundL.transform.SetParent(_alignmentStrip.transform);
+        groundL.transform.localScale = new Vector3(groundWidth, 0.05f, stripLen);
+        groundL.transform.localPosition = new Vector3((groundLeftX + roadCx - roadHw) / 2f, 0.0f, stripCenterZ);
+        groundL.GetComponent<Renderer>().material = grassMat;
+
+        // Ground right of road (grass)
+        float groundRightX = 200f;
+        float groundWidthR = groundRightX - (roadCx + roadHw);
+        var groundR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        groundR.name = "GroundExtensionR";
+        groundR.transform.SetParent(_alignmentStrip.transform);
+        groundR.transform.localScale = new Vector3(groundWidthR, 0.05f, stripLen);
+        groundR.transform.localPosition = new Vector3((roadCx + roadHw + groundRightX) / 2f, 0.0f, stripCenterZ);
+        groundR.GetComponent<Renderer>().material = grassMat;
+
+        // Ground behind road
+        float behindWidth = groundRightX - groundLeftX;
+        var groundB = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        groundB.name = "GroundExtensionB";
+        groundB.transform.SetParent(_alignmentStrip.transform);
+        groundB.transform.localScale = new Vector3(behindWidth, 0.05f, stripLen);
+        groundB.transform.localPosition = new Vector3(0f, -0.01f, stripCenterZ);
+        groundB.GetComponent<Renderer>().material.color = new Color(0.3f, 0.6f, 0.25f);
+        Destroy(groundB.GetComponent<Collider>());
+
+        Destroy(road.GetComponent<Collider>());
+    }
+
+    public void HideWorld()
+    {
+        if (_worldRoot != null)
+            _worldRoot.SetActive(false);
+    }
+
+    public void ShowWorld()
+    {
+        if (_worldRoot != null)
+            _worldRoot.SetActive(true);
     }
 
     private bool CreateTerrainGrid()
@@ -2373,6 +2482,7 @@ public class WorldBuilder : MonoBehaviour
 
         for (float x = westX; x <= half; x += spacing)
         {
+            if (x > 8f && x < 20f) continue;
             SpawnBorderSegment(new Vector3(x, 0f, -half), Random.Range(0.8f, 1.2f));
         }
 

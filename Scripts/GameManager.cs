@@ -184,13 +184,6 @@ public class GameManager : MonoBehaviour
         CurrentDay = 1;
         TimeOfDay = 8f;
 
-        if (WorldBuilder != null)
-        {
-            WorldBuilder.ResetWorld();
-            WorldBuilder.GenerateWorld();
-            WorldBuilder.SetDayNight(TimeOfDay);
-        }
-
         if (Player != null)
         {
             Player.EnableInput(true);
@@ -222,13 +215,6 @@ public class GameManager : MonoBehaviour
         GamePaused = false;
         CurrentDay = 1;
         TimeOfDay = 8f;
-
-        if (WorldBuilder != null)
-        {
-            WorldBuilder.ResetWorld();
-            WorldBuilder.GenerateWorld();
-            WorldBuilder.SetDayNight(TimeOfDay);
-        }
 
         if (Player != null)
         {
