@@ -48,11 +48,12 @@ public class CutsceneManager : MonoBehaviour
     private readonly List<GameObject> _drivingSegments = new List<GameObject>();
     private Material _drivingRoadMat;
     private Material _drivingGrassMat;
+    private Material _drivingKerbMat;
 
     private const float RoadX = 14f;
     private const float IntroStartZ = -160f;
     private const float IntroEndZ = -5f;
-    private const float DrivingSpeed = 8f;
+    private const float DrivingSpeed = 16f;
     private const float SegmentLength = 10f;
     private const float SegmentWidth = 60f;
     private const float SegmentSpawnAhead = 200f;
@@ -250,6 +251,8 @@ public class CutsceneManager : MonoBehaviour
             _mainCamera.transform.rotation = camRot;
         }
 
+        Vector3 camFixedPos = _mainCamera != null ? _mainCamera.transform.position : Vector3.zero;
+
         DestroyDrivingSegments();
 
         float driveZ = IntroStartZ;
@@ -260,7 +263,10 @@ public class CutsceneManager : MonoBehaviour
             if (_introCar != null)
                 _introCar.transform.position = new Vector3(RoadX, 0f, driveZ);
             if (_mainCamera != null)
-                _mainCamera.transform.position = new Vector3(RoadX + CamOffsetX, CamOffsetY, driveZ + CamOffsetZ);
+            {
+                Vector3 lookTarget = new Vector3(RoadX, 1f, driveZ);
+                _mainCamera.transform.LookAt(lookTarget);
+            }
             UpdateDrivingSegments(driveZ, 0f, 0f, false);
             yield return null;
         }
@@ -311,6 +317,8 @@ public class CutsceneManager : MonoBehaviour
         {
             _drivingGrassMat.color = new Color(0.3f, 0.6f, 0.25f);
         }
+        _drivingKerbMat = new Material(shader);
+        _drivingKerbMat.color = new Color(0.46f, 0.45f, 0.42f);
     }
 
     private void UpdateDrivingSegments(float baseZ, float groundOffset, float scrollSpeed, bool despawn)
@@ -388,6 +396,18 @@ public class CutsceneManager : MonoBehaviour
         road.transform.localPosition = new Vector3(RoadX, 0.03f, 0f);
         road.GetComponent<Renderer>().material = _drivingRoadMat;
         Destroy(road.GetComponent<Collider>());
+
+        // Kerbs
+        foreach (int side in new[] { -1, 1 })
+        {
+            var kerb = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            kerb.name = "Kerb";
+            kerb.transform.SetParent(seg.transform);
+            kerb.transform.localScale = new Vector3(0.55f, 0.22f, SegmentLength);
+            kerb.transform.localPosition = new Vector3(RoadX + side * 4.07f, 0.11f, 0f);
+            kerb.GetComponent<Renderer>().material = _drivingKerbMat;
+            Destroy(kerb.GetComponent<Collider>());
+        }
 
         // Grass left
         float roadLeft = RoadX - 3.8f;
