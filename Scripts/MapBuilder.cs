@@ -231,7 +231,7 @@ public static class MapBuilder
         {
             var mat = GetWoodMaterial();
             if (mat != null)
-                r.material = new Material(mat);
+                r.material = mat;
             else
                 r.material.color = wood;
         }
@@ -285,7 +285,7 @@ public static class MapBuilder
         {
             var mat = GetLeafMaterial();
             if (mat != null)
-                r.material = new Material(mat);
+                r.material = mat;
             else
                 r.material.color = color;
         }
@@ -308,7 +308,7 @@ public static class MapBuilder
         {
             var mat = GetLeafMaterial();
             if (mat != null)
-                r.material = new Material(mat);
+                r.material = mat;
             else
                 r.material.color = color;
         }

@@ -46,6 +46,8 @@ public class CutsceneManager : MonoBehaviour
     private Coroutine _steeringAnimRoutine;
 
     private readonly List<GameObject> _drivingSegments = new List<GameObject>();
+    private readonly List<GameObject> _segmentPool = new List<GameObject>();
+    private bool _prebuilt;
     private Material _drivingRoadMat;
     private Material _drivingGrassMat;
     private Material _drivingKerbMat;
@@ -108,6 +110,7 @@ public class CutsceneManager : MonoBehaviour
     {
         _uiManager = uiManager;
         _canvas = Object.FindAnyObjectByType<Canvas>();
+        PrebuildDrivingAssets();
     }
 
     // ── Skip Button ──
@@ -216,31 +219,40 @@ public class CutsceneManager : MonoBehaviour
         HideHUD();
         ShowSkipButton();
 
-        InitDrivingMaterials();
-
-        // Reuse car from menu visual if it exists, otherwise build new one
-        if (_introCar == null)
+        if (_prebuilt)
         {
-            _introCar = MapBuilder.BuildCar(null, new Vector3(RoadX, 0f, IntroStartZ));
-            RegisterSpawned(_introCar);
-
-            _introPlayer = MapBuilder.BuildSeatedPlayerModel(_introCar.transform);
-            RegisterSpawned(_introPlayer);
-
-            if (_introCar != null)
-            {
-                _introSteeringWheel = _introCar.transform.Find("SteeringWheel");
-                _introWheels.Clear();
-                foreach (string wn in new[] { "WheelFL", "WheelFR", "WheelRL", "WheelRR" })
-                {
-                    var wt = _introCar.transform.Find(wn);
-                    if (wt != null) _introWheels.Add(wt);
-                }
-            }
+            _introCar.SetActive(true);
+            _introCar.transform.SetParent(null);
+            _introCar.transform.position = new Vector3(RoadX, 0f, IntroStartZ);
+            _introPlayer.SetActive(true);
         }
         else
         {
-            _introCar.transform.SetParent(null);
+            InitDrivingMaterials();
+
+            if (_introCar == null)
+            {
+                _introCar = MapBuilder.BuildCar(null, new Vector3(RoadX, 0f, IntroStartZ));
+                RegisterSpawned(_introCar);
+
+                _introPlayer = MapBuilder.BuildSeatedPlayerModel(_introCar.transform);
+                RegisterSpawned(_introPlayer);
+
+                if (_introCar != null)
+                {
+                    _introSteeringWheel = _introCar.transform.Find("SteeringWheel");
+                    _introWheels.Clear();
+                    foreach (string wn in new[] { "WheelFL", "WheelFR", "WheelRL", "WheelRR" })
+                    {
+                        var wt = _introCar.transform.Find(wn);
+                        if (wt != null) _introWheels.Add(wt);
+                    }
+                }
+            }
+            else
+            {
+                _introCar.transform.SetParent(null);
+            }
         }
 
         _steeringAnimRoutine = StartCoroutine(AnimateSteering());
@@ -277,9 +289,17 @@ public class CutsceneManager : MonoBehaviour
 
         DestroyDrivingSegments();
         HideSkipButton();
-        CleanupSpawned();
-        _introCar = null;
-        _introPlayer = null;
+        if (!_prebuilt)
+        {
+            CleanupSpawned();
+            _introCar = null;
+            _introPlayer = null;
+        }
+        else
+        {
+            _introCar.SetActive(false);
+            _introPlayer.SetActive(false);
+        }
         _introSteeringWheel = null;
         _introWheels.Clear();
         ShowHUD();
@@ -322,6 +342,65 @@ public class CutsceneManager : MonoBehaviour
         _drivingKerbMat.color = new Color(0.46f, 0.45f, 0.42f);
     }
 
+    // ═══════════════════════════════════════════════
+    //  PREBUILD: materials + car + segments at load
+    // ═══════════════════════════════════════════════
+
+    private void PrebuildDrivingAssets()
+    {
+        if (_prebuilt) return;
+
+        InitDrivingMaterials();
+
+        _introCar = MapBuilder.BuildCar(null, Vector3.zero);
+        _introCar.SetActive(false);
+        _introPlayer = MapBuilder.BuildSeatedPlayerModel(_introCar.transform);
+        _introPlayer.SetActive(false);
+
+        if (_introCar != null)
+        {
+            _introSteeringWheel = _introCar.transform.Find("SteeringWheel");
+            _introWheels.Clear();
+            foreach (string wn in new[] { "WheelFL", "WheelFR", "WheelRL", "WheelRR" })
+            {
+                var wt = _introCar.transform.Find(wn);
+                if (wt != null) _introWheels.Add(wt);
+            }
+        }
+
+        int poolSize = Mathf.CeilToInt((SegmentSpawnAhead + SegmentDespawnBehind) / SegmentLength) + 3;
+        for (int i = 0; i < poolSize; i++)
+        {
+            var seg = SpawnDrivingSegmentRaw(0f);
+            seg.SetActive(false);
+            _segmentPool.Add(seg);
+        }
+
+        _prebuilt = true;
+    }
+
+    private GameObject GetPooledSegment()
+    {
+        for (int i = _segmentPool.Count - 1; i >= 0; i--)
+        {
+            var seg = _segmentPool[i];
+            if (seg != null)
+            {
+                _segmentPool.RemoveAt(i);
+                seg.SetActive(true);
+                return seg;
+            }
+        }
+        return SpawnDrivingSegmentRaw(0f);
+    }
+
+    private void ReturnToPool(GameObject seg)
+    {
+        if (seg == null) return;
+        seg.SetActive(false);
+        _segmentPool.Add(seg);
+    }
+
     private void UpdateDrivingSegments(float baseZ, float groundOffset, float scrollSpeed, bool despawn)
     {
         if (despawn)
@@ -332,7 +411,10 @@ public class CutsceneManager : MonoBehaviour
                 float segZ = _drivingSegments[i].transform.position.z;
                 if (segZ < baseZ - SegmentDespawnBehind)
                 {
-                    Destroy(_drivingSegments[i]);
+                    if (_prebuilt)
+                        ReturnToPool(_drivingSegments[i]);
+                    else
+                        Destroy(_drivingSegments[i]);
                     _drivingSegments.RemoveAt(i);
                 }
             }
@@ -392,6 +474,14 @@ public class CutsceneManager : MonoBehaviour
     }
 
     private GameObject SpawnDrivingSegment(float centerZ)
+    {
+        var seg = _prebuilt ? GetPooledSegment() : SpawnDrivingSegmentRaw(centerZ);
+        if (_prebuilt)
+            seg.transform.position = new Vector3(0f, 0f, centerZ);
+        return seg;
+    }
+
+    private GameObject SpawnDrivingSegmentRaw(float centerZ)
     {
         var seg = new GameObject("DrivingSeg");
 
@@ -469,7 +559,13 @@ public class CutsceneManager : MonoBehaviour
     private void DestroyDrivingSegments()
     {
         foreach (var seg in _drivingSegments)
-            if (seg != null) Destroy(seg);
+        {
+            if (seg == null) continue;
+            if (_prebuilt)
+                ReturnToPool(seg);
+            else
+                Destroy(seg);
+        }
         _drivingSegments.Clear();
     }
 
@@ -541,6 +637,8 @@ public class CutsceneManager : MonoBehaviour
         }
         StopSteeringAnim();
         DestroyDrivingSegments();
+        if (_prebuilt && _introCar != null)
+            _introCar.SetActive(false);
     }
 
     private IEnumerator MenuVisualRoutine()
@@ -548,21 +646,30 @@ public class CutsceneManager : MonoBehaviour
         DetachCamera();
         DisablePlayerControl();
 
-        InitDrivingMaterials();
-
-        _introCar = MapBuilder.BuildCar(null, new Vector3(RoadX, 0f, IntroStartZ));
-        RegisterSpawned(_introCar);
-        _introPlayer = MapBuilder.BuildSeatedPlayerModel(_introCar.transform);
-        RegisterSpawned(_introPlayer);
-
-        if (_introCar != null)
+        if (_prebuilt)
         {
-            _introSteeringWheel = _introCar.transform.Find("SteeringWheel");
-            _introWheels.Clear();
-            foreach (string wn in new[] { "WheelFL", "WheelFR", "WheelRL", "WheelRR" })
+            _introCar.SetActive(true);
+            _introCar.transform.position = new Vector3(RoadX, 0f, IntroStartZ);
+            _introPlayer.SetActive(true);
+        }
+        else
+        {
+            InitDrivingMaterials();
+
+            _introCar = MapBuilder.BuildCar(null, new Vector3(RoadX, 0f, IntroStartZ));
+            RegisterSpawned(_introCar);
+            _introPlayer = MapBuilder.BuildSeatedPlayerModel(_introCar.transform);
+            RegisterSpawned(_introPlayer);
+
+            if (_introCar != null)
             {
-                var wt = _introCar.transform.Find(wn);
-                if (wt != null) _introWheels.Add(wt);
+                _introSteeringWheel = _introCar.transform.Find("SteeringWheel");
+                _introWheels.Clear();
+                foreach (string wn in new[] { "WheelFL", "WheelFR", "WheelRL", "WheelRR" })
+                {
+                    var wt = _introCar.transform.Find(wn);
+                    if (wt != null) _introWheels.Add(wt);
+                }
             }
         }
 
@@ -1145,8 +1252,15 @@ public class CutsceneManager : MonoBehaviour
         DestroyLetterboxBars();
         DestroyHappyEndingUI();
         CleanupHearts();
-        _introCar = null;
-        _introPlayer = null;
+        if (_prebuilt)
+        {
+            if (_introCar != null) _introCar.SetActive(false);
+        }
+        else
+        {
+            _introCar = null;
+            _introPlayer = null;
+        }
         _introSteeringWheel = null;
         _introWheels.Clear();
         if (_tetoRoot != null)
