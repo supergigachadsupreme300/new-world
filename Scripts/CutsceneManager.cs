@@ -53,9 +53,9 @@ public class CutsceneManager : MonoBehaviour
     private Material _drivingKerbMat;
 
     private const float RoadX = 14f;
-    private const float IntroStartZ = -160f;
+    private const float IntroStartZ = -310f;
     private const float IntroEndZ = -5f;
-    private const float DrivingSpeed = 16f;
+    private const float DrivingSpeed = 64f;
     private const float SegmentLength = 10f;
     private const float SegmentWidth = 60f;
     private const float SegmentSpawnAhead = 200f;

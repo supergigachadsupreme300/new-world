@@ -9,10 +9,10 @@ public class WorldBuilder : MonoBehaviour
 
     public int TreeCount = 100;
     public int RockCount = 0;
-    public Vector3 GroundSize = new Vector3(300f, 0.2f, 300f);
+    public Vector3 GroundSize = new Vector3(600f, 0.2f, 600f);
 
-    public int MapWidth = 20;
-    public int MapDepth = 20;
+    public int MapWidth = 40;
+    public int MapDepth = 40;
     public float TileSize = 1f;
     public string TerrainBlockResourcePath = "Models/TerrainBlock";
 
@@ -189,7 +189,11 @@ public class WorldBuilder : MonoBehaviour
 
     private void Start()
     {
-        // Auto-generate the world when the scene starts.
+        GroundSize = new Vector3(600f, 0.2f, 600f);
+        MapWidth = 40;
+        MapDepth = 40;
+        TreeCount = 100;
+
         GenerateWorld();
 
         if (_worldRoot == null)
@@ -248,8 +252,8 @@ public class WorldBuilder : MonoBehaviour
 
         float roadCx = 14f;
         float roadHw = 3.8f;
-        float stripLen = 70f;
-        float stripCenterZ = -150f - stripLen / 2f;
+        float stripLen = 140f;
+        float stripCenterZ = -300f - stripLen / 2f;
 
         // Road extension south of map edge
         Color asphaltC = new Color(0.235f, 0.243f, 0.275f);
@@ -300,7 +304,7 @@ public class WorldBuilder : MonoBehaviour
             grassMat.color = new Color(0.3f, 0.6f, 0.25f);
         }
 
-        float groundLeftX = -150f;
+        float groundLeftX = -300f;
         float groundWidth = (roadCx - roadHw) - groundLeftX;
         var groundL = GameObject.CreatePrimitive(PrimitiveType.Cube);
         groundL.name = "GroundExtensionL";
@@ -310,7 +314,7 @@ public class WorldBuilder : MonoBehaviour
         groundL.GetComponent<Renderer>().material = grassMat;
 
         // Ground right of road (grass)
-        float groundRightX = 200f;
+        float groundRightX = 400f;
         float groundWidthR = groundRightX - (roadCx + roadHw);
         var groundR = GameObject.CreatePrimitive(PrimitiveType.Cube);
         groundR.name = "GroundExtensionR";
@@ -2422,7 +2426,7 @@ public class WorldBuilder : MonoBehaviour
     {
         float roadCx = 14f;
         float roadHw = 3.8f;
-        float roadLen = 300f;
+        float roadLen = 600f;
         float roadZc = 17f;
 
         Color curbC = new Color(0.46f, 0.45f, 0.42f);
@@ -2474,7 +2478,7 @@ public class WorldBuilder : MonoBehaviour
     {
         float half = GroundSize.x * 0.5f;
         float spacing = 2.5f;
-        float westX = -200f;
+        float westX = -400f;
 
         void SpawnBorderSegment(Vector3 pos, float scale)
         {
@@ -2646,19 +2650,19 @@ GameObject treeRoot;
 
     private void BuildBeach()
     {
-        float beachX = -90f;
-        float sandW = 35f;
-        float sandD = 300f;
+        float beachX = -180f;
+        float sandW = 70f;
+        float sandD = 600f;
         Color sandC = new Color(0.85f, 0.76f, 0.55f);
         Color seaC = new Color(0.2f, 0.5f, 0.8f);
 
         MakeBlock("Sand", _worldRoot.transform, new Vector3(sandW, 0.02f, sandD),
             new Vector3(beachX, 0f, 0f), sandC, false, true);
 
-        MakeBlock("Sea", _worldRoot.transform, new Vector3(120f, 0.06f, sandD),
-            new Vector3(beachX - sandW * 0.5f - 60f, 0.03f, 0f), seaC, false, true);
+        MakeBlock("Sea", _worldRoot.transform, new Vector3(240f, 0.06f, sandD),
+            new Vector3(beachX - sandW * 0.5f - 120f, 0.03f, 0f), seaC, false, true);
 
-        int numTrees = 50;
+        int numTrees = 100;
         for (int i = 0; i < numTrees; i++)
         {
             float x = beachX + Random.Range(-sandW * 0.35f, sandW * 0.35f);
