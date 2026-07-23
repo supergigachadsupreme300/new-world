@@ -349,7 +349,6 @@ public static class MapBuilder
         float d = Random.Range(0.8f, 2f);
 
         var mainRock = MakeBlock("Rock", root.transform, new Vector3(w, h, d), new Vector3(0, h * 0.5f, 0), stoneC);
-        mainRock.GetComponent<Collider>().isTrigger = true;
 
         if (Random.value > 0.4f)
         {
@@ -360,7 +359,6 @@ public static class MapBuilder
                 new Vector3(w2, h2, d2),
                 new Vector3(Random.Range(-0.3f, 0.3f), h + h2 * 0.5f, Random.Range(-0.3f, 0.3f)),
                 stoneC);
-            detail.GetComponent<Collider>().isTrigger = true;
         }
 
         return root;

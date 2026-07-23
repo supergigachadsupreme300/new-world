@@ -58,6 +58,7 @@ public class CutsceneManager : MonoBehaviour
     private const float SegmentWidth = 60f;
     private const float SegmentSpawnAhead = 200f;
     private const float SegmentDespawnBehind = 120f;
+    private const int MaxSegmentsPerFrame = 4;
     private const float TransitionTime = 4f;
     private const float CamOffsetX = -3.5f;
     private const float CamOffsetY = 2.5f;
@@ -354,24 +355,30 @@ public class CutsceneManager : MonoBehaviour
         if (_drivingSegments.Count == 0)
         {
             float startZ = needBehind;
-            while (startZ < needed)
+            int spawned = 0;
+            while (startZ < needed && spawned < MaxSegmentsPerFrame)
             {
                 startZ += SegmentLength;
                 _drivingSegments.Add(SpawnDrivingSegment(startZ));
+                spawned++;
             }
         }
         else
         {
-            while (farZ < needed)
+            int fwdSpawned = 0;
+            while (farZ < needed && fwdSpawned < MaxSegmentsPerFrame)
             {
                 farZ += SegmentLength;
                 _drivingSegments.Add(SpawnDrivingSegment(farZ));
+                fwdSpawned++;
             }
 
-            while (nearZ > needBehind)
+            int bwdSpawned = 0;
+            while (nearZ > needBehind && bwdSpawned < MaxSegmentsPerFrame)
             {
                 nearZ -= SegmentLength;
                 _drivingSegments.Add(SpawnDrivingSegment(nearZ));
+                bwdSpawned++;
             }
         }
 

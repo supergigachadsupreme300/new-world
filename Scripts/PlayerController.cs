@@ -330,6 +330,7 @@ public class PlayerController : MonoBehaviour
             return;
 
         cam.tag = "MainCamera";
+        cam.cullingMask &= ~(1 << 6);
         if (cam.transform.parent != null)
             cam.transform.SetParent(null);
 
@@ -355,5 +356,11 @@ public class PlayerController : MonoBehaviour
             Destroy(existing.gameObject);
 
         _playerModelInstance = MapBuilder.BuildPlayerModel(transform);
+
+        if (_playerModelInstance != null)
+        {
+            foreach (var r in _playerModelInstance.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 6;
+        }
     }
 }

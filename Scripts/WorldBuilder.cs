@@ -1025,7 +1025,7 @@ public class WorldBuilder : MonoBehaviour
             if (topTrunkR != null)
             {
                 var origR = state.TrunkObject.GetComponent<Renderer>();
-                topTrunkR.material.color = origR != null ? origR.material.color : new Color(0.36f, 0.23f, 0.12f);
+                topTrunkR.material = origR != null ? new Material(origR.material) : CreateFallbackWoodMaterial();
             }
 
             foreach (var child in toMove)
@@ -1164,7 +1164,7 @@ public class WorldBuilder : MonoBehaviour
             if (r != null)
             {
                 var origR = branchObj.GetComponent<Renderer>();
-                r.material.color = origR != null ? origR.material.color : new Color(0.36f, 0.23f, 0.12f);
+                r.material = origR != null ? new Material(origR.material) : CreateFallbackWoodMaterial();
             }
 
             Vector3 origTipLocal = branchPos + branchRot * new Vector3(0, fullH / 2f, 0);
@@ -1485,7 +1485,7 @@ public class WorldBuilder : MonoBehaviour
 
         Vector3 worldPos = part.position;
         Vector3 up = part.up;
-        var matColor = part.GetComponent<Renderer>()?.material.color ?? new Color(0.36f, 0.23f, 0.12f);
+        var origMat = part.GetComponent<Renderer>()?.material;
 
         part.localScale = new Vector3(s.x, halfH, s.z);
         part.position = worldPos - up * halfH * 0.5f;
@@ -1504,7 +1504,14 @@ public class WorldBuilder : MonoBehaviour
         splitPart.transform.localRotation = part.localRotation;
         var r = splitPart.GetComponent<Renderer>();
         if (r != null)
-            r.material.color = matColor;
+            r.material = origMat != null ? new Material(origMat) : CreateFallbackWoodMaterial();
+    }
+
+    private static Material CreateFallbackWoodMaterial()
+    {
+        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        mat.color = new Color(0.36f, 0.23f, 0.12f);
+        return mat;
     }
 
     private void GetFaceGeometry(int face, float w, float h, float d,
