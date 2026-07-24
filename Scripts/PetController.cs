@@ -20,6 +20,7 @@ public class PetController : MonoBehaviour
     {
         if (_player == null)
             return;
+        if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
 
         Vector3 targetPos = _player.position - _player.forward * FollowDistance;
         transform.position = Vector3.MoveTowards(transform.position, targetPos, FollowSpeed * Time.deltaTime);

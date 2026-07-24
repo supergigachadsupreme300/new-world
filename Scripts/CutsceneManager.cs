@@ -633,6 +633,7 @@ public class CutsceneManager : MonoBehaviour
         {
             StopCoroutine(_menuVisualRoutine);
             _menuVisualRoutine = null;
+            AttachCamera();
         }
         StopSteeringAnim();
         if (!keepSegments)
@@ -965,7 +966,7 @@ public class CutsceneManager : MonoBehaviour
         }
     }
 
-    private void RestorePlayerControl()
+    public void RestorePlayerControl()
     {
         if (_player != null)
             _player.EnableInput(true);
@@ -983,7 +984,7 @@ public class CutsceneManager : MonoBehaviour
         }
     }
 
-    private void AttachCamera()
+    public void AttachCamera()
     {
         if (_mainCamera != null && _cameraFollow != null)
             _cameraFollow.enabled = true;

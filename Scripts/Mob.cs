@@ -15,6 +15,8 @@ public class Mob : MonoBehaviour
     private float _wanderTimer;
     private float _bobTimer;
     private GameObject _modelRoot;
+    private List<Transform> _legs = new List<Transform>();
+    private float _walkCycle;
 
     private void Start()
     {
@@ -26,6 +28,7 @@ public class Mob : MonoBehaviour
     private void Update()
     {
         if (_modelRoot == null) return;
+        if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
 
         _bobTimer += Time.deltaTime * 2f;
         _modelRoot.transform.localPosition = new Vector3(0f, Mathf.Sin(_bobTimer) * 0.02f, 0f);
@@ -43,10 +46,12 @@ public class Mob : MonoBehaviour
             Vector3 dir = toTarget.normalized;
             transform.position += dir * MoveSpeed * Time.deltaTime;
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 3f);
+            AnimateLegs(true);
         }
         else
         {
             PickWanderTarget();
+            AnimateLegs(false);
         }
     }
 
@@ -66,6 +71,42 @@ public class Mob : MonoBehaviour
         {
             case MobType.Mouse: BuildMouse(); break;
             case MobType.Crab: BuildCrab(); break;
+        }
+
+        CaptureLegs();
+    }
+
+    private void CaptureLegs()
+    {
+        foreach (Transform child in _modelRoot.transform)
+        {
+            if (child.name.Contains("Leg"))
+                _legs.Add(child);
+        }
+    }
+
+    private void AnimateLegs(bool moving)
+    {
+        if (_legs.Count == 0) return;
+
+        if (moving)
+        {
+            _walkCycle += Time.deltaTime * MoveSpeed * 6f;
+            for (int i = 0; i < _legs.Count; i++)
+            {
+                float phase = (i % 2 == 0) ? _walkCycle : _walkCycle + Mathf.PI;
+                float swing = Mathf.Sin(phase) * 15f;
+                if (_legs[i] != null)
+                    _legs[i].localRotation = Quaternion.Euler(swing, 0f, 0f);
+            }
+        }
+        else
+        {
+            for (int i = 0; i < _legs.Count; i++)
+            {
+                if (_legs[i] != null)
+                    _legs[i].localRotation = Quaternion.identity;
+            }
         }
     }
 

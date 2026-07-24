@@ -30,6 +30,7 @@ public class EnemyController : MonoBehaviour
     {
         if (_isDead || _player == null)
             return;
+        if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
 
         float distance = Vector3.Distance(transform.position, _player.position);
         if (distance <= ChaseRange)

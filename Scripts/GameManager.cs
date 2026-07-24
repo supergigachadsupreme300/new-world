@@ -236,7 +236,10 @@ public class GameManager : MonoBehaviour
             ToolManager.ResetSelection();
 
         if (CutsceneManager != null)
+        {
             CutsceneManager.StopMainMenuVisual();
+            CutsceneManager.AttachCamera();
+        }
 
         var spawner2 = Object.FindAnyObjectByType<LivestockSpawner>();
         if (spawner2 != null) spawner2.Restart();

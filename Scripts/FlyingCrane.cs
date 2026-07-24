@@ -14,6 +14,10 @@ public class FlyingCrane : MonoBehaviour
     private Transform _wingFarR;
     private Transform _cagePivot;
     private Transform _cageModel;
+    private Quaternion _wingLBaseRot;
+    private Quaternion _wingRBaseRot;
+    private Quaternion _wingFarLBaseRot;
+    private Quaternion _wingFarRBaseRot;
     private float _flySpeed = 20f;
     private float _flyHeight = 45f;
     private int _phase;
@@ -102,96 +106,192 @@ public class FlyingCrane : MonoBehaviour
 
     private void BuildWings(Color white, Color lightGray, Color midGray, Color darkGray, Color darkTip)
     {
-        Transform wingRootL = MakeCube("WingRootL", _body, new Vector3(0.08f, 0.06f, 0.4f), new Vector3(-0.3f, 0.08f, 0.05f), white);
-        _wingL = MakeCube("WingInnerL", wingRootL, new Vector3(0.06f, 0.04f, 0.7f), new Vector3(-0.35f, 0.04f, -0.1f), white);
-        Transform midL = MakeCube("WingMidL", _wingL, new Vector3(0.05f, 0.03f, 0.6f), new Vector3(-0.35f, 0.01f, -0.05f), lightGray);
-        _wingFarL = MakeCube("WingOuterL", midL, new Vector3(0.04f, 0.02f, 0.5f), new Vector3(-0.3f, 0f, -0.05f), midGray);
-        Transform tipL = MakeCube("WingTipL", _wingFarL, new Vector3(0.035f, 0.015f, 0.35f), new Vector3(-0.2f, -0.005f, -0.05f), darkGray);
-        MakeCube("WingTipEndL", tipL, new Vector3(0.03f, 0.01f, 0.2f), new Vector3(-0.12f, -0.005f, -0.02f), darkTip);
+        // Use empty pivot GameObjects (scale 1,1,1) so child positions aren't
+        // compressed by parent scale. Visual cubes are children of the pivots.
+
+        // ── Left wing ──
+        Transform shoulderPivotL = new GameObject("ShoulderPivotL").transform;
+        shoulderPivotL.SetParent(_body, false);
+        shoulderPivotL.localPosition = new Vector3(-0.35f, 0.12f, 0.05f);
+        MakeCube("ShoulderL", shoulderPivotL, new Vector3(0.14f, 0.1f, 0.28f), Vector3.zero, white);
+
+        _wingL = new GameObject("WingPivotL").transform;
+        _wingL.SetParent(shoulderPivotL, false);
+        _wingL.localPosition = new Vector3(-0.25f, 0f, 0f);
+        MakeCube("WingInnerL", _wingL, new Vector3(0.55f, 0.06f, 0.75f), Vector3.zero, white);
 
         for (int i = 0; i < 4; i++)
         {
             float shade = Mathf.Lerp(0.93f, 0.78f, i / 3f);
             Color c = new Color(shade, shade + 0.01f, shade + 0.02f);
-            MakeCube("FeatherL" + i, _wingL, new Vector3(0.04f, 0.008f, 0.12f), new Vector3(-0.28f - i * 0.06f, 0.02f, -0.15f - i * 0.1f), c);
+            MakeCube("FeatherL" + i, _wingL, new Vector3(0.08f, 0.012f, 0.18f),
+                new Vector3(-0.15f - i * 0.1f, 0.035f, -0.18f - i * 0.12f), c);
         }
 
-        Transform wingRootR = MakeCube("WingRootR", _body, new Vector3(0.08f, 0.06f, 0.4f), new Vector3(0.3f, 0.08f, 0.05f), white);
-        _wingR = MakeCube("WingInnerR", wingRootR, new Vector3(0.06f, 0.04f, 0.7f), new Vector3(0.35f, 0.04f, -0.1f), white);
-        Transform midR = MakeCube("WingMidR", _wingR, new Vector3(0.05f, 0.03f, 0.6f), new Vector3(0.35f, 0.01f, -0.05f), lightGray);
-        _wingFarR = MakeCube("WingOuterR", midR, new Vector3(0.04f, 0.02f, 0.5f), new Vector3(0.3f, 0f, -0.05f), midGray);
-        Transform tipR = MakeCube("WingTipR", _wingFarR, new Vector3(0.035f, 0.015f, 0.35f), new Vector3(0.2f, -0.005f, -0.05f), darkGray);
-        MakeCube("WingTipEndR", tipR, new Vector3(0.03f, 0.01f, 0.2f), new Vector3(0.12f, -0.005f, -0.02f), darkTip);
+        Transform midPivotL = new GameObject("MidPivotL").transform;
+        midPivotL.SetParent(_wingL, false);
+        midPivotL.localPosition = new Vector3(-0.4f, 0.01f, -0.05f);
+        MakeCube("WingMidL", midPivotL, new Vector3(0.45f, 0.05f, 0.65f), Vector3.zero, lightGray);
+
+        _wingFarL = new GameObject("WingFarPivotL").transform;
+        _wingFarL.SetParent(midPivotL, false);
+        _wingFarL.localPosition = new Vector3(-0.35f, 0f, -0.05f);
+        MakeCube("WingOuterL", _wingFarL, new Vector3(0.38f, 0.04f, 0.55f), Vector3.zero, midGray);
+        MakeCube("WingTipL", _wingFarL, new Vector3(0.28f, 0.03f, 0.4f),
+            new Vector3(-0.25f, -0.005f, -0.05f), darkGray);
+        MakeCube("WingTipEndL", _wingFarL, new Vector3(0.18f, 0.02f, 0.25f),
+            new Vector3(-0.4f, -0.005f, -0.03f), darkTip);
+
+        // ── Right wing (mirror) ──
+        Transform shoulderPivotR = new GameObject("ShoulderPivotR").transform;
+        shoulderPivotR.SetParent(_body, false);
+        shoulderPivotR.localPosition = new Vector3(0.35f, 0.12f, 0.05f);
+        MakeCube("ShoulderR", shoulderPivotR, new Vector3(0.14f, 0.1f, 0.28f), Vector3.zero, white);
+
+        _wingR = new GameObject("WingPivotR").transform;
+        _wingR.SetParent(shoulderPivotR, false);
+        _wingR.localPosition = new Vector3(0.25f, 0f, 0f);
+        MakeCube("WingInnerR", _wingR, new Vector3(0.55f, 0.06f, 0.75f), Vector3.zero, white);
 
         for (int i = 0; i < 4; i++)
         {
             float shade = Mathf.Lerp(0.93f, 0.78f, i / 3f);
             Color c = new Color(shade, shade + 0.01f, shade + 0.02f);
-            MakeCube("FeatherR" + i, _wingR, new Vector3(0.04f, 0.008f, 0.12f), new Vector3(0.28f + i * 0.06f, 0.02f, -0.15f - i * 0.1f), c);
+            MakeCube("FeatherR" + i, _wingR, new Vector3(0.08f, 0.012f, 0.18f),
+                new Vector3(0.15f + i * 0.1f, 0.035f, -0.18f - i * 0.12f), c);
         }
 
-        MakeCube("ShoulderL", _body, new Vector3(0.08f, 0.08f, 0.25f), new Vector3(-0.28f, 0.1f, 0.15f), white);
-        MakeCube("ShoulderR", _body, new Vector3(0.08f, 0.08f, 0.25f), new Vector3(0.28f, 0.1f, 0.15f), white);
+        Transform midPivotR = new GameObject("MidPivotR").transform;
+        midPivotR.SetParent(_wingR, false);
+        midPivotR.localPosition = new Vector3(0.4f, 0.01f, -0.05f);
+        MakeCube("WingMidR", midPivotR, new Vector3(0.45f, 0.05f, 0.65f), Vector3.zero, lightGray);
+
+        _wingFarR = new GameObject("WingFarPivotR").transform;
+        _wingFarR.SetParent(midPivotR, false);
+        _wingFarR.localPosition = new Vector3(0.35f, 0f, -0.05f);
+        MakeCube("WingOuterR", _wingFarR, new Vector3(0.38f, 0.04f, 0.55f), Vector3.zero, midGray);
+        MakeCube("WingTipR", _wingFarR, new Vector3(0.28f, 0.03f, 0.4f),
+            new Vector3(0.25f, -0.005f, -0.05f), darkGray);
+        MakeCube("WingTipEndR", _wingFarR, new Vector3(0.18f, 0.02f, 0.25f),
+            new Vector3(0.4f, -0.005f, -0.03f), darkTip);
+
+        _wingLBaseRot = _wingL.localRotation;
+        _wingRBaseRot = _wingR.localRotation;
+        _wingFarLBaseRot = _wingFarL.localRotation;
+        _wingFarRBaseRot = _wingFarR.localRotation;
     }
 
     private void BuildNeckAndHead(Color white, Color lightGray, Color redCrown, Color beakCol, Color beakTip, Color eyeCol)
     {
-        Transform neckBase = MakeCube("NeckBase", _body, new Vector3(0.14f, 0.14f, 0.2f), new Vector3(0f, 0.12f, 0.7f), white);
-        Transform neck1 = MakeCube("Neck1", neckBase, new Vector3(0.11f, 0.11f, 0.3f), new Vector3(0f, 0.1f, 0.2f), white);
-        Transform neck2 = MakeCube("Neck2", neck1, new Vector3(0.09f, 0.09f, 0.35f), new Vector3(0f, 0.08f, 0.22f), lightGray);
-        Transform neck3 = MakeCube("Neck3", neck2, new Vector3(0.08f, 0.08f, 0.3f), new Vector3(0f, 0.06f, 0.2f), white);
-        Transform neckTop = MakeCube("NeckTop", neck3, new Vector3(0.07f, 0.07f, 0.25f), new Vector3(0f, 0.05f, 0.18f), white);
+        // Use empty pivots (scale 1,1,1) so neck/head aren't compressed by parent scale
+        Transform neckBasePivot = new GameObject("NeckBasePivot").transform;
+        neckBasePivot.SetParent(_body, false);
+        neckBasePivot.localPosition = new Vector3(0f, 0.15f, 0.7f);
+        MakeCube("NeckBase", neckBasePivot, new Vector3(0.14f, 0.14f, 0.2f), Vector3.zero, white);
+
+        Transform neck1Pivot = new GameObject("Neck1Pivot").transform;
+        neck1Pivot.SetParent(neckBasePivot, false);
+        neck1Pivot.localPosition = new Vector3(0f, 0.1f, 0.2f);
+        MakeCube("Neck1", neck1Pivot, new Vector3(0.12f, 0.12f, 0.3f), Vector3.zero, white);
 
         for (int i = 0; i < 4; i++)
         {
             float shade = Mathf.Lerp(0.92f, 0.84f, i / 3f);
             Color c = new Color(shade, shade + 0.01f, shade + 0.02f);
-            MakeCube("NeckFeatherL" + i, neck1, new Vector3(0.008f, 0.06f, 0.06f), new Vector3(-0.05f - i * 0.005f, 0.02f, 0.05f + i * 0.08f), c);
-            MakeCube("NeckFeatherR" + i, neck1, new Vector3(0.008f, 0.06f, 0.06f), new Vector3(0.05f + i * 0.005f, 0.02f, 0.05f + i * 0.08f), c);
+            MakeCube("NeckFeatherL" + i, neck1Pivot, new Vector3(0.012f, 0.07f, 0.07f),
+                new Vector3(-0.06f - i * 0.006f, 0.02f, 0.06f + i * 0.08f), c);
+            MakeCube("NeckFeatherR" + i, neck1Pivot, new Vector3(0.012f, 0.07f, 0.07f),
+                new Vector3(0.06f + i * 0.006f, 0.02f, 0.06f + i * 0.08f), c);
         }
 
-        Transform head = MakeCube("Head", neckTop, new Vector3(0.16f, 0.14f, 0.22f), new Vector3(0f, 0.08f, 0.2f), white);
-        MakeCube("HeadTop", head, new Vector3(0.12f, 0.06f, 0.14f), new Vector3(0f, 0.07f, 0.02f), lightGray);
-        MakeCube("CheekL", head, new Vector3(0.04f, 0.06f, 0.1f), new Vector3(-0.08f, -0.01f, 0.04f), lightGray);
-        MakeCube("CheekR", head, new Vector3(0.04f, 0.06f, 0.1f), new Vector3(0.08f, -0.01f, 0.04f), lightGray);
+        Transform neck2Pivot = new GameObject("Neck2Pivot").transform;
+        neck2Pivot.SetParent(neck1Pivot, false);
+        neck2Pivot.localPosition = new Vector3(0f, 0.08f, 0.22f);
+        MakeCube("Neck2", neck2Pivot, new Vector3(0.1f, 0.1f, 0.35f), Vector3.zero, lightGray);
 
-        Transform crown = MakeCube("Crown", head, new Vector3(0.1f, 0.05f, 0.12f), new Vector3(0f, 0.1f, 0.02f), redCrown);
-        MakeCube("CrownSpot", crown, new Vector3(0.06f, 0.03f, 0.06f), new Vector3(0f, 0.02f, 0.02f), redCrown);
+        Transform neck3Pivot = new GameObject("Neck3Pivot").transform;
+        neck3Pivot.SetParent(neck2Pivot, false);
+        neck3Pivot.localPosition = new Vector3(0f, 0.06f, 0.2f);
+        MakeCube("Neck3", neck3Pivot, new Vector3(0.09f, 0.09f, 0.3f), Vector3.zero, white);
 
-        MakeCube("EyePatchL", head, new Vector3(0.04f, 0.04f, 0.04f), new Vector3(-0.085f, 0.04f, 0.06f), Color.black);
-        MakeCube("EyePatchR", head, new Vector3(0.04f, 0.04f, 0.04f), new Vector3(0.085f, 0.04f, 0.06f), Color.black);
-        MakeCube("EyeL", head, new Vector3(0.025f, 0.025f, 0.025f), new Vector3(-0.085f, 0.04f, 0.08f), eyeCol);
-        MakeCube("EyeR", head, new Vector3(0.025f, 0.025f, 0.025f), new Vector3(0.085f, 0.04f, 0.08f), eyeCol);
-        MakeCube("EyeHighlightL", head, new Vector3(0.008f, 0.008f, 0.008f), new Vector3(-0.08f, 0.045f, 0.09f), Color.white);
-        MakeCube("EyeHighlightR", head, new Vector3(0.008f, 0.008f, 0.008f), new Vector3(0.08f, 0.045f, 0.09f), Color.white);
+        Transform neckTopPivot = new GameObject("NeckTopPivot").transform;
+        neckTopPivot.SetParent(neck3Pivot, false);
+        neckTopPivot.localPosition = new Vector3(0f, 0.05f, 0.18f);
+        MakeCube("NeckTop", neckTopPivot, new Vector3(0.08f, 0.08f, 0.25f), Vector3.zero, white);
 
-        Transform beak = MakeCube("Beak", head, new Vector3(0.07f, 0.055f, 0.3f), new Vector3(0f, -0.01f, 0.24f), beakCol);
-        MakeCube("BeakTop", beak, new Vector3(0.055f, 0.02f, 0.28f), new Vector3(0f, 0.02f, 0.01f), beakCol);
-        MakeCube("BeakBottom", beak, new Vector3(0.04f, 0.015f, 0.22f), new Vector3(0f, -0.02f, 0.02f), beakCol);
-        MakeCube("BeakTip", beak, new Vector3(0.03f, 0.03f, 0.08f), new Vector3(0f, 0f, 0.15f), beakTip);
-        MakeCube("BeakNostrilL", beak, new Vector3(0.01f, 0.008f, 0.02f), new Vector3(-0.02f, 0.015f, 0.08f), Color.black);
-        MakeCube("BeakNostrilR", beak, new Vector3(0.01f, 0.008f, 0.02f), new Vector3(0.02f, 0.015f, 0.08f), Color.black);
+        Transform head = MakeCube("Head", neckTopPivot, new Vector3(0.2f, 0.18f, 0.26f),
+            new Vector3(0f, 0.08f, 0.2f), white);
+        MakeCube("HeadTop", head, new Vector3(0.15f, 0.07f, 0.17f),
+            new Vector3(0f, 0.08f, 0.02f), lightGray);
+        MakeCube("CheekL", head, new Vector3(0.05f, 0.07f, 0.12f),
+            new Vector3(-0.1f, -0.01f, 0.04f), lightGray);
+        MakeCube("CheekR", head, new Vector3(0.05f, 0.07f, 0.12f),
+            new Vector3(0.1f, -0.01f, 0.04f), lightGray);
+
+        Transform crown = MakeCube("Crown", head, new Vector3(0.12f, 0.06f, 0.14f),
+            new Vector3(0f, 0.12f, 0.02f), redCrown);
+        MakeCube("CrownSpot", crown, new Vector3(0.07f, 0.04f, 0.07f),
+            new Vector3(0f, 0.03f, 0.02f), redCrown);
+
+        MakeCube("EyePatchL", head, new Vector3(0.05f, 0.05f, 0.05f),
+            new Vector3(-0.1f, 0.05f, 0.07f), Color.black);
+        MakeCube("EyePatchR", head, new Vector3(0.05f, 0.05f, 0.05f),
+            new Vector3(0.1f, 0.05f, 0.07f), Color.black);
+        MakeCube("EyeL", head, new Vector3(0.03f, 0.03f, 0.03f),
+            new Vector3(-0.1f, 0.05f, 0.09f), eyeCol);
+        MakeCube("EyeR", head, new Vector3(0.03f, 0.03f, 0.03f),
+            new Vector3(0.1f, 0.05f, 0.09f), eyeCol);
+        MakeCube("EyeHighlightL", head, new Vector3(0.01f, 0.01f, 0.01f),
+            new Vector3(-0.095f, 0.055f, 0.1f), Color.white);
+        MakeCube("EyeHighlightR", head, new Vector3(0.01f, 0.01f, 0.01f),
+            new Vector3(0.095f, 0.055f, 0.1f), Color.white);
+
+        Transform beak = MakeCube("Beak", head, new Vector3(0.09f, 0.07f, 0.35f),
+            new Vector3(0f, -0.01f, 0.28f), beakCol);
+        MakeCube("BeakTop", beak, new Vector3(0.07f, 0.025f, 0.32f),
+            new Vector3(0f, 0.02f, 0.01f), beakCol);
+        MakeCube("BeakBottom", beak, new Vector3(0.05f, 0.02f, 0.26f),
+            new Vector3(0f, -0.02f, 0.02f), beakCol);
+        MakeCube("BeakTip", beak, new Vector3(0.04f, 0.04f, 0.1f),
+            new Vector3(0f, 0f, 0.18f), beakTip);
+        MakeCube("BeakNostrilL", beak, new Vector3(0.012f, 0.01f, 0.025f),
+            new Vector3(-0.025f, 0.02f, 0.1f), Color.black);
+        MakeCube("BeakNostrilR", beak, new Vector3(0.012f, 0.01f, 0.025f),
+            new Vector3(0.025f, 0.02f, 0.1f), Color.black);
 
         _cagePivot = new GameObject("CagePivot").transform;
         _cagePivot.SetParent(beak, false);
-        _cagePivot.localPosition = new Vector3(0f, -0.18f, 0.1f);
+        _cagePivot.localPosition = new Vector3(0f, -0.2f, 0.12f);
     }
 
     private void BuildTailFeathers(Color white, Color lightGray, Color midGray, Color darkGray, Color darkTip)
     {
-        Transform tailBase = MakeCube("TailBase", _body, new Vector3(0.3f, 0.1f, 0.2f), new Vector3(0f, 0.06f, -0.7f), white);
+        Transform tailBasePivot = new GameObject("TailBasePivot").transform;
+        tailBasePivot.SetParent(_body, false);
+        tailBasePivot.localPosition = new Vector3(0f, 0.06f, -0.7f);
+        MakeCube("TailBase", tailBasePivot, new Vector3(0.3f, 0.1f, 0.2f), Vector3.zero, white);
 
-        MakeCube("TailFan0", tailBase, new Vector3(0.08f, 0.015f, 0.6f), new Vector3(0f, 0.04f, -0.35f), lightGray);
-        MakeCube("TailFanL1", tailBase, new Vector3(0.06f, 0.012f, 0.55f), new Vector3(-0.08f, 0.03f, -0.33f), midGray);
-        MakeCube("TailFanR1", tailBase, new Vector3(0.06f, 0.012f, 0.55f), new Vector3(0.08f, 0.03f, -0.33f), midGray);
-        MakeCube("TailFanL2", tailBase, new Vector3(0.05f, 0.01f, 0.5f), new Vector3(-0.14f, 0.02f, -0.3f), darkGray);
-        MakeCube("TailFanR2", tailBase, new Vector3(0.05f, 0.01f, 0.5f), new Vector3(0.14f, 0.02f, -0.3f), darkGray);
-        MakeCube("TailFanL3", tailBase, new Vector3(0.04f, 0.008f, 0.45f), new Vector3(-0.18f, 0.01f, -0.28f), darkTip);
-        MakeCube("TailFanR3", tailBase, new Vector3(0.04f, 0.008f, 0.45f), new Vector3(0.18f, 0.01f, -0.28f), darkTip);
+        MakeCube("TailFan0", tailBasePivot, new Vector3(0.1f, 0.02f, 0.65f),
+            new Vector3(0f, 0.04f, -0.35f), lightGray);
+        MakeCube("TailFanL1", tailBasePivot, new Vector3(0.08f, 0.016f, 0.6f),
+            new Vector3(-0.1f, 0.03f, -0.33f), midGray);
+        MakeCube("TailFanR1", tailBasePivot, new Vector3(0.08f, 0.016f, 0.6f),
+            new Vector3(0.1f, 0.03f, -0.33f), midGray);
+        MakeCube("TailFanL2", tailBasePivot, new Vector3(0.06f, 0.012f, 0.55f),
+            new Vector3(-0.17f, 0.02f, -0.3f), darkGray);
+        MakeCube("TailFanR2", tailBasePivot, new Vector3(0.06f, 0.012f, 0.55f),
+            new Vector3(0.17f, 0.02f, -0.3f), darkGray);
+        MakeCube("TailFanL3", tailBasePivot, new Vector3(0.05f, 0.01f, 0.5f),
+            new Vector3(-0.22f, 0.01f, -0.28f), darkTip);
+        MakeCube("TailFanR3", tailBasePivot, new Vector3(0.05f, 0.01f, 0.5f),
+            new Vector3(0.22f, 0.01f, -0.28f), darkTip);
 
-        MakeCube("TailBustleL", tailBase, new Vector3(0.1f, 0.08f, 0.12f), new Vector3(-0.12f, 0.08f, -0.05f), white);
-        MakeCube("TailBustleR", tailBase, new Vector3(0.1f, 0.08f, 0.12f), new Vector3(0.12f, 0.08f, -0.05f), white);
-        MakeCube("TailBustleC", tailBase, new Vector3(0.12f, 0.1f, 0.1f), new Vector3(0f, 0.1f, -0.04f), lightGray);
+        MakeCube("TailBustleL", tailBasePivot, new Vector3(0.12f, 0.1f, 0.14f),
+            new Vector3(-0.14f, 0.09f, -0.05f), white);
+        MakeCube("TailBustleR", tailBasePivot, new Vector3(0.12f, 0.1f, 0.14f),
+            new Vector3(0.14f, 0.09f, -0.05f), white);
+        MakeCube("TailBustleC", tailBasePivot, new Vector3(0.14f, 0.12f, 0.12f),
+            new Vector3(0f, 0.11f, -0.04f), lightGray);
     }
 
     private void BuildLegs(Color legCol)
@@ -199,27 +299,55 @@ public class FlyingCrane : MonoBehaviour
         Color jointCol = new Color(0.5f, 0.5f, 0.45f);
         Color clawCol = new Color(0.35f, 0.32f, 0.28f);
 
-        Transform thighL = MakeCube("ThighL", _body, new Vector3(0.06f, 0.35f, 0.06f), new Vector3(-0.1f, -0.28f, -0.15f), legCol);
-        Transform shinL = MakeCube("ShinL", thighL, new Vector3(0.04f, 0.4f, 0.04f), new Vector3(0f, -0.3f, 0.02f), legCol);
-        MakeCube("KneeL", thighL, new Vector3(0.055f, 0.055f, 0.055f), new Vector3(0f, -0.02f, 0f), jointCol);
-        Transform ankleL = MakeCube("AnkleL", shinL, new Vector3(0.045f, 0.05f, 0.045f), new Vector3(0f, -0.22f, 0f), jointCol);
-        MakeCube("TarsusL", ankleL, new Vector3(0.03f, 0.2f, 0.03f), new Vector3(0f, -0.12f, 0.02f), legCol);
-        Transform footL = MakeCube("FootL", ankleL, new Vector3(0.08f, 0.015f, 0.12f), new Vector3(0f, -0.24f, 0.04f), clawCol);
-        MakeCube("ToeL1", footL, new Vector3(0.02f, 0.01f, 0.06f), new Vector3(-0.025f, 0f, 0.06f), clawCol);
-        MakeCube("ToeL2", footL, new Vector3(0.02f, 0.01f, 0.06f), new Vector3(0f, 0f, 0.06f), clawCol);
-        MakeCube("ToeL3", footL, new Vector3(0.02f, 0.01f, 0.06f), new Vector3(0.025f, 0f, 0.06f), clawCol);
-        MakeCube("ToeBackL", footL, new Vector3(0.015f, 0.01f, 0.04f), new Vector3(0f, 0f, -0.04f), clawCol);
+        // ── Left leg ──
+        Transform thighPivotL = new GameObject("ThighPivotL").transform;
+        thighPivotL.SetParent(_body, false);
+        thighPivotL.localPosition = new Vector3(-0.1f, -0.28f, -0.15f);
+        MakeCube("ThighVisualL", thighPivotL, new Vector3(0.08f, 0.35f, 0.08f), Vector3.zero, legCol);
+        MakeCube("KneeL", thighPivotL, new Vector3(0.07f, 0.07f, 0.07f), new Vector3(0f, -0.2f, 0f), jointCol);
 
-        Transform thighR = MakeCube("ThighR", _body, new Vector3(0.06f, 0.35f, 0.06f), new Vector3(0.1f, -0.28f, -0.15f), legCol);
-        Transform shinR = MakeCube("ShinR", thighR, new Vector3(0.04f, 0.4f, 0.04f), new Vector3(0f, -0.3f, 0.02f), legCol);
-        MakeCube("KneeR", thighR, new Vector3(0.055f, 0.055f, 0.055f), new Vector3(0f, -0.02f, 0f), jointCol);
-        Transform ankleR = MakeCube("AnkleR", shinR, new Vector3(0.045f, 0.05f, 0.045f), new Vector3(0f, -0.22f, 0f), jointCol);
-        MakeCube("TarsusR", ankleR, new Vector3(0.03f, 0.2f, 0.03f), new Vector3(0f, -0.12f, 0.02f), legCol);
-        Transform footR = MakeCube("FootR", ankleR, new Vector3(0.08f, 0.015f, 0.12f), new Vector3(0f, -0.24f, 0.04f), clawCol);
-        MakeCube("ToeR1", footR, new Vector3(0.02f, 0.01f, 0.06f), new Vector3(-0.025f, 0f, 0.06f), clawCol);
-        MakeCube("ToeR2", footR, new Vector3(0.02f, 0.01f, 0.06f), new Vector3(0f, 0f, 0.06f), clawCol);
-        MakeCube("ToeR3", footR, new Vector3(0.02f, 0.01f, 0.06f), new Vector3(0.025f, 0f, 0.06f), clawCol);
-        MakeCube("ToeBackR", footR, new Vector3(0.015f, 0.01f, 0.04f), new Vector3(0f, 0f, -0.04f), clawCol);
+        Transform shinPivotL = new GameObject("ShinPivotL").transform;
+        shinPivotL.SetParent(thighPivotL, false);
+        shinPivotL.localPosition = new Vector3(0f, -0.22f, 0.02f);
+        MakeCube("ShinVisualL", shinPivotL, new Vector3(0.06f, 0.4f, 0.06f), Vector3.zero, legCol);
+        MakeCube("AnkleVisualL", shinPivotL, new Vector3(0.06f, 0.06f, 0.06f), new Vector3(0f, -0.24f, 0f), jointCol);
+        MakeCube("TarsusVisualL", shinPivotL, new Vector3(0.04f, 0.2f, 0.04f), new Vector3(0f, -0.38f, 0.02f), legCol);
+
+        Transform footL = MakeCube("FootVisualL", shinPivotL, new Vector3(0.1f, 0.02f, 0.15f),
+            new Vector3(0f, -0.5f, 0.04f), clawCol);
+        MakeCube("ToeL1", footL, new Vector3(0.025f, 0.012f, 0.07f),
+            new Vector3(-0.03f, 0f, 0.07f), clawCol);
+        MakeCube("ToeL2", footL, new Vector3(0.025f, 0.012f, 0.07f),
+            new Vector3(0f, 0f, 0.07f), clawCol);
+        MakeCube("ToeL3", footL, new Vector3(0.025f, 0.012f, 0.07f),
+            new Vector3(0.03f, 0f, 0.07f), clawCol);
+        MakeCube("ToeBackL", footL, new Vector3(0.02f, 0.012f, 0.05f),
+            new Vector3(0f, 0f, -0.05f), clawCol);
+
+        // ── Right leg (mirror) ──
+        Transform thighPivotR = new GameObject("ThighPivotR").transform;
+        thighPivotR.SetParent(_body, false);
+        thighPivotR.localPosition = new Vector3(0.1f, -0.28f, -0.15f);
+        MakeCube("ThighVisualR", thighPivotR, new Vector3(0.08f, 0.35f, 0.08f), Vector3.zero, legCol);
+        MakeCube("KneeR", thighPivotR, new Vector3(0.07f, 0.07f, 0.07f), new Vector3(0f, -0.2f, 0f), jointCol);
+
+        Transform shinPivotR = new GameObject("ShinPivotR").transform;
+        shinPivotR.SetParent(thighPivotR, false);
+        shinPivotR.localPosition = new Vector3(0f, -0.22f, 0.02f);
+        MakeCube("ShinVisualR", shinPivotR, new Vector3(0.06f, 0.4f, 0.06f), Vector3.zero, legCol);
+        MakeCube("AnkleVisualR", shinPivotR, new Vector3(0.06f, 0.06f, 0.06f), new Vector3(0f, -0.24f, 0f), jointCol);
+        MakeCube("TarsusVisualR", shinPivotR, new Vector3(0.04f, 0.2f, 0.04f), new Vector3(0f, -0.38f, 0.02f), legCol);
+
+        Transform footR = MakeCube("FootVisualR", shinPivotR, new Vector3(0.1f, 0.02f, 0.15f),
+            new Vector3(0f, -0.5f, 0.04f), clawCol);
+        MakeCube("ToeR1", footR, new Vector3(0.025f, 0.012f, 0.07f),
+            new Vector3(-0.03f, 0f, 0.07f), clawCol);
+        MakeCube("ToeR2", footR, new Vector3(0.025f, 0.012f, 0.07f),
+            new Vector3(0f, 0f, 0.07f), clawCol);
+        MakeCube("ToeR3", footR, new Vector3(0.025f, 0.012f, 0.07f),
+            new Vector3(0.03f, 0f, 0.07f), clawCol);
+        MakeCube("ToeBackR", footR, new Vector3(0.02f, 0.012f, 0.05f),
+            new Vector3(0f, 0f, -0.05f), clawCol);
     }
 
     private void BuildCage()
@@ -252,6 +380,8 @@ public class FlyingCrane : MonoBehaviour
 
     private void Update()
     {
+        if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
+
         if (_phase == 0)
             FlyTowardDrop();
         else if (_phase == 1)
@@ -267,18 +397,18 @@ public class FlyingCrane : MonoBehaviour
         float flap = Mathf.Sin(Time.time * 4f) * 22f;
         float spread = Mathf.Sin(Time.time * 4f + 0.3f) * 3f;
 
-        _wingL.localRotation = Quaternion.Euler(0f, spread, flap);
-        _wingR.localRotation = Quaternion.Euler(0f, -spread, -flap);
+        _wingL.localRotation = _wingLBaseRot * Quaternion.Euler(0f, spread, flap);
+        _wingR.localRotation = _wingRBaseRot * Quaternion.Euler(0f, -spread, -flap);
 
         if (_wingFarL != null)
         {
             float outerFlap = Mathf.Sin(Time.time * 4f - 0.4f) * 12f;
-            _wingFarL.localRotation = Quaternion.Euler(0f, 0f, outerFlap);
+            _wingFarL.localRotation = _wingFarLBaseRot * Quaternion.Euler(0f, 0f, outerFlap);
         }
         if (_wingFarR != null)
         {
             float outerFlap = Mathf.Sin(Time.time * 4f - 0.4f) * -12f;
-            _wingFarR.localRotation = Quaternion.Euler(0f, 0f, outerFlap);
+            _wingFarR.localRotation = _wingFarRBaseRot * Quaternion.Euler(0f, 0f, outerFlap);
         }
     }
 

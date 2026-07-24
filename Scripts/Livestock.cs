@@ -29,6 +29,9 @@ public class Livestock : MonoBehaviour
     private Renderer[] _renderers;
     private Color[] _originalColors;
     private Coroutine _flashCoroutine;
+    private Transform[] _upperLegs;
+    private Transform[] _lowerLegs;
+    private float _walkCycle;
 
     private void Awake()
     {
@@ -80,6 +83,7 @@ public class Livestock : MonoBehaviour
     private void Update()
     {
         if (!_spawned) return;
+        if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
 
         if (_flashTimer > 0f)
             _flashTimer -= Time.deltaTime;
@@ -118,10 +122,12 @@ public class Livestock : MonoBehaviour
             Vector3 dir = toTarget.normalized;
             transform.position += dir * _moveSpeed * Time.deltaTime;
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 3f);
+            AnimateLegs(true);
         }
         else
         {
             PickWanderTarget();
+            AnimateLegs(false);
         }
 
         if (_behavior == BehaviorMode.Flee)
@@ -153,6 +159,7 @@ public class Livestock : MonoBehaviour
         transform.position += awayDir * _moveSpeed * 2f * Time.deltaTime;
         if (awayDir.sqrMagnitude > 0.01f)
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(awayDir), Time.deltaTime * 5f);
+        AnimateLegs(true);
     }
 
     private void CheckFightTrigger()
@@ -180,6 +187,7 @@ public class Livestock : MonoBehaviour
         transform.position += dir * _moveSpeed * 3f * Time.deltaTime;
         if (dir.sqrMagnitude > 0.01f)
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 5f);
+        AnimateLegs(true);
 
         if (dist < 1.5f)
         {
@@ -194,6 +202,36 @@ public class Livestock : MonoBehaviour
     private void ResetFight()
     {
         _isFighting = false;
+    }
+
+    private void AnimateLegs(bool moving)
+    {
+        if (_upperLegs == null || _upperLegs.Length == 0) return;
+
+        int count = _upperLegs.Length;
+        if (moving)
+        {
+            _walkCycle += Time.deltaTime * _moveSpeed * 5f;
+            for (int i = 0; i < count; i++)
+            {
+                float phase = (i % 2 == 0) ? _walkCycle : _walkCycle + Mathf.PI;
+                float swing = Mathf.Sin(phase) * 20f;
+                if (_upperLegs[i] != null)
+                    _upperLegs[i].localRotation = Quaternion.Euler(swing, 0f, 0f);
+                if (i < _lowerLegs.Length && _lowerLegs[i] != null)
+                    _lowerLegs[i].localRotation = Quaternion.Euler(-swing * 0.6f, 0f, 0f);
+            }
+        }
+        else
+        {
+            for (int i = 0; i < count; i++)
+            {
+                if (_upperLegs[i] != null)
+                    _upperLegs[i].localRotation = Quaternion.identity;
+                if (i < _lowerLegs.Length && _lowerLegs[i] != null)
+                    _lowerLegs[i].localRotation = Quaternion.identity;
+            }
+        }
     }
 
     private void PickWanderTarget()
@@ -219,6 +257,7 @@ public class Livestock : MonoBehaviour
         _isFighting = false;
         _isFleeing = false;
         transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+        AnimateLegs(false);
     }
 
     private void Recover()
@@ -226,6 +265,7 @@ public class Livestock : MonoBehaviour
         IsKnockedOut = false;
         Health = MaxHealth;
         transform.localRotation = Quaternion.identity;
+        AnimateLegs(false);
     }
 
     public bool TryCapture()
@@ -299,6 +339,23 @@ public class Livestock : MonoBehaviour
         _modelRoot = new GameObject("Model");
         _modelRoot.transform.SetParent(transform, false);
         BuildModelInto(_modelRoot.transform, Type);
+        CaptureLegs();
+    }
+
+    private void CaptureLegs()
+    {
+        var upper = new System.Collections.Generic.List<Transform>();
+        var lower = new System.Collections.Generic.List<Transform>();
+        foreach (Transform child in _modelRoot.transform)
+        {
+            string n = child.name;
+            if (n.StartsWith("Leg") && n.Contains("Upper"))
+                upper.Add(child);
+            else if (n.StartsWith("Leg") && n.Contains("Lower"))
+                lower.Add(child);
+        }
+        _upperLegs = upper.ToArray();
+        _lowerLegs = lower.ToArray();
     }
 
     public static void BuildModelInto(Transform parent, AnimalType type)
