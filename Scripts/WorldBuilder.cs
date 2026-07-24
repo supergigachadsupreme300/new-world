@@ -170,7 +170,17 @@ public class WorldBuilder : MonoBehaviour
                 new BuildingPartDefinition { PartName = "Ridge",      LocalPosition = new Vector3(0f, 9.15f, 0f),    LocalScale = new Vector3(0.7f, 0.35f, 18f),  MaterialType = "stone" }
             },
             woodColor: new Color(0.522f, 0.337f, 0.18f),
-            stoneColor: new Color(0.439f, 0.4f, 0.361f))
+            stoneColor: new Color(0.439f, 0.4f, 0.361f)),
+        new BuildingDefinition("structure_house", new Vector3(16f, 6f, 10f), new Color(0.6f, 0.4f, 0.2f), 0, 0,
+            subBuildings: new SubBuildingDefinition[]
+            {
+                new SubBuildingDefinition { PartName = "Foundation", Offset = new Vector3(0f, -2.5f, 0f), Size = new Vector3(16f, 0.5f, 10f), WoodCost = 0, StoneCost = 8, Color = new Color(0.4f, 0.4f, 0.4f) },
+                new SubBuildingDefinition { PartName = "Floor", Offset = new Vector3(0f, -2.0f, 0f), Size = new Vector3(16f, 0.3f, 10f), WoodCost = 6, StoneCost = 0, Color = new Color(0.71f, 0.53f, 0.27f) },
+                new SubBuildingDefinition { PartName = "Walls", Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(16f, 5f, 10f), WoodCost = 12, StoneCost = 0, Color = new Color(0.63f, 0.39f, 0.18f) },
+                new SubBuildingDefinition { PartName = "Roof", Offset = new Vector3(0f, 2.7f, 0f), Size = new Vector3(17f, 0.4f, 11f), WoodCost = 0, StoneCost = 8, Color = new Color(0.5f, 0.5f, 0.5f) },
+                new SubBuildingDefinition { PartName = "Door", Offset = new Vector3(0f, -0.5f, 5.15f), Size = new Vector3(3f, 4f, 0.3f), WoodCost = 3, StoneCost = 0, Color = new Color(0.55f, 0.35f, 0.16f) },
+                new SubBuildingDefinition { PartName = "Interior", Offset = new Vector3(0f, -0.5f, 0f), Size = new Vector3(12f, 3f, 8f), WoodCost = 6, StoneCost = 0, Color = new Color(0.5f, 0.35f, 0.2f) }
+            })
     };
 
     private int _currentBuildingIndex;
@@ -648,7 +658,7 @@ public class WorldBuilder : MonoBehaviour
         demoRoot.transform.SetParent(_worldRoot.transform);
 
         string[] cropTypes = { "wheat", "corn", "potato", "carrot", "tomato", "strawberry", "pumpkin", "onion", "sugarcane", "rice" };
-        string[] cropLabels = { "Lúa", "Ngô", "Khoai tây", "Cà rốt", "Cà chua", "Dâu tây", "Bí ngô", "Hành tây", "Mía", "Lúa nước" };
+        string[] cropLabels = { "Wheat", "Corn", "Potato", "Carrot", "Tomato", "Strawberry", "Pumpkin", "Onion", "Sugarcane", "Rice" };
         float startX = -12f;
         float startZ = 6f;
         float xStep = 3.5f;
@@ -1607,7 +1617,7 @@ public class WorldBuilder : MonoBehaviour
         var definition = _availableBuildings[_currentBuildingIndex];
         var size = definition.Size;
         Vector3 snapped = SnapToGrid(position);
-        if (!IsFloorType(definition.Name) && !HasFloorAt(snapped))
+        if (IsWallOrStair(definition.Name) && !HasFloorAt(snapped))
         {
             Debug.Log("Must place on a floor first!");
             return false;
@@ -1615,9 +1625,33 @@ public class WorldBuilder : MonoBehaviour
         if (!CanPlaceBuilding(snapped, size, _currentRotation))
             return false;
 
+        if (definition.SubBuildings != null && definition.SubBuildings.Length > 0)
+        {
+            string structureId = System.Guid.NewGuid().ToString();
+            foreach (var sub in definition.SubBuildings)
+            {
+                Vector3 rotatedOffset = Quaternion.Euler(0, _currentRotation, 0) * sub.Offset;
+                Vector3 subPos = snapped + rotatedOffset;
+                if (!CanPlaceBuilding(subPos, sub.Size, _currentRotation))
+                    continue;
+
+                var subBp = CreateSingleBlueprint(sub.PartName, subPos, sub.Size, sub.Color, sub.WoodCost, sub.StoneCost);
+                subBp.StructureId = structureId;
+                _blueprints.Add(subBp);
+            }
+            return true;
+        }
+
+        var bpState = CreateSingleBlueprint(definition.Name, snapped, size, definition.Color, definition.WoodCost, definition.StoneCost);
+        _blueprints.Add(bpState);
+        return true;
+    }
+
+    private BlueprintState CreateSingleBlueprint(string typeName, Vector3 position, Vector3 size, Color color, int woodCost, int stoneCost)
+    {
         var blueprint = GameObject.CreatePrimitive(PrimitiveType.Cube);
         blueprint.name = "Blueprint";
-        blueprint.transform.position = snapped + Vector3.up * (size.y * 0.5f);
+        blueprint.transform.position = position + Vector3.up * (size.y * 0.5f);
         blueprint.transform.rotation = Quaternion.Euler(0f, _currentRotation, 0f);
         blueprint.transform.localScale = size;
         var renderer = blueprint.GetComponent<MeshRenderer>();
@@ -1638,7 +1672,7 @@ public class WorldBuilder : MonoBehaviour
         {
             mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
         }
-        mat.color = new Color(0.2f, 0.5f, 1f, 0.15f);
+        mat.color = new Color(color.r, color.g, color.b, 0.15f);
         renderer.material = mat;
         var collider = blueprint.GetComponent<BoxCollider>();
         collider.isTrigger = true;
@@ -1647,22 +1681,24 @@ public class WorldBuilder : MonoBehaviour
         var bpState = new BlueprintState
         {
             Entity = blueprint,
-            Type = definition.Name,
-            Position = snapped,
+            Type = typeName,
+            Position = position,
             Rotation = _currentRotation,
             WoodDeposited = 0,
-            StoneDeposited = 0
+            StoneDeposited = 0,
+            WoodCost = woodCost,
+            StoneCost = stoneCost
         };
-        CreateBlueprintLabel(blueprint, bpState, definition);
+        CreateBlueprintLabel(blueprint, bpState, woodCost, stoneCost, size.y);
         blueprint.AddComponent<BlueprintAutoDeposit>();
-        _blueprints.Add(bpState);
-        return true;
+        return bpState;
     }
 
     public bool CanPlaceBuilding(Vector3 position, Vector3 size, int rotation)
     {
         var half = new Vector3(size.x * 0.5f, size.y * 0.5f, size.z * 0.5f);
-        var bounds = new Bounds(position + Vector3.up * half.y, new Vector3(size.x, size.y, size.z));
+        float e = 0.05f;
+        var bounds = new Bounds(position + Vector3.up * half.y, new Vector3(size.x - e * 2, size.y - e * 2, size.z - e * 2));
 
         foreach (var building in _buildings)
         {
@@ -1720,6 +1756,11 @@ public class WorldBuilder : MonoBehaviour
         float woodCost, stoneCost;
         BuildingDefinition def = null;
         if (bp.IsEssential)
+        {
+            woodCost = bp.WoodCost;
+            stoneCost = bp.StoneCost;
+        }
+        else if (!string.IsNullOrEmpty(bp.StructureId))
         {
             woodCost = bp.WoodCost;
             stoneCost = bp.StoneCost;
@@ -1830,6 +1871,10 @@ public class WorldBuilder : MonoBehaviour
         {
             RebuildEssentialBuilding(bp);
         }
+        else if (!string.IsNullOrEmpty(bp.StructureId))
+        {
+            SpawnStructurePart(bp);
+        }
         else
         {
             SpawnBuildingDirect(def.Name, bp.Position, bp.Rotation);
@@ -1843,6 +1888,65 @@ public class WorldBuilder : MonoBehaviour
         if (bp.Entity != null)
             Destroy(bp.Entity);
         _blueprints.Remove(bp);
+    }
+
+    private void SpawnStructurePart(BlueprintState bp)
+    {
+        var root = new GameObject("StructurePart_" + bp.Type);
+        root.transform.position = bp.Position;
+        root.transform.rotation = Quaternion.Euler(0f, bp.Rotation, 0f);
+        root.transform.SetParent(_worldRoot.transform);
+
+        Color woodColor = new Color(0.63f, 0.39f, 0.18f);
+        Color stoneColor = new Color(0.41f, 0.41f, 0.41f);
+
+        switch (bp.Type)
+        {
+            case "Foundation":
+                CreatePartCube(root.transform, Vector3.up * 0.25f, new Vector3(16f, 0.5f, 10f), stoneColor);
+                break;
+            case "Floor":
+                CreatePartCube(root.transform, Vector3.up * 0.15f, new Vector3(16f, 0.3f, 10f), woodColor);
+                break;
+            case "Walls":
+                CreatePartCube(root.transform, new Vector3(0, 2.5f, 4.85f), new Vector3(16f, 5f, 0.3f), woodColor);
+                CreatePartCube(root.transform, new Vector3(0, 2.5f, -4.85f), new Vector3(16f, 5f, 0.3f), woodColor);
+                CreatePartCube(root.transform, new Vector3(-7.85f, 2.5f, 0), new Vector3(0.3f, 5f, 10f), woodColor);
+                CreatePartCube(root.transform, new Vector3(7.85f, 2.5f, 0), new Vector3(0.3f, 5f, 10f), woodColor);
+                break;
+            case "Roof":
+                CreatePartCube(root.transform, new Vector3(0, 5.2f, 0), new Vector3(17f, 0.4f, 11f), stoneColor);
+                break;
+            case "Door":
+                CreatePartCube(root.transform, new Vector3(0, 2f, 5.15f), new Vector3(3f, 4f, 0.3f), woodColor);
+                break;
+            case "Interior":
+                CreatePartCube(root.transform, new Vector3(-4f, 1.5f, -3f), new Vector3(3f, 1.5f, 2f), woodColor);
+                CreatePartCube(root.transform, new Vector3(4f, 1.5f, -3f), new Vector3(3f, 1.5f, 2f), woodColor);
+                CreatePartCube(root.transform, new Vector3(0, 2f, -4f), new Vector3(6f, 2f, 0.5f), woodColor);
+                break;
+        }
+
+        _buildings.Add(new BuildingState
+        {
+            Entity = root,
+            Type = "structure_part_" + bp.Type,
+            Position = bp.Position,
+            Rotation = bp.Rotation,
+            CurrentHealth = 100,
+            MaxHealth = 100
+        });
+    }
+
+    private void CreatePartCube(Transform parent, Vector3 localPos, Vector3 scale, Color color)
+    {
+        var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        cube.transform.SetParent(parent);
+        cube.transform.localPosition = localPos;
+        cube.transform.localScale = scale;
+        cube.transform.localRotation = Quaternion.identity;
+        cube.GetComponent<MeshRenderer>().material.color = color;
+        cube.AddComponent<BoxCollider>();
     }
 
     private void RebuildEssentialBuilding(BlueprintState bp)
@@ -2268,13 +2372,18 @@ public class WorldBuilder : MonoBehaviour
 
     private void CreateBlueprintLabel(GameObject blueprint, BlueprintState bp, BuildingDefinition def)
     {
+        CreateBlueprintLabel(blueprint, bp, def.WoodCost, def.StoneCost, def.Size.y);
+    }
+
+    private void CreateBlueprintLabel(GameObject blueprint, BlueprintState bp, float woodCost, float stoneCost, float sizeY = 3f)
+    {
         var labelObj = new GameObject("BlueprintLabel");
         labelObj.transform.SetParent(blueprint.transform, false);
         labelObj.transform.localPosition = Vector3.zero;
 
         var tmp = labelObj.AddComponent<TextMeshPro>();
-        tmp.text = GetBlueprintRemainingText(bp, def.WoodCost, def.StoneCost);
-        tmp.fontSize = Mathf.Clamp(def.Size.y * 0.18f, 0.5f, 1f);
+        tmp.text = GetBlueprintRemainingText(bp, woodCost, stoneCost);
+        tmp.fontSize = Mathf.Clamp(sizeY * 0.18f, 0.5f, 1f);
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.color = Color.white;
         tmp.outlineWidth = 0.3f;
@@ -2636,7 +2745,12 @@ GameObject treeRoot;
         return typeName == "wood_floor" || typeName == "stone_floor";
     }
 
-    private bool HasFloorAt(Vector3 position)
+    public bool IsWallOrStair(string typeName)
+    {
+        return typeName == "wood_wall" || typeName == "stone_wall" || typeName == "stair";
+    }
+
+    public bool HasFloorAt(Vector3 position)
     {
         int px = Mathf.RoundToInt(position.x);
         int pz = Mathf.RoundToInt(position.z);
@@ -2977,7 +3091,7 @@ GameObject treeRoot;
 
         var definition = _availableBuildings[_currentBuildingIndex];
         Vector3 snapped = SnapToGrid(position);
-        bool floorOk = IsFloorType(definition.Name) || HasFloorAt(snapped);
+        bool floorOk = !IsWallOrStair(definition.Name) || HasFloorAt(snapped);
 
         if (!isValid || !floorOk)
         {
@@ -3740,6 +3854,8 @@ GameObject treeRoot;
         public bool IsEssential;
         public float WoodCost;
         public float StoneCost;
+        public string StructureId;
+        public bool IsStructureParent;
     }
 
     public (string material, float amount) GetResourceAmount(GameObject obj)
@@ -3774,6 +3890,18 @@ GameObject treeRoot;
         public string MaterialType;
     }
 
+    [System.Serializable]
+    public class SubBuildingDefinition
+    {
+        public string PartName;
+        public Vector3 Offset;
+        public Vector3 Size;
+        public int WoodCost;
+        public int StoneCost;
+        public Color Color;
+        public BuildingPartDefinition[] Parts;
+    }
+
     public class BuildingDefinition
     {
         public string Name;
@@ -3784,9 +3912,11 @@ GameObject treeRoot;
         public BuildingPartDefinition[] Parts;
         public Color WoodColor;
         public Color StoneColor;
+        public SubBuildingDefinition[] SubBuildings;
 
         public BuildingDefinition(string name, Vector3 size, Color color, int woodCost, int stoneCost,
-            BuildingPartDefinition[] parts = null, Color? woodColor = null, Color? stoneColor = null)
+            BuildingPartDefinition[] parts = null, Color? woodColor = null, Color? stoneColor = null,
+            SubBuildingDefinition[] subBuildings = null)
         {
             Name = name;
             Size = size;
@@ -3796,6 +3926,7 @@ GameObject treeRoot;
             Parts = parts;
             WoodColor = woodColor ?? new Color(0.63f, 0.39f, 0.18f);
             StoneColor = stoneColor ?? new Color(0.41f, 0.41f, 0.41f);
+            SubBuildings = subBuildings;
         }
     }
 }

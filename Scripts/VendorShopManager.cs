@@ -45,46 +45,46 @@ public class VendorShopManager : MonoBehaviour
 
     private List<ShopItem> _buyItems = new List<ShopItem>
     {
-        new ShopItem { Type = "axe", Label = "Rìu", Price = 25 },
-        new ShopItem { Type = "pickaxe", Label = "Cúp", Price = 25 },
-        new ShopItem { Type = "hoe", Label = "Cuốc", Price = 20 },
-        new ShopItem { Type = "mi_hao_hao", Label = "Mì Hảo Hảo", Price = 10 },
-        new ShopItem { Type = "wheat_seed", Label = "Hạt lúa", Price = 3 },
-        new ShopItem { Type = "corn_seed", Label = "Hạt ngô", Price = 4 },
-        new ShopItem { Type = "carrot_seed", Label = "Hạt cà rốt", Price = 3 },
-        new ShopItem { Type = "tomato_seed", Label = "Hạt cà chua", Price = 4 },
-        new ShopItem { Type = "strawberry_seed", Label = "Hạt dâu tây", Price = 5 },
-        new ShopItem { Type = "pumpkin_seed", Label = "Hạt bí ngô", Price = 4 },
-        new ShopItem { Type = "onion_seed", Label = "Hạt hành tây", Price = 3 },
-        new ShopItem { Type = "sugarcane_seed", Label = "Hạt mía", Price = 4 },
-        new ShopItem { Type = "rice_seed", Label = "Hạt lúa nước", Price = 3 },
-        new ShopItem { Type = "fertilizer", Label = "Phân bón", Price = 8 },
-        new ShopItem { Type = "watering_can", Label = "Bình tưới", Price = 6 },
-        new ShopItem { Type = "peashooter_seed", Label = "Hạt peashooter", Price = 10 },
+        new ShopItem { Type = "axe", Label = "Axe", Price = 25 },
+        new ShopItem { Type = "pickaxe", Label = "Pickaxe", Price = 25 },
+        new ShopItem { Type = "hoe", Label = "Hoe", Price = 20 },
+        new ShopItem { Type = "mi_hao_hao", Label = "Instant Noodles", Price = 10 },
+        new ShopItem { Type = "wheat_seed", Label = "Wheat Seed", Price = 3 },
+        new ShopItem { Type = "corn_seed", Label = "Corn Seed", Price = 4 },
+        new ShopItem { Type = "carrot_seed", Label = "Carrot Seed", Price = 3 },
+        new ShopItem { Type = "tomato_seed", Label = "Tomato Seed", Price = 4 },
+        new ShopItem { Type = "strawberry_seed", Label = "Strawberry Seed", Price = 5 },
+        new ShopItem { Type = "pumpkin_seed", Label = "Pumpkin Seed", Price = 4 },
+        new ShopItem { Type = "onion_seed", Label = "Onion Seed", Price = 3 },
+        new ShopItem { Type = "sugarcane_seed", Label = "Sugarcane Seed", Price = 4 },
+        new ShopItem { Type = "rice_seed", Label = "Rice Seed", Price = 3 },
+        new ShopItem { Type = "fertilizer", Label = "Fertilizer", Price = 8 },
+        new ShopItem { Type = "watering_can", Label = "Watering Can", Price = 6 },
+        new ShopItem { Type = "peashooter_seed", Label = "Peashooter Seed", Price = 10 },
     };
 
     private List<ShopItem> _sellItems = new List<ShopItem>
     {
-        new ShopItem { Type = "wheat", Label = "Lúa", Price = 10 },
-        new ShopItem { Type = "damaged_wheat", Label = "Lúa hỏng", Price = 3 },
-        new ShopItem { Type = "corn", Label = "Ngô", Price = 12 },
-        new ShopItem { Type = "damaged_corn", Label = "Ngô hỏng", Price = 4 },
-        new ShopItem { Type = "potato", Label = "Khoai tây", Price = 11 },
-        new ShopItem { Type = "damaged_potato", Label = "Khoai hỏng", Price = 3 },
-        new ShopItem { Type = "carrot", Label = "Cà rốt", Price = 9 },
-        new ShopItem { Type = "damaged_carrot", Label = "Cà rốt hỏng", Price = 2 },
-        new ShopItem { Type = "tomato", Label = "Cà chua", Price = 13 },
-        new ShopItem { Type = "damaged_tomato", Label = "Cà chua hỏng", Price = 3 },
-        new ShopItem { Type = "strawberry", Label = "Dâu tây", Price = 15 },
-        new ShopItem { Type = "damaged_strawberry", Label = "Dâu tây hỏng", Price = 4 },
-        new ShopItem { Type = "pumpkin", Label = "Bí ngô", Price = 14 },
-        new ShopItem { Type = "damaged_pumpkin", Label = "Bí ngô hỏng", Price = 3 },
-        new ShopItem { Type = "onion", Label = "Hành tây", Price = 10 },
-        new ShopItem { Type = "damaged_onion", Label = "Hành tây hỏng", Price = 2 },
-        new ShopItem { Type = "sugarcane", Label = "Mía", Price = 11 },
-        new ShopItem { Type = "damaged_sugarcane", Label = "Mía hỏng", Price = 3 },
-        new ShopItem { Type = "rice", Label = "Lúa nước", Price = 12 },
-        new ShopItem { Type = "damaged_rice", Label = "Lúa nước hỏng", Price = 3 },
+        new ShopItem { Type = "wheat", Label = "Wheat", Price = 10 },
+        new ShopItem { Type = "damaged_wheat", Label = "Damaged Wheat", Price = 3 },
+        new ShopItem { Type = "corn", Label = "Corn", Price = 12 },
+        new ShopItem { Type = "damaged_corn", Label = "Damaged Corn", Price = 4 },
+        new ShopItem { Type = "potato", Label = "Potato", Price = 11 },
+        new ShopItem { Type = "damaged_potato", Label = "Damaged Potato", Price = 3 },
+        new ShopItem { Type = "carrot", Label = "Carrot", Price = 9 },
+        new ShopItem { Type = "damaged_carrot", Label = "Damaged Carrot", Price = 2 },
+        new ShopItem { Type = "tomato", Label = "Tomato", Price = 13 },
+        new ShopItem { Type = "damaged_tomato", Label = "Damaged Tomato", Price = 3 },
+        new ShopItem { Type = "strawberry", Label = "Strawberry", Price = 15 },
+        new ShopItem { Type = "damaged_strawberry", Label = "Damaged Strawberry", Price = 4 },
+        new ShopItem { Type = "pumpkin", Label = "Pumpkin", Price = 14 },
+        new ShopItem { Type = "damaged_pumpkin", Label = "Damaged Pumpkin", Price = 3 },
+        new ShopItem { Type = "onion", Label = "Onion", Price = 10 },
+        new ShopItem { Type = "damaged_onion", Label = "Damaged Onion", Price = 2 },
+        new ShopItem { Type = "sugarcane", Label = "Sugarcane", Price = 11 },
+        new ShopItem { Type = "damaged_sugarcane", Label = "Damaged Sugarcane", Price = 3 },
+        new ShopItem { Type = "rice", Label = "Rice", Price = 12 },
+        new ShopItem { Type = "damaged_rice", Label = "Damaged Rice", Price = 3 },
     };
 
     private List<ShopItem> _currentItems => _activeTab == "buy" ? _buyItems : _sellItems;
@@ -132,7 +132,7 @@ public class VendorShopManager : MonoBehaviour
         img.color = new Color(0.18f, 0.2f, 0.27f, 0.95f);
         img.raycastTarget = false;
 
-        _titleText = MakeText("ShopTitle", _shopPanel.transform, "Cửa hàng lưu động",
+        _titleText = MakeText("ShopTitle", _shopPanel.transform, "Vendor Shop",
             new Vector2(0f, panelH * 0.42f), new Vector2(panelW - padding * 4, fontS * 1.8f),
             (int)(fontS * 1.4f), TextAlignmentOptions.Center);
 
@@ -142,10 +142,10 @@ public class VendorShopManager : MonoBehaviour
 
         float tabY = panelH * 0.3f;
         float tabW = panelW * 0.3f;
-        _tabBuy = MakeButton("TabBuy", _shopPanel.transform, "Mua hàng",
+        _tabBuy = MakeButton("TabBuy", _shopPanel.transform, "Buy",
             new Vector2(-tabW * 0.5f, tabY), new Vector2(tabW, btnH),
             (int)fontS, new Color(0.37f, 0.51f, 0.68f), () => SwitchTab("buy"));
-        _tabSell = MakeButton("TabSell", _shopPanel.transform, "Bán hàng",
+        _tabSell = MakeButton("TabSell", _shopPanel.transform, "Sell",
             new Vector2(tabW * 0.5f, tabY), new Vector2(tabW, btnH),
             (int)fontS, new Color(0.3f, 0.34f, 0.42f), () => SwitchTab("sell"));
 
@@ -195,7 +195,7 @@ public class VendorShopManager : MonoBehaviour
             new Vector2(0f, navY), new Vector2(panelW * 0.4f, btnH),
             (int)fontS, TextAlignmentOptions.Center);
 
-        _sellAllBtn = MakeButton("SellAll", _shopPanel.transform, "Bán tất cả",
+        _sellAllBtn = MakeButton("SellAll", _shopPanel.transform, "Sell All",
             new Vector2(0f, -panelH * 0.44f), new Vector2(panelW * 0.35f, btnH * 0.85f),
             (int)(fontS * 0.85f), new Color(0.75f, 0.38f, 0.41f), SellAll);
 
@@ -301,13 +301,13 @@ public class VendorShopManager : MonoBehaviour
 
                 if (_activeTab == "buy")
                 {
-                    _slots[i].Label.text = $"{item.Label}\n{item.Price} vàng";
+                    _slots[i].Label.text = $"{item.Label}\n{item.Price}g";
                     _slots[i].Button.onClick.AddListener(() => BuyItem(item));
                 }
                 else
                 {
                     int owned = ToolManager.Instance != null ? ToolManager.Instance.CountItem(item.Type) : 0;
-                    _slots[i].Label.text = $"{item.Label}\n{owned} cái · {item.Price}g";
+                    _slots[i].Label.text = $"{item.Label}\n{owned}x · {item.Price}g";
                     _slots[i].Button.onClick.AddListener(() => SellItem(item));
                 }
             }
@@ -320,8 +320,8 @@ public class VendorShopManager : MonoBehaviour
             }
         }
 
-        string tabLabel = _activeTab == "buy" ? "Mua" : "Bán";
-        _pageLabel.text = $"{tabLabel} · Trang {_page}/{total}";
+        string tabLabel = _activeTab == "buy" ? "Buy" : "Sell";
+        _pageLabel.text = $"{tabLabel} · Page {_page}/{total}";
         _prevBtn.interactable = _page > 1;
         _nextBtn.interactable = _page < total;
     }
@@ -333,7 +333,7 @@ public class VendorShopManager : MonoBehaviour
 
         if (player.Money < item.Price)
         {
-            ShowMessage("Không đủ tiền");
+            ShowMessage("Not enough money");
             return;
         }
 
@@ -343,13 +343,13 @@ public class VendorShopManager : MonoBehaviour
         int slot = tm.FindEmptySlot();
         if (slot < 0)
         {
-            ShowMessage("Túi đồ đầy");
+            ShowMessage("Inventory full");
             return;
         }
 
         tm.AddItem(item.Type, 1);
         player.Money -= item.Price;
-        ShowMessage($"Đã mua {item.Label}");
+        ShowMessage($"Bought {item.Label}");
     }
 
     private void SellItem(ShopItem item)
@@ -361,7 +361,7 @@ public class VendorShopManager : MonoBehaviour
         int owned = tm.CountItem(item.Type);
         if (owned <= 0)
         {
-            ShowMessage($"Không có {item.Label} để bán");
+            ShowMessage($"No {item.Label} to sell");
             return;
         }
 
@@ -369,7 +369,7 @@ public class VendorShopManager : MonoBehaviour
         int earned = owned * item.Price;
         player.Money += earned;
         QuestManager.Instance?.AddProgress("money_earned", earned);
-        ShowMessage($"Đã bán {owned} {item.Label} (+{earned} vàng)");
+        ShowMessage($"Sold {owned} {item.Label} (+{earned}g)");
         UpdatePage();
     }
 
@@ -394,12 +394,12 @@ public class VendorShopManager : MonoBehaviour
         {
             player.Money += totalEarned;
             QuestManager.Instance?.AddProgress("money_earned", totalEarned);
-            ShowMessage($"Đã bán tất cả (+{totalEarned} vàng)");
+            ShowMessage($"Sold all (+{totalEarned}g)");
             UpdatePage();
         }
         else
         {
-            ShowMessage("Không có gì để bán");
+            ShowMessage("Nothing to sell");
         }
     }
 

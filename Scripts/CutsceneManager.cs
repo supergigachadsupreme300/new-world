@@ -125,7 +125,7 @@ public class CutsceneManager : MonoBehaviour
         var tmp = _skipButton.AddComponent<TextMeshProUGUI>();
         if (_uiManager != null && _uiManager.defaultTmpFont != null)
             tmp.font = _uiManager.defaultTmpFont;
-        tmp.text = "B\x1ecf qua [ESC]";
+        tmp.text = "Skip [ESC]";
         tmp.fontSize = 24;
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Right;
@@ -781,7 +781,7 @@ public class CutsceneManager : MonoBehaviour
         if (_uiManager == null)
             _uiManager = Object.FindAnyObjectByType<UIManager>();
         if (_uiManager != null)
-            _uiManager.ShowEndScreen("KẾT THÚC ĐAU BUỒN", "\"Skibidi.\ndop dop.\"");
+            _uiManager.ShowEndScreen("SAD ENDING", "\"Skibidi.\ndop dop.\"");
 
         IsActive = false;
         _cutsceneRoutine = null;
@@ -948,7 +948,7 @@ public class CutsceneManager : MonoBehaviour
         if (_uiManager == null)
             _uiManager = Object.FindAnyObjectByType<UIManager>();
         if (_uiManager != null)
-            _uiManager.ShowMessage("Tiếp tục cuộc phiêu lưu!", 2);
+            _uiManager.ShowMessage("Continue the adventure!", 2);
     }
 
     // ═══════════════════════════════════════════════
@@ -1115,8 +1115,8 @@ public class CutsceneManager : MonoBehaviour
         rt.offsetMax = Vector2.zero;
 
         var title = MakeUIText("HappyTitle", "HAPPY ENDING", 48, new Color(1f, 0.863f, 0.314f), new Vector2(0, 80));
-        var sub = MakeUIText("HappySubtitle", "Bạn và Teto đã cùng nhau đến cuối con đường!", 24, Color.white, new Vector2(0, 20));
-        var hint = MakeUIText("HappyHint", "Nhấn Enter để tiếp tục chơi", 18, Color.gray, new Vector2(0, -30));
+        var sub = MakeUIText("HappySubtitle", "You and Teto have reached the end of the road together!", 24, Color.white, new Vector2(0, 20));
+        var hint = MakeUIText("HappyHint", "Press Enter to continue playing", 18, Color.gray, new Vector2(0, -30));
     }
 
     private GameObject MakeUIText(string name, string text, int fontSize, Color color, Vector2 anchoredPos)

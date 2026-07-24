@@ -12,7 +12,7 @@ public class CameraFollow : MonoBehaviour
         if (Target == null)
             return;
 
-        var desiredPosition = Target.position + Offset;
+            var desiredPosition = Target.position + Offset;
         transform.position = Vector3.Lerp(transform.position, desiredPosition, Time.deltaTime * SmoothSpeed);
         transform.rotation = Quaternion.Slerp(transform.rotation, Target.rotation, Time.deltaTime * SmoothSpeed);
     }

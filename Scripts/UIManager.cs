@@ -284,7 +284,7 @@ public class UIManager : MonoBehaviour
         _questPanel.SetActive(false);
 
         _instructionsPanel = CreateMenuPanel("InstructionsPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
-        EnsureText("InstructionsTitle", new Vector2(0f, panelHeight * 0.35f), "HƯƠNG DẪN", (int)largefontSize, _instructionsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
+        EnsureText("InstructionsTitle", new Vector2(0f, panelHeight * 0.35f), "INSTRUCTIONS", (int)largefontSize, _instructionsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
         EnsureText("InstructionsContent", new Vector2(0f, panelHeight * 0.05f), "WASD: Move\nSpace: Jump\nE: Interact\nQ: Drop item\nR: Reload\nLeft click: Use tool\nB/N: Change building type\nF5: Intro cutscene\nF6: Happy ending\nF7: Sad ending", (int)fontSize, _instructionsPanel.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.4f));
         CreateButton("InstructionsBackButton", _instructionsPanel.transform, "Back", new Vector2(0f, -panelHeight * 0.35f), () => ShowInstructions(false));
         _instructionsPanel.SetActive(false);
@@ -301,11 +301,11 @@ public class UIManager : MonoBehaviour
             menuRect.sizeDelta = new Vector2(panelWidth, 0f);
         }
         EnsureText("TitleText", new Vector2(0f, panelHeight * 0.3f), "BUILD YOUR FARM", (int)(largefontSize * 1.1f), _mainMenuPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight * 1.5f));
-        CreateButton("NewGameButton", _mainMenuPanel.transform, "Game Mới", new Vector2(0f, buttonHeight * 1.2f), () => MainMenuController.Instance?.OnNewGameClicked());
-        CreateButton("LoadGameButton", _mainMenuPanel.transform, "Tiếp tục (Load)", new Vector2(0f, buttonHeight * 0.4f), () => MainMenuController.Instance?.OnLoadGameClicked());
-        CreateButton("WatchIntroButton", _mainMenuPanel.transform, "Xem mở đầu", new Vector2(0f, -buttonHeight * 0.4f), () => MainMenuController.Instance?.OnWatchIntroClicked());
-        CreateButton("SkipIntroButton", _mainMenuPanel.transform, "Bỏ qua (vào game)", new Vector2(0f, -buttonHeight * 1.2f), () => MainMenuController.Instance?.OnSkipIntroClicked());
-        CreateButton("QuitButton", _mainMenuPanel.transform, "Thoát", new Vector2(0f, -buttonHeight * 2.0f), () => MainMenuController.Instance?.OnQuitClicked());
+        CreateButton("NewGameButton", _mainMenuPanel.transform, "New Game", new Vector2(0f, buttonHeight * 1.2f), () => MainMenuController.Instance?.OnNewGameClicked());
+        CreateButton("LoadGameButton", _mainMenuPanel.transform, "Continue (Load)", new Vector2(0f, buttonHeight * 0.4f), () => MainMenuController.Instance?.OnLoadGameClicked());
+        CreateButton("WatchIntroButton", _mainMenuPanel.transform, "Watch Intro", new Vector2(0f, -buttonHeight * 0.4f), () => MainMenuController.Instance?.OnWatchIntroClicked());
+        CreateButton("SkipIntroButton", _mainMenuPanel.transform, "Skip Intro", new Vector2(0f, -buttonHeight * 1.2f), () => MainMenuController.Instance?.OnSkipIntroClicked());
+        CreateButton("QuitButton", _mainMenuPanel.transform, "Exit", new Vector2(0f, -buttonHeight * 2.0f), () => MainMenuController.Instance?.OnQuitClicked());
         _mainMenuPanel.SetActive(false);
 
         ShowAllGameUI(true);
@@ -602,8 +602,8 @@ public class UIManager : MonoBehaviour
             _endPanel = CreateMenuPanel("EndPanel", Vector2.zero, new Vector2(680f, 520f));
             EnsureText("EndTitle", new Vector2(0f, 170f), title, 32, _endPanel.transform, TextAlignmentOptions.Center, true, new Vector2(640f, 40f));
             EnsureText("EndContent", new Vector2(0f, 60f), content, 20, _endPanel.transform, TextAlignmentOptions.Center, true, new Vector2(640f, 120f));
-            CreateButton("EndRestartButton", _endPanel.transform, "Chơi lại", new Vector2(-110f, -180f), () => GameManager.Instance?.StartNewGame());
-            CreateButton("EndQuitButton", _endPanel.transform, "Thoát", new Vector2(110f, -180f), () => Application.Quit());
+            CreateButton("EndRestartButton", _endPanel.transform, "Play Again", new Vector2(-110f, -180f), () => GameManager.Instance?.StartNewGame());
+            CreateButton("EndQuitButton", _endPanel.transform, "Exit", new Vector2(110f, -180f), () => Application.Quit());
         }
         _endPanel.SetActive(true);
     }

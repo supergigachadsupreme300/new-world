@@ -59,7 +59,7 @@ public class SaveManager : MonoBehaviour
 
         var json = JsonUtility.ToJson(data, true);
         File.WriteAllText(GetSaveFilePath(), json);
-        _uiManager?.ShowMessage("Đã lưu game thành công!", 2f);
+        _uiManager?.ShowMessage("Game saved!", 2f);
     }
 
     public void LoadGame()
@@ -67,7 +67,7 @@ public class SaveManager : MonoBehaviour
         var path = GetSaveFilePath();
         if (!File.Exists(path))
         {
-            _uiManager?.ShowMessage("Không tìm thấy file save!", 2f);
+            _uiManager?.ShowMessage("Save file not found!", 2f);
             return;
         }
 
@@ -75,7 +75,7 @@ public class SaveManager : MonoBehaviour
         var data = JsonUtility.FromJson<SaveData>(json);
         if (data == null)
         {
-            _uiManager?.ShowMessage("Không thể đọc file save!", 2f);
+            _uiManager?.ShowMessage("Cannot read save file!", 2f);
             return;
         }
 
@@ -108,7 +108,7 @@ public class SaveManager : MonoBehaviour
         GameManager.Instance?.ShowMainMenu(false);
         _uiManager?.ShowAllGameUI(true);
         _uiManager?.ShowPauseMenu(false);
-        _uiManager?.ShowMessage("Đã load game!", 2f);
+        _uiManager?.ShowMessage("Game loaded!", 2f);
         if (GameManager.Instance?.Player != null)
             _uiManager?.UpdatePlayerHud(GameManager.Instance.Player.HP, GameManager.Instance.Player.MaxHP, GameManager.Instance.Player.Stamina, GameManager.Instance.Player.MaxStamina, GameManager.Instance.Player.Money);
     }

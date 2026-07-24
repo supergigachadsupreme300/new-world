@@ -73,7 +73,7 @@ public class QuestManager : MonoBehaviour
         if (total > 0 && GameManager.Instance?.Player != null)
         {
             GameManager.Instance.Player.Money += total;
-            var msg = $"Nhiệm vụ hoàn thành! Nhận {total} vàng!";
+            var msg = $"Quest complete! Received {total}g!";
             GameManager.Instance?.UIManager?.ShowMessage(msg, 3f);
         }
     }

@@ -296,16 +296,16 @@ public class ToolManager : MonoBehaviour
                 {
                     string cropDisplay = field.CropType switch
                     {
-                        "wheat" => "Lúa",
-                        "corn" => "Ngô",
-                        "potato" => "Khoai tây",
-                        "carrot" => "Cà rốt",
-                        "tomato" => "Cà chua",
-                        "strawberry" => "Dâu tây",
-                        "pumpkin" => "Bí ngô",
-                        "onion" => "Hành tây",
-                        "sugarcane" => "Mía",
-                        "rice" => "Lúa nước",
+                        "wheat" => "Wheat",
+                        "corn" => "Corn",
+                        "potato" => "Potato",
+                        "carrot" => "Carrot",
+                        "tomato" => "Tomato",
+                        "strawberry" => "Strawberry",
+                        "pumpkin" => "Pumpkin",
+                        "onion" => "Onion",
+                        "sugarcane" => "Sugarcane",
+                        "rice" => "Rice",
                         _ => field.CropType
                     };
                     info = $"{cropDisplay} • Stage {field.Stage}/4";
@@ -525,14 +525,19 @@ public class ToolManager : MonoBehaviour
 
                 if (_buildingChosen)
                 {
-                    if (_worldBuilder.PlaceBlueprint(placePos))
+                    var bDef = _worldBuilder.GetBuildingByIndex(_worldBuilder.CurrentBuildingIndex);
+                    if (_worldBuilder.IsWallOrStair(bDef.Name) && !_worldBuilder.HasFloorAt(placePos))
+                    {
+                        _uiManager.ShowMessage("Need floor! Walls and stairs require floor first.", 1.5f);
+                    }
+                    else if (_worldBuilder.PlaceBlueprint(placePos))
                     {
                         SoundManager.Instance?.Play("hammer");
                         _uiManager.ShowMessage("Blueprint placed. Supply wood & stone.", 1.5f);
                     }
                     else
                     {
-                        _uiManager.ShowMessage("Cannot place blueprint here.", 1.5f);
+                        _uiManager.ShowMessage("Cannot place here.", 1.5f);
                     }
                     _buildingChosen = false;
                     return;
@@ -658,24 +663,24 @@ public class ToolManager : MonoBehaviour
                 SoundManager.Instance?.Play("pop");
                 string displayName = cropType switch
                 {
-                    "wheat" => "lúa",
-                    "corn" => "ngô",
-                    "potato" => "khoai tây",
-                    "carrot" => "cà rốt",
-                    "tomato" => "cà chua",
-                    "strawberry" => "dâu tây",
-                    "pumpkin" => "bí ngô",
-                    "onion" => "hành tây",
-                    "sugarcane" => "mía",
-                    "rice" => "lúa nước",
+                    "wheat" => "wheat",
+                    "corn" => "corn",
+                    "potato" => "potato",
+                    "carrot" => "carrot",
+                    "tomato" => "tomato",
+                    "strawberry" => "strawberry",
+                    "pumpkin" => "pumpkin",
+                    "onion" => "onion",
+                    "sugarcane" => "sugarcane",
+                    "rice" => "rice",
                     _ => cropType
                 };
-                _uiManager.ShowMessage($"Đã trồng {displayName}.", 1.5f);
+                _uiManager.ShowMessage($"Planted {displayName}.", 1.5f);
             }
         }
         else
         {
-            _uiManager.ShowMessage("Dùng hạt giống trên đất đã cày.", 1.5f);
+            _uiManager.ShowMessage("Use seeds on tilled soil.", 1.5f);
         }
         return true;
     }
@@ -1529,7 +1534,7 @@ public class ToolManager : MonoBehaviour
         var panelImg = _buildingMenuPanel.AddComponent<Image>();
         panelImg.color = new Color(0.18f, 0.2f, 0.27f, 0.95f);
 
-        var title = MakeBMText("BuildTitle", _buildingMenuPanel.transform, "Xây dựng",
+        var title = MakeBMText("BuildTitle", _buildingMenuPanel.transform, "Construction",
             new Vector2(0f, panelH * 0.42f), new Vector2(panelW - 80, fontS * 1.6f), (int)(fontS * 1.3f));
 
         MakeBMButton("BuildClose", _buildingMenuPanel.transform, "X",
@@ -1614,24 +1619,26 @@ public class ToolManager : MonoBehaviour
         _buildingChosen = true;
         var def = wb.GetBuildingByIndex(index);
         CloseBuildingMenu();
-        _uiManager?.ShowMessage("Da chon: " + GetVietnameseBuildingName(def.Name) + ". Nhap trai de dat.", 2f);
+        _uiManager?.ShowMessage("Selected: " + GetVietnameseBuildingName(def.Name) + ". Click to place.", 2f);
     }
 
     private string GetVietnameseBuildingName(string name)
     {
         return name switch
         {
-            "wood_wall" => "Tuong go",
-            "stone_wall" => "Tuong da",
-            "fence" => "Hang rao",
-            "watchtower" => "Thap canh",
-            "small_house" => "Nha nho",
-            "wood_floor" => "San go",
-            "stone_floor" => "San da",
-            "stair" => "Cau thang",
-            "table" => "Ban",
-            "chair" => "Ghe",
-            "sofa" => "Ghe so pha",
+            "wood_wall" => "Wood Wall",
+            "stone_wall" => "Stone Wall",
+            "fence" => "Fence",
+            "watchtower" => "Watchtower",
+            "small_house" => "Small House",
+            "wood_floor" => "Wood Floor",
+            "stone_floor" => "Stone Floor",
+            "stair" => "Stair",
+            "table" => "Table",
+            "chair" => "Chair",
+            "sofa" => "Sofa",
+            "wife_house" => "Wife House",
+            "structure_house" => "Structure House",
             _ => name
         };
     }
