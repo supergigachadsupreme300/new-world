@@ -315,28 +315,43 @@ public static class ItemBuilder
     public static void BuildCageBig(Transform parent)
     {
         Color iron = new Color(0.5f, 0.5f, 0.55f);
-        float s = 1f;
-        CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(0.25f * s, 0.02f, 0.2f * s), iron);
-        CreatePickupCube(parent, new Vector3(0f, 0.18f * s, 0f), new Vector3(0.25f * s, 0.02f, 0.2f * s), iron);
-        CreatePickupCube(parent, new Vector3(-0.12f * s, 0.09f * s, 0f), new Vector3(0.02f, 0.18f * s, 0.02f), iron);
-        CreatePickupCube(parent, new Vector3(0.12f * s, 0.09f * s, 0f), new Vector3(0.02f, 0.18f * s, 0.02f), iron);
-        CreatePickupCube(parent, new Vector3(0f, 0.09f * s, -0.09f * s), new Vector3(0.25f * s, 0.02f, 0.02f), iron);
-        CreatePickupCube(parent, new Vector3(0f, 0.09f * s, 0.09f * s), new Vector3(0.25f * s, 0.02f, 0.02f), iron);
+        float w = 0.5f, h = 0.4f, d = 0.4f;
+        float barSpacing = 0.12f;
+        CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(w, 0.02f, d), iron);
+        CreatePickupCube(parent, new Vector3(0f, h, 0f), new Vector3(w, 0.02f, d), iron);
+        for (int i = -1; i <= 1; i += 2)
+        {
+            CreatePickupCube(parent, new Vector3(i * w * 0.5f, h * 0.5f, 0f), new Vector3(0.02f, h, 0.02f), iron);
+            CreatePickupCube(parent, new Vector3(0f, h * 0.5f, i * d * 0.5f), new Vector3(0.02f, h, 0.02f), iron);
+        }
+        CreatePickupCube(parent, new Vector3(0f, h * 0.25f, -d * 0.3f), new Vector3(w * 0.8f, 0.015f, 0.015f), iron);
+        CreatePickupCube(parent, new Vector3(0f, h * 0.25f, d * 0.3f), new Vector3(w * 0.8f, 0.015f, 0.015f), iron);
+        CreatePickupCube(parent, new Vector3(-w * 0.3f, h * 0.25f, 0f), new Vector3(0.015f, 0.015f, d * 0.6f), iron);
+        CreatePickupCube(parent, new Vector3(w * 0.3f, h * 0.25f, 0f), new Vector3(0.015f, 0.015f, d * 0.6f), iron);
+        CreatePickupCube(parent, new Vector3(0f, h * 0.75f, -d * 0.3f), new Vector3(w * 0.8f, 0.015f, 0.015f), iron);
+        CreatePickupCube(parent, new Vector3(0f, h * 0.75f, d * 0.3f), new Vector3(w * 0.8f, 0.015f, 0.015f), iron);
+        CreatePickupCube(parent, new Vector3(-w * 0.3f, h * 0.75f, 0f), new Vector3(0.015f, 0.015f, d * 0.6f), iron);
+        CreatePickupCube(parent, new Vector3(w * 0.3f, h * 0.75f, 0f), new Vector3(0.015f, 0.015f, d * 0.6f), iron);
         Color animalC = new Color(0.6f, 0.4f, 0.2f);
-        CreatePickupSphere(parent, new Vector3(0f, 0.07f * s, 0f), 0.08f, animalC, false);
+        CreatePickupSphere(parent, new Vector3(0f, h * 0.3f, 0f), 0.18f, animalC, false);
     }
 
     public static void BuildCageSmall(Transform parent)
     {
         Color iron = new Color(0.55f, 0.55f, 0.6f);
-        float s = 0.7f;
-        CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(0.2f * s, 0.015f, 0.15f * s), iron);
-        CreatePickupCube(parent, new Vector3(0f, 0.14f * s, 0f), new Vector3(0.2f * s, 0.015f, 0.15f * s), iron);
-        CreatePickupCube(parent, new Vector3(-0.09f * s, 0.07f * s, 0f), new Vector3(0.015f, 0.14f * s, 0.015f), iron);
-        CreatePickupCube(parent, new Vector3(0.09f * s, 0.07f * s, 0f), new Vector3(0.015f, 0.14f * s, 0.015f), iron);
-        CreatePickupCube(parent, new Vector3(0f, 0.07f * s, -0.07f * s), new Vector3(0.2f * s, 0.015f, 0.015f), iron);
-        CreatePickupCube(parent, new Vector3(0f, 0.07f * s, 0.07f * s), new Vector3(0.2f * s, 0.015f, 0.015f), iron);
+        float w = 0.35f, h = 0.3f, d = 0.3f;
+        CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(w, 0.015f, d), iron);
+        CreatePickupCube(parent, new Vector3(0f, h, 0f), new Vector3(w, 0.015f, d), iron);
+        for (int i = -1; i <= 1; i += 2)
+        {
+            CreatePickupCube(parent, new Vector3(i * w * 0.5f, h * 0.5f, 0f), new Vector3(0.015f, h, 0.015f), iron);
+            CreatePickupCube(parent, new Vector3(0f, h * 0.5f, i * d * 0.5f), new Vector3(0.015f, h, 0.015f), iron);
+        }
+        CreatePickupCube(parent, new Vector3(0f, h * 0.3f, -d * 0.3f), new Vector3(w * 0.7f, 0.012f, 0.012f), iron);
+        CreatePickupCube(parent, new Vector3(0f, h * 0.3f, d * 0.3f), new Vector3(w * 0.7f, 0.012f, 0.012f), iron);
+        CreatePickupCube(parent, new Vector3(-w * 0.3f, h * 0.3f, 0f), new Vector3(0.012f, 0.012f, d * 0.5f), iron);
+        CreatePickupCube(parent, new Vector3(w * 0.3f, h * 0.3f, 0f), new Vector3(0.012f, 0.012f, d * 0.5f), iron);
         Color animalC = new Color(0.9f, 0.85f, 0.8f);
-        CreatePickupSphere(parent, new Vector3(0f, 0.05f * s, 0f), 0.05f, animalC, false);
+        CreatePickupSphere(parent, new Vector3(0f, h * 0.25f, 0f), 0.12f, animalC, false);
     }
 }

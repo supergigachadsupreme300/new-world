@@ -224,7 +224,9 @@ public class ToolManager : MonoBehaviour
         {
             if (_carriedObject.name == "CageWithAnimal")
             {
-                _uiManager.SetInfoText("Carrying: Cage with animal");
+                var info = _carriedObject.GetComponent<CageWithAnimalInfo>();
+                string animalName = info != null ? info.AnimalType.ToString() : "animal";
+                _uiManager.SetInfoText("Carrying: Cage with " + animalName + " (Q to throw)");
             }
             else
             {
@@ -288,7 +290,9 @@ public class ToolManager : MonoBehaviour
         {
             if (root.name == "CageWithAnimal")
             {
-                _uiManager.SetInfoText("Cage with animal (E to pick up)");
+                var cageInfo = root.GetComponent<CageWithAnimalInfo>();
+                string name = cageInfo != null ? cageInfo.AnimalType.ToString() : "animal";
+                _uiManager.SetInfoText("Cage with " + name + " (E to pick up)");
             }
             else if (root.name == "ThrownCage")
             {
@@ -788,7 +792,11 @@ public class ToolManager : MonoBehaviour
             root.transform.localPosition = new Vector3(0.7f, -0.4f, 1.8f);
             root.transform.localRotation = Quaternion.identity;
             if (root.name == "CageWithAnimal")
-                _uiManager.ShowMessage("Picked up cage.", 1f);
+            {
+                var ci = root.GetComponent<CageWithAnimalInfo>();
+                string n = ci != null ? ci.AnimalType.ToString() : "animal";
+                _uiManager.ShowMessage("Picked up cage with " + n + ".", 1f);
+            }
             else
                 _uiManager.ShowMessage("Lifted.", 1f);
             return;
@@ -951,16 +959,24 @@ public class ToolManager : MonoBehaviour
             var info = _carriedObject.GetComponent<CageWithAnimalInfo>();
             if (info != null && _worldBuilder != null)
             {
-                Vector3 dropPos = _carriedObject.transform.position;
-                dropPos.y = 0.5f;
+                var cam = GetActiveCamera();
+                var throwOrigin = cam != null
+                    ? cam.transform.position + cam.transform.forward * 0.5f
+                    : _carriedObject.transform.position;
+                var throwDir = cam != null ? cam.transform.forward : Vector3.forward;
+                var throwVelocity = throwDir * 8f + Vector3.up * 3.5f;
 
-                var go = new GameObject("Livestock_" + info.AnimalType);
-                go.transform.SetParent(_worldBuilder.WorldRoot.transform);
-                go.transform.position = dropPos;
-                var livestock = go.AddComponent<Livestock>();
-                livestock.Type = info.AnimalType;
-                livestock.StartSpawnAnimation();
-                _uiManager.ShowMessage(info.AnimalType + " released!", 1.5f);
+                _worldBuilder.ThrowCage(
+                    info.AnimalType == Livestock.AnimalType.Cow ||
+                    info.AnimalType == Livestock.AnimalType.Pig ||
+                    info.AnimalType == Livestock.AnimalType.Sheep ||
+                    info.AnimalType == Livestock.AnimalType.Goat
+                        ? "cage_big" : "cage_small",
+                    throwOrigin,
+                    throwVelocity,
+                    info.AnimalType);
+
+                _uiManager.ShowMessage("Throwing cage...", 1f);
             }
             Destroy(_carriedObject);
             _carriedObject = null;

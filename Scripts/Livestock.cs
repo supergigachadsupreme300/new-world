@@ -307,92 +307,98 @@ public class Livestock : MonoBehaviour
     {
         _modelRoot = new GameObject("Model");
         _modelRoot.transform.SetParent(transform, false);
+        BuildModelInto(_modelRoot.transform, Type);
+    }
 
-        switch (Type)
+    public static void BuildModelInto(Transform parent, AnimalType type)
+    {
+        var root = new GameObject("Model");
+        root.transform.SetParent(parent, false);
+        switch (type)
         {
-            case AnimalType.Cow: BuildCow(); break;
-            case AnimalType.Pig: BuildPig(); break;
-            case AnimalType.Sheep: BuildSheep(); break;
-            case AnimalType.Goat: BuildGoat(); break;
-            case AnimalType.Chicken: BuildChicken(); break;
-            case AnimalType.Duck: BuildDuck(); break;
-            case AnimalType.Turkey: BuildTurkey(); break;
+            case AnimalType.Cow: BuildCow(root.transform); break;
+            case AnimalType.Pig: BuildPig(root.transform); break;
+            case AnimalType.Sheep: BuildSheep(root.transform); break;
+            case AnimalType.Goat: BuildGoat(root.transform); break;
+            case AnimalType.Chicken: BuildChicken(root.transform); break;
+            case AnimalType.Duck: BuildDuck(root.transform); break;
+            case AnimalType.Turkey: BuildTurkey(root.transform); break;
         }
     }
 
-    private GameObject MakeBlock(string name, Vector3 scale, Vector3 position, Color color)
+    private static GameObject MakeBlock(Transform parent, string name, Vector3 scale, Vector3 position, Color color)
     {
         var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
         go.name = name;
-        go.transform.SetParent(_modelRoot.transform, false);
+        go.transform.SetParent(parent, false);
         go.transform.localScale = scale;
         go.transform.localPosition = position;
         go.GetComponent<Renderer>().material.color = color;
-        Destroy(go.GetComponent<Collider>());
+        Object.Destroy(go.GetComponent<Collider>());
         return go;
     }
 
-    private GameObject MakeSphere(string name, Vector3 position, float diameter, Color color)
+    private static GameObject MakeSphere(Transform parent, string name, Vector3 position, float diameter, Color color)
     {
         var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         go.name = name;
-        go.transform.SetParent(_modelRoot.transform, false);
+        go.transform.SetParent(parent, false);
         go.transform.localPosition = position;
         go.transform.localScale = new Vector3(diameter, diameter, diameter);
         go.GetComponent<Renderer>().material.color = color;
-        Destroy(go.GetComponent<Collider>());
+        Object.Destroy(go.GetComponent<Collider>());
         return go;
     }
 
-    private void BuildCow()
+    private static void BuildCow(Transform parent)
     {
         Color white = new Color(0.95f, 0.95f, 0.95f);
         Color black = new Color(0.1f, 0.1f, 0.1f);
         Color pink = new Color(0.9f, 0.6f, 0.6f);
         Color horn = new Color(0.8f, 0.75f, 0.6f);
 
-        MakeBlock("Body", new Vector3(0.8f, 0.6f, 1.2f), new Vector3(0f, 0.6f, 0f), white);
-        MakeBlock("Head", new Vector3(0.4f, 0.35f, 0.35f), new Vector3(0f, 0.7f, 0.7f), white);
-        MakeBlock("Snout", new Vector3(0.25f, 0.15f, 0.1f), new Vector3(0f, 0.6f, 0.9f), pink);
-        MakeBlock("Patch1", new Vector3(0.5f, 0.3f, 0.4f), new Vector3(0.2f, 0.7f, 0.1f), black);
-        MakeBlock("Patch2", new Vector3(0.3f, 0.25f, 0.5f), new Vector3(-0.15f, 0.55f, -0.2f), black);
-        MakeBlock("EarL", new Vector3(0.1f, 0.05f, 0.08f), new Vector3(-0.25f, 0.85f, 0.65f), pink);
-        MakeBlock("EarR", new Vector3(0.1f, 0.05f, 0.08f), new Vector3(0.25f, 0.85f, 0.65f), pink);
-        MakeBlock("HornL", new Vector3(0.06f, 0.15f, 0.06f), new Vector3(-0.15f, 0.95f, 0.65f), horn);
-        MakeBlock("HornR", new Vector3(0.06f, 0.15f, 0.06f), new Vector3(0.15f, 0.95f, 0.65f), horn);
-        MakeBlock("EyeL", new Vector3(0.05f, 0.05f, 0.05f), new Vector3(-0.12f, 0.78f, 0.82f), Color.black);
-        MakeBlock("EyeR", new Vector3(0.05f, 0.05f, 0.05f), new Vector3(0.12f, 0.78f, 0.82f), Color.black);
-        MakeBlock("Tail", new Vector3(0.04f, 0.04f, 0.3f), new Vector3(0f, 0.7f, -0.7f), pink);
+        MakeBlock(parent, "Body", new Vector3(0.8f, 0.6f, 1.2f), new Vector3(0f, 0.6f, 0f), white);
+        MakeBlock(parent, "Head", new Vector3(0.4f, 0.35f, 0.35f), new Vector3(0f, 0.7f, 0.7f), white);
+        MakeBlock(parent, "Snout", new Vector3(0.25f, 0.15f, 0.1f), new Vector3(0f, 0.6f, 0.9f), pink);
+        MakeBlock(parent, "Patch1", new Vector3(0.5f, 0.3f, 0.4f), new Vector3(0.2f, 0.7f, 0.1f), black);
+        MakeBlock(parent, "Patch2", new Vector3(0.3f, 0.25f, 0.5f), new Vector3(-0.15f, 0.55f, -0.2f), black);
+        MakeBlock(parent, "EarL", new Vector3(0.1f, 0.05f, 0.08f), new Vector3(-0.25f, 0.85f, 0.65f), pink);
+        MakeBlock(parent, "EarR", new Vector3(0.1f, 0.05f, 0.08f), new Vector3(0.25f, 0.85f, 0.65f), pink);
+        MakeBlock(parent, "HornL", new Vector3(0.06f, 0.15f, 0.06f), new Vector3(-0.15f, 0.95f, 0.65f), horn);
+        MakeBlock(parent, "HornR", new Vector3(0.06f, 0.15f, 0.06f), new Vector3(0.15f, 0.95f, 0.65f), horn);
+        MakeBlock(parent, "EyeL", new Vector3(0.05f, 0.05f, 0.05f), new Vector3(-0.12f, 0.78f, 0.82f), Color.black);
+        MakeBlock(parent, "EyeR", new Vector3(0.05f, 0.05f, 0.05f), new Vector3(0.12f, 0.78f, 0.82f), Color.black);
+        MakeBlock(parent, "Tail", new Vector3(0.04f, 0.04f, 0.3f), new Vector3(0f, 0.7f, -0.7f), pink);
         Color legC = new Color(0.85f, 0.85f, 0.85f);
-        MakeBlock("LegFL", new Vector3(0.12f, 0.35f, 0.12f), new Vector3(-0.25f, 0.18f, 0.35f), legC);
-        MakeBlock("LegFR", new Vector3(0.12f, 0.35f, 0.12f), new Vector3(0.25f, 0.18f, 0.35f), legC);
-        MakeBlock("LegBL", new Vector3(0.12f, 0.35f, 0.12f), new Vector3(-0.25f, 0.18f, -0.35f), legC);
-        MakeBlock("LegBR", new Vector3(0.12f, 0.35f, 0.12f), new Vector3(0.25f, 0.18f, -0.35f), legC);
+        MakeBlock(parent, "LegFL", new Vector3(0.12f, 0.35f, 0.12f), new Vector3(-0.25f, 0.18f, 0.35f), legC);
+        MakeBlock(parent, "LegFR", new Vector3(0.12f, 0.35f, 0.12f), new Vector3(0.25f, 0.18f, 0.35f), legC);
+        MakeBlock(parent, "LegBL", new Vector3(0.12f, 0.35f, 0.12f), new Vector3(-0.25f, 0.18f, -0.35f), legC);
+        MakeBlock(parent, "LegBR", new Vector3(0.12f, 0.35f, 0.12f), new Vector3(0.25f, 0.18f, -0.35f), legC);
     }
 
-    private void BuildPig()
+    private static void BuildPig(Transform parent)
     {
         Color pink = new Color(0.95f, 0.65f, 0.6f);
         Color darkPink = new Color(0.8f, 0.45f, 0.4f);
         Color nose = new Color(0.85f, 0.5f, 0.5f);
 
-        MakeSphere("Body", new Vector3(0f, 0.45f, 0f), 0.9f, pink);
-        MakeSphere("Head", new Vector3(0f, 0.5f, 0.45f), 0.5f, pink);
-        MakeSphere("Snout", new Vector3(0f, 0.45f, 0.7f), 0.25f, nose);
-        MakeBlock("NostrilL", new Vector3(0.04f, 0.04f, 0.04f), new Vector3(-0.04f, 0.45f, 0.8f), darkPink);
-        MakeBlock("NostrilR", new Vector3(0.04f, 0.04f, 0.04f), new Vector3(0.04f, 0.45f, 0.8f), darkPink);
-        MakeBlock("EarL", new Vector3(0.12f, 0.1f, 0.06f), new Vector3(-0.18f, 0.72f, 0.4f), darkPink);
-        MakeBlock("EarR", new Vector3(0.12f, 0.1f, 0.06f), new Vector3(0.18f, 0.72f, 0.4f), darkPink);
-        MakeBlock("EyeL", new Vector3(0.04f, 0.04f, 0.04f), new Vector3(-0.1f, 0.58f, 0.6f), Color.black);
-        MakeBlock("EyeR", new Vector3(0.04f, 0.04f, 0.04f), new Vector3(0.1f, 0.58f, 0.6f), Color.black);
-        MakeBlock("Tail", new Vector3(0.03f, 0.15f, 0.03f), new Vector3(0f, 0.6f, -0.5f), darkPink);
-        MakeBlock("LegFL", new Vector3(0.1f, 0.22f, 0.1f), new Vector3(-0.2f, 0.11f, 0.25f), darkPink);
-        MakeBlock("LegFR", new Vector3(0.1f, 0.22f, 0.1f), new Vector3(0.2f, 0.11f, 0.25f), darkPink);
-        MakeBlock("LegBL", new Vector3(0.1f, 0.22f, 0.1f), new Vector3(-0.2f, 0.11f, -0.25f), darkPink);
-        MakeBlock("LegBR", new Vector3(0.1f, 0.22f, 0.1f), new Vector3(0.2f, 0.11f, -0.25f), darkPink);
+        MakeSphere(parent, "Body", new Vector3(0f, 0.45f, 0f), 0.9f, pink);
+        MakeSphere(parent, "Head", new Vector3(0f, 0.5f, 0.45f), 0.5f, pink);
+        MakeSphere(parent, "Snout", new Vector3(0f, 0.45f, 0.7f), 0.25f, nose);
+        MakeBlock(parent, "NostrilL", new Vector3(0.04f, 0.04f, 0.04f), new Vector3(-0.04f, 0.45f, 0.8f), darkPink);
+        MakeBlock(parent, "NostrilR", new Vector3(0.04f, 0.04f, 0.04f), new Vector3(0.04f, 0.45f, 0.8f), darkPink);
+        MakeBlock(parent, "EarL", new Vector3(0.12f, 0.1f, 0.06f), new Vector3(-0.18f, 0.72f, 0.4f), darkPink);
+        MakeBlock(parent, "EarR", new Vector3(0.12f, 0.1f, 0.06f), new Vector3(0.18f, 0.72f, 0.4f), darkPink);
+        MakeBlock(parent, "EyeL", new Vector3(0.04f, 0.04f, 0.04f), new Vector3(-0.1f, 0.58f, 0.6f), Color.black);
+        MakeBlock(parent, "EyeR", new Vector3(0.04f, 0.04f, 0.04f), new Vector3(0.1f, 0.58f, 0.6f), Color.black);
+        MakeBlock(parent, "Tail", new Vector3(0.03f, 0.15f, 0.03f), new Vector3(0f, 0.6f, -0.5f), darkPink);
+        MakeBlock(parent, "LegFL", new Vector3(0.1f, 0.22f, 0.1f), new Vector3(-0.2f, 0.11f, 0.25f), darkPink);
+        MakeBlock(parent, "LegFR", new Vector3(0.1f, 0.22f, 0.1f), new Vector3(0.2f, 0.11f, 0.25f), darkPink);
+        MakeBlock(parent, "LegBL", new Vector3(0.1f, 0.22f, 0.1f), new Vector3(-0.2f, 0.11f, -0.25f), darkPink);
+        MakeBlock(parent, "LegBR", new Vector3(0.1f, 0.22f, 0.1f), new Vector3(0.2f, 0.11f, -0.25f), darkPink);
     }
 
-    private void BuildSheep()
+    private static void BuildSheep(Transform parent)
     {
         Color wool = new Color(0.95f, 0.93f, 0.88f);
         Color dark = new Color(0.4f, 0.35f, 0.3f);
@@ -403,92 +409,92 @@ public class Livestock : MonoBehaviour
             float x = Random.Range(-0.25f, 0.25f);
             float y = 0.45f + Random.Range(-0.1f, 0.1f);
             float z = Random.Range(-0.35f, 0.35f);
-            MakeSphere("Wool" + i, new Vector3(x, y, z), Random.Range(0.35f, 0.5f), wool);
+            MakeSphere(parent, "Wool" + i, new Vector3(x, y, z), Random.Range(0.35f, 0.5f), wool);
         }
-        MakeBlock("Head", new Vector3(0.22f, 0.25f, 0.25f), new Vector3(0f, 0.6f, 0.55f), dark);
-        MakeBlock("EyeL", new Vector3(0.04f, 0.04f, 0.04f), new Vector3(-0.08f, 0.65f, 0.67f), eyeC);
-        MakeBlock("EyeR", new Vector3(0.04f, 0.04f, 0.04f), new Vector3(0.08f, 0.65f, 0.67f), eyeC);
-        MakeBlock("LegFL", new Vector3(0.08f, 0.28f, 0.08f), new Vector3(-0.18f, 0.14f, 0.25f), dark);
-        MakeBlock("LegFR", new Vector3(0.08f, 0.28f, 0.08f), new Vector3(0.18f, 0.14f, 0.25f), dark);
-        MakeBlock("LegBL", new Vector3(0.08f, 0.28f, 0.08f), new Vector3(-0.18f, 0.14f, -0.25f), dark);
-        MakeBlock("LegBR", new Vector3(0.08f, 0.28f, 0.08f), new Vector3(0.18f, 0.14f, -0.25f), dark);
+        MakeBlock(parent, "Head", new Vector3(0.22f, 0.25f, 0.25f), new Vector3(0f, 0.6f, 0.55f), dark);
+        MakeBlock(parent, "EyeL", new Vector3(0.04f, 0.04f, 0.04f), new Vector3(-0.08f, 0.65f, 0.67f), eyeC);
+        MakeBlock(parent, "EyeR", new Vector3(0.04f, 0.04f, 0.04f), new Vector3(0.08f, 0.65f, 0.67f), eyeC);
+        MakeBlock(parent, "LegFL", new Vector3(0.08f, 0.28f, 0.08f), new Vector3(-0.18f, 0.14f, 0.25f), dark);
+        MakeBlock(parent, "LegFR", new Vector3(0.08f, 0.28f, 0.08f), new Vector3(0.18f, 0.14f, 0.25f), dark);
+        MakeBlock(parent, "LegBL", new Vector3(0.08f, 0.28f, 0.08f), new Vector3(-0.18f, 0.14f, -0.25f), dark);
+        MakeBlock(parent, "LegBR", new Vector3(0.08f, 0.28f, 0.08f), new Vector3(0.18f, 0.14f, -0.25f), dark);
     }
 
-    private void BuildGoat()
+    private static void BuildGoat(Transform parent)
     {
         Color brown = new Color(0.6f, 0.45f, 0.3f);
         Color darkBrown = new Color(0.4f, 0.3f, 0.2f);
         Color horn = new Color(0.75f, 0.7f, 0.55f);
 
-        MakeBlock("Body", new Vector3(0.5f, 0.45f, 0.9f), new Vector3(0f, 0.5f, 0f), brown);
-        MakeBlock("Head", new Vector3(0.25f, 0.3f, 0.3f), new Vector3(0f, 0.65f, 0.55f), brown);
-        MakeBlock("Beard", new Vector3(0.06f, 0.15f, 0.06f), new Vector3(0f, 0.45f, 0.65f), darkBrown);
-        MakeBlock("HornL", new Vector3(0.05f, 0.2f, 0.05f), new Vector3(-0.12f, 0.85f, 0.5f), horn);
-        MakeBlock("HornR", new Vector3(0.05f, 0.2f, 0.05f), new Vector3(0.12f, 0.85f, 0.5f), horn);
-        MakeBlock("EyeL", new Vector3(0.04f, 0.04f, 0.04f), new Vector3(-0.1f, 0.7f, 0.7f), Color.black);
-        MakeBlock("EyeR", new Vector3(0.04f, 0.04f, 0.04f), new Vector3(0.1f, 0.7f, 0.7f), Color.black);
-        MakeBlock("Tail", new Vector3(0.04f, 0.1f, 0.04f), new Vector3(0f, 0.6f, -0.5f), darkBrown);
-        MakeBlock("LegFL", new Vector3(0.08f, 0.3f, 0.08f), new Vector3(-0.15f, 0.15f, 0.3f), darkBrown);
-        MakeBlock("LegFR", new Vector3(0.08f, 0.3f, 0.08f), new Vector3(0.15f, 0.15f, 0.3f), darkBrown);
-        MakeBlock("LegBL", new Vector3(0.08f, 0.3f, 0.08f), new Vector3(-0.15f, 0.15f, -0.3f), darkBrown);
-        MakeBlock("LegBR", new Vector3(0.08f, 0.3f, 0.08f), new Vector3(0.15f, 0.15f, -0.3f), darkBrown);
+        MakeBlock(parent, "Body", new Vector3(0.5f, 0.45f, 0.9f), new Vector3(0f, 0.5f, 0f), brown);
+        MakeBlock(parent, "Head", new Vector3(0.25f, 0.3f, 0.3f), new Vector3(0f, 0.65f, 0.55f), brown);
+        MakeBlock(parent, "Beard", new Vector3(0.06f, 0.15f, 0.06f), new Vector3(0f, 0.45f, 0.65f), darkBrown);
+        MakeBlock(parent, "HornL", new Vector3(0.05f, 0.2f, 0.05f), new Vector3(-0.12f, 0.85f, 0.5f), horn);
+        MakeBlock(parent, "HornR", new Vector3(0.05f, 0.2f, 0.05f), new Vector3(0.12f, 0.85f, 0.5f), horn);
+        MakeBlock(parent, "EyeL", new Vector3(0.04f, 0.04f, 0.04f), new Vector3(-0.1f, 0.7f, 0.7f), Color.black);
+        MakeBlock(parent, "EyeR", new Vector3(0.04f, 0.04f, 0.04f), new Vector3(0.1f, 0.7f, 0.7f), Color.black);
+        MakeBlock(parent, "Tail", new Vector3(0.04f, 0.1f, 0.04f), new Vector3(0f, 0.6f, -0.5f), darkBrown);
+        MakeBlock(parent, "LegFL", new Vector3(0.08f, 0.3f, 0.08f), new Vector3(-0.15f, 0.15f, 0.3f), darkBrown);
+        MakeBlock(parent, "LegFR", new Vector3(0.08f, 0.3f, 0.08f), new Vector3(0.15f, 0.15f, 0.3f), darkBrown);
+        MakeBlock(parent, "LegBL", new Vector3(0.08f, 0.3f, 0.08f), new Vector3(-0.15f, 0.15f, -0.3f), darkBrown);
+        MakeBlock(parent, "LegBR", new Vector3(0.08f, 0.3f, 0.08f), new Vector3(0.15f, 0.15f, -0.3f), darkBrown);
     }
 
-    private void BuildChicken()
+    private static void BuildChicken(Transform parent)
     {
         Color white = new Color(0.95f, 0.93f, 0.88f);
         Color red = new Color(0.85f, 0.15f, 0.1f);
         Color yellow = new Color(0.95f, 0.85f, 0.2f);
 
-        MakeSphere("Body", new Vector3(0f, 0.35f, 0f), 0.5f, white);
-        MakeBlock("Head", new Vector3(0.15f, 0.18f, 0.15f), new Vector3(0f, 0.55f, 0.2f), white);
-        MakeBlock("Comb", new Vector3(0.04f, 0.12f, 0.08f), new Vector3(0f, 0.68f, 0.18f), red);
-        MakeBlock("Beak", new Vector3(0.06f, 0.04f, 0.08f), new Vector3(0f, 0.52f, 0.32f), yellow);
-        MakeBlock("Wattle", new Vector3(0.04f, 0.06f, 0.04f), new Vector3(0f, 0.45f, 0.28f), red);
-        MakeBlock("EyeL", new Vector3(0.03f, 0.03f, 0.03f), new Vector3(-0.06f, 0.58f, 0.28f), Color.black);
-        MakeBlock("EyeR", new Vector3(0.03f, 0.03f, 0.03f), new Vector3(0.06f, 0.58f, 0.28f), Color.black);
-        MakeBlock("LegL", new Vector3(0.03f, 0.2f, 0.03f), new Vector3(-0.06f, 0.1f, 0f), yellow);
-        MakeBlock("LegR", new Vector3(0.03f, 0.2f, 0.03f), new Vector3(0.06f, 0.1f, 0f), yellow);
-        MakeBlock("Tail", new Vector3(0.06f, 0.15f, 0.15f), new Vector3(0f, 0.45f, -0.25f), white);
+        MakeSphere(parent, "Body", new Vector3(0f, 0.35f, 0f), 0.5f, white);
+        MakeBlock(parent, "Head", new Vector3(0.15f, 0.18f, 0.15f), new Vector3(0f, 0.55f, 0.2f), white);
+        MakeBlock(parent, "Comb", new Vector3(0.04f, 0.12f, 0.08f), new Vector3(0f, 0.68f, 0.18f), red);
+        MakeBlock(parent, "Beak", new Vector3(0.06f, 0.04f, 0.08f), new Vector3(0f, 0.52f, 0.32f), yellow);
+        MakeBlock(parent, "Wattle", new Vector3(0.04f, 0.06f, 0.04f), new Vector3(0f, 0.45f, 0.28f), red);
+        MakeBlock(parent, "EyeL", new Vector3(0.03f, 0.03f, 0.03f), new Vector3(-0.06f, 0.58f, 0.28f), Color.black);
+        MakeBlock(parent, "EyeR", new Vector3(0.03f, 0.03f, 0.03f), new Vector3(0.06f, 0.58f, 0.28f), Color.black);
+        MakeBlock(parent, "LegL", new Vector3(0.03f, 0.2f, 0.03f), new Vector3(-0.06f, 0.1f, 0f), yellow);
+        MakeBlock(parent, "LegR", new Vector3(0.03f, 0.2f, 0.03f), new Vector3(0.06f, 0.1f, 0f), yellow);
+        MakeBlock(parent, "Tail", new Vector3(0.06f, 0.15f, 0.15f), new Vector3(0f, 0.45f, -0.25f), white);
     }
 
-    private void BuildDuck()
+    private static void BuildDuck(Transform parent)
     {
         Color white = new Color(0.92f, 0.9f, 0.85f);
         Color orange = new Color(0.95f, 0.6f, 0.15f);
 
-        MakeSphere("Body", new Vector3(0f, 0.32f, 0f), 0.55f, white);
-        MakeBlock("Head", new Vector3(0.2f, 0.22f, 0.2f), new Vector3(0f, 0.52f, 0.22f), white);
-        MakeBlock("Bill", new Vector3(0.12f, 0.04f, 0.15f), new Vector3(0f, 0.48f, 0.38f), orange);
-        MakeBlock("EyeL", new Vector3(0.03f, 0.03f, 0.03f), new Vector3(-0.08f, 0.56f, 0.32f), Color.black);
-        MakeBlock("EyeR", new Vector3(0.03f, 0.03f, 0.03f), new Vector3(0.08f, 0.56f, 0.32f), Color.black);
-        MakeBlock("LegL", new Vector3(0.04f, 0.18f, 0.06f), new Vector3(-0.08f, 0.09f, 0f), orange);
-        MakeBlock("LegR", new Vector3(0.04f, 0.18f, 0.06f), new Vector3(0.08f, 0.09f, 0f), orange);
-        MakeBlock("Tail", new Vector3(0.06f, 0.1f, 0.12f), new Vector3(0f, 0.4f, -0.28f), white);
+        MakeSphere(parent, "Body", new Vector3(0f, 0.32f, 0f), 0.55f, white);
+        MakeBlock(parent, "Head", new Vector3(0.2f, 0.22f, 0.2f), new Vector3(0f, 0.52f, 0.22f), white);
+        MakeBlock(parent, "Bill", new Vector3(0.12f, 0.04f, 0.15f), new Vector3(0f, 0.48f, 0.38f), orange);
+        MakeBlock(parent, "EyeL", new Vector3(0.03f, 0.03f, 0.03f), new Vector3(-0.08f, 0.56f, 0.32f), Color.black);
+        MakeBlock(parent, "EyeR", new Vector3(0.03f, 0.03f, 0.03f), new Vector3(0.08f, 0.56f, 0.32f), Color.black);
+        MakeBlock(parent, "LegL", new Vector3(0.04f, 0.18f, 0.06f), new Vector3(-0.08f, 0.09f, 0f), orange);
+        MakeBlock(parent, "LegR", new Vector3(0.04f, 0.18f, 0.06f), new Vector3(0.08f, 0.09f, 0f), orange);
+        MakeBlock(parent, "Tail", new Vector3(0.06f, 0.1f, 0.12f), new Vector3(0f, 0.4f, -0.28f), white);
     }
 
-    private void BuildTurkey()
+    private static void BuildTurkey(Transform parent)
     {
         Color brown = new Color(0.5f, 0.3f, 0.15f);
         Color darkBrown = new Color(0.35f, 0.2f, 0.1f);
         Color red = new Color(0.8f, 0.15f, 0.1f);
 
-        MakeSphere("Body", new Vector3(0f, 0.4f, 0f), 0.7f, brown);
-        MakeBlock("Head", new Vector3(0.15f, 0.18f, 0.15f), new Vector3(0f, 0.62f, 0.3f), brown);
-        MakeBlock("Wattle", new Vector3(0.05f, 0.1f, 0.03f), new Vector3(0f, 0.52f, 0.38f), red);
-        MakeBlock("Beak", new Vector3(0.05f, 0.03f, 0.08f), new Vector3(0f, 0.6f, 0.4f), new Color(0.8f, 0.7f, 0.3f));
-        MakeBlock("EyeL", new Vector3(0.03f, 0.03f, 0.03f), new Vector3(-0.06f, 0.65f, 0.38f), Color.black);
-        MakeBlock("EyeR", new Vector3(0.03f, 0.03f, 0.03f), new Vector3(0.06f, 0.65f, 0.38f), Color.black);
+        MakeSphere(parent, "Body", new Vector3(0f, 0.4f, 0f), 0.7f, brown);
+        MakeBlock(parent, "Head", new Vector3(0.15f, 0.18f, 0.15f), new Vector3(0f, 0.62f, 0.3f), brown);
+        MakeBlock(parent, "Wattle", new Vector3(0.05f, 0.1f, 0.03f), new Vector3(0f, 0.52f, 0.38f), red);
+        MakeBlock(parent, "Beak", new Vector3(0.05f, 0.03f, 0.08f), new Vector3(0f, 0.6f, 0.4f), new Color(0.8f, 0.7f, 0.3f));
+        MakeBlock(parent, "EyeL", new Vector3(0.03f, 0.03f, 0.03f), new Vector3(-0.06f, 0.65f, 0.38f), Color.black);
+        MakeBlock(parent, "EyeR", new Vector3(0.03f, 0.03f, 0.03f), new Vector3(0.06f, 0.65f, 0.38f), Color.black);
 
         for (int i = 0; i < 5; i++)
         {
             float angle = -30f + i * 15f;
             float x = Mathf.Sin(angle * Mathf.Deg2Rad) * 0.35f;
             float y = 0.5f + Mathf.Cos(angle * Mathf.Deg2Rad) * 0.1f;
-            MakeBlock("Fan" + i, new Vector3(0.04f, 0.2f, 0.02f), new Vector3(x, y, -0.3f), darkBrown);
+            MakeBlock(parent, "Fan" + i, new Vector3(0.04f, 0.2f, 0.02f), new Vector3(x, y, -0.3f), darkBrown);
         }
 
-        MakeBlock("LegL", new Vector3(0.04f, 0.22f, 0.04f), new Vector3(-0.1f, 0.11f, 0f), darkBrown);
-        MakeBlock("LegR", new Vector3(0.04f, 0.22f, 0.04f), new Vector3(0.1f, 0.11f, 0f), darkBrown);
+        MakeBlock(parent, "LegL", new Vector3(0.04f, 0.22f, 0.04f), new Vector3(-0.1f, 0.11f, 0f), darkBrown);
+        MakeBlock(parent, "LegR", new Vector3(0.04f, 0.22f, 0.04f), new Vector3(0.1f, 0.11f, 0f), darkBrown);
     }
 }
