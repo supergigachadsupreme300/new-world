@@ -582,7 +582,7 @@ public class WorldBuilder : MonoBehaviour
 
     private void SpawnToolPickups()
     {
-        var toolTypes = new[] { "axe", "pickaxe", "hoe", "hammer", "scythe", "watering_can", "wheat_seed", "corn_seed", "carrot_seed", "tomato_seed", "strawberry_seed", "pumpkin_seed", "onion_seed", "sugarcane_seed", "rice_seed", "wheat", "corn", "potato", "carrot", "tomato", "strawberry", "pumpkin", "onion", "sugarcane", "rice", "peashooter_seed", "fertilizer", "mobspawner" };
+        var toolTypes = new[] { "axe", "pickaxe", "hoe", "hammer", "scythe", "watering_can", "wheat_seed", "corn_seed", "carrot_seed", "tomato_seed", "strawberry_seed", "pumpkin_seed", "onion_seed", "sugarcane_seed", "rice_seed", "wheat", "corn", "potato", "carrot", "tomato", "strawberry", "pumpkin", "onion", "sugarcane", "rice", "peashooter_seed", "fertilizer", "mobspawner", "club", "cage_big", "cage_small" };
         int itemsPerRow = 8;
         for (int i = 0; i < toolTypes.Length; i++)
         {

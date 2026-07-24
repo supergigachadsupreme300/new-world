@@ -53,7 +53,7 @@ public class CutsceneManager : MonoBehaviour
     private Material _drivingKerbMat;
 
     private const float RoadX = 14f;
-    private const float IntroStartZ = -310f;
+    private const float IntroStartZ = -500f;
     private const float IntroEndZ = -5f;
     private const float DrivingSpeed = 64f;
     private const float SegmentLength = 10f;
@@ -61,6 +61,7 @@ public class CutsceneManager : MonoBehaviour
     private const float SegmentSpawnAhead = 200f;
     private const float SegmentDespawnBehind = 120f;
     private const int MaxSegmentsPerFrame = 4;
+    private const int MaxActiveSegments = 40;
     private const float TransitionTime = 4f;
     private const float CamOffsetX = -3.5f;
     private const float CamOffsetY = 2.5f;
@@ -438,7 +439,7 @@ public class CutsceneManager : MonoBehaviour
         {
             float startZ = needBehind;
             int spawned = 0;
-            while (startZ < needed && spawned < MaxSegmentsPerFrame)
+            while (startZ < needed && spawned < MaxSegmentsPerFrame && _drivingSegments.Count < MaxActiveSegments)
             {
                 startZ += SegmentLength;
                 _drivingSegments.Add(SpawnDrivingSegment(startZ));
@@ -448,7 +449,7 @@ public class CutsceneManager : MonoBehaviour
         else
         {
             int fwdSpawned = 0;
-            while (farZ < needed && fwdSpawned < MaxSegmentsPerFrame)
+            while (farZ < needed && fwdSpawned < MaxSegmentsPerFrame && _drivingSegments.Count < MaxActiveSegments)
             {
                 farZ += SegmentLength;
                 _drivingSegments.Add(SpawnDrivingSegment(farZ));
@@ -456,7 +457,7 @@ public class CutsceneManager : MonoBehaviour
             }
 
             int bwdSpawned = 0;
-            while (nearZ > needBehind && bwdSpawned < MaxSegmentsPerFrame)
+            while (nearZ > needBehind && bwdSpawned < MaxSegmentsPerFrame && _drivingSegments.Count < MaxActiveSegments)
             {
                 nearZ -= SegmentLength;
                 _drivingSegments.Add(SpawnDrivingSegment(nearZ));
