@@ -248,6 +248,10 @@ public class WorldBuilder : MonoBehaviour
         SpawnMobs();
         CreateCropDemo();
         InitializeBuildingPreview();
+
+        var spawnerGo = new GameObject("LivestockSpawner");
+        spawnerGo.transform.SetParent(_worldRoot.transform);
+        spawnerGo.AddComponent<LivestockSpawner>();
     }
 
     // ═══════════════════════════════════════════════
@@ -629,6 +633,110 @@ public class WorldBuilder : MonoBehaviour
         rootCollider.isTrigger = true;
         rootCollider.size = new Vector3(0.6f, 0.6f, 0.6f);
         return pickup;
+    }
+
+    public GameObject ThrowCage(string cageType, Vector3 position, Vector3 velocity)
+    {
+        var pickup = new GameObject("ThrownCage");
+        pickup.transform.SetParent(_worldRoot.transform);
+        pickup.transform.position = position;
+
+        ItemBuilder.BuildItem(pickup.transform, cageType);
+
+        var rootCollider = pickup.AddComponent<BoxCollider>();
+        rootCollider.isTrigger = false;
+        rootCollider.size = new Vector3(0.6f, 0.6f, 0.6f);
+
+        var rb = pickup.AddComponent<Rigidbody>();
+        rb.mass = 0.5f;
+        rb.linearDamping = 0f;
+        rb.angularDamping = 0.05f;
+        rb.useGravity = true;
+        rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+        rb.linearVelocity = velocity;
+        rb.angularVelocity = Random.insideUnitSphere * 2f;
+
+        var thrown = pickup.AddComponent<ThrownCageProjectile>();
+        thrown.CageType = cageType;
+
+        return pickup;
+    }
+
+    public GameObject SpawnCageWithAnimal(Vector3 position, Livestock.AnimalType animalType)
+    {
+        var cage = new GameObject("CageWithAnimal");
+        cage.transform.SetParent(_worldRoot.transform);
+        cage.transform.position = position + Vector3.up * 0.3f;
+
+        Color iron = new Color(0.5f, 0.5f, 0.55f);
+        float s = 1f;
+        var root = new GameObject("CageModel");
+        root.transform.SetParent(cage.transform, false);
+
+        var bar1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        bar1.name = "Bar1";
+        bar1.transform.SetParent(root.transform, false);
+        bar1.transform.localScale = new Vector3(0.25f * s, 0.02f, 0.2f * s);
+        bar1.transform.localPosition = new Vector3(0f, 0f, 0f);
+        bar1.GetComponent<Renderer>().material.color = iron;
+        Destroy(bar1.GetComponent<Collider>());
+
+        var bar2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        bar2.name = "Bar2";
+        bar2.transform.SetParent(root.transform, false);
+        bar2.transform.localScale = new Vector3(0.25f * s, 0.02f, 0.2f * s);
+        bar2.transform.localPosition = new Vector3(0f, 0.18f * s, 0f);
+        bar2.GetComponent<Renderer>().material.color = iron;
+        Destroy(bar2.GetComponent<Collider>());
+
+        for (int i = 0; i < 4; i++)
+        {
+            float x = (i < 2 ? -1f : 1f) * 0.12f * s;
+            float z = (i % 2 == 0 ? -1f : 1f) * 0.09f * s;
+            var vBar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            vBar.name = "VBar" + i;
+            vBar.transform.SetParent(root.transform, false);
+            vBar.transform.localScale = new Vector3(0.02f, 0.18f * s, 0.02f);
+            vBar.transform.localPosition = new Vector3(x, 0.09f * s, z);
+            vBar.GetComponent<Renderer>().material.color = iron;
+            Destroy(vBar.GetComponent<Collider>());
+        }
+
+        Color animalC = GetAnimalColor(animalType);
+        var animalBody = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        animalBody.name = "AnimalInside";
+        animalBody.transform.SetParent(root.transform, false);
+        animalBody.transform.localScale = new Vector3(0.12f, 0.1f, 0.15f);
+        animalBody.transform.localPosition = new Vector3(0f, 0.07f * s, 0f);
+        animalBody.GetComponent<Renderer>().material.color = animalC;
+        Destroy(animalBody.GetComponent<Collider>());
+
+        var rb = cage.AddComponent<Rigidbody>();
+        rb.isKinematic = true;
+        rb.useGravity = true;
+
+        var col = cage.AddComponent<BoxCollider>();
+        col.size = new Vector3(0.6f, 0.4f, 0.6f);
+
+        var info = cage.AddComponent<CageWithAnimalInfo>();
+        info.AnimalType = animalType;
+
+        return cage;
+    }
+
+    private Color GetAnimalColor(Livestock.AnimalType type)
+    {
+        switch (type)
+        {
+            case Livestock.AnimalType.Cow: return new Color(0.95f, 0.95f, 0.95f);
+            case Livestock.AnimalType.Pig: return new Color(0.95f, 0.65f, 0.6f);
+            case Livestock.AnimalType.Sheep: return new Color(0.95f, 0.93f, 0.88f);
+            case Livestock.AnimalType.Goat: return new Color(0.6f, 0.45f, 0.3f);
+            case Livestock.AnimalType.Chicken: return new Color(0.95f, 0.93f, 0.88f);
+            case Livestock.AnimalType.Duck: return new Color(0.92f, 0.9f, 0.85f);
+            case Livestock.AnimalType.Turkey: return new Color(0.5f, 0.3f, 0.15f);
+            default: return Color.gray;
+        }
     }
 
     private void SpawnMobs()
@@ -4003,4 +4111,114 @@ public class ThrownItem : MonoBehaviour
 
         Destroy(this);
     }
+}
+
+public class ThrownCageProjectile : MonoBehaviour
+{
+    public string CageType;
+    private float _spawnTime;
+    private Rigidbody _rb;
+    private bool _landed;
+
+    private void Awake()
+    {
+        _spawnTime = Time.time;
+        _rb = GetComponent<Rigidbody>();
+    }
+
+    private void FixedUpdate()
+    {
+        if (_rb == null || _landed) return;
+        if (Time.time - _spawnTime < 0.3f) return;
+
+        if (_rb.linearVelocity.sqrMagnitude < 0.01f)
+        {
+            CheckForCapture();
+            Land();
+        }
+    }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (_landed) return;
+        if (Time.time - _spawnTime < 0.3f) return;
+
+        var livestock = collision.gameObject.GetComponentInParent<Livestock>();
+        if (livestock == null)
+            livestock = collision.gameObject.GetComponent<Livestock>();
+
+        if (livestock != null && livestock.IsKnockedOut)
+        {
+            TryCapture(livestock);
+        }
+    }
+
+    private void CheckForCapture()
+    {
+        var cols = Physics.OverlapSphere(transform.position, 1f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
+        foreach (var col in cols)
+        {
+            var livestock = col.GetComponentInParent<Livestock>();
+            if (livestock == null) livestock = col.GetComponent<Livestock>();
+            if (livestock != null && livestock.IsKnockedOut)
+            {
+                TryCapture(livestock);
+                return;
+            }
+        }
+    }
+
+    private void TryCapture(Livestock livestock)
+    {
+        bool isBig = CageType == "cage_big";
+        bool animalIsBig = livestock.Type == Livestock.AnimalType.Cow ||
+                           livestock.Type == Livestock.AnimalType.Pig ||
+                           livestock.Type == Livestock.AnimalType.Sheep ||
+                           livestock.Type == Livestock.AnimalType.Goat;
+
+        if (isBig == animalIsBig)
+        {
+            var animalType = livestock.Type;
+            var wb = WorldBuilder.Instance;
+            if (wb != null)
+                wb.SpawnCageWithAnimal(transform.position, animalType);
+            Destroy(livestock.gameObject);
+            GameManager.Instance?.UIManager?.ShowMessage("Captured " + animalType + "!", 2f);
+            Destroy(gameObject);
+        }
+        else
+        {
+            GameManager.Instance?.UIManager?.ShowMessage("Wrong cage size!", 1.5f);
+        }
+    }
+
+    private void Land()
+    {
+        _landed = true;
+
+        if (_rb != null)
+            Destroy(_rb);
+
+        var cols = GetComponents<Collider>();
+        foreach (var c in cols)
+        {
+            if (c is BoxCollider bc)
+            {
+                bc.isTrigger = true;
+                bc.size = new Vector3(0.6f, 0.6f, 0.6f);
+            }
+        }
+
+        var pos = transform.position;
+        pos.y = Mathf.Max(pos.y, 0.3f);
+        transform.position = pos;
+        transform.rotation = Quaternion.identity;
+
+        Destroy(this);
+    }
+}
+
+public class CageWithAnimalInfo : MonoBehaviour
+{
+    public Livestock.AnimalType AnimalType;
 }

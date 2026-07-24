@@ -52,6 +52,7 @@ public class ToolManager : MonoBehaviour
         { "scythe", 10f },
         { "watering_can", 8f },
         { "fertilizer", 5f },
+        { "club", 12f },
     };
 
     private float StaminaCostFor(string item)
@@ -221,11 +222,18 @@ public class ToolManager : MonoBehaviour
 
         if (_carriedObject != null)
         {
-            var (material, amount) = GetCarriedResourceInfo(_carriedObject);
-            if (material != null)
-                _uiManager.SetInfoText("Carrying: " + amount.ToString("F2") + " " + material);
+            if (_carriedObject.name == "CageWithAnimal")
+            {
+                _uiManager.SetInfoText("Carrying: Cage with animal");
+            }
             else
-                _uiManager.SetInfoText(null);
+            {
+                var (material, amount) = GetCarriedResourceInfo(_carriedObject);
+                if (material != null)
+                    _uiManager.SetInfoText("Carrying: " + amount.ToString("F2") + " " + material);
+                else
+                    _uiManager.SetInfoText(null);
+            }
             return;
         }
 
@@ -276,11 +284,22 @@ public class ToolManager : MonoBehaviour
                 _uiManager.SetInfoText(null);
             }
         }
-        else if (root.name == "TreeFelled" || root.name == "BranchTop" || root.name == "RockDebris")
+        else if (root.name == "TreeFelled" || root.name == "BranchTop" || root.name == "RockDebris" || root.name == "CageWithAnimal" || root.name == "ThrownCage")
         {
-            var (material, amount) = GetCarriedResourceInfo(root);
-            string typeName = root.name == "TreeFelled" ? "Tree" : root.name == "BranchTop" ? "Branch" : "Debris";
-            _uiManager.SetInfoText(typeName + " provides " + amount.ToString("F2") + " " + material);
+            if (root.name == "CageWithAnimal")
+            {
+                _uiManager.SetInfoText("Cage with animal (E to pick up)");
+            }
+            else if (root.name == "ThrownCage")
+            {
+                _uiManager.SetInfoText("Cage (E to pick up)");
+            }
+            else
+            {
+                var (material, amount) = GetCarriedResourceInfo(root);
+                string typeName = root.name == "TreeFelled" ? "Tree" : root.name == "BranchTop" ? "Branch" : "Debris";
+                _uiManager.SetInfoText(typeName + " provides " + amount.ToString("F2") + " " + material);
+            }
         }
         else if (root.name == "FieldTile")
         {
@@ -414,6 +433,27 @@ public class ToolManager : MonoBehaviour
         if (selectedItem == "gun")
         {
             ShootGun(player.transform.position, player.transform.forward);
+            return;
+        }
+
+        if (selectedItem == "club")
+        {
+            var clubOrigin = cam.transform.position + cam.transform.forward * 0.3f;
+            var clubRay = new Ray(clubOrigin, cam.transform.forward);
+            if (Physics.Raycast(clubRay, out var clubHit, 3f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
+            {
+                var livestock = clubHit.collider.GetComponentInParent<Livestock>();
+                if (livestock == null)
+                    livestock = clubHit.collider.GetComponent<Livestock>();
+                if (livestock != null)
+                {
+                    livestock.TakeDamage(3);
+                    SoundManager.Instance?.Play("axe");
+                    _uiManager?.ShowMessage("Clubbed!", 1f);
+                    return;
+                }
+            }
+            _uiManager?.ShowMessage("Nothing to hit.", 1f);
             return;
         }
 
@@ -736,7 +776,7 @@ public class ToolManager : MonoBehaviour
         while (root.transform.parent != null && root.transform.parent.name != "WorldRoot")
             root = root.transform.parent.gameObject;
 
-        if (root.name == "TreeFelled" || root.name == "BranchTop" || root.name == "RockDebris")
+        if (root.name == "TreeFelled" || root.name == "BranchTop" || root.name == "RockDebris" || root.name == "CageWithAnimal" || root.name == "ThrownCage")
         {
             if (root.GetComponent<Rigidbody>() == null) return;
             _carriedObject = root;
@@ -747,7 +787,10 @@ public class ToolManager : MonoBehaviour
             root.transform.SetParent(cam.transform);
             root.transform.localPosition = new Vector3(0.7f, -0.4f, 1.8f);
             root.transform.localRotation = Quaternion.identity;
-            _uiManager.ShowMessage("Lifted.", 1f);
+            if (root.name == "CageWithAnimal")
+                _uiManager.ShowMessage("Picked up cage.", 1f);
+            else
+                _uiManager.ShowMessage("Lifted.", 1f);
             return;
         }
 
@@ -856,7 +899,12 @@ public class ToolManager : MonoBehaviour
         if (RemoveItem(_selectedSlot, 1))
         {
             if (_worldBuilder != null)
-                _worldBuilder.ThrowPickup(itemType, throwOrigin, throwVelocity);
+            {
+                if (itemType == "cage_big" || itemType == "cage_small")
+                    _worldBuilder.ThrowCage(itemType, throwOrigin, throwVelocity);
+                else
+                    _worldBuilder.ThrowPickup(itemType, throwOrigin, throwVelocity);
+            }
 
             _uiManager.ShowMessage($"Threw {itemType}.", 1.5f);
             UpdateInventoryUI();
@@ -878,7 +926,7 @@ public class ToolManager : MonoBehaviour
         while (root.transform.parent != null && root.transform.parent.name != "WorldRoot")
             root = root.transform.parent.gameObject;
 
-        if (root.name != "TreeFelled" && root.name != "BranchTop" && root.name != "RockDebris")
+        if (root.name != "TreeFelled" && root.name != "BranchTop" && root.name != "RockDebris" && root.name != "CageWithAnimal" && root.name != "ThrownCage")
             return;
 
         if (root.GetComponent<Rigidbody>() == null) return;
@@ -897,6 +945,27 @@ public class ToolManager : MonoBehaviour
     private void DropCarriedObject(PlayerController player)
     {
         if (_carriedObject == null) return;
+
+        if (_carriedObject.name == "CageWithAnimal")
+        {
+            var info = _carriedObject.GetComponent<CageWithAnimalInfo>();
+            if (info != null && _worldBuilder != null)
+            {
+                Vector3 dropPos = _carriedObject.transform.position;
+                dropPos.y = 0.5f;
+
+                var go = new GameObject("Livestock_" + info.AnimalType);
+                go.transform.SetParent(_worldBuilder.WorldRoot.transform);
+                go.transform.position = dropPos;
+                var livestock = go.AddComponent<Livestock>();
+                livestock.Type = info.AnimalType;
+                livestock.StartSpawnAnimation();
+                _uiManager.ShowMessage(info.AnimalType + " released!", 1.5f);
+            }
+            Destroy(_carriedObject);
+            _carriedObject = null;
+            return;
+        }
 
         _carriedObject.transform.SetParent(null);
         var rb = _carriedObject.GetComponent<Rigidbody>();
@@ -1306,6 +1375,11 @@ public class ToolManager : MonoBehaviour
         
         // Special items
         CreateToolModel("mi_hao_hao", new Color(0.8f, 0.3f, 0.2f));
+        
+        // Livestock tools
+        CreateToolModel("club", new Color(0.5f, 0.25f, 0.05f));
+        CreateToolModel("cage_big", new Color(0.5f, 0.5f, 0.55f));
+        CreateToolModel("cage_small", new Color(0.55f, 0.55f, 0.6f));
     }
 
     private void CreateToolModel(string toolType, Color color)

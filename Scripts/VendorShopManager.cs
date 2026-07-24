@@ -61,6 +61,9 @@ public class VendorShopManager : MonoBehaviour
         new ShopItem { Type = "fertilizer", Label = "Fertilizer", Price = 8 },
         new ShopItem { Type = "watering_can", Label = "Watering Can", Price = 6 },
         new ShopItem { Type = "peashooter_seed", Label = "Peashooter Seed", Price = 10 },
+        new ShopItem { Type = "club", Label = "Club", Price = 80 },
+        new ShopItem { Type = "cage_big", Label = "Big Cage", Price = 120 },
+        new ShopItem { Type = "cage_small", Label = "Small Cage", Price = 80 },
     };
 
     private List<ShopItem> _sellItems = new List<ShopItem>

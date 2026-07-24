@@ -65,6 +65,9 @@ public static class ItemBuilder
             case "damaged_sugarcane":
             case "damaged_rice": BuildDamagedCrop(parent); break;
             case "mi_hao_hao": BuildMiHaoHao(parent); break;
+            case "club": BuildClub(parent); break;
+            case "cage_big": BuildCageBig(parent); break;
+            case "cage_small": BuildCageSmall(parent); break;
         }
     }
 
@@ -301,5 +304,39 @@ public static class ItemBuilder
     {
         CreatePickupCube(parent, new Vector3(0f, 0.15f, 0f), new Vector3(0.025f, 0.3f, 0.025f), new Color(0.25f, 0.6f, 0.15f), false);
         CreatePickupSphere(parent, new Vector3(0f, 0.32f, 0f), 0.08f, new Color(1f, 0.9f, 0.3f), false);
+    }
+
+    public static void BuildClub(Transform parent)
+    {
+        CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(0.04f, 0.35f, 0.04f), new Color(0.5f, 0.25f, 0.05f));
+        CreatePickupCube(parent, new Vector3(0f, 0.22f, 0f), new Vector3(0.1f, 0.12f, 0.1f), new Color(0.4f, 0.2f, 0.05f));
+    }
+
+    public static void BuildCageBig(Transform parent)
+    {
+        Color iron = new Color(0.5f, 0.5f, 0.55f);
+        float s = 1f;
+        CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(0.25f * s, 0.02f, 0.2f * s), iron);
+        CreatePickupCube(parent, new Vector3(0f, 0.18f * s, 0f), new Vector3(0.25f * s, 0.02f, 0.2f * s), iron);
+        CreatePickupCube(parent, new Vector3(-0.12f * s, 0.09f * s, 0f), new Vector3(0.02f, 0.18f * s, 0.02f), iron);
+        CreatePickupCube(parent, new Vector3(0.12f * s, 0.09f * s, 0f), new Vector3(0.02f, 0.18f * s, 0.02f), iron);
+        CreatePickupCube(parent, new Vector3(0f, 0.09f * s, -0.09f * s), new Vector3(0.25f * s, 0.02f, 0.02f), iron);
+        CreatePickupCube(parent, new Vector3(0f, 0.09f * s, 0.09f * s), new Vector3(0.25f * s, 0.02f, 0.02f), iron);
+        Color animalC = new Color(0.6f, 0.4f, 0.2f);
+        CreatePickupSphere(parent, new Vector3(0f, 0.07f * s, 0f), 0.08f, animalC, false);
+    }
+
+    public static void BuildCageSmall(Transform parent)
+    {
+        Color iron = new Color(0.55f, 0.55f, 0.6f);
+        float s = 0.7f;
+        CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(0.2f * s, 0.015f, 0.15f * s), iron);
+        CreatePickupCube(parent, new Vector3(0f, 0.14f * s, 0f), new Vector3(0.2f * s, 0.015f, 0.15f * s), iron);
+        CreatePickupCube(parent, new Vector3(-0.09f * s, 0.07f * s, 0f), new Vector3(0.015f, 0.14f * s, 0.015f), iron);
+        CreatePickupCube(parent, new Vector3(0.09f * s, 0.07f * s, 0f), new Vector3(0.015f, 0.14f * s, 0.015f), iron);
+        CreatePickupCube(parent, new Vector3(0f, 0.07f * s, -0.07f * s), new Vector3(0.2f * s, 0.015f, 0.015f), iron);
+        CreatePickupCube(parent, new Vector3(0f, 0.07f * s, 0.07f * s), new Vector3(0.2f * s, 0.015f, 0.015f), iron);
+        Color animalC = new Color(0.9f, 0.85f, 0.8f);
+        CreatePickupSphere(parent, new Vector3(0f, 0.05f * s, 0f), 0.05f, animalC, false);
     }
 }
