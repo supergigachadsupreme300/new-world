@@ -267,8 +267,6 @@ public class CutsceneManager : MonoBehaviour
 
         Vector3 camFixedPos = _mainCamera != null ? _mainCamera.transform.position : Vector3.zero;
 
-        DestroyDrivingSegments();
-
         float driveZ = IntroStartZ;
         UpdateDrivingSegments(driveZ, 0f, 0f, false);
         while (driveZ < IntroEndZ)
@@ -629,7 +627,7 @@ public class CutsceneManager : MonoBehaviour
         _menuVisualRoutine = StartCoroutine(MenuVisualRoutine());
     }
 
-    public void StopMainMenuVisual()
+    public void StopMainMenuVisual(bool keepSegments = false)
     {
         if (_menuVisualRoutine != null)
         {
@@ -637,7 +635,8 @@ public class CutsceneManager : MonoBehaviour
             _menuVisualRoutine = null;
         }
         StopSteeringAnim();
-        DestroyDrivingSegments();
+        if (!keepSegments)
+            DestroyDrivingSegments();
         if (_prebuilt && _introCar != null)
             _introCar.SetActive(false);
     }

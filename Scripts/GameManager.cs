@@ -202,9 +202,12 @@ public class GameManager : MonoBehaviour
 
         if (CutsceneManager != null)
         {
-            CutsceneManager.StopMainMenuVisual();
+            CutsceneManager.StopMainMenuVisual(true);
             CutsceneManager.PlayIntroCutscene(null);
         }
+
+        var spawner = Object.FindAnyObjectByType<LivestockSpawner>();
+        if (spawner != null) spawner.Restart();
 
         UpdateTimeUI();
     }
@@ -234,6 +237,9 @@ public class GameManager : MonoBehaviour
 
         if (CutsceneManager != null)
             CutsceneManager.StopMainMenuVisual();
+
+        var spawner2 = Object.FindAnyObjectByType<LivestockSpawner>();
+        if (spawner2 != null) spawner2.Restart();
 
         UpdateTimeUI();
     }

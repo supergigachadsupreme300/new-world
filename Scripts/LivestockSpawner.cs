@@ -5,9 +5,11 @@ using UnityEngine;
 public class LivestockSpawner : MonoBehaviour
 {
     private readonly List<Livestock> _activeAnimals = new List<Livestock>();
+    private readonly Queue<FlyingCrane> _cranePool = new Queue<FlyingCrane>();
     private float _trickleTimer;
     private const int InitialBatchSize = 10;
     private const int MaxAnimals = 20;
+    private const int PoolSize = 3;
     private const float TrickleIntervalMin = 120f;
     private const float TrickleIntervalMax = 180f;
     private const float SpawnRadiusMin = 30f;
@@ -15,8 +17,24 @@ public class LivestockSpawner : MonoBehaviour
 
     private void Start()
     {
-        StartCoroutine(InitialSpawn());
+        for (int i = 0; i < PoolSize; i++)
+        {
+            var go = new GameObject("FlyingCrane");
+            go.transform.SetParent(transform);
+            go.AddComponent<FlyingCrane>();
+            go.SetActive(false);
+            _cranePool.Enqueue(go.GetComponent<FlyingCrane>());
+        }
+
         _trickleTimer = Random.Range(TrickleIntervalMin, TrickleIntervalMax);
+    }
+
+    public void Restart()
+    {
+        StopAllCoroutines();
+        _activeAnimals.RemoveAll(a => a == null);
+        _trickleTimer = Random.Range(TrickleIntervalMin, TrickleIntervalMax);
+        StartCoroutine(InitialSpawn());
     }
 
     private void Update()
@@ -39,8 +57,8 @@ public class LivestockSpawner : MonoBehaviour
         for (int i = 0; i < InitialBatchSize; i++)
         {
             if (_activeAnimals.Count >= MaxAnimals) break;
-            SpawnAnimal(GetRandomType(), false);
-            yield return new WaitForSeconds(0.3f);
+            SpawnCrane(GetRandomType());
+            yield return new WaitForSeconds(0.8f);
         }
     }
 
@@ -50,17 +68,11 @@ public class LivestockSpawner : MonoBehaviour
         for (int i = 0; i < count; i++)
         {
             if (_activeAnimals.Count >= MaxAnimals) break;
-            SpawnAnimal(GetRandomType(), true);
+            SpawnCrane(GetRandomType());
         }
     }
 
-    private Livestock.AnimalType GetRandomType()
-    {
-        var types = (Livestock.AnimalType[])System.Enum.GetValues(typeof(Livestock.AnimalType));
-        return types[Random.Range(0, types.Length)];
-    }
-
-    private void SpawnAnimal(Livestock.AnimalType type, bool withAnimation)
+    private void SpawnCrane(Livestock.AnimalType type)
     {
         var player = GameManager.Instance?.Player;
         if (player == null) return;
@@ -68,18 +80,41 @@ public class LivestockSpawner : MonoBehaviour
         Vector3 playerPos = player.transform.position;
         float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
         float dist = Random.Range(SpawnRadiusMin, SpawnRadiusMax);
-        Vector3 spawnPos = playerPos + new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
-        spawnPos.y = 0.5f;
+        Vector3 dropTarget = playerPos + new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
+        dropTarget.y = 0.5f;
 
-        var go = new GameObject("Livestock_" + type);
+        FlyingCrane crane = GetCrane();
+        crane.Setup(type, dropTarget, OnCraneLanded);
+    }
+
+    private FlyingCrane GetCrane()
+    {
+        while (_cranePool.Count > 0)
+        {
+            var crane = _cranePool.Dequeue();
+            if (crane != null) return crane;
+        }
+
+        var go = new GameObject("FlyingCrane");
         go.transform.SetParent(transform);
-        go.transform.position = spawnPos;
+        go.AddComponent<FlyingCrane>();
+        return go.GetComponent<FlyingCrane>();
+    }
 
-        var livestock = go.AddComponent<Livestock>();
-        livestock.Type = type;
+    public void ReturnCrane(FlyingCrane crane)
+    {
+        if (crane != null)
+            _cranePool.Enqueue(crane);
+    }
+
+    private void OnCraneLanded(Livestock livestock)
+    {
         _activeAnimals.Add(livestock);
+    }
 
-        if (withAnimation)
-            livestock.StartSpawnAnimation();
+    private Livestock.AnimalType GetRandomType()
+    {
+        var types = (Livestock.AnimalType[])System.Enum.GetValues(typeof(Livestock.AnimalType));
+        return types[Random.Range(0, types.Length)];
     }
 }

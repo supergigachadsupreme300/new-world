@@ -646,40 +646,12 @@ public class WorldBuilder : MonoBehaviour
             var root = new GameObject("CageModel");
             root.transform.SetParent(pickup.transform, false);
 
-            Color iron = new Color(0.5f, 0.5f, 0.55f);
             bool isBig = cageType == "cage_big";
             float w = isBig ? 0.5f : 0.35f;
             float h = isBig ? 0.4f : 0.3f;
             float d = isBig ? 0.4f : 0.3f;
 
-            var floorGo = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            floorGo.name = "Floor";
-            floorGo.transform.SetParent(root.transform, false);
-            floorGo.transform.localScale = new Vector3(w, 0.02f, d);
-            floorGo.GetComponent<Renderer>().material.color = iron;
-            Destroy(floorGo.GetComponent<Collider>());
-
-            var ceilGo = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            ceilGo.name = "Ceiling";
-            ceilGo.transform.SetParent(root.transform, false);
-            ceilGo.transform.localScale = new Vector3(w, 0.02f, d);
-            ceilGo.transform.localPosition = new Vector3(0f, h, 0f);
-            ceilGo.GetComponent<Renderer>().material.color = iron;
-            Destroy(ceilGo.GetComponent<Collider>());
-
-            for (int i = 0; i < 4; i++)
-            {
-                float x = (i < 2 ? -1f : 1f) * w * 0.5f;
-                float z = (i % 2 == 0 ? -1f : 1f) * d * 0.5f;
-                var vBar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                vBar.name = "Corner" + i;
-                vBar.transform.SetParent(root.transform, false);
-                vBar.transform.localScale = new Vector3(0.02f, h, 0.02f);
-                vBar.transform.localPosition = new Vector3(x, h * 0.5f, z);
-                vBar.GetComponent<Renderer>().material.color = iron;
-                Destroy(vBar.GetComponent<Collider>());
-            }
-
+            ItemBuilder.BuildDetailedCage(root.transform, w, h, d);
             Livestock.BuildModelInto(root.transform, capturedAnimal.Value);
         }
         else
@@ -702,6 +674,8 @@ public class WorldBuilder : MonoBehaviour
 
         var thrown = pickup.AddComponent<ThrownCageProjectile>();
         thrown.CageType = cageType;
+        var cageInfo = pickup.AddComponent<ThrownCageInfo>();
+        cageInfo.CageType = cageType;
         if (capturedAnimal.HasValue)
         {
             thrown.HasCapturedAnimal = true;
@@ -717,7 +691,6 @@ public class WorldBuilder : MonoBehaviour
         cage.transform.SetParent(_worldRoot.transform);
         cage.transform.position = position + Vector3.up * 0.3f;
 
-        Color iron = new Color(0.5f, 0.5f, 0.55f);
         bool isBig = animalType == Livestock.AnimalType.Cow ||
                      animalType == Livestock.AnimalType.Pig ||
                      animalType == Livestock.AnimalType.Sheep ||
@@ -730,68 +703,7 @@ public class WorldBuilder : MonoBehaviour
         var root = new GameObject("CageModel");
         root.transform.SetParent(cage.transform, false);
 
-        var floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        floor.name = "Floor";
-        floor.transform.SetParent(root.transform, false);
-        floor.transform.localScale = new Vector3(w, 0.04f, d);
-        floor.transform.localPosition = new Vector3(0f, 0f, 0f);
-        floor.GetComponent<Renderer>().material.color = iron;
-        Destroy(floor.GetComponent<Collider>());
-
-        var ceiling = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        ceiling.name = "Ceiling";
-        ceiling.transform.SetParent(root.transform, false);
-        ceiling.transform.localScale = new Vector3(w, 0.04f, d);
-        ceiling.transform.localPosition = new Vector3(0f, h, 0f);
-        ceiling.GetComponent<Renderer>().material.color = iron;
-        Destroy(ceiling.GetComponent<Collider>());
-
-        for (int i = 0; i < 4; i++)
-        {
-            float x = (i < 2 ? -1f : 1f) * w * 0.5f;
-            float z = (i % 2 == 0 ? -1f : 1f) * d * 0.5f;
-            var vBar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            vBar.name = "Corner" + i;
-            vBar.transform.SetParent(root.transform, false);
-            vBar.transform.localScale = new Vector3(0.04f, h, 0.04f);
-            vBar.transform.localPosition = new Vector3(x, h * 0.5f, z);
-            vBar.GetComponent<Renderer>().material.color = iron;
-            Destroy(vBar.GetComponent<Collider>());
-        }
-
-        int horizBars = isBig ? 3 : 2;
-        int vertBars = isBig ? 3 : 2;
-        for (int side = 0; side < 4; side++)
-        {
-            float signX = (side < 2) ? 0f : ((side == 2) ? -1f : 1f);
-            float signZ = (side < 2) ? ((side == 0) ? -1f : 1f) : 0f;
-            float barW = (signX == 0f) ? w : d;
-            for (int j = 0; j < horizBars; j++)
-            {
-                float barY = h * (j + 1f) / (horizBars + 1f);
-                var hBar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                hBar.name = "HBar" + side + "_" + j;
-                hBar.transform.SetParent(root.transform, false);
-                hBar.transform.localScale = new Vector3(signX == 0f ? w * 0.9f : 0.02f, 0.02f, signZ == 0f ? d * 0.9f : 0.02f);
-                hBar.transform.localPosition = new Vector3(signX * w * 0.5f, barY, signZ * d * 0.5f);
-                hBar.GetComponent<Renderer>().material.color = iron;
-                Destroy(hBar.GetComponent<Collider>());
-            }
-            for (int j = 0; j < vertBars; j++)
-            {
-                float barPos = barW * (j + 1f) / (vertBars + 1f);
-                float bx = signX == 0f ? (barPos - barW * 0.5f) : signX * w * 0.5f;
-                float bz = signZ == 0f ? (barPos - barW * 0.5f) : signZ * d * 0.5f;
-                var vBar2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                vBar2.name = "VBar" + side + "_" + j;
-                vBar2.transform.SetParent(root.transform, false);
-                vBar2.transform.localScale = new Vector3(signX == 0f ? 0.02f : 0.02f, h * 0.9f, signZ == 0f ? 0.02f : 0.02f);
-                vBar2.transform.localPosition = new Vector3(bx, h * 0.5f, bz);
-                vBar2.GetComponent<Renderer>().material.color = iron;
-                Destroy(vBar2.GetComponent<Collider>());
-            }
-        }
-
+        ItemBuilder.BuildDetailedCage(root.transform, w, h, d);
         Livestock.BuildModelInto(root.transform, animalType);
 
         var rb = cage.AddComponent<Rigidbody>();
@@ -4173,7 +4085,9 @@ public class ThrownItem : MonoBehaviour
     {
         if (_rb != null)
         {
-            Destroy(_rb);
+            _rb.isKinematic = true;
+            _rb.linearVelocity = Vector3.zero;
+            _rb.angularVelocity = Vector3.zero;
         }
 
         var cols = GetComponents<Collider>();
@@ -4307,6 +4221,13 @@ public class ThrownCageProjectile : MonoBehaviour
             GameManager.Instance?.UIManager?.ShowMessage(CapturedAnimal + " released!", 1.5f);
         }
         HasCapturedAnimal = false;
+
+        var cageModel = transform.Find("CageModel");
+        if (cageModel != null)
+        {
+            var animalModel = cageModel.Find("Model");
+            if (animalModel != null) Destroy(animalModel.gameObject);
+        }
     }
 
     private void Land()
@@ -4314,7 +4235,11 @@ public class ThrownCageProjectile : MonoBehaviour
         _landed = true;
 
         if (_rb != null)
-            Destroy(_rb);
+        {
+            _rb.isKinematic = true;
+            _rb.linearVelocity = Vector3.zero;
+            _rb.angularVelocity = Vector3.zero;
+        }
 
         var cols = GetComponents<Collider>();
         foreach (var c in cols)
@@ -4338,4 +4263,9 @@ public class ThrownCageProjectile : MonoBehaviour
 public class CageWithAnimalInfo : MonoBehaviour
 {
     public Livestock.AnimalType AnimalType;
+}
+
+public class ThrownCageInfo : MonoBehaviour
+{
+    public string CageType;
 }

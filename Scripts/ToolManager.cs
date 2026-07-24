@@ -983,6 +983,24 @@ public class ToolManager : MonoBehaviour
             return;
         }
 
+        if (_carriedObject.name == "ThrownCage")
+        {
+            var info = _carriedObject.GetComponent<ThrownCageInfo>();
+            string cageType = info != null ? info.CageType : "cage_big";
+            var cam = GetActiveCamera();
+            var throwOrigin = cam != null
+                ? cam.transform.position + cam.transform.forward * 0.5f
+                : _carriedObject.transform.position;
+            var throwDir = cam != null ? cam.transform.forward : Vector3.forward;
+            var throwVelocity = throwDir * 8f + Vector3.up * 3.5f;
+            Destroy(_carriedObject);
+            _carriedObject = null;
+            if (_worldBuilder != null)
+                _worldBuilder.ThrowCage(cageType, throwOrigin, throwVelocity);
+            _uiManager.ShowMessage("Threw empty cage.", 1f);
+            return;
+        }
+
         _carriedObject.transform.SetParent(null);
         var rb = _carriedObject.GetComponent<Rigidbody>();
         var cols = _carriedObject.GetComponentsInChildren<Collider>();
