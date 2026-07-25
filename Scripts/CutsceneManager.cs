@@ -27,6 +27,7 @@ public class CutsceneManager : MonoBehaviour
     private Coroutine _cutsceneRoutine;
     private Coroutine _pendingCheckRoutine;
     private Coroutine _menuVisualRoutine;
+    private float _cutsceneStartTime;
 
     private bool _happyPending;
     private GameObject _tetoRoot;
@@ -99,6 +100,11 @@ public class CutsceneManager : MonoBehaviour
             JustCancelledCutscene = true;
             CancelCutscene();
         }
+
+        if (IsActive && Time.time - _cutsceneStartTime > 120f)
+        {
+            CancelCutscene();
+        }
     }
 
     void OnDestroy()
@@ -161,6 +167,7 @@ public class CutsceneManager : MonoBehaviour
     {
         if (IsActive) return;
         IsActive = true;
+        _cutsceneStartTime = Time.time;
         _cutsceneRoutine = StartCoroutine(IntroRoutine(onComplete));
     }
 
@@ -168,6 +175,7 @@ public class CutsceneManager : MonoBehaviour
     {
         if (IsActive) return;
         IsActive = true;
+        _cutsceneStartTime = Time.time;
         _cutsceneRoutine = StartCoroutine(SadEndingRoutine());
     }
 
@@ -197,6 +205,7 @@ public class CutsceneManager : MonoBehaviour
             {
                 _happyPending = false;
                 IsActive = true;
+                _cutsceneStartTime = Time.time;
                 _cutsceneRoutine = StartCoroutine(HappyEndingRoutine());
             }
             yield return null;
@@ -209,6 +218,8 @@ public class CutsceneManager : MonoBehaviour
 
     private IEnumerator IntroRoutine(System.Action onComplete)
     {
+        try
+        {
         if (_uiManager == null)
             _uiManager = Object.FindAnyObjectByType<UIManager>();
 
@@ -303,8 +314,6 @@ public class CutsceneManager : MonoBehaviour
         _introWheels.Clear();
         ShowHUD();
         RestorePlayerControl();
-        IsActive = false;
-        _cutsceneRoutine = null;
 
         if (WorldBuilder.Instance != null)
             WorldBuilder.Instance.CloseBorderGap();
@@ -313,6 +322,12 @@ public class CutsceneManager : MonoBehaviour
 
         if (onComplete == null && _uiManager != null && GameManager.Instance != null && !GameManager.Instance.InGame)
             _uiManager.ShowMainMenu(true);
+        }
+        finally
+        {
+            IsActive = false;
+            _cutsceneRoutine = null;
+        }
     }
 
     // ═══════════════════════════════════════════════
@@ -697,6 +712,8 @@ public class CutsceneManager : MonoBehaviour
 
     private IEnumerator SadEndingRoutine()
     {
+        try
+        {
         float rideDur = 16f;
         if (_uiManager == null)
             _uiManager = Object.FindAnyObjectByType<UIManager>();
@@ -783,9 +800,12 @@ public class CutsceneManager : MonoBehaviour
             _uiManager = Object.FindAnyObjectByType<UIManager>();
         if (_uiManager != null)
             _uiManager.ShowEndScreen("SAD ENDING", "\"Skibidi.\ndop dop.\"");
-
-        IsActive = false;
-        _cutsceneRoutine = null;
+        }
+        finally
+        {
+            IsActive = false;
+            _cutsceneRoutine = null;
+        }
     }
 
     // ═══════════════════════════════════════════════
@@ -794,11 +814,11 @@ public class CutsceneManager : MonoBehaviour
 
     private IEnumerator HappyEndingRoutine()
     {
+        try
+        {
         _player = GameManager.Instance?.Player;
         if (_player == null)
         {
-            IsActive = false;
-            _cutsceneRoutine = null;
             yield break;
         }
         if (_uiManager == null)
@@ -943,13 +963,17 @@ public class CutsceneManager : MonoBehaviour
         DestroyOverlay();
         RestorePlayerControl();
         ShowHUD();
-        IsActive = false;
-        _cutsceneRoutine = null;
 
         if (_uiManager == null)
             _uiManager = Object.FindAnyObjectByType<UIManager>();
         if (_uiManager != null)
             _uiManager.ShowMessage("Continue the adventure!", 2);
+        }
+        finally
+        {
+            IsActive = false;
+            _cutsceneRoutine = null;
+        }
     }
 
     // ═══════════════════════════════════════════════

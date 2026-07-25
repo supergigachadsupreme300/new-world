@@ -209,6 +209,11 @@ public class PlayerController : MonoBehaviour
                 wb.SpawnVendorCart();
                 return;
             }
+            if (wb != null && wb.IsNearEventBlock(transform.position))
+            {
+                wb.ActivateEventBlock(transform.position);
+                return;
+            }
             ToolManager.Instance?.TryPickupNearby();
         }
         if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)

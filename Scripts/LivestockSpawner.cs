@@ -119,4 +119,10 @@ public class LivestockSpawner : MonoBehaviour
         var types = (Livestock.AnimalType[])System.Enum.GetValues(typeof(Livestock.AnimalType));
         return types[Random.Range(0, types.Length)];
     }
+
+    public List<Livestock> GetActiveAnimals()
+    {
+        _activeAnimals.RemoveAll(a => a == null);
+        return _activeAnimals;
+    }
 }

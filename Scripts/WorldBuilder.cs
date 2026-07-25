@@ -43,6 +43,8 @@ public class WorldBuilder : MonoBehaviour
     private Transform _shopRoot;
     private GameObject _vendorSpawnButton;
     private GameObject _alignmentStrip;
+    private readonly List<GameObject> _eventBlocks = new List<GameObject>();
+    private readonly List<int> _eventBlockIndices = new List<int>();
 
     private class VendorCart
     {
@@ -244,9 +246,13 @@ public class WorldBuilder : MonoBehaviour
         BuildWifeHouse();
         SpawnBuffalo();
         CreateVendorSpawnButton();
+        CreateEventBlocks();
         SpawnToolPickups();
         SpawnMobs();
         CreateCropDemo();
+        CreateBuildingModels();
+        CreateInspectionLabels();
+        CreateSectionDividers();
         InitializeBuildingPreview();
 
         var spawnerGo = new GameObject("LivestockSpawner");
@@ -582,14 +588,31 @@ public class WorldBuilder : MonoBehaviour
 
     private void SpawnToolPickups()
     {
-        var toolTypes = new[] { "axe", "pickaxe", "hoe", "hammer", "scythe", "watering_can", "wheat_seed", "corn_seed", "carrot_seed", "tomato_seed", "strawberry_seed", "pumpkin_seed", "onion_seed", "sugarcane_seed", "rice_seed", "wheat", "corn", "potato", "carrot", "tomato", "strawberry", "pumpkin", "onion", "sugarcane", "rice", "peashooter_seed", "fertilizer", "mobspawner", "club", "cage_big", "cage_small" };
-        int itemsPerRow = 8;
-        for (int i = 0; i < toolTypes.Length; i++)
+        var seeds = new[] { "wheat_seed", "corn_seed", "carrot_seed", "tomato_seed", "strawberry_seed", "pumpkin_seed", "onion_seed", "sugarcane_seed", "rice_seed", "peashooter_seed", "fertilizer", "mobspawner" };
+        var tools = new[] { "axe", "pickaxe", "hoe", "hammer", "scythe", "watering_can" };
+        var harvested = new[] { "wheat", "corn", "potato", "carrot", "tomato", "strawberry", "pumpkin", "onion", "sugarcane", "rice", "club", "cage_big", "cage_small" };
+
+        float baseX = 50f;
+        float step = 3f;
+
+        for (int i = 0; i < seeds.Length; i++)
         {
-            int row = i / itemsPerRow;
-            int col = i % itemsPerRow;
-            var position = new Vector3(-14f + col * 4f, 0.5f, -12f - row * 4f);
-            CreateToolPickup(toolTypes[i], position);
+            int col = i % 6;
+            int row = i / 6;
+            CreateToolPickup(seeds[i], new Vector3(baseX + col * step, 0.5f, -52f - row * step));
+        }
+
+        for (int i = 0; i < tools.Length; i++)
+        {
+            int col = i % 6;
+            CreateToolPickup(tools[i], new Vector3(baseX + col * step, 0.5f, -60f));
+        }
+
+        for (int i = 0; i < harvested.Length; i++)
+        {
+            int col = i % 6;
+            int row = i / 6;
+            CreateToolPickup(harvested[i], new Vector3(baseX + col * step, 0.5f, -65f - row * step));
         }
     }
 
@@ -762,8 +785,8 @@ public class WorldBuilder : MonoBehaviour
 
         string[] cropTypes = { "wheat", "corn", "potato", "carrot", "tomato", "strawberry", "pumpkin", "onion", "sugarcane", "rice" };
         string[] cropLabels = { "Wheat", "Corn", "Potato", "Carrot", "Tomato", "Strawberry", "Pumpkin", "Onion", "Sugarcane", "Rice" };
-        float startX = -12f;
-        float startZ = 6f;
+        float startX = 50f;
+        float startZ = -95f;
         float xStep = 3.5f;
         float zStep = 2.8f;
 
@@ -772,7 +795,7 @@ public class WorldBuilder : MonoBehaviour
             for (int s = 1; s <= 4; s++)
             {
                 float x = startX + (s - 1) * xStep;
-                float z = startZ + c * zStep;
+                float z = startZ - c * zStep;
 
                 var plot = GameObject.CreatePrimitive(PrimitiveType.Quad);
                 plot.name = "FieldTile";
@@ -2936,7 +2959,8 @@ GameObject treeRoot;
         bool nearRoad = x >= (_roadCenterX - _roadHalfWidth - 3f) && x <= (_roadCenterX + _roadHalfWidth + 3f)
                         && z >= _roadZStart - 10f && z <= _roadZEnd + 10f;
         bool nearWifeHouse = x >= 20 && x <= 42 && Mathf.Abs(z) <= 10;
-        return nearHouse || nearShop || nearRoad || nearWifeHouse;
+        bool nearDisplay = x >= 48 && x <= 67 && z >= -130 && z <= -48;
+        return nearHouse || nearShop || nearRoad || nearWifeHouse || nearDisplay;
     }
 
     private void CreateVendorSpawnButton()
@@ -2958,6 +2982,163 @@ GameObject treeRoot;
     {
         if (_vendorSpawnButton == null) return false;
         return Vector3.Distance(position, _vendorSpawnButton.transform.position) <= range;
+    }
+
+    // ── Event Blocks ──
+
+    private void CreateEventBlocks()
+    {
+        var rem = RandomEventManager.Instance;
+        if (rem == null || rem.EventCount == 0) return;
+
+        int cols = 6;
+        float spacing = 3f;
+        float startX = 50f;
+        float startZ = -78f;
+
+        for (int i = 0; i < rem.EventCount; i++)
+        {
+            int col = i % cols;
+            int row = i / cols;
+            float x = startX + col * spacing;
+            float z = startZ - row * spacing;
+
+            var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            block.name = "EventBlock_" + i;
+            block.transform.SetParent(_worldRoot.transform);
+            block.transform.position = new Vector3(x, 0.075f, z);
+            block.transform.localScale = new Vector3(1.2f, 0.15f, 1.2f);
+
+            Color tierColor = rem.GetEventColor(i);
+            var rend = block.GetComponent<Renderer>();
+            if (rend != null)
+                rend.material.color = tierColor;
+
+            var blockCol = block.GetComponent<Collider>();
+            if (blockCol != null)
+                blockCol.isTrigger = true;
+
+            _eventBlocks.Add(block);
+            _eventBlockIndices.Add(i);
+
+            var labelGO = new GameObject("Label_" + i);
+            labelGO.transform.SetParent(block.transform, false);
+            labelGO.transform.localPosition = new Vector3(0f, 1.5f, 0f);
+            var tmp = labelGO.AddComponent<TMPro.TextMeshPro>();
+            tmp.text = rem.GetEventName(i);
+            tmp.fontSize = 1.2f;
+            tmp.alignment = TMPro.TextAlignmentOptions.Center;
+            tmp.color = Color.white;
+            tmp.rectTransform.sizeDelta = new Vector3(3f, 0.5f);
+        }
+    }
+
+    public bool IsNearEventBlock(Vector3 position, float range = 3f)
+    {
+        for (int i = 0; i < _eventBlocks.Count; i++)
+        {
+            if (_eventBlocks[i] != null && Vector3.Distance(position, _eventBlocks[i].transform.position) <= range)
+                return true;
+        }
+        return false;
+    }
+
+    public bool ActivateEventBlock(Vector3 position, float range = 3f)
+    {
+        for (int i = 0; i < _eventBlocks.Count; i++)
+        {
+            if (_eventBlocks[i] == null) continue;
+            if (Vector3.Distance(position, _eventBlocks[i].transform.position) > range) continue;
+
+            int eventIndex = _eventBlockIndices[i];
+            RandomEventManager.Instance?.TriggerEventByIndex(eventIndex);
+
+            StartCoroutine(FlashEventBlock(_eventBlocks[i]));
+            return true;
+        }
+        return false;
+    }
+
+    private System.Collections.IEnumerator FlashEventBlock(GameObject block)
+    {
+        var rend = block.GetComponent<Renderer>();
+        if (rend == null) yield break;
+
+        Color original = rend.material.color;
+        rend.material.color = Color.white;
+        yield return new WaitForSeconds(0.5f);
+        if (rend != null)
+            rend.material.color = original;
+    }
+
+    // ── Inspection Area: Building Models ──
+
+    private void CreateBuildingModels()
+    {
+        float baseX = 50f;
+        float baseZ = -128f;
+        float step = 6f;
+
+        var house = MapBuilder.BuildPlayerHouse(_worldRoot.transform, new Vector3(baseX, 0f, baseZ), 0.25f);
+        house.name = "Model_PlayerHouse";
+
+        var shop = MapBuilder.BuildShop(_worldRoot.transform, new Vector3(baseX + step, 0f, baseZ), 0.25f);
+        shop.name = "Model_Shop";
+
+        var wifeHouse = MapBuilder.BuildWifeHouse(_worldRoot.transform, new Vector3(baseX + step * 2, 0f, baseZ), 0.25f);
+        wifeHouse.name = "Model_WifeHouse";
+    }
+
+    // ── Inspection Area: Category Labels ──
+
+    private void CreateInspectionLabels()
+    {
+        CreateSectionLabel("SEEDS & SUPPLIES", new Vector3(57.5f, 3f, -50f));
+        CreateSectionLabel("TOOLS", new Vector3(57.5f, 3f, -58f));
+        CreateSectionLabel("HARVESTED CROPS", new Vector3(57.5f, 3f, -63f));
+        CreateSectionLabel("RANDOM EVENTS", new Vector3(57.5f, 3f, -76f));
+        CreateSectionLabel("CROP GROWTH STAGES", new Vector3(55.25f, 3f, -93f));
+        CreateSectionLabel("BUILDINGS", new Vector3(56f, 3f, -126f));
+    }
+
+    private void CreateSectionLabel(string text, Vector3 position)
+    {
+        var labelGO = new GameObject("SectionLabel_" + text.Replace(" ", ""));
+        labelGO.transform.SetParent(_worldRoot.transform);
+        labelGO.transform.position = position;
+
+        var tmp = labelGO.AddComponent<TMPro.TextMeshPro>();
+        tmp.text = text;
+        tmp.fontSize = 2f;
+        tmp.alignment = TMPro.TextAlignmentOptions.Center;
+        tmp.color = Color.white;
+        tmp.outlineWidth = 0.15f;
+        tmp.outlineColor = Color.black;
+        tmp.rectTransform.sizeDelta = new Vector3(20f, 2f);
+    }
+
+    // ── Inspection Area: Section Dividers ──
+
+    private void CreateSectionDividers()
+    {
+        CreateDivider(new Vector3(57.5f, 0.05f, -57.5f), new Vector3(18f, 0.15f, 0.15f));
+        CreateDivider(new Vector3(57.5f, 0.05f, -62.5f), new Vector3(18f, 0.15f, 0.15f));
+        CreateDivider(new Vector3(57.5f, 0.05f, -74.5f), new Vector3(18f, 0.15f, 0.15f));
+        CreateDivider(new Vector3(57.5f, 0.05f, -92.5f), new Vector3(18f, 0.15f, 0.15f));
+        CreateDivider(new Vector3(57.5f, 0.05f, -124.1f), new Vector3(18f, 0.15f, 0.15f));
+    }
+
+    private void CreateDivider(Vector3 position, Vector3 scale)
+    {
+        var divider = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        divider.name = "Divider";
+        divider.transform.SetParent(_worldRoot.transform);
+        divider.transform.position = position;
+        divider.transform.localScale = scale;
+        var rend = divider.GetComponent<Renderer>();
+        if (rend != null)
+            rend.material.color = new Color(0.5f, 0.5f, 0.5f, 0.8f);
+        Destroy(divider.GetComponent<Collider>());
     }
 
     public void SpawnVendorCart()
@@ -3121,6 +3302,128 @@ GameObject treeRoot;
         cart.VendorReady = true;
         cart.VendorNPC = vendorRoot;
 
+        _vendorCarts.Add(cart);
+    }
+
+    public void SpawnVendorCartAt(Vector3 position)
+    {
+        foreach (var v in _vendorCarts)
+        {
+            if (!v.Exiting)
+            {
+                v.Exiting = true;
+                v.Moving = false;
+                v.ExitTarget = new Vector3(15f, 0.5f, 40f + Random.Range(-2f, 2f));
+            }
+        }
+
+        var cart = new VendorCart();
+        SoundManager.Instance?.Play("mexican_truck");
+        cart.Root = new GameObject("VendorCart");
+        cart.Root.transform.SetParent(_worldRoot.transform);
+        cart.Root.transform.position = position + Vector3.up * 2f;
+        cart.Root.transform.rotation = Quaternion.identity;
+        cart.ArrivalPos = position;
+        cart.TargetGroundY = 0.5f;
+        cart.Speed = 6f;
+        cart.Rising = true;
+        cart.Wheels = new List<GameObject>();
+
+        Color cartColor = new Color(
+            Random.Range(80f, 255f) / 255f,
+            Random.Range(50f, 220f) / 255f,
+            Random.Range(50f, 220f) / 255f
+        );
+
+        float halfW = 1.3f;
+        float halfD = 1.8f;
+        float wallH = 1.6f;
+        float floorY = 0.2f;
+        float roofY = 2.0f;
+
+        var modelRoot = new GameObject("Model");
+        modelRoot.transform.SetParent(cart.Root.transform);
+
+        var floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        floor.transform.SetParent(modelRoot.transform, false);
+        floor.transform.localScale = new Vector3(halfW * 2f, 0.1f, halfD * 2f);
+        floor.transform.localPosition = new Vector3(0f, floorY, 0f);
+        floor.GetComponent<Renderer>().material.color = cartColor;
+        Object.Destroy(floor.GetComponent<Collider>());
+
+        var back = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        back.transform.SetParent(modelRoot.transform, false);
+        back.transform.localScale = new Vector3(halfW * 2f, wallH, 0.1f);
+        back.transform.localPosition = new Vector3(0f, floorY + wallH / 2f, -halfD);
+        back.GetComponent<Renderer>().material.color = cartColor;
+        Object.Destroy(back.GetComponent<Collider>());
+
+        var front = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        front.transform.SetParent(modelRoot.transform, false);
+        front.transform.localScale = new Vector3(halfW * 2f, wallH, 0.1f);
+        front.transform.localPosition = new Vector3(0f, floorY + wallH / 2f, halfD);
+        front.GetComponent<Renderer>().material.color = cartColor;
+        Object.Destroy(front.GetComponent<Collider>());
+
+        var left = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        left.transform.SetParent(modelRoot.transform, false);
+        left.transform.localScale = new Vector3(0.1f, wallH, halfD * 2f);
+        left.transform.localPosition = new Vector3(-halfW, floorY + wallH / 2f, 0f);
+        left.GetComponent<Renderer>().material.color = cartColor;
+        Object.Destroy(left.GetComponent<Collider>());
+
+        var right = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        right.transform.SetParent(modelRoot.transform, false);
+        right.transform.localScale = new Vector3(0.1f, wallH, halfD * 2f);
+        right.transform.localPosition = new Vector3(halfW, floorY + wallH / 2f, 0f);
+        right.GetComponent<Renderer>().material.color = cartColor;
+        Object.Destroy(right.GetComponent<Collider>());
+
+        var roof = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        roof.transform.SetParent(modelRoot.transform, false);
+        roof.transform.localScale = new Vector3(halfW * 2f + 0.2f, 0.1f, halfD * 2f + 0.2f);
+        roof.transform.localPosition = new Vector3(0f, roofY, 0f);
+        roof.GetComponent<Renderer>().material.color = cartColor;
+        Object.Destroy(roof.GetComponent<Collider>());
+
+        var vendorRoot = new GameObject("VendorNPC");
+        vendorRoot.transform.SetParent(cart.Root.transform, false);
+        vendorRoot.transform.localPosition = new Vector3(-halfW - 0.6f, floorY, 0f);
+
+        var vendorBody = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        vendorBody.transform.SetParent(vendorRoot.transform, false);
+        vendorBody.transform.localScale = new Vector3(0.4f, 0.8f, 0.3f);
+        vendorBody.transform.localPosition = new Vector3(0f, 0.4f, 0f);
+        vendorBody.GetComponent<Renderer>().material.color = new Color(0.8f, 0.6f, 0.2f);
+        Object.Destroy(vendorBody.GetComponent<Collider>());
+
+        var vendorHead = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        vendorHead.transform.SetParent(vendorRoot.transform, false);
+        vendorHead.transform.localScale = new Vector3(0.3f, 0.3f, 0.3f);
+        vendorHead.transform.localPosition = new Vector3(0f, 1f, 0f);
+        vendorHead.GetComponent<Renderer>().material.color = new Color(0.9f, 0.7f, 0.5f);
+        Object.Destroy(vendorHead.GetComponent<Collider>());
+
+        var vendorCollider = vendorRoot.AddComponent<BoxCollider>();
+        vendorCollider.size = new Vector3(0.5f, 1.5f, 0.5f);
+        vendorCollider.center = new Vector3(0f, 0.75f, 0f);
+        vendorCollider.isTrigger = true;
+
+        for (int i = 0; i < 4; i++)
+        {
+            var wheel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            wheel.transform.SetParent(cart.Root.transform, false);
+            wheel.transform.localScale = new Vector3(0.3f, 0.15f, 0.3f);
+            float wx = (i % 2 == 0 ? -1f : 1f) * halfW * 0.7f;
+            float wz = (i < 2 ? 1f : -1f) * halfD * 0.6f;
+            wheel.transform.localPosition = new Vector3(wx, 0.15f, wz);
+            wheel.GetComponent<Renderer>().material.color = new Color(0.15f, 0.15f, 0.15f);
+            Object.Destroy(wheel.GetComponent<Collider>());
+            cart.Wheels.Add(wheel);
+        }
+
+        cart.VendorReady = true;
+        cart.VendorNPC = vendorRoot;
         _vendorCarts.Add(cart);
     }
 

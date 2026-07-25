@@ -32,12 +32,14 @@ public class GameBootstrap : MonoBehaviour
         var soundManager = Object.FindAnyObjectByType<SoundManager>() ?? root.AddComponent<SoundManager>();
         var questManager = Object.FindAnyObjectByType<QuestManager>() ?? root.AddComponent<QuestManager>();
         var cutsceneManager = Object.FindAnyObjectByType<CutsceneManager>() ?? root.AddComponent<CutsceneManager>();
+        var randomEventManager = Object.FindAnyObjectByType<RandomEventManager>() ?? root.AddComponent<RandomEventManager>();
 
         gameManager.UIManager = uiManager;
         gameManager.WorldBuilder = worldBuilder;
         gameManager.ToolManager = toolManager;
         gameManager.Player = playerController;
         gameManager.CutsceneManager = cutsceneManager;
+        gameManager.RandomEventManager = randomEventManager;
 
         uiManager.InitializeUI();
         toolManager.Initialize(uiManager, worldBuilder);
@@ -46,5 +48,6 @@ public class GameBootstrap : MonoBehaviour
         saveManager.Initialize(gameManager, toolManager, worldBuilder, uiManager, questManager);
         questManager.InitializeQuests();
         cutsceneManager.Initialize(uiManager);
+        randomEventManager.Initialize(uiManager);
     }
 }

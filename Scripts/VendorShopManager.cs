@@ -470,4 +470,16 @@ public class VendorShopManager : MonoBehaviour
         var img = btn?.GetComponent<Image>();
         if (img != null) img.color = color;
     }
+
+    public void ApplyPriceMultiplier(float multiplier)
+    {
+        foreach (var item in _sellItems)
+            item.Price = Mathf.Max(1, Mathf.RoundToInt(item.Price * multiplier));
+    }
+
+    public void ApplyBuyPriceMultiplier(float multiplier)
+    {
+        foreach (var item in _buyItems)
+            item.Price = Mathf.Max(1, Mathf.RoundToInt(item.Price * multiplier));
+    }
 }

@@ -262,6 +262,8 @@ public class FlyingCrane : MonoBehaviour
         _cagePivot = new GameObject("CagePivot").transform;
         _cagePivot.SetParent(beak, false);
         _cagePivot.localPosition = new Vector3(0f, -0.2f, 0.12f);
+        Vector3 beakScale = beak.lossyScale;
+        _cagePivot.localScale = new Vector3(1f / beakScale.x, 1f / beakScale.y, 1f / beakScale.z);
     }
 
     private void BuildTailFeathers(Color white, Color lightGray, Color midGray, Color darkGray, Color darkTip)
@@ -457,6 +459,7 @@ public class FlyingCrane : MonoBehaviour
         if (_cagePivot != null)
         {
             _cagePivot.SetParent(null);
+            _cagePivot.localScale = Vector3.one;
 
             var cageGo = _cagePivot.gameObject;
             cageGo.name = "DroppedCage";
@@ -464,6 +467,7 @@ public class FlyingCrane : MonoBehaviour
             var rb = cageGo.AddComponent<Rigidbody>();
             rb.mass = 2f;
             rb.useGravity = true;
+            rb.linearDamping = 0.5f;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
             var col = cageGo.AddComponent<BoxCollider>();
@@ -479,8 +483,7 @@ public class FlyingCrane : MonoBehaviour
 
     private IEnumerator WaitForCageLand(GameObject cageGo)
     {
-        float dropY = cageGo.transform.position.y;
-        float timeout = Time.time + 10f;
+        float timeout = Time.time + 15f;
         bool touchedGround = false;
 
         yield return new WaitForSeconds(0.4f);
@@ -503,7 +506,17 @@ public class FlyingCrane : MonoBehaviour
         if (cageGo == null) yield break;
 
         Vector3 landPos = cageGo.transform.position;
-        landPos.y = Mathf.Max(landPos.y, 0.5f);
+        if (!touchedGround)
+        {
+            if (Physics.Raycast(landPos + Vector3.up * 10f, Vector3.down, out RaycastHit hit, 50f))
+                landPos = hit.point + Vector3.up * 0.5f;
+            else
+                landPos.y = 0.5f;
+        }
+        else
+        {
+            landPos.y = Mathf.Max(landPos.y, 0.5f);
+        }
 
         var go = new GameObject("Livestock_" + _animalType);
         go.transform.SetParent(WorldBuilder.Instance?.WorldRoot?.transform);
@@ -527,6 +540,20 @@ public class FlyingCrane : MonoBehaviour
         if (rb != null) rb.isKinematic = true;
         var cols = cageGo.GetComponents<Collider>();
         foreach (var c in cols) c.enabled = false;
+
+        foreach (var r in renderers)
+        {
+            if (r == null) continue;
+            var m = r.material;
+            m.SetFloat("_Mode", 3f);
+            m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            m.SetInt("_ZWrite", 0);
+            m.DisableKeyword("_ALPHATEST_ON");
+            m.EnableKeyword("_ALPHABLEND_ON");
+            m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            m.renderQueue = 3000;
+        }
 
         while (elapsed < duration)
         {

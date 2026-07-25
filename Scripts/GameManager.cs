@@ -17,6 +17,7 @@ public class GameManager : MonoBehaviour
     public UIManager UIManager;
     public ToolManager ToolManager;
     public CutsceneManager CutsceneManager;
+    public RandomEventManager RandomEventManager;
     public List<PetController> Pets = new List<PetController>();
     public List<EnemyController> Enemies = new List<EnemyController>();
     public bool AutoStartGame = false;
@@ -117,6 +118,7 @@ public class GameManager : MonoBehaviour
         UIManager = Object.FindAnyObjectByType<UIManager>();
         ToolManager = Object.FindAnyObjectByType<ToolManager>();
         CutsceneManager = Object.FindAnyObjectByType<CutsceneManager>();
+        RandomEventManager = Object.FindAnyObjectByType<RandomEventManager>();
         Pets = new List<PetController>(Object.FindObjectsByType<PetController>(FindObjectsSortMode.None));
         Enemies = new List<EnemyController>(Object.FindObjectsByType<EnemyController>(FindObjectsSortMode.None));
 
@@ -134,6 +136,8 @@ public class GameManager : MonoBehaviour
         ToolManager.Initialize(UIManager, WorldBuilder);
         if (CutsceneManager != null)
             CutsceneManager.Initialize(UIManager);
+        if (RandomEventManager != null)
+            RandomEventManager.Initialize(UIManager);
     }
 
     public void SpawnDefaultPets()
