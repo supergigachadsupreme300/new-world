@@ -710,28 +710,6 @@ public class RandomEventManager : MonoBehaviour
         go.transform.position = pos;
         go.transform.localScale = Vector3.one;
 
-        var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        body.transform.SetParent(go.transform, false);
-        body.transform.localScale = new Vector3(0.5f, 0.9f, 0.3f);
-        body.transform.localPosition = new Vector3(0f, 0.45f, 0f);
-        var bodyR = body.GetComponent<Renderer>();
-        if (bodyR != null) bodyR.material.color = new Color(0.4f, 0.1f, 0.1f);
-        var bodyC = body.GetComponent<Collider>();
-        if (bodyC != null) Destroy(bodyC);
-
-        var head = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        head.transform.SetParent(go.transform, false);
-        head.transform.localScale = new Vector3(0.3f, 0.3f, 0.3f);
-        head.transform.localPosition = new Vector3(0f, 1.05f, 0f);
-        var headR = head.GetComponent<Renderer>();
-        if (headR != null) headR.material.color = new Color(0.6f, 0.3f, 0.3f);
-        var headC = head.GetComponent<Collider>();
-        if (headC != null) Destroy(headC);
-
-        var collider = go.AddComponent<BoxCollider>();
-        collider.size = new Vector3(0.5f, 1.2f, 0.3f);
-        collider.center = new Vector3(0f, 0.6f, 0f);
-
         go.AddComponent<Rigidbody>().isKinematic = true;
 
         var enemy = go.AddComponent<EnemyController>();
@@ -739,6 +717,7 @@ public class RandomEventManager : MonoBehaviour
         enemy.Damage = 10;
         enemy.MoveSpeed = 2.5f;
         enemy.ChaseRange = 15f;
+        enemy.IsGiant = false;
     }
 
     private void EffectStormDamage()
@@ -929,28 +908,6 @@ public class RandomEventManager : MonoBehaviour
         go.transform.position = spawnPos;
         go.transform.localScale = Vector3.one * 2f;
 
-        var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        body.transform.SetParent(go.transform, false);
-        body.transform.localScale = new Vector3(0.5f, 0.9f, 0.3f);
-        body.transform.localPosition = new Vector3(0f, 0.45f, 0f);
-        var bodyR = body.GetComponent<Renderer>();
-        if (bodyR != null) bodyR.material.color = new Color(0.6f, 0.05f, 0.05f);
-        var bodyC = body.GetComponent<Collider>();
-        if (bodyC != null) Destroy(bodyC);
-
-        var head = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        head.transform.SetParent(go.transform, false);
-        head.transform.localScale = new Vector3(0.3f, 0.3f, 0.3f);
-        head.transform.localPosition = new Vector3(0f, 1.05f, 0f);
-        var headR = head.GetComponent<Renderer>();
-        if (headR != null) headR.material.color = new Color(0.8f, 0.2f, 0.2f);
-        var headC = head.GetComponent<Collider>();
-        if (headC != null) Destroy(headC);
-
-        var collider = go.AddComponent<BoxCollider>();
-        collider.size = new Vector3(0.5f, 1.2f, 0.3f);
-        collider.center = new Vector3(0f, 0.6f, 0f);
-
         go.AddComponent<Rigidbody>().isKinematic = true;
 
         var enemy = go.AddComponent<EnemyController>();
@@ -959,6 +916,7 @@ public class RandomEventManager : MonoBehaviour
         enemy.MoveSpeed = 2f;
         enemy.ChaseRange = 20f;
         enemy.AttackRange = 2.5f;
+        enemy.IsGiant = true;
     }
 
     private void EffectSwarmAttack()

@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class EnemyController : MonoBehaviour
 {
@@ -10,6 +11,7 @@ public class EnemyController : MonoBehaviour
     public float AttackCooldown = 1.2f;
     public float PatrolRange = 6f;
     public float PatrolSpeed = 1.5f;
+    public bool IsGiant;
 
     private int _health;
     private Transform _player;
@@ -19,12 +21,89 @@ public class EnemyController : MonoBehaviour
     private bool _isDead;
     private float _respawnTimer;
 
+    private Transform _modelRoot;
+    private Transform _upperTorso;
+    private Transform _midTorso;
+    private Transform _lowerTorso;
+    private Transform _armL;
+    private Transform _armR;
+    private Transform _legL;
+    private Transform _legR;
+    private Transform _kneeL;
+    private Transform _kneeR;
+    private float _walkCycle;
+    private float _bobTimer;
+    private bool _isMoving;
+    private bool _isAttacking;
+
     private void Awake()
     {
         _health = MaxHealth;
         _origin = transform.position;
         _patrolTarget = GetRandomPatrolPoint();
         _player = Object.FindAnyObjectByType<PlayerController>()?.transform;
+    }
+
+    private void Start()
+    {
+        BuildModel();
+    }
+
+    private void BuildModel()
+    {
+        if (IsGiant)
+            _modelRoot = EnemyModelBuilder.BuildGiantEnemy(transform);
+        else
+            _modelRoot = EnemyModelBuilder.BuildRegularEnemy(transform);
+
+        CaptureJoints();
+        ConfigureCollider();
+    }
+
+    private void CaptureJoints()
+    {
+        if (_modelRoot == null) return;
+
+        _upperTorso = FindChild(_modelRoot, "UpperTorso");
+        _midTorso = FindChild(_modelRoot, "MidTorso");
+        _lowerTorso = FindChild(_modelRoot, "LowerTorso");
+        _armL = FindChild(_modelRoot, "ArmL");
+        _armR = FindChild(_modelRoot, "ArmR");
+        _legL = FindChild(_modelRoot, "LegL");
+        _legR = FindChild(_modelRoot, "LegR");
+        _kneeL = FindChild(_modelRoot, "KneeL");
+        _kneeR = FindChild(_modelRoot, "KneeR");
+    }
+
+    private Transform FindChild(Transform root, string name)
+    {
+        foreach (Transform child in root)
+        {
+            if (child.name == name)
+                return child;
+            var found = FindChild(child, name);
+            if (found != null)
+                return found;
+        }
+        return null;
+    }
+
+    private void ConfigureCollider()
+    {
+        var col = GetComponent<BoxCollider>();
+        if (col == null)
+            col = gameObject.AddComponent<BoxCollider>();
+
+        if (IsGiant)
+        {
+            col.size = new Vector3(0.8f, 2.8f, 0.4f);
+            col.center = new Vector3(0f, 1.4f, 0f);
+        }
+        else
+        {
+            col.size = new Vector3(0.6f, 1.8f, 0.3f);
+            col.center = new Vector3(0f, 0.9f, 0f);
+        }
     }
 
     private void Update()
@@ -41,10 +120,13 @@ public class EnemyController : MonoBehaviour
         if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
 
         float distance = Vector3.Distance(transform.position, _player.position);
+
+        _isAttacking = false;
         if (distance <= ChaseRange)
         {
             if (distance <= AttackRange)
             {
+                _isAttacking = true;
                 Attack();
             }
             else
@@ -56,6 +138,97 @@ public class EnemyController : MonoBehaviour
         {
             Patrol();
         }
+
+        AnimateModel();
+    }
+
+    private void AnimateModel()
+    {
+        if (_modelRoot == null) return;
+
+        if (_isAttacking)
+        {
+            _bobTimer += Time.deltaTime * 8f;
+            float shakeX = Mathf.Sin(_bobTimer * 3f) * 0.03f;
+            float shakeZ = Mathf.Cos(_bobTimer * 4f) * 0.02f;
+            _modelRoot.localPosition = new Vector3(shakeX, 0f, shakeZ);
+            _modelRoot.localRotation = Quaternion.Euler(Mathf.Sin(_bobTimer * 5f) * 8f, 0f, 0f);
+            ResetJoints();
+        }
+        else if (_isMoving)
+        {
+            RunAnimation();
+        }
+        else
+        {
+            IdleAnimation();
+        }
+    }
+
+    private void RunAnimation()
+    {
+        float speed = IsGiant ? MoveSpeed * 0.8f : MoveSpeed;
+        _walkCycle += Time.deltaTime * speed * 7f;
+        float sin = Mathf.Sin(_walkCycle);
+        float cos = Mathf.Cos(_walkCycle);
+
+        // Legs swing at hips
+        float hipSwing = sin * 35f;
+        if (_legL != null) _legL.localRotation = Quaternion.Euler(hipSwing, 0f, 0f);
+        if (_legR != null) _legR.localRotation = Quaternion.Euler(-hipSwing, 0f, 0f);
+
+        // Knees bend (bend when leg swings back, straighten when forward)
+        float kneeBendL = Mathf.Max(0f, -sin) * 40f;
+        float kneeBendR = Mathf.Max(0f, sin) * 40f;
+        if (_kneeL != null) _kneeL.localRotation = Quaternion.Euler(-kneeBendL, 0f, 0f);
+        if (_kneeR != null) _kneeR.localRotation = Quaternion.Euler(-kneeBendR, 0f, 0f);
+
+        // Arms swing opposite to legs
+        float armSwing = sin * 25f;
+        if (_armL != null) _armL.localRotation = Quaternion.Euler(-armSwing, 0f, 0f);
+        if (_armR != null) _armR.localRotation = Quaternion.Euler(armSwing, 0f, 0f);
+
+        // Torso forward lean + subtle bob (3 segments with base tilts)
+        _bobTimer += Time.deltaTime * speed * 5f;
+        float bob = Mathf.Sin(_bobTimer * 2f) * 0.015f;
+        if (_upperTorso != null)
+            _upperTorso.localRotation = Quaternion.Euler(8f, 0f, 0f);
+        if (_midTorso != null)
+            _midTorso.localRotation = Quaternion.Euler(5f, 0f, 0f);
+        if (_lowerTorso != null)
+            _lowerTorso.localRotation = Quaternion.Euler(3f, 0f, 0f);
+        _modelRoot.localPosition = new Vector3(0f, bob, 0f);
+        _modelRoot.localRotation = Quaternion.identity;
+    }
+
+    private void IdleAnimation()
+    {
+        _bobTimer += Time.deltaTime * 1.5f;
+        float bob = Mathf.Sin(_bobTimer) * 0.008f;
+
+        // Subtle breathing on torso segments
+        float breath = Mathf.Sin(_bobTimer * 0.8f) * 1.5f;
+        if (_upperTorso != null)
+            _upperTorso.localRotation = Quaternion.Euler(breath, 0f, 0f);
+        if (_midTorso != null)
+            _midTorso.localRotation = Quaternion.Euler(breath * 0.6f, 0f, 0f);
+        if (_lowerTorso != null)
+            _lowerTorso.localRotation = Quaternion.Euler(breath * 0.3f, 0f, 0f);
+
+        _modelRoot.localPosition = new Vector3(0f, bob, 0f);
+        _modelRoot.localRotation = Quaternion.identity;
+
+        ResetJoints();
+    }
+
+    private void ResetJoints()
+    {
+        if (_legL != null) _legL.localRotation = Quaternion.identity;
+        if (_legR != null) _legR.localRotation = Quaternion.identity;
+        if (_kneeL != null) _kneeL.localRotation = Quaternion.identity;
+        if (_kneeR != null) _kneeR.localRotation = Quaternion.identity;
+        if (_armL != null) _armL.localRotation = Quaternion.identity;
+        if (_armR != null) _armR.localRotation = Quaternion.identity;
     }
 
     public void TakeDamage(int amount)
@@ -77,12 +250,14 @@ public class EnemyController : MonoBehaviour
 
         transform.position = Vector3.MoveTowards(transform.position, _patrolTarget, PatrolSpeed * Time.deltaTime);
         transform.LookAt(_patrolTarget);
+        _isMoving = true;
     }
 
     private void FollowPlayer()
     {
         transform.position = Vector3.MoveTowards(transform.position, _player.position, MoveSpeed * Time.deltaTime);
         transform.LookAt(_player);
+        _isMoving = true;
     }
 
     private void Attack()
@@ -105,8 +280,7 @@ public class EnemyController : MonoBehaviour
         _isDead = true;
         _respawnTimer = 5f;
         QuestManager.Instance?.AddProgress("enemies", 1);
-        foreach (var r in GetComponentsInChildren<Renderer>())
-            r.enabled = false;
+        if (_modelRoot != null) _modelRoot.gameObject.SetActive(false);
         var col = GetComponent<Collider>();
         if (col != null) col.enabled = false;
     }
@@ -117,8 +291,7 @@ public class EnemyController : MonoBehaviour
         _isDead = false;
         transform.position = _origin + Random.insideUnitSphere * 1.5f;
         transform.position = new Vector3(transform.position.x, 0f, transform.position.z);
-        foreach (var r in GetComponentsInChildren<Renderer>())
-            r.enabled = true;
+        if (_modelRoot != null) _modelRoot.gameObject.SetActive(true);
         var col = GetComponent<Collider>();
         if (col != null) col.enabled = true;
     }

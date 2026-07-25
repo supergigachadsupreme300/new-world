@@ -253,6 +253,7 @@ public class WorldBuilder : MonoBehaviour
         CreateBuildingModels();
         CreateInspectionLabels();
         CreateSectionDividers();
+        CreateEnemyDisplay();
         InitializeBuildingPreview();
 
         var spawnerGo = new GameObject("LivestockSpawner");
@@ -3145,6 +3146,28 @@ GameObject treeRoot;
         if (rend != null)
             rend.material.color = new Color(0.5f, 0.5f, 0.5f, 0.8f);
         Destroy(divider.GetComponent<Collider>());
+    }
+
+    private void CreateEnemyDisplay()
+    {
+        var displayRoot = new GameObject("EnemyDisplay");
+        displayRoot.transform.SetParent(_worldRoot.transform);
+
+        CreateSectionLabel("ENEMY", new Vector3(57.5f, 3f, -86f));
+
+        var pedestal = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        pedestal.name = "Pedestal";
+        pedestal.transform.SetParent(displayRoot.transform);
+        pedestal.transform.position = new Vector3(57.5f, 0.15f, -88f);
+        pedestal.transform.localScale = new Vector3(1.5f, 0.3f, 1.5f);
+        var pedR = pedestal.GetComponent<Renderer>();
+        if (pedR != null) pedR.material.color = new Color(0.15f, 0.15f, 0.18f);
+        Destroy(pedestal.GetComponent<Collider>());
+
+        var model = EnemyModelBuilder.BuildRegularEnemy(displayRoot.transform);
+        model.transform.position = new Vector3(57.5f, 0.3f, -88f);
+        model.transform.localScale = Vector3.one * 0.8f;
+        model.name = "EnemyDisplayModel";
     }
 
     public void SpawnVendorCart()
