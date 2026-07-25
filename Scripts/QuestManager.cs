@@ -137,7 +137,7 @@ public class QuestManager : MonoBehaviour
         hud = hud.TrimEnd('\n');
 
         GameManager.Instance.UIManager.UpdateQuestHud(hud);
-        GameManager.Instance.UIManager.UpdateQuestPanelText(hud);
+        GameManager.Instance.UIManager.UpdateQuestPanelText(panel);
     }
 
     [System.Serializable]

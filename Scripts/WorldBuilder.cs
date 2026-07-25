@@ -437,7 +437,6 @@ public class WorldBuilder : MonoBehaviour
         {
             DestroyBlueprintLabel(bp);
             if (bp.Entity != null) Destroy(bp.Entity);
-            _blueprints.Clear();
         }
         _blueprints.Clear();
 
@@ -844,6 +843,7 @@ public class WorldBuilder : MonoBehaviour
     {
         foreach (var field in _fields)
         {
+            if (field.FieldObject == null) continue;
             if (Vector3.Distance(field.FieldObject.transform.position, position) < 2f)
                 return field;
         }
@@ -1647,9 +1647,15 @@ public class WorldBuilder : MonoBehaviour
             r.material = origMat != null ? new Material(origMat) : CreateFallbackWoodMaterial();
     }
 
+    private static Material CreateSafeLitMaterial()
+    {
+        var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+        return new Material(shader);
+    }
+
     private static Material CreateFallbackWoodMaterial()
     {
-        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        var mat = CreateSafeLitMaterial();
         mat.color = new Color(0.36f, 0.23f, 0.12f);
         return mat;
     }
@@ -1781,7 +1787,7 @@ public class WorldBuilder : MonoBehaviour
         blueprint.transform.rotation = Quaternion.Euler(0f, _currentRotation, 0f);
         blueprint.transform.localScale = size;
         var renderer = blueprint.GetComponent<MeshRenderer>();
-        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        var mat = CreateSafeLitMaterial();
         if (mat != null)
         {
             mat.SetFloat("_Surface", 1f);
@@ -2187,7 +2193,7 @@ public class WorldBuilder : MonoBehaviour
         ghost.transform.localScale = ps.Entity.transform.localScale;
 
         var renderer = ghost.GetComponent<MeshRenderer>();
-        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        var mat = CreateSafeLitMaterial();
         if (mat != null)
         {
             mat.SetFloat("_Surface", 1f);
@@ -2369,7 +2375,7 @@ public class WorldBuilder : MonoBehaviour
         blueprint.transform.rotation = Quaternion.Euler(0f, state.Rotation, 0f);
         blueprint.transform.localScale = size;
         var renderer = blueprint.GetComponent<MeshRenderer>();
-        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        var mat = CreateSafeLitMaterial();
         if (mat != null)
         {
             mat.SetFloat("_Surface", 1f);
@@ -2414,7 +2420,7 @@ public class WorldBuilder : MonoBehaviour
         blueprint.transform.position = state.Position + Vector3.up * (size * 0.5f);
         blueprint.transform.localScale = Vector3.one * size;
         var renderer = blueprint.GetComponent<MeshRenderer>();
-        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        var mat = CreateSafeLitMaterial();
         if (mat != null)
         {
             mat.SetFloat("_Surface", 1f);
@@ -3445,7 +3451,7 @@ GameObject treeRoot;
         _buildingPreview.GetComponent<Collider>().enabled = false;
         _buildingPreview.SetActive(false);
         var renderer = _buildingPreview.GetComponent<Renderer>();
-        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        var mat = CreateSafeLitMaterial();
         if (mat != null)
         {
             mat.SetFloat("_Surface", 1f);
@@ -3526,7 +3532,7 @@ GameObject treeRoot;
 
     private void UpdateFieldVisual(FieldState field)
     {
-        if (field == null)
+        if (field == null || field.FieldObject == null)
             return;
 
         var renderer = field.FieldObject.GetComponent<MeshRenderer>();

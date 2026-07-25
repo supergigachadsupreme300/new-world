@@ -17,6 +17,7 @@ public class EnemyController : MonoBehaviour
     private Vector3 _patrolTarget;
     private float _attackTimer;
     private bool _isDead;
+    private float _respawnTimer;
 
     private void Awake()
     {
@@ -28,7 +29,14 @@ public class EnemyController : MonoBehaviour
 
     private void Update()
     {
-        if (_isDead || _player == null)
+        if (_isDead)
+        {
+            _respawnTimer -= Time.deltaTime;
+            if (_respawnTimer <= 0f)
+                Respawn();
+            return;
+        }
+        if (_player == null)
             return;
         if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
 
@@ -95,9 +103,12 @@ public class EnemyController : MonoBehaviour
     private void Die()
     {
         _isDead = true;
+        _respawnTimer = 5f;
         QuestManager.Instance?.AddProgress("enemies", 1);
-        gameObject.SetActive(false);
-        Invoke(nameof(Respawn), 5f);
+        foreach (var r in GetComponentsInChildren<Renderer>())
+            r.enabled = false;
+        var col = GetComponent<Collider>();
+        if (col != null) col.enabled = false;
     }
 
     private void Respawn()
@@ -106,7 +117,10 @@ public class EnemyController : MonoBehaviour
         _isDead = false;
         transform.position = _origin + Random.insideUnitSphere * 1.5f;
         transform.position = new Vector3(transform.position.x, 0f, transform.position.z);
-        gameObject.SetActive(true);
+        foreach (var r in GetComponentsInChildren<Renderer>())
+            r.enabled = true;
+        var col = GetComponent<Collider>();
+        if (col != null) col.enabled = true;
     }
 
     private Vector3 GetRandomPatrolPoint()

@@ -8,6 +8,8 @@ public class VendorShopManager : MonoBehaviour
 {
     private bool _initialized;
     private Canvas _canvas;
+    private Dictionary<ShopItem, int> _originalSellPrices = new Dictionary<ShopItem, int>();
+    private Dictionary<ShopItem, int> _originalBuyPrices = new Dictionary<ShopItem, int>();
 
     void Update()
     {
@@ -474,12 +476,34 @@ public class VendorShopManager : MonoBehaviour
     public void ApplyPriceMultiplier(float multiplier)
     {
         foreach (var item in _sellItems)
-            item.Price = Mathf.Max(1, Mathf.RoundToInt(item.Price * multiplier));
+        {
+            if (!_originalSellPrices.ContainsKey(item))
+                _originalSellPrices[item] = item.Price;
+            item.Price = Mathf.Max(1, Mathf.RoundToInt(_originalSellPrices[item] * multiplier));
+        }
     }
 
     public void ApplyBuyPriceMultiplier(float multiplier)
     {
         foreach (var item in _buyItems)
-            item.Price = Mathf.Max(1, Mathf.RoundToInt(item.Price * multiplier));
+        {
+            if (!_originalBuyPrices.ContainsKey(item))
+                _originalBuyPrices[item] = item.Price;
+            item.Price = Mathf.Max(1, Mathf.RoundToInt(_originalBuyPrices[item] * multiplier));
+        }
+    }
+
+    public void ResetSellPrices()
+    {
+        foreach (var item in _sellItems)
+            if (_originalSellPrices.TryGetValue(item, out int orig))
+                item.Price = orig;
+    }
+
+    public void ResetBuyPrices()
+    {
+        foreach (var item in _buyItems)
+            if (_originalBuyPrices.TryGetValue(item, out int orig))
+                item.Price = orig;
     }
 }

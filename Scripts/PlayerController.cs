@@ -38,8 +38,8 @@ public class PlayerController : MonoBehaviour
         SetupPlayerCamera();
 
         // Ensure the camera has exactly one audio listener
-        var cameraObj = Camera.main.gameObject;
-        if (cameraObj.GetComponent<AudioListener>() == null)
+        var cameraObj = Camera.main?.gameObject;
+        if (cameraObj != null && cameraObj.GetComponent<AudioListener>() == null)
             cameraObj.AddComponent<AudioListener>();
 
         LoadPlayerModel();

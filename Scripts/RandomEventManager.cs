@@ -799,7 +799,7 @@ public class RandomEventManager : MonoBehaviour
             yield return null;
         }
 
-        vendor.ApplyPriceMultiplier(1f / multiplier);
+        vendor.ResetSellPrices();
     }
 
     private void EffectBanditAmbush()
@@ -891,7 +891,7 @@ public class RandomEventManager : MonoBehaviour
             yield return null;
         }
 
-        vendor.ApplyBuyPriceMultiplier(1f / multiplier);
+        vendor.ResetBuyPrices();
     }
 
     private void EffectRatInfestation()
