@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 
 public class EnemyController : MonoBehaviour
@@ -118,6 +119,7 @@ public class EnemyController : MonoBehaviour
         if (_player == null)
             return;
         if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
+        if (GameManager.Instance != null && GameManager.Instance.IsPlayerDead) return;
 
         float distance = Vector3.Distance(transform.position, _player.position);
 
@@ -280,9 +282,52 @@ public class EnemyController : MonoBehaviour
         _isDead = true;
         _respawnTimer = 5f;
         QuestManager.Instance?.AddProgress("enemies", 1);
-        if (_modelRoot != null) _modelRoot.gameObject.SetActive(false);
+        ExplodeModel();
         var col = GetComponent<Collider>();
         if (col != null) col.enabled = false;
+    }
+
+    private void ExplodeModel()
+    {
+        if (_modelRoot == null) return;
+
+        Vector3 center = transform.position + Vector3.up * 0.9f;
+        var renderers = _modelRoot.GetComponentsInChildren<Renderer>();
+        var debris = new List<GameObject>();
+
+        foreach (var r in renderers)
+        {
+            var block = r.gameObject;
+            Vector3 worldPos = block.transform.position;
+            Quaternion worldRot = block.transform.rotation;
+
+            block.transform.SetParent(null);
+            block.transform.position = worldPos;
+            block.transform.rotation = worldRot;
+
+            block.AddComponent<BoxCollider>();
+            var rb = block.AddComponent<Rigidbody>();
+            rb.mass = 0.3f;
+
+            Vector3 dir = (worldPos - center).normalized;
+            dir.y += 0.5f;
+            rb.AddForce(dir * 8f + Vector3.up * 6f, ForceMode.Impulse);
+            rb.AddTorque(Random.Range(-10f, 10f), Random.Range(-10f, 10f), Random.Range(-10f, 10f), ForceMode.Impulse);
+
+            debris.Add(block);
+        }
+
+        _modelRoot = null;
+        StartCoroutine(DestroyDebris(debris, 5f));
+    }
+
+    private IEnumerator DestroyDebris(List<GameObject> debris, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        foreach (var go in debris)
+        {
+            if (go != null) Destroy(go);
+        }
     }
 
     private void Respawn()
@@ -291,7 +336,7 @@ public class EnemyController : MonoBehaviour
         _isDead = false;
         transform.position = _origin + Random.insideUnitSphere * 1.5f;
         transform.position = new Vector3(transform.position.x, 0f, transform.position.z);
-        if (_modelRoot != null) _modelRoot.gameObject.SetActive(true);
+        BuildModel();
         var col = GetComponent<Collider>();
         if (col != null) col.enabled = true;
     }

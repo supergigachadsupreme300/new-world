@@ -230,7 +230,7 @@ public class VendorShopManager : MonoBehaviour
         if (GameManager.Instance?.UIManager != null)
         {
             GameManager.Instance.UIManager.ShowInstructions(false);
-            GameManager.Instance.UIManager.ShowStatsPanel(false);
+            GameManager.Instance.UIManager.ShowRecordPanel(false);
             GameManager.Instance.UIManager.ShowQuestPanel(false);
         }
 

@@ -9,9 +9,11 @@ using TMPro;
 public class UIManager : MonoBehaviour
 {
     private Canvas _canvas;
+    private Sprite _menuBgSprite;
+    private Sprite _hudBgSprite;
     private GameObject _mainMenuPanel;
     private GameObject _pauseMenuPanel;
-    private GameObject _statsPanel;
+    private GameObject _recordPanel;
     private GameObject _questPanel;
     private GameObject _instructionsPanel;
     private GameObject _endPanel;
@@ -23,8 +25,10 @@ public class UIManager : MonoBehaviour
     private TMP_Text _moneyText;
     private TMP_Text _questText;
     private TMP_Text _questLinesText;
-    private TMP_Text _inventoryText;
-    private RectTransform _inventoryBg;
+    private const int InventorySlotCount = 10;
+    private readonly GameObject[] _inventorySlots = new GameObject[InventorySlotCount];
+    private readonly TMP_Text[] _inventorySlotTexts = new TMP_Text[InventorySlotCount];
+    private readonly Image[] _inventorySlotImages = new Image[InventorySlotCount];
     private RectTransform _statsBg;
     private TMP_Text _messageText;
     private TMP_Text _mobSpawnerText;
@@ -55,13 +59,22 @@ public class UIManager : MonoBehaviour
 
     private void ResizeInventory()
     {
-        if (_inventoryText == null) return;
-        var rect = _inventoryText.GetComponent<RectTransform>();
-        if (rect != null)
-            rect.sizeDelta = new Vector2(Screen.width * 0.65f, Screen.height * 0.05f);
-        _inventoryText.fontSize = Mathf.Clamp(Screen.width / 100f, 12f, 30f);
-        if (_inventoryBg != null)
-            _inventoryBg.sizeDelta = new Vector2(Screen.width * 0.65f, Screen.height * 0.05f + 12f);
+        float sw = Screen.width;
+        float slotW = sw * 0.06f;
+        float slotH = Screen.height * 0.04f;
+        float totalW = InventorySlotCount * slotW + (InventorySlotCount - 1) * 4f;
+        float startX = -totalW * 0.5f;
+        float y = Screen.height * 0.03f;
+
+        for (int i = 0; i < InventorySlotCount; i++)
+        {
+            if (_inventorySlots[i] == null) continue;
+            var rect = _inventorySlots[i].GetComponent<RectTransform>();
+            if (rect != null)
+                rect.anchoredPosition = new Vector2(startX + i * (slotW + 4f), y);
+            if (_inventorySlotTexts[i] != null)
+                _inventorySlotTexts[i].fontSize = Mathf.Clamp(sw / 120f, 8f, 16f);
+        }
     }
 
     public void InitializeUI()
@@ -84,8 +97,8 @@ public class UIManager : MonoBehaviour
         float panelHeight = Mathf.Min(screenHeight * 0.8f, 520f);
         // Stats background panel (behind Time, HP, Stamina, Money, Quest)
         _statsBg = CreateHudBackground("StatsBg",
-            new Vector2(15f, -10f),
-            new Vector2(250f, 225f),
+            new Vector2(0f, -10f),
+            new Vector2(400f, 225f),
             new Vector2(0f, 1f));
 
         _timeText = EnsureText(
@@ -174,26 +187,65 @@ public class UIManager : MonoBehaviour
         );
         _ammoText.gameObject.SetActive(false);
 
-        // Inventory background panel (behind text)
-        _inventoryBg = CreateHudBackground("InventoryBg",
-            new Vector2(0f, padding * 3f),
-            new Vector2(screenWidth * 0.65f, lineHeight + 12f),
-            new Vector2(0.5f, 0f));
+        // Inventory: 10 individual slots at bottom center
+        float slotW = screenWidth * 0.06f;
+        float slotH = screenHeight * 0.04f;
+        float totalW = InventorySlotCount * slotW + (InventorySlotCount - 1) * 4f;
+        float startX = -totalW * 0.5f;
 
-        // Inventory: center-bottom, raised up for visibility
-        _inventoryText = EnsureText(
-            "InventoryText",
-            new Vector2(0f, padding * 3f),
-            "Inventory",
-            (int)Mathf.Clamp(screenWidth / 100f, 12f, 30f),
-            null,
-            TextAlignmentOptions.Center,
-            false,
-            new Vector2(screenWidth * 0.65f, lineHeight),
-            new Vector2(0.5f, 0f),
-            new Vector2(0.5f, 0f),
-            new Vector2(0.5f, 0f)
-        );
+        for (int i = 0; i < InventorySlotCount; i++)
+        {
+            float x = startX + i * (slotW + 4f);
+            string slotName = "InvSlot_" + i;
+
+            var slotGo = new GameObject(slotName);
+            slotGo.transform.SetParent(_canvas.transform, false);
+            var slotRect = slotGo.AddComponent<RectTransform>();
+            slotRect.anchorMin = new Vector2(0.5f, 0f);
+            slotRect.anchorMax = new Vector2(0.5f, 0f);
+            slotRect.pivot = new Vector2(0.5f, 0f);
+            slotRect.anchoredPosition = new Vector2(x, padding * 3f);
+            slotRect.sizeDelta = new Vector2(slotW, slotH);
+
+            var slotImg = slotGo.AddComponent<Image>();
+            if (_hudBgSprite == null)
+            {
+                var tex = Resources.Load<Texture2D>("menu");
+                if (tex != null)
+                    _hudBgSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+            }
+            if (_hudBgSprite != null)
+            {
+                slotImg.sprite = _hudBgSprite;
+                slotImg.type = Image.Type.Simple;
+                slotImg.preserveAspect = false;
+                slotImg.color = new Color(0.3f, 0.3f, 0.35f, 0.85f);
+            }
+            else
+            {
+                slotImg.color = new Color(0.18f, 0.18f, 0.25f, 0.85f);
+            }
+
+            var textGo = new GameObject("Text");
+            textGo.transform.SetParent(slotGo.transform, false);
+            var text = textGo.AddComponent<TextMeshProUGUI>();
+            if (defaultTmpFont != null)
+                text.font = defaultTmpFont;
+            text.text = $"{i + 1}:";
+            text.fontSize = Mathf.Clamp(screenWidth / 120f, 8f, 16f);
+            text.color = Color.white;
+            text.alignment = TextAlignmentOptions.Center;
+
+            var textRect = textGo.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+
+            _inventorySlots[i] = slotGo;
+            _inventorySlotTexts[i] = text;
+            _inventorySlotImages[i] = slotImg;
+        }
 
         // Message text: center of screen
         _messageText = EnsureText(
@@ -263,19 +315,19 @@ public class UIManager : MonoBehaviour
 
         // Panels - responsive sizes
         _pauseMenuPanel = CreateMenuPanel("PauseMenu", Vector2.zero, new Vector2(panelWidth, panelHeight));
-        CreateButton("ContinueButton", _pauseMenuPanel.transform, "Continue", new Vector2(0f, buttonHeight * 1.8f), () => GameManager.Instance?.TogglePause(false));
-        CreateButton("SaveButton", _pauseMenuPanel.transform, "Save Game", new Vector2(0f, buttonHeight * 0.9f), () => SaveManager.Instance?.SaveGame());
-        CreateButton("StatsButton", _pauseMenuPanel.transform, "Stats", new Vector2(0f, 0f), () => ShowStatsPanel(true));
-        CreateButton("QuestsButton", _pauseMenuPanel.transform, "Quests", new Vector2(0f, -buttonHeight * 1.8f), () => ShowQuestPanel(true));
-        CreateButton("InstructionsButton", _pauseMenuPanel.transform, "Instructions", new Vector2(0f, -buttonHeight * 2.7f), () => ShowInstructions(true));
-        CreateButton("ExitButton", _pauseMenuPanel.transform, "Exit", new Vector2(0f, -buttonHeight * 3.6f), () => Application.Quit());
+        CreateButton("ContinueButton", _pauseMenuPanel.transform, "Continue", new Vector2(0f, buttonHeight * 2.25f), () => GameManager.Instance?.TogglePause(false));
+        CreateButton("SaveButton", _pauseMenuPanel.transform, "Save Game", new Vector2(0f, buttonHeight * 1.35f), () => SaveManager.Instance?.SaveGame());
+        CreateButton("StatsButton", _pauseMenuPanel.transform, "Record", new Vector2(0f, buttonHeight * 0.45f), () => ShowRecordPanel(true));
+        CreateButton("QuestsButton", _pauseMenuPanel.transform, "Quests", new Vector2(0f, -buttonHeight * 0.45f), () => ShowQuestPanel(true));
+        CreateButton("InstructionsButton", _pauseMenuPanel.transform, "Instructions", new Vector2(0f, -buttonHeight * 1.35f), () => ShowInstructions(true));
+        CreateButton("ExitButton", _pauseMenuPanel.transform, "Exit", new Vector2(0f, -buttonHeight * 2.25f), () => Application.Quit());
         _pauseMenuPanel.SetActive(false);
 
-        _statsPanel = CreateMenuPanel("StatsPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
-        EnsureText("StatsTitle", new Vector2(0f, panelHeight * 0.35f), "PLAYER STATS", (int)largefontSize, _statsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
-        EnsureText("StatsLines", new Vector2(0f, panelHeight * 0.1f), "Harvested wheat: 0\nEnemies killed: 0\nMoney earned: 0\nMoney stolen: 0", (int)fontSize, _statsPanel.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.4f));
-        CreateButton("StatsBackButton", _statsPanel.transform, "Back", new Vector2(0f, -panelHeight * 0.35f), () => ShowStatsPanel(false));
-        _statsPanel.SetActive(false);
+        _recordPanel = CreateMenuPanel("RecordPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
+        EnsureText("RecordTitle", new Vector2(0f, panelHeight * 0.35f), "RECORD", (int)largefontSize, _recordPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
+        EnsureText("RecordLines", new Vector2(0f, panelHeight * 0.1f), "Harvested wheat: 0\nEnemies killed: 0\nMoney earned: 0\nMoney stolen: 0", (int)fontSize, _recordPanel.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.4f));
+        CreateButton("RecordBackButton", _recordPanel.transform, "Back", new Vector2(0f, -panelHeight * 0.35f), () => ShowRecordPanel(false));
+        _recordPanel.SetActive(false);
 
         _questPanel = CreateMenuPanel("QuestPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
         EnsureText("QuestTitle", new Vector2(0f, panelHeight * 0.35f), "QUESTS", (int)largefontSize, _questPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
@@ -297,7 +349,7 @@ public class UIManager : MonoBehaviour
             menuRect.anchorMin = new Vector2(0f, 0f);
             menuRect.anchorMax = new Vector2(0f, 1f);
             menuRect.pivot = new Vector2(0f, 0.5f);
-            menuRect.anchoredPosition = new Vector2(-20f, 0f);
+            menuRect.anchoredPosition = new Vector2(0f, 0f);
             menuRect.sizeDelta = new Vector2(panelWidth, 0f);
         }
         EnsureText("TitleText", new Vector2(0f, panelHeight * 0.3f), "BUILD YOUR FARM", (int)(largefontSize * 1.1f), _mainMenuPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight * 1.5f));
@@ -309,6 +361,10 @@ public class UIManager : MonoBehaviour
         _mainMenuPanel.SetActive(false);
 
         ShowAllGameUI(true);
+
+        // Re-apply main menu visibility in case GameManager.Start() ran before slots were created
+        if (GameManager.Instance != null && !GameManager.Instance.InGame)
+            ShowMainMenuOnly(true);
     }
 
     private Canvas CreateCanvas()
@@ -417,7 +473,23 @@ public class UIManager : MonoBehaviour
         rect.anchoredPosition = position;
         rect.sizeDelta = size;
         var img = go.AddComponent<Image>();
-        img.color = new Color(0.35f, 0.2f, 0.08f, 0.8f);
+        if (_hudBgSprite == null)
+        {
+            var tex = Resources.Load<Texture2D>("menu");
+            if (tex != null)
+                _hudBgSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+        }
+        if (_hudBgSprite != null)
+        {
+            img.sprite = _hudBgSprite;
+            img.type = Image.Type.Simple;
+            img.preserveAspect = false;
+            img.color = Color.white;
+        }
+        else
+        {
+            img.color = new Color(0.35f, 0.2f, 0.08f, 0.8f);
+        }
         return rect;
     }
 
@@ -439,7 +511,23 @@ public class UIManager : MonoBehaviour
         rect.sizeDelta = size;
 
         var image = panelObject.AddComponent<Image>();
-        image.color = new Color(0.08f, 0.08f, 0.12f, 0.95f);
+        if (_menuBgSprite == null)
+        {
+            var tex = Resources.Load<Texture2D>("menu");
+            if (tex != null)
+                _menuBgSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+        }
+        if (_menuBgSprite != null)
+        {
+            image.sprite = _menuBgSprite;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = false;
+            image.color = Color.white;
+        }
+        else
+        {
+            image.color = new Color(0.08f, 0.08f, 0.12f, 0.95f);
+        }
         return panelObject;
     }
 
@@ -468,6 +556,14 @@ public class UIManager : MonoBehaviour
             var button = buttonObject.AddComponent<Button>();
             button.targetGraphic = image;
             button.onClick.AddListener(callback);
+
+            var trigger = buttonObject.AddComponent<EventTrigger>();
+            var enterEntry = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
+            enterEntry.callback.AddListener(_ => buttonObject.transform.localScale = Vector3.one * 1.1f);
+            trigger.triggers.Add(enterEntry);
+            var exitEntry = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
+            exitEntry.callback.AddListener(_ => buttonObject.transform.localScale = Vector3.one);
+            trigger.triggers.Add(exitEntry);
 
             var textObject = new GameObject("Text");
             textObject.transform.SetParent(buttonObject.transform, false);
@@ -505,7 +601,8 @@ public class UIManager : MonoBehaviour
         _moneyText?.gameObject.SetActive(show);
         _questText?.gameObject.SetActive(show);
         _ammoText?.gameObject.SetActive(show);
-        _inventoryText?.gameObject.SetActive(show);
+        for (int i = 0; i < InventorySlotCount; i++)
+            if (_inventorySlots[i] != null) _inventorySlots[i].SetActive(show);
         _messageText?.gameObject.SetActive(show);
         _mobSpawnerText?.gameObject.SetActive(show);
         _crosshairText?.gameObject.SetActive(show);
@@ -534,14 +631,15 @@ public class UIManager : MonoBehaviour
         if (show)
         {
             _pauseMenuPanel?.SetActive(false);
-            _statsPanel?.SetActive(false);
+            _recordPanel?.SetActive(false);
             _questPanel?.SetActive(false);
             _instructionsPanel?.SetActive(false);
         }
         else
         {
             _statsBg?.gameObject.SetActive(true);
-            _inventoryBg?.gameObject.SetActive(true);
+            for (int i = 0; i < InventorySlotCount; i++)
+                if (_inventorySlots[i] != null) _inventorySlots[i].SetActive(true);
         }
     }
 
@@ -552,14 +650,16 @@ public class UIManager : MonoBehaviour
         {
             ShowAllGameUI(false);
             _statsBg?.gameObject.SetActive(false);
-            _inventoryBg?.gameObject.SetActive(false);
+            for (int i = 0; i < InventorySlotCount; i++)
+                if (_inventorySlots[i] != null) _inventorySlots[i].SetActive(false);
             if (_mainMenuPanel != null)
                 _mainMenuPanel.SetActive(true);
         }
         else
         {
             _statsBg?.gameObject.SetActive(true);
-            _inventoryBg?.gameObject.SetActive(true);
+            for (int i = 0; i < InventorySlotCount; i++)
+                if (_inventorySlots[i] != null) _inventorySlots[i].SetActive(true);
         }
     }
 
@@ -569,12 +669,20 @@ public class UIManager : MonoBehaviour
             _pauseMenuPanel.SetActive(show);
     }
 
-    public void ShowStatsPanel(bool show)
+    public void ShowRecordPanel(bool show)
     {
-        if (_statsPanel != null)
-            _statsPanel.SetActive(show);
+        if (_recordPanel != null)
+            _recordPanel.SetActive(show);
         if (show)
             _pauseMenuPanel?.SetActive(false);
+        if (!show && GameManager.Instance != null && GameManager.Instance.GamePaused)
+            ShowPauseMenu(true);
+    }
+
+    public void SetStatsBgVisible(bool visible)
+    {
+        if (_statsBg != null)
+            _statsBg.gameObject.SetActive(visible);
     }
 
     public void ShowQuestPanel(bool show)
@@ -583,6 +691,8 @@ public class UIManager : MonoBehaviour
             _questPanel.SetActive(show);
         if (show)
             _pauseMenuPanel?.SetActive(false);
+        if (!show && GameManager.Instance != null && GameManager.Instance.GamePaused)
+            ShowPauseMenu(true);
     }
 
     public void ShowInstructions(bool show)
@@ -605,7 +715,16 @@ public class UIManager : MonoBehaviour
             CreateButton("EndRestartButton", _endPanel.transform, "Play Again", new Vector2(-110f, -180f), () => GameManager.Instance?.StartNewGame());
             CreateButton("EndQuitButton", _endPanel.transform, "Exit", new Vector2(110f, -180f), () => Application.Quit());
         }
+        var titleTf = _endPanel.transform.Find("EndTitle");
+        if (titleTf != null) { var t = titleTf.GetComponent<TMP_Text>(); if (t != null) t.text = title; }
+        var contentTf = _endPanel.transform.Find("EndContent");
+        if (contentTf != null) { var t = contentTf.GetComponent<TMP_Text>(); if (t != null) t.text = content; }
         _endPanel.SetActive(true);
+    }
+
+    public void HideEndScreen()
+    {
+        if (_endPanel != null) _endPanel.SetActive(false);
     }
 
     public void UpdateTimeText(int day, float hour)
@@ -626,21 +745,22 @@ public class UIManager : MonoBehaviour
 
     public void UpdateInventoryText(ToolManager.InventorySlot[] slots, int selectedSlot)
     {
-        if (_inventoryText == null)
-            return;
-
-        var lines = new List<string>();
-        for (int i = 0; i < slots.Length; i++)
+        for (int i = 0; i < InventorySlotCount; i++)
         {
-            var item = slots[i];
-            string label = item == null ? "empty" : (item.Count > 1 ? $"{item.Type} x{item.Count}" : item.Type);
-            if (i == selectedSlot)
-                lines.Add($"[{i + 1}: {label}]");
-            else
-                lines.Add($"{i + 1}: {label}");
-        }
+            if (i >= slots.Length || _inventorySlotTexts[i] == null) continue;
 
-        _inventoryText.text = string.Join("   ", lines);
+            var item = slots[i];
+            string label = item == null ? "" : (item.Count > 1 ? $"{item.Type}x{item.Count}" : item.Type);
+            _inventorySlotTexts[i].text = $"{i + 1}: {label}";
+
+            bool isSelected = (i == selectedSlot);
+            if (_inventorySlotImages[i] != null)
+                _inventorySlotImages[i].color = isSelected
+                    ? new Color(0.35f, 0.55f, 0.75f, 0.95f)
+                    : new Color(0.3f, 0.3f, 0.35f, 0.85f);
+            if (_inventorySlotTexts[i] != null)
+                _inventorySlotTexts[i].color = isSelected ? Color.yellow : Color.white;
+        }
     }
 
     public void UpdateAmmoText(int current, int max)

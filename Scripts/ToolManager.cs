@@ -446,6 +446,17 @@ public class ToolManager : MonoBehaviour
             var clubRay = new Ray(clubOrigin, cam.transform.forward);
             if (Physics.Raycast(clubRay, out var clubHit, 3f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
             {
+                var enemy = clubHit.collider.GetComponentInParent<EnemyController>();
+                if (enemy == null) enemy = clubHit.collider.GetComponent<EnemyController>();
+                if (enemy != null)
+                {
+                    int damage = Mathf.RoundToInt(ToolStaminaCost["club"]);
+                    enemy.TakeDamage(damage);
+                    SoundManager.Instance?.Play("axe");
+                    _uiManager?.ShowMessage("Clubbed!", 1f);
+                    return;
+                }
+
                 var livestock = clubHit.collider.GetComponentInParent<Livestock>();
                 if (livestock == null)
                     livestock = clubHit.collider.GetComponent<Livestock>();

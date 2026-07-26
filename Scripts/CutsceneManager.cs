@@ -30,6 +30,7 @@ public class CutsceneManager : MonoBehaviour
     private float _cutsceneStartTime;
 
     private bool _happyPending;
+    private bool _isDeathEnding;
     private GameObject _tetoRoot;
     private Transform _tetoBody;
     private float _happyElapsed;
@@ -67,8 +68,8 @@ public class CutsceneManager : MonoBehaviour
     private const float CamOffsetX = -3.5f;
     private const float CamOffsetY = 2.5f;
     private const float CamOffsetZ = 7f;
-    private const float SadStartZ = 25f;
-    private const float SadEndZ = -35f;
+    private const float SadStartZ = 5f;
+    private const float SadEndZ = -50f;
     private const float HappyStartZ = -18f;
     private const float HappyEndZ = 30f;
     private const float WalkSpeed = 4.5f;
@@ -174,6 +175,7 @@ public class CutsceneManager : MonoBehaviour
     public void PlaySadEnding()
     {
         if (IsActive) return;
+        _isDeathEnding = true;
         IsActive = true;
         _cutsceneStartTime = Time.time;
         _cutsceneRoutine = StartCoroutine(SadEndingRoutine());
@@ -187,6 +189,7 @@ public class CutsceneManager : MonoBehaviour
 
     public void CancelCutscene()
     {
+        _isDeathEnding = false;
         if (_cutsceneRoutine != null)
         {
             StopCoroutine(_cutsceneRoutine);
@@ -714,9 +717,10 @@ public class CutsceneManager : MonoBehaviour
     {
         try
         {
-        float rideDur = 16f;
         if (_uiManager == null)
             _uiManager = Object.FindAnyObjectByType<UIManager>();
+        if (_mainCamera == null)
+            _mainCamera = Camera.main;
 
         if (_uiManager != null)
             _uiManager.ShowMainMenu(false);
@@ -728,69 +732,105 @@ public class CutsceneManager : MonoBehaviour
         yield return StartCoroutine(CreateFadeOverlay());
         CreateLetterboxBars();
         ShowSkipButton();
-        yield return StartCoroutine(FadeOverlay(0, 1.5f));
 
-        if (_mainCamera != null)
+        // ── Reposition player on road behind wagon spawn ──
+        float playerSadZ = SadStartZ + 10f;
+        if (_player != null)
         {
-            _mainCamera.transform.position = new Vector3(RoadX + 5, 2.8f, SadStartZ + 3);
-            _mainCamera.transform.LookAt(new Vector3(RoadX, 1.4f, SadStartZ));
+            _player.transform.position = new Vector3(RoadX, 0f, playerSadZ);
+            _player.transform.rotation = Quaternion.identity;
+
+            // Hide real player model (on layer 6, not visible to camera)
+            var realModel = _player.transform.Find("PlayerModel");
+            if (realModel != null)
+                realModel.gameObject.SetActive(false);
         }
 
-        float wx = RoadX, wz = SadStartZ;
-        float deltaZ = SadEndZ - SadStartZ;
+        // Spawn a standalone player model on default layer (visible to camera)
+        var sadPlayerModel = MapBuilder.BuildPlayerModel(null);
+        sadPlayerModel.transform.position = new Vector3(RoadX, 0.82f, playerSadZ);
+        sadPlayerModel.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+        foreach (var r in sadPlayerModel.GetComponentsInChildren<Renderer>())
+            r.gameObject.layer = 0;
+        RegisterSpawned(sadPlayerModel);
 
-        var wagonParts = CreateWagon(wx, wz);
-        var groom = CreateGroom(wx + 0.35f, 1.05f, wz);
-        var wife = MapBuilder.BuildWifeNpc(null, new Vector3(wx - 0.3f, 1.05f, wz), 1f, Quaternion.identity);
+        // ── PHASE 1: THE PLAYER WATCHES (5s) ──
+        // Camera in front of player, looking at his face
+        Vector3 camStart = new Vector3(RoadX, 1.8f, playerSadZ - 3f);
+        Vector3 lookAtPlayer = new Vector3(RoadX, 1.2f, playerSadZ);
+        if (_mainCamera != null)
+        {
+            _mainCamera.transform.position = camStart;
+            _mainCamera.transform.LookAt(lookAtPlayer);
+        }
+        yield return StartCoroutine(FadeOverlay(0, 2f));
+        yield return new WaitForSeconds(3f);
+
+        // ── PHASE 2: THE WAGON APPEARS (6s) ──
+        float wagonStartZ = SadStartZ;
+        float wagonEndZ = SadEndZ;
+        float deltaZ = wagonEndZ - wagonStartZ;
+
+        var wagonRoot = CreateWagon(RoadX, wagonStartZ);
+
+        var horse = HorseModelBuilder.BuildHorse(wagonRoot);
+        horse.localPosition = new Vector3(0f, 0f, -3.2f);
+        RegisterSpawned(horse.gameObject);
+
+        var enemy = EnemyModelBuilder.BuildRegularEnemy(wagonRoot);
+        enemy.localPosition = new Vector3(0.35f, 0.56f, -0.6f);
+        RegisterSpawned(enemy.gameObject);
+
+        var wife = MapBuilder.BuildWifeNpc(wagonRoot,
+            new Vector3(-0.3f, 1.42f, 0.3f), 1f,
+            Quaternion.Euler(0, 180, 0));
         RegisterSpawned(wife);
 
-        float t = 0;
-        float wallTimeout = rideDur * 3f;
-        while (t < rideDur && wallTimeout > 0)
+        // Pan camera from player's face to the departing wagon
+        float panDur = 6f;
+        float panTimer = 0f;
+        Vector3 panEnd = new Vector3(RoadX - 3f, 3f, wagonStartZ + 6f);
+
+        while (panTimer < panDur)
         {
-            t += Time.deltaTime;
-            wallTimeout -= Time.deltaTime;
-            float p = Mathf.Min(t / rideDur, 1f);
-            float z = wz + deltaZ * p;
+            panTimer += Time.deltaTime;
+            float pt = Mathf.SmoothStep(0f, 1f, panTimer / panDur);
+            _mainCamera.transform.position = Vector3.Lerp(camStart, panEnd, pt);
+            _mainCamera.transform.LookAt(new Vector3(RoadX, 1f, wagonStartZ));
+            yield return null;
+        }
 
-            foreach (var part in wagonParts)
+        // ── PHASE 3: THE JOURNEY (16s) ──
+        float rideDur = 16f;
+        float rideTimer = 0f;
+        bool wifeLookedBack = false;
+
+        while (rideTimer < rideDur)
+        {
+            rideTimer += Time.deltaTime;
+            float p = Mathf.Min(rideTimer / rideDur, 1f);
+            float z = wagonStartZ + deltaZ * p;
+
+            wagonRoot.position = new Vector3(RoadX, 0f, z);
+
+            if (!wifeLookedBack && p >= 0.65f && wife != null)
             {
-                if (part != null)
-                {
-                    var pos = part.transform.position;
-                    part.transform.position = new Vector3(pos.x, pos.y, z + (pos.z - wz));
-                }
-            }
-            if (groom.body != null)
-            {
-                var gp = groom.body.transform.position;
-                groom.body.transform.position = new Vector3(gp.x, gp.y, z + (gp.z - wz));
-            }
-            if (groom.head != null)
-            {
-                var hp = groom.head.transform.position;
-                groom.head.transform.position = new Vector3(hp.x, hp.y, z + (hp.z - wz));
-            }
-            if (wife != null)
-            {
-                var wp = wife.transform.position;
-                wife.transform.position = new Vector3(wp.x, wp.y, z + (wp.z - wz));
+                wifeLookedBack = true;
+                StartCoroutine(WifeLookBack(wife.transform));
             }
 
-            if (_mainCamera != null)
-            {
-                float lagZ = 3f + 22f * p;
-                float camY = 2.8f + 0.4f * p;
-                float lookY = 1.4f - 0.4f * p;
-                _mainCamera.transform.position = new Vector3(RoadX + 5, camY, z + lagZ);
-                _mainCamera.transform.LookAt(new Vector3(RoadX, lookY, z));
-            }
+            float camZ = z + 10f;
+            _mainCamera.transform.position = new Vector3(RoadX - 2f, 3.5f, camZ);
+            _mainCamera.transform.LookAt(new Vector3(RoadX, 1f, z));
 
             yield return null;
         }
 
+        // ── PHASE 4: FADING AWAY (5s) ──
+        yield return new WaitForSeconds(3f);
         yield return StartCoroutine(FadeOverlay(1, 2f));
 
+        // ── PHASE 5: END SCREEN ──
         HideSkipButton();
         CleanupSpawned();
         DestroyLetterboxBars();
@@ -799,12 +839,40 @@ public class CutsceneManager : MonoBehaviour
         if (_uiManager == null)
             _uiManager = Object.FindAnyObjectByType<UIManager>();
         if (_uiManager != null)
-            _uiManager.ShowEndScreen("SAD ENDING", "\"Skibidi.\ndop dop.\"");
+            _uiManager.ShowEndScreen("BAD ENDING",
+                "You were too late.\nWhile you searched for fortune,\nyou forgot what truly mattered.\n\nShe waited...\nuntil she couldn't anymore.");
         }
         finally
         {
+            _isDeathEnding = false;
             IsActive = false;
             _cutsceneRoutine = null;
+        }
+    }
+
+    private IEnumerator WifeLookBack(Transform wife)
+    {
+        Quaternion startRot = wife.transform.rotation;
+        Quaternion lookBack = Quaternion.Euler(0, 0, 0);
+        float dur = 1.5f;
+        float elapsed = 0f;
+
+        while (elapsed < dur)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.SmoothStep(0f, 1f, elapsed / dur);
+            wife.transform.rotation = Quaternion.Slerp(startRot, lookBack, t);
+            yield return null;
+        }
+        yield return new WaitForSeconds(3f);
+
+        elapsed = 0f;
+        while (elapsed < dur)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.SmoothStep(0f, 1f, elapsed / dur);
+            wife.transform.rotation = Quaternion.Slerp(lookBack, startRot, t);
+            yield return null;
         }
     }
 
@@ -993,7 +1061,13 @@ public class CutsceneManager : MonoBehaviour
     public void RestorePlayerControl()
     {
         if (_player != null)
+        {
             _player.EnableInput(true);
+            // Restore real player model if it was hidden for cutscene
+            var realModel = _player.transform.Find("PlayerModel");
+            if (realModel != null)
+                realModel.gameObject.SetActive(true);
+        }
         AttachCamera();
     }
 
@@ -1019,10 +1093,7 @@ public class CutsceneManager : MonoBehaviour
         if (_uiManager != null)
         {
             _uiManager.ShowAllGameUI(false);
-            var statsBg = GameObject.Find("StatsBg");
-            var invBg = GameObject.Find("InventoryBg");
-            if (statsBg != null) statsBg.SetActive(false);
-            if (invBg != null) invBg.SetActive(false);
+            _uiManager.SetStatsBgVisible(false);
         }
     }
 
@@ -1031,10 +1102,7 @@ public class CutsceneManager : MonoBehaviour
         if (_uiManager != null)
         {
             _uiManager.ShowAllGameUI(true);
-            var statsBg = GameObject.Find("StatsBg");
-            var invBg = GameObject.Find("InventoryBg");
-            if (statsBg != null) statsBg.SetActive(true);
-            if (invBg != null) invBg.SetActive(true);
+            _uiManager.SetStatsBgVisible(true);
         }
     }
 
@@ -1298,36 +1366,36 @@ public class CutsceneManager : MonoBehaviour
 
     // ── Wagon (sad ending) ──
 
-    private List<GameObject> CreateWagon(float wx, float wz)
+    private Transform CreateWagon(float wx, float wz)
     {
-        var parts = new List<GameObject>();
-        float wy = 0;
         Color brn = new Color(85f / 255f, 52f / 255f, 22f / 255f);
         Color tan = new Color(210f / 255f, 195f / 255f, 160f / 255f);
         Color dk = new Color(70f / 255f, 42f / 255f, 16f / 255f);
         Color wblk = new Color(45f / 255f, 35f / 255f, 20f / 255f);
 
-        parts.Add(CreateBlock(new Vector3(1.8f, 0.3f, 3.6f), new Vector3(wx, wy + 0.65f, wz), brn));
-        parts.Add(CreateBlock(new Vector3(1.6f, 0.08f, 3.4f), new Vector3(wx, wy + 1.4f, wz), tan));
-        parts.Add(CreateBlock(new Vector3(1.8f, 0.7f, 0.18f), new Vector3(wx, wy + 1f, wz - 1.65f), dk));
-        parts.Add(CreateBlock(new Vector3(1.8f, 0.7f, 0.18f), new Vector3(wx, wy + 1f, wz + 1.65f), dk));
+        var root = new GameObject("WagonRoot").transform;
+        root.position = new Vector3(wx, 0f, wz);
 
-        float[] oxs = { -0.9f, 0.9f, -0.9f, 0.9f };
-        float[] ozs = { -1.5f, -1.5f, 1.5f, 1.5f };
-        for (int wi = 0; wi < 4; wi++)
-            parts.Add(CreateBlock(new Vector3(0.2f, 0.8f, 0.8f), new Vector3(wx + oxs[wi], wy + 0.4f, wz + ozs[wi]), wblk));
+        CreateBlock(root, new Vector3(1.6f, 0.12f, 3.2f), new Vector3(0f, 0.5f, 0f), brn);
+        CreateBlock(root, new Vector3(0.08f, 0.5f, 3.2f), new Vector3(-0.8f, 0.8f, 0f), dk);
+        CreateBlock(root, new Vector3(0.08f, 0.5f, 3.2f), new Vector3(0.8f, 0.8f, 0f), dk);
+        CreateBlock(root, new Vector3(1.6f, 0.6f, 0.08f), new Vector3(0f, 0.85f, -1.6f), dk);
+        CreateBlock(root, new Vector3(1.2f, 0.4f, 0.08f), new Vector3(0f, 0.75f, 1.6f), dk);
+        CreateBlock(root, new Vector3(1.0f, 0.08f, 0.4f), new Vector3(0f, 0.85f, -0.6f), brn);
+        CreateBlock(root, new Vector3(0.06f, 0.35f, 0.06f), new Vector3(-0.4f, 0.67f, -0.6f), brn);
+        CreateBlock(root, new Vector3(0.06f, 0.35f, 0.06f), new Vector3(0.4f, 0.67f, -0.6f), brn);
+        CreateBlock(root, new Vector3(0.08f, 0.08f, 1.4f), new Vector3(0f, 0.4f, -2.3f), dk);
+        CreateBlock(root, new Vector3(0.15f, 0.7f, 0.7f), new Vector3(-0.85f, 0.35f, -1.3f), wblk);
+        CreateBlock(root, new Vector3(0.15f, 0.7f, 0.7f), new Vector3(0.85f, 0.35f, -1.3f), wblk);
+        CreateBlock(root, new Vector3(0.15f, 0.7f, 0.7f), new Vector3(-0.85f, 0.35f, 1.3f), wblk);
+        CreateBlock(root, new Vector3(0.15f, 0.7f, 0.7f), new Vector3(0.85f, 0.35f, 1.3f), wblk);
+        CreateBlock(root, new Vector3(0.06f, 0.06f, 1.8f), new Vector3(0f, 0.25f, -1.3f), dk);
+        CreateBlock(root, new Vector3(0.06f, 0.06f, 1.8f), new Vector3(0f, 0.25f, 1.3f), dk);
+        CreateBlock(root, new Vector3(0.06f, 0.06f, 1.6f), new Vector3(0f, 0.38f, -0.4f), dk);
+        CreateBlock(root, new Vector3(0.06f, 0.06f, 1.6f), new Vector3(0f, 0.38f, 0.4f), dk);
 
-        foreach (var p in parts) RegisterSpawned(p);
-        return parts;
-    }
-
-    private (GameObject body, GameObject head) CreateGroom(float x, float y, float z)
-    {
-        var body = CreateBlock(new Vector3(0.48f, 0.82f, 0.32f), new Vector3(x, y, z), new Color(28f / 255f, 30f / 255f, 65f / 255f));
-        var head = CreateBlock(new Vector3(0.4f, 0.4f, 0.4f), new Vector3(x, y + 0.6f, z), new Color(220f / 255f, 178f / 255f, 132f / 255f));
-        RegisterSpawned(body);
-        RegisterSpawned(head);
-        return (body, head);
+        RegisterSpawned(root.gameObject);
+        return root;
     }
 
     // ── Teto (happy ending) ──

@@ -8,6 +8,7 @@ public class GameManager : MonoBehaviour
 
     public bool InGame { get; private set; }
     public bool GamePaused { get; private set; }
+    public bool IsPlayerDead { get; private set; }
     public int CurrentDay = 1;
     public float TimeOfDay = 8f;
     public float TimeSpeed = 1f;
@@ -83,7 +84,11 @@ public class GameManager : MonoBehaviour
             else if (Keyboard.current.f6Key.wasPressedThisFrame)
                 CutsceneManager.RequestHappyEnding();
             else if (Keyboard.current.f7Key.wasPressedThisFrame)
+            {
+                if (CutsceneManager.IsActive)
+                    CutsceneManager.CancelCutscene();
                 CutsceneManager.PlaySadEnding();
+            }
         }
 
         if (!InGame || GamePaused)
@@ -185,6 +190,7 @@ public class GameManager : MonoBehaviour
     {
         InGame = true;
         GamePaused = false;
+        IsPlayerDead = false;
         CurrentDay = 1;
         TimeOfDay = 8f;
 
@@ -196,6 +202,7 @@ public class GameManager : MonoBehaviour
 
         if (UIManager != null)
         {
+            UIManager.HideEndScreen();
             UIManager.ShowAllGameUI(true);
             UIManager.ShowPauseMenu(false);
             UIManager.ShowMainMenu(false);
@@ -220,6 +227,7 @@ public class GameManager : MonoBehaviour
     {
         InGame = true;
         GamePaused = false;
+        IsPlayerDead = false;
         CurrentDay = 1;
         TimeOfDay = 8f;
 
@@ -231,6 +239,7 @@ public class GameManager : MonoBehaviour
 
         if (UIManager != null)
         {
+            UIManager.HideEndScreen();
             UIManager.ShowAllGameUI(true);
             UIManager.ShowPauseMenu(false);
             UIManager.ShowMainMenu(false);
@@ -299,5 +308,12 @@ public class GameManager : MonoBehaviour
     {
         if (CutsceneManager != null)
             CutsceneManager.RequestHappyEnding();
+    }
+
+    public void TriggerPlayerDeath()
+    {
+        if (IsPlayerDead) return;
+        IsPlayerDead = true;
+        CutsceneManager?.PlaySadEnding();
     }
 }

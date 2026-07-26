@@ -120,11 +120,13 @@ public class PlayerController : MonoBehaviour
 
     public void TakeDamage(int amount)
     {
+        if (HP <= 0) return;
         HP -= amount;
         if (HP <= 0)
         {
             HP = 0;
             Debug.Log("Player died");
+            GameManager.Instance?.TriggerPlayerDeath();
         }
     }
 

@@ -73,7 +73,15 @@ public static class ItemBuilder
 
     public static void BuildArm(Transform parent)
     {
-        CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(0.3f, 1f, 0.3f), new Color(0.6f, 0.3f, 0.1f));
+        Color shirtC = new Color(0.24f, 0.45f, 0.64f);
+        Color skinC  = new Color(0.88f, 0.72f, 0.52f);
+
+        CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(0.2f, 0.5f, 0.2f), shirtC);
+        CreatePickupCube(parent, new Vector3(0f, -0.35f, 0f), new Vector3(0.18f, 0.2f, 0.18f), skinC);
+        CreatePickupCube(parent, new Vector3(-0.05f, -0.48f, 0.02f), new Vector3(0.06f, 0.08f, 0.06f), skinC);
+        CreatePickupCube(parent, new Vector3(0.05f, -0.48f, 0.02f), new Vector3(0.06f, 0.08f, 0.06f), skinC);
+        CreatePickupCube(parent, new Vector3(0f, -0.48f, -0.04f), new Vector3(0.06f, 0.08f, 0.06f), skinC);
+        CreatePickupCube(parent, new Vector3(0f, -0.5f, 0.04f), new Vector3(0.16f, 0.06f, 0.14f), skinC);
     }
 
     public static void BuildAxe(Transform parent)
