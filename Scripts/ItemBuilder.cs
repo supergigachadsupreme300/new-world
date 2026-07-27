@@ -25,9 +25,7 @@ public static class ItemBuilder
             case "hoe": BuildHoe(parent); break;
             case "hammer": BuildHammer(parent); break;
             case "sword": BuildSword(parent); break;
-            case "gun": BuildGun(parent); break;
             case "scythe": BuildScythe(parent); break;
-            case "ammo": BuildAmmo(parent); break;
             case "mobspawner": BuildMobSpawner(parent); break;
 
             case "field": BuildField(parent); break;
@@ -120,23 +118,10 @@ public static class ItemBuilder
         bladeTip.transform.localRotation = Quaternion.Euler(45f, 0f, 0f);
     }
 
-    public static void BuildGun(Transform parent)
-    {
-        var body = CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(0.15f, 0.5f, 0.15f), Color.black);
-        body.transform.localRotation = Quaternion.Euler(45f, 0f, 0f);
-        CreatePickupCube(parent, new Vector3(0f, 0.2f, 0.4f), new Vector3(0.2f, 0.2f, 1f), Color.gray);
-    }
-
     public static void BuildScythe(Transform parent)
     {
         CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(0.15f, 0.7f, 0.15f), new Color(0.5f, 0.2f, 0.05f));
         CreatePickupCube(parent, new Vector3(0.3f, 0.35f, 0f), new Vector3(0.5f, 0.08f, 0.08f), new Color(0.6f, 0.6f, 0.6f));
-    }
-
-    public static void BuildAmmo(Transform parent)
-    {
-        CreatePickupCube(parent, new Vector3(0f, 0.2f, 0f), new Vector3(0.4f, 0.2f, 0.15f), new Color(0.85f, 0.85f, 0.85f));
-        CreatePickupCube(parent, new Vector3(0f, 0.3f, 0f), new Vector3(0.35f, 0.1f, 0.1f), new Color(0.4f, 0.4f, 0.4f));
     }
 
     public static void BuildMobSpawner(Transform parent)

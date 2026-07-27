@@ -216,6 +216,15 @@ public class PlayerController : MonoBehaviour
                 wb.ActivateEventBlock(transform.position);
                 return;
             }
+            var cam = Camera.main;
+            if (cam != null && wb != null)
+            {
+                var ray = new Ray(cam.transform.position, cam.transform.forward);
+                if (Physics.Raycast(ray, out var hit, 4f))
+                {
+                    if (wb.TryToggleDoor(hit)) return;
+                }
+            }
             ToolManager.Instance?.TryPickupNearby();
         }
         if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
@@ -259,8 +268,6 @@ public class PlayerController : MonoBehaviour
         }
         if (Keyboard.current.qKey.wasPressedThisFrame)
             ToolManager.Instance?.DropSelectedItem();
-        if (Keyboard.current.rKey.wasPressedThisFrame)
-            ToolManager.Instance?.ReloadGun();
         if (Keyboard.current.tKey.wasPressedThisFrame)
             WorldBuilder.Instance?.RotateBuildingPreview(90);
         if (Keyboard.current.digit1Key.wasPressedThisFrame)

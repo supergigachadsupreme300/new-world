@@ -64,8 +64,8 @@ public class RandomEventManager : MonoBehaviour
         // BASIC (Quest 1: Harvest wheat)
         _events.Add(new RandomEvent
         {
-            Name = "Bountiful Harvest",
-            Description = "All your crops grow one stage!",
+            Name = "Mùa Màng Bội Thu",
+            Description = "Tất cả mùa màng của bạn đều tăng một giai đoạn!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 1800f,
@@ -73,8 +73,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Lucky Find",
-            Description = "A gold coin appears on the ground!",
+            Name = "Tìm Thấy May Mắn",
+            Description = "Một đồng vàng xuất hiện trên mặt đất!",
             Tier = 0,
             Weight = 4f,
             Cooldown = 600f,
@@ -82,8 +82,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Stamina Refresh",
-            Description = "You feel revitalized!",
+            Name = "Phục Hồi Sức Mạnh",
+            Description = "Bạn cảm thấy sảng khoái!",
             Tier = 0,
             Weight = 4f,
             Cooldown = 600f,
@@ -91,8 +91,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Healing Spring",
-            Description = "Your wounds are healed!",
+            Name = "Suối Chữa Lành",
+            Description = "Vết thương của bạn đã lành!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 900f,
@@ -100,8 +100,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Free Seeds",
-            Description = "Seeds fall from the sky!",
+            Name = "Hạt Giống Miễn Phí",
+            Description = "Hạt giống rơi từ trên trời!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 900f,
@@ -109,8 +109,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Pest Invasion",
-            Description = "Pests are eating your crops!",
+            Name = "Sâu Bệnh Tấn Công",
+            Description = "Sâu đang ăn mùa màng của bạn!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 1200f,
@@ -118,8 +118,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Drought",
-            Description = "The sun dries up all your fields!",
+            Name = "Hạn Hán",
+            Description = "Mặt trời làm khô hết ruộng của bạn!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 1200f,
@@ -127,8 +127,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Strange Noises",
-            Description = "You hear strange sounds nearby...",
+            Name = "Âm Thanh Kỳ Lạ",
+            Description = "Bạn nghe thấy âm thanh kỳ lạ ở gần...",
             Tier = 0,
             Weight = 4f,
             Cooldown = 600f,
@@ -136,8 +136,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Crop Disease",
-            Description = "A disease spreads through your crops!",
+            Name = "Bệnh Mùa Màng",
+            Description = "Bệnh đang lây lan khắp mùa màng!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 1200f,
@@ -145,8 +145,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Fireflies",
-            Description = "Fireflies dance around you!",
+            Name = "Đom Đóm",
+            Description = "Đom đóm nhảy múa xung quanh bạn!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 600f,
@@ -154,8 +154,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Weed Growth",
-            Description = "Weeds overtake some crops!",
+            Name = "Cỏ Dại Mọc Lên",
+            Description = "Cỏ dại mọc um tùm trên mùa màng!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 900f,
@@ -163,8 +163,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Stamina Drain",
-            Description = "You feel exhausted!",
+            Name = "Hết Sức",
+            Description = "Bạn cảm thấy kiệt sức!",
             Tier = 0,
             Weight = 2f,
             Cooldown = 600f,
@@ -174,8 +174,8 @@ public class RandomEventManager : MonoBehaviour
         // ADVANCED (Quest 2: Slay monsters)
         _events.Add(new RandomEvent
         {
-            Name = "Enemy Raid",
-            Description = "Enemies are converging on your position!",
+            Name = "Kẻ Thù Tấn Công",
+            Description = "Kẻ thù đang tiến về phía bạn!",
             Tier = 1,
             Weight = 2f,
             Cooldown = 1500f,
@@ -183,8 +183,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Storm Damage",
-            Description = "A storm damages your buildings!",
+            Name = "Bão Gây Hại",
+            Description = "Bão phá hủy công trình của bạn!",
             Tier = 1,
             Weight = 2f,
             Cooldown = 1800f,
@@ -192,8 +192,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Thief",
-            Description = "A thief steals some of your money!",
+            Name = "Kẻ Trộm",
+            Description = "Kẻ trộm lấy mất một phần tiền của bạn!",
             Tier = 1,
             Weight = 3f,
             Cooldown = 1200f,
@@ -201,8 +201,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Wandering Merchant",
-            Description = "A merchant has appeared on the road!",
+            Name = "Thương Nhân Lang Thang",
+            Description = "Một thương nhân đã xuất hiện trên đường!",
             Tier = 1,
             Weight = 3f,
             Cooldown = 1200f,
@@ -210,8 +210,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Market Crash",
-            Description = "The market crashes! Sell prices halved!",
+            Name = "Thị Trường Sụp Đổ",
+            Description = "Thị trường sụp đổ! Giá bán giảm một nửa!",
             Tier = 1,
             Weight = 2f,
             Cooldown = 1800f,
@@ -219,8 +219,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Price Spike",
-            Description = "A price boom! Sell prices doubled!",
+            Name = "Giá Tăng Cao",
+            Description = "Giá tăng vọt! Giá bán gấp đôi!",
             Tier = 1,
             Weight = 2f,
             Cooldown = 1800f,
@@ -228,8 +228,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Bandit Ambush",
-            Description = "Bandits surround you!",
+            Name = "Cướp Phục Kích",
+            Description = "Cướp bao vây bạn!",
             Tier = 1,
             Weight = 2f,
             Cooldown = 1500f,
@@ -237,8 +237,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Rainbow",
-            Description = "A rainbow appears in the sky!",
+            Name = "Cầu Vồng",
+            Description = "Một cầu vồng xuất hiện trên bầu trời!",
             Tier = 1,
             Weight = 3f,
             Cooldown = 600f,
@@ -246,8 +246,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Dancing Animals",
-            Description = "Your animals start dancing!",
+            Name = "Động Vật Nhảy Múa",
+            Description = "Động vật của bạn bắt đầu nhảy múa!",
             Tier = 1,
             Weight = 3f,
             Cooldown = 600f,
@@ -255,8 +255,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Trade Route",
-            Description = "A new trade route opens! Buy prices reduced!",
+            Name = "Tuyến Thương Mại",
+            Description = "Tuyến thương mại mới mở! Giá mua giảm!",
             Tier = 1,
             Weight = 2f,
             Cooldown = 1800f,
@@ -264,8 +264,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Rat Infestation",
-            Description = "Rats appear near your fields!",
+            Name = "Chuột Cắn",
+            Description = "Chuột xuất hiện gần ruộng của bạn!",
             Tier = 1,
             Weight = 2f,
             Cooldown = 1200f,
@@ -275,8 +275,8 @@ public class RandomEventManager : MonoBehaviour
         // RARE (Quest 3: Earn coins)
         _events.Add(new RandomEvent
         {
-            Name = "Giant Enemy",
-            Description = "A massive enemy has appeared!",
+            Name = "Kẻ Thù Khổng Lồ",
+            Description = "Một kẻ thù khổng lồ đã xuất hiện!",
             Tier = 2,
             Weight = 1f,
             Cooldown = 2400f,
@@ -284,8 +284,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Swarm Attack",
-            Description = "A swarm of creatures attacks!",
+            Name = "Đàn Tấn Công",
+            Description = "Một đàn quái vật tấn công!",
             Tier = 2,
             Weight = 1f,
             Cooldown = 2400f,
@@ -293,8 +293,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Meteor Shower",
-            Description = "Meteors rain from the sky!",
+            Name = "Mưa Sao Băng",
+            Description = "Sao băng rơi từ bầu trời!",
             Tier = 2,
             Weight = 1f,
             Cooldown = 2400f,
@@ -302,8 +302,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Harvest Festival",
-            Description = "The village celebrates! Quest progress boosted!",
+            Name = "Lễ Hội Thu Hoạch",
+            Description = "Làng ăn mừng! Tiến độ nhiệm vụ tăng!",
             Tier = 2,
             Weight = 1f,
             Cooldown = 3000f,
@@ -311,8 +311,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Fireworks",
-            Description = "Fireworks light up the sky!",
+            Name = "Pháo Hoa",
+            Description = "Pháo hoa thắp sáng bầu trời!",
             Tier = 2,
             Weight = 2f,
             Cooldown = 1200f,
@@ -320,8 +320,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Ghostly Figures",
-            Description = "Ghostly figures wander the land...",
+            Name = "Hình Ảnh Bóng Ma",
+            Description = "Bóng ma lang thang khắp đất...",
             Tier = 2,
             Weight = 1f,
             Cooldown = 1800f,
@@ -329,8 +329,8 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Treasure Map",
-            Description = "A treasure has been buried at the map edge!",
+            Name = "Bản Đồ Kho Báu",
+            Description = "Kho báu đã được chôn ở rìa bản đồ!",
             Tier = 2,
             Weight = 2f,
             Cooldown = 2400f,
@@ -752,13 +752,13 @@ public class RandomEventManager : MonoBehaviour
 
     private void EffectMarketCrash()
     {
-        ShowBanner("Market Crash", "Sell prices halved for 2 game-hours!");
+        ShowBanner("Thị Trường Sụp Đổ", "Giá bán giảm một nửa trong 2 giờ!");
         StartCoroutine(ModifySellPrices(0.5f, 2f));
     }
 
     private void EffectPriceSpike()
     {
-        ShowBanner("Price Spike", "Sell prices doubled for 2 game-hours!");
+        ShowBanner("Giá Tăng Cao", "Giá bán gấp đôi trong 2 giờ!");
         StartCoroutine(ModifySellPrices(2f, 2f));
     }
 
@@ -850,7 +850,7 @@ public class RandomEventManager : MonoBehaviour
 
     private void EffectTradeRoute()
     {
-        ShowBanner("Trade Route", "Buy prices reduced for 1 game-day!");
+        ShowBanner("Tuyến Thương Mại", "Giá mua giảm trong 1 ngày!");
         StartCoroutine(ModifyBuyPrices(0.7f, 24f));
     }
 
@@ -1032,7 +1032,7 @@ public class RandomEventManager : MonoBehaviour
         float angle = UnityEngine.Random.Range(0f, 360f) * Mathf.Deg2Rad;
         Vector3 treasurePos = new Vector3(Mathf.Cos(angle) * 80f, 0.5f, Mathf.Sin(angle) * 80f);
         SpawnCoinPickup(treasurePos + Vector3.up * 8f, 1000);
-        ShowBanner("Treasure Map", "A treasure chest has appeared at the map's edge!");
+        ShowBanner("Bản Đồ Kho Báu", "Rương kho báu đã xuất hiện ở rìa bản đồ!");
     }
 
     // ── Event Data ──

@@ -34,8 +34,6 @@ public class ToolManager : MonoBehaviour
     private bool _buildingMenuOpen;
     private bool _buildingChosen;
     private LineRenderer _rayRenderer;
-    private int _gunAmmo;
-    private const int GunMaxAmmo = 6;
     private GameObject _carriedObject;
     private const float PickupRayDistance = 4f;
     private const float UseRayDistance = 10f;
@@ -48,7 +46,6 @@ public class ToolManager : MonoBehaviour
         { "pickaxe", 15f },
         { "hoe", 12f },
         { "hammer", 20f },
-        { "gun", 5f },
         { "scythe", 10f },
         { "watering_can", 8f },
         { "fertilizer", 5f },
@@ -68,7 +65,7 @@ public class ToolManager : MonoBehaviour
         if (item == null) return false;
         if (!player.SpendStamina(StaminaCostFor(item)))
         {
-            _uiManager?.ShowMessage("Too tired!", 1f);
+            _uiManager?.ShowMessage("Quá mệt!", 1f);
             return false;
         }
         PlaySwing();
@@ -226,13 +223,13 @@ public class ToolManager : MonoBehaviour
             {
                 var info = _carriedObject.GetComponent<CageWithAnimalInfo>();
                 string animalName = info != null ? info.AnimalType.ToString() : "animal";
-                _uiManager.SetInfoText("Carrying: Cage with " + animalName + " (Q to throw)");
+                _uiManager.SetInfoText("Đang mang: Lồng với " + animalName + " (Q để ném)");
             }
             else
             {
                 var (material, amount) = GetCarriedResourceInfo(_carriedObject);
                 if (material != null)
-                    _uiManager.SetInfoText("Carrying: " + amount.ToString("F2") + " " + material);
+                    _uiManager.SetInfoText("Đang mang: " + amount.ToString("F2") + " " + material);
                 else
                     _uiManager.SetInfoText(null);
             }
@@ -272,10 +269,10 @@ public class ToolManager : MonoBehaviour
                     float stoneRemaining = def.StoneCost - bp.StoneDeposited;
                     var parts = new System.Collections.Generic.List<string>();
                     if (woodRemaining > 0.01f)
-                        parts.Add(woodRemaining.ToString("F1") + " wood");
+                        parts.Add(woodRemaining.ToString("F1") + " gỗ");
                     if (stoneRemaining > 0.01f)
-                        parts.Add(stoneRemaining.ToString("F1") + " stone");
-                    string remainingText = parts.Count > 0 ? "Need: " + string.Join(", ", parts) : "Complete!";
+                        parts.Add(stoneRemaining.ToString("F1") + " đá");
+                    string remainingText = parts.Count > 0 ? "Cần: " + string.Join(", ", parts) : "Hoàn thành!";
                     _uiManager.SetInfoText(def.Name + " - " + remainingText);
                 }
                 else
@@ -292,17 +289,17 @@ public class ToolManager : MonoBehaviour
             {
                 var cageInfo = root.GetComponent<CageWithAnimalInfo>();
                 string name = cageInfo != null ? cageInfo.AnimalType.ToString() : "animal";
-                _uiManager.SetInfoText("Cage with " + name + " (E to pick up)");
+                _uiManager.SetInfoText("Lồng với " + name + " (E để nhặt)");
             }
             else if (root.name == "ThrownCage")
             {
-                _uiManager.SetInfoText("Cage (E to pick up)");
+                _uiManager.SetInfoText("Lồng (E để nhặt)");
             }
             else
             {
                 var (material, amount) = GetCarriedResourceInfo(root);
-                string typeName = root.name == "TreeFelled" ? "Tree" : root.name == "BranchTop" ? "Branch" : "Debris";
-                _uiManager.SetInfoText(typeName + " provides " + amount.ToString("F2") + " " + material);
+                string typeName = root.name == "TreeFelled" ? "Cây" : root.name == "BranchTop" ? "Cành" : "Mảnh Vụn";
+                _uiManager.SetInfoText(typeName + " cung cấp " + amount.ToString("F2") + " " + material);
             }
         }
         else if (root.name == "FieldTile")
@@ -313,35 +310,35 @@ public class ToolManager : MonoBehaviour
                 string info;
                 if (field.IsHarvested)
                 {
-                    info = "Field (harvested — till again)";
+                    info = "Ruộng (đã thu hoạch — cày lại)";
                 }
                 else if (field.HasCrop)
                 {
                     string cropDisplay = field.CropType switch
                     {
-                        "wheat" => "Wheat",
-                        "corn" => "Corn",
-                        "potato" => "Potato",
-                        "carrot" => "Carrot",
-                        "tomato" => "Tomato",
-                        "strawberry" => "Strawberry",
-                        "pumpkin" => "Pumpkin",
-                        "onion" => "Onion",
-                        "sugarcane" => "Sugarcane",
-                        "rice" => "Rice",
+                        "wheat" => "Lúa Mì",
+                        "corn" => "Ngô",
+                        "potato" => "Khoai Tây",
+                        "carrot" => "Cà Rốt",
+                        "tomato" => "Cà Chua",
+                        "strawberry" => "Dâu Tây",
+                        "pumpkin" => "Bí Ngòi",
+                        "onion" => "Hành Tây",
+                        "sugarcane" => "Mía",
+                        "rice" => "Gạo",
                         _ => field.CropType
                     };
-                    info = $"{cropDisplay} • Stage {field.Stage}/4";
+                    info = $"{cropDisplay} • Giai Đoạn {field.Stage}/4";
                     if (field.Watered) info += " 💧";
                     if (field.Fertilized) info += " 🌱";
                 }
                 else if (field.Tilled)
                 {
-                    info = "Tilled field — plant a seed";
+                    info = "Ruộng đã cày — gieo hạt giống";
                 }
                 else
                 {
-                    info = "Field — use hoe to till";
+                    info = "Ruộng — dùng cuốc để cày";
                 }
                 _uiManager.SetInfoText(info);
             }
@@ -407,17 +404,17 @@ public class ToolManager : MonoBehaviour
                         {
                             if (amount < 0.05f)
                             {
-                                _uiManager.ShowMessage("Too small to use.", 1f);
+                                _uiManager.ShowMessage("Quá nhỏ để dùng.", 1f);
                                 return;
                             }
                             if (_worldBuilder.DepositMaterial(bp, material, amount))
                             {
-                                _uiManager.ShowMessage("Building completed!", 1.5f);
+                                _uiManager.ShowMessage("Xây dựng hoàn thành!", 1.5f);
                                 SoundManager.Instance?.Play("hammer");
                             }
                             else
                             {
-                                _uiManager.ShowMessage("Supplied " + material + " x" + amount.ToString("F2") + ".", 1.5f);
+                                _uiManager.ShowMessage("Đã cung cấp " + material + " x" + amount.ToString("F2") + ".", 1.5f);
                             }
                             Destroy(_carriedObject);
                             _carriedObject = null;
@@ -434,12 +431,6 @@ public class ToolManager : MonoBehaviour
         if (selectedItem != null && !TryUseTool(player))
             return;
 
-        if (selectedItem == "gun")
-        {
-            ShootGun(player.transform.position, player.transform.forward);
-            return;
-        }
-
         if (selectedItem == "club")
         {
             var clubOrigin = cam.transform.position + cam.transform.forward * 0.3f;
@@ -453,7 +444,7 @@ public class ToolManager : MonoBehaviour
                     int damage = Mathf.RoundToInt(ToolStaminaCost["club"]);
                     enemy.TakeDamage(damage);
                     SoundManager.Instance?.Play("axe");
-                    _uiManager?.ShowMessage("Clubbed!", 1f);
+                    _uiManager?.ShowMessage("Đánh!", 1f);
                     return;
                 }
 
@@ -464,11 +455,11 @@ public class ToolManager : MonoBehaviour
                 {
                     livestock.TakeDamage(3);
                     SoundManager.Instance?.Play("axe");
-                    _uiManager?.ShowMessage("Clubbed!", 1f);
+                    _uiManager?.ShowMessage("Đánh!", 1f);
                     return;
                 }
+                _uiManager?.ShowMessage("Không có gì để đánh.", 1f);
             }
-            _uiManager?.ShowMessage("Nothing to hit.", 1f);
             return;
         }
 
@@ -566,7 +557,7 @@ public class ToolManager : MonoBehaviour
                 if (field != null)
                 {
                     SoundManager.Instance?.Play("hoe");
-                    _uiManager.ShowMessage("Field tilled.", 1.5f);
+                    _uiManager.ShowMessage("Ruộng đã cày.", 1.5f);
                 }
                 return;
             }
@@ -583,16 +574,16 @@ public class ToolManager : MonoBehaviour
                     var bDef = _worldBuilder.GetBuildingByIndex(_worldBuilder.CurrentBuildingIndex);
                     if (_worldBuilder.IsWallOrStair(bDef.Name) && !_worldBuilder.HasFloorAt(placePos))
                     {
-                        _uiManager.ShowMessage("Need floor! Walls and stairs require floor first.", 1.5f);
+                        _uiManager.ShowMessage("Cần sàn! Tường và cầu thang cần sàn trước.", 1.5f);
                     }
                     else if (_worldBuilder.PlaceBlueprint(placePos))
                     {
                         SoundManager.Instance?.Play("hammer");
-                        _uiManager.ShowMessage("Blueprint placed. Supply wood & stone.", 1.5f);
+                        _uiManager.ShowMessage("Bản thiết kế đã đặt. Cung cấp gỗ & đá.", 1.5f);
                     }
                     else
                     {
-                        _uiManager.ShowMessage("Cannot place here.", 1.5f);
+                        _uiManager.ShowMessage("Không thể đặt ở đây.", 1.5f);
                     }
                     _buildingChosen = false;
                     return;
@@ -617,7 +608,7 @@ public class ToolManager : MonoBehaviour
                 if (_worldBuilder.PlaceBlueprint(placePos))
                 {
                     SoundManager.Instance?.Play("hammer");
-                    _uiManager.ShowMessage("Blueprint placed. Supply wood & stone.", 1.5f);
+                    _uiManager.ShowMessage("Bản thiết kế đã đặt. Cung cấp gỗ & đá.", 1.5f);
                 }
                 return;
             }
@@ -630,12 +621,12 @@ public class ToolManager : MonoBehaviour
                     if (_worldBuilder.WaterField(hit.point))
                     {
                         SoundManager.Instance?.Play("pop");
-                        _uiManager.ShowMessage("Field watered.", 1.5f);
+                        _uiManager.ShowMessage("Ruộng đã tưới.", 1.5f);
                     }
                 }
                 else
                 {
-                    _uiManager.ShowMessage("Use watering can on a growing crop.", 1.5f);
+                    _uiManager.ShowMessage("Dùng bình tưới cho cây đang trồng.", 1.5f);
                 }
                 return;
             }
@@ -649,12 +640,12 @@ public class ToolManager : MonoBehaviour
                     {
                         RemoveItem(_selectedSlot, 1);
                         SoundManager.Instance?.Play("pop");
-                        _uiManager.ShowMessage("Field fertilized!", 1.5f);
+                        _uiManager.ShowMessage("Ruộng đã bón phân!", 1.5f);
                     }
                 }
                 else
                 {
-                    _uiManager.ShowMessage("Use fertilizer on a growing crop.", 1.5f);
+                    _uiManager.ShowMessage("Dùng phân bón cho cây đang trồng.", 1.5f);
                 }
                 return;
             }
@@ -671,7 +662,7 @@ public class ToolManager : MonoBehaviour
                     {
                         AddItem(item, 1);
                         SoundManager.Instance?.Play("sword");
-                        _uiManager.ShowMessage($"Harvested {item}.", 1.5f);
+                        _uiManager.ShowMessage($"Đã thu hoạch {item}.", 1.5f);
                         QuestManager.Instance?.AddProgress(item, 1);
                     }
                 }
@@ -718,24 +709,24 @@ public class ToolManager : MonoBehaviour
                 SoundManager.Instance?.Play("pop");
                 string displayName = cropType switch
                 {
-                    "wheat" => "wheat",
-                    "corn" => "corn",
-                    "potato" => "potato",
-                    "carrot" => "carrot",
-                    "tomato" => "tomato",
-                    "strawberry" => "strawberry",
-                    "pumpkin" => "pumpkin",
-                    "onion" => "onion",
-                    "sugarcane" => "sugarcane",
-                    "rice" => "rice",
+                    "wheat" => "lúa mì",
+                    "corn" => "ngô",
+                    "potato" => "khoai tây",
+                    "carrot" => "cà rốt",
+                    "tomato" => "cà chua",
+                    "strawberry" => "dâu tây",
+                    "pumpkin" => "bí ngòi",
+                    "onion" => "hành tây",
+                    "sugarcane" => "mía",
+                    "rice" => "gạo",
                     _ => cropType
                 };
-                _uiManager.ShowMessage($"Planted {displayName}.", 1.5f);
+                _uiManager.ShowMessage($"Đã gieo {displayName}.", 1.5f);
             }
         }
         else
         {
-            _uiManager.ShowMessage("Use seeds on tilled soil.", 1.5f);
+            _uiManager.ShowMessage("Dùng hạt giống trên đất đã cày.", 1.5f);
         }
         return true;
     }
@@ -806,10 +797,10 @@ public class ToolManager : MonoBehaviour
             {
                 var ci = root.GetComponent<CageWithAnimalInfo>();
                 string n = ci != null ? ci.AnimalType.ToString() : "animal";
-                _uiManager.ShowMessage("Picked up cage with " + n + ".", 1f);
+                _uiManager.ShowMessage("Đã nhặt lồng với " + n + ".", 1f);
             }
             else
-                _uiManager.ShowMessage("Lifted.", 1f);
+                _uiManager.ShowMessage("Đã nhặt lên.", 1f);
             return;
         }
 
@@ -881,7 +872,7 @@ public class ToolManager : MonoBehaviour
         var itemType = pickupName.Substring("Pickup_".Length);
         AddItem(itemType, 1);
         SoundManager.Instance?.Play("pop");
-        _uiManager.ShowMessage($"Picked up {itemType}.", 1.5f);
+        _uiManager.ShowMessage($"Đã nhặt {itemType}.", 1.5f);
         Destroy(pickupRoot);
         return true;
     }
@@ -925,7 +916,7 @@ public class ToolManager : MonoBehaviour
                     _worldBuilder.ThrowPickup(itemType, throwOrigin, throwVelocity);
             }
 
-            _uiManager.ShowMessage($"Threw {itemType}.", 1.5f);
+            _uiManager.ShowMessage($"Đã ném {itemType}.", 1.5f);
             UpdateInventoryUI();
         }
     }
@@ -958,7 +949,7 @@ public class ToolManager : MonoBehaviour
         root.transform.SetParent(cam.transform);
         root.transform.localPosition = new Vector3(0.7f, -0.4f, 1.8f);
         root.transform.localRotation = Quaternion.identity;
-        _uiManager.ShowMessage("Lifted.", 1f);
+        _uiManager.ShowMessage("Đã nhặt lên.", 1f);
     }
 
     private void DropCarriedObject(PlayerController player)
@@ -987,7 +978,7 @@ public class ToolManager : MonoBehaviour
                     throwVelocity,
                     info.AnimalType);
 
-                _uiManager.ShowMessage("Throwing cage...", 1f);
+                _uiManager.ShowMessage("Đang ném lồng...", 1f);
             }
             Destroy(_carriedObject);
             _carriedObject = null;
@@ -1008,7 +999,7 @@ public class ToolManager : MonoBehaviour
             _carriedObject = null;
             if (_worldBuilder != null)
                 _worldBuilder.ThrowCage(cageType, throwOrigin, throwVelocity);
-            _uiManager.ShowMessage("Threw empty cage.", 1f);
+            _uiManager.ShowMessage("Đã ném lồng trống.", 1f);
             return;
         }
 
@@ -1032,7 +1023,7 @@ public class ToolManager : MonoBehaviour
             _carriedObject.transform.position = player.transform.position + player.transform.forward * 1.5f + Vector3.up * 0.5f;
         }
         _carriedObject = null;
-        _uiManager.ShowMessage("Dropped.", 1f);
+        _uiManager.ShowMessage("Đã bỏ xuống.", 1f);
     }
 
     private (string material, float amount) GetCarriedResourceInfo(GameObject obj)
@@ -1074,82 +1065,23 @@ public class ToolManager : MonoBehaviour
 
             if (amount < 0.05f)
             {
-                _uiManager.ShowMessage("Too small to use.", 1f);
+                _uiManager.ShowMessage("Quá nhỏ để dùng.", 1f);
                 return;
             }
 
             if (_worldBuilder.DepositMaterial(bp, material, amount))
             {
-                _uiManager.ShowMessage("Building completed!", 1.5f);
+                _uiManager.ShowMessage("Xây dựng hoàn thành!", 1.5f);
                 SoundManager.Instance?.Play("hammer");
             }
             else
             {
-                _uiManager.ShowMessage("Supplied " + material + " x" + amount.ToString("F2") + ".", 1.5f);
+                _uiManager.ShowMessage("Đã cung cấp " + material + " x" + amount.ToString("F2") + ".", 1.5f);
             }
             Destroy(_carriedObject);
             _carriedObject = null;
             _uiManager?.SetInfoText(null);
             return;
-        }
-    }
-
-    public void ReloadGun()
-    {
-        if (GetSelectedItemType() != "gun")
-            return;
-
-        var ammoSlot = FindSlotFor("ammo");
-        if (ammoSlot < 0)
-        {
-            _uiManager.ShowMessage("No ammo to reload.", 1.5f);
-            return;
-        }
-
-        var ammo = _inventory[ammoSlot].Count;
-        var needed = GunMaxAmmo - _gunAmmo;
-        var used = Mathf.Min(needed, ammo);
-        _gunAmmo += used;
-        RemoveItem(ammoSlot, used);
-        SoundManager.Instance?.Play("gun");
-        _uiManager.ShowMessage($"Reloaded {used} ammo.", 1.5f);
-        UpdateAmmoText();
-    }
-
-    private void ShootGun(Vector3 origin, Vector3 direction)
-    {
-        if (_gunAmmo <= 0)
-        {
-            _uiManager.ShowMessage("Out of ammo.", 1.5f);
-            return;
-        }
-
-        _gunAmmo--;
-        UpdateAmmoText();
-        SoundManager.Instance?.Play("gun");
-        _uiManager.ShowMessage("Bang!", 1f);
-
-        var shotOrigin = origin + direction * 0.3f;
-        if (Physics.Raycast(shotOrigin, direction, out var hit, 20f))
-        {
-            if (IsTree(hit.collider))
-            {
-                var treeRoot = FindTreeRoot(hit.collider);
-                if (treeRoot != null && _worldBuilder.RemoveTree(treeRoot))
-                {
-                    _uiManager.ShowMessage("Shot down a tree.", 1.5f);
-                }
-            }
-            else if (IsRock(hit.collider))
-            {
-                var rockRoot = hit.collider.gameObject;
-                while (rockRoot.transform.parent != null && rockRoot.transform.parent.name != "WorldRoot")
-                    rockRoot = rockRoot.transform.parent.gameObject;
-                if (_worldBuilder.RemoveRock(rockRoot))
-                {
-                    _uiManager.ShowMessage("Shot rock apart.", 1.5f);
-                }
-            }
         }
     }
 
@@ -1170,7 +1102,7 @@ public class ToolManager : MonoBehaviour
         var empty = FindEmptySlot();
         if (empty < 0)
         {
-            _uiManager.ShowMessage("Inventory full.", 1.5f);
+            _uiManager.ShowMessage("Túi đồ đầy.", 1.5f);
             return;
         }
 
@@ -1228,15 +1160,6 @@ public class ToolManager : MonoBehaviour
         }
 
         UpdateInventoryUI();
-    }
-
-    public int GetGunAmmo() => _gunAmmo;
-    public int GetGunMaxAmmo() => GunMaxAmmo;
-
-    public void SetGunAmmo(int amount)
-    {
-        _gunAmmo = Mathf.Clamp(amount, 0, GunMaxAmmo);
-        UpdateAmmoText();
     }
 
     private int FindSlotFor(string itemType)
@@ -1373,11 +1296,9 @@ public class ToolManager : MonoBehaviour
         CreateToolModel("hoe", new Color(0.4f, 0.4f, 0.4f));
         CreateToolModel("hammer", new Color(0.2f, 0.2f, 0.2f));
         CreateToolModel("sword", new Color(0.8f, 0.8f, 0.8f));
-        CreateToolModel("gun", new Color(0.05f, 0.05f, 0.05f));
         CreateToolModel("scythe", new Color(0.4f, 0.4f, 0.4f));
         
         // Items & seeds
-        CreateToolModel("ammo", new Color(0.85f, 0.85f, 0.85f));
         CreateToolModel("fertilizer", new Color(0.2f, 0.7f, 0.2f));
         CreateToolModel("wheat_seed", new Color(0.7f, 0.5f, 0.2f));
         CreateToolModel("peashooter_seed", new Color(1f, 0.86f, 0.31f));
@@ -1577,12 +1498,6 @@ public class ToolManager : MonoBehaviour
     private void UpdateInventoryUI()
     {
         _uiManager?.UpdateInventoryText(_inventory, _selectedSlot);
-        UpdateAmmoText();
-    }
-
-    private void UpdateAmmoText()
-    {
-        _uiManager?.UpdateAmmoText(_gunAmmo, GunMaxAmmo);
     }
 
     [System.Serializable]
@@ -1653,7 +1568,7 @@ public class ToolManager : MonoBehaviour
         var panelImg = _buildingMenuPanel.AddComponent<Image>();
         panelImg.color = new Color(0.18f, 0.2f, 0.27f, 0.95f);
 
-        var title = MakeBMText("BuildTitle", _buildingMenuPanel.transform, "Construction",
+        var title = MakeBMText("BuildTitle", _buildingMenuPanel.transform, "Xây Dựng",
             new Vector2(0f, panelH * 0.42f), new Vector2(panelW - 80, fontS * 1.6f), (int)(fontS * 1.3f));
 
         MakeBMButton("BuildClose", _buildingMenuPanel.transform, "X",
@@ -1738,26 +1653,27 @@ public class ToolManager : MonoBehaviour
         _buildingChosen = true;
         var def = wb.GetBuildingByIndex(index);
         CloseBuildingMenu();
-        _uiManager?.ShowMessage("Selected: " + GetVietnameseBuildingName(def.Name) + ". Click to place.", 2f);
+        _uiManager?.ShowMessage("Đã chọn: " + GetVietnameseBuildingName(def.Name) + ". Nhấp để đặt.", 2f);
     }
 
     private string GetVietnameseBuildingName(string name)
     {
         return name switch
         {
-            "wood_wall" => "Wood Wall",
-            "stone_wall" => "Stone Wall",
-            "fence" => "Fence",
-            "watchtower" => "Watchtower",
-            "small_house" => "Small House",
-            "wood_floor" => "Wood Floor",
-            "stone_floor" => "Stone Floor",
-            "stair" => "Stair",
-            "table" => "Table",
-            "chair" => "Chair",
-            "sofa" => "Sofa",
-            "wife_house" => "Wife House",
-            "structure_house" => "Structure House",
+            "wood_wall" => "Tường Gỗ",
+            "stone_wall" => "Tường Đá",
+            "fence" => "Hàng Rào",
+            "watchtower" => "Lính Canh",
+            "small_house" => "Nhà Nhỏ",
+            "wood_floor" => "Sàn Gỗ",
+            "stone_floor" => "Sàn Đá",
+            "stair" => "Cầu Thang",
+            "table" => "Bàn",
+            "chair" => "Ghế",
+            "sofa" => "Ghế Sofa",
+            "door" => "Cửa",
+            "wife_house" => "Nhà Vợ",
+            "structure_house" => "Nhà Cấu Trúc",
             _ => name
         };
     }

@@ -45,6 +45,7 @@ public class WorldBuilder : MonoBehaviour
     private GameObject _alignmentStrip;
     private readonly List<GameObject> _eventBlocks = new List<GameObject>();
     private readonly List<int> _eventBlockIndices = new List<int>();
+    private readonly HashSet<GameObject> _openDoors = new HashSet<GameObject>();
 
     private class VendorCart
     {
@@ -152,6 +153,11 @@ public class WorldBuilder : MonoBehaviour
         new BuildingDefinition("table", new Vector3(2f, 1f, 2f), new Color(0.65f, 0.45f, 0.22f), 2, 0),
         new BuildingDefinition("chair", new Vector3(1f, 1.5f, 1f), new Color(0.58f, 0.38f, 0.18f), 1, 0),
         new BuildingDefinition("sofa", new Vector3(2f, 1f, 1.5f), new Color(0.55f, 0.35f, 0.16f), 3, 0),
+        new BuildingDefinition("door", new Vector3(3f, 4f, 0.3f), new Color(0.55f, 0.35f, 0.16f), 3, 0,
+            new BuildingPartDefinition[]
+            {
+                new BuildingPartDefinition { PartName = "Panel", LocalPosition = new Vector3(1.5f, 0f, 0f), LocalScale = new Vector3(3f, 4f, 0.3f), MaterialType = "wood" }
+            }),
         new BuildingDefinition("wife_house", new Vector3(14f, 9f, 14f), new Color(0.522f, 0.337f, 0.18f), 20, 10,
             new BuildingPartDefinition[]
             {
@@ -1928,6 +1934,30 @@ public class WorldBuilder : MonoBehaviour
         var def = System.Array.Find(_availableBuildings, d => d.Name == typeName);
         if (def == null) return null;
 
+        if (typeName == "door")
+        {
+            var root = new GameObject("Door");
+            root.transform.position = position + Vector3.up * (def.Size.y * 0.5f);
+            root.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
+            root.transform.SetParent(_worldRoot.transform);
+
+            var panel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            panel.name = "DoorPanel";
+            panel.transform.SetParent(root.transform);
+            panel.transform.localPosition = new Vector3(1.5f, 0f, 0f);
+            panel.transform.localScale = new Vector3(3f, 4f, 0.3f);
+            panel.transform.localRotation = Quaternion.identity;
+            panel.GetComponent<MeshRenderer>().material.color = def.WoodColor;
+            var panelCollider = panel.AddComponent<BoxCollider>();
+            panelCollider.size = new Vector3(3f, 4f, 0.3f);
+
+            partStates = new List<BuildingPartState>
+            {
+                new BuildingPartState { PartName = "Panel", Entity = panel, CurrentHealth = 4 }
+            };
+            return root;
+        }
+
         if (def.Parts != null && def.Parts.Length > 0)
         {
             var root = new GameObject(def.Name);
@@ -2051,7 +2081,19 @@ public class WorldBuilder : MonoBehaviour
                 CreatePartCube(root.transform, new Vector3(0, 5.2f, 0), new Vector3(17f, 0.4f, 11f), stoneColor);
                 break;
             case "Door":
-                CreatePartCube(root.transform, new Vector3(0, 2f, 5.15f), new Vector3(3f, 4f, 0.3f), woodColor);
+                root.name = "StructurePart_Door";
+                var doorPivot = new GameObject("Door");
+                doorPivot.transform.SetParent(root.transform);
+                doorPivot.transform.localPosition = new Vector3(-1.5f, 2f, 5.15f);
+                doorPivot.transform.localRotation = Quaternion.identity;
+                var doorPanel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                doorPanel.name = "DoorPanel";
+                doorPanel.transform.SetParent(doorPivot.transform);
+                doorPanel.transform.localPosition = new Vector3(1.5f, 0f, 0f);
+                doorPanel.transform.localScale = new Vector3(3f, 4f, 0.3f);
+                doorPanel.transform.localRotation = Quaternion.identity;
+                doorPanel.GetComponent<MeshRenderer>().material.color = woodColor;
+                doorPanel.AddComponent<BoxCollider>();
                 break;
             case "Interior":
                 CreatePartCube(root.transform, new Vector3(-4f, 1.5f, -3f), new Vector3(3f, 1.5f, 2f), woodColor);
@@ -2989,6 +3031,38 @@ GameObject treeRoot;
     {
         if (_vendorSpawnButton == null) return false;
         return Vector3.Distance(position, _vendorSpawnButton.transform.position) <= range;
+    }
+
+    public bool TryToggleDoor(RaycastHit hit)
+    {
+        var door = FindDoor(hit.collider.gameObject);
+        if (door == null) return false;
+        StartCoroutine(AnimateDoor(door));
+        return true;
+    }
+
+    private GameObject FindDoor(GameObject obj)
+    {
+        if (obj.name == "Door") return obj;
+        if (obj.transform.parent != null && obj.transform.parent.name == "Door") return obj.transform.parent.gameObject;
+        return null;
+    }
+
+    private System.Collections.IEnumerator AnimateDoor(GameObject door)
+    {
+        bool isOpen = _openDoors.Contains(door);
+        float start = door.transform.localRotation.eulerAngles.y;
+        float end = isOpen ? 0f : 90f;
+        float t = 0f;
+        while (t < 1f)
+        {
+            t += Time.deltaTime * 3f;
+            float angle = Mathf.Lerp(start, end, t);
+            door.transform.localRotation = Quaternion.Euler(0f, angle, 0f);
+            yield return null;
+        }
+        door.transform.localRotation = Quaternion.Euler(0f, end, 0f);
+        if (isOpen) _openDoors.Remove(door); else _openDoors.Add(door);
     }
 
     // ── Event Blocks ──

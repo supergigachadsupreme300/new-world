@@ -133,7 +133,7 @@ public class CutsceneManager : MonoBehaviour
         var tmp = _skipButton.AddComponent<TextMeshProUGUI>();
         if (_uiManager != null && _uiManager.defaultTmpFont != null)
             tmp.font = _uiManager.defaultTmpFont;
-        tmp.text = "Skip [ESC]";
+        tmp.text = "Bỏ Qua [ESC]";
         tmp.fontSize = 24;
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Right;
@@ -839,8 +839,8 @@ public class CutsceneManager : MonoBehaviour
         if (_uiManager == null)
             _uiManager = Object.FindAnyObjectByType<UIManager>();
         if (_uiManager != null)
-            _uiManager.ShowEndScreen("BAD ENDING",
-                "You were too late.\nWhile you searched for fortune,\nyou forgot what truly mattered.\n\nShe waited...\nuntil she couldn't anymore.");
+            _uiManager.ShowEndScreen("KẾT THÚC BUỒN",
+                "Bạn đã đến quá muộn.\nTrong khi bạn đi tìm kiếm giàu sang,\nbạn đã quên đi điều thực sự quan trọng.\n\nCô ấy đợi...\ncho đến khi không thể đợi nữa.");
         }
         finally
         {
@@ -1035,7 +1035,7 @@ public class CutsceneManager : MonoBehaviour
         if (_uiManager == null)
             _uiManager = Object.FindAnyObjectByType<UIManager>();
         if (_uiManager != null)
-            _uiManager.ShowMessage("Continue the adventure!", 2);
+            _uiManager.ShowMessage("Tiếp tục cuộc phiêu lưu!", 2);
         }
         finally
         {
@@ -1207,9 +1207,9 @@ public class CutsceneManager : MonoBehaviour
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
 
-        var title = MakeUIText("HappyTitle", "HAPPY ENDING", 48, new Color(1f, 0.863f, 0.314f), new Vector2(0, 80));
-        var sub = MakeUIText("HappySubtitle", "You and Teto have reached the end of the road together!", 24, Color.white, new Vector2(0, 20));
-        var hint = MakeUIText("HappyHint", "Press Enter to continue playing", 18, Color.gray, new Vector2(0, -30));
+        var title = MakeUIText("HappyTitle", "KẾT THÚC HẠNH PHÚC", 48, new Color(1f, 0.863f, 0.314f), new Vector2(0, 80));
+        var sub = MakeUIText("HappySubtitle", "Bạn và Teto đã đi đến cuối con đường cùng nhau!", 24, Color.white, new Vector2(0, 20));
+        var hint = MakeUIText("HappyHint", "Nhấn Enter để tiếp tục chơi", 18, Color.gray, new Vector2(0, -30));
     }
 
     private GameObject MakeUIText(string name, string text, int fontSize, Color color, Vector2 anchoredPos)

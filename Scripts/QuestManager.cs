@@ -75,7 +75,7 @@ public class QuestManager : MonoBehaviour
             {
                 q.Failed = true;
                 changed = true;
-                GameManager.Instance?.UIManager?.ShowMessage($"{q.Name} failed!", 2f);
+                GameManager.Instance?.UIManager?.ShowMessage($"{q.Name} thất bại!", 2f);
             }
         }
 
@@ -84,14 +84,14 @@ public class QuestManager : MonoBehaviour
 
     private void AddStoryQuestsForDay(int day)
     {
-        if (day >= 1) AddIfMissing(CreateStoryQuest("Welcome to the Farm", "wheat", 10, 50, "Plant and harvest your first wheat.", 1));
-        if (day >= 3) AddIfMissing(CreateStoryQuest("First Harvest", "wheat", 50, 150, "Become a real farmer.", 3));
-        if (day >= 5) AddIfMissing(CreateStoryQuest("Defend Your Land", "enemies", 10, 300, "Prove you can protect your farm.", 5));
-        if (day >= 8) AddIfMissing(CreateStoryQuest("Green Thumb", "wheat", 150, 400, "Your crops are legendary.", 8));
-        if (day >= 10) AddIfMissing(CreateStoryQuest("Build an Empire", "money_earned", 50000, 750, "Accumulate real wealth.", 10));
-        if (day >= 12) AddIfMissing(CreateStoryQuest("Monster Slayer", "enemies", 30, 600, "Clear out the infestation.", 12));
-        if (day >= 15) AddIfMissing(CreateStoryQuest("The Final Stand", "enemies", 50, 1500, "Face the ultimate threat.", 15));
-        if (day >= 18) AddIfMissing(CreateStoryQuest("Tycoon", "money_earned", 200000, 3000, "Become the richest farmer alive.", 18));
+        if (day >= 1) AddIfMissing(CreateStoryQuest("Chào Mừng Đến Nông Trại", "wheat", 10, 50, "Gieo và thu hoạch lúa mì đầu tiên.", 1));
+        if (day >= 3) AddIfMissing(CreateStoryQuest("Mùa Thu Đầu Tiên", "wheat", 50, 150, "Trở thành nông dân thực thụ.", 3));
+        if (day >= 5) AddIfMissing(CreateStoryQuest("Bảo Vệ Đất", "enemies", 10, 300, "Chứng minh bạn có thể bảo vệ nông trại.", 5));
+        if (day >= 8) AddIfMissing(CreateStoryQuest("Bàn Tay Xanh", "wheat", 150, 400, "Mùa màng của bạn là huyền thoại.", 8));
+        if (day >= 10) AddIfMissing(CreateStoryQuest("Xây Dựng Đế Chế", "money_earned", 50000, 750, "Tích lũy tài sản thực sự.", 10));
+        if (day >= 12) AddIfMissing(CreateStoryQuest("Thợ Săn Quái Vật", "enemies", 30, 600, "Diệt trừ sâu bệnh.", 12));
+        if (day >= 15) AddIfMissing(CreateStoryQuest("Trận Đấu Cuối Cùng", "enemies", 50, 1500, "Đối mặt mối đe dọa cuối cùng.", 15));
+        if (day >= 18) AddIfMissing(CreateStoryQuest("Tỷ Phú", "money_earned", 200000, 3000, "Trở thành nông dân giàu nhất.", 18));
     }
 
     private void AddIfMissing(QuestSave quest)
@@ -108,14 +108,14 @@ public class QuestManager : MonoBehaviour
     {
         var pool = new List<QuestSave>
         {
-            CreateDailyQuest("Quick Harvest", "wheat", 25, 100, "Harvest 25 wheat today."),
-            CreateDailyQuest("Bumper Crop", "wheat", 60, 200, "Harvest 60 wheat today."),
-            CreateDailyQuest("Pest Control", "enemies", 5, 150, "Kill 5 monsters today."),
-            CreateDailyQuest("Monster Hunt", "enemies", 15, 350, "Kill 15 monsters today."),
-            CreateDailyQuest("Side Hustle", "money_earned", 5000, 120, "Earn 5,000 gold today."),
-            CreateDailyQuest("Big Earnings", "money_earned", 15000, 300, "Earn 15,000 gold today."),
-            CreateDailyQuest("Wheat Streak", "wheat", 100, 250, "Harvest 100 wheat today."),
-            CreateDailyQuest("Exterminator", "enemies", 25, 500, "Kill 25 monsters today."),
+            CreateDailyQuest("Thu Hoạch Nhanh", "wheat", 25, 100, "Thu hoạch 25 lúa mì hôm nay."),
+            CreateDailyQuest("Mùa Màng Bội Thu", "wheat", 60, 200, "Thu hoạch 60 lúa mì hôm nay."),
+            CreateDailyQuest("Tiêu Diệt Sâu Bệnh", "enemies", 5, 150, "Diệt 5 quái vật hôm nay."),
+            CreateDailyQuest("Săn Quái", "enemies", 15, 350, "Diệt 15 quái vật hôm nay."),
+            CreateDailyQuest("Kiếm Thêm", "money_earned", 5000, 120, "Kiếm 5.000 vàng hôm nay."),
+            CreateDailyQuest("Thu Nhập Lớn", "money_earned", 15000, 300, "Kiếm 15.000 vàng hôm nay."),
+            CreateDailyQuest("Chuỗi Lúa Mì", "wheat", 100, 250, "Thu hoạch 100 lúa mì hôm nay."),
+            CreateDailyQuest("Diệt Sạch", "enemies", 25, 500, "Diệt 25 quái vật hôm nay."),
         };
 
         int pickCount = Mathf.Min(2, pool.Count);
@@ -130,7 +130,7 @@ public class QuestManager : MonoBehaviour
         for (int i = 0; i < pickCount; i++)
         {
             var q = pool[i];
-            q.Name = $"[Daily] {q.Name}";
+            q.Name = $"[Hàng Ngày] {q.Name}";
             _quests.Add(q);
         }
     }
@@ -196,7 +196,7 @@ public class QuestManager : MonoBehaviour
         if (total > 0 && GameManager.Instance?.Player != null)
         {
             GameManager.Instance.Player.Money += total;
-            var msg = $"Quest complete! Received {total}g!";
+            var msg = $"Nhiệm vụ hoàn thành! Nhận {total}g!";
             GameManager.Instance?.UIManager?.ShowMessage(msg, 3f);
         }
     }
@@ -279,7 +279,7 @@ public class QuestManager : MonoBehaviour
     {
         return new QuestSave
         {
-            Name = $"[Timed] {name}",
+            Name = $"[Giới Hạn] {name}",
             Target = target,
             Count = count,
             Progress = 0,
@@ -323,7 +323,7 @@ public class QuestManager : MonoBehaviour
 
         if (storyQuests.Count > 0)
         {
-            panel += "--- Story Quests ---\n";
+            panel += "--- Nhiệm Vụ Cốt Truyện ---\n";
             foreach (var q in storyQuests)
             {
                 string status = GetQuestStatusString(q);
@@ -335,7 +335,7 @@ public class QuestManager : MonoBehaviour
 
         if (dailyQuests.Count > 0)
         {
-            panel += "\n--- Daily Quests ---\n";
+            panel += "\n--- Nhiệm Vụ Hàng Ngày ---\n";
             foreach (var q in dailyQuests)
             {
                 string status = GetQuestStatusString(q);
@@ -347,7 +347,7 @@ public class QuestManager : MonoBehaviour
 
         if (timedQuests.Count > 0)
         {
-            panel += "\n--- Timed Quests ---\n";
+            panel += "\n--- Nhiệm Vụ Giới Hạn ---\n";
             foreach (var q in timedQuests)
             {
                 string status = GetQuestStatusString(q);
@@ -367,9 +367,9 @@ public class QuestManager : MonoBehaviour
     private string GetQuestStatusString(QuestSave q)
     {
         if (q.Failed)
-            return "FAILED";
+            return "THẤT BẠI";
         if (q.Completed)
-            return "DONE";
+            return "HOÀN THÀNH";
 
         if (q.QuestType == "timed" && q.TimeLimit > 0f)
         {

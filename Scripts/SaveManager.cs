@@ -51,7 +51,6 @@ public class SaveManager : MonoBehaviour
                 money = GameManager.Instance.Player != null ? GameManager.Instance.Player.Money : 0
             },
             inventory = _toolManager.GetInventorySave(),
-            gunAmmo = _toolManager.GetGunAmmo(),
             fields = _worldBuilder.GetAllFieldsAsSave(),
             buildings = _worldBuilder.GetAllBuildingsAsSave(),
             quests = _questManager?.GetQuestSaves()
@@ -100,7 +99,6 @@ public class SaveManager : MonoBehaviour
         }
 
         _toolManager?.LoadInventorySave(data.inventory);
-        _toolManager?.SetGunAmmo(data.gunAmmo);
         _worldBuilder?.LoadFieldsFromSave(data.fields);
         _worldBuilder?.LoadBuildingsFromSave(data.buildings);
         _questManager?.LoadQuestSaves(data.quests);

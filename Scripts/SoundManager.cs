@@ -11,7 +11,6 @@ public class SoundManager : MonoBehaviour
     public AudioClip HoeClip;
     public AudioClip HammerClip;
     public AudioClip ScytheClip;
-    public AudioClip GunClip;
     public AudioClip PlantClip;
 
     [Header("World Sounds")]
@@ -46,7 +45,7 @@ public class SoundManager : MonoBehaviour
 
     public void LoadSoundClips()
     {
-        var names = new[] {"pop", "axe", "pickaxe", "gun", "hoe", "sword", "hammer"};
+        var names = new[] {"pop", "axe", "pickaxe", "hoe", "sword", "hammer"};
         foreach (var name in names)
         {
             var clip = Resources.Load<AudioClip>($"Sounds/{name}");
@@ -63,7 +62,6 @@ public class SoundManager : MonoBehaviour
         if (HoeClip != null)         _overrides["hoe"] = HoeClip;
         if (HammerClip != null)      _overrides["hammer"] = HammerClip;
         if (ScytheClip != null)      _overrides["sword"] = ScytheClip;
-        if (GunClip != null)         _overrides["gun"] = GunClip;
         if (PlantClip != null)       _overrides["pop"] = PlantClip;
         if (VendorTruckClip != null) _overrides["mexican_truck"] = VendorTruckClip;
     }
