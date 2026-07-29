@@ -222,6 +222,11 @@ public class PlayerController : MonoBehaviour
                 var ray = new Ray(cam.transform.position, cam.transform.forward);
                 if (Physics.Raycast(ray, out var hit, 4f))
                 {
+                    if (hit.collider.transform.name == "WifeNpc")
+                    {
+                        WifeNPC.Instance?.Interact();
+                        return;
+                    }
                     if (wb.TryToggleDoor(hit)) return;
                 }
             }

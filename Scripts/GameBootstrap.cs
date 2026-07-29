@@ -33,6 +33,7 @@ public class GameBootstrap : MonoBehaviour
         var questManager = Object.FindAnyObjectByType<QuestManager>() ?? root.AddComponent<QuestManager>();
         var cutsceneManager = Object.FindAnyObjectByType<CutsceneManager>() ?? root.AddComponent<CutsceneManager>();
         var randomEventManager = Object.FindAnyObjectByType<RandomEventManager>() ?? root.AddComponent<RandomEventManager>();
+        var wifeNPC = Object.FindAnyObjectByType<WifeNPC>() ?? root.AddComponent<WifeNPC>();
 
         gameManager.UIManager = uiManager;
         gameManager.WorldBuilder = worldBuilder;
@@ -49,5 +50,7 @@ public class GameBootstrap : MonoBehaviour
         questManager.InitializeQuests();
         cutsceneManager.Initialize(uiManager);
         randomEventManager.Initialize(uiManager);
+        wifeNPC.Initialize(uiManager.GetCanvas());
+        wifeNPC.LoadState();
     }
 }

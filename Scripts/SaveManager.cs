@@ -35,6 +35,8 @@ public class SaveManager : MonoBehaviour
         if (_gameManager == null || _toolManager == null || _worldBuilder == null)
             return;
 
+        WifeNPC.Instance?.SaveState();
+
         var data = new SaveData
         {
             time = new TimeData
@@ -53,6 +55,7 @@ public class SaveManager : MonoBehaviour
             inventory = _toolManager.GetInventorySave(),
             fields = _worldBuilder.GetAllFieldsAsSave(),
             buildings = _worldBuilder.GetAllBuildingsAsSave(),
+            mansionBlueprints = _worldBuilder.GetMansionBlueprintsAsSave(),
             quests = _questManager?.GetQuestSaves()
         };
 
@@ -101,7 +104,9 @@ public class SaveManager : MonoBehaviour
         _toolManager?.LoadInventorySave(data.inventory);
         _worldBuilder?.LoadFieldsFromSave(data.fields);
         _worldBuilder?.LoadBuildingsFromSave(data.buildings);
+        _worldBuilder?.LoadMansionBlueprintsFromSave(data.mansionBlueprints);
         _questManager?.LoadQuestSaves(data.quests);
+        WifeNPC.Instance?.LoadState();
 
         GameManager.Instance?.ShowMainMenu(false);
         _uiManager?.ShowAllGameUI(true);
@@ -125,6 +130,7 @@ public class SaveManager : MonoBehaviour
         public int gunAmmo;
         public WorldBuilder.FieldSaveData[] fields;
         public WorldBuilder.BuildingSaveData[] buildings;
+        public WorldBuilder.MansionBlueprintSaveData[] mansionBlueprints;
         public List<QuestManager.QuestSave> quests;
     }
 

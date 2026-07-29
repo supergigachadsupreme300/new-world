@@ -902,115 +902,6 @@ public static class MapBuilder
     //  WIFE NPC
     // ═══════════════════════════════════════════════════════════════
 
-    public static GameObject BuildWifeNpc(Transform parent, Vector3 position, float scale = 1f, Quaternion rotation = default)
-    {
-        var root = new GameObject("WifeNpc");
-        root.transform.SetParent(parent);
-        root.transform.localPosition = position;
-        root.transform.localRotation = rotation;
-        root.transform.localScale = Vector3.one * scale;
-
-        Color skinC     = new Color(220f / 255f, 178f / 255f, 132f / 255f);
-        Color bootC     = new Color(0.15f, 0.08f, 0.2f);
-        Color bootTrimC = new Color(0.35f, 0.18f, 0.42f);
-        Color skirtC    = new Color(0.14f, 0.11f, 0.28f);
-        Color topC      = new Color(0.92f, 0.9f, 0.95f);
-        Color hairC     = new Color(0.95f, 0.85f, 0.55f);
-        Color eyeC      = new Color(0.3f, 0.6f, 1f);
-        Color eyeWhiteC = new Color(0.95f, 0.95f, 0.97f);
-
-        // ═══ LEGS ROOT ═══
-        var legsRoot = new GameObject("LegsRoot");
-        legsRoot.transform.SetParent(root.transform);
-        legsRoot.transform.localPosition = Vector3.zero;
-        legsRoot.transform.localRotation = Quaternion.identity;
-        legsRoot.transform.localScale = Vector3.one;
-
-        // ── Tall boots ──
-        MakeBlock("SoleL",    legsRoot.transform, new Vector3(0.15f, 0.04f, 0.24f), new Vector3(-0.12f, -0.86f, 0f), bootC, true);
-        MakeBlock("SoleR",    legsRoot.transform, new Vector3(0.15f, 0.04f, 0.24f), new Vector3(0.12f, -0.86f, 0f), bootC, true);
-        MakeBlock("HeelL",    legsRoot.transform, new Vector3(0.06f, 0.08f, 0.1f),  new Vector3(-0.12f, -0.88f, 0.04f), bootC, true);
-        MakeBlock("HeelR",    legsRoot.transform, new Vector3(0.06f, 0.08f, 0.1f),  new Vector3(0.12f, -0.88f, 0.04f), bootC, true);
-        MakeBlock("BootL",    legsRoot.transform, new Vector3(0.14f, 0.38f, 0.2f),  new Vector3(-0.12f, -0.65f, 0f), bootC, true);
-        MakeBlock("BootR",    legsRoot.transform, new Vector3(0.14f, 0.38f, 0.2f),  new Vector3(0.12f, -0.65f, 0f), bootC, true);
-        MakeBlock("CuffL",    legsRoot.transform, new Vector3(0.16f, 0.05f, 0.22f), new Vector3(-0.12f, -0.44f, 0f), bootTrimC, true);
-        MakeBlock("CuffR",    legsRoot.transform, new Vector3(0.16f, 0.05f, 0.22f), new Vector3(0.12f, -0.44f, 0f), bootTrimC, true);
-        // ── Upper legs (skin, between boots and skirt) ──
-        MakeBlock("LegL", legsRoot.transform, new Vector3(0.1f, 0.2f, 0.1f), new Vector3(-0.12f, -0.3f, 0f), skinC, true);
-        MakeBlock("LegR", legsRoot.transform, new Vector3(0.1f, 0.2f, 0.1f), new Vector3(0.12f, -0.3f, 0f), skinC, true);
-
-        // ═══ BODY ROOT ═══
-        var bodyRoot = new GameObject("BodyRoot");
-        bodyRoot.transform.SetParent(root.transform);
-        bodyRoot.transform.localPosition = Vector3.zero;
-        bodyRoot.transform.localRotation = Quaternion.identity;
-        bodyRoot.transform.localScale = Vector3.one;
-
-        // ── Short skirt (A-line flare) ──
-        MakeBlock("Skirt",     bodyRoot.transform, new Vector3(0.48f, 0.26f, 0.32f), new Vector3(0f, -0.07f, 0f), skirtC, true);
-        MakeBlock("SkirtHem",  bodyRoot.transform, new Vector3(0.56f, 0.05f, 0.38f), new Vector3(0f, -0.21f, 0f), skirtC, true);
-        MakeBlock("SkirtBelt", bodyRoot.transform, new Vector3(0.4f, 0.04f, 0.28f),  new Vector3(0f, 0.07f, 0f), bootTrimC, true);
-        // ── Cropped top (shows midriff) ──
-        MakeBlock("Topwaist",  bodyRoot.transform, new Vector3(0.28f, 0.12f, 0.16f), new Vector3(0f, 0.1f, 0f), topC, true);
-        MakeBlock("TopLower",  bodyRoot.transform, new Vector3(0.34f, 0.12f, 0.22f), new Vector3(0f, 0.2f, 0f), topC, true);
-        MakeBlock("TopUpper",  bodyRoot.transform, new Vector3(0.42f, 0.18f, 0.28f), new Vector3(0f, 0.35f, 0f), topC, true);
-        MakeBlock("TopCollar", bodyRoot.transform, new Vector3(0.18f, 0.05f, 0.14f), new Vector3(0f, 0.47f, -0.02f), bootTrimC, true);
-        // ── Neck ──
-        MakeBlock("Neck", bodyRoot.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0f, 0.5f, 0f), skinC, true);
-        // ── Head (anime-proportioned, slightly larger) ──
-        MakeBlock("Head", bodyRoot.transform, new Vector3(0.34f, 0.3f, 0.32f), new Vector3(0f, 0.7f, 0f), skinC, true);
-        // ── Hair — long braided ──
-        MakeBlock("HairTop",  bodyRoot.transform, new Vector3(0.38f, 0.08f, 0.36f), new Vector3(0f, 0.86f, 0f), hairC, true);
-        MakeBlock("HairBack", bodyRoot.transform, new Vector3(0.3f, 0.4f, 0.12f),  new Vector3(0f, 0.65f, 0.26f), hairC, true);
-        MakeBlock("HairL",    bodyRoot.transform, new Vector3(0.42f, 0.375f, 0.12f), new Vector3(-0.22f, 0.65f, 0f), hairC, true, Quaternion.Euler(0f, 90f, 0f));
-        MakeBlock("HairR",    bodyRoot.transform, new Vector3(0.42f, 0.375f, 0.12f), new Vector3(0.22f, 0.65f, 0f), hairC, true, Quaternion.Euler(0f, 90f, 0f));
-        // ── Braid (flows from back of head downward, alternating weave) ──
-        MakeBlock("Braid1",   bodyRoot.transform, new Vector3(0.24f, 0.14f, 0.12f), new Vector3(0f,       0.40f, 0.26f), hairC, true, Quaternion.Euler(0f, 0f, 0f));
-        MakeBlock("Braid2",   bodyRoot.transform, new Vector3(0.20f, 0.12f, 0.1f),  new Vector3(0.02f,   0.32f, 0.27f), hairC, true, Quaternion.Euler(0f, 0f, 0f));
-        MakeBlock("Braid3",   bodyRoot.transform, new Vector3(0.17f, 0.1f,  0.09f), new Vector3(-0.02f,  0.24f, 0.28f), hairC, true, Quaternion.Euler(0f, 0f, 0f));
-        MakeBlock("Braid4",   bodyRoot.transform, new Vector3(0.14f, 0.09f, 0.07f), new Vector3(0.015f,  0.16f, 0.28f), hairC, true, Quaternion.Euler(0f, 0f, 0f));
-        MakeBlock("Braid5",   bodyRoot.transform, new Vector3(0.12f, 0.07f, 0.06f), new Vector3(-0.01f,  0.08f, 0.27f), hairC, true, Quaternion.Euler(0f, 0f, 0f));
-        MakeBlock("Braid6",   bodyRoot.transform, new Vector3(0.09f, 0.06f, 0.05f), new Vector3(0.005f,  0.02f, 0.26f), hairC, true, Quaternion.Euler(0f, 0f, 0f));
-        MakeBlock("BraidEnd", bodyRoot.transform, new Vector3(0.07f, 0.05f, 0.04f), new Vector3(0f,     -0.03f, 0.26f), hairC, true, Quaternion.Euler(0f, 0f, 0f));
-        // ── Eyes (anime-style, larger) — facing forward (-Z = front) ──
-        MakeBlock("EyeWhiteL", bodyRoot.transform, new Vector3(0.1f, 0.08f, 0.03f), new Vector3(-0.09f, 0.74f, -0.165f), eyeWhiteC, true, Quaternion.Euler(0f, 0f, 0f));
-        MakeBlock("EyeWhiteR", bodyRoot.transform, new Vector3(0.1f, 0.08f, 0.03f), new Vector3(0.09f, 0.74f, -0.165f), eyeWhiteC, true, Quaternion.Euler(0f, 0f, 0f));
-        MakeBlock("EyeIrisL",  bodyRoot.transform, new Vector3(0.06f, 0.06f, 0.04f), new Vector3(-0.09f, 0.73f, -0.178f), eyeC, true, Quaternion.Euler(0f, 0f, 0f));
-        MakeBlock("EyeIrisR",  bodyRoot.transform, new Vector3(0.06f, 0.06f, 0.04f), new Vector3(0.09f, 0.73f, -0.178f), eyeC, true, Quaternion.Euler(0f, 0f, 0f));
-
-        // ═══ LEFT ARM ROOT ═══
-        var leftArmRoot = new GameObject("LeftArmRoot");
-        leftArmRoot.transform.SetParent(root.transform);
-        leftArmRoot.transform.localPosition = new Vector3(0.05f , -0.05f, 0f);
-        leftArmRoot.transform.localRotation = Quaternion.Euler(0f, 0f, -15f);
-        leftArmRoot.transform.localScale = Vector3.one;
-
-        MakeBlock("SleeveL",     leftArmRoot.transform, new Vector3(0.13f, 0.26f, 0.13f), new Vector3(-0.34f, 0.2f, 0f), topC, true);
-        MakeBlock("SleeveTrimL", leftArmRoot.transform, new Vector3(0.15f, 0.04f, 0.15f), new Vector3(-0.34f, 0.06f, 0f), bootTrimC, true);
-        MakeBlock("UpperArmL",   leftArmRoot.transform, new Vector3(0.08f, 0.1f, 0.08f), new Vector3(-0.34f, 0.38f, 0f), skinC, true);
-        MakeBlock("HandL",       leftArmRoot.transform, new Vector3(0.08f, 0.1f, 0.08f), new Vector3(-0.34f, -0.01f, 0f), skinC, true);
-
-        
-
-        // ═══ RIGHT ARM ROOT ═══
-        var rightArmRoot = new GameObject("RightArmRoot");
-        rightArmRoot.transform.SetParent(root.transform);
-        rightArmRoot.transform.localPosition = new Vector3(-0.05f , -0.05f, 0f);
-        rightArmRoot.transform.localRotation = Quaternion.Euler(0f, 0f, 15f);
-        rightArmRoot.transform.localScale = Vector3.one;
-
-        MakeBlock("SleeveR",     rightArmRoot.transform, new Vector3(0.13f, 0.26f, 0.13f), new Vector3(0.34f, 0.2f, 0f), topC, true);
-        MakeBlock("SleeveTrimR", rightArmRoot.transform, new Vector3(0.15f, 0.04f, 0.15f), new Vector3(0.34f, 0.06f, 0f), bootTrimC, true);
-        MakeBlock("UpperArmR",   rightArmRoot.transform, new Vector3(0.08f, 0.1f, 0.08f), new Vector3(0.34f, 0.38f, 0f), skinC, true);
-        MakeBlock("HandR",       rightArmRoot.transform, new Vector3(0.08f, 0.1f, 0.08f), new Vector3(0.34f, -0.01f, 0f), skinC, true);
-
-        var col = root.AddComponent<BoxCollider>();
-        col.size = new Vector3(0.8f, 1.7f, 0.6f);
-        col.center = new Vector3(0f, 0.25f, 0f);
-        col.isTrigger = true;
-
-        return root;
-    }
 
     // ═══════════════════════════════════════════════════════════════
     //  PLAYER MODEL  (blocky farmer character)
@@ -1223,4 +1114,73 @@ public static class MapBuilder
         return _leafMaterial;
     }
 
+    public static GameObject BuildCloud(Transform parent, Vector3 position, float scale = 1f)
+    {
+        var root = new GameObject("Cloud");
+        root.transform.SetParent(parent);
+        root.transform.position = position;
+        root.transform.localScale = Vector3.one;
+
+        float s = scale;
+        Color c = new Color(1f, 1f, 1f, 0.85f);
+
+        Vector3[] puffs = new Vector3[]
+        {
+            new Vector3(0f, 0f, 0f) * s,
+            new Vector3(2.5f, 0.3f, 1.2f) * s,
+            new Vector3(-2.2f, 0.5f, -1f) * s,
+            new Vector3(1.8f, -0.2f, -1.8f) * s,
+            new Vector3(-2f, -0.1f, 1.5f) * s,
+            new Vector3(0.5f, 1f, 0.8f) * s,
+            new Vector3(-1.2f, 0.9f, -0.5f) * s,
+            new Vector3(0.8f, 0.7f, -1.2f) * s,
+        };
+
+        Vector3[] sizes = new Vector3[]
+        {
+            new Vector3(6f, 2.5f, 3.5f) * s,
+            new Vector3(4f, 2f, 2.5f) * s,
+            new Vector3(3.5f, 2.2f, 2f) * s,
+            new Vector3(3f, 1.8f, 2.5f) * s,
+            new Vector3(3.5f, 1.5f, 2.8f) * s,
+            new Vector3(2.5f, 1.8f, 2f) * s,
+            new Vector3(2f, 1.5f, 1.8f) * s,
+            new Vector3(2.2f, 1.5f, 1.5f) * s,
+        };
+
+        for (int i = 0; i < puffs.Length; i++)
+        {
+            var block = MakeBlock("Puff" + i, root.transform, sizes[i], puffs[i], c, true);
+            var r = block.GetComponent<Renderer>();
+            if (r != null) SetTransparent(r, 0.85f);
+        }
+
+        return root;
+    }
+
+    public static GameObject BuildTornado(Transform parent, Vector3 position, float height = 60f)
+    {
+        var root = new GameObject("Tornado");
+        root.transform.SetParent(parent);
+        root.transform.position = position;
+
+        int count = 30;
+        float blockHeight = height / count;
+        Color col = new Color(0.35f, 0.32f, 0.28f);
+
+        for (int i = 0; i < count; i++)
+        {
+            float t = (float)i / (count - 1);
+            float y = i * blockHeight + blockHeight * 0.5f;
+            float width = 0.5f + t * 25f;
+
+            var block = MakeBlock("Block" + i, root.transform,
+                new Vector3(width, blockHeight, width),
+                new Vector3(0f, y, 0f), col, true);
+            block.transform.localRotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f);
+        }
+
+        root.AddComponent<TornadoBehavior>();
+        return root;
+    }
 }

@@ -33,6 +33,13 @@ public class CutsceneManager : MonoBehaviour
     private bool _isDeathEnding;
     private GameObject _tetoRoot;
     private Transform _tetoBody;
+    private Transform _tetoLeftArm;
+    private Transform _tetoRightArm;
+    private Transform _tetoLegL;
+    private Transform _tetoLegR;
+    private Transform _tetoLowerLegL;
+    private Transform _tetoLowerLegR;
+    private GameObject _happyPlayerModel;
     private float _happyElapsed;
     private int _happyPhase;
     private float _happyPhaseTimer;
@@ -40,6 +47,7 @@ public class CutsceneManager : MonoBehaviour
     private readonly List<GameObject> _hearts = new List<GameObject>();
     private GameObject _happyUI;
     private GameObject _skipButton;
+    private Coroutine _walkAnimRoutine;
 
     private GameObject _introCar;
     private GameObject _introPlayer;
@@ -74,9 +82,10 @@ public class CutsceneManager : MonoBehaviour
     private const float HappyEndZ = 30f;
     private const float WalkSpeed = 4.5f;
     private const float SwingSpeed = 2.8f;
-    private const float LateralSwing = 1.6f;
-    private const float JumpHeight = 0.55f;
-    private const float JumpSpeed = 9f;
+    private const float LateralSwing = 0f;
+    private const float SkipHeight = 0.25f;
+    private const float SkipSpeed = 7f;
+    private const float ArmSwingAngle = 25f;
 
     void Awake()
     {
@@ -781,7 +790,7 @@ public class CutsceneManager : MonoBehaviour
         enemy.localPosition = new Vector3(0.35f, 0.56f, -0.6f);
         RegisterSpawned(enemy.gameObject);
 
-        var wife = MapBuilder.BuildWifeNpc(wagonRoot,
+        var wife = WifeNPC.BuildWifeNpc(wagonRoot,
             new Vector3(-0.3f, 1.42f, 0.3f), 1f,
             Quaternion.Euler(0, 180, 0));
         RegisterSpawned(wife);
@@ -903,8 +912,28 @@ public class CutsceneManager : MonoBehaviour
         HideHUD();
         ShowSkipButton();
 
+        // Hide real player model (layer 6, invisible to camera) and spawn visible cutscene model
+        var realModel = _player.transform.Find("PlayerModel");
+        if (realModel != null)
+            realModel.gameObject.SetActive(false);
+
+        _happyPlayerModel = MapBuilder.BuildPlayerModel(null);
+        _happyPlayerModel.transform.position = new Vector3(RoadX - 0.8f, 0.82f, HappyStartZ);
+        _happyPlayerModel.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
+        foreach (var r in _happyPlayerModel.GetComponentsInChildren<Renderer>())
+            r.gameObject.layer = 0;
+        RegisterSpawned(_happyPlayerModel);
+        _walkAnimRoutine = StartCoroutine(WalkAnimation(_happyPlayerModel, WalkSpeed));
+
         _tetoRoot = CreateTeto(new Vector3(RoadX + 0.8f, 1f, HappyStartZ - 1.5f));
-        _tetoBody = _tetoRoot?.transform.Find("TetoBody");
+        _tetoBody = _tetoRoot?.transform.Find("BodyRoot");
+        _tetoLeftArm = _tetoRoot?.transform.Find("LeftArmRoot");
+        _tetoRightArm = _tetoRoot?.transform.Find("RightArmRoot");
+        var legsRoot = _tetoRoot?.transform.Find("LegsRoot");
+        _tetoLegL = legsRoot?.Find("LegL");
+        _tetoLegR = legsRoot?.Find("LegR");
+        _tetoLowerLegL = _tetoLegL?.Find("LowerLegL");
+        _tetoLowerLegR = _tetoLegR?.Find("LowerLegR");
 
         _happyPhase = 0;
         _happyElapsed = 0;
@@ -921,22 +950,47 @@ public class CutsceneManager : MonoBehaviour
                 _player.transform.position = pos;
                 _player.transform.rotation = Quaternion.identity;
 
+                if (_happyPlayerModel != null)
+                {
+                    _happyPlayerModel.transform.position = new Vector3(pos.x, 0.82f, pos.z);
+                    _happyPlayerModel.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
+                }
+
                 float side = Mathf.Sin(_happyElapsed * SwingSpeed);
                 float tz = _player.transform.position.z - 1.2f + Mathf.Cos(_happyElapsed * SwingSpeed) * 0.3f;
                 float tx = RoadX + side * LateralSwing;
                 if (_tetoRoot != null)
                 {
-                    _tetoRoot.transform.position = new Vector3(tx, 1f, tz);
-                    _tetoRoot.transform.rotation = Quaternion.Euler(0, side >= 0 ? 10 : -10, 0);
-                }
-                if (_tetoBody != null)
-                {
-                    float jump = Mathf.Pow(Mathf.Max(0, Mathf.Sin(_happyElapsed * JumpSpeed)), 2) * JumpHeight;
-                    _tetoBody.localPosition = new Vector3(0, 0.85f + jump, 0);
+                    float skip = Mathf.Sin(_happyElapsed * SkipSpeed);
+                    float bounce = Mathf.Pow(Mathf.Max(0, skip), 2) * SkipHeight;
+                    float tilt = skip * 4f;
+                    float armSwing = skip * ArmSwingAngle;
+                    _tetoRoot.transform.position = new Vector3(tx, 1f + bounce, tz);
+                    _tetoRoot.transform.rotation = Quaternion.Euler(0, (side >= 0 ? 10 : -10) + 180, tilt);
+                    if (_tetoLeftArm != null)
+                        _tetoLeftArm.localRotation = Quaternion.Euler(armSwing, 0f, -15f);
+                    if (_tetoRightArm != null)
+                        _tetoRightArm.localRotation = Quaternion.Euler(-armSwing, 0f, 15f);
+                    float legPhase = Mathf.Sin(_happyElapsed * SkipSpeed * 0.5f);
+                    float kickAngle = 70f;
+                    if (_tetoLegL != null)
+                        _tetoLegL.localRotation = Quaternion.identity;
+                    if (_tetoLegR != null)
+                        _tetoLegR.localRotation = Quaternion.identity;
+                    if (_tetoLowerLegL != null)
+                        _tetoLowerLegL.localRotation = Quaternion.Euler(-Mathf.Max(0, legPhase) * kickAngle, 0f, 0f);
+                    if (_tetoLowerLegR != null)
+                        _tetoLowerLegR.localRotation = Quaternion.Euler(-Mathf.Max(0, -legPhase) * kickAngle, 0f, 0f);
                 }
             }
             else
             {
+                StopWalkAnimation();
+                ResetLimbRotations(_happyPlayerModel);
+                if (_tetoLegL != null) _tetoLegL.localRotation = Quaternion.identity;
+                if (_tetoLegR != null) _tetoLegR.localRotation = Quaternion.identity;
+                if (_tetoLowerLegL != null) _tetoLowerLegL.localRotation = Quaternion.identity;
+                if (_tetoLowerLegR != null) _tetoLowerLegR.localRotation = Quaternion.identity;
                 _player.transform.position = new Vector3(RoadX - 1f, 1f, HappyEndZ);
                 _happyPhase = 1;
                 _happyPhaseTimer = 0;
@@ -964,10 +1018,16 @@ public class CutsceneManager : MonoBehaviour
         {
             _happyPhaseTimer += Time.deltaTime;
 
-            if (_tetoBody != null)
+            if (_tetoRoot != null)
             {
-                float jh = Mathf.Pow(Mathf.Max(0, Mathf.Sin(_happyPhaseTimer * 8f)), 2) * 0.7f;
-                _tetoBody.localPosition = new Vector3(0, 0.85f + jh, 0);
+                float skip = Mathf.Sin(_happyPhaseTimer * 10f);
+                float bounce = Mathf.Pow(Mathf.Max(0, skip), 2) * 0.25f;
+                float armSwing = skip * ArmSwingAngle;
+                _tetoRoot.transform.position = new Vector3(_tetoRoot.transform.position.x, 1f + bounce, _tetoRoot.transform.position.z);
+                if (_tetoLeftArm != null)
+                    _tetoLeftArm.localRotation = Quaternion.Euler(armSwing, 0f, -15f);
+                if (_tetoRightArm != null)
+                    _tetoRightArm.localRotation = Quaternion.Euler(-armSwing, 0f, 15f);
             }
 
             if (_happyJumpCount < 2 && _happyPhaseTimer >= 0.35f && _happyPhaseTimer - Time.deltaTime < 0.35f)
@@ -992,8 +1052,10 @@ public class CutsceneManager : MonoBehaviour
             yield return null;
         }
 
-        if (_tetoBody != null)
-            _tetoBody.localPosition = new Vector3(0, 0.85f, 0);
+        if (_tetoLeftArm != null)
+            _tetoLeftArm.localRotation = Quaternion.Euler(0f, 0f, -15f);
+        if (_tetoRightArm != null)
+            _tetoRightArm.localRotation = Quaternion.Euler(0f, 0f, 15f);
 
         _happyPhase = 3;
         ShowHappyEndingUI();
@@ -1025,7 +1087,16 @@ public class CutsceneManager : MonoBehaviour
             Destroy(_tetoRoot);
             _tetoRoot = null;
             _tetoBody = null;
+            _tetoLeftArm = null;
+            _tetoRightArm = null;
+            _tetoLegL = null;
+            _tetoLegR = null;
+            _tetoLowerLegL = null;
+            _tetoLowerLegR = null;
         }
+        StopWalkAnimation();
+        ResetLimbRotations(_happyPlayerModel);
+        _happyPlayerModel = null;
         CleanupSpawned();
         DestroyLetterboxBars();
         DestroyOverlay();
@@ -1041,6 +1112,57 @@ public class CutsceneManager : MonoBehaviour
         {
             IsActive = false;
             _cutsceneRoutine = null;
+        }
+    }
+
+    // ═══════════════════════════════════════════════
+    //  WALK ANIMATION
+    // ═══════════════════════════════════════════════
+
+    private IEnumerator WalkAnimation(GameObject model, float walkSpeed)
+    {
+        if (model == null) yield break;
+        var legL = model.transform.Find("LegL");
+        var legR = model.transform.Find("LegR");
+        var armL = model.transform.Find("ArmL");
+        var armR = model.transform.Find("ArmR");
+
+        if (legL == null && legR == null && armL == null && armR == null) yield break;
+
+        float freq = walkSpeed * 1.8f;
+        float legAngle = 25f;
+        float armAngle = 15f;
+
+        while (model != null)
+        {
+            float theta = Time.time * freq;
+            float sinVal = Mathf.Sin(theta);
+
+            if (legL != null) legL.localRotation = Quaternion.Euler(sinVal * legAngle, 0f, 0f);
+            if (legR != null) legR.localRotation = Quaternion.Euler(-sinVal * legAngle, 0f, 0f);
+            if (armL != null) armL.localRotation = Quaternion.Euler(-sinVal * armAngle, 0f, 0f);
+            if (armR != null) armR.localRotation = Quaternion.Euler(sinVal * armAngle, 0f, 0f);
+
+            yield return null;
+        }
+    }
+
+    private void StopWalkAnimation()
+    {
+        if (_walkAnimRoutine != null)
+        {
+            StopCoroutine(_walkAnimRoutine);
+            _walkAnimRoutine = null;
+        }
+    }
+
+    private void ResetLimbRotations(GameObject model)
+    {
+        if (model == null) return;
+        foreach (string name in new[] { "LegL", "LegR", "ArmL", "ArmR" })
+        {
+            var t = model.transform.Find(name);
+            if (t != null) t.localRotation = Quaternion.identity;
         }
     }
 
@@ -1194,6 +1316,8 @@ public class CutsceneManager : MonoBehaviour
     private void ShowHappyEndingUI()
     {
         if (_happyUI != null) return;
+        if (_canvas == null)
+            _canvas = Object.FindAnyObjectByType<Canvas>();
         if (_canvas == null) return;
 
         _happyUI = new GameObject("HappyEndingUI");
@@ -1201,14 +1325,14 @@ public class CutsceneManager : MonoBehaviour
 
         var bg = _happyUI.AddComponent<Image>();
         bg.color = new Color(0, 0, 0, 0.7f);
-        var rt = _happyUI.AddComponent<RectTransform>();
+        var rt = _happyUI.GetComponent<RectTransform>();
         rt.anchorMin = Vector2.zero;
         rt.anchorMax = Vector2.one;
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
 
         var title = MakeUIText("HappyTitle", "KẾT THÚC HẠNH PHÚC", 48, new Color(1f, 0.863f, 0.314f), new Vector2(0, 80));
-        var sub = MakeUIText("HappySubtitle", "Bạn và Teto đã đi đến cuối con đường cùng nhau!", 24, Color.white, new Vector2(0, 20));
+        var sub = MakeUIText("HappySubtitle", "Bạn và Jessica đã đi đến cuối con đường cùng nhau!", 24, Color.white, new Vector2(0, 20));
         var hint = MakeUIText("HappyHint", "Nhấn Enter để tiếp tục chơi", 18, Color.gray, new Vector2(0, -30));
     }
 
@@ -1361,6 +1485,8 @@ public class CutsceneManager : MonoBehaviour
             Destroy(_tetoRoot);
             _tetoRoot = null;
             _tetoBody = null;
+            _tetoLeftArm = null;
+            _tetoRightArm = null;
         }
     }
 
@@ -1398,20 +1524,14 @@ public class CutsceneManager : MonoBehaviour
         return root;
     }
 
-    // ── Teto (happy ending) ──
+    // ── Wife NPC (happy ending) ──
 
     private GameObject CreateTeto(Vector3 position)
     {
-        var root = new GameObject("Teto");
-        root.transform.position = position;
-
-        var body = CreateBlock(root.transform, new Vector3(0.85f, 1.7f, 0.85f), new Vector3(0, 0.85f, 0), new Color(0.863f, 0.314f, 0.471f));
-        body.name = "TetoBody";
-        CreateBlock(root.transform, new Vector3(0.75f, 0.75f, 0.75f), new Vector3(0, 2.15f, 0), new Color(0.863f, 0.698f, 0.518f));
-        CreateBlock(root.transform, new Vector3(0.85f, 0.2f, 0.85f), new Vector3(0, 2.55f, 0), new Color(0.1f, 0.1f, 0.12f));
-
-        RegisterSpawned(root);
-        return root;
+        var npc = WifeNPC.BuildWifeNpc(null, position, 1f, Quaternion.identity);
+        npc.name = "Jessica";
+        RegisterSpawned(npc);
+        return npc;
     }
 
     private void FaceEachOther()
@@ -1420,7 +1540,12 @@ public class CutsceneManager : MonoBehaviour
         float z = _player.transform.position.z;
         _player.transform.position = new Vector3(RoadX - 0.9f, _player.transform.position.y, z);
         _player.transform.rotation = Quaternion.Euler(0, 90, 0);
+        if (_happyPlayerModel != null)
+        {
+            _happyPlayerModel.transform.position = new Vector3(RoadX - 0.9f, 0.82f, z);
+            _happyPlayerModel.transform.rotation = Quaternion.Euler(0, 90, 0);
+        }
         _tetoRoot.transform.position = new Vector3(RoadX + 0.9f, _tetoRoot.transform.position.y, z);
-        _tetoRoot.transform.rotation = Quaternion.Euler(0, -90, 0);
+        _tetoRoot.transform.rotation = Quaternion.Euler(0, 90, 0);
     }
 }

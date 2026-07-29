@@ -336,6 +336,33 @@ public class RandomEventManager : MonoBehaviour
             Cooldown = 2400f,
             Effect = EffectTreasureMap
         });
+        _events.Add(new RandomEvent
+        {
+            Name = "Động Đất",
+            Description = "Mặt đất rung chuyển dữ dội! Nhà cửa bị hư hại!",
+            Tier = 1,
+            Weight = 1.5f,
+            Cooldown = 2400f,
+            Effect = EffectEarthquake
+        });
+        _events.Add(new RandomEvent
+        {
+            Name = "Sấm Sét",
+            Description = "Sét đánh xuống từ bầu trời!",
+            Tier = 1,
+            Weight = 1.5f,
+            Cooldown = 2000f,
+            Effect = EffectLightningStorm
+        });
+        _events.Add(new RandomEvent
+        {
+            Name = "Lốc Xoáy",
+            Description = "Một cơn lốc xoáy quét qua thị trấn!",
+            Tier = 2,
+            Weight = 1f,
+            Cooldown = 3000f,
+            Effect = EffectTornado
+        });
     }
 
     // ── Trigger Logic ──
@@ -662,32 +689,137 @@ public class RandomEventManager : MonoBehaviour
     //  EVENT EFFECTS — ADVANCED
     // ═══════════════════════════════════════════════
 
-    private void SpawnFallingRock(Vector3 pos, Transform parent)
+    private void SpawnFallingRock(Vector3 pos, Vector3 target, Transform parent)
     {
-        var go = new GameObject("RockDebris");
+        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        go.name = "GiantRock";
         go.transform.SetParent(parent);
         go.transform.position = pos;
 
-        var scale = UnityEngine.Random.Range(0.4f, 0.8f);
+        float scale = UnityEngine.Random.Range(10f, 15f);
         go.transform.localScale = new Vector3(scale, scale, scale);
+        go.transform.rotation = Quaternion.Euler(
+            UnityEngine.Random.Range(0f, 360f),
+            UnityEngine.Random.Range(0f, 360f),
+            UnityEngine.Random.Range(0f, 360f));
 
-        var cube = go.AddComponent<BoxCollider>();
         var r = go.GetComponent<Renderer>();
-        if (r == null)
+        if (r != null)
         {
-            go.AddComponent<MeshFilter>();
-            go.AddComponent<MeshRenderer>();
-            r = go.GetComponent<Renderer>();
+            float grey = UnityEngine.Random.Range(0.25f, 0.45f);
+            r.material.color = new Color(grey, grey * 0.85f, grey * 0.75f);
         }
-        if (r != null) r.material.color = new Color(0.5f, 0.5f, 0.5f);
 
-        var rb = go.AddComponent<Rigidbody>();
-        rb.useGravity = true;
-        rb.mass = 5f;
-        rb.linearDamping = 0.3f;
-        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        StartCoroutine(DropRock(go, scale, target));
+    }
 
-        go.AddComponent<ThrownItem>();
+    private IEnumerator DropRock(GameObject rock, float scale, Vector3 target)
+    {
+        if (rock == null) yield break;
+        float speed = 40f;
+        float groundY = scale * 0.5f;
+
+        while (rock != null)
+        {
+            Vector3 pos = rock.transform.position;
+            Vector3 toTarget = target - pos;
+            toTarget.y = 0f;
+            float horizDist = toTarget.magnitude;
+
+            if (pos.y <= groundY && horizDist < 3f) break;
+
+            Vector3 step = toTarget.normalized * speed * Time.deltaTime;
+            pos.x += step.x;
+            pos.z += step.z;
+            pos.y -= speed * 0.5f * Time.deltaTime;
+            rock.transform.position = pos;
+            yield return null;
+        }
+
+        if (rock == null) yield break;
+
+        Vector3 landPos = rock.transform.position;
+        landPos.y = groundY;
+        rock.transform.position = landPos;
+
+        var wb = WorldBuilder.Instance;
+        if (wb != null)
+        {
+            float checkRadius = scale * 0.6f;
+            Collider[] hits = Physics.OverlapSphere(landPos, checkRadius);
+            foreach (var col in hits)
+            {
+                var building = wb.FindBuilding(col.gameObject);
+                if (building != null)
+                    wb.ApplyMeteorDamage(building, scale);
+            }
+        }
+
+        var mgr = RandomEventManager.Instance;
+        Color rockColor = Color.gray;
+        var r = rock.GetComponent<Renderer>();
+        if (r != null) rockColor = r.material.color;
+
+        if (mgr != null)
+        {
+            var root = WorldBuilder.Instance?.WorldRoot?.transform;
+            mgr.ShatterRock(landPos, scale, rockColor, root);
+            mgr.SpawnImpactDebris(landPos, root);
+            mgr.StartCoroutine(mgr.CameraShake(1.5f, 0.4f));
+        }
+
+        float elapsed = 0f;
+        Vector3 origScale = rock.transform.localScale;
+        while (elapsed < 0.3f && rock != null)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / 0.3f;
+            rock.transform.localScale = Vector3.Lerp(origScale, Vector3.zero, t);
+            yield return null;
+        }
+        if (rock != null) Destroy(rock);
+    }
+
+    private void ShatterRock(Vector3 pos, float parentScale, Color color, Transform parent)
+    {
+        int count = UnityEngine.Random.Range(10, 13);
+        for (int i = 0; i < count; i++)
+        {
+            var chunk = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            chunk.name = "RockChunk";
+            chunk.transform.SetParent(parent);
+            chunk.transform.position = pos;
+
+            float s = parentScale * UnityEngine.Random.Range(0.08f, 0.18f);
+            chunk.transform.localScale = new Vector3(s, s, s);
+            chunk.transform.rotation = Quaternion.Euler(
+                UnityEngine.Random.Range(0f, 360f),
+                UnityEngine.Random.Range(0f, 360f),
+                UnityEngine.Random.Range(0f, 360f));
+
+            var cr = chunk.GetComponent<Renderer>();
+            if (cr != null)
+            {
+                float variation = UnityEngine.Random.Range(-0.08f, 0.08f);
+                cr.material.color = new Color(
+                    Mathf.Clamp01(color.r + variation),
+                    Mathf.Clamp01(color.g + variation),
+                    Mathf.Clamp01(color.b + variation));
+            }
+
+            var rb = chunk.AddComponent<Rigidbody>();
+            rb.useGravity = true;
+            rb.mass = parentScale * 0.3f;
+            rb.linearDamping = 1f;
+
+            Vector3 dir = new Vector3(
+                UnityEngine.Random.Range(-1f, 1f),
+                UnityEngine.Random.Range(0.5f, 2.5f),
+                UnityEngine.Random.Range(-1f, 1f)).normalized;
+            rb.linearVelocity = dir * UnityEngine.Random.Range(8f, 18f);
+
+            Destroy(chunk, 30f);
+        }
     }
 
     private void EffectEnemyRaid()
@@ -730,6 +862,102 @@ public class RandomEventManager : MonoBehaviour
         var building = buildings[UnityEngine.Random.Range(0, buildings.Count)];
         int damage = building.MaxHealth / 4;
         building.CurrentHealth = Mathf.Max(0, building.CurrentHealth - damage);
+    }
+
+    private void EffectEarthquake()
+    {
+        StartCoroutine(CameraShake(3f, 0.3f));
+        var wb = WorldBuilder.Instance;
+        if (wb == null) return;
+        int dmg = Mathf.Max(1, 15);
+        foreach (var b in wb.GetAllBuildings())
+            wb.DamageBuildingDirect(b, dmg);
+    }
+
+    private void EffectLightningStorm()
+    {
+        StartCoroutine(LightningStormEffect());
+    }
+
+    private IEnumerator LightningStormEffect()
+    {
+        var wb = WorldBuilder.Instance;
+        var root = GetWorldRoot();
+        Vector3 playerPos = GetPlayerPos();
+
+        Vector3 cloudPos = playerPos + new Vector3(
+            UnityEngine.Random.Range(-10f, 10f), 50f,
+            UnityEngine.Random.Range(-10f, 10f));
+        var cloud = MapBuilder.BuildCloud(root, cloudPos, 4f);
+        foreach (var r in cloud.GetComponentsInChildren<Renderer>())
+            r.material.color = new Color(0.15f, 0.15f, 0.18f);
+
+        float duration = 10f;
+        float elapsed = 0f;
+        float nextStrike = 1f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            nextStrike -= Time.deltaTime;
+
+            if (nextStrike <= 0f)
+            {
+                nextStrike = UnityEngine.Random.Range(1f, 2f);
+
+                Vector3 strikePos = new Vector3(
+                    playerPos.x + UnityEngine.Random.Range(-12f, 12f), 0.5f,
+                    playerPos.z + UnityEngine.Random.Range(-12f, 12f));
+                float boltHeight = cloudPos.y - 0.5f;
+                float boltMidY = 0.5f + boltHeight * 0.5f;
+
+                var bolt = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                bolt.name = "LightningBolt";
+                bolt.transform.SetParent(root);
+                bolt.transform.position = new Vector3(strikePos.x, boltMidY, strikePos.z);
+                bolt.transform.localScale = new Vector3(0.5f, boltHeight, 0.5f);
+                var br = bolt.GetComponent<Renderer>();
+                if (br != null) br.material.color = Color.white;
+                Destroy(bolt.GetComponent<Collider>());
+                Destroy(bolt, 0.2f);
+
+                if (wb != null)
+                {
+                    Collider[] hits = Physics.OverlapSphere(strikePos, 5f);
+                    foreach (var col in hits)
+                    {
+                        var building = wb.FindBuilding(col.gameObject);
+                        if (building != null)
+                            wb.DamageBuildingDirect(building, Mathf.Max(1, building.MaxHealth / 4));
+                    }
+                }
+            }
+
+            yield return null;
+        }
+
+        if (cloud != null) Destroy(cloud);
+    }
+
+    private void EffectTornado()
+    {
+        var wb = WorldBuilder.Instance;
+        if (wb == null) return;
+        var buildings = new List<WorldBuilder.BuildingState>(wb.GetAllBuildings());
+        if (buildings.Count == 0) return;
+
+        var root = GetWorldRoot();
+        Vector3 playerPos = GetPlayerPos();
+        var tornado = MapBuilder.BuildTornado(root, playerPos + new Vector3(0f, 0f, 5f));
+        Destroy(tornado, 30f);
+
+        for (int i = 0; i < 3 && buildings.Count > 0; i++)
+        {
+            int idx = UnityEngine.Random.Range(0, buildings.Count);
+            var b = buildings[idx];
+            buildings.RemoveAt(idx);
+            wb.DamageBuildingDirect(b, Mathf.Max(1, b.MaxHealth / 3));
+        }
     }
 
     private void EffectThief()
@@ -801,6 +1029,56 @@ public class RandomEventManager : MonoBehaviour
     private IEnumerator RainbowEffect()
     {
         float duration = 3600f / Mathf.Max(GameManager.Instance?.TimeSpeed ?? 1f, 0.1f);
+        var root = GetWorldRoot();
+
+        Vector3 center = new Vector3(
+            UnityEngine.Random.Range(-210f, -150f),
+            0f,
+            UnityEngine.Random.Range(30f, 80f));
+        int bands = 7;
+        float outerRadius = 180f;
+        float step = 3.5f;
+        int cubesPerBand = 100;
+
+        Color[] rainbowColors = new Color[]
+        {
+            new Color(1f, 0f, 0f),     // Red
+            new Color(1f, 0.5f, 0f),   // Orange
+            new Color(1f, 1f, 0f),     // Yellow
+            new Color(0f, 1f, 0f),     // Green
+            new Color(0f, 0.5f, 1f),   // Blue
+            new Color(0.3f, 0f, 0.5f), // Indigo
+            new Color(0.6f, 0f, 1f)    // Violet
+        };
+
+        var allBlocks = new List<GameObject>(bands * cubesPerBand);
+
+        for (int b = 0; b < bands; b++)
+        {
+            float radius = outerRadius - b * step;
+            for (int i = 0; i < cubesPerBand; i++)
+            {
+                float t = (float)i / (cubesPerBand - 1);
+                float theta = t * Mathf.PI;
+                float x = Mathf.Cos(theta) * radius;
+                float y = Mathf.Sin(theta) * radius;
+
+                var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                block.name = "RainbowBlock";
+                block.transform.SetParent(root);
+                block.transform.position = center + new Vector3(x, y, 0f);
+                block.transform.localScale = new Vector3(6f, 6f, 6f);
+
+                var cr = block.GetComponent<Renderer>();
+                if (cr != null) cr.material.color = rainbowColors[b];
+
+                var col = block.GetComponent<Collider>();
+                if (col != null) Destroy(col);
+
+                allBlocks.Add(block);
+            }
+        }
+
         float elapsed = 0f;
         Color originalAmbient = RenderSettings.ambientLight;
 
@@ -811,12 +1089,30 @@ public class RandomEventManager : MonoBehaviour
                 elapsed += Time.deltaTime;
                 float t = elapsed / duration;
                 float hue = Mathf.Repeat(t * 2f, 1f);
-                RenderSettings.ambientLight = Color.HSVToRGB(hue, 0.3f, 0.8f);
+                RenderSettings.ambientLight = Color.HSVToRGB(hue, 0.15f, 0.9f);
             }
             yield return null;
         }
 
         RenderSettings.ambientLight = originalAmbient;
+
+        float fadeTime = 2f;
+        float fadeElapsed = 0f;
+        while (fadeElapsed < fadeTime)
+        {
+            fadeElapsed += Time.deltaTime;
+            float alpha = 1f - (fadeElapsed / fadeTime);
+            float s = 6f * alpha;
+            for (int i = 0; i < allBlocks.Count; i++)
+            {
+                if (allBlocks[i] != null)
+                    allBlocks[i].transform.localScale = new Vector3(s, s, s);
+            }
+            yield return null;
+        }
+
+        foreach (var b in allBlocks)
+            if (b != null) Destroy(b);
     }
 
     private void EffectDancingAnimals()
@@ -934,14 +1230,27 @@ public class RandomEventManager : MonoBehaviour
 
     private void EffectMeteorShower()
     {
+        StartCoroutine(MeteorShowerEffect());
+    }
+
+    private IEnumerator MeteorShowerEffect()
+    {
         Vector3 playerPos = GetPlayerPos();
         var root = GetWorldRoot();
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 6; i++)
         {
-            Vector3 spawnPos = playerPos + new Vector3(UnityEngine.Random.Range(-15f, 15f), 25f + i * 3f, UnityEngine.Random.Range(-15f, 15f));
-            SpawnFallingRock(spawnPos, root);
+            float angle = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+            float dist = UnityEngine.Random.Range(40f, 60f);
+            Vector3 spawnPos = playerPos + new Vector3(
+                Mathf.Cos(angle) * dist,
+                80f + UnityEngine.Random.Range(0f, 40f),
+                Mathf.Sin(angle) * dist);
+            Vector3 target = playerPos + new Vector3(
+                UnityEngine.Random.Range(-20f, 20f), 0f,
+                UnityEngine.Random.Range(-20f, 20f));
+            SpawnFallingRock(spawnPos, target, root);
+            yield return new WaitForSeconds(0.8f);
         }
-        SpawnEnemy(playerPos + new Vector3(UnityEngine.Random.Range(-8f, 8f), 0f, 10f), root);
     }
 
     private void EffectHarvestFestival()
@@ -959,33 +1268,92 @@ public class RandomEventManager : MonoBehaviour
         Vector3 playerPos = GetPlayerPos();
         var root = GetWorldRoot();
 
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 10; i++)
         {
-            Vector3 pos = playerPos + new Vector3(UnityEngine.Random.Range(-10f, 10f), 8f + UnityEngine.Random.Range(0f, 5f), UnityEngine.Random.Range(-10f, 10f));
+            Vector3 pos = playerPos + new Vector3(
+                UnityEngine.Random.Range(-12f, 12f),
+                10f + UnityEngine.Random.Range(0f, 6f),
+                UnityEngine.Random.Range(-12f, 12f));
 
-            var go = new GameObject("Firework_" + i);
-            go.transform.SetParent(root);
-            go.transform.position = pos;
+            int sparkCount = UnityEngine.Random.Range(12, 18);
+            Color baseColor = Color.HSVToRGB(UnityEngine.Random.Range(0f, 1f), 1f, 1f);
 
-            for (int j = 0; j < 6; j++)
+            for (int j = 0; j < sparkCount; j++)
             {
                 var spark = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                spark.transform.SetParent(go.transform, false);
-                spark.transform.localScale = Vector3.one * 0.1f;
-                spark.transform.localPosition = UnityEngine.Random.insideUnitSphere * 0.3f;
-                var r = spark.GetComponent<Renderer>();
-                if (r != null)
-                {
-                    float h = UnityEngine.Random.Range(0f, 1f);
-                    r.material.color = Color.HSVToRGB(h, 1f, 1f);
-                }
-                var c = spark.GetComponent<Collider>();
-                if (c != null) Destroy(c);
+                spark.transform.SetParent(root);
+                spark.transform.position = pos;
+                float sz = UnityEngine.Random.Range(0.08f, 0.14f);
+                spark.transform.localScale = new Vector3(sz, sz, sz);
+                var sr = spark.GetComponent<Renderer>();
+                Color sparkColor = UnityEngine.Random.value > 0.5f ? baseColor : Color.HSVToRGB(UnityEngine.Random.Range(0f, 1f), 1f, 1f);
+                if (sr != null) sr.material.color = sparkColor;
+                var sc = spark.GetComponent<Collider>();
+                if (sc != null) Destroy(sc);
+
+                Vector3 dir = UnityEngine.Random.onUnitSphere;
+                dir.y = Mathf.Abs(dir.y) * 0.7f + 0.3f;
+                Vector3 velocity = dir * UnityEngine.Random.Range(4f, 9f);
+
+                StartCoroutine(AnimateSpark(spark, sr, velocity, sparkColor));
             }
 
-            Destroy(go, 2f);
-            yield return new WaitForSeconds(0.4f);
+            yield return new WaitForSeconds(0.35f);
         }
+    }
+
+    private IEnumerator AnimateSpark(GameObject spark, Renderer rend, Vector3 velocity, Color color)
+    {
+        if (spark == null) yield break;
+        var root = WorldBuilder.Instance?.WorldRoot?.transform;
+        float lifetime = 1.5f;
+        float elapsed = 0f;
+        float trailTimer = 0f;
+
+        while (elapsed < lifetime && spark != null)
+        {
+            float dt = Time.deltaTime;
+            elapsed += dt;
+            velocity.y -= 9.8f * dt;
+
+            spark.transform.position += velocity * dt;
+            trailTimer += dt;
+
+            if (trailTimer >= 0.04f && spark != null)
+            {
+                trailTimer = 0f;
+                SpawnTrailDot(spark.transform.position, color, root);
+            }
+
+            float t = elapsed / lifetime;
+            float fade = 1f - t;
+            if (rend != null)
+            {
+                Color c = color * fade;
+                c.a = 1f;
+                rend.material.color = c;
+            }
+            float s = Mathf.Lerp(1f, 0.2f, t);
+            if (spark != null)
+                spark.transform.localScale = Vector3.one * s * 0.1f;
+
+            yield return null;
+        }
+
+        if (spark != null) Destroy(spark);
+    }
+
+    private void SpawnTrailDot(Vector3 pos, Color color, Transform parent)
+    {
+        var dot = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        dot.transform.SetParent(parent);
+        dot.transform.position = pos;
+        dot.transform.localScale = Vector3.one * 0.04f;
+        var r = dot.GetComponent<Renderer>();
+        if (r != null) r.material.color = color * 0.7f;
+        var c = dot.GetComponent<Collider>();
+        if (c != null) Destroy(c);
+        Destroy(dot, 0.5f);
     }
 
     private void EffectGhostlyFigures()
@@ -1035,8 +1403,6 @@ public class RandomEventManager : MonoBehaviour
         ShowBanner("Bản Đồ Kho Báu", "Rương kho báu đã xuất hiện ở rìa bản đồ!");
     }
 
-    // ── Event Data ──
-
     private class RandomEvent
     {
         public string Name;
@@ -1045,6 +1411,56 @@ public class RandomEventManager : MonoBehaviour
         public float Weight;
         public float Cooldown;
         public Action Effect;
+    }
+
+    public void SpawnImpactDebris(Vector3 pos, Transform parent)
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            var debris = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            debris.transform.SetParent(parent);
+            debris.transform.position = pos;
+            float s = UnityEngine.Random.Range(0.08f, 0.18f);
+            debris.transform.localScale = new Vector3(s, s, s);
+            var dr = debris.GetComponent<Renderer>();
+            if (dr != null)
+            {
+                float g = UnityEngine.Random.Range(0.3f, 0.5f);
+                dr.material.color = new Color(g, g * 0.8f, g * 0.7f);
+            }
+            var dc = debris.GetComponent<Collider>();
+            if (dc != null) Destroy(dc);
+            var drb = debris.AddComponent<Rigidbody>();
+            drb.useGravity = true;
+            drb.mass = 0.5f;
+            drb.linearDamping = 0.5f;
+            Vector3 dir = new Vector3(
+                UnityEngine.Random.Range(-1f, 1f),
+                UnityEngine.Random.Range(0.5f, 2f),
+                UnityEngine.Random.Range(-1f, 1f)).normalized;
+            drb.linearVelocity = dir * UnityEngine.Random.Range(3f, 7f);
+            Destroy(debris, 3f);
+        }
+    }
+
+    public IEnumerator CameraShake(float duration, float intensity)
+    {
+        var cam = Camera.main;
+        if (cam == null) yield break;
+        var follow = cam.GetComponent<CameraFollow>();
+        if (follow != null) follow.enabled = false;
+        Vector3 originalPos = cam.transform.position;
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            float x = UnityEngine.Random.Range(-1f, 1f) * intensity;
+            float y = UnityEngine.Random.Range(-1f, 1f) * intensity * 0.5f;
+            cam.transform.position = originalPos + new Vector3(x, y, 0f);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        cam.transform.position = originalPos;
+        if (follow != null) follow.enabled = true;
     }
 }
 

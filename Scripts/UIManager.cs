@@ -78,8 +78,8 @@ public class UIManager : MonoBehaviour
     private void ResizeInventory()
     {
         float sw = Screen.width;
-        float slotW = sw * 0.06f;
-        float slotH = Screen.height * 0.04f;
+        float slotW = sw * 0.08f;
+        float slotH = Screen.height * 0.06f;
         float totalW = InventorySlotCount * slotW + (InventorySlotCount - 1) * 4f;
         float startX = -totalW * 0.5f;
         float y = Screen.height * 0.03f;
@@ -89,7 +89,10 @@ public class UIManager : MonoBehaviour
             if (_inventorySlots[i] == null) continue;
             var rect = _inventorySlots[i].GetComponent<RectTransform>();
             if (rect != null)
+            {
+                rect.sizeDelta = new Vector2(slotW, slotH);
                 rect.anchoredPosition = new Vector2(startX + i * (slotW + 4f), y);
+            }
             if (_inventorySlotTexts[i] != null)
                 _inventorySlotTexts[i].fontSize = Mathf.Clamp(sw / 120f, 8f, 16f);
         }
@@ -193,8 +196,8 @@ public class UIManager : MonoBehaviour
         );
 
         // Inventory: 10 individual slots at bottom center
-        float slotW = screenWidth * 0.06f;
-        float slotH = screenHeight * 0.04f;
+        float slotW = screenWidth * 0.08f;
+        float slotH = screenHeight * 0.06f;
         float totalW = InventorySlotCount * slotW + (InventorySlotCount - 1) * 4f;
         float startX = -totalW * 0.5f;
 
@@ -336,7 +339,7 @@ public class UIManager : MonoBehaviour
 
         _questPanel = CreateMenuPanel("QuestPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
         EnsureText("QuestTitle", new Vector2(0f, panelHeight * 0.35f), "NHIỆM VỤ", (int)largefontSize, _questPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
-        _questLinesText = EnsureText("QuestLines", new Vector2(0f, panelHeight * 0.1f), "1. Thu hoạch lúa 0/100\n2. Diệt quái 0/30\n3. Kiếm tiền 0/100000", (int)fontSize, _questPanel.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.3f));
+        _questLinesText = EnsureText("QuestLines", new Vector2(0f, panelHeight * 0.1f), "1. Thu hoạch lúa 0/100\n2. Diệt quái 0/30\n3. Kiếm tiền 0/100000", (int)fontSize, _questPanel.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.6f));
         CreateButton("QuestCloseButton", _questPanel.transform, "Đóng", new Vector2(0f, -panelHeight * 0.35f), () => ShowQuestPanel(false));
         _questPanel.SetActive(false);
 
@@ -391,14 +394,14 @@ public class UIManager : MonoBehaviour
         _tutorialBookImage.type = Image.Type.Simple;
         _tutorialBookImage.preserveAspect = true;
 
-        float redXSize = Screen.height * 0.05f;
+        float redXSize = Screen.height * 0.1f;
         var redXObj = new GameObject("TutorialRedX");
         redXObj.transform.SetParent(bookObj.transform, false);
         var redXRt = redXObj.AddComponent<RectTransform>();
         redXRt.anchorMin = new Vector2(1f, 1f);
         redXRt.anchorMax = new Vector2(1f, 1f);
         redXRt.pivot = new Vector2(1f, 1f);
-        redXRt.anchoredPosition = new Vector2(10f, 10f);
+        redXRt.anchoredPosition = new Vector2(-10f, -30f);
         redXRt.sizeDelta = new Vector2(redXSize, redXSize);
         var redXImg = redXObj.AddComponent<Image>();
         redXImg.sprite = _redXSprite;
@@ -447,7 +450,7 @@ public class UIManager : MonoBehaviour
         _tutorialLeftArrow.SetActive(false);
 
         float textW = bookH * 0.4f;
-        float textH = bookH * 1.1f;
+        float textH = bookH * 1.35f;
         float textY = bookH * 0.2f;
         float textSpacing = bookH * 0.27f;
 
@@ -462,7 +465,7 @@ public class UIManager : MonoBehaviour
         _tutorialLeftText = leftTextObj.AddComponent<TextMeshProUGUI>();
         if (defaultTmpFont != null) _tutorialLeftText.font = defaultTmpFont;
         _tutorialLeftText.raycastTarget = false;
-        _tutorialLeftText.fontSize = Mathf.Max(14, (int)(Screen.height * 0.018f));
+        _tutorialLeftText.fontSize = Mathf.Max(14, (int)(Screen.height * 0.025f));
         _tutorialLeftText.color = Color.black;
         _tutorialLeftText.alignment = TextAlignmentOptions.Center;
         _tutorialLeftText.text = "";
@@ -479,7 +482,7 @@ public class UIManager : MonoBehaviour
         _tutorialRightText = rightTextObj.AddComponent<TextMeshProUGUI>();
         if (defaultTmpFont != null) _tutorialRightText.font = defaultTmpFont;
         _tutorialRightText.raycastTarget = false;
-        _tutorialRightText.fontSize = Mathf.Max(14, (int)(Screen.height * 0.018f));
+        _tutorialRightText.fontSize = Mathf.Max(14, (int)(Screen.height * 0.025f));
         _tutorialRightText.color = Color.black;
         _tutorialRightText.alignment = TextAlignmentOptions.Center;
         _tutorialRightText.text = "";
@@ -966,6 +969,11 @@ public class UIManager : MonoBehaviour
     {
         if (_questLinesText != null)
             _questLinesText.text = text;
+    }
+
+    public Canvas GetCanvas()
+    {
+        return _canvas;
     }
 
     public void ShowMessage(string text, float duration)

@@ -8,7 +8,7 @@ public class WorldBuilder : MonoBehaviour
     public static WorldBuilder Instance { get; private set; }
 
     public int TreeCount = 100;
-    public int RockCount = 0;
+    public int RockCount = 50;
     public Vector3 GroundSize = new Vector3(600f, 0.2f, 600f);
 
     public int MapWidth = 40;
@@ -34,6 +34,12 @@ public class WorldBuilder : MonoBehaviour
     private readonly List<BlueprintState> _blueprints = new List<BlueprintState>();
     private GameObject _worldRoot;
     public GameObject WorldRoot => _worldRoot;
+    private float _resourceRespawnTimer;
+    private const float RespawnInterval = 60f;
+    private const int MaxTrees = 250;
+    private const int MaxRocks = 80;
+    private int _treeNameCounter;
+    private int _rockNameCounter;
     private GameObject _buildingPreview;
     // road bounds (published when building the road)
     private float _roadCenterX = 14f;
@@ -46,6 +52,10 @@ public class WorldBuilder : MonoBehaviour
     private readonly List<GameObject> _eventBlocks = new List<GameObject>();
     private readonly List<int> _eventBlockIndices = new List<int>();
     private readonly HashSet<GameObject> _openDoors = new HashSet<GameObject>();
+    private readonly List<GameObject> _clouds = new List<GameObject>();
+    private float _cloudSpawnTimer;
+    private const int MaxClouds = 10;
+    private const float CloudSpawnInterval = 35f;
 
     private class VendorCart
     {
@@ -191,6 +201,54 @@ public class WorldBuilder : MonoBehaviour
             })
     };
 
+    // ═══════════════════════════════════════════════
+    //  MANSION MEGA STRUCTURE DEFINITION
+    // ═══════════════════════════════════════════════
+    private static readonly SubBuildingDefinition[] _mansionSubBuildings = new SubBuildingDefinition[]
+    {
+        // === FOUNDATION (stone: 450) ===
+        new SubBuildingDefinition { PartName = "Mansion_Foundation",      Offset = new Vector3(0f, -2.75f, 0f),    Size = new Vector3(24f, 0.5f, 16f), WoodCost = 0,   StoneCost = 250, Color = new Color(0.35f, 0.35f, 0.35f) },
+        new SubBuildingDefinition { PartName = "Mansion_PorchSlab",       Offset = new Vector3(0f, -2.45f, 8.5f),  Size = new Vector3(8f, 0.3f, 4f),   WoodCost = 0,   StoneCost = 50,  Color = new Color(0.45f, 0.43f, 0.4f) },
+        new SubBuildingDefinition { PartName = "Mansion_BackPatio",       Offset = new Vector3(0f, -2.45f, -8.5f), Size = new Vector3(8f, 0.3f, 4f),   WoodCost = 0,   StoneCost = 150, Color = new Color(0.45f, 0.43f, 0.4f) },
+
+        // === 1F STRUCTURE (wood: 485) ===
+        new SubBuildingDefinition { PartName = "Mansion_1F_Floor",        Offset = new Vector3(0f, -2.25f, 0f),   Size = new Vector3(24f, 0.3f, 16f), WoodCost = 100, StoneCost = 0, Color = new Color(0.71f, 0.53f, 0.27f) },
+        new SubBuildingDefinition { PartName = "Mansion_1F_ExteriorWalls", Offset = new Vector3(0f, 0f, 0f),       Size = new Vector3(24f, 5f, 16f),  WoodCost = 220, StoneCost = 0, Color = new Color(0.55f, 0.35f, 0.18f) },
+        new SubBuildingDefinition { PartName = "Mansion_1F_InteriorWalls", Offset = new Vector3(0f, 0f, 0f),       Size = new Vector3(20f, 4.5f, 12f), WoodCost = 140, StoneCost = 0, Color = new Color(0.63f, 0.42f, 0.22f) },
+        new SubBuildingDefinition { PartName = "Mansion_FrontDoor",       Offset = new Vector3(0f, -0.25f, 8.15f), Size = new Vector3(4f, 5f, 0.4f),  WoodCost = 25,  StoneCost = 0, Color = new Color(0.5f, 0.3f, 0.15f) },
+
+        // === 1F FURNITURE (wood: 225) ===
+        new SubBuildingDefinition { PartName = "Mansion_LivingRoom",      Offset = new Vector3(-6f, -0.5f, 4f),   Size = new Vector3(8f, 3f, 6f),    WoodCost = 75,  StoneCost = 0, Color = new Color(0.6f, 0.4f, 0.2f) },
+        new SubBuildingDefinition { PartName = "Mansion_Kitchen",         Offset = new Vector3(6f, -0.5f, 4f),    Size = new Vector3(8f, 3f, 6f),    WoodCost = 70,  StoneCost = 0, Color = new Color(0.65f, 0.45f, 0.25f) },
+        new SubBuildingDefinition { PartName = "Mansion_DiningRoom",      Offset = new Vector3(0f, -0.5f, -2f),   Size = new Vector3(8f, 3f, 5f),    WoodCost = 60,  StoneCost = 0, Color = new Color(0.58f, 0.38f, 0.18f) },
+        new SubBuildingDefinition { PartName = "Mansion_Bathroom1F",      Offset = new Vector3(9f, -0.5f, -5f),   Size = new Vector3(4f, 3f, 4f),    WoodCost = 20,  StoneCost = 0, Color = new Color(0.7f, 0.7f, 0.7f) },
+
+        // === 2F STRUCTURE (wood: 460) ===
+        new SubBuildingDefinition { PartName = "Mansion_2F_Floor",        Offset = new Vector3(0f, 2.75f, 0f),    Size = new Vector3(24f, 0.3f, 16f), WoodCost = 100, StoneCost = 0, Color = new Color(0.71f, 0.53f, 0.27f) },
+        new SubBuildingDefinition { PartName = "Mansion_2F_ExteriorWalls", Offset = new Vector3(0f, 5f, 0f),       Size = new Vector3(24f, 4.5f, 16f), WoodCost = 200, StoneCost = 0, Color = new Color(0.55f, 0.35f, 0.18f) },
+        new SubBuildingDefinition { PartName = "Mansion_2F_InteriorWalls", Offset = new Vector3(0f, 5f, 0f),       Size = new Vector3(20f, 4f, 12f),   WoodCost = 120, StoneCost = 0, Color = new Color(0.63f, 0.42f, 0.22f) },
+        new SubBuildingDefinition { PartName = "Mansion_Staircase",       Offset = new Vector3(-9f, 1.5f, -5f),   Size = new Vector3(3f, 6f, 3f),    WoodCost = 40,  StoneCost = 0, Color = new Color(0.6f, 0.4f, 0.2f) },
+
+        // === 2F FURNITURE (wood: 260) ===
+        new SubBuildingDefinition { PartName = "Mansion_MasterBedroom",   Offset = new Vector3(-6f, 4.5f, 4f),    Size = new Vector3(8f, 3f, 6f),    WoodCost = 80,  StoneCost = 0, Color = new Color(0.52f, 0.33f, 0.18f) },
+        new SubBuildingDefinition { PartName = "Mansion_Bedroom2",        Offset = new Vector3(6f, 4.5f, 4f),     Size = new Vector3(8f, 3f, 6f),    WoodCost = 55,  StoneCost = 0, Color = new Color(0.58f, 0.38f, 0.2f) },
+        new SubBuildingDefinition { PartName = "Mansion_Bedroom3",        Offset = new Vector3(6f, 4.5f, -4f),    Size = new Vector3(8f, 3f, 5f),    WoodCost = 50,  StoneCost = 0, Color = new Color(0.6f, 0.42f, 0.22f) },
+        new SubBuildingDefinition { PartName = "Mansion_Bathroom2F",      Offset = new Vector3(-9f, 4.5f, -3f),   Size = new Vector3(3f, 3f, 4f),    WoodCost = 20,  StoneCost = 0, Color = new Color(0.7f, 0.7f, 0.7f) },
+        new SubBuildingDefinition { PartName = "Mansion_HallwayDecor",    Offset = new Vector3(-3f, 4.5f, -3f),   Size = new Vector3(6f, 3f, 3f),    WoodCost = 55,  StoneCost = 0, Color = new Color(0.55f, 0.38f, 0.2f) },
+
+        // === ROOF (stone: 500) ===
+        new SubBuildingDefinition { PartName = "Mansion_MainRoof",        Offset = new Vector3(0f, 7.75f, 0f),    Size = new Vector3(26f, 0.5f, 18f), WoodCost = 0, StoneCost = 450, Color = new Color(0.4f, 0.38f, 0.35f) },
+        new SubBuildingDefinition { PartName = "Mansion_PorchRoof",       Offset = new Vector3(0f, 4.75f, 9f),    Size = new Vector3(8f, 0.3f, 5f),   WoodCost = 0, StoneCost = 50,  Color = new Color(0.42f, 0.4f, 0.37f) },
+
+        // === EXTERIOR (wood: 70, stone: 50) ===
+        new SubBuildingDefinition { PartName = "Mansion_Balcony",         Offset = new Vector3(-6f, 3f, 8.5f),    Size = new Vector3(6f, 0.3f, 3f),   WoodCost = 30, StoneCost = 0,  Color = new Color(0.6f, 0.4f, 0.2f) },
+        new SubBuildingDefinition { PartName = "Mansion_GardenPath",      Offset = new Vector3(0f, -2.35f, 12f),  Size = new Vector3(2f, 0.15f, 10f), WoodCost = 0,  StoneCost = 50, Color = new Color(0.5f, 0.48f, 0.45f) },
+        new SubBuildingDefinition { PartName = "Mansion_Fence",           Offset = new Vector3(0f, -1.5f, 0f),    Size = new Vector3(28f, 2f, 20f),   WoodCost = 40, StoneCost = 0,  Color = new Color(0.69f, 0.51f, 0.25f) },
+    };
+
+    private const int _mansionTotalParts = 25;
+    private const string _mansionQuestTarget = "mansion";
+
     private int _currentBuildingIndex;
     private int _currentRotation;
     private readonly HashSet<Vector3Int> _floorPositions = new HashSet<Vector3Int>();
@@ -246,6 +304,8 @@ public class WorldBuilder : MonoBehaviour
         LoadTreeTextures();
         SpawnTrees(TreeCount);
         SpawnRocks(RockCount);
+        _treeNameCounter = TreeCount;
+        _rockNameCounter = RockCount;
         BuildHouse();
         BuildBeach();
         BuildShop();
@@ -261,10 +321,29 @@ public class WorldBuilder : MonoBehaviour
         CreateSectionDividers();
         CreateEnemyDisplay();
         InitializeBuildingPreview();
+        PlaceMansionBlueprint(new Vector3(-30f, 0f, 50f));
+
+        SpawnInitialClouds();
 
         var spawnerGo = new GameObject("LivestockSpawner");
         spawnerGo.transform.SetParent(_worldRoot.transform);
         spawnerGo.AddComponent<LivestockSpawner>();
+    }
+
+    private void SpawnInitialClouds()
+    {
+        int half = Mathf.FloorToInt(GroundSize.x * 0.5f) - 20;
+        for (int i = 0; i < 8; i++)
+        {
+            Vector3 pos = new Vector3(
+                UnityEngine.Random.Range(-half, half + 1),
+                UnityEngine.Random.Range(60f, 80f),
+                UnityEngine.Random.Range(-half, half + 1));
+            float scale = UnityEngine.Random.Range(1.5f, 3f);
+            var cloud = MapBuilder.BuildCloud(_worldRoot.transform, pos, scale);
+            cloud.AddComponent<CloudBehavior>();
+            _clouds.Add(cloud);
+        }
     }
 
     // ═══════════════════════════════════════════════
@@ -466,6 +545,29 @@ public class WorldBuilder : MonoBehaviour
 
     public void UpdateWorld(float deltaTime)
     {
+        _resourceRespawnTimer += deltaTime;
+        if (_resourceRespawnTimer >= RespawnInterval)
+        {
+            _resourceRespawnTimer -= RespawnInterval;
+            RespawnResources();
+        }
+
+        _cloudSpawnTimer += deltaTime;
+        _clouds.RemoveAll(c => c == null);
+        if (_cloudSpawnTimer >= CloudSpawnInterval && _clouds.Count < MaxClouds)
+        {
+            _cloudSpawnTimer = 0f;
+            Vector3 playerPos = GameManager.Instance?.Player?.transform.position ?? Vector3.zero;
+            Vector3 cloudPos = playerPos + new Vector3(
+                UnityEngine.Random.Range(-40f, 40f),
+                UnityEngine.Random.Range(60f, 80f),
+                UnityEngine.Random.Range(-40f, 40f));
+            float scale = UnityEngine.Random.Range(1f, 3f);
+            var cloud = MapBuilder.BuildCloud(_worldRoot.transform, cloudPos, scale);
+            cloud.AddComponent<CloudBehavior>();
+            _clouds.Add(cloud);
+        }
+
         foreach (var field in _fields)
         {
             if (!field.HasCrop || field.IsHarvested)
@@ -1833,6 +1935,102 @@ public class WorldBuilder : MonoBehaviour
         return bpState;
     }
 
+    public void PlaceMansionBlueprint(Vector3 position)
+    {
+        string structureId = "mansion_" + System.Guid.NewGuid().ToString();
+
+        foreach (var sub in _mansionSubBuildings)
+        {
+            Vector3 subPos = position + sub.Offset;
+            var bpState = CreateMansionBlueprint(sub.PartName, subPos, sub.Size, sub.Color, sub.WoodCost, sub.StoneCost);
+            bpState.StructureId = structureId;
+            bpState.IsMansion = true;
+            _blueprints.Add(bpState);
+        }
+    }
+
+    private BlueprintState CreateMansionBlueprint(string typeName, Vector3 position, Vector3 size, Color color, int woodCost, int stoneCost)
+    {
+        var blueprint = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        blueprint.name = "Blueprint";
+        blueprint.transform.position = position + Vector3.up * (size.y * 0.5f);
+        blueprint.transform.rotation = Quaternion.identity;
+        blueprint.transform.localScale = size;
+        var renderer = blueprint.GetComponent<MeshRenderer>();
+        var mat = CreateSafeLitMaterial();
+        if (mat != null)
+        {
+            mat.SetFloat("_Surface", 1f);
+            mat.SetFloat("_Blend", 0f);
+            mat.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetFloat("_ZWrite", 0f);
+            mat.SetFloat("_Cull", 0f);
+            mat.SetFloat("_Metallic", 0f);
+            mat.SetFloat("_Smoothness", 0f);
+            mat.renderQueue = 3000;
+        }
+        else
+        {
+            mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
+        }
+        mat.color = new Color(0.85f, 0.65f, 0.13f, 0.15f);
+        renderer.material = mat;
+        var collider = blueprint.GetComponent<BoxCollider>();
+        collider.isTrigger = true;
+        blueprint.transform.SetParent(_worldRoot.transform);
+
+        var bpState = new BlueprintState
+        {
+            Entity = blueprint,
+            Type = typeName,
+            Position = position,
+            Rotation = 0,
+            WoodDeposited = 0,
+            StoneDeposited = 0,
+            WoodCost = woodCost,
+            StoneCost = stoneCost,
+            IsMansion = true
+        };
+        CreateBlueprintLabel(blueprint, bpState, woodCost, stoneCost, size.y);
+        blueprint.AddComponent<BlueprintAutoDeposit>();
+        return bpState;
+    }
+
+    public bool IsMansionPart(BlueprintState bp)
+    {
+        return bp != null && bp.IsMansion;
+    }
+
+    public int GetMansionCompletedParts()
+    {
+        int count = 0;
+        foreach (var bp in _blueprints)
+        {
+            if (bp.IsMansion)
+                count++;
+        }
+        return _mansionTotalParts - count;
+    }
+
+    public Vector3? GetRandomCloudPosition()
+    {
+        _clouds.RemoveAll(c => c == null);
+        if (_clouds.Count == 0) return null;
+        var c = _clouds[UnityEngine.Random.Range(0, _clouds.Count)];
+        return c.transform.position;
+    }
+
+    public bool AreAnyMansionBlueprintsActive()
+    {
+        foreach (var bp in _blueprints)
+        {
+            if (bp.IsMansion)
+                return true;
+        }
+        return false;
+    }
+
     public bool CanPlaceBuilding(Vector3 position, Vector3 size, int rotation)
     {
         var half = new Vector3(size.x * 0.5f, size.y * 0.5f, size.z * 0.5f);
@@ -1894,7 +2092,7 @@ public class WorldBuilder : MonoBehaviour
 
         float woodCost, stoneCost;
         BuildingDefinition def = null;
-        if (bp.IsEssential)
+        if (bp.IsEssential || bp.IsMansion)
         {
             woodCost = bp.WoodCost;
             stoneCost = bp.StoneCost;
@@ -2047,6 +2245,10 @@ public class WorldBuilder : MonoBehaviour
             var key = new Vector3Int(Mathf.RoundToInt(bp.Position.x), 0, Mathf.RoundToInt(bp.Position.z));
             _floorPositions.Add(key);
         }
+        if (bp.IsMansion)
+        {
+            QuestManager.Instance?.AddProgress(_mansionQuestTarget, 1);
+        }
         DestroyBlueprintLabel(bp);
         if (bp.Entity != null)
             Destroy(bp.Entity);
@@ -2099,6 +2301,189 @@ public class WorldBuilder : MonoBehaviour
                 CreatePartCube(root.transform, new Vector3(-4f, 1.5f, -3f), new Vector3(3f, 1.5f, 2f), woodColor);
                 CreatePartCube(root.transform, new Vector3(4f, 1.5f, -3f), new Vector3(3f, 1.5f, 2f), woodColor);
                 CreatePartCube(root.transform, new Vector3(0, 2f, -4f), new Vector3(6f, 2f, 0.5f), woodColor);
+                break;
+
+            // ═══════════════════════════════════════════════
+            //  MANSION MEGA STRUCTURE PARTS
+            // ═══════════════════════════════════════════════
+            case "Mansion_Foundation":
+                CreatePartCube(root.transform, new Vector3(0, 0.25f, 0), new Vector3(24f, 0.5f, 16f), stoneColor);
+                break;
+            case "Mansion_PorchSlab":
+                CreatePartCube(root.transform, new Vector3(0, 0.15f, 0), new Vector3(8f, 0.3f, 4f), stoneColor);
+                break;
+            case "Mansion_BackPatio":
+                CreatePartCube(root.transform, new Vector3(0, 0.15f, 0), new Vector3(8f, 0.3f, 4f), stoneColor);
+                break;
+            case "Mansion_1F_Floor":
+                CreatePartCube(root.transform, new Vector3(0, 0.15f, 0), new Vector3(24f, 0.3f, 16f), woodColor);
+                break;
+            case "Mansion_1F_ExteriorWalls":
+                {
+                    float wallH = 5f;
+                    float hw = 12f;
+                    float hd = 8f;
+                    CreatePartCube(root.transform, new Vector3(0, wallH * 0.5f, hd), new Vector3(24f, wallH, 0.35f), woodColor);
+                    CreatePartCube(root.transform, new Vector3(0, wallH * 0.5f, -hd), new Vector3(24f, wallH, 0.35f), woodColor);
+                    CreatePartCube(root.transform, new Vector3(-hw, wallH * 0.5f, 0), new Vector3(0.35f, wallH, 16f), woodColor);
+                    CreatePartCube(root.transform, new Vector3(hw, wallH * 0.5f, 0), new Vector3(0.35f, wallH, 16f), woodColor);
+                }
+                break;
+            case "Mansion_1F_InteriorWalls":
+                {
+                    float wallH = 4.5f;
+                    CreatePartCube(root.transform, new Vector3(0, wallH * 0.5f, 1f), new Vector3(0.25f, wallH, 6f), woodColor);
+                    CreatePartCube(root.transform, new Vector3(5f, wallH * 0.5f, 1f), new Vector3(0.25f, wallH, 6f), woodColor);
+                    CreatePartCube(root.transform, new Vector3(-5f, wallH * 0.5f, -2f), new Vector3(10f, wallH, 0.25f), woodColor);
+                    CreatePartCube(root.transform, new Vector3(8f, wallH * 0.5f, -1.5f), new Vector3(6f, wallH, 0.25f), woodColor);
+                }
+                break;
+            case "Mansion_FrontDoor":
+                {
+                    Color doorColor = new Color(0.5f, 0.3f, 0.15f);
+                    CreatePartCube(root.transform, new Vector3(-1.5f, 2f, 0), new Vector3(1f, 5f, 0.35f), doorColor);
+                    CreatePartCube(root.transform, new Vector3(1.5f, 2f, 0), new Vector3(1f, 5f, 0.35f), doorColor);
+                    CreatePartCube(root.transform, new Vector3(0, 4.5f, 0), new Vector3(4f, 1f, 0.35f), doorColor);
+                }
+                break;
+            case "Mansion_LivingRoom":
+                {
+                    Color furnColor = new Color(0.55f, 0.35f, 0.16f);
+                    CreatePartCube(root.transform, new Vector3(-2f, 0.5f, 1f), new Vector3(4f, 1f, 1.5f), furnColor);
+                    CreatePartCube(root.transform, new Vector3(-2f, 0.5f, -1f), new Vector3(4f, 1f, 1.5f), furnColor);
+                    CreatePartCube(root.transform, new Vector3(-2f, 0.75f, 0), new Vector3(2f, 0.5f, 2f), furnColor);
+                    CreatePartCube(root.transform, new Vector3(2f, 0.5f, 0), new Vector3(2f, 1f, 2f), new Color(0.65f, 0.45f, 0.22f));
+                    CreatePartCube(root.transform, new Vector3(-2f, 0.25f, -2.5f), new Vector3(3f, 0.5f, 0.3f), furnColor);
+                }
+                break;
+            case "Mansion_Kitchen":
+                {
+                    Color counterColor = new Color(0.7f, 0.5f, 0.3f);
+                    CreatePartCube(root.transform, new Vector3(-3f, 1f, 2f), new Vector3(4f, 2f, 1f), counterColor);
+                    CreatePartCube(root.transform, new Vector3(-3f, 1f, -1.5f), new Vector3(4f, 2f, 1f), counterColor);
+                    CreatePartCube(root.transform, new Vector3(3f, 1f, 0), new Vector3(2f, 2f, 3f), counterColor);
+                    CreatePartCube(root.transform, new Vector3(0, 1.5f, 0), new Vector3(3f, 1f, 2f), new Color(0.65f, 0.45f, 0.25f));
+                }
+                break;
+            case "Mansion_DiningRoom":
+                {
+                    Color tableColor = new Color(0.6f, 0.4f, 0.2f);
+                    CreatePartCube(root.transform, new Vector3(0, 1f, 0), new Vector3(4f, 0.3f, 2.5f), tableColor);
+                    CreatePartCube(root.transform, new Vector3(-1.5f, 0.5f, 1.5f), new Vector3(0.8f, 1f, 0.8f), tableColor);
+                    CreatePartCube(root.transform, new Vector3(1.5f, 0.5f, 1.5f), new Vector3(0.8f, 1f, 0.8f), tableColor);
+                    CreatePartCube(root.transform, new Vector3(-1.5f, 0.5f, -1.5f), new Vector3(0.8f, 1f, 0.8f), tableColor);
+                    CreatePartCube(root.transform, new Vector3(1.5f, 0.5f, -1.5f), new Vector3(0.8f, 1f, 0.8f), tableColor);
+                }
+                break;
+            case "Mansion_Bathroom1F":
+                {
+                    Color tileColor = new Color(0.85f, 0.85f, 0.85f);
+                    CreatePartCube(root.transform, new Vector3(0, 0.4f, -1f), new Vector3(2f, 0.8f, 1.5f), tileColor);
+                    CreatePartCube(root.transform, new Vector3(1f, 0.25f, 0.5f), new Vector3(1f, 0.5f, 1f), tileColor);
+                }
+                break;
+            case "Mansion_2F_Floor":
+                CreatePartCube(root.transform, new Vector3(0, 0.15f, 0), new Vector3(24f, 0.3f, 16f), woodColor);
+                break;
+            case "Mansion_2F_ExteriorWalls":
+                {
+                    float wallH = 4.5f;
+                    float hw = 12f;
+                    float hd = 8f;
+                    CreatePartCube(root.transform, new Vector3(0, wallH * 0.5f, hd), new Vector3(24f, wallH, 0.35f), woodColor);
+                    CreatePartCube(root.transform, new Vector3(0, wallH * 0.5f, -hd), new Vector3(24f, wallH, 0.35f), woodColor);
+                    CreatePartCube(root.transform, new Vector3(-hw, wallH * 0.5f, 0), new Vector3(0.35f, wallH, 16f), woodColor);
+                    CreatePartCube(root.transform, new Vector3(hw, wallH * 0.5f, 0), new Vector3(0.35f, wallH, 16f), woodColor);
+                }
+                break;
+            case "Mansion_2F_InteriorWalls":
+                {
+                    float wallH = 4f;
+                    CreatePartCube(root.transform, new Vector3(0, wallH * 0.5f, 1f), new Vector3(0.25f, wallH, 6f), woodColor);
+                    CreatePartCube(root.transform, new Vector3(5f, wallH * 0.5f, 1f), new Vector3(0.25f, wallH, 6f), woodColor);
+                    CreatePartCube(root.transform, new Vector3(-5f, wallH * 0.5f, -2f), new Vector3(10f, wallH, 0.25f), woodColor);
+                    CreatePartCube(root.transform, new Vector3(8f, wallH * 0.5f, -1.5f), new Vector3(6f, wallH, 0.25f), woodColor);
+                }
+                break;
+            case "Mansion_Staircase":
+                {
+                    for (int s = 0; s < 8; s++)
+                    {
+                        float y = s * 0.6f;
+                        float z = -s * 0.4f;
+                        CreatePartCube(root.transform, new Vector3(0, y + 0.3f, z), new Vector3(2.5f, 0.2f, 0.5f), woodColor);
+                    }
+                    CreatePartCube(root.transform, new Vector3(1.3f, 2.5f, -1.5f), new Vector3(0.2f, 5f, 0.2f), woodColor);
+                    CreatePartCube(root.transform, new Vector3(-1.3f, 2.5f, -1.5f), new Vector3(0.2f, 5f, 0.2f), woodColor);
+                }
+                break;
+            case "Mansion_MasterBedroom":
+                {
+                    Color bedColor = new Color(0.52f, 0.33f, 0.18f);
+                    CreatePartCube(root.transform, new Vector3(-2f, 0.5f, 0), new Vector3(3f, 1f, 2.5f), bedColor);
+                    CreatePartCube(root.transform, new Vector3(-2f, 1.2f, 0), new Vector3(2.8f, 0.4f, 2.3f), new Color(0.9f, 0.9f, 0.95f));
+                    CreatePartCube(root.transform, new Vector3(-3.4f, 0.8f, 0), new Vector3(0.3f, 1.2f, 2.5f), bedColor);
+                    CreatePartCube(root.transform, new Vector3(2f, 0.5f, -2f), new Vector3(2f, 1f, 1f), new Color(0.58f, 0.38f, 0.18f));
+                    CreatePartCube(root.transform, new Vector3(2f, 1.5f, -2f), new Vector3(2f, 1f, 0.3f), new Color(0.58f, 0.38f, 0.18f));
+                }
+                break;
+            case "Mansion_Bedroom2":
+                {
+                    Color bedColor2 = new Color(0.58f, 0.38f, 0.2f);
+                    CreatePartCube(root.transform, new Vector3(-2f, 0.5f, 0), new Vector3(2.5f, 1f, 2f), bedColor2);
+                    CreatePartCube(root.transform, new Vector3(-2f, 1.1f, 0), new Vector3(2.3f, 0.3f, 1.8f), new Color(0.85f, 0.85f, 0.9f));
+                    CreatePartCube(root.transform, new Vector3(2f, 0.5f, -1.5f), new Vector3(1.5f, 1f, 0.8f), bedColor2);
+                    CreatePartCube(root.transform, new Vector3(2f, 1.2f, -1.5f), new Vector3(1.5f, 0.3f, 0.8f), new Color(0.9f, 0.9f, 0.95f));
+                }
+                break;
+            case "Mansion_Bedroom3":
+                {
+                    Color bedColor3 = new Color(0.6f, 0.42f, 0.22f);
+                    CreatePartCube(root.transform, new Vector3(-1.5f, 0.5f, 0), new Vector3(2.5f, 1f, 2f), bedColor3);
+                    CreatePartCube(root.transform, new Vector3(-1.5f, 1.1f, 0), new Vector3(2.3f, 0.3f, 1.8f), new Color(0.88f, 0.88f, 0.92f));
+                    CreatePartCube(root.transform, new Vector3(2f, 0.5f, 0), new Vector3(1.5f, 1.5f, 2f), new Color(0.55f, 0.38f, 0.2f));
+                }
+                break;
+            case "Mansion_Bathroom2F":
+                {
+                    Color tileColor2 = new Color(0.85f, 0.85f, 0.85f);
+                    CreatePartCube(root.transform, new Vector3(0, 0.4f, -1f), new Vector3(2f, 0.8f, 1.5f), tileColor2);
+                    CreatePartCube(root.transform, new Vector3(0.5f, 0.25f, 0.5f), new Vector3(1f, 0.5f, 1f), tileColor2);
+                }
+                break;
+            case "Mansion_HallwayDecor":
+                {
+                    CreatePartCube(root.transform, new Vector3(-2f, 0.75f, 0), new Vector3(1.5f, 1.5f, 0.4f), new Color(0.55f, 0.38f, 0.2f));
+                    CreatePartCube(root.transform, new Vector3(1f, 0.5f, 0), new Vector3(1f, 1f, 1f), new Color(0.6f, 0.4f, 0.2f));
+                    CreatePartCube(root.transform, new Vector3(1f, 1.5f, 0), new Vector3(0.8f, 0.8f, 0.3f), new Color(0.5f, 0.35f, 0.18f));
+                }
+                break;
+            case "Mansion_MainRoof":
+                CreatePartCube(root.transform, new Vector3(0, 0.25f, 0), new Vector3(26f, 0.5f, 18f), stoneColor);
+                break;
+            case "Mansion_PorchRoof":
+                CreatePartCube(root.transform, new Vector3(0, 0.15f, 0), new Vector3(8f, 0.3f, 5f), stoneColor);
+                break;
+            case "Mansion_Balcony":
+                {
+                    CreatePartCube(root.transform, new Vector3(0, 0.15f, 0), new Vector3(6f, 0.3f, 3f), woodColor);
+                    CreatePartCube(root.transform, new Vector3(-2.85f, 0.5f, 0), new Vector3(0.15f, 1f, 3f), woodColor);
+                    CreatePartCube(root.transform, new Vector3(0, 0.5f, 1.35f), new Vector3(6f, 1f, 0.15f), woodColor);
+                    CreatePartCube(root.transform, new Vector3(2.85f, 0.5f, 0), new Vector3(0.15f, 1f, 3f), woodColor);
+                }
+                break;
+            case "Mansion_GardenPath":
+                CreatePartCube(root.transform, new Vector3(0, 0.05f, 0), new Vector3(2f, 0.1f, 10f), stoneColor);
+                break;
+            case "Mansion_Fence":
+                {
+                    float fenceH = 1.8f;
+                    Color fenceColor = new Color(0.69f, 0.51f, 0.25f);
+                    CreatePartCube(root.transform, new Vector3(0, fenceH * 0.5f, 10f), new Vector3(28f, fenceH, 0.15f), fenceColor);
+                    CreatePartCube(root.transform, new Vector3(0, fenceH * 0.5f, -10f), new Vector3(28f, fenceH, 0.15f), fenceColor);
+                    CreatePartCube(root.transform, new Vector3(-14f, fenceH * 0.5f, 0), new Vector3(0.15f, fenceH, 20f), fenceColor);
+                    CreatePartCube(root.transform, new Vector3(14f, fenceH * 0.5f, 0), new Vector3(0.15f, fenceH, 20f), fenceColor);
+                }
                 break;
         }
 
@@ -2218,6 +2603,46 @@ public class WorldBuilder : MonoBehaviour
         }
 
         UpdateBuildingDurabilityLabel(building);
+    }
+
+    public void ApplyMeteorDamage(BuildingState building, float meteorScale)
+    {
+        if (building == null) return;
+        int damage = Mathf.RoundToInt(meteorScale * 4f);
+        DamageBuildingDirect(building, damage);
+    }
+
+    public void DamageBuildingDirect(BuildingState building, int damage)
+    {
+        if (building == null) return;
+        if (building.PartStates != null && building.PartStates.Count > 0)
+        {
+            int partsToDestroy = Mathf.Max(1, damage / 25);
+            for (int i = 0; i < partsToDestroy && building.DestroyedParts < building.TotalParts; i++)
+            {
+                foreach (var ps in building.PartStates)
+                {
+                    if (ps.Entity != null)
+                    {
+                        ps.CurrentHealth = 0;
+                        ReplacePartWithGhost(building, ps);
+                        break;
+                    }
+                }
+            }
+            if (building.TotalParts > 0 && (float)building.DestroyedParts / building.TotalParts > 0.6f)
+                RevertBuildingToBlueprint(building);
+            else
+                UpdateBuildingDurabilityLabel(building);
+        }
+        else
+        {
+            building.CurrentHealth -= damage;
+            if (building.CurrentHealth <= 0)
+                RevertBuildingToBlueprint(building);
+            else
+                UpdateBuildingDurabilityLabel(building);
+        }
     }
 
     private void ReplacePartWithGhost(BuildingState building, BuildingPartState ps)
@@ -2539,6 +2964,7 @@ public class WorldBuilder : MonoBehaviour
         var bp = FindBlueprint(hitObj);
         if (bp == null) return;
         if (bp.IsEssential) return;
+        if (bp.IsMansion) return;
         DestroyBlueprintLabel(bp);
         if (bp.Entity != null)
             Object.Destroy(bp.Entity);
@@ -2880,6 +3306,74 @@ GameObject treeRoot;
         }
     }
 
+    private void RespawnResources()
+    {
+        if (_trees.Count < MaxTrees)
+            SpawnSingleTree();
+        if (_rocks.Count < MaxRocks)
+            SpawnSingleRock();
+    }
+
+    private void SpawnSingleTree()
+    {
+        int half = Mathf.FloorToInt(GroundSize.x * 0.5f) - 5;
+        int x, z;
+        int attempts = 0;
+        while (attempts < 50)
+        {
+            x = Random.Range(-half, half + 1);
+            z = Random.Range(-half, half + 1);
+            if (!IsReservedSpawnLocation(x, z))
+            {
+                GameObject treeRoot;
+                if (TreePrefab != null)
+                {
+                    treeRoot = Instantiate(TreePrefab, _worldRoot.transform);
+                    treeRoot.name = "Tree" + _treeNameCounter++;
+                    treeRoot.transform.position = new Vector3(x, 0f, z);
+                }
+                else
+                {
+                    treeRoot = MapBuilder.BuildTree(_worldRoot.transform, new Vector3(x, 0f, z));
+                    treeRoot.name = "Tree" + _treeNameCounter++;
+                }
+                _trees.Add(treeRoot);
+                return;
+            }
+            attempts++;
+        }
+    }
+
+    private void SpawnSingleRock()
+    {
+        int half = Mathf.FloorToInt(GroundSize.x * 0.5f) - 5;
+        int x, z;
+        int attempts = 0;
+        while (attempts < 50)
+        {
+            x = Random.Range(-half, half + 1);
+            z = Random.Range(-half, half + 1);
+            if (!IsReservedSpawnLocation(x, z))
+            {
+                GameObject rock;
+                if (RockPrefab != null)
+                {
+                    rock = Instantiate(RockPrefab, _worldRoot.transform);
+                    rock.name = "Rock" + _rockNameCounter++;
+                    rock.transform.position = new Vector3(x, 0f, z);
+                }
+                else
+                {
+                    rock = MapBuilder.BuildStone(_worldRoot.transform, new Vector3(x, 0f, z));
+                    rock.name = "Rock" + _rockNameCounter++;
+                }
+                _rocks.Add(rock);
+                return;
+            }
+            attempts++;
+        }
+    }
+
     private void BuildHouse()
     {
         var house = MapBuilder.BuildPlayerHouse(_worldRoot.transform, Vector3.zero);
@@ -2992,7 +3486,7 @@ GameObject treeRoot;
             MaxHealth = 100,
             IsEssential = true
         });
-        MapBuilder.BuildWifeNpc(_worldRoot.transform, new Vector3(30f, 0.86f, 0f), 1f, Quaternion.Euler(0f, 90f, 0f));
+        WifeNPC.BuildWifeNpc(_worldRoot.transform, new Vector3(30f, 0.86f, 0f), 1f, Quaternion.Euler(0f, 90f, 0f));
     }
 
     private void SpawnBuffalo()
@@ -3009,7 +3503,8 @@ GameObject treeRoot;
                         && z >= _roadZStart - 10f && z <= _roadZEnd + 10f;
         bool nearWifeHouse = x >= 20 && x <= 42 && Mathf.Abs(z) <= 10;
         bool nearDisplay = x >= 48 && x <= 67 && z >= -130 && z <= -48;
-        return nearHouse || nearShop || nearRoad || nearWifeHouse || nearDisplay;
+        bool nearMansion = x >= -45 && x <= -15 && z >= 39 && z <= 61;
+        return nearHouse || nearShop || nearRoad || nearWifeHouse || nearDisplay || nearMansion;
     }
 
     private void CreateVendorSpawnButton()
@@ -3073,7 +3568,7 @@ GameObject treeRoot;
         if (rem == null || rem.EventCount == 0) return;
 
         int cols = 6;
-        float spacing = 3f;
+        float spacing = 5f;
         float startX = 50f;
         float startZ = -78f;
 
@@ -3103,14 +3598,28 @@ GameObject treeRoot;
             _eventBlockIndices.Add(i);
 
             var labelGO = new GameObject("Label_" + i);
-            labelGO.transform.SetParent(block.transform, false);
-            labelGO.transform.localPosition = new Vector3(0f, 1.5f, 0f);
+            Vector3 blockWorldPos = block.transform.position;
+            labelGO.transform.SetParent(_worldRoot.transform, false);
+            labelGO.transform.position = new Vector3(blockWorldPos.x, blockWorldPos.y + 7f, blockWorldPos.z);
+
+            var bg = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            bg.name = "LabelBg_" + i;
+            bg.transform.SetParent(labelGO.transform, false);
+            bg.transform.localPosition = new Vector3(0f, 0f, 0.05f);
+            bg.transform.localScale = new Vector3(3f, 3f, 1f);
+            Object.Destroy(bg.GetComponent<Collider>());
+            var bgRend = bg.GetComponent<Renderer>();
+            var tex = Resources.Load<Texture2D>("menu");
+            if (bgRend != null && tex != null) bgRend.material.mainTexture = tex;
+
             var tmp = labelGO.AddComponent<TMPro.TextMeshPro>();
+            tmp.font = Resources.Load<TMPro.TMP_FontAsset>("VietPixel");
+            tmp.fontStyle = TMPro.FontStyles.Bold;
             tmp.text = rem.GetEventName(i);
-            tmp.fontSize = 1.2f;
+            tmp.fontSize = 5.0f;
             tmp.alignment = TMPro.TextAlignmentOptions.Center;
             tmp.color = Color.white;
-            tmp.rectTransform.sizeDelta = new Vector3(3f, 0.5f);
+            tmp.rectTransform.sizeDelta = new Vector3(3f, 3f);
         }
     }
 
@@ -4139,6 +4648,15 @@ GameObject treeRoot;
         _buildings.Clear();
         _floorPositions.Clear();
 
+        foreach (var bp in _blueprints)
+        {
+            DestroyBlueprintLabel(bp);
+            if (bp.Entity != null) Destroy(bp.Entity);
+        }
+        _blueprints.Clear();
+
+        BlueprintAutoDeposit.ClearConsumedRoots();
+
         var demo = _worldRoot?.transform.Find("CropDemo");
         if (demo != null) Destroy(demo.gameObject);
     }
@@ -4297,6 +4815,104 @@ GameObject treeRoot;
     }
 
     [System.Serializable]
+    public class MansionBlueprintSaveData
+    {
+        public string type;
+        public Vector3 position;
+        public float woodDeposited;
+        public float stoneDeposited;
+        public string structureId;
+        public bool completed;
+    }
+
+    public MansionBlueprintSaveData[] GetMansionBlueprintsAsSave()
+    {
+        var result = new List<MansionBlueprintSaveData>();
+        foreach (var bp in _blueprints)
+        {
+            if (!bp.IsMansion) continue;
+            result.Add(new MansionBlueprintSaveData
+            {
+                type = bp.Type,
+                position = bp.Position,
+                woodDeposited = bp.WoodDeposited,
+                stoneDeposited = bp.StoneDeposited,
+                structureId = bp.StructureId,
+                completed = false
+            });
+        }
+        foreach (var b in _buildings)
+        {
+            if (!b.Type.StartsWith("structure_part_Mansion_")) continue;
+            result.Add(new MansionBlueprintSaveData
+            {
+                type = b.Type.Replace("structure_part_", ""),
+                position = b.Position,
+                woodDeposited = 0,
+                stoneDeposited = 0,
+                structureId = "mansion",
+                completed = true
+            });
+        }
+        return result.ToArray();
+    }
+
+    public void LoadMansionBlueprintsFromSave(MansionBlueprintSaveData[] data)
+    {
+        if (data == null || data.Length == 0)
+        {
+            PlaceMansionBlueprint(Vector3.zero);
+            return;
+        }
+
+        foreach (var saved in data)
+        {
+            if (saved.completed)
+            {
+                SpawnMansionPartDirect(saved.type, saved.position);
+                continue;
+            }
+
+            var subDef = System.Array.Find(_mansionSubBuildings, s => s.PartName == saved.type);
+            if (subDef == null || subDef.PartName == null) continue;
+
+            var bpState = CreateMansionBlueprint(saved.type, saved.position, subDef.Size, subDef.Color, subDef.WoodCost, subDef.StoneCost);
+            bpState.WoodDeposited = saved.woodDeposited;
+            bpState.StoneDeposited = saved.stoneDeposited;
+            bpState.StructureId = saved.structureId;
+            bpState.IsMansion = true;
+
+            if (bpState.Label != null)
+            {
+                var tmp = bpState.Label.GetComponent<TMPro.TextMeshPro>();
+                if (tmp != null)
+                    tmp.text = GetBlueprintRemainingText(bpState, subDef.WoodCost, subDef.StoneCost);
+            }
+
+            if (bpState.WoodDeposited >= subDef.WoodCost && bpState.StoneDeposited >= subDef.StoneCost)
+            {
+                CompleteBlueprint(bpState, null);
+            }
+            else
+            {
+                _blueprints.Add(bpState);
+            }
+        }
+    }
+
+    private void SpawnMansionPartDirect(string typeName, Vector3 position)
+    {
+        var fakeBp = new BlueprintState
+        {
+            Type = typeName,
+            Position = position,
+            Rotation = 0,
+            IsMansion = true
+        };
+        SpawnStructurePart(fakeBp);
+    }
+
+    [System.Serializable]
     public class FieldState
     {
         public GameObject FieldObject;
@@ -4365,6 +4981,7 @@ GameObject treeRoot;
         public float StoneCost;
         public string StructureId;
         public bool IsStructureParent;
+        public bool IsMansion;
     }
 
     public (string material, float amount) GetResourceAmount(GameObject obj)
@@ -4442,11 +5059,18 @@ GameObject treeRoot;
 
 public class BlueprintAutoDeposit : MonoBehaviour
 {
+    private static readonly System.Collections.Generic.HashSet<GameObject> _consumedRoots = new System.Collections.Generic.HashSet<GameObject>();
+
+    public static void ClearConsumedRoots() { _consumedRoots.Clear(); }
+
     private void OnTriggerEnter(Collider other)
     {
         var root = other.gameObject;
         while (root.transform.parent != null && root.transform.parent.name != "WorldRoot")
             root = root.transform.parent.gameObject;
+
+        if (_consumedRoots.Contains(root))
+            return;
 
         if (root.name != "TreeFelled" && root.name != "BranchTop" && root.name != "RockDebris")
             return;
@@ -4460,6 +5084,7 @@ public class BlueprintAutoDeposit : MonoBehaviour
         var info = wb.GetResourceAmount(root);
         if (info.material == null || info.amount < 0.05f) return;
 
+        _consumedRoots.Add(root);
         wb.DepositMaterial(bp, info.material, info.amount);
         Destroy(root);
     }

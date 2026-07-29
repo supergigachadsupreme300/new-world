@@ -275,6 +275,19 @@ public class ToolManager : MonoBehaviour
                     string remainingText = parts.Count > 0 ? "Cần: " + string.Join(", ", parts) : "Hoàn thành!";
                     _uiManager.SetInfoText(def.Name + " - " + remainingText);
                 }
+                else if (bp.IsMansion)
+                {
+                    float woodRemaining = bp.WoodCost - bp.WoodDeposited;
+                    float stoneRemaining = bp.StoneCost - bp.StoneDeposited;
+                    var parts = new System.Collections.Generic.List<string>();
+                    if (woodRemaining > 0.01f)
+                        parts.Add(woodRemaining.ToString("F1") + " gỗ");
+                    if (stoneRemaining > 0.01f)
+                        parts.Add(stoneRemaining.ToString("F1") + " đá");
+                    string remainingText = parts.Count > 0 ? "Cần: " + string.Join(", ", parts) : "Hoàn thành!";
+                    string partName = GetMansionPartVietnameseName(bp.Type);
+                    _uiManager.SetInfoText("Dinh Thự - " + partName + " - " + remainingText);
+                }
                 else
                     _uiManager.SetInfoText(null);
             }
@@ -782,7 +795,7 @@ public class ToolManager : MonoBehaviour
         while (root.transform.parent != null && root.transform.parent.name != "WorldRoot")
             root = root.transform.parent.gameObject;
 
-        if (root.name == "TreeFelled" || root.name == "BranchTop" || root.name == "RockDebris" || root.name == "CageWithAnimal" || root.name == "ThrownCage")
+        if (root.name == "CageWithAnimal" || root.name == "ThrownCage")
         {
             if (root.GetComponent<Rigidbody>() == null) return;
             _carriedObject = root;
@@ -804,19 +817,22 @@ public class ToolManager : MonoBehaviour
             return;
         }
 
-        if (IsTree(hit.collider))
+        if (GetSelectedItemType() != null)
+            return;
+
+        if (root.name == "TreeFelled" || root.name == "BranchTop" || root.name == "RockDebris")
         {
-            var treeRoot = FindTreeRoot(hit.collider);
-            if (treeRoot != null && _worldBuilder.RemoveTree(treeRoot))
-                SoundManager.Instance?.Play("axe");
-        }
-        else if (IsRock(hit.collider))
-        {
-            var rockRoot = hit.collider.gameObject;
-            while (rockRoot.transform.parent != null && rockRoot.transform.parent.name != "WorldRoot")
-                rockRoot = rockRoot.transform.parent.gameObject;
-            if (_worldBuilder.RemoveRock(rockRoot))
-                SoundManager.Instance?.Play("pickaxe");
+            if (root.GetComponent<Rigidbody>() == null) return;
+            _carriedObject = root;
+            root.GetComponent<Rigidbody>().isKinematic = true;
+            var cols = root.GetComponentsInChildren<Collider>();
+            foreach (var c in cols)
+                c.enabled = false;
+            root.transform.SetParent(cam.transform);
+            root.transform.localPosition = new Vector3(0.7f, -0.4f, 1.8f);
+            root.transform.localRotation = Quaternion.identity;
+            _uiManager.ShowMessage("Đã nhặt lên.", 1f);
+            return;
         }
     }
 
@@ -918,6 +934,7 @@ public class ToolManager : MonoBehaviour
 
             _uiManager.ShowMessage($"Đã ném {itemType}.", 1.5f);
             UpdateInventoryUI();
+            ShowActiveToolModel();
         }
     }
 
@@ -1675,6 +1692,39 @@ public class ToolManager : MonoBehaviour
             "wife_house" => "Nhà Vợ",
             "structure_house" => "Nhà Cấu Trúc",
             _ => name
+        };
+    }
+
+    private string GetMansionPartVietnameseName(string typeName)
+    {
+        return typeName switch
+        {
+            "Mansion_Foundation" => "Nền",
+            "Mansion_PorchSlab" => "Sân Trước",
+            "Mansion_BackPatio" => "Sân Sau",
+            "Mansion_1F_Floor" => "Sàn Tầng 1",
+            "Mansion_1F_ExteriorWalls" => "Tường Bên Ngoài T1",
+            "Mansion_1F_InteriorWalls" => "Tường Bên Trong T1",
+            "Mansion_FrontDoor" => "Cửa Chính",
+            "Mansion_LivingRoom" => "Phòng Khách",
+            "Mansion_Kitchen" => "Nhà Bếp",
+            "Mansion_DiningRoom" => "Phòng Ăn",
+            "Mansion_Bathroom1F" => "Phòng Tắm T1",
+            "Mansion_2F_Floor" => "Sàn Tầng 2",
+            "Mansion_2F_ExteriorWalls" => "Tường Bên Ngoài T2",
+            "Mansion_2F_InteriorWalls" => "Tường Bên Trong T2",
+            "Mansion_Staircase" => "Cầu Thang",
+            "Mansion_MasterBedroom" => "Phòng Ngủ Chính",
+            "Mansion_Bedroom2" => "Phòng Ngủ 2",
+            "Mansion_Bedroom3" => "Phòng Ngủ 3",
+            "Mansion_Bathroom2F" => "Phòng Tắm T2",
+            "Mansion_HallwayDecor" => "Hành Lang",
+            "Mansion_MainRoof" => "Mái Chính",
+            "Mansion_PorchRoof" => "Mái Sân Trước",
+            "Mansion_Balcony" => "Ban Công",
+            "Mansion_GardenPath" => "Lối Vào",
+            "Mansion_Fence" => "Hàng Rào",
+            _ => typeName
         };
     }
 

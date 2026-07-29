@@ -84,14 +84,15 @@ public class QuestManager : MonoBehaviour
 
     private void AddStoryQuestsForDay(int day)
     {
-        if (day >= 1) AddIfMissing(CreateStoryQuest("Chào Mừng Đến Nông Trại", "wheat", 10, 50, "Gieo và thu hoạch lúa mì đầu tiên.", 1));
-        if (day >= 3) AddIfMissing(CreateStoryQuest("Mùa Thu Đầu Tiên", "wheat", 50, 150, "Trở thành nông dân thực thụ.", 3));
-        if (day >= 5) AddIfMissing(CreateStoryQuest("Bảo Vệ Đất", "enemies", 10, 300, "Chứng minh bạn có thể bảo vệ nông trại.", 5));
-        if (day >= 8) AddIfMissing(CreateStoryQuest("Bàn Tay Xanh", "wheat", 150, 400, "Mùa màng của bạn là huyền thoại.", 8));
-        if (day >= 10) AddIfMissing(CreateStoryQuest("Xây Dựng Đế Chế", "money_earned", 50000, 750, "Tích lũy tài sản thực sự.", 10));
-        if (day >= 12) AddIfMissing(CreateStoryQuest("Thợ Săn Quái Vật", "enemies", 30, 600, "Diệt trừ sâu bệnh.", 12));
-        if (day >= 15) AddIfMissing(CreateStoryQuest("Trận Đấu Cuối Cùng", "enemies", 50, 1500, "Đối mặt mối đe dọa cuối cùng.", 15));
-        if (day >= 18) AddIfMissing(CreateStoryQuest("Tỷ Phú", "money_earned", 200000, 3000, "Trở thành nông dân giàu nhất.", 18));
+        if (day >= 1) AddIfMissing(CreateStoryQuest("Chào Mừng Đến Nông Trại", "wheat", 10, 50, "Gieo và thu hoạch 10 lúa mì để bắt đầu.", 1));
+        if (day >= 1) AddIfMissing(CreateStoryQuest("Xây Dựng Dinh Thự", "mansion", 25, 5000, "Đặt 25 vật liệu vào bản thiết kế dinh thự phía bắc nhà bạn.", 1));
+        if (day >= 3) AddIfMissing(CreateStoryQuest("Mùa Thu Đầu Tiên", "wheat", 50, 150, "Thu hoạch 50 lúa mì để trở thành nông dân thực thụ.", 3));
+        if (day >= 5) AddIfMissing(CreateStoryQuest("Bảo Vệ Đất", "enemies", 10, 300, "Diệt 10 kẻ thù để bảo vệ nông trại.", 5));
+        if (day >= 8) AddIfMissing(CreateStoryQuest("Bàn Tay Xanh", "wheat", 150, 400, "Thu hoạch 150 lúa mì để chứng minh tài năng.", 8));
+        if (day >= 10) AddIfMissing(CreateStoryQuest("Xây Dựng Đế Chế", "money_earned", 50000, 750, "Kiếm 50.000 vàng bằng cách bán nông sản.", 10));
+        if (day >= 12) AddIfMissing(CreateStoryQuest("Thợ Săn Quái Vật", "enemies", 30, 600, "Diệt 30 kẻ thù để очистить vùng đất.", 12));
+        if (day >= 15) AddIfMissing(CreateStoryQuest("Trận Đấu Cuối Cùng", "enemies", 50, 1500, "Diệt 50 kẻ thù — trận chiến sinh tử!", 15));
+        if (day >= 18) AddIfMissing(CreateStoryQuest("Tỷ Phú", "money_earned", 200000, 3000, "Kiếm 200.000 vàng để trở thành tỷ phú.", 18));
     }
 
     private void AddIfMissing(QuestSave quest)
@@ -328,6 +329,8 @@ public class QuestManager : MonoBehaviour
             {
                 string status = GetQuestStatusString(q);
                 panel += $"{q.Name}: {status}\n";
+                if (!string.IsNullOrEmpty(q.Description))
+                    panel += $"  {q.Description}\n";
                 if (hud.Length < 200)
                     hud += $"{q.Name}: {status}\n";
             }
@@ -340,6 +343,8 @@ public class QuestManager : MonoBehaviour
             {
                 string status = GetQuestStatusString(q);
                 panel += $"{q.Name}: {status}\n";
+                if (!string.IsNullOrEmpty(q.Description))
+                    panel += $"  {q.Description}\n";
                 if (hud.Length < 200)
                     hud += $"{q.Name}: {status}\n";
             }
@@ -352,6 +357,8 @@ public class QuestManager : MonoBehaviour
             {
                 string status = GetQuestStatusString(q);
                 panel += $"{q.Name}: {status}\n";
+                if (!string.IsNullOrEmpty(q.Description))
+                    panel += $"  {q.Description}\n";
                 if (hud.Length < 200)
                     hud += $"{q.Name}: {status}\n";
             }
