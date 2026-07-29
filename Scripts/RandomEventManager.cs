@@ -1263,14 +1263,21 @@ public class RandomEventManager : MonoBehaviour
         StartCoroutine(FireworksEffect());
     }
 
+    public void PlayFireworks(Vector3 center, Transform parent, int totalBursts = 5)
+    {
+        StartCoroutine(FireworksEffect(center, parent, totalBursts));
+    }
+
     private IEnumerator FireworksEffect()
     {
-        Vector3 playerPos = GetPlayerPos();
-        var root = GetWorldRoot();
+        yield return FireworksEffect(GetPlayerPos(), GetWorldRoot(), 10).GetEnumerator();
+    }
 
-        for (int i = 0; i < 10; i++)
+    private IEnumerator FireworksEffect(Vector3 center, Transform parent, int totalBursts)
+    {
+        for (int i = 0; i < totalBursts; i++)
         {
-            Vector3 pos = playerPos + new Vector3(
+            Vector3 pos = center + new Vector3(
                 UnityEngine.Random.Range(-12f, 12f),
                 10f + UnityEngine.Random.Range(0f, 6f),
                 UnityEngine.Random.Range(-12f, 12f));
@@ -1281,7 +1288,7 @@ public class RandomEventManager : MonoBehaviour
             for (int j = 0; j < sparkCount; j++)
             {
                 var spark = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                spark.transform.SetParent(root);
+                spark.transform.SetParent(parent);
                 spark.transform.position = pos;
                 float sz = UnityEngine.Random.Range(0.08f, 0.14f);
                 spark.transform.localScale = new Vector3(sz, sz, sz);

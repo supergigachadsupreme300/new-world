@@ -938,6 +938,8 @@ public class CutsceneManager : MonoBehaviour
         _happyPhase = 0;
         _happyElapsed = 0;
 
+        GameManager.Instance?.SetTimeOfDay(18f);
+
         while (_happyPhase == 0)
         {
             _happyElapsed += Time.deltaTime;
@@ -1013,6 +1015,11 @@ public class CutsceneManager : MonoBehaviour
         _happyPhase = 2;
         _happyPhaseTimer = 0;
         _happyJumpCount = 0;
+
+        GameManager.Instance?.SetTimeOfDay(20f);
+        var wb = WorldBuilder.Instance;
+        if (wb != null)
+            RandomEventManager.Instance?.PlayFireworks(_player.transform.position, wb.WorldRoot?.transform, 8);
 
         while (_happyPhaseTimer < 2.4f)
         {
