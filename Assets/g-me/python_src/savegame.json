@@ -1,0 +1,75 @@
+{
+    "game": {
+        "current_day": 1,
+        "time_of_day": 8.151570418333336
+    },
+    "player": {
+        "position": {
+            "x": 0.0,
+            "y": 9.994507126975805e-05,
+            "z": 0.0
+        },
+        "rotation_y": -0.6786050796508789,
+        "hp": 100,
+        "max_hp": 100,
+        "stamina": 1000,
+        "max_stamina": 1000,
+        "money": 10000000000,
+        "wife_married": false
+    },
+    "inventory": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+    ],
+    "fields": [],
+    "buildings": [],
+    "stats": {
+        "harvested_wheat": 0,
+        "enemies_killed": {},
+        "money_earned": 0,
+        "money_stolen": 0
+    },
+    "tasks": {
+        "active_name": "Harvest wheat",
+        "progress": 0,
+        "completed": false
+    },
+    "pets": [
+        {
+            "type": "Dog",
+            "position": {
+                "x": 2.0,
+                "y": 0.4000000059604645,
+                "z": 2.0
+            },
+            "hp": 100
+        },
+        {
+            "type": "Toad",
+            "position": {
+                "x": -2.0,
+                "y": 0.10000000149011612,
+                "z": 2.0
+            },
+            "hp": 0
+        },
+        {
+            "type": "DaDen",
+            "position": {
+                "x": 0.0,
+                "y": 0.8999999761581421,
+                "z": 3.0
+            },
+            "hp": 0,
+            "seed_count": 0
+        }
+    ]
+}
