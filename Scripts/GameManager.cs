@@ -104,7 +104,10 @@ public class GameManager : MonoBehaviour
         UpdateTimeUI();
 
         if (WorldBuilder != null)
+        {
+            WorldBuilder.SetDayNight(TimeOfDay);
             WorldBuilder.UpdateWorld(Time.deltaTime);
+        }
 
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
         {

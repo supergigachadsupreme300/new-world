@@ -677,11 +677,59 @@ public class WorldBuilder : MonoBehaviour
         if (SunLight == null)
             return;
 
-        float normalized = Mathf.InverseLerp(0f, 24f, hour);
-        var skyFactor = Mathf.Clamp01(Mathf.Cos(normalized * Mathf.PI * 2f) * -0.5f + 0.5f);
-        SunLight.intensity = Mathf.Lerp(0.2f, 1.0f, skyFactor);
-        RenderSettings.ambientIntensity = Mathf.Lerp(0.3f, 1f, skyFactor);
-        RenderSettings.ambientLight = Color.Lerp(new Color(0.08f, 0.08f, 0.15f), Color.white, skyFactor);
+        float t = hour / 24f;
+        float elevation = Mathf.Sin((t - 0.25f) * Mathf.PI * 2f) * 80f;
+        float sunY = Mathf.Lerp(-180f, 180f, t);
+        SunLight.transform.rotation = Quaternion.Euler(elevation, sunY, 0f);
+
+        float dayFactor = Mathf.Clamp01((elevation + 10f) / 90f);
+
+        SunLight.intensity = Mathf.Lerp(0.05f, 1.2f, dayFactor);
+
+        float warmFactor = 1f - Mathf.Abs(elevation - 25f) / 65f;
+        warmFactor = Mathf.Clamp01(warmFactor);
+        Color baseSunColor = Color.Lerp(
+            new Color(1f, 0.95f, 0.85f),
+            new Color(1f, 0.5f, 0.15f),
+            warmFactor);
+        if (elevation < -5f)
+        {
+            float nightFactor = Mathf.InverseLerp(-5f, -30f, elevation);
+            baseSunColor = Color.Lerp(baseSunColor, new Color(0.1f, 0.1f, 0.3f), nightFactor);
+        }
+        SunLight.color = baseSunColor;
+
+        Color skyColor;
+        if (elevation > 15f)
+        {
+            skyColor = new Color(0.5f, 0.7f, 1f);
+        }
+        else if (elevation > -5f)
+        {
+            float sunriseT = Mathf.InverseLerp(-5f, 15f, elevation);
+            skyColor = Color.Lerp(new Color(0.8f, 0.3f, 0.1f), new Color(0.5f, 0.7f, 1f), sunriseT);
+        }
+        else
+        {
+            float nightT = Mathf.InverseLerp(-5f, -30f, elevation);
+            skyColor = Color.Lerp(new Color(0.08f, 0.08f, 0.15f), new Color(0.02f, 0.02f, 0.05f), nightT);
+        }
+
+        RenderSettings.ambientLight = skyColor;
+        RenderSettings.ambientIntensity = Mathf.Lerp(0.2f, 0.8f, dayFactor);
+
+        float fogFactor = 1f - Mathf.Abs(elevation - 10f) / 25f;
+        fogFactor = Mathf.Clamp01(fogFactor);
+        if (fogFactor > 0.01f)
+        {
+            RenderSettings.fog = true;
+            RenderSettings.fogColor = Color.Lerp(skyColor, new Color(1f, 0.6f, 0.3f), elevation > 0f ? 0.3f : 0.5f);
+            RenderSettings.fogDensity = fogFactor * 0.015f;
+        }
+        else
+        {
+            RenderSettings.fog = false;
+        }
     }
 
     public bool IsOnRoad(Vector3 position)
