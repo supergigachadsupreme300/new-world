@@ -44,6 +44,7 @@ public class CutsceneManager : MonoBehaviour
     private int _happyPhase;
     private float _happyPhaseTimer;
     private int _happyJumpCount;
+    private float _savedTimeSpeed;
     private readonly List<GameObject> _hearts = new List<GameObject>();
     private GameObject _happyUI;
     private GameObject _skipButton;
@@ -891,6 +892,7 @@ public class CutsceneManager : MonoBehaviour
 
     private IEnumerator HappyEndingRoutine()
     {
+        _savedTimeSpeed = GameManager.Instance != null ? GameManager.Instance.TimeSpeed : 0.01f;
         try
         {
         _player = GameManager.Instance?.Player;
@@ -938,7 +940,9 @@ public class CutsceneManager : MonoBehaviour
         _happyPhase = 0;
         _happyElapsed = 0;
 
-        GameManager.Instance?.SetTimeOfDay(18f);
+        GameManager.Instance?.SetTimeOfDay(12f);
+        _savedTimeSpeed = GameManager.Instance != null ? GameManager.Instance.TimeSpeed : 0.01f;
+        if (GameManager.Instance != null) GameManager.Instance.TimeSpeed = 0;
 
         while (_happyPhase == 0)
         {
@@ -974,7 +978,7 @@ public class CutsceneManager : MonoBehaviour
                     if (_tetoRightArm != null)
                         _tetoRightArm.localRotation = Quaternion.Euler(-armSwing, 0f, 15f);
                     float legPhase = Mathf.Sin(_happyElapsed * SkipSpeed * 0.5f);
-                    float kickAngle = 70f;
+                    float kickAngle = 35f;
                     if (_tetoLegL != null)
                         _tetoLegL.localRotation = Quaternion.identity;
                     if (_tetoLegR != null)
@@ -1016,10 +1020,14 @@ public class CutsceneManager : MonoBehaviour
         _happyPhaseTimer = 0;
         _happyJumpCount = 0;
 
-        GameManager.Instance?.SetTimeOfDay(20f);
         var wb = WorldBuilder.Instance;
         if (wb != null)
-            RandomEventManager.Instance?.PlayFireworks(_player.transform.position, wb.WorldRoot?.transform, 8);
+        {
+            Vector3 fwCenter = _tetoRoot != null
+                ? (_player.transform.position + _tetoRoot.transform.position) * 0.5f + Vector3.up * 4f
+                : _player.transform.position + Vector3.up * 4f;
+            RandomEventManager.Instance?.PlayFireworks(fwCenter, wb.WorldRoot?.transform, 8);
+        }
 
         while (_happyPhaseTimer < 2.4f)
         {
@@ -1119,6 +1127,7 @@ public class CutsceneManager : MonoBehaviour
         {
             IsActive = false;
             _cutsceneRoutine = null;
+            if (GameManager.Instance != null) GameManager.Instance.TimeSpeed = _savedTimeSpeed;
         }
     }
 

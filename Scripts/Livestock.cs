@@ -130,21 +130,6 @@ public class Livestock : MonoBehaviour
             AnimateLegs(false);
         }
 
-        if (_behavior == BehaviorMode.Flee)
-            CheckFleeTrigger();
-        if (_behavior == BehaviorMode.Fight)
-            CheckFightTrigger();
-    }
-
-    private void CheckFleeTrigger()
-    {
-        var player = GameManager.Instance?.Player;
-        if (player == null) return;
-        float dist = Vector3.Distance(transform.position, player.transform.position);
-        if (dist < 8f)
-        {
-            _isFleeing = true;
-        }
     }
 
     private void UpdateFlee()
@@ -160,18 +145,6 @@ public class Livestock : MonoBehaviour
         if (awayDir.sqrMagnitude > 0.01f)
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(awayDir), Time.deltaTime * 5f);
         AnimateLegs(true);
-    }
-
-    private void CheckFightTrigger()
-    {
-        if (_isFighting || _fightCooldown > 0f) return;
-        var player = GameManager.Instance?.Player;
-        if (player == null) return;
-        float dist = Vector3.Distance(transform.position, player.transform.position);
-        if (dist < 5f)
-        {
-            _isFighting = true;
-        }
     }
 
     private void UpdateFight()
@@ -247,7 +220,14 @@ public class Livestock : MonoBehaviour
         Health -= amount;
         StartFlash();
         if (Health <= 0)
+        {
             Knockout();
+            return;
+        }
+        if (_behavior == BehaviorMode.Flee)
+            _isFleeing = true;
+        else if (_behavior == BehaviorMode.Fight && !_isFighting)
+            _isFighting = true;
     }
 
     private void Knockout()

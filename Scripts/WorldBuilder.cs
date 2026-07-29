@@ -682,14 +682,28 @@ public class WorldBuilder : MonoBehaviour
         float sunY = Mathf.Lerp(-180f, 180f, t);
         SunLight.transform.rotation = Quaternion.Euler(elevation, sunY, 0f);
 
+        if (hour >= 6f && hour < 17f)
+        {
+            SunLight.intensity = 2f;
+            SunLight.color = new Color(1f, 0.925f, 0.77f);
+
+            RenderSettings.ambientLight = new Color(0.5f, 0.7f, 1f);
+            RenderSettings.ambientIntensity = 0.8f;
+            RenderSettings.fog = false;
+            return;
+        }
+
         float dayFactor = Mathf.Clamp01((elevation + 10f) / 90f);
 
-        SunLight.intensity = Mathf.Lerp(0.05f, 1.2f, dayFactor);
+        SunLight.intensity = Mathf.Lerp(0.05f, 2f, dayFactor);
 
-        float warmFactor = 1f - Mathf.Abs(elevation - 25f) / 65f;
-        warmFactor = Mathf.Clamp01(warmFactor);
+        float warmFactor = 0f;
+        if (hour >= 5f && hour < 6f)
+            warmFactor = Mathf.InverseLerp(5f, 6f, hour);
+        else if (hour >= 17f && hour < 18f)
+            warmFactor = 1f - Mathf.InverseLerp(17f, 18f, hour);
         Color baseSunColor = Color.Lerp(
-            new Color(1f, 0.95f, 0.85f),
+            new Color(1f, 0.925f, 0.77f),
             new Color(1f, 0.5f, 0.15f),
             warmFactor);
         if (elevation < -5f)
@@ -4050,19 +4064,81 @@ GameObject treeRoot;
         vendorRoot.transform.SetParent(cart.Root.transform, false);
         vendorRoot.transform.localPosition = new Vector3(-halfW - 0.6f, floorY, 0f);
 
+        // Legs
+        var legL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        legL.transform.SetParent(vendorRoot.transform, false);
+        legL.transform.localScale = new Vector3(0.1f, 0.2f, 0.1f);
+        legL.transform.localPosition = new Vector3(-0.1f, -0.5f, 0f);
+        legL.GetComponent<Renderer>().material.color = new Color(0.3f, 0.2f, 0.1f);
+        Object.Destroy(legL.GetComponent<Collider>());
+
+        var legR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        legR.transform.SetParent(vendorRoot.transform, false);
+        legR.transform.localScale = new Vector3(0.1f, 0.2f, 0.1f);
+        legR.transform.localPosition = new Vector3(0.1f, -0.5f, 0f);
+        legR.GetComponent<Renderer>().material.color = new Color(0.3f, 0.2f, 0.1f);
+        Object.Destroy(legR.GetComponent<Collider>());
+
+        // Body
         var vendorBody = GameObject.CreatePrimitive(PrimitiveType.Cube);
         vendorBody.transform.SetParent(vendorRoot.transform, false);
-        vendorBody.transform.localScale = new Vector3(0.4f, 0.8f, 0.3f);
-        vendorBody.transform.localPosition = new Vector3(0f, 0.4f, 0f);
-        vendorBody.GetComponent<Renderer>().material.color = new Color(0.8f, 0.6f, 0.2f);
+        vendorBody.transform.localScale = new Vector3(0.4f, 0.4f, 0.25f);
+        vendorBody.transform.localPosition = new Vector3(0f, 0.2f, 0f);
+        vendorBody.GetComponent<Renderer>().material.color = new Color(0.5f, 0.6f, 0.3f);
         Object.Destroy(vendorBody.GetComponent<Collider>());
 
+        // Arms
+        var armL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        armL.transform.SetParent(vendorRoot.transform, false);
+        armL.transform.localScale = new Vector3(0.08f, 0.3f, 0.08f);
+        armL.transform.localPosition = new Vector3(-0.26f, 0.15f, 0f);
+        armL.GetComponent<Renderer>().material.color = new Color(0.9f, 0.7f, 0.5f);
+        Object.Destroy(armL.GetComponent<Collider>());
+
+        var armR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        armR.transform.SetParent(vendorRoot.transform, false);
+        armR.transform.localScale = new Vector3(0.08f, 0.3f, 0.08f);
+        armR.transform.localPosition = new Vector3(0.26f, 0.15f, 0f);
+        armR.GetComponent<Renderer>().material.color = new Color(0.9f, 0.7f, 0.5f);
+        Object.Destroy(armR.GetComponent<Collider>());
+
+        // Head
         var vendorHead = GameObject.CreatePrimitive(PrimitiveType.Cube);
         vendorHead.transform.SetParent(vendorRoot.transform, false);
-        vendorHead.transform.localScale = new Vector3(0.3f, 0.3f, 0.3f);
-        vendorHead.transform.localPosition = new Vector3(0f, 1f, 0f);
+        vendorHead.transform.localScale = new Vector3(0.25f, 0.25f, 0.25f);
+        vendorHead.transform.localPosition = new Vector3(0f, 0.55f, 0f);
         vendorHead.GetComponent<Renderer>().material.color = new Color(0.9f, 0.7f, 0.5f);
         Object.Destroy(vendorHead.GetComponent<Collider>());
+
+        // Hat
+        var hatBrim = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        hatBrim.transform.SetParent(vendorRoot.transform, false);
+        hatBrim.transform.localScale = new Vector3(0.35f, 0.03f, 0.35f);
+        hatBrim.transform.localPosition = new Vector3(0f, 0.7f, 0f);
+        hatBrim.GetComponent<Renderer>().material.color = new Color(0.4f, 0.2f, 0.1f);
+        Object.Destroy(hatBrim.GetComponent<Collider>());
+
+        var hatTop = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        hatTop.transform.SetParent(vendorRoot.transform, false);
+        hatTop.transform.localScale = new Vector3(0.2f, 0.08f, 0.2f);
+        hatTop.transform.localPosition = new Vector3(0f, 0.76f, 0f);
+        hatTop.GetComponent<Renderer>().material.color = new Color(0.4f, 0.2f, 0.1f);
+        Object.Destroy(hatTop.GetComponent<Collider>());
+
+        // Shop sign on roof
+        var signPole = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        signPole.transform.SetParent(modelRoot.transform, false);
+        signPole.transform.localScale = new Vector3(0.03f, 0.6f, 0.03f);
+        signPole.transform.localPosition = new Vector3(-1.5f, 2.3f, 0f);
+        signPole.GetComponent<Renderer>().material.color = new Color(0.3f, 0.3f, 0.3f);
+        Object.Destroy(signPole.GetComponent<Collider>());
+
+        var signBoard = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        signBoard.transform.SetParent(modelRoot.transform, false);
+        signBoard.transform.localScale = new Vector3(0.5f, 0.15f, 0.3f);
+        signBoard.transform.localPosition = new Vector3(-1.5f, 2.6f, 0f);
+        signBoard.GetComponent<Renderer>().material.color = new Color(0.9f, 0.8f, 0.1f);
+        Object.Destroy(signBoard.GetComponent<Collider>());
 
         var vendorCollider = vendorRoot.AddComponent<BoxCollider>();
         vendorCollider.size = new Vector3(0.5f, 1.5f, 0.5f);

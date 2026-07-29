@@ -31,6 +31,7 @@ public class GameManager : MonoBehaviour
             return;
         }
         Instance = this;
+        TimeSpeed = 0.01f;
         AutoStartGame = false;
     }
 

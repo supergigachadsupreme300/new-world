@@ -289,11 +289,11 @@ public class WifeNPC : MonoBehaviour
         var legL = new GameObject("LegL");
         legL.transform.SetParent(legsRoot.transform);
         legL.transform.localPosition = new Vector3(-0.12f, -0.3f, 0f);
-        MakeBlock("UpperLegL", legL.transform, new Vector3(0.1f, 0.18f, 0.1f), new Vector3(0f, 0.09f, 0f), skinC, true);
+        MakeBlock("UpperLegL", legL.transform, new Vector3(0.1f, 0.18f, 0.1f), new Vector3(0f, 0.05f, 0f), skinC, true);
         var lowerLegL = new GameObject("LowerLegL");
         lowerLegL.transform.SetParent(legL.transform);
         lowerLegL.transform.localPosition = new Vector3(0f, -0.1f, 0f);
-        MakeBlock("LowerLegBlockL", lowerLegL.transform, new Vector3(0.1f, 0.03f, 0.1f), new Vector3(0f, 0.015f, 0f), skinC, true);
+        MakeBlock("LowerLegBlockL", lowerLegL.transform, new Vector3(0.1f, 0.05f, 0.1f), new Vector3(0f, 0.015f, 0f), skinC, true);
         MakeBlock("CuffL",  lowerLegL.transform, new Vector3(0.16f, 0.05f, 0.22f), new Vector3(0f, -0.04f, 0f), bootTrimC, true);
         MakeBlock("BootL",  lowerLegL.transform, new Vector3(0.14f, 0.38f, 0.2f),  new Vector3(0f, -0.25f, 0f), bootC, true);
         MakeBlock("HeelL",  lowerLegL.transform, new Vector3(0.06f, 0.08f, 0.1f),  new Vector3(0f, -0.48f, 0.04f), bootC, true);
@@ -303,11 +303,11 @@ public class WifeNPC : MonoBehaviour
         var legR = new GameObject("LegR");
         legR.transform.SetParent(legsRoot.transform);
         legR.transform.localPosition = new Vector3(0.12f, -0.3f, 0f);
-        MakeBlock("UpperLegR", legR.transform, new Vector3(0.1f, 0.18f, 0.1f), new Vector3(0f, 0.09f, 0f), skinC, true);
+        MakeBlock("UpperLegR", legR.transform, new Vector3(0.1f, 0.18f, 0.1f), new Vector3(0f, 0.05f, 0f), skinC, true);
         var lowerLegR = new GameObject("LowerLegR");
         lowerLegR.transform.SetParent(legR.transform);
         lowerLegR.transform.localPosition = new Vector3(0f, -0.1f, 0f);
-        MakeBlock("LowerLegBlockR", lowerLegR.transform, new Vector3(0.1f, 0.03f, 0.1f), new Vector3(0f, 0.015f, 0f), skinC, true);
+        MakeBlock("LowerLegBlockR", lowerLegR.transform, new Vector3(0.1f, 0.05f, 0.1f), new Vector3(0f, 0.015f, 0f), skinC, true);
         MakeBlock("CuffR",  lowerLegR.transform, new Vector3(0.16f, 0.05f, 0.22f), new Vector3(0f, -0.04f, 0f), bootTrimC, true);
         MakeBlock("BootR",  lowerLegR.transform, new Vector3(0.14f, 0.38f, 0.2f),  new Vector3(0f, -0.25f, 0f), bootC, true);
         MakeBlock("HeelR",  lowerLegR.transform, new Vector3(0.06f, 0.08f, 0.1f),  new Vector3(0f, -0.48f, 0.04f), bootC, true);

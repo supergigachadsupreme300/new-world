@@ -10,8 +10,8 @@ public class RandomEventManager : MonoBehaviour
     public static RandomEventManager Instance { get; private set; }
 
     private float _autoTimer;
-    private float _autoMin = 600f;
-    private float _autoMax = 900f;
+    private float _autoMin = 100f;
+    private float _autoMax = 200f;
 
     private readonly Dictionary<string, float> _cooldowns = new Dictionary<string, float>();
     private bool _eventInProgress;
@@ -132,6 +132,7 @@ public class RandomEventManager : MonoBehaviour
             Tier = 0,
             Weight = 4f,
             Cooldown = 600f,
+            NightOnly = true,
             Effect = EffectStrangeNoises
         });
         _events.Add(new RandomEvent
@@ -170,6 +171,15 @@ public class RandomEventManager : MonoBehaviour
             Cooldown = 600f,
             Effect = EffectStaminaDrain
         });
+        _events.Add(new RandomEvent
+        {
+            Name = "Thương Nhân Lang Thang",
+            Description = "Một thương nhân đã xuất hiện trên đường!",
+            Tier = 0,
+            Weight = 2f,
+            Cooldown = 1200f,
+            Effect = EffectWanderingMerchant
+        });
 
         // ADVANCED (Quest 2: Slay monsters)
         _events.Add(new RandomEvent
@@ -179,6 +189,7 @@ public class RandomEventManager : MonoBehaviour
             Tier = 1,
             Weight = 2f,
             Cooldown = 1500f,
+            NightOnly = true,
             Effect = EffectEnemyRaid
         });
         _events.Add(new RandomEvent
@@ -201,15 +212,6 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Thương Nhân Lang Thang",
-            Description = "Một thương nhân đã xuất hiện trên đường!",
-            Tier = 1,
-            Weight = 3f,
-            Cooldown = 1200f,
-            Effect = EffectWanderingMerchant
-        });
-        _events.Add(new RandomEvent
-        {
             Name = "Thị Trường Sụp Đổ",
             Description = "Thị trường sụp đổ! Giá bán giảm một nửa!",
             Tier = 1,
@@ -225,15 +227,6 @@ public class RandomEventManager : MonoBehaviour
             Weight = 2f,
             Cooldown = 1800f,
             Effect = EffectPriceSpike
-        });
-        _events.Add(new RandomEvent
-        {
-            Name = "Cướp Phục Kích",
-            Description = "Cướp bao vây bạn!",
-            Tier = 1,
-            Weight = 2f,
-            Cooldown = 1500f,
-            Effect = EffectBanditAmbush
         });
         _events.Add(new RandomEvent
         {
@@ -262,16 +255,6 @@ public class RandomEventManager : MonoBehaviour
             Cooldown = 1800f,
             Effect = EffectTradeRoute
         });
-        _events.Add(new RandomEvent
-        {
-            Name = "Chuột Cắn",
-            Description = "Chuột xuất hiện gần ruộng của bạn!",
-            Tier = 1,
-            Weight = 2f,
-            Cooldown = 1200f,
-            Effect = EffectRatInfestation
-        });
-
         // RARE (Quest 3: Earn coins)
         _events.Add(new RandomEvent
         {
@@ -280,6 +263,7 @@ public class RandomEventManager : MonoBehaviour
             Tier = 2,
             Weight = 1f,
             Cooldown = 2400f,
+            NightOnly = true,
             Effect = EffectGiantEnemy
         });
         _events.Add(new RandomEvent
@@ -289,6 +273,7 @@ public class RandomEventManager : MonoBehaviour
             Tier = 2,
             Weight = 1f,
             Cooldown = 2400f,
+            NightOnly = true,
             Effect = EffectSwarmAttack
         });
         _events.Add(new RandomEvent
@@ -416,6 +401,12 @@ public class RandomEventManager : MonoBehaviour
         {
             if (e.Tier > questTier) continue;
             if (_cooldowns.ContainsKey(e.Name) && Time.time < _cooldowns[e.Name]) continue;
+            if (e.NightOnly)
+            {
+                float hour = GameManager.Instance != null ? GameManager.Instance.TimeOfDay : 12f;
+                bool isNight = hour >= 18f || hour < 6f;
+                if (!isNight) continue;
+            }
             eligible.Add(e);
         }
 
@@ -601,7 +592,8 @@ public class RandomEventManager : MonoBehaviour
     {
         Vector3 playerPos = GetPlayerPos();
         var root = GetWorldRoot();
-        for (int i = 0; i < 2; i++)
+        Mob.MobType[] types = new[] { Mob.MobType.Mouse, Mob.MobType.Crab, Mob.MobType.Mouse, Mob.MobType.Crab };
+        for (int i = 0; i < 4; i++)
         {
             Vector3 offset = UnityEngine.Random.insideUnitSphere * 8f;
             offset.y = 0f;
@@ -612,7 +604,7 @@ public class RandomEventManager : MonoBehaviour
             go.transform.SetParent(root);
             go.transform.position = spawnPos;
             var mob = go.AddComponent<Mob>();
-            mob.Type = UnityEngine.Random.value > 0.5f ? Mob.MobType.Mouse : Mob.MobType.Crab;
+            mob.Type = types[i];
         }
     }
 
@@ -826,10 +818,10 @@ public class RandomEventManager : MonoBehaviour
     {
         Vector3 playerPos = GetPlayerPos();
         var root = GetWorldRoot();
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 6; i++)
         {
-            Vector3 offset = UnityEngine.Random.insideUnitSphere * 12f;
-            offset.y = 0f;
+            float angle = (i / 6f) * Mathf.PI * 2f;
+            Vector3 offset = new Vector3(Mathf.Cos(angle) * 10f, 0f, Mathf.Sin(angle) * 10f);
             SpawnEnemy(playerPos + offset, root);
         }
     }
@@ -1009,18 +1001,6 @@ public class RandomEventManager : MonoBehaviour
         vendor.ResetSellPrices();
     }
 
-    private void EffectBanditAmbush()
-    {
-        Vector3 playerPos = GetPlayerPos();
-        var root = GetWorldRoot();
-        for (int i = 0; i < 6; i++)
-        {
-            float angle = (i / 6f) * Mathf.PI * 2f;
-            Vector3 offset = new Vector3(Mathf.Cos(angle) * 10f, 0f, Mathf.Sin(angle) * 10f);
-            SpawnEnemy(playerPos + offset, root);
-        }
-    }
-
     private void EffectRainbow()
     {
         StartCoroutine(RainbowEffect());
@@ -1169,25 +1149,6 @@ public class RandomEventManager : MonoBehaviour
         vendor.ResetBuyPrices();
     }
 
-    private void EffectRatInfestation()
-    {
-        Vector3 playerPos = GetPlayerPos();
-        var root = GetWorldRoot();
-        for (int i = 0; i < 3; i++)
-        {
-            Vector3 offset = UnityEngine.Random.insideUnitSphere * 6f;
-            offset.y = 0f;
-            Vector3 spawnPos = playerPos + offset;
-            spawnPos.y = 0.5f;
-
-            var go = new GameObject("Mob_Rat_" + i);
-            go.transform.SetParent(root);
-            go.transform.position = spawnPos;
-            var mob = go.AddComponent<Mob>();
-            mob.Type = Mob.MobType.Mouse;
-        }
-    }
-
     // ═══════════════════════════════════════════════
     //  EVENT EFFECTS — RARE
     // ═══════════════════════════════════════════════
@@ -1270,7 +1231,7 @@ public class RandomEventManager : MonoBehaviour
 
     private IEnumerator FireworksEffect()
     {
-        yield return FireworksEffect(GetPlayerPos(), GetWorldRoot(), 10).GetEnumerator();
+        yield return FireworksEffect(GetPlayerPos(), GetWorldRoot(), 10);
     }
 
     private IEnumerator FireworksEffect(Vector3 center, Transform parent, int totalBursts)
@@ -1294,7 +1255,12 @@ public class RandomEventManager : MonoBehaviour
                 spark.transform.localScale = new Vector3(sz, sz, sz);
                 var sr = spark.GetComponent<Renderer>();
                 Color sparkColor = UnityEngine.Random.value > 0.5f ? baseColor : Color.HSVToRGB(UnityEngine.Random.Range(0f, 1f), 1f, 1f);
-                if (sr != null) sr.material.color = sparkColor;
+                if (sr != null)
+                {
+                    sr.material.color = sparkColor;
+                    sr.material.EnableKeyword("_EMISSION");
+                    sr.material.SetColor("_EmissionColor", sparkColor * 0.4f);
+                }
                 var sc = spark.GetComponent<Collider>();
                 if (sc != null) Destroy(sc);
 
@@ -1339,6 +1305,7 @@ public class RandomEventManager : MonoBehaviour
                 Color c = color * fade;
                 c.a = 1f;
                 rend.material.color = c;
+                rend.material.SetColor("_EmissionColor", c * 0.4f);
             }
             float s = Mathf.Lerp(1f, 0.2f, t);
             if (spark != null)
@@ -1417,6 +1384,7 @@ public class RandomEventManager : MonoBehaviour
         public int Tier;
         public float Weight;
         public float Cooldown;
+        public bool NightOnly;
         public Action Effect;
     }
 
