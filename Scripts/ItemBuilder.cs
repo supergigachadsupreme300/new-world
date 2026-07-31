@@ -66,6 +66,11 @@ public static class ItemBuilder
             case "club": BuildClub(parent); break;
             case "cage_big": BuildCageBig(parent); break;
             case "cage_small": BuildCageSmall(parent); break;
+            case "fishing_rod": BuildFishingRod(parent); break;
+            case "fish_carp": BuildFishPickup(parent, new Color(1f, 0.7f, 0.2f)); break;
+            case "fish_salmon": BuildFishPickup(parent, new Color(1f, 0.5f, 0.4f)); break;
+            case "fish_tuna": BuildFishPickup(parent, new Color(0.3f, 0.3f, 0.5f)); break;
+            case "fish_pufferfish": BuildFishPickup(parent, new Color(0.6f, 0.8f, 0.3f)); break;
         }
     }
 
@@ -207,7 +212,7 @@ public static class ItemBuilder
     {
         CreatePickupCube(parent, new Vector3(0f, 0.2f, 0f), new Vector3(0.3f, 0.1f, 0.3f), Color.red);
     }
-
+    
     public static void BuildWateringCan(Transform parent)
     {
         Color metalC = new Color(0.4f, 0.5f, 0.6f);
@@ -423,5 +428,22 @@ public static class ItemBuilder
         CreatePickupCube(parent, new Vector3(doorW * 0.5f + dpw * 1.2f, ft + doorH + ft * 0.3f, doorZ), new Vector3(ft * 0.7f, ft * 1.5f, ft * 0.7f), springCol);
 
         CreatePickupCube(parent, new Vector3(0f, ft + mt, d * 0.33f), new Vector3(doorW * 0.4f, mt, doorW * 0.28f), new Color(0.42f, 0.38f, 0.28f));
+    }
+
+    public static void BuildFishingRod(Transform parent)
+    {
+        Color rodC = new Color(0.5f, 0.3f, 0.08f);
+        Color lineC = new Color(0.8f, 0.8f, 0.1f);
+        Color hookC = new Color(0.6f, 0.6f, 0.6f);
+
+        CreatePickupCube(parent, new Vector3(0f, 0.45f, 0f), new Vector3(0.08f, 0.9f, 0.08f), rodC);
+        CreatePickupCube(parent, new Vector3(0.12f, -0.1f, 0f), new Vector3(0.03f, 0.5f, 0.03f), lineC);
+        CreatePickupSphere(parent, new Vector3(0.14f, -0.38f, 0f), 0.09f, hookC);
+    }
+
+    public static void BuildFishPickup(Transform parent, Color bodyColor)
+    {
+        CreatePickupSphere(parent, new Vector3(0f, 0.06f, 0f), 0.12f, bodyColor, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.16f, 0f), new Vector3(0.02f, 0.06f, 0.02f), new Color(0.7f, 0.7f, 0.7f), false);
     }
 }

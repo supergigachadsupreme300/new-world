@@ -302,6 +302,18 @@ public class GameManager : MonoBehaviour
             WorldBuilder.SetDayNight(TimeOfDay);
     }
 
+    public void AdvanceTime(float hours)
+    {
+        TimeOfDay += hours;
+        while (TimeOfDay >= 24f)
+        {
+            TimeOfDay -= 24f;
+            CurrentDay++;
+        }
+        SetTimeOfDay(TimeOfDay);
+        UpdateTimeUI();
+    }
+
     public void UpdateTimeUI()
     {
         if (UIManager != null)

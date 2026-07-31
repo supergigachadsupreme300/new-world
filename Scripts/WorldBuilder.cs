@@ -759,7 +759,7 @@ public class WorldBuilder : MonoBehaviour
     private void SpawnToolPickups()
     {
         var seeds = new[] { "wheat_seed", "corn_seed", "carrot_seed", "tomato_seed", "strawberry_seed", "pumpkin_seed", "onion_seed", "sugarcane_seed", "rice_seed", "peashooter_seed", "fertilizer", "mobspawner" };
-        var tools = new[] { "axe", "pickaxe", "hoe", "hammer", "scythe", "watering_can" };
+        var tools = new[] { "axe", "pickaxe", "hoe", "hammer", "scythe", "watering_can", "fishing_rod" };
         var harvested = new[] { "wheat", "corn", "potato", "carrot", "tomato", "strawberry", "pumpkin", "onion", "sugarcane", "rice", "club", "cage_big", "cage_small" };
 
         float baseX = 50f;
@@ -775,7 +775,8 @@ public class WorldBuilder : MonoBehaviour
         for (int i = 0; i < tools.Length; i++)
         {
             int col = i % 6;
-            CreateToolPickup(tools[i], new Vector3(baseX + col * step, 0.5f, -60f));
+            int row = i / 6;
+            CreateToolPickup(tools[i], new Vector3(baseX + col * step, 0.5f, -60f - row * step));
         }
 
         for (int i = 0; i < harvested.Length; i++)
@@ -3504,8 +3505,17 @@ GameObject treeRoot;
         MakeBlock("Sand", _worldRoot.transform, new Vector3(sandW, 0.02f, sandD),
             new Vector3(beachX, 0f, 0f), sandC, false, true);
 
-        MakeBlock("Sea", _worldRoot.transform, new Vector3(240f, 0.06f, sandD),
-            new Vector3(beachX - sandW * 0.5f - 120f, 0.03f, 0f), seaC, false, true);
+        var seaBlock = MakeBlock("Sea", _worldRoot.transform, new Vector3(240f, 0.06f, sandD),
+            new Vector3(beachX - sandW * 0.5f - 120f, 0.03f, 0f), seaC, true, false);
+
+        float seaZ = beachX - sandW * 0.5f - 120f;
+        var waterVol = new GameObject("SeaWater");
+        waterVol.transform.SetParent(_worldRoot.transform);
+        waterVol.transform.localPosition = new Vector3(seaZ, 1.5f, 0f);
+        var wc = waterVol.AddComponent<BoxCollider>();
+        wc.size = new Vector3(240f, 4f, sandD);
+        wc.isTrigger = true;
+        waterVol.AddComponent<WaterVolume>();
 
         int numTrees = 100;
         for (int i = 0; i < numTrees; i++)
@@ -3609,12 +3619,12 @@ GameObject treeRoot;
     {
         bool isOpen = _openDoors.Contains(door);
         float start = door.transform.localRotation.eulerAngles.y;
-        float end = isOpen ? 0f : 90f;
+        float end = isOpen ? 0f : -90f;
         float t = 0f;
         while (t < 1f)
         {
             t += Time.deltaTime * 3f;
-            float angle = Mathf.Lerp(start, end, t);
+            float angle = Mathf.LerpAngle(start, end, t);
             door.transform.localRotation = Quaternion.Euler(0f, angle, 0f);
             yield return null;
         }

@@ -531,9 +531,35 @@ public static class MapBuilder
         MakeBlock("PorchColumn", root.transform, new Vector3(0.24f, 4.05f, 0.24f),
             new Vector3(6.12f, 2f, 1.8f), frameC, true);
 
+        // ── Swinging door ──
+        var doorPivot = new GameObject("Door");
+        doorPivot.transform.SetParent(root.transform);
+        doorPivot.transform.localPosition = new Vector3(5.03f, 2f, -1.55f);
+        var doorPanel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        doorPanel.name = "DoorPanel";
+        doorPanel.transform.SetParent(doorPivot.transform);
+        doorPanel.transform.localPosition = new Vector3(1.5f, 0f, 0f);
+        doorPanel.transform.localScale = new Vector3(3f, 4f, 0.3f);
+        doorPanel.GetComponent<MeshRenderer>().material.color = frameC;
+        doorPanel.AddComponent<BoxCollider>();
+
+        // ── Furniture ──
+        var sofaC = new Color(0.4f, 0.55f, 0.35f);
+        MakeBlock("Sofa", root.transform, new Vector3(2.5f, 0.8f, 1f),
+            new Vector3(-2f, 0.5f, 2f), sofaC, true);
+        MakeBlock("SofaBack", root.transform, new Vector3(2.5f, 0.5f, 0.15f),
+            new Vector3(-2f, 0.8f, 2.6f), sofaC, true);
+        MakeBlock("Table", root.transform, new Vector3(1.2f, 0.4f, 0.8f),
+            new Vector3(-2f, 0.25f, 0f), frameC, true);
+        MakeBlock("Chair", root.transform, new Vector3(0.8f, 0.7f, 0.8f),
+            new Vector3(-3f, 0.5f, -2.5f), frameC, true);
+
         // ── Bed ──
         var bed = MakeBlock("Bed", root.transform, new Vector3(2.8f, 0.5f, 1.8f),
             new Vector3(1.2f, 0.5f, -1.8f), new Color(0.608f, 0.216f, 0.216f), true);
+        var bedTrigger = bed.AddComponent<BoxCollider>();
+        bedTrigger.isTrigger = true;
+        bedTrigger.size = new Vector3(1f, 1f, 1f);
         MakeBlock("BedPillow", bed.transform, new Vector3(0.2f, 0.5f, 0.4f),
             new Vector3(-0.4f, 0.7f, 0f), Color.white, true);
         MakeBlock("Headboard", bed.transform, new Vector3(0.1f, 2.2f, 1f),
@@ -789,6 +815,18 @@ public static class MapBuilder
             new Vector3(-7.04f, 2.25f, 1.6f), frameC, true);
         MakeBlock("DoorLintel", root.transform, new Vector3(0.3f, 0.35f, 3.5f),
             new Vector3(-7.04f, 4.75f, 0f), frameC, true);
+
+        // ── Swinging door ──
+        var wifeDoorPivot = new GameObject("Door");
+        wifeDoorPivot.transform.SetParent(root.transform);
+        wifeDoorPivot.transform.localPosition = new Vector3(-7.04f, 2.25f, -1.6f);
+        var wifeDoorPanel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        wifeDoorPanel.name = "DoorPanel";
+        wifeDoorPanel.transform.SetParent(wifeDoorPivot.transform);
+        wifeDoorPanel.transform.localPosition = new Vector3(1.5f, 0f, 0f);
+        wifeDoorPanel.transform.localScale = new Vector3(3f, 4.5f, 0.3f);
+        wifeDoorPanel.GetComponent<MeshRenderer>().material.color = wallC;
+        wifeDoorPanel.AddComponent<BoxCollider>();
 
         // ── Balcony (at -X, 2F) ──
         float balcY = h1 + 0.25f;

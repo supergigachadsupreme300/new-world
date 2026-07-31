@@ -943,12 +943,35 @@ public class RandomEventManager : MonoBehaviour
         var tornado = MapBuilder.BuildTornado(root, playerPos + new Vector3(0f, 0f, 5f));
         Destroy(tornado, 30f);
 
+        var tb = tornado.GetComponent<TornadoBehavior>();
+
         for (int i = 0; i < 3 && buildings.Count > 0; i++)
         {
             int idx = UnityEngine.Random.Range(0, buildings.Count);
             var b = buildings[idx];
             buildings.RemoveAt(idx);
             wb.DamageBuildingDirect(b, Mathf.Max(1, b.MaxHealth / 3));
+
+            if (tb == null) continue;
+
+            Color debrisColor = GetBuildingDebrisColor(b.Type);
+            int debrisCount = UnityEngine.Random.Range(3, 6);
+            for (int j = 0; j < debrisCount; j++)
+            {
+                float s = UnityEngine.Random.Range(0.3f, 0.8f);
+                tb.AddDebrisBlock(Vector3.one * s, debrisColor);
+            }
+        }
+    }
+
+    private Color GetBuildingDebrisColor(string type)
+    {
+        switch (type)
+        {
+            case "PlayerHouse": return new Color(0.63f, 0.39f, 0.18f);
+            case "WifeHouse": return new Color(0.522f, 0.337f, 0.18f);
+            case "Shop": return new Color(0.58f, 0.361f, 0.165f);
+            default: return new Color(0.35f, 0.32f, 0.28f);
         }
     }
 

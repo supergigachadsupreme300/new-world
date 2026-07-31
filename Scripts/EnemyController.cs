@@ -37,6 +37,18 @@ public class EnemyController : MonoBehaviour
     private bool _isMoving;
     private bool _isAttacking;
 
+    private GameObject _structureTarget;
+    private float _stuckTimer;
+    private float _structureAttackTimer;
+    private float _structureCheckTimer;
+    private Vector3 _lastChasePos;
+    private bool _hasChasePos;
+
+    private const float STUCK_THRESHOLD = 4f;
+    private const float STRUCTURE_ATTACK_COOLDOWN = 2f;
+    private const float STRUCTURE_SEARCH_RANGE = 5f;
+    private const float STUCK_MOVEMENT_FACTOR = 0.3f;
+
     private void Awake()
     {
         _health = MaxHealth;
@@ -124,21 +136,32 @@ public class EnemyController : MonoBehaviour
         float distance = Vector3.Distance(transform.position, _player.position);
 
         _isAttacking = false;
-        if (distance <= ChaseRange)
+        _isMoving = false;
+
+        if (_structureTarget != null)
+        {
+            HandleStructureAttack(distance);
+        }
+        else if (distance <= ChaseRange)
         {
             if (distance <= AttackRange)
             {
+                _stuckTimer = 0f;
+                _hasChasePos = false;
                 _isAttacking = true;
                 Attack();
             }
             else
             {
                 FollowPlayer();
+                TrackStuck();
             }
         }
         else
         {
             Patrol();
+            _stuckTimer = 0f;
+            _hasChasePos = false;
         }
 
         AnimateModel();
@@ -257,7 +280,21 @@ public class EnemyController : MonoBehaviour
 
     private void FollowPlayer()
     {
-        transform.position = Vector3.MoveTowards(transform.position, _player.position, MoveSpeed * Time.deltaTime);
+        Vector3 dir = (_player.position - transform.position).normalized;
+        float step = MoveSpeed * Time.deltaTime;
+        Vector3 origin = transform.position + Vector3.up * 0.9f;
+
+        if (Physics.Raycast(origin, dir, out var hit, step + 0.5f))
+        {
+            var wb = WorldBuilder.Instance;
+            if (wb != null && wb.FindBuilding(hit.collider.gameObject) != null)
+            {
+                _isMoving = false;
+                return;
+            }
+        }
+
+        transform.position = Vector3.MoveTowards(transform.position, _player.position, step);
         transform.LookAt(_player);
         _isMoving = true;
     }
@@ -274,6 +311,141 @@ public class EnemyController : MonoBehaviour
         {
             player.TakeDamage(Damage);
             Debug.Log($"Enemy hit player for {Damage}");
+        }
+    }
+
+    private void TrackStuck()
+    {
+        if (_hasChasePos)
+        {
+            float moved = Vector3.Distance(transform.position, _lastChasePos);
+            float expected = MoveSpeed * Time.deltaTime;
+            if (moved < expected * STUCK_MOVEMENT_FACTOR)
+                _stuckTimer += Time.deltaTime;
+            else
+                _stuckTimer = Mathf.Max(0f, _stuckTimer - Time.deltaTime * 0.5f);
+        }
+        _lastChasePos = transform.position;
+        _hasChasePos = true;
+
+        if (_stuckTimer >= STUCK_THRESHOLD)
+        {
+            FindNearestStructure();
+        }
+    }
+
+    private void HandleStructureAttack(float playerDistance)
+    {
+        _structureCheckTimer += Time.deltaTime;
+        if (_structureCheckTimer >= 2f)
+        {
+            _structureCheckTimer = 0f;
+            if (playerDistance <= ChaseRange)
+            {
+                _structureTarget = null;
+                _stuckTimer = 0f;
+                _hasChasePos = false;
+                return;
+            }
+        }
+
+        if (_structureTarget == null)
+        {
+            FindNearestStructure();
+            return;
+        }
+
+        float structDist = Vector3.Distance(transform.position, _structureTarget.transform.position);
+
+        if (structDist <= AttackRange)
+        {
+            _structureAttackTimer += Time.deltaTime;
+            if (_structureAttackTimer >= STRUCTURE_ATTACK_COOLDOWN)
+            {
+                AttackStructure();
+                _structureAttackTimer = 0f;
+            }
+            _isAttacking = true;
+        }
+        else
+        {
+            transform.position = Vector3.MoveTowards(transform.position, _structureTarget.transform.position, MoveSpeed * Time.deltaTime);
+            transform.LookAt(_structureTarget.transform.position);
+            _isMoving = true;
+        }
+    }
+
+    private void FindNearestStructure()
+    {
+        var wb = WorldBuilder.Instance;
+        if (wb == null) return;
+
+        Collider[] hits = Physics.OverlapSphere(transform.position, STRUCTURE_SEARCH_RANGE);
+        GameObject closest = null;
+        float closestDist = float.MaxValue;
+
+        foreach (var col in hits)
+        {
+            var building = wb.FindBuilding(col.gameObject);
+            if (building == null) continue;
+            if (building.PartStates == null || building.PartStates.Count == 0) continue;
+
+            // Find the specific part entity for this collider
+            GameObject partEntity = null;
+            foreach (var ps in building.PartStates)
+            {
+                if (ps.Entity == null) continue;
+                if (col.gameObject == ps.Entity || (col.transform.parent != null && col.transform.parent.gameObject == ps.Entity))
+                {
+                    partEntity = ps.Entity;
+                    break;
+                }
+            }
+            if (partEntity == null) continue;
+
+            float d = Vector3.Distance(transform.position, partEntity.transform.position);
+            if (d < closestDist)
+            {
+                closestDist = d;
+                closest = partEntity;
+            }
+        }
+
+        _structureTarget = closest;
+        _stuckTimer = 0f;
+        _structureAttackTimer = 0f;
+        _structureCheckTimer = 0f;
+    }
+
+    private void AttackStructure()
+    {
+        if (_structureTarget == null) return;
+        var wb = WorldBuilder.Instance;
+        if (wb == null) return;
+
+        wb.DamageBuilding(_structureTarget);
+        Debug.Log($"Enemy attacked structure: {_structureTarget.name}");
+
+        // If the target was destroyed, find a new one
+        var building = wb.FindBuilding(_structureTarget);
+        if (building == null || building.DestroyedParts >= building.TotalParts)
+        {
+            _structureTarget = null;
+        }
+        else
+        {
+            // Check if the specific part still exists
+            bool stillAlive = false;
+            foreach (var ps in building.PartStates)
+            {
+                if (ps.Entity == _structureTarget)
+                {
+                    stillAlive = true;
+                    break;
+                }
+            }
+            if (!stillAlive)
+                _structureTarget = null;
         }
     }
 

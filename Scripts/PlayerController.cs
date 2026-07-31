@@ -13,10 +13,12 @@ public class PlayerController : MonoBehaviour
     public int MaxHP = 100;
     public float Stamina = 1000f;
     public float MaxStamina = 1000f;
-    public float StaminaRegenRate = 25f;
+    public float StaminaRegenRate = 4f;
     public float SprintCost = 35f;
     public long Money = 10000000000;
     public bool IgnoreInput { get; private set; }
+
+    public bool InWater { get; private set; }
 
     private CharacterController _controller;
     private Vector3 _velocity;
@@ -25,6 +27,15 @@ public class PlayerController : MonoBehaviour
     private float _pitch;
     private const float MouseSensitivity = 2.5f;
     private GameObject _playerModelInstance;
+    private float _waterSpeedMul = 1f;
+    private bool _waterAllowJump = true;
+
+    public void SetInWater(bool inWater, float speedMul, bool allowJump)
+    {
+        InWater = inWater;
+        _waterSpeedMul = inWater ? speedMul : 1f;
+        _waterAllowJump = inWater ? allowJump : true;
+    }
 
     private void Awake()
     {
@@ -72,6 +83,7 @@ public class PlayerController : MonoBehaviour
 
     private void Start()
     {
+        StaminaRegenRate = 4f;
         ResetPlayer();
         // Allow developer to enable input automatically for quick testing.
         EnableInput(AutoEnableInput);
@@ -160,8 +172,9 @@ public class PlayerController : MonoBehaviour
         if (direction.magnitude > 1f)
             direction.Normalize();
 
-        bool sprint = Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed && Stamina > 0f && direction.magnitude > 0f;
-        float speed = MoveSpeed * (sprint ? SprintMultiplier : 1f);
+        bool canSprint = !InWater;
+        bool sprint = canSprint && Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed && Stamina > 0f && direction.magnitude > 0f;
+        float speed = MoveSpeed * _waterSpeedMul * (sprint ? SprintMultiplier : 1f);
 
         if (_controller != null)
         {
@@ -172,7 +185,7 @@ public class PlayerController : MonoBehaviour
                 if (_velocity.y < 0f)
                     _velocity.y = -1f;
 
-                if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
+                if (_waterAllowJump && Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
                 {
                     _velocity.y = Mathf.Sqrt(JumpHeight * -2f * Gravity);
                 }
@@ -195,6 +208,7 @@ public class PlayerController : MonoBehaviour
         if (Keyboard.current == null || !Keyboard.current.leftShiftKey.isPressed || _controller == null || !_controller.isGrounded)
         {
             Stamina = Mathf.Min(MaxStamina, Stamina + StaminaRegenRate * Time.deltaTime);
+            HP = Mathf.Min(MaxHP, HP + Mathf.RoundToInt(2f * (Stamina / MaxStamina) * Time.deltaTime));
         }
     }
 
@@ -220,17 +234,39 @@ public class PlayerController : MonoBehaviour
             if (cam != null && wb != null)
             {
                 var ray = new Ray(cam.transform.position, cam.transform.forward);
-                if (Physics.Raycast(ray, out var hit, 4f))
+                if (Physics.Raycast(ray, out var hit, 4f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
                 {
                     if (hit.collider.transform.name == "WifeNpc")
                     {
-                        WifeNPC.Instance?.Interact();
+                        if (WifeNPC.Instance != null && !WifeNPC.Instance.IsDialogActive)
+                            WifeNPC.Instance.Interact();
+                        QuestManager.Instance?.AddProgress("greet", 1);
+                        return;
+                    }
+                    if (hit.collider.transform.name == "Bed")
+                    {
+                        var sleep = Object.FindAnyObjectByType<SleepManager>();
+                        if (sleep == null)
+                        {
+                            var go = new GameObject("SleepManager");
+                            sleep = go.AddComponent<SleepManager>();
+                            sleep.Initialize();
+                        }
+                        sleep.Open();
                         return;
                     }
                     if (wb.TryToggleDoor(hit)) return;
                 }
             }
             ToolManager.Instance?.TryPickupNearby();
+        }
+        if (Keyboard.current.gKey.wasPressedThisFrame)
+        {
+            var npcGO = GameObject.Find("WifeNpc");
+            if (npcGO != null && Vector3.Distance(transform.position, npcGO.transform.position) < 6f)
+            {
+                WifeNPC.Instance?.InviteToHouse();
+            }
         }
         if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
             ToolManager.Instance?.UseSelectedItem();
@@ -253,6 +289,7 @@ public class PlayerController : MonoBehaviour
                             shop.Initialize();
                         }
                         shop.Open();
+                        QuestManager.Instance?.AddProgress("greet", 1);
                         return;
                     }
 

@@ -440,6 +440,18 @@ public class ToolManager : MonoBehaviour
             return;
         }
 
+        if (selectedItem == "fishing_rod")
+        {
+            var fc = Object.FindAnyObjectByType<FishingController>();
+            if (fc == null)
+            {
+                var fGo = new GameObject("FishingController");
+                fc = fGo.AddComponent<FishingController>();
+            }
+            fc.TryStartFishing();
+            return;
+        }
+
         // Consume stamina + play swing animation for any tool/item use
         if (selectedItem != null && !TryUseTool(player))
             return;
@@ -1363,6 +1375,7 @@ public class ToolManager : MonoBehaviour
         CreateToolModel("club", new Color(0.5f, 0.25f, 0.05f));
         CreateToolModel("cage_big", new Color(0.5f, 0.5f, 0.55f));
         CreateToolModel("cage_small", new Color(0.55f, 0.55f, 0.6f));
+        CreateToolModel("fishing_rod", new Color(0.5f, 0.3f, 0.08f));
     }
 
     private void CreateToolModel(string toolType, Color color)

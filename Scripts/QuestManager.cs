@@ -84,8 +84,7 @@ public class QuestManager : MonoBehaviour
 
     private void AddStoryQuestsForDay(int day)
     {
-        if (day >= 1) AddIfMissing(CreateStoryQuest("Chào Mừng Đến Nông Trại", "wheat", 10, 50, "Gieo và thu hoạch 10 lúa mì để bắt đầu.", 1));
-        if (day >= 1) AddIfMissing(CreateStoryQuest("Xây Dựng Dinh Thự", "mansion", 25, 5000, "Đặt 25 vật liệu vào bản thiết kế dinh thự phía bắc nhà bạn.", 1));
+        if (day >= 1) AddIfMissing(CreateStoryQuest("Chào Hỏi Hàng Xóm", "greet", 2, 0, "Nói chuyện với Buffalo và Jessica để làm quen với hàng xóm.", 1));
         if (day >= 3) AddIfMissing(CreateStoryQuest("Mùa Thu Đầu Tiên", "wheat", 50, 150, "Thu hoạch 50 lúa mì để trở thành nông dân thực thụ.", 3));
         if (day >= 5) AddIfMissing(CreateStoryQuest("Bảo Vệ Đất", "enemies", 10, 300, "Diệt 10 kẻ thù để bảo vệ nông trại.", 5));
         if (day >= 8) AddIfMissing(CreateStoryQuest("Bàn Tay Xanh", "wheat", 150, 400, "Thu hoạch 150 lúa mì để chứng minh tài năng.", 8));
@@ -179,8 +178,6 @@ public class QuestManager : MonoBehaviour
 
         if (anyJustCompleted)
             AwardCompleted();
-        if (AllMainQuestsCompleted())
-            GameManager.Instance?.RequestHappyEnding();
     }
 
     private void AwardCompleted()
@@ -218,22 +215,6 @@ public class QuestManager : MonoBehaviour
     public List<QuestSave> GetQuestSaves()
     {
         return new List<QuestSave>(_quests);
-    }
-
-    private bool AllMainQuestsCompleted()
-    {
-        foreach (var quest in _quests)
-        {
-            if (quest.QuestType == "story" && !quest.Completed)
-                return false;
-        }
-        bool anyStory = false;
-        foreach (var quest in _quests)
-        {
-            if (quest.QuestType == "story")
-                anyStory = true;
-        }
-        return anyStory;
     }
 
     private QuestSave CreateStoryQuest(string name, string target, int count, int reward, string description, int requiredDay)
@@ -300,6 +281,43 @@ public class QuestManager : MonoBehaviour
     {
         AddIfMissing(timedQuest);
         UpdateQuestUI();
+    }
+
+    public void AddStoryQuest(string name, string target, int count, int reward, string description)
+    {
+        AddIfMissing(CreateStoryQuest(name, target, count, reward, description, 0));
+    }
+
+    public bool IsComplete(string target)
+    {
+        foreach (var q in _quests)
+            if (q.Target == target && q.Completed)
+                return true;
+        return false;
+    }
+
+    public bool IsNamedQuestComplete(string questName)
+    {
+        foreach (var q in _quests)
+            if (q.Name == questName && q.Completed)
+                return true;
+        return false;
+    }
+
+    public int GetProgress(string target)
+    {
+        foreach (var q in _quests)
+            if (q.Target == target)
+                return q.Progress;
+        return 0;
+    }
+
+    public int GetNamedQuestProgress(string questName)
+    {
+        foreach (var q in _quests)
+            if (q.Name == questName)
+                return q.Progress;
+        return 0;
     }
 
     private void UpdateQuestUI()

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.InputSystem;
 
 public class WifeNPC : MonoBehaviour
 {
@@ -22,6 +23,47 @@ public class WifeNPC : MonoBehaviour
     private readonly Queue<string> _dialogQueue = new Queue<string>();
     private bool _dialogActive;
 
+    private float _affection;
+    private int _lastWifeQuestDay;
+    private TMP_Text _proposeText;
+
+    private List<string> _wifeQuestNames = new List<string>();
+    private List<string> _wifeQuestTargets = new List<string>();
+    private List<int> _wifeQuestCounts = new List<int>();
+
+    private static readonly string[][] WifeQuestPool = new string[][]
+    {
+        new string[] { "Thu Hoạch Lúa Mì", "wheat", "10", "100" },
+        new string[] { "Thu Thập Trứng", "egg", "5", "80" },
+        new string[] { "Trồng Cà Rốt", "carrot", "10", "90" },
+        new string[] { "Tưới Nước Cho Cây", "water", "15", "70" },
+        new string[] { "Câu Cá", "fish_catch", "3", "120" }
+    };
+
+    private Transform _npcTransform;
+    private bool _hasProposed;
+    private bool _pendingHappyEnding;
+
+    private enum HouseVisitState { None, WalkingToHouse, AtHome, Leaving }
+    private HouseVisitState _visitState;
+    private Vector3 _originalPos;
+    private Quaternion _originalRot = Quaternion.identity;
+    private readonly Vector3 _homePos = new Vector3(2.5f, 1f, 0f);
+    private float _leaveTimer;
+    private const float WALK_SPEED = 3f;
+    private const float STAY_DURATION = 20f;
+    private TMP_Text _inviteText;
+
+    private Transform _legL;
+    private Transform _legR;
+    private Transform _lowerLegL;
+    private Transform _lowerLegR;
+    private Transform _armL;
+    private Transform _armR;
+    private readonly Quaternion _armLBase = Quaternion.Euler(0f, 0f, -15f);
+    private readonly Quaternion _armRBase = Quaternion.Euler(0f, 0f, 15f);
+    private float _walkCycle;
+
     public void Awake()
     {
         if (Instance != null && Instance != this)
@@ -30,6 +72,29 @@ public class WifeNPC : MonoBehaviour
             return;
         }
         Instance = this;
+        var npcGo = GameObject.Find("WifeNpc");
+        if (npcGo != null) _npcTransform = npcGo.transform;
+        if (_npcTransform != null)
+            _originalPos = _npcTransform.position;
+        else
+            _originalPos = transform.position;
+    }
+
+    void Start()
+    {
+        var npcGo = GameObject.Find("WifeNpc");
+        if (npcGo != null) _npcTransform = npcGo.transform;
+        if (_npcTransform != null)
+        {
+            _originalPos = _npcTransform.position;
+            _originalRot = _npcTransform.rotation;
+            _legL = _npcTransform.Find("LegsRoot/LegL");
+            _legR = _npcTransform.Find("LegsRoot/LegR");
+            _lowerLegL = _npcTransform.Find("LegsRoot/LegL/LowerLegL");
+            _lowerLegR = _npcTransform.Find("LegsRoot/LegR/LowerLegR");
+            _armL = _npcTransform.Find("LeftArmRoot");
+            _armR = _npcTransform.Find("RightArmRoot");
+        }
     }
 
     public void Initialize(Canvas canvas)
@@ -38,14 +103,148 @@ public class WifeNPC : MonoBehaviour
         CreateDialogPanel();
     }
 
+    public void Update()
+    {
+        switch (_visitState)
+        {
+            case HouseVisitState.WalkingToHouse:
+            {
+                var npcPos = _npcTransform != null ? _npcTransform : transform;
+                npcPos.rotation = _originalRot;
+                var step = WALK_SPEED * Time.deltaTime;
+                npcPos.position = Vector3.MoveTowards(npcPos.position, _homePos, step);
+                AnimateWalk();
+                if (Vector3.Distance(npcPos.position, _homePos) < 0.05f)
+                {
+                    npcPos.position = _homePos;
+                    _visitState = HouseVisitState.AtHome;
+                    if (_npcTransform != null) _npcTransform.rotation = _originalRot;
+                    ResetPose();
+                    _leaveTimer = STAY_DURATION;
+                    if (!_dialogActive)
+                    {
+                        _dialogQueue.Clear();
+                        _dialogQueue.Enqueue("Jessica: Em đến rồi! Nhà anh thật ấm cúng.");
+                        _dialogQueue.Enqueue("Jessica: Em có thể ở lại một lát không?");
+                        ShowNextDialog();
+                    }
+                }
+                break;
+            }
+            case HouseVisitState.AtHome:
+            {
+                _leaveTimer -= Time.deltaTime;
+                if (_leaveTimer <= 0f)
+                {
+                    _visitState = HouseVisitState.Leaving;
+                    if (!_dialogActive)
+                    {
+                        _dialogQueue.Clear();
+                        _dialogQueue.Enqueue("Jessica: Em chán quá!");
+                        ShowNextDialog();
+                    }
+                }
+                break;
+            }
+            case HouseVisitState.Leaving:
+            {
+                var npcPos = _npcTransform != null ? _npcTransform : transform;
+                npcPos.rotation = Quaternion.Euler(0f, -90f, 0f);
+                var step = WALK_SPEED * Time.deltaTime;
+                npcPos.position = Vector3.MoveTowards(npcPos.position, _originalPos, step);
+                AnimateWalk();
+                if (Vector3.Distance(npcPos.position, _originalPos) < 0.05f)
+                {
+                    npcPos.position = _originalPos;
+                    _visitState = HouseVisitState.None;
+                    if (_npcTransform != null) _npcTransform.rotation = _originalRot;
+                    ResetPose();
+                }
+                break;
+            }
+        }
+
+        if (_dialogActive && Keyboard.current.tKey.wasPressedThisFrame)
+        {
+            bool showPropose = _affection >= 70f && !Married && State == WifeState.Greeting
+                && (QuestManager.Instance?.IsComplete("greet") ?? false);
+            if (showPropose && !_hasProposed)
+            {
+                _hasProposed = true;
+                HideDialog();
+                QuestManager.Instance?.AddStoryQuest(
+                    "Xây Dựng Dinh Thự Cho Jessica",
+                    "mansion", 25, 5000,
+                    "Jessica đồng ý lời tỏ tình! Hãy xây dinh thự để làm lễ cưới.");
+                _dialogQueue.Clear();
+                _dialogQueue.Enqueue("Jessica: Anh ơi... em thực sự rất bất ngờ!");
+                _dialogQueue.Enqueue("Jessica: Em cũng có tình cảm với anh từ lâu rồi.");
+                _dialogQueue.Enqueue("Jessica: Nếu anh xây xong dinh thự, chúng ta sẽ kết hôn!");
+                _dialogQueue.Enqueue("Jessica: Em tin anh sẽ làm được. Yêu anh!");
+                ShowNextDialog();
+            }
+        }
+
+        if (_dialogActive && Keyboard.current.eKey.wasPressedThisFrame)
+        {
+            if (_visitState == HouseVisitState.AtHome)
+                _leaveTimer = STAY_DURATION;
+            AdvanceDialog();
+        }
+    }
+
+    public bool IsDialogActive => _dialogActive;
+
+    private void AnimateWalk()
+    {
+        _walkCycle += Time.deltaTime * 12f;
+        if (_legL == null)
+            return;
+
+        float swing = Mathf.Sin(_walkCycle) * 30f;
+        _legL.localRotation = Quaternion.Euler(swing, 0f, 0f);
+        _legR.localRotation = Quaternion.Euler(-swing, 0f, 0f);
+        _lowerLegL.localRotation = Quaternion.Euler(-swing * 0.5f, 0f, 0f);
+        _lowerLegR.localRotation = Quaternion.Euler(swing * 0.5f, 0f, 0f);
+        _armL.localRotation = Quaternion.Euler(-swing * 0.8f, 0f, 0f) * _armLBase;
+        _armR.localRotation = Quaternion.Euler(swing * 0.8f, 0f, 0f) * _armRBase;
+    }
+
+    private void ResetPose()
+    {
+        if (_legL == null)
+            return;
+        _legL.localRotation = Quaternion.identity;
+        _legR.localRotation = Quaternion.identity;
+        _lowerLegL.localRotation = Quaternion.identity;
+        _lowerLegR.localRotation = Quaternion.identity;
+        _armL.localRotation = _armLBase;
+        _armR.localRotation = _armRBase;
+    }
+
     public void Interact()
     {
         if (GameManager.Instance == null || !GameManager.Instance.InGame)
             return;
 
+        CheckExpiredQuests();
+
         if (_dialogActive)
         {
+            if (_visitState == HouseVisitState.AtHome)
+            {
+                _leaveTimer = STAY_DURATION;
+            }
             AdvanceDialog();
+            return;
+        }
+
+        if (_visitState != HouseVisitState.None)
+        {
+            _dialogQueue.Clear();
+            _dialogQueue.Enqueue("Jessica: Anh gọi em à?");
+            _dialogQueue.Enqueue("Jessica: Em thích ở bên anh thế này.");
+            ShowNextDialog();
             return;
         }
 
@@ -64,7 +263,10 @@ public class WifeNPC : MonoBehaviour
         var data = new WifeSaveData
         {
             state = (int)State,
-            married = Married
+            married = Married,
+            affection = _affection,
+            lastWifeQuestDay = _lastWifeQuestDay,
+            hasProposed = _hasProposed
         };
         PlayerPrefs.SetString("WifeNPC", JsonUtility.ToJson(data));
         PlayerPrefs.Save();
@@ -81,7 +283,21 @@ public class WifeNPC : MonoBehaviour
         {
             State = (WifeState)data.state;
             Married = data.married;
+            _affection = data.affection;
+            _lastWifeQuestDay = data.lastWifeQuestDay;
+            _hasProposed = data.hasProposed;
         }
+    }
+
+    public void InviteToHouse()
+    {
+        if (_visitState != HouseVisitState.None || State == WifeState.NotMet)
+            return;
+
+        _visitState = HouseVisitState.WalkingToHouse;
+        _dialogQueue.Clear();
+        _dialogQueue.Enqueue("Jessica: Ok con dê!");
+        ShowNextDialog();
     }
 
     private string[] GetDialogLines()
@@ -103,6 +319,7 @@ public class WifeNPC : MonoBehaviour
             State = WifeState.Married;
             Married = true;
             SaveState();
+            _pendingHappyEnding = true;
             return new string[]
             {
                 "Jessica: Anh ơi... dinh thự đã hoàn thành rồi!",
@@ -125,12 +342,45 @@ public class WifeNPC : MonoBehaviour
                 };
 
             case WifeState.Greeting:
+            {
+                var qm = QuestManager.Instance;
+                bool greetDone = qm != null && qm.IsComplete("greet");
+
+                if (!greetDone)
+                {
+                    return new string[]
+                    {
+                        "Jessica: Chào anh! Hôm nay trông anh có vẻ tốt lắm.",
+                        "Jessica: Em luôn ở đây nếu anh cần gì nhé."
+                    };
+                }
+
+                if (_wifeQuestTargets.Count == 0 && NeedGenerateWifeQuests())
+                    GenerateWifeQuests();
+
+                if (_wifeQuestTargets.Count > 0)
+                {
+                    CheckWifeQuests(qm);
+                }
+
+                if (_wifeQuestTargets.Count > 0)
+                {
+                    var activeQuests = GetWifeQuestDescriptions();
+                    var lines = new List<string>
+                    {
+                        "Jessica: Lại đây anh ơi! Em có vài việc nhờ anh giúp."
+                    };
+                    lines.AddRange(activeQuests);
+                    lines.Add("Jessica: Giúp em xong em cảm ơn nhiều lắm!");
+                    return lines.ToArray();
+                }
+
                 return new string[]
                 {
-                    "Jessica: Chào anh! Hôm nay trông anh có vẻ tốt lắm.",
-                    "Jessica: Em luôn ở đây nếu anh cần gì nhé.",
-                    "Jessica: À, dinh thự phía bắc vẫn chưa xong đâu. Anh cố gắng lên nhé!"
+                    "Jessica: Chào anh! Hôm nay anh có khỏe không?",
+                    "Jessica: Em cảm ơn anh đã luôn quan tâm nhé!"
                 };
+            }
 
             default:
                 return new string[]
@@ -145,6 +395,81 @@ public class WifeNPC : MonoBehaviour
         var wb = WorldBuilder.Instance;
         if (wb == null) return false;
         return wb.GetMansionCompletedParts() >= 25;
+    }
+
+    private bool NeedGenerateWifeQuests()
+    {
+        var gm = GameManager.Instance;
+        if (gm == null) return false;
+        int today = gm.CurrentDay;
+        return today != _lastWifeQuestDay;
+    }
+
+    private void GenerateWifeQuests()
+    {
+        var gm = GameManager.Instance;
+        if (gm == null) return;
+        _lastWifeQuestDay = gm.CurrentDay;
+
+        _wifeQuestNames.Clear();
+        _wifeQuestTargets.Clear();
+        _wifeQuestCounts.Clear();
+
+        int pick = Random.Range(0, WifeQuestPool.Length);
+        var entry = WifeQuestPool[pick];
+        string dayLabel = $" [Ngày {_lastWifeQuestDay}]";
+        string questName = entry[0] + dayLabel;
+
+        _wifeQuestNames.Add(questName);
+        _wifeQuestTargets.Add(entry[1]);
+        _wifeQuestCounts.Add(int.Parse(entry[2]));
+        int reward = int.Parse(entry[3]);
+
+        QuestManager.Instance?.AddStoryQuest(questName, entry[1], int.Parse(entry[2]), reward,
+            "Nhiệm vụ hàng ngày từ Jessica. Hoàn thành trước 6h sáng mai!");
+    }
+
+    private void CheckWifeQuests(QuestManager qm)
+    {
+        for (int i = _wifeQuestTargets.Count - 1; i >= 0; i--)
+        {
+            if (qm.IsNamedQuestComplete(_wifeQuestNames[i]))
+            {
+                _affection = Mathf.Min(100f, _affection + 10f);
+                _wifeQuestNames.RemoveAt(i);
+                _wifeQuestTargets.RemoveAt(i);
+                _wifeQuestCounts.RemoveAt(i);
+                SaveState();
+            }
+        }
+    }
+
+    private List<string> GetWifeQuestDescriptions()
+    {
+        var lines = new List<string>();
+        for (int i = 0; i < _wifeQuestTargets.Count; i++)
+        {
+            var qm = QuestManager.Instance;
+            int prog = qm != null ? qm.GetNamedQuestProgress(_wifeQuestNames[i]) : 0;
+            int need = _wifeQuestCounts[i];
+            lines.Add($"- {_wifeQuestNames[i]}: {prog}/{need}");
+        }
+        return lines;
+    }
+
+    private void CheckExpiredQuests()
+    {
+        var gm = GameManager.Instance;
+        if (gm == null) return;
+        int today = gm.CurrentDay;
+        if (today != _lastWifeQuestDay && _wifeQuestTargets.Count > 0)
+        {
+            _affection = Mathf.Max(0f, _affection - 5f * _wifeQuestTargets.Count);
+            _wifeQuestNames.Clear();
+            _wifeQuestTargets.Clear();
+            _wifeQuestCounts.Clear();
+            SaveState();
+        }
     }
 
     private void ShowNextDialog()
@@ -172,6 +497,14 @@ public class WifeNPC : MonoBehaviour
         }
 
         _promptText.text = _dialogQueue.Count > 0 ? "Nhấn E để tiếp tục" : "Nhấn E để đóng";
+
+        bool showPropose = _affection >= 70f && !Married && State == WifeState.Greeting
+            && (QuestManager.Instance?.IsComplete("greet") ?? false);
+        _proposeText.text = showPropose ? "[Tỏ Tình] Nhấn T" : "";
+
+        bool showInvite = _visitState == HouseVisitState.None && State != WifeState.NotMet
+            && (QuestManager.Instance?.IsComplete("greet") ?? false);
+        _inviteText.text = showInvite && !showPropose ? "[Mời Về Nhà] Nhấn G" : "";
     }
 
     private void AdvanceDialog()
@@ -190,6 +523,12 @@ public class WifeNPC : MonoBehaviour
     {
         _dialogActive = false;
         _dialogPanel.SetActive(false);
+        if (_pendingHappyEnding)
+        {
+            _pendingHappyEnding = false;
+            var cm = FindFirstObjectByType<CutsceneManager>();
+            if (cm != null) cm.RequestHappyEnding();
+        }
     }
 
     private void CreateDialogPanel()
@@ -231,6 +570,16 @@ public class WifeNPC : MonoBehaviour
             new Vector2(0f, -panelH * 0.38f), "Nhấn E để tiếp tục", 16,
             new Color(0.7f, 0.7f, 0.7f), TextAlignmentOptions.Right,
             new Vector2(panelW - 40f, 25f));
+
+        _proposeText = CreateDialogText("WifeProposeText", panelRt,
+            new Vector2(panelW * 0.38f, panelH * 0.42f), "", 22,
+            new Color(1f, 0.3f, 0.3f), TextAlignmentOptions.Right,
+            new Vector2(panelW * 0.5f, 35f));
+
+        _inviteText = CreateDialogText("WifeInviteText", panelRt,
+            new Vector2(-panelW * 0.38f, panelH * 0.42f), "", 20,
+            new Color(0.3f, 1f, 0.6f), TextAlignmentOptions.Left,
+            new Vector2(panelW * 0.4f, 30f));
 
         _dialogPanel.SetActive(false);
     }
@@ -397,5 +746,8 @@ public class WifeNPC : MonoBehaviour
     {
         public int state;
         public bool married;
+        public float affection;
+        public int lastWifeQuestDay;
+        public bool hasProposed;
     }
 }

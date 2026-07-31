@@ -84,6 +84,10 @@ public class BuffaloShopManager : MonoBehaviour
         new ShopItem { Type = "damaged_sugarcane", Label = "Mía Hư", Price = 3 },
         new ShopItem { Type = "rice", Label = "Gạo", Price = 12 },
         new ShopItem { Type = "damaged_rice", Label = "Gạo Hư", Price = 3 },
+        new ShopItem { Type = "fish_carp", Label = "Cá Chép", Price = 15 },
+        new ShopItem { Type = "fish_salmon", Label = "Cá Hồi", Price = 25 },
+        new ShopItem { Type = "fish_tuna", Label = "Cá Ngừ", Price = 40 },
+        new ShopItem { Type = "fish_pufferfish", Label = "Cá Nóc", Price = 60 },
     };
 
     private List<ShopItem> _currentItems => _activeTab == "buy" ? _buyItems : _sellItems;

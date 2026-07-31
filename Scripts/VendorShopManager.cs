@@ -66,6 +66,7 @@ public class VendorShopManager : MonoBehaviour
         new ShopItem { Type = "club", Label = "Gậy", Price = 80 },
         new ShopItem { Type = "cage_big", Label = "Lồng Lớn", Price = 120 },
         new ShopItem { Type = "cage_small", Label = "Lồng Nhỏ", Price = 80 },
+        new ShopItem { Type = "fishing_rod", Label = "Cần Câu", Price = 50 },
     };
 
     private List<ShopItem> _sellItems = new List<ShopItem>
@@ -90,6 +91,10 @@ public class VendorShopManager : MonoBehaviour
         new ShopItem { Type = "damaged_sugarcane", Label = "Mía Hư", Price = 3 },
         new ShopItem { Type = "rice", Label = "Gạo", Price = 12 },
         new ShopItem { Type = "damaged_rice", Label = "Gạo Hư", Price = 3 },
+        new ShopItem { Type = "fish_carp", Label = "Cá Chép", Price = 15 },
+        new ShopItem { Type = "fish_salmon", Label = "Cá Hồi", Price = 25 },
+        new ShopItem { Type = "fish_tuna", Label = "Cá Ngừ", Price = 40 },
+        new ShopItem { Type = "fish_pufferfish", Label = "Cá Nóc", Price = 60 },
     };
 
     private List<ShopItem> _currentItems => _activeTab == "buy" ? _buyItems : _sellItems;
