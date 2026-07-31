@@ -127,7 +127,6 @@ public class SaveManager : MonoBehaviour
         public TimeData time;
         public PlayerData player;
         public ToolManager.InventorySlotSave[] inventory;
-        public int gunAmmo;
         public WorldBuilder.FieldSaveData[] fields;
         public WorldBuilder.BuildingSaveData[] buildings;
         public WorldBuilder.MansionBlueprintSaveData[] mansionBlueprints;

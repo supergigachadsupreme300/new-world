@@ -45,7 +45,7 @@ public class SoundManager : MonoBehaviour
 
     public void LoadSoundClips()
     {
-        var names = new[] {"pop", "axe", "pickaxe", "hoe", "sword", "hammer"};
+        var names = new[] {"pop", "axe", "pickaxe", "hoe", "sickle", "hammer"};
         foreach (var name in names)
         {
             var clip = Resources.Load<AudioClip>($"Sounds/{name}");
@@ -61,7 +61,7 @@ public class SoundManager : MonoBehaviour
         if (PickaxeClip != null)     _overrides["pickaxe"] = PickaxeClip;
         if (HoeClip != null)         _overrides["hoe"] = HoeClip;
         if (HammerClip != null)      _overrides["hammer"] = HammerClip;
-        if (ScytheClip != null)      _overrides["sword"] = ScytheClip;
+        if (ScytheClip != null)      _overrides["sickle"] = ScytheClip;
         if (PlantClip != null)       _overrides["pop"] = PlantClip;
         if (VendorTruckClip != null) _overrides["mexican_truck"] = VendorTruckClip;
     }

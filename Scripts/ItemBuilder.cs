@@ -24,7 +24,6 @@ public static class ItemBuilder
             case "pickaxe": BuildPickaxe(parent); break;
             case "hoe": BuildHoe(parent); break;
             case "hammer": BuildHammer(parent); break;
-            case "sword": BuildSword(parent); break;
             case "scythe": BuildScythe(parent); break;
             case "mobspawner": BuildMobSpawner(parent); break;
 
@@ -67,6 +66,7 @@ public static class ItemBuilder
             case "cage_big": BuildCageBig(parent); break;
             case "cage_small": BuildCageSmall(parent); break;
             case "fishing_rod": BuildFishingRod(parent); break;
+            case "rosary": BuildRosary(parent); break;
             case "fish_carp": BuildFishPickup(parent, new Color(1f, 0.7f, 0.2f)); break;
             case "fish_salmon": BuildFishPickup(parent, new Color(1f, 0.5f, 0.4f)); break;
             case "fish_tuna": BuildFishPickup(parent, new Color(0.3f, 0.3f, 0.5f)); break;
@@ -112,15 +112,6 @@ public static class ItemBuilder
     {
         CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(0.12f, 0.7f, 0.12f), new Color(0.5f, 0.2f, 0.05f));
         CreatePickupCube(parent, new Vector3(0f, 0.35f, 0f), new Vector3(0.4f, 0.25f, 0.4f), new Color(0.5f, 0.5f, 0.5f));
-    }
-
-    public static void BuildSword(Transform parent)
-    {
-        CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(0.1f, 0.4f, 0.1f), Color.gray);
-        CreatePickupCube(parent, new Vector3(0f, 0.25f, 0f), new Vector3(0.2f, 0.05f, 0.2f), new Color(1f, 0.84f, 0f));
-        CreatePickupCube(parent, new Vector3(0f, 0.7f, 0f), new Vector3(0.05f, 1f, 0.3f), Color.white);
-        var bladeTip = CreatePickupCube(parent, new Vector3(0f, 1.15f, 0f), new Vector3(0.05f, 0.3f, 0.3f), Color.white);
-        bladeTip.transform.localRotation = Quaternion.Euler(45f, 0f, 0f);
     }
 
     public static void BuildScythe(Transform parent)
@@ -439,6 +430,26 @@ public static class ItemBuilder
         CreatePickupCube(parent, new Vector3(0f, 0.45f, 0f), new Vector3(0.08f, 0.9f, 0.08f), rodC);
         CreatePickupCube(parent, new Vector3(0.12f, -0.1f, 0f), new Vector3(0.03f, 0.5f, 0.03f), lineC);
         CreatePickupSphere(parent, new Vector3(0.14f, -0.38f, 0f), 0.09f, hookC);
+    }
+
+    public static void BuildRosary(Transform parent)
+    {
+        CreatePickupSphere(parent, new Vector3(0f, 0.08f, 0f), 0.16f, new Color(1f, 0.84f, 0.2f));
+    }
+
+    public static void BuildPalm(Transform parent)
+    {
+        Color palmC = new Color(0.95f, 0.78f, 0.6f);
+        Color auraC = new Color(1f, 0.9f, 0.5f);
+
+        CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(0.7f, 0.22f, 0.06f), palmC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.25f, 0f), new Vector3(0.24f, 0.4f, 0.06f), palmC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.18f, 0f), new Vector3(0.7f, 0.28f, 0.04f), auraC, false);
+        for (int i = 0; i < 5; i++)
+        {
+            float x = -0.16f + i * 0.08f;
+            CreatePickupCube(parent, new Vector3(x, 0.48f, 0f), new Vector3(0.06f, 0.16f, 0.05f), palmC, false);
+        }
     }
 
     public static void BuildFishPickup(Transform parent, Color bodyColor)

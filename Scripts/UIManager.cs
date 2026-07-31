@@ -33,6 +33,8 @@ public class UIManager : MonoBehaviour
         "HÀNH ĐỘNG\n\nChuột trái \u2014 Sử dụng công cụ\nE \u2014 Tương tác / Mở cửa\nQ \u2014 Bỏ vật phẩm",
         "XÂY DỰNG\n\nGiữ Búa + F \u2014 Mở menu xây dựng\nB / N \u2014 Đổi loại công trình\nChuột trái \u2014 Đặt công trình\nF \u2014 Hủy",
         "NÔNG NGHIỆP & CHIẾN ĐẤU\n\nCuốc \u2014 Làm đất để trồng cây\nLưỡi liềm \u2014 Thu hoạch\nRìu / Cuốc chim \u2014 Thu thập nguyên liệu\nKìm \u2014 Chiến đấu với kẻ thù",
+        "TRÀNG HẠT\n\nVật phẩm linh thiêng giúp xua đuổi tà ma.\nMua tại quán của Bà Tân với giá 100 vàng.\n\nChuột trái \u2014 Thi triển quả cầu thánh\nQuả cầu trừ tà tiêu diệt kẻ thù chỉ bằng một đòn.",
+        "NGÔI CHÙA\n\nNgôi chùa 4 tầng mái cong nằm phía Đông làng, ngay cạnh nhà bà hàng xóm.\n\nĐây là công trình biểu tượng của làng \u2014 hãy đến chiêm bái và ngắm cảnh hoàng hôn từ nơi đây.",
         "MẸO\n\nThu hoạch lúa để kiếm tiền\nXây dựng tường và tháp canh để bảo vệ\nHoàn thành nhiệm vụ để nhận thưởng\nNgủ trên giường để lưu game"
     };
     private GameObject _endPanel;

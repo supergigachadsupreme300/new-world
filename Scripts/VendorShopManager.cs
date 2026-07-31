@@ -67,6 +67,7 @@ public class VendorShopManager : MonoBehaviour
         new ShopItem { Type = "cage_big", Label = "Lồng Lớn", Price = 120 },
         new ShopItem { Type = "cage_small", Label = "Lồng Nhỏ", Price = 80 },
         new ShopItem { Type = "fishing_rod", Label = "Cần Câu", Price = 50 },
+        new ShopItem { Type = "rosary", Label = "Tràng Hạt", Price = 100 },
     };
 
     private List<ShopItem> _sellItems = new List<ShopItem>

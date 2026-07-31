@@ -37,6 +37,7 @@ public class ToolManager : MonoBehaviour
     private GameObject _carriedObject;
     private const float PickupRayDistance = 4f;
     private const float UseRayDistance = 10f;
+    private const float PalmProjectileSpeed = 25f;
     private bool _isSwinging;
     private bool _initialized;
 
@@ -50,6 +51,7 @@ public class ToolManager : MonoBehaviour
         { "watering_can", 8f },
         { "fertilizer", 5f },
         { "club", 12f },
+        { "rosary", 12f },
     };
 
     private float StaminaCostFor(string item)
@@ -87,7 +89,7 @@ public class ToolManager : MonoBehaviour
         {
             var sound = itemType switch
             {
-                "scythe" => "sword",
+                "scythe" => "sickle",
                 _ => itemType
             };
             SoundManager.Instance?.Play(sound);
@@ -456,35 +458,9 @@ public class ToolManager : MonoBehaviour
         if (selectedItem != null && !TryUseTool(player))
             return;
 
-        if (selectedItem == "club")
+        if (selectedItem == "rosary")
         {
-            var clubOrigin = cam.transform.position + cam.transform.forward * 0.3f;
-            var clubRay = new Ray(clubOrigin, cam.transform.forward);
-            if (Physics.Raycast(clubRay, out var clubHit, 3f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
-            {
-                var enemy = clubHit.collider.GetComponentInParent<EnemyController>();
-                if (enemy == null) enemy = clubHit.collider.GetComponent<EnemyController>();
-                if (enemy != null)
-                {
-                    int damage = Mathf.RoundToInt(ToolStaminaCost["club"]);
-                    enemy.TakeDamage(damage);
-                    SoundManager.Instance?.Play("axe");
-                    _uiManager?.ShowMessage("Đánh!", 1f);
-                    return;
-                }
-
-                var livestock = clubHit.collider.GetComponentInParent<Livestock>();
-                if (livestock == null)
-                    livestock = clubHit.collider.GetComponent<Livestock>();
-                if (livestock != null)
-                {
-                    livestock.TakeDamage(3);
-                    SoundManager.Instance?.Play("axe");
-                    _uiManager?.ShowMessage("Đánh!", 1f);
-                    return;
-                }
-                _uiManager?.ShowMessage("Không có gì để đánh.", 1f);
-            }
+            LaunchPalmProjectile(cam);
             return;
         }
 
@@ -686,7 +662,7 @@ public class ToolManager : MonoBehaviour
                     if (_worldBuilder.HarvestField(field, out var item))
                     {
                         AddItem(item, 1);
-                        SoundManager.Instance?.Play("sword");
+                        SoundManager.Instance?.Play("sickle");
                         _uiManager.ShowMessage($"Đã thu hoạch {item}.", 1.5f);
                         QuestManager.Instance?.AddProgress(item, 1);
                     }
@@ -694,6 +670,28 @@ public class ToolManager : MonoBehaviour
                 return;
             }
         }
+    }
+
+    private void LaunchPalmProjectile(Camera cam)
+    {
+        var palmGo = new GameObject("PalmProjectile");
+        palmGo.transform.position = cam.transform.position + cam.transform.forward * 0.8f;
+        palmGo.transform.rotation = Quaternion.LookRotation(cam.transform.forward);
+        ItemBuilder.BuildPalm(palmGo.transform);
+
+        var col = palmGo.AddComponent<BoxCollider>();
+        col.size = new Vector3(0.8f, 0.6f, 0.3f);
+
+        var rb = palmGo.AddComponent<Rigidbody>();
+        rb.useGravity = false;
+        rb.isKinematic = false;
+        rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+        rb.mass = 0.2f;
+        rb.linearVelocity = cam.transform.forward * PalmProjectileSpeed;
+
+        palmGo.AddComponent<PalmProjectile>();
+
+        SoundManager.Instance?.Play("pop");
     }
 
     private bool TryPlantSeed(string itemType, Vector3 hitPoint)
@@ -1324,7 +1322,6 @@ public class ToolManager : MonoBehaviour
         CreateToolModel("pickaxe", new Color(0.5f, 0.5f, 0.5f));
         CreateToolModel("hoe", new Color(0.4f, 0.4f, 0.4f));
         CreateToolModel("hammer", new Color(0.2f, 0.2f, 0.2f));
-        CreateToolModel("sword", new Color(0.8f, 0.8f, 0.8f));
         CreateToolModel("scythe", new Color(0.4f, 0.4f, 0.4f));
         
         // Items & seeds
@@ -1376,6 +1373,7 @@ public class ToolManager : MonoBehaviour
         CreateToolModel("cage_big", new Color(0.5f, 0.5f, 0.55f));
         CreateToolModel("cage_small", new Color(0.55f, 0.55f, 0.6f));
         CreateToolModel("fishing_rod", new Color(0.5f, 0.3f, 0.08f));
+        CreateToolModel("rosary", new Color(1f, 0.84f, 0.2f));
     }
 
     private void CreateToolModel(string toolType, Color color)

@@ -246,6 +246,38 @@ public class WorldBuilder : MonoBehaviour
         new SubBuildingDefinition { PartName = "Mansion_Fence",           Offset = new Vector3(0f, -1.5f, 0f),    Size = new Vector3(28f, 2f, 20f),   WoodCost = 40, StoneCost = 0,  Color = new Color(0.69f, 0.51f, 0.25f) },
     };
 
+    // ═══════════════════════════════════════════════
+    //  PAGODA MEGA STRUCTURE DEFINITION
+    // ═══════════════════════════════════════════════
+    private static readonly SubBuildingDefinition[] _pagodaSubBuildings = new SubBuildingDefinition[]
+    {
+        // === FOUNDATION (stone: 60) ===
+        new SubBuildingDefinition { PartName = "Pagoda_Foundation",       Offset = new Vector3(0f, 0.2f, 0f),     Size = new Vector3(14f, 0.5f, 14f),  WoodCost = 0,   StoneCost = 60, Color = new Color(0.42f, 0.42f, 0.42f) },
+
+        // === BASE TIER (wood: 70) ===
+        new SubBuildingDefinition { PartName = "Pagoda_BaseFloor",        Offset = new Vector3(0f, 0.75f, 0f),    Size = new Vector3(12f, 0.3f, 12f),  WoodCost = 25,  StoneCost = 0,  Color = new Color(0.6f, 0.28f, 0.14f) },
+        new SubBuildingDefinition { PartName = "Pagoda_BaseWalls",        Offset = new Vector3(0f, 2.55f, 0f),    Size = new Vector3(11f, 3.3f, 11f),  WoodCost = 45,  StoneCost = 0,  Color = new Color(0.55f, 0.12f, 0.1f) },
+        new SubBuildingDefinition { PartName = "Pagoda_Roof1",            Offset = new Vector3(0f, 5f, 0f),       Size = new Vector3(17.2f, 0.5f, 17.2f), WoodCost = 0, StoneCost = 40, Color = new Color(0.55f, 0.16f, 0.12f) },
+
+        // === MID TIER (wood: 55) ===
+        new SubBuildingDefinition { PartName = "Pagoda_MidFloor",         Offset = new Vector3(0f, 6.8f, 0f),     Size = new Vector3(8f, 0.3f, 8f),    WoodCost = 20,  StoneCost = 0,  Color = new Color(0.6f, 0.28f, 0.14f) },
+        new SubBuildingDefinition { PartName = "Pagoda_MidWalls",         Offset = new Vector3(0f, 8.15f, 0f),    Size = new Vector3(7.2f, 2.2f, 7.2f), WoodCost = 35, StoneCost = 0,  Color = new Color(0.55f, 0.12f, 0.1f) },
+        new SubBuildingDefinition { PartName = "Pagoda_Roof2",            Offset = new Vector3(0f, 10f, 0f),      Size = new Vector3(12f, 0.5f, 12f),  WoodCost = 0,   StoneCost = 35, Color = new Color(0.55f, 0.16f, 0.12f) },
+
+        // === TOP TIER (wood: 40) ===
+        new SubBuildingDefinition { PartName = "Pagoda_TopFloor",         Offset = new Vector3(0f, 11.3f, 0f),    Size = new Vector3(5.5f, 0.3f, 5.5f), WoodCost = 15, StoneCost = 0,  Color = new Color(0.6f, 0.28f, 0.14f) },
+        new SubBuildingDefinition { PartName = "Pagoda_TopWalls",         Offset = new Vector3(0f, 12.4f, 0f),    Size = new Vector3(4.9f, 1.7f, 4.9f), WoodCost = 25, StoneCost = 0,  Color = new Color(0.55f, 0.12f, 0.1f) },
+        new SubBuildingDefinition { PartName = "Pagoda_Roof3",            Offset = new Vector3(0f, 14f, 0f),      Size = new Vector3(8.8f, 0.45f, 8.8f), WoodCost = 0, StoneCost = 30, Color = new Color(0.55f, 0.16f, 0.12f) },
+
+        // === 4TH TIER (wood: 25) ===
+        new SubBuildingDefinition { PartName = "Pagoda_Tier4Floor",       Offset = new Vector3(0f, 14.9f, 0f),    Size = new Vector3(3.4f, 0.3f, 3.4f), WoodCost = 10, StoneCost = 0,  Color = new Color(0.6f, 0.28f, 0.14f) },
+        new SubBuildingDefinition { PartName = "Pagoda_Tier4Walls",       Offset = new Vector3(0f, 15.9f, 0f),    Size = new Vector3(3.1f, 1.3f, 3.1f), WoodCost = 15, StoneCost = 0,  Color = new Color(0.55f, 0.12f, 0.1f) },
+        new SubBuildingDefinition { PartName = "Pagoda_Roof4",            Offset = new Vector3(0f, 17.2f, 0f),    Size = new Vector3(5.6f, 0.4f, 5.6f), WoodCost = 0,   StoneCost = 25, Color = new Color(0.55f, 0.16f, 0.12f) },
+
+        // === SPIRE (wood: 5) ===
+        new SubBuildingDefinition { PartName = "Pagoda_Spire",            Offset = new Vector3(0f, 18.3f, 0f),    Size = new Vector3(0.3f, 2.6f, 0.3f), WoodCost = 5, StoneCost = 0,  Color = new Color(1f, 0.84f, 0.2f) },
+    };
+
     private const int _mansionTotalParts = 25;
     private const string _mansionQuestTarget = "mansion";
 
@@ -322,6 +354,7 @@ public class WorldBuilder : MonoBehaviour
         CreateEnemyDisplay();
         InitializeBuildingPreview();
         PlaceMansionBlueprint(new Vector3(-30f, 0f, 50f));
+        BuildPagoda(new Vector3(55f, 0f, 0f));
 
         SpawnInitialClouds();
 
@@ -759,7 +792,7 @@ public class WorldBuilder : MonoBehaviour
     private void SpawnToolPickups()
     {
         var seeds = new[] { "wheat_seed", "corn_seed", "carrot_seed", "tomato_seed", "strawberry_seed", "pumpkin_seed", "onion_seed", "sugarcane_seed", "rice_seed", "peashooter_seed", "fertilizer", "mobspawner" };
-        var tools = new[] { "axe", "pickaxe", "hoe", "hammer", "scythe", "watering_can", "fishing_rod" };
+        var tools = new[] { "axe", "pickaxe", "hoe", "hammer", "scythe", "watering_can", "fishing_rod", "rosary" };
         var harvested = new[] { "wheat", "corn", "potato", "carrot", "tomato", "strawberry", "pumpkin", "onion", "sugarcane", "rice", "club", "cage_big", "cage_small" };
 
         float baseX = 50f;
@@ -2012,6 +2045,20 @@ public class WorldBuilder : MonoBehaviour
         }
     }
 
+    public void BuildPagoda(Vector3 position)
+    {
+        foreach (var sub in _pagodaSubBuildings)
+        {
+            var bp = new BlueprintState
+            {
+                Type = sub.PartName,
+                Position = position + sub.Offset,
+                Rotation = 0
+            };
+            SpawnStructurePart(bp);
+        }
+    }
+
     private BlueprintState CreateMansionBlueprint(string typeName, Vector3 position, Vector3 size, Color color, int woodCost, int stoneCost)
     {
         var blueprint = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -2328,7 +2375,11 @@ public class WorldBuilder : MonoBehaviour
         Color woodColor = new Color(0.63f, 0.39f, 0.18f);
         Color stoneColor = new Color(0.41f, 0.41f, 0.41f);
 
-        switch (bp.Type)
+        if (bp.Type.StartsWith("Pagoda_"))
+        {
+            BuildPagodaPart(root.transform, bp.Type);
+        }
+        else switch (bp.Type)
         {
             case "Foundation":
                 CreatePartCube(root.transform, Vector3.up * 0.25f, new Vector3(16f, 0.5f, 10f), stoneColor);
@@ -2570,6 +2621,388 @@ public class WorldBuilder : MonoBehaviour
         cube.transform.localRotation = Quaternion.identity;
         cube.GetComponent<MeshRenderer>().material.color = color;
         cube.AddComponent<BoxCollider>();
+    }
+
+    private void CreatePartCubeRotated(Transform parent, Vector3 localPos, Vector3 scale, Color color, Quaternion rotation)
+    {
+        var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        cube.transform.SetParent(parent);
+        cube.transform.localPosition = localPos;
+        cube.transform.localScale = scale;
+        cube.transform.localRotation = rotation;
+        cube.GetComponent<MeshRenderer>().material.color = color;
+        cube.AddComponent<BoxCollider>();
+    }
+
+    private void BuildPagodaPart(Transform root, string partType)
+    {
+        Color woodC = new Color(0.6f, 0.28f, 0.14f);
+        Color wallC = new Color(0.4f, 0.2f, 0.09f);
+        Color pillarC = new Color(0.55f, 0.12f, 0.1f);
+        Color roofC = new Color(0.55f, 0.16f, 0.12f);
+        Color ridgeC = new Color(0.36f, 0.11f, 0.08f);
+        Color stoneC = new Color(0.42f, 0.42f, 0.42f);
+        Color lightStoneC = new Color(0.56f, 0.54f, 0.51f);
+        Color doorC = new Color(0.62f, 0.1f, 0.08f);
+        Color goldC = new Color(1f, 0.84f, 0.2f);
+        Color glassC = new Color(0.13f, 0.13f, 0.17f);
+
+        switch (partType)
+        {
+            case "Pagoda_Foundation":
+                CreatePartCube(root, new Vector3(0, 0.05f, 0), new Vector3(14f, 0.5f, 14f), stoneC);
+                CreatePartCube(root, new Vector3(0, 0.34f, 0), new Vector3(12.6f, 0.22f, 12.6f), lightStoneC);
+                CreatePartCube(root, new Vector3(6.6f, 0.55f, 6.6f), new Vector3(0.7f, 0.14f, 0.7f), stoneC);
+                CreatePartCube(root, new Vector3(-6.6f, 0.55f, 6.6f), new Vector3(0.7f, 0.14f, 0.7f), stoneC);
+                CreatePartCube(root, new Vector3(6.6f, 0.55f, -6.6f), new Vector3(0.7f, 0.14f, 0.7f), stoneC);
+                CreatePartCube(root, new Vector3(-6.6f, 0.55f, -6.6f), new Vector3(0.7f, 0.14f, 0.7f), stoneC);
+                CreatePartCube(root, new Vector3(0, 0.16f, -6.85f), new Vector3(3f, 0.16f, 1f), stoneC);
+                CreatePartCube(root, new Vector3(0, 0.38f, -6.55f), new Vector3(3f, 0.16f, 1f), stoneC);
+                CreatePartCube(root, new Vector3(0, 0.6f, -6.25f), new Vector3(3f, 0.16f, 1f), lightStoneC);
+                break;
+
+            case "Pagoda_BaseFloor":
+                CreatePartCube(root, new Vector3(0, 0f, 0), new Vector3(12f, 0.3f, 12f), woodC);
+                for (int rp = -4; rp <= 4; rp += 2)
+                {
+                    CreatePartCube(root, new Vector3(rp, 0.4f, 5.95f), new Vector3(0.12f, 0.5f, 0.12f), woodC);
+                    CreatePartCube(root, new Vector3(rp, 0.4f, -5.95f), new Vector3(0.12f, 0.5f, 0.12f), woodC);
+                    CreatePartCube(root, new Vector3(5.95f, 0.4f, rp), new Vector3(0.12f, 0.5f, 0.12f), woodC);
+                    CreatePartCube(root, new Vector3(-5.95f, 0.4f, rp), new Vector3(0.12f, 0.5f, 0.12f), woodC);
+                }
+                CreatePartCube(root, new Vector3(0, 0.62f, 6f), new Vector3(12f, 0.08f, 0.09f), woodC);
+                CreatePartCube(root, new Vector3(0, 0.62f, -6f), new Vector3(12f, 0.08f, 0.09f), woodC);
+                CreatePartCube(root, new Vector3(6f, 0.62f, 0), new Vector3(0.09f, 0.08f, 12f), woodC);
+                CreatePartCube(root, new Vector3(-6f, 0.62f, 0), new Vector3(0.09f, 0.08f, 12f), woodC);
+                for (int ux = -1; ux <= 1; ux += 2)
+                {
+                    CreatePartCube(root, new Vector3(ux * 2.2f, 0.2f, -5.5f), new Vector3(0.42f, 0.1f, 0.42f), stoneC);
+                    CreatePartCube(root, new Vector3(ux * 2.2f, 0.39f, -5.5f), new Vector3(0.34f, 0.26f, 0.34f), lightStoneC);
+                    CreatePartCube(root, new Vector3(ux * 2.2f, 0.56f, -5.5f), new Vector3(0.4f, 0.08f, 0.4f), goldC);
+                }
+                CreatePartCube(root, new Vector3(5.95f, 0.4f, 5.95f), new Vector3(0.16f, 0.5f, 0.16f), woodC);
+                CreatePartCube(root, new Vector3(-5.95f, 0.4f, 5.95f), new Vector3(0.16f, 0.5f, 0.16f), woodC);
+                CreatePartCube(root, new Vector3(5.95f, 0.4f, -5.95f), new Vector3(0.16f, 0.5f, 0.16f), woodC);
+                CreatePartCube(root, new Vector3(-5.95f, 0.4f, -5.95f), new Vector3(0.16f, 0.5f, 0.16f), woodC);
+                CreatePartCube(root, new Vector3(0, 0.32f, -2f), new Vector3(1.4f, 0.3f, 1f), stoneC);
+                CreatePartCube(root, new Vector3(0, 0.55f, -2f), new Vector3(0.5f, 0.16f, 0.4f), lightStoneC);
+                CreatePartCube(root, new Vector3(0, 0.72f, -2f), new Vector3(0.28f, 0.2f, 0.28f), goldC);
+                CreatePartCube(root, new Vector3(0, 0.9f, -2f), new Vector3(0.16f, 0.16f, 0.16f), goldC);
+                CreatePartCube(root, new Vector3(0, 0.145f, -4f), new Vector3(11.9f, 0.012f, 0.03f), new Color(0.45f, 0.2f, 0.1f));
+                CreatePartCube(root, new Vector3(0, 0.145f, -2f), new Vector3(11.9f, 0.012f, 0.03f), new Color(0.45f, 0.2f, 0.1f));
+                CreatePartCube(root, new Vector3(0, 0.145f, 0f), new Vector3(11.9f, 0.012f, 0.03f), new Color(0.45f, 0.2f, 0.1f));
+                CreatePartCube(root, new Vector3(0, 0.145f, 2f), new Vector3(11.9f, 0.012f, 0.03f), new Color(0.45f, 0.2f, 0.1f));
+                CreatePartCube(root, new Vector3(0, 0.145f, 4f), new Vector3(11.9f, 0.012f, 0.03f), new Color(0.45f, 0.2f, 0.1f));
+                break;
+
+            case "Pagoda_BaseWalls":
+                {
+                    float half = 5.5f;
+                    // 8 red pillars (world 0.9..4.3)
+                    for (int sx = -1; sx <= 1; sx += 2)
+                    {
+                        for (int sz = -1; sz <= 1; sz += 2)
+                            CreatePartCube(root, new Vector3(sx * half, 0.05f, sz * half), new Vector3(0.5f, 3.4f, 0.5f), pillarC);
+                        CreatePartCube(root, new Vector3(0, 0.05f, sx * half), new Vector3(0.5f, 3.4f, 0.5f), pillarC);
+                        CreatePartCube(root, new Vector3(sx * half, 0.05f, 0), new Vector3(0.5f, 3.4f, 0.5f), pillarC);
+                    }
+
+                    // lower wall panels (world 0.9..2.3)
+                    CreatePartCube(root, new Vector3(0, -0.95f, half), new Vector3(10.5f, 1.4f, 0.25f), wallC);
+                    CreatePartCube(root, new Vector3(half, -0.95f, 0), new Vector3(0.25f, 1.4f, 10.5f), wallC);
+                    CreatePartCube(root, new Vector3(-half, -0.95f, 0), new Vector3(0.25f, 1.4f, 10.5f), wallC);
+                    CreatePartCube(root, new Vector3(-3.425f, -0.95f, -half), new Vector3(3.65f, 1.4f, 0.25f), wallC);
+                    CreatePartCube(root, new Vector3(3.425f, -0.95f, -half), new Vector3(3.65f, 1.4f, 0.25f), wallC);
+
+                    // window faces (+Z, +X, -X): sill, glass, jambs, lintel, fills, top beam
+                    Vector3[] winCenters = { new Vector3(0, 0.55f, half), new Vector3(half, 0.55f, 0), new Vector3(-half, 0.55f, 0) };
+                    Vector3[] winTans = { new Vector3(1, 0, 0), new Vector3(0, 0, 1), new Vector3(0, 0, 1) };
+                    for (int i = 0; i < 3; i++)
+                    {
+                        Vector3 c = winCenters[i];
+                        Vector3 t = winTans[i];
+                        bool axisX = i == 0;
+                        CreatePartCube(root, c + Vector3.down * 0.6f, new Vector3(axisX ? 10.5f : 0.2f, 0.2f, axisX ? 0.2f : 10.5f), ridgeC);
+                        CreatePartCube(root, c, new Vector3(axisX ? 1.4f : 0.06f, 1.2f, axisX ? 0.06f : 1.4f), glassC);
+                        CreatePartCube(root, c - t * 0.8f, new Vector3(axisX ? 0.18f : 0.2f, 1.2f, axisX ? 0.2f : 0.18f), pillarC);
+                        CreatePartCube(root, c + t * 0.8f, new Vector3(axisX ? 0.18f : 0.2f, 1.2f, axisX ? 0.2f : 0.18f), pillarC);
+                        CreatePartCube(root, c + Vector3.up * 0.6f, new Vector3(axisX ? 1.8f : 0.2f, 0.18f, axisX ? 0.2f : 1.8f), ridgeC);
+                        CreatePartCube(root, c - t * 3.075f, new Vector3(axisX ? 4.35f : 0.18f, 1.2f, axisX ? 0.18f : 4.35f), wallC);
+                        CreatePartCube(root, c + t * 3.075f, new Vector3(axisX ? 4.35f : 0.18f, 1.2f, axisX ? 0.18f : 4.35f), wallC);
+                        CreatePartCube(root, c + Vector3.up * 0.95f, new Vector3(axisX ? 10.5f : 0.2f, 0.2f, axisX ? 0.2f : 10.5f), ridgeC);
+                        CreatePartCube(root, c, new Vector3(0.09f, 1.22f, 0.09f), ridgeC);
+                        CreatePartCube(root, c + Vector3.up * 0.4f, new Vector3(axisX ? 1.42f : 0.09f, 0.09f, axisX ? 0.09f : 1.42f), ridgeC);
+                    }
+
+                    // -Z face: door + upper fills + top beam
+                    CreatePartCube(root, new Vector3(-3.075f, 0.55f, -half), new Vector3(4.35f, 1.2f, 0.18f), wallC);
+                    CreatePartCube(root, new Vector3(3.075f, 0.55f, -half), new Vector3(4.35f, 1.2f, 0.18f), wallC);
+                    CreatePartCube(root, new Vector3(0, 1.5f, -half), new Vector3(10.5f, 0.2f, 0.2f), ridgeC);
+                    CreatePartCube(root, new Vector3(-0.8f, -0.8f, -half + 0.04f), new Vector3(0.8f, 1.7f, 0.12f), doorC);
+                    CreatePartCube(root, new Vector3(0.8f, -0.8f, -half + 0.04f), new Vector3(0.8f, 1.7f, 0.12f), doorC);
+                    CreatePartCube(root, new Vector3(-1.6f, -0.8f, -half + 0.04f), new Vector3(0.18f, 1.7f, 0.18f), ridgeC);
+                    CreatePartCube(root, new Vector3(1.6f, -0.8f, -half + 0.04f), new Vector3(0.18f, 1.7f, 0.18f), ridgeC);
+                    CreatePartCube(root, new Vector3(0, 0.12f, -half + 0.04f), new Vector3(3.2f, 0.25f, 0.18f), roofC);
+                    CreatePartCube(root, new Vector3(0, -1.6f, -half + 0.04f), new Vector3(3.2f, 0.1f, 0.18f), stoneC);
+                    CreatePartCube(root, new Vector3(0, 0.12f, -half + 0.12f), new Vector3(3.2f, 0.12f, 0.06f), goldC);
+                    CreatePartCube(root, new Vector3(-0.8f, -0.8f, -half + 0.12f), new Vector3(0.05f, 1.7f, 0.06f), goldC);
+                    CreatePartCube(root, new Vector3(0.8f, -0.8f, -half + 0.12f), new Vector3(0.05f, 1.7f, 0.06f), goldC);
+                    CreatePartCubeRotated(root, new Vector3(0, 0.55f, -half + 0.08f), new Vector3(0.62f, 0.62f, 0.08f), goldC, Quaternion.Euler(0f, 45f, 0f));
+
+                    // dougong brackets at pillar tops
+                    for (int sx = -1; sx <= 1; sx += 2)
+                    {
+                        for (int sz = -1; sz <= 1; sz += 2)
+                        {
+                            CreatePartCube(root, new Vector3(sx * half, 1.7f, sz * half), new Vector3(0.55f, 0.2f, 0.55f), wallC);
+                            CreatePartCube(root, new Vector3(sx * half, 1.78f, sz * half), new Vector3(0.58f, 0.1f, 0.58f), goldC);
+                            CreatePartCube(root, new Vector3(sx * half, 1.9f, sz * half), new Vector3(0.6f, 0.16f, 0.6f), goldC);
+                        }
+                        CreatePartCube(root, new Vector3(0, 1.7f, sx * half), new Vector3(0.55f, 0.2f, 0.55f), wallC);
+                        CreatePartCube(root, new Vector3(0, 1.78f, sx * half), new Vector3(0.58f, 0.1f, 0.58f), goldC);
+                        CreatePartCube(root, new Vector3(0, 1.9f, sx * half), new Vector3(0.6f, 0.16f, 0.6f), goldC);
+                        CreatePartCube(root, new Vector3(sx * half, 1.7f, 0), new Vector3(0.55f, 0.2f, 0.55f), wallC);
+                        CreatePartCube(root, new Vector3(sx * half, 1.78f, 0), new Vector3(0.58f, 0.1f, 0.58f), goldC);
+                        CreatePartCube(root, new Vector3(sx * half, 1.9f, 0), new Vector3(0.6f, 0.16f, 0.6f), goldC);
+                    }
+
+                    // hanging lanterns at front (-Z) corners
+                    for (int lx = -1; lx <= 1; lx += 2)
+                    {
+                        CreatePartCube(root, new Vector3(lx * 4.2f, 1.25f, -5.9f), new Vector3(0.06f, 0.6f, 0.06f), goldC);
+                        CreatePartCube(root, new Vector3(lx * 4.2f, 0.98f, -5.9f), new Vector3(0.5f, 0.09f, 0.5f), goldC);
+                        CreatePartCube(root, new Vector3(lx * 4.2f, 0.7f, -5.9f), new Vector3(0.42f, 0.48f, 0.42f), doorC);
+                        CreatePartCube(root, new Vector3(lx * 4.2f, 0.46f, -5.9f), new Vector3(0.3f, 0.07f, 0.3f), goldC);
+                    }
+                }
+                break;
+
+            case "Pagoda_Roof1":
+                CreatePartCubeRotated(root, new Vector3(0, 0.425f, 4.2f), new Vector3(17.2f, 0.55f, 9.4f), roofC, Quaternion.Euler(14f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(0, 0.425f, -4.2f), new Vector3(17.2f, 0.55f, 9.4f), roofC, Quaternion.Euler(-14f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(4.2f, 0.425f, 0), new Vector3(9.4f, 0.55f, 17.2f), roofC, Quaternion.Euler(0f, 0f, -14f));
+                CreatePartCubeRotated(root, new Vector3(-4.2f, 0.425f, 0), new Vector3(9.4f, 0.55f, 17.2f), roofC, Quaternion.Euler(0f, 0f, 14f));
+                CreatePartCube(root, new Vector3(0, -0.62f, 8.55f), new Vector3(17.2f, 0.22f, 0.18f), ridgeC);
+                CreatePartCube(root, new Vector3(0, -0.62f, -8.55f), new Vector3(17.2f, 0.22f, 0.18f), ridgeC);
+                CreatePartCube(root, new Vector3(8.55f, -0.62f, 0), new Vector3(0.18f, 0.22f, 17.2f), ridgeC);
+                CreatePartCube(root, new Vector3(-8.55f, -0.62f, 0), new Vector3(0.18f, 0.22f, 17.2f), ridgeC);
+                CreatePartCube(root, new Vector3(0, -0.76f, 8.62f), new Vector3(17.2f, 0.05f, 0.12f), goldC);
+                CreatePartCube(root, new Vector3(0, -0.76f, -8.62f), new Vector3(17.2f, 0.05f, 0.12f), goldC);
+                CreatePartCube(root, new Vector3(8.62f, -0.76f, 0), new Vector3(0.12f, 0.05f, 17.2f), goldC);
+                CreatePartCube(root, new Vector3(-8.62f, -0.76f, 0), new Vector3(0.12f, 0.05f, 17.2f), goldC);
+                for (int eb = -4; eb <= 4; eb += 4)
+                {
+                    CreatePartCube(root, new Vector3(eb, -0.66f, 8.68f), new Vector3(0.14f, 0.14f, 0.14f), goldC);
+                    CreatePartCube(root, new Vector3(eb, -0.66f, -8.68f), new Vector3(0.14f, 0.14f, 0.14f), goldC);
+                    CreatePartCube(root, new Vector3(8.68f, -0.66f, eb), new Vector3(0.14f, 0.14f, 0.14f), goldC);
+                    CreatePartCube(root, new Vector3(-8.68f, -0.66f, eb), new Vector3(0.14f, 0.14f, 0.14f), goldC);
+                }
+                CreatePartCube(root, new Vector3(0, 1.35f, 0), new Vector3(7f, 0.5f, 7f), roofC);
+                CreatePartCube(root, new Vector3(0, 1.75f, 0), new Vector3(0.4f, 0.4f, 0.4f), goldC);
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int sz = -1; sz <= 1; sz += 2)
+                    {
+                        CreatePartCubeRotated(root, new Vector3(sx * 8.35f, -0.52f, sz * 8.35f), new Vector3(1.2f, 0.12f, 1.2f), ridgeC, Quaternion.Euler(0f, 45f, 0f));
+                        CreatePartCubeRotated(root, new Vector3(sx * 8.5f, -0.42f, sz * 8.5f), new Vector3(0.5f, 0.5f, 0.5f), ridgeC, Quaternion.Euler(45f, 45f, 0f));
+                    }
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int sz = -1; sz <= 1; sz += 2)
+                        CreatePartCubeRotated(root, new Vector3(sx * 5.935f, 0.005f, sz * 5.935f), new Vector3(0.16f, 0.16f, 7f), ridgeC, Quaternion.LookRotation(new Vector3(sx * 4.87f, -1.18f, sz * 4.87f)));
+                CreatePartCube(root, new Vector3(0, -0.85f, -8.42f), new Vector3(0.06f, 0.3f, 0.06f), goldC);
+                CreatePartCube(root, new Vector3(0, -1.15f, -8.42f), new Vector3(0.55f, 0.6f, 0.55f), goldC);
+                CreatePartCube(root, new Vector3(0, -1.48f, -8.42f), new Vector3(0.28f, 0.14f, 0.28f), goldC);
+                break;
+
+            case "Pagoda_MidFloor":
+                CreatePartCube(root, new Vector3(0, 0f, 0), new Vector3(8f, 0.3f, 8f), woodC);
+                CreatePartCube(root, new Vector3(0, 0.145f, -2.5f), new Vector3(7.9f, 0.012f, 0.03f), new Color(0.45f, 0.2f, 0.1f));
+                CreatePartCube(root, new Vector3(0, 0.145f, -1.25f), new Vector3(7.9f, 0.012f, 0.03f), new Color(0.45f, 0.2f, 0.1f));
+                CreatePartCube(root, new Vector3(0, 0.145f, 0f), new Vector3(7.9f, 0.012f, 0.03f), new Color(0.45f, 0.2f, 0.1f));
+                CreatePartCube(root, new Vector3(0, 0.145f, 1.25f), new Vector3(7.9f, 0.012f, 0.03f), new Color(0.45f, 0.2f, 0.1f));
+                CreatePartCube(root, new Vector3(0, 0.145f, 2.5f), new Vector3(7.9f, 0.012f, 0.03f), new Color(0.45f, 0.2f, 0.1f));
+                break;
+
+            case "Pagoda_MidWalls":
+                {
+                    float half = 3.6f;
+                    for (int sx = -1; sx <= 1; sx += 2)
+                        for (int sz = -1; sz <= 1; sz += 2)
+                            CreatePartCube(root, new Vector3(sx * half, -0.1f, sz * half), new Vector3(0.45f, 2.2f, 0.45f), pillarC);
+                    CreatePartCube(root, new Vector3(0, -0.725f, half), new Vector3(6.8f, 0.95f, 0.12f), wallC);
+                    CreatePartCube(root, new Vector3(0, -0.725f, -half), new Vector3(6.8f, 0.95f, 0.12f), wallC);
+                    CreatePartCube(root, new Vector3(half, -0.725f, 0), new Vector3(0.12f, 0.95f, 6.8f), wallC);
+                    CreatePartCube(root, new Vector3(-half, -0.725f, 0), new Vector3(0.12f, 0.95f, 6.8f), wallC);
+                    CreatePartCube(root, new Vector3(0, -0.18f, half), new Vector3(6.8f, 0.14f, 0.14f), roofC);
+                    CreatePartCube(root, new Vector3(0, -0.18f, -half), new Vector3(6.8f, 0.14f, 0.14f), roofC);
+                    CreatePartCube(root, new Vector3(half, -0.18f, 0), new Vector3(0.14f, 0.14f, 6.8f), roofC);
+                    CreatePartCube(root, new Vector3(-half, -0.18f, 0), new Vector3(0.14f, 0.14f, 6.8f), roofC);
+                    for (int sx = -1; sx <= 1; sx += 2)
+                        for (int sz = -1; sz <= 1; sz += 2)
+                        {
+                            CreatePartCube(root, new Vector3(sx * half, 1f, sz * half), new Vector3(0.5f, 0.18f, 0.5f), wallC);
+                            CreatePartCube(root, new Vector3(sx * half, 1.18f, sz * half), new Vector3(0.55f, 0.14f, 0.55f), goldC);
+                        }
+                }
+                break;
+
+            case "Pagoda_Roof2":
+                CreatePartCubeRotated(root, new Vector3(0, 0.25f, 3f), new Vector3(12f, 0.5f, 7f), roofC, Quaternion.Euler(14f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(0, 0.25f, -3f), new Vector3(12f, 0.5f, 7f), roofC, Quaternion.Euler(-14f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(3f, 0.25f, 0), new Vector3(7f, 0.5f, 12f), roofC, Quaternion.Euler(0f, 0f, -14f));
+                CreatePartCubeRotated(root, new Vector3(-3f, 0.25f, 0), new Vector3(7f, 0.5f, 12f), roofC, Quaternion.Euler(0f, 0f, 14f));
+                CreatePartCube(root, new Vector3(0, -0.48f, 5.9f), new Vector3(12f, 0.2f, 0.16f), ridgeC);
+                CreatePartCube(root, new Vector3(0, -0.48f, -5.9f), new Vector3(12f, 0.2f, 0.16f), ridgeC);
+                CreatePartCube(root, new Vector3(5.9f, -0.48f, 0), new Vector3(0.16f, 0.2f, 12f), ridgeC);
+                CreatePartCube(root, new Vector3(-5.9f, -0.48f, 0), new Vector3(0.16f, 0.2f, 12f), ridgeC);
+                CreatePartCube(root, new Vector3(0, -0.58f, 5.98f), new Vector3(12f, 0.05f, 0.1f), goldC);
+                CreatePartCube(root, new Vector3(0, -0.58f, -5.98f), new Vector3(12f, 0.05f, 0.1f), goldC);
+                CreatePartCube(root, new Vector3(5.98f, -0.58f, 0), new Vector3(0.1f, 0.05f, 12f), goldC);
+                CreatePartCube(root, new Vector3(-5.98f, -0.58f, 0), new Vector3(0.1f, 0.05f, 12f), goldC);
+                CreatePartCube(root, new Vector3(0, 0.85f, 0), new Vector3(4.5f, 0.45f, 4.5f), roofC);
+                CreatePartCube(root, new Vector3(0, 1.15f, 0), new Vector3(0.35f, 0.35f, 0.35f), goldC);
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int sz = -1; sz <= 1; sz += 2)
+                    {
+                        CreatePartCubeRotated(root, new Vector3(sx * 5.85f, -0.42f, sz * 5.85f), new Vector3(1f, 0.1f, 1f), ridgeC, Quaternion.Euler(0f, 45f, 0f));
+                        CreatePartCubeRotated(root, new Vector3(sx * 6f, -0.32f, sz * 6f), new Vector3(0.42f, 0.42f, 0.42f), ridgeC, Quaternion.Euler(45f, 45f, 0f));
+                    }
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int sz = -1; sz <= 1; sz += 2)
+                        CreatePartCubeRotated(root, new Vector3(sx * 4.32f, -0.07f, sz * 4.32f), new Vector3(0.14f, 0.14f, 6f), ridgeC, Quaternion.LookRotation(new Vector3(sx * 4.15f, -1f, sz * 4.15f)));
+                break;
+
+            case "Pagoda_TopFloor":
+                CreatePartCube(root, new Vector3(0, 0f, 0), new Vector3(5.5f, 0.3f, 5.5f), woodC);
+                CreatePartCube(root, new Vector3(0, 0.145f, -1.5f), new Vector3(5.4f, 0.012f, 0.025f), new Color(0.45f, 0.2f, 0.1f));
+                CreatePartCube(root, new Vector3(0, 0.145f, 0f), new Vector3(5.4f, 0.012f, 0.025f), new Color(0.45f, 0.2f, 0.1f));
+                CreatePartCube(root, new Vector3(0, 0.145f, 1.5f), new Vector3(5.4f, 0.012f, 0.025f), new Color(0.45f, 0.2f, 0.1f));
+                break;
+
+            case "Pagoda_TopWalls":
+                {
+                    float half = 2.45f;
+                    for (int sx = -1; sx <= 1; sx += 2)
+                        for (int sz = -1; sz <= 1; sz += 2)
+                            CreatePartCube(root, new Vector3(sx * half, -0.1f, sz * half), new Vector3(0.4f, 1.7f, 0.4f), pillarC);
+                    CreatePartCube(root, new Vector3(0, -0.55f, half), new Vector3(4.6f, 0.8f, 0.1f), wallC);
+                    CreatePartCube(root, new Vector3(0, -0.55f, -half), new Vector3(4.6f, 0.8f, 0.1f), wallC);
+                    CreatePartCube(root, new Vector3(half, -0.55f, 0), new Vector3(0.1f, 0.8f, 4.6f), wallC);
+                    CreatePartCube(root, new Vector3(-half, -0.55f, 0), new Vector3(0.1f, 0.8f, 4.6f), wallC);
+                    CreatePartCube(root, new Vector3(0, -0.09f, half), new Vector3(4.6f, 0.12f, 0.12f), roofC);
+                    CreatePartCube(root, new Vector3(0, -0.09f, -half), new Vector3(4.6f, 0.12f, 0.12f), roofC);
+                    CreatePartCube(root, new Vector3(half, -0.09f, 0), new Vector3(0.12f, 0.12f, 4.6f), roofC);
+                    CreatePartCube(root, new Vector3(-half, -0.09f, 0), new Vector3(0.12f, 0.12f, 4.6f), roofC);
+                    for (int sx = -1; sx <= 1; sx += 2)
+                        for (int sz = -1; sz <= 1; sz += 2)
+                        {
+                            CreatePartCube(root, new Vector3(sx * half, 0.85f, sz * half), new Vector3(0.45f, 0.16f, 0.45f), wallC);
+                            CreatePartCube(root, new Vector3(sx * half, 1f, sz * half), new Vector3(0.5f, 0.12f, 0.5f), goldC);
+                        }
+                }
+                break;
+
+            case "Pagoda_Roof3":
+                CreatePartCubeRotated(root, new Vector3(0, 0.05f, 2.2f), new Vector3(8.8f, 0.45f, 5.4f), roofC, Quaternion.Euler(14f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(0, 0.05f, -2.2f), new Vector3(8.8f, 0.45f, 5.4f), roofC, Quaternion.Euler(-14f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(2.2f, 0.05f, 0), new Vector3(5.4f, 0.45f, 8.8f), roofC, Quaternion.Euler(0f, 0f, -14f));
+                CreatePartCubeRotated(root, new Vector3(-2.2f, 0.05f, 0), new Vector3(5.4f, 0.45f, 8.8f), roofC, Quaternion.Euler(0f, 0f, 14f));
+                CreatePartCube(root, new Vector3(0, -0.44f, 4.3f), new Vector3(8.8f, 0.18f, 0.14f), ridgeC);
+                CreatePartCube(root, new Vector3(0, -0.44f, -4.3f), new Vector3(8.8f, 0.18f, 0.14f), ridgeC);
+                CreatePartCube(root, new Vector3(4.3f, -0.44f, 0), new Vector3(0.14f, 0.18f, 8.8f), ridgeC);
+                CreatePartCube(root, new Vector3(-4.3f, -0.44f, 0), new Vector3(0.14f, 0.18f, 8.8f), ridgeC);
+                CreatePartCube(root, new Vector3(0, -0.52f, 4.38f), new Vector3(8.8f, 0.04f, 0.08f), goldC);
+                CreatePartCube(root, new Vector3(0, -0.52f, -4.38f), new Vector3(8.8f, 0.04f, 0.08f), goldC);
+                CreatePartCube(root, new Vector3(4.38f, -0.52f, 0), new Vector3(0.08f, 0.04f, 8.8f), goldC);
+                CreatePartCube(root, new Vector3(-4.38f, -0.52f, 0), new Vector3(0.08f, 0.04f, 8.8f), goldC);
+                CreatePartCube(root, new Vector3(0, 0.55f, 0), new Vector3(3f, 0.4f, 3f), roofC);
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int sz = -1; sz <= 1; sz += 2)
+                    {
+                        CreatePartCubeRotated(root, new Vector3(sx * 4.35f, -0.42f, sz * 4.35f), new Vector3(0.9f, 0.1f, 0.9f), ridgeC, Quaternion.Euler(0f, 45f, 0f));
+                        CreatePartCubeRotated(root, new Vector3(sx * 4.45f, -0.32f, sz * 4.45f), new Vector3(0.38f, 0.38f, 0.38f), ridgeC, Quaternion.Euler(45f, 45f, 0f));
+                    }
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int sz = -1; sz <= 1; sz += 2)
+                        CreatePartCubeRotated(root, new Vector3(sx * 3.16f, -0.18f, sz * 3.16f), new Vector3(0.12f, 0.12f, 4.8f), ridgeC, Quaternion.LookRotation(new Vector3(sx * 3.32f, -0.8f, sz * 3.32f)));
+                for (int lx = -1; lx <= 1; lx += 2)
+                {
+                    CreatePartCube(root, new Vector3(lx * 1.8f, -0.7f, -4.25f), new Vector3(0.05f, 0.25f, 0.05f), goldC);
+                    CreatePartCube(root, new Vector3(lx * 1.8f, -0.98f, -4.25f), new Vector3(0.3f, 0.07f, 0.3f), goldC);
+                    CreatePartCube(root, new Vector3(lx * 1.8f, -1.18f, -4.25f), new Vector3(0.26f, 0.32f, 0.26f), doorC);
+                    CreatePartCube(root, new Vector3(lx * 1.8f, -1.36f, -4.25f), new Vector3(0.18f, 0.05f, 0.18f), goldC);
+                }
+                break;
+
+            case "Pagoda_Tier4Floor":
+                CreatePartCube(root, new Vector3(0, 0f, 0), new Vector3(3.4f, 0.3f, 3.4f), woodC);
+                CreatePartCube(root, new Vector3(0, 0.145f, -1f), new Vector3(3.3f, 0.012f, 0.025f), new Color(0.45f, 0.2f, 0.1f));
+                CreatePartCube(root, new Vector3(0, 0.145f, 0f), new Vector3(3.3f, 0.012f, 0.025f), new Color(0.45f, 0.2f, 0.1f));
+                CreatePartCube(root, new Vector3(0, 0.145f, 1f), new Vector3(3.3f, 0.012f, 0.025f), new Color(0.45f, 0.2f, 0.1f));
+                break;
+
+            case "Pagoda_Tier4Walls":
+                {
+                    float half = 1.55f;
+                    for (int sx = -1; sx <= 1; sx += 2)
+                    {
+                        for (int sz = -1; sz <= 1; sz += 2)
+                            CreatePartCube(root, new Vector3(sx * half, -0.2f, sz * half), new Vector3(0.35f, 1.3f, 0.35f), pillarC);
+                        CreatePartCube(root, new Vector3(0, -0.2f, sx * half), new Vector3(0.35f, 1.3f, 0.35f), pillarC);
+                        CreatePartCube(root, new Vector3(sx * half, -0.2f, 0), new Vector3(0.35f, 1.3f, 0.35f), pillarC);
+                    }
+                    CreatePartCube(root, new Vector3(0, -0.55f, half), new Vector3(2.8f, 0.6f, 0.09f), wallC);
+                    CreatePartCube(root, new Vector3(0, -0.55f, -half), new Vector3(2.8f, 0.6f, 0.09f), wallC);
+                    CreatePartCube(root, new Vector3(half, -0.55f, 0), new Vector3(0.09f, 0.6f, 2.8f), wallC);
+                    CreatePartCube(root, new Vector3(-half, -0.55f, 0), new Vector3(0.09f, 0.6f, 2.8f), wallC);
+                    CreatePartCube(root, new Vector3(0, -0.19f, half), new Vector3(2.8f, 0.1f, 0.1f), roofC);
+                    CreatePartCube(root, new Vector3(0, -0.19f, -half), new Vector3(2.8f, 0.1f, 0.1f), roofC);
+                    CreatePartCube(root, new Vector3(half, -0.19f, 0), new Vector3(0.1f, 0.1f, 2.8f), roofC);
+                    CreatePartCube(root, new Vector3(-half, -0.19f, 0), new Vector3(0.1f, 0.1f, 2.8f), roofC);
+                    for (int sx = -1; sx <= 1; sx += 2)
+                        for (int sz = -1; sz <= 1; sz += 2)
+                        {
+                            CreatePartCube(root, new Vector3(sx * half, 0.55f, sz * half), new Vector3(0.4f, 0.12f, 0.4f), wallC);
+                            CreatePartCube(root, new Vector3(sx * half, 0.7f, sz * half), new Vector3(0.42f, 0.1f, 0.42f), goldC);
+                        }
+                }
+                break;
+
+            case "Pagoda_Roof4":
+                CreatePartCubeRotated(root, new Vector3(0, 0f, 1.6f), new Vector3(5.6f, 0.4f, 3.6f), roofC, Quaternion.Euler(14f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(0, 0f, -1.6f), new Vector3(5.6f, 0.4f, 3.6f), roofC, Quaternion.Euler(-14f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(1.6f, 0f, 0), new Vector3(3.6f, 0.4f, 5.6f), roofC, Quaternion.Euler(0f, 0f, -14f));
+                CreatePartCubeRotated(root, new Vector3(-1.6f, 0f, 0), new Vector3(3.6f, 0.4f, 5.6f), roofC, Quaternion.Euler(0f, 0f, 14f));
+                CreatePartCube(root, new Vector3(0, -0.5f, 3.4f), new Vector3(5.6f, 0.16f, 0.12f), ridgeC);
+                CreatePartCube(root, new Vector3(0, -0.5f, -3.4f), new Vector3(5.6f, 0.16f, 0.12f), ridgeC);
+                CreatePartCube(root, new Vector3(3.4f, -0.5f, 0), new Vector3(0.12f, 0.16f, 5.6f), ridgeC);
+                CreatePartCube(root, new Vector3(-3.4f, -0.5f, 0), new Vector3(0.12f, 0.16f, 5.6f), ridgeC);
+                CreatePartCube(root, new Vector3(0, -0.6f, 3.45f), new Vector3(5.6f, 0.04f, 0.08f), goldC);
+                CreatePartCube(root, new Vector3(0, -0.6f, -3.45f), new Vector3(5.6f, 0.04f, 0.08f), goldC);
+                CreatePartCube(root, new Vector3(3.45f, -0.6f, 0), new Vector3(0.08f, 0.04f, 5.6f), goldC);
+                CreatePartCube(root, new Vector3(-3.45f, -0.6f, 0), new Vector3(0.08f, 0.04f, 5.6f), goldC);
+                CreatePartCube(root, new Vector3(0, 0.45f, 0), new Vector3(2f, 0.35f, 2f), roofC);
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int sz = -1; sz <= 1; sz += 2)
+                    {
+                        CreatePartCubeRotated(root, new Vector3(sx * 3.35f, -0.42f, sz * 3.35f), new Vector3(0.6f, 0.08f, 0.6f), ridgeC, Quaternion.Euler(0f, 45f, 0f));
+                        CreatePartCubeRotated(root, new Vector3(sx * 3.45f, -0.32f, sz * 3.45f), new Vector3(0.3f, 0.3f, 0.3f), ridgeC, Quaternion.Euler(45f, 45f, 0f));
+                    }
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int sz = -1; sz <= 1; sz += 2)
+                        CreatePartCubeRotated(root, new Vector3(sx * 2.17f, -0.14f, sz * 2.17f), new Vector3(0.1f, 0.1f, 3.4f), ridgeC, Quaternion.LookRotation(new Vector3(sx * 2.35f, -0.57f, sz * 2.35f)));
+                break;
+
+            case "Pagoda_Spire":
+                CreatePartCube(root, new Vector3(0, -0.42f, 0), new Vector3(0.8f, 0.3f, 0.8f), goldC);
+                CreatePartCube(root, new Vector3(0, 0.1f, 0), new Vector3(1.2f, 0.45f, 1.2f), goldC);
+                CreatePartCube(root, new Vector3(0, 1.55f, 0), new Vector3(0.3f, 2.6f, 0.3f), goldC);
+                CreatePartCube(root, new Vector3(0, 0.7f, 0), new Vector3(0.7f, 0.16f, 0.7f), goldC);
+                CreatePartCube(root, new Vector3(0, 1.9f, 0), new Vector3(0.6f, 0.14f, 0.6f), goldC);
+                CreatePartCube(root, new Vector3(0, 2.3f, 0), new Vector3(0.55f, 0.12f, 0.55f), goldC);
+                CreatePartCube(root, new Vector3(0, 2.6f, 0), new Vector3(0.5f, 0.5f, 0.5f), goldC);
+                CreatePartCubeRotated(root, new Vector3(0, 2.95f, 0), new Vector3(0.35f, 0.35f, 0.35f), goldC, Quaternion.Euler(45f, 0f, 45f));
+                break;
+        }
     }
 
     private void RebuildEssentialBuilding(BlueprintState bp)
@@ -4882,6 +5315,20 @@ GameObject treeRoot;
 
         foreach (var build in data)
         {
+            if (build.type != null && build.type.StartsWith("structure_part_Pagoda_"))
+            {
+                SpawnStructurePart(new BlueprintState
+                {
+                    Type = build.type.Replace("structure_part_", ""),
+                    Position = build.position,
+                    Rotation = build.rotation
+                });
+                var lastPart = _buildings[_buildings.Count - 1];
+                lastPart.CurrentHealth = build.currentHealth;
+                lastPart.MaxHealth = build.maxHealth;
+                continue;
+            }
+
             _currentBuildingIndex = 0;
             for (int i = 0; i < _availableBuildings.Length; i++)
             {
