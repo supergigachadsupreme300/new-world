@@ -462,7 +462,17 @@ public static class ItemBuilder
 
     public static void BuildRosary(Transform parent)
     {
-        CreatePickupSphere(parent, new Vector3(0f, 0.08f, 0f), 0.16f, new Color(1f, 0.84f, 0.2f));
+        Color gold = new Color(1f, 0.84f, 0.2f);
+        CreatePickupSphere(parent, new Vector3(0f, 0.08f, 0f), 0.16f, gold);
+
+        Color beadGold = new Color(1f, 0.9f, 0.35f);
+        int beadCount = 12;
+        for (int i = 0; i < beadCount; i++)
+        {
+            float angle = (i / (float)beadCount) * Mathf.PI * 2f;
+            var pos = new Vector3(Mathf.Cos(angle) * 0.18f, 0.08f, Mathf.Sin(angle) * 0.18f);
+            CreatePickupSphere(parent, pos, 0.05f, beadGold);
+        }
     }
 
     public static void BuildPalm(Transform parent)

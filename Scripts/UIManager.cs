@@ -28,12 +28,14 @@ public class UIManager : MonoBehaviour
     private Sprite _leftArrowSprite;
     private Sprite _redXSprite;
     private readonly string[] _tutorialPages = {
-        "Chào mừng đến với Country Life!\n\nSau khi tốt nghiệp ngành CNTT, thị trường việc làm đã quá khó khăn. Không có việc làm, bạn quay về nông thôn của ông nội đã khuất.\n\nTại đây, bạn phải xây dựng nông trại, bảo vệ làng, và tìm kiếm hạnh phúc cho mình. Biết đâu, cô gái hàng xóm sẽ là định mệnh của bạn...",
+        "CHÀO MỪNG!\n\nChào mừng đến với Country Life!\n\nSau khi tốt nghiệp ngành CNTT, thị trường việc làm đã quá khó khăn. Không có việc làm, bạn quay về nông thôn của ông nội đã khuất.",
+        "BẮT ĐẦU CUỘC SỐNG MỚI\n\nTại đây, bạn phải xây dựng nông trại, bảo vệ làng, và tìm kiếm hạnh phúc cho mình.\n\nBiết đâu, cô gái hàng xóm sẽ là định mệnh của bạn...",
         "DI CHUYỂN\n\nWASD \u2014 Di chuyển\nSpace \u2014 Nhảy\nShift \u2014 Chạy nhanh\nChuột \u2014 Nhìn xung quanh",
         "HÀNH ĐỘNG\n\nChuột trái \u2014 Sử dụng công cụ\nE \u2014 Tương tác / Mở cửa\nQ \u2014 Bỏ vật phẩm",
         "XÂY DỰNG\n\nGiữ Búa + F \u2014 Mở menu xây dựng\nB / N \u2014 Đổi loại công trình\nChuột trái \u2014 Đặt công trình\nF \u2014 Hủy",
-        "NÔNG NGHIỆP & CHIẾN ĐẤU\n\nCuốc \u2014 Làm đất để trồng cây\nLưỡi liềm \u2014 Thu hoạch\nRìu / Cuốc chim \u2014 Thu thập nguyên liệu\nKìm \u2014 Chiến đấu với kẻ thù",
-        "TRÀNG HẠT\n\nVật phẩm linh thiêng giúp xua đuổi tà ma.\nMua tại quán của Bà Tân với giá 100 vàng.\n\nChuột trái \u2014 Thi triển quả cầu thánh\nQuả cầu trừ tà tiêu diệt kẻ thù chỉ bằng một đòn.",
+        "NÔNG NGHIỆP\n\nCuốc \u2014 Làm đất để trồng cây\nLưỡi liềm \u2014 Thu hoạch\nRìu / Cuốc chim \u2014 Thu thập nguyên liệu",
+        "KẺ THÙ\n\nBan đêm (18h \u2013 6h), lũ quỷ xuất hiện và tấn công bạn cùng các công trình.\nQuỷ thường: 50 máu, gây 10 sát thương.\nQuỷ khổng lồ: máu và sát thương cao hơn.",
+        "TRỪ TÀ\n\nTràng hạt \u2014 Quả cầu thánh hạ gục một đòn.\nTrang bị Tràng Hạt rồi bấm chuột trái để thi triển.\n\nHãy đóng cửa khi trời tối để cản bước chúng!",
         "NGÔI CHÙA\n\nNgôi chùa 4 tầng mái cong nằm phía Đông làng, ngay cạnh nhà bà hàng xóm.\n\nĐây là công trình biểu tượng của làng \u2014 hãy đến chiêm bái và ngắm cảnh hoàng hôn từ nơi đây.",
         "MẸO\n\nThu hoạch lúa để kiếm tiền\nXây dựng tường và tháp canh để bảo vệ\nHoàn thành nhiệm vụ để nhận thưởng\nNgủ trên giường để lưu game"
     };
@@ -854,9 +856,19 @@ public class UIManager : MonoBehaviour
             _pauseMenuPanel?.SetActive(false);
             _tutorialSpreadIndex = 0;
             UpdateTutorialPage();
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
         }
-        if (!show && GameManager.Instance != null && GameManager.Instance.GamePaused)
-            ShowPauseMenu(true);
+        else
+        {
+            if (GameManager.Instance != null && GameManager.Instance.GamePaused)
+                ShowPauseMenu(true);
+            else
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+            }
+        }
     }
 
     private void UpdateTutorialPage()

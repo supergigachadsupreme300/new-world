@@ -54,6 +54,7 @@ public class WorldBuilder : MonoBehaviour
     private readonly List<GameObject> _eventBlocks = new List<GameObject>();
     private readonly List<int> _eventBlockIndices = new List<int>();
     private readonly HashSet<GameObject> _openDoors = new HashSet<GameObject>();
+    private bool _wasNight;
     private readonly List<GameObject> _clouds = new List<GameObject>();
     private float _cloudSpawnTimer;
     private const int MaxClouds = 10;
@@ -709,6 +710,17 @@ public class WorldBuilder : MonoBehaviour
 
     public void SetDayNight(float hour)
     {
+        bool isNight = hour >= 18f || hour < 6f;
+        if (isNight && !_wasNight)
+        {
+            _wasNight = true;
+            CloseAllDoors();
+        }
+        else if (!isNight)
+        {
+            _wasNight = false;
+        }
+
         if (SunLight == null)
             return;
 
@@ -2617,7 +2629,7 @@ public class WorldBuilder : MonoBehaviour
         });
     }
 
-    private void CreatePartCube(Transform parent, Vector3 localPos, Vector3 scale, Color color)
+    private GameObject CreatePartCube(Transform parent, Vector3 localPos, Vector3 scale, Color color)
     {
         var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
         cube.transform.SetParent(parent);
@@ -2626,6 +2638,7 @@ public class WorldBuilder : MonoBehaviour
         cube.transform.localRotation = Quaternion.identity;
         cube.GetComponent<MeshRenderer>().material.color = color;
         cube.AddComponent<BoxCollider>();
+        return cube;
     }
 
     private void CreatePartCubeRotated(Transform parent, Vector3 localPos, Vector3 scale, Color color, Quaternion rotation)
@@ -2763,7 +2776,8 @@ public class WorldBuilder : MonoBehaviour
                     CreatePartCube(root, new Vector3(0, 1.5f, -half), new Vector3(10.5f, 0.2f, 0.2f), ridgeC);
                     // entrance lintel (world 3.0..3.95) — leaves the wide opening open below for the player
                     CreatePartCube(root, new Vector3(0, 0.925f, -half + 0.08f), new Vector3(3.6f, 0.95f, 0.2f), wallC);
-                    CreatePartCube(root, new Vector3(0, -1.6f, -half + 0.04f), new Vector3(3.6f, 0.1f, 0.18f), stoneC);
+                    var doorstep = CreatePartCube(root, new Vector3(0, -1.6f, -half + 0.04f), new Vector3(3.6f, 0.1f, 0.18f), stoneC);
+                    Destroy(doorstep.GetComponent<Collider>());
 
                     // parapet ring under Roof1 (world ~4.14..5.48) — closes the wall-to-roof gap
                     CreatePartCube(root, new Vector3(0, 2.26f, half), new Vector3(10.5f, 1.34f, 0.3f), wallC);
@@ -4058,7 +4072,8 @@ GameObject treeRoot;
         bool nearWifeHouse = x >= 20 && x <= 42 && Mathf.Abs(z) <= 10;
         bool nearDisplay = x >= 48 && x <= 67 && z >= -130 && z <= -48;
         bool nearMansion = x >= -45 && x <= -15 && z >= 39 && z <= 61;
-        return nearHouse || nearShop || nearRoad || nearWifeHouse || nearDisplay || nearMansion;
+        bool nearPagoda = x >= 42 && x <= 58 && Mathf.Abs(z) <= 12;
+        return nearHouse || nearShop || nearRoad || nearWifeHouse || nearDisplay || nearMansion || nearPagoda;
     }
 
     private void CreateVendorSpawnButton()
@@ -4112,6 +4127,19 @@ GameObject treeRoot;
         }
         door.transform.localRotation = Quaternion.Euler(0f, end, 0f);
         if (isOpen) _openDoors.Remove(door); else _openDoors.Add(door);
+    }
+
+    private void CloseAllDoors()
+    {
+        if (_worldRoot == null)
+            return;
+
+        foreach (var door in _worldRoot.GetComponentsInChildren<Transform>(true))
+        {
+            if (door.name == "Door")
+                door.localRotation = Quaternion.identity;
+        }
+        _openDoors.Clear();
     }
 
     // ── Event Blocks ──

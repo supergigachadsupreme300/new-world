@@ -53,6 +53,15 @@ public class WifeNPC : MonoBehaviour
     private const float WALK_SPEED = 3f;
     private const float STAY_DURATION = 20f;
     private TMP_Text _inviteText;
+    private TMP_Text _nightText;
+    private int _chainStep;
+    private bool _rosaryGranted;
+    private int _lastRosaryGrantDay = -1;
+    private Coroutine _walkRoutine;
+    private GameObject _proposeRow;
+    private GameObject _inviteRow;
+    private GameObject _nightRow;
+    private RectTransform _panelRt;
 
     private Transform _legL;
     private Transform _legR;
@@ -82,18 +91,11 @@ public class WifeNPC : MonoBehaviour
 
     void Start()
     {
-        var npcGo = GameObject.Find("WifeNpc");
-        if (npcGo != null) _npcTransform = npcGo.transform;
+        RefreshWifeRefs();
         if (_npcTransform != null)
         {
             _originalPos = _npcTransform.position;
             _originalRot = _npcTransform.rotation;
-            _legL = _npcTransform.Find("LegsRoot/LegL");
-            _legR = _npcTransform.Find("LegsRoot/LegR");
-            _lowerLegL = _npcTransform.Find("LegsRoot/LegL/LowerLegL");
-            _lowerLegR = _npcTransform.Find("LegsRoot/LegR/LowerLegR");
-            _armL = _npcTransform.Find("LeftArmRoot");
-            _armR = _npcTransform.Find("RightArmRoot");
         }
     }
 
@@ -110,10 +112,12 @@ public class WifeNPC : MonoBehaviour
             case HouseVisitState.WalkingToHouse:
             {
                 var npcPos = _npcTransform != null ? _npcTransform : transform;
-                npcPos.rotation = _originalRot;
                 var step = WALK_SPEED * Time.deltaTime;
                 npcPos.position = Vector3.MoveTowards(npcPos.position, _homePos, step);
-                AnimateWalk();
+                Vector3 walkDir = _homePos - npcPos.position;
+                walkDir.y = 0f;
+                if (walkDir.sqrMagnitude > 0.001f)
+                    npcPos.rotation = Quaternion.LookRotation(-walkDir);
                 if (Vector3.Distance(npcPos.position, _homePos) < 0.05f)
                 {
                     npcPos.position = _homePos;
@@ -149,10 +153,12 @@ public class WifeNPC : MonoBehaviour
             case HouseVisitState.Leaving:
             {
                 var npcPos = _npcTransform != null ? _npcTransform : transform;
-                npcPos.rotation = Quaternion.Euler(0f, -90f, 0f);
                 var step = WALK_SPEED * Time.deltaTime;
                 npcPos.position = Vector3.MoveTowards(npcPos.position, _originalPos, step);
-                AnimateWalk();
+                Vector3 walkDir = _originalPos - npcPos.position;
+                walkDir.y = 0f;
+                if (walkDir.sqrMagnitude > 0.001f)
+                    npcPos.rotation = Quaternion.LookRotation(-walkDir);
                 if (Vector3.Distance(npcPos.position, _originalPos) < 0.05f)
                 {
                     npcPos.position = _originalPos;
@@ -191,27 +197,84 @@ public class WifeNPC : MonoBehaviour
                 _leaveTimer = STAY_DURATION;
             AdvanceDialog();
         }
+
+        if (_dialogActive && Keyboard.current.vKey.wasPressedThisFrame)
+        {
+            bool greetDone = (QuestManager.Instance?.IsComplete("greet") ?? false);
+            if (greetDone && State == WifeState.Greeting && IsRosaryAvailable())
+            {
+                _lastRosaryGrantDay = GameManager.Instance.CurrentDay;
+                bool firstTime = !_rosaryGranted;
+                _rosaryGranted = true;
+                if (firstTime)
+                {
+                    if (_chainStep <= 2)
+                        _chainStep = 3;
+                    QuestManager.Instance?.AddStoryQuest("Trừ Tà Giúp Làng", "enemies", 5, 150,
+                        "Dùng Tràng Hạt tiêu diệt 5 con quỷ để bảo vệ làng.");
+                    _dialogQueue.Clear();
+                    _dialogQueue.Enqueue("Jessica: Đêm nay ư? Anh có nghe tiếng lũ quỷ vào ban đêm chứ?");
+                    _dialogQueue.Enqueue("Jessica: Ở làng này, mỗi khi trời tối (18h \u2013 6h), lũ quỷ lại xuất hiện. Chúng phá hoại công trình và tấn công dân làng.");
+                    _dialogQueue.Enqueue("Jessica: Tràng Hạt là cách trừ tà tốt nhất \u2014 quả cầu thánh hạ gục kẻ thù chỉ một đòn.");
+                    _dialogQueue.Enqueue("Jessica: Nhớ đóng cửa khi trời tối để cản bước chúng nhé. Em tặng anh chiếc tràng hạt này!");
+                }
+                else
+                {
+                    _dialogQueue.Clear();
+                    _dialogQueue.Enqueue("Jessica: Anh lại cần tràng hạt à? Em tặng anh thêm một chiếc nhé!");
+                }
+                HideDialog();
+                ToolManager.Instance?.AddItem("rosary", 1);
+                SaveState();
+                ShowNextDialog();
+            }
+        }
     }
 
     public bool IsDialogActive => _dialogActive;
 
-    private void AnimateWalk()
+    private void RefreshWifeRefs()
     {
-        _walkCycle += Time.deltaTime * 12f;
-        if (_legL == null)
+        var npcGo = GameObject.Find("WifeNpc");
+        if (npcGo == null)
             return;
+        _npcTransform = npcGo.transform;
+        _legL = _npcTransform.Find("LegsRoot/LegL");
+        _legR = _npcTransform.Find("LegsRoot/LegR");
+        _lowerLegL = _npcTransform.Find("LegsRoot/LegL/LowerLegL");
+        _lowerLegR = _npcTransform.Find("LegsRoot/LegR/LowerLegR");
+        _armL = _npcTransform.Find("LeftArmRoot");
+        _armR = _npcTransform.Find("RightArmRoot");
+    }
 
-        float swing = Mathf.Sin(_walkCycle) * 30f;
-        _legL.localRotation = Quaternion.Euler(swing, 0f, 0f);
-        _legR.localRotation = Quaternion.Euler(-swing, 0f, 0f);
-        _lowerLegL.localRotation = Quaternion.Euler(-swing * 0.5f, 0f, 0f);
-        _lowerLegR.localRotation = Quaternion.Euler(swing * 0.5f, 0f, 0f);
-        _armL.localRotation = Quaternion.Euler(-swing * 0.8f, 0f, 0f) * _armLBase;
-        _armR.localRotation = Quaternion.Euler(swing * 0.8f, 0f, 0f) * _armRBase;
+    private IEnumerator WalkAnimation()
+    {
+        while (_visitState == HouseVisitState.WalkingToHouse || _visitState == HouseVisitState.Leaving)
+        {
+            _walkCycle += Time.deltaTime * 12f;
+            float swing = Mathf.Sin(_walkCycle) * 30f;
+            if (_legL != null) _legL.localRotation = Quaternion.Euler(swing, 0f, 0f);
+            if (_legR != null) _legR.localRotation = Quaternion.Euler(-swing, 0f, 0f);
+            if (_lowerLegL != null) _lowerLegL.localRotation = Quaternion.Euler(-swing * 0.5f, 0f, 0f);
+            if (_lowerLegR != null) _lowerLegR.localRotation = Quaternion.Euler(swing * 0.5f, 0f, 0f);
+            if (_armL != null) _armL.localRotation = Quaternion.Euler(-swing * 0.8f, 0f, 0f) * _armLBase;
+            if (_armR != null) _armR.localRotation = Quaternion.Euler(swing * 0.8f, 0f, 0f) * _armRBase;
+            yield return null;
+        }
+    }
+
+    private void StopWalkAnimation()
+    {
+        if (_walkRoutine != null)
+        {
+            StopCoroutine(_walkRoutine);
+            _walkRoutine = null;
+        }
     }
 
     private void ResetPose()
     {
+        StopWalkAnimation();
         if (_legL == null)
             return;
         _legL.localRotation = Quaternion.identity;
@@ -266,7 +329,10 @@ public class WifeNPC : MonoBehaviour
             married = Married,
             affection = _affection,
             lastWifeQuestDay = _lastWifeQuestDay,
-            hasProposed = _hasProposed
+            hasProposed = _hasProposed,
+            chainStep = _chainStep,
+            rosaryGranted = _rosaryGranted,
+            lastRosaryGrantDay = _lastRosaryGrantDay
         };
         PlayerPrefs.SetString("WifeNPC", JsonUtility.ToJson(data));
         PlayerPrefs.Save();
@@ -286,6 +352,11 @@ public class WifeNPC : MonoBehaviour
             _affection = data.affection;
             _lastWifeQuestDay = data.lastWifeQuestDay;
             _hasProposed = data.hasProposed;
+            _chainStep = data.chainStep;
+            _rosaryGranted = data.rosaryGranted;
+            _lastRosaryGrantDay = data.lastRosaryGrantDay;
+            if (!_rosaryGranted)
+                _lastRosaryGrantDay = -1;
         }
     }
 
@@ -294,7 +365,11 @@ public class WifeNPC : MonoBehaviour
         if (_visitState != HouseVisitState.None || State == WifeState.NotMet)
             return;
 
+        RefreshWifeRefs();
         _visitState = HouseVisitState.WalkingToHouse;
+        _walkCycle = 0f;
+        if (_walkRoutine == null)
+            _walkRoutine = StartCoroutine(WalkAnimation());
         _dialogQueue.Clear();
         _dialogQueue.Enqueue("Jessica: Ok con dê!");
         ShowNextDialog();
@@ -355,6 +430,8 @@ public class WifeNPC : MonoBehaviour
                     };
                 }
 
+                UpdateChain(qm);
+
                 if (_wifeQuestTargets.Count == 0 && NeedGenerateWifeQuests())
                     GenerateWifeQuests();
 
@@ -363,17 +440,20 @@ public class WifeNPC : MonoBehaviour
                     CheckWifeQuests(qm);
                 }
 
+                var lines = new List<string>();
+                if (_chainStep == 1)
+                    lines.Add("Jessica: Anh nhớ câu 3 con cá giúp em nhé! Em đã tặng anh chiếc cần câu rồi đấy.");
+
                 if (_wifeQuestTargets.Count > 0)
                 {
-                    var activeQuests = GetWifeQuestDescriptions();
-                    var lines = new List<string>
-                    {
-                        "Jessica: Lại đây anh ơi! Em có vài việc nhờ anh giúp."
-                    };
-                    lines.AddRange(activeQuests);
+                    lines.Add("Jessica: Lại đây anh ơi! Em có vài việc nhờ anh giúp.");
+                    lines.AddRange(GetWifeQuestDescriptions());
                     lines.Add("Jessica: Giúp em xong em cảm ơn nhiều lắm!");
                     return lines.ToArray();
                 }
+
+                if (lines.Count > 0)
+                    return lines.ToArray();
 
                 return new string[]
                 {
@@ -427,6 +507,40 @@ public class WifeNPC : MonoBehaviour
 
         QuestManager.Instance?.AddStoryQuest(questName, entry[1], int.Parse(entry[2]), reward,
             "Nhiệm vụ hàng ngày từ Jessica. Hoàn thành trước 6h sáng mai!");
+    }
+
+    private void UpdateChain(QuestManager qm)
+    {
+        if (qm == null)
+            return;
+
+        if (_chainStep == 0)
+        {
+            _chainStep = 1;
+            qm.AddStoryQuest("Câu Cá Lần Đầu", "fish_catch", 3, 120,
+                "Jessica nhờ anh câu 3 con cá. Cô ấy đã tặng anh chiếc cần câu để bắt đầu!");
+            ToolManager.Instance?.AddItem("fishing_rod", 1);
+            GameManager.Instance?.UIManager?.ShowMessage("Jessica tặng anh chiếc cần câu cá!", 3f);
+            SaveState();
+            return;
+        }
+
+        if (_chainStep == 1 && qm.IsNamedQuestComplete("Câu Cá Lần Đầu"))
+        {
+            _chainStep = 2;
+            _affection = Mathf.Min(100f, _affection + 10f);
+            GameManager.Instance?.UIManager?.ShowMessage("Hoàn thành Câu Cá Lần Đầu! +10 độ thân mật", 3f);
+            SaveState();
+            return;
+        }
+
+        if (_chainStep == 3 && qm.IsNamedQuestComplete("Trừ Tà Giúp Làng"))
+        {
+            _chainStep = 4;
+            _affection = Mathf.Min(100f, _affection + 10f);
+            GameManager.Instance?.UIManager?.ShowMessage("Hoàn thành Trừ Tà Giúp Làng! +10 độ thân mật", 3f);
+            SaveState();
+        }
     }
 
     private void CheckWifeQuests(QuestManager qm)
@@ -501,10 +615,46 @@ public class WifeNPC : MonoBehaviour
         bool showPropose = _affection >= 70f && !Married && State == WifeState.Greeting
             && (QuestManager.Instance?.IsComplete("greet") ?? false);
         _proposeText.text = showPropose ? "[Tỏ Tình] Nhấn T" : "";
+        if (_proposeRow != null) _proposeRow.SetActive(showPropose);
 
         bool showInvite = _visitState == HouseVisitState.None && State != WifeState.NotMet
             && (QuestManager.Instance?.IsComplete("greet") ?? false);
-        _inviteText.text = showInvite && !showPropose ? "[Mời Về Nhà] Nhấn G" : "";
+        bool showInviteFinal = showInvite && !showPropose;
+        _inviteText.text = showInviteFinal ? "[Mời Về Nhà] Nhấn G" : "";
+        if (_inviteRow != null) _inviteRow.SetActive(showInviteFinal);
+
+        bool showNight = State == WifeState.Greeting && IsRosaryAvailable()
+            && (QuestManager.Instance?.IsComplete("greet") ?? false);
+        _nightText.text = showNight ? "[Hỏi về đêm nay] Nhấn V" : "";
+        if (_nightRow != null) _nightRow.SetActive(showNight);
+
+        LayoutOptionRows();
+    }
+
+    private void LayoutOptionRows()
+    {
+        if (_panelRt == null)
+            return;
+
+        var active = new List<GameObject>();
+        if (_proposeRow != null && _proposeRow.activeSelf) active.Add(_proposeRow);
+        if (_inviteRow != null && _inviteRow.activeSelf) active.Add(_inviteRow);
+        if (_nightRow != null && _nightRow.activeSelf) active.Add(_nightRow);
+
+        const float topPad = 6f;
+        const float step = 48f;
+        for (int i = 0; i < active.Count; i++)
+        {
+            var rowRt = active[i].GetComponent<RectTransform>();
+            if (rowRt == null) continue;
+            rowRt.anchoredPosition = new Vector2(-20f, topPad + i * step);
+        }
+    }
+
+    private bool IsRosaryAvailable()
+    {
+        var gm = GameManager.Instance;
+        return gm != null && _lastRosaryGrantDay != gm.CurrentDay;
     }
 
     private void AdvanceDialog()
@@ -555,6 +705,7 @@ public class WifeNPC : MonoBehaviour
 
         float panelW = sw * 0.7f;
         float panelH = sh * 0.28f;
+        _panelRt = panelRt;
 
         _nameText = CreateDialogText("WifeDialogName", panelRt,
             new Vector2(0f, panelH * 0.38f), "Jessica", 24,
@@ -571,17 +722,40 @@ public class WifeNPC : MonoBehaviour
             new Color(0.7f, 0.7f, 0.7f), TextAlignmentOptions.Right,
             new Vector2(panelW - 40f, 25f));
 
-        _proposeText = CreateDialogText("WifeProposeText", panelRt,
-            new Vector2(panelW * 0.38f, panelH * 0.42f), "", 22,
-            new Color(1f, 0.3f, 0.3f), TextAlignmentOptions.Right,
-            new Vector2(panelW * 0.5f, 35f));
+        _proposeText = CreateDialogOptionRow(panelRt, "WifeProposeRow", "WifeProposeText",
+            6f, new Color(1f, 0.3f, 0.3f), 22, out _proposeRow);
 
-        _inviteText = CreateDialogText("WifeInviteText", panelRt,
-            new Vector2(-panelW * 0.38f, panelH * 0.42f), "", 20,
-            new Color(0.3f, 1f, 0.6f), TextAlignmentOptions.Left,
-            new Vector2(panelW * 0.4f, 30f));
+        _inviteText = CreateDialogOptionRow(panelRt, "WifeInviteRow", "WifeInviteText",
+            54f, new Color(0.3f, 1f, 0.6f), 20, out _inviteRow);
+
+        _nightText = CreateDialogOptionRow(panelRt, "WifeNightRow", "WifeNightText",
+            102f, new Color(1f, 0.85f, 0.3f), 20, out _nightRow);
 
         _dialogPanel.SetActive(false);
+    }
+
+    private TMP_Text CreateDialogOptionRow(RectTransform parent, string rowName, string textName,
+        float yOffset, Color textColor, int fontSize, out GameObject row)
+    {
+        row = new GameObject(rowName);
+        row.transform.SetParent(parent, false);
+        var rowRt = row.AddComponent<RectTransform>();
+        rowRt.anchorMin = new Vector2(1f, 1f);
+        rowRt.anchorMax = new Vector2(1f, 1f);
+        rowRt.pivot = new Vector2(1f, 1f);
+        rowRt.anchoredPosition = new Vector2(-20f, yOffset);
+        rowRt.sizeDelta = new Vector2(300f, 40f);
+
+        var rowImg = row.AddComponent<Image>();
+        rowImg.color = new Color(0f, 0f, 0f, 0.8f);
+        rowImg.raycastTarget = false;
+
+        var text = CreateDialogText(textName, rowRt,
+            new Vector2(0f, 0f), "", fontSize, textColor,
+            TextAlignmentOptions.Left, new Vector2(272f, 36f));
+
+        row.SetActive(false);
+        return text;
     }
 
     private TMP_Text CreateDialogText(string name, RectTransform parent,
@@ -749,5 +923,8 @@ public class WifeNPC : MonoBehaviour
         public float affection;
         public int lastWifeQuestDay;
         public bool hasProposed;
+        public int chainStep;
+        public bool rosaryGranted;
+        public int lastRosaryGrantDay;
     }
 }

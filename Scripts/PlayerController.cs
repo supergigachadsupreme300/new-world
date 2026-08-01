@@ -66,7 +66,7 @@ public class PlayerController : MonoBehaviour
         {
             // sensible defaults so the player collides with geometry and can move
             _controller.skinWidth = 0.08f;
-            _controller.stepOffset = 0.3f;
+            _controller.stepOffset = 0.5f;
             _controller.minMoveDistance = 0.001f;
             _controller.radius = Mathf.Max(0.3f, _controller.radius);
             _controller.height = _controller.height < 1.2f ? 1.8f : _controller.height;
