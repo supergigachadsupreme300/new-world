@@ -423,13 +423,41 @@ public static class ItemBuilder
 
     public static void BuildFishingRod(Transform parent)
     {
-        Color rodC = new Color(0.5f, 0.3f, 0.08f);
-        Color lineC = new Color(0.8f, 0.8f, 0.1f);
-        Color hookC = new Color(0.6f, 0.6f, 0.6f);
+        Color handleC = new Color(0.3f, 0.16f, 0.05f);
+        Color woodMid = new Color(0.55f, 0.3f, 0.08f);
+        Color woodLight = new Color(0.72f, 0.5f, 0.22f);
+        Color metalC = new Color(0.65f, 0.65f, 0.7f);
+        Color goldC = new Color(0.9f, 0.72f, 0.25f);
+        Color lineC = new Color(0.85f, 0.85f, 0.9f);
+        Color hookC = new Color(0.55f, 0.55f, 0.6f);
+        Color tipC = new Color(0.9f, 0.15f, 0.1f);
 
-        CreatePickupCube(parent, new Vector3(0f, 0.45f, 0f), new Vector3(0.08f, 0.9f, 0.08f), rodC);
-        CreatePickupCube(parent, new Vector3(0.12f, -0.1f, 0f), new Vector3(0.03f, 0.5f, 0.03f), lineC);
-        CreatePickupSphere(parent, new Vector3(0.14f, -0.38f, 0f), 0.09f, hookC);
+        // tilt the whole rod so it points up-forward when held in the tool slot
+        var rod = new GameObject("Rod");
+        rod.transform.SetParent(parent, false);
+        rod.transform.localRotation = Quaternion.Euler(22f, 0f, 0f);
+
+        // handle (butt grip) + reel seat
+        CreatePickupCube(rod.transform, new Vector3(0f, 0.18f, 0f), new Vector3(0.09f, 0.32f, 0.09f), handleC);
+        CreatePickupCube(rod.transform, new Vector3(0f, 0.38f, 0f), new Vector3(0.08f, 0.09f, 0.08f), metalC);
+        // reel spool (axis across the rod) + crank hub
+        CreatePickupCylinder(rod.transform, new Vector3(0f, 0.41f, 0.1f), new Vector3(0.07f, 0.16f, 0.07f), new Vector3(90f, 0f, 0f), metalC);
+        CreatePickupCube(rod.transform, new Vector3(0f, 0.41f, 0.16f), new Vector3(0.03f, 0.04f, 0.03f), goldC);
+        // tapered pole
+        CreatePickupCube(rod.transform, new Vector3(0f, 0.62f, 0f), new Vector3(0.07f, 0.45f, 0.07f), woodMid);
+        CreatePickupCube(rod.transform, new Vector3(0f, 0.95f, 0f), new Vector3(0.05f, 0.35f, 0.05f), woodLight);
+        CreatePickupCube(rod.transform, new Vector3(0f, 1.18f, 0f), new Vector3(0.03f, 0.28f, 0.03f), woodLight);
+        CreatePickupCube(rod.transform, new Vector3(0f, 1.36f, 0f), new Vector3(0.025f, 0.06f, 0.025f), tipC);
+        // guide eye near the tip
+        CreatePickupCube(rod.transform, new Vector3(0f, 1.1f, 0f), new Vector3(0.06f, 0.02f, 0.06f), metalC);
+
+        // line + hook hang straight down from the tilted tip (parent space)
+        float cos = Mathf.Cos(22f * Mathf.Deg2Rad);
+        float sin = Mathf.Sin(22f * Mathf.Deg2Rad);
+        float tipY = 1.36f * cos;
+        float tipZ = 1.36f * sin;
+        CreatePickupCube(parent, new Vector3(0f, tipY - 0.35f, tipZ), new Vector3(0.012f, 0.7f, 0.012f), lineC);
+        CreatePickupSphere(parent, new Vector3(0f, tipY - 0.72f, tipZ), 0.05f, hookC);
     }
 
     public static void BuildRosary(Transform parent)

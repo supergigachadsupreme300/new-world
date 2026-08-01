@@ -32,16 +32,33 @@ public class Livestock : MonoBehaviour
     private Transform[] _upperLegs;
     private Transform[] _lowerLegs;
     private float _walkCycle;
+    private Vector3 _wantedVel;
 
     private void Awake()
     {
         _rb = gameObject.AddComponent<Rigidbody>();
-        _rb.isKinematic = true;
+        _rb.isKinematic = false;
         _rb.useGravity = true;
+        _rb.constraints = RigidbodyConstraints.FreezeRotation;
+        _rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        _rb.interpolation = RigidbodyInterpolation.Interpolate;
 
         var col = gameObject.AddComponent<SphereCollider>();
         col.radius = 0.4f;
         col.center = new Vector3(0f, 0.4f, 0f);
+        col.material = new PhysicsMaterial { dynamicFriction = 0.1f, staticFriction = 0.1f, bounciness = 0f };
+    }
+
+    private void FixedUpdate()
+    {
+        if (_rb == null) return;
+        var vel = _rb.linearVelocity;
+        if (!_spawned || (GameManager.Instance != null && GameManager.Instance.GamePaused))
+        {
+            _rb.linearVelocity = new Vector3(0f, vel.y, 0f);
+            return;
+        }
+        _rb.linearVelocity = new Vector3(_wantedVel.x, vel.y, _wantedVel.z);
     }
 
     private void Start()
@@ -120,12 +137,13 @@ public class Livestock : MonoBehaviour
         if (toTarget.magnitude > 0.3f)
         {
             Vector3 dir = toTarget.normalized;
-            transform.position += dir * _moveSpeed * Time.deltaTime;
+            _wantedVel = dir * _moveSpeed;
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 3f);
             AnimateLegs(true);
         }
         else
         {
+            _wantedVel = Vector3.zero;
             PickWanderTarget();
             AnimateLegs(false);
         }
@@ -137,11 +155,11 @@ public class Livestock : MonoBehaviour
         var player = GameManager.Instance?.Player;
         if (player == null) { _isFleeing = false; return; }
         float dist = Vector3.Distance(transform.position, player.transform.position);
-        if (dist > 15f) { _isFleeing = false; return; }
+        if (dist > 15f) { _isFleeing = false; _wantedVel = Vector3.zero; return; }
 
         Vector3 awayDir = (transform.position - player.transform.position).normalized;
         awayDir.y = 0f;
-        transform.position += awayDir * _moveSpeed * 2f * Time.deltaTime;
+        _wantedVel = awayDir * _moveSpeed * 2f;
         if (awayDir.sqrMagnitude > 0.01f)
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(awayDir), Time.deltaTime * 5f);
         AnimateLegs(true);
@@ -157,7 +175,7 @@ public class Livestock : MonoBehaviour
 
         Vector3 dir = (player.transform.position - transform.position).normalized;
         dir.y = 0f;
-        transform.position += dir * _moveSpeed * 3f * Time.deltaTime;
+        _wantedVel = dir * _moveSpeed * 3f;
         if (dir.sqrMagnitude > 0.01f)
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 5f);
         AnimateLegs(true);
@@ -175,6 +193,7 @@ public class Livestock : MonoBehaviour
     private void ResetFight()
     {
         _isFighting = false;
+        _wantedVel = Vector3.zero;
     }
 
     private void AnimateLegs(bool moving)
@@ -236,6 +255,7 @@ public class Livestock : MonoBehaviour
         _knockoutTimer = 15f;
         _isFighting = false;
         _isFleeing = false;
+        _wantedVel = Vector3.zero;
         transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
         AnimateLegs(false);
     }
@@ -244,6 +264,7 @@ public class Livestock : MonoBehaviour
     {
         IsKnockedOut = false;
         Health = MaxHealth;
+        _wantedVel = Vector3.zero;
         transform.localRotation = Quaternion.identity;
         AnimateLegs(false);
     }

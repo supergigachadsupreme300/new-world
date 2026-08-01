@@ -43,6 +43,7 @@ public class EnemyController : MonoBehaviour
     private float _structureCheckTimer;
     private Vector3 _lastChasePos;
     private bool _hasChasePos;
+    private bool _knockOut;
 
     private const float STUCK_THRESHOLD = 4f;
     private const float STRUCTURE_ATTACK_COOLDOWN = 2f;
@@ -133,6 +134,8 @@ public class EnemyController : MonoBehaviour
         if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
         if (GameManager.Instance != null && GameManager.Instance.IsPlayerDead) return;
 
+        if (EnforceSacredZone()) return;
+
         float distance = Vector3.Distance(transform.position, _player.position);
 
         _isAttacking = false;
@@ -165,6 +168,46 @@ public class EnemyController : MonoBehaviour
         }
 
         AnimateModel();
+    }
+
+    private const float SacredZoneRadius = 13f;
+    private const float SacredPushSpeed = 14f;
+
+    private bool EnforceSacredZone()
+    {
+        var wb = WorldBuilder.Instance;
+        if (wb == null) return false;
+
+        Vector3 center = wb.PagodaPosition;
+        center.y = 0f;
+        Vector3 flat = transform.position;
+        flat.y = 0f;
+
+        Vector3 away = flat - center;
+        if (away.sqrMagnitude < 0.0001f)
+            away = Vector3.forward;
+        else
+            away.Normalize();
+
+        if (Vector3.Distance(flat, center) < SacredZoneRadius)
+        {
+            _knockOut = true;
+            _structureTarget = null;
+            _stuckTimer = 0f;
+            _hasChasePos = false;
+        }
+
+        if (!_knockOut) return false;
+
+        Vector3 target = center + away * (SacredZoneRadius + 1.5f);
+        transform.position = Vector3.MoveTowards(transform.position, target, SacredPushSpeed * Time.deltaTime);
+        transform.LookAt(target);
+        _isMoving = true;
+        _isAttacking = false;
+
+        if ((transform.position - target).sqrMagnitude < 0.04f)
+            _knockOut = false;
+        return true;
     }
 
     private void AnimateModel()
@@ -389,6 +432,7 @@ public class EnemyController : MonoBehaviour
             var building = wb.FindBuilding(col.gameObject);
             if (building == null) continue;
             if (building.PartStates == null || building.PartStates.Count == 0) continue;
+            if (building.Type != null && building.Type.StartsWith("structure_part_Pagoda_")) continue;
 
             // Find the specific part entity for this collider
             GameObject partEntity = null;

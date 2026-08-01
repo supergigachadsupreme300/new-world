@@ -32,6 +32,8 @@ public class WorldBuilder : MonoBehaviour
     private readonly List<FieldState> _fields = new List<FieldState>();
     private readonly List<BuildingState> _buildings = new List<BuildingState>();
     private readonly List<BlueprintState> _blueprints = new List<BlueprintState>();
+    private Vector3 _pagodaPosition;
+    public Vector3 PagodaPosition => _pagodaPosition;
     private GameObject _worldRoot;
     public GameObject WorldRoot => _worldRoot;
     private float _resourceRespawnTimer;
@@ -354,7 +356,7 @@ public class WorldBuilder : MonoBehaviour
         CreateEnemyDisplay();
         InitializeBuildingPreview();
         PlaceMansionBlueprint(new Vector3(-30f, 0f, 50f));
-        BuildPagoda(new Vector3(55f, 0f, 0f));
+        BuildPagoda(new Vector3(50f, 0f, 0f));
 
         SpawnInitialClouds();
 
@@ -2047,6 +2049,7 @@ public class WorldBuilder : MonoBehaviour
 
     public void BuildPagoda(Vector3 position)
     {
+        _pagodaPosition = position;
         foreach (var sub in _pagodaSubBuildings)
         {
             var bp = new BlueprintState
@@ -2377,6 +2380,8 @@ public class WorldBuilder : MonoBehaviour
 
         if (bp.Type.StartsWith("Pagoda_"))
         {
+            if (bp.Type == "Pagoda_Foundation")
+                _pagodaPosition = bp.Position;
             BuildPagodaPart(root.transform, bp.Type);
         }
         else switch (bp.Type)
@@ -2666,12 +2671,14 @@ public class WorldBuilder : MonoBehaviour
                 for (int rp = -4; rp <= 4; rp += 2)
                 {
                     CreatePartCube(root, new Vector3(rp, 0.4f, 5.95f), new Vector3(0.12f, 0.5f, 0.12f), woodC);
-                    CreatePartCube(root, new Vector3(rp, 0.4f, -5.95f), new Vector3(0.12f, 0.5f, 0.12f), woodC);
+                    if (rp != 0)
+                        CreatePartCube(root, new Vector3(rp, 0.4f, -5.95f), new Vector3(0.12f, 0.5f, 0.12f), woodC);
                     CreatePartCube(root, new Vector3(5.95f, 0.4f, rp), new Vector3(0.12f, 0.5f, 0.12f), woodC);
                     CreatePartCube(root, new Vector3(-5.95f, 0.4f, rp), new Vector3(0.12f, 0.5f, 0.12f), woodC);
                 }
                 CreatePartCube(root, new Vector3(0, 0.62f, 6f), new Vector3(12f, 0.08f, 0.09f), woodC);
-                CreatePartCube(root, new Vector3(0, 0.62f, -6f), new Vector3(12f, 0.08f, 0.09f), woodC);
+                CreatePartCube(root, new Vector3(-3.9f, 0.62f, -6f), new Vector3(4.2f, 0.08f, 0.09f), woodC);
+                CreatePartCube(root, new Vector3(3.9f, 0.62f, -6f), new Vector3(4.2f, 0.08f, 0.09f), woodC);
                 CreatePartCube(root, new Vector3(6f, 0.62f, 0), new Vector3(0.09f, 0.08f, 12f), woodC);
                 CreatePartCube(root, new Vector3(-6f, 0.62f, 0), new Vector3(0.09f, 0.08f, 12f), woodC);
                 for (int ux = -1; ux <= 1; ux += 2)
@@ -2693,26 +2700,36 @@ public class WorldBuilder : MonoBehaviour
                 CreatePartCube(root, new Vector3(0, 0.145f, 0f), new Vector3(11.9f, 0.012f, 0.03f), new Color(0.45f, 0.2f, 0.1f));
                 CreatePartCube(root, new Vector3(0, 0.145f, 2f), new Vector3(11.9f, 0.012f, 0.03f), new Color(0.45f, 0.2f, 0.1f));
                 CreatePartCube(root, new Vector3(0, 0.145f, 4f), new Vector3(11.9f, 0.012f, 0.03f), new Color(0.45f, 0.2f, 0.1f));
+
+                // seated Buddha statue at the back, facing the door
+                CreatePartCube(root, new Vector3(0, 0.25f, 1.5f), new Vector3(1.3f, 0.2f, 1.3f), stoneC);
+                CreatePartCube(root, new Vector3(0, 0.42f, 1.5f), new Vector3(0.95f, 0.14f, 0.95f), goldC);
+                CreatePartCube(root, new Vector3(0, 0.78f, 1.5f), new Vector3(0.62f, 0.72f, 0.55f), goldC);
+                CreatePartCube(root, new Vector3(0, 1.16f, 1.5f), new Vector3(0.4f, 0.38f, 0.4f), goldC);
+                CreatePartCube(root, new Vector3(0, 1.43f, 1.5f), new Vector3(0.24f, 0.18f, 0.24f), goldC);
+                CreatePartCube(root, new Vector3(0.5f, 0.78f, 1.62f), new Vector3(0.2f, 0.14f, 0.2f), goldC);
+                CreatePartCube(root, new Vector3(-0.5f, 0.78f, 1.62f), new Vector3(0.2f, 0.14f, 0.2f), goldC);
+                CreatePartCube(root, new Vector3(0, 1.2f, 1.14f), new Vector3(0.72f, 0.72f, 0.06f), goldC);
                 break;
 
             case "Pagoda_BaseWalls":
                 {
                     float half = 5.5f;
-                    // 8 red pillars (world 0.9..4.3)
+                    // pillars around the base (world 0.9..4.3); the -Z face is the open entrance (no center pillar)
                     for (int sx = -1; sx <= 1; sx += 2)
                     {
                         for (int sz = -1; sz <= 1; sz += 2)
                             CreatePartCube(root, new Vector3(sx * half, 0.05f, sz * half), new Vector3(0.5f, 3.4f, 0.5f), pillarC);
-                        CreatePartCube(root, new Vector3(0, 0.05f, sx * half), new Vector3(0.5f, 3.4f, 0.5f), pillarC);
                         CreatePartCube(root, new Vector3(sx * half, 0.05f, 0), new Vector3(0.5f, 3.4f, 0.5f), pillarC);
                     }
+                    CreatePartCube(root, new Vector3(0, 0.05f, half), new Vector3(0.5f, 3.4f, 0.5f), pillarC);
 
-                    // lower wall panels (world 0.9..2.3)
-                    CreatePartCube(root, new Vector3(0, -0.95f, half), new Vector3(10.5f, 1.4f, 0.25f), wallC);
-                    CreatePartCube(root, new Vector3(half, -0.95f, 0), new Vector3(0.25f, 1.4f, 10.5f), wallC);
-                    CreatePartCube(root, new Vector3(-half, -0.95f, 0), new Vector3(0.25f, 1.4f, 10.5f), wallC);
-                    CreatePartCube(root, new Vector3(-3.425f, -0.95f, -half), new Vector3(3.65f, 1.4f, 0.25f), wallC);
-                    CreatePartCube(root, new Vector3(3.425f, -0.95f, -half), new Vector3(3.65f, 1.4f, 0.25f), wallC);
+                    // lower wall panels (world 0.9..2.4) — raised to meet the window sills
+                    CreatePartCube(root, new Vector3(0, -0.9f, half), new Vector3(10.5f, 1.5f, 0.25f), wallC);
+                    CreatePartCube(root, new Vector3(half, -0.9f, 0), new Vector3(0.25f, 1.5f, 10.5f), wallC);
+                    CreatePartCube(root, new Vector3(-half, -0.9f, 0), new Vector3(0.25f, 1.5f, 10.5f), wallC);
+                    CreatePartCube(root, new Vector3(-3.425f, -0.9f, -half), new Vector3(3.65f, 1.5f, 0.25f), wallC);
+                    CreatePartCube(root, new Vector3(3.425f, -0.9f, -half), new Vector3(3.65f, 1.5f, 0.25f), wallC);
 
                     // window faces (+Z, +X, -X): sill, glass, jambs, lintel, fills, top beam
                     Vector3[] winCenters = { new Vector3(0, 0.55f, half), new Vector3(half, 0.55f, 0), new Vector3(-half, 0.55f, 0) };
@@ -2734,36 +2751,44 @@ public class WorldBuilder : MonoBehaviour
                         CreatePartCube(root, c + Vector3.up * 0.4f, new Vector3(axisX ? 1.42f : 0.09f, 0.09f, axisX ? 0.09f : 1.42f), ridgeC);
                     }
 
-                    // -Z face: door + upper fills + top beam
-                    CreatePartCube(root, new Vector3(-3.075f, 0.55f, -half), new Vector3(4.35f, 1.2f, 0.18f), wallC);
-                    CreatePartCube(root, new Vector3(3.075f, 0.55f, -half), new Vector3(4.35f, 1.2f, 0.18f), wallC);
-                    CreatePartCube(root, new Vector3(0, 1.5f, -half), new Vector3(10.5f, 0.2f, 0.2f), ridgeC);
-                    CreatePartCube(root, new Vector3(-0.8f, -0.8f, -half + 0.04f), new Vector3(0.8f, 1.7f, 0.12f), doorC);
-                    CreatePartCube(root, new Vector3(0.8f, -0.8f, -half + 0.04f), new Vector3(0.8f, 1.7f, 0.12f), doorC);
-                    CreatePartCube(root, new Vector3(-1.6f, -0.8f, -half + 0.04f), new Vector3(0.18f, 1.7f, 0.18f), ridgeC);
-                    CreatePartCube(root, new Vector3(1.6f, -0.8f, -half + 0.04f), new Vector3(0.18f, 1.7f, 0.18f), ridgeC);
-                    CreatePartCube(root, new Vector3(0, 0.12f, -half + 0.04f), new Vector3(3.2f, 0.25f, 0.18f), roofC);
-                    CreatePartCube(root, new Vector3(0, -1.6f, -half + 0.04f), new Vector3(3.2f, 0.1f, 0.18f), stoneC);
-                    CreatePartCube(root, new Vector3(0, 0.12f, -half + 0.12f), new Vector3(3.2f, 0.12f, 0.06f), goldC);
-                    CreatePartCube(root, new Vector3(-0.8f, -0.8f, -half + 0.12f), new Vector3(0.05f, 1.7f, 0.06f), goldC);
-                    CreatePartCube(root, new Vector3(0.8f, -0.8f, -half + 0.12f), new Vector3(0.05f, 1.7f, 0.06f), goldC);
-                    CreatePartCubeRotated(root, new Vector3(0, 0.55f, -half + 0.08f), new Vector3(0.62f, 0.62f, 0.08f), goldC, Quaternion.Euler(0f, 45f, 0f));
+                    // mid band ring (world 3.75..3.95) — closes lintel/fills up to the top beam
+                    CreatePartCube(root, new Vector3(0, 1.3f, half), new Vector3(10.5f, 0.2f, 0.25f), wallC);
+                    CreatePartCube(root, new Vector3(0, 1.3f, -half), new Vector3(10.5f, 0.2f, 0.25f), wallC);
+                    CreatePartCube(root, new Vector3(half, 1.3f, 0), new Vector3(0.25f, 0.2f, 10.5f), wallC);
+                    CreatePartCube(root, new Vector3(-half, 1.3f, 0), new Vector3(0.25f, 0.2f, 10.5f), wallC);
 
-                    // dougong brackets at pillar tops
+                    // -Z face: wide open entrance (no door) + upper fills + top beam
+                    CreatePartCube(root, new Vector3(-3.425f, 0.55f, -half), new Vector3(3.65f, 1.2f, 0.18f), wallC);
+                    CreatePartCube(root, new Vector3(3.425f, 0.55f, -half), new Vector3(3.65f, 1.2f, 0.18f), wallC);
+                    CreatePartCube(root, new Vector3(0, 1.5f, -half), new Vector3(10.5f, 0.2f, 0.2f), ridgeC);
+                    // entrance lintel (world 3.0..3.95) — leaves the wide opening open below for the player
+                    CreatePartCube(root, new Vector3(0, 0.925f, -half + 0.08f), new Vector3(3.6f, 0.95f, 0.2f), wallC);
+                    CreatePartCube(root, new Vector3(0, -1.6f, -half + 0.04f), new Vector3(3.6f, 0.1f, 0.18f), stoneC);
+
+                    // parapet ring under Roof1 (world ~4.14..5.48) — closes the wall-to-roof gap
+                    CreatePartCube(root, new Vector3(0, 2.26f, half), new Vector3(10.5f, 1.34f, 0.3f), wallC);
+                    CreatePartCube(root, new Vector3(0, 2.26f, -half), new Vector3(10.5f, 1.34f, 0.3f), wallC);
+                    CreatePartCube(root, new Vector3(half, 2.26f, 0), new Vector3(0.3f, 1.34f, 10.5f), wallC);
+                    CreatePartCube(root, new Vector3(-half, 2.26f, 0), new Vector3(0.3f, 1.34f, 10.5f), wallC);
+                    for (int sx = -1; sx <= 1; sx += 2)
+                        for (int sz = -1; sz <= 1; sz += 2)
+                            CreatePartCube(root, new Vector3(sx * half, 2.26f, sz * half), new Vector3(0.5f, 1.34f, 0.5f), wallC);
+
+                    // dougong brackets raised onto the parapet, just under the roof
                     for (int sx = -1; sx <= 1; sx += 2)
                     {
                         for (int sz = -1; sz <= 1; sz += 2)
                         {
-                            CreatePartCube(root, new Vector3(sx * half, 1.7f, sz * half), new Vector3(0.55f, 0.2f, 0.55f), wallC);
-                            CreatePartCube(root, new Vector3(sx * half, 1.78f, sz * half), new Vector3(0.58f, 0.1f, 0.58f), goldC);
-                            CreatePartCube(root, new Vector3(sx * half, 1.9f, sz * half), new Vector3(0.6f, 0.16f, 0.6f), goldC);
+                            CreatePartCube(root, new Vector3(sx * half, 2.62f, sz * half), new Vector3(0.55f, 0.2f, 0.55f), wallC);
+                            CreatePartCube(root, new Vector3(sx * half, 2.72f, sz * half), new Vector3(0.58f, 0.1f, 0.58f), goldC);
+                            CreatePartCube(root, new Vector3(sx * half, 2.84f, sz * half), new Vector3(0.6f, 0.16f, 0.6f), goldC);
                         }
-                        CreatePartCube(root, new Vector3(0, 1.7f, sx * half), new Vector3(0.55f, 0.2f, 0.55f), wallC);
-                        CreatePartCube(root, new Vector3(0, 1.78f, sx * half), new Vector3(0.58f, 0.1f, 0.58f), goldC);
-                        CreatePartCube(root, new Vector3(0, 1.9f, sx * half), new Vector3(0.6f, 0.16f, 0.6f), goldC);
-                        CreatePartCube(root, new Vector3(sx * half, 1.7f, 0), new Vector3(0.55f, 0.2f, 0.55f), wallC);
-                        CreatePartCube(root, new Vector3(sx * half, 1.78f, 0), new Vector3(0.58f, 0.1f, 0.58f), goldC);
-                        CreatePartCube(root, new Vector3(sx * half, 1.9f, 0), new Vector3(0.6f, 0.16f, 0.6f), goldC);
+                        CreatePartCube(root, new Vector3(0, 2.62f, sx * half), new Vector3(0.55f, 0.2f, 0.55f), wallC);
+                        CreatePartCube(root, new Vector3(0, 2.72f, sx * half), new Vector3(0.58f, 0.1f, 0.58f), goldC);
+                        CreatePartCube(root, new Vector3(0, 2.84f, sx * half), new Vector3(0.6f, 0.16f, 0.6f), goldC);
+                        CreatePartCube(root, new Vector3(sx * half, 2.62f, 0), new Vector3(0.55f, 0.2f, 0.55f), wallC);
+                        CreatePartCube(root, new Vector3(sx * half, 2.72f, 0), new Vector3(0.58f, 0.1f, 0.58f), goldC);
+                        CreatePartCube(root, new Vector3(sx * half, 2.84f, 0), new Vector3(0.6f, 0.16f, 0.6f), goldC);
                     }
 
                     // hanging lanterns at front (-Z) corners
@@ -2842,6 +2867,14 @@ public class WorldBuilder : MonoBehaviour
                             CreatePartCube(root, new Vector3(sx * half, 1f, sz * half), new Vector3(0.5f, 0.18f, 0.5f), wallC);
                             CreatePartCube(root, new Vector3(sx * half, 1.18f, sz * half), new Vector3(0.55f, 0.14f, 0.55f), goldC);
                         }
+                    // parapet ring under Roof2 (world ~9.42..10.2)
+                    CreatePartCube(root, new Vector3(0, 1.66f, half), new Vector3(6.8f, 0.78f, 0.14f), wallC);
+                    CreatePartCube(root, new Vector3(0, 1.66f, -half), new Vector3(6.8f, 0.78f, 0.14f), wallC);
+                    CreatePartCube(root, new Vector3(half, 1.66f, 0), new Vector3(0.14f, 0.78f, 6.8f), wallC);
+                    CreatePartCube(root, new Vector3(-half, 1.66f, 0), new Vector3(0.14f, 0.78f, 6.8f), wallC);
+                    for (int sx = -1; sx <= 1; sx += 2)
+                        for (int sz = -1; sz <= 1; sz += 2)
+                            CreatePartCube(root, new Vector3(sx * half, 1.66f, sz * half), new Vector3(0.45f, 0.78f, 0.45f), wallC);
                 }
                 break;
 
@@ -2898,6 +2931,14 @@ public class WorldBuilder : MonoBehaviour
                             CreatePartCube(root, new Vector3(sx * half, 0.85f, sz * half), new Vector3(0.45f, 0.16f, 0.45f), wallC);
                             CreatePartCube(root, new Vector3(sx * half, 1f, sz * half), new Vector3(0.5f, 0.12f, 0.5f), goldC);
                         }
+                    // parapet ring under Roof3 (world ~13.48..13.92)
+                    CreatePartCube(root, new Vector3(0, 1.3f, half), new Vector3(4.6f, 0.44f, 0.12f), wallC);
+                    CreatePartCube(root, new Vector3(0, 1.3f, -half), new Vector3(4.6f, 0.44f, 0.12f), wallC);
+                    CreatePartCube(root, new Vector3(half, 1.3f, 0), new Vector3(0.12f, 0.44f, 4.6f), wallC);
+                    CreatePartCube(root, new Vector3(-half, 1.3f, 0), new Vector3(0.12f, 0.44f, 4.6f), wallC);
+                    for (int sx = -1; sx <= 1; sx += 2)
+                        for (int sz = -1; sz <= 1; sz += 2)
+                            CreatePartCube(root, new Vector3(sx * half, 1.3f, sz * half), new Vector3(0.4f, 0.44f, 0.4f), wallC);
                 }
                 break;
 
@@ -2964,6 +3005,14 @@ public class WorldBuilder : MonoBehaviour
                             CreatePartCube(root, new Vector3(sx * half, 0.55f, sz * half), new Vector3(0.4f, 0.12f, 0.4f), wallC);
                             CreatePartCube(root, new Vector3(sx * half, 0.7f, sz * half), new Vector3(0.42f, 0.1f, 0.42f), goldC);
                         }
+                    // parapet ring under Roof4 (world ~16.71..17.08)
+                    CreatePartCube(root, new Vector3(0, 0.995f, half), new Vector3(2.8f, 0.37f, 0.1f), wallC);
+                    CreatePartCube(root, new Vector3(0, 0.995f, -half), new Vector3(2.8f, 0.37f, 0.1f), wallC);
+                    CreatePartCube(root, new Vector3(half, 0.995f, 0), new Vector3(0.1f, 0.37f, 2.8f), wallC);
+                    CreatePartCube(root, new Vector3(-half, 0.995f, 0), new Vector3(0.1f, 0.37f, 2.8f), wallC);
+                    for (int sx = -1; sx <= 1; sx += 2)
+                        for (int sz = -1; sz <= 1; sz += 2)
+                            CreatePartCube(root, new Vector3(sx * half, 0.995f, sz * half), new Vector3(0.35f, 0.37f, 0.35f), wallC);
                 }
                 break;
 
