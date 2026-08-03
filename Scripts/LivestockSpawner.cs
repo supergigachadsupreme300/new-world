@@ -80,13 +80,49 @@ public class LivestockSpawner : MonoBehaviour
         if (player == null) return;
 
         Vector3 playerPos = player.transform.position;
-        float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
-        float dist = Random.Range(SpawnRadiusMin, SpawnRadiusMax);
-        Vector3 dropTarget = playerPos + new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
-        dropTarget.y = 0.5f;
+        Vector3 fallback = playerPos - player.transform.forward * 20f;
+        fallback.y = 0.5f;
+        Vector3 dropTarget = FindValidDropTarget(playerPos, fallback);
 
         FlyingCrane crane = GetCrane();
         crane.Setup(type, dropTarget, OnCraneLanded);
+    }
+
+    private Vector3 FindValidDropTarget(Vector3 playerPos, Vector3 fallback)
+    {
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+            float dist = Random.Range(SpawnRadiusMin, SpawnRadiusMax);
+            Vector3 target = playerPos + new Vector3(Mathf.Cos(angle) * dist, 0.5f, Mathf.Sin(angle) * dist);
+            if (IsValidDropTarget(target))
+                return target;
+        }
+        return fallback;
+    }
+
+    private bool IsValidDropTarget(Vector3 target)
+    {
+        if (Mathf.Abs(target.x) > 250f || Mathf.Abs(target.z) > 250f)
+            return false;
+
+        var wb = WorldBuilder.Instance;
+        if (wb != null && wb.IsOnRoad(target))
+            return false;
+
+        var hits = Physics.OverlapSphere(target + Vector3.up * 0.5f, 1.2f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
+        foreach (var col in hits)
+        {
+            if (col == null)
+                continue;
+            if (col.GetComponentInParent<WaterVolume>() != null)
+                return false;
+            if (col.name == "Sea" || col.name == "SeaWater")
+                return false;
+            if (wb != null && wb.FindBuilding(col.gameObject) != null)
+                return false;
+        }
+        return true;
     }
 
     private FlyingCrane GetCrane()

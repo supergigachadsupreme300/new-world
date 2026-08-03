@@ -12,7 +12,16 @@ public class UIManager : MonoBehaviour
     private Sprite _menuBgSprite;
     private Sprite _hudBgSprite;
     private GameObject _mainMenuPanel;
+    private GameObject _platformPanel;
+    private Button _pcModeButton;
+    private Button _mobileModeButton;
     private GameObject _pauseMenuPanel;
+    private GameObject _settingsPanel;
+    private TMP_Text _mouseSensText;
+    private TMP_Text _touchSensText;
+    private Button _invertYButton;
+    private Button _settingsPcModeButton;
+    private Button _settingsMobileModeButton;
     private GameObject _recordPanel;
     private GameObject _questPanel;
     private GameObject _tutorialPanel;
@@ -121,13 +130,23 @@ public class UIManager : MonoBehaviour
         float padding = screenHeight * 0.02f; // 2% of height for padding
         float buttonHeight = screenHeight * 0.08f; // Buttons are 8% of height
         float lineHeight = screenHeight * 0.05f; // Line spacing
+        float menuButtonWidth = Mathf.Max(160f, screenHeight * 0.25f);
         float panelWidth = Mathf.Min(screenWidth * 0.4f, 560f);
         float panelHeight = Mathf.Min(screenHeight * 0.8f, 520f);
         // Stats background panel (behind Time, HP, Stamina, Money, Quest)
         _statsBg = CreateHudBackground("StatsBg",
             new Vector2(0f, 0f),
-            new Vector2(400f, 250f),
+            new Vector2(430f, 220f),
             new Vector2(0f, 1f));
+        var statsImg = _statsBg.GetComponent<Image>();
+        if (statsImg != null)
+            statsImg.raycastTarget = true;
+        if (_statsBg.GetComponent<Button>() == null)
+        {
+            var statsBtn = _statsBg.gameObject.AddComponent<Button>();
+            statsBtn.targetGraphic = statsImg;
+            statsBtn.onClick.AddListener(OpenSettingsFromStatsTab);
+        }
 
         _timeText = EnsureText(
             "TimeText",
@@ -187,13 +206,13 @@ public class UIManager : MonoBehaviour
 
         _questText = EnsureText(
             "QuestText",
-            new Vector2(40f, -180f),
+            new Vector2(40f, -175f),
             "Nhiệm Vụ: Sẵn sàng",
-            18,
+            15,
             null,
             TextAlignmentOptions.Left,
             true,
-            new Vector2(420f, 40f),
+            new Vector2(410f, 190f),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f)
@@ -238,6 +257,11 @@ public class UIManager : MonoBehaviour
                 slotImg.color = new Color(0.18f, 0.18f, 0.25f, 0.85f);
             }
 
+            var slotButton = slotGo.AddComponent<Button>();
+            slotButton.targetGraphic = slotImg;
+            int slotIndex = i;
+            slotButton.onClick.AddListener(() => ToolManager.Instance?.SelectSlot(slotIndex));
+
             var textGo = new GameObject("Text");
             textGo.transform.SetParent(slotGo.transform, false);
             var text = textGo.AddComponent<TextMeshProUGUI>();
@@ -247,6 +271,7 @@ public class UIManager : MonoBehaviour
             text.fontSize = Mathf.Clamp(screenWidth / 120f, 8f, 16f);
             text.color = Color.white;
             text.alignment = TextAlignmentOptions.Center;
+            text.raycastTarget = false;
 
             var textRect = textGo.GetComponent<RectTransform>();
             textRect.anchorMin = Vector2.zero;
@@ -331,8 +356,9 @@ public class UIManager : MonoBehaviour
         CreateButton("SaveButton", _pauseMenuPanel.transform, "Lưu Game", new Vector2(0f, buttonHeight * 1.35f), () => SaveManager.Instance?.SaveGame());
         CreateButton("StatsButton", _pauseMenuPanel.transform, "Thống Kê", new Vector2(0f, buttonHeight * 0.45f), () => ShowRecordPanel(true));
         CreateButton("QuestsButton", _pauseMenuPanel.transform, "Nhiệm Vụ", new Vector2(0f, -buttonHeight * 0.45f), () => ShowQuestPanel(true));
-        CreateButton("TutorialButton", _pauseMenuPanel.transform, "Hướng Dẫn", new Vector2(0f, -buttonHeight * 1.35f), () => ShowTutorial(true));
-        CreateButton("ExitButton", _pauseMenuPanel.transform, "Thoát", new Vector2(0f, -buttonHeight * 2.25f), () => Application.Quit());
+        CreateButton("SettingsButton", _pauseMenuPanel.transform, "Cài Đặt", new Vector2(0f, -buttonHeight * 1.35f), () => ShowSettingsPanel(true));
+        CreateButton("TutorialButton", _pauseMenuPanel.transform, "Hướng Dẫn", new Vector2(0f, -buttonHeight * 2.25f), () => ShowTutorial(true));
+        CreateButton("ExitButton", _pauseMenuPanel.transform, "Thoát", new Vector2(0f, -buttonHeight * 3.15f), () => Application.Quit());
         _pauseMenuPanel.SetActive(false);
 
         _recordPanel = CreateMenuPanel("RecordPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
@@ -340,6 +366,28 @@ public class UIManager : MonoBehaviour
         EnsureText("RecordLines", new Vector2(0f, panelHeight * 0.1f), "Lúa đã thu hoạch: 0\nKẻ thù đã diệt: 0\nTiền đã kiếm: 0\nTiền bị cướp: 0", (int)fontSize, _recordPanel.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.4f));
         CreateButton("RecordBackButton", _recordPanel.transform, "Quay Lại", new Vector2(0f, -panelHeight * 0.35f), () => ShowRecordPanel(false));
         _recordPanel.SetActive(false);
+
+        _settingsPanel = CreateMenuPanel("SettingsPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
+        EnsureText("SettingsTitle", new Vector2(0f, panelHeight * 0.32f), "CÀI ĐẶT", (int)largefontSize, _settingsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
+        EnsureText("MouseSensCaption", new Vector2(0f, panelHeight * 0.22f), "ĐỘ NHẠY CHUỘT", (int)fontSize, _settingsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
+        CreateButton("MouseSensMinus", _settingsPanel.transform, "<", new Vector2(-menuButtonWidth * 0.24f, panelHeight * 0.16f), () => { SettingsManager.SetMouseSensitivity(SettingsManager.MouseSensitivity - 0.25f); UpdateSettingsValues(); }, new Vector2(menuButtonWidth * 0.3f, buttonHeight * 0.9f));
+        CreateButton("MouseSensPlus", _settingsPanel.transform, ">", new Vector2(menuButtonWidth * 0.24f, panelHeight * 0.16f), () => { SettingsManager.SetMouseSensitivity(SettingsManager.MouseSensitivity + 0.25f); UpdateSettingsValues(); }, new Vector2(menuButtonWidth * 0.3f, buttonHeight * 0.9f));
+        _mouseSensText = EnsureText("MouseSensValue", new Vector2(0f, panelHeight * 0.16f), SettingsManager.MouseSensitivity.ToString("0.00"), (int)fontSize, _settingsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(menuButtonWidth * 0.4f, lineHeight * 1.5f));
+
+        EnsureText("TouchSensCaption", new Vector2(0f, panelHeight * 0.08f), "ĐỘ NHẠY CẢM ỨNG", (int)fontSize, _settingsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
+        CreateButton("TouchSensMinus", _settingsPanel.transform, "<", new Vector2(-menuButtonWidth * 0.24f, panelHeight * 0.02f), () => { SettingsManager.SetTouchSensitivity(SettingsManager.TouchSensitivity - 0.03f); UpdateSettingsValues(); }, new Vector2(menuButtonWidth * 0.3f, buttonHeight * 0.9f));
+        CreateButton("TouchSensPlus", _settingsPanel.transform, ">", new Vector2(menuButtonWidth * 0.24f, panelHeight * 0.02f), () => { SettingsManager.SetTouchSensitivity(SettingsManager.TouchSensitivity + 0.03f); UpdateSettingsValues(); }, new Vector2(menuButtonWidth * 0.3f, buttonHeight * 0.9f));
+        _touchSensText = EnsureText("TouchSensValue", new Vector2(0f, panelHeight * 0.02f), SettingsManager.TouchSensitivity.ToString("0.00"), (int)fontSize, _settingsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(menuButtonWidth * 0.4f, lineHeight * 1.5f));
+
+        _invertYButton = CreateButton("InvertYButton", _settingsPanel.transform, "", new Vector2(0f, -panelHeight * 0.06f), () => { SettingsManager.SetInvertY(!SettingsManager.InvertY); UpdateSettingsValues(); });
+
+        EnsureText("ControlModeCaption", new Vector2(0f, -panelHeight * 0.14f), "CÁCH ĐIỀU KHIỂN", (int)fontSize, _settingsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
+        _settingsPcModeButton = CreateButton("SettingsPCModeButton", _settingsPanel.transform, "PC / Bàn Phím", new Vector2(-menuButtonWidth * 0.52f, -panelHeight * 0.2f), () => SetControlMode(ControlMode.PC));
+        _settingsMobileModeButton = CreateButton("SettingsMobileModeButton", _settingsPanel.transform, "Điện Thoại / Cảm Ứng", new Vector2(menuButtonWidth * 0.52f, -panelHeight * 0.2f), () => SetControlMode(ControlMode.Mobile));
+        CreateButton("SettingsCloseButton", _settingsPanel.transform, "Đóng", new Vector2(0f, -panelHeight * 0.34f), () => ShowSettingsPanel(false));
+
+        UpdateSettingsValues();
+        _settingsPanel.SetActive(false);
 
         _questPanel = CreateMenuPanel("QuestPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
         EnsureText("QuestTitle", new Vector2(0f, panelHeight * 0.35f), "NHIỆM VỤ", (int)largefontSize, _questPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
@@ -511,13 +559,18 @@ public class UIManager : MonoBehaviour
         CreateButton("WatchIntroButton", _mainMenuPanel.transform, "Xem Giới Thiệu", new Vector2(0f, -buttonHeight * 0.4f), () => MainMenuController.Instance?.OnWatchIntroClicked());
         CreateButton("SkipIntroButton", _mainMenuPanel.transform, "Bỏ Qua Giới Thiệu", new Vector2(0f, -buttonHeight * 1.2f), () => MainMenuController.Instance?.OnSkipIntroClicked());
         CreateButton("QuitButton", _mainMenuPanel.transform, "Thoát", new Vector2(0f, -buttonHeight * 2.0f), () => MainMenuController.Instance?.OnQuitClicked());
+        CreateButton("ControlsButton", _mainMenuPanel.transform, "Cài Đặt", new Vector2(0f, -buttonHeight * 2.4f), () => ShowSettingsPanel(true));
         _mainMenuPanel.SetActive(false);
+
+        CreatePlatformPanel(panelWidth, panelHeight, padding, fontSize, largefontSize);
 
         ShowAllGameUI(true);
 
         // Re-apply main menu visibility in case GameManager.Start() ran before slots were created
         if (GameManager.Instance != null && !GameManager.Instance.InGame)
             ShowMainMenuOnly(true);
+
+        ResizeStatsBg();
     }
 
     private Canvas CreateCanvas()
@@ -603,6 +656,7 @@ public class UIManager : MonoBehaviour
         textComponent.alignment = alignment;
         textComponent.textWrappingMode = enableWrapping ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
         textComponent.overflowMode = enableWrapping ? TextOverflowModes.Truncate : TextOverflowModes.Overflow;
+        textComponent.raycastTarget = false;
 
         return textComponent;
     }
@@ -626,6 +680,7 @@ public class UIManager : MonoBehaviour
         rect.anchoredPosition = position;
         rect.sizeDelta = size;
         var img = go.AddComponent<Image>();
+        img.raycastTarget = false;
         if (_hudBgSprite == null)
         {
             var tex = Resources.Load<Texture2D>("menu");
@@ -684,7 +739,7 @@ public class UIManager : MonoBehaviour
         return panelObject;
     }
 
-    private Button CreateButton(string name, Transform parent, string label, Vector2 position, UnityEngine.Events.UnityAction callback)
+    private Button CreateButton(string name, Transform parent, string label, Vector2 position, UnityEngine.Events.UnityAction callback, Vector2? size = null)
     {
         float screenHeight = Screen.height;
         float buttonWidth = Mathf.Max(160f, screenHeight * 0.25f);
@@ -701,7 +756,7 @@ public class UIManager : MonoBehaviour
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = position;
-            rect.sizeDelta = new Vector2(buttonWidth, buttonHeight);
+            rect.sizeDelta = size ?? new Vector2(buttonWidth, buttonHeight);
 
             var image = buttonObject.AddComponent<Image>();
             image.color = new Color(0.18f, 0.18f, 0.25f, 1f);
@@ -746,8 +801,56 @@ public class UIManager : MonoBehaviour
         return buttonObject.GetComponent<Button>();
     }
 
+    private void CreatePlatformPanel(float panelWidth, float panelHeight, float padding, float fontSize, float largefontSize)
+    {
+        float hintH = Screen.height * 0.05f;
+        _platformPanel = CreateMenuPanel("PlatformPanel", Vector2.zero, new Vector2(panelWidth * 0.7f, panelHeight * 0.5f));
+        EnsureText("PlatformTitle", new Vector2(0f, panelHeight * 0.16f), "CÁCH ĐIỀU KHIỂN", (int)largefontSize, _platformPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 6, hintH));
+        EnsureText("PlatformHint", new Vector2(0f, panelHeight * 0.1f), "Chọn thiết bị bạn sẽ chơi", (int)fontSize, _platformPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 6, hintH));
+
+        _pcModeButton = CreateButton("PCModeButton", _platformPanel.transform, "PC / Bàn Phím", new Vector2(0f, -panelHeight * 0.02f), () => SetControlMode(ControlMode.PC));
+        _mobileModeButton = CreateButton("MobileModeButton", _platformPanel.transform, "Điện Thoại / Cảm Ứng", new Vector2(0f, -panelHeight * 0.1f), () => SetControlMode(ControlMode.Mobile));
+        CreateButton("PlatformCloseButton", _platformPanel.transform, "Đóng", new Vector2(0f, -panelHeight * 0.18f), () => ShowPlatformPanel(false));
+
+        _platformPanel.SetActive(false);
+    }
+
+    public void ShowPlatformPanel(bool show)
+    {
+        if (_platformPanel != null)
+        {
+            _platformPanel.SetActive(show);
+            UpdatePlatformPanelHighlight();
+        }
+    }
+
+    private void UpdatePlatformPanelHighlight()
+    {
+        SetModeButtonHighlight(_pcModeButton, GameInput.Mode == ControlMode.PC);
+        SetModeButtonHighlight(_mobileModeButton, GameInput.Mode == ControlMode.Mobile);
+    }
+
+    private void SetModeButtonHighlight(Button button, bool selected)
+    {
+        if (button == null) return;
+        var img = button.GetComponent<Image>();
+        if (img != null)
+            img.color = selected ? new Color(0.35f, 0.55f, 0.75f, 1f) : new Color(0.18f, 0.18f, 0.25f, 1f);
+    }
+
+    private void SetControlMode(ControlMode mode)
+    {
+        GameInput.Mode = mode;
+        PlayerPrefs.SetInt("ControlMode", (int)mode);
+        PlayerPrefs.Save();
+        UpdatePlatformPanelHighlight();
+        UpdateSettingsValues();
+    }
+
     public void ShowAllGameUI(bool show)
     {
+        if (show)
+            _platformPanel?.SetActive(false);
         _timeText?.gameObject.SetActive(show);
         _hpText?.gameObject.SetActive(show);
         _staminaText?.gameObject.SetActive(show);
@@ -783,6 +886,7 @@ public class UIManager : MonoBehaviour
         if (show)
         {
             _pauseMenuPanel?.SetActive(false);
+            _settingsPanel?.SetActive(false);
             _recordPanel?.SetActive(false);
             _questPanel?.SetActive(false);
             _tutorialPanel?.SetActive(false);
@@ -847,6 +951,49 @@ public class UIManager : MonoBehaviour
             ShowPauseMenu(true);
     }
 
+    private void OpenSettingsFromStatsTab()
+    {
+        if (!GameInput.IsMobile) return;
+        if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
+        GameManager.Instance?.TogglePause(true);
+        ShowSettingsPanel(true);
+    }
+
+    public void ShowSettingsPanel(bool show)
+    {
+        if (_settingsPanel != null)
+            _settingsPanel.SetActive(show);
+        if (show)
+        {
+            _pauseMenuPanel?.SetActive(false);
+            _mainMenuPanel?.SetActive(false);
+            UpdateSettingsValues();
+        }
+        else
+        {
+            if (GameManager.Instance != null && GameManager.Instance.GamePaused)
+                ShowPauseMenu(true);
+            else if (GameManager.Instance != null && !GameManager.Instance.InGame)
+                ShowMainMenu(true);
+        }
+    }
+
+    private void UpdateSettingsValues()
+    {
+        if (_mouseSensText != null)
+            _mouseSensText.text = SettingsManager.MouseSensitivity.ToString("0.00");
+        if (_touchSensText != null)
+            _touchSensText.text = SettingsManager.TouchSensitivity.ToString("0.00");
+        if (_invertYButton != null)
+        {
+            var label = _invertYButton.GetComponentInChildren<TMP_Text>();
+            if (label != null)
+                label.text = SettingsManager.InvertY ? "Đảo Trục Dọc: BẬT" : "Đảo Trục Dọc: TẮT";
+        }
+        SetModeButtonHighlight(_settingsPcModeButton, GameInput.Mode == ControlMode.PC);
+        SetModeButtonHighlight(_settingsMobileModeButton, GameInput.Mode == ControlMode.Mobile);
+    }
+
     public void ShowTutorial(bool show)
     {
         if (_tutorialPanel != null)
@@ -856,8 +1003,7 @@ public class UIManager : MonoBehaviour
             _pauseMenuPanel?.SetActive(false);
             _tutorialSpreadIndex = 0;
             UpdateTutorialPage();
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
+            GameInput.SetCursorLocked(false);
         }
         else
         {
@@ -865,8 +1011,7 @@ public class UIManager : MonoBehaviour
                 ShowPauseMenu(true);
             else
             {
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
+                GameInput.SetCursorLocked(true);
             }
         }
     }
@@ -976,7 +1121,23 @@ public class UIManager : MonoBehaviour
     public void UpdateQuestHud(string text)
     {
         if (_questText != null)
+        {
             _questText.text = text;
+            ResizeStatsBg();
+        }
+    }
+
+    private void ResizeStatsBg()
+    {
+        if (_statsBg == null || _questText == null)
+            return;
+        var prevOverflow = _questText.overflowMode;
+        _questText.overflowMode = TextOverflowModes.Overflow;
+        _questText.ForceMeshUpdate();
+        float needed = Mathf.Max(_questText.preferredHeight, 24f);
+        _questText.overflowMode = prevOverflow;
+        _questText.rectTransform.sizeDelta = new Vector2(410f, needed);
+        _statsBg.sizeDelta = new Vector2(430f, 175f + needed + 20f);
     }
 
     public void UpdateQuestPanelText(string text)

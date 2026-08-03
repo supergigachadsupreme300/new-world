@@ -41,6 +41,16 @@ public class QuestManager : MonoBehaviour
         UpdateQuestUI();
     }
 
+    public void ResetQuests()
+    {
+        _quests.Clear();
+    }
+
+    public void RefreshQuestUI()
+    {
+        UpdateQuestUI();
+    }
+
     private bool CheckDayChange()
     {
         if (GameManager.Instance == null)
@@ -89,7 +99,7 @@ public class QuestManager : MonoBehaviour
         if (day >= 5) AddIfMissing(CreateStoryQuest("Bảo Vệ Đất", "enemies", 10, 300, "Diệt 10 kẻ thù để bảo vệ nông trại.", 5));
         if (day >= 8) AddIfMissing(CreateStoryQuest("Bàn Tay Xanh", "wheat", 150, 400, "Thu hoạch 150 lúa mì để chứng minh tài năng.", 8));
         if (day >= 10) AddIfMissing(CreateStoryQuest("Xây Dựng Đế Chế", "money_earned", 50000, 750, "Kiếm 50.000 vàng bằng cách bán nông sản.", 10));
-        if (day >= 12) AddIfMissing(CreateStoryQuest("Thợ Săn Quái Vật", "enemies", 30, 600, "Diệt 30 kẻ thù để очистить vùng đất.", 12));
+        if (day >= 12) AddIfMissing(CreateStoryQuest("Thợ Săn Quái Vật", "enemies", 30, 600, "Diệt 30 kẻ thù để làm sạch vùng đất.", 12));
         if (day >= 15) AddIfMissing(CreateStoryQuest("Trận Đấu Cuối Cùng", "enemies", 50, 1500, "Diệt 50 kẻ thù — trận chiến sinh tử!", 15));
         if (day >= 18) AddIfMissing(CreateStoryQuest("Tỷ Phú", "money_earned", 200000, 3000, "Kiếm 200.000 vàng để trở thành tỷ phú.", 18));
     }
@@ -325,7 +335,6 @@ public class QuestManager : MonoBehaviour
         if (GameManager.Instance == null || GameManager.Instance.UIManager == null)
             return;
 
-        string hud = "";
         string panel = "";
 
         var storyQuests = new List<QuestSave>();
@@ -349,8 +358,6 @@ public class QuestManager : MonoBehaviour
                 panel += $"{q.Name}: {status}\n";
                 if (!string.IsNullOrEmpty(q.Description))
                     panel += $"  {q.Description}\n";
-                if (hud.Length < 200)
-                    hud += $"{q.Name}: {status}\n";
             }
         }
 
@@ -363,8 +370,6 @@ public class QuestManager : MonoBehaviour
                 panel += $"{q.Name}: {status}\n";
                 if (!string.IsNullOrEmpty(q.Description))
                     panel += $"  {q.Description}\n";
-                if (hud.Length < 200)
-                    hud += $"{q.Name}: {status}\n";
             }
         }
 
@@ -377,16 +382,37 @@ public class QuestManager : MonoBehaviour
                 panel += $"{q.Name}: {status}\n";
                 if (!string.IsNullOrEmpty(q.Description))
                     panel += $"  {q.Description}\n";
-                if (hud.Length < 200)
-                    hud += $"{q.Name}: {status}\n";
             }
         }
 
-        hud = hud.TrimEnd('\n');
         panel = panel.TrimEnd('\n');
 
-        GameManager.Instance.UIManager.UpdateQuestHud(hud);
+        GameManager.Instance.UIManager.UpdateQuestHud(BuildCurrentQuestHudText(storyQuests, dailyQuests, timedQuests));
         GameManager.Instance.UIManager.UpdateQuestPanelText(panel);
+    }
+
+    private string BuildCurrentQuestHudText(List<QuestSave> storyQuests, List<QuestSave> dailyQuests, List<QuestSave> timedQuests)
+    {
+        QuestSave current = null;
+        foreach (var q in storyQuests)
+            if (!q.Completed && !q.Failed) { current = q; break; }
+        if (current == null)
+            foreach (var q in dailyQuests)
+                if (!q.Completed && !q.Failed) { current = q; break; }
+        if (current == null)
+            foreach (var q in timedQuests)
+                if (!q.Completed && !q.Failed) { current = q; break; }
+
+        if (current == null && storyQuests.Count > 0)
+            current = storyQuests[storyQuests.Count - 1];
+
+        if (current == null)
+            return "Nhiệm Vụ: Sẵn sàng";
+
+        string hud = $"{current.Name}: {GetQuestStatusString(current)}";
+        if (!string.IsNullOrEmpty(current.Description))
+            hud += $"\n  {current.Description}";
+        return hud;
     }
 
     private string GetQuestStatusString(QuestSave q)

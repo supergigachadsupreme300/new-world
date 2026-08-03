@@ -30,7 +30,8 @@ public class CutsceneManager : MonoBehaviour
     private float _cutsceneStartTime;
 
     private bool _happyPending;
-    private bool _isDeathEnding;
+    private Coroutine _wifeLookBackRoutine;
+    private Coroutine _heartRoutine;
     private GameObject _tetoRoot;
     private Transform _tetoBody;
     private Transform _tetoLeftArm;
@@ -143,22 +144,33 @@ public class CutsceneManager : MonoBehaviour
         var tmp = _skipButton.AddComponent<TextMeshProUGUI>();
         if (_uiManager != null && _uiManager.defaultTmpFont != null)
             tmp.font = _uiManager.defaultTmpFont;
-        tmp.text = "Bỏ Qua [ESC]";
+        tmp.text = GameInput.IsMobile ? "Bỏ Qua" : "Bỏ Qua [ESC]";
         tmp.fontSize = 24;
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Right;
+        tmp.raycastTarget = true;
         var rt = _skipButton.GetComponent<RectTransform>();
         rt.anchorMin = new Vector2(1, 1);
         rt.anchorMax = new Vector2(1, 1);
         rt.pivot = new Vector2(1, 1);
         rt.anchoredPosition = new Vector2(-20, -20);
         rt.sizeDelta = new Vector2(200, 40);
+        var skipBtn = _skipButton.AddComponent<Button>();
+        skipBtn.targetGraphic = tmp;
+        skipBtn.onClick.AddListener(CancelCutscene);
         _skipButton.SetActive(false);
     }
 
     private void ShowSkipButton()
     {
-        if (_canvas == null)
+        var hudGo = GameObject.Find("HUD_Canvas");
+        if (hudGo != null)
+        {
+            var hudCanvas = hudGo.GetComponent<Canvas>();
+            if (hudCanvas != null && hudCanvas.gameObject.activeInHierarchy)
+                _canvas = hudCanvas;
+        }
+        if (_canvas == null || !_canvas.gameObject.activeInHierarchy)
             _canvas = Object.FindAnyObjectByType<Canvas>();
         if (_canvas == null) return;
         CreateSkipButton();
@@ -185,7 +197,6 @@ public class CutsceneManager : MonoBehaviour
     public void PlaySadEnding()
     {
         if (IsActive) return;
-        _isDeathEnding = true;
         IsActive = true;
         _cutsceneStartTime = Time.time;
         _cutsceneRoutine = StartCoroutine(SadEndingRoutine());
@@ -199,12 +210,23 @@ public class CutsceneManager : MonoBehaviour
 
     public void CancelCutscene()
     {
-        _isDeathEnding = false;
         if (_cutsceneRoutine != null)
         {
             StopCoroutine(_cutsceneRoutine);
             _cutsceneRoutine = null;
         }
+        if (_wifeLookBackRoutine != null)
+        {
+            StopCoroutine(_wifeLookBackRoutine);
+            _wifeLookBackRoutine = null;
+        }
+        if (_heartRoutine != null)
+        {
+            StopCoroutine(_heartRoutine);
+            _heartRoutine = null;
+        }
+        if (GameManager.Instance != null && GameManager.Instance.TimeSpeed == 0f && _savedTimeSpeed > 0f)
+            GameManager.Instance.TimeSpeed = _savedTimeSpeed;
         CleanupAll();
         RestorePlayerControl();
         IsActive = false;
@@ -826,7 +848,7 @@ public class CutsceneManager : MonoBehaviour
             if (!wifeLookedBack && p >= 0.65f && wife != null)
             {
                 wifeLookedBack = true;
-                StartCoroutine(WifeLookBack(wife.transform));
+                _wifeLookBackRoutine = StartCoroutine(WifeLookBack(wife.transform));
             }
 
             float camZ = z + 10f;
@@ -854,7 +876,6 @@ public class CutsceneManager : MonoBehaviour
         }
         finally
         {
-            _isDeathEnding = false;
             IsActive = false;
             _cutsceneRoutine = null;
         }
@@ -1401,7 +1422,7 @@ public class CutsceneManager : MonoBehaviour
         rt.sizeDelta = new Vector2(60, 60);
 
         _hearts.Add(heartGO);
-        StartCoroutine(AnimateHeart(heartGO));
+        _heartRoutine = StartCoroutine(AnimateHeart(heartGO));
     }
 
     private IEnumerator AnimateHeart(GameObject heart)

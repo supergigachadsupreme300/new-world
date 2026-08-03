@@ -36,7 +36,8 @@ public class SleepManager : MonoBehaviour
         if (_initialized)
             return;
         _initialized = true;
-        _canvas = Object.FindAnyObjectByType<Canvas>();
+        var hudGo = GameObject.Find("HUD_Canvas");
+        _canvas = hudGo != null ? hudGo.GetComponent<Canvas>() : Object.FindAnyObjectByType<Canvas>();
         if (_canvas == null)
             return;
 
@@ -228,6 +229,7 @@ public class SleepManager : MonoBehaviour
         tmp.fontSize = fontSize;
         tmp.color = Color.white;
         tmp.alignment = align;
+        tmp.raycastTarget = false;
         return tmp;
     }
 

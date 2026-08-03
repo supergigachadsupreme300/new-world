@@ -175,9 +175,9 @@ public class FishingUI : MonoBehaviour
 
     public bool IsMouseOverWheel()
     {
-        var mouse = UnityEngine.InputSystem.Mouse.current;
-        if (mouse == null) return false;
-        return RectTransformUtility.RectangleContainsScreenPoint(_wheelRect, mouse.position.ReadValue(), null);
+        var pointer = UnityEngine.InputSystem.Pointer.current;
+        if (pointer == null) return false;
+        return RectTransformUtility.RectangleContainsScreenPoint(_wheelRect, pointer.position.ReadValue(), null);
     }
 
     public Vector2 GetWheelCenterScreen()
@@ -205,9 +205,9 @@ public class FishingUI : MonoBehaviour
         bool inZone = Mathf.Abs(PlayerLinePos - _greenPos) <= _zoneHalf - 4f;
         float rate = 0.4f * deltaTime;
         if (inZone)
-            Progress = Mathf.Min(1f, Progress + rate);
+            Progress = Mathf.Min(1f, Progress + rate * 0.6f);
         else
-            Progress = Mathf.Max(0f, Progress - rate * 0.5f);
+            Progress = Mathf.Max(0f, Progress - rate * 0.125f);
 
         UpdateProgressFill();
 

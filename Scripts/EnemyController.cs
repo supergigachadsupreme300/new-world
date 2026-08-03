@@ -170,8 +170,9 @@ public class EnemyController : MonoBehaviour
         AnimateModel();
     }
 
-    private const float SacredZoneRadius = 13f;
+    private const float SacredZoneRadius = 7.5f;
     private const float SacredPushSpeed = 14f;
+    private const float PagodaHalfSize = 7f;
 
     private bool EnforceSacredZone()
     {
@@ -195,12 +196,29 @@ public class EnemyController : MonoBehaviour
             _structureTarget = null;
             _stuckTimer = 0f;
             _hasChasePos = false;
+
+            Vector3 originFlat = _origin;
+            originFlat.y = 0f;
+            if (Vector3.Distance(originFlat, center) < SacredZoneRadius)
+            {
+                Vector3 originAway = originFlat - center;
+                if (originAway.sqrMagnitude < 0.0001f)
+                    originAway = Vector3.forward;
+                else
+                    originAway.Normalize();
+                _origin = center + originAway * (SacredZoneRadius + 1.5f);
+                _origin.y = 0f;
+                _patrolTarget = GetRandomPatrolPoint();
+            }
         }
 
         if (!_knockOut) return false;
 
         Vector3 target = center + away * (SacredZoneRadius + 1.5f);
-        transform.position = Vector3.MoveTowards(transform.position, target, SacredPushSpeed * Time.deltaTime);
+        if (Vector3.Distance(flat, center) < PagodaHalfSize)
+            transform.position = target;
+        else
+            transform.position = Vector3.MoveTowards(transform.position, target, SacredPushSpeed * Time.deltaTime);
         transform.LookAt(target);
         _isMoving = true;
         _isAttacking = false;
@@ -329,6 +347,14 @@ public class EnemyController : MonoBehaviour
 
         if (Physics.Raycast(origin, dir, out var hit, step + 0.5f))
         {
+            if (IsDoorCollider(hit.collider))
+            {
+                transform.position = Vector3.MoveTowards(transform.position, _player.position, step);
+                transform.LookAt(_player);
+                _isMoving = true;
+                return;
+            }
+
             var wb = WorldBuilder.Instance;
             if (wb != null && wb.FindBuilding(hit.collider.gameObject) != null)
             {
@@ -340,6 +366,20 @@ public class EnemyController : MonoBehaviour
         transform.position = Vector3.MoveTowards(transform.position, _player.position, step);
         transform.LookAt(_player);
         _isMoving = true;
+    }
+
+    private bool IsDoorCollider(Collider col)
+    {
+        if (col == null)
+            return false;
+        Transform t = col.transform;
+        while (t != null)
+        {
+            if (t.name == "Door")
+                return true;
+            t = t.parent;
+        }
+        return false;
     }
 
     private void Attack()
@@ -550,8 +590,25 @@ public class EnemyController : MonoBehaviour
     {
         _health = MaxHealth;
         _isDead = false;
-        transform.position = _origin + Random.insideUnitSphere * 1.5f;
-        transform.position = new Vector3(transform.position.x, 0f, transform.position.z);
+        Vector3 pos = _origin;
+        var wb = WorldBuilder.Instance;
+        if (wb != null)
+        {
+            Vector3 center = wb.PagodaPosition;
+            center.y = 0f;
+            Vector3 flat = pos;
+            flat.y = 0f;
+            if (Vector3.Distance(flat, center) < SacredZoneRadius)
+            {
+                Vector3 away = flat - center;
+                if (away.sqrMagnitude < 0.0001f)
+                    away = Vector3.forward;
+                pos = center + away.normalized * (SacredZoneRadius + 1.5f);
+            }
+        }
+        pos += Random.insideUnitSphere * 1.5f;
+        pos.y = 0f;
+        transform.position = pos;
         BuildModel();
         var col = GetComponent<Collider>();
         if (col != null) col.enabled = true;
@@ -559,8 +616,19 @@ public class EnemyController : MonoBehaviour
 
     private Vector3 GetRandomPatrolPoint()
     {
-        Vector3 point = _origin + Random.insideUnitSphere * PatrolRange;
-        point.y = 0f;
+        Vector3 point = _origin;
+        var wb = WorldBuilder.Instance;
+        Vector3 center = wb != null ? wb.PagodaPosition : Vector3.zero;
+        center.y = 0f;
+        int attempts = 0;
+        while (attempts < 5)
+        {
+            point = _origin + Random.insideUnitSphere * PatrolRange;
+            point.y = 0f;
+            if (Vector3.Distance(point, center) >= SacredZoneRadius)
+                break;
+            attempts++;
+        }
         return point;
     }
 }

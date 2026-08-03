@@ -357,7 +357,7 @@ public class WorldBuilder : MonoBehaviour
         CreateEnemyDisplay();
         InitializeBuildingPreview();
         PlaceMansionBlueprint(new Vector3(-30f, 0f, 50f));
-        BuildPagoda(new Vector3(50f, 0f, 0f));
+        BuildPagoda(new Vector3(26f, 0f, 25f));
 
         SpawnInitialClouds();
 
@@ -803,6 +803,14 @@ public class WorldBuilder : MonoBehaviour
                && position.z >= _roadZStart && position.z <= _roadZEnd;
     }
 
+    public float GetRoadSurfaceY()
+    {
+        if (RoadObject == null)
+            return 0.06f;
+        Vector3 size = RoadObject.transform.localScale;
+        return RoadObject.transform.position.y + size.y * 0.5f;
+    }
+
     private void SpawnToolPickups()
     {
         var seeds = new[] { "wheat_seed", "corn_seed", "carrot_seed", "tomato_seed", "strawberry_seed", "pumpkin_seed", "onion_seed", "sugarcane_seed", "rice_seed", "peashooter_seed", "fertilizer", "mobspawner" };
@@ -1071,11 +1079,19 @@ public class WorldBuilder : MonoBehaviour
 
     public FieldState TillGround(Vector3 position)
     {
-        position.y = 0f;
+        bool onRoad = IsOnRoad(position);
+        position.y = onRoad ? GetRoadSurfaceY() + 0.01f : 0f;
         var field = GetFieldAt(position);
         if (field != null)
         {
             field.Tilled = true;
+            field.IsHarvested = false;
+            field.HasCrop = false;
+            field.CropType = null;
+            field.Stage = 0;
+            field.Watered = false;
+            field.Fertilized = false;
+            field.GrowTimer = 0f;
             UpdateFieldVisual(field);
             return field;
         }
@@ -1149,8 +1165,10 @@ public class WorldBuilder : MonoBehaviour
 
         field.CropType = actualCropType;
         field.HasCrop = true;
+        field.IsHarvested = false;
         field.Stage = 1;
         field.GrowTimer = 0f;
+        field.Watered = false;
         field.NextStageTime = 12f;
         UpdateCropVisual(field);
         return true;
@@ -1979,14 +1997,21 @@ public class WorldBuilder : MonoBehaviour
         if (definition.SubBuildings != null && definition.SubBuildings.Length > 0)
         {
             string structureId = System.Guid.NewGuid().ToString();
+            var subPlans = new List<(string Part, Vector3 Pos, Vector3 Size, Color Color, int Wood, int Stone)>();
             foreach (var sub in definition.SubBuildings)
             {
                 Vector3 rotatedOffset = Quaternion.Euler(0, _currentRotation, 0) * sub.Offset;
                 Vector3 subPos = snapped + rotatedOffset;
                 if (!CanPlaceBuilding(subPos, sub.Size, _currentRotation))
-                    continue;
-
-                var subBp = CreateSingleBlueprint(sub.PartName, subPos, sub.Size, sub.Color, sub.WoodCost, sub.StoneCost);
+                {
+                    GameManager.Instance?.UIManager?.ShowMessage("Không đủ chỗ cho toàn bộ công trình.", 1.5f);
+                    return false;
+                }
+                subPlans.Add((sub.PartName, subPos, sub.Size, sub.Color, sub.WoodCost, sub.StoneCost));
+            }
+            foreach (var plan in subPlans)
+            {
+                var subBp = CreateSingleBlueprint(plan.Part, plan.Pos, plan.Size, plan.Color, plan.Wood, plan.Stone);
                 subBp.StructureId = structureId;
                 _blueprints.Add(subBp);
             }
@@ -2166,11 +2191,14 @@ public class WorldBuilder : MonoBehaviour
         {
             if (building.Entity == null)
                 continue;
-            var col = building.Entity.GetComponent<Collider>();
-            if (col == null)
-                continue;
-            if (bounds.Intersects(col.bounds))
-                return false;
+            var cols = building.Entity.GetComponentsInChildren<Collider>(true);
+            foreach (var col in cols)
+            {
+                if (col == null || col.isTrigger)
+                    continue;
+                if (bounds.Intersects(col.bounds))
+                    return false;
+            }
         }
         foreach (var bp in _blueprints)
         {
@@ -2637,7 +2665,7 @@ public class WorldBuilder : MonoBehaviour
         cube.transform.localScale = scale;
         cube.transform.localRotation = Quaternion.identity;
         cube.GetComponent<MeshRenderer>().material.color = color;
-        cube.AddComponent<BoxCollider>();
+        if (cube.GetComponent<BoxCollider>() == null) cube.AddComponent<BoxCollider>();
         return cube;
     }
 
@@ -2649,7 +2677,7 @@ public class WorldBuilder : MonoBehaviour
         cube.transform.localScale = scale;
         cube.transform.localRotation = rotation;
         cube.GetComponent<MeshRenderer>().material.color = color;
-        cube.AddComponent<BoxCollider>();
+        if (cube.GetComponent<BoxCollider>() == null) cube.AddComponent<BoxCollider>();
     }
 
     private void BuildPagodaPart(Transform root, string partType)
@@ -2774,10 +2802,10 @@ public class WorldBuilder : MonoBehaviour
                     CreatePartCube(root, new Vector3(-3.425f, 0.55f, -half), new Vector3(3.65f, 1.2f, 0.18f), wallC);
                     CreatePartCube(root, new Vector3(3.425f, 0.55f, -half), new Vector3(3.65f, 1.2f, 0.18f), wallC);
                     CreatePartCube(root, new Vector3(0, 1.5f, -half), new Vector3(10.5f, 0.2f, 0.2f), ridgeC);
-                    // entrance lintel (world 3.0..3.95) — leaves the wide opening open below for the player
-                    CreatePartCube(root, new Vector3(0, 0.925f, -half + 0.08f), new Vector3(3.6f, 0.95f, 0.2f), wallC);
+                    // entrance lintel (world 3.65..4.15) — leaves generous headroom below for the player
+                    CreatePartCube(root, new Vector3(0, 1.35f, -half + 0.08f), new Vector3(3.6f, 0.5f, 0.2f), wallC);
                     var doorstep = CreatePartCube(root, new Vector3(0, -1.6f, -half + 0.04f), new Vector3(3.6f, 0.1f, 0.18f), stoneC);
-                    Destroy(doorstep.GetComponent<Collider>());
+                    foreach (var dc in doorstep.GetComponents<Collider>()) Destroy(dc);
 
                     // parapet ring under Roof1 (world ~4.14..5.48) — closes the wall-to-roof gap
                     CreatePartCube(root, new Vector3(0, 2.26f, half), new Vector3(10.5f, 1.34f, 0.3f), wallC);
@@ -3280,9 +3308,90 @@ public class WorldBuilder : MonoBehaviour
         if (stoneCost > 0.01f) parts.Add($"S:{stoneCost:F1}");
         tmp.text = string.Join(" ", parts);
 
+        var ghostData = ghost.AddComponent<GhostPartData>();
+        ghostData.LocalPosition = ps.Entity.transform.localPosition;
+        ghostData.LocalRotation = ps.Entity.transform.localRotation;
+        ghostData.LocalScale = ps.Entity.transform.localScale;
+        var partRenderer = ps.Entity.GetComponent<Renderer>();
+        ghostData.Color = partRenderer != null ? partRenderer.material.color : new Color(0.6f, 0.4f, 0.2f);
+
         Object.Destroy(ps.Entity);
         ps.Entity = null;
         ps.GhostEntity = ghost;
+    }
+
+    public bool TryRepairGhost(RaycastHit hit)
+    {
+        var hitGo = hit.collider.gameObject;
+        foreach (var b in _buildings)
+        {
+            if (b.PartStates == null) continue;
+            foreach (var ps in b.PartStates)
+            {
+                if (ps.GhostEntity == null) continue;
+                bool isGhostHit = hitGo == ps.GhostEntity ||
+                    (hitGo.transform.parent != null && hitGo.transform.parent.gameObject == ps.GhostEntity);
+                if (!isGhostHit) continue;
+
+                float woodCost = 1f, stoneCost = 0f;
+                int partCount = b.TotalParts;
+                if (partCount > 0)
+                {
+                    if (b.IsEssential)
+                    {
+                        GetEssentialCosts(b.Type, out float totalWood, out float totalStone);
+                        woodCost = totalWood / partCount;
+                        stoneCost = totalStone / partCount;
+                    }
+                    else
+                    {
+                        var def = System.Array.Find(_availableBuildings, d => d.Name == b.Type);
+                        if (def != null)
+                        {
+                            woodCost = (float)def.WoodCost / partCount;
+                            stoneCost = (float)def.StoneCost / partCount;
+                        }
+                    }
+                }
+
+                int needWood = Mathf.CeilToInt(woodCost);
+                int needStone = Mathf.CeilToInt(stoneCost);
+                var tm = ToolManager.Instance;
+                if (tm == null) return false;
+                if (tm.CountItem("wood") < needWood || tm.CountItem("stone") < needStone)
+                {
+                    GameManager.Instance?.UIManager?.ShowMessage("Không đủ gỗ/đá để sửa chữa.", 1.5f);
+                    return false;
+                }
+
+                var data = ps.GhostEntity.GetComponent<GhostPartData>();
+                if (data == null) return false;
+
+                tm.RemoveItemAmount("wood", needWood);
+                tm.RemoveItemAmount("stone", needStone);
+
+                var rebuilt = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                rebuilt.name = "BuildingPart_" + ps.PartName;
+                rebuilt.transform.SetParent(b.Entity.transform);
+                rebuilt.transform.localPosition = data.LocalPosition;
+                rebuilt.transform.localRotation = data.LocalRotation;
+                rebuilt.transform.localScale = data.LocalScale;
+                var r = rebuilt.GetComponent<MeshRenderer>();
+                if (r != null) r.material.color = data.Color;
+                rebuilt.AddComponent<BoxCollider>();
+
+                ps.Entity = rebuilt;
+                ps.CurrentHealth = 4;
+                Object.Destroy(ps.GhostEntity);
+                ps.GhostEntity = null;
+                b.CurrentHealth = Mathf.Min(b.MaxHealth, b.CurrentHealth + 4);
+                UpdateBuildingDurabilityLabel(b);
+                SoundManager.Instance?.Play("hammer");
+                GameManager.Instance?.UIManager?.ShowMessage("Đã sửa chữa xong.", 1.5f);
+                return true;
+            }
+        }
+        return false;
     }
 
     private float GetBuildingTopY(GameObject entity)
@@ -3524,6 +3633,21 @@ public class WorldBuilder : MonoBehaviour
         if (bp == null) return;
         if (bp.IsEssential) return;
         if (bp.IsMansion) return;
+        if (!string.IsNullOrEmpty(bp.StructureId))
+        {
+            for (int i = _blueprints.Count - 1; i >= 0; i--)
+            {
+                var other = _blueprints[i];
+                if (other != null && other.StructureId == bp.StructureId)
+                {
+                    DestroyBlueprintLabel(other);
+                    if (other.Entity != null)
+                        Object.Destroy(other.Entity);
+                    _blueprints.RemoveAt(i);
+                }
+            }
+            return;
+        }
         DestroyBlueprintLabel(bp);
         if (bp.Entity != null)
             Object.Destroy(bp.Entity);
@@ -4072,7 +4196,7 @@ GameObject treeRoot;
         bool nearWifeHouse = x >= 20 && x <= 42 && Mathf.Abs(z) <= 10;
         bool nearDisplay = x >= 48 && x <= 67 && z >= -130 && z <= -48;
         bool nearMansion = x >= -45 && x <= -15 && z >= 39 && z <= 61;
-        bool nearPagoda = x >= 42 && x <= 58 && Mathf.Abs(z) <= 12;
+        bool nearPagoda = Mathf.Abs(x - _pagodaPosition.x) <= 8 && Mathf.Abs(z - _pagodaPosition.z) <= 12;
         return nearHouse || nearShop || nearRoad || nearWifeHouse || nearDisplay || nearMansion || nearPagoda;
     }
 
@@ -4101,6 +4225,7 @@ GameObject treeRoot;
     {
         var door = FindDoor(hit.collider.gameObject);
         if (door == null) return false;
+        if (_openDoors.Contains(door)) _openDoors.Remove(door); else _openDoors.Add(door);
         StartCoroutine(AnimateDoor(door));
         return true;
     }
@@ -4116,7 +4241,8 @@ GameObject treeRoot;
     {
         bool isOpen = _openDoors.Contains(door);
         float start = door.transform.localRotation.eulerAngles.y;
-        float end = isOpen ? 0f : -90f;
+        if (start > 180f) start -= 360f;
+        float end = isOpen ? -90f : 0f;
         float t = 0f;
         while (t < 1f)
         {
@@ -4126,7 +4252,12 @@ GameObject treeRoot;
             yield return null;
         }
         door.transform.localRotation = Quaternion.Euler(0f, end, 0f);
-        if (isOpen) _openDoors.Remove(door); else _openDoors.Add(door);
+        var panel = door.transform.Find("DoorPanel");
+        if (panel != null)
+        {
+            var col = panel.GetComponent<Collider>();
+            if (col != null) col.enabled = !isOpen;
+        }
     }
 
     private void CloseAllDoors()
@@ -4881,6 +5012,14 @@ GameObject treeRoot;
         field.CropObject = cropRoot;
     }
 
+    public void RefreshFieldVisual(FieldState field)
+    {
+        if (field == null)
+            return;
+        UpdateCropVisual(field);
+        UpdateFieldVisual(field);
+    }
+
     private void AddFieldBorder(Transform tile)
     {
         var borderColor = new Color(0.2f, 0.1f, 0.03f);
@@ -5291,6 +5430,7 @@ GameObject treeRoot;
         }
         _buildings.Clear();
         _floorPositions.Clear();
+        _openDoors.Clear();
 
         foreach (var bp in _blueprints)
         {
@@ -5379,10 +5519,44 @@ GameObject treeRoot;
                 rotation = b.Rotation,
                 currentHealth = b.CurrentHealth,
                 maxHealth = b.MaxHealth,
-                partHealths = partHealths
+                partHealths = partHealths,
+                doorOpen = IsDoorOpen(b.Entity)
             };
         }
         return result;
+    }
+
+    private bool IsDoorOpen(GameObject root)
+    {
+        if (root == null)
+            return false;
+        foreach (var t in root.GetComponentsInChildren<Transform>(true))
+        {
+            if (t.name == "Door" && _openDoors.Contains(t.gameObject))
+                return true;
+        }
+        return false;
+    }
+
+    private void ApplySavedDoorState(GameObject root, bool doorOpen)
+    {
+        if (root == null || !doorOpen)
+            return;
+        foreach (var t in root.GetComponentsInChildren<Transform>(true))
+        {
+            if (t.name == "Door")
+            {
+                t.localRotation = Quaternion.Euler(0f, -90f, 0f);
+                _openDoors.Add(t.gameObject);
+                var panel = t.Find("DoorPanel");
+                if (panel != null)
+                {
+                    var col = panel.GetComponent<Collider>();
+                    if (col != null) col.enabled = false;
+                }
+                return;
+            }
+        }
     }
 
     public void LoadBuildingsFromSave(BuildingSaveData[] data)
@@ -5392,7 +5566,7 @@ GameObject treeRoot;
 
         foreach (var build in data)
         {
-            if (build.type != null && build.type.StartsWith("structure_part_Pagoda_"))
+            if (build.type != null && build.type.StartsWith("structure_part_"))
             {
                 SpawnStructurePart(new BlueprintState
                 {
@@ -5403,6 +5577,7 @@ GameObject treeRoot;
                 var lastPart = _buildings[_buildings.Count - 1];
                 lastPart.CurrentHealth = build.currentHealth;
                 lastPart.MaxHealth = build.maxHealth;
+                ApplySavedDoorState(lastPart.Entity, build.doorOpen);
                 continue;
             }
 
@@ -5427,10 +5602,48 @@ GameObject treeRoot;
                     for (int p = 0; p < count; p++)
                         last.PartStates[p].CurrentHealth = build.partHealths[p];
                 }
+                ApplySavedDoorState(last.Entity, build.doorOpen);
             }
         }
 
+        PruneTreesAndRocksNearPagoda();
         RebuildFloorPositions();
+    }
+
+    private void PruneTreesAndRocksNearPagoda()
+    {
+        float px = _pagodaPosition.x;
+        float pz = _pagodaPosition.z;
+        for (int i = _trees.Count - 1; i >= 0; i--)
+        {
+            var t = _trees[i];
+            if (t == null)
+            {
+                _trees.RemoveAt(i);
+                continue;
+            }
+            var p = t.transform.position;
+            if (Mathf.Abs(p.x - px) <= 8f && Mathf.Abs(p.z - pz) <= 12f)
+            {
+                Destroy(t);
+                _trees.RemoveAt(i);
+            }
+        }
+        for (int i = _rocks.Count - 1; i >= 0; i--)
+        {
+            var r = _rocks[i];
+            if (r == null)
+            {
+                _rocks.RemoveAt(i);
+                continue;
+            }
+            var p = r.transform.position;
+            if (Mathf.Abs(p.x - px) <= 8f && Mathf.Abs(p.z - pz) <= 12f)
+            {
+                Destroy(r);
+                _rocks.RemoveAt(i);
+            }
+        }
     }
 
     private void RebuildFloorPositions()
@@ -5470,6 +5683,7 @@ GameObject treeRoot;
         public int currentHealth;
         public int maxHealth;
         public int[] partHealths;
+        public bool doorOpen;
     }
 
     [System.Serializable]
@@ -5957,4 +6171,12 @@ public class CageWithAnimalInfo : MonoBehaviour
 public class ThrownCageInfo : MonoBehaviour
 {
     public string CageType;
+}
+
+public class GhostPartData : MonoBehaviour
+{
+    public Vector3 LocalPosition;
+    public Quaternion LocalRotation;
+    public Vector3 LocalScale;
+    public Color Color;
 }

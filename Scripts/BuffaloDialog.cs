@@ -1,0 +1,174 @@
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+public class BuffaloDialog : MonoBehaviour
+{
+    public static BuffaloDialog Instance { get; private set; }
+
+    private Canvas _canvas;
+    private GameObject _panel;
+    private TMP_Text _nameText;
+    private TMP_Text _dialogText;
+    private TMP_Text _promptText;
+    private GameObject _shopRow;
+    private bool _dialogActive;
+
+    public bool IsDialogActive => _dialogActive;
+
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+    }
+
+    void Start()
+    {
+        if (_canvas == null)
+            Initialize();
+    }
+
+    public void Initialize()
+    {
+        if (_canvas != null)
+            return;
+        var hudGo = GameObject.Find("HUD_Canvas");
+        _canvas = hudGo != null ? hudGo.GetComponent<Canvas>() : Object.FindAnyObjectByType<Canvas>();
+        if (_canvas == null)
+            return;
+        CreatePanel();
+    }
+
+    public void Show()
+    {
+        if (_canvas == null)
+            Initialize();
+        if (_panel == null)
+            return;
+
+        _dialogActive = true;
+        _panel.SetActive(true);
+        _nameText.text = "Buffalo";
+        _dialogText.text = "are you 17 ? If not you're welcome";
+        _promptText.text = GameInput.IsMobile ? "Chạm để đóng" : "Nhấn E để đóng";
+        if (_shopRow != null)
+            _shopRow.SetActive(true);
+    }
+
+    public void Hide()
+    {
+        _dialogActive = false;
+        if (_panel != null)
+            _panel.SetActive(false);
+    }
+
+    private void OpenShop()
+    {
+        Hide();
+        var shop = Object.FindAnyObjectByType<BuffaloShopManager>();
+        if (shop == null)
+        {
+            var go = new GameObject("BuffaloShopManager");
+            shop = go.AddComponent<BuffaloShopManager>();
+            shop.Initialize();
+        }
+        shop.Open();
+    }
+
+    private void CreatePanel()
+    {
+        float sw = Screen.width;
+        float sh = Screen.height;
+
+        _panel = new GameObject("BuffaloDialogPanel");
+        _panel.transform.SetParent(_canvas.transform, false);
+
+        var rt = _panel.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0f);
+        rt.anchorMax = new Vector2(0.5f, 0f);
+        rt.pivot = new Vector2(0.5f, 0f);
+        rt.anchoredPosition = new Vector2(0f, sh * 0.15f);
+        rt.sizeDelta = new Vector2(sw * 0.55f, sh * 0.24f);
+
+        var img = _panel.AddComponent<Image>();
+        img.color = new Color(0f, 0f, 0f, 0.8f);
+
+        var btn = _panel.AddComponent<Button>();
+        btn.targetGraphic = img;
+        btn.onClick.AddListener(Hide);
+
+        float panelW = sw * 0.55f;
+        float panelH = sh * 0.24f;
+
+        _nameText = MakeText("BuffaloDialogName", rt, new Vector2(0f, panelH * 0.35f), "Buffalo", 24,
+            new Color(0.9f, 0.8f, 0.5f), new Vector2(panelW - 40f, 34f));
+
+        _dialogText = MakeText("BuffaloDialogText", rt, new Vector2(0f, -panelH * 0.05f), "", 20,
+            Color.white, new Vector2(panelW - 40f, panelH * 0.55f));
+
+        _promptText = MakeText("BuffaloDialogPrompt", rt, new Vector2(0f, -panelH * 0.38f), "", 16,
+            new Color(0.7f, 0.7f, 0.7f), new Vector2(panelW - 40f, 25f));
+
+        _shopRow = MakeShopRow(rt, "BuffaloShopRow", "BuffaloShopBtn", OpenShop);
+        _shopRow.SetActive(false);
+
+        _panel.SetActive(false);
+    }
+
+    private GameObject MakeShopRow(RectTransform parent, string rowName, string textName,
+        UnityEngine.Events.UnityAction onClick)
+    {
+        var row = new GameObject(rowName);
+        row.transform.SetParent(parent, false);
+        var rowRt = row.AddComponent<RectTransform>();
+        rowRt.anchorMin = new Vector2(1f, 1f);
+        rowRt.anchorMax = new Vector2(1f, 1f);
+        rowRt.pivot = new Vector2(1f, 1f);
+        rowRt.anchoredPosition = new Vector2(-20f, 6f);
+        rowRt.sizeDelta = new Vector2(260f, 40f);
+
+        var rowImg = row.AddComponent<Image>();
+        rowImg.color = new Color(0.37f, 0.51f, 0.68f);
+        rowImg.raycastTarget = true;
+
+        var rowBtn = row.AddComponent<Button>();
+        rowBtn.targetGraphic = rowImg;
+        rowBtn.onClick.AddListener(onClick);
+
+        MakeText(textName, rowRt, new Vector2(0f, 0f), "[Mở Cửa Hàng]", 18,
+            Color.white, new Vector2(236f, 36f));
+
+        return row;
+    }
+
+    private TMP_Text MakeText(string name, RectTransform parent, Vector2 position, string text,
+        int fontSize, Color color, Vector2 size)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = position;
+        rt.sizeDelta = size;
+
+        var tmp = go.AddComponent<TextMeshProUGUI>();
+        if (GameManager.Instance?.UIManager?.defaultTmpFont != null)
+            tmp.font = GameManager.Instance.UIManager.defaultTmpFont;
+        tmp.text = text;
+        tmp.fontSize = fontSize;
+        tmp.color = color;
+        tmp.alignment = TextAlignmentOptions.Left;
+        tmp.textWrappingMode = TextWrappingModes.Normal;
+        tmp.overflowMode = TextOverflowModes.Ellipsis;
+        tmp.raycastTarget = false;
+
+        return tmp;
+    }
+}

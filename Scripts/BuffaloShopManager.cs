@@ -56,7 +56,6 @@ public class BuffaloShopManager : MonoBehaviour
         new ShopItem { Type = "rice_seed", Label = "Hạt Gạo", Price = 3 },
         new ShopItem { Type = "fertilizer", Label = "Phân Bón", Price = 8 },
         new ShopItem { Type = "watering_can", Label = "Bình Tưới", Price = 6 },
-        new ShopItem { Type = "peashooter_seed", Label = "Hạt Đậu Pháo", Price = 10 },
         new ShopItem { Type = "club", Label = "Gậy", Price = 80 },
         new ShopItem { Type = "cage_big", Label = "Lồng Lớn", Price = 120 },
         new ShopItem { Type = "cage_small", Label = "Lồng Nhỏ", Price = 80 },
@@ -112,7 +111,8 @@ public class BuffaloShopManager : MonoBehaviour
         if (_initialized)
             return;
         _initialized = true;
-        _canvas = Object.FindAnyObjectByType<Canvas>();
+        var hudGo = GameObject.Find("HUD_Canvas");
+        _canvas = hudGo != null ? hudGo.GetComponent<Canvas>() : Object.FindAnyObjectByType<Canvas>();
         if (_canvas == null)
             return;
 
@@ -225,6 +225,9 @@ public class BuffaloShopManager : MonoBehaviour
         _shopPanel.SetActive(true);
         _wasPausedBeforeOpen = GameManager.Instance != null && GameManager.Instance.GamePaused;
 
+        if (BuffaloDialog.Instance != null && BuffaloDialog.Instance.IsDialogActive)
+            BuffaloDialog.Instance.Hide();
+
         if (GameManager.Instance?.UIManager != null)
         {
             GameManager.Instance.UIManager.ShowTutorial(false);
@@ -237,8 +240,7 @@ public class BuffaloShopManager : MonoBehaviour
 
         if (GameManager.Instance?.UIManager != null)
             GameManager.Instance.UIManager.ShowPauseMenu(false);
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        GameInput.SetCursorLocked(false);
 
         SwitchTab("buy");
     }
@@ -256,8 +258,7 @@ public class BuffaloShopManager : MonoBehaviour
 
             if (GameManager.Instance != null)
                 GameManager.Instance.TogglePause(false);
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+            GameInput.SetCursorLocked(true);
         }
         else
         {
@@ -428,6 +429,7 @@ public class BuffaloShopManager : MonoBehaviour
         tmp.fontSize = fontSize;
         tmp.color = Color.white;
         tmp.alignment = align;
+        tmp.raycastTarget = false;
         return tmp;
     }
 

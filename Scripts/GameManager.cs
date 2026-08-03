@@ -58,6 +58,7 @@ public class GameManager : MonoBehaviour
         else
         {
             ShowMainMenu(true);
+            UIManager?.ShowPlatformPanel(true);
         }
     }
 
@@ -75,8 +76,12 @@ public class GameManager : MonoBehaviour
                 shop.Close();
                 return;
             }
+
+            if (TryCloseActiveDialog())
+                return;
         }
 
+#if UNITY_EDITOR
         // Cutscene test shortcuts (work even when paused)
         if (CutsceneManager != null && Keyboard.current != null)
         {
@@ -91,6 +96,7 @@ public class GameManager : MonoBehaviour
                 CutsceneManager.PlaySadEnding();
             }
         }
+#endif
 
         if (!InGame || GamePaused)
             return;
@@ -110,14 +116,35 @@ public class GameManager : MonoBehaviour
             WorldBuilder.UpdateWorld(Time.deltaTime);
         }
 
-        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+        if ((Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) || MobileInputController.Consume("pause"))
         {
             if (CutsceneManager != null && CutsceneManager.JustCancelledCutscene)
                 return;
             if (ToolManager != null && ToolManager.EscapeHandledThisFrame)
                 return;
+            if (TryCloseActiveDialog())
+                return;
             TogglePause(true);
         }
+    }
+
+    private bool TryCloseActiveDialog()
+    {
+        var wife = WifeNPC.Instance;
+        if (wife != null && wife.IsDialogActive)
+        {
+            wife.HideDialog(true);
+            return true;
+        }
+
+        var buffalo = BuffaloDialog.Instance;
+        if (buffalo != null && buffalo.IsDialogActive)
+        {
+            buffalo.Hide();
+            return true;
+        }
+
+        return false;
     }
 
     public void AutoResolveReferences()
@@ -174,8 +201,7 @@ public class GameManager : MonoBehaviour
             {
                 if (Player != null)
                     Player.EnableInput(false);
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
+                GameInput.SetCursorLocked(false);
 
                 // Show car driving visual in background
                 if (CutsceneManager != null)
@@ -210,6 +236,13 @@ public class GameManager : MonoBehaviour
             UIManager.ShowAllGameUI(true);
             UIManager.ShowPauseMenu(false);
             UIManager.ShowMainMenu(false);
+        }
+
+        if (QuestManager.Instance != null)
+        {
+            QuestManager.Instance.ResetQuests();
+            QuestManager.Instance.InitializeQuests();
+            QuestManager.Instance.RefreshQuestUI();
         }
 
         if (ToolManager != null)
@@ -247,6 +280,13 @@ public class GameManager : MonoBehaviour
             UIManager.ShowAllGameUI(true);
             UIManager.ShowPauseMenu(false);
             UIManager.ShowMainMenu(false);
+        }
+
+        if (QuestManager.Instance != null)
+        {
+            QuestManager.Instance.ResetQuests();
+            QuestManager.Instance.InitializeQuests();
+            QuestManager.Instance.RefreshQuestUI();
         }
 
         if (ToolManager != null)
@@ -292,8 +332,7 @@ public class GameManager : MonoBehaviour
         if (Player != null)
             Player.EnableInput(!paused);
 
-        Cursor.lockState = paused ? CursorLockMode.None : CursorLockMode.Locked;
-        Cursor.visible = paused;
+        GameInput.SetCursorLocked(!paused);
     }
 
     public void SetTimeOfDay(float hour)

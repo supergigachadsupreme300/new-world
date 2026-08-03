@@ -107,6 +107,9 @@ public class WifeNPC : MonoBehaviour
 
     public void Update()
     {
+        if (GameManager.Instance != null && GameManager.Instance.GamePaused)
+            return;
+
         switch (_visitState)
         {
             case HouseVisitState.WalkingToHouse:
@@ -170,64 +173,80 @@ public class WifeNPC : MonoBehaviour
             }
         }
 
-        if (_dialogActive && Keyboard.current.tKey.wasPressedThisFrame)
+        if (_dialogActive &&
+            ((Keyboard.current != null && Keyboard.current.tKey.wasPressedThisFrame) ||
+             MobileInputController.Consume("propose")))
         {
-            bool showPropose = _affection >= 70f && !Married && State == WifeState.Greeting
-                && (QuestManager.Instance?.IsComplete("greet") ?? false);
-            if (showPropose && !_hasProposed)
-            {
-                _hasProposed = true;
-                HideDialog();
-                QuestManager.Instance?.AddStoryQuest(
-                    "Xây Dựng Dinh Thự Cho Jessica",
-                    "mansion", 25, 5000,
-                    "Jessica đồng ý lời tỏ tình! Hãy xây dinh thự để làm lễ cưới.");
-                _dialogQueue.Clear();
-                _dialogQueue.Enqueue("Jessica: Anh ơi... em thực sự rất bất ngờ!");
-                _dialogQueue.Enqueue("Jessica: Em cũng có tình cảm với anh từ lâu rồi.");
-                _dialogQueue.Enqueue("Jessica: Nếu anh xây xong dinh thự, chúng ta sẽ kết hôn!");
-                _dialogQueue.Enqueue("Jessica: Em tin anh sẽ làm được. Yêu anh!");
-                ShowNextDialog();
-            }
+            TryPropose();
         }
 
-        if (_dialogActive && Keyboard.current.eKey.wasPressedThisFrame)
+        if (_dialogActive &&
+            ((Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) ||
+             MobileInputController.Consume("interact")))
         {
             if (_visitState == HouseVisitState.AtHome)
                 _leaveTimer = STAY_DURATION;
             AdvanceDialog();
         }
 
-        if (_dialogActive && Keyboard.current.vKey.wasPressedThisFrame)
+        if (_dialogActive &&
+            ((Keyboard.current != null && Keyboard.current.vKey.wasPressedThisFrame) ||
+             MobileInputController.Consume("night")))
         {
-            bool greetDone = (QuestManager.Instance?.IsComplete("greet") ?? false);
-            if (greetDone && State == WifeState.Greeting && IsRosaryAvailable())
+            HandleNightRequest();
+        }
+    }
+
+    private void TryPropose()
+    {
+        bool showPropose = _affection >= 70f && !Married && State == WifeState.Greeting
+            && (QuestManager.Instance?.IsComplete("greet") ?? false);
+        if (showPropose && !_hasProposed)
+        {
+            _hasProposed = true;
+            HideDialog();
+            QuestManager.Instance?.AddStoryQuest(
+                "Xây Dựng Dinh Thự Cho Jessica",
+                "mansion", 25, 5000,
+                "Jessica đồng ý lời tỏ tình! Hãy xây dinh thự để làm lễ cưới.");
+            _dialogQueue.Clear();
+            _dialogQueue.Enqueue("Jessica: Anh ơi... em thực sự rất bất ngờ!");
+            _dialogQueue.Enqueue("Jessica: Em cũng có tình cảm với anh từ lâu rồi.");
+            _dialogQueue.Enqueue("Jessica: Nếu anh xây xong dinh thự, chúng ta sẽ kết hôn!");
+            _dialogQueue.Enqueue("Jessica: Em tin anh sẽ làm được. Yêu anh!");
+            ShowNextDialog();
+        }
+    }
+
+    private void HandleNightRequest()
+    {
+        bool greetDone = (QuestManager.Instance?.IsComplete("greet") ?? false);
+        if (greetDone && State == WifeState.Greeting && IsRosaryAvailable())
+        {
+            _lastRosaryGrantDay = GameManager.Instance.CurrentDay;
+            bool firstTime = !_rosaryGranted;
+            _rosaryGranted = true;
+            if (firstTime)
             {
-                _lastRosaryGrantDay = GameManager.Instance.CurrentDay;
-                bool firstTime = !_rosaryGranted;
-                _rosaryGranted = true;
-                if (firstTime)
-                {
-                    if (_chainStep <= 2)
-                        _chainStep = 3;
-                    QuestManager.Instance?.AddStoryQuest("Trừ Tà Giúp Làng", "enemies", 5, 150,
-                        "Dùng Tràng Hạt tiêu diệt 5 con quỷ để bảo vệ làng.");
-                    _dialogQueue.Clear();
-                    _dialogQueue.Enqueue("Jessica: Đêm nay ư? Anh có nghe tiếng lũ quỷ vào ban đêm chứ?");
-                    _dialogQueue.Enqueue("Jessica: Ở làng này, mỗi khi trời tối (18h \u2013 6h), lũ quỷ lại xuất hiện. Chúng phá hoại công trình và tấn công dân làng.");
-                    _dialogQueue.Enqueue("Jessica: Tràng Hạt là cách trừ tà tốt nhất \u2014 quả cầu thánh hạ gục kẻ thù chỉ một đòn.");
-                    _dialogQueue.Enqueue("Jessica: Nhớ đóng cửa khi trời tối để cản bước chúng nhé. Em tặng anh chiếc tràng hạt này!");
-                }
-                else
-                {
-                    _dialogQueue.Clear();
-                    _dialogQueue.Enqueue("Jessica: Anh lại cần tràng hạt à? Em tặng anh thêm một chiếc nhé!");
-                }
-                HideDialog();
-                ToolManager.Instance?.AddItem("rosary", 1);
-                SaveState();
-                ShowNextDialog();
+                if (_chainStep <= 2)
+                    _chainStep = 3;
+                QuestManager.Instance?.AddStoryQuest("Trừ Tà Giúp Làng", "enemies", 5, 150,
+                    "Dùng Tràng Hạt tiêu diệt 5 con quỷ để bảo vệ làng.");
+                _dialogQueue.Clear();
+                _dialogQueue.Enqueue("Jessica: Đêm nay ư? Anh có nghe tiếng lũ quỷ vào ban đêm chứ?");
+                _dialogQueue.Enqueue("Jessica: Ở làng này, mỗi khi trời tối (18h \u2013 6h), lũ quỷ lại xuất hiện. Chúng phá hoại công trình và tấn công dân làng.");
+                _dialogQueue.Enqueue("Jessica: Tràng Hạt là cách trừ tà tốt nhất \u2014 quả cầu thánh hạ gục kẻ thù chỉ một đòn.");
+                _dialogQueue.Enqueue("Jessica: Nhớ đóng cửa khi trời tối để cản bước chúng nhé. Em tặng anh chiếc tràng hạt này!");
             }
+            else
+            {
+                _dialogQueue.Clear();
+                _dialogQueue.Enqueue("Jessica: Anh lại cần tràng hạt à? Em tặng anh thêm một chiếc nhé!");
+            }
+            HideDialog();
+            ToolManager.Instance?.AddItem("rosary", 1);
+            SaveState();
+            ShowNextDialog();
         }
     }
 
@@ -610,22 +629,25 @@ public class WifeNPC : MonoBehaviour
             _dialogText.text = line;
         }
 
-        _promptText.text = _dialogQueue.Count > 0 ? "Nhấn E để tiếp tục" : "Nhấn E để đóng";
+        bool mobile = GameInput.IsMobile;
+        _promptText.text = _dialogQueue.Count > 0
+            ? (mobile ? "Chạm để tiếp tục" : "Nhấn E để tiếp tục")
+            : (mobile ? "Chạm để đóng" : "Nhấn E để đóng");
 
         bool showPropose = _affection >= 70f && !Married && State == WifeState.Greeting
             && (QuestManager.Instance?.IsComplete("greet") ?? false);
-        _proposeText.text = showPropose ? "[Tỏ Tình] Nhấn T" : "";
+        _proposeText.text = showPropose ? (mobile ? "[Tỏ Tình] (Chạm)" : "[Tỏ Tình] Nhấn T") : "";
         if (_proposeRow != null) _proposeRow.SetActive(showPropose);
 
         bool showInvite = _visitState == HouseVisitState.None && State != WifeState.NotMet
             && (QuestManager.Instance?.IsComplete("greet") ?? false);
         bool showInviteFinal = showInvite && !showPropose;
-        _inviteText.text = showInviteFinal ? "[Mời Về Nhà] Nhấn G" : "";
+        _inviteText.text = showInviteFinal ? (mobile ? "[Mời Về Nhà] (Chạm)" : "[Mời Về Nhà] Nhấn G") : "";
         if (_inviteRow != null) _inviteRow.SetActive(showInviteFinal);
 
         bool showNight = State == WifeState.Greeting && IsRosaryAvailable()
             && (QuestManager.Instance?.IsComplete("greet") ?? false);
-        _nightText.text = showNight ? "[Hỏi về đêm nay] Nhấn V" : "";
+        _nightText.text = showNight ? (mobile ? "[Hỏi Về Đêm] (Chạm)" : "[Hỏi Về Đêm] Nhấn V") : "";
         if (_nightRow != null) _nightRow.SetActive(showNight);
 
         LayoutOptionRows();
@@ -669,9 +691,11 @@ public class WifeNPC : MonoBehaviour
         }
     }
 
-    private void HideDialog()
+    public void HideDialog(bool resetQueue = false)
     {
         _dialogActive = false;
+        if (resetQueue)
+            _dialogQueue.Clear();
         _dialogPanel.SetActive(false);
         if (_pendingHappyEnding)
         {
@@ -703,6 +727,10 @@ public class WifeNPC : MonoBehaviour
         var panelImg = _dialogPanel.AddComponent<Image>();
         panelImg.color = new Color(0f, 0f, 0f, 0.8f);
 
+        var panelBtn = _dialogPanel.AddComponent<Button>();
+        panelBtn.targetGraphic = panelImg;
+        panelBtn.onClick.AddListener(AdvanceDialog);
+
         float panelW = sw * 0.7f;
         float panelH = sh * 0.28f;
         _panelRt = panelRt;
@@ -723,19 +751,20 @@ public class WifeNPC : MonoBehaviour
             new Vector2(panelW - 40f, 25f));
 
         _proposeText = CreateDialogOptionRow(panelRt, "WifeProposeRow", "WifeProposeText",
-            6f, new Color(1f, 0.3f, 0.3f), 22, out _proposeRow);
+            6f, new Color(1f, 0.3f, 0.3f), 22, out _proposeRow, TryPropose);
 
         _inviteText = CreateDialogOptionRow(panelRt, "WifeInviteRow", "WifeInviteText",
-            54f, new Color(0.3f, 1f, 0.6f), 20, out _inviteRow);
+            54f, new Color(0.3f, 1f, 0.6f), 20, out _inviteRow, InviteToHouse);
 
         _nightText = CreateDialogOptionRow(panelRt, "WifeNightRow", "WifeNightText",
-            102f, new Color(1f, 0.85f, 0.3f), 20, out _nightRow);
+            102f, new Color(1f, 0.85f, 0.3f), 20, out _nightRow, HandleNightRequest);
 
         _dialogPanel.SetActive(false);
     }
 
     private TMP_Text CreateDialogOptionRow(RectTransform parent, string rowName, string textName,
-        float yOffset, Color textColor, int fontSize, out GameObject row)
+        float yOffset, Color textColor, int fontSize, out GameObject row,
+        UnityEngine.Events.UnityAction onClick = null)
     {
         row = new GameObject(rowName);
         row.transform.SetParent(parent, false);
@@ -748,7 +777,14 @@ public class WifeNPC : MonoBehaviour
 
         var rowImg = row.AddComponent<Image>();
         rowImg.color = new Color(0f, 0f, 0f, 0.8f);
-        rowImg.raycastTarget = false;
+        rowImg.raycastTarget = true;
+
+        if (onClick != null)
+        {
+            var rowBtn = row.AddComponent<Button>();
+            rowBtn.targetGraphic = rowImg;
+            rowBtn.onClick.AddListener(onClick);
+        }
 
         var text = CreateDialogText(textName, rowRt,
             new Vector2(0f, 0f), "", fontSize, textColor,
@@ -773,6 +809,8 @@ public class WifeNPC : MonoBehaviour
         rt.sizeDelta = size;
 
         var tmp = go.AddComponent<TextMeshProUGUI>();
+        if (GameManager.Instance?.UIManager?.defaultTmpFont != null)
+            tmp.font = GameManager.Instance.UIManager.defaultTmpFont;
         tmp.text = text;
         tmp.fontSize = fontSize;
         tmp.color = color;

@@ -9,6 +9,8 @@ public class GameBootstrap : MonoBehaviour
         if (GameObject.Find("GameRoot") != null)
             return;
 
+        GameInput.Mode = (ControlMode)PlayerPrefs.GetInt("ControlMode", 0);
+
         var root = new GameObject("GameRoot");
         Object.DontDestroyOnLoad(root);
 
@@ -34,6 +36,7 @@ public class GameBootstrap : MonoBehaviour
         var cutsceneManager = Object.FindAnyObjectByType<CutsceneManager>() ?? root.AddComponent<CutsceneManager>();
         var randomEventManager = Object.FindAnyObjectByType<RandomEventManager>() ?? root.AddComponent<RandomEventManager>();
         var wifeNPC = Object.FindAnyObjectByType<WifeNPC>() ?? root.AddComponent<WifeNPC>();
+        var mobileInput = Object.FindAnyObjectByType<MobileInputController>() ?? root.AddComponent<MobileInputController>();
 
         gameManager.UIManager = uiManager;
         gameManager.WorldBuilder = worldBuilder;

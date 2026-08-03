@@ -155,14 +155,11 @@ public class ToolManager : MonoBehaviour
         if (GameManager.Instance == null || !GameManager.Instance.InGame)
             return;
 
-        if (Keyboard.current == null)
-            return;
-
         if (_buildingMenuOpen)
         {
-            if (Keyboard.current.fKey.wasPressedThisFrame)
+            if (Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame)
                 CloseBuildingMenu();
-            else if (Keyboard.current.escapeKey.wasPressedThisFrame)
+            else if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
                 EscapeHandledThisFrame = true;
                 CloseBuildingMenu();
@@ -177,37 +174,49 @@ public class ToolManager : MonoBehaviour
 
         if (GetSelectedItemType() == "hammer" && _worldBuilder != null)
         {
-            var cam = GetActiveCamera();
-            if (cam != null)
+            if (_buildingChosen)
             {
-                var origin = cam.transform.position + cam.transform.forward * 0.3f;
-                var ray = new Ray(origin, cam.transform.forward);
-                if (Physics.Raycast(ray, out var hit, UseRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
+                var cam = GetActiveCamera();
+                if (cam != null)
                 {
-                    _worldBuilder.UpdatePreviewPosition(hit.point, true);
+                    var origin = cam.transform.position + cam.transform.forward * 0.3f;
+                    var ray = new Ray(origin, cam.transform.forward);
+                    if (Physics.Raycast(ray, out var hit, UseRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
+                    {
+                        _worldBuilder.UpdatePreviewPosition(hit.point, true);
+                    }
+                    else
+                        _worldBuilder.UpdatePreviewPosition(Vector3.zero, false);
                 }
-                else
-                    _worldBuilder.UpdatePreviewPosition(Vector3.zero, false);
             }
+            else
+                _worldBuilder.UpdatePreviewPosition(Vector3.zero, false);
 
-            if (Keyboard.current.rKey.wasPressedThisFrame)
+            if ((Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame) ||
+                MobileInputController.Consume("rotate"))
                 _worldBuilder.RotateBuildingPreview(90);
 
-            if (Keyboard.current.fKey.wasPressedThisFrame)
+            if ((Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame) ||
+                MobileInputController.Consume("build"))
                 ToggleBuildingMenu();
 
-            if (Keyboard.current.escapeKey.wasPressedThisFrame)
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
-                _buildingChosen = false;
                 EscapeHandledThisFrame = true;
+                if (_buildingChosen)
+                {
+                    _buildingChosen = false;
+                    _uiManager?.ShowMessage("Đã huỷ đặt công trình.", 1.2f);
+                    return;
+                }
                 SelectSlot(_selectedSlot - 1);
                 return;
             }
         }
 
-        if (Keyboard.current.leftBracketKey.wasPressedThisFrame)
+        if (Keyboard.current != null && Keyboard.current.leftBracketKey.wasPressedThisFrame)
             SelectSlot(_selectedSlot - 1);
-        if (Keyboard.current.rightBracketKey.wasPressedThisFrame)
+        if (Keyboard.current != null && Keyboard.current.rightBracketKey.wasPressedThisFrame)
             SelectSlot(_selectedSlot + 1);
 
         TryAutoDeposit();
@@ -464,6 +473,23 @@ public class ToolManager : MonoBehaviour
             return;
         }
 
+        if (selectedItem == "club")
+        {
+            var origin = cam.transform.position + cam.transform.forward * 0.3f;
+            var clubRay = new Ray(origin, cam.transform.forward);
+            if (Physics.Raycast(clubRay, out var clubHit, 2.5f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
+            {
+                var target = clubHit.collider.GetComponentInParent<Livestock>();
+                if (target != null)
+                {
+                    target.TakeDamage(20f);
+                    SoundManager.Instance?.Play("club");
+                    return;
+                }
+            }
+            return;
+        }
+
         var origin = cam.transform.position + cam.transform.forward * 0.3f;
         var useRay = new Ray(origin, cam.transform.forward);
         ShowRayLine(useRay.origin, useRay.origin + useRay.direction * UseRayDistance);
@@ -592,6 +618,9 @@ public class ToolManager : MonoBehaviour
 
                 var hitObj = hit.collider.gameObject;
 
+                if (_worldBuilder.TryRepairGhost(hit))
+                    return;
+
                 if (_worldBuilder.FindBuilding(hitObj) != null)
                 {
                     _worldBuilder.DamageBuilding(hitObj);
@@ -659,6 +688,12 @@ public class ToolManager : MonoBehaviour
                 var field = _worldBuilder.GetFieldAt(hit.point);
                 if (field != null && field.HasCrop && field.Stage >= 4)
                 {
+                    var harvestedItem = field.CropType;
+                    if (!CanHoldItem(harvestedItem))
+                    {
+                        _uiManager.ShowMessage("Túi đồ đầy.", 1.5f);
+                        return;
+                    }
                     if (_worldBuilder.HarvestField(field, out var item))
                     {
                         AddItem(item, 1);
@@ -773,14 +808,14 @@ public class ToolManager : MonoBehaviour
 
         if (hit.collider.transform.name == "BuffaloEntity")
         {
-            var shop = Object.FindAnyObjectByType<BuffaloShopManager>();
-            if (shop == null)
+            var dlg = Object.FindAnyObjectByType<BuffaloDialog>();
+            if (dlg == null)
             {
-                var go = new GameObject("BuffaloShopManager");
-                shop = go.AddComponent<BuffaloShopManager>();
-                shop.Initialize();
+                var go = new GameObject("BuffaloDialog");
+                dlg = go.AddComponent<BuffaloDialog>();
+                dlg.Initialize();
             }
-            shop.Open();
+            dlg.Show();
             return;
         }
 
@@ -896,6 +931,24 @@ public class ToolManager : MonoBehaviour
             return false;
 
         var itemType = pickupName.Substring("Pickup_".Length);
+
+        if (itemType.StartsWith("gold_") && int.TryParse(itemType.Substring("gold_".Length), out var coinAmount))
+        {
+            var player = GameManager.Instance?.Player;
+            if (player != null)
+                player.Money += coinAmount;
+            SoundManager.Instance?.Play("pop");
+            _uiManager.ShowMessage($"+{coinAmount}g", 1.5f);
+            GameManager.Instance?.UIManager?.UpdatePlayerHud(
+                player != null ? player.HP : 0,
+                player != null ? player.MaxHP : 0,
+                player != null ? player.Stamina : 0,
+                player != null ? player.MaxStamina : 0,
+                player != null ? player.Money : 0);
+            Destroy(pickupRoot);
+            return true;
+        }
+
         AddItem(itemType, 1);
         SoundManager.Instance?.Play("pop");
         _uiManager.ShowMessage($"Đã nhặt {itemType}.", 1.5f);
@@ -1112,29 +1165,40 @@ public class ToolManager : MonoBehaviour
         }
     }
 
-    public void AddItem(string itemType, int amount)
+    public bool AddItem(string itemType, int amount)
     {
         itemType = NormalizeItemType(itemType);
         if (string.IsNullOrEmpty(itemType) || amount <= 0)
-            return;
+            return false;
 
         var slot = FindSlotFor(itemType);
         if (slot >= 0)
         {
             _inventory[slot].Count += amount;
             UpdateInventoryUI();
-            return;
+            return true;
         }
 
         var empty = FindEmptySlot();
         if (empty < 0)
         {
             _uiManager.ShowMessage("Túi đồ đầy.", 1.5f);
-            return;
+            return false;
         }
 
         _inventory[empty] = new InventorySlot {Type = itemType, Count = amount};
         UpdateInventoryUI();
+        return true;
+    }
+
+    public bool CanHoldItem(string itemType)
+    {
+        itemType = NormalizeItemType(itemType);
+        if (string.IsNullOrEmpty(itemType))
+            return false;
+        if (FindSlotFor(itemType) >= 0)
+            return true;
+        return FindEmptySlot() >= 0;
     }
 
     public bool RemoveItem(int slotIndex, int amount)
@@ -1149,6 +1213,27 @@ public class ToolManager : MonoBehaviour
         slot.Count -= amount;
         if (slot.Count <= 0)
             _inventory[slotIndex] = null;
+        UpdateInventoryUI();
+        return true;
+    }
+
+    public bool RemoveItemAmount(string itemType, int amount)
+    {
+        itemType = NormalizeItemType(itemType);
+        if (amount <= 0) return true;
+        int remaining = amount;
+        for (int i = 0; i < _inventory.Length && remaining > 0; i++)
+        {
+            if (_inventory[i] == null || _inventory[i].Type != itemType)
+                continue;
+            int take = Mathf.Min(_inventory[i].Count, remaining);
+            _inventory[i].Count -= take;
+            remaining -= take;
+            if (_inventory[i].Count <= 0)
+                _inventory[i] = null;
+        }
+        if (remaining > 0)
+            return false;
         UpdateInventoryUI();
         return true;
     }
@@ -1558,8 +1643,7 @@ public class ToolManager : MonoBehaviour
         _buildingMenuPanel.SetActive(true);
         GameManager.Instance?.TogglePause(true);
         GameManager.Instance?.UIManager?.ShowPauseMenu(false);
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        GameInput.SetCursorLocked(false);
     }
 
     private void CloseBuildingMenu()
@@ -1568,14 +1652,14 @@ public class ToolManager : MonoBehaviour
         if (_buildingMenuPanel != null)
             _buildingMenuPanel.SetActive(false);
         GameManager.Instance?.TogglePause(false);
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        GameInput.SetCursorLocked(true);
         UpdateBuildingPreviewVisibility();
     }
 
     private void CreateBuildingMenu()
     {
-        var canvas = Object.FindAnyObjectByType<Canvas>();
+        var canvasGo = GameObject.Find("HUD_Canvas");
+        var canvas = canvasGo != null ? canvasGo.GetComponent<Canvas>() : Object.FindAnyObjectByType<Canvas>();
         if (canvas == null) return;
 
         float sw = Screen.width;

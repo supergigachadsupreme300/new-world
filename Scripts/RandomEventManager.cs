@@ -61,7 +61,7 @@ public class RandomEventManager : MonoBehaviour
 
     private void RegisterEvents()
     {
-        // BASIC (Quest 1: Harvest wheat)
+        // BASIC (0-1 quests completed)
         _events.Add(new RandomEvent
         {
             Name = "Mùa Màng Bội Thu",
@@ -181,7 +181,7 @@ public class RandomEventManager : MonoBehaviour
             Effect = EffectWanderingMerchant
         });
 
-        // ADVANCED (Quest 2: Slay monsters)
+        // ADVANCED (2 quests completed)
         _events.Add(new RandomEvent
         {
             Name = "Kẻ Thù Tấn Công",
@@ -255,7 +255,7 @@ public class RandomEventManager : MonoBehaviour
             Cooldown = 1800f,
             Effect = EffectTradeRoute
         });
-        // RARE (Quest 3: Earn coins)
+        // RARE (3+ quests completed)
         _events.Add(new RandomEvent
         {
             Name = "Kẻ Thù Khổng Lồ",
@@ -360,6 +360,7 @@ public class RandomEventManager : MonoBehaviour
 
     public void TriggerEventByIndex(int index)
     {
+        // Intentionally bypasses tier gating: used by scripted story blocks (e.g. WorldBuilder quest triggers).
         if (_eventInProgress) return;
         if (index < 0 || index >= _events.Count) return;
 
@@ -494,6 +495,7 @@ public class RandomEventManager : MonoBehaviour
             {
                 field.Stage++;
                 field.GrowTimer = 0f;
+                wb.RefreshFieldVisual(field);
             }
         }
     }
@@ -575,6 +577,7 @@ public class RandomEventManager : MonoBehaviour
             field.CropType = null;
             field.Stage = 0;
             field.GrowTimer = 0f;
+            wb.RefreshFieldVisual(field);
             crops.Remove(field);
             if (crops.Count == 0) break;
         }
@@ -625,6 +628,7 @@ public class RandomEventManager : MonoBehaviour
             field.CropType = null;
             field.Stage = 0;
             field.GrowTimer = 0f;
+            wb.RefreshFieldVisual(field);
             crops.Remove(field);
             if (crops.Count == 0) break;
         }
@@ -667,6 +671,7 @@ public class RandomEventManager : MonoBehaviour
         if (crops.Count == 0) return;
         var field2 = crops[UnityEngine.Random.Range(0, crops.Count)];
         field2.Stage = Mathf.Max(0, field2.Stage - 1);
+        wb.RefreshFieldVisual(field2);
     }
 
     private void EffectStaminaDrain()
@@ -1013,7 +1018,7 @@ public class RandomEventManager : MonoBehaviour
         vendor.ApplyPriceMultiplier(multiplier);
 
         float elapsed = 0f;
-        float realDuration = gameHours * 60f / GameManager.Instance.TimeSpeed;
+        float realDuration = gameHours * 60f / Mathf.Max(GameManager.Instance != null ? GameManager.Instance.TimeSpeed : 1f, 0.01f);
         while (elapsed < realDuration)
         {
             if (GameManager.Instance != null && !GameManager.Instance.GamePaused)
@@ -1161,7 +1166,7 @@ public class RandomEventManager : MonoBehaviour
         vendor.ApplyBuyPriceMultiplier(multiplier);
 
         float elapsed = 0f;
-        float realDuration = gameHours * 60f / GameManager.Instance.TimeSpeed;
+        float realDuration = gameHours * 60f / Mathf.Max(GameManager.Instance != null ? GameManager.Instance.TimeSpeed : 1f, 0.01f);
         while (elapsed < realDuration)
         {
             if (GameManager.Instance != null && !GameManager.Instance.GamePaused)

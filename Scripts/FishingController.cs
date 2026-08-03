@@ -5,6 +5,10 @@ public class FishingController : MonoBehaviour
 {
     public enum FishState { Idle, Casting, Waiting, FishApproaching, HookShaking, Reeling, Success, Fail }
 
+    public static FishingController Instance { get; private set; }
+
+    public static bool IsFishingActive => Instance != null && Instance.State != FishState.Idle;
+
     public FishState State = FishState.Idle;
     public float CastArcSpeed = 25f;
     public float ShakeDuration = 1.5f;
@@ -32,7 +36,15 @@ public class FishingController : MonoBehaviour
 
     private void Awake()
     {
-        _canvas = FindObjectOfType<Canvas>();
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+
+        var hudCanvasGo = GameObject.Find("HUD_Canvas");
+        _canvas = hudCanvasGo != null ? hudCanvasGo.GetComponent<Canvas>() : FindObjectOfType<Canvas>();
         if (_canvas == null)
         {
             var canvasGo = new GameObject("FishingCanvas");
@@ -206,7 +218,8 @@ public class FishingController : MonoBehaviour
 
         _timer -= Time.deltaTime;
 
-        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+        if ((!GameInput.IsMobile && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) ||
+            MobileInputController.Consume("use"))
         {
             StartReeling();
             return;
@@ -231,14 +244,14 @@ public class FishingController : MonoBehaviour
 
     private void UpdateReeling()
     {
-        var mouse = Mouse.current;
-        if (mouse == null)
+        var pointer = Pointer.current;
+        if (pointer == null)
         {
             _fishingUI.UpdateReeling(Time.deltaTime, 0f);
             return;
         }
 
-        bool isPressed = mouse.leftButton.isPressed;
+        bool isPressed = pointer.press.isPressed;
         if (!isPressed)
         {
             _wheelGrabbed = false;
@@ -252,9 +265,9 @@ public class FishingController : MonoBehaviour
         float wheelDelta = 0f;
         if (_wheelGrabbed)
         {
-            var mousePos = mouse.position.ReadValue();
+            var pointerPos = pointer.position.ReadValue();
             var center = _fishingUI.GetWheelCenterScreen();
-            float angle = Mathf.Atan2(mousePos.y - center.y, mousePos.x - center.x) * Mathf.Rad2Deg;
+            float angle = Mathf.Atan2(pointerPos.y - center.y, pointerPos.x - center.x) * Mathf.Rad2Deg;
             if (!_wheelWasGrabbed)
             {
                 _lastWheelAngle = angle;

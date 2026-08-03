@@ -23,9 +23,11 @@ public class FlyingCrane : MonoBehaviour
     private int _phase;
     private float _spawnTime;
     private bool _cageDropped;
+    private int _missionId;
 
     public void Setup(Livestock.AnimalType type, Vector3 dropTarget, Action<Livestock> onLanded)
     {
+        _missionId++;
         _animalType = type;
         _dropTarget = dropTarget;
         _onLanded = onLanded;
@@ -449,12 +451,15 @@ public class FlyingCrane : MonoBehaviour
 
     private IEnumerator DropCageSequence()
     {
+        int mission = _missionId;
         _phase = 2;
 
         if (_wingL != null) _wingL.localRotation = Quaternion.Euler(0f, 0f, 40f);
         if (_wingR != null) _wingR.localRotation = Quaternion.Euler(0f, 0f, -40f);
 
         yield return new WaitForSeconds(0.3f);
+        if (mission != _missionId || _cageDropped)
+            yield break;
 
         if (_cagePivot != null)
         {
@@ -474,14 +479,15 @@ public class FlyingCrane : MonoBehaviour
             col.size = new Vector3(0.6f, 0.5f, 0.6f);
             col.center = Vector3.zero;
 
-            StartCoroutine(WaitForCageLand(cageGo));
+            StartCoroutine(WaitForCageLand(cageGo, mission));
         }
 
         yield return new WaitForSeconds(0.5f);
-        _phase = 1;
+        if (mission == _missionId)
+            _phase = 1;
     }
 
-    private IEnumerator WaitForCageLand(GameObject cageGo)
+    private IEnumerator WaitForCageLand(GameObject cageGo, int mission)
     {
         float timeout = Time.time + 15f;
         bool touchedGround = false;

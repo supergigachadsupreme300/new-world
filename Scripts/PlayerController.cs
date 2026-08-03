@@ -25,7 +25,6 @@ public class PlayerController : MonoBehaviour
     private Transform _cameraPivot;
     private float _yaw;
     private float _pitch;
-    private const float MouseSensitivity = 2.5f;
     private GameObject _playerModelInstance;
     private float _waterSpeedMul = 1f;
     private bool _waterAllowJump = true;
@@ -115,8 +114,7 @@ public class PlayerController : MonoBehaviour
     public void EnableInput(bool enabled)
     {
         IgnoreInput = !enabled;
-        Cursor.lockState = enabled ? CursorLockMode.Locked : CursorLockMode.None;
-        Cursor.visible = !enabled;
+        GameInput.SetCursorLocked(enabled);
         if (GameManager.Instance != null)
             GameManager.Instance.UIManager?.SetCrosshairVisible(enabled);
     }
@@ -152,12 +150,18 @@ public class PlayerController : MonoBehaviour
 
     private void HandleMouseLook()
     {
-        if (Mouse.current == null)
+        Vector2 delta = Vector2.zero;
+        if (!GameInput.IsMobile && Mouse.current != null)
+            delta = Mouse.current.delta.ReadValue();
+        if (GameInput.IsMobile)
+            delta += MobileInputController.TakeLookDelta();
+
+        if (delta == Vector2.zero)
             return;
 
-        var delta = Mouse.current.delta.ReadValue();
-        _yaw += delta.x * MouseSensitivity * 0.02f;
-        _pitch -= delta.y * MouseSensitivity * 0.02f;
+        float sens = SettingsManager.MouseSensitivity;
+        _yaw += delta.x * sens * 0.02f;
+        _pitch -= delta.y * sens * 0.02f * (SettingsManager.InvertY ? -1f : 1f);
         _pitch = Mathf.Clamp(_pitch, -60f, 60f);
 
         transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
@@ -167,13 +171,18 @@ public class PlayerController : MonoBehaviour
 
     private void HandleMovement()
     {
-        Vector2 input = ReadMoveInput();
+        bool dialogBlocked = (WifeNPC.Instance != null && WifeNPC.Instance.IsDialogActive) ||
+                             (BuffaloDialog.Instance != null && BuffaloDialog.Instance.IsDialogActive);
+        Vector2 input = dialogBlocked ? Vector2.zero : ReadMoveInput();
         Vector3 direction = new Vector3(input.x, 0f, input.y);
         if (direction.magnitude > 1f)
             direction.Normalize();
 
         bool canSprint = !InWater;
-        bool sprint = canSprint && Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed && Stamina > 0f && direction.magnitude > 0f;
+        bool sprint = canSprint &&
+            ((Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed) ||
+             (GameInput.IsMobile && MobileInputController.IsHeld("sprint"))) &&
+            Stamina > 0f && direction.magnitude > 0f;
         float speed = MoveSpeed * _waterSpeedMul * (sprint ? SprintMultiplier : 1f);
 
         if (_controller != null)
@@ -185,7 +194,9 @@ public class PlayerController : MonoBehaviour
                 if (_velocity.y < 0f)
                     _velocity.y = -1f;
 
-                if (_waterAllowJump && Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
+                if (_waterAllowJump && !dialogBlocked &&
+                    ((Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame) ||
+                     MobileInputController.Consume("jump")))
                 {
                     _velocity.y = Mathf.Sqrt(JumpHeight * -2f * Gravity);
                 }
@@ -203,9 +214,13 @@ public class PlayerController : MonoBehaviour
             Stamina = Mathf.Max(0f, Stamina - SprintCost * Time.deltaTime);
     }
 
+    // Temporary diagnostic: if the player is grounded, pushing forward at the pagoda
+    // entrance but not moving, log which collider is blocking them.
     private void HandleStamina()
     {
-        if (Keyboard.current == null || !Keyboard.current.leftShiftKey.isPressed || _controller == null || !_controller.isGrounded)
+        bool sprinting = (Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed) ||
+                         (GameInput.IsMobile && MobileInputController.IsHeld("sprint"));
+        if (!sprinting || _controller == null || !_controller.isGrounded)
         {
             Stamina = Mathf.Min(MaxStamina, Stamina + StaminaRegenRate * Time.deltaTime);
             HP = Mathf.Min(MaxHP, HP + Mathf.RoundToInt(2f * (Stamina / MaxStamina) * Time.deltaTime));
@@ -214,53 +229,90 @@ public class PlayerController : MonoBehaviour
 
     private void HandleInteractionKeys()
     {
-        if (Keyboard.current == null)
-            return;
+        bool wifeDialog = WifeNPC.Instance != null && WifeNPC.Instance.IsDialogActive;
+        bool buffaloDialog = BuffaloDialog.Instance != null && BuffaloDialog.Instance.IsDialogActive;
+        bool dialogBlocked = wifeDialog || buffaloDialog;
 
-        if (Keyboard.current.eKey.wasPressedThisFrame)
+        bool ePressed = (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) ||
+                        (!wifeDialog && MobileInputController.Consume("interact"));
+        if (ePressed && buffaloDialog)
+            BuffaloDialog.Instance.Hide();
+
+        if (!dialogBlocked)
         {
-            var wb = WorldBuilder.Instance;
-            if (wb != null && wb.IsNearVendorSpawnButton(transform.position))
+            if (ePressed)
             {
-                wb.SpawnVendorCart();
-                return;
-            }
-            if (wb != null && wb.IsNearEventBlock(transform.position))
-            {
-                wb.ActivateEventBlock(transform.position);
-                return;
-            }
-            var cam = Camera.main;
-            if (cam != null && wb != null)
-            {
-                var ray = new Ray(cam.transform.position, cam.transform.forward);
-                if (Physics.Raycast(ray, out var hit, 4f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
+                var wb = WorldBuilder.Instance;
+                if (wb != null && wb.IsNearVendorSpawnButton(transform.position))
                 {
-                    if (hit.collider.transform.name == "WifeNpc")
-                    {
-                        if (WifeNPC.Instance != null && !WifeNPC.Instance.IsDialogActive)
-                            WifeNPC.Instance.Interact();
-                        QuestManager.Instance?.AddProgress("greet", 1);
-                        return;
-                    }
-                    if (hit.collider.transform.name == "Bed")
-                    {
-                        var sleep = Object.FindAnyObjectByType<SleepManager>();
-                        if (sleep == null)
-                        {
-                            var go = new GameObject("SleepManager");
-                            sleep = go.AddComponent<SleepManager>();
-                            sleep.Initialize();
-                        }
-                        sleep.Open();
-                        return;
-                    }
-                    if (wb.TryToggleDoor(hit)) return;
+                    wb.SpawnVendorCart();
+                    return;
                 }
+                if (wb != null && wb.IsNearEventBlock(transform.position))
+                {
+                    wb.ActivateEventBlock(transform.position);
+                    return;
+                }
+                var cam = Camera.main;
+                if (cam != null && wb != null)
+                {
+                    var ray = new Ray(cam.transform.position, cam.transform.forward);
+                    if (Physics.Raycast(ray, out var hit, 4f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
+                    {
+                        if (hit.collider.transform.name == "WifeNpc")
+                        {
+                            if (WifeNPC.Instance != null && !WifeNPC.Instance.IsDialogActive)
+                                WifeNPC.Instance.Interact();
+                            QuestManager.Instance?.AddProgress("greet", 1);
+                            return;
+                        }
+                        if (hit.collider.transform.name == "Bed")
+                        {
+                            var sleep = Object.FindAnyObjectByType<SleepManager>();
+                            if (sleep == null)
+                            {
+                                var go = new GameObject("SleepManager");
+                                sleep = go.AddComponent<SleepManager>();
+                                sleep.Initialize();
+                            }
+                            sleep.Open();
+                            return;
+                        }
+                        if (hit.collider.transform.name == "BuffaloEntity")
+                        {
+                            var dlg = Object.FindAnyObjectByType<BuffaloDialog>();
+                            if (dlg == null)
+                            {
+                                var go = new GameObject("BuffaloDialog");
+                                dlg = go.AddComponent<BuffaloDialog>();
+                                dlg.Initialize();
+                            }
+                            dlg.Show();
+                            QuestManager.Instance?.AddProgress("greet", 1);
+                            return;
+                        }
+                        if (hit.collider.transform.name == "VendorNPC")
+                        {
+                            var shop = Object.FindAnyObjectByType<VendorShopManager>();
+                            if (shop == null)
+                            {
+                                var go = new GameObject("VendorShopManager");
+                                shop = go.AddComponent<VendorShopManager>();
+                                shop.Initialize();
+                            }
+                            shop.Open();
+                            return;
+                        }
+                        if (wb.TryToggleDoor(hit)) return;
+                    }
+                }
+                ToolManager.Instance?.TryPickupNearby();
             }
-            ToolManager.Instance?.TryPickupNearby();
         }
-        if (Keyboard.current.gKey.wasPressedThisFrame)
+
+        bool gPressed = (Keyboard.current != null && Keyboard.current.gKey.wasPressedThisFrame) ||
+                        MobileInputController.Consume("invite");
+        if (!dialogBlocked && gPressed)
         {
             var npcGO = GameObject.Find("WifeNpc");
             if (npcGO != null && Vector3.Distance(transform.position, npcGO.transform.position) < 6f)
@@ -268,9 +320,13 @@ public class PlayerController : MonoBehaviour
                 WifeNPC.Instance?.InviteToHouse();
             }
         }
-        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+
+        bool leftClick = !FishingController.IsFishingActive &&
+                         ((!GameInput.IsMobile && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) ||
+                          MobileInputController.Consume("use"));
+        if (!dialogBlocked && leftClick)
             ToolManager.Instance?.UseSelectedItem();
-        if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame)
+        if (!dialogBlocked && !GameInput.IsMobile && Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame)
         {
             var cam = Camera.main;
             if (cam != null)
@@ -281,14 +337,14 @@ public class PlayerController : MonoBehaviour
                 {
                     if (hits[i].collider.transform.name == "BuffaloEntity")
                     {
-                        var shop = Object.FindAnyObjectByType<BuffaloShopManager>();
-                        if (shop == null)
+                        var dlg = Object.FindAnyObjectByType<BuffaloDialog>();
+                        if (dlg == null)
                         {
-                            var go = new GameObject("BuffaloShopManager");
-                            shop = go.AddComponent<BuffaloShopManager>();
-                            shop.Initialize();
+                            var go = new GameObject("BuffaloDialog");
+                            dlg = go.AddComponent<BuffaloDialog>();
+                            dlg.Initialize();
                         }
-                        shop.Open();
+                        dlg.Show();
                         QuestManager.Instance?.AddProgress("greet", 1);
                         return;
                     }
@@ -308,29 +364,30 @@ public class PlayerController : MonoBehaviour
                 }
             }
         }
-        if (Keyboard.current.qKey.wasPressedThisFrame)
+        if (!dialogBlocked && ((Keyboard.current != null && Keyboard.current.qKey.wasPressedThisFrame) ||
+            MobileInputController.Consume("drop")))
             ToolManager.Instance?.DropSelectedItem();
-        if (Keyboard.current.tKey.wasPressedThisFrame)
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.tKey.wasPressedThisFrame)
             WorldBuilder.Instance?.RotateBuildingPreview(90);
-        if (Keyboard.current.digit1Key.wasPressedThisFrame)
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit1Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(0);
-        if (Keyboard.current.digit2Key.wasPressedThisFrame)
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit2Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(1);
-        if (Keyboard.current.digit3Key.wasPressedThisFrame)
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit3Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(2);
-        if (Keyboard.current.digit4Key.wasPressedThisFrame)
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit4Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(3);
-        if (Keyboard.current.digit5Key.wasPressedThisFrame)
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit5Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(4);
-        if (Keyboard.current.digit6Key.wasPressedThisFrame)
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit6Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(5);
-        if (Keyboard.current.digit7Key.wasPressedThisFrame)
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit7Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(6);
-        if (Keyboard.current.digit8Key.wasPressedThisFrame)
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit8Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(7);
-        if (Keyboard.current.digit9Key.wasPressedThisFrame)
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit9Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(8);
-        if (Keyboard.current.digit0Key.wasPressedThisFrame)
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit0Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(9);
     }
 
@@ -342,6 +399,13 @@ public class PlayerController : MonoBehaviour
 
     private Vector2 ReadMoveInput()
     {
+        if (GameInput.IsMobile)
+        {
+            var joy = MobileInputController.MoveAxis;
+            if (joy != Vector2.zero)
+                return joy;
+        }
+
         if (Keyboard.current == null)
             return Vector2.zero;
 
