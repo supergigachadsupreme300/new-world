@@ -138,6 +138,19 @@ public class EnemyController : MonoBehaviour
 
         float distance = Vector3.Distance(transform.position, _player.position);
 
+        Transform target = _player;
+        float targetDist = distance;
+        var goblin = GoblinPet.Instance;
+        if (goblin != null && !goblin.IsDead && !goblin.IsHiddenInHut)
+        {
+            float goblinDist = Vector3.Distance(transform.position, goblin.transform.position);
+            if (goblinDist < targetDist)
+            {
+                target = goblin.transform;
+                targetDist = goblinDist;
+            }
+        }
+
         _isAttacking = false;
         _isMoving = false;
 
@@ -145,18 +158,18 @@ public class EnemyController : MonoBehaviour
         {
             HandleStructureAttack(distance);
         }
-        else if (distance <= ChaseRange)
+        else if (targetDist <= ChaseRange)
         {
-            if (distance <= AttackRange)
+            if (targetDist <= AttackRange)
             {
                 _stuckTimer = 0f;
                 _hasChasePos = false;
                 _isAttacking = true;
-                Attack();
+                Attack(target);
             }
             else
             {
-                FollowPlayer();
+                FollowTarget(target);
                 TrackStuck();
             }
         }
@@ -339,9 +352,9 @@ public class EnemyController : MonoBehaviour
         _isMoving = true;
     }
 
-    private void FollowPlayer()
+    private void FollowTarget(Transform target)
     {
-        Vector3 dir = (_player.position - transform.position).normalized;
+        Vector3 dir = (target.position - transform.position).normalized;
         float step = MoveSpeed * Time.deltaTime;
         Vector3 origin = transform.position + Vector3.up * 0.9f;
 
@@ -349,8 +362,8 @@ public class EnemyController : MonoBehaviour
         {
             if (IsDoorCollider(hit.collider))
             {
-                transform.position = Vector3.MoveTowards(transform.position, _player.position, step);
-                transform.LookAt(_player);
+                transform.position = Vector3.MoveTowards(transform.position, target.position, step);
+                transform.LookAt(target);
                 _isMoving = true;
                 return;
             }
@@ -363,8 +376,8 @@ public class EnemyController : MonoBehaviour
             }
         }
 
-        transform.position = Vector3.MoveTowards(transform.position, _player.position, step);
-        transform.LookAt(_player);
+        transform.position = Vector3.MoveTowards(transform.position, target.position, step);
+        transform.LookAt(target);
         _isMoving = true;
     }
 
@@ -382,13 +395,22 @@ public class EnemyController : MonoBehaviour
         return false;
     }
 
-    private void Attack()
+    private void Attack(Transform target)
     {
         _attackTimer += Time.deltaTime;
         if (_attackTimer < AttackCooldown)
             return;
 
         _attackTimer = 0f;
+
+        var goblin = GoblinPet.Instance;
+        if (target != null && goblin != null && target == goblin.transform)
+        {
+            goblin.TakeDamage(Damage);
+            Debug.Log($"Enemy hit goblin for {Damage}");
+            return;
+        }
+
         var player = _player.GetComponent<PlayerController>();
         if (player != null)
         {

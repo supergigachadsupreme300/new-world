@@ -106,6 +106,8 @@ public class GameManager : MonoBehaviour
         {
             TimeOfDay -= 24f;
             CurrentDay++;
+            if (WifeNPC.Instance != null)
+                WifeNPC.Instance.OnDayChanged();
         }
 
         UpdateTimeUI();
@@ -144,6 +146,13 @@ public class GameManager : MonoBehaviour
             return true;
         }
 
+        var richMan = RichManNPC.Instance;
+        if (richMan != null && richMan.IsDialogActive)
+        {
+            richMan.Hide();
+            return true;
+        }
+
         return false;
     }
 
@@ -178,6 +187,14 @@ public class GameManager : MonoBehaviour
 
     public void SpawnDefaultPets()
     {
+        if (GoblinPet.Instance == null)
+        {
+            var goblinGO = new GameObject("GoblinPet_01");
+            goblinGO.transform.position = new Vector3(3.5f, 0.5f, 3.5f);
+            goblinGO.AddComponent<GoblinPet>();
+            Debug.Log("[GameManager] Spawned goblin pet");
+        }
+
         if (Pets.Count > 0)
             return;
 
@@ -346,13 +363,17 @@ public class GameManager : MonoBehaviour
     public void AdvanceTime(float hours)
     {
         TimeOfDay += hours;
+        bool dayRolled = false;
         while (TimeOfDay >= 24f)
         {
             TimeOfDay -= 24f;
             CurrentDay++;
+            dayRolled = true;
         }
         SetTimeOfDay(TimeOfDay);
         UpdateTimeUI();
+        if (dayRolled && WifeNPC.Instance != null)
+            WifeNPC.Instance.OnDayChanged();
     }
 
     public void UpdateTimeUI()
@@ -372,5 +393,11 @@ public class GameManager : MonoBehaviour
         if (IsPlayerDead) return;
         IsPlayerDead = true;
         CutsceneManager?.PlaySadEnding();
+    }
+
+    public void RequestNtrEnding()
+    {
+        if (CutsceneManager != null)
+            CutsceneManager.RequestNtrEnding();
     }
 }

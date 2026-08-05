@@ -26,6 +26,14 @@ public class WifeNPC : MonoBehaviour
     private float _affection;
     private int _lastWifeQuestDay;
     private TMP_Text _proposeText;
+    private Image _loveFill;
+    private TMP_Text _loveLabelText;
+    private TMP_Text _loveValueText;
+    private int _lastTalkDay = 1;
+    private int _lastNeglectWarnDay = -1;
+    private bool _ntrWarnShown;
+    private const int NTR_DAYS = 3;
+    private const float NTR_AFFECTION_THRESHOLD = 40f;
 
     private List<string> _wifeQuestNames = new List<string>();
     private List<string> _wifeQuestTargets = new List<string>();
@@ -252,6 +260,62 @@ public class WifeNPC : MonoBehaviour
 
     public bool IsDialogActive => _dialogActive;
 
+    public Transform NpcTransform => _npcTransform;
+
+    public void ApplyAffectionChange(float delta)
+    {
+        if (Married)
+            return;
+        _affection = Mathf.Clamp(_affection + delta, 0f, 100f);
+        SaveState();
+    }
+
+    public void OnDayChanged()
+    {
+        if (Married || State == WifeState.NotMet)
+            return;
+
+        var gm = GameManager.Instance;
+        if (gm == null)
+            return;
+        int today = gm.CurrentDay;
+        int neglected = today - _lastTalkDay;
+
+        if (neglected <= 0)
+        {
+            _ntrWarnShown = false;
+            return;
+        }
+
+        _affection = Mathf.Max(0f, _affection - 3f * neglected);
+        SaveState();
+
+        if (_lastNeglectWarnDay == today)
+            return;
+        _lastNeglectWarnDay = today;
+
+        if (neglected == 1)
+        {
+            gm.UIManager?.ShowMessage(Localization.T("Jessica: Anh dạo này bận quá... em nhớ anh."), 3f);
+        }
+        else if (neglected == 2)
+        {
+            gm.UIManager?.ShowMessage(Localization.T("Jessica: Em nghe nói ông chú giàu có kia cứ quanh quẩn gần nhà..."), 3f);
+        }
+        else if (neglected >= NTR_DAYS)
+        {
+            if (_affection <= NTR_AFFECTION_THRESHOLD)
+            {
+                gm.RequestNtrEnding();
+            }
+            else if (!_ntrWarnShown)
+            {
+                _ntrWarnShown = true;
+                gm.UIManager?.ShowMessage(Localization.T("Jessica: Anh không còn quan tâm em nữa sao? Ông ta đã ngỏ lời mời em đi..."), 3f);
+            }
+        }
+    }
+
     private void RefreshWifeRefs()
     {
         var npcGo = GameObject.Find("WifeNpc");
@@ -309,6 +373,9 @@ public class WifeNPC : MonoBehaviour
         if (GameManager.Instance == null || !GameManager.Instance.InGame)
             return;
 
+        _lastTalkDay = GameManager.Instance.CurrentDay;
+        _ntrWarnShown = false;
+
         CheckExpiredQuests();
 
         if (_dialogActive)
@@ -351,7 +418,8 @@ public class WifeNPC : MonoBehaviour
             hasProposed = _hasProposed,
             chainStep = _chainStep,
             rosaryGranted = _rosaryGranted,
-            lastRosaryGrantDay = _lastRosaryGrantDay
+            lastRosaryGrantDay = _lastRosaryGrantDay,
+            lastTalkDay = _lastTalkDay
         };
         PlayerPrefs.SetString("WifeNPC", JsonUtility.ToJson(data));
         PlayerPrefs.Save();
@@ -374,6 +442,7 @@ public class WifeNPC : MonoBehaviour
             _chainStep = data.chainStep;
             _rosaryGranted = data.rosaryGranted;
             _lastRosaryGrantDay = data.lastRosaryGrantDay;
+            _lastTalkDay = data.lastTalkDay > 0 ? data.lastTalkDay : 1;
             if (!_rosaryGranted)
                 _lastRosaryGrantDay = -1;
         }
@@ -414,6 +483,8 @@ public class WifeNPC : MonoBehaviour
             Married = true;
             SaveState();
             _pendingHappyEnding = true;
+            if (RichManNPC.Instance != null)
+                RichManNPC.Instance.Retire();
             return new string[]
             {
                 "Jessica: Anh ơi... dinh thự đã hoàn thành rồi!",
@@ -539,7 +610,7 @@ public class WifeNPC : MonoBehaviour
             qm.AddStoryQuest("Câu Cá Lần Đầu", "fish_catch", 3, 120,
                 "Jessica nhờ anh câu 3 con cá. Cô ấy đã tặng anh chiếc cần câu để bắt đầu!");
             ToolManager.Instance?.AddItem("fishing_rod", 1);
-            GameManager.Instance?.UIManager?.ShowMessage("Jessica tặng anh chiếc cần câu cá!", 3f);
+            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Jessica tặng anh chiếc cần câu cá!"), 3f);
             SaveState();
             return;
         }
@@ -548,7 +619,7 @@ public class WifeNPC : MonoBehaviour
         {
             _chainStep = 2;
             _affection = Mathf.Min(100f, _affection + 10f);
-            GameManager.Instance?.UIManager?.ShowMessage("Hoàn thành Câu Cá Lần Đầu! +10 độ thân mật", 3f);
+            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Hoàn thành Câu Cá Lần Đầu! +10 độ thân mật"), 3f);
             SaveState();
             return;
         }
@@ -557,7 +628,7 @@ public class WifeNPC : MonoBehaviour
         {
             _chainStep = 4;
             _affection = Mathf.Min(100f, _affection + 10f);
-            GameManager.Instance?.UIManager?.ShowMessage("Hoàn thành Trừ Tà Giúp Làng! +10 độ thân mật", 3f);
+            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Hoàn thành Trừ Tà Giúp Làng! +10 độ thân mật"), 3f);
             SaveState();
         }
     }
@@ -585,7 +656,7 @@ public class WifeNPC : MonoBehaviour
             var qm = QuestManager.Instance;
             int prog = qm != null ? qm.GetNamedQuestProgress(_wifeQuestNames[i]) : 0;
             int need = _wifeQuestCounts[i];
-            lines.Add($"- {_wifeQuestNames[i]}: {prog}/{need}");
+            lines.Add("- " + Localization.QuestName(_wifeQuestNames[i]) + ": " + prog + "/" + need);
         }
         return lines;
     }
@@ -621,36 +692,57 @@ public class WifeNPC : MonoBehaviour
         if (line.StartsWith("Jessica: "))
         {
             _nameText.text = "Jessica";
-            _dialogText.text = line.Substring("Jessica: ".Length);
+            _dialogText.text = Localization.T(line.Substring("Jessica: ".Length));
         }
         else
         {
             _nameText.text = "";
-            _dialogText.text = line;
+            _dialogText.text = Localization.T(line);
         }
+
+        UpdateLoveMeter();
 
         bool mobile = GameInput.IsMobile;
         _promptText.text = _dialogQueue.Count > 0
-            ? (mobile ? "Chạm để tiếp tục" : "Nhấn E để tiếp tục")
-            : (mobile ? "Chạm để đóng" : "Nhấn E để đóng");
+            ? (mobile ? Localization.T("Chạm để tiếp tục") : Localization.T("Nhấn E để tiếp tục"))
+            : (mobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"));
 
         bool showPropose = _affection >= 70f && !Married && State == WifeState.Greeting
             && (QuestManager.Instance?.IsComplete("greet") ?? false);
-        _proposeText.text = showPropose ? (mobile ? "[Tỏ Tình] (Chạm)" : "[Tỏ Tình] Nhấn T") : "";
+        _proposeText.text = showPropose ? (mobile ? Localization.T("[Tỏ Tình] (Chạm)") : Localization.T("[Tỏ Tình] Nhấn T")) : "";
         if (_proposeRow != null) _proposeRow.SetActive(showPropose);
 
         bool showInvite = _visitState == HouseVisitState.None && State != WifeState.NotMet
             && (QuestManager.Instance?.IsComplete("greet") ?? false);
         bool showInviteFinal = showInvite && !showPropose;
-        _inviteText.text = showInviteFinal ? (mobile ? "[Mời Về Nhà] (Chạm)" : "[Mời Về Nhà] Nhấn G") : "";
+        _inviteText.text = showInviteFinal ? (mobile ? Localization.T("[Mời Về Nhà] (Chạm)") : Localization.T("[Mời Về Nhà] Nhấn G")) : "";
         if (_inviteRow != null) _inviteRow.SetActive(showInviteFinal);
 
         bool showNight = State == WifeState.Greeting && IsRosaryAvailable()
             && (QuestManager.Instance?.IsComplete("greet") ?? false);
-        _nightText.text = showNight ? (mobile ? "[Hỏi Về Đêm] (Chạm)" : "[Hỏi Về Đêm] Nhấn V") : "";
+        _nightText.text = showNight ? (mobile ? Localization.T("[Hỏi Về Đêm] (Chạm)") : Localization.T("[Hỏi Về Đêm] Nhấn V")) : "";
         if (_nightRow != null) _nightRow.SetActive(showNight);
 
         LayoutOptionRows();
+    }
+
+    private void UpdateLoveMeter()
+    {
+        if (_loveFill == null)
+            return;
+
+        float display = Married ? 100f : Mathf.Clamp(_affection, 0f, 100f);
+        float fraction = Mathf.Clamp01(display / 100f);
+        var fillRt = _loveFill.rectTransform;
+        fillRt.anchorMin = new Vector2(0f, 0.2f);
+        fillRt.anchorMax = new Vector2(fraction, 0.8f);
+        fillRt.sizeDelta = Vector2.zero;
+
+        if (_loveLabelText != null)
+            _loveLabelText.text = Localization.T("Độ Thân Mật");
+
+        if (_loveValueText != null)
+            _loveValueText.text = Mathf.RoundToInt(display).ToString() + "/100";
     }
 
     private void LayoutOptionRows()
@@ -740,13 +832,15 @@ public class WifeNPC : MonoBehaviour
             new Color(0.9f, 0.6f, 0.8f), TextAlignmentOptions.Left,
             new Vector2(panelW - 40f, 35f));
 
+        CreateLoveMeter(panelRt, panelW);
+
         _dialogText = CreateDialogText("WifeDialogText", panelRt,
             new Vector2(0f, -panelH * 0.02f), "", 20,
             Color.white, TextAlignmentOptions.Left,
             new Vector2(panelW - 40f, panelH * 0.55f));
 
         _promptText = CreateDialogText("WifeDialogPrompt", panelRt,
-            new Vector2(0f, -panelH * 0.38f), "Nhấn E để tiếp tục", 16,
+            new Vector2(0f, -panelH * 0.38f), Localization.T("Nhấn E để tiếp tục"), 16,
             new Color(0.7f, 0.7f, 0.7f), TextAlignmentOptions.Right,
             new Vector2(panelW - 40f, 25f));
 
@@ -760,6 +854,58 @@ public class WifeNPC : MonoBehaviour
             102f, new Color(1f, 0.85f, 0.3f), 20, out _nightRow, HandleNightRequest);
 
         _dialogPanel.SetActive(false);
+    }
+
+    private void CreateLoveMeter(RectTransform parent, float panelW)
+    {
+        float rowW = Mathf.Min(panelW * 0.6f, 420f);
+        float scale = Mathf.Min(1f, rowW / 420f);
+        float labelW = Mathf.Max(90f, 130f * scale);
+        float barX = labelW + 10f;
+        float barW = Mathf.Max(20f, (rowW - 80f) - barX - 8f);
+        var rowRt = new GameObject("WifeLoveRow").AddComponent<RectTransform>();
+        rowRt.transform.SetParent(parent, false);
+        rowRt.anchorMin = new Vector2(0.5f, 1f);
+        rowRt.anchorMax = new Vector2(0.5f, 1f);
+        rowRt.pivot = new Vector2(0.5f, 0f);
+        rowRt.anchoredPosition = new Vector2(0f, 6f);
+        rowRt.sizeDelta = new Vector2(rowW, 40f);
+
+        var rowBg = rowRt.gameObject.AddComponent<Image>();
+        rowBg.color = new Color(0f, 0f, 0f, 0.8f);
+        rowBg.raycastTarget = false;
+
+        _loveLabelText = CreateDialogText("WifeLoveLabel", rowRt,
+            new Vector2(-rowW * 0.5f + labelW * 0.5f, 0f), Localization.T("Độ Thân Mật"), 14,
+            new Color(1f, 0.42f, 0.54f), TextAlignmentOptions.Left,
+            new Vector2(labelW, 18f));
+
+        var barRt = new GameObject("WifeLoveBar").AddComponent<RectTransform>();
+        barRt.transform.SetParent(rowRt, false);
+        barRt.anchorMin = new Vector2(0f, 0.5f);
+        barRt.anchorMax = new Vector2(0f, 0.5f);
+        barRt.pivot = new Vector2(0f, 0.5f);
+        barRt.anchoredPosition = new Vector2(barX, 0f);
+        barRt.sizeDelta = new Vector2(barW, 14f);
+
+        var bg = barRt.gameObject.AddComponent<Image>();
+        bg.color = new Color(0.1f, 0.1f, 0.1f, 0.9f);
+        bg.raycastTarget = false;
+
+        var fillGo = new GameObject("WifeLoveFill");
+        fillGo.transform.SetParent(barRt, false);
+        _loveFill = fillGo.AddComponent<Image>();
+        _loveFill.color = new Color(1f, 0.42f, 0.54f, 1f);
+        _loveFill.raycastTarget = false;
+        var fillRt = _loveFill.rectTransform;
+        fillRt.anchorMin = new Vector2(0f, 0.2f);
+        fillRt.anchorMax = new Vector2(0f, 0.8f);
+        fillRt.sizeDelta = Vector2.zero;
+
+        _loveValueText = CreateDialogText("WifeLoveValue", rowRt,
+            new Vector2(rowW * 0.5f - 40f, 0f), "0/100", 14,
+            new Color(0.85f, 0.85f, 0.85f), TextAlignmentOptions.Left,
+            new Vector2(80f, 18f));
     }
 
     private TMP_Text CreateDialogOptionRow(RectTransform parent, string rowName, string textName,
@@ -964,5 +1110,6 @@ public class WifeNPC : MonoBehaviour
         public int chainStep;
         public bool rosaryGranted;
         public int lastRosaryGrantDay;
+        public int lastTalkDay;
     }
 }

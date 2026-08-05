@@ -13,6 +13,7 @@ public class FishingController : MonoBehaviour
     public float CastArcSpeed = 25f;
     public float ShakeDuration = 1.5f;
     public float FishApproachSpeed = 2f;
+    public float FlopChance = 0.4f;
 
     private const float CastGravity = 4f;
 
@@ -94,7 +95,7 @@ public class FishingController : MonoBehaviour
         if (player.transform.position.x > -140f)
         {
             var ui = GameManager.Instance?.UIManager;
-            ui?.ShowMessage("Cần đến gần biển để câu cá!", 2f);
+            ui?.ShowMessage(Localization.T("Cần đến gần biển để câu cá!"), 2f);
             return;
         }
 
@@ -102,7 +103,7 @@ public class FishingController : MonoBehaviour
         if (t <= 0f)
         {
             var ui = GameManager.Instance?.UIManager;
-            ui?.ShowMessage("Ngắm xuống mặt nước!", 2f);
+            ui?.ShowMessage(Localization.T("Ngắm xuống mặt nước!"), 2f);
             return;
         }
 
@@ -110,7 +111,7 @@ public class FishingController : MonoBehaviour
         if (waterPoint.x > -210f)
         {
             var ui = GameManager.Instance?.UIManager;
-            ui?.ShowMessage("Ngắm ra xa hơn về phía biển!", 2f);
+            ui?.ShowMessage(Localization.T("Ngắm ra xa hơn về phía biển!"), 2f);
             return;
         }
 
@@ -228,7 +229,7 @@ public class FishingController : MonoBehaviour
         if (_timer <= 0f)
         {
             var ui = GameManager.Instance?.UIManager;
-            ui?.ShowMessage("Cá thoát rồi!", 2f);
+            ui?.ShowMessage(Localization.T("Cá thoát rồi!"), 2f);
             CancelFishing();
         }
     }
@@ -294,7 +295,7 @@ public class FishingController : MonoBehaviour
         {
             State = FishState.Fail;
             var ui = GameManager.Instance?.UIManager;
-            ui?.ShowMessage("Cá thoát rồi!", 2f);
+            ui?.ShowMessage(Localization.T("Cá thoát rồi!"), 2f);
             CancelFishing();
         }
     }
@@ -305,16 +306,53 @@ public class FishingController : MonoBehaviour
         string fishType = FishTypes[idx];
         string fishLabel = FishLabels[idx];
 
-        var tm = ToolManager.Instance;
-        if (tm != null)
-            tm.AddItem(fishType, 1);
+        var player = GameManager.Instance?.Player;
+
+        if (Random.value < FlopChance)
+        {
+            SpawnFlappingFish(player, fishType, fishLabel);
+            var ui = GameManager.Instance?.UIManager;
+            ui?.ShowMessage(Localization.F("Bắt được {0}! Nó quẫy trên bờ — dùng gậy gõ cho xỉu!", Localization.T(fishLabel)), 3f);
+        }
+        else
+        {
+            var tm = ToolManager.Instance;
+            if (tm != null)
+                tm.AddItem(fishType, 1);
+
+            var ui = GameManager.Instance?.UIManager;
+            ui?.ShowMessage(Localization.F("Bắt được {0}!", Localization.T(fishLabel)), 3f);
+        }
 
         QuestManager.Instance?.AddProgress("fish_catch", 1);
 
-        var ui = GameManager.Instance?.UIManager;
-        ui?.ShowMessage("Bắt được " + fishLabel + "!", 3f);
-
         CancelFishing();
+    }
+
+    private void SpawnFlappingFish(PlayerController player, string fishType, string fishLabel)
+    {
+        Vector3 spawnPos = player != null
+            ? player.transform.position + player.transform.forward * 1.5f
+            : Vector3.zero;
+
+        Vector3 rayOrigin = spawnPos + Vector3.up * 2f;
+        if (Physics.Raycast(rayOrigin, Vector3.down, out var ground, 10f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            spawnPos.y = ground.point.y;
+        else if (player != null)
+            spawnPos.y = player.transform.position.y;
+
+        var root = new GameObject("LiveFish_" + fishType);
+        root.transform.position = spawnPos;
+        root.transform.localRotation = Quaternion.identity;
+
+        var worldRoot = GameObject.Find("WorldRoot");
+        if (worldRoot != null)
+            root.transform.SetParent(worldRoot.transform, true);
+
+        ItemBuilder.BuildItem(root.transform, fishType);
+
+        var flap = root.AddComponent<FlappingFish>();
+        flap.Initialize(fishType, fishLabel, spawnPos);
     }
 
     private int PickFishType()

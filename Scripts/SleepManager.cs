@@ -59,7 +59,7 @@ public class SleepManager : MonoBehaviour
         img.color = new Color(0.18f, 0.2f, 0.27f, 0.95f);
         img.raycastTarget = false;
 
-        MakeText("SleepTitle", _panel.transform, "Giấc Ngủ",
+        MakeText("SleepTitle", _panel.transform, Localization.T("Giấc Ngủ"),
             new Vector2(0f, panelH * 0.36f), new Vector2(panelW - 40f, fontS * 1.8f),
             (int)(fontS * 1.4f), TextAlignmentOptions.Center);
 
@@ -75,11 +75,11 @@ public class SleepManager : MonoBehaviour
             new Vector2(0f, -panelH * 0.12f), new Vector2(panelW - 40f, fontS * 1.4f),
             (int)fontS, TextAlignmentOptions.Center);
 
-        MakeButton("SleepConfirm", _panel.transform, "Ngủ",
+        MakeButton("SleepConfirm", _panel.transform, Localization.T("Ngủ"),
             new Vector2(-panelW * 0.14f, -panelH * 0.32f), new Vector2(panelW * 0.26f, btnH),
             (int)fontS, new Color(0.3f, 0.6f, 0.42f), Sleep);
 
-        MakeButton("SleepCancel", _panel.transform, "Hủy",
+        MakeButton("SleepCancel", _panel.transform, Localization.T("Hủy"),
             new Vector2(panelW * 0.14f, -panelH * 0.32f), new Vector2(panelW * 0.26f, btnH),
             (int)fontS, new Color(0.75f, 0.38f, 0.41f), Close);
 
@@ -134,7 +134,7 @@ public class SleepManager : MonoBehaviour
             GameManager.Instance?.UIManager?.UpdatePlayerHud(player.HP, player.MaxHP, player.Stamina, player.MaxStamina, player.Money);
         }
         GameManager.Instance?.AdvanceTime(hours);
-        GameManager.Instance?.UIManager?.ShowMessage("Bạn đã ngủ " + hours + " tiếng.", 2f);
+        GameManager.Instance?.UIManager?.ShowMessage(Localization.F("Bạn đã ngủ {0} tiếng.", hours), 2f);
         Close();
     }
 
@@ -142,14 +142,14 @@ public class SleepManager : MonoBehaviour
     {
         int hours = Mathf.RoundToInt(_slider.value);
         if (_infoText != null)
-            _infoText.text = "Ngủ " + hours + " tiếng";
+            _infoText.text = Localization.F("Ngủ {0} tiếng", hours);
 
         var player = GameManager.Instance?.Player;
         if (_previewText == null || player == null)
             return;
         int stam = Mathf.RoundToInt(Mathf.Min(player.MaxStamina, player.Stamina + hours * StaminaPerHour) - player.Stamina);
         int hp = Mathf.Min(player.MaxHP, player.HP + Mathf.RoundToInt(hours * HpPerHour)) - player.HP;
-        _previewText.text = "Hồi phục: +" + Mathf.Max(0, stam) + " Stamina / +" + Mathf.Max(0, hp) + " HP";
+        _previewText.text = Localization.F("Hồi phục: +{0} Stamina / +{1} HP", Mathf.Max(0, stam), Mathf.Max(0, hp));
     }
 
     private Slider MakeSlider(string name, Transform parent, Vector2 pos, Vector2 size, float min, float max, float value)

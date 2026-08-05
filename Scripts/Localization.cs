@@ -1,0 +1,740 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+public enum Language
+{
+    Vietnamese,
+    English
+}
+
+public static class Localization
+{
+    private const string PlayerPrefsKey = "Language";
+
+    private static Language _current = Language.Vietnamese;
+
+    public static event Action OnLanguageChanged;
+
+    public static Language Current
+    {
+        get => _current;
+        private set => _current = value;
+    }
+
+    static Localization()
+    {
+        _current = (Language)PlayerPrefs.GetInt(PlayerPrefsKey, (int)Language.Vietnamese);
+    }
+
+    public static void SetLanguage(Language lang)
+    {
+        if (_current == lang) return;
+        _current = lang;
+        PlayerPrefs.SetInt(PlayerPrefsKey, (int)lang);
+        PlayerPrefs.Save();
+        OnLanguageChanged?.Invoke();
+    }
+
+    public static void ToggleLanguage()
+    {
+        SetLanguage(Current == Language.Vietnamese ? Language.English : Language.Vietnamese);
+    }
+
+    public static string T(string vn)
+    {
+        if (string.IsNullOrEmpty(vn)) return vn;
+        if (Current == Language.English && Translations.TryGetValue(vn, out var en))
+            return en;
+        return vn;
+    }
+
+    public static string F(string vnPattern, params object[] args)
+    {
+        return string.Format(T(vnPattern), args);
+    }
+
+    public static string ItemName(string itemType)
+    {
+        if (string.IsNullOrEmpty(itemType)) return itemType;
+        if (ItemNames.TryGetValue(itemType, out var vn))
+            return T(vn);
+        return itemType;
+    }
+
+    public static string BuildingName(string buildingKey)
+    {
+        if (string.IsNullOrEmpty(buildingKey)) return buildingKey;
+        if (BuildingNames.TryGetValue(buildingKey, out var vn))
+            return T(vn);
+        return buildingKey;
+    }
+
+    public static string MansionPartName(string partName)
+    {
+        if (string.IsNullOrEmpty(partName)) return partName;
+        if (MansionParts.TryGetValue(partName, out var vn))
+            return T(vn);
+        return partName;
+    }
+
+    public static string AnimalName(string animalType)
+    {
+        if (string.IsNullOrEmpty(animalType)) return animalType;
+        if (AnimalNames.TryGetValue(animalType, out var vn))
+            return T(vn);
+        return animalType;
+    }
+
+    public static string DaySuffix(int day)
+    {
+        return Current == Language.English ? "Day" : "Ngày";
+    }
+
+    public static string QuestName(string raw)
+    {
+        if (string.IsNullOrEmpty(raw)) return raw;
+        string body = raw;
+        string daySuffix = "";
+        var m = System.Text.RegularExpressions.Regex.Match(raw, @"^(.*?) \[Ngày (\d+)\]$");
+        if (m.Success)
+        {
+            body = m.Groups[1].Value;
+            daySuffix = " " + F("[Ngày {0}]", m.Groups[2].Value);
+        }
+        if (body.StartsWith("[Hàng Ngày] "))
+            return "[" + T("Hàng Ngày") + "] " + T(body.Substring("[Hàng Ngày] ".Length)) + daySuffix;
+        if (body.StartsWith("[Giới Hạn] "))
+            return "[" + T("Giới Hạn") + "] " + T(body.Substring("[Giới Hạn] ".Length)) + daySuffix;
+        return T(body) + daySuffix;
+    }
+
+    private static readonly Dictionary<string, string> ItemNames = new Dictionary<string, string>
+    {
+        // Tools
+        { "axe", "Rìu" },
+        { "pickaxe", "Cuốc Chim" },
+        { "hoe", "Cuốc" },
+        { "hammer", "Búa" },
+        { "scythe", "Lưỡi Hái" },
+        { "sickle", "Lưỡi Hái" },
+        { "watering_can", "Bình Tưới" },
+        { "fishing_rod", "Cần Câu" },
+        { "rosary", "Tràng Hạt" },
+        { "club", "Cây Gậy" },
+        { "mi_hao_hao", "Mì Hảo Hảo" },
+        { "cage_big", "Lồng Lớn" },
+        { "cage_small", "Lồng Nhỏ" },
+
+        // Seeds
+        { "wheat_seed", "Hạt Giống Lúa Mì" },
+        { "corn_seed", "Hạt Giống Ngô" },
+        { "peashooter_seed", "Hạt Giống Đậu" },
+        { "potato_seed", "Hạt Giống Khoai Tây" },
+        { "carrot_seed", "Hạt Giống Cà Rốt" },
+        { "tomato_seed", "Hạt Giống Cà Chua" },
+        { "strawberry_seed", "Hạt Giống Dâu Tây" },
+        { "pumpkin_seed", "Hạt Giống Bí Ngòi" },
+        { "onion_seed", "Hạt Giống Hành Tây" },
+        { "sugarcane_seed", "Hạt Giống Mía" },
+        { "rice_seed", "Hạt Giống Gạo" },
+
+        // Crops
+        { "wheat", "Lúa Mì" },
+        { "corn", "Ngô" },
+        { "potato", "Khoai Tây" },
+        { "carrot", "Cà Rốt" },
+        { "tomato", "Cà Chua" },
+        { "strawberry", "Dâu Tây" },
+        { "pumpkin", "Bí Ngòi" },
+        { "onion", "Hành Tây" },
+        { "sugarcane", "Mía" },
+        { "rice", "Gạo" },
+
+        // Animal products
+        { "egg", "Trứng" },
+        { "milk", "Sữa" },
+        { "wool", "Len" },
+        { "meat", "Thịt" },
+        { "feather", "Lông Vũ" },
+        { "honey", "Mật Ong" },
+
+        // Damaged crops
+        { "damaged_wheat", "Lúa Mì Hư" },
+        { "damaged_corn", "Ngô Hư" },
+        { "damaged_potato", "Khoai Tây Hư" },
+        { "damaged_carrot", "Cà Rốt Hư" },
+        { "damaged_tomato", "Cà Chua Hư" },
+        { "damaged_strawberry", "Dâu Tây Hư" },
+        { "damaged_pumpkin", "Bí Ngòi Hư" },
+        { "damaged_onion", "Hành Tây Hư" },
+        { "damaged_sugarcane", "Mía Hư" },
+        { "damaged_rice", "Gạo Hư" },
+
+        // Fish
+        { "fish_carp", "Cá Chép" },
+        { "fish_salmon", "Cá Hồi" },
+        { "fish_tuna", "Cá Ngừ" },
+        { "fish_pufferfish", "Cá Nóc" },
+
+        // Materials
+        { "wood", "Gỗ" },
+        { "stone", "Đá" },
+
+        // Items
+        { "fertilizer", "Phân Bón" },
+        { "peashooter", "Đậu Bắn" },
+        { "torch", "Đuốc" },
+        { "crop", "Nông Sản" }
+    };
+
+    private static readonly Dictionary<string, string> BuildingNames = new Dictionary<string, string>
+    {
+        { "wood_wall", "Tường Gỗ" },
+        { "stone_wall", "Tường Đá" },
+        { "fence", "Hàng Rào" },
+        { "watchtower", "Lính Canh" },
+        { "small_house", "Nhà Nhỏ" },
+        { "wood_floor", "Sàn Gỗ" },
+        { "stone_floor", "Sàn Đá" },
+        { "stair", "Cầu Thang" },
+        { "table", "Bàn" },
+        { "chair", "Ghế" },
+        { "sofa", "Ghế Sofa" },
+        { "door", "Cửa" },
+        { "wife_house", "Nhà Vợ" },
+        { "structure_house", "Nhà Cấu Trúc" },
+        { "goblin_hut", "Túp Lều Goblin" }
+    };
+
+    private static readonly Dictionary<string, string> MansionParts = new Dictionary<string, string>
+    {
+        { "Mansion_Foundation", "Nền" },
+        { "Mansion_PorchSlab", "Sân Trước" },
+        { "Mansion_BackPatio", "Sân Sau" },
+        { "Mansion_1F_Floor", "Sàn Tầng 1" },
+        { "Mansion_1F_ExteriorWalls", "Tường Bên Ngoài T1" },
+        { "Mansion_1F_InteriorWalls", "Tường Bên Trong T1" },
+        { "Mansion_FrontDoor", "Cửa Chính" },
+        { "Mansion_LivingRoom", "Phòng Khách" },
+        { "Mansion_Kitchen", "Nhà Bếp" },
+        { "Mansion_DiningRoom", "Phòng Ăn" },
+        { "Mansion_Bathroom1F", "Phòng Tắm T1" },
+        { "Mansion_2F_Floor", "Sàn Tầng 2" },
+        { "Mansion_2F_ExteriorWalls", "Tường Bên Ngoài T2" },
+        { "Mansion_2F_InteriorWalls", "Tường Bên Trong T2" },
+        { "Mansion_Staircase", "Cầu Thang" },
+        { "Mansion_MasterBedroom", "Phòng Ngủ Chính" },
+        { "Mansion_Bedroom2", "Phòng Ngủ 2" },
+        { "Mansion_Bedroom3", "Phòng Ngủ 3" },
+        { "Mansion_Bathroom2F", "Phòng Tắm T2" },
+        { "Mansion_HallwayDecor", "Hành Lang" },
+        { "Mansion_MainRoof", "Mái Chính" },
+        { "Mansion_PorchRoof", "Mái Sân Trước" },
+        { "Mansion_Balcony", "Ban Công" },
+        { "Mansion_GardenPath", "Lối Vào" },
+        { "Mansion_Fence", "Hàng Rào" }
+    };
+
+    private static readonly Dictionary<string, string> AnimalNames = new Dictionary<string, string>
+    {
+        { "Cow", "Bò" },
+        { "Pig", "Lợn" },
+        { "Sheep", "Cừu" },
+        { "Goat", "Dê" },
+        { "Chicken", "Gà" },
+        { "Duck", "Vịt" },
+        { "Turkey", "Gà Tây" }
+    };
+
+    private static readonly Dictionary<string, string> Translations = new Dictionary<string, string>
+    {
+        // UI / HUD
+        { "Ngày {0} - {1}", "Day {0} - {1}" },
+        { "Sức Mạnh: {0}/{1}", "Stamina: {0}/{1}" },
+        { "Tiền: {0}", "Money: {0}" },
+        { "HP: {0}/{1}", "HP: {0}/{1}" },
+        { "Túi đồ đầy.", "Inventory is full." },
+        { "Đã chọn: {0}. Nhấp để đặt.", "Selected: {0}. Click to place." },
+
+        // Menus / panels
+        { "Tiếp Tục", "Continue" },
+        { "Lưu Game", "Save Game" },
+        { "Thống Kê", "Statistics" },
+        { "Nhiệm Vụ", "Quests" },
+        { "Cài Đặt", "Settings" },
+        { "Hướng Dẫn", "Tutorial" },
+        { "Thoát", "Quit" },
+        { "THỐNG KÊ", "STATISTICS" },
+        { "Quay Lại", "Back" },
+        { "CÀI ĐẶT", "SETTINGS" },
+        { "ĐỘ NHẠY CHUỘT", "MOUSE SENSITIVITY" },
+        { "ĐỘ NHẠY CẢM ỨNG", "TOUCH SENSITIVITY" },
+        { "Đảo Trục Dọc: BẬT", "Invert Y: ON" },
+        { "Đảo Trục Dọc: TẮT", "Invert Y: OFF" },
+        { "CÁCH ĐIỀU KHIỂN", "CONTROL MODE" },
+        { "PC / Bàn Phím", "PC / Keyboard" },
+        { "Điện Thoại / Cảm Ứng", "Mobile / Touch" },
+        { "Đóng", "Close" },
+        { "NHIỆM VỤ", "QUESTS" },
+        { "XÂY DỰNG NÔNG TRẠI", "BUILD YOUR FARM" },
+        { "Trò Mới", "New Game" },
+        { "Tiếp Tục (Tải)", "Continue (Load)" },
+        { "Xem Giới Thiệu", "Watch Intro" },
+        { "Bỏ Qua Giới Thiệu", "Skip Intro" },
+        { "Chơi Lại", "Play Again" },
+        { "Chọn thiết bị bạn sẽ chơi", "Choose the device you will play on" },
+        { "Lúa đã thu hoạch: {0}", "Wheat harvested: {0}" },
+        { "Kẻ thù đã diệt: {0}", "Enemies defeated: {0}" },
+        { "Tiền đã kiếm: {0}", "Money earned: {0}" },
+        { "Tiền bị cướp: {0}", "Money stolen: {0}" },
+
+        // Language settings
+        { "Ngôn Ngữ", "Language" },
+        { "Tiếng Việt", "Tiếng Việt" },
+        { "English", "English" },
+
+        // Shops
+        { "Cửa Hàng Bà Tân", "Mrs. Tan's Shop" },
+        { "Cửa Hàng Trâu", "Buffalo Shop" },
+        { "Mua", "Buy" },
+        { "Bán", "Sell" },
+        { "Bán Tất Cả", "Sell All" },
+        { "{0} · Trang {1}/{2}", "{0} · Page {1}/{2}" },
+        { "Không đủ tiền", "Not enough money" },
+        { "Túi đồ đầy", "Inventory is full" },
+        { "Đã mua {0}", "Bought {0}" },
+        { "Không có {0} để bán", "No {0} to sell" },
+        { "Đã bán {0} {1} (+{2}g)", "Sold {0} {1} (+{2}g)" },
+        { "Đã bán tất cả (+{0}g)", "Sold everything (+{0}g)" },
+        { "Không có gì để bán", "Nothing to sell" },
+
+        // Shop item labels
+        { "Hạt Lúa Mì", "Wheat Seed" },
+        { "Hạt Ngô", "Corn Seed" },
+        { "Hạt Cà Rốt", "Carrot Seed" },
+        { "Hạt Cà Chua", "Tomato Seed" },
+        { "Hạt Dâu Tây", "Strawberry Seed" },
+        { "Hạt Bí Ngòi", "Pumpkin Seed" },
+        { "Hạt Hành Tây", "Onion Seed" },
+        { "Hạt Mía", "Sugarcane Seed" },
+        { "Hạt Gạo", "Rice Seed" },
+        { "Phân Bón", "Fertilizer" },
+        { "Bình Tưới", "Watering Can" },
+        { "Gậy", "Club" },
+        { "Lồng Lớn", "Big Cage" },
+        { "Lồng Nhỏ", "Small Cage" },
+        { "Rìu", "Axe" },
+        { "Cuốc Chim", "Pickaxe" },
+        { "Cuốc", "Hoe" },
+        { "Mì Hảo Hảo", "Instant Noodles" },
+        { "Cần Câu", "Fishing Rod" },
+        { "Tràng Hạt", "Rosary" },
+        { "Lúa Mì", "Wheat" },
+        { "Lúa Mì Hư", "Damaged Wheat" },
+        { "Ngô", "Corn" },
+        { "Ngô Hư", "Damaged Corn" },
+        { "Khoai Tây", "Potato" },
+        { "Khoai Tây Hư", "Damaged Potato" },
+        { "Cà Rốt", "Carrot" },
+        { "Cà Rốt Hư", "Damaged Carrot" },
+        { "Cà Chua", "Tomato" },
+        { "Cà Chua Hư", "Damaged Tomato" },
+        { "Dâu Tây", "Strawberry" },
+        { "Dâu Tây Hư", "Damaged Strawberry" },
+        { "Bí Ngòi", "Pumpkin" },
+        { "Bí Ngòi Hư", "Damaged Pumpkin" },
+        { "Hành Tây", "Onion" },
+        { "Hành Tây Hư", "Damaged Onion" },
+        { "Mía", "Sugarcane" },
+        { "Mía Hư", "Damaged Sugarcane" },
+        { "Gạo", "Rice" },
+        { "Gạo Hư", "Damaged Rice" },
+        { "Cá Chép", "Carp" },
+        { "Cá Hồi", "Salmon" },
+        { "Cá Ngừ", "Tuna" },
+        { "Cá Nóc", "Pufferfish" },
+
+        // ToolManager messages
+        { "Quá mệt!", "Too tired!" },
+        { "Đã huỷ đặt công trình.", "Cancelled building placement." },
+        { "Đang mang: Lồng với {0} (Q để ném)", "Carrying: Cage with {0} (Q to throw)" },
+        { "Đang mang: {0} {1}", "Carrying: {0} {1}" },
+        { "Cần: {0}", "Need: {0}" },
+        { "Hoàn thành!", "Complete!" },
+        { "Dinh Thự - {0} - {1}", "Mansion - {0} - {1}" },
+        { "Lồng với {0} (E để nhặt)", "Cage with {0} (E to pick up)" },
+        { "Lồng (E để nhặt)", "Cage (E to pick up)" },
+        { "Cây", "Tree" },
+        { "Cành", "Branch" },
+        { "Mảnh Vụn", "Debris" },
+        { "{0} cung cấp {1} {2}", "{0} provides {1} {2}" },
+        { "Quá nhỏ để dùng.", "Too small to use." },
+        { "Xây dựng hoàn thành!", "Building complete!" },
+        { "Đã cung cấp {0} x{1}.", "Provided {0} x{1}." },
+        { "Ruộng đã cày.", "Field tilled." },
+        { "Cần sàn! Tường và cầu thang cần sàn trước.", "Need a floor! Walls and stairs need a floor first." },
+        { "Bản thiết kế đã đặt. Cung cấp gỗ & đá.", "Blueprint placed. Provide wood & stone." },
+        { "Không thể đặt ở đây.", "Cannot place here." },
+        { "Ruộng đã tưới.", "Field watered." },
+        { "Dùng bình tưới cho cây đang trồng.", "Use the watering can on planted crops." },
+        { "Ruộng đã bón phân!", "Field fertilized!" },
+        { "Dùng phân bón cho cây đang trồng.", "Use fertilizer on planted crops." },
+        { "Đã thu hoạch {0}.", "Harvested {0}." },
+        { "Đã gieo {0}.", "Planted {0}." },
+        { "Dùng hạt giống trên đất đã cày.", "Use seeds on tilled soil." },
+        { "Chọn hạt giống để đưa cho goblin.", "Select a seed to give to the goblin." },
+        { "Goblin đang bất tỉnh!", "The goblin is knocked out!" },
+        { "Goblin đang bận!", "The goblin is busy!" },
+        { "Không thể lấy hạt giống.", "Cannot take seed." },
+        { "Đã đưa hạt giống cho goblin.", "Gave a seed to the goblin." },
+        { "Đã nhặt lồng với {0}.", "Picked up cage with {0}." },
+        { "Đã nhặt lên.", "Picked up." },
+        { "Cá đang quẫy! Dùng gậy gõ cho nó xỉu.", "The fish is thrashing! Hit it with a club to knock it out." },
+        { "Đã nhặt {0}.", "Picked up {0}." },
+        { "Đã ném {0}.", "Threw {0}." },
+        { "Đang ném lồng...", "Throwing cage..." },
+        { "Đã ném lồng trống.", "Threw empty cage." },
+        { "Đã bỏ xuống.", "Put down." },
+        { "Xây Dựng", "Building" },
+
+        // Quests
+        { "Nhiệm Vụ: Sẵn sàng", "Quest: Ready" },
+        { "Nhiệm vụ hoàn thành! Nhận {0}g!", "Quest complete! Received {0}g!" },
+        { "{0} thất bại!", "{0} failed!" },
+        { "THẤT BẠI", "FAILED" },
+        { "HOÀN THÀNH", "COMPLETE" },
+        { "Hàng Ngày", "Daily" },
+        { "Giới Hạn", "Timed" },
+        { "--- Nhiệm Vụ Cốt Truyện ---", "--- Story Quests ---" },
+        { "--- Nhiệm Vụ Hàng Ngày ---", "--- Daily Quests ---" },
+        { "--- Nhiệm Vụ Giới Hạn ---", "--- Timed Quests ---" },
+
+        // Quest names & descriptions
+        { "Chào Hỏi Hàng Xóm", "Greet The Neighbors" },
+        { "Nói chuyện với Buffalo và Jessica để làm quen với hàng xóm.", "Talk to Buffalo and Jessica to get to know your neighbors." },
+        { "Mùa Thu Đầu Tiên", "First Autumn" },
+        { "Thu hoạch 50 lúa mì để trở thành nông dân thực thụ.", "Harvest 50 wheat to become a true farmer." },
+        { "Bảo Vệ Đất", "Protect The Land" },
+        { "Diệt 10 kẻ thù để bảo vệ nông trại.", "Defeat 10 enemies to protect the farm." },
+        { "Bàn Tay Xanh", "Green Thumb" },
+        { "Thu hoạch 150 lúa mì để chứng minh tài năng.", "Harvest 150 wheat to prove your talent." },
+        { "Xây Dựng Đế Chế", "Build An Empire" },
+        { "Kiếm 50.000 vàng bằng cách bán nông sản.", "Earn 50,000 gold by selling crops." },
+        { "Thợ Săn Quái Vật", "Monster Hunter" },
+        { "Diệt 30 kẻ thù để làm sạch vùng đất.", "Defeat 30 enemies to cleanse the land." },
+        { "Trận Đấu Cuối Cùng", "The Final Battle" },
+        { "Diệt 50 kẻ thù — trận chiến sinh tử!", "Defeat 50 enemies — a battle for survival!" },
+        { "Tỷ Phú", "Billionaire" },
+        { "Kiếm 200.000 vàng để trở thành tỷ phú.", "Earn 200,000 gold to become a billionaire." },
+        { "Thu Hoạch Nhanh", "Quick Harvest" },
+        { "Thu hoạch 25 lúa mì hôm nay.", "Harvest 25 wheat today." },
+        { "Mùa Màng Bội Thu", "Bumper Crop" },
+        { "Thu hoạch 60 lúa mì hôm nay.", "Harvest 60 wheat today." },
+        { "Tiêu Diệt Sâu Bệnh", "Pest Control" },
+        { "Diệt 5 quái vật hôm nay.", "Defeat 5 monsters today." },
+        { "Săn Quái", "Hunting" },
+        { "Diệt 15 quái vật hôm nay.", "Defeat 15 monsters today." },
+        { "Kiếm Thêm", "Extra Income" },
+        { "Kiếm 5.000 vàng hôm nay.", "Earn 5,000 gold today." },
+        { "Thu Nhập Lớn", "Big Income" },
+        { "Kiếm 15.000 vàng hôm nay.", "Earn 15,000 gold today." },
+        { "Chuỗi Lúa Mì", "Wheat Chain" },
+        { "Thu hoạch 100 lúa mì hôm nay.", "Harvest 100 wheat today." },
+        { "Diệt Sạch", "Wipe Them Out" },
+        { "Diệt 25 quái vật hôm nay.", "Defeat 25 monsters today." },
+
+        // Wife / Jessica quests
+        { "[Ngày {0}]", "[Day {0}]" },
+        { "Xây Dựng Dinh Thự Cho Jessica", "Build A Mansion For Jessica" },
+        { "Jessica đồng ý lời tỏ tình! Hãy xây dinh thự để làm lễ cưới.", "Jessica accepted your confession! Build the mansion for your wedding." },
+        { "Trừ Tà Giúp Làng", "Exorcise For The Village" },
+        { "Dùng Tràng Hạt tiêu diệt 5 con quỷ để bảo vệ làng.", "Use the Rosary to defeat 5 demons and protect the village." },
+        { "Câu Cá Lần Đầu", "First Fishing Trip" },
+        { "Jessica nhờ anh câu 3 con cá. Cô ấy đã tặng anh chiếc cần câu để bắt đầu!", "Jessica asks you to catch 3 fish. She gave you a fishing rod to start!" },
+        { "Thu Hoạch Lúa Mì", "Harvest Wheat" },
+        { "Thu Thập Trứng", "Collect Eggs" },
+        { "Trồng Cà Rốt", "Plant Carrots" },
+        { "Tưới Nước Cho Cây", "Water The Plants" },
+        { "Câu Cá", "Go Fishing" },
+        { "Nhiệm vụ hàng ngày từ Jessica. Hoàn thành trước 6h sáng mai!", "A daily task from Jessica. Complete it before 6 AM tomorrow!" },
+
+        // Wife dialogs
+        { "Anh ơi... em thực sự rất bất ngờ!", "Oh honey... I'm truly surprised!" },
+        { "Em cũng có tình cảm với anh từ lâu rồi.", "I've had feelings for you for a long time." },
+        { "Nếu anh xây xong dinh thự, chúng ta sẽ kết hôn!", "If you finish the mansion, we can get married!" },
+        { "Em tin anh sẽ làm được. Yêu anh!", "I believe you can do it. Love you!" },
+        { "Đêm nay ư? Anh có nghe tiếng lũ quỷ vào ban đêm chứ?", "Tonight? Have you heard the demons at night?" },
+        { "Ở làng này, mỗi khi trời tối (18h \u2013 6h), lũ quỷ lại xuất hiện. Chúng phá hoại công trình và tấn công dân làng.", "In this village, whenever it gets dark (6 PM \u2013 6 AM), demons appear. They destroy buildings and attack the villagers." },
+        { "Tràng Hạt là cách trừ tà tốt nhất \u2014 quả cầu thánh hạ gục kẻ thù chỉ một đòn.", "The Rosary is the best way to exorcise \u2014 a holy orb that takes down enemies in one hit." },
+        { "Nhớ đóng cửa khi trời tối để cản bước chúng nhé. Em tặng anh chiếc tràng hạt này!", "Remember to close the door at night to keep them out. I'm giving you this rosary!" },
+        { "Anh lại cần tràng hạt à? Em tặng anh thêm một chiếc nhé!", "You need another rosary? Here, take one more!" },
+        { "Anh gọi em à?", "Did you call me?" },
+        { "Em thích ở bên anh thế này.", "I love being by your side like this." },
+        { "Ok con dê!", "Ok goat!" },
+        { "Chồng yêu ơi! Hôm nay mình hạnh phúc lắm nhé.", "My dear husband! Let's be happy today." },
+        { "Em luôn ở bên anh, dù nông trại có bận rộn đến đâu.", "I'll always be by your side, no matter how busy the farm gets." },
+        { "Cảm ơn anh đã xây dựng dinh thự cho mình. Em yêu anh!", "Thank you for building our mansion. I love you!" },
+        { "Anh ơi... dinh thự đã hoàn thành rồi!", "Honey... the mansion is complete!" },
+        { "Em rất hạnh phúc. Em không ngờ anh làm được đến vậy.", "I'm so happy. I never thought you could pull it off." },
+        { "Nếu anh muốn... mình có thể kết hôn. Em đồng ý!", "If you want... we can get married. I accept!" },
+        { "Từ giờ, em sẽ mãi bên anh. Cảm ơn anh nhé!", "From now on, I'll be with you forever. Thank you!" },
+        { "Chào anh! Em là Jessica, cô gái hàng xóm.", "Hi! I'm Jessica, your neighbor." },
+        { "Nghe nói anh về nông thôn sống... Hy vọng mình sẽ là hàng xóm tốt nhé!", "I heard you moved back to the countryside... I hope we'll be good neighbors!" },
+        { "Nhà em ở bên kia, anh cứ qua chơi bất cứ lúc nào.", "My house is over there, come visit anytime." },
+        { "Chào anh! Hôm nay trông anh có vẻ tốt lắm.", "Hi! You look great today." },
+        { "Em luôn ở đây nếu anh cần gì nhé.", "I'm always here if you need anything." },
+        { "Anh nhớ câu 3 con cá giúp em nhé! Em đã tặng anh chiếc cần câu rồi đấy.", "Remember to catch 3 fish for me! I already gave you a fishing rod." },
+        { "Lại đây anh ơi! Em có vài việc nhờ anh giúp.", "Come here! I have a few things to ask of you." },
+        { "Giúp em xong em cảm ơn nhiều lắm!", "Help me out and I'll be so grateful!" },
+        { "Chào anh! Hôm nay anh có khỏe không?", "Hi! How are you today?" },
+        { "Em cảm ơn anh đã luôn quan tâm nhé!", "Thanks for always caring about me!" },
+        { "Chào anh!", "Hi!" },
+        { "Jessica tặng anh chiếc cần câu cá!", "Jessica gave you a fishing rod!" },
+        { "Hoàn thành Câu Cá Lần Đầu! +10 độ thân mật", "Completed First Fishing Trip! +10 affection" },
+        { "Hoàn thành Trừ Tà Giúp Làng! +10 độ thân mật", "Completed Exorcise For The Village! +10 affection" },
+        { "Độ Thân Mật", "Affection" },
+        { "Chạm để tiếp tục", "Tap to continue" },
+        { "Nhấn E để tiếp tục", "Press E to continue" },
+        { "Chạm để đóng", "Tap to close" },
+        { "Nhấn E để đóng", "Press E to close" },
+        { "[Tỏ Tình] (Chạm)", "[Confess] (Tap)" },
+        { "[Tỏ Tình] Nhấn T", "[Confess] Press T" },
+        { "[Mời Về Nhà] (Chạm)", "[Invite Home] (Tap)" },
+        { "[Mời Về Nhà] Nhấn G", "[Invite Home] Press G" },
+        { "[Hỏi Về Đêm] (Chạm)", "[Ask About Night] (Tap)" },
+        { "[Hỏi Về Đêm] Nhấn V", "[Ask About Night] Press V" },
+        { "[Mở Cửa Hàng]", "[Open Shop]" },
+        { "Bỏ Qua", "Skip" },
+        { "Bỏ Qua [ESC]", "Skip [ESC]" },
+        { "KẾT THÚC BUỒN", "SAD ENDING" },
+        { "Bạn đã đến quá muộn.\nTrong khi bạn đi tìm kiếm giàu sang,\nbạn đã quên đi điều thực sự quan trọng.\n\nCô ấy đợi...\ncho đến khi không thể đợi nữa.",
+          "You arrived too late.\nWhile you went chasing wealth,\nyou forgot what truly mattered.\n\nShe waited...\nuntil she could wait no more." },
+        { "Tiếp tục cuộc phiêu lưu!", "Continue the adventure!" },
+        { "KẾT THÚC HẠNH PHÚC", "HAPPY ENDING" },
+        { "Bạn và Jessica đã đi đến cuối con đường cùng nhau!", "You and Jessica walked the path together to the very end!" },
+        { "Nhấn Enter để tiếp tục chơi", "Press Enter to keep playing" },
+        { "Bạn đã ngủ {0} tiếng.", "You slept for {0} hours." },
+        { "Cần đến gần biển để câu cá!", "Get closer to the sea to fish!" },
+        { "Ngắm xuống mặt nước!", "Aim at the water!" },
+        { "Ngắm ra xa hơn về phía biển!", "Aim further out toward the sea!" },
+        { "Cá thoát rồi!", "The fish got away!" },
+        { "Bắt được {0}! Nó quẫy trên bờ — dùng gậy gõ cho xỉu!", "Caught a {0}! It's flopping on the shore — hit it with a club to knock it out!" },
+        { "Bắt được {0}!", "Caught a {0}!" },
+        { "Đã gõ cá xỉu! Nhặt lên thôi.", "Knocked the fish out! Pick it up." },
+        { "Cá đã nằm im, nhặt lên thôi!", "The fish is still now, pick it up!" },
+        { "Kéo Cá!", "Reel In!" },
+        { "Bắt Được Cá!", "Got The Fish!" },
+        { "Cá Thoát!", "Fish Escaped!" },
+        { "Đang Kéo...", "Reeling..." },
+        { "Goblin đã gieo hạt giống giúp bạn!", "The goblin planted seeds for you!" },
+        { "DÙNG", "USE" },
+        { "CHẠY", "SPRINT" },
+        { "NHẢY", "JUMP" },
+        { "XÂY", "BUILD" },
+        { "XOAY", "ROTATE" },
+        { "Giấc Ngủ", "Sleep" },
+        { "Ngủ", "Sleep" },
+        { "Hủy", "Cancel" },
+        { "Ngủ {0} tiếng", "Sleep {0} hours" },
+        { "Hồi phục: +{0} Stamina / +{1} HP", "Restore: +{0} Stamina / +{1} HP" },
+        { "Ruộng (đã thu hoạch — cày lại)", "Field (harvested — till again)" },
+        { "{0} • Giai Đoạn {1}/4", "{0} • Stage {1}/4" },
+        { "Ruộng đã cày — gieo hạt giống", "Field tilled — plant seeds" },
+        { "Ruộng — dùng cuốc để cày", "Field — use a hoe to till" },
+        { "1. Thu hoạch lúa 0/100\n2. Diệt quái 0/30\n3. Kiếm tiền 0/100000",
+          "1. Harvest wheat 0/100\n2. Defeat monsters 0/30\n3. Earn money 0/100000" },
+        { "Em đến rồi! Nhà anh thật ấm cúng.", "I'm here! Your house is so cozy." },
+        { "Em có thể ở lại một lát không?", "Can I stay for a little while?" },
+        { "Em chán quá!", "I'm so bored!" },
+        { "Không đủ chỗ cho toàn bộ công trình.", "Not enough space for the whole building." },
+        { "Không đủ gỗ/đá để sửa chữa.", "Not enough wood/stone to repair." },
+        { "Đã sửa chữa xong.", "Repair complete." },
+
+        // Random events
+        { "Tất cả mùa màng của bạn đều tăng một giai đoạn!", "All your crops grow one stage!" },
+        { "Tìm Thấy May Mắn", "Lucky Find" },
+        { "Một đồng vàng xuất hiện trên mặt đất!", "A gold coin appears on the ground!" },
+        { "Phục Hồi Sức Mạnh", "Stamina Restore" },
+        { "Bạn cảm thấy sảng khoái!", "You feel refreshed!" },
+        { "Suối Chữa Lành", "Healing Spring" },
+        { "Vết thương của bạn đã lành!", "Your wounds have healed!" },
+        { "Hạt Giống Miễn Phí", "Free Seeds" },
+        { "Hạt giống rơi từ trên trời!", "Seeds fall from the sky!" },
+        { "Sâu Bệnh Tấn Công", "Pest Invasion" },
+        { "Sâu đang ăn mùa màng của bạn!", "Pests are eating your crops!" },
+        { "Hạn Hán", "Drought" },
+        { "Mặt trời làm khô hết ruộng của bạn!", "The sun dries out all your fields!" },
+        { "Âm Thanh Kỳ Lạ", "Strange Noises" },
+        { "Bạn nghe thấy âm thanh kỳ lạ ở gần...", "You hear strange noises nearby..." },
+        { "Bệnh Mùa Màng", "Crop Disease" },
+        { "Bệnh đang lây lan khắp mùa màng!", "Disease is spreading through your crops!" },
+        { "Đom Đóm", "Fireflies" },
+        { "Đom đóm nhảy múa xung quanh bạn!", "Fireflies dance around you!" },
+        { "Cỏ Dại Mọc Lên", "Weeds Sprout" },
+        { "Cỏ dại mọc um tùm trên mùa màng!", "Weeds overrun your crops!" },
+        { "Hết Sức", "Exhausted" },
+        { "Bạn cảm thấy kiệt sức!", "You feel exhausted!" },
+        { "Thương Nhân Lang Thang", "Wandering Merchant" },
+        { "Một thương nhân đã xuất hiện trên đường!", "A merchant appeared on the road!" },
+        { "Kẻ Thù Tấn Công", "Enemy Raid" },
+        { "Kẻ thù đang tiến về phía bạn!", "Enemies are heading your way!" },
+        { "Bão Gây Hại", "Storm Damage" },
+        { "Bão phá hủy công trình của bạn!", "The storm destroys your buildings!" },
+        { "Kẻ Trộm", "Thief" },
+        { "Kẻ trộm lấy mất một phần tiền của bạn!", "A thief steals some of your money!" },
+        { "Thị Trường Sụp Đổ", "Market Crash" },
+        { "Thị trường sụp đổ! Giá bán giảm một nửa!", "The market crashed! Sell prices halved!" },
+        { "Giá bán giảm một nửa trong 2 giờ!", "Sell prices halved for 2 hours!" },
+        { "Giá Tăng Cao", "Price Surge" },
+        { "Giá tăng vọt! Giá bán gấp đôi!", "Prices surge! Sell prices doubled!" },
+        { "Giá bán gấp đôi trong 2 giờ!", "Sell prices doubled for 2 hours!" },
+        { "Cầu Vồng", "Rainbow" },
+        { "Một cầu vồng xuất hiện trên bầu trời!", "A rainbow appears in the sky!" },
+        { "Động Vật Nhảy Múa", "Dancing Animals" },
+        { "Động vật của bạn bắt đầu nhảy múa!", "Your animals start dancing!" },
+        { "Tuyến Thương Mại", "Trade Route" },
+        { "Tuyến thương mại mới mở! Giá mua giảm!", "A new trade route opened! Buy prices dropped!" },
+        { "Giá mua giảm trong 1 ngày!", "Buy prices dropped for 1 day!" },
+        { "Kẻ Thù Khổng Lồ", "Giant Enemy" },
+        { "Một kẻ thù khổng lồ đã xuất hiện!", "A giant enemy has appeared!" },
+        { "Đàn Tấn Công", "Swarm Attack" },
+        { "Một đàn quái vật tấn công!", "A swarm of monsters attacks!" },
+        { "Mưa Sao Băng", "Meteor Shower" },
+        { "Sao băng rơi từ bầu trời!", "Meteors fall from the sky!" },
+        { "Lễ Hội Thu Hoạch", "Harvest Festival" },
+        { "Làng ăn mừng! Tiến độ nhiệm vụ tăng!", "The village celebrates! Quest progress increases!" },
+        { "Pháo Hoa", "Fireworks" },
+        { "Pháo hoa thắp sáng bầu trời!", "Fireworks light up the sky!" },
+        { "Hình Ảnh Bóng Ma", "Ghostly Figures" },
+        { "Bóng ma lang thang khắp đất...", "Ghosts roam the land..." },
+        { "Bản Đồ Kho Báu", "Treasure Map" },
+        { "Kho báu đã được chôn ở rìa bản đồ!", "A treasure is buried at the edge of the map!" },
+        { "Rương kho báu đã xuất hiện ở rìa bản đồ!", "A treasure chest appeared at the edge of the map!" },
+        { "Động Đất", "Earthquake" },
+        { "Mặt đất rung chuyển dữ dội! Nhà cửa bị hư hại!", "The ground shakes violently! Buildings are damaged!" },
+        { "Sấm Sét", "Lightning Storm" },
+        { "Sét đánh xuống từ bầu trời!", "Lightning strikes from the sky!" },
+        { "Lốc Xoáy", "Tornado" },
+        { "Một cơn lốc xoáy quét qua thị trấn!", "A tornado sweeps through the town!" },
+
+        // Tutorial pages
+        { "CHÀO MỪNG!\n\nChào mừng đến với Country Life!\n\nSau khi tốt nghiệp ngành CNTT, thị trường việc làm đã quá khó khăn. Không có việc làm, bạn quay về nông thôn của ông nội đã khuất.",
+          "WELCOME!\n\nWelcome to Country Life!\n\nAfter graduating in IT, the job market became too difficult. With no job, you return to your late grandfather's countryside." },
+        { "BẮT ĐẦU CUỘC SỐNG MỚI\n\nTại đây, bạn phải xây dựng nông trại, bảo vệ làng, và tìm kiếm hạnh phúc cho mình.\n\nBiết đâu, cô gái hàng xóm sẽ là định mệnh của bạn...",
+          "A NEW LIFE BEGINS\n\nHere, you must build a farm, protect the village, and find your own happiness.\n\nWho knows, the girl next door might be your destiny..." },
+        { "DI CHUYỂN\n\nWASD \u2014 Di chuyển\nSpace \u2014 Nhảy\nShift \u2014 Chạy nhanh\nChuột \u2014 Nhìn xung quanh",
+          "MOVEMENT\n\nWASD \u2014 Move\nSpace \u2014 Jump\nShift \u2014 Run faster\nMouse \u2014 Look around" },
+        { "HÀNH ĐỘNG\n\nChuột trái \u2014 Sử dụng công cụ\nE \u2014 Tương tác / Mở cửa\nQ \u2014 Bỏ vật phẩm",
+          "ACTIONS\n\nLeft mouse \u2014 Use tool\nE \u2014 Interact / Open door\nQ \u2014 Drop item" },
+        { "XÂY DỰNG\n\nGiữ Búa + F \u2014 Mở menu xây dựng\nB / N \u2014 Đổi loại công trình\nChuột trái \u2014 Đặt công trình\nF \u2014 Hủy",
+          "BUILDING\n\nHold Hammer + F \u2014 Open build menu\nB / N \u2014 Switch building type\nLeft mouse \u2014 Place building\nF \u2014 Cancel" },
+        { "NÔNG NGHIỆP\n\nCuốc \u2014 Làm đất để trồng cây\nLưỡi liềm \u2014 Thu hoạch\nRìu / Cuốc chim \u2014 Thu thập nguyên liệu",
+          "FARMING\n\nHoe \u2014 Till soil to plant crops\nSickle \u2014 Harvest\nAxe / Pickaxe \u2014 Gather materials" },
+        { "KẺ THÙ\n\nBan đêm (18h \u2013 6h), lũ quỷ xuất hiện và tấn công bạn cùng các công trình.\nQuỷ thường: 50 máu, gây 10 sát thương.\nQuỷ khổng lồ: máu và sát thương cao hơn.",
+          "ENEMIES\n\nAt night (6 PM \u2013 6 AM), demons appear and attack you and your buildings.\nNormal demon: 50 HP, deals 10 damage.\nGiant demon: higher HP and damage." },
+        { "TRỪ TÀ\n\nTràng hạt \u2014 Quả cầu thánh hạ gục một đòn.\nTrang bị Tràng Hạt rồi bấm chuột trái để thi triển.\n\nHãy đóng cửa khi trời tối để cản bước chúng!",
+          "HOLY MAGIC\n\nRosary \u2014 A holy orb that takes down enemies in one hit.\nEquip the Rosary and press left mouse to cast.\n\nClose the door at night to stop them!" },
+        { "NGÔI CHÙA\n\nNgôi chùa 4 tầng mái cong nằm phía Đông làng, ngay cạnh nhà bà hàng xóm.\n\nĐây là công trình biểu tượng của làng \u2014 hãy đến chiêm bái và ngắm cảnh hoàng hôn từ nơi đây.",
+          "THE PAGODA\n\nThe 4-tier curved-roof pagoda lies east of the village, right next to the neighbor's house.\n\nIt is the village's landmark \u2014 come pay your respects and watch the sunset from there." },
+        { "MẸO\n\nThu hoạch lúa để kiếm tiền\nXây dựng tường và tháp canh để bảo vệ\nHoàn thành nhiệm vụ để nhận thưởng\nNgủ trên giường để lưu game",
+          "TIPS\n\nHarvest wheat to earn money\nBuild walls and watchtowers for protection\nComplete quests to earn rewards\nSleep on the bed to save the game" },
+
+        // Item names (VN source shown to player in Vietnamese mode)
+        { "Búa", "Hammer" },
+        { "Lưỡi Hái", "Scythe" },
+        { "Cây Gậy", "Club" },
+        { "Đậu Bắn", "Peashooter" },
+        { "Đuốc", "Torch" },
+        { "Nông Sản", "Crops" },
+        { "Gỗ", "Wood" },
+        { "Đá", "Stone" },
+        { "Trứng", "Egg" },
+        { "Sữa", "Milk" },
+        { "Len", "Wool" },
+        { "Thịt", "Meat" },
+        { "Lông Vũ", "Feather" },
+        { "Mật Ong", "Honey" },
+        { "Hạt Giống Lúa Mì", "Wheat Seed" },
+        { "Hạt Giống Ngô", "Corn Seed" },
+        { "Hạt Giống Đậu", "Peashooter Seed" },
+        { "Hạt Giống Khoai Tây", "Potato Seed" },
+        { "Hạt Giống Cà Rốt", "Carrot Seed" },
+        { "Hạt Giống Cà Chua", "Tomato Seed" },
+        { "Hạt Giống Dâu Tây", "Strawberry Seed" },
+        { "Hạt Giống Bí Ngòi", "Pumpkin Seed" },
+        { "Hạt Giống Hành Tây", "Onion Seed" },
+        { "Hạt Giống Mía", "Sugarcane Seed" },
+        { "Hạt Giống Gạo", "Rice Seed" },
+
+        // Building names
+        { "Tường Gỗ", "Wood Wall" },
+        { "Tường Đá", "Stone Wall" },
+        { "Hàng Rào", "Fence" },
+        { "Lính Canh", "Watchtower" },
+        { "Nhà Nhỏ", "Small House" },
+        { "Sàn Gỗ", "Wood Floor" },
+        { "Sàn Đá", "Stone Floor" },
+        { "Cầu Thang", "Staircase" },
+        { "Bàn", "Table" },
+        { "Ghế", "Chair" },
+        { "Ghế Sofa", "Sofa" },
+        { "Cửa", "Door" },
+        { "Nhà Vợ", "Wife's House" },
+        { "Nhà Cấu Trúc", "Structure House" },
+        { "Túp Lều Goblin", "Goblin Hut" },
+
+        // Mansion part names
+        { "Nền", "Foundation" },
+        { "Sân Trước", "Front Yard" },
+        { "Sân Sau", "Back Patio" },
+        { "Sàn Tầng 1", "1F Floor" },
+        { "Tường Bên Ngoài T1", "1F Exterior Walls" },
+        { "Tường Bên Trong T1", "1F Interior Walls" },
+        { "Cửa Chính", "Front Door" },
+        { "Phòng Khách", "Living Room" },
+        { "Nhà Bếp", "Kitchen" },
+        { "Phòng Ăn", "Dining Room" },
+        { "Phòng Tắm T1", "1F Bathroom" },
+        { "Sàn Tầng 2", "2F Floor" },
+        { "Tường Bên Ngoài T2", "2F Exterior Walls" },
+        { "Tường Bên Trong T2", "2F Interior Walls" },
+        { "Phòng Ngủ Chính", "Master Bedroom" },
+        { "Phòng Ngủ 2", "Bedroom 2" },
+        { "Phòng Ngủ 3", "Bedroom 3" },
+        { "Phòng Tắm T2", "2F Bathroom" },
+        { "Hành Lang", "Hallway" },
+        { "Mái Chính", "Main Roof" },
+        { "Mái Sân Trước", "Porch Roof" },
+        { "Ban Công", "Balcony" },
+        { "Lối Vào", "Garden Path" },
+
+        // Buffalo dialog
+        { "Chào bạn! Tôi là Buffalo, chủ cửa hàng của làng.", "Hi there! I'm Buffalo, the village shopkeeper." },
+        { "Tôi bán hạt giống, công cụ và thức ăn cho gia súc.", "I sell seeds, tools, and livestock feed." },
+        { "Ghế cửa hàng bất cứ khi nào bạn cần nhé!", "Drop by the shop whenever you need anything!" },
+
+        // Animal names
+        { "Bò", "Cow" },
+        { "Lợn", "Pig" },
+        { "Cừu", "Sheep" },
+        { "Dê", "Goat" },
+        { "Gà", "Chicken" },
+        { "Vịt", "Duck" },
+        { "Gà Tây", "Turkey" },
+
+        // Rich man NPC
+        { "Phú Ông", "The Rich Man" },
+        { "Jessica của cậu dạo này trông cô đơn lắm đấy.", "That Jessica of yours looks awfully lonely these days." },
+        { "Nếu cậu cứ mải làm nông, tôi sẽ đưa cô ấy đi cho xem.", "If you keep burying yourself in farm work, I'll take her away." },
+        { "Tôi giàu có, còn cậu thì sao? Cô ấy xứng đáng cuộc sống tốt hơn.", "I'm rich, and you? She deserves a better life." },
+        { "Ông chú giàu có đang lảng vảng quanh nhà Jessica...", "The rich man is lurking around Jessica's house..." },
+        { "Jessica: Anh dạo này bận quá... em nhớ anh.", "Jessica: You've been so busy... I miss you." },
+        { "Jessica: Em nghe nói ông chú giàu có kia cứ quanh quẩn gần nhà...", "Jessica: I hear that rich man keeps hanging around the house..." },
+        { "Jessica: Anh không còn quan tâm em nữa sao? Ông ta đã ngỏ lời mời em đi...", "Jessica: Don't you care about me anymore? He's already asked me to leave with him..." },
+
+        // NTR ending
+        { "KẾT THÚC: CÔ ẤY ĐÃ RỜI XA", "ENDING: SHE LEFT" },
+        { "Trong lúc bạn mải mê làm giàu,\nông chú giàu có đã chiếm trọn trái tim Jessica.\n\nCô ấy đã không còn chờ đợi bạn nữa.\nBạn đã quá muộn...\n\nKhi bạn không quan tâm đến cô ấy,\nngười khác sẽ quan tâm thay bạn.", "While you chased your fortune,\nthe rich man won Jessica's heart.\n\nShe no longer waits for you.\nYou were too late...\n\nWhen you fail to care for her,\nsomeone else will." }
+    };
+}

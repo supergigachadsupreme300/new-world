@@ -85,7 +85,7 @@ public class QuestManager : MonoBehaviour
             {
                 q.Failed = true;
                 changed = true;
-                GameManager.Instance?.UIManager?.ShowMessage($"{q.Name} thất bại!", 2f);
+                GameManager.Instance?.UIManager?.ShowMessage(Localization.F("{0} thất bại!", GetQuestDisplayName(q)), 2f);
             }
         }
 
@@ -204,7 +204,7 @@ public class QuestManager : MonoBehaviour
         if (total > 0 && GameManager.Instance?.Player != null)
         {
             GameManager.Instance.Player.Money += total;
-            var msg = $"Nhiệm vụ hoàn thành! Nhận {total}g!";
+            var msg = Localization.F("Nhiệm vụ hoàn thành! Nhận {0}g!", total);
             GameManager.Instance?.UIManager?.ShowMessage(msg, 3f);
         }
     }
@@ -351,37 +351,37 @@ public class QuestManager : MonoBehaviour
 
         if (storyQuests.Count > 0)
         {
-            panel += "--- Nhiệm Vụ Cốt Truyện ---\n";
+            panel += Localization.T("--- Nhiệm Vụ Cốt Truyện ---") + "\n";
             foreach (var q in storyQuests)
             {
                 string status = GetQuestStatusString(q);
-                panel += $"{q.Name}: {status}\n";
+                panel += $"{GetQuestDisplayName(q)}: {status}\n";
                 if (!string.IsNullOrEmpty(q.Description))
-                    panel += $"  {q.Description}\n";
+                    panel += $"  {Localization.T(q.Description)}\n";
             }
         }
 
         if (dailyQuests.Count > 0)
         {
-            panel += "\n--- Nhiệm Vụ Hàng Ngày ---\n";
+            panel += "\n" + Localization.T("--- Nhiệm Vụ Hàng Ngày ---") + "\n";
             foreach (var q in dailyQuests)
             {
                 string status = GetQuestStatusString(q);
-                panel += $"{q.Name}: {status}\n";
+                panel += $"{GetQuestDisplayName(q)}: {status}\n";
                 if (!string.IsNullOrEmpty(q.Description))
-                    panel += $"  {q.Description}\n";
+                    panel += $"  {Localization.T(q.Description)}\n";
             }
         }
 
         if (timedQuests.Count > 0)
         {
-            panel += "\n--- Nhiệm Vụ Giới Hạn ---\n";
+            panel += "\n" + Localization.T("--- Nhiệm Vụ Giới Hạn ---") + "\n";
             foreach (var q in timedQuests)
             {
                 string status = GetQuestStatusString(q);
-                panel += $"{q.Name}: {status}\n";
+                panel += $"{GetQuestDisplayName(q)}: {status}\n";
                 if (!string.IsNullOrEmpty(q.Description))
-                    panel += $"  {q.Description}\n";
+                    panel += $"  {Localization.T(q.Description)}\n";
             }
         }
 
@@ -407,20 +407,25 @@ public class QuestManager : MonoBehaviour
             current = storyQuests[storyQuests.Count - 1];
 
         if (current == null)
-            return "Nhiệm Vụ: Sẵn sàng";
+            return Localization.T("Nhiệm Vụ: Sẵn sàng");
 
-        string hud = $"{current.Name}: {GetQuestStatusString(current)}";
+        string hud = $"{GetQuestDisplayName(current)}: {GetQuestStatusString(current)}";
         if (!string.IsNullOrEmpty(current.Description))
-            hud += $"\n  {current.Description}";
+            hud += $"\n  {Localization.T(current.Description)}";
         return hud;
+    }
+
+    private string GetQuestDisplayName(QuestSave q)
+    {
+        return Localization.QuestName(q.Name);
     }
 
     private string GetQuestStatusString(QuestSave q)
     {
         if (q.Failed)
-            return "THẤT BẠI";
+            return Localization.T("THẤT BẠI");
         if (q.Completed)
-            return "HOÀN THÀNH";
+            return Localization.T("HOÀN THÀNH");
 
         if (q.QuestType == "timed" && q.TimeLimit > 0f)
         {

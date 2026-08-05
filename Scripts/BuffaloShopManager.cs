@@ -135,7 +135,7 @@ public class BuffaloShopManager : MonoBehaviour
         img.color = new Color(0.18f, 0.2f, 0.27f, 0.95f);
         img.raycastTarget = false;
 
-        _titleText = MakeText("ShopTitle", _shopPanel.transform, "Cửa Hàng Trâu",
+        _titleText = MakeText("ShopTitle", _shopPanel.transform, Localization.T("Cửa Hàng Trâu"),
             new Vector2(0f, panelH * 0.42f), new Vector2(panelW - padding * 4, fontS * 1.8f),
             (int)(fontS * 1.4f), TextAlignmentOptions.Center);
 
@@ -145,10 +145,10 @@ public class BuffaloShopManager : MonoBehaviour
 
         float tabY = panelH * 0.3f;
         float tabW = panelW * 0.3f;
-        _tabBuy = MakeButton("TabBuy", _shopPanel.transform, "Mua",
+        _tabBuy = MakeButton("TabBuy", _shopPanel.transform, Localization.T("Mua"),
             new Vector2(-tabW * 0.5f, tabY), new Vector2(tabW, btnH),
             (int)fontS, new Color(0.37f, 0.51f, 0.68f), () => SwitchTab("buy"));
-        _tabSell = MakeButton("TabSell", _shopPanel.transform, "Bán",
+        _tabSell = MakeButton("TabSell", _shopPanel.transform, Localization.T("Bán"),
             new Vector2(tabW * 0.5f, tabY), new Vector2(tabW, btnH),
             (int)fontS, new Color(0.3f, 0.34f, 0.42f), () => SwitchTab("sell"));
 
@@ -198,7 +198,7 @@ public class BuffaloShopManager : MonoBehaviour
             new Vector2(0f, navY), new Vector2(panelW * 0.4f, btnH),
             (int)fontS, TextAlignmentOptions.Center);
 
-        _sellAllBtn = MakeButton("SellAll", _shopPanel.transform, "Bán Tất Cả",
+        _sellAllBtn = MakeButton("SellAll", _shopPanel.transform, Localization.T("Bán Tất Cả"),
             new Vector2(0f, -panelH * 0.44f), new Vector2(panelW * 0.35f, btnH * 0.85f),
             (int)(fontS * 0.85f), new Color(0.75f, 0.38f, 0.41f), SellAll);
 
@@ -241,6 +241,11 @@ public class BuffaloShopManager : MonoBehaviour
         if (GameManager.Instance?.UIManager != null)
             GameManager.Instance.UIManager.ShowPauseMenu(false);
         GameInput.SetCursorLocked(false);
+
+        if (_titleText != null) _titleText.text = Localization.T("Cửa Hàng Trâu");
+        SetButtonLabel(_tabBuy, Localization.T("Mua"));
+        SetButtonLabel(_tabSell, Localization.T("Bán"));
+        SetButtonLabel(_sellAllBtn, Localization.T("Bán Tất Cả"));
 
         SwitchTab("buy");
     }
@@ -305,13 +310,13 @@ public class BuffaloShopManager : MonoBehaviour
 
                 if (_activeTab == "buy")
                 {
-                    _slots[i].Label.text = $"{item.Label}\n{item.Price}g";
+                    _slots[i].Label.text = $"{Localization.T(item.Label)}\n{item.Price}g";
                     _slots[i].Button.onClick.AddListener(() => BuyItem(item));
                 }
                 else
                 {
                     int owned = ToolManager.Instance != null ? ToolManager.Instance.CountItem(item.Type) : 0;
-                    _slots[i].Label.text = $"{item.Label}\n{owned}x · {item.Price}g";
+                    _slots[i].Label.text = $"{Localization.T(item.Label)}\n{owned}x · {item.Price}g";
                     _slots[i].Button.onClick.AddListener(() => SellItem(item));
                 }
             }
@@ -324,8 +329,8 @@ public class BuffaloShopManager : MonoBehaviour
             }
         }
 
-        string tabLabel = _activeTab == "buy" ? "Mua" : "Bán";
-        _pageLabel.text = $"{tabLabel} · Trang {_page}/{total}";
+        string tabLabel = _activeTab == "buy" ? Localization.T("Mua") : Localization.T("Bán");
+        _pageLabel.text = Localization.F("{0} · Trang {1}/{2}", tabLabel, _page, total);
         _prevBtn.interactable = _page > 1;
         _nextBtn.interactable = _page < total;
     }
@@ -337,7 +342,7 @@ public class BuffaloShopManager : MonoBehaviour
 
         if (player.Money < item.Price)
         {
-            ShowMessage("Không đủ tiền");
+            ShowMessage(Localization.T("Không đủ tiền"));
             return;
         }
 
@@ -347,13 +352,13 @@ public class BuffaloShopManager : MonoBehaviour
         int slot = tm.FindEmptySlot();
         if (slot < 0)
         {
-            ShowMessage("Túi đồ đầy");
+            ShowMessage(Localization.T("Túi đồ đầy"));
             return;
         }
 
         tm.AddItem(item.Type, 1);
         player.Money -= item.Price;
-        ShowMessage($"Đã mua {item.Label}");
+        ShowMessage(Localization.F("Đã mua {0}", Localization.T(item.Label)));
     }
 
     private void SellItem(ShopItem item)
@@ -365,7 +370,7 @@ public class BuffaloShopManager : MonoBehaviour
         int owned = tm.CountItem(item.Type);
         if (owned <= 0)
         {
-            ShowMessage($"Không có {item.Label} để bán");
+            ShowMessage(Localization.F("Không có {0} để bán", Localization.T(item.Label)));
             return;
         }
 
@@ -373,7 +378,7 @@ public class BuffaloShopManager : MonoBehaviour
         int earned = owned * item.Price;
         player.Money += earned;
         QuestManager.Instance?.AddProgress("money_earned", earned);
-        ShowMessage($"Đã bán {owned} {item.Label} (+{earned}g)");
+        ShowMessage(Localization.F("Đã bán {0} {1} (+{2}g)", owned, Localization.T(item.Label), earned));
         UpdatePage();
     }
 
@@ -398,13 +403,20 @@ public class BuffaloShopManager : MonoBehaviour
         {
             player.Money += totalEarned;
             QuestManager.Instance?.AddProgress("money_earned", totalEarned);
-            ShowMessage($"Đã bán tất cả (+{totalEarned}g)");
+            ShowMessage(Localization.F("Đã bán tất cả (+{0}g)", totalEarned));
             UpdatePage();
         }
         else
         {
-            ShowMessage("Không có gì để bán");
+            ShowMessage(Localization.T("Không có gì để bán"));
         }
+    }
+
+    private void SetButtonLabel(Button button, string label)
+    {
+        if (button == null) return;
+        var t = button.GetComponentInChildren<TMP_Text>();
+        if (t != null) t.text = label;
     }
 
     private void ShowMessage(string text)

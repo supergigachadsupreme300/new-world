@@ -30,6 +30,7 @@ public class CutsceneManager : MonoBehaviour
     private float _cutsceneStartTime;
 
     private bool _happyPending;
+    private bool _ntrPending;
     private Coroutine _wifeLookBackRoutine;
     private Coroutine _heartRoutine;
     private GameObject _tetoRoot;
@@ -144,7 +145,7 @@ public class CutsceneManager : MonoBehaviour
         var tmp = _skipButton.AddComponent<TextMeshProUGUI>();
         if (_uiManager != null && _uiManager.defaultTmpFont != null)
             tmp.font = _uiManager.defaultTmpFont;
-        tmp.text = GameInput.IsMobile ? "Bỏ Qua" : "Bỏ Qua [ESC]";
+        tmp.text = GameInput.IsMobile ? Localization.T("Bỏ Qua") : Localization.T("Bỏ Qua [ESC]");
         tmp.fontSize = 24;
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Right;
@@ -208,6 +209,12 @@ public class CutsceneManager : MonoBehaviour
         _happyPending = true;
     }
 
+    public void RequestNtrEnding()
+    {
+        if (IsActive || _ntrPending) return;
+        _ntrPending = true;
+    }
+
     public void CancelCutscene()
     {
         if (_cutsceneRoutine != null)
@@ -236,7 +243,14 @@ public class CutsceneManager : MonoBehaviour
     {
         while (true)
         {
-            if (_happyPending && !IsActive)
+            if (_ntrPending && !IsActive)
+            {
+                _ntrPending = false;
+                IsActive = true;
+                _cutsceneStartTime = Time.time;
+                _cutsceneRoutine = StartCoroutine(NtrRoutine());
+            }
+            else if (_happyPending && !IsActive)
             {
                 _happyPending = false;
                 IsActive = true;
@@ -871,14 +885,188 @@ public class CutsceneManager : MonoBehaviour
         if (_uiManager == null)
             _uiManager = Object.FindAnyObjectByType<UIManager>();
         if (_uiManager != null)
-            _uiManager.ShowEndScreen("KẾT THÚC BUỒN",
-                "Bạn đã đến quá muộn.\nTrong khi bạn đi tìm kiếm giàu sang,\nbạn đã quên đi điều thực sự quan trọng.\n\nCô ấy đợi...\ncho đến khi không thể đợi nữa.");
+            _uiManager.ShowEndScreen(Localization.T("KẾT THÚC BUỒN"),
+                Localization.T("Bạn đã đến quá muộn.\nTrong khi bạn đi tìm kiếm giàu sang,\nbạn đã quên đi điều thực sự quan trọng.\n\nCô ấy đợi...\ncho đến khi không thể đợi nữa."));
         }
         finally
         {
             IsActive = false;
             _cutsceneRoutine = null;
         }
+    }
+
+    private IEnumerator NtrRoutine()
+    {
+        try
+        {
+            if (_uiManager == null)
+                _uiManager = Object.FindAnyObjectByType<UIManager>();
+            if (_mainCamera == null)
+                _mainCamera = Camera.main;
+
+            if (_uiManager != null)
+                _uiManager.ShowMainMenu(false);
+
+            DisablePlayerControl();
+            DetachCamera();
+            HideHUD();
+
+            yield return StartCoroutine(CreateFadeOverlay());
+            CreateLetterboxBars();
+            ShowSkipButton();
+
+            // ── Reposition player on road behind the pickup spot ──
+            float playerZ = SadStartZ + 10f;
+            if (_player != null)
+            {
+                _player.transform.position = new Vector3(RoadX, 0f, playerZ);
+                _player.transform.rotation = Quaternion.identity;
+
+                var realModel = _player.transform.Find("PlayerModel");
+                if (realModel != null)
+                    realModel.gameObject.SetActive(false);
+            }
+
+            var ntrPlayerModel = MapBuilder.BuildPlayerModel(null);
+            ntrPlayerModel.transform.position = new Vector3(RoadX, 0.82f, playerZ);
+            ntrPlayerModel.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            foreach (var r in ntrPlayerModel.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(ntrPlayerModel);
+
+            // ── PHASE 1: THE PLAYER WATCHES (2.5s) ──
+            Vector3 camStart = new Vector3(RoadX, 1.8f, playerZ - 3f);
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = camStart;
+                _mainCamera.transform.LookAt(new Vector3(RoadX, 1.2f, playerZ));
+            }
+            yield return StartCoroutine(FadeOverlay(0, 2f));
+            yield return new WaitForSeconds(2.5f);
+
+            // ── PHASE 2: THE GOLD CAR ARRIVES ──
+            float stopZ = -6f;
+            var carRoot = MapBuilder.BuildCar(null,
+                new Vector3(RoadX, 0f, stopZ), new Color(0.92f, 0.78f, 0.25f));
+            RegisterSpawned(carRoot);
+
+            var wifeModel = WifeNPC.BuildWifeNpc(null,
+                new Vector3(RoadX, 0.86f, -1.5f), 1f, Quaternion.Euler(0f, 180f, 0f));
+            foreach (var r in wifeModel.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(wifeModel);
+
+            var richModel = RichManNPC.BuildRichManNpc(null,
+                new Vector3(RoadX - 1.8f, 0.86f, -4.2f), 1f, Quaternion.Euler(0f, 180f, 0f), false);
+            foreach (var r in richModel.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(richModel);
+
+            // Pan camera from player face to the trio
+            Vector3 camPickup = new Vector3(RoadX - 2f, 2.6f, stopZ + 9f);
+            yield return StartCoroutine(PanCamera(camStart, camPickup, new Vector3(RoadX, 1f, stopZ + 2f), 3f));
+
+            // ── PHASE 3: HE TAKES HER AWAY (walk to car) ──
+            Vector3 wifeStart = wifeModel.transform.position;
+            Vector3 richStart = richModel.transform.position;
+            Vector3 wifeDoor = new Vector3(RoadX + 0.6f, 0.86f, stopZ - 1f);
+            Vector3 richDoor = new Vector3(RoadX - 0.6f, 0.86f, stopZ - 1f);
+
+            float walkDur = 4f;
+            float wt = 0f;
+            while (wt < walkDur)
+            {
+                wt += Time.deltaTime;
+                float p = Mathf.Min(wt / walkDur, 1f);
+                wifeModel.transform.position = Vector3.Lerp(wifeStart, wifeDoor, p);
+                richModel.transform.position = Vector3.Lerp(richStart, richDoor, p);
+                FaceMoveDirection(wifeModel.transform, wifeDoor - wifeModel.transform.position);
+                FaceMoveDirection(richModel.transform, richDoor - richModel.transform.position);
+                yield return null;
+            }
+
+            // Board the car
+            wifeModel.transform.SetParent(carRoot.transform);
+            wifeModel.transform.localPosition = new Vector3(0.35f, 0.62f, -0.2f);
+            wifeModel.transform.localRotation = Quaternion.identity;
+            richModel.transform.SetParent(carRoot.transform);
+            richModel.transform.localPosition = new Vector3(-0.35f, 0.62f, -0.2f);
+            richModel.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+
+            yield return new WaitForSeconds(1.5f);
+
+            // ── PHASE 4: THE JOURNEY (12s) ──
+            float rideDur = 12f;
+            float rideTimer = 0f;
+            float deltaZ = SadEndZ - stopZ;
+            bool wifeLookedBack = false;
+
+            while (rideTimer < rideDur)
+            {
+                rideTimer += Time.deltaTime;
+                float p = Mathf.Min(rideTimer / rideDur, 1f);
+                float z = stopZ + deltaZ * p;
+                carRoot.transform.position = new Vector3(RoadX, 0f, z);
+
+                if (!wifeLookedBack && p >= 0.6f)
+                {
+                    wifeLookedBack = true;
+                    _wifeLookBackRoutine = StartCoroutine(WifeLookBack(wifeModel.transform));
+                }
+
+                if (_mainCamera != null)
+                {
+                    float camZ = z + 10f;
+                    _mainCamera.transform.position = new Vector3(RoadX - 2f, 3.5f, camZ);
+                    _mainCamera.transform.LookAt(new Vector3(RoadX, 1f, z));
+                }
+                yield return null;
+            }
+
+            // ── PHASE 5: FADING AWAY (5s) ──
+            yield return new WaitForSeconds(3f);
+            yield return StartCoroutine(FadeOverlay(1, 2f));
+
+            // ── PHASE 6: END SCREEN ──
+            HideSkipButton();
+            CleanupSpawned();
+            DestroyLetterboxBars();
+            DestroyOverlay();
+
+            if (_uiManager == null)
+                _uiManager = Object.FindAnyObjectByType<UIManager>();
+            if (_uiManager != null)
+                _uiManager.ShowEndScreen(Localization.T("KẾT THÚC: CÔ ẤY ĐÃ RỜI XA"),
+                    Localization.T("Trong lúc cậu mải làm nông, ông chú giàu có đã lặng lẽ đến gần cô ấy.\n\nKhi cậu quay lại...\nJessica đã không còn đợi cậu nữa.\n\nCậu đã để cô ấy ra đi, mãi mãi."));
+        }
+        finally
+        {
+            IsActive = false;
+            _cutsceneRoutine = null;
+        }
+    }
+
+    private IEnumerator PanCamera(Vector3 startPos, Vector3 endPos, Vector3 lookTarget, float duration)
+    {
+        if (_mainCamera == null)
+            yield break;
+        float timer = 0f;
+        while (timer < duration)
+        {
+            timer += Time.deltaTime;
+            float t = Mathf.SmoothStep(0f, 1f, timer / duration);
+            _mainCamera.transform.position = Vector3.Lerp(startPos, endPos, t);
+            _mainCamera.transform.LookAt(lookTarget);
+            yield return null;
+        }
+    }
+
+    private void FaceMoveDirection(Transform t, Vector3 dir)
+    {
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 0.001f)
+            return;
+        t.rotation = Quaternion.LookRotation(-dir.normalized);
     }
 
     private IEnumerator WifeLookBack(Transform wife)
@@ -1142,7 +1330,7 @@ public class CutsceneManager : MonoBehaviour
         if (_uiManager == null)
             _uiManager = Object.FindAnyObjectByType<UIManager>();
         if (_uiManager != null)
-            _uiManager.ShowMessage("Tiếp tục cuộc phiêu lưu!", 2);
+            _uiManager.ShowMessage(Localization.T("Tiếp tục cuộc phiêu lưu!"), 2);
         }
         finally
         {
@@ -1368,9 +1556,9 @@ public class CutsceneManager : MonoBehaviour
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
 
-        var title = MakeUIText("HappyTitle", "KẾT THÚC HẠNH PHÚC", 48, new Color(1f, 0.863f, 0.314f), new Vector2(0, 80));
-        var sub = MakeUIText("HappySubtitle", "Bạn và Jessica đã đi đến cuối con đường cùng nhau!", 24, Color.white, new Vector2(0, 20));
-        var hint = MakeUIText("HappyHint", "Nhấn Enter để tiếp tục chơi", 18, Color.gray, new Vector2(0, -30));
+        var title = MakeUIText("HappyTitle", Localization.T("KẾT THÚC HẠNH PHÚC"), 48, new Color(1f, 0.863f, 0.314f), new Vector2(0, 80));
+        var sub = MakeUIText("HappySubtitle", Localization.T("Bạn và Jessica đã đi đến cuối con đường cùng nhau!"), 24, Color.white, new Vector2(0, 20));
+        var hint = MakeUIText("HappyHint", Localization.T("Nhấn Enter để tiếp tục chơi"), 18, Color.gray, new Vector2(0, -30));
     }
 
     private GameObject MakeUIText(string name, string text, int fontSize, Color color, Vector2 anchoredPos)

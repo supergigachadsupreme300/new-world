@@ -183,7 +183,7 @@ public class MobileInputController : MonoBehaviour
         joy.knob = knobRt;
         _joystick = joy;
 
-        CreateActionButton("UseButton", "DÙNG",
+        CreateActionButton("UseButton", Localization.T("DÙNG"),
             new Vector2(-w * 0.13f, baseFloor + h * 0.105f), new Vector2(sPrimary, sPrimary),
             "use", false, btnFont);
         CreateActionButton("InteractButton", "E",
@@ -192,10 +192,10 @@ public class MobileInputController : MonoBehaviour
         CreateActionButton("DropButton", "Q",
             new Vector2(-w * 0.035f, baseFloor + h * 0.02f), new Vector2(sSmall, sSmall),
             "drop", false, smFont);
-        CreateActionButton("SprintButton", "CHẠY",
+        CreateActionButton("SprintButton", Localization.T("CHẠY"),
             new Vector2(-w * 0.035f, baseFloor + h * 0.19f), new Vector2(sMedium, sMedium),
             "sprint", true, smFont);
-        CreateActionButton("JumpButton", "NHẢY",
+        CreateActionButton("JumpButton", Localization.T("NHẢY"),
             new Vector2(-w * 0.035f, baseFloor + h * 0.275f), new Vector2(sMedium, sMedium),
             "jump", false, btnFont);
         CreateActionButton("PauseButton", "II",
@@ -204,10 +204,10 @@ public class MobileInputController : MonoBehaviour
 
         _buildGroup = new GameObject("BuildGroup");
         _buildGroup.transform.SetParent(_canvasGo.transform, false);
-        CreateActionButton("BuildButton", "XÂY",
+        CreateActionButton("BuildButton", Localization.T("XÂY"),
             new Vector2(-w * 0.13f, baseFloor + h * 0.53f), new Vector2(sMedium, sMedium),
             "build", false, btnFont, parent: _buildGroup.transform);
-        CreateActionButton("RotateButton", "XOAY",
+        CreateActionButton("RotateButton", Localization.T("XOAY"),
             new Vector2(-w * 0.035f, baseFloor + h * 0.445f), new Vector2(sSmall, sSmall),
             "rotate", false, smFont, parent: _buildGroup.transform);
         _buildGroup.SetActive(false);

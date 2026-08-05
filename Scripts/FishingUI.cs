@@ -157,7 +157,7 @@ public class FishingUI : MonoBehaviour
         _wheelRect.localRotation = Quaternion.identity;
         _playerLine.anchoredPosition = Vector2.zero;
         UpdateProgressFill();
-        _statusText.text = "Kéo Cá!";
+        _statusText.text = Localization.T("Kéo Cá!");
         _statusText.color = Color.white;
     }
 
@@ -212,11 +212,11 @@ public class FishingUI : MonoBehaviour
         UpdateProgressFill();
 
         if (Progress >= 1f)
-            _statusText.text = "Bắt Được Cá!";
+            _statusText.text = Localization.T("Bắt Được Cá!");
         else if (Progress <= 0f)
-            _statusText.text = "Cá Thoát!";
+            _statusText.text = Localization.T("Cá Thoát!");
         else
-            _statusText.text = "Đang Kéo...";
+            _statusText.text = Localization.T("Đang Kéo...");
 
         _statusText.color = Progress >= 1f ? Color.green : (Progress <= 0f ? Color.red : Color.white);
     }

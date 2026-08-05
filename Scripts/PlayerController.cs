@@ -172,7 +172,8 @@ public class PlayerController : MonoBehaviour
     private void HandleMovement()
     {
         bool dialogBlocked = (WifeNPC.Instance != null && WifeNPC.Instance.IsDialogActive) ||
-                             (BuffaloDialog.Instance != null && BuffaloDialog.Instance.IsDialogActive);
+                             (BuffaloDialog.Instance != null && BuffaloDialog.Instance.IsDialogActive) ||
+                             (RichManNPC.Instance != null && RichManNPC.Instance.IsDialogActive);
         Vector2 input = dialogBlocked ? Vector2.zero : ReadMoveInput();
         Vector3 direction = new Vector3(input.x, 0f, input.y);
         if (direction.magnitude > 1f)
@@ -231,12 +232,15 @@ public class PlayerController : MonoBehaviour
     {
         bool wifeDialog = WifeNPC.Instance != null && WifeNPC.Instance.IsDialogActive;
         bool buffaloDialog = BuffaloDialog.Instance != null && BuffaloDialog.Instance.IsDialogActive;
-        bool dialogBlocked = wifeDialog || buffaloDialog;
+        bool richManDialog = RichManNPC.Instance != null && RichManNPC.Instance.IsDialogActive;
+        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog;
 
         bool ePressed = (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) ||
-                        (!wifeDialog && MobileInputController.Consume("interact"));
+                        (!wifeDialog && !richManDialog && MobileInputController.Consume("interact"));
         if (ePressed && buffaloDialog)
-            BuffaloDialog.Instance.Hide();
+            BuffaloDialog.Instance.Advance();
+        if (ePressed && richManDialog)
+            RichManNPC.Instance.Advance();
 
         if (!dialogBlocked)
         {
@@ -301,6 +305,12 @@ public class PlayerController : MonoBehaviour
                                 shop.Initialize();
                             }
                             shop.Open();
+                            return;
+                        }
+                        if (hit.collider.transform.name == "RichManNpc")
+                        {
+                            if (RichManNPC.Instance != null && !RichManNPC.Instance.IsDialogActive)
+                                RichManNPC.Instance.Interact();
                             return;
                         }
                         if (wb.TryToggleDoor(hit)) return;

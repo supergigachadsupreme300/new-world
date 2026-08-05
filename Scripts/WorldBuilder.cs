@@ -166,6 +166,17 @@ public class WorldBuilder : MonoBehaviour
         new BuildingDefinition("table", new Vector3(2f, 1f, 2f), new Color(0.65f, 0.45f, 0.22f), 2, 0),
         new BuildingDefinition("chair", new Vector3(1f, 1.5f, 1f), new Color(0.58f, 0.38f, 0.18f), 1, 0),
         new BuildingDefinition("sofa", new Vector3(2f, 1f, 1.5f), new Color(0.55f, 0.35f, 0.16f), 3, 0),
+        new BuildingDefinition("goblin_hut", new Vector3(3f, 2.5f, 3f), new Color(0.45f, 0.33f, 0.18f), 8, 4,
+            new BuildingPartDefinition[]
+            {
+                new BuildingPartDefinition { PartName = "Floor",        LocalPosition = new Vector3(0f, -1.2f, 0f),    LocalScale = new Vector3(3f, 0.25f, 3f),    MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Back",    LocalPosition = new Vector3(0f, 0f, -1.4f),   LocalScale = new Vector3(3f, 2.4f, 0.2f),  MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Left",    LocalPosition = new Vector3(-1.4f, 0f, 0f),   LocalScale = new Vector3(0.2f, 2.4f, 3f),  MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Right",   LocalPosition = new Vector3(1.4f, 0f, 0f),    LocalScale = new Vector3(0.2f, 2.4f, 3f),  MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_FrontL",  LocalPosition = new Vector3(-0.9f, 0f, 1.4f), LocalScale = new Vector3(1.2f, 2.4f, 0.2f),  MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_FrontR",  LocalPosition = new Vector3(0.9f, 0f, 1.4f),  LocalScale = new Vector3(1.2f, 2.4f, 0.2f),  MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Roof",         LocalPosition = new Vector3(0f, 1.2f, 0f),    LocalScale = new Vector3(3.3f, 0.25f, 3.3f), MaterialType = "stone" }
+            }),
         new BuildingDefinition("door", new Vector3(3f, 4f, 0.3f), new Color(0.55f, 0.35f, 0.16f), 3, 0,
             new BuildingPartDefinition[]
             {
@@ -2004,7 +2015,7 @@ public class WorldBuilder : MonoBehaviour
                 Vector3 subPos = snapped + rotatedOffset;
                 if (!CanPlaceBuilding(subPos, sub.Size, _currentRotation))
                 {
-                    GameManager.Instance?.UIManager?.ShowMessage("Không đủ chỗ cho toàn bộ công trình.", 1.5f);
+                    GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Không đủ chỗ cho toàn bộ công trình."), 1.5f);
                     return false;
                 }
                 subPlans.Add((sub.PartName, subPos, sub.Size, sub.Color, sub.WoodCost, sub.StoneCost));
@@ -3360,7 +3371,7 @@ public class WorldBuilder : MonoBehaviour
                 if (tm == null) return false;
                 if (tm.CountItem("wood") < needWood || tm.CountItem("stone") < needStone)
                 {
-                    GameManager.Instance?.UIManager?.ShowMessage("Không đủ gỗ/đá để sửa chữa.", 1.5f);
+                    GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Không đủ gỗ/đá để sửa chữa."), 1.5f);
                     return false;
                 }
 
@@ -3387,7 +3398,7 @@ public class WorldBuilder : MonoBehaviour
                 b.CurrentHealth = Mathf.Min(b.MaxHealth, b.CurrentHealth + 4);
                 UpdateBuildingDurabilityLabel(b);
                 SoundManager.Instance?.Play("hammer");
-                GameManager.Instance?.UIManager?.ShowMessage("Đã sửa chữa xong.", 1.5f);
+                GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Đã sửa chữa xong."), 1.5f);
                 return true;
             }
         }
@@ -4179,6 +4190,7 @@ GameObject treeRoot;
             IsEssential = true
         });
         WifeNPC.BuildWifeNpc(_worldRoot.transform, new Vector3(30f, 0.86f, 0f), 1f, Quaternion.Euler(0f, 90f, 0f));
+        RichManNPC.BuildRichManNpc(_worldRoot.transform, new Vector3(30f, 0.86f, 7f), 1f, Quaternion.Euler(0f, 90f, 0f));
     }
 
     private void SpawnBuffalo()
@@ -4612,6 +4624,52 @@ GameObject treeRoot;
         MakeBlock("VendorArmR", vendorRoot.transform, new Vector3(0.15f, 0.6f, 0.15f),
             new Vector3(0.4f, floorY + 1.3f, 0f), new Color(0.565f, 0.78f, 0.945f), true);
 
+        // Face (toward the window / player, local +Z)
+        Color vSkin = new Color(0.95f, 0.85f, 0.75f);
+        Color vDark = new Color(0.15f, 0.12f, 0.1f);
+        Color vRosy = new Color(0.95f, 0.6f, 0.5f);
+        Color vGold = new Color(0.92f, 0.78f, 0.3f);
+        MakeBlock("VendorEyeWhiteL", vendorRoot.transform, new Vector3(0.08f, 0.07f, 0.03f),
+            new Vector3(-0.09f, floorY + 2.13f, 0.255f), Color.white, true);
+        MakeBlock("VendorEyeWhiteR", vendorRoot.transform, new Vector3(0.08f, 0.07f, 0.03f),
+            new Vector3(0.09f, floorY + 2.13f, 0.255f), Color.white, true);
+        MakeBlock("VendorEyeIrisL", vendorRoot.transform, new Vector3(0.04f, 0.045f, 0.03f),
+            new Vector3(-0.09f, floorY + 2.125f, 0.275f), vDark, true);
+        MakeBlock("VendorEyeIrisR", vendorRoot.transform, new Vector3(0.04f, 0.045f, 0.03f),
+            new Vector3(0.09f, floorY + 2.125f, 0.275f), vDark, true);
+        MakeBlock("VendorEyebrowL", vendorRoot.transform, new Vector3(0.09f, 0.02f, 0.02f),
+            new Vector3(-0.09f, floorY + 2.185f, 0.26f), vDark, true);
+        MakeBlock("VendorEyebrowR", vendorRoot.transform, new Vector3(0.09f, 0.02f, 0.02f),
+            new Vector3(0.09f, floorY + 2.185f, 0.26f), vDark, true);
+        MakeBlock("VendorNose", vendorRoot.transform, new Vector3(0.06f, 0.06f, 0.04f),
+            new Vector3(0f, floorY + 2.10f, 0.29f), vSkin, true);
+        MakeBlock("VendorCheekL", vendorRoot.transform, new Vector3(0.04f, 0.03f, 0.02f),
+            new Vector3(-0.15f, floorY + 2.08f, 0.26f), vRosy, true);
+        MakeBlock("VendorCheekR", vendorRoot.transform, new Vector3(0.04f, 0.03f, 0.02f),
+            new Vector3(0.15f, floorY + 2.08f, 0.26f), vRosy, true);
+        MakeBlock("VendorSmile", vendorRoot.transform, new Vector3(0.11f, 0.02f, 0.02f),
+            new Vector3(0f, floorY + 2.02f, 0.26f), vDark, true);
+
+        // Apron, buttons and collar
+        MakeBlock("VendorApron", vendorRoot.transform, new Vector3(0.5f, 0.5f, 0.03f),
+            new Vector3(0f, floorY + 1.15f, 0.27f), new Color(0.88f, 0.86f, 0.82f), true);
+        MakeBlock("VendorApronBtn1", vendorRoot.transform, new Vector3(0.03f, 0.03f, 0.025f),
+            new Vector3(0f, floorY + 1.05f, 0.295f), vGold, true);
+        MakeBlock("VendorApronBtn2", vendorRoot.transform, new Vector3(0.03f, 0.03f, 0.025f),
+            new Vector3(0f, floorY + 1.25f, 0.295f), vGold, true);
+        MakeBlock("VendorCollar", vendorRoot.transform, new Vector3(0.24f, 0.04f, 0.03f),
+            new Vector3(0f, floorY + 1.65f, 0.27f), Color.white, true);
+
+        // Straw hat (above head, visible over the roof)
+        MakeBlock("VendorHatBrim", vendorRoot.transform, new Vector3(0.55f, 0.04f, 0.55f),
+            new Vector3(0f, floorY + 2.38f, 0f), new Color(0.75f, 0.6f, 0.35f), true);
+        MakeBlock("VendorHatBand", vendorRoot.transform, new Vector3(0.3f, 0.03f, 0.3f),
+            new Vector3(0f, floorY + 2.42f, 0f), new Color(0.62f, 0.15f, 0.18f), true);
+        MakeBlock("VendorHatCrown1", vendorRoot.transform, new Vector3(0.3f, 0.09f, 0.3f),
+            new Vector3(0f, floorY + 2.45f, 0f), new Color(0.75f, 0.6f, 0.35f), true);
+        MakeBlock("VendorHatCrown2", vendorRoot.transform, new Vector3(0.2f, 0.08f, 0.2f),
+            new Vector3(0f, floorY + 2.52f, 0f), new Color(0.75f, 0.6f, 0.35f), true);
+
         cart.VendorModel = vendorRoot;
         cart.ModelBaseY = vendorRoot.transform.localPosition.y;
 
@@ -4630,7 +4688,7 @@ GameObject treeRoot;
         _vendorCarts.Add(cart);
     }
 
-    public void SpawnVendorCartAt(Vector3 position)
+    public void SpawnVendorCartAt(Vector3 position, Quaternion rotation = default)
     {
         foreach (var v in _vendorCarts)
         {
@@ -4647,7 +4705,7 @@ GameObject treeRoot;
         cart.Root = new GameObject("VendorCart");
         cart.Root.transform.SetParent(_worldRoot.transform);
         cart.Root.transform.position = position + Vector3.up * 2f;
-        cart.Root.transform.rotation = Quaternion.identity;
+        cart.Root.transform.rotation = rotation != default ? rotation : Quaternion.identity;
         cart.ArrivalPos = position;
         cart.TargetGroundY = 0.5f;
         cart.Speed = 6f;
@@ -4730,6 +4788,21 @@ GameObject treeRoot;
         legR.GetComponent<Renderer>().material.color = new Color(0.3f, 0.2f, 0.1f);
         Object.Destroy(legR.GetComponent<Collider>());
 
+        // Shoes
+        var shoeL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        shoeL.transform.SetParent(vendorRoot.transform, false);
+        shoeL.transform.localScale = new Vector3(0.14f, 0.05f, 0.16f);
+        shoeL.transform.localPosition = new Vector3(-0.1f, -0.585f, -0.02f);
+        shoeL.GetComponent<Renderer>().material.color = new Color(0.15f, 0.12f, 0.1f);
+        Object.Destroy(shoeL.GetComponent<Collider>());
+
+        var shoeR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        shoeR.transform.SetParent(vendorRoot.transform, false);
+        shoeR.transform.localScale = new Vector3(0.14f, 0.05f, 0.16f);
+        shoeR.transform.localPosition = new Vector3(0.1f, -0.585f, -0.02f);
+        shoeR.GetComponent<Renderer>().material.color = new Color(0.15f, 0.12f, 0.1f);
+        Object.Destroy(shoeR.GetComponent<Collider>());
+
         // Body
         var vendorBody = GameObject.CreatePrimitive(PrimitiveType.Cube);
         vendorBody.transform.SetParent(vendorRoot.transform, false);
@@ -4737,6 +4810,65 @@ GameObject treeRoot;
         vendorBody.transform.localPosition = new Vector3(0f, 0.2f, 0f);
         vendorBody.GetComponent<Renderer>().material.color = new Color(0.5f, 0.6f, 0.3f);
         Object.Destroy(vendorBody.GetComponent<Collider>());
+
+        // Apron over the body front (faces player side)
+        var apron = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        apron.transform.SetParent(vendorRoot.transform, false);
+        apron.transform.localScale = new Vector3(0.3f, 0.28f, 0.02f);
+        apron.transform.localPosition = new Vector3(0f, 0.18f, -0.135f);
+        apron.GetComponent<Renderer>().material.color = new Color(0.88f, 0.86f, 0.82f);
+        Object.Destroy(apron.GetComponent<Collider>());
+
+        var apronBtn1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        apronBtn1.transform.SetParent(vendorRoot.transform, false);
+        apronBtn1.transform.localScale = new Vector3(0.025f, 0.025f, 0.018f);
+        apronBtn1.transform.localPosition = new Vector3(0f, 0.13f, -0.148f);
+        apronBtn1.GetComponent<Renderer>().material.color = new Color(0.92f, 0.78f, 0.3f);
+        Object.Destroy(apronBtn1.GetComponent<Collider>());
+
+        var apronBtn2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        apronBtn2.transform.SetParent(vendorRoot.transform, false);
+        apronBtn2.transform.localScale = new Vector3(0.025f, 0.025f, 0.018f);
+        apronBtn2.transform.localPosition = new Vector3(0f, 0.21f, -0.148f);
+        apronBtn2.GetComponent<Renderer>().material.color = new Color(0.92f, 0.78f, 0.3f);
+        Object.Destroy(apronBtn2.GetComponent<Collider>());
+
+        var apronStrapL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        apronStrapL.transform.SetParent(vendorRoot.transform, false);
+        apronStrapL.transform.localScale = new Vector3(0.02f, 0.07f, 0.02f);
+        apronStrapL.transform.localPosition = new Vector3(-0.11f, 0.345f, -0.135f);
+        apronStrapL.GetComponent<Renderer>().material.color = new Color(0.95f, 0.95f, 0.95f);
+        Object.Destroy(apronStrapL.GetComponent<Collider>());
+
+        var apronStrapR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        apronStrapR.transform.SetParent(vendorRoot.transform, false);
+        apronStrapR.transform.localScale = new Vector3(0.02f, 0.07f, 0.02f);
+        apronStrapR.transform.localPosition = new Vector3(0.11f, 0.345f, -0.135f);
+        apronStrapR.GetComponent<Renderer>().material.color = new Color(0.95f, 0.95f, 0.95f);
+        Object.Destroy(apronStrapR.GetComponent<Collider>());
+
+        // Collar
+        var vendorCollar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        vendorCollar.transform.SetParent(vendorRoot.transform, false);
+        vendorCollar.transform.localScale = new Vector3(0.15f, 0.035f, 0.02f);
+        vendorCollar.transform.localPosition = new Vector3(0f, 0.325f, -0.135f);
+        vendorCollar.GetComponent<Renderer>().material.color = new Color(0.95f, 0.95f, 0.95f);
+        Object.Destroy(vendorCollar.GetComponent<Collider>());
+
+        // Money pouch on the hip
+        var pouch = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        pouch.transform.SetParent(vendorRoot.transform, false);
+        pouch.transform.localScale = new Vector3(0.07f, 0.08f, 0.05f);
+        pouch.transform.localPosition = new Vector3(0.225f, 0.10f, -0.06f);
+        pouch.GetComponent<Renderer>().material.color = new Color(0.42f, 0.28f, 0.15f);
+        Object.Destroy(pouch.GetComponent<Collider>());
+
+        var pouchStrap = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        pouchStrap.transform.SetParent(vendorRoot.transform, false);
+        pouchStrap.transform.localScale = new Vector3(0.02f, 0.12f, 0.02f);
+        pouchStrap.transform.localPosition = new Vector3(0.215f, 0.20f, -0.05f);
+        pouchStrap.GetComponent<Renderer>().material.color = new Color(0.42f, 0.28f, 0.15f);
+        Object.Destroy(pouchStrap.GetComponent<Collider>());
 
         // Arms
         var armL = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -4753,6 +4885,36 @@ GameObject treeRoot;
         armR.GetComponent<Renderer>().material.color = new Color(0.9f, 0.7f, 0.5f);
         Object.Destroy(armR.GetComponent<Collider>());
 
+        // Hands
+        var handL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        handL.transform.SetParent(vendorRoot.transform, false);
+        handL.transform.localScale = new Vector3(0.09f, 0.08f, 0.09f);
+        handL.transform.localPosition = new Vector3(-0.26f, -0.02f, 0f);
+        handL.GetComponent<Renderer>().material.color = new Color(0.9f, 0.7f, 0.5f);
+        Object.Destroy(handL.GetComponent<Collider>());
+
+        var handR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        handR.transform.SetParent(vendorRoot.transform, false);
+        handR.transform.localScale = new Vector3(0.09f, 0.08f, 0.09f);
+        handR.transform.localPosition = new Vector3(0.26f, -0.02f, 0f);
+        handR.GetComponent<Renderer>().material.color = new Color(0.9f, 0.7f, 0.5f);
+        Object.Destroy(handR.GetComponent<Collider>());
+
+        // Rolled sleeve cuffs
+        var cuffL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        cuffL.transform.SetParent(vendorRoot.transform, false);
+        cuffL.transform.localScale = new Vector3(0.09f, 0.05f, 0.09f);
+        cuffL.transform.localPosition = new Vector3(-0.26f, 0.26f, 0f);
+        cuffL.GetComponent<Renderer>().material.color = new Color(0.95f, 0.95f, 0.95f);
+        Object.Destroy(cuffL.GetComponent<Collider>());
+
+        var cuffR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        cuffR.transform.SetParent(vendorRoot.transform, false);
+        cuffR.transform.localScale = new Vector3(0.09f, 0.05f, 0.09f);
+        cuffR.transform.localPosition = new Vector3(0.26f, 0.26f, 0f);
+        cuffR.GetComponent<Renderer>().material.color = new Color(0.95f, 0.95f, 0.95f);
+        Object.Destroy(cuffR.GetComponent<Collider>());
+
         // Head
         var vendorHead = GameObject.CreatePrimitive(PrimitiveType.Cube);
         vendorHead.transform.SetParent(vendorRoot.transform, false);
@@ -4761,20 +4923,105 @@ GameObject treeRoot;
         vendorHead.GetComponent<Renderer>().material.color = new Color(0.9f, 0.7f, 0.5f);
         Object.Destroy(vendorHead.GetComponent<Collider>());
 
-        // Hat
+        // Face (points along local -Z, toward the player once the cart is rotated)
+        var eyeWhiteL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        eyeWhiteL.transform.SetParent(vendorRoot.transform, false);
+        eyeWhiteL.transform.localScale = new Vector3(0.045f, 0.045f, 0.02f);
+        eyeWhiteL.transform.localPosition = new Vector3(-0.06f, 0.575f, -0.128f);
+        eyeWhiteL.GetComponent<Renderer>().material.color = Color.white;
+        Object.Destroy(eyeWhiteL.GetComponent<Collider>());
+
+        var eyeWhiteR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        eyeWhiteR.transform.SetParent(vendorRoot.transform, false);
+        eyeWhiteR.transform.localScale = new Vector3(0.045f, 0.045f, 0.02f);
+        eyeWhiteR.transform.localPosition = new Vector3(0.06f, 0.575f, -0.128f);
+        eyeWhiteR.GetComponent<Renderer>().material.color = Color.white;
+        Object.Destroy(eyeWhiteR.GetComponent<Collider>());
+
+        var eyeIrisL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        eyeIrisL.transform.SetParent(vendorRoot.transform, false);
+        eyeIrisL.transform.localScale = new Vector3(0.025f, 0.03f, 0.02f);
+        eyeIrisL.transform.localPosition = new Vector3(-0.06f, 0.57f, -0.138f);
+        eyeIrisL.GetComponent<Renderer>().material.color = new Color(0.15f, 0.12f, 0.1f);
+        Object.Destroy(eyeIrisL.GetComponent<Collider>());
+
+        var eyeIrisR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        eyeIrisR.transform.SetParent(vendorRoot.transform, false);
+        eyeIrisR.transform.localScale = new Vector3(0.025f, 0.03f, 0.02f);
+        eyeIrisR.transform.localPosition = new Vector3(0.06f, 0.57f, -0.138f);
+        eyeIrisR.GetComponent<Renderer>().material.color = new Color(0.15f, 0.12f, 0.1f);
+        Object.Destroy(eyeIrisR.GetComponent<Collider>());
+
+        var eyebrowL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        eyebrowL.transform.SetParent(vendorRoot.transform, false);
+        eyebrowL.transform.localScale = new Vector3(0.055f, 0.012f, 0.015f);
+        eyebrowL.transform.localPosition = new Vector3(-0.06f, 0.615f, -0.13f);
+        eyebrowL.GetComponent<Renderer>().material.color = new Color(0.15f, 0.12f, 0.1f);
+        Object.Destroy(eyebrowL.GetComponent<Collider>());
+
+        var eyebrowR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        eyebrowR.transform.SetParent(vendorRoot.transform, false);
+        eyebrowR.transform.localScale = new Vector3(0.055f, 0.012f, 0.015f);
+        eyebrowR.transform.localPosition = new Vector3(0.06f, 0.615f, -0.13f);
+        eyebrowR.GetComponent<Renderer>().material.color = new Color(0.15f, 0.12f, 0.1f);
+        Object.Destroy(eyebrowR.GetComponent<Collider>());
+
+        var nose = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        nose.transform.SetParent(vendorRoot.transform, false);
+        nose.transform.localScale = new Vector3(0.045f, 0.04f, 0.03f);
+        nose.transform.localPosition = new Vector3(0f, 0.545f, -0.145f);
+        nose.GetComponent<Renderer>().material.color = new Color(0.85f, 0.65f, 0.45f);
+        Object.Destroy(nose.GetComponent<Collider>());
+
+        var cheekL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        cheekL.transform.SetParent(vendorRoot.transform, false);
+        cheekL.transform.localScale = new Vector3(0.03f, 0.02f, 0.02f);
+        cheekL.transform.localPosition = new Vector3(-0.09f, 0.55f, -0.13f);
+        cheekL.GetComponent<Renderer>().material.color = new Color(0.95f, 0.6f, 0.5f);
+        Object.Destroy(cheekL.GetComponent<Collider>());
+
+        var cheekR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        cheekR.transform.SetParent(vendorRoot.transform, false);
+        cheekR.transform.localScale = new Vector3(0.03f, 0.02f, 0.02f);
+        cheekR.transform.localPosition = new Vector3(0.09f, 0.55f, -0.13f);
+        cheekR.GetComponent<Renderer>().material.color = new Color(0.95f, 0.6f, 0.5f);
+        Object.Destroy(cheekR.GetComponent<Collider>());
+
+        var smile = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        smile.transform.SetParent(vendorRoot.transform, false);
+        smile.transform.localScale = new Vector3(0.07f, 0.015f, 0.015f);
+        smile.transform.localPosition = new Vector3(0f, 0.505f, -0.13f);
+        smile.GetComponent<Renderer>().material.color = new Color(0.15f, 0.12f, 0.1f);
+        Object.Destroy(smile.GetComponent<Collider>());
+
+        // Straw hat
         var hatBrim = GameObject.CreatePrimitive(PrimitiveType.Cube);
         hatBrim.transform.SetParent(vendorRoot.transform, false);
-        hatBrim.transform.localScale = new Vector3(0.35f, 0.03f, 0.35f);
+        hatBrim.transform.localScale = new Vector3(0.42f, 0.03f, 0.42f);
         hatBrim.transform.localPosition = new Vector3(0f, 0.7f, 0f);
-        hatBrim.GetComponent<Renderer>().material.color = new Color(0.4f, 0.2f, 0.1f);
+        hatBrim.GetComponent<Renderer>().material.color = new Color(0.75f, 0.6f, 0.35f);
         Object.Destroy(hatBrim.GetComponent<Collider>());
 
-        var hatTop = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        hatTop.transform.SetParent(vendorRoot.transform, false);
-        hatTop.transform.localScale = new Vector3(0.2f, 0.08f, 0.2f);
-        hatTop.transform.localPosition = new Vector3(0f, 0.76f, 0f);
-        hatTop.GetComponent<Renderer>().material.color = new Color(0.4f, 0.2f, 0.1f);
-        Object.Destroy(hatTop.GetComponent<Collider>());
+        var hatBand = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        hatBand.transform.SetParent(vendorRoot.transform, false);
+        hatBand.transform.localScale = new Vector3(0.24f, 0.025f, 0.24f);
+        hatBand.transform.localPosition = new Vector3(0f, 0.735f, 0f);
+        hatBand.GetComponent<Renderer>().material.color = new Color(0.62f, 0.15f, 0.18f);
+        Object.Destroy(hatBand.GetComponent<Collider>());
+
+        var hatCrown1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        hatCrown1.transform.SetParent(vendorRoot.transform, false);
+        hatCrown1.transform.localScale = new Vector3(0.24f, 0.07f, 0.24f);
+        hatCrown1.transform.localPosition = new Vector3(0f, 0.76f, 0f);
+        hatCrown1.GetComponent<Renderer>().material.color = new Color(0.75f, 0.6f, 0.35f);
+        Object.Destroy(hatCrown1.GetComponent<Collider>());
+
+        var hatCrown2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        hatCrown2.transform.SetParent(vendorRoot.transform, false);
+        hatCrown2.transform.localScale = new Vector3(0.16f, 0.06f, 0.16f);
+        hatCrown2.transform.localPosition = new Vector3(0f, 0.815f, 0f);
+        hatCrown2.GetComponent<Renderer>().material.color = new Color(0.75f, 0.6f, 0.35f);
+        Object.Destroy(hatCrown2.GetComponent<Collider>());
 
         // Shop sign on roof
         var signPole = GameObject.CreatePrimitive(PrimitiveType.Cube);

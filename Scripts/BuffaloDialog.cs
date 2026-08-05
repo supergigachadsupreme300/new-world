@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -13,6 +14,7 @@ public class BuffaloDialog : MonoBehaviour
     private TMP_Text _promptText;
     private GameObject _shopRow;
     private bool _dialogActive;
+    private readonly Queue<string> _dialogQueue = new Queue<string>();
 
     public bool IsDialogActive => _dialogActive;
 
@@ -53,8 +55,11 @@ public class BuffaloDialog : MonoBehaviour
         _dialogActive = true;
         _panel.SetActive(true);
         _nameText.text = "Buffalo";
-        _dialogText.text = "are you 17 ? If not you're welcome";
-        _promptText.text = GameInput.IsMobile ? "Chạm để đóng" : "Nhấn E để đóng";
+        _dialogQueue.Clear();
+        _dialogQueue.Enqueue("Chào bạn! Tôi là Buffalo, chủ cửa hàng của làng.");
+        _dialogQueue.Enqueue("Tôi bán hạt giống, công cụ và thức ăn cho gia súc.");
+        _dialogQueue.Enqueue("Ghế cửa hàng bất cứ khi nào bạn cần nhé!");
+        Advance();
         if (_shopRow != null)
             _shopRow.SetActive(true);
     }
@@ -64,6 +69,19 @@ public class BuffaloDialog : MonoBehaviour
         _dialogActive = false;
         if (_panel != null)
             _panel.SetActive(false);
+    }
+
+    public void Advance()
+    {
+        if (_dialogQueue.Count == 0)
+        {
+            Hide();
+            return;
+        }
+        _dialogText.text = Localization.T(_dialogQueue.Dequeue());
+        _promptText.text = _dialogQueue.Count > 0
+            ? (GameInput.IsMobile ? Localization.T("Chạm để tiếp tục") : Localization.T("Nhấn E để tiếp tục"))
+            : (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"));
     }
 
     private void OpenShop()
@@ -99,7 +117,7 @@ public class BuffaloDialog : MonoBehaviour
 
         var btn = _panel.AddComponent<Button>();
         btn.targetGraphic = img;
-        btn.onClick.AddListener(Hide);
+        btn.onClick.AddListener(Advance);
 
         float panelW = sw * 0.55f;
         float panelH = sh * 0.24f;
@@ -139,7 +157,7 @@ public class BuffaloDialog : MonoBehaviour
         rowBtn.targetGraphic = rowImg;
         rowBtn.onClick.AddListener(onClick);
 
-        MakeText(textName, rowRt, new Vector2(0f, 0f), "[Mở Cửa Hàng]", 18,
+        MakeText(textName, rowRt, new Vector2(0f, 0f), Localization.T("[Mở Cửa Hàng]"), 18,
             Color.white, new Vector2(236f, 36f));
 
         return row;

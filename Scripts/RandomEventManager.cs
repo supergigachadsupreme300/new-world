@@ -373,13 +373,13 @@ public class RandomEventManager : MonoBehaviour
     public string GetEventName(int index)
     {
         if (index < 0 || index >= _events.Count) return "";
-        return _events[index].Name;
+        return Localization.T(_events[index].Name);
     }
 
     public string GetEventDescription(int index)
     {
         if (index < 0 || index >= _events.Count) return "";
-        return _events[index].Description;
+        return Localization.T(_events[index].Description);
     }
 
     public Color GetEventColor(int index)
@@ -465,7 +465,7 @@ public class RandomEventManager : MonoBehaviour
     private void ShowBanner(string title, string desc)
     {
         if (_uiManager != null)
-            _uiManager.ShowMessage(title + ": " + desc, 4f);
+            _uiManager.ShowMessage(Localization.T(title) + ": " + Localization.T(desc), 4f);
     }
 
     // ── Helper: Player Position ──
@@ -995,7 +995,12 @@ public class RandomEventManager : MonoBehaviour
         merchantPos.y = 0.5f;
 
         var root = GetWorldRoot();
-        WorldBuilder.Instance?.SpawnVendorCartAt(merchantPos);
+        Vector3 toPlayer = playerPos - merchantPos;
+        toPlayer.y = 0f;
+        Quaternion cartRot = toPlayer.sqrMagnitude > 0.001f
+            ? Quaternion.FromToRotation(new Vector3(0f, 0f, -1f), toPlayer.normalized)
+            : Quaternion.identity;
+        WorldBuilder.Instance?.SpawnVendorCartAt(merchantPos, cartRot);
     }
 
     private void EffectMarketCrash()
