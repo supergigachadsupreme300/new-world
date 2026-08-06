@@ -48,8 +48,13 @@ public class WorldBuilder : MonoBehaviour
     private float _roadHalfWidth = 3.8f;
     private float _roadZStart = -100f;
     private float _roadZEnd = 100f;
+    private float _roadTurnZ = 90f;
+    private float _roadXEnd = 180f;
     private Transform _shopRoot;
     private GameObject _vendorSpawnButton;
+    private GameObject _policePostRoot;
+    private GameObject _policeOfficerRoot;
+    private GameObject _policeCarRoot;
     private GameObject _alignmentStrip;
     private readonly List<GameObject> _eventBlocks = new List<GameObject>();
     private readonly List<int> _eventBlockIndices = new List<int>();
@@ -355,7 +360,13 @@ public class WorldBuilder : MonoBehaviour
         BuildHouse();
         BuildBeach();
         BuildShop();
+        BuildRestaurant();
+        MapBuilder.BuildConvenienceStore(_worldRoot.transform, new Vector3(0f, 0f, 67.5f));
+        MapBuilder.BuildMarketNpc(_worldRoot.transform, "ToolShopNPC", new Vector3(-4.5f, 0.86f, 67f), Quaternion.Euler(0f, 90f, 0f));
+        MapBuilder.BuildMarketNpc(_worldRoot.transform, "GroceryNPC", new Vector3(4.5f, 0.86f, 67f), Quaternion.Euler(0f, -90f, 0f));
         BuildWifeHouse();
+        BuildRichManMansion();
+        BuildPolicePost();
         SpawnBuffalo();
         CreateVendorSpawnButton();
         CreateEventBlocks();
@@ -369,6 +380,8 @@ public class WorldBuilder : MonoBehaviour
         InitializeBuildingPreview();
         PlaceMansionBlueprint(new Vector3(-30f, 0f, 50f));
         BuildPagoda(new Vector3(26f, 0f, 25f));
+        var monk = MapBuilder.BuildMonkNpc(_worldRoot.transform, new Vector3(26f, 0.86f, 17f), Quaternion.identity);
+        monk.AddComponent<PagodaMonkNPC>();
 
         SpawnInitialClouds();
 
@@ -810,8 +823,11 @@ public class WorldBuilder : MonoBehaviour
         if (RoadObject == null)
             return false;
 
-        return position.x >= (_roadCenterX - _roadHalfWidth - 0.5f) && position.x <= (_roadCenterX + _roadHalfWidth + 0.5f)
+        bool onNS = position.x >= (_roadCenterX - _roadHalfWidth - 0.5f) && position.x <= (_roadCenterX + _roadHalfWidth + 0.5f)
                && position.z >= _roadZStart && position.z <= _roadZEnd;
+        bool onEW = position.x >= (_roadCenterX - 0.5f) && position.x <= (_roadXEnd + 0.5f)
+               && position.z >= (_roadTurnZ - _roadHalfWidth - 0.5f) && position.z <= (_roadTurnZ + _roadHalfWidth + 0.5f);
+        return onNS || onEW;
     }
 
     public float GetRoadSurfaceY()
@@ -1235,6 +1251,17 @@ public class WorldBuilder : MonoBehaviour
             return false;
         field.Fertilized = true;
         UpdateFieldVisual(field);
+        return true;
+    }
+
+    public bool BoostFieldGrowth(Vector3 position)
+    {
+        var field = GetFieldAt(position);
+        if (field == null || !field.Tilled || !field.HasCrop || field.IsHarvested || field.Stage >= 4)
+            return false;
+        field.Stage++;
+        field.GrowTimer = 0f;
+        UpdateCropVisual(field);
         return true;
     }
 
@@ -2104,7 +2131,7 @@ public class WorldBuilder : MonoBehaviour
             {
                 Type = sub.PartName,
                 Position = position + sub.Offset,
-                Rotation = 0
+                Rotation = 90
             };
             SpawnStructurePart(bp);
         }
@@ -3107,7 +3134,7 @@ public class WorldBuilder : MonoBehaviour
         }
     }
 
-    private void RebuildEssentialBuilding(BlueprintState bp)
+    private GameObject RebuildEssentialBuilding(BlueprintState bp)
     {
         GameObject root = null;
         switch (bp.Type)
@@ -3121,6 +3148,9 @@ public class WorldBuilder : MonoBehaviour
                 break;
             case "WifeHouse":
                 root = MapBuilder.BuildWifeHouse(_worldRoot.transform, bp.Position);
+                break;
+            case "RichMansion":
+                root = MapBuilder.BuildRichManMansion(_worldRoot.transform, bp.Position, 1f, Quaternion.Euler(0f, bp.Rotation, 0f));
                 break;
         }
         if (root != null)
@@ -3137,6 +3167,7 @@ public class WorldBuilder : MonoBehaviour
                 IsEssential = true
             });
         }
+        return root;
     }
 
     public BuildingState FindBuilding(GameObject obj)
@@ -3830,40 +3861,47 @@ public class WorldBuilder : MonoBehaviour
     {
         float roadCx = 14f;
         float roadHw = 3.8f;
-        float roadLen = 600f;
-        float roadZc = 17f;
+        float roadTurnZ = 90f;
+        float roadEndX = 180f;
+        float nsZStart = -283f;
+        float nsZEnd = roadTurnZ;
+        float nsLen = nsZEnd - nsZStart;
+        float nsZc = (nsZStart + nsZEnd) * 0.5f;
+        float ewLen = roadEndX - roadCx;
+        float ewXc = (roadEndX + roadCx) * 0.5f;
 
         Color curbC = new Color(0.46f, 0.45f, 0.42f);
         Color whiteC = Color.white;
         Color yellowC = new Color(0.92f, 0.80f, 0.18f);
         Color asphaltC = new Color(0.235f, 0.243f, 0.275f);
 
+        // North-south leg (runs z: nsZStart -> roadTurnZ)
         RoadObject = MakeBlock("Road", _worldRoot.transform,
-            new Vector3(roadHw * 2f, 0.06f, roadLen),
-            new Vector3(roadCx, 0.03f, roadZc), asphaltC, false, true);
+            new Vector3(roadHw * 2f, 0.06f, nsLen),
+            new Vector3(roadCx, 0.03f, nsZc), asphaltC, false, true);
 
         // Kerbs
         foreach (int side in new[] { -1, 1 })
         {
             MakeBlock("Kerb", _worldRoot.transform,
-                new Vector3(0.55f, 0.22f, roadLen),
-                new Vector3(roadCx + side * (roadHw + 0.27f), 0.11f, roadZc), curbC, true);
+                new Vector3(0.55f, 0.22f, nsLen),
+                new Vector3(roadCx + side * (roadHw + 0.27f), 0.11f, nsZc), curbC, true);
         }
 
         // White edge lines
         foreach (int side in new[] { -1, 1 })
         {
             MakeBlock("EdgeLine", _worldRoot.transform,
-                new Vector3(0.18f, 0.03f, roadLen),
-                new Vector3(roadCx + side * (roadHw - 0.22f), 0.03f, roadZc), whiteC, true);
+                new Vector3(0.18f, 0.03f, nsLen),
+                new Vector3(roadCx + side * (roadHw - 0.22f), 0.03f, nsZc), whiteC, true);
         }
 
         // Yellow dashed center line
         float dashLen = 2.8f;
         float dashGap = 2.2f;
         float dashStep = dashLen + dashGap;
-        float zStart = roadZc - roadLen / 2f + dashLen / 2f;
-        int numDashes = Mathf.FloorToInt(roadLen / dashStep);
+        float zStart = nsZStart + dashLen / 2f;
+        int numDashes = Mathf.FloorToInt(nsLen / dashStep);
         for (int i = 0; i < numDashes; i++)
         {
             MakeBlock("CenterDash", _worldRoot.transform,
@@ -3871,11 +3909,46 @@ public class WorldBuilder : MonoBehaviour
                 new Vector3(roadCx, 0.03f, zStart + i * dashStep), yellowC, true);
         }
 
+        // Corner patch at the junction
+        MakeBlock("RoadCorner", _worldRoot.transform,
+            new Vector3(roadHw * 2f, 0.06f, roadHw * 2f),
+            new Vector3(roadCx, 0.03f, roadTurnZ), asphaltC, false, true);
+
+        // East-west leg at the north turn (runs x: roadCx -> roadEndX at z = roadTurnZ)
+        MakeBlock("RoadTurn", _worldRoot.transform,
+            new Vector3(ewLen, 0.06f, roadHw * 2f),
+            new Vector3(ewXc, 0.03f, roadTurnZ), asphaltC, false, true);
+
+        foreach (int side in new[] { -1, 1 })
+        {
+            MakeBlock("Kerb", _worldRoot.transform,
+                new Vector3(ewLen, 0.22f, 0.55f),
+                new Vector3(ewXc, 0.11f, roadTurnZ + side * (roadHw + 0.27f)), curbC, true);
+        }
+
+        foreach (int side in new[] { -1, 1 })
+        {
+            MakeBlock("EdgeLine", _worldRoot.transform,
+                new Vector3(ewLen, 0.03f, 0.18f),
+                new Vector3(ewXc, 0.03f, roadTurnZ + side * (roadHw - 0.22f)), whiteC, true);
+        }
+
+        float xStart = roadCx + dashLen / 2f;
+        int ewDashes = Mathf.FloorToInt(ewLen / dashStep);
+        for (int i = 0; i < ewDashes; i++)
+        {
+            MakeBlock("CenterDash", _worldRoot.transform,
+                new Vector3(dashLen, 0.03f, 0.18f),
+                new Vector3(xStart + i * dashStep, 0.03f, roadTurnZ), yellowC, true);
+        }
+
         // Publish bounds
         _roadCenterX = roadCx;
         _roadHalfWidth = roadHw;
-        _roadZStart = roadZc - roadLen / 2f;
-        _roadZEnd = roadZc + roadLen / 2f;
+        _roadZStart = nsZStart;
+        _roadZEnd = nsZEnd;
+        _roadTurnZ = roadTurnZ;
+        _roadXEnd = roadEndX;
     }
 
     private void BuildRockyBorder()
@@ -4175,6 +4248,22 @@ GameObject treeRoot;
         });
     }
 
+    private void BuildRestaurant()
+    {
+        var restaurant = MapBuilder.BuildRiceRestaurant(_worldRoot.transform, new Vector3(0f, 0f, 75f));
+        _buildings.Add(new BuildingState
+        {
+            Entity = restaurant,
+            Type = "Restaurant",
+            Position = restaurant.transform.position,
+            Rotation = 0,
+            PartStates = CollectColliderParts(restaurant, "Restaurant"),
+            CurrentHealth = 100,
+            MaxHealth = 100,
+            IsEssential = true
+        });
+    }
+
     private void BuildWifeHouse()
     {
         var wifeHouse = MapBuilder.BuildWifeHouse(_worldRoot.transform, new Vector3(33f, 0f, 0f));
@@ -4190,7 +4279,23 @@ GameObject treeRoot;
             IsEssential = true
         });
         WifeNPC.BuildWifeNpc(_worldRoot.transform, new Vector3(30f, 0.86f, 0f), 1f, Quaternion.Euler(0f, 90f, 0f));
-        RichManNPC.BuildRichManNpc(_worldRoot.transform, new Vector3(30f, 0.86f, 7f), 1f, Quaternion.Euler(0f, 90f, 0f));
+    }
+
+    private void BuildRichManMansion()
+    {
+        var mansion = MapBuilder.BuildRichManMansion(_worldRoot.transform, new Vector3(46f, 0f, 46f));
+        _buildings.Add(new BuildingState
+        {
+            Entity = mansion,
+            Type = "RichMansion",
+            Position = mansion.transform.position,
+            Rotation = 0,
+            PartStates = CollectColliderParts(mansion, "RichMansion"),
+            CurrentHealth = 100,
+            MaxHealth = 100,
+            IsEssential = true
+        });
+        RichManNPC.BuildRichManNpc(_worldRoot.transform, new Vector3(24.5f, 0.86f, 46f), 1f, Quaternion.Euler(0f, 90f, 0f));
     }
 
     private void SpawnBuffalo()
@@ -4203,13 +4308,18 @@ GameObject treeRoot;
     {
         bool nearHouse = Mathf.Abs(x) <= 9 && Mathf.Abs(z) <= 9;
         bool nearShop = Mathf.Abs(x) <= 9 && z >= 51 && z <= 69;
+        bool nearRestaurant = Mathf.Abs(x) <= 10 && z >= 66 && z <= 84;
         bool nearRoad = x >= (_roadCenterX - _roadHalfWidth - 3f) && x <= (_roadCenterX + _roadHalfWidth + 3f)
                         && z >= _roadZStart - 10f && z <= _roadZEnd + 10f;
+        bool nearRoadTurn = x >= (_roadCenterX - 3f) && x <= (_roadXEnd + 3f)
+                        && z >= (_roadTurnZ - _roadHalfWidth - 3f) && z <= (_roadTurnZ + _roadHalfWidth + 3f);
+        bool nearPolicePost = x >= 18 && x <= 40 && z >= 72 && z <= 92;
         bool nearWifeHouse = x >= 20 && x <= 42 && Mathf.Abs(z) <= 10;
+        bool nearRichMansion = x >= 16 && x <= 60 && z >= 33 && z <= 59;
         bool nearDisplay = x >= 48 && x <= 67 && z >= -130 && z <= -48;
         bool nearMansion = x >= -45 && x <= -15 && z >= 39 && z <= 61;
         bool nearPagoda = Mathf.Abs(x - _pagodaPosition.x) <= 8 && Mathf.Abs(z - _pagodaPosition.z) <= 12;
-        return nearHouse || nearShop || nearRoad || nearWifeHouse || nearDisplay || nearMansion || nearPagoda;
+        return nearHouse || nearShop || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearDisplay || nearMansion || nearPagoda;
     }
 
     private void CreateVendorSpawnButton()
@@ -4231,6 +4341,20 @@ GameObject treeRoot;
     {
         if (_vendorSpawnButton == null) return false;
         return Vector3.Distance(position, _vendorSpawnButton.transform.position) <= range;
+    }
+
+    private void BuildPolicePost()
+    {
+        Vector3 postPos = new Vector3(30f, 0f, 78f);
+        _policePostRoot = MapBuilder.BuildPoliceStation(_worldRoot.transform, postPos, Quaternion.Euler(0f, -90f, 0f));
+        _policeOfficerRoot = MapBuilder.BuildPoliceOfficer(_worldRoot.transform, new Vector3(21.5f, 0.93f, 78f), Quaternion.Euler(0f, 90f, 0f));
+        _policeOfficerRoot.AddComponent<PoliceOfficerNPC>();
+        MapBuilder.MakeBlock("ParkingPad", _worldRoot.transform,
+            new Vector3(4.6f, 0.06f, 2.7f), new Vector3(24.2f, 0.03f, 82.8f),
+            new Color(0.55f, 0.55f, 0.56f), true);
+        var car = MapBuilder.BuildPoliceCar(_worldRoot.transform, new Vector3(24.2f, 0f, 82.8f));
+        car.transform.rotation = Quaternion.Euler(0f, 270f, 0f);
+        _policeCarRoot = car;
     }
 
     public bool TryToggleDoor(RaycastHit hit)
@@ -5825,6 +5949,27 @@ GameObject treeRoot;
                 lastPart.CurrentHealth = build.currentHealth;
                 lastPart.MaxHealth = build.maxHealth;
                 ApplySavedDoorState(lastPart.Entity, build.doorOpen);
+                continue;
+            }
+
+            if (build.type == "PlayerHouse" || build.type == "Shop" || build.type == "WifeHouse" || build.type == "RichMansion")
+            {
+                RebuildEssentialBuilding(new BlueprintState
+                {
+                    Type = build.type,
+                    Position = build.position,
+                    Rotation = build.rotation
+                });
+                var lastEssential = _buildings[_buildings.Count - 1];
+                lastEssential.CurrentHealth = build.currentHealth;
+                lastEssential.MaxHealth = build.maxHealth;
+                if (lastEssential.PartStates != null && build.partHealths != null)
+                {
+                    int essentialCount = Mathf.Min(lastEssential.PartStates.Count, build.partHealths.Length);
+                    for (int ep = 0; ep < essentialCount; ep++)
+                        lastEssential.PartStates[ep].CurrentHealth = build.partHealths[ep];
+                }
+                ApplySavedDoorState(lastEssential.Entity, build.doorOpen);
                 continue;
             }
 

@@ -56,7 +56,8 @@ public class SaveManager : MonoBehaviour
             fields = _worldBuilder.GetAllFieldsAsSave(),
             buildings = _worldBuilder.GetAllBuildingsAsSave(),
             mansionBlueprints = _worldBuilder.GetMansionBlueprintsAsSave(),
-            quests = _questManager?.GetQuestSaves()
+            quests = _questManager?.GetQuestSaves(),
+            richSecret = RichManNPC.Instance != null && RichManNPC.Instance.Discovered
         };
 
         var json = JsonUtility.ToJson(data, true);
@@ -105,6 +106,8 @@ public class SaveManager : MonoBehaviour
         _worldBuilder?.LoadFieldsFromSave(data.fields);
         _worldBuilder?.LoadBuildingsFromSave(data.buildings);
         _worldBuilder?.LoadMansionBlueprintsFromSave(data.mansionBlueprints);
+        if (RichManNPC.Instance != null)
+            RichManNPC.Instance.SetDiscovered(data.richSecret);
         _questManager?.LoadQuestSaves(data.quests);
         WifeNPC.Instance?.LoadState();
 
@@ -131,6 +134,7 @@ public class SaveManager : MonoBehaviour
         public WorldBuilder.BuildingSaveData[] buildings;
         public WorldBuilder.MansionBlueprintSaveData[] mansionBlueprints;
         public List<QuestManager.QuestSave> quests;
+        public bool richSecret;
     }
 
     [System.Serializable]

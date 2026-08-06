@@ -123,8 +123,27 @@ public static class Localization
         { "rosary", "Tràng Hạt" },
         { "club", "Cây Gậy" },
         { "mi_hao_hao", "Mì Hảo Hảo" },
+        { "com_trang", "Cơm Trắng" },
+        { "com_tam", "Cơm Tấm" },
+        { "com_ga", "Cơm Gà" },
+        { "com_chieu", "Cơm Chiên" },
         { "cage_big", "Lồng Lớn" },
         { "cage_small", "Lồng Nhỏ" },
+
+        // Convenience store
+        { "nuoc_dau", "Nước Dừa" },
+        { "tra_da", "Trà Đá" },
+        { "soda", "Soda" },
+        { "banh_mi", "Bánh Mì" },
+        { "banh_tet", "Bánh Tét" },
+        { "keo", "Kẹo" },
+
+        // Grocery store
+        { "tu_gao", "Túi Gạo" },
+        { "duong", "Đường" },
+        { "muoi", "Muối" },
+        { "xap_phong", "Xà Phòng" },
+        { "mi_chinh", "Mì Chính" },
 
         // Seeds
         { "wheat_seed", "Hạt Giống Lúa Mì" },
@@ -297,6 +316,9 @@ public static class Localization
         // Shops
         { "Cửa Hàng Bà Tân", "Mrs. Tan's Shop" },
         { "Cửa Hàng Trâu", "Buffalo Shop" },
+        { "Cửa Hàng Nông Cụ", "Tool Shop" },
+        { "Cửa Hàng Tiện Lợi", "Convenience Store" },
+        { "Cửa Hàng Tạp Hóa", "Grocery Store" },
         { "Mua", "Buy" },
         { "Bán", "Sell" },
         { "Bán Tất Cả", "Sell All" },
@@ -330,6 +352,17 @@ public static class Localization
         { "Mì Hảo Hảo", "Instant Noodles" },
         { "Cần Câu", "Fishing Rod" },
         { "Tràng Hạt", "Rosary" },
+        { "Nước Dừa", "Coconut Water" },
+        { "Trà Đá", "Iced Tea" },
+        { "Soda", "Soda" },
+        { "Bánh Mì", "Bread" },
+        { "Bánh Tét", "Sticky Rice Cake" },
+        { "Kẹo", "Candy" },
+        { "Túi Gạo", "Bag of Rice" },
+        { "Đường", "Sugar" },
+        { "Muối", "Salt" },
+        { "Xà Phòng", "Soap" },
+        { "Mì Chính", "MSG" },
         { "Lúa Mì", "Wheat" },
         { "Lúa Mì Hư", "Damaged Wheat" },
         { "Ngô", "Corn" },
@@ -380,6 +413,8 @@ public static class Localization
         { "Dùng bình tưới cho cây đang trồng.", "Use the watering can on planted crops." },
         { "Ruộng đã bón phân!", "Field fertilized!" },
         { "Dùng phân bón cho cây đang trồng.", "Use fertilizer on planted crops." },
+        { "Dùng mì chính cho cây đang trồng.", "Use MSG on planted crops." },
+        { "Máu đã đầy!", "HP already full!" },
         { "Đã thu hoạch {0}.", "Harvested {0}." },
         { "Đã gieo {0}.", "Planted {0}." },
         { "Dùng hạt giống trên đất đã cày.", "Use seeds on tilled soil." },
@@ -714,6 +749,39 @@ public static class Localization
         { "Tôi bán hạt giống, công cụ và thức ăn cho gia súc.", "I sell seeds, tools, and livestock feed." },
         { "Ghế cửa hàng bất cứ khi nào bạn cần nhé!", "Drop by the shop whenever you need anything!" },
 
+        // Restaurant
+        { "Nhà Hàng", "Restaurant" },
+        { "Đầu Bếp", "Chef" },
+        { "Cơm Trắng", "Steamed Rice" },
+        { "Cơm Tấm", "Broken Rice" },
+        { "Cơm Gà", "Chicken Rice" },
+        { "Cơm Chiên", "Fried Rice" },
+        { "Món cơm nóng hổi đây, ai vào ăn nhanh nào!", "Hot rice dishes ready, come and eat!" },
+        { "Cơm trắng cho người cần nạp năng lượng nhẹ.", "Steamed rice for a light energy boost." },
+        { "Ăn no xong là cày ruộng khỏe lại ngay!", "Eat up and you'll be farming again in no time!" },
+        { "Đã ăn {0}. Hồi phục +{1} Sức Mạnh, +{2} Máu!", "Ate {0}. Restored +{1} Stamina, +{2} HP!" },
+        { "Đã dùng {0}. +{1} Máu!", "Used {0}. +{1} HP!" },
+        { "Ruộng đã lớn nhanh hơn!", "The field grew faster!" },
+
+        // Pagoda monk
+        { "Nhà Sư", "Monk" },
+        { "A di đà Phật. Con đến chùa lễ Phật à?", "Amitabha. Have you come to pray?" },
+        { "Ngôi chùa này là cột mốc của làng, con hãy trân trọng nó.", "This pagoda is the village's landmark — treasure it." },
+        { "Muốn khỏe khoắn cả ngày, hãy ăn uống đầy đủ rồi mới ra đồng.", "To stay strong all day, eat well before heading to the fields." },
+        { "Ngủ đủ giấc cũng là một cách dưỡng sức, con đừng quên.", "Plenty of sleep also restores your strength — don't forget." },
+        { "Câu cá hay thu hoạch đều cần sức. Chú ý giữ gìn sức khỏe.", "Fishing and harvesting both take energy. Take care of yourself." },
+        { "Bình tâm. Làng này còn lắm chuyện phải trải qua.", "Stay calm. There is much this village has yet to go through." },
+        { "Người nông dân giỏi là người biết tiết kiệm sức lực.", "A good farmer knows how to conserve their strength." },
+        { "Mỗi ngày dâng một bát gạo, nhà chùa sẽ phù hộ con khỏe mạnh.", "Offer a bowl of rice each day and the pagoda will grant you good health." },
+        { "Ruộng lúa tốt nhờ nước, con người khỏe nhờ điều độ.", "Good rice paddies need water; strong people need moderation." },
+        { "Con có gạo không? Dâng cho nhà chùa một bát gạo, ta sẽ ban phước lành sức khỏe cho con cả ngày hôm nay.", "Do you have rice? Offer the pagoda a bowl of rice and I will bless your health for the whole day." },
+        { "Con đã nhận phước lành hôm nay rồi. Hãy quay lại vào ngày mai nếu muốn dâng gạo tiếp.", "You have already received today's blessing. Return tomorrow if you wish to offer more rice." },
+        { "Con thành tâm dâng gạo, nhà chùa xin ban phước lành. Sức lực của con sẽ hồi phục nhanh gấp đôi cả ngày hôm nay.", "You offer rice with a sincere heart. I bless you — your stamina will recover twice as fast for the rest of the day." },
+        { "Con chưa mang gạo theo người. Hãy quay lại khi có gạo nhé.", "You have no rice with you. Come back when you have some." },
+        { "Phước lành: hồi phục sức lực gấp đôi cả ngày!", "Blessing: stamina recovers twice as fast all day!" },
+        { "Nhấn E để dâng gạo", "Press E to offer rice" },
+        { "Chạm để dâng gạo", "Tap to offer rice" },
+
         // Animal names
         { "Bò", "Cow" },
         { "Lợn", "Pig" },
@@ -728,13 +796,46 @@ public static class Localization
         { "Jessica của cậu dạo này trông cô đơn lắm đấy.", "That Jessica of yours looks awfully lonely these days." },
         { "Nếu cậu cứ mải làm nông, tôi sẽ đưa cô ấy đi cho xem.", "If you keep burying yourself in farm work, I'll take her away." },
         { "Tôi giàu có, còn cậu thì sao? Cô ấy xứng đáng cuộc sống tốt hơn.", "I'm rich, and you? She deserves a better life." },
-        { "Ông chú giàu có đang lảng vảng quanh nhà Jessica...", "The rich man is lurking around Jessica's house..." },
+        { "Ông chú giàu có lại sang nhà Jessica giữa đêm...", "The rich man walked over to Jessica's house in the middle of the night..." },
         { "Jessica: Anh dạo này bận quá... em nhớ anh.", "Jessica: You've been so busy... I miss you." },
         { "Jessica: Em nghe nói ông chú giàu có kia cứ quanh quẩn gần nhà...", "Jessica: I hear that rich man keeps hanging around the house..." },
         { "Jessica: Anh không còn quan tâm em nữa sao? Ông ta đã ngỏ lời mời em đi...", "Jessica: Don't you care about me anymore? He's already asked me to leave with him..." },
 
         // NTR ending
         { "KẾT THÚC: CÔ ẤY ĐÃ RỜI XA", "ENDING: SHE LEFT" },
-        { "Trong lúc bạn mải mê làm giàu,\nông chú giàu có đã chiếm trọn trái tim Jessica.\n\nCô ấy đã không còn chờ đợi bạn nữa.\nBạn đã quá muộn...\n\nKhi bạn không quan tâm đến cô ấy,\nngười khác sẽ quan tâm thay bạn.", "While you chased your fortune,\nthe rich man won Jessica's heart.\n\nShe no longer waits for you.\nYou were too late...\n\nWhen you fail to care for her,\nsomeone else will." }
+        { "Trong lúc bạn mải mê làm giàu,\nông chú giàu có đã chiếm trọn trái tim Jessica.\n\nCô ấy đã không còn chờ đợi bạn nữa.\nBạn đã quá muộn...\n\nKhi bạn không quan tâm đến cô ấy,\nngười khác sẽ quan tâm thay bạn.", "While you chased your fortune,\nthe rich man won Jessica's heart.\n\nShe no longer waits for you.\nYou were too late...\n\nWhen you fail to care for her,\nsomeone else will." },
+
+        // Rich man illegal trade
+        { "Hừ. Một kẻ làm ruộng như cậu mà cũng dám bắt chuyện với ta?", "Hmph. A farmhand like you dares to start a conversation with me?" },
+        { "Ta có vàng, có đất, cả nửa dãy phố. Còn cậu? Một mảnh ruộng và vài con gà.", "I have gold, land, half the street. And you? A little field and a few chickens." },
+        { "Đừng làm ta mất thời gian. Về lo đám lúa của cậu đi.", "Don't waste my time. Go tend your rice." },
+        { "Cậu... đã nhìn thấy chuyện đêm qua rồi sao?", "You... saw last night's business, didn't you?" },
+        { "Được thôi. Cậu là người thông minh. Chúng ta có thể... thỏa thuận.", "Fine. You're clever. We can... make a deal." },
+        { "Im lặng, và cậu sẽ có một món tiền cậu không thể từ chối.", "Stay quiet, and you'll get a sum you can't refuse." },
+        { "[Bỏ Đi] (Chạm)", "[Walk Away] (Tap)" },
+        { "[Bỏ Đi] Ấn 1", "[Walk Away] Press 1" },
+        { "[Nhận Hối Lộ] (Chạm)", "[Take Bribe] (Tap)" },
+        { "[Nhận Hối Lộ] Ấn 2", "[Take Bribe] Press 2" },
+        { "Hãy lựa chọn...", "Make your choice..." },
+        { "Bạn đã phát hiện hoạt động phi pháp của Phú Ông!", "You discovered the rich man's illegal activities!" },
+        { "Bí Mật Của Phú Ông", "The Rich Man's Secret" },
+        { "Đêm tối, hãy rình xem điều gì xảy ra sau dinh thự của Phú Ông. Sau khi có bằng chứng, hãy đến đồn cảnh sát bên cạnh con đường để báo án.", "At night, spy on what happens behind the rich man's mansion. Once you have proof, report it to the police post by the road." },
+
+        // Police post / officer
+        { "Cảnh Sát", "Police Officer" },
+        { "Chào cậu. Công việc của tôi là giữ bình yên cho thôn này.", "Hello. My job is to keep this village at peace." },
+        { "Nghe nói đêm đêm quanh dinh thự Phú Ông có kẻ lạ ra vào bí mật...", "I hear strangers come and go around the rich man's mansion at night..." },
+        { "Nếu cậu thấy gì bất thường, hãy đến báo ngay cho đồn.", "If you see anything unusual, come report it to the station right away." },
+        { "Cậu tới đúng lúc. Chúng tôi đã nghi ngờ hắn từ lâu.", "You came just in time. We've suspected him for a long time." },
+        { "Những giao dịch ban đêm của hắn không lọt khỏi mắt chúng tôi.", "His nightly deals haven't escaped our eyes." },
+        { "Cảm ơn cậu. Đồng chí, vào việc thôi!", "Thank you. Comrades, let's get to work!" },
+
+        // Justice ending
+        { "KẾT THÚC CÔNG LÝ", "JUSTICE ENDING" },
+        { "Cậu đã lật tẩy bộ mặt thật của Phú Ông.\nCảnh sát đã đến, và hắn bị bắt ngay trước dinh thự của chính mình.\n\nJessica được an toàn.\nKẻ xấu phải trả giá.", "You exposed the rich man's true face.\nThe police arrived, and he was arrested in front of his own mansion.\n\nJessica is safe.\nThe wicked pay for their sins." },
+
+        // Blackmail ending
+        { "KẾT THÚC ĐEN TỐI", "DARK ENDING" },
+        { "Cậu đã im lặng. Và cậu đã được trả một cái giá rất hậu hĩnh.\n\nNhưng đêm xuống, những chiếc xe vẫn nối đuôi nhau đến dinh thự.\nJessica vẫn đang trong tầm ngắm của hắn...\n\nVà giờ, cậu là một phần của câu chuyện đó.", "You stayed silent. And you were paid handsomely.\n\nBut when night falls, the cars still line up at the mansion.\nJessica is still in his sights...\n\nAnd now, you are part of that story." }
     };
 }

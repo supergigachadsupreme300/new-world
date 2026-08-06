@@ -34,6 +34,7 @@ public class VendorShopManager : MonoBehaviour
     private List<ShopSlot> _slots = new List<ShopSlot>();
 
     private string _activeTab = "buy";
+    private string _mode = "vendor";
     private int _page = 1;
     private const int ItemsPerPage = 6;
     private const int Cols = 2;
@@ -47,10 +48,6 @@ public class VendorShopManager : MonoBehaviour
 
     private List<ShopItem> _buyItems = new List<ShopItem>
     {
-        new ShopItem { Type = "axe", Label = "Rìu", Price = 25 },
-        new ShopItem { Type = "pickaxe", Label = "Cuốc Chim", Price = 25 },
-        new ShopItem { Type = "hoe", Label = "Cuốc", Price = 20 },
-        new ShopItem { Type = "mi_hao_hao", Label = "Mì Hảo Hảo", Price = 10 },
         new ShopItem { Type = "wheat_seed", Label = "Hạt Lúa Mì", Price = 3 },
         new ShopItem { Type = "corn_seed", Label = "Hạt Ngô", Price = 4 },
         new ShopItem { Type = "carrot_seed", Label = "Hạt Cà Rốt", Price = 3 },
@@ -62,11 +59,46 @@ public class VendorShopManager : MonoBehaviour
         new ShopItem { Type = "rice_seed", Label = "Hạt Gạo", Price = 3 },
         new ShopItem { Type = "fertilizer", Label = "Phân Bón", Price = 8 },
         new ShopItem { Type = "watering_can", Label = "Bình Tưới", Price = 6 },
+    };
+
+    private List<ShopItem> _toolsBuyItems = new List<ShopItem>
+    {
+        new ShopItem { Type = "axe", Label = "Rìu", Price = 25 },
+        new ShopItem { Type = "pickaxe", Label = "Cuốc Chim", Price = 25 },
+        new ShopItem { Type = "hoe", Label = "Cuốc", Price = 20 },
+        new ShopItem { Type = "scythe", Label = "Lưỡi Hái", Price = 20 },
+        new ShopItem { Type = "hammer", Label = "Búa", Price = 25 },
         new ShopItem { Type = "club", Label = "Gậy", Price = 80 },
-        new ShopItem { Type = "cage_big", Label = "Lồng Lớn", Price = 120 },
-        new ShopItem { Type = "cage_small", Label = "Lồng Nhỏ", Price = 80 },
         new ShopItem { Type = "fishing_rod", Label = "Cần Câu", Price = 50 },
         new ShopItem { Type = "rosary", Label = "Tràng Hạt", Price = 100 },
+    };
+
+    private List<ShopItem> _convenienceBuyItems = new List<ShopItem>
+    {
+        new ShopItem { Type = "mi_hao_hao", Label = "Mì Hảo Hảo", Price = 10 },
+        new ShopItem { Type = "banh_mi", Label = "Bánh Mì", Price = 12 },
+        new ShopItem { Type = "banh_tet", Label = "Bánh Tét", Price = 18 },
+        new ShopItem { Type = "nuoc_dau", Label = "Nước Dừa", Price = 8 },
+        new ShopItem { Type = "tra_da", Label = "Trà Đá", Price = 5 },
+        new ShopItem { Type = "soda", Label = "Soda", Price = 6 },
+        new ShopItem { Type = "keo", Label = "Kẹo", Price = 3 },
+    };
+
+    private List<ShopItem> _groceryBuyItems = new List<ShopItem>
+    {
+        new ShopItem { Type = "tu_gao", Label = "Túi Gạo", Price = 15 },
+        new ShopItem { Type = "duong", Label = "Đường", Price = 6 },
+        new ShopItem { Type = "muoi", Label = "Muối", Price = 5 },
+        new ShopItem { Type = "xap_phong", Label = "Xà Phòng", Price = 8 },
+        new ShopItem { Type = "mi_chinh", Label = "Mì Chính", Price = 9 },
+    };
+
+    private List<ShopItem> _restaurantBuyItems = new List<ShopItem>
+    {
+        new ShopItem { Type = "com_trang", Label = "Cơm Trắng", Price = 15 },
+        new ShopItem { Type = "com_tam", Label = "Cơm Tấm", Price = 30 },
+        new ShopItem { Type = "com_ga", Label = "Cơm Gà", Price = 45 },
+        new ShopItem { Type = "com_chieu", Label = "Cơm Chiên", Price = 70 },
     };
 
     private List<ShopItem> _sellItems = new List<ShopItem>
@@ -97,7 +129,22 @@ public class VendorShopManager : MonoBehaviour
         new ShopItem { Type = "fish_pufferfish", Label = "Cá Nóc", Price = 60 },
     };
 
-    private List<ShopItem> _currentItems => _activeTab == "buy" ? _buyItems : _sellItems;
+    private List<ShopItem> _currentItems
+    {
+        get
+        {
+            if (_activeTab == "sell")
+                return _sellItems;
+            switch (_mode)
+            {
+                case "restaurant": return _restaurantBuyItems;
+                case "tools": return _toolsBuyItems;
+                case "convenience": return _convenienceBuyItems;
+                case "grocery": return _groceryBuyItems;
+                default: return _buyItems;
+            }
+        }
+    }
     private int _totalPages => Mathf.Max(1, (_currentItems.Count + ItemsPerPage - 1) / ItemsPerPage);
 
     private class ShopSlot
@@ -223,6 +270,31 @@ public class VendorShopManager : MonoBehaviour
 
     public void Open()
     {
+        OpenShop("Cửa Hàng Bà Tân", "vendor");
+    }
+
+    public void OpenRestaurant()
+    {
+        OpenShop("Nhà Hàng", "restaurant");
+    }
+
+    public void OpenTools()
+    {
+        OpenShop("Cửa Hàng Nông Cụ", "tools");
+    }
+
+    public void OpenConvenience()
+    {
+        OpenShop("Cửa Hàng Tiện Lợi", "convenience");
+    }
+
+    public void OpenGrocery()
+    {
+        OpenShop("Cửa Hàng Tạp Hóa", "grocery");
+    }
+
+    private void OpenShop(string titleKey, string mode)
+    {
         if (_shopPanel == null)
         {
             Debug.LogError("VendorShopManager: _shopPanel is null. Initialize() may have failed.");
@@ -230,6 +302,7 @@ public class VendorShopManager : MonoBehaviour
         }
         _page = 1;
         _activeTab = "buy";
+        _mode = mode;
         _shopPanel.SetActive(true);
         _wasPausedBeforeOpen = GameManager.Instance != null && GameManager.Instance.GamePaused;
 
@@ -250,10 +323,13 @@ public class VendorShopManager : MonoBehaviour
             GameManager.Instance.UIManager.ShowPauseMenu(false);
         GameInput.SetCursorLocked(false);
 
-        if (_titleText != null) _titleText.text = Localization.T("Cửa Hàng Bà Tân");
+        if (_titleText != null) _titleText.text = Localization.T(titleKey);
         SetButtonLabel(_tabBuy, Localization.T("Mua"));
         SetButtonLabel(_tabSell, Localization.T("Bán"));
         SetButtonLabel(_sellAllBtn, Localization.T("Bán Tất Cả"));
+        bool hasSellTab = mode == "vendor";
+        if (_tabSell != null) _tabSell.gameObject.SetActive(hasSellTab);
+        if (_sellAllBtn != null) _sellAllBtn.gameObject.SetActive(hasSellTab);
 
         SwitchTab("buy");
     }

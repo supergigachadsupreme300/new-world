@@ -734,8 +734,8 @@ public class WifeNPC : MonoBehaviour
         float display = Married ? 100f : Mathf.Clamp(_affection, 0f, 100f);
         float fraction = Mathf.Clamp01(display / 100f);
         var fillRt = _loveFill.rectTransform;
-        fillRt.anchorMin = new Vector2(0f, 0.2f);
-        fillRt.anchorMax = new Vector2(fraction, 0.8f);
+        fillRt.anchorMin = new Vector2(0f, 0f);
+        fillRt.anchorMax = new Vector2(1f, fraction);
         fillRt.sizeDelta = Vector2.zero;
 
         if (_loveLabelText != null)
@@ -828,21 +828,21 @@ public class WifeNPC : MonoBehaviour
         _panelRt = panelRt;
 
         _nameText = CreateDialogText("WifeDialogName", panelRt,
-            new Vector2(0f, panelH * 0.38f), "Jessica", 24,
+            new Vector2(70f, panelH * 0.38f), "Jessica", 24,
             new Color(0.9f, 0.6f, 0.8f), TextAlignmentOptions.Left,
-            new Vector2(panelW - 40f, 35f));
+            new Vector2(panelW - 160f, 35f));
 
         CreateLoveMeter(panelRt, panelW);
 
         _dialogText = CreateDialogText("WifeDialogText", panelRt,
-            new Vector2(0f, -panelH * 0.02f), "", 20,
+            new Vector2(70f, -panelH * 0.02f), "", 20,
             Color.white, TextAlignmentOptions.Left,
-            new Vector2(panelW - 40f, panelH * 0.55f));
+            new Vector2(panelW - 160f, panelH * 0.55f));
 
         _promptText = CreateDialogText("WifeDialogPrompt", panelRt,
-            new Vector2(0f, -panelH * 0.38f), Localization.T("Nhấn E để tiếp tục"), 16,
+            new Vector2(70f, -panelH * 0.38f), Localization.T("Nhấn E để tiếp tục"), 16,
             new Color(0.7f, 0.7f, 0.7f), TextAlignmentOptions.Right,
-            new Vector2(panelW - 40f, 25f));
+            new Vector2(panelW - 160f, 25f));
 
         _proposeText = CreateDialogOptionRow(panelRt, "WifeProposeRow", "WifeProposeText",
             6f, new Color(1f, 0.3f, 0.3f), 22, out _proposeRow, TryPropose);
@@ -858,35 +858,30 @@ public class WifeNPC : MonoBehaviour
 
     private void CreateLoveMeter(RectTransform parent, float panelW)
     {
-        float rowW = Mathf.Min(panelW * 0.6f, 420f);
-        float scale = Mathf.Min(1f, rowW / 420f);
-        float labelW = Mathf.Max(90f, 130f * scale);
-        float barX = labelW + 10f;
-        float barW = Mathf.Max(20f, (rowW - 80f) - barX - 8f);
+        float panelH = parent.rect.height;
+        float barW = 24f;
+        float barH = Mathf.Clamp(panelH * 0.6f, 90f, 170f);
+        float sideW = 84f;
+
         var rowRt = new GameObject("WifeLoveRow").AddComponent<RectTransform>();
         rowRt.transform.SetParent(parent, false);
-        rowRt.anchorMin = new Vector2(0.5f, 1f);
-        rowRt.anchorMax = new Vector2(0.5f, 1f);
-        rowRt.pivot = new Vector2(0.5f, 0f);
-        rowRt.anchoredPosition = new Vector2(0f, 6f);
-        rowRt.sizeDelta = new Vector2(rowW, 40f);
+        rowRt.anchorMin = new Vector2(0f, 0.5f);
+        rowRt.anchorMax = new Vector2(0f, 0.5f);
+        rowRt.pivot = new Vector2(0f, 0.5f);
+        rowRt.anchoredPosition = new Vector2(8f, 4f);
+        rowRt.sizeDelta = new Vector2(barW + 12f + sideW, barH);
 
         var rowBg = rowRt.gameObject.AddComponent<Image>();
         rowBg.color = new Color(0f, 0f, 0f, 0.8f);
         rowBg.raycastTarget = false;
-
-        _loveLabelText = CreateDialogText("WifeLoveLabel", rowRt,
-            new Vector2(-rowW * 0.5f + labelW * 0.5f, 0f), Localization.T("Độ Thân Mật"), 14,
-            new Color(1f, 0.42f, 0.54f), TextAlignmentOptions.Left,
-            new Vector2(labelW, 18f));
 
         var barRt = new GameObject("WifeLoveBar").AddComponent<RectTransform>();
         barRt.transform.SetParent(rowRt, false);
         barRt.anchorMin = new Vector2(0f, 0.5f);
         barRt.anchorMax = new Vector2(0f, 0.5f);
         barRt.pivot = new Vector2(0f, 0.5f);
-        barRt.anchoredPosition = new Vector2(barX, 0f);
-        barRt.sizeDelta = new Vector2(barW, 14f);
+        barRt.anchoredPosition = new Vector2(4f, 0f);
+        barRt.sizeDelta = new Vector2(barW, barH);
 
         var bg = barRt.gameObject.AddComponent<Image>();
         bg.color = new Color(0.1f, 0.1f, 0.1f, 0.9f);
@@ -898,14 +893,19 @@ public class WifeNPC : MonoBehaviour
         _loveFill.color = new Color(1f, 0.42f, 0.54f, 1f);
         _loveFill.raycastTarget = false;
         var fillRt = _loveFill.rectTransform;
-        fillRt.anchorMin = new Vector2(0f, 0.2f);
-        fillRt.anchorMax = new Vector2(0f, 0.8f);
+        fillRt.anchorMin = new Vector2(0f, 0f);
+        fillRt.anchorMax = new Vector2(1f, 0f);
         fillRt.sizeDelta = Vector2.zero;
 
+        _loveLabelText = CreateDialogText("WifeLoveLabel", rowRt,
+            new Vector2(barW + 16f, barH * 0.26f), Localization.T("Độ Thân Mật"), 13,
+            new Color(1f, 0.42f, 0.54f), TextAlignmentOptions.Left,
+            new Vector2(sideW, 18f));
+
         _loveValueText = CreateDialogText("WifeLoveValue", rowRt,
-            new Vector2(rowW * 0.5f - 40f, 0f), "0/100", 14,
+            new Vector2(barW + 16f, -barH * 0.26f), "0/100", 13,
             new Color(0.85f, 0.85f, 0.85f), TextAlignmentOptions.Left,
-            new Vector2(80f, 18f));
+            new Vector2(sideW, 18f));
     }
 
     private TMP_Text CreateDialogOptionRow(RectTransform parent, string rowName, string textName,

@@ -95,6 +95,18 @@ public class GameManager : MonoBehaviour
                     CutsceneManager.CancelCutscene();
                 CutsceneManager.PlaySadEnding();
             }
+            else if (Keyboard.current.f8Key.wasPressedThisFrame)
+            {
+                if (CutsceneManager.IsActive)
+                    CutsceneManager.CancelCutscene();
+                CutsceneManager.PlayJusticeEnding();
+            }
+            else if (Keyboard.current.f9Key.wasPressedThisFrame)
+            {
+                if (CutsceneManager.IsActive)
+                    CutsceneManager.CancelCutscene();
+                CutsceneManager.PlayBlackmailEnding();
+            }
         }
 #endif
 
@@ -399,5 +411,17 @@ public class GameManager : MonoBehaviour
     {
         if (CutsceneManager != null)
             CutsceneManager.RequestNtrEnding();
+    }
+
+    public void RequestJusticeEnding()
+    {
+        if (CutsceneManager != null)
+            CutsceneManager.PlayJusticeEnding();
+    }
+
+    public void RequestBlackmailEnding()
+    {
+        if (CutsceneManager != null)
+            CutsceneManager.PlayBlackmailEnding();
     }
 }

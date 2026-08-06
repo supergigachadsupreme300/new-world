@@ -45,18 +45,6 @@ public class BuffaloShopManager : MonoBehaviour
 
     private List<ShopItem> _buyItems = new List<ShopItem>
     {
-        new ShopItem { Type = "wheat_seed", Label = "Hạt Lúa Mì", Price = 3 },
-        new ShopItem { Type = "corn_seed", Label = "Hạt Ngô", Price = 4 },
-        new ShopItem { Type = "carrot_seed", Label = "Hạt Cà Rốt", Price = 3 },
-        new ShopItem { Type = "tomato_seed", Label = "Hạt Cà Chua", Price = 4 },
-        new ShopItem { Type = "strawberry_seed", Label = "Hạt Dâu Tây", Price = 5 },
-        new ShopItem { Type = "pumpkin_seed", Label = "Hạt Bí Ngòi", Price = 4 },
-        new ShopItem { Type = "onion_seed", Label = "Hạt Hành Tây", Price = 3 },
-        new ShopItem { Type = "sugarcane_seed", Label = "Hạt Mía", Price = 4 },
-        new ShopItem { Type = "rice_seed", Label = "Hạt Gạo", Price = 3 },
-        new ShopItem { Type = "fertilizer", Label = "Phân Bón", Price = 8 },
-        new ShopItem { Type = "watering_can", Label = "Bình Tưới", Price = 6 },
-        new ShopItem { Type = "club", Label = "Gậy", Price = 80 },
         new ShopItem { Type = "cage_big", Label = "Lồng Lớn", Price = 120 },
         new ShopItem { Type = "cage_small", Label = "Lồng Nhỏ", Price = 80 },
     };
@@ -246,6 +234,8 @@ public class BuffaloShopManager : MonoBehaviour
         SetButtonLabel(_tabBuy, Localization.T("Mua"));
         SetButtonLabel(_tabSell, Localization.T("Bán"));
         SetButtonLabel(_sellAllBtn, Localization.T("Bán Tất Cả"));
+        if (_tabSell != null) _tabSell.gameObject.SetActive(false);
+        if (_sellAllBtn != null) _sellAllBtn.gameObject.SetActive(false);
 
         SwitchTab("buy");
     }

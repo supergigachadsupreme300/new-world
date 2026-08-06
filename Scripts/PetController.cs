@@ -4,6 +4,7 @@ public class PetController : MonoBehaviour
 {
     public float FollowSpeed = 2.5f;
     public float FollowDistance = 2.2f;
+    public float LateralOffset = -1.1f;
     public float AttackRange = 4f;
     public int Damage = 8;
     public float AttackCooldown = 1.2f;
@@ -19,6 +20,10 @@ public class PetController : MonoBehaviour
         var col = gameObject.AddComponent<SphereCollider>();
         col.radius = 0.45f;
         col.center = new Vector3(0f, 0.45f, 0f);
+
+        var pc = Object.FindAnyObjectByType<PlayerController>();
+        if (pc != null && pc.GetComponent<CharacterController>() != null)
+            Physics.IgnoreCollision(col, pc.GetComponent<CharacterController>());
     }
 
     private void BuildModel()
@@ -55,7 +60,7 @@ public class PetController : MonoBehaviour
         if (_player == null)
             return;
 
-        Vector3 targetPos = _player.position - _player.forward * FollowDistance;
+        Vector3 targetPos = _player.position - _player.forward * FollowDistance + _player.right * LateralOffset;
         targetPos.y = transform.position.y;
         transform.position = Vector3.MoveTowards(transform.position, targetPos, FollowSpeed * Time.deltaTime);
 

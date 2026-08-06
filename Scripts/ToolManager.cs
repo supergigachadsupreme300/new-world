@@ -74,6 +74,96 @@ public class ToolManager : MonoBehaviour
         return true;
     }
 
+    private bool TryEatFood(string itemType, PlayerController player)
+    {
+        int staminaRestore = FoodStaminaFor(itemType);
+        int hpRestore = FoodHealFor(itemType);
+        if (staminaRestore <= 0 && hpRestore <= 0)
+            return false;
+
+        player.Stamina = Mathf.Min(player.MaxStamina, player.Stamina + staminaRestore);
+        player.HP = Mathf.Min(player.MaxHP, player.HP + hpRestore);
+        RemoveItemAmount(itemType, 1);
+        _uiManager?.ShowMessage(Localization.F("Đã ăn {0}. Hồi phục +{1} Sức Mạnh, +{2} Máu!", Localization.ItemName(itemType), staminaRestore, hpRestore), 1.5f);
+        SoundManager.Instance?.Play("pop", 0.8f);
+
+        var cam = GetActiveCamera();
+        if (cam != null)
+            SteamEffect.SpawnPuff(cam.transform.position + cam.transform.forward * 0.9f + Vector3.up * -0.15f);
+
+        StartCoroutine(EatAnimation());
+        UpdateInventoryUI();
+        ShowActiveToolModel();
+        return true;
+    }
+
+    private IEnumerator EatAnimation()
+    {
+        var tool = GetActiveToolModel();
+        if (tool == null)
+            yield break;
+
+        float dur = 0.4f;
+        float elapsed = 0f;
+        Vector3 startScale = tool.transform.localScale;
+        Vector3 startPos = tool.transform.localPosition;
+        Quaternion startRot = tool.transform.localRotation;
+
+        while (elapsed < dur)
+        {
+            float t = elapsed / dur;
+            float pulse = 1f + Mathf.Sin(t * Mathf.PI) * 0.25f;
+            tool.transform.localScale = startScale * pulse;
+            tool.transform.localPosition = startPos + Vector3.up * Mathf.Sin(t * Mathf.PI) * 0.12f;
+            tool.transform.localRotation = startRot * Quaternion.Euler(Mathf.Sin(t * Mathf.PI) * 25f, 0f, 0f);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        tool.transform.localScale = startScale;
+        tool.transform.localPosition = startPos;
+        tool.transform.localRotation = startRot;
+    }
+
+    private int FoodStaminaFor(string itemType)
+    {
+        switch (itemType)
+        {
+            case "mi_hao_hao": return 100;
+            case "com_trang": return 150;
+            case "com_tam": return 300;
+            case "com_ga": return 450;
+            case "com_chieu": return 650;
+            case "nuoc_dau": return 150;
+            case "tra_da": return 80;
+            case "soda": return 120;
+            case "banh_mi": return 200;
+            case "banh_tet": return 350;
+            case "keo": return 60;
+            case "tu_gao": return 100;
+            case "duong": return 30;
+            case "muoi": return 40;
+            default: return 0;
+        }
+    }
+
+    private int FoodHealFor(string itemType)
+    {
+        switch (itemType)
+        {
+            case "nuoc_dau": return 15;
+            case "tra_da": return 10;
+            case "soda": return 10;
+            case "banh_mi": return 15;
+            case "banh_tet": return 25;
+            case "keo": return 5;
+            case "tu_gao": return 40;
+            case "duong": return 10;
+            case "muoi": return 20;
+            default: return 10;
+        }
+    }
+
     private void PlaySwing()
     {
         if (_isSwinging) return;
@@ -450,6 +540,25 @@ public class ToolManager : MonoBehaviour
             return;
         }
 
+        if (selectedItem == "xap_phong")
+        {
+            if (player.HP >= player.MaxHP)
+            {
+                _uiManager.ShowMessage(Localization.T("Máu đã đầy!"), 1f);
+                return;
+            }
+            player.HP = Mathf.Min(player.MaxHP, player.HP + 25);
+            RemoveItemAmount(selectedItem, 1);
+            _uiManager.ShowMessage(Localization.F("Đã dùng {0}. +25 Máu!", Localization.ItemName(selectedItem)), 1.5f);
+            SoundManager.Instance?.Play("pop", 0.8f);
+            UpdateInventoryUI();
+            ShowActiveToolModel();
+            return;
+        }
+
+        if (TryEatFood(selectedItem, player))
+            return;
+
         // Consume stamina + play swing animation for any tool/item use
         if (selectedItem != null && !TryUseTool(player))
             return;
@@ -675,6 +784,25 @@ public class ToolManager : MonoBehaviour
                 return;
             }
 
+            if (selectedItem == "mi_chinh")
+            {
+                var field = _worldBuilder.GetFieldAt(hit.point);
+                if (field != null && field.Tilled && field.HasCrop && !field.IsHarvested)
+                {
+                    if (_worldBuilder.BoostFieldGrowth(hit.point))
+                    {
+                        RemoveItem(_selectedSlot, 1);
+                        SoundManager.Instance?.Play("pop");
+                        _uiManager.ShowMessage(Localization.T("Ruộng đã lớn nhanh hơn!"), 1.5f);
+                    }
+                }
+                else
+                {
+                    _uiManager.ShowMessage(Localization.T("Dùng mì chính cho cây đang trồng."), 1.5f);
+                }
+                return;
+            }
+
             if (TryPlantSeed(selectedItem, hit.point))
                 return;
 
@@ -810,6 +938,52 @@ public class ToolManager : MonoBehaviour
                 shop.Initialize();
             }
             shop.Open();
+            return;
+        }
+
+        if (hit.collider.transform.name == "RestaurantNPC")
+        {
+            if (ChefNPC.Instance != null && !ChefNPC.Instance.IsDialogActive)
+                ChefNPC.Instance.Interact();
+            return;
+        }
+
+        if (hit.collider.transform.name == "ToolShopNPC")
+        {
+            var shop = Object.FindAnyObjectByType<VendorShopManager>();
+            if (shop == null)
+            {
+                var go = new GameObject("VendorShopManager");
+                shop = go.AddComponent<VendorShopManager>();
+                shop.Initialize();
+            }
+            shop.OpenTools();
+            return;
+        }
+
+        if (hit.collider.transform.name == "ConvenienceNPC")
+        {
+            var shop = Object.FindAnyObjectByType<VendorShopManager>();
+            if (shop == null)
+            {
+                var go = new GameObject("VendorShopManager");
+                shop = go.AddComponent<VendorShopManager>();
+                shop.Initialize();
+            }
+            shop.OpenConvenience();
+            return;
+        }
+
+        if (hit.collider.transform.name == "GroceryNPC")
+        {
+            var shop = Object.FindAnyObjectByType<VendorShopManager>();
+            if (shop == null)
+            {
+                var go = new GameObject("VendorShopManager");
+                shop = go.AddComponent<VendorShopManager>();
+                shop.Initialize();
+            }
+            shop.OpenGrocery();
             return;
         }
 
@@ -1482,6 +1656,27 @@ public class ToolManager : MonoBehaviour
         
         // Special items
         CreateToolModel("mi_hao_hao", new Color(0.8f, 0.3f, 0.2f));
+
+        // Convenience store
+        CreateToolModel("nuoc_dau", new Color(0.75f, 0.9f, 0.75f));
+        CreateToolModel("tra_da", new Color(0.75f, 0.5f, 0.3f));
+        CreateToolModel("soda", new Color(0.85f, 0.2f, 0.15f));
+        CreateToolModel("banh_mi", new Color(0.75f, 0.5f, 0.2f));
+        CreateToolModel("banh_tet", new Color(0.2f, 0.55f, 0.2f));
+        CreateToolModel("keo", new Color(0.95f, 0.35f, 0.55f));
+
+        // Grocery store
+        CreateToolModel("tu_gao", new Color(0.95f, 0.93f, 0.88f));
+        CreateToolModel("duong", new Color(0.95f, 0.92f, 0.82f));
+        CreateToolModel("muoi", new Color(0.93f, 0.94f, 0.96f));
+        CreateToolModel("xap_phong", new Color(0.75f, 0.85f, 0.95f));
+        CreateToolModel("mi_chinh", new Color(0.9f, 0.2f, 0.18f));
+
+        // Restaurant dishes
+        CreateToolModel("com_trang", new Color(1f, 0.97f, 0.9f));
+        CreateToolModel("com_tam", new Color(0.85f, 0.75f, 0.55f));
+        CreateToolModel("com_ga", new Color(1f, 0.6f, 0.35f));
+        CreateToolModel("com_chieu", new Color(0.9f, 0.6f, 0.2f));
         
         // Livestock tools
         CreateToolModel("club", new Color(0.5f, 0.25f, 0.05f));

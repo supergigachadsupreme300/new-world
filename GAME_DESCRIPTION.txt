@@ -176,16 +176,49 @@ Note: Non-floor buildings require a floor tile underneath to be placed.
                           SHOPS & COMMERCE
 ================================================================================
 
-VENDOR SHOP (Mobile Merchant - "Cua hang luu dong"):
+VENDOR SHOP (Mrs. Tan - "Cua hang Ba Tan"):
   Accessed by: Right-click near Vendor NPC
-  Can BUY:  Tools (axe, pickaxe, hoe), seeds, fertilizer, watering can,
-            ammo, Mi Hao Hao noodles
+  Can BUY:  Seeds, fertilizer, watering can
   Can SELL: All harvested crops and their damaged variants
 
 BUFFALO SHOP:
   Accessed by: Right-click near Buffalo NPC
-  Can BUY:  Seeds, fertilizer, watering can (no tools)
-  Can SELL: Same as vendor (crops + damaged variants)
+  Can BUY:  Cages only (cage_big, cage_small) -- no sell tab
+
+TOOL SHOP (blacksmith NPC near the market row):
+  Accessed by: Right-click or E near ToolShopNPC
+  Can BUY:  axe, pickaxe, hoe, scythe, hammer, club, fishing_rod, rosary
+  Can SELL: No
+
+CONVENIENCE STORE (small kiosk between Shop and Restaurant):
+  Accessed by: Right-click or E near ConvenienceNPC (inside the store)
+  Can BUY:  mi_hao_hao, banh_mi, banh_tet, nuoc_dau, tra_da, soda, keo
+  Can SELL: No
+
+GROCERY STORE (grocery NPC on the market row):
+  Accessed by: Right-click or E near GroceryNPC
+  Can BUY:  tu_gao, duong, muoi, xap_phong, mi_chinh
+  Can SELL: No
+
+RESTAURANT (quan com):
+  Accessed by: Right-click near Chef NPC
+  Can BUY:  com_trang, com_tam, com_ga, com_chieu
+  Can SELL: No
+
+CONSUMABLES & EFFECTS:
+  Food/drink restores Stamina and HP when eaten (left-click while selected).
+    nuoc_dau    +150 stamina, +15 HP
+    tra_da      +80  stamina, +10 HP
+    soda        +120 stamina, +10 HP
+    banh_mi     +200 stamina, +15 HP
+    banh_tet    +350 stamina, +25 HP
+    keo         +60  stamina, +5 HP
+    tu_gao      +100 stamina, +40 HP   (also accepted as a pagoda offering)
+    duong       +30  stamina, +10 HP
+    muoi        +40  stamina, +20 HP
+  Items used on targets (left-click while selected, aim at a field):
+    xap_phong   use on self: +25 HP
+    mi_chinh    use on a planted crop: +1 growth stage (consumes 1)
 
 SELL PRICES:
 
@@ -283,6 +316,10 @@ All quests completed triggers the HAPPY ENDING cutscene.
              pumpkin, onion, sugarcane, rice
   Other:     fertilizer, ammo, mobspawner, mi_hao_hao
 
+  SHOP-BOUGHT ITEMS (not found in world):
+  Convenience: nuoc_dau, tra_da, soda, banh_mi, banh_tet, keo
+  Grocery:     tu_gao, duong, muoi, xap_phong, mi_chinh
+
 ================================================================================
                           DAY/NIGHT CYCLE
 ================================================================================
@@ -304,7 +341,7 @@ All quests completed triggers the HAPPY ENDING cutscene.
     - Farm area
     - Beach with sand and sea
     - Rocky border (indestructible boulders around the perimeter)
-    - Shop areas (Vendor cart, Buffalo)
+    - Shop areas (Vendor cart, Buffalo, convenience store + market row)
     - Trees (deciduous, palm/coconut) and rocks scattered throughout
     - Fields for farming
 

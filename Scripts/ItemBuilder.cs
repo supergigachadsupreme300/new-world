@@ -62,6 +62,10 @@ public static class ItemBuilder
             case "damaged_sugarcane":
             case "damaged_rice": BuildDamagedCrop(parent); break;
             case "mi_hao_hao": BuildMiHaoHao(parent); break;
+            case "com_trang": BuildRiceDish(parent, new Color(1f, 0.97f, 0.9f)); break;
+            case "com_tam": BuildRiceDish(parent, new Color(0.85f, 0.75f, 0.55f)); break;
+            case "com_ga": BuildRiceDish(parent, new Color(1f, 0.6f, 0.35f)); break;
+            case "com_chieu": BuildRiceDish(parent, new Color(0.9f, 0.6f, 0.2f)); break;
             case "club": BuildClub(parent); break;
             case "cage_big": BuildCageBig(parent); break;
             case "cage_small": BuildCageSmall(parent); break;
@@ -71,6 +75,21 @@ public static class ItemBuilder
             case "fish_salmon": BuildFishPickup(parent, new Color(1f, 0.5f, 0.4f)); break;
             case "fish_tuna": BuildFishPickup(parent, new Color(0.3f, 0.3f, 0.5f)); break;
             case "fish_pufferfish": BuildFishPickup(parent, new Color(0.6f, 0.8f, 0.3f)); break;
+
+            // Convenience store items
+            case "nuoc_dau": BuildCoconutWater(parent); break;
+            case "tra_da": BuildIcedTea(parent); break;
+            case "soda": BuildSoda(parent); break;
+            case "banh_mi": BuildBread(parent); break;
+            case "banh_tet": BuildStickyRiceCake(parent); break;
+            case "keo": BuildCandy(parent); break;
+
+            // Grocery store items
+            case "tu_gao": BuildBagOfRice(parent); break;
+            case "duong": BuildSugar(parent); break;
+            case "muoi": BuildSalt(parent); break;
+            case "xap_phong": BuildSoap(parent); break;
+            case "mi_chinh": BuildMsg(parent); break;
         }
     }
 
@@ -202,6 +221,14 @@ public static class ItemBuilder
     public static void BuildMiHaoHao(Transform parent)
     {
         CreatePickupCube(parent, new Vector3(0f, 0.2f, 0f), new Vector3(0.3f, 0.1f, 0.3f), Color.red);
+    }
+
+    public static void BuildRiceDish(Transform parent, Color topping)
+    {
+        CreatePickupCylinder(parent, new Vector3(0f, 0.05f, 0f), new Vector3(0.28f, 0.06f, 0.28f), new Color(0.85f, 0.85f, 0.85f), false);
+        CreatePickupCube(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.2f, 0.05f, 0.2f), new Color(1f, 1f, 1f), false);
+        CreatePickupCube(parent, new Vector3(0f, 0.14f, 0f), new Vector3(0.14f, 0.04f, 0.14f), topping, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.02f, 0.12f), new Vector3(0.04f, 0.02f, 0.2f), new Color(0.55f, 0.35f, 0.15f), false);
     }
     
     public static void BuildWateringCan(Transform parent)
@@ -494,5 +521,109 @@ public static class ItemBuilder
     {
         CreatePickupSphere(parent, new Vector3(0f, 0.06f, 0f), 0.12f, bodyColor, false);
         CreatePickupCube(parent, new Vector3(0f, 0.16f, 0f), new Vector3(0.02f, 0.06f, 0.02f), new Color(0.7f, 0.7f, 0.7f), false);
+    }
+
+    public static void BuildCoconutWater(Transform parent)
+    {
+        Color bottleC = new Color(0.75f, 0.9f, 0.75f);
+        Color capC = new Color(0.9f, 0.95f, 0.9f);
+        Color labelC = new Color(0.55f, 0.75f, 0.35f);
+        CreatePickupCylinder(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.12f, 0.18f, 0.12f), bottleC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.22f, 0f), new Vector3(0.06f, 0.05f, 0.06f), capC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.14f, 0f), new Vector3(0.13f, 0.03f, 0.13f), labelC, false);
+    }
+
+    public static void BuildIcedTea(Transform parent)
+    {
+        Color cupC = new Color(0.75f, 0.5f, 0.3f);
+        Color teaC = new Color(0.85f, 0.55f, 0.2f);
+        Color strawC = new Color(0.9f, 0.25f, 0.25f);
+        CreatePickupCylinder(parent, new Vector3(0f, 0.12f, 0f), new Vector3(0.14f, 0.22f, 0.14f), cupC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.03f, 0f), new Vector3(0.14f, 0.04f, 0.14f), teaC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.28f, 0.04f), new Vector3(0.025f, 0.16f, 0.025f), strawC, false);
+    }
+
+    public static void BuildSoda(Transform parent)
+    {
+        Color canC = new Color(0.85f, 0.2f, 0.15f);
+        Color topC = new Color(0.75f, 0.75f, 0.78f);
+        Color labelC = new Color(0.95f, 0.95f, 0.95f);
+        CreatePickupCylinder(parent, new Vector3(0f, 0.12f, 0f), new Vector3(0.13f, 0.22f, 0.13f), canC, false);
+        CreatePickupCylinder(parent, new Vector3(0f, 0.24f, 0f), new Vector3(0.1f, 0.02f, 0.1f), topC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.15f, 0f), new Vector3(0.14f, 0.04f, 0.14f), labelC, false);
+    }
+
+    public static void BuildBread(Transform parent)
+    {
+        Color crustC = new Color(0.75f, 0.5f, 0.2f);
+        Color breadC = new Color(0.95f, 0.85f, 0.6f);
+        Color seedC = new Color(0.6f, 0.4f, 0.15f);
+        CreatePickupCube(parent, new Vector3(0f, 0.08f, 0f), new Vector3(0.24f, 0.14f, 0.14f), crustC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.09f, 0f), new Vector3(0.2f, 0.08f, 0.12f), breadC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.05f, 0f), new Vector3(0.26f, 0.03f, 0.16f), crustC, false);
+        for (int i = 0; i < 4; i++)
+        {
+            CreatePickupCube(parent, new Vector3(-0.09f + i * 0.06f, 0.1f, 0.06f),
+                new Vector3(0.015f, 0.015f, 0.015f), seedC, false);
+        }
+    }
+
+    public static void BuildStickyRiceCake(Transform parent)
+    {
+        Color leafC = new Color(0.2f, 0.55f, 0.2f);
+        Color bandC = new Color(0.95f, 0.85f, 0.4f);
+        CreatePickupCylinder(parent, new Vector3(0f, 0.08f, 0f), new Vector3(0.22f, 0.16f, 0.22f), leafC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.08f, 0f), new Vector3(0.24f, 0.02f, 0.24f), bandC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.16f, 0f), new Vector3(0.02f, 0.02f, 0.24f), bandC, false);
+    }
+
+    public static void BuildCandy(Transform parent)
+    {
+        Color candyC = new Color(0.95f, 0.35f, 0.55f);
+        Color wrapC = new Color(0.9f, 0.85f, 0.9f);
+        CreatePickupSphere(parent, new Vector3(0f, 0.05f, 0f), 0.1f, candyC, false);
+        CreatePickupCube(parent, new Vector3(-0.08f, 0.05f, 0f), new Vector3(0.06f, 0.03f, 0.03f), wrapC, false);
+        CreatePickupCube(parent, new Vector3(0.08f, 0.05f, 0f), new Vector3(0.06f, 0.03f, 0.03f), wrapC, false);
+    }
+
+    public static void BuildBagOfRice(Transform parent)
+    {
+        Color bagC = new Color(0.95f, 0.93f, 0.88f);
+        Color ribbonC = new Color(0.85f, 0.25f, 0.2f);
+        CreatePickupCube(parent, new Vector3(0f, 0.09f, 0f), new Vector3(0.22f, 0.16f, 0.16f), bagC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.19f, 0f), new Vector3(0.07f, 0.05f, 0.07f), bagC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.16f, 0f), new Vector3(0.24f, 0.02f, 0.18f), ribbonC, false);
+    }
+
+    public static void BuildSugar(Transform parent)
+    {
+        Color boxC = new Color(0.95f, 0.92f, 0.82f);
+        Color stripeC = new Color(0.9f, 0.6f, 0.1f);
+        CreatePickupCube(parent, new Vector3(0f, 0.07f, 0f), new Vector3(0.16f, 0.13f, 0.12f), boxC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.07f, 0f), new Vector3(0.17f, 0.03f, 0.13f), stripeC, false);
+    }
+
+    public static void BuildSalt(Transform parent)
+    {
+        Color boxC = new Color(0.93f, 0.94f, 0.96f);
+        Color stripeC = new Color(0.4f, 0.5f, 0.65f);
+        CreatePickupCube(parent, new Vector3(0f, 0.07f, 0f), new Vector3(0.14f, 0.12f, 0.12f), boxC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.07f, 0f), new Vector3(0.15f, 0.03f, 0.13f), stripeC, false);
+    }
+
+    public static void BuildSoap(Transform parent)
+    {
+        Color soapC = new Color(0.75f, 0.85f, 0.95f);
+        Color stripeC = new Color(0.55f, 0.7f, 0.85f);
+        CreatePickupCube(parent, new Vector3(0f, 0.05f, 0f), new Vector3(0.14f, 0.09f, 0.1f), soapC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.05f, 0f), new Vector3(0.15f, 0.02f, 0.11f), stripeC, false);
+    }
+
+    public static void BuildMsg(Transform parent)
+    {
+        Color boxC = new Color(0.9f, 0.2f, 0.18f);
+        Color lidC = new Color(0.95f, 0.95f, 0.95f);
+        CreatePickupCube(parent, new Vector3(0f, 0.08f, 0f), new Vector3(0.16f, 0.14f, 0.12f), boxC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.16f, 0f), new Vector3(0.17f, 0.03f, 0.13f), lidC, false);
     }
 }

@@ -6,6 +6,7 @@ public class GoblinPet : MonoBehaviour
 
     public float FollowSpeed = 2.2f;
     public float FollowDistance = 2.4f;
+    public float LateralOffset = 1.2f;
     public float PlantReach = 1.6f;
     public int MaxHealth = 30;
     public float RetryDelay = 4f;
@@ -61,6 +62,10 @@ public class GoblinPet : MonoBehaviour
         _collider = gameObject.AddComponent<SphereCollider>();
         _collider.radius = 0.4f;
         _collider.center = new Vector3(0f, 0.5f, 0f);
+
+        var pc = Object.FindAnyObjectByType<PlayerController>();
+        if (pc != null && pc.GetComponent<CharacterController>() != null)
+            Physics.IgnoreCollision(_collider, pc.GetComponent<CharacterController>());
     }
 
     public bool GiveSeed(string cropType)
@@ -285,7 +290,7 @@ public class GoblinPet : MonoBehaviour
 
     private void HandleFollow()
     {
-        Vector3 targetPos = _player.position - _player.forward * FollowDistance;
+        Vector3 targetPos = _player.position - _player.forward * FollowDistance + _player.right * LateralOffset;
         targetPos.y = transform.position.y;
 
         if (Vector3.Distance(transform.position, targetPos) <= 0.2f)

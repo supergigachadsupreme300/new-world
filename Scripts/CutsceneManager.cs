@@ -203,6 +203,26 @@ public class CutsceneManager : MonoBehaviour
         _cutsceneRoutine = StartCoroutine(SadEndingRoutine());
     }
 
+    public void PlayJusticeEnding()
+    {
+        if (IsActive) return;
+        if (RichManNPC.Instance != null) RichManNPC.Instance.Retire();
+        if (PoliceOfficerNPC.Instance != null) PoliceOfficerNPC.Instance.Retire();
+        IsActive = true;
+        _cutsceneStartTime = Time.time;
+        _cutsceneRoutine = StartCoroutine(JusticeEndingRoutine());
+    }
+
+    public void PlayBlackmailEnding()
+    {
+        if (IsActive) return;
+        if (RichManNPC.Instance != null) RichManNPC.Instance.Retire();
+        if (PoliceOfficerNPC.Instance != null) PoliceOfficerNPC.Instance.Retire();
+        IsActive = true;
+        _cutsceneStartTime = Time.time;
+        _cutsceneRoutine = StartCoroutine(BlackmailEndingRoutine());
+    }
+
     public void RequestHappyEnding()
     {
         if (IsActive || _happyPending) return;
@@ -236,6 +256,10 @@ public class CutsceneManager : MonoBehaviour
             GameManager.Instance.TimeSpeed = _savedTimeSpeed;
         CleanupAll();
         RestorePlayerControl();
+        if (GameManager.Instance != null && GameManager.Instance.InGame)
+            ShowHUD();
+        else if (_uiManager != null)
+            _uiManager.ShowMainMenu(true);
         IsActive = false;
     }
 
@@ -374,6 +398,10 @@ public class CutsceneManager : MonoBehaviour
         }
         finally
         {
+            HideSkipButton();
+            RestorePlayerControl();
+            if (GameManager.Instance != null && GameManager.Instance.InGame)
+                ShowHUD();
             IsActive = false;
             _cutsceneRoutine = null;
         }
@@ -1044,6 +1072,271 @@ public class CutsceneManager : MonoBehaviour
             IsActive = false;
             _cutsceneRoutine = null;
         }
+    }
+
+    private IEnumerator JusticeEndingRoutine()
+    {
+        try
+        {
+            if (_uiManager == null)
+                _uiManager = Object.FindAnyObjectByType<UIManager>();
+            if (_mainCamera == null)
+                _mainCamera = Camera.main;
+
+            if (_uiManager != null)
+                _uiManager.ShowMainMenu(false);
+
+            DisablePlayerControl();
+            DetachCamera();
+            HideHUD();
+
+            yield return StartCoroutine(CreateFadeOverlay());
+            CreateLetterboxBars();
+            ShowSkipButton();
+
+            // Player on the road, watching from the south
+            float playerZ = 38f;
+            if (_player != null)
+            {
+                _player.transform.position = new Vector3(RoadX, 0f, playerZ);
+                _player.transform.rotation = Quaternion.identity;
+                var realModel = _player.transform.Find("PlayerModel");
+                if (realModel != null)
+                    realModel.gameObject.SetActive(false);
+            }
+            var justicePlayerModel = MapBuilder.BuildPlayerModel(null);
+            justicePlayerModel.transform.position = new Vector3(RoadX, 0.82f, playerZ);
+            justicePlayerModel.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            foreach (var r in justicePlayerModel.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(justicePlayerModel);
+
+            // Rich man standing at the mansion front
+            var richModel = RichManNPC.BuildRichManNpc(null,
+                new Vector3(20.5f, 0.86f, 46f), 1f, Quaternion.Euler(0f, 90f, 0f), false);
+            foreach (var r in richModel.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(richModel);
+
+            // ── PHASE 1: OPENING SHOT ──
+            Vector3 camStart = new Vector3(RoadX, 2.2f, playerZ - 3f);
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = camStart;
+                _mainCamera.transform.LookAt(new Vector3(20f, 1.2f, 46f));
+            }
+            yield return StartCoroutine(FadeOverlay(0, 2f));
+            yield return new WaitForSeconds(2f);
+
+            // ── PHASE 2: POLICE CAR ARRIVES ──
+            float carStopZ = 52f;
+            var policeCar = MapBuilder.BuildPoliceCar(null, new Vector3(RoadX, 0f, 64f));
+            RegisterSpawned(policeCar);
+            float driveDur = 4f;
+            float driveTimer = 0f;
+            while (driveTimer < driveDur)
+            {
+                driveTimer += Time.deltaTime;
+                float p = Mathf.Min(driveTimer / driveDur, 1f);
+                policeCar.transform.position = new Vector3(RoadX, 0f, Mathf.Lerp(64f, carStopZ, p));
+                yield return null;
+            }
+
+            var officer = MapBuilder.BuildPoliceOfficer(null,
+                new Vector3(RoadX - 1.2f, 0.93f, carStopZ), Quaternion.Euler(0f, -90f, 0f));
+            foreach (var r in officer.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(officer);
+
+            // ── PHASE 3: THE ARREST ──
+            Vector3 officerStart = officer.transform.position;
+            Vector3 richPos = richModel.transform.position;
+            float arrestDur = 4f;
+            float arrestTimer = 0f;
+            while (arrestTimer < arrestDur)
+            {
+                arrestTimer += Time.deltaTime;
+                float p = Mathf.Min(arrestTimer / arrestDur, 1f);
+                officer.transform.position = Vector3.Lerp(officerStart, richPos, p);
+                FaceMoveDirection(officer.transform, richPos - officer.transform.position);
+                if (_mainCamera != null)
+                {
+                    _mainCamera.transform.position = Vector3.Lerp(camStart, new Vector3(RoadX - 1f, 2.6f, carStopZ + 4f), p);
+                    _mainCamera.transform.LookAt(new Vector3(20f, 1.2f, 46f));
+                }
+                yield return null;
+            }
+            yield return new WaitForSeconds(1.5f);
+
+            // ── PHASE 4: TAKEN AWAY ──
+            Vector3 richStart = richModel.transform.position;
+            Vector3 carDoor = new Vector3(RoadX - 0.6f, 0.86f, carStopZ - 0.4f);
+            Vector3 officerDoor = new Vector3(RoadX + 0.6f, 0.86f, carStopZ - 0.4f);
+            float takeDur = 4f;
+            float takeTimer = 0f;
+            while (takeTimer < takeDur)
+            {
+                takeTimer += Time.deltaTime;
+                float p = Mathf.Min(takeTimer / takeDur, 1f);
+                richModel.transform.position = Vector3.Lerp(richStart, carDoor, p);
+                officer.transform.position = Vector3.Lerp(richPos, officerDoor, p);
+                FaceMoveDirection(richModel.transform, carDoor - richModel.transform.position);
+                FaceMoveDirection(officer.transform, officerDoor - officer.transform.position);
+                yield return null;
+            }
+
+            richModel.transform.SetParent(policeCar.transform);
+            richModel.transform.localPosition = new Vector3(-0.35f, 0.62f, -0.2f);
+            richModel.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            officer.transform.SetParent(policeCar.transform);
+            officer.transform.localPosition = new Vector3(0.35f, 0.62f, -0.2f);
+            officer.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            yield return new WaitForSeconds(1f);
+
+            // ── PHASE 5: DEPARTURE ──
+            float departDur = 5f;
+            float departTimer = 0f;
+            float departZ = -30f;
+            while (departTimer < departDur)
+            {
+                departTimer += Time.deltaTime;
+                float p = Mathf.Min(departTimer / departDur, 1f);
+                policeCar.transform.position = new Vector3(RoadX, 0f, Mathf.Lerp(carStopZ, departZ, p));
+                if (_mainCamera != null)
+                {
+                    _mainCamera.transform.position = new Vector3(RoadX - 2f, 3.2f, Mathf.Lerp(carStopZ, departZ, p) + 10f);
+                    _mainCamera.transform.LookAt(policeCar.transform.position);
+                }
+                yield return null;
+            }
+
+            // ── PHASE 6: FADE + END SCREEN ──
+            yield return new WaitForSeconds(2f);
+            yield return StartCoroutine(FadeOverlay(1, 2f));
+
+            HideSkipButton();
+            CleanupSpawned();
+            DestroyLetterboxBars();
+            DestroyOverlay();
+
+            if (_uiManager != null)
+                _uiManager.ShowEndScreen(Localization.T("KẾT THÚC CÔNG LÝ"),
+                    Localization.T("Cậu đã lật tẩy bộ mặt thật của Phú Ông.\nCảnh sát đã đến, và hắn bị bắt ngay trước dinh thự của chính mình.\n\nJessica được an toàn.\nKẻ xấu phải trả giá."));
+        }
+        finally
+        {
+            IsActive = false;
+            _cutsceneRoutine = null;
+        }
+    }
+
+    private IEnumerator BlackmailEndingRoutine()
+    {
+        try
+        {
+            if (_uiManager == null)
+                _uiManager = Object.FindAnyObjectByType<UIManager>();
+            if (_mainCamera == null)
+                _mainCamera = Camera.main;
+
+            if (_uiManager != null)
+                _uiManager.ShowMainMenu(false);
+
+            DisablePlayerControl();
+            DetachCamera();
+            HideHUD();
+
+            yield return StartCoroutine(CreateFadeOverlay());
+            CreateLetterboxBars();
+            ShowSkipButton();
+
+            if (_player != null)
+            {
+                var realModel = _player.transform.Find("PlayerModel");
+                if (realModel != null)
+                    realModel.gameObject.SetActive(false);
+            }
+
+            // Player model at the mansion front
+            var playerModel = MapBuilder.BuildPlayerModel(null);
+            playerModel.transform.position = new Vector3(28f, 0.86f, 46f);
+            playerModel.transform.rotation = Quaternion.Euler(0f, -90f, 0f);
+            foreach (var r in playerModel.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(playerModel);
+
+            // Rich man facing the player
+            var richModel = RichManNPC.BuildRichManNpc(null,
+                new Vector3(31.5f, 0.86f, 46f), 1f, Quaternion.Euler(0f, 90f, 0f), false);
+            foreach (var r in richModel.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(richModel);
+
+            // Bribe sack on the ground between them
+            var sack = BuildBribeSack(new Vector3(29.8f, 0.45f, 46f));
+            RegisterSpawned(sack);
+
+            // ── PHASE 1: OPENING SHOT ──
+            Vector3 camStart = new Vector3(28f, 2.4f, 41f);
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = camStart;
+                _mainCamera.transform.LookAt(new Vector3(29.8f, 1.1f, 46f));
+            }
+            yield return StartCoroutine(FadeOverlay(0, 2f));
+            yield return new WaitForSeconds(2f);
+
+            // ── PHASE 2: PAN TO THE SACK ──
+            yield return StartCoroutine(PanCamera(camStart, new Vector3(29.8f, 2.2f, 44f), new Vector3(29.8f, 1f, 46f), 2f));
+            yield return new WaitForSeconds(1.5f);
+
+            // ── PHASE 3: THE PLAYER TAKES THE BRIBE ──
+            Vector3 playerStart = playerModel.transform.position;
+            Vector3 sackGrab = new Vector3(29.8f, 0.86f, 46f);
+            float walkDur = 2.5f;
+            float walkTimer = 0f;
+            while (walkTimer < walkDur)
+            {
+                walkTimer += Time.deltaTime;
+                float p = Mathf.Min(walkTimer / walkDur, 1f);
+                playerModel.transform.position = Vector3.Lerp(playerStart, sackGrab, p);
+                FaceMoveDirection(playerModel.transform, sackGrab - playerModel.transform.position);
+                yield return null;
+            }
+            sack.transform.SetParent(playerModel.transform);
+            sack.transform.localPosition = new Vector3(0.35f, 0.35f, 0f);
+
+            yield return new WaitForSeconds(2f);
+
+            // ── PHASE 4: FADE + END SCREEN ──
+            yield return StartCoroutine(FadeOverlay(1, 2f));
+
+            HideSkipButton();
+            CleanupSpawned();
+            DestroyLetterboxBars();
+            DestroyOverlay();
+
+            if (_uiManager != null)
+                _uiManager.ShowEndScreen(Localization.T("KẾT THÚC ĐEN TỐI"),
+                    Localization.T("Cậu đã im lặng. Và cậu đã được trả một cái giá rất hậu hĩnh.\n\nNhưng đêm xuống, những chiếc xe vẫn nối đuôi nhau đến dinh thự.\nJessica vẫn đang trong tầm ngắm của hắn...\n\nVà giờ, cậu là một phần của câu chuyện đó."));
+        }
+        finally
+        {
+            IsActive = false;
+            _cutsceneRoutine = null;
+        }
+    }
+
+    private GameObject BuildBribeSack(Vector3 position)
+    {
+        var sack = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        sack.name = "BribeSack";
+        sack.transform.position = position;
+        sack.transform.localScale = new Vector3(0.7f, 0.55f, 0.55f);
+        var r = sack.GetComponent<Renderer>();
+        if (r != null) r.material.color = new Color(0.62f, 0.5f, 0.2f);
+        Object.Destroy(sack.GetComponent<Collider>());
+        return sack;
     }
 
     private IEnumerator PanCamera(Vector3 startPos, Vector3 endPos, Vector3 lookTarget, float duration)

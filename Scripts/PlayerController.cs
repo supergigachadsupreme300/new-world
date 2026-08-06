@@ -14,6 +14,7 @@ public class PlayerController : MonoBehaviour
     public float Stamina = 1000f;
     public float MaxStamina = 1000f;
     public float StaminaRegenRate = 4f;
+    public float StaminaRegenMultiplier = 1f;
     public float SprintCost = 35f;
     public long Money = 10000000000;
     public bool IgnoreInput { get; private set; }
@@ -83,6 +84,7 @@ public class PlayerController : MonoBehaviour
     private void Start()
     {
         StaminaRegenRate = 4f;
+        StaminaRegenMultiplier = 1f;
         ResetPlayer();
         // Allow developer to enable input automatically for quick testing.
         EnableInput(AutoEnableInput);
@@ -223,7 +225,7 @@ public class PlayerController : MonoBehaviour
                          (GameInput.IsMobile && MobileInputController.IsHeld("sprint"));
         if (!sprinting || _controller == null || !_controller.isGrounded)
         {
-            Stamina = Mathf.Min(MaxStamina, Stamina + StaminaRegenRate * Time.deltaTime);
+            Stamina = Mathf.Min(MaxStamina, Stamina + StaminaRegenRate * StaminaRegenMultiplier * Time.deltaTime);
             HP = Mathf.Min(MaxHP, HP + Mathf.RoundToInt(2f * (Stamina / MaxStamina) * Time.deltaTime));
         }
     }
@@ -233,14 +235,24 @@ public class PlayerController : MonoBehaviour
         bool wifeDialog = WifeNPC.Instance != null && WifeNPC.Instance.IsDialogActive;
         bool buffaloDialog = BuffaloDialog.Instance != null && BuffaloDialog.Instance.IsDialogActive;
         bool richManDialog = RichManNPC.Instance != null && RichManNPC.Instance.IsDialogActive;
-        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog;
+        bool policeDialog = PoliceOfficerNPC.Instance != null && PoliceOfficerNPC.Instance.IsDialogActive;
+        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog;
 
         bool ePressed = (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) ||
-                        (!wifeDialog && !richManDialog && MobileInputController.Consume("interact"));
+                        (!wifeDialog && !richManDialog && !policeDialog && MobileInputController.Consume("interact"));
         if (ePressed && buffaloDialog)
             BuffaloDialog.Instance.Advance();
         if (ePressed && richManDialog)
             RichManNPC.Instance.Advance();
+        if (ePressed && policeDialog)
+            PoliceOfficerNPC.Instance.Advance();
+        if (richManDialog && RichManNPC.Instance != null && RichManNPC.Instance.IsEndingChoiceShown)
+        {
+            if (Keyboard.current != null && Keyboard.current.digit1Key.wasPressedThisFrame)
+                RichManNPC.Instance.ChooseLeave();
+            else if (Keyboard.current != null && Keyboard.current.digit2Key.wasPressedThisFrame)
+                RichManNPC.Instance.ChooseBribe();
+        }
 
         if (!dialogBlocked)
         {
@@ -257,6 +269,8 @@ public class PlayerController : MonoBehaviour
                     wb.ActivateEventBlock(transform.position);
                     return;
                 }
+                if (RichManNPC.Instance != null && RichManNPC.Instance.TryEavesdropDeal(transform.position))
+                    return;
                 var cam = Camera.main;
                 if (cam != null && wb != null)
                 {
@@ -311,6 +325,39 @@ public class PlayerController : MonoBehaviour
                         {
                             if (RichManNPC.Instance != null && !RichManNPC.Instance.IsDialogActive)
                                 RichManNPC.Instance.Interact();
+                            return;
+                        }
+                        if (hit.collider.transform.name == "PoliceOfficer")
+                        {
+                            if (PoliceOfficerNPC.Instance != null && !PoliceOfficerNPC.Instance.IsDialogActive)
+                                PoliceOfficerNPC.Instance.Interact();
+                            return;
+                        }
+                        if (hit.collider.transform.name == "RestaurantNPC")
+                        {
+                            if (ChefNPC.Instance != null && !ChefNPC.Instance.IsDialogActive)
+                                ChefNPC.Instance.Interact();
+                            return;
+                        }
+                        if (hit.collider.transform.name == "PagodaMonkNpc")
+                        {
+                            if (PagodaMonkNPC.Instance != null && !PagodaMonkNPC.Instance.IsDialogActive)
+                                PagodaMonkNPC.Instance.Interact();
+                            return;
+                        }
+                        if (hit.collider.transform.name == "ToolShopNPC")
+                        {
+                            OpenVendorShop("tools");
+                            return;
+                        }
+                        if (hit.collider.transform.name == "ConvenienceNPC")
+                        {
+                            OpenVendorShop("convenience");
+                            return;
+                        }
+                        if (hit.collider.transform.name == "GroceryNPC")
+                        {
+                            OpenVendorShop("grocery");
                             return;
                         }
                         if (wb.TryToggleDoor(hit)) return;
@@ -371,6 +418,24 @@ public class PlayerController : MonoBehaviour
                         shop.Open();
                         return;
                     }
+
+                    if (hits[i].collider.transform.name == "ToolShopNPC")
+                    {
+                        OpenVendorShop("tools");
+                        return;
+                    }
+
+                    if (hits[i].collider.transform.name == "ConvenienceNPC")
+                    {
+                        OpenVendorShop("convenience");
+                        return;
+                    }
+
+                    if (hits[i].collider.transform.name == "GroceryNPC")
+                    {
+                        OpenVendorShop("grocery");
+                        return;
+                    }
                 }
             }
         }
@@ -399,6 +464,24 @@ public class PlayerController : MonoBehaviour
             ToolManager.Instance?.SelectSlot(8);
         if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit0Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(9);
+    }
+
+    private void OpenVendorShop(string mode)
+    {
+        var shop = Object.FindAnyObjectByType<VendorShopManager>();
+        if (shop == null)
+        {
+            var go = new GameObject("VendorShopManager");
+            shop = go.AddComponent<VendorShopManager>();
+            shop.Initialize();
+        }
+        switch (mode)
+        {
+            case "tools": shop.OpenTools(); break;
+            case "convenience": shop.OpenConvenience(); break;
+            case "grocery": shop.OpenGrocery(); break;
+            default: shop.Open(); break;
+        }
     }
 
     private void UpdateHud()

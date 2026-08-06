@@ -95,6 +95,7 @@ public class QuestManager : MonoBehaviour
     private void AddStoryQuestsForDay(int day)
     {
         if (day >= 1) AddIfMissing(CreateStoryQuest("Chào Hỏi Hàng Xóm", "greet", 2, 0, "Nói chuyện với Buffalo và Jessica để làm quen với hàng xóm.", 1));
+        if (day >= 3) AddIfMissing(CreateStoryQuest("Bí Mật Của Phú Ông", "mansion_secret", 1, 500, "Đêm tối, hãy rình xem điều gì xảy ra sau dinh thự của Phú Ông. Sau khi có bằng chứng, hãy đến đồn cảnh sát bên cạnh con đường để báo án.", 3));
         if (day >= 3) AddIfMissing(CreateStoryQuest("Mùa Thu Đầu Tiên", "wheat", 50, 150, "Thu hoạch 50 lúa mì để trở thành nông dân thực thụ.", 3));
         if (day >= 5) AddIfMissing(CreateStoryQuest("Bảo Vệ Đất", "enemies", 10, 300, "Diệt 10 kẻ thù để bảo vệ nông trại.", 5));
         if (day >= 8) AddIfMissing(CreateStoryQuest("Bàn Tay Xanh", "wheat", 150, 400, "Thu hoạch 150 lúa mì để chứng minh tài năng.", 8));
