@@ -1133,6 +1133,8 @@ public static class MapBuilder
         col.size = new Vector3(0.9f, 1.7f, 0.7f);
         col.center = new Vector3(0f, 0.45f, 0f);
         col.isTrigger = true;
+
+        root.AddComponent<ChefNPC>();
     }
 
     private static void BuildSeatedCustomer(Transform parent, Vector3 position, Quaternion rotation, Color shirtC, Color pantsC, Color skinC)

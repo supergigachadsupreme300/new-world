@@ -64,6 +64,8 @@ public class FishingController : MonoBehaviour
 
     private void Update()
     {
+        if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
+
         switch (State)
         {
             case FishState.Casting: UpdateCasting(); break;

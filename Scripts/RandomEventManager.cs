@@ -509,6 +509,9 @@ public class RandomEventManager : MonoBehaviour
 
     private void SpawnCoinPickup(Vector3 position, int amount)
     {
+        if (Physics.Raycast(position, Vector3.down, out var groundHit, 40f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            position.y = groundHit.point.y + 0.5f;
+
         var root = GetWorldRoot();
         var go = new GameObject("Pickup_gold_" + amount);
         go.transform.SetParent(root);
@@ -524,8 +527,8 @@ public class RandomEventManager : MonoBehaviour
         if (col != null) Destroy(col);
 
         var rb = go.AddComponent<Rigidbody>();
-        rb.useGravity = true;
-        rb.linearDamping = 0.5f;
+        rb.isKinematic = true;
+        rb.useGravity = false;
 
         var trigger = go.AddComponent<BoxCollider>();
         trigger.isTrigger = true;
@@ -985,6 +988,7 @@ public class RandomEventManager : MonoBehaviour
         var player = GameManager.Instance?.Player;
         if (player == null) return;
         long stolen = (long)(player.Money * UnityEngine.Random.Range(0.05f, 0.1f));
+        stolen = Math.Min(stolen, 500L);
         player.Money -= stolen;
     }
 
@@ -1482,9 +1486,14 @@ public class CoinPickupBehavior : MonoBehaviour
 
     private float _lifetime = 30f;
     private float _bobTimer;
+    private bool _collected;
+
+    public bool Collected => _collected;
 
     void Update()
     {
+        if (_collected) return;
+
         _lifetime -= Time.deltaTime;
         if (_lifetime <= 0f)
         {
@@ -1499,6 +1508,7 @@ public class CoinPickupBehavior : MonoBehaviour
         if (player == null) return;
         if (Vector3.Distance(transform.position, player.transform.position) < 1.5f)
         {
+            _collected = true;
             player.Money += Amount;
             SoundManager.Instance?.Play("pop");
             GameManager.Instance?.UIManager?.ShowMessage("+" + Amount + "g", 1.5f);

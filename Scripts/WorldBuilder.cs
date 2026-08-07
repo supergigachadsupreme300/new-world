@@ -3145,12 +3145,16 @@ public class WorldBuilder : MonoBehaviour
             case "Shop":
                 root = MapBuilder.BuildShop(_worldRoot.transform, bp.Position);
                 _shopRoot = root.transform;
+                SpawnBuffalo();
                 break;
             case "WifeHouse":
                 root = MapBuilder.BuildWifeHouse(_worldRoot.transform, bp.Position);
                 break;
             case "RichMansion":
                 root = MapBuilder.BuildRichManMansion(_worldRoot.transform, bp.Position, 1f, Quaternion.Euler(0f, bp.Rotation, 0f));
+                break;
+            case "Restaurant":
+                root = MapBuilder.BuildRiceRestaurant(_worldRoot.transform, bp.Position);
                 break;
         }
         if (root != null)
@@ -3648,6 +3652,8 @@ public class WorldBuilder : MonoBehaviour
             case "PlayerHouse": wood = 50; stone = 30; break;
             case "Shop":        wood = 40; stone = 20; break;
             case "WifeHouse":   wood = 60; stone = 40; break;
+            case "RichMansion": wood = 80; stone = 50; break;
+            case "Restaurant":  wood = 70; stone = 45; break;
             default:            wood = 30; stone = 20; break;
         }
     }

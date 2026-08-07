@@ -45,7 +45,7 @@ public class SoundManager : MonoBehaviour
 
     public void LoadSoundClips()
     {
-        var names = new[] {"pop", "axe", "pickaxe", "hoe", "sickle", "hammer"};
+        var names = new[] {"pop", "axe", "pickaxe", "hoe", "sickle", "hammer", "bonk", "mexican_truck"};
         foreach (var name in names)
         {
             var clip = Resources.Load<AudioClip>($"Sounds/{name}");

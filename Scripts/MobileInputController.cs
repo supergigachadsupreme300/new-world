@@ -198,6 +198,15 @@ public class MobileInputController : MonoBehaviour
         CreateActionButton("JumpButton", Localization.T("NHẢY"),
             new Vector2(-w * 0.035f, baseFloor + h * 0.275f), new Vector2(sMedium, sMedium),
             "jump", false, btnFont);
+        CreateActionButton("InviteButton", Localization.T("MỜI"),
+            new Vector2(-w * 0.22f, baseFloor + h * 0.36f), new Vector2(sMedium, sMedium),
+            "invite", false, smFont);
+        CreateActionButton("ProposeButton", Localization.T("CẦU HÔN"),
+            new Vector2(-w * 0.22f, baseFloor + h * 0.445f), new Vector2(sMedium, sMedium),
+            "propose", false, smFont);
+        CreateActionButton("NightButton", Localization.T("NGỦ"),
+            new Vector2(-w * 0.22f, baseFloor + h * 0.53f), new Vector2(sMedium, sMedium),
+            "night", false, smFont);
         CreateActionButton("PauseButton", "II",
             new Vector2(-w * 0.02f, -h * 0.02f), new Vector2(h * 0.05f, h * 0.05f),
             "pause", false, smFont, topRight: true);

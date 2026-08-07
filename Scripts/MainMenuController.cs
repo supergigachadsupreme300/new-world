@@ -28,8 +28,9 @@ public class MainMenuController : MonoBehaviour
 
     public void OnLoadGameClicked()
     {
-        SaveManager.Instance?.LoadGame();
-        _gameManager?.ShowMainMenu(false);
+        bool loaded = SaveManager.Instance != null && SaveManager.Instance.LoadGame();
+        if (loaded)
+            _gameManager?.ShowMainMenu(false);
     }
 
     public void OnQuitClicked()

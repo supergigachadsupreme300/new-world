@@ -65,13 +65,13 @@ public class SaveManager : MonoBehaviour
         _uiManager?.ShowMessage("Game saved!", 2f);
     }
 
-    public void LoadGame()
+    public bool LoadGame()
     {
         var path = GetSaveFilePath();
         if (!File.Exists(path))
         {
             _uiManager?.ShowMessage("Save file not found!", 2f);
-            return;
+            return false;
         }
 
         var json = File.ReadAllText(path);
@@ -79,7 +79,7 @@ public class SaveManager : MonoBehaviour
         if (data == null)
         {
             _uiManager?.ShowMessage("Cannot read save file!", 2f);
-            return;
+            return false;
         }
 
         if (_worldBuilder != null)
@@ -111,12 +111,16 @@ public class SaveManager : MonoBehaviour
         _questManager?.LoadQuestSaves(data.quests);
         WifeNPC.Instance?.LoadState();
 
+        var spawner = Object.FindAnyObjectByType<LivestockSpawner>();
+        if (spawner != null) spawner.Restart();
+
         GameManager.Instance?.ShowMainMenu(false);
         _uiManager?.ShowAllGameUI(true);
         _uiManager?.ShowPauseMenu(false);
         _uiManager?.ShowMessage("Game loaded!", 2f);
         if (GameManager.Instance?.Player != null)
             _uiManager?.UpdatePlayerHud(GameManager.Instance.Player.HP, GameManager.Instance.Player.MaxHP, GameManager.Instance.Player.Stamina, GameManager.Instance.Player.MaxStamina, GameManager.Instance.Player.Money);
+        return true;
     }
 
     private string GetSaveFilePath()

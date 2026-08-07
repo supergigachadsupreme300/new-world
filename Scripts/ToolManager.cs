@@ -61,6 +61,27 @@ public class ToolManager : MonoBehaviour
         return 10f;
     }
 
+    private bool RequiresStamina(string itemType)
+    {
+        if (itemType == null) return false;
+        switch (itemType)
+        {
+            case "axe":
+            case "pickaxe":
+            case "hoe":
+            case "scythe":
+            case "hammer":
+            case "club":
+            case "rosary":
+            case "watering_can":
+            case "fertilizer":
+            case "mi_chinh":
+                return true;
+            default:
+                return itemType.EndsWith("_seed");
+        }
+    }
+
     private bool TryUseTool(PlayerController player)
     {
         var item = GetSelectedItemType();
@@ -559,8 +580,8 @@ public class ToolManager : MonoBehaviour
         if (TryEatFood(selectedItem, player))
             return;
 
-        // Consume stamina + play swing animation for any tool/item use
-        if (selectedItem != null && !TryUseTool(player))
+        // Consume stamina + play swing animation only for items that have a real action
+        if (selectedItem != null && RequiresStamina(selectedItem) && !TryUseTool(player))
             return;
 
         if (selectedItem == "rosary")
@@ -756,6 +777,7 @@ public class ToolManager : MonoBehaviour
                     {
                         SoundManager.Instance?.Play("pop");
                         _uiManager.ShowMessage(Localization.T("Ruộng đã tưới."), 1.5f);
+                        QuestManager.Instance?.AddProgress("water", 1);
                     }
                 }
                 else
@@ -1138,6 +1160,10 @@ public class ToolManager : MonoBehaviour
 
         if (itemType.StartsWith("gold_") && int.TryParse(itemType.Substring("gold_".Length), out var coinAmount))
         {
+            var coin = pickupRoot.GetComponent<CoinPickupBehavior>();
+            if (coin != null && coin.Collected)
+                return true;
+
             var player = GameManager.Instance?.Player;
             if (player != null)
                 player.Money += coinAmount;

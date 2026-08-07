@@ -433,8 +433,7 @@ public class VendorShopManager : MonoBehaviour
         var tm = ToolManager.Instance;
         if (tm == null) return;
 
-        int slot = tm.FindEmptySlot();
-        if (slot < 0)
+        if (!tm.CanHoldItem(item.Type))
         {
             ShowMessage(Localization.T("Túi đồ đầy"));
             return;

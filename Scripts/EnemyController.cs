@@ -22,6 +22,8 @@ public class EnemyController : MonoBehaviour
     private bool _isDead;
     private float _respawnTimer;
 
+    public bool IsDead => _isDead;
+
     private Transform _modelRoot;
     private Transform _upperTorso;
     private Transform _midTorso;
@@ -52,7 +54,6 @@ public class EnemyController : MonoBehaviour
 
     private void Awake()
     {
-        _health = MaxHealth;
         _origin = transform.position;
         _patrolTarget = GetRandomPatrolPoint();
         _player = Object.FindAnyObjectByType<PlayerController>()?.transform;
@@ -60,6 +61,7 @@ public class EnemyController : MonoBehaviour
 
     private void Start()
     {
+        _health = MaxHealth;
         BuildModel();
     }
 

@@ -61,6 +61,8 @@ public class UIManager : MonoBehaviour
     private readonly GameObject[] _inventorySlots = new GameObject[InventorySlotCount];
     private readonly TMP_Text[] _inventorySlotTexts = new TMP_Text[InventorySlotCount];
     private readonly Image[] _inventorySlotImages = new Image[InventorySlotCount];
+    private bool _inventoryCreated;
+    private bool _tutorialCreated;
     private RectTransform _statsBg;
     private TMP_Text _messageText;
     private TMP_Text _mobSpawnerText;
@@ -232,6 +234,8 @@ public class UIManager : MonoBehaviour
         float totalW = InventorySlotCount * slotW + (InventorySlotCount - 1) * 4f;
         float startX = -totalW * 0.5f;
 
+        if (!_inventoryCreated)
+        {
         for (int i = 0; i < InventorySlotCount; i++)
         {
             float x = startX + i * (slotW + 4f);
@@ -290,6 +294,8 @@ public class UIManager : MonoBehaviour
             _inventorySlots[i] = slotGo;
             _inventorySlotTexts[i] = text;
             _inventorySlotImages[i] = slotImg;
+        }
+        _inventoryCreated = true;
         }
 
         // Message text: center of screen
@@ -405,6 +411,8 @@ public class UIManager : MonoBehaviour
         CreateButton("QuestCloseButton", _questPanel.transform, Localization.T("Đóng"), new Vector2(0f, -panelHeight * 0.35f), () => ShowQuestPanel(false));
         _questPanel.SetActive(false);
 
+        if (!_tutorialCreated)
+        {
         _tutorialPanel = new GameObject("TutorialPanel");
         _tutorialPanel.transform.SetParent(_canvas.transform, false);
         var tutRect = _tutorialPanel.AddComponent<RectTransform>();
@@ -551,6 +559,8 @@ public class UIManager : MonoBehaviour
         rightTextObj.SetActive(false);
 
         _tutorialPanel.SetActive(false);
+        _tutorialCreated = true;
+        }
 
         _mainMenuPanel = CreateMenuPanel("MainMenuPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
         // Anchor menu to far left side, stretched vertically

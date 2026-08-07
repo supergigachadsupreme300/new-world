@@ -91,7 +91,7 @@ public class PetController : MonoBehaviour
         float nearestDist = float.MaxValue;
         foreach (var enemy in enemies)
         {
-            if (enemy == null)
+            if (enemy == null || enemy.IsDead)
                 continue;
             float d = Vector3.Distance(transform.position, enemy.transform.position);
             if (d <= AttackRange && d < nearestDist)
