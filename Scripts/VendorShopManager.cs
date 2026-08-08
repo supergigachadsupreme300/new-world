@@ -93,6 +93,8 @@ public class VendorShopManager : MonoBehaviour
         new ShopItem { Type = "mi_chinh", Label = "Mì Chính", Price = 9 },
     };
 
+    private List<ShopItem> _storeBuyItems;
+
     private List<ShopItem> _restaurantBuyItems = new List<ShopItem>
     {
         new ShopItem { Type = "com_trang", Label = "Cơm Trắng", Price = 15 },
@@ -139,7 +141,15 @@ public class VendorShopManager : MonoBehaviour
             {
                 case "restaurant": return _restaurantBuyItems;
                 case "tools": return _toolsBuyItems;
-                case "convenience": return _convenienceBuyItems;
+                case "convenience":
+                    if (_storeBuyItems == null)
+                    {
+                        _storeBuyItems = new List<ShopItem>();
+                        _storeBuyItems.AddRange(_toolsBuyItems);
+                        _storeBuyItems.AddRange(_convenienceBuyItems);
+                        _storeBuyItems.AddRange(_groceryBuyItems);
+                    }
+                    return _storeBuyItems;
                 case "grocery": return _groceryBuyItems;
                 default: return _buyItems;
             }

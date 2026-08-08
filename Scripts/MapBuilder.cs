@@ -743,7 +743,7 @@ public static class MapBuilder
             new Vector3(0f, -0.2f, 0f), stoneC);
 
         // ── Sign ──
-        MakeBlock("Sign", root.transform, new Vector3(3.5f, 0.8f, 0.2f),
+        MakeBlock("Sign", root.transform, new Vector3(0.2f, 0.8f, 3.5f),
             new Vector3(5.08f, 3.6f, 0f), signC, true);
 
         // ── Entrance awning ──
@@ -880,12 +880,13 @@ public static class MapBuilder
         MakeBlock("Foundation", root.transform, new Vector3(halfW * 2f + 1.5f, 0.4f, depth + 1.5f),
             new Vector3(0f, -0.2f, 0f), stoneC);
 
-        // ── Sign ──
-        MakeBlock("Sign", root.transform, new Vector3(3.5f, 0.8f, 0.2f),
+        // ── Sign (faces the +X road) ──
+        MakeBlock("Sign", root.transform, new Vector3(0.2f, 0.8f, 3.5f),
             new Vector3(halfW + 0.08f, 3.6f, 0f), signC, true);
         var signLabel = new GameObject("RestaurantSignLabel");
         signLabel.transform.SetParent(root.transform);
         signLabel.transform.localPosition = new Vector3(halfW + 0.3f, 3.6f, 0f);
+        signLabel.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
         var signTmp = signLabel.AddComponent<TMPro.TextMeshPro>();
         signTmp.text = "NHÀ HÀNG";
         signTmp.fontSize = 1.0f;
@@ -922,7 +923,22 @@ public static class MapBuilder
                 new Vector3(halfW + 0.8f, 3.1f, lz), new Color(0.9f, 0.35f, 0.2f), true);
             MakeBlock("LanternGlow", root.transform, new Vector3(0.18f, 0.22f, 0.18f),
                 new Vector3(halfW + 0.8f, 3.1f, lz), new Color(1f, 0.85f, 0.45f), true);
+            AddEntranceLight(root.transform, new Vector3(halfW + 0.8f, 3.0f, lz));
         }
+
+        // ── Freestanding signpost (front, beside the path) ──
+        MakeBlock("SignPost", root.transform, new Vector3(0.18f, 2.6f, 0.18f),
+            new Vector3(halfW + 2.2f, 1.3f, 2.6f), trimC, true);
+        MakeBlock("SignBoard", root.transform, new Vector3(0.14f, 0.9f, 2.4f),
+            new Vector3(halfW + 2.2f, 2.6f, 2.6f), signC, true);
+        MakeBlock("SignBoardText", root.transform, new Vector3(0.05f, 0.55f, 2.0f),
+            new Vector3(halfW + 2.26f, 2.6f, 2.6f), new Color(0.98f, 0.94f, 0.85f), true);
+
+        // ── Lampposts at the entrance and patio ──
+        AddLamppost(root.transform, new Vector3(halfW + 1.3f, 0.05f, -3.1f));
+        AddLamppost(root.transform, new Vector3(halfW + 1.3f, 0.05f, 3.1f));
+        AddLamppost(root.transform, new Vector3(halfW + 2.3f, 0.05f, -4.0f));
+        AddLamppost(root.transform, new Vector3(halfW + 2.3f, 0.05f, 4.0f));
 
         // ── Windows (west, north, south) ──
         foreach (float wz in new[] { -3f, 3f })
@@ -977,48 +993,128 @@ public static class MapBuilder
                 new Vector3(-halfW + 0.45f, 1.58f, i * 1.2f), riceC, true);
         }
 
-        // ── Kitchen detail: stir pot, chopping board, stacked bowls ──
+        // ── Kitchen detail: stir pot, chopping board, stacked bowls (on countertop) ──
         MakeBlock("StirPot", root.transform, new Vector3(0.28f, 0.32f, 0.28f),
-            new Vector3(-3.4f, 1.32f, 0.55f), new Color(0.35f, 0.35f, 0.36f), true);
+            new Vector3(-5.15f, 1.16f, 1.6f), new Color(0.35f, 0.35f, 0.36f), true);
         MakeBlock("StirPotTop", root.transform, new Vector3(0.32f, 0.07f, 0.32f),
-            new Vector3(-3.4f, 1.5f, 0.55f), new Color(0.5f, 0.35f, 0.15f), true);
+            new Vector3(-5.15f, 1.34f, 1.6f), new Color(0.5f, 0.35f, 0.15f), true);
         MakeBlock("ChoppingBoard", root.transform, new Vector3(0.14f, 0.05f, 0.7f),
-            new Vector3(-3.45f, 1.06f, 1.8f), new Color(0.72f, 0.55f, 0.3f), true);
+            new Vector3(-5.25f, 1.03f, 2.55f), new Color(0.72f, 0.55f, 0.3f), true);
         MakeBlock("ChoppedItem", root.transform, new Vector3(0.05f, 0.04f, 0.05f),
-            new Vector3(-3.45f, 1.12f, 1.6f), new Color(1f, 0.85f, 0.3f), true);
+            new Vector3(-5.25f, 1.09f, 2.35f), new Color(1f, 0.85f, 0.3f), true);
         MakeBlock("StackedBowl", root.transform, new Vector3(0.32f, 0.14f, 0.32f),
-            new Vector3(-3.5f, 1.08f, -1.9f), riceC, true);
+            new Vector3(-5.15f, 1.07f, -2.45f), riceC, true);
         MakeBlock("StackedBowl", root.transform, new Vector3(0.34f, 0.1f, 0.34f),
-            new Vector3(-3.5f, 1.22f, -1.9f), riceC, true);
+            new Vector3(-5.15f, 1.21f, -2.45f), riceC, true);
+        MakeBlock("SmallPot", root.transform, new Vector3(0.22f, 0.24f, 0.22f),
+            new Vector3(-5.1f, 1.12f, 0.4f), new Color(0.3f, 0.3f, 0.32f), true);
+        MakeBlock("Ladle", root.transform, new Vector3(0.05f, 0.3f, 0.05f),
+            new Vector3(-5.3f, 1.15f, -1.15f), new Color(0.55f, 0.55f, 0.58f), true);
 
-        // ── Interior dining tables ──
+        // ── Stove on the countertop ──
+        MakeBlock("Stove", root.transform, new Vector3(0.9f, 0.45f, 0.9f),
+            new Vector3(-5.2f, 1.2f, -0.6f), new Color(0.28f, 0.28f, 0.3f), true);
+        MakeBlock("StoveTop", root.transform, new Vector3(0.9f, 0.05f, 0.9f),
+            new Vector3(-5.2f, 1.45f, -0.6f), new Color(0.12f, 0.12f, 0.13f), true);
+        MakeBlock("Burner", root.transform, new Vector3(0.34f, 0.03f, 0.34f),
+            new Vector3(-5.2f, 1.48f, -0.85f), new Color(0.08f, 0.08f, 0.08f), true);
+        MakeBlock("Burner", root.transform, new Vector3(0.34f, 0.03f, 0.34f),
+            new Vector3(-5.2f, 1.48f, -0.35f), new Color(0.08f, 0.08f, 0.08f), true);
+
+        // ── Wall shelf + jars behind the counter ──
+        MakeBlock("ShelfBoard", root.transform, new Vector3(0.12f, 0.08f, 4.2f),
+            new Vector3(-5.78f, 2.6f, 0f), trimC, true);
+        for (int j = 0; j < 4; j++)
+        {
+            MakeBlock("Jar", root.transform, new Vector3(0.16f, 0.3f, 0.16f),
+                new Vector3(-5.82f, 2.78f, -1.6f + j * 1.1f),
+                j % 2 == 0 ? new Color(0.55f, 0.78f, 0.86f) : new Color(0.9f, 0.35f, 0.2f), true);
+        }
+
+        // ── Rice sacks in the corner ──
+        MakeBlock("RiceSack", root.transform, new Vector3(0.5f, 0.7f, 0.5f),
+            new Vector3(-5.7f, 0.35f, -3.5f), new Color(0.93f, 0.9f, 0.82f), true);
+        MakeBlock("RiceSack", root.transform, new Vector3(0.45f, 0.6f, 0.45f),
+            new Vector3(-5.35f, 0.3f, -3.6f), new Color(0.86f, 0.81f, 0.72f), true);
+
+        // ── Interior dining tables (full height) ──
         foreach (float tz in new[] { -3.5f, 3.5f })
         {
-            MakeBlock("DiningTable", root.transform, new Vector3(1.6f, 0.08f, 0.9f),
-                new Vector3(0.5f, 0.04f, tz), new Color(0.6f, 0.42f, 0.24f), true);
-            MakeBlock("TableLeg", root.transform, new Vector3(0.1f, 0.35f, 0.1f),
-                new Vector3(0.1f, -0.1f, tz - 0.35f), trimC, true);
-            MakeBlock("TableLeg", root.transform, new Vector3(0.1f, 0.35f, 0.1f),
-                new Vector3(0.9f, -0.1f, tz - 0.35f), trimC, true);
-            MakeBlock("TableLeg", root.transform, new Vector3(0.1f, 0.35f, 0.1f),
-                new Vector3(0.1f, -0.1f, tz + 0.35f), trimC, true);
-            MakeBlock("TableLeg", root.transform, new Vector3(0.1f, 0.35f, 0.1f),
-                new Vector3(0.9f, -0.1f, tz + 0.35f), trimC, true);
+            MakeBlock("DiningTable", root.transform, new Vector3(1.6f, 0.1f, 0.9f),
+                new Vector3(0.5f, 0.75f, tz), new Color(0.6f, 0.42f, 0.24f), true);
+            MakeBlock("TableLeg", root.transform, new Vector3(0.1f, 0.7f, 0.1f),
+                new Vector3(0.1f, 0.35f, tz - 0.35f), trimC, true);
+            MakeBlock("TableLeg", root.transform, new Vector3(0.1f, 0.7f, 0.1f),
+                new Vector3(0.9f, 0.35f, tz - 0.35f), trimC, true);
+            MakeBlock("TableLeg", root.transform, new Vector3(0.1f, 0.7f, 0.1f),
+                new Vector3(0.1f, 0.35f, tz + 0.35f), trimC, true);
+            MakeBlock("TableLeg", root.transform, new Vector3(0.1f, 0.7f, 0.1f),
+                new Vector3(0.9f, 0.35f, tz + 0.35f), trimC, true);
             MakeBlock("Bowl", root.transform, new Vector3(0.3f, 0.08f, 0.3f),
-                new Vector3(0.5f, 0.09f, tz), riceC, true);
+                new Vector3(0.5f, 0.82f, tz - 0.15f), riceC, true);
+            MakeBlock("Plate", root.transform, new Vector3(0.28f, 0.04f, 0.28f),
+                new Vector3(0.5f, 0.81f, tz + 0.2f), new Color(0.95f, 0.93f, 0.88f), true);
         }
 
-        // ── Interior benches + seated diner ──
+        // ── Interior benches + stools ──
         foreach (float bz in new[] { -3.5f, 3.5f })
         {
-            MakeBlock("DiningBench", root.transform, new Vector3(1.4f, 0.32f, 0.4f),
-                new Vector3(1.55f, 0.16f, bz), trimC, true);
+            MakeBlock("DiningBench", root.transform, new Vector3(1.4f, 0.12f, 0.4f),
+                new Vector3(1.55f, 0.44f, bz), trimC, true);
+            MakeBlock("BenchLeg", root.transform, new Vector3(0.12f, 0.4f, 0.12f),
+                new Vector3(1.15f, 0.2f, bz - 0.16f), trimC, true);
+            MakeBlock("BenchLeg", root.transform, new Vector3(0.12f, 0.4f, 0.12f),
+                new Vector3(1.95f, 0.2f, bz - 0.16f), trimC, true);
+            MakeBlock("BenchLeg", root.transform, new Vector3(0.12f, 0.4f, 0.12f),
+                new Vector3(1.15f, 0.2f, bz + 0.16f), trimC, true);
+            MakeBlock("BenchLeg", root.transform, new Vector3(0.12f, 0.4f, 0.12f),
+                new Vector3(1.95f, 0.2f, bz + 0.16f), trimC, true);
+            MakeBlock("DiningStool", root.transform, new Vector3(0.3f, 0.5f, 0.3f),
+                new Vector3(-0.55f, 0.25f, bz), trimC, true);
         }
-        MakeBlock("DiningStool", root.transform, new Vector3(0.3f, 0.5f, 0.3f),
-            new Vector3(-0.55f, 0.25f, -3.5f), trimC, true);
+
+        // ── Interior seated diners (one per stool + one per bench) ──
         BuildSeatedCustomer(root.transform, new Vector3(-0.55f, 0.5f, -3.5f),
-            Quaternion.Euler(0f, 90f, 0f), new Color(0.45f, 0.6f, 0.75f), new Color(0.35f, 0.4f, 0.5f),
+            Quaternion.Euler(0f, -90f, 0f), new Color(0.45f, 0.6f, 0.75f), new Color(0.35f, 0.4f, 0.5f),
             new Color(0.9f, 0.78f, 0.68f));
+        BuildSeatedCustomer(root.transform, new Vector3(1.55f, 0.5f, -3.5f),
+            Quaternion.Euler(0f, 90f, 0f), new Color(0.85f, 0.55f, 0.4f), new Color(0.4f, 0.32f, 0.25f),
+            new Color(0.9f, 0.78f, 0.68f));
+        BuildSeatedCustomer(root.transform, new Vector3(-0.55f, 0.5f, 3.5f),
+            Quaternion.Euler(0f, -90f, 0f), new Color(0.5f, 0.65f, 0.4f), new Color(0.35f, 0.45f, 0.3f),
+            new Color(0.9f, 0.78f, 0.68f));
+        BuildSeatedCustomer(root.transform, new Vector3(1.55f, 0.5f, 3.5f),
+            Quaternion.Euler(0f, 90f, 0f), new Color(0.75f, 0.55f, 0.85f), new Color(0.35f, 0.3f, 0.45f),
+            new Color(0.9f, 0.78f, 0.68f));
+
+        // ── Kitchen staff: cook helper + waitress ──
+        BuildStandingStaff(root.transform, new Vector3(-3.6f, 1.13f, -2.2f),
+            Quaternion.Euler(0f, 90f, 0f), new Color(0.95f, 0.95f, 0.92f), new Color(0.2f, 0.2f, 0.2f),
+            new Color(0.9f, 0.78f, 0.68f));
+        BuildStandingStaff(root.transform, new Vector3(4.5f, 1.13f, 1.5f),
+            Quaternion.Euler(0f, -90f, 0f), new Color(0.9f, 0.55f, 0.35f), new Color(0.3f, 0.35f, 0.55f),
+            new Color(0.9f, 0.78f, 0.68f));
+
+        // ── Hanging lamps over the dining tables ──
+        foreach (float lz in new[] { -3.5f, 3.5f })
+        {
+            MakeBlock("LampCord", root.transform, new Vector3(0.04f, 0.5f, 0.04f),
+                new Vector3(0.5f, 2.95f, lz), trimC, true);
+            MakeBlock("Lamp", root.transform, new Vector3(0.4f, 0.35f, 0.4f),
+                new Vector3(0.5f, 2.55f, lz), new Color(0.9f, 0.35f, 0.2f), true);
+            MakeBlock("LampGlow", root.transform, new Vector3(0.24f, 0.2f, 0.24f),
+                new Vector3(0.5f, 2.55f, lz), new Color(1f, 0.85f, 0.45f), true);
+        }
+
+        // ── Interior planters ──
+        MakeBlock("Planter", root.transform, new Vector3(0.45f, 0.55f, 0.45f),
+            new Vector3(4.6f, 0.28f, -2.7f), new Color(0.62f, 0.38f, 0.2f), true);
+        MakeBlock("PlantLeaves", root.transform, new Vector3(0.55f, 0.55f, 0.55f),
+            new Vector3(4.6f, 0.78f, -2.7f), new Color(0.25f, 0.55f, 0.25f), true);
+        MakeBlock("Planter", root.transform, new Vector3(0.4f, 0.5f, 0.4f),
+            new Vector3(2.6f, 0.25f, 4.2f), new Color(0.62f, 0.38f, 0.2f), true);
+        MakeBlock("PlantLeaves", root.transform, new Vector3(0.5f, 0.5f, 0.5f),
+            new Vector3(2.6f, 0.72f, 4.2f), new Color(0.25f, 0.55f, 0.25f), true);
 
         // ── Outdoor patio tables (east of building) ──
         foreach (float tz in new[] { -2.6f, 2.6f })
@@ -1097,8 +1193,8 @@ public static class MapBuilder
     {
         var root = new GameObject("RestaurantNPC");
         root.transform.SetParent(parent);
-        root.transform.position = position;
-        root.transform.rotation = rotation;
+        root.transform.localPosition = position;
+        root.transform.localRotation = rotation;
 
         Color coatC = new Color(0.95f, 0.95f, 0.92f);
         Color skinC = new Color(230f / 255f, 200f / 255f, 175f / 255f);
@@ -1141,8 +1237,8 @@ public static class MapBuilder
     {
         var root = new GameObject("RestaurantCustomer");
         root.transform.SetParent(parent);
-        root.transform.position = position;
-        root.transform.rotation = rotation;
+        root.transform.localPosition = position;
+        root.transform.localRotation = rotation;
 
         MakeBlock("LegL", root.transform, new Vector3(0.12f, 0.12f, 0.3f), new Vector3(-0.1f, -0.18f, 0.18f), pantsC, true);
         MakeBlock("LegR", root.transform, new Vector3(0.12f, 0.12f, 0.3f), new Vector3(0.1f, -0.18f, 0.18f), pantsC, true);
@@ -1154,6 +1250,49 @@ public static class MapBuilder
         MakeBlock("ArmR", root.transform, new Vector3(0.11f, 0.35f, 0.11f), new Vector3(0.29f, 0.08f, 0.05f), shirtC, true);
         MakeBlock("HandL", root.transform, new Vector3(0.1f, 0.08f, 0.1f), new Vector3(-0.29f, -0.1f, 0.05f), skinC, true);
         MakeBlock("HandR", root.transform, new Vector3(0.1f, 0.08f, 0.1f), new Vector3(0.29f, -0.1f, 0.05f), skinC, true);
+    }
+
+    private static void BuildStandingStaff(Transform parent, Vector3 position, Quaternion rotation, Color shirtC, Color pantsC, Color skinC)
+    {
+        var root = new GameObject("RestaurantStaff");
+        root.transform.SetParent(parent);
+        root.transform.localPosition = position;
+        root.transform.localRotation = rotation;
+
+        MakeBlock("LegL", root.transform, new Vector3(0.15f, 0.5f, 0.15f), new Vector3(-0.13f, -0.55f, 0f), pantsC, true);
+        MakeBlock("LegR", root.transform, new Vector3(0.15f, 0.5f, 0.15f), new Vector3(0.13f, -0.55f, 0f), pantsC, true);
+        MakeBlock("BootL", root.transform, new Vector3(0.18f, 0.09f, 0.28f), new Vector3(-0.13f, -0.85f, 0f), new Color(0.1f, 0.1f, 0.1f), true);
+        MakeBlock("BootR", root.transform, new Vector3(0.18f, 0.09f, 0.28f), new Vector3(0.13f, -0.85f, 0f), new Color(0.1f, 0.1f, 0.1f), true);
+        MakeBlock("Body", root.transform, new Vector3(0.44f, 0.5f, 0.28f), new Vector3(0f, 0f, 0f), shirtC, true);
+        MakeBlock("Apron", root.transform, new Vector3(0.42f, 0.4f, 0.05f), new Vector3(0f, -0.04f, 0.1f), new Color(0.95f, 0.95f, 0.92f), true);
+        MakeBlock("Neck", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0f, 0.32f, 0f), skinC, true);
+        MakeBlock("Head", root.transform, new Vector3(0.28f, 0.26f, 0.28f), new Vector3(0f, 0.47f, 0f), skinC, true);
+        MakeBlock("Hair", root.transform, new Vector3(0.29f, 0.09f, 0.29f), new Vector3(0f, 0.61f, 0f), new Color(0.2f, 0.13f, 0.08f), true);
+        MakeBlock("ArmL", root.transform, new Vector3(0.12f, 0.4f, 0.12f), new Vector3(-0.31f, 0.08f, 0f), shirtC, true);
+        MakeBlock("ArmR", root.transform, new Vector3(0.12f, 0.4f, 0.12f), new Vector3(0.31f, 0.08f, 0f), shirtC, true);
+        MakeBlock("HandL", root.transform, new Vector3(0.1f, 0.08f, 0.1f), new Vector3(-0.31f, -0.14f, 0f), skinC, true);
+        MakeBlock("HandR", root.transform, new Vector3(0.1f, 0.08f, 0.1f), new Vector3(0.31f, -0.14f, 0f), skinC, true);
+    }
+
+    private static void AddLamppost(Transform parent, Vector3 position)
+    {
+        Color lampC = new Color(0.18f, 0.16f, 0.14f);
+        MakeBlock("Lamppost", parent, new Vector3(0.16f, 2.8f, 0.16f), position + new Vector3(0f, 1.4f, 0f), lampC, true);
+        MakeBlock("LampHead", parent, new Vector3(0.34f, 0.3f, 0.34f), position + new Vector3(0f, 2.85f, 0f), new Color(0.9f, 0.35f, 0.2f), true);
+        MakeBlock("LampGlow", parent, new Vector3(0.2f, 0.18f, 0.2f), position + new Vector3(0f, 2.85f, 0f), new Color(1f, 0.85f, 0.45f), true);
+        AddEntranceLight(parent, position + new Vector3(0f, 2.8f, 0f));
+    }
+
+    private static void AddEntranceLight(Transform parent, Vector3 position)
+    {
+        var lampGo = new GameObject("RestaurantPointLight");
+        lampGo.transform.SetParent(parent);
+        lampGo.transform.localPosition = position;
+        var light = lampGo.AddComponent<Light>();
+        light.type = LightType.Point;
+        light.color = new Color(1f, 0.85f, 0.55f);
+        light.intensity = 1.6f;
+        light.range = 6f;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1228,51 +1367,64 @@ public static class MapBuilder
         Color signC    = new Color(0.85f, 0.24f, 0.18f);
         Color winC     = new Color(0.55f, 0.78f, 0.86f);
 
-        float hw = 3f;
-        float hd = 2f;
-        float wallH = 4f;
+        float hw = 4f;
+        float hd = 3.5f;
+        float wallH = 4.5f;
 
         // ── Floor ──
-        MakeBlock("Floor", root.transform, new Vector3(6f, 0.25f, 4f), new Vector3(0f, 0.125f, 0f), floorC);
+        MakeBlock("Floor", root.transform, new Vector3(8f, 0.25f, 7f), new Vector3(0f, 0.125f, 0f), floorC);
 
         // ── Walls (entrance on +x, facing the road) ──
-        MakeBlock("Wall", root.transform, new Vector3(0.5f, wallH, 4f), new Vector3(-hw, wallH / 2f, 0f), wallC);
-        MakeBlock("Wall", root.transform, new Vector3(6f, wallH, 0.5f), new Vector3(0f, wallH / 2f, hd), wallC);
-        MakeBlock("Wall", root.transform, new Vector3(6f, wallH, 0.5f), new Vector3(0f, wallH / 2f, -hd), wallC);
-        MakeBlock("Wall", root.transform, new Vector3(0.5f, wallH, 2f), new Vector3(hw, wallH / 2f, -1.5f), wallC);
-        MakeBlock("Wall", root.transform, new Vector3(0.5f, wallH, 2f), new Vector3(hw, wallH / 2f, 1.5f), wallC);
-        MakeBlock("Transom", root.transform, new Vector3(0.5f, 1.2f, 1.25f), new Vector3(hw, wallH - 0.6f, 0f), wallC);
-        MakeBlock("DoorFrame", root.transform, new Vector3(0.2f, 3.4f, 0.2f), new Vector3(hw, 1.7f, -0.625f), frameC);
-        MakeBlock("DoorFrame", root.transform, new Vector3(0.2f, 3.4f, 0.2f), new Vector3(hw, 1.7f, 0.625f), frameC);
+        MakeBlock("Wall", root.transform, new Vector3(0.5f, wallH, 7f), new Vector3(-hw, wallH / 2f, 0f), wallC);
+        MakeBlock("Wall", root.transform, new Vector3(8f, wallH, 0.5f), new Vector3(0f, wallH / 2f, hd), wallC);
+        MakeBlock("Wall", root.transform, new Vector3(8f, wallH, 0.5f), new Vector3(0f, wallH / 2f, -hd), wallC);
+        MakeBlock("Wall", root.transform, new Vector3(0.5f, wallH, 2.7f), new Vector3(hw, wallH / 2f, -2.15f), wallC);
+        MakeBlock("Wall", root.transform, new Vector3(0.5f, wallH, 2.7f), new Vector3(hw, wallH / 2f, 2.15f), wallC);
+        MakeBlock("Transom", root.transform, new Vector3(0.5f, 1.3f, 1.6f), new Vector3(hw, wallH - 0.65f, 0f), wallC);
+        MakeBlock("DoorFrame", root.transform, new Vector3(0.2f, 3.2f, 0.2f), new Vector3(hw, 1.6f, -0.8f), frameC);
+        MakeBlock("DoorFrame", root.transform, new Vector3(0.2f, 3.2f, 0.2f), new Vector3(hw, 1.6f, 0.8f), frameC);
 
         // ── Flat roof with overhang ──
-        MakeBlock("Roof", root.transform, new Vector3(7f, 0.5f, 5f), new Vector3(0f, wallH + 0.25f, 0f), roofC);
-        MakeBlock("Eave", root.transform, new Vector3(7.4f, 0.2f, 5.4f), new Vector3(0f, wallH + 0.5f, 0f), eaveC, true);
+        MakeBlock("Roof", root.transform, new Vector3(9f, 0.5f, 8f), new Vector3(0f, wallH + 0.25f, 0f), roofC);
+        MakeBlock("Eave", root.transform, new Vector3(9.4f, 0.2f, 8.4f), new Vector3(0f, wallH + 0.5f, 0f), eaveC, true);
 
         // ── Sign above the door ──
-        MakeBlock("Sign", root.transform, new Vector3(4f, 0.9f, 0.25f), new Vector3(hw + 0.3f, wallH * 0.55f, 0f), signC, true);
-        MakeBlock("SignText", root.transform, new Vector3(3.4f, 0.5f, 0.05f), new Vector3(hw + 0.35f, wallH * 0.55f, 0f), new Color(1f, 1f, 1f), true);
+        MakeBlock("Sign", root.transform, new Vector3(0.25f, 0.9f, 5f), new Vector3(hw + 0.3f, 3.6f, 0f), signC, true);
+        MakeBlock("SignText", root.transform, new Vector3(0.05f, 0.5f, 4.4f), new Vector3(hw + 0.35f, 3.6f, 0f), new Color(1f, 1f, 1f), true);
 
         // ── Window on the back wall ──
-        MakeBlock("WinGlass", root.transform, new Vector3(0.12f, 1.2f, 1.4f), new Vector3(-hw - 0.02f, 2.2f, 0f), winC, true);
+        MakeBlock("WinGlass", root.transform, new Vector3(0.12f, 1.4f, 2f), new Vector3(-hw - 0.02f, 2.3f, 0f), winC, true);
 
         // ── Counter inside ──
-        MakeBlock("Counter", root.transform, new Vector3(1.6f, 1f, 2.2f), new Vector3(1.1f, 0.5f, 0f), counterC);
-        MakeBlock("CounterTop", root.transform, new Vector3(1.6f, 0.08f, 2.4f), new Vector3(1.1f, 0.98f, 0f), new Color(0.7f, 0.75f, 0.8f), true);
+        MakeBlock("Counter", root.transform, new Vector3(2f, 1f, 4.5f), new Vector3(1.5f, 0.5f, 0f), counterC);
+        MakeBlock("CounterTop", root.transform, new Vector3(2f, 0.08f, 4.7f), new Vector3(1.5f, 0.98f, 0f), new Color(0.7f, 0.75f, 0.8f), true);
+        MakeBlock("Register", root.transform, new Vector3(0.5f, 0.4f, 0.5f), new Vector3(1.7f, 1.22f, 0f), frameC, true);
 
-        // ── Shelves along the back wall ──
-        MakeBlock("ShelfPost", root.transform, new Vector3(0.15f, 3.2f, 0.15f), new Vector3(-2.3f, 1.6f, -1.8f), frameC);
-        MakeBlock("ShelfPost", root.transform, new Vector3(0.15f, 3.2f, 0.15f), new Vector3(-2.3f, 1.6f, 1.8f), frameC);
-        for (int i = 0; i < 3; i++)
+        // ── Shelf units flanking the back wall (4 tiers each) ──
+        Color[] itemColors =
         {
-            float sy = 0.5f + i * 0.9f;
-            MakeBlock("ShelfBoard", root.transform, new Vector3(0.15f, 0.08f, 3.6f), new Vector3(-2.3f, sy, 0f), shelfC);
-            Color itemC = (i % 2 == 0) ? new Color(0.9f, 0.2f, 0.2f) : new Color(0.2f, 0.6f, 0.3f);
-            MakeBlock("ShelfItem", root.transform, new Vector3(0.28f, 0.28f, 0.28f), new Vector3(-2.3f, sy + 0.2f, -1.1f + i * 1.1f), itemC);
+            new Color(0.9f, 0.2f, 0.2f), new Color(0.2f, 0.6f, 0.3f),
+            new Color(0.95f, 0.7f, 0.15f), new Color(0.5f, 0.4f, 0.8f)
+        };
+        foreach (float zc in new[] { -1.9f, 1.9f })
+        {
+            string tag = zc < 0 ? "L" : "R";
+            MakeBlock("ShelfPost" + tag, root.transform, new Vector3(0.15f, 3.8f, 0.15f), new Vector3(-2.9f, 1.9f, zc - 1.5f), frameC);
+            MakeBlock("ShelfPost" + tag, root.transform, new Vector3(0.15f, 3.8f, 0.15f), new Vector3(-2.9f, 1.9f, zc + 1.5f), frameC);
+            for (int i = 0; i < 4; i++)
+            {
+                float sy = 0.5f + i * 0.9f;
+                MakeBlock("ShelfBoard" + tag, root.transform, new Vector3(0.15f, 0.08f, 3.2f), new Vector3(-2.9f, sy, zc), shelfC);
+                for (int k = 0; k < 3; k++)
+                {
+                    float iz = zc + (k - 1) * 0.9f;
+                    MakeBlock("ShelfItem" + tag, root.transform, new Vector3(0.28f, 0.28f, 0.28f), new Vector3(-2.9f, sy + 0.2f, iz), itemColors[(i + k) % itemColors.Length]);
+                }
+            }
         }
 
         // ── Shopkeeper behind the counter ──
-        BuildMarketNpc(root.transform, "ConvenienceNPC", new Vector3(1.1f, 1.13f, 0f), Quaternion.Euler(0f, 180f, 0f));
+        BuildMarketNpc(root.transform, "ConvenienceNPC", new Vector3(1.5f, 1.13f, 0f), Quaternion.Euler(0f, 180f, 0f));
 
         return root;
     }
@@ -1837,8 +1989,8 @@ public static class MapBuilder
         MakeBlock("Wall1F_Zneg", root.transform, new Vector3(halfW * 2f, h1, 0.5f), new Vector3(0f, y1, -halfD), wallC);
         MakeBlock("Wall1F_Zpos", root.transform, new Vector3(halfW * 2f, h1, 0.5f), new Vector3(0f, y1, halfD), wallC);
         MakeBlock("Wall1F_Xpos", root.transform, new Vector3(0.5f, h1, halfD * 2f), new Vector3(halfW, y1, 0f), wallC);
-        MakeBlock("Wall1F_Xneg_N", root.transform, new Vector3(0.5f, h1, halfD - 2f), new Vector3(-halfW, y1, -halfD + 2f - 3f + 0.5f), wallC);
-        MakeBlock("Wall1F_Xneg_S", root.transform, new Vector3(0.5f, h1, halfD - 2f), new Vector3(-halfW, y1, halfD - 2f + 3f - 0.5f), wallC);
+        MakeBlock("Wall1F_Xneg_N", root.transform, new Vector3(0.5f, h1, 5.8f), new Vector3(-halfW, y1, -5.1f), wallC);
+        MakeBlock("Wall1F_Xneg_S", root.transform, new Vector3(0.5f, h1, 5.8f), new Vector3(-halfW, y1, 5.1f), wallC);
 
         // 1F windows (-Z, +Z, +X faces)
         foreach (float wx in new[] { -5f, 5f })
@@ -1873,11 +2025,11 @@ public static class MapBuilder
         // ── Entrance on -X side (double door + gold frame) ──
         MakeBlock("DoorFrameL", root.transform, new Vector3(0.4f, 4.5f, 0.4f), new Vector3(-halfW - 0.1f, 2.25f, -1.9f), goldC);
         MakeBlock("DoorFrameR", root.transform, new Vector3(0.4f, 4.5f, 0.4f), new Vector3(-halfW - 0.1f, 2.25f, 1.9f), goldC);
-        MakeBlock("DoorLintel", root.transform, new Vector3(0.4f, 0.4f, 4.4f), new Vector3(-halfW - 0.1f, 4.7f, 0f), goldC);
-        MakeBlock("DoorPanelL", root.transform, new Vector3(0.14f, 3.6f, 1.75f), new Vector3(-halfW - 0.3f, 2.25f, -1.83f), goldC, true);
-        MakeBlock("DoorPanelR", root.transform, new Vector3(0.14f, 3.6f, 1.75f), new Vector3(-halfW - 0.3f, 2.25f, 1.83f), goldC, true);
-        MakeBlock("DoorKnobL", root.transform, new Vector3(0.16f, 0.16f, 0.16f), new Vector3(-halfW - 0.42f, 2.2f, -0.55f), trimC, true);
-        MakeBlock("DoorKnobR", root.transform, new Vector3(0.16f, 0.16f, 0.16f), new Vector3(-halfW - 0.42f, 2.2f, 0.55f), trimC, true);
+        MakeBlock("DoorLintel", root.transform, new Vector3(0.4f, 0.5f, 4.4f), new Vector3(-halfW - 0.1f, 4.75f, 0f), goldC);
+        MakeBlock("DoorPanelL", root.transform, new Vector3(0.14f, 3.6f, 1.7f), new Vector3(-halfW - 0.2f, 2.25f, -0.85f), goldC, true);
+        MakeBlock("DoorPanelR", root.transform, new Vector3(0.14f, 3.6f, 1.7f), new Vector3(-halfW - 0.2f, 2.25f, 0.85f), goldC, true);
+        MakeBlock("DoorKnobL", root.transform, new Vector3(0.16f, 0.16f, 0.16f), new Vector3(-halfW - 0.28f, 2.2f, -0.55f), trimC, true);
+        MakeBlock("DoorKnobR", root.transform, new Vector3(0.16f, 0.16f, 0.16f), new Vector3(-halfW - 0.28f, 2.2f, 0.55f), trimC, true);
         MakeBlock("DoorStep", root.transform, new Vector3(7f, 0.3f, 1f), new Vector3(-halfW - 0.5f, 0.15f, 0f), stoneC);
         MakeBlock("DoorStepGold", root.transform, new Vector3(7f, 0.08f, 0.14f), new Vector3(-halfW - 0.52f, 0.42f, -0.5f), goldC, true);
         MakeBlock("DoorStep2", root.transform, new Vector3(5f, 0.25f, 0.65f), new Vector3(-halfW - 1f, 0.125f, 0f), stoneC);
@@ -2320,8 +2472,8 @@ public static class MapBuilder
         Color visorC = new Color(0.08f, 0.08f, 0.08f);
         Color redC = new Color(0.72f, 0.12f, 0.12f);
 
-        MakeBlock("LegL", root.transform, new Vector3(0.17f, 0.5f, 0.17f), new Vector3(-0.15f, -0.6f, 0f), pantsC, true);
-        MakeBlock("LegR", root.transform, new Vector3(0.17f, 0.5f, 0.17f), new Vector3(0.15f, -0.6f, 0f), pantsC, true);
+        MakeBlock("LegL", root.transform, new Vector3(0.17f, 0.65f, 0.17f), new Vector3(-0.15f, -0.6f, 0f), pantsC, true);
+        MakeBlock("LegR", root.transform, new Vector3(0.17f, 0.65f, 0.17f), new Vector3(0.15f, -0.6f, 0f), pantsC, true);
         MakeBlock("BootL", root.transform, new Vector3(0.2f, 0.09f, 0.3f), new Vector3(-0.15f, -0.88f, 0f), bootC, true);
         MakeBlock("BootR", root.transform, new Vector3(0.2f, 0.09f, 0.3f), new Vector3(0.15f, -0.88f, 0f), bootC, true);
 

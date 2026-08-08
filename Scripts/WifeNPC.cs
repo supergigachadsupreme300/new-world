@@ -49,6 +49,7 @@ public class WifeNPC : MonoBehaviour
     };
 
     private Transform _npcTransform;
+    private Transform _playerTransform;
     private bool _hasProposed;
     private bool _pendingHappyEnding;
 
@@ -100,6 +101,8 @@ public class WifeNPC : MonoBehaviour
     void Start()
     {
         RefreshWifeRefs();
+        var playerGo = GameObject.Find("Player");
+        if (playerGo != null) _playerTransform = playerGo.transform;
         if (_npcTransform != null)
         {
             _originalPos = _npcTransform.position;
@@ -687,6 +690,8 @@ public class WifeNPC : MonoBehaviour
         _dialogActive = true;
         _dialogPanel.SetActive(true);
 
+        FacePlayer();
+
         string line = _dialogQueue.Dequeue();
 
         if (line.StartsWith("Jessica: "))
@@ -789,12 +794,26 @@ public class WifeNPC : MonoBehaviour
         if (resetQueue)
             _dialogQueue.Clear();
         _dialogPanel.SetActive(false);
+        var npcPos = _npcTransform != null ? _npcTransform : transform;
+        if (npcPos != null)
+            npcPos.rotation = _originalRot;
         if (_pendingHappyEnding)
         {
             _pendingHappyEnding = false;
             var cm = FindFirstObjectByType<CutsceneManager>();
             if (cm != null) cm.RequestHappyEnding();
         }
+    }
+
+    private void FacePlayer()
+    {
+        var npcPos = _npcTransform != null ? _npcTransform : transform;
+        if (npcPos == null || _playerTransform == null)
+            return;
+        Vector3 to = npcPos.position - _playerTransform.position;
+        to.y = 0f;
+        if (to.sqrMagnitude > 0.001f)
+            npcPos.rotation = Quaternion.LookRotation(to.normalized);
     }
 
     private void CreateDialogPanel()

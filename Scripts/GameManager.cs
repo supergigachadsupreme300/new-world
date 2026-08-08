@@ -99,13 +99,25 @@ public class GameManager : MonoBehaviour
             {
                 if (CutsceneManager.IsActive)
                     CutsceneManager.CancelCutscene();
-                CutsceneManager.PlayJusticeEnding();
+                RequestJusticeEnding();
             }
             else if (Keyboard.current.f9Key.wasPressedThisFrame)
             {
                 if (CutsceneManager.IsActive)
                     CutsceneManager.CancelCutscene();
-                CutsceneManager.PlayBlackmailEnding();
+                RequestBlackmailEnding();
+            }
+            else if (Keyboard.current.f10Key.wasPressedThisFrame)
+            {
+                if (CutsceneManager.IsActive)
+                    CutsceneManager.CancelCutscene();
+                CutsceneManager.PlayDemonEnding();
+            }
+            else if (Keyboard.current.f11Key.wasPressedThisFrame)
+            {
+                if (CutsceneManager.IsActive)
+                    CutsceneManager.CancelCutscene();
+                CutsceneManager.PlayTrueEnding();
             }
         }
 #endif
@@ -337,6 +349,7 @@ public class GameManager : MonoBehaviour
 
     public void LoadGame()
     {
+        IsPlayerDead = false;
         if (UIManager != null)
         {
             UIManager.ShowAllGameUI(true);
@@ -404,7 +417,24 @@ public class GameManager : MonoBehaviour
     {
         if (IsPlayerDead) return;
         IsPlayerDead = true;
-        CutsceneManager?.PlaySadEnding();
+        if (EnemyController.BossFightActive && CutsceneManager != null)
+            CutsceneManager.PlayBossBadEnding();
+        else
+            CutsceneManager?.PlaySadEnding();
+    }
+
+    public void ReloadFromBossDeath()
+    {
+        IsPlayerDead = false;
+        EnemyController.BossFightActive = false;
+        if (UIManager != null)
+        {
+            UIManager.HideBossBar();
+            UIManager.HideEndScreen();
+        }
+        bool loaded = SaveManager.Instance != null && SaveManager.Instance.LoadGame();
+        if (!loaded && UIManager != null)
+            StartNewGame();
     }
 
     public void RequestNtrEnding()
@@ -415,7 +445,12 @@ public class GameManager : MonoBehaviour
 
     public void RequestJusticeEnding()
     {
-        if (CutsceneManager != null)
+        if (CutsceneManager == null)
+            return;
+        bool demonSlain = QuestManager.Instance != null && QuestManager.Instance.IsComplete("boss_kill");
+        if (demonSlain)
+            CutsceneManager.PlayTrueEnding();
+        else
             CutsceneManager.PlayJusticeEnding();
     }
 
@@ -423,5 +458,11 @@ public class GameManager : MonoBehaviour
     {
         if (CutsceneManager != null)
             CutsceneManager.PlayBlackmailEnding();
+    }
+
+    public void RequestDemonEnding()
+    {
+        if (CutsceneManager != null)
+            CutsceneManager.PlayDemonEnding();
     }
 }

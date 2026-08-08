@@ -9,6 +9,7 @@ public class PoliceOfficerNPC : MonoBehaviour
 
     private Transform _myTransform;
     private Transform _playerTransform;
+    private Quaternion _originalRotation = Quaternion.identity;
 
     private const float WALK_SPEED = 1.4f;
 
@@ -45,6 +46,8 @@ public class PoliceOfficerNPC : MonoBehaviour
         _patrolOrigin = _myTransform != null ? _myTransform.position : Vector3.zero;
         var playerGo = GameObject.Find("Player");
         if (playerGo != null) _playerTransform = playerGo.transform;
+        if (_myTransform != null)
+            _originalRotation = _myTransform.rotation;
 
         _patrolWaypoints.Add(_patrolOrigin + new Vector3(-2f, 0f, 0f));
         _patrolWaypoints.Add(_patrolOrigin + new Vector3(2.2f, 0f, 0.8f));
@@ -170,6 +173,8 @@ public class PoliceOfficerNPC : MonoBehaviour
         _dialogActive = false;
         if (_panel != null)
             _panel.SetActive(false);
+        if (_myTransform != null)
+            _myTransform.rotation = _originalRotation;
     }
 
     public void Retire()

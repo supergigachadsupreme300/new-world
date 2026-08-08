@@ -3,6 +3,7 @@ using UnityEngine;
 public class PalmProjectile : MonoBehaviour
 {
     private float _lifetime = 3f;
+    public int BossDamagePerHit = 15;
 
     private void Start()
     {
@@ -42,7 +43,7 @@ public class PalmProjectile : MonoBehaviour
             enemy = collision.collider.GetComponent<EnemyController>();
 
         if (enemy != null)
-            enemy.TakeDamage(Mathf.Max(50, enemy.MaxHealth));
+            enemy.TakeDamage(enemy.IsBoss ? BossDamagePerHit : Mathf.Max(50, enemy.MaxHealth));
 
         Destroy(gameObject);
     }

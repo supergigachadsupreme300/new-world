@@ -315,6 +315,14 @@ public class QuestManager : MonoBehaviour
         return false;
     }
 
+    public bool HasQuest(string questName)
+    {
+        foreach (var q in _quests)
+            if (q.Name == questName && !q.Completed && !q.Failed)
+                return true;
+        return false;
+    }
+
     public int GetProgress(string target)
     {
         foreach (var q in _quests)

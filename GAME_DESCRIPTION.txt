@@ -185,18 +185,18 @@ BUFFALO SHOP:
   Accessed by: Right-click near Buffalo NPC
   Can BUY:  Cages only (cage_big, cage_small) -- no sell tab
 
-TOOL SHOP (blacksmith NPC near the market row):
-  Accessed by: Right-click or E near ToolShopNPC
+TOOL SHOP (tools are sold at the convenience store):
+  Accessed by: Right-click or E near ConvenienceNPC (inside the store)
   Can BUY:  axe, pickaxe, hoe, scythe, hammer, club, fishing_rod, rosary
   Can SELL: No
 
-CONVENIENCE STORE (small kiosk between Shop and Restaurant):
+CONVENIENCE STORE (small kiosk near the market row):
   Accessed by: Right-click or E near ConvenienceNPC (inside the store)
-  Can BUY:  mi_hao_hao, banh_mi, banh_tet, nuoc_dau, tra_da, soda, keo
+  Can BUY:  mi_hao_hao, banh_mi, banh_tet, nuoc_dau, tra_da, soda, keo, tu_gao, duong, muoi, xap_phong, mi_chinh
   Can SELL: No
 
-GROCERY STORE (grocery NPC on the market row):
-  Accessed by: Right-click or E near GroceryNPC
+GROCERY STORE (groceries are sold at the convenience store):
+  Accessed by: Right-click or E near ConvenienceNPC (inside the store)
   Can BUY:  tu_gao, duong, muoi, xap_phong, mi_chinh
   Can SELL: No
 

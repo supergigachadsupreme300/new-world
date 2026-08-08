@@ -9,6 +9,7 @@ public class PagodaMonkNPC : MonoBehaviour
 
     private Transform _myTransform;
     private Transform _playerTransform;
+    private Quaternion _originalRotation = Quaternion.identity;
 
     private Canvas _canvas;
     private GameObject _panel;
@@ -55,6 +56,8 @@ public class PagodaMonkNPC : MonoBehaviour
     {
         var playerGo = GameObject.Find("Player");
         if (playerGo != null) _playerTransform = playerGo.transform;
+        if (_myTransform != null)
+            _originalRotation = _myTransform.rotation;
     }
 
     void Update()
@@ -68,6 +71,11 @@ public class PagodaMonkNPC : MonoBehaviour
             if (gm.Player != null)
                 gm.Player.StaminaRegenMultiplier = 1f;
         }
+
+        var qm = QuestManager.Instance;
+        var wb = WorldBuilder.Instance;
+        if (qm != null && wb != null && qm.HasQuest("Trấn Áp Quỷ Vương") && !wb.IsQuestBossAlive)
+            wb.SpawnQuestBoss();
     }
 
     public bool HasBlessingToday
@@ -88,6 +96,7 @@ public class PagodaMonkNPC : MonoBehaviour
         _panel.SetActive(true);
         _nameText.text = Localization.T("Nhà Sư");
         _dialogQueue.Clear();
+        AddQuestDialogLines();
         for (int i = 0; i < 3; i++)
         {
             _lastLine = (_lastLine + 1) % _lines.Length;
@@ -104,6 +113,44 @@ public class PagodaMonkNPC : MonoBehaviour
                 "Con đã nhận phước lành hôm nay rồi. Hãy quay lại vào ngày mai nếu muốn dâng gạo tiếp.");
         }
         Advance();
+    }
+
+    private void AddQuestDialogLines()
+    {
+        var qm = QuestManager.Instance;
+        if (qm == null)
+            return;
+
+        if (qm.IsNamedQuestComplete("Trấn Áp Quỷ Vương"))
+        {
+            _dialogQueue.Enqueue("Con đã trấn áp Quỷ Vương. Làng này nợ con một ân tình lớn, Phật sẽ phù hộ con.");
+            return;
+        }
+        if (qm.HasQuest("Trấn Áp Quỷ Vương"))
+        {
+            _dialogQueue.Enqueue("Quỷ Vương đang ngự trị ở cuối con đường phía đông. Hãy dùng Tràng Hạt để trừ tà!");
+            return;
+        }
+        if (qm.IsNamedQuestComplete("Trừ Tà Quanh Chùa"))
+        {
+            _dialogQueue.Enqueue("Ta thấy con đã dùng Tràng Hạt trừ được quỷ dữ. Giờ ta sẽ khai mở Linh Nhãn cho con.");
+            _dialogQueue.Enqueue("Con sẽ thấy những thứ người thường không thấy. Hãy nhìn về cuối con đường phía đông... Quỷ Vương đã thức tỉnh!");
+            qm.AddStoryQuest("Trấn Áp Quỷ Vương", "boss_kill", 1, 1000,
+                "Quỷ Vương đã thức tỉnh ở cuối con đường phía đông. Dùng Tràng Hạt tiêu diệt nó để bảo vệ làng!");
+            if (WorldBuilder.Instance != null)
+                WorldBuilder.Instance.SpawnQuestBoss();
+            if (GameManager.Instance?.UIManager != null)
+                GameManager.Instance.UIManager.ShowMessage(Localization.T("QUỶ VƯƠNG ĐÃ THỨC TỈNH!"), 3f);
+            return;
+        }
+        if (!qm.HasQuest("Trừ Tà Quanh Chùa"))
+        {
+            qm.AddStoryQuest("Trừ Tà Quanh Chùa", "enemies", 5, 200,
+                "Dùng Tràng Hạt tiêu diệt 5 con quỷ quanh chùa để bảo vệ làng.");
+            _dialogQueue.Enqueue("Lũ quỷ nhỏ đang quấy phá quanh chùa. Dùng Tràng Hạt tiêu diệt 5 con để chúng khiếp sợ!");
+            return;
+        }
+        _dialogQueue.Enqueue(Localization.F("Con hãy tiếp tục dùng Tràng Hạt. Tiến độ: {0}/5", qm.GetNamedQuestProgress("Trừ Tà Quanh Chùa")));
     }
 
     public void Advance()
@@ -162,6 +209,8 @@ public class PagodaMonkNPC : MonoBehaviour
         _dialogActive = false;
         if (_panel != null)
             _panel.SetActive(false);
+        if (_myTransform != null)
+            _myTransform.rotation = _originalRotation;
     }
 
     private void FacePlayer()

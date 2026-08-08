@@ -802,7 +802,7 @@ public static class Localization
         { "Jessica: Anh không còn quan tâm em nữa sao? Ông ta đã ngỏ lời mời em đi...", "Jessica: Don't you care about me anymore? He's already asked me to leave with him..." },
 
         // NTR ending
-        { "KẾT THÚC: CÔ ẤY ĐÃ RỜI XA", "ENDING: SHE LEFT" },
+        { "KẾT THÚC NTR", "NTR ENDING" },
         { "Trong lúc bạn mải mê làm giàu,\nông chú giàu có đã chiếm trọn trái tim Jessica.\n\nCô ấy đã không còn chờ đợi bạn nữa.\nBạn đã quá muộn...\n\nKhi bạn không quan tâm đến cô ấy,\nngười khác sẽ quan tâm thay bạn.", "While you chased your fortune,\nthe rich man won Jessica's heart.\n\nShe no longer waits for you.\nYou were too late...\n\nWhen you fail to care for her,\nsomeone else will." },
 
         // Rich man illegal trade
@@ -830,12 +830,46 @@ public static class Localization
         { "Những giao dịch ban đêm của hắn không lọt khỏi mắt chúng tôi.", "His nightly deals haven't escaped our eyes." },
         { "Cảm ơn cậu. Đồng chí, vào việc thôi!", "Thank you. Comrades, let's get to work!" },
 
-        // Justice ending
-        { "KẾT THÚC CÔNG LÝ", "JUSTICE ENDING" },
-        { "Cậu đã lật tẩy bộ mặt thật của Phú Ông.\nCảnh sát đã đến, và hắn bị bắt ngay trước dinh thự của chính mình.\n\nJessica được an toàn.\nKẻ xấu phải trả giá.", "You exposed the rich man's true face.\nThe police arrived, and he was arrested in front of his own mansion.\n\nJessica is safe.\nThe wicked pay for their sins." },
+        // Justice ending (rich man resolved before the Demon King is slain)
+        { "CÔNG LÝ ĐƯỢC THỰC THI NHƯNG HIỂM HỌA CHƯA QUA", "JUSTICE SERVED BUT NOT ALL THREAT IS GONE" },
+        { "Cậu đã lật tẩy bộ mặt thật của Phú Ông.\nCảnh sát đã đến, và hắn bị bắt ngay trước dinh thự của chính mình.\n\nJessica được an toàn.\nNhưng phía đông, tiếng gầm của Quỷ Vương vẫn còn vang vọng...\nHiểm họa thật sự vẫn chưa qua.", "You exposed the rich man's true face.\nThe police arrived, and he was arrested in front of his own mansion.\n\nJessica is safe.\nBut to the east, the Demon King's roar still echoes...\nThe true threat is not yet gone." },
 
-        // Blackmail ending
-        { "KẾT THÚC ĐEN TỐI", "DARK ENDING" },
-        { "Cậu đã im lặng. Và cậu đã được trả một cái giá rất hậu hĩnh.\n\nNhưng đêm xuống, những chiếc xe vẫn nối đuôi nhau đến dinh thự.\nJessica vẫn đang trong tầm ngắm của hắn...\n\nVà giờ, cậu là một phần của câu chuyện đó.", "You stayed silent. And you were paid handsomely.\n\nBut when night falls, the cars still line up at the mansion.\nJessica is still in his sights...\n\nAnd now, you are part of that story." }
+        // Corrupted ending (bribe)
+        { "KẾT THÚC ĐỒI BẠI", "CORRUPTED ENDING" },
+        { "Cậu đã im lặng. Và cậu đã được trả một cái giá rất hậu hĩnh.\n\nNhưng đêm xuống, những chiếc xe vẫn nối đuôi nhau đến dinh thự.\nJessica vẫn đang trong tầm ngắm của hắn...\n\nVà giờ, cậu là một phần của câu chuyện đó.", "You stayed silent. And you were paid handsomely.\n\nBut when night falls, the cars still line up at the mansion.\nJessica is still in his sights...\n\nAnd now, you are part of that story." },
+
+        // Monk quest chain — cleansing the monastery
+        { "Trừ Tà Quanh Chùa", "Cleanse The Monastery" },
+        { "Dùng Tràng Hạt tiêu diệt 5 con quỷ quanh chùa để bảo vệ làng.", "Use the Rosary to defeat 5 demons around the monastery to protect the village." },
+        { "Lũ quỷ nhỏ đang quấy phá quanh chùa. Dùng Tràng Hạt tiêu diệt 5 con để chúng khiếp sợ!", "Small demons are stirring around the monastery. Use the Rosary to defeat 5 of them and strike fear into their hearts!" },
+        { "Con hãy tiếp tục dùng Tràng Hạt. Tiến độ: {0}/5", "Keep using the Rosary. Progress: {0}/5" },
+
+        // Monk quest chain — the Demon King
+        { "Trấn Áp Quỷ Vương", "Vanquish The Demon King" },
+        { "Quỷ Vương đã thức tỉnh ở cuối con đường phía đông. Dùng Tràng Hạt tiêu diệt nó để bảo vệ làng!", "The Demon King has awakened at the end of the eastern road. Use the Rosary to destroy it and protect the village!" },
+        { "Ta thấy con đã dùng Tràng Hạt trừ được quỷ dữ. Giờ ta sẽ khai mở Linh Nhãn cho con.", "I see you have used the Rosary to banish demons. Now I will open your spiritual eye." },
+        { "Con sẽ thấy những thứ người thường không thấy. Hãy nhìn về cuối con đường phía đông... Quỷ Vương đã thức tỉnh!", "You will see what ordinary eyes cannot. Look toward the end of the eastern road... The Demon King has awakened!" },
+        { "Quỷ Vương đang ngự trị ở cuối con đường phía đông. Hãy dùng Tràng Hạt để trừ tà!", "The Demon King reigns at the end of the eastern road. Use the Rosary to banish it!" },
+        { "Con đã trấn áp Quỷ Vương. Làng này nợ con một ân tình lớn, Phật sẽ phù hộ con.", "You have vanquished the Demon King. The village owes you a great debt; Buddha will bless you." },
+        { "QUỶ VƯƠNG ĐÃ THỨC TỈNH!", "THE DEMON KING HAS AWAKENED!" },
+        { "Quỷ Vương", "Demon King" },
+
+        // Boss bad ending (fall into the dark)
+        { "Tải Save Gần Nhất", "Load Latest Save" },
+        { "RƠI VÀO BÓNG TỐI", "FALL INTO THE DARK" },
+        { "Quỷ Vương đã quật ngã con.\nBóng tối nuốt chửng ngôi làng.\n\nSố phận của con dừng lại tại đây...\nHãy quay về nơi lưu gần nhất và đối mặt với nó lần nữa.", "The Demon King has struck you down.\nDarkness devours the village.\n\nYour fate ends here...\nReturn to the latest save and face it once more." },
+
+        // Demon King slain but the rich man's plot still looms
+        { "QUỶ VƯƠNG ĐÃ CHẾT NHƯNG CÁI ÁC CHƯA HẾT", "THE DEMON IS DEAD BUT NOT ALL EVIL IS GONE" },
+        { "Quỷ Vương đã bị đánh bại, bóng tối bị đẩy lùi.\nNhưng trong bóng đêm, những giao dịch bẩn của Phú Ông vẫn tiếp diễn...\n\nJessica vẫn còn trong tầm ngắm của hắn.\nCái ác chưa bị nhổ tận gốc.\nNgôi làng chưa thể yên bình.", "The Demon King is defeated, the darkness pushed back.\nBut in the shadows, the rich man's dirty deals go on...\n\nJessica is still in his sights.\nEvil has not been uprooted.\nThe village cannot rest easy." },
+
+        // True ending (both threats gone)
+        { "KẾT THÚC THẬT SỰ", "TRUE ENDING" },
+        { "Quỷ Vương đã bị trấn áp.\nPhú Ông đã bị cảnh sát dẫn đi ngay trước dinh thự của hắn.\n\nHai hiểm họa đã bị nhổ tận gốc.\nNgôi làng cuối cùng cũng được yên bình.\nMặt trời mọc lên, và một tương lai tươi sáng đang chờ đón.", "The Demon King has been vanquished.\nThe rich man has been led away by the police in front of his own mansion.\n\nBoth threats are gone for good.\nThe village is finally at peace.\nThe sun rises, and a bright future awaits." },
+
+        // Ending tree (settings menu)
+        { "Cây Kết Thúc", "Ending Tree" },
+        { "CÂY KẾT THÚC", "ENDING TREE" },
+        { "- Diệt Quỷ Vương, chưa lật tẩy bí mật Phú Ông\n  -> QUỶ VƯƠNG ĐÃ CHẾT NHƯNG CÁI ÁC CHƯA HẾT\n\n- Lật tẩy bí mật -> diệt Quỷ Vương -> báo cảnh sát\n  -> KẾT THÚC THẬT SỰ\n\n- Lật tẩy bí mật -> báo cảnh sát (trước khi diệt Quỷ Vương)\n  -> CÔNG LÝ ĐƯỢC THỰC THI NHƯNG HIỂM HỌA CHƯA QUA\n\n- Lật tẩy bí mật -> nhận hối lộ\n  -> KẾT THÚC ĐỒI BẠI\n\n- Hoàn thành chuỗi Jessica (xây dinh thự)\n  -> KẾT THÚC HẠNH PHÚC\n\n- Bỏ bê Jessica 3 ngày, độ thân mật thấp\n  -> KẾT THÚC NTR\n\n- Chết khi giao chiến Quỷ Vương\n  -> RƠI VÀO BÓNG TỐI\n\n- Chết\n  -> KẾT THÚC BUỒN", "- Slay the Demon King without exposing the rich man's secret\n  -> THE DEMON IS DEAD BUT NOT ALL EVIL IS GONE\n\n- Expose secret -> slay Demon King -> report to police\n  -> TRUE ENDING\n\n- Expose secret -> report to police (before slaying the Demon King)\n  -> JUSTICE SERVED BUT NOT ALL THREAT IS GONE\n\n- Expose secret -> take the bribe\n  -> CORRUPTED ENDING\n\n- Complete Jessica's chain (build the mansion)\n  -> HAPPY ENDING\n\n- Neglect Jessica 3 days, low affection\n  -> NTR ENDING\n\n- Die while fighting the Demon King\n  -> FALL INTO THE DARK\n\n- Die\n  -> SAD ENDING" }
     };
 }

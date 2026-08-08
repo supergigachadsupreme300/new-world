@@ -10,6 +10,7 @@ public class ChefNPC : MonoBehaviour
     private Transform _myTransform;
     private Transform _playerTransform;
     private Transform _stirArm;
+    private Quaternion _originalRotation = Quaternion.identity;
 
     private Canvas _canvas;
     private GameObject _panel;
@@ -41,6 +42,7 @@ public class ChefNPC : MonoBehaviour
 
         if (_myTransform != null)
         {
+            _originalRotation = _myTransform.rotation;
             var arm = _myTransform.Find("ArmR");
             if (arm != null)
                 _stirArm = arm;
@@ -124,6 +126,8 @@ public class ChefNPC : MonoBehaviour
         _dialogActive = false;
         if (_panel != null)
             _panel.SetActive(false);
+        if (_myTransform != null)
+            _myTransform.rotation = _originalRotation;
     }
 
     private void FacePlayer()

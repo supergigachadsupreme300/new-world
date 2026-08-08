@@ -236,7 +236,8 @@ public class PlayerController : MonoBehaviour
         bool buffaloDialog = BuffaloDialog.Instance != null && BuffaloDialog.Instance.IsDialogActive;
         bool richManDialog = RichManNPC.Instance != null && RichManNPC.Instance.IsDialogActive;
         bool policeDialog = PoliceOfficerNPC.Instance != null && PoliceOfficerNPC.Instance.IsDialogActive;
-        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog;
+        bool monkDialog = PagodaMonkNPC.Instance != null && PagodaMonkNPC.Instance.IsDialogActive;
+        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog || monkDialog;
 
         bool ePressed = (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) ||
                         (!wifeDialog && !richManDialog && !policeDialog && MobileInputController.Consume("interact"));
@@ -246,6 +247,8 @@ public class PlayerController : MonoBehaviour
             RichManNPC.Instance.Advance();
         if (ePressed && policeDialog)
             PoliceOfficerNPC.Instance.Advance();
+        if (ePressed && monkDialog)
+            PagodaMonkNPC.Instance.Advance();
         if (richManDialog && RichManNPC.Instance != null && RichManNPC.Instance.IsEndingChoiceShown)
         {
             if (Keyboard.current != null && Keyboard.current.digit1Key.wasPressedThisFrame)

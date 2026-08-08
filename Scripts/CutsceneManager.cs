@@ -31,6 +31,7 @@ public class CutsceneManager : MonoBehaviour
 
     private bool _happyPending;
     private bool _ntrPending;
+    private System.Action _previewOnComplete;
     private Coroutine _wifeLookBackRoutine;
     private Coroutine _heartRoutine;
     private GameObject _tetoRoot;
@@ -195,32 +196,251 @@ public class CutsceneManager : MonoBehaviour
         _cutsceneRoutine = StartCoroutine(IntroRoutine(onComplete));
     }
 
-    public void PlaySadEnding()
+    public void PlaySadEnding(System.Action onComplete = null)
     {
         if (IsActive) return;
         IsActive = true;
+        _previewOnComplete = onComplete;
         _cutsceneStartTime = Time.time;
-        _cutsceneRoutine = StartCoroutine(SadEndingRoutine());
+        _cutsceneRoutine = StartCoroutine(SadEndingRoutine(onComplete));
     }
 
-    public void PlayJusticeEnding()
+    public void PlayBossBadEnding(System.Action onComplete = null)
     {
         if (IsActive) return;
-        if (RichManNPC.Instance != null) RichManNPC.Instance.Retire();
-        if (PoliceOfficerNPC.Instance != null) PoliceOfficerNPC.Instance.Retire();
         IsActive = true;
+        _previewOnComplete = onComplete;
         _cutsceneStartTime = Time.time;
-        _cutsceneRoutine = StartCoroutine(JusticeEndingRoutine());
+        _cutsceneRoutine = StartCoroutine(BossBadEndingRoutine(onComplete));
     }
 
-    public void PlayBlackmailEnding()
+    private IEnumerator BossBadEndingRoutine(System.Action onComplete = null)
+    {
+        try
+        {
+            if (_uiManager == null)
+                _uiManager = Object.FindAnyObjectByType<UIManager>();
+            if (_mainCamera == null)
+                _mainCamera = Camera.main;
+
+            if (_uiManager != null)
+                _uiManager.ShowMainMenu(false);
+
+            DisablePlayerControl();
+            DetachCamera();
+            HideHUD();
+
+            yield return StartCoroutine(CreateFadeOverlay());
+            CreateLetterboxBars();
+            ShowSkipButton();
+
+            // Player standing on the road before the mansion, facing the oncoming darkness
+            float playerZ = 46f;
+            if (_player != null)
+            {
+                _player.transform.position = new Vector3(RoadX, 0f, playerZ);
+                _player.transform.rotation = Quaternion.identity;
+                var realModel = _player.transform.Find("PlayerModel");
+                if (realModel != null)
+                    realModel.gameObject.SetActive(false);
+            }
+            var playerModel = MapBuilder.BuildPlayerModel(null);
+            playerModel.transform.position = new Vector3(RoadX, 0.86f, playerZ);
+            playerModel.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            foreach (var r in playerModel.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(playerModel);
+
+            // The Demon King rises from the shadows ahead
+            float bossZ = playerZ + 22f;
+            var bossRoot = BossModelBuilder.BuildBoss(null);
+            bossRoot.position = new Vector3(RoadX, 0f, bossZ);
+            bossRoot.rotation = Quaternion.Euler(0f, 180f, 0f);
+            bossRoot.localScale = Vector3.one * 1.05f;
+            foreach (var r in bossRoot.GetComponentsInChildren<Renderer>())
+            {
+                r.gameObject.layer = 0;
+                r.material.color = new Color(0.05f, 0.02f, 0.03f);
+            }
+            RegisterSpawned(bossRoot.gameObject);
+
+            // Glowing ember eyes
+            var eyeL = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            eyeL.name = "DemonEyeL";
+            Object.Destroy(eyeL.GetComponent<Collider>());
+            eyeL.transform.SetParent(bossRoot, false);
+            eyeL.transform.localPosition = new Vector3(-0.17f, 1.56f, 0.21f);
+            RegisterSpawned(eyeL);
+            var eyeR = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            eyeR.name = "DemonEyeR";
+            Object.Destroy(eyeR.GetComponent<Collider>());
+            eyeR.transform.SetParent(bossRoot, false);
+            eyeR.transform.localPosition = new Vector3(0.17f, 1.56f, 0.21f);
+            RegisterSpawned(eyeR);
+            foreach (var e in new[] { eyeL, eyeR })
+            {
+                e.transform.localScale = Vector3.one * 0.18f;
+                var er = e.GetComponent<Renderer>();
+                if (er != null)
+                    er.material.color = new Color(0.9f, 0.05f, 0.03f);
+            }
+
+            // ── PHASE 1: OPENING SHOT ──
+            Vector3 camStart = new Vector3(RoadX, 1.6f, playerZ - 3f);
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = camStart;
+                _mainCamera.transform.LookAt(new Vector3(RoadX, 2.2f, bossZ));
+            }
+            yield return StartCoroutine(FadeOverlay(0, 2f));
+            yield return new WaitForSeconds(2.2f);
+
+            // ── PHASE 2: THE RISE ──
+            float riseDur = 3.5f;
+            float riseTimer = 0f;
+            while (riseTimer < riseDur)
+            {
+                riseTimer += Time.deltaTime;
+                float p = Mathf.Min(riseTimer / riseDur, 1f);
+                bossRoot.localScale = Vector3.one * Mathf.Lerp(1.05f, 1.65f, p);
+                bossRoot.position = new Vector3(RoadX, 0f, Mathf.Lerp(bossZ, bossZ - 3f, p));
+                Color eyeGlow = new Color(Mathf.Lerp(0.9f, 1f, p), Mathf.Lerp(0.05f, 0.3f, p), 0.03f);
+                foreach (var e in new[] { eyeL, eyeR })
+                {
+                    var er = e.GetComponent<Renderer>();
+                    if (er != null) er.material.color = eyeGlow;
+                }
+                if (_mainCamera != null)
+                {
+                    _mainCamera.transform.position = Vector3.Lerp(camStart, new Vector3(RoadX, 2.2f, playerZ - 1.5f), p);
+                    _mainCamera.transform.LookAt(new Vector3(RoadX, 2.4f, bossZ));
+                }
+                yield return null;
+            }
+            yield return new WaitForSeconds(1f);
+
+            // ── PHASE 3: THE LUNGE ──
+            float lungeDur = 2.2f;
+            float lungeTimer = 0f;
+            Vector3 bossStart = bossRoot.position;
+            Vector3 bossEnd = new Vector3(RoadX, 0f, playerZ + 2f);
+            while (lungeTimer < lungeDur)
+            {
+                lungeTimer += Time.deltaTime;
+                float p = Mathf.Min(lungeTimer / lungeDur, 1f);
+                bossRoot.position = Vector3.Lerp(bossStart, bossEnd, p);
+                float shake = 0.4f - 0.35f * p;
+                if (_mainCamera != null)
+                {
+                    _mainCamera.transform.position = new Vector3(
+                        RoadX + Random.Range(-shake, shake),
+                        2.2f + Random.Range(-shake * 0.5f, shake * 0.5f),
+                        playerZ - 1.5f);
+                    _mainCamera.transform.LookAt(new Vector3(RoadX, 2f, bossRoot.position.z));
+                }
+                yield return null;
+            }
+            yield return new WaitForSeconds(0.5f);
+
+            // ── PHASE 4: BLACKOUT ──
+            yield return StartCoroutine(FadeOverlay(1, 1.2f));
+
+            HideSkipButton();
+            CleanupSpawned();
+            DestroyLetterboxBars();
+            DestroyOverlay();
+
+            _previewOnComplete = null;
+            if (onComplete != null)
+            {
+                RestorePlayerControl();
+                ShowHUD();
+                onComplete();
+            }
+            else
+            {
+                if (_uiManager == null)
+                    _uiManager = Object.FindAnyObjectByType<UIManager>();
+                if (_uiManager != null)
+                    _uiManager.ShowBossEndScreen(
+                        Localization.T("RƠI VÀO BÓNG TỐI"),
+                        Localization.T("Quỷ Vương đã quật ngã con.\nBóng tối nuốt chửng ngôi làng.\n\nSố phận của con dừng lại tại đây...\nHãy quay về nơi lưu gần nhất và đối mặt với nó lần nữa."));
+            }
+        }
+        finally
+        {
+            IsActive = false;
+            _cutsceneRoutine = null;
+        }
+    }
+
+    public void PlayJusticeEnding(System.Action onComplete = null)
     {
         if (IsActive) return;
-        if (RichManNPC.Instance != null) RichManNPC.Instance.Retire();
-        if (PoliceOfficerNPC.Instance != null) PoliceOfficerNPC.Instance.Retire();
+        if (onComplete == null)
+        {
+            if (RichManNPC.Instance != null) RichManNPC.Instance.Retire();
+            if (PoliceOfficerNPC.Instance != null) PoliceOfficerNPC.Instance.Retire();
+        }
         IsActive = true;
+        _previewOnComplete = onComplete;
         _cutsceneStartTime = Time.time;
-        _cutsceneRoutine = StartCoroutine(BlackmailEndingRoutine());
+        _cutsceneRoutine = StartCoroutine(JusticeEndingRoutine(onComplete));
+    }
+
+    public void PlayBlackmailEnding(System.Action onComplete = null)
+    {
+        if (IsActive) return;
+        if (onComplete == null)
+        {
+            if (RichManNPC.Instance != null) RichManNPC.Instance.Retire();
+            if (PoliceOfficerNPC.Instance != null) PoliceOfficerNPC.Instance.Retire();
+        }
+        IsActive = true;
+        _previewOnComplete = onComplete;
+        _cutsceneStartTime = Time.time;
+        _cutsceneRoutine = StartCoroutine(BlackmailEndingRoutine(onComplete));
+    }
+
+    public void PlayDemonEnding(System.Action onComplete = null)
+    {
+        if (IsActive) return;
+        IsActive = true;
+        _previewOnComplete = onComplete;
+        _cutsceneStartTime = Time.time;
+        _cutsceneRoutine = StartCoroutine(DemonEndingRoutine(onComplete));
+    }
+
+    public void PlayTrueEnding(System.Action onComplete = null)
+    {
+        if (IsActive) return;
+        if (onComplete == null)
+        {
+            if (RichManNPC.Instance != null) RichManNPC.Instance.Retire();
+            if (PoliceOfficerNPC.Instance != null) PoliceOfficerNPC.Instance.Retire();
+        }
+        IsActive = true;
+        _previewOnComplete = onComplete;
+        _cutsceneStartTime = Time.time;
+        _cutsceneRoutine = StartCoroutine(TrueEndingRoutine(onComplete));
+    }
+
+    public void PlayHappyEnding(System.Action onComplete = null)
+    {
+        if (IsActive) return;
+        IsActive = true;
+        _previewOnComplete = onComplete;
+        _cutsceneStartTime = Time.time;
+        _cutsceneRoutine = StartCoroutine(HappyEndingRoutine(onComplete));
+    }
+
+    public void PlayNtrEnding(System.Action onComplete = null)
+    {
+        if (IsActive) return;
+        IsActive = true;
+        _previewOnComplete = onComplete;
+        _cutsceneStartTime = Time.time;
+        _cutsceneRoutine = StartCoroutine(NtrRoutine(onComplete));
     }
 
     public void RequestHappyEnding()
@@ -261,6 +481,13 @@ public class CutsceneManager : MonoBehaviour
         else if (_uiManager != null)
             _uiManager.ShowMainMenu(true);
         IsActive = false;
+
+        if (_previewOnComplete != null)
+        {
+            var cb = _previewOnComplete;
+            _previewOnComplete = null;
+            cb();
+        }
     }
 
     private IEnumerator PendingCheckLoop()
@@ -787,7 +1014,7 @@ public class CutsceneManager : MonoBehaviour
     //  SAD ENDING
     // ═══════════════════════════════════════════════
 
-    private IEnumerator SadEndingRoutine()
+    private IEnumerator SadEndingRoutine(System.Action onComplete = null)
     {
         try
         {
@@ -910,11 +1137,9 @@ public class CutsceneManager : MonoBehaviour
         DestroyLetterboxBars();
         DestroyOverlay();
 
-        if (_uiManager == null)
-            _uiManager = Object.FindAnyObjectByType<UIManager>();
-        if (_uiManager != null)
-            _uiManager.ShowEndScreen(Localization.T("KẾT THÚC BUỒN"),
-                Localization.T("Bạn đã đến quá muộn.\nTrong khi bạn đi tìm kiếm giàu sang,\nbạn đã quên đi điều thực sự quan trọng.\n\nCô ấy đợi...\ncho đến khi không thể đợi nữa."));
+        FinishEndingScene(onComplete,
+            Localization.T("KẾT THÚC BUỒN"),
+            Localization.T("Bạn đã đến quá muộn.\nTrong khi bạn đi tìm kiếm giàu sang,\nbạn đã quên đi điều thực sự quan trọng.\n\nCô ấy đợi...\ncho đến khi không thể đợi nữa."));
         }
         finally
         {
@@ -923,7 +1148,7 @@ public class CutsceneManager : MonoBehaviour
         }
     }
 
-    private IEnumerator NtrRoutine()
+    private IEnumerator NtrRoutine(System.Action onComplete = null)
     {
         try
         {
@@ -1061,11 +1286,9 @@ public class CutsceneManager : MonoBehaviour
             DestroyLetterboxBars();
             DestroyOverlay();
 
-            if (_uiManager == null)
-                _uiManager = Object.FindAnyObjectByType<UIManager>();
-            if (_uiManager != null)
-                _uiManager.ShowEndScreen(Localization.T("KẾT THÚC: CÔ ẤY ĐÃ RỜI XA"),
-                    Localization.T("Trong lúc cậu mải làm nông, ông chú giàu có đã lặng lẽ đến gần cô ấy.\n\nKhi cậu quay lại...\nJessica đã không còn đợi cậu nữa.\n\nCậu đã để cô ấy ra đi, mãi mãi."));
+            FinishEndingScene(onComplete,
+                Localization.T("KẾT THÚC NTR"),
+                Localization.T("Trong lúc cậu mải làm nông, ông chú giàu có đã lặng lẽ đến gần cô ấy.\n\nKhi cậu quay lại...\nJessica đã không còn đợi cậu nữa.\n\nCậu đã để cô ấy ra đi, mãi mãi."));
         }
         finally
         {
@@ -1074,7 +1297,7 @@ public class CutsceneManager : MonoBehaviour
         }
     }
 
-    private IEnumerator JusticeEndingRoutine()
+    private IEnumerator JusticeEndingRoutine(System.Action onComplete = null)
     {
         try
         {
@@ -1219,9 +1442,9 @@ public class CutsceneManager : MonoBehaviour
             DestroyLetterboxBars();
             DestroyOverlay();
 
-            if (_uiManager != null)
-                _uiManager.ShowEndScreen(Localization.T("KẾT THÚC CÔNG LÝ"),
-                    Localization.T("Cậu đã lật tẩy bộ mặt thật của Phú Ông.\nCảnh sát đã đến, và hắn bị bắt ngay trước dinh thự của chính mình.\n\nJessica được an toàn.\nKẻ xấu phải trả giá."));
+            FinishEndingScene(onComplete,
+                Localization.T("CÔNG LÝ ĐƯỢC THỰC THI NHƯNG HIỂM HỌA CHƯA QUA"),
+                Localization.T("Cậu đã lật tẩy bộ mặt thật của Phú Ông.\nCảnh sát đã đến, và hắn bị bắt ngay trước dinh thự của chính mình.\n\nJessica được an toàn.\nNhưng phía đông, tiếng gầm của Quỷ Vương vẫn còn vang vọng...\nHiểm họa thật sự vẫn chưa qua."));
         }
         finally
         {
@@ -1230,7 +1453,7 @@ public class CutsceneManager : MonoBehaviour
         }
     }
 
-    private IEnumerator BlackmailEndingRoutine()
+    private IEnumerator BlackmailEndingRoutine(System.Action onComplete = null)
     {
         try
         {
@@ -1316,9 +1539,343 @@ public class CutsceneManager : MonoBehaviour
             DestroyLetterboxBars();
             DestroyOverlay();
 
+            FinishEndingScene(onComplete,
+                Localization.T("KẾT THÚC ĐỒI BẠI"),
+                Localization.T("Cậu đã im lặng. Và cậu đã được trả một cái giá rất hậu hĩnh.\n\nNhưng đêm xuống, những chiếc xe vẫn nối đuôi nhau đến dinh thự.\nJessica vẫn đang trong tầm ngắm của hắn...\n\nVà giờ, cậu là một phần của câu chuyện đó."));
+        }
+        finally
+        {
+            IsActive = false;
+            _cutsceneRoutine = null;
+        }
+    }
+
+    private IEnumerator DemonEndingRoutine(System.Action onComplete = null)
+    {
+        try
+        {
+            if (_uiManager == null)
+                _uiManager = Object.FindAnyObjectByType<UIManager>();
+            if (_mainCamera == null)
+                _mainCamera = Camera.main;
+
             if (_uiManager != null)
-                _uiManager.ShowEndScreen(Localization.T("KẾT THÚC ĐEN TỐI"),
-                    Localization.T("Cậu đã im lặng. Và cậu đã được trả một cái giá rất hậu hĩnh.\n\nNhưng đêm xuống, những chiếc xe vẫn nối đuôi nhau đến dinh thự.\nJessica vẫn đang trong tầm ngắm của hắn...\n\nVà giờ, cậu là một phần của câu chuyện đó."));
+                _uiManager.ShowMainMenu(false);
+
+            DisablePlayerControl();
+            DetachCamera();
+            HideHUD();
+
+            yield return StartCoroutine(CreateFadeOverlay());
+            CreateLetterboxBars();
+            ShowSkipButton();
+
+            // Player standing alone at the eastern road where the Demon King fell
+            float playerZ = 96f;
+            if (_player != null)
+            {
+                _player.transform.position = new Vector3(RoadX, 0f, playerZ);
+                _player.transform.rotation = Quaternion.identity;
+                var realModel = _player.transform.Find("PlayerModel");
+                if (realModel != null)
+                    realModel.gameObject.SetActive(false);
+            }
+            var heroModel = MapBuilder.BuildPlayerModel(null);
+            heroModel.transform.position = new Vector3(RoadX, 0.82f, playerZ);
+            heroModel.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            foreach (var r in heroModel.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(heroModel);
+
+            // Scorched ground where the Demon King was slain
+            float bossZ = playerZ + 14f;
+            var scorch = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            scorch.name = "DemonScorch";
+            scorch.transform.position = new Vector3(RoadX, 0.01f, bossZ);
+            scorch.transform.localScale = new Vector3(4f, 0.02f, 4f);
+            var scorchR = scorch.GetComponent<Renderer>();
+            if (scorchR != null) scorchR.material.color = new Color(0.12f, 0.04f, 0.05f);
+            Object.Destroy(scorch.GetComponent<Collider>());
+            RegisterSpawned(scorch);
+
+            // ── PHASE 1: OPENING SHOT ──
+            Vector3 camStart = new Vector3(RoadX, 2.2f, playerZ - 4f);
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = camStart;
+                _mainCamera.transform.LookAt(new Vector3(RoadX, 1.2f, playerZ + 2f));
+            }
+            yield return StartCoroutine(FadeOverlay(0, 2f));
+            yield return new WaitForSeconds(2.2f);
+
+            // ── PHASE 2: THE FALLEN KING'S EMBER ──
+            var ember = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            ember.name = "DemonEmber";
+            ember.transform.position = new Vector3(RoadX, 1f, bossZ);
+            ember.transform.localScale = Vector3.one * 0.5f;
+            var emberR = ember.GetComponent<Renderer>();
+            if (emberR != null) emberR.material.color = new Color(1f, 0.4f, 0.1f);
+            Object.Destroy(ember.GetComponent<Collider>());
+            RegisterSpawned(ember);
+
+            float glowDur = 3f;
+            float glowTimer = 0f;
+            while (glowTimer < glowDur)
+            {
+                glowTimer += Time.deltaTime;
+                float p = Mathf.Min(glowTimer / glowDur, 1f);
+                ember.transform.localScale = Vector3.one * Mathf.Lerp(0.5f, 2.2f, p);
+                if (emberR != null)
+                    emberR.material.color = new Color(1f, 0.4f - 0.2f * p, 0.1f, 1f);
+                if (_mainCamera != null)
+                {
+                    _mainCamera.transform.position = Vector3.Lerp(camStart, new Vector3(RoadX - 2f, 2.8f, bossZ + 4f), p);
+                    _mainCamera.transform.LookAt(new Vector3(RoadX, 1f, bossZ));
+                }
+                yield return null;
+            }
+            ember.SetActive(false);
+            yield return new WaitForSeconds(1f);
+
+            // ── PHASE 3: SMOKE RISES FROM THE REMAINS ──
+            for (int i = 0; i < 5; i++)
+            {
+                var smoke = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                smoke.name = "DemonSmoke";
+                smoke.transform.position = new Vector3(RoadX + Random.Range(-1f, 1f), 0.6f, bossZ + Random.Range(-1f, 1f));
+                smoke.transform.localScale = Vector3.one * Random.Range(0.5f, 0.9f);
+                var sr = smoke.GetComponent<Renderer>();
+                if (sr != null) sr.material.color = new Color(0.08f, 0.06f, 0.07f);
+                Object.Destroy(smoke.GetComponent<Collider>());
+                RegisterSpawned(smoke);
+                yield return null;
+            }
+            yield return new WaitForSeconds(2f);
+
+            // ── PHASE 4: CAMERA TURNS TOWARD THE VILLAGE, DEALS GO ON ──
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = new Vector3(RoadX - 1f, 2.4f, playerZ + 2f);
+                _mainCamera.transform.LookAt(new Vector3(RoadX, 1f, playerZ - 20f));
+            }
+            var dealCar = MapBuilder.BuildCar(null, new Vector3(RoadX, 0f, playerZ - 8f));
+            RegisterSpawned(dealCar);
+            float carDur = 3.5f;
+            float carTimer = 0f;
+            while (carTimer < carDur)
+            {
+                carTimer += Time.deltaTime;
+                float p = Mathf.Min(carTimer / carDur, 1f);
+                dealCar.transform.position = new Vector3(RoadX, 0f, Mathf.Lerp(playerZ - 8f, playerZ - 46f, p));
+                yield return null;
+            }
+            yield return new WaitForSeconds(1.5f);
+
+            // ── PHASE 5: FADE + END SCREEN ──
+            yield return StartCoroutine(FadeOverlay(1, 2f));
+
+            HideSkipButton();
+            CleanupSpawned();
+            DestroyLetterboxBars();
+            DestroyOverlay();
+
+            FinishEndingScene(onComplete,
+                Localization.T("QUỶ VƯƠNG ĐÃ CHẾT NHƯNG CÁI ÁC CHƯA HẾT"),
+                Localization.T("Quỷ Vương đã bị đánh bại, bóng tối bị đẩy lùi.\nNhưng trong bóng đêm, những giao dịch bẩn của Phú Ông vẫn tiếp diễn...\n\nJessica vẫn còn trong tầm ngắm của hắn.\nCái ác chưa bị nhổ tận gốc.\nNgôi làng chưa thể yên bình."));
+        }
+        finally
+        {
+            IsActive = false;
+            _cutsceneRoutine = null;
+        }
+    }
+
+    private IEnumerator TrueEndingRoutine(System.Action onComplete = null)
+    {
+        try
+        {
+            if (_uiManager == null)
+                _uiManager = Object.FindAnyObjectByType<UIManager>();
+            if (_mainCamera == null)
+                _mainCamera = Camera.main;
+
+            if (_uiManager != null)
+                _uiManager.ShowMainMenu(false);
+
+            DisablePlayerControl();
+            DetachCamera();
+            HideHUD();
+
+            yield return StartCoroutine(CreateFadeOverlay());
+            CreateLetterboxBars();
+            ShowSkipButton();
+
+            // Player on the road, watching from the south
+            float playerZ = 38f;
+            if (_player != null)
+            {
+                _player.transform.position = new Vector3(RoadX, 0f, playerZ);
+                _player.transform.rotation = Quaternion.identity;
+                var realModel = _player.transform.Find("PlayerModel");
+                if (realModel != null)
+                    realModel.gameObject.SetActive(false);
+            }
+            var truePlayerModel = MapBuilder.BuildPlayerModel(null);
+            truePlayerModel.transform.position = new Vector3(RoadX, 0.82f, playerZ);
+            truePlayerModel.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            foreach (var r in truePlayerModel.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(truePlayerModel);
+
+            // Rich man standing at the mansion front
+            var richModel = RichManNPC.BuildRichManNpc(null,
+                new Vector3(20.5f, 0.86f, 46f), 1f, Quaternion.Euler(0f, 90f, 0f), false);
+            foreach (var r in richModel.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(richModel);
+
+            // ── PHASE 1: DAWN — DEMON SLAIN, LIGHT SPREADS ──
+            Vector3 camStart = new Vector3(RoadX, 2.2f, playerZ - 3f);
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = camStart;
+                _mainCamera.transform.LookAt(new Vector3(20f, 1.2f, 46f));
+            }
+            yield return StartCoroutine(FadeOverlay(0, 2f));
+            yield return new WaitForSeconds(1.5f);
+
+            // Rosary light burst overhead — the Demon King has been vanquished
+            var burst = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            burst.name = "TrueLightBurst";
+            burst.transform.position = new Vector3(RoadX, 8f, 40f);
+            burst.transform.localScale = Vector3.one * 0.4f;
+            var burstR = burst.GetComponent<Renderer>();
+            if (burstR != null) burstR.material.color = new Color(1f, 0.9f, 0.55f);
+            Object.Destroy(burst.GetComponent<Collider>());
+            RegisterSpawned(burst);
+
+            float burstDur = 2.5f;
+            float burstTimer = 0f;
+            while (burstTimer < burstDur)
+            {
+                burstTimer += Time.deltaTime;
+                float p = Mathf.Min(burstTimer / burstDur, 1f);
+                burst.transform.localScale = Vector3.one * Mathf.Lerp(0.4f, 3.2f, p);
+                yield return null;
+            }
+            burst.SetActive(false);
+            yield return new WaitForSeconds(1f);
+
+            // ── PHASE 2: POLICE CAR ARRIVES ──
+            float carStopZ = 52f;
+            var policeCar = MapBuilder.BuildPoliceCar(null, new Vector3(RoadX, 0f, 64f));
+            RegisterSpawned(policeCar);
+            float driveDur = 4f;
+            float driveTimer = 0f;
+            while (driveTimer < driveDur)
+            {
+                driveTimer += Time.deltaTime;
+                float p = Mathf.Min(driveTimer / driveDur, 1f);
+                policeCar.transform.position = new Vector3(RoadX, 0f, Mathf.Lerp(64f, carStopZ, p));
+                yield return null;
+            }
+
+            var officer = MapBuilder.BuildPoliceOfficer(null,
+                new Vector3(RoadX - 1.2f, 0.93f, carStopZ), Quaternion.Euler(0f, -90f, 0f));
+            foreach (var r in officer.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(officer);
+
+            // ── PHASE 3: THE ARREST ──
+            Vector3 officerStart = officer.transform.position;
+            Vector3 richPos = richModel.transform.position;
+            float arrestDur = 4f;
+            float arrestTimer = 0f;
+            while (arrestTimer < arrestDur)
+            {
+                arrestTimer += Time.deltaTime;
+                float p = Mathf.Min(arrestTimer / arrestDur, 1f);
+                officer.transform.position = Vector3.Lerp(officerStart, richPos, p);
+                FaceMoveDirection(officer.transform, richPos - officer.transform.position);
+                if (_mainCamera != null)
+                {
+                    _mainCamera.transform.position = Vector3.Lerp(camStart, new Vector3(RoadX - 1f, 2.6f, carStopZ + 4f), p);
+                    _mainCamera.transform.LookAt(new Vector3(20f, 1.2f, 46f));
+                }
+                yield return null;
+            }
+            yield return new WaitForSeconds(1.5f);
+
+            // ── PHASE 4: TAKEN AWAY ──
+            Vector3 richStart = richModel.transform.position;
+            Vector3 carDoor = new Vector3(RoadX - 0.6f, 0.86f, carStopZ - 0.4f);
+            Vector3 officerDoor = new Vector3(RoadX + 0.6f, 0.86f, carStopZ - 0.4f);
+            float takeDur = 4f;
+            float takeTimer = 0f;
+            while (takeTimer < takeDur)
+            {
+                takeTimer += Time.deltaTime;
+                float p = Mathf.Min(takeTimer / takeDur, 1f);
+                richModel.transform.position = Vector3.Lerp(richStart, carDoor, p);
+                officer.transform.position = Vector3.Lerp(richPos, officerDoor, p);
+                FaceMoveDirection(richModel.transform, carDoor - richModel.transform.position);
+                FaceMoveDirection(officer.transform, officerDoor - officer.transform.position);
+                yield return null;
+            }
+
+            richModel.transform.SetParent(policeCar.transform);
+            richModel.transform.localPosition = new Vector3(-0.35f, 0.62f, -0.2f);
+            richModel.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            officer.transform.SetParent(policeCar.transform);
+            officer.transform.localPosition = new Vector3(0.35f, 0.62f, -0.2f);
+            officer.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            yield return new WaitForSeconds(1f);
+
+            // ── PHASE 5: DEPARTURE ──
+            float departDur = 5f;
+            float departTimer = 0f;
+            float departZ = -30f;
+            while (departTimer < departDur)
+            {
+                departTimer += Time.deltaTime;
+                float p = Mathf.Min(departTimer / departDur, 1f);
+                policeCar.transform.position = new Vector3(RoadX, 0f, Mathf.Lerp(carStopZ, departZ, p));
+                if (_mainCamera != null)
+                {
+                    _mainCamera.transform.position = new Vector3(RoadX - 2f, 3.2f, Mathf.Lerp(carStopZ, departZ, p) + 10f);
+                    _mainCamera.transform.LookAt(policeCar.transform.position);
+                }
+                yield return null;
+            }
+
+            // ── PHASE 6: SUNRISE OVER THE PEACEFUL VILLAGE ──
+            yield return new WaitForSeconds(1.5f);
+            var sun = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            sun.name = "PeaceSun";
+            sun.transform.position = new Vector3(RoadX + 18f, 14f, 10f);
+            sun.transform.localScale = Vector3.one * 3f;
+            var sunR = sun.GetComponent<Renderer>();
+            if (sunR != null) sunR.material.color = new Color(1f, 0.85f, 0.45f);
+            Object.Destroy(sun.GetComponent<Collider>());
+            RegisterSpawned(sun);
+
+            yield return StartCoroutine(PanCamera(
+                new Vector3(RoadX - 2f, 3.2f, 44f),
+                new Vector3(RoadX - 6f, 4.5f, 6f),
+                new Vector3(RoadX, 1.5f, 20f), 4f));
+            yield return new WaitForSeconds(1.5f);
+
+            // ── PHASE 7: FADE + END SCREEN ──
+            yield return StartCoroutine(FadeOverlay(1, 2f));
+
+            HideSkipButton();
+            CleanupSpawned();
+            DestroyLetterboxBars();
+            DestroyOverlay();
+
+            FinishEndingScene(onComplete,
+                Localization.T("KẾT THÚC THẬT SỰ"),
+                Localization.T("Quỷ Vương đã bị trấn áp.\nPhú Ông đã bị cảnh sát dẫn đi ngay trước dinh thự của hắn.\n\nHai hiểm họa đã bị nhổ tận gốc.\nNgôi làng cuối cùng cũng được yên bình.\nMặt trời mọc lên, và một tương lai tươi sáng đang chờ đón."));
         }
         finally
         {
@@ -1392,7 +1949,7 @@ public class CutsceneManager : MonoBehaviour
     //  HAPPY ENDING
     // ═══════════════════════════════════════════════
 
-    private IEnumerator HappyEndingRoutine()
+    private IEnumerator HappyEndingRoutine(System.Action onComplete = null)
     {
         _savedTimeSpeed = GameManager.Instance != null ? GameManager.Instance.TimeSpeed : 0.01f;
         try
@@ -1620,10 +2177,18 @@ public class CutsceneManager : MonoBehaviour
         RestorePlayerControl();
         ShowHUD();
 
-        if (_uiManager == null)
-            _uiManager = Object.FindAnyObjectByType<UIManager>();
-        if (_uiManager != null)
-            _uiManager.ShowMessage(Localization.T("Tiếp tục cuộc phiêu lưu!"), 2);
+        if (onComplete != null)
+        {
+            _previewOnComplete = null;
+            onComplete();
+        }
+        else
+        {
+            if (_uiManager == null)
+                _uiManager = Object.FindAnyObjectByType<UIManager>();
+            if (_uiManager != null)
+                _uiManager.ShowMessage(Localization.T("Tiếp tục cuộc phiêu lưu!"), 2);
+        }
         }
         finally
         {
@@ -1744,6 +2309,22 @@ public class CutsceneManager : MonoBehaviour
             _uiManager.ShowAllGameUI(true);
             _uiManager.SetStatsBgVisible(true);
         }
+    }
+
+    private void FinishEndingScene(System.Action onComplete, string endTitle, string endContent)
+    {
+        _previewOnComplete = null;
+        if (onComplete != null)
+        {
+            RestorePlayerControl();
+            ShowHUD();
+            onComplete();
+            return;
+        }
+        if (_uiManager == null)
+            _uiManager = Object.FindAnyObjectByType<UIManager>();
+        if (_uiManager != null)
+            _uiManager.ShowEndScreen(endTitle, endContent);
     }
 
     // ── Overlay ──

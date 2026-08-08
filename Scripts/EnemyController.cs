@@ -13,6 +13,11 @@ public class EnemyController : MonoBehaviour
     public float PatrolRange = 6f;
     public float PatrolSpeed = 1.5f;
     public bool IsGiant;
+    public bool IsBoss;
+
+    public static bool BossFightActive;
+
+    public int CurrentHealth => _health;
 
     private int _health;
     private Transform _player;
@@ -30,6 +35,8 @@ public class EnemyController : MonoBehaviour
     private Transform _lowerTorso;
     private Transform _armL;
     private Transform _armR;
+    private Transform _armL2;
+    private Transform _armR2;
     private Transform _legL;
     private Transform _legR;
     private Transform _kneeL;
@@ -47,6 +54,12 @@ public class EnemyController : MonoBehaviour
     private bool _hasChasePos;
     private bool _knockOut;
 
+    private bool _bossSkillActive;
+    private float _bossSkillTimer;
+    private bool _enraged;
+    private Coroutine _bossSkillRoutine;
+    private readonly List<GameObject> _activeProjectiles = new List<GameObject>();
+
     private const float STUCK_THRESHOLD = 4f;
     private const float STRUCTURE_ATTACK_COOLDOWN = 2f;
     private const float STRUCTURE_SEARCH_RANGE = 5f;
@@ -63,11 +76,19 @@ public class EnemyController : MonoBehaviour
     {
         _health = MaxHealth;
         BuildModel();
+        if (IsBoss)
+        {
+            BossFightActive = true;
+            _bossSkillTimer = 2f;
+            GameManager.Instance?.UIManager?.ShowBossBar(Localization.T("Quỷ Vương"), CurrentHealth, MaxHealth);
+        }
     }
 
     private void BuildModel()
     {
-        if (IsGiant)
+        if (IsBoss)
+            _modelRoot = BossModelBuilder.BuildBoss(transform);
+        else if (IsGiant)
             _modelRoot = EnemyModelBuilder.BuildGiantEnemy(transform);
         else
             _modelRoot = EnemyModelBuilder.BuildRegularEnemy(transform);
@@ -85,6 +106,8 @@ public class EnemyController : MonoBehaviour
         _lowerTorso = FindChild(_modelRoot, "LowerTorso");
         _armL = FindChild(_modelRoot, "ArmL");
         _armR = FindChild(_modelRoot, "ArmR");
+        _armL2 = FindChild(_modelRoot, "ArmL2");
+        _armR2 = FindChild(_modelRoot, "ArmR2");
         _legL = FindChild(_modelRoot, "LegL");
         _legR = FindChild(_modelRoot, "LegR");
         _kneeL = FindChild(_modelRoot, "KneeL");
@@ -110,7 +133,12 @@ public class EnemyController : MonoBehaviour
         if (col == null)
             col = gameObject.AddComponent<BoxCollider>();
 
-        if (IsGiant)
+        if (IsBoss)
+        {
+            col.size = new Vector3(1.25f, 3.2f, 0.8f);
+            col.center = new Vector3(0f, 1.6f, 0f);
+        }
+        else if (IsGiant)
         {
             col.size = new Vector3(0.8f, 2.8f, 0.4f);
             col.center = new Vector3(0f, 1.4f, 0f);
@@ -136,9 +164,19 @@ public class EnemyController : MonoBehaviour
         if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
         if (GameManager.Instance != null && GameManager.Instance.IsPlayerDead) return;
 
-        if (EnforceSacredZone()) return;
+        if (!IsBoss && EnforceSacredZone()) return;
 
         float distance = Vector3.Distance(transform.position, _player.position);
+
+        if (IsBoss)
+            BossFightActive = distance <= 45f;
+
+        if (IsBoss)
+        {
+            HandleBossSkills(distance);
+            if (_bossSkillActive)
+                return;
+        }
 
         Transform target = _player;
         float targetDist = distance;
@@ -246,6 +284,8 @@ public class EnemyController : MonoBehaviour
     private void AnimateModel()
     {
         if (_modelRoot == null) return;
+        if (_bossSkillActive)
+            return;
 
         if (_isAttacking)
         {
@@ -289,6 +329,11 @@ public class EnemyController : MonoBehaviour
         if (_armL != null) _armL.localRotation = Quaternion.Euler(-armSwing, 0f, 0f);
         if (_armR != null) _armR.localRotation = Quaternion.Euler(armSwing, 0f, 0f);
 
+        // Second pair of arms (boss) swing in the opposite phase
+        float armSwing2 = armSwing * 0.8f;
+        if (_armL2 != null) _armL2.localRotation = Quaternion.Euler(armSwing2, 0f, 0f);
+        if (_armR2 != null) _armR2.localRotation = Quaternion.Euler(-armSwing2, 0f, 0f);
+
         // Torso forward lean + subtle bob (3 segments with base tilts)
         _bobTimer += Time.deltaTime * speed * 5f;
         float bob = Mathf.Sin(_bobTimer * 2f) * 0.015f;
@@ -330,6 +375,8 @@ public class EnemyController : MonoBehaviour
         if (_kneeR != null) _kneeR.localRotation = Quaternion.identity;
         if (_armL != null) _armL.localRotation = Quaternion.identity;
         if (_armR != null) _armR.localRotation = Quaternion.identity;
+        if (_armL2 != null) _armL2.localRotation = Quaternion.identity;
+        if (_armR2 != null) _armR2.localRotation = Quaternion.identity;
     }
 
     public void TakeDamage(int amount)
@@ -338,6 +385,8 @@ public class EnemyController : MonoBehaviour
             return;
 
         _health -= amount;
+        if (IsBoss && GameManager.Instance?.UIManager != null)
+            GameManager.Instance.UIManager.SetBossBar(Mathf.Max(0, _health), MaxHealth);
         if (_health <= 0)
         {
             Die();
@@ -557,9 +606,348 @@ public class EnemyController : MonoBehaviour
         }
     }
 
+    private void HandleBossSkills(float playerDist)
+    {
+        if (_isDead)
+            return;
+
+        if (!_enraged && _health <= MaxHealth * 0.5f)
+            StartEnrage();
+
+        _bossSkillTimer -= Time.deltaTime;
+        if (_bossSkillTimer > 0f)
+            return;
+        if (playerDist > 20f)
+            return;
+        if (_player == null)
+            return;
+
+        if (playerDist <= 4.5f)
+        {
+            if (playerDist > 3f && Random.value < 0.2f)
+                StartBossSkill(BossCharge());
+            else
+                StartBossSkill(BossSlam());
+        }
+        else if (playerDist > 8f)
+        {
+            StartBossSkill(BossBarrage());
+        }
+        else
+        {
+            if (Random.value < 0.5f)
+                StartBossSkill(BossCharge());
+            else
+                StartBossSkill(BossBarrage());
+        }
+    }
+
+    private void StartBossSkill(IEnumerator routine)
+    {
+        if (_bossSkillActive)
+            return;
+        _bossSkillActive = true;
+        _bossSkillRoutine = StartCoroutine(routine);
+    }
+
+    private void StartEnrage()
+    {
+        _enraged = true;
+        MoveSpeed = 2.3f;
+        AttackCooldown = 0.6f;
+        SoundManager.Instance?.Play("bonk", 1f);
+
+        var eyeL = FindChild(_modelRoot, "EyeL");
+        var eyeR = FindChild(_modelRoot, "EyeR");
+        var glow = new Color(1f, 0.15f, 0.04f);
+        if (eyeL != null)
+        {
+            var r = eyeL.GetComponent<Renderer>();
+            if (r != null) r.material.color = glow;
+        }
+        if (eyeR != null)
+        {
+            var r = eyeR.GetComponent<Renderer>();
+            if (r != null) r.material.color = glow;
+        }
+        _bossSkillTimer = Mathf.Min(_bossSkillTimer, 1f);
+    }
+
+    private void SetUpperArms(Quaternion rot)
+    {
+        if (_armL != null) _armL.localRotation = rot;
+        if (_armR != null) _armR.localRotation = rot;
+    }
+
+    private void SetLowerArms(Quaternion rot)
+    {
+        if (_armL2 != null) _armL2.localRotation = rot;
+        if (_armR2 != null) _armR2.localRotation = rot;
+    }
+
+    private void ResetBossArms()
+    {
+        SetUpperArms(Quaternion.identity);
+        SetLowerArms(Quaternion.identity);
+    }
+
+    private IEnumerator BossSlam()
+    {
+        if (_player != null)
+            transform.LookAt(_player.position);
+
+        float t = 0f;
+        while (t < 0.9f)
+        {
+            t += Time.deltaTime;
+            float p = Mathf.SmoothStep(0f, 1f, t / 0.9f);
+            SetUpperArms(Quaternion.Euler(-70f * p, 0f, 0f));
+            SetLowerArms(Quaternion.Euler(-40f * p, 0f, 0f));
+            yield return null;
+        }
+
+        t = 0f;
+        while (t < 0.22f)
+        {
+            t += Time.deltaTime;
+            float p = t / 0.22f;
+            SetUpperArms(Quaternion.Euler(75f * p, 0f, 0f));
+            SetLowerArms(Quaternion.Euler(50f * p, 0f, 0f));
+            yield return null;
+        }
+
+        SoundManager.Instance?.Play("bonk", 0.9f);
+        if (_player != null && Vector3.Distance(transform.position, _player.position) <= 3.5f)
+            _player.GetComponent<PlayerController>()?.TakeDamage(14);
+        SpawnSlamCracks();
+
+        t = 0f;
+        while (t < 0.4f)
+        {
+            t += Time.deltaTime;
+            if (_modelRoot != null)
+                _modelRoot.localPosition = new Vector3(Random.Range(-0.06f, 0.06f), 0f, Random.Range(-0.06f, 0.06f));
+            yield return null;
+        }
+        if (_modelRoot != null)
+            _modelRoot.localPosition = Vector3.zero;
+
+        ResetJoints();
+        ResetBossArms();
+        _bossSkillActive = false;
+        _bossSkillTimer = _enraged ? 5f : 6f;
+    }
+
+    private IEnumerator BossBarrage()
+    {
+        if (_player == null)
+        {
+            _bossSkillActive = false;
+            yield break;
+        }
+        transform.LookAt(_player.position);
+
+        float t = 0f;
+        while (t < 0.8f)
+        {
+            t += Time.deltaTime;
+            float p = Mathf.SmoothStep(0f, 1f, t / 0.8f);
+            SetUpperArms(Quaternion.Euler(-60f * p, 0f, 0f));
+            SetLowerArms(Quaternion.Euler(-45f * p, 0f, 0f));
+            yield return null;
+        }
+
+        Vector3 chest = transform.position + Vector3.up * 1.5f;
+        for (int i = 0; i < 5; i++)
+        {
+            if (_player == null)
+                break;
+            Vector3 playerChest = _player.position + Vector3.up * 0.8f;
+            Vector3 dir = (playerChest - chest).normalized;
+            dir = Quaternion.Euler(0f, Random.Range(-7f, 7f), 0f) * dir;
+            float maxDist = Vector3.Distance(chest, playerChest) + 4f;
+            SpawnBossProjectile(chest, dir, maxDist);
+            SoundManager.Instance?.Play("bonk", 0.35f);
+            yield return new WaitForSeconds(0.16f);
+        }
+
+        yield return new WaitForSeconds(0.4f);
+        ResetJoints();
+        ResetBossArms();
+        _bossSkillActive = false;
+        _bossSkillTimer = _enraged ? 6f : 7f;
+    }
+
+    private void SpawnBossProjectile(Vector3 origin, Vector3 dir, float maxDist)
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        go.name = "BossBone";
+        Object.Destroy(go.GetComponent<Collider>());
+        go.transform.position = origin;
+        go.transform.localScale = Vector3.one * 0.22f;
+        var r = go.GetComponent<Renderer>();
+        if (r != null) r.material.color = new Color(0.85f, 0.8f, 0.72f);
+        _activeProjectiles.Add(go);
+        StartCoroutine(BossProjectileFlight(go, dir, maxDist));
+    }
+
+    private IEnumerator BossProjectileFlight(GameObject proj, Vector3 dir, float maxDist)
+    {
+        float travelled = 0f;
+        while (proj != null && travelled < maxDist)
+        {
+            float step = 9f * Time.deltaTime;
+            travelled += step;
+            proj.transform.position += dir * step;
+
+            if (_player != null)
+            {
+                Vector3 toPlayer = _player.position + Vector3.up * 0.8f - proj.transform.position;
+                if (toPlayer.magnitude < 0.9f)
+                {
+                    _player.GetComponent<PlayerController>()?.TakeDamage(8);
+                    SoundManager.Instance?.Play("bonk", 0.6f);
+                    _activeProjectiles.Remove(proj);
+                    Destroy(proj);
+                    yield break;
+                }
+            }
+            yield return null;
+        }
+        if (proj != null)
+        {
+            _activeProjectiles.Remove(proj);
+            Destroy(proj);
+        }
+    }
+
+    private IEnumerator BossCharge()
+    {
+        if (_player == null)
+        {
+            _bossSkillActive = false;
+            yield break;
+        }
+        Vector3 locked = _player.position;
+        locked.y = 0f;
+
+        float t = 0f;
+        while (t < 0.6f)
+        {
+            t += Time.deltaTime;
+            float p = Mathf.SmoothStep(0f, 1f, t / 0.6f);
+            Vector3 flat = transform.position;
+            flat.y = 0f;
+            Vector3 toLocked = locked - flat;
+            if (toLocked.sqrMagnitude > 0.0001f)
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(toLocked.normalized), Time.deltaTime * 6f);
+            SetUpperArms(Quaternion.Euler(-50f * p, 0f, 0f));
+            SetLowerArms(Quaternion.Euler(-30f * p, 0f, 0f));
+            yield return null;
+        }
+
+        float speed = MoveSpeed * 3f;
+        t = 0f;
+        bool hit = false;
+        while (t < 0.9f)
+        {
+            t += Time.deltaTime;
+            Vector3 toLocked = locked - new Vector3(transform.position.x, 0f, transform.position.z);
+            if (toLocked.magnitude < 0.3f)
+                break;
+            transform.position = Vector3.MoveTowards(transform.position, new Vector3(locked.x, transform.position.y, locked.z), speed * Time.deltaTime);
+            transform.rotation = Quaternion.LookRotation(toLocked.normalized);
+            SetUpperArms(Quaternion.Euler(70f, 0f, 0f));
+            SetLowerArms(Quaternion.Euler(45f, 0f, 0f));
+            if (!hit && _player != null && Vector3.Distance(transform.position, _player.position) <= 1.8f)
+            {
+                hit = true;
+                _player.GetComponent<PlayerController>()?.TakeDamage(12);
+                SoundManager.Instance?.Play("bonk", 0.8f);
+            }
+            yield return null;
+        }
+
+        t = 0f;
+        while (t < 0.8f)
+        {
+            t += Time.deltaTime;
+            float p = t / 0.8f;
+            SetUpperArms(Quaternion.Lerp(Quaternion.Euler(70f, 0f, 0f), Quaternion.identity, p));
+            SetLowerArms(Quaternion.Lerp(Quaternion.Euler(45f, 0f, 0f), Quaternion.identity, p));
+            yield return null;
+        }
+
+        ResetJoints();
+        ResetBossArms();
+        _bossSkillActive = false;
+        _bossSkillTimer = _enraged ? 7f : 8f;
+    }
+
+    private void SpawnSlamCracks()
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            var crack = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            crack.name = "SlamCrack";
+            Object.Destroy(crack.GetComponent<Collider>());
+            float a = (i / 5f) * Mathf.PI * 2f + Random.Range(0f, 0.5f);
+            float dist = Random.Range(1.2f, 3.2f);
+            Vector3 pos = transform.position + new Vector3(Mathf.Cos(a) * dist, 0f, Mathf.Sin(a) * dist);
+            pos.y = transform.position.y + 0.02f;
+            crack.transform.position = pos;
+            crack.transform.localScale = new Vector3(Random.Range(0.5f, 0.9f), 0.04f, Random.Range(0.4f, 0.7f));
+            var r = crack.GetComponent<Renderer>();
+            if (r != null) r.material.color = new Color(0.1f, 0.05f, 0.05f);
+            _activeProjectiles.Add(crack);
+            StartCoroutine(DestroyAfter(crack, 2f));
+        }
+    }
+
+    private IEnumerator DestroyAfter(GameObject go, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (go != null)
+        {
+            _activeProjectiles.Remove(go);
+            Destroy(go);
+        }
+    }
+
+    private void DestroyActiveProjectiles()
+    {
+        foreach (var go in _activeProjectiles)
+        {
+            if (go != null)
+                Destroy(go);
+        }
+        _activeProjectiles.Clear();
+    }
+
     private void Die()
     {
         _isDead = true;
+        if (IsBoss)
+        {
+            QuestManager.Instance?.AddProgress("boss_kill", 1);
+            BossFightActive = false;
+            GameManager.Instance?.UIManager?.HideBossBar();
+            if (QuestManager.Instance != null && !QuestManager.Instance.IsComplete("mansion_secret"))
+                GameManager.Instance?.RequestDemonEnding();
+            if (_bossSkillRoutine != null)
+            {
+                StopCoroutine(_bossSkillRoutine);
+                _bossSkillRoutine = null;
+            }
+            _bossSkillActive = false;
+            DestroyActiveProjectiles();
+            ExplodeModel();
+            var bossCol = GetComponent<Collider>();
+            if (bossCol != null) bossCol.enabled = false;
+            Destroy(gameObject, 3f);
+            return;
+        }
+
         _respawnTimer = 5f;
         QuestManager.Instance?.AddProgress("enemies", 1);
         ExplodeModel();

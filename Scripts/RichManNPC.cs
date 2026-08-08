@@ -10,6 +10,7 @@ public class RichManNPC : MonoBehaviour
     private Transform _myTransform;
     private Transform _wifeTransform;
     private Transform _playerTransform;
+    private Quaternion _originalRotation = Quaternion.identity;
 
     private const float HOME_PATROL_RADIUS = 6f;
     private const float WALK_SPEED = 1.8f;
@@ -80,6 +81,8 @@ public class RichManNPC : MonoBehaviour
         if (wifeGo != null) _wifeTransform = wifeGo.transform;
         var playerGo = GameObject.Find("Player");
         if (playerGo != null) _playerTransform = playerGo.transform;
+        if (_myTransform != null)
+            _originalRotation = _myTransform.rotation;
 
         if (WifeNPC.Instance != null && WifeNPC.Instance.Married)
         {
@@ -395,6 +398,7 @@ public class RichManNPC : MonoBehaviour
 
         _dialogActive = true;
         _panel.SetActive(true);
+        FacePlayer();
         _nameText.text = Localization.T("Phú Ông");
         _dialogQueue.Clear();
         if (Discovered)
@@ -459,6 +463,18 @@ public class RichManNPC : MonoBehaviour
         _dialogActive = false;
         if (_panel != null)
             _panel.SetActive(false);
+        if (_myTransform != null)
+            _myTransform.rotation = _originalRotation;
+    }
+
+    private void FacePlayer()
+    {
+        if (_myTransform == null || _playerTransform == null)
+            return;
+        Vector3 to = _myTransform.position - _playerTransform.position;
+        to.y = 0f;
+        if (to.sqrMagnitude > 0.001f)
+            _myTransform.rotation = Quaternion.LookRotation(to.normalized);
     }
 
     private void InitializeDialog()

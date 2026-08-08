@@ -34,6 +34,10 @@ public class WorldBuilder : MonoBehaviour
     private readonly List<BlueprintState> _blueprints = new List<BlueprintState>();
     private Vector3 _pagodaPosition;
     public Vector3 PagodaPosition => _pagodaPosition;
+    private readonly Vector3 _bossArenaCenter = new Vector3(246f, 0f, 90f);
+    public Vector3 BossArenaCenter => _bossArenaCenter;
+    private GameObject _questBoss;
+    public bool IsQuestBossAlive => _questBoss != null && _questBoss.activeInHierarchy;
     private GameObject _worldRoot;
     public GameObject WorldRoot => _worldRoot;
     private float _resourceRespawnTimer;
@@ -361,9 +365,7 @@ public class WorldBuilder : MonoBehaviour
         BuildBeach();
         BuildShop();
         BuildRestaurant();
-        MapBuilder.BuildConvenienceStore(_worldRoot.transform, new Vector3(0f, 0f, 67.5f));
-        MapBuilder.BuildMarketNpc(_worldRoot.transform, "ToolShopNPC", new Vector3(-4.5f, 0.86f, 67f), Quaternion.Euler(0f, 90f, 0f));
-        MapBuilder.BuildMarketNpc(_worldRoot.transform, "GroceryNPC", new Vector3(4.5f, 0.86f, 67f), Quaternion.Euler(0f, -90f, 0f));
+        MapBuilder.BuildConvenienceStore(_worldRoot.transform, new Vector3(24f, 0f, 60f), 1f, Quaternion.Euler(0f, 180f, 0f));
         BuildWifeHouse();
         BuildRichManMansion();
         BuildPolicePost();
@@ -380,14 +382,103 @@ public class WorldBuilder : MonoBehaviour
         InitializeBuildingPreview();
         PlaceMansionBlueprint(new Vector3(-30f, 0f, 50f));
         BuildPagoda(new Vector3(26f, 0f, 25f));
-        var monk = MapBuilder.BuildMonkNpc(_worldRoot.transform, new Vector3(26f, 0.86f, 17f), Quaternion.identity);
+        var monk = MapBuilder.BuildMonkNpc(_worldRoot.transform, new Vector3(18.5f, 0.86f, 25f), Quaternion.Euler(0f, -90f, 0f));
         monk.AddComponent<PagodaMonkNPC>();
+        BuildBossArena();
 
         SpawnInitialClouds();
 
         var spawnerGo = new GameObject("LivestockSpawner");
         spawnerGo.transform.SetParent(_worldRoot.transform);
         spawnerGo.AddComponent<LivestockSpawner>();
+    }
+
+    private void BuildBossArena()
+    {
+        Color stoneC = new Color(0.42f, 0.4f, 0.38f);
+        Color stoneDark = new Color(0.3f, 0.28f, 0.27f);
+        Color runeGlow = new Color(1f, 0.4f, 0.08f);
+        Color boneC = new Color(0.88f, 0.84f, 0.78f);
+
+        Vector3 center = _bossArenaCenter;
+        float radius = 8f;
+        int ringSegments = 28;
+
+        // Platform fill (flat, no collider)
+        MakeBlock("BossArenaFloor", _worldRoot.transform,
+            new Vector3(radius * 2f, 0.06f, radius * 2f),
+            center + new Vector3(0f, 0.02f, 0f), stoneDark, true);
+
+        // Outer stone ring
+        for (int i = 0; i < ringSegments; i++)
+        {
+            float a = (i / (float)ringSegments) * Mathf.PI * 2f;
+            Vector3 pos = center + new Vector3(Mathf.Cos(a) * radius, 0.14f, Mathf.Sin(a) * radius);
+            MakeBlock("BossArenaRing", _worldRoot.transform,
+                new Vector3(1.4f, 0.28f, 1.4f), pos, stoneC, true);
+        }
+
+        // Pillars
+        int pillars = 8;
+        for (int i = 0; i < pillars; i++)
+        {
+            float a = (i / (float)pillars) * Mathf.PI * 2f;
+            Vector3 pos = center + new Vector3(Mathf.Cos(a) * (radius + 1.6f), 1.2f, Mathf.Sin(a) * (radius + 1.6f));
+            MakeBlock("BossArenaPillar", _worldRoot.transform,
+                new Vector3(0.8f, 2.4f, 0.8f), pos, stoneC, true);
+            MakeBlock("BossArenaPillarCap", _worldRoot.transform,
+                new Vector3(1.0f, 0.2f, 1.0f), pos + new Vector3(0f, 1.3f, 0f), stoneDark, true);
+        }
+
+        // Glowing rune ring on the floor
+        int runes = 12;
+        for (int i = 0; i < runes; i++)
+        {
+            float a = (i / (float)runes) * Mathf.PI * 2f;
+            Vector3 pos = center + new Vector3(Mathf.Cos(a) * 4.5f, 0.05f, Mathf.Sin(a) * 4.5f);
+            MakeBlock("BossRune", _worldRoot.transform,
+                new Vector3(0.7f, 0.04f, 0.25f), pos, runeGlow, true);
+        }
+
+        // Central demon sigil (cross of embers)
+        MakeBlock("BossSigilH", _worldRoot.transform, new Vector3(3.6f, 0.05f, 0.6f), center + new Vector3(0f, 0.05f, 0f), runeGlow, true);
+        MakeBlock("BossSigilV", _worldRoot.transform, new Vector3(0.6f, 0.05f, 3.6f), center + new Vector3(0f, 0.05f, 0f), runeGlow, true);
+
+        // Bone/skull decorations on the ring
+        for (int i = 0; i < 6; i++)
+        {
+            float a = (i / 6f) * Mathf.PI * 2f + 0.35f;
+            Vector3 pos = center + new Vector3(Mathf.Cos(a) * (radius + 0.3f), 0.36f, Mathf.Sin(a) * (radius + 0.3f));
+            MakeBlock("BossBonePile", _worldRoot.transform,
+                new Vector3(0.5f, 0.24f, 0.35f), pos, boneC, true);
+        }
+    }
+
+    public GameObject SpawnQuestBoss()
+    {
+        if (_questBoss != null && _questBoss.activeInHierarchy)
+            return _questBoss;
+
+        var go = new GameObject("DemonKing");
+        go.transform.SetParent(_worldRoot.transform);
+        go.transform.position = _bossArenaCenter + new Vector3(0f, 0.5f, 0f);
+        go.transform.localScale = Vector3.one;
+
+        go.AddComponent<Rigidbody>().isKinematic = true;
+
+        var boss = go.AddComponent<EnemyController>();
+        boss.MaxHealth = 150;
+        boss.Damage = 12;
+        boss.MoveSpeed = 1.8f;
+        boss.ChaseRange = 18f;
+        boss.AttackRange = 2.5f;
+        boss.AttackCooldown = 1f;
+        boss.IsBoss = true;
+        boss.IsGiant = false;
+
+        _questBoss = go;
+        SoundManager.Instance?.Play("bonk", 0.6f);
+        return go;
     }
 
     private void SpawnInitialClouds()
@@ -3868,7 +3959,7 @@ public class WorldBuilder : MonoBehaviour
         float roadCx = 14f;
         float roadHw = 3.8f;
         float roadTurnZ = 90f;
-        float roadEndX = 180f;
+        float roadEndX = 240f;
         float nsZStart = -283f;
         float nsZEnd = roadTurnZ;
         float nsLen = nsZEnd - nsZStart;
@@ -4314,6 +4405,7 @@ GameObject treeRoot;
     {
         bool nearHouse = Mathf.Abs(x) <= 9 && Mathf.Abs(z) <= 9;
         bool nearShop = Mathf.Abs(x) <= 9 && z >= 51 && z <= 69;
+        bool nearStore = x >= 20 && x <= 32 && z >= 51 && z <= 69;
         bool nearRestaurant = Mathf.Abs(x) <= 10 && z >= 66 && z <= 84;
         bool nearRoad = x >= (_roadCenterX - _roadHalfWidth - 3f) && x <= (_roadCenterX + _roadHalfWidth + 3f)
                         && z >= _roadZStart - 10f && z <= _roadZEnd + 10f;
@@ -4325,7 +4417,7 @@ GameObject treeRoot;
         bool nearDisplay = x >= 48 && x <= 67 && z >= -130 && z <= -48;
         bool nearMansion = x >= -45 && x <= -15 && z >= 39 && z <= 61;
         bool nearPagoda = Mathf.Abs(x - _pagodaPosition.x) <= 8 && Mathf.Abs(z - _pagodaPosition.z) <= 12;
-        return nearHouse || nearShop || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearDisplay || nearMansion || nearPagoda;
+        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearDisplay || nearMansion || nearPagoda;
     }
 
     private void CreateVendorSpawnButton()
