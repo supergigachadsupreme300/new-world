@@ -41,9 +41,11 @@ public class WifeNPC : MonoBehaviour
 
     private static readonly string[][] WifeQuestPool = new string[][]
     {
-        new string[] { "Thu Hoạch Lúa Mì", "wheat", "10", "100" },
-        new string[] { "Thu Thập Trứng", "egg", "5", "80" },
-        new string[] { "Trồng Cà Rốt", "carrot", "10", "90" },
+        new string[] { "Ném Lúa Mì Cho Jessica", "donate_wheat", "5", "100" },
+        new string[] { "Ném Cà Rốt Cho Jessica", "donate_carrot", "5", "90" },
+        new string[] { "Ném Gỗ Cho Jessica", "donate_wood", "5", "110" },
+        new string[] { "Ném Đá Cho Jessica", "donate_stone", "5", "110" },
+        new string[] { "Ném Lồng Thú Cho Jessica", "donate_animal", "2", "150" },
         new string[] { "Tưới Nước Cho Cây", "water", "15", "70" },
         new string[] { "Câu Cá", "fish_catch", "3", "120" }
     };
@@ -60,7 +62,7 @@ public class WifeNPC : MonoBehaviour
     private readonly Vector3 _homePos = new Vector3(2.5f, 1f, 0f);
     private float _leaveTimer;
     private const float WALK_SPEED = 3f;
-    private const float STAY_DURATION = 20f;
+    private const float STAY_DURATION = 30f;
     private TMP_Text _inviteText;
     private TMP_Text _nightText;
     private int _chainStep;
@@ -81,6 +83,16 @@ public class WifeNPC : MonoBehaviour
     private readonly Quaternion _armLBase = Quaternion.Euler(0f, 0f, -15f);
     private readonly Quaternion _armRBase = Quaternion.Euler(0f, 0f, 15f);
     private float _walkCycle;
+
+    private Transform _bodyRoot;
+    private Transform _irisL;
+    private Transform _irisR;
+    private Vector3 _irisLBase;
+    private Vector3 _irisRBase;
+    private Coroutine _eyeRoutine;
+    private Coroutine _idleRoutine;
+    private Coroutine _activityRoutine;
+    private GameObject _heldProp;
 
     public void Awake()
     {
@@ -108,6 +120,12 @@ public class WifeNPC : MonoBehaviour
             _originalPos = _npcTransform.position;
             _originalRot = _npcTransform.rotation;
         }
+        if (_eyeRoutine == null)
+            _eyeRoutine = StartCoroutine(IdleEyeAnimation());
+        if (_idleRoutine == null)
+            _idleRoutine = StartCoroutine(WorldIdleRoutine());
+        if (_activityRoutine == null)
+            _activityRoutine = StartCoroutine(HomeActivityRoutine());
     }
 
     public void Initialize(Canvas canvas)
@@ -155,6 +173,7 @@ public class WifeNPC : MonoBehaviour
                 if (_leaveTimer <= 0f)
                 {
                     _visitState = HouseVisitState.Leaving;
+                    ResetPose();
                     if (!_dialogActive)
                     {
                         _dialogQueue.Clear();
@@ -331,6 +350,11 @@ public class WifeNPC : MonoBehaviour
         _lowerLegR = _npcTransform.Find("LegsRoot/LegR/LowerLegR");
         _armL = _npcTransform.Find("LeftArmRoot");
         _armR = _npcTransform.Find("RightArmRoot");
+        _bodyRoot = _npcTransform.Find("BodyRoot");
+        _irisL = _npcTransform.Find("BodyRoot/EyeIrisL");
+        _irisR = _npcTransform.Find("BodyRoot/EyeIrisR");
+        if (_irisL != null) _irisLBase = _irisL.localPosition;
+        if (_irisR != null) _irisRBase = _irisR.localPosition;
     }
 
     private IEnumerator WalkAnimation()
@@ -338,15 +362,20 @@ public class WifeNPC : MonoBehaviour
         while (_visitState == HouseVisitState.WalkingToHouse || _visitState == HouseVisitState.Leaving)
         {
             _walkCycle += Time.deltaTime * 12f;
-            float swing = Mathf.Sin(_walkCycle) * 30f;
-            if (_legL != null) _legL.localRotation = Quaternion.Euler(swing, 0f, 0f);
-            if (_legR != null) _legR.localRotation = Quaternion.Euler(-swing, 0f, 0f);
-            if (_lowerLegL != null) _lowerLegL.localRotation = Quaternion.Euler(-swing * 0.5f, 0f, 0f);
-            if (_lowerLegR != null) _lowerLegR.localRotation = Quaternion.Euler(swing * 0.5f, 0f, 0f);
-            if (_armL != null) _armL.localRotation = Quaternion.Euler(-swing * 0.8f, 0f, 0f) * _armLBase;
-            if (_armR != null) _armR.localRotation = Quaternion.Euler(swing * 0.8f, 0f, 0f) * _armRBase;
+            ApplyWalkPose(_walkCycle);
             yield return null;
         }
+    }
+
+    private void ApplyWalkPose(float cycle)
+    {
+        float swing = Mathf.Sin(cycle) * 30f;
+        if (_legL != null) _legL.localRotation = Quaternion.Euler(swing, 0f, 0f);
+        if (_legR != null) _legR.localRotation = Quaternion.Euler(-swing, 0f, 0f);
+        if (_lowerLegL != null) _lowerLegL.localRotation = Quaternion.Euler(-swing * 0.5f, 0f, 0f);
+        if (_lowerLegR != null) _lowerLegR.localRotation = Quaternion.Euler(swing * 0.5f, 0f, 0f);
+        if (_armL != null) _armL.localRotation = Quaternion.Euler(-swing * 0.8f, 0f, 0f) * _armLBase;
+        if (_armR != null) _armR.localRotation = Quaternion.Euler(swing * 0.8f, 0f, 0f) * _armRBase;
     }
 
     private void StopWalkAnimation()
@@ -361,14 +390,311 @@ public class WifeNPC : MonoBehaviour
     private void ResetPose()
     {
         StopWalkAnimation();
+        DestroyHeldProp();
         if (_legL == null)
             return;
         _legL.localRotation = Quaternion.identity;
         _legR.localRotation = Quaternion.identity;
         _lowerLegL.localRotation = Quaternion.identity;
         _lowerLegR.localRotation = Quaternion.identity;
-        _armL.localRotation = _armLBase;
-        _armR.localRotation = _armRBase;
+        if (_armL != null) _armL.localRotation = _armLBase;
+        if (_armR != null) _armR.localRotation = _armRBase;
+        if (_bodyRoot != null) _bodyRoot.localRotation = Quaternion.identity;
+    }
+
+    private IEnumerator IdleEyeAnimation()
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(Random.Range(3f, 7f));
+            if (GameManager.Instance == null || !GameManager.Instance.InGame)
+                continue;
+            if (_irisL == null || _irisR == null)
+                continue;
+            var offset = new Vector2(Random.Range(-0.02f, 0.02f), Random.Range(-0.012f, 0.012f));
+            yield return StartCoroutine(MoveIris(offset, 0.25f));
+            yield return new WaitForSeconds(Random.Range(0.3f, 1.1f));
+            yield return StartCoroutine(MoveIris(Vector2.zero, 0.3f));
+        }
+    }
+
+    private IEnumerator MoveIris(Vector2 offset, float duration)
+    {
+        if (_irisL == null || _irisR == null)
+            yield break;
+        float t = 0f;
+        Vector3 fromL = _irisL.localPosition;
+        Vector3 fromR = _irisR.localPosition;
+        Vector3 toL = _irisLBase + new Vector3(offset.x, offset.y, 0f);
+        Vector3 toR = _irisRBase + new Vector3(offset.x, offset.y, 0f);
+        while (t < duration)
+        {
+            t += Time.deltaTime;
+            float k = Mathf.Clamp01(t / duration);
+            if (_irisL != null) _irisL.localPosition = Vector3.Lerp(fromL, toL, k);
+            if (_irisR != null) _irisR.localPosition = Vector3.Lerp(fromR, toR, k);
+            yield return null;
+        }
+        if (_irisL != null) _irisL.localPosition = toL;
+        if (_irisR != null) _irisR.localPosition = toR;
+    }
+
+    private IEnumerator WorldIdleRoutine()
+    {
+        while (true)
+        {
+            yield return null;
+            if (_visitState != HouseVisitState.None)
+                continue;
+            if (GameManager.Instance == null || !GameManager.Instance.InGame)
+                continue;
+            if (_armL == null)
+                continue;
+            int pick = Random.Range(0, 3);
+            if (pick == 0)
+                yield return StartCoroutine(IdleStretch());
+            else if (pick == 1)
+                yield return StartCoroutine(IdleLookAround());
+            else
+                yield return StartCoroutine(IdleWeightShift());
+            yield return new WaitForSeconds(Random.Range(6f, 12f));
+        }
+    }
+
+    private IEnumerator IdleStretch()
+    {
+        float t = 0f, dur = 1.6f;
+        while (t < dur)
+        {
+            if (_visitState != HouseVisitState.None)
+                yield break;
+            t += Time.deltaTime;
+            float k = Mathf.PingPong(t / dur * 2f, 1f);
+            if (_armL != null) _armL.localRotation = Quaternion.Euler(0f, 0f, -150f * k) * _armLBase;
+            if (_armR != null) _armR.localRotation = Quaternion.Euler(0f, 0f, 150f * k) * _armRBase;
+            yield return null;
+        }
+        ResetPose();
+    }
+
+    private IEnumerator IdleLookAround()
+    {
+        if (_bodyRoot == null)
+            yield break;
+        float t = 0f, dur = 1.4f;
+        float start = _bodyRoot.localRotation.eulerAngles.y;
+        while (t < dur)
+        {
+            if (_visitState != HouseVisitState.None)
+                yield break;
+            t += Time.deltaTime;
+            float ang = Mathf.Sin(t / dur * Mathf.PI * 2f) * 20f;
+            _bodyRoot.localRotation = Quaternion.Euler(0f, start + ang, 0f);
+            yield return null;
+        }
+        if (_bodyRoot != null) _bodyRoot.localRotation = Quaternion.Euler(0f, start, 0f);
+    }
+
+    private IEnumerator IdleWeightShift()
+    {
+        if (_bodyRoot == null)
+            yield break;
+        float t = 0f, dur = 1.8f;
+        float startY = _bodyRoot.localRotation.eulerAngles.y;
+        while (t < dur)
+        {
+            if (_visitState != HouseVisitState.None)
+                yield break;
+            t += Time.deltaTime;
+            float sway = Mathf.Sin(t / dur * Mathf.PI * 2f) * 4f;
+            _bodyRoot.localRotation = Quaternion.Euler(0f, startY + sway * 0.3f, sway);
+            if (_armR != null) _armR.localRotation = Quaternion.Euler(0f, 0f, 15f + sway * 3f);
+            yield return null;
+        }
+        if (_bodyRoot != null) _bodyRoot.localRotation = Quaternion.Euler(0f, startY, 0f);
+        if (_armR != null) _armR.localRotation = _armRBase;
+    }
+
+    private IEnumerator HomeActivityRoutine()
+    {
+        while (true)
+        {
+            yield return null;
+            if (_visitState != HouseVisitState.AtHome)
+                continue;
+            if (GameManager.Instance == null || !GameManager.Instance.InGame)
+                continue;
+            if (_armL == null)
+                continue;
+            int pick = Random.Range(0, 10);
+            if (pick < 5)
+            {
+                switch (pick)
+                {
+                    case 0: yield return StartCoroutine(ActivitySweep()); break;
+                    case 1: yield return StartCoroutine(ActivityWipe()); break;
+                    case 2: yield return StartCoroutine(ActivityRead()); break;
+                    case 3: yield return StartCoroutine(ActivityDust()); break;
+                    default: yield return StartCoroutine(ActivityLookAround()); break;
+                }
+            }
+            else
+            {
+                yield return StartCoroutine(WanderAroundHouse());
+            }
+            yield return new WaitForSeconds(Random.Range(2f, 4f));
+        }
+    }
+
+    private IEnumerator WanderAroundHouse()
+    {
+        var npc = _npcTransform != null ? _npcTransform : transform;
+        if (npc == null)
+            yield break;
+        var waypoints = new Vector3[]
+        {
+            new Vector3(-2f, 1f, 1.5f),
+            new Vector3(2.5f, 1f, 3.2f),
+            new Vector3(-3f, 1f, 4f),
+            new Vector3(4.2f, 1f, -2.5f),
+            new Vector3(0f, 1f, -2f),
+            new Vector3(0.5f, 1f, 4f),
+        };
+        int idx = Random.Range(0, waypoints.Length);
+        int steps = Random.Range(1, 4);
+        for (int s = 0; s < steps; s++)
+        {
+            if (_visitState != HouseVisitState.AtHome)
+                yield break;
+            Vector3 target = waypoints[idx];
+            idx = (idx + Random.Range(1, waypoints.Length)) % waypoints.Length;
+            while (Vector3.Distance(npc.position, target) > 0.05f)
+            {
+                if (_visitState != HouseVisitState.AtHome)
+                    yield break;
+                npc.position = Vector3.MoveTowards(npc.position, target, WALK_SPEED * Time.deltaTime);
+                Vector3 dir = target - npc.position;
+                dir.y = 0f;
+                if (dir.sqrMagnitude > 0.001f)
+                    npc.rotation = Quaternion.LookRotation(-dir);
+                _walkCycle += Time.deltaTime * 12f;
+                ApplyWalkPose(_walkCycle);
+                yield return null;
+            }
+        }
+        ResetPose();
+        if (_visitState == HouseVisitState.AtHome && npc != null)
+            npc.rotation = _originalRot;
+    }
+
+    private IEnumerator ActivitySweep()
+    {
+        SetHeldProp("Broom", new Vector3(0.05f, 0.75f, 0.05f), new Vector3(0f, -0.5f, 0.08f), _armR);
+        float t = 0f, dur = 6f;
+        while (t < dur)
+        {
+            if (_visitState != HouseVisitState.AtHome)
+                break;
+            t += Time.deltaTime;
+            float sweep = Mathf.Sin(t * 4.2f) * 32f;
+            if (_armR != null) _armR.localRotation = Quaternion.Euler(0f, sweep, 10f);
+            if (_armL != null) _armL.localRotation = Quaternion.Euler(0f, 0f, 40f);
+            if (_bodyRoot != null) _bodyRoot.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(t * 4.2f) * 3f);
+            yield return null;
+        }
+        DestroyHeldProp();
+        ResetPose();
+    }
+
+    private IEnumerator ActivityWipe()
+    {
+        float t = 0f, dur = 5f;
+        while (t < dur)
+        {
+            if (_visitState != HouseVisitState.AtHome)
+                break;
+            t += Time.deltaTime;
+            float a = t * 3.6f;
+            if (_armR != null) _armR.localRotation = Quaternion.Euler(Mathf.Sin(a) * 25f, 20f, 40f + Mathf.Cos(a) * 20f);
+            if (_armL != null) _armL.localRotation = Quaternion.Euler(0f, 0f, 35f);
+            if (_bodyRoot != null) _bodyRoot.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(a) * 2f);
+            yield return null;
+        }
+        ResetPose();
+    }
+
+    private IEnumerator ActivityRead()
+    {
+        SetHeldProp("Book", new Vector3(0.14f, 0.02f, 0.1f), new Vector3(0f, -0.42f, 0.02f), _armL);
+        float t = 0f, dur = 6f;
+        while (t < dur)
+        {
+            if (_visitState != HouseVisitState.AtHome)
+                break;
+            t += Time.deltaTime;
+            float sway = Mathf.Sin(t * 1.6f) * 3f;
+            if (_armL != null) _armL.localRotation = Quaternion.Euler(0f, 40f, -10f + sway);
+            if (_armR != null) _armR.localRotation = Quaternion.Euler(0f, -40f, 10f - sway);
+            yield return null;
+        }
+        DestroyHeldProp();
+        ResetPose();
+    }
+
+    private IEnumerator ActivityDust()
+    {
+        float t = 0f, dur = 5f;
+        while (t < dur)
+        {
+            if (_visitState != HouseVisitState.AtHome)
+                break;
+            t += Time.deltaTime;
+            float up = Mathf.Clamp01(Mathf.Sin(t * 2.2f));
+            if (_armL != null) _armL.localRotation = Quaternion.Euler(-90f * up, 30f, -15f);
+            if (_armR != null) _armR.localRotation = Quaternion.Euler(0f, 0f, 40f);
+            if (_bodyRoot != null) _bodyRoot.localRotation = Quaternion.Euler(0f, 0f, -5f * up);
+            yield return null;
+        }
+        ResetPose();
+    }
+
+    private IEnumerator ActivityLookAround()
+    {
+        if (_bodyRoot == null)
+            yield break;
+        float t = 0f, dur = 3.4f;
+        float startY = _bodyRoot.localRotation.eulerAngles.y;
+        while (t < dur)
+        {
+            if (_visitState != HouseVisitState.AtHome)
+                break;
+            t += Time.deltaTime;
+            float ang = Mathf.Sin(t / dur * Mathf.PI * 2f) * 22f;
+            _bodyRoot.localRotation = Quaternion.Euler(0f, startY + ang, 0f);
+            yield return null;
+        }
+        if (_bodyRoot != null) _bodyRoot.localRotation = Quaternion.Euler(0f, startY, 0f);
+        ResetPose();
+    }
+
+    private void SetHeldProp(string name, Vector3 scale, Vector3 pos, Transform parent)
+    {
+        DestroyHeldProp();
+        _heldProp = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        _heldProp.name = name;
+        _heldProp.transform.SetParent(parent);
+        _heldProp.transform.localPosition = pos;
+        _heldProp.transform.localScale = scale;
+        Destroy(_heldProp.GetComponent<Collider>());
+    }
+
+    private void DestroyHeldProp()
+    {
+        if (_heldProp != null)
+        {
+            Destroy(_heldProp);
+            _heldProp = null;
+        }
     }
 
     public void Interact()
@@ -412,6 +738,12 @@ public class WifeNPC : MonoBehaviour
 
     public void SaveState()
     {
+        PlayerPrefs.SetString("WifeNPC", SerializeState());
+        PlayerPrefs.Save();
+    }
+
+    public string SerializeState()
+    {
         var data = new WifeSaveData
         {
             state = (int)State,
@@ -424,13 +756,16 @@ public class WifeNPC : MonoBehaviour
             lastRosaryGrantDay = _lastRosaryGrantDay,
             lastTalkDay = _lastTalkDay
         };
-        PlayerPrefs.SetString("WifeNPC", JsonUtility.ToJson(data));
-        PlayerPrefs.Save();
+        return JsonUtility.ToJson(data);
     }
 
     public void LoadState()
     {
-        var json = PlayerPrefs.GetString("WifeNPC", "");
+        DeserializeState(PlayerPrefs.GetString("WifeNPC", ""));
+    }
+
+    public void DeserializeState(string json)
+    {
         if (string.IsNullOrEmpty(json))
             return;
 
@@ -649,6 +984,56 @@ public class WifeNPC : MonoBehaviour
                 SaveState();
             }
         }
+    }
+
+    public string GetActiveMaterialName()
+    {
+        for (int i = 0; i < _wifeQuestTargets.Count; i++)
+        {
+            if (_wifeQuestTargets[i].StartsWith("donate_"))
+                return _wifeQuestTargets[i].Substring("donate_".Length);
+        }
+        return null;
+    }
+
+    public bool TryDepositMaterial(string material, out int progress, out int count)
+    {
+        progress = 0;
+        count = 0;
+        if (string.IsNullOrEmpty(material))
+            return false;
+
+        string expected = "donate_" + material;
+        var qm = QuestManager.Instance;
+        if (qm == null)
+            return false;
+
+        for (int i = 0; i < _wifeQuestTargets.Count; i++)
+        {
+            if (_wifeQuestTargets[i] != expected)
+                continue;
+            qm.AddProgress(expected, 1);
+            progress = qm.GetNamedQuestProgress(_wifeQuestNames[i]);
+            count = _wifeQuestCounts[i];
+            return true;
+        }
+        return false;
+    }
+
+    public void ResetForNewGame()
+    {
+        State = WifeState.NotMet;
+        Married = false;
+        _affection = 0f;
+        _lastWifeQuestDay = 0;
+        _hasProposed = false;
+        _chainStep = 0;
+        _rosaryGranted = false;
+        _lastRosaryGrantDay = -1;
+        _lastTalkDay = 1;
+        _wifeQuestNames.Clear();
+        _wifeQuestTargets.Clear();
+        _wifeQuestCounts.Clear();
     }
 
     private List<string> GetWifeQuestDescriptions()

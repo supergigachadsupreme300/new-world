@@ -16,7 +16,7 @@ public class PlayerController : MonoBehaviour
     public float StaminaRegenRate = 4f;
     public float StaminaRegenMultiplier = 1f;
     public float SprintCost = 35f;
-    public long Money = 10000000000;
+    public long Money = 1000;
     public bool IgnoreInput { get; private set; }
 
     public bool InWater { get; private set; }
@@ -108,6 +108,7 @@ public class PlayerController : MonoBehaviour
     {
         HP = MaxHP;
         Stamina = MaxStamina;
+        Money = 1000;
         transform.position = new Vector3(0f, 2f, -10f);
         transform.rotation = Quaternion.identity;
         _velocity = Vector3.zero;

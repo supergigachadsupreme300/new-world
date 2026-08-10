@@ -212,10 +212,13 @@ public class QuestManager : MonoBehaviour
 
     public void LoadQuestSaves(List<QuestSave> saved)
     {
-        if (saved == null || saved.Count == 0)
-            return;
-
         _quests.Clear();
+        if (saved == null || saved.Count == 0)
+        {
+            UpdateQuestUI();
+            return;
+        }
+
         foreach (var q in saved)
             _quests.Add(q);
         if (GameManager.Instance != null)

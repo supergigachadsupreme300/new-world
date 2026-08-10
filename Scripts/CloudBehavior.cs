@@ -11,6 +11,7 @@ public class CloudBehavior : MonoBehaviour
 
     void Start()
     {
+        _dirTimer = Random.Range(8f, 12f);
         PickNewDirection();
     }
 

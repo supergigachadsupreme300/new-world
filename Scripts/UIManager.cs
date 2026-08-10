@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 using TMPro;
@@ -25,6 +26,10 @@ public class UIManager : MonoBehaviour
     private Button _settingsMobileModeButton;
     private GameObject _recordPanel;
     private GameObject _questPanel;
+    private GameObject _saveSlotPanel;
+    private TMP_Text _saveSlotTitleText;
+    private Button[] _saveSlotButtons;
+    private bool _saveSlotLoadMode;
     private GameObject _endingTreePanel;
     private GameObject _endingTreeListRoot;
     private TMP_Text _endingTreeTitleText;
@@ -49,15 +54,11 @@ public class UIManager : MonoBehaviour
     {
         new EndingEntry(
             "QUỶ VƯƠNG ĐÃ CHẾT NHƯNG CÁI ÁC CHƯA HẾT",
-            "Quỷ Vương đã bị đánh bại, bóng tối bị đẩy lùi.\nNhưng trong bóng đêm, những giao dịch bẩn của Phú Ông vẫn tiếp diễn...\n\nJessica vẫn còn trong tầm ngắm của hắn.\nCái ác chưa bị nhổ tận gốc.\nNgôi làng chưa thể yên bình.",
-            true),
-        new EndingEntry(
-            "KẾT THÚC THẬT SỰ",
-            "Quỷ Vương đã bị trấn áp.\nPhú Ông đã bị cảnh sát dẫn đi ngay trước dinh thự của hắn.\n\nHai hiểm họa đã bị nhổ tận gốc.\nNgôi làng cuối cùng cũng được yên bình.\nMặt trời mọc lên, và một tương lai tươi sáng đang chờ đón.",
+            "Quỷ Vương đã bị đánh bại, bóng tối bị đẩy lùi.\nNhưng khi cậu quay về làng...\nJessica đã bị một kẻ nghiện ngập do ma túy của Phú Ông hạ sát.\n\nKẻ gây án chỉ là bề nổi...\nCó thể đây là mưu đồ của lũ quỷ.\nCái ác chưa bị nhổ tận gốc.\nNgôi làng chưa thể yên bình.",
             true),
         new EndingEntry(
             "CÔNG LÝ ĐƯỢC THỰC THI NHƯNG HIỂM HỌA CHƯA QUA",
-            "Cậu đã lật tẩy bộ mặt thật của Phú Ông.\nCảnh sát đã đến, và hắn bị bắt ngay trước dinh thự của chính mình.\n\nJessica được an toàn.\nNhưng phía đông, tiếng gầm của Quỷ Vương vẫn còn vang vọng...\nHiểm họa thật sự vẫn chưa qua.",
+            "Cậu đã lật tẩy bộ mặt thật của Phú Ông.\nCảnh sát đã đến, và hắn bị bắt ngay trước dinh thự của chính mình.\n\nĐêm ấy, cậu và Jessica trở về nhà, ngủ say.\nGiữa đêm, cô chợt mở mắt...\nmột con quỷ đang nhìn cô chằm chằm.\n\nSáng hôm sau... Jessica đã biến mất.\nCảnh sát kéo đến điều tra căn nhà, nhưng không tìm được dấu vết nào.\n\nCậu chạy lên chùa tìm thầy. Thầy trầm ngâm:\n\"Jessica không bị người bắt... thứ bước vào đêm ấy là quỷ.\nHãy tìm cô ấy trước khi màn đêm buông xuống.\"\nHiểm họa thật sự vẫn chưa qua.",
             true),
         new EndingEntry(
             "KẾT THÚC ĐỒI BẠI",
@@ -132,6 +133,7 @@ public class UIManager : MonoBehaviour
 
     private int _lastScreenWidth;
     private int _lastScreenHeight;
+    private bool _uiPipelineLogged;
 
     void Start()
     {
@@ -155,6 +157,36 @@ public class UIManager : MonoBehaviour
             _lastScreenHeight = Screen.height;
             ResizeInventory();
         }
+
+        // Defensive: while the main menu is showing, keep the cursor unlocked
+        // (cancels any stray re-lock, e.g. PlayerController.Start() ordering).
+        if (GameManager.Instance != null && !GameManager.Instance.InGame &&
+            _mainMenuPanel != null && _mainMenuPanel.activeInHierarchy)
+        {
+            GameInput.SetCursorLocked(false);
+        }
+    }
+
+    private void LogUiPipeline()
+    {
+        if (_uiPipelineLogged) return;
+        _uiPipelineLogged = true;
+
+        var es = EventSystem.current;
+        InputSystemUIInputModule module = null;
+        if (es != null)
+            module = es.GetComponent<InputSystemUIInputModule>();
+        var raycaster = _canvas != null ? _canvas.GetComponent<GraphicRaycaster>() : null;
+        Debug.Log("[UIPipe] es=" + (es != null ? es.name : "NULL") +
+            " esOn=" + (es != null && es.isActiveAndEnabled) +
+            " module=" + (module != null ? module.GetType().Name : "NULL") +
+            " modOn=" + (module != null && module.isActiveAndEnabled) +
+            " point=" + (module != null && module.point != null) +
+            " click=" + (module != null && module.leftClick != null) +
+            " mouse=" + (Mouse.current != null) +
+            " canvas=" + (_canvas != null ? _canvas.name : "NULL") +
+            " raycaster=" + (raycaster != null) +
+            " menuActive=" + (_mainMenuPanel != null && _mainMenuPanel.activeInHierarchy));
     }
 
     private void ResizeInventory()
@@ -425,14 +457,17 @@ public class UIManager : MonoBehaviour
 
         // Panels - responsive sizes
         _pauseMenuPanel = CreateMenuPanel("PauseMenu", Vector2.zero, new Vector2(panelWidth, panelHeight));
-        CreateButton("ContinueButton", _pauseMenuPanel.transform, Localization.T("Tiếp Tục"), new Vector2(0f, buttonHeight * 2.25f), () => GameManager.Instance?.TogglePause(false));
-        CreateButton("SaveButton", _pauseMenuPanel.transform, Localization.T("Lưu Game"), new Vector2(0f, buttonHeight * 1.35f), () => SaveManager.Instance?.SaveGame());
-        CreateButton("StatsButton", _pauseMenuPanel.transform, Localization.T("Thống Kê"), new Vector2(0f, buttonHeight * 0.45f), () => ShowRecordPanel(true));
-        CreateButton("QuestsButton", _pauseMenuPanel.transform, Localization.T("Nhiệm Vụ"), new Vector2(0f, -buttonHeight * 0.45f), () => ShowQuestPanel(true));
-        CreateButton("SettingsButton", _pauseMenuPanel.transform, Localization.T("Cài Đặt"), new Vector2(0f, -buttonHeight * 1.35f), () => ShowSettingsPanel(true));
-        CreateButton("TutorialButton", _pauseMenuPanel.transform, Localization.T("Hướng Dẫn"), new Vector2(0f, -buttonHeight * 2.25f), () => ShowTutorial(true));
-        CreateButton("ExitButton", _pauseMenuPanel.transform, Localization.T("Thoát"), new Vector2(0f, -buttonHeight * 3.15f), () => Application.Quit());
+        CreateButton("ContinueButton", _pauseMenuPanel.transform, Localization.T("Tiếp Tục"), new Vector2(0f, panelHeight * 0.33f), () => GameManager.Instance?.TogglePause(false));
+        CreateButton("SaveButton", _pauseMenuPanel.transform, Localization.T("Lưu Game"), new Vector2(0f, panelHeight * 0.22f), () => ShowSaveSlotMenu(false));
+        CreateButton("LoadButton", _pauseMenuPanel.transform, Localization.T("Tải Game"), new Vector2(0f, panelHeight * 0.11f), () => ShowSaveSlotMenu(true));
+        CreateButton("StatsButton", _pauseMenuPanel.transform, Localization.T("Thống Kê"), new Vector2(0f, 0f), () => ShowRecordPanel(true));
+        CreateButton("QuestsButton", _pauseMenuPanel.transform, Localization.T("Nhiệm Vụ"), new Vector2(0f, -panelHeight * 0.11f), () => ShowQuestPanel(true));
+        CreateButton("SettingsButton", _pauseMenuPanel.transform, Localization.T("Cài Đặt"), new Vector2(0f, -panelHeight * 0.22f), () => ShowSettingsPanel(true));
+        CreateButton("TutorialButton", _pauseMenuPanel.transform, Localization.T("Hướng Dẫn"), new Vector2(0f, -panelHeight * 0.33f), () => ShowTutorial(true));
+        CreateButton("ExitButton", _pauseMenuPanel.transform, Localization.T("Thoát"), new Vector2(0f, -panelHeight * 0.44f), () => Application.Quit());
         _pauseMenuPanel.SetActive(false);
+
+        CreateSaveSlotMenu(panelWidth, padding, largefontSize);
 
         _recordPanel = CreateMenuPanel("RecordPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
         EnsureText("RecordTitle", new Vector2(0f, panelHeight * 0.35f), Localization.T("THỐNG KÊ"), (int)largefontSize, _recordPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
@@ -666,7 +701,7 @@ public class UIManager : MonoBehaviour
         float mainMenuStartY = panelHeight * 0.40f;
         var mainMenuButtonSize = new Vector2(menuButtonWidth * 0.8f, panelHeight * 0.08f);
         CreateButton("NewGameButton", _mainMenuPanel.transform, Localization.T("Trò Mới"), new Vector2(0f, mainMenuStartY), () => MainMenuController.Instance?.OnNewGameClicked(), mainMenuButtonSize);
-        CreateButton("LoadGameButton", _mainMenuPanel.transform, Localization.T("Tiếp Tục (Tải)"), new Vector2(0f, mainMenuStartY - mainMenuPitch), () => MainMenuController.Instance?.OnLoadGameClicked(), mainMenuButtonSize);
+        CreateButton("LoadGameButton", _mainMenuPanel.transform, Localization.T("Tiếp Tục (Tải)"), new Vector2(0f, mainMenuStartY - mainMenuPitch), () => ShowSaveSlotMenu(true), mainMenuButtonSize);
         CreateButton("WatchIntroButton", _mainMenuPanel.transform, Localization.T("Xem Giới Thiệu"), new Vector2(0f, mainMenuStartY - mainMenuPitch * 2f), () => MainMenuController.Instance?.OnWatchIntroClicked(), mainMenuButtonSize);
         CreateButton("SkipIntroButton", _mainMenuPanel.transform, Localization.T("Bỏ Qua Giới Thiệu"), new Vector2(0f, mainMenuStartY - mainMenuPitch * 3f), () => MainMenuController.Instance?.OnSkipIntroClicked(), mainMenuButtonSize);
         CreateButton("QuitButton", _mainMenuPanel.transform, Localization.T("Thoát"), new Vector2(0f, mainMenuStartY - mainMenuPitch * 4f), () => MainMenuController.Instance?.OnQuitClicked(), mainMenuButtonSize);
@@ -683,6 +718,8 @@ public class UIManager : MonoBehaviour
             ShowMainMenuOnly(true);
 
         ResizeStatsBg();
+
+        LogUiPipeline();
     }
 
     private Canvas CreateCanvas()
@@ -712,10 +749,22 @@ public class UIManager : MonoBehaviour
             DestroyImmediate(standaloneModule);
         }
 
-        if (eventSystem.GetComponent<InputSystemUIInputModule>() == null)
+        var uiModule = eventSystem.GetComponent<InputSystemUIInputModule>();
+        if (uiModule == null)
         {
-            eventSystem.gameObject.AddComponent<InputSystemUIInputModule>();
+            uiModule = eventSystem.gameObject.AddComponent<InputSystemUIInputModule>();
         }
+
+        if (uiModule != null && (uiModule.point == null || uiModule.leftClick == null))
+        {
+            uiModule.AssignDefaultActions();
+        }
+
+        if (eventSystem != null && !eventSystem.enabled)
+            eventSystem.enabled = true;
+
+        if (eventSystem != null && uiModule != null && !uiModule.enabled)
+            uiModule.enabled = true;
     }
 
     private TMP_Text EnsureText(
@@ -925,6 +974,159 @@ public class UIManager : MonoBehaviour
         return buttonObject.GetComponent<Button>();
     }
 
+    private void CreateSaveSlotMenu(float panelWidth, float padding, float largefontSize)
+    {
+        float slotPanelHeight = Mathf.Min(Screen.height * 0.9f, 560f);
+        _saveSlotPanel = CreateMenuPanel("SaveSlotPanel", Vector2.zero, new Vector2(panelWidth, slotPanelHeight));
+        _saveSlotTitleText = EnsureText("SaveSlotTitle", new Vector2(0f, slotPanelHeight * 0.34f), Localization.T("Lưu Game"), (int)largefontSize, _saveSlotPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight()));
+        _saveSlotButtons = new Button[10];
+
+        var viewportObject = new GameObject("SaveSlotViewport");
+        viewportObject.transform.SetParent(_saveSlotPanel.transform, false);
+        var viewportRect = viewportObject.AddComponent<RectTransform>();
+        viewportRect.anchorMin = new Vector2(0.5f, 0.5f);
+        viewportRect.anchorMax = new Vector2(0.5f, 0.5f);
+        viewportRect.pivot = new Vector2(0.5f, 0.5f);
+        viewportRect.anchoredPosition = new Vector2(0f, -slotPanelHeight * 0.02f);
+        viewportRect.sizeDelta = new Vector2(panelWidth - padding * 4, slotPanelHeight * 0.56f);
+        viewportObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+        viewportObject.AddComponent<RectMask2D>();
+
+        var contentObject = new GameObject("SaveSlotContent");
+        contentObject.transform.SetParent(viewportObject.transform, false);
+        var contentRect = contentObject.AddComponent<RectTransform>();
+        contentRect.anchorMin = new Vector2(0.5f, 1f);
+        contentRect.anchorMax = new Vector2(0.5f, 1f);
+        contentRect.pivot = new Vector2(0.5f, 1f);
+        contentRect.anchoredPosition = Vector2.zero;
+        contentRect.sizeDelta = new Vector2(panelWidth - padding * 4, 0f);
+        var layout = contentObject.AddComponent<VerticalLayoutGroup>();
+        layout.spacing = 6f;
+        layout.padding = new RectOffset(4, 4, 4, 4);
+        layout.childControlWidth = true;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+        contentObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        var scrollRect = viewportObject.AddComponent<ScrollRect>();
+        scrollRect.viewport = viewportRect;
+        scrollRect.content = contentRect;
+        scrollRect.horizontal = false;
+        scrollRect.vertical = true;
+        scrollRect.movementType = ScrollRect.MovementType.Clamped;
+        scrollRect.scrollSensitivity = 30f;
+
+        float slotWidth = panelWidth - padding * 4 - 8f;
+        float slotHeight = Mathf.Max(36f, Screen.height * 0.045f);
+        for (int i = 0; i < _saveSlotButtons.Length; i++)
+        {
+            int index = i;
+            _saveSlotButtons[i] = CreateButton("SaveSlotButton" + i.ToString(), contentObject.transform, "", new Vector2(0f, 0f), () => OnSaveSlotClicked(index), new Vector2(slotWidth, slotHeight));
+        }
+
+        CreateButton("SaveSlotBackButton", _saveSlotPanel.transform, Localization.T("Quay Lại"), new Vector2(0f, -slotPanelHeight * 0.38f), () => CloseSaveSlotMenu());
+        _saveSlotPanel.SetActive(false);
+    }
+
+    private float lineHeight()
+    {
+        return Screen.height * 0.05f;
+    }
+
+    public void ShowSaveSlotMenu(bool loadMode)
+    {
+        if (_saveSlotPanel == null)
+            return;
+        _saveSlotLoadMode = loadMode;
+        if (_saveSlotTitleText != null)
+            _saveSlotTitleText.text = Localization.T(loadMode ? "Tải Game" : "Lưu Game");
+        RefreshSaveSlots();
+        _saveSlotPanel.SetActive(true);
+        _pauseMenuPanel?.SetActive(false);
+        _mainMenuPanel?.SetActive(false);
+        if (_settingsPanel != null)
+            _settingsPanel.SetActive(false);
+        if (_recordPanel != null)
+            _recordPanel.SetActive(false);
+        if (_questPanel != null)
+            _questPanel.SetActive(false);
+    }
+
+    private void CloseSaveSlotMenu()
+    {
+        if (_saveSlotPanel != null)
+            _saveSlotPanel.SetActive(false);
+        if (GameManager.Instance == null)
+            return;
+        if (GameManager.Instance.InGame)
+        {
+            if (GameManager.Instance.GamePaused)
+                ShowPauseMenu(true);
+        }
+        else
+        {
+            ShowMainMenu(true);
+        }
+    }
+
+    private void OnSaveSlotClicked(int slot)
+    {
+        if (_saveSlotLoadMode)
+        {
+            if (SaveManager.Instance != null && SaveManager.Instance.LoadGame(slot))
+                CloseSaveSlotMenu();
+        }
+        else
+        {
+            SaveManager.Instance?.SaveGame(slot);
+            CloseSaveSlotMenu();
+        }
+    }
+
+    private void RefreshSaveSlots()
+    {
+        if (_saveSlotButtons == null)
+            return;
+        for (int i = 0; i < _saveSlotButtons.Length; i++)
+        {
+            bool hasSave = SaveManager.Instance != null && SaveManager.Instance.GetSlotInfo(i, out int day, out float timeOfDay, out float playedSeconds);
+            string label;
+            if (hasSave)
+            {
+                int hour = Mathf.FloorToInt(timeOfDay);
+                int minute = Mathf.FloorToInt((timeOfDay - hour) * 60f);
+                string timeStr = hour.ToString("00") + "." + minute.ToString("00");
+                label = (i + 1).ToString() + ". " + Localization.F("Ngày {0} - {1}", day, timeStr) + "\n" + Localization.F("Chơi: {0}", FormatPlayTime(playedSeconds));
+            }
+            else
+            {
+                label = (i + 1).ToString() + ". " + Localization.T("Trống");
+            }
+
+            var button = _saveSlotButtons[i];
+            if (button == null)
+                continue;
+            var text = button.GetComponentInChildren<TMP_Text>();
+            if (text != null)
+                text.text = label;
+            bool interactable = !_saveSlotLoadMode || hasSave;
+            button.interactable = interactable;
+            var image = button.GetComponent<Image>();
+            if (image != null)
+                image.color = interactable ? new Color(0.18f, 0.18f, 0.25f, 1f) : new Color(0.1f, 0.1f, 0.14f, 0.6f);
+        }
+    }
+
+    private string FormatPlayTime(float seconds)
+    {
+        int total = Mathf.Max(0, Mathf.RoundToInt(seconds));
+        int h = total / 3600;
+        int m = (total % 3600) / 60;
+        int s = total % 60;
+        return h.ToString("00") + ":" + m.ToString("00") + ":" + s.ToString("00");
+    }
+
     private void CreatePlatformPanel(float panelWidth, float panelHeight, float padding, float fontSize, float largefontSize)
     {
         float hintH = Screen.height * 0.05f;
@@ -1113,6 +1315,7 @@ public class UIManager : MonoBehaviour
             _pauseMenuPanel?.SetActive(false);
             _mainMenuPanel?.SetActive(false);
             ShowEndingList();
+            GameInput.SetCursorLocked(false);
         }
         else
         {
@@ -1145,13 +1348,12 @@ public class UIManager : MonoBehaviour
         switch (index)
         {
             case 0: cm.PlayDemonEnding(OnEndingSceneDone); break;
-            case 1: cm.PlayTrueEnding(OnEndingSceneDone); break;
-            case 2: cm.PlayJusticeEnding(OnEndingSceneDone); break;
-            case 3: cm.PlayBlackmailEnding(OnEndingSceneDone); break;
-            case 4: cm.PlayHappyEnding(OnEndingSceneDone); break;
-            case 5: cm.PlayNtrEnding(OnEndingSceneDone); break;
-            case 6: cm.PlayBossBadEnding(OnEndingSceneDone); break;
-            case 7: cm.PlaySadEnding(OnEndingSceneDone); break;
+            case 1: cm.PlayJusticeEnding(OnEndingSceneDone); break;
+            case 2: cm.PlayBlackmailEnding(OnEndingSceneDone); break;
+            case 3: cm.PlayHappyEnding(OnEndingSceneDone); break;
+            case 4: cm.PlayNtrEnding(OnEndingSceneDone); break;
+            case 5: cm.PlayBossBadEnding(OnEndingSceneDone); break;
+            case 6: cm.PlaySadEnding(OnEndingSceneDone); break;
         }
     }
 
@@ -1452,6 +1654,7 @@ public class UIManager : MonoBehaviour
 
         SetButtonText("ContinueButton", "Tiếp Tục");
         SetButtonText("SaveButton", "Lưu Game");
+        SetButtonText("LoadButton", "Tải Game");
         SetButtonText("StatsButton", "Thống Kê");
         SetButtonText("QuestsButton", "Nhiệm Vụ");
         SetButtonText("SettingsButton", "Cài Đặt");
@@ -1501,6 +1704,10 @@ public class UIManager : MonoBehaviour
         SetButtonText("PlatformCloseButton", "Đóng");
         SetButtonText("EndRestartButton", "Chơi Lại");
         SetButtonText("EndQuitButton", "Thoát");
+        SetButtonText("SaveSlotBackButton", "Quay Lại");
+        if (_saveSlotTitleText != null)
+            _saveSlotTitleText.text = Localization.T(_saveSlotLoadMode ? "Tải Game" : "Lưu Game");
+        RefreshSaveSlots();
 
         UpdateSettingsValues();
 

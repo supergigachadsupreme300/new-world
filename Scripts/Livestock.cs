@@ -128,6 +128,17 @@ public class Livestock : MonoBehaviour
             return;
         }
 
+        if (_behavior == BehaviorMode.Fight && !_isFighting && _fightCooldown <= 0f)
+        {
+            var fightPlayer = GameManager.Instance?.Player;
+            if (fightPlayer != null && Vector3.Distance(transform.position, fightPlayer.transform.position) <= 20f)
+            {
+                _isFighting = true;
+                UpdateFight();
+                return;
+            }
+        }
+
         _wanderTimer -= Time.deltaTime;
         if (_wanderTimer <= 0f)
             PickWanderTarget();

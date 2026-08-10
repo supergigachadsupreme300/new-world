@@ -275,10 +275,17 @@ public static class Localization
         { "HP: {0}/{1}", "HP: {0}/{1}" },
         { "Túi đồ đầy.", "Inventory is full." },
         { "Đã chọn: {0}. Nhấp để đặt.", "Selected: {0}. Click to place." },
+        { "Đã lưu trò chơi!", "Game saved!" },
+        { "Không tìm thấy file lưu!", "Save file not found!" },
+        { "Không đọc được file lưu!", "Cannot read save file!" },
+        { "Đã tải trò chơi!", "Game loaded!" },
 
         // Menus / panels
         { "Tiếp Tục", "Continue" },
         { "Lưu Game", "Save Game" },
+        { "Tải Game", "Load Game" },
+        { "Trống", "Empty" },
+        { "Chơi: {0}", "Played: {0}" },
         { "Thống Kê", "Statistics" },
         { "Nhiệm Vụ", "Quests" },
         { "Cài Đặt", "Settings" },
@@ -492,6 +499,14 @@ public static class Localization
         { "Trồng Cà Rốt", "Plant Carrots" },
         { "Tưới Nước Cho Cây", "Water The Plants" },
         { "Câu Cá", "Go Fishing" },
+        { "Ném Lúa Mì Cho Jessica", "Throw Wheat For Jessica" },
+        { "Ném Cà Rốt Cho Jessica", "Throw Carrots For Jessica" },
+        { "Ném Gỗ Cho Jessica", "Throw Wood For Jessica" },
+        { "Ném Đá Cho Jessica", "Throw Stone For Jessica" },
+        { "Ném Lồng Thú Cho Jessica", "Throw Animal Cages For Jessica" },
+        { "Lồng Thú", "Animal Cage" },
+        { "Đã nộp {0} cho Jessica! ({1}/{2})", "Delivered {0} to Jessica! ({1}/{2})" },
+        { "Nhấn Q để ném {0} vào rổ của Jessica!", "Press Q to throw {0} into Jessica's basket!" },
         { "Nhiệm vụ hàng ngày từ Jessica. Hoàn thành trước 6h sáng mai!", "A daily task from Jessica. Complete it before 6 AM tomorrow!" },
 
         // Wife dialogs
@@ -832,7 +847,7 @@ public static class Localization
 
         // Justice ending (rich man resolved before the Demon King is slain)
         { "CÔNG LÝ ĐƯỢC THỰC THI NHƯNG HIỂM HỌA CHƯA QUA", "JUSTICE SERVED BUT NOT ALL THREAT IS GONE" },
-        { "Cậu đã lật tẩy bộ mặt thật của Phú Ông.\nCảnh sát đã đến, và hắn bị bắt ngay trước dinh thự của chính mình.\n\nJessica được an toàn.\nNhưng phía đông, tiếng gầm của Quỷ Vương vẫn còn vang vọng...\nHiểm họa thật sự vẫn chưa qua.", "You exposed the rich man's true face.\nThe police arrived, and he was arrested in front of his own mansion.\n\nJessica is safe.\nBut to the east, the Demon King's roar still echoes...\nThe true threat is not yet gone." },
+        { "Cậu đã lật tẩy bộ mặt thật của Phú Ông.\nCảnh sát đã đến, và hắn bị bắt ngay trước dinh thự của chính mình.\n\nĐêm ấy, cậu và Jessica trở về nhà, ngủ say.\nGiữa đêm, cô chợt mở mắt...\nmột con quỷ đang nhìn cô chằm chằm.\n\nSáng hôm sau... Jessica đã biến mất.\nCảnh sát kéo đến điều tra căn nhà, nhưng không tìm được dấu vết nào.\n\nCậu chạy lên chùa tìm thầy. Thầy trầm ngâm:\n\"Jessica không bị người bắt... thứ bước vào đêm ấy là quỷ.\nHãy tìm cô ấy trước khi màn đêm buông xuống.\"\nHiểm họa thật sự vẫn chưa qua.", "You exposed the rich man's true face.\nThe police arrived, and he was arrested in front of his own mansion.\n\nThat night, you and Jessica went home and fell asleep.\nIn the middle of the night, she opened her eyes...\na demon was staring at her.\n\nThe next morning... Jessica had vanished.\nThe police came to investigate the house, but found no trace.\n\nYou ran to the pagoda to find the monk. He sighed:\n\"Jessica was not taken by men... what came in the night was a demon.\nFind her before the sun sets.\"\nThe true threat is not yet gone." },
 
         // Corrupted ending (bribe)
         { "KẾT THÚC ĐỒI BẠI", "CORRUPTED ENDING" },
@@ -859,17 +874,19 @@ public static class Localization
         { "RƠI VÀO BÓNG TỐI", "FALL INTO THE DARK" },
         { "Quỷ Vương đã quật ngã con.\nBóng tối nuốt chửng ngôi làng.\n\nSố phận của con dừng lại tại đây...\nHãy quay về nơi lưu gần nhất và đối mặt với nó lần nữa.", "The Demon King has struck you down.\nDarkness devours the village.\n\nYour fate ends here...\nReturn to the latest save and face it once more." },
 
-        // Demon King slain but the rich man's plot still looms
+        // Demon King slain but evil still lurks
         { "QUỶ VƯƠNG ĐÃ CHẾT NHƯNG CÁI ÁC CHƯA HẾT", "THE DEMON IS DEAD BUT NOT ALL EVIL IS GONE" },
-        { "Quỷ Vương đã bị đánh bại, bóng tối bị đẩy lùi.\nNhưng trong bóng đêm, những giao dịch bẩn của Phú Ông vẫn tiếp diễn...\n\nJessica vẫn còn trong tầm ngắm của hắn.\nCái ác chưa bị nhổ tận gốc.\nNgôi làng chưa thể yên bình.", "The Demon King is defeated, the darkness pushed back.\nBut in the shadows, the rich man's dirty deals go on...\n\nJessica is still in his sights.\nEvil has not been uprooted.\nThe village cannot rest easy." },
+        { "Quỷ Vương đã bị đánh bại, bóng tối bị đẩy lùi.\nNhưng khi cậu quay về làng...\nJessica đã bị một kẻ nghiện ngập do ma túy của Phú Ông hạ sát.\n\nKẻ gây án chỉ là bề nổi...\nCó thể đây là mưu đồ của lũ quỷ.\nCái ác chưa bị nhổ tận gốc.\nNgôi làng chưa thể yên bình.", "The Demon King is defeated, the darkness pushed back.\nBut when you returned to the village...\nJessica had been killed by a drug addict fed by the rich man's poison.\n\nThe killer is only the surface...\nThis may be the demons' doing.\nEvil has not been uprooted.\nThe village cannot rest easy." },
 
-        // True ending (both threats gone)
-        { "KẾT THÚC THẬT SỰ", "TRUE ENDING" },
-        { "Quỷ Vương đã bị trấn áp.\nPhú Ông đã bị cảnh sát dẫn đi ngay trước dinh thự của hắn.\n\nHai hiểm họa đã bị nhổ tận gốc.\nNgôi làng cuối cùng cũng được yên bình.\nMặt trời mọc lên, và một tương lai tươi sáng đang chờ đón.", "The Demon King has been vanquished.\nThe rich man has been led away by the police in front of his own mansion.\n\nBoth threats are gone for good.\nThe village is finally at peace.\nThe sun rises, and a bright future awaits." },
+        // Demon ending captions
+        { "Jessica đã bị hạ sát ngay trước hiên nhà.", "Jessica was killed right on her doorstep." },
+        { "Không phải tôi... tôi không kiểm soát được nữa...", "It wasn't me... I couldn't control myself anymore..." },
+        { "Cảnh sát nhanh chóng có mặt.", "The police arrive quickly." },
+        { "Họ bắt giữ kẻ nghiện ngập... nhưng kẻ gây án chỉ là bề nổi.", "They arrest the addict... but the killer is only the surface." },
 
         // Ending tree (settings menu)
         { "Cây Kết Thúc", "Ending Tree" },
         { "CÂY KẾT THÚC", "ENDING TREE" },
-        { "- Diệt Quỷ Vương, chưa lật tẩy bí mật Phú Ông\n  -> QUỶ VƯƠNG ĐÃ CHẾT NHƯNG CÁI ÁC CHƯA HẾT\n\n- Lật tẩy bí mật -> diệt Quỷ Vương -> báo cảnh sát\n  -> KẾT THÚC THẬT SỰ\n\n- Lật tẩy bí mật -> báo cảnh sát (trước khi diệt Quỷ Vương)\n  -> CÔNG LÝ ĐƯỢC THỰC THI NHƯNG HIỂM HỌA CHƯA QUA\n\n- Lật tẩy bí mật -> nhận hối lộ\n  -> KẾT THÚC ĐỒI BẠI\n\n- Hoàn thành chuỗi Jessica (xây dinh thự)\n  -> KẾT THÚC HẠNH PHÚC\n\n- Bỏ bê Jessica 3 ngày, độ thân mật thấp\n  -> KẾT THÚC NTR\n\n- Chết khi giao chiến Quỷ Vương\n  -> RƠI VÀO BÓNG TỐI\n\n- Chết\n  -> KẾT THÚC BUỒN", "- Slay the Demon King without exposing the rich man's secret\n  -> THE DEMON IS DEAD BUT NOT ALL EVIL IS GONE\n\n- Expose secret -> slay Demon King -> report to police\n  -> TRUE ENDING\n\n- Expose secret -> report to police (before slaying the Demon King)\n  -> JUSTICE SERVED BUT NOT ALL THREAT IS GONE\n\n- Expose secret -> take the bribe\n  -> CORRUPTED ENDING\n\n- Complete Jessica's chain (build the mansion)\n  -> HAPPY ENDING\n\n- Neglect Jessica 3 days, low affection\n  -> NTR ENDING\n\n- Die while fighting the Demon King\n  -> FALL INTO THE DARK\n\n- Die\n  -> SAD ENDING" }
+        { "- Diệt Quỷ Vương, chưa lật tẩy bí mật Phú Ông\n  -> QUỶ VƯƠNG ĐÃ CHẾT NHƯNG CÁI ÁC CHƯA HẾT\n\n- Lật tẩy bí mật -> báo cảnh sát (trước khi diệt Quỷ Vương)\n  -> CÔNG LÝ ĐƯỢC THỰC THI NHƯNG HIỂM HỌA CHƯA QUA\n\n- Lật tẩy bí mật -> nhận hối lộ\n  -> KẾT THÚC ĐỒI BẠI\n\n- Diệt Quỷ Vương -> báo cảnh sát\n  HOẶC Hoàn thành chuỗi Jessica (xây dinh thự)\n  -> KẾT THÚC HẠNH PHÚC\n\n- Bỏ bê Jessica 3 ngày, độ thân mật thấp\n  -> KẾT THÚC NTR\n\n- Chết khi giao chiến Quỷ Vương\n  -> RƠI VÀO BÓNG TỐI\n\n- Chết\n  -> KẾT THÚC BUỒN", "- Slay the Demon King without exposing the rich man's secret\n  -> THE DEMON IS DEAD BUT NOT ALL EVIL IS GONE\n\n- Expose secret -> report to police (before slaying the Demon King)\n  -> JUSTICE SERVED BUT NOT ALL THREAT IS GONE\n\n- Expose secret -> take the bribe\n  -> CORRUPTED ENDING\n\n- Slay the Demon King -> report to police\n  OR Complete Jessica's chain (build the mansion)\n  -> HAPPY ENDING\n\n- Neglect Jessica 3 days, low affection\n  -> NTR ENDING\n\n- Die while fighting the Demon King\n  -> FALL INTO THE DARK\n\n- Die\n  -> SAD ENDING" }
     };
 }

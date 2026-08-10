@@ -34,12 +34,13 @@ public class WorldBuilder : MonoBehaviour
     private readonly List<BlueprintState> _blueprints = new List<BlueprintState>();
     private Vector3 _pagodaPosition;
     public Vector3 PagodaPosition => _pagodaPosition;
-    private readonly Vector3 _bossArenaCenter = new Vector3(246f, 0f, 90f);
+    private readonly Vector3 _bossArenaCenter = new Vector3(280f, 0f, 90f);
     public Vector3 BossArenaCenter => _bossArenaCenter;
     private GameObject _questBoss;
     public bool IsQuestBossAlive => _questBoss != null && _questBoss.activeInHierarchy;
     private GameObject _worldRoot;
     public GameObject WorldRoot => _worldRoot;
+    public GameObject StaticWifeModel { get; private set; }
     private float _resourceRespawnTimer;
     private const float RespawnInterval = 60f;
     private const int MaxTrees = 250;
@@ -529,7 +530,7 @@ public class WorldBuilder : MonoBehaviour
             curb.name = "KerbExtension";
             curb.transform.SetParent(_alignmentStrip.transform);
             curb.transform.localScale = new Vector3(0.55f, 0.22f, stripLen);
-            curb.transform.localPosition = new Vector3(roadCx + side * (roadHw + 0.27f), 0.11f, stripCenterZ);
+            curb.transform.localPosition = new Vector3(roadCx + side * (roadHw + 0.35f), 0.11f, stripCenterZ);
             curb.GetComponent<Renderer>().material.color = curbC;
             Destroy(curb.GetComponent<Collider>());
         }
@@ -3935,9 +3936,6 @@ public class WorldBuilder : MonoBehaviour
                 }
             }
         }
-        var groundCollider = GroundObject.AddComponent<BoxCollider>();
-        groundCollider.size = new Vector3(10f, 0.01f, 10f);
-        groundCollider.center = Vector3.zero;
     }
 
     private GameObject MakeBlock(string name, Transform parent, Vector3 scale, Vector3 position, Color color, bool removeCollider = false, bool addCollider = false)
@@ -3948,7 +3946,7 @@ public class WorldBuilder : MonoBehaviour
         go.transform.localScale = scale;
         go.transform.localPosition = position;
         var rend = go.GetComponent<Renderer>();
-        if (rend != null) rend.material.color = color;
+        MapBuilder.ApplyBlockColor(rend, color);
         if (removeCollider) Destroy(go.GetComponent<Collider>());
         if (addCollider && go.GetComponent<Collider>() == null) go.AddComponent<BoxCollider>();
         return go;
@@ -3959,8 +3957,8 @@ public class WorldBuilder : MonoBehaviour
         float roadCx = 14f;
         float roadHw = 3.8f;
         float roadTurnZ = 90f;
-        float roadEndX = 240f;
-        float nsZStart = -283f;
+        float roadEndX = 280f;
+        float nsZStart = -300f;
         float nsZEnd = roadTurnZ;
         float nsLen = nsZEnd - nsZStart;
         float nsZc = (nsZStart + nsZEnd) * 0.5f;
@@ -3977,21 +3975,17 @@ public class WorldBuilder : MonoBehaviour
             new Vector3(roadHw * 2f, 0.06f, nsLen),
             new Vector3(roadCx, 0.03f, nsZc), asphaltC, false, true);
 
-        // Kerbs
-        foreach (int side in new[] { -1, 1 })
-        {
-            MakeBlock("Kerb", _worldRoot.transform,
-                new Vector3(0.55f, 0.22f, nsLen),
-                new Vector3(roadCx + side * (roadHw + 0.27f), 0.11f, nsZc), curbC, true);
-        }
+        // Kerbs (straight runs end flush at the junction square)
+        MakeBlock("Kerb", _worldRoot.transform, new Vector3(0.55f, 0.22f, nsLen + roadHw),
+            new Vector3(roadCx - (roadHw + 0.35f), 0.11f, (nsZStart + roadTurnZ + roadHw) * 0.5f), curbC, true);
+        MakeBlock("Kerb", _worldRoot.transform, new Vector3(0.55f, 0.22f, nsLen - roadHw),
+            new Vector3(roadCx + (roadHw + 0.35f), 0.11f, (nsZStart + roadTurnZ - roadHw) * 0.5f), curbC, true);
 
         // White edge lines
-        foreach (int side in new[] { -1, 1 })
-        {
-            MakeBlock("EdgeLine", _worldRoot.transform,
-                new Vector3(0.18f, 0.03f, nsLen),
-                new Vector3(roadCx + side * (roadHw - 0.22f), 0.03f, nsZc), whiteC, true);
-        }
+        MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(0.18f, 0.03f, nsLen + roadHw),
+            new Vector3(roadCx - (roadHw - 0.22f), 0.03f, (nsZStart + roadTurnZ + roadHw) * 0.5f), whiteC, true);
+        MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(0.18f, 0.03f, nsLen - roadHw),
+            new Vector3(roadCx + (roadHw - 0.22f), 0.03f, (nsZStart + roadTurnZ - roadHw) * 0.5f), whiteC, true);
 
         // Yellow dashed center line
         float dashLen = 2.8f;
@@ -4018,16 +4012,14 @@ public class WorldBuilder : MonoBehaviour
 
         foreach (int side in new[] { -1, 1 })
         {
-            MakeBlock("Kerb", _worldRoot.transform,
-                new Vector3(ewLen, 0.22f, 0.55f),
-                new Vector3(ewXc, 0.11f, roadTurnZ + side * (roadHw + 0.27f)), curbC, true);
+            MakeBlock("Kerb", _worldRoot.transform, new Vector3(ewLen + roadHw, 0.22f, 0.55f),
+                new Vector3((roadCx - roadHw + roadEndX) * 0.5f, 0.11f, roadTurnZ + side * (roadHw + 0.35f)), curbC, true);
         }
 
         foreach (int side in new[] { -1, 1 })
         {
-            MakeBlock("EdgeLine", _worldRoot.transform,
-                new Vector3(ewLen, 0.03f, 0.18f),
-                new Vector3(ewXc, 0.03f, roadTurnZ + side * (roadHw - 0.22f)), whiteC, true);
+            MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(ewLen + roadHw, 0.03f, 0.18f),
+                new Vector3((roadCx - roadHw + roadEndX) * 0.5f, 0.03f, roadTurnZ + side * (roadHw - 0.22f)), whiteC, true);
         }
 
         float xStart = roadCx + dashLen / 2f;
@@ -4375,7 +4367,8 @@ GameObject treeRoot;
             MaxHealth = 100,
             IsEssential = true
         });
-        WifeNPC.BuildWifeNpc(_worldRoot.transform, new Vector3(30f, 0.86f, 0f), 1f, Quaternion.Euler(0f, 90f, 0f));
+        StaticWifeModel = WifeNPC.BuildWifeNpc(_worldRoot.transform, new Vector3(30f, 0.86f, 0f), 1f, Quaternion.Euler(0f, 90f, 0f));
+        WifeDonationField.Build(_worldRoot.transform, new Vector3(28f, 0.5f, 0f));
     }
 
     private void BuildRichManMansion()
@@ -6500,6 +6493,7 @@ public class ThrownItem : MonoBehaviour
         transform.rotation = Quaternion.identity;
 
         Destroy(this);
+        Destroy(gameObject, 60f);
     }
 }
 
@@ -6525,6 +6519,7 @@ public class ThrownCageProjectile : MonoBehaviour
 
         if (_rb.linearVelocity.sqrMagnitude < 0.01f)
         {
+            if (Land()) return;
             if (HasCapturedAnimal)
             {
                 ReleaseAnimal();
@@ -6533,7 +6528,6 @@ public class ThrownCageProjectile : MonoBehaviour
             {
                 CheckForCapture();
             }
-            Land();
         }
     }
 
@@ -6542,10 +6536,11 @@ public class ThrownCageProjectile : MonoBehaviour
         if (_landed) return;
         if (Time.time - _spawnTime < 0.3f) return;
 
+        if (Land()) return;
+
         if (HasCapturedAnimal)
         {
             ReleaseAnimal();
-            Land();
             return;
         }
 
@@ -6623,9 +6618,12 @@ public class ThrownCageProjectile : MonoBehaviour
         }
     }
 
-    private void Land()
+    private bool Land()
     {
         _landed = true;
+
+        if (WifeDonationField.TryDonateCage(transform))
+            return true;
 
         if (_rb != null)
         {
@@ -6650,6 +6648,7 @@ public class ThrownCageProjectile : MonoBehaviour
         transform.rotation = Quaternion.identity;
 
         Destroy(this);
+        return false;
     }
 }
 

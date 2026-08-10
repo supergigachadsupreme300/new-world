@@ -160,6 +160,8 @@ public class EnemyController : MonoBehaviour
             return;
         }
         if (_player == null)
+            _player = Object.FindAnyObjectByType<PlayerController>()?.transform;
+        if (_player == null)
             return;
         if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
         if (GameManager.Instance != null && GameManager.Instance.IsPlayerDead) return;

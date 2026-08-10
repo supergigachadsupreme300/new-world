@@ -52,6 +52,8 @@ public class CutsceneManager : MonoBehaviour
     private GameObject _happyUI;
     private GameObject _skipButton;
     private Coroutine _walkAnimRoutine;
+    private GameObject _demonUI;
+    private TextMeshProUGUI _demonCaption;
 
     private GameObject _introCar;
     private GameObject _introPlayer;
@@ -353,8 +355,7 @@ public class CutsceneManager : MonoBehaviour
             _previewOnComplete = null;
             if (onComplete != null)
             {
-                RestorePlayerControl();
-                ShowHUD();
+                RestoreAfterPreview();
                 onComplete();
             }
             else
@@ -411,20 +412,6 @@ public class CutsceneManager : MonoBehaviour
         _cutsceneRoutine = StartCoroutine(DemonEndingRoutine(onComplete));
     }
 
-    public void PlayTrueEnding(System.Action onComplete = null)
-    {
-        if (IsActive) return;
-        if (onComplete == null)
-        {
-            if (RichManNPC.Instance != null) RichManNPC.Instance.Retire();
-            if (PoliceOfficerNPC.Instance != null) PoliceOfficerNPC.Instance.Retire();
-        }
-        IsActive = true;
-        _previewOnComplete = onComplete;
-        _cutsceneStartTime = Time.time;
-        _cutsceneRoutine = StartCoroutine(TrueEndingRoutine(onComplete));
-    }
-
     public void PlayHappyEnding(System.Action onComplete = null)
     {
         if (IsActive) return;
@@ -478,8 +465,8 @@ public class CutsceneManager : MonoBehaviour
         RestorePlayerControl();
         if (GameManager.Instance != null && GameManager.Instance.InGame)
             ShowHUD();
-        else if (_uiManager != null)
-            _uiManager.ShowMainMenu(true);
+        else if (GameManager.Instance != null)
+            GameManager.Instance.ShowMainMenu(true);
         IsActive = false;
 
         if (_previewOnComplete != null)
@@ -687,6 +674,7 @@ public class CutsceneManager : MonoBehaviour
         }
 
         int poolSize = Mathf.CeilToInt((SegmentSpawnAhead + SegmentDespawnBehind) / SegmentLength) + 3;
+        if (poolSize < MaxActiveSegments + 3) poolSize = MaxActiveSegments + 3;
         for (int i = 0; i < poolSize; i++)
         {
             var seg = SpawnDrivingSegmentRaw(0f);
@@ -809,7 +797,7 @@ public class CutsceneManager : MonoBehaviour
         road.transform.SetParent(seg.transform);
         road.transform.localScale = new Vector3(7.6f, 0.06f, SegmentLength);
         road.transform.localPosition = new Vector3(RoadX, 0.03f, 0f);
-        road.GetComponent<Renderer>().material = _drivingRoadMat;
+        road.GetComponent<Renderer>().sharedMaterial = _drivingRoadMat;
         Destroy(road.GetComponent<Collider>());
 
         // Kerbs
@@ -820,7 +808,7 @@ public class CutsceneManager : MonoBehaviour
             kerb.transform.SetParent(seg.transform);
             kerb.transform.localScale = new Vector3(0.55f, 0.22f, SegmentLength);
             kerb.transform.localPosition = new Vector3(RoadX + side * 4.07f, 0.11f, 0f);
-            kerb.GetComponent<Renderer>().material = _drivingKerbMat;
+            kerb.GetComponent<Renderer>().sharedMaterial = _drivingKerbMat;
             Destroy(kerb.GetComponent<Collider>());
         }
 
@@ -831,7 +819,7 @@ public class CutsceneManager : MonoBehaviour
         grassL.transform.SetParent(seg.transform);
         grassL.transform.localScale = new Vector3(roadLeft + 150f, 0.05f, SegmentLength);
         grassL.transform.localPosition = new Vector3((roadLeft - 150f) / 2f, 0f, 0f);
-        grassL.GetComponent<Renderer>().material = _drivingGrassMat;
+        grassL.GetComponent<Renderer>().sharedMaterial = _drivingGrassMat;
         Destroy(grassL.GetComponent<Collider>());
 
         // Grass right
@@ -841,7 +829,7 @@ public class CutsceneManager : MonoBehaviour
         grassR.transform.SetParent(seg.transform);
         grassR.transform.localScale = new Vector3(200f - roadRight, 0.05f, SegmentLength);
         grassR.transform.localPosition = new Vector3((roadRight + 200f) / 2f, 0f, 0f);
-        grassR.GetComponent<Renderer>().material = _drivingGrassMat;
+        grassR.GetComponent<Renderer>().sharedMaterial = _drivingGrassMat;
         Destroy(grassR.GetComponent<Collider>());
 
         // Trees scattered across grass
@@ -1201,6 +1189,7 @@ public class CutsceneManager : MonoBehaviour
             float stopZ = -6f;
             var carRoot = MapBuilder.BuildCar(null,
                 new Vector3(RoadX, 0f, stopZ), new Color(0.92f, 0.78f, 0.25f));
+            carRoot.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
             RegisterSpawned(carRoot);
 
             var wifeModel = WifeNPC.BuildWifeNpc(null,
@@ -1210,7 +1199,7 @@ public class CutsceneManager : MonoBehaviour
             RegisterSpawned(wifeModel);
 
             var richModel = RichManNPC.BuildRichManNpc(null,
-                new Vector3(RoadX - 1.8f, 0.86f, -4.2f), 1f, Quaternion.Euler(0f, 180f, 0f), false);
+                new Vector3(RoadX - 1.8f, 0.86f, -4.2f), 1f, Quaternion.Euler(0f, 0f, 0f), false);
             foreach (var r in richModel.GetComponentsInChildren<Renderer>())
                 r.gameObject.layer = 0;
             RegisterSpawned(richModel);
@@ -1244,7 +1233,7 @@ public class CutsceneManager : MonoBehaviour
             wifeModel.transform.localRotation = Quaternion.identity;
             richModel.transform.SetParent(carRoot.transform);
             richModel.transform.localPosition = new Vector3(-0.35f, 0.62f, -0.2f);
-            richModel.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            richModel.transform.localRotation = Quaternion.identity;
 
             yield return new WaitForSeconds(1.5f);
 
@@ -1299,6 +1288,7 @@ public class CutsceneManager : MonoBehaviour
 
     private IEnumerator JusticeEndingRoutine(System.Action onComplete = null)
     {
+        _savedTimeSpeed = GameManager.Instance != null ? GameManager.Instance.TimeSpeed : 0.01f;
         try
         {
             if (_uiManager == null)
@@ -1317,24 +1307,25 @@ public class CutsceneManager : MonoBehaviour
             CreateLetterboxBars();
             ShowSkipButton();
 
-            // Player on the road, watching from the south
+            // Player watching from the road shoulder (off the car's path)
             float playerZ = 38f;
+            float playerX = RoadX + 4.5f;
             if (_player != null)
             {
-                _player.transform.position = new Vector3(RoadX, 0f, playerZ);
+                _player.transform.position = new Vector3(playerX, 0f, playerZ);
                 _player.transform.rotation = Quaternion.identity;
                 var realModel = _player.transform.Find("PlayerModel");
                 if (realModel != null)
                     realModel.gameObject.SetActive(false);
             }
             var justicePlayerModel = MapBuilder.BuildPlayerModel(null);
-            justicePlayerModel.transform.position = new Vector3(RoadX, 0.82f, playerZ);
-            justicePlayerModel.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            justicePlayerModel.transform.position = new Vector3(playerX, 0.82f, playerZ);
+            justicePlayerModel.transform.rotation = Quaternion.identity;
             foreach (var r in justicePlayerModel.GetComponentsInChildren<Renderer>())
                 r.gameObject.layer = 0;
             RegisterSpawned(justicePlayerModel);
 
-            // Rich man standing at the mansion front
+            // Rich man standing at the mansion front, facing the road
             var richModel = RichManNPC.BuildRichManNpc(null,
                 new Vector3(20.5f, 0.86f, 46f), 1f, Quaternion.Euler(0f, 90f, 0f), false);
             foreach (var r in richModel.GetComponentsInChildren<Renderer>())
@@ -1354,6 +1345,7 @@ public class CutsceneManager : MonoBehaviour
             // ── PHASE 2: POLICE CAR ARRIVES ──
             float carStopZ = 52f;
             var policeCar = MapBuilder.BuildPoliceCar(null, new Vector3(RoadX, 0f, 64f));
+            policeCar.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
             RegisterSpawned(policeCar);
             float driveDur = 4f;
             float driveTimer = 0f;
@@ -1374,13 +1366,14 @@ public class CutsceneManager : MonoBehaviour
             // ── PHASE 3: THE ARREST ──
             Vector3 officerStart = officer.transform.position;
             Vector3 richPos = richModel.transform.position;
+            Vector3 arrestTarget = Vector3.MoveTowards(officerStart, richPos, Vector3.Distance(officerStart, richPos) - 1.5f);
             float arrestDur = 4f;
             float arrestTimer = 0f;
             while (arrestTimer < arrestDur)
             {
                 arrestTimer += Time.deltaTime;
                 float p = Mathf.Min(arrestTimer / arrestDur, 1f);
-                officer.transform.position = Vector3.Lerp(officerStart, richPos, p);
+                officer.transform.position = Vector3.Lerp(officerStart, arrestTarget, p);
                 FaceMoveDirection(officer.transform, richPos - officer.transform.position);
                 if (_mainCamera != null)
                 {
@@ -1391,29 +1384,29 @@ public class CutsceneManager : MonoBehaviour
             }
             yield return new WaitForSeconds(1.5f);
 
-            // ── PHASE 4: TAKEN AWAY ──
+            // ── PHASE 4: TAKEN AWAY (walk west to the car, then back toward the doors) ──
             Vector3 richStart = richModel.transform.position;
+            Vector3 officerPhase4Start = officer.transform.position;
             Vector3 carDoor = new Vector3(RoadX - 0.6f, 0.86f, carStopZ - 0.4f);
             Vector3 officerDoor = new Vector3(RoadX + 0.6f, 0.86f, carStopZ - 0.4f);
-            float takeDur = 4f;
-            float takeTimer = 0f;
-            while (takeTimer < takeDur)
-            {
-                takeTimer += Time.deltaTime;
-                float p = Mathf.Min(takeTimer / takeDur, 1f);
-                richModel.transform.position = Vector3.Lerp(richStart, carDoor, p);
-                officer.transform.position = Vector3.Lerp(richPos, officerDoor, p);
-                FaceMoveDirection(richModel.transform, carDoor - richModel.transform.position);
-                FaceMoveDirection(officer.transform, officerDoor - officer.transform.position);
-                yield return null;
-            }
+            Vector3 richMid = new Vector3(carDoor.x, richStart.y, richStart.z);
+            Vector3 officerMid = new Vector3(officerDoor.x, officerPhase4Start.y, officerPhase4Start.z);
+            float takeLegDur = 2f;
+            var legWestRich = StartCoroutine(WalkStraight(richModel.transform, richStart, richMid, takeLegDur));
+            var legWestOfficer = StartCoroutine(WalkStraight(officer.transform, officerPhase4Start, officerMid, takeLegDur));
+            yield return legWestRich;
+            yield return legWestOfficer;
+            var legSouthRich = StartCoroutine(WalkStraight(richModel.transform, richMid, carDoor, takeLegDur));
+            var legSouthOfficer = StartCoroutine(WalkStraight(officer.transform, officerMid, officerDoor, takeLegDur));
+            yield return legSouthRich;
+            yield return legSouthOfficer;
 
             richModel.transform.SetParent(policeCar.transform);
             richModel.transform.localPosition = new Vector3(-0.35f, 0.62f, -0.2f);
-            richModel.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            richModel.transform.localRotation = Quaternion.identity;
             officer.transform.SetParent(policeCar.transform);
             officer.transform.localPosition = new Vector3(0.35f, 0.62f, -0.2f);
-            officer.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            officer.transform.localRotation = Quaternion.identity;
             yield return new WaitForSeconds(1f);
 
             // ── PHASE 5: DEPARTURE ──
@@ -1433,8 +1426,185 @@ public class CutsceneManager : MonoBehaviour
                 yield return null;
             }
 
-            // ── PHASE 6: FADE + END SCREEN ──
-            yield return new WaitForSeconds(2f);
+            // ── PHASE 6: THAT NIGHT — THE BEDROOM ──
+            yield return StartCoroutine(FadeOverlay(1, 1.5f));
+
+            // Freeze the clock at a quiet night hour
+            if (GameManager.Instance != null) GameManager.Instance.TimeSpeed = 0;
+            GameManager.Instance?.SetTimeOfDay(23.5f);
+
+            // Stage at the wife's bedroom (reuse the live house's bed if intact)
+            GameObject wifeHouse = GameObject.Find("WifeHouse");
+            Transform bedTransform = wifeHouse != null ? FindChildRecursive(wifeHouse.transform, "BedMattress") : null;
+            GameObject bedroomRoot = null;
+            Vector3 bedPos;
+            if (bedTransform != null)
+            {
+                bedPos = bedTransform.position;
+            }
+            else
+            {
+                bedroomRoot = BuildBedroomSet(new Vector3(33f, 0f, 0f));
+                bedTransform = bedroomRoot != null ? FindChildRecursive(bedroomRoot.transform, "BedMattress") : null;
+                bedPos = bedTransform != null ? bedTransform.position : new Vector3(32f, 0.85f, 5.55f);
+            }
+
+            // Wife asleep on the near side, player on the far side (heads on the pillows)
+            var nightWife = WifeNPC.BuildWifeNpc(null, bedPos + new Vector3(0.55f, 0.35f, 0f), 1f, Quaternion.Euler(90f, 0f, 0f));
+            foreach (var r in nightWife.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            foreach (var c in nightWife.GetComponentsInChildren<Collider>())
+                Object.Destroy(c);
+            RegisterSpawned(nightWife);
+
+            var nightPlayer = MapBuilder.BuildPlayerModel(null);
+            nightPlayer.transform.position = bedPos + new Vector3(-0.55f, 0.35f, 0f);
+            nightPlayer.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            foreach (var r in nightPlayer.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            foreach (var c in nightPlayer.GetComponentsInChildren<Collider>())
+                Object.Destroy(c);
+            RegisterSpawned(nightPlayer);
+
+            // Warm lamp light for the night
+            var lamp = new GameObject("BedroomLamp");
+            var lampLight = lamp.AddComponent<Light>();
+            lampLight.type = LightType.Point;
+            lampLight.range = 9f;
+            lampLight.intensity = 2.2f;
+            lampLight.color = new Color(1f, 0.65f, 0.3f);
+            lamp.transform.position = bedPos + new Vector3(0f, 1.4f, 0f);
+            RegisterSpawned(lamp);
+
+            yield return StartCoroutine(FadeOverlay(0, 1.5f));
+
+            // Wide shot of the bedroom at night
+            Vector3 camWide = bedPos + new Vector3(2.2f, 1.1f, 1.2f);
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = camWide;
+                _mainCamera.transform.LookAt(bedPos + new Vector3(0f, 0.1f, 0.4f));
+            }
+            yield return new WaitForSeconds(2.8f);
+
+            // Close-up on the wife's face — her eyes snap open
+            Vector3 camFace = bedPos + new Vector3(0.55f, 1.35f, 0.55f);
+            yield return StartCoroutine(PanCamera(camWide, camFace, bedPos + new Vector3(0.55f, 0.35f, 0.55f), 1.5f));
+            yield return new WaitForSeconds(1.5f);
+
+            // ── PHASE 7: THE DEMON AT THE BEDSIDE ──
+            yield return StartCoroutine(FadeOverlay(1, 0.8f));
+
+            float enemyY = bedPos.y - 0.7f;
+            var nightEnemy = EnemyModelBuilder.BuildRegularEnemy(null);
+            nightEnemy.position = new Vector3(bedPos.x + 1.8f, enemyY, bedPos.z + 0.2f);
+            nightEnemy.rotation = Quaternion.Euler(0f, -90f, 0f);
+            nightEnemy.localScale = Vector3.one * 1.1f;
+            foreach (var r in nightEnemy.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            foreach (var c in nightEnemy.GetComponentsInChildren<Collider>())
+                Object.Destroy(c);
+            RegisterSpawned(nightEnemy.gameObject);
+
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = bedPos + new Vector3(0.8f, 1.5f, 1.1f);
+                _mainCamera.transform.LookAt(nightEnemy.position + Vector3.up * 1f);
+            }
+            yield return StartCoroutine(FadeOverlay(0, 0.8f));
+            yield return new WaitForSeconds(2.2f);
+
+            // ── PHASE 8: MORNING — SHE IS GONE ──
+            yield return StartCoroutine(FadeOverlay(1, 1.5f));
+            GameManager.Instance?.SetTimeOfDay(8f);
+            nightWife.SetActive(false);
+            nightEnemy.gameObject.SetActive(false);
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = camWide;
+                _mainCamera.transform.LookAt(bedPos + new Vector3(0f, 0.1f, 0.4f));
+            }
+            yield return StartCoroutine(FadeOverlay(0, 1.5f));
+            yield return new WaitForSeconds(2.8f);
+
+            // ── PHASE 9: MORNING — THE POLICE INVESTIGATE THE WIFE'S HOUSE ──
+            yield return StartCoroutine(FadeOverlay(1, 1.5f));
+            GameManager.Instance?.SetTimeOfDay(10f);
+            if (bedroomRoot != null)
+                bedroomRoot.SetActive(false);
+
+            var invCar = MapBuilder.BuildPoliceCar(null, new Vector3(19.5f, 0f, 2.5f));
+            invCar.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+            RegisterSpawned(invCar);
+
+            var invOfficer1 = MapBuilder.BuildPoliceOfficer(null, new Vector3(25.6f, 0.93f, -1.2f), Quaternion.Euler(0f, 90f, 0f));
+            foreach (var r in invOfficer1.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(invOfficer1);
+
+            var invOfficer2 = MapBuilder.BuildPoliceOfficer(null, new Vector3(23f, 0.93f, -5.5f), Quaternion.Euler(0f, 90f, 0f));
+            foreach (var r in invOfficer2.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(invOfficer2);
+
+            // The player reports and watches from a distance
+            justicePlayerModel.transform.position = new Vector3(17.5f, 0.82f, -2f);
+            justicePlayerModel.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+
+            var patrol = StartCoroutine(PolicePatrol(invOfficer2.transform,
+                new Vector3(23f, 0.93f, -5.5f), new Vector3(21f, 0.93f, -3f)));
+
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = new Vector3(17f, 2.3f, -5f);
+                _mainCamera.transform.LookAt(new Vector3(26f, 1f, -1.5f));
+            }
+            yield return StartCoroutine(FadeOverlay(0, 1.5f));
+            yield return new WaitForSeconds(3f);
+
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = new Vector3(24f, 1.9f, -3.2f);
+                _mainCamera.transform.LookAt(new Vector3(26f, 1f, -1f));
+            }
+            yield return new WaitForSeconds(2.5f);
+            StopCoroutine(patrol);
+
+            // ── PHASE 10: THE MONK EXPLAINS AT THE PAGODA ──
+            yield return StartCoroutine(FadeOverlay(1, 1.5f));
+            GameManager.Instance?.SetTimeOfDay(11f);
+            invCar.SetActive(false);
+            invOfficer1.SetActive(false);
+            invOfficer2.SetActive(false);
+
+            var liveMonk = Object.FindAnyObjectByType<PagodaMonkNPC>();
+            if (liveMonk != null)
+                liveMonk.gameObject.SetActive(false);
+
+            var explainMonk = MapBuilder.BuildMonkNpc(null, new Vector3(26f, 0.86f, 17.5f), Quaternion.identity);
+            foreach (var r in explainMonk.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(explainMonk);
+
+            justicePlayerModel.transform.position = new Vector3(26f, 0.82f, 13.5f);
+            justicePlayerModel.transform.rotation = Quaternion.identity;
+
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = new Vector3(31f, 1.7f, 15.5f);
+                _mainCamera.transform.LookAt(new Vector3(26f, 1f, 15.5f));
+            }
+            yield return StartCoroutine(FadeOverlay(0, 1.5f));
+            yield return new WaitForSeconds(3f);
+
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = new Vector3(25.6f, 1.9f, 14.2f);
+                _mainCamera.transform.LookAt(new Vector3(26.2f, 1.2f, 17.6f));
+            }
+            yield return new WaitForSeconds(2.5f);
+
+            // ── PHASE 11: FADE + END SCREEN ──
             yield return StartCoroutine(FadeOverlay(1, 2f));
 
             HideSkipButton();
@@ -1444,12 +1614,13 @@ public class CutsceneManager : MonoBehaviour
 
             FinishEndingScene(onComplete,
                 Localization.T("CÔNG LÝ ĐƯỢC THỰC THI NHƯNG HIỂM HỌA CHƯA QUA"),
-                Localization.T("Cậu đã lật tẩy bộ mặt thật của Phú Ông.\nCảnh sát đã đến, và hắn bị bắt ngay trước dinh thự của chính mình.\n\nJessica được an toàn.\nNhưng phía đông, tiếng gầm của Quỷ Vương vẫn còn vang vọng...\nHiểm họa thật sự vẫn chưa qua."));
+                Localization.T("Cậu đã lật tẩy bộ mặt thật của Phú Ông.\nCảnh sát đã đến, và hắn bị bắt ngay trước dinh thự của chính mình.\n\nĐêm ấy, cậu và Jessica trở về nhà, ngủ say.\nGiữa đêm, cô chợt mở mắt...\nmột con quỷ đang nhìn cô chằm chằm.\n\nSáng hôm sau... Jessica đã biến mất.\nCảnh sát kéo đến điều tra căn nhà, nhưng không tìm được dấu vết nào.\n\nCậu chạy lên chùa tìm thầy. Thầy trầm ngâm:\n\"Jessica không bị người bắt... thứ bước vào đêm ấy là quỷ.\nHãy tìm cô ấy trước khi màn đêm buông xuống.\"\nHiểm họa thật sự vẫn chưa qua."));
         }
         finally
         {
             IsActive = false;
             _cutsceneRoutine = null;
+            if (GameManager.Instance != null) GameManager.Instance.TimeSpeed = _savedTimeSpeed;
         }
     }
 
@@ -1483,7 +1654,7 @@ public class CutsceneManager : MonoBehaviour
             // Player model at the mansion front
             var playerModel = MapBuilder.BuildPlayerModel(null);
             playerModel.transform.position = new Vector3(28f, 0.86f, 46f);
-            playerModel.transform.rotation = Quaternion.Euler(0f, -90f, 0f);
+            playerModel.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
             foreach (var r in playerModel.GetComponentsInChildren<Renderer>())
                 r.gameObject.layer = 0;
             RegisterSpawned(playerModel);
@@ -1523,7 +1694,7 @@ public class CutsceneManager : MonoBehaviour
                 walkTimer += Time.deltaTime;
                 float p = Mathf.Min(walkTimer / walkDur, 1f);
                 playerModel.transform.position = Vector3.Lerp(playerStart, sackGrab, p);
-                FaceMoveDirection(playerModel.transform, sackGrab - playerModel.transform.position);
+                playerModel.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
                 yield return null;
             }
             sack.transform.SetParent(playerModel.transform);
@@ -1552,6 +1723,10 @@ public class CutsceneManager : MonoBehaviour
 
     private IEnumerator DemonEndingRoutine(System.Action onComplete = null)
     {
+        GameObject realWife = WifeNPC.Instance != null ? WifeNPC.Instance.gameObject : null;
+        bool wifeWasActive = realWife != null && realWife.activeInHierarchy;
+        GameObject staticWife = WorldBuilder.Instance != null ? WorldBuilder.Instance.StaticWifeModel : null;
+        bool staticWifeWasActive = staticWife != null && staticWife.activeInHierarchy;
         try
         {
             if (_uiManager == null)
@@ -1597,6 +1772,17 @@ public class CutsceneManager : MonoBehaviour
             if (scorchR != null) scorchR.material.color = new Color(0.12f, 0.04f, 0.05f);
             Object.Destroy(scorch.GetComponent<Collider>());
             RegisterSpawned(scorch);
+
+            // The fallen Demon King lying where it was slain
+            var fallenKing = BossModelBuilder.BuildBoss(null);
+            fallenKing.position = new Vector3(RoadX, 0.18f, bossZ);
+            fallenKing.rotation = Quaternion.Euler(-90f, 180f, 0f);
+            foreach (var r in fallenKing.GetComponentsInChildren<Renderer>())
+            {
+                r.gameObject.layer = 0;
+                r.material.color = r.material.color * new Color(0.35f, 0.3f, 0.3f);
+            }
+            RegisterSpawned(fallenKing.gameObject);
 
             // ── PHASE 1: OPENING SHOT ──
             Vector3 camStart = new Vector3(RoadX, 2.2f, playerZ - 4f);
@@ -1652,26 +1838,156 @@ public class CutsceneManager : MonoBehaviour
             }
             yield return new WaitForSeconds(2f);
 
-            // ── PHASE 4: CAMERA TURNS TOWARD THE VILLAGE, DEALS GO ON ──
-            if (_mainCamera != null)
+            // ── PHASE 4: CAMERA TURNS TOWARD THE VILLAGE ──
+            float panDur = 4f;
+            float panTimer = 0f;
+            while (panTimer < panDur)
             {
-                _mainCamera.transform.position = new Vector3(RoadX - 1f, 2.4f, playerZ + 2f);
-                _mainCamera.transform.LookAt(new Vector3(RoadX, 1f, playerZ - 20f));
-            }
-            var dealCar = MapBuilder.BuildCar(null, new Vector3(RoadX, 0f, playerZ - 8f));
-            RegisterSpawned(dealCar);
-            float carDur = 3.5f;
-            float carTimer = 0f;
-            while (carTimer < carDur)
-            {
-                carTimer += Time.deltaTime;
-                float p = Mathf.Min(carTimer / carDur, 1f);
-                dealCar.transform.position = new Vector3(RoadX, 0f, Mathf.Lerp(playerZ - 8f, playerZ - 46f, p));
+                panTimer += Time.deltaTime;
+                float p = Mathf.Min(panTimer / panDur, 1f);
+                if (_mainCamera != null)
+                {
+                    _mainCamera.transform.position = new Vector3(RoadX - 1f, 2.4f, playerZ + 2f);
+                    Vector3 lookTarget = Vector3.Lerp(new Vector3(RoadX, 1f, playerZ + 8f), new Vector3(RoadX, 1f, playerZ - 20f), p);
+                    _mainCamera.transform.LookAt(lookTarget);
+                }
                 yield return null;
             }
             yield return new WaitForSeconds(1.5f);
 
-            // ── PHASE 5: FADE + END SCREEN ──
+            // ── PHASE 5: THE HERO WALKS AWAY ──
+            _walkAnimRoutine = StartCoroutine(WalkAnimation(heroModel, 2.5f));
+
+            float walkZ = playerZ;
+            float walkEndZ = playerZ - 34f;
+            while (walkZ > walkEndZ)
+            {
+                walkZ -= 2.5f * Time.deltaTime;
+                heroModel.transform.position = new Vector3(RoadX, 0.82f, walkZ);
+                heroModel.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+                if (_mainCamera != null)
+                {
+                    _mainCamera.transform.position = new Vector3(RoadX - 1.2f, 2f, walkZ + 4f);
+                    _mainCamera.transform.LookAt(new Vector3(RoadX, 1.1f, walkZ));
+                }
+                yield return null;
+            }
+            StopWalkAnimation();
+            ResetLimbRotations(heroModel);
+            yield return new WaitForSeconds(1f);
+            yield return StartCoroutine(FadeOverlay(1, 2f));
+
+            // ── PHASE 6: THE VILLAGE — A QUIET TRAGEDY ──
+            if (GameManager.Instance != null) GameManager.Instance.SetTimeOfDay(8f);
+            if (realWife != null) realWife.SetActive(false);
+            if (staticWife != null) staticWife.SetActive(false);
+
+            // Jessica lies dead on the open ground before her house (house wall x=26..40 behind her)
+            Vector3 corpsePos = new Vector3(24.2f, 0.12f, -0.8f);
+            var corpse = WifeNPC.BuildWifeNpc(null, corpsePos, 1f, Quaternion.Euler(-90f, 180f, 0f));
+            foreach (var r in corpse.GetComponentsInChildren<Renderer>())
+            {
+                r.gameObject.layer = 0;
+                r.material.color = r.material.color * new Color(0.55f, 0.45f, 0.45f);
+            }
+            foreach (var c in corpse.GetComponentsInChildren<Collider>())
+                Object.Destroy(c);
+            RegisterSpawned(corpse);
+
+            var blood = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            blood.name = "BloodPool";
+            blood.transform.position = new Vector3(corpsePos.x, 0.025f, corpsePos.z);
+            blood.transform.localScale = new Vector3(1.6f, 0.02f, 1.1f);
+            var bloodR = blood.GetComponent<Renderer>();
+            if (bloodR != null) bloodR.material.color = new Color(0.42f, 0.02f, 0.02f);
+            Object.Destroy(blood.GetComponent<Collider>());
+            RegisterSpawned(blood);
+
+            // The addict, hunched over the body
+            var addict = MapBuilder.BuildAddictNpc(null, new Vector3(24.8f, 0f, 0.9f));
+            addict.transform.rotation = Quaternion.LookRotation((corpsePos - addict.transform.position).normalized);
+            foreach (var r in addict.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(addict);
+
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = new Vector3(19.8f, 2f, -4.5f);
+                _mainCamera.transform.LookAt(corpsePos + Vector3.up * 0.6f);
+            }
+            ShowDemonCaption(Localization.T("Jessica đã bị hạ sát ngay trước hiên nhà."));
+            yield return StartCoroutine(FadeOverlay(0, 2f));
+            yield return new WaitForSeconds(3.2f);
+
+            // ── PHASE 7: THE ADDICT — HUNCHED OVER THE BODY ──
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = new Vector3(23f, 1.3f, 0.6f);
+                _mainCamera.transform.LookAt(addict.transform.position + Vector3.up * 0.8f);
+            }
+            ShowDemonCaption(Localization.T("Không phải tôi... tôi không kiểm soát được nữa..."));
+            yield return StartCoroutine(FadeOverlay(1, 1f));
+            yield return StartCoroutine(FadeOverlay(0, 1f));
+            yield return new WaitForSeconds(3f);
+
+            // ── PHASE 8: POLICE ARRIVE AT THE HOUSE ──
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = new Vector3(16.5f, 2.4f, 3.5f);
+                _mainCamera.transform.LookAt(new Vector3(22f, 1f, -0.5f));
+            }
+            ShowDemonCaption(Localization.T("Cảnh sát nhanh chóng có mặt."));
+            yield return StartCoroutine(FadeOverlay(1, 1f));
+            yield return StartCoroutine(FadeOverlay(0, 1f));
+
+            var officerA = MapBuilder.BuildPoliceOfficer(null, new Vector3(12.8f, 0.93f, 8f), Quaternion.identity);
+            foreach (var r in officerA.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(officerA);
+            var officerB = MapBuilder.BuildPoliceOfficer(null, new Vector3(15.2f, 0.93f, 8f), Quaternion.identity);
+            foreach (var r in officerB.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            RegisterSpawned(officerB);
+
+            Vector3 officerAStart = officerA.transform.position;
+            Vector3 officerBStart = officerB.transform.position;
+            Vector3 officerAEnd = new Vector3(25.4f, 0.93f, -1.2f);
+            Vector3 officerBEnd = new Vector3(24.6f, 0.93f, 0.5f);
+            float walkDur = 4f;
+            float walkTimer = 0f;
+            while (walkTimer < walkDur)
+            {
+                walkTimer += Time.deltaTime;
+                float p = Mathf.Min(walkTimer / walkDur, 1f);
+                officerA.transform.position = Vector3.Lerp(officerAStart, officerAEnd, p);
+                officerB.transform.position = Vector3.Lerp(officerBStart, officerBEnd, p);
+                FaceMoveDirection(officerA.transform, officerAEnd - officerAStart);
+                FaceMoveDirection(officerB.transform, officerBEnd - officerBStart);
+                if (_mainCamera != null)
+                {
+                    _mainCamera.transform.position = Vector3.Lerp(new Vector3(16.5f, 2.4f, 3.5f), new Vector3(19f, 2.2f, -1.5f), p);
+                    _mainCamera.transform.LookAt(new Vector3(23f, 0.9f, -0.5f));
+                }
+                yield return null;
+            }
+            yield return new WaitForSeconds(0.8f);
+            ShowDemonCaption(Localization.T("Họ bắt giữ kẻ nghiện ngập... nhưng kẻ gây án chỉ là bề nổi."));
+            yield return new WaitForSeconds(2.4f);
+
+            // ── PHASE 9: FINAL LOOK ──
+            if (_mainCamera != null)
+            {
+                _mainCamera.transform.position = new Vector3(20.5f, 2f, -6f);
+                _mainCamera.transform.LookAt(new Vector3(23.5f, 0.9f, -1f));
+            }
+            yield return StartCoroutine(FadeOverlay(1, 1f));
+            yield return StartCoroutine(FadeOverlay(0, 1f));
+            yield return new WaitForSeconds(3f);
+
+            HideDemonCaption();
+            DestroyDemonUI();
+
+            // ── FADE + END SCREEN ──
             yield return StartCoroutine(FadeOverlay(1, 2f));
 
             HideSkipButton();
@@ -1681,207 +1997,72 @@ public class CutsceneManager : MonoBehaviour
 
             FinishEndingScene(onComplete,
                 Localization.T("QUỶ VƯƠNG ĐÃ CHẾT NHƯNG CÁI ÁC CHƯA HẾT"),
-                Localization.T("Quỷ Vương đã bị đánh bại, bóng tối bị đẩy lùi.\nNhưng trong bóng đêm, những giao dịch bẩn của Phú Ông vẫn tiếp diễn...\n\nJessica vẫn còn trong tầm ngắm của hắn.\nCái ác chưa bị nhổ tận gốc.\nNgôi làng chưa thể yên bình."));
+                Localization.T("Quỷ Vương đã bị đánh bại, bóng tối bị đẩy lùi.\nNhưng khi cậu quay về làng...\nJessica đã bị một kẻ nghiện ngập do ma túy của Phú Ông hạ sát.\n\nKẻ gây án chỉ là bề nổi...\nCó thể đây là mưu đồ của lũ quỷ.\nCái ác chưa bị nhổ tận gốc.\nNgôi làng chưa thể yên bình."));
         }
         finally
         {
             IsActive = false;
             _cutsceneRoutine = null;
+            if (realWife != null && wifeWasActive) realWife.SetActive(true);
+            if (staticWife != null && staticWifeWasActive) staticWife.SetActive(true);
         }
     }
 
-    private IEnumerator TrueEndingRoutine(System.Action onComplete = null)
+    private void ShowDemonCaption(string text)
     {
-        try
+        if (_canvas == null)
+            _canvas = Object.FindAnyObjectByType<Canvas>();
+        if (_canvas == null) return;
+
+        if (_demonUI == null)
         {
-            if (_uiManager == null)
-                _uiManager = Object.FindAnyObjectByType<UIManager>();
-            if (_mainCamera == null)
-                _mainCamera = Camera.main;
+            _demonUI = new GameObject("DemonEndingUI");
+            _demonUI.transform.SetParent(_canvas.transform, false);
 
-            if (_uiManager != null)
-                _uiManager.ShowMainMenu(false);
+            var bg = _demonUI.AddComponent<Image>();
+            bg.color = new Color(0, 0, 0, 0.65f);
+            var bgRt = bg.rectTransform;
+            bgRt.anchorMin = new Vector2(0.5f, 0f);
+            bgRt.anchorMax = new Vector2(0.5f, 0f);
+            bgRt.pivot = new Vector2(0.5f, 0f);
+            bgRt.anchoredPosition = new Vector2(0f, 24f);
+            bgRt.sizeDelta = new Vector2(1500f, 110f);
 
-            DisablePlayerControl();
-            DetachCamera();
-            HideHUD();
-
-            yield return StartCoroutine(CreateFadeOverlay());
-            CreateLetterboxBars();
-            ShowSkipButton();
-
-            // Player on the road, watching from the south
-            float playerZ = 38f;
-            if (_player != null)
-            {
-                _player.transform.position = new Vector3(RoadX, 0f, playerZ);
-                _player.transform.rotation = Quaternion.identity;
-                var realModel = _player.transform.Find("PlayerModel");
-                if (realModel != null)
-                    realModel.gameObject.SetActive(false);
-            }
-            var truePlayerModel = MapBuilder.BuildPlayerModel(null);
-            truePlayerModel.transform.position = new Vector3(RoadX, 0.82f, playerZ);
-            truePlayerModel.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
-            foreach (var r in truePlayerModel.GetComponentsInChildren<Renderer>())
-                r.gameObject.layer = 0;
-            RegisterSpawned(truePlayerModel);
-
-            // Rich man standing at the mansion front
-            var richModel = RichManNPC.BuildRichManNpc(null,
-                new Vector3(20.5f, 0.86f, 46f), 1f, Quaternion.Euler(0f, 90f, 0f), false);
-            foreach (var r in richModel.GetComponentsInChildren<Renderer>())
-                r.gameObject.layer = 0;
-            RegisterSpawned(richModel);
-
-            // ── PHASE 1: DAWN — DEMON SLAIN, LIGHT SPREADS ──
-            Vector3 camStart = new Vector3(RoadX, 2.2f, playerZ - 3f);
-            if (_mainCamera != null)
-            {
-                _mainCamera.transform.position = camStart;
-                _mainCamera.transform.LookAt(new Vector3(20f, 1.2f, 46f));
-            }
-            yield return StartCoroutine(FadeOverlay(0, 2f));
-            yield return new WaitForSeconds(1.5f);
-
-            // Rosary light burst overhead — the Demon King has been vanquished
-            var burst = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            burst.name = "TrueLightBurst";
-            burst.transform.position = new Vector3(RoadX, 8f, 40f);
-            burst.transform.localScale = Vector3.one * 0.4f;
-            var burstR = burst.GetComponent<Renderer>();
-            if (burstR != null) burstR.material.color = new Color(1f, 0.9f, 0.55f);
-            Object.Destroy(burst.GetComponent<Collider>());
-            RegisterSpawned(burst);
-
-            float burstDur = 2.5f;
-            float burstTimer = 0f;
-            while (burstTimer < burstDur)
-            {
-                burstTimer += Time.deltaTime;
-                float p = Mathf.Min(burstTimer / burstDur, 1f);
-                burst.transform.localScale = Vector3.one * Mathf.Lerp(0.4f, 3.2f, p);
-                yield return null;
-            }
-            burst.SetActive(false);
-            yield return new WaitForSeconds(1f);
-
-            // ── PHASE 2: POLICE CAR ARRIVES ──
-            float carStopZ = 52f;
-            var policeCar = MapBuilder.BuildPoliceCar(null, new Vector3(RoadX, 0f, 64f));
-            RegisterSpawned(policeCar);
-            float driveDur = 4f;
-            float driveTimer = 0f;
-            while (driveTimer < driveDur)
-            {
-                driveTimer += Time.deltaTime;
-                float p = Mathf.Min(driveTimer / driveDur, 1f);
-                policeCar.transform.position = new Vector3(RoadX, 0f, Mathf.Lerp(64f, carStopZ, p));
-                yield return null;
-            }
-
-            var officer = MapBuilder.BuildPoliceOfficer(null,
-                new Vector3(RoadX - 1.2f, 0.93f, carStopZ), Quaternion.Euler(0f, -90f, 0f));
-            foreach (var r in officer.GetComponentsInChildren<Renderer>())
-                r.gameObject.layer = 0;
-            RegisterSpawned(officer);
-
-            // ── PHASE 3: THE ARREST ──
-            Vector3 officerStart = officer.transform.position;
-            Vector3 richPos = richModel.transform.position;
-            float arrestDur = 4f;
-            float arrestTimer = 0f;
-            while (arrestTimer < arrestDur)
-            {
-                arrestTimer += Time.deltaTime;
-                float p = Mathf.Min(arrestTimer / arrestDur, 1f);
-                officer.transform.position = Vector3.Lerp(officerStart, richPos, p);
-                FaceMoveDirection(officer.transform, richPos - officer.transform.position);
-                if (_mainCamera != null)
-                {
-                    _mainCamera.transform.position = Vector3.Lerp(camStart, new Vector3(RoadX - 1f, 2.6f, carStopZ + 4f), p);
-                    _mainCamera.transform.LookAt(new Vector3(20f, 1.2f, 46f));
-                }
-                yield return null;
-            }
-            yield return new WaitForSeconds(1.5f);
-
-            // ── PHASE 4: TAKEN AWAY ──
-            Vector3 richStart = richModel.transform.position;
-            Vector3 carDoor = new Vector3(RoadX - 0.6f, 0.86f, carStopZ - 0.4f);
-            Vector3 officerDoor = new Vector3(RoadX + 0.6f, 0.86f, carStopZ - 0.4f);
-            float takeDur = 4f;
-            float takeTimer = 0f;
-            while (takeTimer < takeDur)
-            {
-                takeTimer += Time.deltaTime;
-                float p = Mathf.Min(takeTimer / takeDur, 1f);
-                richModel.transform.position = Vector3.Lerp(richStart, carDoor, p);
-                officer.transform.position = Vector3.Lerp(richPos, officerDoor, p);
-                FaceMoveDirection(richModel.transform, carDoor - richModel.transform.position);
-                FaceMoveDirection(officer.transform, officerDoor - officer.transform.position);
-                yield return null;
-            }
-
-            richModel.transform.SetParent(policeCar.transform);
-            richModel.transform.localPosition = new Vector3(-0.35f, 0.62f, -0.2f);
-            richModel.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            officer.transform.SetParent(policeCar.transform);
-            officer.transform.localPosition = new Vector3(0.35f, 0.62f, -0.2f);
-            officer.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            yield return new WaitForSeconds(1f);
-
-            // ── PHASE 5: DEPARTURE ──
-            float departDur = 5f;
-            float departTimer = 0f;
-            float departZ = -30f;
-            while (departTimer < departDur)
-            {
-                departTimer += Time.deltaTime;
-                float p = Mathf.Min(departTimer / departDur, 1f);
-                policeCar.transform.position = new Vector3(RoadX, 0f, Mathf.Lerp(carStopZ, departZ, p));
-                if (_mainCamera != null)
-                {
-                    _mainCamera.transform.position = new Vector3(RoadX - 2f, 3.2f, Mathf.Lerp(carStopZ, departZ, p) + 10f);
-                    _mainCamera.transform.LookAt(policeCar.transform.position);
-                }
-                yield return null;
-            }
-
-            // ── PHASE 6: SUNRISE OVER THE PEACEFUL VILLAGE ──
-            yield return new WaitForSeconds(1.5f);
-            var sun = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            sun.name = "PeaceSun";
-            sun.transform.position = new Vector3(RoadX + 18f, 14f, 10f);
-            sun.transform.localScale = Vector3.one * 3f;
-            var sunR = sun.GetComponent<Renderer>();
-            if (sunR != null) sunR.material.color = new Color(1f, 0.85f, 0.45f);
-            Object.Destroy(sun.GetComponent<Collider>());
-            RegisterSpawned(sun);
-
-            yield return StartCoroutine(PanCamera(
-                new Vector3(RoadX - 2f, 3.2f, 44f),
-                new Vector3(RoadX - 6f, 4.5f, 6f),
-                new Vector3(RoadX, 1.5f, 20f), 4f));
-            yield return new WaitForSeconds(1.5f);
-
-            // ── PHASE 7: FADE + END SCREEN ──
-            yield return StartCoroutine(FadeOverlay(1, 2f));
-
-            HideSkipButton();
-            CleanupSpawned();
-            DestroyLetterboxBars();
-            DestroyOverlay();
-
-            FinishEndingScene(onComplete,
-                Localization.T("KẾT THÚC THẬT SỰ"),
-                Localization.T("Quỷ Vương đã bị trấn áp.\nPhú Ông đã bị cảnh sát dẫn đi ngay trước dinh thự của hắn.\n\nHai hiểm họa đã bị nhổ tận gốc.\nNgôi làng cuối cùng cũng được yên bình.\nMặt trời mọc lên, và một tương lai tươi sáng đang chờ đón."));
+            var cap = new GameObject("Caption");
+            cap.transform.SetParent(_demonUI.transform, false);
+            _demonCaption = cap.AddComponent<TextMeshProUGUI>();
+            if (_uiManager != null && _uiManager.defaultTmpFont != null)
+                _demonCaption.font = _uiManager.defaultTmpFont;
+            _demonCaption.fontSize = 26;
+            _demonCaption.color = Color.white;
+            _demonCaption.alignment = TextAlignmentOptions.Center;
+            _demonCaption.enableWordWrapping = true;
+            var capRt = cap.GetComponent<RectTransform>();
+            capRt.anchorMin = Vector2.zero;
+            capRt.anchorMax = Vector2.one;
+            capRt.offsetMin = new Vector2(40f, 10f);
+            capRt.offsetMax = new Vector2(-40f, -10f);
+            capRt.pivot = new Vector2(0.5f, 0.5f);
         }
-        finally
+
+        _demonCaption.text = text;
+        _demonUI.SetActive(true);
+    }
+
+    private void HideDemonCaption()
+    {
+        if (_demonUI != null)
+            _demonUI.SetActive(false);
+    }
+
+    private void DestroyDemonUI()
+    {
+        if (_demonUI != null)
         {
-            IsActive = false;
-            _cutsceneRoutine = null;
+            Destroy(_demonUI);
+            _demonUI = null;
         }
+        _demonCaption = null;
     }
 
     private GameObject BuildBribeSack(Vector3 position)
@@ -1911,12 +2092,49 @@ public class CutsceneManager : MonoBehaviour
         }
     }
 
+    private IEnumerator PolicePatrol(Transform officer, Vector3 pointA, Vector3 pointB, float duration = 4f)
+    {
+        while (true)
+        {
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.deltaTime;
+                officer.position = Vector3.Lerp(pointA, pointB, Mathf.Min(t / duration, 1f));
+                FaceMoveDirection(officer, pointB - pointA);
+                yield return null;
+            }
+            t = 0f;
+            while (t < duration)
+            {
+                t += Time.deltaTime;
+                officer.position = Vector3.Lerp(pointB, pointA, Mathf.Min(t / duration, 1f));
+                FaceMoveDirection(officer, pointA - pointB);
+                yield return null;
+            }
+        }
+    }
+
     private void FaceMoveDirection(Transform t, Vector3 dir)
     {
         dir.y = 0f;
         if (dir.sqrMagnitude < 0.001f)
             return;
         t.rotation = Quaternion.LookRotation(-dir.normalized);
+    }
+
+    private IEnumerator WalkStraight(Transform t, Vector3 from, Vector3 to, float duration)
+    {
+        float timer = 0f;
+        while (timer < duration)
+        {
+            timer += Time.deltaTime;
+            float p = Mathf.Min(timer / duration, 1f);
+            t.position = Vector3.Lerp(from, to, p);
+            FaceMoveDirection(t, to - from);
+            yield return null;
+        }
+        t.position = to;
     }
 
     private IEnumerator WifeLookBack(Transform wife)
@@ -1943,6 +2161,46 @@ public class CutsceneManager : MonoBehaviour
             wife.transform.rotation = Quaternion.Slerp(lookBack, startRot, t);
             yield return null;
         }
+    }
+
+    private Transform FindChildRecursive(Transform root, string name)
+    {
+        if (root == null)
+            return null;
+        if (root.name == name)
+            return root;
+        for (int i = 0; i < root.childCount; i++)
+        {
+            Transform result = FindChildRecursive(root.GetChild(i), name);
+            if (result != null)
+                return result;
+        }
+        return null;
+    }
+
+    private GameObject BuildBedroomSet(Vector3 position)
+    {
+        var root = new GameObject("BedroomSet");
+        root.transform.position = position;
+
+        Color floorC = new Color(0.42f, 0.34f, 0.26f);
+        Color frameC = new Color(0.38f, 0.28f, 0.16f);
+        Color bedC = new Color(0.78f, 0.72f, 0.6f);
+        Color coverC = new Color(0.65f, 0.3f, 0.45f);
+        Color woodC = new Color(0.45f, 0.3f, 0.15f);
+
+        CreateBlock(root.transform, new Vector3(6f, 0.2f, 6f), new Vector3(0f, 0.1f, 0f), floorC);
+        CreateBlock(root.transform, new Vector3(3f, 0.3f, 2.2f), new Vector3(0f, 0.5f, 0f), frameC);
+        CreateBlock(root.transform, new Vector3(2.8f, 0.3f, 2f), new Vector3(0f, 0.8f, 0f), bedC);
+        CreateBlock(root.transform, new Vector3(2.8f, 0.1f, 1.6f), new Vector3(0f, 1.05f, -0.3f), coverC);
+        CreateBlock(root.transform, new Vector3(1.1f, 0.18f, 0.45f), new Vector3(-0.5f, 1.05f, 0.75f), bedC);
+        CreateBlock(root.transform, new Vector3(1.1f, 0.18f, 0.45f), new Vector3(0.5f, 1.05f, 0.75f), bedC);
+        CreateBlock(root.transform, new Vector3(3.2f, 1.2f, 0.15f), new Vector3(0f, 1.25f, 1.07f), frameC);
+        CreateBlock(root.transform, new Vector3(2.4f, 0.6f, 0.12f), new Vector3(0f, 0.85f, -1.13f), frameC);
+        CreateBlock(root.transform, new Vector3(0.7f, 0.7f, 0.55f), new Vector3(-1.6f, 0.7f, 0.75f), woodC);
+        CreateBlock(root.transform, new Vector3(0.7f, 0.7f, 0.55f), new Vector3(1.6f, 0.7f, 0.75f), woodC);
+
+        return root;
     }
 
     // ═══════════════════════════════════════════════
@@ -2174,8 +2432,7 @@ public class CutsceneManager : MonoBehaviour
         CleanupSpawned();
         DestroyLetterboxBars();
         DestroyOverlay();
-        RestorePlayerControl();
-        ShowHUD();
+        RestoreAfterPreview();
 
         if (onComplete != null)
         {
@@ -2311,13 +2568,21 @@ public class CutsceneManager : MonoBehaviour
         }
     }
 
+    private void RestoreAfterPreview()
+    {
+        RestorePlayerControl();
+        if (GameManager.Instance != null && GameManager.Instance.InGame)
+            ShowHUD();
+        else if (GameManager.Instance != null)
+            GameManager.Instance.ShowMainMenu(true);
+    }
+
     private void FinishEndingScene(System.Action onComplete, string endTitle, string endContent)
     {
         _previewOnComplete = null;
         if (onComplete != null)
         {
-            RestorePlayerControl();
-            ShowHUD();
+            RestoreAfterPreview();
             onComplete();
             return;
         }

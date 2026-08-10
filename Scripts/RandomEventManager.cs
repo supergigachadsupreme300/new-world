@@ -1027,7 +1027,7 @@ public class RandomEventManager : MonoBehaviour
         vendor.ApplyPriceMultiplier(multiplier);
 
         float elapsed = 0f;
-        float realDuration = gameHours * 60f / Mathf.Max(GameManager.Instance != null ? GameManager.Instance.TimeSpeed : 1f, 0.01f);
+        float realDuration = gameHours / Mathf.Max(GameManager.Instance != null ? GameManager.Instance.TimeSpeed : 1f, 0.01f);
         while (elapsed < realDuration)
         {
             if (GameManager.Instance != null && !GameManager.Instance.GamePaused)
@@ -1045,7 +1045,7 @@ public class RandomEventManager : MonoBehaviour
 
     private IEnumerator RainbowEffect()
     {
-        float duration = 3600f / Mathf.Max(GameManager.Instance?.TimeSpeed ?? 1f, 0.1f);
+        float duration = 1f / Mathf.Max(GameManager.Instance?.TimeSpeed ?? 1f, 0.1f);
         var root = GetWorldRoot();
 
         Vector3 center = new Vector3(
@@ -1175,7 +1175,7 @@ public class RandomEventManager : MonoBehaviour
         vendor.ApplyBuyPriceMultiplier(multiplier);
 
         float elapsed = 0f;
-        float realDuration = gameHours * 60f / Mathf.Max(GameManager.Instance != null ? GameManager.Instance.TimeSpeed : 1f, 0.01f);
+        float realDuration = gameHours / Mathf.Max(GameManager.Instance != null ? GameManager.Instance.TimeSpeed : 1f, 0.01f);
         while (elapsed < realDuration)
         {
             if (GameManager.Instance != null && !GameManager.Instance.GamePaused)

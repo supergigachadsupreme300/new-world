@@ -1504,6 +1504,14 @@ public class ToolManager : MonoBehaviour
         UpdateInventoryUI();
     }
 
+    public void ClearInventory()
+    {
+        for (int i = 0; i < _inventory.Length; i++)
+            _inventory[i] = null;
+        _selectedSlot = 0;
+        UpdateInventoryUI();
+    }
+
     private int FindSlotFor(string itemType)
     {
         itemType = NormalizeItemType(itemType);

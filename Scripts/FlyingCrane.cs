@@ -458,7 +458,7 @@ public class FlyingCrane : MonoBehaviour
         if (_wingR != null) _wingR.localRotation = Quaternion.Euler(0f, 0f, -40f);
 
         yield return new WaitForSeconds(0.3f);
-        if (mission != _missionId || _cageDropped)
+        if (mission != _missionId)
             yield break;
 
         if (_cagePivot != null)

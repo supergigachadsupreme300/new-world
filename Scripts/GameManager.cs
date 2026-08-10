@@ -12,6 +12,7 @@ public class GameManager : MonoBehaviour
     public int CurrentDay = 1;
     public float TimeOfDay = 8f;
     public float TimeSpeed = 1f;
+    public float PlayTime;
 
     public PlayerController Player;
     public WorldBuilder WorldBuilder;
@@ -117,13 +118,15 @@ public class GameManager : MonoBehaviour
             {
                 if (CutsceneManager.IsActive)
                     CutsceneManager.CancelCutscene();
-                CutsceneManager.PlayTrueEnding();
+                CutsceneManager.PlayHappyEnding();
             }
         }
 #endif
 
         if (!InGame || GamePaused)
             return;
+
+        PlayTime += Time.deltaTime;
 
         TimeOfDay += TimeSpeed * Time.deltaTime;
         if (TimeOfDay >= 24f)
@@ -264,6 +267,7 @@ public class GameManager : MonoBehaviour
         IsPlayerDead = false;
         CurrentDay = 1;
         TimeOfDay = 8f;
+        PlayTime = 0f;
 
         if (Player != null)
         {
@@ -287,11 +291,14 @@ public class GameManager : MonoBehaviour
         }
 
         if (ToolManager != null)
-            ToolManager.ResetSelection();
+            ToolManager.ClearInventory();
+
+        if (WifeNPC.Instance != null)
+            WifeNPC.Instance.ResetForNewGame();
 
         if (CutsceneManager != null)
         {
-            CutsceneManager.StopMainMenuVisual(true);
+            CutsceneManager.StopMainMenuVisual();
             CutsceneManager.PlayIntroCutscene(() => UIManager?.ShowTutorial(true));
         }
 
@@ -308,6 +315,7 @@ public class GameManager : MonoBehaviour
         IsPlayerDead = false;
         CurrentDay = 1;
         TimeOfDay = 8f;
+        PlayTime = 0f;
 
         if (Player != null)
         {
@@ -331,7 +339,10 @@ public class GameManager : MonoBehaviour
         }
 
         if (ToolManager != null)
-            ToolManager.ResetSelection();
+            ToolManager.ClearInventory();
+
+        if (WifeNPC.Instance != null)
+            WifeNPC.Instance.ResetForNewGame();
 
         if (CutsceneManager != null)
         {
@@ -449,7 +460,7 @@ public class GameManager : MonoBehaviour
             return;
         bool demonSlain = QuestManager.Instance != null && QuestManager.Instance.IsComplete("boss_kill");
         if (demonSlain)
-            CutsceneManager.PlayTrueEnding();
+            CutsceneManager.PlayHappyEnding();
         else
             CutsceneManager.PlayJusticeEnding();
     }

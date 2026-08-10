@@ -28,9 +28,8 @@ public class MainMenuController : MonoBehaviour
 
     public void OnLoadGameClicked()
     {
-        bool loaded = SaveManager.Instance != null && SaveManager.Instance.LoadGame();
-        if (loaded)
-            _gameManager?.ShowMainMenu(false);
+        if (GameManager.Instance?.UIManager != null)
+            GameManager.Instance.UIManager.ShowSaveSlotMenu(true);
     }
 
     public void OnQuitClicked()
