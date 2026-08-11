@@ -40,8 +40,6 @@ public class SaveManager : MonoBehaviour
         if (_gameManager == null || _toolManager == null || _worldBuilder == null)
             return;
 
-        WifeNPC.Instance?.SaveState();
-
         var data = new SaveData
         {
             time = new TimeData
@@ -135,7 +133,7 @@ public class SaveManager : MonoBehaviour
         if (WifeNPC.Instance != null)
         {
             if (string.IsNullOrEmpty(data.wifeStateJson))
-                WifeNPC.Instance.LoadState();
+                WifeNPC.Instance.ResetForNewGame();
             else
                 WifeNPC.Instance.DeserializeState(data.wifeStateJson);
         }

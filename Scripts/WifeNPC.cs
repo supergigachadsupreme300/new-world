@@ -67,6 +67,7 @@ public class WifeNPC : MonoBehaviour
     private TMP_Text _nightText;
     private int _chainStep;
     private bool _rosaryGranted;
+    private bool _fishingBonusGranted;
     private int _lastRosaryGrantDay = -1;
     private Coroutine _walkRoutine;
     private GameObject _proposeRow;
@@ -239,6 +240,9 @@ public class WifeNPC : MonoBehaviour
                 "Xây Dựng Dinh Thự Cho Jessica",
                 "mansion", 25, 5000,
                 "Jessica đồng ý lời tỏ tình! Hãy xây dinh thự để làm lễ cưới.");
+            int mansionParts = WorldBuilder.Instance != null ? WorldBuilder.Instance.GetMansionCompletedParts() : 0;
+            if (mansionParts > 0)
+                QuestManager.Instance?.AddProgress("mansion", mansionParts);
             _dialogQueue.Clear();
             _dialogQueue.Enqueue("Jessica: Anh ơi... em thực sự rất bất ngờ!");
             _dialogQueue.Enqueue("Jessica: Em cũng có tình cảm với anh từ lâu rồi.");
@@ -753,9 +757,13 @@ public class WifeNPC : MonoBehaviour
             hasProposed = _hasProposed,
             chainStep = _chainStep,
             rosaryGranted = _rosaryGranted,
+            fishingBonusGranted = _fishingBonusGranted,
             lastRosaryGrantDay = _lastRosaryGrantDay,
             lastTalkDay = _lastTalkDay
         };
+        data.wifeQuestNames = _wifeQuestNames;
+        data.wifeQuestTargets = _wifeQuestTargets;
+        data.wifeQuestCounts = _wifeQuestCounts;
         return JsonUtility.ToJson(data);
     }
 
@@ -779,10 +787,19 @@ public class WifeNPC : MonoBehaviour
             _hasProposed = data.hasProposed;
             _chainStep = data.chainStep;
             _rosaryGranted = data.rosaryGranted;
+            _fishingBonusGranted = data.fishingBonusGranted;
             _lastRosaryGrantDay = data.lastRosaryGrantDay;
             _lastTalkDay = data.lastTalkDay > 0 ? data.lastTalkDay : 1;
             if (!_rosaryGranted)
                 _lastRosaryGrantDay = -1;
+            if (data.wifeQuestNames != null)
+                _wifeQuestNames = data.wifeQuestNames;
+            if (data.wifeQuestTargets != null)
+                _wifeQuestTargets = data.wifeQuestTargets;
+            if (data.wifeQuestCounts != null)
+                _wifeQuestCounts = data.wifeQuestCounts;
+            if (_wifeQuestTargets.Count == 0)
+                _lastWifeQuestDay = 0;
         }
     }
 
@@ -957,9 +974,19 @@ public class WifeNPC : MonoBehaviour
         {
             _chainStep = 2;
             _affection = Mathf.Min(100f, _affection + 10f);
+            _fishingBonusGranted = true;
             GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Hoàn thành Câu Cá Lần Đầu! +10 độ thân mật"), 3f);
             SaveState();
             return;
+        }
+
+        if (_chainStep == 3 && !_fishingBonusGranted
+            && qm.IsNamedQuestComplete("Câu Cá Lần Đầu"))
+        {
+            _affection = Mathf.Min(100f, _affection + 10f);
+            _fishingBonusGranted = true;
+            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Hoàn thành Câu Cá Lần Đầu! +10 độ thân mật"), 3f);
+            SaveState();
         }
 
         if (_chainStep == 3 && qm.IsNamedQuestComplete("Trừ Tà Giúp Làng"))
@@ -1029,6 +1056,7 @@ public class WifeNPC : MonoBehaviour
         _hasProposed = false;
         _chainStep = 0;
         _rosaryGranted = false;
+        _fishingBonusGranted = false;
         _lastRosaryGrantDay = -1;
         _lastTalkDay = 1;
         _wifeQuestNames.Clear();
@@ -1057,6 +1085,8 @@ public class WifeNPC : MonoBehaviour
         if (today != _lastWifeQuestDay && _wifeQuestTargets.Count > 0)
         {
             _affection = Mathf.Max(0f, _affection - 5f * _wifeQuestTargets.Count);
+            for (int i = 0; i < _wifeQuestNames.Count; i++)
+                QuestManager.Instance?.RemoveStoryQuest(_wifeQuestNames[i]);
             _wifeQuestNames.Clear();
             _wifeQuestTargets.Clear();
             _wifeQuestCounts.Clear();
@@ -1513,7 +1543,11 @@ public class WifeNPC : MonoBehaviour
         public bool hasProposed;
         public int chainStep;
         public bool rosaryGranted;
+        public bool fishingBonusGranted;
         public int lastRosaryGrantDay;
         public int lastTalkDay;
+        public List<string> wifeQuestNames = new List<string>();
+        public List<string> wifeQuestTargets = new List<string>();
+        public List<int> wifeQuestCounts = new List<int>();
     }
 }

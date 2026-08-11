@@ -566,7 +566,7 @@ public class CutsceneManager : MonoBehaviour
         Vector3 camFixedPos = _mainCamera != null ? _mainCamera.transform.position : Vector3.zero;
 
         float driveZ = IntroStartZ;
-        UpdateDrivingSegments(driveZ, 0f, 0f, false);
+        UpdateDrivingSegments(driveZ, 0f, 0f, true);
         while (driveZ < IntroEndZ)
         {
             driveZ += DrivingSpeed * Time.deltaTime;
@@ -577,7 +577,7 @@ public class CutsceneManager : MonoBehaviour
                 Vector3 lookTarget = new Vector3(RoadX, 1f, driveZ);
                 _mainCamera.transform.LookAt(lookTarget);
             }
-            UpdateDrivingSegments(driveZ, 0f, 0f, false);
+            UpdateDrivingSegments(driveZ, 0f, 0f, true);
             yield return null;
         }
 
@@ -1366,7 +1366,7 @@ public class CutsceneManager : MonoBehaviour
             // ── PHASE 3: THE ARREST ──
             Vector3 officerStart = officer.transform.position;
             Vector3 richPos = richModel.transform.position;
-            Vector3 arrestTarget = Vector3.MoveTowards(officerStart, richPos, Vector3.Distance(officerStart, richPos) - 1.5f);
+            Vector3 arrestTarget = Vector3.MoveTowards(officerStart, richPos, Mathf.Max(0f, Vector3.Distance(officerStart, richPos) - 1.5f));
             float arrestDur = 4f;
             float arrestTimer = 0f;
             while (arrestTimer < arrestDur)

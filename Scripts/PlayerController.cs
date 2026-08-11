@@ -176,7 +176,10 @@ public class PlayerController : MonoBehaviour
     {
         bool dialogBlocked = (WifeNPC.Instance != null && WifeNPC.Instance.IsDialogActive) ||
                              (BuffaloDialog.Instance != null && BuffaloDialog.Instance.IsDialogActive) ||
-                             (RichManNPC.Instance != null && RichManNPC.Instance.IsDialogActive);
+                             (RichManNPC.Instance != null && RichManNPC.Instance.IsDialogActive) ||
+                             (PoliceOfficerNPC.Instance != null && PoliceOfficerNPC.Instance.IsDialogActive) ||
+                             (PagodaMonkNPC.Instance != null && PagodaMonkNPC.Instance.IsDialogActive) ||
+                             (ChefNPC.Instance != null && ChefNPC.Instance.IsDialogActive);
         Vector2 input = dialogBlocked ? Vector2.zero : ReadMoveInput();
         Vector3 direction = new Vector3(input.x, 0f, input.y);
         if (direction.magnitude > 1f)
@@ -238,10 +241,11 @@ public class PlayerController : MonoBehaviour
         bool richManDialog = RichManNPC.Instance != null && RichManNPC.Instance.IsDialogActive;
         bool policeDialog = PoliceOfficerNPC.Instance != null && PoliceOfficerNPC.Instance.IsDialogActive;
         bool monkDialog = PagodaMonkNPC.Instance != null && PagodaMonkNPC.Instance.IsDialogActive;
-        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog || monkDialog;
+        bool chefDialog = ChefNPC.Instance != null && ChefNPC.Instance.IsDialogActive;
+        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog || monkDialog || chefDialog;
 
         bool ePressed = (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) ||
-                        (!wifeDialog && !richManDialog && !policeDialog && MobileInputController.Consume("interact"));
+                        (!wifeDialog && !richManDialog && !policeDialog && !chefDialog && MobileInputController.Consume("interact"));
         if (ePressed && buffaloDialog)
             BuffaloDialog.Instance.Advance();
         if (ePressed && richManDialog)
@@ -250,6 +254,8 @@ public class PlayerController : MonoBehaviour
             PoliceOfficerNPC.Instance.Advance();
         if (ePressed && monkDialog)
             PagodaMonkNPC.Instance.Advance();
+        if (ePressed && chefDialog)
+            ChefNPC.Instance.Advance();
         if (richManDialog && RichManNPC.Instance != null && RichManNPC.Instance.IsEndingChoiceShown)
         {
             if (Keyboard.current != null && Keyboard.current.digit1Key.wasPressedThisFrame)

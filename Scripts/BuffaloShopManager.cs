@@ -234,8 +234,6 @@ public class BuffaloShopManager : MonoBehaviour
         SetButtonLabel(_tabBuy, Localization.T("Mua"));
         SetButtonLabel(_tabSell, Localization.T("Bán"));
         SetButtonLabel(_sellAllBtn, Localization.T("Bán Tất Cả"));
-        if (_tabSell != null) _tabSell.gameObject.SetActive(false);
-        if (_sellAllBtn != null) _sellAllBtn.gameObject.SetActive(false);
 
         SwitchTab("buy");
     }
@@ -366,6 +364,7 @@ public class BuffaloShopManager : MonoBehaviour
         tm.RemoveAllItems(item.Type);
         int earned = owned * item.Price;
         player.Money += earned;
+        GameStats.AddMoneyEarned(earned);
         QuestManager.Instance?.AddProgress("money_earned", earned);
         ShowMessage(Localization.F("Đã bán {0} {1} (+{2}g)", owned, Localization.T(item.Label), earned));
         UpdatePage();
@@ -391,6 +390,7 @@ public class BuffaloShopManager : MonoBehaviour
         if (totalEarned > 0)
         {
             player.Money += totalEarned;
+            GameStats.AddMoneyEarned(totalEarned);
             QuestManager.Instance?.AddProgress("money_earned", totalEarned);
             ShowMessage(Localization.F("Đã bán tất cả (+{0}g)", totalEarned));
             UpdatePage();

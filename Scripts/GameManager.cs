@@ -180,6 +180,27 @@ public class GameManager : MonoBehaviour
             return true;
         }
 
+        var chef = ChefNPC.Instance;
+        if (chef != null && chef.IsDialogActive)
+        {
+            chef.Hide();
+            return true;
+        }
+
+        var monk = PagodaMonkNPC.Instance;
+        if (monk != null && monk.IsDialogActive)
+        {
+            monk.Hide();
+            return true;
+        }
+
+        var police = PoliceOfficerNPC.Instance;
+        if (police != null && police.IsDialogActive)
+        {
+            police.Hide();
+            return true;
+        }
+
         return false;
     }
 

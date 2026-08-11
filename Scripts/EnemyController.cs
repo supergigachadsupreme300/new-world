@@ -170,8 +170,8 @@ public class EnemyController : MonoBehaviour
 
         float distance = Vector3.Distance(transform.position, _player.position);
 
-        if (IsBoss)
-            BossFightActive = distance <= 45f;
+        if (IsBoss && distance <= 45f)
+            BossFightActive = true;
 
         if (IsBoss)
         {
@@ -929,6 +929,7 @@ public class EnemyController : MonoBehaviour
     private void Die()
     {
         _isDead = true;
+        GameStats.AddEnemy();
         if (IsBoss)
         {
             QuestManager.Instance?.AddProgress("boss_kill", 1);

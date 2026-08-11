@@ -526,6 +526,8 @@ public class ToolManager : MonoBehaviour
                         {
                             if (amount < 0.05f)
                             {
+                                Destroy(_carriedObject);
+                                _carriedObject = null;
                                 _uiManager.ShowMessage(Localization.T("Quá nhỏ để dùng."), 1f);
                                 return;
                             }
@@ -842,6 +844,8 @@ public class ToolManager : MonoBehaviour
                     if (_worldBuilder.HarvestField(field, out var item))
                     {
                         AddItem(item, 1);
+                        if (item == "wheat")
+                            GameStats.AddWheat(1);
                         SoundManager.Instance?.Play("sickle");
                         _uiManager.ShowMessage(Localization.F("Đã thu hoạch {0}.", Localization.ItemName(item)), 1.5f);
                         QuestManager.Instance?.AddProgress(item, 1);
@@ -1375,11 +1379,13 @@ public class ToolManager : MonoBehaviour
 
             if (amount < 0.05f)
             {
-                                _uiManager.ShowMessage(Localization.T("Quá nhỏ để dùng."), 1f);
-                                return;
-                            }
+                Destroy(_carriedObject);
+                _carriedObject = null;
+                _uiManager.ShowMessage(Localization.T("Quá nhỏ để dùng."), 1f);
+                return;
+            }
 
-                            if (_worldBuilder.DepositMaterial(bp, material, amount))
+            if (_worldBuilder.DepositMaterial(bp, material, amount))
                             {
                                 _uiManager.ShowMessage(Localization.T("Xây dựng hoàn thành!"), 1.5f);
                                 SoundManager.Instance?.Play("hammer");

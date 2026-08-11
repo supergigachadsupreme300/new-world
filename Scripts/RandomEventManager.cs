@@ -860,8 +860,8 @@ public class RandomEventManager : MonoBehaviour
         if (buildings.Count == 0) return;
 
         var building = buildings[UnityEngine.Random.Range(0, buildings.Count)];
-        int damage = building.MaxHealth / 4;
-        building.CurrentHealth = Mathf.Max(0, building.CurrentHealth - damage);
+        int damage = Mathf.Max(1, building.MaxHealth / 4);
+        wb.DamageBuildingDirect(building, damage);
     }
 
     private void EffectEarthquake()
@@ -989,7 +989,11 @@ public class RandomEventManager : MonoBehaviour
         if (player == null) return;
         long stolen = (long)(player.Money * UnityEngine.Random.Range(0.05f, 0.1f));
         stolen = Math.Min(stolen, 500L);
+        if (stolen > 0)
+            stolen = Math.Max(1L, stolen);
         player.Money -= stolen;
+        if (stolen > 0)
+            GameStats.AddMoneyStolen(stolen);
     }
 
     private void EffectWanderingMerchant()
@@ -1045,7 +1049,7 @@ public class RandomEventManager : MonoBehaviour
 
     private IEnumerator RainbowEffect()
     {
-        float duration = 1f / Mathf.Max(GameManager.Instance?.TimeSpeed ?? 1f, 0.1f);
+        float duration = 1f / Mathf.Max(GameManager.Instance?.TimeSpeed ?? 1f, 0.01f);
         var root = GetWorldRoot();
 
         Vector3 center = new Vector3(
@@ -1409,7 +1413,8 @@ public class RandomEventManager : MonoBehaviour
     {
         Vector3 playerPos = GetPlayerPos();
         float angle = UnityEngine.Random.Range(0f, 360f) * Mathf.Deg2Rad;
-        Vector3 treasurePos = new Vector3(Mathf.Cos(angle) * 80f, 0.5f, Mathf.Sin(angle) * 80f);
+        Vector3 offset = new Vector3(Mathf.Cos(angle) * 40f, 0.5f, Mathf.Sin(angle) * 40f);
+        Vector3 treasurePos = new Vector3(playerPos.x, 0.5f, playerPos.z) + offset;
         SpawnCoinPickup(treasurePos + Vector3.up * 8f, 1000);
         ShowBanner("Bản Đồ Kho Báu", "Rương kho báu đã xuất hiện ở rìa bản đồ!");
     }
@@ -1510,6 +1515,7 @@ public class CoinPickupBehavior : MonoBehaviour
         {
             _collected = true;
             player.Money += Amount;
+            GameStats.AddMoneyEarned(Amount);
             SoundManager.Instance?.Play("pop");
             GameManager.Instance?.UIManager?.ShowMessage("+" + Amount + "g", 1.5f);
             Destroy(gameObject);

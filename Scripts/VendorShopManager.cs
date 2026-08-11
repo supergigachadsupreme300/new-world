@@ -470,6 +470,7 @@ public class VendorShopManager : MonoBehaviour
         tm.RemoveAllItems(item.Type);
         int earned = owned * item.Price;
         player.Money += earned;
+        GameStats.AddMoneyEarned(earned);
         QuestManager.Instance?.AddProgress("money_earned", earned);
         ShowMessage(Localization.F("Đã bán {0} {1} (+{2}g)", owned, Localization.T(item.Label), earned));
         UpdatePage();
@@ -495,6 +496,7 @@ public class VendorShopManager : MonoBehaviour
         if (totalEarned > 0)
         {
             player.Money += totalEarned;
+            GameStats.AddMoneyEarned(totalEarned);
             QuestManager.Instance?.AddProgress("money_earned", totalEarned);
             ShowMessage(Localization.F("Đã bán tất cả (+{0}g)", totalEarned));
             UpdatePage();

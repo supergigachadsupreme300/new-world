@@ -1256,7 +1256,16 @@ public class UIManager : MonoBehaviour
         if (_recordPanel != null)
             _recordPanel.SetActive(show);
         if (show)
+        {
             _pauseMenuPanel?.SetActive(false);
+            var recordLinesGo = GameObject.Find("RecordLines");
+            if (recordLinesGo != null)
+            {
+                var t = recordLinesGo.GetComponent<TMP_Text>();
+                if (t != null)
+                    t.text = BuildRecordLines(GameStats.WheatHarvested, GameStats.EnemiesDefeated, GameStats.MoneyEarned, GameStats.MoneyStolen);
+            }
+        }
         if (!show && GameManager.Instance != null && GameManager.Instance.GamePaused)
             ShowPauseMenu(true);
     }
@@ -1308,8 +1317,8 @@ public class UIManager : MonoBehaviour
     {
         if (_endingTreePanel != null)
             _endingTreePanel.SetActive(show);
-        if (_settingsPanel != null)
-            _settingsPanel.SetActive(!show);
+        if (_settingsPanel != null && show)
+            _settingsPanel.SetActive(false);
         if (show)
         {
             _pauseMenuPanel?.SetActive(false);

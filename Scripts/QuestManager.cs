@@ -205,6 +205,7 @@ public class QuestManager : MonoBehaviour
         if (total > 0 && GameManager.Instance?.Player != null)
         {
             GameManager.Instance.Player.Money += total;
+            GameStats.AddMoneyEarned(total);
             var msg = Localization.F("Nhiệm vụ hoàn thành! Nhận {0}g!", total);
             GameManager.Instance?.UIManager?.ShowMessage(msg, 3f);
         }
@@ -300,6 +301,12 @@ public class QuestManager : MonoBehaviour
     public void AddStoryQuest(string name, string target, int count, int reward, string description)
     {
         AddIfMissing(CreateStoryQuest(name, target, count, reward, description, 0));
+    }
+
+    public void RemoveStoryQuest(string questName)
+    {
+        _quests.RemoveAll(q => q.Name == questName && !q.RewardClaimed);
+        UpdateQuestUI();
     }
 
     public bool IsComplete(string target)
