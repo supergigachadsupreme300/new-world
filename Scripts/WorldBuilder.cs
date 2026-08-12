@@ -366,6 +366,8 @@ public class WorldBuilder : MonoBehaviour
         BuildBeach();
         BuildShop();
         BuildRestaurant();
+        BuildCafe();
+        BuildNightClub();
         MapBuilder.BuildConvenienceStore(_worldRoot.transform, new Vector3(24f, 0f, 60f), 1f, Quaternion.Euler(0f, 180f, 0f));
         BuildWifeHouse();
         BuildRichManMansion();
@@ -4355,6 +4357,38 @@ GameObject treeRoot;
         });
     }
 
+    private void BuildCafe()
+    {
+        var cafe = MapBuilder.BuildCafe(_worldRoot.transform, new Vector3(0f, 0f, 45f));
+        _buildings.Add(new BuildingState
+        {
+            Entity = cafe,
+            Type = "Cafe",
+            Position = cafe.transform.position,
+            Rotation = 0,
+            PartStates = CollectColliderParts(cafe, "Cafe"),
+            CurrentHealth = 100,
+            MaxHealth = 100,
+            IsEssential = true
+        });
+    }
+
+    private void BuildNightClub()
+    {
+        var club = MapBuilder.BuildNightClub(_worldRoot.transform, new Vector3(-45f, 0f, -60f), 1f, Quaternion.Euler(0f, 90f, 0f));
+        _buildings.Add(new BuildingState
+        {
+            Entity = club,
+            Type = "NightClub",
+            Position = club.transform.position,
+            Rotation = 0,
+            PartStates = CollectColliderParts(club, "NightClub"),
+            CurrentHealth = 100,
+            MaxHealth = 100,
+            IsEssential = true
+        });
+    }
+
     private void BuildWifeHouse()
     {
         var wifeHouse = MapBuilder.BuildWifeHouse(_worldRoot.transform, new Vector3(33f, 0f, 0f));
@@ -4412,7 +4446,10 @@ GameObject treeRoot;
         bool nearDisplay = x >= 48 && x <= 67 && z >= -130 && z <= -48;
         bool nearMansion = x >= -45 && x <= -15 && z >= 39 && z <= 61;
         bool nearPagoda = Mathf.Abs(x - _pagodaPosition.x) <= 8 && Mathf.Abs(z - _pagodaPosition.z) <= 12;
-        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearDisplay || nearMansion || nearPagoda;
+        bool nearCafe = Mathf.Abs(x) <= 10 && z >= 33 && z <= 57;
+        bool nearClub = x >= 16 && x <= 44 && z >= -132 && z <= -106;
+        bool nearClubCorridor = x >= 24 && x <= 56 && z >= -106 && z <= 46;
+        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearDisplay || nearMansion || nearPagoda || nearCafe || nearClub || nearClubCorridor;
     }
 
     private void CreateVendorSpawnButton()

@@ -138,6 +138,15 @@ public static class Localization
         { "banh_tet", "Bánh Tét" },
         { "keo", "Kẹo" },
 
+        // Cafe
+        { "cafe_den", "Cà Phê Đen" },
+
+        // Quest tips
+        { "--- Gợi Ý ---", "--- Tips ---" },
+        { "Mở khóa ngày {0}: {1}", "Unlocks on day {0}: {1}" },
+        { "Bạn đã hoàn thành mọi nhiệm vụ cốt truyện. Hãy khám phá các kết thúc khác của câu chuyện!", "You've completed every story quest. Explore the other endings of the story!" },
+        { "Gợi ý: Nói chuyện với Jessica mỗi ngày và hoàn thành nhiệm vụ của cô ấy để tăng Độ Thân Mật. Đạt 70+ để cầu hôn.", "Tip: Talk to Jessica every day and complete her quests to raise Affection. Reach 70+ to propose." },
+
         // Grocery store
         { "tu_gao", "Túi Gạo" },
         { "duong", "Đường" },
@@ -308,6 +317,10 @@ public static class Localization
         { "Tiếp Tục (Tải)", "Continue (Load)" },
         { "Xem Giới Thiệu", "Watch Intro" },
         { "Bỏ Qua Giới Thiệu", "Skip Intro" },
+        { "Chọn Giới Tính", "Choose Gender" },
+        { "Nam", "Male" },
+        { "Nữ", "Female" },
+        { "Chỉ là ngoại hình, không ảnh hưởng trò chơi.", "Cosmetic only - does not affect gameplay." },
         { "Chơi Lại", "Play Again" },
         { "Chọn thiết bị bạn sẽ chơi", "Choose the device you will play on" },
         { "Lúa đã thu hoạch: {0}", "Wheat harvested: {0}" },
@@ -690,6 +703,10 @@ public static class Localization
           "THE PAGODA\n\nThe 4-tier curved-roof pagoda lies east of the village, right next to the neighbor's house.\n\nIt is the village's landmark \u2014 come pay your respects and watch the sunset from there." },
         { "MẸO\n\nThu hoạch lúa để kiếm tiền\nXây dựng tường và tháp canh để bảo vệ\nHoàn thành nhiệm vụ để nhận thưởng\nNgủ trên giường để lưu game",
           "TIPS\n\nHarvest wheat to earn money\nBuild walls and watchtowers for protection\nComplete quests to earn rewards\nSleep on the bed to save the game" },
+        { "CÂU CÁ\n\nTrò chơi nhỏ \u2014 Câu cá!\n\nTrang bị Cần Câu (quà của Jessica), đứng gần biển phía Tây, nhắm ra mặt nước và bấm chuột trái để thả lưỡi câu.\n\nChờ bóng cá bơi tới phao \u2014 khi phao rung, bấm chuột trái để bắt đầu kéo.",
+          "FISHING\n\nMinigame \u2014 Fishing!\n\nEquip the Fishing Rod (a gift from Jessica), stand by the sea to the west, aim at the water and left-click to cast the hook.\n\nWait for the fish shadow to reach the bobber \u2014 when the hook shakes, left-click to start reeling." },
+        { "CÂU CÁ (TIẾP)\n\nKéo vòng tròn giữa màn hình để di chuyển vạch trắng \u2014 giữ nó trong vùng xanh để lấp đầy thanh tiến độ.\n\nCá có thể quẫy trên bờ \u2014 dùng Gậy gõ cho xỉu rồi nhặt lên.\n\nCá bán được tiền: Chép 15, Hồi 25, Ngừ 40, Nóc 60.",
+          "FISHING (CONTINUED)\n\nDrag the wheel in the middle of the screen to move the white line \u2014 keep it inside the green zone to fill the progress bar.\n\nFish can flop on the shore \u2014 hit them with the Club to knock them out, then pick them up.\n\nFish sell for: Carp 15, Salmon 25, Tuna 40, Pufferfish 60." },
 
         // Item names (VN source shown to player in Vietnamese mode)
         { "Búa", "Hammer" },

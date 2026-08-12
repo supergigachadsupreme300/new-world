@@ -54,7 +54,8 @@ public class SaveManager : MonoBehaviour
                 rotationY = GameManager.Instance.Player != null ? GameManager.Instance.Player.transform.eulerAngles.y : 0f,
                 hp = GameManager.Instance.Player != null ? GameManager.Instance.Player.HP : 100,
                 stamina = GameManager.Instance.Player != null ? GameManager.Instance.Player.Stamina : 1000f,
-                money = GameManager.Instance.Player != null ? GameManager.Instance.Player.Money : 0
+                money = GameManager.Instance.Player != null ? GameManager.Instance.Player.Money : 0,
+                gender = MapBuilder.ActiveGender
             },
             inventory = _toolManager.GetInventorySave(),
             fields = _worldBuilder.GetAllFieldsAsSave(),
@@ -121,6 +122,8 @@ public class SaveManager : MonoBehaviour
             GameManager.Instance.Player.HP = player.hp;
             GameManager.Instance.Player.Stamina = player.stamina;
             GameManager.Instance.Player.Money = player.money;
+            MapBuilder.ActiveGender = player.gender;
+            GameManager.Instance.Player.ApplyGender();
         }
 
         _toolManager?.LoadInventorySave(data.inventory);
@@ -210,5 +213,6 @@ public class SaveManager : MonoBehaviour
         public int hp;
         public float stamina;
         public long money;
+        public PlayerGender gender;
     }
 }

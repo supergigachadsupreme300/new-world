@@ -38,9 +38,9 @@ public class RichManNPC : MonoBehaviour
     private enum DealState { None, WalkingToMeeting, Meeting, Leaving }
     private DealState _dealState = DealState.None;
     private GameObject _dealer;
-    private readonly Vector3 _meetingSpot = new Vector3(58f, 0f, 50f);
-    private readonly Vector3 _dealerSpawn = new Vector3(62f, 0.97f, 70f);
-    private readonly Vector3 _dealerLeave = new Vector3(70f, 0.97f, 66f);
+    private readonly Vector3 _meetingSpot = new Vector3(-35f, 0f, -60f);
+    private readonly Vector3 _dealerSpawn = new Vector3(4f, 0.97f, -60f);
+    private readonly Vector3 _dealerLeave = new Vector3(10f, 0.97f, -60f);
     private float _meetingTimer;
     private int _lastDealDay = -1;
     private bool _richAtMeeting;

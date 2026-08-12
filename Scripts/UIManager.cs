@@ -7,6 +7,8 @@ using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 using TMPro;
 
+public enum GenderMenuMode { Intro, SkipIntro }
+
 public class UIManager : MonoBehaviour
 {
     private Canvas _canvas;
@@ -30,6 +32,8 @@ public class UIManager : MonoBehaviour
     private TMP_Text _saveSlotTitleText;
     private Button[] _saveSlotButtons;
     private bool _saveSlotLoadMode;
+    private GameObject _genderPanel;
+    private GenderMenuMode _genderMenuMode;
     private GameObject _endingTreePanel;
     private GameObject _endingTreeListRoot;
     private TMP_Text _endingTreeTitleText;
@@ -103,6 +107,8 @@ public class UIManager : MonoBehaviour
         "KẺ THÙ\n\nBan đêm (18h \u2013 6h), lũ quỷ xuất hiện và tấn công bạn cùng các công trình.\nQuỷ thường: 50 máu, gây 10 sát thương.\nQuỷ khổng lồ: máu và sát thương cao hơn.",
         "TRỪ TÀ\n\nTràng hạt \u2014 Quả cầu thánh hạ gục một đòn.\nTrang bị Tràng Hạt rồi bấm chuột trái để thi triển.\n\nHãy đóng cửa khi trời tối để cản bước chúng!",
         "NGÔI CHÙA\n\nNgôi chùa 4 tầng mái cong nằm phía Đông làng, ngay cạnh nhà bà hàng xóm.\n\nĐây là công trình biểu tượng của làng \u2014 hãy đến chiêm bái và ngắm cảnh hoàng hôn từ nơi đây.",
+        "CÂU CÁ\n\nTrò chơi nhỏ \u2014 Câu cá!\n\nTrang bị Cần Câu (quà của Jessica), đứng gần biển phía Tây, nhắm ra mặt nước và bấm chuột trái để thả lưỡi câu.\n\nChờ bóng cá bơi tới phao \u2014 khi phao rung, bấm chuột trái để bắt đầu kéo.",
+        "CÂU CÁ (TIẾP)\n\nKéo vòng tròn giữa màn hình để di chuyển vạch trắng \u2014 giữ nó trong vùng xanh để lấp đầy thanh tiến độ.\n\nCá có thể quẫy trên bờ \u2014 dùng Gậy gõ cho xỉu rồi nhặt lên.\n\nCá bán được tiền: Chép 15, Hồi 25, Ngừ 40, Nóc 60.",
         "MẸO\n\nThu hoạch lúa để kiếm tiền\nXây dựng tường và tháp canh để bảo vệ\nHoàn thành nhiệm vụ để nhận thưởng\nNgủ trên giường để lưu game"
     };
     private GameObject _endPanel;
@@ -711,6 +717,8 @@ public class UIManager : MonoBehaviour
 
         CreatePlatformPanel(panelWidth, panelHeight, padding, fontSize, largefontSize);
 
+        CreateGenderSelectionPanel(panelWidth, panelHeight, fontSize, largefontSize);
+
         ShowAllGameUI(true);
 
         // Re-apply main menu visibility in case GameManager.Start() ran before slots were created
@@ -1032,6 +1040,79 @@ public class UIManager : MonoBehaviour
     private float lineHeight()
     {
         return Screen.height * 0.05f;
+    }
+
+    private void CreateGenderSelectionPanel(float panelWidth, float panelHeight, float fontSize, float largefontSize)
+    {
+        float gpW = 520f;
+        float gpH = 360f;
+        _genderPanel = CreateMenuPanel("GenderSelectionPanel", Vector2.zero, new Vector2(gpW, gpH));
+        if (_genderPanel == null)
+            return;
+
+        EnsureText("GenderTitleText", new Vector2(0f, gpH * 0.3f), Localization.T("Chọn Giới Tính"), (int)(largefontSize * 0.95f), _genderPanel.transform, TextAlignmentOptions.Center, true, new Vector2(gpW - 60f, lineHeight() * 1.3f));
+        EnsureText("GenderNoteText", new Vector2(0f, gpH * 0.16f), Localization.T("Chỉ là ngoại hình, không ảnh hưởng trò chơi."), Mathf.Max(14, (int)(fontSize * 0.7f)), _genderPanel.transform, TextAlignmentOptions.Center, true, new Vector2(gpW - 80f, lineHeight() * 1.1f));
+
+        float pitch = 70f;
+        CreateButton("GenderMaleButton", _genderPanel.transform, Localization.T("Nam"), new Vector2(-gpW * 0.16f, -40f), () => SelectGender(PlayerGender.Male), new Vector2(gpW * 0.28f, 56f));
+        CreateButton("GenderFemaleButton", _genderPanel.transform, Localization.T("Nữ"), new Vector2(gpW * 0.16f, -40f), () => SelectGender(PlayerGender.Female), new Vector2(gpW * 0.28f, 56f));
+        CreateButton("GenderBackButton", _genderPanel.transform, Localization.T("Quay Lại"), new Vector2(0f, -40f - pitch), () => CloseGenderSelectionMenu(), new Vector2(gpW * 0.4f, 50f));
+
+        _genderPanel.SetActive(false);
+    }
+
+    public void ShowGenderSelectionMenu(GenderMenuMode mode)
+    {
+        if (_genderPanel == null)
+            return;
+        _genderMenuMode = mode;
+        SetText("GenderTitleText", "Chọn Giới Tính");
+        SetText("GenderNoteText", "Chỉ là ngoại hình, không ảnh hưởng trò chơi.");
+        SetButtonText("GenderMaleButton", "Nam");
+        SetButtonText("GenderFemaleButton", "Nữ");
+        SetButtonText("GenderBackButton", "Quay Lại");
+        _genderPanel.SetActive(true);
+        _pauseMenuPanel?.SetActive(false);
+        _mainMenuPanel?.SetActive(false);
+        if (_settingsPanel != null)
+            _settingsPanel.SetActive(false);
+        if (_recordPanel != null)
+            _recordPanel.SetActive(false);
+        if (_questPanel != null)
+            _questPanel.SetActive(false);
+        if (_saveSlotPanel != null)
+            _saveSlotPanel.SetActive(false);
+    }
+
+    private void CloseGenderSelectionMenu()
+    {
+        if (_genderPanel != null)
+            _genderPanel.SetActive(false);
+        if (GameManager.Instance == null)
+            return;
+        if (GameManager.Instance.InGame)
+        {
+            if (GameManager.Instance.GamePaused)
+                ShowPauseMenu(true);
+        }
+        else
+        {
+            ShowMainMenu(true);
+        }
+    }
+
+    private void SelectGender(PlayerGender gender)
+    {
+        MapBuilder.ActiveGender = gender;
+        GameManager.Instance?.Player?.ApplyGender();
+        if (_genderPanel != null)
+            _genderPanel.SetActive(false);
+        if (GameManager.Instance == null)
+            return;
+        if (_genderMenuMode == GenderMenuMode.SkipIntro)
+            GameManager.Instance.StartNewGameSkipIntro();
+        else
+            GameManager.Instance.StartNewGame();
     }
 
     public void ShowSaveSlotMenu(bool loadMode)
@@ -1720,6 +1801,14 @@ public class UIManager : MonoBehaviour
         if (_saveSlotTitleText != null)
             _saveSlotTitleText.text = Localization.T(_saveSlotLoadMode ? "Tải Game" : "Lưu Game");
         RefreshSaveSlots();
+        if (_genderPanel != null)
+        {
+            SetText("GenderTitleText", "Chọn Giới Tính");
+            SetText("GenderNoteText", "Chỉ là ngoại hình, không ảnh hưởng trò chơi.");
+            SetButtonText("GenderMaleButton", "Nam");
+            SetButtonText("GenderFemaleButton", "Nữ");
+            SetButtonText("GenderBackButton", "Quay Lại");
+        }
 
         UpdateSettingsValues();
 

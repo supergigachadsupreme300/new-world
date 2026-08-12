@@ -15,6 +15,7 @@ public class PlayerController : MonoBehaviour
     public float MaxStamina = 1000f;
     public float StaminaRegenRate = 4f;
     public float StaminaRegenMultiplier = 1f;
+    public float StaminaRegenModifier = 1f;
     public float SprintCost = 35f;
     public long Money = 1000;
     public bool IgnoreInput { get; private set; }
@@ -29,6 +30,7 @@ public class PlayerController : MonoBehaviour
     private GameObject _playerModelInstance;
     private float _waterSpeedMul = 1f;
     private bool _waterAllowJump = true;
+    private float _staminaRegenModifierUntil = 0f;
 
     public void SetInWater(bool inWater, float speedMul, bool allowJump)
     {
@@ -85,6 +87,8 @@ public class PlayerController : MonoBehaviour
     {
         StaminaRegenRate = 4f;
         StaminaRegenMultiplier = 1f;
+        StaminaRegenModifier = 1f;
+        _staminaRegenModifierUntil = 0f;
         ResetPlayer();
         // Allow developer to enable input automatically for quick testing.
         EnableInput(AutoEnableInput);
@@ -229,9 +233,20 @@ public class PlayerController : MonoBehaviour
                          (GameInput.IsMobile && MobileInputController.IsHeld("sprint"));
         if (!sprinting || _controller == null || !_controller.isGrounded)
         {
-            Stamina = Mathf.Min(MaxStamina, Stamina + StaminaRegenRate * StaminaRegenMultiplier * Time.deltaTime);
+            float regenMul = StaminaRegenMultiplier;
+            if (Time.time < _staminaRegenModifierUntil)
+                regenMul *= StaminaRegenModifier;
+            else if (StaminaRegenModifier != 1f)
+                StaminaRegenModifier = 1f;
+            Stamina = Mathf.Min(MaxStamina, Stamina + StaminaRegenRate * regenMul * Time.deltaTime);
             HP = Mathf.Min(MaxHP, HP + Mathf.RoundToInt(2f * (Stamina / MaxStamina) * Time.deltaTime));
         }
+    }
+
+    public void ApplyStaminaRegenModifier(float modifier, float duration)
+    {
+        StaminaRegenModifier = modifier;
+        _staminaRegenModifierUntil = Time.time + duration;
     }
 
     private void HandleInteractionKeys()
@@ -242,7 +257,8 @@ public class PlayerController : MonoBehaviour
         bool policeDialog = PoliceOfficerNPC.Instance != null && PoliceOfficerNPC.Instance.IsDialogActive;
         bool monkDialog = PagodaMonkNPC.Instance != null && PagodaMonkNPC.Instance.IsDialogActive;
         bool chefDialog = ChefNPC.Instance != null && ChefNPC.Instance.IsDialogActive;
-        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog || monkDialog || chefDialog;
+        bool cafeBaristaDialog = CafeBarista.Instance != null && CafeBarista.Instance.IsDialogActive;
+        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog || monkDialog || chefDialog || cafeBaristaDialog;
 
         bool ePressed = (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) ||
                         (!wifeDialog && !richManDialog && !policeDialog && !chefDialog && MobileInputController.Consume("interact"));
@@ -368,6 +384,12 @@ public class PlayerController : MonoBehaviour
                         if (hit.collider.transform.name == "GroceryNPC")
                         {
                             OpenVendorShop("grocery");
+                            return;
+                        }
+                        if (hit.collider.transform.name == "CafeNPC")
+                        {
+                            if (CafeBarista.Instance != null && !CafeBarista.Instance.IsDialogActive)
+                                CafeBarista.Instance.Interact();
                             return;
                         }
                         if (wb.TryToggleDoor(hit)) return;
@@ -567,6 +589,11 @@ public class PlayerController : MonoBehaviour
         follow.Target = _cameraPivot;
         follow.Offset = Vector3.zero;
         follow.SmoothSpeed = 20f;
+    }
+
+    public void ApplyGender()
+    {
+        LoadPlayerModel();
     }
 
     private void LoadPlayerModel()

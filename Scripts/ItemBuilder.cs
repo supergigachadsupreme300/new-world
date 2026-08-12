@@ -84,6 +84,9 @@ public static class ItemBuilder
             case "banh_tet": BuildStickyRiceCake(parent); break;
             case "keo": BuildCandy(parent); break;
 
+            // Cafe items
+            case "cafe_den": BuildCoffee(parent); break;
+
             // Grocery store items
             case "tu_gao": BuildBagOfRice(parent); break;
             case "duong": BuildSugar(parent); break;
@@ -551,6 +554,18 @@ public static class ItemBuilder
         CreatePickupCylinder(parent, new Vector3(0f, 0.12f, 0f), new Vector3(0.13f, 0.22f, 0.13f), canC, false);
         CreatePickupCylinder(parent, new Vector3(0f, 0.24f, 0f), new Vector3(0.1f, 0.02f, 0.1f), topC, false);
         CreatePickupCube(parent, new Vector3(0f, 0.15f, 0f), new Vector3(0.14f, 0.04f, 0.14f), labelC, false);
+    }
+
+    public static void BuildCoffee(Transform parent)
+    {
+        Color cupC = new Color(0.95f, 0.95f, 0.96f);
+        Color coffeeC = new Color(0.3f, 0.18f, 0.08f);
+        Color handleC = new Color(0.9f, 0.9f, 0.92f);
+        Color lidC = new Color(0.35f, 0.28f, 0.22f);
+        CreatePickupCylinder(parent, new Vector3(0f, 0.12f, 0f), new Vector3(0.13f, 0.22f, 0.13f), cupC, false);
+        CreatePickupCylinder(parent, new Vector3(0f, 0.245f, 0f), new Vector3(0.1f, 0.03f, 0.1f), lidC, false);
+        CreatePickupCube(parent, new Vector3(0.18f, 0.12f, 0f), new Vector3(0.05f, 0.09f, 0.05f), handleC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.14f, 0f), new Vector3(0.13f, 0.03f, 0.13f), coffeeC, false);
     }
 
     public static void BuildBread(Transform parent)

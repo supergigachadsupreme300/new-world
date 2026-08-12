@@ -103,6 +103,13 @@ public class VendorShopManager : MonoBehaviour
         new ShopItem { Type = "com_chieu", Label = "Cơm Chiên", Price = 70 },
     };
 
+    private List<ShopItem> _cafeBuyItems = new List<ShopItem>
+    {
+        new ShopItem { Type = "cafe_den", Label = "Cà Phê Đen", Price = 40 },
+        new ShopItem { Type = "banh_mi", Label = "Bánh Mì", Price = 12 },
+        new ShopItem { Type = "tra_da", Label = "Trà Đá", Price = 5 },
+    };
+
     private List<ShopItem> _sellItems = new List<ShopItem>
     {
         new ShopItem { Type = "wheat", Label = "Lúa Mì", Price = 10 },
@@ -140,6 +147,7 @@ public class VendorShopManager : MonoBehaviour
             switch (_mode)
             {
                 case "restaurant": return _restaurantBuyItems;
+                case "cafe": return _cafeBuyItems;
                 case "tools": return _toolsBuyItems;
                 case "convenience":
                     if (_storeBuyItems == null)
@@ -286,6 +294,11 @@ public class VendorShopManager : MonoBehaviour
     public void OpenRestaurant()
     {
         OpenShop("Nhà Hàng", "restaurant");
+    }
+
+    public void OpenCafe()
+    {
+        OpenShop("Quán Cà Phê", "cafe");
     }
 
     public void OpenTools()

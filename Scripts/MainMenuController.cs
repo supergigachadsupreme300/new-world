@@ -23,7 +23,10 @@ public class MainMenuController : MonoBehaviour
 
     public void OnNewGameClicked()
     {
-        _gameManager?.StartNewGame();
+        if (GameManager.Instance?.UIManager != null)
+            GameManager.Instance.UIManager.ShowGenderSelectionMenu(GenderMenuMode.Intro);
+        else
+            _gameManager?.StartNewGame();
     }
 
     public void OnLoadGameClicked()
@@ -50,6 +53,9 @@ public class MainMenuController : MonoBehaviour
 
     public void OnSkipIntroClicked()
     {
-        _gameManager?.StartNewGameSkipIntro();
+        if (GameManager.Instance?.UIManager != null)
+            GameManager.Instance.UIManager.ShowGenderSelectionMenu(GenderMenuMode.SkipIntro);
+        else
+            _gameManager?.StartNewGameSkipIntro();
     }
 }

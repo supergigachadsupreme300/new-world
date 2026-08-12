@@ -8,6 +8,29 @@ public class QuestManager : MonoBehaviour
     private readonly List<QuestSave> _quests = new List<QuestSave>();
     private int _lastDay;
 
+    private class StoryQuestDef
+    {
+        public string Name;
+        public string Target;
+        public int Count;
+        public int Reward;
+        public string Description;
+        public int RequiredDay;
+    }
+
+    private static readonly StoryQuestDef[] StoryQuestDefs =
+    {
+        new StoryQuestDef { Name = "Chào Hỏi Hàng Xóm", Target = "greet", Count = 2, Reward = 0, Description = "Nói chuyện với Buffalo và Jessica để làm quen với hàng xóm.", RequiredDay = 1 },
+        new StoryQuestDef { Name = "Bí Mật Của Phú Ông", Target = "mansion_secret", Count = 1, Reward = 500, Description = "Đêm tối, hãy rình xem điều gì xảy ra sau dinh thự của Phú Ông. Sau khi có bằng chứng, hãy đến đồn cảnh sát bên cạnh con đường để báo án.", RequiredDay = 3 },
+        new StoryQuestDef { Name = "Mùa Thu Đầu Tiên", Target = "wheat", Count = 50, Reward = 150, Description = "Thu hoạch 50 lúa mì để trở thành nông dân thực thụ.", RequiredDay = 3 },
+        new StoryQuestDef { Name = "Bảo Vệ Đất", Target = "enemies", Count = 10, Reward = 300, Description = "Diệt 10 kẻ thù để bảo vệ nông trại.", RequiredDay = 5 },
+        new StoryQuestDef { Name = "Bàn Tay Xanh", Target = "wheat", Count = 150, Reward = 400, Description = "Thu hoạch 150 lúa mì để chứng minh tài năng.", RequiredDay = 8 },
+        new StoryQuestDef { Name = "Xây Dựng Đế Chế", Target = "money_earned", Count = 50000, Reward = 750, Description = "Kiếm 50.000 vàng bằng cách bán nông sản.", RequiredDay = 10 },
+        new StoryQuestDef { Name = "Thợ Săn Quái Vật", Target = "enemies", Count = 30, Reward = 600, Description = "Diệt 30 kẻ thù để làm sạch vùng đất.", RequiredDay = 12 },
+        new StoryQuestDef { Name = "Trận Đấu Cuối Cùng", Target = "enemies", Count = 50, Reward = 1500, Description = "Diệt 50 kẻ thù — trận chiến sinh tử!", RequiredDay = 15 },
+        new StoryQuestDef { Name = "Tỷ Phú", Target = "money_earned", Count = 200000, Reward = 3000, Description = "Kiếm 200.000 vàng để trở thành tỷ phú.", RequiredDay = 18 },
+    };
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -94,15 +117,12 @@ public class QuestManager : MonoBehaviour
 
     private void AddStoryQuestsForDay(int day)
     {
-        if (day >= 1) AddIfMissing(CreateStoryQuest("Chào Hỏi Hàng Xóm", "greet", 2, 0, "Nói chuyện với Buffalo và Jessica để làm quen với hàng xóm.", 1));
-        if (day >= 3) AddIfMissing(CreateStoryQuest("Bí Mật Của Phú Ông", "mansion_secret", 1, 500, "Đêm tối, hãy rình xem điều gì xảy ra sau dinh thự của Phú Ông. Sau khi có bằng chứng, hãy đến đồn cảnh sát bên cạnh con đường để báo án.", 3));
-        if (day >= 3) AddIfMissing(CreateStoryQuest("Mùa Thu Đầu Tiên", "wheat", 50, 150, "Thu hoạch 50 lúa mì để trở thành nông dân thực thụ.", 3));
-        if (day >= 5) AddIfMissing(CreateStoryQuest("Bảo Vệ Đất", "enemies", 10, 300, "Diệt 10 kẻ thù để bảo vệ nông trại.", 5));
-        if (day >= 8) AddIfMissing(CreateStoryQuest("Bàn Tay Xanh", "wheat", 150, 400, "Thu hoạch 150 lúa mì để chứng minh tài năng.", 8));
-        if (day >= 10) AddIfMissing(CreateStoryQuest("Xây Dựng Đế Chế", "money_earned", 50000, 750, "Kiếm 50.000 vàng bằng cách bán nông sản.", 10));
-        if (day >= 12) AddIfMissing(CreateStoryQuest("Thợ Săn Quái Vật", "enemies", 30, 600, "Diệt 30 kẻ thù để làm sạch vùng đất.", 12));
-        if (day >= 15) AddIfMissing(CreateStoryQuest("Trận Đấu Cuối Cùng", "enemies", 50, 1500, "Diệt 50 kẻ thù — trận chiến sinh tử!", 15));
-        if (day >= 18) AddIfMissing(CreateStoryQuest("Tỷ Phú", "money_earned", 200000, 3000, "Kiếm 200.000 vàng để trở thành tỷ phú.", 18));
+        for (int i = 0; i < StoryQuestDefs.Length; i++)
+        {
+            var def = StoryQuestDefs[i];
+            if (day >= def.RequiredDay)
+                AddIfMissing(CreateStoryQuest(def.Name, def.Target, def.Count, def.Reward, def.Description, def.RequiredDay));
+        }
     }
 
     private void AddIfMissing(QuestSave quest)
@@ -349,6 +369,42 @@ public class QuestManager : MonoBehaviour
         return 0;
     }
 
+    private bool HasActiveStoryQuest()
+    {
+        foreach (var q in _quests)
+        {
+            if (q.QuestType == "story" && !q.Completed && !q.Failed)
+                return true;
+        }
+        return false;
+    }
+
+    private bool ContainsQuestByName(string questName)
+    {
+        foreach (var q in _quests)
+        {
+            if (q.Name == questName)
+                return true;
+        }
+        return false;
+    }
+
+    private StoryQuestDef GetNextLockedStoryQuest(int today)
+    {
+        StoryQuestDef next = null;
+        for (int i = 0; i < StoryQuestDefs.Length; i++)
+        {
+            var def = StoryQuestDefs[i];
+            if (def.RequiredDay <= today)
+                continue;
+            if (ContainsQuestByName(def.Name))
+                continue;
+            if (next == null || def.RequiredDay < next.RequiredDay)
+                next = def;
+        }
+        return next;
+    }
+
     private void UpdateQuestUI()
     {
         if (GameManager.Instance == null || GameManager.Instance.UIManager == null)
@@ -401,6 +457,26 @@ public class QuestManager : MonoBehaviour
                 panel += $"{GetQuestDisplayName(q)}: {status}\n";
                 if (!string.IsNullOrEmpty(q.Description))
                     panel += $"  {Localization.T(q.Description)}\n";
+            }
+        }
+
+        if (!HasActiveStoryQuest() && GameManager.Instance != null)
+        {
+            panel += "\n" + Localization.T("--- Gợi Ý ---") + "\n";
+            var nextQuest = GetNextLockedStoryQuest(GameManager.Instance.CurrentDay);
+            if (nextQuest != null)
+            {
+                panel += Localization.F("Mở khóa ngày {0}: {1}", nextQuest.RequiredDay, Localization.QuestName(nextQuest.Name)) + "\n";
+                if (!string.IsNullOrEmpty(nextQuest.Description))
+                    panel += "  " + Localization.T(nextQuest.Description) + "\n";
+            }
+            else
+            {
+                panel += Localization.T("Bạn đã hoàn thành mọi nhiệm vụ cốt truyện. Hãy khám phá các kết thúc khác của câu chuyện!") + "\n";
+            }
+            if (WifeNPC.Instance != null && !WifeNPC.Instance.Married)
+            {
+                panel += Localization.T("Gợi ý: Nói chuyện với Jessica mỗi ngày và hoàn thành nhiệm vụ của cô ấy để tăng Độ Thân Mật. Đạt 70+ để cầu hôn.") + "\n";
             }
         }
 
