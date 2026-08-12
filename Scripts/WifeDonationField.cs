@@ -8,6 +8,9 @@ public class WifeDonationField : MonoBehaviour
     private BoxCollider _triggerCol;
     private readonly HashSet<GameObject> _consumed = new HashSet<GameObject>();
     private bool _hintShown;
+    private Transform _arrowRoot;
+    private float _arrowBaseY = 2.8f;
+    private TMPro.TextMeshPro _label;
 
     private void Awake()
     {
@@ -43,6 +46,12 @@ public class WifeDonationField : MonoBehaviour
         {
             _hintShown = false;
         }
+
+        if (_arrowRoot != null)
+        {
+            float bob = Mathf.Sin(Time.time * 2f) * 0.08f;
+            _arrowRoot.localPosition = new Vector3(0f, _arrowBaseY + bob, 0f);
+        }
     }
 
     private void LateUpdate()
@@ -68,23 +77,93 @@ public class WifeDonationField : MonoBehaviour
         Color woodC = new Color(0.52f, 0.33f, 0.18f);
         Color rimC = new Color(0.35f, 0.22f, 0.11f);
 
-        MakeBox("Base", transform, new Vector3(2.0f, 0.12f, 2.0f), new Vector3(0f, 0.06f, 0f), woodC);
-        MakeBox("SideN", transform, new Vector3(2.0f, 0.7f, 0.12f), new Vector3(0f, 0.47f, 0.94f), woodC);
-        MakeBox("SideS", transform, new Vector3(2.0f, 0.7f, 0.12f), new Vector3(0f, 0.47f, -0.94f), woodC);
-        MakeBox("SideE", transform, new Vector3(0.12f, 0.7f, 2.0f), new Vector3(0.94f, 0.47f, 0f), woodC);
-        MakeBox("SideW", transform, new Vector3(0.12f, 0.7f, 2.0f), new Vector3(-0.94f, 0.47f, 0f), woodC);
-        MakeBox("RimN", transform, new Vector3(2.2f, 0.1f, 0.14f), new Vector3(0f, 0.9f, 1.03f), rimC);
-        MakeBox("RimS", transform, new Vector3(2.2f, 0.1f, 0.14f), new Vector3(0f, 0.9f, -1.03f), rimC);
-        MakeBox("RimE", transform, new Vector3(0.14f, 0.1f, 2.2f), new Vector3(1.03f, 0.9f, 0f), rimC);
-        MakeBox("RimW", transform, new Vector3(0.14f, 0.1f, 2.2f), new Vector3(-1.03f, 0.9f, 0f), rimC);
+        MakeBox("Base", transform, new Vector3(3.0f, 0.18f, 3.0f), new Vector3(0f, 0.09f, 0f), woodC);
+        MakeBox("SideN", transform, new Vector3(3.0f, 1.0f, 0.18f), new Vector3(0f, 0.68f, 1.41f), woodC);
+        MakeBox("SideS", transform, new Vector3(3.0f, 1.0f, 0.18f), new Vector3(0f, 0.68f, -1.41f), woodC);
+        MakeBox("SideE", transform, new Vector3(0.18f, 1.0f, 3.0f), new Vector3(1.41f, 0.68f, 0f), woodC);
+        MakeBox("SideW", transform, new Vector3(0.18f, 1.0f, 3.0f), new Vector3(-1.41f, 0.68f, 0f), woodC);
+        MakeBox("RimN", transform, new Vector3(3.2f, 0.14f, 0.2f), new Vector3(0f, 1.2f, 1.5f), rimC);
+        MakeBox("RimS", transform, new Vector3(3.2f, 0.14f, 0.2f), new Vector3(0f, 1.2f, -1.5f), rimC);
+        MakeBox("RimE", transform, new Vector3(0.2f, 0.14f, 3.2f), new Vector3(1.5f, 1.2f, 0f), rimC);
+        MakeBox("RimW", transform, new Vector3(0.2f, 0.14f, 3.2f), new Vector3(-1.5f, 1.2f, 0f), rimC);
+
+        BuildArrow();
+        BuildLabel();
+    }
+
+    private void BuildArrow()
+    {
+        _arrowRoot = new GameObject("DonationArrow").transform;
+        _arrowRoot.SetParent(transform, false);
+        _arrowRoot.localPosition = new Vector3(0f, _arrowBaseY, 0f);
+
+        Color shaftC = new Color(1f, 0.72f, 0.12f);
+        Color headC = new Color(1f, 0.9f, 0.3f);
+
+        var shaft = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        shaft.name = "ArrowShaft";
+        shaft.transform.SetParent(_arrowRoot, false);
+        shaft.transform.localPosition = new Vector3(0f, 0.45f, 0f);
+        shaft.transform.localScale = new Vector3(0.16f, 0.9f, 0.16f);
+        Destroy(shaft.GetComponent<Collider>());
+        shaft.GetComponent<Renderer>().material.color = shaftC;
+
+        MakeCone(new Vector3(0f, -0.3f, 0f), 0.25f, 0.6f, headC);
+    }
+
+    private void MakeCone(Vector3 localPos, float radius, float height, Color color)
+    {
+        int layers = 5;
+        float layerH = height / layers;
+        for (int i = 0; i < layers; i++)
+        {
+            float t = i / (float)(layers - 1);
+            float r = Mathf.Lerp(0.02f, radius, t);
+            var layer = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            layer.name = "ArrowHead";
+            layer.transform.SetParent(_arrowRoot, false);
+            layer.transform.localPosition = localPos + Vector3.up * (t * height - height * 0.5f + layerH * 0.5f);
+            layer.transform.localScale = new Vector3(r * 2f, layerH * 0.5f, r * 2f);
+            Destroy(layer.GetComponent<Collider>());
+            layer.GetComponent<Renderer>().material.color = color;
+        }
+    }
+
+    private void BuildLabel()
+    {
+        var labelGO = new GameObject("DonationLabel");
+        labelGO.transform.SetParent(transform, false);
+        labelGO.transform.localPosition = new Vector3(0f, 4.1f, 0f);
+
+        _label = labelGO.AddComponent<TMPro.TextMeshPro>();
+        _label.alignment = TMPro.TextAlignmentOptions.Center;
+        _label.fontSize = 1.1f;
+        _label.color = Color.white;
+        _label.outlineWidth = 0.12f;
+        _label.outlineColor = Color.black;
+        _label.rectTransform.sizeDelta = new Vector3(16f, 2f);
+        RefreshLabel();
+
+        Localization.OnLanguageChanged += RefreshLabel;
+    }
+
+    private void RefreshLabel()
+    {
+        if (_label != null)
+            _label.text = Localization.T("Bỏ vật phẩm nhiệm vụ hàng ngày vào đây");
+    }
+
+    private void OnDestroy()
+    {
+        Localization.OnLanguageChanged -= RefreshLabel;
     }
 
     private void BuildTrigger()
     {
         _triggerCol = gameObject.AddComponent<BoxCollider>();
         _triggerCol.isTrigger = true;
-        _triggerCol.center = new Vector3(0f, 0.85f, 0f);
-        _triggerCol.size = new Vector3(2.2f, 1.4f, 2.2f);
+        _triggerCol.center = new Vector3(0f, 1.0f, 0f);
+        _triggerCol.size = new Vector3(3.4f, 1.8f, 3.4f);
     }
 
     private void MakeBox(string name, Transform parent, Vector3 scale, Vector3 localPos, Color color)

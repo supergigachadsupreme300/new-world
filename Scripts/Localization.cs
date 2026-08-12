@@ -270,7 +270,7 @@ public static class Localization
     {
         // UI / HUD
         { "Ngày {0} - {1}", "Day {0} - {1}" },
-        { "Sức Mạnh: {0}/{1}", "Stamina: {0}/{1}" },
+        { "Thể Lực: {0}/{1}", "Stamina: {0}/{1}" },
         { "Tiền: {0}", "Money: {0}" },
         { "HP: {0}/{1}", "HP: {0}/{1}" },
         { "Túi đồ đầy.", "Inventory is full." },
@@ -508,6 +508,7 @@ public static class Localization
         { "Đã nộp {0} cho Jessica! ({1}/{2})", "Delivered {0} to Jessica! ({1}/{2})" },
         { "Nhấn Q để ném {0} vào rổ của Jessica!", "Press Q to throw {0} into Jessica's basket!" },
         { "Nhiệm vụ hàng ngày từ Jessica. Hoàn thành trước 6h sáng mai!", "A daily task from Jessica. Complete it before 6 AM tomorrow!" },
+        { "Bỏ vật phẩm nhiệm vụ hàng ngày vào đây", "Put the daily quest material here" },
 
         // Wife dialogs
         { "Anh ơi... em thực sự rất bất ngờ!", "Oh honey... I'm truly surprised!" },
@@ -605,7 +606,7 @@ public static class Localization
         { "Tất cả mùa màng của bạn đều tăng một giai đoạn!", "All your crops grow one stage!" },
         { "Tìm Thấy May Mắn", "Lucky Find" },
         { "Một đồng vàng xuất hiện trên mặt đất!", "A gold coin appears on the ground!" },
-        { "Phục Hồi Sức Mạnh", "Stamina Restore" },
+        { "Phục Hồi Thể Lực", "Stamina Restore" },
         { "Bạn cảm thấy sảng khoái!", "You feel refreshed!" },
         { "Suối Chữa Lành", "Healing Spring" },
         { "Vết thương của bạn đã lành!", "Your wounds have healed!" },
@@ -774,7 +775,7 @@ public static class Localization
         { "Món cơm nóng hổi đây, ai vào ăn nhanh nào!", "Hot rice dishes ready, come and eat!" },
         { "Cơm trắng cho người cần nạp năng lượng nhẹ.", "Steamed rice for a light energy boost." },
         { "Ăn no xong là cày ruộng khỏe lại ngay!", "Eat up and you'll be farming again in no time!" },
-        { "Đã ăn {0}. Hồi phục +{1} Sức Mạnh, +{2} Máu!", "Ate {0}. Restored +{1} Stamina, +{2} HP!" },
+        { "Đã ăn {0}. Hồi phục +{1} Thể Lực, +{2} Máu!", "Ate {0}. Restored +{1} Stamina, +{2} HP!" },
         { "Đã dùng {0}. +{1} Máu!", "Used {0}. +{1} HP!" },
         { "Ruộng đã lớn nhanh hơn!", "The field grew faster!" },
 

@@ -280,7 +280,7 @@ public class UIManager : MonoBehaviour
         _staminaText = EnsureText(
             "StaminaText",
             new Vector2(40f, -100f),
-            Localization.F("Sức Mạnh: {0}/{1}", 100, 100),
+            Localization.F("Thể Lực: {0}/{1}", 100, 100),
             20,
             null,
             TextAlignmentOptions.Left,
@@ -1090,7 +1090,10 @@ public class UIManager : MonoBehaviour
             return;
         for (int i = 0; i < _saveSlotButtons.Length; i++)
         {
-            bool hasSave = SaveManager.Instance != null && SaveManager.Instance.GetSlotInfo(i, out int day, out float timeOfDay, out float playedSeconds);
+            int day = 0;
+            float timeOfDay = 0f;
+            float playedSeconds = 0f;
+            bool hasSave = SaveManager.Instance != null && SaveManager.Instance.GetSlotInfo(i, out day, out timeOfDay, out playedSeconds);
             string label;
             if (hasSave)
             {
@@ -1587,7 +1590,7 @@ public class UIManager : MonoBehaviour
         if (_hpText != null)
             _hpText.text = $"HP: {hp}/{maxHp}";
         if (_staminaText != null)
-            _staminaText.text = Localization.F("Sức Mạnh: {0}/{1}", (int)stamina, (int)maxStamina);
+            _staminaText.text = Localization.F("Thể Lực: {0}/{1}", (int)stamina, (int)maxStamina);
         if (_moneyText != null)
             _moneyText.text = Localization.F("Tiền: {0}", money);
     }

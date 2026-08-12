@@ -30,6 +30,10 @@ public class RichManNPC : MonoBehaviour
     private bool _hasPatrolTarget;
     private float _patrolPause;
     private int _lastStealDay = -1;
+    private Transform _legL;
+    private Transform _legR;
+    private float _walkCycle;
+    private bool _isMoving;
 
     private enum DealState { None, WalkingToMeeting, Meeting, Leaving }
     private DealState _dealState = DealState.None;
@@ -83,6 +87,8 @@ public class RichManNPC : MonoBehaviour
         if (playerGo != null) _playerTransform = playerGo.transform;
         if (_myTransform != null)
             _originalRotation = _myTransform.rotation;
+        _legL = _myTransform.Find("LegsRoot/LegLPivot");
+        _legR = _myTransform.Find("LegsRoot/LegRPivot");
 
         if (WifeNPC.Instance != null && WifeNPC.Instance.Married)
         {
@@ -373,6 +379,7 @@ public class RichManNPC : MonoBehaviour
 
         _myTransform.position = Vector3.MoveTowards(_myTransform.position, dest, speed * Time.deltaTime);
         _myTransform.rotation = Quaternion.LookRotation(-to.normalized);
+        _isMoving = true;
         return Vector3.Distance(_myTransform.position, dest) < 0.1f;
     }
 
@@ -388,6 +395,27 @@ public class RichManNPC : MonoBehaviour
 
         _myTransform.position += away * (WALK_SPEED * 1.7f * Time.deltaTime);
         _myTransform.rotation = Quaternion.LookRotation(-away);
+        _isMoving = true;
+    }
+
+    private void LateUpdate()
+    {
+        if (_legL == null || _legR == null)
+            return;
+        if (_isMoving)
+        {
+            _walkCycle += Time.deltaTime * 10f;
+            float swing = Mathf.Sin(_walkCycle) * 20f;
+            _legL.localRotation = Quaternion.Euler(swing, 0f, 0f);
+            _legR.localRotation = Quaternion.Euler(-swing, 0f, 0f);
+        }
+        else
+        {
+            _walkCycle = 0f;
+            _legL.localRotation = Quaternion.identity;
+            _legR.localRotation = Quaternion.identity;
+        }
+        _isMoving = false;
     }
 
     public void Interact()
@@ -625,12 +653,19 @@ public class RichManNPC : MonoBehaviour
         legsRoot.transform.SetParent(root.transform);
         legsRoot.transform.localPosition = Vector3.zero;
 
-        MakeBlock("ThighL", legsRoot.transform, new Vector3(0.2f, 0.3f, 0.2f), new Vector3(-0.16f, -0.28f, 0f), suitC, true);
-        MakeBlock("ThighR", legsRoot.transform, new Vector3(0.2f, 0.3f, 0.2f), new Vector3(0.16f, -0.28f, 0f), suitC, true);
-        MakeBlock("ShinL", legsRoot.transform, new Vector3(0.17f, 0.3f, 0.17f), new Vector3(-0.16f, -0.58f, 0f), suitC, true);
-        MakeBlock("ShinR", legsRoot.transform, new Vector3(0.17f, 0.3f, 0.17f), new Vector3(0.16f, -0.58f, 0f), suitC, true);
-        MakeBlock("ShoeL", legsRoot.transform, new Vector3(0.2f, 0.08f, 0.32f), new Vector3(-0.16f, -0.82f, -0.03f), shoeC, true);
-        MakeBlock("ShoeR", legsRoot.transform, new Vector3(0.2f, 0.08f, 0.32f), new Vector3(0.16f, -0.82f, -0.03f), shoeC, true);
+        var legLPivot = new GameObject("LegLPivot").transform;
+        legLPivot.SetParent(legsRoot.transform);
+        legLPivot.localPosition = new Vector3(-0.16f, -0.13f, 0f);
+        MakeBlock("ThighL", legLPivot, new Vector3(0.2f, 0.3f, 0.2f), new Vector3(0f, -0.15f, 0f), suitC, true);
+        MakeBlock("ShinL", legLPivot, new Vector3(0.17f, 0.3f, 0.17f), new Vector3(0f, -0.45f, 0f), suitC, true);
+        MakeBlock("ShoeL", legLPivot, new Vector3(0.2f, 0.08f, 0.32f), new Vector3(0f, -0.69f, -0.03f), shoeC, true);
+
+        var legRPivot = new GameObject("LegRPivot").transform;
+        legRPivot.SetParent(legsRoot.transform);
+        legRPivot.localPosition = new Vector3(0.16f, -0.13f, 0f);
+        MakeBlock("ThighR", legRPivot, new Vector3(0.2f, 0.3f, 0.2f), new Vector3(0f, -0.15f, 0f), suitC, true);
+        MakeBlock("ShinR", legRPivot, new Vector3(0.17f, 0.3f, 0.17f), new Vector3(0f, -0.45f, 0f), suitC, true);
+        MakeBlock("ShoeR", legRPivot, new Vector3(0.2f, 0.08f, 0.32f), new Vector3(0f, -0.69f, -0.03f), shoeC, true);
 
         var bodyRoot = new GameObject("BodyRoot");
         bodyRoot.transform.SetParent(root.transform);

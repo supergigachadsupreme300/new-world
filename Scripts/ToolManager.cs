@@ -105,7 +105,7 @@ public class ToolManager : MonoBehaviour
         player.Stamina = Mathf.Min(player.MaxStamina, player.Stamina + staminaRestore);
         player.HP = Mathf.Min(player.MaxHP, player.HP + hpRestore);
         RemoveItemAmount(itemType, 1);
-        _uiManager?.ShowMessage(Localization.F("Đã ăn {0}. Hồi phục +{1} Sức Mạnh, +{2} Máu!", Localization.ItemName(itemType), staminaRestore, hpRestore), 1.5f);
+                _uiManager?.ShowMessage(Localization.F("Đã ăn {0}. Hồi phục +{1} Thể Lực, +{2} Máu!", Localization.ItemName(itemType), staminaRestore, hpRestore), 1.5f);
         SoundManager.Instance?.Play("pop", 0.8f);
 
         var cam = GetActiveCamera();
@@ -181,7 +181,7 @@ public class ToolManager : MonoBehaviour
             case "tu_gao": return 40;
             case "duong": return 10;
             case "muoi": return 20;
-            default: return 10;
+            default: return 0;
         }
     }
 

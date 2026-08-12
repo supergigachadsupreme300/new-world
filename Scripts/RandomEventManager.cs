@@ -82,7 +82,7 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Phục Hồi Sức Mạnh",
+            Name = "Phục Hồi Thể Lực",
             Description = "Bạn cảm thấy sảng khoái!",
             Tier = 0,
             Weight = 4f,

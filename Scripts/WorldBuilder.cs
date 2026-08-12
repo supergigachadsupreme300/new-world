@@ -305,13 +305,6 @@ public class WorldBuilder : MonoBehaviour
     private const int _mansionTotalParts = 25;
     private const string _mansionQuestTarget = "mansion";
 
-    private int _mansionCompletedParts;
-
-    public int GetMansionCompletedParts()
-    {
-        return _mansionCompletedParts;
-    }
-
     private int _currentBuildingIndex;
     private int _currentRotation;
     private readonly HashSet<Vector3Int> _floorPositions = new HashSet<Vector3Int>();
@@ -2539,7 +2532,6 @@ public class WorldBuilder : MonoBehaviour
         }
         if (bp.IsMansion)
         {
-            _mansionCompletedParts++;
             QuestManager.Instance?.AddProgress(_mansionQuestTarget, 1);
         }
         DestroyBlueprintLabel(bp);
@@ -4378,7 +4370,7 @@ GameObject treeRoot;
             IsEssential = true
         });
         StaticWifeModel = WifeNPC.BuildWifeNpc(_worldRoot.transform, new Vector3(30f, 0.86f, 0f), 1f, Quaternion.Euler(0f, 90f, 0f));
-        WifeDonationField.Build(_worldRoot.transform, new Vector3(28f, 0.5f, 0f));
+        WifeDonationField.Build(_worldRoot.transform, new Vector3(33f, 0.5f, -10.5f));
     }
 
     private void BuildRichManMansion()
@@ -6235,7 +6227,6 @@ GameObject treeRoot;
             if (saved.completed)
             {
                 SpawnMansionPartDirect(saved.type, saved.position);
-                _mansionCompletedParts++;
                 continue;
             }
 
