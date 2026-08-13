@@ -3963,7 +3963,7 @@ public class WorldBuilder : MonoBehaviour
         float roadTurnZ = 90f;
         float roadEndX = 280f;
         float nsZStart = -300f;
-        float nsZEnd = roadTurnZ;
+        float nsZEnd = 300f; // north border — N-S road runs the full map height
         float nsLen = nsZEnd - nsZStart;
         float nsZc = (nsZStart + nsZEnd) * 0.5f;
         float ewLen = roadEndX - roadCx;
@@ -3974,22 +3974,31 @@ public class WorldBuilder : MonoBehaviour
         Color yellowC = new Color(0.92f, 0.80f, 0.18f);
         Color asphaltC = new Color(0.235f, 0.243f, 0.275f);
 
-        // North-south leg (runs z: nsZStart -> roadTurnZ)
+        // North-south leg (runs z: nsZStart -> nsZEnd)
         RoadObject = MakeBlock("Road", _worldRoot.transform,
             new Vector3(roadHw * 2f, 0.06f, nsLen),
             new Vector3(roadCx, 0.03f, nsZc), asphaltC, false, true);
 
-        // Kerbs (straight runs end flush at the junction square)
-        MakeBlock("Kerb", _worldRoot.transform, new Vector3(0.55f, 0.22f, nsLen + roadHw),
-            new Vector3(roadCx - (roadHw + 0.35f), 0.11f, (nsZStart + roadTurnZ + roadHw) * 0.5f), curbC, true);
-        MakeBlock("Kerb", _worldRoot.transform, new Vector3(0.55f, 0.22f, nsLen - roadHw),
-            new Vector3(roadCx + (roadHw + 0.35f), 0.11f, (nsZStart + roadTurnZ - roadHw) * 0.5f), curbC, true);
+        // Kerbs (east kerb is split around the junction square so it never crosses the E-W road)
+        float nsMidZ = (nsZStart + nsZEnd) * 0.5f;
+        float eastSouthLen = (roadTurnZ - roadHw) - nsZStart;
+        float eastSouthZc = (nsZStart + (roadTurnZ - roadHw)) * 0.5f;
+        float eastNorthLen = nsZEnd - (roadTurnZ + roadHw);
+        float eastNorthZc = ((roadTurnZ + roadHw) + nsZEnd) * 0.5f;
+        MakeBlock("Kerb", _worldRoot.transform, new Vector3(0.55f, 0.22f, nsLen),
+            new Vector3(roadCx - (roadHw + 0.35f), 0.11f, nsMidZ), curbC, true);
+        MakeBlock("Kerb", _worldRoot.transform, new Vector3(0.55f, 0.22f, eastSouthLen),
+            new Vector3(roadCx + (roadHw + 0.35f), 0.11f, eastSouthZc), curbC, true);
+        MakeBlock("Kerb", _worldRoot.transform, new Vector3(0.55f, 0.22f, eastNorthLen),
+            new Vector3(roadCx + (roadHw + 0.35f), 0.11f, eastNorthZc), curbC, true);
 
         // White edge lines
-        MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(0.18f, 0.03f, nsLen + roadHw),
-            new Vector3(roadCx - (roadHw - 0.22f), 0.03f, (nsZStart + roadTurnZ + roadHw) * 0.5f), whiteC, true);
-        MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(0.18f, 0.03f, nsLen - roadHw),
-            new Vector3(roadCx + (roadHw - 0.22f), 0.03f, (nsZStart + roadTurnZ - roadHw) * 0.5f), whiteC, true);
+        MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(0.18f, 0.03f, nsLen),
+            new Vector3(roadCx - (roadHw - 0.22f), 0.03f, nsMidZ), whiteC, true);
+        MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(0.18f, 0.03f, eastSouthLen),
+            new Vector3(roadCx + (roadHw - 0.22f), 0.03f, eastSouthZc), whiteC, true);
+        MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(0.18f, 0.03f, eastNorthLen),
+            new Vector3(roadCx + (roadHw - 0.22f), 0.03f, eastNorthZc), whiteC, true);
 
         // Yellow dashed center line
         float dashLen = 2.8f;
@@ -4014,16 +4023,17 @@ public class WorldBuilder : MonoBehaviour
             new Vector3(ewLen, 0.06f, roadHw * 2f),
             new Vector3(ewXc, 0.03f, roadTurnZ), asphaltC, false, true);
 
+        // E-W kerbs start just east of the N-S road so they don't cross it
         foreach (int side in new[] { -1, 1 })
         {
-            MakeBlock("Kerb", _worldRoot.transform, new Vector3(ewLen + roadHw, 0.22f, 0.55f),
-                new Vector3((roadCx - roadHw + roadEndX) * 0.5f, 0.11f, roadTurnZ + side * (roadHw + 0.35f)), curbC, true);
+            MakeBlock("Kerb", _worldRoot.transform, new Vector3(ewLen - roadHw, 0.22f, 0.55f),
+                new Vector3((roadCx + roadHw + roadEndX) * 0.5f, 0.11f, roadTurnZ + side * (roadHw + 0.35f)), curbC, true);
         }
 
         foreach (int side in new[] { -1, 1 })
         {
-            MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(ewLen + roadHw, 0.03f, 0.18f),
-                new Vector3((roadCx - roadHw + roadEndX) * 0.5f, 0.03f, roadTurnZ + side * (roadHw - 0.22f)), whiteC, true);
+            MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(ewLen - roadHw, 0.03f, 0.18f),
+                new Vector3((roadCx + roadHw + roadEndX) * 0.5f, 0.03f, roadTurnZ + side * (roadHw - 0.22f)), whiteC, true);
         }
 
         float xStart = roadCx + dashLen / 2f;
