@@ -222,8 +222,62 @@ public class WorldBuilder : MonoBehaviour
                 new SubBuildingDefinition { PartName = "Roof", Offset = new Vector3(0f, 2.7f, 0f), Size = new Vector3(17f, 0.4f, 11f), WoodCost = 0, StoneCost = 8, Color = new Color(0.5f, 0.5f, 0.5f) },
                 new SubBuildingDefinition { PartName = "Door", Offset = new Vector3(0f, -0.5f, 5.15f), Size = new Vector3(3f, 4f, 0.3f), WoodCost = 3, StoneCost = 0, Color = new Color(0.55f, 0.35f, 0.16f) },
                 new SubBuildingDefinition { PartName = "Interior", Offset = new Vector3(0f, -0.5f, 0f), Size = new Vector3(12f, 3f, 8f), WoodCost = 6, StoneCost = 0, Color = new Color(0.5f, 0.35f, 0.2f) }
+            }),
+        new BuildingDefinition("library", new Vector3(10f, 6f, 8f), new Color(0.6f, 0.42f, 0.25f), 12, 8,
+            new BuildingPartDefinition[]
+            {
+                new BuildingPartDefinition { PartName = "Floor",        LocalPosition = new Vector3(0f, -2.85f, 0f),  LocalScale = new Vector3(10f, 0.3f, 8f),    MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Front",   LocalPosition = new Vector3(0f, 0f, 3.85f),   LocalScale = new Vector3(9.7f, 5.7f, 0.3f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Back",    LocalPosition = new Vector3(0f, 0f, -3.85f),  LocalScale = new Vector3(9.7f, 5.7f, 0.3f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Left",    LocalPosition = new Vector3(-4.85f, 0f, 0f),  LocalScale = new Vector3(0.3f, 5.7f, 7.7f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Right",   LocalPosition = new Vector3(4.85f, 0f, 0f),   LocalScale = new Vector3(0.3f, 5.7f, 7.7f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Roof",         LocalPosition = new Vector3(0f, 2.85f, 0f),   LocalScale = new Vector3(10.3f, 0.3f, 8.3f), MaterialType = "stone" },
+                new BuildingPartDefinition { PartName = "Bookshelf_Back", LocalPosition = new Vector3(0f, 0.5f, -3.3f), LocalScale = new Vector3(6f, 3f, 0.3f),   MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Table",        LocalPosition = new Vector3(2f, -1.1f, 1.2f), LocalScale = new Vector3(2.2f, 0.9f, 1.2f), MaterialType = "wood" }
+            }),
+        new BuildingDefinition("well", new Vector3(3f, 4f, 3f), new Color(0.45f, 0.42f, 0.38f), 4, 6,
+            new BuildingPartDefinition[]
+            {
+                new BuildingPartDefinition { PartName = "Base",  LocalPosition = new Vector3(0f, -1.4f, 0f),  LocalScale = new Vector3(3f, 0.4f, 3f),     MaterialType = "stone" },
+                new BuildingPartDefinition { PartName = "Ring",  LocalPosition = new Vector3(0f, -0.6f, 0f),  LocalScale = new Vector3(3f, 1.2f, 3f),     MaterialType = "stone" },
+                new BuildingPartDefinition { PartName = "PostL", LocalPosition = new Vector3(-1.2f, 0.4f, 0f), LocalScale = new Vector3(0.2f, 2.4f, 0.2f),  MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "PostR", LocalPosition = new Vector3(1.2f, 0.4f, 0f),  LocalScale = new Vector3(0.2f, 2.4f, 0.2f),  MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Roof",  LocalPosition = new Vector3(0f, 1.8f, 0f),    LocalScale = new Vector3(3.4f, 0.2f, 3.4f), MaterialType = "stone" }
+            }),
+        new BuildingDefinition("fountain", new Vector3(5f, 3f, 5f), new Color(0.55f, 0.55f, 0.6f), 0, 10,
+            new BuildingPartDefinition[]
+            {
+                new BuildingPartDefinition { PartName = "Basin",  LocalPosition = new Vector3(0f, -1f, 0f),   LocalScale = new Vector3(5f, 0.4f, 5f),    MaterialType = "stone" },
+                new BuildingPartDefinition { PartName = "Wall",   LocalPosition = new Vector3(0f, -0.5f, 0f), LocalScale = new Vector3(5f, 0.7f, 5f),    MaterialType = "stone" },
+                new BuildingPartDefinition { PartName = "Pillar", LocalPosition = new Vector3(0f, 0f, 0f),    LocalScale = new Vector3(0.6f, 1.6f, 0.6f), MaterialType = "stone" },
+                new BuildingPartDefinition { PartName = "Water",  LocalPosition = new Vector3(0f, 0.5f, 0f),  LocalScale = new Vector3(2f, 0.4f, 2f),    MaterialType = "stone" }
+            }),
+        new BuildingDefinition("workshop", new Vector3(10f, 5f, 8f), new Color(0.55f, 0.4f, 0.22f), 10, 6,
+            new BuildingPartDefinition[]
+            {
+                new BuildingPartDefinition { PartName = "Floor",     LocalPosition = new Vector3(0f, -2.35f, 0f),  LocalScale = new Vector3(10f, 0.3f, 8f),    MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Front", LocalPosition = new Vector3(0f, 0f, 3.85f),  LocalScale = new Vector3(9.7f, 4.7f, 0.3f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Back",  LocalPosition = new Vector3(0f, 0f, -3.85f), LocalScale = new Vector3(9.7f, 4.7f, 0.3f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Left",  LocalPosition = new Vector3(-4.85f, 0f, 0f), LocalScale = new Vector3(0.3f, 4.7f, 7.7f),  MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_Right", LocalPosition = new Vector3(4.85f, 0f, 0f),  LocalScale = new Vector3(0.3f, 4.7f, 7.7f),  MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Roof",       LocalPosition = new Vector3(0f, 2.35f, 0f),   LocalScale = new Vector3(10.3f, 0.3f, 8.3f), MaterialType = "stone" },
+                new BuildingPartDefinition { PartName = "Anvil",      LocalPosition = new Vector3(-2f, -1.6f, 1f),  LocalScale = new Vector3(1f, 0.6f, 0.6f),   MaterialType = "stone" }
             })
     };
+
+    // Blueprints that must be researched at the Library before they can be placed.
+    private static readonly Dictionary<string, int> ResearchCosts = new Dictionary<string, int>
+    {
+        { "watchtower", 120 },
+        { "goblin_hut", 120 },
+        { "structure_house", 150 },
+        { "library", 150 },
+        { "well", 100 },
+        { "fountain", 100 },
+        { "workshop", 200 }
+    };
+
+    private readonly HashSet<string> _unlockedBlueprints = new HashSet<string>();
 
     // ═══════════════════════════════════════════════
     //  MANSION MEGA STRUCTURE DEFINITION
@@ -363,10 +417,12 @@ public class WorldBuilder : MonoBehaviour
         _treeNameCounter = TreeCount;
         _rockNameCounter = RockCount;
         BuildHouse();
+        SpawnBuildingDirect("goblin_hut", new Vector3(9f, 0f, 9f), 0);
         BuildBeach();
         BuildShop();
         BuildRestaurant();
         BuildCafe();
+        BuildLibrary();
         BuildNightClub();
         MapBuilder.BuildConvenienceStore(_worldRoot.transform, new Vector3(24f, 0f, 60f), 1f, Quaternion.Euler(0f, 180f, 0f));
         BuildWifeHouse();
@@ -2103,6 +2159,46 @@ public class WorldBuilder : MonoBehaviour
     public int BuildingCount => _availableBuildings.Length;
     public BuildingDefinition GetBuildingByIndex(int i) => _availableBuildings[i];
 
+    public bool IsBlueprintUnlocked(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return true;
+        if (!ResearchCosts.ContainsKey(name)) return true;
+        return _unlockedBlueprints.Contains(name);
+    }
+
+    public void UnlockBlueprint(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return;
+        _unlockedBlueprints.Add(name);
+    }
+
+    public List<(string Name, int Cost)> GetResearchableBlueprints()
+    {
+        var list = new List<(string Name, int Cost)>();
+        foreach (var kvp in ResearchCosts)
+        {
+            if (!_unlockedBlueprints.Contains(kvp.Key))
+                list.Add((kvp.Key, kvp.Value));
+        }
+        return list;
+    }
+
+    public string[] GetUnlockedBlueprintsAsSave()
+    {
+        return new List<string>(_unlockedBlueprints).ToArray();
+    }
+
+    public void LoadUnlockedBlueprints(string[] unlocked)
+    {
+        _unlockedBlueprints.Clear();
+        if (unlocked == null) return;
+        foreach (var name in unlocked)
+        {
+            if (!string.IsNullOrEmpty(name))
+                _unlockedBlueprints.Add(name);
+        }
+    }
+
     public void CycleBuildingType(int delta)
     {
         _currentBuildingIndex = (_currentBuildingIndex + delta + _availableBuildings.Length) % _availableBuildings.Length;
@@ -2118,6 +2214,11 @@ public class WorldBuilder : MonoBehaviour
     public bool PlaceBlueprint(Vector3 position)
     {
         var definition = _availableBuildings[_currentBuildingIndex];
+        if (!IsBlueprintUnlocked(definition.Name))
+        {
+            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Bản thiết kế này bị khóa. Hãy đến Thư Viện tìm hiểu thêm!"), 2f);
+            return false;
+        }
         var size = definition.Size;
         Vector3 snapped = SnapToGrid(position);
         if (IsWallOrStair(definition.Name) && !HasFloorAt(snapped))
@@ -2510,6 +2611,8 @@ public class WorldBuilder : MonoBehaviour
             CurrentHealth = 100,
             MaxHealth = 100
         });
+        if (typeName == "goblin_hut")
+            GameManager.Instance?.EnsureGoblin();
         return true;
     }
 
@@ -3252,6 +3355,15 @@ public class WorldBuilder : MonoBehaviour
             case "Restaurant":
                 root = MapBuilder.BuildRiceRestaurant(_worldRoot.transform, bp.Position);
                 break;
+            case "Cafe":
+                root = MapBuilder.BuildCafe(_worldRoot.transform, bp.Position);
+                break;
+            case "Library":
+                root = MapBuilder.BuildLibrary(_worldRoot.transform, bp.Position, 1f, Quaternion.Euler(0f, bp.Rotation, 0f));
+                break;
+            case "NightClub":
+                root = MapBuilder.BuildNightClub(_worldRoot.transform, bp.Position, 1f, Quaternion.Euler(0f, bp.Rotation, 0f));
+                break;
         }
         if (root != null)
         {
@@ -3635,6 +3747,7 @@ public class WorldBuilder : MonoBehaviour
             if (state.Entity != null)
                 Object.Destroy(state.Entity);
             _buildings.Remove(state);
+            HandleGoblinHutRemoval(state);
             CreateEssentialBlueprint(state);
             return;
         }
@@ -3645,6 +3758,7 @@ public class WorldBuilder : MonoBehaviour
         if (state.Entity != null)
             Object.Destroy(state.Entity);
         _buildings.Remove(state);
+        HandleGoblinHutRemoval(state);
 
         var blueprint = GameObject.CreatePrimitive(PrimitiveType.Cube);
         blueprint.name = "Blueprint";
@@ -4383,6 +4497,24 @@ GameObject treeRoot;
         });
     }
 
+    private void BuildLibrary()
+    {
+        var library = MapBuilder.BuildLibrary(_worldRoot.transform, new Vector3(4f, 0f, 30f));
+        _buildings.Add(new BuildingState
+        {
+            Entity = library,
+            Type = "Library",
+            Position = library.transform.position,
+            Rotation = 0,
+            PartStates = CollectColliderParts(library, "Library"),
+            CurrentHealth = 100,
+            MaxHealth = 100,
+            IsEssential = true
+        });
+        var librarian = MapBuilder.BuildLibrarianNpc(_worldRoot.transform, new Vector3(9.6f, 0f, 30f), Quaternion.Euler(0f, -90f, 0f));
+        librarian.AddComponent<LibrarianNPC>();
+    }
+
     private void BuildNightClub()
     {
         var club = MapBuilder.BuildNightClub(_worldRoot.transform, new Vector3(-45f, 0f, -60f), 1f, Quaternion.Euler(0f, 90f, 0f));
@@ -4457,9 +4589,10 @@ GameObject treeRoot;
         bool nearMansion = x >= -45 && x <= -15 && z >= 39 && z <= 61;
         bool nearPagoda = Mathf.Abs(x - _pagodaPosition.x) <= 8 && Mathf.Abs(z - _pagodaPosition.z) <= 12;
         bool nearCafe = Mathf.Abs(x) <= 10 && z >= 33 && z <= 57;
+        bool nearLibrary = x >= -3 && x <= 12 && z >= 24 && z <= 38;
         bool nearClub = x >= 16 && x <= 44 && z >= -132 && z <= -106;
         bool nearClubCorridor = x >= 24 && x <= 56 && z >= -106 && z <= 46;
-        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearDisplay || nearMansion || nearPagoda || nearCafe || nearClub || nearClubCorridor;
+        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearDisplay || nearMansion || nearPagoda || nearCafe || nearLibrary || nearClub || nearClubCorridor;
     }
 
     private void CreateVendorSpawnButton()
@@ -5952,12 +6085,31 @@ GameObject treeRoot;
 
         BlueprintAutoDeposit.ClearConsumedRoots();
 
+        _unlockedBlueprints.Clear();
+
         var demo = _worldRoot?.transform.Find("CropDemo");
         if (demo != null) Destroy(demo.gameObject);
     }
 
     public IEnumerable<FieldState> GetAllFields() => _fields;
     public IEnumerable<BuildingState> GetAllBuildings() => _buildings;
+
+    public bool HasGoblinHut()
+    {
+        foreach (var b in _buildings)
+        {
+            if (b == null) continue;
+            if (b.Type == "goblin_hut") return true;
+        }
+        return false;
+    }
+
+    private void HandleGoblinHutRemoval(BuildingState state)
+    {
+        if (state == null || state.Type != "goblin_hut") return;
+        if (HasGoblinHut()) return;
+        GameManager.Instance?.DespawnGoblin();
+    }
 
     public FieldSaveData[] GetAllFieldsAsSave()
     {
@@ -6092,7 +6244,7 @@ GameObject treeRoot;
                 continue;
             }
 
-            if (build.type == "PlayerHouse" || build.type == "Shop" || build.type == "WifeHouse" || build.type == "RichMansion")
+            if (build.type == "PlayerHouse" || build.type == "Shop" || build.type == "WifeHouse" || build.type == "RichMansion" || build.type == "Restaurant" || build.type == "Cafe" || build.type == "Library" || build.type == "NightClub")
             {
                 RebuildEssentialBuilding(new BlueprintState
                 {

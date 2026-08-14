@@ -232,7 +232,11 @@ public static class Localization
         { "door", "Cửa" },
         { "wife_house", "Nhà Vợ" },
         { "structure_house", "Nhà Cấu Trúc" },
-        { "goblin_hut", "Túp Lều Goblin" }
+        { "goblin_hut", "Túp Lều Goblin" },
+        { "library", "Thư Viện" },
+        { "well", "Giếng Nước" },
+        { "fountain", "Đài Phun Nước" },
+        { "workshop", "Xưởng Chế Tạo" }
     };
 
     private static readonly Dictionary<string, string> MansionParts = new Dictionary<string, string>
@@ -905,6 +909,8 @@ public static class Localization
         // Ending tree (settings menu)
         { "Cây Kết Thúc", "Ending Tree" },
         { "CÂY KẾT THÚC", "ENDING TREE" },
+        { "Cần hoàn thành", "Must complete" },
+        { "Cần im lặng", "Must stay silent" },
         { "- Diệt Quỷ Vương, chưa lật tẩy bí mật Phú Ông\n  -> QUỶ VƯƠNG ĐÃ CHẾT NHƯNG CÁI ÁC CHƯA HẾT\n\n- Lật tẩy bí mật -> báo cảnh sát (trước khi diệt Quỷ Vương)\n  -> CÔNG LÝ ĐƯỢC THỰC THI NHƯNG HIỂM HỌA CHƯA QUA\n\n- Lật tẩy bí mật -> nhận hối lộ\n  -> KẾT THÚC ĐỒI BẠI\n\n- Diệt Quỷ Vương -> báo cảnh sát\n  HOẶC Hoàn thành chuỗi Jessica (xây dinh thự)\n  -> KẾT THÚC HẠNH PHÚC\n\n- Bỏ bê Jessica 3 ngày, độ thân mật thấp\n  -> KẾT THÚC NTR\n\n- Chết khi giao chiến Quỷ Vương\n  -> RƠI VÀO BÓNG TỐI\n\n- Chết\n  -> KẾT THÚC BUỒN", "- Slay the Demon King without exposing the rich man's secret\n  -> THE DEMON IS DEAD BUT NOT ALL EVIL IS GONE\n\n- Expose secret -> report to police (before slaying the Demon King)\n  -> JUSTICE SERVED BUT NOT ALL THREAT IS GONE\n\n- Expose secret -> take the bribe\n  -> CORRUPTED ENDING\n\n- Slay the Demon King -> report to police\n  OR Complete Jessica's chain (build the mansion)\n  -> HAPPY ENDING\n\n- Neglect Jessica 3 days, low affection\n  -> NTR ENDING\n\n- Die while fighting the Demon King\n  -> FALL INTO THE DARK\n\n- Die\n  -> SAD ENDING" }
     };
 }

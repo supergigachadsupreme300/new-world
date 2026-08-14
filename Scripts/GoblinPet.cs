@@ -68,6 +68,12 @@ public class GoblinPet : MonoBehaviour
             Physics.IgnoreCollision(_collider, pc.GetComponent<CharacterController>());
     }
 
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
+
     public bool GiveSeed(string cropType)
     {
         if (string.IsNullOrEmpty(cropType)) return false;

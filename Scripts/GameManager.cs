@@ -201,6 +201,13 @@ public class GameManager : MonoBehaviour
             return true;
         }
 
+        var librarian = LibrarianNPC.Instance;
+        if (librarian != null && librarian.IsDialogActive)
+        {
+            librarian.Hide();
+            return true;
+        }
+
         return false;
     }
 
@@ -235,13 +242,7 @@ public class GameManager : MonoBehaviour
 
     public void SpawnDefaultPets()
     {
-        if (GoblinPet.Instance == null)
-        {
-            var goblinGO = new GameObject("GoblinPet_01");
-            goblinGO.transform.position = new Vector3(3.5f, 0.5f, 3.5f);
-            goblinGO.AddComponent<GoblinPet>();
-            Debug.Log("[GameManager] Spawned goblin pet");
-        }
+        EnsureGoblin();
 
         if (Pets.Count > 0)
             return;
@@ -251,6 +252,29 @@ public class GameManager : MonoBehaviour
         var pet = petGO.AddComponent<PetController>();
         Pets.Add(pet);
         Debug.Log("[GameManager] Spawned default pet");
+    }
+
+    public void EnsureGoblin()
+    {
+        if (GoblinPet.Instance != null) return;
+
+        var wb = WorldBuilder.Instance;
+        if (wb == null || !wb.HasGoblinHut())
+            return;
+
+        var goblinGO = new GameObject("GoblinPet_01");
+        goblinGO.transform.position = new Vector3(3.5f, 0.5f, 3.5f);
+        goblinGO.AddComponent<GoblinPet>();
+        Debug.Log("[GameManager] Spawned goblin pet");
+    }
+
+    public void DespawnGoblin()
+    {
+        if (GoblinPet.Instance == null) return;
+        var goblinGO = GoblinPet.Instance.gameObject;
+        GoblinPet.Instance = null;
+        Destroy(goblinGO);
+        Debug.Log("[GameManager] Despawned goblin pet");
     }
 
     public void ShowMainMenu(bool show)

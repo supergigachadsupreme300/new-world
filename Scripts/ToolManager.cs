@@ -2017,17 +2017,28 @@ public class ToolManager : MonoBehaviour
         {
             var def = wb.GetBuildingByIndex(i);
             int index = i;
+            bool unlocked = wb.IsBlueprintUnlocked(def.Name);
 
             string costLabel = "";
             if (def.WoodCost > 0) costLabel += def.WoodCost + "🪵 ";
             if (def.StoneCost > 0) costLabel += def.StoneCost + "🪨";
             costLabel = costLabel.Trim();
             string btnLabel = Localization.BuildingName(def.Name) + "    " + costLabel;
+            if (!unlocked) btnLabel += "   🔒";
 
             var btn = MakeBMButton("BuildBtn_" + i, content.transform, btnLabel,
                 Vector2.zero, new Vector2(panelW - padding * 4, btnH),
                 (int)fontS, new Color(0.26f, 0.3f, 0.37f),
                 () => SelectBuilding(index));
+
+            if (!unlocked)
+            {
+                btn.interactable = false;
+                var targetImg = btn.targetGraphic as Graphic;
+                if (targetImg != null) targetImg.color = new Color(0.18f, 0.2f, 0.26f);
+                var btnText = btn.GetComponentInChildren<TMP_Text>();
+                if (btnText != null) btnText.color = new Color(0.55f, 0.55f, 0.55f);
+            }
 
             var le = btn.gameObject.GetComponent<LayoutElement>();
             if (le == null) le = btn.gameObject.AddComponent<LayoutElement>();
@@ -2041,9 +2052,14 @@ public class ToolManager : MonoBehaviour
     {
         var wb = WorldBuilder.Instance;
         if (wb == null) return;
+        var def = wb.GetBuildingByIndex(index);
+        if (!wb.IsBlueprintUnlocked(def.Name))
+        {
+            _uiManager?.ShowMessage(Localization.T("Bản thiết kế này bị khóa. Hãy đến Thư Viện tìm hiểu thêm!"), 2f);
+            return;
+        }
         wb.CurrentBuildingIndex = index;
         _buildingChosen = true;
-        var def = wb.GetBuildingByIndex(index);
         CloseBuildingMenu();
         _uiManager?.ShowMessage(Localization.F("Đã chọn: {0}. Nhấp để đặt.", Localization.BuildingName(def.Name)), 2f);
     }
@@ -2062,14 +2078,25 @@ public class ToolManager : MonoBehaviour
         for (int i = 0; i < count; i++)
         {
             var def = wb.GetBuildingByIndex(i);
+            bool unlocked = wb.IsBlueprintUnlocked(def.Name);
             string costLabel = "";
             if (def.WoodCost > 0) costLabel += def.WoodCost + "🪵 ";
             if (def.StoneCost > 0) costLabel += def.StoneCost + "🪨";
             costLabel = costLabel.Trim();
-            var btn = _buildingMenuPanel.transform.Find("Viewport/Content/BuildBtn_" + i);
-            if (btn == null) continue;
-            var t = btn.GetComponentInChildren<TMP_Text>();
-            if (t != null) t.text = Localization.BuildingName(def.Name) + "    " + costLabel;
+            string label = Localization.BuildingName(def.Name) + "    " + costLabel;
+            if (!unlocked) label += "   🔒";
+            var btnGo = _buildingMenuPanel.transform.Find("Viewport/Content/BuildBtn_" + i);
+            if (btnGo == null) continue;
+            var t = btnGo.GetComponentInChildren<TMP_Text>();
+            if (t != null) t.text = label;
+            var btn = btnGo.GetComponent<Button>();
+            if (btn != null)
+            {
+                btn.interactable = unlocked;
+                var targetImg = btn.targetGraphic as Graphic;
+                if (targetImg != null) targetImg.color = unlocked ? new Color(0.26f, 0.3f, 0.37f) : new Color(0.18f, 0.2f, 0.26f);
+                if (t != null) t.color = unlocked ? Color.white : new Color(0.55f, 0.55f, 0.55f);
+            }
         }
     }
 

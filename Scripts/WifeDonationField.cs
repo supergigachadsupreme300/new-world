@@ -8,6 +8,7 @@ public class WifeDonationField : MonoBehaviour
     private BoxCollider _triggerCol;
     private readonly HashSet<GameObject> _consumed = new HashSet<GameObject>();
     private bool _hintShown;
+    private bool _shown = true;
     private Transform _arrowRoot;
     private float _arrowBaseY = 2.8f;
     private TMPro.TextMeshPro _label;
@@ -24,6 +25,8 @@ public class WifeDonationField : MonoBehaviour
 
     private void Update()
     {
+        RefreshVisibility();
+
         if (GameManager.Instance == null || !GameManager.Instance.InGame || GameManager.Instance.GamePaused)
             return;
 
@@ -52,6 +55,19 @@ public class WifeDonationField : MonoBehaviour
             float bob = Mathf.Sin(Time.time * 2f) * 0.08f;
             _arrowRoot.localPosition = new Vector3(0f, _arrowBaseY + bob, 0f);
         }
+    }
+
+    private void RefreshVisibility()
+    {
+        bool show = WifeNPC.Instance != null && !string.IsNullOrEmpty(WifeNPC.Instance.GetActiveMaterialName());
+        if (show == _shown)
+            return;
+
+        _shown = show;
+        for (int i = 0; i < transform.childCount; i++)
+            transform.GetChild(i).gameObject.SetActive(_shown);
+        if (_triggerCol != null)
+            _triggerCol.enabled = _shown;
     }
 
     private void LateUpdate()
@@ -206,7 +222,7 @@ public class WifeDonationField : MonoBehaviour
 
     public static bool TryDonateCage(Transform cage)
     {
-        if (Instance == null || cage == null || Instance._triggerCol == null)
+        if (Instance == null || cage == null || Instance._triggerCol == null || !Instance._triggerCol.enabled)
             return false;
 
         var root = cage.gameObject;
