@@ -12,6 +12,7 @@ public class PetController : MonoBehaviour
     private Transform _player;
     private float _attackTimer;
     private Transform _modelRoot;
+    private Rigidbody _rb;
 
     private void Awake()
     {
@@ -21,9 +22,28 @@ public class PetController : MonoBehaviour
         col.radius = 0.45f;
         col.center = new Vector3(0f, 0.45f, 0f);
 
+        _rb = gameObject.AddComponent<Rigidbody>();
+        _rb.useGravity = true;
+        _rb.constraints = RigidbodyConstraints.FreezeRotation;
+        _rb.interpolation = RigidbodyInterpolation.Interpolate;
+
+        GroundModel();
+
         var pc = Object.FindAnyObjectByType<PlayerController>();
         if (pc != null && pc.GetComponent<CharacterController>() != null)
             Physics.IgnoreCollision(col, pc.GetComponent<CharacterController>());
+    }
+
+    private void GroundModel()
+    {
+        if (_modelRoot == null) return;
+        float lowest = 0f;
+        foreach (var r in _modelRoot.GetComponentsInChildren<Renderer>())
+        {
+            if (r == null) continue;
+            lowest = Mathf.Min(lowest, r.bounds.min.y - transform.position.y);
+        }
+        _modelRoot.localPosition = new Vector3(0f, -lowest, 0f);
     }
 
     private void BuildModel()
@@ -61,8 +81,18 @@ public class PetController : MonoBehaviour
             return;
 
         Vector3 targetPos = _player.position - _player.forward * FollowDistance + _player.right * LateralOffset;
-        targetPos.y = transform.position.y;
-        transform.position = Vector3.MoveTowards(transform.position, targetPos, FollowSpeed * Time.deltaTime);
+        Vector3 toTarget = targetPos - transform.position;
+        toTarget.y = 0f;
+        float moveStep = FollowSpeed * Time.deltaTime;
+        if (toTarget.sqrMagnitude > moveStep * moveStep)
+        {
+            Vector3 moveDir = toTarget.normalized;
+            _rb.linearVelocity = new Vector3(moveDir.x * FollowSpeed, _rb.linearVelocity.y, moveDir.z * FollowSpeed);
+        }
+        else
+        {
+            _rb.linearVelocity = new Vector3(0f, _rb.linearVelocity.y, 0f);
+        }
 
         if (_modelRoot != null && _player != null)
         {

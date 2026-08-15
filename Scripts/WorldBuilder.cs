@@ -417,7 +417,7 @@ public class WorldBuilder : MonoBehaviour
         _treeNameCounter = TreeCount;
         _rockNameCounter = RockCount;
         BuildHouse();
-        SpawnBuildingDirect("goblin_hut", new Vector3(9f, 0f, 9f), 0);
+        SpawnBuildingDirect("goblin_hut", new Vector3(0f, 0f, 16f), 0);
         BuildBeach();
         BuildShop();
         BuildRestaurant();
@@ -4511,7 +4511,7 @@ GameObject treeRoot;
             MaxHealth = 100,
             IsEssential = true
         });
-        var librarian = MapBuilder.BuildLibrarianNpc(_worldRoot.transform, new Vector3(9.6f, 0f, 30f), Quaternion.Euler(0f, -90f, 0f));
+        var librarian = MapBuilder.BuildLibrarianNpc(_worldRoot.transform, new Vector3(4f, 0.95f, 26.62f), Quaternion.Euler(0f, 180f, 0f));
         librarian.AddComponent<LibrarianNPC>();
     }
 

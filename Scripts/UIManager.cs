@@ -38,6 +38,10 @@ public class UIManager : MonoBehaviour
     private TMP_Text _endingTreeTitleText;
     private Button _endingTreeSettingsButton;
     private Button _endingTreeExitButton;
+    private GameObject _endingTreeContent;
+    private RectTransform _endingTreeContentRect;
+    private const float EndingTreeZoomMin = 0.5f;
+    private const float EndingTreeZoomMax = 2.5f;
     private TMP_Text[] _endingRowTexts;
     private readonly List<TMP_Text> _endingQuestStatusTexts = new List<TMP_Text>();
     private readonly List<EndingQuestDef> _endingQuestStatusDefs = new List<EndingQuestDef>();
@@ -539,6 +543,8 @@ public class UIManager : MonoBehaviour
         _settingsPanel.SetActive(false);
 
         _endingTreePanel = CreateFullScreenPanel("EndingTreePanel");
+        _endingTreeContent = CreateEndingTreeContent(_endingTreePanel.transform);
+        _endingTreeContentRect = _endingTreeContent.GetComponent<RectTransform>();
         _endingTreeTitleText = EnsureText("EndingTreeTitle", new Vector2(0f, screenHeight * 0.43f), Localization.T("CÂY KẾT THÚC"), (int)largefontSize, _endingTreePanel.transform, TextAlignmentOptions.Center, true, new Vector2(screenWidth * 0.7f, lineHeight));
 
         _endingTreeExitButton = CreateButton("EndingTreeExitButton", _endingTreePanel.transform, Localization.T("Đóng"), Vector2.zero, () => ShowEndingTreePanel(false), new Vector2(menuButtonWidth * 0.55f, buttonHeight));
@@ -728,6 +734,7 @@ public class UIManager : MonoBehaviour
         float frameContentHalfY = (menuRect.rect.height > 1f ? menuRect.rect.height : screenHeight) * 0.35f;
         float menuBtnHalfH = mainMenuButtonSize.y * 0.5f;
         float menuGap = padding * 0.5f;
+        mainMenuStartY = Mathf.Min(mainMenuStartY, panelHeight * 0.30f - largefontSize * 1.1f * 0.5f - menuBtnHalfH - menuGap);
         mainMenuStartY = Mathf.Min(mainMenuStartY, frameContentHalfY - menuBtnHalfH - menuGap);
         mainMenuPitch = Mathf.Min(mainMenuPitch, (mainMenuStartY + frameContentHalfY - menuBtnHalfH - menuGap) / 6f);
         CreateButton("NewGameButton", _mainMenuPanel.transform, Localization.T("Trò Mới"), new Vector2(0f, mainMenuStartY), () => MainMenuController.Instance?.OnNewGameClicked(), mainMenuButtonSize);
@@ -952,6 +959,74 @@ public class UIManager : MonoBehaviour
         return panelObject;
     }
 
+    private GameObject CreateEndingTreeContent(Transform parent)
+    {
+        var go = GameObject.Find("EndingTreeContent");
+        if (go != null)
+            return go;
+        go = new GameObject("EndingTreeContent");
+        go.transform.SetParent(parent, false);
+
+        var rect = go.AddComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        rect.pivot = new Vector2(0.5f, 0.5f);
+
+        var img = go.AddComponent<Image>();
+        img.color = new Color(0f, 0f, 0f, 0f);
+        img.raycastTarget = true;
+
+        var pan = go.AddComponent<EndingTreePanZoom>();
+        pan.Init(rect);
+        return go;
+    }
+
+    private class EndingTreePanZoom : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler, IScrollHandler
+    {
+        private RectTransform _rect;
+        private Vector2 _dragStartPos;
+        private Vector2 _startAnchorPos;
+        private bool _dragging;
+
+        public void Init(RectTransform rect)
+        {
+            _rect = rect;
+        }
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            _dragging = true;
+            _dragStartPos = eventData.position;
+            _startAnchorPos = _rect != null ? _rect.anchoredPosition : Vector2.zero;
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            if (!_dragging || _rect == null)
+                return;
+            _rect.anchoredPosition = _startAnchorPos + (eventData.position - _dragStartPos);
+        }
+
+        public void OnPointerUp(PointerEventData eventData)
+        {
+            _dragging = false;
+        }
+
+        public void OnScroll(PointerEventData eventData)
+        {
+            if (_rect == null)
+                return;
+            float scroll = eventData.scrollDelta.y;
+            if (Mathf.Approximately(scroll, 0f))
+                return;
+            float factor = scroll > 0f ? 1.15f : 1f / 1.15f;
+            float ns = Mathf.Clamp(_rect.localScale.x * factor, UIManager.EndingTreeZoomMin, UIManager.EndingTreeZoomMax);
+            _rect.localScale = Vector3.one * ns;
+        }
+    }
+
     private GameObject CreateTreeLine(string name, Transform parent, Vector2 start, Vector2 end, float thickness, Color color)
     {
         var go = new GameObject(name);
@@ -979,50 +1054,53 @@ public class UIManager : MonoBehaviour
 
         float sw = Screen.width;
         float sh = Screen.height;
+        float k = 1.3f;
         var lineColor = new Color(1f, 1f, 1f, 0.55f);
+        var treeParent = _endingTreeContent != null ? _endingTreeContent.transform : _endingTreePanel.transform;
 
         Vector2[] nodePos = new Vector2[Endings.Length];
-        nodePos[3] = new Vector2(0f, sh * 0.27f);
-        nodePos[0] = new Vector2(-sw * 0.24f, sh * 0.10f);
-        nodePos[1] = new Vector2(sw * 0.24f, sh * 0.10f);
-        nodePos[5] = new Vector2(-sw * 0.36f, -sh * 0.10f);
-        nodePos[2] = new Vector2(-sw * 0.12f, -sh * 0.10f);
-        nodePos[4] = new Vector2(sw * 0.12f, -sh * 0.10f);
-        nodePos[6] = new Vector2(sw * 0.36f, -sh * 0.10f);
+        nodePos[3] = new Vector2(0f, sh * 0.27f * k);
+        nodePos[0] = new Vector2(-sw * 0.24f * k, sh * 0.10f * k);
+        nodePos[1] = new Vector2(sw * 0.24f * k, sh * 0.10f * k);
+        nodePos[4] = new Vector2(0f, sh * 0.10f * k);
+        nodePos[5] = new Vector2(-sw * 0.24f * k, -sh * 0.14f * k);
+        nodePos[2] = new Vector2(sw * 0.24f * k, -sh * 0.14f * k);
+        nodePos[6] = new Vector2(0f, -sh * 0.14f * k);
 
-        var nodeSize = new Vector2(Mathf.Min(sw * 0.17f, 320f), Mathf.Max(30f, sh * 0.042f));
+        var nodeSize = new Vector2(Mathf.Min(sw * 0.17f, 320f) * k, Mathf.Max(30f, sh * 0.042f) * k);
 
         for (int i = 0; i < Endings.Length; i++)
         {
             int index = i;
-            var btn = CreateButton("EndingRow" + i, _endingTreePanel.transform, Localization.T(Endings[i].TitleKey),
+            var btn = CreateButton("EndingRow" + i, treeParent, Localization.T(Endings[i].TitleKey),
                 nodePos[i], () => PlayEndingScene(index), nodeSize);
             var btnText = btn.GetComponentInChildren<TMP_Text>();
             if (btnText != null)
-                btnText.fontSize = Mathf.Max(11, (int)(sh * 0.015f));
+                btnText.fontSize = Mathf.Max(12, (int)(sh * 0.015f * k));
             _endingRowTexts[i] = btnText;
         }
 
         for (int i = 0; i < Endings.Length; i++)
         {
             int parent = -1;
-            if (i == 0 || i == 1) parent = 3;
-            else if (i == 5 || i == 2) parent = 0;
-            else if (i == 4 || i == 6) parent = 1;
+            if (i == 0 || i == 1 || i == 4) parent = 3;
+            else if (i == 5) parent = 0;
+            else if (i == 2) parent = 1;
+            else if (i == 6) parent = 4;
             if (parent < 0) continue;
             Vector2 pTop = nodePos[i] + new Vector2(0f, nodeSize.y * 0.5f);
             Vector2 pBottom = nodePos[parent] - new Vector2(0f, nodeSize.y * 0.5f);
-            CreateTreeLine("EndingBranch_" + parent + "_" + i, _endingTreePanel.transform, pBottom, pTop, 3f, lineColor);
+            CreateTreeLine("EndingBranch_" + parent + "_" + i, treeParent, pBottom, pTop, 3.5f, lineColor);
         }
 
         for (int i = 0; i < Endings.Length; i++)
         {
             var quests = (i < EndingQuestDefs.Length) ? EndingQuestDefs[i] : null;
             if (quests == null || quests.Length == 0) continue;
-            var questSize = new Vector2(Mathf.Min(sw * 0.13f, 240f), Mathf.Max(20f, sh * 0.028f));
+            var questSize = new Vector2(Mathf.Min(sw * 0.13f, 240f) * k, Mathf.Max(20f, sh * 0.028f) * k);
             float totalW = questSize.x * quests.Length;
-            float gap = Mathf.Min(sw * 0.015f, 24f);
-            float rowY = nodePos[i].y - nodeSize.y * 0.5f - questSize.y * 0.5f - Mathf.Max(8f, sh * 0.012f);
+            float gap = Mathf.Min(sw * 0.015f, 24f) * k;
+            float rowY = nodePos[i].y - nodeSize.y * 0.5f - questSize.y * 0.5f - Mathf.Max(8f, sh * 0.012f) * k;
             for (int j = 0; j < quests.Length; j++)
             {
                 float x = nodePos[i].x - totalW * 0.5f - gap * 0.5f + j * (questSize.x + gap) + questSize.x * 0.5f;
@@ -1031,7 +1109,7 @@ public class UIManager : MonoBehaviour
                 if (rectGo == null)
                 {
                     rectGo = new GameObject(rectName);
-                    rectGo.transform.SetParent(_endingTreePanel.transform, false);
+                    rectGo.transform.SetParent(treeParent, false);
                     var qRect = rectGo.AddComponent<RectTransform>();
                     qRect.anchorMin = new Vector2(0.5f, 0.5f);
                     qRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -1041,11 +1119,11 @@ public class UIManager : MonoBehaviour
                     var qImg = rectGo.AddComponent<Image>();
                     qImg.color = new Color(0.2f, 0.2f, 0.28f, 1f);
                 }
-                var qLabel = EnsureText("EndingQuestLabel_" + i + "_" + j, new Vector2(x, rowY + questSize.y * 0.28f), quests[j].QuestName,
-                    Mathf.Max(10, (int)(sh * 0.012f)), _endingTreePanel.transform, TextAlignmentOptions.Center, true, new Vector2(questSize.x * 0.95f, questSize.y * 0.45f));
+                var qLabel = EnsureText("EndingQuestLabel_" + i + "_" + j, new Vector2(x, rowY + questSize.y * 0.28f), Localization.T(quests[j].QuestName),
+                    Mathf.Max(10, (int)(sh * 0.012f * k)), treeParent, TextAlignmentOptions.Center, false, new Vector2(questSize.x * 0.95f, questSize.y * 0.45f));
                 qLabel.color = Color.white;
-                var qStatus = EnsureText("EndingQuestStatus_" + i + "_" + j, new Vector2(x, rowY - questSize.y * 0.5f - Mathf.Max(4f, sh * 0.006f)),
-                    "", Mathf.Max(10, (int)(sh * 0.012f)), _endingTreePanel.transform, TextAlignmentOptions.Center, false, new Vector2(questSize.x * 1.2f, Mathf.Max(14f, sh * 0.02f)));
+                var qStatus = EnsureText("EndingQuestStatus_" + i + "_" + j, new Vector2(x, rowY - questSize.y * 0.5f - Mathf.Max(4f, sh * 0.006f) * k),
+                    "", Mathf.Max(10, (int)(sh * 0.012f * k)), treeParent, TextAlignmentOptions.Center, false, new Vector2(questSize.x * 1.2f, Mathf.Max(14f, sh * 0.02f) * k));
                 _endingQuestStatusDefs.Add(quests[j]);
                 _endingQuestStatusTexts.Add(qStatus);
             }

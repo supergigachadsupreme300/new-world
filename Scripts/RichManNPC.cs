@@ -394,7 +394,7 @@ public class RichManNPC : MonoBehaviour
         away.Normalize();
 
         _myTransform.position += away * (WALK_SPEED * 1.7f * Time.deltaTime);
-        _myTransform.rotation = Quaternion.LookRotation(away);
+        _myTransform.rotation = Quaternion.LookRotation(-away);
         _isMoving = true;
     }
 

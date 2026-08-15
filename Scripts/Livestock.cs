@@ -25,6 +25,7 @@ public class Livestock : MonoBehaviour
     private bool _isFleeing;
     private float _spawnAnimTimer;
     private bool _spawned = true;
+    private bool _grounded;
     private float _flashTimer;
     private Renderer[] _renderers;
     private Color[] _originalColors;
@@ -101,6 +102,12 @@ public class Livestock : MonoBehaviour
     {
         if (!_spawned) return;
         if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
+
+        if (!_grounded)
+        {
+            _grounded = true;
+            GroundModel();
+        }
 
         if (_flashTimer > 0f)
             _flashTimer -= Time.deltaTime;
@@ -340,6 +347,19 @@ public class Livestock : MonoBehaviour
 
         transform.localScale = Vector3.one;
         _spawned = true;
+    }
+
+    private void GroundModel()
+    {
+        if (_modelRoot == null) return;
+        float lowest = 0f;
+        foreach (var r in _modelRoot.GetComponentsInChildren<Renderer>())
+        {
+            if (r == null) continue;
+            lowest = Mathf.Min(lowest, r.bounds.min.y - transform.position.y);
+        }
+        if (lowest > 0.01f)
+            _modelRoot.transform.localPosition = new Vector3(0f, -lowest, 0f);
     }
 
     // ═══════════════════════════════════════

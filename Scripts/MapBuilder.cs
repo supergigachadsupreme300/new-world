@@ -343,6 +343,7 @@ public static class MapBuilder
         signLabel.transform.SetParent(root.transform);
         signLabel.transform.localPosition = new Vector3(0f, 3.2f, depth / 2f + 0.32f);
         signLabel.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
+        signLabel.transform.localScale = new Vector3(-1f, 1f, 1f);
         var signTmp = signLabel.AddComponent<TMPro.TextMeshPro>();
         signTmp.text = "QUÁN CÀ PHÊ";
         signTmp.fontSize = 0.75f;
@@ -569,6 +570,7 @@ public static class MapBuilder
         storeSignLabel.transform.SetParent(root.transform);
         storeSignLabel.transform.localPosition = new Vector3(hw + 0.5f, 3.6f, 0f);
         storeSignLabel.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+        storeSignLabel.transform.localScale = new Vector3(-1f, 1f, 1f);
         var storeSignTmp = storeSignLabel.AddComponent<TMPro.TextMeshPro>();
         storeSignTmp.text = "TIỆN LỢI";
         storeSignTmp.fontSize = 1.0f;
@@ -651,12 +653,12 @@ public static class MapBuilder
         MakeBlock("Wall", root.transform, new Vector3(0.4f, 5f, 2.5f), new Vector3(5f, 2.5f, -3.25f), wallC);
         MakeBlock("Wall", root.transform, new Vector3(0.4f, 5f, 2.5f), new Vector3(5f, 2.5f, 3.25f), wallC);
         MakeBlock("Transom", root.transform, new Vector3(0.4f, 1.2f, 3f), new Vector3(5f, 4.4f, 0f), wallC);
-        MakeBlock("WallTrim", root.transform, new Vector3(10.2f, 0.3f, 0.45f), new Vector3(0f, 0.15f, 4f), trimC);
-        MakeBlock("WallTrim", root.transform, new Vector3(10.2f, 0.3f, 0.45f), new Vector3(0f, 0.15f, -4f), trimC);
+        MakeBlock("WallTrim", root.transform, new Vector3(10.2f, 0.3f, 0.45f), new Vector3(0f, 0.4f, 4f), trimC);
+        MakeBlock("WallTrim", root.transform, new Vector3(10.2f, 0.3f, 0.45f), new Vector3(0f, 0.4f, -4f), trimC);
 
         // ── Floor + stone foundation ──
-        MakeBlock("Floor", root.transform, new Vector3(10f, 0.4f, 8f), new Vector3(0f, -2.2f, 0f), floorC);
-        MakeBlock("Foundation", root.transform, new Vector3(11.5f, 0.4f, 9.5f), new Vector3(0f, -2.5f, 0f), stoneC);
+        MakeBlock("Floor", root.transform, new Vector3(10f, 0.4f, 8f), new Vector3(0f, 0.05f, 0f), floorC);
+        MakeBlock("Foundation", root.transform, new Vector3(11.5f, 0.4f, 9.5f), new Vector3(0f, -0.2f, 0f), stoneC);
 
         // ── Gabled roof ──
         float rise = 2.5f;
@@ -684,6 +686,7 @@ public static class MapBuilder
         librarySignLabel.transform.SetParent(root.transform);
         librarySignLabel.transform.localPosition = new Vector3(5.3f, 4.4f, 0f);
         librarySignLabel.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+        librarySignLabel.transform.localScale = new Vector3(-1f, 1f, 1f);
         var librarySignTmp = librarySignLabel.AddComponent<TMPro.TextMeshPro>();
         librarySignTmp.text = "THƯ VIỆN";
         librarySignTmp.fontSize = 1.0f;
@@ -730,38 +733,112 @@ public static class MapBuilder
         foreach (float sx in new[] { -2.6f, 2.6f })
         {
             MakeBlock("ShelfUnit", root.transform, new Vector3(2.2f, 3.2f, 0.4f),
-                new Vector3(sx, 1.6f, -3.45f), shelfC);
+                new Vector3(sx, 1.85f, -3.45f), shelfC);
             for (int row = 0; row < 3; row++)
             {
-                float by = 0.45f + row * 0.95f;
-                for (int i = 0; i < 3; i++)
+                float by = 0.7f + row * 0.95f;
+                for (int i = 0; i < 5; i++)
                 {
-                    Color bc = i % 3 == 0 ? bookRed : (i % 3 == 1 ? bookGrn : bookBlu);
-                    MakeBlock("Book", root.transform, new Vector3(0.22f, 0.55f, 0.2f),
-                        new Vector3(sx - 0.7f + i * 0.5f, by, -3.5f), bc, true);
+                    Color bc = i % 4 == 0 ? bookRed : (i % 4 == 1 ? bookGrn : (i % 4 == 2 ? bookBlu : bookGld));
+                    MakeBlock("Book", root.transform, new Vector3(0.2f, 0.55f, 0.2f),
+                        new Vector3(sx - 0.8f + i * 0.4f, by, -3.5f), bc, true);
                 }
+            }
+            for (int i = 0; i < 4; i++)
+            {
+                Color bc = i % 4 == 0 ? bookGld : (i % 4 == 1 ? bookRed : (i % 4 == 2 ? bookGrn : bookBlu));
+                MakeBlock("BookTop", root.transform, new Vector3(0.18f, 0.45f, 0.18f),
+                    new Vector3(sx - 0.68f + i * 0.44f, 3.15f, -3.5f), bc, true);
             }
         }
         MakeBlock("BookRowGld", root.transform, new Vector3(1.9f, 0.5f, 0.22f),
-            new Vector3(0f, 2.6f, -3.48f), bookGld, true);
+            new Vector3(0f, 2.85f, -3.48f), bookGld, true);
 
-        // ── Reading table + chairs in the middle ──
-        MakeBlock("Table", root.transform, new Vector3(2.4f, 0.9f, 1.4f),
-            new Vector3(0f, 0.45f, 0f), trimC);
-        MakeBlock("TableTop", root.transform, new Vector3(2.6f, 0.08f, 1.6f),
-            new Vector3(0f, 0.9f, 0f), floorC, true);
-        MakeBlock("ChairL", root.transform, new Vector3(0.8f, 0.7f, 0.8f),
-            new Vector3(-1.8f, 0.35f, 0f), shelfC, true);
-        MakeBlock("ChairR", root.transform, new Vector3(0.8f, 0.7f, 0.8f),
-            new Vector3(1.8f, 0.35f, 0f), shelfC, true);
+        // ── Bookshelves along the front (+z) wall ──
+        foreach (float sx in new[] { -2.6f, 2.6f })
+        {
+            MakeBlock("ShelfUnitFront", root.transform, new Vector3(2.2f, 2.8f, 0.4f),
+                new Vector3(sx, 1.65f, 3.45f), shelfC);
+            for (int row = 0; row < 3; row++)
+            {
+                float by = 0.7f + row * 0.85f;
+                for (int i = 0; i < 5; i++)
+                {
+                    Color bc = i % 4 == 0 ? bookRed : (i % 4 == 1 ? bookGrn : (i % 4 == 2 ? bookBlu : bookGld));
+                    MakeBlock("BookFront", root.transform, new Vector3(0.2f, 0.5f, 0.2f),
+                        new Vector3(sx - 0.8f + i * 0.4f, by, 3.5f), bc, true);
+                }
+            }
+        }
 
-        // ── Librarian desk near the entrance ──
-        MakeBlock("Desk", root.transform, new Vector3(1.6f, 1f, 2.4f),
-            new Vector3(2.2f, 0.5f, 0f), trimC);
-        MakeBlock("DeskTop", root.transform, new Vector3(1.6f, 0.08f, 2.6f),
-            new Vector3(2.2f, 0.98f, 0f), floorC, true);
+        // ── Shelf unit on the east wall (near the entrance) ──
+        MakeBlock("ShelfEast", root.transform, new Vector3(0.5f, 2.4f, 1.6f),
+            new Vector3(4.55f, 1.45f, 2.8f), shelfC);
+        for (int row = 0; row < 2; row++)
+        {
+            float by = 0.75f + row * 0.9f;
+            for (int i = 0; i < 3; i++)
+            {
+                Color bc = i % 3 == 0 ? bookGrn : (i % 3 == 1 ? bookBlu : bookRed);
+                MakeBlock("BookEast", root.transform, new Vector3(0.2f, 0.5f, 0.2f),
+                    new Vector3(4.55f, by, 2.2f + i * 0.4f), bc, true);
+            }
+        }
+
+        // ── Librarian desk against the back wall (long side along X) ──
+        MakeBlock("Desk", root.transform, new Vector3(2.4f, 1f, 1.6f),
+            new Vector3(0f, 0.75f, -2.2f), trimC);
+        MakeBlock("DeskTop", root.transform, new Vector3(2.6f, 0.08f, 1.6f),
+            new Vector3(0f, 1.29f, -2.2f), floorC, true);
         MakeBlock("OpenBook", root.transform, new Vector3(0.9f, 0.06f, 1.2f),
-            new Vector3(2.2f, 1.1f, -0.4f), new Color(0.95f, 0.93f, 0.85f), true);
+            new Vector3(0f, 1.38f, -2.2f), new Color(0.95f, 0.93f, 0.85f), true);
+
+        // ── Desk props ──
+        MakeBlock("GlobeBase", root.transform, new Vector3(0.16f, 0.05f, 0.16f), new Vector3(-0.85f, 1.38f, -1.65f), trimC, true);
+        MakeBlock("GlobeStand", root.transform, new Vector3(0.05f, 0.22f, 0.05f), new Vector3(-0.85f, 1.45f, -1.65f), ridgeC, true);
+        MakeBlock("Globe", root.transform, new Vector3(0.2f, 0.2f, 0.2f), new Vector3(-0.85f, 1.65f, -1.65f), bookBlu, true);
+        MakeBlock("Papers", root.transform, new Vector3(0.35f, 0.04f, 0.5f), new Vector3(0.85f, 1.39f, -2.75f), new Color(0.95f, 0.93f, 0.85f), true);
+        MakeBlock("PaperTop", root.transform, new Vector3(0.3f, 0.04f, 0.45f), new Vector3(0.85f, 1.43f, -2.77f), new Color(0.9f, 0.87f, 0.78f), true);
+        MakeBlock("InkPot", root.transform, new Vector3(0.12f, 0.2f, 0.12f), new Vector3(0.95f, 1.4f, -1.75f), ridgeC, true);
+        MakeBlock("Quill", root.transform, new Vector3(0.04f, 0.55f, 0.04f), new Vector3(1.02f, 1.44f, -1.67f), trimC, true);
+        MakeBlock("DeskCandle", root.transform, new Vector3(0.08f, 0.22f, 0.08f), new Vector3(-0.85f, 1.4f, -2.75f), new Color(0.96f, 0.92f, 0.8f), true);
+        MakeBlock("DeskCandleFlame", root.transform, new Vector3(0.06f, 0.09f, 0.06f), new Vector3(-0.85f, 1.56f, -2.75f), bookGld, true);
+
+        // ── Librarian chair behind the desk ──
+        MakeBlock("LibrarianChair", root.transform, new Vector3(0.8f, 0.7f, 0.8f),
+            new Vector3(0f, 0.6f, -3.38f), shelfC, true);
+        MakeBlock("LibrarianChairBack", root.transform, new Vector3(0.1f, 0.6f, 0.8f),
+            new Vector3(0f, 1.0f, -3.7f), trimC, true);
+
+        // ── Wall clock on the back wall ──
+        MakeBlock("Clock", root.transform, new Vector3(0.06f, 0.5f, 0.5f), new Vector3(0f, 4.15f, -3.97f), new Color(0.95f, 0.93f, 0.85f), true);
+        MakeBlock("ClockRim", root.transform, new Vector3(0.07f, 0.55f, 0.55f), new Vector3(0f, 4.15f, -3.96f), trimC, true);
+
+        // ── Window bench along the west wall ──
+        MakeBlock("Bench", root.transform, new Vector3(0.45f, 0.5f, 2.6f), new Vector3(-4.6f, 0.5f, 2f), trimC, true);
+        MakeBlock("BenchCushion", root.transform, new Vector3(0.47f, 0.12f, 2.62f), new Vector3(-4.6f, 0.81f, 2f), bookRed, true);
+
+        // ── Potted plants in the corners ──
+        MakeBlock("PlantPotSW", root.transform, new Vector3(0.34f, 0.38f, 0.34f), new Vector3(-4.55f, 0.44f, -3.35f), new Color(0.55f, 0.35f, 0.2f), true);
+        MakeBlock("PlantLeavesSW", root.transform, new Vector3(0.62f, 0.5f, 0.62f), new Vector3(-4.55f, 0.85f, -3.35f), bookGrn, true);
+        MakeBlock("PlantPotNE", root.transform, new Vector3(0.3f, 0.42f, 0.3f), new Vector3(4.5f, 0.46f, 3.35f), new Color(0.55f, 0.35f, 0.2f), true);
+        MakeBlock("PlantLeavesNE", root.transform, new Vector3(0.55f, 0.55f, 0.55f), new Vector3(4.5f, 0.93f, 3.35f), bookGrn, true);
+
+        // ── Lantern hanging from the ridge over the reading table ──
+        MakeBlock("LanternChain", root.transform, new Vector3(0.03f, 1.6f, 0.03f), new Vector3(0f, 5.75f, 0f), ridgeC, true);
+        MakeBlock("Lantern", root.transform, new Vector3(0.28f, 0.32f, 0.28f), new Vector3(0f, 4.92f, 0f), eaveC, true);
+        MakeBlock("LanternGlow", root.transform, new Vector3(0.16f, 0.2f, 0.16f), new Vector3(0f, 4.92f, 0f), bookGld, true);
+
+        // ── Exterior: welcome mat + entrance bushes ──
+        MakeBlock("Mat", root.transform, new Vector3(1.4f, 0.06f, 2.2f), new Vector3(6.2f, 0.03f, 0f), bookRed, true);
+        MakeBlock("BushL", root.transform, new Vector3(1.0f, 0.65f, 0.8f), new Vector3(6.9f, 0.33f, -2.8f), new Color(0.22f, 0.5f, 0.16f), true);
+        MakeBlock("BushR", root.transform, new Vector3(1.0f, 0.65f, 0.8f), new Vector3(6.9f, 0.33f, 2.8f), new Color(0.22f, 0.5f, 0.16f), true);
+
+        // ── Exterior: stepping-stone path toward the road ──
+        for (int i = 0; i < 5; i++)
+        {
+            MakeBlock("PathStone", root.transform, new Vector3(1.0f, 0.12f, 1.4f), new Vector3(7.4f + i * 1.6f, 0.06f, 0f), stoneC, true);
+        }
 
         return root;
     }
@@ -977,6 +1054,7 @@ public static class MapBuilder
         neonLabel.transform.SetParent(root.transform);
         neonLabel.transform.localPosition = new Vector3(0f, 3.3f, halfD + 0.4f);
         neonLabel.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
+        neonLabel.transform.localScale = new Vector3(-1f, 1f, 1f);
         var neonTmp = neonLabel.AddComponent<TMPro.TextMeshPro>();
         neonTmp.text = "DANCE NIGHT";
         neonTmp.fontSize = 0.7f;
@@ -1587,6 +1665,7 @@ public static class MapBuilder
         signLabel.transform.SetParent(root.transform);
         signLabel.transform.localPosition = new Vector3(0f, 3.32f, 3.74f);
         signLabel.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
+        signLabel.transform.localScale = new Vector3(-1f, 1f, 1f);
         var tmp = signLabel.AddComponent<TMPro.TextMeshPro>();
         tmp.text = "POLICE";
         tmp.fontSize = 1.1f;
@@ -1718,6 +1797,7 @@ public static class MapBuilder
         signLabel.transform.SetParent(root.transform);
         signLabel.transform.localPosition = new Vector3(halfW + 0.3f, 3.6f, 0f);
         signLabel.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+        signLabel.transform.localScale = new Vector3(-1f, 1f, 1f);
         var signTmp = signLabel.AddComponent<TMPro.TextMeshPro>();
         signTmp.text = "NHÀ HÀNG";
         signTmp.fontSize = 1.0f;
@@ -2599,6 +2679,7 @@ public static class MapBuilder
         shopSignLabel.transform.SetParent(root.transform);
         shopSignLabel.transform.localPosition = new Vector3(5.3f, 3.6f, 0f);
         shopSignLabel.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+        shopSignLabel.transform.localScale = new Vector3(-1f, 1f, 1f);
         var shopSignTmp = shopSignLabel.AddComponent<TMPro.TextMeshPro>();
         shopSignTmp.text = "CỬA HÀNG";
         shopSignTmp.fontSize = 1.0f;
@@ -2640,7 +2721,7 @@ public static class MapBuilder
         MakeBlock("Counter", root.transform, new Vector3(1.8f, 1f, 4f),
             new Vector3(-2.4f, 0.5f, 0f), counterC);
         MakeBlock("CounterTop", root.transform, new Vector3(1.8f, 0.08f, 4.2f),
-            new Vector3(-2.4f, 0.96f, 0f), new Color(0.757f, 0.62f, 0.404f), true);
+            new Vector3(-2.4f, 1.04f, 0f), new Color(0.757f, 0.62f, 0.404f), true);
         MakeBlock("CounterFront", root.transform, new Vector3(0.03f, 0.8f, 4f),
             new Vector3(-1.5f, 0.4f, 0f), new Color(0.624f, 0.369f, 0.192f), true);
 
@@ -3326,7 +3407,7 @@ public static class MapBuilder
         // ── Balcony (at -X, 2F) ──
         float balcY = h1 + 0.25f;
         MakeBlock("BalconyDeck", root.transform, new Vector3(4f, 0.2f, 8f),
-            new Vector3(-8.5f, balcY, 0f), balcC, true);
+            new Vector3(-8.5f, balcY, 0f), balcC);
         for (float bz = -3.5f; bz <= 3.5f; bz += 1f)
         {
             MakeBlock("BalconyRail", root.transform, new Vector3(0.08f, 1.2f, 0.08f),

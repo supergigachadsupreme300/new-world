@@ -505,6 +505,7 @@ public class CutsceneManager : MonoBehaviour
 
     private IEnumerator IntroRoutine(System.Action onComplete)
     {
+        bool completedNormally = false;
         try
         {
         if (_uiManager == null)
@@ -605,6 +606,7 @@ public class CutsceneManager : MonoBehaviour
         if (WorldBuilder.Instance != null)
             WorldBuilder.Instance.CloseBorderGap();
 
+        completedNormally = true;
         onComplete?.Invoke();
 
         if (onComplete == null && _uiManager != null && GameManager.Instance != null && !GameManager.Instance.InGame)
@@ -613,7 +615,8 @@ public class CutsceneManager : MonoBehaviour
         finally
         {
             HideSkipButton();
-            RestorePlayerControl();
+            if (!completedNormally)
+                RestorePlayerControl();
             if (GameManager.Instance != null && GameManager.Instance.InGame)
                 ShowHUD();
             IsActive = false;

@@ -24,6 +24,7 @@ public class GoblinPet : MonoBehaviour
     private Transform _kneeL;
     private Transform _kneeR;
     private SphereCollider _collider;
+    private Rigidbody _rb;
 
     private int _health;
     private bool _isDead;
@@ -61,7 +62,12 @@ public class GoblinPet : MonoBehaviour
 
         _collider = gameObject.AddComponent<SphereCollider>();
         _collider.radius = 0.4f;
-        _collider.center = new Vector3(0f, 0.5f, 0f);
+        _collider.center = new Vector3(0f, 0.4f, 0f);
+
+        _rb = gameObject.AddComponent<Rigidbody>();
+        _rb.useGravity = true;
+        _rb.constraints = RigidbodyConstraints.FreezeRotation;
+        _rb.interpolation = RigidbodyInterpolation.Interpolate;
 
         var pc = Object.FindAnyObjectByType<PlayerController>();
         if (pc != null && pc.GetComponent<CharacterController>() != null)
@@ -105,6 +111,11 @@ public class GoblinPet : MonoBehaviour
 
         if (_collider != null)
             _collider.enabled = false;
+        if (_rb != null)
+        {
+            _rb.isKinematic = true;
+            _rb.linearVelocity = Vector3.zero;
+        }
         if (_modelRoot != null)
         {
             _modelRoot.localRotation = Quaternion.Euler(90f, 0f, 0f);
@@ -119,6 +130,11 @@ public class GoblinPet : MonoBehaviour
 
         if (_collider != null)
             _collider.enabled = true;
+        if (_rb != null)
+        {
+            _rb.isKinematic = false;
+            _rb.linearVelocity = Vector3.zero;
+        }
         if (_modelRoot != null)
         {
             _modelRoot.localRotation = Quaternion.identity;
@@ -169,6 +185,9 @@ public class GoblinPet : MonoBehaviour
                 HandleFollow();
         }
 
+        if (!_isMoving && _rb != null)
+            _rb.linearVelocity = new Vector3(0f, _rb.linearVelocity.y, 0f);
+
         Animate();
     }
 
@@ -190,7 +209,7 @@ public class GoblinPet : MonoBehaviour
             return;
         }
 
-        Vector3 target = hutPos.Value;
+        Vector3 target = hutPos.Value + new Vector3(0f, 0f, -2.2f);
         target.y = transform.position.y;
 
         if (Vector3.Distance(transform.position, target) <= 0.7f)
@@ -313,8 +332,7 @@ public class GoblinPet : MonoBehaviour
         if (dir.sqrMagnitude < 0.0001f)
             return;
 
-        float step = FollowSpeed * Time.deltaTime;
-        transform.position = Vector3.MoveTowards(transform.position, flatTarget, step);
+        _rb.linearVelocity = new Vector3(dir.normalized.x * FollowSpeed, _rb.linearVelocity.y, dir.normalized.z * FollowSpeed);
         transform.rotation = Quaternion.LookRotation(dir.normalized);
         _isMoving = true;
     }

@@ -248,7 +248,7 @@ public class GameManager : MonoBehaviour
             return;
 
         var petGO = new GameObject("Pet_01");
-        petGO.transform.position = new Vector3(2f, 0.5f, 2f);
+        petGO.transform.position = new Vector3(6f, 0.5f, 2f);
         var pet = petGO.AddComponent<PetController>();
         Pets.Add(pet);
         Debug.Log("[GameManager] Spawned default pet");
@@ -263,7 +263,14 @@ public class GameManager : MonoBehaviour
             return;
 
         var goblinGO = new GameObject("GoblinPet_01");
-        goblinGO.transform.position = new Vector3(3.5f, 0.5f, 3.5f);
+        Vector3 goblinSpawn = new Vector3(0f, 0.5f, 13f);
+        foreach (var b in wb.GetAllBuildings())
+        {
+            if (b == null || b.Type != "goblin_hut") continue;
+            goblinSpawn = b.Position + new Vector3(0f, 0.5f, -3f);
+            break;
+        }
+        goblinGO.transform.position = goblinSpawn;
         goblinGO.AddComponent<GoblinPet>();
         Debug.Log("[GameManager] Spawned goblin pet");
     }
