@@ -30,6 +30,10 @@ public class NightClubController : MonoBehaviour
 
         _lights = GetComponentsInChildren<Light>(true);
         _dancers = GetComponentsInChildren<ClubDancer>(true);
+        foreach (var d in _dancers)
+        {
+            if (d != null) d.IsDancing = true;
+        }
         _initialized = true;
     }
 
@@ -86,7 +90,7 @@ public class NightClubController : MonoBehaviour
         {
             foreach (var d in _dancers)
             {
-                if (d != null) d.IsDancing = _night;
+                if (d != null) d.IsDancing = true;
             }
         }
         if (_neon != null)

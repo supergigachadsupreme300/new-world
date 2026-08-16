@@ -583,10 +583,10 @@ public static class MapBuilder
         // ── Window on the back wall ──
         MakeBlock("WinGlass", root.transform, new Vector3(0.12f, 1.4f, 2f), new Vector3(-hw - 0.02f, 2.3f, 0f), winC, true);
 
-        // ── Counter inside ──
-        MakeBlock("Counter", root.transform, new Vector3(2f, 1f, 4.5f), new Vector3(1.5f, 0.5f, 0f), counterC);
-        MakeBlock("CounterTop", root.transform, new Vector3(2f, 0.08f, 4.7f), new Vector3(1.5f, 0.98f, 0f), new Color(0.7f, 0.75f, 0.8f), true);
-        MakeBlock("Register", root.transform, new Vector3(0.5f, 0.4f, 0.5f), new Vector3(1.7f, 1.22f, 0f), frameC, true);
+        // ── Counter inside (moved in from the door) ──
+        MakeBlock("Counter", root.transform, new Vector3(2f, 1f, 4.5f), new Vector3(1.0f, 0.5f, 0f), counterC);
+        MakeBlock("CounterTop", root.transform, new Vector3(2f, 0.08f, 4.7f), new Vector3(1.0f, 0.98f, 0f), new Color(0.7f, 0.75f, 0.8f), true);
+        MakeBlock("Register", root.transform, new Vector3(0.5f, 0.4f, 0.5f), new Vector3(1.2f, 1.22f, 0f), frameC, true);
 
         // ── Shelf units flanking the back wall (4 tiers each) ──
         Color[] itemColors =
@@ -611,8 +611,8 @@ public static class MapBuilder
             }
         }
 
-        // ── Shopkeeper behind the counter ──
-        BuildMarketNpc(root.transform, "ConvenienceNPC", new Vector3(1.5f, 1.13f, 0f), Quaternion.Euler(0f, 180f, 0f));
+        // ── Shopkeeper behind the counter, facing the door ──
+        BuildMarketNpc(root.transform, "ConvenienceNPC", new Vector3(-0.3f, 1.13f, 0f), Quaternion.Euler(0f, -90f, 0f));
 
         return root;
     }
@@ -737,22 +737,28 @@ public static class MapBuilder
             for (int row = 0; row < 3; row++)
             {
                 float by = 0.7f + row * 0.95f;
+                MakeBlock("BookShelfBoard", root.transform, new Vector3(1.9f, 0.07f, 0.32f),
+                    new Vector3(sx, by - 0.31f, -3.2f), shelfC);
                 for (int i = 0; i < 5; i++)
                 {
                     Color bc = i % 4 == 0 ? bookRed : (i % 4 == 1 ? bookGrn : (i % 4 == 2 ? bookBlu : bookGld));
                     MakeBlock("Book", root.transform, new Vector3(0.2f, 0.55f, 0.2f),
-                        new Vector3(sx - 0.8f + i * 0.4f, by, -3.5f), bc, true);
+                        new Vector3(sx - 0.8f + i * 0.4f, by, -3.2f), bc, true);
                 }
             }
+            MakeBlock("BookShelfBoard", root.transform, new Vector3(1.9f, 0.07f, 0.32f),
+                new Vector3(sx, 2.86f, -3.2f), shelfC);
             for (int i = 0; i < 4; i++)
             {
                 Color bc = i % 4 == 0 ? bookGld : (i % 4 == 1 ? bookRed : (i % 4 == 2 ? bookGrn : bookBlu));
                 MakeBlock("BookTop", root.transform, new Vector3(0.18f, 0.45f, 0.18f),
-                    new Vector3(sx - 0.68f + i * 0.44f, 3.15f, -3.5f), bc, true);
+                    new Vector3(sx - 0.68f + i * 0.44f, 3.15f, -3.2f), bc, true);
             }
         }
+        MakeBlock("BookShelfBoard", root.transform, new Vector3(2.0f, 0.07f, 0.32f),
+            new Vector3(0f, 2.53f, -3.2f), shelfC);
         MakeBlock("BookRowGld", root.transform, new Vector3(1.9f, 0.5f, 0.22f),
-            new Vector3(0f, 2.85f, -3.48f), bookGld, true);
+            new Vector3(0f, 2.85f, -3.2f), bookGld, true);
 
         // ── Bookshelves along the front (+z) wall ──
         foreach (float sx in new[] { -2.6f, 2.6f })
@@ -762,11 +768,13 @@ public static class MapBuilder
             for (int row = 0; row < 3; row++)
             {
                 float by = 0.7f + row * 0.85f;
+                MakeBlock("BookShelfBoardFront", root.transform, new Vector3(1.9f, 0.07f, 0.32f),
+                    new Vector3(sx, by - 0.29f, 3.2f), shelfC);
                 for (int i = 0; i < 5; i++)
                 {
                     Color bc = i % 4 == 0 ? bookRed : (i % 4 == 1 ? bookGrn : (i % 4 == 2 ? bookBlu : bookGld));
                     MakeBlock("BookFront", root.transform, new Vector3(0.2f, 0.5f, 0.2f),
-                        new Vector3(sx - 0.8f + i * 0.4f, by, 3.5f), bc, true);
+                        new Vector3(sx - 0.8f + i * 0.4f, by, 3.2f), bc, true);
                 }
             }
         }
@@ -777,11 +785,13 @@ public static class MapBuilder
         for (int row = 0; row < 2; row++)
         {
             float by = 0.75f + row * 0.9f;
+            MakeBlock("BookShelfBoardEast", root.transform, new Vector3(0.32f, 0.07f, 1.0f),
+                new Vector3(4.25f, by - 0.29f, 2.6f), shelfC);
             for (int i = 0; i < 3; i++)
             {
                 Color bc = i % 3 == 0 ? bookGrn : (i % 3 == 1 ? bookBlu : bookRed);
                 MakeBlock("BookEast", root.transform, new Vector3(0.2f, 0.5f, 0.2f),
-                    new Vector3(4.55f, by, 2.2f + i * 0.4f), bc, true);
+                    new Vector3(4.25f, by, 2.2f + i * 0.4f), bc, true);
             }
         }
 
@@ -983,6 +993,51 @@ public static class MapBuilder
         MakeBlock("HandR", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0.37f, -0.14f, 0f), skinC, true);
 
         MakeBlock("Beads", root.transform, new Vector3(0.06f, 0.4f, 0.03f), new Vector3(0.16f, -0.02f, 0.12f), new Color(0.6f, 0.35f, 0.15f), true);
+
+        var col = root.AddComponent<BoxCollider>();
+        col.size = new Vector3(0.9f, 1.7f, 0.7f);
+        col.center = new Vector3(0f, 0.45f, 0f);
+        col.isTrigger = true;
+
+        return root;
+    }
+    // ==================== MapBuilderImmigrantNpc.cs ====================
+    // ═══════════════════════════════════════════════════════════════
+    //  IMMIGRANT NPC  (newcomer villager with a carrying bundle)
+    // ═══════════════════════════════════════════════════════════════
+
+    public static GameObject BuildImmigrantNpc(Transform parent, Vector3 position = default, Quaternion rotation = default)
+    {
+        var root = new GameObject("ImmigrantNpc");
+        root.transform.SetParent(parent);
+        root.transform.position = position;
+        root.transform.rotation = (rotation == default) ? Quaternion.identity : rotation;
+
+        Color shirtC = new Color(0.35f, 0.5f, 0.28f);
+        Color pantsC = new Color(0.4f, 0.33f, 0.22f);
+        Color skinC = new Color(215f / 255f, 180f / 255f, 150f / 255f);
+        Color bootC = new Color(0.35f, 0.25f, 0.12f);
+        Color bundleC = new Color(0.75f, 0.7f, 0.6f);
+        Color hatC = new Color(0.85f, 0.8f, 0.5f);
+
+        MakeBlock("LegL", root.transform, new Vector3(0.17f, 0.5f, 0.17f), new Vector3(-0.15f, -0.6f, 0f), pantsC, true);
+        MakeBlock("LegR", root.transform, new Vector3(0.17f, 0.5f, 0.17f), new Vector3(0.15f, -0.6f, 0f), pantsC, true);
+        MakeBlock("BootL", root.transform, new Vector3(0.2f, 0.09f, 0.3f), new Vector3(-0.15f, -0.88f, 0f), bootC, true);
+        MakeBlock("BootR", root.transform, new Vector3(0.2f, 0.09f, 0.3f), new Vector3(0.15f, -0.88f, 0f), bootC, true);
+        MakeBlock("Body", root.transform, new Vector3(0.5f, 0.55f, 0.3f), new Vector3(0f, 0f, 0f), shirtC, true);
+        MakeBlock("Belt", root.transform, new Vector3(0.52f, 0.07f, 0.32f), new Vector3(0f, -0.22f, 0f), new Color(0.25f, 0.18f, 0.1f), true);
+        MakeBlock("Neck", root.transform, new Vector3(0.14f, 0.12f, 0.14f), new Vector3(0f, 0.36f, 0f), skinC, true);
+        MakeBlock("Head", root.transform, new Vector3(0.32f, 0.3f, 0.32f), new Vector3(0f, 0.52f, 0f), skinC, true);
+        MakeBlock("Hair", root.transform, new Vector3(0.33f, 0.09f, 0.33f), new Vector3(0f, 0.65f, 0f), new Color(0.12f, 0.09f, 0.06f), true);
+        MakeBlock("ConicalHat", root.transform, new Vector3(0.6f, 0.06f, 0.6f), new Vector3(0f, 0.7f, 0f), hatC, true);
+        MakeBlock("EyeWhiteL", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(-0.09f, 0.55f, -0.16f), new Color(0.95f, 0.95f, 0.97f), true);
+        MakeBlock("EyeWhiteR", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(0.09f, 0.55f, -0.16f), new Color(0.95f, 0.95f, 0.97f), true);
+        MakeBlock("Nose", root.transform, new Vector3(0.07f, 0.06f, 0.05f), new Vector3(0f, 0.51f, -0.17f), skinC, true);
+        MakeBlock("ArmL", root.transform, new Vector3(0.14f, 0.45f, 0.14f), new Vector3(-0.36f, 0.1f, 0f), shirtC, true);
+        MakeBlock("ArmR", root.transform, new Vector3(0.14f, 0.45f, 0.14f), new Vector3(0.36f, 0.1f, 0f), shirtC, true);
+        MakeBlock("HandL", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(-0.36f, -0.14f, 0f), skinC, true);
+        MakeBlock("HandR", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0.36f, -0.14f, 0f), skinC, true);
+        MakeBlock("Bundle", root.transform, new Vector3(0.32f, 0.3f, 0.32f), new Vector3(0.42f, -0.05f, 0.1f), bundleC, true);
 
         var col = root.AddComponent<BoxCollider>();
         col.size = new Vector3(0.9f, 1.7f, 0.7f);
@@ -1505,6 +1560,13 @@ public static class MapBuilder
         {
             MakeBlock("HairBack", root.transform, new Vector3(0.3f, 0.3f, 0.1f), new Vector3(0f, 0.7f, -0.16f), hairC, true);
             MakeBlock("HairBand", root.transform, new Vector3(0.34f, 0.05f, 0.32f), new Vector3(0f, 0.8f, 0f), new Color(0.1f, 0.34f, 0.56f), true);
+            MakeBlock("Ponytail1", root.transform, new Vector3(0.18f, 0.24f, 0.14f), new Vector3(0f, 0.7f, -0.23f), hairC, true);
+            MakeBlock("Ponytail2", root.transform, new Vector3(0.15f, 0.22f, 0.13f), new Vector3(0f, 0.5f, -0.27f), hairC, true);
+            MakeBlock("Ponytail3", root.transform, new Vector3(0.12f, 0.2f, 0.12f), new Vector3(0f, 0.3f, -0.29f), hairC, true);
+        }
+        else
+        {
+            MakeBlock("HairBack", root.transform, new Vector3(0.3f, 0.26f, 0.1f), new Vector3(0f, 0.72f, -0.16f), hairC, true);
         }
         Color eyeWhiteC = new Color(0.95f, 0.95f, 0.97f);
         MakeBlock("EyeWhiteL", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(-0.08f, 0.72f, 0.155f), eyeWhiteC, true);
@@ -2109,6 +2171,7 @@ public static class MapBuilder
 
         Color coatC = new Color(0.95f, 0.95f, 0.92f);
         Color skinC = new Color(230f / 255f, 200f / 255f, 175f / 255f);
+        Color noseC = new Color(0.72f, 0.62f, 0.54f);
         Color pantsC = new Color(0.16f, 0.16f, 0.16f);
         Color bootC = new Color(0.1f, 0.1f, 0.1f);
 
@@ -2126,7 +2189,9 @@ public static class MapBuilder
         MakeBlock("Head", root.transform, new Vector3(0.32f, 0.3f, 0.32f), new Vector3(0f, 0.52f, 0f), skinC, true);
         MakeBlock("EyeWhiteL", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(-0.09f, 0.55f, -0.16f), new Color(0.95f, 0.95f, 0.97f), true);
         MakeBlock("EyeWhiteR", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(0.09f, 0.55f, -0.16f), new Color(0.95f, 0.95f, 0.97f), true);
-        MakeBlock("Nose", root.transform, new Vector3(0.07f, 0.06f, 0.05f), new Vector3(0f, 0.51f, -0.17f), skinC, true);
+        MakeBlock("EyeIrisL", root.transform, new Vector3(0.05f, 0.05f, 0.04f), new Vector3(-0.09f, 0.55f, -0.168f), new Color(0.05f, 0.03f, 0.01f), true);
+        MakeBlock("EyeIrisR", root.transform, new Vector3(0.05f, 0.05f, 0.04f), new Vector3(0.09f, 0.55f, -0.168f), new Color(0.05f, 0.03f, 0.01f), true);
+        MakeBlock("Nose", root.transform, new Vector3(0.07f, 0.06f, 0.05f), new Vector3(0f, 0.51f, -0.17f), noseC, true);
 
         MakeBlock("HatBase", root.transform, new Vector3(0.36f, 0.06f, 0.36f), new Vector3(0f, 0.65f, 0f), coatC, true);
         MakeBlock("HatCrown", root.transform, new Vector3(0.3f, 0.18f, 0.3f), new Vector3(0f, 0.75f, 0f), coatC, true);
@@ -2157,6 +2222,11 @@ public static class MapBuilder
         MakeBlock("Neck", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0f, 0.32f, 0f), skinC, true);
         MakeBlock("Head", root.transform, new Vector3(0.28f, 0.26f, 0.28f), new Vector3(0f, 0.46f, 0f), skinC, true);
         MakeBlock("Hair", root.transform, new Vector3(0.29f, 0.09f, 0.29f), new Vector3(0f, 0.6f, 0f), new Color(0.15f, 0.1f, 0.07f), true);
+        MakeBlock("EyeWhiteL", root.transform, new Vector3(0.07f, 0.05f, 0.03f), new Vector3(-0.08f, 0.49f, -0.145f), new Color(0.95f, 0.95f, 0.97f), true);
+        MakeBlock("EyeWhiteR", root.transform, new Vector3(0.07f, 0.05f, 0.03f), new Vector3(0.08f, 0.49f, -0.145f), new Color(0.95f, 0.95f, 0.97f), true);
+        MakeBlock("EyeIrisL", root.transform, new Vector3(0.045f, 0.045f, 0.035f), new Vector3(-0.08f, 0.49f, -0.153f), new Color(0.05f, 0.03f, 0.01f), true);
+        MakeBlock("EyeIrisR", root.transform, new Vector3(0.045f, 0.045f, 0.035f), new Vector3(0.08f, 0.49f, -0.153f), new Color(0.05f, 0.03f, 0.01f), true);
+        MakeBlock("Nose", root.transform, new Vector3(0.06f, 0.05f, 0.04f), new Vector3(0f, 0.455f, -0.152f), new Color(0.72f, 0.62f, 0.54f), true);
         MakeBlock("ArmL", root.transform, new Vector3(0.11f, 0.35f, 0.11f), new Vector3(-0.29f, 0.08f, 0.05f), shirtC, true);
         MakeBlock("ArmR", root.transform, new Vector3(0.11f, 0.35f, 0.11f), new Vector3(0.29f, 0.08f, 0.05f), shirtC, true);
         MakeBlock("HandL", root.transform, new Vector3(0.1f, 0.08f, 0.1f), new Vector3(-0.29f, -0.1f, 0.05f), skinC, true);
@@ -2179,6 +2249,11 @@ public static class MapBuilder
         MakeBlock("Neck", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0f, 0.32f, 0f), skinC, true);
         MakeBlock("Head", root.transform, new Vector3(0.28f, 0.26f, 0.28f), new Vector3(0f, 0.47f, 0f), skinC, true);
         MakeBlock("Hair", root.transform, new Vector3(0.29f, 0.09f, 0.29f), new Vector3(0f, 0.61f, 0f), new Color(0.2f, 0.13f, 0.08f), true);
+        MakeBlock("EyeWhiteL", root.transform, new Vector3(0.07f, 0.05f, 0.03f), new Vector3(-0.08f, 0.5f, -0.145f), new Color(0.95f, 0.95f, 0.97f), true);
+        MakeBlock("EyeWhiteR", root.transform, new Vector3(0.07f, 0.05f, 0.03f), new Vector3(0.08f, 0.5f, -0.145f), new Color(0.95f, 0.95f, 0.97f), true);
+        MakeBlock("EyeIrisL", root.transform, new Vector3(0.045f, 0.045f, 0.035f), new Vector3(-0.08f, 0.5f, -0.153f), new Color(0.05f, 0.03f, 0.01f), true);
+        MakeBlock("EyeIrisR", root.transform, new Vector3(0.045f, 0.045f, 0.035f), new Vector3(0.08f, 0.5f, -0.153f), new Color(0.05f, 0.03f, 0.01f), true);
+        MakeBlock("Nose", root.transform, new Vector3(0.06f, 0.05f, 0.04f), new Vector3(0f, 0.465f, -0.152f), new Color(0.72f, 0.62f, 0.54f), true);
         MakeBlock("ArmL", root.transform, new Vector3(0.12f, 0.4f, 0.12f), new Vector3(-0.31f, 0.08f, 0f), shirtC, true);
         MakeBlock("ArmR", root.transform, new Vector3(0.12f, 0.4f, 0.12f), new Vector3(0.31f, 0.08f, 0f), shirtC, true);
         MakeBlock("HandL", root.transform, new Vector3(0.1f, 0.08f, 0.1f), new Vector3(-0.31f, -0.14f, 0f), skinC, true);
@@ -2578,6 +2653,9 @@ public static class MapBuilder
         {
             MakeBlock("HairBack", root.transform, new Vector3(0.28f, 0.26f, 0.08f), new Vector3(0f, 0.8f, -0.14f), hairC, true);
             MakeBlock("HairBand", root.transform, new Vector3(0.3f, 0.05f, 0.3f), new Vector3(0f, 0.9f, 0f), new Color(0.1f, 0.34f, 0.56f), true);
+            MakeBlock("Ponytail1", root.transform, new Vector3(0.16f, 0.22f, 0.12f), new Vector3(0f, 0.76f, -0.19f), hairC, true);
+            MakeBlock("Ponytail2", root.transform, new Vector3(0.13f, 0.2f, 0.11f), new Vector3(0f, 0.58f, -0.23f), hairC, true);
+            MakeBlock("Ponytail3", root.transform, new Vector3(0.11f, 0.18f, 0.1f), new Vector3(0f, 0.4f, -0.25f), hairC, true);
         }
         // ── Eyes ──
         Color eyeWhiteC = new Color(0.95f, 0.95f, 0.97f);

@@ -582,6 +582,16 @@ public static class Localization
         { "KẾT THÚC HẠNH PHÚC", "HAPPY ENDING" },
         { "Bạn và Jessica đã đi đến cuối con đường cùng nhau!", "You and Jessica walked the path together to the very end!" },
         { "Nhấn Enter để tiếp tục chơi", "Press Enter to keep playing" },
+        { "KẾT THÚC ĐỊNH MỆNH", "FATED ENDING" },
+        { "Bạn và Jessica đã xây xong dinh thự... nhưng không bao giờ diệt Quỷ Vương,\nkhông lật tẩy bí mật của Phú Ông.\n\nMột đêm, kẻ nghiện ngập do ma túy của Phú Ông đã đột nhập.\nCảnh sát tìm thấy hai thi thể trong chính ngôi nhà bạn xây nên.\nDấu vết: một vụ trộm... do nghiện ngập.\n\nVà lũ quỷ vẫn đứng im ở rìa màn đêm,\nkhông một ai nhìn thấy chúng.\n\nĐịnh mệnh của bạn đã kết thúc ngay trong nhà mình.",
+          "You and Jessica finished the mansion... but you never slew the Demon King,\nnever exposed the rich man's secret.\n\nOne night, an addict hooked on the rich man's drugs broke in.\nThe police found two bodies inside the very home you built.\nThe clue: a robbery... caused by addiction.\n\nAnd the demons still stood still at the edge of the night,\nand no one ever saw them.\n\nYour fate ended inside your own home." },
+        { "Cửa dinh thự mở toang... còn chiếc xe cảnh sát đậu bên ngoài.", "The mansion door is wide open... and a police car is parked outside." },
+        { "Trong phòng... hai thi thể nằm bất động.", "Inside the room... two bodies lie still." },
+        { "Cửa bị phá. Đồ đạc vương vãi khắp nơi.", "The door was forced. Belongings are strewn everywhere." },
+        { "Một vụ trộm... nhưng chỉ mất vài đồng vàng vụn.", "A robbery... but only a few loose coins are missing." },
+        { "Khoan đã... bơm kim tiêm. Dấu vết nghiện ngập.", "Wait... a syringe. Signs of drug abuse." },
+        { "Kẻ nghiện của đường dây Phú Ông đã vào đây.", "An addict from the rich man's drug ring got in." },
+        { "Và lũ quỷ... vẫn đứng im ngay rìa bóng tối. Không ai nhìn thấy chúng.", "And the demons... still stand still at the edge of the darkness. No one sees them." },
         { "Bạn đã ngủ {0} tiếng.", "You slept for {0} hours." },
         { "Cần đến gần biển để câu cá!", "Get closer to the sea to fish!" },
         { "Ngắm xuống mặt nước!", "Aim at the water!" },
@@ -840,7 +850,7 @@ public static class Localization
 
         // NTR ending
         { "KẾT THÚC NTR", "NTR ENDING" },
-        { "Trong lúc bạn mải mê làm giàu,\nông chú giàu có đã chiếm trọn trái tim Jessica.\n\nCô ấy đã không còn chờ đợi bạn nữa.\nBạn đã quá muộn...\n\nKhi bạn không quan tâm đến cô ấy,\nngười khác sẽ quan tâm thay bạn.", "While you chased your fortune,\nthe rich man won Jessica's heart.\n\nShe no longer waits for you.\nYou were too late...\n\nWhen you fail to care for her,\nsomeone else will." },
+        { "Bạn đã bỏ bê Jessica quá lâu.\nÔng chú giàu có đã lặng lẽ lấp đầy khoảng trống bạn để lại.\n\nKhi bạn quay lại... cô ấy đã không còn chờ đợi bạn nữa.\nBạn đã quá muộn.\n\nKhi bạn không quan tâm đến cô ấy,\nngười khác sẽ quan tâm thay bạn.", "You neglected Jessica for too long.\nThe rich man quietly filled the void you left.\n\nWhen you came back... she no longer waited for you.\nYou were too late.\n\nWhen you fail to care for her,\nsomeone else will." },
 
         // Rich man illegal trade
         { "Hừ. Một kẻ làm ruộng như cậu mà cũng dám bắt chuyện với ta?", "Hmph. A farmhand like you dares to start a conversation with me?" },
@@ -854,6 +864,7 @@ public static class Localization
         { "[Nhận Hối Lộ] (Chạm)", "[Take Bribe] (Tap)" },
         { "[Nhận Hối Lộ] Ấn 2", "[Take Bribe] Press 2" },
         { "Hãy lựa chọn...", "Make your choice..." },
+        { "Lựa chọn đặc biệt", "Special Choice" },
         { "Bạn đã phát hiện hoạt động phi pháp của Phú Ông!", "You discovered the rich man's illegal activities!" },
         { "Bí Mật Của Phú Ông", "The Rich Man's Secret" },
         { "Đêm tối, hãy rình xem điều gì xảy ra sau dinh thự của Phú Ông. Sau khi có bằng chứng, hãy đến đồn cảnh sát bên cạnh con đường để báo án.", "At night, spy on what happens behind the rich man's mansion. Once you have proof, report it to the police post by the road." },
@@ -890,6 +901,23 @@ public static class Localization
         { "Con đã trấn áp Quỷ Vương. Làng này nợ con một ân tình lớn, Phật sẽ phù hộ con.", "You have vanquished the Demon King. The village owes you a great debt; Buddha will bless you." },
         { "QUỶ VƯƠNG ĐÃ THỨC TỈNH!", "THE DEMON KING HAS AWAKENED!" },
         { "Quỷ Vương", "Demon King" },
+
+        // Immigrant quest chain — building homes for the newcomers
+        { "Người Di Cư", "Immigrant" },
+        { "Xây Nhà Cho Người Di Cư", "Build Homes for the Immigrants" },
+        { "Xây 3 ngôi nhà nhỏ cho những người di cư ở phía nam con đường.", "Build 3 small houses for the immigrants south of the road." },
+        { "Người di cư đã đến! Hãy xây nhà cho họ!", "The immigrants have arrived! Build homes for them!" },
+        { "Nhận {0} đồng tiền thuê nhà từ khu người di cư!", "Received {0} coins in rent from the immigrant village!" },
+        { "Người mới à? Chúng tôi vừa rời làng cũ, nơi ấy đã chẳng còn chỗ cho chúng tôi nữa.", "Newcomer? We just left our old village; there was no place left for us there." },
+        { "Nghe nói vùng đất này còn nhiều chỗ trống. Ông chủ giúp chúng tôi một việc được không?", "We heard this land still has room. Boss, can you help us?" },
+        { "Xin hãy dựng 3 căn nhà nhỏ cho chúng tôi. Chúng tôi chỉ cần một mái che thôi.", "Please build us 3 small houses. We only need a roof over our heads." },
+        { "Cảm ơn ông chủ! Chúng tôi vẫn cần thêm {0} căn nhà nữa.", "Thank you, boss! We still need {0} more houses." },
+        { "Chúng tôi vẫn cần {0} căn nhà nữa. Ông chủ cố gắng giúp nhé.", "We still need {0} more houses. Please do your best, boss." },
+        { "Ông chủ đã cho chúng tôi một cuộc sống mới! Mỗi sáng chúng tôi sẽ trả tiền thuê nhà cho ông chủ.", "Boss, you gave us a new life! Every morning we will pay you rent." },
+        { "Từ nay khu vực này là một phần của làng. Chúng tôi sẽ luôn biết ơn ông chủ.", "From now on this area is part of the village. We will always be grateful to you, boss." },
+        { "Gọi Người Di Cư", "Call the Immigrant" },
+        { "Một gia đình người di cư đang đến làng!", "A family of immigrants is coming to town!" },
+        { "Người di cư đã đến làng! Hãy đến chào họ.", "The immigrants have arrived! Go greet them." },
 
         // Boss bad ending (fall into the dark)
         { "Tải Save Gần Nhất", "Load Latest Save" },
@@ -934,6 +962,14 @@ public static class Localization
         { "CÂY KẾT THÚC", "ENDING TREE" },
         { "Cần hoàn thành", "Must complete" },
         { "Cần im lặng", "Must stay silent" },
-        { "- Diệt Quỷ Vương, chưa lật tẩy bí mật Phú Ông\n  -> QUỶ VƯƠNG ĐÃ CHẾT NHƯNG CÁI ÁC CHƯA HẾT\n\n- Lật tẩy bí mật -> báo cảnh sát (trước khi diệt Quỷ Vương)\n  -> CÔNG LÝ ĐƯỢC THỰC THI NHƯNG HIỂM HỌA CHƯA QUA\n\n- Lật tẩy bí mật -> nhận hối lộ\n  -> KẾT THÚC ĐỒI BẠI\n\n- Diệt Quỷ Vương -> báo cảnh sát\n  HOẶC Hoàn thành chuỗi Jessica (xây dinh thự)\n  -> KẾT THÚC HẠNH PHÚC\n\n- Bỏ bê Jessica 3 ngày, độ thân mật thấp\n  -> KẾT THÚC NTR\n\n- Chết khi giao chiến Quỷ Vương\n  -> RƠI VÀO BÓNG TỐI\n\n- Chết\n  -> KẾT THÚC BUỒN", "- Slay the Demon King without exposing the rich man's secret\n  -> THE DEMON IS DEAD BUT NOT ALL EVIL IS GONE\n\n- Expose secret -> report to police (before slaying the Demon King)\n  -> JUSTICE SERVED BUT NOT ALL THREAT IS GONE\n\n- Expose secret -> take the bribe\n  -> CORRUPTED ENDING\n\n- Slay the Demon King -> report to police\n  OR Complete Jessica's chain (build the mansion)\n  -> HAPPY ENDING\n\n- Neglect Jessica 3 days, low affection\n  -> NTR ENDING\n\n- Die while fighting the Demon King\n  -> FALL INTO THE DARK\n\n- Die\n  -> SAD ENDING" }
+        { "Đã hoàn thành", "Completed" },
+        { "Chưa hoàn thành", "Not completed" },
+        { "Điều kiện hoàn thành:", "Completion conditions:" },
+        { "Không có điều kiện", "No conditions" },
+        { "Phát Kết Thúc", "Play Ending" },
+        { "Chưa mở khóa", "Not unlocked" },
+        { "Nhận hối lộ của Phú Ông", "Accept the rich man's bribe" },
+        { "Chết khi giao chiến Quỷ Vương", "Die while fighting the Demon King" },
+        { "- Diệt Quỷ Vương, chưa lật tẩy bí mật Phú Ông\n  -> QUỶ VƯƠNG ĐÃ CHẾT NHƯNG CÁI ÁC CHƯA HẾT\n\n- Lật tẩy bí mật -> báo cảnh sát (trước khi diệt Quỷ Vương)\n  -> CÔNG LÝ ĐƯỢC THỰC THI NHƯNG HIỂM HỌA CHƯA QUA\n\n- Lật tẩy bí mật -> nhận hối lộ\n  -> KẾT THÚC ĐỒI BẠI\n\n- Diệt Quỷ Vương -> báo cảnh sát\n  HOẶC Hoàn thành chuỗi Jessica (xây dinh thự)\n  -> KẾT THÚC HẠNH PHÚC\n\n- Chỉ hoàn thành chuỗi Jessica, chưa diệt Quỷ Vương,\n  chưa lật tẩy bí mật Phú Ông\n  -> KẾT THÚC ĐỊNH MỆNH\n\n- Bỏ bê Jessica 3 ngày, độ thân mật thấp\n  -> KẾT THÚC NTR\n\n- Chết khi giao chiến Quỷ Vương\n  -> RƠI VÀO BÓNG TỐI\n\n- Chết\n  -> KẾT THÚC BUỒN", "- Slay the Demon King without exposing the rich man's secret\n  -> THE DEMON IS DEAD BUT NOT ALL EVIL IS GONE\n\n- Expose secret -> report to police (before slaying the Demon King)\n  -> JUSTICE SERVED BUT NOT ALL THREAT IS GONE\n\n- Expose secret -> take the bribe\n  -> CORRUPTED ENDING\n\n- Slay the Demon King -> report to police\n  OR Complete Jessica's chain (build the mansion)\n  -> HAPPY ENDING\n\n- Complete only Jessica's chain, without slaying the Demon King\n  or exposing the rich man's secret\n  -> FATED ENDING\n\n- Neglect Jessica 3 days, low affection\n  -> NTR ENDING\n\n- Die while fighting the Demon King\n  -> FALL INTO THE DARK\n\n- Die\n  -> SAD ENDING" }
     };
 }

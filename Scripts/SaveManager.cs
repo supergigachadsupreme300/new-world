@@ -64,7 +64,10 @@ public class SaveManager : MonoBehaviour
             quests = _questManager?.GetQuestSaves(),
             richSecret = RichManNPC.Instance != null && RichManNPC.Instance.Discovered,
             wifeStateJson = WifeNPC.Instance != null ? WifeNPC.Instance.SerializeState() : "",
-            unlockedBlueprints = _worldBuilder.GetUnlockedBlueprintsAsSave()
+            unlockedBlueprints = _worldBuilder.GetUnlockedBlueprintsAsSave(),
+            immigrantBuiltMask = _worldBuilder.GetImmigrantBuiltMask(),
+            immigrantVillagePlaced = _worldBuilder.IsImmigrantVillagePlacedState(),
+            immigrantArrived = _worldBuilder.GetImmigrantArrived()
         };
 
         var json = JsonUtility.ToJson(data, true);
@@ -132,6 +135,9 @@ public class SaveManager : MonoBehaviour
         _worldBuilder?.LoadBuildingsFromSave(data.buildings);
         _worldBuilder?.LoadMansionBlueprintsFromSave(data.mansionBlueprints);
         _worldBuilder?.LoadUnlockedBlueprints(data.unlockedBlueprints);
+        _worldBuilder?.LoadImmigrantVillageFromSave(data.immigrantBuiltMask, data.immigrantVillagePlaced);
+        if (data.immigrantArrived)
+            _worldBuilder?.RestoreImmigrantArrival();
         if (RichManNPC.Instance != null && json.Contains("\"richSecret\""))
             RichManNPC.Instance.SetDiscovered(data.richSecret);
         _questManager?.LoadQuestSaves(data.quests);
@@ -198,6 +204,9 @@ public class SaveManager : MonoBehaviour
         public bool richSecret;
         public string wifeStateJson;
         public string[] unlockedBlueprints;
+        public int immigrantBuiltMask;
+        public bool immigrantVillagePlaced;
+        public bool immigrantArrived;
     }
 
     [System.Serializable]

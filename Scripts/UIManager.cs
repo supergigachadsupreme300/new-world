@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -43,8 +44,11 @@ public class UIManager : MonoBehaviour
     private const float EndingTreeZoomMin = 0.5f;
     private const float EndingTreeZoomMax = 2.5f;
     private TMP_Text[] _endingRowTexts;
-    private readonly List<TMP_Text> _endingQuestStatusTexts = new List<TMP_Text>();
-    private readonly List<EndingQuestDef> _endingQuestStatusDefs = new List<EndingQuestDef>();
+    private readonly List<EndingQuestUi> _endingQuestUis = new List<EndingQuestUi>();
+    private GameObject _endingQuestTabPanel;
+    private EndingQuestUi _endingQuestTabUi;
+    private GameObject _endingDetailPanel;
+    private int _endingDetailIndex = -1;
 
     private class EndingEntry
     {
@@ -74,16 +78,28 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    private class EndingQuestUi
+    {
+        public EndingQuestDef Def;
+        public readonly List<KeyValuePair<int, bool>> Targets = new List<KeyValuePair<int, bool>>();
+        public TMP_Text Text;
+        public Image Box;
+    }
+
     private static readonly EndingQuestDef[][] EndingQuestDefs =
     {
         new[] { new EndingQuestDef("Trấn Áp Quỷ Vương", "boss_kill", true), new EndingQuestDef("Bí Mật Của Phú Ông", "mansion_secret", false) },
         new[] { new EndingQuestDef("Bí Mật Của Phú Ông", "mansion_secret", true), new EndingQuestDef("Trấn Áp Quỷ Vương", "boss_kill", false) },
-        new[] { new EndingQuestDef("Bí Mật Của Phú Ông", "mansion_secret", true), new EndingQuestDef("Xây Dựng Đế Chế", "money_earned", true) },
-        new[] { new EndingQuestDef("Bí Mật Của Phú Ông", "mansion_secret", true), new EndingQuestDef("Trấn Áp Quỷ Vương", "boss_kill", true) },
-        new[] { new EndingQuestDef("Xây Dựng Đế Chế", "money_earned", true) },
+        new[] { new EndingQuestDef("Bí Mật Của Phú Ông", "mansion_secret", true) },
+        new[] { new EndingQuestDef("Bí Mật Của Phú Ông", "mansion_secret", true), new EndingQuestDef("Trấn Áp Quỷ Vương", "boss_kill", true), new EndingQuestDef("Xây Dựng Dinh Thự Cho Jessica", "mansion", true) },
+        new EndingQuestDef[0],
         new[] { new EndingQuestDef("Trấn Áp Quỷ Vương", "boss_kill", false) },
-        new[] { new EndingQuestDef("Tỷ Phú", "money_earned", true) }
+        new EndingQuestDef[0],
+        new[] { new EndingQuestDef("Xây Dựng Dinh Thự Cho Jessica", "mansion", true), new EndingQuestDef("Trấn Áp Quỷ Vương", "boss_kill", false), new EndingQuestDef("Bí Mật Của Phú Ông", "mansion_secret", false) }
     };
+
+    private static readonly bool[] SpecialChoiceEndings = { false, false, true, false, false, true, false, false };
+    private static readonly string[] EndingChoiceTexts = { null, null, "Nhận hối lộ của Phú Ông", null, null, "Chết khi giao chiến Quỷ Vương", null, null };
 
     private static readonly EndingEntry[] Endings =
     {
@@ -105,7 +121,7 @@ public class UIManager : MonoBehaviour
             true),
         new EndingEntry(
             "KẾT THÚC NTR",
-            "Trong lúc bạn mải mê làm giàu,\nông chú giàu có đã chiếm trọn trái tim Jessica.\n\nCô ấy đã không còn chờ đợi bạn nữa.\nBạn đã quá muộn...\n\nKhi bạn không quan tâm đến cô ấy,\nngười khác sẽ quan tâm thay bạn.",
+            "Bạn đã bỏ bê Jessica quá lâu.\nÔng chú giàu có đã lặng lẽ lấp đầy khoảng trống bạn để lại.\n\nKhi bạn quay lại... cô ấy đã không còn chờ đợi bạn nữa.\nBạn đã quá muộn.\n\nKhi bạn không quan tâm đến cô ấy,\nngười khác sẽ quan tâm thay bạn.",
             true),
         new EndingEntry(
             "RƠI VÀO BÓNG TỐI",
@@ -114,6 +130,10 @@ public class UIManager : MonoBehaviour
         new EndingEntry(
             "KẾT THÚC BUỒN",
             "Bạn đã đến quá muộn.\nTrong khi bạn đi tìm kiếm giàu sang,\nbạn đã quên đi điều thực sự quan trọng.\n\nCô ấy đợi...\ncho đến khi không thể đợi nữa.",
+            true),
+        new EndingEntry(
+            "KẾT THÚC ĐỊNH MỆNH",
+            "Bạn và Jessica đã xây xong dinh thự... nhưng không bao giờ diệt Quỷ Vương,\nkhông lật tẩy bí mật của Phú Ông.\n\nMột đêm, kẻ nghiện ngập do ma túy của Phú Ông đã đột nhập.\nCảnh sát tìm thấy hai thi thể trong chính ngôi nhà bạn xây nên.\nDấu vết: một vụ trộm... do nghiện ngập.\n\nVà lũ quỷ vẫn đứng im ở rìa màn đêm,\nkhông một ai nhìn thấy chúng.\n\nĐịnh mệnh của bạn đã kết thúc ngay trong nhà mình.",
             true)
     };
     private GameObject _tutorialPanel;
@@ -558,6 +578,47 @@ public class UIManager : MonoBehaviour
 
         BuildEndingTreeLayout();
         _endingTreePanel.SetActive(false);
+
+        _endingQuestTabPanel = CreateFullScreenPanel("EndingQuestTabPanel");
+        var tabImg = _endingQuestTabPanel.GetComponent<Image>();
+        if (tabImg != null)
+            tabImg.color = new Color(0f, 0f, 0f, 0.88f);
+        var tabBox = new GameObject("EndingQuestTabBox");
+        tabBox.transform.SetParent(_endingQuestTabPanel.transform, false);
+        var tabBoxRect = tabBox.AddComponent<RectTransform>();
+        tabBoxRect.anchorMin = new Vector2(0.5f, 0.5f);
+        tabBoxRect.anchorMax = new Vector2(0.5f, 0.5f);
+        tabBoxRect.pivot = new Vector2(0.5f, 0.5f);
+        tabBoxRect.anchoredPosition = Vector2.zero;
+        tabBoxRect.sizeDelta = new Vector2(panelWidth, panelHeight);
+        var tabBoxImg = tabBox.AddComponent<Image>();
+        tabBoxImg.color = new Color(0.04f, 0.04f, 0.07f, 0.97f);
+        EnsureText("EndingQuestTabTitle", new Vector2(0f, panelHeight * 0.34f), "", (int)(largefontSize * 1.05f), tabBox.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight * 1.5f));
+        EnsureText("EndingQuestTabStory", new Vector2(0f, panelHeight * 0.14f), "", (int)fontSize, tabBox.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.22f));
+        EnsureText("EndingQuestTabCond", new Vector2(0f, -panelHeight * 0.17f), "", (int)fontSize, tabBox.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.4f));
+        CreateButton("EndingQuestTabCloseButton", tabBox.transform, Localization.T("Đóng"), new Vector2(0f, -panelHeight * 0.41f), () => ShowEndingQuestTab(false), new Vector2(menuButtonWidth * 0.55f, buttonHeight));
+        _endingQuestTabPanel.SetActive(false);
+
+        _endingDetailPanel = CreateFullScreenPanel("EndingDetailPanel");
+        var detailImg = _endingDetailPanel.GetComponent<Image>();
+        if (detailImg != null)
+            detailImg.color = new Color(0f, 0f, 0f, 0.88f);
+        var detailBox = new GameObject("EndingDetailBox");
+        detailBox.transform.SetParent(_endingDetailPanel.transform, false);
+        var detailBoxRect = detailBox.AddComponent<RectTransform>();
+        detailBoxRect.anchorMin = new Vector2(0.5f, 0.5f);
+        detailBoxRect.anchorMax = new Vector2(0.5f, 0.5f);
+        detailBoxRect.pivot = new Vector2(0.5f, 0.5f);
+        detailBoxRect.anchoredPosition = Vector2.zero;
+        detailBoxRect.sizeDelta = new Vector2(panelWidth, panelHeight);
+        var detailBoxImg = detailBox.AddComponent<Image>();
+        detailBoxImg.color = new Color(0.04f, 0.04f, 0.07f, 0.97f);
+        EnsureText("EndingDetailTitle", new Vector2(0f, panelHeight * 0.34f), "", (int)(largefontSize * 1.05f), detailBox.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight * 1.5f));
+        EnsureText("EndingDetailStory", new Vector2(0f, panelHeight * 0.14f), "", (int)fontSize, detailBox.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.22f));
+        EnsureText("EndingDetailCond", new Vector2(0f, -panelHeight * 0.17f), "", (int)fontSize, detailBox.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.4f));
+        CreateButton("EndingDetailPlayButton", detailBox.transform, Localization.T("Phát Kết Thúc"), new Vector2(0f, -panelHeight * 0.38f), PlayEndingFromDetail, new Vector2(menuButtonWidth * 0.75f, buttonHeight * 1.1f));
+        CreateButton("EndingDetailCloseButton", detailBox.transform, Localization.T("Đóng"), new Vector2(0f, -panelHeight * 0.44f), () => ShowEndingDetail(false), new Vector2(menuButtonWidth * 0.55f, buttonHeight));
+        _endingDetailPanel.SetActive(false);
 
         _questPanel = CreateMenuPanel("QuestPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
         EnsureText("QuestTitle", new Vector2(0f, panelHeight * 0.35f), Localization.T("NHIỆM VỤ"), (int)largefontSize, _questPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
@@ -1043,43 +1104,49 @@ public class UIManager : MonoBehaviour
 
         var img = go.AddComponent<Image>();
         img.color = color;
+        go.transform.SetAsFirstSibling();
         return go;
     }
 
     private void BuildEndingTreeLayout()
     {
         _endingRowTexts = new TMP_Text[Endings.Length];
-        _endingQuestStatusTexts.Clear();
-        _endingQuestStatusDefs.Clear();
+        _endingQuestUis.Clear();
 
         float sw = Screen.width;
         float sh = Screen.height;
         float k = 1.3f;
         var lineColor = new Color(1f, 1f, 1f, 0.55f);
+        var doneLine = new Color(0.35f, 0.9f, 0.45f, 0.8f);
+        var silenceLine = new Color(0.95f, 0.4f, 0.4f, 0.8f);
         var treeParent = _endingTreeContent != null ? _endingTreeContent.transform : _endingTreePanel.transform;
 
-        Vector2[] nodePos = new Vector2[Endings.Length];
-        nodePos[3] = new Vector2(0f, sh * 0.27f * k);
-        nodePos[0] = new Vector2(-sw * 0.24f * k, sh * 0.10f * k);
-        nodePos[1] = new Vector2(sw * 0.24f * k, sh * 0.10f * k);
-        nodePos[4] = new Vector2(0f, sh * 0.10f * k);
-        nodePos[5] = new Vector2(-sw * 0.24f * k, -sh * 0.14f * k);
-        nodePos[2] = new Vector2(sw * 0.24f * k, -sh * 0.14f * k);
-        nodePos[6] = new Vector2(0f, -sh * 0.14f * k);
+        // Clear any tree nodes generated by a previous build (InitializeUI can run more than
+        // once), so boxes/lines no longer created by the current quest config don't linger.
+        for (int i = treeParent.childCount - 1; i >= 0; i--)
+            Object.DestroyImmediate(treeParent.GetChild(i).gameObject);
 
-        var nodeSize = new Vector2(Mathf.Min(sw * 0.17f, 320f) * k, Mathf.Max(30f, sh * 0.042f) * k);
+        // Ending nodes: one horizontal row (ordered to keep parent/child clusters close).
+        Vector2[] nodePos = new Vector2[Endings.Length];
+        var nodeSize = new Vector2(Mathf.Min(sw * 0.098f, 192f) * k, Mathf.Max(44f, sh * 0.055f) * k);
+        int[] rowOrder = { 3, 7, 0, 5, 1, 2, 4, 6 };
+        float eGap = Mathf.Min(sw * 0.012f, 18f) * k;
+        float totalRowW = nodeSize.x * rowOrder.Length + eGap * (rowOrder.Length - 1);
+        for (int r = 0; r < rowOrder.Length; r++)
+            nodePos[rowOrder[r]] = new Vector2(-totalRowW * 0.5f + r * (nodeSize.x + eGap) + nodeSize.x * 0.5f, 0f);
 
         for (int i = 0; i < Endings.Length; i++)
         {
             int index = i;
             var btn = CreateButton("EndingRow" + i, treeParent, Localization.T(Endings[i].TitleKey),
-                nodePos[i], () => PlayEndingScene(index), nodeSize);
+                nodePos[i], () => ShowEndingDetail(true, index), nodeSize);
             var btnText = btn.GetComponentInChildren<TMP_Text>();
             if (btnText != null)
-                btnText.fontSize = Mathf.Max(12, (int)(sh * 0.015f * k));
+                btnText.fontSize = Mathf.Max(11, (int)(sh * 0.013f * k));
             _endingRowTexts[i] = btnText;
         }
 
+        // Parent/child ending branches (dim connectors under the row)
         for (int i = 0; i < Endings.Length; i++)
         {
             int parent = -1;
@@ -1087,67 +1154,234 @@ public class UIManager : MonoBehaviour
             else if (i == 5) parent = 0;
             else if (i == 2) parent = 1;
             else if (i == 6) parent = 4;
+            else if (i == 7) parent = 3;
             if (parent < 0) continue;
-            Vector2 pTop = nodePos[i] + new Vector2(0f, nodeSize.y * 0.5f);
-            Vector2 pBottom = nodePos[parent] - new Vector2(0f, nodeSize.y * 0.5f);
-            CreateTreeLine("EndingBranch_" + parent + "_" + i, treeParent, pBottom, pTop, 3.5f, lineColor);
+            Vector2 from = new Vector2(nodePos[parent].x, -nodeSize.y * 0.5f - 22f * k);
+            Vector2 to = new Vector2(nodePos[i].x, -nodeSize.y * 0.5f - 22f * k);
+            CreateTreeLine("EndingBranch_" + parent + "_" + i, treeParent, from, to, 2.5f, lineColor);
         }
 
-        for (int i = 0; i < Endings.Length; i++)
+        // Aggregate unique quests across endings (one box per quest)
+        var questUis = new List<EndingQuestUi>();
+        for (int i = 0; i < Endings.Length && i < EndingQuestDefs.Length; i++)
         {
-            var quests = (i < EndingQuestDefs.Length) ? EndingQuestDefs[i] : null;
-            if (quests == null || quests.Length == 0) continue;
-            var questSize = new Vector2(Mathf.Min(sw * 0.13f, 240f) * k, Mathf.Max(20f, sh * 0.028f) * k);
-            float totalW = questSize.x * quests.Length;
-            float gap = Mathf.Min(sw * 0.015f, 24f) * k;
-            float rowY = nodePos[i].y - nodeSize.y * 0.5f - questSize.y * 0.5f - Mathf.Max(8f, sh * 0.012f) * k;
+            var quests = EndingQuestDefs[i];
+            if (quests == null) continue;
             for (int j = 0; j < quests.Length; j++)
             {
-                float x = nodePos[i].x - totalW * 0.5f - gap * 0.5f + j * (questSize.x + gap) + questSize.x * 0.5f;
-                string rectName = "EndingQuestRect_" + i + "_" + j;
-                var rectGo = GameObject.Find(rectName);
-                if (rectGo == null)
+                var def = quests[j];
+                EndingQuestUi ui = null;
+                for (int u = 0; u < questUis.Count; u++)
                 {
-                    rectGo = new GameObject(rectName);
-                    rectGo.transform.SetParent(treeParent, false);
-                    var qRect = rectGo.AddComponent<RectTransform>();
-                    qRect.anchorMin = new Vector2(0.5f, 0.5f);
-                    qRect.anchorMax = new Vector2(0.5f, 0.5f);
-                    qRect.pivot = new Vector2(0.5f, 0.5f);
-                    qRect.anchoredPosition = new Vector2(x, rowY);
-                    qRect.sizeDelta = questSize;
-                    var qImg = rectGo.AddComponent<Image>();
-                    qImg.color = new Color(0.2f, 0.2f, 0.28f, 1f);
+                    if (questUis[u].Def.QuestName == def.QuestName)
+                    {
+                        ui = questUis[u];
+                        break;
+                    }
                 }
-                var qLabel = EnsureText("EndingQuestLabel_" + i + "_" + j, new Vector2(x, rowY + questSize.y * 0.28f), Localization.T(quests[j].QuestName),
-                    Mathf.Max(10, (int)(sh * 0.012f * k)), treeParent, TextAlignmentOptions.Center, false, new Vector2(questSize.x * 0.95f, questSize.y * 0.45f));
-                qLabel.color = Color.white;
-                var qStatus = EnsureText("EndingQuestStatus_" + i + "_" + j, new Vector2(x, rowY - questSize.y * 0.5f - Mathf.Max(4f, sh * 0.006f) * k),
-                    "", Mathf.Max(10, (int)(sh * 0.012f * k)), treeParent, TextAlignmentOptions.Center, false, new Vector2(questSize.x * 1.2f, Mathf.Max(14f, sh * 0.02f) * k));
-                _endingQuestStatusDefs.Add(quests[j]);
-                _endingQuestStatusTexts.Add(qStatus);
+                if (ui == null)
+                {
+                    ui = new EndingQuestUi { Def = def };
+                    questUis.Add(ui);
+                }
+                if (!ui.Targets.Exists(t => t.Key == i))
+                    ui.Targets.Add(new KeyValuePair<int, bool>(i, def.MustComplete));
             }
         }
+
+        // Quest row at the top (one box per quest)
+        var questSize = new Vector2(Mathf.Min(sw * 0.115f, 195f) * k, Mathf.Max(34f, sh * 0.05f) * k);
+        float qGap = Mathf.Min(sw * 0.02f, 28f) * k;
+        float questY = sh * 0.245f * k;
+        int qc = questUis.Count;
+        float totalW = questSize.x * qc + qGap * (qc - 1);
+        bool[] markerAdded = new bool[Endings.Length];
+        for (int q = 0; q < qc; q++)
+        {
+            var ui = questUis[q];
+            float qx = -totalW * 0.5f + q * (questSize.x + qGap) + questSize.x * 0.5f;
+
+            var boxImg = CreateTreeBox("EndingQuestRect_" + q, treeParent, new Vector2(qx, questY), questSize, new Color(0.2f, 0.2f, 0.28f, 1f));
+            ui.Box = boxImg;
+            var qBtn = boxImg.gameObject.GetComponent<Button>();
+            if (qBtn == null)
+                qBtn = boxImg.gameObject.AddComponent<Button>();
+            qBtn.targetGraphic = boxImg;
+            qBtn.onClick.RemoveAllListeners();
+            qBtn.onClick.AddListener(() => ShowEndingQuestTab(true, ui));
+            var qLabel = EnsureText("EndingQuestLabel_" + q, new Vector2(qx, questY), Localization.T(ui.Def.QuestName),
+                Mathf.Max(10, (int)(sh * 0.011f * k)), treeParent, TextAlignmentOptions.Center, true, new Vector2(questSize.x * 0.95f, questSize.y * 0.8f));
+            qLabel.color = Color.white;
+            ui.Text = qLabel;
+
+            Vector2 qBottom = new Vector2(qx, questY - questSize.y * 0.5f);
+            for (int t = 0; t < ui.Targets.Count; t++)
+            {
+                int ending = ui.Targets[t].Key;
+                bool mustComplete = ui.Targets[t].Value;
+                Vector2 eTop = new Vector2(nodePos[ending].x, nodePos[ending].y + nodeSize.y * 0.5f);
+                CreateTreeLine("EndingQuestLine_" + q + "_" + ending, treeParent, qBottom, eTop, 3f,
+                    mustComplete ? doneLine : silenceLine);
+                if (ending >= 0 && ending < SpecialChoiceEndings.Length && SpecialChoiceEndings[ending] && !markerAdded[ending])
+                {
+                    markerAdded[ending] = true;
+                    var mSize = new Vector2(Mathf.Max(96f, nodeSize.x * 0.56f), Mathf.Max(20f, sh * 0.024f * k));
+                    Vector2 mPos = new Vector2(eTop.x, eTop.y + mSize.y * 0.5f + 4f);
+                    CreateTreeBox("SpecialChoiceBox_" + ending, treeParent, mPos, mSize, new Color(0.85f, 0.7f, 0.2f, 0.95f));
+                    var mLabel = EnsureText("SpecialChoiceLabel_" + ending, mPos, Localization.T("Lựa chọn đặc biệt"),
+                        Mathf.Max(9, (int)(sh * 0.010f * k)), treeParent, TextAlignmentOptions.Center, true, new Vector2(mSize.x * 0.95f, mSize.y * 0.9f));
+                    mLabel.color = new Color(0.05f, 0.05f, 0.05f, 1f);
+                }
+            }
+            _endingQuestUis.Add(ui);
+        }
+    }
+
+    private Image CreateTreeBox(string name, Transform parent, Vector2 position, Vector2 size, Color color)
+    {
+        var go = GameObject.Find(name);
+        if (go != null)
+            return go.GetComponent<Image>();
+        go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var rect = go.AddComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = size;
+        var img = go.AddComponent<Image>();
+        img.color = color;
+        return img;
     }
 
     private void RefreshEndingTree()
     {
-        if (_endingQuestStatusTexts == null)
+        if (_endingQuestUis == null)
             return;
-        for (int i = 0; i < _endingQuestStatusTexts.Count && i < _endingQuestStatusDefs.Count; i++)
+        for (int i = 0; i < _endingQuestUis.Count; i++)
         {
-            var text = _endingQuestStatusTexts[i];
-            if (text == null) continue;
-            var def = _endingQuestStatusDefs[i];
-            if (def == null) continue;
+            var ui = _endingQuestUis[i];
+            if (ui == null || ui.Def == null || ui.Text == null)
+                continue;
             bool done = false;
             if (QuestManager.Instance != null)
             {
-                done = QuestManager.Instance.IsNamedQuestComplete(def.QuestName) || QuestManager.Instance.IsComplete(def.Target);
+                done = QuestManager.Instance.IsNamedQuestComplete(ui.Def.QuestName) || QuestManager.Instance.IsComplete(ui.Def.Target);
             }
-            bool satisfied = def.MustComplete ? done : !done;
-            text.text = def.MustComplete ? Localization.T("Cần hoàn thành") : Localization.T("Cần im lặng");
-            text.color = satisfied ? new Color(0.35f, 0.9f, 0.45f, 1f) : new Color(0.95f, 0.4f, 0.4f, 1f);
+            ui.Text.text = Localization.T(ui.Def.QuestName);
+            if (ui.Box != null)
+                ui.Box.color = done ? new Color(0.15f, 0.4f, 0.2f, 1f) : new Color(0.45f, 0.15f, 0.15f, 1f);
+        }
+    }
+
+    private void ShowEndingQuestTab(bool show, EndingQuestUi ui = null)
+    {
+        if (_endingQuestTabPanel == null)
+            return;
+        if (show && ui != null)
+        {
+            _endingQuestTabUi = ui;
+            RefreshEndingQuestTab(ui);
+        }
+        _endingQuestTabPanel.SetActive(show);
+        if (show && _settingsPanel != null)
+            _settingsPanel.SetActive(false);
+    }
+
+    private void RefreshEndingQuestTab(EndingQuestUi ui)
+    {
+        if (ui == null || ui.Def == null || _endingQuestTabPanel == null)
+            return;
+
+        var title = _endingQuestTabPanel.transform.Find("EndingQuestTabBox/EndingQuestTabTitle");
+        if (title != null)
+        {
+            var t = title.GetComponent<TMP_Text>();
+            if (t != null)
+                t.text = Localization.T(ui.Def.QuestName);
+        }
+
+        string story = null;
+        if (QuestManager.Instance != null)
+            story = QuestManager.Instance.GetQuestDescription(ui.Def.QuestName);
+        if (string.IsNullOrEmpty(story))
+            story = Localization.T("Quỷ Vương đã thức tỉnh ở cuối con đường phía đông. Dùng Tràng Hạt tiêu diệt nó để bảo vệ làng!");
+
+        var storyObj = _endingQuestTabPanel.transform.Find("EndingQuestTabBox/EndingQuestTabStory");
+        if (storyObj != null)
+        {
+            var s = storyObj.GetComponent<TMP_Text>();
+            if (s != null)
+                s.text = story;
+        }
+
+        string target = null;
+        int count = 0;
+        int requiredDay = 0;
+        if (QuestManager.Instance != null)
+            QuestManager.Instance.TryGetQuestInfo(ui.Def.QuestName, out target, out count, out requiredDay);
+
+        string unlockText;
+        if (ui.Def.QuestName == "Trấn Áp Quỷ Vương")
+            unlockText = Localization.T("Hoàn thành 'Trừ Tà Quanh Chùa' và nói chuyện với thầy ở chùa");
+        else if (ui.Def.QuestName == "Xây Dựng Dinh Thự Cho Jessica")
+            unlockText = Localization.T("Tỏ tình với Jessica và cô ấy đồng ý");
+        else if (requiredDay > 0)
+            unlockText = Localization.F("Mở khóa ngày {0}", requiredDay);
+        else
+            unlockText = Localization.T("Tự động mở khóa");
+
+        string objective = GetQuestObjectiveText(target, count);
+        string objectiveLine = "";
+        if (!string.IsNullOrEmpty(objective))
+        {
+            int progress = QuestManager.Instance != null ? QuestManager.Instance.GetNamedQuestProgress(ui.Def.QuestName) : 0;
+            bool money = target == "money_earned";
+            string progressText = money ? progress.ToString("N0") : progress.ToString();
+            string countText = money ? count.ToString("N0") : count.ToString();
+            objectiveLine = "• " + objective + " (" + progressText + "/" + countText + ")";
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine(Localization.T("Điều kiện mở khóa:"));
+        sb.AppendLine("• " + unlockText);
+        sb.AppendLine();
+        sb.AppendLine(Localization.T("Điều kiện hoàn thành:"));
+        if (!string.IsNullOrEmpty(objectiveLine))
+            sb.AppendLine(objectiveLine);
+        sb.AppendLine();
+        sb.AppendLine(Localization.T("Kết thúc liên quan:"));
+        for (int t = 0; t < ui.Targets.Count; t++)
+        {
+            int ending = ui.Targets[t].Key;
+            bool mustComplete = ui.Targets[t].Value;
+            if (ending < 0 || ending >= Endings.Length)
+                continue;
+            string req = mustComplete
+                ? "<color=#59E673>" + Localization.T("Cần hoàn thành") + "</color>"
+                : "<color=#F26666>" + Localization.T("Cần im lặng") + "</color>";
+            sb.AppendLine("• " + Localization.T(Endings[ending].TitleKey) + " — " + req);
+        }
+
+        var condObj = _endingQuestTabPanel.transform.Find("EndingQuestTabBox/EndingQuestTabCond");
+        if (condObj != null)
+        {
+            var c = condObj.GetComponent<TMP_Text>();
+            if (c != null)
+                c.text = sb.ToString();
+        }
+    }
+
+    private string GetQuestObjectiveText(string target, int count)
+    {
+        switch (target)
+        {
+            case "boss_kill": return Localization.F("Tiêu diệt Quỷ Vương {0} lần", count);
+            case "mansion_secret": return Localization.F("Lấy bằng chứng bí mật của Phú Ông {0} lần", count);
+            case "money_earned": return Localization.F("Kiếm {0:N0} vàng", count);
+            case "mansion": return Localization.F("Xây dựng {0} phần dinh thự", count);
+            default: return string.IsNullOrEmpty(target) ? "" : target + " x" + count;
         }
     }
 
@@ -1644,6 +1878,13 @@ public class UIManager : MonoBehaviour
     {
         if (_endingTreePanel != null)
             _endingTreePanel.SetActive(show);
+        if (!show)
+        {
+            if (_endingQuestTabPanel != null)
+                _endingQuestTabPanel.SetActive(false);
+            if (_endingDetailPanel != null)
+                _endingDetailPanel.SetActive(false);
+        }
         if (_settingsPanel != null && show)
             _settingsPanel.SetActive(false);
         if (show)
@@ -1691,12 +1932,103 @@ public class UIManager : MonoBehaviour
             case 4: cm.PlayNtrEnding(OnEndingSceneDone); break;
             case 5: cm.PlayBossBadEnding(OnEndingSceneDone); break;
             case 6: cm.PlaySadEnding(OnEndingSceneDone); break;
+            case 7: cm.PlayFatedEnding(OnEndingSceneDone); break;
         }
     }
 
     private void OnEndingSceneDone()
     {
         ShowEndingTreePanel(true);
+    }
+
+    public void ShowEndingDetail(bool show, int index = -1)
+    {
+        if (_endingDetailPanel == null)
+            return;
+        if (show && index >= 0 && index < Endings.Length)
+        {
+            _endingDetailIndex = index;
+            RefreshEndingDetail(index);
+        }
+        _endingDetailPanel.SetActive(show);
+        if (show && _settingsPanel != null)
+            _settingsPanel.SetActive(false);
+    }
+
+    private void RefreshEndingDetail(int index)
+    {
+        if (index < 0 || index >= Endings.Length || _endingDetailPanel == null)
+            return;
+
+        var title = _endingDetailPanel.transform.Find("EndingDetailBox/EndingDetailTitle");
+        if (title != null)
+        {
+            var t = title.GetComponent<TMP_Text>();
+            if (t != null)
+                t.text = Localization.T(Endings[index].TitleKey);
+        }
+
+        var story = _endingDetailPanel.transform.Find("EndingDetailBox/EndingDetailStory");
+        if (story != null)
+        {
+            var s = story.GetComponent<TMP_Text>();
+            if (s != null)
+                s.text = Localization.T(Endings[index].ContentKey);
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine(Localization.T("Điều kiện hoàn thành:"));
+        var quests = (index < EndingQuestDefs.Length) ? EndingQuestDefs[index] : null;
+        if (quests != null && quests.Length > 0)
+        {
+            for (int j = 0; j < quests.Length; j++)
+            {
+                var def = quests[j];
+                bool done = false;
+                if (QuestManager.Instance != null)
+                    done = QuestManager.Instance.IsNamedQuestComplete(def.QuestName) || QuestManager.Instance.IsComplete(def.Target);
+                string status = done
+                    ? "<color=#59E673>" + Localization.T("Đã hoàn thành") + "</color>"
+                    : "<color=#F26666>" + Localization.T("Chưa hoàn thành") + "</color>";
+                string req = def.MustComplete
+                    ? Localization.T("Cần hoàn thành")
+                    : Localization.T("Cần im lặng");
+                sb.AppendLine("• " + Localization.T(def.QuestName) + " — " + status + " (" + req + ")");
+            }
+        }
+        else
+        {
+            sb.AppendLine(Localization.T("Không có điều kiện"));
+        }
+        if (index >= 0 && index < SpecialChoiceEndings.Length && SpecialChoiceEndings[index] &&
+            index < EndingChoiceTexts.Length && !string.IsNullOrEmpty(EndingChoiceTexts[index]))
+        {
+            sb.AppendLine();
+            sb.AppendLine(Localization.T("Lựa chọn đặc biệt:"));
+            sb.AppendLine("• <color=#E6C760>" + Localization.T(EndingChoiceTexts[index]) + "</color>");
+        }
+        if (!Endings[index].Unlocked)
+        {
+            sb.AppendLine();
+            sb.AppendLine("<color=#F26666>" + Localization.T("Chưa mở khóa") + "</color>");
+        }
+
+        var condObj = _endingDetailPanel.transform.Find("EndingDetailBox/EndingDetailCond");
+        if (condObj != null)
+        {
+            var c = condObj.GetComponent<TMP_Text>();
+            if (c != null)
+                c.text = sb.ToString();
+        }
+    }
+
+    private void PlayEndingFromDetail()
+    {
+        if (_endingDetailIndex < 0)
+            return;
+        if (_endingDetailPanel != null)
+            _endingDetailPanel.SetActive(false);
+        PlayEndingScene(_endingDetailIndex);
     }
 
     private void UpdateSettingsValues()
@@ -2030,6 +2362,9 @@ public class UIManager : MonoBehaviour
         if (_endingTreeTitleText != null)
             _endingTreeTitleText.text = Localization.T("CÂY KẾT THÚC");
         RefreshEndingTree();
+        SetButtonText("EndingQuestTabCloseButton", "Đóng");
+        if (_endingQuestTabUi != null)
+            RefreshEndingQuestTab(_endingQuestTabUi);
         SetButtonText("NewGameButton", "Trò Mới");
         SetButtonText("LoadGameButton", "Tiếp Tục (Tải)");
         SetButtonText("WatchIntroButton", "Xem Giới Thiệu");

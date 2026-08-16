@@ -54,6 +54,7 @@ public class WifeNPC : MonoBehaviour
     private Transform _playerTransform;
     private bool _hasProposed;
     private bool _pendingHappyEnding;
+    private bool _pendingFatedEnding;
 
     private enum HouseVisitState { None, WalkingToHouse, AtHome, Leaving }
     private HouseVisitState _visitState;
@@ -837,7 +838,12 @@ public class WifeNPC : MonoBehaviour
             State = WifeState.Married;
             Married = true;
             SaveState();
-            _pendingHappyEnding = true;
+            var qm = QuestManager.Instance;
+            bool fated = qm != null && !qm.IsComplete("boss_kill") && !qm.IsComplete("mansion_secret");
+            if (fated)
+                _pendingFatedEnding = true;
+            else
+                _pendingHappyEnding = true;
             if (RichManNPC.Instance != null)
                 RichManNPC.Instance.Retire();
             return new string[]
@@ -1212,7 +1218,13 @@ public class WifeNPC : MonoBehaviour
         var npcPos = _npcTransform != null ? _npcTransform : transform;
         if (npcPos != null)
             npcPos.rotation = _originalRot;
-        if (_pendingHappyEnding)
+        if (_pendingFatedEnding)
+        {
+            _pendingFatedEnding = false;
+            var cm = FindFirstObjectByType<CutsceneManager>();
+            if (cm != null) cm.RequestFatedEnding();
+        }
+        else if (_pendingHappyEnding)
         {
             _pendingHappyEnding = false;
             var cm = FindFirstObjectByType<CutsceneManager>();

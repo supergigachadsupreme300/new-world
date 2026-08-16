@@ -190,7 +190,8 @@ public class PlayerController : MonoBehaviour
                              (PoliceOfficerNPC.Instance != null && PoliceOfficerNPC.Instance.IsDialogActive) ||
                              (PagodaMonkNPC.Instance != null && PagodaMonkNPC.Instance.IsDialogActive) ||
                              (ChefNPC.Instance != null && ChefNPC.Instance.IsDialogActive) ||
-                             (LibrarianNPC.Instance != null && LibrarianNPC.Instance.IsDialogActive);
+                             (LibrarianNPC.Instance != null && LibrarianNPC.Instance.IsDialogActive) ||
+                             (ImmigrantNpc.Instance != null && ImmigrantNpc.Instance.IsDialogActive);
         Vector2 input = dialogBlocked ? Vector2.zero : ReadMoveInput();
         Vector3 direction = new Vector3(input.x, 0f, input.y);
         if (direction.magnitude > 1f)
@@ -266,7 +267,8 @@ public class PlayerController : MonoBehaviour
         bool chefDialog = ChefNPC.Instance != null && ChefNPC.Instance.IsDialogActive;
         bool cafeBaristaDialog = CafeBarista.Instance != null && CafeBarista.Instance.IsDialogActive;
         bool librarianDialog = LibrarianNPC.Instance != null && LibrarianNPC.Instance.IsDialogActive;
-        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog || monkDialog || chefDialog || cafeBaristaDialog || librarianDialog;
+        bool immigrantDialog = ImmigrantNpc.Instance != null && ImmigrantNpc.Instance.IsDialogActive;
+        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog || monkDialog || chefDialog || cafeBaristaDialog || librarianDialog || immigrantDialog;
 
         bool ePressed = (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) ||
                         (!wifeDialog && !richManDialog && !policeDialog && !chefDialog && !librarianDialog && MobileInputController.Consume("interact"));
@@ -282,6 +284,8 @@ public class PlayerController : MonoBehaviour
             ChefNPC.Instance.Advance();
         if (ePressed && librarianDialog)
             LibrarianNPC.Instance.Advance();
+        if (ePressed && immigrantDialog)
+            ImmigrantNpc.Instance.Advance();
         if (richManDialog && RichManNPC.Instance != null && RichManNPC.Instance.IsEndingChoiceShown)
         {
             if (Keyboard.current != null && Keyboard.current.digit1Key.wasPressedThisFrame)
@@ -393,6 +397,12 @@ public class PlayerController : MonoBehaviour
                         {
                             if (PagodaMonkNPC.Instance != null && !PagodaMonkNPC.Instance.IsDialogActive)
                                 PagodaMonkNPC.Instance.Interact();
+                            return;
+                        }
+                        if (hit.collider.transform.name == "ImmigrantNpc")
+                        {
+                            if (ImmigrantNpc.Instance != null && !ImmigrantNpc.Instance.IsDialogActive)
+                                ImmigrantNpc.Instance.Interact();
                             return;
                         }
                         if (hit.collider.transform.name == "ToolShopNPC")

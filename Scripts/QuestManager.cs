@@ -345,6 +345,45 @@ public class QuestManager : MonoBehaviour
         return false;
     }
 
+    public string GetQuestDescription(string questName)
+    {
+        foreach (var q in _quests)
+            if (q.Name == questName && !string.IsNullOrEmpty(q.Description))
+                return q.Description;
+        foreach (var def in StoryQuestDefs)
+            if (def.Name == questName && !string.IsNullOrEmpty(def.Description))
+                return def.Description;
+        return null;
+    }
+
+    public bool TryGetQuestInfo(string questName, out string target, out int count, out int requiredDay)
+    {
+        foreach (var q in _quests)
+        {
+            if (q.Name == questName)
+            {
+                target = q.Target;
+                count = q.Count;
+                requiredDay = q.RequiredDay;
+                return true;
+            }
+        }
+        foreach (var def in StoryQuestDefs)
+        {
+            if (def.Name == questName)
+            {
+                target = def.Target;
+                count = def.Count;
+                requiredDay = def.RequiredDay;
+                return true;
+            }
+        }
+        target = null;
+        count = 0;
+        requiredDay = 0;
+        return false;
+    }
+
     public bool HasQuest(string questName)
     {
         foreach (var q in _quests)

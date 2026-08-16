@@ -348,6 +348,15 @@ public class RandomEventManager : MonoBehaviour
             Cooldown = 3000f,
             Effect = EffectTornado
         });
+        _events.Add(new RandomEvent
+        {
+            Name = "Gọi Người Di Cư",
+            Description = "Một gia đình người di cư đang đến làng!",
+            Tier = 0,
+            Weight = 2f,
+            Cooldown = 1200f,
+            Effect = EffectCallImmigrant
+        });
     }
 
     // ── Trigger Logic ──
@@ -1009,6 +1018,11 @@ public class RandomEventManager : MonoBehaviour
             ? Quaternion.FromToRotation(new Vector3(0f, 0f, -1f), toPlayer.normalized)
             : Quaternion.identity;
         WorldBuilder.Instance?.SpawnVendorCartAt(merchantPos, cartRot);
+    }
+
+    private void EffectCallImmigrant()
+    {
+        WorldBuilder.Instance?.StartImmigrantArrival();
     }
 
     private void EffectMarketCrash()
