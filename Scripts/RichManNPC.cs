@@ -12,7 +12,8 @@ public class RichManNPC : MonoBehaviour
     private Transform _playerTransform;
     private Quaternion _originalRotation = Quaternion.identity;
 
-    private const float HOME_PATROL_RADIUS = 6f;
+    private const float HOME_PATROL_RADIUS_X = 6f;
+    private const float HOME_PATROL_RADIUS_Z = 2f;
     private const float WALK_SPEED = 1.8f;
     private const float FEAR_DISTANCE = 4f;
     private const float AFFECTION_STEAL = 2f;
@@ -38,9 +39,9 @@ public class RichManNPC : MonoBehaviour
     private enum DealState { None, WalkingToMeeting, Meeting, Leaving }
     private DealState _dealState = DealState.None;
     private GameObject _dealer;
-    private readonly Vector3 _meetingSpot = new Vector3(-35f, 0f, -60f);
-    private readonly Vector3 _dealerSpawn = new Vector3(4f, 0.97f, -60f);
-    private readonly Vector3 _dealerLeave = new Vector3(10f, 0.97f, -60f);
+    private readonly Vector3 _meetingSpot = new Vector3(13f, 0f, 95f);
+    private readonly Vector3 _dealerSpawn = new Vector3(40f, 0.97f, 95f);
+    private readonly Vector3 _dealerLeave = new Vector3(30f, 0.97f, 105f);
     private float _meetingTimer;
     private int _lastDealDay = -1;
     private bool _richAtMeeting;
@@ -355,8 +356,8 @@ public class RichManNPC : MonoBehaviour
         if (!_hasPatrolTarget)
         {
             _target = _patrolOrigin + new Vector3(
-                Random.Range(-HOME_PATROL_RADIUS, HOME_PATROL_RADIUS), 0f,
-                Random.Range(-HOME_PATROL_RADIUS, HOME_PATROL_RADIUS));
+                Random.Range(-HOME_PATROL_RADIUS_X, HOME_PATROL_RADIUS_X), 0f,
+                Random.Range(-HOME_PATROL_RADIUS_Z, HOME_PATROL_RADIUS_Z));
             _hasPatrolTarget = true;
         }
 
@@ -379,6 +380,11 @@ public class RichManNPC : MonoBehaviour
 
         _myTransform.position = Vector3.MoveTowards(_myTransform.position, dest, speed * Time.deltaTime);
         _myTransform.rotation = Quaternion.LookRotation(-to.normalized);
+#if UNITY_EDITOR
+        float dot = Vector3.Dot(-_myTransform.forward, to.normalized);
+        if (dot < 0.7f && to.sqrMagnitude > 0.25f)
+            Debug.LogWarning($"[RichMan] strafe check facing={-_myTransform.forward:F2} move={to.normalized:F2} dot={dot:F2} at {_myTransform.position:F1}", this);
+#endif
         _isMoving = true;
         return Vector3.Distance(_myTransform.position, dest) < 0.1f;
     }

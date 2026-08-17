@@ -2056,7 +2056,11 @@ public class UIManager : MonoBehaviour
     public void ShowTutorial(bool show)
     {
         if (_tutorialPanel != null)
+        {
             _tutorialPanel.SetActive(show);
+            if (show)
+                _tutorialPanel.transform.SetAsLastSibling();
+        }
         if (show)
         {
             _pauseMenuPanel?.SetActive(false);

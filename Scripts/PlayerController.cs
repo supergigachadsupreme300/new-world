@@ -426,6 +426,12 @@ public class PlayerController : MonoBehaviour
                                 CafeBarista.Instance.Interact();
                             return;
                         }
+                        if (hit.collider.transform.name == "FishingShopNPC")
+                        {
+                            if (FishingShopNPC.Instance != null && !FishingShopNPC.Instance.IsDialogActive)
+                                FishingShopNPC.Instance.Interact();
+                            return;
+                        }
                         if (hit.collider.transform.name == "LibrarianNPC")
                         {
                             if (LibrarianNPC.Instance != null && !LibrarianNPC.Instance.IsDialogActive)

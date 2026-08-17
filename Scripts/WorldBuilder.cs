@@ -361,7 +361,7 @@ public class WorldBuilder : MonoBehaviour
     private const string _immigrantQuestTarget = "immigrant_house";
     private const int _immigrantHouseWoodCost = 10;
     private const int _immigrantHouseStoneCost = 6;
-    private static readonly Vector3 MansionBasePos = new Vector3(-30f, 0f, 50f);
+    private static readonly Vector3 MansionBasePos = new Vector3(-22f, 0f, 0f);
     private static readonly Vector3[] ImmigrantHousePositions =
     {
         new Vector3(46f, 0f, -25f),
@@ -453,6 +453,7 @@ public class WorldBuilder : MonoBehaviour
         MapBuilder.BuildConvenienceStore(_worldRoot.transform, new Vector3(24f, 0f, 60f), 1f, Quaternion.Euler(0f, 180f, 0f));
         BuildWifeHouse();
         BuildRichManMansion();
+        BuildFishingShop();
         BuildPolicePost();
         SpawnBuffalo();
         CreateVendorSpawnButton();
@@ -467,7 +468,7 @@ public class WorldBuilder : MonoBehaviour
         InitializeBuildingPreview();
         PlaceMansionBlueprint(MansionBasePos);
         BuildPagoda(new Vector3(26f, 0f, 25f));
-        var monk = MapBuilder.BuildMonkNpc(_worldRoot.transform, new Vector3(24f, 0.86f, 27f), Quaternion.Euler(0f, -90f, 0f));
+        var monk = MapBuilder.BuildMonkNpc(_worldRoot.transform, new Vector3(24f, 1.815f, 27f), Quaternion.Euler(0f, -90f, 0f));
         monk.AddComponent<PagodaMonkNPC>();
         BuildBossArena();
 
@@ -4693,7 +4694,7 @@ GameObject treeRoot;
         wc.isTrigger = true;
         waterVol.AddComponent<WaterVolume>();
 
-        int numTrees = 100;
+        int numTrees = 30;
         for (int i = 0; i < numTrees; i++)
         {
             float x = beachX + Random.Range(-sandW * 0.35f, sandW * 0.35f);
@@ -4754,7 +4755,7 @@ GameObject treeRoot;
 
     private void BuildLibrary()
     {
-        var library = MapBuilder.BuildLibrary(_worldRoot.transform, new Vector3(4f, 0f, 30f));
+        var library = MapBuilder.BuildLibrary(_worldRoot.transform, new Vector3(-2f, 0f, 30f));
         _buildings.Add(new BuildingState
         {
             Entity = library,
@@ -4766,19 +4767,19 @@ GameObject treeRoot;
             MaxHealth = 100,
             IsEssential = true
         });
-        var librarian = MapBuilder.BuildLibrarianNpc(_worldRoot.transform, new Vector3(4f, 0.95f, 26.62f), Quaternion.Euler(0f, 180f, 0f));
+        var librarian = MapBuilder.BuildLibrarianNpc(_worldRoot.transform, new Vector3(-2f, 0.95f, 26.62f), Quaternion.Euler(0f, 180f, 0f));
         librarian.AddComponent<LibrarianNPC>();
     }
 
     private void BuildNightClub()
     {
-        var club = MapBuilder.BuildNightClub(_worldRoot.transform, new Vector3(-45f, 0f, -60f), 1f, Quaternion.Euler(0f, 90f, 0f));
+        var club = MapBuilder.BuildNightClub(_worldRoot.transform, new Vector3(0f, 0f, 95f), 1f, Quaternion.Euler(0f, 90f, 0f));
         _buildings.Add(new BuildingState
         {
             Entity = club,
             Type = "NightClub",
             Position = club.transform.position,
-            Rotation = 0,
+            Rotation = 90,
             PartStates = CollectColliderParts(club, "NightClub"),
             CurrentHealth = 100,
             MaxHealth = 100,
@@ -4806,25 +4807,45 @@ GameObject treeRoot;
 
     private void BuildRichManMansion()
     {
-        var mansion = MapBuilder.BuildRichManMansion(_worldRoot.transform, new Vector3(46f, 0f, 46f));
+        var mansion = MapBuilder.BuildRichManMansion(_worldRoot.transform, new Vector3(60f, 0f, 100f), 1f, Quaternion.Euler(0f, -90f, 0f));
         _buildings.Add(new BuildingState
         {
             Entity = mansion,
             Type = "RichMansion",
             Position = mansion.transform.position,
-            Rotation = 0,
+            Rotation = -90,
             PartStates = CollectColliderParts(mansion, "RichMansion"),
             CurrentHealth = 100,
             MaxHealth = 100,
             IsEssential = true
         });
-        RichManNPC.BuildRichManNpc(_worldRoot.transform, new Vector3(24.5f, 0.86f, 46f), 1f, Quaternion.Euler(0f, 90f, 0f));
+        RichManNPC.BuildRichManNpc(_worldRoot.transform, new Vector3(60f, 0.86f, 96f), 1f, Quaternion.Euler(0f, 90f, 0f));
+    }
+
+    private void BuildFishingShop()
+    {
+        var shop = MapBuilder.BuildFishingShop(_worldRoot.transform, new Vector3(30f, 0f, 46f), 1f, Quaternion.Euler(0f, 180f, 0f));
+        _buildings.Add(new BuildingState
+        {
+            Entity = shop,
+            Type = "FishingShop",
+            Position = shop.transform.position,
+            Rotation = 180,
+            PartStates = CollectColliderParts(shop, "FishingShop"),
+            CurrentHealth = 100,
+            MaxHealth = 100,
+            IsEssential = true
+        });
+        MapBuilder.BuildFishingShopkeeper(_worldRoot.transform, new Vector3(30f, 0.85f, 46f), Quaternion.Euler(0f, 0f, 0f));
+        var fishNpc = _worldRoot.transform.Find("FishingShopNPC");
+        if (fishNpc != null)
+            fishNpc.gameObject.AddComponent<FishingShopNPC>();
     }
 
     private void SpawnBuffalo()
     {
         if (_shopRoot == null) return;
-        MapBuilder.BuildBuffalo(_shopRoot, new Vector3(-4.8f, 0f, 0f), 1.5f, Quaternion.Euler(0f, 0f, 0f));
+        MapBuilder.BuildBuffalo(_shopRoot, new Vector3(-4.8f, 0f, 0f), 1.5f, Quaternion.Euler(0f, 270f, 0f));
     }
 
     private bool IsReservedSpawnLocation(int x, int z)
@@ -4839,15 +4860,16 @@ GameObject treeRoot;
                         && z >= (_roadTurnZ - _roadHalfWidth - 3f) && z <= (_roadTurnZ + _roadHalfWidth + 3f);
         bool nearPolicePost = x >= 18 && x <= 40 && z >= 72 && z <= 92;
         bool nearWifeHouse = x >= 20 && x <= 42 && Mathf.Abs(z) <= 10;
-        bool nearRichMansion = x >= 16 && x <= 60 && z >= 33 && z <= 59;
+        bool nearRichMansion = x >= 42 && x <= 78 && z >= 82 && z <= 118;
+        bool nearFishingShop = x >= 21 && x <= 39 && z >= 37 && z <= 55;
         bool nearDisplay = x >= 48 && x <= 67 && z >= -130 && z <= -48;
-        bool nearMansion = x >= -45 && x <= -15 && z >= 39 && z <= 61;
+        bool nearMansion = x >= -36 && x <= -8 && z >= -10 && z <= 17;
         bool nearPagoda = Mathf.Abs(x - _pagodaPosition.x) <= 8 && Mathf.Abs(z - _pagodaPosition.z) <= 12;
         bool nearCafe = Mathf.Abs(x) <= 10 && z >= 33 && z <= 57;
-        bool nearLibrary = x >= -3 && x <= 12 && z >= 24 && z <= 38;
-        bool nearClub = x >= 16 && x <= 44 && z >= -132 && z <= -106;
-        bool nearClubCorridor = x >= 24 && x <= 56 && z >= -106 && z <= 46;
-        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearDisplay || nearMansion || nearPagoda || nearCafe || nearLibrary || nearClub || nearClubCorridor;
+        bool nearLibrary = x >= -9 && x <= 6 && z >= 24 && z <= 38;
+        bool nearClub = x >= -12 && x <= 12 && z >= 84 && z <= 106;
+        bool nearClubCorridor = x >= -12 && x <= 40 && z >= 84 && z <= 106;
+        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearFishingShop || nearDisplay || nearMansion || nearPagoda || nearCafe || nearLibrary || nearClub || nearClubCorridor;
     }
 
     private void CreateVendorSpawnButton()
@@ -4878,10 +4900,10 @@ GameObject treeRoot;
         _policeOfficerRoot = MapBuilder.BuildPoliceOfficer(_worldRoot.transform, new Vector3(21.5f, 0.93f, 78f), Quaternion.Euler(0f, 90f, 0f));
         _policeOfficerRoot.AddComponent<PoliceOfficerNPC>();
         MapBuilder.MakeBlock("ParkingPad", _worldRoot.transform,
-            new Vector3(4.6f, 0.06f, 2.7f), new Vector3(24.2f, 0.03f, 82.8f),
+            new Vector3(2.7f, 0.06f, 4.6f), new Vector3(24.2f, 0.03f, 82.8f),
             new Color(0.55f, 0.55f, 0.56f), true);
         var car = MapBuilder.BuildPoliceCar(_worldRoot.transform, new Vector3(24.2f, 0f, 82.8f));
-        car.transform.rotation = Quaternion.Euler(0f, 270f, 0f);
+        car.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
         _policeCarRoot = car;
     }
 

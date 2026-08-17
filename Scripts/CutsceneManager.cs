@@ -591,7 +591,7 @@ public class CutsceneManager : MonoBehaviour
         Vector3 camFixedPos = _mainCamera != null ? _mainCamera.transform.position : Vector3.zero;
 
         float driveZ = IntroStartZ;
-        UpdateDrivingSegments(driveZ, 0f, 0f, true);
+        SpawnIntroRoadOnce();
         while (driveZ < IntroEndZ)
         {
             driveZ += DrivingSpeed * Time.deltaTime;
@@ -602,7 +602,6 @@ public class CutsceneManager : MonoBehaviour
                 Vector3 lookTarget = new Vector3(RoadX, 1f, driveZ);
                 _mainCamera.transform.LookAt(lookTarget);
             }
-            UpdateDrivingSegments(driveZ, 0f, 0f, true);
             yield return null;
         }
 
@@ -902,6 +901,25 @@ public class CutsceneManager : MonoBehaviour
         _drivingSegments.Clear();
     }
 
+    // Spawns the intro road once as a static strip, from behind the starting
+    // camera up to the edge of the real world road (which already exists at
+    // z >= -300). The road is NOT recycled during the drive, so it no longer
+    // vanishes behind the car; DestroyDrivingSegments() returns it to the
+    // pool after the intro.
+    private void SpawnIntroRoadOnce()
+    {
+        float introRoadStart = IntroStartZ - SegmentDespawnBehind;
+        float introRoadEnd = -300f;
+        int spawned = 0;
+        for (float c = introRoadStart + SegmentLength / 2f;
+             c >= introRoadEnd + SegmentLength / 2f && spawned < MaxActiveSegments;
+             c -= SegmentLength)
+        {
+            _drivingSegments.Add(SpawnDrivingSegment(c));
+            spawned++;
+        }
+    }
+
     // ═══════════════════════════════════════════════
     //  STEERING WHEEL + HANDS ANIMATION
     // ═══════════════════════════════════════════════
@@ -934,7 +952,7 @@ public class CutsceneManager : MonoBehaviour
                 if (armL != null) armL.localPosition = restArmL + new Vector3(0f, 0f, push);
                 if (armR != null) armR.localPosition = restArmR + new Vector3(0f, 0f, -push);
             }
-            wheelSpin += Time.deltaTime * 120f;
+            wheelSpin += Time.deltaTime * 300f;
             foreach (var w in _introWheels)
                 if (w != null) w.localRotation = Quaternion.Euler(wheelSpin, 0f, 90f);
             yield return null;
@@ -1335,7 +1353,7 @@ public class CutsceneManager : MonoBehaviour
             ShowSkipButton();
 
             // Player watching from the road shoulder (off the car's path)
-            float playerZ = 38f;
+            float playerZ = 92f;
             float playerX = RoadX + 4.5f;
             if (_player != null)
             {
@@ -1354,7 +1372,7 @@ public class CutsceneManager : MonoBehaviour
 
             // Rich man standing at the mansion front, facing the road
             var richModel = RichManNPC.BuildRichManNpc(null,
-                new Vector3(20.5f, 0.86f, 46f), 1f, Quaternion.Euler(0f, 90f, 0f), false);
+                new Vector3(60.5f, 0.86f, 100f), 1f, Quaternion.Euler(0f, 90f, 0f), false);
             foreach (var r in richModel.GetComponentsInChildren<Renderer>())
                 r.gameObject.layer = 0;
             RegisterSpawned(richModel);
@@ -1364,14 +1382,14 @@ public class CutsceneManager : MonoBehaviour
             if (_mainCamera != null)
             {
                 _mainCamera.transform.position = camStart;
-                _mainCamera.transform.LookAt(new Vector3(20f, 1.2f, 46f));
+                _mainCamera.transform.LookAt(new Vector3(60f, 1.2f, 100f));
             }
             yield return StartCoroutine(FadeOverlay(0, 2f));
             yield return new WaitForSeconds(2f);
 
             // ── PHASE 2: POLICE CAR ARRIVES ──
-            float carStopZ = 52f;
-            var policeCar = MapBuilder.BuildPoliceCar(null, new Vector3(RoadX, 0f, 64f));
+            float carStopZ = 104f;
+            var policeCar = MapBuilder.BuildPoliceCar(null, new Vector3(RoadX, 0f, 116f));
             policeCar.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
             RegisterSpawned(policeCar);
             float driveDur = 4f;
@@ -1380,7 +1398,7 @@ public class CutsceneManager : MonoBehaviour
             {
                 driveTimer += Time.deltaTime;
                 float p = Mathf.Min(driveTimer / driveDur, 1f);
-                policeCar.transform.position = new Vector3(RoadX, 0f, Mathf.Lerp(64f, carStopZ, p));
+                policeCar.transform.position = new Vector3(RoadX, 0f, Mathf.Lerp(116f, carStopZ, p));
                 yield return null;
             }
 
@@ -1405,7 +1423,7 @@ public class CutsceneManager : MonoBehaviour
                 if (_mainCamera != null)
                 {
                     _mainCamera.transform.position = Vector3.Lerp(camStart, new Vector3(RoadX - 1f, 2.6f, carStopZ + 4f), p);
-                    _mainCamera.transform.LookAt(new Vector3(20f, 1.2f, 46f));
+                    _mainCamera.transform.LookAt(new Vector3(60f, 1.2f, 100f));
                 }
                 yield return null;
             }
@@ -1680,7 +1698,7 @@ public class CutsceneManager : MonoBehaviour
 
             // Player model at the mansion front
             var playerModel = MapBuilder.BuildPlayerModel(null);
-            playerModel.transform.position = new Vector3(28f, 0.86f, 46f);
+            playerModel.transform.position = new Vector3(68f, 0.86f, 100f);
             playerModel.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
             foreach (var r in playerModel.GetComponentsInChildren<Renderer>())
                 r.gameObject.layer = 0;
@@ -1688,32 +1706,32 @@ public class CutsceneManager : MonoBehaviour
 
             // Rich man facing the player
             var richModel = RichManNPC.BuildRichManNpc(null,
-                new Vector3(31.5f, 0.86f, 46f), 1f, Quaternion.Euler(0f, 90f, 0f), false);
+                new Vector3(71.5f, 0.86f, 100f), 1f, Quaternion.Euler(0f, 90f, 0f), false);
             foreach (var r in richModel.GetComponentsInChildren<Renderer>())
                 r.gameObject.layer = 0;
             RegisterSpawned(richModel);
 
             // Bribe sack on the ground between them
-            var sack = BuildBribeSack(new Vector3(29.8f, 0.45f, 46f));
+            var sack = BuildBribeSack(new Vector3(69.8f, 0.45f, 100f));
             RegisterSpawned(sack);
 
             // ── PHASE 1: OPENING SHOT ──
-            Vector3 camStart = new Vector3(28f, 2.4f, 41f);
+            Vector3 camStart = new Vector3(68f, 2.4f, 95f);
             if (_mainCamera != null)
             {
                 _mainCamera.transform.position = camStart;
-                _mainCamera.transform.LookAt(new Vector3(29.8f, 1.1f, 46f));
+                _mainCamera.transform.LookAt(new Vector3(69.8f, 1.1f, 100f));
             }
             yield return StartCoroutine(FadeOverlay(0, 2f));
             yield return new WaitForSeconds(2f);
 
             // ── PHASE 2: PAN TO THE SACK ──
-            yield return StartCoroutine(PanCamera(camStart, new Vector3(29.8f, 2.2f, 44f), new Vector3(29.8f, 1f, 46f), 2f));
+            yield return StartCoroutine(PanCamera(camStart, new Vector3(69.8f, 2.2f, 96f), new Vector3(69.8f, 1f, 100f), 2f));
             yield return new WaitForSeconds(1.5f);
 
             // ── PHASE 3: THE PLAYER TAKES THE BRIBE ──
             Vector3 playerStart = playerModel.transform.position;
-            Vector3 sackGrab = new Vector3(29.8f, 0.86f, 46f);
+            Vector3 sackGrab = new Vector3(69.8f, 0.86f, 100f);
             float walkDur = 2.5f;
             float walkTimer = 0f;
             while (walkTimer < walkDur)
@@ -2505,7 +2523,7 @@ public class CutsceneManager : MonoBehaviour
 
         // Ensure the real mansion exists and is fully built before we stage on it
         WorldBuilder.Instance?.CompleteMansionImmediately();
-        Vector3 mb = WorldBuilder.Instance?.GetMansionPosition() ?? new Vector3(-30f, 0f, 50f);
+        Vector3 mb = WorldBuilder.Instance?.GetMansionPosition() ?? new Vector3(-22f, 0f, 0f);
 
         yield return StartCoroutine(CreateFadeOverlay());
         CreateLetterboxBars();
@@ -2534,30 +2552,30 @@ public class CutsceneManager : MonoBehaviour
 
         // ── Dead bodies inside the living room ──
         var deadPlayer = MapBuilder.BuildPlayerModel(null);
-        deadPlayer.transform.position = new Vector3(houseX - 8.2f, 0.44f, houseZ + 6.4f);
+        deadPlayer.transform.position = new Vector3(houseX - 8.2f, 0.69f, houseZ + 6.4f);
         deadPlayer.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
         foreach (var r in deadPlayer.GetComponentsInChildren<Renderer>())
             r.gameObject.layer = 0;
         RegisterSpawned(deadPlayer);
 
         var deadWife = WifeNPC.BuildWifeNpc(null,
-            new Vector3(houseX - 5.5f, 0.57f, houseZ + 5.4f), 1f, Quaternion.Euler(90f, 0f, 0f));
+            new Vector3(houseX - 5.5f, 0.82f, houseZ + 5.4f), 1f, Quaternion.Euler(90f, 0f, 0f));
         foreach (var r in deadWife.GetComponentsInChildren<Renderer>())
             r.gameObject.layer = 0;
         RegisterSpawned(deadWife);
 
-        CreateBloodPool(new Vector3(houseX - 8.2f, 0.28f, houseZ + 6.4f));
-        CreateBloodPool(new Vector3(houseX - 5.5f, 0.28f, houseZ + 5.4f));
+        CreateBloodPool(new Vector3(houseX - 8.2f, 0.53f, houseZ + 6.4f));
+        CreateBloodPool(new Vector3(houseX - 5.5f, 0.53f, houseZ + 5.4f));
 
         // ── Robbery / addiction clue props ──
-        BuildRobberyClues(new Vector3(houseX - 8.5f, 0.25f, houseZ + 6.2f));
+        BuildRobberyClues(new Vector3(houseX - 8.5f, 0.50f, houseZ + 6.2f));
 
         // ── Police officers (inside the living room, near the front wall) ──
         var officerA = MapBuilder.BuildPoliceOfficer(null,
-            new Vector3(houseX - 9f, 1.18f, houseZ + 7.6f), Quaternion.Euler(0f, 180f, 0f));
+            new Vector3(houseX - 9f, 1.43f, houseZ + 7.6f), Quaternion.Euler(0f, 180f, 0f));
         RegisterSpawned(officerA);
         var officerB = MapBuilder.BuildPoliceOfficer(null,
-            new Vector3(houseX - 4.6f, 1.18f, houseZ + 7.6f), Quaternion.Euler(0f, 180f, 0f));
+            new Vector3(houseX - 4.6f, 1.43f, houseZ + 7.6f), Quaternion.Euler(0f, 180f, 0f));
         RegisterSpawned(officerB);
 
         // ── Demons lurking at the room edges (camera border only) ──
@@ -2573,13 +2591,13 @@ public class CutsceneManager : MonoBehaviour
         }
         Vector3[] demonPos =
         {
-            new Vector3(houseX - 9.4f, 0.4f, houseZ + 8f),
-            new Vector3(houseX - 4.6f, 0.4f, houseZ + 8f),
-            new Vector3(houseX - 9.4f, 0.4f, houseZ + 6.2f),
-            new Vector3(houseX - 4.8f, 0.4f, houseZ + 5.8f),
-            new Vector3(houseX - 5.8f, 0.4f, houseZ + 2.4f)
+            new Vector3(houseX - 9.4f, 0.65f, houseZ + 8f),
+            new Vector3(houseX - 4.6f, 0.65f, houseZ + 8f),
+            new Vector3(houseX - 9.4f, 0.65f, houseZ + 6.2f),
+            new Vector3(houseX - 4.8f, 0.65f, houseZ + 5.8f),
+            new Vector3(houseX - 5.8f, 0.65f, houseZ + 2.4f)
         };
-        Vector3 lookCenter = new Vector3(houseX - 7f, 0.4f, houseZ + 5.5f);
+        Vector3 lookCenter = new Vector3(houseX - 7f, 0.65f, houseZ + 5.5f);
         for (int i = 0; i < demons.Count; i++)
         {
             demons[i].position = demonPos[i];
@@ -2602,30 +2620,30 @@ public class CutsceneManager : MonoBehaviour
 
         // ── PHASE 2: cut inside the living room, reveal bodies (6s) ──
         yield return StartCoroutine(FadeOverlay(1f, 0.6f));
-        Vector3 camIn = new Vector3(houseX - 6.5f, 1.7f, houseZ + 7.4f);
-        Vector3 lookBodies = new Vector3(houseX - 6.9f, 0.6f, houseZ + 5.9f);
+        Vector3 camIn = new Vector3(houseX - 6.5f, 1.95f, houseZ + 7.4f);
+        Vector3 lookBodies = new Vector3(houseX - 6.9f, 0.85f, houseZ + 5.9f);
         if (_mainCamera != null)
         {
             _mainCamera.transform.position = camIn;
             _mainCamera.transform.LookAt(lookBodies);
         }
         yield return StartCoroutine(FadeOverlay(0f, 0.6f));
-        yield return StartCoroutine(PanCamera(camIn, new Vector3(houseX - 6.8f, 1.6f, houseZ + 7.2f), lookBodies, 2.5f));
+        yield return StartCoroutine(PanCamera(camIn, new Vector3(houseX - 6.8f, 1.85f, houseZ + 7.2f), lookBodies, 2.5f));
         yield return StartCoroutine(ShowSubtitle("Trong phòng... hai thi thể nằm bất động.", 3.5f));
 
         // ── PHASE 3: officers walk over, discover (7s) ──
         yield return StartCoroutine(WalkStraight(officerA.transform,
-            new Vector3(houseX - 9f, 1.18f, houseZ + 7.6f),
-            new Vector3(houseX - 8.2f, 1.18f, houseZ + 6.4f), 3.5f));
+            new Vector3(houseX - 9f, 1.43f, houseZ + 7.6f),
+            new Vector3(houseX - 8.2f, 1.43f, houseZ + 6.4f), 3.5f));
         yield return StartCoroutine(WalkStraight(officerB.transform,
-            new Vector3(houseX - 4.6f, 1.18f, houseZ + 7.6f),
-            new Vector3(houseX - 5.6f, 1.18f, houseZ + 5.8f), 3.5f));
+            new Vector3(houseX - 4.6f, 1.43f, houseZ + 7.6f),
+            new Vector3(houseX - 5.6f, 1.43f, houseZ + 5.8f), 3.5f));
         yield return StartCoroutine(ShowSubtitle("Cửa bị phá. Đồ đạc vương vãi khắp nơi.", 3.5f));
         yield return new WaitForSeconds(0.5f);
 
         // ── PHASE 4: the clue (13s) ──
-        Vector3 camClue = new Vector3(houseX - 8.6f, 1.5f, houseZ + 7.6f);
-        Vector3 lookClue = new Vector3(houseX - 8.5f, 0.4f, houseZ + 6.2f);
+        Vector3 camClue = new Vector3(houseX - 8.6f, 1.75f, houseZ + 7.6f);
+        Vector3 lookClue = new Vector3(houseX - 8.5f, 0.65f, houseZ + 6.2f);
         yield return StartCoroutine(PanCamera(camIn, camClue, lookClue, 2.5f));
         yield return StartCoroutine(ShowSubtitle("Một vụ trộm... nhưng chỉ mất vài đồng vàng vụn.", 3f));
         yield return StartCoroutine(ShowSubtitle("Khoan đã... bơm kim tiêm. Dấu vết nghiện ngập.", 3f));

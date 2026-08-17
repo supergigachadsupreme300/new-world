@@ -110,6 +110,15 @@ public class VendorShopManager : MonoBehaviour
         new ShopItem { Type = "tra_da", Label = "Trà Đá", Price = 5 },
     };
 
+    private List<ShopItem> _fishingBuyItems = new List<ShopItem>
+    {
+        new ShopItem { Type = "fishing_rod", Label = "Cần Câu", Price = 50 },
+        new ShopItem { Type = "fish_carp", Label = "Cá Chép", Price = 20 },
+        new ShopItem { Type = "fish_salmon", Label = "Cá Hồi", Price = 35 },
+        new ShopItem { Type = "fish_tuna", Label = "Cá Ngừ", Price = 55 },
+        new ShopItem { Type = "fish_pufferfish", Label = "Cá Nóc", Price = 80 },
+    };
+
     private List<ShopItem> _sellItems = new List<ShopItem>
     {
         new ShopItem { Type = "wheat", Label = "Lúa Mì", Price = 10 },
@@ -159,6 +168,7 @@ public class VendorShopManager : MonoBehaviour
                     }
                     return _storeBuyItems;
                 case "grocery": return _groceryBuyItems;
+                case "fishing": return _fishingBuyItems;
                 default: return _buyItems;
             }
         }
@@ -314,6 +324,11 @@ public class VendorShopManager : MonoBehaviour
     public void OpenGrocery()
     {
         OpenShop("Cửa Hàng Tạp Hóa", "grocery");
+    }
+
+    public void OpenFishing()
+    {
+        OpenShop("Cửa Hàng Câu Cá", "fishing");
     }
 
     private void OpenShop(string titleKey, string mode)
