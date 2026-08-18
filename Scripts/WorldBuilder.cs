@@ -361,7 +361,7 @@ public class WorldBuilder : MonoBehaviour
     private const string _immigrantQuestTarget = "immigrant_house";
     private const int _immigrantHouseWoodCost = 10;
     private const int _immigrantHouseStoneCost = 6;
-    private static readonly Vector3 MansionBasePos = new Vector3(-22f, 0f, 0f);
+    private static readonly Vector3 MansionBasePos = new Vector3(-4f, 0f, -30f);
     private static readonly Vector3[] ImmigrantHousePositions =
     {
         new Vector3(46f, 0f, -25f),
@@ -2338,8 +2338,13 @@ public class WorldBuilder : MonoBehaviour
 
         foreach (var sub in _mansionSubBuildings)
         {
-            Vector3 subPos = position + sub.Offset;
-            var bpState = CreateMansionBlueprint(sub.PartName, subPos, sub.Size, sub.Color, sub.WoodCost, sub.StoneCost);
+            Vector3 rawOffset = sub.Offset;
+            Vector3 rotatedOffset = new Vector3(rawOffset.z, rawOffset.y, -rawOffset.x);
+            Vector3 subPos = position + rotatedOffset;
+            Vector3 rawSize = sub.Size;
+            Vector3 rotatedSize = new Vector3(rawSize.z, rawSize.y, rawSize.x);
+            var bpState = CreateMansionBlueprint(sub.PartName, subPos, rotatedSize, sub.Color, sub.WoodCost, sub.StoneCost);
+            bpState.Rotation = -90;
             bpState.StructureId = structureId;
             bpState.IsMansion = true;
             _blueprints.Add(bpState);
@@ -2473,7 +2478,7 @@ public class WorldBuilder : MonoBehaviour
     {
         if (houseIndex < 0 || houseIndex >= ImmigrantHousePositions.Length)
             return;
-        Vector3 pos = ImmigrantHousePositions[houseIndex] + new Vector3(3.2f, 0f, 2.5f);
+        Vector3 pos = ImmigrantHousePositions[houseIndex] + new Vector3(3.2f, 0.93f, 2.5f);
         var villager = MapBuilder.BuildImmigrantNpc(_worldRoot.transform, pos, Quaternion.Euler(0f, 180f, 0f));
         villager.name = "ImmigrantVillager";
     }
@@ -2497,7 +2502,7 @@ public class WorldBuilder : MonoBehaviour
         if (_immigrantArrived)
             return;
         _immigrantArrived = true;
-        var npc = MapBuilder.BuildImmigrantNpc(_worldRoot.transform, new Vector3(47f, 0f, -22f), Quaternion.Euler(0f, -90f, 0f));
+        var npc = MapBuilder.BuildImmigrantNpc(_worldRoot.transform, new Vector3(47f, 0.93f, -22f), Quaternion.Euler(0f, -90f, 0f));
         npc.AddComponent<ImmigrantNpc>();
     }
 
@@ -2536,10 +2541,10 @@ public class WorldBuilder : MonoBehaviour
         }
         car.transform.position = new Vector3(roadX, 0f, stopZ);
 
-        var npc = MapBuilder.BuildImmigrantNpc(_worldRoot.transform, new Vector3(roadX + 0.9f, 0f, stopZ), Quaternion.Euler(0f, -90f, 0f));
+        var npc = MapBuilder.BuildImmigrantNpc(_worldRoot.transform, new Vector3(roadX + 0.9f, 0.93f, stopZ), Quaternion.Euler(0f, -90f, 0f));
         npc.AddComponent<ImmigrantNpc>();
 
-        Vector3 target = new Vector3(47f, 0f, -22f);
+        Vector3 target = new Vector3(47f, 0.93f, -22f);
         while (Vector3.Distance(npc.transform.position, target) > 0.2f)
         {
             npc.transform.position = Vector3.MoveTowards(npc.transform.position, target, walkSpeed * Time.deltaTime);
@@ -3091,7 +3096,19 @@ public class WorldBuilder : MonoBehaviour
                 }
                 break;
             case "Mansion_MainRoof":
-                CreatePartCube(root.transform, new Vector3(0, 0.25f, 0), new Vector3(26f, 0.5f, 18f), stoneColor);
+                {
+                    float roofHalfD = 9f;
+                    float roofRise = 3.5f;
+                    float roofTilt = Mathf.Atan2(roofRise, roofHalfD) * Mathf.Rad2Deg;
+                    float roofPanelLen = Mathf.Sqrt(roofHalfD * roofHalfD + roofRise * roofRise);
+                    float roofPanelY = roofRise / 2f;
+                    CreatePartCubeRotated(root.transform, new Vector3(0f, roofPanelY, roofHalfD / 2f),
+                        new Vector3(26f, 0.5f, roofPanelLen), stoneColor, Quaternion.Euler(roofTilt, 0f, 0f));
+                    CreatePartCubeRotated(root.transform, new Vector3(0f, roofPanelY, -roofHalfD / 2f),
+                        new Vector3(26f, 0.5f, roofPanelLen), stoneColor, Quaternion.Euler(-roofTilt, 0f, 0f));
+                    CreatePartCube(root.transform, new Vector3(0f, roofRise, 0f),
+                        new Vector3(26.2f, 0.35f, 0.7f), new Color(0.45f, 0.42f, 0.38f));
+                }
                 break;
             case "Mansion_PorchRoof":
                 CreatePartCube(root.transform, new Vector3(0, 0.15f, 0), new Vector3(8f, 0.3f, 5f), stoneColor);
@@ -4807,7 +4824,7 @@ GameObject treeRoot;
 
     private void BuildRichManMansion()
     {
-        var mansion = MapBuilder.BuildRichManMansion(_worldRoot.transform, new Vector3(60f, 0f, 100f), 1f, Quaternion.Euler(0f, -90f, 0f));
+        var mansion = MapBuilder.BuildRichManMansion(_worldRoot.transform, new Vector3(60f, 0f, 110f), 1f, Quaternion.Euler(0f, -90f, 0f));
         _buildings.Add(new BuildingState
         {
             Entity = mansion,
@@ -4819,7 +4836,7 @@ GameObject treeRoot;
             MaxHealth = 100,
             IsEssential = true
         });
-        RichManNPC.BuildRichManNpc(_worldRoot.transform, new Vector3(60f, 0.86f, 96f), 1f, Quaternion.Euler(0f, 90f, 0f));
+        RichManNPC.BuildRichManNpc(_worldRoot.transform, new Vector3(60f, 0.86f, 106f), 1f, Quaternion.Euler(0f, 90f, 0f));
     }
 
     private void BuildFishingShop()
@@ -4845,7 +4862,7 @@ GameObject treeRoot;
     private void SpawnBuffalo()
     {
         if (_shopRoot == null) return;
-        MapBuilder.BuildBuffalo(_shopRoot, new Vector3(-4.8f, 0f, 0f), 1.5f, Quaternion.Euler(0f, 270f, 0f));
+        MapBuilder.BuildBuffalo(_shopRoot, new Vector3(-3.2f, 0f, 0f), 1.5f, Quaternion.Euler(0f, 270f, 0f));
     }
 
     private bool IsReservedSpawnLocation(int x, int z)
@@ -4860,10 +4877,10 @@ GameObject treeRoot;
                         && z >= (_roadTurnZ - _roadHalfWidth - 3f) && z <= (_roadTurnZ + _roadHalfWidth + 3f);
         bool nearPolicePost = x >= 18 && x <= 40 && z >= 72 && z <= 92;
         bool nearWifeHouse = x >= 20 && x <= 42 && Mathf.Abs(z) <= 10;
-        bool nearRichMansion = x >= 42 && x <= 78 && z >= 82 && z <= 118;
+        bool nearRichMansion = x >= 42 && x <= 78 && z >= 92 && z <= 128;
         bool nearFishingShop = x >= 21 && x <= 39 && z >= 37 && z <= 55;
         bool nearDisplay = x >= 48 && x <= 67 && z >= -130 && z <= -48;
-        bool nearMansion = x >= -36 && x <= -8 && z >= -10 && z <= 17;
+        bool nearMansion = x >= -14 && x <= 14 && z >= -42 && z <= -18;
         bool nearPagoda = Mathf.Abs(x - _pagodaPosition.x) <= 8 && Mathf.Abs(z - _pagodaPosition.z) <= 12;
         bool nearCafe = Mathf.Abs(x) <= 10 && z >= 33 && z <= 57;
         bool nearLibrary = x >= -9 && x <= 6 && z >= 24 && z <= 38;
@@ -5193,7 +5210,7 @@ GameObject treeRoot;
 
         float halfW = 1.3f;  // half width (X), truck is 2.6m wide
         float halfD = 1.8f;  // half depth (Z), truck is 3.6m long
-        float wallH = 1.6f;
+        float wallH = 1.8f;
         float floorY = 0.2f;
         float roofY = 2.0f;
         float cabDepth = 0.8f;
@@ -5287,7 +5304,7 @@ GameObject treeRoot;
         // ── Vendor NPC inside, near the window opening ──
         var vendorRoot = new GameObject("Vendor");
         vendorRoot.transform.SetParent(cart.Root.transform);
-        vendorRoot.transform.localPosition = new Vector3(xL + 0.5f, 0f, winCenterZ);
+        vendorRoot.transform.localPosition = new Vector3(xL + 0.5f, -0.4f, winCenterZ);
         vendorRoot.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
         MakeBlock("VendorBody", vendorRoot.transform, new Vector3(0.6f, 1.2f, 0.5f),
             new Vector3(0f, floorY + 1.0f, 0f), new Color(0.565f, 0.78f, 0.945f), true);
@@ -5394,7 +5411,7 @@ GameObject treeRoot;
 
         float halfW = 1.3f;
         float halfD = 1.8f;
-        float wallH = 1.6f;
+        float wallH = 1.8f;
         float floorY = 0.2f;
         float roofY = 2.0f;
 
@@ -6702,7 +6719,8 @@ GameObject treeRoot;
         {
             var subDef = System.Array.Find(_mansionSubBuildings, s => s.PartName == saved.type);
             if (subDef == null || subDef.PartName == null) continue;
-            Vector3 partPos = MansionBasePos + subDef.Offset;
+            Vector3 rawOffset = subDef.Offset;
+            Vector3 partPos = MansionBasePos + new Vector3(rawOffset.z, rawOffset.y, -rawOffset.x);
 
             if (saved.completed)
             {
@@ -6710,7 +6728,9 @@ GameObject treeRoot;
                 continue;
             }
 
-            var bpState = CreateMansionBlueprint(saved.type, partPos, subDef.Size, subDef.Color, subDef.WoodCost, subDef.StoneCost);
+            Vector3 rawSize = subDef.Size;
+            Vector3 rotatedSize = new Vector3(rawSize.z, rawSize.y, rawSize.x);
+            var bpState = CreateMansionBlueprint(saved.type, partPos, rotatedSize, subDef.Color, subDef.WoodCost, subDef.StoneCost);
             bpState.WoodDeposited = saved.woodDeposited;
             bpState.StoneDeposited = saved.stoneDeposited;
             bpState.StructureId = saved.structureId;
@@ -6740,7 +6760,7 @@ GameObject treeRoot;
         {
             Type = typeName,
             Position = position,
-            Rotation = 0,
+            Rotation = -90,
             IsMansion = true
         };
         SpawnStructurePart(fakeBp);

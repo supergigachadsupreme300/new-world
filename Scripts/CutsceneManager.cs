@@ -1790,8 +1790,8 @@ public class CutsceneManager : MonoBehaviour
             CreateLetterboxBars();
             ShowSkipButton();
 
-            // Player standing alone at the eastern road where the Demon King fell
-            float playerZ = 96f;
+            // Player standing alone at the road turn where the Demon King fell
+            float playerZ = 78f;
             if (_player != null)
             {
                 _player.transform.position = new Vector3(RoadX, 0f, playerZ);
@@ -1807,8 +1807,8 @@ public class CutsceneManager : MonoBehaviour
                 r.gameObject.layer = 0;
             RegisterSpawned(heroModel);
 
-            // Scorched ground where the Demon King was slain
-            float bossZ = playerZ + 14f;
+            // Scorched ground where the Demon King was slain — at the road turn junction
+            float bossZ = 90f;
             var scorch = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             scorch.name = "DemonScorch";
             scorch.transform.position = new Vector3(RoadX, 0.01f, bossZ);
@@ -1869,18 +1869,31 @@ public class CutsceneManager : MonoBehaviour
             yield return new WaitForSeconds(1f);
 
             // ── PHASE 3: SMOKE RISES FROM THE REMAINS ──
-            for (int i = 0; i < 5; i++)
+            var smokeGO = new GameObject("DemonSmoke");
+            smokeGO.transform.position = new Vector3(RoadX, 0.3f, bossZ);
+            var ps = smokeGO.AddComponent<ParticleSystem>();
+            var main = ps.main;
+            main.startLifetime = 3f;
+            main.startSpeed = 0.5f;
+            main.startSize = 0.8f;
+            main.startColor = new Color(0.08f, 0.06f, 0.07f);
+            main.maxParticles = 30;
+            main.loop = true;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            var emission = ps.emission;
+            emission.rateOverTime = 8f;
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Cone;
+            shape.angle = 25f;
+            shape.radius = 0.5f;
+            var renderer = smokeGO.GetComponent<ParticleSystemRenderer>();
+            if (renderer != null)
             {
-                var smoke = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                smoke.name = "DemonSmoke";
-                smoke.transform.position = new Vector3(RoadX + Random.Range(-1f, 1f), 0.6f, bossZ + Random.Range(-1f, 1f));
-                smoke.transform.localScale = Vector3.one * Random.Range(0.5f, 0.9f);
-                var sr = smoke.GetComponent<Renderer>();
-                if (sr != null) sr.material.color = new Color(0.08f, 0.06f, 0.07f);
-                Object.Destroy(smoke.GetComponent<Collider>());
-                RegisterSpawned(smoke);
-                yield return null;
+                renderer.material = new Material(Shader.Find("Particles/Standard Unlit"));
+                renderer.material.color = new Color(0.08f, 0.06f, 0.07f, 0.6f);
+                renderer.renderMode = ParticleSystemRenderMode.Billboard;
             }
+            RegisterSpawned(smokeGO);
             yield return new WaitForSeconds(2f);
 
             // ── PHASE 4: CAMERA TURNS TOWARD THE VILLAGE ──
@@ -1950,7 +1963,7 @@ public class CutsceneManager : MonoBehaviour
 
             // The addict, hunched over the body
             var addict = MapBuilder.BuildAddictNpc(null, new Vector3(24.8f, 0f, 0.9f));
-            addict.transform.rotation = Quaternion.LookRotation((corpsePos - addict.transform.position).normalized);
+            addict.transform.rotation = Quaternion.LookRotation((corpsePos - addict.transform.position).normalized) * Quaternion.Euler(0f, 180f, 0f);
             foreach (var r in addict.GetComponentsInChildren<Renderer>())
                 r.gameObject.layer = 0;
             RegisterSpawned(addict);
@@ -2302,7 +2315,7 @@ public class CutsceneManager : MonoBehaviour
         _happyPhase = 0;
         _happyElapsed = 0;
 
-        GameManager.Instance?.SetTimeOfDay(12f);
+        GameManager.Instance?.SetTimeOfDay(5.5f);
         _savedTimeSpeed = GameManager.Instance != null ? GameManager.Instance.TimeSpeed : 0.01f;
         if (GameManager.Instance != null) GameManager.Instance.TimeSpeed = 0;
 
@@ -2386,9 +2399,18 @@ public class CutsceneManager : MonoBehaviour
         if (wb != null)
         {
             Vector3 fwCenter = _tetoRoot != null
-                ? (_player.transform.position + _tetoRoot.transform.position) * 0.5f + Vector3.up * 4f
-                : _player.transform.position + Vector3.up * 4f;
+                ? (_player.transform.position + _tetoRoot.transform.position) * 0.5f + new Vector3(0f, 4f, -8f)
+                : _player.transform.position + new Vector3(0f, 4f, -8f);
             RandomEventManager.Instance?.PlayFireworks(fwCenter, wb.WorldRoot?.transform, 8);
+
+            var fwLight = new GameObject("FireworkLight");
+            fwLight.transform.position = fwCenter;
+            var light = fwLight.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.range = 30f;
+            light.intensity = 4f;
+            light.color = new Color(1f, 0.85f, 0.4f);
+            RegisterSpawned(fwLight);
         }
 
         while (_happyPhaseTimer < 2.4f)
@@ -2620,7 +2642,7 @@ public class CutsceneManager : MonoBehaviour
 
         // ── PHASE 2: cut inside the living room, reveal bodies (6s) ──
         yield return StartCoroutine(FadeOverlay(1f, 0.6f));
-        Vector3 camIn = new Vector3(houseX - 6.5f, 1.95f, houseZ + 7.4f);
+        Vector3 camIn = new Vector3(houseX - 6.5f, 4.5f, houseZ + 7.4f);
         Vector3 lookBodies = new Vector3(houseX - 6.9f, 0.85f, houseZ + 5.9f);
         if (_mainCamera != null)
         {
@@ -2628,7 +2650,7 @@ public class CutsceneManager : MonoBehaviour
             _mainCamera.transform.LookAt(lookBodies);
         }
         yield return StartCoroutine(FadeOverlay(0f, 0.6f));
-        yield return StartCoroutine(PanCamera(camIn, new Vector3(houseX - 6.8f, 1.85f, houseZ + 7.2f), lookBodies, 2.5f));
+        yield return StartCoroutine(PanCamera(camIn, new Vector3(houseX - 6.8f, 4.3f, houseZ + 7.2f), lookBodies, 2.5f));
         yield return StartCoroutine(ShowSubtitle("Trong phòng... hai thi thể nằm bất động.", 3.5f));
 
         // ── PHASE 3: officers walk over, discover (7s) ──
@@ -2647,7 +2669,7 @@ public class CutsceneManager : MonoBehaviour
         yield return StartCoroutine(PanCamera(camIn, camClue, lookClue, 2.5f));
         yield return StartCoroutine(ShowSubtitle("Một vụ trộm... nhưng chỉ mất vài đồng vàng vụn.", 3f));
         yield return StartCoroutine(ShowSubtitle("Khoan đã... bơm kim tiêm. Dấu vết nghiện ngập.", 3f));
-        yield return StartCoroutine(ShowSubtitle("Kẻ nghiện của đường dây Phú Ông đã vào đây.", 3.5f));
+        yield return StartCoroutine(ShowSubtitle("Kẻ nghiện này... có vẻ liên quan đến gia tộc giàu có.", 3.5f));
 
         // ── PHASE 5: lights dim, the demons at the border (6s) ──
         yield return StartCoroutine(FadeOverlay(0.7f, 2.5f));
@@ -2764,12 +2786,12 @@ public class CutsceneManager : MonoBehaviour
     private IEnumerator WalkAnimation(GameObject model, float walkSpeed)
     {
         if (model == null) yield break;
-        var legL = model.transform.Find("LegL");
-        var legR = model.transform.Find("LegR");
-        var armL = model.transform.Find("ArmL");
-        var armR = model.transform.Find("ArmR");
+        var hipL = model.transform.Find("HipL");
+        var hipR = model.transform.Find("HipR");
+        var shoulderL = model.transform.Find("ShoulderL");
+        var shoulderR = model.transform.Find("ShoulderR");
 
-        if (legL == null && legR == null && armL == null && armR == null) yield break;
+        if (hipL == null && hipR == null && shoulderL == null && shoulderR == null) yield break;
 
         float freq = walkSpeed * 1.8f;
         float legAngle = 25f;
@@ -2780,10 +2802,10 @@ public class CutsceneManager : MonoBehaviour
             float theta = Time.time * freq;
             float sinVal = Mathf.Sin(theta);
 
-            if (legL != null) legL.localRotation = Quaternion.Euler(sinVal * legAngle, 0f, 0f);
-            if (legR != null) legR.localRotation = Quaternion.Euler(-sinVal * legAngle, 0f, 0f);
-            if (armL != null) armL.localRotation = Quaternion.Euler(-sinVal * armAngle, 0f, 0f);
-            if (armR != null) armR.localRotation = Quaternion.Euler(sinVal * armAngle, 0f, 0f);
+            if (hipL != null) hipL.localRotation = Quaternion.Euler(sinVal * legAngle, 0f, 0f);
+            if (hipR != null) hipR.localRotation = Quaternion.Euler(-sinVal * legAngle, 0f, 0f);
+            if (shoulderL != null) shoulderL.localRotation = Quaternion.Euler(-sinVal * armAngle, 0f, 0f);
+            if (shoulderR != null) shoulderR.localRotation = Quaternion.Euler(sinVal * armAngle, 0f, 0f);
 
             yield return null;
         }
@@ -2801,7 +2823,7 @@ public class CutsceneManager : MonoBehaviour
     private void ResetLimbRotations(GameObject model)
     {
         if (model == null) return;
-        foreach (string name in new[] { "LegL", "LegR", "ArmL", "ArmR" })
+        foreach (string name in new[] { "HipL", "HipR", "ShoulderL", "ShoulderR" })
         {
             var t = model.transform.Find(name);
             if (t != null) t.localRotation = Quaternion.identity;

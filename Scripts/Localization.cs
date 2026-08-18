@@ -120,6 +120,8 @@ public static class Localization
         { "sickle", "Lưỡi Hái" },
         { "watering_can", "Bình Tưới" },
         { "fishing_rod", "Cần Câu" },
+        { "fishing_bait", "Mồi Câu" },
+        { "fishing_chum", "Mồi Bả" },
         { "rosary", "Tràng Hạt" },
         { "club", "Cây Gậy" },
         { "mi_hao_hao", "Mì Hảo Hảo" },

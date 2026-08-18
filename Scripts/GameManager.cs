@@ -352,7 +352,7 @@ public class GameManager : MonoBehaviour
 
         if (CutsceneManager != null)
         {
-            CutsceneManager.StopMainMenuVisual();
+            CutsceneManager.StopMainMenuVisual(true);
             CutsceneManager.PlayIntroCutscene(() => UIManager?.ShowTutorial(true));
         }
 

@@ -15,6 +15,9 @@ public class FishingController : MonoBehaviour
     public float FishApproachSpeed = 2f;
     public float FlopChance = 0.4f;
 
+    private float _effectiveFlopChance;
+    private float[] _effectiveWeights;
+
     private const float CastGravity = 4f;
 
     private GameObject _hook;
@@ -119,6 +122,26 @@ public class FishingController : MonoBehaviour
 
         _hookTarget = waterPoint;
         _hookTarget.y = 0.1f;
+
+        var tm = ToolManager.Instance;
+        _effectiveFlopChance = FlopChance;
+        _effectiveWeights = (float[])FishWeights.Clone();
+        if (tm != null)
+        {
+            if (tm.CountItem("fishing_chum") > 0)
+            {
+                tm.RemoveItemAmount("fishing_chum", 1);
+                _effectiveFlopChance = 0.1f;
+                _effectiveWeights[3] *= 2f;
+                GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Đã dùng Mồi Bả!"), 1.5f);
+            }
+            else if (tm.CountItem("fishing_bait") > 0)
+            {
+                tm.RemoveItemAmount("fishing_bait", 1);
+                _effectiveFlopChance = 0.2f;
+                GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Đã dùng Mồi Câu!"), 1.5f);
+            }
+        }
 
         _hook = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         _hook.name = "FishingHook";
@@ -310,7 +333,7 @@ public class FishingController : MonoBehaviour
 
         var player = GameManager.Instance?.Player;
 
-        if (Random.value < FlopChance)
+        if (Random.value < _effectiveFlopChance)
         {
             SpawnFlappingFish(player, fishType, fishLabel);
             var ui = GameManager.Instance?.UIManager;
@@ -360,12 +383,13 @@ public class FishingController : MonoBehaviour
     private int PickFishType()
     {
         float total = 0f;
-        foreach (var w in FishWeights) total += w;
+        var weights = _effectiveWeights != null ? _effectiveWeights : FishWeights;
+        foreach (var w in weights) total += w;
         float roll = Random.Range(0f, total);
         float cum = 0f;
         for (int i = 0; i < FishTypes.Length; i++)
         {
-            cum += FishWeights[i];
+            cum += weights[i];
             if (roll <= cum) return i;
         }
         return 0;

@@ -181,6 +181,7 @@ public class UIManager : MonoBehaviour
     private bool _inventoryCreated;
     private bool _tutorialCreated;
     private RectTransform _statsBg;
+    private float _statsScale = 1f;
     private TMP_Text _messageText;
     private TMP_Text _mobSpawnerText;
     private TMP_Text _crosshairText;
@@ -292,9 +293,12 @@ public class UIManager : MonoBehaviour
         float panelWidth = Mathf.Min(screenWidth * 0.4f, 560f);
         float panelHeight = Mathf.Min(screenHeight * 0.8f, 520f);
         // Stats background panel (behind Time, HP, Stamina, Money, Quest)
+        _statsScale = Mathf.Clamp(Screen.width / 1400f, 0.8f, 2f);
+        float sW = 430f * _statsScale;
+        float sH = 300f * _statsScale;
         _statsBg = CreateHudBackground("StatsBg",
             new Vector2(0f, 0f),
-            new Vector2(430f, 220f),
+            new Vector2(sW, sH),
             new Vector2(0f, 1f));
         var statsImg = _statsBg.GetComponent<Image>();
         if (statsImg != null)
@@ -308,13 +312,13 @@ public class UIManager : MonoBehaviour
 
         _timeText = EnsureText(
             "TimeText",
-            new Vector2(40f, -20f),
+            new Vector2(40f * _statsScale, -20f * _statsScale),
             Localization.F("Ngày {0} - {1}", 1, "08.00"),
-            20,
+            Mathf.RoundToInt(20 * _statsScale),
             null,
             TextAlignmentOptions.Left,
             true,
-            new Vector2(420f, 30f),
+            new Vector2(420f * _statsScale, 30f * _statsScale),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f)
@@ -322,13 +326,13 @@ public class UIManager : MonoBehaviour
 
         _hpText = EnsureText(
             "HPText",
-            new Vector2(40f, -60f),
+            new Vector2(40f * _statsScale, -60f * _statsScale),
             "HP: 100/100",
-            20,
+            Mathf.RoundToInt(20 * _statsScale),
             null,
             TextAlignmentOptions.Left,
             true,
-            new Vector2(420f, 30f),
+            new Vector2(420f * _statsScale, 30f * _statsScale),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f)
@@ -336,13 +340,13 @@ public class UIManager : MonoBehaviour
 
         _staminaText = EnsureText(
             "StaminaText",
-            new Vector2(40f, -100f),
+            new Vector2(40f * _statsScale, -100f * _statsScale),
             Localization.F("Thể Lực: {0}/{1}", 100, 100),
-            20,
+            Mathf.RoundToInt(20 * _statsScale),
             null,
             TextAlignmentOptions.Left,
             true,
-            new Vector2(420f, 30f),
+            new Vector2(420f * _statsScale, 30f * _statsScale),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f)
@@ -350,13 +354,13 @@ public class UIManager : MonoBehaviour
 
         _moneyText = EnsureText(
             "MoneyText",
-            new Vector2(40f, -140f),
+            new Vector2(40f * _statsScale, -140f * _statsScale),
             Localization.F("Tiền: {0}", 0),
-            20,
+            Mathf.RoundToInt(20 * _statsScale),
             null,
             TextAlignmentOptions.Left,
             true,
-            new Vector2(420f, 30f),
+            new Vector2(420f * _statsScale, 30f * _statsScale),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f)
@@ -364,13 +368,13 @@ public class UIManager : MonoBehaviour
 
         _questText = EnsureText(
             "QuestText",
-            new Vector2(40f, -175f),
+            new Vector2(40f * _statsScale, -175f * _statsScale),
             Localization.T("Nhiệm Vụ: Sẵn sàng"),
-            15,
+            Mathf.RoundToInt(15 * _statsScale),
             null,
             TextAlignmentOptions.Left,
             true,
-            new Vector2(410f, 190f),
+            new Vector2(410f * _statsScale, 190f * _statsScale),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f)
@@ -1129,7 +1133,7 @@ public class UIManager : MonoBehaviour
         // Ending nodes: one horizontal row (ordered to keep parent/child clusters close).
         Vector2[] nodePos = new Vector2[Endings.Length];
         var nodeSize = new Vector2(Mathf.Min(sw * 0.098f, 192f) * k, Mathf.Max(44f, sh * 0.055f) * k);
-        int[] rowOrder = { 3, 7, 0, 5, 1, 2, 4, 6 };
+        int[] rowOrder = { 3, 7, 0, 1, 5, 2, 4, 6 };
         float eGap = Mathf.Min(sw * 0.012f, 18f) * k;
         float totalRowW = nodeSize.x * rowOrder.Length + eGap * (rowOrder.Length - 1);
         for (int r = 0; r < rowOrder.Length; r++)
@@ -1188,6 +1192,15 @@ public class UIManager : MonoBehaviour
                     ui.Targets.Add(new KeyValuePair<int, bool>(i, def.MustComplete));
             }
         }
+
+        // Sort quest boxes: mansion (fewest targets) left, mansion_secret (most) right
+        questUis.Sort((a, b) =>
+        {
+            int aCount = a.Targets.Count;
+            int bCount = b.Targets.Count;
+            if (aCount != bCount) return aCount.CompareTo(bCount);
+            return string.Compare(a.Def.QuestName, b.Def.QuestName, System.StringComparison.Ordinal);
+        });
 
         // Quest row at the top (one box per quest)
         var questSize = new Vector2(Mathf.Min(sw * 0.115f, 195f) * k, Mathf.Max(34f, sh * 0.05f) * k);
@@ -2294,8 +2307,8 @@ public class UIManager : MonoBehaviour
         _questText.ForceMeshUpdate();
         float needed = Mathf.Max(_questText.preferredHeight, 24f);
         _questText.overflowMode = prevOverflow;
-        _questText.rectTransform.sizeDelta = new Vector2(410f, needed);
-        _statsBg.sizeDelta = new Vector2(430f, 175f + needed + 20f);
+        _questText.rectTransform.sizeDelta = new Vector2(410f * _statsScale, needed);
+        _statsBg.sizeDelta = new Vector2(430f * _statsScale, (175f + needed + 30f) * _statsScale);
     }
 
     public void UpdateQuestPanelText(string text)

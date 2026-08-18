@@ -1732,6 +1732,8 @@ public class ToolManager : MonoBehaviour
         CreateToolModel("cage_big", new Color(0.5f, 0.5f, 0.55f));
         CreateToolModel("cage_small", new Color(0.55f, 0.55f, 0.6f));
         CreateToolModel("fishing_rod", new Color(0.5f, 0.3f, 0.08f));
+        CreateToolModel("fishing_bait", new Color(0.75f, 0.4f, 0.3f));
+        CreateToolModel("fishing_chum", new Color(0.8f, 0.15f, 0.1f));
         CreateToolModel("rosary", new Color(1f, 0.84f, 0.2f));
     }
 

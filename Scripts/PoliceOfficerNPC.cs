@@ -28,6 +28,10 @@ public class PoliceOfficerNPC : MonoBehaviour
     private bool _dialogActive;
     private readonly Queue<string> _dialogQueue = new Queue<string>();
 
+    private Transform _hipL, _hipR, _shoulderL, _shoulderR;
+    private float _walkCycle;
+    private bool _isWalking;
+
     public bool IsDialogActive => _dialogActive;
 
     void Awake()
@@ -49,6 +53,11 @@ public class PoliceOfficerNPC : MonoBehaviour
         if (_myTransform != null)
             _originalRotation = _myTransform.rotation;
 
+        _hipL = _myTransform?.Find("HipL");
+        _hipR = _myTransform?.Find("HipR");
+        _shoulderL = _myTransform?.Find("ShoulderL");
+        _shoulderR = _myTransform?.Find("ShoulderR");
+
         _patrolWaypoints.Add(_patrolOrigin + new Vector3(-2f, 0f, 0f));
         _patrolWaypoints.Add(_patrolOrigin + new Vector3(2.2f, 0f, 0.8f));
         _patrolWaypoints.Add(_patrolOrigin + new Vector3(1.2f, 0f, 2.6f));
@@ -61,13 +70,22 @@ public class PoliceOfficerNPC : MonoBehaviour
         if (GameManager.Instance == null)
             return;
         if (GameManager.Instance.GamePaused)
+        {
+            _isWalking = false;
             return;
+        }
         if (CutsceneManager.Instance != null && CutsceneManager.Instance.IsActive)
+        {
+            _isWalking = false;
             return;
+        }
         if (_myTransform == null)
             return;
         if (_dialogActive)
+        {
+            _isWalking = false;
             return;
+        }
 
         if (_playerTransform == null)
         {
@@ -76,6 +94,31 @@ public class PoliceOfficerNPC : MonoBehaviour
         }
 
         Patrol();
+        AnimateWalk();
+    }
+
+    private void AnimateWalk()
+    {
+        if (!_isWalking)
+        {
+            _walkCycle = 0f;
+            ResetPivots();
+            return;
+        }
+        _walkCycle += Time.deltaTime * 10f;
+        float swing = Mathf.Sin(_walkCycle) * 28f;
+        if (_hipL != null) _hipL.localRotation = Quaternion.Euler(swing, 0f, 0f);
+        if (_hipR != null) _hipR.localRotation = Quaternion.Euler(-swing, 0f, 0f);
+        if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(-swing * 0.7f, 0f, 0f);
+        if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(swing * 0.7f, 0f, 0f);
+    }
+
+    private void ResetPivots()
+    {
+        if (_hipL != null) _hipL.localRotation = Quaternion.identity;
+        if (_hipR != null) _hipR.localRotation = Quaternion.identity;
+        if (_shoulderL != null) _shoulderL.localRotation = Quaternion.identity;
+        if (_shoulderR != null) _shoulderR.localRotation = Quaternion.identity;
     }
 
     private void Patrol()
@@ -83,6 +126,7 @@ public class PoliceOfficerNPC : MonoBehaviour
         if (_patrolPause > 0f)
         {
             _patrolPause -= Time.deltaTime;
+            _isWalking = false;
             return;
         }
 
@@ -110,8 +154,12 @@ public class PoliceOfficerNPC : MonoBehaviour
         Vector3 to = dest - _myTransform.position;
         to.y = 0f;
         if (to.sqrMagnitude < 0.001f)
+        {
+            _isWalking = false;
             return true;
+        }
 
+        _isWalking = true;
         _myTransform.position = Vector3.MoveTowards(_myTransform.position, dest, speed * Time.deltaTime);
         _myTransform.rotation = Quaternion.LookRotation(-to.normalized);
         return Vector3.Distance(_myTransform.position, dest) < 0.1f;

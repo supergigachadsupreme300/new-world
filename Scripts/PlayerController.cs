@@ -268,7 +268,8 @@ public class PlayerController : MonoBehaviour
         bool cafeBaristaDialog = CafeBarista.Instance != null && CafeBarista.Instance.IsDialogActive;
         bool librarianDialog = LibrarianNPC.Instance != null && LibrarianNPC.Instance.IsDialogActive;
         bool immigrantDialog = ImmigrantNpc.Instance != null && ImmigrantNpc.Instance.IsDialogActive;
-        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog || monkDialog || chefDialog || cafeBaristaDialog || librarianDialog || immigrantDialog;
+        bool fishingShopDialog = FishingShopNPC.Instance != null && FishingShopNPC.Instance.IsDialogActive;
+        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog || monkDialog || chefDialog || cafeBaristaDialog || librarianDialog || immigrantDialog || fishingShopDialog;
 
         bool ePressed = (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) ||
                         (!wifeDialog && !richManDialog && !policeDialog && !chefDialog && !librarianDialog && MobileInputController.Consume("interact"));
@@ -286,6 +287,10 @@ public class PlayerController : MonoBehaviour
             LibrarianNPC.Instance.Advance();
         if (ePressed && immigrantDialog)
             ImmigrantNpc.Instance.Advance();
+        if (ePressed && fishingShopDialog)
+            FishingShopNPC.Instance.Advance();
+        if (ePressed && cafeBaristaDialog)
+            CafeBarista.Instance.Advance();
         if (richManDialog && RichManNPC.Instance != null && RichManNPC.Instance.IsEndingChoiceShown)
         {
             if (Keyboard.current != null && Keyboard.current.digit1Key.wasPressedThisFrame)

@@ -113,6 +113,8 @@ public class VendorShopManager : MonoBehaviour
     private List<ShopItem> _fishingBuyItems = new List<ShopItem>
     {
         new ShopItem { Type = "fishing_rod", Label = "Cần Câu", Price = 50 },
+        new ShopItem { Type = "fishing_bait", Label = "Mồi Câu", Price = 15 },
+        new ShopItem { Type = "fishing_chum", Label = "Mồi Bả", Price = 25 },
         new ShopItem { Type = "fish_carp", Label = "Cá Chép", Price = 20 },
         new ShopItem { Type = "fish_salmon", Label = "Cá Hồi", Price = 35 },
         new ShopItem { Type = "fish_tuna", Label = "Cá Ngừ", Price = 55 },

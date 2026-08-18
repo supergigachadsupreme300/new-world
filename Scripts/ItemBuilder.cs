@@ -70,6 +70,8 @@ public static class ItemBuilder
             case "cage_big": BuildCageBig(parent); break;
             case "cage_small": BuildCageSmall(parent); break;
             case "fishing_rod": BuildFishingRod(parent); break;
+            case "fishing_bait": BuildFishingBait(parent); break;
+            case "fishing_chum": BuildFishingChum(parent); break;
             case "rosary": BuildRosary(parent); break;
             case "fish_carp": BuildFishPickup(parent, new Color(1f, 0.7f, 0.2f)); break;
             case "fish_salmon": BuildFishPickup(parent, new Color(1f, 0.5f, 0.4f)); break;
@@ -488,6 +490,26 @@ public static class ItemBuilder
         float tipZ = 1.36f * sin;
         CreatePickupCube(parent, new Vector3(0f, tipY - 0.35f, tipZ), new Vector3(0.012f, 0.7f, 0.012f), lineC);
         CreatePickupSphere(parent, new Vector3(0f, tipY - 0.72f, tipZ), 0.05f, hookC);
+    }
+
+    public static void BuildFishingBait(Transform parent)
+    {
+        Color wormC = new Color(0.75f, 0.4f, 0.3f);
+        Color hookC = new Color(0.6f, 0.6f, 0.65f);
+        CreatePickupCylinder(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.06f, 0.12f, 0.06f), wormC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.2f, 0f), new Vector3(0.04f, 0.06f, 0.04f), wormC, false);
+        CreatePickupCube(parent, new Vector3(0.02f, 0.03f, 0f), new Vector3(0.015f, 0.06f, 0.015f), hookC, false);
+    }
+
+    public static void BuildFishingChum(Transform parent)
+    {
+        Color bucketC = new Color(0.8f, 0.15f, 0.1f);
+        Color chumC = new Color(0.55f, 0.35f, 0.2f);
+        Color dripC = new Color(0.5f, 0.3f, 0.15f);
+        CreatePickupCylinder(parent, new Vector3(0f, 0.08f, 0f), new Vector3(0.2f, 0.16f, 0.2f), bucketC, false);
+        CreatePickupCylinder(parent, new Vector3(0f, 0.18f, 0f), new Vector3(0.18f, 0.04f, 0.18f), chumC, false);
+        CreatePickupSphere(parent, new Vector3(0.04f, 0.22f, 0.02f), 0.025f, dripC, false);
+        CreatePickupSphere(parent, new Vector3(-0.03f, 0.21f, 0.04f), 0.02f, dripC, false);
     }
 
     public static void BuildRosary(Transform parent)

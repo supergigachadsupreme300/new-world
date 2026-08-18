@@ -8,6 +8,8 @@ public class NightClubController : MonoBehaviour
     private Renderer _neon;
     private Light[] _lights;
     private ClubDancer[] _dancers;
+    private ClubDJAnimator _dj;
+    private Renderer[] _floorTiles;
     private bool _night;
     private bool _initialized;
 
@@ -34,6 +36,20 @@ public class NightClubController : MonoBehaviour
         {
             if (d != null) d.IsDancing = true;
         }
+
+        _dj = GetComponentInChildren<ClubDJAnimator>(true);
+
+        var tiles = new System.Collections.Generic.List<Renderer>();
+        foreach (Transform child in transform)
+        {
+            if (child.name == "Tile")
+            {
+                var r = child.GetComponent<Renderer>();
+                if (r != null) tiles.Add(r);
+            }
+        }
+        _floorTiles = tiles.ToArray();
+
         _initialized = true;
     }
 
@@ -93,6 +109,7 @@ public class NightClubController : MonoBehaviour
                 if (d != null) d.IsDancing = true;
             }
         }
+        if (_dj != null) _dj.IsPlaying = true;
         if (_neon != null)
             _neon.material.color = _night ? new Color(1f, 0.3f, 0.9f) : new Color(0.16f, 0.13f, 0.22f);
     }
@@ -119,6 +136,16 @@ public class NightClubController : MonoBehaviour
                     float phase = (float)i / Mathf.Max(1, _lights.Length);
                     l.color = Color.HSVToRGB((t + phase) % 1f, 0.9f, 1f);
                 }
+            }
+        }
+
+        if (_floorTiles != null)
+        {
+            for (int i = 0; i < _floorTiles.Length; i++)
+            {
+                if (_floorTiles[i] == null) continue;
+                float phase = (float)i / Mathf.Max(1, _floorTiles.Length);
+                _floorTiles[i].material.color = Color.HSVToRGB((t * 0.5f + phase) % 1f, 0.8f, 0.9f);
             }
         }
     }

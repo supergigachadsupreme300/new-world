@@ -12,6 +12,7 @@ public class BuffaloDialog : MonoBehaviour
     private TMP_Text _nameText;
     private TMP_Text _dialogText;
     private TMP_Text _promptText;
+    private TMP_Text _openShopText;
     private GameObject _shopRow;
     private bool _dialogActive;
     private readonly Queue<string> _dialogQueue = new Queue<string>();
@@ -54,7 +55,9 @@ public class BuffaloDialog : MonoBehaviour
 
         _dialogActive = true;
         _panel.SetActive(true);
-        _nameText.text = "Buffalo";
+        _nameText.text = Localization.T("Buffalo");
+        if (_openShopText != null)
+            _openShopText.text = Localization.T("[Mở Cửa Hàng]");
         _dialogQueue.Clear();
         _dialogQueue.Enqueue("Chào bạn! Tôi là Buffalo, chủ cửa hàng của làng.");
         _dialogQueue.Enqueue("Tôi bán hạt giống, công cụ và thức ăn cho gia súc.");
@@ -157,7 +160,7 @@ public class BuffaloDialog : MonoBehaviour
         rowBtn.targetGraphic = rowImg;
         rowBtn.onClick.AddListener(onClick);
 
-        MakeText(textName, rowRt, new Vector2(0f, 0f), Localization.T("[Mở Cửa Hàng]"), 18,
+        _openShopText = MakeText(textName, rowRt, new Vector2(0f, 0f), Localization.T("[Mở Cửa Hàng]"), 18,
             Color.white, new Vector2(236f, 36f));
 
         return row;
