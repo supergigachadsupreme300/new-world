@@ -347,7 +347,7 @@ public static class MapBuilder
         signLabel.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
         signLabel.transform.localScale = new Vector3(-1f, 1f, 1f);
         var signTmp = signLabel.AddComponent<TMPro.TextMeshPro>();
-        signTmp.text = "QUÁN CÀ PHÊ";
+        signTmp.text = Localization.T("QUÁN CÀ PHÊ");
         signTmp.fontSize = 1.5f;
         signTmp.alignment = TMPro.TextAlignmentOptions.Center;
         signTmp.color = new Color(0.3f, 0.15f, 0.05f);
@@ -587,7 +587,7 @@ public static class MapBuilder
         storeSignLabel.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
         storeSignLabel.transform.localScale = new Vector3(-1f, 1f, 1f);
         var storeSignTmp = storeSignLabel.AddComponent<TMPro.TextMeshPro>();
-        storeSignTmp.text = "TIỆN LỢI";
+        storeSignTmp.text = Localization.T("TIỆN LỢI");
         storeSignTmp.fontSize = 2.0f;
         storeSignTmp.alignment = TMPro.TextAlignmentOptions.Center;
         storeSignTmp.color = new Color(0.98f, 0.94f, 0.85f);
@@ -716,7 +716,7 @@ public static class MapBuilder
         librarySignLabel.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
         librarySignLabel.transform.localScale = new Vector3(-1f, 1f, 1f);
         var librarySignTmp = librarySignLabel.AddComponent<TMPro.TextMeshPro>();
-        librarySignTmp.text = "THƯ VIỆN";
+        librarySignTmp.text = Localization.T("THƯ VIỆN");
         librarySignTmp.fontSize = 2.0f;
         librarySignTmp.alignment = TMPro.TextAlignmentOptions.Center;
         librarySignTmp.color = new Color(0.98f, 0.94f, 0.85f);
@@ -1141,7 +1141,7 @@ public static class MapBuilder
         neonLabel.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
         neonLabel.transform.localScale = new Vector3(-1f, 1f, 1f);
         var neonTmp = neonLabel.AddComponent<TMPro.TextMeshPro>();
-        neonTmp.text = "DANCE NIGHT";
+        neonTmp.text = Localization.T("DANCE NIGHT");
         neonTmp.fontSize = 1.4f;
         neonTmp.alignment = TMPro.TextAlignmentOptions.Center;
         neonTmp.color = new Color(1f, 0.3f, 0.9f);
@@ -1925,7 +1925,7 @@ public static class MapBuilder
         signLabel.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
         signLabel.transform.localScale = new Vector3(-1f, 1f, 1f);
         var tmp = signLabel.AddComponent<TMPro.TextMeshPro>();
-        tmp.text = "POLICE";
+        tmp.text = Localization.T("CẢNH SÁT");
         tmp.fontSize = 2.2f;
         tmp.alignment = TMPro.TextAlignmentOptions.Center;
         tmp.color = Color.white;
@@ -2057,7 +2057,7 @@ public static class MapBuilder
         signLabel.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
         signLabel.transform.localScale = new Vector3(-1f, 1f, 1f);
         var signTmp = signLabel.AddComponent<TMPro.TextMeshPro>();
-        signTmp.text = "NHÀ HÀNG";
+        signTmp.text = Localization.T("NHÀ HÀNG");
         signTmp.fontSize = 2.0f;
         signTmp.alignment = TMPro.TextAlignmentOptions.Center;
         signTmp.color = new Color(0.98f, 0.94f, 0.85f);
@@ -2975,7 +2975,7 @@ public static class MapBuilder
         shopSignLabel.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
         shopSignLabel.transform.localScale = new Vector3(-1f, 1f, 1f);
         var shopSignTmp = shopSignLabel.AddComponent<TMPro.TextMeshPro>();
-        shopSignTmp.text = "CỬA HÀNG";
+        shopSignTmp.text = Localization.T("CỬA HÀNG");
         shopSignTmp.fontSize = 2.0f;
         shopSignTmp.alignment = TMPro.TextAlignmentOptions.Center;
         shopSignTmp.color = new Color(0.98f, 0.94f, 0.85f);
@@ -3178,7 +3178,7 @@ public static class MapBuilder
         fishingSignLabel.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
         fishingSignLabel.transform.localScale = new Vector3(-1f, 1f, 1f);
         var fishingSignTmp = fishingSignLabel.AddComponent<TMPro.TextMeshPro>();
-        fishingSignTmp.text = "CỬA HÀNG CÂU CÁ";
+        fishingSignTmp.text = Localization.T("CỬA HÀNG CÂU CÁ");
         fishingSignTmp.fontSize = 1.8f;
         fishingSignTmp.alignment = TMPro.TextAlignmentOptions.Center;
         fishingSignTmp.color = new Color(0.98f, 0.94f, 0.85f);
@@ -4267,5 +4267,28 @@ public static class MapBuilder
         { var lt = lampGlow2F.AddComponent<Light>(); lt.type = LightType.Point; lt.range = 8f; lt.intensity = 1.5f; lt.color = new Color(1f, 0.85f, 0.6f); }
 
         return root;
+    }
+
+    private static readonly (string goName, string locKey)[] _signDefs = {
+        ("CafeSignLabel", "QUÁN CÀ PHÊ"),
+        ("StoreSignLabel", "TIỆN LỢI"),
+        ("LibrarySignLabel", "THƯ VIỆN"),
+        ("ClubNeonLabel", "DANCE NIGHT"),
+        ("PoliceSignLabel", "CẢNH SÁT"),
+        ("RestaurantSignLabel", "NHÀ HÀNG"),
+        ("ShopSignLabel", "CỬA HÀNG"),
+        ("FishingShopSignLabel", "CỬA HÀNG CÂU CÁ"),
+    };
+
+    public static void RefreshWorldSignTexts()
+    {
+        foreach (var (goName, locKey) in _signDefs)
+        {
+            var go = GameObject.Find(goName);
+            if (go == null) continue;
+            var tmp = go.GetComponent<TMPro.TextMeshPro>();
+            if (tmp != null)
+                tmp.text = Localization.T(locKey);
+        }
     }
 }

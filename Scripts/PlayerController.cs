@@ -100,6 +100,14 @@ public class PlayerController : MonoBehaviour
         EnableInput(AutoEnableInput);
         if (GameManager.Instance != null)
             GameManager.Instance.Player = this;
+
+        var promptGO = new GameObject("InteractionPrompt");
+        var prompt = promptGO.AddComponent<InteractionPrompt>();
+        var uiMgr = GameManager.Instance?.UIManager;
+        prompt.Initialize(
+            uiMgr?.GetEKeyPromptText(),
+            uiMgr?.GetLmbPromptText()
+        );
     }
 
     private void Update()

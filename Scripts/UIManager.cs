@@ -186,6 +186,8 @@ public class UIManager : MonoBehaviour
     private TMP_Text _mobSpawnerText;
     private TMP_Text _crosshairText;
     private TMP_Text _infoText;
+    private TMP_Text _eKeyPromptText;
+    private TMP_Text _lmbPromptText;
 
     public TMP_FontAsset defaultTmpFont;
 
@@ -515,6 +517,52 @@ public class UIManager : MonoBehaviour
             new Vector2(0.5f, 0.5f)
         );
         _infoText.gameObject.SetActive(false);
+
+        _eKeyPromptText = EnsureText(
+            "EKeyPrompt",
+            new Vector2(0f, -(lineHeight * 3.5f)),
+            "",
+            (int)(fontSize * 0.9f),
+            null,
+            TextAlignmentOptions.Center,
+            false,
+            new Vector2(screenWidth * 0.4f, lineHeight * 1.5f),
+            new Vector2(0.5f, 0.5f),
+            new Vector2(0.5f, 0.5f),
+            new Vector2(0.5f, 0.5f)
+        );
+        _eKeyPromptText.color = new Color(1f, 1f, 0.8f);
+        _eKeyPromptText.gameObject.SetActive(false);
+        {
+            var promptMat = new Material(_eKeyPromptText.fontSharedMaterial);
+            promptMat.EnableKeyword("OUTLINE_ON");
+            promptMat.SetFloat("_OutlineWidth", 0.25f);
+            promptMat.SetColor("_OutlineColor", Color.black);
+            _eKeyPromptText.fontSharedMaterial = promptMat;
+        }
+
+        _lmbPromptText = EnsureText(
+            "LMBPrompt",
+            new Vector2(0f, -(lineHeight * 5f)),
+            "",
+            (int)(fontSize * 0.8f),
+            null,
+            TextAlignmentOptions.Center,
+            false,
+            new Vector2(screenWidth * 0.4f, lineHeight * 1.5f),
+            new Vector2(0.5f, 0.5f),
+            new Vector2(0.5f, 0.5f),
+            new Vector2(0.5f, 0.5f)
+        );
+        _lmbPromptText.color = new Color(0.8f, 1f, 0.8f);
+        _lmbPromptText.gameObject.SetActive(false);
+        {
+            var lmbMat = new Material(_lmbPromptText.fontSharedMaterial);
+            lmbMat.EnableKeyword("OUTLINE_ON");
+            lmbMat.SetFloat("_OutlineWidth", 0.25f);
+            lmbMat.SetColor("_OutlineColor", Color.black);
+            _lmbPromptText.fontSharedMaterial = lmbMat;
+        }
 
         // Panels - responsive sizes
         _pauseMenuPanel = CreateMenuPanel("PauseMenu", Vector2.zero, new Vector2(panelWidth, panelHeight));
@@ -2413,6 +2461,10 @@ public class UIManager : MonoBehaviour
             QuestManager.Instance.RefreshQuestUI();
         if (ToolManager.Instance != null)
             ToolManager.Instance.RefreshInventoryUI();
+
+        MapBuilder.RefreshWorldSignTexts();
+        if (WorldBuilder.Instance != null)
+            WorldBuilder.Instance.RefreshBlueprintLabels();
     }
 
     private void SetText(string name, string vn)
@@ -2435,6 +2487,9 @@ public class UIManager : MonoBehaviour
     {
         return _canvas;
     }
+
+    public TMP_Text GetEKeyPromptText() { return _eKeyPromptText; }
+    public TMP_Text GetLmbPromptText() { return _lmbPromptText; }
 
     public void ShowMessage(string text, float duration)
     {

@@ -4222,12 +4222,12 @@ public class WorldBuilder : MonoBehaviour
         float stoneRemaining = stoneCost - bp.StoneDeposited;
         var parts = new List<string>();
         if (woodRemaining > 0.01f)
-            parts.Add($"Wood: {woodRemaining:F1}");
+            parts.Add(Localization.T("Gỗ:") + $" {woodRemaining:F1}");
         if (stoneRemaining > 0.01f)
-            parts.Add($"Stone: {stoneRemaining:F1}");
+            parts.Add(Localization.T("Đá:") + $" {stoneRemaining:F1}");
         if (parts.Count == 0)
-            return "Complete!";
-        return "Need: " + string.Join(", ", parts);
+            return Localization.T("Hoàn thành!");
+        return Localization.T("Cần:") + " " + string.Join(", ", parts);
     }
 
     private void UpdateBlueprintLabels()
@@ -4266,6 +4266,17 @@ public class WorldBuilder : MonoBehaviour
                     }
                 }
             }
+        }
+    }
+
+    public void RefreshBlueprintLabels()
+    {
+        foreach (var bp in _blueprints)
+        {
+            if (bp.Label == null) continue;
+            var tmp = bp.Label.GetComponent<TextMeshPro>();
+            if (tmp == null) continue;
+            tmp.text = GetBlueprintRemainingText(bp, bp.WoodCost, bp.StoneCost);
         }
     }
 
