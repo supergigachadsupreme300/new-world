@@ -700,7 +700,7 @@ public class CutsceneManager : MonoBehaviour
         }
 
         int poolSize = Mathf.CeilToInt((SegmentSpawnAhead + SegmentDespawnBehind) / SegmentLength) + 3;
-        if (poolSize < MaxActiveSegments + 3) poolSize = MaxActiveSegments + 3;
+        if (poolSize < MaxActiveSegments * 2 + 3) poolSize = MaxActiveSegments * 2 + 3;
         for (int i = 0; i < poolSize; i++)
         {
             var seg = SpawnDrivingSegmentRaw(0f);
@@ -977,6 +977,12 @@ public class CutsceneManager : MonoBehaviour
         if (_menuVisualRoutine != null) return;
         StopMainMenuVisual();
         _menuVisualRoutine = StartCoroutine(MenuVisualRoutine());
+    }
+
+    public void StopIntroIfActive()
+    {
+        if (!IsActive) return;
+        CancelCutscene();
     }
 
     public void StopMainMenuVisual(bool keepSegments = false)

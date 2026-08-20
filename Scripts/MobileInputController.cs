@@ -15,6 +15,7 @@ public class MobileInputController : MonoBehaviour
 
     private readonly Dictionary<string, bool> _held = new Dictionary<string, bool>();
     private readonly Dictionary<string, int> _pressedFrame = new Dictionary<string, int>();
+    private readonly List<string> _pressedFrameKeys = new List<string>();
     private Vector2 _lookDelta;
 
     public static Vector2 MoveAxis =>
@@ -93,10 +94,12 @@ public class MobileInputController : MonoBehaviour
 
         if (_pressedFrame.Count > 0)
         {
-            foreach (var key in new List<string>(_pressedFrame.Keys))
+            _pressedFrameKeys.Clear();
+            _pressedFrameKeys.AddRange(_pressedFrame.Keys);
+            for (int i = _pressedFrameKeys.Count - 1; i >= 0; i--)
             {
-                if (Time.frameCount - _pressedFrame[key] > 2)
-                    _pressedFrame.Remove(key);
+                if (Time.frameCount - _pressedFrame[_pressedFrameKeys[i]] > 2)
+                    _pressedFrame.Remove(_pressedFrameKeys[i]);
             }
         }
 

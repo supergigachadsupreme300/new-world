@@ -314,6 +314,18 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    public void ReturnToMainMenu()
+    {
+        InGame = false;
+        GamePaused = false;
+        IsPlayerDead = false;
+        if (CutsceneManager != null)
+            CutsceneManager.StopIntroIfActive();
+        if (ToolManager != null)
+            ToolManager.ClearInventory();
+        ShowMainMenu(true);
+    }
+
     public void StartNewGame()
     {
         InGame = true;

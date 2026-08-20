@@ -40,6 +40,9 @@ public class ToolManager : MonoBehaviour
     private const float PalmProjectileSpeed = 25f;
     private bool _isSwinging;
     private bool _initialized;
+    private readonly Collider[] _overlapBuffer = new Collider[8];
+    private int _rayFrameCounter;
+    private bool _canRaycast;
 
     private static readonly Dictionary<string, float> ToolStaminaCost = new Dictionary<string, float>
     {
@@ -291,10 +294,12 @@ public class ToolManager : MonoBehaviour
             return;
 
         EnsureToolContainerAttached();
+        _rayFrameCounter++;
+        _canRaycast = _rayFrameCounter % 3 == 0;
 
         if (GetSelectedItemType() == "hammer" && _worldBuilder != null)
         {
-            if (_buildingChosen)
+            if (_buildingChosen && _canRaycast)
             {
                 var cam = GetActiveCamera();
                 if (cam != null)
@@ -372,6 +377,8 @@ public class ToolManager : MonoBehaviour
             _uiManager.SetInfoText(null);
             return;
         }
+
+        if (!_canRaycast) return;
 
         var cam = GetActiveCamera();
         if (cam == null) return;
@@ -1376,9 +1383,10 @@ public class ToolManager : MonoBehaviour
     {
         if (_carriedObject == null || _worldBuilder == null || _uiManager == null) return;
 
-        var cols = Physics.OverlapSphere(_carriedObject.transform.position, 0.6f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
-        foreach (var c in cols)
+        int count = Physics.OverlapSphereNonAlloc(_carriedObject.transform.position, 0.6f, _overlapBuffer, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
+        for (int i = 0; i < count; i++)
         {
+            var c = _overlapBuffer[i];
             if (!_worldBuilder.IsBlueprint(c.gameObject)) continue;
             var bp = _worldBuilder.FindBlueprint(c.gameObject);
             if (bp == null) continue;

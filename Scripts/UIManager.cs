@@ -195,6 +195,12 @@ public class UIManager : MonoBehaviour
     private int _lastScreenHeight;
     private bool _uiPipelineLogged;
 
+    private int _lastHp = -1, _lastMaxHp = -1;
+    private float _lastStamina = -1f, _lastMaxStamina = -1f;
+    private long _lastMoney = -1;
+    private int _lastTimeDay = -1;
+    private float _lastTimeHour = -1f;
+
     void Start()
     {
         _lastScreenWidth = Screen.width;
@@ -252,10 +258,10 @@ public class UIManager : MonoBehaviour
     private void ResizeInventory()
     {
         float sw = Screen.width;
-        float slotW = sw * 0.08f;
-        float slotH = Screen.height * 0.06f;
+        float slotW = sw * 0.065f;
+        float slotH = slotW;
         float totalW = InventorySlotCount * slotW + (InventorySlotCount - 1) * 4f;
-        float startX = -totalW * 0.5f;
+        float startX = -totalW * 0.5f + sw * 0.02f;
         float y = Screen.height * 0.03f;
 
         for (int i = 0; i < InventorySlotCount; i++)
@@ -383,10 +389,10 @@ public class UIManager : MonoBehaviour
         );
 
         // Inventory: 10 individual slots at bottom center
-        float slotW = screenWidth * 0.08f;
-        float slotH = screenHeight * 0.06f;
+        float slotW = screenWidth * 0.065f;
+        float slotH = slotW;
         float totalW = InventorySlotCount * slotW + (InventorySlotCount - 1) * 4f;
-        float startX = -totalW * 0.5f;
+        float startX = -totalW * 0.5f + screenWidth * 0.02f;
 
         if (!_inventoryCreated)
         {
@@ -573,7 +579,7 @@ public class UIManager : MonoBehaviour
         CreateButton("QuestsButton", _pauseMenuPanel.transform, Localization.T("Nhiệm Vụ"), new Vector2(0f, -panelHeight * 0.11f), () => ShowQuestPanel(true));
         CreateButton("SettingsButton", _pauseMenuPanel.transform, Localization.T("Cài Đặt"), new Vector2(0f, -panelHeight * 0.22f), () => ShowSettingsPanel(true));
         CreateButton("TutorialButton", _pauseMenuPanel.transform, Localization.T("Hướng Dẫn"), new Vector2(0f, -panelHeight * 0.33f), () => ShowTutorial(true));
-        CreateButton("ExitButton", _pauseMenuPanel.transform, Localization.T("Thoát"), new Vector2(0f, -panelHeight * 0.44f), () => Application.Quit());
+        CreateButton("ExitButton", _pauseMenuPanel.transform, Localization.T("Thoát"), new Vector2(0f, -panelHeight * 0.44f), () => GameManager.Instance?.ReturnToMainMenu());
         _pauseMenuPanel.SetActive(false);
 
         CreateSaveSlotMenu(panelWidth, padding, largefontSize);
@@ -2303,18 +2309,32 @@ public class UIManager : MonoBehaviour
 
     public void UpdateTimeText(int day, float hour)
     {
-        if (_timeText != null)
-            _timeText.text = Localization.F("Ngày {0} - {1}", day, hour.ToString("00.00"));
+        if (_timeText == null) return;
+        if (day == _lastTimeDay && Mathf.Approximately(hour, _lastTimeHour)) return;
+        _lastTimeDay = day;
+        _lastTimeHour = hour;
+        _timeText.text = Localization.F("Ngày {0} - {1}", day, hour.ToString("00.00"));
     }
 
     public void UpdatePlayerHud(int hp, int maxHp, float stamina, float maxStamina, long money)
     {
-        if (_hpText != null)
+        if (_hpText != null && (hp != _lastHp || maxHp != _lastMaxHp))
+        {
+            _lastHp = hp;
+            _lastMaxHp = maxHp;
             _hpText.text = $"HP: {hp}/{maxHp}";
-        if (_staminaText != null)
+        }
+        if (_staminaText != null && ((int)stamina != (int)_lastStamina || (int)maxStamina != (int)_lastMaxStamina))
+        {
+            _lastStamina = stamina;
+            _lastMaxStamina = maxStamina;
             _staminaText.text = Localization.F("Thể Lực: {0}/{1}", (int)stamina, (int)maxStamina);
-        if (_moneyText != null)
+        }
+        if (_moneyText != null && money != _lastMoney)
+        {
+            _lastMoney = money;
             _moneyText.text = Localization.F("Tiền: {0}", money);
+        }
     }
 
     public void UpdateInventoryText(ToolManager.InventorySlot[] slots, int selectedSlot)

@@ -331,6 +331,11 @@ public class PlayerController : MonoBehaviour
                     wb.SpawnVendorCart();
                     return;
                 }
+                if (wb != null && wb.IsNearImmigrantSpawnButton(transform.position))
+                {
+                    wb.StartImmigrantArrival();
+                    return;
+                }
                 if (wb != null && wb.IsNearEventBlock(transform.position))
                 {
                     wb.ActivateEventBlock(transform.position);
@@ -480,10 +485,11 @@ public class PlayerController : MonoBehaviour
             if (cam != null)
             {
                 var ray = new Ray(cam.transform.position, cam.transform.forward);
-                var hits = Physics.RaycastAll(ray, 5f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
-                for (int i = 0; i < hits.Length; i++)
+                if (Physics.Raycast(ray, out var hit, 5f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
                 {
-                    if (hits[i].collider.transform.name == "BuffaloEntity")
+                    string hitName = hit.collider.transform.name;
+
+                    if (hitName == "BuffaloEntity")
                     {
                         var dlg = Object.FindAnyObjectByType<BuffaloDialog>();
                         if (dlg == null)
@@ -497,7 +503,7 @@ public class PlayerController : MonoBehaviour
                         return;
                     }
 
-                    if (hits[i].collider.transform.name == "VendorNPC")
+                    if (hitName == "VendorNPC")
                     {
                         var shop = Object.FindAnyObjectByType<VendorShopManager>();
                         if (shop == null)
@@ -510,19 +516,19 @@ public class PlayerController : MonoBehaviour
                         return;
                     }
 
-                    if (hits[i].collider.transform.name == "ToolShopNPC")
+                    if (hitName == "ToolShopNPC")
                     {
                         OpenVendorShop("tools");
                         return;
                     }
 
-                    if (hits[i].collider.transform.name == "ConvenienceNPC")
+                    if (hitName == "ConvenienceNPC")
                     {
                         OpenVendorShop("convenience");
                         return;
                     }
 
-                    if (hits[i].collider.transform.name == "GroceryNPC")
+                    if (hitName == "GroceryNPC")
                     {
                         OpenVendorShop("grocery");
                         return;

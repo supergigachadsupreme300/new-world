@@ -7,6 +7,8 @@ public class InteractionPrompt : MonoBehaviour
     private TMP_Text _lmbText;
     private Camera _cam;
     private readonly float _rayRange = 4f;
+    private int _raycastFrameCounter;
+    private string _lastHitName;
 
     private string _currentEKeyLocKey;
     private string _currentLmbLocKey;
@@ -53,15 +55,30 @@ public class InteractionPrompt : MonoBehaviour
             return;
         }
 
-        var ray = new Ray(_cam.transform.position, _cam.transform.forward);
-        if (!Physics.Raycast(ray, out var hit, _rayRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
+        _raycastFrameCounter++;
+        bool shouldRaycast = _raycastFrameCounter >= 3;
+        if (shouldRaycast) _raycastFrameCounter = 0;
+
+        string colliderName = _lastHitName;
+
+        if (shouldRaycast)
         {
-            Hide();
+            var ray = new Ray(_cam.transform.position, _cam.transform.forward);
+            if (!Physics.Raycast(ray, out var hit, _rayRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
+            {
+                _lastHitName = null;
+                Hide();
+                return;
+            }
+            colliderName = hit.collider.transform.name;
+            _lastHitName = colliderName;
+        }
+        else if (colliderName == null)
+        {
             return;
         }
 
-        string colliderName = hit.collider.transform.name;
-        string eLocKey = ResolveEKeyLocKey(colliderName, hit.collider.gameObject);
+        string eLocKey = ResolveEKeyLocKey(colliderName, null);
 
         if (eLocKey != null)
         {
@@ -99,7 +116,7 @@ public class InteractionPrompt : MonoBehaviour
             if (colliderName == name) return locKey;
         }
 
-        if (go.name == "Door" || (go.transform.parent != null && go.transform.parent.name == "Door"))
+        if (go != null && (go.name == "Door" || (go.transform.parent != null && go.transform.parent.name == "Door")))
             return "Mở cửa";
 
         return null;

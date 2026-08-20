@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 using TMPro;
 
 public class BuffaloDialog : MonoBehaviour
@@ -16,6 +17,10 @@ public class BuffaloDialog : MonoBehaviour
     private GameObject _shopRow;
     private bool _dialogActive;
     private readonly Queue<string> _dialogQueue = new Queue<string>();
+
+    private Transform _buffaloTransform;
+    private Transform _playerTransform;
+    private Quaternion _originalRotation = Quaternion.identity;
 
     public bool IsDialogActive => _dialogActive;
 
@@ -33,6 +38,13 @@ public class BuffaloDialog : MonoBehaviour
     {
         if (_canvas == null)
             Initialize();
+    }
+
+    void Update()
+    {
+        if (!_dialogActive || _shopRow == null || !_shopRow.activeSelf) return;
+        if (Keyboard.current != null && Keyboard.current.tKey.wasPressedThisFrame)
+            OpenShop();
     }
 
     public void Initialize()
@@ -55,9 +67,23 @@ public class BuffaloDialog : MonoBehaviour
 
         _dialogActive = true;
         _panel.SetActive(true);
+
+        if (_buffaloTransform == null)
+        {
+            var go = GameObject.Find("BuffaloEntity");
+            if (go != null) _buffaloTransform = go.transform;
+        }
+        if (_playerTransform == null)
+        {
+            var player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null) _playerTransform = player.transform;
+        }
+        if (_buffaloTransform != null)
+            _originalRotation = _buffaloTransform.rotation;
+        FacePlayer();
         _nameText.text = Localization.T("Buffalo");
         if (_openShopText != null)
-            _openShopText.text = Localization.T("[Mở Cửa Hàng]");
+            _openShopText.text = GameInput.IsMobile ? Localization.T("[Mở Cửa Hàng] (Chạm)") : Localization.T("[Mở Cửa Hàng] Nhấn T");
         _dialogQueue.Clear();
         _dialogQueue.Enqueue("Chào bạn! Tôi là Buffalo, chủ cửa hàng của làng.");
         _dialogQueue.Enqueue("Tôi bán hạt giống, công cụ và thức ăn cho gia súc.");
@@ -72,6 +98,8 @@ public class BuffaloDialog : MonoBehaviour
         _dialogActive = false;
         if (_panel != null)
             _panel.SetActive(false);
+        if (_buffaloTransform != null)
+            _buffaloTransform.rotation = _originalRotation;
     }
 
     public void Advance()
@@ -191,5 +219,15 @@ public class BuffaloDialog : MonoBehaviour
         tmp.raycastTarget = false;
 
         return tmp;
+    }
+
+    private void FacePlayer()
+    {
+        if (_buffaloTransform == null || _playerTransform == null)
+            return;
+        Vector3 to = _buffaloTransform.position - _playerTransform.position;
+        to.y = 0f;
+        if (to.sqrMagnitude > 0.001f)
+            _buffaloTransform.rotation = Quaternion.LookRotation(to.normalized);
     }
 }

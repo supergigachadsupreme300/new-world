@@ -243,6 +243,7 @@ public static class Localization
 
     private static readonly Dictionary<string, string> MansionParts = new Dictionary<string, string>
     {
+        { "Mansion", "Dinh Thự" },
         { "Mansion_Foundation", "Nền" },
         { "Mansion_PorchSlab", "Sân Trước" },
         { "Mansion_BackPatio", "Sân Sau" },
