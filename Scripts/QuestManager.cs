@@ -147,6 +147,7 @@ public class QuestManager : MonoBehaviour
             CreateDailyQuest("Thu Nhập Lớn", "money_earned", 15000, 300, "Kiếm 15.000 vàng hôm nay."),
             CreateDailyQuest("Chuỗi Lúa Mì", "wheat", 100, 250, "Thu hoạch 100 lúa mì hôm nay."),
             CreateDailyQuest("Diệt Sạch", "enemies", 25, 500, "Diệt 25 quái vật hôm nay."),
+            CreateDailyQuest("Câu Cá", "fish_catch", 3, 120, "Câu 3 con cá hôm nay."),
         };
 
         int pickCount = Mathf.Min(2, pool.Count);

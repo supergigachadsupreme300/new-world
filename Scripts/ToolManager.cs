@@ -880,7 +880,7 @@ public class ToolManager : MonoBehaviour
         ItemBuilder.BuildPalm(palmGo.transform);
 
         var col = palmGo.AddComponent<BoxCollider>();
-        col.size = new Vector3(0.8f, 0.6f, 0.3f);
+        col.size = new Vector3(0.7f, 0.3f, 0.4f);
 
         var rb = palmGo.AddComponent<Rigidbody>();
         rb.useGravity = false;

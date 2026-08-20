@@ -14,21 +14,23 @@ public class InteractionPrompt : MonoBehaviour
     private string _currentLmbLocKey;
 
     private static readonly (string colliderName, string locKey)[] _interactables = {
-        ("WifeNpc",        "Nói chuyện"),
-        ("RichManNpc",     "Nói chuyện"),
-        ("PoliceOfficer",  "Nói chuyện"),
-        ("RestaurantNPC",  "Nói chuyện"),
-        ("ImmigrantNpc",   "Nói chuyện"),
-        ("PagodaMonkNpc",  "Cầu nguyện"),
-        ("LibrarianNPC",   "Đọc sách"),
-        ("BuffaloEntity",  "Tương tác"),
-        ("Bed",            "Ngủ"),
-        ("VendorNPC",      "Mua sắm"),
-        ("ToolShopNPC",    "Mua sắm"),
-        ("ConvenienceNPC", "Mua sắm"),
-        ("GroceryNPC",     "Mua sắm"),
-        ("CafeNPC",        "Mua sắm"),
-        ("FishingShopNPC", "Mua sắm"),
+        ("WifeNpc",            "Nói chuyện"),
+        ("RichManNpc",         "Nói chuyện"),
+        ("PoliceOfficer",      "Nói chuyện"),
+        ("RestaurantNPC",      "Nói chuyện"),
+        ("ImmigrantNpc",       "Nói chuyện"),
+        ("PagodaMonkNpc",      "Cầu nguyện"),
+        ("LibrarianNPC",       "Đọc sách"),
+        ("BuffaloEntity",      "Tương tác"),
+        ("Bed",                "Ngủ"),
+        ("VendorNPC",          "Mua sắm"),
+        ("ToolShopNPC",        "Mua sắm"),
+        ("ConvenienceNPC",     "Mua sắm"),
+        ("GroceryNPC",         "Mua sắm"),
+        ("CafeNPC",            "Mua sắm"),
+        ("FishingShopNPC",     "Mua sắm"),
+        ("VendorSpawnButton",  "Gọi xe buýt"),
+        ("ImmigrantSpawnButton", "Gọi dân"),
     };
 
     public void Initialize(TMP_Text eKeyText, TMP_Text lmbText)
@@ -115,6 +117,9 @@ public class InteractionPrompt : MonoBehaviour
         {
             if (colliderName == name) return locKey;
         }
+
+        if (colliderName != null && colliderName.StartsWith("EventBlock_"))
+            return "Kích hoạt";
 
         if (go != null && (go.name == "Door" || (go.transform.parent != null && go.transform.parent.name == "Door")))
             return "Mở cửa";

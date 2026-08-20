@@ -892,8 +892,6 @@ public class WifeNPC : MonoBehaviour
                 }
 
                 var lines = new List<string>();
-                if (_chainStep == 1)
-                    lines.Add("Jessica: Anh nhớ câu 3 con cá giúp em nhé! Em đã tặng anh chiếc cần câu rồi đấy.");
 
                 if (_wifeQuestTargets.Count > 0)
                 {
@@ -964,36 +962,6 @@ public class WifeNPC : MonoBehaviour
     {
         if (qm == null)
             return;
-
-        if (_chainStep == 0)
-        {
-            _chainStep = 1;
-            qm.AddStoryQuest("Câu Cá Lần Đầu", "fish_catch", 3, 120,
-                "Jessica nhờ anh câu 3 con cá. Cô ấy đã tặng anh chiếc cần câu để bắt đầu!");
-            ToolManager.Instance?.AddItem("fishing_rod", 1);
-            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Jessica tặng anh chiếc cần câu cá!"), 3f);
-            SaveState();
-            return;
-        }
-
-        if (_chainStep == 1 && qm.IsNamedQuestComplete("Câu Cá Lần Đầu"))
-        {
-            _chainStep = 2;
-            _affection = Mathf.Min(100f, _affection + 10f);
-            _fishingBonusGranted = true;
-            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Hoàn thành Câu Cá Lần Đầu! +10 độ thân mật"), 3f);
-            SaveState();
-            return;
-        }
-
-        if (_chainStep == 3 && !_fishingBonusGranted
-            && qm.IsNamedQuestComplete("Câu Cá Lần Đầu"))
-        {
-            _affection = Mathf.Min(100f, _affection + 10f);
-            _fishingBonusGranted = true;
-            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Hoàn thành Câu Cá Lần Đầu! +10 độ thân mật"), 3f);
-            SaveState();
-        }
 
         if (_chainStep == 3 && qm.IsNamedQuestComplete("Trừ Tà Giúp Làng"))
         {

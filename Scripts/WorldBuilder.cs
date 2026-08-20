@@ -329,9 +329,9 @@ public class WorldBuilder : MonoBehaviour
     private static readonly Vector3 MansionBasePos = new Vector3(-8f, 0f, -30f);
     private static readonly Vector3[] ImmigrantHousePositions =
     {
-        new Vector3(46f, 0f, -25f),
-        new Vector3(46f, 0f, -60f),
-        new Vector3(46f, 0f, -95f)
+        new Vector3(80f, 0f, -50f),
+        new Vector3(100f, 0f, -20f),
+        new Vector3(130f, 0f, 180f)
     };
 
     private int _immigrantBuiltMask;
@@ -961,7 +961,6 @@ public class WorldBuilder : MonoBehaviour
 
     public bool IsOnRoad(Vector3 position)
     {
-        // Use published road bounds if available
         if (RoadObject == null)
             return false;
 
@@ -969,7 +968,11 @@ public class WorldBuilder : MonoBehaviour
                && position.z >= _roadZStart && position.z <= _roadZEnd;
         bool onEW = position.x >= (_roadCenterX - 0.5f) && position.x <= (_roadXEnd + 0.5f)
                && position.z >= (_roadTurnZ - _roadHalfWidth - 0.5f) && position.z <= (_roadTurnZ + _roadHalfWidth + 0.5f);
-        return onNS || onEW;
+        bool onSouthBranch = position.x >= -120.5f && position.x <= (_roadCenterX + 0.5f)
+               && position.z >= (-50f - _roadHalfWidth - 0.5f) && position.z <= (-50f + _roadHalfWidth + 0.5f);
+        bool onNorthBranch = position.x >= (_roadCenterX - 0.5f) && position.x <= 150.5f
+               && position.z >= (180f - _roadHalfWidth - 0.5f) && position.z <= (180f + _roadHalfWidth + 0.5f);
+        return onNS || onEW || onSouthBranch || onNorthBranch;
     }
 
     public float GetRoadSurfaceY()
@@ -2410,11 +2413,25 @@ public class WorldBuilder : MonoBehaviour
         {
             mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
         }
-        mat.color = new Color(0.5f, 0.8f, 0.95f, 0.15f);
+        mat.color = new Color(0.5f, 0.8f, 0.95f, 0.45f);
         renderer.material = mat;
         var collider = blueprint.GetComponent<BoxCollider>();
         collider.isTrigger = true;
         blueprint.transform.SetParent(_worldRoot.transform);
+
+        var marker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        marker.name = "BlueprintMarker";
+        marker.transform.SetParent(blueprint.transform);
+        marker.transform.localPosition = new Vector3(0f, -2.5f, 0f);
+        marker.transform.localScale = new Vector3(9f, 0.05f, 9f);
+        var markerMat = CreateSafeLitMaterial();
+        if (markerMat != null)
+            markerMat.color = new Color(0.2f, 0.6f, 1f, 0.7f);
+        else
+            markerMat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse")) { color = new Color(0.2f, 0.6f, 1f, 0.7f) };
+        marker.GetComponent<MeshRenderer>().material = markerMat;
+        var markerCol = marker.GetComponent<Collider>();
+        if (markerCol != null) Object.Destroy(markerCol);
 
         var bpState = new BlueprintState
         {
@@ -2761,7 +2778,46 @@ public class WorldBuilder : MonoBehaviour
                 part.transform.localScale = partDef.LocalScale;
                 part.transform.localRotation = Quaternion.identity;
 
-                Color partColor = partDef.MaterialType == "stone" ? def.StoneColor : def.WoodColor;
+                Color partColor;
+                if (typeName == "small_house")
+                {
+                    Color[] wallPalette = {
+                        new Color(0.78f, 0.55f, 0.35f),
+                        new Color(0.65f, 0.72f, 0.55f),
+                        new Color(0.82f, 0.75f, 0.6f),
+                        new Color(0.7f, 0.5f, 0.4f),
+                        new Color(0.6f, 0.68f, 0.72f),
+                        new Color(0.75f, 0.65f, 0.75f),
+                        new Color(0.85f, 0.82f, 0.72f),
+                        new Color(0.68f, 0.6f, 0.5f),
+                        new Color(0.72f, 0.58f, 0.45f),
+                        new Color(0.6f, 0.65f, 0.55f)
+                    };
+                    Color[] roofPalette = {
+                        new Color(0.75f, 0.35f, 0.25f),
+                        new Color(0.45f, 0.45f, 0.5f),
+                        new Color(0.4f, 0.55f, 0.35f),
+                        new Color(0.65f, 0.4f, 0.3f),
+                        new Color(0.5f, 0.35f, 0.25f),
+                        new Color(0.55f, 0.3f, 0.2f)
+                    };
+                    Color[] floorPalette = {
+                        new Color(0.72f, 0.55f, 0.32f),
+                        new Color(0.55f, 0.38f, 0.22f),
+                        new Color(0.68f, 0.45f, 0.3f),
+                        new Color(0.6f, 0.5f, 0.38f)
+                    };
+                    if (partDef.PartName == "Roof")
+                        partColor = roofPalette[Random.Range(0, roofPalette.Length)];
+                    else if (partDef.PartName == "Floor")
+                        partColor = floorPalette[Random.Range(0, floorPalette.Length)];
+                    else
+                        partColor = wallPalette[Random.Range(0, wallPalette.Length)];
+                }
+                else
+                {
+                    partColor = partDef.MaterialType == "stone" ? def.StoneColor : def.WoodColor;
+                }
                 part.GetComponent<MeshRenderer>().material.color = partColor;
                 part.AddComponent<BoxCollider>();
 
@@ -4348,26 +4404,47 @@ public class WorldBuilder : MonoBehaviour
             new Vector3(roadHw * 2f, 0.06f, nsLen),
             new Vector3(roadCx, 0.03f, nsZc), asphaltC, false, true);
 
-        // Kerbs (east kerb is split around the junction square so it never crosses the E-W road)
-        float nsMidZ = (nsZStart + nsZEnd) * 0.5f;
-        float eastSouthLen = (roadTurnZ - roadHw) - nsZStart;
-        float eastSouthZc = (nsZStart + (roadTurnZ - roadHw)) * 0.5f;
-        float eastNorthLen = nsZEnd - (roadTurnZ + roadHw);
-        float eastNorthZc = ((roadTurnZ + roadHw) + nsZEnd) * 0.5f;
-        MakeBlock("Kerb", _worldRoot.transform, new Vector3(0.55f, 0.22f, nsLen),
-            new Vector3(roadCx - (roadHw + 0.35f), 0.11f, nsMidZ), curbC, true);
-        MakeBlock("Kerb", _worldRoot.transform, new Vector3(0.55f, 0.22f, eastSouthLen),
-            new Vector3(roadCx + (roadHw + 0.35f), 0.11f, eastSouthZc), curbC, true);
-        MakeBlock("Kerb", _worldRoot.transform, new Vector3(0.55f, 0.22f, eastNorthLen),
-            new Vector3(roadCx + (roadHw + 0.35f), 0.11f, eastNorthZc), curbC, true);
+        // Kerbs — split around all 3 junctions (south z=-50, mid z=90, north z=180)
+        float jSouthZ = -50f;
+        float jMidZ = roadTurnZ; // 90
+        float jNorthZ = 180f;
 
-        // White edge lines
+        // West kerb: 4 segments avoiding all 3 junctions
+        float wKerbX = roadCx - (roadHw + 0.35f);
+        float wKerbW = 0.55f;
+        float wKerbH = 0.22f;
+        MakeBlock("Kerb", _worldRoot.transform, new Vector3(wKerbW, wKerbH, (jSouthZ - roadHw) - nsZStart),
+            new Vector3(wKerbX, 0.11f, (nsZStart + (jSouthZ - roadHw)) * 0.5f), curbC, true);
+        MakeBlock("Kerb", _worldRoot.transform, new Vector3(wKerbW, wKerbH, (jMidZ - roadHw) - (jSouthZ + roadHw)),
+            new Vector3(wKerbX, 0.11f, ((jSouthZ + roadHw) + (jMidZ - roadHw)) * 0.5f), curbC, true);
+        MakeBlock("Kerb", _worldRoot.transform, new Vector3(wKerbW, wKerbH, (jNorthZ - roadHw) - (jMidZ + roadHw)),
+            new Vector3(wKerbX, 0.11f, ((jMidZ + roadHw) + (jNorthZ - roadHw)) * 0.5f), curbC, true);
+        MakeBlock("Kerb", _worldRoot.transform, new Vector3(wKerbW, wKerbH, nsZEnd - (jNorthZ + roadHw)),
+            new Vector3(wKerbX, 0.11f, ((jNorthZ + roadHw) + nsZEnd) * 0.5f), curbC, true);
+
+        // East kerb: 4 segments avoiding all 3 junctions
+        float eKerbX = roadCx + (roadHw + 0.35f);
+        MakeBlock("Kerb", _worldRoot.transform, new Vector3(wKerbW, wKerbH, (jSouthZ - roadHw) - nsZStart),
+            new Vector3(eKerbX, 0.11f, (nsZStart + (jSouthZ - roadHw)) * 0.5f), curbC, true);
+        MakeBlock("Kerb", _worldRoot.transform, new Vector3(wKerbW, wKerbH, (jMidZ - roadHw) - (jSouthZ + roadHw)),
+            new Vector3(eKerbX, 0.11f, ((jSouthZ + roadHw) + (jMidZ - roadHw)) * 0.5f), curbC, true);
+        MakeBlock("Kerb", _worldRoot.transform, new Vector3(wKerbW, wKerbH, (jNorthZ - roadHw) - (jMidZ + roadHw)),
+            new Vector3(eKerbX, 0.11f, ((jMidZ + roadHw) + (jNorthZ - roadHw)) * 0.5f), curbC, true);
+        MakeBlock("Kerb", _worldRoot.transform, new Vector3(wKerbW, wKerbH, nsZEnd - (jNorthZ + roadHw)),
+            new Vector3(eKerbX, 0.11f, ((jNorthZ + roadHw) + nsZEnd) * 0.5f), curbC, true);
+
+        // White edge lines — same 4-segment split on each side
+        float nsMidZ = (nsZStart + nsZEnd) * 0.5f;
         MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(0.18f, 0.03f, nsLen),
             new Vector3(roadCx - (roadHw - 0.22f), 0.03f, nsMidZ), whiteC, true);
-        MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(0.18f, 0.03f, eastSouthLen),
-            new Vector3(roadCx + (roadHw - 0.22f), 0.03f, eastSouthZc), whiteC, true);
-        MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(0.18f, 0.03f, eastNorthLen),
-            new Vector3(roadCx + (roadHw - 0.22f), 0.03f, eastNorthZc), whiteC, true);
+        MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(0.18f, 0.03f, (jSouthZ - roadHw) - nsZStart),
+            new Vector3(roadCx + (roadHw - 0.22f), 0.03f, (nsZStart + (jSouthZ - roadHw)) * 0.5f), whiteC, true);
+        MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(0.18f, 0.03f, (jMidZ - roadHw) - (jSouthZ + roadHw)),
+            new Vector3(roadCx + (roadHw - 0.22f), 0.03f, ((jSouthZ + roadHw) + (jMidZ - roadHw)) * 0.5f), whiteC, true);
+        MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(0.18f, 0.03f, (jNorthZ - roadHw) - (jMidZ + roadHw)),
+            new Vector3(roadCx + (roadHw - 0.22f), 0.03f, ((jMidZ + roadHw) + (jNorthZ - roadHw)) * 0.5f), whiteC, true);
+        MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(0.18f, 0.03f, nsZEnd - (jNorthZ + roadHw)),
+            new Vector3(roadCx + (roadHw - 0.22f), 0.03f, ((jNorthZ + roadHw) + nsZEnd) * 0.5f), whiteC, true);
 
         // Yellow dashed center line
         float dashLen = 2.8f;
@@ -4412,6 +4489,76 @@ public class WorldBuilder : MonoBehaviour
             MakeBlock("CenterDash", _worldRoot.transform,
                 new Vector3(dashLen, 0.03f, 0.18f),
                 new Vector3(xStart + i * dashStep, 0.03f, roadTurnZ), yellowC, true);
+        }
+
+        // ── South branch: E-W road at z = -50 going WEST (x: roadCx -> -120) ──
+        float southTurnZ = -50f;
+        float southEndX = -120f;
+        float southEwLen = Mathf.Abs(southEndX - roadCx);
+        float southEwXc = (roadCx + southEndX) * 0.5f;
+
+        MakeBlock("RoadCorner", _worldRoot.transform,
+            new Vector3(roadHw * 2f, 0.06f, roadHw * 2f),
+            new Vector3(roadCx, 0.03f, southTurnZ), asphaltC, false, true);
+
+        MakeBlock("RoadTurn", _worldRoot.transform,
+            new Vector3(southEwLen, 0.06f, roadHw * 2f),
+            new Vector3(southEwXc, 0.03f, southTurnZ), asphaltC, false, true);
+
+        // West-going kerbs: start from west end, stop before N-S road
+        foreach (int side in new[] { -1, 1 })
+        {
+            MakeBlock("Kerb", _worldRoot.transform, new Vector3(southEwLen - roadHw, 0.22f, 0.55f),
+                new Vector3((southEndX + roadCx - roadHw) * 0.5f, 0.11f, southTurnZ + side * (roadHw + 0.35f)), curbC, true);
+        }
+        foreach (int side in new[] { -1, 1 })
+        {
+            MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(southEwLen - roadHw, 0.03f, 0.18f),
+                new Vector3((southEndX + roadCx - roadHw) * 0.5f, 0.03f, southTurnZ + side * (roadHw - 0.22f)), whiteC, true);
+        }
+
+        float southXStart = southEndX + dashLen / 2f;
+        if (southEndX > roadCx) southXStart = roadCx + dashLen / 2f;
+        int southDashes = Mathf.FloorToInt(southEwLen / dashStep);
+        for (int i = 0; i < southDashes; i++)
+        {
+            MakeBlock("CenterDash", _worldRoot.transform,
+                new Vector3(dashLen, 0.03f, 0.18f),
+                new Vector3(southXStart + i * dashStep, 0.03f, southTurnZ), yellowC, true);
+        }
+
+        // ── North branch: E-W road at z = 180 going EAST (x: roadCx -> 150) ──
+        float northTurnZ = 180f;
+        float northEndX = 150f;
+        float northEwLen = northEndX - roadCx;
+        float northEwXc = (roadCx + northEndX) * 0.5f;
+
+        MakeBlock("RoadCorner", _worldRoot.transform,
+            new Vector3(roadHw * 2f, 0.06f, roadHw * 2f),
+            new Vector3(roadCx, 0.03f, northTurnZ), asphaltC, false, true);
+
+        MakeBlock("RoadTurn", _worldRoot.transform,
+            new Vector3(northEwLen, 0.06f, roadHw * 2f),
+            new Vector3(northEwXc, 0.03f, northTurnZ), asphaltC, false, true);
+
+        foreach (int side in new[] { -1, 1 })
+        {
+            MakeBlock("Kerb", _worldRoot.transform, new Vector3(northEwLen - roadHw, 0.22f, 0.55f),
+                new Vector3((roadCx + roadHw + northEndX) * 0.5f, 0.11f, northTurnZ + side * (roadHw + 0.35f)), curbC, true);
+        }
+        foreach (int side in new[] { -1, 1 })
+        {
+            MakeBlock("EdgeLine", _worldRoot.transform, new Vector3(northEwLen - roadHw, 0.03f, 0.18f),
+                new Vector3((roadCx + roadHw + northEndX) * 0.5f, 0.03f, northTurnZ + side * (roadHw - 0.22f)), whiteC, true);
+        }
+
+        float northXStart = roadCx + dashLen / 2f;
+        int northDashes = Mathf.FloorToInt(northEwLen / dashStep);
+        for (int i = 0; i < northDashes; i++)
+        {
+            MakeBlock("CenterDash", _worldRoot.transform,
+                new Vector3(dashLen, 0.03f, 0.18f),
+                new Vector3(northXStart + i * dashStep, 0.03f, northTurnZ), yellowC, true);
         }
 
         // Publish bounds
@@ -4868,7 +5015,9 @@ GameObject treeRoot;
         bool nearLibrary = x >= -9 && x <= 6 && z >= 24 && z <= 38;
         bool nearClub = x >= -12 && x <= 12 && z >= 84 && z <= 106;
         bool nearClubCorridor = x >= -12 && x <= 40 && z >= 84 && z <= 106;
-        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearFishingShop || nearDisplay || nearMansion || nearPagoda || nearCafe || nearLibrary || nearClub || nearClubCorridor;
+        bool nearSouthBranch = x >= -123 && x <= 17 && z >= 43 && z <= 57;
+        bool nearNorthBranch = x >= 11 && x <= 153 && z >= 173 && z <= 187;
+        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearFishingShop || nearDisplay || nearMansion || nearPagoda || nearCafe || nearLibrary || nearClub || nearClubCorridor || nearSouthBranch || nearNorthBranch;
     }
 
     private void CreateVendorSpawnButton()
@@ -5069,6 +5218,17 @@ GameObject treeRoot;
             return true;
         }
         return false;
+    }
+
+    public bool ActivateEventBlockByHit(GameObject block)
+    {
+        if (block == null) return false;
+        int idx = _eventBlocks.IndexOf(block);
+        if (idx < 0) return false;
+        int eventIndex = _eventBlockIndices[idx];
+        RandomEventManager.Instance?.TriggerEventByIndex(eventIndex);
+        StartCoroutine(FlashEventBlock(block));
+        return true;
     }
 
     private System.Collections.IEnumerator FlashEventBlock(GameObject block)

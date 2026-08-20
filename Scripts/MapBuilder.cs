@@ -1036,38 +1036,129 @@ public static class MapBuilder
     //  IMMIGRANT NPC  (newcomer villager with a carrying bundle)
     // ═══════════════════════════════════════════════════════════════
 
+    public struct ImmigrantVariation
+    {
+        public Color SkinColor;
+        public Color ShirtColor;
+        public Color PantsColor;
+        public Color BootColor;
+        public Color HatColor;
+        public Color BundleColor;
+        public Color HairColor;
+        public float EyeSpacing;
+        public float HeadScale;
+        public float ArmLength;
+        public float BodyWidth;
+        public float HeightOffset;
+
+        public static ImmigrantVariation Random()
+        {
+            var v = new ImmigrantVariation();
+            Color[] skins = {
+                new Color(0.92f, 0.82f, 0.72f),
+                new Color(0.84f, 0.71f, 0.59f),
+                new Color(0.72f, 0.56f, 0.42f),
+                new Color(0.6f, 0.44f, 0.32f),
+                new Color(0.5f, 0.38f, 0.28f)
+            };
+            Color[] shirts = {
+                new Color(0.35f, 0.5f, 0.28f),
+                new Color(0.3f, 0.4f, 0.6f),
+                new Color(0.65f, 0.3f, 0.25f),
+                new Color(0.7f, 0.5f, 0.2f),
+                new Color(0.5f, 0.5f, 0.55f),
+                new Color(0.55f, 0.35f, 0.55f),
+                new Color(0.8f, 0.75f, 0.3f),
+                new Color(0.4f, 0.55f, 0.5f)
+            };
+            Color[] pants = {
+                new Color(0.4f, 0.33f, 0.22f),
+                new Color(0.3f, 0.35f, 0.5f),
+                new Color(0.45f, 0.45f, 0.48f),
+                new Color(0.25f, 0.25f, 0.28f),
+                new Color(0.55f, 0.5f, 0.35f),
+                new Color(0.35f, 0.42f, 0.3f)
+            };
+            Color[] boots = {
+                new Color(0.35f, 0.25f, 0.12f),
+                new Color(0.2f, 0.18f, 0.15f),
+                new Color(0.5f, 0.28f, 0.18f)
+            };
+            Color[] hats = {
+                new Color(0.85f, 0.8f, 0.5f),
+                new Color(0.7f, 0.6f, 0.35f),
+                new Color(0.9f, 0.85f, 0.65f),
+                new Color(0.6f, 0.5f, 0.3f)
+            };
+            Color[] bundles = {
+                new Color(0.75f, 0.7f, 0.6f),
+                new Color(0.6f, 0.5f, 0.35f),
+                new Color(0.55f, 0.55f, 0.58f),
+                new Color(0.5f, 0.6f, 0.45f)
+            };
+            Color[] hairs = {
+                new Color(0.12f, 0.09f, 0.06f),
+                new Color(0.25f, 0.18f, 0.1f),
+                new Color(0.08f, 0.06f, 0.04f),
+                new Color(0.35f, 0.25f, 0.15f),
+                new Color(0.15f, 0.12f, 0.1f)
+            };
+            v.SkinColor = skins[UnityEngine.Random.Range(0, skins.Length)];
+            v.ShirtColor = shirts[UnityEngine.Random.Range(0, shirts.Length)];
+            v.PantsColor = pants[UnityEngine.Random.Range(0, pants.Length)];
+            v.BootColor = boots[UnityEngine.Random.Range(0, boots.Length)];
+            v.HatColor = hats[UnityEngine.Random.Range(0, hats.Length)];
+            v.BundleColor = bundles[UnityEngine.Random.Range(0, bundles.Length)];
+            v.HairColor = hairs[UnityEngine.Random.Range(0, hairs.Length)];
+            v.EyeSpacing = UnityEngine.Random.Range(0.07f, 0.11f);
+            v.HeadScale = UnityEngine.Random.Range(0.28f, 0.36f);
+            v.ArmLength = UnityEngine.Random.Range(0.35f, 0.55f);
+            v.BodyWidth = UnityEngine.Random.Range(0.42f, 0.58f);
+            v.HeightOffset = UnityEngine.Random.Range(-0.05f, 0.05f);
+            return v;
+        }
+    }
+
     public static GameObject BuildImmigrantNpc(Transform parent, Vector3 position = default, Quaternion rotation = default)
+    {
+        return BuildImmigrantNpc(parent, ImmigrantVariation.Random(), position, rotation);
+    }
+
+    public static GameObject BuildImmigrantNpc(Transform parent, ImmigrantVariation v, Vector3 position = default, Quaternion rotation = default)
     {
         var root = new GameObject("ImmigrantNpc");
         root.transform.SetParent(parent);
-        root.transform.position = position;
+        root.transform.position = position + Vector3.up * v.HeightOffset;
         root.transform.rotation = (rotation == default) ? Quaternion.identity : rotation;
 
-        Color shirtC = new Color(0.35f, 0.5f, 0.28f);
-        Color pantsC = new Color(0.4f, 0.33f, 0.22f);
-        Color skinC = new Color(215f / 255f, 180f / 255f, 150f / 255f);
-        Color bootC = new Color(0.35f, 0.25f, 0.12f);
-        Color bundleC = new Color(0.75f, 0.7f, 0.6f);
-        Color hatC = new Color(0.85f, 0.8f, 0.5f);
+        Color beltC = new Color(0.25f, 0.18f, 0.1f);
+        Color eyeWhite = new Color(0.95f, 0.95f, 0.97f);
 
-        MakeBlock("LegL", root.transform, new Vector3(0.17f, 0.5f, 0.17f), new Vector3(-0.15f, -0.6f, 0f), pantsC, true);
-        MakeBlock("LegR", root.transform, new Vector3(0.17f, 0.5f, 0.17f), new Vector3(0.15f, -0.6f, 0f), pantsC, true);
-        MakeBlock("BootL", root.transform, new Vector3(0.2f, 0.09f, 0.3f), new Vector3(-0.15f, -0.88f, 0f), bootC, true);
-        MakeBlock("BootR", root.transform, new Vector3(0.2f, 0.09f, 0.3f), new Vector3(0.15f, -0.88f, 0f), bootC, true);
-        MakeBlock("Body", root.transform, new Vector3(0.5f, 0.55f, 0.3f), new Vector3(0f, 0f, 0f), shirtC, true);
-        MakeBlock("Belt", root.transform, new Vector3(0.52f, 0.07f, 0.32f), new Vector3(0f, -0.22f, 0f), new Color(0.25f, 0.18f, 0.1f), true);
-        MakeBlock("Neck", root.transform, new Vector3(0.14f, 0.12f, 0.14f), new Vector3(0f, 0.36f, 0f), skinC, true);
-        MakeBlock("Head", root.transform, new Vector3(0.32f, 0.3f, 0.32f), new Vector3(0f, 0.52f, 0f), skinC, true);
-        MakeBlock("Hair", root.transform, new Vector3(0.33f, 0.09f, 0.33f), new Vector3(0f, 0.65f, 0f), new Color(0.12f, 0.09f, 0.06f), true);
-        MakeBlock("ConicalHat", root.transform, new Vector3(0.6f, 0.06f, 0.6f), new Vector3(0f, 0.7f, 0f), hatC, true);
-        MakeBlock("EyeWhiteL", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(-0.09f, 0.55f, -0.16f), new Color(0.95f, 0.95f, 0.97f), true);
-        MakeBlock("EyeWhiteR", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(0.09f, 0.55f, -0.16f), new Color(0.95f, 0.95f, 0.97f), true);
-        MakeBlock("Nose", root.transform, new Vector3(0.07f, 0.06f, 0.05f), new Vector3(0f, 0.51f, -0.17f), skinC, true);
-        MakeBlock("ArmL", root.transform, new Vector3(0.14f, 0.45f, 0.14f), new Vector3(-0.36f, 0.1f, 0f), shirtC, true);
-        MakeBlock("ArmR", root.transform, new Vector3(0.14f, 0.45f, 0.14f), new Vector3(0.36f, 0.1f, 0f), shirtC, true);
-        MakeBlock("HandL", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(-0.36f, -0.14f, 0f), skinC, true);
-        MakeBlock("HandR", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0.36f, -0.14f, 0f), skinC, true);
-        MakeBlock("Bundle", root.transform, new Vector3(0.32f, 0.3f, 0.32f), new Vector3(0.42f, -0.05f, 0.1f), bundleC, true);
+        float armW = 0.14f;
+        float armH = v.ArmLength;
+        float handY = 0.1f - v.ArmLength * 0.55f;
+        float bodyW = v.BodyWidth;
+        float headS = v.HeadScale;
+        float eyeX = v.EyeSpacing;
+
+        MakeBlock("LegL", root.transform, new Vector3(0.17f, 0.5f, 0.17f), new Vector3(-0.15f, -0.6f, 0f), v.PantsColor, true);
+        MakeBlock("LegR", root.transform, new Vector3(0.17f, 0.5f, 0.17f), new Vector3(0.15f, -0.6f, 0f), v.PantsColor, true);
+        MakeBlock("BootL", root.transform, new Vector3(0.2f, 0.09f, 0.3f), new Vector3(-0.15f, -0.88f, 0f), v.BootColor, true);
+        MakeBlock("BootR", root.transform, new Vector3(0.2f, 0.09f, 0.3f), new Vector3(0.15f, -0.88f, 0f), v.BootColor, true);
+        MakeBlock("Body", root.transform, new Vector3(bodyW, 0.55f, 0.3f), new Vector3(0f, 0f, 0f), v.ShirtColor, true);
+        MakeBlock("Belt", root.transform, new Vector3(bodyW + 0.02f, 0.07f, 0.32f), new Vector3(0f, -0.22f, 0f), beltC, true);
+        MakeBlock("Neck", root.transform, new Vector3(0.14f, 0.12f, 0.14f), new Vector3(0f, 0.36f, 0f), v.SkinColor, true);
+        MakeBlock("Head", root.transform, new Vector3(headS, headS * 0.94f, headS), new Vector3(0f, 0.52f, 0f), v.SkinColor, true);
+        MakeBlock("Hair", root.transform, new Vector3(headS + 0.01f, 0.09f, headS + 0.01f), new Vector3(0f, 0.65f, 0f), v.HairColor, true);
+        MakeBlock("ConicalHat", root.transform, new Vector3(0.6f, 0.06f, 0.6f), new Vector3(0f, 0.7f, 0f), v.HatColor, true);
+        MakeBlock("EyeWhiteL", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(-eyeX, 0.55f, -0.16f), eyeWhite, true);
+        MakeBlock("EyeWhiteR", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(eyeX, 0.55f, -0.16f), eyeWhite, true);
+        MakeBlock("Nose", root.transform, new Vector3(0.07f, 0.06f, 0.05f), new Vector3(0f, 0.51f, -0.17f), v.SkinColor, true);
+        MakeBlock("ArmL", root.transform, new Vector3(armW, armH, armW), new Vector3(-0.36f, 0.1f, 0f), v.ShirtColor, true);
+        MakeBlock("ArmR", root.transform, new Vector3(armW, armH, armW), new Vector3(0.36f, 0.1f, 0f), v.ShirtColor, true);
+        MakeBlock("HandL", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(-0.36f, handY, 0f), v.SkinColor, true);
+        MakeBlock("HandR", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0.36f, handY, 0f), v.SkinColor, true);
+        MakeBlock("Bundle", root.transform, new Vector3(0.32f, 0.3f, 0.32f), new Vector3(0.42f, -0.05f, 0.1f), v.BundleColor, true);
 
         var col = root.AddComponent<BoxCollider>();
         col.size = new Vector3(0.9f, 1.7f, 0.7f);
@@ -1182,7 +1273,7 @@ public static class MapBuilder
         MakeBlock("Mixer", root.transform, new Vector3(0.5f, 0.05f, 0.6f), new Vector3(0f, 1.16f, -halfD + 2.5f), new Color(0.4f, 0.2f, 0.3f), true);
 
         // ── DJ behind the booth ──
-        BuildClubDJ(root.transform, new Vector3(0f, 1.0f, -halfD + 1f), Quaternion.Euler(0f, 180f, 0f));
+        BuildClubDJ(root.transform, new Vector3(0f, 1.0f, -halfD + 1f), Quaternion.Euler(0f, 90f, 0f));
 
         // ── Speaker stacks (corners) ──
         MakeBlock("Speaker", root.transform, new Vector3(0.9f, 1.8f, 0.8f), new Vector3(-halfW + 1.2f, 0.9f, -halfD + 1.2f), darkC, true);

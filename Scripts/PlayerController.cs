@@ -326,21 +326,6 @@ public class PlayerController : MonoBehaviour
             if (ePressed)
             {
                 var wb = WorldBuilder.Instance;
-                if (wb != null && wb.IsNearVendorSpawnButton(transform.position))
-                {
-                    wb.SpawnVendorCart();
-                    return;
-                }
-                if (wb != null && wb.IsNearImmigrantSpawnButton(transform.position))
-                {
-                    wb.StartImmigrantArrival();
-                    return;
-                }
-                if (wb != null && wb.IsNearEventBlock(transform.position))
-                {
-                    wb.ActivateEventBlock(transform.position);
-                    return;
-                }
                 if (RichManNPC.Instance != null && RichManNPC.Instance.TryEavesdropDeal(transform.position))
                     return;
                 var cam = Camera.main;
@@ -349,6 +334,21 @@ public class PlayerController : MonoBehaviour
                     var ray = new Ray(cam.transform.position, cam.transform.forward);
                     if (Physics.Raycast(ray, out var hit, 4f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
                     {
+                        if (hit.collider.transform.name == "VendorSpawnButton")
+                        {
+                            wb.SpawnVendorCart();
+                            return;
+                        }
+                        if (hit.collider.transform.name == "ImmigrantSpawnButton")
+                        {
+                            wb.StartImmigrantArrival();
+                            return;
+                        }
+                        if (hit.collider.transform.name.StartsWith("EventBlock_"))
+                        {
+                            wb.ActivateEventBlockByHit(hit.collider.gameObject);
+                            return;
+                        }
                         if (hit.collider.transform.name == "WifeNpc")
                         {
                             if (WifeNPC.Instance != null && !WifeNPC.Instance.IsDialogActive)
