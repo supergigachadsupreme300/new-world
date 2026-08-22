@@ -1050,6 +1050,10 @@ public static class MapBuilder
         public float ArmLength;
         public float BodyWidth;
         public float HeightOffset;
+        public float LegWidth;
+        public float HatTilt;
+        public bool HasBeard;
+        public bool RolledSleeves;
 
         public static ImmigrantVariation Random()
         {
@@ -1059,7 +1063,9 @@ public static class MapBuilder
                 new Color(0.84f, 0.71f, 0.59f),
                 new Color(0.72f, 0.56f, 0.42f),
                 new Color(0.6f, 0.44f, 0.32f),
-                new Color(0.5f, 0.38f, 0.28f)
+                new Color(0.5f, 0.38f, 0.28f),
+                new Color(0.88f, 0.76f, 0.65f),
+                new Color(0.66f, 0.5f, 0.37f)
             };
             Color[] shirts = {
                 new Color(0.35f, 0.5f, 0.28f),
@@ -1069,7 +1075,9 @@ public static class MapBuilder
                 new Color(0.5f, 0.5f, 0.55f),
                 new Color(0.55f, 0.35f, 0.55f),
                 new Color(0.8f, 0.75f, 0.3f),
-                new Color(0.4f, 0.55f, 0.5f)
+                new Color(0.4f, 0.55f, 0.5f),
+                new Color(0.75f, 0.35f, 0.35f),
+                new Color(0.3f, 0.45f, 0.4f)
             };
             Color[] pants = {
                 new Color(0.4f, 0.33f, 0.22f),
@@ -1077,31 +1085,37 @@ public static class MapBuilder
                 new Color(0.45f, 0.45f, 0.48f),
                 new Color(0.25f, 0.25f, 0.28f),
                 new Color(0.55f, 0.5f, 0.35f),
-                new Color(0.35f, 0.42f, 0.3f)
+                new Color(0.35f, 0.42f, 0.3f),
+                new Color(0.38f, 0.3f, 0.25f),
+                new Color(0.42f, 0.38f, 0.42f)
             };
             Color[] boots = {
                 new Color(0.35f, 0.25f, 0.12f),
                 new Color(0.2f, 0.18f, 0.15f),
-                new Color(0.5f, 0.28f, 0.18f)
+                new Color(0.5f, 0.28f, 0.18f),
+                new Color(0.4f, 0.32f, 0.2f)
             };
             Color[] hats = {
                 new Color(0.85f, 0.8f, 0.5f),
                 new Color(0.7f, 0.6f, 0.35f),
                 new Color(0.9f, 0.85f, 0.65f),
-                new Color(0.6f, 0.5f, 0.3f)
+                new Color(0.6f, 0.5f, 0.3f),
+                new Color(0.75f, 0.7f, 0.55f)
             };
             Color[] bundles = {
                 new Color(0.75f, 0.7f, 0.6f),
                 new Color(0.6f, 0.5f, 0.35f),
                 new Color(0.55f, 0.55f, 0.58f),
-                new Color(0.5f, 0.6f, 0.45f)
+                new Color(0.5f, 0.6f, 0.45f),
+                new Color(0.65f, 0.55f, 0.4f)
             };
             Color[] hairs = {
                 new Color(0.12f, 0.09f, 0.06f),
                 new Color(0.25f, 0.18f, 0.1f),
                 new Color(0.08f, 0.06f, 0.04f),
                 new Color(0.35f, 0.25f, 0.15f),
-                new Color(0.15f, 0.12f, 0.1f)
+                new Color(0.15f, 0.12f, 0.1f),
+                new Color(0.05f, 0.04f, 0.03f)
             };
             v.SkinColor = skins[UnityEngine.Random.Range(0, skins.Length)];
             v.ShirtColor = shirts[UnityEngine.Random.Range(0, shirts.Length)];
@@ -1110,11 +1124,15 @@ public static class MapBuilder
             v.HatColor = hats[UnityEngine.Random.Range(0, hats.Length)];
             v.BundleColor = bundles[UnityEngine.Random.Range(0, bundles.Length)];
             v.HairColor = hairs[UnityEngine.Random.Range(0, hairs.Length)];
-            v.EyeSpacing = UnityEngine.Random.Range(0.07f, 0.11f);
-            v.HeadScale = UnityEngine.Random.Range(0.28f, 0.36f);
-            v.ArmLength = UnityEngine.Random.Range(0.35f, 0.55f);
-            v.BodyWidth = UnityEngine.Random.Range(0.42f, 0.58f);
-            v.HeightOffset = UnityEngine.Random.Range(-0.05f, 0.05f);
+            v.EyeSpacing = UnityEngine.Random.Range(0.05f, 0.14f);
+            v.HeadScale = UnityEngine.Random.Range(0.24f, 0.42f);
+            v.ArmLength = UnityEngine.Random.Range(0.28f, 0.65f);
+            v.BodyWidth = UnityEngine.Random.Range(0.36f, 0.68f);
+            v.HeightOffset = UnityEngine.Random.Range(-0.15f, 0.15f);
+            v.LegWidth = UnityEngine.Random.Range(0.14f, 0.24f);
+            v.HatTilt = UnityEngine.Random.Range(-12f, 12f);
+            v.HasBeard = UnityEngine.Random.value < 0.35f;
+            v.RolledSleeves = UnityEngine.Random.value < 0.4f;
             return v;
         }
     }
@@ -1133,32 +1151,40 @@ public static class MapBuilder
 
         Color beltC = new Color(0.25f, 0.18f, 0.1f);
         Color eyeWhite = new Color(0.95f, 0.95f, 0.97f);
+        Color beardC = new Color(0.18f, 0.14f, 0.1f);
 
-        float armW = 0.14f;
+        float armW = v.RolledSleeves ? 0.11f : 0.14f;
         float armH = v.ArmLength;
         float handY = 0.1f - v.ArmLength * 0.55f;
         float bodyW = v.BodyWidth;
         float headS = v.HeadScale;
         float eyeX = v.EyeSpacing;
+        float legW = v.LegWidth;
 
-        MakeBlock("LegL", root.transform, new Vector3(0.17f, 0.5f, 0.17f), new Vector3(-0.15f, -0.6f, 0f), v.PantsColor, true);
-        MakeBlock("LegR", root.transform, new Vector3(0.17f, 0.5f, 0.17f), new Vector3(0.15f, -0.6f, 0f), v.PantsColor, true);
-        MakeBlock("BootL", root.transform, new Vector3(0.2f, 0.09f, 0.3f), new Vector3(-0.15f, -0.88f, 0f), v.BootColor, true);
-        MakeBlock("BootR", root.transform, new Vector3(0.2f, 0.09f, 0.3f), new Vector3(0.15f, -0.88f, 0f), v.BootColor, true);
+        MakeBlock("LegL", root.transform, new Vector3(legW, 0.5f, legW), new Vector3(-0.15f, -0.6f, 0f), v.PantsColor, true);
+        MakeBlock("LegR", root.transform, new Vector3(legW, 0.5f, legW), new Vector3(0.15f, -0.6f, 0f), v.PantsColor, true);
+        MakeBlock("BootL", root.transform, new Vector3(legW + 0.03f, 0.09f, 0.3f), new Vector3(-0.15f, -0.88f, 0f), v.BootColor, true);
+        MakeBlock("BootR", root.transform, new Vector3(legW + 0.03f, 0.09f, 0.3f), new Vector3(0.15f, -0.88f, 0f), v.BootColor, true);
         MakeBlock("Body", root.transform, new Vector3(bodyW, 0.55f, 0.3f), new Vector3(0f, 0f, 0f), v.ShirtColor, true);
         MakeBlock("Belt", root.transform, new Vector3(bodyW + 0.02f, 0.07f, 0.32f), new Vector3(0f, -0.22f, 0f), beltC, true);
         MakeBlock("Neck", root.transform, new Vector3(0.14f, 0.12f, 0.14f), new Vector3(0f, 0.36f, 0f), v.SkinColor, true);
         MakeBlock("Head", root.transform, new Vector3(headS, headS * 0.94f, headS), new Vector3(0f, 0.52f, 0f), v.SkinColor, true);
         MakeBlock("Hair", root.transform, new Vector3(headS + 0.01f, 0.09f, headS + 0.01f), new Vector3(0f, 0.65f, 0f), v.HairColor, true);
-        MakeBlock("ConicalHat", root.transform, new Vector3(0.6f, 0.06f, 0.6f), new Vector3(0f, 0.7f, 0f), v.HatColor, true);
+        MakeBlock("ConicalHat", root.transform, new Vector3(0.6f, 0.06f, 0.6f), new Vector3(v.HatTilt, 0.7f, 0f), v.HatColor, true);
         MakeBlock("EyeWhiteL", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(-eyeX, 0.55f, -0.16f), eyeWhite, true);
         MakeBlock("EyeWhiteR", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(eyeX, 0.55f, -0.16f), eyeWhite, true);
+        MakeBlock("PupilL", root.transform, new Vector3(0.04f, 0.04f, 0.03f), new Vector3(-eyeX, 0.55f, -0.18f), Color.black, true);
+        MakeBlock("PupilR", root.transform, new Vector3(0.04f, 0.04f, 0.03f), new Vector3(eyeX, 0.55f, -0.18f), Color.black, true);
         MakeBlock("Nose", root.transform, new Vector3(0.07f, 0.06f, 0.05f), new Vector3(0f, 0.51f, -0.17f), v.SkinColor, true);
         MakeBlock("ArmL", root.transform, new Vector3(armW, armH, armW), new Vector3(-0.36f, 0.1f, 0f), v.ShirtColor, true);
         MakeBlock("ArmR", root.transform, new Vector3(armW, armH, armW), new Vector3(0.36f, 0.1f, 0f), v.ShirtColor, true);
         MakeBlock("HandL", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(-0.36f, handY, 0f), v.SkinColor, true);
         MakeBlock("HandR", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0.36f, handY, 0f), v.SkinColor, true);
         MakeBlock("Bundle", root.transform, new Vector3(0.32f, 0.3f, 0.32f), new Vector3(0.42f, -0.05f, 0.1f), v.BundleColor, true);
+        if (v.HasBeard)
+        {
+            MakeBlock("Beard", root.transform, new Vector3(0.12f, 0.08f, 0.06f), new Vector3(0f, 0.42f, -0.15f), beardC, true);
+        }
 
         var col = root.AddComponent<BoxCollider>();
         col.size = new Vector3(0.9f, 1.7f, 0.7f);

@@ -574,8 +574,33 @@ public static class ItemBuilder
 
     public static void BuildFishPickup(Transform parent, Color bodyColor)
     {
-        CreatePickupSphere(parent, new Vector3(0f, 0.06f, 0f), 0.12f, bodyColor, false);
-        CreatePickupCube(parent, new Vector3(0f, 0.16f, 0f), new Vector3(0.02f, 0.06f, 0.02f), new Color(0.7f, 0.7f, 0.7f), false);
+        BuildDetailedFish(parent, bodyColor);
+    }
+
+    public static void BuildDetailedFish(Transform parent, Color bodyColor)
+    {
+        Color headColor = new Color(
+            Mathf.Clamp01(bodyColor.r + 0.1f),
+            Mathf.Clamp01(bodyColor.g + 0.1f),
+            Mathf.Clamp01(bodyColor.b + 0.1f));
+        Color tailColor = new Color(
+            Mathf.Clamp01(bodyColor.r - 0.15f),
+            Mathf.Clamp01(bodyColor.g - 0.15f),
+            Mathf.Clamp01(bodyColor.b - 0.15f));
+        Color finColor = new Color(
+            Mathf.Clamp01(bodyColor.r - 0.2f),
+            Mathf.Clamp01(bodyColor.g - 0.2f),
+            Mathf.Clamp01(bodyColor.b - 0.2f));
+
+        CreatePickupCapsule(parent, new Vector3(0f, 0.06f, 0f), new Vector3(0.12f, 0.1f, 0.12f), bodyColor, false);
+        CreatePickupSphere(parent, new Vector3(0f, 0.06f, -0.1f), 0.09f, headColor, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.06f, 0.14f), new Vector3(0.02f, 0.1f, 0.08f), new Vector3(0f, 45f, 0f), tailColor, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.14f, 0f), new Vector3(0.015f, 0.05f, 0.06f), finColor, false);
+
+        CreatePickupSphere(parent, new Vector3(-0.04f, 0.09f, -0.14f), 0.025f, Color.white, false);
+        CreatePickupSphere(parent, new Vector3(0.04f, 0.09f, -0.14f), 0.025f, Color.white, false);
+        CreatePickupCube(parent, new Vector3(-0.04f, 0.09f, -0.155f), new Vector3(0.015f, 0.015f, 0.015f), Color.black, false);
+        CreatePickupCube(parent, new Vector3(0.04f, 0.09f, -0.155f), new Vector3(0.015f, 0.015f, 0.015f), Color.black, false);
     }
 
     public static void BuildCoconutWater(Transform parent)

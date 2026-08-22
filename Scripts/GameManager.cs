@@ -20,6 +20,7 @@ public class GameManager : MonoBehaviour
     public ToolManager ToolManager;
     public CutsceneManager CutsceneManager;
     public RandomEventManager RandomEventManager;
+    public KarmaManager KarmaManager;
     public List<PetController> Pets = new List<PetController>();
     public List<EnemyController> Enemies = new List<EnemyController>();
     public bool AutoStartGame = false;
@@ -70,6 +71,12 @@ public class GameManager : MonoBehaviour
         {
             if (CutsceneManager != null && CutsceneManager.JustCancelledCutscene)
                 return;
+
+            if (TypingMinigame.Instance != null && TypingMinigame.Instance.IsOpen)
+            {
+                TypingMinigame.Instance.Close();
+                return;
+            }
 
             var shop = Object.FindAnyObjectByType<BuffaloShopManager>();
             if (shop != null && shop.IsOpen())
@@ -141,6 +148,9 @@ public class GameManager : MonoBehaviour
 
         UpdateTimeUI();
 
+        if (KarmaManager != null)
+            KarmaManager.RegenKarma(Time.deltaTime);
+
         if (WorldBuilder != null)
         {
             WorldBuilder.SetDayNight(TimeOfDay);
@@ -152,6 +162,8 @@ public class GameManager : MonoBehaviour
             if (CutsceneManager != null && CutsceneManager.JustCancelledCutscene)
                 return;
             if (ToolManager != null && ToolManager.EscapeHandledThisFrame)
+                return;
+            if (TypingMinigame.Instance != null && TypingMinigame.Instance.IsOpen)
                 return;
             if (TryCloseActiveDialog())
                 return;
@@ -361,6 +373,9 @@ public class GameManager : MonoBehaviour
 
         if (WifeNPC.Instance != null)
             WifeNPC.Instance.ResetForNewGame();
+
+        if (KarmaManager != null)
+            KarmaManager.Initialize();
 
         if (CutsceneManager != null)
         {

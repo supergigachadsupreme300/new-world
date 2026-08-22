@@ -563,7 +563,8 @@ public static class Localization
         { "Chào anh!", "Hi!" },
         { "Jessica tặng anh chiếc cần câu cá!", "Jessica gave you a fishing rod!" },
         { "Hoàn thành Câu Cá Lần Đầu! +10 độ thân mật", "Completed First Fishing Trip! +10 affection" },
-        { "Hoàn thành Trừ Tà Giúp Làng! +10 độ thân mật", "Completed Exorcise For The Village! +10 affection" },
+        { "Hoàn thành Trừ Tà Giúp Làng! +10 độ thân mật, +1 Max Karma", "Completed Exorcise For The Village! +10 affection, +1 Max Karma" },
+        { "Hoàn thành nhiệm vụ từ Jessica! +1 Max Karma", "Completed quest from Jessica! +1 Max Karma" },
         { "Độ Thân Mật", "Affection" },
         { "Chạm để tiếp tục", "Tap to continue" },
         { "Nhấn E để tiếp tục", "Press E to continue" },
@@ -658,6 +659,8 @@ public static class Localization
         { "Bạn cảm thấy kiệt sức!", "You feel exhausted!" },
         { "Thương Nhân Lang Thang", "Wandering Merchant" },
         { "Một thương nhân đã xuất hiện trên đường!", "A merchant appeared on the road!" },
+        { "Cá Rơi", "Fish Rain" },
+        { "Cá rơi từ bầu trời!", "Fish fall from the sky!" },
         { "Kẻ Thù Tấn Công", "Enemy Raid" },
         { "Kẻ thù đang tiến về phía bạn!", "Enemies are heading your way!" },
         { "Bão Gây Hại", "Storm Damage" },
@@ -839,6 +842,27 @@ public static class Localization
         { "Nhấn E để dâng gạo", "Press E to offer rice" },
         { "Chạm để dâng gạo", "Tap to offer rice" },
 
+        // Karma & Meditation
+        { "Con đã nhận phước lành hôm nay rồi.", "You have already received today's blessing." },
+        { "Con có muốn thiền định để gia tăng giới hạn phước đức không?", "Would you like to meditate to increase your max karma?" },
+        { "Thiền Định", "Meditate" },
+        { "Nhấn E để thiền định", "Press E to meditate" },
+        { "Chạm để thiền định", "Tap to meditate" },
+        { "Thanh tinh! +1 Max Karma", "Pure! +1 Max Karma" },
+        { "Hay thu lai lan sau!", "Try again next time!" },
+        { "Hết phước đức!", "Out of karma!" },
+        { "Phước Đức", "Karma" },
+        { "Thien Tung", "Meditation" },
+        { "Go doan van ben duoi...", "Type the paragraph below..." },
+        { "ESC de dung | Backspace de xoa", "ESC to stop | Backspace to delete" },
+
+        // Event Test Panel
+        { "Sự Kiện", "Events" },
+        { "SỰ KIỆN TEST", "EVENT TEST" },
+        { "Tier 0 — Cơ Bản", "Tier 0 — Basic" },
+        { "Tier 1 — Nâng Cao", "Tier 1 — Advanced" },
+        { "Tier 2 — Quý Hiếm", "Tier 2 — Rare" },
+
         // Animal names
         { "Bò", "Cow" },
         { "Lợn", "Pig" },
@@ -917,6 +941,7 @@ public static class Localization
         { "Xây Nhà Cho Người Di Cư", "Build Homes for the Immigrants" },
         { "Xây 3 ngôi nhà nhỏ cho những người di cư ở phía nam con đường.", "Build 3 small houses for the immigrants south of the road." },
         { "Người di cư đã đến! Hãy xây nhà cho họ!", "The immigrants have arrived! Build homes for them!" },
+        { "Blueprint đã được đặt tại vị trí quy hoạch! Hãy thu thập gỗ & đá.", "Blueprint placed at the designated plot! Gather wood & stone." },
         { "Nhận {0} đồng tiền thuê nhà từ khu người di cư!", "Received {0} coins in rent from the immigrant village!" },
         { "Người mới à? Chúng tôi vừa rời làng cũ, nơi ấy đã chẳng còn chỗ cho chúng tôi nữa.", "Newcomer? We just left our old village; there was no place left for us there." },
         { "Nghe nói vùng đất này còn nhiều chỗ trống. Ông chủ giúp chúng tôi một việc được không?", "We heard this land still has room. Boss, can you help us?" },
@@ -928,6 +953,17 @@ public static class Localization
         { "Gọi Người Di Cư", "Call the Immigrant" },
         { "Một gia đình người di cư đang đến làng!", "A family of immigrants is coming to town!" },
         { "Người di cư đã đến làng! Hãy đến chào họ.", "The immigrants have arrived! Go greet them." },
+
+        // Immigrant one-at-a-time dialog
+        { "Cảm ơn ông chủ! Gia đình tôi đã chuyển vào nhà mới.", "Thank you, boss! My family has moved into the new house." },
+        { "Ông chủ cứ yên tâm, chúng tôi sẽ chăm chỉ làm việc.", "Don't worry, boss. We will work hard." },
+        { "Khi nào có người di cư khác đến, ông chủ giúp họ nhé!", "When other immigrants come, please help them too, boss!" },
+        { "Ngôi nhà của tôi vẫn chưa xong. Ông chủ giúp tôi dựng nhà nhé!", "My house is not done yet. Please help me build it, boss!" },
+        { "Cảm ơn ông chủ! Nhà tôi sắp xong rồi.", "Thank you, boss! My house is almost done." },
+        { "Xin chào ông chủ! Tôi vừa rời làng cũ, nơi ấy đã chẳng còn chỗ cho chúng tôi nữa.", "Hello boss! I just left my old village; there was no place left for us there." },
+        { "Nghe nói vùng đất này còn nhiều chỗ trống. Ông chủ giúp tôi một việc được không?", "I heard this land still has room. Boss, can you help me?" },
+        { "Xin hãy dựng một căn nhà nhỏ cho gia đình tôi. Chúng tôi chỉ cần một mái che thôi.", "Please build a small house for my family. We only need a roof over our heads." },
+        { "Xây một ngôi nhà nhỏ cho người di cư ({0}/{1}).", "Build a small house for immigrants ({0}/{1})." },
 
         // Boss bad ending (fall into the dark)
         { "Tải Save Gần Nhất", "Load Latest Save" },

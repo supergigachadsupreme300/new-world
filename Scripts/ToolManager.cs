@@ -550,6 +550,7 @@ public class ToolManager : MonoBehaviour
                             if (_worldBuilder.DepositMaterial(bp, material, amount))
                             {
                                 _uiManager.ShowMessage(Localization.T("Xây dựng hoàn thành!"), 1.5f);
+                                KarmaManager.Instance?.AddMaxKarma(1f);
                                 SoundManager.Instance?.Play("hammer");
                             }
                             else
@@ -604,6 +605,12 @@ public class ToolManager : MonoBehaviour
 
         if (selectedItem == "rosary")
         {
+            var km = KarmaManager.Instance;
+            if (km == null || !km.ConsumeKarma(1f))
+            {
+                _uiManager?.ShowMessage(Localization.T("H\u1EBFt ph\u1ee9c \u0111\u1EE9c!"), 1.5f);
+                return;
+            }
             LaunchPalmProjectile(cam);
             return;
         }
@@ -1405,6 +1412,7 @@ public class ToolManager : MonoBehaviour
             if (_worldBuilder.DepositMaterial(bp, material, amount))
                             {
                                 _uiManager.ShowMessage(Localization.T("Xây dựng hoàn thành!"), 1.5f);
+                                KarmaManager.Instance?.AddMaxKarma(1f);
                                 SoundManager.Instance?.Play("hammer");
                             }
                             else

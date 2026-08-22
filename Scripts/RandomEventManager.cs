@@ -180,6 +180,15 @@ public class RandomEventManager : MonoBehaviour
             Cooldown = 1200f,
             Effect = EffectWanderingMerchant
         });
+        _events.Add(new RandomEvent
+        {
+            Name = "Cá Rơi",
+            Description = "Cá rơi từ bầu trời!",
+            Tier = 0,
+            Weight = 3f,
+            Cooldown = 900f,
+            Effect = EffectFishRain
+        });
 
         // ADVANCED (2 quests completed)
         _events.Add(new RandomEvent
@@ -379,6 +388,17 @@ public class RandomEventManager : MonoBehaviour
         StartCoroutine(RunEvent(e));
     }
 
+    public void ForceEventByIndex(int index)
+    {
+        if (index < 0 || index >= _events.Count) return;
+        _eventInProgress = false;
+        StopAllCoroutines();
+        var e = _events[index];
+        _eventInProgress = true;
+        ShowBanner(e.Name, e.Description);
+        StartCoroutine(RunEvent(e));
+    }
+
     public string GetEventName(int index)
     {
         if (index < 0 || index >= _events.Count) return "";
@@ -398,6 +418,12 @@ public class RandomEventManager : MonoBehaviour
         if (tier == 0) return new Color(0.3f, 0.75f, 0.3f);
         if (tier == 1) return new Color(0.3f, 0.5f, 0.9f);
         return new Color(0.9f, 0.75f, 0.1f);
+    }
+
+    public int GetEventTier(int index)
+    {
+        if (index < 0 || index >= _events.Count) return 0;
+        return _events[index].Tier;
     }
 
     public void TriggerRandomEvent()
@@ -691,6 +717,122 @@ public class RandomEventManager : MonoBehaviour
         var player = GameManager.Instance?.Player;
         if (player != null)
             player.Stamina = player.MaxStamina * 0.25f;
+    }
+
+    private void EffectFishRain()
+    {
+        StartCoroutine(FishRainEffect());
+    }
+
+    private IEnumerator FishRainEffect()
+    {
+        Vector3 playerPos = GetPlayerPos();
+        var root = GetWorldRoot();
+
+        string[] fishTypes = { "fish_carp", "fish_salmon", "fish_tuna", "fish_pufferfish" };
+        string[] fishLabels = { "Cá Chép", "Cá Hồi", "Cá Ngừ", "Cá Nóc" };
+        Color[] fishColors = {
+            new Color(1f, 0.7f, 0.2f),
+            new Color(1f, 0.5f, 0.4f),
+            new Color(0.3f, 0.3f, 0.5f),
+            new Color(0.6f, 0.8f, 0.3f)
+        };
+
+        int totalFish = 12;
+        var spawned = new List<GameObject>();
+
+        for (int i = 0; i < totalFish; i++)
+        {
+            int species = UnityEngine.Random.Range(0, fishTypes.Length);
+            Vector3 spawnPos = playerPos + new Vector3(
+                UnityEngine.Random.Range(-15f, 15f),
+                15f,
+                UnityEngine.Random.Range(-15f, 15f));
+
+            var go = new GameObject("RainFish_" + i);
+            go.transform.SetParent(root);
+            go.transform.position = spawnPos;
+            go.transform.localRotation = Quaternion.identity;
+
+            ItemBuilder.BuildDetailedFish(go.transform, fishColors[species]);
+
+            int idx = i;
+            StartCoroutine(FallingFish(go, playerPos, 12f + UnityEngine.Random.Range(-2f, 2f), 0.5f));
+            spawned.Add(go);
+        }
+
+        yield return new WaitForSeconds(15f);
+
+        float fadeTime = 1.5f;
+        float fadeElapsed = 0f;
+        while (fadeElapsed < fadeTime)
+        {
+            fadeElapsed += Time.deltaTime;
+            float alpha = 1f - (fadeElapsed / fadeTime);
+            foreach (var go in spawned)
+            {
+                if (go == null) continue;
+                foreach (var r in go.GetComponentsInChildren<Renderer>())
+                {
+                    if (r == null) continue;
+                    Color c = r.material.color;
+                    c.a = alpha;
+                    r.material.color = c;
+                }
+            }
+            yield return null;
+        }
+
+        foreach (var go in spawned)
+            if (go != null) Destroy(go);
+    }
+
+    private IEnumerator FallingFish(GameObject go, Vector3 playerPos, float fallSpeed, float groundY)
+    {
+        if (go == null) yield break;
+
+        float collectRadius = 1.5f;
+        bool collected = false;
+        bool landed = false;
+
+        while (!collected && go != null)
+        {
+            Vector3 pos = go.transform.position;
+
+            if (!landed)
+            {
+                pos.y -= fallSpeed * Time.deltaTime;
+                go.transform.position = pos;
+
+                if (pos.y <= groundY)
+                {
+                    pos.y = groundY;
+                    go.transform.position = pos;
+                    landed = true;
+                }
+            }
+            else
+            {
+                go.transform.localRotation = Quaternion.Euler(
+                    Mathf.Sin(Time.time * 20f) * 30f,
+                    0f,
+                    Mathf.Cos(Time.time * 16f) * 20f);
+
+                var player = GameManager.Instance?.Player;
+                if (player != null && Vector3.Distance(pos, player.transform.position) < collectRadius)
+                {
+                    collected = true;
+                    int amount = UnityEngine.Random.Range(60, 121);
+                    player.Money += amount;
+                    GameStats.AddMoneyEarned(amount);
+                    SoundManager.Instance?.Play("pop");
+                    GameManager.Instance?.UIManager?.ShowMessage("+" + amount + "g", 1.5f);
+                    Destroy(go);
+                }
+            }
+
+            yield return null;
+        }
     }
 
 
@@ -1022,7 +1164,10 @@ public class RandomEventManager : MonoBehaviour
 
     private void EffectCallImmigrant()
     {
-        WorldBuilder.Instance?.StartImmigrantArrival();
+        var wb = WorldBuilder.Instance;
+        if (wb == null || wb.AllImmigrantHousesBuilt)
+            return;
+        wb.StartImmigrantArrival();
     }
 
     private void EffectMarketCrash()

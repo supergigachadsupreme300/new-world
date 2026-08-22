@@ -967,7 +967,8 @@ public class WifeNPC : MonoBehaviour
         {
             _chainStep = 4;
             _affection = Mathf.Min(100f, _affection + 10f);
-            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Hoàn thành Trừ Tà Giúp Làng! +10 độ thân mật"), 3f);
+            KarmaManager.Instance?.AddMaxKarma(1f);
+            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Hoàn thành Trừ Tà Giúp Làng! +10 độ thân mật, +1 Max Karma"), 3f);
             SaveState();
         }
     }
@@ -979,6 +980,8 @@ public class WifeNPC : MonoBehaviour
             if (qm.IsNamedQuestComplete(_wifeQuestNames[i]))
             {
                 _affection = Mathf.Min(100f, _affection + 10f);
+                KarmaManager.Instance?.AddMaxKarma(1f);
+                GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Hoàn thành nhiệm vụ từ Jessica! +1 Max Karma"), 3f);
                 _wifeQuestNames.RemoveAt(i);
                 _wifeQuestTargets.RemoveAt(i);
                 _wifeQuestCounts.RemoveAt(i);

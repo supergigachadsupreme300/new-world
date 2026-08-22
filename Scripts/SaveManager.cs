@@ -65,9 +65,13 @@ public class SaveManager : MonoBehaviour
             richSecret = RichManNPC.Instance != null && RichManNPC.Instance.Discovered,
             wifeStateJson = WifeNPC.Instance != null ? WifeNPC.Instance.SerializeState() : "",
             unlockedBlueprints = _worldBuilder.GetUnlockedBlueprintsAsSave(),
-            immigrantBuiltMask = _worldBuilder.GetImmigrantBuiltMask(),
+            immigrantBuiltMask = _worldBuilder.GetImmigrantBuiltArray(),
+            immigrantNextIndex = _worldBuilder.GetImmigrantNextIndex(),
             immigrantVillagePlaced = _worldBuilder.IsImmigrantVillagePlacedState(),
-            immigrantArrived = _worldBuilder.GetImmigrantArrived()
+            immigrantArrived = _worldBuilder.GetImmigrantArrived(),
+            immigrantVillagers = _worldBuilder.GetVillagerSaves(),
+            karmaCurrent = KarmaManager.Instance != null ? KarmaManager.Instance.CurrentKarma : 5f,
+            karmaMax = KarmaManager.Instance != null ? KarmaManager.Instance.MaxKarma : 5f
         };
 
         var json = JsonUtility.ToJson(data, true);
@@ -135,9 +139,11 @@ public class SaveManager : MonoBehaviour
         _worldBuilder?.LoadBuildingsFromSave(data.buildings);
         _worldBuilder?.LoadMansionBlueprintsFromSave(data.mansionBlueprints);
         _worldBuilder?.LoadUnlockedBlueprints(data.unlockedBlueprints);
-        _worldBuilder?.LoadImmigrantVillageFromSave(data.immigrantBuiltMask, data.immigrantVillagePlaced);
+        _worldBuilder?.LoadImmigrantVillageFromSave(data.immigrantBuiltMask, data.immigrantNextIndex, data.immigrantVillagePlaced);
         if (data.immigrantArrived)
             _worldBuilder?.RestoreImmigrantArrival();
+        if (data.immigrantVillagers != null && data.immigrantVillagers.Count > 0)
+            _worldBuilder?.RestoreSavedVillagers(data.immigrantVillagers);
         if (RichManNPC.Instance != null && json.Contains("\"richSecret\""))
             RichManNPC.Instance.SetDiscovered(data.richSecret);
         _questManager?.LoadQuestSaves(data.quests);
@@ -147,6 +153,16 @@ public class SaveManager : MonoBehaviour
                 WifeNPC.Instance.ResetForNewGame();
             else
                 WifeNPC.Instance.DeserializeState(data.wifeStateJson);
+        }
+        if (KarmaManager.Instance != null)
+        {
+            float kMax = data.karmaMax > 0f ? data.karmaMax : 5f;
+            float kCur = data.karmaMax > 0f ? Mathf.Clamp(data.karmaCurrent, 0f, kMax) : kMax;
+            KarmaManager.Instance.LoadSaveData(new KarmaManager.KarmaSaveData
+            {
+                currentKarma = kCur,
+                maxKarma = kMax
+            });
         }
 
         var spawner = Object.FindAnyObjectByType<LivestockSpawner>();
@@ -204,9 +220,13 @@ public class SaveManager : MonoBehaviour
         public bool richSecret;
         public string wifeStateJson;
         public string[] unlockedBlueprints;
-        public int immigrantBuiltMask;
+        public bool[] immigrantBuiltMask;
+        public int immigrantNextIndex;
         public bool immigrantVillagePlaced;
         public bool immigrantArrived;
+        public List<WorldBuilder.VillagerSaveData> immigrantVillagers;
+        public float karmaCurrent;
+        public float karmaMax;
     }
 
     [System.Serializable]

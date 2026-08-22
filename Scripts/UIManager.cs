@@ -168,6 +168,12 @@ public class UIManager : MonoBehaviour
     private Image _bossBarFill;
     private TMP_Text _bossBarName;
 
+    private GameObject _karmaBarRoot;
+    private Image _karmaBarFill;
+    private TMP_Text _karmaBarText;
+
+    private GameObject _eventTestPanel;
+
     private TMP_Text _timeText;
     private TMP_Text _hpText;
     private TMP_Text _staminaText;
@@ -183,6 +189,8 @@ public class UIManager : MonoBehaviour
     private RectTransform _statsBg;
     private float _statsScale = 1f;
     private TMP_Text _messageText;
+    private Image _messageBg;
+    private Coroutine _typewriterCoroutine;
     private TMP_Text _mobSpawnerText;
     private TMP_Text _crosshairText;
     private TMP_Text _infoText;
@@ -472,6 +480,20 @@ public class UIManager : MonoBehaviour
             new Vector2(0.5f, 0.5f),
             new Vector2(0.5f, 0.5f)
         );
+        if (_messageText != null)
+        {
+            _messageText.margin = new Vector4(20f, 10f, 20f, 10f);
+            var bgGo = new GameObject("MessageBg", typeof(RectTransform), typeof(Image));
+            bgGo.transform.SetParent(_messageText.transform.parent, false);
+            bgGo.transform.SetAsFirstSibling();
+            _messageBg = bgGo.GetComponent<Image>();
+            if (_messageBg != null)
+            {
+                _messageBg.color = new Color(0f, 0f, 0f, 0.75f);
+                _messageBg.raycastTarget = false;
+                _messageBg.enabled = false;
+            }
+        }
 
         _mobSpawnerText = EnsureText(
             "MobSpawnerText",
@@ -579,7 +601,8 @@ public class UIManager : MonoBehaviour
         CreateButton("QuestsButton", _pauseMenuPanel.transform, Localization.T("Nhiệm Vụ"), new Vector2(0f, -panelHeight * 0.11f), () => ShowQuestPanel(true));
         CreateButton("SettingsButton", _pauseMenuPanel.transform, Localization.T("Cài Đặt"), new Vector2(0f, -panelHeight * 0.22f), () => ShowSettingsPanel(true));
         CreateButton("TutorialButton", _pauseMenuPanel.transform, Localization.T("Hướng Dẫn"), new Vector2(0f, -panelHeight * 0.33f), () => ShowTutorial(true));
-        CreateButton("ExitButton", _pauseMenuPanel.transform, Localization.T("Thoát"), new Vector2(0f, -panelHeight * 0.44f), () => GameManager.Instance?.ReturnToMainMenu());
+        CreateButton("EventTestButton", _pauseMenuPanel.transform, Localization.T("Sự Kiện"), new Vector2(0f, -panelHeight * 0.44f), () => ShowEventTestPanel(true));
+        CreateButton("ExitButton", _pauseMenuPanel.transform, Localization.T("Thoát"), new Vector2(0f, -panelHeight * 0.55f), () => GameManager.Instance?.ReturnToMainMenu());
         _pauseMenuPanel.SetActive(false);
 
         CreateSaveSlotMenu(panelWidth, padding, largefontSize);
@@ -592,30 +615,108 @@ public class UIManager : MonoBehaviour
 
         float settingsHeight = Mathf.Min(screenHeight * 0.85f, 620f);
         float settingsWidth = Mathf.Min(screenWidth * 0.5f, 680f);
-        float sy = settingsHeight * 0.78f;
-        var settingsButtonSize = new Vector2(Mathf.Min(menuButtonWidth * 0.9f, settingsWidth * 0.34f), screenHeight * 0.033f);
-        float settingsModeBtnX = settingsWidth * 0.35f - settingsButtonSize.x * 0.5f - 2f;
+        var settingsButtonSize = new Vector2(Mathf.Min(menuButtonWidth * 0.9f, settingsWidth * 0.34f), screenHeight * 0.04f);
         _settingsPanel = CreateMenuPanel("SettingsPanel", Vector2.zero, new Vector2(settingsWidth, settingsHeight));
-        EnsureText("SettingsTitle", new Vector2(0f, sy * 0.34f), Localization.T("CÀI ĐẶT"), (int)largefontSize, _settingsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(settingsWidth - padding * 4, lineHeight));
-        EnsureText("MouseSensCaption", new Vector2(0f, sy * 0.29f), Localization.T("ĐỘ NHẠY CHUỘT"), (int)fontSize, _settingsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(settingsWidth - padding * 4, lineHeight));
-        CreateButton("MouseSensMinus", _settingsPanel.transform, "<", new Vector2(-menuButtonWidth * 0.24f, sy * 0.215f), () => { SettingsManager.SetMouseSensitivity(SettingsManager.MouseSensitivity - 0.25f); UpdateSettingsValues(); }, new Vector2(menuButtonWidth * 0.3f, screenHeight * 0.04f));
-        CreateButton("MouseSensPlus", _settingsPanel.transform, ">", new Vector2(menuButtonWidth * 0.24f, sy * 0.215f), () => { SettingsManager.SetMouseSensitivity(SettingsManager.MouseSensitivity + 0.25f); UpdateSettingsValues(); }, new Vector2(menuButtonWidth * 0.3f, screenHeight * 0.04f));
-        _mouseSensText = EnsureText("MouseSensValue", new Vector2(0f, sy * 0.215f), SettingsManager.MouseSensitivity.ToString("0.00"), (int)fontSize, _settingsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(menuButtonWidth * 0.4f, lineHeight * 1.5f));
 
-        EnsureText("TouchSensCaption", new Vector2(0f, sy * 0.14f), Localization.T("ĐỘ NHẠY CẢM ỨNG"), (int)fontSize, _settingsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(settingsWidth - padding * 4, lineHeight));
-        CreateButton("TouchSensMinus", _settingsPanel.transform, "<", new Vector2(-menuButtonWidth * 0.24f, sy * 0.065f), () => { SettingsManager.SetTouchSensitivity(SettingsManager.TouchSensitivity - 0.03f); UpdateSettingsValues(); }, new Vector2(menuButtonWidth * 0.3f, screenHeight * 0.04f));
-        CreateButton("TouchSensPlus", _settingsPanel.transform, ">", new Vector2(menuButtonWidth * 0.24f, sy * 0.065f), () => { SettingsManager.SetTouchSensitivity(SettingsManager.TouchSensitivity + 0.03f); UpdateSettingsValues(); }, new Vector2(menuButtonWidth * 0.3f, screenHeight * 0.04f));
-        _touchSensText = EnsureText("TouchSensValue", new Vector2(0f, sy * 0.065f), SettingsManager.TouchSensitivity.ToString("0.00"), (int)fontSize, _settingsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(menuButtonWidth * 0.4f, lineHeight * 1.5f));
+        EnsureText("SettingsTitle", new Vector2(0f, settingsHeight * 0.34f), Localization.T("CÀI ĐẶT"), (int)largefontSize, _settingsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(settingsWidth - padding * 4, lineHeight));
 
-        _invertYButton = CreateButton("InvertYButton", _settingsPanel.transform, "", new Vector2(0f, sy * -0.013f), () => { SettingsManager.SetInvertY(!SettingsManager.InvertY); UpdateSettingsValues(); }, settingsButtonSize);
+        var settingsViewport = new GameObject("SettingsViewport");
+        settingsViewport.transform.SetParent(_settingsPanel.transform, false);
+        var settingsViewportRect = settingsViewport.AddComponent<RectTransform>();
+        settingsViewportRect.anchorMin = new Vector2(0.5f, 0.5f);
+        settingsViewportRect.anchorMax = new Vector2(0.5f, 0.5f);
+        settingsViewportRect.pivot = new Vector2(0.5f, 0.5f);
+        settingsViewportRect.anchoredPosition = new Vector2(0f, -settingsHeight * 0.03f);
+        settingsViewportRect.sizeDelta = new Vector2(settingsWidth - padding * 4, settingsHeight * 0.72f);
+        settingsViewport.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+        settingsViewport.AddComponent<RectMask2D>();
 
-        _languageButton = CreateButton("LanguageButton", _settingsPanel.transform, "", new Vector2(0f, sy * -0.09f), () => { Localization.ToggleLanguage(); UpdateSettingsValues(); }, settingsButtonSize);
+        var settingsContent = new GameObject("SettingsContent");
+        settingsContent.transform.SetParent(settingsViewport.transform, false);
+        var settingsContentRect = settingsContent.AddComponent<RectTransform>();
+        settingsContentRect.anchorMin = new Vector2(0.5f, 1f);
+        settingsContentRect.anchorMax = new Vector2(0.5f, 1f);
+        settingsContentRect.pivot = new Vector2(0.5f, 1f);
+        settingsContentRect.anchoredPosition = Vector2.zero;
+        settingsContentRect.sizeDelta = new Vector2(settingsWidth - padding * 4, 0f);
+        var settingsLayout = settingsContent.AddComponent<VerticalLayoutGroup>();
+        settingsLayout.spacing = 8f;
+        settingsLayout.padding = new RectOffset(4, 4, 8, 8);
+        settingsLayout.childControlWidth = true;
+        settingsLayout.childControlHeight = false;
+        settingsLayout.childForceExpandWidth = true;
+        settingsLayout.childForceExpandHeight = false;
+        settingsContent.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        EnsureText("ControlModeCaption", new Vector2(0f, sy * -0.168f), Localization.T("CÁCH ĐIỀU KHIỂN"), (int)fontSize, _settingsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(settingsWidth - padding * 4, lineHeight));
-        _settingsPcModeButton = CreateButton("SettingsPCModeButton", _settingsPanel.transform, Localization.T("PC / Bàn Phím"), new Vector2(-settingsModeBtnX, sy * -0.245f), () => SetControlMode(ControlMode.PC), settingsButtonSize);
-        _settingsMobileModeButton = CreateButton("SettingsMobileModeButton", _settingsPanel.transform, Localization.T("Điện Thoại / Cảm Ứng"), new Vector2(settingsModeBtnX, sy * -0.245f), () => SetControlMode(ControlMode.Mobile), settingsButtonSize);
-        CreateButton("EndingTreeTabButton", _settingsPanel.transform, Localization.T("Cây Kết Thúc"), new Vector2(0f, sy * -0.322f), () => ShowEndingTreePanel(true), settingsButtonSize);
-        CreateButton("SettingsCloseButton", _settingsPanel.transform, Localization.T("Đóng"), new Vector2(0f, sy * -0.40f), () => ShowSettingsPanel(false), settingsButtonSize);
+        var settingsScrollRect = settingsViewport.AddComponent<ScrollRect>();
+        settingsScrollRect.viewport = settingsViewportRect;
+        settingsScrollRect.content = settingsContentRect;
+        settingsScrollRect.horizontal = false;
+        settingsScrollRect.vertical = true;
+        settingsScrollRect.movementType = ScrollRect.MovementType.Clamped;
+        settingsScrollRect.scrollSensitivity = 30f;
+
+        Transform settingsScrollContent = settingsContent.transform;
+
+        EnsureText("MouseSensCaption", Vector2.zero, Localization.T("ĐỘ NHẠY CHUỘT"), (int)fontSize, settingsScrollContent, TextAlignmentOptions.Center, true, new Vector2(settingsWidth - padding * 4, lineHeight));
+        var mouseSensRow = new GameObject("MouseSensRow");
+        mouseSensRow.transform.SetParent(settingsScrollContent, false);
+        var mouseSensRowRect = mouseSensRow.AddComponent<RectTransform>();
+        mouseSensRowRect.sizeDelta = new Vector2(settingsWidth - padding * 4, screenHeight * 0.04f);
+        var mouseSensRowLayout = mouseSensRow.AddComponent<HorizontalLayoutGroup>();
+        mouseSensRowLayout.spacing = 10f;
+        mouseSensRowLayout.childAlignment = TextAnchor.MiddleCenter;
+        mouseSensRowLayout.childControlWidth = false;
+        mouseSensRowLayout.childControlHeight = true;
+        mouseSensRowLayout.childForceExpandWidth = false;
+        mouseSensRowLayout.childForceExpandHeight = false;
+        var mouseSensRowLE = mouseSensRow.AddComponent<LayoutElement>();
+        mouseSensRowLE.preferredHeight = screenHeight * 0.04f;
+        CreateButton("MouseSensMinus", mouseSensRow.transform, "<", Vector2.zero, () => { SettingsManager.SetMouseSensitivity(SettingsManager.MouseSensitivity - 0.25f); UpdateSettingsValues(); }, new Vector2(menuButtonWidth * 0.3f, screenHeight * 0.035f));
+        _mouseSensText = EnsureText("MouseSensValue", Vector2.zero, SettingsManager.MouseSensitivity.ToString("0.00"), (int)fontSize, mouseSensRow.transform, TextAlignmentOptions.Center, true, new Vector2(menuButtonWidth * 0.4f, screenHeight * 0.035f));
+        CreateButton("MouseSensPlus", mouseSensRow.transform, ">", Vector2.zero, () => { SettingsManager.SetMouseSensitivity(SettingsManager.MouseSensitivity + 0.25f); UpdateSettingsValues(); }, new Vector2(menuButtonWidth * 0.3f, screenHeight * 0.035f));
+
+        EnsureText("TouchSensCaption", Vector2.zero, Localization.T("ĐỘ NHẠY CẢM ỨNG"), (int)fontSize, settingsScrollContent, TextAlignmentOptions.Center, true, new Vector2(settingsWidth - padding * 4, lineHeight));
+        var touchSensRow = new GameObject("TouchSensRow");
+        touchSensRow.transform.SetParent(settingsScrollContent, false);
+        var touchSensRowRect = touchSensRow.AddComponent<RectTransform>();
+        touchSensRowRect.sizeDelta = new Vector2(settingsWidth - padding * 4, screenHeight * 0.04f);
+        var touchSensRowLayout = touchSensRow.AddComponent<HorizontalLayoutGroup>();
+        touchSensRowLayout.spacing = 10f;
+        touchSensRowLayout.childAlignment = TextAnchor.MiddleCenter;
+        touchSensRowLayout.childControlWidth = false;
+        touchSensRowLayout.childControlHeight = true;
+        touchSensRowLayout.childForceExpandWidth = false;
+        touchSensRowLayout.childForceExpandHeight = false;
+        var touchSensRowLE = touchSensRow.AddComponent<LayoutElement>();
+        touchSensRowLE.preferredHeight = screenHeight * 0.04f;
+        CreateButton("TouchSensMinus", touchSensRow.transform, "<", Vector2.zero, () => { SettingsManager.SetTouchSensitivity(SettingsManager.TouchSensitivity - 0.03f); UpdateSettingsValues(); }, new Vector2(menuButtonWidth * 0.3f, screenHeight * 0.035f));
+        _touchSensText = EnsureText("TouchSensValue", Vector2.zero, SettingsManager.TouchSensitivity.ToString("0.00"), (int)fontSize, touchSensRow.transform, TextAlignmentOptions.Center, true, new Vector2(menuButtonWidth * 0.4f, screenHeight * 0.035f));
+        CreateButton("TouchSensPlus", touchSensRow.transform, ">", Vector2.zero, () => { SettingsManager.SetTouchSensitivity(SettingsManager.TouchSensitivity + 0.03f); UpdateSettingsValues(); }, new Vector2(menuButtonWidth * 0.3f, screenHeight * 0.035f));
+
+        _invertYButton = CreateButton("InvertYButton", settingsScrollContent, "", Vector2.zero, () => { SettingsManager.SetInvertY(!SettingsManager.InvertY); UpdateSettingsValues(); }, settingsButtonSize);
+
+        _languageButton = CreateButton("LanguageButton", settingsScrollContent, "", Vector2.zero, () => { Localization.ToggleLanguage(); UpdateSettingsValues(); }, settingsButtonSize);
+
+        EnsureText("ControlModeCaption", Vector2.zero, Localization.T("CÁCH ĐIỀU KHIỂN"), (int)fontSize, settingsScrollContent, TextAlignmentOptions.Center, true, new Vector2(settingsWidth - padding * 4, lineHeight));
+        var controlModeRow = new GameObject("ControlModeRow");
+        controlModeRow.transform.SetParent(settingsScrollContent, false);
+        var controlModeRowRect = controlModeRow.AddComponent<RectTransform>();
+        controlModeRowRect.sizeDelta = new Vector2(settingsWidth - padding * 4, settingsButtonSize.y);
+        var controlModeRowLayout = controlModeRow.AddComponent<HorizontalLayoutGroup>();
+        controlModeRowLayout.spacing = 12f;
+        controlModeRowLayout.childAlignment = TextAnchor.MiddleCenter;
+        controlModeRowLayout.childControlWidth = false;
+        controlModeRowLayout.childControlHeight = true;
+        controlModeRowLayout.childForceExpandWidth = false;
+        controlModeRowLayout.childForceExpandHeight = false;
+        var controlModeRowLE = controlModeRow.AddComponent<LayoutElement>();
+        controlModeRowLE.preferredHeight = settingsButtonSize.y;
+        _settingsPcModeButton = CreateButton("SettingsPCModeButton", controlModeRow.transform, Localization.T("PC / Bàn Phím"), Vector2.zero, () => SetControlMode(ControlMode.PC), settingsButtonSize);
+        _settingsMobileModeButton = CreateButton("SettingsMobileModeButton", controlModeRow.transform, Localization.T("Điện Thoại / Cảm Ứng"), Vector2.zero, () => SetControlMode(ControlMode.Mobile), settingsButtonSize);
+        CreateButton("EndingTreeTabButton", settingsScrollContent, Localization.T("Cây Kết Thúc"), Vector2.zero, () => ShowEndingTreePanel(true), settingsButtonSize);
+
+        CreateButton("SettingsCloseButton", _settingsPanel.transform, Localization.T("Đóng"), new Vector2(0f, -settingsHeight * 0.40f), () => ShowSettingsPanel(false), settingsButtonSize);
 
         UpdateSettingsValues();
         _settingsPanel.SetActive(false);
@@ -868,6 +969,8 @@ public class UIManager : MonoBehaviour
         CreatePlatformPanel(panelWidth, panelHeight, padding, fontSize, largefontSize);
 
         CreateGenderSelectionPanel(panelWidth, panelHeight, fontSize, largefontSize);
+
+        CreateEventTestPanel(panelWidth, panelHeight, padding);
 
         ShowAllGameUI(true);
 
@@ -1579,6 +1682,128 @@ public class UIManager : MonoBehaviour
 
         CreateButton("SaveSlotBackButton", _saveSlotPanel.transform, Localization.T("Quay Lại"), new Vector2(0f, -slotPanelHeight * 0.38f), () => CloseSaveSlotMenu());
         _saveSlotPanel.SetActive(false);
+    }
+
+    private void CreateEventTestPanel(float panelWidth, float panelHeight, float padding)
+    {
+        var rem = RandomEventManager.Instance;
+        int eventCount = rem != null ? rem.EventCount : 0;
+        if (eventCount == 0) return;
+
+        float evPanelW = Mathf.Min(panelWidth * 1.1f, 520f);
+        float evPanelH = Mathf.Min(panelHeight * 0.9f, 500f);
+        _eventTestPanel = CreateMenuPanel("EventTestPanel", Vector2.zero, new Vector2(evPanelW, evPanelH));
+
+        EnsureText("EventTestTitle", new Vector2(0f, evPanelH * 0.38f), Localization.T("SỰ KIỆN TEST"),
+            (int)(evPanelH * 0.06f), _eventTestPanel.transform, TextAlignmentOptions.Center, true,
+            new Vector2(evPanelW - padding * 4, evPanelH * 0.07f));
+
+        float tierLabelH = evPanelH * 0.05f;
+        string[] tierLabels = { "Tier 0 — Cơ Bản", "Tier 1 — Nâng Cao", "Tier 2 — Quý Hiếm" };
+        Color[] tierBg = { new Color(0.15f, 0.35f, 0.15f, 0.6f), new Color(0.15f, 0.25f, 0.5f, 0.6f), new Color(0.45f, 0.35f, 0.1f, 0.6f) };
+
+        var viewportObject = new GameObject("EventTestViewport");
+        viewportObject.transform.SetParent(_eventTestPanel.transform, false);
+        var viewportRect = viewportObject.AddComponent<RectTransform>();
+        viewportRect.anchorMin = new Vector2(0.5f, 0.5f);
+        viewportRect.anchorMax = new Vector2(0.5f, 0.5f);
+        viewportRect.pivot = new Vector2(0.5f, 0.5f);
+        viewportRect.anchoredPosition = new Vector2(0f, evPanelH * 0.02f);
+        viewportRect.sizeDelta = new Vector2(evPanelW - padding * 4, evPanelH * 0.6f);
+        viewportObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+        viewportObject.AddComponent<RectMask2D>();
+
+        var contentObject = new GameObject("EventTestContent");
+        contentObject.transform.SetParent(viewportObject.transform, false);
+        var contentRect = contentObject.AddComponent<RectTransform>();
+        contentRect.anchorMin = new Vector2(0.5f, 1f);
+        contentRect.anchorMax = new Vector2(0.5f, 1f);
+        contentRect.pivot = new Vector2(0.5f, 1f);
+        contentRect.anchoredPosition = Vector2.zero;
+        contentRect.sizeDelta = new Vector2(evPanelW - padding * 4, 0f);
+        var layout = contentObject.AddComponent<VerticalLayoutGroup>();
+        layout.spacing = 4f;
+        layout.padding = new RectOffset(4, 4, 4, 4);
+        layout.childControlWidth = true;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+        contentObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        var scrollRect = viewportObject.AddComponent<ScrollRect>();
+        scrollRect.viewport = viewportRect;
+        scrollRect.content = contentRect;
+        scrollRect.horizontal = false;
+        scrollRect.vertical = true;
+        scrollRect.movementType = ScrollRect.MovementType.Clamped;
+        scrollRect.scrollSensitivity = 30f;
+
+        float btnW = evPanelW - padding * 4 - 8f;
+        float btnH = Mathf.Max(30f, Screen.height * 0.038f);
+        int lastTier = -1;
+
+        for (int i = 0; i < eventCount; i++)
+        {
+            int idx = i;
+            string evName = rem.GetEventName(i);
+            Color evColor = rem.GetEventColor(i);
+            int tier = rem.GetEventTier(i);
+
+            if (tier != lastTier)
+            {
+                lastTier = tier;
+                string tierLabel = tier < tierLabels.Length ? tierLabels[tier] : "Tier " + tier;
+                var tierGo = new GameObject("TierHeader_" + tier);
+                tierGo.transform.SetParent(contentObject.transform, false);
+                var tierRt = tierGo.AddComponent<RectTransform>();
+                tierRt.sizeDelta = new Vector2(btnW, tierLabelH);
+                var tierImg = tierGo.AddComponent<Image>();
+                tierImg.color = tierBg[Mathf.Min(tier, 2)];
+                tierImg.raycastTarget = false;
+                var tierTextGo = new GameObject("TierLabel_" + tier);
+                tierTextGo.transform.SetParent(tierGo.transform, false);
+                var tierTextRt = tierTextGo.AddComponent<RectTransform>();
+                tierTextRt.anchorMin = Vector2.zero;
+                tierTextRt.anchorMax = Vector2.one;
+                tierTextRt.offsetMin = Vector2.zero;
+                tierTextRt.offsetMax = Vector2.zero;
+                var tierTmp = tierTextGo.AddComponent<TextMeshProUGUI>();
+                if (defaultTmpFont != null) tierTmp.font = defaultTmpFont;
+                tierTmp.text = tierLabel;
+                tierTmp.fontSize = (int)(tierLabelH * 0.65f);
+                tierTmp.color = Color.white;
+                tierTmp.alignment = TextAlignmentOptions.Center;
+                tierTmp.raycastTarget = false;
+            }
+
+            var btn = CreateButton("EventBtn_" + i, contentObject.transform, evName,
+                Vector2.zero, () =>
+                {
+                    rem.ForceEventByIndex(idx);
+                    ShowEventTestPanel(false);
+                }, new Vector2(btnW, btnH));
+
+            var btnImage = btn.GetComponent<Image>();
+            if (btnImage != null)
+            {
+                Color bg = evColor * 0.3f;
+                bg.a = 1f;
+                btnImage.color = bg;
+            }
+            var btnText = btn.GetComponentInChildren<TextMeshProUGUI>();
+            if (btnText != null)
+                btnText.color = evColor;
+        }
+
+        CreateButton("EventTestBackButton", _eventTestPanel.transform, Localization.T("Quay Lại"),
+            new Vector2(0f, -evPanelH * 0.38f), () => ShowEventTestPanel(false));
+        _eventTestPanel.SetActive(false);
+    }
+
+    public void ShowEventTestPanel(bool show)
+    {
+        if (_eventTestPanel != null)
+            _eventTestPanel.SetActive(show);
     }
 
     private float lineHeight()
@@ -2307,6 +2532,71 @@ public class UIManager : MonoBehaviour
         _bossBarRoot.SetActive(false);
     }
 
+    private void CreateKarmaBar()
+    {
+        if (_canvas == null) return;
+        float sw = Screen.width;
+        float sh = Screen.height;
+
+        _karmaBarRoot = new GameObject("KarmaBarRoot");
+        _karmaBarRoot.transform.SetParent(_canvas.transform, false);
+
+        var rootRect = _karmaBarRoot.AddComponent<RectTransform>();
+        rootRect.anchorMin = new Vector2(0.5f, 0f);
+        rootRect.anchorMax = new Vector2(0.5f, 0f);
+        rootRect.pivot = new Vector2(0.5f, 0f);
+        rootRect.anchoredPosition = new Vector2(0f, sh * 0.06f);
+        rootRect.sizeDelta = new Vector2(sw * 0.35f, 28f);
+
+        var bg = new GameObject("KarmaBarBg");
+        bg.transform.SetParent(_karmaBarRoot.transform, false);
+        var bgRect = bg.AddComponent<RectTransform>();
+        bgRect.anchorMin = new Vector2(0.5f, 0.5f);
+        bgRect.anchorMax = new Vector2(0.5f, 0.5f);
+        bgRect.sizeDelta = new Vector2(sw * 0.35f, 16f);
+        var bgImg = bg.AddComponent<Image>();
+        bgImg.color = new Color(0f, 0f, 0f, 0.75f);
+        bgImg.raycastTarget = false;
+
+        var fill = new GameObject("KarmaBarFill");
+        fill.transform.SetParent(_karmaBarRoot.transform, false);
+        var fillRect = fill.AddComponent<RectTransform>();
+        fillRect.anchorMin = new Vector2(0.5f, 0.5f);
+        fillRect.anchorMax = new Vector2(0.5f, 0.5f);
+        fillRect.sizeDelta = new Vector2(sw * 0.35f - 6f, 10f);
+        var fillImg = fill.AddComponent<Image>();
+        fillImg.type = Image.Type.Filled;
+        fillImg.fillMethod = Image.FillMethod.Horizontal;
+        fillImg.fillAmount = 1f;
+        fillImg.color = new Color(1f, 0.84f, 0f);
+        fillImg.raycastTarget = false;
+        _karmaBarFill = fillImg;
+
+        _karmaBarText = EnsureText("KarmaBarText", new Vector2(0f, 18f), "", 14, _karmaBarRoot.transform,
+            TextAlignmentOptions.Center, false, new Vector2(sw * 0.35f, 18f));
+
+        _karmaBarRoot.SetActive(false);
+    }
+
+    public void ShowKarmaBar(float current, float max)
+    {
+        if (_karmaBarRoot == null)
+            CreateKarmaBar();
+        if (_karmaBarRoot == null) return;
+
+        _karmaBarRoot.SetActive(true);
+        if (_karmaBarFill != null)
+            _karmaBarFill.fillAmount = max > 0f ? Mathf.Clamp01(current / max) : 0f;
+        if (_karmaBarText != null)
+            _karmaBarText.text = Localization.T("Phuoc Duc") + ": " + Mathf.FloorToInt(current) + "/" + Mathf.FloorToInt(max);
+    }
+
+    public void HideKarmaBar()
+    {
+        if (_karmaBarRoot != null)
+            _karmaBarRoot.SetActive(false);
+    }
+
     public void UpdateTimeText(int day, float hour)
     {
         if (_timeText == null) return;
@@ -2335,6 +2625,14 @@ public class UIManager : MonoBehaviour
             _lastMoney = money;
             _moneyText.text = Localization.F("Tiền: {0}", money);
         }
+
+        var tm = ToolManager.Instance;
+        bool holdingRosary = tm != null && tm.GetSelectedItemType() == "rosary";
+        var km = KarmaManager.Instance;
+        if (holdingRosary && km != null)
+            ShowKarmaBar(km.CurrentKarma, km.MaxKarma);
+        else
+            HideKarmaBar();
     }
 
     public void UpdateInventoryText(ToolManager.InventorySlot[] slots, int selectedSlot)
@@ -2515,16 +2813,44 @@ public class UIManager : MonoBehaviour
     {
         if (_messageText == null)
             return;
-        _messageText.text = text;
-        StopAllCoroutines();
-        StartCoroutine(HideMessageAfter(duration));
+        if (_typewriterCoroutine != null)
+            StopCoroutine(_typewriterCoroutine);
+        _typewriterCoroutine = StartCoroutine(TypewriterMessage(text, duration));
     }
 
-    private IEnumerator HideMessageAfter(float delay)
+    private IEnumerator TypewriterMessage(string fullText, float duration)
     {
-        yield return new WaitForSeconds(delay);
-        if (_messageText != null)
-            _messageText.text = string.Empty;
+        if (_messageBg != null) _messageBg.enabled = true;
+        _messageText.gameObject.SetActive(true);
+        _messageText.text = "";
+
+        for (int i = 0; i <= fullText.Length; i++)
+        {
+            _messageText.text = fullText.Substring(0, i);
+            UpdateMessageBgSize();
+            yield return new WaitForSeconds(0.02f);
+        }
+
+        yield return new WaitForSeconds(duration);
+
+        _messageText.text = string.Empty;
+        if (_messageBg != null) _messageBg.enabled = false;
+        _typewriterCoroutine = null;
+    }
+
+    private void UpdateMessageBgSize()
+    {
+        if (_messageBg == null || _messageText == null) return;
+        var textRect = _messageText.rectTransform;
+        float w = textRect.rect.width + 40f;
+        float h = textRect.rect.height + 20f;
+        var bgRect = _messageBg.rectTransform;
+        bgRect.SetParent(textRect.parent, false);
+        bgRect.anchorMin = textRect.anchorMin;
+        bgRect.anchorMax = textRect.anchorMax;
+        bgRect.pivot = textRect.pivot;
+        bgRect.anchoredPosition = textRect.anchoredPosition;
+        bgRect.sizeDelta = new Vector2(w, h);
     }
 
 }

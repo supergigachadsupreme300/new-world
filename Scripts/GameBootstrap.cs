@@ -37,6 +37,9 @@ public class GameBootstrap : MonoBehaviour
         var randomEventManager = Object.FindAnyObjectByType<RandomEventManager>() ?? root.AddComponent<RandomEventManager>();
         var wifeNPC = Object.FindAnyObjectByType<WifeNPC>() ?? root.AddComponent<WifeNPC>();
         var mobileInput = Object.FindAnyObjectByType<MobileInputController>() ?? root.AddComponent<MobileInputController>();
+        var sleepManager = Object.FindAnyObjectByType<SleepManager>() ?? root.AddComponent<SleepManager>();
+        var karmaManager = Object.FindAnyObjectByType<KarmaManager>() ?? root.AddComponent<KarmaManager>();
+        var typingMinigame = Object.FindAnyObjectByType<TypingMinigame>() ?? root.AddComponent<TypingMinigame>();
 
         gameManager.UIManager = uiManager;
         gameManager.WorldBuilder = worldBuilder;
@@ -44,6 +47,7 @@ public class GameBootstrap : MonoBehaviour
         gameManager.Player = playerController;
         gameManager.CutsceneManager = cutsceneManager;
         gameManager.RandomEventManager = randomEventManager;
+        gameManager.KarmaManager = karmaManager;
 
         uiManager.InitializeUI();
         toolManager.Initialize(uiManager, worldBuilder);
@@ -55,5 +59,6 @@ public class GameBootstrap : MonoBehaviour
         randomEventManager.Initialize(uiManager);
         wifeNPC.Initialize(uiManager.GetCanvas());
         wifeNPC.LoadState();
+        karmaManager.Initialize();
     }
 }

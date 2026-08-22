@@ -112,7 +112,7 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
-        if (IgnoreInput || (GameManager.Instance != null && GameManager.Instance.GamePaused))
+        if (IgnoreInput || (GameManager.Instance != null && GameManager.Instance.GamePaused) || SleepManager.IsSleeping)
             return;
 
         HandleMouseLook();
@@ -358,14 +358,8 @@ public class PlayerController : MonoBehaviour
                         }
                         if (hit.collider.transform.name == "Bed")
                         {
-                            var sleep = Object.FindAnyObjectByType<SleepManager>();
-                            if (sleep == null)
-                            {
-                                var go = new GameObject("SleepManager");
-                                sleep = go.AddComponent<SleepManager>();
-                                sleep.Initialize();
-                            }
-                            sleep.Open();
+                            if (SleepManager.Instance != null)
+                                SleepManager.Instance.Open();
                             return;
                         }
                         if (hit.collider.transform.name == "BuffaloEntity")

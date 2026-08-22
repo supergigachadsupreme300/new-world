@@ -35,9 +35,12 @@ public class PagodaMonkNPC : MonoBehaviour
     private const string _offerLine =
         "Con có gạo không? Dâng cho nhà chùa một bát gạo, ta sẽ ban phước lành sức khỏe cho con cả ngày hôm nay.";
 
+    private const string _meditationLine = "[Thiền Định]";
+
     private int _lastLine = -1;
     private int _blessedDay = -1;
     private bool _waitingOffering;
+    private bool _waitingMeditation;
 
     public bool IsDialogActive => _dialogActive;
 
@@ -110,8 +113,11 @@ public class PagodaMonkNPC : MonoBehaviour
         else
         {
             _dialogQueue.Enqueue(
-                "Con đã nhận phước lành hôm nay rồi. Hãy quay lại vào ngày mai nếu muốn dâng gạo tiếp.");
+                "Con đã nhận phước lành hôm nay rồi.");
         }
+        _dialogQueue.Enqueue("Con có muốn thiền định để gia tăng giới hạn phước đức không?");
+        _dialogQueue.Enqueue(_meditationLine);
+        _waitingMeditation = true;
         Advance();
     }
 
@@ -162,6 +168,13 @@ public class PagodaMonkNPC : MonoBehaviour
             _waitingOffering = false;
             PerformOffering();
         }
+        if (_waitingMeditation && _dialogQueue.Count == 0)
+        {
+            _waitingMeditation = false;
+            TypingMinigame.Instance?.Open();
+            Hide();
+            return;
+        }
         if (_dialogQueue.Count == 0)
         {
             Hide();
@@ -169,11 +182,14 @@ public class PagodaMonkNPC : MonoBehaviour
         }
         _dialogText.text = Localization.T(_dialogQueue.Dequeue());
         bool offeringShown = _waitingOffering && _dialogText.text == Localization.T(_offerLine);
+        bool meditationShown = _waitingMeditation && _dialogText.text == Localization.T(_meditationLine);
         _promptText.text = _dialogQueue.Count > 0
             ? (GameInput.IsMobile ? Localization.T("Chạm để tiếp tục") : Localization.T("Nhấn E để tiếp tục"))
             : offeringShown
                 ? (GameInput.IsMobile ? Localization.T("Chạm để dâng gạo") : Localization.T("Nhấn E để dâng gạo"))
-                : (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"));
+                : meditationShown
+                    ? (GameInput.IsMobile ? Localization.T("Chạm để thiền định") : Localization.T("Nhấn E để thiền định"))
+                    : (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"));
     }
 
     private void PerformOffering()

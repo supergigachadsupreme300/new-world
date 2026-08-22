@@ -7,8 +7,20 @@ public class ImmigrantNpc : MonoBehaviour
 {
     public static ImmigrantNpc Instance { get; private set; }
 
-    private const string _questName = "Xây Nhà Cho Người Di Cư";
+    public static void ClearInstance()
+    {
+        Instance = null;
+    }
+
+    private const string _questBaseName = "Xây Nhà Cho Người Di Cư";
     private const long RentPerHouse = 500;
+
+    private string CurrentQuestName()
+    {
+        var wb = WorldBuilder.Instance;
+        int idx = wb != null ? wb.GetImmigrantNextIndex() : 0;
+        return _questBaseName + " " + idx;
+    }
 
     private Transform _myTransform;
     private Transform _playerTransform;
@@ -45,18 +57,17 @@ public class ImmigrantNpc : MonoBehaviour
             _originalRotation = _myTransform.rotation;
     }
 
-    void Update()
-    {
-        var qm = QuestManager.Instance;
-        var wb = WorldBuilder.Instance;
-        if (qm != null && wb != null && qm.HasQuest(_questName) && !wb.IsImmigrantVillagePlaced)
-            wb.PlaceImmigrantVillage();
-    }
-
     private bool IsQuestComplete()
     {
         var qm = QuestManager.Instance;
-        return qm != null && qm.IsNamedQuestComplete(_questName);
+        return qm != null && qm.IsNamedQuestComplete(CurrentQuestName());
+    }
+
+    private bool HasActiveQuest()
+    {
+        var qm = QuestManager.Instance;
+        string qn = CurrentQuestName();
+        return qm != null && qm.HasQuest(qn) && !qm.IsNamedQuestComplete(qn);
     }
 
     public void Interact()
@@ -79,36 +90,48 @@ public class ImmigrantNpc : MonoBehaviour
     private void AddQuestDialogLines()
     {
         var qm = QuestManager.Instance;
-        if (qm == null)
+        var wb = WorldBuilder.Instance;
+        if (qm == null || wb == null)
             return;
 
-        if (IsQuestComplete())
+        if (wb.AllImmigrantHousesBuilt)
         {
             _dialogQueue.Enqueue("Ông chủ đã cho chúng tôi một cuộc sống mới! Mỗi sáng chúng tôi sẽ trả tiền thuê nhà cho ông chủ.");
             _dialogQueue.Enqueue("Từ nay khu vực này là một phần của làng. Chúng tôi sẽ luôn biết ơn ông chủ.");
             return;
         }
-        if (qm.HasQuest(_questName))
+
+        if (IsQuestComplete())
         {
-            int progress = qm.GetNamedQuestProgress(_questName);
-            int remaining = Mathf.Max(0, 3 - progress);
-            if (remaining > 0)
-            {
-                _dialogQueue.Enqueue(Localization.F("Cảm ơn ông chủ! Chúng tôi vẫn cần thêm {0} căn nhà nữa.", remaining));
-                _dialogQueue.Enqueue(Localization.F("Chúng tôi vẫn cần {0} căn nhà nữa. Ông chủ cố gắng giúp nhé.", remaining));
-            }
+            _dialogQueue.Enqueue("Cảm ơn ông chủ! Gia đình tôi đã chuyển vào nhà mới.");
+            _dialogQueue.Enqueue("Ông chủ cứ yên tâm, chúng tôi sẽ chăm chỉ làm việc.");
+            _dialogQueue.Enqueue("Khi nào có người di cư khác đến, ông chủ giúp họ nhé!");
             return;
         }
 
-        _dialogQueue.Enqueue("Người mới à? Chúng tôi vừa rời làng cũ, nơi ấy đã chẳng còn chỗ cho chúng tôi nữa.");
-        _dialogQueue.Enqueue("Nghe nói vùng đất này còn nhiều chỗ trống. Ông chủ giúp chúng tôi một việc được không?");
-        _dialogQueue.Enqueue("Xin hãy dựng 3 căn nhà nhỏ cho chúng tôi. Chúng tôi chỉ cần một mái che thôi.");
-        qm.AddStoryQuest(_questName, "immigrant_house", 3, 1500,
-            "Xây 3 ngôi nhà nhỏ cho những người di cư ở phía nam con đường.");
-        if (WorldBuilder.Instance != null)
-            WorldBuilder.Instance.PlaceImmigrantVillage();
+        if (HasActiveQuest())
+        {
+            int progress = qm.GetNamedQuestProgress(CurrentQuestName());
+            if (progress <= 0)
+                _dialogQueue.Enqueue("Ngôi nhà của tôi vẫn chưa xong. Ông chủ giúp tôi dựng nhà nhé!");
+            else
+                _dialogQueue.Enqueue("Cảm ơn ông chủ! Nhà tôi sắp xong rồi.");
+            return;
+        }
+
+        _dialogQueue.Enqueue("Xin chào ông chủ! Tôi vừa rời làng cũ, nơi ấy đã chẳng còn chỗ cho chúng tôi nữa.");
+        _dialogQueue.Enqueue("Nghe nói vùng đất này còn nhiều chỗ trống. Ông chủ giúp tôi một việc được không?");
+        _dialogQueue.Enqueue("Xin hãy dựng một căn nhà nhỏ cho gia đình tôi. Chúng tôi chỉ cần một mái che thôi.");
+
+        int nextIdx = wb.GetImmigrantNextIndex();
+        int total = wb.MaxImmigrantHouses;
+        string questDesc = Localization.F("Xây một ngôi nhà nhỏ cho người di cư ({0}/{1}).", nextIdx + 1, total);
+        qm.AddStoryQuest(CurrentQuestName(), "immigrant_house", 1, 500, questDesc);
+        wb.PlaceNextImmigrantBlueprint();
+
         if (GameManager.Instance?.UIManager != null)
-            GameManager.Instance.UIManager.ShowMessage(Localization.T("Người di cư đã đến! Hãy xây nhà cho họ!"), 3f);
+            GameManager.Instance.UIManager.ShowMessage(
+                Localization.T("Blueprint đã được đặt tại vị trí quy hoạch! Hãy thu thập gỗ & đá."), 5f);
     }
 
     public void Advance()
@@ -132,7 +155,7 @@ public class ImmigrantNpc : MonoBehaviour
         var wb = WorldBuilder.Instance;
         if (gm == null || wb == null || gm.Player == null)
             return;
-        if (!IsQuestComplete())
+        if (!IsQuestComplete() && !wb.AllImmigrantHousesBuilt)
         {
             _lastRentDay = gm.CurrentDay;
             return;
