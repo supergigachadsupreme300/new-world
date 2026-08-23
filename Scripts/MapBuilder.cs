@@ -4249,13 +4249,13 @@ public static class MapBuilder
         return root;
     }
 
-    public static GameObject BuildTornado(Transform parent, Vector3 position, float height = 60f)
+    public static GameObject BuildTornado(Transform parent, Vector3 position, float height = 90f)
     {
         var root = new GameObject("Tornado");
         root.transform.SetParent(parent);
         root.transform.position = position;
 
-        int count = 30;
+        int count = 45;
         float blockHeight = height / count;
         Color col = new Color(0.35f, 0.32f, 0.28f);
 
@@ -4263,7 +4263,7 @@ public static class MapBuilder
         {
             float t = (float)i / (count - 1);
             float y = i * blockHeight + blockHeight * 0.5f;
-            float width = 0.5f + t * 25f;
+            float width = 0.5f + t * 35f;
 
             var block = MakeBlock("Block" + i, root.transform,
                 new Vector3(width, blockHeight, width),

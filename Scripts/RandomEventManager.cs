@@ -1043,9 +1043,9 @@ public class RandomEventManager : MonoBehaviour
         foreach (var r in cloud.GetComponentsInChildren<Renderer>())
             r.material.color = new Color(0.15f, 0.15f, 0.18f);
 
-        float duration = 10f;
+        float duration = 15f;
         float elapsed = 0f;
-        float nextStrike = 1f;
+        float nextStrike = 0.5f;
 
         while (elapsed < duration)
         {
@@ -1054,7 +1054,7 @@ public class RandomEventManager : MonoBehaviour
 
             if (nextStrike <= 0f)
             {
-                nextStrike = UnityEngine.Random.Range(1f, 2f);
+                nextStrike = UnityEngine.Random.Range(0.3f, 0.8f);
 
                 Vector3 strikePos = new Vector3(
                     playerPos.x + UnityEngine.Random.Range(-12f, 12f), 0.5f,

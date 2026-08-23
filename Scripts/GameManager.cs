@@ -313,13 +313,11 @@ public class GameManager : MonoBehaviour
                     Player.EnableInput(false);
                 GameInput.SetCursorLocked(false);
 
-                // Show car driving visual in background
                 if (CutsceneManager != null)
                     CutsceneManager.PlayMainMenuVisual();
             }
             else
             {
-                // Stop car visual when leaving menu
                 if (CutsceneManager != null)
                     CutsceneManager.StopMainMenuVisual();
             }
