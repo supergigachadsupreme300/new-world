@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 using TMPro;
 using static CountryLife.Helpers.PickupVisualHelper;
 
-public class ToolManager : MonoBehaviour
+public partial class ToolManager : MonoBehaviour
 {
     public static ToolManager Instance { get; private set; }
     public static bool EscapeHandledThisFrame { get; private set; }
@@ -91,7 +91,7 @@ public class ToolManager : MonoBehaviour
         if (item == null) return false;
         if (!player.SpendStamina(StaminaCostFor(item)))
         {
-            _uiManager?.ShowMessage(Localization.T("Quá mệt!"), 1f);
+            _uiManager?.ShowMessage(Localization.T("QuÃ¡ má»‡t!"), 1f);
             return false;
         }
         PlaySwing();
@@ -111,11 +111,11 @@ public class ToolManager : MonoBehaviour
         if (itemType == "cafe_den")
         {
             player.ApplyStaminaRegenModifier(0.5f, 120f);
-            _uiManager?.ShowMessage(Localization.F("Đã uống {0}. Hồi phục +{1} Thể Lực, nhưng hồi Thể Lực chậm lại trong 120 giây!", Localization.ItemName(itemType), staminaRestore), 2.5f);
+            _uiManager?.ShowMessage(Localization.F("ÄÃ£ uá»‘ng {0}. Há»“i phá»¥c +{1} Thá»ƒ Lá»±c, nhÆ°ng há»“i Thá»ƒ Lá»±c cháº­m láº¡i trong 120 giÃ¢y!", Localization.ItemName(itemType), staminaRestore), 2.5f);
         }
         else
         {
-            _uiManager?.ShowMessage(Localization.F("Đã ăn {0}. Hồi phục +{1} Thể Lực, +{2} Máu!", Localization.ItemName(itemType), staminaRestore, hpRestore), 1.5f);
+            _uiManager?.ShowMessage(Localization.F("ÄÃ£ Äƒn {0}. Há»“i phá»¥c +{1} Thá»ƒ Lá»±c, +{2} MÃ¡u!", Localization.ItemName(itemType), staminaRestore, hpRestore), 1.5f);
         }
         SoundManager.Instance?.Play("pop", 0.8f);
 
@@ -331,7 +331,7 @@ public class ToolManager : MonoBehaviour
                 if (_buildingChosen)
                 {
                     _buildingChosen = false;
-                    _uiManager?.ShowMessage(Localization.T("Đã huỷ đặt công trình."), 1.2f);
+                    _uiManager?.ShowMessage(Localization.T("ÄÃ£ huá»· Ä‘áº·t cÃ´ng trÃ¬nh."), 1.2f);
                     return;
                 }
                 SelectSlot(_selectedSlot - 1);
@@ -359,13 +359,13 @@ public class ToolManager : MonoBehaviour
             {
                 var info = _carriedObject.GetComponent<CageWithAnimalInfo>();
                 string animalName = info != null ? Localization.AnimalName(info.AnimalType.ToString()) : Localization.AnimalName("animal");
-                _uiManager.SetInfoText(Localization.F("Đang mang: Lồng với {0} (Q để ném)", animalName));
+                _uiManager.SetInfoText(Localization.F("Äang mang: Lá»“ng vá»›i {0} (Q Ä‘á»ƒ nÃ©m)", animalName));
             }
             else
             {
                 var (material, amount) = GetCarriedResourceInfo(_carriedObject);
                 if (material != null)
-                    _uiManager.SetInfoText(Localization.F("Đang mang: {0} {1}", amount.ToString("F2"), Localization.ItemName(material)));
+                    _uiManager.SetInfoText(Localization.F("Äang mang: {0} {1}", amount.ToString("F2"), Localization.ItemName(material)));
                 else
                     _uiManager.SetInfoText(null);
             }
@@ -410,7 +410,7 @@ public class ToolManager : MonoBehaviour
                         parts.Add(woodRemaining.ToString("F1") + " " + Localization.ItemName("wood"));
                     if (stoneRemaining > 0.01f)
                         parts.Add(stoneRemaining.ToString("F1") + " " + Localization.ItemName("stone"));
-                    string remainingText = parts.Count > 0 ? Localization.F("Cần: {0}", string.Join(", ", parts)) : Localization.T("Hoàn thành!");
+                    string remainingText = parts.Count > 0 ? Localization.F("Cáº§n: {0}", string.Join(", ", parts)) : Localization.T("HoÃ n thÃ nh!");
                     _uiManager.SetInfoText(Localization.BuildingName(def.Name) + " - " + remainingText);
                 }
                 else if (bp.IsEssential || bp.IsMansion)
@@ -422,11 +422,11 @@ public class ToolManager : MonoBehaviour
                         parts.Add(woodRemaining.ToString("F1") + " " + Localization.ItemName("wood"));
                     if (stoneRemaining > 0.01f)
                         parts.Add(stoneRemaining.ToString("F1") + " " + Localization.ItemName("stone"));
-                    string remainingText = parts.Count > 0 ? Localization.F("Cần: {0}", string.Join(", ", parts)) : Localization.T("Hoàn thành!");
+                    string remainingText = parts.Count > 0 ? Localization.F("Cáº§n: {0}", string.Join(", ", parts)) : Localization.T("HoÃ n thÃ nh!");
                     if (bp.IsMansion)
                     {
                         string partName = Localization.MansionPartName(bp.Type);
-                        _uiManager.SetInfoText(Localization.F("Dinh Thự - {0} - {1}", partName, remainingText));
+                        _uiManager.SetInfoText(Localization.F("Dinh Thá»± - {0} - {1}", partName, remainingText));
                     }
                     else
                     {
@@ -449,10 +449,10 @@ public class ToolManager : MonoBehaviour
                 _worldBuilder.GetEssentialCosts(ghostBld.Type, out float totalWood, out float totalStone);
                 var parts = new System.Collections.Generic.List<string>();
                 if (totalWood > 0.01f)
-                    parts.Add(Localization.T("Gỗ:") + $" {Mathf.CeilToInt(totalWood)}");
+                    parts.Add(Localization.T("Gá»—:") + $" {Mathf.CeilToInt(totalWood)}");
                 if (totalStone > 0.01f)
-                    parts.Add(Localization.T("Đá:") + $" {Mathf.CeilToInt(totalStone)}");
-                string costText = parts.Count > 0 ? Localization.F("Cần: {0}", string.Join(", ", parts)) : Localization.T("Hoàn thành!");
+                    parts.Add(Localization.T("ÄÃ¡:") + $" {Mathf.CeilToInt(totalStone)}");
+                string costText = parts.Count > 0 ? Localization.F("Cáº§n: {0}", string.Join(", ", parts)) : Localization.T("HoÃ n thÃ nh!");
                 _uiManager.SetInfoText(Localization.BuildingName(ghostBld.Type) + " - " + costText);
             }
             else
@@ -464,17 +464,17 @@ public class ToolManager : MonoBehaviour
             {
                 var cageInfo = root.GetComponent<CageWithAnimalInfo>();
                 string name = cageInfo != null ? Localization.AnimalName(cageInfo.AnimalType.ToString()) : Localization.AnimalName("animal");
-                _uiManager.SetInfoText(Localization.F("Lồng với {0} (E để nhặt)", name));
+                _uiManager.SetInfoText(Localization.F("Lá»“ng vá»›i {0} (E Ä‘á»ƒ nháº·t)", name));
             }
             else if (root.name == "ThrownCage")
             {
-                _uiManager.SetInfoText(Localization.T("Lồng (E để nhặt)"));
+                _uiManager.SetInfoText(Localization.T("Lá»“ng (E Ä‘á»ƒ nháº·t)"));
             }
             else
             {
                 var (material, amount) = GetCarriedResourceInfo(root);
-                string typeName = root.name == "TreeFelled" ? Localization.T("Cây") : root.name == "BranchTop" ? Localization.T("Cành") : Localization.T("Mảnh Vụn");
-                _uiManager.SetInfoText(Localization.F("{0} cung cấp {1} {2}", typeName, amount.ToString("F2"), Localization.ItemName(material)));
+                string typeName = root.name == "TreeFelled" ? Localization.T("CÃ¢y") : root.name == "BranchTop" ? Localization.T("CÃ nh") : Localization.T("Máº£nh Vá»¥n");
+                _uiManager.SetInfoText(Localization.F("{0} cung cáº¥p {1} {2}", typeName, amount.ToString("F2"), Localization.ItemName(material)));
             }
         }
         else if (root.name == "FieldTile")
@@ -485,22 +485,22 @@ public class ToolManager : MonoBehaviour
                 string info;
                 if (field.IsHarvested)
                 {
-                    info = Localization.T("Ruộng (đã thu hoạch — cày lại)");
+                    info = Localization.T("Ruá»™ng (Ä‘Ã£ thu hoáº¡ch â€” cÃ y láº¡i)");
                 }
                 else if (field.HasCrop)
                 {
                     string cropDisplay = Localization.ItemName(field.CropType);
-                    info = Localization.F("{0} • Giai Đoạn {1}/4", cropDisplay, field.Stage);
-                    if (field.Watered) info += " 💧";
-                    if (field.Fertilized) info += " 🌱";
+                    info = Localization.F("{0} â€¢ Giai Äoáº¡n {1}/4", cropDisplay, field.Stage);
+                    if (field.Watered) info += " ðŸ’§";
+                    if (field.Fertilized) info += " ðŸŒ±";
                 }
                 else if (field.Tilled)
                 {
-                    info = Localization.T("Ruộng đã cày — gieo hạt giống");
+                    info = Localization.T("Ruá»™ng Ä‘Ã£ cÃ y â€” gieo háº¡t giá»‘ng");
                 }
                 else
                 {
-                    info = Localization.T("Ruộng — dùng cuốc để cày");
+                    info = Localization.T("Ruá»™ng â€” dÃ¹ng cuá»‘c Ä‘á»ƒ cÃ y");
                 }
                 _uiManager.SetInfoText(info);
             }
@@ -568,18 +568,18 @@ public class ToolManager : MonoBehaviour
                             {
                                 Destroy(_carriedObject);
                                 _carriedObject = null;
-                                _uiManager.ShowMessage(Localization.T("Quá nhỏ để dùng."), 1f);
+                                _uiManager.ShowMessage(Localization.T("QuÃ¡ nhá» Ä‘á»ƒ dÃ¹ng."), 1f);
                                 return;
                             }
                             if (_worldBuilder.DepositMaterial(bp, material, amount))
                             {
-                                _uiManager.ShowMessage(Localization.T("Xây dựng hoàn thành!"), 1.5f);
+                                _uiManager.ShowMessage(Localization.T("XÃ¢y dá»±ng hoÃ n thÃ nh!"), 1.5f);
                                 KarmaManager.Instance?.AddMaxKarma(1f);
                                 SoundManager.Instance?.Play("hammer");
                             }
                             else
                             {
-                                _uiManager.ShowMessage(Localization.F("Đã cung cấp {0} x{1}.", Localization.ItemName(material), amount.ToString("F2")), 1.5f);
+                                _uiManager.ShowMessage(Localization.F("ÄÃ£ cung cáº¥p {0} x{1}.", Localization.ItemName(material), amount.ToString("F2")), 1.5f);
                             }
                             Destroy(_carriedObject);
                             _carriedObject = null;
@@ -608,12 +608,12 @@ public class ToolManager : MonoBehaviour
         {
             if (player.HP >= player.MaxHP)
             {
-                _uiManager.ShowMessage(Localization.T("Máu đã đầy!"), 1f);
+                _uiManager.ShowMessage(Localization.T("MÃ¡u Ä‘Ã£ Ä‘áº§y!"), 1f);
                 return;
             }
             player.HP = Mathf.Min(player.MaxHP, player.HP + 25);
             RemoveItemAmount(selectedItem, 1);
-            _uiManager.ShowMessage(Localization.F("Đã dùng {0}. +25 Máu!", Localization.ItemName(selectedItem)), 1.5f);
+            _uiManager.ShowMessage(Localization.F("ÄÃ£ dÃ¹ng {0}. +25 MÃ¡u!", Localization.ItemName(selectedItem)), 1.5f);
             SoundManager.Instance?.Play("pop", 0.8f);
             UpdateInventoryUI();
             ShowActiveToolModel();
@@ -758,7 +758,7 @@ public class ToolManager : MonoBehaviour
                 if (field != null)
                 {
                     SoundManager.Instance?.Play("hoe");
-                    _uiManager.ShowMessage(Localization.T("Ruộng đã cày."), 1.5f);
+                    _uiManager.ShowMessage(Localization.T("Ruá»™ng Ä‘Ã£ cÃ y."), 1.5f);
                 }
                 return;
             }
@@ -775,16 +775,16 @@ public class ToolManager : MonoBehaviour
                     var bDef = _worldBuilder.GetBuildingByIndex(_worldBuilder.CurrentBuildingIndex);
                     if (_worldBuilder.IsWallOrStair(bDef.Name) && !_worldBuilder.HasFloorAt(placePos))
                     {
-                        _uiManager.ShowMessage(Localization.T("Cần sàn! Tường và cầu thang cần sàn trước."), 1.5f);
+                        _uiManager.ShowMessage(Localization.T("Cáº§n sÃ n! TÆ°á»ng vÃ  cáº§u thang cáº§n sÃ n trÆ°á»›c."), 1.5f);
                     }
                     else if (_worldBuilder.PlaceBlueprint(placePos))
                     {
                         SoundManager.Instance?.Play("hammer");
-                        _uiManager.ShowMessage(Localization.T("Bản thiết kế đã đặt. Cung cấp gỗ & đá."), 1.5f);
+                        _uiManager.ShowMessage(Localization.T("Báº£n thiáº¿t káº¿ Ä‘Ã£ Ä‘áº·t. Cung cáº¥p gá»— & Ä‘Ã¡."), 1.5f);
                     }
                     else
                     {
-                        _uiManager.ShowMessage(Localization.T("Không thể đặt ở đây."), 1.5f);
+                        _uiManager.ShowMessage(Localization.T("KhÃ´ng thá»ƒ Ä‘áº·t á»Ÿ Ä‘Ã¢y."), 1.5f);
                     }
                     _buildingChosen = false;
                     return;
@@ -812,7 +812,7 @@ public class ToolManager : MonoBehaviour
                 if (_worldBuilder.PlaceBlueprint(placePos))
                 {
                     SoundManager.Instance?.Play("hammer");
-                    _uiManager.ShowMessage(Localization.T("Bản thiết kế đã đặt. Cung cấp gỗ & đá."), 1.5f);
+                    _uiManager.ShowMessage(Localization.T("Báº£n thiáº¿t káº¿ Ä‘Ã£ Ä‘áº·t. Cung cáº¥p gá»— & Ä‘Ã¡."), 1.5f);
                 }
                 return;
             }
@@ -825,13 +825,13 @@ public class ToolManager : MonoBehaviour
                     if (_worldBuilder.WaterField(hit.point))
                     {
                         SoundManager.Instance?.Play("pop");
-                        _uiManager.ShowMessage(Localization.T("Ruộng đã tưới."), 1.5f);
+                        _uiManager.ShowMessage(Localization.T("Ruá»™ng Ä‘Ã£ tÆ°á»›i."), 1.5f);
                         QuestManager.Instance?.AddProgress("water", 1);
                     }
                 }
                 else
                 {
-                    _uiManager.ShowMessage(Localization.T("Dùng bình tưới cho cây đang trồng."), 1.5f);
+                    _uiManager.ShowMessage(Localization.T("DÃ¹ng bÃ¬nh tÆ°á»›i cho cÃ¢y Ä‘ang trá»“ng."), 1.5f);
                 }
                 return;
             }
@@ -845,12 +845,12 @@ public class ToolManager : MonoBehaviour
                     {
                         RemoveItem(_selectedSlot, 1);
                         SoundManager.Instance?.Play("pop");
-                        _uiManager.ShowMessage(Localization.T("Ruộng đã bón phân!"), 1.5f);
+                        _uiManager.ShowMessage(Localization.T("Ruá»™ng Ä‘Ã£ bÃ³n phÃ¢n!"), 1.5f);
                     }
                 }
                 else
                 {
-                    _uiManager.ShowMessage(Localization.T("Dùng phân bón cho cây đang trồng."), 1.5f);
+                    _uiManager.ShowMessage(Localization.T("DÃ¹ng phÃ¢n bÃ³n cho cÃ¢y Ä‘ang trá»“ng."), 1.5f);
                 }
                 return;
             }
@@ -864,12 +864,12 @@ public class ToolManager : MonoBehaviour
                     {
                         RemoveItem(_selectedSlot, 1);
                         SoundManager.Instance?.Play("pop");
-                        _uiManager.ShowMessage(Localization.T("Ruộng đã lớn nhanh hơn!"), 1.5f);
+                        _uiManager.ShowMessage(Localization.T("Ruá»™ng Ä‘Ã£ lá»›n nhanh hÆ¡n!"), 1.5f);
                     }
                 }
                 else
                 {
-                    _uiManager.ShowMessage(Localization.T("Dùng mì chính cho cây đang trồng."), 1.5f);
+                    _uiManager.ShowMessage(Localization.T("DÃ¹ng mÃ¬ chÃ­nh cho cÃ¢y Ä‘ang trá»“ng."), 1.5f);
                 }
                 return;
             }
@@ -885,7 +885,7 @@ public class ToolManager : MonoBehaviour
                     var harvestedItem = field.CropType;
                     if (!CanHoldItem(harvestedItem))
                     {
-                        _uiManager.ShowMessage(Localization.T("Túi đồ đầy."), 1.5f);
+                        _uiManager.ShowMessage(Localization.T("TÃºi Ä‘á»“ Ä‘áº§y."), 1.5f);
                         return;
                     }
                     if (_worldBuilder.HarvestField(field, out var item))
@@ -894,1027 +894,12 @@ public class ToolManager : MonoBehaviour
                         if (item == "wheat")
                             GameStats.AddWheat(1);
                         SoundManager.Instance?.Play("sickle");
-                        _uiManager.ShowMessage(Localization.F("Đã thu hoạch {0}.", Localization.ItemName(item)), 1.5f);
+                        _uiManager.ShowMessage(Localization.F("ÄÃ£ thu hoáº¡ch {0}.", Localization.ItemName(item)), 1.5f);
                         QuestManager.Instance?.AddProgress(item, 1);
                     }
                 }
                 return;
             }
-        }
-    }
-
-    private void LaunchPalmProjectile(Camera cam)
-    {
-        var palmGo = new GameObject("PalmProjectile");
-        palmGo.transform.position = cam.transform.position + cam.transform.forward * 0.8f;
-        palmGo.transform.rotation = Quaternion.LookRotation(cam.transform.forward);
-        ItemBuilder.BuildPalm(palmGo.transform);
-
-        var col = palmGo.AddComponent<BoxCollider>();
-        col.size = new Vector3(0.8f, 0.6f, 0.3f);
-
-        var rb = palmGo.AddComponent<Rigidbody>();
-        rb.useGravity = false;
-        rb.isKinematic = false;
-        rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
-        rb.mass = 0.2f;
-        rb.linearVelocity = cam.transform.forward * PalmProjectileSpeed;
-
-        palmGo.AddComponent<PalmProjectile>();
-
-        SoundManager.Instance?.Play("pop");
-    }
-
-    private bool TryPlantSeed(string itemType, Vector3 hitPoint)
-    {
-        var seedToCrop = new Dictionary<string, string>
-        {
-            { "wheat_seed", "wheat" },
-            { "corn_seed", "corn" },
-            { "potato_seed", "potato" },
-            { "carrot_seed", "carrot" },
-            { "tomato_seed", "tomato" },
-            { "strawberry_seed", "strawberry" },
-            { "pumpkin_seed", "pumpkin" },
-            { "onion_seed", "onion" },
-            { "sugarcane_seed", "sugarcane" },
-            { "rice_seed", "rice" },
-            { "wheat", "wheat" },
-            { "corn", "corn" },
-            { "potato", "potato" },
-            { "carrot", "carrot" },
-            { "tomato", "tomato" },
-            { "strawberry", "strawberry" },
-            { "pumpkin", "pumpkin" },
-            { "onion", "onion" },
-            { "sugarcane", "sugarcane" },
-            { "rice", "rice" },
-        };
-
-        if (!seedToCrop.TryGetValue(itemType, out var cropType))
-            return false;
-
-        var field = _worldBuilder.GetFieldAt(hitPoint);
-        if (field != null && field.Tilled && !field.HasCrop)
-        {
-            if (_worldBuilder.PlantCrop(field, cropType))
-            {
-                RemoveItem(_selectedSlot, 1);
-                SoundManager.Instance?.Play("pop");
-                _uiManager.ShowMessage(Localization.F("Đã gieo {0}.", Localization.ItemName(cropType)), 1.5f);
-            }
-        }
-        else
-        {
-            _uiManager.ShowMessage(Localization.T("Dùng hạt giống trên đất đã cày."), 1.5f);
-        }
-        return true;
-    }
-
-    public void TryPickupNearby()
-    {
-        var cam = GetActiveCamera();
-        if (cam == null)
-            return;
-
-        if (_carriedObject != null)
-            return;
-
-        var origin = cam.transform.position + cam.transform.forward * 0.3f;
-        var ray = new Ray(origin, cam.transform.forward);
-        ShowRayLine(ray.origin, ray.origin + ray.direction * PickupRayDistance);
-        if (!Physics.Raycast(ray, out var hit, PickupRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
-            return;
-
-        Debug.Log($"TryPickupNearby: ray hit {hit.collider.gameObject.name}");
-
-        if (hit.collider.transform.name == "BuffaloEntity")
-        {
-            var dlg = Object.FindAnyObjectByType<BuffaloDialog>();
-            if (dlg == null)
-            {
-                var go = new GameObject("BuffaloDialog");
-                dlg = go.AddComponent<BuffaloDialog>();
-                dlg.Initialize();
-            }
-            dlg.Show();
-            return;
-        }
-
-        if (hit.collider.transform.name == "VendorNPC")
-        {
-            var shop = Object.FindAnyObjectByType<VendorShopManager>();
-            if (shop == null)
-            {
-                var go = new GameObject("VendorShopManager");
-                shop = go.AddComponent<VendorShopManager>();
-                shop.Initialize();
-            }
-            shop.Open();
-            return;
-        }
-
-        if (hit.collider.transform.name == "RestaurantNPC")
-        {
-            if (ChefNPC.Instance != null && !ChefNPC.Instance.IsDialogActive)
-                ChefNPC.Instance.Interact();
-            return;
-        }
-
-        if (hit.collider.transform.name == "ToolShopNPC")
-        {
-            var shop = Object.FindAnyObjectByType<VendorShopManager>();
-            if (shop == null)
-            {
-                var go = new GameObject("VendorShopManager");
-                shop = go.AddComponent<VendorShopManager>();
-                shop.Initialize();
-            }
-            shop.OpenTools();
-            return;
-        }
-
-        if (hit.collider.transform.name == "ConvenienceNPC")
-        {
-            var shop = Object.FindAnyObjectByType<VendorShopManager>();
-            if (shop == null)
-            {
-                var go = new GameObject("VendorShopManager");
-                shop = go.AddComponent<VendorShopManager>();
-                shop.Initialize();
-            }
-            shop.OpenConvenience();
-            return;
-        }
-
-        if (hit.collider.transform.name == "GroceryNPC")
-        {
-            var shop = Object.FindAnyObjectByType<VendorShopManager>();
-            if (shop == null)
-            {
-                var go = new GameObject("VendorShopManager");
-                shop = go.AddComponent<VendorShopManager>();
-                shop.Initialize();
-            }
-            shop.OpenGrocery();
-            return;
-        }
-
-        var goblin = hit.collider.GetComponentInParent<GoblinPet>();
-        if (goblin != null)
-        {
-            string selected = GetSelectedItemType();
-            string crop = selected switch
-            {
-                "wheat_seed" => "wheat",
-                "corn_seed" => "corn",
-                "potato_seed" => "potato",
-                "carrot_seed" => "carrot",
-                "tomato_seed" => "tomato",
-                "strawberry_seed" => "strawberry",
-                "pumpkin_seed" => "pumpkin",
-                "onion_seed" => "onion",
-                "sugarcane_seed" => "sugarcane",
-                "rice_seed" => "rice",
-                _ => null
-            };
-
-            if (crop == null)
-            {
-                _uiManager.ShowMessage(Localization.T("Chọn hạt giống để đưa cho goblin."), 1.5f);
-                return;
-            }
-
-            if (!goblin.CanAcceptSeed)
-            {
-                _uiManager.ShowMessage(goblin.IsDead ? Localization.T("Goblin đang bất tỉnh!") : Localization.T("Goblin đang bận!"), 1.5f);
-                return;
-            }
-
-            if (!RemoveItem(_selectedSlot, 1))
-            {
-                _uiManager.ShowMessage(Localization.T("Không thể lấy hạt giống."), 1.5f);
-                return;
-            }
-
-            goblin.GiveSeed(crop);
-            SoundManager.Instance?.Play("pop");
-            _uiManager.ShowMessage(Localization.T("Đã đưa hạt giống cho goblin."), 1.5f);
-            return;
-        }
-
-        if (TryPickupTool(hit.collider))
-            return;
-
-        // Check for felled tree / branch / debris first (carry them, don't delete)
-        var root = hit.collider.gameObject;
-        while (root.transform.parent != null && root.transform.parent.name != "WorldRoot")
-            root = root.transform.parent.gameObject;
-
-        if (root.name == "CageWithAnimal" || root.name == "ThrownCage")
-        {
-            if (root.GetComponent<Rigidbody>() == null) return;
-            _carriedObject = root;
-            root.GetComponent<Rigidbody>().isKinematic = true;
-            var cols = root.GetComponentsInChildren<Collider>();
-            foreach (var c in cols)
-                c.enabled = false;
-            root.transform.SetParent(cam.transform);
-            root.transform.localPosition = new Vector3(0.7f, -0.4f, 1.8f);
-            root.transform.localRotation = Quaternion.identity;
-            if (root.name == "CageWithAnimal")
-            {
-                var ci = root.GetComponent<CageWithAnimalInfo>();
-                string n = ci != null ? Localization.AnimalName(ci.AnimalType.ToString()) : Localization.AnimalName("animal");
-                _uiManager.ShowMessage(Localization.F("Đã nhặt lồng với {0}.", n), 1f);
-            }
-            else
-                _uiManager.ShowMessage(Localization.T("Đã nhặt lên."), 1f);
-            return;
-        }
-
-        if (GetSelectedItemType() != null)
-            return;
-
-        if (root.name == "TreeFelled" || root.name == "BranchTop" || root.name == "RockDebris")
-        {
-            if (root.GetComponent<Rigidbody>() == null) return;
-            _carriedObject = root;
-            root.GetComponent<Rigidbody>().isKinematic = true;
-            var cols = root.GetComponentsInChildren<Collider>();
-            foreach (var c in cols)
-                c.enabled = false;
-            root.transform.SetParent(cam.transform);
-            root.transform.localPosition = new Vector3(0.7f, -0.4f, 1.8f);
-            root.transform.localRotation = Quaternion.identity;
-            _uiManager.ShowMessage(Localization.T("Đã nhặt lên."), 1f);
-            return;
-        }
-    }
-
-    private bool IsTree(Collider collider)
-    {
-        if (collider == null)
-            return false;
-        var t = collider.transform;
-        while (t != null)
-        {
-            if (t.name.StartsWith("Tree"))
-                return true;
-            t = t.parent;
-        }
-        return false;
-    }
-
-    private GameObject FindTreeRoot(Collider collider)
-    {
-        if (collider == null) return null;
-        var t = collider.transform;
-        while (t != null)
-        {
-            if (t.name.StartsWith("Tree"))
-                return t.gameObject;
-            t = t.parent;
-        }
-        return null;
-    }
-
-    private bool TryPickupTool(Collider collider)
-    {
-        if (collider == null)
-        {
-            Debug.Log("TryPickupTool: collider is null");
-            return false;
-        }
-
-        var pickupName = collider.gameObject.name;
-        var pickupRoot = collider.gameObject;
-        
-        // Check if this is a visual child, if so get the parent (root pickup)
-        if (pickupRoot.transform.parent != null && pickupRoot.transform.parent.name.StartsWith("Pickup_"))
-        {
-            pickupRoot = pickupRoot.transform.parent.gameObject;
-            pickupName = pickupRoot.name;
-        }
-        
-        Debug.Log($"TryPickupTool: hit {pickupName}");
-        var flapping = collider.GetComponentInParent<FlappingFish>();
-        if (flapping != null && !flapping.IsPickable)
-        {
-            _uiManager.ShowMessage(Localization.T("Cá đang quẫy! Dùng gậy gõ cho nó xỉu."), 1.5f);
-            return true;
-        }
-        if (!pickupName.StartsWith("Pickup_"))
-            return false;
-
-        var itemType = pickupName.Substring("Pickup_".Length);
-
-        if (itemType.StartsWith("gold_") && int.TryParse(itemType.Substring("gold_".Length), out var coinAmount))
-        {
-            var coin = pickupRoot.GetComponent<CoinPickupBehavior>();
-            if (coin != null && coin.Collected)
-                return true;
-
-            var player = GameManager.Instance?.Player;
-            if (player != null)
-                player.Money += coinAmount;
-            SoundManager.Instance?.Play("pop");
-            _uiManager.ShowMessage($"+{coinAmount}g", 1.5f);
-            GameManager.Instance?.UIManager?.UpdatePlayerHud(
-                player != null ? player.HP : 0,
-                player != null ? player.MaxHP : 0,
-                player != null ? player.Stamina : 0,
-                player != null ? player.MaxStamina : 0,
-                player != null ? player.Money : 0);
-            Destroy(pickupRoot);
-            return true;
-        }
-
-        AddItem(itemType, 1);
-        SoundManager.Instance?.Play("pop");
-        _uiManager.ShowMessage(Localization.F("Đã nhặt {0}.", Localization.ItemName(itemType)), 1.5f);
-        Destroy(pickupRoot);
-        return true;
-    }
-
-    private bool IsRock(Collider collider)
-    {
-        if (collider == null)
-            return false;
-        return collider.gameObject.name.StartsWith("Rock");
-    }
-
-    public void DropSelectedItem()
-    {
-        if (_carriedObject != null)
-        {
-            DropCarriedObject(GameManager.Instance?.Player);
-            return;
-        }
-
-        var itemType = GetSelectedItemType();
-        if (itemType == null)
-            return;
-
-        var player = GameManager.Instance?.Player;
-        if (player == null) return;
-
-        var cam = Camera.main;
-        var throwOrigin = cam != null
-            ? cam.transform.position + cam.transform.forward * 0.5f
-            : player.transform.position + Vector3.up * 1.5f + player.transform.forward * 0.5f;
-        var throwDir = cam != null ? cam.transform.forward : player.transform.forward;
-        var throwVelocity = throwDir * 8f + Vector3.up * 3.5f;
-
-        if (RemoveItem(_selectedSlot, 1))
-        {
-            if (_worldBuilder != null)
-            {
-                if (itemType == "cage_big" || itemType == "cage_small")
-                    _worldBuilder.ThrowCage(itemType, throwOrigin, throwVelocity);
-                else
-                    _worldBuilder.ThrowPickup(itemType, throwOrigin, throwVelocity);
-            }
-
-            _uiManager.ShowMessage(Localization.F("Đã ném {0}.", Localization.ItemName(itemType)), 1.5f);
-            UpdateInventoryUI();
-            ShowActiveToolModel();
-        }
-    }
-
-    private void TryPickupFelledTree(Camera cam, PlayerController player)
-    {
-        var origin = cam.transform.position + cam.transform.forward * 0.3f;
-        var useRay = new Ray(origin, cam.transform.forward);
-        ShowRayLine(useRay.origin, useRay.origin + useRay.direction * PickupRayDistance);
-        if (!Physics.Raycast(useRay, out var hit, PickupRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
-            return;
-
-        if (_carriedObject != null)
-            return;
-
-        var root = hit.collider.gameObject;
-        while (root.transform.parent != null && root.transform.parent.name != "WorldRoot")
-            root = root.transform.parent.gameObject;
-
-        if (root.name != "TreeFelled" && root.name != "BranchTop" && root.name != "RockDebris" && root.name != "CageWithAnimal" && root.name != "ThrownCage")
-            return;
-
-        if (root.GetComponent<Rigidbody>() == null) return;
-
-        _carriedObject = root;
-        root.GetComponent<Rigidbody>().isKinematic = true;
-        var cols = root.GetComponentsInChildren<Collider>();
-        foreach (var c in cols)
-            c.enabled = false;
-        root.transform.SetParent(cam.transform);
-        root.transform.localPosition = new Vector3(0.7f, -0.4f, 1.8f);
-        root.transform.localRotation = Quaternion.identity;
-        _uiManager.ShowMessage(Localization.T("Đã nhặt lên."), 1f);
-    }
-
-    private void DropCarriedObject(PlayerController player)
-    {
-        if (_carriedObject == null) return;
-
-        if (_carriedObject.name == "CageWithAnimal")
-        {
-            var info = _carriedObject.GetComponent<CageWithAnimalInfo>();
-            if (info != null && _worldBuilder != null)
-            {
-                var cam = GetActiveCamera();
-                var throwOrigin = cam != null
-                    ? cam.transform.position + cam.transform.forward * 0.5f
-                    : _carriedObject.transform.position;
-                var throwDir = cam != null ? cam.transform.forward : Vector3.forward;
-                var throwVelocity = throwDir * 8f + Vector3.up * 3.5f;
-
-                _worldBuilder.ThrowCage(
-                    info.AnimalType == Livestock.AnimalType.Cow ||
-                    info.AnimalType == Livestock.AnimalType.Pig ||
-                    info.AnimalType == Livestock.AnimalType.Sheep ||
-                    info.AnimalType == Livestock.AnimalType.Goat
-                        ? "cage_big" : "cage_small",
-                    throwOrigin,
-                    throwVelocity,
-                    info.AnimalType);
-
-                _uiManager.ShowMessage(Localization.T("Đang ném lồng..."), 1f);
-            }
-            Destroy(_carriedObject);
-            _carriedObject = null;
-            return;
-        }
-
-        if (_carriedObject.name == "ThrownCage")
-        {
-            var info = _carriedObject.GetComponent<ThrownCageInfo>();
-            string cageType = info != null ? info.CageType : "cage_big";
-            var cam = GetActiveCamera();
-            var throwOrigin = cam != null
-                ? cam.transform.position + cam.transform.forward * 0.5f
-                : _carriedObject.transform.position;
-            var throwDir = cam != null ? cam.transform.forward : Vector3.forward;
-            var throwVelocity = throwDir * 8f + Vector3.up * 3.5f;
-            Destroy(_carriedObject);
-            _carriedObject = null;
-            if (_worldBuilder != null)
-                _worldBuilder.ThrowCage(cageType, throwOrigin, throwVelocity);
-            _uiManager.ShowMessage(Localization.T("Đã ném lồng trống."), 1f);
-            return;
-        }
-
-        _carriedObject.transform.SetParent(null);
-        var rb = _carriedObject.GetComponent<Rigidbody>();
-        var cols = _carriedObject.GetComponentsInChildren<Collider>();
-        foreach (var c in cols)
-            c.enabled = true;
-
-        if (rb != null)
-        {
-            rb.isKinematic = false;
-            var cam = GetActiveCamera();
-            var throwDir = (cam != null ? cam.transform.forward : Vector3.forward) + Vector3.up * 0.3f;
-            rb.linearVelocity = throwDir.normalized * 5f;
-            rb.angularVelocity = Random.insideUnitSphere * 3f;
-            _carriedObject.transform.position = cam != null ? cam.transform.position + cam.transform.forward * 1.2f : player.transform.position + Vector3.up;
-        }
-        else if (player != null)
-        {
-            _carriedObject.transform.position = player.transform.position + player.transform.forward * 1.5f + Vector3.up * 0.5f;
-        }
-        _carriedObject = null;
-        _uiManager.ShowMessage(Localization.T("Đã bỏ xuống."), 1f);
-    }
-
-    private (string material, float amount) GetCarriedResourceInfo(GameObject obj)
-    {
-        if (obj.name == "TreeFelled")
-        {
-            var trunk = obj.transform.Find("Trunk");
-            float amount = trunk != null ? trunk.localScale.x * trunk.localScale.y * trunk.localScale.z * 5f : 0.05f;
-            return ("wood", amount);
-        }
-        if (obj.name == "BranchTop")
-        {
-            var part = obj.transform.Find("BranchTopPart");
-            float amount = part != null ? part.localScale.x * part.localScale.y * part.localScale.z * 5f : 0.05f;
-            return ("wood", amount);
-        }
-        if (obj.name == "RockDebris")
-        {
-            var s = obj.transform.localScale;
-            float amount = s.x * s.y * s.z * 20f;
-            return ("stone", amount);
-        }
-        return (null, 0);
-    }
-
-    private void TryAutoDeposit()
-    {
-        if (_carriedObject == null || _worldBuilder == null || _uiManager == null) return;
-
-        int count = Physics.OverlapSphereNonAlloc(_carriedObject.transform.position, 0.6f, _overlapBuffer, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
-        for (int i = 0; i < count; i++)
-        {
-            var c = _overlapBuffer[i];
-            if (!_worldBuilder.IsBlueprint(c.gameObject)) continue;
-            var bp = _worldBuilder.FindBlueprint(c.gameObject);
-            if (bp == null) continue;
-
-            var (material, amount) = GetCarriedResourceInfo(_carriedObject);
-            if (material == null) return;
-
-            if (amount < 0.05f)
-            {
-                Destroy(_carriedObject);
-                _carriedObject = null;
-                _uiManager.ShowMessage(Localization.T("Quá nhỏ để dùng."), 1f);
-                return;
-            }
-
-            if (_worldBuilder.DepositMaterial(bp, material, amount))
-                            {
-                                _uiManager.ShowMessage(Localization.T("Xây dựng hoàn thành!"), 1.5f);
-                                KarmaManager.Instance?.AddMaxKarma(1f);
-                                SoundManager.Instance?.Play("hammer");
-                            }
-                            else
-                            {
-                                _uiManager.ShowMessage(Localization.F("Đã cung cấp {0} x{1}.", Localization.ItemName(material), amount.ToString("F2")), 1.5f);
-                            }
-            Destroy(_carriedObject);
-            _carriedObject = null;
-            _uiManager?.SetInfoText(null);
-            return;
-        }
-    }
-
-    public bool AddItem(string itemType, int amount)
-    {
-        itemType = NormalizeItemType(itemType);
-        if (string.IsNullOrEmpty(itemType) || amount <= 0)
-            return false;
-
-        var slot = FindSlotFor(itemType);
-        if (slot >= 0)
-        {
-            _inventory[slot].Count += amount;
-            UpdateInventoryUI();
-            return true;
-        }
-
-        var empty = FindEmptySlot();
-        if (empty < 0)
-        {
-            _uiManager.ShowMessage(Localization.T("Túi đồ đầy."), 1.5f);
-            return false;
-        }
-
-        _inventory[empty] = new InventorySlot {Type = itemType, Count = amount};
-        UpdateInventoryUI();
-        return true;
-    }
-
-    public bool CanHoldItem(string itemType)
-    {
-        itemType = NormalizeItemType(itemType);
-        if (string.IsNullOrEmpty(itemType))
-            return false;
-        if (FindSlotFor(itemType) >= 0)
-            return true;
-        return FindEmptySlot() >= 0;
-    }
-
-    public bool RemoveItem(int slotIndex, int amount)
-    {
-        if (slotIndex < 0 || slotIndex >= _inventory.Length)
-            return false;
-
-        var slot = _inventory[slotIndex];
-        if (slot == null)
-            return false;
-
-        slot.Count -= amount;
-        if (slot.Count <= 0)
-            _inventory[slotIndex] = null;
-        UpdateInventoryUI();
-        return true;
-    }
-
-    public bool RemoveItemAmount(string itemType, int amount)
-    {
-        itemType = NormalizeItemType(itemType);
-        if (amount <= 0) return true;
-        int remaining = amount;
-        for (int i = 0; i < _inventory.Length && remaining > 0; i++)
-        {
-            if (_inventory[i] == null || _inventory[i].Type != itemType)
-                continue;
-            int take = Mathf.Min(_inventory[i].Count, remaining);
-            _inventory[i].Count -= take;
-            remaining -= take;
-            if (_inventory[i].Count <= 0)
-                _inventory[i] = null;
-        }
-        if (remaining > 0)
-            return false;
-        UpdateInventoryUI();
-        return true;
-    }
-
-    public string GetSelectedItemType()
-    {
-        if (_selectedSlot < 0 || _selectedSlot >= _inventory.Length)
-            return null;
-        var slot = _inventory[_selectedSlot];
-        return slot?.Type;
-    }
-
-    public InventorySlotSave[] GetInventorySave()
-    {
-        var result = new List<InventorySlotSave>();
-        for (int i = 0; i < _inventory.Length; i++)
-        {
-            if (_inventory[i] != null)
-                result.Add(new InventorySlotSave {Slot = i, Type = _inventory[i].Type, Count = _inventory[i].Count});
-        }
-        return result.ToArray();
-    }
-
-    public void LoadInventorySave(InventorySlotSave[] data)
-    {
-        for (int i = 0; i < _inventory.Length; i++)
-            _inventory[i] = null;
-
-        if (data == null)
-            return;
-
-        foreach (var slot in data)
-        {
-            if (slot.Slot >= 0 && slot.Slot < _inventory.Length)
-                _inventory[slot.Slot] = new InventorySlot {Type = NormalizeItemType(slot.Type), Count = slot.Count};
-        }
-
-        UpdateInventoryUI();
-    }
-
-    public void ClearInventory()
-    {
-        for (int i = 0; i < _inventory.Length; i++)
-            _inventory[i] = null;
-        _selectedSlot = 0;
-        UpdateInventoryUI();
-    }
-
-    private int FindSlotFor(string itemType)
-    {
-        itemType = NormalizeItemType(itemType);
-        for (int i = 0; i < _inventory.Length; i++)
-        {
-            if (_inventory[i] != null && _inventory[i].Type == itemType)
-                return i;
-        }
-        return -1;
-    }
-
-    private string NormalizeItemType(string itemType)
-    {
-        if (string.IsNullOrEmpty(itemType))
-            return itemType;
-
-        var normalized = itemType.Trim().ToLowerInvariant().Replace(" ", "_");
-
-        // Map variant names from Python source / user data to canonical internal keys
-        if (normalized == "mì_hảo_hảo" || normalized == "mi_hao_hao" || normalized == "mi_hao_hao")
-            return "mi_hao_hao";
-
-        return normalized;
-    }
-
-    public int FindEmptySlot()
-    {
-        for (int i = 0; i < _inventory.Length; i++)
-        {
-            if (_inventory[i] == null)
-                return i;
-        }
-        return -1;
-    }
-
-    public int CountItem(string itemType)
-    {
-        itemType = NormalizeItemType(itemType);
-        int total = 0;
-        for (int i = 0; i < _inventory.Length; i++)
-        {
-            if (_inventory[i] != null && _inventory[i].Type == itemType)
-                total += _inventory[i].Count;
-        }
-        return total;
-    }
-
-    public void RemoveAllItems(string itemType)
-    {
-        itemType = NormalizeItemType(itemType);
-        for (int i = 0; i < _inventory.Length; i++)
-        {
-            if (_inventory[i] != null && _inventory[i].Type == itemType)
-                _inventory[i] = null;
-        }
-        UpdateInventoryUI();
-    }
-
-    private void CreateToolContainer()
-    {
-        _toolContainer = new GameObject("ToolContainer");
-        _toolContainer.transform.SetParent(Camera.main != null ? Camera.main.transform : transform);
-        _toolContainer.transform.localPosition = new Vector3(0.7f, -0.6f, 1.5f);
-        _toolContainer.transform.localRotation = Quaternion.identity;
-        _toolContainer.transform.localScale = Vector3.one;
-    }
-
-    private void CreateRayVisualizer()
-    {
-        var rayObject = new GameObject("PickupRayVisualizer");
-        rayObject.transform.SetParent(transform);
-        _rayRenderer = rayObject.AddComponent<LineRenderer>();
-        _rayRenderer.material = new Material(Shader.Find("Sprites/Default"));
-        _rayRenderer.startWidth = 0.02f;
-        _rayRenderer.endWidth = 0.02f;
-        _rayRenderer.positionCount = 2;
-        _rayRenderer.startColor = Color.red;
-        _rayRenderer.endColor = Color.red;
-        _rayRenderer.useWorldSpace = true;
-        _rayRenderer.enabled = false;
-    }
-
-    private void ShowRayLine(Vector3 start, Vector3 end)
-    {
-        if (_rayRenderer == null)
-            CreateRayVisualizer();
-
-        _rayRenderer.SetPosition(0, start);
-        _rayRenderer.SetPosition(1, end);
-        _rayRenderer.enabled = true;
-        CancelInvoke(nameof(HideRayLine));
-        Invoke(nameof(HideRayLine), 0.15f);
-    }
-
-    private void HideRayLine()
-    {
-        if (_rayRenderer != null)
-            _rayRenderer.enabled = false;
-    }
-
-    private Camera GetActiveCamera()
-    {
-        return Camera.main != null ? Camera.main : Camera.current ?? Object.FindAnyObjectByType<Camera>();
-    }
-
-    private void EnsureToolContainerAttached()
-    {
-        if (_toolContainer == null)
-            return;
-
-        var cam = GetActiveCamera();
-        if (cam == null)
-            return;
-
-        if (_toolContainer.transform.parent != cam.transform)
-        {
-            _toolContainer.transform.SetParent(cam.transform);
-            _toolContainer.transform.localPosition = new Vector3(0.7f, -0.6f, 1.5f);
-            _toolContainer.transform.localRotation = Quaternion.identity;
-            _toolContainer.transform.localScale = Vector3.one;
-        }
-    }
-
-    private void CreateToolModels()
-    {
-        // Base item
-        CreateToolModel("arm", new Color(0.6f, 0.3f, 0.1f));
-        
-        // Tools
-        CreateToolModel("axe", new Color(0.5f, 0.2f, 0.05f));
-        CreateToolModel("pickaxe", new Color(0.5f, 0.5f, 0.5f));
-        CreateToolModel("hoe", new Color(0.4f, 0.4f, 0.4f));
-        CreateToolModel("hammer", new Color(0.2f, 0.2f, 0.2f));
-        CreateToolModel("scythe", new Color(0.4f, 0.4f, 0.4f));
-        
-        // Items & seeds
-        CreateToolModel("fertilizer", new Color(0.2f, 0.7f, 0.2f));
-        CreateToolModel("wheat_seed", new Color(0.7f, 0.5f, 0.2f));
-        CreateToolModel("peashooter_seed", new Color(1f, 0.86f, 0.31f));
-        CreateToolModel("corn_seed", new Color(1f, 0.86f, 0.24f));
-        CreateToolModel("potato_seed", new Color(0.7f, 0.5f, 0.2f));
-        CreateToolModel("carrot_seed", new Color(1f, 0.5f, 0f));
-        CreateToolModel("tomato_seed", new Color(1f, 0.3f, 0.1f));
-        CreateToolModel("strawberry_seed", new Color(1f, 0.2f, 0.2f));
-        CreateToolModel("pumpkin_seed", new Color(1f, 0.7f, 0.1f));
-        CreateToolModel("onion_seed", new Color(0.7f, 0.5f, 0.3f));
-        CreateToolModel("sugarcane_seed", new Color(0.4f, 0.7f, 0.2f));
-        CreateToolModel("rice_seed", new Color(0.9f, 0.85f, 0.4f));
-        CreateToolModel("watering_can", new Color(0.4f, 0.5f, 0.6f));
-        
-        // Crops & resources
-        CreateToolModel("wood", new Color(0.6f, 0.4f, 0.2f));
-        CreateToolModel("stone", new Color(0.5f, 0.5f, 0.5f));
-        CreateToolModel("wheat", new Color(1f, 1f, 0.5f));
-        CreateToolModel("damaged_wheat", new Color(0.6f, 0.4f, 0.2f));
-        CreateToolModel("corn", new Color(1f, 0.85f, 0.2f));
-        CreateToolModel("damaged_corn", new Color(0.6f, 0.4f, 0.2f));
-        CreateToolModel("potato", new Color(0.627f, 0.431f, 0.235f));
-        CreateToolModel("damaged_potato", new Color(0.6f, 0.4f, 0.2f));
-        CreateToolModel("carrot", new Color(1f, 0.55f, 0.1f));
-        CreateToolModel("damaged_carrot", new Color(0.6f, 0.4f, 0.2f));
-        CreateToolModel("tomato", new Color(1f, 0.2f, 0.1f));
-        CreateToolModel("damaged_tomato", new Color(0.6f, 0.4f, 0.2f));
-        CreateToolModel("strawberry", new Color(1f, 0.15f, 0.15f));
-        CreateToolModel("damaged_strawberry", new Color(0.6f, 0.4f, 0.2f));
-        CreateToolModel("pumpkin", new Color(1f, 0.6f, 0.1f));
-        CreateToolModel("damaged_pumpkin", new Color(0.6f, 0.4f, 0.2f));
-        CreateToolModel("onion", new Color(0.8f, 0.5f, 0.2f));
-        CreateToolModel("damaged_onion", new Color(0.6f, 0.4f, 0.2f));
-        CreateToolModel("sugarcane", new Color(0.3f, 0.7f, 0.15f));
-        CreateToolModel("damaged_sugarcane", new Color(0.6f, 0.4f, 0.2f));
-        CreateToolModel("rice", new Color(1f, 0.9f, 0.3f));
-        CreateToolModel("damaged_rice", new Color(0.6f, 0.4f, 0.2f));
-        CreateToolModel("field", new Color(0.45f, 0.28f, 0.12f));
-        CreateToolModel("mobspawner", new Color(0.25f, 0.25f, 0.25f));
-        
-        // Special items
-        CreateToolModel("mi_hao_hao", new Color(0.8f, 0.3f, 0.2f));
-
-        // Convenience store
-        CreateToolModel("nuoc_dau", new Color(0.75f, 0.9f, 0.75f));
-        CreateToolModel("tra_da", new Color(0.75f, 0.5f, 0.3f));
-        CreateToolModel("soda", new Color(0.85f, 0.2f, 0.15f));
-        CreateToolModel("banh_mi", new Color(0.75f, 0.5f, 0.2f));
-        CreateToolModel("banh_tet", new Color(0.2f, 0.55f, 0.2f));
-        CreateToolModel("keo", new Color(0.95f, 0.35f, 0.55f));
-
-        // Grocery store
-        CreateToolModel("tu_gao", new Color(0.95f, 0.93f, 0.88f));
-        CreateToolModel("duong", new Color(0.95f, 0.92f, 0.82f));
-        CreateToolModel("muoi", new Color(0.93f, 0.94f, 0.96f));
-        CreateToolModel("xap_phong", new Color(0.75f, 0.85f, 0.95f));
-        CreateToolModel("mi_chinh", new Color(0.9f, 0.2f, 0.18f));
-
-        // Restaurant dishes
-        CreateToolModel("com_trang", new Color(1f, 0.97f, 0.9f));
-        CreateToolModel("com_tam", new Color(0.85f, 0.75f, 0.55f));
-        CreateToolModel("com_ga", new Color(1f, 0.6f, 0.35f));
-        CreateToolModel("com_chieu", new Color(0.9f, 0.6f, 0.2f));
-        
-        // Livestock tools
-        CreateToolModel("club", new Color(0.5f, 0.25f, 0.05f));
-        CreateToolModel("cage_big", new Color(0.5f, 0.5f, 0.55f));
-        CreateToolModel("cage_small", new Color(0.55f, 0.55f, 0.6f));
-        CreateToolModel("fishing_rod", new Color(0.5f, 0.3f, 0.08f));
-        CreateToolModel("fishing_bait", new Color(0.75f, 0.4f, 0.3f));
-        CreateToolModel("fishing_chum", new Color(0.8f, 0.15f, 0.1f));
-        CreateToolModel("rosary", new Color(1f, 0.84f, 0.2f));
-    }
-
-    private void CreateToolModel(string toolType, Color color)
-    {
-        var root = new GameObject(toolType + "_Tool");
-        root.transform.SetParent(_toolContainer.transform);
-        root.transform.localPosition = Vector3.zero;
-        root.transform.localRotation = Quaternion.identity;
-
-        if (ToolModelPrefab != null)
-        {
-            var prefabInstance = Instantiate(ToolModelPrefab, root.transform);
-            prefabInstance.name = toolType + "_Model";
-            prefabInstance.transform.localPosition = Vector3.zero;
-            prefabInstance.transform.localRotation = Quaternion.identity;
-            prefabInstance.transform.localScale = Vector3.one;
-            ApplyToolMaterial(prefabInstance);
-        }
-        else
-        {
-            switch (toolType)
-            {
-                case "fertilizer":
-                    var fertPart = new GameObject("Fertilizer");
-                    fertPart.transform.SetParent(root.transform);
-                    fertPart.transform.localPosition = Vector3.zero;
-                    ItemBuilder.BuildFertilizer(fertPart.transform);
-                    if (FertilizerTexture != null)
-                        ApplyTextureToAllChildren(fertPart, FertilizerTexture);
-                    break;
-                case "peashooter_seed":
-                    var peashooterPart = new GameObject("PeashooterSeed");
-                    peashooterPart.transform.SetParent(root.transform);
-                    peashooterPart.transform.localPosition = Vector3.zero;
-                    ItemBuilder.BuildPeashooterSeed(peashooterPart.transform);
-                    if (PeashooterSeedTexture != null)
-                        ApplyTextureToAllChildren(peashooterPart, PeashooterSeedTexture);
-                    break;
-                case "wheat":
-                    ItemBuilder.BuildWheatPickup(root.transform, new Color(1f, 1f, 0.5f));
-                    break;
-                case "mi_hao_hao":
-                    if (MiHaoHaoModel != null)
-                    {
-                        var miHaoHaoInstance = Instantiate(MiHaoHaoModel, root.transform);
-                        miHaoHaoInstance.name = "MiHaoHao_Model";
-                        miHaoHaoInstance.transform.localPosition = Vector3.zero;
-                        miHaoHaoInstance.transform.localRotation = Quaternion.identity;
-                        miHaoHaoInstance.transform.localScale = Vector3.one;
-                        if (MiHaoHaoTexture != null)
-                            ApplyTextureToAllChildren(miHaoHaoInstance, MiHaoHaoTexture);
-                    }
-                    else
-                    {
-                        ItemBuilder.BuildMiHaoHao(root.transform);
-                    }
-                    break;
-                default:
-                    ItemBuilder.BuildItem(root.transform, toolType);
-                    break;
-            }
-        }
-        root.SetActive(false);
-        _toolModels[toolType] = root;
-        DestroyAllColliders(root);
-    }
-
-    private void ShowActiveToolModel()
-    {
-        foreach (var kvp in _toolModels)
-        {
-            if (kvp.Value != null)
-                kvp.Value.SetActive(kvp.Key == GetSelectedItemType());
-        }
-    }
-
-    private void DestroyAllColliders(GameObject root)
-    {
-        foreach (var collider in root.GetComponentsInChildren<Collider>())
-        {
-            Destroy(collider);
-        }
-    }
-
-    private void ApplyColor(GameObject go, Color color)
-    {
-        var renderer = go.GetComponent<Renderer>();
-        if (renderer == null)
-            return;
-
-        if (ToolMaterial != null)
-        {
-            renderer.material = ToolMaterial;
-            if (ToolTexture != null)
-                renderer.material.mainTexture = ToolTexture;
-        }
-        else if (ToolTexture != null)
-        {
-            var textureMaterial = new Material(Shader.Find("Standard"));
-            textureMaterial.mainTexture = ToolTexture;
-            renderer.material = textureMaterial;
-        }
-        else
-        {
-            renderer.material.color = color;
-        }
-    }
-
-    private void ApplyToolMaterial(GameObject root)
-    {
-        if (ToolMaterial == null && ToolTexture == null)
-            return;
-
-        foreach (var renderer in root.GetComponentsInChildren<Renderer>())
-        {
-            if (ToolMaterial != null)
-            {
-                renderer.material = ToolMaterial;
-                if (ToolTexture != null)
-                    renderer.material.mainTexture = ToolTexture;
-            }
-            else if (ToolTexture != null)
-            {
-                var textureMaterial = new Material(Shader.Find("Standard"));
-                textureMaterial.mainTexture = ToolTexture;
-                renderer.material = textureMaterial;
-            }
-        }
-    }
-
-    private void ApplyTextureToAllChildren(GameObject go, Texture2D texture)
-    {
-        if (texture == null)
-            return;
-
-        foreach (var renderer in go.GetComponentsInChildren<Renderer>())
-        {
-            var textureMaterial = new Material(Shader.Find("Standard"));
-            textureMaterial.mainTexture = texture;
-            renderer.material = textureMaterial;
         }
     }
 
@@ -1947,265 +932,5 @@ public class ToolManager : MonoBehaviour
         public int Slot;
         public string Type;
         public int Count;
-    }
-
-    private void ToggleBuildingMenu()
-    {
-        if (_buildingMenuOpen)
-        {
-            CloseBuildingMenu();
-            return;
-        }
-
-        if (_buildingMenuPanel == null)
-            CreateBuildingMenu();
-
-        _buildingMenuOpen = true;
-        _buildingMenuPanel.SetActive(true);
-        RefreshBuildingMenuLabels();
-        GameManager.Instance?.TogglePause(true);
-        GameManager.Instance?.UIManager?.ShowPauseMenu(false);
-        GameInput.SetCursorLocked(false);
-    }
-
-    private void CloseBuildingMenu()
-    {
-        _buildingMenuOpen = false;
-        if (_buildingMenuPanel != null)
-            _buildingMenuPanel.SetActive(false);
-        GameManager.Instance?.TogglePause(false);
-        GameInput.SetCursorLocked(true);
-        UpdateBuildingPreviewVisibility();
-    }
-
-    private void CreateBuildingMenu()
-    {
-        var canvasGo = GameObject.Find("HUD_Canvas");
-        var canvas = canvasGo != null ? canvasGo.GetComponent<Canvas>() : Object.FindAnyObjectByType<Canvas>();
-        if (canvas == null) return;
-
-        float sw = Screen.width;
-        float sh = Screen.height;
-        float panelW = Mathf.Min(sw * 0.50f, 500f);
-        float panelH = Mathf.Min(sh * 0.65f, 420f);
-        float fontS = Mathf.Max(14f, sh / 42f);
-        float btnH = sh * 0.065f;
-        float padding = sh * 0.015f;
-
-        _buildingMenuPanel = new GameObject("BuildingMenu");
-        _buildingMenuPanel.transform.SetParent(canvas.transform, false);
-        var panelRect = _buildingMenuPanel.AddComponent<RectTransform>();
-        panelRect.anchorMin = new Vector2(0.5f, 0.5f);
-        panelRect.anchorMax = new Vector2(0.5f, 0.5f);
-        panelRect.pivot = new Vector2(0.5f, 0.5f);
-        panelRect.sizeDelta = new Vector2(panelW, panelH);
-        var panelImg = _buildingMenuPanel.AddComponent<Image>();
-        panelImg.color = new Color(0.18f, 0.2f, 0.27f, 0.95f);
-
-        var title = MakeBMText("BuildTitle", _buildingMenuPanel.transform, Localization.T("Xây Dựng"),
-            new Vector2(0f, panelH * 0.42f), new Vector2(panelW - 80, fontS * 1.6f), (int)(fontS * 1.3f));
-
-        MakeBMButton("BuildClose", _buildingMenuPanel.transform, "X",
-            new Vector2(panelW * 0.44f, panelH * 0.42f), new Vector2(btnH, btnH),
-            (int)fontS, new Color(0.75f, 0.38f, 0.41f), CloseBuildingMenu);
-
-        float headerH = panelH * 0.18f;
-        float viewportH = panelH - headerH - padding * 2;
-
-        var viewport = new GameObject("Viewport");
-        viewport.transform.SetParent(_buildingMenuPanel.transform, false);
-        var vpRect = viewport.AddComponent<RectTransform>();
-        vpRect.anchorMin = new Vector2(0.5f, 0.5f);
-        vpRect.anchorMax = new Vector2(0.5f, 0.5f);
-        vpRect.pivot = new Vector2(0.5f, 0.5f);
-        vpRect.anchoredPosition = new Vector2(0f, -padding);
-        vpRect.sizeDelta = new Vector2(panelW - padding * 2, viewportH);
-        var vpImg = viewport.AddComponent<Image>();
-        vpImg.color = new Color(0.12f, 0.13f, 0.18f, 1f);
-        viewport.AddComponent<Mask>().showMaskGraphic = true;
-
-        var content = new GameObject("Content");
-        content.transform.SetParent(viewport.transform, false);
-        var contentRect = content.AddComponent<RectTransform>();
-        contentRect.anchorMin = new Vector2(0f, 1f);
-        contentRect.anchorMax = new Vector2(1f, 1f);
-        contentRect.pivot = new Vector2(0.5f, 1f);
-        contentRect.anchoredPosition = Vector2.zero;
-        contentRect.sizeDelta = new Vector2(0f, 0f);
-
-        var csf = content.AddComponent<ContentSizeFitter>();
-        csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-        var layout = content.AddComponent<VerticalLayoutGroup>();
-        layout.childForceExpandWidth = true;
-        layout.childForceExpandHeight = false;
-        layout.childControlWidth = true;
-        layout.childControlHeight = true;
-        layout.spacing = padding;
-        layout.padding = new RectOffset((int)padding, (int)padding, (int)padding, (int)padding);
-
-        var scrollRect = _buildingMenuPanel.AddComponent<ScrollRect>();
-        scrollRect.viewport = vpRect;
-        scrollRect.content = contentRect;
-        scrollRect.horizontal = false;
-        scrollRect.vertical = true;
-        scrollRect.movementType = ScrollRect.MovementType.Elastic;
-        scrollRect.elasticity = 0.1f;
-
-        var wb = WorldBuilder.Instance;
-        int count = wb != null ? wb.BuildingCount : 0;
-
-        for (int i = 0; i < count; i++)
-        {
-            var def = wb.GetBuildingByIndex(i);
-            int index = i;
-            bool unlocked = wb.IsBlueprintUnlocked(def.Name);
-
-            string costLabel = "";
-            if (def.WoodCost > 0) costLabel += def.WoodCost + "🪵 ";
-            if (def.StoneCost > 0) costLabel += def.StoneCost + "🪨";
-            costLabel = costLabel.Trim();
-            string btnLabel = Localization.BuildingName(def.Name) + "    " + costLabel;
-            if (!unlocked) btnLabel += "   🔒";
-
-            var btn = MakeBMButton("BuildBtn_" + i, content.transform, btnLabel,
-                Vector2.zero, new Vector2(panelW - padding * 4, btnH),
-                (int)fontS, new Color(0.26f, 0.3f, 0.37f),
-                () => SelectBuilding(index));
-
-            if (!unlocked)
-            {
-                btn.interactable = false;
-                var targetImg = btn.targetGraphic as Graphic;
-                if (targetImg != null) targetImg.color = new Color(0.18f, 0.2f, 0.26f);
-                var btnText = btn.GetComponentInChildren<TMP_Text>();
-                if (btnText != null) btnText.color = new Color(0.55f, 0.55f, 0.55f);
-            }
-
-            var le = btn.gameObject.GetComponent<LayoutElement>();
-            if (le == null) le = btn.gameObject.AddComponent<LayoutElement>();
-            le.preferredHeight = btnH;
-        }
-
-        _buildingMenuPanel.SetActive(false);
-    }
-
-    private void SelectBuilding(int index)
-    {
-        var wb = WorldBuilder.Instance;
-        if (wb == null) return;
-        var def = wb.GetBuildingByIndex(index);
-        if (!wb.IsBlueprintUnlocked(def.Name))
-        {
-            _uiManager?.ShowMessage(Localization.T("Bản thiết kế này bị khóa. Hãy đến Thư Viện tìm hiểu thêm!"), 2f);
-            return;
-        }
-        wb.CurrentBuildingIndex = index;
-        _buildingChosen = true;
-        CloseBuildingMenu();
-        _uiManager?.ShowMessage(Localization.F("Đã chọn: {0}. Nhấp để đặt.", Localization.BuildingName(def.Name)), 2f);
-    }
-
-    private void RefreshBuildingMenuLabels()
-    {
-        if (_buildingMenuPanel == null) return;
-        var titleTf = _buildingMenuPanel.transform.Find("BuildTitle");
-        if (titleTf != null)
-        {
-            var t = titleTf.GetComponent<TMP_Text>();
-            if (t != null) t.text = Localization.T("Xây Dựng");
-        }
-        var wb = WorldBuilder.Instance;
-        int count = wb != null ? wb.BuildingCount : 0;
-        for (int i = 0; i < count; i++)
-        {
-            var def = wb.GetBuildingByIndex(i);
-            bool unlocked = wb.IsBlueprintUnlocked(def.Name);
-            string costLabel = "";
-            if (def.WoodCost > 0) costLabel += def.WoodCost + "🪵 ";
-            if (def.StoneCost > 0) costLabel += def.StoneCost + "🪨";
-            costLabel = costLabel.Trim();
-            string label = Localization.BuildingName(def.Name) + "    " + costLabel;
-            if (!unlocked) label += "   🔒";
-            var btnGo = _buildingMenuPanel.transform.Find("Viewport/Content/BuildBtn_" + i);
-            if (btnGo == null) continue;
-            var t = btnGo.GetComponentInChildren<TMP_Text>();
-            if (t != null) t.text = label;
-            var btn = btnGo.GetComponent<Button>();
-            if (btn != null)
-            {
-                btn.interactable = unlocked;
-                var targetImg = btn.targetGraphic as Graphic;
-                if (targetImg != null) targetImg.color = unlocked ? new Color(0.26f, 0.3f, 0.37f) : new Color(0.18f, 0.2f, 0.26f);
-                if (t != null) t.color = unlocked ? Color.white : new Color(0.55f, 0.55f, 0.55f);
-            }
-        }
-    }
-
-    private string GetVietnameseBuildingName(string name)
-    {
-        return Localization.BuildingName(name);
-    }
-
-    private string GetMansionPartVietnameseName(string typeName)
-    {
-        return Localization.MansionPartName(typeName);
-    }
-
-    private TMP_Text MakeBMText(string name, Transform parent, string text,
-        Vector2 pos, Vector2 size, int fontSize)
-    {
-        var go = new GameObject(name);
-        go.transform.SetParent(parent, false);
-        var rt = go.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0.5f, 0.5f);
-        rt.anchorMax = new Vector2(0.5f, 0.5f);
-        rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.anchoredPosition = pos;
-        rt.sizeDelta = size;
-        var tmp = go.AddComponent<TextMeshProUGUI>();
-        if (_uiManager != null && _uiManager.defaultTmpFont != null)
-            tmp.font = _uiManager.defaultTmpFont;
-        tmp.text = text;
-        tmp.fontSize = fontSize;
-        tmp.color = Color.white;
-        tmp.alignment = TextAlignmentOptions.Center;
-        return tmp;
-    }
-
-    private Button MakeBMButton(string name, Transform parent, string label,
-        Vector2 pos, Vector2 size, int fontSize, Color color,
-        UnityEngine.Events.UnityAction callback)
-    {
-        var go = new GameObject(name);
-        go.transform.SetParent(parent, false);
-        var rt = go.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0.5f, 0.5f);
-        rt.anchorMax = new Vector2(0.5f, 0.5f);
-        rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.anchoredPosition = pos;
-        rt.sizeDelta = size;
-        var img = go.AddComponent<Image>();
-        img.color = color;
-        var btn = go.AddComponent<Button>();
-        btn.targetGraphic = img;
-        btn.onClick.AddListener(callback);
-
-        var textGO = new GameObject("Text");
-        textGO.transform.SetParent(go.transform, false);
-        var tr = textGO.AddComponent<RectTransform>();
-        tr.anchorMin = Vector2.zero;
-        tr.anchorMax = Vector2.one;
-        tr.offsetMin = Vector2.zero;
-        tr.offsetMax = Vector2.zero;
-        var tmp = textGO.AddComponent<TextMeshProUGUI>();
-        if (_uiManager != null && _uiManager.defaultTmpFont != null)
-            tmp.font = _uiManager.defaultTmpFont;
-        tmp.text = label;
-        tmp.fontSize = fontSize;
-        tmp.color = Color.white;
-        tmp.alignment = TextAlignmentOptions.Center;
-
-        return btn;
     }
 }
