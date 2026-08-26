@@ -19,6 +19,9 @@ public class FlappingFish : MonoBehaviour
 
     private const float Gravity = 6f;
 
+    private Transform _headTransform;
+    private Transform[] _tailTransforms;
+
     public void Initialize(string fishType, string fishLabel, Vector3 spawnPos)
     {
         FishType = fishType;
@@ -27,6 +30,13 @@ public class FlappingFish : MonoBehaviour
         _baseY = spawnPos.y;
         _timeAlive = 0f;
         _state = FState.Flapping;
+
+        _headTransform = transform.childCount > 1 ? transform.GetChild(1) : null;
+        _tailTransforms = new Transform[0];
+        var tails = new System.Collections.Generic.List<Transform>();
+        if (transform.childCount > 2) tails.Add(transform.GetChild(2));
+        if (transform.childCount > 3) tails.Add(transform.GetChild(3));
+        _tailTransforms = tails.ToArray();
     }
 
     public void KnockOut()
@@ -92,17 +102,32 @@ public class FlappingFish : MonoBehaviour
         }
 
         transform.position = p;
-        transform.localRotation = Quaternion.Euler(Mathf.Sin(Time.time * 20f) * 30f, 0f, Mathf.Cos(Time.time * 16f) * 20f);
+        transform.localRotation = Quaternion.Euler(0f, Mathf.Sin(Time.time * 8f) * 15f, 0f);
+
+        float headWiggle = Mathf.Sin(Time.time * 12f) * 25f;
+        if (_headTransform != null)
+            _headTransform.localRotation = Quaternion.Euler(0f, headWiggle, 0f);
+        for (int i = 0; i < _tailTransforms.Length; i++)
+        {
+            if (_tailTransforms[i] != null)
+                _tailTransforms[i].localRotation = Quaternion.Euler(0f, -headWiggle * 0.7f, 0f);
+        }
     }
 
     private void UpdateStunned()
     {
-        transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
+        if (_headTransform != null) _headTransform.localRotation = Quaternion.identity;
+        for (int i = 0; i < _tailTransforms.Length; i++)
+            if (_tailTransforms[i] != null) _tailTransforms[i].localRotation = Quaternion.identity;
     }
 
     private void UpdateCalm()
     {
-        transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
+        if (_headTransform != null) _headTransform.localRotation = Quaternion.identity;
+        for (int i = 0; i < _tailTransforms.Length; i++)
+            if (_tailTransforms[i] != null) _tailTransforms[i].localRotation = Quaternion.identity;
     }
 
     private void MakePickable()

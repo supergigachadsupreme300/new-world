@@ -85,9 +85,7 @@ public class BuffaloDialog : MonoBehaviour
         if (_openShopText != null)
             _openShopText.text = GameInput.IsMobile ? Localization.T("[Mở Cửa Hàng] (Chạm)") : Localization.T("[Mở Cửa Hàng] Nhấn T");
         _dialogQueue.Clear();
-        _dialogQueue.Enqueue("Chào bạn! Tôi là Buffalo, chủ cửa hàng của làng.");
-        _dialogQueue.Enqueue("Tôi bán hạt giống, công cụ và thức ăn cho gia súc.");
-        _dialogQueue.Enqueue("Ghế cửa hàng bất cứ khi nào bạn cần nhé!");
+        _dialogQueue.Enqueue("Tôi thích lúa mì!");
         Advance();
         if (_shopRow != null)
             _shopRow.SetActive(true);

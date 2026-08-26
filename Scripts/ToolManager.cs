@@ -413,7 +413,7 @@ public class ToolManager : MonoBehaviour
                     string remainingText = parts.Count > 0 ? Localization.F("Cần: {0}", string.Join(", ", parts)) : Localization.T("Hoàn thành!");
                     _uiManager.SetInfoText(Localization.BuildingName(def.Name) + " - " + remainingText);
                 }
-                else if (bp.IsMansion)
+                else if (bp.IsEssential || bp.IsMansion)
                 {
                     float woodRemaining = bp.WoodCost - bp.WoodDeposited;
                     float stoneRemaining = bp.StoneCost - bp.StoneDeposited;
@@ -423,8 +423,15 @@ public class ToolManager : MonoBehaviour
                     if (stoneRemaining > 0.01f)
                         parts.Add(stoneRemaining.ToString("F1") + " " + Localization.ItemName("stone"));
                     string remainingText = parts.Count > 0 ? Localization.F("Cần: {0}", string.Join(", ", parts)) : Localization.T("Hoàn thành!");
-                    string partName = Localization.MansionPartName(bp.Type);
-                    _uiManager.SetInfoText(Localization.F("Dinh Thự - {0} - {1}", partName, remainingText));
+                    if (bp.IsMansion)
+                    {
+                        string partName = Localization.MansionPartName(bp.Type);
+                        _uiManager.SetInfoText(Localization.F("Dinh Thự - {0} - {1}", partName, remainingText));
+                    }
+                    else
+                    {
+                        _uiManager.SetInfoText(Localization.BuildingName(bp.Type) + " - " + remainingText);
+                    }
                 }
                 else
                     _uiManager.SetInfoText(null);
@@ -433,6 +440,23 @@ public class ToolManager : MonoBehaviour
             {
                 _uiManager.SetInfoText(null);
             }
+        }
+        else if (root.name.StartsWith("PartGhost_"))
+        {
+            var ghostBld = _worldBuilder.FindBuilding(root);
+            if (ghostBld != null && ghostBld.IsEssential)
+            {
+                _worldBuilder.GetEssentialCosts(ghostBld.Type, out float totalWood, out float totalStone);
+                var parts = new System.Collections.Generic.List<string>();
+                if (totalWood > 0.01f)
+                    parts.Add(Localization.T("Gỗ:") + $" {Mathf.CeilToInt(totalWood)}");
+                if (totalStone > 0.01f)
+                    parts.Add(Localization.T("Đá:") + $" {Mathf.CeilToInt(totalStone)}");
+                string costText = parts.Count > 0 ? Localization.F("Cần: {0}", string.Join(", ", parts)) : Localization.T("Hoàn thành!");
+                _uiManager.SetInfoText(Localization.BuildingName(ghostBld.Type) + " - " + costText);
+            }
+            else
+                _uiManager.SetInfoText(null);
         }
         else if (root.name == "TreeFelled" || root.name == "BranchTop" || root.name == "RockDebris" || root.name == "CageWithAnimal" || root.name == "ThrownCage")
         {
@@ -887,7 +911,7 @@ public class ToolManager : MonoBehaviour
         ItemBuilder.BuildPalm(palmGo.transform);
 
         var col = palmGo.AddComponent<BoxCollider>();
-        col.size = new Vector3(0.7f, 0.3f, 0.4f);
+        col.size = new Vector3(0.8f, 0.6f, 0.3f);
 
         var rb = palmGo.AddComponent<Rigidbody>();
         rb.useGravity = false;

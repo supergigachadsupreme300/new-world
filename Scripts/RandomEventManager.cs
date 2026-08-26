@@ -173,15 +173,6 @@ public class RandomEventManager : MonoBehaviour
         });
         _events.Add(new RandomEvent
         {
-            Name = "Thương Nhân Lang Thang",
-            Description = "Một thương nhân đã xuất hiện trên đường!",
-            Tier = 0,
-            Weight = 2f,
-            Cooldown = 1200f,
-            Effect = EffectWanderingMerchant
-        });
-        _events.Add(new RandomEvent
-        {
             Name = "Cá Rơi",
             Description = "Cá rơi từ bầu trời!",
             Tier = 0,
@@ -278,7 +269,7 @@ public class RandomEventManager : MonoBehaviour
         _events.Add(new RandomEvent
         {
             Name = "Đàn Tấn Công",
-            Description = "Một đàn quái vật tấn công!",
+            Description = "Ba đợt quái vật tấn công dồn dập!",
             Tier = 2,
             Weight = 1f,
             Cooldown = 2400f,
@@ -499,8 +490,11 @@ public class RandomEventManager : MonoBehaviour
 
     private void ShowBanner(string title, string desc)
     {
-        if (_uiManager != null)
-            _uiManager.ShowMessage(Localization.T(title) + ": " + Localization.T(desc), 4f);
+        var ui = _uiManager != null ? _uiManager : GameManager.Instance?.UIManager;
+        if (ui != null)
+            ui.ShowMessage(Localization.T(title) + ": " + Localization.T(desc), 4f);
+        else
+            Debug.LogWarning("[Event] ShowBanner: UIManager is null");
     }
 
     // ── Helper: Player Position ──
@@ -869,9 +863,11 @@ public class RandomEventManager : MonoBehaviour
         if (rock == null) yield break;
         float speed = 40f;
         float groundY = scale * 0.5f;
+        float elapsed = 0f;
 
         while (rock != null)
         {
+            elapsed += Time.deltaTime;
             Vector3 pos = rock.transform.position;
             Vector3 toTarget = target - pos;
             toTarget.y = 0f;
@@ -879,10 +875,11 @@ public class RandomEventManager : MonoBehaviour
 
             if (pos.y <= groundY && horizDist < 3f) break;
 
+            float descentSpeed = speed * 0.5f + 9.81f * elapsed;
             Vector3 step = toTarget.normalized * speed * Time.deltaTime;
             pos.x += step.x;
             pos.z += step.z;
-            pos.y -= speed * 0.5f * Time.deltaTime;
+            pos.y -= descentSpeed * Time.deltaTime;
             rock.transform.position = pos;
             yield return null;
         }
@@ -919,12 +916,12 @@ public class RandomEventManager : MonoBehaviour
             mgr.StartCoroutine(mgr.CameraShake(1.5f, 0.4f));
         }
 
-        float elapsed = 0f;
+        float fadeElapsed = 0f;
         Vector3 origScale = rock.transform.localScale;
-        while (elapsed < 0.3f && rock != null)
+        while (fadeElapsed < 0.3f && rock != null)
         {
-            elapsed += Time.deltaTime;
-            float t = elapsed / 0.3f;
+            fadeElapsed += Time.deltaTime;
+            float t = fadeElapsed / 0.3f;
             rock.transform.localScale = Vector3.Lerp(origScale, Vector3.zero, t);
             yield return null;
         }
@@ -961,13 +958,13 @@ public class RandomEventManager : MonoBehaviour
             var rb = chunk.AddComponent<Rigidbody>();
             rb.useGravity = true;
             rb.mass = parentScale * 0.3f;
-            rb.linearDamping = 1f;
+            rb.linearDamping = 0.3f;
 
             Vector3 dir = new Vector3(
                 UnityEngine.Random.Range(-1f, 1f),
-                UnityEngine.Random.Range(0.5f, 2.5f),
+                UnityEngine.Random.Range(0.3f, 1.2f),
                 UnityEngine.Random.Range(-1f, 1f)).normalized;
-            rb.linearVelocity = dir * UnityEngine.Random.Range(8f, 18f);
+            rb.linearVelocity = dir * UnityEngine.Random.Range(15f, 35f);
 
             Destroy(chunk, 30f);
         }
@@ -1005,14 +1002,117 @@ public class RandomEventManager : MonoBehaviour
 
     private void EffectStormDamage()
     {
-        var wb = WorldBuilder.Instance;
-        if (wb == null) return;
-        var buildings = new List<WorldBuilder.BuildingState>(wb.GetAllBuildings());
-        if (buildings.Count == 0) return;
+        StartCoroutine(StormDamageEffect());
+    }
 
-        var building = buildings[UnityEngine.Random.Range(0, buildings.Count)];
-        int damage = Mathf.Max(1, building.MaxHealth / 4);
-        wb.DamageBuildingDirect(building, damage);
+    private IEnumerator StormDamageEffect()
+    {
+        var wb = WorldBuilder.Instance;
+        var root = GetWorldRoot();
+        Vector3 playerPos = GetPlayerPos();
+
+        Vector3 cloudPos = playerPos + new Vector3(
+            UnityEngine.Random.Range(-8f, 8f), 50f,
+            UnityEngine.Random.Range(-8f, 8f));
+        var cloud = MapBuilder.BuildCloud(root, cloudPos, 5f);
+        foreach (var r in cloud.GetComponentsInChildren<Renderer>())
+            r.material.color = new Color(0.12f, 0.12f, 0.15f);
+
+        int rainCount = 60;
+        var rainDrops = new GameObject[rainCount];
+        var rainRenderers = new Renderer[rainCount];
+        for (int i = 0; i < rainCount; i++)
+        {
+            var drop = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            drop.name = "RainDrop";
+            drop.transform.SetParent(root);
+            Destroy(drop.GetComponent<Collider>());
+            float rx = playerPos.x + UnityEngine.Random.Range(-25f, 25f);
+            float ry = UnityEngine.Random.Range(5f, 50f);
+            float rz = playerPos.z + UnityEngine.Random.Range(-25f, 25f);
+            drop.transform.position = new Vector3(rx, ry, rz);
+            drop.transform.localScale = new Vector3(0.08f, UnityEngine.Random.Range(0.8f, 1.8f), 0.08f);
+            var dr = drop.GetComponent<Renderer>();
+            if (dr != null)
+            {
+                var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                mat.SetFloat("_Surface", 1f);
+                mat.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                mat.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                mat.SetFloat("_ZWrite", 0f);
+                mat.SetFloat("_Cull", 0f);
+                mat.SetFloat("_Metallic", 0f);
+                mat.SetFloat("_Smoothness", 0.8f);
+                mat.renderQueue = 3000;
+                mat.color = new Color(0.7f, 0.8f, 1f, 0.35f);
+                dr.material = mat;
+                rainRenderers[i] = dr;
+            }
+            rainDrops[i] = drop;
+        }
+
+        float duration = 20f;
+        float elapsed = 0f;
+        float nextFlash = UnityEngine.Random.Range(1f, 3f);
+        float damageTime = duration * 0.5f;
+        bool damageDone = false;
+        float windX = UnityEngine.Random.Range(-3f, 3f);
+        float windZ = UnityEngine.Random.Range(-3f, 3f);
+        var cloudRenderers = cloud.GetComponentsInChildren<Renderer>();
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            nextFlash -= Time.deltaTime;
+
+            if (nextFlash <= 0f)
+            {
+                nextFlash = UnityEngine.Random.Range(1.5f, 3.5f);
+                foreach (var cr in cloudRenderers)
+                    if (cr != null) cr.material.color = new Color(0.85f, 0.85f, 0.9f);
+                yield return new WaitForSeconds(0.1f);
+                foreach (var cr in cloudRenderers)
+                    if (cr != null) cr.material.color = new Color(0.12f, 0.12f, 0.15f);
+            }
+
+            if (!damageDone && elapsed >= damageTime)
+            {
+                damageDone = true;
+                if (wb != null)
+                {
+                    var buildings = new List<WorldBuilder.BuildingState>(wb.GetAllBuildings());
+                    if (buildings.Count > 0)
+                    {
+                        var b = buildings[UnityEngine.Random.Range(0, buildings.Count)];
+                        wb.DamageBuildingDirect(b, Mathf.Max(1, b.MaxHealth / 4));
+                    }
+                }
+            }
+
+            float fallSpeed = 30f;
+            for (int i = 0; i < rainCount; i++)
+            {
+                if (rainDrops[i] == null) continue;
+                var rt = rainDrops[i].transform;
+                Vector3 pos = rt.position;
+                pos.y -= fallSpeed * Time.deltaTime;
+                pos.x += windX * Time.deltaTime;
+                pos.z += windZ * Time.deltaTime;
+                if (pos.y < 0f)
+                {
+                    pos.x = playerPos.x + UnityEngine.Random.Range(-25f, 25f);
+                    pos.y = UnityEngine.Random.Range(40f, 55f);
+                    pos.z = playerPos.z + UnityEngine.Random.Range(-25f, 25f);
+                }
+                rt.position = pos;
+            }
+
+            yield return null;
+        }
+
+        for (int i = 0; i < rainCount; i++)
+            if (rainDrops[i] != null) Destroy(rainDrops[i]);
+        if (cloud != null) Destroy(cloud);
     }
 
     private void EffectEarthquake()
@@ -1059,18 +1159,8 @@ public class RandomEventManager : MonoBehaviour
                 Vector3 strikePos = new Vector3(
                     playerPos.x + UnityEngine.Random.Range(-12f, 12f), 0.5f,
                     playerPos.z + UnityEngine.Random.Range(-12f, 12f));
-                float boltHeight = cloudPos.y - 0.5f;
-                float boltMidY = 0.5f + boltHeight * 0.5f;
 
-                var bolt = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                bolt.name = "LightningBolt";
-                bolt.transform.SetParent(root);
-                bolt.transform.position = new Vector3(strikePos.x, boltMidY, strikePos.z);
-                bolt.transform.localScale = new Vector3(0.5f, boltHeight, 0.5f);
-                var br = bolt.GetComponent<Renderer>();
-                if (br != null) br.material.color = Color.white;
-                Destroy(bolt.GetComponent<Collider>());
-                Destroy(bolt, 0.2f);
+                SpawnJaggedBolt(root, cloudPos, strikePos);
 
                 if (wb != null)
                 {
@@ -1088,6 +1178,54 @@ public class RandomEventManager : MonoBehaviour
         }
 
         if (cloud != null) Destroy(cloud);
+    }
+
+    private void SpawnJaggedBolt(Transform root, Vector3 top, Vector3 bottom)
+    {
+        int segments = 10;
+        float totalHeight = top.y - bottom.y;
+        Vector3 prevPoint = new Vector3(top.x, top.y, top.z);
+        Color[] boltColors = { Color.white, new Color(0.8f, 0.9f, 1f), new Color(0.7f, 0.85f, 1f) };
+
+        for (int i = 0; i < segments; i++)
+        {
+            float t = (float)(i + 1) / segments;
+            Vector3 nextPoint;
+            if (i == segments - 1)
+            {
+                nextPoint = bottom;
+            }
+            else
+            {
+                float jitterX = UnityEngine.Random.Range(-3f, 3f) * (1f - t * 0.5f);
+                float jitterZ = UnityEngine.Random.Range(-3f, 3f) * (1f - t * 0.5f);
+                nextPoint = new Vector3(
+                    Mathf.Lerp(top.x, bottom.x, t) + jitterX,
+                    Mathf.Lerp(top.y, bottom.y, t),
+                    Mathf.Lerp(top.z, bottom.z, t) + jitterZ);
+            }
+
+            Vector3 mid = (prevPoint + nextPoint) * 0.5f;
+            float segHeight = Vector3.Distance(prevPoint, nextPoint);
+            float segWidth = i == 0 ? 0.6f : UnityEngine.Random.Range(0.25f, 0.45f);
+
+            var bolt = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            bolt.name = "LightningBolt";
+            bolt.transform.SetParent(root);
+            bolt.transform.position = mid;
+            bolt.transform.localScale = new Vector3(segWidth, segHeight, segWidth);
+
+            Vector3 dir = (nextPoint - prevPoint).normalized;
+            if (dir.sqrMagnitude > 0.01f)
+                bolt.transform.rotation = Quaternion.LookRotation(Vector3.forward, dir);
+
+            var br = bolt.GetComponent<Renderer>();
+            if (br != null) br.material.color = boltColors[i % boltColors.Length];
+            Destroy(bolt.GetComponent<Collider>());
+            Destroy(bolt, 0.2f);
+
+            prevPoint = nextPoint;
+        }
     }
 
     private void EffectTornado()
@@ -1109,16 +1247,28 @@ public class RandomEventManager : MonoBehaviour
             int idx = UnityEngine.Random.Range(0, buildings.Count);
             var b = buildings[idx];
             buildings.RemoveAt(idx);
-            wb.DamageBuildingDirect(b, Mathf.Max(1, b.MaxHealth / 3));
 
-            if (tb == null) continue;
-
-            Color debrisColor = GetBuildingDebrisColor(b.Type);
-            int debrisCount = UnityEngine.Random.Range(3, 6);
-            for (int j = 0; j < debrisCount; j++)
+            if (tb == null)
             {
-                float s = UnityEngine.Random.Range(0.3f, 0.8f);
-                tb.AddDebrisBlock(Vector3.one * s, debrisColor);
+                wb.DamageBuildingDirect(b, Mathf.Max(1, b.MaxHealth / 3));
+                continue;
+            }
+
+            var debrisList = wb.DamageBuildingDirectWithDebris(b, Mathf.Max(1, b.MaxHealth / 3));
+            foreach (var d in debrisList)
+            {
+                tb.AddBuildingPartDebris(d.LocalPosition, d.LocalRotation, d.LocalScale, d.PartColor);
+            }
+
+            if (debrisList.Count == 0)
+            {
+                Color fallbackColor = GetBuildingDebrisColor(b.Type);
+                int count = UnityEngine.Random.Range(2, 4);
+                for (int j = 0; j < count; j++)
+                {
+                    float s = UnityEngine.Random.Range(0.3f, 0.8f);
+                    tb.AddDebrisBlock(Vector3.one * s, fallbackColor);
+                }
             }
         }
     }
@@ -1145,21 +1295,6 @@ public class RandomEventManager : MonoBehaviour
         player.Money -= stolen;
         if (stolen > 0)
             GameStats.AddMoneyStolen(stolen);
-    }
-
-    private void EffectWanderingMerchant()
-    {
-        Vector3 playerPos = GetPlayerPos();
-        Vector3 merchantPos = playerPos + new Vector3(UnityEngine.Random.Range(-10f, 10f), 0f, UnityEngine.Random.Range(-10f, 10f));
-        merchantPos.y = 0.5f;
-
-        var root = GetWorldRoot();
-        Vector3 toPlayer = playerPos - merchantPos;
-        toPlayer.y = 0f;
-        Quaternion cartRot = toPlayer.sqrMagnitude > 0.001f
-            ? Quaternion.FromToRotation(new Vector3(0f, 0f, -1f), toPlayer.normalized)
-            : Quaternion.identity;
-        WorldBuilder.Instance?.SpawnVendorCartAt(merchantPos, cartRot);
     }
 
     private void EffectCallImmigrant()
@@ -1378,14 +1513,42 @@ public class RandomEventManager : MonoBehaviour
 
     private void EffectSwarmAttack()
     {
+        StartCoroutine(SwarmAttackWaves());
+    }
+
+    private IEnumerator SwarmAttackWaves()
+    {
         Vector3 playerPos = GetPlayerPos();
         var root = GetWorldRoot();
-        for (int i = 0; i < 10; i++)
+        int totalWaves = 3;
+        for (int w = 0; w < totalWaves; w++)
         {
-            float angle = (i / 10f) * Mathf.PI * 2f;
-            float radius = 15f + UnityEngine.Random.Range(-3f, 3f);
-            Vector3 offset = new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
-            SpawnEnemy(playerPos + offset, root);
+            int count = w == 0 ? 4 : 3;
+            for (int i = 0; i < count; i++)
+            {
+                float angle = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+                float radius = 12f + UnityEngine.Random.Range(0f, 8f);
+                Vector3 offset = new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+                Vector3 spawnPos = playerPos + offset;
+                spawnPos.y = 0.5f;
+
+                var go = new GameObject("Enemy_" + UnityEngine.Random.Range(0, 1000));
+                go.transform.SetParent(root);
+                go.transform.position = spawnPos;
+
+                bool isElite = UnityEngine.Random.value < 0.3f;
+                go.transform.localScale = isElite ? Vector3.one * 1.8f : Vector3.one;
+                go.AddComponent<Rigidbody>().isKinematic = true;
+
+                var enemy = go.AddComponent<EnemyController>();
+                enemy.MaxHealth = isElite ? 100 : 50;
+                enemy.Damage = isElite ? 15 : 10;
+                enemy.MoveSpeed = isElite ? 3.5f : 2.5f;
+                enemy.ChaseRange = 18f;
+                enemy.IsGiant = isElite;
+            }
+            if (w < totalWaves - 1)
+                yield return new WaitForSeconds(0.8f);
         }
     }
 
@@ -1470,6 +1633,16 @@ public class RandomEventManager : MonoBehaviour
 
                 StartCoroutine(AnimateSpark(spark, sr, velocity, sparkColor));
             }
+
+            var lightObj = new GameObject("FireworkLight");
+            lightObj.transform.SetParent(parent);
+            lightObj.transform.position = pos;
+            var light = lightObj.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.color = baseColor;
+            light.intensity = 3f;
+            light.range = 20f;
+            Destroy(lightObj, 0.6f);
 
             yield return new WaitForSeconds(0.35f);
         }
@@ -1609,13 +1782,13 @@ public class RandomEventManager : MonoBehaviour
             var drb = debris.AddComponent<Rigidbody>();
             drb.useGravity = true;
             drb.mass = 0.5f;
-            drb.linearDamping = 0.5f;
+            drb.linearDamping = 0.1f;
             Vector3 dir = new Vector3(
                 UnityEngine.Random.Range(-1f, 1f),
                 UnityEngine.Random.Range(0.5f, 2f),
                 UnityEngine.Random.Range(-1f, 1f)).normalized;
-            drb.linearVelocity = dir * UnityEngine.Random.Range(3f, 7f);
-            Destroy(debris, 3f);
+            drb.linearVelocity = dir * UnityEngine.Random.Range(15f, 30f);
+            Destroy(debris, 8f);
         }
     }
 

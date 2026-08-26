@@ -1442,13 +1442,41 @@ public class CutsceneManager : MonoBehaviour
             Vector3 officerDoor = new Vector3(RoadX + 0.6f, 0.86f, carStopZ - 0.4f);
             Vector3 richMid = new Vector3(carDoor.x, richStart.y, richStart.z);
             Vector3 officerMid = new Vector3(officerDoor.x, officerPhase4Start.y, officerPhase4Start.z);
+            Vector3 camPhase4Pos = new Vector3(RoadX - 3f, 3.5f, (richStart.z + carStopZ) * 0.5f + 2f);
             float takeLegDur = 2f;
             var legWestRich = StartCoroutine(WalkStraight(richModel.transform, richStart, richMid, takeLegDur));
             var legWestOfficer = StartCoroutine(WalkStraight(officer.transform, officerPhase4Start, officerMid, takeLegDur));
+            float cam4Timer = 0f;
+            while (cam4Timer < takeLegDur)
+            {
+                cam4Timer += Time.deltaTime;
+                if (_mainCamera != null)
+                {
+                    float cp = Mathf.SmoothStep(0f, 1f, Mathf.Min(cam4Timer / takeLegDur, 1f));
+                    Vector3 midLook = (richStart + carDoor) * 0.5f + Vector3.up * 0.8f;
+                    _mainCamera.transform.position = Vector3.Lerp(
+                        new Vector3(RoadX - 1f, 2.6f, carStopZ + 4f), camPhase4Pos, cp);
+                    _mainCamera.transform.LookAt(midLook);
+                }
+                yield return null;
+            }
             yield return legWestRich;
             yield return legWestOfficer;
             var legSouthRich = StartCoroutine(WalkStraight(richModel.transform, richMid, carDoor, takeLegDur));
             var legSouthOfficer = StartCoroutine(WalkStraight(officer.transform, officerMid, officerDoor, takeLegDur));
+            cam4Timer = 0f;
+            Vector3 camPhase4bPos = new Vector3(RoadX - 4f, 3f, carStopZ + 2f);
+            while (cam4Timer < takeLegDur)
+            {
+                cam4Timer += Time.deltaTime;
+                if (_mainCamera != null)
+                {
+                    float cp = Mathf.SmoothStep(0f, 1f, Mathf.Min(cam4Timer / takeLegDur, 1f));
+                    _mainCamera.transform.position = Vector3.Lerp(camPhase4Pos, camPhase4bPos, cp);
+                    _mainCamera.transform.LookAt(carDoor + Vector3.up * 0.5f);
+                }
+                yield return null;
+            }
             yield return legSouthRich;
             yield return legSouthOfficer;
 
@@ -1460,25 +1488,31 @@ public class CutsceneManager : MonoBehaviour
             officer.transform.localRotation = Quaternion.identity;
             yield return new WaitForSeconds(1f);
 
-            // ── PHASE 5: DEPARTURE ──
-            float departDur = 5f;
+            // ── PHASE 5: DEPARTURE (car drives off-screen with easing) ──
+            float departDur = 6f;
             float departTimer = 0f;
-            float departZ = -30f;
+            float departZ = -180f;
+            bool fadeStarted = false;
             while (departTimer < departDur)
             {
                 departTimer += Time.deltaTime;
-                float p = Mathf.Min(departTimer / departDur, 1f);
-                policeCar.transform.position = new Vector3(RoadX, 0f, Mathf.Lerp(carStopZ, departZ, p));
+                float p = Mathf.SmoothStep(0f, 1f, Mathf.Min(departTimer / departDur, 1f));
+                float carZ = Mathf.Lerp(carStopZ, departZ, p);
+                policeCar.transform.position = new Vector3(RoadX, 0f, carZ);
                 if (_mainCamera != null)
                 {
-                    _mainCamera.transform.position = new Vector3(RoadX - 2f, 3.2f, Mathf.Lerp(carStopZ, departZ, p) + 10f);
-                    _mainCamera.transform.LookAt(policeCar.transform.position);
+                    _mainCamera.transform.position = new Vector3(RoadX - 2f, 3.2f, carZ + 10f);
+                    _mainCamera.transform.LookAt(policeCar.transform.position + Vector3.up * 0.5f);
+                }
+                if (p > 0.6f && !fadeStarted)
+                {
+                    fadeStarted = true;
+                    StartCoroutine(FadeOverlay(1, 1.5f));
                 }
                 yield return null;
             }
 
-            // ── PHASE 6: THAT NIGHT — THE BEDROOM ──
-            yield return StartCoroutine(FadeOverlay(1, 1.5f));
+            yield return new WaitForSeconds(0.5f);
 
             // Freeze the clock at a quiet night hour
             if (GameManager.Instance != null) GameManager.Instance.TimeSpeed = 0;

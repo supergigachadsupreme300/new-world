@@ -225,14 +225,14 @@ public class ClubDancer : MonoBehaviour
     {
         switch (s)
         {
-            case 1: return Quaternion.Euler(Mathf.Sin(t * 7f + Mathf.PI) * 60f, 0f, 15f);
-            case 2: return Quaternion.Euler(-Mathf.Sin(t * 2.4f) * 55f - 20f, 0f, Mathf.Cos(t * 2.4f) * 17.5f);
-            case 3: return Quaternion.Euler(-20f + Mathf.Sin(t * 4.5f) * 25f, 0f, 35f);
-            case 4: return Quaternion.Euler(-Mathf.Sin(t * 1.25f) * 30f - 40f, 0f, Mathf.Sin(t * 2.75f) * 21f);
-            case 5: return Quaternion.Euler(Mathf.Sin(t * 8f) * 45f, 0f, Mathf.Sin(t * 6f) * 20f);
-            case 6: return Quaternion.Euler(Mathf.RoundToInt(t * 4f) % 2 == 0 ? -40f : -10f, 0f, Mathf.RoundToInt(t * 4f) % 2 == 0 ? 30f : -20f);
-            case 7: return Quaternion.Euler(Mathf.Sin(t * 6f) * 50f, 0f, 25f);
-            case 8: return Quaternion.Euler(-Mathf.Sin(t * 5f) * 35f - 20f, 0f, Mathf.Sin(t * 2.5f) * 25f);
+            case 1: return Quaternion.Euler(Mathf.Sin(t * 7f + Mathf.PI) * 85f, 0f, 20f);
+            case 2: return Quaternion.Euler(-Mathf.Sin(t * 2.4f) * 85f - 30f, 0f, Mathf.Cos(t * 2.4f) * 33f);
+            case 3: return Quaternion.Euler(-80f + Mathf.Sin(t * 4.5f) * 40f, 0f, 80f);
+            case 4: return Quaternion.Euler(-Mathf.Sin(t * 1.25f) * 50f - 80f, 0f, Mathf.Sin(t * 2.75f) * 33f);
+            case 5: return Quaternion.Euler(Mathf.Sin(t * 8f) * 100f, 0f, Mathf.Sin(t * 6f) * 60f);
+            case 6: return Quaternion.Euler(Mathf.RoundToInt(t * 4f) % 2 == 0 ? -130f : -20f, 0f, Mathf.RoundToInt(t * 4f) % 2 == 0 ? 60f : -40f);
+            case 7: return Quaternion.Euler(Mathf.Sin(t * 6f) * 80f, 0f, 30f);
+            case 8: return Quaternion.Euler(-Mathf.Sin(t * 5f) * 65f - 65f, 0f, Mathf.Sin(t * 2.5f) * 40f);
             default: return Quaternion.identity;
         }
     }
@@ -241,14 +241,14 @@ public class ClubDancer : MonoBehaviour
     {
         switch (s)
         {
-            case 1: return Quaternion.Euler(-Mathf.Sin(t * 7f + Mathf.PI) * 60f, 0f, -15f);
-            case 2: return Quaternion.Euler(-Mathf.Sin(t * 2.4f) * 38.5f - 14f, 0f, -Mathf.Cos(t * 2.4f) * 17.5f - 12f);
-            case 3: return Quaternion.Euler(-20f - Mathf.Sin(t * 4.5f) * 25f, 0f, -35f);
-            case 4: return Quaternion.Euler(-Mathf.Sin(t * 1.25f) * 18f - 24f, 0f, -Mathf.Sin(t * 2.75f) * 10.5f - 10f);
-            case 5: return Quaternion.Euler(-Mathf.Sin(t * 8f) * 45f, 0f, -Mathf.Sin(t * 6f) * 20f);
-            case 6: return Quaternion.Euler(Mathf.RoundToInt(t * 4f) % 2 == 0 ? -10f : -40f, 0f, Mathf.RoundToInt(t * 4f) % 2 == 0 ? -20f : 30f);
-            case 7: return Quaternion.Euler(-Mathf.Sin(t * 6f) * 50f, 0f, -25f);
-            case 8: return Quaternion.Euler(Mathf.Sin(t * 5f) * 35f + 20f, 0f, -Mathf.Sin(t * 2.5f) * 25f);
+            case 1: return Quaternion.Euler(-Mathf.Sin(t * 7f + Mathf.PI) * 85f, 0f, -20f);
+            case 2: return Quaternion.Euler(-Mathf.Sin(t * 2.4f) * 59.5f - 21f, 0f, -Mathf.Cos(t * 2.4f) * 33f - 12f);
+            case 3: return Quaternion.Euler(-80f - Mathf.Sin(t * 4.5f) * 40f, 0f, -80f);
+            case 4: return Quaternion.Euler(-Mathf.Sin(t * 1.25f) * 30f - 48f, 0f, -Mathf.Sin(t * 2.75f) * 16.5f - 10f);
+            case 5: return Quaternion.Euler(-Mathf.Sin(t * 8f) * 100f, 0f, -Mathf.Sin(t * 6f) * 60f);
+            case 6: return Quaternion.Euler(Mathf.RoundToInt(t * 4f) % 2 == 0 ? -20f : -130f * 0.7f, 0f, Mathf.RoundToInt(t * 4f) % 2 == 0 ? -40f : 60f);
+            case 7: return Quaternion.Euler(-Mathf.Sin(t * 6f) * 80f, 0f, -30f);
+            case 8: return Quaternion.Euler(Mathf.Sin(t * 5f) * 32.5f + 32.5f, 0f, -Mathf.Sin(t * 2.5f) * 40f);
             default: return Quaternion.identity;
         }
     }
@@ -348,13 +348,13 @@ public class ClubDancer : MonoBehaviour
         if (_browR != null) _browR.localRotation = Quaternion.Euler(0f, 0f, -innerUp * 15f);
     }
 
-    // ── Style 1: Bounce — high-energy vertical hops, sharp arm pumps, high leg kicks ──
+    // ── Style 1: Bounce — high-energy vertical hops, sharp arm pumps overhead, high leg kicks ──
     private void DanceBounce()
     {
         float t = Time.time * 7f + Phase;
         float bounce = Mathf.Abs(Mathf.Sin(t)) * 0.12f;
         float legKick = Mathf.Sin(t) * 30f;
-        float armPump = Mathf.Sin(t + Mathf.PI) * 60f;
+        float armPump = Mathf.Sin(t + Mathf.PI) * 85f;
         float hip = Mathf.Sin(t * 0.7f) * 15f;
         float headBob = Mathf.Sin(t * 2f) * 14f;
 
@@ -365,8 +365,8 @@ public class ClubDancer : MonoBehaviour
         }
         if (_hipL != null) _hipL.localRotation = Quaternion.Euler(legKick, 0f, 0f);
         if (_hipR != null) _hipR.localRotation = Quaternion.Euler(-legKick, 0f, 0f);
-        if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(armPump, 0f, 15f);
-        if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(-armPump, 0f, -15f);
+        if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(armPump, 0f, 20f);
+        if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(-armPump, 0f, -20f);
         if (_head != null) _head.localRotation = Quaternion.Euler(headBob, 0f, 0f);
 
         SetMouthOpen(Mathf.Abs(Mathf.Sin(t * 2f)) * 0.8f);
@@ -379,8 +379,8 @@ public class ClubDancer : MonoBehaviour
     {
         float t = Time.time * 3f + Phase;
         float sway = Mathf.Sin(t) * 18f;
-        float armSweep = Mathf.Sin(t * 0.8f) * 55f + 20f;
-        float armZ = Mathf.Cos(t * 0.8f) * 35f;
+        float armSweep = Mathf.Sin(t * 0.8f) * 85f + 30f;
+        float armZ = Mathf.Cos(t * 0.8f) * 55f;
         float legShift = Mathf.Sin(t) * 8f;
         float bounce = Mathf.Abs(Mathf.Sin(t * 1.5f)) * 0.03f;
         float headRoll = Mathf.Sin(t * 0.5f) * 18f;
@@ -393,8 +393,8 @@ public class ClubDancer : MonoBehaviour
         }
         if (_hipL != null) _hipL.localRotation = Quaternion.Euler(legShift, 0f, 0f);
         if (_hipR != null) _hipR.localRotation = Quaternion.Euler(-legShift, 0f, 0f);
-        if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(-armSweep, 0f, armZ * 0.5f);
-        if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(-armSweep * 0.7f, 0f, -armZ * 0.5f - 12f);
+        if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(-armSweep, 0f, armZ * 0.6f);
+        if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(-armSweep * 0.7f, 0f, -armZ * 0.6f - 12f);
         if (_head != null) _head.localRotation = Quaternion.Euler(headRoll * 0.5f, headRoll, 0f);
 
         SetMouthOpen(Mathf.Max(0f, Mathf.Sin(t * 1.2f)) * 0.5f);
@@ -402,12 +402,12 @@ public class ClubDancer : MonoBehaviour
         SetBrowEmotion(Mathf.Sin(t * 0.8f) * 0.5f, 0f);
     }
 
-    // ── Style 3: Twist — fast aggressive twist, arms in T-pose, sharp knee bends ──
+    // ── Style 3: Twist — fast aggressive twist, arms in overhead T-pose, sharp knee bends ──
     private void DanceTwist()
     {
         float t = Time.time * 9f + Phase;
         float twist = Mathf.Sin(t) * 35f;
-        float shoulderOpp = Mathf.Sin(t + Mathf.PI * 0.5f) * 25f;
+        float shoulderOpp = Mathf.Sin(t + Mathf.PI * 0.5f) * 40f;
         float kneeBend = Mathf.Abs(Mathf.Sin(t * 2f)) * 20f;
         float bounce = Mathf.Abs(Mathf.Sin(t * 2f)) * 0.06f;
         float headTurn = Mathf.Sin(t * 0.6f) * 18f;
@@ -419,8 +419,8 @@ public class ClubDancer : MonoBehaviour
         }
         if (_hipL != null) _hipL.localRotation = Quaternion.Euler(kneeBend, 0f, 0f);
         if (_hipR != null) _hipR.localRotation = Quaternion.Euler(-kneeBend, 0f, 0f);
-        if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(-20f + shoulderOpp, 0f, 35f);
-        if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(-20f - shoulderOpp, 0f, -35f);
+        if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(-80f + shoulderOpp, 0f, 80f);
+        if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(-80f - shoulderOpp, 0f, -80f);
         if (_head != null) _head.localRotation = Quaternion.Euler(0f, -twist * 0.5f, headTurn);
 
         SetMouthOpen(Mathf.Abs(Mathf.Sin(t * 3f)) * 0.8f);
@@ -428,13 +428,13 @@ public class ClubDancer : MonoBehaviour
         SetBrowEmotion(Mathf.PingPong(t, 2f) > 1.5f ? 1f : -0.3f, 0f);
     }
 
-    // ── Style 4: Groove — slow deep lean, one arm up disco point, relaxed flowing ──
+    // ── Style 4: Groove — slow deep lean, one arm disco point overhead, relaxed flowing ──
     private void DanceGroove()
     {
         float t = Time.time * 2.5f + Phase;
         float groove = Mathf.Sin(t) * 10f;
-        float armRaise = Mathf.Sin(t * 0.5f) * 30f + 40f;
-        float armSwing = Mathf.Sin(t * 1.1f) * 35f;
+        float armRaise = Mathf.Sin(t * 0.5f) * 50f + 80f;
+        float armSwing = Mathf.Sin(t * 1.1f) * 55f;
         float legStep = Mathf.Sin(t * 1.8f) * 12f;
         float bounce = Mathf.Abs(Mathf.Sin(t * 1.5f)) * 0.05f;
         float bodyLean = Mathf.Sin(t * 0.35f) * 12f;
@@ -456,13 +456,13 @@ public class ClubDancer : MonoBehaviour
         SetBrowEmotion(Mathf.Sin(t * 0.5f) * 0.4f, 0f);
     }
 
-    // ── Style 5: Shuffle — fast side-to-side foot shuffle, arms crossed then snapping open ──
+    // ── Style 5: Shuffle — fast side-to-side foot shuffle, arms crossed then snapping wide overhead ──
     private void DanceShuffle()
     {
         float t = Time.time * 8f + Phase;
         float shuffle = Mathf.Sin(t) * 20f;
-        float armOpen = Mathf.Sin(t * 0.5f) > 0f ? 45f : -15f;
-        float armCross = Mathf.Sin(t * 0.5f) > 0f ? 0f : 30f;
+        float armOpen = Mathf.Sin(t * 0.5f) > 0f ? 100f : -20f;
+        float armCross = Mathf.Sin(t * 0.5f) > 0f ? 0f : 60f;
         float bounce = Mathf.Abs(Mathf.Sin(t * 2f)) * 0.04f;
         float bodyLean = Mathf.Sin(t * 2f) * 8f;
         float headTurn = Mathf.Sin(t * 4f) * 15f;
@@ -483,13 +483,13 @@ public class ClubDancer : MonoBehaviour
         SetBrowEmotion(Mathf.Sin(t * 4f), 0f);
     }
 
-    // ── Style 6: Robot — stiff mechanical movements, stop-and-go isolations ──
+    // ── Style 6: Robot — stiff mechanical movements, arms raised in lock positions ──
     private void DanceRobot()
     {
         float t = Time.time * 4f + Phase;
         float step = Mathf.RoundToInt(t) % 2;
         float bodyAngle = step * 25f - 12.5f;
-        float armAngle = step * -40f;
+        float armAngle = step * -130f;
         float headAngle = step * 20f - 10f;
         float bounce = step * 0.06f;
 
@@ -500,8 +500,8 @@ public class ClubDancer : MonoBehaviour
         }
         if (_hipL != null) _hipL.localRotation = Quaternion.Euler(step * 15f, 0f, 0f);
         if (_hipR != null) _hipR.localRotation = Quaternion.Euler(-step * 10f, 0f, 0f);
-        if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(armAngle, 0f, 30f);
-        if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(armAngle * 0.7f, 0f, -20f);
+        if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(armAngle, 0f, 60f);
+        if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(armAngle * 0.7f, 0f, -40f);
         if (_head != null) _head.localRotation = Quaternion.Euler(0f, headAngle, 0f);
 
         SetMouthOpen(step > 0 ? 0.7f : 0.1f);
@@ -509,14 +509,14 @@ public class ClubDancer : MonoBehaviour
         SetBrowEmotion(step > 0 ? 0.8f : -0.2f, 0f);
     }
 
-    // ── Style 7: Headbang — deep torso forward lean, aggressive head slamming, fists pumping ──
+    // ── Style 7: Headbang — deep torso forward lean, aggressive head slamming, fists pumping overhead ──
     private void DanceHeadbang()
     {
         float t = Time.time * 6f + Phase;
         float headSlam = Mathf.Sin(t) * 30f;
         float torsoLean = Mathf.Abs(Mathf.Sin(t)) * 25f;
         float bounce = Mathf.Abs(Mathf.Sin(t * 2f)) * 0.08f;
-        float fistPump = Mathf.Sin(t + Mathf.PI) * 50f;
+        float fistPump = Mathf.Sin(t + Mathf.PI) * 80f;
         float hipSway = Mathf.Sin(t * 0.5f) * 10f;
 
         if (_body != null)
@@ -526,8 +526,8 @@ public class ClubDancer : MonoBehaviour
         }
         if (_hipL != null) _hipL.localRotation = Quaternion.Euler(Mathf.Sin(t) * 18f, 0f, 0f);
         if (_hipR != null) _hipR.localRotation = Quaternion.Euler(-Mathf.Sin(t) * 18f, 0f, 0f);
-        if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(-fistPump, 0f, 25f);
-        if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(fistPump * 0.8f, 0f, -25f);
+        if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(-fistPump, 0f, 30f);
+        if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(fistPump * 0.8f, 0f, -30f);
         if (_head != null) _head.localRotation = Quaternion.Euler(headSlam, 0f, Mathf.Sin(t * 3f) * 8f);
 
         SetMouthOpen(Mathf.Abs(Mathf.Sin(t * 3f)) * 0.9f);
@@ -535,14 +535,14 @@ public class ClubDancer : MonoBehaviour
         SetBrowEmotion(Mathf.Sin(t * 3f), 0f);
     }
 
-    // ── Style 8: Salsa — smooth hip circles, one arm raised, quick step-touch footwork ──
+    // ── Style 8: Salsa — smooth hip circles, one arm raised overhead, quick step-touch footwork ──
     private void DanceSalsa()
     {
         float t = Time.time * 5f + Phase;
         float hipCircle = Mathf.Sin(t) * 15f;
         float hipCircleZ = Mathf.Cos(t) * 8f;
-        float armRaise = Mathf.Sin(t * 0.5f) * 20f + 35f;
-        float armSwing = Mathf.Sin(t * 2f) * 25f;
+        float armRaise = Mathf.Sin(t * 0.5f) * 40f + 65f;
+        float armSwing = Mathf.Sin(t * 2f) * 40f;
         float legStep = Mathf.Sin(t * 2f) * 20f;
         float bounce = Mathf.Abs(Mathf.Sin(t * 2.5f)) * 0.04f;
         float bodyLean = Mathf.Sin(t * 0.5f) * 6f;

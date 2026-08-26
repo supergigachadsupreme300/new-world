@@ -5,12 +5,13 @@ public class TornadoBehavior : MonoBehaviour
 {
     public float DriftSpeed = 2f;
     public float DirectionChangeInterval = 5f;
-    public float BaseRotateSpeed = 60f;
-    public float RotateSpeedVariation = 45f;
-    public float PullRadius = 20f;
-    public float PullForce = 15f;
-    public float OrbitHeight = 8f;
-    public float OrbitSpeed = 100f;
+    public float BaseRotateSpeed = 8f;
+    public float RotateSpeedVariation = 4f;
+    public float PullRadius = 30f;
+    public float PullForce = 8f;
+    public float MaxPullSpeed = 20f;
+    public float OrbitHeight = 80f;
+    public float OrbitSpeed = 10f;
 
     private Vector3 _driftDir;
     private float _dirTimer;
@@ -91,6 +92,7 @@ public class TornadoBehavior : MonoBehaviour
             p.PullTimer -= Time.deltaTime;
             if (p.PullTimer <= 0f)
             {
+                p.Rb.linearVelocity = Vector3.zero;
                 p.Rb.useGravity = true;
                 _pulled.RemoveAt(i);
                 continue;
@@ -100,7 +102,10 @@ public class TornadoBehavior : MonoBehaviour
             float z = Mathf.Sin(p.Angle) * p.Radius;
             float y = p.HeightOffset + Mathf.Sin(Time.time * p.FloatSpeed) * p.FloatAmplitude;
             Vector3 targetPos = transform.position + new Vector3(x, y, z);
-            p.Rb.linearVelocity = (targetPos - p.Rb.position) * PullForce;
+            Vector3 vel = (targetPos - p.Rb.position) * PullForce;
+            if (vel.sqrMagnitude > MaxPullSpeed * MaxPullSpeed)
+                vel = vel.normalized * MaxPullSpeed;
+            p.Rb.linearVelocity = vel;
         }
 
         PullNearbyObjects();
@@ -133,7 +138,7 @@ public class TornadoBehavior : MonoBehaviour
                 Angle = Random.Range(0f, Mathf.PI * 2f),
                 Radius = Random.Range(2f, PullRadius * 0.6f),
                 HeightOffset = Random.Range(2f, OrbitHeight),
-                OrbitSpeed = Random.Range(OrbitSpeed * 0.5f, OrbitSpeed * 1.5f),
+                OrbitSpeed = Random.Range(BaseRotateSpeed, BaseRotateSpeed + RotateSpeedVariation),
                 FloatSpeed = Random.Range(1f, 3f),
                 FloatAmplitude = Random.Range(0.5f, 1.5f),
                 PullTimer = 8f
@@ -154,12 +159,48 @@ public class TornadoBehavior : MonoBehaviour
         {
             Block = block,
             Angle = Random.Range(0f, Mathf.PI * 2f),
-            Radius = Random.Range(1f, 5f),
-            HeightOffset = Random.Range(0f, 2f),
-            OrbitSpeed = Random.Range(60f, 150f),
+            Radius = Random.Range(3f, 8f),
+            HeightOffset = Random.Range(0f, 80f),
+            OrbitSpeed = Random.Range(BaseRotateSpeed, BaseRotateSpeed + RotateSpeedVariation),
             FloatSpeed = Random.Range(1f, 3f),
             FloatAmplitude = Random.Range(0.5f, 2f)
         });
+    }
+
+    public void AddBuildingPartDebris(Vector3 localPos, Quaternion localRot, Vector3 localScale, Color color)
+    {
+        var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        block.name = "BuildingDebris";
+        block.transform.SetParent(transform);
+        block.transform.localPosition = localPos;
+        block.transform.localRotation = localRot;
+        block.transform.localScale = localScale;
+        block.GetComponent<Renderer>().material.color = color;
+        Object.Destroy(block.GetComponent<Collider>());
+
+        _debris.Add(new OrbitingDebris
+        {
+            Block = block,
+            Angle = Random.Range(0f, Mathf.PI * 2f),
+            Radius = Random.Range(3f, 8f),
+            HeightOffset = Random.Range(2f, 40f),
+            OrbitSpeed = Random.Range(BaseRotateSpeed, BaseRotateSpeed + RotateSpeedVariation),
+            FloatSpeed = Random.Range(1f, 3f),
+            FloatAmplitude = Random.Range(0.5f, 2f)
+        });
+    }
+
+    void OnDestroy()
+    {
+        for (int i = 0; i < _pulled.Count; i++)
+        {
+            if (_pulled[i].Rb != null)
+            {
+                _pulled[i].Rb.linearVelocity = Vector3.zero;
+                _pulled[i].Rb.useGravity = true;
+            }
+        }
+        _pulled.Clear();
     }
 
     private void PickNewDirection()

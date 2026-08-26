@@ -313,7 +313,7 @@ public class UIManager : MonoBehaviour
         float panelHeight = Mathf.Min(screenHeight * 0.8f, 520f);
         // Stats background panel (behind Time, HP, Stamina, Money, Quest)
         _statsScale = Mathf.Clamp(Screen.width / 1400f, 0.8f, 2f);
-        float sW = 430f * _statsScale;
+        float sW = 320f * _statsScale;
         float sH = 300f * _statsScale;
         _statsBg = CreateHudBackground("StatsBg",
             new Vector2(0f, 0f),
@@ -337,7 +337,7 @@ public class UIManager : MonoBehaviour
             null,
             TextAlignmentOptions.Left,
             true,
-            new Vector2(420f * _statsScale, 30f * _statsScale),
+            new Vector2(310f * _statsScale, 30f * _statsScale),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f)
@@ -351,7 +351,7 @@ public class UIManager : MonoBehaviour
             null,
             TextAlignmentOptions.Left,
             true,
-            new Vector2(420f * _statsScale, 30f * _statsScale),
+            new Vector2(310f * _statsScale, 30f * _statsScale),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f)
@@ -365,7 +365,7 @@ public class UIManager : MonoBehaviour
             null,
             TextAlignmentOptions.Left,
             true,
-            new Vector2(420f * _statsScale, 30f * _statsScale),
+            new Vector2(310f * _statsScale, 30f * _statsScale),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f)
@@ -379,7 +379,7 @@ public class UIManager : MonoBehaviour
             null,
             TextAlignmentOptions.Left,
             true,
-            new Vector2(420f * _statsScale, 30f * _statsScale),
+            new Vector2(310f * _statsScale, 30f * _statsScale),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f)
@@ -393,11 +393,12 @@ public class UIManager : MonoBehaviour
             null,
             TextAlignmentOptions.Left,
             true,
-            new Vector2(410f * _statsScale, 190f * _statsScale),
+            new Vector2(300f * _statsScale, 190f * _statsScale),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f)
         );
+        _questText.overflowMode = TextOverflowModes.Overflow;
 
         // Inventory: 10 individual slots at bottom center
         float slotW = screenWidth * 0.065f;
@@ -607,7 +608,7 @@ public class UIManager : MonoBehaviour
         settingsViewportRect.anchorMax = new Vector2(0.5f, 0.5f);
         settingsViewportRect.pivot = new Vector2(0.5f, 0.5f);
         settingsViewportRect.anchoredPosition = new Vector2(0f, -settingsHeight * 0.03f);
-        settingsViewportRect.sizeDelta = new Vector2(settingsContentW, settingsHeight * 0.72f);
+        settingsViewportRect.sizeDelta = new Vector2(settingsContentW, settingsHeight * 0.66f);
         settingsViewport.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
         settingsViewport.AddComponent<RectMask2D>();
 
@@ -644,7 +645,7 @@ public class UIManager : MonoBehaviour
         settingsScrollbarRt.anchorMax = new Vector2(0.5f, 0.5f);
         settingsScrollbarRt.pivot = new Vector2(0.5f, 0.5f);
         settingsScrollbarRt.anchoredPosition = new Vector2(settingsContentW * 0.5f - settingsScrollbarW * 0.5f - 2f, -settingsHeight * 0.03f);
-        settingsScrollbarRt.sizeDelta = new Vector2(settingsScrollbarW, settingsHeight * 0.72f);
+        settingsScrollbarRt.sizeDelta = new Vector2(settingsScrollbarW, settingsHeight * 0.66f);
         settingsScrollbarGo.AddComponent<Image>().color = new Color(0.15f, 0.15f, 0.15f, 0.6f);
         var settingsScrollbar = settingsScrollbarGo.AddComponent<Scrollbar>();
 
@@ -752,7 +753,7 @@ public class UIManager : MonoBehaviour
         var endingTabLE = endingTabBtn.gameObject.AddComponent<LayoutElement>();
         endingTabLE.preferredHeight = settingsButtonSize.y;
 
-        CreateButton("SettingsCloseButton", _settingsPanel.transform, Localization.T("Đóng"), new Vector2(0f, -settingsHeight * 0.44f), () => ShowSettingsPanel(false), settingsButtonSize);
+        CreateButton("SettingsCloseButton", _settingsPanel.transform, Localization.T("Đóng"), new Vector2(0f, -settingsHeight * 0.47f), () => ShowSettingsPanel(false), settingsButtonSize);
 
         UpdateSettingsValues();
         _settingsPanel.SetActive(false);
@@ -1040,27 +1041,29 @@ public class UIManager : MonoBehaviour
         _messageCanvas = canvasGO.AddComponent<Canvas>();
         _messageCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
         _messageCanvas.sortingOrder = 1100;
-        canvasGO.AddComponent<CanvasScaler>();
+        var scaler = canvasGO.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
         canvasGO.SetActive(true);
 
         var textGO = new GameObject("MessageText");
         textGO.transform.SetParent(canvasGO.transform, false);
         var rect = textGO.AddComponent<RectTransform>();
-        rect.anchorMin = new Vector2(0.5f, 0.5f);
-        rect.anchorMax = new Vector2(0.5f, 0.5f);
-        rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = new Vector2(0f, screenHeight * 0.15f);
-        rect.sizeDelta = new Vector2(screenWidth * 0.6f, lineHeight * 1.5f);
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 1f);
+        rect.anchoredPosition = new Vector2(0f, -screenHeight * 0.08f);
+        rect.sizeDelta = new Vector2(screenWidth * 0.7f, lineHeight * 3.5f);
 
         _messageText = textGO.AddComponent<TextMeshProUGUI>();
         if (defaultTmpFont != null)
             _messageText.font = defaultTmpFont;
         _messageText.text = "";
-        _messageText.fontSize = (int)largefontSize;
+        _messageText.fontSize = (int)(largefontSize * 1.8f);
         _messageText.color = Color.white;
         _messageText.alignment = TextAlignmentOptions.Center;
         _messageText.textWrappingMode = TextWrappingModes.Normal;
-        _messageText.overflowMode = TextOverflowModes.Truncate;
+        _messageText.overflowMode = TextOverflowModes.Overflow;
         _messageText.raycastTarget = false;
         _messageText.margin = new Vector4(20f, 10f, 20f, 10f);
         _messageText.gameObject.SetActive(false);
@@ -1456,7 +1459,7 @@ public class UIManager : MonoBehaviour
         // Quest row at the top (one box per quest)
         var questSize = new Vector2(Mathf.Min(sw * 0.115f, 195f) * k, Mathf.Max(34f, sh * 0.05f) * k);
         float qGap = Mathf.Min(sw * 0.02f, 28f) * k;
-        float questY = sh * 0.245f * k;
+        float questY = sh * 0.34f * k;
         int qc = questUis.Count;
         float totalW = questSize.x * qc + qGap * (qc - 1);
         bool[] markerAdded = new bool[Endings.Length];
@@ -2750,7 +2753,7 @@ public class UIManager : MonoBehaviour
         rootRect.anchorMin = new Vector2(0.5f, 0f);
         rootRect.anchorMax = new Vector2(0.5f, 0f);
         rootRect.pivot = new Vector2(0.5f, 0f);
-        rootRect.anchoredPosition = new Vector2(0f, sh * 0.06f);
+        rootRect.anchoredPosition = new Vector2(0f, sh * 0.06f + sw * 0.065f + 10f);
         rootRect.sizeDelta = new Vector2(sw * 0.35f, 28f);
 
         var bg = new GameObject("KarmaBarBg");
@@ -2873,13 +2876,10 @@ public class UIManager : MonoBehaviour
     {
         if (_statsBg == null || _questText == null)
             return;
-        var prevOverflow = _questText.overflowMode;
-        _questText.overflowMode = TextOverflowModes.Overflow;
         _questText.ForceMeshUpdate();
         float needed = Mathf.Max(_questText.preferredHeight, 24f);
-        _questText.overflowMode = prevOverflow;
-        _questText.rectTransform.sizeDelta = new Vector2(410f * _statsScale, needed);
-        _statsBg.sizeDelta = new Vector2(430f * _statsScale, (175f + needed + 30f) * _statsScale);
+        _questText.rectTransform.sizeDelta = new Vector2(300f * _statsScale, needed);
+        _statsBg.sizeDelta = new Vector2(320f * _statsScale, (175f + needed + 30f) * _statsScale);
     }
 
     public void UpdateQuestPanelText(string text)

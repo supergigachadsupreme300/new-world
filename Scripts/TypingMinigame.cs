@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
@@ -66,6 +67,12 @@ public class TypingMinigame : MonoBehaviour
         _currentParagraph = Paragraphs[Random.Range(0, Paragraphs.Length)];
         _timeRemaining = _duration;
         gm.TogglePause(true);
+        gm.UIManager?.ShowPauseMenu(false);
+        if (EventSystem.current != null)
+        {
+            EventSystem.current.sendNavigationEvents = false;
+            EventSystem.current.SetSelectedGameObject(null);
+        }
         BuildUI();
         _panel.SetActive(true);
         UpdateDisplay();
@@ -76,6 +83,8 @@ public class TypingMinigame : MonoBehaviour
         if (!_isActive) return;
         _isActive = false;
         if (_panel != null) _panel.SetActive(false);
+        if (EventSystem.current != null)
+            EventSystem.current.sendNavigationEvents = true;
         var gm = GameManager.Instance;
         if (gm != null && gm.GamePaused)
             gm.TogglePause(false);

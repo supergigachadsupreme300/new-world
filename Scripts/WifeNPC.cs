@@ -1120,6 +1120,9 @@ public class WifeNPC : MonoBehaviour
         _nightText.text = showNight ? (mobile ? Localization.T("[Hỏi Về Đêm] (Chạm)") : Localization.T("[Hỏi Về Đêm] Nhấn V")) : "";
         if (_nightRow != null) _nightRow.SetActive(showNight);
 
+        bool anyOption = showPropose || showInviteFinal || showNight;
+        if (_promptText != null) _promptText.gameObject.SetActive(!anyOption);
+
         LayoutOptionRows();
     }
 
@@ -1152,13 +1155,13 @@ public class WifeNPC : MonoBehaviour
         if (_inviteRow != null && _inviteRow.activeSelf) active.Add(_inviteRow);
         if (_nightRow != null && _nightRow.activeSelf) active.Add(_nightRow);
 
-        const float topPad = 6f;
+        const float bottomPad = 6f;
         const float step = 48f;
         for (int i = 0; i < active.Count; i++)
         {
             var rowRt = active[i].GetComponent<RectTransform>();
             if (rowRt == null) continue;
-            rowRt.anchoredPosition = new Vector2(-20f, topPad + i * step);
+            rowRt.anchoredPosition = new Vector2(-20f, bottomPad + i * step);
         }
     }
 
@@ -1262,13 +1265,13 @@ public class WifeNPC : MonoBehaviour
             new Vector2(panelW - 160f, 25f));
 
         _proposeText = CreateDialogOptionRow(panelRt, "WifeProposeRow", "WifeProposeText",
-            6f, new Color(1f, 0.3f, 0.3f), 22, out _proposeRow, TryPropose);
+            58f, new Color(1f, 0.3f, 0.3f), 22, out _proposeRow, TryPropose);
 
         _inviteText = CreateDialogOptionRow(panelRt, "WifeInviteRow", "WifeInviteText",
-            54f, new Color(0.3f, 1f, 0.6f), 20, out _inviteRow, InviteToHouse);
+            10f, new Color(0.3f, 1f, 0.6f), 20, out _inviteRow, InviteToHouse);
 
         _nightText = CreateDialogOptionRow(panelRt, "WifeNightRow", "WifeNightText",
-            102f, new Color(1f, 0.85f, 0.3f), 20, out _nightRow, HandleNightRequest);
+            -38f, new Color(1f, 0.85f, 0.3f), 20, out _nightRow, HandleNightRequest);
 
         _dialogPanel.SetActive(false);
     }
@@ -1332,9 +1335,9 @@ public class WifeNPC : MonoBehaviour
         row = new GameObject(rowName);
         row.transform.SetParent(parent, false);
         var rowRt = row.AddComponent<RectTransform>();
-        rowRt.anchorMin = new Vector2(1f, 1f);
-        rowRt.anchorMax = new Vector2(1f, 1f);
-        rowRt.pivot = new Vector2(1f, 1f);
+        rowRt.anchorMin = new Vector2(1f, 0f);
+        rowRt.anchorMax = new Vector2(1f, 0f);
+        rowRt.pivot = new Vector2(1f, 0f);
         rowRt.anchoredPosition = new Vector2(-20f, yOffset);
         rowRt.sizeDelta = new Vector2(300f, 40f);
 

@@ -461,10 +461,11 @@ public class GameManager : MonoBehaviour
         if (UIManager != null)
             UIManager.ShowPauseMenu(paused);
 
-        if (Player != null)
+        bool fishing = FishingController.IsFishingActive;
+        if (Player != null && !fishing)
             Player.EnableInput(!paused);
 
-        GameInput.SetCursorLocked(!paused);
+        GameInput.SetCursorLocked(!paused && !fishing);
     }
 
     public void SetTimeOfDay(float hour)

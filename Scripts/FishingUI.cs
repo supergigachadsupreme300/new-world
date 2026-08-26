@@ -25,6 +25,7 @@ public class FishingUI : MonoBehaviour
 
     public float PlayerLinePos { get; private set; } = 0f;
     public float Progress { get; private set; } = 0.5f;
+    private float _turnVelocity;
 
     public void Create(Canvas canvas)
     {
@@ -151,6 +152,7 @@ public class FishingUI : MonoBehaviour
 
         PlayerLinePos = 0f;
         Progress = 0.5f;
+        _turnVelocity = 0f;
         _greenPos = 0f;
         _greenDir = Random.value < 0.5f ? 1f : -1f;
         _wheelRotation = 0f;
@@ -195,8 +197,9 @@ public class FishingUI : MonoBehaviour
         if (_greenPos < _greenMin) { _greenPos = _greenMin; _greenDir = 1f; }
         _greenZone.anchoredPosition = new Vector2(0f, _greenPos);
 
-        float lineMove = wheelDelta * 0.6f;
-        PlayerLinePos = Mathf.Clamp(PlayerLinePos + lineMove, -_barHalf + 2f, _barHalf - 2f);
+        float lineMove = wheelDelta * 0.4f;
+        float targetPos = Mathf.Clamp(PlayerLinePos + lineMove, -_barHalf + 2f, _barHalf - 2f);
+        PlayerLinePos = Mathf.SmoothDamp(PlayerLinePos, targetPos, ref _turnVelocity, 0.15f);
         _playerLine.anchoredPosition = new Vector2(0f, PlayerLinePos);
 
         _wheelRotation += wheelDelta;

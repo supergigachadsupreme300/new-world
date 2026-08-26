@@ -247,7 +247,8 @@ public class PlayerController : MonoBehaviour
     {
         bool sprinting = (Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed) ||
                          (GameInput.IsMobile && MobileInputController.IsHeld("sprint"));
-        if (!sprinting || _controller == null || !_controller.isGrounded)
+        bool grounded = _controller != null && _controller.isGrounded;
+        if (!sprinting || !grounded || Stamina <= 0f)
         {
             float regenMul = StaminaRegenMultiplier;
             if (Time.time < _staminaRegenModifierUntil)
@@ -342,11 +343,6 @@ public class PlayerController : MonoBehaviour
                         if (hit.collider.transform.name == "ImmigrantSpawnButton")
                         {
                             wb.StartImmigrantArrival();
-                            return;
-                        }
-                        if (hit.collider.transform.name.StartsWith("EventBlock_"))
-                        {
-                            wb.ActivateEventBlockByHit(hit.collider.gameObject);
                             return;
                         }
                         if (hit.collider.transform.name == "WifeNpc")

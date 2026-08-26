@@ -256,6 +256,7 @@ public class FishingController : MonoBehaviour
             var ui = GameManager.Instance?.UIManager;
             ui?.ShowMessage(Localization.T("Cá thoát rồi!"), 2f);
             CancelFishing();
+            return;
         }
     }
 
@@ -274,6 +275,12 @@ public class FishingController : MonoBehaviour
         if (pointer == null)
         {
             _fishingUI.UpdateReeling(Time.deltaTime, 0f);
+            return;
+        }
+
+        if (!GameInput.IsMobile && Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame)
+        {
+            CancelFishing();
             return;
         }
 

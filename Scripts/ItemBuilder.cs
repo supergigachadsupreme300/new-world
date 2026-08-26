@@ -529,46 +529,16 @@ public static class ItemBuilder
 
     public static void BuildPalm(Transform parent)
     {
-        Color stemC = new Color(0.45f, 0.3f, 0.15f);
-        Color leafC = new Color(0.18f, 0.52f, 0.12f);
-        Color leafletC = new Color(0.22f, 0.58f, 0.15f);
-        Color midribC = new Color(0.35f, 0.65f, 0.2f);
-        Color sheathC = new Color(0.4f, 0.28f, 0.12f);
+        Color palmC = new Color(0.95f, 0.78f, 0.6f);
+        Color auraC = new Color(1f, 0.9f, 0.5f);
 
-        CreatePickupCylinder(parent, new Vector3(0f, -0.05f, 0f), new Vector3(0.05f, 0.4f, 0.05f), stemC, false);
-        CreatePickupCylinder(parent, new Vector3(0f, -0.38f, 0f), new Vector3(0.07f, 0.06f, 0.07f), sheathC, false);
-
-        CreatePickupCube(parent, new Vector3(0f, 0.12f, 0f), new Vector3(0.4f, 0.04f, 0.28f), leafC, false);
-        CreatePickupCube(parent, new Vector3(0f, 0.16f, 0f), new Vector3(0.55f, 0.03f, 0.22f), leafC, false);
-
-        CreatePickupCube(parent, new Vector3(0f, 0.19f, 0f), new Vector3(0.7f, 0.02f, 0.015f), midribC, false);
-
-        CreatePickupPyramid(parent, new Vector3(0f, 0.17f, 0.3f), new Vector3(0.06f, 0.12f, 0.1f), new Vector3(-90f, 0f, 0f), leafC);
-
-        float[] leafletX = { -0.12f, -0.06f, 0.06f, 0.12f };
-        float[] leafletScale = { 0.7f, 1f, 1f, 0.7f };
-        float[] leafletZ = { 0.18f, 0.28f, 0.28f, 0.18f };
-
-        for (int i = 0; i < 4; i++)
+        CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(0.7f, 0.22f, 0.06f), palmC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.25f, 0f), new Vector3(0.24f, 0.4f, 0.06f), palmC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.18f, 0f), new Vector3(0.7f, 0.28f, 0.04f), auraC, false);
+        for (int i = 0; i < 5; i++)
         {
-            float x = leafletX[i];
-            float z = leafletZ[i];
-            float s = leafletScale[i];
-            float side = x < 0f ? 1f : -1f;
-            CreatePickupCube(parent, new Vector3(x, 0.19f, z * 0.5f), new Vector3(0.22f * s, 0.015f, 0.1f * s), new Vector3(0f, side * 35f, 0f), leafletC, false);
-        }
-
-        float[] leafletX2 = { -0.1f, -0.04f, 0.04f, 0.1f };
-        float[] leafletScale2 = { 0.6f, 0.9f, 0.9f, 0.6f };
-        float[] leafletZ2 = { 0.12f, 0.22f, 0.22f, 0.12f };
-
-        for (int i = 0; i < 4; i++)
-        {
-            float x = leafletX2[i];
-            float z = leafletZ2[i];
-            float s = leafletScale2[i];
-            float side = x < 0f ? 1f : -1f;
-            CreatePickupCube(parent, new Vector3(x, 0.15f, z * 0.5f), new Vector3(0.18f * s, 0.015f, 0.08f * s), new Vector3(0f, side * 40f, 0f), leafletC, false);
+            float x = -0.16f + i * 0.08f;
+            CreatePickupCube(parent, new Vector3(x, 0.48f, 0f), new Vector3(0.06f, 0.16f, 0.05f), palmC, false);
         }
     }
 
@@ -592,19 +562,19 @@ public static class ItemBuilder
             Mathf.Clamp01(bodyColor.g - 0.2f),
             Mathf.Clamp01(bodyColor.b - 0.2f));
 
-        CreatePickupCube(parent, new Vector3(0f, 0.06f, 0f), new Vector3(0.02f, 0.15f, 0.15f), new Vector3(45f, 0f, 0f), bodyColor, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.01f, 0f), new Vector3(0.15f, 0.02f, 0.08f), bodyColor, false);
 
-        CreatePickupSphere(parent, new Vector3(0f, 0.06f, -0.08f), 0.07f, headColor, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.01f, -0.08f), new Vector3(0.1f, 0.015f, 0.06f), headColor, false);
 
-        CreatePickupCube(parent, new Vector3(0f, 0.11f, 0.1f), new Vector3(0.01f, 0.06f, 0.08f), new Vector3(20f, 0f, 0f), tailColor, false);
-        CreatePickupCube(parent, new Vector3(0f, 0.01f, 0.1f), new Vector3(0.01f, 0.06f, 0.08f), new Vector3(-20f, 0f, 0f), tailColor, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.04f, 0.1f), new Vector3(0.01f, 0.06f, 0.08f), tailColor, false);
+        CreatePickupCube(parent, new Vector3(0f, -0.02f, 0.1f), new Vector3(0.01f, 0.06f, 0.08f), tailColor, false);
 
-        CreatePickupCube(parent, new Vector3(0f, 0.14f, 0f), new Vector3(0.01f, 0.04f, 0.05f), finColor, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.03f, 0f), new Vector3(0.01f, 0.04f, 0.05f), finColor, false);
 
-        CreatePickupSphere(parent, new Vector3(-0.02f, 0.09f, -0.11f), 0.02f, Color.white, false);
-        CreatePickupSphere(parent, new Vector3(0.02f, 0.09f, -0.11f), 0.02f, Color.white, false);
-        CreatePickupCube(parent, new Vector3(-0.02f, 0.09f, -0.125f), new Vector3(0.012f, 0.012f, 0.012f), Color.black, false);
-        CreatePickupCube(parent, new Vector3(0.02f, 0.09f, -0.125f), new Vector3(0.012f, 0.012f, 0.012f), Color.black, false);
+        CreatePickupCube(parent, new Vector3(-0.06f, 0.02f, -0.06f), new Vector3(0.03f, 0.03f, 0.015f), Color.white, false);
+        CreatePickupCube(parent, new Vector3(0.06f, 0.02f, -0.06f), new Vector3(0.03f, 0.03f, 0.015f), Color.white, false);
+        CreatePickupCube(parent, new Vector3(-0.06f, 0.02f, -0.07f), new Vector3(0.015f, 0.015f, 0.012f), Color.black, false);
+        CreatePickupCube(parent, new Vector3(0.06f, 0.02f, -0.07f), new Vector3(0.015f, 0.015f, 0.012f), Color.black, false);
     }
 
     public static void BuildCoconutWater(Transform parent)

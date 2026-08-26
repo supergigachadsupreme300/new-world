@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 using TMPro;
 
 public class PagodaMonkNPC : MonoBehaviour
@@ -16,6 +17,8 @@ public class PagodaMonkNPC : MonoBehaviour
     private TMP_Text _nameText;
     private TMP_Text _dialogText;
     private TMP_Text _promptText;
+    private TMP_Text _meditationText;
+    private GameObject _meditationRow;
     private bool _dialogActive;
     private readonly Queue<string> _dialogQueue = new Queue<string>();
 
@@ -34,8 +37,6 @@ public class PagodaMonkNPC : MonoBehaviour
 
     private const string _offerLine =
         "Con có gạo không? Dâng cho nhà chùa một bát gạo, ta sẽ ban phước lành sức khỏe cho con cả ngày hôm nay.";
-
-    private const string _meditationLine = "[Thiền Định]";
 
     private int _lastLine = -1;
     private int _blessedDay = -1;
@@ -65,6 +66,18 @@ public class PagodaMonkNPC : MonoBehaviour
 
     void Update()
     {
+        if (_dialogActive && _waitingMeditation && _meditationRow != null && _meditationRow.activeSelf)
+        {
+            if (Keyboard.current != null && Keyboard.current.tKey.wasPressedThisFrame)
+            {
+                _waitingMeditation = false;
+                _meditationRow.SetActive(false);
+                TypingMinigame.Instance?.Open();
+                Hide();
+                return;
+            }
+        }
+
         var gm = GameManager.Instance;
         if (gm == null)
             return;
@@ -116,9 +129,10 @@ public class PagodaMonkNPC : MonoBehaviour
                 "Con đã nhận phước lành hôm nay rồi.");
         }
         _dialogQueue.Enqueue("Con có muốn thiền định để gia tăng giới hạn phước đức không?");
-        _dialogQueue.Enqueue(_meditationLine);
-        _waitingMeditation = true;
         Advance();
+        _waitingMeditation = true;
+        if (_meditationRow != null)
+            _meditationRow.SetActive(true);
     }
 
     private void AddQuestDialogLines()
@@ -170,9 +184,6 @@ public class PagodaMonkNPC : MonoBehaviour
         }
         if (_waitingMeditation && _dialogQueue.Count == 0)
         {
-            _waitingMeditation = false;
-            TypingMinigame.Instance?.Open();
-            Hide();
             return;
         }
         if (_dialogQueue.Count == 0)
@@ -182,13 +193,13 @@ public class PagodaMonkNPC : MonoBehaviour
         }
         _dialogText.text = Localization.T(_dialogQueue.Dequeue());
         bool offeringShown = _waitingOffering && _dialogText.text == Localization.T(_offerLine);
-        bool meditationShown = _waitingMeditation && _dialogText.text == Localization.T(_meditationLine);
+        bool meditationShown = _waitingMeditation && _dialogText.text == Localization.T("Con có muốn thiền định để gia tăng giới hạn phước đức không?");
         _promptText.text = _dialogQueue.Count > 0
             ? (GameInput.IsMobile ? Localization.T("Chạm để tiếp tục") : Localization.T("Nhấn E để tiếp tục"))
             : offeringShown
                 ? (GameInput.IsMobile ? Localization.T("Chạm để dâng gạo") : Localization.T("Nhấn E để dâng gạo"))
                 : meditationShown
-                    ? (GameInput.IsMobile ? Localization.T("Chạm để thiền định") : Localization.T("Nhấn E để thiền định"))
+                    ? (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"))
                     : (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"));
     }
 
@@ -284,6 +295,20 @@ public class PagodaMonkNPC : MonoBehaviour
 
         _promptText = MakeText("MonkDialogPrompt", rt, new Vector2(0f, -panelH * 0.36f),
             "", 16, new Color(0.7f, 0.7f, 0.7f), new Vector2(panelW - 40f, 25f));
+
+        _meditationRow = new GameObject("MonkMeditationRow");
+        _meditationRow.transform.SetParent(rt, false);
+        var medRowRt = _meditationRow.AddComponent<RectTransform>();
+        medRowRt.anchorMin = new Vector2(1f, 0f);
+        medRowRt.anchorMax = new Vector2(1f, 0f);
+        medRowRt.pivot = new Vector2(1f, 0f);
+        medRowRt.anchoredPosition = new Vector2(-20f, 6f);
+        medRowRt.sizeDelta = new Vector2(260f, 40f);
+        var medRowImg = _meditationRow.AddComponent<Image>();
+        medRowImg.color = new Color(0.4f, 0.3f, 0.6f, 0.9f);
+        _meditationText = MakeText("MonkMeditationText", medRowRt, new Vector2(0f, 0f),
+            Localization.T("[Thiền Định] Nhấn T"), 18, Color.white, new Vector2(236f, 36f));
+        _meditationRow.SetActive(false);
 
         _panel.SetActive(false);
     }

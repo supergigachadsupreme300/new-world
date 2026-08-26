@@ -63,8 +63,6 @@ public class WorldBuilder : MonoBehaviour
     private GameObject _policeOfficerRoot;
     private GameObject _policeCarRoot;
     private GameObject _alignmentStrip;
-    private readonly List<GameObject> _eventBlocks = new List<GameObject>();
-    private readonly List<int> _eventBlockIndices = new List<int>();
     private readonly HashSet<GameObject> _openDoors = new HashSet<GameObject>();
     private bool _wasNight;
     private readonly List<GameObject> _clouds = new List<GameObject>();
@@ -146,6 +144,8 @@ public class WorldBuilder : MonoBehaviour
     }
 
     private readonly Dictionary<GameObject, RockCrackState> _rockCrackStates = new Dictionary<GameObject, RockCrackState>();
+
+    private readonly Dictionary<GameObject, List<RockCrackData>> _buildingPartCracks = new Dictionary<GameObject, List<RockCrackData>>();
 
     private readonly BuildingDefinition[] _availableBuildings = new[]
     {
@@ -270,8 +270,18 @@ public class WorldBuilder : MonoBehaviour
     // Blueprints that must be researched at the Library before they can be placed.
     private static readonly Dictionary<string, int> ResearchCosts = new Dictionary<string, int>
     {
+        { "stone_wall", 60 },
+        { "fence", 40 },
         { "watchtower", 120 },
+        { "small_house", 100 },
+        { "stone_floor", 60 },
+        { "stair", 80 },
+        { "table", 40 },
+        { "chair", 40 },
+        { "sofa", 80 },
         { "goblin_hut", 120 },
+        { "door", 60 },
+        { "wife_house", 150 },
         { "structure_house", 150 },
         { "library", 150 },
         { "well", 100 },
@@ -472,7 +482,6 @@ public class WorldBuilder : MonoBehaviour
         SpawnBuffalo();
         CreateVendorSpawnButton();
         CreateImmigrantSpawnButton();
-        CreateEventBlocks();
         SpawnToolPickups();
         SpawnMobs();
         CreateCropDemo();
@@ -480,6 +489,7 @@ public class WorldBuilder : MonoBehaviour
         CreateInspectionLabels();
         CreateSectionDividers();
         CreateEnemyDisplay();
+        CreateAnimalDisplay();
         InitializeBuildingPreview();
         PlaceMansionBlueprint(MansionBasePos);
         BuildPagoda(new Vector3(26f, 0f, 25f));
@@ -2178,6 +2188,70 @@ public class WorldBuilder : MonoBehaviour
         crack.transform.localScale = new Vector3(data.Length, data.Thickness, data.Thickness);
     }
 
+    public void AddCracksToBuildingPart(GameObject partEntity)
+    {
+        if (partEntity == null || _worldRoot == null) return;
+
+        List<RockCrackData> existing;
+        if (!_buildingPartCracks.TryGetValue(partEntity, out existing))
+        {
+            existing = new List<RockCrackData>();
+            _buildingPartCracks[partEntity] = existing;
+        }
+
+        float w = partEntity.transform.localScale.x;
+        float h = partEntity.transform.localScale.y;
+        float d = partEntity.transform.localScale.z;
+        float minDim = Mathf.Min(w, Mathf.Min(h, d));
+        if (minDim < 0.01f) return;
+
+        var partTransform = partEntity.transform;
+        Quaternion partRot = partTransform.rotation;
+        Vector3 partPos = partTransform.position;
+
+        int cracksToAdd = existing.Count == 0 ? 6 : Mathf.Max(3, existing.Count / 2 + 2);
+        for (int i = 0; i < cracksToAdd; i++)
+        {
+            var data = new RockCrackData();
+            data.Face = Random.Range(0, 6);
+            GetFaceGeometry(data.Face, w, h, d, out Vector3 centerOff, out Vector3 tanU, out Vector3 tanV, out Vector3 normal, out float extU, out float extV);
+            data.Length = Random.Range(minDim * 0.2f, minDim * 0.4f);
+            data.Thickness = Random.Range(0.025f, 0.045f);
+            data.Angle = Random.Range(0f, Mathf.PI);
+            float margin = Mathf.Min(0.02f, Mathf.Min(extU, extV) * 0.1f);
+            float avail = Mathf.Min(extU, extV) * 0.5f - margin;
+            float halfLen = Mathf.Min(data.Length * 0.5f, Mathf.Max(0.005f, avail * 0.9f));
+            data.PosU = Random.Range(-extU * 0.5f + halfLen + margin, extU * 0.5f - halfLen - margin);
+            data.PosV = Random.Range(-extV * 0.5f + halfLen + margin, extV * 0.5f - halfLen - margin);
+
+            data.Obj = BuildCrackPrimitive(_worldRoot);
+
+            Vector3 dimPos = centerOff + data.PosU * tanU + data.PosV * tanV;
+            data.Obj.transform.position = partPos + partRot * dimPos;
+
+            Vector3 longDir = (Mathf.Cos(data.Angle) * tanU + Mathf.Sin(data.Angle) * tanV).normalized;
+            Vector3 worldNormal = (partRot * normal).normalized;
+            Vector3 worldLong = (partRot * longDir).normalized;
+            Vector3 worldZ = Vector3.Cross(worldLong, worldNormal).normalized;
+            data.Obj.transform.rotation = Quaternion.LookRotation(worldZ, worldNormal);
+
+            data.Obj.transform.localScale = new Vector3(data.Length, data.Thickness, data.Thickness);
+
+            existing.Add(data);
+        }
+    }
+
+    public void RemoveBuildingPartCracks(GameObject partEntity)
+    {
+        if (partEntity == null) return;
+        if (_buildingPartCracks.TryGetValue(partEntity, out var cracks))
+        {
+            foreach (var c in cracks)
+                if (c.Obj != null) Destroy(c.Obj);
+            _buildingPartCracks.Remove(partEntity);
+        }
+    }
+
     public bool RemoveRock(GameObject rock)
     {
         if (rock == null)
@@ -3872,7 +3946,12 @@ public class WorldBuilder : MonoBehaviour
                     ps.CurrentHealth--;
                     if (ps.CurrentHealth <= 0)
                     {
+                        RemoveBuildingPartCracks(ps.Entity);
                         ReplacePartWithGhost(building, ps);
+                    }
+                    else
+                    {
+                        AddCracksToBuildingPart(ps.Entity);
                     }
                     partFound = true;
                     break;
@@ -3887,7 +3966,12 @@ public class WorldBuilder : MonoBehaviour
                         ps.CurrentHealth--;
                         if (ps.CurrentHealth <= 0)
                         {
+                            RemoveBuildingPartCracks(ps.Entity);
                             ReplacePartWithGhost(building, ps);
+                        }
+                        else
+                        {
+                            AddCracksToBuildingPart(ps.Entity);
                         }
                         break;
                     }
@@ -3902,6 +3986,8 @@ public class WorldBuilder : MonoBehaviour
             building.CurrentHealth -= 25;
             if (building.CurrentHealth <= 0)
                 RevertBuildingToBlueprint(building);
+            else
+                AddCracksToBuildingPart(building.Entity);
         }
 
         UpdateBuildingDurabilityLabel(building);
@@ -3919,6 +4005,12 @@ public class WorldBuilder : MonoBehaviour
         if (building == null) return;
         if (building.PartStates != null && building.PartStates.Count > 0)
         {
+            foreach (var ps in building.PartStates)
+            {
+                if (ps.Entity != null)
+                    AddCracksToBuildingPart(ps.Entity);
+            }
+
             int partsToDestroy = Mathf.Max(1, damage / 25);
             for (int i = 0; i < partsToDestroy && building.DestroyedParts < building.TotalParts; i++)
             {
@@ -3926,6 +4018,7 @@ public class WorldBuilder : MonoBehaviour
                 {
                     if (ps.Entity != null)
                     {
+                        RemoveBuildingPartCracks(ps.Entity);
                         ps.CurrentHealth = 0;
                         ReplacePartWithGhost(building, ps);
                         break;
@@ -3943,7 +4036,94 @@ public class WorldBuilder : MonoBehaviour
             if (building.CurrentHealth <= 0)
                 RevertBuildingToBlueprint(building);
             else
+            {
+                AddCracksToBuildingPart(building.Entity);
                 UpdateBuildingDurabilityLabel(building);
+            }
+        }
+    }
+
+    public List<BuildingPartDebrisInfo> DamageBuildingDirectWithDebris(BuildingState building, int damage)
+    {
+        var debris = new List<BuildingPartDebrisInfo>();
+        if (building == null) return debris;
+
+        if (building.PartStates != null && building.PartStates.Count > 0)
+        {
+            foreach (var ps in building.PartStates)
+            {
+                if (ps.Entity != null)
+                    AddCracksToBuildingPart(ps.Entity);
+            }
+
+            int partsToDestroy = Mathf.Max(1, damage / 25);
+            int destroyed = 0;
+            foreach (var ps in building.PartStates)
+            {
+                if (destroyed >= partsToDestroy) break;
+                if (ps.Entity == null) continue;
+
+                var info = new BuildingPartDebrisInfo
+                {
+                    LocalPosition = ps.Entity.transform.localPosition,
+                    LocalRotation = ps.Entity.transform.localRotation,
+                    LocalScale = ps.Entity.transform.localScale,
+                    PartColor = GetPartColor(ps.Entity)
+                };
+                debris.Add(info);
+
+                RemoveBuildingPartCracks(ps.Entity);
+                ps.CurrentHealth = 0;
+                ReplacePartWithGhost(building, ps);
+                destroyed++;
+            }
+
+            if (building.TotalParts > 0 && (float)building.DestroyedParts / building.TotalParts > 0.6f)
+                RevertBuildingToBlueprint(building);
+            else
+                UpdateBuildingDurabilityLabel(building);
+        }
+        else
+        {
+            var info = new BuildingPartDebrisInfo
+            {
+                LocalPosition = Vector3.zero,
+                LocalRotation = Quaternion.identity,
+                LocalScale = Vector3.one * 2f,
+                PartColor = GetBuildingDebrisColorByType(building.Type)
+            };
+            debris.Add(info);
+
+            building.CurrentHealth -= damage;
+            if (building.CurrentHealth <= 0)
+                RevertBuildingToBlueprint(building);
+            else
+            {
+                AddCracksToBuildingPart(building.Entity);
+                UpdateBuildingDurabilityLabel(building);
+            }
+        }
+
+        return debris;
+    }
+
+    private Color GetPartColor(GameObject entity)
+    {
+        if (entity == null) return new Color(0.35f, 0.32f, 0.28f);
+        var renderer = entity.GetComponentInChildren<Renderer>();
+        if (renderer != null && renderer.sharedMaterial != null)
+            return renderer.sharedMaterial.color;
+        return new Color(0.35f, 0.32f, 0.28f);
+    }
+
+    private Color GetBuildingDebrisColorByType(string type)
+    {
+        switch (type)
+        {
+            case "PlayerHouse": return new Color(0.63f, 0.39f, 0.18f);
+            case "WifeHouse": return new Color(0.522f, 0.337f, 0.18f);
+            case "Shop": return new Color(0.58f, 0.361f, 0.165f);
+            default: return new Color(0.35f, 0.32f, 0.28f);
         }
     }
 
@@ -4019,8 +4199,10 @@ public class WorldBuilder : MonoBehaviour
         tmp.outlineWidth = 0.2f;
         tmp.outlineColor = Color.black;
         var parts = new List<string>();
-        if (woodCost > 0.01f) parts.Add($"W:{woodCost:F1}");
-        if (stoneCost > 0.01f) parts.Add($"S:{stoneCost:F1}");
+        int ceilWood = Mathf.CeilToInt(woodCost);
+        int ceilStone = Mathf.CeilToInt(stoneCost);
+        if (ceilWood > 0) parts.Add(Localization.T("Gỗ:") + $" {ceilWood}");
+        if (ceilStone > 0) parts.Add(Localization.T("Đá:") + $" {ceilStone}");
         tmp.text = string.Join(" ", parts);
 
         var ghostData = ghost.AddComponent<GhostPartData>();
@@ -4153,6 +4335,24 @@ public class WorldBuilder : MonoBehaviour
 
         string text = $"{current}/{max}";
 
+        if (building.PartStates == null || building.PartStates.Count == 0)
+        {
+            float damageFraction = 1f - (float)current / max;
+            var def = System.Array.Find(_availableBuildings, d => d.Name == building.Type);
+            if (def != null)
+            {
+                float repairWood = Mathf.Max(0, Mathf.Ceil(def.WoodCost * damageFraction));
+                float repairStone = Mathf.Max(0, Mathf.Ceil(def.StoneCost * damageFraction));
+                if (repairWood > 0 || repairStone > 0)
+                {
+                    var parts = new System.Collections.Generic.List<string>();
+                    if (repairWood > 0) parts.Add($"Gỗ:{repairWood:F0}");
+                    if (repairStone > 0) parts.Add($"Đá:{repairStone:F0}");
+                    text += "\n" + string.Join(" ", parts);
+                }
+            }
+        }
+
         if (building.DurabilityLabel == null)
         {
             var labelObj = new GameObject("DurabilityLabel");
@@ -4189,6 +4389,7 @@ public class WorldBuilder : MonoBehaviour
         {
             foreach (var ps in state.PartStates)
             {
+                RemoveBuildingPartCracks(ps.Entity);
                 if (ps.GhostEntity != null)
                 {
                     Object.Destroy(ps.GhostEntity);
@@ -4258,7 +4459,9 @@ public class WorldBuilder : MonoBehaviour
             Position = state.Position,
             Rotation = state.Rotation,
             WoodDeposited = 0,
-            StoneDeposited = 0
+            StoneDeposited = 0,
+            WoodCost = def.WoodCost,
+            StoneCost = def.StoneCost
         };
         CreateBlueprintLabel(blueprint, bpState, def);
         blueprint.AddComponent<BlueprintAutoDeposit>();
@@ -4316,7 +4519,7 @@ public class WorldBuilder : MonoBehaviour
         _blueprints.Add(bpState);
     }
 
-    private void GetEssentialCosts(string type, out float wood, out float stone)
+    public void GetEssentialCosts(string type, out float wood, out float stone)
     {
         switch (type)
         {
@@ -4802,7 +5005,7 @@ public class WorldBuilder : MonoBehaviour
             {
                 x = Random.Range(-half, half + 1);
                 z = Random.Range(-half, half + 1);
-                if (!IsReservedSpawnLocation(x, z))
+                if (x > -145 && !IsReservedSpawnLocation(x, z))
                     break;
             }
 
@@ -4833,7 +5036,7 @@ GameObject treeRoot;
             {
                 x = Random.Range(-half, half + 1);
                 z = Random.Range(-half, half + 1);
-                if (!IsReservedSpawnLocation(x, z))
+            if (x > -145 && !IsReservedSpawnLocation(x, z))
                     break;
             }
 
@@ -4870,7 +5073,7 @@ GameObject treeRoot;
         {
             x = Random.Range(-half, half + 1);
             z = Random.Range(-half, half + 1);
-            if (!IsReservedSpawnLocation(x, z))
+            if (x > -215 && !IsReservedSpawnLocation(x, z))
             {
                 GameObject treeRoot;
                 if (TreePrefab != null)
@@ -4900,7 +5103,7 @@ GameObject treeRoot;
         {
             x = Random.Range(-half, half + 1);
             z = Random.Range(-half, half + 1);
-            if (!IsReservedSpawnLocation(x, z))
+            if (x > -215 && !IsReservedSpawnLocation(x, z))
             {
                 GameObject rock;
                 if (RockPrefab != null)
@@ -5292,118 +5495,6 @@ GameObject treeRoot;
         _openDoors.Clear();
     }
 
-    // ── Event Blocks ──
-
-    private void CreateEventBlocks()
-    {
-        var rem = RandomEventManager.Instance;
-        if (rem == null || rem.EventCount == 0) return;
-
-        int cols = 6;
-        float spacing = 5f;
-        float startX = 50f;
-        float startZ = -78f;
-
-        for (int i = 0; i < rem.EventCount; i++)
-        {
-            int col = i % cols;
-            int row = i / cols;
-            float x = startX + col * spacing;
-            float z = startZ - row * spacing;
-
-            var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            block.name = "EventBlock_" + i;
-            block.transform.SetParent(_worldRoot.transform);
-            block.transform.position = new Vector3(x, 0.075f, z);
-            block.transform.localScale = new Vector3(1.2f, 0.15f, 1.2f);
-
-            Color tierColor = rem.GetEventColor(i);
-            var rend = block.GetComponent<Renderer>();
-            if (rend != null)
-                rend.material.color = tierColor;
-
-            var blockCol = block.GetComponent<Collider>();
-            if (blockCol != null)
-                blockCol.isTrigger = true;
-
-            _eventBlocks.Add(block);
-            _eventBlockIndices.Add(i);
-
-            var labelGO = new GameObject("Label_" + i);
-            Vector3 blockWorldPos = block.transform.position;
-            labelGO.transform.SetParent(_worldRoot.transform, false);
-            labelGO.transform.position = new Vector3(blockWorldPos.x, blockWorldPos.y + 7f, blockWorldPos.z);
-
-            var bg = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            bg.name = "LabelBg_" + i;
-            bg.transform.SetParent(labelGO.transform, false);
-            bg.transform.localPosition = new Vector3(0f, 0f, 0.05f);
-            bg.transform.localScale = new Vector3(3f, 3f, 1f);
-            Object.Destroy(bg.GetComponent<Collider>());
-            var bgRend = bg.GetComponent<Renderer>();
-            var tex = Resources.Load<Texture2D>("menu");
-            if (bgRend != null && tex != null) bgRend.material.mainTexture = tex;
-
-            var tmp = labelGO.AddComponent<TMPro.TextMeshPro>();
-            tmp.font = Resources.Load<TMPro.TMP_FontAsset>("VietPixel");
-            tmp.fontStyle = TMPro.FontStyles.Bold;
-            tmp.text = rem.GetEventName(i);
-            tmp.fontSize = 5.0f;
-            tmp.alignment = TMPro.TextAlignmentOptions.Center;
-            tmp.color = Color.white;
-            tmp.rectTransform.sizeDelta = new Vector3(3f, 3f);
-        }
-    }
-
-    public bool IsNearEventBlock(Vector3 position, float range = 3f)
-    {
-        for (int i = 0; i < _eventBlocks.Count; i++)
-        {
-            if (_eventBlocks[i] != null && Vector3.Distance(position, _eventBlocks[i].transform.position) <= range)
-                return true;
-        }
-        return false;
-    }
-
-    public bool ActivateEventBlock(Vector3 position, float range = 3f)
-    {
-        for (int i = 0; i < _eventBlocks.Count; i++)
-        {
-            if (_eventBlocks[i] == null) continue;
-            if (Vector3.Distance(position, _eventBlocks[i].transform.position) > range) continue;
-
-            int eventIndex = _eventBlockIndices[i];
-            RandomEventManager.Instance?.TriggerEventByIndex(eventIndex);
-
-            StartCoroutine(FlashEventBlock(_eventBlocks[i]));
-            return true;
-        }
-        return false;
-    }
-
-    public bool ActivateEventBlockByHit(GameObject block)
-    {
-        if (block == null) return false;
-        int idx = _eventBlocks.IndexOf(block);
-        if (idx < 0) return false;
-        int eventIndex = _eventBlockIndices[idx];
-        RandomEventManager.Instance?.TriggerEventByIndex(eventIndex);
-        StartCoroutine(FlashEventBlock(block));
-        return true;
-    }
-
-    private System.Collections.IEnumerator FlashEventBlock(GameObject block)
-    {
-        var rend = block.GetComponent<Renderer>();
-        if (rend == null) yield break;
-
-        Color original = rend.material.color;
-        rend.material.color = Color.white;
-        yield return new WaitForSeconds(0.5f);
-        if (rend != null)
-            rend.material.color = original;
-    }
-
     // ── Inspection Area: Building Models ──
 
     private void CreateBuildingModels()
@@ -5429,7 +5520,7 @@ GameObject treeRoot;
         CreateSectionLabel("SEEDS & SUPPLIES", new Vector3(57.5f, 3f, -50f));
         CreateSectionLabel("TOOLS", new Vector3(57.5f, 3f, -58f));
         CreateSectionLabel("HARVESTED CROPS", new Vector3(57.5f, 3f, -63f));
-        CreateSectionLabel("RANDOM EVENTS", new Vector3(57.5f, 3f, -76f));
+        CreateSectionLabel("ANIMALS", new Vector3(57.5f, 3f, -76f));
         CreateSectionLabel("CROP GROWTH STAGES", new Vector3(55.25f, 3f, -93f));
         CreateSectionLabel("BUILDINGS", new Vector3(56f, 3f, -126f));
     }
@@ -5494,6 +5585,43 @@ GameObject treeRoot;
         model.transform.position = new Vector3(57.5f, 0.3f, -88f);
         model.transform.localScale = Vector3.one * 0.8f;
         model.name = "EnemyDisplayModel";
+    }
+
+    private void CreateAnimalDisplay()
+    {
+        var displayRoot = new GameObject("AnimalDisplay");
+        displayRoot.transform.SetParent(_worldRoot.transform);
+
+        float baseX = 50f;
+        float spacing = 3.5f;
+        float rowZ = -78f;
+        int idx = 0;
+
+        var types = new Livestock.AnimalType[] {
+            Livestock.AnimalType.Cow, Livestock.AnimalType.Pig, Livestock.AnimalType.Sheep,
+            Livestock.AnimalType.Goat, Livestock.AnimalType.Chicken, Livestock.AnimalType.Duck,
+            Livestock.AnimalType.Turkey
+        };
+
+        foreach (var t in types)
+        {
+            float x = baseX + idx * spacing;
+            var pedestal = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            pedestal.name = "Pedestal_" + t;
+            pedestal.transform.SetParent(displayRoot.transform);
+            pedestal.transform.position = new Vector3(x, 0.15f, rowZ);
+            pedestal.transform.localScale = new Vector3(1.2f, 0.3f, 1.2f);
+            var pedR = pedestal.GetComponent<Renderer>();
+            if (pedR != null) pedR.material.color = new Color(0.15f, 0.18f, 0.15f);
+            Destroy(pedestal.GetComponent<Collider>());
+
+            var model = new GameObject("Animal_" + t);
+            model.transform.SetParent(displayRoot.transform);
+            model.transform.position = new Vector3(x, 0.3f, rowZ);
+            model.transform.localScale = Vector3.one * 0.6f;
+            Livestock.BuildModelInto(model.transform, t);
+            idx++;
+        }
     }
 
     public void SpawnVendorCart()
@@ -5820,259 +5948,7 @@ GameObject treeRoot;
         roof.GetComponent<Renderer>().material.color = cartColor;
         Object.Destroy(roof.GetComponent<Collider>());
 
-        var vendorRoot = new GameObject("VendorNPC");
-        vendorRoot.transform.SetParent(cart.Root.transform, false);
-        vendorRoot.transform.localPosition = new Vector3(-halfW - 0.6f, floorY, 0f);
-
-        // Legs
-        var legL = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        legL.transform.SetParent(vendorRoot.transform, false);
-        legL.transform.localScale = new Vector3(0.1f, 0.2f, 0.1f);
-        legL.transform.localPosition = new Vector3(-0.1f, -0.5f, 0f);
-        legL.GetComponent<Renderer>().material.color = new Color(0.3f, 0.2f, 0.1f);
-        Object.Destroy(legL.GetComponent<Collider>());
-
-        var legR = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        legR.transform.SetParent(vendorRoot.transform, false);
-        legR.transform.localScale = new Vector3(0.1f, 0.2f, 0.1f);
-        legR.transform.localPosition = new Vector3(0.1f, -0.5f, 0f);
-        legR.GetComponent<Renderer>().material.color = new Color(0.3f, 0.2f, 0.1f);
-        Object.Destroy(legR.GetComponent<Collider>());
-
-        // Shoes
-        var shoeL = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        shoeL.transform.SetParent(vendorRoot.transform, false);
-        shoeL.transform.localScale = new Vector3(0.14f, 0.05f, 0.16f);
-        shoeL.transform.localPosition = new Vector3(-0.1f, -0.585f, -0.02f);
-        shoeL.GetComponent<Renderer>().material.color = new Color(0.15f, 0.12f, 0.1f);
-        Object.Destroy(shoeL.GetComponent<Collider>());
-
-        var shoeR = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        shoeR.transform.SetParent(vendorRoot.transform, false);
-        shoeR.transform.localScale = new Vector3(0.14f, 0.05f, 0.16f);
-        shoeR.transform.localPosition = new Vector3(0.1f, -0.585f, -0.02f);
-        shoeR.GetComponent<Renderer>().material.color = new Color(0.15f, 0.12f, 0.1f);
-        Object.Destroy(shoeR.GetComponent<Collider>());
-
-        // Body
-        var vendorBody = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        vendorBody.transform.SetParent(vendorRoot.transform, false);
-        vendorBody.transform.localScale = new Vector3(0.4f, 0.4f, 0.25f);
-        vendorBody.transform.localPosition = new Vector3(0f, 0.2f, 0f);
-        vendorBody.GetComponent<Renderer>().material.color = new Color(0.5f, 0.6f, 0.3f);
-        Object.Destroy(vendorBody.GetComponent<Collider>());
-
-        // Apron over the body front (faces player side)
-        var apron = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        apron.transform.SetParent(vendorRoot.transform, false);
-        apron.transform.localScale = new Vector3(0.3f, 0.28f, 0.02f);
-        apron.transform.localPosition = new Vector3(0f, 0.18f, -0.135f);
-        apron.GetComponent<Renderer>().material.color = new Color(0.88f, 0.86f, 0.82f);
-        Object.Destroy(apron.GetComponent<Collider>());
-
-        var apronBtn1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        apronBtn1.transform.SetParent(vendorRoot.transform, false);
-        apronBtn1.transform.localScale = new Vector3(0.025f, 0.025f, 0.018f);
-        apronBtn1.transform.localPosition = new Vector3(0f, 0.13f, -0.148f);
-        apronBtn1.GetComponent<Renderer>().material.color = new Color(0.92f, 0.78f, 0.3f);
-        Object.Destroy(apronBtn1.GetComponent<Collider>());
-
-        var apronBtn2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        apronBtn2.transform.SetParent(vendorRoot.transform, false);
-        apronBtn2.transform.localScale = new Vector3(0.025f, 0.025f, 0.018f);
-        apronBtn2.transform.localPosition = new Vector3(0f, 0.21f, -0.148f);
-        apronBtn2.GetComponent<Renderer>().material.color = new Color(0.92f, 0.78f, 0.3f);
-        Object.Destroy(apronBtn2.GetComponent<Collider>());
-
-        var apronStrapL = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        apronStrapL.transform.SetParent(vendorRoot.transform, false);
-        apronStrapL.transform.localScale = new Vector3(0.02f, 0.07f, 0.02f);
-        apronStrapL.transform.localPosition = new Vector3(-0.11f, 0.345f, -0.135f);
-        apronStrapL.GetComponent<Renderer>().material.color = new Color(0.95f, 0.95f, 0.95f);
-        Object.Destroy(apronStrapL.GetComponent<Collider>());
-
-        var apronStrapR = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        apronStrapR.transform.SetParent(vendorRoot.transform, false);
-        apronStrapR.transform.localScale = new Vector3(0.02f, 0.07f, 0.02f);
-        apronStrapR.transform.localPosition = new Vector3(0.11f, 0.345f, -0.135f);
-        apronStrapR.GetComponent<Renderer>().material.color = new Color(0.95f, 0.95f, 0.95f);
-        Object.Destroy(apronStrapR.GetComponent<Collider>());
-
-        // Collar
-        var vendorCollar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        vendorCollar.transform.SetParent(vendorRoot.transform, false);
-        vendorCollar.transform.localScale = new Vector3(0.15f, 0.035f, 0.02f);
-        vendorCollar.transform.localPosition = new Vector3(0f, 0.325f, -0.135f);
-        vendorCollar.GetComponent<Renderer>().material.color = new Color(0.95f, 0.95f, 0.95f);
-        Object.Destroy(vendorCollar.GetComponent<Collider>());
-
-        // Money pouch on the hip
-        var pouch = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        pouch.transform.SetParent(vendorRoot.transform, false);
-        pouch.transform.localScale = new Vector3(0.07f, 0.08f, 0.05f);
-        pouch.transform.localPosition = new Vector3(0.225f, 0.10f, -0.06f);
-        pouch.GetComponent<Renderer>().material.color = new Color(0.42f, 0.28f, 0.15f);
-        Object.Destroy(pouch.GetComponent<Collider>());
-
-        var pouchStrap = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        pouchStrap.transform.SetParent(vendorRoot.transform, false);
-        pouchStrap.transform.localScale = new Vector3(0.02f, 0.12f, 0.02f);
-        pouchStrap.transform.localPosition = new Vector3(0.215f, 0.20f, -0.05f);
-        pouchStrap.GetComponent<Renderer>().material.color = new Color(0.42f, 0.28f, 0.15f);
-        Object.Destroy(pouchStrap.GetComponent<Collider>());
-
-        // Arms
-        var armL = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        armL.transform.SetParent(vendorRoot.transform, false);
-        armL.transform.localScale = new Vector3(0.08f, 0.3f, 0.08f);
-        armL.transform.localPosition = new Vector3(-0.26f, 0.15f, 0f);
-        armL.GetComponent<Renderer>().material.color = new Color(0.9f, 0.7f, 0.5f);
-        Object.Destroy(armL.GetComponent<Collider>());
-
-        var armR = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        armR.transform.SetParent(vendorRoot.transform, false);
-        armR.transform.localScale = new Vector3(0.08f, 0.3f, 0.08f);
-        armR.transform.localPosition = new Vector3(0.26f, 0.15f, 0f);
-        armR.GetComponent<Renderer>().material.color = new Color(0.9f, 0.7f, 0.5f);
-        Object.Destroy(armR.GetComponent<Collider>());
-
-        // Hands
-        var handL = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        handL.transform.SetParent(vendorRoot.transform, false);
-        handL.transform.localScale = new Vector3(0.09f, 0.08f, 0.09f);
-        handL.transform.localPosition = new Vector3(-0.26f, -0.02f, 0f);
-        handL.GetComponent<Renderer>().material.color = new Color(0.9f, 0.7f, 0.5f);
-        Object.Destroy(handL.GetComponent<Collider>());
-
-        var handR = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        handR.transform.SetParent(vendorRoot.transform, false);
-        handR.transform.localScale = new Vector3(0.09f, 0.08f, 0.09f);
-        handR.transform.localPosition = new Vector3(0.26f, -0.02f, 0f);
-        handR.GetComponent<Renderer>().material.color = new Color(0.9f, 0.7f, 0.5f);
-        Object.Destroy(handR.GetComponent<Collider>());
-
-        // Rolled sleeve cuffs
-        var cuffL = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        cuffL.transform.SetParent(vendorRoot.transform, false);
-        cuffL.transform.localScale = new Vector3(0.09f, 0.05f, 0.09f);
-        cuffL.transform.localPosition = new Vector3(-0.26f, 0.26f, 0f);
-        cuffL.GetComponent<Renderer>().material.color = new Color(0.95f, 0.95f, 0.95f);
-        Object.Destroy(cuffL.GetComponent<Collider>());
-
-        var cuffR = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        cuffR.transform.SetParent(vendorRoot.transform, false);
-        cuffR.transform.localScale = new Vector3(0.09f, 0.05f, 0.09f);
-        cuffR.transform.localPosition = new Vector3(0.26f, 0.26f, 0f);
-        cuffR.GetComponent<Renderer>().material.color = new Color(0.95f, 0.95f, 0.95f);
-        Object.Destroy(cuffR.GetComponent<Collider>());
-
-        // Head
-        var vendorHead = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        vendorHead.transform.SetParent(vendorRoot.transform, false);
-        vendorHead.transform.localScale = new Vector3(0.25f, 0.25f, 0.25f);
-        vendorHead.transform.localPosition = new Vector3(0f, 0.55f, 0f);
-        vendorHead.GetComponent<Renderer>().material.color = new Color(0.9f, 0.7f, 0.5f);
-        Object.Destroy(vendorHead.GetComponent<Collider>());
-
-        // Face (points along local -Z, toward the player once the cart is rotated)
-        var eyeWhiteL = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        eyeWhiteL.transform.SetParent(vendorRoot.transform, false);
-        eyeWhiteL.transform.localScale = new Vector3(0.045f, 0.045f, 0.02f);
-        eyeWhiteL.transform.localPosition = new Vector3(-0.06f, 0.575f, -0.128f);
-        eyeWhiteL.GetComponent<Renderer>().material.color = Color.white;
-        Object.Destroy(eyeWhiteL.GetComponent<Collider>());
-
-        var eyeWhiteR = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        eyeWhiteR.transform.SetParent(vendorRoot.transform, false);
-        eyeWhiteR.transform.localScale = new Vector3(0.045f, 0.045f, 0.02f);
-        eyeWhiteR.transform.localPosition = new Vector3(0.06f, 0.575f, -0.128f);
-        eyeWhiteR.GetComponent<Renderer>().material.color = Color.white;
-        Object.Destroy(eyeWhiteR.GetComponent<Collider>());
-
-        var eyeIrisL = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        eyeIrisL.transform.SetParent(vendorRoot.transform, false);
-        eyeIrisL.transform.localScale = new Vector3(0.025f, 0.03f, 0.02f);
-        eyeIrisL.transform.localPosition = new Vector3(-0.06f, 0.57f, -0.138f);
-        eyeIrisL.GetComponent<Renderer>().material.color = new Color(0.15f, 0.12f, 0.1f);
-        Object.Destroy(eyeIrisL.GetComponent<Collider>());
-
-        var eyeIrisR = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        eyeIrisR.transform.SetParent(vendorRoot.transform, false);
-        eyeIrisR.transform.localScale = new Vector3(0.025f, 0.03f, 0.02f);
-        eyeIrisR.transform.localPosition = new Vector3(0.06f, 0.57f, -0.138f);
-        eyeIrisR.GetComponent<Renderer>().material.color = new Color(0.15f, 0.12f, 0.1f);
-        Object.Destroy(eyeIrisR.GetComponent<Collider>());
-
-        var eyebrowL = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        eyebrowL.transform.SetParent(vendorRoot.transform, false);
-        eyebrowL.transform.localScale = new Vector3(0.055f, 0.012f, 0.015f);
-        eyebrowL.transform.localPosition = new Vector3(-0.06f, 0.615f, -0.13f);
-        eyebrowL.GetComponent<Renderer>().material.color = new Color(0.15f, 0.12f, 0.1f);
-        Object.Destroy(eyebrowL.GetComponent<Collider>());
-
-        var eyebrowR = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        eyebrowR.transform.SetParent(vendorRoot.transform, false);
-        eyebrowR.transform.localScale = new Vector3(0.055f, 0.012f, 0.015f);
-        eyebrowR.transform.localPosition = new Vector3(0.06f, 0.615f, -0.13f);
-        eyebrowR.GetComponent<Renderer>().material.color = new Color(0.15f, 0.12f, 0.1f);
-        Object.Destroy(eyebrowR.GetComponent<Collider>());
-
-        var nose = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        nose.transform.SetParent(vendorRoot.transform, false);
-        nose.transform.localScale = new Vector3(0.045f, 0.04f, 0.03f);
-        nose.transform.localPosition = new Vector3(0f, 0.545f, -0.145f);
-        nose.GetComponent<Renderer>().material.color = new Color(0.85f, 0.65f, 0.45f);
-        Object.Destroy(nose.GetComponent<Collider>());
-
-        var cheekL = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        cheekL.transform.SetParent(vendorRoot.transform, false);
-        cheekL.transform.localScale = new Vector3(0.03f, 0.02f, 0.02f);
-        cheekL.transform.localPosition = new Vector3(-0.09f, 0.55f, -0.13f);
-        cheekL.GetComponent<Renderer>().material.color = new Color(0.95f, 0.6f, 0.5f);
-        Object.Destroy(cheekL.GetComponent<Collider>());
-
-        var cheekR = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        cheekR.transform.SetParent(vendorRoot.transform, false);
-        cheekR.transform.localScale = new Vector3(0.03f, 0.02f, 0.02f);
-        cheekR.transform.localPosition = new Vector3(0.09f, 0.55f, -0.13f);
-        cheekR.GetComponent<Renderer>().material.color = new Color(0.95f, 0.6f, 0.5f);
-        Object.Destroy(cheekR.GetComponent<Collider>());
-
-        var smile = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        smile.transform.SetParent(vendorRoot.transform, false);
-        smile.transform.localScale = new Vector3(0.07f, 0.015f, 0.015f);
-        smile.transform.localPosition = new Vector3(0f, 0.505f, -0.13f);
-        smile.GetComponent<Renderer>().material.color = new Color(0.15f, 0.12f, 0.1f);
-        Object.Destroy(smile.GetComponent<Collider>());
-
-        // Straw hat
-        var hatBrim = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        hatBrim.transform.SetParent(vendorRoot.transform, false);
-        hatBrim.transform.localScale = new Vector3(0.42f, 0.03f, 0.42f);
-        hatBrim.transform.localPosition = new Vector3(0f, 0.7f, 0f);
-        hatBrim.GetComponent<Renderer>().material.color = new Color(0.75f, 0.6f, 0.35f);
-        Object.Destroy(hatBrim.GetComponent<Collider>());
-
-        var hatBand = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        hatBand.transform.SetParent(vendorRoot.transform, false);
-        hatBand.transform.localScale = new Vector3(0.24f, 0.025f, 0.24f);
-        hatBand.transform.localPosition = new Vector3(0f, 0.735f, 0f);
-        hatBand.GetComponent<Renderer>().material.color = new Color(0.62f, 0.15f, 0.18f);
-        Object.Destroy(hatBand.GetComponent<Collider>());
-
-        var hatCrown1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        hatCrown1.transform.SetParent(vendorRoot.transform, false);
-        hatCrown1.transform.localScale = new Vector3(0.24f, 0.07f, 0.24f);
-        hatCrown1.transform.localPosition = new Vector3(0f, 0.76f, 0f);
-        hatCrown1.GetComponent<Renderer>().material.color = new Color(0.75f, 0.6f, 0.35f);
-        Object.Destroy(hatCrown1.GetComponent<Collider>());
-
-        var hatCrown2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        hatCrown2.transform.SetParent(vendorRoot.transform, false);
-        hatCrown2.transform.localScale = new Vector3(0.16f, 0.06f, 0.16f);
-        hatCrown2.transform.localPosition = new Vector3(0f, 0.815f, 0f);
-        hatCrown2.GetComponent<Renderer>().material.color = new Color(0.75f, 0.6f, 0.35f);
-        Object.Destroy(hatCrown2.GetComponent<Collider>());
+        var vendorRoot = MapBuilder.BuildImmigrantNpc(cart.Root.transform, new Vector3(-halfW - 0.6f, floorY, 0f));
 
         // Shop sign on roof
         var signPole = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -6088,11 +5964,6 @@ GameObject treeRoot;
         signBoard.transform.localPosition = new Vector3(-1.5f, 2.6f, 0f);
         signBoard.GetComponent<Renderer>().material.color = new Color(0.9f, 0.8f, 0.1f);
         Object.Destroy(signBoard.GetComponent<Collider>());
-
-        var vendorCollider = vendorRoot.AddComponent<BoxCollider>();
-        vendorCollider.size = new Vector3(0.5f, 1.5f, 0.5f);
-        vendorCollider.center = new Vector3(0f, 0.75f, 0f);
-        vendorCollider.isTrigger = true;
 
         for (int i = 0; i < 4; i++)
         {
@@ -6710,6 +6581,15 @@ GameObject treeRoot;
         }
         _rockCrackStates.Clear();
 
+        foreach (var kvp in _buildingPartCracks)
+        {
+            foreach (var crack in kvp.Value)
+            {
+                if (crack.Obj != null) Destroy(crack.Obj);
+            }
+        }
+        _buildingPartCracks.Clear();
+
         foreach (var field in _fields)
         {
             if (field.FieldObject != null) Destroy(field.FieldObject);
@@ -7150,6 +7030,14 @@ GameObject treeRoot;
         public GameObject Entity;
         public int CurrentHealth;
         public GameObject GhostEntity;
+    }
+
+    public class BuildingPartDebrisInfo
+    {
+        public Vector3 LocalPosition;
+        public Quaternion LocalRotation;
+        public Vector3 LocalScale;
+        public Color PartColor;
     }
 
     [System.Serializable]
