@@ -2,10 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class GameManager : MonoBehaviour
+public class GameManager : MonoSingleton<GameManager>
 {
-    public static GameManager Instance { get; private set; }
-
     public bool InGame { get; private set; }
     public bool GamePaused { get; private set; }
     public bool IsPlayerDead { get; private set; }
@@ -25,14 +23,9 @@ public class GameManager : MonoBehaviour
     public List<EnemyController> Enemies = new List<EnemyController>();
     public bool AutoStartGame = false;
 
-    private void Awake()
+    protected override void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
+        base.Awake();
         TimeSpeed = 0.01f;
         AutoStartGame = false;
     }

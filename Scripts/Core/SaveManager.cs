@@ -2,24 +2,13 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
-public class SaveManager : MonoBehaviour
+public class SaveManager : MonoSingleton<SaveManager>
 {
-    public static SaveManager Instance { get; private set; }
     private GameManager _gameManager;
     private ToolManager _toolManager;
     private WorldBuilder _worldBuilder;
     private UIManager _uiManager;
     private QuestManager _questManager;
-
-    public void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-    }
 
     public void Initialize(GameManager gameManager, ToolManager toolManager, WorldBuilder worldBuilder, UIManager uiManager, QuestManager questManager)
     {

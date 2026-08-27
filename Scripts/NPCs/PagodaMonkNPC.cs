@@ -4,11 +4,9 @@ using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using TMPro;
 
-public class PagodaMonkNPC : MonoBehaviour
+public class PagodaMonkNPC : MonoSingleton<PagodaMonkNPC>
 {
-    public static PagodaMonkNPC Instance { get; private set; }
-
-    private Transform _myTransform;
+private Transform _myTransform;
     private Transform _playerTransform;
     private Quaternion _originalRotation = Quaternion.identity;
 
@@ -44,17 +42,6 @@ public class PagodaMonkNPC : MonoBehaviour
     private bool _waitingMeditation;
 
     public bool IsDialogActive => _dialogActive;
-
-    void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-        _myTransform = transform;
-    }
 
     void Start()
     {
@@ -93,12 +80,10 @@ public class PagodaMonkNPC : MonoBehaviour
         if (qm != null && wb != null && qm.HasQuest("Trấn Áp Quỷ Vương") && !wb.IsQuestBossAlive)
             wb.SpawnQuestBoss();
     }
-
     public bool HasBlessingToday
     {
         get { var gm = GameManager.Instance; return gm != null && _blessedDay == gm.CurrentDay; }
     }
-
     public void Interact()
     {
         if (gameObject == null || !gameObject.activeInHierarchy)
@@ -134,7 +119,6 @@ public class PagodaMonkNPC : MonoBehaviour
         if (_meditationRow != null)
             _meditationRow.SetActive(true);
     }
-
     private void AddQuestDialogLines()
     {
         var qm = QuestManager.Instance;
@@ -172,7 +156,6 @@ public class PagodaMonkNPC : MonoBehaviour
         }
         _dialogQueue.Enqueue(Localization.F("Con hãy tiếp tục dùng Tràng Hạt. Tiến độ: {0}/5", qm.GetNamedQuestProgress("Trừ Tà Quanh Chùa")));
     }
-
     public void Advance()
     {
         if (_panel == null)
@@ -202,7 +185,6 @@ public class PagodaMonkNPC : MonoBehaviour
                     ? (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"))
                     : (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"));
     }
-
     private void PerformOffering()
     {
         var gm = GameManager.Instance;
@@ -230,7 +212,6 @@ public class PagodaMonkNPC : MonoBehaviour
             _dialogQueue.Enqueue("Con chưa mang gạo theo người. Hãy quay lại khi có gạo nhé.");
         }
     }
-
     public void Hide()
     {
         _dialogActive = false;
@@ -239,7 +220,6 @@ public class PagodaMonkNPC : MonoBehaviour
         if (_myTransform != null)
             _myTransform.rotation = _originalRotation;
     }
-
     private void FacePlayer()
     {
         if (_myTransform == null || _playerTransform == null)
@@ -249,7 +229,6 @@ public class PagodaMonkNPC : MonoBehaviour
         if (to.sqrMagnitude > 0.001f)
             _myTransform.rotation = Quaternion.LookRotation(to.normalized);
     }
-
     private void InitializeDialog()
     {
         if (_canvas != null)
@@ -260,7 +239,6 @@ public class PagodaMonkNPC : MonoBehaviour
             return;
         CreatePanel();
     }
-
     private void CreatePanel()
     {
         float sw = Screen.width;
@@ -312,7 +290,6 @@ public class PagodaMonkNPC : MonoBehaviour
 
         _panel.SetActive(false);
     }
-
     private TMP_Text MakeText(string name, RectTransform parent, Vector2 position, string text,
         int fontSize, Color color, Vector2 size)
     {
@@ -327,8 +304,7 @@ public class PagodaMonkNPC : MonoBehaviour
         rt.sizeDelta = size;
 
         var tmp = go.AddComponent<TextMeshProUGUI>();
-        if (GameManager.Instance?.UIManager?.defaultTmpFont != null)
-            tmp.font = GameManager.Instance.UIManager.defaultTmpFont;
+GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = text;
         tmp.fontSize = fontSize;
         tmp.color = color;

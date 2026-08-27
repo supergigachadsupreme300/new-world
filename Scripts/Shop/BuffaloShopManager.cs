@@ -424,8 +424,7 @@ public class BuffaloShopManager : MonoBehaviour
         rt.anchoredPosition = pos;
         rt.sizeDelta = size;
         var tmp = go.AddComponent<TextMeshProUGUI>();
-        if (GameManager.Instance?.UIManager?.defaultTmpFont != null)
-            tmp.font = GameManager.Instance.UIManager.defaultTmpFont;
+GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = text;
         tmp.fontSize = fontSize;
         tmp.color = Color.white;
@@ -458,8 +457,7 @@ public class BuffaloShopManager : MonoBehaviour
         tr.offsetMin = Vector2.zero;
         tr.offsetMax = Vector2.zero;
         var tmp = textGO.AddComponent<TextMeshProUGUI>();
-        if (GameManager.Instance?.UIManager?.defaultTmpFont != null)
-            tmp.font = GameManager.Instance.UIManager.defaultTmpFont;
+GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = label;
         tmp.fontSize = fontSize;
         tmp.color = Color.white;

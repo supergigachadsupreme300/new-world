@@ -3,10 +3,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class ImmigrantNpc : MonoBehaviour
+public class ImmigrantNpc : MonoSingleton<ImmigrantNpc>
 {
-    public static ImmigrantNpc Instance { get; private set; }
-
     public static void ClearInstance()
     {
         Instance = null;
@@ -38,17 +36,6 @@ public class ImmigrantNpc : MonoBehaviour
 
     public bool IsDialogActive => _dialogActive;
 
-    void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-        _myTransform = transform;
-    }
-
     void Start()
     {
         var playerGo = GameObject.Find("Player");
@@ -56,20 +43,17 @@ public class ImmigrantNpc : MonoBehaviour
         if (_myTransform != null)
             _originalRotation = _myTransform.rotation;
     }
-
     private bool IsQuestComplete()
     {
         var qm = QuestManager.Instance;
         return qm != null && qm.IsNamedQuestComplete(CurrentQuestName());
     }
-
     private bool HasActiveQuest()
     {
         var qm = QuestManager.Instance;
         string qn = CurrentQuestName();
         return qm != null && qm.HasQuest(qn) && !qm.IsNamedQuestComplete(qn);
     }
-
     public void Interact()
     {
         if (gameObject == null || !gameObject.activeInHierarchy)
@@ -86,7 +70,6 @@ public class ImmigrantNpc : MonoBehaviour
         AddQuestDialogLines();
         Advance();
     }
-
     private void AddQuestDialogLines()
     {
         var qm = QuestManager.Instance;
@@ -133,7 +116,6 @@ public class ImmigrantNpc : MonoBehaviour
             GameManager.Instance.UIManager.ShowMessage(
                 Localization.T("Blueprint đã được đặt tại vị trí quy hoạch! Hãy thu thập gỗ & đá."), 5f);
     }
-
     public void Advance()
     {
         if (_panel == null)
@@ -148,7 +130,6 @@ public class ImmigrantNpc : MonoBehaviour
             ? (GameInput.IsMobile ? Localization.T("Chạm để tiếp tục") : Localization.T("Nhấn E để tiếp tục"))
             : (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"));
     }
-
     public void OnDayChanged()
     {
         var gm = GameManager.Instance;
@@ -179,7 +160,6 @@ public class ImmigrantNpc : MonoBehaviour
             gm.UIManager.ShowMessage(Localization.F("Nhận {0} đồng tiền thuê nhà từ khu người di cư!", rent), 3f);
         }
     }
-
     public void Hide()
     {
         _dialogActive = false;
@@ -188,7 +168,6 @@ public class ImmigrantNpc : MonoBehaviour
         if (_myTransform != null)
             _myTransform.rotation = _originalRotation;
     }
-
     private void FacePlayer()
     {
         if (_myTransform == null || _playerTransform == null)
@@ -198,7 +177,6 @@ public class ImmigrantNpc : MonoBehaviour
         if (to.sqrMagnitude > 0.001f)
             _myTransform.rotation = Quaternion.LookRotation(to.normalized);
     }
-
     private void InitializeDialog()
     {
         if (_canvas != null)
@@ -209,7 +187,6 @@ public class ImmigrantNpc : MonoBehaviour
             return;
         CreatePanel();
     }
-
     private void CreatePanel()
     {
         float sw = Screen.width;
@@ -247,7 +224,6 @@ public class ImmigrantNpc : MonoBehaviour
 
         _panel.SetActive(false);
     }
-
     private TMP_Text MakeText(string name, RectTransform parent, Vector2 position, string text,
         int fontSize, Color color, Vector2 size)
     {
@@ -262,8 +238,7 @@ public class ImmigrantNpc : MonoBehaviour
         rt.sizeDelta = size;
 
         var tmp = go.AddComponent<TextMeshProUGUI>();
-        if (GameManager.Instance?.UIManager?.defaultTmpFont != null)
-            tmp.font = GameManager.Instance.UIManager.defaultTmpFont;
+GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = text;
         tmp.fontSize = fontSize;
         tmp.color = color;

@@ -6,10 +6,9 @@ using UnityEngine.UI;
 using TMPro;
 
 [DefaultExecutionOrder(-100)]
-public partial class CutsceneManager : MonoBehaviour
+public partial class CutsceneManager : MonoSingleton<CutsceneManager>
 {
-    public static CutsceneManager Instance { get; private set; }
-    public bool IsActive { get; private set; }
+public bool IsActive { get; private set; }
     public bool JustCancelledCutscene { get; private set; }
 
     private UIManager _uiManager;
@@ -95,16 +94,6 @@ public partial class CutsceneManager : MonoBehaviour
     private const float SkipSpeed = 7f;
     private const float ArmSwingAngle = 25f;
 
-    void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-    }
-
     void Start()
     {
         _pendingCheckRoutine = StartCoroutine(PendingCheckLoop());
@@ -138,7 +127,7 @@ public partial class CutsceneManager : MonoBehaviour
         PrebuildDrivingAssets();
     }
 
-    // ── Skip Button ──
+    // â”€â”€ Skip Button â”€â”€
 
     private void CreateSkipButton()
     {
@@ -148,9 +137,8 @@ public partial class CutsceneManager : MonoBehaviour
         _skipButton = new GameObject("SkipButton");
         _skipButton.transform.SetParent(_canvas.transform, false);
         var tmp = _skipButton.AddComponent<TextMeshProUGUI>();
-        if (_uiManager != null && _uiManager.defaultTmpFont != null)
-            tmp.font = _uiManager.defaultTmpFont;
-        tmp.text = GameInput.IsMobile ? Localization.T("Bỏ Qua") : Localization.T("Bỏ Qua [ESC]");
+        _uiManager?.ApplyDefaultFont(tmp);
+        tmp.text = GameInput.IsMobile ? Localization.T("Bá» Qua") : Localization.T("Bá» Qua [ESC]");
         tmp.fontSize = 24;
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Right;
@@ -190,7 +178,7 @@ public partial class CutsceneManager : MonoBehaviour
             _skipButton.SetActive(false);
     }
 
-    // ── Public API ──
+    // â”€â”€ Public API â”€â”€
 
     public void PlayIntroCutscene(System.Action onComplete = null)
     {
@@ -364,9 +352,9 @@ public partial class CutsceneManager : MonoBehaviour
         }
     }
 
-    // ═══════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     //  HELPERS
-    // ═══════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     private void DisablePlayerControl()
     {
@@ -450,7 +438,7 @@ public partial class CutsceneManager : MonoBehaviour
             _uiManager.ShowEndScreen(endTitle, endContent);
     }
 
-    // ── Overlay ──
+    // â”€â”€ Overlay â”€â”€
 
     private IEnumerator CreateFadeOverlay()
     {
@@ -500,7 +488,7 @@ public partial class CutsceneManager : MonoBehaviour
         if (_overlay != null) { Destroy(_overlay); _overlay = null; _overlayImage = null; }
     }
 
-    // ── Letterbox bars ──
+    // â”€â”€ Letterbox bars â”€â”€
 
     private void CreateLetterboxBars()
     {
@@ -533,7 +521,7 @@ public partial class CutsceneManager : MonoBehaviour
         if (_letterBottom != null) { Destroy(_letterBottom); _letterBottom = null; }
     }
 
-    // ── Block spawning ──
+    // â”€â”€ Block spawning â”€â”€
 
     private GameObject CreateBlock(Vector3 scale, Vector3 position, Color color)
     {

@@ -1,13 +1,12 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using static CountryLife.Helpers.PickupVisualHelper;
+using CountryLife.Helpers;
 
-public partial class WorldBuilder : MonoBehaviour
+public partial class WorldBuilder : MonoSingleton<WorldBuilder>
 {
-    public static WorldBuilder Instance { get; private set; }
-
-    public int BuildingCount => _buildings.Count;
+public int BuildingCount => _buildings.Count;
 
     public int TreeCount = 150;
     public int RockCount = 75;
@@ -126,7 +125,6 @@ public partial class WorldBuilder : MonoBehaviour
         public Vector3 CenterWorld;
         public float InitialDepth;
     }
-
     private class RockCrackData
     {
         public GameObject Obj;
@@ -136,7 +134,6 @@ public partial class WorldBuilder : MonoBehaviour
         public float Length;
         public float Thickness;
     }
-
     private class RockCrackState
     {
         public GameObject RockRoot;
@@ -144,7 +141,6 @@ public partial class WorldBuilder : MonoBehaviour
         public bool IsDestroyed;
         public readonly List<RockCrackData> Cracks = new List<RockCrackData>();
     }
-
     private readonly Dictionary<GameObject, RockCrackState> _rockCrackStates = new Dictionary<GameObject, RockCrackState>();
 
     private readonly Dictionary<GameObject, List<RockCrackData>> _buildingPartCracks = new Dictionary<GameObject, List<RockCrackData>>();
@@ -293,17 +289,17 @@ public partial class WorldBuilder : MonoBehaviour
 
     private readonly HashSet<string> _unlockedBlueprints = new HashSet<string>();
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     //  MANSION MEGA STRUCTURE DEFINITION
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     private static readonly SubBuildingDefinition[] _mansionSubBuildings = new SubBuildingDefinition[]
     {
         new SubBuildingDefinition { PartName = "Mansion", Offset = Vector3.zero, Size = new Vector3(24f, 9f, 17f), WoodCost = 1250, StoneCost = 1000, Color = new Color(0.6f, 0.45f, 0.25f) },
     };
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     //  PAGODA MEGA STRUCTURE DEFINITION
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     private static readonly SubBuildingDefinition[] _pagodaSubBuildings = new SubBuildingDefinition[]
     {
         // === FOUNDATION (stone: 60) ===
@@ -367,7 +363,6 @@ public partial class WorldBuilder : MonoBehaviour
             _immigrantHousePositions.Add(new Vector3(x, 0f, 160f));
         _immigrantBuilt = new bool[_immigrantHousePositions.Count];
     }
-
     private void PlaceImmigrantPlotMarkers()
     {
         if (_immigrantHousePositions == null || _worldRoot == null) return;
@@ -381,47 +376,20 @@ public partial class WorldBuilder : MonoBehaviour
             marker.transform.localScale = new Vector3(7f, 0.08f, 7f);
             var col = marker.GetComponent<Collider>();
             if (col != null) Object.Destroy(col);
-            var mat = CreateSafeLitMaterial();
-            if (mat != null)
-            {
-                mat.color = new Color(0.5f, 0.7f, 0.4f, 0.35f);
-                mat.SetFloat("_Surface", 1f);
-                mat.SetFloat("_Blend", 0f);
-                mat.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                mat.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                mat.SetFloat("_ZWrite", 0f);
-                mat.SetFloat("_Cull", 0f);
-                mat.renderQueue = 3000;
-            }
-            else
-            {
-                mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse")) { color = new Color(0.5f, 0.7f, 0.4f, 0.35f) };
-            }
+            var mat = PickupVisualHelper.CreateTransparentMaterialFromBase(CreateSafeLitMaterial(), new Color(0.5f, 0.7f, 0.4f, 0.35f));
             marker.GetComponent<MeshRenderer>().material = mat;
             _immigrantPlotMarkers.Add(marker);
         }
     }
-
     public void HideImmigrantMarker(int index)
     {
         if (_immigrantPlotMarkers == null || index < 0 || index >= _immigrantPlotMarkers.Count) return;
         var m = _immigrantPlotMarkers[index];
         if (m != null) m.SetActive(false);
     }
-
     private int _currentBuildingIndex;
     private int _currentRotation;
     private readonly HashSet<Vector3Int> _floorPositions = new HashSet<Vector3Int>();
-
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-    }
 
     private void Start()
     {
@@ -435,7 +403,6 @@ public partial class WorldBuilder : MonoBehaviour
         if (_worldRoot == null)
             Debug.LogWarning("[WorldBuilder] World was not generated during Start(). Check CreateWorld() or scene setup.");
     }
-
     public void GenerateWorld()
     {
         if (_worldRoot != null)
@@ -446,7 +413,6 @@ public partial class WorldBuilder : MonoBehaviour
 
         CreateWorld();
     }
-
     public void CreateWorld()
     {
         _worldRoot = new GameObject("WorldRoot");
@@ -506,7 +472,6 @@ public partial class WorldBuilder : MonoBehaviour
         spawnerGo.transform.SetParent(_worldRoot.transform);
         spawnerGo.AddComponent<LivestockSpawner>();
     }
-
     private void BuildBossArena()
     {
         Color stoneC = new Color(0.42f, 0.4f, 0.38f);
@@ -567,7 +532,6 @@ public partial class WorldBuilder : MonoBehaviour
                 new Vector3(0.5f, 0.24f, 0.35f), pos, boneC, true);
         }
     }
-
     public GameObject SpawnQuestBoss()
     {
         if (_questBoss != null && _questBoss.activeInHierarchy)
@@ -594,7 +558,6 @@ public partial class WorldBuilder : MonoBehaviour
         SoundManager.Instance?.Play("bonk", 0.6f);
         return go;
     }
-
     private void SpawnInitialClouds()
     {
         int half = Mathf.FloorToInt(GroundSize.x * 0.5f) - 20;
@@ -611,9 +574,9 @@ public partial class WorldBuilder : MonoBehaviour
         }
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     //  ALIGNMENT STRIP + WORLD VISIBILITY
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
 
     public void CreateAlignmentStrip()
     {
@@ -706,19 +669,16 @@ public partial class WorldBuilder : MonoBehaviour
 
         Destroy(road.GetComponent<Collider>());
     }
-
     public void HideWorld()
     {
         if (_worldRoot != null)
             _worldRoot.SetActive(false);
     }
-
     public void ShowWorld()
     {
         if (_worldRoot != null)
             _worldRoot.SetActive(true);
     }
-
     private bool CreateTerrainGrid()
     {
         var terrainPrefab = TerrainBlockPrefab != null ? TerrainBlockPrefab : Resources.Load<GameObject>(TerrainBlockResourcePath);
@@ -754,7 +714,6 @@ public partial class WorldBuilder : MonoBehaviour
         Debug.Log($"[WorldBuilder] Generated terrain grid {MapWidth}x{MapDepth} from Resources/{TerrainBlockResourcePath}.");
         return true;
     }
-
     public void ResetWorld()
     {
         foreach (var tree in _trees)
@@ -807,7 +766,6 @@ public partial class WorldBuilder : MonoBehaviour
             Destroy(_worldRoot);
         _worldRoot = null;
     }
-
     public void UpdateWorld(float deltaTime)
     {
         _resourceRespawnTimer += deltaTime;
@@ -936,7 +894,6 @@ public partial class WorldBuilder : MonoBehaviour
             _vendorCarts.Remove(v);
         }
     }
-
     public void SetDayNight(float hour)
     {
         bool isNight = hour >= 18f || hour < 6f;
@@ -1021,7 +978,6 @@ public partial class WorldBuilder : MonoBehaviour
             RenderSettings.fog = false;
         }
     }
-
     public bool IsOnRoad(Vector3 position)
     {
         if (RoadObject == null)
@@ -1037,7 +993,6 @@ public partial class WorldBuilder : MonoBehaviour
                && position.z >= (180f - _roadHalfWidth - 0.5f) && position.z <= (180f + _roadHalfWidth + 0.5f);
         return onNS || onEW || onSouthBranch || onNorthBranch;
     }
-
     public float GetRoadSurfaceY()
     {
         if (RoadObject == null)
@@ -1045,7 +1000,6 @@ public partial class WorldBuilder : MonoBehaviour
         Vector3 size = RoadObject.transform.localScale;
         return RoadObject.transform.position.y + size.y * 0.5f;
     }
-
     private void SpawnToolPickups()
     {
         var seeds = new[] { "wheat_seed", "corn_seed", "carrot_seed", "tomato_seed", "strawberry_seed", "pumpkin_seed", "onion_seed", "sugarcane_seed", "rice_seed", "peashooter_seed", "fertilizer", "mobspawner" };
@@ -1076,12 +1030,10 @@ public partial class WorldBuilder : MonoBehaviour
             CreateToolPickup(harvested[i], new Vector3(baseX + col * step, 0.5f, -65f - row * step));
         }
     }
-
     public GameObject SpawnPickup(string toolType, Vector3 position)
     {
         return CreateToolPickup(toolType, position);
     }
-
     public GameObject ThrowPickup(string toolType, Vector3 position, Vector3 velocity)
     {
         var pickup = CreateToolPickup(toolType, position);
@@ -1103,7 +1055,6 @@ public partial class WorldBuilder : MonoBehaviour
 
         return pickup;
     }
-
     private GameObject CreateToolPickup(string toolType, Vector3 position)
     {
         var pickup = new GameObject("Pickup_" + toolType);
@@ -1118,7 +1069,6 @@ public partial class WorldBuilder : MonoBehaviour
         rootCollider.size = new Vector3(0.6f, 0.6f, 0.6f);
         return pickup;
     }
-
     public GameObject ThrowCage(string cageType, Vector3 position, Vector3 velocity, Livestock.AnimalType? capturedAnimal = null)
     {
         var pickup = new GameObject("ThrownCage");
@@ -1168,7 +1118,6 @@ public partial class WorldBuilder : MonoBehaviour
 
         return pickup;
     }
-
     public GameObject SpawnCageWithAnimal(Vector3 position, Livestock.AnimalType animalType)
     {
         var cage = new GameObject("CageWithAnimal");
@@ -1202,7 +1151,6 @@ public partial class WorldBuilder : MonoBehaviour
 
         return cage;
     }
-
     private Color GetAnimalColor(Livestock.AnimalType type)
     {
         switch (type)
@@ -1217,7 +1165,6 @@ public partial class WorldBuilder : MonoBehaviour
             default: return Color.gray;
         }
     }
-
     private void SpawnMobs()
     {
         var mobPositions = new[]
@@ -1238,7 +1185,6 @@ public partial class WorldBuilder : MonoBehaviour
             mob.Type = m.type;
         }
     }
-
     private void UpdateFieldVisual(FieldState field)
     {
         if (field == null || field.FieldObject == null)
@@ -1285,7 +1231,6 @@ public partial class WorldBuilder : MonoBehaviour
             renderer.material.color = new Color(0.6f, 0.4f, 0.2f);
         }
     }
-
     private void UpdateCropVisual(FieldState field)
     {
         if (field == null)
@@ -1340,7 +1285,6 @@ public partial class WorldBuilder : MonoBehaviour
 
         field.CropObject = cropRoot;
     }
-
     public void RefreshFieldVisual(FieldState field)
     {
         if (field == null)
@@ -1348,7 +1292,6 @@ public partial class WorldBuilder : MonoBehaviour
         UpdateCropVisual(field);
         UpdateFieldVisual(field);
     }
-
     private void AddFieldBorder(Transform tile)
     {
         var borderColor = new Color(0.2f, 0.1f, 0.03f);
@@ -1368,7 +1311,6 @@ public partial class WorldBuilder : MonoBehaviour
             Destroy(edge.GetComponent<Collider>());
         }
     }
-
     private void CreateFieldWheat(Transform parent, int stage)
     {
         int bladeCount = Random.Range(8, 14);
@@ -1392,7 +1334,6 @@ public partial class WorldBuilder : MonoBehaviour
             Destroy(blade.GetComponent<Collider>());
         }
     }
-
     private void CreateFieldCorn(Transform parent, int stage)
     {
         float stalkHeight = 0.3f + stage * 0.1f;
@@ -1425,7 +1366,6 @@ public partial class WorldBuilder : MonoBehaviour
             }
         }
     }
-
     private void CreateCornEar(Transform parent, float xOff, float zOff, float stalkH)
     {
         Color cornColor = new Color(1f, 0.85f, 0.2f);
@@ -1447,7 +1387,6 @@ public partial class WorldBuilder : MonoBehaviour
             }
         }
     }
-
     private void CreateFieldPotato(Transform parent, int stage)
     {
         float targetRatio = stage / 4f;
@@ -1494,7 +1433,6 @@ public partial class WorldBuilder : MonoBehaviour
             Destroy(leaf.GetComponent<Collider>());
         }
     }
-
     private void CreateFieldCarrot(Transform parent, int stage)
     {
         float ratio = stage / 4f;
@@ -1528,7 +1466,6 @@ public partial class WorldBuilder : MonoBehaviour
             Destroy(root.GetComponent<Collider>());
         }
     }
-
     private void CreateFieldTomato(Transform parent, int stage)
     {
         float ratio = stage / 4f;
@@ -1557,7 +1494,6 @@ public partial class WorldBuilder : MonoBehaviour
             }
         }
     }
-
     private void CreateFieldStrawberry(Transform parent, int stage)
     {
         float ratio = stage / 4f;
@@ -1591,7 +1527,6 @@ public partial class WorldBuilder : MonoBehaviour
             }
         }
     }
-
     private void CreateFieldPumpkin(Transform parent, int stage)
     {
         float ratio = stage / 4f;
@@ -1622,7 +1557,6 @@ public partial class WorldBuilder : MonoBehaviour
             Destroy(pumpkin.GetComponent<Collider>());
         }
     }
-
     private void CreateFieldOnion(Transform parent, int stage)
     {
         float ratio = stage / 4f;
@@ -1650,7 +1584,6 @@ public partial class WorldBuilder : MonoBehaviour
         if (rendB != null) rendB.material.color = stage >= 3 ? new Color(0.8f, 0.5f, 0.2f) : new Color(0.7f, 0.6f, 0.4f);
         Destroy(bulb.GetComponent<Collider>());
     }
-
     private void CreateFieldSugarcane(Transform parent, int stage)
     {
         int stalkCount = 2 + stage;
@@ -1680,7 +1613,6 @@ public partial class WorldBuilder : MonoBehaviour
             }
         }
     }
-
     private void CreateFieldRice(Transform parent, int stage)
     {
         int stalkCount = 3 + stage;
@@ -1742,7 +1674,6 @@ public partial class WorldBuilder : MonoBehaviour
         public int CurrentHealth;
         public GameObject GhostEntity;
     }
-
     public class BuildingPartDebrisInfo
     {
         public Vector3 LocalPosition;
@@ -1779,7 +1710,6 @@ public partial class WorldBuilder : MonoBehaviour
             }
         }
     }
-
     public class BlueprintState
     {
         public GameObject Entity;
@@ -1798,7 +1728,6 @@ public partial class WorldBuilder : MonoBehaviour
         public bool IsImmigrantHouse;
         public int ImmigrantHouseIndex = -1;
     }
-
     public (string material, float amount) GetResourceAmount(GameObject obj)
     {
         if (obj.name == "TreeFelled")
@@ -1842,7 +1771,6 @@ public partial class WorldBuilder : MonoBehaviour
         public Color Color;
         public BuildingPartDefinition[] Parts;
     }
-
     public class BuildingDefinition
     {
         public string Name;
@@ -1910,12 +1838,6 @@ public class ThrownItem : MonoBehaviour
     private float _spawnTime;
     private Rigidbody _rb;
 
-    private void Awake()
-    {
-        _spawnTime = Time.time;
-        _rb = GetComponent<Rigidbody>();
-    }
-
     private void FixedUpdate()
     {
         if (_rb == null) return;
@@ -1926,7 +1848,6 @@ public class ThrownItem : MonoBehaviour
             Land();
         }
     }
-
     private void Land()
     {
         if (_rb != null)
@@ -1966,12 +1887,6 @@ public class ThrownCageProjectile : MonoBehaviour
     private Rigidbody _rb;
     private bool _landed;
 
-    private void Awake()
-    {
-        _spawnTime = Time.time;
-        _rb = GetComponent<Rigidbody>();
-    }
-
     private void FixedUpdate()
     {
         if (_rb == null || _landed) return;
@@ -1990,7 +1905,6 @@ public class ThrownCageProjectile : MonoBehaviour
             }
         }
     }
-
     private void OnCollisionEnter(Collision collision)
     {
         if (_landed) return;
@@ -2013,7 +1927,6 @@ public class ThrownCageProjectile : MonoBehaviour
             TryCapture(livestock);
         }
     }
-
     private void CheckForCapture()
     {
         var cols = Physics.OverlapSphere(transform.position, 1f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
@@ -2028,7 +1941,6 @@ public class ThrownCageProjectile : MonoBehaviour
             }
         }
     }
-
     private void TryCapture(Livestock livestock)
     {
         bool isBig = CageType == "cage_big";
@@ -2052,7 +1964,6 @@ public class ThrownCageProjectile : MonoBehaviour
             GameManager.Instance?.UIManager?.ShowMessage("Wrong cage size!", 1.5f);
         }
     }
-
     private void ReleaseAnimal()
     {
         var wb = WorldBuilder.Instance;
@@ -2077,7 +1988,6 @@ public class ThrownCageProjectile : MonoBehaviour
             if (animalModel != null) Destroy(animalModel.gameObject);
         }
     }
-
     private bool Land()
     {
         _landed = true;

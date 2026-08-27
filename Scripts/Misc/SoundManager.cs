@@ -1,10 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class SoundManager : MonoBehaviour
+public class SoundManager : MonoSingleton<SoundManager>
 {
-    public static SoundManager Instance { get; private set; }
-
     [Header("Tool Sounds")]
     public AudioClip AxeClip;
     public AudioClip PickaxeClip;
@@ -24,14 +22,9 @@ public class SoundManager : MonoBehaviour
     private readonly Dictionary<string, AudioClip> _overrides = new Dictionary<string, AudioClip>();
     private AudioSource _source;
 
-    public void Awake()
+    protected override void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
+        base.Awake();
         _source = gameObject.AddComponent<AudioSource>();
         _source.playOnAwake = false;
         LoadSoundClips();

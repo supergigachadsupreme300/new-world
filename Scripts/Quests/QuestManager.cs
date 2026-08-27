@@ -1,11 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class QuestManager : MonoBehaviour
+public class QuestManager : MonoSingleton<QuestManager>
 {
-    public static QuestManager Instance { get; private set; }
-
-    private readonly List<QuestSave> _quests = new List<QuestSave>();
+private readonly List<QuestSave> _quests = new List<QuestSave>();
     private int _lastDay;
 
     private class StoryQuestDef
@@ -17,7 +15,6 @@ public class QuestManager : MonoBehaviour
         public string Description;
         public int RequiredDay;
     }
-
     private static readonly StoryQuestDef[] StoryQuestDefs =
     {
         new StoryQuestDef { Name = "Chào Hỏi Hàng Xóm", Target = "greet", Count = 2, Reward = 0, Description = "Nói chuyện với Buffalo và Jessica để làm quen với hàng xóm.", RequiredDay = 1 },
@@ -31,16 +28,6 @@ public class QuestManager : MonoBehaviour
         new StoryQuestDef { Name = "Tỷ Phú", Target = "money_earned", Count = 200000, Reward = 3000, Description = "Kiếm 200.000 vàng để trở thành tỷ phú.", RequiredDay = 18 },
     };
 
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-    }
-
     private void Update()
     {
         if (GameManager.Instance == null || !GameManager.Instance.InGame || GameManager.Instance.GamePaused)
@@ -51,7 +38,6 @@ public class QuestManager : MonoBehaviour
         if (changed)
             UpdateQuestUI();
     }
-
     public void InitializeQuests()
     {
         if (_quests.Count > 0)
@@ -63,17 +49,14 @@ public class QuestManager : MonoBehaviour
         GenerateDailyQuests(_lastDay);
         UpdateQuestUI();
     }
-
     public void ResetQuests()
     {
         _quests.Clear();
     }
-
     public void RefreshQuestUI()
     {
         UpdateQuestUI();
     }
-
     private bool CheckDayChange()
     {
         if (GameManager.Instance == null)
@@ -88,7 +71,6 @@ public class QuestManager : MonoBehaviour
         RefreshDailyQuests(currentDay);
         return true;
     }
-
     private bool CheckTimedQuests()
     {
         if (GameManager.Instance == null)
@@ -114,7 +96,6 @@ public class QuestManager : MonoBehaviour
 
         return changed;
     }
-
     private void AddStoryQuestsForDay(int day)
     {
         for (int i = 0; i < StoryQuestDefs.Length; i++)
@@ -124,7 +105,6 @@ public class QuestManager : MonoBehaviour
                 AddIfMissing(CreateStoryQuest(def.Name, def.Target, def.Count, def.Reward, def.Description, def.RequiredDay));
         }
     }
-
     private void AddIfMissing(QuestSave quest)
     {
         foreach (var q in _quests)
@@ -134,7 +114,6 @@ public class QuestManager : MonoBehaviour
         }
         _quests.Add(quest);
     }
-
     private void GenerateDailyQuests(int day)
     {
         var pool = new List<QuestSave>
@@ -166,13 +145,11 @@ public class QuestManager : MonoBehaviour
             _quests.Add(q);
         }
     }
-
     private void RefreshDailyQuests(int day)
     {
         _quests.RemoveAll(q => q.QuestType == "daily");
         GenerateDailyQuests(day);
     }
-
     public void AddProgress(string target, int amount)
     {
         if (string.IsNullOrEmpty(target))
@@ -211,7 +188,6 @@ public class QuestManager : MonoBehaviour
         if (anyJustCompleted)
             AwardCompleted();
     }
-
     private void AwardCompleted()
     {
         long total = 0;
@@ -231,7 +207,6 @@ public class QuestManager : MonoBehaviour
             GameManager.Instance?.UIManager?.ShowMessage(msg, 3f);
         }
     }
-
     public void LoadQuestSaves(List<QuestSave> saved)
     {
         _quests.Clear();
@@ -247,12 +222,10 @@ public class QuestManager : MonoBehaviour
             _lastDay = GameManager.Instance.CurrentDay;
         UpdateQuestUI();
     }
-
     public List<QuestSave> GetQuestSaves()
     {
         return new List<QuestSave>(_quests);
     }
-
     private QuestSave CreateStoryQuest(string name, string target, int count, int reward, string description, int requiredDay)
     {
         return new QuestSave
@@ -272,7 +245,6 @@ public class QuestManager : MonoBehaviour
             Failed = false
         };
     }
-
     private QuestSave CreateDailyQuest(string name, string target, int count, int reward, string description)
     {
         return new QuestSave
@@ -292,7 +264,6 @@ public class QuestManager : MonoBehaviour
             Failed = false
         };
     }
-
     public QuestSave CreateTimedQuest(string name, string target, int count, int reward, float timeLimit, string description)
     {
         return new QuestSave
@@ -312,24 +283,20 @@ public class QuestManager : MonoBehaviour
             Failed = false
         };
     }
-
     public void AddTimedQuest(QuestSave timedQuest)
     {
         AddIfMissing(timedQuest);
         UpdateQuestUI();
     }
-
     public void AddStoryQuest(string name, string target, int count, int reward, string description)
     {
         AddIfMissing(CreateStoryQuest(name, target, count, reward, description, 0));
     }
-
     public void RemoveStoryQuest(string questName)
     {
         _quests.RemoveAll(q => q.Name == questName && !q.RewardClaimed);
         UpdateQuestUI();
     }
-
     public bool IsComplete(string target)
     {
         foreach (var q in _quests)
@@ -337,7 +304,6 @@ public class QuestManager : MonoBehaviour
                 return true;
         return false;
     }
-
     public bool IsNamedQuestComplete(string questName)
     {
         foreach (var q in _quests)
@@ -345,7 +311,6 @@ public class QuestManager : MonoBehaviour
                 return true;
         return false;
     }
-
     public string GetQuestDescription(string questName)
     {
         foreach (var q in _quests)
@@ -356,7 +321,6 @@ public class QuestManager : MonoBehaviour
                 return def.Description;
         return null;
     }
-
     public bool TryGetQuestInfo(string questName, out string target, out int count, out int requiredDay)
     {
         foreach (var q in _quests)
@@ -384,7 +348,6 @@ public class QuestManager : MonoBehaviour
         requiredDay = 0;
         return false;
     }
-
     public bool HasQuest(string questName)
     {
         foreach (var q in _quests)
@@ -392,7 +355,6 @@ public class QuestManager : MonoBehaviour
                 return true;
         return false;
     }
-
     public int GetProgress(string target)
     {
         foreach (var q in _quests)
@@ -400,7 +362,6 @@ public class QuestManager : MonoBehaviour
                 return q.Progress;
         return 0;
     }
-
     public int GetNamedQuestProgress(string questName)
     {
         foreach (var q in _quests)
@@ -408,7 +369,6 @@ public class QuestManager : MonoBehaviour
                 return q.Progress;
         return 0;
     }
-
     private bool HasActiveStoryQuest()
     {
         foreach (var q in _quests)
@@ -418,7 +378,6 @@ public class QuestManager : MonoBehaviour
         }
         return false;
     }
-
     private bool ContainsQuestByName(string questName)
     {
         foreach (var q in _quests)
@@ -428,7 +387,6 @@ public class QuestManager : MonoBehaviour
         }
         return false;
     }
-
     private StoryQuestDef GetNextLockedStoryQuest(int today)
     {
         StoryQuestDef next = null;
@@ -444,7 +402,6 @@ public class QuestManager : MonoBehaviour
         }
         return next;
     }
-
     private void UpdateQuestUI()
     {
         if (GameManager.Instance == null || GameManager.Instance.UIManager == null)
@@ -525,7 +482,6 @@ public class QuestManager : MonoBehaviour
         GameManager.Instance.UIManager.UpdateQuestHud(BuildCurrentQuestHudText(storyQuests, dailyQuests, timedQuests));
         GameManager.Instance.UIManager.UpdateQuestPanelText(panel);
     }
-
     private string BuildCurrentQuestHudText(List<QuestSave> storyQuests, List<QuestSave> dailyQuests, List<QuestSave> timedQuests)
     {
         QuestSave current = null;
@@ -549,12 +505,10 @@ public class QuestManager : MonoBehaviour
             hud += $"\n  {Localization.T(current.Description)}";
         return hud;
     }
-
     private string GetQuestDisplayName(QuestSave q)
     {
         return Localization.QuestName(q.Name);
     }
-
     private string GetQuestStatusString(QuestSave q)
     {
         if (q.Failed)

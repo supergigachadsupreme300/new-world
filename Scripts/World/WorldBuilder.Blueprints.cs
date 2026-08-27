@@ -1,7 +1,8 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using static CountryLife.Helpers.PickupVisualHelper;
+using CountryLife.Helpers;
 
 public partial class WorldBuilder
 {
@@ -114,24 +115,7 @@ public partial class WorldBuilder
         blueprint.transform.rotation = Quaternion.Euler(0f, _currentRotation, 0f);
         blueprint.transform.localScale = size;
         var renderer = blueprint.GetComponent<MeshRenderer>();
-        var mat = CreateSafeLitMaterial();
-        if (mat != null)
-        {
-            mat.SetFloat("_Surface", 1f);
-            mat.SetFloat("_Blend", 0f);
-            mat.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            mat.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            mat.SetFloat("_ZWrite", 0f);
-            mat.SetFloat("_Cull", 0f);
-            mat.SetFloat("_Metallic", 0f);
-            mat.SetFloat("_Smoothness", 0f);
-            mat.renderQueue = 3000;
-        }
-        else
-        {
-            mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
-        }
-        mat.color = new Color(color.r, color.g, color.b, 0.15f);
+        var mat = PickupVisualHelper.CreateTransparentMaterialFromBase(CreateSafeLitMaterial(), new Color(color.r, color.g, color.b, 0.15f));
         renderer.material = mat;
         var collider = blueprint.GetComponent<BoxCollider>();
         collider.isTrigger = true;
@@ -188,24 +172,7 @@ public partial class WorldBuilder
         blueprint.transform.rotation = Quaternion.identity;
         blueprint.transform.localScale = size;
         var renderer = blueprint.GetComponent<MeshRenderer>();
-        var mat = CreateSafeLitMaterial();
-        if (mat != null)
-        {
-            mat.SetFloat("_Surface", 1f);
-            mat.SetFloat("_Blend", 0f);
-            mat.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            mat.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            mat.SetFloat("_ZWrite", 0f);
-            mat.SetFloat("_Cull", 0f);
-            mat.SetFloat("_Metallic", 0f);
-            mat.SetFloat("_Smoothness", 0f);
-            mat.renderQueue = 3000;
-        }
-        else
-        {
-            mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
-        }
-        mat.color = new Color(0.85f, 0.65f, 0.13f, 0.15f);
+        var mat = PickupVisualHelper.CreateTransparentMaterialFromBase(CreateSafeLitMaterial(), new Color(0.85f, 0.65f, 0.13f, 0.15f));
         renderer.material = mat;
         var collider = blueprint.GetComponent<BoxCollider>();
         collider.isTrigger = true;
@@ -267,24 +234,7 @@ public partial class WorldBuilder
         blueprint.transform.rotation = Quaternion.identity;
         blueprint.transform.localScale = new Vector3(8f, 5f, 8f);
         var renderer = blueprint.GetComponent<MeshRenderer>();
-        var mat = CreateSafeLitMaterial();
-        if (mat != null)
-        {
-            mat.SetFloat("_Surface", 1f);
-            mat.SetFloat("_Blend", 0f);
-            mat.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            mat.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            mat.SetFloat("_ZWrite", 0f);
-            mat.SetFloat("_Cull", 0f);
-            mat.SetFloat("_Metallic", 0f);
-            mat.SetFloat("_Smoothness", 0f);
-            mat.renderQueue = 3000;
-        }
-        else
-        {
-            mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
-        }
-        mat.color = new Color(0.5f, 0.8f, 0.95f, 0.45f);
+        var mat = PickupVisualHelper.CreateTransparentMaterialFromBase(CreateSafeLitMaterial(), new Color(0.5f, 0.8f, 0.95f, 0.45f));
         renderer.material = mat;
         var collider = blueprint.GetComponent<BoxCollider>();
         collider.isTrigger = true;

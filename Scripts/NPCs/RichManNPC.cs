@@ -3,11 +3,9 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class RichManNPC : MonoBehaviour
+public class RichManNPC : MonoSingleton<RichManNPC>
 {
-    public static RichManNPC Instance { get; private set; }
-
-    private Transform _myTransform;
+private Transform _myTransform;
     private Transform _wifeTransform;
     private Transform _playerTransform;
     private Quaternion _originalRotation = Quaternion.identity;
@@ -67,17 +65,6 @@ public class RichManNPC : MonoBehaviour
     public bool IsDialogActive => _dialogActive;
     public Transform NpcTransform => _myTransform;
 
-    void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-        _myTransform = transform;
-    }
-
     void Start()
     {
         _homePosition = _myTransform != null ? _myTransform.position : Vector3.zero;
@@ -98,7 +85,6 @@ public class RichManNPC : MonoBehaviour
         }
         InitializeDialog();
     }
-
     public void Retire()
     {
         if (_panel != null) _panel.SetActive(false);
@@ -204,7 +190,6 @@ public class RichManNPC : MonoBehaviour
             }
         }
     }
-
     private void TryStealAffection()
     {
         int today = GameManager.Instance.CurrentDay;
@@ -217,7 +202,6 @@ public class RichManNPC : MonoBehaviour
         GameManager.Instance?.UIManager?.ShowMessage(
             Localization.T("Ông chú giàu có lại sang nhà Jessica giữa đêm..."), 3f);
     }
-
     private bool TryStartDeal()
     {
         if (_dealState != DealState.None) return false;
@@ -233,7 +217,6 @@ public class RichManNPC : MonoBehaviour
         _hasPatrolTarget = false;
         return true;
     }
-
     private void UpdateDeal()
     {
         switch (_dealState)
@@ -286,7 +269,6 @@ public class RichManNPC : MonoBehaviour
             }
         }
     }
-
     private void MoveDealerTowards(GameObject dealer, Vector3 dest, float speed)
     {
         if (dealer == null) return;
@@ -297,7 +279,6 @@ public class RichManNPC : MonoBehaviour
         if (to.sqrMagnitude > 0.001f)
             dealer.transform.rotation = Quaternion.LookRotation(-to.normalized);
     }
-
     public bool TryEavesdropDeal(Vector3 playerPos)
     {
         if (Discovered) return false;
@@ -307,7 +288,6 @@ public class RichManNPC : MonoBehaviour
         DiscoverSecret();
         return true;
     }
-
     private void DiscoverSecret()
     {
         Discovered = true;
@@ -324,19 +304,16 @@ public class RichManNPC : MonoBehaviour
             Localization.T("Bạn đã phát hiện hoạt động phi pháp của Phú Ông!"), 4f);
         QuestManager.Instance?.AddProgress("mansion_secret", 1);
     }
-
     public void SetDiscovered(bool value)
     {
         Discovered = value;
     }
-
     public void ChooseLeave()
     {
         if (!_endingChoiceShown) return;
         HideEndingChoice();
         Hide();
     }
-
     public void ChooseBribe()
     {
         if (!_endingChoiceShown) return;
@@ -344,7 +321,6 @@ public class RichManNPC : MonoBehaviour
         Hide();
         GameManager.Instance?.RequestBlackmailEnding();
     }
-
     private void Patrol()
     {
         if (_patrolPause > 0f)
@@ -367,7 +343,6 @@ public class RichManNPC : MonoBehaviour
             _patrolPause = Random.Range(1.5f, 3.5f);
         }
     }
-
     private bool MoveTowards(Vector3 dest, float speed)
     {
         if (_myTransform == null)
@@ -388,7 +363,6 @@ public class RichManNPC : MonoBehaviour
         _isMoving = true;
         return Vector3.Distance(_myTransform.position, dest) < 0.1f;
     }
-
     private void MoveAwayFromPlayer()
     {
         if (_myTransform == null || _playerTransform == null)
@@ -403,7 +377,6 @@ public class RichManNPC : MonoBehaviour
         _myTransform.rotation = Quaternion.LookRotation(-away);
         _isMoving = true;
     }
-
     private void LateUpdate()
     {
         if (_legL == null || _legR == null)
@@ -423,7 +396,6 @@ public class RichManNPC : MonoBehaviour
         }
         _isMoving = false;
     }
-
     public void Interact()
     {
         InitializeDialog();
@@ -452,7 +424,6 @@ public class RichManNPC : MonoBehaviour
         HideEndingChoice();
         Advance();
     }
-
     public void Advance()
     {
         if (_dialogQueue.Count == 0)
@@ -471,7 +442,6 @@ public class RichManNPC : MonoBehaviour
             ? (GameInput.IsMobile ? Localization.T("Chạm để tiếp tục") : Localization.T("Nhấn E để tiếp tục"))
             : (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"));
     }
-
     private void ShowEndingChoice()
     {
         _endingChoiceShown = true;
@@ -485,13 +455,11 @@ public class RichManNPC : MonoBehaviour
         if (_promptText != null)
             _promptText.text = Localization.T("Hãy lựa chọn...");
     }
-
     private void HideEndingChoice()
     {
         if (_leaveRow != null) _leaveRow.SetActive(false);
         if (_bribeRow != null) _bribeRow.SetActive(false);
     }
-
     public void Hide()
     {
         _dialogActive = false;
@@ -500,7 +468,6 @@ public class RichManNPC : MonoBehaviour
         if (_myTransform != null)
             _myTransform.rotation = _originalRotation;
     }
-
     private void FacePlayer()
     {
         if (_myTransform == null || _playerTransform == null)
@@ -510,7 +477,6 @@ public class RichManNPC : MonoBehaviour
         if (to.sqrMagnitude > 0.001f)
             _myTransform.rotation = Quaternion.LookRotation(to.normalized);
     }
-
     private void InitializeDialog()
     {
         if (_canvas != null)
@@ -521,7 +487,6 @@ public class RichManNPC : MonoBehaviour
             return;
         CreatePanel();
     }
-
     private void CreatePanel()
     {
         float sw = Screen.width;
@@ -564,20 +529,17 @@ public class RichManNPC : MonoBehaviour
 
         _panel.SetActive(false);
     }
-
     private void OnLeaveChoice()
     {
         HideEndingChoice();
         Hide();
     }
-
     private void OnBribeChoice()
     {
         HideEndingChoice();
         Hide();
         GameManager.Instance?.RequestBlackmailEnding();
     }
-
     private void CreateOptionRow(string rowName, string textName, float yOffset,
         Color textColor, out GameObject row, out TMP_Text text,
         UnityEngine.Events.UnityAction onClick)
@@ -604,7 +566,6 @@ public class RichManNPC : MonoBehaviour
 
         row.SetActive(false);
     }
-
     private TMP_Text MakeText(string name, RectTransform parent, Vector2 position, string text,
         int fontSize, Color color, Vector2 size)
     {
@@ -619,8 +580,7 @@ public class RichManNPC : MonoBehaviour
         rt.sizeDelta = size;
 
         var tmp = go.AddComponent<TextMeshProUGUI>();
-        if (GameManager.Instance?.UIManager?.defaultTmpFont != null)
-            tmp.font = GameManager.Instance.UIManager.defaultTmpFont;
+GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = text;
         tmp.fontSize = fontSize;
         tmp.color = color;
@@ -631,7 +591,6 @@ public class RichManNPC : MonoBehaviour
 
         return tmp;
     }
-
     public static GameObject BuildRichManNpc(Transform parent, Vector3 position, float scale = 1f,
         Quaternion rotation = default, bool registerInstance = true)
     {
@@ -738,7 +697,6 @@ public class RichManNPC : MonoBehaviour
 
         return root;
     }
-
     private static GameObject MakeBlock(string name, Transform parent, Vector3 scale, Vector3 position,
         Color color, bool removeCollider = false, Quaternion rotation = default)
     {
@@ -754,7 +712,6 @@ public class RichManNPC : MonoBehaviour
             Object.Destroy(go.GetComponent<Collider>());
         return go;
     }
-
     public static GameObject BuildDealerNpc(Transform parent, Vector3 position)
     {
         var root = new GameObject("DealerNpc");

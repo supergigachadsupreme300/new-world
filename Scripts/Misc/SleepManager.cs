@@ -3,10 +3,9 @@ using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using TMPro;
 
-public class SleepManager : MonoBehaviour
+public class SleepManager : MonoSingleton<SleepManager>
 {
-    public static SleepManager Instance { get; private set; }
-    public static bool IsSleeping { get; private set; }
+public static bool IsSleeping { get; private set; }
 
     private bool _initialized;
     private bool _wasPausedBeforeOpen;
@@ -32,16 +31,6 @@ public class SleepManager : MonoBehaviour
     private const float MorningHour = 6f;
     private const float MaxSleepHours = 12f;
 
-    void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-    }
-
     void Start()
     {
         if (!_initialized)
@@ -62,7 +51,6 @@ public class SleepManager : MonoBehaviour
                 Close();
         }
     }
-
     public void Initialize()
     {
         if (_initialized)
@@ -110,7 +98,6 @@ public class SleepManager : MonoBehaviour
         _panel.SetActive(false);
         CreateSleepPrompt();
     }
-
     private void CreateSleepPrompt()
     {
         _sleepPrompt = new GameObject("SleepWakePrompt");
@@ -133,7 +120,6 @@ public class SleepManager : MonoBehaviour
 
         _sleepPrompt.SetActive(false);
     }
-
     public void Open()
     {
         if (!_initialized)
@@ -149,7 +135,6 @@ public class SleepManager : MonoBehaviour
         if (GameManager.Instance?.UIManager != null)
             GameManager.Instance.UIManager.ShowPauseMenu(false);
     }
-
     public void Close()
     {
         if (_panel != null)
@@ -165,7 +150,6 @@ public class SleepManager : MonoBehaviour
         if (GameManager.Instance != null)
             GameManager.Instance.TogglePause(false);
     }
-
     private void OnSleepConfirm()
     {
         float currentHour = GameManager.Instance != null ? GameManager.Instance.TimeOfDay : 8f;
@@ -226,7 +210,6 @@ public class SleepManager : MonoBehaviour
             _sleepPrompt.SetActive(true);
         }
     }
-
     private void HandleSleepUpdate()
     {
         if (GameManager.Instance == null)
@@ -252,7 +235,6 @@ public class SleepManager : MonoBehaviour
         if (shiftPressed || mobileTap)
             WakeUp();
     }
-
     private void RestoreStats(float hours)
     {
         var player = GameManager.Instance?.Player;
@@ -261,7 +243,6 @@ public class SleepManager : MonoBehaviour
         player.HP = Mathf.Min(player.MaxHP, player.HP + Mathf.RoundToInt(hours * HpPerHour));
         GameManager.Instance?.UIManager?.UpdatePlayerHud(player.HP, player.MaxHP, player.Stamina, player.MaxStamina, player.Money);
     }
-
     private void WakeUp()
     {
         int roundedHours = Mathf.Max(1, Mathf.RoundToInt(_sleepAccumulated));
@@ -296,13 +277,11 @@ public class SleepManager : MonoBehaviour
         GameManager.Instance?.UIManager?.ShowMessage(Localization.F("Bạn đã ngủ {0} tiếng.", roundedHours), 3f);
         Close();
     }
-
     private Transform FindBedTransform()
     {
         var bedGO = GameObject.Find("Bed");
         return bedGO != null ? bedGO.transform : null;
     }
-
     private TMP_Text MakeText(string name, Transform parent, string text, Vector2 pos, Vector2 size, int fontSize, TextAlignmentOptions align)
     {
         var go = new GameObject(name);
@@ -314,8 +293,7 @@ public class SleepManager : MonoBehaviour
         rt.anchoredPosition = pos;
         rt.sizeDelta = size;
         var tmp = go.AddComponent<TextMeshProUGUI>();
-        if (GameManager.Instance?.UIManager?.defaultTmpFont != null)
-            tmp.font = GameManager.Instance.UIManager.defaultTmpFont;
+GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = text;
         tmp.fontSize = fontSize;
         tmp.color = Color.white;
@@ -323,7 +301,6 @@ public class SleepManager : MonoBehaviour
         tmp.raycastTarget = false;
         return tmp;
     }
-
     private Button MakeButton(string name, Transform parent, string label, Vector2 pos, Vector2 size, int fontSize, Color color, UnityEngine.Events.UnityAction callback)
     {
         var go = new GameObject(name);
@@ -348,8 +325,7 @@ public class SleepManager : MonoBehaviour
         tr.offsetMin = Vector2.zero;
         tr.offsetMax = Vector2.zero;
         var tmp = textGO.AddComponent<TextMeshProUGUI>();
-        if (GameManager.Instance?.UIManager?.defaultTmpFont != null)
-            tmp.font = GameManager.Instance.UIManager.defaultTmpFont;
+GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = label;
         tmp.fontSize = fontSize;
         tmp.color = Color.white;

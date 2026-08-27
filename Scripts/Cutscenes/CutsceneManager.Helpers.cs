@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 
-public partial class CutsceneManager : MonoBehaviour
+public partial class CutsceneManager 
 {
     private IEnumerator PanCamera(Vector3 startPos, Vector3 endPos, Vector3 lookTarget, float duration)
     {
@@ -134,8 +134,7 @@ public partial class CutsceneManager : MonoBehaviour
         _subtitleGO = new GameObject("CutsceneSubtitle");
         _subtitleGO.transform.SetParent(_canvas.transform, false);
         var tmp = _subtitleGO.AddComponent<TextMeshProUGUI>();
-        if (_uiManager != null && _uiManager.defaultTmpFont != null)
-            tmp.font = _uiManager.defaultTmpFont;
+        _uiManager?.ApplyDefaultFont(tmp);
         tmp.text = Localization.T(textKey);
         tmp.fontSize = 26;
         tmp.color = Color.white;

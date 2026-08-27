@@ -5,9 +5,8 @@ using UnityEngine.UI;
 using TMPro;
 using UnityEngine.InputSystem;
 
-public class WifeNPC : MonoBehaviour
+public class WifeNPC : MonoSingleton<WifeNPC>
 {
-    public static WifeNPC Instance { get; private set; }
 
     public enum WifeState { NotMet, Greeting, Married }
 
@@ -96,14 +95,9 @@ public class WifeNPC : MonoBehaviour
     private Coroutine _activityRoutine;
     private GameObject _heldProp;
 
-    public void Awake()
+    protected override void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
+        base.Awake();
         var npcGo = GameObject.Find("WifeNpc");
         if (npcGo != null) _npcTransform = npcGo.transform;
         if (_npcTransform != null)
@@ -1375,8 +1369,7 @@ public class WifeNPC : MonoBehaviour
         rt.sizeDelta = size;
 
         var tmp = go.AddComponent<TextMeshProUGUI>();
-        if (GameManager.Instance?.UIManager?.defaultTmpFont != null)
-            tmp.font = GameManager.Instance.UIManager.defaultTmpFont;
+GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = text;
         tmp.fontSize = fontSize;
         tmp.color = color;

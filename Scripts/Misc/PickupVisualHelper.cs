@@ -4,6 +4,32 @@ namespace CountryLife.Helpers
 {
     public static class PickupVisualHelper
     {
+        public static Material MakeTransparent(Material mat, Color color, float smoothness = 0f)
+        {
+            if (mat == null) mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            mat.SetFloat("_Surface", 1f);
+            mat.SetFloat("_Blend", 0f);
+            mat.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetFloat("_ZWrite", 0f);
+            mat.SetFloat("_Cull", 0f);
+            mat.SetFloat("_Metallic", 0f);
+            mat.SetFloat("_Smoothness", smoothness);
+            mat.renderQueue = 3000;
+            mat.color = color;
+            return mat;
+        }
+
+        public static Material CreateTransparentMaterial(Color color, float smoothness = 0.8f)
+        {
+            return MakeTransparent(new Material(Shader.Find("Universal Render Pipeline/Lit")), color, smoothness);
+        }
+
+        public static Material CreateTransparentMaterialFromBase(Material baseMat, Color color)
+        {
+            return MakeTransparent(baseMat ?? new Material(Shader.Find("Universal Render Pipeline/Lit")), color);
+        }
+
         public static GameObject CreatePickupCube(Transform parent, Vector3 localPosition, Vector3 localScale, Color color, bool removeCollider = true)
         {
             return CreatePickupCube(parent, localPosition, localScale, Vector3.zero, color, removeCollider);

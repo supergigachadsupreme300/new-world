@@ -4,11 +4,9 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 
-public class TypingMinigame : MonoBehaviour
+public class TypingMinigame : MonoSingleton<TypingMinigame>
 {
-    public static TypingMinigame Instance { get; private set; }
-
-    private GameObject _panel;
+private GameObject _panel;
     private TMP_Text _paragraphText;
     private TMP_Text _inputText;
     private TMP_Text _timerText;
@@ -41,16 +39,6 @@ public class TypingMinigame : MonoBehaviour
         Key.Minus, Key.Equals, Key.Slash
     };
 
-    void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-    }
-
     public bool IsOpen => _isActive;
 
     public void Open(float duration = 30f)
@@ -77,7 +65,6 @@ public class TypingMinigame : MonoBehaviour
         _panel.SetActive(true);
         UpdateDisplay();
     }
-
     public void Close()
     {
         if (!_isActive) return;
@@ -103,7 +90,6 @@ public class TypingMinigame : MonoBehaviour
         }
         HandleTypingInput();
     }
-
     private void HandleTypingInput()
     {
         var kb = Keyboard.current;
@@ -139,7 +125,6 @@ public class TypingMinigame : MonoBehaviour
             }
         }
     }
-
     private string KeyToChar(Key key, bool shift)
     {
         switch (key)
@@ -163,7 +148,6 @@ public class TypingMinigame : MonoBehaviour
                 return "";
         }
     }
-
     private void UpdateDisplay()
     {
         if (_inputText == null || _paragraphText == null) return;
@@ -182,7 +166,6 @@ public class TypingMinigame : MonoBehaviour
         if (_progressFill != null)
             _progressFill.fillAmount = Mathf.Clamp01(progress);
     }
-
     private void FinishMinigame()
     {
         int correctCount = 0;
@@ -202,7 +185,6 @@ public class TypingMinigame : MonoBehaviour
         }
         Close();
     }
-
     private void BuildUI()
     {
         if (_panel != null) return;
@@ -277,7 +259,6 @@ public class TypingMinigame : MonoBehaviour
 
         _panel.SetActive(false);
     }
-
     private TMP_Text MakeText(string name, Transform parent, string text, Vector2 pos, Vector2 size,
         int fontSize, TextAlignmentOptions align, Color color)
     {

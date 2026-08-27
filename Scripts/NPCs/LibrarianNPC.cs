@@ -3,11 +3,9 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class LibrarianNPC : MonoBehaviour
+public class LibrarianNPC : MonoSingleton<LibrarianNPC>
 {
-    public static LibrarianNPC Instance { get; private set; }
-
-    private enum Phase { Intro, Menu, Done }
+private enum Phase { Intro, Menu, Done }
 
     private Transform _myTransform;
     private Transform _playerTransform;
@@ -36,17 +34,6 @@ public class LibrarianNPC : MonoBehaviour
     public bool IsDialogActive => _dialogActive;
     public bool IsResearchShown => _researchShowing;
 
-    void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-        _myTransform = transform;
-    }
-
     void Start()
     {
         var playerGo = GameObject.Find("Player");
@@ -54,7 +41,6 @@ public class LibrarianNPC : MonoBehaviour
         if (_myTransform != null)
             _originalRotation = _myTransform.rotation;
     }
-
     public void Interact()
     {
         if (gameObject == null || !gameObject.activeInHierarchy)
@@ -74,7 +60,6 @@ public class LibrarianNPC : MonoBehaviour
             _dialogQueue.Enqueue(_lines[i]);
         Advance();
     }
-
     public void Advance()
     {
         if (_panel == null)
@@ -110,7 +95,6 @@ public class LibrarianNPC : MonoBehaviour
             ? (GameInput.IsMobile ? Localization.T("Chạm để tiếp tục") : Localization.T("Nhấn E để tiếp tục"))
             : (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"));
     }
-
     public void ChooseResearch(int index)
     {
         if (!_researchShowing)
@@ -144,7 +128,6 @@ public class LibrarianNPC : MonoBehaviour
 
         Advance();
     }
-
     public void Hide()
     {
         _dialogActive = false;
@@ -155,7 +138,6 @@ public class LibrarianNPC : MonoBehaviour
         if (_myTransform != null)
             _myTransform.rotation = _originalRotation;
     }
-
     private void ShowResearchMenu(List<(string Name, int Cost)> list)
     {
         _researchShowing = true;
@@ -173,7 +155,6 @@ public class LibrarianNPC : MonoBehaviour
             ? Localization.T("Chạm để đóng")
             : Localization.T("Chọn 1-9 để học, nhấn E để đóng");
     }
-
     private void FacePlayer()
     {
         if (_myTransform == null || _playerTransform == null)
@@ -183,7 +164,6 @@ public class LibrarianNPC : MonoBehaviour
         if (to.sqrMagnitude > 0.001f)
             _myTransform.rotation = Quaternion.LookRotation(to.normalized);
     }
-
     private void InitializeDialog()
     {
         if (_canvas != null)
@@ -194,7 +174,6 @@ public class LibrarianNPC : MonoBehaviour
             return;
         CreatePanel();
     }
-
     private void CreatePanel()
     {
         float sw = Screen.width;
@@ -232,7 +211,6 @@ public class LibrarianNPC : MonoBehaviour
 
         _panel.SetActive(false);
     }
-
     private TMP_Text MakeText(string name, RectTransform parent, Vector2 position, string text,
         int fontSize, Color color, Vector2 size)
     {
@@ -247,8 +225,7 @@ public class LibrarianNPC : MonoBehaviour
         rt.sizeDelta = size;
 
         var tmp = go.AddComponent<TextMeshProUGUI>();
-        if (GameManager.Instance?.UIManager?.defaultTmpFont != null)
-            tmp.font = GameManager.Instance.UIManager.defaultTmpFont;
+GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = text;
         tmp.fontSize = fontSize;
         tmp.color = color;

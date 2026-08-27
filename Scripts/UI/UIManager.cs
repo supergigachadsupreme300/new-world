@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
@@ -1017,6 +1017,15 @@ public partial class UIManager : MonoBehaviour
         ResizeStatsBg();
 
         LogUiPipeline();
+    }
+
+    public void ApplyDefaultFont(TMP_Text target)
+    {
+        if (target == null) return;
+        if (defaultTmpFont == null)
+            defaultTmpFont = Resources.Load<TMP_FontAsset>("VietPixel");
+        if (defaultTmpFont != null)
+            target.font = defaultTmpFont;
     }
 
     private Canvas CreateCanvas()

@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 
-public partial class CutsceneManager : MonoBehaviour
+public partial class CutsceneManager 
 {
     private IEnumerator JusticeEndingRoutine(System.Action onComplete = null)
     {

@@ -4,11 +4,9 @@ using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using TMPro;
 
-public class BuffaloDialog : MonoBehaviour
+public class BuffaloDialog : MonoSingleton<BuffaloDialog>
 {
-    public static BuffaloDialog Instance { get; private set; }
-
-    private Canvas _canvas;
+private Canvas _canvas;
     private GameObject _panel;
     private TMP_Text _nameText;
     private TMP_Text _dialogText;
@@ -24,16 +22,6 @@ public class BuffaloDialog : MonoBehaviour
 
     public bool IsDialogActive => _dialogActive;
 
-    void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-    }
-
     void Start()
     {
         if (_canvas == null)
@@ -46,7 +34,6 @@ public class BuffaloDialog : MonoBehaviour
         if (Keyboard.current != null && Keyboard.current.tKey.wasPressedThisFrame)
             OpenShop();
     }
-
     public void Initialize()
     {
         if (_canvas != null)
@@ -57,7 +44,6 @@ public class BuffaloDialog : MonoBehaviour
             return;
         CreatePanel();
     }
-
     public void Show()
     {
         if (_canvas == null)
@@ -90,7 +76,6 @@ public class BuffaloDialog : MonoBehaviour
         if (_shopRow != null)
             _shopRow.SetActive(true);
     }
-
     public void Hide()
     {
         _dialogActive = false;
@@ -99,7 +84,6 @@ public class BuffaloDialog : MonoBehaviour
         if (_buffaloTransform != null)
             _buffaloTransform.rotation = _originalRotation;
     }
-
     public void Advance()
     {
         if (_dialogQueue.Count == 0)
@@ -112,7 +96,6 @@ public class BuffaloDialog : MonoBehaviour
             ? (GameInput.IsMobile ? Localization.T("Chạm để tiếp tục") : Localization.T("Nhấn E để tiếp tục"))
             : (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"));
     }
-
     private void OpenShop()
     {
         Hide();
@@ -125,7 +108,6 @@ public class BuffaloDialog : MonoBehaviour
         }
         shop.Open();
     }
-
     private void CreatePanel()
     {
         float sw = Screen.width;
@@ -165,7 +147,6 @@ public class BuffaloDialog : MonoBehaviour
 
         _panel.SetActive(false);
     }
-
     private GameObject MakeShopRow(RectTransform parent, string rowName, string textName,
         UnityEngine.Events.UnityAction onClick)
     {
@@ -191,7 +172,6 @@ public class BuffaloDialog : MonoBehaviour
 
         return row;
     }
-
     private TMP_Text MakeText(string name, RectTransform parent, Vector2 position, string text,
         int fontSize, Color color, Vector2 size)
     {
@@ -206,8 +186,7 @@ public class BuffaloDialog : MonoBehaviour
         rt.sizeDelta = size;
 
         var tmp = go.AddComponent<TextMeshProUGUI>();
-        if (GameManager.Instance?.UIManager?.defaultTmpFont != null)
-            tmp.font = GameManager.Instance.UIManager.defaultTmpFont;
+GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = text;
         tmp.fontSize = fontSize;
         tmp.color = color;
@@ -218,7 +197,6 @@ public class BuffaloDialog : MonoBehaviour
 
         return tmp;
     }
-
     private void FacePlayer()
     {
         if (_buffaloTransform == null || _playerTransform == null)

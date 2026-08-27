@@ -3,11 +3,9 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class PoliceOfficerNPC : MonoBehaviour
+public class PoliceOfficerNPC : MonoSingleton<PoliceOfficerNPC>
 {
-    public static PoliceOfficerNPC Instance { get; private set; }
-
-    private Transform _myTransform;
+private Transform _myTransform;
     private Transform _playerTransform;
     private Quaternion _originalRotation = Quaternion.identity;
 
@@ -33,17 +31,6 @@ public class PoliceOfficerNPC : MonoBehaviour
     private bool _isWalking;
 
     public bool IsDialogActive => _dialogActive;
-
-    void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-        _myTransform = transform;
-    }
 
     void Start()
     {
@@ -96,7 +83,6 @@ public class PoliceOfficerNPC : MonoBehaviour
         Patrol();
         AnimateWalk();
     }
-
     private void AnimateWalk()
     {
         if (!_isWalking)
@@ -112,7 +98,6 @@ public class PoliceOfficerNPC : MonoBehaviour
         if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(-swing * 0.7f, 0f, 0f);
         if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(swing * 0.7f, 0f, 0f);
     }
-
     private void ResetPivots()
     {
         if (_hipL != null) _hipL.localRotation = Quaternion.identity;
@@ -120,7 +105,6 @@ public class PoliceOfficerNPC : MonoBehaviour
         if (_shoulderL != null) _shoulderL.localRotation = Quaternion.identity;
         if (_shoulderR != null) _shoulderR.localRotation = Quaternion.identity;
     }
-
     private void Patrol()
     {
         if (_patrolPause > 0f)
@@ -145,7 +129,6 @@ public class PoliceOfficerNPC : MonoBehaviour
             _patrolPause = Random.Range(1.2f, 3.2f);
         }
     }
-
     private bool MoveTowards(Vector3 dest, float speed)
     {
         if (_myTransform == null)
@@ -164,7 +147,6 @@ public class PoliceOfficerNPC : MonoBehaviour
         _myTransform.rotation = Quaternion.LookRotation(-to.normalized);
         return Vector3.Distance(_myTransform.position, dest) < 0.1f;
     }
-
     public void Interact()
     {
         if (gameObject == null || !gameObject.activeInHierarchy)
@@ -193,7 +175,6 @@ public class PoliceOfficerNPC : MonoBehaviour
         }
         Advance();
     }
-
     public void Advance()
     {
         if (_panel == null)
@@ -215,7 +196,6 @@ public class PoliceOfficerNPC : MonoBehaviour
             ? (GameInput.IsMobile ? Localization.T("Chạm để tiếp tục") : Localization.T("Nhấn E để tiếp tục"))
             : (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"));
     }
-
     public void Hide()
     {
         _dialogActive = false;
@@ -224,14 +204,12 @@ public class PoliceOfficerNPC : MonoBehaviour
         if (_myTransform != null)
             _myTransform.rotation = _originalRotation;
     }
-
     public void Retire()
     {
         Hide();
         if (gameObject != null)
             gameObject.SetActive(false);
     }
-
     private void FacePlayer()
     {
         if (_myTransform == null || _playerTransform == null)
@@ -241,7 +219,6 @@ public class PoliceOfficerNPC : MonoBehaviour
         if (to.sqrMagnitude > 0.001f)
             _myTransform.rotation = Quaternion.LookRotation(to.normalized);
     }
-
     private void InitializeDialog()
     {
         if (_canvas != null)
@@ -252,7 +229,6 @@ public class PoliceOfficerNPC : MonoBehaviour
             return;
         CreatePanel();
     }
-
     private void CreatePanel()
     {
         float sw = Screen.width;
@@ -290,7 +266,6 @@ public class PoliceOfficerNPC : MonoBehaviour
 
         _panel.SetActive(false);
     }
-
     private TMP_Text MakeText(string name, RectTransform parent, Vector2 position, string text,
         int fontSize, Color color, Vector2 size)
     {
@@ -305,8 +280,7 @@ public class PoliceOfficerNPC : MonoBehaviour
         rt.sizeDelta = size;
 
         var tmp = go.AddComponent<TextMeshProUGUI>();
-        if (GameManager.Instance?.UIManager?.defaultTmpFont != null)
-            tmp.font = GameManager.Instance.UIManager.defaultTmpFont;
+GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = text;
         tmp.fontSize = fontSize;
         tmp.color = color;

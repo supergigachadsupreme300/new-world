@@ -3,11 +3,9 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class FishingShopNPC : MonoBehaviour
+public class FishingShopNPC : MonoSingleton<FishingShopNPC>
 {
-    public static FishingShopNPC Instance { get; private set; }
-
-    private Transform _myTransform;
+private Transform _myTransform;
     private Transform _playerTransform;
     private Quaternion _originalRotation = Quaternion.identity;
 
@@ -23,17 +21,6 @@ public class FishingShopNPC : MonoBehaviour
 
     public bool IsDialogActive => _dialogActive;
 
-    void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-        _myTransform = transform;
-    }
-
     void Start()
     {
         var playerGo = GameObject.Find("Player");
@@ -42,7 +29,6 @@ public class FishingShopNPC : MonoBehaviour
         if (_myTransform != null)
             _originalRotation = _myTransform.rotation;
     }
-
     public void Interact()
     {
         if (gameObject == null || !gameObject.activeInHierarchy)
@@ -63,7 +49,6 @@ public class FishingShopNPC : MonoBehaviour
         _dialogQueue.Enqueue("Cứ chọn đi, đảm bảo giá rẻ hơn ngoài bờ sông.");
         Advance();
     }
-
     public void Advance()
     {
         if (_panel == null)
@@ -79,7 +64,6 @@ public class FishingShopNPC : MonoBehaviour
             ? (GameInput.IsMobile ? Localization.T("Chạm để tiếp tục") : Localization.T("Nhấn E để tiếp tục"))
             : (GameInput.IsMobile ? Localization.T("Chạm để xem hàng") : Localization.T("Nhấn E để xem hàng"));
     }
-
     private void OpenShop()
     {
         if (_shopOpenedAfterDialog)
@@ -94,7 +78,6 @@ public class FishingShopNPC : MonoBehaviour
         }
         shop.OpenFishing();
     }
-
     public void Hide()
     {
         _dialogActive = false;
@@ -103,7 +86,6 @@ public class FishingShopNPC : MonoBehaviour
         if (_myTransform != null)
             _myTransform.rotation = _originalRotation;
     }
-
     private void FacePlayer()
     {
         if (_myTransform == null || _playerTransform == null)
@@ -113,7 +95,6 @@ public class FishingShopNPC : MonoBehaviour
         if (to.sqrMagnitude > 0.001f)
             _myTransform.rotation = Quaternion.LookRotation(to.normalized);
     }
-
     private void InitializeDialog()
     {
         if (_canvas != null)
@@ -124,7 +105,6 @@ public class FishingShopNPC : MonoBehaviour
             return;
         CreatePanel();
     }
-
     private void CreatePanel()
     {
         float sw = Screen.width;
@@ -162,7 +142,6 @@ public class FishingShopNPC : MonoBehaviour
 
         _panel.SetActive(false);
     }
-
     private TMP_Text MakeText(string name, RectTransform parent, Vector2 position, string text,
         int fontSize, Color color, Vector2 size)
     {
@@ -177,8 +156,7 @@ public class FishingShopNPC : MonoBehaviour
         rt.sizeDelta = size;
 
         var tmp = go.AddComponent<TextMeshProUGUI>();
-        if (GameManager.Instance?.UIManager?.defaultTmpFont != null)
-            tmp.font = GameManager.Instance.UIManager.defaultTmpFont;
+GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = text;
         tmp.fontSize = fontSize;
         tmp.color = color;

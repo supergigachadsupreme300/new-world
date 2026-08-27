@@ -1,10 +1,8 @@
 using UnityEngine;
 
-public class FieldManager : MonoBehaviour
+public class FieldManager : MonoSingleton<FieldManager>
 {
-    public static FieldManager Instance { get; private set; }
-
-    [Header("Field Textures")]
+[Header("Field Textures")]
     public Texture2D FieldTexture;
     public Material FieldMaterial;
 
@@ -15,21 +13,10 @@ public class FieldManager : MonoBehaviour
     private GameObject _fieldPreview;
     private readonly float _fieldSize = 2f; // Match WorldBuilder field tile size
 
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-    }
-
     private void Start()
     {
         CreateFieldPreview();
     }
-
     private void Update()
     {
         if (GameManager.Instance == null || !GameManager.Instance.InGame)
@@ -45,7 +32,6 @@ public class FieldManager : MonoBehaviour
 
         UpdateFieldPreview();
     }
-
     private void CreateFieldPreview()
     {
         _fieldPreview = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -61,7 +47,6 @@ public class FieldManager : MonoBehaviour
         Destroy(_fieldPreview.GetComponent<Collider>());
         _fieldPreview.SetActive(false);
     }
-
     private void UpdateFieldPreview()
     {
         var cam = Camera.main;
@@ -110,7 +95,6 @@ public class FieldManager : MonoBehaviour
 
         _fieldPreview.SetActive(false);
     }
-
     public bool TryGetPreviewPosition(out Vector3 previewPosition)
     {
         previewPosition = Vector3.zero;

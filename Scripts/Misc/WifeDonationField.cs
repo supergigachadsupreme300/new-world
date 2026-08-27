@@ -1,27 +1,15 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class WifeDonationField : MonoBehaviour
+public class WifeDonationField : MonoSingleton<WifeDonationField>
 {
-    public static WifeDonationField Instance { get; private set; }
-
-    private BoxCollider _triggerCol;
+private BoxCollider _triggerCol;
     private readonly HashSet<GameObject> _consumed = new HashSet<GameObject>();
     private bool _hintShown;
     private bool _shown = true;
     private Transform _arrowRoot;
     private float _arrowBaseY = 2.8f;
     private TMPro.TextMeshPro _label;
-
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-    }
 
     private void Update()
     {
@@ -56,7 +44,6 @@ public class WifeDonationField : MonoBehaviour
             _arrowRoot.localPosition = new Vector3(0f, _arrowBaseY + bob, 0f);
         }
     }
-
     private void RefreshVisibility()
     {
         bool show = WifeNPC.Instance != null && !string.IsNullOrEmpty(WifeNPC.Instance.GetActiveMaterialName());
@@ -69,12 +56,10 @@ public class WifeDonationField : MonoBehaviour
         if (_triggerCol != null)
             _triggerCol.enabled = _shown;
     }
-
     private void LateUpdate()
     {
         _consumed.Clear();
     }
-
     public static WifeDonationField Build(Transform parent, Vector3 position)
     {
         var go = new GameObject("WifeDonationField");
@@ -87,7 +72,6 @@ public class WifeDonationField : MonoBehaviour
         field.BuildTrigger();
         return field;
     }
-
     private void BuildVisual()
     {
         Color woodC = new Color(0.52f, 0.33f, 0.18f);
@@ -106,7 +90,6 @@ public class WifeDonationField : MonoBehaviour
         BuildArrow();
         BuildLabel();
     }
-
     private void BuildArrow()
     {
         _arrowRoot = new GameObject("DonationArrow").transform;
@@ -126,7 +109,6 @@ public class WifeDonationField : MonoBehaviour
 
         MakeCone(new Vector3(0f, -0.3f, 0f), 0.25f, 0.6f, headC);
     }
-
     private void MakeCone(Vector3 localPos, float radius, float height, Color color)
     {
         int layers = 5;
@@ -144,7 +126,6 @@ public class WifeDonationField : MonoBehaviour
             layer.GetComponent<Renderer>().material.color = color;
         }
     }
-
     private void BuildLabel()
     {
         var labelGO = new GameObject("DonationLabel");
@@ -162,18 +143,15 @@ public class WifeDonationField : MonoBehaviour
 
         Localization.OnLanguageChanged += RefreshLabel;
     }
-
     private void RefreshLabel()
     {
         if (_label != null)
             _label.text = Localization.T("Bỏ vật phẩm nhiệm vụ hàng ngày vào đây");
     }
-
     private void OnDestroy()
     {
         Localization.OnLanguageChanged -= RefreshLabel;
     }
-
     private void BuildTrigger()
     {
         _triggerCol = gameObject.AddComponent<BoxCollider>();
@@ -181,7 +159,6 @@ public class WifeDonationField : MonoBehaviour
         _triggerCol.center = new Vector3(0f, 1.0f, 0f);
         _triggerCol.size = new Vector3(3.4f, 1.8f, 3.4f);
     }
-
     private void MakeBox(string name, Transform parent, Vector3 scale, Vector3 localPos, Color color)
     {
         var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -194,7 +171,6 @@ public class WifeDonationField : MonoBehaviour
             rend.material.color = color;
         Destroy(go.GetComponent<Collider>());
     }
-
     private void OnTriggerEnter(Collider other)
     {
         var root = FindThrownRoot(other.transform);
@@ -219,7 +195,6 @@ public class WifeDonationField : MonoBehaviour
             ShowDepositMessage(material, progress, count);
         }
     }
-
     public static bool TryDonateCage(Transform cage)
     {
         if (Instance == null || cage == null || Instance._triggerCol == null || !Instance._triggerCol.enabled)
@@ -245,19 +220,16 @@ public class WifeDonationField : MonoBehaviour
         }
         return false;
     }
-
     private void ShowDepositMessage(string material, int progress, int count)
     {
         SoundManager.Instance?.Play("pop", 0.8f);
         GameManager.Instance?.UIManager?.ShowMessage(
             Localization.F("Đã nộp {0} cho Jessica! ({1}/{2})", DisplayName(material), progress, count), 1.5f);
     }
-
     private static string DisplayName(string material)
     {
         return material == "animal" ? Localization.T("Lồng Thú") : Localization.ItemName(material);
     }
-
     private static GameObject FindThrownRoot(Transform t)
     {
         if (t == null)
@@ -267,7 +239,6 @@ public class WifeDonationField : MonoBehaviour
             root = root.transform.parent.gameObject;
         return root;
     }
-
     private static string ClassifyMaterial(GameObject root)
     {
         if (root == null)

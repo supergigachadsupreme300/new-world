@@ -1,11 +1,9 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class FishingController : MonoBehaviour
+public class FishingController : MonoSingleton<FishingController>
 {
     public enum FishState { Idle, Casting, Waiting, FishApproaching, HookShaking, Reeling, Success, Fail }
-
-    public static FishingController Instance { get; private set; }
 
     public static bool IsFishingActive => Instance != null && Instance.State != FishState.Idle;
 
@@ -38,15 +36,9 @@ public class FishingController : MonoBehaviour
     private static readonly float[] FishWeights = { 40f, 30f, 20f, 10f };
     private static readonly string[] FishLabels = { "Cá Chép", "Cá Hồi", "Cá Ngừ", "Cá Nóc" };
 
-    private void Awake()
+    protected override void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-
+        base.Awake();
         var hudCanvasGo = GameObject.Find("HUD_Canvas");
         _canvas = hudCanvasGo != null ? hudCanvasGo.GetComponent<Canvas>() : FindObjectOfType<Canvas>();
         if (_canvas == null)

@@ -3,10 +3,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class MobileInputController : MonoBehaviour
+public class MobileInputController : MonoSingleton<MobileInputController>
 {
-    public static MobileInputController Instance { get; private set; }
-
     private GameObject _canvasGo;
     private Canvas _canvas;
     private VirtualJoystick _joystick;
@@ -71,14 +69,9 @@ public class MobileInputController : MonoBehaviour
         return false;
     }
 
-    private void Awake()
+    protected override void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
+        base.Awake();
         BuildUI();
         _canvasGo.SetActive(false);
         UpdateVisibility();
@@ -272,7 +265,6 @@ public class MobileInputController : MonoBehaviour
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.raycastTarget = false;
         var uiManager = Object.FindAnyObjectByType<UIManager>();
-        if (uiManager != null && uiManager.defaultTmpFont != null)
-            tmp.font = uiManager.defaultTmpFont;
+        uiManager?.ApplyDefaultFont(tmp);
     }
 }

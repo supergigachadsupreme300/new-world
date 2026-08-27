@@ -1,26 +1,13 @@
 using UnityEngine;
 
-public class MainMenuController : MonoBehaviour
+public class MainMenuController : MonoSingleton<MainMenuController>
 {
-    public static MainMenuController Instance { get; private set; }
-
-    private GameManager _gameManager;
-
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-    }
+private GameManager _gameManager;
 
     public void InitializeMenu(GameManager gameManager)
     {
         _gameManager = gameManager;
     }
-
     public void OnNewGameClicked()
     {
         if (GameManager.Instance?.UIManager != null)
@@ -28,18 +15,15 @@ public class MainMenuController : MonoBehaviour
         else
             _gameManager?.StartNewGame();
     }
-
     public void OnLoadGameClicked()
     {
         if (GameManager.Instance?.UIManager != null)
             GameManager.Instance.UIManager.ShowSaveSlotMenu(true);
     }
-
     public void OnQuitClicked()
     {
         Application.Quit();
     }
-
     public void OnWatchIntroClicked()
     {
         if (_gameManager == null) return;
@@ -50,7 +34,6 @@ public class MainMenuController : MonoBehaviour
         else
             _gameManager.ShowMainMenu(true);
     }
-
     public void OnSkipIntroClicked()
     {
         if (GameManager.Instance?.UIManager != null)

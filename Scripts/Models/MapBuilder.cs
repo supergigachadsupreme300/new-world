@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using CountryLife.Helpers;
 
 public enum PlayerGender { Male, Female }
 
@@ -45,68 +46,7 @@ public static partial class MapBuilder
 
     private static void SetTransparent(Renderer r, float alpha)
     {
-        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        mat.SetFloat("_Surface", 1f);
-        mat.SetFloat("_Blend", 0f);
-        mat.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-        mat.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-        mat.SetFloat("_ZWrite", 0f);
-        mat.SetFloat("_Cull", 0f);
-        mat.SetFloat("_Metallic", 0f);
-        mat.SetFloat("_Smoothness", 0.8f);
-        mat.renderQueue = 3000;
-        var c = mat.color;
-        c.a = alpha;
-        mat.color = c;
-        r.material = mat;
-    }
-
-    public static GameObject MakeTriangleBlock(string name, Transform parent, Vector3 scale, Vector3 position, Color color, bool removeCollider = false)
-    {
-        var go = new GameObject(name);
-        go.transform.SetParent(parent);
-        go.transform.localScale = scale;
-        go.transform.localPosition = position;
-
-        var mesh = new Mesh();
-        mesh.vertices = new[]
-        {
-            new Vector3(-0.5f, -0.5f, -0.5f),
-            new Vector3(0.5f, -0.5f, -0.5f),
-            new Vector3(0.0f, 0.5f, -0.5f),
-            new Vector3(-0.5f, -0.5f, 0.5f),
-            new Vector3(0.5f, -0.5f, 0.5f),
-            new Vector3(0.0f, 0.5f, 0.5f)
-        };
-        mesh.triangles = new[]
-        {
-            0, 2, 1,
-            3, 4, 5,
-            0, 1, 4, 0, 4, 3,
-            0, 3, 5, 0, 5, 2,
-            1, 2, 5, 1, 5, 4
-        };
-        mesh.RecalculateNormals();
-        mesh.RecalculateBounds();
-
-        var mf = go.AddComponent<MeshFilter>();
-        mf.mesh = mesh;
-
-        var mr = go.AddComponent<MeshRenderer>();
-        mr.material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        if (mr.material != null) mr.material.color = color;
-
-        if (removeCollider)
-        {
-            var col = go.GetComponent<Collider>();
-            if (col != null) Object.Destroy(col);
-        }
-        else
-        {
-            go.AddComponent<MeshCollider>();
-        }
-
-        return go;
+        r.material = PickupVisualHelper.CreateTransparentMaterial(new Color(1f, 1f, 1f, alpha), 0.8f);
     }
 
     // ═══════════════════════════════════════════════════════════════

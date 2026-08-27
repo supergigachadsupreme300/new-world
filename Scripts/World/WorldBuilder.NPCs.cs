@@ -1,7 +1,8 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using static CountryLife.Helpers.PickupVisualHelper;
+using CountryLife.Helpers;
 
 public partial class WorldBuilder
 {
@@ -752,24 +753,7 @@ public partial class WorldBuilder
         _buildingPreview.GetComponent<Collider>().enabled = false;
         _buildingPreview.SetActive(false);
         var renderer = _buildingPreview.GetComponent<Renderer>();
-        var mat = CreateSafeLitMaterial();
-        if (mat != null)
-        {
-            mat.SetFloat("_Surface", 1f);
-            mat.SetFloat("_Blend", 0f);
-            mat.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            mat.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            mat.SetFloat("_ZWrite", 0f);
-            mat.SetFloat("_Cull", 0f);
-            mat.SetFloat("_Metallic", 0f);
-            mat.SetFloat("_Smoothness", 0f);
-            mat.renderQueue = 3000;
-        }
-        else
-        {
-            mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
-        }
-        renderer.material = mat;
+        renderer.material = PickupVisualHelper.CreateTransparentMaterialFromBase(CreateSafeLitMaterial(), Color.white);
     }
 
     private void UpdateBuildingPreview()
