@@ -12,7 +12,8 @@ public class GoblinPet : MonoBehaviour
     public float RetryDelay = 4f;
     public float PlantSearchRadius = 25f;
 
-    private Transform _player;
+    [SerializeField] private Transform _player;
+    private GameManager _gm;
     private Transform _modelRoot;
     private Transform _upperTorso;
     private Transform _midTorso;
@@ -46,7 +47,8 @@ public class GoblinPet : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        _player = Object.FindAnyObjectByType<PlayerController>()?.transform;
+        if (_player == null)
+            _player = Object.FindAnyObjectByType<PlayerController>()?.transform;
         _health = MaxHealth;
 
         _modelRoot = GoblinModelBuilder.BuildGoblin(transform);
@@ -146,15 +148,16 @@ public class GoblinPet : MonoBehaviour
 
     private static bool IsNight()
     {
-        var gm = GameManager.Instance;
-        if (gm == null) return false;
-        float hour = gm.TimeOfDay;
+        if (_gm == null) _gm = GameManager.Instance;
+        if (_gm == null) return false;
+        float hour = _gm.TimeOfDay;
         return hour >= 18f || hour < 6f;
     }
 
     private void Update()
     {
-        if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
+        if (_gm == null) _gm = GameManager.Instance;
+        if (_gm != null && _gm.GamePaused) return;
 
         if (_player == null)
             _player = Object.FindAnyObjectByType<PlayerController>()?.transform;

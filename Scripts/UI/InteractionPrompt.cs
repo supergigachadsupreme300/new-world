@@ -12,6 +12,8 @@ public class InteractionPrompt : MonoBehaviour
 
     private string _currentEKeyLocKey;
     private string _currentLmbLocKey;
+    private string _currentEKeyText;
+    private string _currentLmbKeyText;
 
     private static readonly (string colliderName, string locKey)[] _interactables = {
         ("WifeNpc",            "Nói chuyện"),
@@ -84,8 +86,12 @@ public class InteractionPrompt : MonoBehaviour
 
         if (eLocKey != null)
         {
-            _currentEKeyLocKey = eLocKey;
-            _eKeyText.text = "E · " + Localization.T(eLocKey);
+            if (eLocKey != _currentEKeyLocKey)
+            {
+                _currentEKeyText = "E · " + Localization.T(eLocKey);
+                _currentEKeyLocKey = eLocKey;
+                _eKeyText.text = _currentEKeyText;
+            }
             _eKeyText.gameObject.SetActive(true);
         }
         else
@@ -99,8 +105,12 @@ public class InteractionPrompt : MonoBehaviour
             string lmbLocKey = ResolveLmbLocKey(colliderName);
             if (lmbLocKey != null)
             {
-                _currentLmbLocKey = lmbLocKey;
-                _lmbText.text = "LMB · " + Localization.T(lmbLocKey);
+                if (lmbLocKey != _currentLmbLocKey)
+                {
+                    _currentLmbKeyText = "LMB · " + Localization.T(lmbLocKey);
+                    _currentLmbLocKey = lmbLocKey;
+                    _lmbText.text = _currentLmbKeyText;
+                }
                 _lmbText.gameObject.SetActive(true);
             }
             else

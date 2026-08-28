@@ -1262,10 +1262,10 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
     {
         switch (type)
         {
-            case "PlayerHouse": return new Color(0.63f, 0.39f, 0.18f);
-            case "WifeHouse": return new Color(0.522f, 0.337f, 0.18f);
-            case "Shop": return new Color(0.58f, 0.361f, 0.165f);
-            default: return new Color(0.35f, 0.32f, 0.28f);
+            case "PlayerHouse": return ColorPalette.HouseWood;
+            case "WifeHouse": return ColorPalette.WifeHouseWood;
+            case "Shop": return ColorPalette.ShopWood;
+            default: return ColorPalette.StoneGray;
         }
     }
 

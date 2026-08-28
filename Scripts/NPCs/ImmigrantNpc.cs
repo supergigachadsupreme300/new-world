@@ -156,8 +156,9 @@ public class ImmigrantNpc : MonoSingleton<ImmigrantNpc>
         GameStats.AddMoneyEarned(rent);
         if (gm.UIManager != null)
         {
-            gm.UIManager.UpdatePlayerHud(gm.Player.HP, gm.Player.MaxHP, gm.Player.Stamina, gm.Player.MaxStamina, gm.Player.Money);
-            gm.UIManager.ShowMessage(Localization.F("Nhận {0} đồng tiền thuê nhà từ khu người di cư!", rent), 3f);
+            var ui = gm.UIManager;
+            ui.UpdatePlayerHud(gm.Player.HP, gm.Player.MaxHP, gm.Player.Stamina, gm.Player.MaxStamina, gm.Player.Money);
+            ui.ShowMessage(Localization.F("Nhận {0} đồng tiền thuê nhà từ khu người di cư!", rent), 3f);
         }
     }
     public void Hide()
@@ -203,7 +204,7 @@ public class ImmigrantNpc : MonoSingleton<ImmigrantNpc>
         rt.sizeDelta = new Vector2(sw * 0.6f, sh * 0.2f);
 
         var img = _panel.AddComponent<Image>();
-        img.color = new Color(0f, 0f, 0f, 0.8f);
+        img.color = ColorPalette.UIBackdrop;
 
         var btn = _panel.AddComponent<Button>();
         btn.targetGraphic = img;

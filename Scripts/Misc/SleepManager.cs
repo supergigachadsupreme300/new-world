@@ -10,6 +10,7 @@ public static bool IsSleeping { get; private set; }
     private bool _initialized;
     private bool _wasPausedBeforeOpen;
     private Canvas _canvas;
+    private UIManager _uiManager;
     private GameObject _panel;
 
     private GameObject _sleepPrompt;
@@ -58,6 +59,7 @@ public static bool IsSleeping { get; private set; }
         _initialized = true;
         var hudGo = GameObject.Find("HUD_Canvas");
         _canvas = hudGo != null ? hudGo.GetComponent<Canvas>() : Object.FindAnyObjectByType<Canvas>();
+        _uiManager = GameManager.Instance?.UIManager;
         if (_canvas == null)
             return;
 
@@ -132,8 +134,8 @@ public static bool IsSleeping { get; private set; }
 
         if (GameManager.Instance != null)
             GameManager.Instance.TogglePause(true);
-        if (GameManager.Instance?.UIManager != null)
-            GameManager.Instance.UIManager.ShowPauseMenu(false);
+        if (_uiManager != null)
+            _uiManager.ShowPauseMenu(false);
     }
     public void Close()
     {
@@ -142,8 +144,8 @@ public static bool IsSleeping { get; private set; }
 
         if (_wasPausedBeforeOpen)
         {
-            if (GameManager.Instance?.UIManager != null)
-                GameManager.Instance.UIManager.ShowPauseMenu(true);
+            if (_uiManager != null)
+                _uiManager.ShowPauseMenu(true);
             return;
         }
 

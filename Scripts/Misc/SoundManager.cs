@@ -31,11 +31,6 @@ public class SoundManager : MonoSingleton<SoundManager>
         RegisterOverrides();
     }
 
-    private void Start()
-    {
-        RegisterOverrides();
-    }
-
     public void LoadSoundClips()
     {
         var names = new[] {"pop", "axe", "pickaxe", "hoe", "sickle", "hammer", "bonk", "mexican_truck"};

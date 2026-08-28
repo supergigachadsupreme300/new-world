@@ -57,7 +57,7 @@ public partial class WorldBuilder
                     }
                     else
                     {
-                        groundMat.color = new Color(0.3f, 0.6f, 0.25f);
+                        groundMat.color = ColorPalette.GrassGreen;
                     }
                     renderer.material = groundMat;
                 }

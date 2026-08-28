@@ -124,7 +124,7 @@ private Canvas _canvas;
         rt.sizeDelta = new Vector2(sw * 0.55f, sh * 0.24f);
 
         var img = _panel.AddComponent<Image>();
-        img.color = new Color(0f, 0f, 0f, 0.8f);
+        img.color = ColorPalette.UIBackdrop;
 
         var btn = _panel.AddComponent<Button>();
         btn.targetGraphic = img;

@@ -146,7 +146,7 @@ private Transform _myTransform;
         rt.sizeDelta = new Vector2(sw * 0.6f, sh * 0.2f);
 
         var img = _panel.AddComponent<Image>();
-        img.color = new Color(0f, 0f, 0f, 0.8f);
+        img.color = ColorPalette.UIBackdrop;
 
         var btn = _panel.AddComponent<Button>();
         btn.targetGraphic = img;

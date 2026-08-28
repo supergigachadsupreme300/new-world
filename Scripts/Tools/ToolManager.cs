@@ -35,6 +35,7 @@ public partial class ToolManager : MonoBehaviour
     private bool _buildingChosen;
     private LineRenderer _rayRenderer;
     private GameObject _carriedObject;
+    private string _lastCarryInfoText;
     private const float PickupRayDistance = 4f;
     private const float UseRayDistance = 10f;
     private const float PalmProjectileSpeed = 25f;
@@ -355,19 +356,24 @@ public partial class ToolManager : MonoBehaviour
 
         if (_carriedObject != null)
         {
+            string infoText = null;
             if (_carriedObject.name == "CageWithAnimal")
             {
                 var info = _carriedObject.GetComponent<CageWithAnimalInfo>();
                 string animalName = info != null ? Localization.AnimalName(info.AnimalType.ToString()) : Localization.AnimalName("animal");
-                _uiManager.SetInfoText(Localization.F("Äang mang: Lá»“ng vá»›i {0} (Q Ä‘á»ƒ nÃ©m)", animalName));
+                infoText = Localization.F("Äang mang: Lá»“ng vá»›i {0} (Q Ä‘á»ƒ nÃ©m)", animalName);
             }
             else
             {
                 var (material, amount) = GetCarriedResourceInfo(_carriedObject);
                 if (material != null)
-                    _uiManager.SetInfoText(Localization.F("Äang mang: {0} {1}", amount.ToString("F2"), Localization.ItemName(material)));
-                else
-                    _uiManager.SetInfoText(null);
+                    infoText = Localization.F("Äang mang: {0} {1}", amount.ToString("F2"), Localization.ItemName(material));
+            }
+
+            if (infoText != _lastCarryInfoText)
+            {
+                _lastCarryInfoText = infoText;
+                _uiManager.SetInfoText(infoText);
             }
             return;
         }

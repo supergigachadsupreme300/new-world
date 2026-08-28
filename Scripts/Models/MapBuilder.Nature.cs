@@ -425,7 +425,7 @@ public static partial class MapBuilder
 
         int count = 45;
         float blockHeight = height / count;
-        Color col = new Color(0.35f, 0.32f, 0.28f);
+        Color col = ColorPalette.StoneGray;
 
         for (int i = 0; i < count; i++)
         {

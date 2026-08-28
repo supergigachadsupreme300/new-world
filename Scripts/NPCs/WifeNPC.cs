@@ -1231,7 +1231,7 @@ public class WifeNPC : MonoSingleton<WifeNPC>
         panelRt.sizeDelta = new Vector2(sw * 0.7f, sh * 0.28f);
 
         var panelImg = _dialogPanel.AddComponent<Image>();
-        panelImg.color = new Color(0f, 0f, 0f, 0.8f);
+        panelImg.color = ColorPalette.UIBackdrop;
 
         var panelBtn = _dialogPanel.AddComponent<Button>();
         panelBtn.targetGraphic = panelImg;
@@ -1286,7 +1286,7 @@ public class WifeNPC : MonoSingleton<WifeNPC>
         rowRt.sizeDelta = new Vector2(barW + 12f + sideW, barH);
 
         var rowBg = rowRt.gameObject.AddComponent<Image>();
-        rowBg.color = new Color(0f, 0f, 0f, 0.8f);
+        rowBg.color = ColorPalette.UIBackdrop;
         rowBg.raycastTarget = false;
 
         var barRt = new GameObject("WifeLoveBar").AddComponent<RectTransform>();
@@ -1336,7 +1336,7 @@ public class WifeNPC : MonoSingleton<WifeNPC>
         rowRt.sizeDelta = new Vector2(300f, 40f);
 
         var rowImg = row.AddComponent<Image>();
-        rowImg.color = new Color(0f, 0f, 0f, 0.8f);
+        rowImg.color = ColorPalette.UIBackdrop;
         rowImg.raycastTarget = true;
 
         if (onClick != null)

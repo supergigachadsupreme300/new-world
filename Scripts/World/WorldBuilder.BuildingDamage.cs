@@ -6,6 +6,8 @@ using CountryLife.Helpers;
 
 public partial class WorldBuilder
 {
+    private Camera _blueprintCam;
+
     public void DamageBuilding(GameObject hitObj)
     {
         var building = FindBuilding(hitObj);
@@ -185,21 +187,21 @@ public partial class WorldBuilder
 
     private Color GetPartColor(GameObject entity)
     {
-        if (entity == null) return new Color(0.35f, 0.32f, 0.28f);
+        if (entity == null) return ColorPalette.StoneGray;
         var renderer = entity.GetComponentInChildren<Renderer>();
         if (renderer != null && renderer.sharedMaterial != null)
             return renderer.sharedMaterial.color;
-        return new Color(0.35f, 0.32f, 0.28f);
+        return ColorPalette.StoneGray;
     }
 
     private Color GetBuildingDebrisColorByType(string type)
     {
         switch (type)
         {
-            case "PlayerHouse": return new Color(0.63f, 0.39f, 0.18f);
-            case "WifeHouse": return new Color(0.522f, 0.337f, 0.18f);
-            case "Shop": return new Color(0.58f, 0.361f, 0.165f);
-            default: return new Color(0.35f, 0.32f, 0.28f);
+            case "PlayerHouse": return ColorPalette.HouseWood;
+            case "WifeHouse": return ColorPalette.WifeHouseWood;
+            case "Shop": return ColorPalette.ShopWood;
+            default: return ColorPalette.StoneGray;
         }
     }
 
@@ -648,7 +650,9 @@ public partial class WorldBuilder
 
     private void UpdateBlueprintLabels()
     {
-        var cam = Camera.main;
+        if (_blueprintCam == null)
+            _blueprintCam = Camera.main;
+        var cam = _blueprintCam;
         if (cam == null) return;
 
         foreach (var bp in _blueprints)

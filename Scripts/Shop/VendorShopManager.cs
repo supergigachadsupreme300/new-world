@@ -8,6 +8,7 @@ public class VendorShopManager : MonoBehaviour
 {
     private bool _initialized;
     private Canvas _canvas;
+    private UIManager _uiManager;
     private Dictionary<ShopItem, int> _originalSellPrices = new Dictionary<ShopItem, int>();
     private Dictionary<ShopItem, int> _originalBuyPrices = new Dictionary<ShopItem, int>();
 
@@ -198,6 +199,7 @@ public class VendorShopManager : MonoBehaviour
         _initialized = true;
         var hudGo = GameObject.Find("HUD_Canvas");
         _canvas = hudGo != null ? hudGo.GetComponent<Canvas>() : Object.FindAnyObjectByType<Canvas>();
+        _uiManager = GameManager.Instance?.UIManager;
         if (_canvas == null)
             return;
 
@@ -349,18 +351,18 @@ public class VendorShopManager : MonoBehaviour
         if (BuffaloDialog.Instance != null && BuffaloDialog.Instance.IsDialogActive)
             BuffaloDialog.Instance.Hide();
 
-        if (GameManager.Instance?.UIManager != null)
+        if (_uiManager != null)
         {
-            GameManager.Instance.UIManager.ShowTutorial(false);
-            GameManager.Instance.UIManager.ShowRecordPanel(false);
-            GameManager.Instance.UIManager.ShowQuestPanel(false);
+            _uiManager.ShowTutorial(false);
+            _uiManager.ShowRecordPanel(false);
+            _uiManager.ShowQuestPanel(false);
         }
 
         if (GameManager.Instance != null)
             GameManager.Instance.TogglePause(true);
 
-        if (GameManager.Instance?.UIManager != null)
-            GameManager.Instance.UIManager.ShowPauseMenu(false);
+        if (_uiManager != null)
+            _uiManager.ShowPauseMenu(false);
         GameInput.SetCursorLocked(false);
 
         if (_titleText != null) _titleText.text = Localization.T(titleKey);
@@ -391,8 +393,8 @@ public class VendorShopManager : MonoBehaviour
         }
         else
         {
-            if (GameManager.Instance?.UIManager != null)
-                GameManager.Instance.UIManager.ShowPauseMenu(true);
+            if (_uiManager != null)
+                _uiManager.ShowPauseMenu(true);
         }
     }
 

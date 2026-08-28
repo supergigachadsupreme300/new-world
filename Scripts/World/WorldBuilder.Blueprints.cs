@@ -833,7 +833,7 @@ public partial class WorldBuilder
         root.transform.rotation = Quaternion.Euler(0f, bp.Rotation, 0f);
         root.transform.SetParent(_worldRoot.transform);
 
-        Color woodColor = new Color(0.63f, 0.39f, 0.18f);
+        Color woodColor = ColorPalette.HouseWood;
         Color stoneColor = new Color(0.41f, 0.41f, 0.41f);
 
         if (bp.Type.StartsWith("Pagoda_"))

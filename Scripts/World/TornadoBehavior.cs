@@ -43,6 +43,7 @@ public class TornadoBehavior : MonoBehaviour
 
     private readonly List<OrbitingDebris> _debris = new List<OrbitingDebris>();
     private readonly List<PulledObject> _pulled = new List<PulledObject>();
+    private static readonly Collider[] _overlapBuffer = new Collider[64];
 
     void Start()
     {
@@ -118,10 +119,10 @@ public class TornadoBehavior : MonoBehaviour
 
     private void PullNearbyObjects()
     {
-        Collider[] hits = Physics.OverlapSphere(transform.position, PullRadius);
-        for (int i = 0; i < hits.Length; i++)
+        int hitCount = Physics.OverlapSphereNonAlloc(transform.position, PullRadius, _overlapBuffer);
+        for (int i = 0; i < hitCount; i++)
         {
-            var rb = hits[i].attachedRigidbody;
+            var rb = _overlapBuffer[i].attachedRigidbody;
             if (rb == null || rb.isKinematic) continue;
 
             bool alreadyPulled = false;

@@ -8,6 +8,7 @@ public class BuffaloShopManager : MonoBehaviour
 {
     private bool _initialized;
     private Canvas _canvas;
+    private UIManager _uiManager;
 
     void Update()
     {
@@ -101,6 +102,7 @@ public class BuffaloShopManager : MonoBehaviour
         _initialized = true;
         var hudGo = GameObject.Find("HUD_Canvas");
         _canvas = hudGo != null ? hudGo.GetComponent<Canvas>() : Object.FindAnyObjectByType<Canvas>();
+        _uiManager = GameManager.Instance?.UIManager;
         if (_canvas == null)
             return;
 
@@ -216,18 +218,18 @@ public class BuffaloShopManager : MonoBehaviour
         if (BuffaloDialog.Instance != null && BuffaloDialog.Instance.IsDialogActive)
             BuffaloDialog.Instance.Hide();
 
-        if (GameManager.Instance?.UIManager != null)
+        if (_uiManager != null)
         {
-            GameManager.Instance.UIManager.ShowTutorial(false);
-            GameManager.Instance.UIManager.ShowRecordPanel(false);
-            GameManager.Instance.UIManager.ShowQuestPanel(false);
+            _uiManager.ShowTutorial(false);
+            _uiManager.ShowRecordPanel(false);
+            _uiManager.ShowQuestPanel(false);
         }
 
         if (GameManager.Instance != null)
             GameManager.Instance.TogglePause(true);
 
-        if (GameManager.Instance?.UIManager != null)
-            GameManager.Instance.UIManager.ShowPauseMenu(false);
+        if (_uiManager != null)
+            _uiManager.ShowPauseMenu(false);
         GameInput.SetCursorLocked(false);
 
         if (_titleText != null) _titleText.text = Localization.T("Cửa Hàng Trâu");
@@ -255,8 +257,8 @@ public class BuffaloShopManager : MonoBehaviour
         }
         else
         {
-            if (GameManager.Instance?.UIManager != null)
-                GameManager.Instance.UIManager.ShowPauseMenu(true);
+            if (_uiManager != null)
+                _uiManager.ShowPauseMenu(true);
         }
     }
 

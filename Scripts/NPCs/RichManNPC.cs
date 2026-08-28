@@ -6,8 +6,8 @@ using TMPro;
 public class RichManNPC : MonoSingleton<RichManNPC>
 {
 private Transform _myTransform;
-    private Transform _wifeTransform;
-    private Transform _playerTransform;
+    [SerializeField] private Transform _wifeTransform;
+    [SerializeField] private Transform _playerTransform;
     private Quaternion _originalRotation = Quaternion.identity;
 
     private const float HOME_PATROL_RADIUS_X = 6f;
@@ -69,10 +69,16 @@ private Transform _myTransform;
     {
         _homePosition = _myTransform != null ? _myTransform.position : Vector3.zero;
         _patrolOrigin = _homePosition;
-        var wifeGo = GameObject.Find("WifeNpc");
-        if (wifeGo != null) _wifeTransform = wifeGo.transform;
-        var playerGo = GameObject.Find("Player");
-        if (playerGo != null) _playerTransform = playerGo.transform;
+        if (_wifeTransform == null)
+        {
+            var wifeGo = GameObject.Find("WifeNpc");
+            if (wifeGo != null) _wifeTransform = wifeGo.transform;
+        }
+        if (_playerTransform == null)
+        {
+            var playerGo = GameObject.Find("Player");
+            if (playerGo != null) _playerTransform = playerGo.transform;
+        }
         if (_myTransform != null)
             _originalRotation = _myTransform.rotation;
         _legL = _myTransform.Find("LegsRoot/LegLPivot");
@@ -503,7 +509,7 @@ private Transform _myTransform;
         rt.sizeDelta = new Vector2(sw * 0.6f, sh * 0.22f);
 
         var img = _panel.AddComponent<Image>();
-        img.color = new Color(0f, 0f, 0f, 0.8f);
+        img.color = ColorPalette.UIBackdrop;
 
         var btn = _panel.AddComponent<Button>();
         btn.targetGraphic = img;
@@ -554,7 +560,7 @@ private Transform _myTransform;
         rowRt.sizeDelta = new Vector2(300f, 40f);
 
         var rowImg = row.AddComponent<Image>();
-        rowImg.color = new Color(0f, 0f, 0f, 0.8f);
+        rowImg.color = ColorPalette.UIBackdrop;
         rowImg.raycastTarget = true;
 
         var rowBtn = row.AddComponent<Button>();

@@ -11,6 +11,7 @@ public class FieldManager : MonoSingleton<FieldManager>
     public Color FieldPreviewColor = new Color(150f / 255f, 100f / 255f, 50f / 255f, 140f / 255f);
 
     private GameObject _fieldPreview;
+    private Camera _cam;
     private readonly float _fieldSize = 2f; // Match WorldBuilder field tile size
 
     private void Start()
@@ -49,7 +50,9 @@ public class FieldManager : MonoSingleton<FieldManager>
     }
     private void UpdateFieldPreview()
     {
-        var cam = Camera.main;
+        if (_cam == null)
+            _cam = Camera.main;
+        var cam = _cam;
         if (cam == null)
             return;
 

@@ -301,7 +301,7 @@ public class FlyingCrane : MonoBehaviour
     private void BuildLegs(Color legCol)
     {
         Color jointCol = new Color(0.5f, 0.5f, 0.45f);
-        Color clawCol = new Color(0.35f, 0.32f, 0.28f);
+        Color clawCol = ColorPalette.StoneGray;
 
         // ── Left leg ──
         Transform thighPivotL = new GameObject("ThighPivotL").transform;

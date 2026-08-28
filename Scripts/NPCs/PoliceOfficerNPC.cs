@@ -6,7 +6,7 @@ using TMPro;
 public class PoliceOfficerNPC : MonoSingleton<PoliceOfficerNPC>
 {
 private Transform _myTransform;
-    private Transform _playerTransform;
+    [SerializeField] private Transform _playerTransform;
     private Quaternion _originalRotation = Quaternion.identity;
 
     private const float WALK_SPEED = 1.4f;
@@ -35,8 +35,11 @@ private Transform _myTransform;
     void Start()
     {
         _patrolOrigin = _myTransform != null ? _myTransform.position : Vector3.zero;
-        var playerGo = GameObject.Find("Player");
-        if (playerGo != null) _playerTransform = playerGo.transform;
+        if (_playerTransform == null)
+        {
+            var playerGo = GameObject.Find("Player");
+            if (playerGo != null) _playerTransform = playerGo.transform;
+        }
         if (_myTransform != null)
             _originalRotation = _myTransform.rotation;
 
@@ -245,7 +248,7 @@ private Transform _myTransform;
         rt.sizeDelta = new Vector2(sw * 0.6f, sh * 0.2f);
 
         var img = _panel.AddComponent<Image>();
-        img.color = new Color(0f, 0f, 0f, 0.8f);
+        img.color = ColorPalette.UIBackdrop;
 
         var btn = _panel.AddComponent<Button>();
         btn.targetGraphic = img;

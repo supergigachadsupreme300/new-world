@@ -20,7 +20,8 @@ public class EnemyController : MonoBehaviour
     public int CurrentHealth => _health;
 
     private int _health;
-    private Transform _player;
+    [SerializeField] private Transform _player;
+    private PlayerController _playerController;
     private Vector3 _origin;
     private Vector3 _patrolTarget;
     private float _attackTimer;
@@ -53,6 +54,7 @@ public class EnemyController : MonoBehaviour
     private Vector3 _lastChasePos;
     private bool _hasChasePos;
     private bool _knockOut;
+    private static readonly Collider[] _structureSearchBuffer = new Collider[64];
 
     private bool _bossSkillActive;
     private float _bossSkillTimer;
@@ -69,7 +71,10 @@ public class EnemyController : MonoBehaviour
     {
         _origin = transform.position;
         _patrolTarget = GetRandomPatrolPoint();
-        _player = Object.FindAnyObjectByType<PlayerController>()?.transform;
+        if (_player == null)
+            _player = Object.FindAnyObjectByType<PlayerController>()?.transform;
+        if (_player != null && _playerController == null)
+            _playerController = _player.GetComponent<PlayerController>();
     }
 
     private void Start()
@@ -161,6 +166,8 @@ public class EnemyController : MonoBehaviour
         }
         if (_player == null)
             _player = Object.FindAnyObjectByType<PlayerController>()?.transform;
+        if (_player != null && _playerController == null)
+            _playerController = _player.GetComponent<PlayerController>();
         if (_player == null)
             return;
         if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
@@ -464,7 +471,7 @@ public class EnemyController : MonoBehaviour
             return;
         }
 
-        var player = _player.GetComponent<PlayerController>();
+        var player = _playerController;
         if (player != null)
         {
             player.TakeDamage(Damage);
@@ -538,12 +545,13 @@ public class EnemyController : MonoBehaviour
         var wb = WorldBuilder.Instance;
         if (wb == null) return;
 
-        Collider[] hits = Physics.OverlapSphere(transform.position, STRUCTURE_SEARCH_RANGE);
+        int hitCount = Physics.OverlapSphereNonAlloc(transform.position, STRUCTURE_SEARCH_RANGE, _structureSearchBuffer);
         GameObject closest = null;
         float closestDist = float.MaxValue;
 
-        foreach (var col in hits)
+        for (int i = 0; i < hitCount; i++)
         {
+            var col = _structureSearchBuffer[i];
             var building = wb.FindBuilding(col.gameObject);
             if (building == null) continue;
             if (building.PartStates == null || building.PartStates.Count == 0) continue;
@@ -720,7 +728,7 @@ public class EnemyController : MonoBehaviour
 
         SoundManager.Instance?.Play("bonk", 0.9f);
         if (_player != null && Vector3.Distance(transform.position, _player.position) <= 3.5f)
-            _player.GetComponent<PlayerController>()?.TakeDamage(14);
+            _playerController?.TakeDamage(14);
         SpawnSlamCracks();
 
         t = 0f;
@@ -807,7 +815,7 @@ public class EnemyController : MonoBehaviour
                 Vector3 toPlayer = _player.position + Vector3.up * 0.8f - proj.transform.position;
                 if (toPlayer.magnitude < 0.9f)
                 {
-                    _player.GetComponent<PlayerController>()?.TakeDamage(8);
+                    _playerController?.TakeDamage(8);
                     SoundManager.Instance?.Play("bonk", 0.6f);
                     _activeProjectiles.Remove(proj);
                     Destroy(proj);
@@ -864,7 +872,7 @@ public class EnemyController : MonoBehaviour
             if (!hit && _player != null && Vector3.Distance(transform.position, _player.position) <= 1.8f)
             {
                 hit = true;
-                _player.GetComponent<PlayerController>()?.TakeDamage(12);
+                _playerController?.TakeDamage(12);
                 SoundManager.Instance?.Play("bonk", 0.8f);
             }
             yield return null;

@@ -9,14 +9,17 @@ public class PetController : MonoBehaviour
     public int Damage = 8;
     public float AttackCooldown = 1.2f;
 
-    private Transform _player;
+    [SerializeField] private Transform _player;
     private float _attackTimer;
     private Transform _modelRoot;
     private Rigidbody _rb;
+    private GameManager _gm;
+    private static readonly Collider[] _enemyBuffer = new Collider[32];
 
     private void Awake()
     {
-        _player = Object.FindAnyObjectByType<PlayerController>()?.transform;
+        if (_player == null)
+            _player = Object.FindAnyObjectByType<PlayerController>()?.transform;
         BuildModel();
         var col = gameObject.AddComponent<SphereCollider>();
         col.radius = 0.45f;
@@ -73,7 +76,8 @@ public class PetController : MonoBehaviour
 
     private void Update()
     {
-        if (GameManager.Instance != null && GameManager.Instance.GamePaused) return;
+        if (_gm == null) _gm = GameManager.Instance;
+        if (_gm != null && _gm.GamePaused) return;
 
         if (_player == null)
             _player = Object.FindAnyObjectByType<PlayerController>()?.transform;
@@ -116,11 +120,14 @@ public class PetController : MonoBehaviour
 
     private void AttackNearest()
     {
-        var enemies = Object.FindObjectsByType<EnemyController>(FindObjectsSortMode.None);
+        int hitCount = Physics.OverlapSphereNonAlloc(transform.position, AttackRange, _enemyBuffer);
         EnemyController nearest = null;
         float nearestDist = float.MaxValue;
-        foreach (var enemy in enemies)
+        for (int i = 0; i < hitCount; i++)
         {
+            var enemy = _enemyBuffer[i].attachedRigidbody != null
+                ? _enemyBuffer[i].attachedRigidbody.GetComponentInParent<EnemyController>()
+                : _enemyBuffer[i].GetComponentInParent<EnemyController>();
             if (enemy == null || enemy.IsDead)
                 continue;
             float d = Vector3.Distance(transform.position, enemy.transform.position);

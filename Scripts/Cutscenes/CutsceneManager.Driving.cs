@@ -151,7 +151,7 @@ public partial class CutsceneManager
         }
         else
         {
-            _drivingGrassMat.color = new Color(0.3f, 0.6f, 0.25f);
+            _drivingGrassMat.color = ColorPalette.GrassGreen;
         }
         _drivingKerbMat = new Material(shader);
         _drivingKerbMat.color = new Color(0.46f, 0.45f, 0.42f);

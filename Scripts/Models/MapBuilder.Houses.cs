@@ -15,7 +15,7 @@ public static partial class MapBuilder
         root.transform.rotation = (rotation == default) ? Quaternion.identity : rotation;
         root.transform.localScale = Vector3.one * scale;
 
-        Color woodC    = new Color(0.63f, 0.39f, 0.18f);
+        Color woodC    = ColorPalette.HouseWood;
         Color roofC    = new Color(0.635f, 0.243f, 0.149f);
         Color ridgeC   = new Color(0.345f, 0.11f, 0.039f);
         Color eaveC    = new Color(0.569f, 0.345f, 0.157f);
@@ -24,7 +24,7 @@ public static partial class MapBuilder
         Color winC     = new Color(0.549f, 0.784f, 0.863f);
         Color frameC   = new Color(0.165f, 0.094f, 0.031f);
         Color shuttC   = new Color(0.227f, 0.376f, 0.173f);
-        Color porchC   = new Color(0.58f, 0.361f, 0.165f);
+        Color porchC   = ColorPalette.ShopWood;
 
         // ── Walls + floor ──
         MakeBlock("Wall", root.transform, new Vector3(10f, 5f, 0.5f), new Vector3(0f, 2.5f, -5f), woodC);
@@ -280,7 +280,7 @@ public static partial class MapBuilder
         root.transform.rotation = (rotation == default) ? Quaternion.identity : rotation;
         root.transform.localScale = Vector3.one * scale;
 
-        Color wallC   = new Color(0.522f, 0.337f, 0.18f);
+        Color wallC   = ColorPalette.WifeHouseWood;
         Color roofC   = new Color(0.404f, 0.204f, 0.114f);
         Color ridgeC  = new Color(0.345f, 0.11f, 0.039f);
         Color floorC  = new Color(0.447f, 0.263f, 0.157f);

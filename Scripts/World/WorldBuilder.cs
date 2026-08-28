@@ -147,7 +147,7 @@ public int BuildingCount => _buildings.Count;
 
     private readonly BuildingDefinition[] _availableBuildings = new[]
     {
-        new BuildingDefinition("wood_wall", new Vector3(6f, 3f, 0.5f), new Color(0.63f, 0.39f, 0.18f), 4, 0),
+        new BuildingDefinition("wood_wall", new Vector3(6f, 3f, 0.5f), ColorPalette.HouseWood, 4, 0),
         new BuildingDefinition("stone_wall", new Vector3(5f, 3f, 0.5f), new Color(0.41f, 0.41f, 0.41f), 0, 4),
         new BuildingDefinition("fence", new Vector3(4f, 1.5f, 0.3f), new Color(0.69f, 0.51f, 0.25f), 2, 0,
             new BuildingPartDefinition[]
@@ -192,7 +192,7 @@ public int BuildingCount => _buildings.Count;
             {
                 new BuildingPartDefinition { PartName = "Panel", LocalPosition = new Vector3(1.5f, 0f, 0f), LocalScale = new Vector3(3f, 4f, 0.3f), MaterialType = "wood" }
             }),
-        new BuildingDefinition("wife_house", new Vector3(14f, 9f, 14f), new Color(0.522f, 0.337f, 0.18f), 20, 10,
+        new BuildingDefinition("wife_house", new Vector3(14f, 9f, 14f), ColorPalette.WifeHouseWood, 20, 10,
             new BuildingPartDefinition[]
             {
                 new BuildingPartDefinition { PartName = "Floor_1F",    LocalPosition = new Vector3(0f, -2.25f, 0f),   LocalScale = new Vector3(14f, 0.5f, 14f),   MaterialType = "wood" },
@@ -211,14 +211,14 @@ public int BuildingCount => _buildings.Count;
                 new BuildingPartDefinition { PartName = "Roof_Right", LocalPosition = new Vector3(-3.5f, 7.95f, 0f), LocalScale = new Vector3(8.5f, 0.6f, 17.6f), MaterialType = "stone" },
                 new BuildingPartDefinition { PartName = "Ridge",      LocalPosition = new Vector3(0f, 9.15f, 0f),    LocalScale = new Vector3(0.7f, 0.35f, 18f),  MaterialType = "stone" }
             },
-            woodColor: new Color(0.522f, 0.337f, 0.18f),
+            woodColor: ColorPalette.WifeHouseWood,
             stoneColor: new Color(0.439f, 0.4f, 0.361f)),
         new BuildingDefinition("structure_house", new Vector3(16f, 6f, 10f), new Color(0.6f, 0.4f, 0.2f), 0, 0,
             subBuildings: new SubBuildingDefinition[]
             {
                 new SubBuildingDefinition { PartName = "Foundation", Offset = new Vector3(0f, -2.5f, 0f), Size = new Vector3(16f, 0.5f, 10f), WoodCost = 0, StoneCost = 8, Color = new Color(0.4f, 0.4f, 0.4f) },
                 new SubBuildingDefinition { PartName = "Floor", Offset = new Vector3(0f, -2.0f, 0f), Size = new Vector3(16f, 0.3f, 10f), WoodCost = 6, StoneCost = 0, Color = new Color(0.71f, 0.53f, 0.27f) },
-                new SubBuildingDefinition { PartName = "Walls", Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(16f, 5f, 10f), WoodCost = 12, StoneCost = 0, Color = new Color(0.63f, 0.39f, 0.18f) },
+                new SubBuildingDefinition { PartName = "Walls", Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(16f, 5f, 10f), WoodCost = 12, StoneCost = 0, Color = ColorPalette.HouseWood },
                 new SubBuildingDefinition { PartName = "Roof", Offset = new Vector3(0f, 2.7f, 0f), Size = new Vector3(17f, 0.4f, 11f), WoodCost = 0, StoneCost = 8, Color = new Color(0.5f, 0.5f, 0.5f) },
                 new SubBuildingDefinition { PartName = "Door", Offset = new Vector3(0f, -0.5f, 5.15f), Size = new Vector3(3f, 4f, 0.3f), WoodCost = 3, StoneCost = 0, Color = new Color(0.55f, 0.35f, 0.16f) },
                 new SubBuildingDefinition { PartName = "Interior", Offset = new Vector3(0f, -0.5f, 0f), Size = new Vector3(12f, 3f, 8f), WoodCost = 6, StoneCost = 0, Color = new Color(0.5f, 0.35f, 0.2f) }
@@ -635,7 +635,7 @@ public int BuildingCount => _buildings.Count;
         }
         else
         {
-            grassMat.color = new Color(0.3f, 0.6f, 0.25f);
+            grassMat.color = ColorPalette.GrassGreen;
         }
 
         float groundLeftX = -300f;
@@ -664,7 +664,7 @@ public int BuildingCount => _buildings.Count;
         groundB.transform.SetParent(_alignmentStrip.transform);
         groundB.transform.localScale = new Vector3(behindWidth, 0.05f, stripLen);
         groundB.transform.localPosition = new Vector3(0f, -0.01f, stripCenterZ);
-        groundB.GetComponent<Renderer>().material.color = new Color(0.3f, 0.6f, 0.25f);
+        groundB.GetComponent<Renderer>().material.color = ColorPalette.GrassGreen;
         Destroy(groundB.GetComponent<Collider>());
 
         Destroy(road.GetComponent<Collider>());
@@ -1793,7 +1793,7 @@ public int BuildingCount => _buildings.Count;
             WoodCost = woodCost;
             StoneCost = stoneCost;
             Parts = parts;
-            WoodColor = woodColor ?? new Color(0.63f, 0.39f, 0.18f);
+            WoodColor = woodColor ?? ColorPalette.HouseWood;
             StoneColor = stoneColor ?? new Color(0.41f, 0.41f, 0.41f);
             SubBuildings = subBuildings;
         }
