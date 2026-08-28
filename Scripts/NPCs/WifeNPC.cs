@@ -18,6 +18,7 @@ public class WifeNPC : MonoSingleton<WifeNPC>
     private TMP_Text _dialogText;
     private TMP_Text _promptText;
     private Canvas _canvas;
+    private UIManager _uiManager;
 
     private readonly Queue<string> _dialogQueue = new Queue<string>();
     private bool _dialogActive;
@@ -98,6 +99,7 @@ public class WifeNPC : MonoSingleton<WifeNPC>
     protected override void Awake()
     {
         base.Awake();
+        _uiManager = GameManager.Instance?.UIManager;
         var npcGo = GameObject.Find("WifeNpc");
         if (npcGo != null) _npcTransform = npcGo.transform;
         if (_npcTransform != null)
@@ -962,7 +964,7 @@ public class WifeNPC : MonoSingleton<WifeNPC>
             _chainStep = 4;
             _affection = Mathf.Min(100f, _affection + 10f);
             KarmaManager.Instance?.AddMaxKarma(1f);
-            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Hoàn thành Trừ Tà Giúp Làng! +10 độ thân mật, +1 Max Karma"), 3f);
+            _uiManager?.ShowMessage(Localization.T("Hoàn thành Trừ Tà Giúp Làng! +10 độ thân mật, +1 Max Karma"), 3f);
             SaveState();
         }
     }
@@ -975,7 +977,7 @@ public class WifeNPC : MonoSingleton<WifeNPC>
             {
                 _affection = Mathf.Min(100f, _affection + 10f);
                 KarmaManager.Instance?.AddMaxKarma(1f);
-                GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Hoàn thành nhiệm vụ từ Jessica! +1 Max Karma"), 3f);
+                _uiManager?.ShowMessage(Localization.T("Hoàn thành nhiệm vụ từ Jessica! +1 Max Karma"), 3f);
                 _wifeQuestNames.RemoveAt(i);
                 _wifeQuestTargets.RemoveAt(i);
                 _wifeQuestCounts.RemoveAt(i);

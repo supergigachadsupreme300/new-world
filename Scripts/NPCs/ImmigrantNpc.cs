@@ -227,27 +227,5 @@ public class ImmigrantNpc : MonoSingleton<ImmigrantNpc>
     }
     private TMP_Text MakeText(string name, RectTransform parent, Vector2 position, string text,
         int fontSize, Color color, Vector2 size)
-    {
-        var go = new GameObject(name);
-        go.transform.SetParent(parent, false);
-
-        var rt = go.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0.5f, 0.5f);
-        rt.anchorMax = new Vector2(0.5f, 0.5f);
-        rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.anchoredPosition = position;
-        rt.sizeDelta = size;
-
-        var tmp = go.AddComponent<TextMeshProUGUI>();
-GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
-        tmp.text = text;
-        tmp.fontSize = fontSize;
-        tmp.color = color;
-        tmp.alignment = TextAlignmentOptions.Left;
-        tmp.textWrappingMode = TextWrappingModes.Normal;
-        tmp.overflowMode = TextOverflowModes.Ellipsis;
-        tmp.raycastTarget = false;
-
-        return tmp;
-    }
+        => CountryLife.Helpers.UIHelper.MakeText(name, parent, position, text, fontSize, color, size, true, true, TextAlignmentOptions.Left, false);
 }

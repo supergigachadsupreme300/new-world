@@ -11,6 +11,7 @@ private Transform _myTransform;
     private Quaternion _originalRotation = Quaternion.identity;
 
     private Canvas _canvas;
+    private UIManager _uiManager;
     private GameObject _panel;
     private TMP_Text _nameText;
     private TMP_Text _dialogText;
@@ -45,6 +46,7 @@ private Transform _myTransform;
 
     void Start()
     {
+        _uiManager = GameManager.Instance?.UIManager;
         var playerGo = GameObject.Find("Player");
         if (playerGo != null) _playerTransform = playerGo.transform;
         if (_myTransform != null)
@@ -143,8 +145,8 @@ private Transform _myTransform;
                 "Quỷ Vương đã thức tỉnh ở cuối con đường phía đông. Dùng Tràng Hạt tiêu diệt nó để bảo vệ làng!");
             if (WorldBuilder.Instance != null)
                 WorldBuilder.Instance.SpawnQuestBoss();
-            if (GameManager.Instance?.UIManager != null)
-                GameManager.Instance.UIManager.ShowMessage(Localization.T("QUỶ VƯƠNG ĐÃ THỨC TỈNH!"), 3f);
+            if (_uiManager != null)
+                _uiManager.ShowMessage(Localization.T("QUỶ VƯƠNG ĐÃ THỨC TỈNH!"), 3f);
             return;
         }
         if (!qm.HasQuest("Trừ Tà Quanh Chùa"))
@@ -292,27 +294,5 @@ private Transform _myTransform;
     }
     private TMP_Text MakeText(string name, RectTransform parent, Vector2 position, string text,
         int fontSize, Color color, Vector2 size)
-    {
-        var go = new GameObject(name);
-        go.transform.SetParent(parent, false);
-
-        var rt = go.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0.5f, 0.5f);
-        rt.anchorMax = new Vector2(0.5f, 0.5f);
-        rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.anchoredPosition = position;
-        rt.sizeDelta = size;
-
-        var tmp = go.AddComponent<TextMeshProUGUI>();
-GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
-        tmp.text = text;
-        tmp.fontSize = fontSize;
-        tmp.color = color;
-        tmp.alignment = TextAlignmentOptions.Left;
-        tmp.textWrappingMode = TextWrappingModes.Normal;
-        tmp.overflowMode = TextOverflowModes.Ellipsis;
-        tmp.raycastTarget = false;
-
-        return tmp;
-    }
+        => CountryLife.Helpers.UIHelper.MakeText(name, parent, position, text, fontSize, color, size, true, true, TextAlignmentOptions.Left, false);
 }

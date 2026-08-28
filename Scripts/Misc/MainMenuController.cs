@@ -3,22 +3,24 @@ using UnityEngine;
 public class MainMenuController : MonoSingleton<MainMenuController>
 {
 private GameManager _gameManager;
+    private UIManager _uiManager;
 
     public void InitializeMenu(GameManager gameManager)
     {
         _gameManager = gameManager;
+        _uiManager = GameManager.Instance?.UIManager;
     }
     public void OnNewGameClicked()
     {
-        if (GameManager.Instance?.UIManager != null)
-            GameManager.Instance.UIManager.ShowGenderSelectionMenu(GenderMenuMode.Intro);
+        if (_uiManager != null)
+            _uiManager.ShowGenderSelectionMenu(GenderMenuMode.Intro);
         else
             _gameManager?.StartNewGame();
     }
     public void OnLoadGameClicked()
     {
-        if (GameManager.Instance?.UIManager != null)
-            GameManager.Instance.UIManager.ShowSaveSlotMenu(true);
+        if (_uiManager != null)
+            _uiManager.ShowSaveSlotMenu(true);
     }
     public void OnQuitClicked()
     {
@@ -36,8 +38,8 @@ private GameManager _gameManager;
     }
     public void OnSkipIntroClicked()
     {
-        if (GameManager.Instance?.UIManager != null)
-            GameManager.Instance.UIManager.ShowGenderSelectionMenu(GenderMenuMode.SkipIntro);
+        if (_uiManager != null)
+            _uiManager.ShowGenderSelectionMenu(GenderMenuMode.SkipIntro);
         else
             _gameManager?.StartNewGameSkipIntro();
     }

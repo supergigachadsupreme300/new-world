@@ -29,6 +29,7 @@ public class SaveManager : MonoSingleton<SaveManager>
         if (_gameManager == null || _toolManager == null || _worldBuilder == null)
             return;
 
+        var player = GameManager.Instance?.Player;
         var data = new SaveData
         {
             time = new TimeData
@@ -39,11 +40,11 @@ public class SaveManager : MonoSingleton<SaveManager>
             },
             player = new PlayerData
             {
-                position = GameManager.Instance.Player != null ? GameManager.Instance.Player.transform.position : Vector3.zero,
-                rotationY = GameManager.Instance.Player != null ? GameManager.Instance.Player.transform.eulerAngles.y : 0f,
-                hp = GameManager.Instance.Player != null ? GameManager.Instance.Player.HP : 100,
-                stamina = GameManager.Instance.Player != null ? GameManager.Instance.Player.Stamina : 1000f,
-                money = GameManager.Instance.Player != null ? GameManager.Instance.Player.Money : 0,
+                position = player != null ? player.transform.position : Vector3.zero,
+                rotationY = player != null ? player.transform.eulerAngles.y : 0f,
+                hp = player != null ? player.HP : 100,
+                stamina = player != null ? player.Stamina : 1000f,
+                money = player != null ? player.Money : 0,
                 gender = MapBuilder.ActiveGender
             },
             inventory = _toolManager.GetInventorySave(),

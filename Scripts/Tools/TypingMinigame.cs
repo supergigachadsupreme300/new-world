@@ -17,6 +17,7 @@ private GameObject _panel;
     private float _timeRemaining;
     private float _duration = 30f;
     private Canvas _canvas;
+    private UIManager _uiManager;
 
     private static readonly string[] Paragraphs =
     {
@@ -46,6 +47,7 @@ private GameObject _panel;
         if (_isActive) return;
         _duration = duration;
         var gm = GameManager.Instance;
+        _uiManager = GameManager.Instance?.UIManager;
         if (gm == null) return;
         _canvas = gm.UIManager?.GetCanvas();
         if (_canvas == null) return;
@@ -177,11 +179,11 @@ private GameObject _panel;
         if (accuracy >= 0.8f)
         {
             KarmaManager.Instance?.AddMaxKarma(1f);
-            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Thanh tinh! +1 Max Karma"), 3f);
+            _uiManager?.ShowMessage(Localization.T("Thanh tinh! +1 Max Karma"), 3f);
         }
         else
         {
-            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Hay thu lai lan sau!"), 2f);
+            _uiManager?.ShowMessage(Localization.T("Hay thu lai lan sau!"), 2f);
         }
         Close();
     }

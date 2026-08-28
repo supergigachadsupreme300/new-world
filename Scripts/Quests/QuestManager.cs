@@ -3,8 +3,9 @@ using UnityEngine;
 
 public class QuestManager : MonoSingleton<QuestManager>
 {
-private readonly List<QuestSave> _quests = new List<QuestSave>();
+    private readonly List<QuestSave> _quests = new List<QuestSave>();
     private int _lastDay;
+    private UIManager _uiManager;
 
     private class StoryQuestDef
     {
@@ -40,6 +41,7 @@ private readonly List<QuestSave> _quests = new List<QuestSave>();
     }
     public void InitializeQuests()
     {
+        _uiManager = GameManager.Instance?.UIManager;
         if (_quests.Count > 0)
             return;
 
@@ -90,7 +92,7 @@ private readonly List<QuestSave> _quests = new List<QuestSave>();
             {
                 q.Failed = true;
                 changed = true;
-                GameManager.Instance?.UIManager?.ShowMessage(Localization.F("{0} thất bại!", GetQuestDisplayName(q)), 2f);
+                _uiManager?.ShowMessage(Localization.F("{0} thất bại!", GetQuestDisplayName(q)), 2f);
             }
         }
 
@@ -204,7 +206,7 @@ private readonly List<QuestSave> _quests = new List<QuestSave>();
             GameManager.Instance.Player.Money += total;
             GameStats.AddMoneyEarned(total);
             var msg = Localization.F("Nhiệm vụ hoàn thành! Nhận {0}g!", total);
-            GameManager.Instance?.UIManager?.ShowMessage(msg, 3f);
+            _uiManager?.ShowMessage(msg, 3f);
         }
     }
     public void LoadQuestSaves(List<QuestSave> saved)
@@ -404,7 +406,7 @@ private readonly List<QuestSave> _quests = new List<QuestSave>();
     }
     private void UpdateQuestUI()
     {
-        if (GameManager.Instance == null || GameManager.Instance.UIManager == null)
+        if (_uiManager == null)
             return;
 
         string panel = "";
@@ -479,8 +481,8 @@ private readonly List<QuestSave> _quests = new List<QuestSave>();
 
         panel = panel.TrimEnd('\n');
 
-        GameManager.Instance.UIManager.UpdateQuestHud(BuildCurrentQuestHudText(storyQuests, dailyQuests, timedQuests));
-        GameManager.Instance.UIManager.UpdateQuestPanelText(panel);
+        _uiManager.UpdateQuestHud(BuildCurrentQuestHudText(storyQuests, dailyQuests, timedQuests));
+        _uiManager.UpdateQuestPanelText(panel);
     }
     private string BuildCurrentQuestHudText(List<QuestSave> storyQuests, List<QuestSave> dailyQuests, List<QuestSave> timedQuests)
     {

@@ -28,6 +28,7 @@ public class FishingController : MonoSingleton<FishingController>
     private float _shakeIntensity = 0.2f;
     private FishingUI _fishingUI;
     private Canvas _canvas;
+    private UIManager _uiManager;
     private bool _wheelGrabbed;
     private bool _wheelWasGrabbed;
     private float _lastWheelAngle;
@@ -39,6 +40,7 @@ public class FishingController : MonoSingleton<FishingController>
     protected override void Awake()
     {
         base.Awake();
+        _uiManager = GameManager.Instance?.UIManager;
         var hudCanvasGo = GameObject.Find("HUD_Canvas");
         _canvas = hudCanvasGo != null ? hudCanvasGo.GetComponent<Canvas>() : FindObjectOfType<Canvas>();
         if (_canvas == null)
@@ -91,24 +93,21 @@ public class FishingController : MonoSingleton<FishingController>
 
         if (player.transform.position.x > -140f)
         {
-            var ui = GameManager.Instance?.UIManager;
-            ui?.ShowMessage(Localization.T("Cần đến gần biển để câu cá!"), 2f);
+            _uiManager?.ShowMessage(Localization.T("Cần đến gần biển để câu cá!"), 2f);
             return;
         }
 
         float t = (0.1f - cam.transform.position.y) / cam.transform.forward.y;
         if (t <= 0f)
         {
-            var ui = GameManager.Instance?.UIManager;
-            ui?.ShowMessage(Localization.T("Ngắm xuống mặt nước!"), 2f);
+            _uiManager?.ShowMessage(Localization.T("Ngắm xuống mặt nước!"), 2f);
             return;
         }
 
         Vector3 waterPoint = cam.transform.position + cam.transform.forward * t;
         if (waterPoint.x > -210f)
         {
-            var ui = GameManager.Instance?.UIManager;
-            ui?.ShowMessage(Localization.T("Ngắm ra xa hơn về phía biển!"), 2f);
+            _uiManager?.ShowMessage(Localization.T("Ngắm ra xa hơn về phía biển!"), 2f);
             return;
         }
 
@@ -125,13 +124,13 @@ public class FishingController : MonoSingleton<FishingController>
                 tm.RemoveItemAmount("fishing_chum", 1);
                 _effectiveFlopChance = 0.1f;
                 _effectiveWeights[3] *= 2f;
-                GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Đã dùng Mồi Bả!"), 1.5f);
+                _uiManager?.ShowMessage(Localization.T("Đã dùng Mồi Bả!"), 1.5f);
             }
             else if (tm.CountItem("fishing_bait") > 0)
             {
                 tm.RemoveItemAmount("fishing_bait", 1);
                 _effectiveFlopChance = 0.2f;
-                GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Đã dùng Mồi Câu!"), 1.5f);
+                _uiManager?.ShowMessage(Localization.T("Đã dùng Mồi Câu!"), 1.5f);
             }
         }
 
@@ -245,8 +244,7 @@ public class FishingController : MonoSingleton<FishingController>
 
         if (_timer <= 0f)
         {
-            var ui = GameManager.Instance?.UIManager;
-            ui?.ShowMessage(Localization.T("Cá thoát rồi!"), 2f);
+            _uiManager?.ShowMessage(Localization.T("Cá thoát rồi!"), 2f);
             CancelFishing();
             return;
         }
@@ -318,8 +316,7 @@ public class FishingController : MonoSingleton<FishingController>
         else if (_fishingUI.Progress <= 0f)
         {
             State = FishState.Fail;
-            var ui = GameManager.Instance?.UIManager;
-            ui?.ShowMessage(Localization.T("Cá thoát rồi!"), 2f);
+            _uiManager?.ShowMessage(Localization.T("Cá thoát rồi!"), 2f);
             CancelFishing();
         }
     }
@@ -335,8 +332,7 @@ public class FishingController : MonoSingleton<FishingController>
         if (Random.value < _effectiveFlopChance)
         {
             SpawnFlappingFish(player, fishType, fishLabel);
-            var ui = GameManager.Instance?.UIManager;
-            ui?.ShowMessage(Localization.F("Bắt được {0}! Nó quẫy trên bờ — dùng gậy gõ cho xỉu!", Localization.T(fishLabel)), 3f);
+            _uiManager?.ShowMessage(Localization.F("Bắt được {0}! Nó quẫy trên bờ — dùng gậy gõ cho xỉu!", Localization.T(fishLabel)), 3f);
         }
         else
         {
@@ -344,8 +340,7 @@ public class FishingController : MonoSingleton<FishingController>
             if (tm != null)
                 tm.AddItem(fishType, 1);
 
-            var ui = GameManager.Instance?.UIManager;
-            ui?.ShowMessage(Localization.F("Bắt được {0}!", Localization.T(fishLabel)), 3f);
+            _uiManager?.ShowMessage(Localization.F("Bắt được {0}!", Localization.T(fishLabel)), 3f);
         }
 
         QuestManager.Instance?.AddProgress("fish_catch", 1);
