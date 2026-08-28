@@ -10,6 +10,7 @@ private GameObject _panel;
     private TMP_Text _paragraphText;
     private TMP_Text _inputText;
     private TMP_Text _timerText;
+    private int _lastShownSeconds = -1;
     private Image _progressFill;
     private bool _isActive;
     private string _currentParagraph;
@@ -84,7 +85,14 @@ private GameObject _panel;
         if (!_isActive) return;
         _timeRemaining -= Time.unscaledDeltaTime;
         if (_timerText != null)
-            _timerText.text = Mathf.CeilToInt(Mathf.Max(0f, _timeRemaining)).ToString();
+        {
+            int secs = Mathf.CeilToInt(Mathf.Max(0f, _timeRemaining));
+            if (secs != _lastShownSeconds)
+            {
+                _lastShownSeconds = secs;
+                _timerText.text = secs.ToString();
+            }
+        }
         if (_timeRemaining <= 0f)
         {
             FinishMinigame();

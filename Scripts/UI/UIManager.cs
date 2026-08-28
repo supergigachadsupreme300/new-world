@@ -28,6 +28,7 @@ public partial class UIManager : MonoBehaviour
     private Button _settingsPcModeButton;
     private Button _settingsMobileModeButton;
     private GameObject _recordPanel;
+    private TMP_Text _recordLinesText;
     private GameObject _questPanel;
     private GameObject _saveSlotPanel;
     private TMP_Text _saveSlotTitleText;
@@ -1373,13 +1374,13 @@ public partial class UIManager : MonoBehaviour
         if (show)
         {
             _pauseMenuPanel?.SetActive(false);
-            var recordLinesGo = GameObject.Find("RecordLines");
-            if (recordLinesGo != null)
+            if (_recordLinesText == null)
             {
-                var t = recordLinesGo.GetComponent<TMP_Text>();
-                if (t != null)
-                    t.text = BuildRecordLines(GameStats.WheatHarvested, GameStats.EnemiesDefeated, GameStats.MoneyEarned, GameStats.MoneyStolen);
+                var recordLinesGo = GameObject.Find("RecordLines");
+                _recordLinesText = recordLinesGo != null ? recordLinesGo.GetComponent<TMP_Text>() : null;
             }
+            if (_recordLinesText != null)
+                _recordLinesText.text = BuildRecordLines(GameStats.WheatHarvested, GameStats.EnemiesDefeated, GameStats.MoneyEarned, GameStats.MoneyStolen);
         }
         if (!show && GameManager.Instance != null && GameManager.Instance.GamePaused)
             ShowPauseMenu(true);
