@@ -1252,9 +1252,9 @@ public class WifeNPC : MonoSingleton<WifeNPC>
         CreateLoveMeter(panelRt, panelW);
 
         _dialogText = CreateDialogText("WifeDialogText", panelRt,
-            new Vector2(70f, -panelH * 0.06f), "", 20,
+            new Vector2(70f, -panelH * 0.02f), "", 20,
             Color.white, TextAlignmentOptions.Left,
-            new Vector2(panelW - 160f, panelH * 0.46f));
+            new Vector2(panelW - 160f, panelH * 0.55f));
 
         _promptText = CreateDialogText("WifeDialogPrompt", panelRt,
             new Vector2(70f, -panelH * 0.38f), Localization.T("Nhấn E để tiếp tục"), 16,
