@@ -1152,13 +1152,13 @@ public class WifeNPC : MonoSingleton<WifeNPC>
         if (_nightRow != null && _nightRow.activeSelf) active.Add(_nightRow);
 
         float panelH = _panelRt.rect.height;
-        const float topPad = 6f;
-        const float step = 38f;
+        const float abovePad = 6f;
+        const float step = 42f;
         for (int i = 0; i < active.Count; i++)
         {
             var rowRt = active[i].GetComponent<RectTransform>();
             if (rowRt == null) continue;
-            rowRt.anchoredPosition = new Vector2(-20f, panelH - topPad - (i + 1) * step);
+            rowRt.anchoredPosition = new Vector2(-20f, panelH + abovePad + i * step);
         }
     }
 
