@@ -1151,13 +1151,14 @@ public class WifeNPC : MonoSingleton<WifeNPC>
         if (_inviteRow != null && _inviteRow.activeSelf) active.Add(_inviteRow);
         if (_nightRow != null && _nightRow.activeSelf) active.Add(_nightRow);
 
-        const float bottomPad = 6f;
-        const float step = 48f;
+        float panelH = _panelRt.rect.height;
+        const float topPad = 8f;
+        const float step = 42f;
         for (int i = 0; i < active.Count; i++)
         {
             var rowRt = active[i].GetComponent<RectTransform>();
             if (rowRt == null) continue;
-            rowRt.anchoredPosition = new Vector2(-20f, bottomPad + i * step);
+            rowRt.anchoredPosition = new Vector2(-20f, panelH - topPad - (i + 1) * step);
         }
     }
 
@@ -1251,7 +1252,7 @@ public class WifeNPC : MonoSingleton<WifeNPC>
         CreateLoveMeter(panelRt, panelW);
 
         _dialogText = CreateDialogText("WifeDialogText", panelRt,
-            new Vector2(70f, -panelH * 0.02f), "", 20,
+            new Vector2(70f, -panelH * 0.06f), "", 20,
             Color.white, TextAlignmentOptions.Left,
             new Vector2(panelW - 160f, panelH * 0.55f));
 
