@@ -262,6 +262,8 @@ public class NavGrid : MonoBehaviour
         }
         return false;
     }
+
+    private static bool NameContainsAny(string name, string[] keywords)
     {
         for (int i = 0; i < keywords.Length; i++)
         {
