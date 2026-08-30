@@ -771,11 +771,51 @@ public partial class WorldBuilder
             MaxHealth = 100
         });
 if (typeName == "goblin_hut")
+        {
             GameManager.Instance?.EnsureGoblin();
+            BuildGoblinChest(building.transform);
+        }
         if (building != null)
             SittableSeat.Register(building.transform);
         NavGrid.Instance?.MarkDirty();
         return true;
+    }
+
+    private void BuildGoblinChest(Transform hutRoot)
+    {
+        if (hutRoot == null) return;
+        var existing = hutRoot.Find("GoblinChest");
+        if (existing != null) return;
+
+        var chest = new GameObject("GoblinChest");
+        chest.transform.SetParent(hutRoot, false);
+        chest.transform.localPosition = new Vector3(0f, 0.3f, 1.8f);
+        chest.transform.localRotation = Quaternion.identity;
+
+        var baseCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        baseCube.name = "ChestBase";
+        baseCube.transform.SetParent(chest.transform, false);
+        baseCube.transform.localPosition = new Vector3(0f, 0f, 0f);
+        baseCube.transform.localScale = new Vector3(1.25f, 0.6f, 0.7f);
+        baseCube.GetComponent<MeshRenderer>().material.color = new Color(0.55f, 0.35f, 0.18f);
+
+        var lid = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        lid.name = "ChestLid";
+        lid.transform.SetParent(chest.transform, false);
+        lid.transform.localPosition = new Vector3(0f, 0.38f, -0.05f);
+        lid.transform.localScale = new Vector3(1.25f, 0.16f, 0.7f);
+        lid.GetComponent<MeshRenderer>().material.color = new Color(0.45f, 0.28f, 0.14f);
+
+        var metalBand = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        metalBand.name = "ChestBand";
+        metalBand.transform.SetParent(chest.transform, false);
+        metalBand.transform.localPosition = new Vector3(0f, 0.0f, 0.32f);
+        metalBand.transform.localScale = new Vector3(1.25f, 0.5f, 0.06f);
+        metalBand.GetComponent<MeshRenderer>().material.color = new Color(0.75f, 0.65f, 0.4f);
+
+        var collider = chest.AddComponent<BoxCollider>();
+        collider.size = new Vector3(1.25f, 0.9f, 0.7f);
+        collider.center = new Vector3(0f, 0.15f, 0f);
     }
 
     private void CompleteBlueprint(BlueprintState bp, BuildingDefinition def)

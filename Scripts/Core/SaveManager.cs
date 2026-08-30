@@ -61,7 +61,10 @@ public class SaveManager : MonoSingleton<SaveManager>
             immigrantArrived = _worldBuilder.GetImmigrantArrived(),
             immigrantVillagers = _worldBuilder.GetVillagerSaves(),
             karmaCurrent = KarmaManager.Instance != null ? KarmaManager.Instance.CurrentKarma : 5f,
-            karmaMax = KarmaManager.Instance != null ? KarmaManager.Instance.MaxKarma : 5f
+            karmaMax = KarmaManager.Instance != null ? KarmaManager.Instance.MaxKarma : 5f,
+            goblinStorage = GoblinPet.Instance != null ? GoblinPet.Instance.GetStorageSaveItems() : null,
+            goblinHeldSeed = GoblinPet.Instance != null ? GoblinPet.Instance.HeldSeedType : "",
+            goblinCarriedCrop = GoblinPet.Instance != null ? GoblinPet.Instance.CarriedCrop : ""
         };
 
         var json = JsonUtility.ToJson(data, true);
@@ -127,6 +130,11 @@ public class SaveManager : MonoSingleton<SaveManager>
         _toolManager?.LoadInventorySave(data.inventory);
         _worldBuilder?.LoadFieldsFromSave(data.fields);
         _worldBuilder?.LoadBuildingsFromSave(data.buildings);
+        if (GoblinPet.Instance != null)
+        {
+            GoblinPet.Instance.LoadStorageSaveItems(data.goblinStorage);
+            GoblinPet.Instance.LoadHeldSave(data.goblinHeldSeed, data.goblinCarriedCrop);
+        }
         _worldBuilder?.LoadMansionBlueprintsFromSave(data.mansionBlueprints);
         _worldBuilder?.LoadUnlockedBlueprints(data.unlockedBlueprints);
         _worldBuilder?.LoadImmigrantVillageFromSave(data.immigrantBuiltMask, data.immigrantNextIndex, data.immigrantVillagePlaced);
@@ -217,6 +225,9 @@ public class SaveManager : MonoSingleton<SaveManager>
         public List<WorldBuilder.VillagerSaveData> immigrantVillagers;
         public float karmaCurrent;
         public float karmaMax;
+        public List<GoblinPet.GoblinStorageSaveItem> goblinStorage;
+        public string goblinHeldSeed;
+        public string goblinCarriedCrop;
     }
 
     [System.Serializable]

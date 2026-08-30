@@ -483,6 +483,11 @@ public class PlayerController : MonoBehaviour
                                 GoblinCommandMenu.Ensure().Open(goblin);
                             return;
                         }
+                        if (hit.collider.transform.name.StartsWith("GoblinChest"))
+                        {
+                            GoblinChestMenu.Ensure().Open();
+                            return;
+                        }
                         if (wb.TryToggleDoor(hit)) return;
                     }
                 }

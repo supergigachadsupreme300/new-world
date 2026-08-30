@@ -145,6 +145,9 @@ public class InteractionPrompt : MonoBehaviour
         if (colliderName != null && colliderName.StartsWith("GoblinPet"))
             return "Điều khiển";
 
+        if (colliderName != null && colliderName.StartsWith("GoblinChest"))
+            return "Mở kho";
+
         if (colliderName != null && colliderName.StartsWith("EventBlock_"))
             return "Kích hoạt";
 

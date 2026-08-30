@@ -20,6 +20,7 @@ public class GoblinCommandMenu : MonoBehaviour
     private TMP_Text _hpText;
     private TMP_Text _statusText;
     private TMP_Text _promptText;
+    private TMP_Text _storageText;
     private GameObject _followRow;
     private GameObject _stayRow;
     private GameObject _homeRow;
@@ -136,6 +137,8 @@ public class GoblinCommandMenu : MonoBehaviour
             _closeText.text = mobile ? Localization.T("[Đóng] (Chạm)") : Localization.T("[Đóng] Ấn E");
         if (_promptText != null)
             _promptText.text = Localization.T("Ra lệnh cho goblin...");
+        if (_storageText != null)
+            _storageText.text = StorageSummary();
         if (_followRow != null) _followRow.SetActive(true);
         if (_stayRow != null) _stayRow.SetActive(true);
         if (_homeRow != null) _homeRow.SetActive(true);
@@ -161,6 +164,16 @@ public class GoblinCommandMenu : MonoBehaviour
             default:
                 return Localization.T("Đang theo dõi chủ nhân");
         }
+    }
+
+    private string StorageSummary()
+    {
+        if (_goblin == null)
+            return "";
+        int total = 0;
+        foreach (var kv in _goblin.GetAllStored())
+            total += kv.Value;
+        return Localization.F("Túi: {0} nông sản", total);
     }
 
     private void EnsurePanel()
@@ -198,6 +211,8 @@ public class GoblinCommandMenu : MonoBehaviour
             "", 18, new Color(0.85f, 0.85f, 0.9f), new Vector2(panelW - 40f, 30f));
         _promptText = MakeText("GoblinCmdPrompt", rt, new Vector2(0f, -panelH * 0.04f),
             "", 15, new Color(0.7f, 0.7f, 0.7f), new Vector2(panelW - 40f, 26f));
+        _storageText = MakeText("GoblinCmdStorage", rt, new Vector2(0f, -panelH * 0.12f),
+            "", 16, new Color(0.75f, 0.85f, 0.55f), new Vector2(panelW - 40f, 26f));
 
         CreateRow("GoblinCmdFollowRow", "GoblinCmdFollowText", 4f,
             new Color(0.8f, 0.95f, 0.6f), out _followRow, out _followText,

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class GoblinPet : MonoBehaviour
@@ -38,19 +39,48 @@ public class GoblinPet : MonoBehaviour
     private float _walkCycle;
 
     private string _heldSeedType;
+    private string _carriedCrop;
+    private readonly Dictionary<string, int> _storage = new Dictionary<string, int>();
+
+    private enum GoblinTask { None, Plant, Water, Harvest, Deposit }
+    private GoblinTask _task = GoblinTask.None;
+    private WorldBuilder.FieldState _taskField;
+    private Transform _chestTransform;
+    private float _workRetry;
+
+    private readonly List<Vector3> _waypoints = new List<Vector3>();
+    private int _waypointIndex;
+    private bool _pathBuilt;
+    private Vector3 _pathDest;
+
+    private const float ArriveDist = 0.45f;
+    private const float WorkReach = 1.7f;
+    private const float DepositReach = 2.0f;
+
+    [System.Serializable]
+    public class GoblinStorageSaveItem
+    {
+        public string type;
+        public int count;
+    }
 
     public bool IsDead => _isDead;
     public bool IsHiddenInHut => _isHiding;
     public bool IsHoldingSeed => !string.IsNullOrEmpty(_heldSeedType);
-    public bool CanAcceptSeed => !_isDead && string.IsNullOrEmpty(_heldSeedType);
+    public bool IsCarryingCrop => !string.IsNullOrEmpty(_carriedCrop);
+    public bool CanAcceptSeed => !_isDead && string.IsNullOrEmpty(_heldSeedType) && string.IsNullOrEmpty(_carriedCrop);
     public int Health => _health;
     public string HeldSeedType => _heldSeedType;
+    public string CarriedCrop => _carriedCrop;
     public CommandMode Command { get; private set; } = CommandMode.Follow;
 
     public void SetCommand(CommandMode mode)
     {
         Command = mode;
         _plantTarget = null;
+        _task = GoblinTask.None;
+        _taskField = null;
+        _pathBuilt = false;
     }
 
     private WorldBuilder.FieldState _plantTarget;
@@ -98,11 +128,73 @@ public class GoblinPet : MonoBehaviour
         if (string.IsNullOrEmpty(cropType)) return false;
         if (_isDead) return false;
         if (!string.IsNullOrEmpty(_heldSeedType)) return false;
+        if (!string.IsNullOrEmpty(_carriedCrop)) return false;
 
         _heldSeedType = cropType;
         _retryTimer = 0f;
         _plantTarget = null;
+        _task = GoblinTask.None;
+        _taskField = null;
+        _pathBuilt = false;
         return true;
+    }
+
+    // ── Storage (the chest in front of the goblin hut) ──
+    public int StorageCount(string cropType)
+    {
+        if (string.IsNullOrEmpty(cropType)) return 0;
+        return _storage.TryGetValue(cropType, out int count) ? count : 0;
+    }
+
+    public bool AddToStorage(string cropType, int amount)
+    {
+        if (string.IsNullOrEmpty(cropType) || amount <= 0)
+            return false;
+        _storage[cropType] = StorageCount(cropType) + amount;
+        return true;
+    }
+
+    public bool RemoveFromStorage(string cropType, int amount)
+    {
+        if (string.IsNullOrEmpty(cropType) || amount <= 0)
+            return false;
+        if (!_storage.ContainsKey(cropType))
+            return false;
+        int remaining = _storage[cropType] - amount;
+        if (remaining <= 0)
+            _storage.Remove(cropType);
+        else
+            _storage[cropType] = remaining;
+        return true;
+    }
+
+    public IEnumerable<KeyValuePair<string, int>> GetAllStored()
+        => _storage;
+
+    public List<GoblinStorageSaveItem> GetStorageSaveItems()
+    {
+        var result = new List<GoblinStorageSaveItem>();
+        foreach (var kv in _storage)
+            result.Add(new GoblinStorageSaveItem { type = kv.Key, count = kv.Value });
+        return result;
+    }
+
+    public void LoadStorageSaveItems(List<GoblinStorageSaveItem> items)
+    {
+        _storage.Clear();
+        if (items == null)
+            return;
+        foreach (var it in items)
+        {
+            if (it != null && !string.IsNullOrEmpty(it.type) && it.count > 0)
+                _storage[it.type] = it.count;
+        }
+    }
+
+    public void LoadHeldSave(string seed, string carried)
+    {
+        _heldSeedType = seed;
+        _carriedCrop = carried;
     }
 
     public void TakeDamage(int amount)
@@ -120,7 +212,11 @@ public class GoblinPet : MonoBehaviour
         _isHiding = false;
         _isMoving = false;
         _heldSeedType = null;
+        _carriedCrop = null;
         _plantTarget = null;
+        _task = GoblinTask.None;
+        _taskField = null;
+        _pathBuilt = false;
 
         if (_collider != null)
             _collider.enabled = false;
@@ -155,6 +251,9 @@ public class GoblinPet : MonoBehaviour
         }
 
         _retryTimer = 0f;
+        _task = GoblinTask.None;
+        _taskField = null;
+        _pathBuilt = false;
     }
 
     private static bool IsNight()
@@ -228,10 +327,11 @@ public class GoblinPet : MonoBehaviour
         if (Vector3.Distance(transform.position, target) <= 0.7f)
         {
             _isHiding = true;
+            _pathBuilt = false;
             return;
         }
 
-        MoveToward(target);
+        GoToWaypoint(target);
     }
 
     private Vector3? FindHutPosition(WorldBuilder wb)
@@ -276,7 +376,7 @@ public class GoblinPet : MonoBehaviour
             : transform.position;
         fieldPos.y = transform.position.y;
 
-        if (Vector3.Distance(transform.position, fieldPos) <= PlantReach)
+        if (HorizontalDistance(transform.position, fieldPos) <= PlantReach)
         {
             var wb = WorldBuilder.Instance;
             bool planted = wb != null && wb.PlantCrop(_plantTarget, _heldSeedType);
@@ -285,6 +385,8 @@ public class GoblinPet : MonoBehaviour
                 _heldSeedType = null;
                 _plantTarget = null;
                 _retryTimer = 0f;
+                _pathBuilt = false;
+                _workRetry = 2f;
                 GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Goblin đã gieo hạt giống giúp bạn!"), 2f);
                 HandleFollow();
                 return;
@@ -294,7 +396,7 @@ public class GoblinPet : MonoBehaviour
             return;
         }
 
-        MoveToward(fieldPos);
+        GoToWaypoint(fieldPos);
     }
 
     private static bool IsUsableField(WorldBuilder.FieldState field)
@@ -328,20 +430,30 @@ public class GoblinPet : MonoBehaviour
 
     private void HandleDayCommand()
     {
+        if (!string.IsNullOrEmpty(_carriedCrop))
+        {
+            HandleDeposit();
+            return;
+        }
+        if (!string.IsNullOrEmpty(_heldSeedType))
+        {
+            HandlePlant();
+            return;
+        }
         switch (Command)
         {
             case CommandMode.GoHome:
                 HandleGoHome();
                 return;
             case CommandMode.Stay:
-                if (!string.IsNullOrEmpty(_heldSeedType))
-                    HandlePlant();
+                if (_task == GoblinTask.Harvest || _task == GoblinTask.Water)
+                    HandleFarmTask();
                 return;
             default:
-                if (!string.IsNullOrEmpty(_heldSeedType))
-                    HandlePlant();
+                if (_task == GoblinTask.Harvest || _task == GoblinTask.Water)
+                    HandleFarmTask();
                 else
-                    HandleFollow();
+                    HandleWorkSearch();
                 return;
         }
     }
@@ -366,9 +478,241 @@ public class GoblinPet : MonoBehaviour
         target.y = transform.position.y;
 
         if (Vector3.Distance(transform.position, target) <= 0.7f)
+        {
+            _pathBuilt = false;
             return;
+        }
 
-        MoveToward(target);
+        GoToWaypoint(target);
+    }
+
+    private void HandleWorkSearch()
+    {
+        if (_workRetry > 0f)
+        {
+            _workRetry -= Time.deltaTime;
+            HandleFollow();
+            return;
+        }
+
+        var wb = WorldBuilder.Instance;
+        if (wb == null)
+        {
+            HandleFollow();
+            return;
+        }
+
+        var harvestField = FindNearestHarvestField();
+        if (harvestField != null)
+        {
+            _task = GoblinTask.Harvest;
+            _taskField = harvestField;
+            _pathBuilt = false;
+            return;
+        }
+
+        var waterField = FindNearestWaterField();
+        if (waterField != null)
+        {
+            _task = GoblinTask.Water;
+            _taskField = waterField;
+            _pathBuilt = false;
+            return;
+        }
+
+        HandleFollow();
+    }
+
+    private void HandleFarmTask()
+    {
+        if (_taskField == null || _taskField.FieldObject == null || _taskField.IsHarvested)
+        {
+            _task = GoblinTask.None;
+            _taskField = null;
+            _pathBuilt = false;
+            return;
+        }
+
+        Vector3 fieldPos = _taskField.FieldObject.transform.position;
+        if (HorizontalDistance(transform.position, fieldPos) <= WorkReach)
+        {
+            bool ok = _task == GoblinTask.Harvest ? TryHarvest() : TryWater();
+            _task = GoblinTask.None;
+            _taskField = null;
+            _pathBuilt = false;
+            if (ok)
+                _workRetry = 2f;
+            return;
+        }
+
+        GoToWaypoint(fieldPos);
+    }
+
+    private bool TryHarvest()
+    {
+        var wb = WorldBuilder.Instance;
+        if (wb == null || _taskField == null)
+            return false;
+        if (wb.HarvestField(_taskField, out var crop))
+        {
+            _carriedCrop = crop;
+            GameManager.Instance?.UIManager?.ShowMessage(
+                Localization.F("Goblin đã thu hoạch {0}!", Localization.ItemName(crop)), 2f);
+            return true;
+        }
+        return false;
+    }
+
+    private bool TryWater()
+    {
+        var wb = WorldBuilder.Instance;
+        if (wb == null || _taskField == null || _taskField.FieldObject == null)
+            return false;
+        if (wb.WaterField(_taskField.FieldObject.transform.position))
+        {
+            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Goblin đã tưới cây!"), 2f);
+            return true;
+        }
+        return false;
+    }
+
+    private void HandleDeposit()
+    {
+        var chest = FindChest();
+        if (chest == null)
+        {
+            _workRetry -= Time.deltaTime;
+            HandleFollow();
+            return;
+        }
+
+        float d = HorizontalDistance(transform.position, chest.position);
+        if (d <= DepositReach)
+        {
+            string crop = _carriedCrop;
+            if (AddToStorage(crop, 1))
+            {
+                _carriedCrop = null;
+                _pathBuilt = false;
+                _workRetry = 2.5f;
+                GameManager.Instance?.UIManager?.ShowMessage(
+                    Localization.F("Goblin đã bỏ {0} vào kho.", Localization.ItemName(crop)), 2f);
+            }
+            return;
+        }
+
+        GoToWaypoint(chest.position);
+    }
+
+    private Transform FindChest()
+    {
+        if (_chestTransform == null)
+        {
+            var go = GameObject.Find("GoblinChest");
+            if (go != null)
+                _chestTransform = go.transform;
+        }
+        return _chestTransform;
+    }
+
+    private WorldBuilder.FieldState FindNearestHarvestField()
+    {
+        return FindNearestUsableField(f => f.HasCrop && !f.IsHarvested && f.Stage >= 4);
+    }
+
+    private WorldBuilder.FieldState FindNearestWaterField()
+    {
+        return FindNearestUsableField(f => f.HasCrop && !f.IsHarvested && f.Stage < 4 && !f.Watered);
+    }
+
+    private WorldBuilder.FieldState FindNearestUsableField(System.Func<WorldBuilder.FieldState, bool> predicate)
+    {
+        var wb = WorldBuilder.Instance;
+        if (wb == null) return null;
+
+        WorldBuilder.FieldState best = null;
+        float bestDist = float.MaxValue;
+        foreach (var field in wb.GetAllFields())
+        {
+            if (field == null || field.FieldObject == null) continue;
+            if (!field.Tilled) continue;
+            if (!predicate(field)) continue;
+            Vector3 p = field.FieldObject.transform.position;
+            float d = Vector3.Distance(transform.position, p);
+            if (d > PlantSearchRadius) continue;
+            if (d < bestDist)
+            {
+                bestDist = d;
+                best = field;
+            }
+        }
+        return best;
+    }
+
+    private float HorizontalDistance(Vector3 a, Vector3 b)
+    {
+        Vector3 da = new Vector3(a.x, 0f, a.z);
+        Vector3 db = new Vector3(b.x, 0f, b.z);
+        return Vector3.Distance(da, db);
+    }
+
+    private void BuildGoblinPath(Vector3 dest)
+    {
+        _waypoints.Clear();
+        _waypointIndex = 0;
+        _pathBuilt = true;
+        _pathDest = dest;
+
+        if (NavGrid.Instance == null)
+        {
+            _waypoints.Add(dest);
+            return;
+        }
+        if (!NavGrid.Instance.FindPath(transform.position, dest, _waypoints))
+        {
+            if (NavGrid.Instance.NearestWalkable(dest, out Vector3 snapped)
+                && NavGrid.Instance.FindPath(transform.position, snapped, _waypoints))
+                return;
+            _waypoints.Clear();
+            _waypoints.Add(dest);
+        }
+        if (_waypoints.Count == 0)
+            _waypoints.Add(dest);
+    }
+
+    private bool MoveAlongPath(float speed)
+    {
+        if (_waypointIndex >= _waypoints.Count)
+            return true;
+
+        Vector3 target = _waypoints[_waypointIndex];
+        Vector3 flatTarget = new Vector3(target.x, transform.position.y, target.z);
+        Vector3 to = flatTarget - transform.position;
+        to.y = 0f;
+        float dist = to.magnitude;
+        if (dist <= ArriveDist)
+        {
+            _waypointIndex++;
+            return _waypointIndex >= _waypoints.Count;
+        }
+        if (dist < 0.0001f)
+            return true;
+
+        _rb.linearVelocity = new Vector3(to.normalized.x * speed, _rb.linearVelocity.y, to.normalized.z * speed);
+        transform.rotation = Quaternion.LookRotation(to.normalized);
+        _isMoving = true;
+        return false;
+    }
+
+    private void GoToWaypoint(Vector3 dest)
+    {
+        if (!_pathBuilt || HorizontalDistance(_pathDest, dest) > 0.01f)
+        {
+            BuildGoblinPath(dest);
+            return;
+        }
+        if (MoveAlongPath(FollowSpeed))
+            _pathBuilt = false;
     }
 
     private void HandleFollow()
