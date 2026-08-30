@@ -115,9 +115,9 @@ public static partial class MapBuilder
             doorL.transform.SetParent(root.transform);
             doorL.transform.localPosition = new Vector3(-halfW - 0.2f, 0f, -0.95f);
             doorL.transform.localRotation = Quaternion.identity;
-            MakeBlock("DoorVisual", doorL.transform, new Vector3(0.14f, 3.6f, 1.7f),
+            MakeBlock("DoorVisual", doorL.transform, new Vector3(0.14f, 4.3f, 1.7f),
                 new Vector3(0f, 2.25f, 0.09f), goldC, true);
-            var doorPanelL = MakeBlock("DoorPanel", doorL.transform, new Vector3(0.14f, 3.6f, 1.7f),
+            var doorPanelL = MakeBlock("DoorPanel", doorL.transform, new Vector3(0.14f, 4.3f, 1.7f),
                 new Vector3(0f, 2.25f, 0.09f), goldC);
             doorPanelL.AddComponent<BoxCollider>();
         }
@@ -127,9 +127,9 @@ public static partial class MapBuilder
             doorR.transform.SetParent(root.transform);
             doorR.transform.localPosition = new Vector3(-halfW - 0.2f, 0f, 0.95f);
             doorR.transform.localRotation = Quaternion.identity;
-            MakeBlock("DoorVisual", doorR.transform, new Vector3(0.14f, 3.6f, 1.7f),
+            MakeBlock("DoorVisual", doorR.transform, new Vector3(0.14f, 4.3f, 1.7f),
                 new Vector3(0f, 2.25f, -0.09f), goldC, true);
-            var doorPanelR = MakeBlock("DoorPanel", doorR.transform, new Vector3(0.14f, 3.6f, 1.7f),
+            var doorPanelR = MakeBlock("DoorPanel", doorR.transform, new Vector3(0.14f, 4.3f, 1.7f),
                 new Vector3(0f, 2.25f, -0.09f), goldC);
             doorPanelR.AddComponent<BoxCollider>();
         }
@@ -218,18 +218,18 @@ public static partial class MapBuilder
         // ══════════════════════════════════════════════════════════
 
         // ── 1F Interior walls ──
-        // Foyer/Master-Hall divider (x = -8, Z-span with door gap at z = -1..1)
-        MakeBlock("Wall1F_FoyerN", root.transform, new Vector3(0.35f, h1, 4f), new Vector3(-8f, y1, -7f), wallC);
-        MakeBlock("Wall1F_FoyerS", root.transform, new Vector3(0.35f, h1, 4f), new Vector3(-8f, y1, 7f), wallC);
-        // Library wall (z = -3, X-span from x = -8 to +9 with door gap at x = -1..1)
-        MakeBlock("Wall1F_LibW", root.transform, new Vector3(7f, h1, 0.35f), new Vector3(-4.5f, y1, -3f), wallC);
-        MakeBlock("Wall1F_LibE", root.transform, new Vector3(7f, h1, 0.35f), new Vector3(5.5f, y1, -3f), wallC);
-        // Kitchen/Dining wall (z = 3, X-span from x = -8 to +9 with door gap)
-        MakeBlock("Wall1F_KitW", root.transform, new Vector3(7f, h1, 0.35f), new Vector3(-4.5f, y1, 3f), wallC);
-        MakeBlock("Wall1F_KitE", root.transform, new Vector3(7f, h1, 0.35f), new Vector3(5.5f, y1, 3f), wallC);
-        // Staircase wall (x = 9.5, Z-span from z = -10 to -5 with door gap)
-        MakeBlock("Wall1F_StairS", root.transform, new Vector3(0.35f, h1, 3.5f), new Vector3(9.5f, y1, -8.25f), wallC);
-        MakeBlock("Wall1F_StairN", root.transform, new Vector3(0.35f, h1, 3.5f), new Vector3(9.5f, y1, 8.25f), wallC);
+        // Foyer divider (x = -8): segments to the Z walls, grand opening z = -3..3 flanked by the foyer columns
+        MakeBlock("Wall1F_FoyerN", root.transform, new Vector3(0.35f, h1, 7f), new Vector3(-8f, y1, -6.5f), wallC);
+        MakeBlock("Wall1F_FoyerS", root.transform, new Vector3(0.35f, h1, 7f), new Vector3(-8f, y1, 6.5f), wallC);
+        // Library wall (z = -3): door gap x = -1.5..1.5, stair passage open x = 6.5..9.5
+        MakeBlock("Wall1F_LibW", root.transform, new Vector3(6.5f, h1, 0.35f), new Vector3(-4.75f, y1, -3f), wallC);
+        MakeBlock("Wall1F_LibM", root.transform, new Vector3(5f, h1, 0.35f), new Vector3(4f, y1, -3f), wallC);
+        // Kitchen/Dining wall (z = 3): mirrors the library divider
+        MakeBlock("Wall1F_KitW", root.transform, new Vector3(6.5f, h1, 0.35f), new Vector3(-4.75f, y1, 3f), wallC);
+        MakeBlock("Wall1F_KitM", root.transform, new Vector3(5f, h1, 0.35f), new Vector3(4f, y1, 3f), wallC);
+        // Staircase hall wall (x = 9.5): two segments with a center doorway z = -2..2
+        MakeBlock("Wall1F_StairS", root.transform, new Vector3(0.35f, h1, 8f), new Vector3(9.5f, y1, -6f), wallC);
+        MakeBlock("Wall1F_StairN", root.transform, new Vector3(0.35f, h1, 8f), new Vector3(9.5f, y1, 6f), wallC);
 
         // ── 1F Wainscoting panels (decorative trim on lower walls) ──
         foreach (float wx in new[] { -7f, 0f, 7f })
@@ -533,16 +533,16 @@ public static partial class MapBuilder
         // ── 2F Interior Walls ──
         // ══════════════════════════════════════════════════════════
         float bedY = h1 + 0.25f + 0.15f;
-        // Center divider (x=0, z=-10 to z=10 with door gaps)
-        MakeBlock("Wall2F_CtrS", root.transform, new Vector3(0.35f, h2, 3.5f),
-            new Vector3(0f, y2, -8.25f), wallC);
-        MakeBlock("Wall2F_CtrN", root.transform, new Vector3(0.35f, h2, 3.5f),
-            new Vector3(0f, y2, 8.25f), wallC);
-        // Cross divider (z=0, x=-12 to x=9.5 with door gaps)
-        MakeBlock("Wall2F_CrossW", root.transform, new Vector3(4.5f, h2, 0.35f),
-            new Vector3(-9.75f, y2, 0f), wallC);
-        MakeBlock("Wall2F_CrossE", root.transform, new Vector3(4.5f, h2, 0.35f),
-            new Vector3(5.25f, y2, 0f), wallC);
+        // Center divider (x=0): segments with hallway door gap z = -2..2
+        MakeBlock("Wall2F_CtrS", root.transform, new Vector3(0.35f, h2, 8f),
+            new Vector3(0f, y2, -6f), wallC);
+        MakeBlock("Wall2F_CtrN", root.transform, new Vector3(0.35f, h2, 8f),
+            new Vector3(0f, y2, 6f), wallC);
+        // Cross divider (z=0): segments with hallway door gap x = -2..2
+        MakeBlock("Wall2F_CrossW", root.transform, new Vector3(10f, h2, 0.35f),
+            new Vector3(-7f, y2, 0f), wallC);
+        MakeBlock("Wall2F_CrossE", root.transform, new Vector3(7.5f, h2, 0.35f),
+            new Vector3(5.75f, y2, 0f), wallC);
 
         // ── 2F Master Bedroom (southwest: x=-12 to 0, z=-10 to 0) ──
         MakeBlock("MBRug", root.transform, new Vector3(5f, 0.06f, 3.5f),
@@ -604,25 +604,9 @@ public static partial class MapBuilder
         MakeBlock("BathroomMirrorFrame", root.transform, new Vector3(1f, 1.3f, 0.06f),
             new Vector3(3f, bedY + 1.7f, -9.72f), frameC, true);
 
-        // ── 2F Guest Bedroom (northwest: x=-12 to 0, z=0 to +10) ──
+        // ── 2F Guest Bedroom (northwest: x=-12 to 0, z=0 to +10) — bed removed, room kept empty ──
         MakeBlock("GuestRug", root.transform, new Vector3(4f, 0.06f, 3f),
             new Vector3(-5f, bedY - 0.04f, 5f), rugC);
-        MakeBlock("GuestBed", root.transform, new Vector3(3f, 0.3f, 2f),
-            new Vector3(-5f, bedY + 0.15f, 7.5f), frameC);
-        MakeBlock("GuestMattress", root.transform, new Vector3(2.8f, 0.25f, 1.8f),
-            new Vector3(-5f, bedY + 0.38f, 7.5f), bedC);
-        MakeBlock("GuestBlanket", root.transform, new Vector3(2.8f, 0.08f, 1.4f),
-            new Vector3(-5f, bedY + 0.55f, 7.2f), new Color(0.5f, 0.6f, 0.75f), true);
-        MakeBlock("GuestPillow", root.transform, new Vector3(1f, 0.18f, 0.4f),
-            new Vector3(-5.5f, bedY + 0.58f, 8.3f), bedC, true);
-        MakeBlock("GuestPillow", root.transform, new Vector3(1f, 0.18f, 0.4f),
-            new Vector3(-4.5f, bedY + 0.58f, 8.3f), bedC, true);
-        MakeBlock("GuestHeadboard", root.transform, new Vector3(3.2f, 1.1f, 0.15f),
-            new Vector3(-5f, bedY + 0.8f, 8.54f), frameC);
-        MakeBlock("GuestNightstand", root.transform, new Vector3(0.7f, 0.65f, 0.5f),
-            new Vector3(-7.5f, bedY + 0.32f, 8f), tableC);
-        MakeBlock("GuestSideTable", root.transform, new Vector3(0.7f, 0.65f, 0.5f),
-            new Vector3(-2.5f, bedY + 0.32f, 8f), tableC);
 
         // ── 2F Study / Office (northeast: x=0 to +9.5, z=0 to +10) ──
         MakeBlock("StudyDesk", root.transform, new Vector3(2f, 0.08f, 1f),
