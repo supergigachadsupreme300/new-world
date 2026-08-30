@@ -142,6 +142,9 @@ public class InteractionPrompt : MonoBehaviour
             SittableSeat.FindNearest(pc.transform.position, 2.6f) != null)
             return "Ngồi";
 
+        if (colliderName != null && colliderName.StartsWith("GoblinPet"))
+            return "Điều khiển";
+
         if (colliderName != null && colliderName.StartsWith("EventBlock_"))
             return "Kích hoạt";
 
@@ -203,6 +206,7 @@ public class InteractionPrompt : MonoBehaviour
         if (LibrarianNPC.Instance != null && LibrarianNPC.Instance.IsDialogActive) return true;
         if (ImmigrantNpc.Instance != null && ImmigrantNpc.Instance.IsDialogActive) return true;
         if (FishingShopNPC.Instance != null && FishingShopNPC.Instance.IsDialogActive) return true;
+        if (GoblinCommandMenu.Instance != null && GoblinCommandMenu.Instance.IsOpen) return true;
 
         return false;
     }

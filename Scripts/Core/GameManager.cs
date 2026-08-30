@@ -219,6 +219,13 @@ public class GameManager : MonoSingleton<GameManager>
             return true;
         }
 
+        var goblinMenu = GoblinCommandMenu.Instance;
+        if (goblinMenu != null && goblinMenu.IsOpen)
+        {
+            goblinMenu.Close();
+            return true;
+        }
+
         return false;
     }
 

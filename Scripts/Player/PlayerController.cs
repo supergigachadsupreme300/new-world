@@ -318,7 +318,8 @@ public class PlayerController : MonoBehaviour
         bool librarianDialog = LibrarianNPC.Instance != null && LibrarianNPC.Instance.IsDialogActive;
         bool immigrantDialog = ImmigrantNpc.Instance != null && ImmigrantNpc.Instance.IsDialogActive;
         bool fishingShopDialog = FishingShopNPC.Instance != null && FishingShopNPC.Instance.IsDialogActive;
-        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog || monkDialog || chefDialog || cafeBaristaDialog || librarianDialog || immigrantDialog || fishingShopDialog;
+        bool goblinMenuOpen = GoblinCommandMenu.Instance != null && GoblinCommandMenu.Instance.IsOpen;
+        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog || monkDialog || chefDialog || cafeBaristaDialog || librarianDialog || immigrantDialog || fishingShopDialog || goblinMenuOpen;
 
         bool ePressed = (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) ||
                         (!wifeDialog && !richManDialog && !policeDialog && !chefDialog && !librarianDialog && MobileInputController.Consume("interact"));
@@ -473,6 +474,13 @@ public class PlayerController : MonoBehaviour
                         {
                             if (LibrarianNPC.Instance != null && !LibrarianNPC.Instance.IsDialogActive)
                                 LibrarianNPC.Instance.Interact();
+                            return;
+                        }
+                        if (hit.collider.transform.name.StartsWith("GoblinPet"))
+                        {
+                            var goblin = hit.collider.GetComponentInParent<GoblinPet>();
+                            if (goblin != null)
+                                GoblinCommandMenu.Ensure().Open(goblin);
                             return;
                         }
                         if (wb.TryToggleDoor(hit)) return;

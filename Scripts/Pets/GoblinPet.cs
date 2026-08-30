@@ -2,6 +2,8 @@ using UnityEngine;
 
 public class GoblinPet : MonoBehaviour
 {
+    public enum CommandMode { Follow, Stay, GoHome }
+
     public static GoblinPet Instance;
 
     public float FollowSpeed = 2.2f;
@@ -41,6 +43,15 @@ public class GoblinPet : MonoBehaviour
     public bool IsHiddenInHut => _isHiding;
     public bool IsHoldingSeed => !string.IsNullOrEmpty(_heldSeedType);
     public bool CanAcceptSeed => !_isDead && string.IsNullOrEmpty(_heldSeedType);
+    public int Health => _health;
+    public string HeldSeedType => _heldSeedType;
+    public CommandMode Command { get; private set; } = CommandMode.Follow;
+
+    public void SetCommand(CommandMode mode)
+    {
+        Command = mode;
+        _plantTarget = null;
+    }
 
     private WorldBuilder.FieldState _plantTarget;
 
@@ -184,11 +195,7 @@ public class GoblinPet : MonoBehaviour
         {
             if (_isHiding)
                 _isHiding = false;
-
-            if (!string.IsNullOrEmpty(_heldSeedType))
-                HandlePlant();
-            else
-                HandleFollow();
+            HandleDayCommand();
         }
 
         if (!_isMoving && _rb != null)
@@ -317,6 +324,51 @@ public class GoblinPet : MonoBehaviour
             }
         }
         return best;
+    }
+
+    private void HandleDayCommand()
+    {
+        switch (Command)
+        {
+            case CommandMode.GoHome:
+                HandleGoHome();
+                return;
+            case CommandMode.Stay:
+                if (!string.IsNullOrEmpty(_heldSeedType))
+                    HandlePlant();
+                return;
+            default:
+                if (!string.IsNullOrEmpty(_heldSeedType))
+                    HandlePlant();
+                else
+                    HandleFollow();
+                return;
+        }
+    }
+
+    private void HandleGoHome()
+    {
+        var wb = WorldBuilder.Instance;
+        if (wb == null)
+        {
+            HandleFollow();
+            return;
+        }
+
+        Vector3? hutPos = FindHutPosition(wb);
+        if (!hutPos.HasValue)
+        {
+            HandleFollow();
+            return;
+        }
+
+        Vector3 target = hutPos.Value + new Vector3(0f, 0f, -2.2f);
+        target.y = transform.position.y;
+
+        if (Vector3.Distance(transform.position, target) <= 0.7f)
+            return;
+
+        MoveToward(target);
     }
 
     private void HandleFollow()
