@@ -1152,8 +1152,8 @@ public class WifeNPC : MonoSingleton<WifeNPC>
         if (_nightRow != null && _nightRow.activeSelf) active.Add(_nightRow);
 
         float panelH = _panelRt.rect.height;
-        const float topPad = 8f;
-        const float step = 42f;
+        const float topPad = 6f;
+        const float step = 38f;
         for (int i = 0; i < active.Count; i++)
         {
             var rowRt = active[i].GetComponent<RectTransform>();
@@ -1254,7 +1254,7 @@ public class WifeNPC : MonoSingleton<WifeNPC>
         _dialogText = CreateDialogText("WifeDialogText", panelRt,
             new Vector2(70f, -panelH * 0.06f), "", 20,
             Color.white, TextAlignmentOptions.Left,
-            new Vector2(panelW - 160f, panelH * 0.55f));
+            new Vector2(panelW - 160f, panelH * 0.46f));
 
         _promptText = CreateDialogText("WifeDialogPrompt", panelRt,
             new Vector2(70f, -panelH * 0.38f), Localization.T("Nhấn E để tiếp tục"), 16,
