@@ -47,15 +47,17 @@ public static partial class MapBuilder
         MakeBlock("MansionFoundation", root.transform, new Vector3(halfW * 2f + 1.4f, 0.55f, halfD * 2f + 1.4f),
             new Vector3(0f, -0.28f, 0f), stoneC);
         MakeBlock("Floor1F", root.transform, new Vector3(halfW * 2f, 0.5f, halfD * 2f), Vector3.zero, stoneC);
-        // 2F floor with stairwell opening at +X side (north)
-        MakeBlock("Floor2F_B", root.transform, new Vector3(fullW - 4f, 0.5f, fullD),
-            new Vector3(-2f, h1 + 0.25f, 0f), stoneC);
-        MakeBlock("Floor2F_E", root.transform, new Vector3(3f, 0.5f, fullD),
-            new Vector3(halfW - 1.5f, h1 + 0.25f, 0f), stoneC);
-        MakeBlock("Floor2F_NS", root.transform, new Vector3(1.5f, 0.5f, 6f),
-            new Vector3(halfW - 3f, h1 + 0.25f, -halfD + 2f), stoneC);
-        MakeBlock("Floor2F_SS", root.transform, new Vector3(1.5f, 0.5f, 6f),
-            new Vector3(halfW - 3f, h1 + 0.25f, halfD - 2f), stoneC);
+        // 2F floor with stairwell opening above the staircase (+X side).
+        // W/E main slabs + NS/SS landing strips flank the opening (x≈6.7-9.3, z≈-7.0..-0.7).
+        // Strips are 0.46 thick and raised +0.01 so their faces clear the main-slabs on the 1-unit overlaps.
+        MakeBlock("Floor2F_W", root.transform, new Vector3(18.8f, 0.5f, fullD),
+            new Vector3(-2.6f, h1 + 0.25f, 0f), stoneC);
+        MakeBlock("Floor2F_E", root.transform, new Vector3(2.8f, 0.5f, fullD),
+            new Vector3(10.6f, h1 + 0.25f, 0f), stoneC);
+        MakeBlock("Floor2F_NS", root.transform, new Vector3(2.6f, 0.46f, 3f),
+            new Vector3(8f, h1 + 0.26f, -8.5f), stoneC);
+        MakeBlock("Floor2F_SS", root.transform, new Vector3(2.6f, 0.46f, 10.7f),
+            new Vector3(8f, h1 + 0.26f, 4.65f), stoneC);
         MakeBlock("Ceiling", root.transform, new Vector3(halfW * 2f, 0.3f, halfD * 2f),
             new Vector3(0f, h1 + h2 + 0.4f, 0f), stoneC);
 
@@ -63,8 +65,8 @@ public static partial class MapBuilder
         MakeBlock("Wall1F_Zneg", root.transform, new Vector3(halfW * 2f, h1, 0.5f), new Vector3(0f, y1, -halfD), wallC);
         MakeBlock("Wall1F_Zpos", root.transform, new Vector3(halfW * 2f, h1, 0.5f), new Vector3(0f, y1, halfD), wallC);
         MakeBlock("Wall1F_Xpos", root.transform, new Vector3(0.5f, h1, halfD * 2f), new Vector3(halfW, y1, 0f), wallC);
-        MakeBlock("Wall1F_Xneg_N", root.transform, new Vector3(0.5f, h1, 5.8f), new Vector3(-halfW, y1, -5.1f), wallC);
-        MakeBlock("Wall1F_Xneg_S", root.transform, new Vector3(0.5f, h1, 5.8f), new Vector3(-halfW, y1, 5.1f), wallC);
+        MakeBlock("Wall1F_Xneg_N", root.transform, new Vector3(0.5f, h1, 7.8f), new Vector3(-halfW, y1, -6.1f), wallC);
+        MakeBlock("Wall1F_Xneg_S", root.transform, new Vector3(0.5f, h1, 7.8f), new Vector3(-halfW, y1, 6.1f), wallC);
 
         // 1F windows (-Z, +Z, +X faces) — 3 per face for larger walls
         foreach (float wx in new[] { -7f, 0f, 7f })
@@ -85,9 +87,12 @@ public static partial class MapBuilder
             MakeBlock("Win1F_Xpos", root.transform, new Vector3(0.14f, 1.8f, 1.8f), new Vector3(halfW + 0.03f, 2f, wz), winC, true);
             MakeBlock("WinFrame1F_Xpos", root.transform, new Vector3(0.16f, 0.12f, 2f), new Vector3(halfW + 0.03f, 1.12f, wz), trimC, true);
             MakeBlock("WinFrame1F_Xpos", root.transform, new Vector3(0.16f, 0.12f, 2f), new Vector3(halfW + 0.03f, 2.94f, wz), trimC, true);
-            MakeBlock("Win1F_Xneg", root.transform, new Vector3(0.14f, 1.5f, 1.5f), new Vector3(-halfW - 0.03f, 2f, wz), winC, true);
-            MakeBlock("WinFrame1F_Xneg", root.transform, new Vector3(0.16f, 0.12f, 1.7f), new Vector3(-halfW - 0.03f, 1.24f, wz), trimC, true);
-            MakeBlock("WinFrame1F_Xneg", root.transform, new Vector3(0.16f, 0.12f, 1.7f), new Vector3(-halfW - 0.03f, 2.81f, wz), trimC, true);
+            if (wz != 0)
+            {
+                MakeBlock("Win1F_Xneg", root.transform, new Vector3(0.14f, 1.5f, 1.5f), new Vector3(-halfW - 0.03f, 2f, wz), winC, true);
+                MakeBlock("WinFrame1F_Xneg", root.transform, new Vector3(0.16f, 0.12f, 1.7f), new Vector3(-halfW - 0.03f, 1.24f, wz), trimC, true);
+                MakeBlock("WinFrame1F_Xneg", root.transform, new Vector3(0.16f, 0.12f, 1.7f), new Vector3(-halfW - 0.03f, 2.81f, wz), trimC, true);
+            }
         }
 
         // ── Cornice band at the 1F/2F junction (all four sides) ──
@@ -111,9 +116,9 @@ public static partial class MapBuilder
             doorL.transform.localPosition = new Vector3(-halfW - 0.2f, 0f, -0.95f);
             doorL.transform.localRotation = Quaternion.identity;
             MakeBlock("DoorVisual", doorL.transform, new Vector3(0.14f, 3.6f, 1.7f),
-                new Vector3(0f, 2.25f, 0.85f), goldC, true);
+                new Vector3(0f, 2.25f, 0.09f), goldC, true);
             var doorPanelL = MakeBlock("DoorPanel", doorL.transform, new Vector3(0.14f, 3.6f, 1.7f),
-                new Vector3(0f, 2.25f, 0.85f), goldC);
+                new Vector3(0f, 2.25f, 0.09f), goldC);
             doorPanelL.AddComponent<BoxCollider>();
         }
         // Right door — pivot at right jamb, swings open
@@ -123,9 +128,9 @@ public static partial class MapBuilder
             doorR.transform.localPosition = new Vector3(-halfW - 0.2f, 0f, 0.95f);
             doorR.transform.localRotation = Quaternion.identity;
             MakeBlock("DoorVisual", doorR.transform, new Vector3(0.14f, 3.6f, 1.7f),
-                new Vector3(0f, 2.25f, -0.85f), goldC, true);
+                new Vector3(0f, 2.25f, -0.09f), goldC, true);
             var doorPanelR = MakeBlock("DoorPanel", doorR.transform, new Vector3(0.14f, 3.6f, 1.7f),
-                new Vector3(0f, 2.25f, -0.85f), goldC);
+                new Vector3(0f, 2.25f, -0.09f), goldC);
             doorPanelR.AddComponent<BoxCollider>();
         }
         MakeBlock("DoorKnobL", root.transform, new Vector3(0.16f, 0.16f, 0.16f), new Vector3(-halfW - 0.28f, 2.2f, -0.55f), trimC, true);
@@ -235,7 +240,10 @@ public static partial class MapBuilder
         foreach (float wz in new[] { -6f, 0f, 6f })
         {
             MakeBlock("Wainscot_XP", root.transform, new Vector3(0.08f, 1.2f, 2f), new Vector3(halfW - 0.25f, 0.65f, wz), wainC, true);
-            MakeBlock("Wainscot_XN", root.transform, new Vector3(0.08f, 1.2f, 2f), new Vector3(-halfW + 0.25f, 0.65f, wz), wainC, true);
+            if (wz != 0)
+            {
+                MakeBlock("Wainscot_XN", root.transform, new Vector3(0.08f, 1.2f, 2f), new Vector3(-halfW + 0.25f, 0.65f, wz), wainC, true);
+            }
         }
         // ── 1F Crown molding (decorative trim at ceiling) ──
         MakeBlock("CrownMold_ZN", root.transform, new Vector3(fullW, 0.15f, 0.2f), new Vector3(0f, h1 - 0.1f, -halfD + 0.2f), goldC, true);
