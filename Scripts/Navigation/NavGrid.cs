@@ -182,9 +182,13 @@ public class NavGrid : MonoBehaviour
 
         // Obstacle probe at waist height: anything solid that pokes up above the walk
         // surface by more than a small step blocks the cell.
+        // Probe the FULL cell so colliders whose centerline sits exactly on a grid
+        // line (many mansion walls) are still detected. Half-extents of exactly
+        // CellSize*0.5 means every boundary belongs to both neighbours, so nothing
+        // can fall between two probes.
         Vector3 probeCenter = new Vector3(cx, ground + 0.9f, cz);
         Collider[] blockers = Physics.OverlapBox(probeCenter,
-            new Vector3(CellSize * 0.48f, 0.5f, CellSize * 0.48f), Quaternion.identity,
+            new Vector3(CellSize * 0.5f, 0.5f, CellSize * 0.5f), Quaternion.identity,
             Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
         bool blocked = false;
@@ -235,7 +239,29 @@ public class NavGrid : MonoBehaviour
         return true;
     }
 
-    private static bool NameContainsAny(string name, string[] keywords)
+    /// <summary>The NPC movement guard reuses the same collider rules as the grid.</summary>
+    public static bool IsWall(Collider col)
+        => IsStaticBlocking(col);
+
+    /// <summary>
+    /// True if a solid wall exists near the given position. Used by NPC movement as a
+    /// final guarantee they never cross a wall even if a path is stale (slide-to-avoid).
+    /// </summary>
+    public static bool IsBlockedAt(Vector3 pos, float radius)
+    {
+        float ground = Instance != null ? Instance.SampleGroundY(pos) : pos.y - 0.86f;
+        Collider[] cols = Physics.OverlapSphere(pos, radius,
+            Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < cols.Length; i++)
+        {
+            Collider col = cols[i];
+            if (!IsStaticBlocking(col))
+                continue;
+            if (col.bounds.max.y >= ground + 0.46f)
+                return true;
+        }
+        return false;
+    }
     {
         for (int i = 0; i < keywords.Length; i++)
         {

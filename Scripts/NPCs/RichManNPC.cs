@@ -727,7 +727,27 @@ private Transform _myTransform;
                 _waypointIndex++;
                 continue;
             }
-            _myTransform.position += dir * step;
+            Vector3 next = _myTransform.position + dir * step;
+            if (NavGrid.IsBlockedAt(next, 0.4f))
+            {
+                // Slide along the wall: try X-only, then Z-only; hold if both blocked.
+                Vector3 slideX = new Vector3(next.x, _myTransform.position.y, _myTransform.position.z);
+                Vector3 slideZ = new Vector3(_myTransform.position.x, _myTransform.position.y, next.z);
+                if (NavGrid.IsBlockedAt(slideX, 0.4f))
+                {
+                    if (NavGrid.IsBlockedAt(slideZ, 0.4f))
+                        return false;
+                    _myTransform.position = slideZ;
+                }
+                else
+                {
+                    _myTransform.position = slideX;
+                }
+            }
+            else
+            {
+                _myTransform.position = next;
+            }
             _myTransform.rotation = Quaternion.LookRotation(-dir);
             SnapToGround();
             ManageDoors();
@@ -824,10 +844,14 @@ private Transform _myTransform;
             _pathDirty = false;
             if (_waypoints.Count == 0)
             {
-                // Fallback: simple strafe away when no route exists.
-                _myTransform.position += away * (WALK_SPEED * 1.7f * Time.deltaTime);
-                _myTransform.rotation = Quaternion.LookRotation(-away);
-                _isMoving = true;
+                // Fallback: simple strafe away when no route exists (never through walls).
+                Vector3 next = _myTransform.position + away * (WALK_SPEED * 1.7f * Time.deltaTime);
+                if (!NavGrid.IsBlockedAt(next, 0.4f))
+                {
+                    _myTransform.position = next;
+                    _myTransform.rotation = Quaternion.LookRotation(-away);
+                    _isMoving = true;
+                }
             }
         }
         if (!MoveAlongPath(WALK_SPEED * 1.2f))
