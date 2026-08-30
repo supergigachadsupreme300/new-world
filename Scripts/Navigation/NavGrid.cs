@@ -300,6 +300,13 @@ public class NavGrid : MonoBehaviour
         return ground > float.MinValue && ground > -0.5f ? ground : pos.y;
     }
 
+    /// <summary>True if the exact cell under a world position is walkable.</summary>
+    public bool IsWalkableAt(Vector3 pos)
+    {
+        var info = IndexAt(pos.x, pos.z);
+        return info.Cell != null && (info.Cell.Flags & WalkableMask) != 0;
+    }
+
     /// <summary>Nearest walkable world point to a given position (radius-limited search).</summary>
     public bool NearestWalkable(Vector3 pos, out Vector3 result)
     {

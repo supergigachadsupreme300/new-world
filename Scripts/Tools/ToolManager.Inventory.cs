@@ -14,6 +14,7 @@ public partial class ToolManager
         {
             _inventory[slot].Count += amount;
             UpdateInventoryUI();
+            ShowActiveToolModel();
             return true;
         }
 
@@ -26,6 +27,7 @@ public partial class ToolManager
 
         _inventory[empty] = new InventorySlot {Type = itemType, Count = amount};
         UpdateInventoryUI();
+        ShowActiveToolModel();
         return true;
     }
 
@@ -52,6 +54,7 @@ public partial class ToolManager
         if (slot.Count <= 0)
             _inventory[slotIndex] = null;
         UpdateInventoryUI();
+        ShowActiveToolModel();
         return true;
     }
 
@@ -73,6 +76,7 @@ public partial class ToolManager
         if (remaining > 0)
             return false;
         UpdateInventoryUI();
+        ShowActiveToolModel();
         return true;
     }
 
@@ -110,6 +114,7 @@ public partial class ToolManager
         }
 
         UpdateInventoryUI();
+        ShowActiveToolModel();
     }
 
     public void ClearInventory()
@@ -118,6 +123,7 @@ public partial class ToolManager
             _inventory[i] = null;
         _selectedSlot = 0;
         UpdateInventoryUI();
+        ShowActiveToolModel();
     }
 
     private int FindSlotFor(string itemType)
@@ -176,5 +182,6 @@ public partial class ToolManager
                 _inventory[i] = null;
         }
         UpdateInventoryUI();
+        ShowActiveToolModel();
     }
 }

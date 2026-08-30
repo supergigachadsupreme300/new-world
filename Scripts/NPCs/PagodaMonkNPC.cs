@@ -53,9 +53,12 @@ private Transform _myTransform;
             _originalRotation = _myTransform.rotation;
     }
 
+    const string _meditationQuestion = "Con có muốn thiền định để gia tăng giới hạn phước đức không?";
+
     void Update()
     {
-        if (_dialogActive && _waitingMeditation && _meditationRow != null && _meditationRow.activeSelf)
+        bool meditationShown = _dialogText != null && _dialogText.text == Localization.T(_meditationQuestion);
+        if (_dialogActive && _waitingMeditation && meditationShown && _meditationRow != null && _meditationRow.activeSelf)
         {
             if (Keyboard.current != null && Keyboard.current.tKey.wasPressedThisFrame)
             {
@@ -162,6 +165,16 @@ private Transform _myTransform;
     {
         if (_panel == null)
             return;
+        if (_waitingOffering && _dialogText.text == Localization.T(_offerLine))
+        {
+            _waitingOffering = false;
+            PerformOffering();
+            _dialogText.text = Localization.T(_dialogQueue.Dequeue());
+            _promptText.text = _dialogQueue.Count > 0
+                ? (GameInput.IsMobile ? Localization.T("Chạm để tiếp tục") : Localization.T("Nhấn E để tiếp tục"))
+                : (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"));
+            return;
+        }
         if (_waitingOffering && _dialogQueue.Count == 0)
         {
             _waitingOffering = false;
@@ -169,6 +182,10 @@ private Transform _myTransform;
         }
         if (_waitingMeditation && _dialogQueue.Count == 0)
         {
+            _waitingMeditation = false;
+            if (_meditationRow != null)
+                _meditationRow.SetActive(false);
+            Hide();
             return;
         }
         if (_dialogQueue.Count == 0)
@@ -178,7 +195,7 @@ private Transform _myTransform;
         }
         _dialogText.text = Localization.T(_dialogQueue.Dequeue());
         bool offeringShown = _waitingOffering && _dialogText.text == Localization.T(_offerLine);
-        bool meditationShown = _waitingMeditation && _dialogText.text == Localization.T("Con có muốn thiền định để gia tăng giới hạn phước đức không?");
+        bool meditationShown = _waitingMeditation && _dialogText.text == Localization.T(_meditationQuestion);
         _promptText.text = _dialogQueue.Count > 0
             ? (GameInput.IsMobile ? Localization.T("Chạm để tiếp tục") : Localization.T("Nhấn E để tiếp tục"))
             : offeringShown
@@ -279,10 +296,10 @@ private Transform _myTransform;
         _meditationRow = new GameObject("MonkMeditationRow");
         _meditationRow.transform.SetParent(rt, false);
         var medRowRt = _meditationRow.AddComponent<RectTransform>();
-        medRowRt.anchorMin = new Vector2(1f, 0f);
-        medRowRt.anchorMax = new Vector2(1f, 0f);
-        medRowRt.pivot = new Vector2(1f, 0f);
-        medRowRt.anchoredPosition = new Vector2(-20f, 6f);
+        medRowRt.anchorMin = new Vector2(0.5f, 1f);
+        medRowRt.anchorMax = new Vector2(0.5f, 1f);
+        medRowRt.pivot = new Vector2(0.5f, 1f);
+        medRowRt.anchoredPosition = new Vector2(0f, -6f);
         medRowRt.sizeDelta = new Vector2(260f, 40f);
         var medRowImg = _meditationRow.AddComponent<Image>();
         medRowImg.color = new Color(0.4f, 0.3f, 0.6f, 0.9f);

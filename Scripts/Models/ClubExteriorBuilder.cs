@@ -181,7 +181,13 @@ public static class ClubExteriorBuilder
         wagonLight.gameObject.AddComponent<FlickerLight>().Intensity = wagonLight.intensity;
 
         var horse = HorseModelBuilder.BuildHorse(wagon.transform);
-        horse.localPosition = new Vector3(-2.3f, 0f, 0.2f);
-        horse.localRotation = Quaternion.identity;
+        horse.localPosition = new Vector3(-2.4f, 0f, 0f);
+        horse.localRotation = Quaternion.Euler(0f, 90f, 0f);
+
+        var wagonSeat = wagon.transform.Find("WagonSeat");
+        if (wagonSeat != null)
+            SittableSeat.Attach(wagonSeat);
+        if (wagon.GetComponent<WagonRide>() == null)
+            wagon.gameObject.AddComponent<WagonRide>();
     }
 }

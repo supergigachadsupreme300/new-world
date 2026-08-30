@@ -130,6 +130,7 @@ public partial class ToolManager
         CreateToolModel("banh_mi", new Color(0.75f, 0.5f, 0.2f));
         CreateToolModel("banh_tet", new Color(0.2f, 0.55f, 0.2f));
         CreateToolModel("keo", new Color(0.95f, 0.35f, 0.55f));
+        CreateToolModel("cafe_den", new Color(0.3f, 0.18f, 0.08f));
 
         // Grocery store
         CreateToolModel("tu_gao", new Color(0.95f, 0.93f, 0.88f));

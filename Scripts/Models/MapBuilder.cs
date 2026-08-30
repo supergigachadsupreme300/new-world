@@ -1559,9 +1559,9 @@ public static partial class MapBuilder
         foreach (float tz in new[] { -2.6f, 2.6f })
         {
             MakeBlock("PatioTable", root.transform, new Vector3(1.5f, 0.08f, 0.85f),
-                new Vector3(halfW + 2.3f, 0.04f, tz), new Color(0.6f, 0.42f, 0.24f), true);
-            MakeBlock("PatioLeg", root.transform, new Vector3(0.1f, 0.35f, 0.1f),
-                new Vector3(halfW + 2.3f, -0.1f, tz), trimC, true);
+                new Vector3(halfW + 2.3f, 0.68f, tz), new Color(0.6f, 0.42f, 0.24f), true);
+            MakeBlock("PatioLeg", root.transform, new Vector3(0.1f, 0.6f, 0.1f),
+                new Vector3(halfW + 2.3f, 0.3f, tz), trimC, true);
             MakeBlock("UmbrellaPole", root.transform, new Vector3(0.08f, 1.5f, 0.08f),
                 new Vector3(halfW + 2.3f, 0.75f, tz), trimC, true);
             MakeBlock("UmbrellaCanopy", root.transform, new Vector3(1.4f, 0.1f, 1.4f),

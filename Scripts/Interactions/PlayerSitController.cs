@@ -5,6 +5,8 @@ public class PlayerSitController : MonoBehaviour
 {
     public bool IsSitting { get; private set; }
 
+    public SittableSeat Seat => _seat;
+
     private PlayerController _player;
     private CharacterController _controller;
     private SittableSeat _seat;

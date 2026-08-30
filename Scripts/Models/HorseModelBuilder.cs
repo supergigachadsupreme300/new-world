@@ -64,11 +64,13 @@ public static class HorseModelBuilder
         var head = MakeBlock("Head", neckPivot.transform, new Vector3(0.22f, 0.20f, 0.24f), new Vector3(0f, 0.58f, 0f), bodyBrown);
         MakeBlock("Muzzle", head.transform, new Vector3(0.14f, 0.12f, 0.20f), new Vector3(0f, -0.06f, 0.14f), muzzleLight);
 
-        // Eyes (on sides of head, at X surface ±0.11)
-        MakeBlock("EyeL", head.transform, new Vector3(0.02f, 0.04f, 0.04f), new Vector3(-0.12f, 0.04f, 0.04f), eyeBlack);
-        MakeBlock("EyeR", head.transform, new Vector3(0.02f, 0.04f, 0.04f), new Vector3(0.12f, 0.04f, 0.04f), eyeBlack);
-        MakeBlock("EyeHighlightL", head.transform, new Vector3(0.01f, 0.02f, 0.02f), new Vector3(-0.13f, 0.05f, 0.05f), Color.white);
-        MakeBlock("EyeHighlightR", head.transform, new Vector3(0.01f, 0.02f, 0.02f), new Vector3(0.13f, 0.05f, 0.05f), Color.white);
+        // Eyes (on sides of head, at X surface ±0.11): white sclera + dark pupil + highlight
+        MakeBlock("EyeWhiteL", head.transform, new Vector3(0.05f, 0.07f, 0.05f), new Vector3(-0.115f, 0.04f, 0.04f), Color.white);
+        MakeBlock("EyeWhiteR", head.transform, new Vector3(0.05f, 0.07f, 0.05f), new Vector3(0.115f, 0.04f, 0.04f), Color.white);
+        MakeBlock("EyeL", head.transform, new Vector3(0.025f, 0.05f, 0.03f), new Vector3(-0.13f, 0.04f, 0.045f), eyeBlack);
+        MakeBlock("EyeR", head.transform, new Vector3(0.025f, 0.05f, 0.03f), new Vector3(0.13f, 0.04f, 0.045f), eyeBlack);
+        MakeBlock("EyeHighlightL", head.transform, new Vector3(0.012f, 0.02f, 0.02f), new Vector3(-0.128f, 0.055f, 0.05f), Color.white);
+        MakeBlock("EyeHighlightR", head.transform, new Vector3(0.012f, 0.02f, 0.02f), new Vector3(0.128f, 0.055f, 0.05f), Color.white);
 
         // Nostrils (on muzzle front face at Z≈0.24)
         MakeBlock("NostrilL", head.transform, new Vector3(0.03f, 0.03f, 0.02f), new Vector3(-0.03f, -0.04f, 0.26f), nostrilDark);
