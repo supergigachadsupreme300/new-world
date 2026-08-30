@@ -46,6 +46,7 @@ public class EnemyController : MonoBehaviour
     private float _bobTimer;
     private bool _isMoving;
     private bool _isAttacking;
+    private int _followTick;
 
     private GameObject _structureTarget;
     private float _stuckTimer;
@@ -164,6 +165,10 @@ public class EnemyController : MonoBehaviour
                 Respawn();
             return;
         }
+        if (_playerController == null)
+            _playerController = GameManager.Instance?.Player;
+        if (_player == null && _playerController != null)
+            _player = _playerController.transform;
         if (_player == null)
             _player = Object.FindAnyObjectByType<PlayerController>()?.transform;
         if (_player != null && _playerController == null)
@@ -428,11 +433,15 @@ public class EnemyController : MonoBehaviour
                 return;
             }
 
-            var wb = WorldBuilder.Instance;
-            if (wb != null && wb.FindBuilding(hit.collider.gameObject) != null)
+            _followTick++;
+            if ((_followTick & 7) == 0)
             {
-                _isMoving = false;
-                return;
+                var wb = WorldBuilder.Instance;
+                if (wb != null && wb.FindBuilding(hit.collider.gameObject) != null)
+                {
+                    _isMoving = false;
+                    return;
+                }
             }
         }
 
@@ -768,6 +777,7 @@ public class EnemyController : MonoBehaviour
         }
 
         Vector3 chest = transform.position + Vector3.up * 1.5f;
+        var wait = new WaitForSeconds(0.16f);
         for (int i = 0; i < 5; i++)
         {
             if (_player == null)
@@ -778,7 +788,7 @@ public class EnemyController : MonoBehaviour
             float maxDist = Vector3.Distance(chest, playerChest) + 4f;
             SpawnBossProjectile(chest, dir, maxDist);
             SoundManager.Instance?.Play("bonk", 0.35f);
-            yield return new WaitForSeconds(0.16f);
+            yield return wait;
         }
 
         yield return new WaitForSeconds(0.4f);

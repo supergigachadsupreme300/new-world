@@ -65,7 +65,7 @@ public partial class WorldBuilder
         var definition = _availableBuildings[_currentBuildingIndex];
         if (!IsBlueprintUnlocked(definition.Name))
         {
-            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Báº£n thiáº¿t káº¿ nÃ y bá»‹ khÃ³a. HÃ£y Ä‘áº¿n ThÆ° Viá»‡n tÃ¬m hiá»ƒu thÃªm!"), 2f);
+            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Bản thiết kế này bị khóa. Hãy đến Thư Viện tìm hiểu thêm!"), 2f);
             return false;
         }
         var size = definition.Size;
@@ -88,7 +88,7 @@ public partial class WorldBuilder
                 Vector3 subPos = snapped + rotatedOffset;
                 if (!CanPlaceBuilding(subPos, sub.Size, _currentRotation))
                 {
-                    GameManager.Instance?.UIManager?.ShowMessage(Localization.T("KhÃ´ng Ä‘á»§ chá»— cho toÃ n bá»™ cÃ´ng trÃ¬nh."), 1.5f);
+                    GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Không đủ chỗ cho toàn bộ công trình."), 1.5f);
                     return false;
                 }
                 subPlans.Add((sub.PartName, subPos, sub.Size, sub.Color, sub.WoodCost, sub.StoneCost));
@@ -450,7 +450,7 @@ public partial class WorldBuilder
         Object.Destroy(car);
 
         if (GameManager.Instance?.UIManager != null)
-            GameManager.Instance.UIManager.ShowMessage(Localization.T("NgÆ°á»i di cÆ° Ä‘Ã£ Ä‘áº¿n lÃ ng! HÃ£y Ä‘áº¿n chÃ o há»."), 3f);
+            GameManager.Instance.UIManager.ShowMessage(Localization.T("Người di cư đã đến làng! Hãy đến chào họ."), 3f);
     }
 
     public bool IsMansionPart(BlueprintState bp)
@@ -770,8 +770,10 @@ public partial class WorldBuilder
             CurrentHealth = 100,
             MaxHealth = 100
         });
-        if (typeName == "goblin_hut")
+if (typeName == "goblin_hut")
             GameManager.Instance?.EnsureGoblin();
+        if (building != null)
+            SittableSeat.Register(building.transform);
         return true;
     }
 
@@ -880,9 +882,9 @@ public partial class WorldBuilder
                 CreatePartCube(root.transform, new Vector3(0, 2f, -4f), new Vector3(6f, 2f, 0.5f), woodColor);
                 break;
 
-            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+            // ═══════════════════════════════════════════════
             //  MANSION MEGA STRUCTURE PARTS
-            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+            // ═══════════════════════════════════════════════
             case "Mansion_Foundation":
                 CreatePartCube(root.transform, new Vector3(0, 0.11f, 0), new Vector3(25f, 0.22f, 17f), stoneColor);
                 break;
@@ -1216,7 +1218,7 @@ public partial class WorldBuilder
                     }
                     CreatePartCube(root, new Vector3(0, 0.05f, half), new Vector3(0.5f, 3.4f, 0.5f), pillarC);
 
-                    // lower wall panels (world 0.9..2.4) â€” raised to meet the window sills
+                    // lower wall panels (world 0.9..2.4) — raised to meet the window sills
                     CreatePartCube(root, new Vector3(0, -0.9f, half), new Vector3(10.5f, 1.5f, 0.25f), wallC);
                     CreatePartCube(root, new Vector3(half, -0.9f, 0), new Vector3(0.25f, 1.5f, 10.5f), wallC);
                     CreatePartCube(root, new Vector3(-half, -0.9f, 0), new Vector3(0.25f, 1.5f, 10.5f), wallC);
@@ -1243,7 +1245,7 @@ public partial class WorldBuilder
                         CreatePartCube(root, c + Vector3.up * 0.4f, new Vector3(axisX ? 1.42f : 0.09f, 0.09f, axisX ? 0.09f : 1.42f), ridgeC);
                     }
 
-                    // mid band ring (world 3.75..3.95) â€” closes lintel/fills up to the top beam
+                    // mid band ring (world 3.75..3.95) — closes lintel/fills up to the top beam
                     CreatePartCube(root, new Vector3(0, 1.3f, half), new Vector3(10.5f, 0.2f, 0.25f), wallC);
                     CreatePartCube(root, new Vector3(0, 1.3f, -half), new Vector3(10.5f, 0.2f, 0.25f), wallC);
                     CreatePartCube(root, new Vector3(half, 1.3f, 0), new Vector3(0.25f, 0.2f, 10.5f), wallC);
@@ -1253,12 +1255,12 @@ public partial class WorldBuilder
                     CreatePartCube(root, new Vector3(-3.425f, 0.55f, -half), new Vector3(3.65f, 1.2f, 0.18f), wallC);
                     CreatePartCube(root, new Vector3(3.425f, 0.55f, -half), new Vector3(3.65f, 1.2f, 0.18f), wallC);
                     CreatePartCube(root, new Vector3(0, 1.5f, -half), new Vector3(10.5f, 0.2f, 0.2f), ridgeC);
-                    // entrance lintel (world 3.65..4.15) â€” leaves generous headroom below for the player
+                    // entrance lintel (world 3.65..4.15) — leaves generous headroom below for the player
                     CreatePartCube(root, new Vector3(0, 1.35f, -half + 0.08f), new Vector3(3.6f, 0.5f, 0.2f), wallC);
                     var doorstep = CreatePartCube(root, new Vector3(0, -1.6f, -half + 0.04f), new Vector3(3.6f, 0.1f, 0.18f), stoneC);
                     foreach (var dc in doorstep.GetComponents<Collider>()) Destroy(dc);
 
-                    // parapet ring under Roof1 (world ~4.14..5.48) â€” closes the wall-to-roof gap
+                    // parapet ring under Roof1 (world ~4.14..5.48) — closes the wall-to-roof gap
                     CreatePartCube(root, new Vector3(0, 2.26f, half), new Vector3(10.5f, 1.34f, 0.3f), wallC);
                     CreatePartCube(root, new Vector3(0, 2.26f, -half), new Vector3(10.5f, 1.34f, 0.3f), wallC);
                     CreatePartCube(root, new Vector3(half, 2.26f, 0), new Vector3(0.3f, 1.34f, 10.5f), wallC);
@@ -1579,8 +1581,9 @@ public partial class WorldBuilder
                 root = MapBuilder.BuildNightClub(_worldRoot.transform, bp.Position, 1f, Quaternion.Euler(0f, bp.Rotation, 0f));
                 break;
         }
-        if (root != null)
+if (root != null)
         {
+            SittableSeat.Register(root.transform);
             _buildings.Add(new BuildingState
             {
                 Entity = root,

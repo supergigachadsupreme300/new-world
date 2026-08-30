@@ -7,9 +7,9 @@ using TMPro;
 
 public partial class CutsceneManager 
 {
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ═══════════════════════════════════════════════
     //  HAPPY ENDING
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ═══════════════════════════════════════════════
 
     private IEnumerator HappyEndingRoutine(System.Action onComplete = null)
     {
@@ -257,7 +257,7 @@ public partial class CutsceneManager
             if (_uiManager == null)
                 _uiManager = Object.FindAnyObjectByType<UIManager>();
             if (_uiManager != null)
-                _uiManager.ShowMessage(Localization.T("Tiáº¿p tá»¥c cuá»™c phiÃªu lÆ°u!"), 2);
+                _uiManager.ShowMessage(Localization.T("Tiếp tục cuộc phiêu lưu!"), 2);
         }
         }
         finally
@@ -268,7 +268,7 @@ public partial class CutsceneManager
         }
     }
 
-    // â”€â”€ Happy Ending UI â”€â”€
+    // ── Happy Ending UI ──
 
     private void ShowHappyEndingUI()
     {
@@ -288,9 +288,9 @@ public partial class CutsceneManager
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
 
-        var title = MakeUIText("HappyTitle", Localization.T("Káº¾T THÃšC Háº NH PHÃšC"), 48, new Color(1f, 0.863f, 0.314f), new Vector2(0, 80));
-        var sub = MakeUIText("HappySubtitle", Localization.T("Báº¡n vÃ  Jessica Ä‘Ã£ Ä‘i Ä‘áº¿n cuá»‘i con Ä‘Æ°á»ng cÃ¹ng nhau!"), 24, Color.white, new Vector2(0, 20));
-        var hint = MakeUIText("HappyHint", Localization.T("Nháº¥n Enter Ä‘á»ƒ tiáº¿p tá»¥c chÆ¡i"), 18, Color.gray, new Vector2(0, -30));
+        var title = MakeUIText("HappyTitle", Localization.T("KẾT THÚC HẠNH PHÚC"), 48, new Color(1f, 0.863f, 0.314f), new Vector2(0, 80));
+        var sub = MakeUIText("HappySubtitle", Localization.T("Bạn và Jessica đã đi đến cuối con đường cùng nhau!"), 24, Color.white, new Vector2(0, 20));
+        var hint = MakeUIText("HappyHint", Localization.T("Nhấn Enter để tiếp tục chơi"), 18, Color.gray, new Vector2(0, -30));
     }
 
     private GameObject MakeUIText(string name, string text, int fontSize, Color color, Vector2 anchoredPos)
@@ -317,7 +317,7 @@ public partial class CutsceneManager
         if (_happyUI != null) { Destroy(_happyUI); _happyUI = null; }
     }
 
-    // â”€â”€ Hearts â”€â”€
+    // ── Hearts ──
 
     private void SpawnHeart(Vector3 position)
     {
@@ -327,7 +327,7 @@ public partial class CutsceneManager
         heartGO.transform.SetParent(_canvas.transform, false);
         var heart = heartGO.AddComponent<TextMeshProUGUI>();
         _uiManager?.ApplyDefaultFont(heart);
-        heart.text = "â™¥";
+        heart.text = "♥";
         heart.fontSize = 48;
         heart.color = new Color(1f, 0.314f, 0.471f);
         heart.alignment = TextAlignmentOptions.Center;
@@ -374,7 +374,7 @@ public partial class CutsceneManager
         _hearts.Clear();
     }
 
-    // â”€â”€ Wife NPC (happy ending) â”€â”€
+    // ── Wife NPC (happy ending) ──
 
     private GameObject CreateTeto(Vector3 position)
     {

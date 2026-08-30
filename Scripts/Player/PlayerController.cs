@@ -27,6 +27,7 @@ public class PlayerController : MonoBehaviour
     private Transform _cameraPivot;
     private float _yaw;
     private float _pitch;
+    private PlayerSitController _sitController;
     private GameObject _playerModelInstance;
     private float _waterSpeedMul = 1f;
     private bool _waterAllowJump = true;
@@ -108,11 +109,46 @@ public class PlayerController : MonoBehaviour
             uiMgr?.GetEKeyPromptText(),
             uiMgr?.GetLmbPromptText()
         );
+
+        if (GetComponent<PlayerSitController>() == null)
+            _sitController = gameObject.AddComponent<PlayerSitController>();
+    }
+
+    public bool IsSitting => _sitController != null && _sitController.IsSitting;
+
+    public void SnapLookYaw(float yaw)
+    {
+        _yaw = yaw;
+        transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
+    }
+
+    private bool TrySitNearby()
+    {
+        if (_sitController == null)
+            return false;
+        var seat = SittableSeat.FindNearest(transform.position, 2.6f);
+        if (seat == null)
+            return false;
+        _sitController.BeginSit(seat);
+        return true;
     }
 
     private void Update()
     {
-        if (IgnoreInput || (GameManager.Instance != null && GameManager.Instance.GamePaused) || SleepManager.IsSleeping)
+        if (GameManager.Instance != null && GameManager.Instance.GamePaused)
+            return;
+        if (SleepManager.IsSleeping)
+            return;
+
+        if (IsSitting)
+        {
+            HandleMouseLook();
+            _sitController.UpdateSitting();
+            UpdateHud();
+            return;
+        }
+
+        if (IgnoreInput)
             return;
 
         HandleMouseLook();
@@ -202,14 +238,18 @@ public class PlayerController : MonoBehaviour
                              (ImmigrantNpc.Instance != null && ImmigrantNpc.Instance.IsDialogActive);
         Vector2 input = dialogBlocked ? Vector2.zero : ReadMoveInput();
         Vector3 direction = new Vector3(input.x, 0f, input.y);
-        if (direction.magnitude > 1f)
-            direction.Normalize();
+        float mag = direction.magnitude;
+        if (mag > 1f)
+        {
+            direction /= mag;
+            mag = 1f;
+        }
 
         bool canSprint = !InWater;
         bool sprint = canSprint &&
             ((Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed) ||
              (GameInput.IsMobile && MobileInputController.IsHeld("sprint"))) &&
-            Stamina > 0f && direction.magnitude > 0f;
+            Stamina > 0f && mag > 0f;
         float speed = MoveSpeed * _waterSpeedMul * (sprint ? SprintMultiplier : 1f);
 
         if (_controller != null)
@@ -335,16 +375,6 @@ public class PlayerController : MonoBehaviour
                     var ray = new Ray(cam.transform.position, cam.transform.forward);
                     if (Physics.Raycast(ray, out var hit, 4f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
                     {
-                        if (hit.collider.transform.name == "VendorSpawnButton")
-                        {
-                            wb.SpawnVendorCart();
-                            return;
-                        }
-                        if (hit.collider.transform.name == "ImmigrantSpawnButton")
-                        {
-                            wb.StartImmigrantArrival();
-                            return;
-                        }
                         if (hit.collider.transform.name == "WifeNpc")
                         {
                             if (WifeNPC.Instance != null && !WifeNPC.Instance.IsDialogActive)
@@ -449,6 +479,7 @@ public class PlayerController : MonoBehaviour
                         if (wb.TryToggleDoor(hit)) return;
                     }
                 }
+                if (TrySitNearby()) return;
                 ToolManager.Instance?.TryPickupNearby();
             }
         }

@@ -89,52 +89,52 @@ public partial class UIManager : MonoBehaviour
 
     private static readonly EndingQuestDef[][] EndingQuestDefs =
     {
-        new[] { new EndingQuestDef("Tráº¥n Ãp Quá»· VÆ°Æ¡ng", "boss_kill", true), new EndingQuestDef("BÃ­ Máº­t Cá»§a PhÃº Ã”ng", "mansion_secret", false) },
-        new[] { new EndingQuestDef("BÃ­ Máº­t Cá»§a PhÃº Ã”ng", "mansion_secret", true), new EndingQuestDef("Tráº¥n Ãp Quá»· VÆ°Æ¡ng", "boss_kill", false) },
-        new[] { new EndingQuestDef("BÃ­ Máº­t Cá»§a PhÃº Ã”ng", "mansion_secret", true) },
-        new[] { new EndingQuestDef("BÃ­ Máº­t Cá»§a PhÃº Ã”ng", "mansion_secret", true), new EndingQuestDef("Tráº¥n Ãp Quá»· VÆ°Æ¡ng", "boss_kill", true), new EndingQuestDef("XÃ¢y Dá»±ng Dinh Thá»± Cho Jessica", "mansion", true) },
+        new[] { new EndingQuestDef("Trấn Áp Quỷ Vương", "boss_kill", true), new EndingQuestDef("Bí Mật Của Phú Ông", "mansion_secret", false) },
+        new[] { new EndingQuestDef("Bí Mật Của Phú Ông", "mansion_secret", true), new EndingQuestDef("Trấn Áp Quỷ Vương", "boss_kill", false) },
+        new[] { new EndingQuestDef("Bí Mật Của Phú Ông", "mansion_secret", true) },
+        new[] { new EndingQuestDef("Bí Mật Của Phú Ông", "mansion_secret", true), new EndingQuestDef("Trấn Áp Quỷ Vương", "boss_kill", true), new EndingQuestDef("Xây Dựng Dinh Thự Cho Jessica", "mansion", true) },
         new EndingQuestDef[0],
-        new[] { new EndingQuestDef("Tráº¥n Ãp Quá»· VÆ°Æ¡ng", "boss_kill", false) },
+        new[] { new EndingQuestDef("Trấn Áp Quỷ Vương", "boss_kill", false) },
         new EndingQuestDef[0],
-        new[] { new EndingQuestDef("XÃ¢y Dá»±ng Dinh Thá»± Cho Jessica", "mansion", true), new EndingQuestDef("Tráº¥n Ãp Quá»· VÆ°Æ¡ng", "boss_kill", false), new EndingQuestDef("BÃ­ Máº­t Cá»§a PhÃº Ã”ng", "mansion_secret", false) }
+        new[] { new EndingQuestDef("Xây Dựng Dinh Thự Cho Jessica", "mansion", true), new EndingQuestDef("Trấn Áp Quỷ Vương", "boss_kill", false), new EndingQuestDef("Bí Mật Của Phú Ông", "mansion_secret", false) }
     };
 
     private static readonly bool[] SpecialChoiceEndings = { false, false, true, false, false, true, false, false };
-    private static readonly string[] EndingChoiceTexts = { null, null, "Nháº­n há»‘i lá»™ cá»§a PhÃº Ã”ng", null, null, "Cháº¿t khi giao chiáº¿n Quá»· VÆ°Æ¡ng", null, null };
+    private static readonly string[] EndingChoiceTexts = { null, null, "Nhận hối lộ của Phú Ông", null, null, "Chết khi giao chiến Quỷ Vương", null, null };
 
     private static readonly EndingEntry[] Endings =
     {
         new EndingEntry(
-            "QUá»¶ VÆ¯Æ NG ÄÃƒ CHáº¾T NHÆ¯NG CÃI ÃC CHÆ¯A Háº¾T",
-            "Quá»· VÆ°Æ¡ng Ä‘Ã£ bá»‹ Ä‘Ã¡nh báº¡i, bÃ³ng tá»‘i bá»‹ Ä‘áº©y lÃ¹i.\nNhÆ°ng khi cáº­u quay vá» lÃ ng...\nJessica Ä‘Ã£ bá»‹ má»™t káº» nghiá»‡n ngáº­p do ma tÃºy cá»§a PhÃº Ã”ng háº¡ sÃ¡t.\n\nKáº» gÃ¢y Ã¡n chá»‰ lÃ  bá» ná»•i...\nCÃ³ thá»ƒ Ä‘Ã¢y lÃ  mÆ°u Ä‘á»“ cá»§a lÅ© quá»·.\nCÃ¡i Ã¡c chÆ°a bá»‹ nhá»• táº­n gá»‘c.\nNgÃ´i lÃ ng chÆ°a thá»ƒ yÃªn bÃ¬nh.",
+            "QUỶ VƯƠNG ĐÃ CHẾT NHƯNG CÁI ÁC CHƯA HẾT",
+            "Quỷ Vương đã bị đánh bại, bóng tối bị đẩy lùi.\nNhưng khi cậu quay về làng...\nJessica đã bị một kẻ nghiện ngập do ma túy của Phú Ông hạ sát.\n\nKẻ gây án chỉ là bề nổi...\nCó thể đây là mưu đồ của lũ quỷ.\nCái ác chưa bị nhổ tận gốc.\nNgôi làng chưa thể yên bình.",
             true),
         new EndingEntry(
-            "CÃ”NG LÃ ÄÆ¯á»¢C THá»°C THI NHÆ¯NG HIá»‚M Há»ŒA CHÆ¯A QUA",
-            "Cáº­u Ä‘Ã£ láº­t táº©y bá»™ máº·t tháº­t cá»§a PhÃº Ã”ng.\nCáº£nh sÃ¡t Ä‘Ã£ Ä‘áº¿n, vÃ  háº¯n bá»‹ báº¯t ngay trÆ°á»›c dinh thá»± cá»§a chÃ­nh mÃ¬nh.\n\nÄÃªm áº¥y, cáº­u vÃ  Jessica trá»Ÿ vá» nhÃ , ngá»§ say.\nGiá»¯a Ä‘Ãªm, cÃ´ chá»£t má»Ÿ máº¯t...\nmá»™t con quá»· Ä‘ang nhÃ¬n cÃ´ cháº±m cháº±m.\n\nSÃ¡ng hÃ´m sau... Jessica Ä‘Ã£ biáº¿n máº¥t.\nCáº£nh sÃ¡t kÃ©o Ä‘áº¿n Ä‘iá»u tra cÄƒn nhÃ , nhÆ°ng khÃ´ng tÃ¬m Ä‘Æ°á»£c dáº¥u váº¿t nÃ o.\n\nCáº­u cháº¡y lÃªn chÃ¹a tÃ¬m tháº§y. Tháº§y tráº§m ngÃ¢m:\n\"Jessica khÃ´ng bá»‹ ngÆ°á»i báº¯t... thá»© bÆ°á»›c vÃ o Ä‘Ãªm áº¥y lÃ  quá»·.\nHÃ£y tÃ¬m cÃ´ áº¥y trÆ°á»›c khi mÃ n Ä‘Ãªm buÃ´ng xuá»‘ng.\"\nHiá»ƒm há»a tháº­t sá»± váº«n chÆ°a qua.",
+            "CÔNG LÝ ĐƯỢC THỰC THI NHƯNG HIỂM HỌA CHƯA QUA",
+            "Cậu đã lật tẩy bộ mặt thật của Phú Ông.\nCảnh sát đã đến, và hắn bị bắt ngay trước dinh thự của chính mình.\n\nĐêm ấy, cậu và Jessica trở về nhà, ngủ say.\nGiữa đêm, cô chợt mở mắt...\nmột con quỷ đang nhìn cô chằm chằm.\n\nSáng hôm sau... Jessica đã biến mất.\nCảnh sát kéo đến điều tra căn nhà, nhưng không tìm được dấu vết nào.\n\nCậu chạy lên chùa tìm thầy. Thầy trầm ngâm:\n\"Jessica không bị người bắt... thứ bước vào đêm ấy là quỷ.\nHãy tìm cô ấy trước khi màn đêm buông xuống.\"\nHiểm họa thật sự vẫn chưa qua.",
             true),
         new EndingEntry(
-            "Káº¾T THÃšC Äá»’I Báº I",
-            "Cáº­u Ä‘Ã£ im láº·ng. VÃ  cáº­u Ä‘Ã£ Ä‘Æ°á»£c tráº£ má»™t cÃ¡i giÃ¡ ráº¥t háº­u hÄ©nh.\n\nNhÆ°ng Ä‘Ãªm xuá»‘ng, nhá»¯ng chiáº¿c xe váº«n ná»‘i Ä‘uÃ´i nhau Ä‘áº¿n dinh thá»±.\nJessica váº«n Ä‘ang trong táº§m ngáº¯m cá»§a háº¯n...\n\nVÃ  giá», cáº­u lÃ  má»™t pháº§n cá»§a cÃ¢u chuyá»‡n Ä‘Ã³.",
+            "KẾT THÚC ĐỒI BẠI",
+            "Cậu đã im lặng. Và cậu đã được trả một cái giá rất hậu hĩnh.\n\nNhưng đêm xuống, những chiếc xe vẫn nối đuôi nhau đến dinh thự.\nJessica vẫn đang trong tầm ngắm của hắn...\n\nVà giờ, cậu là một phần của câu chuyện đó.",
             true),
         new EndingEntry(
-            "Káº¾T THÃšC Háº NH PHÃšC",
-            "Báº¡n vÃ  Jessica Ä‘Ã£ Ä‘i Ä‘áº¿n cuá»‘i con Ä‘Æ°á»ng cÃ¹ng nhau!",
+            "KẾT THÚC HẠNH PHÚC",
+            "Bạn và Jessica đã đi đến cuối con đường cùng nhau!",
             true),
         new EndingEntry(
-            "Káº¾T THÃšC NTR",
-            "Báº¡n Ä‘Ã£ bá» bÃª Jessica quÃ¡ lÃ¢u.\nÃ”ng chÃº giÃ u cÃ³ Ä‘Ã£ láº·ng láº½ láº¥p Ä‘áº§y khoáº£ng trá»‘ng báº¡n Ä‘á»ƒ láº¡i.\n\nKhi báº¡n quay láº¡i... cÃ´ áº¥y Ä‘Ã£ khÃ´ng cÃ²n chá» Ä‘á»£i báº¡n ná»¯a.\nBáº¡n Ä‘Ã£ quÃ¡ muá»™n.\n\nKhi báº¡n khÃ´ng quan tÃ¢m Ä‘áº¿n cÃ´ áº¥y,\nngÆ°á»i khÃ¡c sáº½ quan tÃ¢m thay báº¡n.",
+            "KẾT THÚC NTR",
+            "Bạn đã bỏ bê Jessica quá lâu.\nÔng chú giàu có đã lặng lẽ lấp đầy khoảng trống bạn để lại.\n\nKhi bạn quay lại... cô ấy đã không còn chờ đợi bạn nữa.\nBạn đã quá muộn.\n\nKhi bạn không quan tâm đến cô ấy,\nngười khác sẽ quan tâm thay bạn.",
             true),
         new EndingEntry(
-            "RÆ I VÃ€O BÃ“NG Tá»I",
-            "Quá»· VÆ°Æ¡ng Ä‘Ã£ quáº­t ngÃ£ con.\nBÃ³ng tá»‘i nuá»‘t chá»­ng ngÃ´i lÃ ng.\n\nSá»‘ pháº­n cá»§a con dá»«ng láº¡i táº¡i Ä‘Ã¢y...\nHÃ£y quay vá» nÆ¡i lÆ°u gáº§n nháº¥t vÃ  Ä‘á»‘i máº·t vá»›i nÃ³ láº§n ná»¯a.",
+            "RƠI VÀO BÓNG TỐI",
+            "Quỷ Vương đã quật ngã con.\nBóng tối nuốt chửng ngôi làng.\n\nSố phận của con dừng lại tại đây...\nHãy quay về nơi lưu gần nhất và đối mặt với nó lần nữa.",
             true),
         new EndingEntry(
-            "Káº¾T THÃšC BUá»’N",
-            "Báº¡n Ä‘Ã£ Ä‘áº¿n quÃ¡ muá»™n.\nTrong khi báº¡n Ä‘i tÃ¬m kiáº¿m giÃ u sang,\nbáº¡n Ä‘Ã£ quÃªn Ä‘i Ä‘iá»u thá»±c sá»± quan trá»ng.\n\nCÃ´ áº¥y Ä‘á»£i...\ncho Ä‘áº¿n khi khÃ´ng thá»ƒ Ä‘á»£i ná»¯a.",
+            "KẾT THÚC BUỒN",
+            "Bạn đã đến quá muộn.\nTrong khi bạn đi tìm kiếm giàu sang,\nbạn đã quên đi điều thực sự quan trọng.\n\nCô ấy đợi...\ncho đến khi không thể đợi nữa.",
             true),
         new EndingEntry(
-            "Káº¾T THÃšC Äá»ŠNH Má»†NH",
-            "Báº¡n vÃ  Jessica Ä‘Ã£ xÃ¢y xong dinh thá»±... nhÆ°ng khÃ´ng bao giá» diá»‡t Quá»· VÆ°Æ¡ng,\nkhÃ´ng láº­t táº©y bÃ­ máº­t cá»§a PhÃº Ã”ng.\n\nMá»™t Ä‘Ãªm, káº» nghiá»‡n ngáº­p do ma tÃºy cá»§a PhÃº Ã”ng Ä‘Ã£ Ä‘á»™t nháº­p.\nCáº£nh sÃ¡t tÃ¬m tháº¥y hai thi thá»ƒ trong chÃ­nh ngÃ´i nhÃ  báº¡n xÃ¢y nÃªn.\nDáº¥u váº¿t: má»™t vá»¥ trá»™m... do nghiá»‡n ngáº­p.\n\nVÃ  lÅ© quá»· váº«n Ä‘á»©ng im á»Ÿ rÃ¬a mÃ n Ä‘Ãªm,\nkhÃ´ng má»™t ai nhÃ¬n tháº¥y chÃºng.\n\nÄá»‹nh má»‡nh cá»§a báº¡n Ä‘Ã£ káº¿t thÃºc ngay trong nhÃ  mÃ¬nh.",
+            "KẾT THÚC ĐỊNH MỆNH",
+            "Bạn và Jessica đã xây xong dinh thự... nhưng không bao giờ diệt Quỷ Vương,\nkhông lật tẩy bí mật của Phú Ông.\n\nMột đêm, kẻ nghiện ngập do ma túy của Phú Ông đã đột nhập.\nCảnh sát tìm thấy hai thi thể trong chính ngôi nhà bạn xây nên.\nDấu vết: một vụ trộm... do nghiện ngập.\n\nVà lũ quỷ vẫn đứng im ở rìa màn đêm,\nkhông một ai nhìn thấy chúng.\n\nĐịnh mệnh của bạn đã kết thúc ngay trong nhà mình.",
             true)
     };
     private GameObject _tutorialPanel;
@@ -150,18 +150,18 @@ public partial class UIManager : MonoBehaviour
     private Sprite _leftArrowSprite;
     private Sprite _redXSprite;
     private readonly string[] _tutorialPages = {
-        "CHÃ€O Má»ªNG!\n\nChÃ o má»«ng Ä‘áº¿n vá»›i Country Life!\n\nSau khi tá»‘t nghiá»‡p ngÃ nh CNTT, thá»‹ trÆ°á»ng viá»‡c lÃ m Ä‘Ã£ quÃ¡ khÃ³ khÄƒn. KhÃ´ng cÃ³ viá»‡c lÃ m, báº¡n quay vá» nÃ´ng thÃ´n cá»§a Ã´ng ná»™i Ä‘Ã£ khuáº¥t.",
-        "Báº®T Äáº¦U CUá»˜C Sá»NG Má»šI\n\nTáº¡i Ä‘Ã¢y, báº¡n pháº£i xÃ¢y dá»±ng nÃ´ng tráº¡i, báº£o vá»‡ lÃ ng, vÃ  tÃ¬m kiáº¿m háº¡nh phÃºc cho mÃ¬nh.\n\nBiáº¿t Ä‘Ã¢u, cÃ´ gÃ¡i hÃ ng xÃ³m sáº½ lÃ  Ä‘á»‹nh má»‡nh cá»§a báº¡n...",
-        "DI CHUYá»‚N\n\nWASD \u2014 Di chuyá»ƒn\nSpace \u2014 Nháº£y\nShift \u2014 Cháº¡y nhanh\nChuá»™t \u2014 NhÃ¬n xung quanh",
-        "HÃ€NH Äá»˜NG\n\nChuá»™t trÃ¡i \u2014 Sá»­ dá»¥ng cÃ´ng cá»¥\nE \u2014 TÆ°Æ¡ng tÃ¡c / Má»Ÿ cá»­a\nQ \u2014 Bá» váº­t pháº©m",
-        "XÃ‚Y Dá»°NG\n\nGiá»¯ BÃºa + F \u2014 Má»Ÿ menu xÃ¢y dá»±ng\nB / N \u2014 Äá»•i loáº¡i cÃ´ng trÃ¬nh\nChuá»™t trÃ¡i \u2014 Äáº·t cÃ´ng trÃ¬nh\nF \u2014 Há»§y",
-        "NÃ”NG NGHIá»†P\n\nCuá»‘c \u2014 LÃ m Ä‘áº¥t Ä‘á»ƒ trá»“ng cÃ¢y\nLÆ°á»¡i liá»m \u2014 Thu hoáº¡ch\nRÃ¬u / Cuá»‘c chim \u2014 Thu tháº­p nguyÃªn liá»‡u",
-        "Káºº THÃ™\n\nBan Ä‘Ãªm (18h \u2013 6h), lÅ© quá»· xuáº¥t hiá»‡n vÃ  táº¥n cÃ´ng báº¡n cÃ¹ng cÃ¡c cÃ´ng trÃ¬nh.\nQuá»· thÆ°á»ng: 50 mÃ¡u, gÃ¢y 10 sÃ¡t thÆ°Æ¡ng.\nQuá»· khá»•ng lá»“: mÃ¡u vÃ  sÃ¡t thÆ°Æ¡ng cao hÆ¡n.",
-        "TRá»ª TÃ€\n\nTrÃ ng háº¡t \u2014 Quáº£ cáº§u thÃ¡nh háº¡ gá»¥c má»™t Ä‘Ã²n.\nTrang bá»‹ TrÃ ng Háº¡t rá»“i báº¥m chuá»™t trÃ¡i Ä‘á»ƒ thi triá»ƒn.\n\nHÃ£y Ä‘Ã³ng cá»­a khi trá»i tá»‘i Ä‘á»ƒ cáº£n bÆ°á»›c chÃºng!",
-        "NGÃ”I CHÃ™A\n\nNgÃ´i chÃ¹a 4 táº§ng mÃ¡i cong náº±m phÃ­a ÄÃ´ng lÃ ng, ngay cáº¡nh nhÃ  bÃ  hÃ ng xÃ³m.\n\nÄÃ¢y lÃ  cÃ´ng trÃ¬nh biá»ƒu tÆ°á»£ng cá»§a lÃ ng \u2014 hÃ£y Ä‘áº¿n chiÃªm bÃ¡i vÃ  ngáº¯m cáº£nh hoÃ ng hÃ´n tá»« nÆ¡i Ä‘Ã¢y.",
-        "CÃ‚U CÃ\n\nTrÃ² chÆ¡i nhá» \u2014 CÃ¢u cÃ¡!\n\nTrang bá»‹ Cáº§n CÃ¢u (quÃ  cá»§a Jessica), Ä‘á»©ng gáº§n biá»ƒn phÃ­a TÃ¢y, nháº¯m ra máº·t nÆ°á»›c vÃ  báº¥m chuá»™t trÃ¡i Ä‘á»ƒ tháº£ lÆ°á»¡i cÃ¢u.\n\nChá» bÃ³ng cÃ¡ bÆ¡i tá»›i phao \u2014 khi phao rung, báº¥m chuá»™t trÃ¡i Ä‘á»ƒ báº¯t Ä‘áº§u kÃ©o.",
-        "CÃ‚U CÃ (TIáº¾P)\n\nKÃ©o vÃ²ng trÃ²n giá»¯a mÃ n hÃ¬nh Ä‘á»ƒ di chuyá»ƒn váº¡ch tráº¯ng \u2014 giá»¯ nÃ³ trong vÃ¹ng xanh Ä‘á»ƒ láº¥p Ä‘áº§y thanh tiáº¿n Ä‘á»™.\n\nCÃ¡ cÃ³ thá»ƒ quáº«y trÃªn bá» \u2014 dÃ¹ng Gáº­y gÃµ cho xá»‰u rá»“i nháº·t lÃªn.\n\nCÃ¡ bÃ¡n Ä‘Æ°á»£c tiá»n: ChÃ©p 15, Há»“i 25, Ngá»« 40, NÃ³c 60.",
-        "Máº¸O\n\nThu hoáº¡ch lÃºa Ä‘á»ƒ kiáº¿m tiá»n\nXÃ¢y dá»±ng tÆ°á»ng vÃ  thÃ¡p canh Ä‘á»ƒ báº£o vá»‡\nHoÃ n thÃ nh nhiá»‡m vá»¥ Ä‘á»ƒ nháº­n thÆ°á»Ÿng\nNgá»§ trÃªn giÆ°á»ng Ä‘á»ƒ lÆ°u game"
+        "CHÀO MỪNG!\n\nChào mừng đến với Country Life!\n\nSau khi tốt nghiệp ngành CNTT, thị trường việc làm đã quá khó khăn. Không có việc làm, bạn quay về nông thôn của ông nội đã khuất.",
+        "BẮT ĐẦU CUỘC SỐNG MỚI\n\nTại đây, bạn phải xây dựng nông trại, bảo vệ làng, và tìm kiếm hạnh phúc cho mình.\n\nBiết đâu, cô gái hàng xóm sẽ là định mệnh của bạn...",
+        "DI CHUYỂN\n\nWASD \u2014 Di chuyển\nSpace \u2014 Nhảy\nShift \u2014 Chạy nhanh\nChuột \u2014 Nhìn xung quanh",
+        "HÀNH ĐỘNG\n\nChuột trái \u2014 Sử dụng công cụ\nE \u2014 Tương tác / Mở cửa\nQ \u2014 Bỏ vật phẩm",
+        "XÂY DỰNG\n\nGiữ Búa + F \u2014 Mở menu xây dựng\nB / N \u2014 Đổi loại công trình\nChuột trái \u2014 Đặt công trình\nF \u2014 Hủy",
+        "NÔNG NGHIỆP\n\nCuốc \u2014 Làm đất để trồng cây\nLưỡi liềm \u2014 Thu hoạch\nRìu / Cuốc chim \u2014 Thu thập nguyên liệu",
+        "KẺ THÙ\n\nBan đêm (18h \u2013 6h), lũ quỷ xuất hiện và tấn công bạn cùng các công trình.\nQuỷ thường: 50 máu, gây 10 sát thương.\nQuỷ khổng lồ: máu và sát thương cao hơn.",
+        "TRỪ TÀ\n\nTràng hạt \u2014 Quả cầu thánh hạ gục một đòn.\nTrang bị Tràng Hạt rồi bấm chuột trái để thi triển.\n\nHãy đóng cửa khi trời tối để cản bước chúng!",
+        "NGÔI CHÙA\n\nNgôi chùa 4 tầng mái cong nằm phía Đông làng, ngay cạnh nhà bà hàng xóm.\n\nĐây là công trình biểu tượng của làng \u2014 hãy đến chiêm bái và ngắm cảnh hoàng hôn từ nơi đây.",
+        "CÂU CÁ\n\nTrò chơi nhỏ \u2014 Câu cá!\n\nTrang bị Cần Câu (quà của Jessica), đứng gần biển phía Tây, nhắm ra mặt nước và bấm chuột trái để thả lưỡi câu.\n\nChờ bóng cá bơi tới phao \u2014 khi phao rung, bấm chuột trái để bắt đầu kéo.",
+        "CÂU CÁ (TIẾP)\n\nKéo vòng tròn giữa màn hình để di chuyển vạch trắng \u2014 giữ nó trong vùng xanh để lấp đầy thanh tiến độ.\n\nCá có thể quẫy trên bờ \u2014 dùng Gậy gõ cho xỉu rồi nhặt lên.\n\nCá bán được tiền: Chép 15, Hồi 25, Ngừ 40, Nóc 60.",
+        "MẸO\n\nThu hoạch lúa để kiếm tiền\nXây dựng tường và tháp canh để bảo vệ\nHoàn thành nhiệm vụ để nhận thưởng\nNgủ trên giường để lưu game"
     };
     private GameObject _endPanel;
     private GameObject _bossEndPanel;
@@ -172,6 +172,9 @@ public partial class UIManager : MonoBehaviour
     private GameObject _karmaBarRoot;
     private Image _karmaBarFill;
     private TMP_Text _karmaBarText;
+    private int _lastKarma;
+    private int _lastKarmaMax;
+    private bool _karmaBarVisible;
 
     private GameObject _eventTestPanel;
 
@@ -333,7 +336,7 @@ public partial class UIManager : MonoBehaviour
         _timeText = EnsureText(
             "TimeText",
             new Vector2(40f * _statsScale, -20f * _statsScale),
-            Localization.F("NgÃ y {0} - {1}", 1, "08.00"),
+            Localization.F("Ngày {0} - {1}", 1, "08.00"),
             Mathf.RoundToInt(20 * _statsScale),
             null,
             TextAlignmentOptions.Left,
@@ -361,7 +364,7 @@ public partial class UIManager : MonoBehaviour
         _staminaText = EnsureText(
             "StaminaText",
             new Vector2(40f * _statsScale, -100f * _statsScale),
-            Localization.F("Thá»ƒ Lá»±c: {0}/{1}", 100, 100),
+            Localization.F("Thể Lực: {0}/{1}", 100, 100),
             Mathf.RoundToInt(20 * _statsScale),
             null,
             TextAlignmentOptions.Left,
@@ -375,7 +378,7 @@ public partial class UIManager : MonoBehaviour
         _moneyText = EnsureText(
             "MoneyText",
             new Vector2(40f * _statsScale, -140f * _statsScale),
-            Localization.F("Tiá»n: {0}", 0),
+            Localization.F("Tiền: {0}", 0),
             Mathf.RoundToInt(20 * _statsScale),
             null,
             TextAlignmentOptions.Left,
@@ -389,7 +392,7 @@ public partial class UIManager : MonoBehaviour
         _questText = EnsureText(
             "QuestText",
             new Vector2(40f * _statsScale, -175f * _statsScale),
-            Localization.T("Nhiá»‡m Vá»¥: Sáºµn sÃ ng"),
+            Localization.T("Nhiệm Vụ: Sẵn sàng"),
             Mathf.RoundToInt(15 * _statsScale),
             null,
             TextAlignmentOptions.Left,
@@ -573,23 +576,23 @@ public partial class UIManager : MonoBehaviour
 
         // Panels - responsive sizes
         _pauseMenuPanel = CreateMenuPanel("PauseMenu", Vector2.zero, new Vector2(panelWidth, panelHeight));
-        CreateButton("ContinueButton", _pauseMenuPanel.transform, Localization.T("Tiáº¿p Tá»¥c"), new Vector2(0f, panelHeight * 0.33f), () => GameManager.Instance?.TogglePause(false));
-        CreateButton("SaveButton", _pauseMenuPanel.transform, Localization.T("LÆ°u Game"), new Vector2(0f, panelHeight * 0.22f), () => ShowSaveSlotMenu(false));
-        CreateButton("LoadButton", _pauseMenuPanel.transform, Localization.T("Táº£i Game"), new Vector2(0f, panelHeight * 0.11f), () => ShowSaveSlotMenu(true));
-        CreateButton("StatsButton", _pauseMenuPanel.transform, Localization.T("Thá»‘ng KÃª"), new Vector2(0f, 0f), () => ShowRecordPanel(true));
-        CreateButton("QuestsButton", _pauseMenuPanel.transform, Localization.T("Nhiá»‡m Vá»¥"), new Vector2(0f, -panelHeight * 0.11f), () => ShowQuestPanel(true));
-        CreateButton("SettingsButton", _pauseMenuPanel.transform, Localization.T("CÃ i Äáº·t"), new Vector2(0f, -panelHeight * 0.22f), () => ShowSettingsPanel(true));
-        CreateButton("TutorialButton", _pauseMenuPanel.transform, Localization.T("HÆ°á»›ng Dáº«n"), new Vector2(0f, -panelHeight * 0.33f), () => ShowTutorial(true));
-        CreateButton("EventTestButton", _pauseMenuPanel.transform, Localization.T("Sá»± Kiá»‡n"), new Vector2(0f, -panelHeight * 0.44f), () => ShowEventTestPanel(true));
-        CreateButton("ExitButton", _pauseMenuPanel.transform, Localization.T("ThoÃ¡t"), new Vector2(0f, -panelHeight * 0.55f), () => GameManager.Instance?.ReturnToMainMenu());
+        CreateButton("ContinueButton", _pauseMenuPanel.transform, Localization.T("Tiếp Tục"), new Vector2(0f, panelHeight * 0.40f), () => GameManager.Instance?.TogglePause(false));
+        CreateButton("SaveButton", _pauseMenuPanel.transform, Localization.T("Lưu Game"), new Vector2(0f, panelHeight * 0.30f), () => ShowSaveSlotMenu(false));
+        CreateButton("LoadButton", _pauseMenuPanel.transform, Localization.T("Tải Game"), new Vector2(0f, panelHeight * 0.20f), () => ShowSaveSlotMenu(true));
+        CreateButton("StatsButton", _pauseMenuPanel.transform, Localization.T("Thống Kê"), new Vector2(0f, panelHeight * 0.10f), () => ShowRecordPanel(true));
+        CreateButton("QuestsButton", _pauseMenuPanel.transform, Localization.T("Nhiệm Vụ"), new Vector2(0f, 0f), () => ShowQuestPanel(true));
+        CreateButton("SettingsButton", _pauseMenuPanel.transform, Localization.T("Cài Đặt"), new Vector2(0f, -panelHeight * 0.10f), () => ShowSettingsPanel(true));
+        CreateButton("TutorialButton", _pauseMenuPanel.transform, Localization.T("Hướng Dẫn"), new Vector2(0f, -panelHeight * 0.20f), () => ShowTutorial(true));
+        CreateButton("ExitButton", _pauseMenuPanel.transform, Localization.T("Thoát"), new Vector2(0f, -panelHeight * 0.30f), () => GameManager.Instance?.ReturnToMainMenu());
+        CreateButton("WatchDealButton", _pauseMenuPanel.transform, Localization.T("Xem Cảnh Giao Dịch (Test)"), new Vector2(0f, -panelHeight * 0.40f), () => RichManNPC.Instance?.ForceStartDealForWatch());
         _pauseMenuPanel.SetActive(false);
 
         CreateSaveSlotMenu(panelWidth, padding, largefontSize);
 
         _recordPanel = CreateMenuPanel("RecordPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
-        EnsureText("RecordTitle", new Vector2(0f, panelHeight * 0.35f), Localization.T("THá»NG KÃŠ"), (int)largefontSize, _recordPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
+        EnsureText("RecordTitle", new Vector2(0f, panelHeight * 0.35f), Localization.T("THỐNG KÊ"), (int)largefontSize, _recordPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
         EnsureText("RecordLines", new Vector2(0f, panelHeight * 0.1f), BuildRecordLines(0, 0, 0, 0), (int)fontSize, _recordPanel.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.4f));
-        CreateButton("RecordBackButton", _recordPanel.transform, Localization.T("Quay Láº¡i"), new Vector2(0f, -panelHeight * 0.35f), () => ShowRecordPanel(false));
+        CreateButton("RecordBackButton", _recordPanel.transform, Localization.T("Quay Lại"), new Vector2(0f, -panelHeight * 0.35f), () => ShowRecordPanel(false));
         _recordPanel.SetActive(false);
 
         float settingsHeight = Mathf.Min(screenHeight * 0.85f, 620f);
@@ -597,7 +600,7 @@ public partial class UIManager : MonoBehaviour
         var settingsButtonSize = new Vector2(Mathf.Min(menuButtonWidth * 0.9f, settingsWidth * 0.34f), screenHeight * 0.04f);
         _settingsPanel = CreateMenuPanel("SettingsPanel", Vector2.zero, new Vector2(settingsWidth, settingsHeight));
 
-        EnsureText("SettingsTitle", new Vector2(0f, settingsHeight * 0.34f), Localization.T("CÃ€I Äáº¶T"), (int)largefontSize, _settingsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(settingsWidth - padding * 4, lineHeight));
+        EnsureText("SettingsTitle", new Vector2(0f, settingsHeight * 0.34f), Localization.T("CÀI ĐẶT"), (int)largefontSize, _settingsPanel.transform, TextAlignmentOptions.Center, true, new Vector2(settingsWidth - padding * 4, lineHeight));
 
         float settingsContentW = settingsWidth - padding * 4;
         float settingsScrollbarW = 12f;
@@ -684,7 +687,7 @@ public partial class UIManager : MonoBehaviour
 
         Transform settingsScrollContent = settingsContent.transform;
 
-        var mouseSensCaption = EnsureText("MouseSensCaption", Vector2.zero, Localization.T("Äá»˜ NHáº Y CHUá»˜T"), (int)fontSize, settingsScrollContent, TextAlignmentOptions.Center, true, new Vector2(settingsWidth - padding * 4, lineHeight));
+        var mouseSensCaption = EnsureText("MouseSensCaption", Vector2.zero, Localization.T("ĐỘ NHẠY CHUỘT"), (int)fontSize, settingsScrollContent, TextAlignmentOptions.Center, true, new Vector2(settingsWidth - padding * 4, lineHeight));
         var mouseSensCaptionLE = mouseSensCaption.gameObject.AddComponent<LayoutElement>();
         mouseSensCaptionLE.preferredHeight = lineHeight;
         var mouseSensRow = new GameObject("MouseSensRow");
@@ -704,7 +707,7 @@ public partial class UIManager : MonoBehaviour
         _mouseSensText = EnsureText("MouseSensValue", Vector2.zero, SettingsManager.MouseSensitivity.ToString("0.00"), (int)fontSize, mouseSensRow.transform, TextAlignmentOptions.Center, true, new Vector2(menuButtonWidth * 0.4f, screenHeight * 0.035f));
         CreateButton("MouseSensPlus", mouseSensRow.transform, ">", Vector2.zero, () => { SettingsManager.SetMouseSensitivity(SettingsManager.MouseSensitivity + 0.25f); UpdateSettingsValues(); }, new Vector2(menuButtonWidth * 0.3f, screenHeight * 0.035f));
 
-        var touchSensCaption = EnsureText("TouchSensCaption", Vector2.zero, Localization.T("Äá»˜ NHáº Y Cáº¢M á»¨NG"), (int)fontSize, settingsScrollContent, TextAlignmentOptions.Center, true, new Vector2(settingsWidth - padding * 4, lineHeight));
+        var touchSensCaption = EnsureText("TouchSensCaption", Vector2.zero, Localization.T("ĐỘ NHẠY CẢM ỨNG"), (int)fontSize, settingsScrollContent, TextAlignmentOptions.Center, true, new Vector2(settingsWidth - padding * 4, lineHeight));
         var touchSensCaptionLE = touchSensCaption.gameObject.AddComponent<LayoutElement>();
         touchSensCaptionLE.preferredHeight = lineHeight;
         var touchSensRow = new GameObject("TouchSensRow");
@@ -732,7 +735,7 @@ public partial class UIManager : MonoBehaviour
         var langLE = _languageButton.gameObject.AddComponent<LayoutElement>();
         langLE.preferredHeight = settingsButtonSize.y;
 
-        var controlModeCaption = EnsureText("ControlModeCaption", Vector2.zero, Localization.T("CÃCH ÄIá»€U KHIá»‚N"), (int)fontSize, settingsScrollContent, TextAlignmentOptions.Center, true, new Vector2(settingsWidth - padding * 4, lineHeight));
+        var controlModeCaption = EnsureText("ControlModeCaption", Vector2.zero, Localization.T("CÁCH ĐIỀU KHIỂN"), (int)fontSize, settingsScrollContent, TextAlignmentOptions.Center, true, new Vector2(settingsWidth - padding * 4, lineHeight));
         var controlModeCaptionLE = controlModeCaption.gameObject.AddComponent<LayoutElement>();
         controlModeCaptionLE.preferredHeight = lineHeight;
         var controlModeRow = new GameObject("ControlModeRow");
@@ -748,13 +751,13 @@ public partial class UIManager : MonoBehaviour
         controlModeRowLayout.childForceExpandHeight = false;
         var controlModeRowLE = controlModeRow.AddComponent<LayoutElement>();
         controlModeRowLE.preferredHeight = settingsButtonSize.y;
-        _settingsPcModeButton = CreateButton("SettingsPCModeButton", controlModeRow.transform, Localization.T("PC / BÃ n PhÃ­m"), Vector2.zero, () => SetControlMode(ControlMode.PC), settingsButtonSize);
-        _settingsMobileModeButton = CreateButton("SettingsMobileModeButton", controlModeRow.transform, Localization.T("Äiá»‡n Thoáº¡i / Cáº£m á»¨ng"), Vector2.zero, () => SetControlMode(ControlMode.Mobile), settingsButtonSize);
-        var endingTabBtn = CreateButton("EndingTreeTabButton", settingsScrollContent, Localization.T("CÃ¢y Káº¿t ThÃºc"), Vector2.zero, () => ShowEndingTreePanel(true), settingsButtonSize);
+        _settingsPcModeButton = CreateButton("SettingsPCModeButton", controlModeRow.transform, Localization.T("PC / Bàn Phím"), Vector2.zero, () => SetControlMode(ControlMode.PC), settingsButtonSize);
+        _settingsMobileModeButton = CreateButton("SettingsMobileModeButton", controlModeRow.transform, Localization.T("Điện Thoại / Cảm Ứng"), Vector2.zero, () => SetControlMode(ControlMode.Mobile), settingsButtonSize);
+        var endingTabBtn = CreateButton("EndingTreeTabButton", settingsScrollContent, Localization.T("Cây Kết Thúc"), Vector2.zero, () => ShowEndingTreePanel(true), settingsButtonSize);
         var endingTabLE = endingTabBtn.gameObject.AddComponent<LayoutElement>();
         endingTabLE.preferredHeight = settingsButtonSize.y;
 
-        CreateButton("SettingsCloseButton", _settingsPanel.transform, Localization.T("ÄÃ³ng"), new Vector2(0f, -settingsHeight * 0.47f), () => ShowSettingsPanel(false), settingsButtonSize);
+        CreateButton("SettingsCloseButton", _settingsPanel.transform, Localization.T("Đóng"), new Vector2(0f, -settingsHeight * 0.47f), () => ShowSettingsPanel(false), settingsButtonSize);
 
         UpdateSettingsValues();
         _settingsPanel.SetActive(false);
@@ -762,16 +765,16 @@ public partial class UIManager : MonoBehaviour
         _endingTreePanel = CreateFullScreenPanel("EndingTreePanel");
         _endingTreeContent = CreateEndingTreeContent(_endingTreePanel.transform);
         _endingTreeContentRect = _endingTreeContent.GetComponent<RectTransform>();
-        _endingTreeTitleText = EnsureText("EndingTreeTitle", new Vector2(0f, screenHeight * 0.43f), Localization.T("CÃ‚Y Káº¾T THÃšC"), (int)largefontSize, _endingTreePanel.transform, TextAlignmentOptions.Center, true, new Vector2(screenWidth * 0.7f, lineHeight));
+        _endingTreeTitleText = EnsureText("EndingTreeTitle", new Vector2(0f, screenHeight * 0.43f), Localization.T("CÂY KẾT THÚC"), (int)largefontSize, _endingTreePanel.transform, TextAlignmentOptions.Center, true, new Vector2(screenWidth * 0.7f, lineHeight));
 
-        _endingTreeExitButton = CreateButton("EndingTreeExitButton", _endingTreePanel.transform, Localization.T("ÄÃ³ng"), Vector2.zero, () => ShowEndingTreePanel(false), new Vector2(menuButtonWidth * 0.55f, buttonHeight));
+        _endingTreeExitButton = CreateButton("EndingTreeExitButton", _endingTreePanel.transform, Localization.T("Đóng"), Vector2.zero, () => ShowEndingTreePanel(false), new Vector2(menuButtonWidth * 0.55f, buttonHeight));
         var exitRt = _endingTreeExitButton.GetComponent<RectTransform>();
         exitRt.anchorMin = new Vector2(1f, 1f);
         exitRt.anchorMax = new Vector2(1f, 1f);
         exitRt.pivot = new Vector2(1f, 1f);
         exitRt.anchoredPosition = new Vector2(-padding, -padding);
 
-        _endingTreeSettingsButton = CreateButton("EndingTreeSettingsTabButton", _endingTreePanel.transform, Localization.T("CÃ i Äáº·t"), new Vector2(0f, -screenHeight * 0.44f), () => { _endingTreePanel?.SetActive(false); ShowSettingsPanel(true); });
+        _endingTreeSettingsButton = CreateButton("EndingTreeSettingsTabButton", _endingTreePanel.transform, Localization.T("Cài Đặt"), new Vector2(0f, -screenHeight * 0.44f), () => { _endingTreePanel?.SetActive(false); ShowSettingsPanel(true); });
 
         BuildEndingTreeLayout();
         _endingTreePanel.SetActive(false);
@@ -793,7 +796,7 @@ public partial class UIManager : MonoBehaviour
         EnsureText("EndingQuestTabTitle", new Vector2(0f, panelHeight * 0.34f), "", (int)(largefontSize * 1.05f), tabBox.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight * 1.5f));
         EnsureText("EndingQuestTabStory", new Vector2(0f, panelHeight * 0.14f), "", (int)fontSize, tabBox.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.22f));
         EnsureText("EndingQuestTabCond", new Vector2(0f, -panelHeight * 0.17f), "", (int)fontSize, tabBox.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.4f));
-        CreateButton("EndingQuestTabCloseButton", tabBox.transform, Localization.T("ÄÃ³ng"), new Vector2(0f, -panelHeight * 0.41f), () => ShowEndingQuestTab(false), new Vector2(menuButtonWidth * 0.55f, buttonHeight));
+        CreateButton("EndingQuestTabCloseButton", tabBox.transform, Localization.T("Đóng"), new Vector2(0f, -panelHeight * 0.41f), () => ShowEndingQuestTab(false), new Vector2(menuButtonWidth * 0.55f, buttonHeight));
         _endingQuestTabPanel.SetActive(false);
 
         _endingDetailPanel = CreateFullScreenPanel("EndingDetailPanel");
@@ -813,14 +816,14 @@ public partial class UIManager : MonoBehaviour
         EnsureText("EndingDetailTitle", new Vector2(0f, panelHeight * 0.34f), "", (int)(largefontSize * 1.05f), detailBox.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight * 1.5f));
         EnsureText("EndingDetailStory", new Vector2(0f, panelHeight * 0.14f), "", (int)fontSize, detailBox.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.22f));
         EnsureText("EndingDetailCond", new Vector2(0f, -panelHeight * 0.17f), "", (int)fontSize, detailBox.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.4f));
-        CreateButton("EndingDetailPlayButton", detailBox.transform, Localization.T("PhÃ¡t Káº¿t ThÃºc"), new Vector2(0f, -panelHeight * 0.38f), PlayEndingFromDetail, new Vector2(menuButtonWidth * 0.75f, buttonHeight * 1.1f));
-        CreateButton("EndingDetailCloseButton", detailBox.transform, Localization.T("ÄÃ³ng"), new Vector2(0f, -panelHeight * 0.44f), () => ShowEndingDetail(false), new Vector2(menuButtonWidth * 0.55f, buttonHeight));
+        CreateButton("EndingDetailPlayButton", detailBox.transform, Localization.T("Phát Kết Thúc"), new Vector2(0f, -panelHeight * 0.38f), PlayEndingFromDetail, new Vector2(menuButtonWidth * 0.75f, buttonHeight * 1.1f));
+        CreateButton("EndingDetailCloseButton", detailBox.transform, Localization.T("Đóng"), new Vector2(0f, -panelHeight * 0.44f), () => ShowEndingDetail(false), new Vector2(menuButtonWidth * 0.55f, buttonHeight));
         _endingDetailPanel.SetActive(false);
 
         _questPanel = CreateMenuPanel("QuestPanel", Vector2.zero, new Vector2(panelWidth, panelHeight));
-        EnsureText("QuestTitle", new Vector2(0f, panelHeight * 0.35f), Localization.T("NHIá»†M Vá»¤"), (int)largefontSize, _questPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
-        _questLinesText = EnsureText("QuestLines", new Vector2(0f, panelHeight * 0.1f), Localization.T("1. Thu hoáº¡ch lÃºa 0/100\n2. Diá»‡t quÃ¡i 0/30\n3. Kiáº¿m tiá»n 0/100000"), (int)fontSize, _questPanel.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.6f));
-        CreateButton("QuestCloseButton", _questPanel.transform, Localization.T("ÄÃ³ng"), new Vector2(0f, -panelHeight * 0.35f), () => ShowQuestPanel(false));
+        EnsureText("QuestTitle", new Vector2(0f, panelHeight * 0.35f), Localization.T("NHIỆM VỤ"), (int)largefontSize, _questPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight));
+        _questLinesText = EnsureText("QuestLines", new Vector2(0f, panelHeight * 0.1f), Localization.T("1. Thu hoạch lúa 0/100\n2. Diệt quái 0/30\n3. Kiếm tiền 0/100000"), (int)fontSize, _questPanel.transform, TextAlignmentOptions.Left, true, new Vector2(panelWidth - padding * 4, panelHeight * 0.6f));
+        CreateButton("QuestCloseButton", _questPanel.transform, Localization.T("Đóng"), new Vector2(0f, -panelHeight * 0.35f), () => ShowQuestPanel(false));
         _questPanel.SetActive(false);
 
         if (!_tutorialCreated)
@@ -985,7 +988,7 @@ public partial class UIManager : MonoBehaviour
             menuRect.anchoredPosition = new Vector2(0f, 0f);
             menuRect.sizeDelta = new Vector2(panelWidth, 0f);
         }
-        EnsureText("TitleText", new Vector2(0f, panelHeight * 0.3f), Localization.T("XÃ‚Y Dá»°NG NÃ”NG TRáº I"), (int)(largefontSize * 1.1f), _mainMenuPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight * 1.5f));
+        EnsureText("TitleText", new Vector2(0f, panelHeight * 0.3f), Localization.T("XÂY DỰNG NÔNG TRẠI"), (int)(largefontSize * 1.1f), _mainMenuPanel.transform, TextAlignmentOptions.Center, true, new Vector2(panelWidth - padding * 4, lineHeight * 1.5f));
         float mainMenuPitch = panelHeight * 0.11f;
         float mainMenuStartY = panelHeight * 0.40f;
         var mainMenuButtonSize = new Vector2(Mathf.Min(menuButtonWidth * 0.8f, panelWidth * 0.6f), panelHeight * 0.08f);
@@ -994,20 +997,17 @@ public partial class UIManager : MonoBehaviour
         float menuGap = padding * 0.5f;
         mainMenuStartY = Mathf.Min(mainMenuStartY, panelHeight * 0.30f - largefontSize * 1.1f * 0.5f - menuBtnHalfH - menuGap);
         mainMenuStartY = Mathf.Min(mainMenuStartY, frameContentHalfY - menuBtnHalfH - menuGap);
-        mainMenuPitch = Mathf.Min(mainMenuPitch, (mainMenuStartY + frameContentHalfY - menuBtnHalfH - menuGap) / 6f);
-        CreateButton("NewGameButton", _mainMenuPanel.transform, Localization.T("TrÃ² Má»›i"), new Vector2(0f, mainMenuStartY), () => MainMenuController.Instance?.OnNewGameClicked(), mainMenuButtonSize);
-        CreateButton("LoadGameButton", _mainMenuPanel.transform, Localization.T("Tiáº¿p Tá»¥c (Táº£i)"), new Vector2(0f, mainMenuStartY - mainMenuPitch), () => ShowSaveSlotMenu(true), mainMenuButtonSize);
-        CreateButton("SkipIntroButton", _mainMenuPanel.transform, Localization.T("Bá» Qua Giá»›i Thiá»‡u"), new Vector2(0f, mainMenuStartY - mainMenuPitch * 2f), () => MainMenuController.Instance?.OnSkipIntroClicked(), mainMenuButtonSize);
-        CreateButton("QuitButton", _mainMenuPanel.transform, Localization.T("ThoÃ¡t"), new Vector2(0f, mainMenuStartY - mainMenuPitch * 3f), () => MainMenuController.Instance?.OnQuitClicked(), mainMenuButtonSize);
-        CreateButton("ControlsButton", _mainMenuPanel.transform, Localization.T("CÃ i Äáº·t"), new Vector2(0f, mainMenuStartY - mainMenuPitch * 4f), () => ShowSettingsPanel(true), mainMenuButtonSize);
-        CreateButton("EndingTreeMenuButton", _mainMenuPanel.transform, Localization.T("CÃ¢y Káº¿t ThÃºc"), new Vector2(0f, mainMenuStartY - mainMenuPitch * 5f), () => ShowEndingTreePanel(true), mainMenuButtonSize);
+        mainMenuPitch = Mathf.Min(mainMenuPitch, (mainMenuStartY + frameContentHalfY - menuBtnHalfH - menuGap) / 5f);
+        CreateButton("NewGameButton", _mainMenuPanel.transform, Localization.T("Trò Mới"), new Vector2(0f, mainMenuStartY), () => MainMenuController.Instance?.OnNewGameClicked(), mainMenuButtonSize);
+        CreateButton("LoadGameButton", _mainMenuPanel.transform, Localization.T("Tiếp Tục (Tải)"), new Vector2(0f, mainMenuStartY - mainMenuPitch), () => ShowSaveSlotMenu(true), mainMenuButtonSize);
+        CreateButton("QuitButton", _mainMenuPanel.transform, Localization.T("Thoát"), new Vector2(0f, mainMenuStartY - mainMenuPitch * 2f), () => MainMenuController.Instance?.OnQuitClicked(), mainMenuButtonSize);
+        CreateButton("ControlsButton", _mainMenuPanel.transform, Localization.T("Cài Đặt"), new Vector2(0f, mainMenuStartY - mainMenuPitch * 3f), () => ShowSettingsPanel(true), mainMenuButtonSize);
+        CreateButton("EndingTreeMenuButton", _mainMenuPanel.transform, Localization.T("Cây Kết Thúc"), new Vector2(0f, mainMenuStartY - mainMenuPitch * 4f), () => ShowEndingTreePanel(true), mainMenuButtonSize);
         _mainMenuPanel.SetActive(false);
 
         CreatePlatformPanel(panelWidth, panelHeight, padding, fontSize, largefontSize);
 
         CreateGenderSelectionPanel(panelWidth, panelHeight, fontSize, largefontSize);
-
-        CreateEventTestPanel(panelWidth, panelHeight, padding);
 
         ShowAllGameUI(true);
 
@@ -1432,13 +1432,13 @@ public partial class UIManager : MonoBehaviour
         {
             var label = _invertYButton.GetComponentInChildren<TMP_Text>();
             if (label != null)
-                label.text = SettingsManager.InvertY ? Localization.T("Äáº£o Trá»¥c Dá»c: Báº¬T") : Localization.T("Äáº£o Trá»¥c Dá»c: Táº®T");
+                label.text = SettingsManager.InvertY ? Localization.T("Đảo Trục Dọc: BẬT") : Localization.T("Đảo Trục Dọc: TẮT");
         }
         if (_languageButton != null)
         {
             var label = _languageButton.GetComponentInChildren<TMP_Text>();
             if (label != null)
-                label.text = Localization.T("NgÃ´n Ngá»¯") + ": " + (Localization.Current == Language.Vietnamese ? "Tiáº¿ng Viá»‡t" : "English");
+                label.text = Localization.T("Ngôn Ngữ") + ": " + (Localization.Current == Language.Vietnamese ? "Tiếng Việt" : "English");
         }
         SetModeButtonHighlight(_settingsPcModeButton, GameInput.Mode == ControlMode.PC);
         SetModeButtonHighlight(_settingsMobileModeButton, GameInput.Mode == ControlMode.Mobile);
@@ -1451,8 +1451,8 @@ public partial class UIManager : MonoBehaviour
             _endPanel = CreateMenuPanel("EndPanel", Vector2.zero, new Vector2(680f, 520f));
             EnsureText("EndTitle", new Vector2(0f, 170f), title, 32, _endPanel.transform, TextAlignmentOptions.Center, true, new Vector2(640f, 40f));
             EnsureText("EndContent", new Vector2(0f, 60f), content, 20, _endPanel.transform, TextAlignmentOptions.Center, true, new Vector2(640f, 120f));
-            CreateButton("EndRestartButton", _endPanel.transform, Localization.T("ChÆ¡i Láº¡i"), new Vector2(-110f, -180f), () => GameManager.Instance?.StartNewGame());
-            CreateButton("EndQuitButton", _endPanel.transform, Localization.T("ThoÃ¡t"), new Vector2(110f, -180f), () => Application.Quit());
+            CreateButton("EndRestartButton", _endPanel.transform, Localization.T("Chơi Lại"), new Vector2(-110f, -180f), () => GameManager.Instance?.StartNewGame());
+            CreateButton("EndQuitButton", _endPanel.transform, Localization.T("Thoát"), new Vector2(110f, -180f), () => Application.Quit());
         }
         var titleTf = _endPanel.transform.Find("EndTitle");
         if (titleTf != null) { var t = titleTf.GetComponent<TMP_Text>(); if (t != null) t.text = title; }
@@ -1474,8 +1474,8 @@ public partial class UIManager : MonoBehaviour
             _bossEndPanel = CreateMenuPanel("BossEndPanel", Vector2.zero, new Vector2(680f, 520f));
             EnsureText("BossEndTitle", new Vector2(0f, 170f), title, 32, _bossEndPanel.transform, TextAlignmentOptions.Center, true, new Vector2(640f, 40f));
             EnsureText("BossEndContent", new Vector2(0f, 60f), content, 20, _bossEndPanel.transform, TextAlignmentOptions.Center, true, new Vector2(640f, 120f));
-            CreateButton("BossEndLoadButton", _bossEndPanel.transform, Localization.T("Táº£i Save Gáº§n Nháº¥t"), new Vector2(-110f, -180f), () => GameManager.Instance?.ReloadFromBossDeath());
-            CreateButton("BossEndQuitButton", _bossEndPanel.transform, Localization.T("ThoÃ¡t"), new Vector2(110f, -180f), () => Application.Quit());
+            CreateButton("BossEndLoadButton", _bossEndPanel.transform, Localization.T("Tải Save Gần Nhất"), new Vector2(-110f, -180f), () => GameManager.Instance?.ReloadFromBossDeath());
+            CreateButton("BossEndQuitButton", _bossEndPanel.transform, Localization.T("Thoát"), new Vector2(110f, -180f), () => Application.Quit());
         }
         var titleTf = _bossEndPanel.transform.Find("BossEndTitle");
         if (titleTf != null) { var t = titleTf.GetComponent<TMP_Text>(); if (t != null) t.text = title; }
@@ -1487,36 +1487,36 @@ public partial class UIManager : MonoBehaviour
 
     private void RefreshLocalizedText()
     {
-        SetText("RecordTitle", "THá»NG KÃŠ");
-        SetText("SettingsTitle", "CÃ€I Äáº¶T");
-        SetText("MouseSensCaption", "Äá»˜ NHáº Y CHUá»˜T");
-        SetText("TouchSensCaption", "Äá»˜ NHáº Y Cáº¢M á»¨NG");
-        SetText("ControlModeCaption", "CÃCH ÄIá»€U KHIá»‚N");
-        SetText("PlatformTitle", "CÃCH ÄIá»€U KHIá»‚N");
-        SetText("PlatformHint", "Chá»n thiáº¿t bá»‹ báº¡n sáº½ chÆ¡i");
-        SetText("QuestTitle", "NHIá»†M Vá»¤");
-        SetText("TitleText", "XÃ‚Y Dá»°NG NÃ”NG TRáº I");
-        SetText("EndingTreeTitle", "CÃ‚Y Káº¾T THÃšC");
+        SetText("RecordTitle", "THỐNG KÊ");
+        SetText("SettingsTitle", "CÀI ĐẶT");
+        SetText("MouseSensCaption", "ĐỘ NHẠY CHUỘT");
+        SetText("TouchSensCaption", "ĐỘ NHẠY CẢM ỨNG");
+        SetText("ControlModeCaption", "CÁCH ĐIỀU KHIỂN");
+        SetText("PlatformTitle", "CÁCH ĐIỀU KHIỂN");
+        SetText("PlatformHint", "Chọn thiết bị bạn sẽ chơi");
+        SetText("QuestTitle", "NHIỆM VỤ");
+        SetText("TitleText", "XÂY DỰNG NÔNG TRẠI");
+        SetText("EndingTreeTitle", "CÂY KẾT THÚC");
 
-        SetButtonText("ContinueButton", "Tiáº¿p Tá»¥c");
-        SetButtonText("SaveButton", "LÆ°u Game");
-        SetButtonText("LoadButton", "Táº£i Game");
-        SetButtonText("StatsButton", "Thá»‘ng KÃª");
-        SetButtonText("QuestsButton", "Nhiá»‡m Vá»¥");
-        SetButtonText("SettingsButton", "CÃ i Äáº·t");
-        SetButtonText("TutorialButton", "HÆ°á»›ng Dáº«n");
-        SetButtonText("ExitButton", "ThoÃ¡t");
-        SetButtonText("RecordBackButton", "Quay Láº¡i");
-        SetButtonText("SettingsCloseButton", "ÄÃ³ng");
-        SetButtonText("SettingsPCModeButton", "PC / BÃ n PhÃ­m");
-        SetButtonText("SettingsMobileModeButton", "Äiá»‡n Thoáº¡i / Cáº£m á»¨ng");
-        SetButtonText("QuestCloseButton", "ÄÃ³ng");
-        SetButtonText("EndingTreeTabButton", "CÃ¢y Káº¿t ThÃºc");
+        SetButtonText("ContinueButton", "Tiếp Tục");
+        SetButtonText("SaveButton", "Lưu Game");
+        SetButtonText("LoadButton", "Tải Game");
+        SetButtonText("StatsButton", "Thống Kê");
+        SetButtonText("QuestsButton", "Nhiệm Vụ");
+        SetButtonText("SettingsButton", "Cài Đặt");
+        SetButtonText("TutorialButton", "Hướng Dẫn");
+        SetButtonText("ExitButton", "Thoát");
+        SetButtonText("RecordBackButton", "Quay Lại");
+        SetButtonText("SettingsCloseButton", "Đóng");
+        SetButtonText("SettingsPCModeButton", "PC / Bàn Phím");
+        SetButtonText("SettingsMobileModeButton", "Điện Thoại / Cảm Ứng");
+        SetButtonText("QuestCloseButton", "Đóng");
+        SetButtonText("EndingTreeTabButton", "Cây Kết Thúc");
         if (_endingTreeSettingsButton != null)
         {
             var settingsLabel = _endingTreeSettingsButton.GetComponentInChildren<TMP_Text>();
             if (settingsLabel != null)
-                settingsLabel.text = Localization.T("CÃ i Äáº·t");
+                settingsLabel.text = Localization.T("Cài Đặt");
         }
         if (_endingTreePanel != null)
         {
@@ -1525,7 +1525,7 @@ public partial class UIManager : MonoBehaviour
             {
                 var closeLabel = closeTransform.GetComponentInChildren<TMP_Text>();
                 if (closeLabel != null)
-                    closeLabel.text = Localization.T("ÄÃ³ng");
+                    closeLabel.text = Localization.T("Đóng");
             }
         }
         if (_endingRowTexts != null)
@@ -1537,33 +1537,32 @@ public partial class UIManager : MonoBehaviour
             }
         }
         if (_endingTreeTitleText != null)
-            _endingTreeTitleText.text = Localization.T("CÃ‚Y Káº¾T THÃšC");
+            _endingTreeTitleText.text = Localization.T("CÂY KẾT THÚC");
         RefreshEndingTree();
-        SetButtonText("EndingQuestTabCloseButton", "ÄÃ³ng");
+        SetButtonText("EndingQuestTabCloseButton", "Đóng");
         if (_endingQuestTabUi != null)
             RefreshEndingQuestTab(_endingQuestTabUi);
-        SetButtonText("NewGameButton", "TrÃ² Má»›i");
-        SetButtonText("LoadGameButton", "Tiáº¿p Tá»¥c (Táº£i)");
-        SetButtonText("SkipIntroButton", "Bá» Qua Giá»›i Thiá»‡u");
-        SetButtonText("QuitButton", "ThoÃ¡t");
-        SetButtonText("ControlsButton", "CÃ i Äáº·t");
-        SetButtonText("EndingTreeMenuButton", "CÃ¢y Káº¿t ThÃºc");
-        SetButtonText("PCModeButton", "PC / BÃ n PhÃ­m");
-        SetButtonText("MobileModeButton", "Äiá»‡n Thoáº¡i / Cáº£m á»¨ng");
-        SetButtonText("PlatformCloseButton", "ÄÃ³ng");
-        SetButtonText("EndRestartButton", "ChÆ¡i Láº¡i");
-        SetButtonText("EndQuitButton", "ThoÃ¡t");
-        SetButtonText("SaveSlotBackButton", "Quay Láº¡i");
+        SetButtonText("NewGameButton", "Trò Mới");
+        SetButtonText("LoadGameButton", "Tiếp Tục (Tải)");
+        SetButtonText("QuitButton", "Thoát");
+        SetButtonText("ControlsButton", "Cài Đặt");
+        SetButtonText("EndingTreeMenuButton", "Cây Kết Thúc");
+        SetButtonText("PCModeButton", "PC / Bàn Phím");
+        SetButtonText("MobileModeButton", "Điện Thoại / Cảm Ứng");
+        SetButtonText("PlatformCloseButton", "Đóng");
+        SetButtonText("EndRestartButton", "Chơi Lại");
+        SetButtonText("EndQuitButton", "Thoát");
+        SetButtonText("SaveSlotBackButton", "Quay Lại");
         if (_saveSlotTitleText != null)
-            _saveSlotTitleText.text = Localization.T(_saveSlotLoadMode ? "Táº£i Game" : "LÆ°u Game");
+            _saveSlotTitleText.text = Localization.T(_saveSlotLoadMode ? "Tải Game" : "Lưu Game");
         RefreshSaveSlots();
         if (_genderPanel != null)
         {
-            SetText("GenderTitleText", "Chá»n Giá»›i TÃ­nh");
-            SetText("GenderNoteText", "Chá»‰ lÃ  ngoáº¡i hÃ¬nh, khÃ´ng áº£nh hÆ°á»Ÿng trÃ² chÆ¡i.");
+            SetText("GenderTitleText", "Chọn Giới Tính");
+            SetText("GenderNoteText", "Chỉ là ngoại hình, không ảnh hưởng trò chơi.");
             SetButtonText("GenderMaleButton", "Nam");
-            SetButtonText("GenderFemaleButton", "Ná»¯");
-            SetButtonText("GenderBackButton", "Quay Láº¡i");
+            SetButtonText("GenderFemaleButton", "Nữ");
+            SetButtonText("GenderBackButton", "Quay Lại");
         }
 
         UpdateSettingsValues();
@@ -1643,12 +1642,13 @@ public partial class UIManager : MonoBehaviour
         yield return null;
         _messageText.transform.SetAsLastSibling();
 
+        var wait = new WaitForSeconds(0.02f);
         for (int i = 0; i <= fullText.Length; i++)
         {
             _messageText.text = fullText.Substring(0, i);
             _messageText.SetVerticesDirty();
             UpdateMessageBgSize();
-            yield return new WaitForSeconds(0.02f);
+            yield return wait;
         }
         _messageText.ForceMeshUpdate();
 

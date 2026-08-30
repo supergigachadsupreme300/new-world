@@ -191,6 +191,7 @@ public static partial class MapBuilder
             new Vector3(-4.2f, 1.6f, 1.8f), goldC, true);
         MakeBlock("LampGlow", root.transform, new Vector3(0.2f, 0.15f, 0.2f),
             new Vector3(-4.2f, 1.43f, 1.8f), amberC, true);
+        AddGlowLight(root.transform, new Vector3(-4.2f, 1.25f, 1.8f), 6f, 1.1f, new Color(1f, 0.85f, 0.6f));
 
         // ── Kitchen (back-right wall) ──
         MakeBlock("KitchenCounter", root.transform, new Vector3(3f, 0.9f, 0.9f),
@@ -534,7 +535,8 @@ public static partial class MapBuilder
         lanternShade.GetComponent<MeshRenderer>().enabled = false;
         var lanternGlow = MakeBlock("LanternGlow", root.transform, new Vector3(0.18f, 0.28f, 0.18f),
             new Vector3(-7.3f, 3.4f, 2.22f), amberC);
-        { var lt = lanternGlow.AddComponent<Light>(); lt.type = LightType.Point; lt.range = 5f; lt.intensity = 1f; lt.color = new Color(1f, 0.85f, 0.6f); }
+        DisableShadowCasting(lanternGlow);
+        AddGlowLight(root.transform, new Vector3(-7.3f, 3.15f, 2.22f), 5f, 1f, new Color(1f, 0.85f, 0.6f));
         foreach (Vector3 pt in new[]
         {
             new Vector3(-8.2f, 0.02f, 0f),
@@ -709,7 +711,8 @@ public static partial class MapBuilder
         lampShade1F.GetComponent<MeshRenderer>().enabled = false;
         var lampGlow1F = MakeBlock("LampGlow", root.transform, new Vector3(0.2f, 0.15f, 0.2f),
             new Vector3(-5.3f, 1.43f, -4.4f), amberC, true);
-        { var lt = lampGlow1F.AddComponent<Light>(); lt.type = LightType.Point; lt.range = 6f; lt.intensity = 1.2f; lt.color = new Color(1f, 0.85f, 0.6f); }
+        DisableShadowCasting(lampGlow1F);
+        AddGlowLight(root.transform, new Vector3(-5.3f, 1.25f, -4.4f), 6f, 1.2f, new Color(1f, 0.85f, 0.6f));
         MakeBlock("WallShelf", root.transform, new Vector3(2f, 0.12f, 0.6f),
             new Vector3(-3f, 3.2f, -6.45f), frameC, true);
         MakeBlock("PlantPot", root.transform, new Vector3(0.5f, 0.5f, 0.5f),
@@ -812,7 +815,8 @@ public static partial class MapBuilder
         lampShadeDining.GetComponent<MeshRenderer>().enabled = false;
         var lampGlowDining = MakeBlock("LampGlow", root.transform, new Vector3(0.2f, 0.15f, 0.2f),
             new Vector3(0f, 4.42f, 0.5f), amberC, true);
-        { var lt = lampGlowDining.AddComponent<Light>(); lt.type = LightType.Point; lt.range = 7f; lt.intensity = 1.5f; lt.color = new Color(1f, 0.85f, 0.6f); }
+        DisableShadowCasting(lampGlowDining);
+        AddGlowLight(root.transform, new Vector3(0f, 4.25f, 0.5f), 7f, 1.5f, new Color(1f, 0.85f, 0.6f));
 
         // ── 2F bedroom (matching stairwell opening on the NE) ──
         MakeBlock("BedFrame", root.transform, new Vector3(3f, 0.3f, 2.2f),
@@ -838,13 +842,15 @@ public static partial class MapBuilder
         nightLampL.GetComponent<MeshRenderer>().enabled = false;
         var nightGlowL = MakeBlock("NightLampGlow", root.transform, new Vector3(0.18f, 0.2f, 0.18f),
             new Vector3(-2.6f, 6.45f, 6.3f), amberC, true);
-        { var lt = nightGlowL.AddComponent<Light>(); lt.type = LightType.Point; lt.range = 4f; lt.intensity = 1f; lt.color = new Color(1f, 0.85f, 0.6f); }
+        DisableShadowCasting(nightGlowL);
+        AddGlowLight(root.transform, new Vector3(-2.6f, 6.25f, 6.3f), 4f, 1f, new Color(1f, 0.85f, 0.6f));
         var nightLampR = MakeBlock("NightLamp", root.transform, new Vector3(0.28f, 0.4f, 0.28f),
             new Vector3(0.6f, 6.4f, 6.3f), goldC, true);
         nightLampR.GetComponent<MeshRenderer>().enabled = false;
         var nightGlowR = MakeBlock("NightLampGlow", root.transform, new Vector3(0.18f, 0.2f, 0.18f),
             new Vector3(0.6f, 6.45f, 6.3f), amberC, true);
-        { var lt = nightGlowR.AddComponent<Light>(); lt.type = LightType.Point; lt.range = 4f; lt.intensity = 1f; lt.color = new Color(1f, 0.85f, 0.6f); }
+        DisableShadowCasting(nightGlowR);
+        AddGlowLight(root.transform, new Vector3(0.6f, 6.25f, 6.3f), 4f, 1f, new Color(1f, 0.85f, 0.6f));
         MakeBlock("Wardrobe", root.transform, new Vector3(2.2f, 2.4f, 0.7f),
             new Vector3(-5.5f, 6.7f, -6.55f), frameC);
         MakeBlock("WardrobeDoor", root.transform, new Vector3(0.9f, 2.2f, 0.06f),
@@ -868,7 +874,8 @@ public static partial class MapBuilder
         lampShade2F.GetComponent<MeshRenderer>().enabled = false;
         var lampGlow2F = MakeBlock("LampGlow2F", root.transform, new Vector3(0.22f, 0.16f, 0.22f),
             new Vector3(0f, 8.4f, 0f), amberC, true);
-        { var lt = lampGlow2F.AddComponent<Light>(); lt.type = LightType.Point; lt.range = 8f; lt.intensity = 1.5f; lt.color = new Color(1f, 0.85f, 0.6f); }
+        DisableShadowCasting(lampGlow2F);
+        AddGlowLight(root.transform, new Vector3(0f, 8.22f, 0f), 8f, 1.5f, new Color(1f, 0.85f, 0.6f));
 
         return root;
     }

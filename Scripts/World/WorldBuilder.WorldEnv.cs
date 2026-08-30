@@ -266,6 +266,52 @@ public partial class WorldBuilder
         _roadZEnd = nsZEnd;
         _roadTurnZ = roadTurnZ;
         _roadXEnd = roadEndX;
+}
+
+    private void PlaceStreetLights()
+    {
+        float lampOff = 1.1f;
+        float eastX = _roadCenterX + _roadHalfWidth + lampOff;
+
+        // N-S road, east side — skip junction bands and the fishing shop / convenience / police frontage
+        for (float z = -260f; z <= 260f; z += 40f)
+        {
+            if (z > 34f && z < 98f) continue;
+            if (Mathf.Abs(z - -50f) < 7f) continue;
+            if (Mathf.Abs(z - 90f) < 7f) continue;
+            if (Mathf.Abs(z - 180f) < 7f) continue;
+            RegisterStreetLamp(MapBuilder.BuildStreetLamp(_worldRoot.transform, new Vector3(eastX, 0f, z)));
+        }
+
+        // E-W turn road (z=90), north edge — fronts the village plots
+        float northEdgeZ = _roadTurnZ + _roadHalfWidth + lampOff;
+        for (float x = 30f; x <= _roadXEnd - 10f; x += 40f)
+        {
+            if (Mathf.Abs(x - _roadCenterX) < 8f) continue;
+            RegisterStreetLamp(MapBuilder.BuildStreetLamp(_worldRoot.transform, new Vector3(x, 0f, northEdgeZ)));
+        }
+
+        // South branch road (z=-50, going west), north edge
+        float southEdgeZ = -50f + _roadHalfWidth + lampOff;
+        for (float x = -110f; x <= 0f; x += 25f)
+        {
+            if (Mathf.Abs(x - _roadCenterX) < 8f) continue;
+            RegisterStreetLamp(MapBuilder.BuildStreetLamp(_worldRoot.transform, new Vector3(x, 0f, southEdgeZ)));
+        }
+
+        // North branch road (z=180, going east), north edge
+        float northBranchEdgeZ = 180f + _roadHalfWidth + lampOff;
+        for (float x = 30f; x <= 130f; x += 25f)
+        {
+            if (Mathf.Abs(x - _roadCenterX) < 8f) continue;
+            RegisterStreetLamp(MapBuilder.BuildStreetLamp(_worldRoot.transform, new Vector3(x, 0f, northBranchEdgeZ)));
+        }
+    }
+
+    private void RegisterStreetLamp(Light lamp)
+    {
+        if (lamp != null)
+            _streetLights.Add(lamp);
     }
 
     private void BuildRockyBorder()

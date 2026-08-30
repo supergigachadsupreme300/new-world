@@ -31,8 +31,6 @@ public class InteractionPrompt : MonoBehaviour
         ("GroceryNPC",         "Mua sắm"),
         ("CafeNPC",            "Mua sắm"),
         ("FishingShopNPC",     "Mua sắm"),
-        ("VendorSpawnButton",  "Gọi xe buýt"),
-        ("ImmigrantSpawnButton", "Gọi dân"),
     };
 
     public void Initialize(TMP_Text eKeyText, TMP_Text lmbText)
@@ -52,6 +50,17 @@ public class InteractionPrompt : MonoBehaviour
     {
         if (_cam == null) _cam = Camera.main;
         if (_cam == null || _eKeyText == null) return;
+
+        var pc = GameManager.Instance?.Player;
+        if (pc != null && pc.IsSitting)
+        {
+            _currentEKeyText = "E · " + Localization.T("Đứng dậy");
+            _currentEKeyLocKey = "Đứng dậy";
+            _eKeyText.text = _currentEKeyText;
+            _eKeyText.gameObject.SetActive(true);
+            if (_lmbText != null) _lmbText.gameObject.SetActive(false);
+            return;
+        }
 
         if (IsBlocked())
         {
@@ -127,6 +136,11 @@ public class InteractionPrompt : MonoBehaviour
         {
             if (colliderName == name) return locKey;
         }
+
+        var pc = GameManager.Instance?.Player;
+        if (pc != null && !pc.IsSitting &&
+            SittableSeat.FindNearest(pc.transform.position, 2.6f) != null)
+            return "Ngồi";
 
         if (colliderName != null && colliderName.StartsWith("EventBlock_"))
             return "Kích hoạt";

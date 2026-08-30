@@ -5,68 +5,6 @@ using static CountryLife.Helpers.PickupVisualHelper;
 
 public partial class WorldBuilder
 {
-    private void CreateCropDemo()
-    {
-        var demoRoot = new GameObject("CropDemo");
-        demoRoot.transform.SetParent(_worldRoot.transform);
-
-        string[] cropTypes = { "wheat", "corn", "potato", "carrot", "tomato", "strawberry", "pumpkin", "onion", "sugarcane", "rice" };
-        string[] cropLabels = { "Wheat", "Corn", "Potato", "Carrot", "Tomato", "Strawberry", "Pumpkin", "Onion", "Sugarcane", "Rice" };
-        float startX = 50f;
-        float startZ = -95f;
-        float xStep = 3.5f;
-        float zStep = 2.8f;
-
-        for (int c = 0; c < cropTypes.Length; c++)
-        {
-            for (int s = 1; s <= 4; s++)
-            {
-                float x = startX + (s - 1) * xStep;
-                float z = startZ - c * zStep;
-
-                var plot = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                plot.name = "FieldTile";
-                plot.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-                plot.transform.position = new Vector3(x, 0.01f, z);
-                plot.transform.localScale = new Vector3(2f, 2f, 2f);
-                plot.transform.SetParent(demoRoot.transform);
-                plot.GetComponent<MeshRenderer>().material.color = new Color(0.35f, 0.2f, 0.08f);
-                Destroy(plot.GetComponent<Collider>());
-                AddFieldBorder(plot.transform);
-
-                var plotLabel = new GameObject("PlotLabel");
-                plotLabel.transform.SetParent(demoRoot.transform);
-                plotLabel.transform.position = new Vector3(x, 1f, z);
-                var tmp = plotLabel.AddComponent<TextMeshPro>();
-                tmp.text = cropLabels[c] + "\nS" + s;
-                tmp.fontSize = 0.3f;
-                tmp.alignment = TextAlignmentOptions.Center;
-                tmp.color = Color.white;
-                tmp.outlineWidth = 0.2f;
-                tmp.outlineColor = Color.black;
-
-                var cropRoot = new GameObject(cropTypes[c] + "_Stage" + s);
-                cropRoot.transform.SetParent(plot.transform, false);
-                cropRoot.transform.localPosition = Vector3.up * 0.05f;
-                cropRoot.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
-
-                switch (cropTypes[c])
-                {
-                    case "corn": CreateFieldCorn(cropRoot.transform, s); break;
-                    case "potato": CreateFieldPotato(cropRoot.transform, s); break;
-                    case "carrot": CreateFieldCarrot(cropRoot.transform, s); break;
-                    case "tomato": CreateFieldTomato(cropRoot.transform, s); break;
-                    case "strawberry": CreateFieldStrawberry(cropRoot.transform, s); break;
-                    case "pumpkin": CreateFieldPumpkin(cropRoot.transform, s); break;
-                    case "onion": CreateFieldOnion(cropRoot.transform, s); break;
-                    case "sugarcane": CreateFieldSugarcane(cropRoot.transform, s); break;
-                    case "rice": CreateFieldRice(cropRoot.transform, s); break;
-                    default: CreateFieldWheat(cropRoot.transform, s); break;
-                }
-            }
-        }
-    }
-
     public FieldState GetFieldAt(Vector3 position)
     {
         foreach (var field in _fields)

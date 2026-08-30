@@ -70,7 +70,7 @@ public class NightClubController : MonoBehaviour
         UpdateDoor();
     }
 
-    private bool IsPlayerInside()
+    public bool IsPlayerInside()
     {
         var p = GameManager.Instance?.Player;
         if (p == null) return false;

@@ -127,7 +127,7 @@ public bool IsActive { get; private set; }
         PrebuildDrivingAssets();
     }
 
-    // â”€â”€ Skip Button â”€â”€
+    // ── Skip Button ──
 
     private void CreateSkipButton()
     {
@@ -138,7 +138,7 @@ public bool IsActive { get; private set; }
         _skipButton.transform.SetParent(_canvas.transform, false);
         var tmp = _skipButton.AddComponent<TextMeshProUGUI>();
         _uiManager?.ApplyDefaultFont(tmp);
-        tmp.text = GameInput.IsMobile ? Localization.T("Bá» Qua") : Localization.T("Bá» Qua [ESC]");
+        tmp.text = GameInput.IsMobile ? Localization.T("Bỏ Qua") : Localization.T("Bỏ Qua [ESC]");
         tmp.fontSize = 24;
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Right;
@@ -178,7 +178,7 @@ public bool IsActive { get; private set; }
             _skipButton.SetActive(false);
     }
 
-    // â”€â”€ Public API â”€â”€
+    // ── Public API ──
 
     public void PlayIntroCutscene(System.Action onComplete = null)
     {
@@ -352,9 +352,9 @@ public bool IsActive { get; private set; }
         }
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ═══════════════════════════════════════════════
     //  HELPERS
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ═══════════════════════════════════════════════
 
     private void DisablePlayerControl()
     {
@@ -438,7 +438,7 @@ public bool IsActive { get; private set; }
             _uiManager.ShowEndScreen(endTitle, endContent);
     }
 
-    // â”€â”€ Overlay â”€â”€
+    // ── Overlay ──
 
     private IEnumerator CreateFadeOverlay()
     {
@@ -488,7 +488,7 @@ public bool IsActive { get; private set; }
         if (_overlay != null) { Destroy(_overlay); _overlay = null; _overlayImage = null; }
     }
 
-    // â”€â”€ Letterbox bars â”€â”€
+    // ── Letterbox bars ──
 
     private void CreateLetterboxBars()
     {
@@ -521,7 +521,7 @@ public bool IsActive { get; private set; }
         if (_letterBottom != null) { Destroy(_letterBottom); _letterBottom = null; }
     }
 
-    // â”€â”€ Block spawning â”€â”€
+    // ── Block spawning ──
 
     private GameObject CreateBlock(Vector3 scale, Vector3 position, Color color)
     {

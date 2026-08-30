@@ -53,13 +53,39 @@ public static partial class MapBuilder
     //  SHARED HELPERS
     // ═══════════════════════════════════════════════════════════════
 
-    private static void AddLamppost(Transform parent, Vector3 position)
+    public static Light BuildStreetLamp(Transform parent, Vector3 position)
     {
         Color lampC = new Color(0.18f, 0.16f, 0.14f);
-        MakeBlock("Lamppost", parent, new Vector3(0.16f, 2.8f, 0.16f), position + new Vector3(0f, 1.4f, 0f), lampC, true);
-        MakeBlock("LampHead", parent, new Vector3(0.34f, 0.3f, 0.34f), position + new Vector3(0f, 2.85f, 0f), new Color(0.9f, 0.35f, 0.2f), true);
-        MakeBlock("LampGlow", parent, new Vector3(0.2f, 0.18f, 0.2f), position + new Vector3(0f, 2.85f, 0f), new Color(1f, 0.85f, 0.45f), true);
-        AddEntranceLight(parent, position + new Vector3(0f, 2.8f, 0f));
+        Color headC = new Color(0.9f, 0.35f, 0.2f);
+        Color glowC = new Color(1f, 0.85f, 0.45f);
+        MakeBlock("StreetLampBase", parent, new Vector3(0.36f, 0.08f, 0.36f), position + new Vector3(0f, 0.05f, 0f), lampC, true);
+        MakeBlock("StreetLampPole", parent, new Vector3(0.14f, 2.9f, 0.14f), position + new Vector3(0f, 1.5f, 0f), lampC, true);
+        MakeBlock("StreetLampHead", parent, new Vector3(0.36f, 0.28f, 0.36f), position + new Vector3(0f, 3.0f, 0f), headC, true);
+        var glow = MakeBlock("StreetLampGlow", parent, new Vector3(0.2f, 0.16f, 0.2f), position + new Vector3(0f, 2.98f, 0f), glowC, true);
+        DisableShadowCasting(glow);
+        return AddGlowLight(parent, position + new Vector3(0f, 3.18f, 0f), 22f, 3.2f, new Color(1f, 0.85f, 0.45f), "StreetLight");
+    }
+
+    public static Light AddGlowLight(Transform parent, Vector3 position, float range, float intensity, Color color, string goName = "GlowPointLight")
+    {
+        var lampGo = new GameObject(goName);
+        lampGo.transform.SetParent(parent);
+        lampGo.transform.localPosition = position;
+        var light = lampGo.AddComponent<Light>();
+        light.type = LightType.Point;
+        light.color = color;
+        light.intensity = intensity;
+        light.range = range;
+        light.shadows = LightShadows.None;
+        return light;
+    }
+
+    public static void DisableShadowCasting(GameObject go)
+    {
+        if (go == null) return;
+        var r = go.GetComponent<Renderer>();
+        if (r == null) return;
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
     }
 
     private static void AddEntranceLight(Transform parent, Vector3 position)
@@ -192,7 +218,7 @@ public static partial class MapBuilder
             MakeBlock("TableLeg", root.transform, new Vector3(0.1f, 0.68f, 0.1f), new Vector3(tx + 0.4f, 0.36f, 0.9f), trimC, true);
             MakeBlock("TableLeg", root.transform, new Vector3(0.1f, 0.68f, 0.1f), new Vector3(tx - 0.4f, 0.36f, 1.5f), trimC, true);
             MakeBlock("TableLeg", root.transform, new Vector3(0.1f, 0.68f, 0.1f), new Vector3(tx + 0.4f, 0.36f, 1.5f), trimC, true);
-            MakeBlock("Stool", root.transform, new Vector3(0.32f, 0.5f, 0.32f), new Vector3(tx, 0.25f, 2.15f), trimC, true);
+            MakeBlock("Stool", root.transform, new Vector3(0.32f, 0.5f, 0.32f), new Vector3(tx, 0.25f, 2.15f), trimC, true).AddComponent<SittableSeat>();
             MakeBlock("CoffeeCup", root.transform, new Vector3(0.16f, 0.1f, 0.16f), new Vector3(tx - 0.2f, 0.78f, 1.05f), new Color(0.95f, 0.95f, 0.92f), true);
             MakeBlock("CoffeeCup", root.transform, new Vector3(0.16f, 0.1f, 0.16f), new Vector3(tx + 0.25f, 0.78f, 1.35f), new Color(0.95f, 0.95f, 0.92f), true);
         }
@@ -668,7 +694,7 @@ public static partial class MapBuilder
 
         // ── Window bench along the west wall ──
         MakeBlock("Bench", root.transform, new Vector3(0.45f, 0.5f, 2.6f), new Vector3(-4.6f, 0.5f, 2f), trimC, true);
-        MakeBlock("BenchCushion", root.transform, new Vector3(0.47f, 0.12f, 2.62f), new Vector3(-4.6f, 0.81f, 2f), bookRed, true);
+        MakeBlock("BenchCushion", root.transform, new Vector3(0.47f, 0.12f, 2.62f), new Vector3(-4.6f, 0.81f, 2f), bookRed, true).AddComponent<SittableSeat>();
 
         // ── Potted plants in the corners ──
         MakeBlock("PlantPotSW", root.transform, new Vector3(0.34f, 0.38f, 0.34f), new Vector3(-4.55f, 0.44f, -3.35f), new Color(0.55f, 0.35f, 0.2f), true);
@@ -860,7 +886,7 @@ public static partial class MapBuilder
         MakeBlock("BarTop", root.transform, new Vector3(1.3f, 0.08f, 6.7f), new Vector3(-halfW + 1.1f, 1.12f, -1.5f), new Color(0.7f, 0.5f, 0.3f), true);
         for (int si = 0; si < 4; si++)
         {
-            MakeBlock("BarStool", root.transform, new Vector3(0.35f, 0.6f, 0.35f), new Vector3(-halfW + 2.3f, 0.3f, -3.6f + si * 1.5f), trimC, true);
+            MakeBlock("BarStool", root.transform, new Vector3(0.35f, 0.6f, 0.35f), new Vector3(-halfW + 2.3f, 0.3f, -3.6f + si * 1.5f), trimC, true).AddComponent<SittableSeat>();
         }
         for (int bi = 0; bi < 5; bi++)
         {
@@ -868,7 +894,7 @@ public static partial class MapBuilder
         }
 
         // ── VIP booth along the east wall ──
-        MakeBlock("VipSofa", root.transform, new Vector3(0.5f, 0.5f, 2.4f), new Vector3(halfW - 1.1f, 0.25f, -2.5f), new Color(0.4f, 0.2f, 0.5f), true);
+        MakeBlock("VipSofa", root.transform, new Vector3(0.5f, 0.5f, 2.4f), new Vector3(halfW - 1.1f, 0.25f, -2.5f), new Color(0.4f, 0.2f, 0.5f), true).AddComponent<SittableSeat>();
         MakeBlock("VipTable", root.transform, new Vector3(0.8f, 0.08f, 0.5f), new Vector3(halfW - 1.6f, 0.55f, -2.5f), new Color(0.6f, 0.42f, 0.24f), true);
 
         // ── Dancers ──
@@ -1024,12 +1050,12 @@ public static partial class MapBuilder
         MakeBlock("HeadphoneR", headT, new Vector3(0.08f, 0.1f, 0.08f), new Vector3(0.18f, 0.05f, 0f), headphoneC, true);
         MakeBlock("HeadphoneBand", headT, new Vector3(0.32f, 0.04f, 0.04f), new Vector3(0f, 0.14f, 0f), headphoneC, true);
 
-        // Sunglasses (follow head)
-        MakeBlock("GlassL", headT, new Vector3(0.08f, 0.05f, 0.02f), new Vector3(-0.08f, 0.02f, 0.14f), new Color(0.05f, 0.05f, 0.1f), true);
-        MakeBlock("GlassR", headT, new Vector3(0.08f, 0.05f, 0.02f), new Vector3(0.08f, 0.02f, 0.14f), new Color(0.05f, 0.05f, 0.1f), true);
-        MakeBlock("GlassBridge", headT, new Vector3(0.04f, 0.02f, 0.02f), new Vector3(0f, 0.02f, 0.14f), new Color(0.05f, 0.05f, 0.1f), true);
+        // Sunglasses (follow head, in front of the eyes)
+        MakeBlock("GlassL", headT, new Vector3(0.09f, 0.05f, 0.03f), new Vector3(-0.08f, 0.03f, 0.175f), new Color(0.05f, 0.05f, 0.1f), true);
+        MakeBlock("GlassR", headT, new Vector3(0.09f, 0.05f, 0.03f), new Vector3(0.08f, 0.03f, 0.175f), new Color(0.05f, 0.05f, 0.1f), true);
+        MakeBlock("GlassBridge", headT, new Vector3(0.05f, 0.025f, 0.025f), new Vector3(0f, 0.03f, 0.175f), new Color(0.05f, 0.05f, 0.1f), true);
 
-        // Eyes + brows (positioned in front of glasses)
+        // Eyes + brows (positioned behind the glasses)
         MakeBlock("EyeL", headT, new Vector3(0.04f, 0.04f, 0.01f), new Vector3(-0.05f, 0.03f, 0.155f), Color.white, true);
         MakeBlock("EyeR", headT, new Vector3(0.04f, 0.04f, 0.01f), new Vector3(0.05f, 0.03f, 0.155f), Color.white, true);
         MakeBlock("BrowL", headT, new Vector3(0.045f, 0.008f, 0.01f), new Vector3(-0.05f, 0.06f, 0.156f), new Color(0.05f, 0.05f, 0.05f), true);
@@ -1500,11 +1526,8 @@ public static partial class MapBuilder
                 new Vector3(0.5f, 2.55f, lz), new Color(0.9f, 0.35f, 0.2f), true);
             var glow = MakeBlock("LampGlow", root.transform, new Vector3(0.24f, 0.2f, 0.24f),
                 new Vector3(0.5f, 2.55f, lz), new Color(1f, 0.85f, 0.45f), true);
-            var lampLight = glow.AddComponent<Light>();
-            lampLight.type = LightType.Point;
-            lampLight.color = new Color(1f, 0.85f, 0.45f);
-            lampLight.intensity = 1.2f;
-            lampLight.range = 8f;
+            DisableShadowCasting(glow);
+            AddGlowLight(root.transform, new Vector3(0.5f, 2.35f, lz), 8f, 1.2f, new Color(1f, 0.85f, 0.45f));
         }
         // ── Interior center lamps (additional coverage) ──
         foreach (float lz in new[] { -1f, 1f })
@@ -1515,11 +1538,8 @@ public static partial class MapBuilder
                 new Vector3(0.5f, 2.55f, lz), new Color(0.9f, 0.35f, 0.2f), true);
             var glowC = MakeBlock("LampGlowC", root.transform, new Vector3(0.24f, 0.2f, 0.24f),
                 new Vector3(0.5f, 2.55f, lz), new Color(1f, 0.85f, 0.45f), true);
-            var lampLightC = glowC.AddComponent<Light>();
-            lampLightC.type = LightType.Point;
-            lampLightC.color = new Color(1f, 0.85f, 0.45f);
-            lampLightC.intensity = 1.2f;
-            lampLightC.range = 8f;
+            DisableShadowCasting(glowC);
+            AddGlowLight(root.transform, new Vector3(0.5f, 2.35f, lz), 8f, 1.2f, new Color(1f, 0.85f, 0.45f));
         }
 
         // ── Interior planters ──
@@ -1544,7 +1564,7 @@ public static partial class MapBuilder
             MakeBlock("UmbrellaCanopy", root.transform, new Vector3(1.4f, 0.1f, 1.4f),
                 new Vector3(halfW + 2.3f, 1.55f, tz), awningC, true);
             MakeBlock("Stool", root.transform, new Vector3(0.3f, 0.5f, 0.3f),
-                new Vector3(halfW + 1.3f, 0.25f, tz - 0.65f), trimC, true);
+                new Vector3(halfW + 1.3f, 0.25f, tz - 0.65f), trimC, true).AddComponent<SittableSeat>();
         }
 
         // ── Seated customer at north patio table ──

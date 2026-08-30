@@ -6,6 +6,7 @@ public class LivestockSpawner : MonoBehaviour
 {
     private readonly List<Livestock> _activeAnimals = new List<Livestock>();
     private readonly Queue<FlyingCrane> _cranePool = new Queue<FlyingCrane>();
+    private static readonly Collider[] _dropBuffer = new Collider[16];
     private float _trickleTimer;
     private const int InitialBatchSize = 10;
     private const int MaxAnimals = 20;
@@ -110,11 +111,10 @@ public class LivestockSpawner : MonoBehaviour
         if (wb != null && wb.IsOnRoad(target))
             return false;
 
-        var hits = Physics.OverlapSphere(target + Vector3.up * 0.5f, 1.2f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
-        foreach (var col in hits)
+        int hitCount = Physics.OverlapSphereNonAlloc(target + Vector3.up * 0.5f, 1.2f, _dropBuffer, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
+        for (int i = 0; i < hitCount; i++)
         {
-            if (col == null)
-                continue;
+            var col = _dropBuffer[i];
             if (col.GetComponentInParent<WaterVolume>() != null)
                 return false;
             if (col.name == "Sea" || col.name == "SeaWater")
@@ -150,10 +150,12 @@ public class LivestockSpawner : MonoBehaviour
         _activeAnimals.Add(livestock);
     }
 
+    private static readonly Livestock.AnimalType[] _animalTypes =
+        (Livestock.AnimalType[])System.Enum.GetValues(typeof(Livestock.AnimalType));
+
     private Livestock.AnimalType GetRandomType()
     {
-        var types = (Livestock.AnimalType[])System.Enum.GetValues(typeof(Livestock.AnimalType));
-        return types[Random.Range(0, types.Length)];
+        return _animalTypes[Random.Range(0, _animalTypes.Length)];
     }
 
     public List<Livestock> GetActiveAnimals()

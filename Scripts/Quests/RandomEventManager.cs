@@ -18,6 +18,7 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
     private UIManager _uiManager;
 
     private readonly List<RandomEvent> _events = new List<RandomEvent>();
+    private static readonly Collider[] _eventOverlapBuffer = new Collider[32];
 
     public int EventCount => _events.Count;
 
@@ -52,15 +53,15 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         }
     }
 
-    // â”€â”€ Event Registration â”€â”€
+    // ── Event Registration ──
 
     private void RegisterEvents()
     {
         // BASIC (0-1 quests completed)
         _events.Add(new RandomEvent
         {
-            Name = "MÃ¹a MÃ ng Bá»™i Thu",
-            Description = "Táº¥t cáº£ mÃ¹a mÃ ng cá»§a báº¡n Ä‘á»u tÄƒng má»™t giai Ä‘oáº¡n!",
+            Name = "Mùa Màng Bội Thu",
+            Description = "Tất cả mùa màng của bạn đều tăng một giai đoạn!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 1800f,
@@ -68,8 +69,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "TÃ¬m Tháº¥y May Máº¯n",
-            Description = "Má»™t Ä‘á»“ng vÃ ng xuáº¥t hiá»‡n trÃªn máº·t Ä‘áº¥t!",
+            Name = "Tìm Thấy May Mắn",
+            Description = "Một đồng vàng xuất hiện trên mặt đất!",
             Tier = 0,
             Weight = 4f,
             Cooldown = 600f,
@@ -77,8 +78,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Phá»¥c Há»“i Thá»ƒ Lá»±c",
-            Description = "Báº¡n cáº£m tháº¥y sáº£ng khoÃ¡i!",
+            Name = "Phục Hồi Thể Lực",
+            Description = "Bạn cảm thấy sảng khoái!",
             Tier = 0,
             Weight = 4f,
             Cooldown = 600f,
@@ -86,8 +87,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Suá»‘i Chá»¯a LÃ nh",
-            Description = "Váº¿t thÆ°Æ¡ng cá»§a báº¡n Ä‘Ã£ lÃ nh!",
+            Name = "Suối Chữa Lành",
+            Description = "Vết thương của bạn đã lành!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 900f,
@@ -95,8 +96,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Háº¡t Giá»‘ng Miá»…n PhÃ­",
-            Description = "Háº¡t giá»‘ng rÆ¡i tá»« trÃªn trá»i!",
+            Name = "Hạt Giống Miễn Phí",
+            Description = "Hạt giống rơi từ trên trời!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 900f,
@@ -104,8 +105,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "SÃ¢u Bá»‡nh Táº¥n CÃ´ng",
-            Description = "SÃ¢u Ä‘ang Äƒn mÃ¹a mÃ ng cá»§a báº¡n!",
+            Name = "Sâu Bệnh Tấn Công",
+            Description = "Sâu đang ăn mùa màng của bạn!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 1200f,
@@ -113,8 +114,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Háº¡n HÃ¡n",
-            Description = "Máº·t trá»i lÃ m khÃ´ háº¿t ruá»™ng cá»§a báº¡n!",
+            Name = "Hạn Hán",
+            Description = "Mặt trời làm khô hết ruộng của bạn!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 1200f,
@@ -122,8 +123,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Ã‚m Thanh Ká»³ Láº¡",
-            Description = "Báº¡n nghe tháº¥y Ã¢m thanh ká»³ láº¡ á»Ÿ gáº§n...",
+            Name = "Âm Thanh Kỳ Lạ",
+            Description = "Bạn nghe thấy âm thanh kỳ lạ ở gần...",
             Tier = 0,
             Weight = 4f,
             Cooldown = 600f,
@@ -132,8 +133,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Bá»‡nh MÃ¹a MÃ ng",
-            Description = "Bá»‡nh Ä‘ang lÃ¢y lan kháº¯p mÃ¹a mÃ ng!",
+            Name = "Bệnh Mùa Màng",
+            Description = "Bệnh đang lây lan khắp mùa màng!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 1200f,
@@ -141,8 +142,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Äom ÄÃ³m",
-            Description = "Äom Ä‘Ã³m nháº£y mÃºa xung quanh báº¡n!",
+            Name = "Đom Đóm",
+            Description = "Đom đóm nhảy múa xung quanh bạn!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 600f,
@@ -150,8 +151,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Cá» Dáº¡i Má»c LÃªn",
-            Description = "Cá» dáº¡i má»c um tÃ¹m trÃªn mÃ¹a mÃ ng!",
+            Name = "Cỏ Dại Mọc Lên",
+            Description = "Cỏ dại mọc um tùm trên mùa màng!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 900f,
@@ -159,8 +160,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Háº¿t Sá»©c",
-            Description = "Báº¡n cáº£m tháº¥y kiá»‡t sá»©c!",
+            Name = "Hết Sức",
+            Description = "Bạn cảm thấy kiệt sức!",
             Tier = 0,
             Weight = 2f,
             Cooldown = 600f,
@@ -168,8 +169,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "CÃ¡ RÆ¡i",
-            Description = "CÃ¡ rÆ¡i tá»« báº§u trá»i!",
+            Name = "Cá Rơi",
+            Description = "Cá rơi từ bầu trời!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 900f,
@@ -179,8 +180,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         // ADVANCED (2 quests completed)
         _events.Add(new RandomEvent
         {
-            Name = "Káº» ThÃ¹ Táº¥n CÃ´ng",
-            Description = "Káº» thÃ¹ Ä‘ang tiáº¿n vá» phÃ­a báº¡n!",
+            Name = "Kẻ Thù Tấn Công",
+            Description = "Kẻ thù đang tiến về phía bạn!",
             Tier = 1,
             Weight = 2f,
             Cooldown = 1500f,
@@ -189,8 +190,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "BÃ£o GÃ¢y Háº¡i",
-            Description = "BÃ£o phÃ¡ há»§y cÃ´ng trÃ¬nh cá»§a báº¡n!",
+            Name = "Bão Gây Hại",
+            Description = "Bão phá hủy công trình của bạn!",
             Tier = 1,
             Weight = 2f,
             Cooldown = 1800f,
@@ -198,8 +199,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Káº» Trá»™m",
-            Description = "Káº» trá»™m láº¥y máº¥t má»™t pháº§n tiá»n cá»§a báº¡n!",
+            Name = "Kẻ Trộm",
+            Description = "Kẻ trộm lấy mất một phần tiền của bạn!",
             Tier = 1,
             Weight = 3f,
             Cooldown = 1200f,
@@ -207,8 +208,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Thá»‹ TrÆ°á»ng Sá»¥p Äá»•",
-            Description = "Thá»‹ trÆ°á»ng sá»¥p Ä‘á»•! GiÃ¡ bÃ¡n giáº£m má»™t ná»­a!",
+            Name = "Thị Trường Sụp Đổ",
+            Description = "Thị trường sụp đổ! Giá bán giảm một nửa!",
             Tier = 1,
             Weight = 2f,
             Cooldown = 1800f,
@@ -216,8 +217,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "GiÃ¡ TÄƒng Cao",
-            Description = "GiÃ¡ tÄƒng vá»t! GiÃ¡ bÃ¡n gáº¥p Ä‘Ã´i!",
+            Name = "Giá Tăng Cao",
+            Description = "Giá tăng vọt! Giá bán gấp đôi!",
             Tier = 1,
             Weight = 2f,
             Cooldown = 1800f,
@@ -225,8 +226,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Cáº§u Vá»“ng",
-            Description = "Má»™t cáº§u vá»“ng xuáº¥t hiá»‡n trÃªn báº§u trá»i!",
+            Name = "Cầu Vồng",
+            Description = "Một cầu vồng xuất hiện trên bầu trời!",
             Tier = 1,
             Weight = 3f,
             Cooldown = 600f,
@@ -234,8 +235,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Äá»™ng Váº­t Nháº£y MÃºa",
-            Description = "Äá»™ng váº­t cá»§a báº¡n báº¯t Ä‘áº§u nháº£y mÃºa!",
+            Name = "Động Vật Nhảy Múa",
+            Description = "Động vật của bạn bắt đầu nhảy múa!",
             Tier = 1,
             Weight = 3f,
             Cooldown = 600f,
@@ -243,8 +244,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Tuyáº¿n ThÆ°Æ¡ng Máº¡i",
-            Description = "Tuyáº¿n thÆ°Æ¡ng máº¡i má»›i má»Ÿ! GiÃ¡ mua giáº£m!",
+            Name = "Tuyến Thương Mại",
+            Description = "Tuyến thương mại mới mở! Giá mua giảm!",
             Tier = 1,
             Weight = 2f,
             Cooldown = 1800f,
@@ -253,8 +254,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         // RARE (3+ quests completed)
         _events.Add(new RandomEvent
         {
-            Name = "Káº» ThÃ¹ Khá»•ng Lá»“",
-            Description = "Má»™t káº» thÃ¹ khá»•ng lá»“ Ä‘Ã£ xuáº¥t hiá»‡n!",
+            Name = "Kẻ Thù Khổng Lồ",
+            Description = "Một kẻ thù khổng lồ đã xuất hiện!",
             Tier = 2,
             Weight = 1f,
             Cooldown = 2400f,
@@ -263,8 +264,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "ÄÃ n Táº¥n CÃ´ng",
-            Description = "Ba Ä‘á»£t quÃ¡i váº­t táº¥n cÃ´ng dá»“n dáº­p!",
+            Name = "Đàn Tấn Công",
+            Description = "Ba đợt quái vật tấn công dồn dập!",
             Tier = 2,
             Weight = 1f,
             Cooldown = 2400f,
@@ -273,8 +274,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "MÆ°a Sao BÄƒng",
-            Description = "Sao bÄƒng rÆ¡i tá»« báº§u trá»i!",
+            Name = "Mưa Sao Băng",
+            Description = "Sao băng rơi từ bầu trời!",
             Tier = 2,
             Weight = 1f,
             Cooldown = 2400f,
@@ -282,8 +283,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Lá»… Há»™i Thu Hoáº¡ch",
-            Description = "LÃ ng Äƒn má»«ng! Tiáº¿n Ä‘á»™ nhiá»‡m vá»¥ tÄƒng!",
+            Name = "Lễ Hội Thu Hoạch",
+            Description = "Làng ăn mừng! Tiến độ nhiệm vụ tăng!",
             Tier = 2,
             Weight = 1f,
             Cooldown = 3000f,
@@ -291,8 +292,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "PhÃ¡o Hoa",
-            Description = "PhÃ¡o hoa tháº¯p sÃ¡ng báº§u trá»i!",
+            Name = "Pháo Hoa",
+            Description = "Pháo hoa thắp sáng bầu trời!",
             Tier = 2,
             Weight = 2f,
             Cooldown = 1200f,
@@ -300,8 +301,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "HÃ¬nh áº¢nh BÃ³ng Ma",
-            Description = "BÃ³ng ma lang thang kháº¯p Ä‘áº¥t...",
+            Name = "Hình Ảnh Bóng Ma",
+            Description = "Bóng ma lang thang khắp đất...",
             Tier = 2,
             Weight = 1f,
             Cooldown = 1800f,
@@ -309,8 +310,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Báº£n Äá»“ Kho BÃ¡u",
-            Description = "Kho bÃ¡u Ä‘Ã£ Ä‘Æ°á»£c chÃ´n á»Ÿ rÃ¬a báº£n Ä‘á»“!",
+            Name = "Bản Đồ Kho Báu",
+            Description = "Kho báu đã được chôn ở rìa bản đồ!",
             Tier = 2,
             Weight = 2f,
             Cooldown = 2400f,
@@ -318,8 +319,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Äá»™ng Äáº¥t",
-            Description = "Máº·t Ä‘áº¥t rung chuyá»ƒn dá»¯ dá»™i! NhÃ  cá»­a bá»‹ hÆ° háº¡i!",
+            Name = "Động Đất",
+            Description = "Mặt đất rung chuyển dữ dội! Nhà cửa bị hư hại!",
             Tier = 1,
             Weight = 1.5f,
             Cooldown = 2400f,
@@ -327,8 +328,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Sáº¥m SÃ©t",
-            Description = "SÃ©t Ä‘Ã¡nh xuá»‘ng tá»« báº§u trá»i!",
+            Name = "Sấm Sét",
+            Description = "Sét đánh xuống từ bầu trời!",
             Tier = 1,
             Weight = 1.5f,
             Cooldown = 2000f,
@@ -336,8 +337,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Lá»‘c XoÃ¡y",
-            Description = "Má»™t cÆ¡n lá»‘c xoÃ¡y quÃ©t qua thá»‹ tráº¥n!",
+            Name = "Lốc Xoáy",
+            Description = "Một cơn lốc xoáy quét qua thị trấn!",
             Tier = 2,
             Weight = 1f,
             Cooldown = 3000f,
@@ -345,8 +346,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Gá»i NgÆ°á»i Di CÆ°",
-            Description = "Má»™t gia Ä‘Ã¬nh ngÆ°á»i di cÆ° Ä‘ang Ä‘áº¿n lÃ ng!",
+            Name = "Gọi Người Di Cư",
+            Description = "Một gia đình người di cư đang đến làng!",
             Tier = 0,
             Weight = 2f,
             Cooldown = 1200f,
@@ -354,7 +355,7 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
     }
 
-    // â”€â”€ Trigger Logic â”€â”€
+    // ── Trigger Logic ──
 
     private void TryAutoTrigger()
     {
@@ -492,7 +493,7 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
             Debug.LogWarning("[Event] ShowBanner: UIManager is null");
     }
 
-    // â”€â”€ Helper: Player Position â”€â”€
+    // ── Helper: Player Position ──
 
     private Vector3 GetPlayerPos()
     {
@@ -505,9 +506,9 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         return WorldBuilder.Instance?.WorldRoot?.transform;
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    //  EVENT EFFECTS â€” BASIC
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ═══════════════════════════════════════════════
+    //  EVENT EFFECTS — BASIC
+    // ═══════════════════════════════════════════════
 
     private void EffectBountifulHarvest()
     {
@@ -719,7 +720,7 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         var root = GetWorldRoot();
 
         string[] fishTypes = { "fish_carp", "fish_salmon", "fish_tuna", "fish_pufferfish" };
-        string[] fishLabels = { "CÃ¡ ChÃ©p", "CÃ¡ Há»“i", "CÃ¡ Ngá»«", "CÃ¡ NÃ³c" };
+        string[] fishLabels = { "Cá Chép", "Cá Hồi", "Cá Ngừ", "Cá Nóc" };
         Color[] fishColors = {
             new Color(1f, 0.7f, 0.2f),
             new Color(1f, 0.5f, 0.4f),
@@ -825,9 +826,9 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
     }
 
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    //  EVENT EFFECTS â€” ADVANCED
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ═══════════════════════════════════════════════
+    //  EVENT EFFECTS — ADVANCED
+    // ═══════════════════════════════════════════════
 
     private void SpawnFallingRock(Vector3 pos, Vector3 target, Transform parent)
     {
@@ -889,9 +890,10 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         if (wb != null)
         {
             float checkRadius = scale * 0.6f;
-            Collider[] hits = Physics.OverlapSphere(landPos, checkRadius);
-            foreach (var col in hits)
+            int hitCount = Physics.OverlapSphereNonAlloc(landPos, checkRadius, _eventOverlapBuffer);
+            for (int i = 0; i < hitCount; i++)
             {
+                var col = _eventOverlapBuffer[i];
                 var building = wb.FindBuilding(col.gameObject);
                 if (building != null)
                     wb.ApplyMeteorDamage(building, scale);
@@ -1044,6 +1046,7 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         float windX = UnityEngine.Random.Range(-3f, 3f);
         float windZ = UnityEngine.Random.Range(-3f, 3f);
         var cloudRenderers = cloud.GetComponentsInChildren<Renderer>();
+        var wait = new WaitForSeconds(0.1f);
 
         while (elapsed < duration)
         {
@@ -1055,7 +1058,7 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
                 nextFlash = UnityEngine.Random.Range(1.5f, 3.5f);
                 foreach (var cr in cloudRenderers)
                     if (cr != null) cr.material.color = new Color(0.85f, 0.85f, 0.9f);
-                yield return new WaitForSeconds(0.1f);
+                yield return wait;
                 foreach (var cr in cloudRenderers)
                     if (cr != null) cr.material.color = new Color(0.12f, 0.12f, 0.15f);
             }
@@ -1149,9 +1152,10 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
 
                 if (wb != null)
                 {
-                    Collider[] hits = Physics.OverlapSphere(strikePos, 5f);
-                    foreach (var col in hits)
+                    int hitCount = Physics.OverlapSphereNonAlloc(strikePos, 5f, _eventOverlapBuffer);
+                    for (int i = 0; i < hitCount; i++)
                     {
+                        var col = _eventOverlapBuffer[i];
                         var building = wb.FindBuilding(col.gameObject);
                         if (building != null)
                             wb.DamageBuildingDirect(building, Mathf.Max(1, building.MaxHealth / 4));
@@ -1292,13 +1296,13 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
 
     private void EffectMarketCrash()
     {
-        ShowBanner("Thá»‹ TrÆ°á»ng Sá»¥p Äá»•", "GiÃ¡ bÃ¡n giáº£m má»™t ná»­a trong 2 giá»!");
+        ShowBanner("Thị Trường Sụp Đổ", "Giá bán giảm một nửa trong 2 giờ!");
         StartCoroutine(ModifySellPrices(0.5f, 2f));
     }
 
     private void EffectPriceSpike()
     {
-        ShowBanner("GiÃ¡ TÄƒng Cao", "GiÃ¡ bÃ¡n gáº¥p Ä‘Ã´i trong 2 giá»!");
+        ShowBanner("Giá Tăng Cao", "Giá bán gấp đôi trong 2 giờ!");
         StartCoroutine(ModifySellPrices(2f, 2f));
     }
 
@@ -1446,7 +1450,7 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
 
     private void EffectTradeRoute()
     {
-        ShowBanner("Tuyáº¿n ThÆ°Æ¡ng Máº¡i", "GiÃ¡ mua giáº£m trong 1 ngÃ y!");
+        ShowBanner("Tuyến Thương Mại", "Giá mua giảm trong 1 ngày!");
         StartCoroutine(ModifyBuyPrices(0.7f, 24f));
     }
 
@@ -1469,9 +1473,9 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         vendor.ResetBuyPrices();
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    //  EVENT EFFECTS â€” RARE
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ═══════════════════════════════════════════════
+    //  EVENT EFFECTS — RARE
+    // ═══════════════════════════════════════════════
 
     private void EffectGiantEnemy()
     {
@@ -1733,7 +1737,7 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         Vector3 offset = new Vector3(Mathf.Cos(angle) * 40f, 0.5f, Mathf.Sin(angle) * 40f);
         Vector3 treasurePos = new Vector3(playerPos.x, 0.5f, playerPos.z) + offset;
         SpawnCoinPickup(treasurePos + Vector3.up * 8f, 1000);
-        ShowBanner("Báº£n Äá»“ Kho BÃ¡u", "RÆ°Æ¡ng kho bÃ¡u Ä‘Ã£ xuáº¥t hiá»‡n á»Ÿ rÃ¬a báº£n Ä‘á»“!");
+        ShowBanner("Bản Đồ Kho Báu", "Rương kho báu đã xuất hiện ở rìa bản đồ!");
     }
 
     private class RandomEvent
@@ -1798,9 +1802,9 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
     }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════
 //  BEHAVIOR COMPONENTS
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════
 
 public class CoinPickupBehavior : MonoBehaviour
 {

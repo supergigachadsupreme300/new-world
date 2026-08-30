@@ -80,7 +80,10 @@ public class PetController : MonoBehaviour
         if (_gm != null && _gm.GamePaused) return;
 
         if (_player == null)
-            _player = Object.FindAnyObjectByType<PlayerController>()?.transform;
+        {
+            var pc = GameManager.Instance?.Player;
+            _player = pc != null ? pc.transform : Object.FindAnyObjectByType<PlayerController>()?.transform;
+        }
         if (_player == null)
             return;
 

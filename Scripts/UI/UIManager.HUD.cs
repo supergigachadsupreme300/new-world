@@ -170,17 +170,31 @@ public partial class UIManager
             CreateKarmaBar();
         if (_karmaBarRoot == null) return;
 
-        _karmaBarRoot.SetActive(true);
+        if (!_karmaBarVisible)
+        {
+            _karmaBarVisible = true;
+            _karmaBarRoot.SetActive(true);
+        }
         if (_karmaBarFill != null)
             _karmaBarFill.fillAmount = max > 0f ? Mathf.Clamp01(current / max) : 0f;
-        if (_karmaBarText != null)
-            _karmaBarText.text = Localization.T("Phuoc Duc") + ": " + Mathf.FloorToInt(current) + "/" + Mathf.FloorToInt(max);
+        int k = Mathf.FloorToInt(current);
+        int km = Mathf.FloorToInt(max);
+        if (_karmaBarText != null && (k != _lastKarma || km != _lastKarmaMax))
+        {
+            _lastKarma = k;
+            _lastKarmaMax = km;
+            _karmaBarText.text = Localization.T("Phuoc Duc") + ": " + k + "/" + km;
+        }
     }
 
     public void HideKarmaBar()
     {
-        if (_karmaBarRoot != null)
-            _karmaBarRoot.SetActive(false);
+        if (_karmaBarVisible)
+        {
+            _karmaBarVisible = false;
+            if (_karmaBarRoot != null)
+                _karmaBarRoot.SetActive(false);
+        }
     }
 
     public void UpdateTimeText(int day, float hour)

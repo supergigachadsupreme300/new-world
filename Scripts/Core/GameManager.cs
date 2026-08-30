@@ -154,6 +154,10 @@ public class GameManager : MonoSingleton<GameManager>
         {
             if (CutsceneManager != null && CutsceneManager.JustCancelledCutscene)
                 return;
+            if (RichManNPC.Instance != null && RichManNPC.Instance.IsDealCameraActive)
+                return;
+            if (Player != null && Player.IsSitting)
+                return;
             if (ToolManager != null && ToolManager.EscapeHandledThisFrame)
                 return;
             if (TypingMinigame.Instance != null && TypingMinigame.Instance.IsOpen)

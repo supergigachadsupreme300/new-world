@@ -242,7 +242,7 @@ public partial class WorldBuilder
 
     private bool IsReservedSpawnLocation(int x, int z)
     {
-        bool nearHouse = Mathf.Abs(x) <= 9 && Mathf.Abs(z) <= 9;
+bool nearHouse = Mathf.Abs(x) <= 9 && Mathf.Abs(z) <= 9;
         bool nearShop = Mathf.Abs(x) <= 9 && z >= 51 && z <= 69;
         bool nearStore = x >= 20 && x <= 32 && z >= 51 && z <= 69;
         bool nearRestaurant = Mathf.Abs(x) <= 10 && z >= 66 && z <= 84;
@@ -254,58 +254,29 @@ public partial class WorldBuilder
         bool nearWifeHouse = x >= 20 && x <= 42 && Mathf.Abs(z) <= 10;
         bool nearRichMansion = x >= 42 && x <= 78 && z >= 127 && z <= 163;
         bool nearFishingShop = x >= 21 && x <= 39 && z >= 37 && z <= 55;
-        bool nearDisplay = x >= 48 && x <= 67 && z >= -130 && z <= -48;
         bool nearMansion = x >= -14 && x <= 14 && z >= -42 && z <= -18;
-        bool nearPagoda = Mathf.Abs(x - _pagodaPosition.x) <= 8 && Mathf.Abs(z - _pagodaPosition.z) <= 12;
+        bool nearPagoda = Mathf.Abs(x - PagodaBasePos.x) <= PagodaExcludeHalf && Mathf.Abs(z - PagodaBasePos.z) <= PagodaExcludeHalf;
         bool nearCafe = Mathf.Abs(x) <= 10 && z >= 33 && z <= 57;
         bool nearLibrary = x >= -9 && x <= 6 && z >= 24 && z <= 38;
         bool nearClub = x >= -12 && x <= 12 && z >= 84 && z <= 106;
         bool nearClubCorridor = x >= -12 && x <= 40 && z >= 84 && z <= 106;
-        bool nearSouthBranch = x >= -123 && x <= 17 && z >= 43 && z <= 57;
+        bool nearSouthBranch = x >= -123 && x <= 17 && z >= -54 && z <= -46;
         bool nearNorthBranch = x >= 11 && x <= 153 && z >= 173 && z <= 187;
-        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearFishingShop || nearDisplay || nearMansion || nearPagoda || nearCafe || nearLibrary || nearClub || nearClubCorridor || nearSouthBranch || nearNorthBranch;
+        bool nearBossArena = Mathf.Abs(x - _bossArenaCenter.x) <= 12 && Mathf.Abs(z - _bossArenaCenter.z) <= 12;
+        bool nearImmigrantPlot = IsNearImmigrantPlot(x, z);
+        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearFishingShop || nearMansion || nearPagoda || nearCafe || nearLibrary || nearClub || nearClubCorridor || nearSouthBranch || nearNorthBranch || nearBossArena || nearImmigrantPlot;
     }
 
-    private void CreateVendorSpawnButton()
+    private bool IsNearImmigrantPlot(int x, int z)
     {
-        _vendorSpawnButton = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        _vendorSpawnButton.name = "VendorSpawnButton";
-        _vendorSpawnButton.transform.SetParent(_worldRoot.transform);
-        _vendorSpawnButton.transform.position = new Vector3(0f, 0.2f, -9f);
-        _vendorSpawnButton.transform.localScale = new Vector3(1.5f, 0.15f, 1.5f);
-        var rend = _vendorSpawnButton.GetComponent<Renderer>();
-        if (rend != null)
-            rend.material.color = new Color(0.761f, 0.647f, 0.137f);
-        var col = _vendorSpawnButton.GetComponent<Collider>();
-        if (col != null)
-            col.isTrigger = true;
-    }
-
-    public bool IsNearVendorSpawnButton(Vector3 position, float range = 3f)
-    {
-        if (_vendorSpawnButton == null) return false;
-        return Vector3.Distance(position, _vendorSpawnButton.transform.position) <= range;
-    }
-
-    private void CreateImmigrantSpawnButton()
-    {
-        _immigrantSpawnButton = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        _immigrantSpawnButton.name = "ImmigrantSpawnButton";
-        _immigrantSpawnButton.transform.SetParent(_worldRoot.transform);
-        _immigrantSpawnButton.transform.position = new Vector3(0f, 0.2f, -7.2f);
-        _immigrantSpawnButton.transform.localScale = new Vector3(1.5f, 0.15f, 1.5f);
-        var rend = _immigrantSpawnButton.GetComponent<Renderer>();
-        if (rend != null)
-            rend.material.color = new Color(0.3f, 0.7f, 0.85f);
-        var col = _immigrantSpawnButton.GetComponent<Collider>();
-        if (col != null)
-            col.isTrigger = true;
-    }
-
-    public bool IsNearImmigrantSpawnButton(Vector3 position, float range = 3f)
-    {
-        if (_immigrantSpawnButton == null) return false;
-        return Vector3.Distance(position, _immigrantSpawnButton.transform.position) <= range;
+        if (_immigrantHousePositions == null) return false;
+        for (int i = 0; i < _immigrantHousePositions.Count; i++)
+        {
+            var p = _immigrantHousePositions[i];
+            if (Mathf.Abs(x - p.x) <= 7f && Mathf.Abs(z - p.z) <= 7f)
+                return true;
+        }
+return false;
     }
 
     private void BuildPolicePost()

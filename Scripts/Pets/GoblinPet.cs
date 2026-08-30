@@ -148,9 +148,9 @@ public class GoblinPet : MonoBehaviour
 
     private static bool IsNight()
     {
-        if (_gm == null) _gm = GameManager.Instance;
-        if (_gm == null) return false;
-        float hour = _gm.TimeOfDay;
+        var gm = GameManager.Instance;
+        if (gm == null) return false;
+        float hour = gm.TimeOfDay;
         return hour >= 18f || hour < 6f;
     }
 
@@ -160,7 +160,10 @@ public class GoblinPet : MonoBehaviour
         if (_gm != null && _gm.GamePaused) return;
 
         if (_player == null)
-            _player = Object.FindAnyObjectByType<PlayerController>()?.transform;
+        {
+            var pc = GameManager.Instance?.Player;
+            _player = pc != null ? pc.transform : Object.FindAnyObjectByType<PlayerController>()?.transform;
+        }
         if (_player == null)
             return;
 

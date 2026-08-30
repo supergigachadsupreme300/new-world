@@ -16,8 +16,15 @@ private Transform _myTransform;
     private const float FEAR_DISTANCE = 4f;
     private const float AFFECTION_STEAL = 2f;
     private const float VISIT_DURATION = 6f;
-    private const float DEAL_RANGE = 6f;
+    private const float DEAL_RANGE = 7f;
     private const int DEAL_START_DAY = 3;
+    private const float CLUB_WINDOW_START = 19f;
+    private const float CLUB_WINDOW_END = 21f;
+    private const float ROAD_CENTER_X = 14f;
+    private const float DEAL_CAM_MAX_TIME = 40f;
+    private const float DEAL_CAM_REVEAL_DELAY = 3f;
+    private static readonly Vector3 DealCamOffset = new Vector3(0f, 4f, 5.5f);
+    private static readonly Vector3 DealCamLookUp = new Vector3(0f, 0.8f, 0f);
 
     private enum VisitState { AtHome, WalkingToWife, Visiting, WalkingHome }
     private VisitState _visitState = VisitState.AtHome;
@@ -38,11 +45,32 @@ private Transform _myTransform;
     private DealState _dealState = DealState.None;
     private GameObject _dealer;
     private readonly Vector3 _meetingSpot = new Vector3(13f, 0f, 95f);
-    private readonly Vector3 _dealerSpawn = new Vector3(40f, 0.97f, 95f);
+    private readonly Vector3 _dealerSpawn = new Vector3(28f, 0.97f, 95f);
     private readonly Vector3 _dealerLeave = new Vector3(30f, 0.97f, 105f);
     private float _meetingTimer;
     private int _lastDealDay = -1;
     private bool _richAtMeeting;
+    private int _clubHintedDay = -1;
+
+    private enum ClubHangState { None, WalkingToClub, AtClub }
+    private ClubHangState _clubHangState = ClubHangState.None;
+    private readonly Vector3 _clubStandSpot = new Vector3(8.5f, 0f, 98f);
+
+    private readonly List<Vector3> _waypoints = new List<Vector3>();
+    private int _waypointIndex;
+    private bool _pathDirty;
+
+    private bool _dealCameraActive;
+    private float _dealCamStartTime;
+    private float _dealCamEndDelay;
+    private float _dealCamLeaveTimer;
+    private bool _dealAutoRevealed;
+    private bool _dealCamRefused;
+    private Camera _dealCam;
+    private CameraFollow _dealCamFollow;
+    private Transform _clubCenter;
+
+    private bool _debugForceDeal;
 
     private GameObject _leaveRow;
     private GameObject _bribeRow;
@@ -63,10 +91,12 @@ private Transform _myTransform;
     private readonly Queue<string> _dialogQueue = new Queue<string>();
 
     public bool IsDialogActive => _dialogActive;
+    public bool IsDealCameraActive => _dealCameraActive;
     public Transform NpcTransform => _myTransform;
 
     void Start()
     {
+        _myTransform = transform;
         _homePosition = _myTransform != null ? _myTransform.position : Vector3.zero;
         _patrolOrigin = _homePosition;
         if (_wifeTransform == null)
@@ -107,10 +137,14 @@ private Transform _myTransform;
         if (CutsceneManager.Instance != null && CutsceneManager.Instance.IsActive)
             return;
 
+        if (_dealCameraActive && UnityEngine.InputSystem.Keyboard.current != null
+                && UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame)
+            StopDealCamera();
+
         if (_myTransform == null)
             return;
 
-        if (WifeNPC.Instance != null && WifeNPC.Instance.Married)
+        if (WifeNPC.Instance != null && WifeNPC.Instance.Married && !_debugForceDeal)
         {
             Retire();
             return;
@@ -127,6 +161,27 @@ private Transform _myTransform;
 
         float hour = GameManager.Instance.TimeOfDay;
         bool night = hour >= 18f || hour < 6f;
+        int today = GameManager.Instance.CurrentDay;
+
+        // The nightly drug deal takes priority: after 21h (day 3+) it starts,
+        // interrupting any wife visit or club hangout so the player can catch him.
+        // Dealt with before the proximity check so standing close to him (e.g. in
+        // the club) never stalls the deal or the cinematic.
+        if (TryStartDeal())
+        {
+            _visitState = VisitState.AtHome;
+            _clubHangState = ClubHangState.None;
+            _hasPatrolTarget = false;
+            _pathDirty = true;
+        }
+
+        UpdateDealCamera();
+
+        if (_dealState != DealState.None)
+        {
+            UpdateDeal();
+            return;
+        }
 
         if (_playerTransform != null &&
             Vector3.Distance(_playerTransform.position, _myTransform.position) < FEAR_DISTANCE)
@@ -141,25 +196,60 @@ private Transform _myTransform;
             return;
         }
 
-        if (_dealState != DealState.None)
+        // Day 3+: hang out at the club entrance 19:00-21:00 so the player can
+        // spot him at night and follow him to the drug deal at 21:00.
+        bool clubWindow = today >= DEAL_START_DAY && !Discovered && hour >= CLUB_WINDOW_START && hour < CLUB_WINDOW_END;
+        if (clubWindow && IsPlayerInClub())
         {
-            UpdateDeal();
+            if (_clubHintedDay != today)
+            {
+                _clubHintedDay = today;
+                GameManager.Instance?.UIManager?.ShowMessage(
+                    Localization.T("Phú Ông đang ở quán bar... chờ đến trong đêm khuya."), 3.5f);
+            }
+        }
+        if (clubWindow)
+        {
+            if (_clubHangState == ClubHangState.None)
+            {
+                _clubHangState = ClubHangState.WalkingToClub;
+                _visitState = VisitState.AtHome;
+                _hasPatrolTarget = false;
+                _pathDirty = true;
+            }
+        }
+        else if (_clubHangState != ClubHangState.None)
+        {
+            _clubHangState = ClubHangState.None;
+            _visitState = VisitState.WalkingHome;
+            _hasPatrolTarget = false;
+            _pathDirty = true;
+        }
+
+        if (_clubHangState == ClubHangState.WalkingToClub)
+        {
+            if (_pathDirty)
+            {
+                BuildPath(_clubStandSpot);
+                _pathDirty = false;
+            }
+            if (MoveAlongPath(WALK_SPEED))
+                _clubHangState = ClubHangState.AtClub;
             return;
         }
+        if (_clubHangState == ClubHangState.AtClub)
+            return;
 
         switch (_visitState)
         {
             case VisitState.AtHome:
             {
-                bool stoleToday = _lastStealDay == GameManager.Instance.CurrentDay;
-                if (TryStartDeal())
-                {
-                    // nightly drug deal has begun
-                }
-                else if (night && !stoleToday && !Discovered)
+                bool stoleToday = _lastStealDay == today;
+                if (night && !stoleToday && !Discovered)
                 {
                     _visitState = VisitState.WalkingToWife;
                     _hasPatrolTarget = false;
+                    _pathDirty = true;
                 }
                 else
                 {
@@ -169,8 +259,13 @@ private Transform _myTransform;
             }
             case VisitState.WalkingToWife:
             {
-                _wifeDoorPosition = _wifeTransform.position + _wifeTransform.right * 2.4f;
-                if (MoveTowards(_wifeDoorPosition, WALK_SPEED * 0.9f))
+                if (_pathDirty)
+                {
+                    _wifeDoorPosition = _wifeTransform.position + _wifeTransform.right * 2.4f;
+                    BuildPath(_wifeDoorPosition);
+                    _pathDirty = false;
+                }
+                if (MoveAlongPath(WALK_SPEED * 0.9f))
                 {
                     _visitState = VisitState.Visiting;
                     _visitTimer = VISIT_DURATION;
@@ -182,12 +277,20 @@ private Transform _myTransform;
             {
                 _visitTimer -= Time.deltaTime;
                 if (_visitTimer <= 0f)
+                {
                     _visitState = VisitState.WalkingHome;
+                    _pathDirty = true;
+                }
                 break;
             }
             case VisitState.WalkingHome:
             {
-                if (MoveTowards(_homePosition, WALK_SPEED))
+                if (_pathDirty)
+                {
+                    BuildPath(_homePosition);
+                    _pathDirty = false;
+                }
+                if (MoveAlongPath(WALK_SPEED))
                 {
                     _visitState = VisitState.AtHome;
                     _hasPatrolTarget = false;
@@ -212,7 +315,7 @@ private Transform _myTransform;
     {
         if (_dealState != DealState.None) return false;
         if (Discovered) return false;
-        if (WifeNPC.Instance != null && WifeNPC.Instance.Married) return false;
+        if (WifeNPC.Instance != null && WifeNPC.Instance.Married && !_debugForceDeal) return false;
         int today = GameManager.Instance.CurrentDay;
         if (today < DEAL_START_DAY) return false;
         if (_lastDealDay == today) return false;
@@ -221,7 +324,193 @@ private Transform _myTransform;
         _dealState = DealState.WalkingToMeeting;
         _richAtMeeting = false;
         _hasPatrolTarget = false;
+        _dealCamRefused = false;
         return true;
+    }
+    public void ForceStartDealForWatch()
+    {
+        var gm = GameManager.Instance;
+        if (gm == null)
+            return;
+
+        _debugForceDeal = true;
+        Discovered = false;
+        _dealCamRefused = false;
+        _lastDealDay = -1;
+        _dealState = DealState.None;
+        _richAtMeeting = false;
+        _clubHangState = ClubHangState.None;
+        _visitState = VisitState.AtHome;
+        _hasPatrolTarget = false;
+        _pathDirty = true;
+        _dealCameraActive = false;
+        _dealCamEndDelay = 0f;
+
+        if (_dealer != null)
+        {
+            Object.Destroy(_dealer);
+            _dealer = null;
+        }
+
+        if (!gameObject.activeSelf)
+            gameObject.SetActive(true);
+        if (_myTransform == null)
+            _myTransform = transform;
+
+        if (gm.CurrentDay < DEAL_START_DAY)
+            gm.CurrentDay = DEAL_START_DAY;
+        gm.SetTimeOfDay(CLUB_WINDOW_END);
+
+        var pc = gm.Player;
+        if (pc != null)
+        {
+            var sit = pc.GetComponent<PlayerSitController>();
+            if (sit != null && sit.IsSitting)
+                sit.EndSit();
+            var cc = pc.GetComponent<CharacterController>();
+            if (cc != null) cc.enabled = false;
+            pc.transform.position = new Vector3(0f, 2f, 100f);
+            if (cc != null) cc.enabled = true;
+        }
+
+        gm.TogglePause(false);
+    }
+    private void UpdateDealCamera()
+    {
+        if (_dealCameraActive)
+        {
+            FrameDealCamera();
+            if (_dealCamEndDelay > 0f)
+            {
+                _dealCamEndDelay -= Time.deltaTime;
+                if (_dealCamEndDelay <= 0f)
+                    StopDealCamera();
+                return;
+            }
+            if (_dealState == DealState.Meeting && !_dealAutoRevealed)
+            {
+                _dealAutoRevealed = true;
+                DiscoverSecret();
+                _dealCamEndDelay = DEAL_CAM_REVEAL_DELAY;
+                return;
+            }
+            if (_dealState == DealState.Leaving)
+            {
+                if (_dealer == null)
+                {
+                    _dealCamLeaveTimer += Time.deltaTime;
+                    if (_dealCamLeaveTimer > 1f)
+                        StopDealCamera();
+                    return;
+                }
+                _dealCamLeaveTimer = 0f;
+                return;
+            }
+            if (!IsPlayerInClub())
+            {
+                StopDealCamera();
+                return;
+            }
+            if (Time.time - _dealCamStartTime > DEAL_CAM_MAX_TIME)
+            {
+                StopDealCamera();
+                return;
+            }
+            return;
+        }
+
+        if (!_dealCameraActive && _dealState == DealState.None)
+            _dealCamRefused = false;
+
+        if (Discovered) return;
+        if (_dealCamRefused) return;
+        if (_dealState != DealState.WalkingToMeeting && _dealState != DealState.Meeting) return;
+        if (!IsPlayerInClub()) return;
+        StartDealCamera();
+    }
+    private void StartDealCamera()
+    {
+        if (_dealCam == null)
+            _dealCam = Camera.main;
+        if (_dealCam == null)
+            return;
+        _dealCamFollow = _dealCam.GetComponent<CameraFollow>();
+        if (_dealCamFollow != null)
+            _dealCamFollow.enabled = false;
+
+        _playerTransform = GameManager.Instance?.Player?.transform;
+        if (_playerTransform != null)
+        {
+            var pc = _playerTransform.GetComponent<PlayerController>();
+            if (pc != null)
+            {
+                var sit = pc.GetComponent<PlayerSitController>();
+                if (sit != null && sit.IsSitting)
+                    sit.EndSit();
+                pc.EnableInput(false);
+            }
+        }
+
+        _dealCameraActive = true;
+        _dealCamStartTime = Time.time;
+        _dealCamEndDelay = 0f;
+        _dealCamLeaveTimer = 0f;
+        _dealAutoRevealed = false;
+        FrameDealCamera();
+        GameManager.Instance?.UIManager?.ShowMessage(
+            Localization.T("Phú Ông lén lút tiến về phía quán bar giữa đêm..."), 2.5f);
+    }
+    private void StopDealCamera()
+    {
+        if (!_dealCameraActive)
+            return;
+        _dealCameraActive = false;
+        _dealCamEndDelay = 0f;
+        _dealCamRefused = true;
+        if (_dealCamFollow != null)
+            _dealCamFollow.enabled = true;
+        _dealCamFollow = null;
+        _dealCam = null;
+        var gm = GameManager.Instance;
+        if (gm != null && gm.Player != null)
+            gm.Player.EnableInput(!gm.GamePaused);
+    }
+    private void FrameDealCamera()
+    {
+        if (_dealCam == null)
+            return;
+        Vector3 focus = _meetingSpot;
+        if (_dealer != null)
+        {
+            float dist = Vector3.Distance(_dealer.transform.position, _meetingSpot);
+            if (_dealState == DealState.WalkingToMeeting)
+            {
+                float t = Mathf.Clamp01((dist - 1.5f) / 6f);
+                focus = Vector3.Lerp(_meetingSpot, _dealer.transform.position, t);
+            }
+            else if (_dealState == DealState.Leaving)
+            {
+                float t = Mathf.Clamp01((dist - 1f) / 8f);
+                focus = Vector3.Lerp(_dealer.transform.position, _meetingSpot, t);
+            }
+        }
+        _dealCam.transform.position = focus + DealCamOffset;
+        _dealCam.transform.rotation = Quaternion.LookRotation(
+            focus + DealCamLookUp - _dealCam.transform.position);
+    }
+    private bool IsPlayerInClub()
+    {
+        var gm = GameManager.Instance;
+        if (gm == null || gm.Player == null)
+            return false;
+        if (_clubCenter == null)
+        {
+            var ctrl = Object.FindAnyObjectByType<NightClubController>();
+            if (ctrl != null) _clubCenter = ctrl.transform;
+        }
+        Vector3 club = _clubCenter != null ? _clubCenter.position : new Vector3(0f, 0f, 95f);
+        Vector3 d = gm.Player.transform.position - club;
+        return Mathf.Abs(d.x) < 12f && Mathf.Abs(d.z) < 8f;
     }
     private void UpdateDeal()
     {
@@ -231,15 +520,20 @@ private Transform _myTransform;
             {
                 if (_dealer == null)
                     _dealer = BuildDealerNpc(null, _dealerSpawn);
-                if (!_richAtMeeting && MoveTowards(_meetingSpot, WALK_SPEED * 1.1f))
+                if (_pathDirty)
+                {
+                    BuildPath(_meetingSpot);
+                    _pathDirty = false;
+                }
+                if (!_richAtMeeting && MoveAlongPath(WALK_SPEED * 1.1f))
                     _richAtMeeting = true;
                 if (_dealer != null)
                 {
-                    MoveDealerTowards(_dealer, _meetingSpot, 2.2f);
+                    MoveDealerTowards(_dealer, _meetingSpot, 3.5f);
                     if (_richAtMeeting && Vector3.Distance(_dealer.transform.position, _meetingSpot) < 1.2f)
                     {
                         _dealState = DealState.Meeting;
-                        _meetingTimer = 5f;
+                        _meetingTimer = 8f;
                     }
                 }
                 break;
@@ -251,6 +545,7 @@ private Transform _myTransform;
                 {
                     _dealState = DealState.Leaving;
                     _richAtMeeting = false;
+                    _pathDirty = true;
                 }
                 break;
             }
@@ -265,11 +560,17 @@ private Transform _myTransform;
                         _dealer = null;
                     }
                 }
-                if (!_richAtMeeting && MoveTowards(_homePosition, WALK_SPEED))
+                if (_pathDirty)
+                {
+                    BuildPath(_homePosition);
+                    _pathDirty = false;
+                }
+                if (!_richAtMeeting && MoveAlongPath(WALK_SPEED))
                 {
                     _dealState = DealState.None;
                     _richAtMeeting = false;
                     _hasPatrolTarget = false;
+                    _debugForceDeal = false;
                 }
                 break;
             }
@@ -304,11 +605,15 @@ private Transform _myTransform;
         }
         _dealState = DealState.None;
         _richAtMeeting = false;
+        _clubHangState = ClubHangState.None;
         _visitState = VisitState.WalkingHome;
         _hasPatrolTarget = false;
+        _pathDirty = true;
         GameManager.Instance?.UIManager?.ShowMessage(
             Localization.T("Bạn đã phát hiện hoạt động phi pháp của Phú Ông!"), 4f);
-        QuestManager.Instance?.AddProgress("mansion_secret", 1);
+        if (!_debugForceDeal)
+            QuestManager.Instance?.AddProgress("mansion_secret", 1);
+        _debugForceDeal = false;
     }
     public void SetDiscovered(bool value)
     {
@@ -348,6 +653,54 @@ private Transform _myTransform;
             _hasPatrolTarget = false;
             _patrolPause = Random.Range(1.5f, 3.5f);
         }
+    }
+    private void BuildPath(Vector3 dest)
+    {
+        _waypoints.Clear();
+        _waypointIndex = 0;
+        if (_myTransform == null)
+            return;
+        Vector3 start = _myTransform.position;
+        start.y = 0f;
+        dest.y = 0f;
+
+        if (Mathf.Abs(start.x - ROAD_CENTER_X) > 0.01f || Mathf.Abs(dest.x - ROAD_CENTER_X) > 0.01f)
+        {
+            _waypoints.Add(new Vector3(ROAD_CENTER_X, 0f, start.z));
+            _waypoints.Add(new Vector3(ROAD_CENTER_X, 0f, dest.z));
+        }
+        else
+        {
+            _waypoints.Add(new Vector3(start.x, 0f, dest.z));
+        }
+        _waypoints.Add(dest);
+    }
+    private bool MoveAlongPath(float speed)
+    {
+        if (_myTransform == null)
+            return true;
+        while (_waypointIndex < _waypoints.Count)
+        {
+            Vector3 target = _waypoints[_waypointIndex];
+            target.y = _myTransform.position.y;
+            Vector3 to = target - _myTransform.position;
+            to.y = 0f;
+            if (to.sqrMagnitude < 0.001f)
+            {
+                _waypointIndex++;
+                continue;
+            }
+            float step = speed * Time.deltaTime;
+            if (to.magnitude <= step)
+            {
+                _myTransform.position = target;
+                _waypointIndex++;
+                continue;
+            }
+            _myTransform.position += to.normalized * step;
+            return false;
+        }
+        return true;
     }
     private bool MoveTowards(Vector3 dest, float speed)
     {

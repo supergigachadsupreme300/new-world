@@ -51,7 +51,10 @@ public partial class WorldBuilder
             if (building.PartStates != null)
             {
                 foreach (var ps in building.PartStates)
+                {
                     ps.GhostEntity = null;
+                    ps.GhostLabel = null;
+                }
             }
         }
         _buildings.Clear();
@@ -67,11 +70,8 @@ public partial class WorldBuilder
 
         BlueprintAutoDeposit.ClearConsumedRoots();
 
-        _unlockedBlueprints.Clear();
+_unlockedBlueprints.Clear();
         if (_savedVillagers != null) _savedVillagers.Clear();
-
-        var demo = _worldRoot?.transform.Find("CropDemo");
-        if (demo != null) Destroy(demo.gameObject);
     }
 
     public IEnumerable<FieldState> GetAllFields() => _fields;
@@ -273,14 +273,19 @@ public partial class WorldBuilder
             }
         }
 
-        PruneTreesAndRocksNearPagoda();
+PruneTreesAndRocksNearStructures();
         RebuildFloorPositions();
     }
 
-    private void PruneTreesAndRocksNearPagoda()
+private void PruneTreesAndRocksNearStructures()
     {
-        float px = _pagodaPosition.x;
-        float pz = _pagodaPosition.z;
+        float exHalf = PagodaExcludeHalf;
+        PruneTreesAndRocksInBox(PagodaBasePos.x, PagodaBasePos.z, exHalf, exHalf);
+        PruneTreesAndRocksInBox(_bossArenaCenter.x, _bossArenaCenter.z, 12f, 12f);
+    }
+
+    private void PruneTreesAndRocksInBox(float cx, float cz, float halfX, float halfZ)
+    {
         for (int i = _trees.Count - 1; i >= 0; i--)
         {
             var t = _trees[i];
@@ -290,7 +295,7 @@ public partial class WorldBuilder
                 continue;
             }
             var p = t.transform.position;
-            if (Mathf.Abs(p.x - px) <= 8f && Mathf.Abs(p.z - pz) <= 12f)
+            if (Mathf.Abs(p.x - cx) <= halfX && Mathf.Abs(p.z - cz) <= halfZ)
             {
                 Destroy(t);
                 _trees.RemoveAt(i);
@@ -305,7 +310,7 @@ public partial class WorldBuilder
                 continue;
             }
             var p = r.transform.position;
-            if (Mathf.Abs(p.x - px) <= 8f && Mathf.Abs(p.z - pz) <= 12f)
+            if (Mathf.Abs(p.x - cx) <= halfX && Mathf.Abs(p.z - cz) <= halfZ)
             {
                 Destroy(r);
                 _rocks.RemoveAt(i);

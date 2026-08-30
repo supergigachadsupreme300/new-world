@@ -33,6 +33,8 @@ public int BuildingCount => _buildings.Count;
     private readonly List<FieldState> _fields = new List<FieldState>();
     private readonly List<BuildingState> _buildings = new List<BuildingState>();
     private readonly List<BlueprintState> _blueprints = new List<BlueprintState>();
+private static readonly Vector3 PagodaBasePos = new Vector3(26f, 0f, 25f);
+    private const float PagodaExcludeHalf = 12f;
     private Vector3 _pagodaPosition;
     public Vector3 PagodaPosition => _pagodaPosition;
     private readonly Vector3 _bossArenaCenter = new Vector3(280f, 0f, 90f);
@@ -57,9 +59,7 @@ public int BuildingCount => _buildings.Count;
     private float _roadZEnd = 100f;
     private float _roadTurnZ = 90f;
     private float _roadXEnd = 180f;
-    private Transform _shopRoot;
-    private GameObject _vendorSpawnButton;
-    private GameObject _immigrantSpawnButton;
+private Transform _shopRoot;
     private GameObject _policePostRoot;
     private GameObject _policeOfficerRoot;
     private GameObject _policeCarRoot;
@@ -67,6 +67,8 @@ public int BuildingCount => _buildings.Count;
     private readonly HashSet<GameObject> _openDoors = new HashSet<GameObject>();
     private bool _wasNight;
     private readonly List<GameObject> _clouds = new List<GameObject>();
+    private readonly List<Light> _streetLights = new List<Light>();
+    private int _worldFrameTick;
     private float _cloudSpawnTimer;
     private const int MaxClouds = 10;
     private const float CloudSpawnInterval = 35f;
@@ -357,29 +359,11 @@ public int BuildingCount => _buildings.Count;
             _immigrantHousePositions.Add(new Vector3(x, 0f, -30f));
         foreach (float x in new float[] { 45f, 60f, 75f, 90f, 105f, 120f, 135f, 150f, 180f, 210f, 240f })
             _immigrantHousePositions.Add(new Vector3(x, 0f, 70f));
-        foreach (float x in new float[] { 45f, 60f, 75f, 90f, 105f, 120f, 135f, 150f, 180f, 210f, 240f })
+foreach (float x in new float[] { 255f, 270f, 285f, 90f, 105f, 120f, 135f, 150f, 180f, 210f, 240f })
             _immigrantHousePositions.Add(new Vector3(x, 0f, 110f));
         foreach (float x in new float[] { 25f, 40f, 80f, 100f, 115f, 130f })
             _immigrantHousePositions.Add(new Vector3(x, 0f, 160f));
-        _immigrantBuilt = new bool[_immigrantHousePositions.Count];
-    }
-    private void PlaceImmigrantPlotMarkers()
-    {
-        if (_immigrantHousePositions == null || _worldRoot == null) return;
-        _immigrantPlotMarkers = new List<GameObject>();
-        for (int i = 0; i < _immigrantHousePositions.Count; i++)
-        {
-            var marker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            marker.name = "ImmigrantPlot_" + i;
-            marker.transform.SetParent(_worldRoot.transform);
-            marker.transform.position = _immigrantHousePositions[i] + Vector3.up * 0.05f;
-            marker.transform.localScale = new Vector3(7f, 0.08f, 7f);
-            var col = marker.GetComponent<Collider>();
-            if (col != null) Object.Destroy(col);
-            var mat = PickupVisualHelper.CreateTransparentMaterialFromBase(CreateSafeLitMaterial(), new Color(0.5f, 0.7f, 0.4f, 0.35f));
-            marker.GetComponent<MeshRenderer>().material = mat;
-            _immigrantPlotMarkers.Add(marker);
-        }
+_immigrantBuilt = new bool[_immigrantHousePositions.Count];
     }
     public void HideImmigrantMarker(int index)
     {
@@ -421,14 +405,14 @@ public int BuildingCount => _buildings.Count;
         _worldRoot.transform.rotation = Quaternion.identity;
         _worldRoot.isStatic = true;
 
-        GenerateImmigrantPositions();
-        PlaceImmigrantPlotMarkers();
+GenerateImmigrantPositions();
 
         if (!CreateTerrainGrid())
             CreateGround();
 
-        CreateSkyAndLight();
+CreateSkyAndLight();
         BuildRoad();
+        PlaceStreetLights();
         BuildRockyBorder();
         LoadTreeTextures();
         SpawnTrees(TreeCount);
@@ -448,29 +432,22 @@ public int BuildingCount => _buildings.Count;
         BuildRichManMansion();
         BuildFishingShop();
         BuildPolicePost();
-        SpawnBuffalo();
-        CreateVendorSpawnButton();
-        CreateImmigrantSpawnButton();
-        SpawnToolPickups();
+SpawnBuffalo();
         SpawnMobs();
-        CreateCropDemo();
-        CreateBuildingModels();
-        CreateInspectionLabels();
-        CreateSectionDividers();
-        CreateEnemyDisplay();
-        CreateAnimalDisplay();
         InitializeBuildingPreview();
-        PlaceMansionBlueprint(MansionBasePos);
-        BuildPagoda(new Vector3(26f, 0f, 25f));
+BuildPagoda(PagodaBasePos);
         var monk = MapBuilder.BuildMonkNpc(_worldRoot.transform, new Vector3(24f, 1.815f, 27f), Quaternion.Euler(0f, -90f, 0f));
         monk.AddComponent<PagodaMonkNPC>();
         BuildBossArena();
+        PruneTreesAndRocksNearStructures();
 
         SpawnInitialClouds();
 
-        var spawnerGo = new GameObject("LivestockSpawner");
+var spawnerGo = new GameObject("LivestockSpawner");
         spawnerGo.transform.SetParent(_worldRoot.transform);
         spawnerGo.AddComponent<LivestockSpawner>();
+
+        SittableSeat.Register(_worldRoot.transform);
     }
     private void BuildBossArena()
     {
@@ -737,7 +714,10 @@ public int BuildingCount => _buildings.Count;
             if (building.PartStates != null)
             {
                 foreach (var ps in building.PartStates)
+                {
                     ps.GhostEntity = null;
+                    ps.GhostLabel = null;
+                }
             }
         }
         _buildings.Clear();
@@ -753,6 +733,7 @@ public int BuildingCount => _buildings.Count;
         if (_buildingPreview != null)
             Destroy(_buildingPreview);
 
+_streetLights.Clear();
         if (RoadObject != null) Destroy(RoadObject);
         RoadObject = null;
         if (GroundObject != null) Destroy(GroundObject);
@@ -768,6 +749,7 @@ public int BuildingCount => _buildings.Count;
     }
     public void UpdateWorld(float deltaTime)
     {
+        _worldFrameTick++;
         _resourceRespawnTimer += deltaTime;
         if (_resourceRespawnTimer >= RespawnInterval)
         {
@@ -776,7 +758,8 @@ public int BuildingCount => _buildings.Count;
         }
 
         _cloudSpawnTimer += deltaTime;
-        _clouds.RemoveAll(c => c == null);
+        if ((_worldFrameTick & 15) == 0)
+            _clouds.RemoveAll(c => c == null);
         if (_cloudSpawnTimer >= CloudSpawnInterval && _clouds.Count < MaxClouds)
         {
             _cloudSpawnTimer = 0f;
@@ -896,15 +879,17 @@ public int BuildingCount => _buildings.Count;
     }
     public void SetDayNight(float hour)
     {
-        bool isNight = hour >= 18f || hour < 6f;
+bool isNight = hour >= 18f || hour < 6f;
         if (isNight && !_wasNight)
         {
             _wasNight = true;
             CloseAllDoors();
+            SetStreetLights(true);
         }
-        else if (!isNight)
+        else if (!isNight && _wasNight)
         {
             _wasNight = false;
+            SetStreetLights(false);
         }
 
         if (SunLight == null)
@@ -915,67 +900,105 @@ public int BuildingCount => _buildings.Count;
         float sunY = Mathf.Lerp(-180f, 180f, t);
         SunLight.transform.rotation = Quaternion.Euler(elevation, sunY, 0f);
 
+        Color sunColor;
+        float sunIntensity;
+        Color ambient;
+        float ambientIntensity;
+        bool fog;
+        Color fogColor = default;
+        float fogDensity = 0f;
+
         if (hour >= 6f && hour < 17f)
         {
-            SunLight.intensity = 2f;
-            SunLight.color = new Color(1f, 0.925f, 0.77f);
-
-            RenderSettings.ambientLight = new Color(0.5f, 0.7f, 1f);
-            RenderSettings.ambientIntensity = 0.8f;
-            RenderSettings.fog = false;
-            return;
-        }
-
-        float dayFactor = Mathf.Clamp01((elevation + 10f) / 90f);
-
-        SunLight.intensity = Mathf.Lerp(0.05f, 2f, dayFactor);
-
-        float warmFactor = 0f;
-        if (hour >= 5f && hour < 6f)
-            warmFactor = Mathf.InverseLerp(5f, 6f, hour);
-        else if (hour >= 17f && hour < 18f)
-            warmFactor = 1f - Mathf.InverseLerp(17f, 18f, hour);
-        Color baseSunColor = Color.Lerp(
-            new Color(1f, 0.925f, 0.77f),
-            new Color(1f, 0.5f, 0.15f),
-            warmFactor);
-        if (elevation < -5f)
-        {
-            float nightFactor = Mathf.InverseLerp(-5f, -30f, elevation);
-            baseSunColor = Color.Lerp(baseSunColor, new Color(0.1f, 0.1f, 0.3f), nightFactor);
-        }
-        SunLight.color = baseSunColor;
-
-        Color skyColor;
-        if (elevation > 15f)
-        {
-            skyColor = new Color(0.5f, 0.7f, 1f);
-        }
-        else if (elevation > -5f)
-        {
-            float sunriseT = Mathf.InverseLerp(-5f, 15f, elevation);
-            skyColor = Color.Lerp(new Color(0.8f, 0.3f, 0.1f), new Color(0.5f, 0.7f, 1f), sunriseT);
+            sunIntensity = 2f;
+            sunColor = new Color(1f, 0.925f, 0.77f);
+            ambient = new Color(0.5f, 0.7f, 1f);
+            ambientIntensity = 0.8f;
+            fog = false;
         }
         else
         {
-            float nightT = Mathf.InverseLerp(-5f, -30f, elevation);
-            skyColor = Color.Lerp(new Color(0.08f, 0.08f, 0.15f), new Color(0.02f, 0.02f, 0.05f), nightT);
+            float dayFactor = Mathf.Clamp01((elevation + 10f) / 90f);
+            sunIntensity = Mathf.Lerp(0.05f, 2f, dayFactor);
+
+            float warmFactor = 0f;
+            if (hour >= 5f && hour < 6f)
+                warmFactor = Mathf.InverseLerp(5f, 6f, hour);
+            else if (hour >= 17f && hour < 18f)
+                warmFactor = 1f - Mathf.InverseLerp(17f, 18f, hour);
+            Color baseSunColor = Color.Lerp(
+                new Color(1f, 0.925f, 0.77f),
+                new Color(1f, 0.5f, 0.15f),
+                warmFactor);
+            if (elevation < -5f)
+            {
+                float nightFactor = Mathf.InverseLerp(-5f, -30f, elevation);
+                baseSunColor = Color.Lerp(baseSunColor, new Color(0.1f, 0.1f, 0.3f), nightFactor);
+            }
+            sunColor = baseSunColor;
+
+            Color skyColor;
+            if (elevation > 15f)
+            {
+                skyColor = new Color(0.5f, 0.7f, 1f);
+            }
+            else if (elevation > -5f)
+            {
+                float sunriseT = Mathf.InverseLerp(-5f, 15f, elevation);
+                skyColor = Color.Lerp(new Color(0.8f, 0.3f, 0.1f), new Color(0.5f, 0.7f, 1f), sunriseT);
+            }
+            else
+            {
+                float nightT = Mathf.InverseLerp(-5f, -30f, elevation);
+                skyColor = Color.Lerp(new Color(0.09f, 0.09f, 0.15f), new Color(0.06f, 0.06f, 0.12f), nightT);
+            }
+
+            ambient = skyColor;
+            ambientIntensity = Mathf.Lerp(0.3f, 0.8f, dayFactor);
+
+            float fogFactor = 1f - Mathf.Abs(elevation - 10f) / 25f;
+            fogFactor = Mathf.Clamp01(fogFactor);
+            if (fogFactor > 0.01f)
+            {
+                fog = true;
+                fogColor = Color.Lerp(skyColor, new Color(1f, 0.6f, 0.3f), elevation > 0f ? 0.3f : 0.5f);
+                fogDensity = fogFactor * 0.015f;
+            }
+            else
+            {
+                fog = false;
+            }
         }
 
-        RenderSettings.ambientLight = skyColor;
-        RenderSettings.ambientIntensity = Mathf.Lerp(0.2f, 0.8f, dayFactor);
-
-        float fogFactor = 1f - Mathf.Abs(elevation - 10f) / 25f;
-        fogFactor = Mathf.Clamp01(fogFactor);
-        if (fogFactor > 0.01f)
+        if (SunLight.color != sunColor)
+            SunLight.color = sunColor;
+        if (SunLight.intensity != sunIntensity)
+            SunLight.intensity = sunIntensity;
+        if (RenderSettings.ambientLight != ambient)
+            RenderSettings.ambientLight = ambient;
+        if (RenderSettings.ambientIntensity != ambientIntensity)
+            RenderSettings.ambientIntensity = ambientIntensity;
+        if (RenderSettings.fog != fog)
+            RenderSettings.fog = fog;
+        if (fog)
         {
-            RenderSettings.fog = true;
-            RenderSettings.fogColor = Color.Lerp(skyColor, new Color(1f, 0.6f, 0.3f), elevation > 0f ? 0.3f : 0.5f);
-            RenderSettings.fogDensity = fogFactor * 0.015f;
+            if (RenderSettings.fogColor != fogColor)
+                RenderSettings.fogColor = fogColor;
+            if (RenderSettings.fogDensity != fogDensity)
+                RenderSettings.fogDensity = fogDensity;
         }
-        else
+    }
+    private void SetStreetLights(bool on)
+    {
+        for (int i = _streetLights.Count - 1; i >= 0; i--)
         {
-            RenderSettings.fog = false;
+            var l = _streetLights[i];
+            if (l == null)
+            {
+                _streetLights.RemoveAt(i);
+                continue;
+            }
+            l.enabled = on;
         }
     }
     public bool IsOnRoad(Vector3 position)
@@ -1000,37 +1023,7 @@ public int BuildingCount => _buildings.Count;
         Vector3 size = RoadObject.transform.localScale;
         return RoadObject.transform.position.y + size.y * 0.5f;
     }
-    private void SpawnToolPickups()
-    {
-        var seeds = new[] { "wheat_seed", "corn_seed", "carrot_seed", "tomato_seed", "strawberry_seed", "pumpkin_seed", "onion_seed", "sugarcane_seed", "rice_seed", "peashooter_seed", "fertilizer", "mobspawner" };
-        var tools = new[] { "axe", "pickaxe", "hoe", "hammer", "scythe", "watering_can", "fishing_rod", "rosary" };
-        var harvested = new[] { "wheat", "corn", "potato", "carrot", "tomato", "strawberry", "pumpkin", "onion", "sugarcane", "rice", "club", "cage_big", "cage_small" };
-
-        float baseX = 50f;
-        float step = 3f;
-
-        for (int i = 0; i < seeds.Length; i++)
-        {
-            int col = i % 6;
-            int row = i / 6;
-            CreateToolPickup(seeds[i], new Vector3(baseX + col * step, 0.5f, -52f - row * step));
-        }
-
-        for (int i = 0; i < tools.Length; i++)
-        {
-            int col = i % 6;
-            int row = i / 6;
-            CreateToolPickup(tools[i], new Vector3(baseX + col * step, 0.5f, -60f - row * step));
-        }
-
-        for (int i = 0; i < harvested.Length; i++)
-        {
-            int col = i % 6;
-            int row = i / 6;
-            CreateToolPickup(harvested[i], new Vector3(baseX + col * step, 0.5f, -65f - row * step));
-        }
-    }
-    public GameObject SpawnPickup(string toolType, Vector3 position)
+public GameObject SpawnPickup(string toolType, Vector3 position)
     {
         return CreateToolPickup(toolType, position);
     }
@@ -1673,6 +1666,7 @@ public int BuildingCount => _buildings.Count;
         public GameObject Entity;
         public int CurrentHealth;
         public GameObject GhostEntity;
+        public Transform GhostLabel;
     }
     public class BuildingPartDebrisInfo
     {
@@ -1886,6 +1880,7 @@ public class ThrownCageProjectile : MonoBehaviour
     private float _spawnTime;
     private Rigidbody _rb;
     private bool _landed;
+    private static readonly Collider[] _captureBuffer = new Collider[32];
 
     private void FixedUpdate()
     {
@@ -1929,9 +1924,10 @@ public class ThrownCageProjectile : MonoBehaviour
     }
     private void CheckForCapture()
     {
-        var cols = Physics.OverlapSphere(transform.position, 1f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
-        foreach (var col in cols)
+        int count = Physics.OverlapSphereNonAlloc(transform.position, 1f, _captureBuffer, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
+        for (int i = 0; i < count; i++)
         {
+            var col = _captureBuffer[i];
             var livestock = col.GetComponentInParent<Livestock>();
             if (livestock == null) livestock = col.GetComponent<Livestock>();
             if (livestock != null && livestock.IsKnockedOut)

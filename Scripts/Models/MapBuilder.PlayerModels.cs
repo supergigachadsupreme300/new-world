@@ -153,5 +153,72 @@ public static partial class MapBuilder
 
         return root;
     }
+    // ═══════════════════════════════════════════════════════════════
+    //  SITTING PLAYER MODEL  (neutral pose — hips on the seat, arms on lap)
+    // ═══════════════════════════════════════════════════════════════
+
+    public static GameObject BuildSitPlayerModel(Transform parent, float scale = 1f)
+    {
+        var root = new GameObject("SitPlayerModel");
+        root.transform.SetParent(parent);
+        root.transform.localPosition = Vector3.zero;
+        root.transform.localRotation = Quaternion.identity;
+        root.transform.localScale = Vector3.one * scale;
+
+        bool female = ActiveGender == PlayerGender.Female;
+
+        Color skinC = new Color(220f / 255f, 178f / 255f, 132f / 255f);
+        Color shirtC = new Color(0.2f, 0.6f, 0.9f);
+        Color pantsC = new Color(0.25f, 0.25f, 0.35f);
+        Color hairC = new Color(0.2f, 0.12f, 0.05f);
+        Color eyeC = new Color(0.05f, 0.03f, 0.01f);
+        Color shoeC = new Color(0.2f, 0.2f, 0.2f);
+        Color dressC = new Color(0.14f, 0.44f, 0.72f);
+
+        // ── Legs (thighs forward, shins down, feet on floor) ──
+        MakeBlock("ThighL", root.transform, new Vector3(0.14f, 0.26f, 0.14f), new Vector3(-0.13f, -0.03f, 0.16f), pantsC, true, Quaternion.Euler(-75f, 0f, 0f));
+        MakeBlock("ThighR", root.transform, new Vector3(0.14f, 0.26f, 0.14f), new Vector3(0.13f, -0.03f, 0.16f), pantsC, true, Quaternion.Euler(-75f, 0f, 0f));
+        MakeBlock("ShinL", root.transform, new Vector3(0.12f, 0.3f, 0.12f), new Vector3(-0.13f, -0.3f, 0.24f), pantsC, true);
+        MakeBlock("ShinR", root.transform, new Vector3(0.12f, 0.3f, 0.12f), new Vector3(0.13f, -0.3f, 0.24f), pantsC, true);
+        MakeBlock("ShoeL", root.transform, new Vector3(0.16f, 0.08f, 0.24f), new Vector3(-0.13f, -0.47f, 0.26f), shoeC, true);
+        MakeBlock("ShoeR", root.transform, new Vector3(0.16f, 0.08f, 0.24f), new Vector3(0.13f, -0.47f, 0.26f), shoeC, true);
+
+        // ── Torso (hips on the seat) ──
+        MakeBlock("Torso", root.transform, new Vector3(female ? 0.42f : 0.46f, 0.36f, 0.28f), new Vector3(0f, 0.18f, 0f), shirtC, true);
+        if (female)
+        {
+            MakeBlock("Skirt", root.transform, new Vector3(0.48f, 0.2f, 0.32f), new Vector3(0f, 0.02f, 0f), dressC, true);
+            MakeBlock("SkirtHem", root.transform, new Vector3(0.52f, 0.05f, 0.35f), new Vector3(0f, -0.08f, 0f), new Color(0.09f, 0.3f, 0.52f), true);
+        }
+        MakeBlock("Chest", root.transform, new Vector3(0.44f, 0.28f, 0.26f), new Vector3(0f, 0.42f, 0f), shirtC, true);
+
+        // ── Neck + head ──
+        MakeBlock("Neck", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0f, 0.62f, 0f), skinC, true);
+        MakeBlock("Head", root.transform, new Vector3(0.3f, 0.3f, 0.3f), new Vector3(0f, 0.78f, 0f), skinC, true);
+        MakeBlock("EyeWhiteL", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(-0.08f, 0.85f, 0.155f), new Color(0.95f, 0.95f, 0.97f), true);
+        MakeBlock("EyeWhiteR", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(0.08f, 0.85f, 0.155f), new Color(0.95f, 0.95f, 0.97f), true);
+        MakeBlock("EyeIrisL", root.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(-0.08f, 0.85f, 0.165f), eyeC, true);
+        MakeBlock("EyeIrisR", root.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(0.08f, 0.85f, 0.165f), eyeC, true);
+        MakeBlock("Hair", root.transform, new Vector3(0.32f, 0.08f, 0.3f), new Vector3(0f, 0.95f, 0f), hairC, true);
+        MakeBlock("HairL", root.transform, new Vector3(0.08f, 0.32f, 0.26f), new Vector3(-0.19f, 0.82f, 0f), hairC, true);
+        MakeBlock("HairR", root.transform, new Vector3(0.08f, 0.32f, 0.26f), new Vector3(0.19f, 0.82f, 0f), hairC, true);
+        if (female)
+        {
+            MakeBlock("HairBack", root.transform, new Vector3(0.3f, 0.3f, 0.1f), new Vector3(0f, 0.83f, -0.16f), hairC, true);
+            MakeBlock("HairBand", root.transform, new Vector3(0.34f, 0.05f, 0.32f), new Vector3(0f, 0.93f, 0f), new Color(0.1f, 0.34f, 0.56f), true);
+        }
+        else
+        {
+            MakeBlock("HairBack", root.transform, new Vector3(0.3f, 0.26f, 0.1f), new Vector3(0f, 0.85f, -0.16f), hairC, true);
+        }
+
+        // ── Arms resting on the lap ──
+        MakeBlock("ArmL", root.transform, new Vector3(0.12f, 0.34f, 0.12f), new Vector3(-0.27f, 0.3f, 0.06f), shirtC, true, Quaternion.Euler(-60f, 0f, 0f));
+        MakeBlock("ArmR", root.transform, new Vector3(0.12f, 0.34f, 0.12f), new Vector3(0.27f, 0.3f, 0.06f), shirtC, true, Quaternion.Euler(-60f, 0f, 0f));
+        MakeBlock("HandL", root.transform, new Vector3(0.11f, 0.09f, 0.11f), new Vector3(-0.27f, 0.14f, 0.2f), skinC, true);
+        MakeBlock("HandR", root.transform, new Vector3(0.11f, 0.09f, 0.11f), new Vector3(0.27f, 0.14f, 0.2f), skinC, true);
+
+        return root;
+    }
     // ==================== MapBuilderShop.cs ====================
 }

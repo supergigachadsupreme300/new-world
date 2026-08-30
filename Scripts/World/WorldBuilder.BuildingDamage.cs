@@ -211,6 +211,7 @@ public partial class WorldBuilder
         {
             Object.Destroy(ps.GhostEntity);
             ps.GhostEntity = null;
+            ps.GhostLabel = null;
         }
 
         var ghost = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -250,6 +251,7 @@ public partial class WorldBuilder
 
         var labelObj = new GameObject("GhostLabel");
         labelObj.transform.SetParent(ghost.transform, false);
+        ps.GhostLabel = labelObj.transform;
         float labelY = ps.Entity.transform.localScale.y * 0.5f + 0.3f;
         labelObj.transform.localPosition = new Vector3(0f, labelY, 0f);
 
@@ -262,8 +264,8 @@ public partial class WorldBuilder
         var parts = new List<string>();
         int ceilWood = Mathf.CeilToInt(woodCost);
         int ceilStone = Mathf.CeilToInt(stoneCost);
-        if (ceilWood > 0) parts.Add(Localization.T("Gá»—:") + $" {ceilWood}");
-        if (ceilStone > 0) parts.Add(Localization.T("ÄÃ¡:") + $" {ceilStone}");
+        if (ceilWood > 0) parts.Add(Localization.T("Gỗ:") + $" {ceilWood}");
+        if (ceilStone > 0) parts.Add(Localization.T("Đá:") + $" {ceilStone}");
         tmp.text = string.Join(" ", parts);
 
         var ghostData = ghost.AddComponent<GhostPartData>();
@@ -318,7 +320,7 @@ public partial class WorldBuilder
                 if (tm == null) return false;
                 if (tm.CountItem("wood") < needWood || tm.CountItem("stone") < needStone)
                 {
-                    GameManager.Instance?.UIManager?.ShowMessage(Localization.T("KhÃ´ng Ä‘á»§ gá»—/Ä‘Ã¡ Ä‘á»ƒ sá»­a chá»¯a."), 1.5f);
+                    GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Không đủ gỗ/đá để sửa chữa."), 1.5f);
                     return false;
                 }
 
@@ -342,10 +344,11 @@ public partial class WorldBuilder
                 ps.CurrentHealth = 4;
                 Object.Destroy(ps.GhostEntity);
                 ps.GhostEntity = null;
+                ps.GhostLabel = null;
                 b.CurrentHealth = Mathf.Min(b.MaxHealth, b.CurrentHealth + 4);
                 UpdateBuildingDurabilityLabel(b);
                 SoundManager.Instance?.Play("hammer");
-                GameManager.Instance?.UIManager?.ShowMessage(Localization.T("ÄÃ£ sá»­a chá»¯a xong."), 1.5f);
+                GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Đã sửa chữa xong."), 1.5f);
                 return true;
             }
         }
@@ -407,8 +410,8 @@ public partial class WorldBuilder
                 if (repairWood > 0 || repairStone > 0)
                 {
                     var parts = new System.Collections.Generic.List<string>();
-                    if (repairWood > 0) parts.Add($"Gá»—:{repairWood:F0}");
-                    if (repairStone > 0) parts.Add($"ÄÃ¡:{repairStone:F0}");
+                    if (repairWood > 0) parts.Add($"{Localization.T("Gỗ:")}{repairWood:F0}");
+                    if (repairStone > 0) parts.Add($"{Localization.T("Đá:")}{repairStone:F0}");
                     text += "\n" + string.Join(" ", parts);
                 }
             }
@@ -455,6 +458,7 @@ public partial class WorldBuilder
                 {
                     Object.Destroy(ps.GhostEntity);
                     ps.GhostEntity = null;
+                    ps.GhostLabel = null;
                 }
             }
         }
@@ -640,12 +644,12 @@ public partial class WorldBuilder
         float stoneRemaining = stoneCost - bp.StoneDeposited;
         var parts = new List<string>();
         if (woodRemaining > 0.01f)
-            parts.Add(Localization.T("Gá»—:") + $" {woodRemaining:F1}");
+            parts.Add(Localization.T("Gỗ:") + $" {woodRemaining:F1}");
         if (stoneRemaining > 0.01f)
-            parts.Add(Localization.T("ÄÃ¡:") + $" {stoneRemaining:F1}");
+            parts.Add(Localization.T("Đá:") + $" {stoneRemaining:F1}");
         if (parts.Count == 0)
-            return Localization.T("HoÃ n thÃ nh!");
-        return Localization.T("Cáº§n:") + " " + string.Join(", ", parts);
+            return Localization.T("Hoàn thành!");
+        return Localization.T("Cần:") + " " + string.Join(", ", parts);
     }
 
     private void UpdateBlueprintLabels()
@@ -675,14 +679,10 @@ public partial class WorldBuilder
             {
                 foreach (var ps in building.PartStates)
                 {
-                    if (ps.GhostEntity != null)
+                    if (ps.GhostLabel != null)
                     {
-                        var ghostLabel = ps.GhostEntity.transform.Find("GhostLabel");
-                        if (ghostLabel != null)
-                        {
-                            ghostLabel.LookAt(ghostLabel.position + cam.transform.rotation * Vector3.forward,
-                                cam.transform.rotation * Vector3.up);
-                        }
+                        ps.GhostLabel.LookAt(ps.GhostLabel.position + cam.transform.rotation * Vector3.forward,
+                            cam.transform.rotation * Vector3.up);
                     }
                 }
             }

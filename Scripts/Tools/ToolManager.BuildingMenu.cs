@@ -57,7 +57,7 @@ public partial class ToolManager
         var panelImg = _buildingMenuPanel.AddComponent<Image>();
         panelImg.color = new Color(0.18f, 0.2f, 0.27f, 0.95f);
 
-        var title = MakeBMText("BuildTitle", _buildingMenuPanel.transform, Localization.T("XÃ¢y Dá»±ng"),
+        var title = MakeBMText("BuildTitle", _buildingMenuPanel.transform, Localization.T("Xây Dựng"),
             new Vector2(0f, panelH * 0.42f), new Vector2(panelW - 80, fontS * 1.6f), (int)(fontS * 1.3f));
 
         MakeBMButton("BuildClose", _buildingMenuPanel.transform, "X",
@@ -152,13 +152,13 @@ public partial class ToolManager
         var def = wb.GetBuildingByIndex(index);
         if (!wb.IsBlueprintUnlocked(def.Name))
         {
-            _uiManager?.ShowMessage(Localization.T("Báº£n thiáº¿t káº¿ nÃ y bá»‹ khÃ³a. HÃ£y Ä‘áº¿n ThÆ° Viá»‡n tÃ¬m hiá»ƒu thÃªm!"), 2f);
+            _uiManager?.ShowMessage(Localization.T("Bản thiết kế này bị khóa. Hãy đến Thư Viện tìm hiểu thêm!"), 2f);
             return;
         }
         wb.CurrentBuildingIndex = index;
         _buildingChosen = true;
         CloseBuildingMenu();
-        _uiManager?.ShowMessage(Localization.F("ÄÃ£ chá»n: {0}. Nháº¥p Ä‘á»ƒ Ä‘áº·t.", Localization.BuildingName(def.Name)), 2f);
+        _uiManager?.ShowMessage(Localization.F("Đã chọn: {0}. Nhấp để đặt.", Localization.BuildingName(def.Name)), 2f);
     }
 
     private void RefreshBuildingMenuLabels()
@@ -168,7 +168,7 @@ public partial class ToolManager
         if (titleTf != null)
         {
             var t = titleTf.GetComponent<TMP_Text>();
-            if (t != null) t.text = Localization.T("XÃ¢y Dá»±ng");
+            if (t != null) t.text = Localization.T("Xây Dựng");
         }
         var wb = WorldBuilder.Instance;
         int count = wb != null ? wb.BuildingCount : 0;

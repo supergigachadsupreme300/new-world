@@ -48,7 +48,7 @@ public partial class CutsceneManager
                 r.gameObject.layer = 0;
             RegisterSpawned(heroModel);
 
-            // Scorched ground where the Demon King was slain â€” at the road turn junction
+            // Scorched ground where the Demon King was slain — at the road turn junction
             float bossZ = 90f;
             var scorch = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             scorch.name = "DemonScorch";
@@ -70,7 +70,7 @@ public partial class CutsceneManager
             }
             RegisterSpawned(fallenKing.gameObject);
 
-            // â”€â”€ PHASE 1: OPENING SHOT â”€â”€
+            // ── PHASE 1: OPENING SHOT ──
             Vector3 camStart = new Vector3(RoadX, 2.2f, playerZ - 4f);
             if (_mainCamera != null)
             {
@@ -80,7 +80,7 @@ public partial class CutsceneManager
             yield return StartCoroutine(FadeOverlay(0, 2f));
             yield return new WaitForSeconds(2.2f);
 
-            // â”€â”€ PHASE 2: THE FALLEN KING'S EMBER â”€â”€
+            // ── PHASE 2: THE FALLEN KING'S EMBER ──
             var ember = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             ember.name = "DemonEmber";
             ember.transform.position = new Vector3(RoadX, 1f, bossZ);
@@ -109,7 +109,7 @@ public partial class CutsceneManager
             ember.SetActive(false);
             yield return new WaitForSeconds(1f);
 
-            // â”€â”€ PHASE 3: SMOKE RISES FROM THE REMAINS â”€â”€
+            // ── PHASE 3: SMOKE RISES FROM THE REMAINS ──
             var smokeGO = new GameObject("DemonSmoke");
             smokeGO.transform.position = new Vector3(RoadX, 0.3f, bossZ);
             var ps = smokeGO.AddComponent<ParticleSystem>();
@@ -137,7 +137,7 @@ public partial class CutsceneManager
             RegisterSpawned(smokeGO);
             yield return new WaitForSeconds(2f);
 
-            // â”€â”€ PHASE 4: CAMERA TURNS TOWARD THE VILLAGE â”€â”€
+            // ── PHASE 4: CAMERA TURNS TOWARD THE VILLAGE ──
             float panDur = 4f;
             float panTimer = 0f;
             while (panTimer < panDur)
@@ -154,7 +154,7 @@ public partial class CutsceneManager
             }
             yield return new WaitForSeconds(1.5f);
 
-            // â”€â”€ PHASE 5: THE HERO WALKS AWAY â”€â”€
+            // ── PHASE 5: THE HERO WALKS AWAY ──
             _walkAnimRoutine = StartCoroutine(WalkAnimation(heroModel, 2.5f));
 
             float walkZ = playerZ;
@@ -176,7 +176,7 @@ public partial class CutsceneManager
             yield return new WaitForSeconds(1f);
             yield return StartCoroutine(FadeOverlay(1, 2f));
 
-            // â”€â”€ PHASE 6: THE VILLAGE â€” A QUIET TRAGEDY â”€â”€
+            // ── PHASE 6: THE VILLAGE — A QUIET TRAGEDY ──
             if (GameManager.Instance != null) GameManager.Instance.SetTimeOfDay(8f);
             if (realWife != null) realWife.SetActive(false);
             if (staticWife != null) staticWife.SetActive(false);
@@ -214,28 +214,28 @@ public partial class CutsceneManager
                 _mainCamera.transform.position = new Vector3(19.8f, 2f, -4.5f);
                 _mainCamera.transform.LookAt(corpsePos + Vector3.up * 0.6f);
             }
-            ShowDemonCaption(Localization.T("Jessica Ä‘Ã£ bá»‹ háº¡ sÃ¡t ngay trÆ°á»›c hiÃªn nhÃ ."));
+            ShowDemonCaption(Localization.T("Jessica đã bị hạ sát ngay trước hiên nhà."));
             yield return StartCoroutine(FadeOverlay(0, 2f));
             yield return new WaitForSeconds(3.2f);
 
-            // â”€â”€ PHASE 7: THE ADDICT â€” HUNCHED OVER THE BODY â”€â”€
+            // ── PHASE 7: THE ADDICT — HUNCHED OVER THE BODY ──
             if (_mainCamera != null)
             {
                 _mainCamera.transform.position = new Vector3(23f, 1.3f, 0.6f);
                 _mainCamera.transform.LookAt(addict.transform.position + Vector3.up * 0.8f);
             }
-            ShowDemonCaption(Localization.T("KhÃ´ng pháº£i tÃ´i... tÃ´i khÃ´ng kiá»ƒm soÃ¡t Ä‘Æ°á»£c ná»¯a..."));
+            ShowDemonCaption(Localization.T("Không phải tôi... tôi không kiểm soát được nữa..."));
             yield return StartCoroutine(FadeOverlay(1, 1f));
             yield return StartCoroutine(FadeOverlay(0, 1f));
             yield return new WaitForSeconds(3f);
 
-            // â”€â”€ PHASE 8: POLICE ARRIVE AT THE HOUSE â”€â”€
+            // ── PHASE 8: POLICE ARRIVE AT THE HOUSE ──
             if (_mainCamera != null)
             {
                 _mainCamera.transform.position = new Vector3(16.5f, 2.4f, 3.5f);
                 _mainCamera.transform.LookAt(new Vector3(22f, 1f, -0.5f));
             }
-            ShowDemonCaption(Localization.T("Cáº£nh sÃ¡t nhanh chÃ³ng cÃ³ máº·t."));
+            ShowDemonCaption(Localization.T("Cảnh sát nhanh chóng có mặt."));
             yield return StartCoroutine(FadeOverlay(1, 1f));
             yield return StartCoroutine(FadeOverlay(0, 1f));
 
@@ -270,10 +270,10 @@ public partial class CutsceneManager
                 yield return null;
             }
             yield return new WaitForSeconds(0.8f);
-            ShowDemonCaption(Localization.T("Há» báº¯t giá»¯ káº» nghiá»‡n ngáº­p... nhÆ°ng káº» gÃ¢y Ã¡n chá»‰ lÃ  bá» ná»•i."));
+            ShowDemonCaption(Localization.T("Họ bắt giữ kẻ nghiện ngập... nhưng kẻ gây án chỉ là bề nổi."));
             yield return new WaitForSeconds(2.4f);
 
-            // â”€â”€ PHASE 9: FINAL LOOK â”€â”€
+            // ── PHASE 9: FINAL LOOK ──
             if (_mainCamera != null)
             {
                 _mainCamera.transform.position = new Vector3(20.5f, 2f, -6f);
@@ -286,7 +286,7 @@ public partial class CutsceneManager
             HideDemonCaption();
             DestroyDemonUI();
 
-            // â”€â”€ FADE + END SCREEN â”€â”€
+            // ── FADE + END SCREEN ──
             yield return StartCoroutine(FadeOverlay(1, 2f));
 
             HideSkipButton();
@@ -295,8 +295,8 @@ public partial class CutsceneManager
             DestroyOverlay();
 
             FinishEndingScene(onComplete,
-                Localization.T("QUá»¶ VÆ¯Æ NG ÄÃƒ CHáº¾T NHÆ¯NG CÃI ÃC CHÆ¯A Háº¾T"),
-                Localization.T("Quá»· VÆ°Æ¡ng Ä‘Ã£ bá»‹ Ä‘Ã¡nh báº¡i, bÃ³ng tá»‘i bá»‹ Ä‘áº©y lÃ¹i.\nNhÆ°ng khi cáº­u quay vá» lÃ ng...\nJessica Ä‘Ã£ bá»‹ má»™t káº» nghiá»‡n ngáº­p do ma tÃºy cá»§a PhÃº Ã”ng háº¡ sÃ¡t.\n\nKáº» gÃ¢y Ã¡n chá»‰ lÃ  bá» ná»•i...\nCÃ³ thá»ƒ Ä‘Ã¢y lÃ  mÆ°u Ä‘á»“ cá»§a lÅ© quá»·.\nCÃ¡i Ã¡c chÆ°a bá»‹ nhá»• táº­n gá»‘c.\nNgÃ´i lÃ ng chÆ°a thá»ƒ yÃªn bÃ¬nh."));
+                Localization.T("QUỶ VƯƠNG ĐÃ CHẾT NHƯNG CÁI ÁC CHƯA HẾT"),
+                Localization.T("Quỷ Vương đã bị đánh bại, bóng tối bị đẩy lùi.\nNhưng khi cậu quay về làng...\nJessica đã bị một kẻ nghiện ngập do ma túy của Phú Ông hạ sát.\n\nKẻ gây án chỉ là bề nổi...\nCó thể đây là mưu đồ của lũ quỷ.\nCái ác chưa bị nhổ tận gốc.\nNgôi làng chưa thể yên bình."));
         }
         finally
         {
