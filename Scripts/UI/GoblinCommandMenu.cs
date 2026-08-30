@@ -13,6 +13,7 @@ public class GoblinCommandMenu : MonoBehaviour
 
     private GoblinPet _goblin;
     private int _openFrame = -10;
+    private bool _wasPausedBeforeOpen;
     private Canvas _canvas;
     private GameObject _panel;
     private TMP_Text _nameText;
@@ -84,7 +85,10 @@ public class GoblinCommandMenu : MonoBehaviour
         _panel.SetActive(true);
         IsOpen = true;
         _openFrame = Time.frameCount;
-        GameManager.Instance?.TogglePause(true);
+        _wasPausedBeforeOpen = GameManager.Instance != null && GameManager.Instance.GamePaused;
+        if (GameManager.Instance != null)
+            GameManager.Instance.TogglePause(true);
+        GameManager.Instance?.UIManager?.ShowPauseMenu(false);
         Refresh();
     }
 
@@ -96,7 +100,10 @@ public class GoblinCommandMenu : MonoBehaviour
         if (_panel != null)
             _panel.SetActive(false);
         _goblin = null;
-        GameManager.Instance?.TogglePause(false);
+        if (_wasPausedBeforeOpen)
+            GameManager.Instance?.UIManager?.ShowPauseMenu(true);
+        else
+            GameManager.Instance?.TogglePause(false);
     }
 
     private void Apply(GoblinPet.CommandMode mode)
@@ -129,6 +136,10 @@ public class GoblinCommandMenu : MonoBehaviour
             _closeText.text = mobile ? Localization.T("[Đóng] (Chạm)") : Localization.T("[Đóng] Ấn E");
         if (_promptText != null)
             _promptText.text = Localization.T("Ra lệnh cho goblin...");
+        if (_followRow != null) _followRow.SetActive(true);
+        if (_stayRow != null) _stayRow.SetActive(true);
+        if (_homeRow != null) _homeRow.SetActive(true);
+        if (_closeRow != null) _closeRow.SetActive(true);
     }
 
     private string StatusText()
