@@ -950,11 +950,14 @@ public static partial class MapBuilder
             l.range = 9f;
         }
 
+        // ── Exterior scene dressing (canopy, queue, patrons, neon windows, deal set) ──
+        ClubExteriorBuilder.Build(root.transform);
+
         root.AddComponent<NightClubController>();
         return root;
     }
 
-    private static GameObject BuildClubDancer(Transform parent, Vector3 position, Quaternion rotation, Color shirtC, Color pantsC, Color skinC)
+    public static GameObject BuildClubDancer(Transform parent, Vector3 position, Quaternion rotation, Color shirtC, Color pantsC, Color skinC)
     {
         var root = new GameObject("ClubDancer");
         root.transform.SetParent(parent);

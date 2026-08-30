@@ -54,6 +54,15 @@ private Transform _myTransform;
     private enum ClubHangState { None, WalkingToClub, AtClub }
     private ClubHangState _clubHangState = ClubHangState.None;
     private readonly Vector3 _clubStandSpot = new Vector3(8.5f, 0f, 98f);
+    private readonly Vector3[] _clubPaceSpots =
+    {
+        new Vector3(8.2f, 0f, 95.6f),
+        new Vector3(8.5f, 0f, 101.4f),
+    };
+    private enum ClubIdleState { Watching, Pacing }
+    private ClubIdleState _clubIdleState = ClubIdleState.Watching;
+    private float _clubIdleTimer;
+    private int _clubPaceIndex;
 
     private readonly List<Vector3> _waypoints = new List<Vector3>();
     private int _waypointIndex;
@@ -244,7 +253,10 @@ private Transform _myTransform;
             return;
         }
         if (_clubHangState == ClubHangState.AtClub)
+        {
+            HandleClubHangout();
             return;
+        }
 
         switch (_visitState)
         {
@@ -316,6 +328,52 @@ private Transform _myTransform;
             WifeNPC.Instance.ApplyAffectionChange(-AFFECTION_STEAL);
         GameManager.Instance?.UIManager?.ShowMessage(
             Localization.T("Ông chú giàu có lại sang nhà Jessica giữa đêm..."), 3f);
+    }
+    private void HandleClubHangout()
+    {
+        switch (_clubIdleState)
+        {
+            case ClubIdleState.Watching:
+            {
+                if (_clubIdleTimer <= 0f) _clubIdleTimer = 2.5f;
+                _clubIdleTimer -= Time.deltaTime;
+                FaceToward(new Vector3(26f, 0f, 95f), 2.5f);
+                if (_clubIdleTimer <= 0f)
+                {
+                    _clubIdleState = ClubIdleState.Pacing;
+                    _pathDirty = true;
+                }
+                break;
+            }
+            case ClubIdleState.Pacing:
+            {
+                if (_pathDirty)
+                {
+                    BuildPath(_clubPaceSpots[_clubPaceIndex]);
+                    _pathDirty = false;
+                }
+                if (MoveAlongPath(WALK_SPEED * 0.85f))
+                {
+                    _clubPaceIndex = 1 - _clubPaceIndex;
+                    _clubIdleState = ClubIdleState.Watching;
+                    _clubIdleTimer = 2f + UnityEngine.Random.value * 2.5f;
+                }
+                break;
+            }
+        }
+    }
+    private void FaceToward(Vector3 worldPos, float speed)
+    {
+        if (_myTransform == null)
+            return;
+        Vector3 to = worldPos - _myTransform.position;
+        to.y = 0f;
+        if (to.sqrMagnitude < 0.001f)
+            return;
+        _myTransform.rotation = Quaternion.Slerp(
+            _myTransform.rotation,
+            Quaternion.LookRotation(-to.normalized),
+            speed * Time.deltaTime);
     }
     private bool TryStartDeal()
     {

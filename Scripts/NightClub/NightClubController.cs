@@ -10,6 +10,9 @@ public class NightClubController : MonoBehaviour
     private ClubDancer[] _dancers;
     private ClubDJAnimator _dj;
     private Renderer[] _floorTiles;
+    private readonly System.Collections.Generic.List<GameObject> _extRigs = new System.Collections.Generic.List<GameObject>();
+    private readonly System.Collections.Generic.List<Renderer> _extGlowRenderers = new System.Collections.Generic.List<Renderer>();
+    private readonly System.Collections.Generic.List<Color> _extGlowColors = new System.Collections.Generic.List<Color>();
     private bool _night;
     private bool _initialized;
 
@@ -49,6 +52,22 @@ public class NightClubController : MonoBehaviour
             }
         }
         _floorTiles = tiles.ToArray();
+
+        foreach (var t in GetComponentsInChildren<Transform>(true))
+        {
+            if (t.name == "ClubPatron" || t.name == "ClubBouncer")
+                _extRigs.Add(t.gameObject);
+            else if (t.name == "ClubSconceGlow" || t.name == "ClubWindowGlow" ||
+                     t.name == "DealLampGlow" || t.name == "WagonLanternGlow")
+            {
+                var r = t.GetComponent<Renderer>();
+                if (r != null)
+                {
+                    _extGlowRenderers.Add(r);
+                    _extGlowColors.Add(r.material.color);
+                }
+            }
+        }
 
         _initialized = true;
     }
@@ -112,6 +131,16 @@ public class NightClubController : MonoBehaviour
         if (_dj != null) _dj.IsPlaying = true;
         if (_neon != null)
             _neon.material.color = _night ? new Color(1f, 0.3f, 0.9f) : new Color(0.16f, 0.13f, 0.22f);
+
+        foreach (var g in _extRigs)
+        {
+            if (g != null) g.SetActive(_night);
+        }
+        for (int i = 0; i < _extGlowRenderers.Count; i++)
+        {
+            if (_extGlowRenderers[i] == null) continue;
+            _extGlowRenderers[i].material.color = _night ? _extGlowColors[i] : new Color(0.1f, 0.1f, 0.13f);
+        }
     }
 
     private void Disco()
