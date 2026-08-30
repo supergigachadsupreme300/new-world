@@ -18,7 +18,7 @@ public class QuestManager : MonoSingleton<QuestManager>
     }
     private static readonly StoryQuestDef[] StoryQuestDefs =
     {
-        new StoryQuestDef { Name = "Chào Hỏi Hàng Xóm", Target = "greet", Count = 2, Reward = 0, Description = "Nói chuyện với Buffalo và Jessica để làm quen với hàng xóm.", RequiredDay = 1 },
+        new StoryQuestDef { Name = "Chào Hỏi Hàng Xóm", Target = "greet", Count = 1, Reward = 0, Description = "Nói chuyện với Jessica để làm quen với hàng xóm.", RequiredDay = 1 },
         new StoryQuestDef { Name = "Bí Mật Của Phú Ông", Target = "mansion_secret", Count = 1, Reward = 500, Description = "Đêm tối, hãy rình xem điều gì xảy ra sau dinh thự của Phú Ông. Sau khi có bằng chứng, hãy đến đồn cảnh sát bên cạnh con đường để báo án.", RequiredDay = 3 },
         new StoryQuestDef { Name = "Mùa Thu Đầu Tiên", Target = "wheat", Count = 50, Reward = 150, Description = "Thu hoạch 50 lúa mì để trở thành nông dân thực thụ.", RequiredDay = 3 },
         new StoryQuestDef { Name = "Bảo Vệ Đất", Target = "enemies", Count = 10, Reward = 300, Description = "Diệt 10 kẻ thù để bảo vệ nông trại.", RequiredDay = 5 },

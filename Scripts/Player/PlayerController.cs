@@ -398,7 +398,6 @@ public class PlayerController : MonoBehaviour
                                 dlg.Initialize();
                             }
                             dlg.Show();
-                            QuestManager.Instance?.AddProgress("greet", 1);
                             return;
                         }
                         if (hit.collider.transform.name == "VendorNPC")
@@ -520,7 +519,6 @@ public class PlayerController : MonoBehaviour
                             dlg.Initialize();
                         }
                         dlg.Show();
-                        QuestManager.Instance?.AddProgress("greet", 1);
                         return;
                     }
 

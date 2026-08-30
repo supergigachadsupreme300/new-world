@@ -474,7 +474,7 @@ public static class Localization
 
         // Quest names & descriptions
         { "Chào Hỏi Hàng Xóm", "Greet The Neighbors" },
-        { "Nói chuyện với Buffalo và Jessica để làm quen với hàng xóm.", "Talk to Buffalo and Jessica to get to know your neighbors." },
+        { "Nói chuyện với Jessica để làm quen với hàng xóm.", "Talk to Jessica to get to know your neighbor." },
         { "Mùa Thu Đầu Tiên", "First Autumn" },
         { "Thu hoạch 50 lúa mì để trở thành nông dân thực thụ.", "Harvest 50 wheat to become a true farmer." },
         { "Bảo Vệ Đất", "Protect The Land" },
