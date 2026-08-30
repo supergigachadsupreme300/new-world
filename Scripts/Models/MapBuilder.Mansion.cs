@@ -135,10 +135,12 @@ public static partial class MapBuilder
         }
         MakeBlock("DoorKnobL", root.transform, new Vector3(0.16f, 0.16f, 0.16f), new Vector3(-halfW - 0.28f, 2.2f, -0.55f), trimC, true);
         MakeBlock("DoorKnobR", root.transform, new Vector3(0.16f, 0.16f, 0.16f), new Vector3(-halfW - 0.28f, 2.2f, 0.55f), trimC, true);
-        MakeBlock("DoorStep", root.transform, new Vector3(7f, 0.3f, 1f), new Vector3(-halfW - 0.5f, 0.15f, 0f), stoneC);
-        MakeBlock("DoorStepGold", root.transform, new Vector3(7f, 0.08f, 0.14f), new Vector3(-halfW - 0.52f, 0.42f, -0.5f), goldC, true);
-        MakeBlock("DoorStep2", root.transform, new Vector3(5f, 0.25f, 0.65f), new Vector3(-halfW - 1f, 0.125f, 0f), stoneC);
-        MakeBlock("DoorStep3", root.transform, new Vector3(3.4f, 0.2f, 0.45f), new Vector3(-halfW - 1.45f, 0.1f, 0f), stoneC);
+        // Front steps: tiers span ACROSS the doorway (local Z) resting on the porch slab (top 0.3),
+        // descending toward the walkway instead of a 7m plank along the path that sank into the house.
+        MakeBlock("DoorStep", root.transform, new Vector3(1f, 0.32f, 4.8f), new Vector3(-halfW - 0.65f, 0.46f, 0f), stoneC);
+        MakeBlock("DoorStepGold", root.transform, new Vector3(0.14f, 0.08f, 4.8f), new Vector3(-halfW - 0.65f, 0.62f, 0f), goldC, true);
+        MakeBlock("DoorStep2", root.transform, new Vector3(1f, 0.28f, 4f), new Vector3(-halfW - 1.55f, 0.44f, 0f), stoneC);
+        MakeBlock("DoorStep3", root.transform, new Vector3(0.9f, 0.24f, 3.2f), new Vector3(-halfW - 2.45f, 0.42f, 0f), stoneC);
 
         // ── 2F walls ──
         MakeBlock("Wall2F_Zneg", root.transform, new Vector3(halfW * 2f, h2, 0.5f), new Vector3(0f, y2, -halfD), wallC);
