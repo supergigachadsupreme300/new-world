@@ -476,6 +476,7 @@ public partial class WorldBuilder
             _buildings.Remove(state);
             HandleGoblinHutRemoval(state);
             CreateEssentialBlueprint(state);
+            NavGrid.Instance?.MarkDirty();
             return;
         }
 
@@ -486,6 +487,7 @@ public partial class WorldBuilder
             Object.Destroy(state.Entity);
         _buildings.Remove(state);
         HandleGoblinHutRemoval(state);
+        NavGrid.Instance?.MarkDirty();
 
         var blueprint = GameObject.CreatePrimitive(PrimitiveType.Cube);
         blueprint.name = "Blueprint";

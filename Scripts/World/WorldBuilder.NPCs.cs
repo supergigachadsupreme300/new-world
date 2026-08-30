@@ -293,13 +293,23 @@ return false;
         _policeCarRoot = car;
     }
 
-    public bool TryToggleDoor(RaycastHit hit)
+public bool TryToggleDoor(RaycastHit hit)
     {
         var door = FindDoor(hit.collider.gameObject);
         if (door == null) return false;
         if (_openDoors.Contains(door)) _openDoors.Remove(door); else _openDoors.Add(door);
         StartCoroutine(AnimateDoor(door));
         return true;
+    }
+
+    /// <summary>Open or close a door directly (used by NPCs that navigate through doors).</summary>
+    public void SetDoorOpen(GameObject door, bool open)
+    {
+        if (door == null) return;
+        bool currentlyOpen = _openDoors.Contains(door);
+        if (currentlyOpen == open) return;
+        if (open) _openDoors.Add(door); else _openDoors.Remove(door);
+        StartCoroutine(AnimateDoor(door));
     }
 
     private GameObject FindDoor(GameObject obj)

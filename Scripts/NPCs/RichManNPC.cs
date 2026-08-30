@@ -20,7 +20,6 @@ private Transform _myTransform;
     private const int DEAL_START_DAY = 3;
     private const float CLUB_WINDOW_START = 19f;
     private const float CLUB_WINDOW_END = 21f;
-    private const float ROAD_CENTER_X = 14f;
     private const float DEAL_CAM_MAX_TIME = 40f;
     private const float DEAL_CAM_REVEAL_DELAY = 3f;
     private static readonly Vector3 DealCamOffset = new Vector3(0f, 4f, 5.5f);
@@ -59,6 +58,13 @@ private Transform _myTransform;
     private readonly List<Vector3> _waypoints = new List<Vector3>();
     private int _waypointIndex;
     private bool _pathDirty;
+
+    // NPC root sits this far above the walk surface (matches spawn offset).
+    private const float NpcGroundOffset = 0.86f;
+    private const float DoorOpenProbeRadius = 1.4f;
+    private const float DoorAutoCloseDelay = 2.5f;
+    private readonly HashSet<GameObject> _openedDoors = new HashSet<GameObject>();
+    private readonly Dictionary<GameObject, float> _doorLastTouched = new Dictionary<GameObject, float>();
 
     private bool _dealCameraActive;
     private float _dealCamStartTime;
@@ -646,9 +652,22 @@ private Transform _myTransform;
                 Random.Range(-HOME_PATROL_RADIUS_X, HOME_PATROL_RADIUS_X), 0f,
                 Random.Range(-HOME_PATROL_RADIUS_Z, HOME_PATROL_RADIUS_Z));
             _hasPatrolTarget = true;
+            _pathDirty = true;
         }
 
-        if (MoveTowards(_target, WALK_SPEED))
+        if (_pathDirty)
+        {
+            BuildPath(_target);
+            _pathDirty = false;
+            if (_waypoints.Count == 0)
+            {
+                _hasPatrolTarget = false;
+                _patrolPause = Random.Range(1.5f, 3.5f);
+                return;
+            }
+        }
+
+        if (MoveAlongPath(WALK_SPEED))
         {
             _hasPatrolTarget = false;
             _patrolPause = Random.Range(1.5f, 3.5f);
@@ -660,67 +679,133 @@ private Transform _myTransform;
         _waypointIndex = 0;
         if (_myTransform == null)
             return;
-        Vector3 start = _myTransform.position;
-        start.y = 0f;
-        dest.y = 0f;
-
-        if (Mathf.Abs(start.x - ROAD_CENTER_X) > 0.01f || Mathf.Abs(dest.x - ROAD_CENTER_X) > 0.01f)
+        if (NavGrid.Instance == null)
         {
-            _waypoints.Add(new Vector3(ROAD_CENTER_X, 0f, start.z));
-            _waypoints.Add(new Vector3(ROAD_CENTER_X, 0f, dest.z));
+            // Fallback if the nav grid is unavailable: straight line on flat ground.
+            dest.y = _myTransform.position.y;
+            _waypoints.Add(dest);
+            return;
         }
-        else
+        if (!NavGrid.Instance.FindPath(_myTransform.position, dest, _waypoints))
         {
-            _waypoints.Add(new Vector3(start.x, 0f, dest.z));
+            // Destination cell not walkable: snap it and retry.
+            if (NavGrid.Instance.NearestWalkable(dest, out Vector3 snapped)
+                && NavGrid.Instance.FindPath(_myTransform.position, snapped, _waypoints))
+                return;
+            _waypoints.Clear();
+            dest.y = _myTransform.position.y;
+            _waypoints.Add(dest);
         }
-        _waypoints.Add(dest);
     }
     private bool MoveAlongPath(float speed)
     {
         if (_myTransform == null)
             return true;
-        while (_waypointIndex < _waypoints.Count)
+        if (_waypoints == null || _waypointIndex >= _waypoints.Count)
+            return true;
+
+        const float arriveDist = 0.4f;
+        int guard = 0;
+        while (_waypointIndex < _waypoints.Count && guard++ < 32)
         {
             Vector3 target = _waypoints[_waypointIndex];
-            target.y = _myTransform.position.y;
+            float ground = NavGrid.Instance != null ? NavGrid.Instance.SampleGroundY(target) : target.y;
+            target.y = ground + NpcGroundOffset;
             Vector3 to = target - _myTransform.position;
             to.y = 0f;
-            if (to.sqrMagnitude < 0.001f)
+            float dist = to.magnitude;
+            if (dist < arriveDist)
             {
                 _waypointIndex++;
                 continue;
             }
             float step = speed * Time.deltaTime;
-            if (to.magnitude <= step)
+            Vector3 dir = to / dist;
+            if (dist <= step)
             {
                 _myTransform.position = target;
                 _waypointIndex++;
                 continue;
             }
-            _myTransform.position += to.normalized * step;
+            _myTransform.position += dir * step;
+            _myTransform.rotation = Quaternion.LookRotation(-dir);
+            SnapToGround();
+            ManageDoors();
+            _isMoving = true;
             return false;
         }
-        return true;
+        ManageDoors();
+        return _waypointIndex >= _waypoints.Count;
     }
-    private bool MoveTowards(Vector3 dest, float speed)
+    private void SnapToGround()
+    {
+        if (_myTransform == null || NavGrid.Instance == null)
+            return;
+        float ground = NavGrid.Instance.SampleGroundY(_myTransform.position);
+        float targetY = ground + NpcGroundOffset;
+        float y = Mathf.Lerp(_myTransform.position.y, targetY, 0.35f);
+        if (Mathf.Abs(y - _myTransform.position.y) > 0.001f)
+            _myTransform.position = new Vector3(_myTransform.position.x, y, _myTransform.position.z);
+    }
+    private void ManageDoors()
     {
         if (_myTransform == null)
-            return true;
-        dest.y = _myTransform.position.y;
-        Vector3 to = dest - _myTransform.position;
-        to.y = 0f;
-        if (to.sqrMagnitude < 0.001f)
-            return true;
+            return;
+        var wb = WorldBuilder.Instance;
+        if (wb == null)
+            return;
+        float now = Time.time;
 
-        _myTransform.position = Vector3.MoveTowards(_myTransform.position, dest, speed * Time.deltaTime);
-        _myTransform.rotation = Quaternion.LookRotation(-to.normalized);
-#if UNITY_EDITOR
-        float dot = Vector3.Dot(-_myTransform.forward, to.normalized);
-        if (dot < 0.7f && to.sqrMagnitude > 0.25f)
-            Debug.LogWarning($"[RichMan] strafe check facing={-_myTransform.forward:F2} move={to.normalized:F2} dot={dot:F2} at {_myTransform.position:F1}", this);
-#endif
-        _isMoving = true;
-        return Vector3.Distance(_myTransform.position, dest) < 0.1f;
+        Collider[] cols = Physics.OverlapSphere(
+            _myTransform.position + Vector3.up * 0.6f, DoorOpenProbeRadius,
+            Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < cols.Length; i++)
+        {
+            var door = FindDoorRoot(cols[i].transform);
+            if (door == null)
+                continue;
+            if (!_openedDoors.Contains(door))
+            {
+                _openedDoors.Add(door);
+                wb.SetDoorOpen(door, true);
+            }
+            _doorLastTouched[door] = now;
+        }
+
+        // Keep doors open while still near them (their panel collider disables when open).
+        foreach (var door in _openedDoors)
+        {
+            if (door == null)
+                continue;
+            if (Vector3.Distance(door.transform.position, _myTransform.position) < DoorOpenProbeRadius + 0.6f)
+                _doorLastTouched[door] = now;
+        }
+
+        if (_openedDoors.Count == 0)
+            return;
+        var stale = new List<GameObject>();
+        foreach (var kv in _doorLastTouched)
+        {
+            if (now - kv.Value > DoorAutoCloseDelay)
+                stale.Add(kv.Key);
+        }
+        for (int i = 0; i < stale.Count; i++)
+        {
+            _openedDoors.Remove(stale[i]);
+            _doorLastTouched.Remove(stale[i]);
+            if (stale[i] != null)
+                wb.SetDoorOpen(stale[i], false);
+        }
+    }
+    private static GameObject FindDoorRoot(Transform t)
+    {
+        while (t != null)
+        {
+            if (t.name == "Door")
+                return t.gameObject;
+            t = t.parent;
+        }
+        return null;
     }
     private void MoveAwayFromPlayer()
     {
@@ -732,9 +817,22 @@ private Transform _myTransform;
             away = Vector3.forward;
         away.Normalize();
 
-        _myTransform.position += away * (WALK_SPEED * 1.7f * Time.deltaTime);
-        _myTransform.rotation = Quaternion.LookRotation(-away);
-        _isMoving = true;
+        if (_pathDirty || _waypoints.Count == 0)
+        {
+            Vector3 dest = _myTransform.position + away * 6f;
+            BuildPath(dest);
+            _pathDirty = false;
+            if (_waypoints.Count == 0)
+            {
+                // Fallback: simple strafe away when no route exists.
+                _myTransform.position += away * (WALK_SPEED * 1.7f * Time.deltaTime);
+                _myTransform.rotation = Quaternion.LookRotation(-away);
+                _isMoving = true;
+            }
+        }
+        if (!MoveAlongPath(WALK_SPEED * 1.2f))
+            return;
+        _pathDirty = true;
     }
     private void LateUpdate()
     {

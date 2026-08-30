@@ -774,6 +774,7 @@ if (typeName == "goblin_hut")
             GameManager.Instance?.EnsureGoblin();
         if (building != null)
             SittableSeat.Register(building.transform);
+        NavGrid.Instance?.MarkDirty();
         return true;
     }
 
@@ -822,10 +823,11 @@ if (typeName == "goblin_hut")
                 SpawnImmigrantFamily(idx);
             }
         }
-        DestroyBlueprintLabel(bp);
+DestroyBlueprintLabel(bp);
         if (bp.Entity != null)
             Destroy(bp.Entity);
         _blueprints.Remove(bp);
+        NavGrid.Instance?.MarkDirty();
     }
 
     private void SpawnStructurePart(BlueprintState bp)

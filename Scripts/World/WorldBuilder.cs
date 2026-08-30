@@ -447,7 +447,8 @@ var spawnerGo = new GameObject("LivestockSpawner");
         spawnerGo.transform.SetParent(_worldRoot.transform);
         spawnerGo.AddComponent<LivestockSpawner>();
 
-        SittableSeat.Register(_worldRoot.transform);
+SittableSeat.Register(_worldRoot.transform);
+        NavGrid.EnsureCreated();
     }
     private void BuildBossArena()
     {
