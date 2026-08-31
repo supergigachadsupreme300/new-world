@@ -9,6 +9,7 @@ public class InteractionPrompt : MonoBehaviour
     private readonly float _rayRange = 4f;
     private int _raycastFrameCounter;
     private string _lastHitName;
+    private GameObject _lastHitGo;
 
     private string _currentEKeyLocKey;
     private string _currentLmbLocKey;
@@ -73,6 +74,7 @@ public class InteractionPrompt : MonoBehaviour
         if (shouldRaycast) _raycastFrameCounter = 0;
 
         string colliderName = _lastHitName;
+        GameObject colliderGo = _lastHitGo;
 
         if (shouldRaycast)
         {
@@ -80,18 +82,20 @@ public class InteractionPrompt : MonoBehaviour
             if (!Physics.Raycast(ray, out var hit, _rayRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
             {
                 _lastHitName = null;
+                _lastHitGo = null;
                 Hide();
                 return;
             }
             colliderName = hit.collider.transform.name;
             _lastHitName = colliderName;
+            _lastHitGo = hit.collider.gameObject;
         }
         else if (colliderName == null)
         {
             return;
         }
 
-        string eLocKey = ResolveEKeyLocKey(colliderName, null);
+        string eLocKey = ResolveEKeyLocKey(colliderName, colliderGo);
 
         if (eLocKey != null)
         {
@@ -137,11 +141,6 @@ public class InteractionPrompt : MonoBehaviour
             if (colliderName == name) return locKey;
         }
 
-        var pc = GameManager.Instance?.Player;
-        if (pc != null && !pc.IsSitting &&
-            SittableSeat.FindNearest(pc.transform.position, 2.6f) != null)
-            return "Ngồi";
-
         if (colliderName != null && colliderName.StartsWith("GoblinPet"))
             return "Điều khiển";
 
@@ -153,6 +152,11 @@ public class InteractionPrompt : MonoBehaviour
 
         if (go != null && (go.name == "Door" || (go.transform.parent != null && go.transform.parent.name == "Door")))
             return "Mở cửa";
+
+        var pc = GameManager.Instance?.Player;
+        if (pc != null && !pc.IsSitting &&
+            SittableSeat.FindNearest(pc.transform.position, 2.6f) != null)
+            return "Ngồi";
 
         return null;
     }
