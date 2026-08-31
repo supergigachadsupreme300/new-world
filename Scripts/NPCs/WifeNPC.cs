@@ -34,6 +34,8 @@ public class WifeNPC : MonoSingleton<WifeNPC>
     private bool _ntrWarnShown;
     private const int NTR_DAYS = 3;
     private const float NTR_AFFECTION_THRESHOLD = 40f;
+    private const float MarriageAffectionThreshold = 85f;
+    private const int MarriageMinDay = 5;
 
     private List<string> _wifeQuestNames = new List<string>();
     private List<string> _wifeQuestTargets = new List<string>();
@@ -227,7 +229,8 @@ public class WifeNPC : MonoSingleton<WifeNPC>
 
     private void TryPropose()
     {
-        bool showPropose = _affection >= 70f && !Married && State == WifeState.Greeting
+        bool showPropose = _affection >= MarriageAffectionThreshold && !Married && State == WifeState.Greeting
+            && GameManager.Instance != null && GameManager.Instance.CurrentDay >= MarriageMinDay
             && (QuestManager.Instance?.IsComplete("greet") ?? false);
         if (showPropose && !_hasProposed)
         {
