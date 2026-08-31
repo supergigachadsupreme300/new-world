@@ -963,6 +963,7 @@ public class EnemyController : MonoBehaviour
             _bossSkillActive = false;
             DestroyActiveProjectiles();
             ExplodeModel();
+            DropMaterials(true);
             var bossCol = GetComponent<Collider>();
             if (bossCol != null) bossCol.enabled = false;
             Destroy(gameObject, 3f);
@@ -972,8 +973,41 @@ public class EnemyController : MonoBehaviour
         _respawnTimer = 5f;
         QuestManager.Instance?.AddProgress("enemies", 1);
         ExplodeModel();
+        DropMaterials(false);
         var col = GetComponent<Collider>();
         if (col != null) col.enabled = false;
+    }
+
+    private void DropMaterials(bool boss)
+    {
+        var wb = WorldBuilder.Instance;
+        if (wb == null)
+            return;
+        Vector3 pos = transform.position + Vector3.up * 0.8f;
+        if (boss)
+        {
+            for (int i = 0; i < 3; i++)
+                wb.ThrowPickup("demon_horn", pos, RandomDropVelocity(i));
+            for (int i = 0; i < 2; i++)
+                wb.ThrowPickup("dark_essence", pos, RandomDropVelocity(i));
+            return;
+        }
+        if (IsGiant)
+        {
+            wb.ThrowPickup("bone", pos, RandomDropVelocity(0));
+            wb.ThrowPickup("dark_essence", pos, RandomDropVelocity(1));
+            return;
+        }
+        if (Random.value < 0.5f)
+            wb.ThrowPickup("bone", pos, RandomDropVelocity(0));
+        else
+            wb.ThrowPickup("dark_essence", pos, RandomDropVelocity(0));
+    }
+
+    private Vector3 RandomDropVelocity(int index)
+    {
+        float angle = (index * 1.5f + Random.Range(0f, 0.6f)) * Mathf.PI * 2f;
+        return new Vector3(Mathf.Cos(angle) * Random.Range(2f, 3.5f), 5f, Mathf.Sin(angle) * Random.Range(2f, 3.5f));
     }
 
     private void ExplodeModel()

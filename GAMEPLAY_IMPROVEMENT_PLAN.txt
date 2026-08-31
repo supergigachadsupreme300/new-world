@@ -1,0 +1,61 @@
+========================================================================
+GAMEPLAY IMPROVEMENT PLAN — "Country Life"
+========================================================================
+Goal: raise analog genre score from ~68-75 toward the 80+ band by
+deepening core systems. Grounded in a full code audit (2026-08-31).
+
+Benchmarks (internet data):
+  Stardew Valley 98/OverwhelminglyPositive | 50M+ units
+  Fields of Mistria 96 | DAVE THE DIVER 95
+  Core Keeper 86 | Coral Island 82 | Rune Factory Azuma 80
+  Farm Together 77 | Fae Farm 75 | FS25 75 | Staxel 61
+
+-----------------------------------------------------------------------
+PHASE 1 — Finish the core farming-sim loop (HIGHEST impact)
+-----------------------------------------------------------------------
+1A. CRAFTING / COOKING / PROCESSING  (biggest missing system)
+    - Currently ZERO item transformation; everything sells raw.
+    - Add placeable workstations (Stove, Preserve Jar, Brewing Kettle).
+    - New CraftingManager with ~10 recipes combining 2-3 ingredients.
+    - Buffs: Onigiri +20% stamina regen; Tomato sauce sells x1.5; etc.
+    - Makes buildings functional (fixes "buildings are cosmetic").
+    [DONE 2026-08-31] CraftingManager + 3 workstations added to build
+    palette (crafting_stove / preserve_jar / brewing_kettle), E-interact
+    to open filtered recipe panel. 10 recipes. New products + sell prices.
+    Buffs (stamina/heal items) deferred to Phase 3 balance tuning.
+
+1B. ENEMY MATERIAL DROPS + DODGE-ROLL
+    - Enemies currently drop nothing.
+    - Drop materials (demon_horn, dark_essence, bone) on Die() ->
+      feed crafting/upgrades.
+    - Add dodge-roll with i-frames (stamina cost) in PlayerController
+      -> skill ceiling for the boss fight.
+    [DONE 2026-08-31] Materials drop on Die() (boss: demon_horn +
+    dark_essence; giant: bone + dark_essence; normal: bone/dark_essence).
+    Dodge-roll bound to C key, 20 stamina, i-frames (0.3s), blocks while
+    open dialogs. Sold at vendor. Crafting recipes using these materials
+    deferred to Phase 2 item-track / upgrades.
+
+-----------------------------------------------------------------------
+PHASE 2 — Long-term progression
+-----------------------------------------------------------------------
+2A. 3-track XP/Skill system (farming/fishing/combat, levels 1-5)
+2B. Functional buildings (well irrigates, watchtower repels, fence HP)
+2C. NPC friendship for Monk/Librarian/Chef/FishShop (0-5 hearts)
+
+-----------------------------------------------------------------------
+PHASE 3 — Depth tuning & QOL
+-----------------------------------------------------------------------
+3A. Fishing per-species reeling difficulty + rod upgrades
+3B. Crop variety metadata (per-crop grow/season/quality)
+3C. Player chest storage + sort/auto-stack
+3D. Horse mount + fast-travel road signs
+
+-----------------------------------------------------------------------
+STATUS
+-----------------------------------------------------------------------
+Phase 1A: DONE (2026-08-31)
+Phase 1B: DONE (2026-08-31)
+Phase 2 : NOT STARTED
+Phase 3 : NOT STARTED
+========================================================================

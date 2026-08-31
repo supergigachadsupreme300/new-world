@@ -33,6 +33,14 @@ public class PlayerController : MonoBehaviour
     private bool _waterAllowJump = true;
     private float _staminaRegenModifierUntil = 0f;
 
+    private bool _dodging;
+    private float _dodgeTimer;
+    private float _invulnerableUntil;
+    private const float DodgeDuration = 0.25f;
+    private const float DodgeSpeed = 14f;
+    private const float DodgeIFrameDuration = 0.3f;
+    public float DodgeCost = 20f;
+
     private static readonly Key[] ResearchKeys =
     {
         Key.Digit1, Key.Digit2, Key.Digit3, Key.Digit4, Key.Digit5,
@@ -188,6 +196,7 @@ public class PlayerController : MonoBehaviour
     public void TakeDamage(int amount)
     {
         if (HP <= 0) return;
+        if (Time.time < _invulnerableUntil) return;
         HP -= amount;
         if (HP <= 0)
         {
@@ -235,7 +244,8 @@ public class PlayerController : MonoBehaviour
                              (PagodaMonkNPC.Instance != null && PagodaMonkNPC.Instance.IsDialogActive) ||
                              (ChefNPC.Instance != null && ChefNPC.Instance.IsDialogActive) ||
                              (LibrarianNPC.Instance != null && LibrarianNPC.Instance.IsDialogActive) ||
-                             (ImmigrantNpc.Instance != null && ImmigrantNpc.Instance.IsDialogActive);
+                             (ImmigrantNpc.Instance != null && ImmigrantNpc.Instance.IsDialogActive) ||
+                             (CraftingManager.Instance != null && CraftingManager.Instance.IsOpen);
         Vector2 input = dialogBlocked ? Vector2.zero : ReadMoveInput();
         Vector3 direction = new Vector3(input.x, 0f, input.y);
         float mag = direction.magnitude;
@@ -252,16 +262,34 @@ public class PlayerController : MonoBehaviour
             Stamina > 0f && mag > 0f;
         float speed = MoveSpeed * _waterSpeedMul * (sprint ? SprintMultiplier : 1f);
 
+        bool dodgePressed = !dialogBlocked && _controller != null && _controller.isGrounded &&
+            ((Keyboard.current != null && Keyboard.current.cKey.wasPressedThisFrame) ||
+             (GameInput.IsMobile && MobileInputController.Consume("dodge")));
+        if (dodgePressed && !_dodging && Stamina >= DodgeCost)
+        {
+            _dodging = true;
+            _dodgeTimer = DodgeDuration;
+            _invulnerableUntil = Time.time + DodgeIFrameDuration;
+            SpendStamina(DodgeCost);
+        }
+
         if (_controller != null)
         {
             Vector3 move = transform.TransformDirection(direction) * speed;
+
+            if (_dodging)
+            {
+                _dodgeTimer -= Time.deltaTime;
+                if (_dodgeTimer <= 0f)
+                    _dodging = false;
+            }
 
             if (_controller.isGrounded)
             {
                 if (_velocity.y < 0f)
                     _velocity.y = -1f;
 
-                if (_waterAllowJump && !dialogBlocked &&
+                if (_waterAllowJump && !dialogBlocked && !_dodging &&
                     ((Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame) ||
                      MobileInputController.Consume("jump")))
                 {
@@ -274,6 +302,12 @@ public class PlayerController : MonoBehaviour
             }
 
             Vector3 finalMove = move + Vector3.up * _velocity.y;
+            if (_dodging)
+            {
+                Vector3 dash = transform.forward * DodgeSpeed;
+                dash.y = Mathf.Max(dash.y, _velocity.y);
+                finalMove = dash + Vector3.up * _velocity.y;
+            }
             _controller.Move(finalMove * Time.deltaTime);
         }
 
@@ -319,7 +353,8 @@ public class PlayerController : MonoBehaviour
         bool immigrantDialog = ImmigrantNpc.Instance != null && ImmigrantNpc.Instance.IsDialogActive;
         bool fishingShopDialog = FishingShopNPC.Instance != null && FishingShopNPC.Instance.IsDialogActive;
         bool goblinMenuOpen = GoblinCommandMenu.Instance != null && GoblinCommandMenu.Instance.IsOpen;
-        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog || monkDialog || chefDialog || cafeBaristaDialog || librarianDialog || immigrantDialog || fishingShopDialog || goblinMenuOpen;
+        bool craftingOpen = CraftingManager.Instance != null && CraftingManager.Instance.IsOpen;
+        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog || monkDialog || chefDialog || cafeBaristaDialog || librarianDialog || immigrantDialog || fishingShopDialog || goblinMenuOpen || craftingOpen;
 
         bool ePressed = (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) ||
                         (!wifeDialog && MobileInputController.Consume("interact"));
@@ -486,6 +521,11 @@ public class PlayerController : MonoBehaviour
                         if (hit.collider.transform.name.StartsWith("GoblinChest"))
                         {
                             GoblinChestMenu.Ensure().Open();
+                            return;
+                        }
+                        if (CraftingManager.ResolveStationCategory(hit.collider) != null)
+                        {
+                            CraftingManager.Ensure().InteractStation(hit.collider);
                             return;
                         }
                         if (wb.TryToggleDoor(hit)) return;
