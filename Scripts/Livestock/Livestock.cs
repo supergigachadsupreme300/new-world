@@ -178,9 +178,15 @@ public class Livestock : MonoBehaviour
 
         Vector3 awayDir = (transform.position - player.transform.position).normalized;
         awayDir.y = 0f;
-        _wantedVel = transform.forward * _moveSpeed * 2f;
         if (awayDir.sqrMagnitude > 0.01f)
+        {
+            _wantedVel = transform.forward * _moveSpeed * 2f;
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(awayDir), Time.deltaTime * 16f);
+        }
+        else
+        {
+            _wantedVel = Vector3.zero;
+        }
         AnimateLegs(true);
     }
 

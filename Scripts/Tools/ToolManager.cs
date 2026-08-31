@@ -704,8 +704,9 @@ public partial class ToolManager : MonoBehaviour
 
                 if (hitObj.name == "Leaf")
                 {
+                    if (!SpendToolStamina(player))
+                        return;
                     Destroy(hitObj);
-                    SpendToolStamina(player);
                     return;
                 }
 
