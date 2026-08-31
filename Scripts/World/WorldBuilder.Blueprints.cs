@@ -790,37 +790,49 @@ if (typeName == "goblin_hut")
         var chest = new GameObject("GoblinChest");
         chest.transform.SetParent(hutRoot, false);
         chest.transform.localRotation = Quaternion.identity;
+        chest.transform.localPosition = Vector3.zero;
 
-        Vector3 chestSpot = hutRoot.TransformPoint(new Vector3(0f, 0f, 1.8f));
-        float groundY = NavGrid.Instance != null ? NavGrid.Instance.SampleGroundY(chestSpot) : hutRoot.position.y;
-        float chestHalf = 0.225f;
-        chest.transform.localPosition = hutRoot.InverseTransformPoint(
-            new Vector3(chestSpot.x, groundY + chestHalf, chestSpot.z));
+        const float chestBaseHalf = 0.225f;
+        float topY = float.NaN;
+        var floor = hutRoot.Find("BuildingPart_Floor");
+        if (floor != null)
+        {
+            float floorTopLocal = floor.localPosition.y + floor.localScale.y * 0.5f;
+            topY = floorTopLocal;
+        }
+        else
+        {
+            Vector3 groundSpot = hutRoot.TransformPoint(new Vector3(-0.85f, 0f, 0.95f));
+            float groundY = NavGrid.Instance != null ? NavGrid.Instance.SampleGroundY(groundSpot) : hutRoot.position.y;
+            topY = hutRoot.InverseTransformPoint(new Vector3(groundSpot.x, groundY, groundSpot.z)).y;
+        }
+
+        chest.transform.localPosition = new Vector3(-0.85f, topY + chestBaseHalf, 0.95f);
 
         var baseCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
         baseCube.name = "ChestBase";
         baseCube.transform.SetParent(chest.transform, false);
         baseCube.transform.localPosition = new Vector3(0f, 0f, 0f);
-        baseCube.transform.localScale = new Vector3(0.9f, 0.45f, 0.5f);
+        baseCube.transform.localScale = new Vector3(0.8f, 0.4f, 0.45f);
         baseCube.GetComponent<MeshRenderer>().material.color = new Color(0.55f, 0.35f, 0.18f);
 
         var lid = GameObject.CreatePrimitive(PrimitiveType.Cube);
         lid.name = "ChestLid";
         lid.transform.SetParent(chest.transform, false);
-        lid.transform.localPosition = new Vector3(0f, 0.29f, -0.05f);
-        lid.transform.localScale = new Vector3(0.9f, 0.14f, 0.5f);
+        lid.transform.localPosition = new Vector3(0f, 0.26f, 0f);
+        lid.transform.localScale = new Vector3(0.8f, 0.12f, 0.45f);
         lid.GetComponent<MeshRenderer>().material.color = new Color(0.45f, 0.28f, 0.14f);
 
         var metalBand = GameObject.CreatePrimitive(PrimitiveType.Cube);
         metalBand.name = "ChestBand";
         metalBand.transform.SetParent(chest.transform, false);
-        metalBand.transform.localPosition = new Vector3(0f, 0.02f, 0.22f);
-        metalBand.transform.localScale = new Vector3(0.9f, 0.38f, 0.04f);
+        metalBand.transform.localPosition = new Vector3(0f, 0.02f, 0.2f);
+        metalBand.transform.localScale = new Vector3(0.8f, 0.34f, 0.04f);
         metalBand.GetComponent<MeshRenderer>().material.color = new Color(0.75f, 0.65f, 0.4f);
 
         var collider = chest.AddComponent<BoxCollider>();
-        collider.size = new Vector3(0.9f, 0.55f, 0.5f);
-        collider.center = new Vector3(0f, 0.12f, 0f);
+        collider.size = new Vector3(0.8f, 0.5f, 0.45f);
+        collider.center = new Vector3(0f, 0.11f, 0f);
     }
 
     private void CompleteBlueprint(BlueprintState bp, BuildingDefinition def)
