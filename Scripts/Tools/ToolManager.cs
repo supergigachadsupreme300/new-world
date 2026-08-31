@@ -552,7 +552,14 @@ public partial class ToolManager : MonoBehaviour
         if (_carriedObject != null)
             DropCarriedObject(GameManager.Instance?.Player);
 
+        int prev = _selectedSlot;
         _selectedSlot = Mathf.Clamp(index, 0, _inventory.Length - 1);
+        if (_buildingChosen && (index != prev))
+        {
+            _buildingChosen = false;
+            if (_worldBuilder != null)
+                _worldBuilder.UpdatePreviewPosition(Vector3.zero, false);
+        }
         ShowActiveToolModel();
         UpdateInventoryUI();
         UpdateBuildingPreviewVisibility();
