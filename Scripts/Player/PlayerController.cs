@@ -491,8 +491,8 @@ public class PlayerController : MonoBehaviour
                         if (wb.TryToggleDoor(hit)) return;
                     }
                 }
-                if (TrySitNearby()) return;
-                ToolManager.Instance?.TryPickupNearby();
+                if (!ToolManager.Instance.TryPickupNearby())
+                    TrySitNearby();
             }
         }
 

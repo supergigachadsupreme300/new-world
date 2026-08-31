@@ -2,22 +2,23 @@ using UnityEngine;
 
 public partial class ToolManager
 {
-    public void TryPickupNearby()
+    public bool TryPickupNearby()
     {
         var cam = GetActiveCamera();
         if (cam == null)
-            return;
+            return false;
 
         if (_carriedObject != null)
-            return;
+            return false;
 
         var origin = cam.transform.position + cam.transform.forward * 0.3f;
         var ray = new Ray(origin, cam.transform.forward);
         ShowRayLine(ray.origin, ray.origin + ray.direction * PickupRayDistance);
         if (!Physics.Raycast(ray, out var hit, PickupRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
-            return;
+            return false;
 
         Debug.Log($"TryPickupNearby: ray hit {hit.collider.gameObject.name}");
+        bool handled = true;
 
         if (hit.collider.transform.name == "BuffaloEntity")
         {
@@ -29,7 +30,7 @@ public partial class ToolManager
                 dlg.Initialize();
             }
             dlg.Show();
-            return;
+            return handled;
         }
 
         if (hit.collider.transform.name == "VendorNPC")
@@ -42,14 +43,14 @@ public partial class ToolManager
                 shop.Initialize();
             }
             shop.Open();
-            return;
+            return handled;
         }
 
         if (hit.collider.transform.name == "RestaurantNPC")
         {
             if (ChefNPC.Instance != null && !ChefNPC.Instance.IsDialogActive)
                 ChefNPC.Instance.Interact();
-            return;
+            return handled;
         }
 
         if (hit.collider.transform.name == "ToolShopNPC")
@@ -62,7 +63,7 @@ public partial class ToolManager
                 shop.Initialize();
             }
             shop.OpenTools();
-            return;
+            return handled;
         }
 
         if (hit.collider.transform.name == "ConvenienceNPC")
@@ -75,7 +76,7 @@ public partial class ToolManager
                 shop.Initialize();
             }
             shop.OpenConvenience();
-            return;
+            return handled;
         }
 
         if (hit.collider.transform.name == "GroceryNPC")
@@ -88,7 +89,7 @@ public partial class ToolManager
                 shop.Initialize();
             }
             shop.OpenGrocery();
-            return;
+            return handled;
         }
 
         var goblin = hit.collider.GetComponentInParent<GoblinPet>();
@@ -113,29 +114,29 @@ public partial class ToolManager
             if (crop == null)
             {
                 _uiManager.ShowMessage(Localization.T("Chọn hạt giống để đưa cho goblin."), 1.5f);
-                return;
+                return handled;
             }
 
             if (!goblin.CanAcceptSeed)
             {
                 _uiManager.ShowMessage(goblin.IsDead ? Localization.T("Goblin đang bất tỉnh!") : Localization.T("Goblin đang bận!"), 1.5f);
-                return;
+                return handled;
             }
 
             if (!RemoveItem(_selectedSlot, 1))
             {
                 _uiManager.ShowMessage(Localization.T("Không thể lấy hạt giống."), 1.5f);
-                return;
+                return handled;
             }
 
             goblin.GiveSeed(crop);
             SoundManager.Instance?.Play("pop");
             _uiManager.ShowMessage(Localization.T("Đã đưa hạt giống cho goblin."), 1.5f);
-            return;
+            return handled;
         }
 
         if (TryPickupTool(hit.collider))
-            return;
+            return handled;
 
         // Check for felled tree / branch / debris first (carry them, don't delete)
         var root = hit.collider.gameObject;
@@ -144,7 +145,7 @@ public partial class ToolManager
 
         if (root.name == "CageWithAnimal" || root.name == "ThrownCage")
         {
-            if (root.GetComponent<Rigidbody>() == null) return;
+            if (root.GetComponent<Rigidbody>() == null) return false;
             _carriedObject = root;
             root.GetComponent<Rigidbody>().isKinematic = true;
             var cols = root.GetComponentsInChildren<Collider>();
@@ -161,15 +162,15 @@ public partial class ToolManager
             }
             else
                 _uiManager.ShowMessage(Localization.T("Đã nhặt lên."), 1f);
-            return;
+            return handled;
         }
 
         if (GetSelectedItemType() != null)
-            return;
+            return false;
 
         if (root.name == "TreeFelled" || root.name == "BranchTop" || root.name == "RockDebris")
         {
-            if (root.GetComponent<Rigidbody>() == null) return;
+            if (root.GetComponent<Rigidbody>() == null) return false;
             _carriedObject = root;
             root.GetComponent<Rigidbody>().isKinematic = true;
             var cols = root.GetComponentsInChildren<Collider>();
@@ -179,8 +180,10 @@ public partial class ToolManager
             root.transform.localPosition = new Vector3(0.7f, -0.4f, 1.8f);
             root.transform.localRotation = Quaternion.identity;
             _uiManager.ShowMessage(Localization.T("Đã nhặt lên."), 1f);
-            return;
+            return handled;
         }
+
+        return false;
     }
 
     private bool IsTree(Collider collider)
