@@ -233,9 +233,10 @@ public class WifeNPC : MonoSingleton<WifeNPC>
         {
             _hasProposed = true;
             HideDialog();
+            WorldBuilder.Instance?.PlaceMansionBlueprint(WorldBuilder.MansionBasePos);
             QuestManager.Instance?.AddStoryQuest(
                 "Xây Dựng Dinh Thự Cho Jessica",
-                "mansion", 25, 5000,
+                "mansion", 1, 5000,
                 "Jessica đồng ý lời tỏ tình! Hãy xây dinh thự để làm lễ cưới.");
             int mansionParts = WorldBuilder.Instance != null ? WorldBuilder.Instance.GetMansionCompletedParts() : 0;
             if (mansionParts > 0)
@@ -919,7 +920,7 @@ public class WifeNPC : MonoSingleton<WifeNPC>
     {
         var wb = WorldBuilder.Instance;
         if (wb == null) return false;
-        return wb.GetMansionCompletedParts() >= 25;
+        return wb.GetMansionCompletedParts() >= 1;
     }
 
     private bool NeedGenerateWifeQuests()

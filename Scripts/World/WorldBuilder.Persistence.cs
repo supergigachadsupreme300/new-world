@@ -405,7 +405,6 @@ private void PruneTreesAndRocksNearStructures()
     {
         if (data == null || data.Length == 0)
         {
-            PlaceMansionBlueprint(MansionBasePos);
             return;
         }
 

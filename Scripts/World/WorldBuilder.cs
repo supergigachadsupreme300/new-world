@@ -336,7 +336,7 @@ private Transform _shopRoot;
     private const string _immigrantQuestTarget = "immigrant_house";
     private const int _immigrantHouseWoodCost = 10;
     private const int _immigrantHouseStoneCost = 6;
-    private static readonly Vector3 MansionBasePos = new Vector3(-8f, 0f, -30f);
+    public static readonly Vector3 MansionBasePos = new Vector3(-8f, 0f, -30f);
 
     private List<Vector3> _immigrantHousePositions;
     private bool[] _immigrantBuilt;

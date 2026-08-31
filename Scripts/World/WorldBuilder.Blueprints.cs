@@ -839,7 +839,7 @@ if (typeName == "goblin_hut")
     {
         if (bp.IsMansion)
         {
-            BuildRichManMansion();
+            MapBuilder.BuildRichManMansion(_worldRoot.transform, bp.Position, 1f, Quaternion.Euler(0f, bp.Rotation, 0f));
         }
         else if (bp.IsEssential)
         {
