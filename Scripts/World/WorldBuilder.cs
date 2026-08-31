@@ -264,6 +264,26 @@ private Transform _shopRoot;
                 new BuildingPartDefinition { PartName = "Wall_Right", LocalPosition = new Vector3(4.85f, 0f, 0f),  LocalScale = new Vector3(0.3f, 4.7f, 7.7f),  MaterialType = "wood" },
                 new BuildingPartDefinition { PartName = "Roof",       LocalPosition = new Vector3(0f, 2.35f, 0f),   LocalScale = new Vector3(10.3f, 0.3f, 8.3f), MaterialType = "stone" },
                 new BuildingPartDefinition { PartName = "Anvil",      LocalPosition = new Vector3(-2f, -1.6f, 1f),  LocalScale = new Vector3(1f, 0.6f, 0.6f),   MaterialType = "stone" }
+            }),
+        new BuildingDefinition("crafting_stove", new Vector3(2f, 1.4f, 2f), new Color(0.45f, 0.38f, 0.3f), 5, 2,
+            new BuildingPartDefinition[]
+            {
+                new BuildingPartDefinition { PartName = "Base", LocalPosition = new Vector3(0f, -0.5f, 0f), LocalScale = new Vector3(2f, 0.4f, 2f), MaterialType = "stone" },
+                new BuildingPartDefinition { PartName = "Burner", LocalPosition = new Vector3(0f, 0.15f, 0f), LocalScale = new Vector3(1.2f, 0.5f, 1.2f), MaterialType = "stone" },
+                new BuildingPartDefinition { PartName = "Pot", LocalPosition = new Vector3(0f, 0.55f, 0f), LocalScale = new Vector3(0.6f, 0.2f, 0.6f), MaterialType = "wood" }
+            }),
+        new BuildingDefinition("preserve_jar", new Vector3(1.6f, 1.6f, 1.6f), new Color(0.55f, 0.5f, 0.42f), 4, 2,
+            new BuildingPartDefinition[]
+            {
+                new BuildingPartDefinition { PartName = "Base", LocalPosition = new Vector3(0f, -0.5f, 0f), LocalScale = new Vector3(1.6f, 0.4f, 1.6f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Jar", LocalPosition = new Vector3(0f, 0.2f, 0f), LocalScale = new Vector3(0.8f, 0.9f, 0.8f), MaterialType = "stone" }
+            }),
+        new BuildingDefinition("brewing_kettle", new Vector3(2.2f, 2f, 2.2f), new Color(0.5f, 0.44f, 0.36f), 6, 3,
+            new BuildingPartDefinition[]
+            {
+                new BuildingPartDefinition { PartName = "Base", LocalPosition = new Vector3(0f, -0.6f, 0f), LocalScale = new Vector3(2.2f, 0.5f, 2.2f), MaterialType = "stone" },
+                new BuildingPartDefinition { PartName = "Kettle", LocalPosition = new Vector3(0f, 0.15f, 0f), LocalScale = new Vector3(1.4f, 0.9f, 1.4f), MaterialType = "stone" },
+                new BuildingPartDefinition { PartName = "Spigot", LocalPosition = new Vector3(0.5f, -0.1f, 0f), LocalScale = new Vector3(0.3f, 0.2f, 0.3f), MaterialType = "wood" }
             })
     };
 
@@ -286,7 +306,10 @@ private Transform _shopRoot;
         { "library", 150 },
         { "well", 100 },
         { "fountain", 100 },
-        { "workshop", 200 }
+        { "workshop", 200 },
+        { "crafting_stove", 20 },
+        { "preserve_jar", 20 },
+        { "brewing_kettle", 30 }
     };
 
     private readonly HashSet<string> _unlockedBlueprints = new HashSet<string>();

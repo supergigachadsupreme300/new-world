@@ -153,6 +153,9 @@ public class InteractionPrompt : MonoBehaviour
         if (go != null && (go.name == "Door" || (go.transform.parent != null && go.transform.parent.name == "Door")))
             return "Mở cửa";
 
+        if (go != null && CraftingManager.ResolveStationCategory(go.GetComponent<Collider>()) != null)
+            return "Chế Tạo";
+
         var pc = GameManager.Instance?.Player;
         if (pc != null && !pc.IsSitting &&
             SittableSeat.FindNearest(pc.transform.position, 2.6f) != null)

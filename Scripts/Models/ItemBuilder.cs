@@ -95,6 +95,20 @@ public static class ItemBuilder
             case "muoi": BuildSalt(parent); break;
             case "xap_phong": BuildSoap(parent); break;
             case "mi_chinh": BuildMsg(parent); break;
+
+            // Crafted goods
+            case "xoi_gac": BuildXoiGac(parent); break;
+            case "sup_bi_ngo": BuildSoupBowl(parent, new Color(1f, 0.6f, 0.15f)); break;
+            case "mut_ca_rot": BuildJamJar(parent, new Color(1f, 0.5f, 0.1f)); break;
+            case "trai_cay_kho": BuildDriedFruit(parent); break;
+            case "dua_chua": BuildJamJar(parent, new Color(0.85f, 0.75f, 0.3f)); break;
+            case "ruou_gao": BuildWineBottle(parent, new Color(0.9f, 0.85f, 0.7f)); break;
+            case "tuong_ot": BuildWineBottle(parent, new Color(0.8f, 0.15f, 0.1f)); break;
+
+            // Enemy materials
+            case "demon_horn": BuildDemonHorn(parent); break;
+            case "dark_essence": BuildDarkEssence(parent); break;
+            case "bone": BuildMonsterBone(parent); break;
         }
     }
 
@@ -691,5 +705,70 @@ public static class ItemBuilder
         Color lidC = new Color(0.95f, 0.95f, 0.95f);
         CreatePickupCube(parent, new Vector3(0f, 0.08f, 0f), new Vector3(0.16f, 0.14f, 0.12f), boxC, false);
         CreatePickupCube(parent, new Vector3(0f, 0.16f, 0f), new Vector3(0.17f, 0.03f, 0.13f), lidC, false);
+    }
+
+    public static void BuildXoiGac(Transform parent)
+    {
+        Color leafC = new Color(0.25f, 0.5f, 0.25f);
+        Color riceC = new Color(0.95f, 0.2f, 0.2f);
+        CreatePickupCube(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.24f, 0.26f, 0.24f), riceC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.05f, 0f), new Vector3(0.28f, 0.03f, 0.28f), leafC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.22f, 0f), new Vector3(0.18f, 0.04f, 0.18f), new Color(0.85f, 0.35f, 0.15f), false);
+    }
+
+    public static void BuildSoupBowl(Transform parent, Color soup)
+    {
+        CreatePickupCylinder(parent, new Vector3(0f, 0.06f, 0f), new Vector3(0.22f, 0.1f, 0.22f), new Color(0.9f, 0.9f, 0.9f), false);
+        CreatePickupCylinder(parent, new Vector3(0f, 0.12f, 0f), new Vector3(0.16f, 0.03f, 0.16f), soup, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.16f, 0f), new Vector3(0.12f, 0.04f, 0.12f), new Color(0.3f, 0.6f, 0.2f), false);
+    }
+
+    public static void BuildJamJar(Transform parent, Color jam)
+    {
+        CreatePickupCylinder(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.16f, 0.18f, 0.16f), new Color(0.8f, 0.88f, 0.92f), false);
+        CreatePickupCube(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.2f, 0.02f, 0.2f), jam, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.21f, 0f), new Vector3(0.1f, 0.06f, 0.1f), new Color(0.6f, 0.3f, 0.1f), false);
+    }
+
+    public static void BuildDriedFruit(Transform parent)
+    {
+        Color sliceC = new Color(1f, 0.4f, 0.2f);
+        Color seedC = new Color(0.6f, 0.2f, 0.1f);
+        CreatePickupCube(parent, new Vector3(0f, 0.04f, 0f), new Vector3(0.2f, 0.05f, 0.2f), sliceC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.07f, 0f), new Vector3(0.1f, 0.03f, 0.1f), seedC, false);
+        CreatePickupCube(parent, new Vector3(0.05f, 0.02f, 0.05f), new Vector3(0.04f, 0.03f, 0.04f), new Color(0.5f, 0.2f, 0.1f), false);
+    }
+
+    public static void BuildWineBottle(Transform parent, Color liquid)
+    {
+        CreatePickupCylinder(parent, new Vector3(0f, 0.12f, 0f), new Vector3(0.14f, 0.22f, 0.14f), new Color(0.75f, 0.6f, 0.35f), false);
+        CreatePickupCylinder(parent, new Vector3(0f, 0.12f, 0f), new Vector3(0.1f, 0.14f, 0.1f), liquid, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.28f, 0f), new Vector3(0.05f, 0.1f, 0.05f), new Color(0.55f, 0.35f, 0.15f), false);
+        CreatePickupCube(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.15f, 0.01f, 0.15f), new Color(0.85f, 0.8f, 0.6f), false);
+    }
+
+    public static void BuildDemonHorn(Transform parent)
+    {
+        Color hornC = new Color(0.4f, 0.35f, 0.32f);
+        Color tipC = new Color(0.2f, 0.18f, 0.15f);
+        CreatePickupCube(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.14f, 0.26f, 0.14f), hornC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.24f, 0f), new Vector3(0.08f, 0.14f, 0.08f), tipC, false);
+        CreatePickupCube(parent, new Vector3(0.05f, 0.04f, 0f), new Vector3(0.04f, 0.08f, 0.04f), tipC, false);
+    }
+
+    public static void BuildDarkEssence(Transform parent)
+    {
+        Color coreC = new Color(0.1f, 0.1f, 0.15f);
+        Color glowC = new Color(0.5f, 0.1f, 0.5f);
+        CreatePickupSphere(parent, new Vector3(0f, 0.08f, 0f), 0.14f, coreC, false);
+        CreatePickupSphere(parent, new Vector3(0f, 0.1f, 0f), 0.08f, glowC, false);
+    }
+
+    public static void BuildMonsterBone(Transform parent)
+    {
+        Color boneC = new Color(0.85f, 0.82f, 0.7f);
+        CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(0.1f, 0.3f, 0.1f), boneC, false);
+        CreatePickupSphere(parent, new Vector3(0f, 0.16f, 0f), 0.09f, boneC, false);
+        CreatePickupSphere(parent, new Vector3(0f, -0.16f, 0f), 0.09f, boneC, false);
     }
 }

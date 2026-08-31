@@ -215,7 +215,21 @@ public static class Localization
         { "fertilizer", "Phân Bón" },
         { "peashooter", "Đậu Bắn" },
         { "torch", "Đuốc" },
-        { "crop", "Nông Sản" }
+        { "crop", "Nông Sản" },
+
+        // Crafted goods
+        { "xoi_gac", "Xôi Gấc" },
+        { "sup_bi_ngo", "Súp Bí Ngòi" },
+        { "mut_ca_rot", "Mứt Cà Rốt" },
+        { "trai_cay_kho", "Trái Cây Khô" },
+        { "dua_chua", "Dưa Chua" },
+        { "ruou_gao", "Rượu Gạo" },
+        { "tuong_ot", "Tương Ớt" },
+
+        // Enemy materials
+        { "demon_horn", "Sừng Quỷ" },
+        { "dark_essence", "Tinh Chất Bóng Tối" },
+        { "bone", "Xương Quái Vật" }
     };
 
     private static readonly Dictionary<string, string> BuildingNames = new Dictionary<string, string>
@@ -238,7 +252,10 @@ public static class Localization
         { "library", "Thư Viện" },
         { "well", "Giếng Nước" },
         { "fountain", "Đài Phun Nước" },
-        { "workshop", "Xưởng Chế Tạo" }
+        { "workshop", "Xưởng Chế Tạo" },
+        { "crafting_stove", "Bếp Nấu" },
+        { "preserve_jar", "Lọ Ngâm" },
+        { "brewing_kettle", "Nồi Ủ" }
     };
 
     private static readonly Dictionary<string, string> MansionParts = new Dictionary<string, string>
@@ -379,6 +396,10 @@ public static class Localization
         { "Đã bán {0} {1} (+{2}g)", "Sold {0} {1} (+{2}g)" },
         { "Đã bán tất cả (+{0}g)", "Sold everything (+{0}g)" },
         { "Không có gì để bán", "Nothing to sell" },
+        { "Chế Tạo", "Craft" },
+        { "Thiếu nguyên liệu.", "Missing ingredients." },
+        { "Đã chế tạo: {0}", "Crafted: {0}" },
+        { "Đã chế tạo: ", "Crafted: " },
 
         // Shop item labels
         { "Hạt Lúa Mì", "Wheat Seed" },
@@ -770,6 +791,19 @@ public static class Localization
         { "Thịt", "Meat" },
         { "Lông Vũ", "Feather" },
         { "Mật Ong", "Honey" },
+        { "Xôi Gấc", "Red Sticky Rice" },
+        { "Súp Bí Ngòi", "Pumpkin Soup" },
+        { "Mứt Cà Rốt", "Carrot Jam" },
+        { "Trái Cây Khô", "Dried Fruit" },
+        { "Dưa Chua", "Pickles" },
+        { "Rượu Gạo", "Rice Wine" },
+        { "Tương Ớt", "Chili Sauce" },
+        { "Sừng Quỷ", "Demon Horn" },
+        { "Tinh Chất Bóng Tối", "Dark Essence" },
+        { "Xương Quái Vật", "Monster Bone" },
+        { "Bếp Nấu", "Cooking Stove" },
+        { "Lọ Ngâm", "Preserve Jar" },
+        { "Nồi Ủ", "Brewing Kettle" },
         { "Hạt Giống Lúa Mì", "Wheat Seed" },
         { "Hạt Giống Ngô", "Corn Seed" },
         { "Hạt Giống Đậu", "Peashooter Seed" },

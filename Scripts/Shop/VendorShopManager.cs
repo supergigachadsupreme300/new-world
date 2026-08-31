@@ -148,6 +148,20 @@ public class VendorShopManager : MonoBehaviour
         new ShopItem { Type = "fish_salmon", Label = "Cá Hồi", Price = 25 },
         new ShopItem { Type = "fish_tuna", Label = "Cá Ngừ", Price = 40 },
         new ShopItem { Type = "fish_pufferfish", Label = "Cá Nóc", Price = 60 },
+
+        // Crafted goods
+        new ShopItem { Type = "xoi_gac", Label = "Xôi Gấc", Price = 22 },
+        new ShopItem { Type = "sup_bi_ngo", Label = "Súp Bí Ngòi", Price = 24 },
+        new ShopItem { Type = "mut_ca_rot", Label = "Mứt Cà Rốt", Price = 26 },
+        new ShopItem { Type = "trai_cay_kho", Label = "Trái Cây Khô", Price = 28 },
+        new ShopItem { Type = "dua_chua", Label = "Dưa Chua", Price = 30 },
+        new ShopItem { Type = "ruou_gao", Label = "Rượu Gạo", Price = 45 },
+        new ShopItem { Type = "tuong_ot", Label = "Tương Ớt", Price = 32 },
+
+        // Enemy materials
+        new ShopItem { Type = "demon_horn", Label = "Sừng Quỷ", Price = 25 },
+        new ShopItem { Type = "dark_essence", Label = "Tinh Chất Bóng Tối", Price = 30 },
+        new ShopItem { Type = "bone", Label = "Xương Quái Vật", Price = 12 },
     };
 
     private List<ShopItem> _currentItems
