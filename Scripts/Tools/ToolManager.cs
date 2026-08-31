@@ -90,6 +90,19 @@ public partial class ToolManager : MonoBehaviour
     {
         var item = GetSelectedItemType();
         if (item == null) return false;
+        if (player.Stamina < StaminaCostFor(item))
+        {
+            _uiManager?.ShowMessage(Localization.T("Quá mệt!"), 1f);
+            return false;
+        }
+        return true;
+    }
+
+    private bool SpendToolStamina(PlayerController player)
+    {
+        if (player == null) return false;
+        var item = GetSelectedItemType();
+        if (item == null) return false;
         if (!player.SpendStamina(StaminaCostFor(item)))
         {
             _uiManager?.ShowMessage(Localization.T("Quá mệt!"), 1f);
@@ -641,6 +654,7 @@ public partial class ToolManager : MonoBehaviour
                 _uiManager?.ShowMessage(Localization.T("H\u1EBFt ph\u1ee9c \u0111\u1EE9c!"), 1.5f);
                 return;
             }
+            SpendToolStamina(player);
             LaunchPalmProjectile(cam);
             return;
         }
@@ -654,6 +668,7 @@ public partial class ToolManager : MonoBehaviour
                 var target = clubHit.collider.GetComponentInParent<Livestock>();
                 if (target != null)
                 {
+                    SpendToolStamina(player);
                     target.TakeDamage(20);
                     SoundManager.Instance?.Play("club");
                     return;
@@ -662,6 +677,7 @@ public partial class ToolManager : MonoBehaviour
                 var flapping = clubHit.collider.GetComponentInParent<FlappingFish>();
                 if (flapping != null && !flapping.IsStunned && !flapping.IsPickable)
                 {
+                    SpendToolStamina(player);
                     flapping.KnockOut();
                     SoundManager.Instance?.Play("club");
                     return;
@@ -682,6 +698,7 @@ public partial class ToolManager : MonoBehaviour
                 if (hitObj.name == "Leaf")
                 {
                     Destroy(hitObj);
+                    SpendToolStamina(player);
                     return;
                 }
 
@@ -690,6 +707,7 @@ public partial class ToolManager : MonoBehaviour
                     var treeRoot = FindTreeRoot(hit.collider);
                     if (treeRoot != null && _worldBuilder.ChopBranch(treeRoot, hitObj, hit.point, hit.normal))
                     {
+                        SpendToolStamina(player);
                         SoundManager.Instance?.Play("axe");
                     }
                     return;
@@ -700,6 +718,7 @@ public partial class ToolManager : MonoBehaviour
                     var treeRoot = FindTreeRoot(hit.collider);
                     if (treeRoot != null && _worldBuilder.ChopBranch(treeRoot, hitObj, hit.point, hit.normal))
                     {
+                        SpendToolStamina(player);
                         SoundManager.Instance?.Play("axe");
                     }
                     return;
@@ -712,11 +731,13 @@ public partial class ToolManager : MonoBehaviour
                     {
                         if (_worldBuilder.RemoveTree(treeRoot2))
                         {
+                            SpendToolStamina(player);
                             SoundManager.Instance?.Play("axe");
                         }
                     }
                     else if (_worldBuilder.ChopTree(treeRoot2, hit.point, hit.normal))
                     {
+                        SpendToolStamina(player);
                         SoundManager.Instance?.Play("axe");
                     }
                 }
@@ -728,6 +749,7 @@ public partial class ToolManager : MonoBehaviour
                     if (debrisRoot.name == "BranchTop" || debrisRoot.name == "TreeFelled")
                     {
                         _worldBuilder.SplitWoodDebris(debrisRoot);
+                        SpendToolStamina(player);
                         SoundManager.Instance?.Play("axe");
                     }
                 }
@@ -743,10 +765,12 @@ public partial class ToolManager : MonoBehaviour
                 if (rockRoot.name == "RockDebris")
                 {
                     _worldBuilder.SmashDebris(rockRoot);
+                    SpendToolStamina(player);
                     SoundManager.Instance?.Play("pickaxe");
                 }
                 else if (_worldBuilder.HitRock(rockRoot, hit.point, hit.normal))
                 {
+                    SpendToolStamina(player);
                     SoundManager.Instance?.Play("pickaxe");
                 }
                 return;
@@ -763,6 +787,7 @@ public partial class ToolManager : MonoBehaviour
                 var field = _worldBuilder.TillGround(placePosition);
                 if (field != null)
                 {
+                    SpendToolStamina(player);
                     SoundManager.Instance?.Play("hoe");
                     _uiManager.ShowMessage(Localization.T("Ruộng đã cày."), 1.5f);
                 }
@@ -785,6 +810,7 @@ public partial class ToolManager : MonoBehaviour
                     }
                     else if (_worldBuilder.PlaceBlueprint(placePos))
                     {
+                        SpendToolStamina(player);
                         SoundManager.Instance?.Play("hammer");
                         _uiManager.ShowMessage(Localization.T("Bản thiết kế đã đặt. Cung cấp gỗ & đá."), 1.5f);
                     }
@@ -799,11 +825,15 @@ public partial class ToolManager : MonoBehaviour
                 var hitObj = hit.collider.gameObject;
 
                 if (_worldBuilder.TryRepairGhost(hit))
+                {
+                    SpendToolStamina(player);
                     return;
+                }
 
                 if (_worldBuilder.FindBuilding(hitObj) != null)
                 {
                     _worldBuilder.DamageBuilding(hitObj);
+                    SpendToolStamina(player);
                     SoundManager.Instance?.Play("hammer");
                     return;
                 }
@@ -811,12 +841,14 @@ public partial class ToolManager : MonoBehaviour
                 if (_worldBuilder.IsBlueprint(hitObj))
                 {
                     _worldBuilder.RemoveBlueprint(hitObj);
+                    SpendToolStamina(player);
                     SoundManager.Instance?.Play("hammer");
                     return;
                 }
 
                 if (_worldBuilder.PlaceBlueprint(placePos))
                 {
+                    SpendToolStamina(player);
                     SoundManager.Instance?.Play("hammer");
                     _uiManager.ShowMessage(Localization.T("Bản thiết kế đã đặt. Cung cấp gỗ & đá."), 1.5f);
                 }
@@ -830,6 +862,7 @@ public partial class ToolManager : MonoBehaviour
                 {
                     if (_worldBuilder.WaterField(hit.point))
                     {
+                        SpendToolStamina(player);
                         SoundManager.Instance?.Play("pop");
                         _uiManager.ShowMessage(Localization.T("Ruộng đã tưới."), 1.5f);
                         QuestManager.Instance?.AddProgress("water", 1);
@@ -849,6 +882,7 @@ public partial class ToolManager : MonoBehaviour
                 {
                     if (_worldBuilder.FertilizeField(hit.point))
                     {
+                        SpendToolStamina(player);
                         RemoveItem(_selectedSlot, 1);
                         SoundManager.Instance?.Play("pop");
                         _uiManager.ShowMessage(Localization.T("Ruộng đã bón phân!"), 1.5f);
@@ -868,6 +902,7 @@ public partial class ToolManager : MonoBehaviour
                 {
                     if (_worldBuilder.BoostFieldGrowth(hit.point))
                     {
+                        SpendToolStamina(player);
                         RemoveItem(_selectedSlot, 1);
                         SoundManager.Instance?.Play("pop");
                         _uiManager.ShowMessage(Localization.T("Ruộng đã lớn nhanh hơn!"), 1.5f);
@@ -881,7 +916,10 @@ public partial class ToolManager : MonoBehaviour
             }
 
             if (TryPlantSeed(selectedItem, hit.point))
+            {
+                SpendToolStamina(player);
                 return;
+            }
 
             if (selectedItem == "scythe")
             {
@@ -896,6 +934,7 @@ public partial class ToolManager : MonoBehaviour
                     }
                     if (_worldBuilder.HarvestField(field, out var item))
                     {
+                        SpendToolStamina(player);
                         AddItem(item, 1);
                         if (item == "wheat")
                             GameStats.AddWheat(1);
