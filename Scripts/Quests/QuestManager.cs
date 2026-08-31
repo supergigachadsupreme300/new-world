@@ -15,6 +15,7 @@ public class QuestManager : MonoSingleton<QuestManager>
         public int Reward;
         public string Description;
         public int RequiredDay;
+        public string RequiredQuest;
     }
     private static readonly StoryQuestDef[] StoryQuestDefs =
     {
@@ -22,11 +23,11 @@ public class QuestManager : MonoSingleton<QuestManager>
         new StoryQuestDef { Name = "Bí Mật Của Phú Ông", Target = "mansion_secret", Count = 1, Reward = 500, Description = "Đêm tối, hãy rình xem điều gì xảy ra sau dinh thự của Phú Ông. Sau khi có bằng chứng, hãy đến đồn cảnh sát bên cạnh con đường để báo án.", RequiredDay = 3 },
         new StoryQuestDef { Name = "Mùa Thu Đầu Tiên", Target = "wheat", Count = 50, Reward = 150, Description = "Thu hoạch 50 lúa mì để trở thành nông dân thực thụ.", RequiredDay = 3 },
         new StoryQuestDef { Name = "Bảo Vệ Đất", Target = "enemies", Count = 10, Reward = 300, Description = "Diệt 10 kẻ thù để bảo vệ nông trại.", RequiredDay = 5 },
-        new StoryQuestDef { Name = "Bàn Tay Xanh", Target = "wheat", Count = 150, Reward = 400, Description = "Thu hoạch 150 lúa mì để chứng minh tài năng.", RequiredDay = 8 },
+        new StoryQuestDef { Name = "Bàn Tay Xanh", Target = "wheat", Count = 150, Reward = 400, Description = "Thu hoạch 150 lúa mì để chứng minh tài năng.", RequiredDay = 8, RequiredQuest = "Mùa Thu Đầu Tiên" },
         new StoryQuestDef { Name = "Xây Dựng Đế Chế", Target = "money_earned", Count = 50000, Reward = 750, Description = "Kiếm 50.000 vàng bằng cách bán nông sản.", RequiredDay = 10 },
-        new StoryQuestDef { Name = "Thợ Săn Quái Vật", Target = "enemies", Count = 30, Reward = 600, Description = "Diệt 30 kẻ thù để làm sạch vùng đất.", RequiredDay = 12 },
-        new StoryQuestDef { Name = "Trận Đấu Cuối Cùng", Target = "enemies", Count = 50, Reward = 1500, Description = "Diệt 50 kẻ thù — trận chiến sinh tử!", RequiredDay = 15 },
-        new StoryQuestDef { Name = "Tỷ Phú", Target = "money_earned", Count = 200000, Reward = 3000, Description = "Kiếm 200.000 vàng để trở thành tỷ phú.", RequiredDay = 18 },
+        new StoryQuestDef { Name = "Thợ Săn Quái Vật", Target = "enemies", Count = 30, Reward = 600, Description = "Diệt 30 kẻ thù để làm sạch vùng đất.", RequiredDay = 12, RequiredQuest = "Bảo Vệ Đất" },
+        new StoryQuestDef { Name = "Trận Đấu Cuối Cùng", Target = "enemies", Count = 50, Reward = 1500, Description = "Diệt 50 kẻ thù — trận chiến sinh tử!", RequiredDay = 15, RequiredQuest = "Thợ Săn Quái Vật" },
+        new StoryQuestDef { Name = "Tỷ Phú", Target = "money_earned", Count = 200000, Reward = 3000, Description = "Kiếm 200.000 vàng để trở thành tỷ phú.", RequiredDay = 18, RequiredQuest = "Xây Dựng Đế Chế" },
     };
 
     private void Update()
@@ -103,9 +104,20 @@ public class QuestManager : MonoSingleton<QuestManager>
         for (int i = 0; i < StoryQuestDefs.Length; i++)
         {
             var def = StoryQuestDefs[i];
-            if (day >= def.RequiredDay)
-                AddIfMissing(CreateStoryQuest(def.Name, def.Target, def.Count, def.Reward, def.Description, def.RequiredDay));
+            if (day >= def.RequiredDay && PrerequisiteMet(def.RequiredQuest))
+                AddIfMissing(CreateStoryQuest(def.Name, def.Target, def.Count, def.Reward, def.Description, def.RequiredDay, def.RequiredQuest));
         }
+    }
+    private bool PrerequisiteMet(string requiredQuest)
+    {
+        if (string.IsNullOrEmpty(requiredQuest))
+            return true;
+        foreach (var q in _quests)
+        {
+            if (q.Name == requiredQuest && q.Completed)
+                return true;
+        }
+        return false;
     }
     private void AddIfMissing(QuestSave quest)
     {
@@ -175,6 +187,8 @@ public class QuestManager : MonoSingleton<QuestManager>
 
             if (quest.Target == target)
             {
+                if (!PrerequisiteMet(quest.RequiredQuest))
+                    continue;
                 quest.Progress += amount;
                 if (quest.Progress >= quest.Count)
                 {
@@ -228,7 +242,7 @@ public class QuestManager : MonoSingleton<QuestManager>
     {
         return new List<QuestSave>(_quests);
     }
-    private QuestSave CreateStoryQuest(string name, string target, int count, int reward, string description, int requiredDay)
+    private QuestSave CreateStoryQuest(string name, string target, int count, int reward, string description, int requiredDay, string requiredQuest)
     {
         return new QuestSave
         {
@@ -243,6 +257,7 @@ public class QuestManager : MonoSingleton<QuestManager>
             TimeLimit = 0f,
             TimeStarted = 0f,
             RequiredDay = requiredDay,
+            RequiredQuest = requiredQuest,
             Description = description,
             Failed = false
         };
@@ -292,7 +307,7 @@ public class QuestManager : MonoSingleton<QuestManager>
     }
     public void AddStoryQuest(string name, string target, int count, int reward, string description)
     {
-        AddIfMissing(CreateStoryQuest(name, target, count, reward, description, 0));
+        AddIfMissing(CreateStoryQuest(name, target, count, reward, description, 0, null));
     }
     public void RemoveStoryQuest(string questName)
     {
@@ -544,6 +559,7 @@ public class QuestManager : MonoSingleton<QuestManager>
         public float TimeLimit;
         public float TimeStarted;
         public int RequiredDay;
+        public string RequiredQuest;
         public string Description;
         public bool Failed;
     }
