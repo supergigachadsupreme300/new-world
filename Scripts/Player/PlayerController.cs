@@ -322,7 +322,7 @@ public class PlayerController : MonoBehaviour
         bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog || monkDialog || chefDialog || cafeBaristaDialog || librarianDialog || immigrantDialog || fishingShopDialog || goblinMenuOpen;
 
         bool ePressed = (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) ||
-                        (!wifeDialog && !richManDialog && !policeDialog && !chefDialog && !librarianDialog && MobileInputController.Consume("interact"));
+                        (!wifeDialog && MobileInputController.Consume("interact"));
         if (ePressed && buffaloDialog)
             BuffaloDialog.Instance.Advance();
         if (ePressed && richManDialog)
