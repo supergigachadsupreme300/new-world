@@ -20,6 +20,7 @@ public class Livestock : MonoBehaviour
     private GameObject _modelRoot;
     private Rigidbody _rb;
     private float _knockoutTimer;
+    private float _preKnockoutYaw;
     private float _fightCooldown;
     private bool _isFighting;
     private bool _isFleeing;
@@ -155,8 +156,8 @@ public class Livestock : MonoBehaviour
         if (toTarget.magnitude > 0.3f)
         {
             Vector3 dir = toTarget.normalized;
-            _wantedVel = dir * _moveSpeed;
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 8f);
+            _wantedVel = transform.forward * _moveSpeed;
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 14f);
             AnimateLegs(true);
         }
         else
@@ -177,9 +178,9 @@ public class Livestock : MonoBehaviour
 
         Vector3 awayDir = (transform.position - player.transform.position).normalized;
         awayDir.y = 0f;
-        _wantedVel = awayDir * _moveSpeed * 2f;
+        _wantedVel = transform.forward * _moveSpeed * 2f;
         if (awayDir.sqrMagnitude > 0.01f)
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(awayDir), Time.deltaTime * 10f);
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(awayDir), Time.deltaTime * 16f);
         AnimateLegs(true);
     }
 
@@ -193,9 +194,9 @@ public class Livestock : MonoBehaviour
 
         Vector3 dir = (player.transform.position - transform.position).normalized;
         dir.y = 0f;
-        _wantedVel = dir * _moveSpeed * 3f;
+        _wantedVel = transform.forward * _moveSpeed * 3f;
         if (dir.sqrMagnitude > 0.01f)
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 10f);
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 16f);
         AnimateLegs(true);
 
         if (dist < 1.5f)
@@ -274,6 +275,7 @@ public class Livestock : MonoBehaviour
         _isFighting = false;
         _isFleeing = false;
         _wantedVel = Vector3.zero;
+        _preKnockoutYaw = transform.eulerAngles.y;
         transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
         AnimateLegs(false);
     }
@@ -283,7 +285,7 @@ public class Livestock : MonoBehaviour
         IsKnockedOut = false;
         Health = MaxHealth;
         _wantedVel = Vector3.zero;
-        transform.localRotation = Quaternion.identity;
+        transform.localRotation = Quaternion.Euler(0f, _preKnockoutYaw, 0f);
         AnimateLegs(false);
     }
 
