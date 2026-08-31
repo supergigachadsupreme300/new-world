@@ -790,10 +790,9 @@ _streetLights.Clear();
                 }
             }
 
-            if (!field.Watered)
-                continue;
-
             float growTime = field.NextStageTime;
+            if (!field.Watered)
+                growTime *= 3f;
             if (field.Fertilized)
                 growTime *= 0.5f;
 
