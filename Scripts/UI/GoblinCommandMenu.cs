@@ -235,11 +235,11 @@ public class GoblinCommandMenu : MonoBehaviour
         row = new GameObject(rowName);
         row.transform.SetParent(_panel.transform, false);
         var rowRt = row.AddComponent<RectTransform>();
-        rowRt.anchorMin = new Vector2(1f, 1f);
+        rowRt.anchorMin = new Vector2(0f, 1f);
         rowRt.anchorMax = new Vector2(1f, 1f);
-        rowRt.pivot = new Vector2(1f, 1f);
-        rowRt.anchoredPosition = new Vector2(-20f, yOffset);
-        rowRt.sizeDelta = new Vector2(320f, 40f);
+        rowRt.pivot = new Vector2(0.5f, 1f);
+        rowRt.anchoredPosition = new Vector2(0f, yOffset);
+        rowRt.sizeDelta = new Vector2(0f, 40f);
 
         var rowImg = row.AddComponent<Image>();
         rowImg.color = ColorPalette.UIBackdrop;
@@ -249,8 +249,14 @@ public class GoblinCommandMenu : MonoBehaviour
         rowBtn.targetGraphic = rowImg;
         rowBtn.onClick.AddListener(onClick);
 
-        text = MakeText(textName, rowRt, new Vector2(0f, 0f), "", 18, textColor, new Vector2(292f, 36f));
+        text = MakeText(textName, rowRt, Vector2.zero, "", 18, textColor, Vector2.zero);
         text.alignment = TextAlignmentOptions.Left;
+        var textRt = text.rectTransform;
+        textRt.anchorMin = Vector2.zero;
+        textRt.anchorMax = Vector2.one;
+        textRt.pivot = new Vector2(0.5f, 0.5f);
+        textRt.offsetMin = new Vector2(10f, 0f);
+        textRt.offsetMax = new Vector2(-10f, 0f);
 
         row.SetActive(false);
     }
