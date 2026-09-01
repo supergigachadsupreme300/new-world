@@ -475,7 +475,6 @@ BuildPagoda(PagodaBasePos);
 PruneTreesAndRocksNearStructures();
         ClearFastTravelSpots();
         SpawnFastTravelSigns();
-        SpawnRidableHorse();
 
         SpawnInitialClouds();
 

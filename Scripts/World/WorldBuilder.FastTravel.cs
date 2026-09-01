@@ -12,8 +12,6 @@ public partial class WorldBuilder
         ("Võ Đài Quỷ Vương", new Vector3(278f, 0f, 80f))
     };
 
-    private static readonly Vector3 HorseSpawnPosition = new Vector3(19f, 0f, 1f);
-
     private bool _fastTravelSpawned;
 
     public void SpawnFastTravelSigns()
@@ -25,18 +23,10 @@ public partial class WorldBuilder
             BuildFastTravelSign(FastTravelDestinations[i].label, FastTravelDestinations[i].pos, i);
     }
 
-    public void SpawnRidableHorse()
-    {
-        if (_worldRoot == null)
-            return;
-        HorseMount.Spawn(HorseSpawnPosition);
-    }
-
     public void ClearFastTravelSpots()
     {
         foreach (var dest in FastTravelDestinations)
             PruneTreesAndRocksInBox(dest.pos.x, dest.pos.z, 2.2f, 2.2f);
-        PruneTreesAndRocksInBox(HorseSpawnPosition.x, HorseSpawnPosition.z, 2f, 2f);
     }
 
     private void BuildFastTravelSign(string label, Vector3 position, int index)
