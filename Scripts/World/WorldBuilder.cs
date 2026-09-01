@@ -8,9 +8,12 @@ public partial class WorldBuilder : MonoSingleton<WorldBuilder>
 {
 public int BuildingCount => _buildings.Count;
 
-    public int TreeCount = 150;
+public int TreeCount = 150;
     public int RockCount = 75;
     public Vector3 GroundSize = new Vector3(600f, 0.2f, 600f);
+
+    [Tooltip("Print world build stats (GO / renderer / material / collider counts).")]
+    public bool LogWorldStats = false;
 
     public int MapWidth = 40;
     public int MapDepth = 40;
@@ -482,6 +485,28 @@ var spawnerGo = new GameObject("LivestockSpawner");
 
 SittableSeat.Register(_worldRoot.transform);
         NavGrid.EnsureCreated();
+        LogWorldBuildStats();
+    }
+    private void LogWorldBuildStats()
+    {
+        if (!LogWorldStats)
+            return;
+
+        var gos = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+        var renderers = Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None);
+        var colliders = Object.FindObjectsByType<Collider>(FindObjectsSortMode.None);
+
+        var mats = new HashSet<Material>();
+        foreach (var r in renderers)
+        {
+            var sm = r.sharedMaterial;
+            if (sm != null) mats.Add(sm);
+        }
+
+        Debug.Log("[WorldBuilder] World stats: gameObjects=" + gos.Length +
+                  " meshRenderers=" + renderers.Length +
+                  " uniqueMaterials=" + mats.Count +
+                  " colliders=" + colliders.Length);
     }
     private void BuildBossArena()
     {
