@@ -62,6 +62,7 @@ public class SaveManager : MonoSingleton<SaveManager>
             immigrantVillagers = _worldBuilder.GetVillagerSaves(),
             karmaCurrent = KarmaManager.Instance != null ? KarmaManager.Instance.CurrentKarma : 5f,
             karmaMax = KarmaManager.Instance != null ? KarmaManager.Instance.MaxKarma : 5f,
+            skillStateJson = SkillManager.Instance != null ? SkillManager.Instance.SerializeState() : "",
             goblinStorage = GoblinPet.Instance != null ? GoblinPet.Instance.GetStorageSaveItems() : null,
             goblinHeldSeed = GoblinPet.Instance != null ? GoblinPet.Instance.HeldSeedType : "",
             goblinCarriedCrop = GoblinPet.Instance != null ? GoblinPet.Instance.CarriedCrop : ""
@@ -162,6 +163,8 @@ public class SaveManager : MonoSingleton<SaveManager>
                 maxKarma = kMax
             });
         }
+        if (SkillManager.Instance != null && !string.IsNullOrEmpty(data.skillStateJson))
+            SkillManager.Instance.DeserializeState(data.skillStateJson);
 
         var spawner = Object.FindAnyObjectByType<LivestockSpawner>();
         if (spawner != null) spawner.Restart();
@@ -225,6 +228,7 @@ public class SaveManager : MonoSingleton<SaveManager>
         public List<WorldBuilder.VillagerSaveData> immigrantVillagers;
         public float karmaCurrent;
         public float karmaMax;
+        public string skillStateJson;
         public List<GoblinPet.GoblinStorageSaveItem> goblinStorage;
         public string goblinHeldSeed;
         public string goblinCarriedCrop;

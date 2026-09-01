@@ -61,8 +61,27 @@ public partial class ToolManager : MonoBehaviour
     private float StaminaCostFor(string item)
     {
         if (ToolStaminaCost.TryGetValue(item, out var cost))
+        {
+            if (IsFarmingTool(item) && SkillManager.Instance != null)
+                cost = Mathf.Max(1f, cost * SkillManager.Instance.FarmingStaminaEfficiency());
             return cost;
+        }
         return 10f;
+    }
+
+    private static bool IsFarmingTool(string itemType)
+    {
+        if (itemType == null) return false;
+        switch (itemType)
+        {
+            case "hoe":
+            case "scythe":
+            case "watering_can":
+            case "fertilizer":
+                return true;
+            default:
+                return itemType.EndsWith("_seed");
+        }
     }
 
     private bool RequiresStamina(string itemType)
@@ -965,6 +984,7 @@ public partial class ToolManager : MonoBehaviour
                         AddItem(item, 1);
                         if (item == "wheat")
                             GameStats.AddWheat(1);
+                        SkillManager.Instance?.AddXP(SkillManager.Track.Farming, FarmingXPFor(item));
                         SoundManager.Instance?.Play("sickle");
                         _uiManager.ShowMessage(Localization.F("Đã thu hoạch {0}.", Localization.ItemName(item)), 1.5f);
                         QuestManager.Instance?.AddProgress(item, 1);

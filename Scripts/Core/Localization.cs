@@ -922,6 +922,10 @@ public static class Localization
         { "Go doan van ben duoi...", "Type the paragraph below..." },
         { "ESC de dung | Backspace de xoa", "ESC to stop | Backspace to delete" },
 
+        // Skills & XP
+        { "Cấp độ Canh Tác lên {0}! Bạn thu hoạch và hồi sức hiệu quả hơn.", "Farming reached level {0}! You harvest and use stamina more efficiently." },
+        { "Cấp độ Câu Cá lên {0}! Cá khó thoát và kéo nhanh hơn.", "Fishing reached level {0}! Fish escape less and you reel faster." },
+
         // Event Test Panel
         { "Sự Kiện", "Events" },
         { "SỰ KIỆN TEST", "EVENT TEST" },

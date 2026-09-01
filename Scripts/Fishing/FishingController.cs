@@ -116,6 +116,8 @@ public class FishingController : MonoSingleton<FishingController>
 
         var tm = ToolManager.Instance;
         _effectiveFlopChance = FlopChance;
+        if (SkillManager.Instance != null)
+            _effectiveFlopChance *= SkillManager.Instance.FishingFlopMultiplier();
         _effectiveWeights = (float[])FishWeights.Clone();
         if (tm != null)
         {
@@ -344,6 +346,7 @@ public class FishingController : MonoSingleton<FishingController>
         }
 
         QuestManager.Instance?.AddProgress("fish_catch", 1);
+        SkillManager.Instance?.AddXP(SkillManager.Track.Fishing, SkillManager.FishingXpPerCatch);
 
         CancelFishing();
     }

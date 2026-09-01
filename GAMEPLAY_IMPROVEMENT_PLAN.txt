@@ -43,9 +43,51 @@ PHASE 1 — Finish the core farming-sim loop (HIGHEST impact)
 -----------------------------------------------------------------------
 PHASE 2 — Long-term progression
 -----------------------------------------------------------------------
-2A. 3-track XP/Skill system (farming/fishing/combat, levels 1-5)
-2B. Functional buildings (well irrigates, watchtower repels, fence HP)
-2C. NPC friendship for Monk/Librarian/Chef/FishShop (0-5 hearts)
+2A. SKILL / XP SYSTEM  (new SkillManager, 2 tracks, levels 1-5)
+    - No skill/XP system exists. Add SkillManager as a MonoSingleton
+      modeled on KarmaManager (level/current fields + GetSaveData/LoadSaveData).
+    - 2 tracks, each 1-5: Farming, Fishing.  (Combat EXCLUDED: player already
+      grows via the praying minigame — Karma/MaxKarma buffs.)
+    - XP hooks already exist:
+        farming  -> ToolManager.cs:~962 harvest path (field.CropType + qty)
+        fishing  -> FishingController.cs:346 OnCatchFish (fishType)
+    - 2A.1 MINIMAL: levels only — each track levels via XP, each level-up
+      grants a permanent passive stat bump (farming: +stamina restore on
+      harvest; fishing: +reel speed / lower flop chance). Persist via
+      PlayerPrefs JSON like KarmaManager. [implement first, reviewable alone]
+    - 2A.2 FULL: perks at levels 2/4 per track + a HUD skill panel (karma-bar
+      pattern in UIManager.HUD.cs) listing track + XP + next level, opened
+      from a hotkey.
+    - SaveManager integration (new SkillSaveData; no combat track).
+    [IN PROGRESS 2026-09-01: 2A.1]
+
+2B. FUNCTIONAL BUILDINGS
+    - Placed buildings are cosmetic (BlueprintState/CompleteBlueprint spawn
+      entity named by def.Name under _worldRoot; find by name).
+      Phase 1 already made workstations functional; remaining gaps:
+    - well: any crop in a radius is auto-watered each morning (skip manual
+      watering) — fixed radius, keep simple.
+    - watchtower: shows a "danger / enemy near" warning marker when enemies
+      spawn within range; nearby enemies move slower inside its radius.
+    - fence: gets its own HP; enemy damage hits fence parts instead of the
+      player (BuildingPartState.CurrentHealth already exists); player is safe
+      while a fence part remains.
+    - Persist per-building behavior flags without breaking existing saves
+      (new optional fields, default off).
+
+2C. NPC FRIENDSHIP   (Monk / Librarian / Chef / FishShop, 0-5 hearts)
+    - All NPCs are MonoSingletons like WifeNPC; add a centralized
+      FriendshipManager storing hearts per NPC (PlayerPrefs JSON).
+    - Daily talk +1 heart-point (cap per day, like WifeNPC _lastTalkDay),
+      gifts via E-interaction deposit, heart-up messages + per-heart rewards:
+      heart 2 = shop discount / recipe unlock; heart 3 = unique item or new
+      dialog line; heart 5 = special scene.
+    - FULL: net-new per-heart gift/dialog content for each of the 4 NPCs
+      (Vietnamese + English), plus heart meter in a friendship panel.
+    - Save/load a new FriendshipSaveData.
+
+Split: 2A.1 -> 2A.2 -> 2B -> 2C as separate commits, reviewable & stoppable
+between each.
 
 -----------------------------------------------------------------------
 PHASE 3 — Depth tuning & QOL
@@ -60,6 +102,6 @@ STATUS
 -----------------------------------------------------------------------
 Phase 1A: DONE (2026-08-31)
 Phase 1B: DONE (2026-08-31)
-Phase 2 : NOT STARTED
+Phase 2 : IN PROGRESS (2026-09-01, 2A.1)
 Phase 3 : NOT STARTED
 ========================================================================

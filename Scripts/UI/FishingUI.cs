@@ -207,8 +207,9 @@ public class FishingUI : MonoBehaviour
 
         bool inZone = Mathf.Abs(PlayerLinePos - _greenPos) <= _zoneHalf - 4f;
         float rate = 0.4f * deltaTime;
+        float reelMul = SkillManager.Instance != null ? SkillManager.Instance.FishingReelMultiplier() : 1f;
         if (inZone)
-            Progress = Mathf.Min(1f, Progress + rate * 0.6f);
+            Progress = Mathf.Min(1f, Progress + rate * 0.6f * reelMul);
         else
             Progress = Mathf.Max(0f, Progress - rate * 0.125f);
 
