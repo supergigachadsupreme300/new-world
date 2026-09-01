@@ -4,21 +4,25 @@
 
 GENRE:        Open-World Farming & Life Simulation
 SETTING:      Rural Vietnamese countryside
-ENGINE:       Unity (URP)
+ENGINE:       Unity (URP - Universal Render Pipeline)
 PERSPECTIVE:  First-person
+INPUT:        Unity New Input System (Keyboard + Mouse; touch UI on mobile)
+ENDINGS:      2 (Happy and Sad)
+LANGUAGE:     Vietnamese / English (toggle in settings)
 
 ================================================================================
                           OVERVIEW
 ================================================================================
 
 Country Life is a first-person open-world farming and life simulation game set
-in a rural Vietnamese countryside. The player arrives by car at a small village
-and must build a life from scratch: farm crops, build structures, trade with
-merchants, defeat monsters, and complete quests.
+in a rural Vietnamese countryside. You arrive by car at a small village and
+must build a life from scratch: clear land, farm a wide variety of crops, build
+structures, raise a pet, trade with merchants, fish the river, fight monsters
+at night, court Jessica, and complete quests toward two possible endings.
 
-The game features a full day/night cycle, farming mechanics, a construction
-system, NPC shops, enemy encounters, a pet companion, and a story with two
-possible endings (happy and sad).
+The game couples a complete day/night cycle with persistent farming, a
+construction/crafting system, NPC shops and friendship, skills & XP, functional
+buildings, enemy encounters, and a story with a happy and a sad ending.
 
 ================================================================================
                           CONTROLS
@@ -29,22 +33,29 @@ Movement:
   Space             Jump
   Left Shift        Sprint (costs stamina)
   Mouse             Look around
+  C                 Dodge-roll (i-frames, costs stamina)
 
 Tools & Items:
   Left Click        Use selected tool/item
-  Right Click       Open shop (near NPC/Buffalo)
+  Right Click       Open shop (near a shop NPC / Buffalo)
   E                 Interact / Pick up nearby items
   Q                 Drop selected item
-  R                 Reload gun / Rotate building preview (Hammer)
+  R                 Reload gun / Rotate a building preview (Hammer)
   F                 Open building selection menu (Hammer only)
-  Escape            Deselect hammer / Close menus
+  Escape            Deselect hammer / Close menus / Pause
 
 Inventory:
   1-0               Select inventory slot 1-10
   [ / ]             Cycle inventory slots
+  O                 Sort inventory (merge stacks + sort by name)
+
+Skills / Systems:
+  K                 Open the Skill panel (Farming / Fishing XP & perks)
+  L                 Open the Friendship panel (NPC hearts / gifts)
+  H                 Open the Stats / Statistics screen
 
 Building:
-  T                 Rotate building preview
+  T                 Rotate building preview (also R)
 
 UI:
   Escape            Pause menu
@@ -58,14 +69,14 @@ UI:
 
   HP:               100 / 100
   Stamina:          1000 / 1000
-  Stamina Regen:    25 per second
+  Stamina Regen:    4 per second (boosted by food/buffs while stamina high)
+  Register Regen:   Sitting gradually restores stamina
   Sprint Cost:      35 stamina per second
   Move Speed:       5.0
   Sprint Speed:     10.0 (2x multiplier)
   Jump Height:      1.5
-  Starting Money:   10,000,000,000 (10 Billion)
-  Mouse Sensitivity: 2.5
-  Camera FOV:       60
+  Starting Money:   1,000 gold
+  Dodge-Roll:       C key, ~20 stamina, brief invulnerability (i-frames)
 
 ================================================================================
                           TOOLS & ITEMS
@@ -76,19 +87,24 @@ TOOLS (with stamina cost per use):
   Axe               15 stamina  - Chop trees, break branches, split wood debris
   Pickaxe           15 stamina  - Mine rocks, smash rock debris
   Hoe               12 stamina  - Till ground into farmable field tiles
-  Hammer            20 stamina  - Place building blueprints, damage/remove
-                                  buildings, open building menu (F key)
+  Hammer            20 stamina  - Place buildings, demolish, open build menu (F)
   Scythe            10 stamina  - Harvest mature crops (stage 4), cut grass
   Watering Can       8 stamina  - Water crops to help them grow
-  Fertilizer         5 stamina  - Fertilize crops to boost growth (consumes 1)
-  Gun                5 stamina  - Shoot to destroy trees and rocks at range
+  Fertilizer         5 stamina  - Fertilize crops (boost growth; consumes 1)
+  Gun                5 stamina  - Shoot to destroy trees/rocks at range
+  Fishing Rod        (see FISHING) - Cast line, reel in fish, upgradeable
 
 GUN SYSTEM:
   Max Ammo:         6 bullets
   Shoot Range:      20 units
-  Ammo Item:        "ammo" (found as pickup)
+  Ammo Item:        "ammo" (found as pickup / bought)
   Reload:           Press R, consumes ammo items from inventory
   Effect:           Destroys trees and rocks on hit
+
+TOOL PROGRESSION (Farming skill):
+  At Farming level 2: +25% chance to harvest a bonus crop.
+  At Farming level 4: ALL tools cost 25% less stamina.
+  These are unlocked automatically as the Farming skill levels up.
 
 ================================================================================
                           FARMING
@@ -102,35 +118,87 @@ FARMING PROCESS:
   5. Fertilize with FERTILIZER for faster growth (consumes 1 fertilizer)
   6. Wait for crops to reach Stage 4 (fully grown)
   7. Harvest with SCYTHE
+  8. Optional: place a WELL to auto-water fields, a FENCE to tank enemy hits,
+     or a WATCHTOWER to slow enemies
 
 GROWTH:
   - 4 growth stages total (Stage 0 = empty, Stage 4 = harvestable)
-  - Each stage takes 4 seconds to grow
-  - Total growth time: ~16 seconds
   - Watering and fertilizing speed up growth
+  - Each crop has its own seconds-per-stage grow time (see table below)
 
-CROP TYPES (10 total):
+QUALITY TIERS (Phase 3B) - at maturation a crop can be:
+  Normal  (Quality 0): the standard yield.
+  Good    (Quality 1): granted by being FERTILIZED.
+  Great   (Quality 2): granted by being fertilized AND mostly watered
+           (WateredTime coverage >= 60% of its grow time).
+  Good harvests have +25% chance for a bonus yield; Great have +50%.
 
-  Crop         Seed Name       Vietnamese     Harvest Value   Sell Price
-  ----------   -----------     ------------   -------------   ----------
-  Wheat        wheat_seed      Lua            wheat           10 gold
-  Corn         corn_seed       Ngo            corn            12 gold
-  Potato       potato_seed     Khoai tay      potato          11 gold
-  Carrot       carrot_seed     Ca rot         carrot           9 gold
-  Tomato       tomato_seed     Ca chua        tomato          13 gold
-  Strawberry   strawberry_seed Dau tay        strawberry      15 gold
-  Pumpkin      pumpkin_seed    Bi ngo         pumpkin         14 gold
-  Onion        onion_seed      Hanh tay       onion           10 gold
-  Sugarcane    sugarcane_seed  Mia            sugarcane       11 gold
-  Rice         rice_seed       Lua nuoc       rice            12 gold
+CROP TABLE (grow seconds per stage, ~quality significance):
 
-DAMAGED CROPS (harvested before full maturity):
+  Crop         Seed Name       Grow/Stage (s)  Harvest Value   Sell Price
+  ----------   -----------     --------------  -------------   ----------
+  Wheat        wheat_seed      12              wheat           10 gold
+  Corn         corn_seed       14              corn            12 gold
+  Potato       potato_seed     13              potato          11 gold
+  Carrot       carrot_seed     10              carrot           9 gold
+  Tomato       tomato_seed     15              tomato          13 gold
+  Strawberry   strawberry_seed 17              strawberry      15 gold
+  Pumpkin      pumpkin_seed    16              pumpkin         14 gold
+  Onion        onion_seed      11              onion           10 gold
+  Sugarcane    sugarcane_seed  13              sugarcane       11 gold
+  Rice         rice_seed       12              rice            12 gold
+
+  Full grow time = Stage-4-crop's total: ~40s (carrot) up to ~68s (strawberry).
+
+DAMAGED CROPS (harvested before full maturity or lost mid-growth):
   Each crop has a "damaged_" variant worth ~25-30% of normal price.
 
 SEED PRICES (buy from shops):
   wheat_seed: 3    corn_seed: 4    carrot_seed: 3    tomato_seed: 4
   strawberry_seed: 5    pumpkin_seed: 4    onion_seed: 3
   sugarcane_seed: 4    rice_seed: 3
+
+================================================================================
+                          FISHING (RODS & SPECIES)
+================================================================================
+
+FISHING PROCESS:
+  1. Equip the FISHING ROD
+  2. Stand near the river/beach and press/release to cast
+  3. When a fish bites, keep the cursor in the green zone while reeling
+  4. Reel in before the fish escapes to catch it
+
+Per-species difficulty: each species has its own reel gain, green-zone speed
+and flop rate (easier common fish, rarer harder fish).
+
+FISHING ROD UPGRADES (bought at the Fishing Shop):
+  Base "Cần Câu" (Fishing Rod) ...... 50 gold
+  Level 1 upgrade ................... 40 gold   (+5% reel gain)
+  Level 2 upgrade ................... 80 gold   (+10% reel gain)
+  Level 3 upgrade .................. 200 gold   (+15% reel gain, -24% flop)
+  Upgrade the rod in order (Lv 0 -> 1 -> 2 -> 3); a rod at a higher level reels
+  faster and fish escape less. Max rod level = 3.
+
+FISHING SKILL (XP):
+  Each catch grants Fishing XP. Level 2: +20% chance of a double catch.
+  Level 4: +15% reel speed. Auto-granted as the Fishing skill levels up.
+
+================================================================================
+                          SKILLS & XP (SkillManager)
+================================================================================
+
+Two skill tracks, each levels 1-5. Earn XP by doing:
+  FARMING  - harvest crops (XP per crop type), use farm tools
+  FISHING  - catch fish
+
+Level-ups grant permanent passive bonuses:
+  FARMING  L1-5: more efficient harvest/stamina use.
+           L2: +25% bonus-crop chance.   L4: all tools -25% stamina.
+  FISHING  L1-5: fish escape less, reel faster.
+           L2: +20% double-catch chance. L4: +15% reel speed.
+
+Open the Skill panel with the K key to see points/level/perks. Both tracks are
+saved with your game.
 
 ================================================================================
                           BUILDING SYSTEM
@@ -142,7 +210,7 @@ HAMMER TOOL:
   - Choose a structure from the menu
   - Left-click in place mode: place blueprint (even through existing structures)
   - After placing, automatically returns to demolish mode
-  - R key: rotate building preview
+  - R/T key: rotate building preview
   - Escape: deselect hammer
 
 BUILDING PROCESS:
@@ -154,7 +222,7 @@ BUILDING PROCESS:
   6. Resources auto-deposit when nearby
   7. Building completes when fully supplied
 
-BUILDING TYPES (11 total):
+BUILDING TYPES:
 
   Building       Vietnamese     Size          Wood  Stone
   ----------     -----------    ----------    ----  -----
@@ -169,8 +237,60 @@ BUILDING TYPES (11 total):
   table          Ban            2 x 1 x 2     2     0
   chair          Ghe            1 x 1.5 x 1   1     0
   sofa           Ghe so pha     2 x 1 x 1.5   3     0
+  chest          Ruong do       (storage)     -     -   (researched at Library)
 
-Note: Non-floor buildings require a floor tile underneath to be placed.
+WORKSTATIONS (functional buildings placed from the tool palette):
+  crafting_stove    - Cooking: steamed rice, chicken rice, fried rice, xoi gac,
+                      pumpkin soup (uses rice/meat/egg/pumpkin/salt...)
+  preserve_jar      - Preserving: carrot jam, dried fruit, pickled vegetables
+  brewing_kettle    - Brewing: rice wine, chili sauce, remedy wine (from demon
+                      horns) and tonic (from dark essence + honey)
+  well              - Auto-waters every crop in radius each morning
+  watchtower        - Slows enemies in radius + shows danger warning
+  fence             - Tanky barrier that absorbs enemy hits before they reach you
+  coffin / chest    - Storage (two-way bag/chest panel)
+
+Note: Non-floor buildings (except the free-standing chest/well/fence/watchtower
+and workstations) require a floor tile underneath to be placed.
+
+================================================================================
+                          CRAFTING / COOKING
+================================================================================
+
+Craft at workstations (build them with the Hammer, then press E to open the
+filtered recipe panel). Recipes combine 2-3 raw ingredients:
+
+  COOKING (crafting_stove):
+    com_trang   = rice
+    com_ga      = rice + meat
+    com_chieu   = com_trang + egg
+    xoi_gac     = rice + pumpkin         (+20% stamina regen buff 120s)
+    sup_bi_ngo  = pumpkin + salt
+
+  PRESERVES (preserve_jar):
+    mut_ca_rot  = carrot + sugar x2
+    trai_cay_kho= strawberry + sugar
+    dua_chua    = carrot + onion + salt
+
+  BREWING (brewing_kettle):
+    ruou_gao    = rice x3 + sugar
+    tuong_ot    = tomato x2 + salt + onion
+    ruou_tang   = demon_horn + sugar x2
+    tinh_duoc   = dark_essence + honey
+
+Food and drink restore stamina/HP when eaten. Crafted goods sell for more than
+their raw ingredients, closing the harvest -> craft -> sell loop.
+
+================================================================================
+                          WILD MATERIALS & FRAGS
+================================================================================
+
+Defeated enemies drop crafting materials:
+  demon_horn    - from the Demon King (boss)
+  dark_essence  - from bosses/giants
+  bone          - from basic enemies
+These feed the brewing recipes (ruou_tang from demon_horn, tinh_duoc from
+dark_essence) and can be sold.
 
 ================================================================================
                           SHOPS & COMMERCE
@@ -185,28 +305,34 @@ BUFFALO SHOP:
   Accessed by: Right-click near Buffalo NPC
   Can BUY:  Cages only (cage_big, cage_small) -- no sell tab
 
-TOOL SHOP (tools are sold at the convenience store):
-  Accessed by: Right-click or E near ConvenienceNPC (inside the store)
-  Can BUY:  axe, pickaxe, hoe, scythe, hammer, club, fishing_rod, rosary
+TOOL SHOP (tools sold at the convenience store):
+  Accessed by: Right-click or E near the Convenience NPC
+  Can BUY:  axe, pickaxe, hoe, scythe, hammer, gun, fishing_rod, rosary, ammo
   Can SELL: No
 
 CONVENIENCE STORE (small kiosk near the market row):
-  Accessed by: Right-click or E near ConvenienceNPC (inside the store)
-  Can BUY:  mi_hao_hao, banh_mi, banh_tet, nuoc_dau, tra_da, soda, keo, tu_gao, duong, muoi, xap_phong, mi_chinh
+  Accessed by: Right-click or E near the Convenience NPC
+  Can BUY:  mi_hao_hao, banh_mi, banh_tet, nuoc_dau, tra_da, soda, keo,
+            tu_gao, duong, muoi, xap_phong, mi_chinh
   Can SELL: No
 
-GROCERY STORE (groceries are sold at the convenience store):
-  Accessed by: Right-click or E near ConvenienceNPC (inside the store)
+GROCERY STORE (groceries at the convenience store):
+  Accessed by: Right-click or E near the Convenience NPC
   Can BUY:  tu_gao, duong, muoi, xap_phong, mi_chinh
   Can SELL: No
 
 RESTAURANT (quan com):
-  Accessed by: Right-click near Chef NPC
+  Accessed by: Right-click near the Chef NPC
   Can BUY:  com_trang, com_tam, com_ga, com_chieu
   Can SELL: No
 
+FISHING SHOP:
+  Accessed by: Right-click near the Fishing Vendor
+  Can BUY:  fishing_rod + rod_upgrade_1/2/3 (see FISHING)
+  Can SELL: fish
+
 CONSUMABLES & EFFECTS:
-  Food/drink restores Stamina and HP when eaten (left-click while selected).
+  Food/drink restore Stamina and HP when eaten (left-click while selected).
     nuoc_dau    +150 stamina, +15 HP
     tra_da      +80  stamina, +10 HP
     soda        +120 stamina, +10 HP
@@ -219,6 +345,14 @@ CONSUMABLES & EFFECTS:
   Items used on targets (left-click while selected, aim at a field):
     xap_phong   use on self: +25 HP
     mi_chinh    use on a planted crop: +1 growth stage (consumes 1)
+
+NPC FRIENDSHIP:
+  Build hearts (0-5) with the Monk, Librarian, Chef and Fishing Shop owner by
+  talking once per day and giving liked gifts. Rewards:
+    Heart 2  - 10% shop discount (Chef + Fishing Shop)
+    Heart 3  - a one-time themed item
+    Heart 5  - a special message/scene
+  Open the Friendship panel with the L key.
 
 SELL PRICES:
 
@@ -236,7 +370,7 @@ SELL PRICES:
   Rice              12 gold       damaged_rice         3 gold
 
 ================================================================================
-                          ENEMIES & MOBS
+                          ENEMIES & COMBAT
 ================================================================================
 
 ENEMY (Hostile):
@@ -247,8 +381,17 @@ ENEMY (Hostile):
   Attack Range:     1.5 units
   Attack Cooldown:  1.2 seconds
   Patrol Range:     6 units
-  Death Reward:     +1 quest progress for "enemies"
-  Respawn:          5 seconds after death
+  Death Reward:     crafting materials + quest progress for "enemies"
+  Respawn:          enemies reappear at intervals
+
+DEMON KING (Boss, Quest / night arena):
+  Max Health:       150
+  Rewards:          demon_horn + dark_essence on defeat
+  Spawns:           in the boss arena (Vo Dai Quy Vuong) at night
+
+Defense strategy at night: close your doors. Placed FENCE parts absorb enemy
+attacks aimed at the player while a fence part stands nearby. The ROSARY (a
+holy orb) defeats enemies in one hit.
 
 MOBS (Passive Creatures):
   Types:            Mouse, Crab
@@ -257,57 +400,91 @@ MOBS (Passive Creatures):
   Wander Range:     4 units
   Behavior:         Idle wander, bobbing animation
 
-  Spawn Locations:
-    Mouse at (8, 0.5, 5)
-    Mouse at (-5, 0.5, 10)
-    Mouse at (20, 0.5, -5)
-    Crab at (15, 0.5, 40)
-    Crab at (-85, 0.5, -20)
+LIVESTOCK (cages from the Buffalo shop):
+  Cow, Pig, Sheep, Goat, Chicken, Duck, Turkey - feed/care for passive (and
+  some fight) animals around the farm. Bought as cages and placed.
 
 ================================================================================
                           PET SYSTEM
 ================================================================================
 
-PET COMPANION (Teto):
-  Follow Speed:     2.5
-  Follow Distance:  2.2 units behind player
-  Attack Range:     4 units
-  Damage:           8 per hit
-  Attack Cooldown:  1.2 seconds
-  Behavior:         Follows player, auto-attacks nearby enemies
-  Spawn Position:   (2, 0.5, 2)
+TETO - pink-haired companion (scripted intro pet):
+  Follows the player and auto-attacks nearby enemies.
+
+GOBLIN PET (spawned mid-game):
+  A crop-carrying helper you can command.
+  Commands (beside the command panel): Follow / Stay / Go Home.
+  It can pick up and carry crops/seeds and store items (open its chest/bag
+  panel). Carried items and storage are saved with the game.
+  Max Health: 30. It fights alongside the player against enemies.
 
 ================================================================================
-                          QUESTS
+                          TRAVEL & WAGONS
 ================================================================================
 
-Three quests available:
+FAST TRAVEL (road signs):
+  Six road signs are placed along the roads at Trang Trai / Chua Lang /
+  Khu Cho / Hop Dem & Nha Hang / Dinh Phu Ong / Vo Dai Quy Vuong. Stand by a
+  sign and press E to open the numbered fast-travel panel, then choose a
+  destination to teleport there.
 
-  1. HARVEST WHEAT
-     Target: collect 100 wheat
-     Reward: 250 gold
+HORSES & WAGONS:
+  The Night Club has a parked delivery wagon with a horse (dressed scene).
+  Horses are decorative/atmospheric; player combat and travel rely on the
+  fast-travel signs and walking/running (the ridable mount near the farm was
+  removed in the polish pass to keep a single horse near the club).
 
-  2. SLAY MONSTERS
-     Target: defeat 30 enemies
-     Reward: 500 gold
-
-  3. EARN COINS
-     Target: accumulate 100,000 gold
-     Reward: 1,000 gold
-
-All quests completed triggers the HAPPY ENDING cutscene.
+CLUB DELIVERY WAGON (interactive scenery):
+  The club's wagon can be ridden like a vehicle from its seat (sit + steer via
+  movement keys; movement is gated by NavGrid walkability).
 
 ================================================================================
-                          INVENTORY
+                          QUESTS & STORY
+================================================================================
+
+MAIN QUESTS:
+  1. HARVEST WHEAT - collect 100 wheat. Reward 250 gold.
+  2. SLAY MONSTERS - defeat 30 enemies. Reward 500 gold.
+  3. EARN COINS   - accumulate 100,000 gold. Reward 1,000 gold.
+  Completing all three unlocks the HAPPY ENDING cutscene.
+
+DAILY QUESTS (Jessica):
+  Each morning Jessica gives a daily task (fish 3 today, deliver a resource,
+  water plants, etc.). Complete it before 6 AM or the offer resets. Rewards
+  include affection (+hearts) and Karma (Max Karma) increases.
+
+STORY (Jessica / wedding):
+  Build the mansion to hold the wedding. Jessica hands you a fishing rod to
+  catch 3 fish for her first quest, then later asks you to build the mansion.
+  Completing her requests grants affection and leads to marriage.
+
+BATTLES AT NIGHT:
+  From ~6 PM to 6 AM demons appear and attack buildings and villagers. Use the
+  ROSARY for one-hit holy kills, close doors at night, and keep fences/walls
+  to block them.
+
+KARMA / MAX KARMA:
+  Acts of virtue and quests raise Karma and Max Karma (used by the praying
+  minigame to grow). Higher Max Karma strengthens the player.
+
+TWO ENDINGS:
+  HAPPY ENDING - all main quests complete; walk to the end of the road with
+    Teto. Press Enter to keep playing.
+  SAD ENDING   - a wagon with a groom leaves; the "KET THUC DAU BUONG" screen.
+
+================================================================================
+                          INVENTORY & STORAGE
 ================================================================================
 
   - 10 inventory slots
   - Select with number keys 1-0 or bracket keys [ ]
-  - Items stack automatically
+  - Items stack automatically; sort stacks with O (by name)
   - Drop items with Q key
   - Resources (wood/stone) auto-deposit to nearby blueprints
+  - Chest buildings store up to 10 distinct item types per chest (two-way
+    bag/chest panel, saved per chest position)
 
-  AVAILABLE PICKUP ITEMS (spawned in world):
+AVAILABLE PICKUP ITEMS (spawned in world):
   Tools:     axe, pickaxe, hoe, hammer, scythe, watering_can
   Seeds:     wheat_seed, corn_seed, carrot_seed, tomato_seed,
              strawberry_seed, pumpkin_seed, onion_seed,
@@ -316,34 +493,40 @@ All quests completed triggers the HAPPY ENDING cutscene.
              pumpkin, onion, sugarcane, rice
   Other:     fertilizer, ammo, mobspawner, mi_hao_hao
 
-  SHOP-BOUGHT ITEMS (not found in world):
+SHOP-BOUGHT ITEMS (not found in world):
   Convenience: nuoc_dau, tra_da, soda, banh_mi, banh_tet, keo
   Grocery:     tu_gao, duong, muoi, xap_phong, mi_chinh
 
 ================================================================================
-                          DAY/NIGHT CYCLE
+                          DAY / NIGHT CYCLE
 ================================================================================
 
   Start Time:       8:00 AM (Day 1)
   Time Speed:       1x (real-time)
   Day Duration:     24 hours (in-game)
   Lighting:         Dynamic day/night based on TimeOfDay
-  World updates:    Trees regrow, environment changes
+  World updates:    Trees and rocks regrow after a respawn interval
+  Countdown:        Sleep to skip forward to the next morning (restores stamina)
+  Night Danger:     Demons spawn after dark, attack buildings and NPCs
 
 ================================================================================
-                          MAP
+                          MAP & WORLD
 ================================================================================
 
-  World Size:       300 x 300 units
-  Road Length:      300 units (runs through the map)
+  World Size:       600 x 600 units (environment grid)
+  Road:             Main N-S road + E-W turn road + south/north branches
+  Night Club:       At the north end of the road (dance floor, DJ, neon, club
+                    door, bouncer, delivery wagon with a horse).
   Features:
-    - Village center with houses
-    - Farm area
-    - Beach with sand and sea
+    - Village center with houses (player house, wife house, pagoda, market)
+    - Farm area with fertile fields
+    - River + beach with sand and sea (fishing spots)
     - Rocky border (indestructible boulders around the perimeter)
-    - Shop areas (Vendor cart, Buffalo, convenience store + market row)
-    - Trees (deciduous, palm/coconut) and rocks scattered throughout
-    - Fields for farming
+    - Shop areas (vendor cart, buffalo, convenience store + market row,
+      restaurant, fishing shop, library, police post, mansion, club)
+    - Trees (deciduous + palm/coconut) and rocks scattered throughout
+    - Boss arena (Vo Dai Quy Vuong) to the east
+      (an arena floor, ring, pillars, rune ring and demon sigil)
 
 ================================================================================
                           SAVE SYSTEM
@@ -354,30 +537,38 @@ All quests completed triggers the HAPPY ENDING cutscene.
   Saved Data:
     - Current day and time of day
     - Player position, rotation, HP, stamina, money
-    - Full inventory (all 10 slots with item type and count)
+    - Full inventory (all slots with item type and count)
     - Gun ammo count
-    - All crop fields (position, crop type, growth stage, watered, fertilized)
-    - All placed buildings (type, position, rotation)
+    - All crop fields (position, crop type, growth stage, watered, fertilized,
+      quality, watered-time)
+    - All placed buildings (type, position, rotation, current/max health,
+      part healths)
+    - Crafting progression
     - Quest progress and completion status
+    - Skill XP & levels (Farming + Fishing)
+    - Fishing rod level (rods/upgrades)
+    - NPC friendship hearts
+    - Goblin pet carried/stored items
+    - Chest storage (per chest position)
 
 ================================================================================
-                          STORY & ENDINGS
+                          STORY & CUTSCENES
 ================================================================================
 
 INTRO CUTSCENE:
-  A blue car drives along the road into the village. The player arrives
-  to start their new life in the countryside.
+  A blue car drives along the road into the village. The player arrives to
+  start their new life in the countryside.
 
-HAPPY ENDING (all quests completed):
-  Player walks with Teto (pink-haired companion NPC) down a path.
-  Hearts appear. End screen: "HAPPY ENDING"
+HAPPY ENDING (all main quests completed):
+  Player walks with Teto (pink-haired companion NPC) down a path. Hearts
+  appear. End screen: "HAPPY ENDING"
   "Ban va Teto da cung nhau den cuoi con duong!"
   (You and Teto have walked together to the end of the road!)
   Player can press Enter to continue playing.
 
 SAD ENDING (triggered manually / fail state):
-  A wagon with a groom and wife NPC travels down the road.
-  End screen: "KET THUC DAU BUONG" (Sad Ending)
+  A wagon with a groom and wife NPC travels down the road. End screen:
+  "KET THUC DAU BUONG" (Sad Ending).
 
 ================================================================================
                           TECHNICAL NOTES
@@ -387,9 +578,15 @@ SAD ENDING (triggered manually / fail state):
   - Unity New Input System (Keyboard.current, Mouse.current)
   - CharacterController for player movement
   - URP (Universal Render Pipeline) for rendering
+  - Runtime-generated world: trees (~375), rocks (~120), crops and buildings;
+    static geometry (rocks, border, fields, crops) is renderer-combined into
+    single meshes to cut draw calls; a gated world-build stats log helps
+    measure renderer/material counts
   - Building preview: translucent ghost cube follows crosshair
   - Building menu: ScrollRect with VerticalLayoutGroup for scrollable list
   - Inventory HUD: always visible at bottom of screen
   - Stats HUD: always visible at top-left of screen
+  - Fast travel : world space road signs + a numbered panel
+  - Night Club : dynamic day/night toggle (controller)
 
 ================================================================================
