@@ -49,6 +49,7 @@ private enum Phase { Intro, Menu, Done }
         if (_panel == null)
             return;
 
+        FriendshipManager.Instance?.GrantTalk("librarian");
         FacePlayer();
         _dialogActive = true;
         _panel.SetActive(true);

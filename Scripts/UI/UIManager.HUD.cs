@@ -20,7 +20,10 @@ public partial class UIManager
         _crosshairText?.gameObject.SetActive(show);
         _infoText?.gameObject.SetActive(show);
         if (!show)
+        {
             HideSkillPanel();
+            HideFriendPanel();
+        }
     }
 
     public void SetCrosshairVisible(bool visible)

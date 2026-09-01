@@ -95,6 +95,13 @@ PHASE 2 — Long-term progression
     - FULL: net-new per-heart gift/dialog content for each of the 4 NPCs
       (Vietnamese + English), plus heart meter in a friendship panel.
     - Save/load a new FriendshipSaveData.
+    [DONE 2026-09-01] New Scripts/NPCs/FriendshipManager.cs (MonoSingleton
+     capped at 50 pts = 5 hearts). Talk once/day via each NPC's Interact()
+     (+1pt). Gift via friendship panel (L key): pick NPC (1-4), G for the
+     owned-gift list, pick a gift (1-9) - liked items +2pts once/day.
+     Rewards: heart 2 = 10% shop discount (Chef + FishShop shops); heart 3 =
+     one-time themed item; heart 5 = special message. Friendship panel HUD
+     shows hearts/points per NPC. Persisted via SaveManager friendshipStateJson.
 
 Split: 2A.1 -> 2A.2 -> 2B -> 2C as separate commits, reviewable & stoppable
 between each.
@@ -112,6 +119,6 @@ STATUS
 -----------------------------------------------------------------------
 Phase 1A: DONE (2026-08-31)
 Phase 1B: DONE (2026-08-31)
-Phase 2 : IN PROGRESS (2026-09-01)
+Phase 2 : DONE (2026-09-01)
 Phase 3 : NOT STARTED
 ========================================================================

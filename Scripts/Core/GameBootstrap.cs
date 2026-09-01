@@ -40,6 +40,7 @@ public class GameBootstrap : MonoBehaviour
         var sleepManager = Object.FindAnyObjectByType<SleepManager>() ?? root.AddComponent<SleepManager>();
         var karmaManager = Object.FindAnyObjectByType<KarmaManager>() ?? root.AddComponent<KarmaManager>();
         var skillManager = Object.FindAnyObjectByType<SkillManager>() ?? root.AddComponent<SkillManager>();
+        var friendshipManager = Object.FindAnyObjectByType<FriendshipManager>() ?? root.AddComponent<FriendshipManager>();
         var typingMinigame = Object.FindAnyObjectByType<TypingMinigame>() ?? root.AddComponent<TypingMinigame>();
 
         gameManager.UIManager = uiManager;
@@ -62,5 +63,6 @@ public class GameBootstrap : MonoBehaviour
         wifeNPC.LoadState();
         karmaManager.Initialize();
         skillManager.Initialize();
+        friendshipManager.Initialize();
     }
 }

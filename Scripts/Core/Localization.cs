@@ -941,6 +941,22 @@ public static class Localization
         // Functional Buildings (Phase 2B)
         { "Tháp canh làm chậm kẻ thù gần đó!", "The watchtower slows nearby enemies!" },
 
+        // NPC Friendship (Phase 2C)
+        { "Tình Bạn", "Friendship" },
+        { "Tình bạn lên {0} tim với {1}!", "Friendship reached {0} with {1}!" },
+        { "Tình bạn đạt 5 tim với {0}!", "Friendship reached 5 hearts with {0}!" },
+        { "Tình bạn lên 3 tim với {0}!", "Friendship reached 3 hearts with {0}!" },
+        { "Nhà Sư tặng con một túi gạo vì đã thân thiết!", "The Monk gifts you a bag of rice for your friendship!" },
+        { "Thủ Thư tặng con một ly cà phê sách!", "The Librarian gifts you a bookish coffee!" },
+        { "Đầu Bếp tặng con một phần Cơm Gà ngon nhất quán!", "The Chef gifts you the best chicken rice in the restaurant!" },
+        { "Người bán cá tặng con 2 mồi câu vì tin nhau!", "The Fish Shopkeeper gifts you 2 baits for trust!" },
+        { "Tặng {0} cho {1}. Họ rất thích!", "Gave {0} to {1}. They loved it!" },
+        { "Tặng {0} cho {1}.", "Gave {0} to {1}." },
+        { "Không thể tặng món này ngay bây giờ.", "Can't give this item right now." },
+        { "Tặng quà cho", "Giving gift to" },
+        { "Nhấn số để tặng, G để đóng, Space để đổi trang", "Press a number to give, G to close, Space to switch page" },
+        { "Túi đồ không có món quà nào.", "No gift items in your inventory." },
+
         // Event Test Panel
         { "Sự Kiện", "Events" },
         { "SỰ KIỆN TEST", "EVENT TEST" },

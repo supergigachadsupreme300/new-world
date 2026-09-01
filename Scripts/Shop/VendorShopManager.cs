@@ -36,6 +36,7 @@ public class VendorShopManager : MonoBehaviour
 
     private string _activeTab = "buy";
     private string _mode = "vendor";
+    private float _buyDiscountMul = 1f;
     private int _page = 1;
     private const int ItemsPerPage = 6;
     private const int Cols = 2;
@@ -361,6 +362,11 @@ public class VendorShopManager : MonoBehaviour
         _page = 1;
         _activeTab = "buy";
         _mode = mode;
+        _buyDiscountMul = mode == "restaurant"
+            ? (FriendshipManager.Instance != null ? FriendshipManager.Instance.ShopDiscountFor("chef") : 1f)
+            : mode == "fishing"
+                ? (FriendshipManager.Instance != null ? FriendshipManager.Instance.ShopDiscountFor("fishshop") : 1f)
+                : 1f;
         _shopPanel.SetActive(true);
         _wasPausedBeforeOpen = GameManager.Instance != null && GameManager.Instance.GamePaused;
 
@@ -452,7 +458,7 @@ public class VendorShopManager : MonoBehaviour
 
                 if (_activeTab == "buy")
                 {
-                    _slots[i].Label.text = $"{Localization.T(item.Label)}\n{item.Price}g";
+                    _slots[i].Label.text = $"{Localization.T(item.Label)}\n{BuyPrice(item)}g";
                     _slots[i].Button.onClick.AddListener(() => BuyItem(item));
                 }
                 else
@@ -477,12 +483,19 @@ public class VendorShopManager : MonoBehaviour
         _nextBtn.interactable = _page < total;
     }
 
+    private int BuyPrice(ShopItem item)
+    {
+        if (_buyDiscountMul <= 0f) return item.Price;
+        return Mathf.RoundToInt(item.Price * _buyDiscountMul);
+    }
+
     private void BuyItem(ShopItem item)
     {
         var player = GameManager.Instance?.Player;
         if (player == null) return;
 
-        if (player.Money < item.Price)
+        int price = BuyPrice(item);
+        if (player.Money < price)
         {
             ShowMessage(Localization.T("Không đủ tiền"));
             return;
@@ -498,7 +511,7 @@ public class VendorShopManager : MonoBehaviour
         }
 
         tm.AddItem(item.Type, 1);
-        player.Money -= item.Price;
+        player.Money -= price;
         ShowMessage(Localization.F("Đã mua {0}", Localization.T(item.Label)));
     }
 

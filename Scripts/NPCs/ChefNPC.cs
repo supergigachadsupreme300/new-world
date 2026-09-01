@@ -62,6 +62,7 @@ private Transform _myTransform;
         if (_panel == null)
             return;
 
+        FriendshipManager.Instance?.GrantTalk("chef");
         FacePlayer();
         _shopOpenedAfterDialog = false;
         _dialogActive = true;

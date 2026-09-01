@@ -97,6 +97,7 @@ private Transform _myTransform;
         if (_panel == null)
             return;
 
+        FriendshipManager.Instance?.GrantTalk("monk");
         FacePlayer();
         _dialogActive = true;
         _panel.SetActive(true);

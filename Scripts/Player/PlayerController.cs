@@ -615,25 +615,30 @@ public class PlayerController : MonoBehaviour
             WorldBuilder.Instance?.RotateBuildingPreview(90);
         if (!dialogBlocked && Keyboard.current != null && Keyboard.current.kKey.wasPressedThisFrame)
             GameManager.Instance?.UIManager?.ToggleSkillPanel();
-        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit1Key.wasPressedThisFrame)
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.lKey.wasPressedThisFrame)
+            GameManager.Instance?.UIManager?.ToggleFriendPanel();
+        if (!dialogBlocked && GameManager.Instance?.UIManager != null)
+            GameManager.Instance.UIManager.HandleFriendPanelKeys();
+        bool friendOpen = GameManager.Instance?.UIManager != null && GameManager.Instance.UIManager.FriendPanelVisible;
+        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit1Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(0);
-        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit2Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit2Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(1);
-        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit3Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit3Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(2);
-        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit4Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit4Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(3);
-        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit5Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit5Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(4);
-        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit6Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit6Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(5);
-        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit7Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit7Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(6);
-        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit8Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit8Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(7);
-        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit9Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit9Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(8);
-        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit0Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit0Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(9);
     }
 
