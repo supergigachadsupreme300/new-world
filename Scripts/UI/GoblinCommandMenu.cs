@@ -194,7 +194,7 @@ public class GoblinCommandMenu : MonoBehaviour
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.anchoredPosition = Vector2.zero;
+        rt.anchoredPosition = new Vector2(-sw * 0.22f, 0f);
         rt.sizeDelta = new Vector2(sw * 0.5f, sh * 0.55f);
 
         var img = _panel.AddComponent<Image>();
@@ -203,7 +203,7 @@ public class GoblinCommandMenu : MonoBehaviour
         float panelW = rt.sizeDelta.x;
         float panelH = rt.sizeDelta.y;
 
-        float infoW = panelW - 260f;
+        float infoW = panelW - 40f;
 
         _nameText = MakeText("GoblinCmdName", rt, new Vector2(0f, panelH * 0.38f),
             Localization.T("Goblin"), 26, new Color(0.7f, 0.95f, 0.45f), new Vector2(infoW, 34f));
@@ -240,7 +240,7 @@ public class GoblinCommandMenu : MonoBehaviour
         rowRt.anchorMin = new Vector2(1f, 1f);
         rowRt.anchorMax = new Vector2(1f, 1f);
         rowRt.pivot = new Vector2(0f, 1f);
-        rowRt.anchoredPosition = new Vector2(-210f, yOffset);
+        rowRt.anchoredPosition = new Vector2(6f, yOffset);
         rowRt.sizeDelta = new Vector2(200f, 40f);
 
         var rowImg = row.AddComponent<Image>();
