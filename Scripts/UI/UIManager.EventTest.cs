@@ -147,7 +147,7 @@ public partial class UIManager
             tierTextRt.offsetMax = Vector2.zero;
             var tierTmp = tierTextGo.AddComponent<TextMeshProUGUI>();
             if (defaultTmpFont != null) tierTmp.font = defaultTmpFont;
-            tierTmp.text = tierLabel;
+            tierTmp.text = Localization.T(tierLabel);
             tierTmp.fontSize = (int)(tierLabelH * 0.65f);
             tierTmp.color = Color.white;
             tierTmp.alignment = TextAlignmentOptions.Center;
