@@ -990,8 +990,9 @@ public partial class ToolManager : MonoBehaviour
                         AddItem(item, 1);
                         if (item == "wheat")
                             GameStats.AddWheat(1);
-                        SkillManager.Instance?.AddXP(SkillManager.Track.Farming, FarmingXPFor(item));
                         var sm = SkillManager.Instance;
+                        if (sm != null)
+                            sm.AddXP(SkillManager.Track.Farming, sm.FarmingXPFor(item));
                         if (sm != null && sm.BonusCropChance() > 0f && Random.value < sm.BonusCropChance() && CanHoldItem(item))
                         {
                             AddItem(item, 1);
