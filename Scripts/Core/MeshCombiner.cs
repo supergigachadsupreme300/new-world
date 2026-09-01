@@ -55,13 +55,45 @@ public static class MeshCombiner
 
         if (groups.Count == 0) return false;
 
-        var arrays = new CombineInstance[groups.Count][];
-        for (int i = 0; i < groups.Count; i++)
-            arrays[i] = groups[i].ToArray();
-
         var combinedMesh = new Mesh();
         combinedMesh.name = "Combined_" + root.name;
-        combinedMesh.CombineMeshes(arrays, true, true);
+        combinedMesh.subMeshCount = groups.Count;
+
+        var vertices = new List<Vector3>(1024);
+        var normals = new List<Vector3>(1024);
+        var uvs = new List<Vector2>(1024);
+        var tangents = new List<Vector4>(1024);
+        var triangles = new List<List<int>>(groups.Count);
+        for (int i = 0; i < groups.Count; i++)
+            triangles.Add(new List<int>(1024));
+
+        for (int g = 0; g < groups.Count; g++)
+        {
+            var groupMesh = new Mesh();
+            groupMesh.CombineMeshes(groups[g].ToArray(), true, true);
+
+            int offset = vertices.Count;
+            vertices.AddRange(groupMesh.vertices);
+            normals.AddRange(groupMesh.normals);
+            if (groupMesh.uv.Length > 0)
+                uvs.AddRange(groupMesh.uv);
+            if (groupMesh.tangents.Length > 0)
+                tangents.AddRange(groupMesh.tangents);
+
+            var tris = groupMesh.GetTriangles(0);
+            for (int i = 0; i < tris.Length; i++)
+                triangles[g].Add(tris[i] + offset);
+        }
+
+        combinedMesh.vertices = vertices.ToArray();
+        if (normals.Count == vertices.Count)
+            combinedMesh.normals = normals.ToArray();
+        if (uvs.Count == vertices.Count)
+            combinedMesh.uv = uvs.ToArray();
+        if (tangents.Count == vertices.Count)
+            combinedMesh.tangents = tangents.ToArray();
+        for (int g = 0; g < groups.Count; g++)
+            combinedMesh.SetTriangles(triangles[g], g);
 
         var combinedGo = new GameObject(MarkerName);
         combinedGo.transform.SetParent(root.transform, false);
