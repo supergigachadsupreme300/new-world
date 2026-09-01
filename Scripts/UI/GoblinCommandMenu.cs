@@ -203,27 +203,29 @@ public class GoblinCommandMenu : MonoBehaviour
         float panelW = rt.sizeDelta.x;
         float panelH = rt.sizeDelta.y;
 
-        _nameText = MakeText("GoblinCmdName", rt, new Vector2(0f, panelH * 0.38f),
-            Localization.T("Goblin"), 26, new Color(0.7f, 0.95f, 0.45f), new Vector2(panelW - 40f, 34f));
-        _hpText = MakeText("GoblinCmdHp", rt, new Vector2(0f, panelH * 0.24f),
-            "", 20, Color.white, new Vector2(panelW - 40f, 30f));
-        _statusText = MakeText("GoblinCmdStatus", rt, new Vector2(0f, panelH * 0.12f),
-            "", 18, new Color(0.85f, 0.85f, 0.9f), new Vector2(panelW - 40f, 30f));
-        _promptText = MakeText("GoblinCmdPrompt", rt, new Vector2(0f, -panelH * 0.04f),
-            "", 15, new Color(0.7f, 0.7f, 0.7f), new Vector2(panelW - 40f, 26f));
-        _storageText = MakeText("GoblinCmdStorage", rt, new Vector2(0f, -panelH * 0.12f),
-            "", 16, new Color(0.75f, 0.85f, 0.55f), new Vector2(panelW - 40f, 26f));
+        float infoW = panelW - 260f;
 
-        CreateRow("GoblinCmdFollowRow", "GoblinCmdFollowText", 4f,
+        _nameText = MakeText("GoblinCmdName", rt, new Vector2(0f, panelH * 0.38f),
+            Localization.T("Goblin"), 26, new Color(0.7f, 0.95f, 0.45f), new Vector2(infoW, 34f));
+        _hpText = MakeText("GoblinCmdHp", rt, new Vector2(0f, panelH * 0.24f),
+            "", 20, Color.white, new Vector2(infoW, 30f));
+        _statusText = MakeText("GoblinCmdStatus", rt, new Vector2(0f, panelH * 0.12f),
+            "", 18, new Color(0.85f, 0.85f, 0.9f), new Vector2(infoW, 30f));
+        _promptText = MakeText("GoblinCmdPrompt", rt, new Vector2(0f, -panelH * 0.04f),
+            "", 15, new Color(0.7f, 0.7f, 0.7f), new Vector2(infoW, 26f));
+        _storageText = MakeText("GoblinCmdStorage", rt, new Vector2(0f, -panelH * 0.12f),
+            "", 16, new Color(0.75f, 0.85f, 0.55f), new Vector2(infoW, 26f));
+
+        CreateRow("GoblinCmdFollowRow", "GoblinCmdFollowText", -8f,
             new Color(0.8f, 0.95f, 0.6f), out _followRow, out _followText,
             () => Apply(GoblinPet.CommandMode.Follow));
-        CreateRow("GoblinCmdStayRow", "GoblinCmdStayText", -44f,
+        CreateRow("GoblinCmdStayRow", "GoblinCmdStayText", -52f,
             new Color(0.95f, 0.85f, 0.45f), out _stayRow, out _stayText,
             () => Apply(GoblinPet.CommandMode.Stay));
-        CreateRow("GoblinCmdHomeRow", "GoblinCmdHomeText", -94f,
+        CreateRow("GoblinCmdHomeRow", "GoblinCmdHomeText", -96f,
             new Color(0.6f, 0.8f, 0.95f), out _homeRow, out _homeText,
             () => Apply(GoblinPet.CommandMode.GoHome));
-        CreateRow("GoblinCmdCloseRow", "GoblinCmdCloseText", -150f,
+        CreateRow("GoblinCmdCloseRow", "GoblinCmdCloseText", -140f,
             new Color(0.9f, 0.9f, 0.9f), out _closeRow, out _closeText, Close);
 
         _panel.SetActive(false);
@@ -235,11 +237,11 @@ public class GoblinCommandMenu : MonoBehaviour
         row = new GameObject(rowName);
         row.transform.SetParent(_panel.transform, false);
         var rowRt = row.AddComponent<RectTransform>();
-        rowRt.anchorMin = new Vector2(0f, 1f);
+        rowRt.anchorMin = new Vector2(1f, 1f);
         rowRt.anchorMax = new Vector2(1f, 1f);
-        rowRt.pivot = new Vector2(0.5f, 1f);
-        rowRt.anchoredPosition = new Vector2(0f, yOffset);
-        rowRt.sizeDelta = new Vector2(0f, 40f);
+        rowRt.pivot = new Vector2(0f, 1f);
+        rowRt.anchoredPosition = new Vector2(-210f, yOffset);
+        rowRt.sizeDelta = new Vector2(200f, 40f);
 
         var rowImg = row.AddComponent<Image>();
         rowImg.color = ColorPalette.UIBackdrop;
