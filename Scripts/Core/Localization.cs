@@ -938,6 +938,9 @@ public static class Localization
         { "TỐI ĐA", "MAX" },
         { "Đạt cấp 2 và 4 để mở kỹ năng đặc biệt.", "Reach levels 2 and 4 to unlock special perks." },
 
+        // Functional Buildings (Phase 2B)
+        { "Tháp canh làm chậm kẻ thù gần đó!", "The watchtower slows nearby enemies!" },
+
         // Event Test Panel
         { "Sự Kiện", "Events" },
         { "SỰ KIỆN TEST", "EVENT TEST" },

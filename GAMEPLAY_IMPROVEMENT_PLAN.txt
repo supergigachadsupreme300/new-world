@@ -79,6 +79,11 @@ PHASE 2 — Long-term progression
       while a fence part remains.
     - Persist per-building behavior flags without breaking existing saves
       (new optional fields, default off).
+    [DONE 2026-09-01] New WorldBuilder.FunctionalBuildings partial: standing
+     buildings queried by Type via GetAllBuildings(). Well auto-waters every
+     crop in radius (keeps un-watered covered fields watered). Watchtower
+     slows enemies in radius (x0.5) + 15s-cooldown warning. Fence absorbs
+     melee damage to the player while a standing fence part is within 3u.
 
 2C. NPC FRIENDSHIP   (Monk / Librarian / Chef / FishShop, 0-5 hearts)
     - All NPCs are MonoSingletons like WifeNPC; add a centralized

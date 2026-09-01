@@ -234,6 +234,7 @@ public class EnemyController : MonoBehaviour
             _hasChasePos = false;
         }
 
+        MaybeWarnWatchtower();
         AnimateModel();
     }
 
@@ -412,15 +413,33 @@ public class EnemyController : MonoBehaviour
         if (Vector3.Distance(transform.position, _patrolTarget) < 0.2f)
             _patrolTarget = GetRandomPatrolPoint();
 
-        transform.position = Vector3.MoveTowards(transform.position, _patrolTarget, PatrolSpeed * Time.deltaTime);
+        transform.position = Vector3.MoveTowards(transform.position, _patrolTarget, PatrolSpeed * Time.deltaTime * CurrentSlowFactor());
         transform.LookAt(_patrolTarget);
         _isMoving = true;
+    }
+
+    private float CurrentSlowFactor()
+    {
+        var wb = WorldBuilder.Instance;
+        if (wb == null) return 1f;
+        return wb.WatchtowerSlowFactorAt(transform.position);
+    }
+
+    private static float _lastWatchtowerWarn;
+
+    private void MaybeWarnWatchtower()
+    {
+        if (CurrentSlowFactor() >= 1f) return;
+        if (_isDead) return;
+        if (Time.time - _lastWatchtowerWarn < 15f) return;
+        _lastWatchtowerWarn = Time.time;
+        GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Tháp canh làm chậm kẻ thù gần đó!"), 2.5f);
     }
 
     private void FollowTarget(Transform target)
     {
         Vector3 dir = (target.position - transform.position).normalized;
-        float step = MoveSpeed * Time.deltaTime;
+        float step = MoveSpeed * Time.deltaTime * CurrentSlowFactor();
         Vector3 origin = transform.position + Vector3.up * 0.9f;
 
         if (Physics.Raycast(origin, dir, out var hit, step + 0.5f))
@@ -483,6 +502,14 @@ public class EnemyController : MonoBehaviour
         var player = _playerController;
         if (player != null)
         {
+            var wb = WorldBuilder.Instance;
+            var fence = wb != null ? wb.FindFencePartToProtect(player.transform.position) : null;
+            if (fence != null)
+            {
+                wb.DamageBuilding(fence);
+                Debug.Log($"Fence blocked enemy hit for {Damage}");
+                return;
+            }
             player.TakeDamage(Damage);
             Debug.Log($"Enemy hit player for {Damage}");
         }
@@ -543,7 +570,7 @@ public class EnemyController : MonoBehaviour
         }
         else
         {
-            transform.position = Vector3.MoveTowards(transform.position, _structureTarget.transform.position, MoveSpeed * Time.deltaTime);
+            transform.position = Vector3.MoveTowards(transform.position, _structureTarget.transform.position, MoveSpeed * Time.deltaTime * CurrentSlowFactor());
             transform.LookAt(_structureTarget.transform.position);
             _isMoving = true;
         }

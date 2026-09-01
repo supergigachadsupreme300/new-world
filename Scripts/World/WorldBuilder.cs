@@ -808,9 +808,23 @@ _streetLights.Clear();
                 field.WaterTimer -= deltaTime;
                 if (field.WaterTimer <= 0f)
                 {
-                    field.Watered = false;
-                    UpdateFieldVisual(field);
+                    if (field.FieldObject != null && IsCoveredByWell(field.FieldObject.transform.position))
+                    {
+                        field.WaterTimer = 30f;
+                    }
+                    else
+                    {
+                        field.Watered = false;
+                        UpdateFieldVisual(field);
+                    }
                 }
+            }
+
+            if (!field.Watered && field.FieldObject != null && IsCoveredByWell(field.FieldObject.transform.position))
+            {
+                field.Watered = true;
+                field.WaterTimer = 30f;
+                UpdateFieldVisual(field);
             }
 
             float growTime = field.NextStageTime;
