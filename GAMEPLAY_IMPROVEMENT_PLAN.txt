@@ -131,10 +131,41 @@ PHASE 3 — Depth tuning & QOL
      position). Also added SortInventory (O key): merges duplicate stacks and
      sorts by item name.
 3D. Horse mount + fast-travel road signs
-     DONE (2026-09-01, commit 684f6e3): buildable-style horse near the farm
+     DONE (2026-09-01, commit 684f6e3): a rideable horse near the farm
      (E to mount, R to dismount, gallop ride at 13 speed) plus 6 road signs at
      Trang Trai / Chuà Làng / Khu Cho / Hop Dem & Nha Hang / Dinh Phú Ông /
      Vo Dai Quy Vuong; E near a sign opens a numbered fast-travel panel.
+     [REVISED 2026-09-01] The rideable HorseMount near the farm/wife-house road
+      was removed in favor of a single parked delivery wagon + horse next to the
+      Night Club (club is the only place with a horse now). Fast-travel road
+      signs remain (E opens the panel).
+
+----------------------------------------------------------------------
+POLISH / POST-PHASE-3 FIX PASS (2026-09-01)
+----------------------------------------------------------------------
+Bug-fix + QOL pass addressing club layout, menus, localization, and
+description docs. One commit per item:
+    1. Club crates moved INSIDE the night club (they sat outside the east
+       wall / floating) and the 3 exterior club dancers (2 patrons + bouncer/
+       security) raised off the ground (were sinking ~0.25u because BuildClub-
+       Dancer hangs feet 0.45 below root; fed world Y 0.2 -> feet at -0.25).
+       Now world Y 0.45 -> feet at 0.
+    2. Fast-travel board menu repositioned: HUD_Canvas CanvasScaler had no
+       uiScaleMode (defaulted to ConstantPixelSize) and the panel used raw
+       pixel size/offsets, so title/content/rows overlapped on various aspect
+       ratios. Set ScaleWithScreenSize + recomputed panel geometry.
+    3. Goblin command menu options moved to a side column BESIDE the panel
+       (they were stacked inside the panel and overlapped the name/HP/status
+       text).
+    4. Buffalo shop "[Mở Cửa Hàng]" row moved off the dialog (overlapped the
+       "Buffalo" title); anchored below the dialog.
+    5. Fishing-rod tier labels localized (added "Cần Câu Cấp 1/2/3" EN keys)
+       so they no longer show Vietnamese in English mode; Event-Test tier
+       headers routed through Localization.T.
+    6. GAME_DESCRIPTION.txt rewritten and made detailed (current systems:
+       skills, rod upgrades/quality tiers, crafting, shops, fast-travel,
+       night club, endings, save data ...).
+    Rideable-horse removal folded into (1)'s commit set as its own commit.
 
 -----------------------------------------------------------------------
 STATUS
@@ -143,4 +174,6 @@ Phase 1A: DONE (2026-08-31)
 Phase 1B: DONE (2026-08-31)
 Phase 2 : DONE (2026-09-01)
 Phase 3 : DONE (2026-09-01) — 3A DONE, 3B DONE, 3C DONE, 3D DONE
+Post-3 polish fix pass: DONE (2026-09-01) — club layout, menus, localization,
+docs.
 ========================================================================
