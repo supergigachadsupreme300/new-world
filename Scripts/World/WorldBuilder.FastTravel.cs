@@ -4,15 +4,15 @@ public partial class WorldBuilder
 {
     private static readonly (string label, Vector3 pos)[] FastTravelDestinations =
     {
-        ("Trang Trại", new Vector3(19f, 0f, -8f)),
-        ("Chùa Làng", new Vector3(26f, 0f, 28f)),
-        ("Khu Chợ", new Vector3(9f, 0f, 48f)),
-        ("Hộp Đêm & Nhà Hàng", new Vector3(9f, 0f, 95f)),
-        ("Dinh Phú Ông", new Vector3(63f, 0f, 145f)),
-        ("Võ Đài Quỷ Vương", new Vector3(278f, 0f, 92f))
+        ("Trang Trại", new Vector3(19f, 0f, 3f)),
+        ("Chùa Làng", new Vector3(19f, 0f, 27f)),
+        ("Khu Chợ", new Vector3(19f, 0f, 48f)),
+        ("Hộp Đêm & Nhà Hàng", new Vector3(19f, 0f, 102f)),
+        ("Dinh Phú Ông", new Vector3(52f, 0f, 128f)),
+        ("Võ Đài Quỷ Vương", new Vector3(278f, 0f, 80f))
     };
 
-    private static readonly Vector3 HorseSpawnPosition = new Vector3(6f, 0.05f, 4f);
+    private static readonly Vector3 HorseSpawnPosition = new Vector3(19f, 0f, 1f);
 
     private bool _fastTravelSpawned;
 

@@ -98,7 +98,7 @@ public class HorseMount : MonoBehaviour
         if (_trigger != null)
             _trigger.enabled = false;
         GameManager.Instance?.UIManager?.ShowMessage(
-            Localization.T("Đã cưỡi ngựa. Nhấn R để xuống."), 2f);
+            Localization.T("Đã cưỡi ngựa. Ấn E hoặc R để xuống."), 2f);
     }
 
     public void Dismount()

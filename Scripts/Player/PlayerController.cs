@@ -418,6 +418,11 @@ public class PlayerController : MonoBehaviour
         {
             if (ePressed)
             {
+                if (IsRiding)
+                {
+                    HorseMount.Instance?.Dismount();
+                    return;
+                }
                 var wb = WorldBuilder.Instance;
                 if (RichManNPC.Instance != null && RichManNPC.Instance.TryEavesdropDeal(transform.position))
                     return;

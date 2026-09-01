@@ -988,7 +988,7 @@ public static class Localization
         { "Cưỡi ngựa", "Mount horse" },
         { "Di chuyển nhanh", "Fast travel" },
         { "Di Chuyển Nhanh", "Fast Travel" },
-        { "Đã cưỡi ngựa. Nhấn R để xuống.", "You mount the horse. Press R to dismount." },
+        { "Đã cưỡi ngựa. Ấn E hoặc R để xuống.", "You mount the horse. Press E or R to dismount." },
         { "Đã xuống ngựa.", "You dismount." },
         { "Đã di chuyển đến {0}!", "Moved to {0}!" },
         { "Đi {0}", "Go {0}" },
