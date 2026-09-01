@@ -19,6 +19,8 @@ public partial class UIManager
         _mobSpawnerText?.gameObject.SetActive(show);
         _crosshairText?.gameObject.SetActive(show);
         _infoText?.gameObject.SetActive(show);
+        if (!show)
+            HideSkillPanel();
     }
 
     public void SetCrosshairVisible(bool visible)

@@ -99,7 +99,34 @@ public class SkillManager : MonoSingleton<SkillManager>
     public float FishingReelMultiplier()
     {
         // +6% reel gain per fishing level beyond 1
-        return 1f + 0.06f * Mathf.Max(0, _level[(int)Track.Fishing] - 1);
+        float mul = 1f + 0.06f * Mathf.Max(0, _level[(int)Track.Fishing] - 1);
+        if (HasFishingPerk4)
+            mul += 0.15f; // capstone: +15% more
+        return mul;
+    }
+
+    // === Perks (auto-granted at levels 2 and 4) ===
+    public bool HasFarmingPerk2 => _level[(int)Track.Farming] >= 2;
+    public bool HasFarmingPerk4 => _level[(int)Track.Farming] >= 4;
+    public bool HasFishingPerk2 => _level[(int)Track.Fishing] >= 2;
+    public bool HasFishingPerk4 => _level[(int)Track.Fishing] >= 4;
+
+    // Farming L2: 25% chance of an extra crop on harvest.
+    public float BonusCropChance()
+    {
+        return HasFarmingPerk2 ? 0.25f : 0f;
+    }
+
+    // Farming L4: all tools cost 25% less stamina.
+    public float GlobalStaminaEfficiency()
+    {
+        return HasFarmingPerk4 ? 0.75f : 1f;
+    }
+
+    // Fishing L2: 20% chance of a double catch.
+    public float DoubleCatchChance()
+    {
+        return HasFishingPerk2 ? 0.2f : 0f;
     }
 
     public string SerializeState()

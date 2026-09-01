@@ -925,6 +925,18 @@ public static class Localization
         // Skills & XP
         { "Cấp độ Canh Tác lên {0}! Bạn thu hoạch và hồi sức hiệu quả hơn.", "Farming reached level {0}! You harvest and use stamina more efficiently." },
         { "Cấp độ Câu Cá lên {0}! Cá khó thoát và kéo nhanh hơn.", "Fishing reached level {0}! Fish escape less and you reel faster." },
+        { "Năng suất! +1 {0} nhờ kỹ năng Canh Tác.", "Bonus yield! +1 {0} from farming skill." },
+        { "Mẻ kép! +1 {0} nhờ kỹ năng Câu Cá.", "Double catch! +1 {0} from fishing skill." },
+        { "Kỹ Năng", "Skills" },
+        { "Canh Tác", "Farming" },
+        { "Câu Cá", "Fishing" },
+        { "Cấp {0}", "Lv {0}" },
+        { "Năng suất: 25% cơ hội +1 nông sản", "Yield: 25% chance of +1 crop" },
+        { "Tiết kiệm sức: toàn bộ dụng cụ -25% thể lực", "Efficient: all tools cost -25% stamina" },
+        { "Mẻ kép: 20% cơ hội bắt đôi", "Double catch: 20% chance of +1 fish" },
+        { "Kéo nhanh: +15% tốc độ cuốn cá", "Reeling: +15% reel speed" },
+        { "TỐI ĐA", "MAX" },
+        { "Đạt cấp 2 và 4 để mở kỹ năng đặc biệt.", "Reach levels 2 and 4 to unlock special perks." },
 
         // Event Test Panel
         { "Sự Kiện", "Events" },

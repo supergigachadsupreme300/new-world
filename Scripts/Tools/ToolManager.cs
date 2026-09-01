@@ -62,9 +62,14 @@ public partial class ToolManager : MonoBehaviour
     {
         if (ToolStaminaCost.TryGetValue(item, out var cost))
         {
-            if (IsFarmingTool(item) && SkillManager.Instance != null)
-                cost = Mathf.Max(1f, cost * SkillManager.Instance.FarmingStaminaEfficiency());
-            return cost;
+            var sm = SkillManager.Instance;
+            if (sm != null)
+            {
+                if (IsFarmingTool(item))
+                    cost *= sm.FarmingStaminaEfficiency();
+                cost *= sm.GlobalStaminaEfficiency();
+            }
+            return Mathf.Max(1f, cost);
         }
         return 10f;
     }
@@ -985,6 +990,12 @@ public partial class ToolManager : MonoBehaviour
                         if (item == "wheat")
                             GameStats.AddWheat(1);
                         SkillManager.Instance?.AddXP(SkillManager.Track.Farming, FarmingXPFor(item));
+                        var sm = SkillManager.Instance;
+                        if (sm != null && sm.BonusCropChance() > 0f && Random.value < sm.BonusCropChance() && CanHoldItem(item))
+                        {
+                            AddItem(item, 1);
+                            _uiManager.ShowMessage(Localization.F("Năng suất! +1 {0} nhờ kỹ năng Canh Tác.", Localization.ItemName(item)), 1.5f);
+                        }
                         SoundManager.Instance?.Play("sickle");
                         _uiManager.ShowMessage(Localization.F("Đã thu hoạch {0}.", Localization.ItemName(item)), 1.5f);
                         QuestManager.Instance?.AddProgress(item, 1);

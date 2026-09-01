@@ -343,6 +343,13 @@ public class FishingController : MonoSingleton<FishingController>
                 tm.AddItem(fishType, 1);
 
             _uiManager?.ShowMessage(Localization.F("Bắt được {0}!", Localization.T(fishLabel)), 3f);
+
+            var sm = SkillManager.Instance;
+            if (sm != null && sm.DoubleCatchChance() > 0f && Random.value < sm.DoubleCatchChance())
+            {
+                tm.AddItem(fishType, 1);
+                _uiManager?.ShowMessage(Localization.F("Mẻ kép! +1 {0} nhờ kỹ năng Câu Cá.", Localization.T(fishLabel)), 2f);
+            }
         }
 
         QuestManager.Instance?.AddProgress("fish_catch", 1);

@@ -613,6 +613,8 @@ public class PlayerController : MonoBehaviour
             ToolManager.Instance?.DropSelectedItem();
         if (!dialogBlocked && Keyboard.current != null && Keyboard.current.tKey.wasPressedThisFrame)
             WorldBuilder.Instance?.RotateBuildingPreview(90);
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.kKey.wasPressedThisFrame)
+            GameManager.Instance?.UIManager?.ToggleSkillPanel();
         if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit1Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(0);
         if (!dialogBlocked && Keyboard.current != null && Keyboard.current.digit2Key.wasPressedThisFrame)
