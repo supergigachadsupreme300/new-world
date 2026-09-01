@@ -123,6 +123,13 @@ PHASE 3 — Depth tuning & QOL
      harvest (Good 25%, Great 50%). Persisted via FieldSaveData quality/
      wateredTime.
 3C. Player chest storage + sort/auto-stack
+    [DONE 2026-09-01] New buildable "Rương Đồ" (chest) blueprint (researched at
+     the Library, 60 gold) — a two-part building that opens a two-way panel
+     (Chest/Bag tabs): store whole stacks from the bag, take items back into
+     the inventory. Per-chest storage holds up to 10 distinct item types,
+     persisted via SaveManager chestStorageJson (ChestStorageManager keyed by
+     position). Also added SortInventory (O key): merges duplicate stacks and
+     sorts by item name.
 3D. Horse mount + fast-travel road signs
 
 -----------------------------------------------------------------------
@@ -131,5 +138,5 @@ STATUS
 Phase 1A: DONE (2026-08-31)
 Phase 1B: DONE (2026-08-31)
 Phase 2 : DONE (2026-09-01)
-Phase 3 : IN PROGRESS (2026-09-01) — 3A DONE, 3B DONE, 3C/3D pending
+Phase 3 : IN PROGRESS (2026-09-01) — 3A DONE, 3B DONE, 3C DONE, 3D pending
 ========================================================================
