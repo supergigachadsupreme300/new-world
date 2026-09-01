@@ -469,7 +469,10 @@ BuildPagoda(PagodaBasePos);
         var monk = MapBuilder.BuildMonkNpc(_worldRoot.transform, new Vector3(24f, 1.815f, 27f), Quaternion.Euler(0f, -90f, 0f));
         monk.AddComponent<PagodaMonkNPC>();
         BuildBossArena();
-        PruneTreesAndRocksNearStructures();
+PruneTreesAndRocksNearStructures();
+        ClearFastTravelSpots();
+        SpawnFastTravelSigns();
+        SpawnRidableHorse();
 
         SpawnInitialClouds();
 

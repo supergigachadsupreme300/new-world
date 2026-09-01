@@ -7,6 +7,7 @@ public class PlayerController : MonoBehaviour
 {
     public float MoveSpeed = 5f;
     public float SprintMultiplier = 2f;
+    public float RideSpeed = 13f;
     public float Gravity = -9.81f;
     public float JumpHeight = 1.5f;
     public int HP = 100;
@@ -21,6 +22,19 @@ public class PlayerController : MonoBehaviour
     public bool IgnoreInput { get; private set; }
 
     public bool InWater { get; private set; }
+
+    public bool IsRiding => HorseMount.Instance != null && HorseMount.Instance.IsMounted;
+
+    public bool IsMoving
+    {
+        get
+        {
+            if (_controller == null)
+                return false;
+            var v = _controller.velocity;
+            return new Vector2(v.x, v.z).magnitude > 0.5f;
+        }
+    }
 
     private CharacterController _controller;
     private Vector3 _velocity;
@@ -255,14 +269,16 @@ public class PlayerController : MonoBehaviour
             mag = 1f;
         }
 
-        bool canSprint = !InWater;
+        bool canSprint = !InWater && !IsRiding;
         bool sprint = canSprint &&
             ((Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed) ||
              (GameInput.IsMobile && MobileInputController.IsHeld("sprint"))) &&
             Stamina > 0f && mag > 0f;
-        float speed = MoveSpeed * _waterSpeedMul * (sprint ? SprintMultiplier : 1f);
+        float speed = IsRiding
+            ? RideSpeed * _waterSpeedMul
+            : MoveSpeed * _waterSpeedMul * (sprint ? SprintMultiplier : 1f);
 
-        bool dodgePressed = !dialogBlocked && _controller != null && _controller.isGrounded &&
+        bool dodgePressed = !dialogBlocked && !IsRiding && _controller != null && _controller.isGrounded &&
             ((Keyboard.current != null && Keyboard.current.cKey.wasPressedThisFrame) ||
              (GameInput.IsMobile && MobileInputController.Consume("dodge")));
         if (dodgePressed && !_dodging && Stamina >= DodgeCost)
@@ -289,7 +305,7 @@ public class PlayerController : MonoBehaviour
                 if (_velocity.y < 0f)
                     _velocity.y = -1f;
 
-                if (_waterAllowJump && !dialogBlocked && !_dodging &&
+                if (_waterAllowJump && !dialogBlocked && !IsRiding && !_dodging &&
                     ((Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame) ||
                      MobileInputController.Consume("jump")))
                 {
@@ -531,6 +547,18 @@ public class PlayerController : MonoBehaviour
                             PlayerChestMenu.Ensure().OpenAt(chestHit.position);
                             return;
                         }
+                        var rideHorse = hit.collider.GetComponentInParent<HorseMount>();
+                        if (rideHorse != null)
+                        {
+                            rideHorse.ToggleMount();
+                            return;
+                        }
+                        var roadSign = hit.collider.GetComponentInParent<FastTravelSign>();
+                        if (roadSign != null)
+                        {
+                            FastTravelMenu.Ensure().Open();
+                            return;
+                        }
                         if (CraftingManager.ResolveStationCategory(hit.collider) != null)
                         {
                             CraftingManager.Ensure().InteractStation(hit.collider);
@@ -627,6 +655,8 @@ public class PlayerController : MonoBehaviour
             GameManager.Instance?.UIManager?.ToggleFriendPanel();
         if (!dialogBlocked && Keyboard.current != null && Keyboard.current.oKey.wasPressedThisFrame)
             ToolManager.Instance?.SortInventory();
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
+            HorseMount.Instance?.Dismount();
         if (!dialogBlocked && GameManager.Instance?.UIManager != null)
             GameManager.Instance.UIManager.HandleFriendPanelKeys();
         bool friendOpen = GameManager.Instance?.UIManager != null && GameManager.Instance.UIManager.FriendPanelVisible;

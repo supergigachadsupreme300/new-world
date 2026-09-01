@@ -984,6 +984,22 @@ public static class Localization
         { "Trong rương: {0}/{1} loại — {2}", "In the chest: {0}/{1} types - {2}" },
         { "Chọn Lấy hoặc Cất", "Choose Take or Store" },
 
+        // Horse & fast travel (Phase 3D)
+        { "Cưỡi ngựa", "Mount horse" },
+        { "Di chuyển nhanh", "Fast travel" },
+        { "Di Chuyển Nhanh", "Fast Travel" },
+        { "Đã cưỡi ngựa. Nhấn R để xuống.", "You mount the horse. Press R to dismount." },
+        { "Đã xuống ngựa.", "You dismount." },
+        { "Đã di chuyển đến {0}!", "Moved to {0}!" },
+        { "Đi {0}", "Go {0}" },
+        { "Chưa có biển báo nào trên bản đồ.", "No road signs on the map yet." },
+        { "Trang Trại", "Farm" },
+        { "Chùa Làng", "Village Pagoda" },
+        { "Khu Chợ", "Market" },
+        { "Hộp Đêm & Nhà Hàng", "Night Club & Restaurant" },
+        { "Dinh Phú Ông", "The Rich Man's Mansion" },
+        { "Võ Đài Quỷ Vương", "Demon Arena" },
+
         // Event Test Panel
         { "Sự Kiện", "Events" },
         { "SỰ KIỆN TEST", "EVENT TEST" },

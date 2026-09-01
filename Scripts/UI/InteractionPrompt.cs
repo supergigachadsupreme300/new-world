@@ -32,6 +32,8 @@ public class InteractionPrompt : MonoBehaviour
         ("GroceryNPC",         "Mua sắm"),
         ("CafeNPC",            "Mua sắm"),
         ("FishingShopNPC",     "Mua sắm"),
+        ("HorseMount",         "Cưỡi ngựa"),
+        ("RoadSign",           "Di chuyển nhanh"),
     };
 
     public void Initialize(TMP_Text eKeyText, TMP_Text lmbText)
