@@ -157,6 +157,8 @@ public class VendorShopManager : MonoBehaviour
         new ShopItem { Type = "dua_chua", Label = "Dưa Chua", Price = 30 },
         new ShopItem { Type = "ruou_gao", Label = "Rượu Gạo", Price = 45 },
         new ShopItem { Type = "tuong_ot", Label = "Tương Ớt", Price = 32 },
+        new ShopItem { Type = "ruou_tang", Label = "Rượu Thuốc", Price = 60 },
+        new ShopItem { Type = "tinh_duoc", Label = "Tinh Dược", Price = 75 },
 
         // Enemy materials
         new ShopItem { Type = "demon_horn", Label = "Sừng Quỷ", Price = 25 },

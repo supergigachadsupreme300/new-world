@@ -127,6 +127,11 @@ public partial class ToolManager : MonoBehaviour
             player.ApplyStaminaRegenModifier(0.5f, 120f);
             _uiManager?.ShowMessage(Localization.F("Đã uống {0}. Hồi phục +{1} Thể Lực, nhưng hồi Thể Lực chậm lại trong 120 giây!", Localization.ItemName(itemType), staminaRestore), 2.5f);
         }
+        else if (itemType == "xoi_gac")
+        {
+            player.ApplyStaminaRegenModifier(1.2f, 120f);
+            _uiManager?.ShowMessage(Localization.F("Đã ăn {0}. Hồi phục +{1} Thể Lực và hồi Thể Lực nhanh hơn 20% trong 120 giây!", Localization.ItemName(itemType), staminaRestore), 2.5f);
+        }
         else
         {
             _uiManager?.ShowMessage(Localization.F("Đã ăn {0}. Hồi phục +{1} Thể Lực, +{2} Máu!", Localization.ItemName(itemType), staminaRestore, hpRestore), 1.5f);
@@ -190,6 +195,15 @@ public partial class ToolManager : MonoBehaviour
             case "duong": return 30;
             case "muoi": return 40;
             case "cafe_den": return 800;
+            case "xoi_gac": return 350;
+            case "sup_bi_ngo": return 300;
+            case "mut_ca_rot": return 200;
+            case "trai_cay_kho": return 180;
+            case "dua_chua": return 150;
+            case "ruou_gao": return 500;
+            case "tuong_ot": return 120;
+            case "ruou_tang": return 700;
+            case "tinh_duoc": return 1000;
             default: return 0;
         }
     }
@@ -207,6 +221,11 @@ public partial class ToolManager : MonoBehaviour
             case "tu_gao": return 40;
             case "duong": return 10;
             case "muoi": return 20;
+            case "sup_bi_ngo": return 20;
+            case "dua_chua": return 15;
+            case "trai_cay_kho": return 12;
+            case "ruou_tang": return 40;
+            case "tinh_duoc": return 60;
             default: return 0;
         }
     }

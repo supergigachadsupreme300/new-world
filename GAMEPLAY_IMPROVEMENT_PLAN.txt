@@ -22,7 +22,11 @@ PHASE 1 — Finish the core farming-sim loop (HIGHEST impact)
     [DONE 2026-08-31] CraftingManager + 3 workstations added to build
     palette (crafting_stove / preserve_jar / brewing_kettle), E-interact
     to open filtered recipe panel. 10 recipes. New products + sell prices.
-    Buffs (stamina/heal items) deferred to Phase 3 balance tuning.
+    [DONE 2026-09-01] Enemy materials woven into brewing recipes
+    (ruou_tang, tinh_duoc) closing the drop->craft->sell loop. Crafted
+    foods added to the eat system; Xoi Gac gives a +20% stamina regen
+    buff for 120s (the planned "Onigiri"-style buff). More buffs/heal
+    tuning deferred to Phase 3 balance tuning.
 
 1B. ENEMY MATERIAL DROPS + DODGE-ROLL
     - Enemies currently drop nothing.
@@ -33,8 +37,8 @@ PHASE 1 — Finish the core farming-sim loop (HIGHEST impact)
     [DONE 2026-08-31] Materials drop on Die() (boss: demon_horn +
     dark_essence; giant: bone + dark_essence; normal: bone/dark_essence).
     Dodge-roll bound to C key, 20 stamina, i-frames (0.3s), blocks while
-    open dialogs. Sold at vendor. Crafting recipes using these materials
-    deferred to Phase 2 item-track / upgrades.
+    open dialogs. Sold at vendor. Material crafting recipes added
+    (ruou_tang, tinh_duoc) closing the combat->craft loop.
 
 -----------------------------------------------------------------------
 PHASE 2 — Long-term progression

@@ -72,7 +72,11 @@ public class CraftingManager : MonoBehaviour
         new Recipe("ruou_gao", "brewing_kettle", "ruou_gao", 1,
             new Ingredient("rice", 3), new Ingredient("sugar", 1)),
         new Recipe("tuong_ot", "brewing_kettle", "tuong_ot", 1,
-            new Ingredient("tomato", 2), new Ingredient("salt", 1), new Ingredient("onion", 1))
+            new Ingredient("tomato", 2), new Ingredient("salt", 1), new Ingredient("onion", 1)),
+        new Recipe("ruou_tang", "brewing_kettle", "ruou_tang", 1,
+            new Ingredient("demon_horn", 1), new Ingredient("sugar", 2)),
+        new Recipe("tinh_duoc", "brewing_kettle", "tinh_duoc", 1,
+            new Ingredient("dark_essence", 1), new Ingredient("honey", 1))
     };
 
     public static CraftingManager Instance { get; private set; }

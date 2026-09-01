@@ -225,6 +225,8 @@ public static class Localization
         { "dua_chua", "Dưa Chua" },
         { "ruou_gao", "Rượu Gạo" },
         { "tuong_ot", "Tương Ớt" },
+        { "ruou_tang", "Rượu Thuốc" },
+        { "tinh_duoc", "Tinh Dược" },
 
         // Enemy materials
         { "demon_horn", "Sừng Quỷ" },
@@ -400,6 +402,7 @@ public static class Localization
         { "Thiếu nguyên liệu.", "Missing ingredients." },
         { "Đã chế tạo: {0}", "Crafted: {0}" },
         { "Đã chế tạo: ", "Crafted: " },
+        { "Đã ăn {0}. Hồi phục +{1} Thể Lực và hồi Thể Lực nhanh hơn 20% trong 120 giây!", "Ate {0}. +{1} Stamina and stamina regenerates 20% faster for 120 seconds!" },
 
         // Shop item labels
         { "Hạt Lúa Mì", "Wheat Seed" },
@@ -798,6 +801,8 @@ public static class Localization
         { "Dưa Chua", "Pickles" },
         { "Rượu Gạo", "Rice Wine" },
         { "Tương Ớt", "Chili Sauce" },
+        { "Rượu Thuốc", "Tonic Wine" },
+        { "Tinh Dược", "Elixir" },
         { "Sừng Quỷ", "Demon Horn" },
         { "Tinh Chất Bóng Tối", "Dark Essence" },
         { "Xương Quái Vật", "Monster Bone" },

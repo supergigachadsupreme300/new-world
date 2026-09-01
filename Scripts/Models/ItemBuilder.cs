@@ -104,6 +104,8 @@ public static class ItemBuilder
             case "dua_chua": BuildJamJar(parent, new Color(0.85f, 0.75f, 0.3f)); break;
             case "ruou_gao": BuildWineBottle(parent, new Color(0.9f, 0.85f, 0.7f)); break;
             case "tuong_ot": BuildWineBottle(parent, new Color(0.8f, 0.15f, 0.1f)); break;
+            case "ruou_tang": BuildWineBottle(parent, new Color(0.4f, 0.9f, 0.4f)); break;
+            case "tinh_duoc": BuildElixir(parent); break;
 
             // Enemy materials
             case "demon_horn": BuildDemonHorn(parent); break;
@@ -770,5 +772,14 @@ public static class ItemBuilder
         CreatePickupCube(parent, new Vector3(0f, 0f, 0f), new Vector3(0.1f, 0.3f, 0.1f), boneC, false);
         CreatePickupSphere(parent, new Vector3(0f, 0.16f, 0f), 0.09f, boneC, false);
         CreatePickupSphere(parent, new Vector3(0f, -0.16f, 0f), 0.09f, boneC, false);
+    }
+
+    public static void BuildElixir(Transform parent)
+    {
+        Color bottleC = new Color(0.6f, 0.7f, 0.95f);
+        Color liquidC = new Color(0.5f, 0.2f, 0.8f);
+        CreatePickupCylinder(parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.12f, 0.2f, 0.12f), bottleC, false);
+        CreatePickupSphere(parent, new Vector3(0f, 0.12f, 0f), 0.09f, liquidC, false);
+        CreatePickupCube(parent, new Vector3(0f, 0.24f, 0f), new Vector3(0.05f, 0.08f, 0.05f), new Color(0.5f, 0.3f, 0.1f), false);
     }
 }
