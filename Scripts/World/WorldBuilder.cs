@@ -833,12 +833,17 @@ _streetLights.Clear();
             if (field.Fertilized)
                 growTime *= 0.5f;
 
+            if (field.Watered)
+                field.WateredTime += deltaTime;
+
             field.GrowTimer += deltaTime;
             if (field.GrowTimer >= growTime && field.Stage < 4)
             {
                 field.GrowTimer = 0f;
                 field.Stage++;
                 UpdateCropVisual(field);
+                if (field.Stage >= 4)
+                    EvaluateCropQuality(field, growTime);
             }
         }
 
@@ -1694,6 +1699,8 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
         public bool Watered;
         public bool Fertilized;
         public float WaterTimer;
+        public int Quality;
+        public float WateredTime;
     }
 
     [System.Serializable]

@@ -983,6 +983,7 @@ public partial class ToolManager : MonoBehaviour
                         _uiManager.ShowMessage(Localization.T("Túi đồ đầy."), 1.5f);
                         return;
                     }
+                    int quality = field.Quality;
                     if (_worldBuilder.HarvestField(field, out var item))
                     {
                         SpendToolStamina(player);
@@ -995,6 +996,14 @@ public partial class ToolManager : MonoBehaviour
                         {
                             AddItem(item, 1);
                             _uiManager.ShowMessage(Localization.F("Năng suất! +1 {0} nhờ kỹ năng Canh Tác.", Localization.ItemName(item)), 1.5f);
+                        }
+                        float qChance = quality >= 2 ? 0.5f : (quality == 1 ? 0.25f : 0f);
+                        if (qChance > 0f && Random.value < qChance && CanHoldItem(item))
+                        {
+                            AddItem(item, 1);
+                            _uiManager.ShowMessage(Localization.F(
+                                quality >= 2 ? "Chất lượng Tuyệt! +1 {0} nông sản." : "Chất lượng Tốt! +1 {0} nông sản.",
+                                Localization.ItemName(item)), 1.5f);
                         }
                         SoundManager.Instance?.Play("sickle");
                         _uiManager.ShowMessage(Localization.F("Đã thu hoạch {0}.", Localization.ItemName(item)), 1.5f);

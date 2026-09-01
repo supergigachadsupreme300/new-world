@@ -111,7 +111,9 @@ _unlockedBlueprints.Clear();
                 isHarvested = field.IsHarvested,
                 watered = field.Watered,
                 fertilized = field.Fertilized,
-                waterTimer = field.WaterTimer
+                waterTimer = field.WaterTimer,
+                quality = field.Quality,
+                wateredTime = field.WateredTime
             };
         }
         return saved;
@@ -132,6 +134,8 @@ _unlockedBlueprints.Clear();
                 field.Watered = fieldSave.watered;
                 field.Fertilized = fieldSave.fertilized;
                 field.WaterTimer = fieldSave.waterTimer;
+                field.Quality = fieldSave.quality;
+                field.WateredTime = fieldSave.wateredTime;
                 if (fieldSave.hasCrop && !string.IsNullOrEmpty(fieldSave.cropType))
                 {
                     field.HasCrop = true;
@@ -344,6 +348,8 @@ private void PruneTreesAndRocksNearStructures()
         public bool watered;
         public bool fertilized;
         public float waterTimer;
+        public int quality;
+        public float wateredTime;
     }
 
     [System.Serializable]

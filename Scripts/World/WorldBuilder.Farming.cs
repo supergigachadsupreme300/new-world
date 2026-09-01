@@ -16,6 +16,42 @@ public partial class WorldBuilder
         return null;
     }
 
+    // Base grow time per crop (second per stage). Phase 3B.
+    public float CropGrowTime(string cropType)
+    {
+        switch (cropType)
+        {
+            case "carrot": return 10f;
+            case "wheat": return 12f;
+            case "rice": return 12f;
+            case "onion": return 11f;
+            case "corn": return 14f;
+            case "potato": return 13f;
+            case "sugarcane": return 13f;
+            case "tomato": return 15f;
+            case "pumpkin": return 16f;
+            case "strawberry": return 17f;
+            default: return 12f;
+        }
+    }
+
+    // Phase 3B: quality tiers (0 normal, 1 good, 2 great) at maturation.
+    public static string QualityName(int quality)
+    {
+        return quality >= 2 ? Localization.T("Chất Lượng Tuyệt") :
+               quality == 1 ? Localization.T("Chất Lượng Tốt") : "";
+    }
+
+    // Quality rules: fertilized = Good; fertilized + mostly watered = Great.
+    private void EvaluateCropQuality(FieldState field, float growTime)
+    {
+        float coverage = growTime > 0f ? field.WateredTime / growTime : 0f;
+        if (field.Fertilized)
+            field.Quality = coverage >= 0.6f ? 2 : 1;
+        else
+            field.Quality = 0;
+    }
+
     public FieldState TillGround(Vector3 position)
     {
         position.x = Mathf.Round(position.x);
@@ -33,6 +69,8 @@ public partial class WorldBuilder
             field.Watered = false;
             field.Fertilized = false;
             field.GrowTimer = 0f;
+            field.Quality = 0;
+            field.WateredTime = 0f;
             UpdateFieldVisual(field);
             return field;
         }
@@ -65,7 +103,9 @@ public partial class WorldBuilder
             NextStageTime = 12f,
             Watered = false,
             Fertilized = false,
-            WaterTimer = 0f
+            WaterTimer = 0f,
+            Quality = 0,
+            WateredTime = 0f
         };
         _fields.Add(field);
         return field;
@@ -110,7 +150,9 @@ public partial class WorldBuilder
         field.Stage = 1;
         field.GrowTimer = 0f;
         field.Watered = false;
-        field.NextStageTime = 12f;
+        field.NextStageTime = CropGrowTime(actualCropType);
+        field.Quality = 0;
+        field.WateredTime = 0f;
         UpdateCropVisual(field);
         return true;
     }

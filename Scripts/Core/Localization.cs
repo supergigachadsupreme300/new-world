@@ -963,6 +963,12 @@ public static class Localization
         { "Cần câu đã ở cấp tối đa của bậc này.", "The rod is already at the max of this tier." },
         { "Bạn cần nâng cấp cần câu đúng thứ tự.", "You must upgrade the rod in order." },
 
+        // Crop quality (Phase 3B)
+        { "Chất Lượng Tuyệt", "Great Quality" },
+        { "Chất Lượng Tốt", "Good Quality" },
+        { "Chất lượng Tuyệt! +1 {0} nông sản.", "Great quality! +1 {0} crop." },
+        { "Chất lượng Tốt! +1 {0} nông sản.", "Good quality! +1 {0} crop." },
+
         // Event Test Panel
         { "Sự Kiện", "Events" },
         { "SỰ KIỆN TEST", "EVENT TEST" },
