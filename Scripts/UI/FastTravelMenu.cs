@@ -204,8 +204,8 @@ public class FastTravelMenu : MonoBehaviour
         if (_canvas == null)
             return;
 
-        float sw = 1920f;
-        float sh = 1080f;
+        float sw = Screen.width;
+        float sh = Screen.height;
 
         _panel = new GameObject("FastTravelPanel");
         _panel.transform.SetParent(_canvas.transform, false);

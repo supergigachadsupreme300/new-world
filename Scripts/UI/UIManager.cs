@@ -1036,10 +1036,7 @@ public partial class UIManager : MonoBehaviour
         var canvas = canvasObject.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 1000;
-        var hudScaler = canvasObject.AddComponent<CanvasScaler>();
-        hudScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        hudScaler.referenceResolution = new Vector2(1920, 1080);
-        hudScaler.matchWidthOrHeight = 0.5f;
+        canvasObject.AddComponent<CanvasScaler>();
         canvasObject.AddComponent<GraphicRaycaster>();
         canvasObject.SetActive(true);
         return canvas;
