@@ -321,7 +321,7 @@ public class GoblinPet : MonoBehaviour
             return;
         }
 
-        Vector3 target = hutPos.Value + new Vector3(0f, 0f, -2.2f);
+        Vector3 target = hutPos.Value;
         target.y = transform.position.y;
 
         if (Vector3.Distance(transform.position, target) <= 0.7f)
@@ -474,7 +474,7 @@ public class GoblinPet : MonoBehaviour
             return;
         }
 
-        Vector3 target = hutPos.Value + new Vector3(0f, 0f, -2.2f);
+        Vector3 target = hutPos.Value;
         target.y = transform.position.y;
 
         if (Vector3.Distance(transform.position, target) <= 0.7f)
