@@ -1354,6 +1354,8 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
                 break;
         }
 
+        MeshCombiner.CombineStaticParts(cropRoot);
+
         field.CropObject = cropRoot;
     }
     public void RefreshFieldVisual(FieldState field)
@@ -1363,14 +1365,16 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
         UpdateCropVisual(field);
         UpdateFieldVisual(field);
     }
-    private void AddFieldBorder(Transform tile)
+private void AddFieldBorder(Transform tile)
     {
         var borderColor = new Color(0.2f, 0.1f, 0.03f);
         var rot = Quaternion.Euler(-90f, 0f, 0f);
+        var borderRoot = new GameObject("FieldBorder");
+        borderRoot.transform.SetParent(tile, false);
         for (int i = 0; i < 4; i++)
         {
             var edge = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            edge.transform.SetParent(tile, false);
+            edge.transform.SetParent(borderRoot.transform, false);
             edge.transform.localRotation = rot;
             edge.transform.localPosition = i < 2
                 ? new Vector3(0f, (i == 0 ? -0.5f : 0.5f), -0.005f)
@@ -1378,9 +1382,10 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
             edge.transform.localScale = i < 2
                 ? new Vector3(1f, 0.02f, 0.01f)
                 : new Vector3(0.01f, 0.02f, 1f);
-            edge.GetComponent<Renderer>().material.color = borderColor;
+            MapBuilder.ApplyBlockColor(edge.GetComponent<Renderer>(), borderColor);
             Destroy(edge.GetComponent<Collider>());
         }
+        MeshCombiner.CombineStaticParts(borderRoot);
     }
     private void CreateFieldWheat(Transform parent, int stage)
     {
@@ -1399,9 +1404,9 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
             blade.transform.localScale = new Vector3(width, height, depth);
             blade.transform.localPosition = new Vector3(x, height / 2f, z);
             blade.transform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(-15f, 15f));
-            var rend = blade.GetComponent<Renderer>();
+var rend = blade.GetComponent<Renderer>();
             if (rend != null)
-                rend.material.color = color;
+                MapBuilder.ApplyBlockColor(rend, color);
             Destroy(blade.GetComponent<Collider>());
         }
     }
@@ -1412,9 +1417,9 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
         stalk.transform.SetParent(parent, false);
         stalk.transform.localScale = new Vector3(0.08f, stalkHeight, 0.08f);
         stalk.transform.localPosition = new Vector3(0f, stalkHeight / 2f, 0f);
-        var rendStalk = stalk.GetComponent<Renderer>();
+var rendStalk = stalk.GetComponent<Renderer>();
         if (rendStalk != null)
-            rendStalk.material.color = new Color(0.3f, 0.7f, 0.25f);
+            MapBuilder.ApplyBlockColor(rendStalk, new Color(0.3f, 0.7f, 0.25f));
         Destroy(stalk.GetComponent<Collider>());
 
         if (stage >= 3)
@@ -1431,7 +1436,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
                 stalk2.transform.SetParent(parent, false);
                 stalk2.transform.localScale = new Vector3(0.06f, h, 0.06f);
                 stalk2.transform.localPosition = new Vector3(stalk2X, h / 2f, stalk2Z);
-                stalk2.GetComponent<Renderer>().material.color = new Color(0.3f, 0.7f, 0.25f);
+                MapBuilder.ApplyBlockColor(stalk2.GetComponent<Renderer>(), new Color(0.3f, 0.7f, 0.25f));
                 Destroy(stalk2.GetComponent<Collider>());
                 CreateCornEar(parent, stalk2X, stalk2Z, h);
             }
@@ -1451,9 +1456,9 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
                 kernel.transform.localScale = new Vector3(0.12f, 0.02f, 0.03f);
                 kernel.transform.localRotation = Quaternion.Euler(0f, angle + i * 18f, 0f);
                 kernel.transform.localPosition = new Vector3(xOff, earY + i * 0.02f, zOff);
-                var rend = kernel.GetComponent<Renderer>();
+var rend = kernel.GetComponent<Renderer>();
                 if (rend != null)
-                    rend.material.color = cornColor;
+                    MapBuilder.ApplyBlockColor(rend, cornColor);
                 Destroy(kernel.GetComponent<Collider>());
             }
         }
@@ -1471,9 +1476,9 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
             float rootScale = 1f + 0.3f * targetRatio;
             tuber.transform.localScale = new Vector3(0.1f * rootScale, 0.08f * rootScale, 0.09f * rootScale);
             tuber.transform.localPosition = new Vector3(xOff, 0.03f * rootScale, zOff);
-            var rendTuber = tuber.GetComponent<Renderer>();
+var rendTuber = tuber.GetComponent<Renderer>();
             if (rendTuber != null)
-                rendTuber.material.color = new Color(0.65f, 0.45f, 0.2f);
+                MapBuilder.ApplyBlockColor(rendTuber, new Color(0.65f, 0.45f, 0.2f));
             Destroy(tuber.GetComponent<Collider>());
         }
 
@@ -1498,9 +1503,9 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
                 leafHeight,
                 Mathf.Sin(angle) * radius
             );
-            var rendLeaf = leaf.GetComponent<Renderer>();
+var rendLeaf = leaf.GetComponent<Renderer>();
             if (rendLeaf != null)
-                rendLeaf.material.color = leafColor;
+                MapBuilder.ApplyBlockColor(rendLeaf, leafColor);
             Destroy(leaf.GetComponent<Collider>());
         }
     }
@@ -1525,7 +1530,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
                 leaf.transform.localRotation = Quaternion.Euler(35f, angle, 0f);
                 leaf.transform.localPosition = new Vector3(xOff + Mathf.Sin(rad) * leafSpread, leafBaseY + topHeight * 0.5f, zOff + Mathf.Cos(rad) * leafSpread);
                 var rend = leaf.GetComponent<Renderer>();
-                if (rend != null) rend.material.color = new Color(0.2f, 0.6f, 0.15f);
+                if (rend != null) MapBuilder.ApplyBlockColor(rend, new Color(0.2f, 0.6f, 0.15f));
                 Destroy(leaf.GetComponent<Collider>());
             }
             var root = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -1533,7 +1538,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
             root.transform.localScale = new Vector3(0.04f + ratio * 0.04f, rootSize, 0.04f + ratio * 0.04f);
             root.transform.localPosition = new Vector3(xOff, 0.01f, zOff);
             var rendRoot = root.GetComponent<Renderer>();
-            if (rendRoot != null) rendRoot.material.color = new Color(1f, 0.55f, 0.1f);
+            if (rendRoot != null) MapBuilder.ApplyBlockColor(rendRoot, new Color(1f, 0.55f, 0.1f));
             Destroy(root.GetComponent<Collider>());
         }
     }
@@ -1546,7 +1551,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
         stalk.transform.localScale = new Vector3(0.05f, stalkHeight, 0.05f);
         stalk.transform.localPosition = new Vector3(0f, stalkHeight / 2f, 0f);
         var rendStalk = stalk.GetComponent<Renderer>();
-        if (rendStalk != null) rendStalk.material.color = new Color(0.2f, 0.5f, 0.15f);
+        if (rendStalk != null) MapBuilder.ApplyBlockColor(rendStalk, new Color(0.2f, 0.5f, 0.15f));
         Destroy(stalk.GetComponent<Collider>());
 
         if (stage >= 2)
@@ -1560,7 +1565,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
                 fruit.transform.localScale = Vector3.one * fruitSize;
                 fruit.transform.localPosition = new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad) * 0.06f, stalkHeight * 0.3f + t * stalkHeight * 0.2f, Mathf.Sin(angle * Mathf.Deg2Rad) * 0.06f);
                 var rendFruit = fruit.GetComponent<Renderer>();
-                if (rendFruit != null) rendFruit.material.color = stage >= 4 ? new Color(1f, 0.2f, 0.1f) : new Color(0.5f, 0.8f, 0.2f);
+                if (rendFruit != null) MapBuilder.ApplyBlockColor(rendFruit, stage >= 4 ? new Color(1f, 0.2f, 0.1f) : new Color(0.5f, 0.8f, 0.2f));
                 Destroy(fruit.GetComponent<Collider>());
             }
         }
@@ -1578,7 +1583,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
             leaf.transform.localRotation = Quaternion.Euler(20f, angle, 0f);
             leaf.transform.localPosition = new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad) * bushSize * 0.35f, bushSize * 0.4f, Mathf.Sin(angle * Mathf.Deg2Rad) * bushSize * 0.35f);
             var rend = leaf.GetComponent<Renderer>();
-            if (rend != null) rend.material.color = new Color(0.15f, 0.55f, 0.1f);
+            if (rend != null) MapBuilder.ApplyBlockColor(rend, new Color(0.15f, 0.55f, 0.1f));
             Destroy(leaf.GetComponent<Collider>());
         }
         if (stage >= 3)
@@ -1593,7 +1598,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
                 fruit.transform.localScale = Vector3.one * fSize;
                 fruit.transform.localPosition = new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad) * bushSize * 0.5f, 0.025f, Mathf.Sin(angle * Mathf.Deg2Rad) * bushSize * 0.5f);
                 var rend = fruit.GetComponent<Renderer>();
-                if (rend != null) rend.material.color = new Color(1f, 0.15f, 0.15f);
+                if (rend != null) MapBuilder.ApplyBlockColor(rend, new Color(1f, 0.15f, 0.15f));
                 Destroy(fruit.GetComponent<Collider>());
             }
         }
@@ -1611,7 +1616,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
             vine.transform.localRotation = Quaternion.Euler(0f, angle, 20f);
             vine.transform.localPosition = new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad) * vineLen * 0.3f, 0.015f, Mathf.Sin(angle * Mathf.Deg2Rad) * vineLen * 0.3f);
             var rend = vine.GetComponent<Renderer>();
-            if (rend != null) rend.material.color = new Color(0.2f, 0.5f, 0.1f);
+            if (rend != null) MapBuilder.ApplyBlockColor(rend, new Color(0.2f, 0.5f, 0.1f));
             Destroy(vine.GetComponent<Collider>());
         }
         for (int p = 0; p < 2; p++)
@@ -1624,7 +1629,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
             pumpkin.transform.localScale = Vector3.one * pSize;
             pumpkin.transform.localPosition = new Vector3(xOff, pSize * 0.5f, zOff);
             var rendP = pumpkin.GetComponent<Renderer>();
-            if (rendP != null) rendP.material.color = stage >= 3 ? new Color(1f, 0.6f, 0.1f) : new Color(0.8f, 0.7f, 0.3f);
+            if (rendP != null) MapBuilder.ApplyBlockColor(rendP, stage >= 3 ? new Color(1f, 0.6f, 0.1f) : new Color(0.8f, 0.7f, 0.3f));
             Destroy(pumpkin.GetComponent<Collider>());
         }
     }
@@ -1643,7 +1648,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
             shoot.transform.localPosition = new Vector3(xOff, shootHeight / 2f, zOff);
             shoot.transform.localRotation = Quaternion.Euler(Random.Range(-20f, 20f), 0f, Random.Range(-20f, 20f));
             var rend = shoot.GetComponent<Renderer>();
-            if (rend != null) rend.material.color = new Color(0.2f, 0.5f, 0.1f);
+            if (rend != null) MapBuilder.ApplyBlockColor(rend, new Color(0.2f, 0.5f, 0.1f));
             Destroy(shoot.GetComponent<Collider>());
         }
         var bulb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -1652,7 +1657,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
         bulb.transform.localScale = Vector3.one * bSize;
         bulb.transform.localPosition = new Vector3(0f, 0.02f, 0f);
         var rendB = bulb.GetComponent<Renderer>();
-        if (rendB != null) rendB.material.color = stage >= 3 ? new Color(0.8f, 0.5f, 0.2f) : new Color(0.7f, 0.6f, 0.4f);
+        if (rendB != null) MapBuilder.ApplyBlockColor(rendB, stage >= 3 ? new Color(0.8f, 0.5f, 0.2f) : new Color(0.7f, 0.6f, 0.4f));
         Destroy(bulb.GetComponent<Collider>());
     }
     private void CreateFieldSugarcane(Transform parent, int stage)
@@ -1668,7 +1673,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
             stalk.transform.localScale = new Vector3(0.05f, stalkHeight, 0.05f);
             stalk.transform.localPosition = new Vector3(xOff, stalkHeight / 2f, zOff);
             var rend = stalk.GetComponent<Renderer>();
-            if (rend != null) rend.material.color = new Color(0.3f, 0.7f, 0.15f);
+            if (rend != null) MapBuilder.ApplyBlockColor(rend, new Color(0.3f, 0.7f, 0.15f));
             Destroy(stalk.GetComponent<Collider>());
 
             for (int i = 1; i < stage; i++)
@@ -1679,7 +1684,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
                 segment.transform.localScale = new Vector3(0.06f, 0.015f, 0.06f);
                 segment.transform.localPosition = new Vector3(xOff, yPos, zOff);
                 var rendS = segment.GetComponent<Renderer>();
-                if (rendS != null) rendS.material.color = new Color(0.6f, 0.8f, 0.3f);
+                if (rendS != null) MapBuilder.ApplyBlockColor(rendS, new Color(0.6f, 0.8f, 0.3f));
                 Destroy(segment.GetComponent<Collider>());
             }
         }
@@ -1697,7 +1702,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
             stalk.transform.localScale = new Vector3(0.03f, stalkHeight, 0.03f);
             stalk.transform.localPosition = new Vector3(xOff, stalkHeight / 2f, zOff);
             var rend = stalk.GetComponent<Renderer>();
-            if (rend != null) rend.material.color = new Color(0.25f, 0.6f, 0.15f);
+            if (rend != null) MapBuilder.ApplyBlockColor(rend, new Color(0.25f, 0.6f, 0.15f));
             Destroy(stalk.GetComponent<Collider>());
 
             if (stage >= 3)
@@ -1713,7 +1718,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
                     grain.transform.localRotation = Quaternion.Euler(0f, angle, 25f);
                     grain.transform.localPosition = new Vector3(xOff + Mathf.Cos(angle * Mathf.Deg2Rad) * 0.05f, stalkHeight + 0.02f, zOff + Mathf.Sin(angle * Mathf.Deg2Rad) * 0.05f);
                     var rendG = grain.GetComponent<Renderer>();
-                    if (rendG != null) rendG.material.color = grainColor;
+                    if (rendG != null) MapBuilder.ApplyBlockColor(rendG, grainColor);
                     Destroy(grain.GetComponent<Collider>());
                 }
             }
