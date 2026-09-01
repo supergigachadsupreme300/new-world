@@ -969,6 +969,9 @@ public static class Localization
         { "Chất lượng Tuyệt! +1 {0} nông sản.", "Great quality! +1 {0} crop." },
         { "Chất lượng Tốt! +1 {0} nông sản.", "Good quality! +1 {0} crop." },
 
+        // Chest storage (Phase 3C)
+        { "Đã sắp xếp túi đồ.", "Inventory sorted & stacked." },
+
         // Event Test Panel
         { "Sự Kiện", "Events" },
         { "SỰ KIỆN TEST", "EVENT TEST" },

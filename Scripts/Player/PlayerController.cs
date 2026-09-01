@@ -617,6 +617,8 @@ public class PlayerController : MonoBehaviour
             GameManager.Instance?.UIManager?.ToggleSkillPanel();
         if (!dialogBlocked && Keyboard.current != null && Keyboard.current.lKey.wasPressedThisFrame)
             GameManager.Instance?.UIManager?.ToggleFriendPanel();
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.oKey.wasPressedThisFrame)
+            ToolManager.Instance?.SortInventory();
         if (!dialogBlocked && GameManager.Instance?.UIManager != null)
             GameManager.Instance.UIManager.HandleFriendPanelKeys();
         bool friendOpen = GameManager.Instance?.UIManager != null && GameManager.Instance.UIManager.FriendPanelVisible;

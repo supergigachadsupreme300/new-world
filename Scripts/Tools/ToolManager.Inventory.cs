@@ -126,6 +126,40 @@ public partial class ToolManager
         ShowActiveToolModel();
     }
 
+    public void SortInventory()
+    {
+        for (int i = 0; i < _inventory.Length; i++)
+        {
+            var slot = _inventory[i];
+            if (slot == null)
+                continue;
+            for (int j = i + 1; j < _inventory.Length; j++)
+            {
+                var other = _inventory[j];
+                if (other == null || other.Type != slot.Type)
+                    continue;
+                slot.Count += other.Count;
+                _inventory[j] = null;
+            }
+        }
+
+        var list = new List<InventorySlot>();
+        for (int i = 0; i < _inventory.Length; i++)
+        {
+            if (_inventory[i] != null)
+                list.Add(_inventory[i]);
+        }
+        list.Sort((a, b) =>
+            string.CompareOrdinal(Localization.ItemName(a.Type), Localization.ItemName(b.Type)));
+
+        for (int i = 0; i < _inventory.Length; i++)
+            _inventory[i] = i < list.Count ? list[i] : null;
+
+        UpdateInventoryUI();
+        ShowActiveToolModel();
+        _uiManager?.ShowMessage(Localization.T("Đã sắp xếp túi đồ."), 1.5f);
+    }
+
     private int FindSlotFor(string itemType)
     {
         itemType = NormalizeItemType(itemType);
