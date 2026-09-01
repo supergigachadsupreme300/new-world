@@ -131,6 +131,10 @@ PHASE 3 — Depth tuning & QOL
      position). Also added SortInventory (O key): merges duplicate stacks and
      sorts by item name.
 3D. Horse mount + fast-travel road signs
+     DONE (2026-09-01, commit 684f6e3): buildable-style horse near the farm
+     (E to mount, R to dismount, gallop ride at 13 speed) plus 6 road signs at
+     Trang Trai / Chuà Làng / Khu Cho / Hop Dem & Nha Hang / Dinh Phú Ông /
+     Vo Dai Quy Vuong; E near a sign opens a numbered fast-travel panel.
 
 -----------------------------------------------------------------------
 STATUS
@@ -138,5 +142,5 @@ STATUS
 Phase 1A: DONE (2026-08-31)
 Phase 1B: DONE (2026-08-31)
 Phase 2 : DONE (2026-09-01)
-Phase 3 : IN PROGRESS (2026-09-01) — 3A DONE, 3B DONE, 3C DONE, 3D pending
+Phase 3 : DONE (2026-09-01) — 3A DONE, 3B DONE, 3C DONE, 3D DONE
 ========================================================================
