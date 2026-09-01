@@ -188,8 +188,8 @@ private Transform _shopRoot;
                 new BuildingPartDefinition { PartName = "Wall_Back",    LocalPosition = new Vector3(0f, 0f, -1.4f),   LocalScale = new Vector3(3f, 2.4f, 0.2f),  MaterialType = "wood" },
                 new BuildingPartDefinition { PartName = "Wall_Left",    LocalPosition = new Vector3(-1.4f, 0f, 0f),   LocalScale = new Vector3(0.2f, 2.4f, 3f),  MaterialType = "wood" },
                 new BuildingPartDefinition { PartName = "Wall_Right",   LocalPosition = new Vector3(1.4f, 0f, 0f),    LocalScale = new Vector3(0.2f, 2.4f, 3f),  MaterialType = "wood" },
-                new BuildingPartDefinition { PartName = "Wall_FrontL",  LocalPosition = new Vector3(-0.9f, 0f, 1.4f), LocalScale = new Vector3(1.2f, 2.4f, 0.2f),  MaterialType = "wood" },
-                new BuildingPartDefinition { PartName = "Wall_FrontR",  LocalPosition = new Vector3(0.9f, 0f, 1.4f),  LocalScale = new Vector3(1.2f, 2.4f, 0.2f),  MaterialType = "wood" },
+new BuildingPartDefinition { PartName = "Wall_FrontL",  LocalPosition = new Vector3(-1.1f, 0f, 1.4f), LocalScale = new Vector3(0.8f, 2.4f, 0.2f),  MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Wall_FrontR",  LocalPosition = new Vector3(1.1f, 0f, 1.4f),  LocalScale = new Vector3(0.8f, 2.4f, 0.2f),  MaterialType = "wood" },
                 new BuildingPartDefinition { PartName = "Roof",         LocalPosition = new Vector3(0f, 1.2f, 0f),    LocalScale = new Vector3(3.3f, 0.25f, 3.3f), MaterialType = "stone" }
             }),
         new BuildingDefinition("door", new Vector3(3f, 4f, 0.3f), new Color(0.55f, 0.35f, 0.16f), 3, 0,
