@@ -930,7 +930,6 @@ public static class Localization
         { "Mẻ kép! +1 {0} nhờ kỹ năng Câu Cá.", "Double catch! +1 {0} from fishing skill." },
         { "Kỹ Năng", "Skills" },
         { "Canh Tác", "Farming" },
-        { "Câu Cá", "Fishing" },
         { "Cấp {0}", "Lv {0}" },
         { "Năng suất: 25% cơ hội +1 nông sản", "Yield: 25% chance of +1 crop" },
         { "Tiết kiệm sức: toàn bộ dụng cụ -25% thể lực", "Efficient: all tools cost -25% stamina" },
