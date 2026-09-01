@@ -156,12 +156,13 @@ public class FastTravelMenu : MonoBehaviour
         rowImg.color = ColorPalette.UIBackdrop;
 
         var labelText = CountryLife.Helpers.UIHelper.MakeText(rowName + "_Txt", rowRt,
-            new Vector2(-60f, 0f), label, 17, color, new Vector2(240f, 34f), true, true,
+            Vector2.zero, label, 17, color, new Vector2(240f, 34f), true, true,
             TextAlignmentOptions.Left, false);
-        labelText.rectTransform.anchorMin = new Vector2(0f, 0.5f);
-        labelText.rectTransform.anchorMax = new Vector2(1f, 0.5f);
+        labelText.rectTransform.anchorMin = new Vector2(0f, 0f);
+        labelText.rectTransform.anchorMax = new Vector2(1f, 1f);
         labelText.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        labelText.rectTransform.anchoredPosition = new Vector2(-35f, 0f);
+        labelText.rectTransform.anchoredPosition = new Vector2(-20f, 0f);
+        labelText.rectTransform.sizeDelta = new Vector2(-120f, 0f);
 
         var goBtn = new GameObject(rowName + "_Btn");
         goBtn.transform.SetParent(rowRt, false);
@@ -169,8 +170,8 @@ public class FastTravelMenu : MonoBehaviour
         btnRt.anchorMin = new Vector2(1f, 0f);
         btnRt.anchorMax = new Vector2(1f, 1f);
         btnRt.pivot = new Vector2(1f, 0.5f);
-        btnRt.anchoredPosition = new Vector2(-8f, 0f);
-        btnRt.sizeDelta = new Vector2(88f, 32f);
+        btnRt.anchoredPosition = new Vector2(-6f, 0f);
+        btnRt.sizeDelta = new Vector2(60f, 24f);
 
         var btnImg = goBtn.AddComponent<Image>();
         btnImg.color = new Color(0.8f, 0.62f, 0.3f);
@@ -179,7 +180,7 @@ public class FastTravelMenu : MonoBehaviour
         btn.onClick.AddListener(onClick);
 
         CountryLife.Helpers.UIHelper.MakeText(rowName + "_BtnTxt", btnRt,
-            Vector2.zero, buttonText, 16, Color.white, new Vector2(80f, 28f), true, true,
+            Vector2.zero, buttonText, 14, Color.white, new Vector2(54f, 20f), true, true,
             TextAlignmentOptions.Center, false);
 
         _rows.Add(row);
