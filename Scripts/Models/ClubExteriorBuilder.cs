@@ -123,22 +123,22 @@ public static class ClubExteriorBuilder
         }
 
         // ── Night patrons + bouncer silhouettes (bob lightly) ──
-        var patron1 = MapBuilder.BuildClubDancer(club, ToLocal(club, new Vector3(6.4f, 0.2f, 90.8f)),
+        var patron1 = MapBuilder.BuildClubDancer(club, ToLocal(club, new Vector3(6.4f, 0.45f, 90.8f)),
             ToLocalRot(club, 90f), new Color(0.9f, 0.5f, 0.2f), new Color(0.15f, 0.15f, 0.22f), new Color(0.85f, 0.72f, 0.62f));
         patron1.name = "ClubPatron";
         patron1.AddComponent<ClubPatronAnimator>();
 
-        var patron2 = MapBuilder.BuildClubDancer(club, ToLocal(club, new Vector3(7.6f, 0.2f, 90.2f)),
+        var patron2 = MapBuilder.BuildClubDancer(club, ToLocal(club, new Vector3(7.6f, 0.45f, 90.2f)),
             ToLocalRot(club, 105f), new Color(0.4f, 0.75f, 0.95f), new Color(0.15f, 0.15f, 0.22f), new Color(0.85f, 0.72f, 0.62f));
         patron2.name = "ClubPatron";
         patron2.AddComponent<ClubPatronAnimator>();
 
-        var bouncer = MapBuilder.BuildClubDancer(club, ToLocal(club, new Vector3(8.8f, 0.2f, 92.9f)),
+        var bouncer = MapBuilder.BuildClubDancer(club, ToLocal(club, new Vector3(8.8f, 0.45f, 92.9f)),
             ToLocalRot(club, -90f), new Color(0.12f, 0.12f, 0.16f), new Color(0.1f, 0.1f, 0.13f), new Color(0.8f, 0.68f, 0.58f));
         bouncer.name = "ClubBouncer";
 
-        // ── Crate/barrel "delivery" cluster against the east wall ──
-        var crates = MakeHolder(club, "ClubCrates", new Vector3(9.3f, 0f, 102.4f));
+        // ── Crate/barrel "delivery" cluster inside the east wall, on the interior floor ──
+        var crates = MakeHolder(club, "ClubCrates", new Vector3(9.0f, 0.25f, 101.6f));
         MakeBlock("Crate", crates.transform, new Vector3(0.7f, 0.6f, 0.7f), new Vector3(0f, 0.3f, 0f), crateC, false);
         MakeBlock("Crate", crates.transform, new Vector3(0.7f, 0.6f, 0.7f), new Vector3(0.78f, 0.3f, 0.5f), crateC, false);
         MakeBlock("Barrel", crates.transform, new Vector3(0.55f, 0.85f, 0.55f), new Vector3(-0.2f, 0.42f, 1.0f), barrelC, false);
