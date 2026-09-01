@@ -320,10 +320,11 @@ public partial class WorldBuilder
         float spacing = 2.5f;
         float westX = -400f;
 
-        void SpawnBorderSegment(Vector3 pos, float scale)
+void SpawnBorderSegment(Vector3 pos, float scale)
         {
             var rock = MapBuilder.BuildBorderRock(_worldRoot.transform, pos, scale);
             rock.name = "BorderRock";
+            MeshCombiner.CombineStaticParts(rock);
         }
 
         for (float x = westX; x <= half; x += spacing)
@@ -355,8 +356,9 @@ public partial class WorldBuilder
 
         for (float x = 8f; x <= 20f; x += spacing)
         {
-            var rock = MapBuilder.BuildBorderRock(_worldRoot.transform, new Vector3(x, 0f, -half), Random.Range(0.8f, 1.2f));
+var rock = MapBuilder.BuildBorderRock(_worldRoot.transform, new Vector3(x, 0f, -half), Random.Range(0.8f, 1.2f));
             rock.name = "BorderRock";
+            MeshCombiner.CombineStaticParts(rock);
         }
     }
 
@@ -497,10 +499,20 @@ GameObject treeRoot;
                     rock = MapBuilder.BuildStone(_worldRoot.transform, new Vector3(x, 0f, z));
                     rock.name = "Rock" + _rockNameCounter++;
                 }
-                _rocks.Add(rock);
+_rocks.Add(rock);
+                MeshCombiner.CombineStaticParts(rock);
                 return;
             }
             attempts++;
+        }
+    }
+
+    public void CombineRockRenderers()
+    {
+        foreach (var rock in _rocks)
+        {
+            if (rock == null) continue;
+            MeshCombiner.CombineStaticParts(rock);
         }
     }
 

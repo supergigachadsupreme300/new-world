@@ -485,6 +485,7 @@ var spawnerGo = new GameObject("LivestockSpawner");
 
 SittableSeat.Register(_worldRoot.transform);
         NavGrid.EnsureCreated();
+        CombineRockRenderers();
         LogWorldBuildStats();
     }
     private void LogWorldBuildStats()
