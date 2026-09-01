@@ -191,7 +191,7 @@ private GameObject _panel;
         }
         else
         {
-            _uiManager?.ShowMessage(Localization.T("Hay thu lai lan sau!"), 2f);
+            _uiManager?.ShowMessage(Localization.T("Hãy thử lại lần sau!"), 2f);
         }
         Close();
     }
@@ -215,7 +215,7 @@ private GameObject _panel;
         panelImg.color = new Color(0.12f, 0.1f, 0.18f, 0.95f);
         panelImg.raycastTarget = true;
 
-        MakeText("Title", _panel.transform, Localization.T("Thien Tung"),
+        MakeText("Title", _panel.transform, Localization.T("Thiền Tụng"),
             new Vector2(0f, panelH * 0.38f), new Vector2(panelW - 40f, fontS * 1.5f),
             (int)(fontS * 1.3f), TextAlignmentOptions.Center, Color.white);
 
@@ -247,7 +247,7 @@ private GameObject _panel;
         _progressFill.color = new Color(0.9f, 0.75f, 0.1f);
         _progressFill.raycastTarget = false;
 
-        MakeText("Instruction", _panel.transform, Localization.T("Go doan van ben duoi..."),
+        MakeText("Instruction", _panel.transform, Localization.T("Gõ đoạn văn bên dưới..."),
             new Vector2(0f, panelH * 0.16f), new Vector2(panelW - 40f, fontS * 1.2f),
             (int)(fontS * 0.8f), TextAlignmentOptions.Center, new Color(0.8f, 0.8f, 0.8f));
 
@@ -263,7 +263,7 @@ private GameObject _panel;
         if (_inputText != null)
             _inputText.textWrappingMode = TextWrappingModes.Normal;
 
-        MakeText("Hint", _panel.transform, Localization.T("ESC de dung | Backspace de xoa"),
+        MakeText("Hint", _panel.transform, Localization.T("ESC để dừng | Backspace để xóa"),
             new Vector2(0f, -panelH * 0.35f), new Vector2(panelW - 40f, fontS),
             (int)(fontS * 0.7f), TextAlignmentOptions.Center, new Color(0.5f, 0.5f, 0.5f));
 

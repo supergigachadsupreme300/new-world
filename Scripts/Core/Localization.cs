@@ -919,12 +919,12 @@ public static class Localization
         { "Nhấn E để thiền định", "Press E to meditate" },
         { "Chạm để thiền định", "Tap to meditate" },
         { "Thanh tinh! +1 Max Karma", "Pure! +1 Max Karma" },
-        { "Hay thu lai lan sau!", "Try again next time!" },
+        { "Hãy thử lại lần sau!", "Try again next time!" },
         { "Hết phước đức!", "Out of karma!" },
         { "Phước Đức", "Karma" },
-        { "Thien Tung", "Meditation" },
-        { "Go doan van ben duoi...", "Type the paragraph below..." },
-        { "ESC de dung | Backspace de xoa", "ESC to stop | Backspace to delete" },
+        { "Thiền Tụng", "Meditation" },
+        { "Gõ đoạn văn bên dưới...", "Type the paragraph below..." },
+        { "ESC để dừng | Backspace để xóa", "ESC to stop | Backspace to delete" },
 
         // Skills & XP
         { "Cấp độ Canh Tác lên {0}! Bạn thu hoạch và hồi sức hiệu quả hơn.", "Farming reached level {0}! You harvest and use stamina more efficiently." },
