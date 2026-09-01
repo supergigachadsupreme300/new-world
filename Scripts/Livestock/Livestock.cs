@@ -156,7 +156,7 @@ public class Livestock : MonoBehaviour
         if (toTarget.magnitude > 0.3f)
         {
             Vector3 dir = toTarget.normalized;
-            _wantedVel = transform.forward * _moveSpeed;
+            _wantedVel = dir * _moveSpeed;
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 14f);
             AnimateLegs(true);
         }
@@ -180,7 +180,7 @@ public class Livestock : MonoBehaviour
         awayDir.y = 0f;
         if (awayDir.sqrMagnitude > 0.01f)
         {
-            _wantedVel = transform.forward * _moveSpeed * 2f;
+            _wantedVel = awayDir * _moveSpeed * 2f;
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(awayDir), Time.deltaTime * 16f);
         }
         else
@@ -200,7 +200,7 @@ public class Livestock : MonoBehaviour
 
         Vector3 dir = (player.transform.position - transform.position).normalized;
         dir.y = 0f;
-        _wantedVel = transform.forward * _moveSpeed * 3f;
+        _wantedVel = dir * _moveSpeed * 3f;
         if (dir.sqrMagnitude > 0.01f)
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 16f);
         AnimateLegs(true);
