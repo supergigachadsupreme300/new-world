@@ -59,7 +59,9 @@ PHASE 2 — Long-term progression
       pattern in UIManager.HUD.cs) listing track + XP + next level, opened
       from a hotkey.
     - SaveManager integration (new SkillSaveData; no combat track).
-    [IN PROGRESS 2026-09-01: 2A.1]
+    [DONE 2026-09-01: 2A.1 — SkillManager (2 tracks, lv1-5, slot-saved),
+     farming XP on harvest + cheaper farm-tool stamina; fishing XP on catch
+     + lower flop chance + faster reel. Perks (2/4) + HUD panel = 2A.2.]
 
 2B. FUNCTIONAL BUILDINGS
     - Placed buildings are cosmetic (BlueprintState/CompleteBlueprint spawn
@@ -102,6 +104,6 @@ STATUS
 -----------------------------------------------------------------------
 Phase 1A: DONE (2026-08-31)
 Phase 1B: DONE (2026-08-31)
-Phase 2 : IN PROGRESS (2026-09-01, 2A.1)
+Phase 2 : IN PROGRESS (2026-09-01)
 Phase 3 : NOT STARTED
 ========================================================================
