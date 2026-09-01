@@ -284,6 +284,12 @@ private Transform _shopRoot;
                 new BuildingPartDefinition { PartName = "Base", LocalPosition = new Vector3(0f, -0.6f, 0f), LocalScale = new Vector3(2.2f, 0.5f, 2.2f), MaterialType = "stone" },
                 new BuildingPartDefinition { PartName = "Kettle", LocalPosition = new Vector3(0f, 0.15f, 0f), LocalScale = new Vector3(1.4f, 0.9f, 1.4f), MaterialType = "stone" },
                 new BuildingPartDefinition { PartName = "Spigot", LocalPosition = new Vector3(0.5f, -0.1f, 0f), LocalScale = new Vector3(0.3f, 0.2f, 0.3f), MaterialType = "wood" }
+            }),
+        new BuildingDefinition("chest", new Vector3(1.4f, 1f, 0.9f), new Color(0.58f, 0.38f, 0.18f), 4, 1,
+            new BuildingPartDefinition[]
+            {
+                new BuildingPartDefinition { PartName = "Base", LocalPosition = new Vector3(0f, -0.32f, 0f), LocalScale = new Vector3(1.4f, 0.5f, 0.9f), MaterialType = "wood" },
+                new BuildingPartDefinition { PartName = "Lid", LocalPosition = new Vector3(0f, 0.18f, 0f),  LocalScale = new Vector3(1.4f, 0.28f, 0.9f), MaterialType = "wood" }
             })
     };
 
@@ -309,7 +315,8 @@ private Transform _shopRoot;
         { "workshop", 200 },
         { "crafting_stove", 20 },
         { "preserve_jar", 20 },
-        { "brewing_kettle", 30 }
+        { "brewing_kettle", 30 },
+        { "chest", 60 }
     };
 
     private readonly HashSet<string> _unlockedBlueprints = new HashSet<string>();

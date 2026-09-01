@@ -88,6 +88,13 @@ public partial class ToolManager
         return slot?.Type;
     }
 
+    public InventorySlot PeekSlot(int index)
+    {
+        if (index < 0 || index >= _inventory.Length)
+            return null;
+        return _inventory[index];
+    }
+
     public InventorySlotSave[] GetInventorySave()
     {
         var result = new List<InventorySlotSave>();

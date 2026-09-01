@@ -257,7 +257,8 @@ public static class Localization
         { "workshop", "Xưởng Chế Tạo" },
         { "crafting_stove", "Bếp Nấu" },
         { "preserve_jar", "Lọ Ngâm" },
-        { "brewing_kettle", "Nồi Ủ" }
+        { "brewing_kettle", "Nồi Ủ" },
+        { "chest", "Rương Đồ" }
     };
 
     private static readonly Dictionary<string, string> MansionParts = new Dictionary<string, string>
@@ -971,6 +972,17 @@ public static class Localization
 
         // Chest storage (Phase 3C)
         { "Đã sắp xếp túi đồ.", "Inventory sorted & stacked." },
+        { "Rương Đồ", "Chest" },
+        { "Rương", "Chest" },
+        { "Túi", "Bag" },
+        { "Túi đồ", "Your bag" },
+        { "Lấy", "Take" },
+        { "Cất", "Store" },
+        { "Rương đầy.", "The chest is full." },
+        { "Đã lấy {0} từ rương.", "Took {0} from the chest." },
+        { "Đã cất {0} vào rương.", "Stored {0} into the chest." },
+        { "Trong rương: {0}/{1} loại — {2}", "In the chest: {0}/{1} types - {2}" },
+        { "Chọn Lấy hoặc Cất", "Choose Take or Store" },
 
         // Event Test Panel
         { "Sự Kiện", "Events" },

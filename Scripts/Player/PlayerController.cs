@@ -523,6 +523,14 @@ public class PlayerController : MonoBehaviour
                             GoblinChestMenu.Ensure().Open();
                             return;
                         }
+                        var chestHit = hit.collider.transform;
+                        while (chestHit != null && chestHit.name != "chest")
+                            chestHit = chestHit.parent;
+                        if (chestHit != null)
+                        {
+                            PlayerChestMenu.Ensure().OpenAt(chestHit.position);
+                            return;
+                        }
                         if (CraftingManager.ResolveStationCategory(hit.collider) != null)
                         {
                             CraftingManager.Ensure().InteractStation(hit.collider);
