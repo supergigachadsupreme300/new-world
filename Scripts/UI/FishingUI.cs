@@ -23,6 +23,9 @@ public class FishingUI : MonoBehaviour
     private float _greenDir = 1f;
     private float _greenPos;
 
+    private float _reelScale = 1f;
+    private float _zoneSpeedMul = 1f;
+
     public float PlayerLinePos { get; private set; } = 0f;
     public float Progress { get; private set; } = 0.5f;
     private float _turnVelocity;
@@ -139,6 +142,12 @@ public class FishingUI : MonoBehaviour
         Hide();
     }
 
+    public void SetReelParameters(float reelScale, float zoneSpeedMul)
+    {
+        _reelScale = Mathf.Max(0.1f, reelScale);
+        _zoneSpeedMul = Mathf.Max(0.1f, zoneSpeedMul);
+    }
+
     public void Show()
     {
         _barBg.gameObject.SetActive(true);
@@ -191,7 +200,7 @@ public class FishingUI : MonoBehaviour
     {
         if (!_barBg.gameObject.activeSelf) return;
 
-        float step = _greenSpeed * deltaTime;
+        float step = _greenSpeed * _zoneSpeedMul * deltaTime;
         _greenPos += step * _greenDir;
         if (_greenPos > _greenMax) { _greenPos = _greenMax; _greenDir = -1f; }
         if (_greenPos < _greenMin) { _greenPos = _greenMin; _greenDir = 1f; }
@@ -207,9 +216,8 @@ public class FishingUI : MonoBehaviour
 
         bool inZone = Mathf.Abs(PlayerLinePos - _greenPos) <= _zoneHalf - 4f;
         float rate = 0.4f * deltaTime;
-        float reelMul = SkillManager.Instance != null ? SkillManager.Instance.FishingReelMultiplier() : 1f;
         if (inZone)
-            Progress = Mathf.Min(1f, Progress + rate * 0.6f * reelMul);
+            Progress = Mathf.Min(1f, Progress + rate * 0.6f * _reelScale);
         else
             Progress = Mathf.Max(0f, Progress - rate * 0.125f);
 

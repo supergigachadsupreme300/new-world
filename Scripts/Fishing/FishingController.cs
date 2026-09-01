@@ -13,7 +13,6 @@ public class FishingController : MonoSingleton<FishingController>
     public float FishApproachSpeed = 2f;
     public float FlopChance = 0.4f;
 
-    private float _effectiveFlopChance;
     private float[] _effectiveWeights;
 
     private const float CastGravity = 4f;
@@ -33,9 +32,38 @@ public class FishingController : MonoSingleton<FishingController>
     private bool _wheelWasGrabbed;
     private float _lastWheelAngle;
 
+    private int _currentFishIndex = -1;
+    private float _currentFlop;
+    private int _baitUsed; // 0 none, 1 bait, 2 chum
+
     private static readonly string[] FishTypes = { "fish_carp", "fish_salmon", "fish_tuna", "fish_pufferfish" };
-    private static readonly float[] FishWeights = { 40f, 30f, 20f, 10f };
     private static readonly string[] FishLabels = { "Cá Chép", "Cá Hồi", "Cá Ngừ", "Cá Nóc" };
+
+    // Per-species reeling difficulty (Phase 3A). Higher tier = harder.
+    private struct FishData
+    {
+        public float Weight;
+        public float Flop;
+        public float ReelMul;
+        public float ZoneMul;
+    }
+    private static readonly FishData[] FishStats =
+    {
+        new FishData { Weight = 40f, Flop = 0.30f, ReelMul = 1.00f, ZoneMul = 1.00f }, // carp - easy
+        new FishData { Weight = 30f, Flop = 0.40f, ReelMul = 0.92f, ZoneMul = 1.10f }, // salmon
+        new FishData { Weight = 20f, Flop = 0.52f, ReelMul = 0.82f, ZoneMul = 1.28f }, // tuna
+        new FishData { Weight = 10f, Flop = 0.62f, ReelMul = 0.72f, ZoneMul = 1.45f }  // pufferfish - hardest
+    };
+
+    private static float[] FishWeights
+    {
+        get
+        {
+            var w = new float[FishStats.Length];
+            for (int i = 0; i < w.Length; i++) w[i] = FishStats[i].Weight;
+            return w;
+        }
+    }
 
     protected override void Awake()
     {
@@ -115,23 +143,21 @@ public class FishingController : MonoSingleton<FishingController>
         _hookTarget.y = 0.1f;
 
         var tm = ToolManager.Instance;
-        _effectiveFlopChance = FlopChance;
-        if (SkillManager.Instance != null)
-            _effectiveFlopChance *= SkillManager.Instance.FishingFlopMultiplier();
-        _effectiveWeights = (float[])FishWeights.Clone();
+        _baitUsed = 0;
+        _effectiveWeights = FishWeights;
         if (tm != null)
         {
             if (tm.CountItem("fishing_chum") > 0)
             {
                 tm.RemoveItemAmount("fishing_chum", 1);
-                _effectiveFlopChance = 0.1f;
+                _baitUsed = 2;
                 _effectiveWeights[3] *= 2f;
                 _uiManager?.ShowMessage(Localization.T("Đã dùng Mồi Bả!"), 1.5f);
             }
             else if (tm.CountItem("fishing_bait") > 0)
             {
                 tm.RemoveItemAmount("fishing_bait", 1);
-                _effectiveFlopChance = 0.2f;
+                _baitUsed = 1;
                 _uiManager?.ShowMessage(Localization.T("Đã dùng Mồi Câu!"), 1.5f);
             }
         }
@@ -258,6 +284,24 @@ public class FishingController : MonoSingleton<FishingController>
         _wheelGrabbed = false;
         _wheelWasGrabbed = false;
         _lastWheelAngle = 0f;
+
+        _currentFishIndex = PickFishType();
+
+        float flop = FishStats[_currentFishIndex].Flop;
+        if (SkillManager.Instance != null)
+            flop *= SkillManager.Instance.FishingFlopMultiplier();
+        if (FishingProgression.Instance != null)
+            flop *= FishingProgression.Instance.RodFlopMultiplier();
+        if (_baitUsed == 2) flop = 0.1f;
+        else if (_baitUsed == 1) flop = 0.2f;
+        _currentFlop = Mathf.Clamp01(flop);
+
+        float skillReel = SkillManager.Instance != null ? SkillManager.Instance.FishingReelMultiplier() : 1f;
+        float rodReel = FishingProgression.Instance != null ? FishingProgression.Instance.RodReelMultiplier() : 1f;
+        float speciesReel = FishStats[_currentFishIndex].ReelMul;
+        float zoneMul = FishStats[_currentFishIndex].ZoneMul;
+        _fishingUI.SetReelParameters(skillReel * rodReel * speciesReel, zoneMul);
+
         _fishingUI.Show();
     }
 
@@ -325,13 +369,13 @@ public class FishingController : MonoSingleton<FishingController>
 
     private void OnCatchFish()
     {
-        int idx = PickFishType();
+        int idx = _currentFishIndex >= 0 ? _currentFishIndex : PickFishType();
         string fishType = FishTypes[idx];
         string fishLabel = FishLabels[idx];
 
         var player = GameManager.Instance?.Player;
 
-        if (Random.value < _effectiveFlopChance)
+        if (Random.value < _currentFlop)
         {
             SpawnFlappingFish(player, fishType, fishLabel);
             _uiManager?.ShowMessage(Localization.F("Bắt được {0}! Nó quẫy trên bờ — dùng gậy gõ cho xỉu!", Localization.T(fishLabel)), 3f);
@@ -403,6 +447,7 @@ public class FishingController : MonoSingleton<FishingController>
     {
         if (_hook != null) { Object.Destroy(_hook); _hook = null; }
         if (_fishShadow != null) { Object.Destroy(_fishShadow); _fishShadow = null; }
+        _currentFishIndex = -1;
         _fishingUI.Hide();
         State = FishState.Idle;
         GameManager.Instance?.Player?.EnableInput(true);

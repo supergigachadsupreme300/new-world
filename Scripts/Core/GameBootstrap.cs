@@ -41,6 +41,7 @@ public class GameBootstrap : MonoBehaviour
         var karmaManager = Object.FindAnyObjectByType<KarmaManager>() ?? root.AddComponent<KarmaManager>();
         var skillManager = Object.FindAnyObjectByType<SkillManager>() ?? root.AddComponent<SkillManager>();
         var friendshipManager = Object.FindAnyObjectByType<FriendshipManager>() ?? root.AddComponent<FriendshipManager>();
+        var fishingProgression = Object.FindAnyObjectByType<FishingProgression>() ?? root.AddComponent<FishingProgression>();
         var typingMinigame = Object.FindAnyObjectByType<TypingMinigame>() ?? root.AddComponent<TypingMinigame>();
 
         gameManager.UIManager = uiManager;
@@ -64,5 +65,6 @@ public class GameBootstrap : MonoBehaviour
         karmaManager.Initialize();
         skillManager.Initialize();
         friendshipManager.Initialize();
+        fishingProgression.Initialize();
     }
 }

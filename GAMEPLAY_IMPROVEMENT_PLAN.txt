@@ -110,6 +110,11 @@ between each.
 PHASE 3 — Depth tuning & QOL
 -----------------------------------------------------------------------
 3A. Fishing per-species reeling difficulty + rod upgrades
+    [DONE 2026-09-01] Fish species now picked at reel-start and difficulty is
+     per-species (reel gain, green-zone speed, flop) via a FishStats table in
+     FishingController + SetReelParameters in FishingUI. Rod upgrades (0->3)
+     purchased at the FishingShop (rod_upgrade_1/2/3): +reel gain, -flop.
+     Persisted via SaveManager fishingRodJson.
 3B. Crop variety metadata (per-crop grow/season/quality)
 3C. Player chest storage + sort/auto-stack
 3D. Horse mount + fast-travel road signs
@@ -120,5 +125,5 @@ STATUS
 Phase 1A: DONE (2026-08-31)
 Phase 1B: DONE (2026-08-31)
 Phase 2 : DONE (2026-09-01)
-Phase 3 : NOT STARTED
+Phase 3 : IN PROGRESS (2026-09-01) — 3A DONE, 3B/3C/3D pending
 ========================================================================

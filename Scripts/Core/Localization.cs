@@ -957,6 +957,12 @@ public static class Localization
         { "Nhấn số để tặng, G để đóng, Space để đổi trang", "Press a number to give, G to close, Space to switch page" },
         { "Túi đồ không có món quà nào.", "No gift items in your inventory." },
 
+        // Fishing rod upgrades (Phase 3A)
+        { "Cần Câu đã nâng lên Cấp {0}!", "Fishing rod upgraded to Level {0}!" },
+        { "Nâng cấp này yêu cầu cần câu Cấp {0} trước.", "This upgrade requires the rod at Level {0} first." },
+        { "Cần câu đã ở cấp tối đa của bậc này.", "The rod is already at the max of this tier." },
+        { "Bạn cần nâng cấp cần câu đúng thứ tự.", "You must upgrade the rod in order." },
+
         // Event Test Panel
         { "Sự Kiện", "Events" },
         { "SỰ KIỆN TEST", "EVENT TEST" },

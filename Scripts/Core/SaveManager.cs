@@ -64,6 +64,7 @@ public class SaveManager : MonoSingleton<SaveManager>
             karmaMax = KarmaManager.Instance != null ? KarmaManager.Instance.MaxKarma : 5f,
             skillStateJson = SkillManager.Instance != null ? SkillManager.Instance.SerializeState() : "",
             friendshipStateJson = FriendshipManager.Instance != null ? FriendshipManager.Instance.SerializeState() : "",
+            fishingRodJson = FishingProgression.Instance != null ? FishingProgression.Instance.SerializeState() : "",
             goblinStorage = GoblinPet.Instance != null ? GoblinPet.Instance.GetStorageSaveItems() : null,
             goblinHeldSeed = GoblinPet.Instance != null ? GoblinPet.Instance.HeldSeedType : "",
             goblinCarriedCrop = GoblinPet.Instance != null ? GoblinPet.Instance.CarriedCrop : ""
@@ -170,6 +171,9 @@ public class SaveManager : MonoSingleton<SaveManager>
         if (FriendshipManager.Instance != null && !string.IsNullOrEmpty(data.friendshipStateJson))
             FriendshipManager.Instance.DeserializeState(data.friendshipStateJson);
 
+        if (FishingProgression.Instance != null && !string.IsNullOrEmpty(data.fishingRodJson))
+            FishingProgression.Instance.DeserializeState(data.fishingRodJson);
+
         var spawner = Object.FindAnyObjectByType<LivestockSpawner>();
         if (spawner != null) spawner.Restart();
 
@@ -234,6 +238,7 @@ public class SaveManager : MonoSingleton<SaveManager>
         public float karmaMax;
         public string skillStateJson;
         public string friendshipStateJson;
+        public string fishingRodJson;
         public List<GoblinPet.GoblinStorageSaveItem> goblinStorage;
         public string goblinHeldSeed;
         public string goblinCarriedCrop;

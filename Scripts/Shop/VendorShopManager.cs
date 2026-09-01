@@ -115,6 +115,9 @@ public class VendorShopManager : MonoBehaviour
     private List<ShopItem> _fishingBuyItems = new List<ShopItem>
     {
         new ShopItem { Type = "fishing_rod", Label = "Cần Câu", Price = 50 },
+        new ShopItem { Type = "rod_upgrade_1", Label = "Cần Câu Cấp 1", Price = 40 },
+        new ShopItem { Type = "rod_upgrade_2", Label = "Cần Câu Cấp 2", Price = 80 },
+        new ShopItem { Type = "rod_upgrade_3", Label = "Cần Câu Cấp 3", Price = 200 },
         new ShopItem { Type = "fishing_bait", Label = "Mồi Câu", Price = 15 },
         new ShopItem { Type = "fishing_chum", Label = "Mồi Bả", Price = 25 },
         new ShopItem { Type = "fish_carp", Label = "Cá Chép", Price = 20 },
@@ -498,6 +501,21 @@ public class VendorShopManager : MonoBehaviour
         if (player.Money < price)
         {
             ShowMessage(Localization.T("Không đủ tiền"));
+            return;
+        }
+
+        if (item.Type == "rod_upgrade_1" || item.Type == "rod_upgrade_2" || item.Type == "rod_upgrade_3")
+        {
+            var fp = FishingProgression.Instance;
+            int target = item.Type == "rod_upgrade_3" ? 3 : (item.Type == "rod_upgrade_2" ? 2 : 1);
+            if (fp == null || fp.RodLevel + 1 != target)
+            {
+                ShowMessage(Localization.T("Bạn cần nâng cấp cần câu đúng thứ tự."));
+                return;
+            }
+            string result = fp.TryUpgrade(target);
+            player.Money -= price;
+            ShowMessage(result);
             return;
         }
 
