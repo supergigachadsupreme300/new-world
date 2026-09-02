@@ -128,19 +128,22 @@ public class FastTravelMenu : MonoBehaviour
                 ? Localization.T("[Đóng] (Chạm)")
                 : Localization.T("[Đóng] Ấn E");
 
-        float y = -8f;
         for (int i = 0; i < _signs.Count; i++)
         {
             int num = i + 1;
             CreateRow("TravelRow" + i,
                 string.Format("{0}. {1}", num, Localization.T(_signs[i].Label)),
-                new Color(0.8f, 0.9f, 0.85f), y,
+                new Color(0.8f, 0.9f, 0.85f),
                 Localization.F("Đi {0}", num), () => TravelTo(_signs[i]));
-            y -= 46f;
         }
+
+        var contentRt = _content != null ? _content.GetComponent<RectTransform>() : null;
+        if (contentRt != null)
+            contentRt.sizeDelta = new Vector2(0f,
+                4f + _rows.Count * 40f + (_rows.Count > 0 ? (_rows.Count - 1) * 4f : 0f) + 4f);
     }
 
-    private void CreateRow(string rowName, string label, Color color, float y, string buttonText,
+    private void CreateRow(string rowName, string label, Color color, string buttonText,
         UnityEngine.Events.UnityAction onClick)
     {
         var row = new GameObject(rowName);
@@ -149,8 +152,12 @@ public class FastTravelMenu : MonoBehaviour
         rowRt.anchorMin = new Vector2(0f, 1f);
         rowRt.anchorMax = new Vector2(1f, 1f);
         rowRt.pivot = new Vector2(0.5f, 1f);
-        rowRt.anchoredPosition = new Vector2(0f, y);
+        rowRt.anchoredPosition = Vector2.zero;
         rowRt.sizeDelta = new Vector2(0f, 40f);
+        var rowLE = row.AddComponent<LayoutElement>();
+        rowLE.preferredHeight = 40f;
+        rowLE.flexibleHeight = 0f;
+        rowLE.flexibleWidth = 1f;
 
         var rowImg = row.AddComponent<Image>();
         rowImg.color = ColorPalette.UIBackdrop;
@@ -226,14 +233,79 @@ public class FastTravelMenu : MonoBehaviour
         _titleText = MakeText("FastTravelTitle", rt, new Vector2(0f, panelH * 0.38f),
             "", 24, new Color(0.95f, 0.8f, 0.5f), new Vector2(panelW - 40f, 34f));
 
+        float contentW = panelW - 40f;
+        float viewportH = panelH * 0.55f;
+        float scrollbarW = 12f;
+
+        var viewportGo = new GameObject("FastTravelViewport");
+        viewportGo.transform.SetParent(_panel.transform, false);
+        var viewportRt = viewportGo.AddComponent<RectTransform>();
+        viewportRt.anchorMin = new Vector2(0.5f, 0.5f);
+        viewportRt.anchorMax = new Vector2(0.5f, 0.5f);
+        viewportRt.pivot = new Vector2(0.5f, 0.5f);
+        viewportRt.anchoredPosition = new Vector2(0f, -panelH * 0.05f);
+        viewportRt.sizeDelta = new Vector2(contentW, viewportH);
+        viewportGo.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+        viewportGo.AddComponent<RectMask2D>();
+
         _content = new GameObject("FastTravelContent");
-        _content.transform.SetParent(_panel.transform, false);
+        _content.transform.SetParent(viewportGo.transform, false);
         var contentRt = _content.AddComponent<RectTransform>();
-        contentRt.anchorMin = new Vector2(0.5f, 0.5f);
-        contentRt.anchorMax = new Vector2(0.5f, 0.5f);
-        contentRt.pivot = new Vector2(0.5f, 0.5f);
-        contentRt.anchoredPosition = new Vector2(0f, -panelH * 0.05f);
-        contentRt.sizeDelta = new Vector2(panelW - 40f, panelH * 0.55f);
+        contentRt.anchorMin = new Vector2(0f, 1f);
+        contentRt.anchorMax = new Vector2(1f, 1f);
+        contentRt.pivot = new Vector2(0.5f, 1f);
+        contentRt.anchoredPosition = Vector2.zero;
+        contentRt.sizeDelta = new Vector2(0f, 0f);
+        var vlg = _content.AddComponent<VerticalLayoutGroup>();
+        vlg.spacing = 4f;
+        vlg.padding = new RectOffset(4, 4, 4, 4);
+        vlg.childControlWidth = true;
+        vlg.childControlHeight = false;
+        vlg.childForceExpandWidth = true;
+        vlg.childForceExpandHeight = false;
+
+        var scrollbarGo = new GameObject("FastTravelScrollbar");
+        scrollbarGo.transform.SetParent(_panel.transform, false);
+        var scrollbarRt = scrollbarGo.AddComponent<RectTransform>();
+        scrollbarRt.anchorMin = new Vector2(0.5f, 0.5f);
+        scrollbarRt.anchorMax = new Vector2(0.5f, 0.5f);
+        scrollbarRt.pivot = new Vector2(0.5f, 0.5f);
+        scrollbarRt.anchoredPosition = new Vector2(contentW * 0.5f - scrollbarW * 0.5f - 2f, -panelH * 0.05f);
+        scrollbarRt.sizeDelta = new Vector2(scrollbarW, viewportH);
+        var scrollbarImg = scrollbarGo.AddComponent<Image>();
+        scrollbarImg.color = new Color(0.15f, 0.15f, 0.15f, 0.6f);
+        var scrollbar = scrollbarGo.AddComponent<Scrollbar>();
+
+        var handleArea = new GameObject("SlidingArea");
+        handleArea.transform.SetParent(scrollbarGo.transform, false);
+        var haRt = handleArea.AddComponent<RectTransform>();
+        haRt.anchorMin = Vector2.zero;
+        haRt.anchorMax = Vector2.one;
+        haRt.offsetMin = new Vector2(2f, 4f);
+        haRt.offsetMax = new Vector2(-2f, -4f);
+        var handle = new GameObject("Handle");
+        handle.transform.SetParent(handleArea.transform, false);
+        var hRt = handle.AddComponent<RectTransform>();
+        hRt.anchorMin = Vector2.zero;
+        hRt.anchorMax = new Vector2(1f, 0.3f);
+        hRt.offsetMin = Vector2.zero;
+        hRt.offsetMax = Vector2.zero;
+        var hImg = handle.AddComponent<Image>();
+        hImg.color = new Color(0.5f, 0.5f, 0.5f, 0.8f);
+        scrollbar.handleRect = hRt;
+        scrollbar.targetGraphic = hImg;
+        scrollbar.direction = Scrollbar.Direction.BottomToTop;
+
+        var scrollRect = viewportGo.AddComponent<ScrollRect>();
+        scrollRect.viewport = viewportRt;
+        scrollRect.content = contentRt;
+        scrollRect.horizontal = false;
+        scrollRect.vertical = true;
+        scrollRect.verticalScrollbar = scrollbar;
+        scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHideAndExpandViewport;
+        scrollRect.verticalScrollbarSpacing = 0f;
+        scrollRect.movementType = ScrollRect.MovementType.Clamped;
+        scrollRect.scrollSensitivity = 30f;
 
         _closeText = MakeText("FastTravelClose", rt, new Vector2(0f, -panelH * 0.4f),
             "", 16, new Color(0.9f, 0.9f, 0.9f), new Vector2(panelW - 40f, 26f));

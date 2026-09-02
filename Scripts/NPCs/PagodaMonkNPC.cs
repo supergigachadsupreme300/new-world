@@ -41,6 +41,7 @@ private Transform _myTransform;
     private int _blessedDay = -1;
     private bool _waitingOffering;
     private bool _waitingMeditation;
+    private bool _meditationOptionShown;
 
     public bool IsDialogActive => _dialogActive;
 
@@ -116,6 +117,7 @@ private Transform _myTransform;
                 "Con đã nhận phước lành hôm nay rồi.");
         }
         _dialogQueue.Enqueue("Con có muốn thiền định để gia tăng giới hạn phước đức không?");
+        _meditationOptionShown = false;
         Advance();
         _waitingMeditation = true;
     }
@@ -178,6 +180,7 @@ private Transform _myTransform;
         if (_waitingMeditation && _dialogQueue.Count == 0)
         {
             _waitingMeditation = false;
+            _meditationOptionShown = false;
             if (_meditationRow != null)
                 _meditationRow.SetActive(false);
             Hide();
@@ -191,6 +194,8 @@ private Transform _myTransform;
         _dialogText.text = Localization.T(_dialogQueue.Dequeue());
         bool offeringShown = _waitingOffering && _dialogText.text == Localization.T(_offerLine);
         bool meditationShown = _waitingMeditation && _dialogText.text == Localization.T(_meditationQuestion);
+        if (meditationShown)
+            _meditationOptionShown = true;
         _promptText.text = _dialogQueue.Count > 0
             ? (GameInput.IsMobile ? Localization.T("Chạm để tiếp tục") : Localization.T("Nhấn E để tiếp tục"))
             : offeringShown
@@ -199,10 +204,10 @@ private Transform _myTransform;
                     ? (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"))
                     : (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"));
         if (_promptText != null)
-            _promptText.gameObject.SetActive(!meditationShown);
+            _promptText.gameObject.SetActive(!_meditationOptionShown);
         if (_meditationRow != null)
-            _meditationRow.SetActive(meditationShown);
-        if (meditationShown && _meditationText != null)
+            _meditationRow.SetActive(_meditationOptionShown);
+        if (_meditationOptionShown && _meditationText != null)
             _meditationText.text = GameInput.IsMobile
                 ? Localization.T("[Thiền Định] (Chạm)")
                 : Localization.T("[Thiền Định] Nhấn T");
@@ -237,6 +242,7 @@ private Transform _myTransform;
     public void Hide()
     {
         _dialogActive = false;
+        _meditationOptionShown = false;
         if (_panel != null)
             _panel.SetActive(false);
         if (_myTransform != null)
@@ -247,6 +253,7 @@ private Transform _myTransform;
         if (!_waitingMeditation || !_dialogActive)
             return;
         _waitingMeditation = false;
+        _meditationOptionShown = false;
         if (_meditationRow != null)
             _meditationRow.SetActive(false);
         if (_promptText != null)

@@ -490,7 +490,7 @@ public partial class WorldBuilder
         }
     }
 
-private bool HasMansionStructure()
+public bool HasMansionStructure()
     {
         if (_worldRoot == null) return false;
         if (HasPlayerMansion()) return true;

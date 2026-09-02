@@ -157,6 +157,10 @@ public partial class UIManager
         for (int i = _libraryLearnContent.childCount - 1; i >= 0; i--)
             Object.Destroy(_libraryLearnContent.GetChild(i).gameObject);
 
+        var contentRt = _libraryLearnContent.GetComponent<RectTransform>();
+        const float spacing = 4f;
+        const float padding = 4f;
+
         var wb = WorldBuilder.Instance;
         var list = wb != null ? wb.GetResearchableBlueprints() : new List<(string Name, int Cost)>();
         float rowH = Mathf.Max(26f, Screen.height * 0.045f);
@@ -181,6 +185,8 @@ public partial class UIManager
             txt.fontSize = (int)(rowH * 0.55f);
             txt.color = new Color(0.9f, 0.9f, 0.9f);
             txt.alignment = TextAlignmentOptions.Center;
+            if (contentRt != null)
+                contentRt.sizeDelta = new Vector2(0f, padding + rowH * 2f + padding);
             return;
         }
 
@@ -217,6 +223,9 @@ public partial class UIManager
                 txt.color = affordable ? Color.white : new Color(0.75f, 0.75f, 0.75f);
             }
         }
+
+        if (contentRt != null)
+            contentRt.sizeDelta = new Vector2(0f, padding + list.Count * rowH + (list.Count - 1) * spacing + padding);
     }
 
     private float viewportMaxWidth()

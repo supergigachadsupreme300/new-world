@@ -236,7 +236,9 @@ public class WifeNPC : MonoSingleton<WifeNPC>
         {
             _hasProposed = true;
             HideDialog();
-            WorldBuilder.Instance?.PlaceMansionBlueprint(WorldBuilder.MansionBasePos);
+            var wb = WorldBuilder.Instance;
+            if (wb != null && !wb.HasMansionStructure() && !wb.AreAnyMansionBlueprintsActive())
+                wb.PlaceMansionBlueprint(WorldBuilder.MansionBasePos);
             QuestManager.Instance?.AddStoryQuest(
                 "Xây Dựng Dinh Thự Cho Jessica",
                 "mansion", 1, 5000,
@@ -790,7 +792,7 @@ public class WifeNPC : MonoSingleton<WifeNPC>
         {
             State = (WifeState)data.state;
             Married = data.married;
-            _affection = data.affection;
+            _affection = Mathf.Clamp(data.affection, 0f, 100f);
             _lastWifeQuestDay = data.lastWifeQuestDay;
             _hasProposed = data.hasProposed;
             _chainStep = data.chainStep;
@@ -840,7 +842,7 @@ public class WifeNPC : MonoSingleton<WifeNPC>
 
         bool mansionComplete = IsMansionComplete();
 
-        if (mansionComplete)
+        if (mansionComplete && _hasProposed)
         {
             State = WifeState.Married;
             Married = true;
@@ -930,6 +932,8 @@ public class WifeNPC : MonoSingleton<WifeNPC>
     {
         var wb = WorldBuilder.Instance;
         if (wb == null) return false;
+        if (!wb.HasMansionStructure())
+            return false;
         return wb.GetMansionCompletedParts() >= 1;
     }
 
@@ -1046,6 +1050,8 @@ public class WifeNPC : MonoSingleton<WifeNPC>
         _wifeQuestNames.Clear();
         _wifeQuestTargets.Clear();
         _wifeQuestCounts.Clear();
+        PlayerPrefs.DeleteKey("WifeNPC");
+        PlayerPrefs.Save();
     }
 
     private List<string> GetWifeQuestDescriptions()
