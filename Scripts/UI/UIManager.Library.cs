@@ -208,7 +208,8 @@ public partial class UIManager
             {
                 txt.text = string.Format("{0} — {1}🪙", Localization.BuildingName(list[i].Name), list[i].Cost);
                 txt.fontSize = Mathf.Max(11, (int)(rowH * 0.5f));
-                txt.alignment = TextAlignmentOptions.MiddleLeft;
+                txt.alignment = TextAlignmentOptions.Left;
+                txt.verticalAlignment = VerticalAlignmentOptions.Middle;
                 txt.color = affordable ? Color.white : new Color(0.75f, 0.75f, 0.75f);
             }
         }
