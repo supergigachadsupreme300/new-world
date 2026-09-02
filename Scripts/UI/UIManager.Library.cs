@@ -18,6 +18,9 @@ public partial class UIManager
         {
             if (_libraryLearnPanel != null)
                 _libraryLearnPanel.SetActive(false);
+            bool paused = GameManager.Instance != null && GameManager.Instance.GamePaused;
+            if (!paused)
+                GameInput.SetCursorLocked(true);
             return;
         }
         if (_libraryLearnPanel == null)
@@ -27,6 +30,7 @@ public partial class UIManager
         RefreshLibraryLearnChrome();
         PopulateLibraryLearnRows();
         _libraryLearnPanel.SetActive(true);
+        GameInput.SetCursorLocked(false);
     }
 
     public void RefreshLibraryLearnPanel()

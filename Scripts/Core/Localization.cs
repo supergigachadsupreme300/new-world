@@ -591,6 +591,7 @@ public static class Localization
         { "Nhấn Q để ném {0} vào rổ của Jessica!", "Press Q to throw {0} into Jessica's basket!" },
         { "Nhiệm vụ hàng ngày từ Jessica. Hoàn thành trước 6h sáng mai!", "A daily task from Jessica. Complete it before 6 AM tomorrow!" },
         { "Bỏ vật phẩm nhiệm vụ hàng ngày vào đây", "Put the daily quest material here" },
+        { "Jessica: Em đã tặng anh tràng hạt hôm nay rồi. Ngày mai quay lại nhé!", "Jessica: I already gave you a rosary today. Come back tomorrow!" },
 
         // Wife dialogs
         { "Anh ơi... em thực sự rất bất ngờ!", "Oh honey... I'm truly surprised!" },
@@ -1291,6 +1292,7 @@ public static class Localization
         { "Khi nào con muốn học thêm, hãy quay lại đây nhé.", "Come back whenever you want to learn more." },
         { "Con đã nắm được mọi tri thức ở thư viện này rồi. Hãy truyền lại cho thế hệ sau nhé.", "You've mastered all the knowledge in this library. Pass it on to the next generations." },
         { "[Thiền Định] Nhấn T", "[Meditate] Press T" },
+        { "[Thiền Định] (Chạm)", "[Meditate] (Tap)" },
         { "[Mở Cửa Hàng] (Chạm)", "[Open Shop] (Tap)" },
         { "[Mở Cửa Hàng] Nhấn T", "[Open Shop] Press T" },
         { "Anh dạo này bận quá... em nhớ anh.", "You've been so busy lately... I miss you." },

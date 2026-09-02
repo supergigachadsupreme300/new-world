@@ -74,13 +74,19 @@ private Canvas _canvas;
         _dialogQueue.Enqueue("Tôi thích lúa mì!");
         Advance();
         if (_shopRow != null)
+        {
             _shopRow.SetActive(true);
+            if (_promptText != null)
+                _promptText.gameObject.SetActive(false);
+        }
     }
     public void Hide()
     {
         _dialogActive = false;
         if (_panel != null)
             _panel.SetActive(false);
+        if (_promptText != null)
+            _promptText.gameObject.SetActive(true);
         if (_buffaloTransform != null)
             _buffaloTransform.rotation = _originalRotation;
     }
@@ -153,11 +159,11 @@ private Canvas _canvas;
         var row = new GameObject(rowName);
         row.transform.SetParent(parent, false);
         var rowRt = row.AddComponent<RectTransform>();
-        rowRt.anchorMin = new Vector2(0.5f, 1f);
-        rowRt.anchorMax = new Vector2(0.5f, 1f);
-        rowRt.pivot = new Vector2(0.5f, 1f);
-        rowRt.anchoredPosition = new Vector2(0f, -6f);
-        rowRt.sizeDelta = new Vector2(260f, 40f);
+        rowRt.anchorMin = new Vector2(1f, 0f);
+        rowRt.anchorMax = new Vector2(1f, 0f);
+        rowRt.pivot = new Vector2(1f, 0f);
+        rowRt.anchoredPosition = new Vector2(-20f, parent.rect.height + 6f);
+        rowRt.sizeDelta = new Vector2(300f, 40f);
 
         var rowImg = row.AddComponent<Image>();
         rowImg.color = new Color(0.37f, 0.51f, 0.68f);
@@ -168,7 +174,7 @@ private Canvas _canvas;
         rowBtn.onClick.AddListener(onClick);
 
         _openShopText = MakeText(textName, rowRt, new Vector2(0f, 0f), Localization.T("[Mở Cửa Hàng]"), 18,
-            Color.white, new Vector2(236f, 36f));
+            Color.white, new Vector2(270f, 36f));
 
         return row;
     }

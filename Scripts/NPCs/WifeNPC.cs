@@ -283,6 +283,13 @@ public class WifeNPC : MonoSingleton<WifeNPC>
             SaveState();
             ShowNextDialog();
         }
+        else
+        {
+            _dialogQueue.Clear();
+            _dialogQueue.Enqueue("Jessica: Em đã tặng anh tràng hạt hôm nay rồi. Ngày mai quay lại nhé!");
+            HideDialog();
+            ShowNextDialog();
+        }
     }
 
     public bool IsDialogActive => _dialogActive;
@@ -1104,7 +1111,8 @@ public class WifeNPC : MonoSingleton<WifeNPC>
             ? (mobile ? Localization.T("Chạm để tiếp tục") : Localization.T("Nhấn E để tiếp tục"))
             : (mobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"));
 
-        bool showPropose = _affection >= 70f && !Married && State == WifeState.Greeting
+        bool showPropose = _affection >= MarriageAffectionThreshold && !Married && State == WifeState.Greeting
+            && GameManager.Instance != null && GameManager.Instance.CurrentDay >= MarriageMinDay
             && (QuestManager.Instance?.IsComplete("greet") ?? false);
         _proposeText.text = showPropose ? (mobile ? Localization.T("[Tỏ Tình] (Chạm)") : Localization.T("[Tỏ Tình] Nhấn T")) : "";
         if (_proposeRow != null) _proposeRow.SetActive(showPropose);
@@ -1115,7 +1123,7 @@ public class WifeNPC : MonoSingleton<WifeNPC>
         _inviteText.text = showInviteFinal ? (mobile ? Localization.T("[Mời Về Nhà] (Chạm)") : Localization.T("[Mời Về Nhà] Nhấn G")) : "";
         if (_inviteRow != null) _inviteRow.SetActive(showInviteFinal);
 
-        bool showNight = State == WifeState.Greeting && IsRosaryAvailable()
+        bool showNight = State == WifeState.Greeting
             && (QuestManager.Instance?.IsComplete("greet") ?? false);
         _nightText.text = showNight ? (mobile ? Localization.T("[Hỏi Về Đêm] (Chạm)") : Localization.T("[Hỏi Về Đêm] Nhấn V")) : "";
         if (_nightRow != null) _nightRow.SetActive(showNight);

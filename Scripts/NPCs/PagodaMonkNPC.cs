@@ -57,14 +57,11 @@ private Transform _myTransform;
 
     void Update()
     {
-        if (_dialogActive && _waitingMeditation && _meditationRow != null && _meditationRow.activeSelf)
+        if (_dialogActive && _waitingMeditation)
         {
             if (Keyboard.current != null && Keyboard.current.tKey.wasPressedThisFrame)
             {
-                _waitingMeditation = false;
-                _meditationRow.SetActive(false);
-                TypingMinigame.Instance?.Open();
-                Hide();
+                StartMeditation();
                 return;
             }
         }
@@ -121,12 +118,6 @@ private Transform _myTransform;
         _dialogQueue.Enqueue("Con có muốn thiền định để gia tăng giới hạn phước đức không?");
         Advance();
         _waitingMeditation = true;
-        if (_meditationRow != null)
-        {
-            if (_meditationText != null)
-                _meditationText.text = Localization.T("[Thiền Định] Nhấn T");
-            _meditationRow.SetActive(true);
-        }
     }
     private void AddQuestDialogLines()
     {
@@ -207,6 +198,14 @@ private Transform _myTransform;
                 : meditationShown
                     ? (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"))
                     : (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"));
+        if (_promptText != null)
+            _promptText.gameObject.SetActive(!meditationShown);
+        if (_meditationRow != null)
+            _meditationRow.SetActive(meditationShown);
+        if (meditationShown && _meditationText != null)
+            _meditationText.text = GameInput.IsMobile
+                ? Localization.T("[Thiền Định] (Chạm)")
+                : Localization.T("[Thiền Định] Nhấn T");
     }
     private void PerformOffering()
     {
@@ -242,6 +241,18 @@ private Transform _myTransform;
             _panel.SetActive(false);
         if (_myTransform != null)
             _myTransform.rotation = _originalRotation;
+    }
+    private void StartMeditation()
+    {
+        if (!_waitingMeditation || !_dialogActive)
+            return;
+        _waitingMeditation = false;
+        if (_meditationRow != null)
+            _meditationRow.SetActive(false);
+        if (_promptText != null)
+            _promptText.gameObject.SetActive(true);
+        TypingMinigame.Instance?.Open();
+        Hide();
     }
     private void FacePlayer()
     {
@@ -300,15 +311,18 @@ private Transform _myTransform;
         _meditationRow = new GameObject("MonkMeditationRow");
         _meditationRow.transform.SetParent(rt, false);
         var medRowRt = _meditationRow.AddComponent<RectTransform>();
-        medRowRt.anchorMin = new Vector2(0.5f, 1f);
-        medRowRt.anchorMax = new Vector2(0.5f, 1f);
-        medRowRt.pivot = new Vector2(0.5f, 1f);
-        medRowRt.anchoredPosition = new Vector2(0f, -6f);
-        medRowRt.sizeDelta = new Vector2(260f, 40f);
+        medRowRt.anchorMin = new Vector2(1f, 0f);
+        medRowRt.anchorMax = new Vector2(1f, 0f);
+        medRowRt.pivot = new Vector2(1f, 0f);
+        medRowRt.anchoredPosition = new Vector2(-20f, panelH + 6f);
+        medRowRt.sizeDelta = new Vector2(300f, 40f);
         var medRowImg = _meditationRow.AddComponent<Image>();
         medRowImg.color = new Color(0.4f, 0.3f, 0.6f, 0.9f);
+        var medRowBtn = _meditationRow.AddComponent<Button>();
+        medRowBtn.targetGraphic = medRowImg;
+        medRowBtn.onClick.AddListener(StartMeditation);
         _meditationText = MakeText("MonkMeditationText", medRowRt, new Vector2(0f, 0f),
-            Localization.T("[Thiền Định] Nhấn T"), 18, Color.white, new Vector2(236f, 36f));
+            Localization.T("[Thiền Định] Nhấn T"), 18, Color.white, new Vector2(270f, 36f));
         _meditationRow.SetActive(false);
 
         _panel.SetActive(false);
