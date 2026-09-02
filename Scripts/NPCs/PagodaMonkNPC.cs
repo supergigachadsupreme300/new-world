@@ -57,8 +57,7 @@ private Transform _myTransform;
 
     void Update()
     {
-        bool meditationShown = _dialogText != null && _dialogText.text == Localization.T(_meditationQuestion);
-        if (_dialogActive && _waitingMeditation && meditationShown && _meditationRow != null && _meditationRow.activeSelf)
+        if (_dialogActive && _waitingMeditation && _meditationRow != null && _meditationRow.activeSelf)
         {
             if (Keyboard.current != null && Keyboard.current.tKey.wasPressedThisFrame)
             {
