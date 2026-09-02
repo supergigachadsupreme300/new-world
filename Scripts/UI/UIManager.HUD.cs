@@ -115,6 +115,14 @@ public partial class UIManager
         fillImg.fillAmount = 1f;
         fillImg.color = new Color(0.9f, 0.25f, 0.2f);
         fillImg.raycastTarget = false;
+        if (_hudBgSprite == null)
+        {
+            var tex = Resources.Load<Texture2D>("menu");
+            if (tex != null)
+                _hudBgSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+        }
+        if (_hudBgSprite != null)
+            fillImg.sprite = _hudBgSprite;
         _bossBarFill = fillImg;
 
         _bossBarName = EnsureText("BossBarName", new Vector2(0f, 20f), "", 16, _bossBarRoot.transform,
@@ -161,6 +169,14 @@ public partial class UIManager
         fillImg.fillAmount = 1f;
         fillImg.color = new Color(1f, 0.84f, 0f);
         fillImg.raycastTarget = false;
+        if (_hudBgSprite == null)
+        {
+            var tex = Resources.Load<Texture2D>("menu");
+            if (tex != null)
+                _hudBgSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+        }
+        if (_hudBgSprite != null)
+            fillImg.sprite = _hudBgSprite;
         _karmaBarFill = fillImg;
 
         _karmaBarText = EnsureText("KarmaBarText", new Vector2(0f, 18f), "", 14, _karmaBarRoot.transform,
