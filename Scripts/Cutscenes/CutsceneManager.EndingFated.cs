@@ -28,9 +28,23 @@ public partial class CutsceneManager
         DetachCamera();
         HideHUD();
 
-        // Ensure the real mansion exists and is fully built before we stage on it
-        WorldBuilder.Instance?.CompleteMansionImmediately();
-        Vector3 mb = WorldBuilder.Instance?.GetMansionPosition() ?? new Vector3(-22f, 0f, 0f);
+        // Build a temp mansion for the scene if the real one isn't built yet; cleaned up at scene end
+        bool mansionBuilt = WorldBuilder.Instance != null && WorldBuilder.Instance.HasPlayerMansion();
+        if (!mansionBuilt && WorldBuilder.Instance != null)
+        {
+            var tempMansion = MapBuilder.BuildRichManMansion(null, WorldBuilder.MansionBasePos, 1f,
+                Quaternion.Euler(0f, -90f, 0f));
+            foreach (var r in tempMansion.GetComponentsInChildren<Renderer>())
+                r.gameObject.layer = 0;
+            foreach (var c in tempMansion.GetComponentsInChildren<Collider>())
+                Object.Destroy(c);
+            RegisterSpawned(tempMansion);
+        }
+        Vector3 mb = WorldBuilder.Instance?.GetMansionPosition() ?? WorldBuilder.MansionBasePos;
+
+        // Local (x = offset from center, z = toward facade) mapped onto the -90-rotated mansion:
+        // facade faces -x, so local +z -> world -x, local +x -> world +z
+        Vector3 P(Vector3 local) => new Vector3(mb.x - local.z, local.y, mb.z + local.x);
 
         yield return StartCoroutine(CreateFadeOverlay());
         CreateLetterboxBars();
@@ -48,41 +62,39 @@ public partial class CutsceneManager
         GameManager.Instance?.SetTimeOfDay(12f);
         if (GameManager.Instance != null) GameManager.Instance.TimeSpeed = 0;
 
-        // ── Set: the real mansion (front = +z, front-left living room) ──
-        float houseX = mb.x;
-        float houseZ = mb.z;
+        // ── Set: the real mansion (front = -x, facade-left living room) ──
 
         // ── Police car parked on the grass in front of the mansion ──
-        var policeCar = MapBuilder.BuildPoliceCar(null, new Vector3(houseX - 4f, 0f, houseZ + 13.5f));
+        var policeCar = MapBuilder.BuildPoliceCar(null, P(new Vector3(-4f, 0f, 13.5f)));
         policeCar.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
         RegisterSpawned(policeCar);
 
         // ── Dead bodies inside the living room ──
         var deadPlayer = MapBuilder.BuildPlayerModel(null);
-        deadPlayer.transform.position = new Vector3(houseX - 8.2f, 0.69f, houseZ + 6.4f);
+        deadPlayer.transform.position = P(new Vector3(-8.2f, 0.69f, 6.4f));
         deadPlayer.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
         foreach (var r in deadPlayer.GetComponentsInChildren<Renderer>())
             r.gameObject.layer = 0;
         RegisterSpawned(deadPlayer);
 
         var deadWife = WifeNPC.BuildWifeNpc(null,
-            new Vector3(houseX - 5.5f, 0.82f, houseZ + 5.4f), 1f, Quaternion.Euler(90f, 0f, 0f));
+            P(new Vector3(-5.5f, 0.82f, 5.4f)), 1f, Quaternion.Euler(90f, 0f, 0f));
         foreach (var r in deadWife.GetComponentsInChildren<Renderer>())
             r.gameObject.layer = 0;
         RegisterSpawned(deadWife);
 
-        CreateBloodPool(new Vector3(houseX - 8.2f, 0.53f, houseZ + 6.4f));
-        CreateBloodPool(new Vector3(houseX - 5.5f, 0.53f, houseZ + 5.4f));
+        CreateBloodPool(P(new Vector3(-8.2f, 0.53f, 6.4f)));
+        CreateBloodPool(P(new Vector3(-5.5f, 0.53f, 5.4f)));
 
         // ── Robbery / addiction clue props ──
-        BuildRobberyClues(new Vector3(houseX - 8.5f, 0.50f, houseZ + 6.2f));
+        BuildRobberyClues(P(new Vector3(-8.5f, 0.50f, 6.2f)));
 
         // ── Police officers (inside the living room, near the front wall) ──
         var officerA = MapBuilder.BuildPoliceOfficer(null,
-            new Vector3(houseX - 9f, 1.43f, houseZ + 7.6f), Quaternion.Euler(0f, 180f, 0f));
+            P(new Vector3(-9f, 1.43f, 7.6f)), Quaternion.Euler(0f, 180f, 0f));
         RegisterSpawned(officerA);
         var officerB = MapBuilder.BuildPoliceOfficer(null,
-            new Vector3(houseX - 4.6f, 1.43f, houseZ + 7.6f), Quaternion.Euler(0f, 180f, 0f));
+            P(new Vector3(-4.6f, 1.43f, 7.6f)), Quaternion.Euler(0f, 180f, 0f));
         RegisterSpawned(officerB);
 
         // ── Demons lurking at the room edges (camera border only) ──
@@ -98,13 +110,13 @@ public partial class CutsceneManager
         }
         Vector3[] demonPos =
         {
-            new Vector3(houseX - 9.4f, 0.65f, houseZ + 8f),
-            new Vector3(houseX - 4.6f, 0.65f, houseZ + 8f),
-            new Vector3(houseX - 9.4f, 0.65f, houseZ + 6.2f),
-            new Vector3(houseX - 4.8f, 0.65f, houseZ + 5.8f),
-            new Vector3(houseX - 5.8f, 0.65f, houseZ + 2.4f)
+            P(new Vector3(-9.4f, 0.65f, 8f)),
+            P(new Vector3(-4.6f, 0.65f, 8f)),
+            P(new Vector3(-9.4f, 0.65f, 6.2f)),
+            P(new Vector3(-4.8f, 0.65f, 5.8f)),
+            P(new Vector3(-5.8f, 0.65f, 2.4f))
         };
-        Vector3 lookCenter = new Vector3(houseX - 7f, 0.65f, houseZ + 5.5f);
+        Vector3 lookCenter = P(new Vector3(-7f, 0.65f, 5.5f));
         for (int i = 0; i < demons.Count; i++)
         {
             demons[i].position = demonPos[i];
@@ -115,11 +127,11 @@ public partial class CutsceneManager
         }
 
         // ── PHASE 1: exterior daytime, police car at the mansion front (4s) ──
-        Vector3 camExt = new Vector3(houseX - 6f, 2.6f, houseZ + 16f);
+        Vector3 camExt = P(new Vector3(-6f, 2.6f, 16f));
         if (_mainCamera != null)
         {
             _mainCamera.transform.position = camExt;
-            _mainCamera.transform.LookAt(new Vector3(houseX, 1.8f, houseZ + 8.5f));
+            _mainCamera.transform.LookAt(P(new Vector3(0f, 1.8f, 8.5f)));
         }
         yield return StartCoroutine(FadeOverlay(0, 2f));
         yield return StartCoroutine(ShowSubtitle("Cửa dinh thự mở toang... còn chiếc xe cảnh sát đậu bên ngoài.", 3f));
@@ -127,30 +139,30 @@ public partial class CutsceneManager
 
         // ── PHASE 2: cut inside the living room, reveal bodies (6s) ──
         yield return StartCoroutine(FadeOverlay(1f, 0.6f));
-        Vector3 camIn = new Vector3(houseX - 6.5f, 4.5f, houseZ + 7.4f);
-        Vector3 lookBodies = new Vector3(houseX - 6.9f, 0.85f, houseZ + 5.9f);
+        Vector3 camIn = P(new Vector3(-6.5f, 4.5f, 7.4f));
+        Vector3 lookBodies = P(new Vector3(-6.9f, 0.85f, 5.9f));
         if (_mainCamera != null)
         {
             _mainCamera.transform.position = camIn;
             _mainCamera.transform.LookAt(lookBodies);
         }
         yield return StartCoroutine(FadeOverlay(0f, 0.6f));
-        yield return StartCoroutine(PanCamera(camIn, new Vector3(houseX - 6.8f, 4.3f, houseZ + 7.2f), lookBodies, 2.5f));
+        yield return StartCoroutine(PanCamera(camIn, P(new Vector3(-6.8f, 4.3f, 7.2f)), lookBodies, 2.5f));
         yield return StartCoroutine(ShowSubtitle("Trong phòng... hai thi thể nằm bất động.", 3.5f));
 
         // ── PHASE 3: officers walk over, discover (7s) ──
         yield return StartCoroutine(WalkStraight(officerA.transform,
-            new Vector3(houseX - 9f, 1.43f, houseZ + 7.6f),
-            new Vector3(houseX - 8.2f, 1.43f, houseZ + 6.4f), 3.5f));
+            P(new Vector3(-9f, 1.43f, 7.6f)),
+            P(new Vector3(-8.2f, 1.43f, 6.4f)), 3.5f));
         yield return StartCoroutine(WalkStraight(officerB.transform,
-            new Vector3(houseX - 4.6f, 1.43f, houseZ + 7.6f),
-            new Vector3(houseX - 5.6f, 1.43f, houseZ + 5.8f), 3.5f));
+            P(new Vector3(-4.6f, 1.43f, 7.6f)),
+            P(new Vector3(-5.6f, 1.43f, 5.8f)), 3.5f));
         yield return StartCoroutine(ShowSubtitle("Cửa bị phá. Đồ đạc vương vãi khắp nơi.", 3.5f));
         yield return new WaitForSeconds(0.5f);
 
         // ── PHASE 4: the clue (13s) ──
-        Vector3 camClue = new Vector3(houseX - 8.6f, 1.75f, houseZ + 7.6f);
-        Vector3 lookClue = new Vector3(houseX - 8.5f, 0.65f, houseZ + 6.2f);
+        Vector3 camClue = P(new Vector3(-8.6f, 1.75f, 7.6f));
+        Vector3 lookClue = P(new Vector3(-8.5f, 0.65f, 6.2f));
         yield return StartCoroutine(PanCamera(camIn, camClue, lookClue, 2.5f));
         yield return StartCoroutine(ShowSubtitle("Một vụ trộm... nhưng chỉ mất vài đồng vàng vụn.", 3f));
         yield return StartCoroutine(ShowSubtitle("Khoan đã... bơm kim tiêm. Dấu vết nghiện ngập.", 3f));
