@@ -122,7 +122,11 @@ private Transform _myTransform;
         Advance();
         _waitingMeditation = true;
         if (_meditationRow != null)
+        {
+            if (_meditationText != null)
+                _meditationText.text = Localization.T("[Thiền Định] Nhấn T");
             _meditationRow.SetActive(true);
+        }
     }
     private void AddQuestDialogLines()
     {

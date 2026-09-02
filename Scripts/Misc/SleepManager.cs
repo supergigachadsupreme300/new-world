@@ -131,6 +131,7 @@ public static bool IsSleeping { get; private set; }
 
         _wasPausedBeforeOpen = GameManager.Instance != null && GameManager.Instance.GamePaused;
         _panel.SetActive(true);
+        RefreshLabels();
 
         if (GameManager.Instance != null)
             GameManager.Instance.TogglePause(true);
@@ -151,6 +152,24 @@ public static bool IsSleeping { get; private set; }
 
         if (GameManager.Instance != null)
             GameManager.Instance.TogglePause(false);
+    }
+    private void RefreshLabels()
+    {
+        if (_panel == null)
+            return;
+        SetChildText("SleepTitle", Localization.T("Giấc Ngủ"));
+        SetChildText("SleepHint", Localization.T("Bạn có muốn ngủ để qua thời gian?"));
+        SetChildText("SleepConfirm", Localization.T("Ngủ"));
+        SetChildText("SleepCancel", Localization.T("Hủy"));
+    }
+    private void SetChildText(string name, string text)
+    {
+        var child = _panel.transform.Find(name);
+        if (child == null)
+            return;
+        var txt = child.GetComponentInChildren<TMP_Text>();
+        if (txt != null)
+            txt.text = text;
     }
     private void OnSleepConfirm()
     {

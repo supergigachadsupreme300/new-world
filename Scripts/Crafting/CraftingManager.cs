@@ -159,6 +159,13 @@ public class CraftingManager : MonoBehaviour
         var titleText = _panel.transform.Find("TitleText");
         if (titleText != null)
             titleText.GetComponent<TMP_Text>().text = title;
+        var closeBtn = _panel.transform.Find("CloseBtn");
+        if (closeBtn != null)
+        {
+            var txt = closeBtn.GetComponentInChildren<TMP_Text>();
+            if (txt != null)
+                txt.text = Localization.T("Đóng");
+        }
     }
 
     public void Close()

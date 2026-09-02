@@ -189,6 +189,7 @@ public class PlayerChestMenu : MonoBehaviour
                 y -= 46f;
             }
         }
+        RefreshTabLabels();
     }
 
     private string StatusText()
@@ -212,6 +213,17 @@ public class PlayerChestMenu : MonoBehaviour
         var img = tab.GetComponentInChildren<Image>();
         if (img != null)
             img.color = active ? new Color(0.8f, 0.62f, 0.3f) : new Color(0.35f, 0.33f, 0.3f);
+    }
+
+    private void RefreshTabLabels()
+    {
+        string[] labels = { Localization.T("Rương"), Localization.T("Túi") };
+        for (int i = 0; i < _tabButtons.Count && i < labels.Length; i++)
+        {
+            var txt = _tabButtons[i].GetComponentInChildren<TMP_Text>();
+            if (txt != null)
+                txt.text = labels[i];
+        }
     }
 
     private void CreateRow(string rowName, string label, Color color, float y, string buttonText,

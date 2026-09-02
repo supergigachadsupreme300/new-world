@@ -19,6 +19,9 @@ private GameObject _panel;
     private float _duration = 30f;
     private Canvas _canvas;
     private UIManager _uiManager;
+    private TMP_Text _titleText;
+    private TMP_Text _instructionText;
+    private TMP_Text _hintText;
 
     private static readonly string[] Paragraphs =
     {
@@ -66,6 +69,12 @@ private GameObject _panel;
         }
         BuildUI();
         _panel.SetActive(true);
+        if (_titleText != null)
+            _titleText.text = Localization.T("Thiền Tụng");
+        if (_instructionText != null)
+            _instructionText.text = Localization.T("Gõ đoạn văn bên dưới...");
+        if (_hintText != null)
+            _hintText.text = Localization.T("ESC để dừng | Backspace để xóa");
         UpdateDisplay();
     }
     public void Close()
@@ -215,7 +224,7 @@ private GameObject _panel;
         panelImg.color = new Color(0.12f, 0.1f, 0.18f, 0.95f);
         panelImg.raycastTarget = true;
 
-        MakeText("Title", _panel.transform, Localization.T("Thiền Tụng"),
+        _titleText = MakeText("Title", _panel.transform, Localization.T("Thiền Tụng"),
             new Vector2(0f, panelH * 0.38f), new Vector2(panelW - 40f, fontS * 1.5f),
             (int)(fontS * 1.3f), TextAlignmentOptions.Center, Color.white);
 
@@ -247,7 +256,7 @@ private GameObject _panel;
         _progressFill.color = new Color(0.9f, 0.75f, 0.1f);
         _progressFill.raycastTarget = false;
 
-        MakeText("Instruction", _panel.transform, Localization.T("Gõ đoạn văn bên dưới..."),
+        _instructionText = MakeText("Instruction", _panel.transform, Localization.T("Gõ đoạn văn bên dưới..."),
             new Vector2(0f, panelH * 0.16f), new Vector2(panelW - 40f, fontS * 1.2f),
             (int)(fontS * 0.8f), TextAlignmentOptions.Center, new Color(0.8f, 0.8f, 0.8f));
 
@@ -263,7 +272,7 @@ private GameObject _panel;
         if (_inputText != null)
             _inputText.textWrappingMode = TextWrappingModes.Normal;
 
-        MakeText("Hint", _panel.transform, Localization.T("ESC để dừng | Backspace để xóa"),
+        _hintText = MakeText("Hint", _panel.transform, Localization.T("ESC để dừng | Backspace để xóa"),
             new Vector2(0f, -panelH * 0.35f), new Vector2(panelW - 40f, fontS),
             (int)(fontS * 0.7f), TextAlignmentOptions.Center, new Color(0.5f, 0.5f, 0.5f));
 
