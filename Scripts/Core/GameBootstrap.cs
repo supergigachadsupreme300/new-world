@@ -17,6 +17,7 @@ public class GameBootstrap : MonoBehaviour
         var gameManager = Object.FindAnyObjectByType<GameManager>() ?? root.AddComponent<GameManager>();
         var uiManager = Object.FindAnyObjectByType<UIManager>() ?? root.AddComponent<UIManager>();
         var worldBuilder = Object.FindAnyObjectByType<WorldBuilder>() ?? root.AddComponent<WorldBuilder>();
+        var worldStreamer = Object.FindAnyObjectByType<WorldStreamer>() ?? root.AddComponent<WorldStreamer>();
         var toolManager = Object.FindAnyObjectByType<ToolManager>() ?? root.AddComponent<ToolManager>();
         var existingPlayer = Object.FindAnyObjectByType<PlayerController>();
         PlayerController playerController;
@@ -68,5 +69,25 @@ public class GameBootstrap : MonoBehaviour
         friendshipManager.Initialize();
         fishingProgression.Initialize();
         chestStorageManager.Initialize();
+
+        // --- Open-world chunk streaming -------------------------------------------------
+        // The new seed/coordinate open world. If a default ground material is not
+        // configured, create a simple lit one so generated chunks render.
+        if (worldStreamer.RenderDistance == null)
+        {
+            var rd = ScriptableObject.CreateInstance<RenderDistanceController>();
+            rd.Radius = 5;
+            rd.MaxRadius = 32;
+            worldStreamer.RenderDistance = rd;
+        }
+        if (worldStreamer.GroundMaterial == null)
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Standard");
+            var mat = new Material(shader);
+            mat.color = ColorPalette.GrassGreen; // reused existing palette
+            worldStreamer.GroundMaterial = mat;
+        }
+        worldStreamer.SetFocus(playerController != null ? playerController.transform : null);
     }
 }

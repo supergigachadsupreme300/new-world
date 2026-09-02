@@ -8,25 +8,6 @@ using TMPro;
 [DefaultExecutionOrder(-100)]
 public partial class CutsceneManager : MonoSingleton<CutsceneManager>
 {
-    /// <summary>
-    /// Genre change: the game is now an open-world action RPG with no narrative
-    /// endings. When true (default) all ending entry points are disabled and
-    /// only log, so the original ending routines remain preserved in
-    /// Scripts/_Archived/CutsceneManager for any future re-implementation.
-    /// </summary>
-    public bool RemoveEndings = true;
-
-    /// <summary>
-    /// When endings are removed this is called instead of playing a cutscene.
-    /// Keeps every existing call site compiling while guaranteeing no ending
-    /// can ever trigger during normal play.
-    /// </summary>
-    public void EndingsRemoved(System.Action onComplete)
-    {
-        Debug.Log("[CutsceneManager] Ending cutscenes are disabled for the open-world RPG genre.");
-        onComplete?.Invoke();
-    }
-
 public bool IsActive { get; private set; }
     public bool JustCancelledCutscene { get; private set; }
 
@@ -209,7 +190,6 @@ public bool IsActive { get; private set; }
 
     public void PlaySadEnding(System.Action onComplete = null)
     {
-        if (RemoveEndings) { EndingsRemoved(onComplete); return; }
         if (IsActive) return;
         IsActive = true;
         _previewOnComplete = onComplete;
@@ -219,7 +199,6 @@ public bool IsActive { get; private set; }
 
     public void PlayBossBadEnding(System.Action onComplete = null)
     {
-        if (RemoveEndings) { EndingsRemoved(onComplete); return; }
         if (IsActive) return;
         IsActive = true;
         _previewOnComplete = onComplete;
@@ -229,7 +208,6 @@ public bool IsActive { get; private set; }
 
     public void PlayJusticeEnding(System.Action onComplete = null)
     {
-        if (RemoveEndings) { EndingsRemoved(onComplete); return; }
         if (IsActive) return;
         if (onComplete == null)
         {
@@ -244,7 +222,6 @@ public bool IsActive { get; private set; }
 
     public void PlayBlackmailEnding(System.Action onComplete = null)
     {
-        if (RemoveEndings) { EndingsRemoved(onComplete); return; }
         if (IsActive) return;
         if (onComplete == null)
         {
@@ -259,7 +236,6 @@ public bool IsActive { get; private set; }
 
     public void PlayDemonEnding(System.Action onComplete = null)
     {
-        if (RemoveEndings) { EndingsRemoved(onComplete); return; }
         if (IsActive) return;
         IsActive = true;
         _previewOnComplete = onComplete;
@@ -269,7 +245,6 @@ public bool IsActive { get; private set; }
 
     public void PlayHappyEnding(System.Action onComplete = null)
     {
-        if (RemoveEndings) { EndingsRemoved(onComplete); return; }
         if (IsActive) return;
         IsActive = true;
         _previewOnComplete = onComplete;
@@ -279,7 +254,6 @@ public bool IsActive { get; private set; }
 
     public void PlayNtrEnding(System.Action onComplete = null)
     {
-        if (RemoveEndings) { EndingsRemoved(onComplete); return; }
         if (IsActive) return;
         IsActive = true;
         _previewOnComplete = onComplete;
@@ -289,21 +263,18 @@ public bool IsActive { get; private set; }
 
     public void RequestHappyEnding()
     {
-        if (RemoveEndings) { EndingsRemoved(null); return; }
         if (IsActive || _happyPending) return;
         _happyPending = true;
     }
 
     public void RequestNtrEnding()
     {
-        if (RemoveEndings) { EndingsRemoved(null); return; }
         if (IsActive || _ntrPending) return;
         _ntrPending = true;
     }
 
     public void PlayFatedEnding(System.Action onComplete = null)
     {
-        if (RemoveEndings) { EndingsRemoved(onComplete); return; }
         if (IsActive) return;
         IsActive = true;
         _previewOnComplete = onComplete;
@@ -313,7 +284,6 @@ public bool IsActive { get; private set; }
 
     public void RequestFatedEnding()
     {
-        if (RemoveEndings) { EndingsRemoved(null); return; }
         if (IsActive || _fatedPending) return;
         _fatedPending = true;
     }
