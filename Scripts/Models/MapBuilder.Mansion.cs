@@ -113,24 +113,24 @@ public static partial class MapBuilder
         {
             var doorL = new GameObject("Door");
             doorL.transform.SetParent(root.transform);
-            doorL.transform.localPosition = new Vector3(-halfW - 0.2f, 0f, -0.95f);
+            doorL.transform.localPosition = new Vector3(-halfW - 0.2f, 0f, -1.85f);
             doorL.transform.localRotation = Quaternion.identity;
             MakeBlock("DoorVisual", doorL.transform, new Vector3(0.14f, 4.3f, 1.7f),
-                new Vector3(0f, 2.25f, 0.09f), goldC, true);
+                new Vector3(0f, 2.25f, 0.99f), goldC, true);
             var doorPanelL = MakeBlock("DoorPanel", doorL.transform, new Vector3(0.14f, 4.3f, 1.7f),
-                new Vector3(0f, 2.25f, 0.09f), goldC);
+                new Vector3(0f, 2.25f, 0.99f), goldC);
             doorPanelL.AddComponent<BoxCollider>();
         }
         // Right door — pivot at right jamb, swings open
         {
             var doorR = new GameObject("Door");
             doorR.transform.SetParent(root.transform);
-            doorR.transform.localPosition = new Vector3(-halfW - 0.2f, 0f, 0.95f);
+            doorR.transform.localPosition = new Vector3(-halfW - 0.2f, 0f, 1.85f);
             doorR.transform.localRotation = Quaternion.identity;
             MakeBlock("DoorVisual", doorR.transform, new Vector3(0.14f, 4.3f, 1.7f),
-                new Vector3(0f, 2.25f, -0.09f), goldC, true);
+                new Vector3(0f, 2.25f, -0.99f), goldC, true);
             var doorPanelR = MakeBlock("DoorPanel", doorR.transform, new Vector3(0.14f, 4.3f, 1.7f),
-                new Vector3(0f, 2.25f, -0.09f), goldC);
+                new Vector3(0f, 2.25f, -0.99f), goldC);
             doorPanelR.AddComponent<BoxCollider>();
         }
         MakeBlock("DoorKnobL", root.transform, new Vector3(0.16f, 0.16f, 0.16f), new Vector3(-halfW - 0.28f, 2.2f, -0.55f), trimC, true);
