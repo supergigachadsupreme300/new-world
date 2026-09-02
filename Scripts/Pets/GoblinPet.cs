@@ -321,10 +321,12 @@ public class GoblinPet : MonoBehaviour
             return;
         }
 
-        Vector3 target = hutPos.Value;
+        Vector3 target = hutPos.Value + new Vector3(0f, 0f, 2.2f);
         target.y = transform.position.y;
 
-        if (Vector3.Distance(transform.position, target) <= 0.7f)
+        if (Vector3.Distance(transform.position, target) <= 0.7f
+            || (_waypoints.Count > 0
+                && Vector3.Distance(transform.position, _waypoints[_waypoints.Count - 1]) <= ArriveDist))
         {
             _isHiding = true;
             _pathBuilt = false;
@@ -474,10 +476,12 @@ public class GoblinPet : MonoBehaviour
             return;
         }
 
-        Vector3 target = hutPos.Value;
+        Vector3 target = hutPos.Value + new Vector3(0f, 0f, 2.2f);
         target.y = transform.position.y;
 
-        if (Vector3.Distance(transform.position, target) <= 0.7f)
+        if (Vector3.Distance(transform.position, target) <= 0.7f
+            || (_waypoints.Count > 0
+                && Vector3.Distance(transform.position, _waypoints[_waypoints.Count - 1]) <= ArriveDist))
         {
             _pathBuilt = false;
             return;
