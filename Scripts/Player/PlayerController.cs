@@ -55,12 +55,6 @@ public class PlayerController : MonoBehaviour
     private const float DodgeIFrameDuration = 0.3f;
     public float DodgeCost = 20f;
 
-    private static readonly Key[] ResearchKeys =
-    {
-        Key.Digit1, Key.Digit2, Key.Digit3, Key.Digit4, Key.Digit5,
-        Key.Digit6, Key.Digit7, Key.Digit8, Key.Digit9
-    };
-
     public void SetInWater(bool inWater, float speedMul, bool allowJump)
     {
         InWater = inWater;
@@ -398,20 +392,6 @@ public class PlayerController : MonoBehaviour
                 RichManNPC.Instance.ChooseLeave();
             else if (Keyboard.current != null && Keyboard.current.digit2Key.wasPressedThisFrame)
                 RichManNPC.Instance.ChooseBribe();
-        }
-        if (librarianDialog && LibrarianNPC.Instance != null && LibrarianNPC.Instance.IsResearchShown)
-        {
-            if (Keyboard.current != null)
-            {
-                for (int i = 0; i < 9; i++)
-                {
-                    if (Keyboard.current[ResearchKeys[i]].wasPressedThisFrame)
-                    {
-                        LibrarianNPC.Instance.ChooseResearch(i);
-                        break;
-                    }
-                }
-            }
         }
 
         if (!dialogBlocked)

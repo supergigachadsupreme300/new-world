@@ -29,8 +29,6 @@ private enum Phase { Intro, Menu, Done }
         "Con cứ tự do tham khảo sách. Khi đã sẵn sàng học điều mới, hãy gọi ta."
     };
 
-    private const string _menuTitle = "CON MUỐN HỌC BẢN THIẾT KẾ NÀO?";
-
     public bool IsDialogActive => _dialogActive;
     public bool IsResearchShown => _researchShowing;
 
@@ -69,6 +67,7 @@ private enum Phase { Intro, Menu, Done }
         {
             _researchShowing = false;
             _phase = Phase.Done;
+            GameManager.Instance?.UIManager?.ShowLibraryLearnPanel(false);
             _dialogQueue.Enqueue("Khi nào con muốn học thêm, hãy quay lại đây nhé.");
         }
         if (_dialogQueue.Count == 0)
@@ -79,7 +78,11 @@ private enum Phase { Intro, Menu, Done }
                 var list = wb != null ? wb.GetResearchableBlueprints() : new List<(string Name, int Cost)>();
                 if (list.Count > 0)
                 {
-                    ShowResearchMenu(list);
+                    _researchShowing = true;
+                    GameManager.Instance?.UIManager?.ShowLibraryLearnPanel(true);
+                    _promptText.text = GameInput.IsMobile
+                        ? Localization.T("Chạm để đóng")
+                        : Localization.T("Nhấn E để đóng");
                     return;
                 }
                 _phase = Phase.Done;
@@ -110,51 +113,29 @@ private enum Phase { Intro, Menu, Done }
             return;
 
         var item = list[index];
-        _researchShowing = false;
-        _phase = Phase.Done;
-        _dialogQueue.Clear();
 
         if (player.Money < item.Cost)
         {
-            _dialogQueue.Enqueue(Localization.F("Con chưa đủ {0}🪙 để học. Hãy quay lại khi có đủ vàng nhé.", item.Cost));
-        }
-        else
-        {
-            player.Money -= item.Cost;
-            wb.UnlockBlueprint(item.Name);
-            GameManager.Instance?.UIManager?.UpdatePlayerHud(player.HP, player.MaxHP, player.Stamina, player.MaxStamina, player.Money);
-            _dialogQueue.Enqueue(Localization.F("Con đã học được bản thiết kế {0}! Giờ con có thể xây nó ở bất cứ đâu.", Localization.BuildingName(item.Name)));
-            GameManager.Instance?.UIManager?.ShowMessage(Localization.F("Đã mở khóa: {0}", Localization.BuildingName(item.Name)), 2f);
+            GameManager.Instance?.UIManager?.ShowMessage(Localization.F("Con chưa đủ {0}🪙 để học. Hãy quay lại khi có đủ vàng nhé.", item.Cost), 2f);
+            return;
         }
 
-        Advance();
+        player.Money -= item.Cost;
+        wb.UnlockBlueprint(item.Name);
+        GameManager.Instance?.UIManager?.UpdatePlayerHud(player.HP, player.MaxHP, player.Stamina, player.MaxStamina, player.Money);
+        GameManager.Instance?.UIManager?.ShowMessage(Localization.F("Đã mở khóa: {0}", Localization.BuildingName(item.Name)), 2f);
+        GameManager.Instance?.UIManager?.RefreshLibraryLearnPanel();
     }
     public void Hide()
     {
         _dialogActive = false;
         _researchShowing = false;
         _phase = Phase.Done;
+        GameManager.Instance?.UIManager?.ShowLibraryLearnPanel(false);
         if (_panel != null)
             _panel.SetActive(false);
         if (_myTransform != null)
             _myTransform.rotation = _originalRotation;
-    }
-    private void ShowResearchMenu(List<(string Name, int Cost)> list)
-    {
-        _researchShowing = true;
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine(Localization.T(_menuTitle));
-        for (int i = 0; i < list.Count; i++)
-        {
-            if (i < 9)
-                sb.AppendLine(Localization.F("  {0}. {1} - {2}🪙", (i + 1), Localization.BuildingName(list[i].Name), list[i].Cost));
-            else
-                sb.AppendLine(Localization.F("  • {0} - {1}🪙", Localization.BuildingName(list[i].Name), list[i].Cost));
-        }
-        _dialogText.text = sb.ToString();
-        _promptText.text = GameInput.IsMobile
-            ? Localization.T("Chạm để đóng")
-            : Localization.T("Chọn 1-9 để học, nhấn E để đóng");
     }
     private void FacePlayer()
     {
