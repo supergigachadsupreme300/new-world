@@ -128,7 +128,7 @@ public class GoblinChestMenu : MonoBehaviour
             var type = kv.Key;
             int count = kv.Value;
             CreateRow(type, string.Format("{0} x{1}", Localization.ItemName(type), count),
-                new Color(0.85f, 0.9f, 0.75f), y, "Lấy", () => TakeOne(type));
+                new Color(0.85f, 0.9f, 0.75f), y, Localization.T("Lấy"), () => TakeOne(type));
             y -= 46f;
         }
 
