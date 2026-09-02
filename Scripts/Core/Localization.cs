@@ -1099,6 +1099,7 @@ public static class Localization
         { "Dùng Tràng Hạt tiêu diệt 5 con quỷ quanh chùa để bảo vệ làng.", "Use the Rosary to defeat 5 demons around the monastery to protect the village." },
         { "Lũ quỷ nhỏ đang quấy phá quanh chùa. Dùng Tràng Hạt tiêu diệt 5 con để chúng khiếp sợ!", "Small demons are stirring around the monastery. Use the Rosary to defeat 5 of them and strike fear into their hearts!" },
         { "Con hãy tiếp tục dùng Tràng Hạt. Tiến độ: {0}/5", "Keep using the Rosary. Progress: {0}/5" },
+        { "Tràng Hạt trừ tà thành công! Tiến độ: {0}/5", "The Rosary banished a demon! Progress: {0}/5" },
 
         // Monk quest chain — the Demon King
         { "Trấn Áp Quỷ Vương", "Vanquish The Demon King" },

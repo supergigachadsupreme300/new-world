@@ -117,9 +117,9 @@ private Transform _myTransform;
                 "Con đã nhận phước lành hôm nay rồi.");
         }
         _dialogQueue.Enqueue("Con có muốn thiền định để gia tăng giới hạn phước đức không?");
-        _meditationOptionShown = false;
-        Advance();
         _waitingMeditation = true;
+        _meditationOptionShown = true;
+        Advance();
     }
     private void AddQuestDialogLines()
     {
@@ -151,7 +151,7 @@ private Transform _myTransform;
         }
         if (!qm.HasQuest("Trừ Tà Quanh Chùa"))
         {
-            qm.AddStoryQuest("Trừ Tà Quanh Chùa", "enemies", 5, 200,
+            qm.AddStoryQuest("Trừ Tà Quanh Chùa", "rosary_kill", 5, 200,
                 "Dùng Tràng Hạt tiêu diệt 5 con quỷ quanh chùa để bảo vệ làng.");
             _dialogQueue.Enqueue("Lũ quỷ nhỏ đang quấy phá quanh chùa. Dùng Tràng Hạt tiêu diệt 5 con để chúng khiếp sợ!");
             return;
@@ -204,7 +204,7 @@ private Transform _myTransform;
                     ? (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"))
                     : (GameInput.IsMobile ? Localization.T("Chạm để đóng") : Localization.T("Nhấn E để đóng"));
         if (_promptText != null)
-            _promptText.gameObject.SetActive(!_meditationOptionShown);
+            _promptText.gameObject.SetActive(true);
         if (_meditationRow != null)
             _meditationRow.SetActive(_meditationOptionShown);
         if (_meditationOptionShown && _meditationText != null)

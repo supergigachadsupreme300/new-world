@@ -233,7 +233,11 @@ public class QuestManager : MonoSingleton<QuestManager>
         }
 
         foreach (var q in saved)
+        {
+            if (q.Name == "Trừ Tà Quanh Chùa")
+                q.Target = "rosary_kill";
             _quests.Add(q);
+        }
         if (GameManager.Instance != null)
             _lastDay = GameManager.Instance.CurrentDay;
         UpdateQuestUI();

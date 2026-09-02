@@ -27,6 +27,7 @@ public class EnemyController : MonoBehaviour
     private float _attackTimer;
     private bool _isDead;
     private float _respawnTimer;
+    private bool _killedByRosary;
 
     public bool IsDead => _isDead;
 
@@ -392,6 +393,11 @@ public class EnemyController : MonoBehaviour
         if (_armR != null) _armR.localRotation = Quaternion.identity;
         if (_armL2 != null) _armL2.localRotation = Quaternion.identity;
         if (_armR2 != null) _armR2.localRotation = Quaternion.identity;
+    }
+
+    public void MarkRosaryHit()
+    {
+        _killedByRosary = true;
     }
 
     public void TakeDamage(int amount)
@@ -999,6 +1005,17 @@ public class EnemyController : MonoBehaviour
 
         _respawnTimer = 5f;
         QuestManager.Instance?.AddProgress("enemies", 1);
+        if (_killedByRosary)
+        {
+            QuestManager.Instance?.AddProgress("rosary_kill", 1);
+            var rosyQm = QuestManager.Instance;
+            if (rosyQm != null && !rosyQm.IsNamedQuestComplete("Trừ Tà Quanh Chùa"))
+            {
+                int prog = rosyQm.GetNamedQuestProgress("Trừ Tà Quanh Chùa");
+                GameManager.Instance?.UIManager?.ShowMessage(
+                    Localization.F("Tràng Hạt trừ tà thành công! Tiến độ: {0}/5", prog), 2f);
+            }
+        }
         ExplodeModel();
         DropMaterials(false);
         var col = GetComponent<Collider>();
@@ -1084,6 +1101,7 @@ public class EnemyController : MonoBehaviour
     {
         _health = MaxHealth;
         _isDead = false;
+        _killedByRosary = false;
         Vector3 pos = _origin;
         var wb = WorldBuilder.Instance;
         if (wb != null)
