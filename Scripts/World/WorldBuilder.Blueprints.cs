@@ -490,17 +490,29 @@ public partial class WorldBuilder
         }
     }
 
-    private bool HasMansionStructure()
+private bool HasMansionStructure()
     {
         if (_worldRoot == null) return false;
-        foreach (var b in _buildings)
-        {
-            if (b.Type == "RichMansion") return true;
-        }
+        if (HasPlayerMansion()) return true;
         var parts = _worldRoot.GetComponentsInChildren<Transform>(true);
         for (int i = 0; i < parts.Length; i++)
         {
-            if (parts[i].name.StartsWith("StructurePart_Mansion_"))
+            if (parts[i].name.StartsWith("StructurePart_Mansion_") || parts[i].name == "StructurePart_Mansion")
+                return true;
+        }
+        return false;
+    }
+
+    public bool HasPlayerMansion()
+    {
+        if (_worldRoot == null) return false;
+        var parts = _worldRoot.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < parts.Length; i++)
+        {
+            var t = parts[i];
+            if (t.name != "RichMansion") continue;
+            if (Mathf.Abs(t.position.x - MansionBasePos.x) <= 0.6f &&
+                Mathf.Abs(t.position.z - MansionBasePos.z) <= 0.6f)
                 return true;
         }
         return false;
@@ -509,12 +521,13 @@ public partial class WorldBuilder
     public Vector3? GetMansionPosition()
     {
         if (_worldRoot == null) return null;
-        foreach (var b in _buildings)
+        for (int i = 0; i < _blueprints.Count; i++)
         {
-            if (b.Type == "RichMansion") return b.Position;
+            if (_blueprints[i].IsMansion)
+                return _blueprints[i].Position;
         }
-        var t = _worldRoot.transform.Find("StructurePart_Mansion_Foundation");
-        if (t == null) return null;
+        if (HasPlayerMansion())
+            return MansionBasePos;
         return MansionBasePos;
     }
 
