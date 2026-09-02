@@ -153,10 +153,10 @@ private Canvas _canvas;
         var row = new GameObject(rowName);
         row.transform.SetParent(parent, false);
         var rowRt = row.AddComponent<RectTransform>();
-        rowRt.anchorMin = new Vector2(0.5f, 0f);
-        rowRt.anchorMax = new Vector2(0.5f, 0f);
+        rowRt.anchorMin = new Vector2(0.5f, 1f);
+        rowRt.anchorMax = new Vector2(0.5f, 1f);
         rowRt.pivot = new Vector2(0.5f, 1f);
-        rowRt.anchoredPosition = new Vector2(0f, -10f);
+        rowRt.anchoredPosition = new Vector2(0f, -6f);
         rowRt.sizeDelta = new Vector2(260f, 40f);
 
         var rowImg = row.AddComponent<Image>();
