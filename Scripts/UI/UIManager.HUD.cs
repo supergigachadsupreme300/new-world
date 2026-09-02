@@ -188,7 +188,7 @@ public partial class UIManager
         {
             _lastKarma = k;
             _lastKarmaMax = km;
-            _karmaBarText.text = Localization.T("Phuoc Duc") + ": " + k + "/" + km;
+            _karmaBarText.text = Localization.T("Phước Đức") + ": " + k + "/" + km;
         }
     }
 

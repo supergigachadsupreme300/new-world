@@ -108,7 +108,7 @@ public class ImmigrantNpc : MonoSingleton<ImmigrantNpc>
 
         int nextIdx = wb.GetImmigrantNextIndex();
         int total = wb.MaxImmigrantHouses;
-        string questDesc = Localization.F("Xây một ngôi nhà nhỏ cho người di cư ({0}/{1}).", nextIdx + 1, total);
+        string questDesc = string.Format("Xây một ngôi nhà nhỏ cho người di cư ({0}/{1}).", nextIdx + 1, total);
         qm.AddStoryQuest(CurrentQuestName(), "immigrant_house", 1, 500, questDesc);
         wb.PlaceNextImmigrantBlueprint();
 

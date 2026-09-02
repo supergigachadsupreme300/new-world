@@ -701,7 +701,7 @@ public partial class ToolManager : MonoBehaviour
             var km = KarmaManager.Instance;
             if (km == null || !km.ConsumeKarma(1f))
             {
-                _uiManager?.ShowMessage(Localization.T("H\u1EBFt ph\u1ee9c \u0111\u1EE9c!"), 1.5f);
+                _uiManager?.ShowMessage(Localization.T("Hết phước đức!"), 1.5f);
                 return;
             }
             SpendToolStamina(player);
