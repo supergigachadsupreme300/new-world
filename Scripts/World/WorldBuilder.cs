@@ -2038,7 +2038,7 @@ public class ThrownCageProjectile : MonoBehaviour
             if (wb != null)
                 wb.SpawnCageWithAnimal(transform.position, animalType);
             Destroy(livestock.gameObject);
-            GameManager.Instance?.UIManager?.ShowMessage(Localization.F("Đã bắt được {0}!", Localization.AnimalName(animalType)), 2f);
+            GameManager.Instance?.UIManager?.ShowMessage(Localization.F("Đã bắt được {0}!", Localization.AnimalName(animalType.ToString())), 2f);
             Destroy(gameObject);
         }
         else
