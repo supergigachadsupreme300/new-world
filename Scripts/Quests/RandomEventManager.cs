@@ -10,8 +10,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
 {
 
     private float _autoTimer;
-    private float _autoMin = 100f;
-    private float _autoMax = 200f;
+    private float _autoMin = 70f;
+    private float _autoMax = 140f;
 
     private readonly Dictionary<string, float> _cooldowns = new Dictionary<string, float>();
     private bool _eventInProgress;
@@ -183,8 +183,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
             Name = "Kẻ Thù Tấn Công",
             Description = "Kẻ thù đang tiến về phía bạn!",
             Tier = 1,
-            Weight = 2f,
-            Cooldown = 1500f,
+            Weight = 4f,
+            Cooldown = 900f,
             NightOnly = true,
             Effect = EffectEnemyRaid
         });
@@ -623,19 +623,30 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
     {
         Vector3 playerPos = GetPlayerPos();
         var root = GetWorldRoot();
-        Mob.MobType[] types = new[] { Mob.MobType.Mouse, Mob.MobType.Crab, Mob.MobType.Mouse, Mob.MobType.Crab };
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 6; i++)
         {
-            Vector3 offset = UnityEngine.Random.insideUnitSphere * 8f;
-            offset.y = 0f;
-            Vector3 spawnPos = playerPos + offset;
-            spawnPos.y = 0.5f;
+            Mob.MobType type = (i % 2 == 0) ? Mob.MobType.Mouse : Mob.MobType.Crab;
+            Vector3 spawnPos;
+            if (type == Mob.MobType.Crab)
+            {
+                spawnPos = new Vector3(
+                    Mob.BeachCenterX + UnityEngine.Random.Range(-Mob.BeachHalfWidth, Mob.BeachHalfWidth),
+                    0.5f,
+                    UnityEngine.Random.Range(-Mob.BeachHalfDepth, Mob.BeachHalfDepth));
+            }
+            else
+            {
+                Vector3 offset = UnityEngine.Random.insideUnitSphere * 8f;
+                offset.y = 0f;
+                spawnPos = playerPos + offset;
+                spawnPos.y = 0.5f;
+            }
 
             var go = new GameObject("Mob_" + i);
             go.transform.SetParent(root);
             go.transform.position = spawnPos;
             var mob = go.AddComponent<Mob>();
-            mob.Type = types[i];
+            mob.Type = type;
         }
     }
 
@@ -971,9 +982,9 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
     {
         Vector3 playerPos = GetPlayerPos();
         var root = GetWorldRoot();
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 10; i++)
         {
-            float angle = (i / 6f) * Mathf.PI * 2f;
+            float angle = (i / 10f) * Mathf.PI * 2f;
             Vector3 offset = new Vector3(Mathf.Cos(angle) * 10f, 0f, Mathf.Sin(angle) * 10f);
             SpawnEnemy(playerPos + offset, root);
         }

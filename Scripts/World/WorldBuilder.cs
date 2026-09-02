@@ -1237,15 +1237,18 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
             default: return Color.gray;
         }
     }
-    private void SpawnMobs()
+private void SpawnMobs()
     {
         var mobPositions = new[]
         {
             new { pos = new Vector3(8f, 0.5f, 5f), type = Mob.MobType.Mouse },
             new { pos = new Vector3(-5f, 0.5f, 10f), type = Mob.MobType.Mouse },
-            new { pos = new Vector3(15f, 0.5f, 40f), type = Mob.MobType.Crab },
             new { pos = new Vector3(20f, 0.5f, -5f), type = Mob.MobType.Mouse },
-            new { pos = new Vector3(-85f, 0.5f, -20f), type = Mob.MobType.Crab },
+            new { pos = new Vector3(40f, 0.5f, 30f), type = Mob.MobType.Mouse },
+            new { pos = new Vector3(-30f, 0.5f, 15f), type = Mob.MobType.Mouse },
+            new { pos = new Vector3(10f, 0.5f, 70f), type = Mob.MobType.Mouse },
+            new { pos = new Vector3(5f, 0.5f, -30f), type = Mob.MobType.Mouse },
+            new { pos = new Vector3(-15f, 0.5f, 50f), type = Mob.MobType.Mouse },
         };
 
         foreach (var m in mobPositions)
@@ -1255,6 +1258,23 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
             go.transform.position = m.pos;
             var mob = go.AddComponent<Mob>();
             mob.Type = m.type;
+        }
+
+        SpawnBeachCrabs();
+    }
+
+    private void SpawnBeachCrabs()
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            var go = new GameObject(Mob.MobType.Crab.ToString() + i);
+            go.transform.SetParent(_worldRoot.transform);
+            go.transform.position = new Vector3(
+                Mob.BeachCenterX + Random.Range(-Mob.BeachHalfWidth, Mob.BeachHalfWidth),
+                0.5f,
+                Random.Range(-Mob.BeachHalfDepth, Mob.BeachHalfDepth));
+            var mob = go.AddComponent<Mob>();
+            mob.Type = Mob.MobType.Crab;
         }
     }
     private void UpdateFieldVisual(FieldState field)

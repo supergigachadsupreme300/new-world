@@ -5,6 +5,10 @@ public class Mob : MonoBehaviour
 {
     public enum MobType { Mouse, Crab }
 
+    public const float BeachCenterX = -180f;
+    public const float BeachHalfWidth = 35f;
+    public const float BeachHalfDepth = 240f;
+
     public MobType Type;
     public float MoveSpeed = 1f;
     public float WanderRange = 4f;
@@ -59,6 +63,14 @@ public class Mob : MonoBehaviour
     {
         _wanderTimer = Random.Range(2f, 5f);
         Vector2 r = Random.insideUnitCircle * WanderRange;
+        if (Type == MobType.Crab)
+        {
+            Vector3 pos = transform.position;
+            float x = Mathf.Clamp(pos.x + r.x, BeachCenterX - BeachHalfWidth, BeachCenterX + BeachHalfWidth);
+            float z = Mathf.Clamp(pos.z + r.y, -BeachHalfDepth, BeachHalfDepth);
+            _wanderTarget = new Vector3(x, 0f, z);
+            return;
+        }
         _wanderTarget = _origin + new Vector3(r.x, 0f, r.y);
     }
 

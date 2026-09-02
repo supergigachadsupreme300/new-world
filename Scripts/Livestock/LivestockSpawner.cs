@@ -8,11 +8,10 @@ public class LivestockSpawner : MonoBehaviour
     private readonly Queue<FlyingCrane> _cranePool = new Queue<FlyingCrane>();
     private static readonly Collider[] _dropBuffer = new Collider[16];
     private float _trickleTimer;
-    private const int InitialBatchSize = 10;
     private const int MaxAnimals = 20;
     private const int PoolSize = 3;
-    private const float TrickleIntervalMin = 120f;
-    private const float TrickleIntervalMax = 180f;
+    private const float TrickleIntervalMin = 45f;
+    private const float TrickleIntervalMax = 80f;
     private const float SpawnRadiusMin = 30f;
     private const float SpawnRadiusMax = 50f;
 
@@ -35,7 +34,6 @@ public class LivestockSpawner : MonoBehaviour
         StopAllCoroutines();
         _activeAnimals.RemoveAll(a => a == null);
         _trickleTimer = Random.Range(TrickleIntervalMin, TrickleIntervalMax);
-        StartCoroutine(InitialSpawn());
     }
 
     private void Update()
@@ -53,21 +51,9 @@ public class LivestockSpawner : MonoBehaviour
         }
     }
 
-    private IEnumerator InitialSpawn()
-    {
-        yield return new WaitForSeconds(3f);
-
-        for (int i = 0; i < InitialBatchSize; i++)
-        {
-            if (_activeAnimals.Count >= MaxAnimals) break;
-            SpawnCrane(GetRandomType());
-            yield return new WaitForSeconds(0.8f);
-        }
-    }
-
     private void SpawnTrickle()
     {
-        int count = Random.Range(1, 3);
+        int count = Random.Range(2, 5);
         for (int i = 0; i < count; i++)
         {
             if (_activeAnimals.Count >= MaxAnimals) break;
