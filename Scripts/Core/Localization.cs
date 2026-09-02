@@ -106,6 +106,13 @@ public static class Localization
             return "[" + T("Hàng Ngày") + "] " + T(body.Substring("[Hàng Ngày] ".Length)) + daySuffix;
         if (body.StartsWith("[Giới Hạn] "))
             return "[" + T("Giới Hạn") + "] " + T(body.Substring("[Giới Hạn] ".Length)) + daySuffix;
+        var num = System.Text.RegularExpressions.Regex.Match(body, @"^(.*?)\s+(\d+)$");
+        if (num.Success)
+        {
+            string baseText = T(num.Groups[1].Value);
+            if (baseText != num.Groups[1].Value)
+                return baseText + " " + num.Groups[2].Value + daySuffix;
+        }
         return T(body) + daySuffix;
     }
 
@@ -148,6 +155,11 @@ public static class Localization
         { "Mở khóa ngày {0}: {1}", "Unlocks on day {0}: {1}" },
         { "Bạn đã hoàn thành mọi nhiệm vụ cốt truyện. Hãy khám phá các kết thúc khác của câu chuyện!", "You've completed every story quest. Explore the other endings of the story!" },
         { "Gợi ý: Nói chuyện với Jessica mỗi ngày và hoàn thành nhiệm vụ của cô ấy để tăng Độ Thân Mật. Đạt 70+ để cầu hôn.", "Tip: Talk to Jessica every day and complete her quests to raise Affection. Reach 70+ to propose." },
+        { "Mở khóa ngày {0}", "Unlocks on day {0}" },
+        { "Tiêu diệt Quỷ Vương {0} lần", "Defeat the Demon King {0} times" },
+        { "Lấy bằng chứng bí mật của Phú Ông {0} lần", "Collect the rich man's secret evidence {0} times" },
+        { "Kiếm {0:N0} vàng", "Earn {0:N0} gold" },
+        { "Xây dựng {0} phần dinh thự", "Build {0} mansion parts" },
 
         // Grocery store
         { "tu_gao", "Túi Gạo" },
@@ -659,6 +671,10 @@ public static class Localization
         { "Bắt Được Cá!", "Got The Fish!" },
         { "Cá Thoát!", "Fish Escaped!" },
         { "Đang Kéo...", "Reeling..." },
+        { "Đã bắt được {0}!", "Captured {0}!" },
+        { "Sai loại lồng!", "Wrong cage size!" },
+        { "Lái xe: W/A/D — E để xuống", "Riding: W/A/D — E to dismount" },
+        { "Phú Ông lén lút tiến về phía quán bar giữa đêm...", "The rich man sneaks late at night toward the bar..." },
         { "Goblin đã gieo hạt giống giúp bạn!", "The goblin planted seeds for you!" },
         { "Mở kho", "Open storage" },
         { "Kho goblin", "Goblin Storage" },
@@ -667,6 +683,10 @@ public static class Localization
         { "Đã lấy {0} từ kho.", "Took {0} from storage." },
         { "Đang cầm: {0}", "Carrying: {0}" },
         { "Đang giữ hạt: {0}", "Holding seed: {0}" },
+        { "Goblin đã thu hoạch {0}!", "The goblin harvested {0}!" },
+        { "Goblin đã tưới cây!", "The goblin watered the crops!" },
+        { "Goblin đã bỏ {0} vào kho.", "The goblin stored {0}." },
+        { "Túi: {0} nông sản", "Bag: {0} crops" },
         { "DÙNG", "USE" },
         { "CHẠY", "SPRINT" },
         { "NHẢY", "JUMP" },
@@ -1117,6 +1137,56 @@ public static class Localization
         { "Nghe nói vùng đất này còn nhiều chỗ trống. Ông chủ giúp tôi một việc được không?", "I heard this land still has room. Boss, can you help me?" },
         { "Xin hãy dựng một căn nhà nhỏ cho gia đình tôi. Chúng tôi chỉ cần một mái che thôi.", "Please build a small house for my family. We only need a roof over our heads." },
         { "Xây một ngôi nhà nhỏ cho người di cư ({0}/{1}).", "Build a small house for immigrants ({0}/{1})." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (1/50).", "Build a small house for immigrants (1/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (2/50).", "Build a small house for immigrants (2/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (3/50).", "Build a small house for immigrants (3/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (4/50).", "Build a small house for immigrants (4/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (5/50).", "Build a small house for immigrants (5/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (6/50).", "Build a small house for immigrants (6/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (7/50).", "Build a small house for immigrants (7/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (8/50).", "Build a small house for immigrants (8/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (9/50).", "Build a small house for immigrants (9/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (10/50).", "Build a small house for immigrants (10/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (11/50).", "Build a small house for immigrants (11/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (12/50).", "Build a small house for immigrants (12/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (13/50).", "Build a small house for immigrants (13/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (14/50).", "Build a small house for immigrants (14/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (15/50).", "Build a small house for immigrants (15/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (16/50).", "Build a small house for immigrants (16/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (17/50).", "Build a small house for immigrants (17/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (18/50).", "Build a small house for immigrants (18/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (19/50).", "Build a small house for immigrants (19/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (20/50).", "Build a small house for immigrants (20/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (21/50).", "Build a small house for immigrants (21/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (22/50).", "Build a small house for immigrants (22/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (23/50).", "Build a small house for immigrants (23/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (24/50).", "Build a small house for immigrants (24/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (25/50).", "Build a small house for immigrants (25/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (26/50).", "Build a small house for immigrants (26/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (27/50).", "Build a small house for immigrants (27/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (28/50).", "Build a small house for immigrants (28/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (29/50).", "Build a small house for immigrants (29/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (30/50).", "Build a small house for immigrants (30/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (31/50).", "Build a small house for immigrants (31/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (32/50).", "Build a small house for immigrants (32/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (33/50).", "Build a small house for immigrants (33/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (34/50).", "Build a small house for immigrants (34/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (35/50).", "Build a small house for immigrants (35/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (36/50).", "Build a small house for immigrants (36/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (37/50).", "Build a small house for immigrants (37/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (38/50).", "Build a small house for immigrants (38/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (39/50).", "Build a small house for immigrants (39/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (40/50).", "Build a small house for immigrants (40/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (41/50).", "Build a small house for immigrants (41/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (42/50).", "Build a small house for immigrants (42/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (43/50).", "Build a small house for immigrants (43/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (44/50).", "Build a small house for immigrants (44/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (45/50).", "Build a small house for immigrants (45/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (46/50).", "Build a small house for immigrants (46/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (47/50).", "Build a small house for immigrants (47/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (48/50).", "Build a small house for immigrants (48/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (49/50).", "Build a small house for immigrants (49/50)." },
+        { "Xây một ngôi nhà nhỏ cho người di cư (50/50).", "Build a small house for immigrants (50/50)." },
 
         // Boss bad ending (fall into the dark)
         { "Tải Save Gần Nhất", "Load Latest Save" },
