@@ -31,28 +31,29 @@ public partial class CutsceneManager
             CreateLetterboxBars();
             ShowSkipButton();
 
-            // Player standing alone at the road turn where the Demon King fell
-            float playerZ = 78f;
+            // Player standing alone at the altar where the Demon King fell
+            Vector3 arena = WorldBuilder.Instance != null ? WorldBuilder.Instance.BossArenaCenter : new Vector3(280f, 0f, 90f);
+            float playerZ = arena.z - 6f;
             if (_player != null)
             {
-                _player.transform.position = new Vector3(RoadX, 0f, playerZ);
+                _player.transform.position = new Vector3(arena.x, 0f, playerZ);
                 _player.transform.rotation = Quaternion.identity;
                 var realModel = _player.transform.Find("PlayerModel");
                 if (realModel != null)
                     realModel.gameObject.SetActive(false);
             }
             var heroModel = MapBuilder.BuildPlayerModel(null);
-            heroModel.transform.position = new Vector3(RoadX, 0.82f, playerZ);
-            heroModel.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            heroModel.transform.position = new Vector3(arena.x, 0.82f, playerZ);
+            heroModel.transform.rotation = Quaternion.Euler(0f, -90f, 0f);
             foreach (var r in heroModel.GetComponentsInChildren<Renderer>())
                 r.gameObject.layer = 0;
             RegisterSpawned(heroModel);
 
-            // Scorched ground where the Demon King was slain — at the road turn junction
-            float bossZ = 90f;
+            // Scorched ground where the Demon King was slain — the altar floor
+            float bossZ = arena.z;
             var scorch = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             scorch.name = "DemonScorch";
-            scorch.transform.position = new Vector3(RoadX, 0.01f, bossZ);
+            scorch.transform.position = new Vector3(arena.x, 0.01f, bossZ);
             scorch.transform.localScale = new Vector3(4f, 0.02f, 4f);
             var scorchR = scorch.GetComponent<Renderer>();
             if (scorchR != null) scorchR.material.color = new Color(0.12f, 0.04f, 0.05f);
@@ -61,7 +62,7 @@ public partial class CutsceneManager
 
             // The fallen Demon King lying where it was slain
             var fallenKing = BossModelBuilder.BuildBoss(null);
-            fallenKing.position = new Vector3(RoadX, 0.18f, bossZ);
+            fallenKing.position = new Vector3(arena.x, 0.18f, bossZ);
             fallenKing.rotation = Quaternion.Euler(-90f, 180f, 0f);
             foreach (var r in fallenKing.GetComponentsInChildren<Renderer>())
             {
@@ -71,11 +72,11 @@ public partial class CutsceneManager
             RegisterSpawned(fallenKing.gameObject);
 
             // ── PHASE 1: OPENING SHOT ──
-            Vector3 camStart = new Vector3(RoadX, 2.2f, playerZ - 4f);
+            Vector3 camStart = new Vector3(arena.x, 2.2f, playerZ - 4f);
             if (_mainCamera != null)
             {
                 _mainCamera.transform.position = camStart;
-                _mainCamera.transform.LookAt(new Vector3(RoadX, 1.2f, playerZ + 2f));
+                _mainCamera.transform.LookAt(new Vector3(arena.x, 1.2f, playerZ + 8f));
             }
             yield return StartCoroutine(FadeOverlay(0, 2f));
             yield return new WaitForSeconds(2.2f);
@@ -83,7 +84,7 @@ public partial class CutsceneManager
             // ── PHASE 2: THE FALLEN KING'S EMBER ──
             var ember = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             ember.name = "DemonEmber";
-            ember.transform.position = new Vector3(RoadX, 1f, bossZ);
+            ember.transform.position = new Vector3(arena.x, 1f, bossZ);
             ember.transform.localScale = Vector3.one * 0.5f;
             var emberR = ember.GetComponent<Renderer>();
             if (emberR != null) emberR.material.color = new Color(1f, 0.4f, 0.1f);
@@ -101,8 +102,8 @@ public partial class CutsceneManager
                     emberR.material.color = new Color(1f, 0.4f - 0.2f * p, 0.1f, 1f);
                 if (_mainCamera != null)
                 {
-                    _mainCamera.transform.position = Vector3.Lerp(camStart, new Vector3(RoadX - 2f, 2.8f, bossZ + 4f), p);
-                    _mainCamera.transform.LookAt(new Vector3(RoadX, 1f, bossZ));
+                    _mainCamera.transform.position = Vector3.Lerp(camStart, new Vector3(arena.x - 2f, 2.8f, bossZ + 4f), p);
+                    _mainCamera.transform.LookAt(new Vector3(arena.x, 1f, bossZ));
                 }
                 yield return null;
             }
@@ -111,7 +112,7 @@ public partial class CutsceneManager
 
             // ── PHASE 3: SMOKE RISES FROM THE REMAINS ──
             var smokeGO = new GameObject("DemonSmoke");
-            smokeGO.transform.position = new Vector3(RoadX, 0.3f, bossZ);
+            smokeGO.transform.position = new Vector3(arena.x, 0.3f, bossZ);
             var ps = smokeGO.AddComponent<ParticleSystem>();
             var main = ps.main;
             main.startLifetime = 3f;
@@ -119,10 +120,10 @@ public partial class CutsceneManager
             main.startSize = 0.8f;
             main.startColor = new Color(0.08f, 0.06f, 0.07f);
             main.maxParticles = 30;
-            main.loop = true;
+            main.loop = false;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             var emission = ps.emission;
-            emission.rateOverTime = 8f;
+            emission.rateOverTime = 6f;
             var shape = ps.shape;
             shape.shapeType = ParticleSystemShapeType.Cone;
             shape.angle = 25f;
@@ -136,6 +137,7 @@ public partial class CutsceneManager
             }
             RegisterSpawned(smokeGO);
             yield return new WaitForSeconds(2f);
+            Destroy(smokeGO, 3f);
 
             // ── PHASE 4: CAMERA TURNS TOWARD THE VILLAGE ──
             float panDur = 4f;
@@ -146,28 +148,28 @@ public partial class CutsceneManager
                 float p = Mathf.Min(panTimer / panDur, 1f);
                 if (_mainCamera != null)
                 {
-                    _mainCamera.transform.position = new Vector3(RoadX - 1f, 2.4f, playerZ + 2f);
-                    Vector3 lookTarget = Vector3.Lerp(new Vector3(RoadX, 1f, playerZ + 8f), new Vector3(RoadX, 1f, playerZ - 20f), p);
+                    _mainCamera.transform.position = new Vector3(arena.x + 1f, 2.4f, playerZ + 2f);
+                    Vector3 lookTarget = Vector3.Lerp(new Vector3(arena.x, 1f, playerZ + 8f), new Vector3(arena.x - 35f, 1f, playerZ - 4f), p);
                     _mainCamera.transform.LookAt(lookTarget);
                 }
                 yield return null;
             }
             yield return new WaitForSeconds(1.5f);
 
-            // ── PHASE 5: THE HERO WALKS AWAY ──
+            // ── PHASE 5: THE HERO WALKS AWAY TOWARD THE VILLAGE ──
             _walkAnimRoutine = StartCoroutine(WalkAnimation(heroModel, 2.5f));
 
-            float walkZ = playerZ;
-            float walkEndZ = playerZ - 34f;
-            while (walkZ > walkEndZ)
+            float walkX = arena.x;
+            float walkEndX = arena.x - 50f;
+            while (walkX > walkEndX)
             {
-                walkZ -= 2.5f * Time.deltaTime;
-                heroModel.transform.position = new Vector3(RoadX, 0.82f, walkZ);
-                heroModel.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+                walkX -= 2.5f * Time.deltaTime;
+                heroModel.transform.position = new Vector3(walkX, 0.82f, playerZ);
+                heroModel.transform.rotation = Quaternion.Euler(0f, -90f, 0f);
                 if (_mainCamera != null)
                 {
-                    _mainCamera.transform.position = new Vector3(RoadX - 1.2f, 2f, walkZ + 4f);
-                    _mainCamera.transform.LookAt(new Vector3(RoadX, 1.1f, walkZ));
+                    _mainCamera.transform.position = new Vector3(walkX + 2f, 2f, playerZ + 4f);
+                    _mainCamera.transform.LookAt(new Vector3(walkX, 1.1f, playerZ));
                 }
                 yield return null;
             }
