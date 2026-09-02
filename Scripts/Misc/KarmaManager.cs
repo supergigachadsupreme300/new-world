@@ -5,7 +5,7 @@ public class KarmaManager : MonoSingleton<KarmaManager>
 public float CurrentKarma { get; private set; }
     public float MaxKarma { get; private set; }
 
-    private const float REGEN_PER_GAME_HOUR = 1f;
+    private const float REGEN_PER_GAME_HOUR = 1f / 24f;
     private float _regenAccumulator;
 
     public void Initialize(float maxKarma = 5f, float currentKarma = -1f)
