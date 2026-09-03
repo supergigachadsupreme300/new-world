@@ -11,7 +11,7 @@ using UnityEngine;
 /// SpellCaster / WeaponArtExecutor query stats through this single source.
 /// </summary>
 [DisallowMultipleComponent]
-public class PlayerStats : MonoBehaviour, IStatProvider
+public class PlayerStats : MonoBehaviour, IStatProvider, ILootLuckProvider
 {
     // k_* scaling knobs (§3.4) — balance numbers finalized during tuning.
     public const float K_Move = 0.5f;
@@ -31,6 +31,7 @@ public class PlayerStats : MonoBehaviour, IStatProvider
     public const float K_Heal = 0.05f;
     public const float K_Buff = 0.03f;
     public const float K_Status = 2f;
+    public const float K_Loot = 0.01f;
 
     [Header("Base Stat Points")]
     [Tooltip("Invested stat points (starting + leveled), one per StatType index.")]
@@ -130,6 +131,9 @@ public class PlayerStats : MonoBehaviour, IStatProvider
 
     public float StatusProcLuck => GetTotal(StatType.Luck) * K_Status;
 
+    /// <summary>Loot quality multiplier (game-design §7.1): Luck raises drop payout chances.</summary>
+    public float LootQuality => 1f + GetTotal(StatType.Luck) * K_Loot;
+
     // ── IStatProvider bridge ───────────────────────────────────────────────
 
     float IStatProvider.GetStat(WeaponScalingStat stat)
@@ -149,4 +153,6 @@ public class PlayerStats : MonoBehaviour, IStatProvider
     float IStatProvider.MaxFocusPoints => MaxFocusPoints;
 
     float IStatProvider.StatusProcLuck => StatusProcLuck;
+
+    float ILootLuckProvider.GetLootQuality() => LootQuality;
 }

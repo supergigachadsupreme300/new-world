@@ -231,9 +231,9 @@ Scripts/
 
 ### Task 5.2: Loot & Drops
 
-- [ ] `LootTable.cs` — Weighted drop tables per enemy
-- [ ] `ItemDatabase.cs` — All items (weapons, armor, consumables, materials, skill books)
-- [ ] World loot placement (chests, hidden drops)
+- [x] `LootTable.cs` — Weighted drop tables per enemy
+- [x] `ItemDatabase.cs` — All items (weapons, armor, consumables, materials, skill books)
+- [x] World loot placement (chests, hidden drops)
 
 ### Task 5.3: Points of Interest
 
@@ -414,6 +414,17 @@ Scripts/World/Biomes/
 ├── BiomeRegistry.cs         # NEW - all biomes
 ├── EnemySpawner.cs          # NEW - biome spawn rules
 └── POIGenerator.cs          # NEW - points of interest
+```
+
+### World/Loot
+```
+Scripts/World/Loot/
+├── ItemData.cs              # NEW - item definition (ItemData, ItemType)
+├── ItemDatabase.cs          # NEW - all items
+├── LootTable.cs             # NEW - weighted per-enemy drop tables
+├── LootDrop.cs              # NEW - world pickup + IItemCollection/ILootLuckProvider seams
+├── LootContainer.cs         # NEW - chests / world loot containers
+└── WorldLootPlacement.cs    # NEW - chest + hidden-drop seeding
 ```
 
 ### World/Streaming

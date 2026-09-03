@@ -52,6 +52,8 @@ public class EnemyController : MonoBehaviour, IDamageable
     public BiomeType Biome;
     public Transform ModelRoot;
     public GameObject DropPrefab;
+    [Tooltip("Weighted drop table rolled on death (planning Task 5.2).")]
+    public LootTable Loot;
 
     public int CurrentHealth { get; private set; }
     public EnemyState State { get; private set; }
@@ -312,6 +314,7 @@ private void StrikeTarget(Transform target)
     private void Die()
     {
         State = EnemyState.Dead;
+        RollAndSpawnLoot();
         DropDrop();
         Destroy(gameObject, 0.2f);
     }
@@ -321,6 +324,31 @@ private void StrikeTarget(Transform target)
         if (DropPrefab == null) return;
         var go = Instantiate(DropPrefab, transform.position + Vector3.up * 0.5f, Quaternion.identity);
         go.transform.SetParent(transform.parent);
+    }
+
+    /// <summary>Roll the loot table and spawn LootDrops, scaled by the target's luck.</summary>
+    private void RollAndSpawnLoot()
+    {
+        if (Loot == null || Loot.Entries == null || Loot.Entries.Count == 0) return;
+
+        float luck = 0f;
+        var receiver = _target != null ? _target.GetComponent<ILootLuckProvider>() : null;
+        if (receiver != null)
+            luck = Mathf.Max(0f, receiver.GetLootQuality() - 1f);
+
+        Vector3 origin = transform.position + Vector3.up * 0.6f;
+        int index = 0;
+        foreach (var pair in Loot.Roll(luck))
+        {
+            var go = new GameObject("LootDrop_" + index++);
+            go.transform.SetParent(transform.parent);
+            go.transform.position = origin + new Vector3(
+                UnityEngine.Random.Range(-0.4f, 0.4f), 0f,
+                UnityEngine.Random.Range(-0.4f, 0.4f));
+            var drop = go.AddComponent<LootDrop>();
+            drop.Item = pair.Key;
+            drop.Count = pair.Value;
+        }
     }
 
     private void OnDrawGizmosSelected()
