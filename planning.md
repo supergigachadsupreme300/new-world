@@ -260,9 +260,9 @@ Scripts/
 
 ### Task 6.3: Crafting System (Adapted)
 
-- [ ] Adapt `CraftingManager.cs` — new recipes for weapons, armor, potions
-- [ ] Crafting stations in towns and player homes
-- [ ] Recipe discovery via skill books and exploration
+- [x] New discoverable recipes for weapons, armor, potions, food (`RecipeRegistry`, `ItemDatabase` results)
+- [x] Crafting stations in towns (`CraftingStation` placed by `Town.Build`) and player homes (Task 6.5)
+- [x] Recipe discovery via skill books and exploration (`RecipeDiscovery`, `skill_book_*` unlocks)
 
 ### Task 6.4: NPC & Economy (Adapted)
 
@@ -459,6 +459,22 @@ Scripts/World/Fishing/
 > biomes / `PoiKind.Fishing` POIs anywhere on the map instead of the legacy
 > hardcoded sea (`x < -140`). Fish carry `SellValue` for the vendor economy and are
 > marked consumable/food (§5.2).
+
+### World/Crafting
+```
+Scripts/World/Crafting/
+├── RecipeData.cs             # NEW - discoverable recipe definition (RecipeData, RecipeKind, IngredientSpec)
+├── RecipeRegistry.cs         # NEW - programmatic recipe roster (weapons, armor, potions, food)
+├── RecipeDiscovery.cs        # NEW - gated known-recipes; skill-book unlocks (§5.3)
+└── CraftingStation.cs        # NEW - world crafting panel (discovery-aware, ToolManager economy)
+```
+> **Crafting adaptation note:** Task 6.3 keeps the legacy `CraftingManager`
+> (cooking/preserves/brewing stations) untouched and adds a discovery-aware
+> `CraftingStation` for weapon/armor/potion/food. Recipes reference `ItemDatabase`
+> ids so crafted goods flow through the shared item economy; recipes marked
+> `RequiresDiscovery` are gated by `RecipeDiscovery`, unlocked by consuming a
+> `skill_book_*` item (§5.3). `Town.Build` now also places a `CraftingStation`
+> (Task 6.5 reuses it for player homes).
 
 ### World/Loot
 ```

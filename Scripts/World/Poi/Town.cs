@@ -9,7 +9,9 @@ using UnityEngine;
 ///   • shop NPC markers named "GroceryShopNPC"/"VendorNPC" open the existing vendor UI;
 ///   • crafting-station markers named per <see cref="CraftingManager.StationCategories"/>
 ///     (crafting_stove / preserve_jar / brewing_kettle) resolve through the player interaction;
-///   • a <see cref="LootContainer"/> governs a small guaranteed chest.
+///   • a <see cref="LootContainer"/> governs a small guaranteed chest;
+///   • a discovery-aware <see cref="CraftingStation"/> (Task 6.3) adds weapon/armor/potion
+///     recipes gated behind skill-book discovery (§5.3).
 /// Generated cube stand-ins stand in until real town art drops in.
 /// </summary>
 public class Town : MonoBehaviour
@@ -25,6 +27,7 @@ public class Town : MonoBehaviour
     public FastTravelSign TravelSign { get; private set; }
     public GameObject ShopRoot { get; private set; }
     public LootContainer Chest { get; private set; }
+    public CraftingStation DiscoveryStation { get; private set; }
 
     /// <summary>Builds the town world object at <paramref name="worldPosition"/> under parent.</summary>
     public static Town Build(Transform parent, Vector3 worldPosition, POIDefinition poi)
@@ -77,6 +80,21 @@ public class Town : MonoBehaviour
             BuildMarkerCube("Station" + i, station.transform, new Vector3(0.8f, 0.7f, 0.8f), new Vector3(0f, 0.55f, 0f),
                 new Color(0.5f, 0.45f, 0.55f));
         }
+
+        // Discovery crafting station (Task 6.3) — opens the discovery-aware weapon/armor/
+        // potion/food panel. Complements the legacy station markers above.
+        var discoveryGo = new GameObject("CraftingStation_Discovery");
+        discoveryGo.transform.SetParent(root, false);
+        discoveryGo.transform.localPosition = origin + new Vector3(0f, 0.3f, -Definition.Radius * 0.4f);
+        var scol2 = discoveryGo.AddComponent<BoxCollider>();
+        scol2.isTrigger = true;
+        scol2.size = new Vector3(1.0f, 1.0f, 1.0f);
+        DiscoveryStation = discoveryGo.AddComponent<CraftingStation>();
+        DiscoveryStation.StationId = "discovery_" + poi.Id;
+        DiscoveryStation.Kind = RecipeKind.Armor;
+        DiscoveryStation.CategoryName = poi.DisplayName + " Crafting";
+        BuildMarkerCube("DiscoveryStation", discoveryGo.transform, new Vector3(1.0f, 0.9f, 0.8f), new Vector3(0f, 0.6f, 0f),
+            new Color(0.25f, 0.55f, 0.45f));
 
         // Guaranteed chest (hidden loot per §7.2).
         var chestGo = new GameObject("TownChest");
