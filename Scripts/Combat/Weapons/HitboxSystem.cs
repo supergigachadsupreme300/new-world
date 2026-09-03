@@ -25,6 +25,8 @@ public class HitboxSystem : MonoBehaviour
     [Header("Damage")]
     public float AttackPower = 10f;
     public float SkillMultiplier = 1f;
+    public DamageType Type = DamageType.Physical;
+    public IDamageResistance Resistance;
     public float KnockbackForce = 3f;
 
     [Header("Timing")]
@@ -118,7 +120,6 @@ public class HitboxSystem : MonoBehaviour
     private void ResolveHit(Collider target)
     {
         float targetDef = 5f;
-        int targetLayer = target.gameObject.layer;
 
         var hitCtx = new DamageCalculator.HitContext
         {
@@ -126,16 +127,19 @@ public class HitboxSystem : MonoBehaviour
             SkillMultiplier    = SkillMultiplier,
             Defense            = targetDef,
             DefenseMultiplier  = 1f,
-            ElementalPower     = 0f,
-            ElementalResistance= 0f,
+            Type               = Type,
+            Resistance         = Resistance ?? NeutralResistance.Instance,
             WeaknessMultiplier = 1f,
             CriticalMultiplier = 1f,
         };
 
-        var result = DamageCalculator.CalculateMelee(
-            AttackPower, SkillMultiplier, targetDef, blocked: false, critical: false);
+        var result = DamageCalculator.Calculate(hitCtx, blocked: false);
 
         OnHit?.Invoke(result, target.gameObject);
+
+        // Apply to the target's health if it implements IDamageable.
+        if (target.TryGetComponent<IDamageable>(out var damageable))
+            damageable.TakeDamage(result.TotalDamage);
 
         // Knockback: apply a simple impulse to Rigidbody if present.
         Rigidbody rb = target.attachedRigidbody;
@@ -152,9 +156,13 @@ public class HitboxSystem : MonoBehaviour
     {
         Gizmos.color = new Color(1f, 0f, 0f, 0.4f);
         if (Shape == HitboxShape.Sphere)
+        {
             Gizmos.DrawWireSphere(transform.position, Radius);
+        }
         else
+        {
             Gizmos.matrix = transform.localToWorldMatrix;
             Gizmos.DrawWireCube(Vector3.zero, BoxSize);
+        }
     }
 }
