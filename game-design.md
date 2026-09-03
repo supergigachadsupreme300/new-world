@@ -7,7 +7,7 @@
 **Multiplayer:** Dedicated server with co-op/invasion/arena
 **Core Loop:** Explore → Fight → Grow → Craft → Dominate
 
-Seamless open-world with real-time action combat, classless progression via a massive unlockable skill tree, procedurally generated seed-based chunk terrain, and all existing CountryLife systems retained as optional side content.
+Seamless open-world with real-time action combat, classless progression via a **6-category skill-XP system** plus a **22-race system**, procedurally generated seed-based chunk terrain, and all existing CountryLife systems retained as optional side content.
 
 ---
 
@@ -125,7 +125,7 @@ Final Damage = (Attack Power x Skill Multiplier x Weakness Multiplier)
 - Each action costs stamina.
 - Stamina management is the core skill expression.
 
-### 3.2 Classes (10 Unlockable)
+### 3.2 Classes (15 Unlockable)
 
 The game uses a **classless unlock system**. Players start as a **Wanderer** (base class) and unlock classes by meeting stat thresholds or finding class trainers/items in the world.
 
@@ -138,69 +138,278 @@ The game uses a **classless unlock system**. Players start as a **Wanderer** (ba
 | # | Class | Unlock Requirement | Unique Mechanic |
 |---|-------|-------------------|-----------------|
 | 1 | **Warrior** | Str >= 20 | Weapon Arts enhanced, stance breaking |
-| 2 | **Mage** | Int >= 20 | Spell casting, magic damage |
+| 2 | **Mage** | Wisdom >= 20 | Spell casting, magic damage |
 | 3 | **Rogue** | Dex >= 20 | Backstab bonus, stealth attacks |
 | 4 | **Cleric** | Fth >= 20 | Healing miracles, buffs |
 | 5 | **Berserker** | Str + End >= 35 | Damage increases as HP drops |
-| 6 | **Necromancer** | Int + Fth >= 35 | Summon undead allies |
+| 6 | **Necromancer** | Wisdom + Fth >= 35 | Summon undead allies |
 | 7 | **Samurai** | Dex + End >= 35 | Perfect parry window extended |
 | 8 | **Alchemist** | Any 2 stats >= 18 | Enhanced consumable effects |
-| 9 | **Blood Knight** | Str + Dex >= 35 | Lifesteal on hits |
-| 10 | **Void Walker** | Int + Mind >= 35 | Teleport dodge, void damage |
+| 9 | **Knight** | Defense + Str >= 35 | Buffs **defense & melee together** — stronger at each than a baseline but weaker than dedicated Paladin (defense) or Warrior (melee); increases equip-load carry (armor grants more defense) |
+| 10 | **Archer** | Dex >= 20 | Ranged **accuracy & handling** (faster nock/reload, less sway) |
+| 11 | **Enchanter** | Intelligence + Wisdom >= 35 | Control/zone mage (slow, roots, area denial) |
+| 12 | **Brawler** | Str >= 20 | Unarmed/grapple crowd control |
+| 13 | **Paladin** | Fth + End >= 35 | Holy tank/support (taunt, guard allies, sacred armor effectiveness) |
+| 14 | **Bard** | Fth + Intelligence >= 35 | Party-wide buffs/auras |
+| 15 | **Blacksmith** | Crafting skill >= level 10 | Crafting/forge support: gear upgrade success, repair, forging bonuses (skill-based, not stat) |
 
 Classes are **not exclusive** — if stats allow, a player can unlock multiple classes and mix abilities.
 
-### 3.3 Skill Tree System
+### 3.3 Skill System (use-based XP — supersedes original skill tree)
 
-A **giant interconnected skill tree** spanning multiple paths. No fixed class requirements — any player can go any direction based on stats and choices.
+> **Scope update:** The originally planned giant skill TREE was replaced by a simpler, more
+> content-efficient **use-based Skill XP system** (6 categories, flat tier rewards) to pair
+> with the race system. See §3.5. Equippable active/ultimate skills and skill books remain
+> planned; only the node-tree progression was removed.
 
-#### Tree Structure
+A **use-based skill progression** spans multiple combat/utility categories. No fixed class requirements — any player can advance any category based on how they play. Skills level by gaining XP in their category (with racial multipliers) and grant flat tier rewards at levels 5/10/15/20/25.
+
+#### Skill Categories
 
 ```
-                         [CORE]
-                    /    / | | \    \
-                  [STR] [DEX] [INT] [FTH] [ARC]
-                  /|\    /|\   /|\   /|\   /|\
-               Passive  Active  Weapon Arts  Ultimates
-                  \  |  /  \ |  /   \  |  /
-                [HYBRID PATHS — multi-stat thresholds]
-                         |
-                [ULTIMATE ABILITIES — endgame]
+   [MELEE]  [RANGED]  [MAGIC]
+      \        |        /
+      [SURVIVAL: STEALTH + CRAFTING + FORTITUDE]
 ```
 
 #### Skill Types
 
 | Type | Description | Examples |
 |------|-------------|---------|
-| **Passive** | Permanent stat boost or effect | +10% stamina regen, +5% crit |
+| **Category Passive** | Tier reward from leveling a category | +10% stamina regen, +5% crit |
 | **Active** | Equippable combat ability | Fireball, Heal, Backstab |
 | **Weapon Art** | Weapon-specific unique skill | Whirlwind, Shield Bash, Arrow Rain |
 | **Ultimate** | Powerful endgame ability | Meteor, Time Slow, Blood Rite |
 
 #### Skill Book Expansion
 
-- Skills are initially locked behind nodes in the tree.
 - **Skill Books** found in the world or bought from merchants can:
-  - Unlock new branches of the tree
-  - Add new skill nodes
-  - Grant bonus skill points
+  - Unlock new **Active / Weapon Art / Ultimate** skills
+  - Grant bonus skill points or category XP
   - Reveal hidden ultimate paths
-- The tree is **expandable** — new skill books can add entirely new branches post-launch.
+- The system is **expandable** — new skill books can add entirely new skills and categories post-launch.
 
-### 3.4 Stats (8 Core)
+### 3.4 Stats (11 Core)
+
+The stat system was redesigned into **11 stats**. Arcane was removed (its functions split into **Luck** and **Wisdom**). Old names were renamed for clarity: *Vigor→Health*, *Mind→Intelligence*, *Intelligence→Wisdom*. New stats added: **Speed**, **Defense**, **Luck**, **AttackSpeed**.
 
 | Stat | Effect |
 |------|--------|
-| **Vigor** | Max HP, HP regen, resistance to status effects |
-| **Mind** | Max FP (mana), skill cooldown reduction |
+| **Health** | Max HP, HP regen, resistance to status effects |
+| **Speed** | Movement speed, dodge speed, **small** attack-speed bonus |
 | **Endurance** | Max stamina, equip load (heavier armor/weapons) |
-| **Strength** | Melee damage, heavy weapon scaling, stagger power |
-| **Dexterity** | Attack speed, ranged accuracy, crit chance, light weapon scaling |
-| **Intelligence** | Magic damage, spell power, magic resistance |
-| **Faith** | Miracle/healing power, elemental resistance, buff duration |
-| **Arcane** | Discovery (loot chance), status effect buildup, luck |
+| **Strength** | Melee damage (heavy), stagger power |
+| **Dexterity** | Light/one-handed melee damage, ranged **accuracy**, parry window, dodge i-frames, weapon-swap speed |
+| **AttackSpeed** | **Primary** source of attack speed (larger per-point than Speed's bonus) |
+| **Defense** | Flat **physical** damage reduction (equipment/armor-based) |
+| **Intelligence** | Max FP (mana), skill cooldown reduction |
+| **Wisdom** | Magic damage, spell power |
+| **Faith** | Miracle/healing power, buff duration |
+| **Luck** | Loot quality, crit chance, crafting luck, status-effect luck |
 
 **Leveling:** Earn XP from combat, quests, exploration. Spend points on stats at bonfires/rest points.
+
+**Stat splits (design notes):**
+- **Speed vs AttackSpeed vs Dexterity:** Speed = raw velocity (movement velocity + dodge speed), with only a *small* effect on attack speed. AttackSpeed = the dedicated stat for **how fast you swing/attack** — a large per-point effect. Dexterity = *precision finesse*: light/one-handed melee damage, ranged accuracy, parry window, dodge i-frame quality, weapon-swap speed (it also contributes a little attack speed as finesse).
+- **Strength vs Dexterity (damage):** Strength scales **heavy/melee** damage and stagger. Dexterity scales **light/one-handed melee** and finesse. Ranged **damage** scales with the **weapon itself** (bows/arrows have their own damage ceiling) — stats instead govern how well a player *uses* a ranged weapon: **Dexterity** for accuracy, **Endurance** for equip load (heavy bows), **Speed/Dexterity** for handling.
+- **Defense vs Health:** Health = your HP pool and regeneration. Defense = flat reduction of incoming **physical** damage. **All resistance — physical, elemental, magic — comes from equipment (armor/gear) only, not from stats.** No stat grants damage resistance.
+
+#### Derived Stat Formulas
+
+Stats convert to gameplay numbers via these formulas. **Racial % modifiers apply to the stat BEFORE these formulas run**, so a racial bonus compounds (grows) as the player invests and levels that stat. Scaling coefficients marked `k_*` are **balance knobs** finalized during implementation/tuning.
+
+```
+MaxHP          = 100 + (Health × 12)
+MoveSpeed      = base + (Speed × k_mov)               # movement velocity
+DodgeSpeed     ×= 1 + (Speed × k_dodge)
+AttackSpeed    ×= 1 + (AttackSpeed × k_as)            # PRIMARY attack-speed source (large)
+AttackSpeed    ×= 1 + (Speed × k_as_speed)            # small bonus only (k_as_speed ≪ k_as)
+AttackSpeed    ×= 1 + (Dexterity × k_as_dex)          # small finesse bonus (k_as_dex ≪ k_as)
+MaxStamina     = 100 + (Endurance × 10)
+EquipLoad      = 40  + (Endurance × 2)                # weight units of armor/weapons
+MeleeAtkPower  = base + (Strength × k_str)            # heavy/melee → DamageCalculator.AttackPower
+StaggerPower   = base + (Strength × k_stag)
+LightAtkPower  = base + (Dexterity × k_lt)            # light/one-handed melee
+RangedAccuracy = 1 + (Dexterity × k_racc)
+RangedDmg      = weapon.base                          # ranged damage = weapon ceiling, NOT stats
+ParryWindow    = base + (Dexterity × k_parry)
+DamageReduc    = clamp(Defense × k_def, 0, 0.8)       # flat physical DR, capped
+MaxFP          = 50  + (Intelligence × 10)
+CooldownMult   = 1 − (Intelligence × k_cool)          # faster ability cooldowns
+MagicAtkPower  = base + (Wisdom × k_mag)              # → DamageCalculator.ElementalPower
+HealPower      ×= 1 + (Faith × k_heal)
+BuffDuration   ×= 1 + (Faith × k_buff)
+CritChance     = 5%  + (Luck × 0.15%)                 # → DamageCalculator critical
+LootQuality    = base + (Luck × k_loot)
+CraftLuck      = base + (Luck × k_craft)
+StatusProcLuck = base + (Luck × k_status)             # poison/bleed/rot/frost procs
+```
+
+Example — a race with **Health +20%**: at base Health 30 → total 36 → MaxHP = 100 + 36×12 = **532** (vs unmodified 460). Because the bonus scales with the total stat, it represents ~16–18% more HP in the late game.
+
+**Damage calculator wiring:** Strength/Dexterity/Wisdom/Luck feed the `DamageCalculator` context (AttackPower, LightAttackPower, ElementalPower, CriticalMultiplier). Ranged damage uses the **weapon's base damage** directly. Incoming damage is reduced by **equipment-based resistances** (armor physical DR, gear elemental/magic resist) — no stat contributes resistance. The 6 skill-XP categories (Melee, Ranged, Magic, Stealth, Crafting, **Fortitude**) are separate from the 11 stats.
+
+### 3.5 Race System (22 Races)
+
+Players pick a race at **character creation** (weighted-random roll that auto-commits, or manual pick). Races are also **discoverable in the world** at altar/ritual sites, which unlock them and allow a **mid-play race change** (costs a rare Ritual Stone; Human is always free to swap to).
+
+#### How Races Modify Stats
+
+Racial stat modifiers are **percentages applied to the TOTAL stat on-the-fly**, so they **scale as the player levels**:
+
+```
+TotalStat = BaseStat × (1 + RacialPercent)
+```
+
+- Positive % (e.g. Str +20%) multiplies the whole stat, growing stronger with investment.
+- Negative % (e.g. Dex -10%) is a permanent handicap the player must build around.
+- Modifiers recalc immediately whenever the player levels or changes race.
+
+#### Skill XP Categories (6)
+
+Instead of a node-based skill tree, skills level via **use-based XP**. Each category has its own XP bar and flat tier rewards at levels 5/10/15/20/25. Races grant **XP multipliers** in categories that match their archetype, pushing builds in a natural direction.
+
+| Category | Tracks | Example Uses |
+|----------|--------|--------------|
+| **Melee** | Melee proficiency | Sword/mace/axe damage, combos, stagger |
+| **Ranged** | Ranged proficiency | Bow accuracy, crossbow, thrown weapons |
+| **Magic** | Spell/miracle proficiency | Spell power, cast speed, FP efficiency |
+| **Stealth** | Stealth/survival proficiency | Sneak damage, detection range, lockpicking |
+| **Crafting** | Crafting/gathering proficiency | Potion potency, upgrade success, yield |
+| **Fortitude** | Defensive proficiency | Shield stability, armor effectiveness (physical DR), perk effectiveness |
+
+#### The 22 Races
+
+Stat modifiers shown as %. Weights shown for the random-roll. XP bonus = skill categories that level faster.
+
+| # | Race | Stat Modifiers | Passive | Weight | XP Bonus |
+|---|------|----------------|---------|--------|----------|
+| 1 | **Human** | None (AS+0) | +15% XP from all sources | 50% | All +15% |
+| 2 | **Fire Giant** | Health+20 Str+20 End+15 Speed-5 Int-15 AS-15 | Fire resistance (50%), lava walk | ~2.38% | Endurance +15% |
+| 3 | **Serpent-kin** | Luck+15 Dex+15 End+10 Str-10 AS+5 | Venom Blade: physical attacks apply venom DoT for 8s | ~2.38% | Magic +10%, Stealth +10% |
+| 4 | **Draconic** | Str+20 Wisdom+15 End+5 Int-10 AS+5 | Fire resistance (40%), Dragon Roar (stagger nearby, 30s CD) | ~2.38% | Strength +10%, Faith +5% |
+| 5 | **Golem** | Str+25 End+25 Health+15 Speed-10 Int-20 AS-15 | **Stone Skin:** 25% physical + 25% magic dmg reduction; move speed -20% | ~2.38% | Endurance +15%, Fortitude +20% |
+| 6 | **Celestial** | Faith+25 Int+10 Health+10 Str-10 AS+5 | Healing miracles 20% stronger | ~2.38% | Faith +15% |
+| 7 | **Wraith** | Wisdom+25 Luck+15 Int+10 Health-15 AS+5 | **Immaterial:** pass through all physical objects, immune to physical dmg, spell-caster only; no dash/run. Takes +30% magic dmg, +50% holy dmg | ~2.38% | Magic +15% |
+| 8 | **Undead** | Health+10 End+15 Dex+10 Int-10 AS+5 | Infinite stamina. Takes +25% fire dmg, +25% holy dmg | ~2.38% | Endurance +15% |
+| 9 | **Skeleton** | Dex+20 Str+10 End+10 Health-15 AS+10 | Bleed immune, +20% move speed, infinite stamina | ~2.38% | Fortitude +15% |
+| 10 | **Werewolf** | Str+20 Dex+20 End+5 Int-15 AS+10 | Night: +25% move speed + 2% HP regen/s. Claws deal bleed | ~2.38% | Melee +15% |
+| 11 | **Goblin** | Dex+20 Luck+15 End+5 Str-10 AS+5 | +20% loot quality, 15% smaller hitbox | ~2.38% | Crafting +15%, Stealth +10% |
+| 12 | **Orc** | Str+25 Health+15 End+10 Int-15 AS+5 | +15% stagger damage, passive HP regen (1% max HP/s) | ~2.38% | Melee +15%, Endurance +10% |
+| 13 | **Ice Giant** | Health+15 Str+20 End+20 Speed-5 Int-15 AS-15 | Cold immune, freeze aura (nearby enemies slowed 20%) | ~2.38% | Endurance +10%, Strength +10% |
+| 14 | **Vampire** | Dex+20 Luck+10 Wisdom+10 Int+5 Str-10 AS+10 | 5% lifesteal on hit, +15% move speed. Sunlight: 5% max HP burn/s | ~2.38% | Magic +10%, Stealth +10% |
+| 15 | **Demonkin** | Str+20 Wisdom+15 End+10 Faith-15 AS+5 | Fire resistance (40%), fire aura (1% max HP/s to nearby) | ~2.38% | Magic +10%, Melee +10% |
+| 16 | **Angel** | Faith+25 Int+15 Wisdom+10 Str-10 AS+5 | Elemental resist (20% fire/ice/lightning/magic) via gear; weak to physical (+15%) and dark (+25%) | ~2.38% | Faith +15% |
+| 17 | **Succubus/Incubus** | Dex+15 Wisdom+10 Luck+10 Int+10 Str-15 Health-10 AS+10 | Charm Gaze: opposite-gender targets have 10% chance to be confused | ~2.38% | Magic +15% |
+| 18 | **Fishmen** | Dex+10 End+15 Health+15 Str+10 Faith-10 AS+5 | Swim speed +50%, breathe underwater, water dmg immune | ~2.38% | Ranged +10%, Crafting +10% |
+| 19 | **Harpy** | Dex+25 Luck+15 Str-15 End-20 AS+10 | Glide (slow fall), jump height +30% | ~2.38% | Ranged +15% |
+| 20 | **Dwarf** | Str+15 Faith+10 End+25 Dex-10 AS-5 | +20% crafting yield, forge discounts | ~2.38% | Crafting +15%, Fortitude +10% |
+| 21 | **Gnome** | Luck+35, all 10 other stats -10% | **Lucky Find:** +40% loot bonus (best loot/crit/craft/status luck in the game), 15% smaller hitbox | ~2.38% | Magic +15%, Crafting +10% |
+| 22 | **Elf** | Dex+20 Wisdom+15 Str-10 AS+10 | +8% all XP, enhanced perception (see hidden at +20% range) | ~2.38% | Magic +10%, Ranged +10% |
+
+#### Stat Balance & Tiers
+
+Races deliberately use a **wide net-stat-budget spread**, because racial % modifiers compound with leveling (§3.4). Races with a lower stat budget are compensated with **stronger passives, utility, or XP bonuses** so every archetype stays viable — races differ in *where* their power sits as much as *how much* raw stat power they carry.
+
+| Tier | Net Budget | Races | Compensation for the gap |
+|------|-----------|-------|--------------------------|
+| **Strong** | +45 | Vampire, Fishmen, Angel | Vampire: harsh sunburn (5% max HP/s in daylight); Fishmen: situational water-bias; Angel: weak to physical & dark |
+| **Good** | +40 | Celestial, Wraith, Werewolf, Orc | Each has a meaningful defensive/utility weakness |
+| **Fine** | +35 | Serpent, Draconic, Skeleton, Goblin, Demonkin, Dwarf, Elf | Moderate weaknesses; XP bonuses |
+| **Mid** | +30 | Undead, Succubus | XP bonuses + light weakness (fire/holy, frailty) |
+| **Tank** | +20 | Fire Giant, Golem, Ice Giant | Strong defensive passives: Stone Skin (physical+magic −25%), freeze aura, fire resistance — pure-tank identity |
+| **Aerial** | +15 | Harpy | Mobility (glide, enhanced jump) + Ranged XP; glass-cannon utility |
+| **Baseline** | 0 | Human | +15% XP from all sources; the default/no-penalty race |
+| **Handicap** | −65 | Gnome | **Best loot/crit/craft/status luck in the game** via Lucky Find + Luck stat (top-tier loot) + Magic/Crafting XP — high-risk glass cannon, weak in every other stat (all 10 others −10) |
+
+> **Note on Human vs Elf:** Human (0 stat budget, **+15% XP**) is the **safe default** (50% weight, no penalties) — the only race whose identity is raw XP gain. Elf (+35 budget, +8% XP) is a stricter min-max pick trading XP for stats. Human's identity is reliability + faster progression; Elf's is raw stat advantage.
+
+#### Race Selection & Weighted Random
+
+- **Human 50%** chance; **each of the other 21 races ~2.38%** (50% ÷ 21).
+- The roll **auto-commits** (player keeps what they roll).
+- All races remain **manually pickable** if the player prefers a specific one.
+- Locked races are revealed by **world discovery points** (altars/ritual sites); interacting unlocks them for this and future characters and enables mid-play transform.
+
+#### Race Change (Mid-Play)
+
+- Discovered races can be swapped to at any **Race Discovery Point**.
+- Cost: **1 Ritual Stone** (rare consumable). Human is always free.
+- On change: `PlayerStats` modifiers refresh, `RaceRig` swaps the model, `RacePassiveManager` re-applies passives. Current HP/FP/stamina preserved as % of their new max.
+
+#### Race Visuals (Separate Rigs)
+
+- Each race has its **own rig** (model + scale + offset + material tint).
+- Rigs are **data-driven** (`RaceData` → `RaceRig`). Procedural placeholder bodies ship now; real 3D models drop in later without code changes.
+
+#### Expandability
+
+- `RaceData` is a ScriptableObject — adding a race = creating a new `.asset` (zero code changes).
+- New races can ship post-launch via updates / content drops.
+
+### 3.6 Weapon Architecture (Expandable)
+
+Weapons are built on a **3-category base — Melee, Ranged, Magic** — structured so new categories/subtypes drop in without touching existing code. The core principle: separate **what a weapon is** (data) from **how it attacks** (delivery behavior) from **how damage resolves** (damage pipeline).
+
+#### Layers
+
+- **Layer 1 — `WeaponData` (ScriptableObject, data-only).** Shared fields: id, display name, weight (equip-load), Str requirement (weight class, §5.4), hand usage (single / dual / two-hand), base damage, speed, attack reach, scaling stat(s) + coefficients, `WeaponCategory`, `DamageType` (one of the 10 damage types, §3.7), and a Weapon Art reference. **Magic weapons** additionally carry magic mods — `MagicDamageMult`, `CastTimeMod`, `CooldownMod` (staff/wand/book scale spells).
+- **Layer 2 — `WeaponCategory` enum (expandable).** `Melee`, `Ranged`, `Magic`. Future values (Thrown, Shield, Summon, Hybrid, …) slot in as new enum entries + one behavior class each.
+- **Layer 3 — Behavior modules via `IWeaponBehavior`.** A minimal contract: `BeginAttack(cmd)`, `ActiveFrame()`, `Cancel()`. One concrete module per category:
+  - **`MeleeWeaponBehavior`** → existing `HitboxSystem` arc sweep.
+  - **`RangedWeaponBehavior`** → projectile/raycast, **consumes ammo** (arrows/bolts from inventory), accuracy from Dexterity.
+  - **`MagicWeaponBehavior`** → routes to the spell/skills pipeline; the equipped staff/wand/book's magic mods scale the spell (damage %, cast time, cooldown); costs FP; spell power from Wisdom.
+  - `CombatController` talks **only** to `IWeaponBehavior` — it never knows melee vs ranged vs magic. **Adding a weapon kind = one new behavior class.**
+- **Layer 4 — Damage pipeline & registry.** `DamageCalculator` (existing flexible `HitContext`) stays the single damage formula, extended to carry the weapon's `DamageType` (one of the 10 damage types, §3.7) for per-hit element/resist resolution. `WeaponDatabase` (ScriptableObject registry) holds all weapon assets and resolves each equipped weapon's category → behavior.
+
+#### Per-Category Mechanics
+
+| Category | Delivery | Damage Source | Key Stat | Resource |
+|----------|----------|---------------|----------|----------|
+| **Melee** | Hitbox arc | weapon.base + Str/Dex scaling | Str (heavy) / Dex (light) | Stamina |
+| **Ranged** | Projectile / raycast | `weapon.base` (weapon ceiling) | Dex (accuracy) | **Ammo** (arrows/bolts) |
+| **Magic** | Spell / skill pipeline | spell base × Wisdom, modulated by weapon magic-mods | Wisdom | FP |
+
+#### Notes
+
+- Weapons carry a **single `DamageType`** — one of the **10 damage types** (§3.7); the damage pipeline resolves that element/type's resist/weakness.
+- Magic weapons are **equipped gear that scales/alters spells** rather than delivering their own attacks — distinct from melee/ranged, which deliver their own.
+- Hand/wielding integration (§5.4): the equipped hand slots hold `WeaponData`; the categories of equipped weapons determine which behaviors are active. Wielding states modulate Str requirement as specified.
+- Ranged ammo ties into the Inventory/consumables system.
+
+### 3.7 Damage & Status Types
+
+All damage is one of **10 damage types**. Every weapon, spell, and ability declares a **single `DamageType`** (per the single-element rule in §3.6); armor/gear provides resistance per type (equipment-only rule, §3.4). The `DamageCalculator` resolves the attacker's type against the target's resistance.
+
+#### The 10 Damage Types
+
+| # | Type | Description |
+|---|------|-------------|
+| 1 | **Physical** | Weapon/kinetic damage (blunt, slash, pierce — aggregated as one type). Reduced by Defense/armor. |
+| 2 | **Fire** | Heat/burn damage. |
+| 3 | **Ice** | Frost/cold damage. |
+| 4 | **Lightning** | Electric damage. |
+| 5 | **Holy** | Light/divine damage (strong vs undead/dark). |
+| 6 | **Dark** | Shadow/void damage (strong vs holy). |
+| 7 | **Wind** | Air/force damage. |
+| 8 | **Earth** | Stone/ground damage. |
+| 9 | **Water** | Water/fluid damage. |
+| 10 | **Arcane** | Generic magic/arcane damage — the distinct "magic" damage type. |
+
+*Physical and Arcane are themselves damage types; weapon **categories** (Melee/Ranged/Magic-delivery, §3.6) are a separate dimension — a melee weapon can deal Fire, a staff can deal Ice, etc.*
+
+#### Status Effects (separate dimension)
+
+Status effects are **not damage types** — they are applied **on hit** and do DoT / crowd-control, scaled by **Luck** (`StatusProcLuck`, §3.4):
+
+| Status | Effect |
+|--------|--------|
+| **Bleed** | Accumulating damage-over-time on repeated hits |
+| **Poison** | Damage-over-time over a duration |
+| **Rot** | Strong, lingering damage-over-time |
+| **Frost** (frostbite) | Builds up, then a burst + slow |
+| **Burn** | Fire damage-over-time + light stagger buildup |
+| **Stagger** | Poise break / crowd-control (interrupts actions) |
 
 ---
 
@@ -263,25 +472,57 @@ All existing CountryLife systems are retained as optional side content within th
 - Weapons, armor, potions, food, tools.
 - Recipes discovered through exploration and skill books.
 
-### 5.4 NPC Relationships
+### 5.4 Equipment
+
+Equipment is split into **3 genres**, each mapped to a fixed set of gear slots (21 total).
+
+#### Genres & Slots
+
+| Genre | Slots | Qty |
+|-------|-------|-----|
+| **Armor** | Head, Body, Glove, Legging, Feet | 5 |
+| **Weapon** | Left Hand, Right Hand | 2 |
+| **Accessory** | 10 Fingers, Necklace, 2 Ear, Belt | 14 |
+
+**Armor (5 slots):** The source of **physical damage reduction** (amplified by the **Defense** stat) and of **all elemental/magic resistance**. Per the equipment-only resistance rule (§3.4), no stat grants resistance — armor/gear does. Heavier armor weighs more (raising **EquipLoad**, gated by Endurance).
+
+**Weapon (2 hand slots):** Every weapon is **one-hand capable**, so any two can be dual-wielded. Wielding is governed by the weapon's **Strength (Str) requirement** (by weight class: light / medium / heavy):
+
+| Configuration | Requirement |
+|---------------|-------------|
+| **One-handed** (1 weapon) | Full Str requirement of that weapon |
+| **Two-hand grip** (both slots) | **Reduced** Str requirement (~half) — lets low-Str builds use heavy weapons at the cost of no off-hand weapon/shield |
+| **Dual-wield** (one per hand) | Roughly **2× the single-hand Str requirement** — high-Str builds can dual-wield greatswords, hammers, etc. |
+
+Two-handing occupies both hand slots (no off-hand); dual-wielding occupies both with separate weapons. Weapons carry their own **damage** (ranged uses `weapon.base`), **speed**, **range**, and a unique **Weapon Art** (§3.2 combat, costs FP). The **Knight** class raises equip-load carry; **Blacksmith** improves upgrades/repair/forging.
+
+**Accessory (14 slots):** 10 rings (one per finger), 1 necklace, 2 ear pieces, 1 belt. These grant **passive bonuses** (stat, status, luck, utility). The bulk of defensive **resistance/DR** comes from armor — accessories supplement it and carry build-defining passive mods.
+
+#### Hand States the system tracks
+
+- **Single** — one weapon, off-hand free (weapon, shield, or orb).
+- **Dual** — one weapon per hand.
+- **Two-hand grip** — both hands on a single heavy weapon (reduced Str need).
+
+### 5.5 NPC Relationships
 
 - NPCs scattered throughout the world.
 - Friendship/relationship system (simplified from CountryLife).
 - NPCs provide quests, shops, lore, companionship.
 
-### 5.5 Livestock & Pets
+### 5.6 Livestock & Pets
 
 - Animal husbandry at player homesteads.
 - Pets with combat companionship.
 - Goblin helper for automation (late-game unlock).
 
-### 5.6 Economy
+### 5.7 Economy
 
 - Vendors and shops in towns.
 - Player trading (via dedicated server).
 - Currency earned from combat, quests, farming, fishing.
 
-### 5.7 Housing
+### 5.8 Housing
 
 - Player homes that can be built/decorated.
 - Chests for storage.
@@ -371,7 +612,8 @@ Generated from noise layers, each biome has unique terrain characteristics:
 
 - Main Menu (New Game, Continue, Multiplayer, Settings)
 - Pause Menu (Inventory, Skills, Map, Quests, Settings, Quit)
-- Skill Tree Menu (full-screen interactive tree)
+- Character Creation (race select + stat/passive preview)
+- Race & Stat Sheet (current race, stats, skill XP, classes)
 - Inventory Menu (equipment, items, materials, consumables)
 - Map Menu (world map with biome overlay, POIs, player markers)
 - Multiplayer Menu (server browser, friends, party)

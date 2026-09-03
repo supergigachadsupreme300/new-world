@@ -32,13 +32,15 @@ Scripts/
 ├── Player/
 │   ├── Controller/      # Movement, camera, input
 │   ├── Combat/          # Attacks, dodge, block, parry
-│   ├── Stats/           # Stat system, leveling, class unlocks
+│   ├── Stats/           # 11 stats, leveling, skill XP, class unlocks
+│   ├── Races/           # 22 races: data, passives, unlock, rigs
+│   ├── Creation/        # Character creation (race select)
 │   └── Inventory/       # Equipment, items, consumables
 ├── Combat/
 │   ├── AI/              # Enemy AI, bosses
 │   ├── Weapons/         # Weapon types, damage calc
-│   ├── Skills/          # Skill tree, skill books, abilities
 │   └── Effects/         # VFX, status effects, particles
+│   (Skill XP replaces the old Combat/Skills tree — see Phase 4)
 ├── Multiplayer/
 │   ├── Server/          # Dedicated server logic
 │   ├── Client/          # Client networking, prediction
@@ -129,13 +131,22 @@ Scripts/
 - [ ] `StaminaSystem.cs` — Stamina management, regen, drain per action
 - [ ] `DamageCalculator.cs` — Damage formula implementation
 - [ ] `HitboxSystem.cs` — Weapon hitbox generation, collision detection
+- [ ] `DamageType.cs` — enum of the 10 damage types (Physical, Fire, Ice, Lightning, Holy, Dark, Wind, Earth, Water, Arcane — §3.7)
+- [ ] `StatusEffectType.cs` — enum: Bleed, Poison, Rot, Frost, Burn, Stagger (separate from damage types; §3.7)
 
-### Task 3.2: Weapon System
+### Task 3.2: Weapon System (expandable architecture, see game-design.md §3.6)
 
-- [ ] `WeaponBase.cs` — Base weapon class (damage, speed, range, scaling)
+- [ ] `WeaponData.cs` — ScriptableObject weapon data base (id, weight, Str req, hand usage, base damage, speed, reach, scaling, **DamageType** (one of 10, §3.7), Weapon Art ref)
+- [ ] `WeaponCategory.cs` — enum: Melee, Ranged, Magic (expandable)
+- [ ] `IWeaponBehavior.cs` — behavior contract: BeginAttack / ActiveFrame / Cancel
+- [ ] `MeleeWeaponBehavior.cs` — hitbox arc sweep (via existing HitboxSystem)
+- [ ] `RangedWeaponBehavior.cs` — projectile/raycast, **consumes ammo**, accuracy from Dexterity
+- [ ] `MagicWeaponBehavior.cs` — routes to spell pipeline; staff/wand/book magic-mods (MagicDamageMult, CastTimeMod, CooldownMod) scale spells; FP cost; spell power from Wisdom
+- [ ] `WeaponDatabase.cs` — registry resolving equipped weapon's category → behavior
 - [ ] Weapon types: Sword, Axe, Spear, Bow, Staff, Dagger, Shield, Claw, Katana, Hammer
 - [ ] `WeaponArt.cs` — Per-weapon unique ability
 - [ ] Weapon upgrades, infusion system
+- [ ] **Wielding states** (see game-design.md §5.4): single (one-hand, off-hand free), dual (one per hand, needs ~2× Str), two-hand grip (both slots, ~halved Str requirement)
 
 ### Task 3.3: Animation & Feedback
 
@@ -146,27 +157,56 @@ Scripts/
 
 ---
 
-## Phase 4: Skill Tree & Stats (Week 5-8)
+## Phase 4: Races, Stats & Classes (Week 5-8)
 
-### Task 4.1: Stat System
+> **Design decision (supersedes original "Skill Tree" intent):**
+> The original Phase 4 plan called for a giant skill-tree + stat system. Scope review
+> replaced the skill TREE with a **6-category Skill XP system** (no tree nodes — flat
+> tier rewards per category), added a full **22-race system**, and kept the classless
+> **10-class unlock** system. Rationale: races + stat % scaling + skill XP tiers deliver
+> build variety with far less content than a full tree, and match the user's requested
+> "passive-only racial kits."
 
-- [ ] `PlayerStats.cs` — 8 core stats (Vigor through Arcane)
-- [ ] Stat effects (HP, FP, stamina, damage scaling, etc.)
-- [ ] Level-up system with XP from combat/quests/exploration
-- [ ] Bonfire/rest point system for leveling
+### Task 4.1: Stat System (Foundation)
 
-### Task 4.2: Skill Tree
+- [ ] `StatType.cs` — enum: Health, Speed, Endurance, Strength, Dexterity, AttackSpeed, Defense, Intelligence, Wisdom, Faith, Luck (11 stats; Arcane removed)
+- [ ] `PlayerStats.cs` — 11 core stats with **% racial modifiers applied to TOTAL stat on-the-fly** (scales with leveling)
+- [ ] Derived values via formulas (see game-design.md §3.4): MaxHP=100+Health×12, MaxFP=50+Intelligence×10, MaxStamina=100+Endurance×10, EquipLoad=40+Endurance×2, CritChance=5%+Luck×0.15%, AttackSpeed from AttackSpeed stat (primary, large) + small Speed/Dexterity bonus, MoveSpeed/DodgeSpeed from Speed, DamageReduc from Defense, melee AtkPower from Strength (heavy) & Dexterity (light), ranged damage = weapon base (accuracy from Dexterity), resistances = equipment-only (symbolic k_* tuning knobs)
+- [ ] `GetTotal(Stat)` — returns `base * (1 + racialMod%)` always in sync with level-ups
+- [ ] `LevelUpSystem.cs` — total XP, progressive thresholds, grants stat points on level-up
+- [ ] Racial XP multiplier applied to all XP sources in LevelUpSystem
 
-- [ ] `SkillTree.cs` — Data structure for the full tree (nodes, connections, requirements)
-- [ ] `SkillNode.cs` — Individual node (type, stat requirements, effects, prerequisites)
-- [ ] `SkillTreeUI.cs` — Full-screen interactive tree visualization
-- [ ] `SkillManager.cs` — Equipping active skills, tracking passives
-- [ ] Skill Books: unlock new branches, add nodes, grant points
+### Task 4.2: Skill XP System (Replaces Skill Tree)
 
-### Task 4.3: Class Unlock System
+- [ ] `SkillType.cs` — enum: Melee, Ranged, Magic, Stealth, Crafting, Fortitude (was "Defense")
+- [ ] `SkillXpTracker.cs` — 6 categories, each with own XP bar + level
+- [ ] `AddXp(SkillType, amount)` → amount × (1 + racial XP bonus)
+- [ ] Tier rewards at category levels 5 / 10 / 15 / 20 / 25
+- [ ] Hooked into: combat (Melee/Ranged), magic use, stealth actions, crafting, damage taken (Fortitude)
 
-- [ ] `ClassUnlocker.cs` — Check stat thresholds → unlock class → grant class ability
-- [ ] Class data (10 classes with requirements and unique mechanics)
+### Task 4.3: Race System (22 Races)
+
+- [ ] `RaceData.cs` — `[CreateAssetMenu]` ScriptableObject data unit (raceId, name, lore, stat %, passive, XP bonus, weight, rig params)
+- [ ] `RaceDatabase.cs` — collection of all 22 `RaceData` assets + lookup + weighted random roll
+- [ ] `RacePassiveManager.cs` — dispatch that applies racial passives each frame
+- [ ] `RaceUnlockManager.cs` — MonoSingleton, persistent unlock set (creation + discovery), Human always unlocked
+- [ ] `RaceDiscoveryPoint.cs` — world altar that unlocks a race and allows mid-play transform
+- [ ] `RaceRig.cs` — monkey-swaps player model rig; procedural placeholder bodies now, real models drop in later
+- [ ] **Mid-play race change** at discovery altars (costs rare Ritual Stone; Human free)
+- [ ] Full 22-race roster defined (see game-design.md §3.5)
+- [ ] Balance tiers: wide stat-budget spread, tank/utility/handicap races compensated via passives & XP (see game-design.md §3.5 "Stat Balance & Tiers")
+
+### Task 4.4: Character Creation
+
+- [ ] `CharacterCreation.cs` — **weighted random race roll that auto-commits** (Human 50%, each other ~2.38%)
+- [ ] Spawns `RaceRig`, applies stat/passive/XP, writes unlock state
+- [ ] Preview total stats + passive + XP bonus on the creation screen
+
+### Task 4.5: Class Unlock System
+
+- [ ] `ClassData.cs` — `[CreateAssetMenu]` ScriptableObject: 15 classes (name, stat requirement, unique ability, icon)
+- [ ] `ClassUnlocker.cs` — checks `PlayerStats` totals vs thresholds, grants ability, fires event
+- [ ] Classless non-exclusive unlocks (per game-design.md §3.2)
 - [ ] UI notification on class unlock
 
 ---
@@ -275,7 +315,8 @@ Scripts/
 
 - [ ] Main Menu (New Game, Continue, Multiplayer, Settings)
 - [ ] Pause Menu
-- [ ] Full-screen Skill Tree UI
+- [ ] Character Creation UI (race select + stat preview, Phase 4)
+- [ ] Race/Stat Sheet UI (Phase 4)
 - [ ] Inventory/Equipment UI
 - [ ] World Map UI
 - [ ] Multiplayer Browser/Party UI
@@ -394,18 +435,37 @@ Scripts/Player/Combat/
 ### Player/Stats
 ```
 Scripts/Player/Stats/
-├── PlayerStats.cs           # NEW - 8 core stats
-├── StatEffects.cs           # NEW - stat modifiers
+├── StatType.cs              # NEW - 11 core stat enum
+├── PlayerStats.cs           # NEW - 11 core stats + % racial modifiers
 ├── LevelUpSystem.cs         # NEW - XP and leveling
+├── SkillType.cs             # NEW - 6 skill category enum
+├── SkillXpTracker.cs        # NEW - skill XP with racial multipliers
 ├── ClassUnlocker.cs         # NEW - class unlock checks
-└── ClassData.cs             # NEW - 10 class definitions
+└── ClassData.cs             # NEW - 15 class definitions
+```
+
+### Player/Races
+```
+Scripts/Player/Races/
+├── RaceData.cs              # NEW - race ScriptableObject (22 assets)
+├── RaceDatabase.cs          # NEW - race collection + weighted roll
+├── RaceRig.cs               # NEW - separate rig/model swap
+├── RacePassiveManager.cs    # NEW - passive dispatch
+├── RaceUnlockManager.cs     # NEW - persistent unlock state
+└── RaceDiscoveryPoint.cs    # NEW - world altar revealing races
+```
+
+### Player/Creation
+```
+Scripts/Player/Creation/
+└── CharacterCreation.cs     # NEW - weighted random + manual race select
 ```
 
 ### Player/Inventory
 ```
 Scripts/Player/Inventory/
 ├── InventorySystem.cs       # NEW - inventory management
-├── EquipmentManager.cs      # NEW - gear slots
+├── EquipmentManager.cs      # NEW - 21 gear slots (5 armor, 2 weapon, 14 accessory)
 ├── ItemBase.cs              # NEW - item base class
 └── ConsumableManager.cs     # NEW - consumable effects
 ```
@@ -423,23 +483,29 @@ Scripts/Combat/AI/
 ### Combat/Weapons
 ```
 Scripts/Combat/Weapons/
-├── WeaponBase.cs            # NEW - weapon stats/scaling
-├── WeaponType.cs            # NEW - weapon type enum
-├── WeaponArt.cs             # NEW - unique weapon ability
-├── DamageCalculator.cs      # NEW - damage formula
-└── WeaponUpgradeSystem.cs   # NEW - upgrades/infusion
+├── WeaponData.cs             # NEW - SO weapon data base
+├── WeaponCategory.cs         # NEW - Melee/Ranged/Magic enum
+├── DamageType.cs             # NEW - 10 damage types enum (§3.7)
+├── IWeaponBehavior.cs        # NEW - behavior contract
+├── MeleeWeaponBehavior.cs    # NEW - hitbox arc
+├── RangedWeaponBehavior.cs   # NEW - projectile + ammo
+├── MagicWeaponBehavior.cs    # NEW - routes to spell pipeline
+├── WeaponDatabase.cs         # NEW - category → behavior registry
+├── WeaponArt.cs              # NEW - unique weapon ability
+├── DamageCalculator.cs       # NEW - damage formula
+└── WeaponUpgradeSystem.cs    # NEW - upgrades/infusion
 ```
 
 ### Combat/Skills
 ```
 Scripts/Combat/Skills/
-├── SkillTree.cs             # NEW - tree data structure
-├── SkillNode.cs             # NEW - node definition
-├── SkillManager.cs          # NEW - equip/track skills
-├── SkillBook.cs             # NEW - unlock new branches
+├── SkillManager.cs          # NEW - equip/track active skills
 ├── ActiveSkill.cs           # NEW - equippable abilities
 ├── PassiveSkill.cs          # NEW - permanent effects
-└── UltimateSkill.cs         # NEW - endgame abilities
+├── UltimateSkill.cs         # NEW - endgame abilities
+└── SkillBook.cs             # NEW - unlock new skills
+# NOTE: Skill TREE replaced by SkillXpTracker (Player/Stats) in Phase 4.
+# SkillManager here manages equippable ACTIVE/ultimate abilities only.
 ```
 
 ### Combat/Effects
@@ -447,6 +513,7 @@ Scripts/Combat/Skills/
 Scripts/Combat/Effects/
 ├── HitPause.cs              # NEW - hit stop effect
 ├── StatusEffect.cs          # NEW - poison, bleed, etc.
+├── StatusEffectType.cs      # NEW - Bleed/Poison/Rot/Frost/Burn/Stagger enum (§3.7)
 ├── DamageNumbers.cs         # NEW - floating damage text
 └── ScreenShake.cs           # NEW - camera shake
 ```
@@ -505,10 +572,10 @@ Scripts/UI/
 ├── HUDManager.cs            # NEW - main HUD
 ├── HealthBar.cs             # Adapt from existing
 ├── SkillBarUI.cs            # NEW - skill hotbar
+├── RaceStatsUI.cs           # NEW - race/stat sheet (Phase 4)
 ├── MinimapUI.cs             # NEW - minimap with chunks
-├── SkillTreeUI.cs           # NEW - full-screen tree
 ├── InventoryUI.cs           # NEW - inventory screen
-├── EquipmentUI.cs           # NEW - gear screen
+├── EquipmentUI.cs           # NEW - gear screen (21 slots: 5 armor, 2 weapon, 14 accessory)
 ├── WorldMapUI.cs            # NEW - world map
 ├── MultiplayerUI.cs         # NEW - server browser/party
 ├── DialogueUI.cs            # Adapt from existing
