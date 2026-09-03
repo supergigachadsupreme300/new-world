@@ -248,9 +248,9 @@ Scripts/
 
 ### Task 6.1: Farming System (Adapted)
 
-- [ ] Farming plots at designated fertile biome zones
-- [ ] Adapt existing `FieldManager.cs` for new terrain system
-- [ ] Crop growth tied to day/night cycle
+- [x] Farming plots at designated fertile biome zones
+- [x] Adapt existing `FieldManager.cs` for new terrain system
+- [x] Crop growth tied to day/night cycle
 
 ### Task 6.2: Fishing System (Adapted)
 
@@ -429,6 +429,20 @@ Scripts/World/Poi/
 > `FastTravelMenu` (Vehicles/UI) — the POI generator spawns `FastTravelSign`
 > components that the menu auto-discovers, so the fast-travel network reuses the
 > shipped sign UI rather than creating a parallel system.
+
+### World/Farming
+```
+Scripts/World/Farming/
+├── CropData.cs              # NEW - crop definition (CropType, growth, harvest)
+├── CropRegistry.cs          # NEW - programmatic crop roster
+├── FarmPlot.cs              # NEW - tilled plot + day/night-driven growth
+├── FarmingManager.cs        # NEW - adapts FieldManager raycast preview + growth ticker
+└── FarmingZone.cs           # NEW - farming plots at fertile biome zones
+```
+> **Farming adaptation note:** Task 6.1 builds on the legacy `FieldManager`
+> placement concept but raycasts any ground (not CountryLife collider names) and
+> drives crop growth from `GameManager.TimeOfDay` (game-design §7.3): plots only
+> advance during daylight and require water, matching §5.1 plant/water/harvest.
 
 ### World/Loot
 ```
