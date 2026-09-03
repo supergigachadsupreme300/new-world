@@ -254,9 +254,9 @@ Scripts/
 
 ### Task 6.2: Fishing System (Adapted)
 
-- [ ] Fishing spots marked in world (water biome chunks)
-- [ ] Adapt `FishingController.cs` and `FishingProgression.cs`
-- [ ] Fish as consumables / sell items
+- [x] Fishing spots marked in world (`FishSpot` + `FishSpotPlacer` at water-biome / `PoiKind.Fishing` POIs)
+- [x] Adapt `FishingController.cs` and `FishingProgression.cs` (reuse species, `SkillManager` fishing track, `ToolManager` inventory)
+- [x] Fish as consumables / sell items (`FishData.SellValue` + `IsConsumable`)
 
 ### Task 6.3: Crafting System (Adapted)
 
@@ -443,6 +443,22 @@ Scripts/World/Farming/
 > placement concept but raycasts any ground (not CountryLife collider names) and
 > drives crop growth from `GameManager.TimeOfDay` (game-design §7.3): plots only
 > advance during daylight and require water, matching §5.1 plant/water/harvest.
+
+### World/Fishing
+```
+Scripts/World/Fishing/
+├── FishData.cs              # NEW - fish definition (FishType, weight, flop, sell, consumable)
+├── FishRegistry.cs          # NEW - programmatic fish roster (legacy species + reef/eel)
+├── FishingSpot.cs           # NEW - world fishing spot; rolls FishRegistry, grants via ToolManager
+└── FishingSpotPlacer.cs     # NEW - places fishing spots at water-biome / fishing POIs
+```
+> **Fishing adaptation note:** Task 6.2 reuses the existing `FishingController`
+> minigame species (`fish_carp`/`fish_salmon`/`fish_tuna`/`fish_pufferfish`) and
+> feeds catches into the same `ToolManager` inventory + `SkillManager` fishing
+> track + `QuestManager` `fish_catch`. New `FishingSpot` marks spots at water
+> biomes / `PoiKind.Fishing` POIs anywhere on the map instead of the legacy
+> hardcoded sea (`x < -140`). Fish carry `SellValue` for the vendor economy and are
+> marked consumable/food (§5.2).
 
 ### World/Loot
 ```
