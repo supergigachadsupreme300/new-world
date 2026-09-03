@@ -237,10 +237,10 @@ Scripts/
 
 ### Task 5.3: Points of Interest
 
-- [ ] `POIGenerator.cs` — Place towns, dungeons, bosses, fishing spots on world map
-- [ ] Town system: NPCs, shops, crafting stations
-- [ ] Dungeon system: rooms, enemies, boss, loot
-- [ ] Fast travel network (bonfires, signs)
+- [x] `POIGenerator.cs` — Place towns, dungeons, bosses, fishing spots on world map
+- [x] Town system: NPCs, shops, crafting stations
+- [x] Dungeon system: rooms, enemies, boss, loot
+- [x] Fast travel network (bonfires, signs)
 
 ---
 
@@ -412,9 +412,23 @@ Scripts/World/Terrain/
 Scripts/World/Biomes/
 ├── BiomeData.cs             # NEW - biome definition
 ├── BiomeRegistry.cs         # NEW - all biomes
-├── EnemySpawner.cs          # NEW - biome spawn rules
-└── POIGenerator.cs          # NEW - points of interest
+└── EnemySpawner.cs          # NEW - biome spawn rules
 ```
+
+### World/Poi
+```
+Scripts/World/Poi/
+├── POIDefinition.cs         # NEW - POI data (kind, biome, loot, boss, fast travel)
+├── POIRegistry.cs           # NEW - programmatic POI roster per biome
+├── POIGenerator.cs          # NEW - places towns/dungeons/arenas/fishing/travel
+├── Town.cs                  # NEW - town system (shop/crafting markers + fast travel)
+├── DungeonSystem.cs         # NEW - rooms, enemies, boss, loot
+└── FastTravelNode.cs        # NEW - bonfire/sign fast-travel node
+```
+> **Fast travel note:** Task 5.3 composes the existing `FastTravelSign` +
+> `FastTravelMenu` (Vehicles/UI) — the POI generator spawns `FastTravelSign`
+> components that the menu auto-discovers, so the fast-travel network reuses the
+> shipped sign UI rather than creating a parallel system.
 
 ### World/Loot
 ```
