@@ -38,16 +38,6 @@ public class PalmProjectile : MonoBehaviour
         if (collision.collider.GetComponentInParent<PlayerController>() != null)
             return;
 
-        var enemy = collision.collider.GetComponentInParent<EnemyController>();
-        if (enemy == null)
-            enemy = collision.collider.GetComponent<EnemyController>();
-
-        if (enemy != null)
-        {
-            enemy.MarkRosaryHit();
-            enemy.TakeDamage(enemy.IsBoss ? BossDamagePerHit : Mathf.Max(50, enemy.MaxHealth));
-        }
-
         Destroy(gameObject);
     }
 }

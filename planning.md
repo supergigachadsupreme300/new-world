@@ -224,10 +224,10 @@ Scripts/
 
 ### Task 5.1: Enemy AI
 
-- [ ] `EnemyController.cs` — FSM: Patrol, Alert, Chase, Attack, Flee, Dead
-- [ ] `EnemySpawner.cs` — Biome-based spawn rules, density, day/night variants
-- [ ] `BossController.cs` — Multi-phase boss AI, attack patterns, health bars
-- [ ] Enemy types per biome (9 biomes x 3-5 enemy types each)
+- [x] `EnemyController.cs` — FSM: Patrol, Alert, Chase, Attack, Flee, Dead
+- [x] `EnemySpawner.cs` — Biome-based spawn rules, density, day/night variants
+- [x] `BossController.cs` — Multi-phase boss AI, attack patterns, health bars
+- [x] Enemy types per biome (9 biomes x 3-5 enemy types each) — rosters defined in `BiomeRegistry.cs` (game-design §7.1); model/prefab variants for each id still needed
 
 ### Task 5.2: Loot & Drops
 

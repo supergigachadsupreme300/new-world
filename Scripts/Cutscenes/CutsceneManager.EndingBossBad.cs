@@ -46,7 +46,8 @@ public partial class CutsceneManager
 
             // The Demon King rises from the shadows ahead
             float bossZ = playerZ + 22f;
-            var bossRoot = BossModelBuilder.BuildBoss(null);
+            var bossRootPlaceholder = new GameObject("BossRootPlaceholder");
+            var bossRoot = bossRootPlaceholder.transform;
             bossRoot.position = new Vector3(RoadX, 0f, bossZ);
             bossRoot.rotation = Quaternion.Euler(0f, 180f, 0f);
             bossRoot.localScale = Vector3.one * 1.05f;

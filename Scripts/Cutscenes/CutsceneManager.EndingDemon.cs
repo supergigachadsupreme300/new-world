@@ -61,7 +61,8 @@ public partial class CutsceneManager
             RegisterSpawned(scorch);
 
             // The fallen Demon King lying where it was slain
-            var fallenKing = BossModelBuilder.BuildBoss(null);
+            var fallenKingPlaceholder = new GameObject("FallenKingPlaceholder");
+            var fallenKing = fallenKingPlaceholder.transform;
             fallenKing.position = new Vector3(arena.x, 0.18f, bossZ);
             fallenKing.rotation = Quaternion.Euler(-90f, 180f, 0f);
             foreach (var r in fallenKing.GetComponentsInChildren<Renderer>())

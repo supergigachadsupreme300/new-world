@@ -621,33 +621,6 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
 
     private void EffectStrangeNoises()
     {
-        Vector3 playerPos = GetPlayerPos();
-        var root = GetWorldRoot();
-        for (int i = 0; i < 6; i++)
-        {
-            Mob.MobType type = (i % 2 == 0) ? Mob.MobType.Mouse : Mob.MobType.Crab;
-            Vector3 spawnPos;
-            if (type == Mob.MobType.Crab)
-            {
-                spawnPos = new Vector3(
-                    Mob.BeachCenterX + UnityEngine.Random.Range(-Mob.BeachHalfWidth, Mob.BeachHalfWidth),
-                    0.5f,
-                    UnityEngine.Random.Range(-Mob.BeachHalfDepth, Mob.BeachHalfDepth));
-            }
-            else
-            {
-                Vector3 offset = UnityEngine.Random.insideUnitSphere * 8f;
-                offset.y = 0f;
-                spawnPos = playerPos + offset;
-                spawnPos.y = 0.5f;
-            }
-
-            var go = new GameObject("Mob_" + i);
-            go.transform.SetParent(root);
-            go.transform.position = spawnPos;
-            var mob = go.AddComponent<Mob>();
-            mob.Type = type;
-        }
     }
 
     private void EffectCropDisease()
@@ -992,20 +965,6 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
 
     private void SpawnEnemy(Vector3 pos, Transform parent)
     {
-        pos.y = 0.5f;
-        var go = new GameObject("Enemy_" + UnityEngine.Random.Range(0, 1000));
-        go.transform.SetParent(parent);
-        go.transform.position = pos;
-        go.transform.localScale = Vector3.one;
-
-        go.AddComponent<Rigidbody>().isKinematic = true;
-
-        var enemy = go.AddComponent<EnemyController>();
-        enemy.MaxHealth = 50;
-        enemy.Damage = 10;
-        enemy.MoveSpeed = 2.5f;
-        enemy.ChaseRange = 15f;
-        enemy.IsGiant = false;
     }
 
     private void EffectStormDamage()
@@ -1490,25 +1449,6 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
 
     private void EffectGiantEnemy()
     {
-        Vector3 playerPos = GetPlayerPos();
-        var root = GetWorldRoot();
-        Vector3 spawnPos = playerPos + new Vector3(UnityEngine.Random.Range(-5f, 5f), 0f, 12f);
-        spawnPos.y = 0.5f;
-
-        var go = new GameObject("GiantEnemy");
-        go.transform.SetParent(root);
-        go.transform.position = spawnPos;
-        go.transform.localScale = Vector3.one * 2f;
-
-        go.AddComponent<Rigidbody>().isKinematic = true;
-
-        var enemy = go.AddComponent<EnemyController>();
-        enemy.MaxHealth = 150;
-        enemy.Damage = 25;
-        enemy.MoveSpeed = 2f;
-        enemy.ChaseRange = 20f;
-        enemy.AttackRange = 2.5f;
-        enemy.IsGiant = true;
     }
 
     private void EffectSwarmAttack()
@@ -1518,35 +1458,9 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
 
     private IEnumerator SwarmAttackWaves()
     {
-        Vector3 playerPos = GetPlayerPos();
-        var root = GetWorldRoot();
         int totalWaves = 3;
         for (int w = 0; w < totalWaves; w++)
         {
-            int count = w == 0 ? 4 : 3;
-            for (int i = 0; i < count; i++)
-            {
-                float angle = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
-                float radius = 12f + UnityEngine.Random.Range(0f, 8f);
-                Vector3 offset = new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
-                Vector3 spawnPos = playerPos + offset;
-                spawnPos.y = 0.5f;
-
-                var go = new GameObject("Enemy_" + UnityEngine.Random.Range(0, 1000));
-                go.transform.SetParent(root);
-                go.transform.position = spawnPos;
-
-                bool isElite = UnityEngine.Random.value < 0.3f;
-                go.transform.localScale = isElite ? Vector3.one * 1.8f : Vector3.one;
-                go.AddComponent<Rigidbody>().isKinematic = true;
-
-                var enemy = go.AddComponent<EnemyController>();
-                enemy.MaxHealth = isElite ? 100 : 50;
-                enemy.Damage = isElite ? 15 : 10;
-                enemy.MoveSpeed = isElite ? 3.5f : 2.5f;
-                enemy.ChaseRange = 18f;
-                enemy.IsGiant = isElite;
-            }
             if (w < totalWaves - 1)
                 yield return new WaitForSeconds(0.8f);
         }

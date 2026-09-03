@@ -581,16 +581,6 @@ SittableSeat.Register(_worldRoot.transform);
 
         go.AddComponent<Rigidbody>().isKinematic = true;
 
-        var boss = go.AddComponent<EnemyController>();
-        boss.MaxHealth = 150;
-        boss.Damage = 12;
-        boss.MoveSpeed = 1.8f;
-        boss.ChaseRange = 18f;
-        boss.AttackRange = 2.5f;
-        boss.AttackCooldown = 1f;
-        boss.IsBoss = true;
-        boss.IsGiant = false;
-
         _questBoss = go;
         SoundManager.Instance?.Play("bonk", 0.6f);
         return go;
@@ -1239,43 +1229,11 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
     }
 private void SpawnMobs()
     {
-        var mobPositions = new[]
-        {
-            new { pos = new Vector3(8f, 0.5f, 5f), type = Mob.MobType.Mouse },
-            new { pos = new Vector3(-5f, 0.5f, 10f), type = Mob.MobType.Mouse },
-            new { pos = new Vector3(20f, 0.5f, -5f), type = Mob.MobType.Mouse },
-            new { pos = new Vector3(40f, 0.5f, 30f), type = Mob.MobType.Mouse },
-            new { pos = new Vector3(-30f, 0.5f, 15f), type = Mob.MobType.Mouse },
-            new { pos = new Vector3(10f, 0.5f, 70f), type = Mob.MobType.Mouse },
-            new { pos = new Vector3(5f, 0.5f, -30f), type = Mob.MobType.Mouse },
-            new { pos = new Vector3(-15f, 0.5f, 50f), type = Mob.MobType.Mouse },
-        };
-
-        foreach (var m in mobPositions)
-        {
-            var go = new GameObject(m.type.ToString());
-            go.transform.SetParent(_worldRoot.transform);
-            go.transform.position = m.pos;
-            var mob = go.AddComponent<Mob>();
-            mob.Type = m.type;
-        }
-
         SpawnBeachCrabs();
     }
 
     private void SpawnBeachCrabs()
     {
-        for (int i = 0; i < 4; i++)
-        {
-            var go = new GameObject(Mob.MobType.Crab.ToString() + i);
-            go.transform.SetParent(_worldRoot.transform);
-            go.transform.position = new Vector3(
-                Mob.BeachCenterX + Random.Range(-Mob.BeachHalfWidth, Mob.BeachHalfWidth),
-                0.5f,
-                Random.Range(-Mob.BeachHalfDepth, Mob.BeachHalfDepth));
-            var mob = go.AddComponent<Mob>();
-            mob.Type = Mob.MobType.Crab;
-        }
     }
     private void UpdateFieldVisual(FieldState field)
     {

@@ -101,7 +101,8 @@ public partial class CutsceneManager
         var demons = new List<Transform>();
         for (int g = 0; g < 5; g++)
         {
-            var demon = EnemyModelBuilder.BuildRegularEnemy(null);
+            var demonGO = new GameObject("DemonPlaceholder");
+            var demon = demonGO.transform;
             foreach (var r in demon.GetComponentsInChildren<Renderer>())
                 r.gameObject.layer = 0;
             foreach (var c in demon.GetComponentsInChildren<Collider>())

@@ -21,6 +21,7 @@ shims so the project continues to compile.
 | `CutsceneManager/` | The game had 7 scripted narrative endings (Happy, Sad, Fated, Demon, Justice, NTR, Blackmail, BossBad). With the genre change to an ongoing open-world RPG there are **no endings**. The cutscene routines are preserved here for possible future re-use as narrative quest moments. |
 | `WorldBuilder/` | The legacy voxel-cube world map. The open world is now generated as a **seed + coordinate chunk terrain** (see `Scripts/World/`). The voxel world builder is kept for future re-implementation. |
 | `Quests/` | The linear Vietnamese story quest chain (`QuestManager`) and scripted random events (`RandomEventManager`) no longer fit an open-world RPG. |
+| `Enemies/` | The legacy `EnemyController`, `Mob`, and the `EnemyModelBuilder`/`BossModelBuilder` voxel-model builders. They were moved here so the new open-world enemy AI (`Scripts/Combat/AI/`) can own the canonical `EnemyController` name. Live references (GameManager, WorldBuilder, RandomEventManager, pets, cutscenes) were neutralized — the old enemy runtime is fully retired. |
 
 ---
 
@@ -32,6 +33,9 @@ UI, pets...) still reference the archived types, the live copies under
 
 - `CutsceneManager.RemoveEndings = true` (default) routes every ending entry
   point to a no-op so endings can never trigger during play.
+- The legacy `Enemies/` types are **not** kept live — they were moved out and all
+  live references removed, so the new `Scripts/Combat/AI/EnemyController` class
+  can replace them without a name collision.
 
 ---
 

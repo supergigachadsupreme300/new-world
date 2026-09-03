@@ -251,7 +251,8 @@ public partial class CutsceneManager
             yield return StartCoroutine(FadeOverlay(1, 0.8f));
 
             float enemyY = bedPos.y - 0.7f;
-            var nightEnemy = EnemyModelBuilder.BuildRegularEnemy(null);
+            var nightEnemyGO = new GameObject("NightEnemyPlaceholder");
+            var nightEnemy = nightEnemyGO.transform;
             nightEnemy.position = new Vector3(bedPos.x + 1.8f, enemyY, bedPos.z + 0.2f);
             nightEnemy.rotation = Quaternion.Euler(0f, -90f, 0f);
             nightEnemy.localScale = Vector3.one * 1.1f;

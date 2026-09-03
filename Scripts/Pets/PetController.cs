@@ -123,37 +123,5 @@ public class PetController : MonoBehaviour
 
     private void AttackNearest()
     {
-        int hitCount = Physics.OverlapSphereNonAlloc(transform.position, AttackRange, _enemyBuffer);
-        EnemyController nearest = null;
-        float nearestDist = float.MaxValue;
-        for (int i = 0; i < hitCount; i++)
-        {
-            var enemy = _enemyBuffer[i].attachedRigidbody != null
-                ? _enemyBuffer[i].attachedRigidbody.GetComponentInParent<EnemyController>()
-                : _enemyBuffer[i].GetComponentInParent<EnemyController>();
-            if (enemy == null || enemy.IsDead)
-                continue;
-            float d = Vector3.Distance(transform.position, enemy.transform.position);
-            if (d <= AttackRange && d < nearestDist)
-            {
-                nearest = enemy;
-                nearestDist = d;
-            }
-        }
-
-        if (nearest == null)
-            return;
-
-        Vector3 origin = transform.position + Vector3.up * 0.4f;
-        Vector3 dir = (nearest.transform.position + Vector3.up * 0.5f) - origin;
-        float dist = dir.magnitude;
-        if (Physics.Raycast(origin, dir.normalized, out var hit, dist, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
-        {
-            if (hit.collider != null && hit.collider.GetComponentInParent<EnemyController>() == nearest)
-            {
-                nearest.TakeDamage(Damage);
-                Debug.Log("Pet attacked enemy");
-            }
-        }
     }
 }

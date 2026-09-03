@@ -20,7 +20,6 @@ public class GameManager : MonoSingleton<GameManager>
     public RandomEventManager RandomEventManager;
     public KarmaManager KarmaManager;
     public List<PetController> Pets = new List<PetController>();
-    public List<EnemyController> Enemies = new List<EnemyController>();
     public bool AutoStartGame = false;
 
     protected override void Awake()
@@ -238,7 +237,6 @@ public class GameManager : MonoSingleton<GameManager>
         CutsceneManager = Object.FindAnyObjectByType<CutsceneManager>();
         RandomEventManager = Object.FindAnyObjectByType<RandomEventManager>();
         Pets = new List<PetController>(Object.FindObjectsByType<PetController>(FindObjectsSortMode.None));
-        Enemies = new List<EnemyController>(Object.FindObjectsByType<EnemyController>(FindObjectsSortMode.None));
 
         if (UIManager == null)
             UIManager = gameObject.AddComponent<UIManager>();
@@ -514,16 +512,12 @@ public class GameManager : MonoSingleton<GameManager>
     {
         if (IsPlayerDead) return;
         IsPlayerDead = true;
-        if (EnemyController.BossFightActive && CutsceneManager != null)
-            CutsceneManager.PlayBossBadEnding();
-        else
-            CutsceneManager?.PlaySadEnding();
+        CutsceneManager?.PlaySadEnding();
     }
 
     public void ReloadFromBossDeath()
     {
         IsPlayerDead = false;
-        EnemyController.BossFightActive = false;
         if (UIManager != null)
         {
             UIManager.HideBossBar();

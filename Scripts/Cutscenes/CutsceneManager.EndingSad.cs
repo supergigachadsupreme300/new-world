@@ -71,7 +71,9 @@ public partial class CutsceneManager
         horse.localPosition = new Vector3(0f, 0f, -3.2f);
         RegisterSpawned(horse.gameObject);
 
-        var enemy = EnemyModelBuilder.BuildRegularEnemy(wagonRoot);
+        var enemyGO = new GameObject("EnemyPlaceholder");
+        var enemy = enemyGO.transform;
+        enemy.SetParent(wagonRoot);
         enemy.localPosition = new Vector3(0.35f, 0.56f, -0.6f);
         RegisterSpawned(enemy.gameObject);
 
