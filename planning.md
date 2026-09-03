@@ -272,9 +272,9 @@ Scripts/
 
 ### Task 6.5: Housing System
 
-- [ ] Player home plots at designated locations
-- [ ] Build/decorate system (adapted from CountryLife blueprints)
-- [ ] Chest storage, crafting stations, farming attachment
+- [x] Player home plots at designated locations (`HousePlot` + `HousePlotPlacer`)
+- [x] Build/decorate system (`HomeBuilder`, simplified from CountryLife blueprints)
+- [x] Chest storage (`HomeChest`), crafting stations (reuses `CraftingStation`), farming attachment (`FarmPlot` grid)
 
 ---
 
@@ -493,6 +493,21 @@ Scripts/World/Npcs/
 > from `BaseValue` and moves money/inventory through `ToolManager` +
 > `PlayerController.Money` + `GameStats`/`QuestManager`. `FriendshipSimplified`
 > delegates hearts/discount to `FriendshipManager` (no parallel friendship system).
+
+### World/Housing
+```
+Scripts/World/Housing/
+├── HousePlot.cs             # NEW - fixed home plot; BuildHome erects shell + attachments
+├── HomeBuilder.cs           # NEW - simplified build/decorate from blueprint concept
+├── HomeChest.cs             # NEW - home storage (deposit/withdraw via ToolManager)
+└── HousePlotPlacer.cs       # NEW - places home plots at designated locations
+```
+> **Housing adaptation note:** Task 6.5 keeps the CountryLife `WorldBuilder` blueprint
+> pipeline untouched and adds a light open-world house layer. A `HousePlot` is placed at
+> designated locations by `HousePlotPlacer`; `BuildHome()` erects foundation/walls/roof
+> placeholders and attaches a home `CraftingStation` (Task 6.3), a `HomeChest` for storage,
+> and a small `FarmPlot` grid for the farming attachment (§5.1/§5.3). `HomeBuilder.TryBuild`
+> spends tool wood to place extra build objects from the plot.
 
 ### World/Loot
 ```
