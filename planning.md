@@ -266,9 +266,9 @@ Scripts/
 
 ### Task 6.4: NPC & Economy (Adapted)
 
-- [ ] Adapt NPC scripts for shop/companion/quest roles
-- [ ] `VendorShopManager` adapted for RPG economy
-- [ ] Friendship system simplified
+- [x] Adapt NPC scripts for shop/companion/quest roles (`NpcController` + `WorldNpcPlacer`)
+- [x] `VendorShopManager` adapted for RPG economy (`EconomyProvider` bridges `ItemDatabase` values + `ToolManager` + `player.Money`)
+- [x] Friendship system simplified (`FriendshipSimplified` adapter over `FriendshipManager` heart levels + discounts)
 
 ### Task 6.5: Housing System
 
@@ -475,6 +475,24 @@ Scripts/World/Crafting/
 > `RequiresDiscovery` are gated by `RecipeDiscovery`, unlocked by consuming a
 > `skill_book_*` item (§5.3). `Town.Build` now also places a `CraftingStation`
 > (Task 6.5 reuses it for player homes).
+
+### World/Npcs
+```
+Scripts/World/Npcs/
+├── NpcRole.cs                # NEW - NPC definition + role/shop-mode enums
+├── NpcController.cs          # NEW - shop/quest/follower NPC, opens VendorShopManager
+├── EconomyProvider.cs        # NEW - RPG economy bridge (ItemDatabase prices + ToolManager + money)
+├── FriendshipSimplified.cs   # NEW - thin adapter over FriendshipManager hearts/discount
+└── WorldNpcPlacer.cs         # NEW - places data-driven NPCs in towns / homes
+```
+> **NPC & economy adaptation note:** Task 6.4 keeps the legacy `VendorShopManager`,
+> `FriendshipManager`, and the CountryLife NPC scripts intact and adds a
+> data-driven `NpcController` that composes them: a Vendor opens the shipped
+> vendor UI in a configured mode, a QuestGiver drives `QuestManager`, a Follower
+> is a simplified follow companion. `EconomyProvider` prices `ItemDatabase` items
+> from `BaseValue` and moves money/inventory through `ToolManager` +
+> `PlayerController.Money` + `GameStats`/`QuestManager`. `FriendshipSimplified`
+> delegates hearts/discount to `FriendshipManager` (no parallel friendship system).
 
 ### World/Loot
 ```
