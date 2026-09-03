@@ -7,7 +7,7 @@
 **Multiplayer:** Dedicated server with co-op/invasion/arena
 **Core Loop:** Explore → Fight → Grow → Craft → Dominate
 
-Seamless open-world with real-time action combat, classless progression via a **6-category skill-XP system** plus a **22-race system**, procedurally generated seed-based chunk terrain, and all existing CountryLife systems retained as optional side content.
+Seamless open-world with real-time action combat, classless progression via a **6-category skill-XP system**, an **11-stat** system, **15 unlockable classes**, and a **22-race system** (with passive-only racial kits), procedurally generated seed-based chunk terrain, and all existing CountryLife systems retained as optional side content. Combat is built on a **3-genre equipment** set (21 slots), an expandable **weapon architecture** (§3.6, Melee/Ranged/Magic), a **spell-casting pipeline** (§3.8) for magic, and **10 damage types** with **6 status effects** (§3.7).
 
 ---
 
@@ -114,10 +114,12 @@ Direct weapon/ability control with stamina management, dodge-rolling, blocking, 
 
 ```
 Final Damage = (Attack Power x Skill Multiplier x Weakness Multiplier)
-               - (Defense x Defense Multiplier)
-               x Elemental Modifier
+               - (Target Defense x Defense Multiplier)
+               x Damage Type Modifier   # §3.7: attacker's DamageType vs
+                                        #   target equipment resistance
                x Critical Modifier (if applicable)
 ```
+The **DamageType Modifier** resolves the specific damage type (§3.7 — Physical, Fire, Ice, Lightning, Holy, Dark, Wind, Earth, Water, Arcane) of the weapon or spell against the target's per-type equipment resistance. `DamageCalculator` routes the attacker's type → the target's resistance table (see §3.6/§3.8).
 
 #### Stamina System
 
@@ -191,7 +193,7 @@ A **use-based skill progression** spans multiple combat/utility categories. No f
 
 ### 3.4 Stats (11 Core)
 
-The stat system was redesigned into **11 stats**. Arcane was removed (its functions split into **Luck** and **Wisdom**). Old names were renamed for clarity: *Vigor→Health*, *Mind→Intelligence*, *Intelligence→Wisdom*. New stats added: **Speed**, **Defense**, **Luck**, **AttackSpeed**.
+The stat system was redesigned into **11 stats**. The **Arcane stat** was removed (its functions split into **Luck** and **Wisdom**) — note this is distinct from the **Arcane damage type** (§3.7), which remains a separate combat element. Old names were renamed for clarity: *Vigor→Health*, *Mind→Intelligence*, *Intelligence→Wisdom*. New stats added: **Speed**, **Defense**, **Luck**, **AttackSpeed**.
 
 | Stat | Effect |
 |------|--------|
@@ -410,6 +412,40 @@ Status effects are **not damage types** — they are applied **on hit** and do D
 | **Frost** (frostbite) | Builds up, then a burst + slow |
 | **Burn** | Fire damage-over-time + light stagger buildup |
 | **Stagger** | Poise break / crowd-control (interrupts actions) |
+
+### 3.8 Spell-Casting Pipeline
+
+Spells are how the **Magic** weapon category (staff / wand / book) deals damage and casts abilities. The pipeline connects the weapon architecture (§3.6), the skill system (§3.3), the stats (§3.4 Wisdom/Intelligence), and the damage types (§3.7).
+
+#### SpellData (ScriptableObject)
+
+A spell is a data asset carrying:
+
+- id, display name, icon
+- `DamageType` (one of the 10 damage types, §3.7) — or **none** for pure utility/heal spells
+- base power
+- **FP cost**, **cast time**, **cooldown**
+- range, area/radius, projectile vs instant vs self/zone
+- cast animation reference
+- optional status-effect application (e.g., applies Burn/Frost; §3.7)
+
+#### Casting Flow
+
+1. Player equips a **Magic weapon** (staff/wand/book) in a hand slot.
+2. The weapon's magic mods — `MagicDamageMult`, `CastTimeMod`, `CooldownMod` — modulate the spell before resolution.
+3. `MagicWeaponBehavior.BeginAttack` routes the cast to `SpellCaster`.
+4. `SpellCaster` validates **FP** (`MaxFP` from Intelligence) and **cooldown**; if valid, begins the **cast time**.
+5. On cast completion, a `SpellEffect` spawns (projectile / instant / zone).
+6. `DamageCalculator` resolves the spell with its `DamageType` against the target's equipment resistance; **Wisdom** scales spell power (`MagicAtkPower`), and `CooldownMult` from Intelligence shortens reuse.
+
+#### Spell Sources
+
+- **Equipped weapon** — a staff/wand/book in a hand slot (its magic-mods apply).
+- **Active skills** (§3.3) — spells granted via skills/skill books can also be cast from the skill bar; they route through the same `SpellCaster` so the pipeline is shared.
+
+#### Expandability
+
+Adding a spell = creating a new `SpellData` asset (zero code changes), consistent with the rest of the data-driven systems.
 
 ---
 

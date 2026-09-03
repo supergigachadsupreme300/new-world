@@ -31,15 +31,15 @@ Scripts/
 │   └── Streaming/       # Chunk loader, render distance, caching
 ├── Player/
 │   ├── Controller/      # Movement, camera, input
-│   ├── Combat/          # Attacks, dodge, block, parry
 │   ├── Stats/           # 11 stats, leveling, skill XP, class unlocks
 │   ├── Races/           # 22 races: data, passives, unlock, rigs
 │   ├── Creation/        # Character creation (race select)
 │   └── Inventory/       # Equipment, items, consumables
-├── Combat/
+├── Combat/              # (Player/Combat deprecated; all combat here)
 │   ├── AI/              # Enemy AI, bosses
-│   ├── Weapons/         # Weapon types, damage calc
-│   └── Effects/         # VFX, status effects, particles
+│   ├── Weapons/         # Weapon behaviors, damage calc, spells (§3.6/§3.8)
+│   ├── Effects/         # Status effects, stamina, hit pause, numbers
+│   └── Skills/          # Active/ultimate abilities (§3.3)
 │   (Skill XP replaces the old Combat/Skills tree — see Phase 4)
 ├── Multiplayer/
 │   ├── Server/          # Dedicated server logic
@@ -127,33 +127,41 @@ Scripts/
 
 ### Task 3.1: Core Combat
 
-- [ ] `CombatController.cs` — Input handling for light/heavy/dodge/block/parry
-- [ ] `StaminaSystem.cs` — Stamina management, regen, drain per action
-- [ ] `DamageCalculator.cs` — Damage formula implementation
-- [ ] `HitboxSystem.cs` — Weapon hitbox generation, collision detection
-- [ ] `DamageType.cs` — enum of the 10 damage types (Physical, Fire, Ice, Lightning, Holy, Dark, Wind, Earth, Water, Arcane — §3.7)
-- [ ] `StatusEffectType.cs` — enum: Bleed, Poison, Rot, Frost, Burn, Stagger (separate from damage types; §3.7)
+- [x] `CombatController.cs` — Input handling for light/heavy/dodge/block/parry
+- [x] `StaminaSystem.cs` — Stamina management, regen, drain per action
+- [x] `DamageCalculator.cs` — Damage formula implementation
+- [x] `HitboxSystem.cs` — Weapon hitbox generation, collision detection
+- [x] `DamageType.cs` — enum of the 10 damage types (Physical, Fire, Ice, Lightning, Holy, Dark, Wind, Earth, Water, Arcane — §3.7)
+- [x] `StatusEffectType.cs` — enum: Bleed, Poison, Rot, Frost, Burn, Stagger (separate from damage types; §3.7)
+- [ ] `IDamageResistance.cs` — per-type resistance source (interface; equipment-backed in later phase)
+- [ ] `NeutralResistance.cs` — placeholder neutral resistance until equipment exists
 
 ### Task 3.2: Weapon System (expandable architecture, see game-design.md §3.6)
 
-- [ ] `WeaponData.cs` — ScriptableObject weapon data base (id, weight, Str req, hand usage, base damage, speed, reach, scaling, **DamageType** (one of 10, §3.7), Weapon Art ref)
-- [ ] `WeaponCategory.cs` — enum: Melee, Ranged, Magic (expandable)
-- [ ] `IWeaponBehavior.cs` — behavior contract: BeginAttack / ActiveFrame / Cancel
-- [ ] `MeleeWeaponBehavior.cs` — hitbox arc sweep (via existing HitboxSystem)
-- [ ] `RangedWeaponBehavior.cs` — projectile/raycast, **consumes ammo**, accuracy from Dexterity
-- [ ] `MagicWeaponBehavior.cs` — routes to spell pipeline; staff/wand/book magic-mods (MagicDamageMult, CastTimeMod, CooldownMod) scale spells; FP cost; spell power from Wisdom
-- [ ] `WeaponDatabase.cs` — registry resolving equipped weapon's category → behavior
+- [x] `WeaponData.cs` — ScriptableObject weapon data base (id, weight, Str req, hand usage, base damage, speed, reach, scaling, **DamageType** (one of 10, §3.7), Weapon Art ref)
+- [x] `WeaponCategory.cs` — enum: Melee, Ranged, Magic (expandable)
+- [x] `IWeaponBehavior.cs` — behavior contract: BeginAttack / ActiveFrame / Cancel
+- [x] `MeleeWeaponBehavior.cs` — hitbox arc sweep (via existing HitboxSystem)
+- [x] `RangedWeaponBehavior.cs` — projectile/raycast, **consumes ammo**, accuracy from Dexterity
+- [x] `MagicWeaponBehavior.cs` — routes to the spell pipeline (§3.8); staff/wand/book magic-mods (MagicDamageMult, CastTimeMod, CooldownMod) scale spells; FP cost; spell power from Wisdom
+- [x] `SpellData.cs` — ScriptableObject spell base (DamageType, base power, FP cost, cast time, cooldown, range/area, projectile/instant/self, cast anim, status effect)
+- [x] `SpellCaster.cs` — validates FP + cooldown, plays cast time, resolves via DamageCalculator (scaled by Wisdom); generic cooldown API (CooldownReady/StartCooldown) for weapon arts
+- [x] `SpellEffect.cs` — projectile / instant / zone spell spawning
+- [x] `WeaponDatabase.cs` — registry resolving equipped weapon's category → behavior
 - [ ] Weapon types: Sword, Axe, Spear, Bow, Staff, Dagger, Shield, Claw, Katana, Hammer
-- [ ] `WeaponArt.cs` — Per-weapon unique ability
+- [x] `WeaponArt.cs` — Per-weapon unique ability (Range/Radius fields added for strike area)
+- [x] `WeaponArtExecutor.cs` — triggers weapon art: FP cost, cooldown gate, forward strike + IDamageable
+- [x] `IDamageable.cs` — health pool interface; all combat pipelines (melee/ranged/spell/art) apply via this
 - [ ] Weapon upgrades, infusion system
-- [ ] **Wielding states** (see game-design.md §5.4): single (one-hand, off-hand free), dual (one per hand, needs ~2× Str), two-hand grip (both slots, ~halved Str requirement)
+- [x] **Wielding states** (see game-design.md §5.4): single (one-hand, off-hand free), dual (one per hand, needs ~2× Str), two-hand grip (both slots, ~halved Str requirement)
 
 ### Task 3.3: Animation & Feedback
 
-- [ ] Combat animation states (idle, attack chain, dodge, block, hit, death)
-- [ ] Hit pause / hit stop (brief freeze on impact for game feel)
-- [ ] Screen shake, particle effects, sound triggers
-- [ ] Enemy ragdoll on death
+- [x] Combat animation states (idle, attack chain, dodge, block) — `CombatAnimation.cs` bridges CombatController state → Animator (controller asset authored in-editor)
+- [x] Hit pause / hit stop (brief freeze on impact for game feel) — `HitStop.cs`
+- [x] Screen shake, floating damage numbers — `ScreenShake.cs`, `DamageNumber.cs`, `CombatFeedback.cs` coordinator
+- [ ] Particle effects, sound triggers (asset wiring in-editor)
+- [x] Enemy ragdoll on death — `RagdollEnabler.cs` (rig authored in-editor)
 
 ---
 
@@ -163,7 +171,7 @@ Scripts/
 > The original Phase 4 plan called for a giant skill-tree + stat system. Scope review
 > replaced the skill TREE with a **6-category Skill XP system** (no tree nodes — flat
 > tier rewards per category), added a full **22-race system**, and kept the classless
-> **10-class unlock** system. Rationale: races + stat % scaling + skill XP tiers deliver
+> **15-class unlock** system. Rationale: races + stat % scaling + skill XP tiers deliver
 > build variety with far less content than a full tree, and match the user's requested
 > "passive-only racial kits."
 
@@ -349,7 +357,7 @@ Scripts/
 | 1 - Chunks | **Critical** | 3 weeks | Phase 0 |
 | 2 - Player | **Critical** | 2 weeks | Phase 1 |
 | 3 - Combat | **Critical** | 3 weeks | Phase 2 |
-| 4 - Skills | **High** | 3 weeks | Phase 3 |
+| 4 - Races, Stats & Classes | **High** | 3 weeks | Phase 3 |
 | 5 - World Content | **High** | 4 weeks | Phase 1, 3 |
 | 6 - Side Content | **Medium** | 3 weeks | Phase 1, 2 |
 | 7 - Multiplayer | **High** | 4 weeks | Phase 1, 3 |
@@ -424,12 +432,15 @@ Scripts/Player/Controller/
 ```
 
 ### Player/Combat
+> **Deprecated location.** `Scripts/Player/Combat/` is empty in the repo. All combat code
+> lives under **`Scripts/Combat/`** instead (Weapons, Effects, Skills, AI) — see the
+> those blocks below:
 ```
-Scripts/Player/Combat/
-├── CombatController.cs      # NEW - combat input/states
-├── StaminaSystem.cs         # NEW - stamina management
-├── HitboxSystem.cs          # NEW - weapon hitboxes
-└── LockOnTargeting.cs       # NEW - target lock system
+Scripts/Combat/
+├── Weapons/    # CombatController, HitboxSystem, DamageCalculator, Weapon* modules (§3.6)
+├── Effects/    # StatusEffect, StaminaSystem, HitPause, DamageNumbers, ScreenShake
+├── Skills/     # Active/ultimate ability system (§3.3)
+└── AI/         # enemy AI
 ```
 
 ### Player/Stats
@@ -485,15 +496,30 @@ Scripts/Combat/AI/
 Scripts/Combat/Weapons/
 ├── WeaponData.cs             # NEW - SO weapon data base
 ├── WeaponCategory.cs         # NEW - Melee/Ranged/Magic enum
+├── WeaponScalingStat.cs      # (enum inside WeaponData.cs) scaling stat
 ├── DamageType.cs             # NEW - 10 damage types enum (§3.7)
 ├── IWeaponBehavior.cs        # NEW - behavior contract
 ├── MeleeWeaponBehavior.cs    # NEW - hitbox arc
 ├── RangedWeaponBehavior.cs   # NEW - projectile + ammo
+├── RangedProjectile.cs       # NEW - projectile flight/impact
 ├── MagicWeaponBehavior.cs    # NEW - routes to spell pipeline
+├── MagicWeaponMods.cs        # NEW - weapon magic mods container
+├── SpellData.cs              # NEW - SO spell base (§3.8)
+├── SpellCaster.cs            # NEW - validates FP/cast, resolves via DamageCalculator
+├── SpellEffect.cs            # NEW - projectile / instant / zone spawn
 ├── WeaponDatabase.cs         # NEW - category → behavior registry
 ├── WeaponArt.cs              # NEW - unique weapon ability
-├── DamageCalculator.cs       # NEW - damage formula
-└── WeaponUpgradeSystem.cs    # NEW - upgrades/infusion
+├── IDamageResistance.cs      # NEW - per-type resistance source (interface)
+├── NeutralResistance.cs      # NEW - placeholder neutral resistance
+├── IStatProvider.cs          # NEW - stat access for scaling (Phase 4 wires real stats)
+├── IAmmoProvider.cs          # NEW - ammo source (Inventory wires it later)
+├── InfiniteAmmo.cs           # NEW - placeholder infinite ammo
+├── IDamageable.cs            # NEW - health pool receiver interface
+├── DamageCalculator.cs       # NEW - damage formula (§3.7 10-type)
+├── CombatController.cs       # (rewired to IWeaponBehavior §3.6)
+├── HitboxSystem.cs           # (carries DamageType + resistance; applies via IDamageable)
+├── WeaponArtExecutor.cs      # NEW - triggers weapon art (FP cost, cooldown, damage)
+└── WeaponUpgradeSystem.cs    # TODO - upgrades/infusion
 ```
 
 ### Combat/Skills
@@ -506,16 +532,21 @@ Scripts/Combat/Skills/
 └── SkillBook.cs             # NEW - unlock new skills
 # NOTE: Skill TREE replaced by SkillXpTracker (Player/Stats) in Phase 4.
 # SkillManager here manages equippable ACTIVE/ultimate abilities only.
+# Active-skill spells route through the shared SpellCaster (see Combat/Weapons §3.8).
 ```
 
 ### Combat/Effects
 ```
 Scripts/Combat/Effects/
-├── HitPause.cs              # NEW - hit stop effect
-├── StatusEffect.cs          # NEW - poison, bleed, etc.
-├── StatusEffectType.cs      # NEW - Bleed/Poison/Rot/Frost/Burn/Stagger enum (§3.7)
-├── DamageNumbers.cs         # NEW - floating damage text
-└── ScreenShake.cs           # NEW - camera shake
+├── StaminaSystem.cs        # (existing) stamina pool
+├── StatusEffectType.cs     # NEW - Bleed/Poison/Rot/Frost/Burn/Stagger enum (§3.7)
+├── HitStop.cs              # NEW - hit stop / time freeze (Task 3.3)
+├── ScreenShake.cs          # NEW - camera shake (Task 3.3)
+├── DamageNumber.cs         # NEW - floating damage text (Task 3.3)
+├── CombatAnimation.cs      # NEW - CombatController state → Animator bridge (Task 3.3)
+├── CombatFeedback.cs       # NEW - coordinates hitstop/shake/damage numbers (Task 3.3)
+├── RagdollEnabler.cs       # NEW - corpse ragdoll on death (Task 3.3)
+└── StatusEffect.cs         # TODO - runtime applying/DoT for status effects
 ```
 
 ### Multiplayer
