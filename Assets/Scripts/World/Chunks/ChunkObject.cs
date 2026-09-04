@@ -75,20 +75,24 @@ public class ChunkObject : MonoBehaviour
 
     private void SpawnTree(long seed, System.Random rng)
     {
-        float wx = Coord.X + (float)rng.NextDouble();
-        float wz = Coord.Z + (float)rng.NextDouble();
-        float wy = TerrainNoiseGenerator.GetHeight(seed, wx, wz);
-        var tree = MapBuilder.BuildTree(transform, new Vector3(wx, wy, wz));
+        float localX = (float)rng.NextDouble();
+        float localZ = (float)rng.NextDouble();
+        float worldX = Coord.X + localX;
+        float worldZ = Coord.Z + localZ;
+        float worldY = TerrainNoiseGenerator.GetHeight(seed, worldX, worldZ);
+        var tree = MapBuilder.BuildTree(transform, new Vector3(localX, worldY, localZ));
         tree.name = $"Tree_{Coord.X}_{Coord.Z}";
         _props.Add(tree);
     }
 
     private void SpawnRock(long seed, System.Random rng)
     {
-        float wx = Coord.X + (float)rng.NextDouble();
-        float wz = Coord.Z + (float)rng.NextDouble();
-        float wy = TerrainNoiseGenerator.GetHeight(seed, wx, wz);
-        var rock = MapBuilder.BuildStone(transform, new Vector3(wx, wy, wz));
+        float localX = (float)rng.NextDouble();
+        float localZ = (float)rng.NextDouble();
+        float worldX = Coord.X + localX;
+        float worldZ = Coord.Z + localZ;
+        float worldY = TerrainNoiseGenerator.GetHeight(seed, worldX, worldZ);
+        var rock = MapBuilder.BuildStone(transform, new Vector3(localX, worldY, localZ));
         rock.name = $"Rock_{Coord.X}_{Coord.Z}";
         _props.Add(rock);
     }

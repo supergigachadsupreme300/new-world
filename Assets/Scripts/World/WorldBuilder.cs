@@ -811,6 +811,9 @@ _streetLights.Clear();
     }
     public void UpdateWorld(float deltaTime)
     {
+        if (!EnableLegacyGeneration)
+            return;
+
         _worldFrameTick++;
         _resourceRespawnTimer += deltaTime;
         if (_resourceRespawnTimer >= RespawnInterval)
@@ -960,6 +963,9 @@ var toRemove = _vendorCartsToRemove;
     }
     public void SetDayNight(float hour)
     {
+        if (!EnableLegacyGeneration)
+            return;
+
 bool isNight = hour >= 18f || hour < 6f;
         if (isNight && !_wasNight)
         {

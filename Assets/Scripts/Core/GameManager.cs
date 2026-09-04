@@ -144,7 +144,7 @@ public class GameManager : MonoSingleton<GameManager>
         if (KarmaManager != null)
             KarmaManager.RegenKarma(Time.deltaTime);
 
-        if (WorldBuilder != null)
+        if (WorldBuilder != null && WorldBuilder.EnableLegacyGeneration)
         {
             WorldBuilder.SetDayNight(TimeOfDay);
             WorldBuilder.UpdateWorld(Time.deltaTime);

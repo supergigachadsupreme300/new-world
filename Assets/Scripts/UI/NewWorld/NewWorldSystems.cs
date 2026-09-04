@@ -112,7 +112,9 @@ public sealed class NewWorldSystems : MonoBehaviour
             if (!_registered.ContainsKey(coord))
             {
                 _lod?.RegisterChunk(obj.gameObject);
-                _cull?.AddCandidate(obj.gameObject);
+                // Terrain chunks must NOT be registered with CullManager —
+                // occlusion raycasts incorrectly hide distant-but-visible terrain.
+                // Only discrete objects (NPCs, buildings) are culled.
                 _registered[coord] = obj;
             }
         }
@@ -138,7 +140,6 @@ public sealed class NewWorldSystems : MonoBehaviour
                     if (obj != null)
                     {
                         _lod?.UnregisterChunk(obj.gameObject);
-                        _cull?.RemoveCandidate(obj.gameObject);
                     }
                 }
             }
