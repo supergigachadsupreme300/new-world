@@ -332,8 +332,8 @@ Scripts/
 
 ### Task 8.3: Interaction & Dialogue
 
-- [ ] Context-sensitive prompts (adapted from existing)
-- [ ] NPC dialogue system (simplified)
+- [x] Context-sensitive prompts (`ContextPromptUI` — adapted from existing)
+- [x] NPC dialogue system (`NpcDialogueUI` — simplified, renders `NpcDefinition.GreetingLines`)
 
 ---
 
@@ -569,7 +569,9 @@ Scripts/UI/NewWorld/
 ├── InventoryEquipmentUI.cs     # NEW - inventory + equipment (<EquipmentSystem>)
 ├── EquipmentSystem.cs          # NEW - minimal equip-slot backer (Weapon/Armor)
 ├── WorldMapUI.cs               # NEW - POI registry + chunk-coordinate map
-└── MultiplayerBrowserUI.cs     # NEW - session/lobby browser + party entry
+├── MultiplayerBrowserUI.cs     # NEW - session/lobby browser + party entry
+├── ContextPromptUI.cs          # NEW - context-sensitive interaction prompt (Task 8.3)
+└── NpcDialogueUI.cs            # NEW - simplified NPC dialogue (renders GreetingLines)
 ```
 > **UI note:** Phase 8 HUD components are self-contained MonoBehaviours that build their own
 > screen-space overlays, composing the existing UIManager + PlayerController/PlayerStats/
