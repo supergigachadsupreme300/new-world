@@ -633,13 +633,23 @@ Scripts/Opt/
 ├── ObjectPooler.cs          # NEW - generic prefab pool: Warm/Get/GetComponent<T>/Return(delay)
 ├── AudioManager.cs          # NEW - ambient (per-biome) + SFX + crossfading day/combat/rest music
 ├── ChunkLodManager.cs       # NEW - distance-band chunk LOD (root vs. named detail children) + cull
-└── CullManager.cs           # NEW - raycast-driven occlusion culling via OccluderLayer mask
+├── CullManager.cs           # NEW - raycast-driven occlusion culling via OccluderLayer mask
+└── NewWorldTestGround.cs    # NEW - QA testing ground: flat platform + tools/farming/livestock/enemies/buildings/NPCs/POI hub
 ```
 > **Opt note:** Phase 9 code-only subsystems are self-contained helpers (compose existing scene
 > objects / contracts, no package deps). The remaining Phase 9 items (texture atlasing, save
 > stress-testing, performance profiling, balance pass, audio-clip wiring) are in-editor/asset or
 > measurement work per the Phase 9 checklist — wire clips/scenes in-editor and attach these
 > components as appropriate.
+
+> **Testing ground:** add one `NewWorldTestGround.cs` component and it builds a flat `PlatformSize`
+> platform and lays out a deterministic test bench (opt-in lane toggles, spawn once via
+> `AutoSpawnOnStart`): a 10-slot tool/seed kit via `ToolManager.AddItem`, a farming plot via
+> `WorldBuilder.TillGround/PlantCrop/WaterField/FertilizeField/BoostFieldGrowth`, static livestock
+> pens via `Livestock` + `BuildModelInto`, an enemy arena via direct `EnemyController`/`BossController`
+> proxies, a building row via `WorldBuilder.SpawnBuildingDirect`, NPCs via `WorldNpcPlacer.Place`,
+> and a QA fast-travel hub via the new additive `POIRegistry.Register` helper (append-only; the
+> 17 hardcoded POIs are untouched).
 
 ### Player/Controller
 ```

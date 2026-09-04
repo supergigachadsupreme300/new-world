@@ -65,6 +65,21 @@ public static class POIRegistry
         return string.IsNullOrEmpty(id) ? null : (_byId.TryGetValue(id, out var p) ? p : null);
     }
 
+    /// <summary>
+    /// Additively register one runtime POI (append-only; never mutates the hardcoded roster).
+    /// Idempotent per id. Used by the testing ground to add a QA fast-travel hub.
+    /// </summary>
+    public static void Register(POIDefinition poi)
+    {
+        if (poi == null || string.IsNullOrEmpty(poi.Id)) return;
+        EnsureBuilt();
+        if (!_byId.ContainsKey(poi.Id))
+        {
+            _byId.Add(poi.Id, poi);
+            _all.Add(poi);
+        }
+    }
+
     // ---------------------------------------------------------------
     //  PROGRAMMATIC ROSTER (game-design §7.2 POIs, towns/dungeons/etc.)
     // ---------------------------------------------------------------
