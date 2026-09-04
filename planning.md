@@ -282,9 +282,9 @@ Scripts/
 
 ### Task 7.1: Server Infrastructure
 
-- [ ] `GameServer.cs` — Dedicated server bootstrap
-- [ ] Chunk synchronization (server generates → clients receive heights)
-- [ ] Player session management
+- [x] `GameServer.cs` — Dedicated server bootstrap (`GameServer` + `NetServerHost`, `NEWWORLD_SERVER` gate)
+- [x] Chunk synchronization (`ChunkSync`: server generates heights → broadcasts `ChunkData` batches)
+- [x] Player session management (`PlayerSession`, handshake/heartbeat/timeout, endpoint-keyed registry)
 
 ### Task 7.2: State Synchronization
 
@@ -370,6 +370,23 @@ Scripts/
 ---
 
 ## File Structure Overview (Scripts to Create)
+
+### Networking
+```
+Scripts/Networking/
+├── NetMessage.cs             # NEW - opcodes + binary message writer/reader (no netcode package)
+├── UdpNetTransport.cs        # NEW - INetTransport abstraction + dependency-free UDP impl
+├── GameServer.cs             # NEW - dedicated server bootstrap (sessions, handshake, dispatch)
+├── PlayerSession.cs          # NEW - session state (endpoint, ack, liveness, replicated pos)
+├── ChunkSync.cs              # NEW - server generates heights → broadcasts ChunkData batches
+└── NetServerHost.cs          # NEW - MonoBehaviour harness, guarded by NEWWORLD_SERVER
+```
+> **Networking note:** Phase 7 adds a transport-agnostic layer with no external netcode
+> package required. The server owns the authoritative session registry + timers
+> (Task 7.1); state sync (Task 7.2), game modes (7.3), and anti-cheat (7.4) ride the
+> same <see cref="GameServer"/> message path. `NetServerHost` boots the server only in
+> builds compiled with the `NEWWORLD_SERVER` symbol so dedicated builds are separated
+> from the singleplayer client.
 
 ### Core
 ```
