@@ -322,13 +322,13 @@ Scripts/
 
 ### Task 8.2: Menus
 
-- [ ] Main Menu (New Game, Continue, Multiplayer, Settings)
-- [ ] Pause Menu
-- [ ] Character Creation UI (race select + stat preview, Phase 4)
-- [ ] Race/Stat Sheet UI (Phase 4)
-- [ ] Inventory/Equipment UI
-- [ ] World Map UI
-- [ ] Multiplayer Browser/Party UI
+- [x] Main Menu (New Game, Continue, Multiplayer, Settings) — adapted (exists)
+- [x] Pause Menu — adapted (exists)
+- [x] Character Creation UI (race select + stat preview, Phase 4) — `CharacterCreationUI`
+- [x] Race/Stat Sheet UI (Phase 4) — `RaceStatSheetUI`
+- [x] Inventory/Equipment UI — `InventoryEquipmentUI` + `EquipmentSystem`
+- [x] World Map UI — `WorldMapUI`
+- [x] Multiplayer Browser/Party UI — `MultiplayerBrowserUI` (+ `NetServerHost.Lobbies` accessor)
 
 ### Task 8.3: Interaction & Dialogue
 
@@ -562,7 +562,14 @@ Scripts/UI/NewWorld/
 ├── CompassMinimapHUD.cs        # NEW - compass + minimap with chunk-grid overlay
 ├── SkillBarHUD.cs              # NEW - 6-slot skill bar
 ├── MultiplayerIndicatorHUD.cs  # NEW - MP session/chat indicators
-└── EnemyHealthBarHUD.cs        # NEW - pooled enemy health bars
+├── EnemyHealthBarHUD.cs        # NEW - pooled enemy health bars
+├── MenuPanelBase.cs            # NEW - modal menu overlay base (Task 8.2)
+├── RaceStatSheetUI.cs          # NEW - race/stat sheet + stat allocation preview
+├── CharacterCreationUI.cs      # NEW - race select + stat preview
+├── InventoryEquipmentUI.cs     # NEW - inventory + equipment (<EquipmentSystem>)
+├── EquipmentSystem.cs          # NEW - minimal equip-slot backer (Weapon/Armor)
+├── WorldMapUI.cs               # NEW - POI registry + chunk-coordinate map
+└── MultiplayerBrowserUI.cs     # NEW - session/lobby browser + party entry
 ```
 > **UI note:** Phase 8 HUD components are self-contained MonoBehaviours that build their own
 > screen-space overlays, composing the existing UIManager + PlayerController/PlayerStats/

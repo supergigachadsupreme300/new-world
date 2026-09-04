@@ -27,6 +27,14 @@ public sealed class NetServerHost : MonoBehaviour
     public GameServer Server => _server;
     public bool IsRunning => _server != null && _server.IsRunning;
 
+    /// <summary>Live snapshot of all active lobbies on this host (Phase 8 / Task 8.2 browser).</summary>
+    public System.Collections.Generic.List<NetLobby> Lobbies
+    {
+        get { lock (_lobbyLock) { return new System.Collections.Generic.List<NetLobby>(_lobbies); } }
+    }
+
+    private readonly object _lobbyLock = new object();
+
     private void OnEnable()
     {
         if (StartOnEnable) StartServer();
@@ -116,10 +124,13 @@ public sealed class NetServerHost : MonoBehaviour
         var lobby = NetLobby.Create(_server, mode, session.Id);
         if (lobby != null)
         {
-            for (int i = _lobbies.Count - 1; i >= 0; i--)
-                if (_lobbies[i].HostSessionId == session.Id)
-                    _lobbies.RemoveAt(i);
-            _lobbies.Add(lobby);
+            lock (_lobbyLock)
+            {
+                for (int i = _lobbies.Count - 1; i >= 0; i--)
+                    if (_lobbies[i].HostSessionId == session.Id)
+                        _lobbies.RemoveAt(i);
+                _lobbies.Add(lobby);
+            }
             lobby.Broadcast(_server, LobbyPack.JoinAck(mode));
         }
         #endif
@@ -129,11 +140,14 @@ public sealed class NetServerHost : MonoBehaviour
     {
         // Anti-cheat: free the session's action budget on departure.
         AntiCheat.Release(session.Id);
-        for (int i = _lobbies.Count - 1; i >= 0; i--)
+        lock (_lobbyLock)
         {
-            _lobbies[i].RemoveMember(session.Id);
-            if (_lobbies[i].MemberCount == 0)
-                _lobbies.RemoveAt(i);
+            for (int i = _lobbies.Count - 1; i >= 0; i--)
+            {
+                _lobbies[i].RemoveMember(session.Id);
+                if (_lobbies[i].MemberCount == 0)
+                    _lobbies.RemoveAt(i);
+            }
         }
     }
 
