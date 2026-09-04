@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -21,6 +22,7 @@ public sealed class NetServerHost : MonoBehaviour
     private UdpNetTransport _transport;
     private long _worldSeed = 12345L;
     private float _chunkTimer;
+    private readonly List<NetLobby> _lobbies = new List<NetLobby>();
 
     public GameServer Server => _server;
     public bool IsRunning => _server != null && _server.IsRunning;
@@ -84,6 +86,38 @@ public sealed class NetServerHost : MonoBehaviour
             case NetOp.Chat:
                 ChatSync.ServerRelay(_server, session, msg);
                 break;
+            case NetOp.LobbyJoin:
+                HandleLobbyJoin(session, msg);
+                break;
+            case NetOp.LobbyLeave:
+                LeaveAllLobbies(session);
+                break;
+        }
+    }
+
+    private void HandleLobbyJoin(PlayerSession session, NetMessage msg)
+    {
+        #if NEWWORLD_SERVER
+        var mode = LobbyPack.ReadJoin(msg);
+        var lobby = NetLobby.Create(_server, mode, session.Id);
+        if (lobby != null)
+        {
+            for (int i = _lobbies.Count - 1; i >= 0; i--)
+                if (_lobbies[i].HostSessionId == session.Id)
+                    _lobbies.RemoveAt(i);
+            _lobbies.Add(lobby);
+            lobby.Broadcast(_server, LobbyPack.JoinAck(mode));
+        }
+        #endif
+    }
+
+    private void LeaveAllLobbies(PlayerSession session)
+    {
+        for (int i = _lobbies.Count - 1; i >= 0; i--)
+        {
+            _lobbies[i].RemoveMember(session.Id);
+            if (_lobbies[i].MemberCount == 0)
+                _lobbies.RemoveAt(i);
         }
     }
 

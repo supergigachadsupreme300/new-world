@@ -295,11 +295,11 @@ Scripts/
 
 ### Task 7.3: Game Modes
 
-- [ ] Solo mode (local server)
-- [ ] Co-op (2-4 players, invite system)
-- [ ] Invasion (hostile PvP, 1-6 players)
-- [ ] Arena (matchmaking PvP, 2-8 players)
-- [ ] World Boss (4-16 players)
+- [x] Solo mode (`NetLobby.EnterSoloLocal` — local non-listening server)
+- [x] Co-op (2-4 players, invite system — `NetLobby.Invite` slot reservation)
+- [x] Invasion (hostile PvP, 1-6 players — `GameMode` hostile flag)
+- [x] Arena (matchmaking PvP, 2-8 players — `Matchmaker`)
+- [x] World Boss (4-16 players — `BossEvent` authoritative boss broadcast)
 
 ### Task 7.4: Anti-Cheat
 
@@ -383,6 +383,10 @@ Scripts/Networking/
 ├── EnemyStateSync.cs         # NEW - server-authoritative enemy snapshots (AI, health, attacks)
 ├── LootSync.cs               # NEW - spawn/collect/despawn loot agreement across clients
 ├── ChatSync.cs               # NEW - server-relayed chat + client inbound buffer
+├── GameMode.cs               # NEW - mode definitions (Solo/Co-op/Invasion/Arena/WorldBoss)
+├── NetLobby.cs               # NEW - lobby aggregation + co-op invites + solo local boot
+├── Matchmaker.cs             # NEW - arena matchmaking (2-8 players) + announce
+├── BossEvent.cs              # NEW - authoritative world-boss broadcast (4-16 players)
 └── NetServerHost.cs          # NEW - MonoBehaviour harness, guarded by NEWWORLD_SERVER
 ```
 > **Networking note:** Phase 7 adds a transport-agnostic layer with no external netcode
