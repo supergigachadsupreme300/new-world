@@ -60,6 +60,7 @@ public sealed class NewWorldSystems : MonoBehaviour
             Ensure<InventoryEquipmentUI>();
             Ensure<WorldMapUI>();
             Ensure<MultiplayerBrowserUI>();
+            Ensure<CharacterInfoUI>();
         }
 
         if (EnableInteraction)
@@ -173,6 +174,7 @@ public sealed class NewWorldSystems : MonoBehaviour
     public void ShowInventory() => Menu<InventoryEquipmentUI>()?.Show();
     public void ShowWorldMap() => Menu<WorldMapUI>()?.Show();
     public void ShowMultiplayerBrowser() => Menu<MultiplayerBrowserUI>()?.Show();
+    public void ShowCharacterInfo() => Menu<CharacterInfoUI>()?.Show();
 
     private T Menu<T>() where T : MenuPanelBase
     {

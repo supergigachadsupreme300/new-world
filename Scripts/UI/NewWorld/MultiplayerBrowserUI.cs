@@ -50,7 +50,7 @@ public sealed class MultiplayerBrowserUI : MenuPanelBase
             StringBuilder s = new StringBuilder();
             s.Append("Status: ").Append(Localization.T("Running")).Append(" (")
              .Append(sessions).Append(" ").Append(Localization.T("Players")).Append(")");
-            for (var sess : server.Sessions)
+            foreach (var sess in server.Sessions)
                 s.Append("\n  • ").Append(sess.PlayerName);
             _serverLine.text = s.ToString();
         }
@@ -62,7 +62,7 @@ public sealed class MultiplayerBrowserUI : MenuPanelBase
         // Part/lobby summary.
         var lobbies = FindLobbies();
         StringBuilder p = new StringBuilder();
-        for (var l : lobbies)
+        foreach (var l in lobbies)
         {
             string name = l.Mode != null ? l.Mode.DisplayName : "?";
             p.Append("• ").Append(name).Append("  ").Append(l.MemberCount)

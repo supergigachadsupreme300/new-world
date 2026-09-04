@@ -32,6 +32,12 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnablePoiHub = true;
     public bool IncludeBoss = false;
 
+    [Header("Phase 10 - Weapons & Skills")]
+    [Tooltip("Equip the starter weapon and make all 15 weapons available (cycle via Character Info > Equipment).")]
+    public bool EnableWeapons = true;
+    [Tooltip("Grant the player all 60 skills (testing) and wire the skill profile + hotkey bindings.")]
+    public bool EnableSkills = true;
+
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
     private static readonly int TestRootLayer = 0;
@@ -66,6 +72,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (EnableBuildings) SpawnBuildings();
         if (EnableNpcs) SpawnNpcs();
         if (EnablePoiHub) RegisterPoiHub();
+        if (EnableWeapons) SpawnAllWeapons();
+        if (EnableSkills) GrantAllSkills();
 
         var player = GameManager.Instance?.Player;
         if (player != null)
@@ -260,6 +268,53 @@ public sealed class NewWorldTestGround : MonoBehaviour
         def.Radius = PlatformSize * 0.5f;
         def.IsFastTravelPoint = true;
         POIRegistry.Register(def);
+    }
+
+    /// <summary>
+    /// Ensure the player has the Phase 10 combat/skill stack and equip the starter weapon.
+    /// All 15 weapons remain available to cycle via Character Info > Equipment.
+    /// </summary>
+    private void SpawnAllWeapons()
+    {
+        var player = GameManager.Instance?.Player;
+        if (player == null) return;
+
+        WeaponCatalog.EnsureBuilt();
+        WeaponRigBuilder.EnsureCombatStack(player.gameObject);
+
+        var starter = WeaponCatalog.Find(WeaponCatalog.StarterWeaponId);
+        if (starter != null)
+            WeaponRigBuilder.EquipInto(player.gameObject, starter);
+    }
+
+    /// <summary>
+    /// Wire the skill profile + hotkey bindings on the player and grant every skill (testing).
+    /// Passives apply their stat effects immediately; castables become hotkey-executable.
+    /// </summary>
+    private void GrantAllSkills()
+    {
+        var player = GameManager.Instance?.Player;
+        if (player == null) return;
+
+        if (player.GetComponent<SkillProfile>() == null)
+            player.gameObject.AddComponent<SkillProfile>();
+        if (player.GetComponent<SkillBindings>() == null)
+            player.gameObject.AddComponent<SkillBindings>();
+
+        SkillCatalog.EnsureBuilt();
+        var profile = player.GetComponent<SkillProfile>();
+        if (profile == null) return;
+
+        // Chest list (stable) so re-entry does not double-grant.
+        var toLearn = SkillCatalog.All;
+        if (toLearn == null) return;
+        foreach (var skill in toLearn)
+        {
+            if (skill == null) continue;
+            if (profile.HasLearned(skill.id)) continue;
+            profile.Points += 999;          // testing: unlimited budget
+            profile.Learn(skill);
+        }
     }
 
     private static Material SolidMaterial(Color c)

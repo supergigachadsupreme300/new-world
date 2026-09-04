@@ -390,6 +390,43 @@ Scripts/
 
 ---
 
+## Phase 10: Content System — 15 Weapons, 60 Skills & Character Info Menu
+
+> **Design:** Object-oriented skills (composition model). Every skill has **Attribute 1 — Cost**
+> (resource + amount + cast time + cooldown) and **Attribute 2 — what it does** (a pluggable
+> `IEffect`), plus a **damage kind** (`IsMagical` + `DamageType`, §3.7) when offensive. Spells
+> count as skills: a magic castable's effect is a `SpellCastEffect` over a `SpellData`. Passives
+> use a `StatBuffEffect` with a zero cost. Content is authored in code (runtime catalogs, no
+> `.asset` files) so it's immediately playable. Weapons are not class-locked — any player can
+> equip/use any of the 15.
+
+### Phase 10 Checklist
+
+- [x] **Runtime weapon catalog** `WeaponCatalog.cs` — builds 15 `WeaponData` assets (one per class
+      archetype: Melee slashing/blunt/wielding variants, Ranged, Magic), distinct stats/signatures.
+- [x] **Weapon rigging** `WeaponRigBuilder.cs` + `WeaponRigHost.cs` — build a live weapon GameObject
+      per rod (`WeaponData` reference + category behavior + `HitboxSystem`/muzzle + `WeaponArtExecutor`
+      + primitive visual proxy) and equip onto `CombatController` hands/wielding. Ensures the player
+      carries the combat stack (`PlayerStats` + `SpellCaster` + `CombatController`/`StaminaSystem`).
+- [x] **OO skill core** `SkillCost.cs` (`ResourceKind` + `Cost`), `SkillContext.cs`, `IEffect.cs`
+      (`DamageZoneEffect`, `SpellCastEffect`, `StatBuffEffect`, `WeaponArtEffect`), `Skill.cs`
+      (composable base: Cost + Effect + DamageKind + prereqs).
+- [x] **Runtime skill catalog** `SkillCatalog.cs` — 60 skills (10 per `SkillType`: Melee/Ranged/Magic/
+      Stealth/Crafting/Fortitude), each composing an effect + prereq graph + element.
+- [x] **Skill profile** `SkillProfile.cs` — point bank (+1 per `SkillXpTracker` category level-up),
+      learn/prereq gating, passive application into `PlayerStats`, cast execution via `Skill.Apply(ctx)`.
+- [x] **Hotkey bindings** `SkillBindings.cs` — key → skill id map (new Input System, PC) + capture-next-key flow.
+- [x] **Character Info menu** `CharacterInfoUI.cs` — tabbed stacked-panel menu (Stats / Skills /
+      Inventory / Equipment / Map) via `MenuPanelBase`; Skills panel shows the tree, spends points,
+      and assigns keys; Equipment tab can cycle through all 15 weapons.
+- [x] **Bootstrap + test ops** — `NewWorldSystems.ShowCharacterInfo()` accessor + auto-add menu;
+      `NewWorldTestGround.SpawnAllWeapons()` / `GrantAllSkills()`; fix `RaceStatSheetUI` pseudo-C# `for(:)` loops.
+- [ ] Cast-usable weapon attacks via `CombatController` require an attack-input driver (deferred:
+      `CombatController.LightAttack` is not yet invoked by player input, and `WeaponData` is a
+      ScriptableObject so `GetComponent<WeaponData>` won't resolve — combat-resolution gap tracked).
+
+---
+
 ## Implementation Priority Summary
 
 | Phase | Priority | Duration | Dependencies |
@@ -612,7 +649,8 @@ Scripts/UI/NewWorld/
 ├── WorldMapUI.cs               # NEW - POI registry + chunk-coordinate map
 ├── MultiplayerBrowserUI.cs     # NEW - session/lobby browser + party entry
 ├── ContextPromptUI.cs          # NEW - context-sensitive interaction prompt (Task 8.3)
-└── NpcDialogueUI.cs            # NEW - simplified NPC dialogue (renders GreetingLines)
+├── NpcDialogueUI.cs            # NEW - simplified NPC dialogue (renders GreetingLines)
+└── CharacterInfoUI.cs          # NEW (Phase 10) - tabbed Character Info (Stats/Skills/Inventory/Equipment/Map) + skill tree
 ```
 > **UI note:** Phase 8 HUD components are self-contained MonoBehaviours that build their own
 > screen-space overlays, composing the existing UIManager + PlayerController/PlayerStats/
@@ -752,7 +790,10 @@ Scripts/Combat/Weapons/
 ├── CombatController.cs       # (rewired to IWeaponBehavior §3.6)
 ├── HitboxSystem.cs           # (carries DamageType + resistance; applies via IDamageable)
 ├── WeaponArtExecutor.cs      # NEW - triggers weapon art (FP cost, cooldown, damage)
-└── WeaponUpgradeSystem.cs    # TODO - upgrades/infusion
+├── WeaponUpgradeSystem.cs    # TODO - upgrades/infusion
+├── WeaponCatalog.cs          # NEW (Phase 10) - runtime 15-weapon (class-archetype) roster
+├── WeaponRigBuilder.cs       # NEW (Phase 10) - build/equip a live weapon GO onto CombatController hands
+└── WeaponRigHost.cs          # NEW (Phase 10) - carries a WeaponData reference on a rigged weapon GO
 ```
 
 ### Combat/Skills
@@ -762,7 +803,15 @@ Scripts/Combat/Skills/
 ├── ActiveSkill.cs           # NEW - equippable abilities
 ├── PassiveSkill.cs          # NEW - permanent effects
 ├── UltimateSkill.cs         # NEW - endgame abilities
-└── SkillBook.cs             # NEW - unlock new skills
+├── SkillBook.cs             # NEW - unlock new skills
+# Phase 10 runtime OO skill system (composition: Cost + IEffect + DamageKind):
+├── SkillCost.cs             # NEW (Phase 10) - ResourceKind enum + Cost struct (res/amt/cast/cooldown)
+├── SkillContext.cs          # NEW (Phase 10) - caster/stamina/stats/transform/user for effect execution
+├── IEffect.cs               # NEW (Phase 10) - DamageZone/SpellCast/StatBuff/WeaponArt effects
+├── Skill.cs                 # NEW (Phase 10) - SO base: Type + Cost + Effect + DamageKind + prereqs
+├── SkillCatalog.cs          # NEW (Phase 10) - runtime 60-skill roster (10 per SkillType)
+├── SkillProfile.cs          # NEW (Phase 10) - point bank, learn/prereq gate, passive apply, cast execute
+└── SkillBindings.cs         # NEW (Phase 10) - key → skill id hotkeys (new Input System) + capture flow
 # NOTE: Skill TREE replaced by SkillXpTracker (Player/Stats) in Phase 4.
 # SkillManager here manages equippable ACTIVE/ultimate abilities only.
 # Active-skill spells route through the shared SpellCaster (see Combat/Weapons §3.8).

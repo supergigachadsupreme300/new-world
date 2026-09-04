@@ -78,7 +78,7 @@ public sealed class RaceStatSheetUI : MenuPanelBase
         _statsLines.text = sb.ToString();
 
         int used = 0;
-        for (var e : _alloc) used += e.Value;
+        foreach (var e in _alloc) used += e.Value;
         int remain = Mathf.Max(0, Budget - used);
         _budgetLine.text = Localization.F("Points Remaining: {0}", remain);
     }
@@ -91,7 +91,7 @@ public sealed class RaceStatSheetUI : MenuPanelBase
         int cur = _alloc.TryGetValue(idx, out var a) ? a : 0;
         int newCur = Mathf.Clamp(cur + amount, 0, 10);
         int used = 0;
-        for (var e : _alloc) used += e.Value;
+        foreach (var e in _alloc) used += e.Value;
         int remain = Budget - used;
         if (newCur > cur && remain <= 0) return;
         if (newCur == cur) return;
@@ -103,7 +103,7 @@ public sealed class RaceStatSheetUI : MenuPanelBase
     public void Commit()
     {
         if (_stats == null) return;
-        for (var e : _alloc)
+        foreach (var e in _alloc)
         {
             if (e.Value != 0) _stats.AddStatPoints((StatType)e.Key, e.Value);
         }
