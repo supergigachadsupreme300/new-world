@@ -54,6 +54,7 @@ public partial class WorldBuilder
 
     public FieldState TillGround(Vector3 position)
     {
+        EnsureWorldRoot();
         position.x = Mathf.Round(position.x);
         position.z = Mathf.Round(position.z);
         bool onRoad = IsOnRoad(position);

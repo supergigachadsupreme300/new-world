@@ -770,6 +770,7 @@ public bool HasMansionStructure()
 
     public bool SpawnBuildingDirect(string typeName, Vector3 position, int rotation, List<BuildingPartState> partStates = null)
     {
+        EnsureWorldRoot();
         var building = CreateBuildingEntity(typeName, position, rotation, out var createdParts);
         if (building == null) return false;
         if (partStates != null) createdParts = partStates;

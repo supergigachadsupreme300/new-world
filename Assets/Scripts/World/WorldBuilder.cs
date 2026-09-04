@@ -53,6 +53,21 @@ private static readonly Vector3 PagodaBasePos = new Vector3(26f, 0f, 25f);
     public bool IsQuestBossAlive => _questBoss != null && _questBoss.activeInHierarchy;
     private GameObject _worldRoot;
     public GameObject WorldRoot => _worldRoot;
+
+    /// <summary>
+    /// Lazily create the WorldRoot if it was never generated (e.g. when legacy
+    /// generation is disabled but farming/building APIs are still called).
+    /// </summary>
+    public void EnsureWorldRoot()
+    {
+        if (_worldRoot != null)
+            return;
+        _worldRoot = new GameObject("WorldRoot");
+        _worldRoot.transform.SetParent(null);
+        _worldRoot.transform.position = Vector3.zero;
+        _worldRoot.transform.rotation = Quaternion.identity;
+        _worldRoot.isStatic = true;
+    }
     public GameObject StaticWifeModel { get; private set; }
     private float _resourceRespawnTimer;
     private const float RespawnInterval = 60f;
