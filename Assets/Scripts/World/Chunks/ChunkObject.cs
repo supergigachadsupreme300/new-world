@@ -94,7 +94,7 @@ public class ChunkObject : MonoBehaviour
         float worldX = Coord.X + localX;
         float worldZ = Coord.Z + localZ;
         float worldY = TerrainNoiseGenerator.GetHeight(seed, worldX, worldZ);
-        var tree = MapBuilder.BuildTree(transform, new Vector3(localX, worldY, localZ));
+        var tree = MapBuilder.BuildTree(transform, new Vector3(worldX, worldY, worldZ));
         tree.name = $"Tree_{Coord.X}_{Coord.Z}";
         _props.Add(tree);
     }
@@ -106,7 +106,7 @@ public class ChunkObject : MonoBehaviour
         float worldX = Coord.X + localX;
         float worldZ = Coord.Z + localZ;
         float worldY = TerrainNoiseGenerator.GetHeight(seed, worldX, worldZ);
-        var rock = MapBuilder.BuildStone(transform, new Vector3(localX, worldY, localZ));
+        var rock = MapBuilder.BuildStone(transform, new Vector3(worldX, worldY, worldZ));
         rock.name = $"Rock_{Coord.X}_{Coord.Z}";
         _props.Add(rock);
     }
