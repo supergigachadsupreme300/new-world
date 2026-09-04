@@ -303,10 +303,10 @@ Scripts/
 
 ### Task 7.4: Anti-Cheat
 
-- [ ] Server-authoritative damage
-- [ ] Position validation
-- [ ] Action rate limiting
-- [ ] Chunk integrity checks
+- [x] Server-authoritative damage (`AntiCheat.ValidateDamage` + `DamageIntent`)
+- [x] Position validation (`AntiCheat.ValidatePosition` — teleport/hop rejection + clamp)
+- [x] Action rate limiting (`AntiCheat.ActionBudget` — per-session token bucket)
+- [x] Chunk integrity checks (`AntiCheat.HashChunk` / `ValidateChunkHash` — FNV-1a)
 
 ---
 
@@ -387,6 +387,7 @@ Scripts/Networking/
 ├── NetLobby.cs               # NEW - lobby aggregation + co-op invites + solo local boot
 ├── Matchmaker.cs             # NEW - arena matchmaking (2-8 players) + announce
 ├── BossEvent.cs              # NEW - authoritative world-boss broadcast (4-16 players)
+├── AntiCheat.cs              # NEW - damage/position/action-rate/chunk-integrity guards
 └── NetServerHost.cs          # NEW - MonoBehaviour harness, guarded by NEWWORLD_SERVER
 ```
 > **Networking note:** Phase 7 adds a transport-agnostic layer with no external netcode

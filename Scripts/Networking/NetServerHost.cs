@@ -77,7 +77,21 @@ public sealed class NetServerHost : MonoBehaviour
         switch (msg.Op)
         {
             case NetOp.PlayerState:
-                PlayerStateSync.ServerReceive(_server, session, msg);
+                {
+                    // Anti-cheat (Task 7.4): reject teleports before reconciliation.
+                    var prev = session.RemotePosition;
+                    PlayerStateSync.UnpackState(msg, out var proposed, out var rotY);
+                    float dt = Time.deltaTime > 1e-6f ? Time.deltaTime : 0.1f;
+                    if (!AntiCheat.ValidatePosition(prev, proposed, dt, out var corrected))
+                    {
+                        // push the session to the plausible frontier instead of the claimed spot
+                        corrected.y = Mathf.Max(corrected.y, 0f);
+                        session.RemotePosition = corrected;
+                        session.RemoteRotationY = rotY;
+                        break;
+                    }
+                    PlayerStateSync.ServerReceive(_server, session, msg);
+                }
                 break;
             case NetOp.PlayerAction:
                 // Validated in Task 7.4 anti-cheat; ack + relay for now.
@@ -113,6 +127,8 @@ public sealed class NetServerHost : MonoBehaviour
 
     private void LeaveAllLobbies(PlayerSession session)
     {
+        // Anti-cheat: free the session's action budget on departure.
+        AntiCheat.Release(session.Id);
         for (int i = _lobbies.Count - 1; i >= 0; i--)
         {
             _lobbies[i].RemoveMember(session.Id);
@@ -125,6 +141,8 @@ public sealed class NetServerHost : MonoBehaviour
     {
         PlayerStateSync.UnpackAction(msg, out var action, out var target);
         if (action == 0) return;
+        // Anti-cheat (Task 7.4): rate-limit incoming actions per session.
+        if (!AntiCheat.AllowAction(session.Id, 1f)) return;
         var relay = new NetMessage(NetOp.PlayerAction, session.Id, PlayerStateSync.ActionChannel, msg.Data);
         foreach (var s in _server.Sessions)
         {
