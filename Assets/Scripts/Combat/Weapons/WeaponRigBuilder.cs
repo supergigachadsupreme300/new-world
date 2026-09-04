@@ -110,7 +110,7 @@ public static class WeaponRigBuilder
                 melee.AttackDamage = weapon.BaseDamage;
                 melee.Hitbox = go.GetComponent<HitboxSystem>();
                 melee.Stats = stats;
-                AddProxy(go, PrimitiveType.Cylinder, new Vector3(0.12f, 0.55f, 0.12f), new Color(0.7f, 0.7f, 0.72f));
+                WeaponModelBuilder.Build(weapon.id, go.transform);
                 behavior = melee;
                 break;
 
@@ -122,7 +122,7 @@ public static class WeaponRigBuilder
                 muzzle.transform.SetParent(go.transform, false);
                 muzzle.transform.localPosition = new Vector3(0f, 0.1f, 1f);
                 ranged.Muzzle = muzzle.transform;
-                AddProxy(go, PrimitiveType.Cylinder, new Vector3(0.06f, 0.7f, 0.06f), new Color(0.45f, 0.3f, 0.2f));
+                WeaponModelBuilder.Build(weapon.id, go.transform);
                 behavior = ranged;
                 break;
 
@@ -131,7 +131,7 @@ public static class WeaponRigBuilder
                 magic.Data = weapon;
                 magic.Caster = caster;
                 magic.CastOrigin = go.transform;
-                AddProxy(go, PrimitiveType.Sphere, new Vector3(0.4f, 0.4f, 0.4f), new Color(0.3f, 0.5f, 0.9f));
+                WeaponModelBuilder.Build(weapon.id, go.transform);
                 behavior = magic;
                 break;
 
@@ -154,22 +154,4 @@ public static class WeaponRigBuilder
         return go;
     }
 
-    private static void AddProxy(GameObject parent, PrimitiveType shape, Vector3 localScale, Color color)
-    {
-        var proxy = GameObject.CreatePrimitive(shape);
-        proxy.name = "Proxy";
-        proxy.transform.SetParent(parent.transform, false);
-        proxy.transform.localScale = localScale;
-        proxy.transform.localPosition = new Vector3(0f, localScale.y * 0.5f, 0f);
-        var mr = proxy.GetComponent<MeshRenderer>();
-        if (mr != null)
-        {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            mr.sharedMaterial = new Material(shader) { color = color };
-        }
-        var proxyCol = proxy.GetComponent<Collider>();
-        if (proxyCol != null)
-            Object.Destroy(proxyCol);
-    }
 }
