@@ -80,10 +80,10 @@ public class ChunkObject : MonoBehaviour
     {
         var rng = new System.Random(seed.GetHashCode() ^ (Coord.X * 73856093) ^ (Coord.Z * 19349663));
 
-        if (rng.Next(4) == 0)
+        if (rng.Next(100) == 0)
             SpawnTree(seed, rng);
 
-        if (rng.Next(6) == 0)
+        if (rng.Next(100) == 0)
             SpawnRock(seed, rng);
     }
 
