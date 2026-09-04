@@ -188,7 +188,7 @@ public class WorldStreamer : MonoBehaviour
         // Simple pooling: reuse a pooled object if available.
         GameObject go = new GameObject($"Chunk_{coord.X}_{coord.Z}");
         go.isStatic = false;
-        go.transform.SetParent(transform);
+        go.transform.SetParent(null);
         go.transform.position = new Vector3(coord.X * ChunkData.Size, 0f, coord.Z * ChunkData.Size);
         var obj = go.AddComponent<ChunkObject>();
         obj.Init(coord);
