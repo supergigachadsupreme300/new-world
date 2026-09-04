@@ -597,6 +597,7 @@ Scripts/World/Streaming/
 ### UI/NewWorld
 ```
 Scripts/UI/NewWorld/
+├── NewWorldSystems.cs           # NEW bootstrap - add ONE component to build all systems below
 ├── HudCanvas.cs                # NEW - overlay canvas + fill-bar factory
 ├── PlayerBarsHUD.cs            # NEW - HP/FP/Stamina fill bars (Task 8.1)
 ├── CompassMinimapHUD.cs        # NEW - compass + minimap with chunk-grid overlay
@@ -617,6 +618,14 @@ Scripts/UI/NewWorld/
 > screen-space overlays, composing the existing UIManager + PlayerController/PlayerStats/
 > SkillManager/EnemyController contracts without rewriting the live HUD. Add the components
 > to a scene/`Prefabs` to activate each overlay individually.
+
+> **Single-file bootstrap:** add **one** `NewWorldSystems.cs` component to any GameObject in the
+> Hierarchy and it auto-builds all Phase 8 UI/UX overlays + Phase 9 Opt managers on that object
+> (reuse-or-create via `FindAnyObjectByType ?? AddComponent`, mirroring `GameBootstrap`). Per-system
+> serialized toggles opt out; chunk LOD/culling candidate registration is a time-throttled delta-diff
+> against `WorldStreamer.Loaded` (low cadence, O(changed), no per-frame sweeps). Open modal panels via
+> its accessors: `ShowCharacterCreation()` / `ShowRaceStatSheet()` / `ShowInventory()` / `ShowWorldMap()`
+> / `ShowMultiplayerBrowser()`. `MultiplayerIndicatorHUD` is off by default (specialized/idle poller).
 
 ### Opt (Phase 9 polish/optimization)
 ```
