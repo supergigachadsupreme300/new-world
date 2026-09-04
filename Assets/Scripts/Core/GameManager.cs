@@ -316,7 +316,7 @@ public class GameManager : MonoSingleton<GameManager>
                     Player.EnableInput(false);
                 GameInput.SetCursorLocked(false);
 
-                if (CutsceneManager != null)
+                if (CutsceneManager != null && CutsceneManager.EnableDrivingVisuals)
                     CutsceneManager.PlayMainMenuVisual();
             }
             else

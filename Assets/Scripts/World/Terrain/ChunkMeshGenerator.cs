@@ -39,13 +39,17 @@ public static class ChunkMeshGenerator
     public static Mesh BuildMesh(ChunkData data, NoiseLayerConfig[] layers = null)
     {
         float worldScale = ChunkData.Size;
-        float minX = data.ChunkX * worldScale;
-        float minZ = data.ChunkZ * worldScale;
-        float maxX = minX + worldScale;
-        float maxZ = minZ + worldScale;
+
+        // Local-space origin and extent. The chunk GameObject is already placed
+        // at (ChunkX * Size, 0, ChunkZ * Size) by the WorldStreamer, so mesh
+        // vertices must be relative to that position — NOT world-space.
+        float minX = 0f;
+        float minZ = 0f;
+        float maxX = worldScale;
+        float maxZ = worldScale;
 
         // Resolve the 5 heights. Respect stored data when present (load path);
-        // otherwise generate deterministically from the world seed (first load).
+        // otherwise they are generated deterministically from the world seed.
         float[] h = new float[ChunkData.VertexCount];
         for (int i = 0; i < ChunkData.CornerCount; i++)
         {
@@ -55,14 +59,14 @@ public static class ChunkMeshGenerator
         }
         h[ChunkData.CenterIndex] = ResolveCenterHeight(data, h);
 
-        // Vertex positions: slot layout 0=NW,1=NE,2=SE,3=SW,4=Center.
+        // Vertex positions: local-space, slot layout 0=NW,1=NE,2=SE,3=SW,4=Center.
         Vector3[] vertices =
         {
             new Vector3(minX, h[0], maxZ), // 0 = NW
             new Vector3(maxX, h[1], maxZ), // 1 = NE
             new Vector3(maxX, h[2], minZ), // 2 = SE
             new Vector3(minX, h[3], minZ), // 3 = SW
-            new Vector3(data.CenterWorldX, h[4], data.CenterWorldZ), // 4 = Center
+            new Vector3(worldScale * 0.5f, h[4], worldScale * 0.5f), // 4 = Center
         };
 
         // Triangles face UP. Verified winding (left-handed system, RecalculateNormals):

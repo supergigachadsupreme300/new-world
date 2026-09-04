@@ -117,23 +117,19 @@ public sealed class ChunkLodManager : MonoBehaviour
         bool useDetail = !string.IsNullOrEmpty(name);
 
         // Enable exactly one visual (root mesh or named detail child).
+        // Only touch children that are in the Details dictionary (LOD meshes).
+        // Props (trees, rocks) are NOT in Details and must stay untouched.
         if (useDetail)
         {
             if (chunk.Details.TryGetValue(name, out var detail) && detail != null)
                 detail.SetActive(true);
-            if (chunk.Root.childCount > 0)
-            {
-                foreach (Transform child in chunk.Root)
-                    if (child.gameObject != detail) child.gameObject.SetActive(false);
-            }
+            foreach (var kv in chunk.Details)
+                if (kv.Value != detail) kv.Value.SetActive(false);
         }
         else
         {
-            if (chunk.Root.childCount > 0)
-            {
-                foreach (Transform child in chunk.Root)
-                    child.gameObject.SetActive(false);
-            }
+            foreach (var kv in chunk.Details)
+                kv.Value.SetActive(false);
             var mr = chunk.Root.GetComponent<MeshRenderer>();
             if (mr != null) mr.enabled = true;
         }

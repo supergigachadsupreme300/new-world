@@ -17,6 +17,13 @@ public partial class CutsceneManager : MonoSingleton<CutsceneManager>
     public bool RemoveEndings = true;
 
     /// <summary>
+    /// When false (default), the driving cutscene assets are never prebuilt
+    /// and the main menu visual does not show road segments.
+    /// Set to true only if the intro driving cutscene is desired.
+    /// </summary>
+    public bool EnableDrivingVisuals = false;
+
+    /// <summary>
     /// When endings are removed this is called instead of playing a cutscene.
     /// Keeps every existing call site compiling while guaranteeing no ending
     /// can ever trigger during normal play.
@@ -143,7 +150,8 @@ public bool IsActive { get; private set; }
     {
         _uiManager = uiManager;
         _canvas = Object.FindAnyObjectByType<Canvas>();
-        PrebuildDrivingAssets();
+        if (EnableDrivingVisuals)
+            PrebuildDrivingAssets();
     }
 
     // ── Skip Button ──
