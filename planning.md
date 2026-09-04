@@ -648,6 +648,11 @@ Scripts/Player/Controller/
 ├── CameraController.cs      # NEW - 3rd person orbit
 └── PlayerInputHandler.cs    # NEW - input mapping
 ```
+> **Camera mode switch (implemented):** `Scripts/Player/CameraModeSwitch.cs` — 1st/3rd-person toggle
+> via **F5** (new Input System, PC). Reuses `PlayerController`'s yaw/pitch/`CameraPivot` orientation
+> and only offsets the camera; 3rd person pulls back behind the character's facing with terrain
+> collision, culls layer-6 player model in 1st and shows it in 3rd. Auto-added by
+> `PlayerController.SetupPlayerCamera()`.
 
 ### Player/Combat
 > **Deprecated location.** `Scripts/Player/Combat/` is empty in the repo. All combat code

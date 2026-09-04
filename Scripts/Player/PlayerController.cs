@@ -744,7 +744,6 @@ public class PlayerController : MonoBehaviour
             return;
 
         cam.tag = "MainCamera";
-        cam.cullingMask &= ~(1 << 6);
         if (cam.transform.parent != null)
             cam.transform.SetParent(null);
 
@@ -758,7 +757,16 @@ public class PlayerController : MonoBehaviour
         follow.Target = _cameraPivot;
         follow.Offset = Vector3.zero;
         follow.SmoothSpeed = 20f;
+
+        // First / third-person camera switch.
+        var switcher = GetComponent<CameraModeSwitch>();
+        if (switcher == null)
+            switcher = gameObject.AddComponent<CameraModeSwitch>();
+        switcher.Setup(this, cam, _cameraPivot);
     }
+
+    /// <summary>Public accessor for the camera pivot (used by <see cref="CameraModeSwitch"/>).</summary>
+    public Transform PlayerCameraPivot => _cameraPivot;
 
     public void ApplyGender()
     {
