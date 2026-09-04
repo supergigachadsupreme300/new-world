@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -74,7 +73,7 @@ public class ChunkObject : MonoBehaviour
             SpawnRock(seed, rng);
     }
 
-    private void SpawnTree(long seed, Random rng)
+    private void SpawnTree(long seed, System.Random rng)
     {
         float wx = Coord.X + (float)rng.NextDouble();
         float wz = Coord.Z + (float)rng.NextDouble();
@@ -84,7 +83,7 @@ public class ChunkObject : MonoBehaviour
         _props.Add(tree);
     }
 
-    private void SpawnRock(long seed, Random rng)
+    private void SpawnRock(long seed, System.Random rng)
     {
         float wx = Coord.X + (float)rng.NextDouble();
         float wz = Coord.Z + (float)rng.NextDouble();
