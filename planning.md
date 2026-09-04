@@ -339,14 +339,54 @@ Scripts/
 
 ## Phase 9: Polish & Optimization (Week 14-16)
 
-- [ ] LOD system for distant chunks
-- [ ] Texture atlasing for terrain
-- [ ] Occlusion culling
-- [ ] Object pooling optimization
-- [ ] Audio system (ambient, combat, music per biome)
-- [ ] Save system stress testing
-- [ ] Performance profiling (target FPS per platform)
-- [ ] Bug fixes and balance pass
+> **Planning note:** Phase 9 splits into two workstreams — (A) new API-driven subsystems that are
+> code-only (implementable in `Scripts/Opt/`) and (B) in-editor/measurement activities that require
+> the Unity editor (LOD distances, atlasing/asset batching, profiling numbers, balance pass).
+> Sub-tasks below are the concrete plan; the (A) items can be built + committed independently, the
+> (B) items are editor-profiling/asset tasks with no code commit.
+
+- [ ] **Audio system** `Scripts/Opt/AudioManager.cs` (A)
+  - [ ] Biome-ambient controller — per-biome ambient loop bank (Forest/Ocean/Town/Cave)
+  - [ ] `AudioListener`-based spatialization wrapped as a manager (no FMOD/package dependency)
+  - [ ] Combat + step + interact SFX triggers (`OnTakeDamage`, walk, harvest, craft)
+  - [ ] Music cross-fade between day/combat/rest states
+  - [ ] Volume settings wired into `UIManager` settings screen (lives in core save)
+
+- [ ] **LOD system for distant chunks** `Scripts/Opt/ChunkLodManager.cs` (A) + in-editor tuning (B)
+  - [ ] Distance band LOD switching (near/high, mid/normal, far/simplified vertex count)
+  - [ ] Screen-size-based selection (GeometryUtility/projection test) across existing chunk meshes
+  - [ ] LOD bias config exposed to `RenderDistanceController` settings
+  - [ ] In-editor: validate no visible pop-in at default radius (B)
+
+- [ ] **Object pooling optimization** `Scripts/Opt/ObjectPooler.cs` (A)
+  - [ ] Generic `ObjectPooler<T>` for frequently-spawned objects (projectiles, loot, particles, enemy bars)
+  - [ ] Replace ad-hoc `GameObject` create/destroy in combat + loot + HUD wave spawns
+  - [ ] Configurable warm-up size + `Return(go)` API; guard against double-return
+
+- [ ] **Occlusion culling** `Scripts/Opt/CullManager.cs` (A, soft wrapper) + in-editor (B)
+  - [ ] `OnBecameInvisible`-driven deactivate/reactivate for batchable scene objects
+  - [ ] Raycast-from-chunk-face floor-to-occluder routine so interiors cull outer chunk facets
+  - [ ] In-editor: bake static occlusion as fallback if shadows-perf requires (B)
+
+- [ ] **Texture atlasing for terrain** (B, editor/asset)
+  - [ ] Build a shared terrain atlas texture + UV remap table across biome tile sets
+  - [ ] Verify 16x16 chunk tile-fill batching in the Frame Debugger
+  - [ ] Ambient occlusion / AO baking on chunk meshes
+
+- [ ] **Save system stress testing** (B)
+  - [ ] Test chunk save/load round-trip at 32x32 radius with heavy modifications
+  - [ ] Verify corrupted-file fallback (regen instead of crash) path
+  - [ ] Measure load-time budget (< 2s target) and binary size per chunk
+
+- [ ] **Performance profiling** (B)
+  - [ ] Profile per-platform (PC/console/mobile) — target FPS table
+  - [ ] Log frame times for chunk gen, mesh build, save, net receive buffers
+  - [ ] Identify and ticket top-3 GC alloc / draw-call stall offenders
+
+- [ ] **Bug fixes and balance pass** (B)
+  - [ ] Consolidate an `Issues.md` backlog from prior-phase audit notes (pseudo-C# loop audit, `_Archived` compile unknowns)
+  - [ ] Numeric balance pass on stats, combat scaling, economy, skill XP curves
+  - [ ] Final single-player + dedicated-server smoke checklist
 
 ---
 
