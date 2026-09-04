@@ -101,5 +101,13 @@ public class GameBootstrap : MonoBehaviour
         }
 
         worldStreamer.SetFocus(playerController != null ? playerController.transform : null);
+
+        // --- Phase 8/9 UI, LOD, culling, pooling ---------------------------------------
+        var newWorldSystems = Object.FindAnyObjectByType<NewWorldSystems>()
+            ?? root.AddComponent<NewWorldSystems>();
+
+        // --- Testing ground (weapons, enemies, skills, NPCs) ----------------------------
+        var testGround = Object.FindAnyObjectByType<NewWorldTestGround>()
+            ?? root.AddComponent<NewWorldTestGround>();
     }
 }
