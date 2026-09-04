@@ -1,12 +1,11 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
 /// Runtime MonoBehaviour for a single loaded chunk. Holds the generated mesh,
 /// derived collider, and the source data so modifications can be persisted.
-///
-/// This component is pooled/reused by the WorldStreamer; the associated mesh and
-/// collider are rebuilt when the chunk is (re)loaded.
+/// Each chunk owns its own prop list (trees/rocks) — no global tracking needed.
 /// </summary>
 [RequireComponent(typeof(MeshFilter))]
 [RequireComponent(typeof(MeshRenderer))]
@@ -15,6 +14,9 @@ public class ChunkObject : MonoBehaviour
 {
     /// <summary>Chunk this object currently represents.</summary>
     public ChunkCoord Coord { get; private set; }
+
+    /// <summary>Per-chunk prop list (trees, rocks). Destroyed when chunk unloads.</summary>
+    private readonly List<GameObject> _props = new List<GameObject>();
 
     /// <summary>Kick off a fresh coordinate when pooled.</summary>
     public void Init(ChunkCoord coord)
@@ -53,6 +55,45 @@ public class ChunkObject : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Deterministically spawn trees and rocks for this chunk.
+    /// Uses seeded RNG from the world seed + chunk coords so the same
+    /// props appear every time this chunk is loaded.
+    /// </summary>
+    public void SpawnProps(long seed)
+    {
+        // Deterministic RNG from seed + chunk coords.
+        var rng = new System.Random(seed.GetHashCode() ^ (Coord.X * 73856093) ^ (Coord.Z * 19349663));
+
+        // ~1 tree per 4 chunks.
+        if (rng.Next(4) == 0)
+            SpawnTree(seed, rng);
+
+        // ~1 rock per 6 chunks.
+        if (rng.Next(6) == 0)
+            SpawnRock(seed, rng);
+    }
+
+    private void SpawnTree(long seed, Random rng)
+    {
+        float wx = Coord.X + (float)rng.NextDouble();
+        float wz = Coord.Z + (float)rng.NextDouble();
+        float wy = TerrainNoiseGenerator.GetHeight(seed, wx, wz);
+        var tree = MapBuilder.BuildTree(transform, new Vector3(wx, wy, wz));
+        tree.name = $"Tree_{Coord.X}_{Coord.Z}";
+        _props.Add(tree);
+    }
+
+    private void SpawnRock(long seed, Random rng)
+    {
+        float wx = Coord.X + (float)rng.NextDouble();
+        float wz = Coord.Z + (float)rng.NextDouble();
+        float wy = TerrainNoiseGenerator.GetHeight(seed, wx, wz);
+        var rock = MapBuilder.BuildStone(transform, new Vector3(wx, wy, wz));
+        rock.name = $"Rock_{Coord.X}_{Coord.Z}";
+        _props.Add(rock);
+    }
+
     /// <summary>Read back the current serialized data (as modified in-memory).</summary>
     public ChunkData CaptureData()
     {
@@ -65,6 +106,14 @@ public class ChunkObject : MonoBehaviour
     /// <summary>Called when the chunk is unloaded/pooled.</summary>
     public void Release()
     {
+        // Destroy per-chunk props (trees, rocks).
+        for (int i = _props.Count - 1; i >= 0; i--)
+        {
+            if (_props[i] != null)
+                Destroy(_props[i]);
+        }
+        _props.Clear();
+
         var mf = GetComponent<MeshFilter>();
         if (mf != null && mf.sharedMesh != null)
             Destroy(mf.sharedMesh);

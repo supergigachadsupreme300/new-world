@@ -6,6 +6,12 @@ using CountryLife.Helpers;
 
 public partial class WorldBuilder : MonoSingleton<WorldBuilder>
 {
+    /// <summary>
+    /// When false (default), the legacy finite map is never generated.
+    /// The infinite open world (WorldStreamer) replaces it.
+    /// </summary>
+    public bool EnableLegacyGeneration = false;
+
 public int BuildingCount => _buildings.Count;
 
 public int TreeCount = 150;
@@ -411,6 +417,9 @@ _immigrantBuilt = new bool[_immigrantHousePositions.Count];
 
     private void Start()
     {
+        if (!EnableLegacyGeneration)
+            return;
+
         GroundSize = new Vector3(600f, 0.2f, 600f);
         MapWidth = 40;
         MapDepth = 40;
@@ -423,6 +432,9 @@ _immigrantBuilt = new bool[_immigrantHousePositions.Count];
     }
     public void GenerateWorld()
     {
+        if (!EnableLegacyGeneration)
+            return;
+
         if (_worldRoot != null)
         {
             Debug.Log("[WorldBuilder] World is already generated. Skipping duplicate generation.");

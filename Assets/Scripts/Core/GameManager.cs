@@ -33,6 +33,7 @@ public class GameManager : MonoSingleton<GameManager>
     {
         AutoResolveReferences();
 
+        // Legacy finite map is gated by WorldBuilder.EnableLegacyGeneration (default false).
         if (WorldBuilder != null)
             WorldBuilder.GenerateWorld();
 

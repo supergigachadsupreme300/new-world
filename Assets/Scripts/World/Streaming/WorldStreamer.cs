@@ -150,6 +150,7 @@ public class WorldStreamer : MonoBehaviour
         // Pull an object from the pool / create one and apply the mesh.
         ChunkObject obj = CreateOrPool(coord);
         obj.Apply(data, TerrainNoiseGenerator.DefaultLayers, GroundMaterial, buildCollider: true);
+        obj.SpawnProps(Seed);
         _loadedObjects[coord] = obj;
     }
 
