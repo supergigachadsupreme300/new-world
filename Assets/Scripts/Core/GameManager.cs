@@ -37,16 +37,20 @@ public class GameManager : MonoSingleton<GameManager>
         if (WorldBuilder != null)
             WorldBuilder.GenerateWorld();
 
-        // Ensure UI is visible after initialization (fix cases where UI stays hidden)
-        if (UIManager != null)
-            UIManager.ShowMainMenuOnly(true);
+        // Legacy flow: ensure UI is visible after initialization.
+        // Infinite world flow: skip — StartNewGame() handles it.
+        if (WorldBuilder != null && WorldBuilder.EnableLegacyGeneration)
+        {
+            if (UIManager != null)
+                UIManager.ShowMainMenuOnly(true);
+        }
 
         if (ToolManager != null)
             ToolManager.ResetSelection();
 
         SpawnDefaultPets();
 
-        if (AutoStartGame)
+        if (AutoStartGame || !WorldBuilder.EnableLegacyGeneration)
         {
             StartNewGame();
         }
@@ -381,7 +385,10 @@ public class GameManager : MonoSingleton<GameManager>
         if (CutsceneManager != null)
         {
             CutsceneManager.StopMainMenuVisual(true);
-            CutsceneManager.PlayIntroCutscene(() => UIManager?.ShowTutorial(true));
+            if (CutsceneManager.EnableDrivingVisuals)
+                CutsceneManager.PlayIntroCutscene(() => UIManager?.ShowTutorial(true));
+            else
+                UIManager?.ShowTutorial(true);
         }
 
         var spawner = Object.FindAnyObjectByType<LivestockSpawner>();
