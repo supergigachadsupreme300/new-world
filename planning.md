@@ -345,27 +345,27 @@ Scripts/
 > Sub-tasks below are the concrete plan; the (A) items can be built + committed independently, the
 > (B) items are editor-profiling/asset tasks with no code commit.
 
-- [ ] **Audio system** `Scripts/Opt/AudioManager.cs` (A)
-  - [ ] Biome-ambient controller — per-biome ambient loop bank (Forest/Ocean/Town/Cave)
-  - [ ] `AudioListener`-based spatialization wrapped as a manager (no FMOD/package dependency)
-  - [ ] Combat + step + interact SFX triggers (`OnTakeDamage`, walk, harvest, craft)
-  - [ ] Music cross-fade between day/combat/rest states
+- [x] **Audio system** `Scripts/Opt/AudioManager.cs` (A)
+  - [x] Biome-ambient controller — per-biome ambient loop bank (Forest/Ocean/Town/Cave)
+  - [x] `AudioListener`-based spatialization wrapped as a manager (no FMOD/package dependency)
+  - [x] Combat + step + interact SFX triggers (`OnTakeDamage`, walk, harvest, craft)
+  - [x] Music cross-fade between day/combat/rest states
   - [ ] Volume settings wired into `UIManager` settings screen (lives in core save)
 
-- [ ] **LOD system for distant chunks** `Scripts/Opt/ChunkLodManager.cs` (A) + in-editor tuning (B)
-  - [ ] Distance band LOD switching (near/high, mid/normal, far/simplified vertex count)
-  - [ ] Screen-size-based selection (GeometryUtility/projection test) across existing chunk meshes
-  - [ ] LOD bias config exposed to `RenderDistanceController` settings
+- [x] **LOD system for distant chunks** `Scripts/Opt/ChunkLodManager.cs` (A) + in-editor tuning (B)
+  - [x] Distance band LOD switching (near/high, mid/normal, far/simplified vertex count)
+  - [x] Screen-size-based selection (GeometryUtility/projection test) across existing chunk meshes
+  - [x] LOD bias config exposed to `RenderDistanceController` settings
   - [ ] In-editor: validate no visible pop-in at default radius (B)
 
-- [ ] **Object pooling optimization** `Scripts/Opt/ObjectPooler.cs` (A)
-  - [ ] Generic `ObjectPooler<T>` for frequently-spawned objects (projectiles, loot, particles, enemy bars)
+- [x] **Object pooling optimization** `Scripts/Opt/ObjectPooler.cs` (A)
+  - [x] Generic `ObjectPooler<T>` for frequently-spawned objects (projectiles, loot, particles, enemy bars)
   - [ ] Replace ad-hoc `GameObject` create/destroy in combat + loot + HUD wave spawns
-  - [ ] Configurable warm-up size + `Return(go)` API; guard against double-return
+  - [x] Configurable warm-up size + `Return(go)` API; guard against double-return
 
-- [ ] **Occlusion culling** `Scripts/Opt/CullManager.cs` (A, soft wrapper) + in-editor (B)
-  - [ ] `OnBecameInvisible`-driven deactivate/reactivate for batchable scene objects
-  - [ ] Raycast-from-chunk-face floor-to-occluder routine so interiors cull outer chunk facets
+- [x] **Occlusion culling** `Scripts/Opt/CullManager.cs` (A, soft wrapper) + in-editor (B)
+  - [x] `OnBecameInvisible`-driven deactivate/reactivate for batchable scene objects
+  - [x] Raycast-from-camera-to-candidate occlusion test (`OccluderLayer` mask)
   - [ ] In-editor: bake static occlusion as fallback if shadows-perf requires (B)
 
 - [ ] **Texture atlasing for terrain** (B, editor/asset)
@@ -617,6 +617,20 @@ Scripts/UI/NewWorld/
 > screen-space overlays, composing the existing UIManager + PlayerController/PlayerStats/
 > SkillManager/EnemyController contracts without rewriting the live HUD. Add the components
 > to a scene/`Prefabs` to activate each overlay individually.
+
+### Opt (Phase 9 polish/optimization)
+```
+Scripts/Opt/
+├── ObjectPooler.cs          # NEW - generic prefab pool: Warm/Get/GetComponent<T>/Return(delay)
+├── AudioManager.cs          # NEW - ambient (per-biome) + SFX + crossfading day/combat/rest music
+├── ChunkLodManager.cs       # NEW - distance-band chunk LOD (root vs. named detail children) + cull
+└── CullManager.cs           # NEW - raycast-driven occlusion culling via OccluderLayer mask
+```
+> **Opt note:** Phase 9 code-only subsystems are self-contained helpers (compose existing scene
+> objects / contracts, no package deps). The remaining Phase 9 items (texture atlasing, save
+> stress-testing, performance profiling, balance pass, audio-clip wiring) are in-editor/asset or
+> measurement work per the Phase 9 checklist — wire clips/scenes in-editor and attach these
+> components as appropriate.
 
 ### Player/Controller
 ```
