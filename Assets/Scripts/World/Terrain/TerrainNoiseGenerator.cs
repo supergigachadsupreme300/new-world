@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Concurrent;
+using System.Threading;
 using UnityEngine;
 
 /// <summary>
@@ -30,6 +32,9 @@ public static class TerrainNoiseGenerator
     /// </summary>
     private const int LayerSeedPrime = 7919;
 
+    private static readonly ConcurrentDictionary<long, (float x, float z)> _offsetCache
+        = new ConcurrentDictionary<long, (float, float)>();
+
     // Default spreadsheet for the 5 documented octaves.
     // Layer 1 - Continental landmass, Layer 2 - Hills, Layer 3 - Detail,
     // Layer 4 - Roughness, Layer 5 - Pivot angle offsets.
@@ -59,9 +64,16 @@ public static class TerrainNoiseGenerator
                 continue;
 
             // Derive a unique per-layer noise stream from the world seed.
-            System.Random rng = new System.Random(GetSeed(seed, i));
-            float offsetX = (float)(rng.NextDouble() * 100000.0) + layer.Offset.x;
-            float offsetZ = (float)(rng.NextDouble() * 100000.0) + layer.Offset.y;
+            // Cache the deterministic offsets to avoid repeated Random allocations.
+            long cacheKey = (seed << 16) ^ (long)i;
+            var offsets = _offsetCache.GetOrAdd(cacheKey, _ =>
+            {
+                var rng = new System.Random(GetSeed(seed, i));
+                return ((float)(rng.NextDouble() * 100000.0) + layer.Offset.x,
+                        (float)(rng.NextDouble() * 100000.0) + layer.Offset.y);
+            });
+            float offsetX = offsets.x;
+            float offsetZ = offsets.z;
 
             // map the layer into the [-1, 1] range so it can raise and lower ground.
             float value = Mathf.PerlinNoise(
