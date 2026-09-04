@@ -314,11 +314,11 @@ Scripts/
 
 ### Task 8.1: HUD
 
-- [ ] HP/FP/Stamina bars
-- [ ] Compass + minimap with chunk grid overlay
-- [ ] Skill bar (6-8 slots)
-- [ ] Multiplayer indicators
-- [ ] Enemy health bars
+- [x] HP/FP/Stamina bars (`PlayerBarsHUD`)
+- [x] Compass + minimap with chunk grid overlay (`CompassMinimapHUD`)
+- [x] Skill bar (6-8 slots) (`SkillBarHUD`)
+- [x] Multiplayer indicators (`MultiplayerIndicatorHUD`)
+- [x] Enemy health bars (`EnemyHealthBarHUD`)
 
 ### Task 8.2: Menus
 
@@ -553,6 +553,21 @@ Scripts/World/Streaming/
 ├── ChunkPriorityQueue.cs       # NEW - load order
 └── WorldStreamer.cs            # NEW - orchestrator
 ```
+
+### UI/NewWorld
+```
+Scripts/UI/NewWorld/
+├── HudCanvas.cs                # NEW - overlay canvas + fill-bar factory
+├── PlayerBarsHUD.cs            # NEW - HP/FP/Stamina fill bars (Task 8.1)
+├── CompassMinimapHUD.cs        # NEW - compass + minimap with chunk-grid overlay
+├── SkillBarHUD.cs              # NEW - 6-slot skill bar
+├── MultiplayerIndicatorHUD.cs  # NEW - MP session/chat indicators
+└── EnemyHealthBarHUD.cs        # NEW - pooled enemy health bars
+```
+> **UI note:** Phase 8 HUD components are self-contained MonoBehaviours that build their own
+> screen-space overlays, composing the existing UIManager + PlayerController/PlayerStats/
+> SkillManager/EnemyController contracts without rewriting the live HUD. Add the components
+> to a scene/`Prefabs` to activate each overlay individually.
 
 ### Player/Controller
 ```
