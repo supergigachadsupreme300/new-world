@@ -179,7 +179,10 @@ public class PlayerController : MonoBehaviour
         HP = MaxHP;
         Stamina = MaxStamina;
         Money = 1000;
-        transform.position = new Vector3(0f, 2f, -10f);
+        float spawnX = 0f;
+        float spawnZ = -10f;
+        float terrainY = TerrainNoiseGenerator.GetHeight(1337, spawnX, spawnZ);
+        transform.position = new Vector3(spawnX, terrainY + 3f, spawnZ);
         transform.rotation = Quaternion.identity;
         _velocity = Vector3.zero;
     }
