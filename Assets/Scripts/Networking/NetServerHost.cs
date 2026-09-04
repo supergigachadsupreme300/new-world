@@ -14,7 +14,7 @@ public sealed class NetServerHost : MonoBehaviour
     [Header("Server")]
     public string BindAddress = "127.0.0.1";
     public int Port = 7777;
-    [Tooltip("Chunk sync broadcast radius around session positions.")]
+    [Tooltip("Tile sync broadcast radius around session positions.")]
     public int ChunkRadius = 3;
     public bool StartOnEnable = true;
 

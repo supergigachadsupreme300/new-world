@@ -2,19 +2,17 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Pure heightmap data for a single 1x1 chunk.
+/// Pure heightmap data for a single 1x1 tile.
 ///
-/// A chunk holds 5 vertex heights:
-///   [0] NW (north-west corner of the chunk quad)
+/// A tile holds 4 corner vertex heights:
+///   [0] NW (north-west corner of the tile quad)
 ///   [1] NE
 ///   [2] SE
 ///   [3] SW
-///   [4] Center
 ///
-/// The quad corners are shared with adjacent chunks. Their heights are derived
-/// deterministically from WORLD coordinates so neighbouring chunks always agree
+/// The quad corners are shared with adjacent tiles. Their heights are derived
+/// deterministically from WORLD coordinates so neighbouring tiles always agree
 /// on shared-edge heights — this is what guarantees a gapless triangulated mesh.
-/// The center vertex is unique to this chunk.
 ///
 /// This struct is serializable so it can be written to / read from disk quickly.
 /// </summary>
@@ -22,11 +20,10 @@ using UnityEngine;
 public struct ChunkData
 {
     public const int CornerCount = 4;
-    public const int CenterIndex = 4;
-    public const int VertexCount = 5;
-    public const int TriangleCount = 4;
+    public const int VertexCount = 4;
+    public const int TriangleCount = 2;
 
-    /// <summary>World-space size of one chunk along X and Z (1x1).</summary>
+    /// <summary>World-space size of one tile along X and Z (1x1).</summary>
     public const float Size = 1f;
 
     public int ChunkX;
@@ -38,11 +35,11 @@ public struct ChunkData
 
     /// <summary>
     /// Modification version stamp. Incremented whenever a player deforms the
-    /// terrain so the persistence layer knows to rewrite the chunk file.
+    /// terrain so the persistence layer knows to rewrite the tile file.
     /// </summary>
     public int Version;
 
-    /// <summary>True if this chunk has localised player modifications (deltas).</summary>
+    /// <summary>True if this tile has localised player modifications (deltas).</summary>
     public bool HasModifications;
 
     public ChunkData(int chunkX, int chunkZ, long seed)
@@ -55,21 +52,21 @@ public struct ChunkData
         HasModifications = false;
     }
 
-    /// <summary>World-space X of a given corner/(center) vertex slot.</summary>
+    /// <summary>World-space X of a given corner vertex slot.</summary>
     public float VertexWorldX(int slot)
     {
         int x = chunkXOffset(slot);
         return ChunkX * Size + (x > 0 ? Size : 0f);
     }
 
-    /// <summary>World-space Z of a given corner/(center) vertex slot.</summary>
+    /// <summary>World-space Z of a given corner vertex slot.</summary>
     public float VertexWorldZ(int slot)
     {
         int z = chunkZOffset(slot);
         return ChunkZ * Size + (z > 0 ? Size : 0f);
     }
 
-    /// <summary>World X offset (0 or Size) from the chunk's min corner.</summary>
+    /// <summary>World X offset (0 or Size) from the tile's min corner.</summary>
     private static int chunkXOffset(int slot)
     {
         switch (slot)
@@ -78,11 +75,11 @@ public struct ChunkData
             case 1: return 1; // NE
             case 2: return 1; // SE
             case 3: return 0; // SW
-            default: return 0; // Center uses min + Size/2
+            default: return 0;
         }
     }
 
-    /// <summary>World Z offset (0 or Size) from the chunk's min corner.</summary>
+    /// <summary>World Z offset (0 or Size) from the tile's min corner.</summary>
     private static int chunkZOffset(int slot)
     {
         switch (slot)
@@ -94,12 +91,6 @@ public struct ChunkData
             default: return 0;
         }
     }
-
-    /// <summary>World-space X of the center vertex (shares cross of corners).</summary>
-    public float CenterWorldX => ChunkX * Size + Size * 0.5f;
-
-    /// <summary>World-space Z of the center vertex.</summary>
-    public float CenterWorldZ => ChunkZ * Size + Size * 0.5f;
 
     /// <summary>
     /// Validity check — the heights array must be the correct length.

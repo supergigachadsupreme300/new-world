@@ -59,7 +59,7 @@ public sealed class WorldMapUI : MenuPanelBase
         int cx = Mathf.FloorToInt(pos.x / ChunkData.Size);
         int cz = Mathf.FloorToInt(pos.z / ChunkData.Size);
         _coordLine.text = Localization.F("Vị ži: ({0}, {1}, {2})", (int)pos.x, (int)pos.y, (int)pos.z)
-            + "\n" + Localization.F("Chunk: ({0}, {1})", cx, cz);
+            + "\n" + Localization.F("Tile: ({0}, {1})", cx, cz);
     }
 
     private static string KindName(PoiKind kind)

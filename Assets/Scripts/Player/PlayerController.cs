@@ -642,6 +642,17 @@ public class PlayerController : MonoBehaviour
             ToolManager.Instance?.SortInventory();
         if (!dialogBlocked && Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
             HorseMount.Instance?.Dismount();
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame)
+        {
+            var info = Object.FindAnyObjectByType<CharacterInfoUI>();
+            if (info != null)
+            {
+                if (info.gameObject.activeInHierarchy)
+                    info.Close();
+                else
+                    info.Show();
+            }
+        }
         if (!dialogBlocked && GameManager.Instance?.UIManager != null)
             GameManager.Instance.UIManager.HandleFriendPanelKeys();
         bool friendOpen = GameManager.Instance?.UIManager != null && GameManager.Instance.UIManager.FriendPanelVisible;

@@ -158,26 +158,12 @@ public class WorldStreamer : MonoBehaviour
     {
         ChunkData data = new ChunkData(coord.X, coord.Z, Seed);
 
-        // Corner heights are pure world-space noise → identical across neighbours.
-        // Semantic mapping (documented in ChunkData):
-        //   SW = (X,   Z  ), SE = (X+1, Z  ), NE = (X+1, Z+1), NW = (X, Z+1)
-        float hSW = TerrainNoiseGenerator.GetHeight(Seed, coord.X * ChunkData.Size, coord.Z * ChunkData.Size);
-        float hSE = TerrainNoiseGenerator.GetHeight(Seed, (coord.X + 1) * ChunkData.Size, coord.Z * ChunkData.Size);
-        float hNE = TerrainNoiseGenerator.GetHeight(Seed, (coord.X + 1) * ChunkData.Size, (coord.Z + 1) * ChunkData.Size);
-        float hNW = TerrainNoiseGenerator.GetHeight(Seed, coord.X * ChunkData.Size, (coord.Z + 1) * ChunkData.Size);
-
+        // Corner heights are pure world-space noise -> identical across neighbours.
         // Slot layout: 0=NW, 1=NE, 2=SE, 3=SW
-        data.Heights[0] = hNW;
-        data.Heights[1] = hNE;
-        data.Heights[2] = hSE;
-        data.Heights[3] = hSW;
-
-        // Center = average of the four corners + a deterministic random pivot
-        // (this is the "random angle pivot" that mimics terraforming).
-        float centerBase = (hNW + hNE + hSE + hSW) * 0.25f;
-        System.Random rng = new System.Random(Seed.GetHashCode() ^ (coord.X * 73856093) ^ (coord.Z * 19349663));
-        centerBase += ((float)(rng.NextDouble() * 2.0 - 1.0)) * 0.35f;
-        data.Heights[4] = centerBase;
+        data.Heights[0] = TerrainNoiseGenerator.GetHeight(Seed, coord.X * ChunkData.Size, (coord.Z + 1) * ChunkData.Size);
+        data.Heights[1] = TerrainNoiseGenerator.GetHeight(Seed, (coord.X + 1) * ChunkData.Size, (coord.Z + 1) * ChunkData.Size);
+        data.Heights[2] = TerrainNoiseGenerator.GetHeight(Seed, (coord.X + 1) * ChunkData.Size, coord.Z * ChunkData.Size);
+        data.Heights[3] = TerrainNoiseGenerator.GetHeight(Seed, coord.X * ChunkData.Size, coord.Z * ChunkData.Size);
         data.Version = 1;
 
         return data;
@@ -186,7 +172,7 @@ public class WorldStreamer : MonoBehaviour
     private ChunkObject CreateOrPool(ChunkCoord coord)
     {
         // Simple pooling: reuse a pooled object if available.
-        GameObject go = new GameObject($"Chunk_{coord.X}_{coord.Z}");
+        GameObject go = new GameObject($"Tile_{coord.X}_{coord.Z}");
         go.isStatic = false;
         go.transform.SetParent(null);
         go.transform.position = new Vector3(coord.X * ChunkData.Size, 0f, coord.Z * ChunkData.Size);

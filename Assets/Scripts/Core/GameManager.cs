@@ -386,9 +386,7 @@ public class GameManager : MonoSingleton<GameManager>
         {
             CutsceneManager.StopMainMenuVisual(true);
             if (CutsceneManager.EnableDrivingVisuals)
-                CutsceneManager.PlayIntroCutscene(() => UIManager?.ShowTutorial(true));
-            else
-                UIManager?.ShowTutorial(true);
+                CutsceneManager.PlayIntroCutscene(null);
         }
 
         var spawner = Object.FindAnyObjectByType<LivestockSpawner>();
@@ -441,8 +439,6 @@ public class GameManager : MonoSingleton<GameManager>
 
         var spawner2 = Object.FindAnyObjectByType<LivestockSpawner>();
         if (spawner2 != null) spawner2.Restart();
-
-        UIManager?.ShowTutorial(true);
 
         UpdateTimeUI();
     }

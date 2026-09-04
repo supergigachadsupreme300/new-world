@@ -1,54 +1,51 @@
 using UnityEngine;
 
 /// <summary>
-/// Builds the triangulated ground mesh for a chunk from its ChunkData.
+/// Builds the triangulated ground mesh for a tile from its ChunkData.
 ///
-/// Each 1x1 chunk is a quad split into 4 triangles around a central pivot:
+/// Each 1x1 tile is a flat quad split into 2 triangles:
 ///
 ///   NW --------------- NE
-///   |  \     T1     /  |
-///   |    \       /    |
-///   | T4   \   /   T2 |
-///   |       CE        |
-///   | T3   /   \      |
-///   |    /       \    |
-///   |  /    T5     \  |
+///   |       T1       / |
+///   |             /    |
+///   |           /      |
+///   |         /        |
+///   |       /    T2    |
+///   |     /            |
+///   |   /              |
 ///   SW --------------- SE
 ///
 /// Corner-height contract (VERY important for a gapless mesh):
-///   Every chunk computes its 4 corner heights from pure world-space noise at the
-///   exact corner coordinates. A neighbouring chunk shares those same corners and
+///   Every tile computes its 4 corner heights from pure world-space noise at the
+///   exact corner coordinates. A neighbouring tile shares those same corners and
 ///   therefore computes the same heights, so shared edges always line up with
-///   ZERO gaps. The center (CE) vertex is unique to this chunk and carries a
-///   deterministic pseudo-random pivot offset so the surface looks naturally
-///   terraformed without ever breaking the outer boundary.
+///   ZERO gaps.
 ///
 /// Vertex slot layout (matches ChunkData):
 ///   0 = NW (minX, maxZ)
 ///   1 = NE (maxX, maxZ)
 ///   2 = SE (maxX, minZ)
 ///   3 = SW (minX, minZ)
-///   4 = Center
 /// </summary>
 public static class ChunkMeshGenerator
 {
     /// <summary>
-    /// Builds the mesh. If the ChunkData already carries 5 heights they are used
+    /// Builds the mesh. If the ChunkData already carries 4 heights they are used
     /// directly (fast load path); otherwise they are derived from world noise.
     /// </summary>
     public static Mesh BuildMesh(ChunkData data, NoiseLayerConfig[] layers = null)
     {
         float worldScale = ChunkData.Size;
 
-        // Local-space origin and extent. The chunk GameObject is already placed
+        // Local-space origin and extent. The tile GameObject is already placed
         // at (ChunkX * Size, 0, ChunkZ * Size) by the WorldStreamer, so mesh
-        // vertices must be relative to that position — NOT world-space.
+        // vertices must be relative to that position.
         float minX = 0f;
         float minZ = 0f;
         float maxX = worldScale;
         float maxZ = worldScale;
 
-        // Resolve the 5 heights. Respect stored data when present (load path);
+        // Resolve the 4 corner heights. Respect stored data when present (load path);
         // otherwise they are generated deterministically from the world seed.
         float[] h = new float[ChunkData.VertexCount];
         for (int i = 0; i < ChunkData.CornerCount; i++)
@@ -57,46 +54,37 @@ public static class ChunkMeshGenerator
                 ? data.Heights[i]
                 : SampleCornerHeight(data, i, layers);
         }
-        h[ChunkData.CenterIndex] = ResolveCenterHeight(data, h);
 
-        // Vertex positions: local-space, slot layout 0=NW,1=NE,2=SE,3=SW,4=Center.
+        // Vertex positions: local-space, slot layout 0=NW,1=NE,2=SE,3=SW.
         Vector3[] vertices =
         {
             new Vector3(minX, h[0], maxZ), // 0 = NW
             new Vector3(maxX, h[1], maxZ), // 1 = NE
             new Vector3(maxX, h[2], minZ), // 2 = SE
             new Vector3(minX, h[3], minZ), // 3 = SW
-            new Vector3(worldScale * 0.5f, h[4], worldScale * 0.5f), // 4 = Center
         };
 
-        // Triangles face UP. Verified winding (left-handed system, RecalculateNormals):
-        //   flat XZ, normal must point +Y. The two triangles whose trailing edge
-        //   runs toward -Z are wound so their surface normal still points up.
+        // Two triangles, flat quad, face UP.
         int[] triangles =
         {
-            // T1: NW, NE, Center -> +Y
-            0, 1, 4,
-            // T2: NE, SE, Center -> +Y
-            1, 2, 4,
-            // T3: SW, Center, SE -> +Y
-            3, 4, 2,
-            // T4: NW, Center, SW -> +Y
-            0, 4, 3,
+            // T1: NW, NE, SE -> +Y
+            0, 1, 2,
+            // T2: NW, SE, SW -> +Y
+            0, 2, 3,
         };
 
-        // UVs: 0,0 at SW up to 1,1 at NE; center at 0.5,0.5.
+        // UVs: 0,0 at SW up to 1,1 at NE.
         Vector2[] uv =
         {
             new Vector2(0f, 1f), // NW
             new Vector2(1f, 1f), // NE
             new Vector2(1f, 0f), // SE
             new Vector2(0f, 0f), // SW
-            new Vector2(0.5f, 0.5f), // Center
         };
 
         Mesh mesh = new Mesh
         {
-            name = $"ChunkMesh_{data.ChunkX}_{data.ChunkZ}"
+            name = $"TileMesh_{data.ChunkX}_{data.ChunkZ}"
         };
         mesh.Clear();
         mesh.vertices = vertices;
@@ -105,27 +93,6 @@ public static class ChunkMeshGenerator
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
         return mesh;
-    }
-
-    /// <summary>
-    /// Center height: the average of the 4 corners plus a deterministic random
-    /// pivot offset (per chunk) — the "random angle pivot" terraform look.
-    /// A stored value is honoured on the load path.
-    /// </summary>
-    private static float ResolveCenterHeight(ChunkData data, float[] cornerHeights)
-    {
-        if (data.IsValid && data.Heights != null)
-            return data.Heights[ChunkData.CenterIndex];
-
-        float sum = 0f;
-        for (int i = 0; i < ChunkData.CornerCount; i++)
-            sum += cornerHeights[i];
-        float centerBase = sum * 0.25f;
-
-        System.Random rng = new System.Random(
-            data.Seed.GetHashCode() ^ (data.ChunkX * 73856093) ^ (data.ChunkZ * 19349663));
-        float pivot = (float)(rng.NextDouble() * 2.0 - 1.0) * 0.35f;
-        return centerBase + pivot;
     }
 
     /// <summary>

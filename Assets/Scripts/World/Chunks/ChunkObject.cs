@@ -21,7 +21,7 @@ public class ChunkObject : MonoBehaviour
     public void Init(ChunkCoord coord)
     {
         Coord = coord;
-        name = $"Chunk_{coord.X}_{coord.Z}";
+        name = $"Tile_{coord.X}_{coord.Z}";
     }
 
     /// <summary>
