@@ -51,15 +51,15 @@ public abstract class MenuPanelBase : MonoBehaviour
         panelImg.color = ColorPalette.UIBackdrop;
 
         // Title.
-        var title = new GameObject("Title");
-        title.transform.SetParent(panel.transform, false);
-        var tr = title.AddComponent<RectTransform>();
+        var titleGo = new GameObject("Title");
+        titleGo.transform.SetParent(panel.transform, false);
+        var tr = titleGo.AddComponent<RectTransform>();
         tr.anchorMin = new Vector2(0.5f, 1f);
         tr.anchorMax = new Vector2(0.5f, 1f);
         tr.pivot = new Vector2(0.5f, 1f);
         tr.anchoredPosition = new Vector2(0f, -16f);
         tr.sizeDelta = new Vector2(w - 24f, 30f);
-        var tmp = title.AddComponent<TextMeshProUGUI>();
+        var tmp = titleGo.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = title;
         tmp.fontSize = Mathf.Max(16f, Screen.height / 50f);

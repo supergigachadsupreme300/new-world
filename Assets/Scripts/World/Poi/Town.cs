@@ -90,9 +90,9 @@ public class Town : MonoBehaviour
         scol2.isTrigger = true;
         scol2.size = new Vector3(1.0f, 1.0f, 1.0f);
         DiscoveryStation = discoveryGo.AddComponent<CraftingStation>();
-        DiscoveryStation.StationId = "discovery_" + poi.Id;
+        DiscoveryStation.StationId = "discovery_" + Definition.Id;
         DiscoveryStation.Kind = RecipeKind.Armor;
-        DiscoveryStation.CategoryName = poi.DisplayName + " Crafting";
+        DiscoveryStation.CategoryName = Definition.DisplayName + " Crafting";
         BuildMarkerCube("DiscoveryStation", discoveryGo.transform, new Vector3(1.0f, 0.9f, 0.8f), new Vector3(0f, 0.6f, 0f),
             new Color(0.25f, 0.55f, 0.45f));
 

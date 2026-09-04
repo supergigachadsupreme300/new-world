@@ -146,16 +146,14 @@ public sealed class NewWorldSystems : MonoBehaviour
 
         if (IncludePoisAsCullCandidates && _cull != null)
         {
-            foreach (var poi in Object.FindObjectsByType<POIDefinition>(FindObjectsSortMode.None))
-            {
-                if (poi == null) continue;
-                _cull.AddCandidate(poi.gameObject);
-            }
+            foreach (var town in Object.FindObjectsByType<Town>(FindObjectsSortMode.None))
+                if (town != null) _cull.AddCandidate(town.gameObject);
+            foreach (var node in Object.FindObjectsByType<FastTravelNode>(FindObjectsSortMode.None))
+                if (node != null) _cull.AddCandidate(node.gameObject);
+            foreach (var dungeon in Object.FindObjectsByType<DungeonSystem>(FindObjectsSortMode.None))
+                if (dungeon != null) _cull.AddCandidate(dungeon.gameObject);
             foreach (var enemy in Object.FindObjectsByType<EnemyController>(FindObjectsSortMode.None))
-            {
-                if (enemy == null) continue;
-                _cull.AddCandidate(enemy.gameObject);
-            }
+                if (enemy != null) _cull.AddCandidate(enemy.gameObject);
         }
     }
 

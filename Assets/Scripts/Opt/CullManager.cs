@@ -68,7 +68,7 @@ public sealed class CullManager : MonoBehaviour
         if (dist >= MaxOcclusionDistance) return true;
         Vector3 dir = (target.position - origin).normalized;
         var hit = new RaycastHit();
-        bool blocked = Physics.Raycast(origin, dir, dist, OccluderLayer, true, out hit);
+        bool blocked = Physics.Raycast(origin, dir, out hit, dist, OccluderLayer, QueryTriggerInteraction.Collide);
         if (!blocked) return true;
         // Not occluded if the ray only tagged the candidate's own collider.
         return hit.collider == null || hit.collider.gameObject == target.gameObject;
