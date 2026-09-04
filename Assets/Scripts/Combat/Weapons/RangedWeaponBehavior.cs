@@ -94,7 +94,7 @@ public class RangedWeaponBehavior : MonoBehaviour, IWeaponBehavior
             if (proj != null)
                 proj.Launch(dir, ProjectileSpeed, damage, ShotType, cmd.Origin);
             else if (go.TryGetComponent<Rigidbody>(out var rb))
-                rb.velocity = dir * ProjectileSpeed;
+                rb.linearVelocity = dir * ProjectileSpeed;
         }
         else
         {
@@ -118,7 +118,7 @@ public class RangedWeaponBehavior : MonoBehaviour, IWeaponBehavior
                 var result = DamageCalculator.Calculate(ctx, false);
                 OnShot?.Invoke(result, hit.collider.gameObject);
                 if (hit.collider.TryGetComponent<IDamageable>(out var damageable))
-                    damageable.TakeDamage(result.TotalDamage);
+                    damageable.TakeDamage(Mathf.RoundToInt(result.TotalDamage));
             }
         }
     }

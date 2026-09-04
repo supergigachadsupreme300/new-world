@@ -76,7 +76,7 @@ public static class WeaponCatalog
 
     private static WeaponData Make(string id, string displayName, WeaponCategory category, DamageType type,
         float weight, float baseDamage, float speed, float reach, float coefficient,
-        WeaponScalingStat scaling, float stagger, string ammoId)
+        WeaponScalingStat scaling, float stagger, float strengthRequirement, string ammoId)
     {
         var w = ScriptableObject.CreateInstance<WeaponData>();
         w.name = id;
@@ -91,15 +91,17 @@ public static class WeaponCatalog
         w.ScalingStat = scaling;
         w.ScalingCoefficient = coefficient;
         w.StaggerPower = stagger;
+        w.StrengthRequirement = strengthRequirement;
         w.AmmoItemId = ammoId;
         return w;
     }
 
     private static WeaponData MakeMagic(string id, string displayName, WeaponCategory category, DamageType type,
         float weight, float baseDamage, float speed, float reach, float coefficient,
-        WeaponScalingStat scaling, float stagger, float damageMult, float castTimeMod, float cooldownMod)
+        WeaponScalingStat scaling, float stagger, float strengthRequirement,
+        float damageMult, float castTimeMod, float cooldownMod)
     {
-        var w = Make(id, displayName, category, type, weight, baseDamage, speed, reach, coefficient, scaling, stagger, null);
+        var w = Make(id, displayName, category, type, weight, baseDamage, speed, reach, coefficient, scaling, stagger, strengthRequirement, null);
         w.MagicDamageMult = damageMult;
         w.CastTimeMod = castTimeMod;
         w.CooldownMod = cooldownMod;

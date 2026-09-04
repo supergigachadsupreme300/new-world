@@ -1,3 +1,4 @@
+using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -21,9 +22,9 @@ public sealed class InventoryEquipmentUI : MenuPanelBase
     private void OnEnable()
     {
         Build(Localization.T("INVENTORY / EQUIPMENT"));
-        _inventoryLine = MakeBodyText(BodyRow.transform, "Inventory", new Vector2(-220f, 150f));
-        _equipLine = MakeBodyText(BodyRow.transform, "Equipment", new Vector2(60f, 150f));
-        _moneyLine = MakeBodyText(BodyRow.transform, "Money", new Vector2(-220f, -150f));
+        _inventoryLine = MakeBodyText(BodyRow, "Inventory", new Vector2(-220f, 150f));
+        _equipLine = MakeBodyText(BodyRow, "Equipment", new Vector2(60f, 150f));
+        _moneyLine = MakeBodyText(BodyRow, "Money", new Vector2(-220f, -150f));
     }
 
     private TMP_Text MakeBodyText(RectTransform parent, string name, Vector2 pos)

@@ -37,7 +37,7 @@ public class HitboxSystem : MonoBehaviour
     private float _timer;
     private float _cooldownTimer;
     private Transform _owner;
-    private readonly System.Collections.Generic.HashSet<int> _hitThisSwing = new System.Collections.Generic.HashSet<int>();
+    private readonly System.Collections.Generic.HashSet<long> _hitThisSwing = new System.Collections.Generic.HashSet<long>();
 
     public bool IsActive => _active;
 
@@ -104,7 +104,7 @@ public class HitboxSystem : MonoBehaviour
 
         foreach (Collider col in hits)
         {
-            int id = col.gameObject.GetInstanceID();
+            long id = col.gameObject.GetEntityId();
             if (_hitThisSwing.Contains(id))
                 continue;
 
@@ -139,7 +139,7 @@ public class HitboxSystem : MonoBehaviour
 
         // Apply to the target's health if it implements IDamageable.
         if (target.TryGetComponent<IDamageable>(out var damageable))
-            damageable.TakeDamage(result.TotalDamage);
+            damageable.TakeDamage(Mathf.RoundToInt(result.TotalDamage));
 
         // Knockback: apply a simple impulse to Rigidbody if present.
         Rigidbody rb = target.attachedRigidbody;

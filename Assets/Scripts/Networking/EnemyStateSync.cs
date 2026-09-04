@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -14,7 +15,7 @@ public static class EnemyStateSync
     public const int MaxEnemiesPerMessage = 48;
 
     /// <summary>Authoritative enemy snapshot (server side).</summary>
-    public sealed struct EnemySnapshot
+    public struct EnemySnapshot
     {
         public int NetId;
         public Vector3 Position;

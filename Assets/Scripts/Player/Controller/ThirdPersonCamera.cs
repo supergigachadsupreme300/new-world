@@ -106,7 +106,7 @@ public class ThirdPersonCamera : MonoBehaviour
         // does not clip behind the ground.
         float finalDistance = Distance;
         if (Physics.SphereCast(
-                pivotPos, CollisionRadius, -rot * Vector3.forward,
+                pivotPos, CollisionRadius, rot * Vector3.back,
                 out RaycastHit hit, Distance, CollisionMask, QueryTriggerInteraction.Ignore))
         {
             finalDistance = Mathf.Max(hit.distance - CollisionRadius, MinDistance * 0.5f);

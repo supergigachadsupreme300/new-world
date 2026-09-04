@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -29,10 +30,10 @@ public sealed class RaceStatSheetUI : MenuPanelBase
     private void OnEnable()
     {
         Build(Localization.T("RACE / STAT SHEET"));
-        _raceLine = MakeBodyText(BodyRow.transform, "RaceLine", new Vector2(-180f, 150f));
-        _statsLines = MakeBodyText(BodyRow.transform, "StatsLines", new Vector2(-180f, 60f));
-        _budgetLine = MakeBodyText(BodyRow.transform, "BudgetLine", new Vector2(-180f, -140f));
-        MakeBodyText(BodyRow.transform, "Hint", new Vector2(30f, -140f))
+        _raceLine = MakeBodyText(BodyRow, "RaceLine", new Vector2(-180f, 150f));
+        _statsLines = MakeBodyText(BodyRow, "StatsLines", new Vector2(-180f, 60f));
+        _budgetLine = MakeBodyText(BodyRow, "BudgetLine", new Vector2(-180f, -140f));
+        MakeBodyText(BodyRow, "Hint", new Vector2(30f, -140f))
             .text = Localization.T("[ + ] allocate points / use buttons to commit");
     }
 

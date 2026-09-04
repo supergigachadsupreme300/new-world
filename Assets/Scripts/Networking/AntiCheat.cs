@@ -12,7 +12,7 @@ using UnityEngine;
 public static class AntiCheat
 {
     /// <summary>Client damage intent reported to the server (Task 7.4 server-authoritative damage).</summary>
-    public sealed struct DamageIntent
+    public struct DamageIntent
     {
         public int ClaimerSessionId;
         public short Action;

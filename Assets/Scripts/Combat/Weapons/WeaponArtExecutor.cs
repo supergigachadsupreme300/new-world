@@ -119,7 +119,7 @@ public class WeaponArtExecutor : MonoBehaviour
 
         // Apply to the target's health if it implements IDamageable.
         if (target.TryGetComponent<IDamageable>(out var damageable))
-            damageable.TakeDamage(result.TotalDamage);
+            damageable.TakeDamage(Mathf.RoundToInt(result.TotalDamage));
 
         OnArtHit?.Invoke(art, result, target);
 

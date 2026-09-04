@@ -14,7 +14,7 @@ public static class LootSync
     public enum Op : byte { Spawn = 0, Collect = 1, Despawn = 2 }
 
     /// <summary>Server-authoritative loot event.</summary>
-    public sealed struct LootEvent
+    public struct LootEvent
     {
         public Op Operation;
         public int NetId;         // shared drop id on the server

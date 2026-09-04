@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -20,8 +21,8 @@ public sealed class CharacterCreationUI : MenuPanelBase
     private void OnEnable()
     {
         Build(Localization.T("CHARACTER CREATION"));
-        _listLine = MakeBodyText(BodyRow.transform, "Races", new Vector2(-220f, 150f));
-        _previewLine = MakeBodyText(BodyRow.transform, "Preview", new Vector2(40f, 150f));
+        _listLine = MakeBodyText(BodyRow, "Races", new Vector2(-220f, 150f));
+        _previewLine = MakeBodyText(BodyRow, "Preview", new Vector2(40f, 150f));
     }
 
     private TMP_Text MakeBodyText(RectTransform parent, string name, Vector2 pos)
@@ -87,7 +88,7 @@ public sealed class CharacterCreationUI : MenuPanelBase
         var roster = RaceDatabase.BuildDefaultRoster();
         if (roster != null)
         {
-            for (RaceData r : roster)
+            foreach (RaceData r in roster)
             {
                 if (unlock == null || unlock.IsUnlocked(r) || r.raceId == "human")
                     _pool.Add(r);
@@ -95,7 +96,7 @@ public sealed class CharacterCreationUI : MenuPanelBase
         }
         if (_pool.Count == 0 && roster != null)
         {
-            for (RaceData r : roster) _pool.Add(r); // fallback: list all
+            foreach (RaceData r in roster) _pool.Add(r); // fallback: list all
         }
         if (_selected >= _pool.Count) _selected = _pool.Count - 1;
         if (_selected < 0 && _pool.Count > 0) _selected = 0;

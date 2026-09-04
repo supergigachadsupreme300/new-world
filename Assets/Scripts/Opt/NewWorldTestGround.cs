@@ -173,10 +173,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     private void SpawnLivestock()
     {
-        AnimalType[] all =
+        Livestock.AnimalType[] all =
         {
-            AnimalType.Cow, AnimalType.Pig, AnimalType.Sheep, AnimalType.Goat,
-            AnimalType.Chicken, AnimalType.Duck, AnimalType.Turkey
+            Livestock.AnimalType.Cow, Livestock.AnimalType.Pig, Livestock.AnimalType.Sheep, Livestock.AnimalType.Goat,
+            Livestock.AnimalType.Chicken, Livestock.AnimalType.Duck, Livestock.AnimalType.Turkey
         };
         float startX = PlatformCenter.x + PlatformSize * 0.2f;
         float z = PlatformCenter.z + PlatformSize * 0.3f;

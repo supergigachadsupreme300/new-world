@@ -44,7 +44,7 @@ public sealed class DamageZoneEffect : IEffect
                     WeaknessMultiplier = 1f,
                     CriticalMultiplier = 1f
                 }, false);
-                damageable.TakeDamage(result.TotalDamage);
+                damageable.TakeDamage(Mathf.RoundToInt(result.TotalDamage));
             }
         }
     }

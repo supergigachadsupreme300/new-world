@@ -1,3 +1,4 @@
+using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -17,8 +18,8 @@ public sealed class MultiplayerBrowserUI : MenuPanelBase
     private void OnEnable()
     {
         Build(Localization.T("MULTIPLAYER BROWSER"));
-        _serverLine = MakeBodyText(BodyRow.transform, "Server", new Vector2(-220f, 150f));
-        _partyLine = MakeBodyText(BodyRow.transform, "Parties", new Vector2(-220f, 20f));
+        _serverLine = MakeBodyText(BodyRow, "Server", new Vector2(-220f, 150f));
+        _partyLine = MakeBodyText(BodyRow, "Parties", new Vector2(-220f, 20f));
     }
 
     private TMP_Text MakeBodyText(RectTransform parent, string name, Vector2 pos)

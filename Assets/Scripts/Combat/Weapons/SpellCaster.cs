@@ -245,7 +245,7 @@ public class SpellCaster : MonoBehaviour
         var result = DamageCalculator.Calculate(ctx, false);
 
         if (target.TryGetComponent<IDamageable>(out var damageable))
-            damageable.TakeDamage(result.TotalDamage);
+            damageable.TakeDamage(Mathf.RoundToInt(result.TotalDamage));
 
         if (spell.ImpactEffectPrefab != null)
             Instantiate(spell.ImpactEffectPrefab, target.transform.position, Quaternion.identity);

@@ -1,3 +1,4 @@
+using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -16,8 +17,8 @@ public sealed class WorldMapUI : MenuPanelBase
     private void OnEnable()
     {
         Build(Localization.T("WORLD MAP"));
-        _poiLine = MakeBodyText(BodyRow.transform, "PoiList", new Vector2(-220f, 150f));
-        _coordLine = MakeBodyText(BodyRow.transform, "Coords", new Vector2(40f, 150f));
+        _poiLine = MakeBodyText(BodyRow, "PoiList", new Vector2(-220f, 150f));
+        _coordLine = MakeBodyText(BodyRow, "Coords", new Vector2(40f, 150f));
     }
 
     private TMP_Text MakeBodyText(RectTransform parent, string name, Vector2 pos)

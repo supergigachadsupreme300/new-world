@@ -52,7 +52,7 @@ public class RagdollEnabler : MonoBehaviour
             rb.isKinematic = false;
             var col = rb.GetComponent<Collider>();
             if (col != null) col.enabled = true;
-            rb.velocity = velocity;
+            rb.linearVelocity = velocity;
             rb.AddForce(Impulse, ForceMode.Impulse);
         }
     }

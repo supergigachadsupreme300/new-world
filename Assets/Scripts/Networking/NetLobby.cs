@@ -72,8 +72,7 @@ public sealed class NetLobby
         _pendingInvites.Add(inviteeSessionId);
         var invitee = FindSession(server, inviteeSessionId);
         if (invitee != null)
-            server.SendTo(invitee, new NetMessage(NetOp.LobbyJoin, HostSessionId, "lobby",
-                LobbyPack.JoinAck(Mode.Mode)));
+            server.SendTo(invitee, LobbyPack.JoinAck(Mode.Mode));
         return true;
     }
 
