@@ -811,7 +811,7 @@ _streetLights.Clear();
     }
     public void UpdateWorld(float deltaTime)
     {
-        if (!EnableLegacyGeneration)
+        if (!EnableLegacyGeneration || _worldRoot == null)
             return;
 
         _worldFrameTick++;
