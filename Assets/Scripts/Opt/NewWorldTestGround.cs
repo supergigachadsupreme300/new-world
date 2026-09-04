@@ -15,7 +15,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
     [Tooltip("Size of the flat test platform (X/Z world units).")]
     public float PlatformSize = 120f;
     [Tooltip("Centre of the platform in world space.")]
-    public Vector3 PlatformCenter = new Vector3(0f, 0f, 0f);
+    public Vector3 PlatformCenter = new Vector3(0f, 50f, 0f);
     public bool CreatePlatform = true;
 
     [Header("Spawning")]

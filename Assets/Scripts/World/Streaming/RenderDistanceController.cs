@@ -12,8 +12,8 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "RenderDistanceConfig", menuName = "NewWorld/Render Distance", order = 1)]
 public class RenderDistanceController : ScriptableObject
 {
-    [Range(1, 32)] public int Radius = 5;
-    [Range(1, 32)] public int MaxRadius = 32;
+    [Range(1, 160)] public int Radius = 5;
+    [Range(1, 160)] public int MaxRadius = 160;
     [Range(1, 8)] public int MinRadius = 1;
 
     /// <summary>Total number of chunks in a square of the current radius (excluding nothing).</summary>

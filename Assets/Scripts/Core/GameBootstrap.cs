@@ -76,8 +76,8 @@ public class GameBootstrap : MonoBehaviour
         if (worldStreamer.RenderDistance == null)
         {
             var rd = ScriptableObject.CreateInstance<RenderDistanceController>();
-            rd.Radius = 24;
-            rd.MaxRadius = 32;
+            rd.Radius = 120;
+            rd.MaxRadius = 160;
             worldStreamer.RenderDistance = rd;
         }
         if (worldStreamer.GroundMaterial == null)
