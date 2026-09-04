@@ -197,17 +197,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
         float startX = PlatformCenter.x - 10f;
         for (int i = 0; i < ids.Length; i++)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            go.name = "TestEnemy_" + ids[i];
-            var col = go.GetComponent<Collider>();
-            if (col != null) { col.enabled = true; }
-            go.transform.position = new Vector3(startX + i * 6f, PlatformCenter.y + 1f, z);
-            var rc = go.GetComponent<MeshRenderer>();
-            if (rc != null)
-                rc.sharedMaterial = SolidMaterial(new Color(0.8f, 0.2f, 0.2f + i * 0.1f));
-
-            if (!go.GetComponent<EnemyController>())
-                go.AddComponent<EnemyController>().EnemyId = ids[i];
+            var go = new GameObject("TestEnemy_" + ids[i]);
+            go.transform.position = new Vector3(startX + i * 6f, PlatformCenter.y + 0.05f, z);
+            go.AddComponent<Collider>();
+            go.AddComponent<EnemyController>().EnemyId = ids[i];
         }
 
         if (IncludeBoss)

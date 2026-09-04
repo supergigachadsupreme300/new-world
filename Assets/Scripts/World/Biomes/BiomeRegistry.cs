@@ -73,7 +73,7 @@ public static class BiomeRegistry
         return new[]
         {
             Make(BiomeType.Plains, "Plains", new[] { "slime", "wolf" }, new[] { 60f, 40f }, 4f, new Color(0.6f, 0.85f, 0.5f)),
-            Make(BiomeType.Forest, "Forest", new[] { "bandit", "treant" }, new[] { 55f, 45f }, 5f, new Color(0.3f, 0.6f, 0.3f)),
+            Make(BiomeType.Forest, "Forest", new[] { "bandit", "treant", "goblin" }, new[] { 45f, 35f, 20f }, 5f, new Color(0.3f, 0.6f, 0.3f)),
             Make(BiomeType.Mountains, "Mountains", new[] { "golem", "drake" }, new[] { 60f, 40f }, 3f, new Color(0.6f, 0.6f, 0.7f)),
             Make(BiomeType.Swamp, "Swamp", new[] { "undead", "slug" }, new[] { 55f, 45f }, 5f, new Color(0.4f, 0.5f, 0.3f)),
             Make(BiomeType.Desert, "Desert", new[] { "scorpion", "mummy" }, new[] { 60f, 40f }, 4f, new Color(0.9f, 0.8f, 0.5f)),

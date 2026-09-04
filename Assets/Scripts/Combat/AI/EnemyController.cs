@@ -82,6 +82,9 @@ public class EnemyController : MonoBehaviour, IDamageable
         CurrentHealth = Mathf.RoundToInt(_maxHealth * TierScale);
         var col = GetComponent<Collider>();
         if (col != null) col.enabled = true;
+
+        if (!string.IsNullOrEmpty(EnemyId) && ModelRoot == null)
+            ModelRoot = EnemyModelBuilder.BuildEnemy(transform, EnemyId);
     }
 
     /// <summary>Recompute max-derived health from the current <see cref="TierScale"/>.</summary>
