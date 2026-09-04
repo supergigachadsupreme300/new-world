@@ -39,8 +39,11 @@ public class WorldStreamer : MonoBehaviour
     private readonly HashSet<ChunkCoord> _dirty = new HashSet<ChunkCoord>();
 
     private readonly ConcurrentQueue<ChunkMeshData> _readyQueue = new ConcurrentQueue<ChunkMeshData>();
-    private readonly List<ChunkCoord> _pendingQueue = new List<ChunkCoord>();
-    private readonly HashSet<ChunkCoord> _inFlight = new HashSet<ChunkCoord>();
+
+    // Thread-safe O(1) pending tracking + ordered dispatch list
+    private readonly HashSet<ChunkCoord> _pendingSet = new HashSet<ChunkCoord>();
+    private readonly List<ChunkCoord> _dispatchOrder = new List<ChunkCoord>();
+    private readonly ConcurrentDictionary<ChunkCoord, byte> _inFlight = new ConcurrentDictionary<ChunkCoord, byte>();
 
     private Transform _focus;
     private float _timer;
@@ -106,13 +109,18 @@ public class WorldStreamer : MonoBehaviour
         foreach (ChunkCoord c in toUnload)
             UnloadChunk(c);
 
-        // Also cancel pending/in-flight for coords that fell outside
-        _pendingQueue.RemoveAll(c =>
+        // Remove pending coords that fell outside the radius
+        for (int i = _dispatchOrder.Count - 1; i >= 0; i--)
         {
+            ChunkCoord c = _dispatchOrder[i];
             int dx = Mathf.Abs(c.X - centre.X);
             int dz = Mathf.Abs(c.Z - centre.Z);
-            return dx > radius || dz > radius;
-        });
+            if (dx > radius || dz > radius)
+            {
+                _pendingSet.Remove(c);
+                _dispatchOrder.RemoveAt(i);
+            }
+        }
 
         // Populate pending queue: walk rings closest-first
         for (int r = 0; r <= radius; r++)
@@ -135,32 +143,47 @@ public class WorldStreamer : MonoBehaviour
     {
         if (_loadedObjects.ContainsKey(coord))
             return;
-        if (_inFlight.Contains(coord))
+        if (_inFlight.ContainsKey(coord))
             return;
-        if (_pendingQueue.Contains(coord))
+        if (_pendingSet.Contains(coord))
             return;
-        _pendingQueue.Add(coord);
+        _pendingSet.Add(coord);
+        _dispatchOrder.Add(coord);
     }
 
     /// <summary>
     /// Dispatch pending coords to the ThreadPool for background generation.
-    /// Respects MaxInFlight to avoid overwhelming the system.
+    /// Sorts by distance each tick so closest tiles load first.
     /// </summary>
     private void DispatchPending()
     {
-        while (_inFlight.Count < MaxInFlight && _pendingQueue.Count > 0)
+        // Sort dispatch order: closest to focus first
+        ChunkCoord focus = _focus != null ? WorldToChunk(_focus.position) : default;
+        _dispatchOrder.Sort((a, b) =>
         {
-            ChunkCoord coord = _pendingQueue[0];
-            _pendingQueue.RemoveAt(0);
+            int da = Mathf.Abs(a.X - focus.X) + Mathf.Abs(a.Z - focus.Z);
+            int db = Mathf.Abs(b.X - focus.X) + Mathf.Abs(b.Z - focus.Z);
+            return da.CompareTo(db);
+        });
 
-            // Double-check: might have been loaded by a previous dispatch
+        // Dispatch up to MaxInFlight, closest first
+        for (int i = 0; i < _dispatchOrder.Count && _inFlight.Count < MaxInFlight; i++)
+        {
+            ChunkCoord coord = _dispatchOrder[i];
+
+            // Skip if already loaded or in-flight
             if (_loadedObjects.ContainsKey(coord))
                 continue;
+            if (_inFlight.ContainsKey(coord))
+                continue;
 
-            _inFlight.Add(coord);
+            _inFlight.TryAdd(coord, 0);
             long seed = Seed;
             ThreadPool.QueueUserWorkItem(_ => BackgroundGenerate(coord, seed));
         }
+
+        // Clean up loaded coords from dispatch list
+        _dispatchOrder.RemoveAll(c => _loadedObjects.ContainsKey(c) || !_pendingSet.Contains(c));
     }
 
     /// <summary>
@@ -192,11 +215,8 @@ public class WorldStreamer : MonoBehaviour
         catch (System.Exception ex)
         {
             Debug.LogWarning($"[WorldStreamer] Background generation failed for {coord}: {ex.Message}");
-            // Remove from in-flight so it can be retried next poll
-            lock (_inFlight)
-            {
-                _inFlight.Remove(coord);
-            }
+            byte _;
+            _inFlight.TryRemove(coord, out _);
         }
     }
 
@@ -211,7 +231,8 @@ public class WorldStreamer : MonoBehaviour
         while (finalized < ChunksPerFrame && _readyQueue.TryDequeue(out md))
         {
             ChunkCoord coord = md.Coord;
-            _inFlight.Remove(coord);
+            byte _;
+            _inFlight.TryRemove(coord, out _);
 
             // Skip if the chunk was unloaded while being generated
             if (_loadedObjects.ContainsKey(coord))
