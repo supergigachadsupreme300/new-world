@@ -76,7 +76,7 @@ public class GameBootstrap : MonoBehaviour
         if (worldStreamer.RenderDistance == null)
         {
             var rd = ScriptableObject.CreateInstance<RenderDistanceController>();
-            rd.Radius = 30;
+            rd.Radius = 3;
             rd.MaxRadius = 160;
             worldStreamer.RenderDistance = rd;
         }
@@ -88,6 +88,18 @@ public class GameBootstrap : MonoBehaviour
             mat.color = ColorPalette.GrassGreen; // reused existing palette
             worldStreamer.GroundMaterial = mat;
         }
+
+        // Generate spawn terrain synchronously so the player has ground to land on
+        // before the first frame. Player spawns at (0, 2, -10).
+        TerrainChunkCoord spawnChunk = TerrainChunkCoord.FromTile(new ChunkCoord(0, -10));
+        for (int dz = -1; dz <= 1; dz++)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                worldStreamer.GenerateChunkSync(new TerrainChunkCoord(spawnChunk.X + dx, spawnChunk.Z + dz));
+            }
+        }
+
         worldStreamer.SetFocus(playerController != null ? playerController.transform : null);
     }
 }

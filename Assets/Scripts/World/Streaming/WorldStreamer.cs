@@ -6,12 +6,11 @@ using UnityEngine;
 /// <summary>
 /// The main orchestrator for the seamless open world.
 ///
-/// Terrain generation, disk I/O, and mesh data computation run on background
-/// threads via ThreadPool. Only GameObject creation, mesh assignment, and prop
-/// spawning happen on the main thread — keeping the player responsive at all
-/// times while tiles pop in as they finish.
-///
-/// The world is infinite in XZ: any chunk coordinate can be requested.
+/// The world is divided into TerrainChunks, each covering a 30x30 block of
+/// individual tiles. Background threads generate one TerrainChunk at a time,
+/// producing all 900 tile meshes in a single ThreadPool dispatch. The main
+/// thread creates GameObjects from a tile finalization queue, spreading the
+/// work across frames to avoid hitches.
 /// </summary>
 public class WorldStreamer : MonoBehaviour
 {
@@ -28,28 +27,38 @@ public class WorldStreamer : MonoBehaviour
     public RenderDistanceController RenderDistance;
 
     [Header("Threading")]
-    [Tooltip("Max mesh builds finalized per poll tick (main-thread work).")]
-    public int ChunksPerFrame = 8;
+    [Tooltip("Max tiles finalized per poll tick (main-thread work).")]
+    public int ChunksPerFrame = 32;
 
-    [Tooltip("Max chunks being generated on background threads simultaneously.")]
-    public int MaxInFlight = 32;
+    [Tooltip("Max terrain chunks being generated on background threads simultaneously.")]
+    public int MaxInFlight = 4;
 
+    // --- Tile-level state (existing public API) ---
     private readonly Dictionary<ChunkCoord, ChunkData> _loadedData = new Dictionary<ChunkCoord, ChunkData>();
     private readonly Dictionary<ChunkCoord, ChunkObject> _loadedObjects = new Dictionary<ChunkCoord, ChunkObject>();
     private readonly HashSet<ChunkCoord> _dirty = new HashSet<ChunkCoord>();
 
-    private readonly ConcurrentQueue<ChunkMeshData> _readyQueue = new ConcurrentQueue<ChunkMeshData>();
+    // --- Chunk-level dispatch ---
+    private readonly HashSet<TerrainChunkCoord> _pendingChunks = new HashSet<TerrainChunkCoord>();
+    private readonly List<TerrainChunkCoord> _chunkDispatchOrder = new List<TerrainChunkCoord>();
+    private readonly ConcurrentDictionary<TerrainChunkCoord, byte> _chunksInFlight = new ConcurrentDictionary<TerrainChunkCoord, byte>();
+    private readonly ConcurrentQueue<TerrainChunkMeshData> _readyChunks = new ConcurrentQueue<TerrainChunkMeshData>();
 
-    // Thread-safe O(1) pending tracking + ordered dispatch list
-    private readonly HashSet<ChunkCoord> _pendingSet = new HashSet<ChunkCoord>();
-    private readonly List<ChunkCoord> _dispatchOrder = new List<ChunkCoord>();
-    private readonly ConcurrentDictionary<ChunkCoord, byte> _inFlight = new ConcurrentDictionary<ChunkCoord, byte>();
+    // --- Tile finalization queue ---
+    private struct TileFinalization
+    {
+        public ChunkCoord Tile;
+        public ChunkMeshData MeshData;
+    }
+    private readonly Queue<TileFinalization> _tileFinalizeQueue = new Queue<TileFinalization>();
 
     private Transform _focus;
     private float _timer;
     private const float PollInterval = 0.1f;
 
     public IReadOnlyDictionary<ChunkCoord, ChunkObject> Loaded => _loadedObjects;
+
+    // --- Public tile-level API ---
 
     public bool TryGetData(ChunkCoord coord, out ChunkData data)
     {
@@ -62,6 +71,8 @@ public class WorldStreamer : MonoBehaviour
     {
         _focus = focus;
     }
+
+    // --- Main loop ---
 
     private void Update()
     {
@@ -76,181 +87,288 @@ public class WorldStreamer : MonoBehaviour
         if (_focus == null)
             return;
 
-        int radius = RenderDistance != null ? RenderDistance.Radius : 5;
-        ChunkCoord centre = WorldToChunk(_focus.position);
+        int radius = RenderDistance != null ? RenderDistance.Radius : 3;
+        TerrainChunkCoord centre = TerrainChunkCoord.FromWorld(_focus.position);
 
         StreamAround(centre, radius);
-        FinalizeReadyChunks();
         DispatchPending();
+        FinalizeReadyChunks();
+        FinalizeTileQueue();
     }
 
-    public static ChunkCoord WorldToChunk(Vector3 pos)
-    {
-        int x = Mathf.FloorToInt(pos.x / ChunkData.Size);
-        int z = Mathf.FloorToInt(pos.z / ChunkData.Size);
-        return new ChunkCoord(x, z);
-    }
+    // --- Chunk-level streaming ---
 
     /// <summary>
-    /// Unloads out-of-range chunks and populates the pending queue for
-    /// background generation. Does NOT generate anything synchronously.
+    /// Unloads out-of-range chunks and populates the pending chunk queue
+    /// for background generation.
     /// </summary>
-    public void StreamAround(ChunkCoord centre, int radius)
+    public void StreamAround(TerrainChunkCoord centre, int radius)
     {
-        // Unload chunks that fell outside the radius
+        // Unload tiles from chunks that fell outside the radius
         List<ChunkCoord> toUnload = new List<ChunkCoord>();
-        foreach (ChunkCoord c in _loadedObjects.Keys)
+        foreach (ChunkCoord tile in _loadedObjects.Keys)
         {
-            int dx = Mathf.Abs(c.X - centre.X);
-            int dz = Mathf.Abs(c.Z - centre.Z);
+            TerrainChunkCoord tc = TerrainChunkCoord.FromTile(tile);
+            int dx = Mathf.Abs(tc.X - centre.X);
+            int dz = Mathf.Abs(tc.Z - centre.Z);
             if (dx > radius || dz > radius)
-                toUnload.Add(c);
+                toUnload.Add(tile);
         }
-        foreach (ChunkCoord c in toUnload)
-            UnloadChunk(c);
+        foreach (ChunkCoord tile in toUnload)
+            UnloadChunk(tile);
 
-        // Remove pending coords that fell outside the radius
-        for (int i = _dispatchOrder.Count - 1; i >= 0; i--)
+        // Remove pending chunks that fell outside the radius
+        for (int i = _chunkDispatchOrder.Count - 1; i >= 0; i--)
         {
-            ChunkCoord c = _dispatchOrder[i];
-            int dx = Mathf.Abs(c.X - centre.X);
-            int dz = Mathf.Abs(c.Z - centre.Z);
+            TerrainChunkCoord tc = _chunkDispatchOrder[i];
+            int dx = Mathf.Abs(tc.X - centre.X);
+            int dz = Mathf.Abs(tc.Z - centre.Z);
             if (dx > radius || dz > radius)
             {
-                _pendingSet.Remove(c);
-                _dispatchOrder.RemoveAt(i);
+                _pendingChunks.Remove(tc);
+                _chunkDispatchOrder.RemoveAt(i);
             }
         }
 
-        // Populate pending queue: walk rings closest-first
+        // Populate pending queue: walk chunk rings closest-first
         for (int r = 0; r <= radius; r++)
         {
             int startX = centre.X - r, endX = centre.X + r;
             int startZ = centre.Z - r, endZ = centre.Z + r;
 
             for (int x = startX; x <= endX; x++)
-                EnqueueIfNeeded(new ChunkCoord(x, endZ));
+                EnqueueChunkIfNeeded(new TerrainChunkCoord(x, endZ));
             for (int x = startX; x <= endX; x++)
-                EnqueueIfNeeded(new ChunkCoord(x, startZ));
+                EnqueueChunkIfNeeded(new TerrainChunkCoord(x, startZ));
             for (int z = startZ + 1; z < endZ; z++)
-                EnqueueIfNeeded(new ChunkCoord(startX, z));
+                EnqueueChunkIfNeeded(new TerrainChunkCoord(startX, z));
             for (int z = startZ + 1; z < endZ; z++)
-                EnqueueIfNeeded(new ChunkCoord(endX, z));
+                EnqueueChunkIfNeeded(new TerrainChunkCoord(endX, z));
         }
     }
 
-    private void EnqueueIfNeeded(ChunkCoord coord)
+    private void EnqueueChunkIfNeeded(TerrainChunkCoord tc)
     {
-        if (_loadedObjects.ContainsKey(coord))
+        // Skip if any tile in this chunk is already loaded
+        tc.GetTileRange(out int minX, out int minZ, out int maxX, out int maxZ);
+        if (_loadedObjects.ContainsKey(new ChunkCoord(minX, minZ)))
             return;
-        if (_inFlight.ContainsKey(coord))
+        if (_chunksInFlight.ContainsKey(tc))
             return;
-        if (_pendingSet.Contains(coord))
+        if (_pendingChunks.Contains(tc))
             return;
-        _pendingSet.Add(coord);
-        _dispatchOrder.Add(coord);
+        _pendingChunks.Add(tc);
+        _chunkDispatchOrder.Add(tc);
     }
 
+    // --- Background dispatch ---
+
     /// <summary>
-    /// Dispatch pending coords to the ThreadPool for background generation.
-    /// Sorts by distance each tick so closest tiles load first.
+    /// Dispatch pending chunks to the ThreadPool. Sorts by distance each tick
+    /// so closest chunks load first.
     /// </summary>
     private void DispatchPending()
     {
-        // Sort dispatch order: closest to focus first
-        ChunkCoord focus = _focus != null ? WorldToChunk(_focus.position) : default;
-        _dispatchOrder.Sort((a, b) =>
+        TerrainChunkCoord focus = _focus != null
+            ? TerrainChunkCoord.FromWorld(_focus.position)
+            : default;
+
+        _chunkDispatchOrder.Sort((a, b) =>
         {
             int da = Mathf.Abs(a.X - focus.X) + Mathf.Abs(a.Z - focus.Z);
             int db = Mathf.Abs(b.X - focus.X) + Mathf.Abs(b.Z - focus.Z);
             return da.CompareTo(db);
         });
 
-        // Dispatch up to MaxInFlight, closest first
-        for (int i = 0; i < _dispatchOrder.Count && _inFlight.Count < MaxInFlight; i++)
+        for (int i = 0; i < _chunkDispatchOrder.Count && _chunksInFlight.Count < MaxInFlight; i++)
         {
-            ChunkCoord coord = _dispatchOrder[i];
-
-            // Skip if already loaded or in-flight
-            if (_loadedObjects.ContainsKey(coord))
-                continue;
-            if (_inFlight.ContainsKey(coord))
+            TerrainChunkCoord tc = _chunkDispatchOrder[i];
+            if (_chunksInFlight.ContainsKey(tc))
                 continue;
 
-            _inFlight.TryAdd(coord, 0);
+            _chunksInFlight.TryAdd(tc, 0);
             long seed = Seed;
-            ThreadPool.QueueUserWorkItem(_ => BackgroundGenerate(coord, seed));
+            ThreadPool.QueueUserWorkItem(_ => BackgroundGenerateChunk(tc, seed));
         }
 
-        // Clean up loaded coords from dispatch list
-        _dispatchOrder.RemoveAll(c => _loadedObjects.ContainsKey(c) || !_pendingSet.Contains(c));
+        // Clean up loaded chunks from dispatch list
+        _chunkDispatchOrder.RemoveAll(c => _pendingChunks.Contains(c) && IsChunkFullyLoaded(c));
     }
 
+    private bool IsChunkFullyLoaded(TerrainChunkCoord tc)
+    {
+        tc.GetTileRange(out int minX, out int minZ, out int maxX, out int maxZ);
+        return _loadedObjects.ContainsKey(new ChunkCoord(minX, minZ));
+    }
+
+    // --- Background thread: generate entire chunk ---
+
     /// <summary>
-    /// Runs on a ThreadPool thread. Generates ChunkData + mesh arrays,
-    /// then enqueues the result for main-thread finalization.
+    /// Runs on a ThreadPool thread. Generates all 900 tiles for a terrain chunk,
+    /// pre-computing 31x31 = 961 corner heights to avoid redundant noise calls.
     /// </summary>
-    private void BackgroundGenerate(ChunkCoord coord, long seed)
+    private void BackgroundGenerateChunk(TerrainChunkCoord tc, long seed)
     {
         try
         {
-            ChunkData data;
+            int cs = TerrainChunkCoord.ChunkSize;
+            int gridSize = TerrainChunkCoord.CornerGridSize; // 31
 
-            // 1) Try disk cache (thread-safe: independent FileStream per file)
-            if (!ChunkSaveManager.TryLoad(seed, coord.X, coord.Z, out data))
+            // Pre-compute all corner heights for the chunk (31x31 grid)
+            float[,] corners = new float[gridSize, gridSize];
+            for (int gz = 0; gz < gridSize; gz++)
             {
-                // 2) Generate fresh from noise
-                data = new ChunkData(coord.X, coord.Z, seed);
-                data.Heights[0] = TerrainNoiseGenerator.GetHeight(seed, coord.X * ChunkData.Size, (coord.Z + 1) * ChunkData.Size);
-                data.Heights[1] = TerrainNoiseGenerator.GetHeight(seed, (coord.X + 1) * ChunkData.Size, (coord.Z + 1) * ChunkData.Size);
-                data.Heights[2] = TerrainNoiseGenerator.GetHeight(seed, (coord.X + 1) * ChunkData.Size, coord.Z * ChunkData.Size);
-                data.Heights[3] = TerrainNoiseGenerator.GetHeight(seed, coord.X * ChunkData.Size, coord.Z * ChunkData.Size);
-                data.Version = 1;
+                for (int gx = 0; gx < gridSize; gx++)
+                {
+                    float worldX = (tc.X * cs + gx) * ChunkData.Size;
+                    float worldZ = (tc.Z * cs + gz) * ChunkData.Size;
+                    corners[gx, gz] = TerrainNoiseGenerator.GetHeight(seed, worldX, worldZ);
+                }
             }
 
-            // 3) Build mesh arrays (pure C#, no Unity API)
-            ChunkMeshData md = ChunkMeshGenerator.BuildMeshData(data, TerrainNoiseGenerator.DefaultLayers);
-            _readyQueue.Enqueue(md);
+            // Build mesh data for each tile in the chunk
+            ChunkMeshData[] tiles = new ChunkMeshData[cs * cs];
+            for (int tz = 0; tz < cs; tz++)
+            {
+                for (int tx = 0; tx < cs; tx++)
+                {
+                    ChunkCoord tileCoord = new ChunkCoord(tc.X * cs + tx, tc.Z * cs + tz);
+                    ChunkData data = new ChunkData(tileCoord.X, tileCoord.Z, seed);
+                    data.Heights[0] = corners[tx, tz + 1];     // NW
+                    data.Heights[1] = corners[tx + 1, tz + 1]; // NE
+                    data.Heights[2] = corners[tx + 1, tz];     // SE
+                    data.Heights[3] = corners[tx, tz];          // SW
+                    data.Version = 1;
+
+                    ChunkMeshData md = ChunkMeshGenerator.BuildMeshData(data, TerrainNoiseGenerator.DefaultLayers);
+                    tiles[tz * cs + tx] = md;
+                }
+            }
+
+            TerrainChunkMeshData result = new TerrainChunkMeshData
+            {
+                Coord = tc,
+                Tiles = tiles,
+            };
+            _readyChunks.Enqueue(result);
         }
         catch (System.Exception ex)
         {
-            Debug.LogWarning($"[WorldStreamer] Background generation failed for {coord}: {ex.Message}");
+            Debug.LogWarning($"[WorldStreamer] Background chunk generation failed for {tc}: {ex.Message}");
             byte _;
-            _inFlight.TryRemove(coord, out _);
+            _chunksInFlight.TryRemove(tc, out _);
+        }
+    }
+
+    // --- Main thread: finalize chunk data + tile queue ---
+
+    /// <summary>
+    /// Dequeue completed terrain chunks and push their tiles into the
+    /// finalization queue for main-thread GO creation.
+    /// </summary>
+    private void FinalizeReadyChunks()
+    {
+        TerrainChunkMeshData chunk;
+        if (_readyChunks.TryDequeue(out chunk))
+        {
+            byte _;
+            _chunksInFlight.TryRemove(chunk.Coord, out _);
+            _pendingChunks.Remove(chunk.Coord);
+
+            // Skip if tiles already exist (e.g. re-loaded from disk)
+            ChunkCoord firstTile = new ChunkCoord(
+                chunk.Coord.X * TerrainChunkCoord.ChunkSize,
+                chunk.Coord.Z * TerrainChunkCoord.ChunkSize);
+            if (_loadedObjects.ContainsKey(firstTile))
+                return;
+
+            // Push all tiles into the finalization queue
+            for (int i = 0; i < chunk.Tiles.Length; i++)
+            {
+                _tileFinalizeQueue.Enqueue(new TileFinalization
+                {
+                    Tile = chunk.Tiles[i].Coord,
+                    MeshData = chunk.Tiles[i],
+                });
+            }
         }
     }
 
     /// <summary>
-    /// Dequeue completed mesh data and finalize on the main thread:
-    /// create GO, assign mesh, spawn props.
+    /// Pop tiles from the finalization queue and create GameObjects on the main
+    /// thread. Limited to ChunksPerFrame per tick to avoid hitches.
     /// </summary>
-    private void FinalizeReadyChunks()
+    private void FinalizeTileQueue()
     {
         int finalized = 0;
-        ChunkMeshData md;
-        while (finalized < ChunksPerFrame && _readyQueue.TryDequeue(out md))
+        while (finalized < ChunksPerFrame && _tileFinalizeQueue.Count > 0)
         {
-            ChunkCoord coord = md.Coord;
-            byte _;
-            _inFlight.TryRemove(coord, out _);
+            TileFinalization tf = _tileFinalizeQueue.Dequeue();
 
-            // Skip if the chunk was unloaded while being generated
-            if (_loadedObjects.ContainsKey(coord))
+            if (_loadedObjects.ContainsKey(tf.Tile))
                 continue;
 
-            // Store data
-            ChunkData data = md.Data;
-            _loadedData[coord] = data;
+            ChunkData data = tf.MeshData.Data;
+            _loadedData[tf.Tile] = data;
 
-            // Create GO + apply mesh on main thread
-            ChunkObject obj = CreateOrPool(coord);
-            obj.ApplyMeshData(md, GroundMaterial, buildCollider: true);
+            ChunkObject obj = CreateOrPool(tf.Tile);
+            obj.ApplyMeshData(tf.MeshData, GroundMaterial, buildCollider: true);
             obj.SpawnProps(Seed);
-            _loadedObjects[coord] = obj;
+            _loadedObjects[tf.Tile] = obj;
 
             finalized++;
         }
     }
+
+    // --- Synchronous generation (for startup) ---
+
+    /// <summary>
+    /// Generate an entire terrain chunk synchronously on the main thread.
+    /// Used at startup to ensure the spawn area has terrain + colliders before
+    /// the player is placed.
+    /// </summary>
+    public void GenerateChunkSync(TerrainChunkCoord tc)
+    {
+        int cs = TerrainChunkCoord.ChunkSize;
+        int gridSize = TerrainChunkCoord.CornerGridSize;
+
+        float[,] corners = new float[gridSize, gridSize];
+        for (int gz = 0; gz < gridSize; gz++)
+        {
+            for (int gx = 0; gx < gridSize; gx++)
+            {
+                float worldX = (tc.X * cs + gx) * ChunkData.Size;
+                float worldZ = (tc.Z * cs + gz) * ChunkData.Size;
+                corners[gx, gz] = TerrainNoiseGenerator.GetHeight(Seed, worldX, worldZ);
+            }
+        }
+
+        for (int tz = 0; tz < cs; tz++)
+        {
+            for (int tx = 0; tx < cs; tx++)
+            {
+                ChunkCoord tileCoord = new ChunkCoord(tc.X * cs + tx, tc.Z * cs + tz);
+                if (_loadedObjects.ContainsKey(tileCoord))
+                    continue;
+
+                ChunkData data = new ChunkData(tileCoord.X, tileCoord.Z, Seed);
+                data.Heights[0] = corners[tx, tz + 1];
+                data.Heights[1] = corners[tx + 1, tz + 1];
+                data.Heights[2] = corners[tx + 1, tz];
+                data.Heights[3] = corners[tx, tz];
+                data.Version = 1;
+
+                _loadedData[tileCoord] = data;
+
+                ChunkObject obj = CreateOrPool(tileCoord);
+                obj.Apply(data, TerrainNoiseGenerator.DefaultLayers, GroundMaterial, buildCollider: true);
+                obj.SpawnProps(Seed);
+                _loadedObjects[tileCoord] = obj;
+            }
+        }
+    }
+
+    // --- Object lifecycle ---
 
     private ChunkObject CreateOrPool(ChunkCoord coord)
     {
