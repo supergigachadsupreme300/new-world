@@ -63,7 +63,10 @@ public enum NetOp : byte
     Chat = 4,
     Disconnect = 5,
     LobbyJoin = 6,
-    LobbyLeave = 7
+    LobbyLeave = 7,
+    PlayerAction = 8,
+    EnemyState = 9,
+    LootSync = 10
 }
 
 /// <summary>

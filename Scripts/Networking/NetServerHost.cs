@@ -71,18 +71,32 @@ public sealed class NetServerHost : MonoBehaviour
 
     private void HandleServerMessage(PlayerSession session, NetMessage msg)
     {
-        // Server-side protocol echo for now; state reconciliation arrives in Task 7.2.
-        if (msg.Op == NetOp.Chat)
+        // Route inbound messages to the authoritative state-sync handlers (Task 7.2).
+        switch (msg.Op)
         {
-            Debug.Log("[Net] " + session.PlayerName + ": " + ReadText(msg.Data));
+            case NetOp.PlayerState:
+                PlayerStateSync.ServerReceive(_server, session, msg);
+                break;
+            case NetOp.PlayerAction:
+                // Validated in Task 7.4 anti-cheat; ack + relay for now.
+                OnValidatedAction(session, msg);
+                break;
+            case NetOp.Chat:
+                ChatSync.ServerRelay(_server, session, msg);
+                break;
         }
     }
 
-    private static string ReadText(byte[] data)
+    private void OnValidatedAction(PlayerSession session, NetMessage msg)
     {
-        if (data == null || data.Length == 0) return "";
-        try { var r = new NetReader(data); return r.ReadString(); }
-        catch (Exception) { return ""; }
+        PlayerStateSync.UnpackAction(msg, out var action, out var target);
+        if (action == 0) return;
+        var relay = new NetMessage(NetOp.PlayerAction, session.Id, PlayerStateSync.ActionChannel, msg.Data);
+        foreach (var s in _server.Sessions)
+        {
+            if (s == session) continue;
+            _server.SendTo(s, relay);
+        }
     }
 
     private void OnDisable() => StopServer();

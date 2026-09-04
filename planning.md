@@ -288,10 +288,10 @@ Scripts/
 
 ### Task 7.2: State Synchronization
 
-- [ ] Player position/action sync (client prediction + server reconciliation)
-- [ ] Enemy state sync (AI, health, attacks)
-- [ ] Loot synchronization
-- [ ] Chat/text communication
+- [x] Player position/action sync (`PlayerStateSync`: client prediction + server reconciliation)
+- [x] Enemy state sync (`EnemyStateSync`: AI, health, attacks → client snapshots)
+- [x] Loot synchronization (`LootSync`: spawn / collect / despawn agreement)
+- [x] Chat/text communication (`ChatSync`: server relay + inbound buffer)
 
 ### Task 7.3: Game Modes
 
@@ -379,6 +379,10 @@ Scripts/Networking/
 ├── GameServer.cs             # NEW - dedicated server bootstrap (sessions, handshake, dispatch)
 ├── PlayerSession.cs          # NEW - session state (endpoint, ack, liveness, replicated pos)
 ├── ChunkSync.cs              # NEW - server generates heights → broadcasts ChunkData batches
+├── PlayerStateSync.cs        # NEW - client prediction + server reconciliation (player pos/action)
+├── EnemyStateSync.cs         # NEW - server-authoritative enemy snapshots (AI, health, attacks)
+├── LootSync.cs               # NEW - spawn/collect/despawn loot agreement across clients
+├── ChatSync.cs               # NEW - server-relayed chat + client inbound buffer
 └── NetServerHost.cs          # NEW - MonoBehaviour harness, guarded by NEWWORLD_SERVER
 ```
 > **Networking note:** Phase 7 adds a transport-agnostic layer with no external netcode
