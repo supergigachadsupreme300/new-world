@@ -46,6 +46,7 @@ public class PlayerController : MonoBehaviour
     private float _waterSpeedMul = 1f;
     private bool _waterAllowJump = true;
     private float _staminaRegenModifierUntil = 0f;
+    private int _jumpFrame = -100;
 
     private bool _dodging;
     private float _dodgeTimer;
@@ -206,6 +207,51 @@ public class PlayerController : MonoBehaviour
         }
         transform.rotation = Quaternion.identity;
         _velocity = Vector3.zero;
+        ClearSpawnOverlap();
+    }
+
+    /// <summary>
+    /// Guarantees the spawn volume is empty so the CharacterController is never
+    /// depenetration-pushed upward at start. If anything overlaps the capsule after
+    /// teleporting, lift the player just above the highest offending collider.
+    /// </summary>
+    private void ClearSpawnOverlap()
+    {
+        if (_controller == null)
+            return;
+
+        Physics.SyncTransforms();
+
+        Vector3 center = transform.position + _controller.center;
+        Vector3 half = Vector3.up * (_controller.height * 0.5f);
+        float radius = Mathf.Max(0.1f, _controller.radius);
+
+        Collider[] overlaps = Physics.OverlapCapsule(
+            center - half, center + half, radius,
+            Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+        if (overlaps == null || overlaps.Length == 0)
+            return;
+
+        float highest = float.MinValue;
+        Collider worst = null;
+        foreach (Collider col in overlaps)
+        {
+            if (col == null || col.transform == null || col.transform.IsChildOf(transform))
+                continue;
+            if (col.bounds.max.y > highest)
+            {
+                highest = col.bounds.max.y;
+                worst = col;
+            }
+        }
+
+        if (worst == null)
+            return;
+
+        float shieldY = highest + 1.2f;
+        transform.position = new Vector3(transform.position.x, shieldY, transform.position.z);
+        Debug.LogWarning($"[PlayerController] Spawn overlapped collider '{worst.name}' (top {highest:F2}); lifted player to {shieldY:F2} to avoid depenetration push.");
+        Physics.SyncTransforms();
     }
 
     public void EnableInput(bool enabled)
@@ -323,11 +369,20 @@ public class PlayerController : MonoBehaviour
                 if (_velocity.y < 0f)
                     _velocity.y = -1f;
 
-                if (_waterAllowJump && !dialogBlocked && !IsRiding && !_dodging &&
+                bool jumpPressed =
+                    _waterAllowJump && !dialogBlocked && !IsRiding && !_dodging &&
                     ((Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame) ||
-                     MobileInputController.Consume("jump")))
+                     MobileInputController.Consume("jump"));
+                if (jumpPressed)
                 {
                     _velocity.y = Mathf.Sqrt(JumpHeight * -2f * Gravity);
+                    _jumpFrame = Time.frameCount;
+                }
+                else if (_velocity.y > 0f && Time.frameCount > _jumpFrame + 2)
+                {
+                    // No jump in progress: any surviving upward velocity is a stray
+                    // injection/residual, so kill it or it would lift the player forever.
+                    _velocity.y = 0f;
                 }
             }
             else

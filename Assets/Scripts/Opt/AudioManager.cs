@@ -61,7 +61,9 @@ public sealed class AudioManager : MonoBehaviour
 
     private void BuildRig()
     {
-        if (GetComponent<AudioListener>() == null)
+        // Only add a listener if the scene has none; duplicating the Main Camera's
+        // listener trips the "2 audio listeners" warning and breaks spatialization.
+        if (Object.FindAnyObjectByType<AudioListener>() == null)
             gameObject.AddComponent<AudioListener>();
         _ambientA = MakeSource("AmbientA", true);
         _ambientB = MakeSource("AmbientB", true);
