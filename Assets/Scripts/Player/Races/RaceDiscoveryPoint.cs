@@ -39,30 +39,32 @@ public class RaceDiscoveryPoint : MonoBehaviour
         if (rm == null) return false;
 
         bool isHuman = string.Equals(Race.raceId, "human", System.StringComparison.OrdinalIgnoreCase);
-        bool hasStone = !RequiresRitualStone || isHuman; // Ritual Stone check hooked by inventory
-
-        if (!rm.IsUnlocked(Race))
-            rm.UnlockRace(Race.raceId);
+        bool hasStone = !RequiresRitualStone || isHuman
+            || (ToolManager.Instance != null && ToolManager.Instance.CountItem(RaceChangeManager.RitualStoneItemId) > 0);
 
         if (!hasStone)
         {
-            // No stone — we at least unlocked the race, but can't transform yet.
+            // Unlock the race regardless; the player can return with a stone to transform.
+            if (!rm.IsUnlocked(Race))
+                rm.UnlockRace(Race.raceId);
             return false;
         }
 
-        ApplyRace(player);
-        return true;
+        // Consent to the altar's transform cost (Human is always free).
+        bool changed = ApplyRace(player);
+        if (!changed && !isHuman && RequiresRitualStone)
+        {
+            // Unlock the race even when the transform was refused for another reason.
+            if (!rm.IsUnlocked(Race))
+                rm.UnlockRace(Race.raceId);
+        }
+        return changed;
     }
 
-    private void ApplyRace(PlayerStats player)
+    private bool ApplyRace(PlayerStats player)
     {
-        player.Race = Race;
-        player.Refresh();
-
-        var pm = player.GetComponent<RacePassiveManager>();
-        if (pm != null) pm.enabled = true; // triggers refresh next Update
-
-        var rig = player.GetComponent<RaceRig>();
-        if (rig != null) rig.ApplyRace(Race);
+        var mgr = player.GetComponent<RaceChangeManager>();
+        if (mgr == null) mgr = player.gameObject.AddComponent<RaceChangeManager>();
+        return mgr.SetActiveRace(Race, requireStone: RequiresRitualStone, unlockIfNeeded: true);
     }
 }

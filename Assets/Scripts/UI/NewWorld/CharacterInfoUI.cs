@@ -7,10 +7,11 @@ using TMPro;
 /// <summary>
 /// Phase 10/11: Character Info menu — a stacked multi-panel window with a top button bar. Each
 /// top button reveals one panel and hides the others (Stats / Skills / Inventory / Equipment /
-/// Class / Map). The Skills panel shows the per-category skill tree, lets the player spend skill
+/// Class / Race / Map). The Skills panel shows the per-category skill tree, lets the player spend skill
 /// points and assign a hotkey to a castable skill via <see cref="SkillBindings"/>. The Equipment
 /// panel is a humanoid 21-slot sheet (§5.4); the Class panel lists the 15 classes with unlock
-/// status and lets the player change their active class.
+/// status and lets the player change their active class; the Race panel lists the 22 races with
+/// unlock status and lets the player change their active race (non-Human costs a Ritual Stone).
 ///
 /// Composes existing PlayerStats / ToolManager / EquipmentSystem / GearCatalog / WeaponRigBuilder /
 /// SkillProfile / SkillBindings / SkillCatalog / ClassUnlocker without rewriting them. Built on
@@ -18,7 +19,7 @@ using TMPro;
 /// </summary>
 public sealed class CharacterInfoUI : MenuPanelBase
 {
-    public enum Tab { Stats = 0, Skills = 1, Inventory = 2, Equipment = 3, Class = 4, Map = 5 }
+    public enum Tab { Stats = 0, Skills = 1, Inventory = 2, Equipment = 3, Class = 4, Race = 5, Map = 6 }
 
     public Tab ActiveTab = Tab.Stats;
 
@@ -33,6 +34,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private TMP_Text _invLine;
     private TMP_Text _equipSummary;
     private TMP_Text _classLine;
+    private TMP_Text _raceLine;
     private TMP_Text _mapLine;
     private TMP_Text _captureLine;
 
@@ -60,7 +62,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
     private void BuildTopButtons()
     {
-        string[] names = { "Stats", "Skills", "Inventory", "Equipment", "Class", "Map" };
+        string[] names = { "Stats", "Skills", "Inventory", "Equipment", "Class", "Race", "Map" };
         float w = PanelRect.rect.width;
         float bw = w / names.Length;
         for (int i = 0; i < names.Length; i++)
@@ -126,6 +128,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _panels[Tab.Class] = MakePanel("ClassPanel");
         _classLine = MakeBodyText(_panels[Tab.Class].transform, "Classes", new Vector2(-200f, 10f), 460f, 320f);
         MakeButton(_panels[Tab.Class].transform, "CycleClassBtn", "Switch Active Class", new Vector2(150f, -300f), CycleActiveClass);
+
+        // Race panel (the 22-race roster, §3.5 with active-race selection + ritual stone cost).
+        _panels[Tab.Race] = MakePanel("RacePanel");
+        _raceLine = MakeBodyText(_panels[Tab.Race].transform, "Races", new Vector2(-200f, 10f), 460f, 320f);
+        MakeButton(_panels[Tab.Race].transform, "CycleRaceBtn", "Switch Active Race", new Vector2(150f, -300f), CycleActiveRace);
 
         // Map panel (placeholder summary; the dedicated WorldMapUI is separate).
         _panels[Tab.Map] = MakePanel("MapPanel");
@@ -219,7 +226,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             foreach (var g in GearCatalog.All)
             {
                 if (g == null || g.Slot != slot) continue;
-                if (equip.Get(equip.GearSlotOf(g.id)) == g.id) continue;
+                if (equip.Get(EquipmentSystem.GearSlotOf(g.id)) == g.id) continue;
                 equip.Equip(g.id);
                 break;
             }
@@ -236,6 +243,40 @@ public sealed class CharacterInfoUI : MenuPanelBase
         idx = (idx + 1) % unlocker.UnlockedClassIds.Count;
         unlocker.SetActiveClass(unlocker.UnlockedClassIds[idx]);
         RefreshClasses();
+    }
+
+    private void CycleActiveRace()
+    {
+        var mgr = RaceMgrOf();
+        if (mgr == null) return;
+
+        var roster = RaceDatabase.BuildDefaultRoster();
+        if (roster == null || roster.Count == 0) return;
+
+        var unlock = RaceUnlockManager.Instance;
+        string activeId = mgr.ActiveRace != null ? mgr.ActiveRace.raceId : "human";
+
+        // Walk the roster from the current race and pick the next selectable one.
+        int start = -1;
+        for (int i = 0; i < roster.Count; i++)
+            if (roster[i] != null && string.Equals(roster[i].raceId, activeId, System.StringComparison.OrdinalIgnoreCase))
+            { start = i; break; }
+        if (start < 0) start = 0;
+
+        for (int step = 1; step <= roster.Count; step++)
+        {
+            int i = (start + step) % roster.Count;
+            var r = roster[i];
+            if (r == null) continue;
+            if (unlock != null && !unlock.IsUnlocked(r)) continue;
+
+            if (mgr.SetActiveRace(r, requireStone: true, unlockIfNeeded: false))
+            {
+                RefreshRaces();
+                return;
+            }
+        }
+        _raceLine.text = Localization.T("No other unlocked race — collect a Ritual Stone or discover races.");
     }
 
     private void BuildSkillTypeBar(Transform parent)
@@ -355,6 +396,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             case Tab.Inventory: RefreshInventory(); break;
             case Tab.Equipment: RefreshEquipment(); break;
             case Tab.Class: RefreshClasses(); break;
+            case Tab.Race: RefreshRaces(); break;
             case Tab.Map: RefreshMap(); break;
         }
     }
@@ -535,6 +577,62 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _classLine.text = sb.ToString();
     }
 
+    private void RefreshRaces()
+    {
+        var mgr = RaceMgrOf();
+        var unlock = RaceUnlockManager.Instance;
+        var roster = RaceDatabase.BuildDefaultRoster();
+        if (mgr == null || roster == null)
+        {
+            _raceLine.text = Localization.T("No race system present on the player.");
+            return;
+        }
+
+        var active = mgr.ActiveRace;
+        string activeName = active != null && !string.IsNullOrEmpty(active.displayName) ? active.displayName : "—";
+        string activeId = active != null ? active.raceId : "human";
+
+        StringBuilder sb = new StringBuilder();
+        string stoneMark = mgr.RitualStoneCount > 0
+            ? Localization.F("   (Ritual Stones: {0})", mgr.RitualStoneCount)
+            : "   (no Ritual Stone)";
+        sb.Append(Localization.F("Active Race: {0}{1}", activeName, stoneMark)).Append('\n');
+        sb.Append(Localization.T("Stone cost: non-Human changes consume 1 Ritual Stone.")).Append('\n');
+
+        if (active != null)
+        {
+            sb.Append(active.displayName).Append(" — ").Append(active.PassiveDescription).Append('\n');
+            if (active.StatModifiers != null)
+            {
+                int n = 0;
+                for (int i = 0; i < PlayerStats.StatCount; i++)
+                {
+                    float mod = active.GetStatModifier((StatType)i);
+                    if (mod == 0f) continue;
+                    if (n != 0) sb.Append(", ");
+                    sb.Append(StatNames[i]).Append(" ").Append((mod > 0 ? "+" : "")).Append(mod.ToString("0")).Append("%");
+                    n++;
+                }
+                if (n > 0) sb.Append('\n');
+            }
+        }
+
+        if (roster != null)
+        {
+            int n = 0;
+            foreach (var r in roster)
+            {
+                if (r == null) continue;
+                string status = unlock != null && unlock.IsUnlocked(r) ? "✔" : "🔒";
+                string isActive = string.Equals(r.raceId, activeId, System.StringComparison.OrdinalIgnoreCase) ? "★" : " ";
+                sb.Append(status).Append(" ").Append(isActive).Append(" ").Append(r.displayName);
+                if (n != 21) sb.Append('\n');
+                n++;
+            }
+        }
+        _raceLine.text = sb.ToString();
+    }
+
     private void RefreshMap()
     {
         _mapLine.text = Localization.T("World Map — see the dedicated Map menu.\nChar Info Map is a placeholder summary.");
@@ -596,5 +694,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         var p = GameManager.Instance?.Player;
         return p != null ? p.GetComponent<ClassUnlocker>() : null;
+    }
+
+    private RaceChangeManager RaceMgrOf()
+    {
+        var p = GameManager.Instance?.Player;
+        return p != null ? p.GetComponent<RaceChangeManager>() : null;
     }
 }

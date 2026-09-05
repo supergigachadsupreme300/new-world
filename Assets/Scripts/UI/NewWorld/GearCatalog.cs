@@ -80,22 +80,22 @@ public static class GearCatalog
         list.Add(Armor("iron_sabatons", "Iron Sabatons", EquipSlot.Feet, 2.4f, 4f, 3.8f, 1.5f));
 
         // ── Accessory (14 slots) — passive stat bonuses (rings/necklace/ears/belt) ──
-        list.Add(Accessory("copper_ring", "Copper Ring", EquipSlot.Finger1, 0.2f, 1f));       // +1 Str
-        list.Add(Accessory("iron_ring", "Iron Ring", EquipSlot.Finger2, 0.3f, 1f, 0f, 0.5f));  // +1 End, +0.5 Lck
-        list.Add(Accessory("silver_ring", "Silver Ring", EquipSlot.Finger3, 0.2f, 0f, 1f));    // +1 Dex
-        list.Add(Accessory("gold_ring", "Gold Ring", EquipSlot.Finger4, 0.3f, 0f, 0f, 1f));    // +1 Lck
-        list.Add(Accessory("sapphire_ring", "Sapphire Ring", EquipSlot.Finger5, 0.2f, 0f, 0f, 0f, (StatType.Intelligence, 1f)));
-        list.Add(Accessory("ruby_ring", "Ruby Ring", EquipSlot.Finger6, 0.2f, 0f, 0f, 0f, (StatType.Strength, 2f)));
-        list.Add(Accessory("emerald_ring", "Emerald Ring", EquipSlot.Finger7, 0.2f, 0f, 0f, 0f, (StatType.Speed, 1f)));
-        list.Add(Accessory("amethyst_ring", "Amethyst Ring", EquipSlot.Finger8, 0.2f, 0f, 0f, 0f, (StatType.Wisdom, 1f)));
-        list.Add(Accessory("topaz_ring", "Topaz Ring", EquipSlot.Finger9, 0.2f, 0f, 0f, 0f, (StatType.Faith, 1f)));
-        list.Add(Accessory("diamond_ring", "Diamond Ring", EquipSlot.Finger10, 0.3f, 2f, 0f, 0f, (StatType.Luck, 2f)));
-        list.Add(Accessory("bronze_necklace", "Bronze Necklace", EquipSlot.Necklace, 0.5f, 1f, 0f, 0f, (StatType.Health, 5f)));
-        list.Add(Accessory("amethyst_necklace", "Amethyst Necklace", EquipSlot.Necklace, 0.5f, 0f, 2f));
-        list.Add(Accessory("earring_copper", "Copper Earring", EquipSlot.Ear1, 0.2f, 0f, 0f, 0f, (StatType.AttackSpeed, 1f)));
-        list.Add(Accessory("earring_silver", "Silver Earring", EquipSlot.Ear2, 0.2f, 0f, 0f, 1f));
-        list.Add(Accessory("leather_belt", "Leather Belt", EquipSlot.Belt, 0.4f, 1f, 0f, 0f, (StatType.Endurance, 2f)));
-        list.Add(Accessory("buckle_belt", "Buckled Belt", EquipSlot.Belt, 0.8f, 2f, 0f, 0f, (StatType.Strength, 2f)));
+        list.Add(Accessory("copper_ring", "Copper Ring", EquipSlot.Finger1, 0.2f, (StatType.Strength, 1f)));       // +1 Str
+        list.Add(Accessory("iron_ring", "Iron Ring", EquipSlot.Finger2, 0.3f, (StatType.Endurance, 1f), (StatType.Luck, 0.5f)));  // +1 End, +0.5 Lck
+        list.Add(Accessory("silver_ring", "Silver Ring", EquipSlot.Finger3, 0.2f, (StatType.Dexterity, 1f)));    // +1 Dex
+        list.Add(Accessory("gold_ring", "Gold Ring", EquipSlot.Finger4, 0.3f, (StatType.Luck, 1f)));    // +1 Lck
+        list.Add(Accessory("sapphire_ring", "Sapphire Ring", EquipSlot.Finger5, 0.2f, (StatType.Intelligence, 1f)));
+        list.Add(Accessory("ruby_ring", "Ruby Ring", EquipSlot.Finger6, 0.2f, (StatType.Strength, 2f)));
+        list.Add(Accessory("emerald_ring", "Emerald Ring", EquipSlot.Finger7, 0.2f, (StatType.Speed, 1f)));
+        list.Add(Accessory("amethyst_ring", "Amethyst Ring", EquipSlot.Finger8, 0.2f, (StatType.Wisdom, 1f)));
+        list.Add(Accessory("topaz_ring", "Topaz Ring", EquipSlot.Finger9, 0.2f, (StatType.Faith, 1f)));
+        list.Add(Accessory("diamond_ring", "Diamond Ring", EquipSlot.Finger10, 0.3f, (StatType.Defense, 2f), (StatType.Luck, 2f)));
+        list.Add(Accessory("bronze_necklace", "Bronze Necklace", EquipSlot.Necklace, 0.5f, (StatType.Defense, 1f), (StatType.Health, 5f)));
+        list.Add(Accessory("amethyst_necklace", "Amethyst Necklace", EquipSlot.Necklace, 0.5f, (StatType.Dexterity, 2f)));
+        list.Add(Accessory("earring_copper", "Copper Earring", EquipSlot.Ear1, 0.2f, (StatType.AttackSpeed, 1f)));
+        list.Add(Accessory("earring_silver", "Silver Earring", EquipSlot.Ear2, 0.2f, (StatType.Luck, 1f)));
+        list.Add(Accessory("leather_belt", "Leather Belt", EquipSlot.Belt, 0.4f, (StatType.Defense, 1f), (StatType.Endurance, 2f)));
+        list.Add(Accessory("buckle_belt", "Buckled Belt", EquipSlot.Belt, 0.8f, (StatType.Defense, 2f), (StatType.Strength, 2f)));
 
         return list;
     }
@@ -121,7 +121,6 @@ public static class GearCatalog
     }
 
     private static GearDef Accessory(string id, string name, EquipSlot slot, float weight,
-        float defense = 0f, float str = 0f, float dex = 0f, float luck = 0f,
         params (StatType stat, float amt)[] bonus)
     {
         var g = new GearDef
@@ -131,11 +130,7 @@ public static class GearCatalog
             Slot = slot,
             Genre = EquipGenre.Accessory,
             Weight = weight,
-            Defense = defense,
         };
-        if (str > 0f) g.StatBonus[(int)StatType.Strength] += str;
-        if (dex > 0f) g.StatBonus[(int)StatType.Dexterity] += dex;
-        if (luck > 0f) g.StatBonus[(int)StatType.Luck] += luck;
         foreach (var (stat, amt) in bonus)
             g.StatBonus[(int)stat] += amt;
         return g;

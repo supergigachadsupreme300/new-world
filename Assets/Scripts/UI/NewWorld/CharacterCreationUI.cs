@@ -124,12 +124,13 @@ public sealed class CharacterCreationUI : MenuPanelBase
     {
         if (_pool.Count == 0) return;
         RaceData r = _pool[Mathf.Max(0, _selected)];
-        if (_stats != null) _stats.Race = r;
-        if (_stats != null)
-        {
-            _stats.Refresh();
-            GameManager.Instance?.UIManager?.ShowMessage(
-                Localization.F("Đã đọn cá gj: {0}", r.displayName), 2.5f);
-        }
+        if (_stats == null) return;
+
+        var mgr = _stats.GetComponent<RaceChangeManager>();
+        if (mgr == null) mgr = _stats.gameObject.AddComponent<RaceChangeManager>();
+        mgr.SetActiveRace(r, requireStone: false, unlockIfNeeded: true);
+
+        GameManager.Instance?.UIManager?.ShowMessage(
+            Localization.F("Đã đọn cá gj: {0}", r.displayName), 2.5f);
     }
 }

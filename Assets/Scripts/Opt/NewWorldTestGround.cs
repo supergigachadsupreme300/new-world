@@ -39,6 +39,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableSkills = true;
     [Tooltip("Equip a starter armor/accessory set into the 21-slot equipment system (testing).")]
     public bool EnableGear = true;
+    [Tooltip("Wire the RaceChangeManager, unlock every race, and grant Ritual Stones for the Race tab (testing).")]
+    public bool EnableRaces = true;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
@@ -80,6 +82,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (EnableWeapons) SpawnAllWeapons();
         if (EnableSkills) GrantAllSkills();
         if (EnableGear) GrantStarterGear();
+        if (EnableRaces) GrantRaceAccess();
 
         var player = GameManager.Instance?.Player;
         if (player != null)
@@ -371,6 +374,33 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
         if (player.GetComponent<ClassUnlocker>() == null)
             player.gameObject.AddComponent<ClassUnlocker>();
+    }
+
+    /// <summary>
+    /// Wire the player's active-race manager, unlock the full 22-race roster, and grant a few
+    /// Ritual Stones (testing) so the Character Info Race tab can exercise race changes.
+    /// </summary>
+    private void GrantRaceAccess()
+    {
+        var player = GameManager.Instance?.Player;
+        if (player == null) return;
+
+        var mgr = player.GetComponent<RaceChangeManager>();
+        if (mgr == null)
+            mgr = player.gameObject.AddComponent<RaceChangeManager>();
+
+        var unlocker = RaceUnlockManager.Instance;
+        var roster = RaceDatabase.BuildDefaultRoster();
+        if (unlocker != null && roster != null)
+        {
+            foreach (var r in roster)
+                if (r != null && !string.IsNullOrEmpty(r.raceId))
+                    unlocker.UnlockRace(r.raceId);
+        }
+
+        var tm = ToolManager.Instance;
+        if (tm != null && tm.CountItem(RaceChangeManager.RitualStoneItemId) < 3)
+            tm.AddItem(RaceChangeManager.RitualStoneItemId, 3 - tm.CountItem(RaceChangeManager.RitualStoneItemId));
     }
 
     private static Material SolidMaterial(Color c)

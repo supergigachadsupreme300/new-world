@@ -44,15 +44,9 @@ public class CharacterCreation : MonoBehaviour
 
         ApplyStartingStats();
 
-        _player.Race = race;
-        _player.Refresh();
-
-        var rig = _player.GetComponent<RaceRig>();
-        if (rig == null) rig = _player.gameObject.AddComponent<RaceRig>();
-        rig.ApplyRace(race);
-
-        var pm = _player.GetComponent<RacePassiveManager>();
-        if (pm == null) pm = _player.gameObject.AddComponent<RacePassiveManager>();
+        var mgr = _player.GetComponent<RaceChangeManager>();
+        if (mgr == null) mgr = _player.gameObject.AddComponent<RaceChangeManager>();
+        mgr.SetActiveRace(race, requireStone: false, unlockIfNeeded: true);
     }
 
     private void ApplyStartingStats()
