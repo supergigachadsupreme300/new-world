@@ -14,7 +14,7 @@ public sealed class CompassMinimapHUD : MonoBehaviour
 {
     [Header("Layout")]
     public bool ShowOnInGame = true;
-    [Range(0.08f, 0.35f)] public float MinimapRadiusFraction = 0.16f;
+    [Range(0.08f, 0.35f)] public float MinimapRadiusFraction = 0.18f;
 
     /// <summary>World metres shown across the minimap diameter.</summary>
     public float ViewSize = 40f;
@@ -36,7 +36,10 @@ public sealed class CompassMinimapHUD : MonoBehaviour
         // Compass strip (top-centre).
         var compassRoot = HudCanvas.CreateBackdrop(_canvas.transform, "CompassStrip",
             new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-            new Vector2(0f, -6f), new Vector2(w * 0.5f, 28f));
+            new Vector2(0f, 0f), new Vector2(w * 0.5f, 34f));
+        // Hug the top edge (pivot at the strip's top so it hangs fully on screen
+        // instead of being clipped) and clear the HP bar cluster on the left.
+        compassRoot.pivot = new Vector2(0.5f, 1f);
         _compassLabel = MakeLabel(compassRoot, "N", Vector2.zero, Color.white);
 
         // Minimap circle + grid host (bottom-right).

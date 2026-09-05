@@ -22,17 +22,25 @@ public sealed class SkillBarHUD : MonoBehaviour
     private void OnEnable()
     {
         _canvas = HudCanvas.CreateOverlay("SkillBarCanvas");
+        float w = Mathf.Max(Screen.width, 1f);
         float h = Mathf.Max(Screen.height, 1);
-        float slotSize = h * 0.075f;
-        float spacing = slotSize * 1.2f;
+        float slotSize = h * 0.10f;
+        float spacing = slotSize * 1.5f;
         float total = (SlotCount - 1) * spacing;
         float startX = -total * 0.5f;
+
+        // Sit the skill bar above the restored 10-slot inventory bar (legacy layout:
+        // bottom-centre, top edge ≈ 6% screen height + one slot width). Convert that
+        // screen-pixel clearance into this overlay's canvas units (UiScale-aware).
+        float canvasScale = w / (1280f / MenuPanelBase.UiScale);
+        float invTopPx = h * 0.06f + w * 0.065f + 12f;
+        float posY = invTopPx / canvasScale + slotSize * 0.5f;
 
         for (int i = 0; i < SlotCount; i++)
         {
             var slot = HudCanvas.CreateBackdrop(_canvas.transform, "Slot_" + i,
                 new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(startX + i * spacing, slotSize), new Vector2(slotSize, slotSize));
+                new Vector2(startX + i * spacing, posY), new Vector2(slotSize, slotSize));
             _slotImages[i] = HudCanvas.CreateBar(slot, "Progress", Vector2.zero, Vector2.one,
                 new Vector2(0f, 0f), Vector2.zero, new Vector2(slotSize, slotSize),
                 new Color(0f, 0f, 0f, 0.6f), DefaultColor(i));
@@ -45,7 +53,7 @@ public sealed class SkillBarHUD : MonoBehaviour
             lr.offsetMin = Vector2.zero;
             lr.offsetMax = Vector2.zero;
             var tmp = label.AddComponent<TextMeshProUGUI>();
-            tmp.fontSize = Mathf.Max(14f, h / 64f);
+            tmp.fontSize = Mathf.Max(15f, h / 60f);
             tmp.color = Color.white;
             tmp.alignment = TextAlignmentOptions.Center;
             _slotTexts[i] = tmp;

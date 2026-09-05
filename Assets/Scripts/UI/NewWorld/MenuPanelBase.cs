@@ -22,8 +22,8 @@ public abstract class MenuPanelBase : MonoBehaviour
     public static int OpenCount => _open.Count;
     public static bool AnyShown => _open.Count > 0;
 
-    /// <summary>Bulk-size knob for the new UI (default 1.0 = legacy-proportional 1280x720 reference).</summary>
-    public static float UiScale = 1f;
+    /// <summary>Bulk-size knob for the new UI (default 1.2 = ~20% larger than legacy 1280x720).</summary>
+    public static float UiScale = 1.2f;
 
     /// <summary>Close the most recently opened panel overlay.</summary>
     public static void CloseTopmost()
@@ -46,6 +46,9 @@ public abstract class MenuPanelBase : MonoBehaviour
         var scaler = canvasGo.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1280f / UiScale, 720f / UiScale);
+        // Without a raycaster the EventSystem never raycasts this canvas, so every
+        // button on the menu is unclickable while keyboard shortcuts keep working.
+        canvasGo.AddComponent<GraphicRaycaster>();
 
         // Full-screen dim.
         var overlay = new GameObject("Overlay");
@@ -70,7 +73,19 @@ public abstract class MenuPanelBase : MonoBehaviour
         var h = Mathf.Min(Screen.height * 0.8f, 486f);
         PanelRect.sizeDelta = new Vector2(w, h);
         var panelImg = panel.AddComponent<Image>();
-        panelImg.color = ColorPalette.UIBackdrop;
+        var menuTex = Resources.Load<Texture2D>("menu");
+        if (menuTex != null)
+        {
+            panelImg.sprite = Sprite.Create(menuTex,
+                new Rect(0, 0, menuTex.width, menuTex.height), new Vector2(0.5f, 0.5f));
+            panelImg.type = Image.Type.Simple;
+            panelImg.preserveAspect = false;
+            panelImg.color = Color.white;
+        }
+        else
+        {
+            panelImg.color = ColorPalette.UIBackdrop;
+        }
 
         // Title.
         var titleGo = new GameObject("Title");

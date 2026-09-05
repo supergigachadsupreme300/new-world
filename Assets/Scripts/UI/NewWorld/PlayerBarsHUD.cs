@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 /// <summary>
 /// Phase 8 (Task 8.1): real HP / FP / Stamina fill bars. Complements the existing text HUD
@@ -12,10 +13,17 @@ public sealed class PlayerBarsHUD : MonoBehaviour
 {
     public bool ShowOnInGame = true;
 
+    private const float BarWidth = 340f;
+    private const float BarHeight = 30f;
+    private const float BarSpacing = 36f;
+
     private Canvas _canvas;
     private Image _hpFill;
     private Image _fpFill;
     private Image _stamFill;
+    private TMP_Text _hpText;
+    private TMP_Text _fpText;
+    private TMP_Text _stamText;
     private float _lastHp = -1f, _lastMaxHp = -1f;
     private float _lastFp = -1f, _lastMaxFp = -1f;
     private float _lastStam = -1f, _lastMaxStam = -1f;
@@ -35,20 +43,40 @@ public sealed class PlayerBarsHUD : MonoBehaviour
         // HP bar (top-left, full)
         _hpFill = HudCanvas.CreateBar(rect, "HPBar",
             new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-            new Vector2(16f, top), new Vector2(325f, 28f),
+            new Vector2(16f, top), new Vector2(BarWidth, BarHeight),
             new Color(0f, 0f, 0f, 0.65f), new Color(0.8f, 0.16f, 0.14f));
+        _hpText = MakeLabel(_hpFill.transform.parent as RectTransform);
 
-        // FP bar (under HP, shorter)
+        // FP bar (under HP, same width)
         _fpFill = HudCanvas.CreateBar(rect, "FPBar",
             new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-            new Vector2(16f, top - 33f), new Vector2(250f, 18f),
+            new Vector2(16f, top - BarSpacing), new Vector2(BarWidth, BarHeight),
             new Color(0f, 0f, 0f, 0.65f), new Color(0.16f, 0.5f, 0.85f));
+        _fpText = MakeLabel(_fpFill.transform.parent as RectTransform);
 
-        // Stamina bar (under FP, shortest)
+        // Stamina bar (under FP, same width)
         _stamFill = HudCanvas.CreateBar(rect, "StaminaBar",
             new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-            new Vector2(16f, top - 58f), new Vector2(213f, 13f),
+            new Vector2(16f, top - BarSpacing * 2f), new Vector2(BarWidth, BarHeight),
             new Color(0f, 0f, 0f, 0.65f), new Color(0.2f, 0.8f, 0.3f));
+        _stamText = MakeLabel(_stamFill.transform.parent as RectTransform);
+    }
+
+    private static TMP_Text MakeLabel(RectTransform barRoot)
+    {
+        var go = new GameObject("Label");
+        go.transform.SetParent(barRoot, false);
+        var rect = go.AddComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        var tmp = go.AddComponent<TextMeshProUGUI>();
+        tmp.fontSize = Mathf.Max(14f, Screen.height / 70f);
+        tmp.color = Color.white;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.raycastTarget = false;
+        return tmp;
     }
 
     private void Update()
@@ -74,6 +102,9 @@ public sealed class PlayerBarsHUD : MonoBehaviour
         UpdateBar(_hpFill, hp, maxHp, ref _lastHp, ref _lastMaxHp);
         UpdateBar(_stamFill, stam, maxStam, ref _lastStam, ref _lastMaxStam);
         UpdateBar(_fpFill, fp, maxFp, ref _lastFp, ref _lastMaxFp);
+        UpdateLabel(_hpText, "HP", hp, maxHp);
+        UpdateLabel(_fpText, "FP", fp, maxFp);
+        UpdateLabel(_stamText, "Stam", stam, maxStam);
 
         // Damage flash
         if (hp < _lastHp && _hpFill != null)
@@ -96,6 +127,12 @@ public sealed class PlayerBarsHUD : MonoBehaviour
         lastCur = cur;
         lastMax = max;
         fill.fillAmount = Mathf.Clamp01(cur / max);
+    }
+
+    private static void UpdateLabel(TMP_Text label, string name, float cur, float max)
+    {
+        if (label == null) return;
+        label.text = name + " " + Mathf.RoundToInt(cur) + "/" + Mathf.RoundToInt(max);
     }
 
     private static float ReadCurrentFp(Transform player)

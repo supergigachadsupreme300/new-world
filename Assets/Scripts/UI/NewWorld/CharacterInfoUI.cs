@@ -34,18 +34,51 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private TMP_Text _statsLine;
     private TMP_Text _skillListLine;
     private TMP_Text _skillPointsLine;
-    private TMP_Text _invLine;
     private TMP_Text _equipSummary;
     private TMP_Text _classLine;
     private TMP_Text _raceLine;
     private TMP_Text _mapLine;
     private TMP_Text _captureLine;
+    private TMP_Text _moneyLine;
+
+    private readonly Image[] _invImgs = new Image[10];
+    private readonly TMP_Text[] _invLabels = new TMP_Text[10];
+    private int _invSelected = -1;
 
     private readonly Dictionary<EquipSlot, TMP_Text> _equipSlotLabels = new Dictionary<EquipSlot, TMP_Text>();
     private readonly List<TMP_Text> _classRowLabels = new List<TMP_Text>();
 
     private static readonly Color WeaponIdleColor = new Color(0.14f, 0.16f, 0.2f, 0.95f);
     private static readonly Color WeaponSelectedColor = new Color(0.3f, 0.6f, 0.9f, 0.95f);
+
+    private static Sprite _menuButtonSprite;
+    private static Sprite MenuButtonSprite()
+    {
+        if (_menuButtonSprite == null)
+        {
+            var tex = Resources.Load<Texture2D>("stats menu button");
+            if (tex != null)
+                _menuButtonSprite = Sprite.Create(tex,
+                    new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+        }
+        return _menuButtonSprite;
+    }
+
+    private static void ApplyMenuButtonSprite(Image img)
+    {
+        var sprite = MenuButtonSprite();
+        if (sprite != null)
+        {
+            img.sprite = sprite;
+            img.type = Image.Type.Simple;
+            img.preserveAspect = false;
+            img.color = Color.white;
+        }
+        else
+        {
+            img.color = new Color(0.2f, 0.2f, 0.26f, 0.95f);
+        }
+    }
     private const int WeaponGridCols = 2;
     private const int WeaponGridRows = 8;
     private const int WeaponGridCount = WeaponGridCols * WeaponGridRows;
@@ -101,7 +134,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchoredPosition = new Vector2(bw * (0.5f + i), -56f);
             rt.sizeDelta = new Vector2(bw - 6f, 44f);
             var img = go.AddComponent<Image>();
-            img.color = new Color(0.16f, 0.16f, 0.22f, 0.95f);
+            ApplyMenuButtonSprite(img);
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             Tab captured = tab;
@@ -117,7 +150,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var lt = label.AddComponent<TextMeshProUGUI>();
             GameManager.Instance?.UIManager?.ApplyDefaultFont(lt);
             lt.text = name;
-            lt.fontSize = Mathf.Max(18f, Screen.height / 52f);
+            lt.fontSize = Mathf.Max(20f, Screen.height / 44f);
             lt.color = Color.white;
             lt.alignment = TextAlignmentOptions.Center;
         }
@@ -127,7 +160,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         // Stats panel.
         _panels[Tab.Stats] = MakePanel("StatsPanel");
-        _statsLine = MakeBodyText(_panels[Tab.Stats].transform, "Stats", new Vector2(-200f, 10f), 460f, 300f);
+        _statsLine = MakeBodyText(_panels[Tab.Stats].transform, "Stats", new Vector2(-30f, -20f), 560f, 360f);
+        _statsLine.fontSize = Mathf.Max(22f, Screen.height / 40f);
 
         // Skills panel.
         _panels[Tab.Skills] = MakePanel("SkillsPanel");
@@ -138,9 +172,10 @@ public sealed class CharacterInfoUI : MenuPanelBase
         MakeButton(_panels[Tab.Skills].transform, "LearnBtn", "Learn Selected", new Vector2(150f, -170f), LearnSelected);
         MakeButton(_panels[Tab.Skills].transform, "AssignKeyBtn", "Assign Key", new Vector2(150f, -210f), AssignNextSkillKey);
 
-        // Inventory panel: tool slots (left) + clickable/draggable owned weapons (right).
+        // Inventory panel: 10 tool slots (left) + clickable/draggable owned weapons (right).
         _panels[Tab.Inventory] = MakePanel("InventoryPanel");
-        _invLine = MakeBodyText(_panels[Tab.Inventory].transform, "Inventory", new Vector2(-300f, 130f), 250f, 280f);
+        BuildInventorySlots(_panels[Tab.Inventory].transform);
+        _moneyLine = MakeBodyText(_panels[Tab.Inventory].transform, "Money", new Vector2(-300f, -46f), 260f, 30f);
         _weaponHint = MakeBodyText(_panels[Tab.Inventory].transform, "WeaponHint", new Vector2(-300f, -168f), 580f, 32f);
         _weaponHint.text = Localization.T("Click a weapon, then a hand slot — or drag it onto L/R Hand.");
         BuildWeaponGrid(_panels[Tab.Inventory].transform);
@@ -163,6 +198,60 @@ public sealed class CharacterInfoUI : MenuPanelBase
         // Map panel (placeholder summary; the dedicated WorldMapUI is separate).
         _panels[Tab.Map] = MakePanel("MapPanel");
         _mapLine = MakeBodyText(_panels[Tab.Map].transform, "Map", new Vector2(-200f, 10f), 460f, 300f);
+    }
+
+    // ── Tool-slot inventory grid (Inventory tab) ─────────────────────────────
+    // 5x2 grid of the player's 10 tool/inventory slots. Clicking a slot selects it via
+    // ToolManager (mirrors the legacy bottom bar), highlights the selection, and shows the
+    // item name + count; money is shown underneath.
+    private void BuildInventorySlots(Transform parent)
+    {
+        MakeBodyText(parent, "InventoryHeader", new Vector2(-300f, 200f), 300f, 32f)
+            .text = Localization.T("Inventory");
+
+        for (int i = 0; i < 10; i++)
+        {
+            int col = i % 5;
+            int row = i / 5;
+
+            var go = new GameObject("InvSlot_" + i);
+            go.transform.SetParent(parent, false);
+            var rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(-300f + col * 62f, 168f - row * 62f);
+            rt.sizeDelta = new Vector2(56f, 56f);
+            var img = go.AddComponent<Image>();
+            img.color = new Color(0.14f, 0.16f, 0.2f, 0.95f);
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            int captured = i;
+            btn.onClick.AddListener(() => SelectInventorySlot(captured));
+
+            var label = new GameObject("Label");
+            label.transform.SetParent(go.transform, false);
+            var lr = label.AddComponent<RectTransform>();
+            lr.anchorMin = Vector2.zero;
+            lr.anchorMax = Vector2.one;
+            lr.offsetMin = Vector2.zero;
+            lr.offsetMax = Vector2.zero;
+            var tmp = label.AddComponent<TextMeshProUGUI>();
+            GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
+            tmp.fontSize = Mathf.Max(12f, Screen.height / 78f);
+            tmp.color = Color.white;
+            tmp.alignment = TextAlignmentOptions.Center;
+
+            _invImgs[i] = img;
+            _invLabels[i] = tmp;
+        }
+    }
+
+    private void SelectInventorySlot(int index)
+    {
+        _invSelected = index;
+        ToolManager.Instance?.SelectSlot(index);
+        RefreshInventory();
     }
 
     // ── Owned-weapon grid (Inventory tab) ────────────────────────────────────
@@ -530,7 +619,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         rt.anchoredPosition = pos;
         rt.sizeDelta = new Vector2(190f, 38f);
         var img = go.AddComponent<Image>();
-        img.color = new Color(0.2f, 0.25f, 0.3f, 0.95f);
+        ApplyMenuButtonSprite(img);
         var btn = go.AddComponent<Button>();
         btn.targetGraphic = img;
         btn.onClick.AddListener(onClick);
@@ -544,7 +633,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var lt = l.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(lt);
         lt.text = label;
-        lt.fontSize = Mathf.Max(16f, Screen.height / 56f);
+        lt.fontSize = Mathf.Max(18f, Screen.height / 48f);
         lt.color = Color.white;
         lt.alignment = TextAlignmentOptions.Center;
     }
@@ -642,18 +731,21 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         var tm = ToolManager.Instance;
         var player = GameManager.Instance?.Player;
-        StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 10; i++)
         {
             var slot = tm != null ? tm.PeekSlot(i) : null;
-            string label = slot == null || slot.Type == null || slot.Count <= 0
-                ? "(trống)"
-                : Localization.ItemName(slot.Type) + " x" + slot.Count;
-            sb.Append(i + 1).Append(": ").Append(label);
-            if (i != 9) sb.Append("\n");
+            string body = slot == null || slot.Type == null || slot.Count <= 0
+                ? ""
+                : Localization.ItemName(slot.Type) + " " + slot.Count;
+            if (_invLabels[i] != null)
+                _invLabels[i].text = string.IsNullOrEmpty(body) ? (i + 1).ToString() : (i + 1) + "\n" + body;
+            if (_invImgs[i] != null)
+                _invImgs[i].color = _invSelected == i
+                    ? new Color(0.35f, 0.55f, 0.75f, 0.95f)
+                    : new Color(0.14f, 0.16f, 0.2f, 0.95f);
         }
-        sb.Append('\n').Append(Localization.F("Tiền: {0}", player != null ? player.Money : 0L));
-        _invLine.text = sb.ToString();
+        if (_moneyLine != null)
+            _moneyLine.text = Localization.F("Tiền: {0}", player != null ? player.Money : 0L);
     }
 
     private void RefreshEquipment()

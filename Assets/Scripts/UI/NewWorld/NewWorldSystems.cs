@@ -14,7 +14,7 @@ public sealed class NewWorldSystems : MonoBehaviour
     public bool EnableHUD = true;
     public bool EnableMenus = true;
     public bool EnableInteraction = true;
-    [Tooltip("Hide the legacy UIManager stat-text + inventory-slot HUD, which the new HUD (bars, skill bar, menus) replaces. Message/crosshair/quest panels are kept.")]
+    [Tooltip("Hide the legacy UIManager stat-text HUD, which the new HUD (bars, skill bar, menus) replaces. The 10-slot inventory bar, message/crosshair/quest panels are kept.")]
     public bool UseNewHud = true;
     [Tooltip("Multiplayer overlay is a specialized HUD indicator; disable to avoid an idle poller by default.")]
     public bool EnableMultiplayerIndicator = false;

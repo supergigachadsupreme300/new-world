@@ -54,8 +54,7 @@ public partial class UIManager
         _staminaText?.gameObject.SetActive(false);
         _moneyText?.gameObject.SetActive(false);
         _questText?.gameObject.SetActive(false);
-        for (int i = 0; i < InventorySlotCount; i++)
-            if (_inventorySlots[i] != null) _inventorySlots[i].SetActive(false);
+        // The 10-slot inventory bar stays visible (new HUD doesn't replace it).
     }
 
     public void SetCrosshairVisible(bool visible)
