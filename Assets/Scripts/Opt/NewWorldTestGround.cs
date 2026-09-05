@@ -199,8 +199,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
         {
             var go = new GameObject("TestEnemy_" + ids[i]);
             go.transform.position = new Vector3(startX + i * 6f, PlatformCenter.y + 0.05f, z);
-            go.AddComponent<Collider>();
-            go.AddComponent<EnemyController>().EnemyId = ids[i];
+            go.AddComponent<SphereCollider>();
+            go.AddComponent<EnemyController>().ApplyEnemyId(ids[i]);
         }
 
         if (IncludeBoss)

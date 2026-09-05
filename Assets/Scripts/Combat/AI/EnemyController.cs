@@ -62,6 +62,17 @@ public class EnemyController : MonoBehaviour, IDamageable
     /// <summary>MaxStat% bonus for this enemy tier (used by spawned variants).</summary>
     public float TierScale = 1f;
 
+    /// <summary>
+    /// Assign the enemy type id and build its procedural model immediately.
+    /// Needed for runtime-created enemies where Awake fires before EnemyId is set.
+    /// </summary>
+    public void ApplyEnemyId(string id)
+    {
+        EnemyId = id;
+        if (ModelRoot == null)
+            ModelRoot = EnemyModelBuilder.BuildEnemy(transform, id);
+    }
+
     private Transform _target;
     private readonly System.Collections.Generic.List<Transform> _targets = new System.Collections.Generic.List<Transform>();
     private Vector3 _origin;
