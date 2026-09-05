@@ -48,6 +48,11 @@ public sealed class AudioManager : MonoBehaviour
     private float _musicTarget;
     private Biome _current;
 
+    // Audio sources are parented to this movable rig. The manager's own transform is never
+    // moved: AudioManager can be hosted on GameRoot or (in a bare-scene bootstrap) on the
+    // player, and moving its transform would teleport that host object off the ground.
+    private Transform _rig;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -61,6 +66,9 @@ public sealed class AudioManager : MonoBehaviour
 
     private void BuildRig()
     {
+        _rig = new GameObject("AudioRig").transform;
+        _rig.SetParent(transform, false);
+
         // Only add a listener if the scene has none; duplicating the Main Camera's
         // listener trips the "2 audio listeners" warning and breaks spatialization.
         if (Object.FindAnyObjectByType<AudioListener>() == null)
@@ -75,7 +83,7 @@ public sealed class AudioManager : MonoBehaviour
     private AudioSource MakeSource(string name, bool loop)
     {
         var go = new GameObject(name);
-        go.transform.SetParent(transform, false);
+        go.transform.SetParent(_rig != null ? _rig : transform, false);
         var src = go.AddComponent<AudioSource>();
         src.loop = loop;
         src.spatialBlend = loop ? 0f : 1f;
@@ -85,12 +93,13 @@ public sealed class AudioManager : MonoBehaviour
 
     private void Update()
     {
-        // Keep the rig parented to the camera/listener each frame.
+        // Keep the audio rig parented to the camera/listener each frame. Only the rig
+        // moves — never AudioManager.transform, which may be shared with the player.
         var cam = Camera.main;
         if (cam != null)
-            transform.position = cam.transform.position;
+            _rig.position = cam.transform.position;
         else if (GameManager.Instance?.Player != null)
-            transform.position = GameManager.Instance.Player.transform.position;
+            _rig.position = GameManager.Instance.Player.transform.position;
 
         float ambientTarget = AmbientVolume;
         float t = GameManager.Instance != null ? GameManager.Instance.TimeOfDay : 12f;

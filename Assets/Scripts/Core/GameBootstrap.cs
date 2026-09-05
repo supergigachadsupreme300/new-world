@@ -28,7 +28,12 @@ public class GameBootstrap : MonoBehaviour
         }
         else
         {
-            playerController = root.AddComponent<PlayerController>();
+            // Keep the synthesized player on its own object: root hosts the shared singletons
+            // (incl. NewWorldSystems/AudioManager) and must never be the player, otherwise
+            // those managers writing to their own transform would teleport the player.
+            var playerObject = new GameObject("Player");
+            playerController = playerObject.AddComponent<PlayerController>();
+            Object.DontDestroyOnLoad(playerObject);
         }
         var mainMenuController = Object.FindAnyObjectByType<MainMenuController>() ?? root.AddComponent<MainMenuController>();
         var saveManager = Object.FindAnyObjectByType<SaveManager>() ?? root.AddComponent<SaveManager>();
