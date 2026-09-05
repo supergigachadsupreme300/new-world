@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -44,6 +45,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
+    private readonly List<WeaponRackStand> _rackStands = new List<WeaponRackStand>();
+    private ContextPromptUI _contextPrompt;
     private static readonly int TestRootLayer = 0;
 
     /// <summary>XZ bounds + top height of the built test platform (for prop suppression).</summary>
@@ -120,7 +123,11 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (EnableBuildings) SpawnBuildings();
         if (EnableNpcs) SpawnNpcs();
         if (EnablePoiHub) RegisterPoiHub();
-        if (EnableWeapons) SpawnAllWeapons();
+        if (EnableWeapons)
+        {
+            SpawnAllWeapons();
+            SpawnWeaponRack();
+        }
         if (EnableSkills) GrantAllSkills();
         if (EnableGear) GrantStarterGear();
         if (EnableRaces) GrantRaceAccess();
@@ -360,8 +367,9 @@ public sealed class NewWorldTestGround : MonoBehaviour
     }
 
     /// <summary>
-    /// Ensure the player has the Phase 10 combat/skill stack and equip the starter weapon.
-    /// All 15 weapons remain available to cycle via Character Info > Equipment.
+    /// Ensure the player has the Phase 10 combat/skill stack, wire the weapon inventory (owned
+    /// weapons feed the Character Info > Inventory list / Equipment hand slots), and equip the
+    /// starter weapon.
     /// </summary>
     private void SpawnAllWeapons()
     {
@@ -371,9 +379,97 @@ public sealed class NewWorldTestGround : MonoBehaviour
         WeaponCatalog.EnsureBuilt();
         WeaponRigBuilder.EnsureCombatStack(player.gameObject);
 
+        var inv = player.GetComponent<WeaponInventory>();
+        if (inv == null)
+            inv = player.gameObject.AddComponent<WeaponInventory>();
+        inv.EnsureOwned(WeaponCatalog.StarterWeaponId);
+
         var starter = WeaponCatalog.Find(WeaponCatalog.StarterWeaponId);
         if (starter != null)
             WeaponRigBuilder.EquipInto(player.gameObject, starter);
+    }
+
+    /// <summary>
+    /// Place one pedestal stand per catalog weapon along the platform's west edge so every weapon
+    /// is visible on the test ground. Pressing E on a stand adds it to the player's inventory
+    /// (see <see cref="PlayerController.HandleInteractionKeys"/>).
+    /// </summary>
+    private void SpawnWeaponRack()
+    {
+        WeaponCatalog.EnsureBuilt();
+        _rackStands.Clear();
+
+        var all = WeaponCatalog.All;
+        if (all == null || all.Count == 0) return;
+
+        float x = PlatformCenter.x - PlatformSize * 0.42f;
+        float startZ = PlatformCenter.z - 26f;
+        float step = 52f / Mathf.Max(1, all.Count - 1);
+
+        for (int i = 0; i < all.Count; i++)
+        {
+            var weapon = all[i];
+            if (weapon == null) continue;
+
+            var stand = new GameObject("WeaponRack_" + weapon.id);
+            var rt = stand.AddComponent<WeaponRackStand>();
+            rt.WeaponId = weapon.id;
+            stand.transform.position = new Vector3(x, PlatformTopY + 0.15f, startZ + i * step);
+            stand.transform.rotation = Quaternion.identity;
+
+            var pedestal = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            pedestal.name = "Pedestal";
+            pedestal.transform.SetParent(stand.transform, false);
+            pedestal.transform.localScale = new Vector3(0.9f, 0.9f, 0.9f);
+            var pmr = pedestal.GetComponent<MeshRenderer>();
+            if (pmr != null)
+                pmr.sharedMaterial = SolidMaterial(new Color(0.24f, 0.2f, 0.17f));
+
+            var site = new GameObject("ModelSite");
+            site.transform.SetParent(stand.transform, false);
+            site.transform.localPosition = new Vector3(0f, 1.5f, 0f);
+            WeaponModelBuilder.Build(weapon.id, site.transform);
+
+            var box = stand.AddComponent<BoxCollider>();
+            box.isTrigger = true;
+            box.center = new Vector3(0f, 1.2f, 0f);
+            box.size = new Vector3(1f, 2.6f, 1f);
+
+            _rackStands.Add(rt);
+        }
+    }
+
+    private void Update()
+    {
+        if (!EnableWeapons || _rackStands.Count == 0) return;
+        var gm = GameManager.Instance;
+        if (gm == null || gm.Player == null || gm.GamePaused) return;
+
+        var prompt = _contextPrompt;
+        if (prompt == null)
+            _contextPrompt = prompt = Object.FindAnyObjectByType<ContextPromptUI>();
+        if (prompt == null) return;
+        Vector3 playerPos = gm.Player.transform.position;
+        float nearest = float.MaxValue;
+        WeaponRackStand nearStand = null;
+        for (int i = 0; i < _rackStands.Count; i++)
+        {
+            var stand = _rackStands[i];
+            if (stand == null || stand.Collected) continue;
+            float d = Vector3.Distance(playerPos, stand.transform.position);
+            if (d < nearest && d <= 3.2f)
+            {
+                nearest = d;
+                nearStand = stand;
+            }
+        }
+
+        if (nearStand != null && prompt != null)
+        {
+            var weapon = WeaponCatalog.Find(nearStand.WeaponId);
+            string name = weapon != null && !string.IsNullOrEmpty(weapon.displayName) ? weapon.displayName : nearStand.WeaponId;
+            prompt.ShowPrompt(Localization.F("E - {0}", name), 0.2f);
+        }
     }
 
     /// <summary>

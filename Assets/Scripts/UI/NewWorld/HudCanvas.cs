@@ -17,7 +17,7 @@ public static class HudCanvas
         canvas.sortingOrder = 20;
         var scaler = go.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.referenceResolution = new Vector2(1280f / MenuPanelBase.UiScale, 720f / MenuPanelBase.UiScale);
         go.AddComponent<GraphicRaycaster>();
         return canvas;
     }

@@ -19,6 +19,9 @@ using TMPro;
 /// </summary>
 public sealed class CharacterInfoUI : MenuPanelBase
 {
+    /// <summary>Last shown instance (drag & drop targets resolve it via this).</summary>
+    public static CharacterInfoUI Instance;
+
     public enum Tab { Stats = 0, Skills = 1, Inventory = 2, Equipment = 3, Class = 4, Race = 5, Map = 6 }
 
     public Tab ActiveTab = Tab.Stats;
@@ -41,6 +44,19 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private readonly Dictionary<EquipSlot, TMP_Text> _equipSlotLabels = new Dictionary<EquipSlot, TMP_Text>();
     private readonly List<TMP_Text> _classRowLabels = new List<TMP_Text>();
 
+    private static readonly Color WeaponIdleColor = new Color(0.14f, 0.16f, 0.2f, 0.95f);
+    private static readonly Color WeaponSelectedColor = new Color(0.3f, 0.6f, 0.9f, 0.95f);
+    private const int WeaponGridCols = 2;
+    private const int WeaponGridRows = 8;
+    private const int WeaponGridCount = WeaponGridCols * WeaponGridRows;
+    private string _selectedWeaponId;
+    private TMP_Text _weaponHint;
+    private readonly GameObject[] _weaponGos = new GameObject[WeaponGridCount];
+    private readonly Image[] _weaponImages = new Image[WeaponGridCount];
+    private readonly TMP_Text[] _weaponLabels = new TMP_Text[WeaponGridCount];
+    private readonly WeaponDragHandle[] _weaponDrags = new WeaponDragHandle[WeaponGridCount];
+    private readonly List<string> _weaponGridIds = new List<string>();
+
     private static readonly string[] StatNames =
     {
         "HP", "Speed", "Endurance", "Strength", "Dexterity", "AttackSpeed",
@@ -49,6 +65,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
     private void OnEnable()
     {
+        Instance = this;
         if (_built) return;
         _built = true;
 
@@ -58,6 +75,12 @@ public sealed class CharacterInfoUI : MenuPanelBase
         BuildTopButtons();
         BuildPanels();
         ShowTab(_current);
+    }
+
+    private void OnDisable()
+    {
+        if (Instance == this)
+            Instance = null;
     }
 
     private void BuildTopButtons()
@@ -115,9 +138,12 @@ public sealed class CharacterInfoUI : MenuPanelBase
         MakeButton(_panels[Tab.Skills].transform, "LearnBtn", "Learn Selected", new Vector2(150f, -170f), LearnSelected);
         MakeButton(_panels[Tab.Skills].transform, "AssignKeyBtn", "Assign Key", new Vector2(150f, -210f), AssignNextSkillKey);
 
-        // Inventory panel.
+        // Inventory panel: tool slots (left) + clickable/draggable owned weapons (right).
         _panels[Tab.Inventory] = MakePanel("InventoryPanel");
-        _invLine = MakeBodyText(_panels[Tab.Inventory].transform, "Inventory", new Vector2(-200f, 10f), 460f, 300f);
+        _invLine = MakeBodyText(_panels[Tab.Inventory].transform, "Inventory", new Vector2(-300f, 130f), 250f, 280f);
+        _weaponHint = MakeBodyText(_panels[Tab.Inventory].transform, "WeaponHint", new Vector2(-300f, -168f), 580f, 32f);
+        _weaponHint.text = Localization.T("Click a weapon, then a hand slot — or drag it onto L/R Hand.");
+        BuildWeaponGrid(_panels[Tab.Inventory].transform);
 
         // Equipment panel (humanoid 21-slot sheet, §5.4).
         _panels[Tab.Equipment] = MakePanel("EquipmentPanel");
@@ -137,6 +163,133 @@ public sealed class CharacterInfoUI : MenuPanelBase
         // Map panel (placeholder summary; the dedicated WorldMapUI is separate).
         _panels[Tab.Map] = MakePanel("MapPanel");
         _mapLine = MakeBodyText(_panels[Tab.Map].transform, "Map", new Vector2(-200f, 10f), 460f, 300f);
+    }
+
+    // ── Owned-weapon grid (Inventory tab) ────────────────────────────────────
+    // 2-column grid of owned weapons. Clicking selects the weapon (highlighted) so a following
+    // click on a hand slot equips it; dragging a row onto L. Hand / R. Hand also equips it.
+    private void BuildWeaponGrid(Transform parent)
+    {
+        MakeBodyText(parent, "WeaponsHeader", new Vector2(10f, 130f), 380f, 32f)
+            .text = Localization.T("Weapons (owned)");
+
+        for (int i = 0; i < WeaponGridCount; i++)
+        {
+            int col = i % WeaponGridCols;
+            int row = i / WeaponGridCols;
+
+            var go = new GameObject("Weapon_" + i);
+            go.transform.SetParent(parent, false);
+            var rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(10f + col * 188f, 94f - row * 33f);
+            rt.sizeDelta = new Vector2(184f, 30f);
+            var img = go.AddComponent<Image>();
+            img.color = WeaponIdleColor;
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            int captured = i;
+            btn.onClick.AddListener(() => SelectOwnedWeaponAt(captured));
+
+            var label = new GameObject("Label");
+            label.transform.SetParent(go.transform, false);
+            var lr = label.AddComponent<RectTransform>();
+            lr.anchorMin = Vector2.zero;
+            lr.anchorMax = Vector2.one;
+            lr.offsetMin = Vector2.zero;
+            lr.offsetMax = Vector2.zero;
+            var tmp = label.AddComponent<TextMeshProUGUI>();
+            GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
+            tmp.fontSize = Mathf.Max(12f, Screen.height / 72f);
+            tmp.color = Color.white;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.text = "";
+
+            var drag = go.AddComponent<WeaponDragHandle>();
+
+            _weaponGos[i] = go;
+            _weaponImages[i] = img;
+            _weaponLabels[i] = tmp;
+            _weaponDrags[i] = drag;
+            go.SetActive(false);
+        }
+    }
+
+    private void RefreshWeapons()
+    {
+        var player = GameManager.Instance?.Player;
+        var inv = player != null ? player.GetComponent<WeaponInventory>() : null;
+        _weaponGridIds.Clear();
+        if (inv != null)
+            _weaponGridIds.AddRange(inv.Owned);
+        if (_weaponGridIds.Count == 0 || !_weaponGridIds.Contains(WeaponCatalog.StarterWeaponId))
+            _weaponGridIds.Insert(0, WeaponCatalog.StarterWeaponId);
+
+        for (int i = 0; i < WeaponGridCount; i++)
+        {
+            bool has = i < _weaponGridIds.Count;
+            if (_weaponGos[i] == null) continue;
+            _weaponGos[i].SetActive(has);
+            if (!has) continue;
+
+            string id = _weaponGridIds[i];
+            var weapon = WeaponCatalog.Find(id);
+            string name = weapon != null && !string.IsNullOrEmpty(weapon.displayName) ? weapon.displayName : id;
+            _weaponLabels[i].text = name;
+            _weaponDrags[i].WeaponId = id;
+            _weaponImages[i].color = id == _selectedWeaponId ? WeaponSelectedColor : WeaponIdleColor;
+        }
+    }
+
+    private void SelectOwnedWeaponAt(int index)
+    {
+        if (index < 0 || index >= _weaponGridIds.Count) return;
+        _selectedWeaponId = _weaponGridIds[index];
+        RefreshWeapons();
+    }
+
+    public void EquipWeaponFromDrop(string weaponId, EquipSlot slot)
+    {
+        if (string.IsNullOrEmpty(weaponId)) return;
+        _selectedWeaponId = weaponId;
+        EquipOwnedWeapon(weaponId, slot);
+    }
+
+    public void OnDragDropEnded()
+    {
+        RefreshWeapons();
+    }
+
+    private void EquipOwnedWeapon(string weaponId, EquipSlot slot)
+    {
+        var player = GameManager.Instance?.Player;
+        var combat = CombatOf();
+        var inv = player != null ? player.GetComponent<WeaponInventory>() : null;
+        if (player == null || combat == null) return;
+        if (inv != null && !inv.Has(weaponId)) return;
+
+        var weapon = WeaponCatalog.Find(weaponId);
+        if (weapon == null) return;
+
+        var wielding = WeaponRigBuilder.WieldingFor(weapon);
+        if (slot == EquipSlot.LeftHand && wielding == CombatController.WieldingState.Single)
+        {
+            var leftRig = WeaponRigBuilder.EquipInto(player.gameObject, weapon);
+            if (leftRig == null) return;
+            combat.LeftHand = leftRig;
+            combat.RightHand = null;
+            combat.Wielding = CombatController.WieldingState.Single;
+        }
+        else
+        {
+            WeaponRigBuilder.EquipInto(player.gameObject, weapon);
+        }
+
+        _selectedWeaponId = "";
+        RefreshEquipment();
+        RefreshWeapons();
     }
 
     // ── Humanoid 21-slot equipment sheet (§5.4) ────────────────────────────
@@ -191,6 +344,12 @@ public sealed class CharacterInfoUI : MenuPanelBase
         EquipSlot captured = slot;
         btn.onClick.AddListener(() => ToggleEquipSlot(captured));
 
+        if (slot == EquipSlot.LeftHand || slot == EquipSlot.RightHand)
+        {
+            var drop = go.AddComponent<WeaponDropTarget>();
+            drop.Slot = slot;
+        }
+
         var label = new GameObject("Label");
         label.transform.SetParent(go.transform, false);
         var lr = label.AddComponent<RectTransform>();
@@ -211,7 +370,10 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         if (slot == EquipSlot.LeftHand || slot == EquipSlot.RightHand)
         {
-            CycleWeapon();
+            if (!string.IsNullOrEmpty(_selectedWeaponId))
+                EquipOwnedWeapon(_selectedWeaponId, slot);
+            else
+                CycleWeapon();
             return;
         }
         var equip = EquipmentOf();
@@ -393,7 +555,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         {
             case Tab.Stats: RefreshStats(); break;
             case Tab.Skills: SetSkillList(); break;
-            case Tab.Inventory: RefreshInventory(); break;
+            case Tab.Inventory: RefreshInventory(); RefreshWeapons(); break;
             case Tab.Equipment: RefreshEquipment(); break;
             case Tab.Class: RefreshClasses(); break;
             case Tab.Race: RefreshRaces(); break;
@@ -642,21 +804,32 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         var player = GameManager.Instance?.Player;
         var combat = CombatOf();
+        var inv = player != null ? player.GetComponent<WeaponInventory>() : null;
         if (player == null || combat == null) return;
 
-        var all = WeaponCatalog.All;
         WeaponCatalog.EnsureBuilt();
-        all = WeaponCatalog.All;
+        var all = WeaponCatalog.All;
         if (all == null || all.Count == 0) return;
+
+        // Cycle only weapons the player owns (starter is always owned).
+        var owned = new List<string>();
+        if (inv != null) owned.AddRange(inv.Owned);
+        if (owned.Count == 0 || !owned.Contains(WeaponCatalog.StarterWeaponId))
+            owned.Insert(0, WeaponCatalog.StarterWeaponId);
 
         int idx = 0;
         var cur = combat.RightHand != null ? combat.RightHand.GetComponent<WeaponRigHost>() : null;
         if (cur != null && cur.Data != null)
-            for (int i = 0; i < all.Count; i++)
-                if (all[i] != null && all[i].id == cur.Data.id) { idx = i; break; }
-        idx = (idx + 1) % all.Count;
+            for (int i = 0; i < owned.Count; i++)
+            {
+                var target = WeaponCatalog.Find(owned[i]);
+                if (target != null && target.id == cur.Data.id) { idx = i; break; }
+            }
+        idx = (idx + 1) % owned.Count;
 
-        WeaponRigBuilder.EquipInto(player.gameObject, all[idx]);
+        var next = WeaponCatalog.Find(owned[idx]);
+        if (next != null)
+            WeaponRigBuilder.EquipInto(player.gameObject, next);
         RefreshEquipment();
     }
 

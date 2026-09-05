@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 
@@ -7,9 +9,29 @@ using TMPro;
 /// with a centred panel, a title, body region and a close button. Subclasses populate the body
 /// and control visibility. Uses the project's <see cref="ColorPalette.UIBackdrop"/> and a
 /// default TMP font via <see cref="GameManager"/>.
+///
+/// Canvas scaling is legacy-proportional (1280x720 reference) so the new UI matches the old
+/// pixel-based UI's on-screen footprint; <see cref="UiScale"/> is the single knob to bulk-adjust
+/// size. Showing any panel unlocks the cursor; shutting the last one re-locks it.
 /// </summary>
 public abstract class MenuPanelBase : MonoBehaviour
 {
+    private static readonly List<MenuPanelBase> _open = new List<MenuPanelBase>();
+
+    /// <summary>Number of open MenuPanelBase overlays (drives cursor release).</summary>
+    public static int OpenCount => _open.Count;
+    public static bool AnyShown => _open.Count > 0;
+
+    /// <summary>Bulk-size knob for the new UI (default 1.0 = legacy-proportional 1280x720 reference).</summary>
+    public static float UiScale = 1f;
+
+    /// <summary>Close the most recently opened panel overlay.</summary>
+    public static void CloseTopmost()
+    {
+        if (_open.Count == 0) return;
+        _open[_open.Count - 1].Close();
+    }
+
     protected RectTransform PanelRect;
     protected RectTransform BodyRow;
 
@@ -23,7 +45,7 @@ public abstract class MenuPanelBase : MonoBehaviour
         canvas.sortingOrder = 40;
         var scaler = canvasGo.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.referenceResolution = new Vector2(1280f / UiScale, 720f / UiScale);
 
         // Full-screen dim.
         var overlay = new GameObject("Overlay");
@@ -44,8 +66,8 @@ public abstract class MenuPanelBase : MonoBehaviour
         PanelRect.anchorMax = new Vector2(0.5f, 0.5f);
         PanelRect.pivot = new Vector2(0.5f, 0.5f);
         PanelRect.anchoredPosition = Vector2.zero;
-        var w = Mathf.Min(Screen.width * 0.8f, 1000f);
-        var h = Mathf.Min(Screen.height * 0.8f, 760f);
+        var w = Mathf.Min(Screen.width * 0.8f, 640f);
+        var h = Mathf.Min(Screen.height * 0.8f, 486f);
         PanelRect.sizeDelta = new Vector2(w, h);
         var panelImg = panel.AddComponent<Image>();
         panelImg.color = ColorPalette.UIBackdrop;
@@ -117,18 +139,32 @@ public abstract class MenuPanelBase : MonoBehaviour
     /// <summary>Show the panel overlay.</summary>
     public void Show()
     {
-        if (PaletteCanvas != null)
-        {
-            PaletteCanvas.gameObject.SetActive(true);
-            Refresh();
-        }
+        if (PaletteCanvas == null) return;
+        if (!_open.Contains(this)) _open.Add(this);
+        GameInput.SetCursorLocked(false);
+        PaletteCanvas.gameObject.SetActive(true);
+        Refresh();
     }
 
     /// <summary>Hide the panel overlay.</summary>
     public void Close()
     {
-        if (PaletteCanvas != null)
-            PaletteCanvas.gameObject.SetActive(false);
+        if (PaletteCanvas == null) return;
+        _open.Remove(this);
+        if (_open.Count == 0 && GameManager.Instance != null && !GameManager.Instance.GamePaused)
+        {
+            var player = GameManager.Instance.Player;
+            if (player != null && !player.IgnoreInput)
+                GameInput.SetCursorLocked(true);
+        }
+        PaletteCanvas.gameObject.SetActive(false);
+    }
+
+    private void Update()
+    {
+        if (!IsShown) return;
+        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            Close();
     }
 
     protected abstract void Refresh();

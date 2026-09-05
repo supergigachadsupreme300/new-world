@@ -156,6 +156,19 @@ public class PlayerController : MonoBehaviour
         if (SleepManager.IsSleeping)
             return;
 
+        // A new-world modal menu is open: only process menu-management keys (Tab closes
+        // Character Info; Escape closes the topmost panel via MenuPanelBase.Update).
+        if (MenuPanelBase.AnyShown)
+        {
+            if (Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame)
+            {
+                var info = Object.FindAnyObjectByType<CharacterInfoUI>();
+                if (info != null && info.IsShown)
+                    info.Close();
+            }
+            return;
+        }
+
         if (IsSitting)
         {
             HandleMouseLook();
@@ -336,8 +349,6 @@ public class PlayerController : MonoBehaviour
             Stamina = Mathf.Max(0f, Stamina - SprintCost * Time.deltaTime);
     }
 
-    // Temporary diagnostic: if the player is grounded, pushing forward at the pagoda
-    // entrance but not moving, log which collider is blocking them.
     private void HandleStamina()
     {
         bool sprinting = (Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed) ||
@@ -423,6 +434,12 @@ public class PlayerController : MonoBehaviour
                     var ray = new Ray(cam.transform.position, cam.transform.forward);
                     if (Physics.Raycast(ray, out var hit, 4f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
                     {
+                        var stand = hit.collider.GetComponentInParent<WeaponRackStand>();
+                        if (stand != null)
+                        {
+                            PickupWeaponStand(stand);
+                            return;
+                        }
                         if (hit.collider.transform.name == "WifeNpc")
                         {
                             if (WifeNPC.Instance != null && !WifeNPC.Instance.IsDialogActive)
@@ -687,6 +704,34 @@ public class PlayerController : MonoBehaviour
             ToolManager.Instance?.SelectSlot(8);
         if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit0Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(9);
+    }
+
+    private void PickupWeaponStand(WeaponRackStand stand)
+    {
+        if (stand == null || stand.Collected) return;
+        var player = GameManager.Instance?.Player;
+        if (player == null) return;
+
+        var inv = player.GetComponent<WeaponInventory>();
+        if (inv == null)
+            inv = player.gameObject.AddComponent<WeaponInventory>();
+
+        var weapon = WeaponCatalog.Find(stand.WeaponId);
+        string name = weapon != null && !string.IsNullOrEmpty(weapon.displayName) ? weapon.displayName : stand.WeaponId;
+
+        if (inv.Own(stand.WeaponId))
+            ShowPrompt(Localization.F("Picked up {0}.", name));
+        else
+            ShowPrompt(Localization.F("{0} is already in your inventory.", name));
+
+        stand.Collect();
+    }
+
+    private static void ShowPrompt(string message)
+    {
+        var prompt = Object.FindAnyObjectByType<ContextPromptUI>();
+        if (prompt != null)
+            prompt.ShowPrompt(message, 2.5f);
     }
 
     private void OpenVendorShop(string mode)
