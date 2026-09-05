@@ -102,6 +102,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         if (_built) return;
         _built = true;
 
+        SuppressTitle = true;
         Build(Localization.T("CHARACTER INFO"));
         _current = ActiveTab;
 
@@ -128,11 +129,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var go = new GameObject("Tab_" + name);
             go.transform.SetParent(PanelRect, false);
             var rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 1f);
-            rt.anchorMax = new Vector2(0f, 1f);
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(bw * (0.5f + i), -56f);
-            rt.sizeDelta = new Vector2(bw - 6f, 44f);
+            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), -8f);
+            rt.sizeDelta = new Vector2(bw - 6f, 46f);
             var img = go.AddComponent<Image>();
             ApplyMenuButtonSprite(img);
             var btn = go.AddComponent<Button>();
@@ -150,7 +151,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var lt = label.AddComponent<TextMeshProUGUI>();
             GameManager.Instance?.UIManager?.ApplyDefaultFont(lt);
             lt.text = name;
-            lt.fontSize = Mathf.Max(20f, Screen.height / 44f);
+            lt.fontSize = Mathf.Max(18f, Screen.height / 52f);
             lt.color = Color.white;
             lt.alignment = TextAlignmentOptions.Center;
         }
@@ -160,44 +161,45 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         // Stats panel.
         _panels[Tab.Stats] = MakePanel("StatsPanel");
-        _statsLine = MakeBodyText(_panels[Tab.Stats].transform, "Stats", new Vector2(-30f, -20f), 560f, 360f);
+        _statsLine = MakeBodyText(_panels[Tab.Stats].transform, "Stats", new Vector2(-290f, 150f), 580f, 340f);
         _statsLine.fontSize = Mathf.Max(22f, Screen.height / 40f);
 
         // Skills panel.
         _panels[Tab.Skills] = MakePanel("SkillsPanel");
         BuildSkillTypeBar(_panels[Tab.Skills].transform);
-        _skillPointsLine = MakeBodyText(_panels[Tab.Skills].transform, "SkillPoints", new Vector2(-200f, 140f), 420f, 40f);
-        _skillListLine = MakeBodyText(_panels[Tab.Skills].transform, "SkillList", new Vector2(-200f, 60f), 460f, 300f);
-        _captureLine = MakeBodyText(_panels[Tab.Skills].transform, "Capture", new Vector2(-200f, -150f), 420f, 40f);
-        MakeButton(_panels[Tab.Skills].transform, "LearnBtn", "Learn Selected", new Vector2(150f, -170f), LearnSelected);
-        MakeButton(_panels[Tab.Skills].transform, "AssignKeyBtn", "Assign Key", new Vector2(150f, -210f), AssignNextSkillKey);
+        _skillPointsLine = MakeBodyText(_panels[Tab.Skills].transform, "SkillPoints", new Vector2(-300f, 96f), 300f, 36f);
+        _skillListLine = MakeBodyText(_panels[Tab.Skills].transform, "SkillList", new Vector2(-300f, 30f), 430f, 210f);
+        _captureLine = MakeBodyText(_panels[Tab.Skills].transform, "Capture", new Vector2(-300f, -160f), 300f, 28f);
+        MakeButton(_panels[Tab.Skills].transform, "LearnBtn", "Learn Selected", new Vector2(205f, -120f), LearnSelected);
+        MakeButton(_panels[Tab.Skills].transform, "AssignKeyBtn", "Assign Key", new Vector2(205f, -74f), AssignNextSkillKey);
 
         // Inventory panel: 10 tool slots (left) + clickable/draggable owned weapons (right).
         _panels[Tab.Inventory] = MakePanel("InventoryPanel");
         BuildInventorySlots(_panels[Tab.Inventory].transform);
-        _moneyLine = MakeBodyText(_panels[Tab.Inventory].transform, "Money", new Vector2(-300f, -46f), 260f, 30f);
-        _weaponHint = MakeBodyText(_panels[Tab.Inventory].transform, "WeaponHint", new Vector2(-300f, -168f), 580f, 32f);
+        _moneyLine = MakeBodyText(_panels[Tab.Inventory].transform, "Money", new Vector2(-290f, -84f), 280f, 28f);
+        _weaponHint = MakeBodyText(_panels[Tab.Inventory].transform, "WeaponHint", new Vector2(-300f, -160f), 580f, 28f);
         _weaponHint.text = Localization.T("Click a weapon, then a hand slot — or drag it onto L/R Hand.");
         BuildWeaponGrid(_panels[Tab.Inventory].transform);
 
         // Equipment panel (humanoid 21-slot sheet, §5.4).
         _panels[Tab.Equipment] = MakePanel("EquipmentPanel");
         BuildEquipmentSheet(_panels[Tab.Equipment].transform);
-        _equipSummary = MakeBodyText(_panels[Tab.Equipment].transform, "Equipment", new Vector2(-200f, -200f), 460f, 90f);
+        _equipSummary = MakeBodyText(_panels[Tab.Equipment].transform, "Equipment", new Vector2(-300f, 155f), 580f, 64f);
 
         // Class panel (the 15-class roster, §3.2 with active-class selection).
         _panels[Tab.Class] = MakePanel("ClassPanel");
-        _classLine = MakeBodyText(_panels[Tab.Class].transform, "Classes", new Vector2(-200f, 10f), 460f, 320f);
-        MakeButton(_panels[Tab.Class].transform, "CycleClassBtn", "Switch Active Class", new Vector2(150f, -300f), CycleActiveClass);
+        _classLine = MakeBodyText(_panels[Tab.Class].transform, "Classes", new Vector2(-300f, 170f), 600f, 330f);
+        MakeButton(_panels[Tab.Class].transform, "CycleClassBtn", "Switch Active Class", new Vector2(170f, -140f), CycleActiveClass);
 
         // Race panel (the 22-race roster, §3.5 with active-race selection + ritual stone cost).
         _panels[Tab.Race] = MakePanel("RacePanel");
-        _raceLine = MakeBodyText(_panels[Tab.Race].transform, "Races", new Vector2(-200f, 10f), 460f, 320f);
-        MakeButton(_panels[Tab.Race].transform, "CycleRaceBtn", "Switch Active Race", new Vector2(150f, -300f), CycleActiveRace);
+        _raceLine = MakeBodyText(_panels[Tab.Race].transform, "Races", new Vector2(-300f, 170f), 580f, 330f);
+        _raceLine.fontSize = Mathf.Max(10f, Screen.height / 72f);
+        MakeButton(_panels[Tab.Race].transform, "CycleRaceBtn", "Switch Active Race", new Vector2(170f, -140f), CycleActiveRace);
 
         // Map panel (placeholder summary; the dedicated WorldMapUI is separate).
         _panels[Tab.Map] = MakePanel("MapPanel");
-        _mapLine = MakeBodyText(_panels[Tab.Map].transform, "Map", new Vector2(-200f, 10f), 460f, 300f);
+        _mapLine = MakeBodyText(_panels[Tab.Map].transform, "Map", new Vector2(-300f, 160f), 580f, 200f);
     }
 
     // ── Tool-slot inventory grid (Inventory tab) ─────────────────────────────
@@ -206,7 +208,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     // item name + count; money is shown underneath.
     private void BuildInventorySlots(Transform parent)
     {
-        MakeBodyText(parent, "InventoryHeader", new Vector2(-300f, 200f), 300f, 32f)
+        MakeBodyText(parent, "InventoryHeader", new Vector2(-288f, 155f), 260f, 30f)
             .text = Localization.T("Inventory");
 
         for (int i = 0; i < 10; i++)
@@ -217,11 +219,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var go = new GameObject("InvSlot_" + i);
             go.transform.SetParent(parent, false);
             var rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 1f);
-            rt.anchorMax = new Vector2(0f, 1f);
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2(-300f + col * 62f, 168f - row * 62f);
-            rt.sizeDelta = new Vector2(56f, 56f);
+            rt.anchoredPosition = new Vector2(-288f + col * 96f, 112f - row * 96f);
+            rt.sizeDelta = new Vector2(88f, 88f);
             var img = go.AddComponent<Image>();
             img.color = new Color(0.14f, 0.16f, 0.2f, 0.95f);
             var btn = go.AddComponent<Button>();
@@ -259,7 +261,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     // click on a hand slot equips it; dragging a row onto L. Hand / R. Hand also equips it.
     private void BuildWeaponGrid(Transform parent)
     {
-        MakeBodyText(parent, "WeaponsHeader", new Vector2(10f, 130f), 380f, 32f)
+        MakeBodyText(parent, "WeaponsHeader", new Vector2(16f, 150f), 280f, 30f)
             .text = Localization.T("Weapons (owned)");
 
         for (int i = 0; i < WeaponGridCount; i++)
@@ -270,11 +272,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var go = new GameObject("Weapon_" + i);
             go.transform.SetParent(parent, false);
             var rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 1f);
-            rt.anchorMax = new Vector2(0f, 1f);
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2(10f + col * 188f, 94f - row * 33f);
-            rt.sizeDelta = new Vector2(184f, 30f);
+            rt.anchoredPosition = new Vector2(24f + col * 140f, 110f - row * 30f);
+            rt.sizeDelta = new Vector2(134f, 24f);
             var img = go.AddComponent<Image>();
             img.color = WeaponIdleColor;
             var btn = go.AddComponent<Button>();
@@ -421,10 +423,10 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var go = new GameObject(name + "Slot");
         go.transform.SetParent(parent, false);
         var rt = go.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0f, 1f);
-        rt.anchorMax = new Vector2(0f, 1f);
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0f, 1f);
-        rt.anchoredPosition = pos;
+        rt.anchoredPosition = new Vector2(pos.x, pos.y + 90f);
         rt.sizeDelta = new Vector2(84f, 30f);
         var img = go.AddComponent<Image>();
         img.color = new Color(0.14f, 0.16f, 0.2f, 0.95f);
@@ -542,10 +544,10 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var go = new GameObject("ST_" + name);
             go.transform.SetParent(parent, false);
             var rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 1f);
-            rt.anchorMax = new Vector2(0f, 1f);
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(-200f + bw * (0.5f + i), 200f);
+            rt.anchoredPosition = new Vector2(-230f + bw * (0.5f + i), 132f);
             rt.sizeDelta = new Vector2(bw - 4f, 34f);
             var img = go.AddComponent<Image>();
             img.color = new Color(0.14f, 0.16f, 0.2f, 0.95f);
@@ -595,8 +597,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
         var rt = go.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0f, 1f);
-        rt.anchorMax = new Vector2(0f, 1f);
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0f, 1f);
         rt.anchoredPosition = pos;
         rt.sizeDelta = new Vector2(w, h);
@@ -613,8 +615,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
         var rt = go.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0f, 1f);
-        rt.anchorMax = new Vector2(0f, 1f);
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 1f);
         rt.anchoredPosition = pos;
         rt.sizeDelta = new Vector2(190f, 38f);

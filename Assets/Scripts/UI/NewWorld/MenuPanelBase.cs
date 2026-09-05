@@ -35,6 +35,9 @@ public abstract class MenuPanelBase : MonoBehaviour
     protected RectTransform PanelRect;
     protected RectTransform BodyRow;
 
+    /// <summary>When set, no title bar is rendered (subclasses that use their own top band, e.g. tabs).</summary>
+    protected bool SuppressTitle;
+
     /// <summary>Create the overlay container. Call once from subclass OnEnable.</summary>
     protected void Build(string title)
     {
@@ -87,21 +90,28 @@ public abstract class MenuPanelBase : MonoBehaviour
             panelImg.color = ColorPalette.UIBackdrop;
         }
 
-        // Title.
-        var titleGo = new GameObject("Title");
-        titleGo.transform.SetParent(panel.transform, false);
-        var tr = titleGo.AddComponent<RectTransform>();
-        tr.anchorMin = new Vector2(0.5f, 1f);
-        tr.anchorMax = new Vector2(0.5f, 1f);
-        tr.pivot = new Vector2(0.5f, 1f);
-        tr.anchoredPosition = new Vector2(0f, -20f);
-        tr.sizeDelta = new Vector2(w - 24f, 40f);
-        var tmp = titleGo.AddComponent<TextMeshProUGUI>();
-        GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
-        tmp.text = title;
-        tmp.fontSize = Mathf.Max(20f, Screen.height / 40f);
-        tmp.color = Color.white;
-        tmp.alignment = TextAlignmentOptions.Center;
+        // Title (skipped when the subclass renders its own top band).
+        if (SuppressTitle)
+        {
+            // no title
+        }
+        else
+        {
+            var titleGo = new GameObject("Title");
+            titleGo.transform.SetParent(panel.transform, false);
+            var tr = titleGo.AddComponent<RectTransform>();
+            tr.anchorMin = new Vector2(0.5f, 1f);
+            tr.anchorMax = new Vector2(0.5f, 1f);
+            tr.pivot = new Vector2(0.5f, 1f);
+            tr.anchoredPosition = new Vector2(0f, -20f);
+            tr.sizeDelta = new Vector2(w - 24f, 40f);
+            var tmp = titleGo.AddComponent<TextMeshProUGUI>();
+            GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
+            tmp.text = title;
+            tmp.fontSize = Mathf.Max(20f, Screen.height / 40f);
+            tmp.color = Color.white;
+            tmp.alignment = TextAlignmentOptions.Center;
+        }
 
         // Body row (subclasses add content here).
         var body = new GameObject("Body");

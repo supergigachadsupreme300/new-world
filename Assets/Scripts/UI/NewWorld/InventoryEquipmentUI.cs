@@ -23,21 +23,22 @@ public sealed class InventoryEquipmentUI : MenuPanelBase
     private void OnEnable()
     {
         Build(Localization.T("INVENTORY / EQUIPMENT"));
-        _inventoryLine = MakeBodyText(BodyRow, "Inventory", new Vector2(-220f, 150f));
-        _equipLine = MakeBodyText(BodyRow, "Equipment", new Vector2(60f, 150f));
-        _moneyLine = MakeBodyText(BodyRow, "Money", new Vector2(-220f, -150f));
+        _inventoryLine = MakeBodyText(BodyRow, "Inventory", new Vector2(-220f, 150f), 480f, 240f);
+        _equipLine = MakeBodyText(BodyRow, "Equipment", new Vector2(10f, 150f), 290f, 240f);
+        _equipLine.fontSize = Mathf.Max(11f, Screen.height / 58f);
+        _moneyLine = MakeBodyText(BodyRow, "Money", new Vector2(-220f, -150f), 480f, 240f);
     }
 
-    private TMP_Text MakeBodyText(RectTransform parent, string name, Vector2 pos)
+    private TMP_Text MakeBodyText(RectTransform parent, string name, Vector2 pos, float w = 480f, float h = 240f)
     {
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
         var rt = go.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0f, 1f);
-        rt.anchorMax = new Vector2(0f, 1f);
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0f, 1f);
         rt.anchoredPosition = pos;
-        rt.sizeDelta = new Vector2(480f, 240f);
+        rt.sizeDelta = new Vector2(w, h);
         var tmp = go.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.fontSize = Mathf.Max(14f, Screen.height / 48f);

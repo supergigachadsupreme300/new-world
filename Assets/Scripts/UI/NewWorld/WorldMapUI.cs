@@ -17,20 +17,20 @@ public sealed class WorldMapUI : MenuPanelBase
     private void OnEnable()
     {
         Build(Localization.T("WORLD MAP"));
-        _poiLine = MakeBodyText(BodyRow, "PoiList", new Vector2(-220f, 150f));
-        _coordLine = MakeBodyText(BodyRow, "Coords", new Vector2(40f, 150f));
+        _poiLine = MakeBodyText(BodyRow, "PoiList", new Vector2(-220f, 150f), 520f, 260f);
+        _coordLine = MakeBodyText(BodyRow, "Coords", new Vector2(10f, 150f), 290f, 260f);
     }
 
-    private TMP_Text MakeBodyText(RectTransform parent, string name, Vector2 pos)
+    private TMP_Text MakeBodyText(RectTransform parent, string name, Vector2 pos, float w = 520f, float h = 260f)
     {
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
         var rt = go.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0f, 1f);
-        rt.anchorMax = new Vector2(0f, 1f);
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0f, 1f);
         rt.anchoredPosition = pos;
-        rt.sizeDelta = new Vector2(520f, 260f);
+        rt.sizeDelta = new Vector2(w, h);
         var tmp = go.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.fontSize = Mathf.Max(14f, Screen.height / 48f);

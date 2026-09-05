@@ -33,20 +33,20 @@ public sealed class RaceStatSheetUI : MenuPanelBase
         _raceLine = MakeBodyText(BodyRow, "RaceLine", new Vector2(-180f, 150f));
         _statsLines = MakeBodyText(BodyRow, "StatsLines", new Vector2(-180f, 60f));
         _budgetLine = MakeBodyText(BodyRow, "BudgetLine", new Vector2(-180f, -140f));
-        MakeBodyText(BodyRow, "Hint", new Vector2(30f, -140f))
+        MakeBodyText(BodyRow, "Hint", new Vector2(30f, -140f), 260f, 40f)
             .text = Localization.T("[ + ] allocate points / use buttons to commit");
     }
 
-    private TMP_Text MakeBodyText(RectTransform parent, string name, Vector2 pos)
+    private TMP_Text MakeBodyText(RectTransform parent, string name, Vector2 pos, float w = 420f, float h = 200f)
     {
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
         var rt = go.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0f, 1f);
-        rt.anchorMax = new Vector2(0f, 1f);
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0f, 1f);
         rt.anchoredPosition = pos;
-        rt.sizeDelta = new Vector2(420f, 200f);
+        rt.sizeDelta = new Vector2(w, h);
         var tmp = go.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.fontSize = Mathf.Max(14f, Screen.height / 48f);
