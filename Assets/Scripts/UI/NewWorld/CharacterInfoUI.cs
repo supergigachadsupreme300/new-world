@@ -132,7 +132,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 1f);
             rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), -3f);
+            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 0f);
             rt.sizeDelta = new Vector2(bw - 6f, 46f);
             var img = go.AddComponent<Image>();
             ApplyMenuButtonSprite(img);
@@ -161,45 +161,45 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         // Stats panel.
         _panels[Tab.Stats] = MakePanel("StatsPanel");
-        _statsLine = MakeBodyText(_panels[Tab.Stats].transform, "Stats", new Vector2(-270f, 150f), 540f, 340f);
+        _statsLine = MakeBodyText(_panels[Tab.Stats].transform, "Stats", new Vector2(-270f, 150f), 500f, 340f);
         _statsLine.fontSize = Mathf.Max(22f, Screen.height / 40f);
 
         // Skills panel.
         _panels[Tab.Skills] = MakePanel("SkillsPanel");
         BuildSkillTypeBar(_panels[Tab.Skills].transform);
-        _skillPointsLine = MakeBodyText(_panels[Tab.Skills].transform, "SkillPoints", new Vector2(-280f, 96f), 260f, 36f);
-        _skillListLine = MakeBodyText(_panels[Tab.Skills].transform, "SkillList", new Vector2(-280f, 30f), 400f, 210f);
-        _captureLine = MakeBodyText(_panels[Tab.Skills].transform, "Capture", new Vector2(-280f, -160f), 260f, 28f);
+        _skillPointsLine = MakeBodyText(_panels[Tab.Skills].transform, "SkillPoints", new Vector2(-270f, 96f), 240f, 36f);
+        _skillListLine = MakeBodyText(_panels[Tab.Skills].transform, "SkillList", new Vector2(-270f, 30f), 360f, 210f);
+        _captureLine = MakeBodyText(_panels[Tab.Skills].transform, "Capture", new Vector2(-270f, -160f), 240f, 28f);
         MakeButton(_panels[Tab.Skills].transform, "LearnBtn", "Learn Selected", new Vector2(205f, -120f), LearnSelected);
         MakeButton(_panels[Tab.Skills].transform, "AssignKeyBtn", "Assign Key", new Vector2(205f, -74f), AssignNextSkillKey);
 
         // Inventory panel: 10 tool slots (left) + clickable/draggable owned weapons (right).
         _panels[Tab.Inventory] = MakePanel("InventoryPanel");
         BuildInventorySlots(_panels[Tab.Inventory].transform);
-        _moneyLine = MakeBodyText(_panels[Tab.Inventory].transform, "Money", new Vector2(-280f, -84f), 260f, 28f);
-        _weaponHint = MakeBodyText(_panels[Tab.Inventory].transform, "WeaponHint", new Vector2(-280f, -160f), 540f, 28f);
+        _moneyLine = MakeBodyText(_panels[Tab.Inventory].transform, "Money", new Vector2(-270f, -84f), 240f, 28f);
+        _weaponHint = MakeBodyText(_panels[Tab.Inventory].transform, "WeaponHint", new Vector2(-270f, -160f), 500f, 28f);
         _weaponHint.text = Localization.T("Click a weapon, then a hand slot — or drag it onto L/R Hand.");
         BuildWeaponGrid(_panels[Tab.Inventory].transform);
 
         // Equipment panel (humanoid 21-slot sheet, §5.4).
         _panels[Tab.Equipment] = MakePanel("EquipmentPanel");
         BuildEquipmentSheet(_panels[Tab.Equipment].transform);
-        _equipSummary = MakeBodyText(_panels[Tab.Equipment].transform, "Equipment", new Vector2(-270f, 155f), 540f, 64f);
+        _equipSummary = MakeBodyText(_panels[Tab.Equipment].transform, "Equipment", new Vector2(-270f, 155f), 500f, 64f);
 
         // Class panel (the 15-class roster, §3.2 with active-class selection).
         _panels[Tab.Class] = MakePanel("ClassPanel");
-        _classLine = MakeBodyText(_panels[Tab.Class].transform, "Classes", new Vector2(-270f, 170f), 540f, 330f);
+        _classLine = MakeBodyText(_panels[Tab.Class].transform, "Classes", new Vector2(-270f, 170f), 500f, 330f);
         MakeButton(_panels[Tab.Class].transform, "CycleClassBtn", "Switch Active Class", new Vector2(170f, -140f), CycleActiveClass);
 
         // Race panel (the 22-race roster, §3.5 with active-race selection + ritual stone cost).
         _panels[Tab.Race] = MakePanel("RacePanel");
-        _raceLine = MakeBodyText(_panels[Tab.Race].transform, "Races", new Vector2(-270f, 170f), 540f, 330f);
+        _raceLine = MakeBodyText(_panels[Tab.Race].transform, "Races", new Vector2(-270f, 170f), 500f, 330f);
         _raceLine.fontSize = Mathf.Max(10f, Screen.height / 72f);
         MakeButton(_panels[Tab.Race].transform, "CycleRaceBtn", "Switch Active Race", new Vector2(170f, -140f), CycleActiveRace);
 
         // Map panel (placeholder summary; the dedicated WorldMapUI is separate).
         _panels[Tab.Map] = MakePanel("MapPanel");
-        _mapLine = MakeBodyText(_panels[Tab.Map].transform, "Map", new Vector2(-270f, 160f), 540f, 200f);
+        _mapLine = MakeBodyText(_panels[Tab.Map].transform, "Map", new Vector2(-270f, 160f), 500f, 200f);
     }
 
     // ── Tool-slot inventory grid (Inventory tab) ─────────────────────────────
@@ -208,7 +208,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     // item name + count; money is shown underneath.
     private void BuildInventorySlots(Transform parent)
     {
-        MakeBodyText(parent, "InventoryHeader", new Vector2(-270f, 155f), 240f, 30f)
+        MakeBodyText(parent, "InventoryHeader", new Vector2(-270f, 155f), 210f, 30f)
             .text = Localization.T("Inventory");
 
         for (int i = 0; i < 10; i++)
@@ -261,7 +261,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     // click on a hand slot equips it; dragging a row onto L. Hand / R. Hand also equips it.
     private void BuildWeaponGrid(Transform parent)
     {
-        MakeBodyText(parent, "WeaponsHeader", new Vector2(24f, 150f), 260f, 30f)
+        MakeBodyText(parent, "WeaponsHeader", new Vector2(24f, 150f), 230f, 30f)
             .text = Localization.T("Weapons (owned)");
 
         for (int i = 0; i < WeaponGridCount; i++)

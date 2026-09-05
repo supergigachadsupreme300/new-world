@@ -167,6 +167,7 @@ public abstract class MenuPanelBase : MonoBehaviour
         if (PaletteCanvas == null) return;
         if (!_open.Contains(this)) _open.Add(this);
         GameInput.SetCursorLocked(false);
+        GameManager.Instance?.UIManager?.SetCrosshairVisible(false);
         PaletteCanvas.gameObject.SetActive(true);
         Refresh();
     }
@@ -180,7 +181,10 @@ public abstract class MenuPanelBase : MonoBehaviour
         {
             var player = GameManager.Instance.Player;
             if (player != null && !player.IgnoreInput)
+            {
                 GameInput.SetCursorLocked(true);
+                GameManager.Instance.UIManager?.SetCrosshairVisible(true);
+            }
         }
         PaletteCanvas.gameObject.SetActive(false);
     }
