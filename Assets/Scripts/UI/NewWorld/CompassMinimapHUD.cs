@@ -14,7 +14,7 @@ public sealed class CompassMinimapHUD : MonoBehaviour
 {
     [Header("Layout")]
     public bool ShowOnInGame = true;
-    [Range(0.08f, 0.35f)] public float MinimapRadiusFraction = 0.13f;
+    [Range(0.08f, 0.35f)] public float MinimapRadiusFraction = 0.16f;
 
     /// <summary>World metres shown across the minimap diameter.</summary>
     public float ViewSize = 40f;
@@ -83,9 +83,9 @@ public sealed class CompassMinimapHUD : MonoBehaviour
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
         rect.anchoredPosition = pos;
-        rect.sizeDelta = new Vector2(90f, 26f);
+        rect.sizeDelta = new Vector2(112f, 32f);
         var tmp = go.AddComponent<TextMeshProUGUI>();
-        tmp.fontSize = Mathf.Max(14f, Screen.height / 60f);
+        tmp.fontSize = Mathf.Max(17f, Screen.height / 48f);
         tmp.color = color;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.text = text;

@@ -44,8 +44,8 @@ public abstract class MenuPanelBase : MonoBehaviour
         PanelRect.anchorMax = new Vector2(0.5f, 0.5f);
         PanelRect.pivot = new Vector2(0.5f, 0.5f);
         PanelRect.anchoredPosition = Vector2.zero;
-        var w = Mathf.Min(Screen.width * 0.7f, 720f);
-        var h = Mathf.Min(Screen.height * 0.7f, 560f);
+        var w = Mathf.Min(Screen.width * 0.8f, 1000f);
+        var h = Mathf.Min(Screen.height * 0.8f, 760f);
         PanelRect.sizeDelta = new Vector2(w, h);
         var panelImg = panel.AddComponent<Image>();
         panelImg.color = ColorPalette.UIBackdrop;
@@ -57,12 +57,12 @@ public abstract class MenuPanelBase : MonoBehaviour
         tr.anchorMin = new Vector2(0.5f, 1f);
         tr.anchorMax = new Vector2(0.5f, 1f);
         tr.pivot = new Vector2(0.5f, 1f);
-        tr.anchoredPosition = new Vector2(0f, -16f);
-        tr.sizeDelta = new Vector2(w - 24f, 30f);
+        tr.anchoredPosition = new Vector2(0f, -20f);
+        tr.sizeDelta = new Vector2(w - 24f, 40f);
         var tmp = titleGo.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = title;
-        tmp.fontSize = Mathf.Max(16f, Screen.height / 50f);
+        tmp.fontSize = Mathf.Max(20f, Screen.height / 40f);
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;
 
@@ -74,7 +74,7 @@ public abstract class MenuPanelBase : MonoBehaviour
         BodyRow.anchorMax = new Vector2(0.5f, 0.5f);
         BodyRow.pivot = new Vector2(0.5f, 0.5f);
         BodyRow.anchoredPosition = Vector2.zero;
-        BodyRow.sizeDelta = new Vector2(w - 40f, h - 90f);
+        BodyRow.sizeDelta = new Vector2(w - 40f, h - 110f);
 
         // Close button.
         var closeGo = new GameObject("Close");
@@ -83,8 +83,8 @@ public abstract class MenuPanelBase : MonoBehaviour
         cr.anchorMin = new Vector2(0.5f, 0f);
         cr.anchorMax = new Vector2(0.5f, 0f);
         cr.pivot = new Vector2(0.5f, 0f);
-        cr.anchoredPosition = new Vector2(0f, 14f);
-        cr.sizeDelta = new Vector2(140f, 32f);
+        cr.anchoredPosition = new Vector2(0f, 16f);
+        cr.sizeDelta = new Vector2(180f, 40f);
         var cimg = closeGo.AddComponent<Image>();
         cimg.color = new Color(0.2f, 0.2f, 0.28f, 0.95f);
         var btnGo = closeGo.AddComponent<Button>();
@@ -101,7 +101,7 @@ public abstract class MenuPanelBase : MonoBehaviour
         var ltmp = label.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(ltmp);
         ltmp.text = Localization.T("Đóng");
-        ltmp.fontSize = 14;
+        ltmp.fontSize = 18;
         ltmp.color = Color.white;
         ltmp.alignment = TextAlignmentOptions.Center;
 
@@ -110,6 +110,9 @@ public abstract class MenuPanelBase : MonoBehaviour
     }
 
     protected Transform PaletteCanvas;
+
+    /// <summary>True while the overlay canvas is active (the host component may stay active).</summary>
+    public bool IsShown { get { return PaletteCanvas != null && PaletteCanvas.gameObject.activeInHierarchy; } }
 
     /// <summary>Show the panel overlay.</summary>
     public void Show()

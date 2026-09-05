@@ -658,7 +658,7 @@ public class PlayerController : MonoBehaviour
             var info = Object.FindAnyObjectByType<CharacterInfoUI>();
             if (info != null)
             {
-                if (info.gameObject.activeInHierarchy)
+                if (info.IsShown)
                     info.Close();
                 else
                     info.Show();

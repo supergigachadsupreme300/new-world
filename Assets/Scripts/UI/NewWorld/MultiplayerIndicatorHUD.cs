@@ -29,7 +29,7 @@ public sealed class MultiplayerIndicatorHUD : MonoBehaviour
         lr.offsetMin = Vector2.zero;
         lr.offsetMax = Vector2.zero;
         var tmp = labelGo.AddComponent<TextMeshProUGUI>();
-        tmp.fontSize = Mathf.Max(12f, Screen.height / 60f);
+        tmp.fontSize = Mathf.Max(15f, Screen.height / 48f);
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;
         _label = tmp;

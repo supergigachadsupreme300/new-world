@@ -30,24 +30,24 @@ public sealed class PlayerBarsHUD : MonoBehaviour
     private void Build()
     {
         var rect = (RectTransform)_canvas.transform;
-        float top = -40f;
+        float top = -50f;
 
         // HP bar (top-left, full)
         _hpFill = HudCanvas.CreateBar(rect, "HPBar",
             new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-            new Vector2(16f, top), new Vector2(260f, 22f),
+            new Vector2(16f, top), new Vector2(325f, 28f),
             new Color(0f, 0f, 0f, 0.65f), new Color(0.8f, 0.16f, 0.14f));
 
         // FP bar (under HP, shorter)
         _fpFill = HudCanvas.CreateBar(rect, "FPBar",
             new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-            new Vector2(16f, top - 26f), new Vector2(200f, 14f),
+            new Vector2(16f, top - 33f), new Vector2(250f, 18f),
             new Color(0f, 0f, 0f, 0.65f), new Color(0.16f, 0.5f, 0.85f));
 
         // Stamina bar (under FP, shortest)
         _stamFill = HudCanvas.CreateBar(rect, "StaminaBar",
             new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-            new Vector2(16f, top - 46f), new Vector2(170f, 10f),
+            new Vector2(16f, top - 58f), new Vector2(213f, 13f),
             new Color(0f, 0f, 0f, 0.65f), new Color(0.2f, 0.8f, 0.3f));
     }
 

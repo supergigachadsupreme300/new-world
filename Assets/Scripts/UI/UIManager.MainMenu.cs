@@ -138,9 +138,14 @@ public partial class UIManager
         }
         else
         {
-            _statsBg?.gameObject.SetActive(true);
-            for (int i = 0; i < InventorySlotCount; i++)
-                if (_inventorySlots[i] != null) _inventorySlots[i].SetActive(true);
+            if (_newWorldHudMode)
+                HideNewWorldDuplicatedLegacyElements();
+            else
+            {
+                _statsBg?.gameObject.SetActive(true);
+                for (int i = 0; i < InventorySlotCount; i++)
+                    if (_inventorySlots[i] != null) _inventorySlots[i].SetActive(true);
+            }
         }
     }
 
@@ -158,9 +163,14 @@ public partial class UIManager
         }
         else
         {
-            _statsBg?.gameObject.SetActive(true);
-            for (int i = 0; i < InventorySlotCount; i++)
-                if (_inventorySlots[i] != null) _inventorySlots[i].SetActive(true);
+            if (_newWorldHudMode)
+                HideNewWorldDuplicatedLegacyElements();
+            else
+            {
+                _statsBg?.gameObject.SetActive(true);
+                for (int i = 0; i < InventorySlotCount; i++)
+                    if (_inventorySlots[i] != null) _inventorySlots[i].SetActive(true);
+            }
         }
     }
 

@@ -75,8 +75,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0f, 1f);
             rt.anchorMax = new Vector2(0f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(bw * (0.5f + i), -48f);
-            rt.sizeDelta = new Vector2(bw - 6f, 32f);
+            rt.anchoredPosition = new Vector2(bw * (0.5f + i), -56f);
+            rt.sizeDelta = new Vector2(bw - 6f, 44f);
             var img = go.AddComponent<Image>();
             img.color = new Color(0.16f, 0.16f, 0.22f, 0.95f);
             var btn = go.AddComponent<Button>();
@@ -94,7 +94,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var lt = label.AddComponent<TextMeshProUGUI>();
             GameManager.Instance?.UIManager?.ApplyDefaultFont(lt);
             lt.text = name;
-            lt.fontSize = 14;
+            lt.fontSize = Mathf.Max(18f, Screen.height / 52f);
             lt.color = Color.white;
             lt.alignment = TextAlignmentOptions.Center;
         }
@@ -201,7 +201,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var lt = label.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(lt);
         lt.text = EquipmentSystem.SlotLabel(slot);
-        lt.fontSize = 10;
+        lt.fontSize = Mathf.Max(12f, Screen.height / 80f);
         lt.color = new Color(0.75f, 0.78f, 0.85f, 1f);
         lt.alignment = TextAlignmentOptions.Center;
         _equipSlotLabels[slot] = lt;
@@ -295,7 +295,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMax = new Vector2(0f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
             rt.anchoredPosition = new Vector2(-200f + bw * (0.5f + i), 200f);
-            rt.sizeDelta = new Vector2(bw - 4f, 26f);
+            rt.sizeDelta = new Vector2(bw - 4f, 34f);
             var img = go.AddComponent<Image>();
             img.color = new Color(0.14f, 0.16f, 0.2f, 0.95f);
             var btn = go.AddComponent<Button>();
@@ -313,7 +313,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var lt = label.AddComponent<TextMeshProUGUI>();
             GameManager.Instance?.UIManager?.ApplyDefaultFont(lt);
             lt.text = name;
-            lt.fontSize = 11;
+            lt.fontSize = Mathf.Max(14f, Screen.height / 64f);
             lt.color = Color.white;
             lt.alignment = TextAlignmentOptions.Center;
         }
@@ -351,7 +351,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         rt.sizeDelta = new Vector2(w, h);
         var tmp = go.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
-        tmp.fontSize = Mathf.Max(11f, Screen.height / 62f);
+        tmp.fontSize = Mathf.Max(14f, Screen.height / 48f);
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.TopLeft;
         return tmp;
@@ -366,7 +366,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         rt.anchorMax = new Vector2(0f, 1f);
         rt.pivot = new Vector2(0.5f, 1f);
         rt.anchoredPosition = pos;
-        rt.sizeDelta = new Vector2(150f, 30f);
+        rt.sizeDelta = new Vector2(190f, 38f);
         var img = go.AddComponent<Image>();
         img.color = new Color(0.2f, 0.25f, 0.3f, 0.95f);
         var btn = go.AddComponent<Button>();
@@ -382,7 +382,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var lt = l.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(lt);
         lt.text = label;
-        lt.fontSize = 12;
+        lt.fontSize = Mathf.Max(16f, Screen.height / 56f);
         lt.color = Color.white;
         lt.alignment = TextAlignmentOptions.Center;
     }

@@ -37,7 +37,7 @@ public sealed class CharacterCreationUI : MenuPanelBase
         rt.sizeDelta = new Vector2(460f, 240f);
         var tmp = go.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
-        tmp.fontSize = Mathf.Max(12f, Screen.height / 60f);
+        tmp.fontSize = Mathf.Max(14f, Screen.height / 48f);
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Left;
         return tmp;

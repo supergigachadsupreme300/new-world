@@ -46,12 +46,53 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private bool _spawned;
     private static readonly int TestRootLayer = 0;
 
+    /// <summary>XZ bounds + top height of the built test platform (for prop suppression).</summary>
+    public static float PlatformTopY { get; private set; } = float.MinValue;
+    public static float PlatformMinX { get; private set; }
+    public static float PlatformMaxX { get; private set; }
+    public static float PlatformMinZ { get; private set; }
+    public static float PlatformMaxZ { get; private set; }
+
+    /// <summary>True when a world position lies inside the built test platform footprint.</summary>
+    public static bool IsInsidePlatform(float x, float z)
+    {
+        return PlatformTopY != float.MinValue
+            && x >= PlatformMinX && x <= PlatformMaxX
+            && z >= PlatformMinZ && z <= PlatformMaxZ;
+    }
+
+    /// <summary>
+    /// Remove nature props that were generated synchronously before this component existed
+    /// (GameBootstrap generates the spawn chunks first), so none can poke through the platform.
+    /// </summary>
+    private static void ClearPropsInsidePlatform()
+    {
+        foreach (var prop in Object.FindObjectsByType<ChunkObject>(FindObjectsSortMode.None))
+        {
+            Transform root = prop.transform;
+            for (int i = root.childCount - 1; i >= 0; i--)
+            {
+                Transform child = root.GetChild(i);
+                if (IsTreeOrRock(child) && IsInsidePlatform(child.position.x, child.position.z))
+                    Object.Destroy(child.gameObject);
+            }
+        }
+    }
+
+    private static bool IsTreeOrRock(Transform t)
+    {
+        if (t == null) return false;
+        string n = t.name;
+        return n.StartsWith("Tree") || n.StartsWith("Rock") || n.StartsWith("Stone");
+    }
+
     private void Awake()
     {
         if (CreatePlatform)
         {
             SnapPlatformToTerrain();
             BuildPlatform();
+            ClearPropsInsidePlatform();
         }
 
         _npcPlacer = Object.FindAnyObjectByType<WorldNpcPlacer>();
@@ -93,8 +134,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     /// <summary>
     /// Snaps the floating platform to sit just above the streamed terrain so the
-    /// platform collider never overlaps the player spawn point. Sampling the max
-    /// height over the platform footprint guarantees clearance everywhere.
+    /// platform collider never overlaps the player spawn point. Samples the height
+    /// over the whole platform footprint at tile resolution (1m, matching the world
+    /// tile grid) and raises the platform above the true maximum, so tiles streaming
+    /// in below it can never poke through and depenetrate the player's capsule.
     /// </summary>
     private void SnapPlatformToTerrain()
     {
@@ -106,12 +149,28 @@ public sealed class NewWorldTestGround : MonoBehaviour
         float cx = PlatformCenter.x;
         float cz = PlatformCenter.z;
         long seed = streamer.Seed;
-        float maxY = TerrainNoiseGenerator.GetHeight(seed, cx, cz);
-        maxY = Mathf.Max(maxY, TerrainNoiseGenerator.GetHeight(seed, cx - half, cz - half));
-        maxY = Mathf.Max(maxY, TerrainNoiseGenerator.GetHeight(seed, cx + half, cz - half));
-        maxY = Mathf.Max(maxY, TerrainNoiseGenerator.GetHeight(seed, cx - half, cz + half));
-        maxY = Mathf.Max(maxY, TerrainNoiseGenerator.GetHeight(seed, cx + half, cz + half));
-        PlatformCenter.y = maxY + 2f;
+
+        int steps = Mathf.Max(2, Mathf.RoundToInt(PlatformSize));
+        float maxY = float.MinValue;
+        for (int x = 0; x <= steps; x++)
+        {
+            float wx = cx - half + x;
+            for (int z = 0; z <= steps; z++)
+            {
+                float wz = cz - half + z;
+                float y = TerrainNoiseGenerator.GetHeight(seed, wx, wz);
+                if (y > maxY) maxY = y;
+            }
+        }
+        if (maxY == float.MinValue)
+            maxY = TerrainNoiseGenerator.GetHeight(seed, cx, cz);
+
+        PlatformCenter.y = maxY + 3f;
+        PlatformTopY = PlatformCenter.y;
+        PlatformMinX = cx - half;
+        PlatformMaxX = cx + half;
+        PlatformMinZ = cz - half;
+        PlatformMaxZ = cz + half;
     }
 
     private void BuildPlatform()

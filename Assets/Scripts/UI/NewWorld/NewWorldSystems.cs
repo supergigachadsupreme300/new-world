@@ -14,6 +14,8 @@ public sealed class NewWorldSystems : MonoBehaviour
     public bool EnableHUD = true;
     public bool EnableMenus = true;
     public bool EnableInteraction = true;
+    [Tooltip("Hide the legacy UIManager stat-text + inventory-slot HUD, which the new HUD (bars, skill bar, menus) replaces. Message/crosshair/quest panels are kept.")]
+    public bool UseNewHud = true;
     [Tooltip("Multiplayer overlay is a specialized HUD indicator; disable to avoid an idle poller by default.")]
     public bool EnableMultiplayerIndicator = false;
 
@@ -76,6 +78,12 @@ public sealed class NewWorldSystems : MonoBehaviour
         _streamer = Object.FindAnyObjectByType<WorldStreamer>();
         if (_streamer != null && GameManager.Instance?.Player != null)
             _streamer.SetFocus(GameManager.Instance.Player.transform);
+
+        // New-HUD mode: hide the legacy stat-text + inventory-slot overlay that the new HUD
+        // duplicates. GameManager.StartNewGame re-shows legacy elements, which the UIManager now
+        // defers while this flag is on, so a one-time call here is sufficient.
+        if (UseNewHud && (EnableHUD || EnableMenus))
+            GameManager.Instance?.UIManager?.SetNewWorldHudMode(true);
     }
 
     private void Update()

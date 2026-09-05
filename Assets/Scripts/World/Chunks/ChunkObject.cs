@@ -78,6 +78,11 @@ public class ChunkObject : MonoBehaviour
 
     public void SpawnProps(long seed)
     {
+        // Skip nature props inside the test-platform footprint so trees/rocks can't
+        // poke their colliders up through the floating bench and eject the player.
+        if (NewWorldTestGround.IsInsidePlatform(Coord.X + 0.5f, Coord.Z + 0.5f))
+            return;
+
         var rng = new System.Random(seed.GetHashCode() ^ (Coord.X * 73856093) ^ (Coord.Z * 19349663));
 
         if (rng.Next(200) == 0)

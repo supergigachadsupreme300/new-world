@@ -4,6 +4,8 @@ using TMPro;
 
 public partial class UIManager
 {
+    private bool _newWorldHudMode;
+
     public void ShowAllGameUI(bool show)
     {
         if (show)
@@ -24,6 +26,36 @@ public partial class UIManager
             HideSkillPanel();
             HideFriendPanel();
         }
+        else if (_newWorldHudMode)
+        {
+            HideNewWorldDuplicatedLegacyElements();
+        }
+    }
+
+    /// <summary>
+    /// Switch the legacy HUD into "new-world HUD" mode: hide the legacy elements the new HUD
+    /// already replaces (stat text cluster + inventory slot row), keeping message/crosshair/quest
+    /// panels which have no new-world equivalent yet. NewWorldSystems calls this when UseNewHud.
+    /// </summary>
+    public void SetNewWorldHudMode(bool on)
+    {
+        _newWorldHudMode = on;
+        if (on)
+            HideNewWorldDuplicatedLegacyElements();
+        else
+            ShowAllGameUI(GameManager.Instance != null && GameManager.Instance.InGame);
+    }
+
+    private void HideNewWorldDuplicatedLegacyElements()
+    {
+        _statsBg?.gameObject.SetActive(false);
+        _timeText?.gameObject.SetActive(false);
+        _hpText?.gameObject.SetActive(false);
+        _staminaText?.gameObject.SetActive(false);
+        _moneyText?.gameObject.SetActive(false);
+        _questText?.gameObject.SetActive(false);
+        for (int i = 0; i < InventorySlotCount; i++)
+            if (_inventorySlots[i] != null) _inventorySlots[i].SetActive(false);
     }
 
     public void SetCrosshairVisible(bool visible)

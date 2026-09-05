@@ -23,7 +23,7 @@ public sealed class SkillBarHUD : MonoBehaviour
     {
         _canvas = HudCanvas.CreateOverlay("SkillBarCanvas");
         float h = Mathf.Max(Screen.height, 1);
-        float slotSize = h * 0.06f;
+        float slotSize = h * 0.075f;
         float spacing = slotSize * 1.2f;
         float total = (SlotCount - 1) * spacing;
         float startX = -total * 0.5f;
@@ -45,7 +45,7 @@ public sealed class SkillBarHUD : MonoBehaviour
             lr.offsetMin = Vector2.zero;
             lr.offsetMax = Vector2.zero;
             var tmp = label.AddComponent<TextMeshProUGUI>();
-            tmp.fontSize = Mathf.Max(11f, h / 80f);
+            tmp.fontSize = Mathf.Max(14f, h / 64f);
             tmp.color = Color.white;
             tmp.alignment = TextAlignmentOptions.Center;
             _slotTexts[i] = tmp;

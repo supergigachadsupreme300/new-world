@@ -41,7 +41,7 @@ public sealed class NpcDialogueUI : MonoBehaviour
         nr.sizeDelta = new Vector2(640f, 26f);
         _nameText = nameGo.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(_nameText);
-        _nameText.fontSize = 17;
+        _nameText.fontSize = 21;
         _nameText.color = new Color(1f, 0.9f, 0.6f);
 
         var lineGo = new GameObject("Line");
@@ -68,7 +68,7 @@ public sealed class NpcDialogueUI : MonoBehaviour
         hr.sizeDelta = new Vector2(400f, 20f);
         var hint = hintGo.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(hint);
-        hint.fontSize = 13;
+        hint.fontSize = 16;
         hint.color = new Color(0.8f, 0.8f, 0.8f);
         hint.alignment = TextAlignmentOptions.Center;
         hint.text = "[ E ] " + Localization.T("Tiếp Tục");
