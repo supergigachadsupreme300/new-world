@@ -132,7 +132,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 1f);
             rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 0f);
+            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 6f);
             rt.sizeDelta = new Vector2(bw - 6f, 46f);
             var img = go.AddComponent<Image>();
             ApplyMenuButtonSprite(img);

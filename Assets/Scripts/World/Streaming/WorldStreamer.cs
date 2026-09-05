@@ -52,6 +52,12 @@ public class WorldStreamer : MonoBehaviour
     }
     private readonly Queue<TileFinalization> _tileFinalizeQueue = new Queue<TileFinalization>();
 
+    // --- Hierarchy containers (Terrain > Chunks > Chunk_X_Z > Tile_X_Z) ---
+    private Transform _terrainRoot;
+    private Transform _chunksRoot;
+    private readonly Dictionary<TerrainChunkCoord, Transform> _chunkContainers = new Dictionary<TerrainChunkCoord, Transform>();
+    private readonly Dictionary<TerrainChunkCoord, int> _chunkTileCount = new Dictionary<TerrainChunkCoord, int>();
+
     private Transform _focus;
     private float _timer;
     private const float PollInterval = 0.1f;
@@ -374,11 +380,42 @@ public class WorldStreamer : MonoBehaviour
     {
         GameObject go = new GameObject($"Tile_{coord.X}_{coord.Z}");
         go.isStatic = false;
-        go.transform.SetParent(null);
+        go.transform.SetParent(GetChunkContainer(coord), false);
         go.transform.position = new Vector3(coord.X * ChunkData.Size, 0f, coord.Z * ChunkData.Size);
         var obj = go.AddComponent<ChunkObject>();
         obj.Init(coord);
         return obj;
+    }
+
+    /// <summary>
+    /// Get (or lazily create) the container the given tile's terrain chunk lives under.
+    /// Organises the scene hierarchy as Terrain > Chunks > Chunk_X_Z > Tile_X_Z so tiles
+    /// are grouped into their 30x30 chunks instead of sitting flat at the scene root.
+    /// Containers stay at the world origin; tiles keep world-space positions.
+    /// </summary>
+    private Transform GetChunkContainer(ChunkCoord tile)
+    {
+        TerrainChunkCoord tc = TerrainChunkCoord.FromTile(tile);
+        Transform container;
+        if (_chunkContainers.TryGetValue(tc, out container))
+        {
+            _chunkTileCount[tc] = _chunkTileCount[tc] + 1;
+            return container;
+        }
+
+        if (_terrainRoot == null)
+            _terrainRoot = new GameObject("Terrain").transform;
+        if (_chunksRoot == null)
+        {
+            _chunksRoot = new GameObject("Chunks").transform;
+            _chunksRoot.SetParent(_terrainRoot, false);
+        }
+
+        GameObject chunk = new GameObject($"Chunk_{tc.X}_{tc.Z}");
+        chunk.transform.SetParent(_chunksRoot, false);
+        _chunkContainers[tc] = chunk.transform;
+        _chunkTileCount[tc] = 1;
+        return chunk.transform;
     }
 
     /// <summary>
@@ -437,6 +474,25 @@ public class WorldStreamer : MonoBehaviour
         if (obj != null)
             Destroy(obj.gameObject);
         _loadedObjects.Remove(coord);
+
+        // Destroy the chunk container once its last tile is gone.
+        TerrainChunkCoord tc = TerrainChunkCoord.FromTile(coord);
+        Transform container;
+        if (_chunkContainers.TryGetValue(tc, out container))
+        {
+            int remaining = _chunkTileCount[tc] - 1;
+            if (remaining <= 0)
+            {
+                _chunkTileCount.Remove(tc);
+                _chunkContainers.Remove(tc);
+                if (container != null)
+                    Destroy(container.gameObject);
+            }
+            else
+            {
+                _chunkTileCount[tc] = remaining;
+            }
+        }
     }
 
     public void MarkDirty(ChunkCoord coord)
