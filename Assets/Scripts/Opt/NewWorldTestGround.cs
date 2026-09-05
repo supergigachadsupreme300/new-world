@@ -45,7 +45,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private void Awake()
     {
         if (CreatePlatform)
+        {
+            SnapPlatformToTerrain();
             BuildPlatform();
+        }
 
         _npcPlacer = Object.FindAnyObjectByType<WorldNpcPlacer>();
         if (_npcPlacer == null)
@@ -80,6 +83,29 @@ public sealed class NewWorldTestGround : MonoBehaviour
         {
             player.transform.position = PlatformCenter + new Vector3(0f, 2f, PlatformSize * 0.45f);
         }
+    }
+
+    /// <summary>
+    /// Snaps the floating platform to sit just above the streamed terrain so the
+    /// platform collider never overlaps the player spawn point. Sampling the max
+    /// height over the platform footprint guarantees clearance everywhere.
+    /// </summary>
+    private void SnapPlatformToTerrain()
+    {
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (streamer == null)
+            return;
+
+        float half = PlatformSize * 0.5f;
+        float cx = PlatformCenter.x;
+        float cz = PlatformCenter.z;
+        long seed = streamer.Seed;
+        float maxY = TerrainNoiseGenerator.GetHeight(seed, cx, cz);
+        maxY = Mathf.Max(maxY, TerrainNoiseGenerator.GetHeight(seed, cx - half, cz - half));
+        maxY = Mathf.Max(maxY, TerrainNoiseGenerator.GetHeight(seed, cx + half, cz - half));
+        maxY = Mathf.Max(maxY, TerrainNoiseGenerator.GetHeight(seed, cx - half, cz + half));
+        maxY = Mathf.Max(maxY, TerrainNoiseGenerator.GetHeight(seed, cx + half, cz + half));
+        PlatformCenter.y = maxY + 2f;
     }
 
     private void BuildPlatform()
@@ -121,6 +147,11 @@ public sealed class NewWorldTestGround : MonoBehaviour
             pole.transform.localScale = new Vector3(0.6f, 4f, 0.6f);
             pole.transform.localPosition = new Vector3(signX * s, 2f, signZ * s);
         }
+    }
+
+    public Vector3 GetSpawnPoint()
+    {
+        return PlatformCenter + new Vector3(0f, 2f, PlatformSize * 0.45f);
     }
 
     private void SpawnToolKit()
