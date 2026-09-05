@@ -6,23 +6,29 @@ using TMPro;
 
 /// <summary>
 /// Phase 10/11: Character Info menu — a stacked multi-panel window with a top button bar. Each
-/// top button reveals one panel and hides the others (Stats / Skills / Inventory / Equipment /
-/// Class / Race / Map). The Skills panel shows the per-category skill tree, lets the player spend skill
-/// points and assign a hotkey to a castable skill via <see cref="SkillBindings"/>. The Equipment
-/// panel is a humanoid 21-slot sheet (§5.4); the Class panel lists the 15 classes with unlock
-/// status and lets the player change their active class; the Race panel lists the 22 races with
-/// unlock status and lets the player change their active race (non-Human costs a Ritual Stone).
+/// top button reveals one panel and hides the others (Stats / Skills / Inventory / Map).
+///
+/// The Inventory panel merges the old Inventory + Equipment tabs: the humanoid 21-slot equipment
+/// sheet sits on the LEFT, the backpack storage grid (30 slots) with the mirrored hotbar row
+/// ("use bar") on the RIGHT. Stacks can be dragged between the storage grid and the hotbar row
+/// via <see cref="ItemDragHandle"/>/<see cref="ItemDropTarget"/> (Minecraft-style) and owned
+/// weapons can be dragged onto the L/R Hand slots.
+///
+/// The Stats panel shows the stats plus the currently-used class and race (name + passive).
+/// "Change Class" and "Change Race" open a picker with a confirmation step before applying
+/// (class via <see cref="ClassUnlocker"/>, race via <see cref="RaceChangeManager"/> with the
+/// Ritual Stone cost for non-Human changes).
 ///
 /// Composes existing PlayerStats / ToolManager / EquipmentSystem / GearCatalog / WeaponRigBuilder /
-/// SkillProfile / SkillBindings / SkillCatalog / ClassUnlocker without rewriting them. Built on
-/// MenuPanelBase.
+/// SkillProfile / SkillBindings / SkillCatalog / ClassUnlocker / RaceChangeManager without
+/// rewriting them. Built on MenuPanelBase.
 /// </summary>
 public sealed class CharacterInfoUI : MenuPanelBase
 {
     /// <summary>Last shown instance (drag & drop targets resolve it via this).</summary>
     public static CharacterInfoUI Instance;
 
-    public enum Tab { Stats = 0, Skills = 1, Inventory = 2, Equipment = 3, Class = 4, Race = 5, Map = 6 }
+    public enum Tab { Stats = 0, Skills = 1, Inventory = 2, Map = 3 }
 
     public Tab ActiveTab = Tab.Stats;
 
@@ -35,21 +41,26 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private TMP_Text _skillListLine;
     private TMP_Text _skillPointsLine;
     private TMP_Text _equipSummary;
-    private TMP_Text _classLine;
-    private TMP_Text _raceLine;
     private TMP_Text _mapLine;
     private TMP_Text _captureLine;
     private TMP_Text _moneyLine;
 
-    private readonly Image[] _invImgs = new Image[10];
-    private readonly TMP_Text[] _invLabels = new TMP_Text[10];
+    // Backpack storage grid (30 slots) + mirrored hotbar row (10 slots).
+    private readonly Image[] _storageImgs = new Image[ToolManager.StorageSlotCount];
+    private readonly TMP_Text[] _storageLabels = new TMP_Text[ToolManager.StorageSlotCount];
+    private readonly Image[] _invImgs = new Image[ToolManager.HotbarSlotCount];
+    private readonly TMP_Text[] _invLabels = new TMP_Text[ToolManager.HotbarSlotCount];
     private int _invSelected = -1;
 
     private readonly Dictionary<EquipSlot, TMP_Text> _equipSlotLabels = new Dictionary<EquipSlot, TMP_Text>();
-    private readonly List<TMP_Text> _classRowLabels = new List<TMP_Text>();
 
     private static readonly Color WeaponIdleColor = new Color(0.14f, 0.16f, 0.2f, 0.95f);
     private static readonly Color WeaponSelectedColor = new Color(0.3f, 0.6f, 0.9f, 0.95f);
+    private static readonly Color SlotColor = new Color(0.14f, 0.16f, 0.2f, 0.95f);
+    private static readonly Color SlotSelectedColor = new Color(0.35f, 0.55f, 0.75f, 0.95f);
+
+    /// <summary>Horizontal shift applied to the humanoid sheet so the backpack uses the right half.</summary>
+    private const float EquipShiftX = -55f;
 
     private static Sprite _menuButtonSprite;
     private static Sprite MenuButtonSprite()
@@ -79,16 +90,25 @@ public sealed class CharacterInfoUI : MenuPanelBase
             img.color = new Color(0.2f, 0.2f, 0.26f, 0.95f);
         }
     }
-    private const int WeaponGridCols = 2;
-    private const int WeaponGridRows = 8;
+
+    private const int WeaponGridCols = 3;
+    private const int WeaponGridRows = 3;
     private const int WeaponGridCount = WeaponGridCols * WeaponGridRows;
     private string _selectedWeaponId;
-    private TMP_Text _weaponHint;
     private readonly GameObject[] _weaponGos = new GameObject[WeaponGridCount];
     private readonly Image[] _weaponImages = new Image[WeaponGridCount];
     private readonly TMP_Text[] _weaponLabels = new TMP_Text[WeaponGridCount];
     private readonly WeaponDragHandle[] _weaponDrags = new WeaponDragHandle[WeaponGridCount];
     private readonly List<string> _weaponGridIds = new List<string>();
+
+    // Class / Race change dialog (picker + confirmation).
+    private GameObject _changeDialog;
+    private TMP_Text _changeTitle;
+    private Transform _changeOptions;
+    private TMP_Text _changeConfirmText;
+    private Button _changeConfirmBtn;
+    private string _changeMode;
+    private object _pendingChange;
 
     private static readonly string[] StatNames =
     {
@@ -119,7 +139,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
     private void BuildTopButtons()
     {
-        string[] names = { "Stats", "Skills", "Inventory", "Equipment", "Class", "Race", "Map" };
+        string[] names = { "Stats", "Skills", "Inventory", "Map" };
         float w = PanelRect.rect.width;
         float bw = w / names.Length;
         for (int i = 0; i < names.Length; i++)
@@ -132,7 +152,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 1f);
             rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 6f);
+            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 16f);
             rt.sizeDelta = new Vector2(bw - 6f, 46f);
             var img = go.AddComponent<Image>();
             ApplyMenuButtonSprite(img);
@@ -159,10 +179,12 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
     private void BuildPanels()
     {
-        // Stats panel.
+        // Stats panel: stats + current class/race + change buttons.
         _panels[Tab.Stats] = MakePanel("StatsPanel");
         _statsLine = MakeBodyText(_panels[Tab.Stats].transform, "Stats", new Vector2(-270f, 150f), 500f, 340f);
         _statsLine.fontSize = Mathf.Max(22f, Screen.height / 40f);
+        MakeButton(_panels[Tab.Stats].transform, "ChangeClassBtn", "Change Class", new Vector2(-90f, -170f), () => OpenChangeDialog("class"));
+        MakeButton(_panels[Tab.Stats].transform, "ChangeRaceBtn", "Change Race", new Vector2(90f, -170f), () => OpenChangeDialog("race"));
 
         // Skills panel.
         _panels[Tab.Skills] = MakePanel("SkillsPanel");
@@ -173,63 +195,48 @@ public sealed class CharacterInfoUI : MenuPanelBase
         MakeButton(_panels[Tab.Skills].transform, "LearnBtn", "Learn Selected", new Vector2(205f, -120f), LearnSelected);
         MakeButton(_panels[Tab.Skills].transform, "AssignKeyBtn", "Assign Key", new Vector2(205f, -74f), AssignNextSkillKey);
 
-        // Inventory panel: 10 tool slots (left) + clickable/draggable owned weapons (right).
+        // Merged Inventory + Equipment panel: equipment sheet LEFT, backpack + use bar RIGHT.
         _panels[Tab.Inventory] = MakePanel("InventoryPanel");
-        BuildInventorySlots(_panels[Tab.Inventory].transform);
-        _moneyLine = MakeBodyText(_panels[Tab.Inventory].transform, "Money", new Vector2(-270f, -84f), 240f, 28f);
-        _weaponHint = MakeBodyText(_panels[Tab.Inventory].transform, "WeaponHint", new Vector2(-270f, -160f), 500f, 28f);
-        _weaponHint.text = Localization.T("Click a weapon, then a hand slot — or drag it onto L/R Hand.");
-        BuildWeaponGrid(_panels[Tab.Inventory].transform);
-
-        // Equipment panel (humanoid 21-slot sheet, §5.4).
-        _panels[Tab.Equipment] = MakePanel("EquipmentPanel");
-        BuildEquipmentSheet(_panels[Tab.Equipment].transform);
-        _equipSummary = MakeBodyText(_panels[Tab.Equipment].transform, "Equipment", new Vector2(-270f, 155f), 500f, 64f);
-
-        // Class panel (the 15-class roster, §3.2 with active-class selection).
-        _panels[Tab.Class] = MakePanel("ClassPanel");
-        _classLine = MakeBodyText(_panels[Tab.Class].transform, "Classes", new Vector2(-270f, 170f), 500f, 330f);
-        MakeButton(_panels[Tab.Class].transform, "CycleClassBtn", "Switch Active Class", new Vector2(170f, -140f), CycleActiveClass);
-
-        // Race panel (the 22-race roster, §3.5 with active-race selection + ritual stone cost).
-        _panels[Tab.Race] = MakePanel("RacePanel");
-        _raceLine = MakeBodyText(_panels[Tab.Race].transform, "Races", new Vector2(-270f, 170f), 500f, 330f);
-        _raceLine.fontSize = Mathf.Max(10f, Screen.height / 72f);
-        MakeButton(_panels[Tab.Race].transform, "CycleRaceBtn", "Switch Active Race", new Vector2(170f, -140f), CycleActiveRace);
+        BuildEquipmentSheet(_panels[Tab.Inventory].transform);
+        _equipSummary = MakeBodyText(_panels[Tab.Inventory].transform, "Equipment", new Vector2(-288f, 178f), 560f, 44f);
+        BuildWeaponLane(_panels[Tab.Inventory].transform);
+        BuildStorageGrid(_panels[Tab.Inventory].transform);
+        BuildHotbarMirror(_panels[Tab.Inventory].transform);
+        _moneyLine = MakeBodyText(_panels[Tab.Inventory].transform, "Money", new Vector2(8f, -160f), 260f, 24f);
 
         // Map panel (placeholder summary; the dedicated WorldMapUI is separate).
         _panels[Tab.Map] = MakePanel("MapPanel");
         _mapLine = MakeBodyText(_panels[Tab.Map].transform, "Map", new Vector2(-270f, 160f), 500f, 200f);
+
+        EnsureChangeDialog();
     }
 
-    // ── Tool-slot inventory grid (Inventory tab) ─────────────────────────────
-    // 5x2 grid of the player's 10 tool/inventory slots. Clicking a slot selects it via
-    // ToolManager (mirrors the legacy bottom bar), highlights the selection, and shows the
-    // item name + count; money is shown underneath.
-    private void BuildInventorySlots(Transform parent)
+    // ── Backpack storage grid (Inventory tab, right side) ───────────────────
+    // 30 Minecraft-style storage slots (5x6). Dragging a stack onto a grid cell stores it;
+    // dragging one onto the hotbar mirror row below moves it to the use bar.
+    private void BuildStorageGrid(Transform parent)
     {
-        MakeBodyText(parent, "InventoryHeader", new Vector2(-270f, 155f), 210f, 30f)
-            .text = Localization.T("Inventory");
+        MakeBodyText(parent, "StorageHeader", new Vector2(8f, 178f), 280f, 28f)
+            .text = Localization.T("Backpack (storage)");
 
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < ToolManager.StorageSlotCount; i++)
         {
             int col = i % 5;
             int row = i / 5;
+            int slot = ToolManager.StorageStart + i;
 
-            var go = new GameObject("InvSlot_" + i);
+            var go = new GameObject("StorageSlot_" + i);
             go.transform.SetParent(parent, false);
             var rt = go.AddComponent<RectTransform>();
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2(-288f + col * 96f, 112f - row * 96f);
-            rt.sizeDelta = new Vector2(88f, 88f);
+            rt.anchoredPosition = new Vector2(8f + col * 52f, 146f - row * 50f);
+            rt.sizeDelta = new Vector2(46f, 46f);
             var img = go.AddComponent<Image>();
-            img.color = new Color(0.14f, 0.16f, 0.2f, 0.95f);
-            var btn = go.AddComponent<Button>();
-            btn.targetGraphic = img;
-            int captured = i;
-            btn.onClick.AddListener(() => SelectInventorySlot(captured));
+            img.color = SlotColor;
+            go.AddComponent<ItemDragHandle>().Slot = slot;
+            go.AddComponent<ItemDropTarget>().Slot = slot;
 
             var label = new GameObject("Label");
             label.transform.SetParent(go.transform, false);
@@ -240,9 +247,56 @@ public sealed class CharacterInfoUI : MenuPanelBase
             lr.offsetMax = Vector2.zero;
             var tmp = label.AddComponent<TextMeshProUGUI>();
             GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
-            tmp.fontSize = Mathf.Max(12f, Screen.height / 78f);
+            tmp.fontSize = Mathf.Max(9f, Screen.height / 96f);
             tmp.color = Color.white;
             tmp.alignment = TextAlignmentOptions.Center;
+            tmp.text = (i + 1).ToString();
+
+            _storageImgs[i] = img;
+            _storageLabels[i] = tmp;
+        }
+    }
+
+    // ── Hotbar mirror (Inventory tab, bottom-right of the grid) ─────────────
+    // Mirrors slots 0-9 of ToolManager (same data as the bottom HUD use bar). Click to select
+    // (number-key behaviour), drag to swap a stack onto it, drop into it to store from the grid.
+    private void BuildHotbarMirror(Transform parent)
+    {
+        MakeBodyText(parent, "UseBarHeader", new Vector2(8f, -182f), 290f, 24f)
+            .text = Localization.T("Use bar (1-0)");
+
+        for (int i = 0; i < ToolManager.HotbarSlotCount; i++)
+        {
+            var go = new GameObject("HudInvSlot_" + i);
+            go.transform.SetParent(parent, false);
+            var rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(8f + i * 30f, -206f);
+            rt.sizeDelta = new Vector2(28f, 26f);
+            var img = go.AddComponent<Image>();
+            img.color = SlotColor;
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            int captured = i;
+            btn.onClick.AddListener(() => SelectInventorySlot(captured));
+            go.AddComponent<ItemDragHandle>().Slot = i;
+            go.AddComponent<ItemDropTarget>().Slot = i;
+
+            var label = new GameObject("Label");
+            label.transform.SetParent(go.transform, false);
+            var lr = label.AddComponent<RectTransform>();
+            lr.anchorMin = Vector2.zero;
+            lr.anchorMax = Vector2.one;
+            lr.offsetMin = Vector2.zero;
+            lr.offsetMax = Vector2.zero;
+            var tmp = label.AddComponent<TextMeshProUGUI>();
+            GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
+            tmp.fontSize = Mathf.Max(9f, Screen.height / 100f);
+            tmp.color = Color.white;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.text = (i % 10 == 0 ? "10" : i.ToString());
 
             _invImgs[i] = img;
             _invLabels[i] = tmp;
@@ -256,13 +310,13 @@ public sealed class CharacterInfoUI : MenuPanelBase
         RefreshInventory();
     }
 
-    // ── Owned-weapon grid (Inventory tab) ────────────────────────────────────
-    // 2-column grid of owned weapons. Clicking selects the weapon (highlighted) so a following
-    // click on a hand slot equips it; dragging a row onto L. Hand / R. Hand also equips it.
-    private void BuildWeaponGrid(Transform parent)
+    // ── Owned-weapon lane (Inventory tab, bottom-left) ──────────────────────
+    // Compact 3x3 grid of owned weapons. Clicking selects the weapon (highlighted) so a following
+    // click on a hand slot equips it; dragging a cell onto L. Hand / R. Hand also equips it.
+    private void BuildWeaponLane(Transform parent)
     {
-        MakeBodyText(parent, "WeaponsHeader", new Vector2(24f, 150f), 230f, 30f)
-            .text = Localization.T("Weapons (owned)");
+        MakeBodyText(parent, "WeaponsHeader", new Vector2(-288f, -118f), 300f, 24f)
+            .text = Localization.T("Weapons (drag onto a hand)");
 
         for (int i = 0; i < WeaponGridCount; i++)
         {
@@ -275,8 +329,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2(20f + col * 128f, 110f - row * 30f);
-            rt.sizeDelta = new Vector2(124f, 24f);
+            rt.anchoredPosition = new Vector2(-288f + col * 100f, -146f - row * 32f);
+            rt.sizeDelta = new Vector2(94f, 26f);
             var img = go.AddComponent<Image>();
             img.color = WeaponIdleColor;
             var btn = go.AddComponent<Button>();
@@ -293,7 +347,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             lr.offsetMax = Vector2.zero;
             var tmp = label.AddComponent<TextMeshProUGUI>();
             GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
-            tmp.fontSize = Mathf.Max(12f, Screen.height / 72f);
+            tmp.fontSize = Mathf.Max(11f, Screen.height / 80f);
             tmp.color = Color.white;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.text = "";
@@ -353,6 +407,19 @@ public sealed class CharacterInfoUI : MenuPanelBase
         RefreshWeapons();
     }
 
+    public void OnItemDragEnded()
+    {
+        RefreshInventoryUi();
+    }
+
+    /// <summary>Refresh all inventory-side displays (storage grid, use bar, weapons, sheet).</summary>
+    public void RefreshInventoryUi()
+    {
+        RefreshInventory();
+        RefreshWeapons();
+        RefreshEquipment();
+    }
+
     private void EquipOwnedWeapon(string weaponId, EquipSlot slot)
     {
         var player = GameManager.Instance?.Player;
@@ -384,12 +451,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
     }
 
     // ── Humanoid 21-slot equipment sheet (§5.4) ────────────────────────────
-    // Humanoid torso down the middle (Head → Necklace → Body → Belt → Legging →
-    // Feet) with hands (L/R) at the shoulders and glove on the arm; the 10 finger
-    // rings walk the left elbow column (Finger1-5) and right hand column
-    // (Finger6-10), ears flanking the head. Each slot is a small button: click an
-    // occupied slot to unequip, click an empty slot to equip the next free catalog
-    // piece for it, click a hand to cycle the equipped weapon.
     private void BuildEquipmentSheet(Transform parent)
     {
         GearCatalog.EnsureBuilt();
@@ -426,7 +487,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0f, 1f);
-        rt.anchoredPosition = new Vector2(pos.x, pos.y + 90f);
+        rt.anchoredPosition = new Vector2(pos.x + EquipShiftX, pos.y + 90f);
         rt.sizeDelta = new Vector2(84f, 30f);
         var img = go.AddComponent<Image>();
         img.color = new Color(0.14f, 0.16f, 0.2f, 0.95f);
@@ -487,49 +548,305 @@ public sealed class CharacterInfoUI : MenuPanelBase
         RefreshEquipment();
     }
 
-    private void CycleActiveClass()
+    // ── Class / Race change dialog ──────────────────────────────────────────
+    // A picker + confirmation built over the same canvas: lists the unlocked classes (with their
+    // requirements) or races (with the Ritual Stone cost for non-Human). Picking an option stages
+    // a pending change shown in the confirm strip; Confirm applies it, Cancel keeps the old value.
+    private void EnsureChangeDialog()
     {
-        var unlocker = ClassUnlockerOf();
-        if (unlocker == null || unlocker.UnlockedClassIds == null || unlocker.UnlockedClassIds.Count == 0)
-            return;
-        int idx = unlocker.UnlockedClassIds.IndexOf(unlocker.ActiveClassId);
-        idx = (idx + 1) % unlocker.UnlockedClassIds.Count;
-        unlocker.SetActiveClass(unlocker.UnlockedClassIds[idx]);
-        RefreshClasses();
+        if (_changeDialog != null || PaletteCanvas == null) return;
+
+        _changeDialog = new GameObject("ChangeDialog");
+        _changeDialog.transform.SetParent(PaletteCanvas, false);
+        var rootRt = _changeDialog.AddComponent<RectTransform>();
+        rootRt.anchorMin = Vector2.zero;
+        rootRt.anchorMax = Vector2.one;
+        rootRt.offsetMin = Vector2.zero;
+        rootRt.offsetMax = Vector2.zero;
+        var dim = _changeDialog.AddComponent<Image>();
+        dim.color = new Color(0f, 0f, 0f, 0.55f);
+        dim.raycastTarget = true;
+
+        var box = new GameObject("DialogBox");
+        box.transform.SetParent(_changeDialog.transform, false);
+        var boxRt = box.AddComponent<RectTransform>();
+        boxRt.anchorMin = new Vector2(0.5f, 0.5f);
+        boxRt.anchorMax = new Vector2(0.5f, 0.5f);
+        boxRt.pivot = new Vector2(0.5f, 0.5f);
+        boxRt.anchoredPosition = Vector2.zero;
+        boxRt.sizeDelta = new Vector2(580f, 440f);
+        var boxImg = box.AddComponent<Image>();
+        var menuTex = Resources.Load<Texture2D>("menu");
+        if (menuTex != null)
+        {
+            boxImg.sprite = Sprite.Create(menuTex,
+                new Rect(0, 0, menuTex.width, menuTex.height), new Vector2(0.5f, 0.5f));
+            boxImg.type = Image.Type.Simple;
+            boxImg.preserveAspect = false;
+            boxImg.color = Color.white;
+        }
+        else
+        {
+            boxImg.color = ColorPalette.UIBackdrop;
+        }
+
+        _changeTitle = MakeDialogText(box.transform, "Title", new Vector2(0f, 196f), 540f, 32f, TextAlignmentOptions.Center);
+        _changeTitle.fontSize = Mathf.Max(18f, Screen.height / 44f);
+
+        _changeOptions = new GameObject("Options").transform;
+        _changeOptions.SetParent(box.transform, false);
+        var or = _changeOptions.gameObject.AddComponent<RectTransform>();
+        or.anchorMin = new Vector2(0.5f, 0.5f);
+        or.anchorMax = new Vector2(0.5f, 0.5f);
+        or.anchoredPosition = Vector2.zero;
+        or.sizeDelta = Vector2.zero;
+
+        _changeConfirmText = MakeDialogText(box.transform, "Confirm", new Vector2(0f, -184f), 540f, 30f, TextAlignmentOptions.Center);
+
+        MakeDialogButton(box.transform, "ConfirmBtn", "Confirm Change", new Vector2(-90f, -212f), ApplyPendingChange);
+        MakeDialogButton(box.transform, "CancelBtn", "Cancel", new Vector2(90f, -212f), () => CloseChangeDialog(false));
+
+        var close = MakeDialogButton(box.transform, "DialogClose", "X", new Vector2(256f, 196f), () => CloseChangeDialog(false));
+        close.GetComponent<RectTransform>().sizeDelta = new Vector2(40f, 32f);
+
+        var hook = _changeDialog.AddComponent<MenuPanelHook>();
+        _changeDialog.SetActive(false);
     }
 
-    private void CycleActiveRace()
+    /// <summary>Trivial helper so the ESC handler in this file can close the dialog.</summary>
+    private sealed class MenuPanelHook : MonoBehaviour
     {
-        var mgr = RaceMgrOf();
-        if (mgr == null) return;
-
-        var roster = RaceDatabase.BuildDefaultRoster();
-        if (roster == null || roster.Count == 0) return;
-
-        var unlock = RaceUnlockManager.Instance;
-        string activeId = mgr.ActiveRace != null ? mgr.ActiveRace.raceId : "human";
-
-        // Walk the roster from the current race and pick the next selectable one.
-        int start = -1;
-        for (int i = 0; i < roster.Count; i++)
-            if (roster[i] != null && string.Equals(roster[i].raceId, activeId, System.StringComparison.OrdinalIgnoreCase))
-            { start = i; break; }
-        if (start < 0) start = 0;
-
-        for (int step = 1; step <= roster.Count; step++)
+        private void Update()
         {
-            int i = (start + step) % roster.Count;
+            if (CharacterInfoUI.Instance == null) return;
+            if (UnityEngine.InputSystem.Keyboard.current != null &&
+                UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame)
+                CharacterInfoUI.Instance.CloseChangeDialog(false);
+        }
+    }
+
+    private TMP_Text MakeDialogText(Transform parent, string name, Vector2 pos, float w, float h, TextAlignmentOptions align)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = pos;
+        rt.sizeDelta = new Vector2(w, h);
+        var tmp = go.AddComponent<TextMeshProUGUI>();
+        GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
+        tmp.color = Color.white;
+        tmp.alignment = align;
+        return tmp;
+    }
+
+    private Button MakeDialogButton(Transform parent, string name, string label, Vector2 pos, UnityEngine.Events.UnityAction onClick)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = pos;
+        rt.sizeDelta = new Vector2(160f, 34f);
+        var img = go.AddComponent<Image>();
+        ApplyMenuButtonSprite(img);
+        var btn = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+        btn.onClick.AddListener(onClick);
+        var l = new GameObject("Label");
+        l.transform.SetParent(go.transform, false);
+        var lr = l.AddComponent<RectTransform>();
+        lr.anchorMin = Vector2.zero;
+        lr.anchorMax = Vector2.one;
+        lr.offsetMin = Vector2.zero;
+        lr.offsetMax = Vector2.zero;
+        var lt = l.AddComponent<TextMeshProUGUI>();
+        GameManager.Instance?.UIManager?.ApplyDefaultFont(lt);
+        lt.text = label;
+        lt.fontSize = Mathf.Max(15f, Screen.height / 58f);
+        lt.color = Color.white;
+        lt.alignment = TextAlignmentOptions.Center;
+        return btn;
+    }
+
+    private void MakeDialogOption(Transform parent, string label, Vector2 pos, float w, bool enabled, UnityEngine.Events.UnityAction onClick)
+    {
+        var go = new GameObject("Option");
+        go.transform.SetParent(parent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0f, 1f);
+        rt.anchoredPosition = pos;
+        rt.sizeDelta = new Vector2(w, 26f);
+        var img = go.AddComponent<Image>();
+        img.color = enabled ? new Color(0.16f, 0.42f, 0.62f, 0.95f) : new Color(0.14f, 0.14f, 0.18f, 0.95f);
+        var btn = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+        btn.interactable = enabled;
+        if (enabled)
+            btn.onClick.AddListener(onClick);
+        var l = new GameObject("Label");
+        l.transform.SetParent(go.transform, false);
+        var lr = l.AddComponent<RectTransform>();
+        lr.anchorMin = Vector2.zero;
+        lr.anchorMax = Vector2.one;
+        lr.offsetMin = Vector2.zero;
+        lr.offsetMax = Vector2.zero;
+        var lt = l.AddComponent<TextMeshProUGUI>();
+        GameManager.Instance?.UIManager?.ApplyDefaultFont(lt);
+        lt.text = label;
+        lt.fontSize = Mathf.Max(11f, Screen.height / 80f);
+        lt.color = enabled ? Color.white : new Color(0.6f, 0.6f, 0.62f, 1f);
+        lt.alignment = TextAlignmentOptions.Center;
+    }
+
+    private void OpenChangeDialog(string mode)
+    {
+        _changeMode = mode;
+        _pendingChange = null;
+        RebuildChangeDialog();
+        if (_changeDialog != null)
+            _changeDialog.SetActive(true);
+    }
+
+    public void CloseChangeDialog(bool applyStaged)
+    {
+        if (_changeDialog != null)
+            _changeDialog.SetActive(false);
+        _changeMode = null;
+        _pendingChange = null;
+    }
+
+    private void RebuildChangeDialog()
+    {
+        if (_changeOptions == null) return;
+
+        for (int i = _changeOptions.childCount - 1; i >= 0; i--)
+            Destroy(_changeOptions.GetChild(i).gameObject);
+
+        if (_changeMode == "class")
+        {
+            _changeTitle.text = Localization.T("Change Class — pick a new class");
+            BuildClassOptions(_changeOptions);
+        }
+        else
+        {
+            _changeTitle.text = Localization.T("Change Race — pick a new race");
+            BuildRaceOptions(_changeOptions);
+        }
+        _changeConfirmText.text = "";
+        _changeConfirmBtn = _changeConfirmBtn ?? FindConfirmButton();
+        UpdateConfirmEnabled();
+    }
+
+    private Button FindConfirmButton()
+    {
+        if (_changeDialog == null) return null;
+        var b = _changeDialog.transform.Find("DialogBox/ConfirmBtn");
+        return b != null ? b.GetComponent<Button>() : null;
+    }
+
+    private void BuildClassOptions(Transform parent)
+    {
+        var unlocker = ClassUnlockerOf();
+        if (unlocker == null || unlocker.Classes == null) return;
+
+        var list = new List<object>();
+        foreach (var c in unlocker.Classes)
+            if (c != null) list.Add(c);
+
+        for (int i = 0; i < list.Count; i++)
+        {
+            int col = i % 2;
+            int row = i / 2;
+            float x = col == 0 ? -270f : 10f;
+            float y = 150f - row * 28f;
+            var c = list[i] as ClassData;
+            if (c == null) continue;
+            string name = !string.IsNullOrEmpty(c.displayName) ? c.displayName : c.classId;
+            string req = unlocker.IsUnlocked(c.classId) ? "" : "  (" + c.RequirementSummary() + ")";
+            MakeDialogOption(parent, name + req, new Vector2(x, y), 270f, unlocker.IsUnlocked(c.classId), () =>
+            {
+                _pendingChange = c.classId;
+                _changeConfirmText.text = Localization.F("Change class to {0}?", name);
+                UpdateConfirmEnabled();
+            });
+        }
+    }
+
+    private void BuildRaceOptions(Transform parent)
+    {
+        var unlock = RaceUnlockManager.Instance;
+        var roster = RaceDatabase.BuildDefaultRoster();
+        if (roster == null) return;
+
+        for (int i = 0; i < roster.Count; i++)
+        {
+            int col = i % 2;
+            int row = i / 2;
+            float x = col == 0 ? -270f : 10f;
+            float y = 150f - row * 28f;
             var r = roster[i];
             if (r == null) continue;
-            if (unlock != null && !unlock.IsUnlocked(r)) continue;
-
-            if (mgr.SetActiveRace(r, requireStone: true, unlockIfNeeded: false))
+            bool unlocked = unlock == null || unlock.IsUnlocked(r);
+            bool costsStone = !string.Equals(r.raceId, "human", System.StringComparison.OrdinalIgnoreCase);
+            string cost = costsStone ? "  (1 Ritual Stone)" : "";
+            MakeDialogOption(parent, r.displayName + cost, new Vector2(x, y), 270f, unlocked, () =>
             {
-                RefreshRaces();
-                return;
+                _pendingChange = r;
+                _changeConfirmText.text = Localization.F("Change race to {0}?{1}", r.displayName, costsStone ? "  Cost: 1 Ritual Stone." : "");
+                UpdateConfirmEnabled();
+            });
+        }
+    }
+
+    private void UpdateConfirmEnabled()
+    {
+        _changeConfirmBtn = _changeConfirmBtn ?? FindConfirmButton();
+        if (_changeConfirmBtn != null)
+            _changeConfirmBtn.interactable = _pendingChange != null;
+    }
+
+    private void ApplyPendingChange()
+    {
+        if (_pendingChange == null)
+        {
+            CloseChangeDialog(false);
+            return;
+        }
+
+        if (_changeMode == "class" && _pendingChange is string classId)
+        {
+            var unlocker = ClassUnlockerOf();
+            if (unlocker != null)
+            {
+                unlocker.SetActiveClass(classId);
             }
         }
-        _raceLine.text = Localization.T("No other unlocked race — collect a Ritual Stone or discover races.");
+        else if (_changeMode == "race" && _pendingChange is RaceData race)
+        {
+            var mgr = RaceMgrOf();
+            if (mgr != null)
+            {
+                if (!mgr.SetActiveRace(race, requireStone: true, unlockIfNeeded: false))
+                {
+                    if (_changeConfirmText != null)
+                        _changeConfirmText.text = Localization.T("Need a Ritual Stone to change race.");
+                    return;
+                }
+            }
+        }
+
+        CloseChangeDialog(false);
+        if (_current == Tab.Stats)
+            RefreshStats();
+        else
+            RefreshInventoryUi();
     }
 
     private void BuildSkillTypeBar(Transform parent)
@@ -619,7 +936,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 1f);
         rt.anchoredPosition = pos;
-        rt.sizeDelta = new Vector2(190f, 38f);
+        rt.sizeDelta = new Vector2(160f, 38f);
         var img = go.AddComponent<Image>();
         ApplyMenuButtonSprite(img);
         var btn = go.AddComponent<Button>();
@@ -635,7 +952,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var lt = l.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(lt);
         lt.text = label;
-        lt.fontSize = Mathf.Max(18f, Screen.height / 48f);
+        lt.fontSize = Mathf.Max(15f, Screen.height / 52f);
         lt.color = Color.white;
         lt.alignment = TextAlignmentOptions.Center;
     }
@@ -646,10 +963,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         {
             case Tab.Stats: RefreshStats(); break;
             case Tab.Skills: SetSkillList(); break;
-            case Tab.Inventory: RefreshInventory(); RefreshWeapons(); break;
-            case Tab.Equipment: RefreshEquipment(); break;
-            case Tab.Class: RefreshClasses(); break;
-            case Tab.Race: RefreshRaces(); break;
+            case Tab.Inventory: RefreshInventoryUi(); break;
             case Tab.Map: RefreshMap(); break;
         }
     }
@@ -669,7 +983,39 @@ public sealed class CharacterInfoUI : MenuPanelBase
             sb.Append(StatNames[i]).Append("  ").Append(Mathf.RoundToInt(stats.GetTotal(st)));
             if (i != PlayerStats.StatCount - 1) sb.Append("\n");
         }
+
+        string classLine = CurrentClassSummary();
+        string raceLine = CurrentRaceSummary();
+        if (!string.IsNullOrEmpty(classLine)) sb.Append('\n').Append(classLine);
+        if (!string.IsNullOrEmpty(raceLine)) sb.Append('\n').Append(raceLine);
         _statsLine.text = sb.ToString();
+    }
+
+    private string CurrentClassSummary()
+    {
+        var unlocker = ClassUnlockerOf();
+        if (unlocker == null) return "";
+        var active = unlocker.ActiveClass;
+        if (active == null)
+        {
+            unlocker.EvaluateAll();
+            active = unlocker.ActiveClass;
+        }
+        if (active == null) return "";
+        string name = !string.IsNullOrEmpty(active.displayName) ? active.displayName : active.classId;
+        string mech = active.UniqueMechanic;
+        return string.IsNullOrEmpty(mech)
+            ? Localization.F("Class: {0}", name)
+            : Localization.F("Class: {0} — {1}", name, mech);
+    }
+
+    private string CurrentRaceSummary()
+    {
+        var mgr = RaceMgrOf();
+        if (mgr == null) return "";
+        var active = mgr.ActiveRace;
+        if (active == null) return "";
+        return Localization.F("Race: {0} — {1}", active.displayName, active.PassiveDescription);
     }
 
     private void SetSkillList()
@@ -733,18 +1079,34 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         var tm = ToolManager.Instance;
         var player = GameManager.Instance?.Player;
-        for (int i = 0; i < 10; i++)
+        int selected = tm != null ? tm.SelectedSlotIndex : -1;
+
+        for (int i = 0; i < ToolManager.StorageSlotCount; i++)
+        {
+            var slot = tm != null ? tm.PeekSlot(ToolManager.StorageStart + i) : null;
+            string body = slot == null || slot.Type == null || slot.Count <= 0
+                ? ""
+                : Localization.ItemName(slot.Type) + " x" + slot.Count;
+            if (_storageLabels[i] != null)
+                _storageLabels[i].text = string.IsNullOrEmpty(body) ? (i + 1).ToString() : (i + 1) + " " + body;
+            if (_storageImgs[i] != null)
+                _storageImgs[i].color = SlotColor;
+        }
+
+        for (int i = 0; i < ToolManager.HotbarSlotCount; i++)
         {
             var slot = tm != null ? tm.PeekSlot(i) : null;
             string body = slot == null || slot.Type == null || slot.Count <= 0
                 ? ""
-                : Localization.ItemName(slot.Type) + " " + slot.Count;
+                : Localization.ItemName(slot.Type) + " x" + slot.Count;
             if (_invLabels[i] != null)
-                _invLabels[i].text = string.IsNullOrEmpty(body) ? (i + 1).ToString() : (i + 1) + "\n" + body;
+                _invLabels[i].text = string.IsNullOrEmpty(body)
+                    ? (i + 1).ToString()
+                    : (i + 1) + "\n" + body;
             if (_invImgs[i] != null)
-                _invImgs[i].color = _invSelected == i
-                    ? new Color(0.35f, 0.55f, 0.75f, 0.95f)
-                    : new Color(0.14f, 0.16f, 0.2f, 0.95f);
+                _invImgs[i].color = selected == i || _invSelected == i
+                    ? SlotSelectedColor
+                    : SlotColor;
         }
         if (_moneyLine != null)
             _moneyLine.text = Localization.F("Tiền: {0}", player != null ? player.Money : 0L);
@@ -799,94 +1161,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
         if (host != null && host.Data != null && !string.IsNullOrEmpty(host.Data.displayName))
             return host.Data.displayName;
         return hand != null ? hand.name : "—";
-    }
-
-    private void RefreshClasses()
-    {
-        var unlocker = ClassUnlockerOf();
-        if (unlocker == null)
-        {
-            _classLine.text = Localization.T("No class system present on the player.");
-            return;
-        }
-        unlocker.EvaluateAll();
-        var active = unlocker.ActiveClass;
-        string activeName = active != null && !string.IsNullOrEmpty(active.displayName) ? active.displayName : "—";
-
-        StringBuilder sb = new StringBuilder();
-        sb.Append(Localization.F("Active Class: {0}", activeName)).Append('\n');
-        if (unlocker.Classes != null)
-        {
-            int n = 0;
-            foreach (var c in unlocker.Classes)
-            {
-                if (c == null) continue;
-                string status = unlocker.IsUnlocked(c.classId) ? "✔" : "🔒";
-                string isActive = string.Equals(c.classId, unlocker.ActiveClassId, System.StringComparison.OrdinalIgnoreCase) ? "★" : " ";
-                string req = unlocker.IsUnlocked(c.classId) ? "" : "  (" + c.RequirementSummary() + ")";
-                sb.Append(status).Append(" ").Append(isActive).Append(" ")
-                    .Append(c.displayName).Append(req);
-                if (n != 14) sb.Append('\n');
-                n++;
-            }
-        }
-        _classLine.text = sb.ToString();
-    }
-
-    private void RefreshRaces()
-    {
-        var mgr = RaceMgrOf();
-        var unlock = RaceUnlockManager.Instance;
-        var roster = RaceDatabase.BuildDefaultRoster();
-        if (mgr == null || roster == null)
-        {
-            _raceLine.text = Localization.T("No race system present on the player.");
-            return;
-        }
-
-        var active = mgr.ActiveRace;
-        string activeName = active != null && !string.IsNullOrEmpty(active.displayName) ? active.displayName : "—";
-        string activeId = active != null ? active.raceId : "human";
-
-        StringBuilder sb = new StringBuilder();
-        string stoneMark = mgr.RitualStoneCount > 0
-            ? Localization.F("   (Ritual Stones: {0})", mgr.RitualStoneCount)
-            : "   (no Ritual Stone)";
-        sb.Append(Localization.F("Active Race: {0}{1}", activeName, stoneMark)).Append('\n');
-        sb.Append(Localization.T("Stone cost: non-Human changes consume 1 Ritual Stone.")).Append('\n');
-
-        if (active != null)
-        {
-            sb.Append(active.displayName).Append(" — ").Append(active.PassiveDescription).Append('\n');
-            if (active.StatModifiers != null)
-            {
-                int n = 0;
-                for (int i = 0; i < PlayerStats.StatCount; i++)
-                {
-                    float mod = active.GetStatModifier((StatType)i);
-                    if (mod == 0f) continue;
-                    if (n != 0) sb.Append(", ");
-                    sb.Append(StatNames[i]).Append(" ").Append((mod > 0 ? "+" : "")).Append(mod.ToString("0")).Append("%");
-                    n++;
-                }
-                if (n > 0) sb.Append('\n');
-            }
-        }
-
-        if (roster != null)
-        {
-            int n = 0;
-            foreach (var r in roster)
-            {
-                if (r == null) continue;
-                string status = unlock != null && unlock.IsUnlocked(r) ? "✔" : "🔒";
-                string isActive = string.Equals(r.raceId, activeId, System.StringComparison.OrdinalIgnoreCase) ? "★" : " ";
-                sb.Append(status).Append(" ").Append(isActive).Append(" ").Append(r.displayName);
-                if (n != 21) sb.Append('\n');
-                n++;
-            }
-        }
-        _raceLine.text = sb.ToString();
     }
 
     private void RefreshMap()

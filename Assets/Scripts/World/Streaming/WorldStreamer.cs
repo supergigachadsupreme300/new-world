@@ -107,29 +107,39 @@ public class WorldStreamer : MonoBehaviour
     /// <summary>
     /// Unloads out-of-range chunks and populates the pending chunk queue
     /// for background generation.
+    ///
+    /// Loading and unloading use different ranges (hysteresis): chunks are generated out to
+    /// <c>radius</c> but STAY loaded until they pass <c>radius + KeepMargin</c>. Without the
+    /// margin, a chunk at the fill boundary that completes just as the focus moves on gets
+    /// unloaded the very next tick — its freshly spawned trees/rocks would disappear a frame
+    /// or two after appearing.
     /// </summary>
     public void StreamAround(TerrainChunkCoord centre, int radius)
     {
-        // Unload tiles from chunks that fell outside the radius
+        // Hysteresis: keep already-generated chunks loaded beyond the load radius so props
+        // (trees/rocks) never pop in and despawn immediately at the streaming edge.
+        int keep = radius + 2;
+
+        // Unload tiles from chunks that fell outside the (extended) radius
         List<ChunkCoord> toUnload = new List<ChunkCoord>();
         foreach (ChunkCoord tile in _loadedObjects.Keys)
         {
             TerrainChunkCoord tc = TerrainChunkCoord.FromTile(tile);
             int dx = Mathf.Abs(tc.X - centre.X);
             int dz = Mathf.Abs(tc.Z - centre.Z);
-            if (dx > radius || dz > radius)
+            if (dx > keep || dz > keep)
                 toUnload.Add(tile);
         }
         foreach (ChunkCoord tile in toUnload)
             UnloadChunk(tile);
 
-        // Remove pending chunks that fell outside the radius
+        // Remove pending chunks that fell outside the (extended) radius
         for (int i = _chunkDispatchOrder.Count - 1; i >= 0; i--)
         {
             TerrainChunkCoord tc = _chunkDispatchOrder[i];
             int dx = Mathf.Abs(tc.X - centre.X);
             int dz = Mathf.Abs(tc.Z - centre.Z);
-            if (dx > radius || dz > radius)
+            if (dx > keep || dz > keep)
             {
                 _pendingChunks.Remove(tc);
                 _chunkDispatchOrder.RemoveAt(i);

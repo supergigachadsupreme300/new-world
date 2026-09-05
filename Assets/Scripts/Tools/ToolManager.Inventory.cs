@@ -58,6 +58,38 @@ public partial class ToolManager
         return true;
     }
 
+    /// <summary>
+    /// Move a whole stack from one slot to another (drag & drop between the backpack storage
+    /// grid and the hotbar). If the destination holds the same item type the stacks combine,
+    /// otherwise the two slots swap contents.
+    /// </summary>
+    public bool MoveSlot(int from, int to)
+    {
+        if (from == to) return true;
+        if (from < 0 || from >= _inventory.Length) return false;
+        if (to < 0 || to >= _inventory.Length) return false;
+
+        var src = _inventory[from];
+        if (src == null || src.Count <= 0)
+            return false;
+
+        var dst = _inventory[to];
+        if (dst != null && dst.Type == src.Type)
+        {
+            dst.Count += src.Count;
+            _inventory[from] = null;
+        }
+        else
+        {
+            _inventory[from] = dst;
+            _inventory[to] = src;
+        }
+
+        UpdateInventoryUI();
+        ShowActiveToolModel();
+        return true;
+    }
+
     public bool RemoveItemAmount(string itemType, int amount)
     {
         itemType = NormalizeItemType(itemType);
@@ -87,6 +119,9 @@ public partial class ToolManager
         var slot = _inventory[_selectedSlot];
         return slot?.Type;
     }
+
+    /// <summary>Index of the currently selected hotbar slot (-1 when nothing is selected).</summary>
+    public int SelectedSlotIndex => _selectedSlot;
 
     public InventorySlot PeekSlot(int index)
     {

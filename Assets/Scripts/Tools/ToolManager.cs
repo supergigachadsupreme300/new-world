@@ -24,9 +24,18 @@ public partial class ToolManager : MonoBehaviour
     public GameObject MiHaoHaoModel;
     public Texture2D MiHaoHaoTexture;
 
+    /// <summary>Slots usable directly from the bottom use bar / number keys (Minecraft-style hotbar).</summary>
+    public const int HotbarSlotCount = 10;
+    /// <summary>Backpack storage slots beyond the hotbar (shown in the Character Info Inventory tab).</summary>
+    public const int StorageSlotCount = 30;
+    /// <summary>Total inventory slots (hotbar + backpack storage).</summary>
+    public const int TotalSlots = HotbarSlotCount + StorageSlotCount;
+    /// <summary>Index of the first backpack slot.</summary>
+    public const int StorageStart = HotbarSlotCount;
+
     private UIManager _uiManager;
     private WorldBuilder _worldBuilder;
-    private readonly InventorySlot[] _inventory = new InventorySlot[10];
+    private readonly InventorySlot[] _inventory = new InventorySlot[TotalSlots];
     private int _selectedSlot = -1;
     private readonly Dictionary<string, GameObject> _toolModels = new Dictionary<string, GameObject>();
     private GameObject _toolContainer;
