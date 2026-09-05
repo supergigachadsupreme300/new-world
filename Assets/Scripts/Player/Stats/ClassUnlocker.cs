@@ -12,6 +12,8 @@ public class ClassUnlocker : MonoBehaviour
 {
     public List<ClassData> Classes = new List<ClassData>();
     public List<string> UnlockedClassIds = new List<string>();
+    [Tooltip("The class the player currently identifies with (always one of the unlocked classes).")]
+    public string ActiveClassId = "wanderer";
 
     private readonly HashSet<string> _unlocked = new HashSet<string>();
     private PlayerStats _stats;
@@ -20,6 +22,9 @@ public class ClassUnlocker : MonoBehaviour
     /// <summary>Fires when a class becomes unlocked.</summary>
     public event System.Action<ClassData> OnClassUnlocked;
 
+    /// <summary>Fires when the active class changes.</summary>
+    public event System.Action<ClassData> OnActiveClassChanged;
+
     private void Awake()
     {
         _stats = GetComponent<PlayerStats>();
@@ -27,6 +32,15 @@ public class ClassUnlocker : MonoBehaviour
         foreach (var id in UnlockedClassIds) _unlocked.Add(id);
         if (Classes.Count == 0)
             Classes = BuildDefaultClasses();
+        if (string.IsNullOrEmpty(ActiveClassId))
+            ActiveClassId = "wanderer";
+    }
+
+    private void Start()
+    {
+        EvaluateAll();
+        if (!IsUnlocked(ActiveClassId))
+            SetActiveClass("wanderer");
     }
 
     /// <summary>Re-evaluate all classes; unlocks any newly satisfied (Wanderer baseline is always free).</summary>
@@ -53,6 +67,41 @@ public class ClassUnlocker : MonoBehaviour
     }
 
     public bool IsUnlocked(string classId) => _unlocked.Contains(classId);
+
+    /// <summary>The currently-read <see cref="ClassData"/> for <see cref="ActiveClassId"/>.</summary>
+    public ClassData ActiveClass
+    {
+        get
+        {
+            if (Classes == null) return null;
+            foreach (var c in Classes)
+                if (c != null && string.Equals(c.classId, ActiveClassId, System.StringComparison.OrdinalIgnoreCase))
+                    return c;
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Change the active class. Only unlocked classes can be selected; the Wanderer baseline is
+    /// always available. Returns false (and leaves the current class) when the id is unknown/locked.
+    /// </summary>
+    public bool SetActiveClass(string classId)
+    {
+        if (string.IsNullOrEmpty(classId)) return false;
+        var target = Classes != null
+            ? Classes.Find(c => c != null && string.Equals(c.classId, classId, System.StringComparison.OrdinalIgnoreCase))
+            : null;
+        if (target == null) return false;
+        bool freeBaseline = string.Equals(target.classId, "wanderer", System.StringComparison.OrdinalIgnoreCase);
+        if (!freeBaseline && !IsUnlocked(target.classId)) return false;
+
+        if (!string.Equals(ActiveClassId, target.classId, System.StringComparison.OrdinalIgnoreCase))
+        {
+            ActiveClassId = target.classId;
+            OnActiveClassChanged?.Invoke(target);
+        }
+        return true;
+    }
 
     private bool MeetsRequirements(ClassData c)
     {

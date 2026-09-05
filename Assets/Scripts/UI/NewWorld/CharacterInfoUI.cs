@@ -5,17 +5,20 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Phase 10: Character Info menu — a stacked multi-panel window with a top button bar. Each
+/// Phase 10/11: Character Info menu — a stacked multi-panel window with a top button bar. Each
 /// top button reveals one panel and hides the others (Stats / Skills / Inventory / Equipment /
-/// Map). The Skills panel shows the per-category skill tree, lets the player spend skill points
-/// and assign a hotkey to a castable skill via <see cref="SkillBindings"/>.
+/// Class / Map). The Skills panel shows the per-category skill tree, lets the player spend skill
+/// points and assign a hotkey to a castable skill via <see cref="SkillBindings"/>. The Equipment
+/// panel is a humanoid 21-slot sheet (§5.4); the Class panel lists the 15 classes with unlock
+/// status and lets the player change their active class.
 ///
-/// Composes existing PlayerStats / ToolManager / EquipmentSystem / WeaponRigBuilder /
-/// SkillProfile / SkillBindings / SkillCatalog without rewriting them. Built on MenuPanelBase.
+/// Composes existing PlayerStats / ToolManager / EquipmentSystem / GearCatalog / WeaponRigBuilder /
+/// SkillProfile / SkillBindings / SkillCatalog / ClassUnlocker without rewriting them. Built on
+/// MenuPanelBase.
 /// </summary>
 public sealed class CharacterInfoUI : MenuPanelBase
 {
-    public enum Tab { Stats = 0, Skills = 1, Inventory = 2, Equipment = 3, Map = 4 }
+    public enum Tab { Stats = 0, Skills = 1, Inventory = 2, Equipment = 3, Class = 4, Map = 5 }
 
     public Tab ActiveTab = Tab.Stats;
 
@@ -28,9 +31,13 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private TMP_Text _skillListLine;
     private TMP_Text _skillPointsLine;
     private TMP_Text _invLine;
-    private TMP_Text _equipLine;
+    private TMP_Text _equipSummary;
+    private TMP_Text _classLine;
     private TMP_Text _mapLine;
     private TMP_Text _captureLine;
+
+    private readonly Dictionary<EquipSlot, TMP_Text> _equipSlotLabels = new Dictionary<EquipSlot, TMP_Text>();
+    private readonly List<TMP_Text> _classRowLabels = new List<TMP_Text>();
 
     private static readonly string[] StatNames =
     {
@@ -53,7 +60,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
     private void BuildTopButtons()
     {
-        string[] names = { "Stats", "Skills", "Inventory", "Equipment", "Map" };
+        string[] names = { "Stats", "Skills", "Inventory", "Equipment", "Class", "Map" };
         float w = PanelRect.rect.width;
         float bw = w / names.Length;
         for (int i = 0; i < names.Length; i++)
@@ -110,14 +117,125 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _panels[Tab.Inventory] = MakePanel("InventoryPanel");
         _invLine = MakeBodyText(_panels[Tab.Inventory].transform, "Inventory", new Vector2(-200f, 10f), 460f, 300f);
 
-        // Equipment panel.
+        // Equipment panel (humanoid 21-slot sheet, §5.4).
         _panels[Tab.Equipment] = MakePanel("EquipmentPanel");
-        _equipLine = MakeBodyText(_panels[Tab.Equipment].transform, "Equipment", new Vector2(-200f, 10f), 460f, 300f);
-        MakeButton(_panels[Tab.Equipment].transform, "CycleWeaponBtn", "Cycle Weapon", new Vector2(150f, -60f), CycleWeapon);
+        BuildEquipmentSheet(_panels[Tab.Equipment].transform);
+        _equipSummary = MakeBodyText(_panels[Tab.Equipment].transform, "Equipment", new Vector2(-200f, -200f), 460f, 90f);
+
+        // Class panel (the 15-class roster, §3.2 with active-class selection).
+        _panels[Tab.Class] = MakePanel("ClassPanel");
+        _classLine = MakeBodyText(_panels[Tab.Class].transform, "Classes", new Vector2(-200f, 10f), 460f, 320f);
+        MakeButton(_panels[Tab.Class].transform, "CycleClassBtn", "Switch Active Class", new Vector2(150f, -300f), CycleActiveClass);
 
         // Map panel (placeholder summary; the dedicated WorldMapUI is separate).
         _panels[Tab.Map] = MakePanel("MapPanel");
         _mapLine = MakeBodyText(_panels[Tab.Map].transform, "Map", new Vector2(-200f, 10f), 460f, 300f);
+    }
+
+    // ── Humanoid 21-slot equipment sheet (§5.4) ────────────────────────────
+    // Humanoid torso down the middle (Head → Necklace → Body → Belt → Legging →
+    // Feet) with hands (L/R) at the shoulders and glove on the arm; the 10 finger
+    // rings walk the left elbow column (Finger1-5) and right hand column
+    // (Finger6-10), ears flanking the head. Each slot is a small button: click an
+    // occupied slot to unequip, click an empty slot to equip the next free catalog
+    // piece for it, click a hand to cycle the equipped weapon.
+    private void BuildEquipmentSheet(Transform parent)
+    {
+        GearCatalog.EnsureBuilt();
+        _equipSlotLabels.Clear();
+
+        SlotButton(parent, "Ear1",        EquipSlot.Ear1,     new Vector2(-200f, -10f));
+        SlotButton(parent, "Head",        EquipSlot.Head,     new Vector2(-105f, -10f));
+        SlotButton(parent, "Ear2",        EquipSlot.Ear2,     new Vector2(-10f, -10f));
+        SlotButton(parent, "Necklace",    EquipSlot.Necklace, new Vector2(-105f, -48f));
+        SlotButton(parent, "LHand",       EquipSlot.LeftHand, new Vector2(-200f, -86f));
+        SlotButton(parent, "Body",        EquipSlot.Body,     new Vector2(-105f, -86f));
+        SlotButton(parent, "RHand",       EquipSlot.RightHand,new Vector2(-10f, -86f));
+        SlotButton(parent, "Glove",       EquipSlot.Glove,    new Vector2(-200f, -124f));
+        SlotButton(parent, "Belt",        EquipSlot.Belt,     new Vector2(-105f, -124f));
+        SlotButton(parent, "Legging",     EquipSlot.Legging,  new Vector2(-105f, -162f));
+        SlotButton(parent, "Feet",        EquipSlot.Feet,     new Vector2(-105f, -200f));
+        SlotButton(parent, "Finger1",     EquipSlot.Finger1,  new Vector2(-250f, -10f));
+        SlotButton(parent, "Finger2",     EquipSlot.Finger2,  new Vector2(-250f, -48f));
+        SlotButton(parent, "Finger3",     EquipSlot.Finger3,  new Vector2(-250f, -86f));
+        SlotButton(parent, "Finger4",     EquipSlot.Finger4,  new Vector2(-250f, -124f));
+        SlotButton(parent, "Finger5",     EquipSlot.Finger5,  new Vector2(-250f, -162f));
+        SlotButton(parent, "Finger6",     EquipSlot.Finger6,  new Vector2(40f, -10f));
+        SlotButton(parent, "Finger7",     EquipSlot.Finger7,  new Vector2(40f, -48f));
+        SlotButton(parent, "Finger8",     EquipSlot.Finger8,  new Vector2(40f, -86f));
+        SlotButton(parent, "Finger9",     EquipSlot.Finger9,  new Vector2(40f, -124f));
+        SlotButton(parent, "Finger10",    EquipSlot.Finger10, new Vector2(40f, -162f));
+    }
+
+    private void SlotButton(Transform parent, string name, EquipSlot slot, Vector2 pos)
+    {
+        var go = new GameObject(name + "Slot");
+        go.transform.SetParent(parent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(0f, 1f);
+        rt.pivot = new Vector2(0f, 1f);
+        rt.anchoredPosition = pos;
+        rt.sizeDelta = new Vector2(84f, 30f);
+        var img = go.AddComponent<Image>();
+        img.color = new Color(0.14f, 0.16f, 0.2f, 0.95f);
+        var btn = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+        EquipSlot captured = slot;
+        btn.onClick.AddListener(() => ToggleEquipSlot(captured));
+
+        var label = new GameObject("Label");
+        label.transform.SetParent(go.transform, false);
+        var lr = label.AddComponent<RectTransform>();
+        lr.anchorMin = Vector2.zero;
+        lr.anchorMax = Vector2.one;
+        lr.offsetMin = Vector2.zero;
+        lr.offsetMax = Vector2.zero;
+        var lt = label.AddComponent<TextMeshProUGUI>();
+        GameManager.Instance?.UIManager?.ApplyDefaultFont(lt);
+        lt.text = EquipmentSystem.SlotLabel(slot);
+        lt.fontSize = 10;
+        lt.color = new Color(0.75f, 0.78f, 0.85f, 1f);
+        lt.alignment = TextAlignmentOptions.Center;
+        _equipSlotLabels[slot] = lt;
+    }
+
+    private void ToggleEquipSlot(EquipSlot slot)
+    {
+        if (slot == EquipSlot.LeftHand || slot == EquipSlot.RightHand)
+        {
+            CycleWeapon();
+            return;
+        }
+        var equip = EquipmentOf();
+        if (equip == null) return;
+        if (GearCatalog.TrySlotFor(equip.Get(slot) ?? "", out _))
+        {
+            equip.Unequip(slot);
+        }
+        else
+        {
+            // Equip the next catalog piece for this slot that isn't already worn.
+            foreach (var g in GearCatalog.All)
+            {
+                if (g == null || g.Slot != slot) continue;
+                if (equip.Get(equip.GearSlotOf(g.id)) == g.id) continue;
+                equip.Equip(g.id);
+                break;
+            }
+        }
+        RefreshEquipment();
+    }
+
+    private void CycleActiveClass()
+    {
+        var unlocker = ClassUnlockerOf();
+        if (unlocker == null || unlocker.UnlockedClassIds == null || unlocker.UnlockedClassIds.Count == 0)
+            return;
+        int idx = unlocker.UnlockedClassIds.IndexOf(unlocker.ActiveClassId);
+        idx = (idx + 1) % unlocker.UnlockedClassIds.Count;
+        unlocker.SetActiveClass(unlocker.UnlockedClassIds[idx]);
+        RefreshClasses();
     }
 
     private void BuildSkillTypeBar(Transform parent)
@@ -236,6 +354,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             case Tab.Skills: SetSkillList(); break;
             case Tab.Inventory: RefreshInventory(); break;
             case Tab.Equipment: RefreshEquipment(); break;
+            case Tab.Class: RefreshClasses(); break;
             case Tab.Map: RefreshMap(); break;
         }
     }
@@ -335,12 +454,85 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
     private void RefreshEquipment()
     {
+        var equip = EquipmentOf();
+        if (equip == null)
+        {
+            _equipSummary.text = Localization.T("No equipment system present.");
+            return;
+        }
+
+        // Slot buttons: label = slot name, value = equipped gear display name.
+        foreach (var slot in equip.AllSlots)
+        {
+            if (!_equipSlotLabels.TryGetValue(slot, out var label)) continue;
+            var id = equip.Get(slot);
+            var g = id != null ? GearCatalog.Find(id) : null;
+            string item = g != null && !string.IsNullOrEmpty(g.displayName) ? g.displayName : (id ?? "—");
+            label.text = EquipmentSystem.SlotLabel(slot) + "\n" + item;
+        }
+
+        // Weapons are tracked by CombatController, not the gear sheet.
         var combat = CombatOf();
-        string weapon = combat != null && combat.RightHand != null
-            ? EquippedName(combat.RightHand)
-            : "—";
-        _equipLine.text = Localization.F("Equipped Weapon: {0}\nWielding: {1}",
-            weapon, combat != null ? combat.Wielding.ToString() : "—");
+        _equipSlotLabels.TryGetValue(EquipSlot.LeftHand, out var lh);
+        _equipSlotLabels.TryGetValue(EquipSlot.RightHand, out var rh);
+        if (lh != null)
+            lh.text = EquipmentSystem.SlotLabel(EquipSlot.LeftHand) + "\n" + HandName(combat != null ? combat.LeftHand : null);
+        if (rh != null)
+            rh.text = EquipmentSystem.SlotLabel(EquipSlot.RightHand) + "\n" + HandName(combat != null ? combat.RightHand : null);
+
+        StringBuilder sb = new StringBuilder();
+        sb.Append(Localization.F("Wield: {0}", combat != null ? combat.Wielding.ToString() : "—"));
+        sb.Append(Localization.F("   Equipped: {0}/21", equip.Count));
+        sb.Append(Localization.F("   Weight: {0:0.0}", equip.TotalWeight)).Append('\n');
+        sb.Append(Localization.F("Physical DR: {0:0.#}%", equip.TotalPhysicalDR)).Append("   ");
+        string[] resTypes = { "Fire", "Ice", "Lightning", "Holy", "Dark", "Wind", "Earth", "Water", "Arcane" };
+        for (int i = 0; i < resTypes.Length; i++)
+        {
+            float r = equip.Resistance((DamageType)(i + 1));
+            if (r > 0.01f)
+                sb.Append(resTypes[i]).Append(" ").Append(r.ToString("0.#")).Append("% ");
+        }
+        _equipSummary.text = sb.ToString();
+    }
+
+    private static string HandName(GameObject hand)
+    {
+        var host = hand != null ? hand.GetComponent<WeaponRigHost>() : null;
+        if (host != null && host.Data != null && !string.IsNullOrEmpty(host.Data.displayName))
+            return host.Data.displayName;
+        return hand != null ? hand.name : "—";
+    }
+
+    private void RefreshClasses()
+    {
+        var unlocker = ClassUnlockerOf();
+        if (unlocker == null)
+        {
+            _classLine.text = Localization.T("No class system present on the player.");
+            return;
+        }
+        unlocker.EvaluateAll();
+        var active = unlocker.ActiveClass;
+        string activeName = active != null && !string.IsNullOrEmpty(active.displayName) ? active.displayName : "—";
+
+        StringBuilder sb = new StringBuilder();
+        sb.Append(Localization.F("Active Class: {0}", activeName)).Append('\n');
+        if (unlocker.Classes != null)
+        {
+            int n = 0;
+            foreach (var c in unlocker.Classes)
+            {
+                if (c == null) continue;
+                string status = unlocker.IsUnlocked(c.classId) ? "✔" : "🔒";
+                string isActive = string.Equals(c.classId, unlocker.ActiveClassId, System.StringComparison.OrdinalIgnoreCase) ? "★" : " ";
+                string req = unlocker.IsUnlocked(c.classId) ? "" : "  (" + c.RequirementSummary() + ")";
+                sb.Append(status).Append(" ").Append(isActive).Append(" ")
+                    .Append(c.displayName).Append(req);
+                if (n != 14) sb.Append('\n');
+                n++;
+            }
+        }
+        _classLine.text = sb.ToString();
     }
 
     private void RefreshMap()
@@ -370,14 +562,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
         RefreshEquipment();
     }
 
-    private static string EquippedName(GameObject hand)
-    {
-        var host = hand != null ? hand.GetComponent<WeaponRigHost>() : null;
-        if (host != null && host.Data != null && !string.IsNullOrEmpty(host.Data.displayName))
-            return host.Data.displayName;
-        return hand != null ? hand.name : "—";
-    }
-
     private PlayerStats PlayerStatsOf()
     {
         var p = GameManager.Instance?.Player;
@@ -400,5 +584,17 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         var p = GameManager.Instance?.Player;
         return p != null ? p.GetComponent<CombatController>() : null;
+    }
+
+    private EquipmentSystem EquipmentOf()
+    {
+        var p = GameManager.Instance?.Player;
+        return p != null ? p.GetComponent<EquipmentSystem>() : null;
+    }
+
+    private ClassUnlocker ClassUnlockerOf()
+    {
+        var p = GameManager.Instance?.Player;
+        return p != null ? p.GetComponent<ClassUnlocker>() : null;
     }
 }

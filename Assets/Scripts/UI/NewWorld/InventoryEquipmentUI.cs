@@ -5,9 +5,10 @@ using TMPro;
 
 /// <summary>
 /// Phase 8 (Task 8.2): Inventory / Equipment UI. Lists the player's 10 inventory slots
-/// (via <see cref="ToolManager.PeekSlot"/>), money, and the two equipment slots (Weapon/Armor)
-/// exposed by <see cref="EquipmentSystem"/>, allowing simple equipping/unequipping. Composes the
-/// existing <see cref="ToolManager"/> / <see cref="PlayerController"/> without rewriting them.
+/// (via <see cref="ToolManager.PeekSlot"/>), money, and the 21 equipment slots (5 armor /
+/// 2 weapon / 14 accessory) exposed by <see cref="EquipmentSystem"/>, allowing simple
+/// equipping/unequipping. Composes the existing <see cref="ToolManager"/> /
+/// <see cref="PlayerController"/> without rewriting them.
 /// </summary>
 public sealed class InventoryEquipmentUI : MenuPanelBase
 {
@@ -73,8 +74,17 @@ public sealed class InventoryEquipmentUI : MenuPanelBase
         StringBuilder eq = new StringBuilder();
         if (_equip != null)
         {
-            eq.Append("Weapon: ").Append(NameOrDash(_equip.Get(EquipmentSystem.Slot.Weapon))).Append("\n");
-            eq.Append("Armor:  ").Append(NameOrDash(_equip.Get(EquipmentSystem.Slot.Armor)));
+            string[] groups = { "Armor", "Weapon", "Accessory" };
+            foreach (var group in groups)
+            {
+                eq.Append("— ").Append(group).Append(" —\n");
+                foreach (var slot in _equip.AllSlots)
+                {
+                    if (EquipmentSystem.GenreOf(slot).ToString() != group) continue;
+                    eq.Append("  ").Append(EquipmentSystem.SlotLabel(slot)).Append(": ")
+                      .Append(NameOrDash(_equip.Get(slot))).Append("\n");
+                }
+            }
         }
         else
         {
@@ -83,7 +93,13 @@ public sealed class InventoryEquipmentUI : MenuPanelBase
         _equipLine.text = eq.ToString();
     }
 
-    private static string NameOrDash(string id) => string.IsNullOrEmpty(id) ? "—" : Localization.ItemName(id);
+    private static string NameOrDash(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return "—";
+        var gear = GearCatalog.Find(id);
+        if (gear != null && !string.IsNullOrEmpty(gear.displayName)) return gear.displayName;
+        return Localization.ItemName(id);
+    }
 
     private Transform FindEquipmentHost()
     {
@@ -92,13 +108,13 @@ public sealed class InventoryEquipmentUI : MenuPanelBase
         return null;
     }
 
-    /// <summary>Equip the selected inventory slot's item if equippable.</summary>
+    /// <summary>Equip the selected inventory slot's item if it is gear.</summary>
     public void EquipSelected()
     {
         if (_tm == null || _equip == null) return;
         var slot = _tm.PeekSlot(_selectedSlot);
         if (slot == null || slot.Type == null) return;
-        if (EquipmentSystem.IsEquippable(slot.Type))
+        if (GearCatalog.IsGear(slot.Type))
         {
             _equip.Equip(slot.Type);
             Refresh();
@@ -106,7 +122,7 @@ public sealed class InventoryEquipmentUI : MenuPanelBase
     }
 
     /// <summary>Unequip the given slot.</summary>
-    public void Unequip(EquipmentSystem.Slot slot)
+    public void Unequip(EquipSlot slot)
     {
         if (_equip != null)
         {

@@ -50,4 +50,55 @@ public class ClassData : ScriptableObject
     [Header("Mechanic")]
     [Tooltip("Human-readable summary of the class's unique mechanic.")]
     public string UniqueMechanic;
+
+    /// <summary>Short human-readable list of unlock requirements, e.g. "Str 20 • Crafting 10".</summary>
+    public string RequirementSummary()
+    {
+        var parts = new System.Collections.Generic.List<string>();
+        if (StatRequirements != null)
+            foreach (var r in StatRequirements)
+                parts.Add(StatTypeName(r.Stat) + " " + r.Minimum.ToString("0.##"));
+        if (CombinedRequirements != null)
+            foreach (var r in CombinedRequirements)
+                parts.Add(StatTypeName(r.First) + "+" + StatTypeName(r.Second) + " " + r.MinimumTotal.ToString("0.##"));
+        if (MinAnyTwoStats > 0f)
+            parts.Add("any 2 stats ≥ " + MinAnyTwoStats.ToString("0.##"));
+        if (SkillRequirements != null)
+            foreach (var r in SkillRequirements)
+                parts.Add(SkillTypeName(r.Skill) + " " + r.Level);
+        return parts.Count > 0 ? string.Join(" • ", parts) : "None";
+    }
+
+    private static string StatTypeName(StatType t)
+    {
+        switch (t)
+        {
+            case StatType.Health: return "HP";
+            case StatType.Speed: return "Spd";
+            case StatType.Endurance: return "End";
+            case StatType.Strength: return "Str";
+            case StatType.Dexterity: return "Dex";
+            case StatType.AttackSpeed: return "AS";
+            case StatType.Defense: return "Def";
+            case StatType.Intelligence: return "Int";
+            case StatType.Wisdom: return "Wis";
+            case StatType.Faith: return "Fai";
+            case StatType.Luck: return "Lck";
+            default: return t.ToString();
+        }
+    }
+
+    private static string SkillTypeName(SkillType t)
+    {
+        switch (t)
+        {
+            case SkillType.Melee: return "Melee";
+            case SkillType.Ranged: return "Ranged";
+            case SkillType.Magic: return "Magic";
+            case SkillType.Stealth: return "Stealth";
+            case SkillType.Crafting: return "Crafting";
+            case SkillType.Fortitude: return "Fortitude";
+            default: return t.ToString();
+        }
+    }
 }

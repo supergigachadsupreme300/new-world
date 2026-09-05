@@ -37,6 +37,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableWeapons = true;
     [Tooltip("Grant the player all 60 skills (testing) and wire the skill profile + hotkey bindings.")]
     public bool EnableSkills = true;
+    [Tooltip("Equip a starter armor/accessory set into the 21-slot equipment system (testing).")]
+    public bool EnableGear = true;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
@@ -77,6 +79,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (EnablePoiHub) RegisterPoiHub();
         if (EnableWeapons) SpawnAllWeapons();
         if (EnableSkills) GrantAllSkills();
+        if (EnableGear) GrantStarterGear();
 
         var player = GameManager.Instance?.Player;
         if (player != null)
@@ -339,6 +342,35 @@ public sealed class NewWorldTestGround : MonoBehaviour
             profile.Points += 999;          // testing: unlimited budget
             profile.Learn(skill);
         }
+    }
+
+    /// <summary>
+    /// Equip a representative starter set into the player's 21-slot equipment system (testing),
+    /// so the humanoid Equipment tab has something to show. Also wires up the ClassUnlocker for
+    /// the Class tab — its Start() evaluates requirements automatically.
+    /// </summary>
+    private void GrantStarterGear()
+    {
+        var player = GameManager.Instance?.Player;
+        if (player == null) return;
+
+        var equip = player.GetComponent<EquipmentSystem>();
+        if (equip == null)
+            equip = player.gameObject.AddComponent<EquipmentSystem>();
+
+        GearCatalog.EnsureBuilt();
+        string[] kit =
+        {
+            "leather_helmet", "leather_armor", "leather_gloves", "leather_leggings", "leather_boots",
+            "copper_ring", "iron_ring", "silver_ring", "gold_ring", "sapphire_ring",
+            "ruby_ring", "emerald_ring", "amethyst_ring", "topaz_ring", "diamond_ring",
+            "bronze_necklace", "earring_copper", "earring_silver", "leather_belt"
+        };
+        foreach (var id in kit)
+            equip.Equip(id);
+
+        if (player.GetComponent<ClassUnlocker>() == null)
+            player.gameObject.AddComponent<ClassUnlocker>();
     }
 
     private static Material SolidMaterial(Color c)
