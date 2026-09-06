@@ -15,10 +15,12 @@ using TMPro;
 /// an 11-stat readout with "+" allocator buttons (only assignment, no refund), and the current
 /// class / race with change buttons.
 ///
-/// The Skills panel renders a Skyrim-style per-category skill tree: a draggable hub-and-spokes
-/// layout with connecting lines derived from each skill's prerequisite DAG (<see cref="Skill.PrereqSkillIds"/>).
-/// Clicking a node opens a detail pane with condition + function + cost + prerequisites and a
-/// Learn button. Category levels come from <see cref="SkillXpTracker"/>.
+/// The Skills panel renders ONE combined skill tree: all <see cref="SkillCatalog.All"/> skills on a
+    /// single large pannable + zoomable board, grouped into six colored sectors (one per
+    /// <see cref="SkillType"/>), hub-and-spokes layout with connecting lines from each skill's
+    /// prerequisite DAG (<see cref="Skill.PrereqSkillIds"/>). Clicking a node opens a detail pane with
+    /// condition + function + cost + prerequisites and a Learn button. A legend chip + sector label per
+    /// category shows that skill line's current level from <see cref="SkillXpTracker"/>.
 ///
 /// The Inventory panel merges the old Inventory + Equipment tabs: the humanoid equipment sheet on
 /// the LEFT, storage grid + mirrored hotbar row on the RIGHT, drag/drop via
@@ -41,7 +43,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
     private readonly Dictionary<Tab, GameObject> _panels = new Dictionary<Tab, GameObject>();
     private Tab _current = Tab.Info;
-    private SkillType _skillView = SkillType.Melee;
     private bool _built;
 
     // Info tab widgets.
@@ -74,6 +75,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private TMP_Text _detailLearnHint;
     private Button _learnBtn;
     private Button _assignKeyBtn;
+    private readonly List<(SkillType type, TMP_Text label)> _sectorLabels = new List<(SkillType, TMP_Text)>();
+    private readonly List<(SkillType type, Image swatch, TMP_Text label)> _legendChips = new List<(SkillType, Image, TMP_Text)>();
 
     // Backpack storage grid (30 slots) + mirrored hotbar row (10 slots).
     private readonly Image[] _storageImgs = new Image[ToolManager.StorageSlotCount];
@@ -92,6 +95,19 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private static readonly Color NodeLearned = new Color(0.3f, 0.72f, 0.42f, 1f);
     private static readonly Color NodeAvailable = new Color(0.82f, 0.6f, 0.22f, 1f);
     private static readonly Color NodeLocked = new Color(0.3f, 0.32f, 0.38f, 1f);
+
+    private static readonly string[] CategoryNames = { "Melee", "Ranged", "Magic", "Stealth", "Crafting", "Fortitude" };
+
+    /// <summary>Per-category accent colors (legend chips, sector labels, node top strips).</summary>
+    private static readonly Color[] CategoryColors =
+    {
+        new Color(0.9f, 0.42f, 0.33f, 1f),   // Melee
+        new Color(0.35f, 0.82f, 0.5f, 1f),   // Ranged
+        new Color(0.48f, 0.56f, 0.95f, 1f),  // Magic
+        new Color(0.55f, 0.5f, 0.85f, 1f),   // Stealth
+        new Color(0.92f, 0.72f, 0.3f, 1f),   // Crafting
+        new Color(0.55f, 0.78f, 0.42f, 1f),  // Fortitude
+    };
     private static readonly Color LineActive = new Color(0.72f, 0.68f, 0.55f, 0.9f);
     private static readonly Color LineInert = new Color(0.4f, 0.42f, 0.48f, 0.75f);
 
@@ -269,10 +285,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
         // Skills panel: draggable skill tree + detail pane.
         _panels[Tab.Skills] = MakePanel("SkillsPanel");
-        BuildSkillTypeBar(_panels[Tab.Skills].transform);
         _skillPointsText = MakeBodyText(_panels[Tab.Skills].transform, "SkillPoints", P(-450f, 222f), Sz(200f, 28f));
-        _categoryLevelText = MakeBodyText(_panels[Tab.Skills].transform, "CategoryLevel", P(250f, 222f), Sz(200f, 28f));
-        BuildSkillDetail(BuildSkillTree(_panels[Tab.Skills].transform).transform);
+        _categoryLevelText = MakeBodyText(_panels[Tab.Skills].transform, "Learned", P(250f, 222f), Sz(220f, 28f));
+        RectTransform treeVt = BuildSkillTree(_panels[Tab.Skills].transform);
+        BuildSkillDetail(treeVt.transform);
+        BuildTreeLegend(treeVt);
 
         // Merged Inventory + Equipment panel: equipment sheet LEFT, backpack + use bar RIGHT.
         _panels[Tab.Inventory] = MakePanel("InventoryPanel");
@@ -437,8 +454,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         vrt.anchorMin = new Vector2(0.5f, 0.5f);
         vrt.anchorMax = new Vector2(0.5f, 0.5f);
         vrt.pivot = new Vector2(0.5f, 0.5f);
-        vrt.anchoredPosition = P(0f, -55f);
-        vrt.sizeDelta = Sz(940f, 370f);
+        vrt.anchoredPosition = P(0f, -70f);
+        vrt.sizeDelta = Sz(960f, 520f);
         var vimg = vp.AddComponent<Image>();
         vimg.color = new Color(0.09f, 0.1f, 0.13f, 0.9f);
         vp.AddComponent<RectMask2D>();
@@ -450,10 +467,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _treeContent.anchorMax = new Vector2(0.5f, 0.5f);
         _treeContent.pivot = new Vector2(0.5f, 0.5f);
         _treeContent.anchoredPosition = Vector2.zero;
-        _treeContent.sizeDelta = Sz(1000f, 700f);
+        _treeContent.sizeDelta = Sz(1500f, 1500f);
 
         var pan = vp.AddComponent<TreePan>();
         pan.Content = _treeContent;
+        pan.Viewport = vrt;
         return vrt;
     }
 
@@ -542,9 +560,23 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
         var xp = SkillXpOf();
         if (_categoryLevelText != null)
-            _categoryLevelText.text = xp != null
-                ? Localization.F("{0} Lv {1}", _skillView, xp.GetLevel(_skillView))
-                : _skillView.ToString();
+        {
+            int learned = 0;
+            if (profile != null)
+                foreach (var (skill, _) in _treeNodes)
+                    if (profile.HasLearned(skill.id)) learned++;
+            _categoryLevelText.text = Localization.F("Learned {0}/{1}", learned, _treeNodes.Count);
+        }
+
+        if (xp != null)
+        {
+            foreach (var (type, label) in _sectorLabels)
+                if (label != null)
+                    label.text = Localization.F("{0} Lv {1}", CategoryNames[(int)type], xp.GetLevel(type));
+            foreach (var (type, _, label) in _legendChips)
+                if (label != null)
+                    label.text = Localization.F("{0} Lv {1}", CategoryNames[(int)type], xp.GetLevel(type));
+        }
 
         RefreshSkillDetail();
         if (_learnBtn != null)
@@ -661,15 +693,18 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _treeNodes.Clear();
         _treeLines.Clear();
         _treeSkills.Clear();
+        _sectorLabels.Clear();
         _selectedSkill = null;
         _treeContent.anchoredPosition = Vector2.zero;
+        _treeContent.localScale = Vector3.one;
 
+        SkillCatalog.EnsureBuilt();
         var list = new List<Skill>();
-        foreach (var s in SkillCatalog.OfType(_skillView))
+        foreach (var s in SkillCatalog.All)
             if (s != null) list.Add(s);
         if (list.Count == 0) return;
 
-        // Depth = longest prerequisite chain.
+        // Depth = longest prerequisite chain, across the whole shared tree.
         var depth = new Dictionary<string, int>();
         bool changed;
         do
@@ -692,62 +727,72 @@ public sealed class CharacterInfoUI : MenuPanelBase
             }
         } while (changed);
 
-        // Nodes per depth-tier.
-        var byDepth = new Dictionary<int, List<Skill>>();
-        foreach (var s in list)
+        // Polar slot grid: each category fans out inside its own 60° wedge, and every node claims a
+        // distinct ring/angle cell whose arc is sized to the node pitch, so no nodes ever overlap.
+        const float sectorHalf = 0.40f;     // ±23° rad of fan inside the 60° wedge.
+        const float ringStep = 112f;        // Radial px between rings.
+        const float ring0 = 170f;           // First (innermost) ring radius.
+        const float nodePitch = 88f;        // Horiz. px budget per node (64 + gap).
+        const int maxRing = 3;              // Rings 0..3 → 1/2/3/4 slots per ring.
+
+        var slotsPerRing = new int[maxRing + 1];
+        var ringRadius = new float[maxRing + 1];
+        for (int r = 0; r <= maxRing; r++)
         {
-            int d = depth.TryGetValue(s.id, out int dv) ? dv : 0;
-            if (!byDepth.TryGetValue(d, out var bucket))
-            {
-                bucket = new List<Skill>();
-                byDepth[d] = bucket;
-            }
-            bucket.Add(s);
+            ringRadius[r] = ring0 + r * ringStep;
+            slotsPerRing[r] = Mathf.Max(1, Mathf.FloorToInt(ringRadius[r] * (2f * sectorHalf) / nodePitch));
         }
 
-        // Radial hub & spokes: tier 0 = inner hub ring, deeper tiers radiate outward.
-        float hubRadius = 78f * S;
-        float spokeStep = 118f * S;
         var posOf = new Dictionary<string, Vector2>();
-        var angleOf = new Dictionary<string, float>();
+        var usedByRing = new int[maxRing + 1];
 
-        var depths = new List<int>(byDepth.Keys);
-        depths.Sort();
-        foreach (int d in depths)
+        for (int ci = 0; ci < 6; ci++)
         {
-            var bucket = byDepth[d];
-            bool allRoot = d == 0;
-            for (int i = 0; i < bucket.Count; i++)
+            SkillType type = (SkillType)ci;
+            float center = (-90f + ci * 60f) * Mathf.Deg2Rad;
+
+            var catList = new List<Skill>();
+            foreach (var s in list)
+                if (s.Type == type) catList.Add(s);
+            if (catList.Count == 0) continue;
+
+            catList.Sort((a, b) =>
             {
-                var s = bucket[i];
-                float angle;
-                if (allRoot)
+                int da = depth.TryGetValue(a.id, out int av) ? av : 0;
+                int db = depth.TryGetValue(b.id, out int bv) ? bv : 0;
+                int c = da.CompareTo(db);
+                return c != 0 ? c : string.CompareOrdinal(a.id, b.id);
+            });
+
+            foreach (var s in catList)
+            {
+                int dMin = depth.TryGetValue(s.id, out int dv) ? dv : 0;
+                int ring = -1;
+                for (int r = dMin; r <= maxRing; r++)
                 {
-                    angle = -90f + (i / Mathf.Max(1, bucket.Count)) * 360f;
-                    angleOf[s.id] = angle;
+                    if (usedByRing[r] < slotsPerRing[r]) { ring = r; break; }
                 }
-                else
-                {
-                    // Mean angle of prerequisites, fanning out siblings slightly.
-                    float sx = 0f, sy = 0f; int cnt = 0;
-                    if (s.PrereqSkillIds != null)
-                        foreach (var pid in s.PrereqSkillIds)
-                            if (angleOf.TryGetValue(pid, out float pa))
-                            {
-                                float paRad = pa * Mathf.Deg2Rad;
-                                sx += Mathf.Cos(paRad); sy += Mathf.Sin(paRad); cnt++;
-                            }
-                    if (cnt == 0) { angle = -90f; }
-                    else angle = Mathf.Atan2(sy / cnt, sx / cnt) * Mathf.Rad2Deg;
-                    angle += (i % 2 == 0 ? -1f : 1f) * 18f * (i / 2);
-                    angleOf[s.id] = angle;
-                }
-                float radius = hubRadius + d * spokeStep;
-                float rad = angle * Mathf.Deg2Rad;
-                posOf[s.id] = new Vector2(Mathf.Cos(rad) * radius, Mathf.Sin(rad) * radius);
+                if (ring < 0) ring = maxRing;
+
+                float ang = center - sectorHalf +
+                    (usedByRing[ring] + 0.5f) * (2f * sectorHalf) / slotsPerRing[ring];
+                usedByRing[ring]++;
+
+                float radial = ringRadius[ring];
+                posOf[s.id] = new Vector2(Mathf.Cos(ang) * radial, Mathf.Sin(ang) * radial);
                 _treeSkills.Add(s);
             }
+
+            // Sector level label near the hub ring.
+            float lr = ring0 * 0.55f;
+            var lbl = MakeBodyText(_treeContent, "Sector_" + CategoryNames[ci],
+                new Vector2(Mathf.Cos(center) * lr, Mathf.Sin(center) * lr), Sz(140f, 22f));
+            lbl.alignment = TextAlignmentOptions.Center;
+            lbl.fontSize = Mathf.Max(13f, Screen.height / 92f);
+            lbl.color = CategoryColors[ci];
+            _sectorLabels.Add((type, lbl));
         }
+        if (posOf.Count == 0) return;
 
         // Connection lines (prereq -> child).
         float thick = 3f * S;
@@ -771,7 +816,26 @@ public sealed class CharacterInfoUI : MenuPanelBase
             _treeNodes.Add((s, node));
         }
 
+        FitTreeToViewport();
         RefreshSkillTree();
+    }
+
+    /// <summary>Scales the tree content so the whole wheel fits inside the viewport.</summary>
+    private void FitTreeToViewport()
+    {
+        if (_treeContent == null || _treeContent.parent == null) return;
+        float maxR = 0f;
+        foreach (var (_, image) in _treeNodes)
+        {
+            if (image == null) continue;
+            maxR = Mathf.Max(maxR, ((RectTransform)image.transform).anchoredPosition.magnitude);
+        }
+        maxR += 40f;
+        var vp = _treeContent.parent as RectTransform;
+        if (vp == null || maxR <= 0f) return;
+        float scale = Mathf.Min(vp.rect.width / (maxR * 2f), vp.rect.height / (maxR * 2f));
+        scale = Mathf.Clamp(scale, TreePan.MinScale, TreePan.MaxScale);
+        _treeContent.localScale = new Vector3(scale, scale, 1f);
     }
 
     private Image MakeTreeNode(Skill skill, Vector2 pos)
@@ -794,6 +858,18 @@ public sealed class CharacterInfoUI : MenuPanelBase
             _selectedSkill = captured;
             RefreshSkillTree();
         });
+
+        var strip = new GameObject("CatStrip");
+        strip.transform.SetParent(go.transform, false);
+        var srt = strip.AddComponent<RectTransform>();
+        srt.anchorMin = new Vector2(0f, 1f);
+        srt.anchorMax = new Vector2(1f, 1f);
+        srt.pivot = new Vector2(0.5f, 1f);
+        srt.offsetMin = new Vector2(2f, -6f);
+        srt.offsetMax = new Vector2(-2f, 0f);
+        var stripImg = strip.AddComponent<Image>();
+        stripImg.raycastTarget = false;
+        stripImg.color = CategoryColors[(int)skill.Type];
 
         var label = new GameObject("Label");
         label.transform.SetParent(go.transform, false);
@@ -832,18 +908,25 @@ public sealed class CharacterInfoUI : MenuPanelBase
         return img;
     }
 
-    /// <summary>Drag handler for the tree viewport — pans <see cref="Content"/> within the mask.</summary>
-    private sealed class TreePan : MonoBehaviour, IPointerDownHandler, IDragHandler
+    /// <summary>Pan/zoom handler for the tree viewport — drags <see cref="Content"/> and scroll-zooms
+    /// it toward the cursor within the mask.</summary>
+    private sealed class TreePan : MonoBehaviour, IPointerDownHandler, IDragHandler, IScrollHandler
     {
+        public const float MinScale = 0.45f;
+        public const float MaxScale = 3f;
+
         public RectTransform Content;
+        public RectTransform Viewport;
         private Vector2 _startPointer;
         private Vector2 _startPos;
+
+        private RectTransform Target => Viewport != null ? Viewport : (RectTransform)transform;
 
         public void OnPointerDown(PointerEventData e)
         {
             if (Content == null) return;
             RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                (RectTransform)transform, e.position, e.pressEventCamera, out _startPointer);
+                Target, e.position, e.pressEventCamera, out _startPointer);
             _startPos = Content.anchoredPosition;
         }
 
@@ -851,9 +934,28 @@ public sealed class CharacterInfoUI : MenuPanelBase
         {
             if (Content == null) return;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                (RectTransform)transform, e.position, e.pressEventCamera, out Vector2 current))
+                Target, e.position, e.pressEventCamera, out Vector2 current))
                 return;
             Content.anchoredPosition = _startPos + (current - _startPointer);
+        }
+
+        public void OnScroll(PointerEventData e)
+        {
+            if (Content == null) return;
+            float prev = Content.localScale.x;
+            float next = prev * Mathf.Pow(1.2f, Mathf.Sign(e.scrollDelta.y));
+            next = Mathf.Clamp(next, MinScale, MaxScale);
+            if (Mathf.Approximately(next, prev)) return;
+
+            var vp = Viewport != null ? Viewport : (RectTransform)transform;
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                vp, e.position, e.pressEventCamera, out Vector2 local))
+            {
+                // Keep the content point under the cursor fixed while resizing about the center pivot.
+                Content.anchoredPosition *= next / prev;
+                Content.anchoredPosition += local * (1f - next / prev);
+            }
+            Content.localScale = new Vector3(next, next, 1f);
         }
     }
 
@@ -1396,43 +1498,47 @@ public sealed class CharacterInfoUI : MenuPanelBase
             RefreshInventoryUi();
     }
 
-    private void BuildSkillTypeBar(Transform parent)
+    private void BuildTreeLegend(RectTransform viewport)
     {
-        string[] names = { "Melee", "Ranged", "Magic", "Stealth", "Crafting", "Fortitude" };
-        float w = 440f * S;
-        float bw = w / names.Length;
-        for (int i = 0; i < names.Length; i++)
+        const float gap = 122f * S;
+        const float swatch = 14f * S;
+        for (int i = 0; i < 6; i++)
         {
-            SkillType st = (SkillType)i;
-            string name = names[i];
-            var go = new GameObject("ST_" + name);
-            go.transform.SetParent(parent, false);
+            var go = new GameObject("Legend_" + CategoryNames[i]);
+            go.transform.SetParent(viewport, false);
             var rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 0.5f);
-            rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(-220f * S + bw * (0.5f + i), 190f * S);
-            rt.sizeDelta = new Vector2(bw - 4f * S, 42f * S);
-            var img = go.AddComponent<Image>();
-            img.color = new Color(0.14f, 0.16f, 0.2f, 0.95f);
-            var btn = go.AddComponent<Button>();
-            btn.targetGraphic = img;
-            SkillType captured = st;
-            btn.onClick.AddListener(() => { _skillView = captured; RebuildSkillTree(); });
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 0.5f);
+            rt.anchoredPosition = new Vector2((14f + i * gap) * S, -14f * S);
+            rt.sizeDelta = Sz(114f, 18f);
+
+            var swatchGo = new GameObject("Swatch");
+            swatchGo.transform.SetParent(go.transform, false);
+            var srt = swatchGo.AddComponent<RectTransform>();
+            srt.anchorMin = new Vector2(0f, 0.5f);
+            srt.anchorMax = new Vector2(0f, 0.5f);
+            srt.pivot = new Vector2(0f, 0.5f);
+            srt.anchoredPosition = Vector2.zero;
+            srt.sizeDelta = new Vector2(swatch, swatch);
+            var simg = swatchGo.AddComponent<Image>();
+            simg.raycastTarget = false;
+            simg.color = CategoryColors[i];
 
             var label = new GameObject("Label");
             label.transform.SetParent(go.transform, false);
             var lr = label.AddComponent<RectTransform>();
-            lr.anchorMin = Vector2.zero;
-            lr.anchorMax = Vector2.one;
-            lr.offsetMin = Vector2.zero;
+            lr.anchorMin = new Vector2(0f, 0.5f);
+            lr.anchorMax = new Vector2(1f, 0.5f);
+            lr.offsetMin = new Vector2(swatch + 5f, 0f);
             lr.offsetMax = Vector2.zero;
-            var lt = label.AddComponent<TextMeshProUGUI>();
-            GameManager.Instance?.UIManager?.ApplyDefaultFont(lt);
-            lt.text = name;
-            lt.fontSize = Mathf.Max(15f, Screen.height / 60f);
-            lt.color = Color.white;
-            lt.alignment = TextAlignmentOptions.Center;
+            var tmp = label.AddComponent<TextMeshProUGUI>();
+            GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
+            tmp.raycastTarget = false;
+            tmp.fontSize = Mathf.Max(11f, Screen.height / 100f);
+            tmp.color = new Color(0.85f, 0.87f, 0.9f, 1f);
+            tmp.alignment = TextAlignmentOptions.MidlineLeft;
+            _legendChips.Add(((SkillType)i, simg, tmp));
         }
     }
 
@@ -1510,7 +1616,10 @@ public sealed class CharacterInfoUI : MenuPanelBase
         switch (_current)
         {
             case Tab.Info: RefreshInfo(); break;
-            case Tab.Skills: RefreshSkillTree(); break;
+            case Tab.Skills:
+            if (_treeNodes.Count == 0) RebuildSkillTree();
+            else RefreshSkillTree();
+            break;
             case Tab.Inventory: RefreshInventoryUi(); break;
             case Tab.Map: RefreshMap(); break;
         }

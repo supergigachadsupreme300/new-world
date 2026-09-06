@@ -3,7 +3,9 @@
 > STATUS: Sections 1-12 shipped and pushed (commits 2b4bd6a, d8f5f46, 61827f0, 7fd5218, f097440).
 > Batch 5 (15-15.5) pushed as `3294a2e` + `4787f8e`; batch 6 (§16 — upper/lower limb split on all
 > player models + matching elbow/knee animation, sealed/driving/sit models rebuilt) shipped and
-> pushed in this turn. Unity can't be run here — all sections keep an open "needs user" checklist.
+> pushed as `71bb7ed`. Batch 7 (§17 — one combined 60-skill radial wheel, no tabs, legend, wheel
+> zoom) implemented this turn; semantic-checker clean (0 diagnostics); commit + push in this turn.
+> Unity can't be run here — all sections keep an open "needs user" checklist.
 > Section 13 (streaming perf rework) implemented, semantic-checker clean (0 diagnostics); pushed.
 > Section 14 (white player / hidden sword / backpack layout) implemented, semantic-checker clean; pushed.
 > Section 15 (bulletproof color + always-visible sword + unique per-weapon arm animations) implemented,
@@ -410,3 +412,31 @@ each weapon*. Batch 5 attacks each with a guarantee instead of another guess.
   - [ ] Rack gameplay + main menu: driving intro hands stay on the steering wheel and rock it;
         benches: sitting pose unchanged.
   - [ ] Semantic checker 0 diagnostics; commit only the touched scripts + PLAN.md; push to `main`.
+
+## 17. Batch 7 — combine all six skill trees into ONE big tree
+- User: "combine the skill trees into one tree, it has to be really big" (believed only 3 skills
+  per tree because each category's 10 nodes were crammed into a ~940x370 viewport with no zoom).
+  Confirmed: `SkillCatalog.BuildDefault` already defines 60 skills (10 per type x 6) — no data change.
+- **File**: `Assets/Scripts/UI/NewWorld/CharacterInfoUI.cs` only.
+- **Layout** (`RebuildSkillTree`): builds EVERY skill in `SkillCatalog.All` on one board, grouped into
+  six colored 60° sectors (Melee top, others clockwise). Each node claims its own ring/angle cell in a
+  polar slot grid (`ring0=170`, `ringStep=112`, `sectorHalf=±23°`, `nodePitch=88`) sized by arc so nodes
+  NEVER overlap; depth (longest prereq chain) is the minimum ring, so roots fan the innermost arcs and
+  prereq spokes still show. Sector level labels float near the hub ring.
+- **Viewport/zoom**: viewport now 960x520 (was 940x370) around a 1500x1500 content; `FitTreeToViewport`
+  auto-scales the whole wheel into view on open. `TreePan` now implements `IScrollHandler`: mouse wheel
+  zooms the content 0.45x–3x and keeps the node under the cursor fixed while zooming.
+- **No more category tabs**: `BuildSkillTypeBar` (6 buttons) removed, `_skillView` gone. Replaced by a
+  top-left legend inside the viewport (per-category color chip + level) and a per-category color strip
+  on every node + colored sector label near the hub.
+- **Header text**: `_categoryLevelText` now shows "Learned X/60" (count over the actual tree nodes).
+  Legend chips & sector labels refresh per-category level from `SkillXpTracker` on every refresh.
+  Selection → learn → prereq gating → hotkey assign and the detail pane are untouched.
+- **Build hook**: the tree previously built only after pressing a category tab; `Refresh()` now calls
+  `RebuildSkillTree()` the first time the Skills tab opens (guarded by `_treeNodes.Count == 0`).
+- Verify (needs user — Unity can't be run here):
+  - [ ] Skills tab shows one big wheel with all 60 nodes in 6 colored sectors; no overlapping nodes.
+  - [ ] Mouse wheel zooms (0.45x–3x) toward the cursor; drag pans; trees fit on first open.
+  - [ ] Learning a node still works (prereq gating, points, hotkey assign); "Learned X/60" counts up.
+  - [ ] Legend chips and sector labels show each category's current level; detail pane unchanged.
+  - [ ] Semantic checker 0 diagnostics; commit only the touched .cs + PLAN.md; push to `main`.
