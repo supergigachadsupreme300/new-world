@@ -115,11 +115,10 @@ public sealed class WeaponAnimator : MonoBehaviour
         _baseEuler = transform.localRotation.eulerAngles;
         _baseScale = transform.localScale;
 
-        // Resolve the owning shoulder (rig -> HandR/L -> ShoulderR/L) fresh each attack.
+        // Resolve the owning shoulder (rig -> HandR/L -> ElbowR/L -> ShoulderR/L) fresh each attack.
         var parent = transform.parent;
         bool offHand = parent != null && parent.name == "HandL";
-        _ownerShoulder = parent != null && parent.parent != null
-            && (parent.name == "HandR" || parent.name == "HandL") ? parent.parent : null;
+        _ownerShoulder = FindOwnerShoulder(parent);
         _ownerBaseRot = _ownerShoulder != null ? _ownerShoulder.localRotation : Quaternion.identity;
 
         _mirrorOther = !offHand && (_profile.Kind == K_Overhead || _profile.Kind == K_Thrust ||
@@ -173,6 +172,21 @@ public sealed class WeaponAnimator : MonoBehaviour
         if (_ownerShoulder != null) _ownerShoulder.localRotation = _ownerBaseRot;
         if (_otherShoulder != null) _otherShoulder.localRotation = _otherBaseRot;
         if (_playerAnim != null) _playerAnim.SuppressArms = false;
+    }
+
+    /// <summary>
+    /// From a hand-pivoted weapon rig, climb to the arm's shoulder pivot
+    /// (rig -> HandR/L -> ElbowR/L -> ShoulderR/L) regardless of how deep the arm chain is.
+    /// </summary>
+    private static Transform FindOwnerShoulder(Transform from)
+    {
+        var p = from;
+        while (p != null)
+        {
+            if (p.name.StartsWith("Shoulder")) return p;
+            p = p.parent;
+        }
+        return null;
     }
 
     private void OnDisable()

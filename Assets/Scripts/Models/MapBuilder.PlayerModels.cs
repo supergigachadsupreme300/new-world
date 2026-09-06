@@ -35,6 +35,7 @@ public static partial class MapBuilder
         MakeBlock("Neck", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0f, 0.4f, 0f), skinC, true);
 
         // ── Shoulder pivots (rotate from shoulder joint) ──
+        // Arm chain: Shoulder -> Elbow -> Forearm + Hand (upper/lower arm split).
         var shoulderL = new GameObject("ShoulderL");
         shoulderL.transform.SetParent(root.transform);
         shoulderL.transform.localPosition = new Vector3(-0.33f, 0.37f, 0f);
@@ -45,10 +46,21 @@ public static partial class MapBuilder
         shoulderR.transform.localPosition = new Vector3(0.33f, 0.37f, 0f);
         shoulderR.transform.localRotation = Quaternion.identity;
 
-        MakeBlock("ArmL", shoulderL.transform, new Vector3(0.12f, 0.5f, 0.12f), new Vector3(0f, -0.25f, 0f), shirtC, true);
-        MakeBlock("HandL", shoulderL.transform, new Vector3(0.12f, 0.08f, 0.12f), new Vector3(0f, -0.51f, 0f), skinC, true);
-        MakeBlock("ArmR", shoulderR.transform, new Vector3(0.12f, 0.5f, 0.12f), new Vector3(0f, -0.25f, 0f), shirtC, true);
-        MakeBlock("HandR", shoulderR.transform, new Vector3(0.12f, 0.08f, 0.12f), new Vector3(0f, -0.51f, 0f), skinC, true);
+        MakeBlock("UpperArmL", shoulderL.transform, new Vector3(0.12f, 0.26f, 0.12f), new Vector3(0f, -0.13f, 0f), shirtC, true);
+        var elbowL = new GameObject("ElbowL");
+        elbowL.transform.SetParent(shoulderL.transform);
+        elbowL.transform.localPosition = new Vector3(0f, -0.26f, 0f);
+        elbowL.transform.localRotation = Quaternion.identity;
+        MakeBlock("ForearmL", elbowL.transform, new Vector3(0.12f, 0.22f, 0.12f), new Vector3(0f, -0.12f, 0f), shirtC, true);
+        MakeBlock("HandL", elbowL.transform, new Vector3(0.12f, 0.08f, 0.12f), new Vector3(0f, -0.25f, 0f), skinC, true);
+
+        MakeBlock("UpperArmR", shoulderR.transform, new Vector3(0.12f, 0.26f, 0.12f), new Vector3(0f, -0.13f, 0f), shirtC, true);
+        var elbowR = new GameObject("ElbowR");
+        elbowR.transform.SetParent(shoulderR.transform);
+        elbowR.transform.localPosition = new Vector3(0f, -0.26f, 0f);
+        elbowR.transform.localRotation = Quaternion.identity;
+        MakeBlock("ForearmR", elbowR.transform, new Vector3(0.12f, 0.22f, 0.12f), new Vector3(0f, -0.12f, 0f), shirtC, true);
+        MakeBlock("HandR", elbowR.transform, new Vector3(0.12f, 0.08f, 0.12f), new Vector3(0f, -0.25f, 0f), skinC, true);
 
         // ── Hip pivots (rotate from hip joint) ──
         var hipL = new GameObject("HipL");
@@ -61,10 +73,22 @@ public static partial class MapBuilder
         hipR.transform.localPosition = new Vector3(0.13f, -0.25f, 0f);
         hipR.transform.localRotation = Quaternion.identity;
 
-        MakeBlock("LegL", hipL.transform, new Vector3(0.14f, 0.5f, 0.14f), new Vector3(0f, -0.25f, 0f), pantsC, true);
-        MakeBlock("ShoeL", hipL.transform, new Vector3(0.16f, 0.08f, 0.22f), new Vector3(0f, -0.57f, 0f), shoeC, true);
-        MakeBlock("LegR", hipR.transform, new Vector3(0.14f, 0.5f, 0.14f), new Vector3(0f, -0.25f, 0f), pantsC, true);
-        MakeBlock("ShoeR", hipR.transform, new Vector3(0.16f, 0.08f, 0.22f), new Vector3(0f, -0.57f, 0f), shoeC, true);
+        // Leg chain: Hip -> Knee -> Shin + Shoe (upper/lower leg split).
+        MakeBlock("ThighL", hipL.transform, new Vector3(0.14f, 0.3f, 0.14f), new Vector3(0f, -0.15f, 0f), pantsC, true);
+        var kneeL = new GameObject("KneeL");
+        kneeL.transform.SetParent(hipL.transform);
+        kneeL.transform.localPosition = new Vector3(0f, -0.3f, 0f);
+        kneeL.transform.localRotation = Quaternion.identity;
+        MakeBlock("ShinL", kneeL.transform, new Vector3(0.14f, 0.24f, 0.14f), new Vector3(0f, -0.12f, 0f), pantsC, true);
+        MakeBlock("ShoeL", kneeL.transform, new Vector3(0.16f, 0.08f, 0.22f), new Vector3(0f, -0.27f, 0.02f), shoeC, true);
+
+        MakeBlock("ThighR", hipR.transform, new Vector3(0.14f, 0.3f, 0.14f), new Vector3(0f, -0.15f, 0f), pantsC, true);
+        var kneeR = new GameObject("KneeR");
+        kneeR.transform.SetParent(hipR.transform);
+        kneeR.transform.localPosition = new Vector3(0f, -0.3f, 0f);
+        kneeR.transform.localRotation = Quaternion.identity;
+        MakeBlock("ShinR", kneeR.transform, new Vector3(0.14f, 0.24f, 0.14f), new Vector3(0f, -0.12f, 0f), pantsC, true);
+        MakeBlock("ShoeR", kneeR.transform, new Vector3(0.16f, 0.08f, 0.22f), new Vector3(0f, -0.27f, 0.02f), shoeC, true);
 
         MakeBlock("Hair", root.transform, new Vector3(0.32f, 0.08f, 0.3f), new Vector3(0f, 0.82f, 0f), hairC, true);
         MakeBlock("HairL", root.transform, new Vector3(0.08f, 0.32f, 0.26f), new Vector3(-0.19f, 0.69f, 0f), hairC, true);
@@ -139,17 +163,59 @@ public static partial class MapBuilder
         MakeBlock("EyeWhiteR", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(0.07f, 0.77f, 0.145f), eyeWhiteC, true);
         MakeBlock("EyeIrisL", root.transform, new Vector3(0.05f, 0.05f, 0.04f), new Vector3(-0.07f, 0.77f, 0.155f), eyeC, true);
         MakeBlock("EyeIrisR", root.transform, new Vector3(0.05f, 0.05f, 0.04f), new Vector3(0.07f, 0.77f, 0.155f), eyeC, true);
-        // ── Upper arms (reaching forward to steering wheel) ──
-        MakeBlock("UpperArmL", root.transform, new Vector3(0.1f, 0.28f, 0.1f), new Vector3(-0.26f, 0.35f, 0.15f), shirtC, true).transform.localRotation = Quaternion.Euler(-70f, 0f, 0f);
-        MakeBlock("UpperArmR", root.transform, new Vector3(0.1f, 0.28f, 0.1f), new Vector3(0.26f, 0.35f, 0.15f), shirtC, true).transform.localRotation = Quaternion.Euler(-70f, 0f, 0f);
-        // ── Hands (at steering wheel height) ──
-        MakeBlock("HandL", root.transform, new Vector3(0.09f, 0.09f, 0.09f), new Vector3(-0.26f, 0.42f, 0.38f), skinC, true);
-        MakeBlock("HandR", root.transform, new Vector3(0.09f, 0.09f, 0.09f), new Vector3(0.26f, 0.42f, 0.38f), skinC, true);
-        // ── Legs (seated, bent forward) ──
-        MakeBlock("ThighL", root.transform, new Vector3(0.13f, 0.3f, 0.13f), new Vector3(-0.12f, 0.05f, 0.08f), pantsC, true).transform.localRotation = Quaternion.Euler(-80f, 0f, 0f);
-        MakeBlock("ThighR", root.transform, new Vector3(0.13f, 0.3f, 0.13f), new Vector3(0.12f, 0.05f, 0.08f), pantsC, true).transform.localRotation = Quaternion.Euler(-80f, 0f, 0f);
-        MakeBlock("ShinL", root.transform, new Vector3(0.11f, 0.28f, 0.11f), new Vector3(-0.12f, -0.15f, 0.22f), pantsC, true).transform.localRotation = Quaternion.Euler(10f, 0f, 0f);
-        MakeBlock("ShinR", root.transform, new Vector3(0.11f, 0.28f, 0.11f), new Vector3(0.12f, -0.15f, 0.22f), pantsC, true).transform.localRotation = Quaternion.Euler(10f, 0f, 0f);
+        // ── Arms (shoulder -> elbow chain, reaching forward to the steering wheel) ──
+        // Shoulder carries the reach (-60°), elbow flexes the forearm up toward the wheel so
+        // the hands land on it. The driving cutscene rocks these pivots to simulate steering.
+        var shoulderL = new GameObject("ShoulderL");
+        shoulderL.transform.SetParent(root.transform);
+        shoulderL.transform.localPosition = new Vector3(-0.26f, 0.485f, 0.01f);
+        shoulderL.transform.localRotation = Quaternion.Euler(-60f, 0f, 0f);
+
+        var shoulderR = new GameObject("ShoulderR");
+        shoulderR.transform.SetParent(root.transform);
+        shoulderR.transform.localPosition = new Vector3(0.26f, 0.485f, 0.01f);
+        shoulderR.transform.localRotation = Quaternion.Euler(-60f, 0f, 0f);
+
+        MakeBlock("UpperArmL", shoulderL.transform, new Vector3(0.1f, 0.2f, 0.1f), new Vector3(0f, -0.1f, 0f), shirtC, true);
+        var elbowL = new GameObject("ElbowL");
+        elbowL.transform.SetParent(shoulderL.transform);
+        elbowL.transform.localPosition = new Vector3(0f, -0.2f, 0f);
+        elbowL.transform.localRotation = Quaternion.Euler(-40f, 0f, 0f);
+        MakeBlock("ForearmL", elbowL.transform, new Vector3(0.09f, 0.2f, 0.09f), new Vector3(0f, -0.1f, 0f), shirtC, true);
+        MakeBlock("HandL", elbowL.transform, new Vector3(0.09f, 0.09f, 0.09f), new Vector3(0f, -0.2f, 0f), skinC, true);
+
+        MakeBlock("UpperArmR", shoulderR.transform, new Vector3(0.1f, 0.2f, 0.1f), new Vector3(0f, -0.1f, 0f), shirtC, true);
+        var elbowR = new GameObject("ElbowR");
+        elbowR.transform.SetParent(shoulderR.transform);
+        elbowR.transform.localPosition = new Vector3(0f, -0.2f, 0f);
+        elbowR.transform.localRotation = Quaternion.Euler(-40f, 0f, 0f);
+        MakeBlock("ForearmR", elbowR.transform, new Vector3(0.09f, 0.2f, 0.09f), new Vector3(0f, -0.1f, 0f), shirtC, true);
+        MakeBlock("HandR", elbowR.transform, new Vector3(0.09f, 0.09f, 0.09f), new Vector3(0f, -0.2f, 0f), skinC, true);
+
+        // ── Legs (hip -> knee chain, thighs forward and shins down in the footwell) ──
+        var hipL = new GameObject("HipL");
+        hipL.transform.SetParent(root.transform);
+        hipL.transform.localPosition = new Vector3(-0.12f, 0.06f, 0f);
+        hipL.transform.localRotation = Quaternion.Euler(-80f, 0f, 0f);
+
+        var hipR = new GameObject("HipR");
+        hipR.transform.SetParent(root.transform);
+        hipR.transform.localPosition = new Vector3(0.12f, 0.06f, 0f);
+        hipR.transform.localRotation = Quaternion.Euler(-80f, 0f, 0f);
+
+        MakeBlock("ThighL", hipL.transform, new Vector3(0.13f, 0.3f, 0.13f), new Vector3(0f, -0.15f, 0f), pantsC, true);
+        var kneeL = new GameObject("KneeL");
+        kneeL.transform.SetParent(hipL.transform);
+        kneeL.transform.localPosition = new Vector3(0f, -0.3f, 0f);
+        kneeL.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        MakeBlock("ShinL", kneeL.transform, new Vector3(0.11f, 0.26f, 0.11f), new Vector3(0f, -0.13f, 0f), pantsC, true);
+
+        MakeBlock("ThighR", hipR.transform, new Vector3(0.13f, 0.3f, 0.13f), new Vector3(0f, -0.15f, 0f), pantsC, true);
+        var kneeR = new GameObject("KneeR");
+        kneeR.transform.SetParent(hipR.transform);
+        kneeR.transform.localPosition = new Vector3(0f, -0.3f, 0f);
+        kneeR.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        MakeBlock("ShinR", kneeR.transform, new Vector3(0.11f, 0.26f, 0.11f), new Vector3(0f, -0.13f, 0f), pantsC, true);
 
         return root;
     }
@@ -175,13 +241,33 @@ public static partial class MapBuilder
         Color shoeC = new Color(0.2f, 0.2f, 0.2f);
         Color dressC = new Color(0.14f, 0.44f, 0.72f);
 
-        // ── Legs (thighs forward, shins down, feet on floor) ──
-        MakeBlock("ThighL", root.transform, new Vector3(0.14f, 0.26f, 0.14f), new Vector3(-0.13f, -0.03f, 0.16f), pantsC, true, Quaternion.Euler(-75f, 0f, 0f));
-        MakeBlock("ThighR", root.transform, new Vector3(0.14f, 0.26f, 0.14f), new Vector3(0.13f, -0.03f, 0.16f), pantsC, true, Quaternion.Euler(-75f, 0f, 0f));
-        MakeBlock("ShinL", root.transform, new Vector3(0.12f, 0.3f, 0.12f), new Vector3(-0.13f, -0.3f, 0.24f), pantsC, true);
-        MakeBlock("ShinR", root.transform, new Vector3(0.12f, 0.3f, 0.12f), new Vector3(0.13f, -0.3f, 0.24f), pantsC, true);
-        MakeBlock("ShoeL", root.transform, new Vector3(0.16f, 0.08f, 0.24f), new Vector3(-0.13f, -0.47f, 0.26f), shoeC, true);
-        MakeBlock("ShoeR", root.transform, new Vector3(0.16f, 0.08f, 0.24f), new Vector3(0.13f, -0.47f, 0.26f), shoeC, true);
+        // ── Legs (hip -> knee chain, thighs forward, shins down, feet on floor) ──
+        var hipL = new GameObject("HipL");
+        hipL.transform.SetParent(root.transform);
+        hipL.transform.localPosition = new Vector3(-0.13f, -0.03f, 0.16f);
+        hipL.transform.localRotation = Quaternion.identity;
+
+        var hipR = new GameObject("HipR");
+        hipR.transform.SetParent(root.transform);
+        hipR.transform.localPosition = new Vector3(0.13f, -0.03f, 0.16f);
+        hipR.transform.localRotation = Quaternion.identity;
+
+        MakeBlock("ThighL", hipL.transform, new Vector3(0.14f, 0.26f, 0.14f), Vector3.zero, pantsC, true, Quaternion.Euler(-75f, 0f, 0f));
+        MakeBlock("ThighR", hipR.transform, new Vector3(0.14f, 0.26f, 0.14f), Vector3.zero, pantsC, true, Quaternion.Euler(-75f, 0f, 0f));
+
+        var kneeL = new GameObject("KneeL");
+        kneeL.transform.SetParent(hipL.transform);
+        kneeL.transform.localPosition = new Vector3(0f, -0.13f, 0.08f);
+        kneeL.transform.localRotation = Quaternion.identity;
+        MakeBlock("ShinL", kneeL.transform, new Vector3(0.12f, 0.3f, 0.12f), new Vector3(0f, -0.14f, 0f), pantsC, true);
+        MakeBlock("ShoeL", kneeL.transform, new Vector3(0.16f, 0.08f, 0.24f), new Vector3(0f, -0.31f, 0.02f), shoeC, true);
+
+        var kneeR = new GameObject("KneeR");
+        kneeR.transform.SetParent(hipR.transform);
+        kneeR.transform.localPosition = new Vector3(0f, -0.13f, 0.08f);
+        kneeR.transform.localRotation = Quaternion.identity;
+        MakeBlock("ShinR", kneeR.transform, new Vector3(0.12f, 0.3f, 0.12f), new Vector3(0f, -0.14f, 0f), pantsC, true);
+        MakeBlock("ShoeR", kneeR.transform, new Vector3(0.16f, 0.08f, 0.24f), new Vector3(0f, -0.31f, 0.02f), shoeC, true);
 
         // ── Torso (hips on the seat) ──
         MakeBlock("Torso", root.transform, new Vector3(female ? 0.42f : 0.46f, 0.36f, 0.28f), new Vector3(0f, 0.18f, 0f), shirtC, true);
@@ -212,11 +298,33 @@ public static partial class MapBuilder
             MakeBlock("HairBack", root.transform, new Vector3(0.3f, 0.26f, 0.1f), new Vector3(0f, 0.85f, -0.16f), hairC, true);
         }
 
-        // ── Arms resting on the lap ──
-        MakeBlock("ArmL", root.transform, new Vector3(0.12f, 0.34f, 0.12f), new Vector3(-0.27f, 0.3f, 0.06f), shirtC, true, Quaternion.Euler(-60f, 0f, 0f));
-        MakeBlock("ArmR", root.transform, new Vector3(0.12f, 0.34f, 0.12f), new Vector3(0.27f, 0.3f, 0.06f), shirtC, true, Quaternion.Euler(-60f, 0f, 0f));
-        MakeBlock("HandL", root.transform, new Vector3(0.11f, 0.09f, 0.11f), new Vector3(-0.27f, 0.14f, 0.2f), skinC, true);
-        MakeBlock("HandR", root.transform, new Vector3(0.11f, 0.09f, 0.11f), new Vector3(0.27f, 0.14f, 0.2f), skinC, true);
+        // ── Arms (shoulder -> elbow chain, hands resting on the lap) ──
+        var shoulderL = new GameObject("ShoulderL");
+        shoulderL.transform.SetParent(root.transform);
+        shoulderL.transform.localPosition = new Vector3(-0.27f, 0.42f, 0f);
+        shoulderL.transform.localRotation = Quaternion.identity;
+
+        var shoulderR = new GameObject("ShoulderR");
+        shoulderR.transform.SetParent(root.transform);
+        shoulderR.transform.localPosition = new Vector3(0.27f, 0.42f, 0f);
+        shoulderR.transform.localRotation = Quaternion.identity;
+
+        MakeBlock("UpperArmL", shoulderL.transform, new Vector3(0.12f, 0.34f, 0.12f), new Vector3(0f, -0.12f, 0.06f), shirtC, true, Quaternion.Euler(-60f, 0f, 0f));
+        MakeBlock("UpperArmR", shoulderR.transform, new Vector3(0.12f, 0.34f, 0.12f), new Vector3(0f, -0.12f, 0.06f), shirtC, true, Quaternion.Euler(-60f, 0f, 0f));
+
+        var elbowL = new GameObject("ElbowL");
+        elbowL.transform.SetParent(shoulderL.transform);
+        elbowL.transform.localPosition = new Vector3(0f, -0.085f, 0.147f);
+        elbowL.transform.localRotation = Quaternion.identity;
+        MakeBlock("ForearmL", elbowL.transform, new Vector3(0.11f, 0.16f, 0.11f), new Vector3(0f, -0.08f, -0.007f), shirtC, true);
+        MakeBlock("HandL", elbowL.transform, new Vector3(0.11f, 0.09f, 0.11f), new Vector3(0f, -0.16f, -0.007f), skinC, true);
+
+        var elbowR = new GameObject("ElbowR");
+        elbowR.transform.SetParent(shoulderR.transform);
+        elbowR.transform.localPosition = new Vector3(0f, -0.085f, 0.147f);
+        elbowR.transform.localRotation = Quaternion.identity;
+        MakeBlock("ForearmR", elbowR.transform, new Vector3(0.11f, 0.16f, 0.11f), new Vector3(0f, -0.08f, -0.007f), shirtC, true);
+        MakeBlock("HandR", elbowR.transform, new Vector3(0.11f, 0.09f, 0.11f), new Vector3(0f, -0.16f, -0.007f), skinC, true);
 
         return root;
     }

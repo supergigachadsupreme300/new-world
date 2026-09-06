@@ -410,10 +410,6 @@ public partial class CutsceneManager
 
     private IEnumerator AnimateSteering()
     {
-        Vector3 restHandL = new Vector3(-0.26f, 0.42f, 0.38f);
-        Vector3 restHandR = new Vector3(0.26f, 0.42f, 0.38f);
-        Vector3 restArmL = new Vector3(-0.26f, 0.35f, 0.15f);
-        Vector3 restArmR = new Vector3(0.26f, 0.35f, 0.15f);
         float wheelSpin = 0f;
         while (true)
         {
@@ -424,17 +420,24 @@ public partial class CutsceneManager
             }
             if (_introPlayer != null)
             {
-                float push = Mathf.Sin(Time.time * 2f) * 0.06f;
+                // Rock the arm pivots so the hands steer the wheel (arms are a
+                // Shoulder -> Elbow chain now; hand blocks stay put on the wheel).
+                float steer = Mathf.Sin(Time.time * 2f) * 7f;
+                float flex = Mathf.Sin(Time.time * 2f + 0.5f) * 2.5f;
 
-                var handL = _introPlayer.transform.Find("HandL");
-                var handR = _introPlayer.transform.Find("HandR");
-                if (handL != null) handL.localPosition = restHandL + new Vector3(0f, 0f, push);
-                if (handR != null) handR.localPosition = restHandR + new Vector3(0f, 0f, -push);
+                var shoulderL = _introPlayer.transform.Find("ShoulderL");
+                var shoulderR = _introPlayer.transform.Find("ShoulderR");
+                if (shoulderL != null)
+                    shoulderL.localRotation = shoulderL.localRotation * Quaternion.Euler(0f, steer, 0f);
+                if (shoulderR != null)
+                    shoulderR.localRotation = shoulderR.localRotation * Quaternion.Euler(0f, -steer, 0f);
 
-                var armL = _introPlayer.transform.Find("UpperArmL");
-                var armR = _introPlayer.transform.Find("UpperArmR");
-                if (armL != null) armL.localPosition = restArmL + new Vector3(0f, 0f, push);
-                if (armR != null) armR.localPosition = restArmR + new Vector3(0f, 0f, -push);
+                var elbowL = _introPlayer.transform.Find("ElbowL");
+                var elbowR = _introPlayer.transform.Find("ElbowR");
+                if (elbowL != null)
+                    elbowL.localRotation = elbowL.localRotation * Quaternion.Euler(-flex, 0f, 0f);
+                if (elbowR != null)
+                    elbowR.localRotation = elbowR.localRotation * Quaternion.Euler(flex, 0f, 0f);
             }
             wheelSpin += Time.deltaTime * 300f;
             foreach (var w in _introWheels)

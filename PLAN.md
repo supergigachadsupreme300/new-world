@@ -1,6 +1,9 @@
 # Plan: UI polish + player model visuals + per-weapon attack animation
 
 > STATUS: Sections 1-12 shipped and pushed (commits 2b4bd6a, d8f5f46, 61827f0, 7fd5218, f097440).
+> Batch 5 (15-15.5) pushed as `3294a2e` + `4787f8e`; batch 6 (§16 — upper/lower limb split on all
+> player models + matching elbow/knee animation, sealed/driving/sit models rebuilt) shipped and
+> pushed in this turn. Unity can't be run here — all sections keep an open "needs user" checklist.
 > Section 13 (streaming perf rework) implemented, semantic-checker clean (0 diagnostics); pushed.
 > Section 14 (white player / hidden sword / backpack layout) implemented, semantic-checker clean; pushed.
 > Section 15 (bulletproof color + always-visible sword + unique per-weapon arm animations) implemented,
@@ -371,3 +374,39 @@ each weapon*. Batch 5 attacks each with a guarantee instead of another guess.
 - File: `Assets/Scripts/Combat/Weapons/WeaponRigBuilder.cs` — new `EquipScale = 1.25f` applied to
   the rig's local scale in `ApplyHandPose` and the chest-side fallback park, so in-hand weapons
   read proper-size against the ~1.5-unit blocky body (rack display scale unchanged).
+
+## 16. Batch 6 — upper/lower limb split on all player models + matching animation
+- User: "edit player models, split arm and legs into 2 part upper and lower and change the
+  animation corresponding."
+- **Standing model** (`MapBuilder.PlayerModels.cs` `BuildPlayerModel`): arms are now a real chain
+  `ShoulderL/R -> ElbowL/R -> ForearmL/R + HandL/R` (upper 0.26 + lower 0.22 arms) and legs
+  `HipL/R -> KneeL/R -> ShinL/R + ShoeL/R` (thigh 0.3 + shin 0.24). Block positions were tuned so
+  the hand grip height (`-0.51` rel. shoulder) and foot sole (`-0.86` rel. root) land exactly where
+  they did before — the same silhouette, now with visible elbow/knee joints.
+- **Animation** (`Assets/Scripts/Player/PlayerAnimator.cs`): resolves and swings `ElbowL/R` +
+  `KneeL/R` on top of the existing shoulder/hip swings. Knees jut as each thigh swings forward,
+  scaling with sprint (natural gait); elbows hold a base flex while moving, curling slightly more
+  as the arm swings forward. Idle (`RestoreIdle`) returns elbows/knees to straight. During an
+  attack (`SuppressArms`) the animator wipes elbows to straight so the weapon swing reads purely
+  from the shoulder, matching batch-5 behavior.
+- **Weapon rigging** — kept working through the deeper arm chain:
+  - `WeaponRigBuilder.cs`: new recursive `FindDescendant`; `FindHand` searches the whole
+    `Shoulder -> Elbow -> Hand` chain instead of requiring Hand as a direct child.
+  - `WeaponAnimator.cs`: `FindOwnerShoulder` climbs ancestors from the hand until a node whose name
+    starts with `Shoulder`, replacing the old Hand->parent (single-level) lookup.
+- **Seated model** (`BuildSeatedPlayerModel`): arms rebuilt as `ShoulderL/R (-60°) -> ElbowL/R
+  (-40°)` with upper arm + forearm + hand, legs as `HipL/R (-80°) -> KneeL/R (+90°)` thigh + shin.
+  Hands still land on the steering wheel (~`(±0.26, 0.42, 0.38)`).
+- **Driving intro** (`CutsceneManager.Driving.cs` `AnimateSteering`): no longer translates the
+  floating `UpperArmL/R`/`HandL/R` blocks; it rocks `ShoulderL/R` yaw (±7°) and `ElbowL/R` flex
+  (±2.5°) so the hands steer the wheel through the joints.
+- **Sit model** (`BuildSitPlayerModel`): same `Hip -> Knee`, `Shoulder -> Elbow` pivot structure;
+  pivots are identity and block transforms were kept at the old values, so the bench pose is
+  pixel-identical to before.
+- Verify (needs user — Unity can't be run here):
+  - [ ] Walk & run: knees visibly bend and elbows flex; sprint has a more athletic gait; idle
+        limbs hang straight again.
+  - [ ] F1 fighting mode: sword still in the hand; each attack swing is unchanged (shoulder-driven).
+  - [ ] Rack gameplay + main menu: driving intro hands stay on the steering wheel and rock it;
+        benches: sitting pose unchanged.
+  - [ ] Semantic checker 0 diagnostics; commit only the touched scripts + PLAN.md; push to `main`.

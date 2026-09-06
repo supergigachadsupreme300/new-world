@@ -216,7 +216,20 @@ public static class WeaponRigBuilder
         if (model == null) return null;
         var shoulder = model.Find(isLeft ? "ShoulderL" : "ShoulderR");
         if (shoulder == null) return null;
-        return shoulder.Find(isLeft ? "HandL" : "HandR");
+        // The hand hangs below Shoulder -> Elbow, so search the whole arm chain.
+        return FindDescendant(shoulder, isLeft ? "HandL" : "HandR");
+    }
+
+    private static Transform FindDescendant(Transform root, string name)
+    {
+        if (root == null) return null;
+        if (root.name == name) return root;
+        for (int i = 0; i < root.childCount; i++)
+        {
+            var t = FindDescendant(root.GetChild(i), name);
+            if (t != null) return t;
+        }
+        return null;
     }
 
     private static GameObject BuildRig(GameObject playerRoot, WeaponData weapon,
