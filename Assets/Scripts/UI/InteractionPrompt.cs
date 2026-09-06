@@ -21,7 +21,6 @@ public class InteractionPrompt : MonoBehaviour
         ("RichManNpc",         "Nói chuyện"),
         ("PoliceOfficer",      "Nói chuyện"),
         ("RestaurantNPC",      "Nói chuyện"),
-        ("ImmigrantNpc",       "Nói chuyện"),
         ("PagodaMonkNpc",      "Cầu nguyện"),
         ("LibrarianNPC",       "Đọc sách"),
         ("BuffaloEntity",      "Tương tác"),
@@ -223,7 +222,6 @@ public class InteractionPrompt : MonoBehaviour
         if (ChefNPC.Instance != null && ChefNPC.Instance.IsDialogActive) return true;
         if (CafeBarista.Instance != null && CafeBarista.Instance.IsDialogActive) return true;
         if (LibrarianNPC.Instance != null && LibrarianNPC.Instance.IsDialogActive) return true;
-        if (ImmigrantNpc.Instance != null && ImmigrantNpc.Instance.IsDialogActive) return true;
         if (FishingShopNPC.Instance != null && FishingShopNPC.Instance.IsDialogActive) return true;
         if (GoblinCommandMenu.Instance != null && GoblinCommandMenu.Instance.IsOpen) return true;
 

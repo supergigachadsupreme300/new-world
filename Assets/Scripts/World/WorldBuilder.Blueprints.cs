@@ -195,264 +195,6 @@ public partial class WorldBuilder
         return bpState;
     }
 
-    public void PlaceNextImmigrantBlueprint()
-    {
-        if (_immigrantHousePositions == null || _immigrantBuilt == null)
-            return;
-        if (_nextImmigrantIndex >= _immigrantHousePositions.Count)
-            return;
-        if (_immigrantBuilt[_nextImmigrantIndex])
-            return;
-        IsImmigrantVillagePlaced = true;
-        CreateImmigrantHouseBlueprint("small_house", _immigrantHousePositions[_nextImmigrantIndex], _nextImmigrantIndex);
-    }
-
-    public Vector3 GetImmigrantBlueprintPosition()
-    {
-        if (_immigrantHousePositions == null || _nextImmigrantIndex >= _immigrantHousePositions.Count)
-            return Vector3.zero;
-        return _immigrantHousePositions[_nextImmigrantIndex];
-    }
-
-    public void PlaceAllRemainingImmigrantBlueprints()
-    {
-        if (_immigrantHousePositions == null || _immigrantBuilt == null)
-            return;
-        IsImmigrantVillagePlaced = true;
-        for (int i = 0; i < _immigrantHousePositions.Count; i++)
-        {
-            if (!_immigrantBuilt[i])
-                CreateImmigrantHouseBlueprint("small_house", _immigrantHousePositions[i]);
-        }
-    }
-
-    private void CreateImmigrantHouseBlueprint(string typeName, Vector3 position, int houseIndex = -1)
-    {
-        var blueprint = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        blueprint.name = "Blueprint";
-        blueprint.transform.position = position + Vector3.up * (5f * 0.5f);
-        blueprint.transform.rotation = Quaternion.identity;
-        blueprint.transform.localScale = new Vector3(8f, 5f, 8f);
-        var renderer = blueprint.GetComponent<MeshRenderer>();
-        var mat = PickupVisualHelper.CreateTransparentMaterialFromBase(CreateSafeLitMaterial(), new Color(0.5f, 0.8f, 0.95f, 0.45f));
-        renderer.material = mat;
-        var collider = blueprint.GetComponent<BoxCollider>();
-        collider.isTrigger = true;
-        blueprint.transform.SetParent(_worldRoot.transform);
-
-        var marker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        marker.name = "BlueprintMarker";
-        marker.transform.SetParent(blueprint.transform);
-        marker.transform.localPosition = new Vector3(0f, -2.5f, 0f);
-        marker.transform.localScale = new Vector3(9f, 0.05f, 9f);
-        var markerMat = CreateSafeLitMaterial();
-        if (markerMat != null)
-            markerMat.color = new Color(0.2f, 0.6f, 1f, 0.7f);
-        else
-            markerMat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse")) { color = new Color(0.2f, 0.6f, 1f, 0.7f) };
-        marker.GetComponent<MeshRenderer>().material = markerMat;
-        var markerCol = marker.GetComponent<Collider>();
-        if (markerCol != null) Object.Destroy(markerCol);
-
-        var bpState = new BlueprintState
-        {
-            Entity = blueprint,
-            Type = typeName,
-            Position = position,
-            Rotation = 0,
-            WoodDeposited = 0,
-            StoneDeposited = 0,
-            WoodCost = _immigrantHouseWoodCost,
-            StoneCost = _immigrantHouseStoneCost,
-            IsImmigrantHouse = true,
-            ImmigrantHouseIndex = houseIndex
-        };
-        CreateBlueprintLabel(blueprint, bpState, _immigrantHouseWoodCost, _immigrantHouseStoneCost, 5f);
-        blueprint.AddComponent<BlueprintAutoDeposit>();
-        _blueprints.Add(bpState);
-        HideImmigrantMarker(houseIndex);
-    }
-
-    private void SpawnImmigrantFamily(int houseIndex)
-    {
-        if (_immigrantHousePositions == null || houseIndex < 0 || houseIndex >= _immigrantHousePositions.Count)
-            return;
-        Vector3 basePos = _immigrantHousePositions[houseIndex] + new Vector3(3.2f, 0.93f, 2.5f);
-        int familySize = Random.Range(1, 5);
-        for (int i = 0; i < familySize; i++)
-        {
-            Vector3 offset = new Vector3(Random.Range(-1.5f, 1.5f), 0f, Random.Range(-1f, 1f));
-            float rotY = Random.Range(0f, 360f);
-            var variation = MapBuilder.ImmigrantVariation.Random();
-            var villager = MapBuilder.BuildImmigrantNpc(_worldRoot.transform, variation, basePos + offset, Quaternion.Euler(0f, rotY, 0f));
-            villager.name = "ImmigrantVillager";
-            RecordVillager(houseIndex, basePos + offset, rotY, variation);
-        }
-    }
-
-    private void RecordVillager(int houseIndex, Vector3 pos, float rotY, MapBuilder.ImmigrantVariation v)
-    {
-        if (_savedVillagers == null) _savedVillagers = new List<VillagerSaveData>();
-        _savedVillagers.Add(new VillagerSaveData
-        {
-            HouseIndex = houseIndex,
-            Position = pos,
-            RotationY = rotY,
-            SkinColor = v.SkinColor, ShirtColor = v.ShirtColor, PantsColor = v.PantsColor,
-            BootColor = v.BootColor, HatColor = v.HatColor, BundleColor = v.BundleColor,
-            HairColor = v.HairColor, EyeSpacing = v.EyeSpacing, HeadScale = v.HeadScale,
-            ArmLength = v.ArmLength, BodyWidth = v.BodyWidth, HeightOffset = v.HeightOffset,
-            LegWidth = v.LegWidth, HatTilt = v.HatTilt, HasBeard = v.HasBeard, RolledSleeves = v.RolledSleeves
-        });
-    }
-
-    public void RestoreSavedVillagers(List<VillagerSaveData> data)
-    {
-        if (data == null) return;
-        _savedVillagers = new List<VillagerSaveData>(data);
-        foreach (var vd in data)
-        {
-            var v = new MapBuilder.ImmigrantVariation
-            {
-                SkinColor = vd.SkinColor, ShirtColor = vd.ShirtColor, PantsColor = vd.PantsColor,
-                BootColor = vd.BootColor, HatColor = vd.HatColor, BundleColor = vd.BundleColor,
-                HairColor = vd.HairColor, EyeSpacing = vd.EyeSpacing, HeadScale = vd.HeadScale,
-                ArmLength = vd.ArmLength, BodyWidth = vd.BodyWidth, HeightOffset = vd.HeightOffset,
-                LegWidth = vd.LegWidth, HatTilt = vd.HatTilt, HasBeard = vd.HasBeard, RolledSleeves = vd.RolledSleeves
-            };
-            var villager = MapBuilder.BuildImmigrantNpc(_worldRoot.transform, v, vd.Position, Quaternion.Euler(0f, vd.RotationY, 0f));
-            villager.name = "ImmigrantVillager";
-        }
-    }
-
-    public List<VillagerSaveData> GetVillagerSaves() { return _savedVillagers; }
-
-    [System.Serializable]
-    public class VillagerSaveData
-    {
-        public int HouseIndex;
-        public Vector3 Position;
-        public float RotationY;
-        public Color SkinColor, ShirtColor, PantsColor, BootColor, HatColor, BundleColor, HairColor;
-        public float EyeSpacing, HeadScale, ArmLength, BodyWidth, HeightOffset, LegWidth, HatTilt;
-        public bool HasBeard, RolledSleeves;
-    }
-
-    public bool[] GetImmigrantBuiltArray() { return _immigrantBuilt; }
-    public int GetImmigrantNextIndex() { return _nextImmigrantIndex; }
-    public bool IsImmigrantVillagePlacedState() { return IsImmigrantVillagePlaced; }
-
-    public void LoadImmigrantVillageFromSave(bool[] built, int nextIndex, bool placed)
-    {
-        if (built == null && nextIndex == 0 && !placed)
-            return;
-        if (_immigrantHousePositions == null)
-            GenerateImmigrantPositions();
-        if (built != null && built.Length == _immigrantHousePositions.Count)
-        {
-            _immigrantBuilt = built;
-            _nextImmigrantIndex = nextIndex;
-            ImmigrantHousesBuilt = 0;
-            for (int i = 0; i < built.Length; i++)
-            {
-                if (built[i])
-                {
-                    ImmigrantHousesBuilt++;
-                    HideImmigrantMarker(i);
-                }
-            }
-        }
-        IsImmigrantVillagePlaced = placed;
-    }
-
-    public bool GetImmigrantArrived() { return ImmigrantHousesBuilt > 0 || ImmigrantNpc.Instance != null; }
-
-    public void RestoreImmigrantArrival()
-    {
-        if (_immigrantHousePositions == null)
-            GenerateImmigrantPositions();
-        if (_nextImmigrantIndex >= _immigrantHousePositions.Count)
-            return;
-        if (ImmigrantNpc.Instance != null)
-            return;
-        var npc = MapBuilder.BuildImmigrantNpc(_worldRoot.transform, new Vector3(22f, 0.93f, -22f), Quaternion.Euler(0f, -90f, 0f));
-        npc.AddComponent<ImmigrantNpc>();
-    }
-
-    public void StartImmigrantArrival()
-    {
-        if (_immigrantHousePositions == null)
-            GenerateImmigrantPositions();
-        if (_nextImmigrantIndex >= _immigrantHousePositions.Count)
-            return;
-        if (ImmigrantNpc.Instance != null)
-        {
-            if (ImmigrantNpc.Instance.IsDialogActive)
-                return;
-            var old = ImmigrantNpc.Instance;
-            ImmigrantNpc.ClearInstance();
-            Object.Destroy(old.gameObject);
-        }
-        StartCoroutine(RunImmigrantArrival());
-    }
-
-    private System.Collections.IEnumerator RunImmigrantArrival()
-    {
-        const float roadX = 14f;
-        const float startZ = -95f;
-        const float stopZ = -22f;
-        const float departZ = 40f;
-        const float carSpeed = 9f;
-        const float walkSpeed = 8f;
-
-        var car = MapBuilder.BuildCar(_worldRoot.transform, new Vector3(roadX, 0f, startZ));
-        var wheels = new List<Transform>();
-        foreach (var child in car.GetComponentsInChildren<Transform>())
-        {
-            if (child.name.StartsWith("Wheel"))
-                wheels.Add(child);
-        }
-
-        while (Vector3.Distance(car.transform.position, new Vector3(roadX, 0f, stopZ)) > 0.2f)
-        {
-            car.transform.position = Vector3.MoveTowards(car.transform.position, new Vector3(roadX, 0f, stopZ), carSpeed * Time.deltaTime);
-            foreach (var w in wheels)
-                if (w != null)
-                    w.Rotate(360f * Time.deltaTime, 0f, 0f);
-            yield return null;
-        }
-        car.transform.position = new Vector3(roadX, 0f, stopZ);
-
-        var npc = MapBuilder.BuildImmigrantNpc(_worldRoot.transform, new Vector3(roadX + 0.9f, 0.93f, stopZ), Quaternion.Euler(0f, -90f, 0f));
-        npc.AddComponent<ImmigrantNpc>();
-
-        Vector3 target = new Vector3(22f, 0.93f, -22f);
-        while (Vector3.Distance(npc.transform.position, target) > 0.2f)
-        {
-            npc.transform.position = Vector3.MoveTowards(npc.transform.position, target, walkSpeed * Time.deltaTime);
-            Vector3 dir = target - npc.transform.position;
-            dir.y = 0f;
-            if (dir.sqrMagnitude > 0.001f)
-                npc.transform.rotation = Quaternion.LookRotation(dir.normalized);
-            yield return null;
-        }
-        npc.transform.position = target;
-        npc.transform.rotation = Quaternion.Euler(0f, -90f, 0f);
-
-        while (Vector3.Distance(car.transform.position, new Vector3(roadX, 0f, departZ)) > 0.2f)
-        {
-            car.transform.position = Vector3.MoveTowards(car.transform.position, new Vector3(roadX, 0f, departZ), carSpeed * Time.deltaTime);
-            foreach (var w in wheels)
-                if (w != null)
-                    w.Rotate(360f * Time.deltaTime, 0f, 0f);
-            yield return null;
-        }
-        Object.Destroy(car);
-
-        if (GameManager.Instance?.UIManager != null)
-            GameManager.Instance.UIManager.ShowMessage(Localization.T("Người di cư đã đến làng! Hãy đến chào họ."), 3f);
-    }
-
     public bool IsMansionPart(BlueprintState bp)
     {
         return bp != null && bp.IsMansion;
@@ -613,7 +355,7 @@ public bool HasMansionStructure()
 
         float woodCost, stoneCost;
         BuildingDefinition def = null;
-        if (bp.IsEssential || bp.IsMansion || bp.IsImmigrantHouse)
+        if (bp.IsEssential || bp.IsMansion)
         {
             woodCost = bp.WoodCost;
             stoneCost = bp.StoneCost;
@@ -859,13 +601,9 @@ if (typeName == "goblin_hut")
         {
             RebuildEssentialBuilding(bp);
         }
-        else if (!string.IsNullOrEmpty(bp.StructureId))
+else if (!string.IsNullOrEmpty(bp.StructureId))
         {
             SpawnStructurePart(bp);
-        }
-        else if (bp.IsImmigrantHouse)
-        {
-            SpawnBuildingDirect("small_house", bp.Position, bp.Rotation);
         }
         else
         {
@@ -880,21 +618,7 @@ if (typeName == "goblin_hut")
         {
             QuestManager.Instance?.AddProgress(_mansionQuestTarget, 1);
         }
-        if (bp.IsImmigrantHouse)
-        {
-            int idx = bp.ImmigrantHouseIndex >= 0 ? bp.ImmigrantHouseIndex
-                : (_immigrantHousePositions != null ? _immigrantHousePositions.IndexOf(bp.Position) : -1);
-            if (idx >= 0 && idx < _immigrantHousePositions.Count && _immigrantBuilt != null && !_immigrantBuilt[idx])
-            {
-                _immigrantBuilt[idx] = true;
-                ImmigrantHousesBuilt++;
-                if (idx == _nextImmigrantIndex)
-                    _nextImmigrantIndex++;
-                QuestManager.Instance?.AddProgress(_immigrantQuestTarget, 1);
-                SpawnImmigrantFamily(idx);
-            }
-        }
-DestroyBlueprintLabel(bp);
+        DestroyBlueprintLabel(bp);
         if (bp.Entity != null)
             Destroy(bp.Entity);
         _blueprints.Remove(bp);

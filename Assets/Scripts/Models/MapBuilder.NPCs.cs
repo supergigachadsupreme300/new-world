@@ -234,12 +234,12 @@ public static partial class MapBuilder
         return root;
     }
 
-    // ==================== MapBuilderImmigrantNpc.cs ====================
+    // ==================== MapBuilderMarketVendor.cs ====================
     // ═══════════════════════════════════════════════════════════════
-    //  IMMIGRANT NPC  (newcomer villager with a carrying bundle)
+    //  MARKET VENDOR  (blocky villager with a carrying bundle)
     // ═══════════════════════════════════════════════════════════════
 
-    public struct ImmigrantVariation
+    public struct MarketVendorAppearance
     {
         public Color SkinColor;
         public Color ShirtColor;
@@ -258,9 +258,9 @@ public static partial class MapBuilder
         public bool HasBeard;
         public bool RolledSleeves;
 
-        public static ImmigrantVariation Random()
+        public static MarketVendorAppearance Random()
         {
-            var v = new ImmigrantVariation();
+            var v = new MarketVendorAppearance();
             Color[] skins = {
                 new Color(0.92f, 0.82f, 0.72f),
                 new Color(0.84f, 0.71f, 0.59f),
@@ -340,14 +340,14 @@ public static partial class MapBuilder
         }
     }
 
-    public static GameObject BuildImmigrantNpc(Transform parent, Vector3 position = default, Quaternion rotation = default)
+    public static GameObject BuildMarketVendor(Transform parent, Vector3 position = default, Quaternion rotation = default)
     {
-        return BuildImmigrantNpc(parent, ImmigrantVariation.Random(), position, rotation);
+        return BuildMarketVendor(parent, MarketVendorAppearance.Random(), position, rotation);
     }
 
-    public static GameObject BuildImmigrantNpc(Transform parent, ImmigrantVariation v, Vector3 position = default, Quaternion rotation = default)
+    public static GameObject BuildMarketVendor(Transform parent, MarketVendorAppearance v, Vector3 position = default, Quaternion rotation = default)
     {
-        var root = new GameObject("ImmigrantNpc");
+        var root = new GameObject("MarketVendor");
         root.transform.SetParent(parent);
         root.transform.position = position + Vector3.up * v.HeightOffset;
         root.transform.rotation = (rotation == default) ? Quaternion.identity : rotation;

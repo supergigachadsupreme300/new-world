@@ -71,7 +71,6 @@ public partial class WorldBuilder
         BlueprintAutoDeposit.ClearConsumedRoots();
 
 _unlockedBlueprints.Clear();
-        if (_savedVillagers != null) _savedVillagers.Clear();
     }
 
     public IEnumerable<FieldState> GetAllFields() => _fields;

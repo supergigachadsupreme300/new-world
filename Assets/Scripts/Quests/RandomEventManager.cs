@@ -60,15 +60,6 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         // BASIC (0-1 quests completed)
         _events.Add(new RandomEvent
         {
-            Name = "Mùa Màng Bội Thu",
-            Description = "Tất cả mùa màng của bạn đều tăng một giai đoạn!",
-            Tier = 0,
-            Weight = 3f,
-            Cooldown = 1800f,
-            Effect = EffectBountifulHarvest
-        });
-        _events.Add(new RandomEvent
-        {
             Name = "Tìm Thấy May Mắn",
             Description = "Một đồng vàng xuất hiện trên mặt đất!",
             Tier = 0,
@@ -96,33 +87,6 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Hạt Giống Miễn Phí",
-            Description = "Hạt giống rơi từ trên trời!",
-            Tier = 0,
-            Weight = 3f,
-            Cooldown = 900f,
-            Effect = EffectFreeSeeds
-        });
-        _events.Add(new RandomEvent
-        {
-            Name = "Sâu Bệnh Tấn Công",
-            Description = "Sâu đang ăn mùa màng của bạn!",
-            Tier = 0,
-            Weight = 3f,
-            Cooldown = 1200f,
-            Effect = EffectPestInvasion
-        });
-        _events.Add(new RandomEvent
-        {
-            Name = "Hạn Hán",
-            Description = "Mặt trời làm khô hết ruộng của bạn!",
-            Tier = 0,
-            Weight = 3f,
-            Cooldown = 1200f,
-            Effect = EffectDrought
-        });
-        _events.Add(new RandomEvent
-        {
             Name = "Âm Thanh Kỳ Lạ",
             Description = "Bạn nghe thấy âm thanh kỳ lạ ở gần...",
             Tier = 0,
@@ -133,30 +97,12 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Bệnh Mùa Màng",
-            Description = "Bệnh đang lây lan khắp mùa màng!",
-            Tier = 0,
-            Weight = 3f,
-            Cooldown = 1200f,
-            Effect = EffectCropDisease
-        });
-        _events.Add(new RandomEvent
-        {
             Name = "Đom Đóm",
             Description = "Đom đóm nhảy múa xung quanh bạn!",
             Tier = 0,
             Weight = 3f,
             Cooldown = 600f,
             Effect = EffectFireflies
-        });
-        _events.Add(new RandomEvent
-        {
-            Name = "Cỏ Dại Mọc Lên",
-            Description = "Cỏ dại mọc um tùm trên mùa màng!",
-            Tier = 0,
-            Weight = 3f,
-            Cooldown = 900f,
-            Effect = EffectWeedGrowth
         });
         _events.Add(new RandomEvent
         {
@@ -208,24 +154,6 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         });
         _events.Add(new RandomEvent
         {
-            Name = "Thị Trường Sụp Đổ",
-            Description = "Thị trường sụp đổ! Giá bán giảm một nửa!",
-            Tier = 1,
-            Weight = 2f,
-            Cooldown = 1800f,
-            Effect = EffectMarketCrash
-        });
-        _events.Add(new RandomEvent
-        {
-            Name = "Giá Tăng Cao",
-            Description = "Giá tăng vọt! Giá bán gấp đôi!",
-            Tier = 1,
-            Weight = 2f,
-            Cooldown = 1800f,
-            Effect = EffectPriceSpike
-        });
-        _events.Add(new RandomEvent
-        {
             Name = "Cầu Vồng",
             Description = "Một cầu vồng xuất hiện trên bầu trời!",
             Tier = 1,
@@ -241,15 +169,6 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
             Weight = 3f,
             Cooldown = 600f,
             Effect = EffectDancingAnimals
-        });
-        _events.Add(new RandomEvent
-        {
-            Name = "Tuyến Thương Mại",
-            Description = "Tuyến thương mại mới mở! Giá mua giảm!",
-            Tier = 1,
-            Weight = 2f,
-            Cooldown = 1800f,
-            Effect = EffectTradeRoute
         });
         // RARE (3+ quests completed)
         _events.Add(new RandomEvent
@@ -280,15 +199,6 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
             Weight = 1f,
             Cooldown = 2400f,
             Effect = EffectMeteorShower
-        });
-        _events.Add(new RandomEvent
-        {
-            Name = "Lễ Hội Thu Hoạch",
-            Description = "Làng ăn mừng! Tiến độ nhiệm vụ tăng!",
-            Tier = 2,
-            Weight = 1f,
-            Cooldown = 3000f,
-            Effect = EffectHarvestFestival
         });
         _events.Add(new RandomEvent
         {
@@ -343,15 +253,6 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
             Weight = 1f,
             Cooldown = 3000f,
             Effect = EffectTornado
-        });
-        _events.Add(new RandomEvent
-        {
-            Name = "Gọi Người Di Cư",
-            Description = "Một gia đình người di cư đang đến làng!",
-            Tier = 0,
-            Weight = 2f,
-            Cooldown = 1200f,
-            Effect = EffectCallImmigrant
         });
     }
 
@@ -510,21 +411,6 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
     //  EVENT EFFECTS — BASIC
     // ═══════════════════════════════════════════════
 
-    private void EffectBountifulHarvest()
-    {
-        var wb = WorldBuilder.Instance;
-        if (wb == null) return;
-        foreach (var field in wb.GetAllFields())
-        {
-            if (field.HasCrop && !field.IsHarvested && field.Stage < 4)
-            {
-                field.Stage++;
-                field.GrowTimer = 0f;
-                wb.RefreshFieldVisual(field);
-            }
-        }
-    }
-
     private void EffectLuckyFind()
     {
         Vector3 playerPos = GetPlayerPos();
@@ -576,74 +462,8 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
             player.HP = player.MaxHP;
     }
 
-    private void EffectFreeSeeds()
-    {
-        string[] seeds = { "wheat_seed", "corn_seed", "carrot_seed", "tomato_seed", "strawberry_seed", "pumpkin_seed", "onion_seed" };
-        var tm = ToolManager.Instance;
-        if (tm == null) return;
-        for (int i = 0; i < 4; i++)
-        {
-            string seed = seeds[UnityEngine.Random.Range(0, seeds.Length)];
-            tm.AddItem(seed, 1);
-        }
-    }
-
-    private void EffectPestInvasion()
-    {
-        var wb = WorldBuilder.Instance;
-        if (wb == null) return;
-        var crops = new List<WorldBuilder.FieldState>();
-        foreach (var field in wb.GetAllFields())
-            if (field.HasCrop && !field.IsHarvested)
-                crops.Add(field);
-
-        int count = Mathf.Min(UnityEngine.Random.Range(1, 4), crops.Count);
-        for (int i = 0; i < count; i++)
-        {
-            var field = crops[UnityEngine.Random.Range(0, crops.Count)];
-            field.HasCrop = false;
-            field.CropType = null;
-            field.Stage = 0;
-            field.GrowTimer = 0f;
-            wb.RefreshFieldVisual(field);
-            crops.Remove(field);
-            if (crops.Count == 0) break;
-        }
-    }
-
-    private void EffectDrought()
-    {
-        var wb = WorldBuilder.Instance;
-        if (wb == null) return;
-        foreach (var field in wb.GetAllFields())
-            field.Watered = false;
-    }
-
     private void EffectStrangeNoises()
     {
-    }
-
-    private void EffectCropDisease()
-    {
-        var wb = WorldBuilder.Instance;
-        if (wb == null) return;
-        var crops = new List<WorldBuilder.FieldState>();
-        foreach (var field in wb.GetAllFields())
-            if (field.HasCrop && !field.IsHarvested)
-                crops.Add(field);
-
-        int count = Mathf.Min(UnityEngine.Random.Range(2, 5), crops.Count);
-        for (int i = 0; i < count; i++)
-        {
-            var field = crops[UnityEngine.Random.Range(0, crops.Count)];
-            field.HasCrop = false;
-            field.CropType = null;
-            field.Stage = 0;
-            field.GrowTimer = 0f;
-            wb.RefreshFieldVisual(field);
-            crops.Remove(field);
-            if (crops.Count == 0) break;
-        }
     }
 
     private void EffectFireflies()
@@ -669,21 +489,6 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
 
             go.AddComponent<FireflyBehavior>();
         }
-    }
-
-    private void EffectWeedGrowth()
-    {
-        var wb = WorldBuilder.Instance;
-        if (wb == null) return;
-        var crops = new List<WorldBuilder.FieldState>();
-        foreach (var field in wb.GetAllFields())
-            if (field.HasCrop && !field.IsHarvested && field.Stage > 0)
-                crops.Add(field);
-
-        if (crops.Count == 0) return;
-        var field2 = crops[UnityEngine.Random.Range(0, crops.Count)];
-        field2.Stage = Mathf.Max(0, field2.Stage - 1);
-        wb.RefreshFieldVisual(field2);
     }
 
     private void EffectStaminaDrain()
@@ -1256,45 +1061,6 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
             GameStats.AddMoneyStolen(stolen);
     }
 
-    private void EffectCallImmigrant()
-    {
-        var wb = WorldBuilder.Instance;
-        if (wb == null || wb.AllImmigrantHousesBuilt)
-            return;
-        wb.StartImmigrantArrival();
-    }
-
-    private void EffectMarketCrash()
-    {
-        ShowBanner("Thị Trường Sụp Đổ", "Giá bán giảm một nửa trong 2 giờ!");
-        StartCoroutine(ModifySellPrices(0.5f, 2f));
-    }
-
-    private void EffectPriceSpike()
-    {
-        ShowBanner("Giá Tăng Cao", "Giá bán gấp đôi trong 2 giờ!");
-        StartCoroutine(ModifySellPrices(2f, 2f));
-    }
-
-    private IEnumerator ModifySellPrices(float multiplier, float gameHours)
-    {
-        var vendor = FindObjectOfType<VendorShopManager>();
-        if (vendor == null) yield break;
-
-        vendor.ApplyPriceMultiplier(multiplier);
-
-        float elapsed = 0f;
-        float realDuration = gameHours / Mathf.Max(GameManager.Instance != null ? GameManager.Instance.TimeSpeed : 1f, 0.01f);
-        while (elapsed < realDuration)
-        {
-            if (GameManager.Instance != null && !GameManager.Instance.GamePaused)
-                elapsed += Time.deltaTime;
-            yield return null;
-        }
-
-        vendor.ResetSellPrices();
-    }
-
     private void EffectRainbow()
     {
         StartCoroutine(RainbowEffect());
@@ -1418,31 +1184,6 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
         }
     }
 
-    private void EffectTradeRoute()
-    {
-        ShowBanner("Tuyến Thương Mại", "Giá mua giảm trong 1 ngày!");
-        StartCoroutine(ModifyBuyPrices(0.7f, 24f));
-    }
-
-    private IEnumerator ModifyBuyPrices(float multiplier, float gameHours)
-    {
-        var vendor = FindObjectOfType<VendorShopManager>();
-        if (vendor == null) yield break;
-
-        vendor.ApplyBuyPriceMultiplier(multiplier);
-
-        float elapsed = 0f;
-        float realDuration = gameHours / Mathf.Max(GameManager.Instance != null ? GameManager.Instance.TimeSpeed : 1f, 0.01f);
-        while (elapsed < realDuration)
-        {
-            if (GameManager.Instance != null && !GameManager.Instance.GamePaused)
-                elapsed += Time.deltaTime;
-            yield return null;
-        }
-
-        vendor.ResetBuyPrices();
-    }
-
     // ═══════════════════════════════════════════════
     //  EVENT EFFECTS — RARE
     // ═══════════════════════════════════════════════
@@ -1489,11 +1230,6 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
             SpawnFallingRock(spawnPos, target, root);
             yield return new WaitForSeconds(0.8f);
         }
-    }
-
-    private void EffectHarvestFestival()
-    {
-        QuestManager.Instance?.AddProgress("money_earned", 500);
     }
 
     private void EffectFireworks()

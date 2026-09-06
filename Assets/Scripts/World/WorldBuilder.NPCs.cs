@@ -263,20 +263,7 @@ bool nearHouse = Mathf.Abs(x) <= 9 && Mathf.Abs(z) <= 9;
         bool nearSouthBranch = x >= -123 && x <= 17 && z >= -54 && z <= -46;
         bool nearNorthBranch = x >= 11 && x <= 153 && z >= 173 && z <= 187;
         bool nearBossArena = Mathf.Abs(x - _bossArenaCenter.x) <= 12 && Mathf.Abs(z - _bossArenaCenter.z) <= 12;
-        bool nearImmigrantPlot = IsNearImmigrantPlot(x, z);
-        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearFishingShop || nearMansion || nearPagoda || nearCafe || nearLibrary || nearClub || nearClubCorridor || nearSouthBranch || nearNorthBranch || nearBossArena || nearImmigrantPlot;
-    }
-
-    private bool IsNearImmigrantPlot(int x, int z)
-    {
-        if (_immigrantHousePositions == null) return false;
-        for (int i = 0; i < _immigrantHousePositions.Count; i++)
-        {
-            var p = _immigrantHousePositions[i];
-            if (Mathf.Abs(x - p.x) <= 7f && Mathf.Abs(z - p.z) <= 7f)
-                return true;
-        }
-return false;
+        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearFishingShop || nearMansion || nearPagoda || nearCafe || nearLibrary || nearClub || nearClubCorridor || nearSouthBranch || nearNorthBranch || nearBossArena;
     }
 
     private void BuildPolicePost()
@@ -681,7 +668,7 @@ public bool TryToggleDoor(RaycastHit hit)
         roof.GetComponent<Renderer>().material.color = cartColor;
         Object.Destroy(roof.GetComponent<Collider>());
 
-        var vendorRoot = MapBuilder.BuildImmigrantNpc(cart.Root.transform, new Vector3(-halfW - 0.6f, floorY, 0f));
+        var vendorRoot = MapBuilder.BuildMarketVendor(cart.Root.transform, new Vector3(-halfW - 0.6f, floorY, 0f));
 
         // Shop sign on roof
         var signPole = GameObject.CreatePrimitive(PrimitiveType.Cube);

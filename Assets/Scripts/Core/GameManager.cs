@@ -139,8 +139,6 @@ public class GameManager : MonoSingleton<GameManager>
             CurrentDay++;
             if (WifeNPC.Instance != null)
                 WifeNPC.Instance.OnDayChanged();
-            if (ImmigrantNpc.Instance != null)
-                ImmigrantNpc.Instance.OnDayChanged();
         }
 
         UpdateTimeUI();
@@ -496,8 +494,6 @@ public class GameManager : MonoSingleton<GameManager>
         UpdateTimeUI();
         if (dayRolled && WifeNPC.Instance != null)
             WifeNPC.Instance.OnDayChanged();
-        if (dayRolled && ImmigrantNpc.Instance != null)
-            ImmigrantNpc.Instance.OnDayChanged();
     }
 
     public void UpdateTimeUI()

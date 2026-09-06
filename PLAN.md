@@ -1,6 +1,6 @@
 # Plan: UI polish + player model visuals + per-weapon attack animation
 
-> STATUS: Sections 1-12 shipped and pushed (commits 2b4bd6a, d8f5f46, 61827f0, 7fd5218, f097440).
+> STATUS: Sections 1-12 shipped and pushed (commits 2b4bd6a, d8f5f46, 61827f0, 7fd5218, f097440). Batch 7 (one giant skill tree) pushed as dc8971f. Batch 8 (scroll-banner notifications + unrelated random-event removal + immigrant subsystem strip) implemented, pending play-test + push.
 > Batch 5 (15-15.5) pushed as `3294a2e` + `4787f8e`; batch 6 (§16 — upper/lower limb split on all
 > player models + matching elbow/knee animation, sealed/driving/sit models rebuilt) shipped and
 > pushed as `71bb7ed`. Batch 7 (§17 — one combined 60-skill radial wheel, no tabs, legend, wheel
@@ -440,3 +440,77 @@ each weapon*. Batch 5 attacks each with a guarantee instead of another guess.
   - [ ] Learning a node still works (prereq gating, points, hotkey assign); "Learned X/60" counts up.
   - [ ] Legend chips and sector labels show each category's current level; detail pane unchanged.
   - [ ] Semantic checker 0 diagnostics; commit only the touched .cs + PLAN.md; push to `main`.
+
+## 18. Batch 8 — scroll-banner notifications + event cleanup + immigrant strip
+
+- User request: redesign the message popup so two `scroll.png` (caps) + `scroll_inside.png` (middle
+  panel) slide down from above together, then spread apart while the middle widens; text types inside.
+  Also: remove random events that no longer match the game (immigrant, pricing/trade, farm economy)
+  and **strip the whole immigrant subsystem** (not just the event).
+- **Files**: `Assets/Scripts/UI/UIManager.cs`, `Assets/Scripts/Quests/RandomEventManager.cs`,
+  `Assets/Scripts/NPCs/ImmigrantNpc.cs` (deleted + .meta), `SaveManager.cs`, `GameManager.cs`,
+  `Localization.cs`, `MapBuilder.NPCs.cs`, `WorldBuilder.cs`, `WorldBuilder.Blueprints.cs`,
+  `WorldBuilder.NPCs.cs`, `WorldBuilder.Persistence.cs`, `PlayerController.cs`,
+  `InteractionPrompt.cs`, + new `Assets/Resources/scroll.png` & `scroll_inside.png`.
+
+### 18.1 Scroll-banner notifications (UIManager)
+- `_messageBg` black box removed; `CreateMessageCanvas` now builds a `_messageBanner`
+  (top-center RectTransform + CanvasGroup) with `_messageInside` (Image using `scroll_inside`, or
+  translucent-black fallback), child `MessageText` (kept the typewriter), and optional `ScrollL/ScrollR`
+  caps (Image, preserveAspect, sized `_bannerHeight*0.9`) built by `MakeScrollCap`/`LoadUiSprite`.
+- `ShowMessage(string, float)` API unchanged (60+ callers). It resets the banner to hidden,
+  stops any running coroutine (interrupt-safe), then starts `ScrollMessageSequence`:
+  1. Slide down from above (from `-screenHeight*0.08 + overshoot` to rest, 0.3s SmoothStep);
+  2. Spread: caps move to `∓(half + cap*0.6)` while `_messageInside` width animates 0→`_bannerWidth`
+     (ease-out cubic ~0.35s), height stays `_bannerHeight`;
+  3. Typewriter into the panel (0.02s/char);
+  4. Hold `duration`, then fade the whole CanvasGroup to alpha 0 (~0.35s) and disable the banner.
+- Sprites copied from `Assets/UI component/` → `Assets/Resources/` (64×64 each; no .meta yet —
+  Unity creates them on next open). Loaded via `Resources.Load<Texture2D>` like `book.png`.
+
+### 18.2 Random-event cleanup (RandomEventManager)
+- Removed **11 events** (32 → 21): Gọi Người Di Cư (EffectCallImmigrant), Thị Trường Sụp Đổ +
+  Giá Tăng Cao (EffectMarketCrash/EffectPriceSpike + helper ModifySellPrices), Tuyến Thương Mại
+  (EffectTradeRoute + ModifyBuyPrices), Mùa Màng Bội Thu, Hạt Giống Miễn Phí, Sâu Bệnh Tấn Công,
+  Hạn Hán, Bệnh Mùa Màng, Cỏ Dại Mọc Lên, Lễ Hội Thu Hoạch (effects + event blocks deleted).
+- The debug "SỰ KIỆN TEST" panel (`UIManager.EventTest.cs`) iterates events by count/index, so it
+  auto-adapts to 21 events — no edit needed.
+- Orphan event-title localization keys were left in place (harmless; some collide with daily quest
+  titles like "Mùa Màng Bội Thu").
+
+### 18.3 Immigrant subsystem stripped everywhere
+- `ImmigrantNpc.cs` + `.meta` deleted; quest chain `immigrant_house` and the car-arrival coroutine
+  removed (quest didn't unlock ending/karma/friendship — self-contained).
+- `SaveManager.cs`: saved `immigrantBuiltMask/immigrantNextIndex/immigrantVillagePlaced/
+  immigrantArrived/immigrantVillagers` fields removed from save data, save + load calls dropped.
+  `JsonUtility` ignores unknown keys → old saves still load.
+- `MapBuilder.NPCs.cs`: model kept but renamed — `ImmigrantVariation` → `MarketVendorAppearance`,
+  `BuildImmigrantNpc` → `BuildMarketVendor` (blocky villager with a carrying bundle, now the market
+  stall vendor). `WorldBuilder.NPCs.cs` vendor-cart build uses `BuildMarketVendor`.
+- `WorldBuilder.cs`/: removed `_immigrantHousePositions/_immigrantBuilt/_nextImmigrantIndex/
+  _immigrantPlotMarkers/_savedVillagers`, `GenerateImmigrantPositions` + its `CreateWorld` call,
+  `HideImmigrantMarker`, BlueprintState `IsImmigrantHouse/ImmigrantHouseIndex`, and the
+  `IsImmigrantVillagePlaced/ImmigrantHousesBuilt/MaxImmigrantHouses/AllImmigrantHousesBuilt` props.
+- `WorldBuilder.Blueprints.cs`: removed `PlaceNextImmigrantBlueprint`, `GetImmigrantBlueprintPosition`,
+  `PlaceAllRemainingImmigrantBlueprints`, `CreateImmigrantHouseBlueprint`, `SpawnImmigrantFamily`,
+  `RecordVillager`, `RestoreSavedVillagers`, `GetVillagerSaves`, `VillagerSaveData`,
+  `GetImmigrantBuiltArray/GetImmigrantNextIndex/IsImmigrantVillagePlacedState`,
+  `LoadImmigrantVillageFromSave`, `GetImmigrantArrived`, `RestoreImmigrantArrival`,
+  `StartImmigrantArrival`, `RunImmigrantArrival`, plus the `IsImmigrantHouse` branches in
+  DepositMaterial/CompleteBlueprint.
+- `GameManager.cs`: `ImmigrantNpc.Instance.OnDayChanged()` calls dropped from both day-roll sites.
+- `PlayerController.cs` / `InteractionPrompt.cs`: dialog-block checks, E-advance, raycast interact and
+  the prompt list entry for `ImmigrantNpc` removed.
+- `Localization.cs`: the full immigrant quest/dialog block (incl. the 1/50…50/50 progress strings)
+  removed.
+- `WorldBuilder.Persistence.cs`: `_savedVillagers.Clear()` dropped from ResetWorld.
+
+### 18.4 Verify (needs user — Unity can't be run here)
+- [ ] In-game message (save feedback, catch, daily quest, boss, etc.) now appears as the scroll
+      banner: two scrolls drop from above, spread apart, middle widens, text types, holds, fades.
+- [ ] Rapid/overlapping messages interrupt cleanly (previous banner resets and the new one plays).
+- [ ] "SỰ KIỆN TEST" panel shows 21 events and each still fires (no farm/pricing/immigrant events).
+- [ ] Market vendors (cart stalls) still have their villager model — now `BuildMarketVendor`.
+- [ ] Old save (pre-strip) still loads with no errors.
+- [ ] No references to ImmigrantNpc / immigrant / villager save data remain (grep clean).
+- [ ] Semantic checker 0 diagnostics; commit only the touched .cs (+ the two .png) + PLAN.md; push to `main`.

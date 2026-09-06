@@ -388,44 +388,8 @@ new BuildingPartDefinition { PartName = "Wall_FrontL",  LocalPosition = new Vect
 
     private const int _mansionTotalParts = 1;
     private const string _mansionQuestTarget = "mansion";
-    private const string _immigrantQuestTarget = "immigrant_house";
-    private const int _immigrantHouseWoodCost = 10;
-    private const int _immigrantHouseStoneCost = 6;
     public static readonly Vector3 MansionBasePos = new Vector3(-8f, 0f, -30f);
 
-    private List<Vector3> _immigrantHousePositions;
-    private bool[] _immigrantBuilt;
-    private int _nextImmigrantIndex;
-    private List<GameObject> _immigrantPlotMarkers;
-    private List<VillagerSaveData> _savedVillagers;
-    public bool IsImmigrantVillagePlaced { get; private set; }
-    public int ImmigrantHousesBuilt { get; private set; }
-    public int MaxImmigrantHouses => _immigrantHousePositions != null ? _immigrantHousePositions.Count : 0;
-    public bool AllImmigrantHousesBuilt => _immigrantHousePositions != null && _nextImmigrantIndex >= _immigrantHousePositions.Count;
-
-    private void GenerateImmigrantPositions()
-    {
-        _immigrantHousePositions = new List<Vector3>();
-        for (float x = -100f; x <= 0f; x += 15f)
-            _immigrantHousePositions.Add(new Vector3(x, 0f, -70f));
-        for (float x = 25f; x <= 140f; x += 15f)
-            _immigrantHousePositions.Add(new Vector3(x, 0f, 200f));
-        for (float x = -100f; x <= -25f; x += 15f)
-            _immigrantHousePositions.Add(new Vector3(x, 0f, -30f));
-        foreach (float x in new float[] { 45f, 60f, 75f, 90f, 105f, 120f, 135f, 150f, 180f, 210f, 240f })
-            _immigrantHousePositions.Add(new Vector3(x, 0f, 70f));
-foreach (float x in new float[] { 255f, 270f, 285f, 90f, 105f, 120f, 135f, 150f, 180f, 210f, 240f })
-            _immigrantHousePositions.Add(new Vector3(x, 0f, 110f));
-        foreach (float x in new float[] { 25f, 40f, 80f, 100f, 115f, 130f })
-            _immigrantHousePositions.Add(new Vector3(x, 0f, 160f));
-_immigrantBuilt = new bool[_immigrantHousePositions.Count];
-    }
-    public void HideImmigrantMarker(int index)
-    {
-        if (_immigrantPlotMarkers == null || index < 0 || index >= _immigrantPlotMarkers.Count) return;
-        var m = _immigrantPlotMarkers[index];
-        if (m != null) m.SetActive(false);
-    }
     private int _currentBuildingIndex;
     private int _currentRotation;
     private readonly HashSet<Vector3Int> _floorPositions = new HashSet<Vector3Int>();
@@ -465,8 +429,6 @@ _immigrantBuilt = new bool[_immigrantHousePositions.Count];
         _worldRoot.transform.position = Vector3.zero;
         _worldRoot.transform.rotation = Quaternion.identity;
         _worldRoot.isStatic = true;
-
-GenerateImmigrantPositions();
 
         if (!CreateTerrainGrid())
             CreateGround();
@@ -1816,8 +1778,6 @@ var rendLeaf = leaf.GetComponent<Renderer>();
         public string StructureId;
         public bool IsStructureParent;
         public bool IsMansion;
-        public bool IsImmigrantHouse;
-        public int ImmigrantHouseIndex = -1;
     }
     public (string material, float amount) GetResourceAmount(GameObject obj)
     {

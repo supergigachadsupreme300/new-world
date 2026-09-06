@@ -325,7 +325,6 @@ public class PlayerController : MonoBehaviour
                              (PagodaMonkNPC.Instance != null && PagodaMonkNPC.Instance.IsDialogActive) ||
                              (ChefNPC.Instance != null && ChefNPC.Instance.IsDialogActive) ||
                              (LibrarianNPC.Instance != null && LibrarianNPC.Instance.IsDialogActive) ||
-                             (ImmigrantNpc.Instance != null && ImmigrantNpc.Instance.IsDialogActive) ||
                              (CraftingManager.Instance != null && CraftingManager.Instance.IsOpen);
         Vector2 input = dialogBlocked ? Vector2.zero : ReadMoveInput();
         Vector3 direction = new Vector3(input.x, 0f, input.y);
@@ -440,11 +439,10 @@ public class PlayerController : MonoBehaviour
         bool chefDialog = ChefNPC.Instance != null && ChefNPC.Instance.IsDialogActive;
         bool cafeBaristaDialog = CafeBarista.Instance != null && CafeBarista.Instance.IsDialogActive;
         bool librarianDialog = LibrarianNPC.Instance != null && LibrarianNPC.Instance.IsDialogActive;
-        bool immigrantDialog = ImmigrantNpc.Instance != null && ImmigrantNpc.Instance.IsDialogActive;
         bool fishingShopDialog = FishingShopNPC.Instance != null && FishingShopNPC.Instance.IsDialogActive;
         bool goblinMenuOpen = GoblinCommandMenu.Instance != null && GoblinCommandMenu.Instance.IsOpen;
         bool craftingOpen = CraftingManager.Instance != null && CraftingManager.Instance.IsOpen;
-        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog || monkDialog || chefDialog || cafeBaristaDialog || librarianDialog || immigrantDialog || fishingShopDialog || goblinMenuOpen || craftingOpen;
+        bool dialogBlocked = wifeDialog || buffaloDialog || richManDialog || policeDialog || monkDialog || chefDialog || cafeBaristaDialog || librarianDialog || fishingShopDialog || goblinMenuOpen || craftingOpen;
 
         bool ePressed = (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) ||
                         (!wifeDialog && MobileInputController.Consume("interact"));
@@ -460,8 +458,6 @@ public class PlayerController : MonoBehaviour
             ChefNPC.Instance.Advance();
         if (ePressed && librarianDialog)
             LibrarianNPC.Instance.Advance();
-        if (ePressed && immigrantDialog)
-            ImmigrantNpc.Instance.Advance();
         if (ePressed && fishingShopDialog)
             FishingShopNPC.Instance.Advance();
         if (ePressed && cafeBaristaDialog)
@@ -557,12 +553,6 @@ public class PlayerController : MonoBehaviour
                         {
                             if (PagodaMonkNPC.Instance != null && !PagodaMonkNPC.Instance.IsDialogActive)
                                 PagodaMonkNPC.Instance.Interact();
-                            return;
-                        }
-                        if (hit.collider.transform.name == "ImmigrantNpc")
-                        {
-                            if (ImmigrantNpc.Instance != null && !ImmigrantNpc.Instance.IsDialogActive)
-                                ImmigrantNpc.Instance.Interact();
                             return;
                         }
                         if (hit.collider.transform.name == "ToolShopNPC")

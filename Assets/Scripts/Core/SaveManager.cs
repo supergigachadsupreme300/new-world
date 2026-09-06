@@ -55,11 +55,6 @@ public class SaveManager : MonoSingleton<SaveManager>
             richSecret = RichManNPC.Instance != null && RichManNPC.Instance.Discovered,
             wifeStateJson = WifeNPC.Instance != null ? WifeNPC.Instance.SerializeState() : "",
             unlockedBlueprints = _worldBuilder.GetUnlockedBlueprintsAsSave(),
-            immigrantBuiltMask = _worldBuilder.GetImmigrantBuiltArray(),
-            immigrantNextIndex = _worldBuilder.GetImmigrantNextIndex(),
-            immigrantVillagePlaced = _worldBuilder.IsImmigrantVillagePlacedState(),
-            immigrantArrived = _worldBuilder.GetImmigrantArrived(),
-            immigrantVillagers = _worldBuilder.GetVillagerSaves(),
             karmaCurrent = KarmaManager.Instance != null ? KarmaManager.Instance.CurrentKarma : 5f,
             karmaMax = KarmaManager.Instance != null ? KarmaManager.Instance.MaxKarma : 5f,
             skillStateJson = SkillManager.Instance != null ? SkillManager.Instance.SerializeState() : "",
@@ -141,11 +136,6 @@ public class SaveManager : MonoSingleton<SaveManager>
         }
         _worldBuilder?.LoadMansionBlueprintsFromSave(data.mansionBlueprints);
         _worldBuilder?.LoadUnlockedBlueprints(data.unlockedBlueprints);
-        _worldBuilder?.LoadImmigrantVillageFromSave(data.immigrantBuiltMask, data.immigrantNextIndex, data.immigrantVillagePlaced);
-        if (data.immigrantArrived)
-            _worldBuilder?.RestoreImmigrantArrival();
-        if (data.immigrantVillagers != null && data.immigrantVillagers.Count > 0)
-            _worldBuilder?.RestoreSavedVillagers(data.immigrantVillagers);
         if (RichManNPC.Instance != null && json.Contains("\"richSecret\""))
             RichManNPC.Instance.SetDiscovered(data.richSecret);
         _questManager?.LoadQuestSaves(data.quests);
@@ -233,11 +223,6 @@ public class SaveManager : MonoSingleton<SaveManager>
         public bool richSecret;
         public string wifeStateJson;
         public string[] unlockedBlueprints;
-        public bool[] immigrantBuiltMask;
-        public int immigrantNextIndex;
-        public bool immigrantVillagePlaced;
-        public bool immigrantArrived;
-        public List<WorldBuilder.VillagerSaveData> immigrantVillagers;
         public float karmaCurrent;
         public float karmaMax;
         public string skillStateJson;
