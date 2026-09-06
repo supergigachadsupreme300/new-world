@@ -52,8 +52,10 @@ public class SkillXpTracker : MonoBehaviour
         if (Categories == null || Categories.Length != count)
         {
             Categories = new CategoryState[count];
-            for (int i = 0; i < count; i++) Categories[i] = new CategoryState();
         }
+        for (int i = 0; i < Categories.Length; i++)
+            if (Categories[i] == null)
+                Categories[i] = new CategoryState();
     }
 
     public int GetLevel(SkillType skill) => Categories[(int)skill].Level;

@@ -432,8 +432,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         vrt.anchorMin = new Vector2(0.5f, 0.5f);
         vrt.anchorMax = new Vector2(0.5f, 0.5f);
         vrt.pivot = new Vector2(0.5f, 0.5f);
-        vrt.anchoredPosition = P(-100f, -40f);
-        vrt.sizeDelta = Sz(270f, 200f);
+        vrt.anchoredPosition = P(-110f, -50f);
+        vrt.sizeDelta = Sz(320f, 260f);
         var vimg = vp.AddComponent<Image>();
         vimg.color = new Color(0.09f, 0.1f, 0.13f, 0.9f);
         vp.AddComponent<RectMask2D>();
@@ -445,7 +445,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _treeContent.anchorMax = new Vector2(0.5f, 0.5f);
         _treeContent.pivot = new Vector2(0.5f, 0.5f);
         _treeContent.anchoredPosition = Vector2.zero;
-        _treeContent.sizeDelta = Sz(520f, 400f);
+        _treeContent.sizeDelta = Sz(680f, 540f);
 
         var pan = vp.AddComponent<TreePan>();
         pan.Content = _treeContent;
@@ -675,8 +675,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         }
 
         // Radial hub & spokes: tier 0 = inner hub ring, deeper tiers radiate outward.
-        float hubRadius = 55f * S;
-        float spokeStep = 80f * S;
+        float hubRadius = 78f * S;
+        float spokeStep = 118f * S;
         var posOf = new Dictionary<string, Vector2>();
         var angleOf = new Dictionary<string, float>();
 
@@ -708,7 +708,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
                             }
                     if (cnt == 0) { angle = -90f; }
                     else angle = Mathf.Atan2(sy / cnt, sx / cnt) * Mathf.Rad2Deg;
-                    angle += (i % 2 == 0 ? -1f : 1f) * 10f * (i / 2);
+                    angle += (i % 2 == 0 ? -1f : 1f) * 18f * (i / 2);
                     angleOf[s.id] = angle;
                 }
                 float radius = hubRadius + d * spokeStep;
@@ -752,7 +752,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = pos;
-        rt.sizeDelta = Sz(52f, 36f);
+        rt.sizeDelta = Sz(64f, 44f);
         var img = go.AddComponent<Image>();
         img.color = NodeLocked;
         var btn = go.AddComponent<Button>();
@@ -774,7 +774,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var tmp = label.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = skill.displayName;
-        tmp.fontSize = Mathf.Max(8f, Screen.height / 150f);
+        tmp.fontSize = Mathf.Max(10f, Screen.height / 128f);
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.enableWordWrapping = true;
