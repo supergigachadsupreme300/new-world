@@ -860,7 +860,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     // ── Backpack storage grid (Inventory tab, right side) ───────────────────
     private void BuildStorageGrid(Transform parent)
     {
-        var headerRoot = MakeBodyText(parent, "StorageHeader", P(160f, 214f), Sz(280f, 28f));
+        var headerRoot = MakeBodyText(parent, "StorageHeader", P(120f, 238f), Sz(280f, 28f));
         headerRoot.text = Localization.T("Backpack (storage)");
 
         for (int i = 0; i < ToolManager.StorageSlotCount; i++)
@@ -875,7 +875,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2((160f + col * 62f) * S, (190f - row * 68f) * S);
+            rt.anchoredPosition = new Vector2((120f + col * 62f) * S, (214f - row * 68f) * S);
             rt.sizeDelta = Sz(58f, 64f);
             var img = go.AddComponent<Image>();
             img.color = SlotColor;
@@ -904,7 +904,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     // ── Hotbar mirror (Inventory tab, bottom-right of the grid) ─────────────
     private void BuildHotbarMirror(Transform parent)
     {
-        MakeBodyText(parent, "UseBarHeader", P(40f, -148f), Sz(300f, 24f))
+        MakeBodyText(parent, "UseBarHeader", P(40f, -162f), Sz(300f, 24f))
             .text = Localization.T("Use bar (1-0)");
 
         for (int i = 0; i < ToolManager.HotbarSlotCount; i++)
@@ -915,7 +915,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2((40f + i * 42f) * S, -185f * S);
+            rt.anchoredPosition = new Vector2((40f + i * 42f) * S, -199f * S);
             rt.sizeDelta = Sz(44f, 50f);
             var img = go.AddComponent<Image>();
             img.color = SlotColor;

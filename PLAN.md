@@ -2,7 +2,8 @@
 
 > STATUS: Sections 1-12 shipped and pushed (commits 2b4bd6a, d8f5f46, 61827f0, 7fd5218, f097440).
 > Section 13 (streaming perf rework) implemented, semantic-checker clean (0 diagnostics); pushed.
-> Verify checklists 10/12/13 still need user play-testing (Unity can't be run in this env).
+> Section 14 (white player / hidden sword / backpack layout) implemented, semantic-checker clean; pushed.
+> Verify checklists 10/12/13/14 still need user play-testing (Unity can't be run in this env).
 
 This file is the durable plan for the current batch of work. It survives context compaction.
 Mark each step as it is completed. When a step changes scope (discovered while implementing),
@@ -256,3 +257,53 @@ the tile-level public API are unchanged.
 - [ ] Character Info tab + skills + red ✕ close still fine; enemy health bars still render.
 - [ ] FPS stable vs. the previous build.
 - [ ] Commit: stage only touched scripts + PLAN.md; push to `main`.
+
+---
+
+## 14. Batch 4 — white player, hidden iron sword, backpack layout
+
+### 14.1 Player is all white (root cause)
+- File: `Assets/Scripts/Models/MapBuilder.cs` (`ApplyBlockColor`, lines 13-30).
+- Cause: `new Material(Shader.Find("Universal Render Pipeline/Lit"))` then `mat.color = color`
+  sets only `_Color`. URP Lit's base color is `_BaseColor`, so the tint was ignored → every
+  `MakeBlock` (player body, crops, props) rendered white.
+- Fix: also `mat.SetColor("_BaseColor", color)` (kept `_Color` for the `Standard` fallback).
+- Same fix in `Assets/Scripts/Models/WeaponModelBuilder.cs` (`MakeBlock`, line 37) so weapons
+  (in hand and on the rack) are tinted too.
+
+### 14.2 Iron sword equipped but invisible + no attack animation (root cause)
+- Files: `WeaponRigBuilder` + `PlayerController`.
+- Cause: `EquipInto → AttachToHand` looks up `PlayerModel/ShoulderR/HandR`; if the model/limbs
+  don't exist at equip time (boot order, or the model is reloaded afterwards) it silently parents
+  the rig onto the **player root** at local `(0,0,0)`. With blade top at y≈0.9 from the pivot the
+  whole sword sits inside the torso → invisible. `TryAutoRigWeapon` then never re-rigs because
+  `combat.RightHand` is non-null, and the `WeaponAnimator` swing plays on the hidden rig → "no
+  attack animation whatsoever".
+- Fix:
+  - New public `WeaponRigBuilder.ReparentToHands(GameObject playerRoot)` — for each non-null
+    `combat.RightHand/LeftHand`, if the rig's parent is not the matching hand bone and the bone
+    now exists, re-parent it and re-apply the `AttachToHand` pose (shared `ApplyHandPose`).
+  - `PlayerController.LoadPlayerModel` calls it after rebuilding the model.
+  - `TryAutoRigWeapon` calls it before its early-return (so toggling combat mode re-seats a
+    hidden rig). The existing Update re-rig still covers the destroyed-with-old-model case.
+
+### 14.3 Backpack layout (Inventory tab)
+- File: `Assets/Scripts/UI/NewWorld/CharacterInfoUI.cs`.
+- Backpack = the "Backpack (storage)" 30-slot grid (right of the equipment sheet). Its bottom
+  row (y −150..−214) overlapped the "Use bar (1-0)" mirror row (slots top at y −185), burying the
+  bar and blocking bag↔bar switching.
+- Fix:
+  - `BuildStorageGrid`: slots base `(160,190) → (120,214)`, header `P(160,214) → P(120,238)`
+    (left 40, up 24). Grid x span now 120..368; bottom row top −126, bottom −190.
+  - `BuildHotbarMirror`: header `P(40,-148) → P(40,-162)`, slots `y −185 → −199` (down 14) so the
+    bar is fully clear below the grid.
+  - Equipment sheet right edge ≈ −123 → clear of the grid's new left edge.
+
+### 14.4 Verify (needs user — Unity can't be run here)
+- [ ] Player model colored (skin/hair/shirt/pants), not white; crops/trees/props tinted too.
+- [ ] Enter fighting mode (F1): iron sword visible in the right hand; LMB/RMB shows the slash
+      swing animation on the equipped sword.
+- [ ] Inventory tab: backpack grid sits left (~40px) and up (~24px); the "Use bar (1-0)" row is
+      fully visible under it and clickable — switching between bag and bar works.
+- [ ] Weapons on the rack are tinted (not white).
+- [ ] Semantic checker 0 diagnostics; commit only touched scripts + PLAN.md; push to `main`.

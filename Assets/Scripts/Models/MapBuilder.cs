@@ -24,6 +24,7 @@ public static partial class MapBuilder
         if (shader == null) shader = Shader.Find("Standard");
         var mat = new Material(shader);
         mat.color = color;
+        mat.SetColor("_BaseColor", color);
         mat.name = "BlockMat_" + color;
         _colorMatCache[color] = mat;
         r.sharedMaterial = mat;

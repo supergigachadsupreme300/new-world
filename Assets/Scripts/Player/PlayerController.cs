@@ -844,6 +844,7 @@ public class PlayerController : MonoBehaviour
     private void TryAutoRigWeapon()
     {
         WeaponCatalog.EnsureBuilt();
+        WeaponRigBuilder.ReparentToHands(gameObject);
         var combat = GetComponent<CombatController>();
         if (combat != null && (combat.RightHand != null || combat.LeftHand != null)) return;
         string id = null;
@@ -985,5 +986,9 @@ public class PlayerController : MonoBehaviour
                 r.gameObject.layer = 6;
             _playerModelInstance.AddComponent<PlayerAnimator>();
         }
+
+        // The rebuilt model may have appeared after an early equip parked the weapon rig on the
+        // player root (hidden inside the torso); re-seat it onto the fresh hand bones.
+        WeaponRigBuilder.ReparentToHands(gameObject);
     }
 }

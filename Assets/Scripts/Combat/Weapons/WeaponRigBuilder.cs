@@ -138,10 +138,40 @@ public static class WeaponRigBuilder
             return;
         }
         t.SetParent(hand, false);
+        ApplyHandPose(t, isLeft);
+    }
+
+    private static void ApplyHandPose(Transform t, bool isLeft)
+    {
         // Nudge the grip outward (X) so the blade clears the torso; keep a slight forward lean.
         t.localPosition = new Vector3(isLeft ? -0.02f : 0.02f, -0.05f, 0f);
         t.localRotation = Quaternion.Euler(-12f, 0f, 0f);
         t.localScale = Vector3.one;
+    }
+
+    /// <summary>
+    /// Re-seat any equipped rigs onto the player model's hands. The model is built/rebound
+    /// independently of weapon equipping, so an equip that ran before the limbs existed (or after a
+    /// model reload) can leave the rig parented to the player root and hidden inside the body.
+    /// </summary>
+    public static void ReparentToHands(GameObject playerRoot)
+    {
+        if (playerRoot == null) return;
+        var combat = playerRoot.GetComponent<CombatController>();
+        if (combat == null) return;
+        ReparentHand(playerRoot, combat.RightHand, false);
+        ReparentHand(playerRoot, combat.LeftHand, true);
+    }
+
+    private static void ReparentHand(GameObject playerRoot, GameObject rig, bool isLeft)
+    {
+        if (rig == null) return;
+        var t = rig.transform;
+        var hand = FindHand(playerRoot?.transform, isLeft);
+        if (hand == null || hand == playerRoot.transform) return;
+        if (t.parent == hand) return;
+        t.SetParent(hand, false);
+        ApplyHandPose(t, isLeft);
     }
 
     /// <summary>Resolve the standing player model's hand transform (null when unavailable).</summary>

@@ -34,7 +34,10 @@ public static class WeaponModelBuilder
         {
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null) shader = Shader.Find("Standard");
-            r.sharedMaterial = new Material(shader) { color = color };
+            var mat = new Material(shader);
+            mat.color = color;
+            mat.SetColor("_BaseColor", color);
+            r.sharedMaterial = mat;
         }
         var col = go.GetComponent<Collider>();
         if (col != null) Object.Destroy(col);
