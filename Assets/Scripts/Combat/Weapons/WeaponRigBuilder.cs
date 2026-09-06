@@ -138,7 +138,8 @@ public static class WeaponRigBuilder
             return;
         }
         t.SetParent(hand, false);
-        t.localPosition = new Vector3(0f, -0.06f, 0f);
+        // Nudge the grip outward (X) so the blade clears the torso; keep a slight forward lean.
+        t.localPosition = new Vector3(isLeft ? -0.02f : 0.02f, -0.05f, 0f);
         t.localRotation = Quaternion.Euler(-12f, 0f, 0f);
         t.localScale = Vector3.one;
     }
@@ -207,6 +208,9 @@ public static class WeaponRigBuilder
         var art = go.AddComponent<WeaponArtExecutor>();
         art.Data = weapon;
         art.Caster = caster;
+
+        // Per-weapon attack animation — lives on the rig so the model animates by equipped weapon.
+        go.AddComponent<WeaponAnimator>();
 
         return go;
     }

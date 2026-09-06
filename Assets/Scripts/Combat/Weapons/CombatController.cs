@@ -27,6 +27,10 @@ public class CombatController : MonoBehaviour
     public float ParryWindowDuration = 0.2f;
     public float PostActionBuffer = 0.15f;
 
+    /// <summary>Defaults used by <see cref="WeaponAnimator"/> for the swing visual timing.</summary>
+    public static readonly float DefaultLightAttackDuration = 0.25f;
+    public static readonly float DefaultHeavyAttackDuration = 0.45f;
+
     [Header("Hands / Wielding (§5.4)")]
     [Tooltip("Right-hand weapon GameObject carrying a WeaponData + IWeaponBehavior.")]
     public GameObject RightHand;
@@ -152,6 +156,7 @@ public class CombatController : MonoBehaviour
         };
         behavior.BeginAttack(cmd);
         OnAttackStarted?.Invoke(behavior);
+        NotifyWeaponAnimators(false);
     }
 
     /// <summary>Trigger a heavy attack (hold attack button).</summary>
@@ -178,6 +183,7 @@ public class CombatController : MonoBehaviour
         };
         behavior.BeginAttack(cmd);
         OnAttackStarted?.Invoke(behavior);
+        NotifyWeaponAnimators(true);
     }
 
     /// <summary>Trigger a dodge roll.</summary>
@@ -222,6 +228,17 @@ public class CombatController : MonoBehaviour
     public bool IsParryWindowOpen => _parryWindowOpen;
 
     public void ResetCombo() => _comboCount = 0;
+
+    /// <summary>Drive the per-weapon swing visuals on any equipped rigs.</summary>
+    private void NotifyWeaponAnimators(bool heavy)
+    {
+        if (RightHand != null)
+            foreach (var a in RightHand.GetComponentsInChildren<WeaponAnimator>(true))
+                a.PlayAttack(heavy);
+        if (LeftHand != null)
+            foreach (var a in LeftHand.GetComponentsInChildren<WeaponAnimator>(true))
+                a.PlayAttack(heavy);
+    }
 
     // ── Frame update ────────────────────────────────────────────────────────
 

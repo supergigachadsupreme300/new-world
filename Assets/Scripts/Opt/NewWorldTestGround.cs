@@ -444,6 +444,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (!EnableWeapons || _rackStands.Count == 0) return;
         var gm = GameManager.Instance;
         if (gm == null || gm.Player == null || gm.GamePaused) return;
+        var playerController = gm.Player.GetComponent<PlayerController>();
+        if (playerController != null && playerController.FightingMode) return;
 
         var prompt = _contextPrompt;
         if (prompt == null)

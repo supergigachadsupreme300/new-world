@@ -71,6 +71,13 @@ public class InteractionPrompt : MonoBehaviour
             return;
         }
 
+        // No contextual interact hints while in fighting mode (the skill bar replaces them).
+        if (pc != null && pc.FightingMode)
+        {
+            Hide();
+            return;
+        }
+
         _raycastFrameCounter++;
         bool shouldRaycast = _raycastFrameCounter >= 3;
         if (shouldRaycast) _raycastFrameCounter = 0;

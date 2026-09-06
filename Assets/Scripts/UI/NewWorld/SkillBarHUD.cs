@@ -26,7 +26,7 @@ public sealed class SkillBarHUD : MonoBehaviour
         float w = Mathf.Max(Screen.width, 1f);
         float h = Mathf.Max(Screen.height, 1);
         float slotSize = h * 0.09f;
-        float spacing = slotSize * 1.8f;
+        float spacing = slotSize * 2.2f;
         float total = (SlotCount - 1) * spacing;
         float startX = -total * 0.5f;
 
@@ -85,8 +85,14 @@ public sealed class SkillBarHUD : MonoBehaviour
     {
         var gm = GameManager.Instance;
         bool inGame = gm != null && gm.InGame;
+        bool fighting = false;
+        if (gm != null && gm.Player != null)
+        {
+            var pc = gm.Player.GetComponent<PlayerController>();
+            fighting = pc != null && pc.FightingMode;
+        }
         if (_canvas != null)
-            _canvas.gameObject.SetActive(_visible && (ShowOnInGame ? inGame : true));
+            _canvas.gameObject.SetActive(fighting && _visible && (ShowOnInGame ? inGame : true));
         if (!inGame) return;
 
         // Remaining slots: bound actions or empty.

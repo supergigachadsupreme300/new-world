@@ -95,7 +95,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private static readonly Color LineInert = new Color(0.4f, 0.42f, 0.48f, 0.75f);
 
     /// <summary>Horizontal shift applied to the humanoid sheet so the backpack uses the right half.</summary>
-    private const float EquipShiftX = -190f;
+    private const float EquipShiftX = -185f;
 
     /// <summary>Scaled position helper (legacy units -> enlarged layout).</summary>
     private static Vector2 P(float x, float y) => new Vector2(x * S, y * S);
@@ -249,8 +249,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         // Skills panel: draggable skill tree + detail pane.
         _panels[Tab.Skills] = MakePanel("SkillsPanel");
         BuildSkillTypeBar(_panels[Tab.Skills].transform);
-        _skillPointsText = MakeBodyText(_panels[Tab.Skills].transform, "SkillPoints", P(-450f, 208f), Sz(200f, 28f));
-        _categoryLevelText = MakeBodyText(_panels[Tab.Skills].transform, "CategoryLevel", P(250f, 208f), Sz(200f, 28f));
+        _skillPointsText = MakeBodyText(_panels[Tab.Skills].transform, "SkillPoints", P(-450f, 222f), Sz(200f, 28f));
+        _categoryLevelText = MakeBodyText(_panels[Tab.Skills].transform, "CategoryLevel", P(250f, 222f), Sz(200f, 28f));
         BuildSkillDetail(BuildSkillTree(_panels[Tab.Skills].transform).transform);
 
         // Merged Inventory + Equipment panel: equipment sheet LEFT, backpack + use bar RIGHT.
@@ -282,31 +282,33 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _pointsText = MakeBodyText(parent, "StatPoints", P(-330f, 100f), Sz(240f, 32f));
         _pointsText.fontSize = Mathf.Max(20f, Screen.height / 40f);
 
-        // Stat list with "+" allocator (right column, 11 rows).
+        // Stat list with "+" allocator (two columns of 6 + 5 directly under the XP bar).
         for (int i = 0; i < PlayerStats.StatCount; i++)
         {
-            float baseY = 232f - i * 24f;
+            int col = i < 6 ? 0 : 1;
+            float baseY = 96f - (i % 6) * 26f;
+            float x0 = col == 0 ? -330f : -40f;
 
-            var name = MakeBodyText(parent, "StatName_" + i, P(60f, baseY), Sz(120f, 26f));
+            var name = MakeBodyText(parent, "StatName_" + i, P(x0, baseY), Sz(130f, 26f));
             name.fontSize = Mathf.Max(18f, Screen.height / 46f);
             name.text = StatNames[i];
 
-            _statValueTexts[i] = MakeBodyText(parent, "StatValue_" + i, P(195f, baseY), Sz(60f, 26f));
+            _statValueTexts[i] = MakeBodyText(parent, "StatValue_" + i, P(x0 + 160f, baseY), Sz(50f, 26f));
             _statValueTexts[i].fontSize = Mathf.Max(18f, Screen.height / 46f);
             _statValueTexts[i].alignment = TextAlignmentOptions.TopRight;
 
             _plusButtons[i] = MakePlusButton(parent, "Plus_" + i,
-                P(270f, baseY), Sz(30f, 30f), i);
+                P(x0 + 225f, baseY), Sz(30f, 30f), i);
         }
 
         // Class / race summaries + change buttons.
-        _classLine = MakeBodyText(parent, "ClassLine", P(-330f, -120f), Sz(700f, 30f));
+        _classLine = MakeBodyText(parent, "ClassLine", P(-330f, -80f), Sz(700f, 30f));
         _classLine.fontSize = Mathf.Max(16f, Screen.height / 48f);
-        _raceLine = MakeBodyText(parent, "RaceLine", P(-330f, -155f), Sz(700f, 30f));
+        _raceLine = MakeBodyText(parent, "RaceLine", P(-330f, -115f), Sz(700f, 30f));
         _raceLine.fontSize = Mathf.Max(16f, Screen.height / 48f);
-        var classBtn = MakeButton(parent, "ChangeClassBtn", "Change Class", P(-120f, -185f), () => OpenChangeDialog("class"));
+        var classBtn = MakeButton(parent, "ChangeClassBtn", "Change Class", P(-120f, -145f), () => OpenChangeDialog("class"));
         classBtn.GetComponent<RectTransform>().sizeDelta = Sz(150f, 32f);
-        var raceBtn = MakeButton(parent, "ChangeRaceBtn", "Change Race", P(120f, -185f), () => OpenChangeDialog("race"));
+        var raceBtn = MakeButton(parent, "ChangeRaceBtn", "Change Race", P(120f, -145f), () => OpenChangeDialog("race"));
         raceBtn.GetComponent<RectTransform>().sizeDelta = Sz(150f, 32f);
     }
 
@@ -413,8 +415,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         vrt.anchorMin = new Vector2(0.5f, 0.5f);
         vrt.anchorMax = new Vector2(0.5f, 0.5f);
         vrt.pivot = new Vector2(0.5f, 0.5f);
-        vrt.anchoredPosition = P(0f, -60f);
-        vrt.sizeDelta = Sz(1000f, 360f);
+        vrt.anchoredPosition = P(0f, -55f);
+        vrt.sizeDelta = Sz(940f, 370f);
         var vimg = vp.AddComponent<Image>();
         vimg.color = new Color(0.09f, 0.1f, 0.13f, 0.9f);
         vp.AddComponent<RectMask2D>();
@@ -426,7 +428,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _treeContent.anchorMax = new Vector2(0.5f, 0.5f);
         _treeContent.pivot = new Vector2(0.5f, 0.5f);
         _treeContent.anchoredPosition = Vector2.zero;
-        _treeContent.sizeDelta = Sz(680f, 540f);
+        _treeContent.sizeDelta = Sz(1000f, 700f);
 
         var pan = vp.AddComponent<TreePan>();
         pan.Content = _treeContent;
@@ -468,6 +470,16 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var assign = MakeButton(pane.transform, "AssignKeyBtn", "Bind Key", P(100f, -80f), AssignSelectedSkillKey);
         assign.GetComponent<RectTransform>().sizeDelta = Sz(160f, 38f);
         _assignKeyBtn = assign;
+
+        // X close: hides the detail pane (deselects) but keeps the tab menu open.
+        var closeBtn = MakeButton(pane.transform, "DetailCloseBtn", "✕", P(155f, 150f), DismissSkillDetail);
+        closeBtn.GetComponent<RectTransform>().sizeDelta = Sz(34f, 34f);
+    }
+
+    private void DismissSkillDetail()
+    {
+        _selectedSkill = null;
+        RefreshSkillTree();
     }
 
     private void RefreshSkillTree()
@@ -816,8 +828,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
     // ── Backpack storage grid (Inventory tab, right side) ───────────────────
     private void BuildStorageGrid(Transform parent)
     {
-        MakeBodyText(parent, "StorageHeader", P(230f, 212f), Sz(280f, 28f))
-            .text = Localization.T("Backpack (storage)");
+        var headerRoot = MakeBodyText(parent, "StorageHeader", P(180f, 214f), Sz(280f, 28f));
+        headerRoot.text = Localization.T("Backpack (storage)");
 
         for (int i = 0; i < ToolManager.StorageSlotCount; i++)
         {
@@ -831,8 +843,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2((250f + col * 44f) * S, (196f - row * 50f) * S);
-            rt.sizeDelta = Sz(40f, 46f);
+            rt.anchoredPosition = new Vector2((180f + col * 62f) * S, (190f - row * 68f) * S);
+            rt.sizeDelta = Sz(58f, 64f);
             var img = go.AddComponent<Image>();
             img.color = SlotColor;
             go.AddComponent<ItemDragHandle>().Slot = slot;
@@ -847,7 +859,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             lr.offsetMax = Vector2.zero;
             var tmp = label.AddComponent<TextMeshProUGUI>();
             GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
-            tmp.fontSize = Mathf.Max(9f, Screen.height / 96f);
+            tmp.fontSize = Mathf.Max(12f, Screen.height / 80f);
             tmp.color = Color.white;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.text = (i + 1).ToString();
@@ -860,7 +872,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     // ── Hotbar mirror (Inventory tab, bottom-right of the grid) ─────────────
     private void BuildHotbarMirror(Transform parent)
     {
-        MakeBodyText(parent, "UseBarHeader", P(140f, -142f), Sz(300f, 24f))
+        MakeBodyText(parent, "UseBarHeader", P(60f, -148f), Sz(300f, 24f))
             .text = Localization.T("Use bar (1-0)");
 
         for (int i = 0; i < ToolManager.HotbarSlotCount; i++)
@@ -871,8 +883,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2((140f + i * 36f) * S, -176f * S);
-            rt.sizeDelta = Sz(32f, 40f);
+            rt.anchoredPosition = new Vector2((60f + i * 42f) * S, -185f * S);
+            rt.sizeDelta = Sz(44f, 50f);
             var img = go.AddComponent<Image>();
             img.color = SlotColor;
             var btn = go.AddComponent<Button>();
@@ -891,7 +903,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             lr.offsetMax = Vector2.zero;
             var tmp = label.AddComponent<TextMeshProUGUI>();
             GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
-            tmp.fontSize = Mathf.Max(9f, Screen.height / 100f);
+            tmp.fontSize = Mathf.Max(11f, Screen.height / 88f);
             tmp.color = Color.white;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.text = (i % 10 == 0 ? "10" : i.ToString());
@@ -960,24 +972,24 @@ public sealed class CharacterInfoUI : MenuPanelBase
         SlotButton(parent, "Ear1",        EquipSlot.Ear1,     new Vector2(-200f, -10f));
         SlotButton(parent, "Head",        EquipSlot.Head,     new Vector2(-105f, -10f));
         SlotButton(parent, "Ear2",        EquipSlot.Ear2,     new Vector2(-10f, -10f));
-        SlotButton(parent, "Necklace",    EquipSlot.Necklace, new Vector2(-105f, -48f));
-        SlotButton(parent, "LHand",       EquipSlot.LeftHand, new Vector2(-200f, -86f));
-        SlotButton(parent, "Body",        EquipSlot.Body,     new Vector2(-105f, -86f));
-        SlotButton(parent, "RHand",       EquipSlot.RightHand,new Vector2(-10f, -86f));
-        SlotButton(parent, "Glove",       EquipSlot.Glove,    new Vector2(-200f, -124f));
-        SlotButton(parent, "Belt",        EquipSlot.Belt,     new Vector2(-105f, -124f));
-        SlotButton(parent, "Legging",     EquipSlot.Legging,  new Vector2(-105f, -162f));
-        SlotButton(parent, "Feet",        EquipSlot.Feet,     new Vector2(-105f, -200f));
+        SlotButton(parent, "Necklace",    EquipSlot.Necklace, new Vector2(-105f, -54f));
+        SlotButton(parent, "LHand",       EquipSlot.LeftHand, new Vector2(-200f, -98f));
+        SlotButton(parent, "Body",        EquipSlot.Body,     new Vector2(-105f, -98f));
+        SlotButton(parent, "RHand",       EquipSlot.RightHand,new Vector2(-10f, -98f));
+        SlotButton(parent, "Glove",       EquipSlot.Glove,    new Vector2(-200f, -142f));
+        SlotButton(parent, "Belt",        EquipSlot.Belt,     new Vector2(-105f, -142f));
+        SlotButton(parent, "Legging",     EquipSlot.Legging,  new Vector2(-105f, -186f));
+        SlotButton(parent, "Feet",        EquipSlot.Feet,     new Vector2(-105f, -230f));
         SlotButton(parent, "Finger1",     EquipSlot.Finger1,  new Vector2(-250f, -10f));
-        SlotButton(parent, "Finger2",     EquipSlot.Finger2,  new Vector2(-250f, -48f));
-        SlotButton(parent, "Finger3",     EquipSlot.Finger3,  new Vector2(-250f, -86f));
-        SlotButton(parent, "Finger4",     EquipSlot.Finger4,  new Vector2(-250f, -124f));
-        SlotButton(parent, "Finger5",     EquipSlot.Finger5,  new Vector2(-250f, -162f));
+        SlotButton(parent, "Finger2",     EquipSlot.Finger2,  new Vector2(-250f, -54f));
+        SlotButton(parent, "Finger3",     EquipSlot.Finger3,  new Vector2(-250f, -98f));
+        SlotButton(parent, "Finger4",     EquipSlot.Finger4,  new Vector2(-250f, -142f));
+        SlotButton(parent, "Finger5",     EquipSlot.Finger5,  new Vector2(-250f, -186f));
         SlotButton(parent, "Finger6",     EquipSlot.Finger6,  new Vector2(40f, -10f));
-        SlotButton(parent, "Finger7",     EquipSlot.Finger7,  new Vector2(40f, -48f));
-        SlotButton(parent, "Finger8",     EquipSlot.Finger8,  new Vector2(40f, -86f));
-        SlotButton(parent, "Finger9",     EquipSlot.Finger9,  new Vector2(40f, -124f));
-        SlotButton(parent, "Finger10",    EquipSlot.Finger10, new Vector2(40f, -162f));
+        SlotButton(parent, "Finger7",     EquipSlot.Finger7,  new Vector2(40f, -54f));
+        SlotButton(parent, "Finger8",     EquipSlot.Finger8,  new Vector2(40f, -98f));
+        SlotButton(parent, "Finger9",     EquipSlot.Finger9,  new Vector2(40f, -142f));
+        SlotButton(parent, "Finger10",    EquipSlot.Finger10, new Vector2(40f, -186f));
     }
 
     private void SlotButton(Transform parent, string name, EquipSlot slot, Vector2 pos)
@@ -989,7 +1001,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0f, 1f);
         rt.anchoredPosition = new Vector2((pos.x + EquipShiftX) * S, (pos.y + 150f) * S);
-        rt.sizeDelta = Sz(84f, 30f);
+        rt.sizeDelta = Sz(62f, 42f);
         var img = go.AddComponent<Image>();
         img.color = new Color(0.14f, 0.16f, 0.2f, 0.95f);
         var btn = go.AddComponent<Button>();
@@ -1361,7 +1373,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(-220f * S + bw * (0.5f + i), 176f * S);
+            rt.anchoredPosition = new Vector2(-220f * S + bw * (0.5f + i), 190f * S);
             rt.sizeDelta = new Vector2(bw - 4f * S, 42f * S);
             var img = go.AddComponent<Image>();
             img.color = new Color(0.14f, 0.16f, 0.2f, 0.95f);

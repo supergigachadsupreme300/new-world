@@ -18,7 +18,11 @@ public static partial class MapBuilder
             r.sharedMaterial = cached;
             return;
         }
-        var mat = new Material(r.sharedMaterial);
+        // Default cube material does not tint correctly under URP (renders grey/pink).
+        // Use URP Lit (fallback Standard), matching WeaponModelBuilder's approach.
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null) shader = Shader.Find("Standard");
+        var mat = new Material(shader);
         mat.color = color;
         mat.name = "BlockMat_" + color;
         _colorMatCache[color] = mat;

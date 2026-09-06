@@ -657,6 +657,14 @@ public class PlayerController : MonoBehaviour
         bool leftClick = !FishingController.IsFishingActive &&
                          ((!GameInput.IsMobile && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) ||
                           MobileInputController.Consume("use"));
+        if (FightingMode)
+        {
+            // Player model reloads (gender change etc.) destroy the old hand bones and any
+            // rigged weapon; re-equip the fighting weapon whenever the hands are empty.
+            var combat = GetComponent<CombatController>();
+            if (combat != null && combat.RightHand == null && combat.LeftHand == null)
+                TryAutoRigWeapon();
+        }
         if (!dialogBlocked && leftClick)
         {
             if (FightingMode)
@@ -814,7 +822,7 @@ public class PlayerController : MonoBehaviour
             FightingMode = false;
             GameManager.Instance?.UIManager?.SetHotbarVisible(true);
             var skillBar = Object.FindAnyObjectByType<SkillBarHUD>();
-            if (skillBar != null) skillBar.SetVisible(true);
+            if (skillBar != null) skillBar.SetVisible(false);
             if (_cachedFightSlot >= 0)
                 ToolManager.Instance?.SelectSlot(_cachedFightSlot);
             _cachedFightSlot = -1;
@@ -828,7 +836,7 @@ public class PlayerController : MonoBehaviour
             ToolManager.Instance?.ResetSelection();
             GameManager.Instance?.UIManager?.SetHotbarVisible(false);
             var skillBar = Object.FindAnyObjectByType<SkillBarHUD>();
-            if (skillBar != null) skillBar.SetVisible(false);
+            if (skillBar != null) skillBar.SetVisible(true);
             TryAutoRigWeapon();
             ShowPrompt(Localization.T("Fighting mode: Left click = attack, Right click = heavy attack."));
         }
@@ -976,6 +984,7 @@ public class PlayerController : MonoBehaviour
         {
             foreach (var r in _playerModelInstance.GetComponentsInChildren<Renderer>())
                 r.gameObject.layer = 6;
+            _playerModelInstance.AddComponent<PlayerAnimator>();
         }
     }
 }
