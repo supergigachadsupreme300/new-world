@@ -280,7 +280,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _equipSummary = MakeBodyText(_panels[Tab.Inventory].transform, "Equipment", P(-450f, 222f), Sz(480f, 44f));
         BuildStorageGrid(_panels[Tab.Inventory].transform);
         BuildHotbarMirror(_panels[Tab.Inventory].transform);
-        _moneyLine = MakeBodyText(_panels[Tab.Inventory].transform, "Money", P(230f, -112f), Sz(260f, 24f));
+        _moneyLine = MakeBodyText(_panels[Tab.Inventory].transform, "Money", P(210f, -112f), Sz(260f, 24f));
 
         // Map panel (placeholder summary; the dedicated WorldMapUI is separate).
         _panels[Tab.Map] = MakePanel("MapPanel");
@@ -304,10 +304,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _pointsText.fontSize = Mathf.Max(20f, Screen.height / 40f);
 
         // Stat list with "+" allocator (two columns of 6 + 5 directly under the XP bar).
+        // Rows start below the "Stat Points" label (y 80) so the first row never overlaps it.
         for (int i = 0; i < PlayerStats.StatCount; i++)
         {
             int col = i < 6 ? 0 : 1;
-            float baseY = 96f - (i % 6) * 26f;
+            float baseY = 80f - (i % 6) * 26f;
             float x0 = col == 0 ? -330f : -40f;
 
             var name = MakeBodyText(parent, "StatName_" + i, P(x0, baseY), Sz(130f, 26f));
@@ -323,13 +324,13 @@ public sealed class CharacterInfoUI : MenuPanelBase
         }
 
         // Class / race summaries + change buttons.
-        _classLine = MakeBodyText(parent, "ClassLine", P(-330f, -80f), Sz(700f, 30f));
+        _classLine = MakeBodyText(parent, "ClassLine", P(-330f, -96f), Sz(700f, 30f));
         _classLine.fontSize = Mathf.Max(16f, Screen.height / 48f);
-        _raceLine = MakeBodyText(parent, "RaceLine", P(-330f, -115f), Sz(700f, 30f));
+        _raceLine = MakeBodyText(parent, "RaceLine", P(-330f, -130f), Sz(700f, 30f));
         _raceLine.fontSize = Mathf.Max(16f, Screen.height / 48f);
-        var classBtn = MakeButton(parent, "ChangeClassBtn", "Change Class", P(-120f, -145f), () => OpenChangeDialog("class"));
+        var classBtn = MakeButton(parent, "ChangeClassBtn", "Change Class", P(-120f, -158f), () => OpenChangeDialog("class"));
         classBtn.GetComponent<RectTransform>().sizeDelta = Sz(150f, 32f);
-        var raceBtn = MakeButton(parent, "ChangeRaceBtn", "Change Race", P(120f, -145f), () => OpenChangeDialog("race"));
+        var raceBtn = MakeButton(parent, "ChangeRaceBtn", "Change Race", P(120f, -158f), () => OpenChangeDialog("race"));
         raceBtn.GetComponent<RectTransform>().sizeDelta = Sz(150f, 32f);
     }
 
@@ -859,7 +860,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     // ── Backpack storage grid (Inventory tab, right side) ───────────────────
     private void BuildStorageGrid(Transform parent)
     {
-        var headerRoot = MakeBodyText(parent, "StorageHeader", P(180f, 214f), Sz(280f, 28f));
+        var headerRoot = MakeBodyText(parent, "StorageHeader", P(160f, 214f), Sz(280f, 28f));
         headerRoot.text = Localization.T("Backpack (storage)");
 
         for (int i = 0; i < ToolManager.StorageSlotCount; i++)
@@ -874,7 +875,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2((180f + col * 62f) * S, (190f - row * 68f) * S);
+            rt.anchoredPosition = new Vector2((160f + col * 62f) * S, (190f - row * 68f) * S);
             rt.sizeDelta = Sz(58f, 64f);
             var img = go.AddComponent<Image>();
             img.color = SlotColor;
@@ -903,7 +904,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     // ── Hotbar mirror (Inventory tab, bottom-right of the grid) ─────────────
     private void BuildHotbarMirror(Transform parent)
     {
-        MakeBodyText(parent, "UseBarHeader", P(60f, -148f), Sz(300f, 24f))
+        MakeBodyText(parent, "UseBarHeader", P(40f, -148f), Sz(300f, 24f))
             .text = Localization.T("Use bar (1-0)");
 
         for (int i = 0; i < ToolManager.HotbarSlotCount; i++)
@@ -914,7 +915,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2((60f + i * 42f) * S, -185f * S);
+            rt.anchoredPosition = new Vector2((40f + i * 42f) * S, -185f * S);
             rt.sizeDelta = Sz(44f, 50f);
             var img = go.AddComponent<Image>();
             img.color = SlotColor;
@@ -1011,16 +1012,16 @@ public sealed class CharacterInfoUI : MenuPanelBase
         SlotButton(parent, "Belt",        EquipSlot.Belt,     new Vector2(-105f, -142f));
         SlotButton(parent, "Legging",     EquipSlot.Legging,  new Vector2(-105f, -186f));
         SlotButton(parent, "Feet",        EquipSlot.Feet,     new Vector2(-105f, -230f));
-        SlotButton(parent, "Finger1",     EquipSlot.Finger1,  new Vector2(-250f, -10f));
-        SlotButton(parent, "Finger2",     EquipSlot.Finger2,  new Vector2(-250f, -54f));
-        SlotButton(parent, "Finger3",     EquipSlot.Finger3,  new Vector2(-250f, -98f));
-        SlotButton(parent, "Finger4",     EquipSlot.Finger4,  new Vector2(-250f, -142f));
-        SlotButton(parent, "Finger5",     EquipSlot.Finger5,  new Vector2(-250f, -186f));
-        SlotButton(parent, "Finger6",     EquipSlot.Finger6,  new Vector2(40f, -10f));
-        SlotButton(parent, "Finger7",     EquipSlot.Finger7,  new Vector2(40f, -54f));
-        SlotButton(parent, "Finger8",     EquipSlot.Finger8,  new Vector2(40f, -98f));
-        SlotButton(parent, "Finger9",     EquipSlot.Finger9,  new Vector2(40f, -142f));
-        SlotButton(parent, "Finger10",    EquipSlot.Finger10, new Vector2(40f, -186f));
+        SlotButton(parent, "Finger1",     EquipSlot.Finger1,  new Vector2(-270f, -10f));
+        SlotButton(parent, "Finger2",     EquipSlot.Finger2,  new Vector2(-270f, -54f));
+        SlotButton(parent, "Finger3",     EquipSlot.Finger3,  new Vector2(-270f, -98f));
+        SlotButton(parent, "Finger4",     EquipSlot.Finger4,  new Vector2(-270f, -142f));
+        SlotButton(parent, "Finger5",     EquipSlot.Finger5,  new Vector2(-270f, -186f));
+        SlotButton(parent, "Finger6",     EquipSlot.Finger6,  new Vector2(62f, -10f));
+        SlotButton(parent, "Finger7",     EquipSlot.Finger7,  new Vector2(62f, -54f));
+        SlotButton(parent, "Finger8",     EquipSlot.Finger8,  new Vector2(62f, -98f));
+        SlotButton(parent, "Finger9",     EquipSlot.Finger9,  new Vector2(62f, -142f));
+        SlotButton(parent, "Finger10",    EquipSlot.Finger10, new Vector2(62f, -186f));
     }
 
     private void SlotButton(Transform parent, string name, EquipSlot slot, Vector2 pos)
