@@ -48,8 +48,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private TMP_Text _pointsText;
     private Image _xpFill;
     private TMP_Text _xpLabel;
-    private Image _hpBar, _fpBar, _stamBar;
-    private TMP_Text _hpBarLabel, _fpBarLabel, _stamBarLabel;
     private readonly TMP_Text[] _statValueTexts = new TMP_Text[PlayerStats.StatCount];
     private readonly Button[] _plusButtons = new Button[PlayerStats.StatCount];
 
@@ -226,7 +224,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 1f);
             rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 16f);
+            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 4f);
             rt.sizeDelta = new Vector2(bw - 6f, 46f * S);
             var img = go.AddComponent<Image>();
             ApplyMenuButtonSprite(img);
@@ -282,51 +280,45 @@ public sealed class CharacterInfoUI : MenuPanelBase
     }
 
     // ── Info tab ──────────────────────────────────────────────────────────
-    // Level, unspent stat points, XP progress bar, HP/FP/Stamina bars (fill + labels),
-    // an 11-stat line with "+" allocator buttons, and class/race change controls.
+    // Level, unspent stat points, XP progress bar, 11-stat "+" allocator lines,
+    // and class/race change controls. (HP/FP/Stamina bars live on the HUD, not here.)
     private void BuildInfoTab(Transform parent)
     {
-        _levelText = MakeBodyText(parent, "Level", P(-300f, 205f), Sz(150f, 46f));
-        _levelText.fontSize = Mathf.Max(30f, Screen.height / 32f);
+        _levelText = MakeBodyText(parent, "Level", P(-330f, 210f), Sz(220f, 64f));
+        _levelText.fontSize = Mathf.Max(34f, Screen.height / 28f);
 
-        _xpFill = MakeBar(parent, "XpBar", P(-300f, 150f), Sz(270f, 26f),
+        _xpFill = MakeBar(parent, "XpBar", P(-330f, 140f), Sz(360f, 32f),
             new Color(0.6f, 0.5f, 0.85f), out _xpLabel);
 
-        _pointsText = MakeBodyText(parent, "StatPoints", P(-300f, 112f), Sz(150f, 26f));
-        _pointsText.fontSize = Mathf.Max(18f, Screen.height / 46f);
-
-        // Resource bars (HP / FP / Stamina) under the level block.
-        _hpBar = MakeBar(parent, "HpBar", P(-300f, 76f), Sz(180f, 24f),
-            new Color(0.8f, 0.16f, 0.14f), out _hpBarLabel);
-        _fpBar = MakeBar(parent, "FpBar", P(-104f, 76f), Sz(180f, 24f),
-            new Color(0.16f, 0.5f, 0.85f), out _fpBarLabel);
-        _stamBar = MakeBar(parent, "StamBar", P(-300f, 42f), Sz(384f, 24f),
-            new Color(0.2f, 0.8f, 0.3f), out _stamBarLabel);
+        _pointsText = MakeBodyText(parent, "StatPoints", P(-330f, 100f), Sz(240f, 32f));
+        _pointsText.fontSize = Mathf.Max(20f, Screen.height / 40f);
 
         // Stat list with "+" allocator (right column, 11 rows).
         for (int i = 0; i < PlayerStats.StatCount; i++)
         {
-            float baseY = 200f - i * 18f;
+            float baseY = 215f - i * 20f;
 
-            var name = MakeBodyText(parent, "StatName_" + i, P(40f, baseY), Sz(90f, 18f));
-            name.fontSize = Mathf.Max(14f, Screen.height / 58f);
+            var name = MakeBodyText(parent, "StatName_" + i, P(80f, baseY), Sz(110f, 22f));
+            name.fontSize = Mathf.Max(16f, Screen.height / 50f);
             name.text = StatNames[i];
 
-            _statValueTexts[i] = MakeBodyText(parent, "StatValue_" + i, P(130f, baseY), Sz(45f, 18f));
-            _statValueTexts[i].fontSize = Mathf.Max(14f, Screen.height / 58f);
+            _statValueTexts[i] = MakeBodyText(parent, "StatValue_" + i, P(195f, baseY), Sz(60f, 22f));
+            _statValueTexts[i].fontSize = Mathf.Max(16f, Screen.height / 50f);
             _statValueTexts[i].alignment = TextAlignmentOptions.TopRight;
 
             _plusButtons[i] = MakePlusButton(parent, "Plus_" + i,
-                P(195f, baseY), Sz(24f, 22f), i);
+                P(265f, baseY), Sz(28f, 26f), i);
         }
 
         // Class / race summaries + change buttons.
-        _classLine = MakeBodyText(parent, "ClassLine", P(-300f, -120f), Sz(560f, 26f));
-        _raceLine = MakeBodyText(parent, "RaceLine", P(-300f, -150f), Sz(560f, 26f));
-        var classBtn = MakeButton(parent, "ChangeClassBtn", "Change Class", P(-90f, -178f), () => OpenChangeDialog("class"));
-        classBtn.GetComponent<RectTransform>().sizeDelta = Sz(140f, 30f);
-        var raceBtn = MakeButton(parent, "ChangeRaceBtn", "Change Race", P(90f, -178f), () => OpenChangeDialog("race"));
-        raceBtn.GetComponent<RectTransform>().sizeDelta = Sz(140f, 30f);
+        _classLine = MakeBodyText(parent, "ClassLine", P(-330f, -120f), Sz(700f, 30f));
+        _classLine.fontSize = Mathf.Max(16f, Screen.height / 48f);
+        _raceLine = MakeBodyText(parent, "RaceLine", P(-330f, -155f), Sz(700f, 30f));
+        _raceLine.fontSize = Mathf.Max(16f, Screen.height / 48f);
+        var classBtn = MakeButton(parent, "ChangeClassBtn", "Change Class", P(-120f, -185f), () => OpenChangeDialog("class"));
+        classBtn.GetComponent<RectTransform>().sizeDelta = Sz(150f, 32f);
+        var raceBtn = MakeButton(parent, "ChangeRaceBtn", "Change Race", P(120f, -185f), () => OpenChangeDialog("race"));
+        raceBtn.GetComponent<RectTransform>().sizeDelta = Sz(150f, 32f);
     }
 
     private Image MakeBar(Transform parent, string name, Vector2 pos, Vector2 size, Color fillColor, out TMP_Text label)
@@ -1578,7 +1570,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         var stats = PlayerStatsOf();
         var level = LevelUpOf();
-        var player = GameManager.Instance?.Player;
 
         if (level != null)
         {
@@ -1594,21 +1585,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
             if (_xpLabel != null)
                 _xpLabel.text = Localization.F("XP {0:0} / {1:0}", level.Xp, need);
         }
-
-        // Resource bars (PlayerController for HP/Stamina, SpellCaster/PlayerStats for FP).
-        float hp = player != null ? player.HP : 0f;
-        float maxHp = player != null ? Mathf.Max(1f, player.MaxHP) : 1f;
-        float stam = player != null ? player.Stamina : 0f;
-        float maxStam = player != null ? Mathf.Max(1f, player.MaxStamina) : 1f;
-        float fp = ReadFpNow(player);
-        float maxFp = Mathf.Max(1f, ReadMaxFpNow(player));
-
-        if (_hpBar != null) _hpBar.fillAmount = Mathf.Clamp01(hp / maxHp);
-        if (_hpBarLabel != null) _hpBarLabel.text = Localization.F("HP {0:0} / {1:0}", hp, maxHp);
-        if (_fpBar != null) _fpBar.fillAmount = Mathf.Clamp01(fp / maxFp);
-        if (_fpBarLabel != null) _fpBarLabel.text = Localization.F("FP {0:0} / {1:0}", fp, maxFp);
-        if (_stamBar != null) _stamBar.fillAmount = Mathf.Clamp01(stam / maxStam);
-        if (_stamBarLabel != null) _stamBarLabel.text = Localization.F("Stam {0:0} / {1:0}", stam, maxStam);
 
         // Stat totals + allocator enabled state.
         bool canSpend = level != null && level.AvailablePoints > 0;
@@ -1657,22 +1633,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var active = mgr.ActiveRace;
         if (active == null) return "";
         return Localization.F("Race: {0} — {1}", active.displayName, active.PassiveDescription);
-    }
-
-    private static float ReadFpNow(PlayerController player)
-    {
-        if (player == null) return 0f;
-        var caster = player.GetComponentInChildren<SpellCaster>();
-        return caster != null ? caster.CurrentFp : 0f;
-    }
-
-    private static float ReadMaxFpNow(PlayerController player)
-    {
-        if (player == null) return 1f;
-        var stats = player.GetComponentInChildren<PlayerStats>();
-        if (stats != null) return Mathf.Max(1f, stats.MaxFocusPoints);
-        var caster = player.GetComponentInChildren<SpellCaster>();
-        return caster != null ? Mathf.Max(1f, caster.MaxFp) : 1f;
     }
 
     private void RefreshInventory()

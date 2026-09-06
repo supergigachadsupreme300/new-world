@@ -103,7 +103,7 @@ public sealed class PlayerBarsHUD : MonoBehaviour
         UpdateBar(_stamFill, stam, maxStam, ref _lastStam, ref _lastMaxStam);
         UpdateBar(_fpFill, fp, maxFp, ref _lastFp, ref _lastMaxFp);
         UpdateLabel(_hpText, "HP", hp, maxHp);
-        UpdateLabel(_fpText, "FP", fp, maxFp);
+        UpdateLabel(_fpText, "Mana", fp, maxFp);
         UpdateLabel(_stamText, "Stam", stam, maxStam);
 
         // Damage flash
