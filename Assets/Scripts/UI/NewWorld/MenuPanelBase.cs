@@ -72,10 +72,9 @@ public abstract class MenuPanelBase : MonoBehaviour
         PanelRect.anchorMax = new Vector2(0.5f, 0.5f);
         PanelRect.pivot = new Vector2(0.5f, 0.5f);
         PanelRect.anchoredPosition = Vector2.zero;
-        // Caps are fractions of the reference-resolution canvas so the panel never
-        // overflows the visible screen (which is reference-sized at any resolution).
-        var w = Mathf.Min(Screen.width * 0.92f, (1280f / UiScale) * 0.94f);
-        var h = Mathf.Min(Screen.height * 0.9f, (720f / UiScale) * 0.94f);
+        // Full-screen panel: fills the reference-resolution canvas edge-to-edge.
+        var w = Mathf.Min(Screen.width, (1280f / UiScale));
+        var h = Mathf.Min(Screen.height, (720f / UiScale));
         PanelRect.sizeDelta = new Vector2(w, h);
         var panelImg = panel.AddComponent<Image>();
         var menuTex = Resources.Load<Texture2D>("menu");

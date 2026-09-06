@@ -62,6 +62,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
     // Skill tree.
     private RectTransform _treeContent;
+    private GameObject _detailPane;
     private readonly List<Skill> _treeSkills = new List<Skill>();
     private readonly List<(Skill skill, Image image)> _treeNodes = new List<(Skill, Image)>();
     private readonly List<(Image image, Skill target)> _treeLines = new List<(Image, Skill)>();
@@ -96,7 +97,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private static readonly Color LineInert = new Color(0.4f, 0.42f, 0.48f, 0.75f);
 
     /// <summary>Horizontal shift applied to the humanoid sheet so the backpack uses the right half.</summary>
-    private const float EquipShiftX = -55f;
+    private const float EquipShiftX = -190f;
 
     /// <summary>Scaled position helper (legacy units -> enlarged layout).</summary>
     private static Vector2 P(float x, float y) => new Vector2(x * S, y * S);
@@ -224,8 +225,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 1f);
             rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 4f);
-            rt.sizeDelta = new Vector2(bw - 6f, 46f * S);
+            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 6f);
+            rt.sizeDelta = new Vector2(bw - 6f, 56f * S);
             var img = go.AddComponent<Image>();
             ApplyMenuButtonSprite(img);
             var btn = go.AddComponent<Button>();
@@ -243,7 +244,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var lt = label.AddComponent<TextMeshProUGUI>();
             GameManager.Instance?.UIManager?.ApplyDefaultFont(lt);
             lt.text = name;
-            lt.fontSize = Mathf.Max(20f, Screen.height / 48f);
+            lt.fontSize = Mathf.Max(24f, Screen.height / 44f);
             lt.color = Color.white;
             lt.alignment = TextAlignmentOptions.Center;
         }
@@ -258,19 +259,18 @@ public sealed class CharacterInfoUI : MenuPanelBase
         // Skills panel: draggable skill tree + detail pane.
         _panels[Tab.Skills] = MakePanel("SkillsPanel");
         BuildSkillTypeBar(_panels[Tab.Skills].transform);
-        _skillPointsText = MakeBodyText(_panels[Tab.Skills].transform, "SkillPoints", P(-300f, 112f), Sz(160f, 26f));
-        _categoryLevelText = MakeBodyText(_panels[Tab.Skills].transform, "CategoryLevel", P(90f, 112f), Sz(200f, 26f));
-        BuildSkillTree(_panels[Tab.Skills].transform);
-        BuildSkillDetail(_panels[Tab.Skills].transform);
+        _skillPointsText = MakeBodyText(_panels[Tab.Skills].transform, "SkillPoints", P(-450f, 208f), Sz(200f, 28f));
+        _categoryLevelText = MakeBodyText(_panels[Tab.Skills].transform, "CategoryLevel", P(250f, 208f), Sz(200f, 28f));
+        BuildSkillDetail(BuildSkillTree(_panels[Tab.Skills].transform).transform);
 
         // Merged Inventory + Equipment panel: equipment sheet LEFT, backpack + use bar RIGHT.
         _panels[Tab.Inventory] = MakePanel("InventoryPanel");
         BuildEquipmentSheet(_panels[Tab.Inventory].transform);
-        _equipSummary = MakeBodyText(_panels[Tab.Inventory].transform, "Equipment", P(-288f, 178f), Sz(560f, 44f));
+        _equipSummary = MakeBodyText(_panels[Tab.Inventory].transform, "Equipment", P(-450f, 222f), Sz(480f, 44f));
         BuildWeaponLane(_panels[Tab.Inventory].transform);
         BuildStorageGrid(_panels[Tab.Inventory].transform);
         BuildHotbarMirror(_panels[Tab.Inventory].transform);
-        _moneyLine = MakeBodyText(_panels[Tab.Inventory].transform, "Money", P(8f, -160f), Sz(260f, 24f));
+        _moneyLine = MakeBodyText(_panels[Tab.Inventory].transform, "Money", P(230f, -112f), Sz(260f, 24f));
 
         // Map panel (placeholder summary; the dedicated WorldMapUI is separate).
         _panels[Tab.Map] = MakePanel("MapPanel");
@@ -296,18 +296,18 @@ public sealed class CharacterInfoUI : MenuPanelBase
         // Stat list with "+" allocator (right column, 11 rows).
         for (int i = 0; i < PlayerStats.StatCount; i++)
         {
-            float baseY = 215f - i * 20f;
+            float baseY = 232f - i * 24f;
 
-            var name = MakeBodyText(parent, "StatName_" + i, P(80f, baseY), Sz(110f, 22f));
-            name.fontSize = Mathf.Max(16f, Screen.height / 50f);
+            var name = MakeBodyText(parent, "StatName_" + i, P(60f, baseY), Sz(120f, 26f));
+            name.fontSize = Mathf.Max(18f, Screen.height / 46f);
             name.text = StatNames[i];
 
-            _statValueTexts[i] = MakeBodyText(parent, "StatValue_" + i, P(195f, baseY), Sz(60f, 22f));
-            _statValueTexts[i].fontSize = Mathf.Max(16f, Screen.height / 50f);
+            _statValueTexts[i] = MakeBodyText(parent, "StatValue_" + i, P(195f, baseY), Sz(60f, 26f));
+            _statValueTexts[i].fontSize = Mathf.Max(18f, Screen.height / 46f);
             _statValueTexts[i].alignment = TextAlignmentOptions.TopRight;
 
             _plusButtons[i] = MakePlusButton(parent, "Plus_" + i,
-                P(265f, baseY), Sz(28f, 26f), i);
+                P(270f, baseY), Sz(30f, 30f), i);
         }
 
         // Class / race summaries + change buttons.
@@ -416,7 +416,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     }
 
     // ── Skill tree ────────────────────────────────────────────────────────
-    private void BuildSkillTree(Transform parent)
+    private RectTransform BuildSkillTree(Transform parent)
     {
         var vp = new GameObject("TreeViewport");
         vp.transform.SetParent(parent, false);
@@ -424,8 +424,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         vrt.anchorMin = new Vector2(0.5f, 0.5f);
         vrt.anchorMax = new Vector2(0.5f, 0.5f);
         vrt.pivot = new Vector2(0.5f, 0.5f);
-        vrt.anchoredPosition = P(-110f, -50f);
-        vrt.sizeDelta = Sz(320f, 260f);
+        vrt.anchoredPosition = P(0f, -60f);
+        vrt.sizeDelta = Sz(1000f, 360f);
         var vimg = vp.AddComponent<Image>();
         vimg.color = new Color(0.09f, 0.1f, 0.13f, 0.9f);
         vp.AddComponent<RectMask2D>();
@@ -441,6 +441,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
         var pan = vp.AddComponent<TreePan>();
         pan.Content = _treeContent;
+        return vrt;
     }
 
     private void BuildSkillDetail(Transform parent)
@@ -451,30 +452,32 @@ public sealed class CharacterInfoUI : MenuPanelBase
         pRt.anchorMin = new Vector2(0.5f, 0.5f);
         pRt.anchorMax = new Vector2(0.5f, 0.5f);
         pRt.pivot = new Vector2(0.5f, 0.5f);
-        pRt.anchoredPosition = P(240f, -40f);
-        pRt.sizeDelta = Sz(150f, 200f);
+        pRt.anchoredPosition = Vector2.zero;
+        pRt.sizeDelta = Sz(380f, 300f);
         var pImg = pane.AddComponent<Image>();
-        pImg.color = new Color(0.12f, 0.13f, 0.16f, 0.9f);
+        pImg.color = new Color(0.12f, 0.13f, 0.16f, 0.96f);
+        _detailPane = pane;
+        pane.SetActive(false);
 
-        _detailTitle = MakeBodyText(pane.transform, "DetailTitle", P(-70f, 90f), Sz(140f, 28f));
-        _detailTitle.fontSize = Mathf.Max(18f, Screen.height / 42f);
+        _detailTitle = MakeBodyText(pane.transform, "DetailTitle", P(-190f, 150f), Sz(360f, 32f));
+        _detailTitle.fontSize = Mathf.Max(20f, Screen.height / 38f);
         _detailTitle.alignment = TextAlignmentOptions.Center;
 
-        _detailDesc = MakeBodyText(pane.transform, "DetailDesc", P(-70f, 60f), Sz(138f, 70f));
+        _detailDesc = MakeBodyText(pane.transform, "DetailDesc", P(-190f, 116f), Sz(360f, 60f));
         _detailDesc.enableWordWrapping = true;
 
-        _detailMeta = MakeBodyText(pane.transform, "DetailMeta", P(-70f, -10f), Sz(138f, 70f));
+        _detailMeta = MakeBodyText(pane.transform, "DetailMeta", P(-190f, 56f), Sz(360f, 100f));
 
-        _detailLearnHint = MakeBodyText(pane.transform, "DetailHint", P(-70f, -78f), Sz(138f, 22f));
-        _detailLearnHint.fontSize = Mathf.Max(12f, Screen.height / 72f);
+        _detailLearnHint = MakeBodyText(pane.transform, "DetailHint", P(-190f, -46f), Sz(360f, 24f));
+        _detailLearnHint.fontSize = Mathf.Max(14f, Screen.height / 64f);
         _detailLearnHint.enableWordWrapping = true;
 
-        var learn = MakeButton(pane.transform, "LearnBtn", "Learn", P(-72f, -108f), LearnSelectedSkill);
-        learn.GetComponent<RectTransform>().sizeDelta = Sz(120f, 30f);
+        var learn = MakeButton(pane.transform, "LearnBtn", "Learn", P(-100f, -80f), LearnSelectedSkill);
+        learn.GetComponent<RectTransform>().sizeDelta = Sz(160f, 38f);
         _learnBtn = learn;
 
-        var assign = MakeButton(pane.transform, "AssignKeyBtn", "Bind Key", P(52f, -108f), AssignSelectedSkillKey);
-        assign.GetComponent<RectTransform>().sizeDelta = Sz(120f, 30f);
+        var assign = MakeButton(pane.transform, "AssignKeyBtn", "Bind Key", P(100f, -80f), AssignSelectedSkillKey);
+        assign.GetComponent<RectTransform>().sizeDelta = Sz(160f, 38f);
         _assignKeyBtn = assign;
     }
 
@@ -482,6 +485,9 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         var profile = SkillProfileOf();
         bool hasPoints = profile != null && profile.Points > 0;
+
+        if (_detailPane != null)
+            _detailPane.SetActive(_selectedSkill != null);
 
         // Node colors by state.
         foreach (var (skill, image) in _treeNodes)
@@ -766,7 +772,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var tmp = label.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = skill.displayName;
-        tmp.fontSize = Mathf.Max(10f, Screen.height / 128f);
+        tmp.fontSize = Mathf.Max(13f, Screen.height / 110f);
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.enableWordWrapping = true;
@@ -821,7 +827,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     // ── Backpack storage grid (Inventory tab, right side) ───────────────────
     private void BuildStorageGrid(Transform parent)
     {
-        MakeBodyText(parent, "StorageHeader", P(8f, 178f), Sz(280f, 28f))
+        MakeBodyText(parent, "StorageHeader", P(230f, 212f), Sz(280f, 28f))
             .text = Localization.T("Backpack (storage)");
 
         for (int i = 0; i < ToolManager.StorageSlotCount; i++)
@@ -836,8 +842,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2((8f + col * 52f) * S, (146f - row * 50f) * S);
-            rt.sizeDelta = Sz(46f, 46f);
+            rt.anchoredPosition = new Vector2((250f + col * 44f) * S, (196f - row * 50f) * S);
+            rt.sizeDelta = Sz(40f, 46f);
             var img = go.AddComponent<Image>();
             img.color = SlotColor;
             go.AddComponent<ItemDragHandle>().Slot = slot;
@@ -865,7 +871,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     // ── Hotbar mirror (Inventory tab, bottom-right of the grid) ─────────────
     private void BuildHotbarMirror(Transform parent)
     {
-        MakeBodyText(parent, "UseBarHeader", P(8f, -182f), Sz(290f, 24f))
+        MakeBodyText(parent, "UseBarHeader", P(140f, -142f), Sz(300f, 24f))
             .text = Localization.T("Use bar (1-0)");
 
         for (int i = 0; i < ToolManager.HotbarSlotCount; i++)
@@ -876,8 +882,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2((8f + i * 30f) * S, -206f * S);
-            rt.sizeDelta = Sz(28f, 26f);
+            rt.anchoredPosition = new Vector2((140f + i * 36f) * S, -176f * S);
+            rt.sizeDelta = Sz(32f, 40f);
             var img = go.AddComponent<Image>();
             img.color = SlotColor;
             var btn = go.AddComponent<Button>();
@@ -916,7 +922,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     // ── Owned-weapon lane (Inventory tab, bottom-left) ──────────────────────
     private void BuildWeaponLane(Transform parent)
     {
-        MakeBodyText(parent, "WeaponsHeader", P(-288f, -118f), Sz(300f, 24f))
+        MakeBodyText(parent, "WeaponsHeader", P(-430f, -112f), Sz(360f, 24f))
             .text = Localization.T("Weapons (drag onto a hand)");
 
         for (int i = 0; i < WeaponGridCount; i++)
@@ -930,8 +936,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2((-288f + col * 100f) * S, (-146f - row * 32f) * S);
-            rt.sizeDelta = Sz(94f, 26f);
+            rt.anchoredPosition = new Vector2((-430f + col * 130f) * S, (-146f - row * 32f) * S);
+            rt.sizeDelta = Sz(116f, 30f);
             var img = go.AddComponent<Image>();
             img.color = WeaponIdleColor;
             var btn = go.AddComponent<Button>();
@@ -1088,7 +1094,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0f, 1f);
-        rt.anchoredPosition = new Vector2((pos.x + EquipShiftX) * S, (pos.y + 90f) * S);
+        rt.anchoredPosition = new Vector2((pos.x + EquipShiftX) * S, (pos.y + 150f) * S);
         rt.sizeDelta = Sz(84f, 30f);
         var img = go.AddComponent<Image>();
         img.color = new Color(0.14f, 0.16f, 0.2f, 0.95f);
@@ -1449,7 +1455,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private void BuildSkillTypeBar(Transform parent)
     {
         string[] names = { "Melee", "Ranged", "Magic", "Stealth", "Crafting", "Fortitude" };
-        float w = 300f * S;
+        float w = 440f * S;
         float bw = w / names.Length;
         for (int i = 0; i < names.Length; i++)
         {
@@ -1461,8 +1467,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(-150f * S + bw * (0.5f + i), 176f * S);
-            rt.sizeDelta = new Vector2(bw - 4f * S, 34f * S);
+            rt.anchoredPosition = new Vector2(-220f * S + bw * (0.5f + i), 176f * S);
+            rt.sizeDelta = new Vector2(bw - 4f * S, 42f * S);
             var img = go.AddComponent<Image>();
             img.color = new Color(0.14f, 0.16f, 0.2f, 0.95f);
             var btn = go.AddComponent<Button>();

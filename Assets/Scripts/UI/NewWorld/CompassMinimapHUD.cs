@@ -1,20 +1,18 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Phase 8 (Task 8.1): compass strip + minimap with a chunk-grid overlay.
-/// The minimap is a north-up top-down circle centred on the player. A chunk-grid overlay
-/// draws the 1x1 world chunk boundaries (<see cref="ChunkData.Size"/>) across the visible
-/// footprint, repositioned each frame so chunk lines stay world-aligned while the player
-/// moves. The compass shows the current heading cardinal.
+/// Phase 8 (Task 8.1): compass strip + minimap in the upper-right corner.
+/// The minimap is a north-up top-down circle centred on the player with a subtle
+/// crosshair, a north tick, and a player dot. The compass (top-centre) shows the
+/// current heading cardinal.
 /// </summary>
 public sealed class CompassMinimapHUD : MonoBehaviour
 {
     [Header("Layout")]
     public bool ShowOnInGame = true;
-    [Range(0.08f, 0.35f)] public float MinimapRadiusFraction = 0.18f;
+    [Range(0.08f, 0.3f)] public float MinimapRadiusFraction = 0.16f;
 
     /// <summary>World metres shown across the minimap diameter.</summary>
     public float ViewSize = 40f;
@@ -22,10 +20,7 @@ public sealed class CompassMinimapHUD : MonoBehaviour
     private Canvas _canvas;
     private TMP_Text _compassLabel;
     private RectTransform _minimapRoot;
-    private Transform _gridLineHost;
-    private readonly List<RectTransform> _gridLines = new List<RectTransform>();
     private float _radius;
-    private float _lastView;
 
     private void OnEnable()
     {
@@ -37,44 +32,94 @@ public sealed class CompassMinimapHUD : MonoBehaviour
         var compassRoot = HudCanvas.CreateBackdrop(_canvas.transform, "CompassStrip",
             new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
             new Vector2(0f, 0f), new Vector2(w * 0.5f, 34f));
-        // Hug the top edge (pivot at the strip's top so it hangs fully on screen
-        // instead of being clipped) and clear the HP bar cluster on the left.
         compassRoot.pivot = new Vector2(0.5f, 1f);
         _compassLabel = MakeLabel(compassRoot, "N", Vector2.zero, Color.white);
 
-        // Minimap circle + grid host (bottom-right).
+        // Minimap circle, upper-right corner.
         _radius = Mathf.Min(w, h) * MinimapRadiusFraction;
         float d = _radius * 2f;
         _minimapRoot = HudCanvas.CreateBackdrop(_canvas.transform, "Minimap",
-            new Vector2(1f, 0f), new Vector2(1f, 0f),
-            new Vector2(-_radius - 18f, _radius + 18f), new Vector2(d, d));
+            new Vector2(1f, 1f), new Vector2(1f, 1f),
+            new Vector2(-_radius - 14f, -_radius - 14f), new Vector2(d, d));
+        var discImg = _minimapRoot.GetComponent<Image>();
+        discImg.sprite = MakeCircleSprite();
+        discImg.type = Image.Type.Simple;
+        discImg.color = new Color(0.06f, 0.08f, 0.1f, 0.82f);
 
-        var gridHost = new GameObject("ChunkGrid");
-        gridHost.transform.SetParent(_minimapRoot, false);
-        var gridRect = gridHost.AddComponent<RectTransform>();
-        gridRect.anchorMin = new Vector2(0.5f, 0.5f);
-        gridRect.anchorMax = new Vector2(0.5f, 0.5f);
-        gridRect.pivot = new Vector2(0.5f, 0.5f);
-        gridRect.anchoredPosition = Vector2.zero;
-        gridRect.sizeDelta = new Vector2(d, d);
-        _gridLineHost = gridGridlineHost(gridRect);
-        _lastView = 0f;
+        // North tick.
+        var north = new GameObject("North");
+        north.transform.SetParent(_minimapRoot, false);
+        var nrt = north.AddComponent<RectTransform>();
+        nrt.anchorMin = nrt.anchorMax = new Vector2(0.5f, 0.5f);
+        nrt.pivot = new Vector2(0.5f, 0.5f);
+        nrt.anchoredPosition = new Vector2(0f, _radius - 15f);
+        nrt.sizeDelta = new Vector2(20f, 14f);
+        var northText = north.AddComponent<TextMeshProUGUI>();
+        northText.text = "N";
+        northText.fontSize = Mathf.Max(12f, Screen.height / 68f);
+        northText.color = new Color(0.85f, 0.9f, 1f, 0.95f);
+        northText.alignment = TextAlignmentOptions.Top;
+        northText.raycastTarget = false;
+
+        // Crosshair (horizontal + vertical hairlines).
+        MakeHairline(_minimapRoot, "CrossH", new Vector2(0.5f, 0.5f), d * 0.6f, 1.5f);
+        MakeHairline(_minimapRoot, "CrossV", new Vector2(0.5f, 0.5f), 1.5f, d * 0.6f);
+
+        // Player dot (dedicated, clearly visible).
+        var dot = new GameObject("PlayerDot");
+        dot.transform.SetParent(_minimapRoot, false);
+        var drt = dot.AddComponent<RectTransform>();
+        drt.anchorMin = drt.anchorMax = new Vector2(0.5f, 0.5f);
+        drt.pivot = new Vector2(0.5f, 0.5f);
+        drt.anchoredPosition = Vector2.zero;
+        drt.sizeDelta = new Vector2(Mathf.Max(7f, _radius * 0.22f), Mathf.Max(7f, _radius * 0.22f));
+        var dotImg = dot.AddComponent<Image>();
+        dotImg.sprite = MakeCircleSprite();
+        dotImg.type = Image.Type.Simple;
+        dotImg.color = new Color(0.55f, 0.9f, 1f, 1f);
+        dotImg.raycastTarget = false;
     }
 
-    /// <summary>Create a nested host that keeps gridlines centred; sizes to the minimap.</summary>
-    private static Transform gridGridlineHost(RectTransform gridRect)
+    private RectTransform MakeHairline(RectTransform parent, string name, Vector2 anchor, float sizeX, float sizeY)
     {
-        // A single child keeps the Rects static; gridlines are children of this host.
-        var go = new GameObject("Lines");
-        go.transform.SetParent(gridRect, false);
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
         var rt = go.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0.5f, 0.5f);
-        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.anchorMin = rt.anchorMax = anchor;
         rt.pivot = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = Vector2.zero;
-        rt.sizeDelta = gridRect.sizeDelta;
-        // Gridlines act as world-aligned segments; created lazily in Update.
+        rt.sizeDelta = new Vector2(sizeX, sizeY);
+        var img = go.AddComponent<Image>();
+        img.color = new Color(1f, 1f, 1f, 0.22f);
+        img.raycastTarget = false;
         return rt;
+    }
+
+    private static Sprite _circleSprite;
+    private static Sprite MakeCircleSprite()
+    {
+        if (_circleSprite != null) return _circleSprite;
+        int size = 128;
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.name = "MinimapCircle";
+        var pixels = new Color[size * size];
+        float c = (size - 1) * 0.5f;
+        float r = c - 1f;
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dx = x - c;
+                float dy = y - c;
+                pixels[y * size + x] = (dx * dx + dy * dy) <= r * r
+                    ? new Color(1f, 1f, 1f, 1f)
+                    : new Color(1f, 1f, 1f, 0f);
+            }
+        }
+        tex.SetPixels(pixels);
+        tex.Apply();
+        _circleSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+        return _circleSprite;
     }
 
     private TMP_Text MakeLabel(RectTransform parent, string text, Vector2 pos, Color color)
@@ -106,80 +151,11 @@ public sealed class CompassMinimapHUD : MonoBehaviour
         Transform focus = gm.Player != null ? gm.Player.transform : null;
         if (focus == null) return;
 
-        // Compass heading.
         float yaw;
         var cam = Camera.main;
         yaw = cam != null ? cam.transform.eulerAngles.y : focus.eulerAngles.y;
         if (_compassLabel != null)
             _compassLabel.text = Cardinal(yaw);
-
-        // Chunk-grid overlay: rebuild when the visible world-view changes.
-        if (_gridLineHost != null && Mathf.Abs(_lastView - ViewSize) > 1f)
-        {
-            _lastView = ViewSize;
-            RebuildGrid();
-        }
-        AlignGrid(focus.position);
-    }
-
-    private void RebuildGrid()
-    {
-        foreach (var r in _gridLines) if (r != null) Destroy(r.gameObject);
-        _gridLines.Clear();
-        float meterPerPx = ViewSize / Mathf.Max(1f, _minimapRoot.rect.width);
-
-        // Draw boundaries for chunks within the view footprint.
-        int half = Mathf.Max(1, Mathf.CeilToInt(ViewSize / ChunkData.Size / 2f));
-        float lineThick = Mathf.Max(1f, meterPerPx * 0.5f);
-        Color lineColor = new Color(0.95f, 0.95f, 0.7f, 0.6f);
-
-        // Vertical lines (constant world X).
-        for (int i = -half; i <= half; i++)
-        {
-            var r = CreateLine(_gridLineHost, lineColor, lineThick);
-            r.anchorMin = new Vector2(0.5f, 0f);
-            r.anchorMax = new Vector2(0.5f, 1f);
-            r.pivot = new Vector2(0.5f, 0.5f);
-            r.anchoredPosition = new Vector2(i * ViewSize / (2f * half + 1f), 0f);
-            r.sizeDelta = new Vector2(lineThick, _minimapRoot.rect.height);
-            _gridLines.Add(r);
-        }
-        // Horizontal lines (constant world Z).
-        for (int i = -half; i <= half; i++)
-        {
-            var r = CreateLine(_gridLineHost, lineColor, lineThick);
-            r.anchorMin = new Vector2(0f, 0.5f);
-            r.anchorMax = new Vector2(1f, 0.5f);
-            r.pivot = new Vector2(0.5f, 0.5f);
-            r.anchoredPosition = new Vector2(0f, i * ViewSize / (2f * half + 1f));
-            r.sizeDelta = new Vector2(_minimapRoot.rect.width, lineThick);
-            _gridLines.Add(r);
-        }
-    }
-
-    private RectTransform CreateLine(Transform parent, Color color, float thick)
-    {
-        var go = new GameObject("GridLine");
-        go.transform.SetParent(parent, false);
-        var rect = go.AddComponent<RectTransform>();
-        var img = go.AddComponent<Image>();
-        img.color = color;
-        img.raycastTarget = false;
-        return rect;
-    }
-
-    private void AlignGrid(Vector3 worldPos)
-    {
-        if (_gridLineHost == null || _gridLines.Count == 0) return;
-        // Shift the grid host so a chunk boundary aligns with the minimap centre
-        // (north-up: X↔screen X, Z↔screen Y).
-        float meterPerPx = ViewSize / Mathf.Max(1f, _minimapRoot.rect.width);
-        float ox = Mathf.Repeat(worldPos.x, ChunkData.Size);
-        float oz = Mathf.Repeat(worldPos.z, ChunkData.Size);
-        _gridLineHost.localPosition = new Vector3(
-            (ChunkData.Size * 0.5f - ox) * meterPerPx,
-            (ChunkData.Size * 0.5f - oz) * meterPerPx,
-            0f);
     }
 
     private static string Cardinal(float yaw)
