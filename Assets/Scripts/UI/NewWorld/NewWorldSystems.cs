@@ -34,7 +34,7 @@ public sealed class NewWorldSystems : MonoBehaviour
     private WorldStreamer _streamer;
     private ChunkLodManager _lod;
     private CullManager _cull;
-    private readonly Dictionary<ChunkCoord, ChunkObject> _registered = new Dictionary<ChunkCoord, ChunkObject>();
+    private readonly Dictionary<TerrainChunkCoord, ChunkObject> _registered = new Dictionary<TerrainChunkCoord, ChunkObject>();
     private float _syncTimer;
 
     /// <summary>The lazily-created shared ObjectPooler instance.</summary>
@@ -106,45 +106,45 @@ public sealed class NewWorldSystems : MonoBehaviour
         if (_streamer == null)
             return;
 
-        var loaded = _streamer.Loaded;
+        var loaded = _streamer.LoadedChunks;
         if (loaded == null)
             return;
 
         // Delta-diff on the loaded chunk set; runs in O(changed), not a full sweep.
-        // Added chunks: register their root into LOD + culling.
+        // Added chunks: register their root into LOD + culling. One entry per chunk
+        // (the streamer now emits a single merged object per 30x30 chunk, not per tile).
         foreach (var pair in loaded)
         {
-            ChunkCoord coord = pair.Key;
             ChunkObject obj = pair.Value;
             if (obj == null) continue;
-            if (!_registered.ContainsKey(coord))
+            if (!_registered.ContainsKey(pair.Key))
             {
                 _lod?.RegisterChunk(obj.gameObject);
                 // Terrain chunks must NOT be registered with CullManager —
                 // occlusion raycasts incorrectly hide distant-but-visible terrain.
                 // Only discrete objects (NPCs, buildings) are culled.
-                _registered[coord] = obj;
+                _registered[pair.Key] = obj;
             }
         }
 
         // Removed chunks: unregister the previously-tracked object.
         if (_registered.Count != loaded.Count)
         {
-            List<ChunkCoord> removed = null;
+            List<TerrainChunkCoord> removed = null;
             foreach (var kv in _registered)
             {
                 if (!loaded.ContainsKey(kv.Key))
                 {
-                    if (removed == null) removed = new List<ChunkCoord>();
+                    if (removed == null) removed = new List<TerrainChunkCoord>();
                     removed.Add(kv.Key);
                 }
             }
             if (removed != null)
             {
-                foreach (var coord in removed)
+                foreach (var tc in removed)
                 {
-                    ChunkObject obj = _registered[coord];
-                    _registered.Remove(coord);
+                    ChunkObject obj = _registered[tc];
+                    _registered.Remove(tc);
                     if (obj != null)
                     {
                         _lod?.UnregisterChunk(obj.gameObject);

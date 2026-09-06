@@ -135,6 +135,84 @@ public static class ChunkMeshGenerator
     }
 
     /// <summary>
+    /// Merges the 900 per-tile mesh arrays of a terrain chunk into one thread-safe
+    /// chunk-local mesh (1800 triangles -> ONE GameObject + ONE collider per chunk).
+    /// Runs on the background thread; no Unity API objects are touched.
+    /// Per-tile UVs/normals are preserved unchanged, so visuals match the old
+    /// one-GameObject-per-tile setup exactly.
+    /// </summary>
+    public static MergedChunkMeshData BuildMergedMeshData(ChunkMeshData[] tiles)
+    {
+        int cs = TerrainChunkCoord.ChunkSize;
+        int tileCount = cs * cs;
+        int vertCount = tileCount * 4;
+        int triCount = tileCount * 6;
+
+        Vector3[] vertices = new Vector3[vertCount];
+        int[] triangles = new int[triCount];
+        Vector2[] uv = new Vector2[vertCount];
+        Vector3[] normals = new Vector3[vertCount];
+
+        float minY = float.MaxValue;
+        float maxY = float.MinValue;
+
+        int baseIndex = 0;
+        int tri = 0;
+        for (int i = 0; i < tileCount; i++)
+        {
+            ChunkMeshData tile = tiles[i];
+            int localX = i % cs;
+            int localZ = i / cs;
+            Vector3 offset = new Vector3(localX * ChunkData.Size, 0f, localZ * ChunkData.Size);
+
+            for (int k = 0; k < 4; k++)
+            {
+                Vector3 p = tile.Vertices[k] + offset;
+                int v = baseIndex + k;
+                vertices[v] = p;
+                uv[v] = k < tile.UV.Length ? tile.UV[k] : Vector2.zero;
+                normals[v] = k < tile.Normals.Length ? tile.Normals[k] : Vector3.up;
+                if (p.y < minY) minY = p.y;
+                if (p.y > maxY) maxY = p.y;
+            }
+
+            for (int k = 0; k < tile.Triangles.Length; k++)
+                triangles[tri++] = tile.Triangles[k] + baseIndex;
+
+            baseIndex += 4;
+        }
+
+        float span = cs * ChunkData.Size;
+        Bounds bounds = new Bounds(
+            new Vector3(span * 0.5f, (minY + maxY) * 0.5f, span * 0.5f),
+            new Vector3(span, Mathf.Max(0.1f, (maxY - minY) + 0.1f), span));
+
+        return new MergedChunkMeshData
+        {
+            Vertices = vertices,
+            Triangles = triangles,
+            UV = uv,
+            Normals = normals,
+            Bounds = bounds,
+        };
+    }
+
+    /// <summary>
+    /// Creates a Unity Mesh from the pre-built merged chunk arrays. Main thread only.
+    /// </summary>
+    public static Mesh CreateMeshFromMerged(MergedChunkMeshData md, string meshName)
+    {
+        Mesh mesh = new Mesh { name = meshName };
+        mesh.Clear();
+        mesh.vertices = md.Vertices;
+        mesh.uv = md.UV;
+        mesh.triangles = md.Triangles;
+        mesh.normals = md.Normals;
+        mesh.bounds = md.Bounds;
+        return mesh;
+    }
+
+    /// <summary>
     /// Deterministic corner height for a given slot by sampling the world-space
     /// corner coordinate. Slot layout (matches ChunkData):
     ///   0=NW, 1=NE, 2=SE, 3=SW.

@@ -1,3 +1,5 @@
+using UnityEngine;
+
 /// <summary>
 /// Thread-safe mesh data for an entire terrain chunk (30x30 = 900 tiles).
 /// Produced by a single background thread dispatch and consumed on the main
@@ -10,6 +12,28 @@ public struct TerrainChunkMeshData
     /// <summary>
     /// Per-tile mesh data arrays. Length is always ChunkArea (900).
     /// Index = (localZ * ChunkSize + localX) where local coords are 0-29.
+    /// Kept so tile heightmaps can be written into WorldStreamer._loadedData
+    /// (persistence / validation) without keeping per-tile GameObjects.
     /// </summary>
     public ChunkMeshData[] Tiles;
+
+    /// <summary>
+    /// Single merged chunk mesh (built on the worker thread). Vertices are
+    /// chunk-local metres (0..30), so the main thread creates just ONE
+    /// GameObject + ONE MeshCollider per chunk instead of 900 tile objects.
+    /// </summary>
+    public MergedChunkMeshData Merged;
+}
+
+/// <summary>
+/// Pure C# arrays for one merged terrain chunk mesh. Contains only arrays —
+/// no Unity API objects, so it is safe to build on a background thread.
+/// </summary>
+public struct MergedChunkMeshData
+{
+    public Vector3[] Vertices;
+    public int[] Triangles;
+    public Vector2[] UV;
+    public Vector3[] Normals;
+    public Bounds Bounds;
 }

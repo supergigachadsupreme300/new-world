@@ -8,9 +8,11 @@ using UnityEngine;
 ///
 /// The world is divided into TerrainChunks, each covering a 30x30 block of
 /// individual tiles. Background threads generate one TerrainChunk at a time,
-/// producing all 900 tile meshes in a single ThreadPool dispatch. The main
-/// thread creates GameObjects from a tile finalization queue, spreading the
-/// work across frames to avoid hitches.
+/// pre-computing the 31x31 corner heights and merging the 900 tile meshes into
+/// a single thread-safe chunk mesh. The main thread then creates ONE GameObject
+/// per chunk (mesh + collider + props), so a fully streamed radius is ~50
+/// objects instead of ~44,100 tiles — physics, draw calls and scene-graph cost
+/// drop by roughly three orders of magnitude.
 /// </summary>
 public class WorldStreamer : MonoBehaviour
 {
@@ -27,16 +29,19 @@ public class WorldStreamer : MonoBehaviour
     public RenderDistanceController RenderDistance;
 
     [Header("Threading")]
-    [Tooltip("Max tiles finalized per poll tick (main-thread work).")]
-    public int ChunksPerFrame = 32;
+    [Tooltip("Max terrain chunks finalized per poll tick (main-thread work).")]
+    public int ChunksPerFrame = 4;
 
     [Tooltip("Max terrain chunks being generated on background threads simultaneously.")]
     public int MaxInFlight = 4;
 
-    // --- Tile-level state (existing public API) ---
+    // --- Tile-level state (existing public API; 900 entries per loaded chunk) ---
     private readonly Dictionary<ChunkCoord, ChunkData> _loadedData = new Dictionary<ChunkCoord, ChunkData>();
     private readonly Dictionary<ChunkCoord, ChunkObject> _loadedObjects = new Dictionary<ChunkCoord, ChunkObject>();
     private readonly HashSet<ChunkCoord> _dirty = new HashSet<ChunkCoord>();
+
+    // --- Chunk-level state (authoritative object identity; one entry per loaded chunk) ---
+    private readonly Dictionary<TerrainChunkCoord, ChunkObject> _loadedChunks = new Dictionary<TerrainChunkCoord, ChunkObject>();
 
     // --- Chunk-level dispatch ---
     private readonly HashSet<TerrainChunkCoord> _pendingChunks = new HashSet<TerrainChunkCoord>();
@@ -44,25 +49,18 @@ public class WorldStreamer : MonoBehaviour
     private readonly ConcurrentDictionary<TerrainChunkCoord, byte> _chunksInFlight = new ConcurrentDictionary<TerrainChunkCoord, byte>();
     private readonly ConcurrentQueue<TerrainChunkMeshData> _readyChunks = new ConcurrentQueue<TerrainChunkMeshData>();
 
-    // --- Tile finalization queue ---
-    private struct TileFinalization
-    {
-        public ChunkCoord Tile;
-        public ChunkMeshData MeshData;
-    }
-    private readonly Queue<TileFinalization> _tileFinalizeQueue = new Queue<TileFinalization>();
-
-    // --- Hierarchy containers (Terrain > Chunks > Chunk_X_Z > Tile_X_Z) ---
+    // --- Hierarchy container (Terrain > Chunks > Chunk_X_Z) ---
     private Transform _terrainRoot;
     private Transform _chunksRoot;
-    private readonly Dictionary<TerrainChunkCoord, Transform> _chunkContainers = new Dictionary<TerrainChunkCoord, Transform>();
-    private readonly Dictionary<TerrainChunkCoord, int> _chunkTileCount = new Dictionary<TerrainChunkCoord, int>();
 
     private Transform _focus;
     private float _timer;
     private const float PollInterval = 0.1f;
 
     public IReadOnlyDictionary<ChunkCoord, ChunkObject> Loaded => _loadedObjects;
+
+    /// <summary>Loaded terrain chunks keyed by chunk coord (one object per chunk).</summary>
+    public IReadOnlyDictionary<TerrainChunkCoord, ChunkObject> LoadedChunks => _loadedChunks;
 
     // --- Public tile-level API ---
 
@@ -98,8 +96,7 @@ public class WorldStreamer : MonoBehaviour
 
         StreamAround(centre, radius);
         DispatchPending();
-        FinalizeReadyChunks();
-        FinalizeTileQueue();
+        FinalizeChunks();
     }
 
     // --- Chunk-level streaming ---
@@ -118,20 +115,25 @@ public class WorldStreamer : MonoBehaviour
     {
         // Hysteresis: keep already-generated chunks loaded beyond the load radius so props
         // (trees/rocks) never pop in and despawn immediately at the streaming edge.
-        int keep = radius + 2;
+        int keep = radius + 1;
 
-        // Unload tiles from chunks that fell outside the (extended) radius
-        List<ChunkCoord> toUnload = new List<ChunkCoord>();
-        foreach (ChunkCoord tile in _loadedObjects.Keys)
+        // Unload chunks that fell outside the (extended) radius.
+        List<TerrainChunkCoord> toUnload = null;
+        foreach (TerrainChunkCoord tc in _loadedChunks.Keys)
         {
-            TerrainChunkCoord tc = TerrainChunkCoord.FromTile(tile);
             int dx = Mathf.Abs(tc.X - centre.X);
             int dz = Mathf.Abs(tc.Z - centre.Z);
             if (dx > keep || dz > keep)
-                toUnload.Add(tile);
+            {
+                if (toUnload == null) toUnload = new List<TerrainChunkCoord>();
+                toUnload.Add(tc);
+            }
         }
-        foreach (ChunkCoord tile in toUnload)
-            UnloadChunk(tile);
+        if (toUnload != null)
+        {
+            foreach (TerrainChunkCoord tc in toUnload)
+                UnloadChunk(tc);
+        }
 
         // Remove pending chunks that fell outside the (extended) radius
         for (int i = _chunkDispatchOrder.Count - 1; i >= 0; i--)
@@ -165,9 +167,7 @@ public class WorldStreamer : MonoBehaviour
 
     private void EnqueueChunkIfNeeded(TerrainChunkCoord tc)
     {
-        // Skip if any tile in this chunk is already loaded
-        tc.GetTileRange(out int minX, out int minZ, out int maxX, out int maxZ);
-        if (_loadedObjects.ContainsKey(new ChunkCoord(minX, minZ)))
+        if (_loadedChunks.ContainsKey(tc))
             return;
         if (_chunksInFlight.ContainsKey(tc))
             return;
@@ -207,21 +207,16 @@ public class WorldStreamer : MonoBehaviour
             ThreadPool.QueueUserWorkItem(_ => BackgroundGenerateChunk(tc, seed));
         }
 
-        // Clean up loaded chunks from dispatch list
-        _chunkDispatchOrder.RemoveAll(c => _pendingChunks.Contains(c) && IsChunkFullyLoaded(c));
-    }
-
-    private bool IsChunkFullyLoaded(TerrainChunkCoord tc)
-    {
-        tc.GetTileRange(out int minX, out int minZ, out int maxX, out int maxZ);
-        return _loadedObjects.ContainsKey(new ChunkCoord(minX, minZ));
+        // Drop fully-loaded chunks from the dispatch list.
+        _chunkDispatchOrder.RemoveAll(c => _pendingChunks.Contains(c) && _loadedChunks.ContainsKey(c));
     }
 
     // --- Background thread: generate entire chunk ---
 
     /// <summary>
     /// Runs on a ThreadPool thread. Generates all 900 tiles for a terrain chunk,
-    /// pre-computing 31x31 = 961 corner heights to avoid redundant noise calls.
+    /// pre-computing 31x31 = 961 corner heights to avoid redundant noise calls,
+    /// then merges the tile meshes into one thread-safe chunk mesh.
     /// </summary>
     private void BackgroundGenerateChunk(TerrainChunkCoord tc, long seed)
     {
@@ -256,8 +251,7 @@ public class WorldStreamer : MonoBehaviour
                     data.Heights[3] = corners[tx, tz];          // SW
                     data.Version = 1;
 
-                    ChunkMeshData md = ChunkMeshGenerator.BuildMeshData(data, TerrainNoiseGenerator.DefaultLayers);
-                    tiles[tz * cs + tx] = md;
+                    tiles[tz * cs + tx] = ChunkMeshGenerator.BuildMeshData(data, TerrainNoiseGenerator.DefaultLayers);
                 }
             }
 
@@ -265,6 +259,7 @@ public class WorldStreamer : MonoBehaviour
             {
                 Coord = tc,
                 Tiles = tiles,
+                Merged = ChunkMeshGenerator.BuildMergedMeshData(tiles),
             };
             _readyChunks.Enqueue(result);
         }
@@ -276,63 +271,72 @@ public class WorldStreamer : MonoBehaviour
         }
     }
 
-    // --- Main thread: finalize chunk data + tile queue ---
+    // --- Main thread: finalize chunk data + create the chunk GameObject ---
 
     /// <summary>
-    /// Dequeue completed terrain chunks and push their tiles into the
-    /// finalization queue for main-thread GO creation.
+    /// Dequeue completed terrain chunks and create ONE GameObject (merged mesh +
+    /// single collider + props) per chunk on the main thread. A capped budget
+    /// (ChunksPerFrame, max 8/tick) spreads the work so the whole render radius
+    /// fills in about a second without frame hitches.
     /// </summary>
-    private void FinalizeReadyChunks()
+    private void FinalizeChunks()
     {
-        TerrainChunkMeshData chunk;
-        if (_readyChunks.TryDequeue(out chunk))
+        int finalized = 0;
+        int budget = Mathf.Max(1, Mathf.Min(ChunksPerFrame, 8));
+        while (finalized < budget && _readyChunks.TryDequeue(out TerrainChunkMeshData chunk))
         {
             byte _;
             _chunksInFlight.TryRemove(chunk.Coord, out _);
             _pendingChunks.Remove(chunk.Coord);
 
-            // Skip if tiles already exist (e.g. re-loaded from disk)
-            ChunkCoord firstTile = new ChunkCoord(
-                chunk.Coord.X * TerrainChunkCoord.ChunkSize,
-                chunk.Coord.Z * TerrainChunkCoord.ChunkSize);
-            if (_loadedObjects.ContainsKey(firstTile))
-                return;
+            if (_loadedChunks.ContainsKey(chunk.Coord))
+                continue;
 
-            // Push all tiles into the finalization queue
-            for (int i = 0; i < chunk.Tiles.Length; i++)
-            {
-                _tileFinalizeQueue.Enqueue(new TileFinalization
-                {
-                    Tile = chunk.Tiles[i].Coord,
-                    MeshData = chunk.Tiles[i],
-                });
-            }
+            CreateChunkGameObject(chunk);
+            finalized++;
         }
     }
 
-    /// <summary>
-    /// Pop tiles from the finalization queue and create GameObjects on the main
-    /// thread. Limited to ChunksPerFrame per tick to avoid hitches.
-    /// </summary>
-    private void FinalizeTileQueue()
+    private Transform EnsureChunksRoot()
     {
-        int finalized = 0;
-        while (finalized < ChunksPerFrame && _tileFinalizeQueue.Count > 0)
+        if (_terrainRoot == null)
+            _terrainRoot = new GameObject("Terrain").transform;
+        if (_chunksRoot == null)
         {
-            TileFinalization tf = _tileFinalizeQueue.Dequeue();
+            _chunksRoot = new GameObject("Chunks").transform;
+            _chunksRoot.SetParent(_terrainRoot, false);
+        }
+        return _chunksRoot;
+    }
 
-            if (_loadedObjects.ContainsKey(tf.Tile))
-                continue;
+    /// <summary>
+    /// Creates the chunk GameObject (mesh + collider + props) and registers its
+    /// 900 tiles in the tile-level lookup dictionaries for persistence/validation.
+    /// </summary>
+    private void CreateChunkGameObject(TerrainChunkMeshData chunk)
+    {
+        TerrainChunkCoord tc = chunk.Coord;
+        Vector3 origin = new Vector3(
+            tc.X * TerrainChunkCoord.ChunkSize * ChunkData.Size,
+            0f,
+            tc.Z * TerrainChunkCoord.ChunkSize * ChunkData.Size);
 
-            ChunkData data = tf.MeshData.Data;
-            _loadedData[tf.Tile] = data;
+        var go = new GameObject($"TerrainChunk_{tc.X}_{tc.Z}");
+        go.isStatic = false;
+        go.transform.SetParent(EnsureChunksRoot(), false);
+        go.transform.position = origin;
 
-            ChunkObject obj = CreateOrPool(tf.Tile);
-            obj.ApplyMeshData(tf.MeshData, GroundMaterial, buildCollider: true);
-            obj.SpawnProps(Seed);
-            _loadedObjects[tf.Tile] = obj;
+        var obj = go.AddComponent<ChunkObject>();
+        obj.Init(tc);
+        obj.ApplyMerged(chunk.Merged, GroundMaterial, buildCollider: true);
+        obj.SpawnProps(Seed);
+        _loadedChunks[tc] = obj;
 
-            finalized++;
+        for (int i = 0; i < chunk.Tiles.Length; i++)
+        {
+            ChunkCoord tile = chunk.Tiles[i].Coord;
+            _loadedData[tile] = chunk.Tiles[i].Data;
+            _loadedObjects[tile] = obj;
         }
     }
 
@@ -341,10 +345,14 @@ public class WorldStreamer : MonoBehaviour
     /// <summary>
     /// Generate an entire terrain chunk synchronously on the main thread.
     /// Used at startup to ensure the spawn area has terrain + colliders before
-    /// the player is placed.
+    /// the player is placed. Now builds a single merged mesh per chunk, so the
+    /// 3x3 spawn area costs ~9 GameObjects instead of 8,100 — the boot hitches.
     /// </summary>
     public void GenerateChunkSync(TerrainChunkCoord tc)
     {
+        if (_loadedChunks.ContainsKey(tc))
+            return;
+
         int cs = TerrainChunkCoord.ChunkSize;
         int gridSize = TerrainChunkCoord.CornerGridSize;
 
@@ -359,150 +367,73 @@ public class WorldStreamer : MonoBehaviour
             }
         }
 
+        ChunkMeshData[] tiles = new ChunkMeshData[cs * cs];
         for (int tz = 0; tz < cs; tz++)
         {
             for (int tx = 0; tx < cs; tx++)
             {
                 ChunkCoord tileCoord = new ChunkCoord(tc.X * cs + tx, tc.Z * cs + tz);
-                if (_loadedObjects.ContainsKey(tileCoord))
-                    continue;
-
                 ChunkData data = new ChunkData(tileCoord.X, tileCoord.Z, Seed);
                 data.Heights[0] = corners[tx, tz + 1];
                 data.Heights[1] = corners[tx + 1, tz + 1];
                 data.Heights[2] = corners[tx + 1, tz];
                 data.Heights[3] = corners[tx, tz];
                 data.Version = 1;
-
-                _loadedData[tileCoord] = data;
-
-                ChunkObject obj = CreateOrPool(tileCoord);
-                obj.Apply(data, TerrainNoiseGenerator.DefaultLayers, GroundMaterial, buildCollider: true);
-                obj.SpawnProps(Seed);
-                _loadedObjects[tileCoord] = obj;
+                tiles[tz * cs + tx] = ChunkMeshGenerator.BuildMeshData(data, TerrainNoiseGenerator.DefaultLayers);
             }
         }
-    }
 
-    // --- Object lifecycle ---
-
-    private ChunkObject CreateOrPool(ChunkCoord coord)
-    {
-        GameObject go = new GameObject($"Tile_{coord.X}_{coord.Z}");
-        go.isStatic = false;
-        go.transform.SetParent(GetChunkContainer(coord), false);
-        go.transform.position = new Vector3(coord.X * ChunkData.Size, 0f, coord.Z * ChunkData.Size);
-        var obj = go.AddComponent<ChunkObject>();
-        obj.Init(coord);
-        return obj;
+        TerrainChunkMeshData chunk = new TerrainChunkMeshData
+        {
+            Coord = tc,
+            Tiles = tiles,
+            Merged = ChunkMeshGenerator.BuildMergedMeshData(tiles),
+        };
+        CreateChunkGameObject(chunk);
     }
 
     /// <summary>
-    /// Get (or lazily create) the container the given tile's terrain chunk lives under.
-    /// Organises the scene hierarchy as Terrain > Chunks > Chunk_X_Z > Tile_X_Z so tiles
-    /// are grouped into their 30x30 chunks instead of sitting flat at the scene root.
-    /// Containers stay at the world origin; tiles keep world-space positions.
-    /// </summary>
-    private Transform GetChunkContainer(ChunkCoord tile)
-    {
-        TerrainChunkCoord tc = TerrainChunkCoord.FromTile(tile);
-        Transform container;
-        if (_chunkContainers.TryGetValue(tc, out container))
-        {
-            _chunkTileCount[tc] = _chunkTileCount[tc] + 1;
-            return container;
-        }
-
-        if (_terrainRoot == null)
-            _terrainRoot = new GameObject("Terrain").transform;
-        if (_chunksRoot == null)
-        {
-            _chunksRoot = new GameObject("Chunks").transform;
-            _chunksRoot.SetParent(_terrainRoot, false);
-        }
-
-        GameObject chunk = new GameObject($"Chunk_{tc.X}_{tc.Z}");
-        chunk.transform.SetParent(_chunksRoot, false);
-        _chunkContainers[tc] = chunk.transform;
-        _chunkTileCount[tc] = 1;
-        return chunk.transform;
-    }
-
-    /// <summary>
-    /// Synchronous fallback: generate chunk on the main thread.
-    /// Used by EnsureChunk for non-streaming callers (e.g. validation).
+    /// Ensure the terrain chunk containing the given tile is loaded. Synchronous
+    /// fallback for non-streaming callers (e.g. validation). Generates the whole
+    /// chunk, since tiles are no longer individual GameObjects.
     /// </summary>
     public void EnsureChunk(ChunkCoord coord)
     {
-        if (_loadedObjects.ContainsKey(coord))
-            return;
-
-        ChunkData data;
-        if (!_loadedData.TryGetValue(coord, out data))
-        {
-            if (ChunkSaveManager.TryLoad(Seed, coord.X, coord.Z, out data))
-            {
-                // loaded from disk
-            }
-            else
-            {
-                data = GenerateChunk(coord);
-            }
-            _loadedData[coord] = data.ShallowCopy();
-        }
-
-        ChunkObject obj = CreateOrPool(coord);
-        obj.Apply(data, TerrainNoiseGenerator.DefaultLayers, GroundMaterial, buildCollider: true);
-        obj.SpawnProps(Seed);
-        _loadedObjects[coord] = obj;
-    }
-
-    private ChunkData GenerateChunk(ChunkCoord coord)
-    {
-        ChunkData data = new ChunkData(coord.X, coord.Z, Seed);
-        data.Heights[0] = TerrainNoiseGenerator.GetHeight(Seed, coord.X * ChunkData.Size, (coord.Z + 1) * ChunkData.Size);
-        data.Heights[1] = TerrainNoiseGenerator.GetHeight(Seed, (coord.X + 1) * ChunkData.Size, (coord.Z + 1) * ChunkData.Size);
-        data.Heights[2] = TerrainNoiseGenerator.GetHeight(Seed, (coord.X + 1) * ChunkData.Size, coord.Z * ChunkData.Size);
-        data.Heights[3] = TerrainNoiseGenerator.GetHeight(Seed, coord.X * ChunkData.Size, coord.Z * ChunkData.Size);
-        data.Version = 1;
-        return data;
+        GenerateChunkSync(TerrainChunkCoord.FromTile(coord));
     }
 
     public void UnloadChunk(ChunkCoord coord)
     {
+        UnloadChunk(TerrainChunkCoord.FromTile(coord));
+    }
+
+    public void UnloadChunk(TerrainChunkCoord tc)
+    {
         ChunkObject obj;
-        if (!_loadedObjects.TryGetValue(coord, out obj))
+        if (!_loadedChunks.TryGetValue(tc, out obj))
             return;
 
-        if (_dirty.Contains(coord) && _loadedData.TryGetValue(coord, out ChunkData data))
+        // Persist any modified tiles in the chunk, then drop tile-level bookkeeping.
+        tc.GetTileRange(out int minX, out int minZ, out int maxX, out int maxZ);
+        for (int x = minX; x <= maxX; x++)
         {
-            ChunkSaveManager.Save(Seed, coord.X, coord.Z, data);
-            _dirty.Remove(coord);
+            for (int z = minZ; z <= maxZ; z++)
+            {
+                ChunkCoord tile = new ChunkCoord(x, z);
+                if (_dirty.Contains(tile) && _loadedData.TryGetValue(tile, out ChunkData data))
+                {
+                    ChunkSaveManager.Save(Seed, tile.X, tile.Z, data);
+                    _dirty.Remove(tile);
+                }
+                _loadedObjects.Remove(tile);
+                _loadedData.Remove(tile);
+            }
         }
 
         obj.Release();
         if (obj != null)
             Destroy(obj.gameObject);
-        _loadedObjects.Remove(coord);
-
-        // Destroy the chunk container once its last tile is gone.
-        TerrainChunkCoord tc = TerrainChunkCoord.FromTile(coord);
-        Transform container;
-        if (_chunkContainers.TryGetValue(tc, out container))
-        {
-            int remaining = _chunkTileCount[tc] - 1;
-            if (remaining <= 0)
-            {
-                _chunkTileCount.Remove(tc);
-                _chunkContainers.Remove(tc);
-                if (container != null)
-                    Destroy(container.gameObject);
-            }
-            else
-            {
-                _chunkTileCount[tc] = remaining;
-            }
-        }
+        _loadedChunks.Remove(tc);
     }
 
     public void MarkDirty(ChunkCoord coord)

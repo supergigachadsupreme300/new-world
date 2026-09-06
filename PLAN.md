@@ -1,7 +1,8 @@
 # Plan: UI polish + player model visuals + per-weapon attack animation
 
-> STATUS: Sections 1-11 implemented and semantic-checker clean (0 diagnostics).
-> Section 10 remains (UnitPlay visual verification + commit).
+> STATUS: Sections 1-12 shipped and pushed (commits 2b4bd6a, d8f5f46, 61827f0, 7fd5218, f097440).
+> Section 13 (streaming perf rework) implemented, semantic-checker clean (0 diagnostics); pushed.
+> Verify checklists 10/12/13 still need user play-testing (Unity can't be run in this env).
 
 This file is the durable plan for the current batch of work. It survives context compaction.
 Mark each step as it is completed. When a step changes scope (discovered while implementing),
@@ -201,3 +202,57 @@ Body size reference for the Character Info menu: body half-extents ≈ ±503 x, 
   6. Learn a castable skill → select it → detail shows e.g. "Key: G"; Assign Key + press G →
      key label updates and G fires the skill every press; skill bar grows one small slot per bind.
   7. Take damage / spend stamina or mana → the top-left bars visibly shorten (drain), then refill.
+
+---
+
+## 13. Batch 3 — fix "extremely lag" (per-chunk terrain merge)
+
+### 13.1 Root cause
+The streamer made **1 GameObject per 1x1-metre tile**: at render radius 3 that is 49 chunks x
+900 tiles = **44,100 GameObjects**, each with its own 2-triangle mesh, own MeshCollider, own draw
+call (plus the radius+2 keep margin could hold up to ~108,900). Physics, draw calls and the
+per-frame `FindObjectsByType` sweep in EnemyHealthBarHUD all scaled with that object count; the
+32-tile/0.1s finalize budget took ~138s to fill the radius and `GameBootstrap` built 9 chunks
+(8,100 tiles) synchronously on one frame at startup.
+
+### 13.2 Changes
+- `Assets/Scripts/World/Terrain/ChunkMeshGenerator.cs`:
+  - `BuildMergedMeshData(ChunkMeshData[] tiles)` — thread-safe merge of a chunk's 900 tile arrays
+    into one 1800-triangle chunk-local mesh (3600 verts). Per-tile UVs/normals preserved, so
+    visuals are identical to the old setup.
+  - `CreateMeshFromMerged(...)` — main-thread Unity Mesh build.
+- `Assets/Scripts/World/Streaming/TerrainChunkMeshData.cs` — carries `Tiles` (for tile-heightmap
+  persistence) + new `Merged` arrays + `MergedChunkMeshData` struct.
+- `Assets/Scripts/World/Chunks/ChunkObject.cs` — reworked to ONE object per `TerrainChunkCoord`:
+  merged mesh + one collider; `SpawnProps` keeps the exact per-tile 1/200 RNG placement, props
+  parented to the chunk root at world positions; `Release()` cleans mesh + props.
+- `Assets/Scripts/World/Streaming/WorldStreamer.cs`:
+  - New authoritative `LoadedChunks` dict (chunk -> ChunkObject); per-tile `_loadedData`/
+    `_loadedObjects` kept (900 entries per chunk, same object) so `TryGetData`/`IsLoaded`/
+    `ChunkValidator`/`ChunkSaveManager` work unchanged.
+  - Stream/unload/save reworked to **chunk granularity** (`UnloadChunk(TerrainChunkCoord)`),
+    hysteresis keep margin radius+2 → radius+1.
+  - `FinalizeChunks()` — one GameObject (mesh + collider) per completed chunk; budget
+    `Clamp(chunksPerFrame, 1, 8)` per 0.1s so the whole radius loads in ~1s with no spikes.
+  - `GenerateChunkSync(tc)` now builds a single merged mesh (3x3 spawn area = ~9 objects, not
+    8,100); `EnsureChunk(coord)` generates the whole containing chunk.
+- `Assets/Scripts/Core/GameBootstrap.cs` — unchanged call site (3x3 sync now trivially cheap).
+- `Assets/Scripts/UI/NewWorld/NewWorldSystems.cs` — LOD registration deltas on `LoadedChunks`
+  (per chunk) instead of per-tile sweep.
+- `Assets/Scripts/UI/NewWorld/EnemyHealthBarHUD.cs` — enemy discovery throttled to every 0.5s
+  into a reused list (no per-frame 44k-object scene sweep).
+
+### 13.3 Effects
+~44,100 geometry objects / draw calls / physics colliders → ~50 per radius; startup + streaming
+hitches and the per-frame HUD sweep eliminated. Terrain shape, trees/rocks, tile persistence and
+the tile-level public API are unchanged.
+
+### 13.4 Verify (needs user — Unity can't be run here)
+- [ ] New-game spawn: no long one-frame hitch; ground present immediately.
+- [ ] Run in any direction: chunks stream in smoothly, no frame spikes; terrain/trees/rocks stay
+      visible; no console errors (watch for `ArgumentOutOfRange`/missing `ChunkData`).
+- [ ] Mining (axe/pickaxe), hoe on fields, NPC/shop interactions, sit, fight — all still work
+      (ground now has one collider per 30x30 chunk).
+- [ ] Character Info tab + skills + red ✕ close still fine; enemy health bars still render.
+- [ ] FPS stable vs. the previous build.
+- [ ] Commit: stage only touched scripts + PLAN.md; push to `main`.

@@ -16,6 +16,12 @@ public sealed class EnemyHealthBarHUD : MonoBehaviour
     private Canvas _canvas;
     private readonly List<EnemyHealthBar> _bars = new List<EnemyHealthBar>();
 
+    // Scanned enemy pool, refreshed periodically instead of every frame so a fully
+    // streamed world (tens of thousands of objects) is never swept per-frame.
+    private readonly List<EnemyController> _enemies = new List<EnemyController>();
+    private float _scanTimer;
+    private const float ScanInterval = 0.5f;
+
     private sealed class EnemyHealthBar
     {
         public GameObject Root;
@@ -39,6 +45,9 @@ public sealed class EnemyHealthBarHUD : MonoBehaviour
         _canvas.gameObject.SetActive(GameManager.Instance != null && GameManager.Instance.InGame);
         if (!_canvas.gameObject.activeSelf) return;
 
+        if (_scanTimer > 0f)
+            _scanTimer -= Time.deltaTime;
+
         var enemies = AllEnemies();
         int used = 0;
 
@@ -59,10 +68,14 @@ public sealed class EnemyHealthBarHUD : MonoBehaviour
 
     private List<EnemyController> AllEnemies()
     {
-        var out_ = new List<EnemyController>();
+        if (_scanTimer > 0f)
+            return _enemies;
+
+        _scanTimer = ScanInterval;
+        _enemies.Clear();
         foreach (var e in Object.FindObjectsByType<EnemyController>(FindObjectsSortMode.None))
-            out_.Add(e);
-        return out_;
+            _enemies.Add(e);
+        return _enemies;
     }
 
     private EnemyHealthBar Acquire(int index)
