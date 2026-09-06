@@ -21,6 +21,9 @@ public class PlayerController : MonoBehaviour
     public long Money = 1000;
     public bool IgnoreInput { get; private set; }
 
+    public bool FightingMode { get; private set; }
+    private int _cachedFightSlot = -1;
+
     public bool InWater { get; private set; }
 
     public bool IsRiding => HorseMount.Instance != null && HorseMount.Instance.IsMounted;
@@ -655,9 +658,19 @@ public class PlayerController : MonoBehaviour
                          ((!GameInput.IsMobile && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) ||
                           MobileInputController.Consume("use"));
         if (!dialogBlocked && leftClick)
-            ToolManager.Instance?.UseSelectedItem();
+        {
+            if (FightingMode)
+                GetComponent<CombatController>()?.LightAttack();
+            else
+                ToolManager.Instance?.UseSelectedItem();
+        }
         if (!dialogBlocked && !GameInput.IsMobile && Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame)
         {
+            if (FightingMode)
+            {
+                GetComponent<CombatController>()?.HeavyAttack();
+                return;
+            }
             var cam = Camera.main;
             if (cam != null)
             {
@@ -739,26 +752,28 @@ public class PlayerController : MonoBehaviour
         if (!dialogBlocked && GameManager.Instance?.UIManager != null)
             GameManager.Instance.UIManager.HandleFriendPanelKeys();
         bool friendOpen = GameManager.Instance?.UIManager != null && GameManager.Instance.UIManager.FriendPanelVisible;
-        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit1Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && !FightingMode && Keyboard.current != null && Keyboard.current.digit1Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(0);
-        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit2Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && !FightingMode && Keyboard.current != null && Keyboard.current.digit2Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(1);
-        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit3Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && !FightingMode && Keyboard.current != null && Keyboard.current.digit3Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(2);
-        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit4Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && !FightingMode && Keyboard.current != null && Keyboard.current.digit4Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(3);
-        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit5Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && !FightingMode && Keyboard.current != null && Keyboard.current.digit5Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(4);
-        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit6Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && !FightingMode && Keyboard.current != null && Keyboard.current.digit6Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(5);
-        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit7Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && !FightingMode && Keyboard.current != null && Keyboard.current.digit7Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(6);
-        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit8Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && !FightingMode && Keyboard.current != null && Keyboard.current.digit8Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(7);
-        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit9Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && !FightingMode && Keyboard.current != null && Keyboard.current.digit9Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(8);
-        if (!dialogBlocked && !friendOpen && Keyboard.current != null && Keyboard.current.digit0Key.wasPressedThisFrame)
+        if (!dialogBlocked && !friendOpen && !FightingMode && Keyboard.current != null && Keyboard.current.digit0Key.wasPressedThisFrame)
             ToolManager.Instance?.SelectSlot(9);
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.f1Key.wasPressedThisFrame)
+            ToggleCombatMode();
     }
 
     private void PickupWeaponStand(WeaponRackStand stand)
@@ -779,7 +794,58 @@ public class PlayerController : MonoBehaviour
         else
             ShowPrompt(Localization.F("{0} is already in your inventory.", name));
 
+        // Take it as a normal item: hotbar (0-9) first, then the backpack storage grid.
+        var tm = ToolManager.Instance;
+        if (tm == null)
+        {
+            var go = new GameObject("ToolManager");
+            tm = go.AddComponent<ToolManager>();
+        }
+        if (!tm.AddItem(stand.WeaponId, 1))
+            ShowPrompt(Localization.T("Túi đồ đầy."));
+
         stand.Collect();
+    }
+
+    private void ToggleCombatMode()
+    {
+        if (FightingMode)
+        {
+            FightingMode = false;
+            GameManager.Instance?.UIManager?.SetHotbarVisible(true);
+            var skillBar = Object.FindAnyObjectByType<SkillBarHUD>();
+            if (skillBar != null) skillBar.SetVisible(true);
+            if (_cachedFightSlot >= 0)
+                ToolManager.Instance?.SelectSlot(_cachedFightSlot);
+            _cachedFightSlot = -1;
+            ShowPrompt(Localization.T("Casual mode."));
+        }
+        else
+        {
+            FightingMode = true;
+            var tm = ToolManager.Instance;
+            _cachedFightSlot = tm != null ? tm.SelectedSlotIndex : -1;
+            ToolManager.Instance?.ResetSelection();
+            GameManager.Instance?.UIManager?.SetHotbarVisible(false);
+            var skillBar = Object.FindAnyObjectByType<SkillBarHUD>();
+            if (skillBar != null) skillBar.SetVisible(false);
+            TryAutoRigWeapon();
+            ShowPrompt(Localization.T("Fighting mode: Left click = attack, Right click = heavy attack."));
+        }
+    }
+
+    private void TryAutoRigWeapon()
+    {
+        WeaponCatalog.EnsureBuilt();
+        var combat = GetComponent<CombatController>();
+        if (combat != null && (combat.RightHand != null || combat.LeftHand != null)) return;
+        string id = null;
+        var inv = GetComponent<WeaponInventory>();
+        if (inv != null && inv.Owned.Count > 0)
+            id = inv.Owned[0];
+        WeaponData weapon = WeaponCatalog.Find(id ?? WeaponCatalog.StarterWeaponId);
+        if (weapon != null)
+            WeaponRigBuilder.EquipInto(gameObject, weapon);
     }
 
     private static void ShowPrompt(string message)

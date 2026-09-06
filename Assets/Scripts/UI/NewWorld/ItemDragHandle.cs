@@ -60,7 +60,7 @@ public sealed class ItemDragHandle : MonoBehaviour, IBeginDragHandler, IDragHand
         lr.offsetMax = Vector2.zero;
         var tmp = label.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
-        tmp.text = Localization.ItemName(slot.Type) + " " + slot.Count;
+        tmp.text = WeaponCatalog.DisplayName(slot.Type) + " " + slot.Count;
         tmp.fontSize = Mathf.Max(12f, Screen.height / 60f);
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;

@@ -52,11 +52,11 @@ public static class WeaponRigBuilder
     }
 
     /// <summary>
-    /// Rig <paramref name="weapon"/> onto <paramref name="playerRoot"/> and assign it to the
-    /// combat controller's hands with the appropriate wielding state. Returns the handed-over
-    /// weapon GameObject (or null on failure).
+    /// Rig <paramref name="weapon"/> onto <paramref name="playerRoot"/>, attach its visual to
+    /// the matching player-model hand, and assign it to the combat controller's hands with the
+    /// appropriate wielding state. Returns the handed-over weapon GameObject (or null on failure).
     /// </summary>
-    public static GameObject EquipInto(GameObject playerRoot, WeaponData weapon)
+    public static GameObject EquipInto(GameObject playerRoot, WeaponData weapon, bool toLeftHand = false)
     {
         if (playerRoot == null || weapon == null) return null;
 
@@ -66,28 +66,92 @@ public static class WeaponRigBuilder
         var stats = playerRoot.GetComponent<PlayerStats>();
         if (combat == null) return null;
 
-        var weaponGo = BuildRig(playerRoot, weapon, caster, stats, out var behavior);
-        if (weaponGo == null || behavior == null) return null;
-
         var wielding = WieldingFor(weapon);
+
+        var weaponGo = BuildRig(playerRoot, weapon, caster, stats, out var behavior);
+        if (weaponGo == null || behavior == null)
+        {
+            if (weaponGo != null) Object.Destroy(weaponGo);
+            return null;
+        }
+
+        // Drop the previous rigs so old Wpn_ proxies never pile up on the hands.
+        ClearHand(combat.LeftHand);
+        ClearHand(combat.RightHand);
+
         switch (wielding)
         {
             case CombatController.WieldingState.Dual:
-                combat.LeftHand = weaponGo;
-                combat.RightHand = CloneRig(playerRoot, weapon, caster, stats);
+                AttachToHand(playerRoot, weaponGo, false);
+                var clone = CloneRig(playerRoot, weapon, caster, stats, true);
+                if (clone == null)
+                {
+                    Object.Destroy(weaponGo);
+                    return null;
+                }
+                combat.RightHand = weaponGo;
+                combat.LeftHand = clone;
                 break;
             case CombatController.WieldingState.TwoHand:
+                AttachToHand(playerRoot, weaponGo, false);
                 combat.RightHand = weaponGo;
                 combat.LeftHand = null;
                 break;
             case CombatController.WieldingState.Single:
             default:
-                combat.RightHand = weaponGo;
-                combat.LeftHand = null;
+                AttachToHand(playerRoot, weaponGo, toLeftHand);
+                if (toLeftHand)
+                {
+                    combat.LeftHand = weaponGo;
+                    combat.RightHand = null;
+                }
+                else
+                {
+                    combat.RightHand = weaponGo;
+                    combat.LeftHand = null;
+                }
                 break;
         }
         combat.Wielding = wielding;
         return weaponGo;
+    }
+
+    private static void ClearHand(GameObject rig)
+    {
+        if (rig != null) Object.Destroy(rig);
+    }
+
+    /// <summary>
+    /// Parent a built rig to the player model's shoulder hand (right by default, left when
+    /// <paramref name="isLeft"/>). The block weapons are authored +Y-up with the grip/pommel at
+    /// the base, so the root sits in the fist with a slight forward lean. Falls back to the
+    /// player root when no hand bone exists (seated/sitting models have no arm pivots).
+    /// </summary>
+    private static void AttachToHand(GameObject playerRoot, GameObject weaponGo, bool isLeft)
+    {
+        if (weaponGo == null) return;
+        var t = weaponGo.transform;
+        var hand = FindHand(playerRoot?.transform, isLeft);
+        if (hand == null || hand == playerRoot.transform)
+        {
+            t.SetParent(playerRoot.transform, false);
+            return;
+        }
+        t.SetParent(hand, false);
+        t.localPosition = new Vector3(0f, -0.06f, 0f);
+        t.localRotation = Quaternion.Euler(-12f, 0f, 0f);
+        t.localScale = Vector3.one;
+    }
+
+    /// <summary>Resolve the standing player model's hand transform (null when unavailable).</summary>
+    private static Transform FindHand(Transform playerRoot, bool isLeft)
+    {
+        if (playerRoot == null) return null;
+        var model = playerRoot.Find("PlayerModel");
+        if (model == null) return null;
+        var shoulder = model.Find(isLeft ? "ShoulderL" : "ShoulderR");
+        if (shoulder == null) return null;
+        return shoulder.Find(isLeft ? "HandL" : "HandR");
     }
 
     private static GameObject BuildRig(GameObject playerRoot, WeaponData weapon,
@@ -148,9 +212,11 @@ public static class WeaponRigBuilder
     }
 
     private static GameObject CloneRig(GameObject playerRoot, WeaponData weapon,
-        SpellCaster caster, PlayerStats stats)
+        SpellCaster caster, PlayerStats stats, bool toLeftHand = false)
     {
         var go = BuildRig(playerRoot, weapon, caster, stats, out var ignored);
+        if (go != null)
+            AttachToHand(playerRoot, go, toLeftHand);
         return go;
     }
 

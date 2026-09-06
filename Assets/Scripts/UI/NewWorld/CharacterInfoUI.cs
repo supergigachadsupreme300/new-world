@@ -83,8 +83,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
     private readonly Dictionary<EquipSlot, TMP_Text> _equipSlotLabels = new Dictionary<EquipSlot, TMP_Text>();
 
-    private static readonly Color WeaponIdleColor = new Color(0.14f, 0.16f, 0.2f, 0.95f);
-    private static readonly Color WeaponSelectedColor = new Color(0.3f, 0.6f, 0.9f, 0.95f);
     private static readonly Color SlotColor = new Color(0.14f, 0.16f, 0.2f, 0.95f);
     private static readonly Color SlotSelectedColor = new Color(0.35f, 0.55f, 0.75f, 0.95f);
 
@@ -134,15 +132,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         }
     }
 
-    private const int WeaponGridCols = 3;
-    private const int WeaponGridRows = 3;
-    private const int WeaponGridCount = WeaponGridCols * WeaponGridRows;
     private string _selectedWeaponId;
-    private readonly GameObject[] _weaponGos = new GameObject[WeaponGridCount];
-    private readonly Image[] _weaponImages = new Image[WeaponGridCount];
-    private readonly TMP_Text[] _weaponLabels = new TMP_Text[WeaponGridCount];
-    private readonly WeaponDragHandle[] _weaponDrags = new WeaponDragHandle[WeaponGridCount];
-    private readonly List<string> _weaponGridIds = new List<string>();
 
     // Class / Race change dialog (picker + confirmation).
     private GameObject _changeDialog;
@@ -267,7 +257,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _panels[Tab.Inventory] = MakePanel("InventoryPanel");
         BuildEquipmentSheet(_panels[Tab.Inventory].transform);
         _equipSummary = MakeBodyText(_panels[Tab.Inventory].transform, "Equipment", P(-450f, 222f), Sz(480f, 44f));
-        BuildWeaponLane(_panels[Tab.Inventory].transform);
         BuildStorageGrid(_panels[Tab.Inventory].transform);
         BuildHotbarMirror(_panels[Tab.Inventory].transform);
         _moneyLine = MakeBodyText(_panels[Tab.Inventory].transform, "Money", P(230f, -112f), Sz(260f, 24f));
@@ -919,88 +908,9 @@ public sealed class CharacterInfoUI : MenuPanelBase
         RefreshInventory();
     }
 
-    // ── Owned-weapon lane (Inventory tab, bottom-left) ──────────────────────
-    private void BuildWeaponLane(Transform parent)
-    {
-        MakeBodyText(parent, "WeaponsHeader", P(-430f, -112f), Sz(360f, 24f))
-            .text = Localization.T("Weapons (drag onto a hand)");
-
-        for (int i = 0; i < WeaponGridCount; i++)
-        {
-            int col = i % WeaponGridCols;
-            int row = i / WeaponGridCols;
-
-            var go = new GameObject("Weapon_" + i);
-            go.transform.SetParent(parent, false);
-            var rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 0.5f);
-            rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2((-430f + col * 130f) * S, (-146f - row * 32f) * S);
-            rt.sizeDelta = Sz(116f, 30f);
-            var img = go.AddComponent<Image>();
-            img.color = WeaponIdleColor;
-            var btn = go.AddComponent<Button>();
-            btn.targetGraphic = img;
-            int captured = i;
-            btn.onClick.AddListener(() => SelectOwnedWeaponAt(captured));
-
-            var label = new GameObject("Label");
-            label.transform.SetParent(go.transform, false);
-            var lr = label.AddComponent<RectTransform>();
-            lr.anchorMin = Vector2.zero;
-            lr.anchorMax = Vector2.one;
-            lr.offsetMin = Vector2.zero;
-            lr.offsetMax = Vector2.zero;
-            var tmp = label.AddComponent<TextMeshProUGUI>();
-            GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
-            tmp.fontSize = Mathf.Max(11f, Screen.height / 80f);
-            tmp.color = Color.white;
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.text = "";
-
-            var drag = go.AddComponent<WeaponDragHandle>();
-
-            _weaponGos[i] = go;
-            _weaponImages[i] = img;
-            _weaponLabels[i] = tmp;
-            _weaponDrags[i] = drag;
-            go.SetActive(false);
-        }
-    }
-
-    private void RefreshWeapons()
-    {
-        var player = GameManager.Instance?.Player;
-        var inv = player != null ? player.GetComponent<WeaponInventory>() : null;
-        _weaponGridIds.Clear();
-        if (inv != null)
-            _weaponGridIds.AddRange(inv.Owned);
-        if (_weaponGridIds.Count == 0 || !_weaponGridIds.Contains(WeaponCatalog.StarterWeaponId))
-            _weaponGridIds.Insert(0, WeaponCatalog.StarterWeaponId);
-
-        for (int i = 0; i < WeaponGridCount; i++)
-        {
-            bool has = i < _weaponGridIds.Count;
-            if (_weaponGos[i] == null) continue;
-            _weaponGos[i].SetActive(has);
-            if (!has) continue;
-
-            string id = _weaponGridIds[i];
-            var weapon = WeaponCatalog.Find(id);
-            string name = weapon != null && !string.IsNullOrEmpty(weapon.displayName) ? weapon.displayName : id;
-            _weaponLabels[i].text = name;
-            _weaponDrags[i].WeaponId = id;
-            _weaponImages[i].color = id == _selectedWeaponId ? WeaponSelectedColor : WeaponIdleColor;
-        }
-    }
-
-    private void SelectOwnedWeaponAt(int index)
-    {
-        if (index < 0 || index >= _weaponGridIds.Count) return;
-        _selectedWeaponId = _weaponGridIds[index];
-        RefreshWeapons();
-    }
+    // ── Weapon equipping (hand slots) ───────────────────────────────────────
+    // Weapons are normal inventory items now: drag one from the grid/hotbar onto
+    // the LHand/RHand slot (WeaponDropTarget) or click a hand slot to equip/cycle.
 
     public void EquipWeaponFromDrop(string weaponId, EquipSlot slot)
     {
@@ -1011,7 +921,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
     public void OnDragDropEnded()
     {
-        RefreshWeapons();
+        RefreshInventoryUi();
     }
 
     public void OnItemDragEnded()
@@ -1019,11 +929,10 @@ public sealed class CharacterInfoUI : MenuPanelBase
         RefreshInventoryUi();
     }
 
-    /// <summary>Refresh all inventory-side displays (storage grid, use bar, weapons, sheet).</summary>
+    /// <summary>Refresh all inventory-side displays (storage grid, use bar, sheet).</summary>
     public void RefreshInventoryUi()
     {
         RefreshInventory();
-        RefreshWeapons();
         RefreshEquipment();
     }
 
@@ -1031,30 +940,15 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         var player = GameManager.Instance?.Player;
         var combat = CombatOf();
-        var inv = player != null ? player.GetComponent<WeaponInventory>() : null;
         if (player == null || combat == null) return;
-        if (inv != null && !inv.Has(weaponId)) return;
 
         var weapon = WeaponCatalog.Find(weaponId);
         if (weapon == null) return;
 
-        var wielding = WeaponRigBuilder.WieldingFor(weapon);
-        if (slot == EquipSlot.LeftHand && wielding == CombatController.WieldingState.Single)
-        {
-            var leftRig = WeaponRigBuilder.EquipInto(player.gameObject, weapon);
-            if (leftRig == null) return;
-            combat.LeftHand = leftRig;
-            combat.RightHand = null;
-            combat.Wielding = CombatController.WieldingState.Single;
-        }
-        else
-        {
-            WeaponRigBuilder.EquipInto(player.gameObject, weapon);
-        }
+        WeaponRigBuilder.EquipInto(player.gameObject, weapon, slot == EquipSlot.LeftHand);
 
         _selectedWeaponId = "";
         RefreshEquipment();
-        RefreshWeapons();
     }
 
     // ── Humanoid 21-slot equipment sheet (§5.4) ────────────────────────────
@@ -1652,7 +1546,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var slot = tm != null ? tm.PeekSlot(ToolManager.StorageStart + i) : null;
             string body = slot == null || slot.Type == null || slot.Count <= 0
                 ? ""
-                : Localization.ItemName(slot.Type) + " x" + slot.Count;
+                : WeaponCatalog.DisplayName(slot.Type) + " x" + slot.Count;
             if (_storageLabels[i] != null)
                 _storageLabels[i].text = string.IsNullOrEmpty(body) ? (i + 1).ToString() : (i + 1) + " " + body;
             if (_storageImgs[i] != null)
@@ -1664,7 +1558,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var slot = tm != null ? tm.PeekSlot(i) : null;
             string body = slot == null || slot.Type == null || slot.Count <= 0
                 ? ""
-                : Localization.ItemName(slot.Type) + " x" + slot.Count;
+                : WeaponCatalog.DisplayName(slot.Type) + " x" + slot.Count;
             if (_invLabels[i] != null)
                 _invLabels[i].text = string.IsNullOrEmpty(body)
                     ? (i + 1).ToString()

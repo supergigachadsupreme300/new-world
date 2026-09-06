@@ -599,8 +599,18 @@ public partial class ToolManager : MonoBehaviour
         UpdateBuildingPreviewVisibility();
     }
 
+    private static bool InFightingMode()
+    {
+        var gm = GameManager.Instance;
+        var player = gm != null ? gm.Player : null;
+        var pc = player != null ? player.GetComponent<PlayerController>() : null;
+        return pc != null && pc.FightingMode;
+    }
+
     public void SelectSlot(int index)
     {
+        if (InFightingMode())
+            return;
         if (_carriedObject != null)
             DropCarriedObject(GameManager.Instance?.Player);
 

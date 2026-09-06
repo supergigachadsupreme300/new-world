@@ -57,6 +57,13 @@ public partial class UIManager
         // The 10-slot inventory bar stays visible (new HUD doesn't replace it).
     }
 
+    /// <summary>Toggle only the legacy 10-slot inventory (hotbar) bar visibility.</summary>
+    public void SetHotbarVisible(bool visible)
+    {
+        for (int i = 0; i < InventorySlotCount; i++)
+            if (_inventorySlots[i] != null) _inventorySlots[i].SetActive(visible);
+    }
+
     public void SetCrosshairVisible(bool visible)
     {
         if (_crosshairText != null)
@@ -294,7 +301,7 @@ public partial class UIManager
             if (i >= slots.Length || _inventorySlotTexts[i] == null) continue;
 
             var item = slots[i];
-            string label = item == null ? "" : (item.Count > 1 ? $"{Localization.ItemName(item.Type)}x{item.Count}" : Localization.ItemName(item.Type));
+            string label = item == null ? "" : (item.Count > 1 ? $"{WeaponCatalog.DisplayName(item.Type)}x{item.Count}" : WeaponCatalog.DisplayName(item.Type));
             _inventorySlotTexts[i].text = $"{i + 1}: {label}";
 
             bool isSelected = (i == selectedSlot);

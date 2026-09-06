@@ -41,6 +41,17 @@ public static class WeaponCatalog
     /// <summary>Convenience default starter weapon id (Wanderer's Iron Sword).</summary>
     public const string StarterWeaponId = "iron_sword";
 
+    /// <summary>
+    /// Display name for an inventory item slot. Weapons use their authored <c>displayName</c>
+    /// (their ids are English tokens), everything else falls back to <see cref="Localization"/>.
+    /// </summary>
+    public static string DisplayName(string id)
+    {
+        WeaponData w = Find(id);
+        if (w != null && !string.IsNullOrEmpty(w.displayName)) return w.displayName;
+        return Localization.ItemName(id);
+    }
+
     private static List<WeaponData> BuildDefault()
     {
         var list = new List<WeaponData>();

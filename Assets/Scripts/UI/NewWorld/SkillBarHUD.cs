@@ -18,14 +18,15 @@ public sealed class SkillBarHUD : MonoBehaviour
     private readonly Image[] _slotImages = new Image[SlotCount];
     private readonly TMP_Text[] _slotTexts = new TMP_Text[SlotCount];
     private readonly Dictionary<int, string> _actions = new Dictionary<int, string>();
+    private bool _visible = true;
 
     private void OnEnable()
     {
         _canvas = HudCanvas.CreateOverlay("SkillBarCanvas");
         float w = Mathf.Max(Screen.width, 1f);
         float h = Mathf.Max(Screen.height, 1);
-        float slotSize = h * 0.10f;
-        float spacing = slotSize * 1.5f;
+        float slotSize = h * 0.09f;
+        float spacing = slotSize * 1.8f;
         float total = (SlotCount - 1) * spacing;
         float startX = -total * 0.5f;
 
@@ -62,12 +63,7 @@ public sealed class SkillBarHUD : MonoBehaviour
 
     private static Color DefaultColor(int slot)
     {
-        switch (slot)
-        {
-            case 0: return new Color(0.85f, 0.62f, 0.28f); // Farming
-            case 1: return new Color(0.3f, 0.7f, 0.9f);    // Fishing
-            default: return new Color(0.35f, 0.35f, 0.4f);
-        }
+        return new Color(0.35f, 0.35f, 0.4f);
     }
 
     /// <summary>Register a named action on a slot (0-based).</summary>
@@ -77,12 +73,20 @@ public sealed class SkillBarHUD : MonoBehaviour
         _actions[slot] = actionName;
     }
 
+    /// <summary>Force the whole skill bar visible/hidden (e.g. fighting mode).</summary>
+    public void SetVisible(bool visible)
+    {
+        _visible = visible;
+        if (_canvas != null)
+            _canvas.gameObject.SetActive(visible);
+    }
+
     private void Update()
     {
         var gm = GameManager.Instance;
         bool inGame = gm != null && gm.InGame;
         if (_canvas != null)
-            _canvas.gameObject.SetActive(ShowOnInGame ? inGame : true);
+            _canvas.gameObject.SetActive(_visible && (ShowOnInGame ? inGame : true));
         if (!inGame) return;
 
         // Remaining slots: bound actions or empty.
