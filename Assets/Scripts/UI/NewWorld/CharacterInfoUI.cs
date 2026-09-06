@@ -446,7 +446,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _treeContent.pivot = new Vector2(0.5f, 0.5f);
         _treeContent.anchoredPosition = Vector2.zero;
         _treeContent.sizeDelta = Sz(520f, 400f);
-        _treeViewport = vrt;
 
         var pan = vp.AddComponent<TreePan>();
         pan.Content = _treeContent;
@@ -704,8 +703,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
                         foreach (var pid in s.PrereqSkillIds)
                             if (angleOf.TryGetValue(pid, out float pa))
                             {
-                                float rad = pa * Mathf.Deg2Rad;
-                                sx += Mathf.Cos(rad); sy += Mathf.Sin(rad); cnt++;
+                                float paRad = pa * Mathf.Deg2Rad;
+                                sx += Mathf.Cos(paRad); sy += Mathf.Sin(paRad); cnt++;
                             }
                     if (cnt == 0) { angle = -90f; }
                     else angle = Mathf.Atan2(sy / cnt, sx / cnt) * Mathf.Rad2Deg;
