@@ -49,12 +49,11 @@ public static class HudCanvas
         var fill = new GameObject("Fill");
         fill.transform.SetParent(root.transform, false);
         var fillRect = fill.AddComponent<RectTransform>();
-        fillRect.anchorMin = new Vector2(0.02f, 0.5f);
-        fillRect.anchorMax = new Vector2(0.98f, 0.5f);
+        fillRect.anchorMin = Vector2.zero;
+        fillRect.anchorMax = new Vector2(1f, 1f);
         fillRect.pivot = new Vector2(0f, 0.5f);
-        fillRect.offsetMin = Vector2.zero;
-        fillRect.offsetMax = Vector2.zero;
-        fillRect.sizeDelta = new Vector2(Mathf.Max(2f, size.x - 6f), Mathf.Max(2f, size.y - 6f));
+        fillRect.offsetMin = new Vector2(3f, 3f);
+        fillRect.offsetMax = new Vector2(-3f, -3f);
         var fillImg = fill.AddComponent<Image>();
         fillImg.type = Image.Type.Filled;
         fillImg.fillMethod = Image.FillMethod.Horizontal;

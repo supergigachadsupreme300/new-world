@@ -11,7 +11,7 @@ using TMPro;
 /// </summary>
 public sealed class SkillBarHUD : MonoBehaviour
 {
-    public const int SlotCount = 6;
+    public const int SlotCount = 4;
     public bool ShowOnInGame = true;
 
     private Canvas _canvas;
@@ -85,17 +85,8 @@ public sealed class SkillBarHUD : MonoBehaviour
             _canvas.gameObject.SetActive(ShowOnInGame ? inGame : true);
         if (!inGame) return;
 
-        var sm = SkillManager.Instance;
-
-        // Slot 0: Farming — show level + XP fraction.
-        if (sm != null)
-        {
-            SetSlot(0, "Farming", "G", sm.Level(SkillManager.Track.Farming), sm.XPNormalized(SkillManager.Track.Farming));
-            SetSlot(1, "Fishing", "C", sm.Level(SkillManager.Track.Fishing), sm.XPNormalized(SkillManager.Track.Fishing));
-        }
-
         // Remaining slots: bound actions or empty.
-        for (int i = 2; i < SlotCount; i++)
+        for (int i = 0; i < SlotCount; i++)
         {
             if (_actions.TryGetValue(i, out var act))
                 SetSlot(i, act, "", 0, 0f);

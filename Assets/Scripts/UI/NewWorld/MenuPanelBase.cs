@@ -72,8 +72,10 @@ public abstract class MenuPanelBase : MonoBehaviour
         PanelRect.anchorMax = new Vector2(0.5f, 0.5f);
         PanelRect.pivot = new Vector2(0.5f, 0.5f);
         PanelRect.anchoredPosition = Vector2.zero;
-        var w = Mathf.Min(Screen.width * 0.8f, 640f);
-        var h = Mathf.Min(Screen.height * 0.8f, 486f);
+        // Caps are fractions of the reference-resolution canvas so the panel never
+        // overflows the visible screen (which is reference-sized at any resolution).
+        var w = Mathf.Min(Screen.width * 0.92f, (1280f / UiScale) * 0.94f);
+        var h = Mathf.Min(Screen.height * 0.9f, (720f / UiScale) * 0.94f);
         PanelRect.sizeDelta = new Vector2(w, h);
         var panelImg = panel.AddComponent<Image>();
         var menuTex = Resources.Load<Texture2D>("menu");
@@ -121,7 +123,7 @@ public abstract class MenuPanelBase : MonoBehaviour
         BodyRow.anchorMax = new Vector2(0.5f, 0.5f);
         BodyRow.pivot = new Vector2(0.5f, 0.5f);
         BodyRow.anchoredPosition = Vector2.zero;
-        BodyRow.sizeDelta = new Vector2(w - 40f, h - 110f);
+        BodyRow.sizeDelta = new Vector2(w - 60f, h - 120f);
 
         // Close button.
         var closeGo = new GameObject("Close");
