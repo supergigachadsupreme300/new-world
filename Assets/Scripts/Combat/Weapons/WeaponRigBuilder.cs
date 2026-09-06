@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -17,6 +18,16 @@ using UnityEngine;
 /// </summary>
 public static class WeaponRigBuilder
 {
+    /// <summary>Set true to print equip/attach diagnostics to the console (debug aid).</summary>
+    public static bool LogRigging = true;
+
+    private static readonly HashSet<string> _logged = new HashSet<string>();
+
+    private static void LogOnce(string key, string message)
+    {
+        if (LogRigging && _logged.Add(key)) Debug.Log("[WeaponRig] " + message);
+    }
+
     /// <summary>Default wielding per weapon archetype (guessed from the weapon id).</summary>
     public static CombatController.WieldingState WieldingFor(WeaponData weapon)
     {
@@ -113,6 +124,11 @@ public static class WeaponRigBuilder
                 break;
         }
         combat.Wielding = wielding;
+        LogOnce("equip-" + weapon.id,
+            "equipped '" + weapon.id + "' (" + wielding + ") -> RightHand=" +
+            (combat.RightHand != null ? combat.RightHand.transform.parent != null ? combat.RightHand.transform.parent.name : "?" : "null") +
+            ", LeftHand=" +
+            (combat.LeftHand != null ? combat.LeftHand.transform.parent != null ? combat.LeftHand.transform.parent.name : "?" : "null"));
         return weaponGo;
     }
 
@@ -134,11 +150,20 @@ public static class WeaponRigBuilder
         var hand = FindHand(playerRoot?.transform, isLeft);
         if (hand == null || hand == playerRoot.transform)
         {
+            // No model hand bone yet — park at the natural hand spot so the weapon is NEVER
+            // hidden inside the body. ReparentToHands migrates it onto the bone when it exists.
             t.SetParent(playerRoot.transform, false);
+            t.localPosition = new Vector3(isLeft ? -0.33f : 0.33f, 0.72f, 0.05f);
+            t.localRotation = Quaternion.Euler(-12f, 0f, 0f);
+            t.localScale = Vector3.one;
+            LogOnce("attach-fallback-" + weaponGo.name + "-" + isLeft,
+                "hand bone missing for " + (isLeft ? "left" : "right") + "; parked at chest-side pose on '" + playerRoot.name + "'");
             return;
         }
         t.SetParent(hand, false);
         ApplyHandPose(t, isLeft);
+        LogOnce("attach-hand-" + weaponGo.name + "-" + isLeft,
+            weaponGo.name + " attached to '" + hand.name + "'");
     }
 
     private static void ApplyHandPose(Transform t, bool isLeft)
@@ -172,6 +197,8 @@ public static class WeaponRigBuilder
         if (t.parent == hand) return;
         t.SetParent(hand, false);
         ApplyHandPose(t, isLeft);
+        LogOnce("reparent-" + rig.name + "-" + isLeft,
+            rig.name + " re-parented onto '" + hand.name + "'");
     }
 
     /// <summary>Resolve the standing player model's hand transform (null when unavailable).</summary>

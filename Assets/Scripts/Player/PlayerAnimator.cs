@@ -21,9 +21,21 @@ public sealed class PlayerAnimator : MonoBehaviour
     private Transform _body;
     private Vector3 _bodyBasePos;
 
+    /// <summary>Left shoulder pivot (null when the model has no arms). Used by WeaponAnimator.</summary>
+    public Transform ShoulderL => _shoulderL;
+
+    /// <summary>Right shoulder pivot (null when the model has no arms). Used by WeaponAnimator.</summary>
+    public Transform ShoulderR => _shoulderR;
+
     private Vector3 _lastRootPos;
     private float _phase;
     private float _time;
+
+    /// <summary>
+    /// When true, the shoulder/arm pivots are left alone — a <see cref="WeaponAnimator"/> is
+    /// driving them during an attack. Set while attacking, cleared on recovery.
+    /// </summary>
+    public bool SuppressArms;
 
     private void OnEnable()
     {
@@ -92,8 +104,11 @@ public sealed class PlayerAnimator : MonoBehaviour
 
         if (_hipL != null) _hipL.localRotation = Quaternion.Euler(legL, 0f, 0f);
         if (_hipR != null) _hipR.localRotation = Quaternion.Euler(legR, 0f, 0f);
-        if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(armR, 0f, 0f);
-        if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(armL, 0f, 0f);
+        if (!SuppressArms)
+        {
+            if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(armR, 0f, 0f);
+            if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(armL, 0f, 0f);
+        }
 
         if (_body != null && _bodyBasePos != default)
             _body.localPosition = _bodyBasePos;
@@ -110,8 +125,11 @@ public sealed class PlayerAnimator : MonoBehaviour
     private void RestoreIdle(float blend)
     {
         Vector3 idle = Quaternion.identity.eulerAngles;
-        SetLerped(_shoulderL, idle, blend);
-        SetLerped(_shoulderR, idle, blend);
+        if (!SuppressArms)
+        {
+            SetLerped(_shoulderL, idle, blend);
+            SetLerped(_shoulderR, idle, blend);
+        }
         SetLerped(_hipL, idle, blend);
         SetLerped(_hipR, idle, blend);
         if (_body != null && _bodyBasePos != default)

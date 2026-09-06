@@ -3,7 +3,9 @@
 > STATUS: Sections 1-12 shipped and pushed (commits 2b4bd6a, d8f5f46, 61827f0, 7fd5218, f097440).
 > Section 13 (streaming perf rework) implemented, semantic-checker clean (0 diagnostics); pushed.
 > Section 14 (white player / hidden sword / backpack layout) implemented, semantic-checker clean; pushed.
-> Verify checklists 10/12/13/14 still need user play-testing (Unity can't be run in this env).
+> Section 15 (bulletproof color + always-visible sword + unique per-weapon arm animations) implemented,
+>   semantic-checker clean (0 diagnostics); pushed.
+> Verify checklists 10/12/13/14/15 still need user play-testing (Unity can't be run in this env).
 
 This file is the durable plan for the current batch of work. It survives context compaction.
 Mark each step as it is completed. When a step changes scope (discovered while implementing),
@@ -306,4 +308,53 @@ the tile-level public API are unchanged.
 - [ ] Inventory tab: backpack grid sits left (~40px) and up (~24px); the "Use bar (1-0)" row is
       fully visible under it and clickable — switching between bag and bar works.
 - [ ] Weapons on the rack are tinted (not white).
+- [ ] Semantic checker 0 diagnostics; commit only touched scripts + PLAN.md; push to `main`.
+
+## 15. Batch 5 — bulletproof color, always-visible sword, unique per-weapon animations
+
+User played batch 4 fresh and reported all three issues persisted (player still white, sword still
+invisible when equipped, no using animation) plus the new request: a *unique using animation for
+each weapon*. Batch 5 attacks each with a guarantee instead of another guess.
+
+### 15.1 Bulletproof player/weapon coloring
+- Files: `Assets/Scripts/Models/MapBuilder.cs`, `Assets/Scripts/Models/WeaponModelBuilder.cs`.
+- `CreateSolidMaterial(Color)` (new public, shared by both): shader chain `Universal Render
+  Pipeline/Lit` → `Standard` → `Unlit/Color`. Sets `_Color` (Standard path), and when the
+  material exposes `_BaseMap` (URP Lit) assigns a cached 1×1 color `Texture2D` (covers URP/Lit
+  builds that ignore the scalar) plus `_BaseColor = white` (avoid double-multiply); otherwise sets
+  `_BaseColor` directly. Logs the resolved shader + color once to the console.
+- `ApplyBlockColor` now caches via `CreateSolidMaterial`.
+
+### 15.2 Sword always visible
+- File: `Assets/Scripts/Combat/Weapons/WeaponRigBuilder.cs`.
+- `AttachToHand` fallback (no hand bone) no longer parents at `(0,0,0)` inside the body — parks at
+  the natural hand spot relative to the root `(±0.33, 0.72, 0.05)`, leaned −12°, so it reads as
+  held even in first person. `ReparentToHands` migrates it onto the real bone the moment it exists.
+- New `LogRigging` (static bool, default on) + one-time `[WeaponRig]` console lines for attach vs
+  fallback, re-parent, and the final RightHand/LeftHand parent names — paste them if it still fails.
+
+### 15.3 Unique per-weapon using animation (arm + weapon)
+- Files: `Assets/Scripts/Combat/Weapons/WeaponAnimator.cs` (rewritten),
+  `Assets/Scripts/Player/PlayerAnimator.cs`.
+- `WeaponAnimator` drives the weapon's local swing **and** the owning shoulder pivot, with a
+  per-weapon `MotionProfile` for all 15 ids: iron_sword quick slash; katana wide slash; greatsword
+  overhead chop; greataxe bigger chop; warhammer slower deeper chop; lance two-handed lunge;
+  gauntlets alternating punches; longbow raise/draw/loose; throwing_hammer overhand fling; dagger
+  double jab; and five distinct casts (staff/holy_book/bone_wand/control_orb/lute) each with its
+  own arc/bob/pulse. Two-handers mirror the off arm.
+- Coordination with the walk/idle animator: new `PlayerAnimator.SuppressArms` (public) skips its
+  shoulder writes while an attack is active; `WeaponAnimator` sets it on `PlayAttack`, restores it
+  on recovery/`OnDisable`. Arm pose is composed on top of the captured base rotation, and the
+  weapon rest pose is re-captured at every attack start, so re-parenting never breaks the swing.
+- New public `PlayerAnimator.ShoulderL/R` accessors used for the mirrored supporting hand.
+
+### 15.4 Verify (needs user — Unity can't be run here)
+- [ ] Fresh Play (restart editor): player is colored, not white. First-attack console shows
+      `[MapBuilder] Block material shader: '...'`.
+- [ ] F1 fighting mode: sword visible in hand in both first person and third person (F5); console
+      shows `[WeaponRig] Wpn_iron_sword attached to 'HandR'` (not the fallback line) if the hand
+      model is present. LMB/RMB: you see a sword slash swing.
+- [ ] Equip several weapons (rack or inventory): each produces its own distinct using motion
+      (chop vs thrust vs punches vs draw vs cast, etc.).
+- [ ] Backpack grid still left/up of the use bar (batch 4), bar clickable.
 - [ ] Semantic checker 0 diagnostics; commit only touched scripts + PLAN.md; push to `main`.

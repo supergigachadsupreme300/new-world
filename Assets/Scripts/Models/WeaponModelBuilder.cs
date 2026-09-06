@@ -30,15 +30,7 @@ public static class WeaponModelBuilder
         go.transform.localScale = scale;
         go.transform.localPosition = position;
         var r = go.GetComponent<Renderer>();
-        if (r != null)
-        {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            var mat = new Material(shader);
-            mat.color = color;
-            mat.SetColor("_BaseColor", color);
-            r.sharedMaterial = mat;
-        }
+        if (r != null) r.sharedMaterial = MapBuilder.CreateSolidMaterial(color);
         var col = go.GetComponent<Collider>();
         if (col != null) Object.Destroy(col);
         return go;

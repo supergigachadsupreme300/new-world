@@ -9,6 +9,52 @@ public static partial class MapBuilder
     public static PlayerGender ActiveGender = PlayerGender.Male;
 
     private static readonly Dictionary<Color, Material> _colorMatCache = new Dictionary<Color, Material>();
+    private static readonly Dictionary<Color, Texture2D> _colorTexCache = new Dictionary<Color, Texture2D>();
+    private static bool _materialLogged;
+
+    /// <summary>
+    /// Build a solid-color material that reliably tints across pipelines. URP Lit needs its base
+    /// color via <c>_BaseMap</c>/<c>_BaseColor</c> (plain <c>_Color</c> is ignored and stays white);
+    /// a 1x1 color texture as <c>_BaseMap</c> guarantees the tint even when a URP version ignores
+    /// the scalar. Standard/Unlit fall back to <c>_Color</c>.
+    /// </summary>
+    public static Material CreateSolidMaterial(Color color)
+    {
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null) shader = Shader.Find("Standard");
+        if (shader == null) shader = Shader.Find("Unlit/Color");
+        var mat = new Material(shader);
+        mat.color = color;
+        if (mat.HasProperty("_BaseMap"))
+        {
+            mat.SetTexture("_BaseMap", ColorTexture(color));
+            mat.SetColor("_BaseColor", Color.white);
+        }
+        else if (mat.HasProperty("_BaseColor"))
+        {
+            mat.SetColor("_BaseColor", color);
+        }
+        mat.name = "BlockMat_" + ColorUtility.ToHtmlStringRGB(color);
+        if (!_materialLogged)
+        {
+            _materialLogged = true;
+            Debug.Log("[MapBuilder] Block material shader: '" + (shader != null ? shader.name : "<null>") +
+                "' for color #" + ColorUtility.ToHtmlStringRGB(color));
+        }
+        return mat;
+    }
+
+    private static Texture2D ColorTexture(Color color)
+    {
+        if (_colorTexCache.TryGetValue(color, out var tex) && tex != null) return tex;
+        var t = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        t.name = "BlockCol_" + ColorUtility.ToHtmlStringRGB(color);
+        t.SetPixel(0, 0, color);
+        t.Apply();
+        t.hideFlags = HideFlags.HideAndDontSave;
+        _colorTexCache[color] = t;
+        return t;
+    }
 
     public static void ApplyBlockColor(Renderer r, Color color)
     {
@@ -18,14 +64,7 @@ public static partial class MapBuilder
             r.sharedMaterial = cached;
             return;
         }
-        // Default cube material does not tint correctly under URP (renders grey/pink).
-        // Use URP Lit (fallback Standard), matching WeaponModelBuilder's approach.
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-        if (shader == null) shader = Shader.Find("Standard");
-        var mat = new Material(shader);
-        mat.color = color;
-        mat.SetColor("_BaseColor", color);
-        mat.name = "BlockMat_" + color;
+        var mat = CreateSolidMaterial(color);
         _colorMatCache[color] = mat;
         r.sharedMaterial = mat;
     }
