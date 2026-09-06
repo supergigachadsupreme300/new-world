@@ -989,10 +989,16 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var weapon = WeaponCatalog.Find(weaponId);
         if (weapon == null) return;
 
-        WeaponRigBuilder.EquipInto(player.gameObject, weapon, slot == EquipSlot.LeftHand);
+        var rig = WeaponRigBuilder.EquipInto(player.gameObject, weapon, slot == EquipSlot.LeftHand);
+        if (rig == null) return;
+
+        // Equipping takes the weapon out of the bag: it's now on the character. Removing a copy
+        // that isn't in the ToolManager inventory (e.g. owned but never picked up as an item, or
+        // the starter auto-equip at boot) is a harmless no-op via RemoveItemAmount's false return.
+        ToolManager.Instance?.RemoveItemAmount(weaponId, 1);
 
         _selectedWeaponId = "";
-        RefreshEquipment();
+        RefreshInventoryUi();
     }
 
     // ── Humanoid 21-slot equipment sheet (§5.4) ────────────────────────────

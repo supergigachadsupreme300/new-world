@@ -5,6 +5,8 @@
 > Section 14 (white player / hidden sword / backpack layout) implemented, semantic-checker clean; pushed.
 > Section 15 (bulletproof color + always-visible sword + unique per-weapon arm animations) implemented,
 >   semantic-checker clean (0 diagnostics); pushed.
+> Section 15.5 play-test follow-ups (drop-to-equip consumes the bag item; in-hand weapon scale +25%)
+>   implemented, semantic-checker clean (0 diagnostics); not yet pushed.
 > Verify checklists 10/12/13/14/15 still need user play-testing (Unity can't be run in this env).
 
 This file is the durable plan for the current batch of work. It survives context compaction.
@@ -358,3 +360,14 @@ each weapon*. Batch 5 attacks each with a guarantee instead of another guess.
       (chop vs thrust vs punches vs draw vs cast, etc.).
 - [ ] Backpack grid still left/up of the use bar (batch 4), bar clickable.
 - [ ] Semantic checker 0 diagnostics; commit only touched scripts + PLAN.md; push to `main`.
+
+### 15.5 Play-test follow-ups — weapon stays in bag on equip + weapon too small in hand
+- User: dragging a weapon into the L/R hand slot left the item in the inventory, and the equipped
+  weapon looked too small next to the player.
+- File: `Assets/Scripts/UI/NewWorld/CharacterInfoUI.cs` — `EquipOwnedWeapon` now removes one copy
+  of the weapon from the ToolManager inventory after a successful rig (`RemoveItemAmount`),
+  then refreshes both grid/hotbar and the equipment sheet. Removal is skipped if the rig build
+  failed; a weapon that was owned-but-never-picked-up (or the boot auto-equip) is a no-op.
+- File: `Assets/Scripts/Combat/Weapons/WeaponRigBuilder.cs` — new `EquipScale = 1.25f` applied to
+  the rig's local scale in `ApplyHandPose` and the chest-side fallback park, so in-hand weapons
+  read proper-size against the ~1.5-unit blocky body (rack display scale unchanged).

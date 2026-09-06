@@ -21,6 +21,13 @@ public static class WeaponRigBuilder
     /// <summary>Set true to print equip/attach diagnostics to the console (debug aid).</summary>
     public static bool LogRigging = true;
 
+    /// <summary>
+    /// Uniform scale-up applied to a weapon when equipped in-hand. The weapon models are authored
+    /// rack-scale (fitted to the pedestal), which reads too small held against the ~1.5-unit-tall
+    /// blocky player; this bump makes blades/staves/bows look proper relative to the body.
+    /// </summary>
+    public const float EquipScale = 1.25f;
+
     private static readonly HashSet<string> _logged = new HashSet<string>();
 
     private static void LogOnce(string key, string message)
@@ -155,7 +162,7 @@ public static class WeaponRigBuilder
             t.SetParent(playerRoot.transform, false);
             t.localPosition = new Vector3(isLeft ? -0.33f : 0.33f, 0.72f, 0.05f);
             t.localRotation = Quaternion.Euler(-12f, 0f, 0f);
-            t.localScale = Vector3.one;
+            t.localScale = Vector3.one * EquipScale;
             LogOnce("attach-fallback-" + weaponGo.name + "-" + isLeft,
                 "hand bone missing for " + (isLeft ? "left" : "right") + "; parked at chest-side pose on '" + playerRoot.name + "'");
             return;
@@ -171,7 +178,7 @@ public static class WeaponRigBuilder
         // Nudge the grip outward (X) so the blade clears the torso; keep a slight forward lean.
         t.localPosition = new Vector3(isLeft ? -0.02f : 0.02f, -0.05f, 0f);
         t.localRotation = Quaternion.Euler(-12f, 0f, 0f);
-        t.localScale = Vector3.one;
+        t.localScale = Vector3.one * EquipScale;
     }
 
     /// <summary>
