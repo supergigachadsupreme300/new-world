@@ -3,6 +3,7 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using TMPro;
 
 /// <summary>
@@ -153,6 +154,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         Instance = this;
         EnsurePlayerSystems();
+        EnsureSkillBindingHook();
         if (_built) return;
         _built = true;
 
@@ -196,8 +198,27 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
     private void OnDisable()
     {
+        var bindings = BindingsOf();
+        if (bindings != null) bindings.OnKeyCaptured -= OnSkillKeyCaptured;
         if (Instance == this)
             Instance = null;
+    }
+
+    /// <summary>
+    /// Single-subscription hook: refresh the skill tree (and the selected skill's detail) the
+    /// moment a "capture next key" assignment completes, so the new bound key shows immediately.
+    /// </summary>
+    private void EnsureSkillBindingHook()
+    {
+        var bindings = BindingsOf();
+        if (bindings == null) return;
+        bindings.OnKeyCaptured -= OnSkillKeyCaptured;
+        bindings.OnKeyCaptured += OnSkillKeyCaptured;
+    }
+
+    private void OnSkillKeyCaptured(Key key)
+    {
+        RefreshSkillTree();
     }
 
     private void BuildTopButtons()
@@ -298,7 +319,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             _statValueTexts[i].alignment = TextAlignmentOptions.TopRight;
 
             _plusButtons[i] = MakePlusButton(parent, "Plus_" + i,
-                P(x0 + 225f, baseY), Sz(30f, 30f), i);
+                P(x0 + 222f, baseY), Sz(22f, 22f), i);
         }
 
         // Class / race summaries + change buttons.
@@ -400,7 +421,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var lt = label.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(lt);
         lt.text = "+";
-        lt.fontSize = Mathf.Max(17f, Screen.height / 48f);
+        lt.fontSize = Mathf.Max(14f, Screen.height / 56f);
         lt.color = Color.white;
         lt.alignment = TextAlignmentOptions.Center;
         return btn;
@@ -467,13 +488,14 @@ public sealed class CharacterInfoUI : MenuPanelBase
         learn.GetComponent<RectTransform>().sizeDelta = Sz(160f, 38f);
         _learnBtn = learn;
 
-        var assign = MakeButton(pane.transform, "AssignKeyBtn", "Bind Key", P(100f, -80f), AssignSelectedSkillKey);
+        var assign = MakeButton(pane.transform, "AssignKeyBtn", "Assign Key", P(100f, -80f), AssignSelectedSkillKey);
         assign.GetComponent<RectTransform>().sizeDelta = Sz(160f, 38f);
         _assignKeyBtn = assign;
 
-        // X close: hides the detail pane (deselects) but keeps the tab menu open.
-        var closeBtn = MakeButton(pane.transform, "DetailCloseBtn", "✕", P(155f, 150f), DismissSkillDetail);
-        closeBtn.GetComponent<RectTransform>().sizeDelta = Sz(34f, 34f);
+        // Red ✕ close: hides the detail pane (deselects) but keeps the tab menu open.
+        MakeRedClose(pane.transform, "DetailCloseBtn",
+            new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+            new Vector2(-32f, -32f), new Vector2(34f, 34f), DismissSkillDetail);
     }
 
     private void DismissSkillDetail()
@@ -572,6 +594,15 @@ public sealed class CharacterInfoUI : MenuPanelBase
                 meta.Append(pre != null ? pre.displayName : skill.PrereqSkillIds[i]);
                 if (i != skill.PrereqSkillIds.Length - 1) meta.Append(", ");
             }
+        }
+
+        // Currently-bound hotkey for the selected skill.
+        if (!skill.IsPassive)
+        {
+            var bindings = BindingsOf();
+            var key = bindings != null ? bindings.KeyOf(skill.id) : (Key?)null;
+            if (key.HasValue)
+                meta.Append('\n').Append("Key: ").Append(SkillBarHUD.KeyLabel(key.Value));
         }
         _detailMeta.text = meta.ToString();
 
@@ -1508,7 +1539,10 @@ public sealed class CharacterInfoUI : MenuPanelBase
                 _statValueTexts[i].text = Mathf.RoundToInt(total).ToString();
             }
             if (_plusButtons[i] != null)
+            {
+                _plusButtons[i].gameObject.SetActive(canSpend);
                 _plusButtons[i].interactable = canSpend;
+            }
         }
 
         // Class / race summary lines.

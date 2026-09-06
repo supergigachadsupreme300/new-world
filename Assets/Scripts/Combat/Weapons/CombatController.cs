@@ -126,8 +126,9 @@ public class CombatController : MonoBehaviour
 
     private WeaponCategory CategoryOf(GameObject hand)
     {
-        var data = hand != null ? hand.GetComponent<WeaponData>() : null;
-        return data != null ? data.Category : WeaponCategory.Melee;
+        // WeaponData is a ScriptableObject (not a Component) — read it from the rig's WeaponRigHost.
+        var host = hand != null ? hand.GetComponent<WeaponRigHost>() : null;
+        return host != null && host.Data != null ? host.Data.Category : WeaponCategory.Melee;
     }
 
     // ── Input API ───────────────────────────────────────────────────────────

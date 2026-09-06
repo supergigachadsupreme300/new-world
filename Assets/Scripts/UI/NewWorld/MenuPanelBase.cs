@@ -124,23 +124,39 @@ public abstract class MenuPanelBase : MonoBehaviour
         BodyRow.anchoredPosition = Vector2.zero;
         BodyRow.sizeDelta = new Vector2(w - 60f, h - 120f);
 
-        // Close button.
-        var closeGo = new GameObject("Close");
-        closeGo.transform.SetParent(panel.transform, false);
-        var cr = closeGo.AddComponent<RectTransform>();
-        cr.anchorMin = new Vector2(0.5f, 0f);
-        cr.anchorMax = new Vector2(0.5f, 0f);
-        cr.pivot = new Vector2(0.5f, 0f);
-        cr.anchoredPosition = new Vector2(0f, 16f);
-        cr.sizeDelta = new Vector2(180f, 40f);
-        var cimg = closeGo.AddComponent<Image>();
-        cimg.color = new Color(0.2f, 0.2f, 0.28f, 0.95f);
-        var btnGo = closeGo.AddComponent<Button>();
-        btnGo.targetGraphic = cimg;
-        var ci = closeGo.GetComponent<Image>();
-        btnGo.onClick.AddListener(Close);
+        // Close button (red ✕ in the panel's top-right corner).
+        MakeRedClose(panel.transform, "Close",
+            new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+            new Vector2(-24f, -22f), new Vector2(36f, 36f), Close);
+
+        canvasGo.SetActive(false);
+        PaletteCanvas = canvasGo.transform;
+    }
+
+    /// <summary>
+    /// Build a small red ✕ button with a white glyph. Shared by the panel close buttons and the
+    /// skill-detail close button so every "close" looks consistent.
+    /// </summary>
+    public static Button MakeRedClose(Transform parent, string name,
+        Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 pos, Vector2 size,
+        UnityEngine.Events.UnityAction onClick)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = anchorMin;
+        rt.anchorMax = anchorMax;
+        rt.pivot = pivot;
+        rt.anchoredPosition = pos;
+        rt.sizeDelta = size;
+        var img = go.AddComponent<Image>();
+        img.color = new Color(0.85f, 0.16f, 0.16f, 0.95f);
+        var btn = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+        btn.onClick.AddListener(onClick);
+
         var label = new GameObject("Label");
-        label.transform.SetParent(closeGo.transform, false);
+        label.transform.SetParent(go.transform, false);
         var lr = label.AddComponent<RectTransform>();
         lr.anchorMin = Vector2.zero;
         lr.anchorMax = Vector2.one;
@@ -148,13 +164,11 @@ public abstract class MenuPanelBase : MonoBehaviour
         lr.offsetMax = Vector2.zero;
         var ltmp = label.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(ltmp);
-        ltmp.text = Localization.T("Đóng");
-        ltmp.fontSize = 18;
+        ltmp.text = "✕";
+        ltmp.fontSize = Mathf.Max(20f, Screen.height / 40f);
         ltmp.color = Color.white;
         ltmp.alignment = TextAlignmentOptions.Center;
-
-        canvasGo.SetActive(false);
-        PaletteCanvas = canvasGo.transform;
+        return btn;
     }
 
     protected Transform PaletteCanvas;

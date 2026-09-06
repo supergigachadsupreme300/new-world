@@ -838,7 +838,6 @@ public class PlayerController : MonoBehaviour
             var skillBar = Object.FindAnyObjectByType<SkillBarHUD>();
             if (skillBar != null) skillBar.SetVisible(true);
             TryAutoRigWeapon();
-            ShowPrompt(Localization.T("Fighting mode: Left click = attack, Right click = heavy attack."));
         }
     }
 

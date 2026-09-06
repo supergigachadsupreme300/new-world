@@ -1,6 +1,6 @@
 # Plan: UI polish + player model visuals + per-weapon attack animation
 
-> STATUS: Sections 1-9 implemented and semantic-checker clean (0 diagnostics).
+> STATUS: Sections 1-11 implemented and semantic-checker clean (0 diagnostics).
 > Section 10 remains (UnitPlay visual verification + commit).
 
 This file is the durable plan for the current batch of work. It survives context compaction.
@@ -9,7 +9,8 @@ update this file to reflect reality.
 
 Context note: weapons are already inventory items; F1 toggles fighting mode; equipped weapons
 are rigged onto the player model hands (`PlayerModel/ShoulderR/HandR`, `PlayerModel/ShoulderL/HandL`)
-by `WeaponRigBuilder.EquipInto`. This batch fixes visuals, animation, and the tab-menu layout.
+by `WeaponRigBuilder.EquipInto`. Batch 11 (below) fixes trees/stones vanishing, the HUD crash,
+prompt spam, the skill bar, red ✕ close buttons, stat "+" gating, and bar drain visibility.
 
 Body size reference for the Character Info menu: body half-extents ≈ ±503 x, ±240 y
 (`MenuPanelBase.UiScale` = 1.2, all CharacterInfoUI coordinates use `S = 1.0`).
@@ -131,3 +132,72 @@ Body size reference for the Character Info menu: body half-extents ≈ ±503 x, 
   6. Player model is colored; walks/runs visibly; sits still when idle.
   7. Squire iron sword + F1: sword visible in hand; LMB/RMB swing like the weapon's style.
 - Commit: stage only touched scripts; push to `main`.
+
+---
+
+## 11. Batch 2 — bug fixes + HUD/skill-bar QoL
+
+### 11.1 Trees/stones vanish right after spawning (root cause found)
+- File: `Assets/Scripts/Opt/ChunkLodManager.cs` (`RegisterChunk`).
+- Cause: every child of a terrain tile root was indexed into `entry.Details` — including the
+  `Tree_*`/`Rock_*` props (`ChunkObject.SpawnProps`). `ApplyBand` then ran
+  `kv.Value.SetActive(false)` over *all* Details children, hiding every prop within 2 frames of
+  the tile spawning (terrain kept its root renderer).
+- Fix: index only children whose name starts with `"Lod"` (matches the configured band
+  `DetailName`s). Props are no longer toggled by the LOD system.
+
+### 11.2 Info tab "+" button — smaller + only when a stat point is available
+- File: `Assets/Scripts/UI/NewWorld/CharacterInfoUI.cs`.
+- Button size `Sz(30,30)` → `Sz(22,22)` at `x0+222` (`BuildInfoTab`).
+- `RefreshInfo`: each allocator's `gameObject.SetActive(canSpend)` where
+  `canSpend = level != null && level.AvailablePoints > 0` (all hidden when 0 points).
+
+### 11.3 Red ✕ close buttons
+- File: `Assets/Scripts/UI/NewWorld/MenuPanelBase.cs`.
+  - New shared helper `MakeRedClose(...)` (flat red image + white ✕ glyph).
+  - The bottom gray "Đóng" pill is replaced by a red ✕ in the panel top-right corner.
+- File: `Assets/Scripts/UI/NewWorld/CharacterInfoUI.cs` — skill-detail close now uses the same
+  red ✕ helper.
+
+### 11.4 `WeaponData` GetComponent crash on attack
+- File: `Assets/Scripts/Combat/Weapons/CombatController.cs` (`CategoryOf`).
+- Crash: `hand.GetComponent<WeaponData>()` — `WeaponData` is a ScriptableObject, not a Component.
+- Fix: read `hand.GetComponent<WeaponRigHost>()?.Data`, fallback `WeaponCategory.Melee`.
+
+### 11.5 No fighting-mode entry prompt
+- File: `Assets/Scripts/Player/PlayerController.cs` (`ToggleCombatMode`).
+- Removed `ShowPrompt("Fighting mode: Left click … Right click …")` on entering fighting mode
+  (the rack prompt was already gated in batch 1).
+
+### 11.6 Dynamic skill bar + bound-key display + assign on next key
+- File: `Assets/Scripts/Combat/Skills/SkillBindings.cs` — new `KeyOf(skillId)` reverse lookup +
+  `Bindings` enumerable.
+- File: `Assets/Scripts/UI/NewWorld/SkillBarHUD.cs` — rewritten: renders one smaller slot
+  (`slotSize = h*0.055`, spacing `slotSize*1.35`) per bound skill (sorted by key), showing skill
+  name + key label (e.g. `G`, `1`); slots grow automatically as bindings are added (cap 12 
+  rendered, unlimited keys bindable); still shown only in fighting mode.
+- File: `Assets/Scripts/UI/NewWorld/CharacterInfoUI.cs`:
+  - Skill detail appends a `Key: <key>` line when the selected skill is bound.
+  - Subscribes `SkillBindings.OnKeyCaptured` → `RefreshSkillTree()` so the key label updates the
+    instant the capture key is pressed.
+  - "Bind Key" button relabeled "Assign Key". (Assign → press next key already worked;
+    `SkillBindings.Update` fires the skill on every press of that key.)
+
+### 11.7 HP/FP/Stamina bars visibly drain on decrease
+- File: `Assets/Scripts/UI/NewWorld/PlayerBarsHUD.cs`.
+- Fills now ease down toward their target (`DrainRate` ≈ 1.6/s) so any decrease is visibly
+  rendered even with fast regen; increases/level-ups still apply instantly.
+- Damage flash detection fixed (compared to the pre-sync raw value, previously dead code).
+- `OnEnable` guards against creating duplicate canvases/bars on re-enable.
+
+## 12. Batch 2 verify
+- Semantic checker clean (0 diagnostics).
+- UnitPlay checklist (needs user):
+  1. Walk near fresh terrain chunks → trees/rocks stay visible (previously vanished on render).
+  2. Info tab: small "+" buttons; hidden entirely when Stat Points = 0.
+  3. Tab menus close via a red ✕ top-right; skill-detail closes via red ✕.
+  4. F1 / LMB in fighting mode → no ArgumentException; sword swings normally.
+  5. Entering fighting mode shows NO prompt text.
+  6. Learn a castable skill → select it → detail shows e.g. "Key: G"; Assign Key + press G →
+     key label updates and G fires the skill every press; skill bar grows one small slot per bind.
+  7. Take damage / spend stamina or mana → the top-left bars visibly shorten (drain), then refill.

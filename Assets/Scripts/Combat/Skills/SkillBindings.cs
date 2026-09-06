@@ -37,6 +37,17 @@ public sealed class SkillBindings : MonoBehaviour
         return id;
     }
 
+    /// <summary>The keyboard key a skill id is bound to, or null when unbound.</summary>
+    public Key? KeyOf(string skillId)
+    {
+        foreach (var pair in _bindings)
+            if (pair.Value == skillId) return pair.Key;
+        return null;
+    }
+
+    /// <summary>All current skill bindings (key -> skill id).</summary>
+    public IEnumerable<KeyValuePair<Key, string>> Bindings => _bindings;
+
     /// <summary>Begin capturing the next pressed key for <paramref name="skillId"/>.</summary>
     public void BeginCapture(string skillId)
     {

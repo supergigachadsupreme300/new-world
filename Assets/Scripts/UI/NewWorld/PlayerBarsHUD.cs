@@ -17,6 +17,9 @@ public sealed class PlayerBarsHUD : MonoBehaviour
     private const float BarHeight = 30f;
     private const float BarSpacing = 36f;
 
+    /// <summary>How fast the fill eases down toward a lower target (fraction per second).</summary>
+    private const float DrainRate = 1.6f;
+
     private Canvas _canvas;
     private Image _hpFill;
     private Image _fpFill;
@@ -27,12 +30,17 @@ public sealed class PlayerBarsHUD : MonoBehaviour
     private float _lastHp = -1f, _lastMaxHp = -1f;
     private float _lastFp = -1f, _lastMaxFp = -1f;
     private float _lastStam = -1f, _lastMaxStam = -1f;
+    private float _lastHpRaw = -1f;
+    private float _hpShown = -1f, _fpShown = -1f, _stamShown = -1f;
     private float _flashTimer;
 
     private void OnEnable()
     {
-        _canvas = HudCanvas.CreateOverlay("PlayerBarsCanvas");
-        Build();
+        if (_canvas == null)
+        {
+            _canvas = HudCanvas.CreateOverlay("PlayerBarsCanvas");
+            Build();
+        }
     }
 
     private void Build()
@@ -99,15 +107,18 @@ public sealed class PlayerBarsHUD : MonoBehaviour
         float fp = ReadCurrentFp(player.transform);
         float maxFp = Mathf.Max(1f, ReadMaxFp(player.transform));
 
-        UpdateBar(_hpFill, hp, maxHp, ref _lastHp, ref _lastMaxHp);
-        UpdateBar(_stamFill, stam, maxStam, ref _lastStam, ref _lastMaxStam);
-        UpdateBar(_fpFill, fp, maxFp, ref _lastFp, ref _lastMaxFp);
+        // Damage flash must compare to the raw previous value BEFORE Tick syncs it.
+        bool hpHit = hp < _lastHpRaw - 0.01f;
+        _lastHpRaw = hp;
+
+        Tick(_hpFill, hp, maxHp, ref _lastHp, ref _lastMaxHp, ref _hpShown);
+        Tick(_stamFill, stam, maxStam, ref _lastStam, ref _lastMaxStam, ref _stamShown);
+        Tick(_fpFill, fp, maxFp, ref _lastFp, ref _lastMaxFp, ref _fpShown);
         UpdateLabel(_hpText, "HP", hp, maxHp);
         UpdateLabel(_fpText, "Mana", fp, maxFp);
         UpdateLabel(_stamText, "Stam", stam, maxStam);
 
-        // Damage flash
-        if (hp < _lastHp && _hpFill != null)
+        if (hpHit && _hpFill != null)
         {
             _flashTimer = 0.25f;
             _hpFill.color = new Color(1f, 0.9f, 0.4f);
@@ -120,13 +131,34 @@ public sealed class PlayerBarsHUD : MonoBehaviour
         }
     }
 
-    private static void UpdateBar(Image fill, float cur, float max, ref float lastCur, ref float lastMax)
+    /// <summary>
+    /// Ease the fill toward its target so decreases are visibly rendered even with fast regen:
+    /// increases and level-ups apply instantly; decreases drain down over a fraction of a second.
+    /// </summary>
+    private static void Tick(Image fill, float cur, float max, ref float lastCur, ref float lastMax, ref float shown)
     {
         if (fill == null) return;
-        if (Mathf.Abs(cur - lastCur) < 0.01f && Mathf.Abs(max - lastMax) < 0.01f) return;
-        lastCur = cur;
-        lastMax = max;
-        fill.fillAmount = Mathf.Clamp01(cur / max);
+
+        bool changed = Mathf.Abs(cur - lastCur) >= 0.01f || Mathf.Abs(max - lastMax) >= 0.01f;
+        if (changed)
+        {
+            lastCur = cur;
+            lastMax = max;
+        }
+
+        if (shown < 0f) shown = 1f;
+        float target = Mathf.Clamp01(cur / max);
+        float next;
+        if (target < shown)
+            next = Mathf.Max(target, shown - DrainRate * Time.deltaTime);
+        else
+            next = target;
+
+        if (changed || Mathf.Abs(next - shown) > 0.001f)
+        {
+            shown = next;
+            fill.fillAmount = shown;
+        }
     }
 
     private static void UpdateLabel(TMP_Text label, string name, float cur, float max)

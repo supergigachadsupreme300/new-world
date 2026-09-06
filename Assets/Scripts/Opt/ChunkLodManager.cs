@@ -43,7 +43,11 @@ public sealed class ChunkLodManager : MonoBehaviour
         public int BandIndex = -1;
     }
 
-    /// <summary>Register a chunk root and index its child detail meshes by name.</summary>
+    /// <summary>
+    /// Register a chunk root and index its child detail meshes by name. Only children that look
+    /// like LOD detail meshes (name starts with "Lod", matching the band DetailNames) are tracked —
+    /// prop children (trees, rocks, etc.) must never be toggled by ApplyBand.
+    /// </summary>
     public void RegisterChunk(GameObject root)
     {
         if (root == null) return;
@@ -51,7 +55,10 @@ public sealed class ChunkLodManager : MonoBehaviour
         if (root.transform.childCount > 0)
         {
             foreach (Transform child in root.transform)
-                entry.Details[child.name] = child.gameObject;
+            {
+                if (child.name.StartsWith("Lod", System.StringComparison.Ordinal))
+                    entry.Details[child.name] = child.gameObject;
+            }
         }
         entry.BandIndex = -1;
         _chunks.Add(entry);
