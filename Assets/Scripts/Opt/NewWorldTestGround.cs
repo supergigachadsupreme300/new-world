@@ -386,7 +386,11 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
         var starter = WeaponCatalog.Find(WeaponCatalog.StarterWeaponId);
         if (starter != null)
+        {
             WeaponRigBuilder.EquipInto(player.gameObject, starter);
+            // Out of combat at boot → keep the starter weapon sheathed on the body until toggled.
+            WeaponRigBuilder.ApplyPose(player.gameObject, draw: false, instant: true);
+        }
     }
 
     /// <summary>
@@ -488,20 +492,31 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (player.GetComponent<SkillBindings>() == null)
             player.gameObject.AddComponent<SkillBindings>();
 
+        // Ensure the combat stack exists so passive stat effects can apply (PlayerStats)
+        // and castable skills can spend resources (SpellCaster / StaminaSystem) immediately.
+        WeaponRigBuilder.EnsureCombatStack(player.gameObject);
+
         SkillCatalog.EnsureBuilt();
         var profile = player.GetComponent<SkillProfile>();
         if (profile == null) return;
 
-        // Chest list (stable) so re-entry does not double-grant.
+        // Loop until no new skill can be learned so out-of-order prerequisites (e.g. a skill
+        // whose prereq appears later in the catalog) still get unlocked in the same pass.
         var toLearn = SkillCatalog.All;
         if (toLearn == null) return;
-        foreach (var skill in toLearn)
+        bool progressed;
+        do
         {
-            if (skill == null) continue;
-            if (profile.HasLearned(skill.id)) continue;
-            profile.Points += 999;          // testing: unlimited budget
-            profile.Learn(skill);
-        }
+            progressed = false;
+            foreach (var skill in toLearn)
+            {
+                if (skill == null) continue;
+                if (profile.HasLearned(skill.id)) continue;
+                profile.Points += 999;          // testing: unlimited budget
+                if (profile.Learn(skill))
+                    progressed = true;
+            }
+        } while (progressed);
     }
 
     /// <summary>

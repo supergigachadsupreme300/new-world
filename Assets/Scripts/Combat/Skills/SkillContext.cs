@@ -16,8 +16,8 @@ public sealed class SkillContext
     /// <summary>Player stats (passive application + Wisdom/Str scaling).</summary>
     public PlayerStats Stats;
 
-    /// <summary>The rigged weapon's art executor, if a weapon is equipped (WeaponArt skills).</summary>
-    public WeaponArtExecutor ArtExecutor;
+    /// <summary>The rigged weapon's skill executor, if a weapon is equipped (WeaponSkill skills).</summary>
+    public WeaponSkillExecutor SkillExecutor;
 
     /// <summary>World-space origin for zones / projectiles.</summary>
     public Transform Origin;

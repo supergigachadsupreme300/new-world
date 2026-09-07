@@ -42,6 +42,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     public Tab ActiveTab = Tab.Info;
 
     private readonly Dictionary<Tab, GameObject> _panels = new Dictionary<Tab, GameObject>();
+    private readonly List<RectTransform> _tabButtonRects = new List<RectTransform>();
     private Tab _current = Tab.Info;
     private bool _built;
 
@@ -76,6 +77,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private Button _learnBtn;
     private Button _assignKeyBtn;
     private readonly List<(SkillType type, TMP_Text label)> _sectorLabels = new List<(SkillType, TMP_Text)>();
+    private readonly List<(SkillType type, Image image)> _categoryNodes = new List<(SkillType, Image)>();
     private readonly List<(SkillType type, Image swatch, TMP_Text label)> _legendChips = new List<(SkillType, Image, TMP_Text)>();
 
     // Backpack storage grid (30 slots) + mirrored hotbar row (10 slots).
@@ -112,7 +114,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private static readonly Color LineInert = new Color(0.4f, 0.42f, 0.48f, 0.75f);
 
     /// <summary>Horizontal shift applied to the humanoid sheet so the backpack uses the right half.</summary>
-    private const float EquipShiftX = -185f;
+    private const float EquipShiftX = -145f;
 
     /// <summary>Scaled position helper (legacy units -> enlarged layout).</summary>
     private static Vector2 P(float x, float y) => new Vector2(x * S, y * S);
@@ -149,6 +151,64 @@ public sealed class CharacterInfoUI : MenuPanelBase
         }
     }
 
+    private static Sprite _fullButtonSprite;
+    private static Sprite FullButtonSprite()
+    {
+        if (_fullButtonSprite == null)
+        {
+            var tex = Resources.Load<Texture2D>("stats menu full button");
+            if (tex != null)
+                _fullButtonSprite = Sprite.Create(tex,
+                    new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+        }
+        return _fullButtonSprite;
+    }
+
+    private static void ApplyFullButtonSprite(Image img)
+    {
+        var sprite = FullButtonSprite();
+        if (sprite != null)
+        {
+            img.sprite = sprite;
+            img.type = Image.Type.Simple;
+            img.preserveAspect = false;
+            img.color = Color.white;
+        }
+        else
+        {
+            img.color = new Color(0.2f, 0.2f, 0.26f, 0.95f);
+        }
+    }
+
+    private static Sprite _categoryNodeSprite;
+    private static Sprite CategoryNodeSprite()
+    {
+        if (_categoryNodeSprite == null)
+        {
+            const int size = 128;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            float center = (size - 1) * 0.5f;
+            float maxD = size * 0.5f;
+            var cols = new Color[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = x - center;
+                    float dy = y - center;
+                    float d = Mathf.Sqrt(dx * dx + dy * dy);
+                    float a = Mathf.Clamp01(maxD - d + 1f);
+                    cols[y * size + x] = new Color(1f, 1f, 1f, a);
+                }
+            }
+            tex.SetPixels(cols);
+            tex.Apply();
+            _categoryNodeSprite = Sprite.Create(tex,
+                new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+        }
+        return _categoryNodeSprite;
+    }
+
     private string _selectedWeaponId;
 
     // Class / Race change dialog (picker + confirmation).
@@ -175,6 +235,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _built = true;
 
         SuppressTitle = true;
+        SuppressCloseButton = true;
         Build(Localization.T("CHARACTER INFO"));
         _current = ActiveTab;
 
@@ -240,7 +301,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private void BuildTopButtons()
     {
         string[] names = { "Info", "Skills", "Inventory", "Map" };
-        float w = PanelRect.rect.width;
+        _tabButtonRects.Clear();
+        float w = SeenCanvasWidth() * 0.8f;
         float bw = w / names.Length;
         for (int i = 0; i < names.Length; i++)
         {
@@ -252,10 +314,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 1f);
             rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 6f);
+            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 16f);
             rt.sizeDelta = new Vector2(bw - 6f, 56f * S);
+            _tabButtonRects.Add(rt);
             var img = go.AddComponent<Image>();
-            ApplyMenuButtonSprite(img);
+            ApplyFullButtonSprite(img);
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             Tab captured = tab;
@@ -266,8 +329,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var lr = label.AddComponent<RectTransform>();
             lr.anchorMin = Vector2.zero;
             lr.anchorMax = Vector2.one;
-            lr.offsetMin = Vector2.zero;
-            lr.offsetMax = Vector2.zero;
+            lr.offsetMin = new Vector2(0f, -8f);
+            lr.offsetMax = new Vector2(0f, -8f);
             var lt = label.AddComponent<TextMeshProUGUI>();
             GameManager.Instance?.UIManager?.ApplyDefaultFont(lt);
             lt.text = name;
@@ -282,6 +345,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         // Info panel: level/XP/points/bars + stat allocator + class/race.
         _panels[Tab.Info] = MakePanel("InfoPanel");
         BuildInfoTab(_panels[Tab.Info].transform);
+        RegisterFit(_panels[Tab.Info].GetComponent<RectTransform>(), TabDesignBox(Tab.Info));
 
         // Skills panel: draggable skill tree + detail pane.
         _panels[Tab.Skills] = MakePanel("SkillsPanel");
@@ -290,6 +354,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         RectTransform treeVt = BuildSkillTree(_panels[Tab.Skills].transform);
         BuildSkillDetail(treeVt.transform);
         BuildTreeLegend(treeVt);
+        RegisterFit(_panels[Tab.Skills].GetComponent<RectTransform>(), TabDesignBox(Tab.Skills));
 
         // Merged Inventory + Equipment panel: equipment sheet LEFT, backpack + use bar RIGHT.
         _panels[Tab.Inventory] = MakePanel("InventoryPanel");
@@ -298,12 +363,52 @@ public sealed class CharacterInfoUI : MenuPanelBase
         BuildStorageGrid(_panels[Tab.Inventory].transform);
         BuildHotbarMirror(_panels[Tab.Inventory].transform);
         _moneyLine = MakeBodyText(_panels[Tab.Inventory].transform, "Money", P(210f, -112f), Sz(260f, 24f));
+        RegisterFit(_panels[Tab.Inventory].GetComponent<RectTransform>(), TabDesignBox(Tab.Inventory));
 
         // Map panel (placeholder summary; the dedicated WorldMapUI is separate).
         _panels[Tab.Map] = MakePanel("MapPanel");
         _mapLine = MakeBodyText(_panels[Tab.Map].transform, "Map", P(-270f, 160f), Sz(500f, 200f));
+        RegisterFit(_panels[Tab.Map].GetComponent<RectTransform>(), TabDesignBox(Tab.Map));
 
         EnsureChangeDialog();
+    }
+
+    /// <summary>
+    /// Design-space box (canvas units, centered on the body) each tab's fixed layout occupies.
+    /// Generous so labels never touch the edges after aspect-fit scaling; ≤ ~1070 wide so a 16:9
+    /// window keeps fit = 1 and the layout is pixel-identical to before.
+    /// </summary>
+    private static Rect TabDesignBox(Tab tab)
+    {
+        switch (tab)
+        {
+            case Tab.Info: return new Rect(-430f, -190f, 860f, 430f);
+            case Tab.Skills: return new Rect(-520f, -290f, 1040f, 580f);
+            case Tab.Inventory: return new Rect(-510f, -260f, 1020f, 520f);
+            case Tab.Map: return new Rect(-310f, -100f, 620f, 300f);
+            default: return new Rect(-500f, -250f, 1000f, 500f);
+        }
+    }
+
+    /// <summary>The design-space width actually visible on screen at the current window size.</summary>
+    private static float SeenCanvasWidth()
+    {
+        float refH = 720f / UiScale;
+        if (refH <= 0f || Screen.height <= 0f) return 1280f / UiScale;
+        return Screen.width / (Screen.height / refH);
+    }
+
+    /// <summary>Keep the top tab bar inside the visible area while the window changes aspect.</summary>
+    protected override void OnLayoutFitted(float availW, float availH)
+    {
+        if (_tabButtonRects.Count == 0) return;
+        float w = availW * 0.8f;
+        float bw = w / _tabButtonRects.Count;
+        for (int i = 0; i < _tabButtonRects.Count; i++)
+        {
+            _tabButtonRects[i].anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 6f);
+            _tabButtonRects[i].sizeDelta = new Vector2(bw - 6f, 56f * S);
+        }
     }
 
     // ── Info tab ──────────────────────────────────────────────────────────
@@ -467,7 +572,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _treeContent.anchorMax = new Vector2(0.5f, 0.5f);
         _treeContent.pivot = new Vector2(0.5f, 0.5f);
         _treeContent.anchoredPosition = Vector2.zero;
-        _treeContent.sizeDelta = Sz(1500f, 1500f);
+        _treeContent.sizeDelta = Sz(2200f, 2200f);
 
         var pan = vp.AddComponent<TreePan>();
         pan.Content = _treeContent;
@@ -694,6 +799,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _treeLines.Clear();
         _treeSkills.Clear();
         _sectorLabels.Clear();
+        _categoryNodes.Clear();
         _selectedSkill = null;
         _treeContent.anchoredPosition = Vector2.zero;
         _treeContent.localScale = Vector3.one;
@@ -727,24 +833,20 @@ public sealed class CharacterInfoUI : MenuPanelBase
             }
         } while (changed);
 
-        // Polar slot grid: each category fans out inside its own 60° wedge, and every node claims a
-        // distinct ring/angle cell whose arc is sized to the node pitch, so no nodes ever overlap.
-        const float sectorHalf = 0.40f;     // ±23° rad of fan inside the 60° wedge.
-        const float ringStep = 112f;        // Radial px between rings.
-        const float ring0 = 170f;           // First (innermost) ring radius.
-        const float nodePitch = 88f;        // Horiz. px budget per node (64 + gap).
-        const int maxRing = 3;              // Rings 0..3 → 1/2/3/4 slots per ring.
+        // Polar slot grid: each category fans out inside its own 60° wedge as a cone from the
+        // central category wheels, and every node claims a distinct ring/angle cell whose arc is
+        // sized to the node pitch, so no nodes ever overlap. When a category outgrows its current
+        // rings the layout creates new rings further out (no cap) instead of stacking/colliding.
+        const float sectorHalf = 0.58f;     // ±33.2° rad of fan inside the 60° wedge.
+        const float ringStep = 190f;        // Radial px between rings.
+        const float ring0 = 260f;           // First (innermost) ring radius.
+        const float nodePitch = 50f;        // Horiz. px budget per node (46 + gap) — fits each category's entire first tier (6 roots) on ring 0.
 
-        var slotsPerRing = new int[maxRing + 1];
-        var ringRadius = new float[maxRing + 1];
-        for (int r = 0; r <= maxRing; r++)
-        {
-            ringRadius[r] = ring0 + r * ringStep;
-            slotsPerRing[r] = Mathf.Max(1, Mathf.FloorToInt(ringRadius[r] * (2f * sectorHalf) / nodePitch));
-        }
+        float RingRadius(int ring) => ring0 + ring * ringStep;
+        int RingCapacity(int ring) => Mathf.Max(1, Mathf.FloorToInt(RingRadius(ring) * (2f * sectorHalf) / nodePitch));
 
         var posOf = new Dictionary<string, Vector2>();
-        var usedByRing = new int[maxRing + 1];
+        float hubR = ring0 * 0.5f;
 
         for (int ci = 0; ci < 6; ci++)
         {
@@ -756,37 +858,131 @@ public sealed class CharacterInfoUI : MenuPanelBase
                 if (s.Type == type) catList.Add(s);
             if (catList.Count == 0) continue;
 
-            catList.Sort((a, b) =>
-            {
-                int da = depth.TryGetValue(a.id, out int av) ? av : 0;
-                int db = depth.TryGetValue(b.id, out int bv) ? bv : 0;
-                int c = da.CompareTo(db);
-                return c != 0 ? c : string.CompareOrdinal(a.id, b.id);
-            });
-
+            // Layered tree layout. Groups every category's skills into concentric bands by layer:
+            // layer 0 = skills that require no condition; layer L = skills that branch out from
+            // layer L-1 (deepest prerequisite chain). The node count on a layer drives how many
+            // rings its band claims (rings widen outward), and a ring never mixes two layers, so
+            // unlock tiers read as clean onion layers instead of slots shared first-come-first-served.
+            var childIndex = new Dictionary<string, List<Skill>>();
             foreach (var s in catList)
             {
-                int dMin = depth.TryGetValue(s.id, out int dv) ? dv : 0;
-                int ring = -1;
-                for (int r = dMin; r <= maxRing; r++)
+                if (s.PrereqSkillIds == null) continue;
+                foreach (var pid in s.PrereqSkillIds)
                 {
-                    if (usedByRing[r] < slotsPerRing[r]) { ring = r; break; }
+                    if (!childIndex.TryGetValue(pid, out var kids))
+                        childIndex[pid] = kids = new List<Skill>();
+                    kids.Add(s);
                 }
-                if (ring < 0) ring = maxRing;
-
-                float ang = center - sectorHalf +
-                    (usedByRing[ring] + 0.5f) * (2f * sectorHalf) / slotsPerRing[ring];
-                usedByRing[ring]++;
-
-                float radial = ringRadius[ring];
-                posOf[s.id] = new Vector2(Mathf.Cos(ang) * radial, Mathf.Sin(ang) * radial);
-                _treeSkills.Add(s);
             }
 
-            // Sector level label near the hub ring.
-            float lr = ring0 * 0.55f;
+            var layerOf = new Dictionary<string, int>();
+            int maxLayer = 0;
+            foreach (var s in catList)
+            {
+                int cd = depth.TryGetValue(s.id, out int v) ? v : 0;
+                layerOf[s.id] = cd;
+                maxLayer = Mathf.Max(maxLayer, cd);
+            }
+
+            // Group by layer, ordering each layer so children follow their parents (families keep
+            // adjacent slots, keeping father-son links short and the angle order coherent).
+            var layers = new List<List<Skill>>();
+            for (int L = 0; L <= maxLayer; L++)
+            {
+                if (L == 0)
+                {
+                    var roots = new List<Skill>();
+                    foreach (var s in catList)
+                        if (layerOf[s.id] == 0) roots.Add(s);
+                    layers.Add(roots);
+                    continue;
+                }
+
+                var layer = new List<Skill>();
+                var placed = new HashSet<string>();
+                foreach (var parent in catList)
+                {
+                    if (layerOf[parent.id] != L - 1) continue;
+                    if (!childIndex.TryGetValue(parent.id, out var kids)) continue;
+                    kids.Sort((a, b) => string.CompareOrdinal(a.id, b.id));
+                    foreach (var k in kids)
+                        if (layerOf[k.id] == L && placed.Add(k.id))
+                            layer.Add(k);
+                }
+                foreach (var s in catList)
+                    if (layerOf[s.id] == L && placed.Add(s.id))
+                        layer.Add(s);
+                layers.Add(layer);
+            }
+
+            // Ring-band allocation: the amount of nodes needed on a layer determines how many
+            // rings that band takes (rings widen outward). Every link then points from an inner
+            // band ring to an outer band ring.
+            var ringTotal = new List<int>();
+            var ringFor = new Dictionary<string, int>();
+            int ringCursor = 0;
+            foreach (var layer in layers)
+            {
+                if (layer.Count == 0) continue;
+                int ringIdx = ringCursor;
+                int onRing = 0;
+                foreach (var s in layer)
+                {
+                    if (onRing >= RingCapacity(ringIdx))
+                    {
+                        ringIdx++;
+                        onRing = 0;
+                    }
+                    while (ringTotal.Count <= ringIdx) ringTotal.Add(0);
+                    ringFor[s.id] = ringIdx;
+                    ringTotal[ringIdx]++;
+                    onRing++;
+                }
+                ringCursor = ringIdx + 1;
+            }
+
+            // Center partially filled rings so isolated outer nodes sit mid-wedge, never hugging
+            // the low-angle (left) edge of the cone.
+            var used = new List<int>(ringTotal.Count);
+            for (int r = 0; r < ringTotal.Count; r++) used.Add(0);
+
+            foreach (var layer in layers)
+                foreach (var s in layer)
+                {
+                    int ring = ringFor[s.id];
+                    int slots = RingCapacity(ring);
+                    int first = Mathf.Max(0, (slots - ringTotal[ring]) / 2);
+                    float ang = center - sectorHalf +
+                        (first + used[ring] + 0.5f) * (2f * sectorHalf) / slots;
+                    used[ring]++;
+
+                    float radial = RingRadius(ring);
+                    posOf[s.id] = new Vector2(Mathf.Cos(ang) * radial, Mathf.Sin(ang) * radial);
+                    _treeSkills.Add(s);
+                }
+
+            // Category hub node: a circle at the wedge center that acts as the root parent of
+            // every root skill's spoke.
+            var catGo = new GameObject("CategoryNode_" + CategoryNames[ci]);
+            catGo.transform.SetParent(_treeContent, false);
+            var crt = catGo.AddComponent<RectTransform>();
+            crt.anchorMin = new Vector2(0.5f, 0.5f);
+            crt.anchorMax = new Vector2(0.5f, 0.5f);
+            crt.pivot = new Vector2(0.5f, 0.5f);
+            crt.anchoredPosition = new Vector2(Mathf.Cos(center) * hubR, Mathf.Sin(center) * hubR);
+            crt.sizeDelta = new Vector2(88f, 88f);
+            var cimg = catGo.AddComponent<Image>();
+            cimg.sprite = CategoryNodeSprite();
+            cimg.type = Image.Type.Simple;
+            cimg.preserveAspect = true;
+            cimg.color = CategoryColors[ci];
+            cimg.raycastTarget = false;
+            _categoryNodes.Add((type, cimg));
+
+            // Sector level label above the hub circle (drawn after -> on top of the node).
+            float lr = ring0 * 0.75f;
             var lbl = MakeBodyText(_treeContent, "Sector_" + CategoryNames[ci],
-                new Vector2(Mathf.Cos(center) * lr, Mathf.Sin(center) * lr), Sz(140f, 22f));
+                new Vector2(Mathf.Cos(center) * lr - 60f, Mathf.Sin(center) * lr), Sz(140f, 22f));
             lbl.alignment = TextAlignmentOptions.Center;
             lbl.fontSize = Mathf.Max(13f, Screen.height / 92f);
             lbl.color = CategoryColors[ci];
@@ -794,17 +990,29 @@ public sealed class CharacterInfoUI : MenuPanelBase
         }
         if (posOf.Count == 0) return;
 
-        // Connection lines (prereq -> child).
+        // Connection lines (prereq -> child), plus a spoke from each root skill (no prereq) to its
+        // category hub so no node ever floats unconnected.
         float thick = 3f * S;
         foreach (var s in list)
         {
-            if (s.PrereqSkillIds == null) continue;
             if (!posOf.TryGetValue(s.id, out Vector2 end)) continue;
-            foreach (var pid in s.PrereqSkillIds)
+            if (s.PrereqSkillIds != null && s.PrereqSkillIds.Length > 0)
             {
-                if (!posOf.TryGetValue(pid, out Vector2 start)) continue;
-                var line = MakeTreeLine(start, end, thick);
-                _treeLines.Add((line, s));
+                foreach (var pid in s.PrereqSkillIds)
+                {
+                    if (!posOf.TryGetValue(pid, out Vector2 start)) continue;
+                    var line = MakeTreeLine(start, end, thick);
+                    _treeLines.Add((line, s));
+                }
+            }
+            else
+            {
+                float c = (-90f + (int)s.Type * 60f) * Mathf.Deg2Rad;
+                Vector2 hub = new Vector2(Mathf.Cos(c) * hubR, Mathf.Sin(c) * hubR);
+                var spoke = MakeTreeLine(hub, end, thick * 0.7f);
+                var tint = CategoryColors[(int)s.Type];
+                spoke.color = new Color(tint.r, tint.g, tint.b, 0.4f);
+                _treeLines.Add((spoke, s));
             }
         }
 
@@ -830,11 +1038,13 @@ public sealed class CharacterInfoUI : MenuPanelBase
             if (image == null) continue;
             maxR = Mathf.Max(maxR, ((RectTransform)image.transform).anchoredPosition.magnitude);
         }
-        maxR += 40f;
+        maxR += 80f;
+        _treeContent.sizeDelta = new Vector2(maxR * 2f, maxR * 2f);
         var vp = _treeContent.parent as RectTransform;
         if (vp == null || maxR <= 0f) return;
         float scale = Mathf.Min(vp.rect.width / (maxR * 2f), vp.rect.height / (maxR * 2f));
-        scale = Mathf.Clamp(scale, TreePan.MinScale, TreePan.MaxScale);
+        float fitFloor = Mathf.Min(TreePan.MinScale, scale);
+        scale = Mathf.Clamp(scale, fitFloor, TreePan.MaxScale);
         _treeContent.localScale = new Vector3(scale, scale, 1f);
     }
 
@@ -847,7 +1057,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = pos;
-        rt.sizeDelta = Sz(64f, 44f);
+        rt.sizeDelta = Sz(46f, 30f);
         var img = go.AddComponent<Image>();
         img.color = NodeLocked;
         var btn = go.AddComponent<Button>();
@@ -881,7 +1091,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var tmp = label.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = skill.displayName;
-        tmp.fontSize = Mathf.Max(13f, Screen.height / 110f);
+        tmp.fontSize = Mathf.Max(10f, Screen.height / 130f);
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.enableWordWrapping = true;
@@ -912,7 +1122,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     /// it toward the cursor within the mask.</summary>
     private sealed class TreePan : MonoBehaviour, IPointerDownHandler, IDragHandler, IScrollHandler
     {
-        public const float MinScale = 0.45f;
+        public const float MinScale = 0.28f;
         public const float MaxScale = 3f;
 
         public RectTransform Content;
@@ -983,6 +1193,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             img.color = SlotColor;
             go.AddComponent<ItemDragHandle>().Slot = slot;
             go.AddComponent<ItemDropTarget>().Slot = slot;
+            go.AddComponent<TooltipSlot>().Bind(() => SlotItemId(slot));
 
             var label = new GameObject("Label");
             label.transform.SetParent(go.transform, false);
@@ -1027,6 +1238,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             btn.onClick.AddListener(() => SelectInventorySlot(captured));
             go.AddComponent<ItemDragHandle>().Slot = i;
             go.AddComponent<ItemDropTarget>().Slot = i;
+            go.AddComponent<TooltipSlot>().Bind(() => SlotItemId(i));
 
             var label = new GameObject("Label");
             label.transform.SetParent(go.transform, false);
@@ -1091,8 +1303,28 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var weapon = WeaponCatalog.Find(weaponId);
         if (weapon == null) return;
 
+        // Never lose the currently equipped weapon: anything that's about to be cleared by
+        // EquipInto goes back into the bag first. If the bag can't hold it, abort the swap so
+        // nothing disappears (re-equipping the same id on the other hand skips this).
+        string replaced = ReplacedWeaponId(combat, weaponId, slot);
+        if (!string.IsNullOrEmpty(replaced))
+        {
+            var tm = ToolManager.Instance;
+            if (tm != null && !tm.CanHoldItem(replaced))
+            {
+                GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Túi đồ đầy."), 1.5f);
+                return;
+            }
+            tm?.AddItem(replaced, 1);
+        }
+
         var rig = WeaponRigBuilder.EquipInto(player.gameObject, weapon, slot == EquipSlot.LeftHand);
         if (rig == null) return;
+        // Match the new weapon's visual pose to the current combat state (drawn if fighting,
+        // stowed on the body if not).
+        var pc = player.GetComponent<PlayerController>();
+        bool fighting = pc != null && pc.FightingMode;
+        WeaponRigBuilder.ApplyPose(player.gameObject, draw: fighting, instant: true);
 
         // Equipping takes the weapon out of the bag: it's now on the character. Removing a copy
         // that isn't in the ToolManager inventory (e.g. owned but never picked up as an item, or
@@ -1101,6 +1333,59 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
         _selectedWeaponId = "";
         RefreshInventoryUi();
+    }
+
+    /// <summary>The weapon id held on the target hand that a new equip into that slot would clear, if any.</summary>
+    private static string ReplacedWeaponId(CombatController combat, string incomingId, EquipSlot slot)
+    {
+        var rig = slot == EquipSlot.LeftHand ? combat.LeftHand : combat.RightHand;
+        var host = rig != null ? rig.GetComponent<WeaponRigHost>() : null;
+        if (host != null && host.Data != null && host.Data.id != incomingId)
+            return host.Data.id;
+        return null;
+    }
+
+    /// <summary>
+    /// Remove <paramref name="weaponId"/> from the hands (single / two-hand / dual-wield mirrors)
+    /// and return it to the backpack so equipment can be dragged back out of a slot.
+    /// </summary>
+    public void UnequipWeapon(string weaponId)
+    {
+        if (string.IsNullOrEmpty(weaponId)) return;
+        var combat = CombatOf();
+        if (combat == null) return;
+
+        bool equipped = RigHolds(combat.RightHand, weaponId) || RigHolds(combat.LeftHand, weaponId);
+        if (!equipped) return;
+
+        // Bag full → keep the weapon equipped rather than let it vanish.
+        var tm = ToolManager.Instance;
+        if (tm != null && !tm.CanHoldItem(weaponId))
+        {
+            GameManager.Instance?.UIManager?.ShowMessage(Localization.T("Túi đồ đầy."), 1.5f);
+            return;
+        }
+
+        if (combat.RightHand != null && RigHolds(combat.RightHand, weaponId))
+        {
+            Destroy(combat.RightHand);
+            combat.RightHand = null;
+        }
+        if (combat.LeftHand != null && RigHolds(combat.LeftHand, weaponId))
+        {
+            Destroy(combat.LeftHand);
+            combat.LeftHand = null;
+        }
+
+        combat.SetTwoHand(false);
+        tm?.AddItem(weaponId, 1);
+        RefreshInventoryUi();
+    }
+
+    private static bool RigHolds(GameObject rig, string weaponId)
+    {
+        var host = rig != null ? rig.GetComponent<WeaponRigHost>() : null;
+        return host != null && host.Data != null && host.Data.id == weaponId;
     }
 
     // ── Humanoid 21-slot equipment sheet (§5.4) ────────────────────────────
@@ -1153,7 +1438,12 @@ public sealed class CharacterInfoUI : MenuPanelBase
         {
             var drop = go.AddComponent<WeaponDropTarget>();
             drop.Slot = slot;
+            var drag = go.AddComponent<WeaponDragHandle>();
+            drag.Slot = slot;
         }
+
+        EquipSlot capturedSlot = slot;
+        go.AddComponent<TooltipSlot>().Bind(() => EquipSlotItemId(capturedSlot));
 
         var label = new GameObject("Label");
         label.transform.SetParent(go.transform, false);
@@ -1818,7 +2108,12 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
         var next = WeaponCatalog.Find(owned[idx]);
         if (next != null)
+        {
             WeaponRigBuilder.EquipInto(player.gameObject, next);
+            var pc = player.GetComponent<PlayerController>();
+            bool fighting = pc != null && pc.FightingMode;
+            WeaponRigBuilder.ApplyPose(player.gameObject, draw: fighting, instant: true);
+        }
         RefreshEquipment();
     }
 
@@ -1862,6 +2157,20 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         var p = GameManager.Instance?.Player;
         return p != null ? p.GetComponent<EquipmentSystem>() : null;
+    }
+
+    /// <summary>Live item id in a ToolManager slot, or null when empty (for hover tooltips).</summary>
+    private string SlotItemId(int slot)
+    {
+        var slotInfo = ToolManager.Instance?.PeekSlot(slot);
+        return slotInfo != null && slotInfo.Count > 0 ? slotInfo.Type : null;
+    }
+
+    /// <summary>Live item id equipped in a gear slot, or null when empty (for hover tooltips).</summary>
+    private string EquipSlotItemId(EquipSlot slot)
+    {
+        var equip = EquipmentOf();
+        return equip != null ? equip.Get(slot) : null;
     }
 
     private ClassUnlocker ClassUnlockerOf()

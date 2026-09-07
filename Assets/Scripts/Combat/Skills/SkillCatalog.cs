@@ -5,7 +5,7 @@ using UnityEngine;
 /// Runtime catalog of the 60 default skills (Phase 10) — 10 per <see cref="SkillType"/>.
 /// Each skill composes shared effects (composition model): passive skills use a
 /// <see cref="StatBuffEffect"/> with a zero <see cref="Cost"/>; castables use
-/// <see cref="DamageZoneEffect"/> / <see cref="SpellCastEffect"/> / <see cref="WeaponArtEffect"/>.
+/// <see cref="DamageZoneEffect"/> / <see cref="SpellCastEffect"/> / <see cref="WeaponSkillEffect"/>.
 /// Skills are built in code (no .asset files) and carry their <see cref="DamageKind"/> element.
 /// </summary>
 public static class SkillCatalog
@@ -109,15 +109,15 @@ public static class SkillCatalog
         Add(list, "melee_finesse", "Finesse", SkillType.Melee, true, None(), false, DamageType.Physical,
             Buff(StatType.Dexterity, 3f), null, "Permanent +3 Dexterity.");
         Add(list, "melee_tough", "Tough Knuckles", SkillType.Melee, true, None(), false, DamageType.Physical,
-            Buff(StatType.Defense, 2f), null, "Permanent +2 Defense.");
+            Buff(StatType.Defense, 2f), P("melee_heavy_mastery"), "Permanent +2 Defense (requires Heavy Mastery).");
 
         /* Castables (Weapon arts / strike zones) */
         Add(list, "melee_cleave", "Cleave", SkillType.Melee, false, Stamina(10f), false, DamageType.Physical,
             Slash(18f, DamageType.Physical), null, "A wide physical slash in front of you.");
         Add(list, "melee_lunge", "Lunge", SkillType.Melee, false, Stamina(12f), false, DamageType.Physical,
-            new WeaponArtEffect(), null, "A forward thrust weapon art (equipped weapon art).");
+            new WeaponSkillEffect(), null, "A forward thrust weapon skill (equipped weapon skill).");
         Add(list, "melee_whirlwind", "Whirlwind", SkillType.Melee, false, Stamina(18f), false, DamageType.Wind,
-            Zone(2.2f, 20f, DamageType.Wind), null, "Spin, striking all nearby foes with wind force.");
+            Zone(2.2f, 20f, DamageType.Wind), P("melee_cleave"), "Spin, striking all nearby foes with wind force (requires Cleave).");
         Add(list, "melee_shieldbash", "Shield Bash", SkillType.Melee, false, Stamina(14f), false, DamageType.Physical,
             Slash(22f, DamageType.Physical), null, "A heavy blunt shield strike.");
         Add(list, "melee_berserk", "Berserk Slash", SkillType.Melee, false, Stamina(20f), true, DamageType.Fire,
@@ -133,7 +133,7 @@ public static class SkillCatalog
         Add(list, "ranged_marksman", "Marksman", SkillType.Ranged, true, None(), false, DamageType.Physical,
             Buff(StatType.Dexterity, 4f), null, "Permanent +4 Dexterity (accuracy).");
         Add(list, "ranged_steady", "Steady Hands", SkillType.Ranged, true, None(), false, DamageType.Physical,
-            Buff(StatType.Luck, 2f), null, "Permanent +2 Luck (critical hits).");
+            Buff(StatType.Luck, 2f), P("ranged_marksman"), "Permanent +2 Luck (requires Marksman).");
         Add(list, "ranged_carry", "Swift Quiver", SkillType.Ranged, true, None(), false, DamageType.Physical,
             Buff(StatType.AttackSpeed, 2f), null, "Permanent +2 Attack Speed.");
 
@@ -160,7 +160,7 @@ public static class SkillCatalog
         Add(list, "magic_arcane", "Arcane Study", SkillType.Magic, true, None(), false, DamageType.Arcane,
             Buff(StatType.Wisdom, 3f), null, "Permanent +3 Wisdom (spell power).");
         Add(list, "magic_manaflow", "Mana Flow", SkillType.Magic, true, None(), false, DamageType.Arcane,
-            Buff(StatType.Intelligence, 2f), null, "Permanent +2 Intelligence (regen/FP).");
+            Buff(StatType.Intelligence, 2f), P("magic_arcane"), "Permanent +2 Intelligence (regen/FP, requires Arcane Study).");
 
         Add(list, "magic_fireball", "Fireball", SkillType.Magic, false, Focus(15f), true, DamageType.Fire,
             Spell("magic_fireball_spell", "Fireball", DamageType.Fire, 25f, 15f, SpellDelivery.Projectile, 4f),
@@ -173,7 +173,7 @@ public static class SkillCatalog
             P("magic_fireball"), "Electric blast (requires Fireball).");
         Add(list, "magic_heal", "Lesser Heal", SkillType.Magic, false, Focus(10f), false, DamageType.Holy,
             Spell("magic_heal_spell", "Lesser Heal", DamageType.Holy, 15f, 10f, SpellDelivery.Instant, 0f),
-            null, "Restore health with a holy miracle.");
+            P("magic_focus"), "Restore health with a holy miracle (requires Focal Mind).");
         Add(list, "magic_ward", "Arcane Ward", SkillType.Magic, false, Focus(12f), true, DamageType.Arcane,
             Zone(2f, 14f, DamageType.Arcane), P("magic_arcane"), "A protective arcane wave.");
         Add(list, "magic_dark", "Dark Bolt", SkillType.Magic, false, Focus(14f), true, DamageType.Dark,
@@ -186,7 +186,7 @@ public static class SkillCatalog
     private static void BuildStealth(List<Skill> list)
     {
         Add(list, "stealth_sneak", "Silent Steps", SkillType.Stealth, true, None(), false, DamageType.Physical,
-            Buff(StatType.Dexterity, 3f), null, "Permanent +3 Dexterity.");
+            Buff(StatType.Dexterity, 3f), P("stealth_reflexes"), "Permanent +3 Dexterity (requires Quick Reflexes).");
         Add(list, "stealth_shadow", "Shadow-Touched", SkillType.Stealth, true, None(), false, DamageType.Physical,
             Buff(StatType.Speed, 2f), null, "Permanent +2 Speed.");
         Add(list, "stealth_reflexes", "Quick Reflexes", SkillType.Stealth, true, None(), false, DamageType.Physical,
@@ -223,10 +223,10 @@ public static class SkillCatalog
         Add(list, "craft_purity", "Pure Materials", SkillType.Crafting, true, None(), false, DamageType.Physical,
             Buff(StatType.Luck, 3f), P("craft_hands"), "Permanent +3 Luck (requires Steady Hands).");
         Add(list, "craft_refine", "Refinement", SkillType.Crafting, true, None(), false, DamageType.Physical,
-            Buff(StatType.Intelligence, 2f), null, "Permanent +2 Intelligence.");
+            Buff(StatType.Intelligence, 2f), P("craft_knowledge"), "Permanent +2 Intelligence (requires Crafter's Knowledge).");
 
         Add(list, "craft_repair", "Field Repair", SkillType.Crafting, false, Stamina(8f), false, DamageType.Physical,
-            Zone(1f, 8f, DamageType.Physical), null, "A repair pulse (restores durability).");
+            Zone(1f, 8f, DamageType.Physical), P("craft_knowledge"), "A repair pulse (restores durability, requires Crafter's Knowledge).");
         Add(list, "craft_transmute", "Transmute", SkillType.Crafting, false, Focus(12f), true, DamageType.Arcane,
             Zone(1.6f, 14f, DamageType.Arcane), P("craft_purity"), "Transmutes materials into force.");
         Add(list, "craft_forge", "Masterwork", SkillType.Crafting, false, Focus(18f), true, DamageType.Fire,
@@ -238,11 +238,11 @@ public static class SkillCatalog
         Add(list, "fort_health", "Tough Body", SkillType.Fortitude, true, None(), false, DamageType.Physical,
             Buff(StatType.Health, 4f), null, "Permanent +4 Health.");
         Add(list, "fort_vitality", "Vitality", SkillType.Fortitude, true, None(), false, DamageType.Physical,
-            Buff(StatType.Health, 4f), null, "Permanent +4 Health.");
+            Buff(StatType.Health, 4f), P("fort_health"), "Permanent +4 Health (requires Tough Body).");
         Add(list, "fort_armor", "Iron Flesh", SkillType.Fortitude, true, None(), false, DamageType.Physical,
             Buff(StatType.Defense, 4f), null, "Permanent +4 Defense.");
         Add(list, "fort_stamina", "Relentless", SkillType.Fortitude, true, None(), false, DamageType.Physical,
-            Buff(StatType.Endurance, 4f), null, "Permanent +4 Endurance.");
+            Buff(StatType.Endurance, 4f), P("fort_armor"), "Permanent +4 Endurance (requires Iron Flesh).");
         Add(list, "fort_recovery", "Fast Recovery", SkillType.Fortitude, true, None(), false, DamageType.Physical,
             Buff(StatType.Health, 2f), null, "Permanent +2 Health (regen).");
         Add(list, "fort_steadfast", "Steadfast", SkillType.Fortitude, true, None(), false, DamageType.Physical,

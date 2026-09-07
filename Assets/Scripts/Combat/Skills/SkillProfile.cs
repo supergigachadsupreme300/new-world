@@ -35,6 +35,8 @@ public sealed class SkillProfile : MonoBehaviour
 
         foreach (var id in LearnedSkillIds) _learned.Add(id);
 
+        if (_xp == null)
+            _xp = GetComponent<SkillXpTracker>();
         if (_xp != null)
             _xp.OnSkillLevelUp += OnCategoryLevelUp;
     }
@@ -49,6 +51,23 @@ public sealed class SkillProfile : MonoBehaviour
     private void OnCategoryLevelUp(SkillType skill, int level)
     {
         Points++;
+    }
+
+    /// <summary>
+    /// Re-resolve a combat dependency if it was missing (the combat stack is rigged later than
+    /// this profile by <c>WeaponRigBuilder.EnsureCombatStack</c>, so cached fields may be null at
+    /// Awake). Called at learn/cast time so spur-of-the-moment component additions still work.
+    /// </summary>
+    private void ReconcileDependencies()
+    {
+        if (_stats == null) _stats = GetComponent<PlayerStats>();
+        if (_caster == null) _caster = GetComponent<SpellCaster>();
+        if (_stamina == null) _stamina = GetComponent<StaminaSystem>();
+        if (_xp == null)
+        {
+            _xp = GetComponent<SkillXpTracker>();
+            if (_xp != null) _xp.OnSkillLevelUp += OnCategoryLevelUp;
+        }
     }
 
     /// <summary>True if the given skill id has been learned.</summary>
@@ -75,6 +94,7 @@ public sealed class SkillProfile : MonoBehaviour
     public bool Learn(Skill skill)
     {
         if (!CanLearn(skill)) return false;
+        ReconcileDependencies();
         Points--;
         _learned.Add(skill.id);
         LearnedSkillIds.Add(skill.id);
@@ -97,6 +117,7 @@ public sealed class SkillProfile : MonoBehaviour
         var skill = SkillCatalog.Find(id);
         if (skill == null || skill.IsPassive || !_learned.Contains(id)) return false;
 
+        ReconcileDependencies();
         var ctx = BuildContext();
         if (!skill.CanAfford(ctx)) return false;
         if (ctx.Caster != null && !ctx.Caster.CooldownReady(skill.CooldownKey)) return false;
@@ -111,13 +132,13 @@ public sealed class SkillProfile : MonoBehaviour
 
     private SkillContext BuildContext()
     {
-        var art = GetComponentInChildren<WeaponArtExecutor>();
+        var skillExec = GetComponentInChildren<WeaponSkillExecutor>();
         return new SkillContext
         {
             Caster = _caster,
             Stamina = _stamina,
             Stats = _stats,
-            ArtExecutor = art,
+            SkillExecutor = skillExec,
             Origin = transform,
             User = gameObject
         };

@@ -85,16 +85,16 @@ public sealed class StatBuffEffect : IEffect
 }
 
 /// <summary>
-/// Weapon-art effect: triggers the rigged weapon's <see cref="WeaponArtExecutor"/> on its
-/// equipped <see cref="WeaponArt"/> (spends FP + cooldown via the art). Used by melee/ranged
-/// attack-art skills. If no art executor is resolved, does nothing.
+/// Weapon-skill effect: triggers the rigged weapon's <see cref="WeaponSkillExecutor"/> on its
+/// equipped <see cref="WeaponSkill"/> (spends FP + cooldown via the skill). Used by melee/ranged
+/// attack-skill skills. If no skill executor is resolved, does nothing.
 /// </summary>
 [System.Serializable]
-public sealed class WeaponArtEffect : IEffect
+public sealed class WeaponSkillEffect : IEffect
 {
     public void Execute(SkillContext ctx)
     {
-        if (ctx == null || ctx.ArtExecutor == null) return;
-        ctx.ArtExecutor.TryUse();
+        if (ctx == null || ctx.SkillExecutor == null) return;
+        ctx.SkillExecutor.TryUse();
     }
 }
