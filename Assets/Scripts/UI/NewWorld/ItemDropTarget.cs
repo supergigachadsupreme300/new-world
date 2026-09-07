@@ -12,6 +12,15 @@ public sealed class ItemDropTarget : MonoBehaviour, IDropHandler
 
     public void OnDrop(PointerEventData eventData)
     {
+        // An equipped weapon dragged off a hand slot (see WeaponDragHandle) → unequip it back
+        // into the bag. Dragged armed weapons have no ToolManager slot, so handle them first.
+        string unequipId = WeaponDragHandle.DraggingWeaponId;
+        if (!string.IsNullOrEmpty(unequipId))
+        {
+            CharacterInfoUI.Instance?.UnequipWeapon(unequipId);
+            return;
+        }
+
         int from = ItemDragHandle.DraggingSlot;
         if (from < 0 || from == Slot) return;
 

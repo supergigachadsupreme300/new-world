@@ -15,6 +15,13 @@ public static partial class MapBuilder
         root.transform.localRotation = Quaternion.identity;
         root.transform.localScale = Vector3.one * scale;
 
+        // ── Torso pivot (waist centre): holds everything above the hips so the animator can
+        // lean/bounce the upper body while the legs stay planted on the root. ──
+        var torso = new GameObject("Torso");
+        torso.transform.SetParent(root.transform, false);
+        torso.transform.localPosition = new Vector3(0f, 0.05f, 0f);
+        torso.transform.localRotation = Quaternion.identity;
+
         bool female = ActiveGender == PlayerGender.Female;
 
         Color skinC = new Color(220f / 255f, 178f / 255f, 132f / 255f);
@@ -25,24 +32,24 @@ public static partial class MapBuilder
         Color shoeC = new Color(0.2f, 0.2f, 0.2f);
         Color dressC = new Color(0.14f, 0.44f, 0.72f);
 
-        MakeBlock("Body", root.transform, new Vector3(female ? 0.46f : 0.5f, 0.6f, 0.25f), new Vector3(0f, 0.05f, 0f), shirtC, true);
+        MakeBlock("Body", torso.transform, new Vector3(female ? 0.46f : 0.5f, 0.6f, 0.25f), new Vector3(0f, 0.05f, 0f), shirtC, true);
         if (female)
         {
-            MakeBlock("Skirt", root.transform, new Vector3(0.52f, 0.28f, 0.3f), new Vector3(0f, -0.27f, 0f), dressC, true);
-            MakeBlock("SkirtHem", root.transform, new Vector3(0.56f, 0.06f, 0.34f), new Vector3(0f, -0.42f, 0f), new Color(0.09f, 0.3f, 0.52f), true);
+            MakeBlock("Skirt", torso.transform, new Vector3(0.52f, 0.28f, 0.3f), new Vector3(0f, -0.27f, 0f), dressC, true);
+            MakeBlock("SkirtHem", torso.transform, new Vector3(0.56f, 0.06f, 0.34f), new Vector3(0f, -0.42f, 0f), new Color(0.09f, 0.3f, 0.52f), true);
         }
-        MakeBlock("Head", root.transform, new Vector3(0.3f, 0.3f, 0.3f), new Vector3(0f, 0.65f, 0f), skinC, true);
-        MakeBlock("Neck", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0f, 0.4f, 0f), skinC, true);
+        MakeBlock("Head", torso.transform, new Vector3(0.3f, 0.3f, 0.3f), new Vector3(0f, 0.65f, 0f), skinC, true);
+        MakeBlock("Neck", torso.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0f, 0.4f, 0f), skinC, true);
 
         // ── Shoulder pivots (rotate from shoulder joint) ──
         // Arm chain: Shoulder -> Elbow -> Forearm + Hand (upper/lower arm split).
         var shoulderL = new GameObject("ShoulderL");
-        shoulderL.transform.SetParent(root.transform);
+        shoulderL.transform.SetParent(torso.transform);
         shoulderL.transform.localPosition = new Vector3(-0.33f, 0.37f, 0f);
         shoulderL.transform.localRotation = Quaternion.identity;
 
         var shoulderR = new GameObject("ShoulderR");
-        shoulderR.transform.SetParent(root.transform);
+        shoulderR.transform.SetParent(torso.transform);
         shoulderR.transform.localPosition = new Vector3(0.33f, 0.37f, 0f);
         shoulderR.transform.localRotation = Quaternion.identity;
 
@@ -90,26 +97,26 @@ public static partial class MapBuilder
         MakeBlock("ShinR", kneeR.transform, new Vector3(0.14f, 0.24f, 0.14f), new Vector3(0f, -0.12f, 0f), pantsC, true);
         MakeBlock("ShoeR", kneeR.transform, new Vector3(0.16f, 0.08f, 0.22f), new Vector3(0f, -0.27f, 0.02f), shoeC, true);
 
-        MakeBlock("Hair", root.transform, new Vector3(0.32f, 0.08f, 0.3f), new Vector3(0f, 0.82f, 0f), hairC, true);
-        MakeBlock("HairL", root.transform, new Vector3(0.08f, 0.32f, 0.26f), new Vector3(-0.19f, 0.69f, 0f), hairC, true);
-        MakeBlock("HairR", root.transform, new Vector3(0.08f, 0.32f, 0.26f), new Vector3(0.19f, 0.69f, 0f), hairC, true);
+        MakeBlock("Hair", torso.transform, new Vector3(0.32f, 0.08f, 0.3f), new Vector3(0f, 0.82f, 0f), hairC, true);
+        MakeBlock("HairL", torso.transform, new Vector3(0.08f, 0.32f, 0.26f), new Vector3(-0.19f, 0.69f, 0f), hairC, true);
+        MakeBlock("HairR", torso.transform, new Vector3(0.08f, 0.32f, 0.26f), new Vector3(0.19f, 0.69f, 0f), hairC, true);
         if (female)
         {
-            MakeBlock("HairBack", root.transform, new Vector3(0.3f, 0.3f, 0.1f), new Vector3(0f, 0.7f, -0.16f), hairC, true);
-            MakeBlock("HairBand", root.transform, new Vector3(0.34f, 0.05f, 0.32f), new Vector3(0f, 0.8f, 0f), new Color(0.1f, 0.34f, 0.56f), true);
-            MakeBlock("Ponytail1", root.transform, new Vector3(0.18f, 0.24f, 0.14f), new Vector3(0f, 0.7f, -0.23f), hairC, true);
-            MakeBlock("Ponytail2", root.transform, new Vector3(0.15f, 0.22f, 0.13f), new Vector3(0f, 0.5f, -0.27f), hairC, true);
-            MakeBlock("Ponytail3", root.transform, new Vector3(0.12f, 0.2f, 0.12f), new Vector3(0f, 0.3f, -0.29f), hairC, true);
+            MakeBlock("HairBack", torso.transform, new Vector3(0.3f, 0.3f, 0.1f), new Vector3(0f, 0.7f, -0.16f), hairC, true);
+            MakeBlock("HairBand", torso.transform, new Vector3(0.34f, 0.05f, 0.32f), new Vector3(0f, 0.8f, 0f), new Color(0.1f, 0.34f, 0.56f), true);
+            MakeBlock("Ponytail1", torso.transform, new Vector3(0.18f, 0.24f, 0.14f), new Vector3(0f, 0.7f, -0.23f), hairC, true);
+            MakeBlock("Ponytail2", torso.transform, new Vector3(0.15f, 0.22f, 0.13f), new Vector3(0f, 0.5f, -0.27f), hairC, true);
+            MakeBlock("Ponytail3", torso.transform, new Vector3(0.12f, 0.2f, 0.12f), new Vector3(0f, 0.3f, -0.29f), hairC, true);
         }
         else
         {
-            MakeBlock("HairBack", root.transform, new Vector3(0.3f, 0.26f, 0.1f), new Vector3(0f, 0.72f, -0.16f), hairC, true);
+            MakeBlock("HairBack", torso.transform, new Vector3(0.3f, 0.26f, 0.1f), new Vector3(0f, 0.72f, -0.16f), hairC, true);
         }
         Color eyeWhiteC = new Color(0.95f, 0.95f, 0.97f);
-        MakeBlock("EyeWhiteL", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(-0.08f, 0.72f, 0.155f), eyeWhiteC, true);
-        MakeBlock("EyeWhiteR", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(0.08f, 0.72f, 0.155f), eyeWhiteC, true);
-        MakeBlock("EyeIrisL", root.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(-0.08f, 0.72f, 0.165f), eyeC, true);
-        MakeBlock("EyeIrisR", root.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(0.08f, 0.72f, 0.165f), eyeC, true);
+        MakeBlock("EyeWhiteL", torso.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(-0.08f, 0.72f, 0.155f), eyeWhiteC, true);
+        MakeBlock("EyeWhiteR", torso.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(0.08f, 0.72f, 0.155f), eyeWhiteC, true);
+        MakeBlock("EyeIrisL", torso.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(-0.08f, 0.72f, 0.165f), eyeC, true);
+        MakeBlock("EyeIrisR", torso.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(0.08f, 0.72f, 0.165f), eyeC, true);
 
         return root;
     }

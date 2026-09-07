@@ -8,7 +8,7 @@ using UnityEngine;
 /// (MaxHP, MoveSpeed, MaxStamina, …) are computed from the TOTAL (modified) stat.
 ///
 /// Implements <see cref="IStatProvider"/> so MeleeWeaponBehavior / RangedWeaponBehavior /
-/// SpellCaster / WeaponArtExecutor query stats through this single source.
+/// SpellCaster / WeaponSkillExecutor query stats through this single source.
 /// </summary>
 [DisallowMultipleComponent]
 public class PlayerStats : MonoBehaviour, IStatProvider, ILootLuckProvider

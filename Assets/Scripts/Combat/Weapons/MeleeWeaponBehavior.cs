@@ -22,6 +22,9 @@ public class MeleeWeaponBehavior : MonoBehaviour, IWeaponBehavior
     /// <summary>Optional stat accessor supplying Str/Dex for scaling (wired in Phase 4).</summary>
     public IStatProvider Stats;
 
+    /// <summary>Flat damage multiplier when this single weapon is gripped two-handed.</summary>
+    public const float TwoHandDamageMult = 1.5f;
+
     private bool _attacking;
 
     public event Action Completed;
@@ -64,6 +67,14 @@ public class MeleeWeaponBehavior : MonoBehaviour, IWeaponBehavior
 
         // Damage from weapon.base + stat scaling; light/heavy variant.
         float damage = ComputeScaledDamage(cmd.IsHeavy);
+
+        // Two-hand grip buff: when the player is two-handing this single weapon, melee strikes
+        // deal a flat multiplier. The rig lives under the player root, so transform.root is the
+        // player carrying the CombatController.
+        var owner = transform.root != null ? transform.root.GetComponent<CombatController>() : null;
+        if (owner != null && owner.Wielding == CombatController.WieldingState.TwoHand)
+            damage *= TwoHandDamageMult;
+
         AttackDamage = damage;
 
         // Configure hitbox with the weapon's single DamageType + reach.

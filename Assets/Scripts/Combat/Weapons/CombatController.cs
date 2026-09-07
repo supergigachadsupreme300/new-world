@@ -36,8 +36,11 @@ public class CombatController : MonoBehaviour
     public GameObject RightHand;
     [Tooltip("Left-hand weapon GameObject carrying a WeaponData + IWeaponBehavior.")]
     public GameObject LeftHand;
-    [Tooltip("Current wielding state. Two-hand = both slots for one weapon; Dual = one per hand.")]
+    [Tooltip("Current wielding state, derived from the hands. Dual = one weapon per hand; TwoHand = a single held weapon gripped with both hands for a buff.")]
     public WieldingState Wielding = WieldingState.Single;
+
+    /// <summary>Player's intent to two-hand a single held weapon (applies when exactly one hand holds a weapon).</summary>
+    private bool _twoHandIntent;
 
     [Header("Defense")]
     public bool IsBlocking;
@@ -66,14 +69,39 @@ public class CombatController : MonoBehaviour
     /// <summary>Wielding state governing hand usage (§5.4).</summary>
     public enum WieldingState
     {
-        /// <summary>One hand (off-hand free).</summary>
+        /// <summary>A single held weapon used one-handed.</summary>
         Single = 0,
 
-        /// <summary>One weapon per hand (needs ~2× Str).</summary>
+        /// <summary>One (different) weapon per hand — attacks alternate between hands.</summary>
         Dual = 1,
 
-        /// <summary>Both hand slots for one weapon (needs ~half Str).</summary>
+        /// <summary>A single held weapon gripped with both hands for a buff.</summary>
         TwoHand = 2
+    }
+
+    /// <summary>
+    /// Recompute the wield state from the current hand contents. Two weapons → <see cref="WieldingState.Dual"/>;
+    /// one weapon + <see cref="TwoHandIntent"/> → <see cref="WieldingState.TwoHand"/>; otherwise single.
+    /// Call after equipping/unequipping.
+    /// </summary>
+    public void RecomputeWielding()
+    {
+        if (RightHand != null && LeftHand != null)
+            Wielding = WieldingState.Dual;
+        else if ((RightHand != null || LeftHand != null) && _twoHandIntent)
+            Wielding = WieldingState.TwoHand;
+        else
+            Wielding = WieldingState.Single;
+    }
+
+    /// <summary>Whether the player intends to two-hand a single held weapon (ignored while two weapons are held).</summary>
+    public bool TwoHandIntent => _twoHandIntent;
+
+    /// <summary>Set the two-hand grip intent for a single held weapon and recompute the wield state.</summary>
+    public void SetTwoHand(bool intent)
+    {
+        _twoHandIntent = intent;
+        RecomputeWielding();
     }
 
     // ── Public event hooks ──────────────────────────────────────────────────

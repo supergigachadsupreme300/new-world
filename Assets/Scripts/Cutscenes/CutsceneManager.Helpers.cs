@@ -171,8 +171,8 @@ public partial class CutsceneManager
         if (model == null) yield break;
         var hipL = model.transform.Find("HipL");
         var hipR = model.transform.Find("HipR");
-        var shoulderL = model.transform.Find("ShoulderL");
-        var shoulderR = model.transform.Find("ShoulderR");
+        var shoulderL = model.transform.Find("Torso/ShoulderL");
+        var shoulderR = model.transform.Find("Torso/ShoulderR");
 
         if (hipL == null && hipR == null && shoulderL == null && shoulderR == null) yield break;
 

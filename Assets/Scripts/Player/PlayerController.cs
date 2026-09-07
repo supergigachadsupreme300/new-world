@@ -658,7 +658,10 @@ public class PlayerController : MonoBehaviour
         if (!dialogBlocked && leftClick)
         {
             if (FightingMode)
-                GetComponent<CombatController>()?.LightAttack();
+            {
+                if (!WeaponTransitionBusy())
+                    GetComponent<CombatController>()?.LightAttack();
+            }
             else
                 ToolManager.Instance?.UseSelectedItem();
         }
@@ -666,7 +669,8 @@ public class PlayerController : MonoBehaviour
         {
             if (FightingMode)
             {
-                GetComponent<CombatController>()?.HeavyAttack();
+                if (!WeaponTransitionBusy())
+                    GetComponent<CombatController>()?.HeavyAttack();
                 return;
             }
             var cam = Camera.main;
@@ -772,6 +776,13 @@ public class PlayerController : MonoBehaviour
             ToolManager.Instance?.SelectSlot(9);
         if (!dialogBlocked && Keyboard.current != null && Keyboard.current.f1Key.wasPressedThisFrame)
             ToggleCombatMode();
+        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.xKey.wasPressedThisFrame)
+        {
+            // Toggle two-hand grip on a single held weapon (no-op while dual-wielding).
+            var combat = GetComponent<CombatController>();
+            if (combat != null)
+                combat.SetTwoHand(!combat.TwoHandIntent);
+        }
     }
 
     private void PickupWeaponStand(WeaponRackStand stand)
@@ -817,6 +828,8 @@ public class PlayerController : MonoBehaviour
                 ToolManager.Instance?.SelectSlot(_cachedFightSlot);
             _cachedFightSlot = -1;
             ShowPrompt(Localization.T("Casual mode."));
+            // Sheathe the equipped weapon onto the body (waist/back) instead of leaving it in hand.
+            WeaponRigBuilder.ApplyPose(gameObject, draw: false);
         }
         else
         {
@@ -828,13 +841,28 @@ public class PlayerController : MonoBehaviour
             var skillBar = Object.FindAnyObjectByType<SkillBarHUD>();
             if (skillBar != null) skillBar.SetVisible(true);
             TryAutoRigWeapon();
+            // Draw the weapon from its stow point into the hand.
+            WeaponRigBuilder.ApplyPose(gameObject, draw: true);
         }
+    }
+
+    /// <summary>True while the equipped weapon is mid draw/stow transition (attacks gated).</summary>
+    private bool WeaponTransitionBusy()
+    {
+        var animator = GetComponent<WeaponStowAnimator>();
+        return animator != null && animator.IsBusy;
     }
 
     private void TryAutoRigWeapon()
     {
         WeaponCatalog.EnsureBuilt();
-        WeaponRigBuilder.ReparentToHands(gameObject);
+        // If the weapon is out of combat (stowed on the body), leave it there — the draw
+        // transition animates it into the hand afterward. Only re-seat onto the hands when the
+        // weapon is already drawn (or has no animator yet, e.g. first equip / parked rig).
+        var animator = GetComponent<WeaponStowAnimator>();
+        bool stowed = animator != null && !animator.IsDrawn;
+        if (!stowed)
+            WeaponRigBuilder.ReparentToHands(gameObject);
         var combat = GetComponent<CombatController>();
         if (combat != null && (combat.RightHand != null || combat.LeftHand != null)) return;
         string id = null;
@@ -972,13 +1000,32 @@ public class PlayerController : MonoBehaviour
 
         if (_playerModelInstance != null)
         {
+            // Body renderers → layer 6 (culled in first person). Arm/hand renderers (and any
+            // weapon rig parented to a hand, which hangs under the Shoulder pivots) → layer 7,
+            // which CameraModeSwitch keeps visible so the player sees their own arms in 1st person.
             foreach (var r in _playerModelInstance.GetComponentsInChildren<Renderer>())
-                r.gameObject.layer = 6;
+                r.gameObject.layer = IsArmUnderShoulder(r.transform) ? 7 : 6;
             _playerModelInstance.AddComponent<PlayerAnimator>();
         }
 
         // The rebuilt model may have appeared after an early equip parked the weapon rig on the
         // player root (hidden inside the torso); re-seat it onto the fresh hand bones.
         WeaponRigBuilder.ReparentToHands(gameObject);
+        // Re-apply the current weapon pose (drawn in combat, stowed otherwise) now that the
+        // model's hand + body anchors exist again. Snap immediately — a fresh model has no
+        // in-flight draw/stow transition to continue.
+        WeaponRigBuilder.ApplyPose(gameObject, draw: FightingMode, instant: true);
+    }
+
+    /// <summary>True when the renderer sits on the arm chain (Shoulder → Elbow → Hand) or a held
+    /// weapon rig parented to it. Declared inline so no top-level helper is added to the class.</summary>
+    private static bool IsArmUnderShoulder(Transform t)
+    {
+        while (t != null)
+        {
+            if (t.name.StartsWith("Shoulder")) return true;
+            t = t.parent;
+        }
+        return false;
     }
 }

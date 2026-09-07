@@ -4,19 +4,46 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Makes an inventory weapon entry draggable onto a hand-slot <see cref="WeaponDropTarget"/>.
+/// Makes a weapon draggable. Two uses:
+///   • Weapon rack entries — set <see cref="WeaponId"/> and drop onto a hand-slot
+///     <see cref="WeaponDropTarget"/> to equip.
+///   • Equipped hand slots — leave <see cref="WeaponId"/> empty and set <see cref="Slot"/>; the id is
+///     resolved live from the rig on the hand. Dropping it anywhere (e.g. a storage slot, see
+///     <see cref="ItemDropTarget"/>) unequips it back into the bag.
 /// Holds the dragged weapon id in <see cref="DraggingWeaponId"/> while the ghost follows the
-/// pointer; the target's <see cref="WeaponDropTarget.OnDrop"/> performs the equip.
+/// pointer; the drop target performs the equip/unequip.
 /// </summary>
 public sealed class WeaponDragHandle : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
     public string WeaponId;
+
+    /// <summary>When set, the dragged id is read from the equipped rig on this hand slot.</summary>
+    public EquipSlot Slot = (EquipSlot)(-1);
 
     /// <summary>Weapon id currently being dragged, or null when idle.</summary>
     public static string DraggingWeaponId;
 
     private GameObject _ghost;
     private RectTransform _ghostRect;
+
+    /// <summary>
+    /// Prefer the explicit <see cref="WeaponId"/>; otherwise read the weapon actually equipped on
+    /// this hand slot (so an equipped weapon can be dragged back out), or null when nothing readable.
+    /// </summary>
+    private string ResolveWeaponId()
+    {
+        if (!string.IsNullOrEmpty(WeaponId)) return WeaponId;
+        if ((int)Slot < 0) return null;
+
+        var player = GameManager.Instance != null ? GameManager.Instance.Player : null;
+        var combat = player != null ? player.GetComponent<CombatController>() : null;
+        if (combat == null) return null;
+
+        var hand = Slot == EquipSlot.LeftHand ? combat.LeftHand
+            : Slot == EquipSlot.RightHand ? combat.RightHand : null;
+        var host = hand != null ? hand.GetComponent<WeaponRigHost>() : null;
+        return host != null && host.Data != null ? host.Data.id : null;
+    }
 
     private Canvas FindTopCanvas()
     {
@@ -31,12 +58,15 @@ public sealed class WeaponDragHandle : MonoBehaviour, IBeginDragHandler, IDragHa
 
     public void OnBeginDrag(PointerEventData eventData)
     {
-        DraggingWeaponId = WeaponId;
+        string id = ResolveWeaponId();
+        if (string.IsNullOrEmpty(id)) return;
+
+        DraggingWeaponId = id;
         var canvas = FindTopCanvas();
         if (canvas == null) return;
 
-        var weapon = WeaponCatalog.Find(WeaponId);
-        string name = weapon != null && !string.IsNullOrEmpty(weapon.displayName) ? weapon.displayName : WeaponId;
+        var weapon = WeaponCatalog.Find(id);
+        string name = weapon != null && !string.IsNullOrEmpty(weapon.displayName) ? weapon.displayName : id;
 
         _ghost = new GameObject("DragGhost");
         _ghost.transform.SetParent(canvas.transform, false);

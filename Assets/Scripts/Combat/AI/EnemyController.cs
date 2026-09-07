@@ -5,7 +5,7 @@ using UnityEngine;
 /// Open-world enemy brain (planning Task 5.1, game-design §7.1). A lightweight FSM —
 /// Patrol → Alert → Chase → Attack → Flee → Dead — driven by visible config. Implements
 /// <see cref="IDamageable"/> so the Phase 3/-4 combat pipeline (HitboxSystem, RangedProjectile,
-/// SpellCaster, WeaponArtExecutor) damages it through the standard route.
+/// SpellCaster, WeaponSkillExecutor) damages it through the standard route.
 /// </summary>
 [RequireComponent(typeof(Collider))]
 public class EnemyController : MonoBehaviour, IDamageable

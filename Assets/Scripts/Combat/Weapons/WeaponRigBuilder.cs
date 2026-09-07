@@ -22,38 +22,19 @@ public static class WeaponRigBuilder
     public static bool LogRigging = true;
 
     /// <summary>
-    /// Uniform scale-up applied to a weapon when equipped in-hand. The weapon models are authored
-    /// rack-scale (fitted to the pedestal), which reads too small held against the ~1.5-unit-tall
-    /// blocky player; this bump makes blades/staves/bows look proper relative to the body.
-    /// 10× (was 1.25) per design request so held weapons are boldly oversized vs. the hand.
+    /// Target WORLD scale of a drawn (in-hand) weapon. The hand blocks the rig parents to are not
+    /// identity-scaled (<c>HandL/R</c> are ~0.12, 0.08, 0.12), so the rig's local scale must be
+    /// computed per parent via <see cref="ScaleForWorld"/> — treating it as uniform local (the old
+    /// <c>EquipScale</c>) silently shrank the held weapon ~10× and distorted it. Equals
+    /// <see cref="StowScale"/> so a weapon reads exactly the same size drawn and stowed.
     /// </summary>
-    public const float EquipScale = 12.5f;
+    public const float DrawScale = 0.8f;
 
     private static readonly HashSet<string> _logged = new HashSet<string>();
 
     private static void LogOnce(string key, string message)
     {
         if (LogRigging && _logged.Add(key)) Debug.Log("[WeaponRig] " + message);
-    }
-
-    /// <summary>Default wielding per weapon archetype (guessed from the weapon id).</summary>
-    public static CombatController.WieldingState WieldingFor(WeaponData weapon)
-    {
-        if (weapon == null) return CombatController.WieldingState.Single;
-        switch (weapon.id)
-        {
-            case "greatsword":
-            case "greataxe":
-            case "katana":
-            case "lance":
-            case "warhammer":
-            case "longbow":
-                return CombatController.WieldingState.TwoHand;
-            case "gauntlets":
-                return CombatController.WieldingState.Dual;
-            default:
-                return CombatController.WieldingState.Single;
-        }
     }
 
     /// <summary>
@@ -72,8 +53,11 @@ public static class WeaponRigBuilder
 
     /// <summary>
     /// Rig <paramref name="weapon"/> onto <paramref name="playerRoot"/>, attach its visual to
-    /// the matching player-model hand, and assign it to the combat controller's hands with the
-    /// appropriate wielding state. Returns the handed-over weapon GameObject (or null on failure).
+    /// the matching player-model hand, and assign it to the combat controller's hand
+    /// (<paramref name="toLeftHand"/> selects left vs right). Equipping replaces ONLY the targeted
+    /// hand slot — the weapon in the other hand is left untouched, so the player can hold a
+    /// different one-handed weapon in each hand (dual-wield). Returns the handed-over weapon
+    /// GameObject (or null on failure).
     /// </summary>
     public static GameObject EquipInto(GameObject playerRoot, WeaponData weapon, bool toLeftHand = false)
     {
@@ -85,8 +69,6 @@ public static class WeaponRigBuilder
         var stats = playerRoot.GetComponent<PlayerStats>();
         if (combat == null) return null;
 
-        var wielding = WieldingFor(weapon);
-
         var weaponGo = BuildRig(playerRoot, weapon, caster, stats, out var behavior);
         if (weaponGo == null || behavior == null)
         {
@@ -94,46 +76,23 @@ public static class WeaponRigBuilder
             return null;
         }
 
-        // Drop the previous rigs so old Wpn_ proxies never pile up on the hands.
-        ClearHand(combat.LeftHand);
-        ClearHand(combat.RightHand);
+        // Replace only the targeted hand slot so the other hand's weapon is preserved.
+        if (toLeftHand)
+            ClearHand(combat.LeftHand);
+        else
+            ClearHand(combat.RightHand);
 
-        switch (wielding)
-        {
-            case CombatController.WieldingState.Dual:
-                AttachToHand(playerRoot, weaponGo, false);
-                var clone = CloneRig(playerRoot, weapon, caster, stats, true);
-                if (clone == null)
-                {
-                    Object.Destroy(weaponGo);
-                    return null;
-                }
-                combat.RightHand = weaponGo;
-                combat.LeftHand = clone;
-                break;
-            case CombatController.WieldingState.TwoHand:
-                AttachToHand(playerRoot, weaponGo, false);
-                combat.RightHand = weaponGo;
-                combat.LeftHand = null;
-                break;
-            case CombatController.WieldingState.Single:
-            default:
-                AttachToHand(playerRoot, weaponGo, toLeftHand);
-                if (toLeftHand)
-                {
-                    combat.LeftHand = weaponGo;
-                    combat.RightHand = null;
-                }
-                else
-                {
-                    combat.RightHand = weaponGo;
-                    combat.LeftHand = null;
-                }
-                break;
-        }
-        combat.Wielding = wielding;
+        AttachToHand(playerRoot, weaponGo, toLeftHand);
+        if (toLeftHand)
+            combat.LeftHand = weaponGo;
+        else
+            combat.RightHand = weaponGo;
+
+        // Wielding (single / dual / two-hand-grip) derives from what is actually in the hands.
+        combat.RecomputeWielding();
+        var wielding = combat.Wielding;
         LogOnce("equip-" + weapon.id,
-            "equipped '" + weapon.id + "' (" + wielding + ") -> RightHand=" +
+            "equipped '" + weapon.id + "' -> RightHand=" +
             (combat.RightHand != null ? combat.RightHand.transform.parent != null ? combat.RightHand.transform.parent.name : "?" : "null") +
             ", LeftHand=" +
             (combat.LeftHand != null ? combat.LeftHand.transform.parent != null ? combat.LeftHand.transform.parent.name : "?" : "null"));
@@ -165,7 +124,7 @@ public static class WeaponRigBuilder
             t.SetParent(playerRoot.transform, false);
             t.localPosition = new Vector3(isLeft ? -0.33f : 0.33f, 0.9f, 0.9f);
             t.localRotation = Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f);
-            t.localScale = Vector3.one * EquipScale;
+            t.localScale = ScaleForWorld(t.parent, DrawScale);
             LogOnce("attach-fallback-" + weaponGo.name + "-" + isLeft,
                 "hand bone missing for " + (isLeft ? "left" : "right") + "; parked at chest-front pose on '" + playerRoot.name + "'");
             return;
@@ -186,6 +145,30 @@ public static class WeaponRigBuilder
     /// </summary>
     public const float WeaponHoldForwardLean = 25f;
 
+    /// <summary>
+    /// Uniform scale applied while a weapon is stowed on the body (waist/back). Stow anchors hang
+    /// under an identity-scaled node, so local == world here. Equals <see cref="DrawScale"/> so the
+    /// weapon keeps one consistent size across modes. Tune against the model in-editor.
+    /// </summary>
+    public const float StowScale = 0.8f;
+
+    /// <summary>
+    /// Local scale that yields a uniform world shape of <paramref name="world"/> units for a rig
+    /// parented to <paramref name="parent"/>, compensating for any (non-uniform) parent scale such
+    /// as the <c>HandL/R</c> visual blocks. Falls back to uniform <paramref name="world"/> when the
+    /// parent is null.
+    /// </summary>
+    public static Vector3 ScaleForWorld(Transform parent, float world)
+    {
+        if (parent == null)
+            return Vector3.one * world;
+        Vector3 p = parent.lossyScale;
+        return new Vector3(
+            world / Mathf.Max(p.x, 1e-4f),
+            world / Mathf.Max(p.y, 1e-4f),
+            world / Mathf.Max(p.z, 1e-4f));
+    }
+
     private static void ApplyHandPose(Transform t, bool isLeft)
     {
         // The block weapons are authored +Y-up with the grip at the base. At the large in-hand
@@ -197,7 +180,7 @@ public static class WeaponRigBuilder
         // back (the old -12° leaned it backward) and not sideways (the removed horizontal aim).
         t.localPosition = new Vector3(isLeft ? -0.1f : 0.1f, -1.0f, 0f);
         t.localRotation = Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f);
-        t.localScale = Vector3.one * EquipScale;
+        t.localScale = ScaleForWorld(t.parent, DrawScale);
     }
 
     /// <summary>
@@ -225,6 +208,132 @@ public static class WeaponRigBuilder
         ApplyHandPose(t, isLeft);
         LogOnce("reparent-" + rig.name + "-" + isLeft,
             rig.name + " re-parented onto '" + hand.name + "'");
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    //  DRAW / STOW  (out-of-combat sheathing)
+    //  When the player is not in fighting mode the equipped weapon moves out
+    //  of the hand to a visible body anchor (waist scabbard / back carry),
+    //  animated through a WeaponStowAnimator. This drives that pose swap.
+    // ────────────────────────────────────────────────────────────────────
+
+    private static readonly Dictionary<string, Transform> _stowAnchorCache = new Dictionary<string, Transform>();
+
+    /// <summary>
+    /// Ensure a <see cref="WeaponStowAnimator"/> exists on the player and place all equipped
+    /// rigs in the requested pose. <paramref name="draw"/> = true moves rigs into the hands
+    /// (combat), false moves them to their stow anchor (out of combat). <paramref name="instant"/>
+    /// snaps immediately (model rebuild) instead of animating.
+    /// </summary>
+    public static void ApplyPose(GameObject playerRoot, bool draw, bool instant = false)
+    {
+        if (playerRoot == null) return;
+        var combat = playerRoot.GetComponent<CombatController>();
+        if (combat == null) return;
+
+        var animator = playerRoot.GetComponent<WeaponStowAnimator>();
+        if (animator == null)
+            animator = playerRoot.AddComponent<WeaponStowAnimator>();
+
+        var anchorParent = StowAnchorParent(playerRoot);
+        animator.AnchorParent = anchorParent;
+        animator.Prune();
+
+        if (combat.RightHand != null)
+            RegisterStow(animator, playerRoot, combat.RightHand, false);
+        if (combat.LeftHand != null)
+            RegisterStow(animator, playerRoot, combat.LeftHand, true);
+
+        if (instant)
+            animator.Snap(draw);
+        else
+            animator.SetPose(draw);
+    }
+
+    private static void RegisterStow(WeaponStowAnimator animator, GameObject playerRoot, GameObject rig, bool isLeft)
+    {
+        if (rig == null) return;
+        var host = rig.GetComponent<WeaponRigHost>();
+        if (host == null || host.Data == null) return;
+
+        var hand = FindHand(playerRoot?.transform, isLeft);
+        if (hand == null || hand == playerRoot.transform) return;
+
+        bool waist = IsWaistStow(host.Data);
+        var stow = GetStowAnchor(playerRoot, waist);
+        var stowDef = StowPoseFor(host.Data, waist, isLeft);
+
+        animator.Register(rig.transform, hand, DrawPos(isLeft), DrawRot(isLeft),
+            stow, stowDef.pos, stowDef.rot, DrawScale, StowScale);
+    }
+
+    private static Vector3 DrawPos(bool isLeft) => new Vector3(isLeft ? -0.1f : 0.1f, -1.0f, 0f);
+    private static Quaternion DrawRot(bool isLeft) => Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f);
+
+    /// <summary>Whether a weapon sheaths at the waist (hip) rather than on the back.</summary>
+    private static bool IsWaistStow(WeaponData w)
+    {
+        switch (w.id)
+        {
+            case "iron_sword":
+            case "dagger":
+            case "katana":
+            case "holy_book":
+            case "gauntlets":
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static (Vector3 pos, Quaternion rot) StowPoseFor(WeaponData w, bool waist, bool isLeft)
+    {
+        // Waist scabbard: grip at the hip, blade angled up-and-back behind the shoulder (keeps the
+        // oversized blade off the floor and reads as a sheathed one-hander).
+        if (waist)
+        {
+            float side = isLeft ? -1f : 1f;
+            switch (w.id)
+            {
+                case "holy_book":
+                    // Flat book at the side, cover facing forward.
+                    return (new Vector3(side * 0.18f, -0.08f, -0.1f), Quaternion.Euler(0f, 0f, -16f * side));
+                case "gauntlets":
+                    // Fists hang at the hip.
+                    return (new Vector3(side * 0.16f, -0.16f, -0.08f), Quaternion.Euler(-20f, 0f, 20f * side));
+                default:
+                    // Blades: grip near the hip, tip riding up over the shoulder.
+                    return (new Vector3(side * 0.2f, -0.12f, -0.12f), Quaternion.Euler(-38f, 0f, 12f * side));
+            }
+        }
+
+        // Back carry: grip behind the shoulder, blade/staff up with a slight backward tilt.
+        return (new Vector3(0f, 0.32f, -0.2f), Quaternion.Euler(-8f, 0f, 0f));
+    }
+
+    /// <summary>The node carrying the weapon stow anchors (Torso, so they follow waist/back).</summary>
+    private static Transform StowAnchorParent(GameObject playerRoot)
+    {
+        if (playerRoot == null) return null;
+        var model = playerRoot.transform.Find("PlayerModel");
+        var torso = model != null ? model.Find("Torso") : null;
+        return torso != null ? torso : (model != null ? model : playerRoot.transform);
+    }
+
+    private static Transform GetStowAnchor(GameObject playerRoot, bool waist)
+    {
+        var parent = StowAnchorParent(playerRoot);
+        string name = waist ? "StowWaist" : "StowBack";
+        var key = parent != null ? parent.name + "/" + name : name;
+        if (_stowAnchorCache.TryGetValue(key, out var cached) && cached != null)
+            return cached;
+
+        var go = new GameObject(name);
+        if (parent != null)
+            go.transform.SetParent(parent, false);
+        var t = go.transform;
+        _stowAnchorCache[key] = t;
+        return t;
     }
 
     /// <summary>Resolve the standing player model's hand transform (null when unavailable).</summary>
@@ -309,15 +418,6 @@ public static class WeaponRigBuilder
         // Per-weapon attack animation — lives on the rig so the model animates by equipped weapon.
         go.AddComponent<WeaponAnimator>();
 
-        return go;
-    }
-
-    private static GameObject CloneRig(GameObject playerRoot, WeaponData weapon,
-        SpellCaster caster, PlayerStats stats, bool toLeftHand = false)
-    {
-        var go = BuildRig(playerRoot, weapon, caster, stats, out var ignored);
-        if (go != null)
-            AttachToHand(playerRoot, go, toLeftHand);
         return go;
     }
 

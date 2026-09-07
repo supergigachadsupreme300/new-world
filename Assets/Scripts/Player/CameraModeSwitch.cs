@@ -27,9 +27,9 @@ public sealed class CameraModeSwitch : MonoBehaviour
     public bool StartInFirstPerson = true;
 
     [Header("Third-person")]
-    [Min(0.5f)] public float ThirdPersonDistance = 3.5f;
+    [Min(0.5f)] public float ThirdPersonDistance = 6.5f;
     [Tooltip("Vertical offset of the third-person camera above the pivot.")]
-    public float ThirdPersonY = 1.8f;
+    public float ThirdPersonY = 2.6f;
     [Tooltip("Position smoothing seconds for the third-person camera.")]
     public float SmoothTime = 0.15f;
 
@@ -41,6 +41,8 @@ public sealed class CameraModeSwitch : MonoBehaviour
     [Header("Player model")]
     [Tooltip("Layer the player model renderers live on (culled in first person, shown in third).")]
     public int PlayerModelLayer = 6;
+    [Tooltip("Layer the arm/hand (+ held weapon) renderers live on. Always visible, so the player see their own arms holding the equipped weapon even in first person.")]
+    public int ArmsLayer = 7;
 
     private PlayerController _player;
     private Camera _camera;
@@ -154,16 +156,20 @@ public sealed class CameraModeSwitch : MonoBehaviour
     }
 
     /// <summary>
-    /// Show the player model only in third person. In first person the model layer is excluded
-    /// from the camera culling mask (mirrors the existing head-camera setup).
+    /// Show the player model only in third person. In first person the body layer is excluded
+    /// from the camera culling mask (mirrors the existing head-camera setup), but the arms/hands
+    /// layer stays visible so the player always sees their own arms holding the equipped weapon.
     /// </summary>
     private void ApplyPlayerModelVisibility()
     {
         if (_camera == null) return;
-        int layerBit = 1 << PlayerModelLayer;
+        int bodyBit = 1 << PlayerModelLayer;
+        int armsBit = (ArmsLayer >= 0 && ArmsLayer < 32) ? 1 << ArmsLayer : 0;
         if (CurrentMode == Mode.First)
-            _camera.cullingMask &= ~layerBit;
+            _camera.cullingMask &= ~bodyBit;
         else
-            _camera.cullingMask |= layerBit;
+            _camera.cullingMask |= bodyBit;
+        if (armsBit != 0)
+            _camera.cullingMask |= armsBit;
     }
 }

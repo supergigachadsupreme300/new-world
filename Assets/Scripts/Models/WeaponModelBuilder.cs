@@ -44,7 +44,7 @@ public static class WeaponModelBuilder
         var root = new GameObject("IronSword").transform;
         root.SetParent(parent, false);
         MakeBlock("Blade", root, new Vector3(0.06f, 0.70f, 0.04f), new Vector3(0f, 0.55f, 0f), SteelSilver);
-        MakeBlock("Edge", root, new Vector3(0.02f, 0.65f, 0.02f), new Vector3(0.025f, 0.55f, 0f), DarkSteel);
+        MakeBlock("Edge", root, new Vector3(0.02f, 0.65f, 0.02f), new Vector3(-0.025f, 0.55f, 0f), DarkSteel);
         MakeBlock("Crossguard", root, new Vector3(0.20f, 0.05f, 0.06f), new Vector3(0f, 0.18f, 0f), Bronze);
         MakeBlock("Grip", root, new Vector3(0.05f, 0.15f, 0.05f), new Vector3(0f, 0.08f, 0f), LeatherBrown);
         MakeBlock("Pommel", root, new Vector3(0.07f, 0.04f, 0.07f), new Vector3(0f, 0.02f, 0f), Gold);
@@ -88,9 +88,9 @@ public static class WeaponModelBuilder
     {
         var root = new GameObject("Katana").transform;
         root.SetParent(parent, false);
-        MakeBlock("Blade", root, new Vector3(0.04f, 0.85f, 0.03f), new Vector3(0.01f, 0.60f, 0f), SteelSilver);
-        MakeBlock("Edge", root, new Vector3(0.015f, 0.75f, 0.015f), new Vector3(0.025f, 0.60f, 0f), DarkSteel);
-        MakeBlock("Tip", root, new Vector3(0.03f, 0.10f, 0.03f), new Vector3(0.02f, 1.05f, 0f), SteelSilver);
+        MakeBlock("Blade", root, new Vector3(0.04f, 0.85f, 0.03f), new Vector3(-0.01f, 0.60f, 0f), SteelSilver);
+        MakeBlock("Edge", root, new Vector3(0.015f, 0.75f, 0.015f), new Vector3(-0.025f, 0.60f, 0f), DarkSteel);
+        MakeBlock("Tip", root, new Vector3(0.03f, 0.10f, 0.03f), new Vector3(-0.02f, 1.05f, 0f), SteelSilver);
         MakeBlock("Tsuba", root, new Vector3(0.16f, 0.03f, 0.06f), new Vector3(0f, 0.16f, 0f), DarkGold);
         MakeBlock("Handle", root, new Vector3(0.045f, 0.22f, 0.045f), new Vector3(0f, 0.06f, 0f), LeatherBrown);
         MakeBlock("Kashira", root, new Vector3(0.05f, 0.03f, 0.05f), new Vector3(0f, 0.01f, 0f), DarkGold);
@@ -105,9 +105,9 @@ public static class WeaponModelBuilder
         var root = new GameObject("Greataxe").transform;
         root.SetParent(parent, false);
         MakeBlock("Shaft", root, new Vector3(0.06f, 0.90f, 0.06f), new Vector3(0f, 0.50f, 0f), DarkWood);
-        MakeBlock("AxeHead", root, new Vector3(0.30f, 0.20f, 0.06f), new Vector3(0.10f, 0.88f, 0f), SteelSilver);
-        MakeBlock("AxeEdge", root, new Vector3(0.04f, 0.18f, 0.04f), new Vector3(0.22f, 0.88f, 0f), DarkSteel);
-        MakeBlock("BackSpike", root, new Vector3(0.06f, 0.15f, 0.06f), new Vector3(-0.10f, 0.88f, 0f), DarkSteel);
+        MakeBlock("AxeHead", root, new Vector3(0.30f, 0.20f, 0.06f), new Vector3(-0.10f, 0.88f, 0f), SteelSilver);
+        MakeBlock("AxeEdge", root, new Vector3(0.04f, 0.18f, 0.04f), new Vector3(-0.22f, 0.88f, 0f), DarkSteel);
+        MakeBlock("BackSpike", root, new Vector3(0.06f, 0.15f, 0.06f), new Vector3(0.10f, 0.88f, 0f), DarkSteel);
         MakeBlock("GripWrap", root, new Vector3(0.07f, 0.15f, 0.07f), new Vector3(0f, 0.12f, 0f), LeatherBrown);
         MakeBlock("Pommel", root, new Vector3(0.08f, 0.04f, 0.08f), new Vector3(0f, 0.02f, 0f), Bronze);
         return root;
