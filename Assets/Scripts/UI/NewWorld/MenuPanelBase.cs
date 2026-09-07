@@ -10,8 +10,10 @@ using TMPro;
 /// and control visibility. Uses the project's <see cref="ColorPalette.UIBackdrop"/> and a
 /// default TMP font via <see cref="GameManager"/>.
 ///
-/// Canvas scaling is legacy-proportional (1280x720 reference) so the new UI matches the old
-/// pixel-based UI's on-screen footprint; <see cref="UiScale"/> is the single knob to bulk-adjust
+/// Canvas scaling is height-matched on a 1280x720-reference (legacy-proportional) design so the
+/// new UI keeps its on-screen footprint; subclasses register their content group via
+/// <see cref="RegisterFit"/> and the whole menu re-scales live when the window changes aspect so it
+/// never clips on small/non-16:9 displays. <see cref="UiScale"/> is the single knob to bulk-adjust
 /// size. Showing any panel unlocks the cursor; shutting the last one re-locks it.
 /// </summary>
 public abstract class MenuPanelBase : MonoBehaviour
@@ -35,12 +37,25 @@ public abstract class MenuPanelBase : MonoBehaviour
     protected RectTransform PanelRect;
     protected RectTransform BodyRow;
 
+    /// <summary>Content groups registered for aspect-fit re-scaling (root + its design-space box).</summary>
+    private readonly List<(RectTransform root, Rect designBox)> _fits = new List<(RectTransform, Rect)>();
+    private int _lastScreenW = -1, _lastScreenH = -1;
+    private RectTransform _titleRect;
+    private RectTransform _closeRect;
+
     /// <summary>When set, no title bar is rendered (subclasses that use their own top band, e.g. tabs).</summary>
     protected bool SuppressTitle;
+
+    /// <summary>When set, no close button is rendered (panels with their own dismiss affordance).</summary>
+    protected bool SuppressCloseButton;
 
     /// <summary>Create the overlay container. Call once from subclass OnEnable.</summary>
     protected void Build(string title)
     {
+        // Reference space the layout is authored in (legacy 1280x720 units, ~20% enlarged).
+        float refW = 1280f / UiScale;
+        float refH = 720f / UiScale;
+
         var canvasGo = new GameObject(name + "Canvas");
         canvasGo.transform.SetParent(transform, false);
         var canvas = canvasGo.AddComponent<Canvas>();
@@ -48,7 +63,11 @@ public abstract class MenuPanelBase : MonoBehaviour
         canvas.sortingOrder = 40;
         var scaler = canvasGo.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1280f / UiScale, 720f / UiScale);
+        scaler.referenceResolution = new Vector2(refW, refH);
+        // Match height: the design height always fills the screen, so a 16:9 window shows the
+        // layout 1:1 and other aspects only over/under-fill horizontally. RegisterFit() below
+        // re-scales each panel's content group to the visible width so nothing is ever clipped.
+        scaler.matchWidthOrHeight = 1f;
         // Without a raycaster the EventSystem never raycasts this canvas, so every
         // button on the menu is unclickable while keyboard shortcuts keep working.
         canvasGo.AddComponent<GraphicRaycaster>();
@@ -64,18 +83,14 @@ public abstract class MenuPanelBase : MonoBehaviour
         var overlayImg = overlay.AddComponent<Image>();
         overlayImg.color = new Color(0f, 0f, 0f, 0.82f);
 
-        // Centred panel.
+        // Panel (backdrop + title + close button): spans the whole reference canvas.
         var panel = new GameObject("Panel");
         panel.transform.SetParent(canvasGo.transform, false);
         PanelRect = panel.AddComponent<RectTransform>();
-        PanelRect.anchorMin = new Vector2(0.5f, 0.5f);
-        PanelRect.anchorMax = new Vector2(0.5f, 0.5f);
-        PanelRect.pivot = new Vector2(0.5f, 0.5f);
-        PanelRect.anchoredPosition = Vector2.zero;
-        // Full-screen panel: fills the reference-resolution canvas edge-to-edge.
-        var w = Mathf.Min(Screen.width, (1280f / UiScale));
-        var h = Mathf.Min(Screen.height, (720f / UiScale));
-        PanelRect.sizeDelta = new Vector2(w, h);
+        PanelRect.anchorMin = Vector2.zero;
+        PanelRect.anchorMax = Vector2.one;
+        PanelRect.offsetMin = Vector2.zero;
+        PanelRect.offsetMax = Vector2.zero;
         var panelImg = panel.AddComponent<Image>();
         var menuTex = Resources.Load<Texture2D>("menu");
         if (menuTex != null)
@@ -105,7 +120,8 @@ public abstract class MenuPanelBase : MonoBehaviour
             tr.anchorMax = new Vector2(0.5f, 1f);
             tr.pivot = new Vector2(0.5f, 1f);
             tr.anchoredPosition = new Vector2(0f, -20f);
-            tr.sizeDelta = new Vector2(w - 24f, 40f);
+            tr.sizeDelta = new Vector2(refW - 24f, 40f);
+            _titleRect = tr;
             var tmp = titleGo.AddComponent<TextMeshProUGUI>();
             GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
             tmp.text = title;
@@ -114,28 +130,33 @@ public abstract class MenuPanelBase : MonoBehaviour
             tmp.alignment = TextAlignmentOptions.Center;
         }
 
-        // Body row (subclasses add content here).
+        // Body row (subclasses add content here). Stretch-anchored to the panel with fixed
+        // margins (≈ the old centered sizeDelta at 16:9, but always the full visible panel).
         var body = new GameObject("Body");
         body.transform.SetParent(panel.transform, false);
         BodyRow = body.AddComponent<RectTransform>();
-        BodyRow.anchorMin = new Vector2(0.5f, 0.5f);
-        BodyRow.anchorMax = new Vector2(0.5f, 0.5f);
+        BodyRow.anchorMin = Vector2.zero;
+        BodyRow.anchorMax = Vector2.one;
         BodyRow.pivot = new Vector2(0.5f, 0.5f);
-        BodyRow.anchoredPosition = Vector2.zero;
-        BodyRow.sizeDelta = new Vector2(w - 60f, h - 120f);
+        BodyRow.offsetMin = new Vector2(30f, 60f);
+        BodyRow.offsetMax = new Vector2(-30f, -60f);
 
-        // Close button (red ✕ in the panel's top-right corner).
-        MakeRedClose(panel.transform, "Close",
-            new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-            new Vector2(-24f, -22f), new Vector2(36f, 36f), Close);
+        // Close button (red ✕ pinned to the visible top-right corner, see ApplyFits).
+        if (!SuppressCloseButton)
+            _closeRect = MakeRedClose(panel.transform, "Close",
+                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-24f, -22f), new Vector2(36f, 36f), Close).GetComponent<RectTransform>();
 
         canvasGo.SetActive(false);
         PaletteCanvas = canvasGo.transform;
+        _lastScreenW = Screen.width;
+        _lastScreenH = Screen.height;
     }
 
     /// <summary>
-    /// Build a small red ✕ button with a white glyph. Shared by the panel close buttons and the
-    /// skill-detail close button so every "close" looks consistent.
+    /// Build a red ✕ close button. Uses the shared 'redx' sprite (falling back to a red square
+    /// with a text glyph when the texture isn't present). Shared by the panel close buttons and
+    /// the skill-detail close button so every "close" looks consistent.
     /// </summary>
     public static Button MakeRedClose(Transform parent, string name,
         Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 pos, Vector2 size,
@@ -150,24 +171,39 @@ public abstract class MenuPanelBase : MonoBehaviour
         rt.anchoredPosition = pos;
         rt.sizeDelta = size;
         var img = go.AddComponent<Image>();
-        img.color = new Color(0.85f, 0.16f, 0.16f, 0.95f);
+        var tex = Resources.Load<Texture2D>("redx");
+        if (tex != null)
+        {
+            img.sprite = Sprite.Create(tex,
+                new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+            img.type = Image.Type.Simple;
+            img.preserveAspect = true;
+            img.color = Color.white;
+        }
+        else
+        {
+            img.color = new Color(0.85f, 0.16f, 0.16f, 0.95f);
+        }
         var btn = go.AddComponent<Button>();
         btn.targetGraphic = img;
         btn.onClick.AddListener(onClick);
 
-        var label = new GameObject("Label");
-        label.transform.SetParent(go.transform, false);
-        var lr = label.AddComponent<RectTransform>();
-        lr.anchorMin = Vector2.zero;
-        lr.anchorMax = Vector2.one;
-        lr.offsetMin = Vector2.zero;
-        lr.offsetMax = Vector2.zero;
-        var ltmp = label.AddComponent<TextMeshProUGUI>();
-        GameManager.Instance?.UIManager?.ApplyDefaultFont(ltmp);
-        ltmp.text = "✕";
-        ltmp.fontSize = Mathf.Max(20f, Screen.height / 40f);
-        ltmp.color = Color.white;
-        ltmp.alignment = TextAlignmentOptions.Center;
+        if (tex == null)
+        {
+            var label = new GameObject("Label");
+            label.transform.SetParent(go.transform, false);
+            var lr = label.AddComponent<RectTransform>();
+            lr.anchorMin = Vector2.zero;
+            lr.anchorMax = Vector2.one;
+            lr.offsetMin = Vector2.zero;
+            lr.offsetMax = Vector2.zero;
+            var ltmp = label.AddComponent<TextMeshProUGUI>();
+            GameManager.Instance?.UIManager?.ApplyDefaultFont(ltmp);
+            ltmp.text = "✕";
+            ltmp.fontSize = Mathf.Max(20f, Screen.height / 40f);
+            ltmp.color = Color.white;
+            ltmp.alignment = TextAlignmentOptions.Center;
+        }
         return btn;
     }
 
@@ -184,6 +220,8 @@ public abstract class MenuPanelBase : MonoBehaviour
         GameInput.SetCursorLocked(false);
         GameManager.Instance?.UIManager?.SetCrosshairVisible(false);
         PaletteCanvas.gameObject.SetActive(true);
+        // The window may have changed aspect while hidden; re-fit before drawing.
+        ApplyFits();
         Refresh();
     }
 
@@ -207,9 +245,70 @@ public abstract class MenuPanelBase : MonoBehaviour
     private void Update()
     {
         if (!IsShown) return;
+        // Live re-layout: any window resize (aspect) changes how much of the design space is
+        // visible, so re-fit each registered content group. The CanvasScaler already handles the
+        // pixel re-scale; this keeps the group fit factor in sync.
+        if (Screen.width != _lastScreenW || Screen.height != _lastScreenH)
+        {
+            _lastScreenW = Screen.width;
+            _lastScreenH = Screen.height;
+            ApplyFits();
+        }
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             Close();
     }
+
+    /// <summary>
+    /// Register a content group whose design-space box must always fit inside the visible canvas.
+    /// The group is uniformly scaled down (around its centre) whenever the window gets narrower or
+    /// shorter than the design, so fixed-position layouts (see <see cref="CharacterInfoUI"/>) never
+    /// clip on small / non-16:9 windows, while 16:9 shows the design at 1:1.
+    /// </summary>
+    public void RegisterFit(RectTransform root, Rect designBox)
+    {
+        if (root == null || designBox.width <= 0f || designBox.height <= 0f) return;
+        _fits.RemoveAll(f => f.root == root);
+        _fits.Add((root, designBox));
+        ApplyFits();
+    }
+
+    /// <summary>Re-scale all registered content groups against the current window size.</summary>
+    public void ApplyFits()
+    {
+        if (_fits.Count == 0) return;
+        float refH = 720f / UiScale;
+        if (refH <= 0f || Screen.height <= 0f) return;
+
+        // Height-matched canvas: design height always = refH; the visible design width is
+        // screen pixels divided by the height-driven scale factor.
+        float scale = Screen.height / refH;
+        float availW = Screen.width / scale;
+        float availH = Screen.height / scale;
+
+        foreach (var (root, box) in _fits)
+        {
+            float fit = Mathf.Min(1f, availW / box.width, availH / box.height);
+            if (fit < 0.25f) fit = 0.25f;   // never shrink to illegibility on extreme windows
+            root.localScale = Vector3.one * fit;
+        }
+
+        // Keep the title and close button inside the visible area: the canvas can overhang the
+        // sides on narrow windows (height-matched width), so nudge them to the safe edge.
+        float refW = 1280f / UiScale;
+        if (_closeRect != null)
+            _closeRect.anchoredPosition = new Vector2((availW - refW) * 0.5f - 24f, -22f);
+        if (_titleRect != null)
+            _titleRect.sizeDelta = new Vector2(Mathf.Max(120f, availW - 24f), 40f);
+
+        OnLayoutFitted(availW, availH);
+    }
+
+    /// <summary>
+    /// Called after every aspect-fit pass with the currently visible design-space size. Subclasses
+    /// whose own chrome (tab bars, fixed corner widgets) lives outside a registered content group
+    /// use this to keep that chrome inside the visible area while the window resizes.
+    /// </summary>
+    protected virtual void OnLayoutFitted(float availW, float availH) { }
 
     protected abstract void Refresh();
 }

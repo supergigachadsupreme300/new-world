@@ -23,6 +23,7 @@ public sealed class CharacterCreationUI : MenuPanelBase
         Build(Localization.T("CHARACTER CREATION"));
         _listLine = MakeBodyText(BodyRow, "Races", new Vector2(-300f, 150f), 300f, 240f);
         _previewLine = MakeBodyText(BodyRow, "Preview", new Vector2(10f, 150f), 290f, 240f);
+        RegisterFit(BodyRow, new Rect(-320f, -100f, 640f, 270f));
     }
 
     private TMP_Text MakeBodyText(RectTransform parent, string name, Vector2 pos, float w = 460f, float h = 240f)

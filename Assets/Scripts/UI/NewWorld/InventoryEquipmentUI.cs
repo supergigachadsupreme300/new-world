@@ -27,6 +27,7 @@ public sealed class InventoryEquipmentUI : MenuPanelBase
         _equipLine = MakeBodyText(BodyRow, "Equipment", new Vector2(10f, 150f), 290f, 240f);
         _equipLine.fontSize = Mathf.Max(11f, Screen.height / 58f);
         _moneyLine = MakeBodyText(BodyRow, "Money", new Vector2(-220f, -150f), 480f, 240f);
+        RegisterFit(BodyRow, new Rect(-260f, -170f, 580f, 340f));
     }
 
     private TMP_Text MakeBodyText(RectTransform parent, string name, Vector2 pos, float w = 480f, float h = 240f)

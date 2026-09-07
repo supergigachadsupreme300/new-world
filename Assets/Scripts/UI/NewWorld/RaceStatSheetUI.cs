@@ -35,6 +35,7 @@ public sealed class RaceStatSheetUI : MenuPanelBase
         _budgetLine = MakeBodyText(BodyRow, "BudgetLine", new Vector2(-180f, -140f));
         MakeBodyText(BodyRow, "Hint", new Vector2(30f, -140f), 260f, 40f)
             .text = Localization.T("[ + ] allocate points / use buttons to commit");
+        RegisterFit(BodyRow, new Rect(-220f, -160f, 520f, 330f));
     }
 
     private TMP_Text MakeBodyText(RectTransform parent, string name, Vector2 pos, float w = 420f, float h = 200f)

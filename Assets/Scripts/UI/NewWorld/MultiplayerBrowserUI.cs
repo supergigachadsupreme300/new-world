@@ -20,6 +20,7 @@ public sealed class MultiplayerBrowserUI : MenuPanelBase
         Build(Localization.T("MULTIPLAYER BROWSER"));
         _serverLine = MakeBodyText(BodyRow, "Server", new Vector2(-220f, 150f));
         _partyLine = MakeBodyText(BodyRow, "Parties", new Vector2(-220f, 20f));
+        RegisterFit(BodyRow, new Rect(-260f, -130f, 580f, 300f));
     }
 
     private TMP_Text MakeBodyText(RectTransform parent, string name, Vector2 pos)
@@ -27,8 +28,8 @@ public sealed class MultiplayerBrowserUI : MenuPanelBase
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
         var rt = go.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0f, 1f);
-        rt.anchorMax = new Vector2(0f, 1f);
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0f, 1f);
         rt.anchoredPosition = pos;
         rt.sizeDelta = new Vector2(520f, 120f);

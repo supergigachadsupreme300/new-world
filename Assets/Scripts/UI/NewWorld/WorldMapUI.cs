@@ -19,6 +19,7 @@ public sealed class WorldMapUI : MenuPanelBase
         Build(Localization.T("WORLD MAP"));
         _poiLine = MakeBodyText(BodyRow, "PoiList", new Vector2(-220f, 150f), 520f, 260f);
         _coordLine = MakeBodyText(BodyRow, "Coords", new Vector2(10f, 150f), 290f, 260f);
+        RegisterFit(BodyRow, new Rect(-260f, -130f, 580f, 300f));
     }
 
     private TMP_Text MakeBodyText(RectTransform parent, string name, Vector2 pos, float w = 520f, float h = 260f)

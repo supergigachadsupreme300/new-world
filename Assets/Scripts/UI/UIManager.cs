@@ -587,14 +587,11 @@ public partial class UIManager : MonoBehaviour
         // Panels - responsive sizes
         _pauseMenuPanel = CreateMenuPanel("PauseMenu", Vector2.zero, new Vector2(panelWidth, panelHeight));
         CreateButton("ContinueButton", _pauseMenuPanel.transform, Localization.T("Tiếp Tục"), new Vector2(0f, panelHeight * 0.40f), () => GameManager.Instance?.TogglePause(false));
-        CreateButton("SaveButton", _pauseMenuPanel.transform, Localization.T("Lưu Game"), new Vector2(0f, panelHeight * 0.30f), () => ShowSaveSlotMenu(false));
-        CreateButton("LoadButton", _pauseMenuPanel.transform, Localization.T("Tải Game"), new Vector2(0f, panelHeight * 0.20f), () => ShowSaveSlotMenu(true));
         CreateButton("StatsButton", _pauseMenuPanel.transform, Localization.T("Thống Kê"), new Vector2(0f, panelHeight * 0.10f), () => ShowRecordPanel(true));
         CreateButton("QuestsButton", _pauseMenuPanel.transform, Localization.T("Nhiệm Vụ"), new Vector2(0f, 0f), () => ShowQuestPanel(true));
         CreateButton("SettingsButton", _pauseMenuPanel.transform, Localization.T("Cài Đặt"), new Vector2(0f, -panelHeight * 0.10f), () => ShowSettingsPanel(true));
         CreateButton("TutorialButton", _pauseMenuPanel.transform, Localization.T("Hướng Dẫn"), new Vector2(0f, -panelHeight * 0.20f), () => ShowTutorial(true));
         CreateButton("ExitButton", _pauseMenuPanel.transform, Localization.T("Thoát"), new Vector2(0f, -panelHeight * 0.30f), () => GameManager.Instance?.ReturnToMainMenu());
-        CreateButton("WatchDealButton", _pauseMenuPanel.transform, Localization.T("Xem Cảnh Giao Dịch (Test)"), new Vector2(0f, -panelHeight * 0.40f), () => RichManNPC.Instance?.ForceStartDealForWatch());
         _pauseMenuPanel.SetActive(false);
 
         CreateSaveSlotMenu(panelWidth, padding, largefontSize);
@@ -1073,8 +1070,8 @@ public partial class UIManager : MonoBehaviour
         banner.anchorMin = new Vector2(0.5f, 1f);
         banner.anchorMax = new Vector2(0.5f, 1f);
         banner.pivot = new Vector2(0.5f, 1f);
-        _bannerWidth = screenWidth * 0.7f;
-        _bannerHeight = lineHeight * 3.5f;
+        _bannerWidth = screenWidth * 0.78f;
+        _bannerHeight = lineHeight * 4.0f;
         banner.anchoredPosition = new Vector2(0f, -screenHeight * 0.08f);
         banner.sizeDelta = new Vector2(_bannerWidth, _bannerHeight);
         _messageBannerGroup = bannerGO.AddComponent<CanvasGroup>();
@@ -1089,8 +1086,8 @@ public partial class UIManager : MonoBehaviour
         var insideGO = new GameObject("MessageInside");
         insideGO.transform.SetParent(banner, false);
         var inside = insideGO.AddComponent<RectTransform>();
-        inside.anchorMin = new Vector2(0f, 0f);
-        inside.anchorMax = new Vector2(1f, 1f);
+        inside.anchorMin = new Vector2(0.5f, 0.5f);
+        inside.anchorMax = new Vector2(0.5f, 0.5f);
         inside.pivot = new Vector2(0.5f, 0.5f);
         inside.sizeDelta = new Vector2(0f, 0f);
         var insideImg = insideGO.AddComponent<Image>();
@@ -1567,8 +1564,6 @@ public partial class UIManager : MonoBehaviour
         SetText("EndingTreeTitle", "CÂY KẾT THÚC");
 
         SetButtonText("ContinueButton", "Tiếp Tục");
-        SetButtonText("SaveButton", "Lưu Game");
-        SetButtonText("LoadButton", "Tải Game");
         SetButtonText("StatsButton", "Thống Kê");
         SetButtonText("QuestsButton", "Nhiệm Vụ");
         SetButtonText("SettingsButton", "Cài Đặt");
@@ -1730,12 +1725,12 @@ public partial class UIManager : MonoBehaviour
             spreadT += Time.deltaTime / 0.35f;
             float t = 1f - Mathf.Pow(1f - Mathf.Clamp01(spreadT), 3f); // ease-out cubic
             float half = _bannerWidth * 0.5f * t;
-            if (_messageBannerL != null) _messageBannerL.anchoredPosition = new Vector2(-half - cap * 0.6f, 0f);
-            if (_messageBannerR != null) _messageBannerR.anchoredPosition = new Vector2(half + cap * 0.6f, 0f);
-            _messageInside.sizeDelta = new Vector2(half * 2f, _bannerHeight);
+            if (_messageBannerL != null) _messageBannerL.anchoredPosition = new Vector2(-half - cap * 0.3f, 0f);
+            if (_messageBannerR != null) _messageBannerR.anchoredPosition = new Vector2(half + cap * 0.3f, 0f);
+            _messageInside.sizeDelta = new Vector2(half * 2f, _bannerHeight * 0.8f);
             yield return null;
         }
-        _messageInside.sizeDelta = new Vector2(_bannerWidth, _bannerHeight);
+        _messageInside.sizeDelta = new Vector2(_bannerWidth, _bannerHeight * 0.8f);
 
         // 3. Typewriter the text into the panel.
         for (int i = 0; i <= fullText.Length; i++)
