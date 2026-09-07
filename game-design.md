@@ -488,27 +488,57 @@ Adding a spell = creating a new `SpellData` asset (zero code changes), consisten
 
 ## 5. Retained Side Content (from CountryLife)
 
-All existing CountryLife systems are retained as optional side content within the open world.
+All existing CountryLife systems are retained as optional side content within the open world. The
+following inventory is code-confirmed against `Assets/Scripts` (see §6 for what was actually removed).
 
-### 5.1 Farming
+### 5.1 Tools & Inventory
 
-- Farming plots can be claimed at designated fertile areas.
-- Plant, water, harvest cycle.
-- Crops sold at vendors or used in cooking/consumables.
+The **ToolManager** drives tools and inventory: **40 item slots** — a **10-slot hotbar** (number
+keys, Minecraft-style quick bar) plus a **30-slot backpack storage grid** (Character Info →
+Inventory tab). Tools swap a matching **3D model** on equip (`ToolManager.ToolModels.cs`).
 
-### 5.2 Fishing
+| Tool | Use |
+|------|-----|
+| **Hoe** | Till soil for planting |
+| **Sickle** | Harvest crops (yields quality bonuses, skill XP, quest progress) |
+| **Axe / Mattock** | Gather materials |
+| **Fishing Rod** | Fish (gift from Jessica) |
+| **Hammer** | Open the build menu (**hold Hammer + F**) |
+| **Club** | Melee demons; knock out thrashing fish on the shore |
+| **Rosary** | Ranged holy orb — **one-shots** enemies but costs **1 Karma** per shot |
 
-- Fishing spots marked on world map.
-- Minigame with rod/bait selection.
-- Fish used for food buffs, sold, or collected.
+Drop items with **Q**; slot API: `SelectSlot` / `PeekSlot` / `AddItem` / `RemoveItem` / `MoveSlot`,
+with `GetInventorySave()` / `LoadInventorySave()`.
 
-### 5.3 Crafting
+### 5.2 Farming
 
-- Crafting stations placed in player homes or found in towns.
+- **10 seed types** (wheat, corn, potato, carrot, tomato, strawberry, pumpkin, onion, sugarcane,
+  rice), planted via `TryPlantSeed` on tilled plots.
+- Plant → multiple **growth stages** → harvest with the **Sickle**; quality bonuses scale rewards,
+  plus skill XP and story-quest progress (`ToolManager.cs:1000-1035`).
+- Farm quests push you from **50 → 150 wheat** harvested ("Mùa Thu Đầu Tiên" → "Bàn Tay Xanh").
+- Crop risk via random events: weeds, pests, drought.
+
+### 5.3 Fishing
+
+- Stand by the west sea, cast with the **Fishing Rod** (LMB), wait for the **float to bubble**,
+  then start the reeling **minigame** (keep the line in the green zone to fill the bar; ~80s
+  window). FSM-driven.
+- Fish that flop on the shore are knocked out with the **Club**, then picked up.
+- Catch & sell prices: **Carp 15 / Salmon 25 / Tuna 40 / Puffer 60**.
+- **Rod levels 1–3** and **bait** purchasable; the Fishing Shop vendor and Jessica's 3-fish quest
+  are wired.
+
+### 5.4 Crafting
+
+- Crafting stations placed in player homes or found in towns — driven by
+  **`CraftingManager`** with resolvable **station categories** (`ResolveStationCategory` /
+  `InteractStation`).
 - Weapons, armor, potions, food, tools.
-- Recipes discovered through exploration and skill books.
+- Recipes discovered through exploration, skill books, and the Crafting skill branch
+  (`SkillType.Crafting`, e.g. "Steady Hands" — +3 Luck crafting quality).
 
-### 5.4 Equipment
+### 5.5 Equipment
 
 Equipment is split into **3 genres**, each mapped to a fixed set of gear slots (21 total).
 
@@ -540,51 +570,153 @@ Two-handing occupies both hand slots (no off-hand); dual-wielding occupies both 
 - **Dual** — one weapon per hand.
 - **Two-hand grip** — both hands on a single heavy weapon (reduced Str need).
 
-### 5.5 NPC Relationships
+### 5.6 Night & Survival
 
-- NPCs scattered throughout the world.
-- Friendship/relationship system (simplified from CountryLife).
-- NPCs provide quests, shops, lore, companionship.
+- **6 PM → 6 AM**: demons rise and attack the player and structures (`hour >= 18 || hour < 6`).
+- Regular demon ~50 HP, deals ~10 damage; **giant demons** have higher HP/damage.
+- Manage **HP** and **Stamina**; **eat to recover** (food stamina/HP recovery via
+  `ToolManager.FoodStaminaFor`).
+- **Close doors at night** to block demons; demon-wave and giant-enemy events are in the
+  RandomEvent roster (§5.13).
 
-### 5.6 Livestock & Pets
+### 5.7 Karma (Phước Đức) & the Pagoda
 
-- Animal husbandry at player homesteads.
-- Pets with combat companionship.
-- Goblin helper for automation (late-game unlock).
+- **Karma** fuels the **Rosary** (1 per shot); it **regenerates over time** (`KarmaManager.RegenKarma`,
+  gated into days) and its **max grows** through meditation, building, and defeating enemies.
+- Displayed as a **Karma bar** on the HUD (e.g. `Phước Đức: 5/10`); consumed by Rosary one-shot kills.
+- **Pagoda**: the 4-tiered, curved-roof landmark east of the village beside the neighbor's house —
+  pray, **meditate** (typing/meditation minigame), and watch the sunset. The **Monk** there is
+  connected to the **exorcism quest** (Rosary kills only).
 
-### 5.7 Economy
+### 5.8 NPCs & Relationships
 
-- Vendors and shops in towns.
-- Player trading (via dedicated server).
-- Currency earned from combat, quests, farming, fishing.
+- **Jessica** (the neighbor girl): befriend via gifting, romance, and **marry** her — `WifeNPC`
+  (marriage gated at **day 5**; wife lives in the mansion, dialog + per-day events).
+- **Phú Ông / The Rich Man**: guards a secret behind the mansion — stake out at night and
+  **report to the police** (story quest "Bí Mật Của Phú Ông").
+- **The Monk** (pagoda meditation/exorcism), **The Librarian** (holds every blueprint),
+  and village merchants: **Fishing Shop**, **Chef**, **Café**, **Buffalo Shop**.
+- **Friendship system**: gift villagers with hotbar items via number keys; some NPCs dislike
+  certain gifts.
+- NPCs provide quests, shops, lore, companionship across the open world.
 
-### 5.8 Housing
+### 5.9 Livestock & Pets
 
-- Player homes that can be built/decorated.
-- Chests for storage.
-- Crafting stations and farming plots attached.
+- **7 livestock species** spawn naturally around the farm over time; the **Buffalo** is a live
+  entity sold/purchased at the **Buffalo Shop**.
+- **Pets** (dog, and the **goblin** — late-game) follow and aid combat; the goblin has its own
+  **command menu** (follow/stay/home), **own HP**, and **own storage**.
+
+### 5.10 Construction, Housing & Infrastructure
+
+- **Build menu**: hold **Hammer + F** → blueprint list (from legacy `WorldBuilder`) with **cost**
+  and **locked** state; LMB place, F cancel. Blueprint type selection is via the UI menu —
+  the legacy **B/N** cycling key is **not implemented**.
+- **Blueprints** are learned at the **library** for gold 🪙.
+- Buildings: house, mansion, restaurant, café, library, night club, watchtower, walls (plus the pagoda).
+- Player homes can be built/decorated; **chests** for storage (`ChestStorageManager`), with
+  **crafting stations** and **farming plots** attached.
+- Walls and watchtowers defend the farm; **storms/earthquakes/tornadoes** (events) can damage buildings.
+
+### 5.11 Economy
+
+- Gold (🪙) is the unit; earn by selling produce, fish, quest rewards, and restaurant/café income.
+- **Vendors and shops** in towns (`VendorShopManager`, `BuffaloShopManager`) with buy/sell tabs
+  and price multipliers.
+- Player trading intended via dedicated server (`§4`).
+
+### 5.12 Quests
+
+- **Story chain** (day-gated, some require the previous quest) — driven by `QuestManager`:
+
+| Quest | Requirement | Day | Reward |
+|-------|-------------|-----|--------|
+| Chào Hỏi Hàng Xóm | Greet Jessica | 1 | — |
+| Bí Mật Của Phú Ông | Stakeout + police report | 3 | 500 |
+| Mùa Thu Đầu Tiên | Harvest 50 wheat | 3 | 150 |
+| Bảo Vệ Đất | Defeat 10 enemies | 5 | 300 |
+| Bàn Tay Xanh | Harvest 150 wheat | 8 | 400 |
+| Xây Dựng Đại Phú | Earn 50,000 gold | 10 | 750 |
+| Thợ Săn Quái Vật | Defeat 30 enemies | 12 | 600 |
+| Trận Đấu Cuối Cùng | Defeat 50 enemies | 15 | 1,500 |
+| Tỷ Phú | Earn 200,000 gold | 18 | 3,000 |
+
+- **Daily** repeatable quests, **timed** quests, and **exorcism** quests (only **Rosary** kills
+  count, with a popup per kill while incomplete).
+
+### 5.13 Random Events
+
+- `RandomEventManager` keeps **21 live event** definitions: crops advance, gold on ground,
+  wounds heal, seeds rain, pests/plague, drought, weeds, fireflies/rainbow, exhaustion,
+  fish rain, enemies approach, thief, animals dance, giant enemy, 3 monster waves, meteors,
+  village celebration/fireworks, ghosts, buried treasure, earthquake, lightning/tornado, and more.
+- Removed from live rotation (see §6.4): market crash/boom, new trade routes, migrant family.
+
+### 5.14 Endings & Ending Tree
+
+- **8 cutscene endings** are implemented (`EndingHappy`, `EndingSad`, `EndingFated`,
+  `EndingDemon`, `EndingJustice`, `EndingNTR`, `EndingBlackmail`, `EndingBossBad`) but are
+  **gated off** at runtime (`CutsceneManager.RemoveEndings = true`); the shipped game plays as an
+  ongoing open-world RPG.
+- The **Ending Tree** panel (`UIManager.Endings.cs`) remains wired to unlock/review endings
+  from the main menu — re-enable by flipping the gate.
+
+### 5.15 Meta Systems
+
+- **Fast travel**: road **signs** (`FastTravelSign`) open `FastTravelMenu` (scrollable list).
+- **Save/Load**: multi-slot `SaveManager` (PlayerPrefs last-slot memory); **sleep on the bed** to save.
+- **Settings**: mouse/touch sensitivity, invert Y, language (**Tiếng Việt / English**), PC / Mobile mode.
+- **Game Stats** (`UIManager.HUD`): wheat harvested, enemies defeated, money earned, money stolen.
+- **Gender selection** at start (cosmetic only); **tutorial book**; message banner; item tooltips.
+
+### 5.16 Controls
+
+- **WASD** move · **Space** jump · **Shift** sprint · **Mouse** look
+- **LMB** use tool · **E** interact/open · **Q** drop item · **F** build menu (with Hammer)
+- **1–0** hotbar — mobile touch support included.
 
 ---
 
-## 6. Systems Removed (Code Archived)
+## 6. Systems Removed / Disabled (Code-Confirmed)
 
-### 6.1 World Builder (Voxel Cube System)
+> **Correction to earlier drafts:** the old-game systems below were previously described as fully
+> removed. Verifying the current code shows most were **kept** (often behind a runtime flag) rather
+> than deleted. Legacy code copied out of use lives in the **project-root `_Archived/`** folder
+> (`WorldBuilder/`, `CutsceneManager/`, `Quests/`, `Enemies/`, `README.md`) — not under
+> `Assets/Scripts/_Archived/` (that path is empty).
 
-- The `WorldBuilder` and all partial classes are **removed from active use**.
-- Code is **archived** in `Scripts/_Archived/WorldBuilder/` for future reference/re-implementation.
-- Replaced by the chunk-based terrain system.
+### 6.1 World Builder (Voxel Cube System) — **legacy generation disabled, content retained**
 
-### 6.2 Endings System
+- `WorldBuilder.EnableLegacyGeneration` defaults to `false`, replacing the legacy finite voxel map
+  with the chunk-based terrain system (§2).
+- The WorldBuilder **content systems remain in use**: its blueprint list powers the build menu
+  (§5.10), and its farming fields/pagoda are live.
+- Legacy generation code is archived at `_Archived/WorldBuilder/` for reference/re-implementation.
 
-- All 7 cutscene endings (Happy, Sad, Fated, Demon, Justice, NTR, Blackmail) are **removed**.
-- The `CutsceneManager` and ending partial classes are **archived** in `Scripts/_Archived/CutsceneManager/`.
-- The game now has **no endings** — it is an ongoing open-world RPG.
+### 6.2 Endings System — **implemented but gated**
 
-### 6.3 Story Quests
+- **8** cutscene endings exist (`EndingHappy`, `EndingSad`, `EndingFated`, `EndingDemon`,
+  `EndingJustice`, `EndingNTR`, `EndingBlackmail`, `EndingBossBad`) with the **Ending Tree** UI
+  wired in the main menu.
+- They are **disabled at runtime**: `CutsceneManager.RemoveEndings = true` short-circuits every
+  ending entry point to `EndingsRemoved`. The shipped game therefore plays as an ongoing
+  open-world RPG; flip the gate (or delete the early-return) to re-enable endings.
+- Cutscene helpers/road-driving partials remain active; reference copy at `_Archived/CutsceneManager/`.
 
-- The Vietnamese story quest chain is **removed**.
-- `QuestManager` and `RandomEventManager` archived in `Scripts/_Archived/`.
-- Replaced by open-world quests, side quests, and exploration.
+### 6.3 Story Quests — **retained**
+
+- The Vietnamese **story quest chain is NOT removed**. `QuestManager` is active and drives the
+  **9-day-gated story tiers** (§5.12) plus daily/timed/exorcism quests; `RandomEventManager` is
+  active with 21 live event types (§5.13).
+
+### 6.4 Truly Removed Content
+
+- **Market crash / boom** and **new trade route** random events (sell-price halve/double, buy-price
+  discount) — removed from the live roster; only localization strings remain. The Economy §5.11
+  therefore keeps fixed vendor pricing.
+- **Migrant family** ("Người di cư") subsystem and event — stripped from code (no references remain).
+- **B/N building-type cycling key** in the build menu — not implemented; blueprint selection is
+  done through the UI menu only (§5.10).
 
 ---
 
