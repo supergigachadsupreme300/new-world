@@ -81,6 +81,6 @@ public class WeaponData : ScriptableObject
     [Tooltip("Multiplier applied to spell cooldown (<1 = shorter).")]
     public float CooldownMod = 1f;
 
-    [Header("Weapon Art (§5.4)")]
-    public WeaponArt Art;
+    [Header("Weapon Skill (§5.4)")]
+    public WeaponSkill Skill;
 }

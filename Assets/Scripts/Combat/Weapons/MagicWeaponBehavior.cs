@@ -8,7 +8,7 @@ using UnityEngine;
 /// CastTimeMod, CooldownMod) and pointing the cast at the spell currently bound to the weapon.
 ///
 /// Attach to the weapon/root. Assign Data (WeaponData, category Magic) and Caster
-/// (the owner's SpellCaster). The active spell to cast is Data.Art-driven or the bound Spell.
+/// (the owner's SpellCaster). The active spell to cast is BoundSpell-driven or a bound Spell.
 /// </summary>
 public class MagicWeaponBehavior : MonoBehaviour, IWeaponBehavior
 {

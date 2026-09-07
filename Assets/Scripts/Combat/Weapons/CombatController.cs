@@ -145,7 +145,8 @@ public class CombatController : MonoBehaviour
         if (!_stamina.TrySpend(LightAttackCost)) return;
 
         CurrentState = CombatState.LightAttack;
-        _actionTimer = LightAttackDuration;
+        float anim = NotifyWeaponAnimators(false);
+        _actionTimer = Mathf.Max(LightAttackDuration, anim);
         _bufferTimer = PostActionBuffer;
         OnStateChanged?.Invoke(CurrentState);
 
@@ -157,7 +158,6 @@ public class CombatController : MonoBehaviour
         };
         behavior.BeginAttack(cmd);
         OnAttackStarted?.Invoke(behavior);
-        NotifyWeaponAnimators(false);
     }
 
     /// <summary>Trigger a heavy attack (hold attack button).</summary>
@@ -171,7 +171,8 @@ public class CombatController : MonoBehaviour
         if (!_stamina.TrySpend(HeavyAttackCost)) return;
 
         CurrentState = CombatState.HeavyAttack;
-        _actionTimer = HeavyAttackDuration;
+        float anim = NotifyWeaponAnimators(true);
+        _actionTimer = Mathf.Max(HeavyAttackDuration, anim);
         _bufferTimer = PostActionBuffer;
         _comboCount = 0; // heavy resets combo
         OnStateChanged?.Invoke(CurrentState);
@@ -184,7 +185,6 @@ public class CombatController : MonoBehaviour
         };
         behavior.BeginAttack(cmd);
         OnAttackStarted?.Invoke(behavior);
-        NotifyWeaponAnimators(true);
     }
 
     /// <summary>Trigger a dodge roll.</summary>
@@ -230,15 +230,18 @@ public class CombatController : MonoBehaviour
 
     public void ResetCombo() => _comboCount = 0;
 
-    /// <summary>Drive the per-weapon swing visuals on any equipped rigs.</summary>
-    private void NotifyWeaponAnimators(bool heavy)
+    /// <summary>Drive the per-weapon swing visuals on any equipped rigs. Returns the longest attack
+    /// duration the rigs reported so the action lock stays in sync with the animation.</summary>
+    private float NotifyWeaponAnimators(bool heavy)
     {
+        float duration = 0f;
         if (RightHand != null)
             foreach (var a in RightHand.GetComponentsInChildren<WeaponAnimator>(true))
-                a.PlayAttack(heavy);
+                duration = Mathf.Max(duration, a.PlayAttack(heavy));
         if (LeftHand != null)
             foreach (var a in LeftHand.GetComponentsInChildren<WeaponAnimator>(true))
-                a.PlayAttack(heavy);
+                duration = Mathf.Max(duration, a.PlayAttack(heavy));
+        return duration;
     }
 
     // ── Frame update ────────────────────────────────────────────────────────

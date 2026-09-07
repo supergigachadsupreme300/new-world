@@ -4,134 +4,259 @@ using UnityEngine;
 /// Per-weapon attack animation — a unique visible "using" motion for every one of the 15
 /// weapons ("animation pack lives on the weapon", Phase 10).
 ///
-/// Mounted on each weapon rig by <see cref="WeaponRigBuilder"/>. Drives two things through a
-/// windup → strike → recover cycle that matches <see cref="CombatController"/>'s attack timing:
-///   • the weapon's own local transform (relative to the hand it is parented to), and
-///   • the owning shoulder pivot on the player model (so the blocky arm visibly swings, punches,
-///     raises for a cast, draws a bow, overhead chops, thrusts, etc.).
+/// Mounted on each weapon rig by <see cref="WeaponRigBuilder"/>. Plays a windup → strike/charge
+/// → recover limb pose-track that matches <see cref="CombatController"/>'s attack timing, and
+/// reports the actual duration it will run so the controller's action lock stays in sync.
 ///
-/// Each weapon id maps to a <see cref="MotionProfile"/> (motion kind + amplitude + flavor), so
-/// e.g. a katana sweeps wider than an iron sword, a warhammer chops bigger than a greatsword,
-/// and every magic focus raises the arm with its own bob/arc/pulse.
+/// The arm is the animation: each weapon is a keyframed pose track driving the owning shoulder +
+/// elbow (and, for two-hand grips, the supporting arm) so the blade swings WITH the arm — no more
+/// blade-only "wiggle". The weapon rides the hand at its equipped rest pose; only magic focuses
+/// keep small local accents (orb arc, scale pulse, strum) on top.
 ///
-/// The shoulder is fully owned while attacking: this component sets
+/// The arms are fully owned while attacking: this component sets
 /// <see cref="PlayerAnimator.SuppressArms"/> so the walk/idle animator can't overwrite the swing
-/// mid-attack, then restores the captured base pose on recovery. The weapon rest pose is
-/// re-captured at the start of every attack, so re-parenting onto a hand (WeaponRigBuilder's
-/// ReparentToHands) never breaks the animation.
+/// mid-attack, then restores the captured base pose on recovery. Rest poses are re-captured at the
+/// start of every attack, so re-parenting onto a hand (WeaponRigBuilder's ReparentToHands) never
+/// breaks the animation.
 ///
-/// Block weapons are authored +Y-up with the grip at the base; swings rotate the blade upward
-/// from the fist.
+/// Block weapons are authored +Y-up with the grip at the base; swings rotate the arm (and therefore
+/// the blade) from the shoulder while the elbow flexes for punches, draws, stabs and thrusts.
 /// </summary>
 public sealed class WeaponAnimator : MonoBehaviour
 {
-    // Motion kinds. Each produces a mechanically distinct arm + weapon motion.
-    private const int K_Slash = 0;      // iron_sword / katana — horizontal sweep
-    private const int K_Overhead = 1;   // greatsword / greataxe / warhammer — chop down
-    private const int K_Thrust = 2;     // lance — two-handed lunge
-    private const int K_Dual = 3;       // gauntlets — alternating quick punches
-    private const int K_Bow = 4;        // longbow — raise, draw, loose
-    private const int K_Fling = 5;      // throwing_hammer — overhand fling
-    private const int K_Cast = 6;       // staff / holy_book / bone_wand / control_orb / lute
-    private const int K_Stab = 7;       // dagger — double jab
+    private const int K_None = -1;   // no local weapon accent (arm carries the motion)
+    private const int K_Staff = 0;   // staff — steady raise + arc pulse
+    private const int K_Book = 1;    // holy_book — two-hand raise + chant sway
+    private const int K_Wand = 2;    // bone_wand — quick raise + size pulse
+    private const int K_Orb = 3;     // control_orb — raised arm + wide sweeping arc
+    private const int K_Lute = 4;    // lute — held at the side, string strum
+    private const int K_Dual = 5;    // gauntlets — alternate hands off-phase
 
-    private struct MotionProfile
+    private enum OffArm
     {
-        public readonly int Kind;
-        public readonly float Amp;
-        public readonly int Flavor;
+        None,    // weapon in one hand only (sword, dagger, hammer, casters, gauntlets each hand)
+        Mirror,  // two-hand grip — support arm copies the swing (greatsword, greataxe, warhammer, lance, katana)
+        Asym     // the two arms play different tracks (longbow: bow arm vs draw arm)
+    }
 
-        public MotionProfile(int kind, float amp, int flavor)
+    /// <summary>One keyframe of the owner arm's pose track (angles in degrees, additive).</summary>
+    private struct PoseKey
+    {
+        public float t;                 // normalized time 0..1
+        public float shX, shY, shZ;     // owner shoulder pitch / yaw / roll (additive)
+        public float elX;               // owner elbow flex (additive)
+
+        public PoseKey(float t, float shX, float shY, float shZ, float elX)
         {
-            Kind = kind;
-            Amp = amp;
-            Flavor = flavor;
+            this.t = t;
+            this.shX = shX; this.shY = shY; this.shZ = shZ;
+            this.elX = elX;
         }
     }
 
-    private static readonly System.Collections.Generic.Dictionary<string, MotionProfile> Profiles =
-        new System.Collections.Generic.Dictionary<string, MotionProfile>
+    private struct WeaponAnimDef
+    {
+        public OffArm Mode;
+        public PoseKey[] Owner;   // throwing-arm track
+        public PoseKey[] Other;   // support-arm track (Mode == Asym only)
+        public int Accent;        // K_* accent kind
+        public float TimeLight;   // light-attack duration
+        public float TimeHeavy;   // heavy-attack duration
+
+        public WeaponAnimDef(OffArm mode, PoseKey[] owner, PoseKey[] other, int accent,
+            float light, float heavy)
         {
-            { "iron_sword",       new MotionProfile(K_Slash, 1.00f, 0) },
-            { "katana",           new MotionProfile(K_Slash, 1.50f, 0) },
-            { "greatsword",       new MotionProfile(K_Overhead, 1.00f, 0) },
-            { "greataxe",         new MotionProfile(K_Overhead, 1.25f, 1) },
-            { "warhammer",        new MotionProfile(K_Overhead, 1.10f, 2) },
-            { "lance",            new MotionProfile(K_Thrust, 1.00f, 0) },
-            { "gauntlets",        new MotionProfile(K_Dual, 1.00f, 0) },
-            { "longbow",          new MotionProfile(K_Bow, 1.00f, 0) },
-            { "throwing_hammer",  new MotionProfile(K_Fling, 1.00f, 0) },
-            { "dagger",           new MotionProfile(K_Stab, 1.00f, 0) },
-            { "staff",            new MotionProfile(K_Cast, 1.00f, 0) },
-            { "holy_book",        new MotionProfile(K_Cast, 1.10f, 1) },
-            { "bone_wand",        new MotionProfile(K_Cast, 0.90f, 2) },
-            { "control_orb",      new MotionProfile(K_Cast, 1.20f, 3) },
-            { "lute",             new MotionProfile(K_Cast, 0.85f, 4) },
+            Mode = mode;
+            Owner = owner;
+            Other = other;
+            Accent = accent;
+            TimeLight = light;
+            TimeHeavy = heavy;
+        }
+    }
+
+    private static readonly System.Collections.Generic.Dictionary<string, WeaponAnimDef> Defs =
+        new System.Collections.Generic.Dictionary<string, WeaponAnimDef>
+        {
+            { "iron_sword", new WeaponAnimDef(OffArm.None, Track(
+                new PoseKey(0f, 0f, 0f, 0f, 0f),
+                new PoseKey(0.30f, -75f, 55f, 0f, -15f),     // raise arm + wind right/back
+                new PoseKey(0.62f, -80f, -45f, 0f, -5f),     // sweep across the chest
+                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.30f, 0.50f) },
+
+            { "greatsword", new WeaponAnimDef(OffArm.Mirror, Track(
+                new PoseKey(0f, 0f, 0f, 0f, 0f),
+                new PoseKey(0.35f, -150f, 0f, 0f, 8f),       // both arms raise overhead
+                new PoseKey(0.70f, -55f, 0f, 0f, 14f),       // slam down in front
+                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.45f, 0.65f) },
+
+            { "dagger", new WeaponAnimDef(OffArm.None, Track(
+                new PoseKey(0f, 0f, 0f, 0f, 0f),
+                new PoseKey(0.20f, -58f, 6f, 0f, -28f),      // jab extend
+                new PoseKey(0.34f, 12f, 0f, 0f, 18f),        // re-cock
+                new PoseKey(0.55f, -58f, 6f, 0f, -28f),      // jab extend again
+                new PoseKey(0.70f, 12f, 0f, 0f, 18f),
+                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.24f, 0.34f) },
+
+            { "katana", new WeaponAnimDef(OffArm.Mirror, Track(
+                new PoseKey(0f, 0f, 0f, 0f, 0f),
+                new PoseKey(0.25f, -70f, 70f, 0f, -40f),     // deep draw, elbow curled
+                new PoseKey(0.88f, -60f, -200f, 0f, -10f),   // full-arm 360° sweep
+                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.45f, 0.60f) },
+
+            { "greataxe", new WeaponAnimDef(OffArm.Mirror, Track(
+                new PoseKey(0f, 0f, 0f, 0f, 0f),
+                new PoseKey(0.35f, -45f, -60f, 0f, 10f),     // wind back low, opposite side
+                new PoseKey(0.75f, -75f, 60f, 0f, 6f),       // cleave across the body
+                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.40f, 0.60f) },
+
+            { "lance", new WeaponAnimDef(OffArm.Mirror, Track(
+                new PoseKey(0f, 0f, 0f, 0f, 0f),
+                new PoseKey(0.35f, 20f, 0f, 0f, 38f),        // pull back, elbows flexed out
+                new PoseKey(0.75f, -65f, 0f, 0f, -10f),      // both arms drive forward into the lunge
+                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.32f, 0.48f) },
+
+            { "gauntlets", new WeaponAnimDef(OffArm.None, Track(
+                new PoseKey(0f, 0f, 0f, 0f, 0f),
+                new PoseKey(0.30f, -72f, 0f, 0f, -24f),      // punch extend
+                new PoseKey(0.48f, -24f, 0f, 0f, 34f),       // re-cock
+                new PoseKey(0.72f, -72f, 0f, 0f, -24f),      // second punch
+                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_Dual, 0.26f, 0.36f) },
+
+            { "longbow", new WeaponAnimDef(OffArm.Asym,
+                // Owner (right) = the draw hand.
+                Track(
+                    new PoseKey(0f, 0f, 0f, 0f, 0f),
+                    new PoseKey(0.35f, -25f, -20f, 0f, -120f), // pull string to the cheek
+                    new PoseKey(0.65f, -25f, -20f, 0f, -120f), // hold the draw (charge)
+                    new PoseKey(0.80f, -55f, 0f, 0f, -15f),    // loose — snap forward
+                    new PoseKey(1f, 0f, 0f, 0f, 0f)),
+                // Other (left) = the bow arm, extended toward the target.
+                Track(
+                    new PoseKey(0f, 0f, 0f, 0f, 0f),
+                    new PoseKey(0.35f, -85f, 0f, 0f, -6f),
+                    new PoseKey(0.65f, -85f, 0f, 0f, -6f),
+                    new PoseKey(0.80f, -82f, 0f, 0f, -4f),
+                    new PoseKey(1f, 0f, 0f, 0f, 0f)),
+                K_None, 0.50f, 0.80f) },
+
+            { "throwing_hammer", new WeaponAnimDef(OffArm.None, Track(
+                new PoseKey(0f, 0f, 0f, 0f, 0f),
+                new PoseKey(0.32f, -145f, 0f, 0f, -80f),     // wind up overhead, elbow cocked
+                new PoseKey(0.70f, -50f, 0f, 0f, -5f),       // whip forward, extend
+                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.32f, 0.45f) },
+
+            { "warhammer", new WeaponAnimDef(OffArm.Mirror, Track(
+                new PoseKey(0f, 0f, 0f, 0f, 0f),
+                new PoseKey(0.40f, -155f, 0f, 0f, 6f),       // slow telegraphed raise
+                new PoseKey(0.55f, -155f, 0f, 0f, 6f),       // hold at the apex
+                new PoseKey(0.72f, -65f, 0f, 0f, 16f),       // crushing slam
+                new PoseKey(0.86f, -72f, 0f, 0f, 22f),       // impact bounce
+                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.55f, 0.75f) },
+
+            { "staff", new WeaponAnimDef(OffArm.None, Track(
+                new PoseKey(0f, 0f, 0f, 0f, 0f),
+                new PoseKey(0.35f, -60f, 0f, 0f, -18f),      // raise the focus
+                new PoseKey(0.70f, -60f, 0f, 0f, -18f),      // channel
+                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_Staff, 0.42f, 0.62f) },
+
+            { "holy_book", new WeaponAnimDef(OffArm.None, Track(
+                new PoseKey(0f, 0f, 0f, 0f, 0f),
+                new PoseKey(0.35f, -45f, 0f, 0f, -26f),      // raise the tome
+                new PoseKey(0.70f, -45f, 0f, 0f, -26f),
+                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_Book, 0.44f, 0.64f) },
+
+            { "bone_wand", new WeaponAnimDef(OffArm.None, Track(
+                new PoseKey(0f, 0f, 0f, 0f, 0f),
+                new PoseKey(0.35f, -70f, 0f, 0f, -14f),
+                new PoseKey(0.70f, -70f, 0f, 0f, -14f),
+                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_Wand, 0.38f, 0.56f) },
+
+            { "control_orb", new WeaponAnimDef(OffArm.None, Track(
+                new PoseKey(0f, 0f, 0f, 0f, 0f),
+                new PoseKey(0.35f, -80f, 10f, 0f, -12f),
+                new PoseKey(0.70f, -80f, 10f, 0f, -12f),
+                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_Orb, 0.46f, 0.66f) },
+
+            { "lute", new WeaponAnimDef(OffArm.None, Track(
+                new PoseKey(0f, 0f, 0f, 0f, 0f),
+                new PoseKey(0.35f, -30f, 15f, 0f, -34f),     // hold the lute at the side
+                new PoseKey(0.70f, -30f, 15f, 0f, -34f),
+                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_Lute, 0.42f, 0.60f) },
         };
 
-    private static MotionProfile FallbackProfile = new MotionProfile(K_Slash, 1f, 0);
+    private static WeaponAnimDef FallbackDef = new WeaponAnimDef(OffArm.None,
+        Track(new PoseKey(0f, 0f, 0f, 0f, 0f),
+              new PoseKey(0.30f, -75f, 55f, 0f, -15f),
+              new PoseKey(0.62f, -80f, -45f, 0f, -5f),
+              new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.30f, 0.50f);
 
     private string _weaponId;
-    private MotionProfile _profile;
+    private WeaponAnimDef _def;
 
     // Rest pose snapshots, re-captured each attack (re-parent safe).
     private Vector3 _basePos;
     private Vector3 _baseEuler;
     private Vector3 _baseScale;
-    private Quaternion _ownerBaseRot;
-    private Quaternion _otherBaseRot;
+    private Quaternion _ownerShBase;
+    private Quaternion _ownerElBase;
+    private Quaternion _otherShBase;
+    private Quaternion _otherElBase;
 
     private bool _active;
     private bool _heavy;
     private float _t;
     private float _duration;
+    private bool _offHand;
 
     private PlayerAnimator _playerAnim;
     private Transform _ownerShoulder;
+    private Transform _ownerElbow;
     private Transform _otherShoulder;
-    private bool _mirrorOther;
+    private Transform _otherElbow;
 
     private void OnEnable()
     {
         var host = GetComponent<WeaponRigHost>();
         var data = host != null ? host.Data : null;
         _weaponId = data != null ? data.id : null;
-        _profile = _weaponId != null && Profiles.TryGetValue(_weaponId, out var p) ? p : FallbackProfile;
+        _def = _weaponId != null && Defs.TryGetValue(_weaponId, out var d) ? d : FallbackDef;
 
         _playerAnim = GetComponentInParent<PlayerAnimator>();
     }
 
-    /// <summary>Kick off an attack visual. Duration matches CombatController's attack timing.</summary>
-    public void PlayAttack(bool heavy)
+    /// <summary>
+    /// Kick off an attack visual. Returns the duration <see cref="CombatController"/> should keep
+    /// the player locked for, so slower weapons (bow draw, warhammer windup) stay in sync.
+    /// </summary>
+    public float PlayAttack(bool heavy)
     {
         _heavy = heavy;
-        _duration = heavy ? CombatController.DefaultHeavyAttackDuration : CombatController.DefaultLightAttackDuration;
-        if (_duration <= 0f) _duration = heavy ? 0.45f : 0.25f;
+        _duration = Mathf.Max(0.001f, heavy ? _def.TimeHeavy : _def.TimeLight);
         _t = 0f;
         _active = true;
 
-        // Rest pose freshly captured so re-parenting onto a hand (ReparentToHands) is harmless.
+        // Rest poses freshly captured so re-parenting onto a hand (ReparentToHands) is harmless.
         _basePos = transform.localPosition;
         _baseEuler = transform.localRotation.eulerAngles;
         _baseScale = transform.localScale;
 
-        // Resolve the owning shoulder (rig -> HandR/L -> ElbowR/L -> ShoulderR/L) fresh each attack.
+        // Resolve the arm chain (rig -> HandL/R -> ElbowL/R -> ShoulderL/R) fresh each attack.
         var parent = transform.parent;
-        bool offHand = parent != null && parent.name == "HandL";
+        _offHand = parent != null && parent.name == "HandL";
         _ownerShoulder = FindOwnerShoulder(parent);
-        _ownerBaseRot = _ownerShoulder != null ? _ownerShoulder.localRotation : Quaternion.identity;
-
-        _mirrorOther = !offHand && (_profile.Kind == K_Overhead || _profile.Kind == K_Thrust ||
-            _profile.Kind == K_Bow || _profile.Kind == K_Cast);
+        _ownerElbow = FindOwnerElbow(parent);
         if (_playerAnim == null) _playerAnim = GetComponentInParent<PlayerAnimator>();
-        _otherShoulder = null;
-        if (_mirrorOther && _playerAnim != null)
-        {
-            _otherShoulder = offHand ? _playerAnim.ShoulderR : _playerAnim.ShoulderL;
-            _otherBaseRot = _otherShoulder != null ? _otherShoulder.localRotation : Quaternion.identity;
-        }
+        _otherShoulder = _playerAnim != null ? (_offHand ? _playerAnim.ShoulderR : _playerAnim.ShoulderL) : null;
+        _otherElbow = _playerAnim != null ? (_offHand ? _playerAnim.ElbowR : _playerAnim.ElbowL) : null;
+
+        _ownerShBase = _ownerShoulder != null ? _ownerShoulder.localRotation : Quaternion.identity;
+        _ownerElBase = _ownerElbow != null ? _ownerElbow.localRotation : Quaternion.identity;
+        _otherShBase = _otherShoulder != null ? _otherShoulder.localRotation : Quaternion.identity;
+        _otherElBase = _otherElbow != null ? _otherElbow.localRotation : Quaternion.identity;
 
         if (_playerAnim != null) _playerAnim.SuppressArms = true;
+        return _duration;
     }
 
     private void Update()
@@ -139,25 +264,46 @@ public sealed class WeaponAnimator : MonoBehaviour
         if (!_active) return;
 
         _t += Time.deltaTime;
-        float t = Mathf.Clamp01(_t / Mathf.Max(0.001f, _duration));
-        bool offHand = transform.parent != null && transform.parent.name == "HandL";
+        float t = Mathf.Clamp01(_t / _duration);
 
-        EvaluateWeapon(_profile, t, _heavy, offHand, out Vector3 euler, out Vector3 pos, out float scale);
-        EvaluateShoulder(_profile, t, _heavy, out Vector3 ownerOff);
+        // Dual-wield gauntlets alternate hands by half a phase so the punches land one-two.
+        if (_def.Accent == K_Dual && _offHand) t = Mathf.Repeat(t + 0.5f, 1f);
 
-        transform.localRotation = Quaternion.Euler(_baseEuler + euler);
-        transform.localPosition = _basePos + pos;
-        transform.localScale = _baseScale * scale;
+        float h = _heavy ? 1.15f : 1f;
+
+        PoseKey k = Sample(_def.Owner, t);
+        Vector3 sh = new Vector3(k.shX, k.shY, k.shZ) * h;
+        float el = k.elX * h;
 
         if (_ownerShoulder != null)
-            _ownerShoulder.localRotation = _ownerBaseRot * Quaternion.Euler(ownerOff);
+            _ownerShoulder.localRotation = _ownerShBase * Quaternion.Euler(sh);
+        if (_ownerElbow != null)
+            _ownerElbow.localRotation = _ownerElBase * Quaternion.Euler(el, 0f, 0f);
 
-        if (_otherShoulder != null)
+        switch (_def.Mode)
         {
-            // Supporting hand follows a softened mirror of the owner's motion.
-            var otherOff = ownerOff * (K_Bow == _profile.Kind || K_Cast == _profile.Kind ? 0.85f : 0.5f);
-            _otherShoulder.localRotation = _otherBaseRot * Quaternion.Euler(otherOff);
+            case OffArm.Mirror:
+                // Two-hand grip: the support arm mirrors the swing (yaw flipped side-to-side).
+                if (_otherShoulder != null)
+                    _otherShoulder.localRotation = _otherShBase * Quaternion.Euler(k.shX * h, -k.shY * h, k.shZ * h);
+                if (_otherElbow != null)
+                    _otherElbow.localRotation = _otherElBase * Quaternion.Euler(el, 0f, 0f);
+                break;
+
+            case OffArm.Asym:
+                PoseKey ok = Sample(_def.Other, t);
+                if (_otherShoulder != null)
+                    _otherShoulder.localRotation = _otherShBase * Quaternion.Euler(ok.shX * h, ok.shY * h, ok.shZ * h);
+                if (_otherElbow != null)
+                    _otherElbow.localRotation = _otherElBase * Quaternion.Euler(ok.elX * h, 0f, 0f);
+                break;
         }
+
+        // The weapon rides the hand; only magic focuses add a small local accent.
+        ApplyAccent(_def.Accent, t, out Vector3 aEuler, out Vector3 aPos, out float aScale);
+        transform.localRotation = Quaternion.Euler(_baseEuler + aEuler);
+        transform.localPosition = _basePos + aPos;
+        transform.localScale = _baseScale * aScale;
 
         if (_t >= _duration)
             End();
@@ -169,14 +315,16 @@ public sealed class WeaponAnimator : MonoBehaviour
         transform.localRotation = Quaternion.Euler(_baseEuler);
         transform.localPosition = _basePos;
         transform.localScale = _baseScale;
-        if (_ownerShoulder != null) _ownerShoulder.localRotation = _ownerBaseRot;
-        if (_otherShoulder != null) _otherShoulder.localRotation = _otherBaseRot;
+        if (_ownerShoulder != null) _ownerShoulder.localRotation = _ownerShBase;
+        if (_ownerElbow != null) _ownerElbow.localRotation = _ownerElBase;
+        if (_otherShoulder != null) _otherShoulder.localRotation = _otherShBase;
+        if (_otherElbow != null) _otherElbow.localRotation = _otherElBase;
         if (_playerAnim != null) _playerAnim.SuppressArms = false;
     }
 
     /// <summary>
-    /// From a hand-pivoted weapon rig, climb to the arm's shoulder pivot
-    /// (rig -> HandR/L -> ElbowR/L -> ShoulderR/L) regardless of how deep the arm chain is.
+    /// From a hand-pivoted weapon rig, climb to the arm's shoulder pivot (rig -> HandR/L ->
+    /// ElbowR/L -> ShoulderR/L) regardless of how deep the arm chain is.
     /// </summary>
     private static Transform FindOwnerShoulder(Transform from)
     {
@@ -189,333 +337,86 @@ public sealed class WeaponAnimator : MonoBehaviour
         return null;
     }
 
+    /// <summary>Climb to the arm's elbow pivot the same way as <see cref="FindOwnerShoulder"/>.</summary>
+    private static Transform FindOwnerElbow(Transform from)
+    {
+        var p = from;
+        while (p != null)
+        {
+            if (p.name.StartsWith("Elbow")) return p;
+            p = p.parent;
+        }
+        return null;
+    }
+
     private void OnDisable()
     {
         if (_playerAnim != null) _playerAnim.SuppressArms = false;
     }
 
     // ──────────────────────────────────────────────────────────
-    //  Weapon-local motion (relative to the hand it's parented to)
+    //  Pose-track playback
     // ──────────────────────────────────────────────────────────
 
-    private static void EvaluateWeapon(MotionProfile p, float t, bool heavy, bool offHand,
-        out Vector3 euler, out Vector3 pos, out float scale)
+    private static PoseKey[] Track(params PoseKey[] keys) => keys;
+
+    private static PoseKey Sample(PoseKey[] track, float t)
+    {
+        if (track == null || track.Length == 0) return new PoseKey(0f, 0f, 0f, 0f, 0f);
+        if (track.Length == 1) return track[0];
+        if (t <= track[0].t) return track[0];
+        if (t >= track[track.Length - 1].t) return track[track.Length - 1];
+
+        for (int i = 0; i < track.Length - 1; i++)
+        {
+            if (t < track[i + 1].t)
+            {
+                float u = Ease(Seg(t, track[i].t, track[i + 1].t));
+                return new PoseKey(
+                    t,
+                    Mathf.Lerp(track[i].shX, track[i + 1].shX, u),
+                    Mathf.Lerp(track[i].shY, track[i + 1].shY, u),
+                    Mathf.Lerp(track[i].shZ, track[i + 1].shZ, u),
+                    Mathf.Lerp(track[i].elX, track[i + 1].elX, u));
+            }
+        }
+        return track[track.Length - 1];
+    }
+
+    /// <summary>
+    /// Small weapon-local accent per magic weapon on top of the arm choreography: an arc (staff /
+    /// orb), a chant sway (book), a size pulse (wand) or a string strum (lute). Melee returns 0.
+    /// </summary>
+    private static void ApplyAccent(int accent, float t, out Vector3 euler, out Vector3 pos, out float scale)
     {
         euler = Vector3.zero;
         pos = Vector3.zero;
         scale = 1f;
-        float amp = p.Amp;
-        float h = heavy ? 1.2f : 1f;
+        if (accent == K_None) return;
 
-        switch (p.Kind)
+        float pulse = Mathf.Sin(Mathf.PI * Seg(t, 0.35f, 0.70f));
+
+        switch (accent)
         {
-            case K_Slash:
-            {
-                // Wind up back, sweep across, recover. Higher amp = wider sweep (katana).
-                float y;
-                float x = 0f;
-                if (t < 0.3f) y = Mathf.Lerp(0f, 70f, Ease(Seg(t, 0f, 0.3f)));
-                else if (t < 0.62f)
-                {
-                    float k = Ease(Seg(t, 0.3f, 0.62f));
-                    y = Mathf.Lerp(70f, -115f, k) * amp;
-                    x = -35f * k * amp;
-                }
-                else
-                {
-                    float k = Ease(Seg(t, 0.62f, 1f));
-                    y = Mathf.Lerp(-115f * amp, 0f, k);
-                    x = Mathf.Lerp(-35f * amp, 0f, k);
-                }
-                euler = new Vector3(x, y, 0f);
+            case K_Staff:
+                euler = new Vector3(0f, 0f, 14f * pulse);
+                pos = new Vector3(0f, 0.02f * Seg(t, 0.35f, 0.70f), 0f);
                 break;
-            }
-
-            case K_Overhead:
-            {
-                float x;
-                float s = 1f;
-                int flavor = p.Flavor;
-                if (t < 0.35f)
-                {
-                    x = Mathf.Lerp(0f, -125f, Ease(Seg(t, 0f, 0.35f))) * amp;
-                    if (flavor == 2) x *= 1.2f; // warhammer: slower, deeper windup (amp + lag)
-                }
-                else if (t < 0.7f)
-                {
-                    float k = Ease(Seg(t, 0.35f, 0.7f));
-                    x = Mathf.Lerp(-125f * amp, 45f, k);
-                    s = 1f + 0.1f * Mathf.Sin(Mathf.PI * k); // crunch on the strike
-                }
-                else
-                {
-                    x = Mathf.Lerp(45f, 0f, Ease(Seg(t, 0.7f, 1f)));
-                }
-                euler = new Vector3(x, 0f, 0f) * h;
-                pos = new Vector3(0f, 0f, flavor == 1 ? 0.05f * Mathf.Sin(Mathf.PI * Seg(t, 0.35f, 0.7f)) : 0f);
-                scale = s;
+            case K_Book:
+                euler = new Vector3(0f, 16f * pulse, 0f);
+                pos = new Vector3(0f, 0.10f * Seg(t, 0.35f, 0.70f), 0f);
                 break;
-            }
-
-            case K_Thrust:
-            {
-                float z;
-                if (t < 0.4f)
-                    z = Mathf.Lerp(0f, -0.28f, Ease(Seg(t, 0f, 0.4f)));
-                else if (t < 0.75f)
-                    z = Mathf.Lerp(-0.28f, 0.4f, Ease(Seg(t, 0.4f, 0.75f)));
-                else
-                    z = Mathf.Lerp(0.4f, 0f, Ease(Seg(t, 0.75f, 1f)));
-                pos = new Vector3(0f, 0f, z);
-                euler = new Vector3(0f, -10f * Mathf.Sin(Mathf.PI * Seg(t, 0f, 1f)), 0f);
+            case K_Wand:
+                euler = new Vector3(0f, 0f, 10f * pulse);
+                scale = 1f + 0.26f * pulse;
                 break;
-            }
-
-            case K_Dual:
-            {
-                int strikes = heavy ? 3 : 2;
-                // Off hand cuts half a phase so the punches alternate.
-                float phase = Mathf.PI * t * strikes + (offHand ? Mathf.PI : 0f);
-                float depth = 0.38f;
-                pos = new Vector3(0f, 0f, -0.1f + depth * (0.5f + 0.5f * Mathf.Sin(phase)));
-                if (!heavy && offHand) pos.z *= 0.7f;
+            case K_Orb:
+                euler = new Vector3(0f, 0f, 30f * pulse);
+                pos = new Vector3(0f, 0.16f * Seg(t, 0.35f, 0.70f), 0f);
                 break;
-            }
-
-            case K_Bow:
-            {
-                float y;
-                float z;
-                if (t < 0.42f)
-                {
-                    y = Mathf.Lerp(0f, 78f, Ease(Seg(t, 0f, 0.42f)));
-                    z = Mathf.Lerp(0f, 22f, Ease(Seg(t, 0f, 0.42f)));
-                }
-                else if (t < 0.6f)
-                {
-                    float k = Ease(Seg(t, 0.42f, 0.6f));
-                    y = Mathf.Lerp(78f, 6f, k);
-                    z = Mathf.Lerp(22f, -8f, k);
-                }
-                else
-                {
-                    float k = Ease(Seg(t, 0.6f, 1f));
-                    y = Mathf.Lerp(6f, 0f, k);
-                    z = Mathf.Lerp(-8f, 0f, k);
-                }
-                euler = new Vector3(0f, y, z);
-                pos = new Vector3(0f, 0f, 0.06f * Mathf.Sin(Mathf.PI * Seg(t, 0.42f, 0.75f)));
+            case K_Lute:
+                scale = 1f + 0.08f * Mathf.Sin(Mathf.PI * 4f * Seg(t, 0f, 1f));
                 break;
-            }
-
-            case K_Fling:
-            {
-                float x;
-                float z = 0f;
-                if (t < 0.32f)
-                    x = Mathf.Lerp(0f, -150f, Ease(Seg(t, 0f, 0.32f)));
-                else if (t < 0.7f)
-                {
-                    float k = Ease(Seg(t, 0.32f, 0.7f));
-                    x = Mathf.Lerp(-150f, 65f, k);
-                    z = 0.2f * k;
-                }
-                else
-                {
-                    x = Mathf.Lerp(65f, 0f, Ease(Seg(t, 0.7f, 1f)));
-                }
-                euler = new Vector3(x, 0f, 0f) * h;
-                pos = new Vector3(0f, 0f, z);
-                break;
-            }
-
-            case K_Stab:
-            {
-                // Two quick jabs: jab at ~0.33 and ~0.62.
-                float jab = Mathf.Max(Strike(Seg(t, 0.18f, 0.36f)), Strike(Seg(t, 0.5f, 0.68f))) * h;
-                pos = new Vector3(0f, 0f, -0.26f * jab);
-                euler = new Vector3(-14f * jab, 0f, 0f);
-                break;
-            }
-
-            case K_Cast:
-            {
-                float x;
-                float yOff;
-                float arc;
-                float s = 1f;
-                int flavor = p.Flavor;
-                float pulse = Mathf.Sin(Mathf.PI * Seg(t, 0.35f, 0.68f));
-
-                // Each focus pulses differently: staff (0) arcs up; holy book (1) sways;
-                // bone_wand (2) pulses its size; control_orb (3) spins its arc; lute (4) strums.
-                switch (flavor)
-                {
-                    default:
-                    case 0: arc = 18f * pulse; break;
-                    case 1: arc = 12f * pulse; yOff = 0.16f * Seg(t, 0.35f, 0.68f); break;
-                    case 2: arc = 14f * pulse; s = 1f + 0.28f * pulse; break;
-                    case 3: arc = 34f * pulse; yOff = 0.2f * Seg(t, 0.35f, 0.68f); break;
-                    case 4: arc = 16f * pulse; s = 1f + 0.06f * Mathf.Sin(Mathf.PI * 4f * Seg(t, 0f, 1f)); break;
-                }
-
-                if (t < 0.35f)
-                {
-                    float k = Ease(Seg(t, 0f, 0.35f));
-                    x = -58f * k;
-                    yOff = 0.14f * k;
-                }
-                else if (t < 0.68f)
-                {
-                    x = -58f;
-                    yOff = 0.14f;
-                }
-                else
-                {
-                    float k = Ease(Seg(t, 0.68f, 1f));
-                    x = Mathf.Lerp(-58f, 0f, k);
-                    yOff = Mathf.Lerp(0.14f, 0f, k);
-                }
-
-                euler = new Vector3(x, 0f, arc) * amp;
-                pos = new Vector3(0f, yOff, 0f);
-                scale = s;
-                break;
-            }
-        }
-    }
-
-    /// <summary>Sharp 0→1→0 spike used for stabs/flashes.</summary>
-    private static float Strike(float u)
-    {
-        u = Mathf.Clamp01(u);
-        return Mathf.Sin(Mathf.PI * u);
-    }
-
-    // ──────────────────────────────────────────────────────────
-    //  Shoulder (arm) motion — composed on top of the captured base pose
-    // ──────────────────────────────────────────────────────────
-
-    private static void EvaluateShoulder(MotionProfile p, float t, bool heavy, out Vector3 off)
-    {
-        off = Vector3.zero;
-        float h = heavy ? 1.25f : 1f;
-
-        switch (p.Kind)
-        {
-            case K_Slash:
-            {
-                // Wind the shoulder back, sweep the arm across, recover.
-                float y;
-                float x = 0f;
-                if (t < 0.25f) y = Mathf.Lerp(0f, 70f, Ease(Seg(t, 0f, 0.25f)));
-                else if (t < 0.6f)
-                {
-                    float k = Ease(Seg(t, 0.25f, 0.6f));
-                    y = Mathf.Lerp(70f, -105f, k);
-                    x = -18f * k;
-                }
-                else
-                {
-                    float k = Ease(Seg(t, 0.6f, 1f));
-                    y = Mathf.Lerp(-105f, 0f, k);
-                    x = Mathf.Lerp(-18f, 0f, k);
-                }
-                off = new Vector3(x, y, 0f) * p.Amp;
-                break;
-            }
-
-            case K_Overhead:
-            {
-                // Throw the arm fully up, slam it down, recover.
-                float x;
-                if (t < 0.35f) x = Mathf.Lerp(0f, -150f, Ease(Seg(t, 0f, 0.35f)));
-                else if (t < 0.7f) x = Mathf.Lerp(-150f, 32f, Ease(Seg(t, 0.35f, 0.7f)));
-                else x = Mathf.Lerp(32f, 0f, Ease(Seg(t, 0.7f, 1f)));
-                off = new Vector3(x, 0f, 0f) * h * p.Amp;
-                break;
-            }
-
-            case K_Thrust:
-            {
-                // Both hands drive the lance forward.
-                float push = Mathf.Clamp01(Mathf.Max(Ease(Seg(t, 0f, 0.3f)), 1f - Ease(Seg(t, 0.75f, 1f))));
-                off = new Vector3(70f * push, 0f, 0f) * h;
-                break;
-            }
-
-            case K_Dual:
-            {
-                // Alternating punches: shoulder drives forward in sync with the jab.
-                int strikes = heavy ? 3 : 2;
-                float phase = Mathf.PI * t * strikes;
-                off = new Vector3(62f * (0.5f + 0.5f * Mathf.Sin(phase)), 0f, 0f);
-                break;
-            }
-
-            case K_Bow:
-            {
-                // Raise both arms, draw, then loose.
-                float x;
-                if (t < 0.45f) x = Mathf.Lerp(0f, -120f, Ease(Seg(t, 0f, 0.45f)));
-                else if (t < 0.68f) x = Mathf.Lerp(-120f, -20f, Ease(Seg(t, 0.45f, 0.68f)));
-                else x = Mathf.Lerp(-20f, 0f, Ease(Seg(t, 0.68f, 1f)));
-                off = new Vector3(x, 0f, 0f);
-                break;
-            }
-
-            case K_Fling:
-            {
-                float x;
-                float y = 0f;
-                if (t < 0.35f) x = Mathf.Lerp(0f, -140f, Ease(Seg(t, 0f, 0.35f)));
-                else if (t < 0.75f)
-                {
-                    float k = Ease(Seg(t, 0.35f, 0.75f));
-                    x = Mathf.Lerp(-140f, 58f, k);
-                    y = 26f * k;
-                }
-                else
-                {
-                    float k = Ease(Seg(t, 0.75f, 1f));
-                    x = Mathf.Lerp(58f, 0f, k);
-                    y = Mathf.Lerp(26f, 0f, k);
-                }
-                off = new Vector3(x, y, 0f) * h;
-                break;
-            }
-
-            case K_Stab:
-            {
-                // Quick forward snaps at each jab.
-                float jab = Mathf.Max(Strike(Seg(t, 0.18f, 0.36f)), Strike(Seg(t, 0.5f, 0.68f))) * h;
-                off = new Vector3(34f * jab, 0f, 0f);
-                break;
-            }
-
-            case K_Cast:
-            {
-                // Raise the arm, pulse while channeling, lower.
-                int flavor = p.Flavor;
-                float pulse = Mathf.Sin(Mathf.PI * Seg(t, 0.3f, 0.7f));
-                float raise;
-                if (t < 0.32f) raise = Ease(Seg(t, 0f, 0.32f));
-                else if (t < 0.7f) raise = 1f;
-                else raise = 1f - Ease(Seg(t, 0.7f, 1f));
-                raise = Mathf.Clamp01(raise);
-
-                float yaw = 0f;
-                switch (flavor)
-                {
-                    case 0: yaw = 8f * pulse; break;       // staff: steady raise
-                    case 1: yaw = 18f * pulse; break;      // holy book: sway while channeling
-                    case 2: yaw = 10f * pulse; break;      // bone_wand: tight flicker
-                    case 3: yaw = 24f * pulse; break;      // control_orb: wide sweep
-                    case 4: yaw = -16f * pulse; break;     // lute: opposite strum
-                }
-                off = new Vector3(-85f * raise, yaw * p.Amp, 0f);
-                break;
-            }
         }
     }
 

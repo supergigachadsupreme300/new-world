@@ -9,7 +9,7 @@ using UnityEngine;
 ///   • Melee  → <see cref="MeleeWeaponBehavior"/> + required <see cref="HitboxSystem"/>.
 ///   • Ranged → <see cref="RangedWeaponBehavior"/> + muzzle point (hitscan fallback, no prefab).
 ///   • Magic  → <see cref="MagicWeaponBehavior"/> + the owner's <see cref="SpellCaster"/>.
-/// Every rig also gets a <see cref="WeaponArtExecutor"/> (for WeaponArt-based skills) and a
+/// Every rig also gets a <see cref="WeaponSkillExecutor"/> (for WeaponSkill-based skills) and a
 /// primitive visual proxy (the repo has no weapon mesh assets).
 ///
 /// The builder ensures the player root carries the combat stack (StaminaSystem +
@@ -25,8 +25,9 @@ public static class WeaponRigBuilder
     /// Uniform scale-up applied to a weapon when equipped in-hand. The weapon models are authored
     /// rack-scale (fitted to the pedestal), which reads too small held against the ~1.5-unit-tall
     /// blocky player; this bump makes blades/staves/bows look proper relative to the body.
+    /// 10× (was 1.25) per design request so held weapons are boldly oversized vs. the hand.
     /// </summary>
-    public const float EquipScale = 1.25f;
+    public const float EquipScale = 12.5f;
 
     private static readonly HashSet<string> _logged = new HashSet<string>();
 
@@ -147,8 +148,9 @@ public static class WeaponRigBuilder
     /// <summary>
     /// Parent a built rig to the player model's shoulder hand (right by default, left when
     /// <paramref name="isLeft"/>). The block weapons are authored +Y-up with the grip/pommel at
-    /// the base, so the root sits in the fist with a slight forward lean. Falls back to the
-    /// player root when no hand bone exists (seated/sitting models have no arm pivots).
+    /// the base, so the root sits in the fist with the blade leaning forward (see
+    /// <see cref="ApplyHandPose"/>). Falls back to the player root when no hand bone exists
+    /// (seated/sitting models have no arm pivots).
     /// </summary>
     private static void AttachToHand(GameObject playerRoot, GameObject weaponGo, bool isLeft)
     {
@@ -157,14 +159,15 @@ public static class WeaponRigBuilder
         var hand = FindHand(playerRoot?.transform, isLeft);
         if (hand == null || hand == playerRoot.transform)
         {
-            // No model hand bone yet — park at the natural hand spot so the weapon is NEVER
-            // hidden inside the body. ReparentToHands migrates it onto the bone when it exists.
+            // No model hand bone yet — park the weapon upright in front of the chest (same
+            // blade-up + forward lean as ApplyHandPose) so attack swings read correctly there.
+            // ReparentToHands migrates it onto the bone when it exists.
             t.SetParent(playerRoot.transform, false);
-            t.localPosition = new Vector3(isLeft ? -0.33f : 0.33f, 0.72f, 0.05f);
-            t.localRotation = Quaternion.Euler(-12f, 0f, 0f);
+            t.localPosition = new Vector3(isLeft ? -0.33f : 0.33f, 0.9f, 0.9f);
+            t.localRotation = Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f);
             t.localScale = Vector3.one * EquipScale;
             LogOnce("attach-fallback-" + weaponGo.name + "-" + isLeft,
-                "hand bone missing for " + (isLeft ? "left" : "right") + "; parked at chest-side pose on '" + playerRoot.name + "'");
+                "hand bone missing for " + (isLeft ? "left" : "right") + "; parked at chest-front pose on '" + playerRoot.name + "'");
             return;
         }
         t.SetParent(hand, false);
@@ -173,11 +176,27 @@ public static class WeaponRigBuilder
             weaponGo.name + " attached to '" + hand.name + "'");
     }
 
+    /// <summary>
+    /// Forward tilt of the held weapon's blade. The block weapons are authored +Y-up (blade up,
+    /// grip at base); WeaponAnimator's swings are authored against that convention (they rotate
+    /// about the blade-up axes), so the rest must keep the blade roughly vertical. This positive
+    /// pitch leans the up-blade FORWARD (+Z) so the weapon reads as held in front of the player
+    /// rather than up the torso/back, while keeping the attack-swing axes valid. ~20-30° balances
+    /// the "in front" look against the long tip clipping the first-person view / surroundings.
+    /// </summary>
+    public const float WeaponHoldForwardLean = 25f;
+
     private static void ApplyHandPose(Transform t, bool isLeft)
     {
-        // Nudge the grip outward (X) so the blade clears the torso; keep a slight forward lean.
-        t.localPosition = new Vector3(isLeft ? -0.02f : 0.02f, -0.05f, 0f);
-        t.localRotation = Quaternion.Euler(-12f, 0f, 0f);
+        // The block weapons are authored +Y-up with the grip at the base. At the large in-hand
+        // scale the grip centre sits ~1 unit above the root, so sink the root below the fist so
+        // the visible weapon is held (grip ≈ hand) instead of floating above it.
+        //
+        // Orientation: blade grows up from the grip (WeaponAnimator swings depend on this frame)
+        // and leans forward by WeaponHoldForwardLean so it sits in front of the body, not on the
+        // back (the old -12° leaned it backward) and not sideways (the removed horizontal aim).
+        t.localPosition = new Vector3(isLeft ? -0.1f : 0.1f, -1.0f, 0f);
+        t.localRotation = Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f);
         t.localScale = Vector3.one * EquipScale;
     }
 
@@ -214,7 +233,8 @@ public static class WeaponRigBuilder
         if (playerRoot == null) return null;
         var model = playerRoot.Find("PlayerModel");
         if (model == null) return null;
-        var shoulder = model.Find(isLeft ? "ShoulderL" : "ShoulderR");
+        var shoulder = model.Find(isLeft ? "Torso/ShoulderL" : "Torso/ShoulderR")
+            ?? model.Find(isLeft ? "ShoulderL" : "ShoulderR");
         if (shoulder == null) return null;
         // The hand hangs below Shoulder -> Elbow, so search the whole arm chain.
         return FindDescendant(shoulder, isLeft ? "HandL" : "HandR");
@@ -282,9 +302,9 @@ public static class WeaponRigBuilder
                 return null;
         }
 
-        var art = go.AddComponent<WeaponArtExecutor>();
-        art.Data = weapon;
-        art.Caster = caster;
+        var skillExec = go.AddComponent<WeaponSkillExecutor>();
+        skillExec.Data = weapon;
+        skillExec.Caster = caster;
 
         // Per-weapon attack animation — lives on the rig so the model animates by equipped weapon.
         go.AddComponent<WeaponAnimator>();
