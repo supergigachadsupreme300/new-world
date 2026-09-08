@@ -44,7 +44,7 @@ public sealed class WeaponAnimator : MonoBehaviour
     /// <summary>Multiplier on the authored swing tempos (TimeLight/TimeHeavy). >1 slows the base
     /// attack rate; the AttackSpeed stat divides this further, so a value of 1 AttackSpeed now
     /// plays at <see cref="BaseSwingTimeScale"/> × the authored beat.</summary>
-    private const float BaseSwingTimeScale = 1.6f;
+    private const float BaseSwingTimeScale = 2.2f;
 
     /// <summary>Capped attack-speed scale from the player's stats (1 → authored tempo).</summary>
     private float SpeedScale()
