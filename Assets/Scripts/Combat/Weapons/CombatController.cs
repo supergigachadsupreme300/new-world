@@ -181,7 +181,7 @@ public class CombatController : MonoBehaviour
 
         CurrentState = CombatState.LightAttack;
         float anim = NotifyWeaponAnimators(false, _comboCount);
-        _actionTimer = Mathf.Max(LightAttackDuration, anim);
+        _actionTimer = Mathf.Max(LightAttackDuration, anim) / AttackSpeedScale();
         _bufferTimer = PostActionBuffer;
         OnStateChanged?.Invoke(CurrentState);
 
@@ -208,7 +208,7 @@ public class CombatController : MonoBehaviour
 
         CurrentState = CombatState.HeavyAttack;
         float anim = NotifyWeaponAnimators(true, 3); // heavy always plays the finisher swing
-        _actionTimer = Mathf.Max(HeavyAttackDuration, anim);
+        _actionTimer = Mathf.Max(HeavyAttackDuration, anim) / AttackSpeedScale();
         _bufferTimer = PostActionBuffer;
         _comboCount = 0; // heavy resets combo
         OnStateChanged?.Invoke(CurrentState);
@@ -266,6 +266,13 @@ public class CombatController : MonoBehaviour
     public bool IsParryWindowOpen => _parryWindowOpen;
 
     public void ResetCombo() => _comboCount = 0;
+
+    /// <summary>Attack-speed scale applied to both the swing visuals and the action lock.</summary>
+    private float AttackSpeedScale()
+    {
+        var stats = GetComponent<PlayerStats>();
+        return stats != null ? stats.AttackSpeedScale : 1f;
+    }
 
     /// <summary>Drive the per-weapon swing visuals on any equipped rigs. Returns the longest attack
     /// duration the rigs reported so the action lock stays in sync with the animation.</summary>

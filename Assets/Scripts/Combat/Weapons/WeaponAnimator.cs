@@ -41,6 +41,13 @@ public sealed class WeaponAnimator : MonoBehaviour
     private const float SlashYawDeg = 70f;
     private const float SlashYawFlip = 1f;
 
+    /// <summary>Capped attack-speed scale from the player's stats (1 → authored tempo).</summary>
+    private float SpeedScale()
+    {
+        var stats = GetComponentInParent<PlayerStats>();
+        return stats != null ? stats.AttackSpeedScale : 1f;
+    }
+
     private enum OffArm
     {
         None,    // weapon in one hand only (sword, dagger, hammer, casters, gauntlets each hand)
@@ -336,7 +343,8 @@ public sealed class WeaponAnimator : MonoBehaviour
         _sweepScale = SlashSweepScale(_set);
 
         _heavy = heavy;
-        _duration = Mathf.Max(0.001f, heavy ? _def.TimeHeavy : _def.TimeLight);
+        float speed = SpeedScale();
+        _duration = Mathf.Max(0.001f, (heavy ? _def.TimeHeavy : _def.TimeLight) / speed);
         _t = 0f;
         _active = true;
 

@@ -33,6 +33,9 @@ public class PlayerStats : MonoBehaviour, IStatProvider, ILootLuckProvider
     public const float K_Status = 2f;
     public const float K_Loot = 0.01f;
 
+    /// <summary>Ceiling for the attack-speed scale that drives attack animation/action timing.</summary>
+    public const float MaxAttackSpeedMult = 3f;
+
     [Header("Base Stat Points")]
     [Tooltip("Invested stat points (starting + leveled), one per StatType index.")]
     [SerializeField] private float[] _baseStats = new float[StatCount];
@@ -117,6 +120,9 @@ public class PlayerStats : MonoBehaviour, IStatProvider, ILootLuckProvider
         (1f + GetTotal(StatType.AttackSpeed) * K_As)
         * (1f + GetTotal(StatType.Speed) * K_AsSpeed)
         * (1f + GetTotal(StatType.Dexterity) * K_AsDex);
+
+    /// <summary>The attack-speed scale used for attack animation/action timing (capped).</summary>
+    public float AttackSpeedScale => Mathf.Clamp(AttackSpeedMultiplier, 1f, MaxAttackSpeedMult);
 
     public float MaxStamina => 100f + GetTotal(StatType.Endurance) * 10f;
 
