@@ -559,8 +559,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         vrt.anchorMin = new Vector2(0.5f, 0.5f);
         vrt.anchorMax = new Vector2(0.5f, 0.5f);
         vrt.pivot = new Vector2(0.5f, 0.5f);
-        vrt.anchoredPosition = P(0f, -70f);
-        vrt.sizeDelta = Sz(960f, 520f);
+        vrt.anchoredPosition = P(0f, -80f);
+        vrt.sizeDelta = Sz(1000f, 560f);
         var vimg = vp.AddComponent<Image>();
         vimg.color = new Color(0.09f, 0.1f, 0.13f, 0.9f);
         vp.AddComponent<RectMask2D>();
@@ -837,10 +837,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
         // central category wheels, and every node claims a distinct ring/angle cell whose arc is
         // sized to the node pitch, so no nodes ever overlap. When a category outgrows its current
         // rings the layout creates new rings further out (no cap) instead of stacking/colliding.
-        const float sectorHalf = 0.58f;     // ±33.2° rad of fan inside the 60° wedge.
-        const float ringStep = 190f;        // Radial px between rings.
-        const float ring0 = 260f;           // First (innermost) ring radius.
-        const float nodePitch = 50f;        // Horiz. px budget per node (46 + gap) — fits each category's entire first tier (6 roots) on ring 0.
+        const float sectorHalf = 0.5f;      // ±28.6° rad of fan — inside the 60° wedge spacing (±30°),
+                                            // so adjacent categories never occupy the same angles.
+        const float ringStep = 200f;        // Radial px between rings.
+        const float ring0 = 320f;           // First (innermost) ring radius — pushes the category hubs apart.
+        const float nodePitch = 56f;        // Horiz. px budget per node (46 + gap) — fits a 5-root first tier on ring 0.
 
         float RingRadius(int ring) => ring0 + ring * ringStep;
         int RingCapacity(int ring) => Mathf.Max(1, Mathf.FloorToInt(RingRadius(ring) * (2f * sectorHalf) / nodePitch));
@@ -884,25 +885,62 @@ public sealed class CharacterInfoUI : MenuPanelBase
                 maxLayer = Mathf.Max(maxLayer, cd);
             }
 
-            // Group by layer, ordering each layer so children follow their parents (families keep
-            // adjacent slots, keeping father-son links short and the angle order coherent).
+            // Group by layer. Order rule (rings kept, adjacency fixed): each layer is ordered so
+            // every node's children are emitted right after their parent, and co-prereq roots —
+            // skills that share a common child — are clustered into adjacent siblings. Walking the
+            // wheel left→right then reads as prereq flow (Backstab and Sly Fox sit side by side
+            // because Assassinate requires both) instead of catalog scatter.
             var layers = new List<List<Skill>>();
-            for (int L = 0; L <= maxLayer; L++)
-            {
-                if (L == 0)
-                {
-                    var roots = new List<Skill>();
-                    foreach (var s in catList)
-                        if (layerOf[s.id] == 0) roots.Add(s);
-                    layers.Add(roots);
-                    continue;
-                }
 
+            var roots = new List<Skill>();
+            foreach (var s in catList)
+                if (layerOf[s.id] == 0) roots.Add(s);
+
+            // Union co-prereq root groups so parents of a shared child are emitted adjacent.
+            var groupOf = new Dictionary<string, int>();
+            var groups = new Dictionary<int, List<Skill>>();
+            int nextGroup = 0;
+            foreach (var r in roots)
+            {
+                groupOf[r.id] = nextGroup;
+                groups[nextGroup] = new List<Skill> { r };
+                nextGroup++;
+            }
+
+            void MergeGroups(int into, int from)
+            {
+                foreach (var m in groups[from])
+                {
+                    groupOf[m.id] = into;
+                    groups[into].Add(m);
+                }
+                groups.Remove(from);
+            }
+
+            foreach (var s in catList)
+            {
+                if (s.PrereqSkillIds == null || s.PrereqSkillIds.Length < 2) continue;
+                int anchor = -1;
+                foreach (var pid in s.PrereqSkillIds)
+                {
+                    if (!groupOf.TryGetValue(pid, out int g) || g == anchor) continue;
+                    if (anchor < 0) anchor = g;
+                    else MergeGroups(anchor, g);
+                }
+            }
+
+            var layer0 = new List<Skill>();
+            for (int g = 0; g < nextGroup; g++)
+                if (groups.TryGetValue(g, out var members))
+                    layer0.AddRange(members);
+            layers.Add(layer0);
+
+            for (int L = 1; L <= maxLayer; L++)
+            {
                 var layer = new List<Skill>();
                 var placed = new HashSet<string>();
-                foreach (var parent in catList)
+                foreach (var parent in layers[L - 1])
                 {
-                    if (layerOf[parent.id] != L - 1) continue;
                     if (!childIndex.TryGetValue(parent.id, out var kids)) continue;
                     kids.Sort((a, b) => string.CompareOrdinal(a.id, b.id));
                     foreach (var k in kids)
@@ -970,7 +1008,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             crt.anchorMax = new Vector2(0.5f, 0.5f);
             crt.pivot = new Vector2(0.5f, 0.5f);
             crt.anchoredPosition = new Vector2(Mathf.Cos(center) * hubR, Mathf.Sin(center) * hubR);
-            crt.sizeDelta = new Vector2(88f, 88f);
+            crt.sizeDelta = new Vector2(104f, 104f);
             var cimg = catGo.AddComponent<Image>();
             cimg.sprite = CategoryNodeSprite();
             cimg.type = Image.Type.Simple;

@@ -152,6 +152,13 @@ public static class WeaponRigBuilder
     /// </summary>
     public const float StowScale = 0.8f;
 
+    /// <summary>Back-carry pitch (°) for melee blades: leans the tip back over the shoulder so the
+    /// blade rests diagonally along the back instead of pointing straight up.</summary>
+    public const float StowBladeLean = -50f;
+
+    /// <summary>Back-carry pitch (°) for staffs/bows/wands: a slim upright stick on the back.</summary>
+    public const float StowStickLean = -8f;
+
     /// <summary>
     /// Local scale that yields a uniform world shape of <paramref name="world"/> units for a rig
     /// parented to <paramref name="parent"/>, compensating for any (non-uniform) parent scale such
@@ -307,8 +314,11 @@ public static class WeaponRigBuilder
             }
         }
 
-        // Back carry: grip behind the shoulder, blade/staff up with a slight backward tilt.
-        return (new Vector3(0f, 0.32f, -0.2f), Quaternion.Euler(-8f, 0f, 0f));
+        // Back carry: grip at the shoulder. Melee blades lean backward over the shoulder (diagonal
+        // blade, tip up-and-back off the neck); staffs/bows keep a gentle tilt square on the back.
+        if (w.Category == WeaponCategory.Melee)
+            return (new Vector3(0f, 0.34f, -0.24f), Quaternion.Euler(StowBladeLean, 0f, 0f));
+        return (new Vector3(0f, 0.32f, -0.2f), Quaternion.Euler(StowStickLean, 0f, 0f));
     }
 
     /// <summary>The node carrying the weapon stow anchors (Torso, so they follow waist/back).</summary>
