@@ -126,6 +126,11 @@ public class SpellCaster : MonoBehaviour
         if (spell == null) return false;
         if (!IsReady(spell)) return false;
 
+        if (mods.DamageMult <= 0f) mods.DamageMult = 1f;
+        if (mods.CastTimeMult <= 0f) mods.CastTimeMult = 1f;
+        if (mods.CooldownMult <= 0f) mods.CooldownMult = 1f;
+        if (mods.FpCostMult <= 0f) mods.FpCostMult = 1f;
+
         float fpCost = Mathf.Max(spell.FpCost * mods.FpCostMult, 0f);
         if (!HasFocusPoints(fpCost)) return false;
 

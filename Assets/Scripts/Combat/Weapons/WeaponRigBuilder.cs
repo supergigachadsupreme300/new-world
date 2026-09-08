@@ -43,10 +43,14 @@ public static class WeaponRigBuilder
     public static void EnsureCombatStack(GameObject playerRoot)
     {
         if (playerRoot == null) return;
-        if (playerRoot.GetComponent<PlayerStats>() == null)
-            playerRoot.AddComponent<PlayerStats>();
-        if (playerRoot.GetComponent<SpellCaster>() == null)
-            playerRoot.AddComponent<SpellCaster>();
+        var stats = playerRoot.GetComponent<PlayerStats>();
+        if (stats == null)
+            stats = playerRoot.AddComponent<PlayerStats>();
+        var caster = playerRoot.GetComponent<SpellCaster>();
+        if (caster == null)
+            caster = playerRoot.AddComponent<SpellCaster>();
+        if (caster != null)
+            caster.Stats = stats;
         if (playerRoot.GetComponent<CombatController>() == null)
             playerRoot.AddComponent<CombatController>();
     }
