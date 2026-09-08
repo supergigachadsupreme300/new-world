@@ -1017,13 +1017,12 @@ public sealed class CharacterInfoUI : MenuPanelBase
             cimg.raycastTarget = false;
             _categoryNodes.Add((type, cimg));
 
-            // Sector level label above the hub circle (drawn after -> on top of the node).
-            float lr = ring0 * 0.75f;
+            // Category name centered inside the hub bubble (drawn after -> on top of the node).
             var lbl = MakeBodyText(_treeContent, "Sector_" + CategoryNames[ci],
-                new Vector2(Mathf.Cos(center) * lr - 60f, Mathf.Sin(center) * lr), Sz(140f, 22f));
+                new Vector2(Mathf.Cos(center) * hubR - 52f, Mathf.Sin(center) * hubR), Sz(104f, 28f));
             lbl.alignment = TextAlignmentOptions.Center;
-            lbl.fontSize = Mathf.Max(13f, Screen.height / 92f);
-            lbl.color = CategoryColors[ci];
+            lbl.fontSize = Mathf.Max(16f, Screen.height / 66f);
+            lbl.color = Color.black;
             _sectorLabels.Add((type, lbl));
         }
         if (posOf.Count == 0) return;

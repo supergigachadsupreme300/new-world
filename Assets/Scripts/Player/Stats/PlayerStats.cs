@@ -55,6 +55,25 @@ public class PlayerStats : MonoBehaviour, IStatProvider, ILootLuckProvider
             Array.Resize(ref _baseStats, StatCount);
     }
 
+    /// <summary>Temporary dev switch: lifts every base stat to a huge floor so all derived stats are
+    /// maxed for testing. Set false (or lower <see cref="DevMaxAllStatValue"/>) when tuning resumes.</summary>
+    public const bool DevMaxAllStats = true;
+
+    /// <summary>The floor each stat is lifted to while <see cref="DevMaxAllStats"/> is on.</summary>
+    public const float DevMaxAllStatValue = 100f;
+
+    private void Start()
+    {
+        if (DevMaxAllStats) MaxOutAllStats();
+    }
+
+    /// <summary>Raise every invested stat to at least <see cref="DevMaxAllStatValue"/>.</summary>
+    public void MaxOutAllStats()
+    {
+        for (int i = 0; i < _baseStats.Length; i++)
+            _baseStats[i] = Mathf.Max(_baseStats[i], DevMaxAllStatValue);
+    }
+
     // ── Raw stat access ────────────────────────────────────────────────────
 
     /// <summary>The invested (unmodified) stat points for the given stat.</summary>

@@ -156,6 +156,13 @@ public static class WeaponRigBuilder
     /// blade rests diagonally along the back instead of pointing straight up.</summary>
     public const float StowBladeLean = -50f;
 
+    /// <summary>Flips the backed blade so it hangs tip-down (upside down) along the spine.</summary>
+    public const float StowBladeFlip = 180f;
+
+    /// <summary>Extra pitch added to <see cref="StowBladeLean"/> after the flip so the hanging blade
+    /// rides near-upright down the back instead of flopping forward (requested +45°).</summary>
+    public const float StowBladePitchUp = 45f;
+
     /// <summary>Back-carry pitch (°) for staffs/bows/wands: a slim upright stick on the back.</summary>
     public const float StowStickLean = -8f;
 
@@ -314,10 +321,10 @@ public static class WeaponRigBuilder
             }
         }
 
-        // Back carry: grip at the shoulder. Melee blades lean backward over the shoulder (diagonal
-        // blade, tip up-and-back off the neck); staffs/bows keep a gentle tilt square on the back.
+        // Back carry: grip at the shoulder. Melee blades hang upside down along the spine (tip down,
+        // canted back so the pommel rides near the neck); staffs/bows keep a gentle upright tilt.
         if (w.Category == WeaponCategory.Melee)
-            return (new Vector3(0f, 0.34f, -0.24f), Quaternion.Euler(StowBladeLean, 0f, 0f));
+            return (new Vector3(0f, 0.44f, -0.2f), Quaternion.Euler(StowBladeLean + StowBladePitchUp, 0f, StowBladeFlip));
         return (new Vector3(0f, 0.32f, -0.2f), Quaternion.Euler(StowStickLean, 0f, 0f));
     }
 
