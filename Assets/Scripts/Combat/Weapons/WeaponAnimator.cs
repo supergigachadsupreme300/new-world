@@ -362,6 +362,13 @@ public sealed class WeaponAnimator : MonoBehaviour
         Vector3 sh = new Vector3(k.shX, k.shY, k.shZ) * h;
         float el = k.elX * h;
 
+        // Blade lead: rotate the weapon INTO the swing so it matches the attack's angle instead of
+        // being dragged along at a fixed grip angle. The blade turns with the horizontal arc (yaw)
+        // and dives with the vertical arc (pitch); elbow-driven thrusts barely move their axes, so
+        // jabs stay tight. Tracks return to zero on recovery, so the lead eases back to the grip.
+        Vector2 leadScale = LeadScale();
+        Vector3 lead = new Vector3(k.shX * leadScale.x, k.shY * leadScale.y, 0f) * h;
+
         // Impact pulse: right after the strike the arm rebounds briefly (a recoil kick opposite the
         // swing's travel) and the blade shoves forward a touch, then eases into follow-through.
         _pulse = _impactT > 0f && t >= _impactT
@@ -399,7 +406,7 @@ public sealed class WeaponAnimator : MonoBehaviour
 
         // The weapon rides the hand; only magic focuses add a small local accent.
         ApplyAccent(_def.Accent, t, out Vector3 aEuler, out Vector3 aPos, out float aScale);
-        transform.localRotation = Quaternion.Euler(_baseEuler + aEuler);
+        transform.localRotation = Quaternion.Euler(_baseEuler + aEuler + lead);
         transform.localPosition = _basePos + aPos + new Vector3(0f, 0f, 0.02f * h * _pulse);
         transform.localScale = _baseScale * aScale;
 
@@ -567,6 +574,22 @@ public sealed class WeaponAnimator : MonoBehaviour
             default:
                 return 0f;     // casters keep a neutral stance
         }
+    }
+
+    /// <summary>
+    /// Weapon-local blade-lead strength (pitch, yaw): how strongly the held weapon rotates into the
+    /// swing pattern. One-hand blades lash tip-first; two-handers get dragged more; casters and the
+    /// longbow stay neutral (their accents already own the weapon look).
+    /// </summary>
+    private Vector2 LeadScale()
+    {
+        if (_def.Accent == K_None || _def.Accent == K_Dual)
+            return _def.Mode == OffArm.Mirror
+                ? new Vector2(0.28f, 0.28f)
+                : new Vector2(0.42f, 0.42f);
+        if (_def.Accent == K_Lute)
+            return new Vector2(0.30f, 0.30f);
+        return Vector2.zero;
     }
 
     /// <summary>Auto-detect the strike moment of a swing = midpoint of its largest single segment.</summary>
