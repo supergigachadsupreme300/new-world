@@ -120,6 +120,8 @@ public class WeaponSkillExecutor : MonoBehaviour
         // Apply to the target's health if it implements IDamageable.
         if (target.TryGetComponent<IDamageable>(out var damageable))
             damageable.TakeDamage(Mathf.RoundToInt(result.TotalDamage));
+        if (result.TotalDamage > 0f)
+            DamageNumber.Spawn(target.transform.position, result.TotalDamage, skill.Type);
 
         OnSkillHit?.Invoke(skill, result, target);
 

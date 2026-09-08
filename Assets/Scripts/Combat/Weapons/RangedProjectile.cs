@@ -74,5 +74,7 @@ public class RangedProjectile : MonoBehaviour
 
         if (target.TryGetComponent<IDamageable>(out var damageable))
             damageable.TakeDamage(Mathf.RoundToInt(result.TotalDamage));
+        if (result.TotalDamage > 0f)
+            DamageNumber.Spawn(target.transform.position, result.TotalDamage, Type);
     }
 }

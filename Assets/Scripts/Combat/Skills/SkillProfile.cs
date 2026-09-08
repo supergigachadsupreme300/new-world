@@ -14,6 +14,9 @@ using UnityEngine;
 /// </summary>
 public sealed class SkillProfile : MonoBehaviour
 {
+    /// <summary>Temporary diagnostic logging for the skill-execution report.</summary>
+    private const bool SkillDebug = true;
+
     [Header("Points")]
     public int Points = 0;
 
@@ -115,18 +118,47 @@ public sealed class SkillProfile : MonoBehaviour
     public bool Execute(string id)
     {
         var skill = SkillCatalog.Find(id);
-        if (skill == null || skill.IsPassive || !_learned.Contains(id)) return false;
+        if (skill == null)
+        {
+            if (SkillDebug) Debug.Log($"[Skill] \"{id}\" not found in catalog");
+            return false;
+        }
+        if (skill.IsPassive)
+        {
+            if (SkillDebug) Debug.Log($"[Skill] \"{id}\" is passive — not castable");
+            return false;
+        }
+        if (!_learned.Contains(id))
+        {
+            if (SkillDebug) Debug.Log($"[Skill] \"{id}\" not learned yet");
+            return false;
+        }
 
         ReconcileDependencies();
         var ctx = BuildContext();
-        if (!skill.CanAfford(ctx)) return false;
-        if (ctx.Caster != null && !ctx.Caster.CooldownReady(skill.CooldownKey)) return false;
-        if (!skill.TrySpend(ctx)) return false;
+        if (!skill.CanAfford(ctx))
+        {
+            if (SkillDebug)
+                Debug.Log($"[Skill] \"{id}\" cannot afford cost {skill.SkillCost.ToString()}");
+            return false;
+        }
+        if (ctx.Caster != null && !ctx.Caster.CooldownReady(skill.CooldownKey))
+        {
+            if (SkillDebug)
+                Debug.Log($"[Skill] \"{id}\" on cooldown ({ctx.Caster.CooldownRemaining(skill.CooldownKey):F1}s left)");
+            return false;
+        }
+        if (!skill.TrySpend(ctx))
+        {
+            if (SkillDebug) Debug.Log($"[Skill] \"{id}\" cost spend failed");
+            return false;
+        }
 
         if (ctx.Caster != null && skill.SkillCost.Cooldown > 0f)
             ctx.Caster.StartCooldown(skill.CooldownKey, skill.SkillCost.Cooldown);
 
         skill.Effect?.Execute(ctx);
+        if (SkillDebug) Debug.Log($"[Skill] \"{id}\" executed");
         return true;
     }
 

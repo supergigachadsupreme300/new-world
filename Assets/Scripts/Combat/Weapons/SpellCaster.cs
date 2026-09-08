@@ -205,6 +205,7 @@ public class SpellCaster : MonoBehaviour
             go = new GameObject("SpellProjectile");
             go.transform.position = pos;
             go.transform.rotation = Quaternion.LookRotation(fwd);
+            AttachDefaultProjectileVisual(go, spell.Type);
             go.AddComponent<SpellEffect>().Initialize(spell, power, fwd, this);
         }
 
@@ -212,6 +213,44 @@ public class SpellCaster : MonoBehaviour
             proj.Launch(spell.ProjectileSpeed);
 
         return new DamageResult();
+    }
+
+    /// <summary>
+    /// Build a visible orb + trail for spells with no authored CastEffectPrefab, so magic
+    /// skills read on screen. Renderer-only: the root keeps no collider so SpellEffect's
+    /// flight raycast never self-hits.
+    /// </summary>
+    private void AttachDefaultProjectileVisual(GameObject go, DamageType type)
+    {
+        Color color = DamageNumber.ColorFor(type);
+
+        var orb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        orb.name = "Orb";
+        orb.transform.SetParent(go.transform, false);
+        Collider orbCol = orb.GetComponent<Collider>();
+        if (orbCol != null)
+            Destroy(orbCol);
+        orb.transform.localScale = Vector3.one * 0.22f;
+
+        Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+        if (shader == null)
+            return;
+        var mat = new Material(shader) { color = color };
+        orb.GetComponent<MeshRenderer>().material = mat;
+
+        var trail = go.GetComponent<TrailRenderer>();
+        if (trail == null)
+            trail = go.AddComponent<TrailRenderer>();
+        trail.material = mat;
+        trail.time = 0.4f;
+        trail.startWidth = 0.18f;
+        trail.endWidth = 0f;
+        trail.minVertexDistance = 0.1f;
+        var grad = new Gradient();
+        grad.SetKeys(
+            new[] { new GradientColorKey(color, 0f), new GradientColorKey(color, 1f) },
+            new[] { new GradientAlphaKey(0.9f, 0f), new GradientAlphaKey(0f, 1f) });
+        trail.colorGradient = grad;
     }
 
     private DamageResult ResolveZone(float power, SpellData spell, Vector3 pos)
@@ -246,6 +285,8 @@ public class SpellCaster : MonoBehaviour
 
         if (target.TryGetComponent<IDamageable>(out var damageable))
             damageable.TakeDamage(Mathf.RoundToInt(result.TotalDamage));
+        if (result.TotalDamage > 0f)
+            DamageNumber.Spawn(target.transform.position, result.TotalDamage, spell.Type);
 
         if (spell.ImpactEffectPrefab != null)
             Instantiate(spell.ImpactEffectPrefab, target.transform.position, Quaternion.identity);

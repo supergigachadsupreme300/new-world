@@ -98,7 +98,7 @@ public static class SkillCatalog
     }
 
     private static StatBuffEffect Buff(StatType stat, float amount) => new StatBuffEffect { Stat = stat, Amount = amount };
-    private static DamageZoneEffect Slash(float power, DamageType kind) => new DamageZoneEffect { Radius = 1.6f, BasePower = power, Type = kind };
+    private static DamageZoneEffect Slash(float power, DamageType kind) => new DamageZoneEffect { Radius = 2.0f, BasePower = power, Type = kind };
     private static DamageZoneEffect Zone(float radius, float power, DamageType kind) => new DamageZoneEffect { Radius = radius, BasePower = power, Type = kind };
 
     private static void BuildMelee(List<Skill> list)

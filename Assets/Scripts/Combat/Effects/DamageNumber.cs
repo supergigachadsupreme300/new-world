@@ -28,8 +28,40 @@ public class DamageNumber : MonoBehaviour
         dn.Show(worldPos, amount, critical);
     }
 
+    /// <summary>Spawn a floating damage number tinted by a damage type.</summary>
+    public static void Spawn(Vector3 worldPos, float amount, DamageType type)
+    {
+        GameObject go = new GameObject("DamageNumber");
+        var dn = go.AddComponent<DamageNumber>();
+        dn.Show(worldPos, amount, false, ColorFor(type));
+    }
+
+    /// <summary>Display color for a damage type (used by popups).</summary>
+    public static Color ColorFor(DamageType type)
+    {
+        switch (type)
+        {
+            case DamageType.Fire: return new Color(1f, 0.5f, 0.2f);
+            case DamageType.Ice: return new Color(0.5f, 0.85f, 1f);
+            case DamageType.Lightning: return new Color(1f, 0.95f, 0.4f);
+            case DamageType.Holy: return new Color(1f, 0.95f, 0.7f);
+            case DamageType.Dark: return new Color(0.85f, 0.45f, 1f);
+            case DamageType.Wind: return new Color(0.7f, 1f, 0.95f);
+            case DamageType.Earth: return new Color(0.78f, 0.62f, 0.42f);
+            case DamageType.Water: return new Color(0.4f, 0.65f, 1f);
+            case DamageType.Arcane: return new Color(1f, 0.5f, 1f);
+            default: return new Color(1f, 0.9f, 0.3f);
+        }
+    }
+
     /// <summary>Configure and display this number.</summary>
     public void Show(Vector3 worldPos, float amount, bool critical)
+    {
+        Show(worldPos, amount, critical, critical ? new Color(1f, 0.8f, 0.2f) : Color);
+    }
+
+    /// <summary>Configure and display this number with an explicit color.</summary>
+    public void Show(Vector3 worldPos, float amount, bool critical, Color color)
     {
         transform.position = worldPos + Vector3.up * 0.2f;
 
@@ -52,7 +84,7 @@ public class DamageNumber : MonoBehaviour
 
         _text.text = Mathf.RoundToInt(amount).ToString();
         _text.fontSize = critical ? 96 : 64;
-        _text.color = critical ? new Color(1f, 0.8f, 0.2f) : Color;
+        _text.color = color;
         _text.transform.localScale = Vector3.one * (critical ? FontScale * 1.4f : FontScale);
 
         _lifetime = 0f;

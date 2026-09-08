@@ -14,6 +14,9 @@ public sealed class SkillBindings : MonoBehaviour
     [Tooltip("True while a hotkey capture is armed (menu-driven).")]
     public bool Capturing;
 
+    /// <summary>Temporary diagnostic logging for the skill-execution report.</summary>
+    private const bool SkillDebug = true;
+
     private readonly Dictionary<Key, string> _bindings = new Dictionary<Key, string>();
     private string _captureTarget;
 
@@ -47,6 +50,19 @@ public sealed class SkillBindings : MonoBehaviour
 
     /// <summary>All current skill bindings (key -> skill id).</summary>
     public IEnumerable<KeyValuePair<Key, string>> Bindings => _bindings;
+
+    /// <summary>Cooldown progress [0..1] for a bound skill (0 = ready, 1 = just fired).</summary>
+    public float CooldownFraction(string skillId)
+    {
+        var caster = GetComponent<SpellCaster>();
+        if (caster == null) return 0f;
+        var skill = SkillCatalog.Find(skillId);
+        if (skill == null || skill.IsPassive) return 0f;
+        float remaining = caster.CooldownRemaining(skill.CooldownKey);
+        if (remaining <= 0f) return 0f;
+        float total = Mathf.Max(skill.SkillCost.Cooldown, 0.001f);
+        return Mathf.Clamp01(remaining / total);
+    }
 
     /// <summary>Begin capturing the next pressed key for <paramref name="skillId"/>.</summary>
     public void BeginCapture(string skillId)
@@ -93,7 +109,11 @@ public sealed class SkillBindings : MonoBehaviour
         foreach (var pair in _bindings)
         {
             if (kb[pair.Key].wasPressedThisFrame)
+            {
+                if (SkillDebug)
+                    Debug.Log($"[Skill] hotkey {pair.Key} pressed -> \"{pair.Value}\"");
                 profile.Execute(pair.Value);
+            }
         }
     }
 }

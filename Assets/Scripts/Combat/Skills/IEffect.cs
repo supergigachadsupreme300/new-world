@@ -27,6 +27,14 @@ public sealed class DamageZoneEffect : IEffect
         if (ctx == null) return;
         Vector3 origin = ctx.Origin != null ? ctx.Origin.position + ctx.Origin.forward * (Radius * 0.5f)
             : Vector3.zero;
+
+        // Visible swing so the skill reads even with no target in range.
+        if (ctx.User != null)
+        {
+            Vector3 fwd = ctx.Origin != null ? ctx.Origin.forward : Vector3.forward;
+            SkillFx.SlashFlash(origin, fwd, Radius, 0.18f, DamageNumber.ColorFor(Type));
+        }
+
         Collider[] cols = Physics.OverlapSphere(origin, Radius, ~0);
         foreach (var col in cols)
         {
@@ -45,6 +53,7 @@ public sealed class DamageZoneEffect : IEffect
                     CriticalMultiplier = 1f
                 }, false);
                 damageable.TakeDamage(Mathf.RoundToInt(result.TotalDamage));
+                DamageNumber.Spawn(col.transform.position, result.TotalDamage, Type);
             }
         }
     }

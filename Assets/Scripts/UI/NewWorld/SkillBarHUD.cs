@@ -89,7 +89,7 @@ public sealed class SkillBarHUD : MonoBehaviour
                 string name = skill != null ? skill.displayName : kv.Value;
                 _labels[i].text = name + "\n" + KeyLabel(kv.Key);
                 if (_fills[i] != null)
-                    _fills[i].fillAmount = 1f;
+                    _fills[i].fillAmount = 1f - (bindings != null ? bindings.CooldownFraction(kv.Value) : 0f);
             }
             else
             {

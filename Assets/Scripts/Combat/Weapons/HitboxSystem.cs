@@ -141,6 +141,10 @@ public class HitboxSystem : MonoBehaviour
         if (target.TryGetComponent<IDamageable>(out var damageable))
             damageable.TakeDamage(Mathf.RoundToInt(result.TotalDamage));
 
+        // Floating damage number for every hit (popups are self-contained via DamageNumber).
+        if (result.TotalDamage > 0f)
+            DamageNumber.Spawn(target.transform.position, result.TotalDamage, Type);
+
         // Knockback: apply a simple impulse to Rigidbody if present.
         Rigidbody rb = target.attachedRigidbody;
         if (rb != null && KnockbackForce > 0f)

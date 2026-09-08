@@ -118,7 +118,11 @@ public class RangedWeaponBehavior : MonoBehaviour, IWeaponBehavior
                 var result = DamageCalculator.Calculate(ctx, false);
                 OnShot?.Invoke(result, hit.collider.gameObject);
                 if (hit.collider.TryGetComponent<IDamageable>(out var damageable))
+                {
                     damageable.TakeDamage(Mathf.RoundToInt(result.TotalDamage));
+                    if (result.TotalDamage > 0f)
+                        DamageNumber.Spawn(hit.point, result.TotalDamage, ShotType);
+                }
             }
         }
     }
