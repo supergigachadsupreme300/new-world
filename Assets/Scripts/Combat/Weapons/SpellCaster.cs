@@ -216,9 +216,9 @@ public class SpellCaster : MonoBehaviour
     }
 
     /// <summary>
-    /// Build a per-type visible projectile body + trail for spells with no authored
-    /// CastEffectPrefab, so magic skills read on screen. Renderer-only: the root keeps no
-    /// collider so SpellEffect's flight raycast never self-hits.
+    /// Build a per-type visible projectile body + comet-exhaust particles for spells with no
+    /// authored CastEffectPrefab, so magic skills read on screen. Renderer-only: the root keeps
+    /// no collider so SpellEffect's flight raycast never self-hits.
     /// </summary>
     private void AttachDefaultProjectileVisual(GameObject go, DamageType type)
     {
@@ -230,19 +230,7 @@ public class SpellCaster : MonoBehaviour
         var body = BuildProjectileBody(type, shader, color);
         body.SetParent(go.transform, false);
 
-        var trail = go.GetComponent<TrailRenderer>();
-        if (trail == null)
-            trail = go.AddComponent<TrailRenderer>();
-        trail.material = new Material(shader) { color = color };
-        trail.time = TrailTime(type);
-        trail.startWidth = TrailWidth(type);
-        trail.endWidth = 0f;
-        trail.minVertexDistance = 0.05f;
-        var grad = new Gradient();
-        grad.SetKeys(
-            new[] { new GradientColorKey(color, 0f), new GradientColorKey(color, 1f) },
-            new[] { new GradientAlphaKey(0.9f, 0f), new GradientAlphaKey(0f, 1f) });
-        trail.colorGradient = grad;
+        AttachProjectileParticles(body, type, color);
     }
 
     /// <summary>Color-matched visual body for a projectile by damage type.</summary>
@@ -321,28 +309,112 @@ public class SpellCaster : MonoBehaviour
         return spark;
     }
 
-    private static float TrailWidth(DamageType type)
+    private static float EmissionRate(DamageType type)
     {
         switch (type)
         {
-            case DamageType.Fire: return 0.20f;
-            case DamageType.Ice: return 0.14f;
-            case DamageType.Lightning: return 0.12f;
-            case DamageType.Dark: return 0.12f;
-            default: return 0.18f;
+            case DamageType.Fire: return 90f;
+            case DamageType.Ice: return 45f;
+            case DamageType.Lightning: return 120f;
+            case DamageType.Dark: return 30f;
+            default: return 60f;
         }
     }
 
-    private static float TrailTime(DamageType type)
+    private static float StartLifetime(DamageType type)
     {
         switch (type)
         {
-            case DamageType.Fire: return 0.50f;
-            case DamageType.Ice: return 0.45f;
-            case DamageType.Lightning: return 0.30f;
-            case DamageType.Dark: return 0.50f;
-            default: return 0.40f;
+            case DamageType.Fire: return 0.45f;
+            case DamageType.Ice: return 0.70f;
+            case DamageType.Lightning: return 0.25f;
+            case DamageType.Dark: return 0.65f;
+            default: return 0.50f;
         }
+    }
+
+    private static float StartSpeed(DamageType type)
+    {
+        switch (type)
+        {
+            case DamageType.Fire: return 4f;
+            case DamageType.Ice: return 2f;
+            case DamageType.Lightning: return 6f;
+            case DamageType.Dark: return 1.5f;
+            default: return 3f;
+        }
+    }
+
+    private static float StartSize(DamageType type)
+    {
+        switch (type)
+        {
+            case DamageType.Fire: return 0.09f;
+            case DamageType.Ice: return 0.06f;
+            case DamageType.Lightning: return 0.04f;
+            case DamageType.Dark: return 0.14f;
+            default: return 0.08f;
+        }
+    }
+
+    private static int MaxParticles(DamageType type)
+    {
+        switch (type)
+        {
+            case DamageType.Lightning: return 300;
+            case DamageType.Fire: return 400;
+            default: return 250;
+        }
+    }
+
+    /// <summary>
+    /// Comet-exhaust particle stream on a default projectile: a cone shaped exhaust trailing
+    /// backward from the body so the bolt reads as an energetic magic projectile while flying.
+    /// Emits from the body local origin; the cone is flipped -Z so particles stream behind it.
+    /// </summary>
+    private static void AttachProjectileParticles(Transform body, DamageType type, Color color)
+    {
+        var fxGo = new GameObject(body.name + "_Fx");
+        fxGo.transform.SetParent(body, false);
+
+        var ps = fxGo.AddComponent<ParticleSystem>();
+        var main = ps.main;
+        main.loop = true;
+        main.playOnAwake = true;
+        main.startLifetime = StartLifetime(type);
+        main.startSpeed = StartSpeed(type);
+        main.startSize = StartSize(type);
+        main.gravityModifier = 0f;
+        main.simulationSpace = ParticleSystemSimulationSpace.Local;
+        main.maxParticles = MaxParticles(type);
+
+        var emission = ps.emission;
+        emission.rateOverTime = EmissionRate(type);
+
+        var shape = ps.shape;
+        shape.shapeType = ParticleSystemShapeType.Cone;
+        shape.angle = 18f;
+        shape.radius = 0.1f;
+        shape.rotation = new Vector3(0f, 0f, 180f);
+
+        var colorOverLifetime = ps.colorOverLifetime;
+        colorOverLifetime.enabled = true;
+        var grad = new Gradient();
+        grad.SetKeys(
+            new[] { new GradientColorKey(color, 0f), new GradientColorKey(color, 1f) },
+            new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
+        colorOverLifetime.color = grad;
+
+        var sizeOverLifetime = ps.sizeOverLifetime;
+        sizeOverLifetime.enabled = true;
+        sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f,
+            new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1f, 0.4f)));
+
+        Shader additive = Shader.Find("Particles/Additive") ?? Shader.Find("Sprites/Default");
+        if (additive == null) return;
+        var renderer = ps.GetComponent<ParticleSystemRenderer>();
+        renderer.material = new Material(additive) { color = color };
+        renderer.renderMode = ParticleSystemRenderMode.Billboard;
     }
 
     /// <summary>
