@@ -83,6 +83,10 @@ public class PlayerController : MonoBehaviour
             cameraObj.AddComponent<AudioListener>();
 
         LoadPlayerModel();
+
+        // The Alt magic wheel is a persistent HUD singleton: instantiate it now so its
+        // Update poll runs on every frame (nothing else has an interaction site to lazy-create it).
+        MagicWheelUI.Ensure();
     }
 
     private void EnsurePlayerPhysics()

@@ -155,7 +155,6 @@ public sealed class MagicWheelUI : MonoBehaviour
     private void Open()
     {
         RebuildEntries();
-        if (_slotIds.Count == 0) return; // nothing learned to cast yet
         _hovered = -1;
         _isOpen = true;
         _dim.SetActive(true);
@@ -237,6 +236,13 @@ public sealed class MagicWheelUI : MonoBehaviour
 
     private void Paint()
     {
+        if (_slotIds.Count == 0)
+        {
+            if (_centerLabel != null)
+                _centerLabel.text = "No spells learned yet";
+            return;
+        }
+
         Vector2 mousePx = Mouse.current != null
             ? Mouse.current.position.ReadValue()
             : new Vector2(-100000f, -100000f);
