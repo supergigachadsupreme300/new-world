@@ -152,16 +152,16 @@ public static class WeaponRigBuilder
     /// </summary>
     public const float StowScale = 0.8f;
 
-    /// <summary>Back-carry pitch (°) for melee blades: leans the tip back over the shoulder so the
-    /// blade rests diagonally along the back instead of pointing straight up.</summary>
-    public const float StowBladeLean = -50f;
+    /// <summary>Sideways cant (°) off vertical for the upside-down back blade — makes it read as a
+    /// diagonal sling across the back instead of a straight hanging stick.</summary>
+    public const float StowBladeCant = 40f;
+
+    /// <summary>Front/back lean (°) for the upside-down back blade, so it rests against the back
+    /// instead of pointing straight down out of the collar.</summary>
+    public const float StowBladePitch = 25f;
 
     /// <summary>Flips the backed blade so it hangs tip-down (upside down) along the spine.</summary>
     public const float StowBladeFlip = 180f;
-
-    /// <summary>Extra pitch added to <see cref="StowBladeLean"/> after the flip so the hanging blade
-    /// rides near-upright down the back instead of flopping forward (requested +45°).</summary>
-    public const float StowBladePitchUp = 45f;
 
     /// <summary>Back-carry pitch (°) for staffs/bows/wands: a slim upright stick on the back.</summary>
     public const float StowStickLean = -8f;
@@ -320,10 +320,10 @@ public static class WeaponRigBuilder
             }
         }
 
-        // Back carry: grip at the shoulder. Melee blades hang upside down along the spine (tip down,
-        // canted back so the pommel rides near the neck); staffs/bows keep a gentle upright tilt.
+        // Back carry: grip at the shoulder. Melee blades hang upside down but canted diagonally across the
+        // back (tip down-and-out, not straight down); staffs/bows keep a gentle upright tilt.
         if (w.Category == WeaponCategory.Melee)
-            return (new Vector3(0f, 0.44f, -0.2f), Quaternion.Euler(StowBladeLean + StowBladePitchUp, 0f, StowBladeFlip));
+            return (new Vector3(0f, 0.44f, -0.2f), Quaternion.Euler(StowBladePitch, 0f, StowBladeFlip + StowBladeCant));
         return (new Vector3(0f, 0.32f, -0.2f), Quaternion.Euler(StowStickLean, 0f, 0f));
     }
 
