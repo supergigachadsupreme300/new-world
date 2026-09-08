@@ -28,6 +28,7 @@ public sealed class MagicWheelUI : MonoBehaviour
     private readonly List<string> _slotIds = new List<string>();
     private TMP_Text _armedChipLabel;
     private RectTransform _armedChip;
+    private bool _fontsApplied;
 
     private PlayerController _player;
     private bool _isOpen;
@@ -85,6 +86,8 @@ public sealed class MagicWheelUI : MonoBehaviour
 
     private void Update()
     {
+        EnsureFonts();
+
         if (GameInput.IsMobile)
         {
             if (_isOpen) Close(false, false);
@@ -373,8 +376,27 @@ public sealed class MagicWheelUI : MonoBehaviour
         tmp.color = color;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.raycastTarget = false;
-        GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
+        ApplyFont(tmp);
         return tmp;
+    }
+
+    /// <summary>Apply the default TMP font once the UIManager exists (the wheel can be built before it).</summary>
+    private static void ApplyFont(TMP_Text tmp)
+    {
+        if (tmp == null) return;
+        GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
+    }
+
+    /// <summary>One-shot pass that re-applies the default font to all labels the moment it's available.</summary>
+    private void EnsureFonts()
+    {
+        if (_fontsApplied) return;
+        if (GameManager.Instance?.UIManager == null) return;
+        ApplyFont(_centerLabel);
+        ApplyFont(_armedChipLabel);
+        for (int i = 0; i < _slotLabels.Count; i++)
+            ApplyFont(_slotLabels[i]);
+        _fontsApplied = true;
     }
 
     private static float CanvasScale() => Screen.width / (1280f / MenuPanelBase.UiScale);

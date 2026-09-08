@@ -164,6 +164,8 @@ public sealed class SkillProfile : MonoBehaviour
 
     private SkillContext BuildContext()
     {
+        // Casts originate from the equipped weapon (the WeaponSkillExecutor lives on the in-hand
+        // rig), not the player root — otherwise projectiles/rays fire from the feet.
         var skillExec = GetComponentInChildren<WeaponSkillExecutor>();
         return new SkillContext
         {
@@ -171,7 +173,7 @@ public sealed class SkillProfile : MonoBehaviour
             Stamina = _stamina,
             Stats = _stats,
             SkillExecutor = skillExec,
-            Origin = transform,
+            Origin = skillExec != null ? skillExec.transform : transform,
             User = gameObject
         };
     }

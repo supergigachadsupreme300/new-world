@@ -130,7 +130,7 @@ public static class WeaponRigBuilder
             return;
         }
         t.SetParent(hand, false);
-        ApplyHandPose(t, isLeft);
+        ApplyHandPose(t, weaponGo.GetComponent<WeaponRigHost>()?.Data, isLeft);
         LogOnce("attach-hand-" + weaponGo.name + "-" + isLeft,
             weaponGo.name + " attached to '" + hand.name + "'");
     }
@@ -183,18 +183,26 @@ public static class WeaponRigBuilder
             world / Mathf.Max(p.z, 1e-4f));
     }
 
-    private static void ApplyHandPose(Transform t, bool isLeft)
+    private static void ApplyHandPose(Transform t, WeaponData weapon, bool isLeft)
     {
-        // The block weapons are authored +Y-up with the grip at the base. At the large in-hand
-        // scale the grip centre sits ~1 unit above the root, so sink the root below the fist so
-        // the visible weapon is held (grip ≈ hand) instead of floating above it.
-        //
-        // Orientation: blade grows up from the grip (WeaponAnimator swings depend on this frame)
-        // and leans forward by WeaponHoldForwardLean so it sits in front of the body, not on the
-        // back (the old -12° leaned it backward) and not sideways (the removed horizontal aim).
-        t.localPosition = new Vector3(isLeft ? -0.1f : 0.1f, -1.0f, 0f);
-        t.localRotation = Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f);
+        var (pos, rot) = DrawPoseFor(weapon, isLeft);
+        t.localPosition = pos;
+        t.localRotation = rot;
         t.localScale = ScaleForWorld(t.parent, DrawScale);
+    }
+
+    /// <summary>
+    /// Drawn (in-hand) local pose for a rig. Blades sit a blade-length below the fist (grip in the
+    /// palm, tip up); tall magic focuses (staff / orb / book / wand / lute) hang a short grip-height
+    /// below the hand instead, so the arm reads as naturally holding the focus rather than the focus
+    /// dangling near the leg (which read as a bent/torqued arm).
+    /// </summary>
+    private static (Vector3 pos, Quaternion rot) DrawPoseFor(WeaponData weapon, bool isLeft)
+    {
+        float side = isLeft ? -1f : 1f;
+        if (weapon != null && weapon.Category == WeaponCategory.Magic)
+            return (new Vector3(side * 0.1f, -0.35f, 0f), Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f));
+        return (new Vector3(side * 0.1f, -1.0f, 0f), Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f));
     }
 
     /// <summary>
@@ -219,7 +227,7 @@ public static class WeaponRigBuilder
         if (hand == null || hand == playerRoot.transform) return;
         if (t.parent == hand) return;
         t.SetParent(hand, false);
-        ApplyHandPose(t, isLeft);
+        ApplyHandPose(t, rig.GetComponent<WeaponRigHost>()?.Data, isLeft);
         LogOnce("reparent-" + rig.name + "-" + isLeft,
             rig.name + " re-parented onto '" + hand.name + "'");
     }
@@ -276,13 +284,11 @@ public static class WeaponRigBuilder
         bool waist = IsWaistStow(host.Data);
         var stow = GetStowAnchor(playerRoot, waist);
         var stowDef = StowPoseFor(host.Data, waist, isLeft);
+        var (drawPos, drawRot) = DrawPoseFor(host.Data, isLeft);
 
-        animator.Register(rig.transform, hand, DrawPos(isLeft), DrawRot(isLeft),
+        animator.Register(rig.transform, hand, drawPos, drawRot,
             stow, stowDef.pos, stowDef.rot, DrawScale, StowScale);
     }
-
-    private static Vector3 DrawPos(bool isLeft) => new Vector3(isLeft ? -0.1f : 0.1f, -1.0f, 0f);
-    private static Quaternion DrawRot(bool isLeft) => Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f);
 
     /// <summary>Whether a weapon sheaths at the waist (hip) rather than on the back.</summary>
     private static bool IsWaistStow(WeaponData w)

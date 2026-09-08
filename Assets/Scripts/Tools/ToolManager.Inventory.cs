@@ -59,6 +59,39 @@ public partial class ToolManager
     }
 
     /// <summary>
+    /// Place an item into a specific slot (drop targeted by backpack cell / hotbar cell). Fills an
+    /// empty cell or stacks onto a matching type; if the cell holds something else, falls back to
+    /// the normal first-free <see cref="AddItem"/> so nothing is ever lost.
+    /// </summary>
+    public bool PutItem(string itemType, int amount, int slotIndex)
+    {
+        itemType = NormalizeItemType(itemType);
+        if (string.IsNullOrEmpty(itemType) || amount <= 0)
+            return false;
+
+        if (slotIndex >= 0 && slotIndex < _inventory.Length)
+        {
+            var existing = _inventory[slotIndex];
+            if (existing == null)
+            {
+                _inventory[slotIndex] = new InventorySlot {Type = itemType, Count = amount};
+                UpdateInventoryUI();
+                ShowActiveToolModel();
+                return true;
+            }
+            if (existing.Type == itemType)
+            {
+                existing.Count += amount;
+                UpdateInventoryUI();
+                ShowActiveToolModel();
+                return true;
+            }
+        }
+
+        return AddItem(itemType, amount);
+    }
+
+    /// <summary>
     /// Move a whole stack from one slot to another (drag & drop between the backpack storage
     /// grid and the hotbar). If the destination holds the same item type the stacks combine,
     /// otherwise the two slots swap contents.

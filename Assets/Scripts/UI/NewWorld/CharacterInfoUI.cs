@@ -1387,8 +1387,10 @@ public sealed class CharacterInfoUI : MenuPanelBase
     /// <summary>
     /// Remove <paramref name="weaponId"/> from the hands (single / two-hand / dual-wield mirrors)
     /// and return it to the backpack so equipment can be dragged back out of a slot.
+    /// <paramref name="destSlot"/> is the specific sheet cell it was dropped onto (weapon lands
+    /// there instead of the first free slot).
     /// </summary>
-    public void UnequipWeapon(string weaponId)
+    public void UnequipWeapon(string weaponId, int destSlot = -1)
     {
         if (string.IsNullOrEmpty(weaponId)) return;
         var combat = CombatOf();
@@ -1417,7 +1419,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         }
 
         combat.SetTwoHand(false);
-        tm?.AddItem(weaponId, 1);
+        if (destSlot >= 0) tm?.PutItem(weaponId, 1, destSlot);
+        else tm?.AddItem(weaponId, 1);
         RefreshInventoryUi();
     }
 

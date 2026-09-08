@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -290,6 +291,8 @@ public sealed class WeaponAnimator : MonoBehaviour
     private float _strikeDir = 1f;
     private float _pulse;
 
+    private static readonly HashSet<string> _leadLogged = new HashSet<string>();
+
     private void OnEnable()
     {
         var host = GetComponent<WeaponRigHost>();
@@ -335,6 +338,13 @@ public sealed class WeaponAnimator : MonoBehaviour
         _otherElBase = _otherElbow != null ? _otherElbow.localRotation : Quaternion.identity;
 
         if (_playerAnim != null) _playerAnim.AcquireArms();
+
+        if (WeaponRigBuilder.LogRigging && _weaponId != null && _leadLogged.Add(_weaponId))
+        {
+            var l = LeadScale();
+            Debug.Log("[WeaponAnim] blade-lead live for '" + _weaponId + "': pitch " + l.pitch.ToString("0.00") +
+                " yaw " + l.yaw.ToString("0.00") + " strike snap " + l.snapDeg.ToString("0") + "\u00B0");
+        }
         return _duration;
     }
 
@@ -359,15 +369,18 @@ public sealed class WeaponAnimator : MonoBehaviour
         float h = _heavy ? 1.15f : 1f;
 
         PoseKey k = Sample(_set, t);
-        Vector3 sh = new Vector3(k.shX, k.shY, k.shZ) * h;
+        Vector3 sh = new Vector3(ClampShX(k.shX), k.shY, k.shZ) * h;
         float el = k.elX * h;
 
-        // Blade lead: rotate the weapon INTO the swing so it matches the attack's angle instead of
-        // being dragged along at a fixed grip angle. The blade turns with the horizontal arc (yaw)
-        // and dives with the vertical arc (pitch); elbow-driven thrusts barely move their axes, so
-        // jabs stay tight. Tracks return to zero on recovery, so the lead eases back to the grip.
-        Vector2 leadScale = LeadScale();
-        Vector3 lead = new Vector3(k.shX * leadScale.x, k.shY * leadScale.y, 0f) * h;
+        // Blade lead: rotate the weapon INTO the swing so the tip leads the arc instead of being
+        // dragged along at a fixed grip angle. A subtle angle follows the shoulder track (the blade
+        // turns with the horizontal yaw and dives with the vertical pitch; elbow-driven thrusts
+        // barely move their axes so jabs stay tight), plus a strike snap that briefly whips the
+        // blade through the hit along the swing's travel direction. Tracks return to zero on
+        // recovery, so the lead eases back to the grip.
+        BladeLead lead = LeadScale();
+        float snap = _strikeDir * lead.snapDeg * h * Mathf.Exp(-Mathf.Abs(t - _impactT) * 8f);
+        Vector3 leadEuler = new Vector3(k.shX * lead.pitch, k.shY * lead.yaw + snap, 0f);
 
         // Impact pulse: right after the strike the arm rebounds briefly (a recoil kick opposite the
         // swing's travel) and the blade shoves forward a touch, then eases into follow-through.
@@ -390,7 +403,7 @@ public sealed class WeaponAnimator : MonoBehaviour
             case OffArm.Mirror:
                 // Two-hand grip: the support arm mirrors the swing (yaw flipped side-to-side).
                 if (_otherShoulder != null)
-                    _otherShoulder.localRotation = _otherShBase * Quaternion.Euler(k.shX * h, -k.shY * h, k.shZ * h);
+                    _otherShoulder.localRotation = _otherShBase * Quaternion.Euler(ClampShX(k.shX) * h, -k.shY * h, k.shZ * h);
                 if (_otherElbow != null)
                     _otherElbow.localRotation = _otherElBase * Quaternion.Euler(el, 0f, 0f);
                 break;
@@ -398,7 +411,7 @@ public sealed class WeaponAnimator : MonoBehaviour
             case OffArm.Asym:
                 PoseKey ok = Sample(_otherSet, t);
                 if (_otherShoulder != null)
-                    _otherShoulder.localRotation = _otherShBase * Quaternion.Euler(ok.shX * h, ok.shY * h, ok.shZ * h);
+                    _otherShoulder.localRotation = _otherShBase * Quaternion.Euler(ClampShX(ok.shX) * h, ok.shY * h, ok.shZ * h);
                 if (_otherElbow != null)
                     _otherElbow.localRotation = _otherElBase * Quaternion.Euler(ok.elX * h, 0f, 0f);
                 break;
@@ -406,7 +419,7 @@ public sealed class WeaponAnimator : MonoBehaviour
 
         // The weapon rides the hand; only magic focuses add a small local accent.
         ApplyAccent(_def.Accent, t, out Vector3 aEuler, out Vector3 aPos, out float aScale);
-        transform.localRotation = Quaternion.Euler(_baseEuler + aEuler + lead);
+        transform.localRotation = Quaternion.Euler(_baseEuler + aEuler + leadEuler);
         transform.localPosition = _basePos + aPos + new Vector3(0f, 0f, 0.02f * h * _pulse);
         transform.localScale = _baseScale * aScale;
 
@@ -576,21 +589,39 @@ public sealed class WeaponAnimator : MonoBehaviour
         }
     }
 
+    private struct BladeLead
+    {
+        public float pitch;
+        public float yaw;
+        public float snapDeg;
+
+        public BladeLead(float pitch, float yaw, float snapDeg)
+        {
+            this.pitch = pitch;
+            this.yaw = yaw;
+            this.snapDeg = snapDeg;
+        }
+    }
+
     /// <summary>
-    /// Weapon-local blade-lead strength (pitch, yaw): how strongly the held weapon rotates into the
-    /// swing pattern. One-hand blades lash tip-first; two-handers get dragged more; casters and the
-    /// longbow stay neutral (their accents already own the weapon look).
+    /// Weapon-local blade-lead: how strongly the held weapon rotates into the swing pattern
+    /// (pitch = follows the vertical arc, yaw = follows the horizontal arc), plus strike-snap
+    /// degrees whipped through the hit. One-hand blades lash tip-first; two-handers get dragged
+    /// more; casters and the longbow stay neutral (their accents already own the weapon look).
     /// </summary>
-    private Vector2 LeadScale()
+    private BladeLead LeadScale()
     {
         if (_def.Accent == K_None || _def.Accent == K_Dual)
             return _def.Mode == OffArm.Mirror
-                ? new Vector2(0.28f, 0.28f)
-                : new Vector2(0.42f, 0.42f);
+                ? new BladeLead(0.10f, 0.14f, 16f)
+                : new BladeLead(0.15f, 0.20f, 22f);
         if (_def.Accent == K_Lute)
-            return new Vector2(0.30f, 0.30f);
-        return Vector2.zero;
+            return new BladeLead(0.12f, 0.16f, 14f);
+        return new BladeLead(0f, 0f, 0f);
     }
+
+    /// <summary>Shoulder pitch clamp — authored high-raises can swing the arm behind the head.</summary>
+    private static float ClampShX(float v) => Mathf.Clamp(v, -150f, 40f);
 
     /// <summary>Auto-detect the strike moment of a swing = midpoint of its largest single segment.</summary>
     private void DetectStrike(PoseKey[] track)
