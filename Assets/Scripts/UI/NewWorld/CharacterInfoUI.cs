@@ -610,10 +610,12 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
         var learn = MakeButton(pane.transform, "LearnBtn", "Learn", P(-100f, -80f), LearnSelectedSkill);
         learn.GetComponent<RectTransform>().sizeDelta = Sz(160f, 38f);
+        ApplyFullButtonSprite(learn.GetComponent<Image>());
         _learnBtn = learn;
 
         var assign = MakeButton(pane.transform, "AssignKeyBtn", "Assign Key", P(100f, -80f), AssignSelectedSkillKey);
         assign.GetComponent<RectTransform>().sizeDelta = Sz(160f, 38f);
+        ApplyFullButtonSprite(assign.GetComponent<Image>());
         _assignKeyBtn = assign;
 
         // Red ✕ close: hides the detail pane (deselects) but keeps the tab menu open.
