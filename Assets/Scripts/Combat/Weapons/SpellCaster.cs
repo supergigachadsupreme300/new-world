@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Central spell-casting runtime (§3.8). Validates focus points (FP) + cooldowns,
+/// Central spell-casting runtime (Â§3.8). Validates focus points (FP) + cooldowns,
 /// plays the cast time, then delivers the spell (instant / projectile / zone) and
 /// resolves damage through DamageCalculator scaled by Wisdom.
 ///
@@ -216,36 +216,28 @@ public class SpellCaster : MonoBehaviour
     }
 
     /// <summary>
-    /// Build a visible orb + trail for spells with no authored CastEffectPrefab, so magic
-    /// skills read on screen. Renderer-only: the root keeps no collider so SpellEffect's
-    /// flight raycast never self-hits.
+    /// Build a per-type visible projectile body + trail for spells with no authored
+    /// CastEffectPrefab, so magic skills read on screen. Renderer-only: the root keeps no
+    /// collider so SpellEffect's flight raycast never self-hits.
     /// </summary>
     private void AttachDefaultProjectileVisual(GameObject go, DamageType type)
     {
         Color color = DamageNumber.ColorFor(type);
-
-        var orb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        orb.name = "Orb";
-        orb.transform.SetParent(go.transform, false);
-        Collider orbCol = orb.GetComponent<Collider>();
-        if (orbCol != null)
-            Destroy(orbCol);
-        orb.transform.localScale = Vector3.one * 0.22f;
-
         Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
         if (shader == null)
             return;
-        var mat = new Material(shader) { color = color };
-        orb.GetComponent<MeshRenderer>().material = mat;
+
+        var body = BuildProjectileBody(type, shader, color);
+        body.SetParent(go.transform, false);
 
         var trail = go.GetComponent<TrailRenderer>();
         if (trail == null)
             trail = go.AddComponent<TrailRenderer>();
-        trail.material = mat;
-        trail.time = 0.4f;
-        trail.startWidth = 0.18f;
+        trail.material = new Material(shader) { color = color };
+        trail.time = TrailTime(type);
+        trail.startWidth = TrailWidth(type);
         trail.endWidth = 0f;
-        trail.minVertexDistance = 0.1f;
+        trail.minVertexDistance = 0.05f;
         var grad = new Gradient();
         grad.SetKeys(
             new[] { new GradientColorKey(color, 0f), new GradientColorKey(color, 1f) },
@@ -253,8 +245,164 @@ public class SpellCaster : MonoBehaviour
         trail.colorGradient = grad;
     }
 
+    /// <summary>Color-matched visual body for a projectile by damage type.</summary>
+    private static Transform BuildProjectileBody(DamageType type, Shader shader, Color color)
+    {
+        switch (type)
+        {
+            case DamageType.Fire:
+                return Orb("Fireball", PrimitiveType.Sphere, Vector3.one * 0.3f, shader, color,
+                    OrbFx.Mode.Ember);
+            case DamageType.Ice:
+                return Shard("Frostbolt", shader, color);
+            case DamageType.Lightning:
+                return Spark("ChainBolt", shader, color);
+            case DamageType.Dark:
+                return Orb("DarkBolt", PrimitiveType.Sphere, Vector3.one * 0.26f, shader, color,
+                    OrbFx.Mode.Wisp);
+            default:
+                return Orb("Orb", PrimitiveType.Sphere, Vector3.one * 0.22f, shader, color,
+                    OrbFx.Mode.Plain);
+        }
+    }
+
+    private static Transform Orb(string name, PrimitiveType shape, Vector3 scale, Shader shader,
+        Color color, OrbFx.Mode mode)
+    {
+        var orb = GameObject.CreatePrimitive(shape);
+        orb.name = name;
+        Collider col = orb.GetComponent<Collider>();
+        if (col != null)
+            Destroy(col);
+        orb.transform.localScale = scale;
+        orb.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
+        orb.AddComponent<OrbFx>().Pulse = mode;
+        return orb.transform;
+    }
+
+    /// <summary>Diamond-shaped ice shard that drills forward.</summary>
+    private static Transform Shard(string name, Shader shader, Color color)
+    {
+        var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        shard.name = name;
+        Collider col = shard.GetComponent<Collider>();
+        if (col != null)
+            Destroy(col);
+        shard.transform.localScale = new Vector3(0.12f, 0.38f, 0.12f);
+        shard.transform.localRotation = Quaternion.Euler(0f, 45f, 0f);
+        shard.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
+        shard.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Shard;
+        return shard.transform;
+    }
+
+    /// <summary>Two crossed thin bars forming a crackling X bolt.</summary>
+    private static Transform Spark(string name, Shader shader, Color color)
+    {
+        var spark = new GameObject(name).transform;
+        var a = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        a.name = "BarA";
+        Collider colA = a.GetComponent<Collider>();
+        if (colA != null)
+            Destroy(colA);
+        a.transform.SetParent(spark, false);
+        a.transform.localScale = new Vector3(0.26f, 0.03f, 0.03f);
+        a.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
+
+        var b = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        b.name = "BarB";
+        Collider colB = b.GetComponent<Collider>();
+        if (colB != null)
+            Destroy(colB);
+        b.transform.SetParent(spark, false);
+        b.transform.localScale = new Vector3(0.03f, 0.03f, 0.26f);
+        b.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
+
+        spark.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Bolt;
+        return spark;
+    }
+
+    private static float TrailWidth(DamageType type)
+    {
+        switch (type)
+        {
+            case DamageType.Fire: return 0.20f;
+            case DamageType.Ice: return 0.14f;
+            case DamageType.Lightning: return 0.12f;
+            case DamageType.Dark: return 0.12f;
+            default: return 0.18f;
+        }
+    }
+
+    private static float TrailTime(DamageType type)
+    {
+        switch (type)
+        {
+            case DamageType.Fire: return 0.50f;
+            case DamageType.Ice: return 0.45f;
+            case DamageType.Lightning: return 0.30f;
+            case DamageType.Dark: return 0.50f;
+            default: return 0.40f;
+        }
+    }
+
+    /// <summary>
+    /// Tiny flight animation for a projectile body: a per-type scale pulse (flicker / crackle /
+    /// breathe) and, for the ice shard, a drill spin around its long axis.
+    /// </summary>
+    private sealed class OrbFx : MonoBehaviour
+    {
+        public enum Mode
+        {
+            Plain,  // gentle breathe
+            Ember,  // fast irregular flicker
+            Shard,  // slight breathe + drill spin
+            Bolt,   // fast crackle pulse
+            Wisp    // slow pulsing
+        }
+
+        public Mode Pulse;
+
+        private Vector3 _baseScale;
+
+        private void Start()
+        {
+            _baseScale = transform.localScale;
+        }
+
+        private void Update()
+        {
+            float t = Time.time;
+            float pulse;
+            float spin = 0f;
+            switch (Pulse)
+            {
+                case Mode.Ember:
+                    pulse = 1f + 0.14f * Mathf.Sin(t * 11f) + 0.08f * Mathf.Sin(t * 17.3f);
+                    break;
+                case Mode.Shard:
+                    pulse = 1f + 0.04f * Mathf.Sin(t * 4.2f);
+                    spin = 160f;
+                    break;
+                case Mode.Bolt:
+                    pulse = 1f + 0.22f * Mathf.Sin(t * 24f) * Mathf.Sin(t * 7f);
+                    break;
+                case Mode.Wisp:
+                    pulse = 1f + 0.10f * Mathf.Sin(t * 2.6f);
+                    break;
+                default:
+                    pulse = 1f + 0.06f * Mathf.Sin(t * 3.4f);
+                    break;
+            }
+            transform.localScale = _baseScale * Mathf.Max(0.1f, pulse);
+            if (spin != 0f)
+                transform.Rotate(0f, spin * Time.deltaTime, 0f, Space.Self);
+        }
+    }
+
     private DamageResult ResolveZone(float power, SpellData spell, Vector3 pos)
     {
+        SpawnZoneRing(pos, spell);
+
         Collider[] cols = Physics.OverlapSphere(pos, spell.Radius);
         bool hitAny = false;
         float total = 0f;
@@ -266,6 +414,16 @@ public class SpellCaster : MonoBehaviour
             hitAny |= hit.HitTargets;
         }
         return new DamageResult { TotalDamage = total, HitTargets = hitAny };
+    }
+
+    /// <summary>Ground ring flash sized to the spell's radius so zone spells read on screen.</summary>
+    private static void SpawnZoneRing(Vector3 pos, SpellData spell)
+    {
+        if (spell == null || spell.Radius <= 0f) return;
+        Vector3 ground = pos;
+        if (Physics.Raycast(pos + Vector3.up * 0.1f, Vector3.down, out RaycastHit hit, 4f))
+            ground = hit.point;
+        SkillFx.RingFlash(ground, Vector3.up, DamageNumber.ColorFor(spell.Type), spell.Radius, 0.5f);
     }
 
     private DamageResult ApplyHit(SpellData spell, float power, GameObject target)

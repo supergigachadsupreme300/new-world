@@ -87,6 +87,13 @@ public class SpellEffect : MonoBehaviour
 
     private void ResolveZone()
     {
+        Vector3 ground = transform.position;
+        if (Physics.Raycast(transform.position + Vector3.up * 0.1f, Vector3.down, out RaycastHit hit, 4f))
+            ground = hit.point;
+        SkillFx.RingFlash(ground, Vector3.up,
+            _spell != null ? DamageNumber.ColorFor(_spell.Type) : Color.white,
+            _spell != null ? _spell.Radius : 1f, 0.5f);
+
         Collider[] cols = Physics.OverlapSphere(transform.position, Radius, HitLayers);
         foreach (var col in cols)
         {

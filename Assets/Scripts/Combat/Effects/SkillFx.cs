@@ -33,6 +33,66 @@ public static class SkillFx
         slice.AddComponent<SlashFader>().Init(lifetime);
     }
 
+    /// <summary>
+    /// Spawn an expanding, fading flat ring (zone spells). A primitive cylinder flattened along
+    /// <paramref name="upDir"/>, alpha-fading out. No collider, pure visual.
+    /// </summary>
+    public static void RingFlash(Vector3 worldPos, Vector3 upDir, Color color, float radius, float lifetime)
+    {
+        GameObject ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        ring.name = "FxRing";
+        ring.transform.position = worldPos + upDir.normalized * 0.02f;
+        ring.transform.rotation = Quaternion.FromToRotation(Vector3.up, upDir.normalized);
+
+        Collider col = ring.GetComponent<Collider>();
+        if (col != null)
+            Object.Destroy(col);
+
+        Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+        Renderer renderer = ring.GetComponent<MeshRenderer>();
+        if (renderer != null && shader != null)
+            renderer.material = new Material(shader) { color = color };
+
+        ring.AddComponent<RingFader>().Init(radius, lifetime);
+    }
+
+    /// <summary>Expands the ring to full radius while fading to transparent, then removes it.</summary>
+    private sealed class RingFader : MonoBehaviour
+    {
+        private float _radius;
+        private float _age;
+        private float _lifetime = 0.35f;
+        private Material _mat;
+
+        public void Init(float radius, float lifetime)
+        {
+            _radius = radius;
+            _lifetime = Mathf.Max(lifetime, 0.05f);
+        }
+
+        private void Start()
+        {
+            var renderer = GetComponent<MeshRenderer>();
+            _mat = renderer != null ? renderer.material : null;
+        }
+
+        private void Update()
+        {
+            _age += Time.deltaTime;
+            float t = Mathf.Clamp01(_age / _lifetime);
+            float s = Mathf.Lerp(0.25f, 1f, Mathf.SmoothStep(0f, 0.45f, t));
+            transform.localScale = new Vector3(_radius * 2f * s, 0.05f, _radius * 2f * s);
+            if (_mat != null)
+            {
+                Color c = _mat.color;
+                c.a = 1f - t;
+                _mat.color = c;
+            }
+            if (t >= 1f)
+                Destroy(gameObject);
+        }
+    }
+
     /// <summary>Shrinks the flash slice to zero scale, then removes it.</summary>
     private sealed class SlashFader : MonoBehaviour
     {
