@@ -297,6 +297,8 @@ public class PlayerController : MonoBehaviour
 
     private void HandleMouseLook()
     {
+        if (MagicWheelUI.IsOpen)
+            return;
         Vector2 delta = Vector2.zero;
         if (!GameInput.IsMobile && Mouse.current != null)
             delta = Mouse.current.delta.ReadValue();
@@ -655,17 +657,17 @@ public class PlayerController : MonoBehaviour
             if (combat != null && combat.RightHand == null && combat.LeftHand == null)
                 TryAutoRigWeapon();
         }
-        if (!dialogBlocked && leftClick)
+        if (!dialogBlocked && leftClick && !MagicWheelUI.IsOpen)
         {
             if (FightingMode)
             {
-                if (!WeaponTransitionBusy())
+                if (!WeaponTransitionBusy() && !MagicWheelUI.ConsumeArmedCast())
                     GetComponent<CombatController>()?.LightAttack();
             }
             else
                 ToolManager.Instance?.UseSelectedItem();
         }
-        if (!dialogBlocked && !GameInput.IsMobile && Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame)
+        if (!dialogBlocked && !GameInput.IsMobile && !MagicWheelUI.IsOpen && Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame)
         {
             if (FightingMode)
             {
