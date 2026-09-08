@@ -316,8 +316,8 @@ public static class WeaponRigBuilder
                     // Fists hang at the hip.
                     return (new Vector3(side * 0.16f, -0.16f, -0.08f), Quaternion.Euler(-20f, 0f, 20f * side));
                 default:
-                    // Blades: grip near the hip, tip riding up over the shoulder.
-                    return (new Vector3(side * 0.2f, -0.12f, -0.12f), Quaternion.Euler(-38f, 0f, 12f * side));
+                    // Blades: grip near the hip, tip hanging upside down along the leg.
+                    return (new Vector3(side * 0.2f, -0.12f, -0.12f), Quaternion.Euler(StowBladeLean + StowBladePitchUp, 0f, StowBladeFlip));
             }
         }
 
