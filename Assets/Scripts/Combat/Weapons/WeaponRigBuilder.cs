@@ -156,9 +156,9 @@ public static class WeaponRigBuilder
     /// diagonal sling across the back instead of a straight hanging stick.</summary>
     public const float StowBladeCant = 40f;
 
-    /// <summary>Front/back lean (°) for the upside-down back blade, so it rests against the back
-    /// instead of pointing straight down out of the collar.</summary>
-    public const float StowBladePitch = 25f;
+    /// <summary>Front/back lean (°) for the upside-down back blade. 0 = no x rotation; it hangs
+    /// vertically tip-down straight off the back.</summary>
+    public const float StowBladePitch = 0f;
 
     /// <summary>Flips the backed blade so it hangs tip-down (upside down) along the spine.</summary>
     public const float StowBladeFlip = 180f;
