@@ -97,7 +97,7 @@ public class ClassData : ScriptableObject
             case SkillType.Magic: return "Magic";
             case SkillType.Stealth: return "Stealth";
             case SkillType.Crafting: return "Crafting";
-            case SkillType.Fortitude: return "Fortitude";
+            case SkillType.Fortitude: return "Defense";
             default: return t.ToString();
         }
     }

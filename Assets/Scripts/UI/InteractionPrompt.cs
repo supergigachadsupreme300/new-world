@@ -197,7 +197,8 @@ public class InteractionPrompt : MonoBehaviour
     /// <summary>
     /// Show/hide the cursor hover item tooltip for whatever the crosshair points at:
     /// a weapon rack (<see cref="WeaponRackStand"/>) or a ground loot drop (<see cref="LootDrop"/>).
-    /// Also covers a closed loot chest with a guaranteed item id.
+    /// Also covers a closed loot chest with a guaranteed item id. World-hover tooltips render in
+    /// the fixed bottom-center strip (ItemTooltipUI.ShowWorld) so they are always readable.
     /// </summary>
     private void UpdateItemTooltip(GameObject go)
     {
@@ -210,32 +211,25 @@ public class InteractionPrompt : MonoBehaviour
         var stand = go.GetComponentInParent<WeaponRackStand>();
         if (stand != null && !string.IsNullOrEmpty(stand.WeaponId))
         {
-            ItemTooltipUI.Show(stand.WeaponId, WorldToTooltipScreen(stand.transform.position));
+            ItemTooltipUI.ShowWorld(stand.WeaponId);
             return;
         }
 
         var drop = go.GetComponent<LootDrop>();
         if (drop != null && drop.Item != null)
         {
-            ItemTooltipUI.Show(drop.Item.id, WorldToTooltipScreen(drop.transform.position));
+            ItemTooltipUI.ShowWorld(drop.Item.id);
             return;
         }
 
         var container = go.GetComponent<LootContainer>();
         if (container != null && !string.IsNullOrEmpty(container.GuaranteedItemId))
         {
-            ItemTooltipUI.Show(container.GuaranteedItemId, WorldToTooltipScreen(container.transform.position));
+            ItemTooltipUI.ShowWorld(container.GuaranteedItemId);
             return;
         }
 
         ItemTooltipUI.Hide();
-    }
-
-    private Vector2 WorldToTooltipScreen(Vector3 worldPos)
-    {
-        if (_cam == null) _cam = Camera.main;
-        Vector3 p = _cam != null ? _cam.WorldToScreenPoint(worldPos) : Vector3.zero;
-        return new Vector2(p.x, p.y);
     }
 
     private void Hide()

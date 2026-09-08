@@ -98,7 +98,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private static readonly Color NodeAvailable = new Color(0.82f, 0.6f, 0.22f, 1f);
     private static readonly Color NodeLocked = new Color(0.3f, 0.32f, 0.38f, 1f);
 
-    private static readonly string[] CategoryNames = { "Melee", "Ranged", "Magic", "Stealth", "Crafting", "Fortitude" };
+    private static readonly string[] CategoryNames = { "Melee", "Ranged", "Magic", "Stealth", "Crafting", "Defense" };
 
     /// <summary>Per-category accent colors (legend chips, sector labels, node top strips).</summary>
     private static readonly Color[] CategoryColors =
@@ -108,7 +108,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         new Color(0.48f, 0.56f, 0.95f, 1f),  // Magic
         new Color(0.55f, 0.5f, 0.85f, 1f),   // Stealth
         new Color(0.92f, 0.72f, 0.3f, 1f),   // Crafting
-        new Color(0.55f, 0.78f, 0.42f, 1f),  // Fortitude
+        new Color(0.55f, 0.78f, 0.42f, 1f),  // Defense
     };
     private static readonly Color LineActive = new Color(0.72f, 0.68f, 0.55f, 0.9f);
     private static readonly Color LineInert = new Color(0.4f, 0.42f, 0.48f, 0.75f);

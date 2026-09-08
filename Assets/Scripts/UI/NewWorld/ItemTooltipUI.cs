@@ -70,6 +70,20 @@ public sealed class ItemTooltipUI : MonoBehaviour
         self._shown = false;
     }
 
+    /// <summary>
+    /// Show the tooltip for <paramref name="itemId"/> in the fixed bottom-center info
+    /// strip (world/crosshair hover). Always readable regardless of where the targeted
+    /// object projects on screen.
+    /// </summary>
+    public static void ShowWorld(string itemId)
+    {
+        var self = Instance;
+        self.Populate(itemId);
+        self.PositionBottomCenter();
+        self._root.gameObject.SetActive(true);
+        self._shown = true;
+    }
+
     /// <summary>True if the tooltip is currently visible.</summary>
     public static bool IsShown => _instance != null && _instance._shown;
 
@@ -236,8 +250,26 @@ public sealed class ItemTooltipUI : MonoBehaviour
     {
         Vector2 size = _root.sizeDelta * _canvas.scaleFactor;
         float right = Screen.width, bottom = Screen.height;
-        float px = Mathf.Clamp(screenPos.x + 18f, 8f, right - size.x - 8f);
-        float py = Mathf.Clamp(screenPos.y - 10f, size.y + 8f, bottom - 8f);
+        float px = Mathf.Clamp(screenPos.x + 18f, 14f, right - size.x - 14f);
+        float py = Mathf.Clamp(screenPos.y - 10f, size.y + 14f, bottom - 14f);
+
+        _root.anchoredPosition = new Vector2(px, py) / _canvas.scaleFactor;
+    }
+
+    /// <summary>
+    /// Fixed bottom-center strip: centered horizontally, with the box's bottom edge just
+    /// above the E/LMB prompt cluster (≈ 71% down the screen). Clamped so it stays fully
+    /// on-screen and never reaches the compass band at the top.
+    /// </summary>
+    private void PositionBottomCenter()
+    {
+        Vector2 size = _root.sizeDelta * _canvas.scaleFactor;
+        float right = Screen.width, bottom = Screen.height;
+
+        float px = (right - size.x) * 0.5f;
+        float py = bottom * 0.71f;
+        px = Mathf.Clamp(px, 14f, right - size.x - 14f);
+        py = Mathf.Clamp(py, size.y + bottom * 0.02f, bottom - 14f);
 
         _root.anchoredPosition = new Vector2(px, py) / _canvas.scaleFactor;
     }
