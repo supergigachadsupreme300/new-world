@@ -41,6 +41,11 @@ public sealed class WeaponAnimator : MonoBehaviour
     private const float SlashYawDeg = 70f;
     private const float SlashYawFlip = 1f;
 
+    /// <summary>Multiplier on the authored swing tempos (TimeLight/TimeHeavy). >1 slows the base
+    /// attack rate; the AttackSpeed stat divides this further, so a value of 1 AttackSpeed now
+    /// plays at <see cref="BaseSwingTimeScale"/> × the authored beat.</summary>
+    private const float BaseSwingTimeScale = 1.6f;
+
     /// <summary>Capped attack-speed scale from the player's stats (1 → authored tempo).</summary>
     private float SpeedScale()
     {
@@ -344,7 +349,7 @@ public sealed class WeaponAnimator : MonoBehaviour
 
         _heavy = heavy;
         float speed = SpeedScale();
-        _duration = Mathf.Max(0.001f, (heavy ? _def.TimeHeavy : _def.TimeLight) / speed);
+        _duration = Mathf.Max(0.001f, (heavy ? _def.TimeHeavy : _def.TimeLight) * BaseSwingTimeScale / speed);
         _t = 0f;
         _active = true;
 
