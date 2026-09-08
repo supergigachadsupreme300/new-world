@@ -181,7 +181,8 @@ public class CombatController : MonoBehaviour
 
         CurrentState = CombatState.LightAttack;
         float anim = NotifyWeaponAnimators(false, _comboCount);
-        _actionTimer = Mathf.Max(LightAttackDuration, anim) / AttackSpeedScale();
+        float speed = AttackSpeedScale();
+        _actionTimer = Mathf.Max(LightAttackDuration / speed, anim);
         _bufferTimer = PostActionBuffer;
         OnStateChanged?.Invoke(CurrentState);
 
@@ -208,7 +209,8 @@ public class CombatController : MonoBehaviour
 
         CurrentState = CombatState.HeavyAttack;
         float anim = NotifyWeaponAnimators(true, 3); // heavy always plays the finisher swing
-        _actionTimer = Mathf.Max(HeavyAttackDuration, anim) / AttackSpeedScale();
+        float speed = AttackSpeedScale();
+        _actionTimer = Mathf.Max(HeavyAttackDuration / speed, anim);
         _bufferTimer = PostActionBuffer;
         _comboCount = 0; // heavy resets combo
         OnStateChanged?.Invoke(CurrentState);

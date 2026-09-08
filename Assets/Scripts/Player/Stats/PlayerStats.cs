@@ -121,8 +121,9 @@ public class PlayerStats : MonoBehaviour, IStatProvider, ILootLuckProvider
         * (1f + GetTotal(StatType.Speed) * K_AsSpeed)
         * (1f + GetTotal(StatType.Dexterity) * K_AsDex);
 
-    /// <summary>The attack-speed scale used for attack animation/action timing (capped).</summary>
-    public float AttackSpeedScale => Mathf.Clamp(AttackSpeedMultiplier, 1f, MaxAttackSpeedMult);
+    /// <summary>The attack-speed scale used for attack animation/action timing (capped). Driven
+    /// by the AttackSpeed stat alone so a value of 1 plays at the authored tempo.</summary>
+    public float AttackSpeedScale => Mathf.Clamp(1f + GetTotal(StatType.AttackSpeed) * K_As, 1f, MaxAttackSpeedMult);
 
     public float MaxStamina => 100f + GetTotal(StatType.Endurance) * 10f;
 
