@@ -115,6 +115,7 @@ public static class WeaponRigBuilder
     {
         if (weaponGo == null) return;
         var t = weaponGo.transform;
+        var data = weaponGo.GetComponent<WeaponRigHost>()?.Data;
         var hand = FindHand(playerRoot?.transform, isLeft);
         if (hand == null || hand == playerRoot.transform)
         {
@@ -123,14 +124,14 @@ public static class WeaponRigBuilder
             // ReparentToHands migrates it onto the bone when it exists.
             t.SetParent(playerRoot.transform, false);
             t.localPosition = new Vector3(isLeft ? -0.33f : 0.33f, 0.9f, 0.9f);
-            t.localRotation = Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f);
+            t.localRotation = DrawPoseFor(data, isLeft).rot;
             t.localScale = ScaleForWorld(t.parent, DrawScale);
             LogOnce("attach-fallback-" + weaponGo.name + "-" + isLeft,
                 "hand bone missing for " + (isLeft ? "left" : "right") + "; parked at chest-front pose on '" + playerRoot.name + "'");
             return;
         }
         t.SetParent(hand, false);
-        ApplyHandPose(t, weaponGo.GetComponent<WeaponRigHost>()?.Data, isLeft);
+        ApplyHandPose(t, data, isLeft);
         LogOnce("attach-hand-" + weaponGo.name + "-" + isLeft,
             weaponGo.name + " attached to '" + hand.name + "'");
     }
@@ -193,8 +194,9 @@ public static class WeaponRigBuilder
 
     /// <summary>
     /// Drawn (in-hand) local pose for a rig. Blades sit a blade-length below the fist (grip in the
-    /// palm, tip up); tall magic focuses (staff / orb / book / wand / lute) hang a short grip-height
-    /// below the hand instead, so the arm reads as naturally holding the focus rather than the focus
+    /// palm, tip up) and turn 90° about Y so the blade faces side-on to the camera in fighting
+    /// mode; tall magic focuses (staff / orb / book / wand / lute) hang a short grip-height below
+    /// the hand instead, so the arm reads as naturally holding the focus rather than the focus
     /// dangling near the leg (which read as a bent/torqued arm).
     /// </summary>
     private static (Vector3 pos, Quaternion rot) DrawPoseFor(WeaponData weapon, bool isLeft)
@@ -202,6 +204,8 @@ public static class WeaponRigBuilder
         float side = isLeft ? -1f : 1f;
         if (weapon != null && weapon.Category == WeaponCategory.Magic)
             return (new Vector3(side * 0.1f, -0.35f, 0f), Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f));
+        if (weapon != null && weapon.Category == WeaponCategory.Melee)
+            return (new Vector3(side * 0.1f, -1.0f, 0f), Quaternion.Euler(WeaponHoldForwardLean, 90f, 0f));
         return (new Vector3(side * 0.1f, -1.0f, 0f), Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f));
     }
 

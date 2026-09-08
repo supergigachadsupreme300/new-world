@@ -332,7 +332,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         var wb = WorldBuilder.Instance;
         if (wb == null) return;
 
-        string[] types = { "small_house", "wood_wall", "door", "table", "chair", "well", "fence", "chest" };
+        string[] types = { "table", "chair", "chest" };
         float z = PlatformCenter.z + PlatformSize * 0.3f;
         float startX = PlatformCenter.x - 20f;
         for (int i = 0; i < types.Length; i++)
@@ -500,10 +500,23 @@ public sealed class NewWorldTestGround : MonoBehaviour
         var profile = player.GetComponent<SkillProfile>();
         if (profile == null) return;
 
-        // Testing: hand the player a fat point budget but DON'T auto-learn anything, so the skill
-        // tree is actually clickable and prerequisite gating can be verified live (auto-learning
-        // every skill left nothing for the Learn button to do).
+        // Testing: grant a fat point budget and auto-learn EVERY skill so the whole roster is
+        // usable immediately. Prereq gating is satisfied by sweeping the catalog until a full
+        // pass learns nothing new (no dependency order needed).
         profile.Points += 999;
+        bool learnedAny;
+        do
+        {
+            learnedAny = false;
+            var all = SkillCatalog.All;
+            if (all == null) break;
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (all[i] == null || profile.HasLearned(all[i].id)) continue;
+                if (profile.Learn(all[i]))
+                    learnedAny = true;
+            }
+        } while (learnedAny);
     }
 
     /// <summary>
