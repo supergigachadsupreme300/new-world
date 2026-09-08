@@ -36,7 +36,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
     [Header("Phase 10 - Weapons & Skills")]
     [Tooltip("Equip the starter weapon and make all 15 weapons available (cycle via Character Info > Equipment).")]
     public bool EnableWeapons = true;
-    [Tooltip("Grant the player all 60 skills (testing) and wire the skill profile + hotkey bindings.")]
+    [Tooltip("Grant an unlimited skill-point budget and wire the skill profile + hotkey bindings (testing).")]
     public bool EnableSkills = true;
     [Tooltip("Equip a starter armor/accessory set into the 21-slot equipment system (testing).")]
     public bool EnableGear = true;
@@ -500,23 +500,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
         var profile = player.GetComponent<SkillProfile>();
         if (profile == null) return;
 
-        // Loop until no new skill can be learned so out-of-order prerequisites (e.g. a skill
-        // whose prereq appears later in the catalog) still get unlocked in the same pass.
-        var toLearn = SkillCatalog.All;
-        if (toLearn == null) return;
-        bool progressed;
-        do
-        {
-            progressed = false;
-            foreach (var skill in toLearn)
-            {
-                if (skill == null) continue;
-                if (profile.HasLearned(skill.id)) continue;
-                profile.Points += 999;          // testing: unlimited budget
-                if (profile.Learn(skill))
-                    progressed = true;
-            }
-        } while (progressed);
+        // Testing: hand the player a fat point budget but DON'T auto-learn anything, so the skill
+        // tree is actually clickable and prerequisite gating can be verified live (auto-learning
+        // every skill left nothing for the Learn button to do).
+        profile.Points += 999;
     }
 
     /// <summary>
