@@ -33,6 +33,14 @@ public sealed class WeaponAnimator : MonoBehaviour
     private const int K_Lute = 4;    // lute — held at the side, string strum
     private const int K_Dual = 5;    // gauntlets — alternate hands off-phase
 
+    // Side-slash blade lead: during a horizontal sweep the blade first pitches tip-DOWN and then
+    // turns SIDEWAYS into the swing's travel, and that pose is HELD rigid from the hand through
+    // the cut — a clean slashing line. Tune the degrees; flip SlashYawFlip if the tip reads
+    // backwards (pointing away from the travel) instead of leading.
+    private const float SlashDownDeg = 80f;
+    private const float SlashYawDeg = 70f;
+    private const float SlashYawFlip = 1f;
+
     private enum OffArm
     {
         None,    // weapon in one hand only (sword, dagger, hammer, casters, gauntlets each hand)
@@ -63,9 +71,10 @@ public sealed class WeaponAnimator : MonoBehaviour
         public int Accent;          // K_* accent kind
         public float TimeLight;     // light-attack duration
         public float TimeHeavy;     // heavy-attack duration
+        public bool SlashLead;      // side slashes lead tip-down → sideways (slashing line)
 
         public WeaponAnimDef(OffArm mode, PoseKey[][] owner, PoseKey[][] other, int accent,
-            float light, float heavy)
+            float light, float heavy, bool slashLead = false)
         {
             Mode = mode;
             Owner = owner;
@@ -73,6 +82,7 @@ public sealed class WeaponAnimator : MonoBehaviour
             Accent = accent;
             TimeLight = light;
             TimeHeavy = heavy;
+            SlashLead = slashLead;
         }
 
         /// <summary>Number of distinct combo swings authored for this weapon (>= 1).</summary>
@@ -94,7 +104,7 @@ public sealed class WeaponAnimator : MonoBehaviour
                     T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, 55f, 0f, -15f), K(0.62f, -80f, -45f, 0f, -5f), K(1f, 0f, 0f, 0f, 0f)),  // 2. wind right/back → slash across to the left
                     T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -150f, 0f, 0f, 10f), K(0.68f, -65f, 0f, 0f, 6f), K(1f, 0f, 0f, 0f, 0f)),     // 3. overhead chop
                     T(K(0f, 0f, 0f, 0f, 0f), K(0.38f, -88f, -12f, 0f, -42f), K(0.58f, -62f, -8f, 0f, -4f), K(1f, 0f, 0f, 0f, 0f))), // 4. forward thrust (elbow extends)
-                    null, K_None, 0.30f, 0.50f)
+                    null, K_None, 0.30f, 0.50f, true)
             },
 
             // greatsword — heavy two-hander: overhead slam, low sweep, reverse-grip sweep, rising spin.
@@ -291,6 +301,10 @@ public sealed class WeaponAnimator : MonoBehaviour
     private float _strikeDir = 1f;
     private float _pulse;
 
+    // 1 when the current swing sweeps horizontally (yaw-dominant = side slash) — gates the
+    // tip-down → sideways slash lead so chops and thrusts keep their own motion.
+    private float _sweepScale;
+
     private static readonly HashSet<string> _leadLogged = new HashSet<string>();
 
     private void OnEnable()
@@ -319,6 +333,7 @@ public sealed class WeaponAnimator : MonoBehaviour
         // Hand the arms over from the ready sway to the attack cleanly.
         StopSway();
         DetectStrike(_set);
+        _sweepScale = SlashSweepScale(_set);
 
         _heavy = heavy;
         _duration = Mathf.Max(0.001f, heavy ? _def.TimeHeavy : _def.TimeLight);
@@ -343,7 +358,10 @@ public sealed class WeaponAnimator : MonoBehaviour
         {
             var l = LeadScale();
             Debug.Log("[WeaponAnim] blade-lead live for '" + _weaponId + "': pitch " + l.pitch.ToString("0.00") +
-                " yaw " + l.yaw.ToString("0.00") + " strike snap " + l.snapDeg.ToString("0") + "\u00B0");
+                " yaw " + l.yaw.ToString("0.00") + " strike snap " + l.snapDeg.ToString("0") + "\u00B0" +
+                (_def.SlashLead
+                    ? ", slash-lead ON (down " + SlashDownDeg.ToString("0") + "\u00B0 side " + SlashYawDeg.ToString("0") + "\u00B0)"
+                    : ", slash-lead off"));
         }
         return _duration;
     }
@@ -379,8 +397,22 @@ public sealed class WeaponAnimator : MonoBehaviour
         // blade through the hit along the swing's travel direction. Tracks return to zero on
         // recovery, so the lead eases back to the grip.
         BladeLead lead = LeadScale();
-        float snap = _strikeDir * lead.snapDeg * h * Mathf.Exp(-Mathf.Abs(t - _impactT) * 8f);
+        float snap = _strikeDir * lead.snapDeg * h * Mathf.Exp(-Mathf.Abs(t - _impactT) * 8f)
+            * (_def.SlashLead && _sweepScale > 0f ? 0.3f : 1f);
         Vector3 leadEuler = new Vector3(k.shX * lead.pitch, k.shY * lead.yaw + snap, 0f);
+
+        // Side-slash two-stage lead: the blade pitches tip-DOWN ~90° during the windup, then turns
+        // ~90° SIDEWAYS into the swing's travel, and HOLDS that pose straight from the hand through
+        // the sweep — a clean slashing line instead of a vertical blade wobbling sideways. Released
+        // only right at recovery. Chops and thrusts (sweepScale 0) are untouched.
+        if (_def.SlashLead && _sweepScale > 0f)
+        {
+            float hold = 1f - Ease(Seg(t, 0.85f, 0.97f));
+            float down = hold * Ease(Seg(t, 0.05f, 0.35f));
+            float side = hold * Ease(Seg(t, 0.30f, 0.50f));
+            leadEuler.x += -SlashDownDeg * down;
+            leadEuler.y += _strikeDir * SlashYawFlip * SlashYawDeg * side;
+        }
 
         // Impact pulse: right after the strike the arm rebounds briefly (a recoil kick opposite the
         // swing's travel) and the blade shoves forward a touch, then eases into follow-through.
@@ -622,6 +654,24 @@ public sealed class WeaponAnimator : MonoBehaviour
 
     /// <summary>Shoulder pitch clamp — authored high-raises can swing the arm behind the head.</summary>
     private static float ClampShX(float v) => Mathf.Clamp(v, -150f, 40f);
+
+    /// <summary>
+    /// 1 when a track sweeps horizontally (shoulder-yaw motion dominates = side slash), else 0 —
+    /// gates the tip-down → sideways slash lead so overhead chops and elbow thrusts keep their own
+    /// motion. A small yaw floor avoids classifying near-straight jabs as slashes.
+    /// </summary>
+    private static float SlashSweepScale(PoseKey[] track)
+    {
+        if (track == null || track.Length < 2) return 0f;
+        float dY = 0f, dX = 0f, dE = 0f;
+        for (int i = 0; i < track.Length - 1; i++)
+        {
+            dY += Mathf.Abs(track[i + 1].shY - track[i].shY);
+            dX += Mathf.Abs(track[i + 1].shX - track[i].shX);
+            dE += Mathf.Abs(track[i + 1].elX - track[i].elX);
+        }
+        return dY >= 0.8f * (dX + dE) && dY > 5f ? 1f : 0f;
+    }
 
     /// <summary>Auto-detect the strike moment of a swing = midpoint of its largest single segment.</summary>
     private void DetectStrike(PoseKey[] track)
