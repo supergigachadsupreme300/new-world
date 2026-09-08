@@ -47,10 +47,30 @@ public sealed class PlayerAnimator : MonoBehaviour
 
     /// <summary>
     /// When true, the arm pivots (shoulders AND elbows) are left entirely to a
-    /// <see cref="WeaponAnimator"/>, which drives them through its attack pose track while
-    /// SuppressArms is set. Set while attacking, cleared on recovery.
+    /// <see cref="WeaponAnimator"/>, which drives them through its attack pose track / ready sway
+    /// while SuppressArms is set. Managed by <see cref="AcquireArms"/> / <see cref="ReleaseArms"/>
+    /// so several weapon rigs (dual wield, or an attack over a ready sway) can hold the arms at once.
     /// </summary>
     public bool SuppressArms;
+
+    private int _armOwners;
+
+    /// <summary>Claim ownership of the arm pivots (attack or ready sway). Calls SuppressArms on.</summary>
+    public void AcquireArms()
+    {
+        _armOwners++;
+        SuppressArms = _armOwners > 0;
+    }
+
+    /// <summary>Release one claim on the arm pivots. Calls SuppressArms off when none are left.</summary>
+    public void ReleaseArms()
+    {
+        _armOwners = Mathf.Max(0, _armOwners - 1);
+        SuppressArms = _armOwners > 0;
+    }
+
+    /// <summary>The player controller this model jumps with (null until resolved).</summary>
+    public PlayerController Controller => _pc;
 
     private void OnEnable()
     {

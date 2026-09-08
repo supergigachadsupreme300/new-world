@@ -276,6 +276,20 @@ public sealed class WeaponAnimator : MonoBehaviour
     private Transform _otherShoulder;
     private Transform _otherElbow;
 
+    // Ready-stance sway — keeps the drawn weapon alive while the player stands still in combat.
+    private WeaponStowAnimator _stow;
+    private Quaternion _swayShBase;
+    private Quaternion _swayElBase;
+    private Quaternion _swayOtherShBase;
+    private Quaternion _swayOtherElBase;
+    private float _swayGuard;
+    private bool _swayActive;
+
+    // Impact pulse — strike time/direction auto-detected from the track, plus recoil decay.
+    private float _impactT = 0.6f;
+    private float _strikeDir = 1f;
+    private float _pulse;
+
     private void OnEnable()
     {
         var host = GetComponent<WeaponRigHost>();
@@ -284,6 +298,7 @@ public sealed class WeaponAnimator : MonoBehaviour
         _def = _weaponId != null && Defs.TryGetValue(_weaponId, out var d) ? d : FallbackDef;
 
         _playerAnim = GetComponentInParent<PlayerAnimator>();
+        _stow = GetComponentInParent<WeaponStowAnimator>();
     }
 
     /// <summary>
@@ -298,6 +313,10 @@ public sealed class WeaponAnimator : MonoBehaviour
         _set = _def.Owner != null && _def.Owner.Length > 0 ? _def.Owner[index] : null;
         _otherSet = _def.Other != null && _def.Other.Length > 0 ? _def.Other[index] : null;
 
+        // Hand the arms over from the ready sway to the attack cleanly.
+        StopSway();
+        DetectStrike(_set);
+
         _heavy = heavy;
         _duration = Mathf.Max(0.001f, heavy ? _def.TimeHeavy : _def.TimeLight);
         _t = 0f;
@@ -308,28 +327,29 @@ public sealed class WeaponAnimator : MonoBehaviour
         _baseEuler = transform.localRotation.eulerAngles;
         _baseScale = transform.localScale;
 
-        // Resolve the arm chain (rig -> HandL/R -> ElbowL/R -> ShoulderL/R) fresh each attack.
-        var parent = transform.parent;
-        _offHand = parent != null && parent.name == "HandL";
-        _ownerShoulder = FindOwnerShoulder(parent);
-        _ownerElbow = FindOwnerElbow(parent);
-        if (_playerAnim == null) _playerAnim = GetComponentInParent<PlayerAnimator>();
-        _otherShoulder = _playerAnim != null ? (_offHand ? _playerAnim.ShoulderR : _playerAnim.ShoulderL) : null;
-        _otherElbow = _playerAnim != null ? (_offHand ? _playerAnim.ElbowR : _playerAnim.ElbowL) : null;
+        ResolvePivots();
 
         _ownerShBase = _ownerShoulder != null ? _ownerShoulder.localRotation : Quaternion.identity;
         _ownerElBase = _ownerElbow != null ? _ownerElbow.localRotation : Quaternion.identity;
         _otherShBase = _otherShoulder != null ? _otherShoulder.localRotation : Quaternion.identity;
         _otherElBase = _otherElbow != null ? _otherElbow.localRotation : Quaternion.identity;
 
-        if (_playerAnim != null) _playerAnim.SuppressArms = true;
+        if (_playerAnim != null) _playerAnim.AcquireArms();
         return _duration;
     }
 
     private void Update()
     {
-        if (!_active) return;
+        if (_active)
+        {
+            UpdateAttack();
+            return;
+        }
+        UpdateSway();
+    }
 
+    private void UpdateAttack()
+    {
         _t += Time.deltaTime;
         float t = Mathf.Clamp01(_t / _duration);
 
@@ -341,6 +361,17 @@ public sealed class WeaponAnimator : MonoBehaviour
         PoseKey k = Sample(_set, t);
         Vector3 sh = new Vector3(k.shX, k.shY, k.shZ) * h;
         float el = k.elX * h;
+
+        // Impact pulse: right after the strike the arm rebounds briefly (a recoil kick opposite the
+        // swing's travel) and the blade shoves forward a touch, then eases into follow-through.
+        _pulse = _impactT > 0f && t >= _impactT
+            ? Mathf.Min(1f, Mathf.Exp(-(t - _impactT) * 18f))
+            : 0f;
+        if (_pulse > 0f)
+        {
+            sh += new Vector3(0f, -_strikeDir * 6f * h * _pulse, 0f);
+            el += 4f * h * _pulse;
+        }
 
         if (_ownerShoulder != null)
             _ownerShoulder.localRotation = _ownerShBase * Quaternion.Euler(sh);
@@ -369,7 +400,7 @@ public sealed class WeaponAnimator : MonoBehaviour
         // The weapon rides the hand; only magic focuses add a small local accent.
         ApplyAccent(_def.Accent, t, out Vector3 aEuler, out Vector3 aPos, out float aScale);
         transform.localRotation = Quaternion.Euler(_baseEuler + aEuler);
-        transform.localPosition = _basePos + aPos;
+        transform.localPosition = _basePos + aPos + new Vector3(0f, 0f, 0.02f * h * _pulse);
         transform.localScale = _baseScale * aScale;
 
         if (_t >= _duration)
@@ -386,7 +417,7 @@ public sealed class WeaponAnimator : MonoBehaviour
         if (_ownerElbow != null) _ownerElbow.localRotation = _ownerElBase;
         if (_otherShoulder != null) _otherShoulder.localRotation = _otherShBase;
         if (_otherElbow != null) _otherElbow.localRotation = _otherElBase;
-        if (_playerAnim != null) _playerAnim.SuppressArms = false;
+        if (_playerAnim != null) _playerAnim.ReleaseArms();
     }
 
     /// <summary>
@@ -418,7 +449,148 @@ public sealed class WeaponAnimator : MonoBehaviour
 
     private void OnDisable()
     {
-        if (_playerAnim != null) _playerAnim.SuppressArms = false;
+        StopSway();
+        if (_playerAnim != null) _playerAnim.ReleaseArms();
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Ready-stance sway + strike detection
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>Resolve the arm chain (rig -> HandL/R -> ElbowL/R -> ShoulderL/R) fresh each frame.</summary>
+    private void ResolvePivots()
+    {
+        if (_playerAnim == null) _playerAnim = GetComponentInParent<PlayerAnimator>();
+        var parent = transform.parent;
+        _offHand = parent != null && parent.name == "HandL";
+        _ownerShoulder = FindOwnerShoulder(parent);
+        _ownerElbow = FindOwnerElbow(parent);
+        _otherShoulder = _playerAnim != null ? (_offHand ? _playerAnim.ShoulderR : _playerAnim.ShoulderL) : null;
+        _otherElbow = _playerAnim != null ? (_offHand ? _playerAnim.ElbowR : _playerAnim.ElbowL) : null;
+    }
+
+    /// <summary>True when the sway can safely own the arms: drawn, transition settled, player standing.</summary>
+    private bool ShouldSway()
+    {
+        if (_playerAnim == null || _playerAnim.Controller == null) return false;
+        var pc = _playerAnim.Controller;
+        if (pc.IsSitting || pc.IsRiding || pc.IsMoving) return false;
+        if (_stow == null || !_stow.IsDrawn || _stow.IsBusy) return false;
+        ResolvePivots();
+        return _ownerShoulder != null;
+    }
+
+    private void StartSway()
+    {
+        ResolvePivots();
+        if (_ownerShoulder == null) return;
+        _swayShBase = _ownerShoulder.localRotation;
+        _swayElBase = _ownerElbow != null ? _ownerElbow.localRotation : Quaternion.identity;
+        if (_def.Mode == OffArm.Mirror)
+        {
+            _swayOtherShBase = _otherShoulder != null ? _otherShoulder.localRotation : Quaternion.identity;
+            _swayOtherElBase = _otherElbow != null ? _otherElbow.localRotation : Quaternion.identity;
+        }
+        _basePos = transform.localPosition;
+        _baseEuler = transform.localRotation.eulerAngles;
+        _baseScale = transform.localScale;
+        _swayGuard = 0f;
+        _swayActive = true;
+        if (_playerAnim != null) _playerAnim.AcquireArms();
+    }
+
+    private void StopSway()
+    {
+        if (!_swayActive) return;
+        _swayActive = false;
+        transform.localRotation = Quaternion.Euler(_baseEuler);
+        transform.localPosition = _basePos;
+        transform.localScale = _baseScale;
+        if (_playerAnim != null) _playerAnim.ReleaseArms();
+    }
+
+    private void UpdateSway()
+    {
+        if (_swayActive && !ShouldSway())
+        {
+            StopSway();
+            return;
+        }
+        if (!_swayActive)
+        {
+            if (!ShouldSway()) return;
+            StartSway();
+        }
+        _swayGuard = Mathf.MoveTowards(_swayGuard, 1f, Time.deltaTime / 0.25f);
+
+        float t = Time.time;
+        float phase = _offHand ? 0.5f : 0f;
+        Vector3 sh = new Vector3(
+            SwayGuardPitch() * _swayGuard + Mathf.Sin(t * 1.6f + phase * 1.3f) * 2.5f,
+            Mathf.Sin(t * 1.1f + phase) * 1.8f,
+            Mathf.Sin(t * 0.8f + phase * 0.7f) * 0.8f);
+        float el = Mathf.Sin(t * 1.35f + phase * 0.5f) * 1.2f;
+
+        if (_ownerShoulder != null)
+            _ownerShoulder.localRotation = _swayShBase * Quaternion.Euler(sh);
+        if (_ownerElbow != null)
+            _ownerElbow.localRotation = _swayElBase * Quaternion.Euler(el, 0f, 0f);
+        if (_def.Mode == OffArm.Mirror)
+        {
+            if (_otherShoulder != null)
+                _otherShoulder.localRotation = _swayOtherShBase * Quaternion.Euler(sh.x, -sh.y, sh.z);
+            if (_otherElbow != null)
+                _otherElbow.localRotation = _swayOtherElBase * Quaternion.Euler(el, 0f, 0f);
+        }
+
+        // Magic focuses stay lit while armed: loop the weapon-local accent with a slow soft pulse.
+        if (_def.Accent != K_None && _def.Accent != K_Dual)
+        {
+            float s = 0.5f - 0.5f * Mathf.Cos(t * 0.9f);
+            ApplyAccent(_def.Accent, 0.35f + 0.35f * s, out Vector3 aEuler, out Vector3 aPos, out float aScale);
+            transform.localRotation = Quaternion.Euler(_baseEuler + aEuler);
+            transform.localPosition = _basePos + aPos;
+            transform.localScale = _baseScale * aScale;
+        }
+    }
+
+    /// <summary>Idle shoulder-pitch guard so blades hold a ready stance rather than hanging limp.</summary>
+    private float SwayGuardPitch()
+    {
+        switch (_def.Accent)
+        {
+            case K_None:
+            case K_Dual:
+                return -14f;   // melee: ready guard
+            case K_Lute:
+                return -8f;    // held at the side, gently lifted
+            default:
+                return 0f;     // casters keep a neutral stance
+        }
+    }
+
+    /// <summary>Auto-detect the strike moment of a swing = midpoint of its largest single segment.</summary>
+    private void DetectStrike(PoseKey[] track)
+    {
+        _impactT = 0.6f;
+        _strikeDir = 1f;
+        if (track == null || track.Length < 2) return;
+        float best = -1f;
+        for (int i = 0; i < track.Length - 1; i++)
+        {
+            PoseKey a = track[i];
+            PoseKey b = track[i + 1];
+            float mag = Mathf.Abs(b.shX - a.shX) + Mathf.Abs(b.shY - a.shY)
+                      + Mathf.Abs(b.shZ - a.shZ) + Mathf.Abs(b.elX - a.elX);
+            if (mag > best)
+            {
+                best = mag;
+                _impactT = Mathf.Lerp(a.t, b.t, 0.5f);
+                float dY = b.shY - a.shY;
+                float dX = b.shX - a.shX;
+                _strikeDir = Mathf.Abs(dY) > Mathf.Abs(dX) ? (dY >= 0f ? 1f : -1f) : (dX >= 0f ? 1f : -1f);
+            }
+        }
     }
 
     // ──────────────────────────────────────────────────────────
