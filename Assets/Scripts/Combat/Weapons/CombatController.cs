@@ -55,7 +55,11 @@ public class CombatController : MonoBehaviour
     private float _bufferTimer;
     private bool _parryWindowOpen;
     private int _comboCount;
+    private float _lastAttackTime = float.MinValue;
     private const int MaxCombo = 3;
+
+    /// <summary>Pause (seconds) without a light attack that resets the combo chain to swing one.</summary>
+    public float ComboResetTime = 0.8f;
 
     public enum CombatState
     {
@@ -172,8 +176,11 @@ public class CombatController : MonoBehaviour
 
         if (!_stamina.TrySpend(LightAttackCost)) return;
 
+        // Combo chain: a pause longer than ComboResetTime restarts at swing one.
+        if (Time.time - _lastAttackTime > ComboResetTime) _comboCount = 0;
+
         CurrentState = CombatState.LightAttack;
-        float anim = NotifyWeaponAnimators(false);
+        float anim = NotifyWeaponAnimators(false, _comboCount);
         _actionTimer = Mathf.Max(LightAttackDuration, anim);
         _bufferTimer = PostActionBuffer;
         OnStateChanged?.Invoke(CurrentState);
@@ -186,6 +193,7 @@ public class CombatController : MonoBehaviour
         };
         behavior.BeginAttack(cmd);
         OnAttackStarted?.Invoke(behavior);
+        _lastAttackTime = Time.time;
     }
 
     /// <summary>Trigger a heavy attack (hold attack button).</summary>
@@ -199,7 +207,7 @@ public class CombatController : MonoBehaviour
         if (!_stamina.TrySpend(HeavyAttackCost)) return;
 
         CurrentState = CombatState.HeavyAttack;
-        float anim = NotifyWeaponAnimators(true);
+        float anim = NotifyWeaponAnimators(true, 3); // heavy always plays the finisher swing
         _actionTimer = Mathf.Max(HeavyAttackDuration, anim);
         _bufferTimer = PostActionBuffer;
         _comboCount = 0; // heavy resets combo
@@ -213,6 +221,7 @@ public class CombatController : MonoBehaviour
         };
         behavior.BeginAttack(cmd);
         OnAttackStarted?.Invoke(behavior);
+        _lastAttackTime = Time.time;
     }
 
     /// <summary>Trigger a dodge roll.</summary>
@@ -260,15 +269,15 @@ public class CombatController : MonoBehaviour
 
     /// <summary>Drive the per-weapon swing visuals on any equipped rigs. Returns the longest attack
     /// duration the rigs reported so the action lock stays in sync with the animation.</summary>
-    private float NotifyWeaponAnimators(bool heavy)
+    private float NotifyWeaponAnimators(bool heavy, int variant)
     {
         float duration = 0f;
         if (RightHand != null)
             foreach (var a in RightHand.GetComponentsInChildren<WeaponAnimator>(true))
-                duration = Mathf.Max(duration, a.PlayAttack(heavy));
+                duration = Mathf.Max(duration, a.PlayAttack(heavy, variant));
         if (LeftHand != null)
             foreach (var a in LeftHand.GetComponentsInChildren<WeaponAnimator>(true))
-                duration = Mathf.Max(duration, a.PlayAttack(heavy));
+                duration = Mathf.Max(duration, a.PlayAttack(heavy, variant));
         return duration;
     }
 
@@ -282,13 +291,20 @@ public class CombatController : MonoBehaviour
         switch (CurrentState)
         {
             case CombatState.LightAttack:
-            case CombatState.HeavyAttack:
-            case CombatState.Dodge:
                 if (_actionTimer <= 0f)
                 {
                     CurrentState = CombatState.Idle;
                     _comboCount++;
                     if (_comboCount > MaxCombo) _comboCount = 0;
+                    OnStateChanged?.Invoke(CurrentState);
+                }
+                break;
+
+            case CombatState.HeavyAttack:
+            case CombatState.Dodge:
+                if (_actionTimer <= 0f)
+                {
+                    CurrentState = CombatState.Idle;
                     OnStateChanged?.Invoke(CurrentState);
                 }
                 break;

@@ -57,13 +57,13 @@ public sealed class WeaponAnimator : MonoBehaviour
     private struct WeaponAnimDef
     {
         public OffArm Mode;
-        public PoseKey[] Owner;   // throwing-arm track
-        public PoseKey[] Other;   // support-arm track (Mode == Asym only)
-        public int Accent;        // K_* accent kind
-        public float TimeLight;   // light-attack duration
-        public float TimeHeavy;   // heavy-attack duration
+        public PoseKey[][] Owner;   // one track per combo variant (throwing arm)
+        public PoseKey[][] Other;   // support-arm tracks (Mode == Asym only), same variant count
+        public int Accent;          // K_* accent kind
+        public float TimeLight;     // light-attack duration
+        public float TimeHeavy;     // heavy-attack duration
 
-        public WeaponAnimDef(OffArm mode, PoseKey[] owner, PoseKey[] other, int accent,
+        public WeaponAnimDef(OffArm mode, PoseKey[][] owner, PoseKey[][] other, int accent,
             float light, float heavy)
         {
             Mode = mode;
@@ -73,126 +73,187 @@ public sealed class WeaponAnimator : MonoBehaviour
             TimeLight = light;
             TimeHeavy = heavy;
         }
+
+        /// <summary>Number of distinct combo swings authored for this weapon (>= 1).</summary>
+        public int VariantCount => Owner != null && Owner.Length > 0 ? Owner.Length : 1;
     }
+
+    // ── Pose-track authoring helpers ───────────────────────────────────────
+    private static PoseKey K(float t, float shX, float shY, float shZ, float elX) => new PoseKey(t, shX, shY, shZ, elX);
+    private static PoseKey[] T(params PoseKey[] keys) => keys;
+    private static PoseKey[][] V(params PoseKey[][] sets) => sets;
 
     private static readonly System.Collections.Generic.Dictionary<string, WeaponAnimDef> Defs =
         new System.Collections.Generic.Dictionary<string, WeaponAnimDef>
         {
-            { "iron_sword", new WeaponAnimDef(OffArm.None, Track(
-                new PoseKey(0f, 0f, 0f, 0f, 0f),
-                new PoseKey(0.30f, -75f, 55f, 0f, -15f),     // raise arm + wind right/back
-                new PoseKey(0.62f, -80f, -45f, 0f, -5f),     // sweep across the chest
-                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.30f, 0.50f) },
+            // iron_sword — balanced 1H blade: slash L→R, slash R→L, overhead chop, forward thrust.
+            {
+                "iron_sword", new WeaponAnimDef(OffArm.None, V(
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, -55f, 0f, -15f), K(0.62f, -80f, 45f, 0f, -5f), K(1f, 0f, 0f, 0f, 0f)),   // 1. wind left/back → slash across to the right
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, 55f, 0f, -15f), K(0.62f, -80f, -45f, 0f, -5f), K(1f, 0f, 0f, 0f, 0f)),  // 2. wind right/back → slash across to the left
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -150f, 0f, 0f, 10f), K(0.68f, -65f, 0f, 0f, 6f), K(1f, 0f, 0f, 0f, 0f)),     // 3. overhead chop
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.38f, -88f, -12f, 0f, -42f), K(0.58f, -62f, -8f, 0f, -4f), K(1f, 0f, 0f, 0f, 0f))), // 4. forward thrust (elbow extends)
+                    null, K_None, 0.30f, 0.50f)
+            },
 
-            { "greatsword", new WeaponAnimDef(OffArm.Mirror, Track(
-                new PoseKey(0f, 0f, 0f, 0f, 0f),
-                new PoseKey(0.35f, -150f, 0f, 0f, 8f),       // both arms raise overhead
-                new PoseKey(0.70f, -55f, 0f, 0f, 14f),       // slam down in front
-                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.45f, 0.65f) },
+            // greatsword — heavy two-hander: overhead slam, low sweep, reverse-grip sweep, rising spin.
+            {
+                "greatsword", new WeaponAnimDef(OffArm.Mirror, V(
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -150f, 0f, 0f, 8f), K(0.70f, -55f, 0f, 0f, 14f), K(1f, 0f, 0f, 0f, 0f)),       // 1. overhead slam
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -70f, -75f, 0f, 8f), K(0.70f, -80f, 35f, 0f, 12f), K(1f, 0f, 0f, 0f, 0f)),   // 2. low sweep from the left across to the right
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -100f, 70f, 0f, 18f), K(0.68f, -70f, -55f, 0f, -10f), K(1f, 0f, 0f, 0f, 0f)),// 3. reverse-grip right wind, hard backswing to the left
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -120f, 30f, 0f, -30f), K(0.75f, -160f, 0f, 0f, -20f), K(1f, 0f, 0f, 0f, 0f))),// 4. rising spin uppercut (finisher)
+                    null, K_None, 0.45f, 0.65f)
+            },
 
-            { "dagger", new WeaponAnimDef(OffArm.None, Track(
-                new PoseKey(0f, 0f, 0f, 0f, 0f),
-                new PoseKey(0.20f, -58f, 6f, 0f, -28f),      // jab extend
-                new PoseKey(0.34f, 12f, 0f, 0f, 18f),        // re-cock
-                new PoseKey(0.55f, -58f, 6f, 0f, -28f),      // jab extend again
-                new PoseKey(0.70f, 12f, 0f, 0f, 18f),
-                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.24f, 0.34f) },
+            // dagger — fast stabs: low jab, high jab, quick double, lunging stab.
+            {
+                "dagger", new WeaponAnimDef(OffArm.None, V(
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.20f, -58f, 6f, 0f, -28f), K(0.34f, 12f, 0f, 0f, 18f), K(1f, 0f, 0f, 0f, 0f)),    // 1. low jab
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.20f, -70f, 6f, 0f, -24f), K(0.34f, 10f, 0f, 0f, 20f), K(1f, 0f, 0f, 0f, 0f)),    // 2. high jab
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.20f, -58f, 6f, 0f, -28f), K(0.34f, 12f, 0f, 0f, 18f), K(0.55f, -58f, 6f, 0f, -28f), K(0.70f, 12f, 0f, 0f, 18f), K(1f, 0f, 0f, 0f, 0f)), // 3. quick double jab
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.42f, -60f, 0f, 0f, -45f), K(0.62f, -48f, 0f, 0f, -10f), K(1f, 0f, 0f, 0f, 0f))),// 4. lunging stab (finisher)
+                    null, K_None, 0.24f, 0.34f)
+            },
 
-            { "katana", new WeaponAnimDef(OffArm.Mirror, Track(
-                new PoseKey(0f, 0f, 0f, 0f, 0f),
-                new PoseKey(0.25f, -70f, 70f, 0f, -40f),     // deep draw, elbow curled
-                new PoseKey(0.88f, -60f, -200f, 0f, -10f),   // full-arm 360° sweep
-                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.45f, 0.60f) },
+            // katana — iaido draws: draw-slice, reverse draw, 360° spin, rising iai cuts.
+            {
+                "katana", new WeaponAnimDef(OffArm.Mirror, V(
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.25f, -70f, 70f, 0f, -40f), K(0.88f, -60f, -200f, 0f, -10f), K(1f, 0f, 0f, 0f, 0f)),   // 1. sheathe draw-slice (deep elbow curl)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.25f, -70f, -70f, 0f, -40f), K(0.88f, -60f, 200f, 0f, -10f), K(1f, 0f, 0f, 0f, 0f)),  // 2. reverse (left) draw
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -85f, 90f, 0f, -30f), K(0.55f, -90f, -180f, 0f, -15f), K(0.85f, -70f, -260f, 0f, -8f), K(1f, 0f, 0f, 0f, 0f)), // 3. full 360° spinning sweep
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -120f, -50f, 0f, -20f), K(0.55f, -95f, 40f, 0f, -6f), K(0.75f, -135f, -30f, 0f, -14f), K(1f, 0f, 0f, 0f, 0f))), // 4. rising diagonal iai cuts
+                    null, K_None, 0.45f, 0.60f)
+            },
 
-            { "greataxe", new WeaponAnimDef(OffArm.Mirror, Track(
-                new PoseKey(0f, 0f, 0f, 0f, 0f),
-                new PoseKey(0.35f, -45f, -60f, 0f, 10f),     // wind back low, opposite side
-                new PoseKey(0.75f, -75f, 60f, 0f, 6f),       // cleave across the body
-                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.40f, 0.60f) },
+            // greataxe — brutal cleaves: overhand, chest sweep, diagonal chop, 360° spin cleave.
+            {
+                "greataxe", new WeaponAnimDef(OffArm.Mirror, V(
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -120f, 0f, 0f, 8f), K(0.70f, -65f, 0f, 0f, 12f), K(1f, 0f, 0f, 0f, 0f)),       // 1. overhand cleave
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -45f, -60f, 0f, 10f), K(0.75f, -75f, 60f, 0f, 6f), K(1f, 0f, 0f, 0f, 0f)),    // 2. chest-level backswing sweep left→right
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -90f, 55f, 0f, 8f), K(0.70f, -70f, -50f, 0f, 10f), K(1f, 0f, 0f, 0f, 0f)),   // 3. diagonal shoulder chop right→left
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -85f, 80f, 0f, 6f), K(0.55f, -80f, -160f, 0f, 4f), K(0.80f, -70f, -200f, 0f, 8f), K(1f, 0f, 0f, 0f, 0f))), // 4. 360° spin cleave (finisher)
+                    null, K_None, 0.40f, 0.60f)
+            },
 
-            { "lance", new WeaponAnimDef(OffArm.Mirror, Track(
-                new PoseKey(0f, 0f, 0f, 0f, 0f),
-                new PoseKey(0.35f, 20f, 0f, 0f, 38f),        // pull back, elbows flexed out
-                new PoseKey(0.75f, -65f, 0f, 0f, -10f),      // both arms drive forward into the lunge
-                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.32f, 0.48f) },
+            // lance — mounted-style: low thrust, high lunge, couched charge, overhead riposte.
+            {
+                "lance", new WeaponAnimDef(OffArm.Mirror, V(
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, 20f, 0f, 0f, 38f), K(0.75f, -65f, 0f, 0f, -10f), K(1f, 0f, 0f, 0f, 0f)),     // 1. pull back → low thrust
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, 10f, 15f, 0f, 42f), K(0.75f, -75f, 0f, 0f, -14f), K(1f, 0f, 0f, 0f, 0f)),   // 2. high lunge
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -20f, 0f, 0f, 30f), K(0.45f, -20f, 0f, 0f, 34f), K(0.80f, -70f, 0f, 0f, -6f), K(1f, 0f, 0f, 0f, 0f)), // 3. couched charge (hold then drive)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -120f, 0f, 0f, 18f), K(0.60f, -70f, 0f, 0f, -16f), K(1f, 0f, 0f, 0f, 0f))),  // 4. overhead-to-thrust riposte (finisher)
+                    null, K_None, 0.32f, 0.48f)
+            },
 
-            { "gauntlets", new WeaponAnimDef(OffArm.None, Track(
-                new PoseKey(0f, 0f, 0f, 0f, 0f),
-                new PoseKey(0.30f, -72f, 0f, 0f, -24f),      // punch extend
-                new PoseKey(0.48f, -24f, 0f, 0f, 34f),       // re-cock
-                new PoseKey(0.72f, -72f, 0f, 0f, -24f),      // second punch
-                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_Dual, 0.26f, 0.36f) },
+            // gauntlets — boxer chain: jab, cross, double, uppercut (dual-wield alternates hands).
+            {
+                "gauntlets", new WeaponAnimDef(OffArm.None, V(
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f), K(0.48f, -24f, 0f, 0f, 34f), K(1f, 0f, 0f, 0f, 0f)),    // 1. straight jab
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -65f, 28f, 0f, -22f), K(0.48f, -20f, 0f, 0f, 30f), K(1f, 0f, 0f, 0f, 0f)), // 2. side cross
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f), K(0.48f, -24f, 0f, 0f, 34f), K(0.72f, -72f, 0f, 0f, -24f), K(1f, 0f, 0f, 0f, 0f)), // 3. quick double jab
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -140f, -10f, 0f, -35f), K(0.55f, -60f, 8f, 0f, -18f), K(1f, 0f, 0f, 0f, 0f))), // 4. heavy uppercut (finisher)
+                    null, K_Dual, 0.26f, 0.36f)
+            },
 
-            { "longbow", new WeaponAnimDef(OffArm.Asym,
-                // Owner (right) = the draw hand.
-                Track(
-                    new PoseKey(0f, 0f, 0f, 0f, 0f),
-                    new PoseKey(0.35f, -25f, -20f, 0f, -120f), // pull string to the cheek
-                    new PoseKey(0.65f, -25f, -20f, 0f, -120f), // hold the draw (charge)
-                    new PoseKey(0.80f, -55f, 0f, 0f, -15f),    // loose — snap forward
-                    new PoseKey(1f, 0f, 0f, 0f, 0f)),
-                // Other (left) = the bow arm, extended toward the target.
-                Track(
-                    new PoseKey(0f, 0f, 0f, 0f, 0f),
-                    new PoseKey(0.35f, -85f, 0f, 0f, -6f),
-                    new PoseKey(0.65f, -85f, 0f, 0f, -6f),
-                    new PoseKey(0.80f, -82f, 0f, 0f, -4f),
-                    new PoseKey(1f, 0f, 0f, 0f, 0f)),
-                K_None, 0.50f, 0.80f) },
+            // longbow — archer shots: snap, aimed draw-hold, step release, rapid double (asym arms).
+            {
+                "longbow", new WeaponAnimDef(OffArm.Asym,
+                    // Owner (right) = the draw hand.
+                    V(
+                        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -20f, -15f, 0f, -90f), K(0.55f, -30f, -15f, 0f, -60f), K(0.75f, -55f, 0f, 0f, -15f), K(1f, 0f, 0f, 0f, 0f)),   // 1. quick snap shot
+                        T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -25f, -20f, 0f, -120f), K(0.65f, -25f, -20f, 0f, -120f), K(0.80f, -55f, 0f, 0f, -15f), K(1f, 0f, 0f, 0f, 0f)),   // 2. aimed draw-hold-loose
+                        T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -25f, -25f, 0f, -110f), K(0.55f, -30f, -25f, 0f, -110f), K(0.72f, -50f, 10f, 0f, -20f), K(1f, 0f, 0f, 0f, 0f)),  // 3. step-forward release
+                        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -22f, -15f, 0f, -95f), K(0.45f, -35f, -15f, 0f, -60f), K(0.60f, -50f, 10f, 0f, -15f), K(0.70f, -25f, -15f, 0f, -90f), K(0.85f, -35f, -15f, 0f, -60f), K(1f, 0f, 0f, 0f, 0f))), // 4. rapid double shot
+                    // Other (left) = the bow arm, extended toward the target.
+                    V(
+                        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -85f, 0f, 0f, -6f), K(0.75f, -82f, 0f, 0f, -4f), K(1f, 0f, 0f, 0f, 0f)),
+                        T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -85f, 0f, 0f, -6f), K(0.65f, -85f, 0f, 0f, -6f), K(0.80f, -82f, 0f, 0f, -4f), K(1f, 0f, 0f, 0f, 0f)),
+                        T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -85f, 5f, 0f, -6f), K(0.40f, -82f, 5f, 0f, -4f), K(0.72f, -80f, 0f, 0f, -4f), K(1f, 0f, 0f, 0f, 0f)),
+                        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -84f, 0f, 0f, -6f), K(0.60f, -80f, 0f, 0f, -4f), K(0.70f, -84f, 0f, 0f, -6f), K(1f, 0f, 0f, 0f, 0f))),
+                    K_None, 0.50f, 0.80f)
+            },
 
-            { "throwing_hammer", new WeaponAnimDef(OffArm.None, Track(
-                new PoseKey(0f, 0f, 0f, 0f, 0f),
-                new PoseKey(0.32f, -145f, 0f, 0f, -80f),     // wind up overhead, elbow cocked
-                new PoseKey(0.70f, -50f, 0f, 0f, -5f),       // whip forward, extend
-                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.32f, 0.45f) },
+            // throwing_hammer — windmills: underhand lob, overhand toss, side skip, full windmill.
+            {
+                "throwing_hammer", new WeaponAnimDef(OffArm.None, V(
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -95f, 0f, 0f, -45f), K(0.70f, -40f, 0f, 0f, -5f), K(1f, 0f, 0f, 0f, 0f)),      // 1. underhand lob
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.32f, -145f, 0f, 0f, -80f), K(0.70f, -50f, 0f, 0f, -5f), K(1f, 0f, 0f, 0f, 0f)),   // 2. overhand toss (elbow cocked)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -100f, 55f, 0f, -20f), K(0.70f, -45f, 10f, 0f, -6f), K(1f, 0f, 0f, 0f, 0f)), // 3. side skip throw
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -160f, 0f, 0f, -70f), K(0.55f, -150f, 0f, 0f, -40f), K(0.75f, -55f, 0f, 0f, -8f), K(1f, 0f, 0f, 0f, 0f))),  // 4. full windmill overhead (finisher)
+                    null, K_None, 0.32f, 0.45f)
+            },
 
-            { "warhammer", new WeaponAnimDef(OffArm.Mirror, Track(
-                new PoseKey(0f, 0f, 0f, 0f, 0f),
-                new PoseKey(0.40f, -155f, 0f, 0f, 6f),       // slow telegraphed raise
-                new PoseKey(0.55f, -155f, 0f, 0f, 6f),       // hold at the apex
-                new PoseKey(0.72f, -65f, 0f, 0f, 16f),       // crushing slam
-                new PoseKey(0.86f, -72f, 0f, 0f, 22f),       // impact bounce
-                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.55f, 0.75f) },
+            // warhammer — slow crushing: telegraphed slam, side smashes, two-handed ground pound.
+            {
+                "warhammer", new WeaponAnimDef(OffArm.Mirror, V(
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.40f, -155f, 0f, 0f, 6f), K(0.55f, -155f, 0f, 0f, 6f), K(0.72f, -65f, 0f, 0f, 16f), K(0.86f, -72f, 0f, 0f, 22f), K(1f, 0f, 0f, 0f, 0f)),  // 1. telegraphed overhead slam
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.40f, -130f, -60f, 0f, 8f), K(0.55f, -130f, -60f, 0f, 8f), K(0.72f, -70f, -10f, 0f, 14f), K(1f, 0f, 0f, 0f, 0f)),            // 2. left-side smash
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.40f, -130f, 60f, 0f, 8f), K(0.55f, -130f, 60f, 0f, 8f), K(0.72f, -70f, 10f, 0f, 14f), K(1f, 0f, 0f, 0f, 0f)),            // 3. right backhand smash
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -155f, 0f, 0f, 6f), K(0.50f, -155f, 0f, 0f, 6f), K(0.70f, -20f, 0f, 0f, 20f), K(0.82f, -15f, 0f, 0f, 26f), K(1f, 0f, 0f, 0f, 0f))), // 4. two-handed ground pound (finisher)
+                    null, K_None, 0.55f, 0.75f)
+            },
 
-            { "staff", new WeaponAnimDef(OffArm.None, Track(
-                new PoseKey(0f, 0f, 0f, 0f, 0f),
-                new PoseKey(0.35f, -60f, 0f, 0f, -18f),      // raise the focus
-                new PoseKey(0.70f, -60f, 0f, 0f, -18f),      // channel
-                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_Staff, 0.42f, 0.62f) },
+            // staff — caster: raised channel, angled sweeps, full overhead arc slam.
+            {
+                "staff", new WeaponAnimDef(OffArm.None, V(
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -60f, 0f, 0f, -18f), K(0.70f, -60f, 0f, 0f, -18f), K(1f, 0f, 0f, 0f, 0f)),     // 1. raised channel
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -60f, -35f, 0f, -18f), K(0.70f, -55f, -35f, 0f, -18f), K(1f, 0f, 0f, 0f, 0f)), // 2. angled sweep left
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -60f, 35f, 0f, -18f), K(0.70f, -55f, 35f, 0f, -18f), K(1f, 0f, 0f, 0f, 0f)),  // 3. angled sweep right
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -135f, 0f, 0f, 6f), K(0.60f, -100f, 0f, 0f, -6f), K(0.80f, -55f, 0f, 0f, -12f), K(1f, 0f, 0f, 0f, 0f))), // 4. full overhead arc slam (finisher)
+                    null, K_Staff, 0.42f, 0.62f)
+            },
 
-            { "holy_book", new WeaponAnimDef(OffArm.None, Track(
-                new PoseKey(0f, 0f, 0f, 0f, 0f),
-                new PoseKey(0.35f, -45f, 0f, 0f, -26f),      // raise the tome
-                new PoseKey(0.70f, -45f, 0f, 0f, -26f),
-                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_Book, 0.44f, 0.64f) },
+            // holy_book — tome chants: single raise, open-page, side tilt, beatific wide raise.
+            {
+                "holy_book", new WeaponAnimDef(OffArm.None, V(
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -45f, 0f, 0f, -26f), K(0.70f, -45f, 0f, 0f, -26f), K(1f, 0f, 0f, 0f, 0f)),       // 1. single raise
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -55f, 18f, 0f, -34f), K(0.55f, -52f, 22f, 0f, -32f), K(0.75f, -58f, 14f, 0f, -36f), K(1f, 0f, 0f, 0f, 0f)), // 2. open-page two-hand raise
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -45f, -30f, 0f, -30f), K(0.70f, -42f, -28f, 0f, -30f), K(1f, 0f, 0f, 0f, 0f)), // 3. side-tilt chant
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -80f, 0f, 0f, -40f), K(0.60f, -85f, 0f, 0f, -44f), K(1f, 0f, 0f, 0f, 0f))),    // 4. beatific wide raise (finisher)
+                    null, K_Book, 0.44f, 0.64f)
+            },
 
-            { "bone_wand", new WeaponAnimDef(OffArm.None, Track(
-                new PoseKey(0f, 0f, 0f, 0f, 0f),
-                new PoseKey(0.35f, -70f, 0f, 0f, -14f),
-                new PoseKey(0.70f, -70f, 0f, 0f, -14f),
-                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_Wand, 0.38f, 0.56f) },
+            // bone_wand — quick flicks: up, side, downward point, wide swirl.
+            {
+                "bone_wand", new WeaponAnimDef(OffArm.None, V(
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -70f, 0f, 0f, -14f), K(0.70f, -70f, 0f, 0f, -14f), K(1f, 0f, 0f, 0f, 0f)),      // 1. up flick
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -70f, -40f, 0f, -14f), K(0.70f, -68f, -40f, 0f, -14f), K(1f, 0f, 0f, 0f, 0f)), // 2. side flick left
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -45f, 0f, 0f, -10f), K(0.70f, -40f, 0f, 0f, -10f), K(1f, 0f, 0f, 0f, 0f)),    // 3. downward point
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -85f, 55f, 0f, -18f), K(0.55f, -70f, -30f, 0f, -14f), K(0.75f, -80f, 60f, 0f, -16f), K(1f, 0f, 0f, 0f, 0f))), // 4. wide swirling flick (finisher)
+                    null, K_Wand, 0.38f, 0.56f)
+            },
 
-            { "control_orb", new WeaponAnimDef(OffArm.None, Track(
-                new PoseKey(0f, 0f, 0f, 0f, 0f),
-                new PoseKey(0.35f, -80f, 10f, 0f, -12f),
-                new PoseKey(0.70f, -80f, 10f, 0f, -12f),
-                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_Orb, 0.46f, 0.66f) },
+            // control_orb — orbiting arcs: low, high wide, figure-eight, grand circle.
+            {
+                "control_orb", new WeaponAnimDef(OffArm.None, V(
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -80f, 10f, 0f, -12f), K(0.70f, -80f, 10f, 0f, -12f), K(1f, 0f, 0f, 0f, 0f)),       // 1. low arc
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -95f, -55f, 0f, -14f), K(0.70f, -90f, -55f, 0f, -14f), K(1f, 0f, 0f, 0f, 0f)),  // 2. high wide arc left
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -85f, 45f, 0f, -10f), K(0.55f, -75f, -35f, 0f, -12f), K(0.75f, -88f, 45f, 0f, -10f), K(1f, 0f, 0f, 0f, 0f)), // 3. figure-eight sweep
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -160f, 0f, 0f, -10f), K(0.60f, -120f, 0f, 0f, -6f), K(0.85f, -80f, 0f, 0f, -12f), K(1f, 0f, 0f, 0f, 0f))),   // 4. grand full circle (finisher)
+                    null, K_Orb, 0.46f, 0.66f)
+            },
 
-            { "lute", new WeaponAnimDef(OffArm.None, Track(
-                new PoseKey(0f, 0f, 0f, 0f, 0f),
-                new PoseKey(0.35f, -30f, 15f, 0f, -34f),     // hold the lute at the side
-                new PoseKey(0.70f, -30f, 15f, 0f, -34f),
-                new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_Lute, 0.42f, 0.60f) },
+            // lute — bard strums: single, double, side tilt, flourish.
+            {
+                "lute", new WeaponAnimDef(OffArm.None, V(
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -30f, 15f, 0f, -34f), K(0.70f, -30f, 15f, 0f, -34f), K(1f, 0f, 0f, 0f, 0f)),   // 1. single strum
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -30f, 15f, 0f, -34f), K(0.50f, -28f, 12f, 0f, -30f), K(0.70f, -32f, 18f, 0f, -36f), K(1f, 0f, 0f, 0f, 0f)), // 2. double strum
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -30f, -25f, 0f, -32f), K(0.70f, -28f, -28f, 0f, -34f), K(1f, 0f, 0f, 0f, 0f)), // 3. side-tilt strum
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -40f, 30f, 0f, -38f), K(0.55f, -30f, 10f, 0f, -30f), K(0.75f, -45f, 35f, 0f, -40f), K(1f, 0f, 0f, 0f, 0f))), // 4. flourish strum (finisher)
+                    null, K_Lute, 0.42f, 0.60f)
+            },
         };
 
-    private static WeaponAnimDef FallbackDef = new WeaponAnimDef(OffArm.None,
-        Track(new PoseKey(0f, 0f, 0f, 0f, 0f),
-              new PoseKey(0.30f, -75f, 55f, 0f, -15f),
-              new PoseKey(0.62f, -80f, -45f, 0f, -5f),
-              new PoseKey(1f, 0f, 0f, 0f, 0f)), null, K_None, 0.30f, 0.50f);
+    private static readonly WeaponAnimDef FallbackDef = new WeaponAnimDef(OffArm.None,
+        V(
+            T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, 55f, 0f, -15f), K(0.62f, -80f, -45f, 0f, -5f), K(1f, 0f, 0f, 0f, 0f))),
+        null, K_None, 0.30f, 0.50f);
 
     private string _weaponId;
     private WeaponAnimDef _def;
+    private PoseKey[] _set;       // currently selected combo variant (owner/throwing arm)
+    private PoseKey[] _otherSet;  // currently selected combo variant (support arm, Asym only)
 
     // Rest pose snapshots, re-captured each attack (re-parent safe).
     private Vector3 _basePos;
@@ -229,8 +290,14 @@ public sealed class WeaponAnimator : MonoBehaviour
     /// Kick off an attack visual. Returns the duration <see cref="CombatController"/> should keep
     /// the player locked for, so slower weapons (bow draw, warhammer windup) stay in sync.
     /// </summary>
-    public float PlayAttack(bool heavy)
+    public float PlayAttack(bool heavy, int variant = 0)
     {
+        // Combo-variant selection cycles through the authored swing set; lone tracks stay put.
+        int count = _def.VariantCount;
+        int index = ((variant % count) + count) % count;
+        _set = _def.Owner != null && _def.Owner.Length > 0 ? _def.Owner[index] : null;
+        _otherSet = _def.Other != null && _def.Other.Length > 0 ? _def.Other[index] : null;
+
         _heavy = heavy;
         _duration = Mathf.Max(0.001f, heavy ? _def.TimeHeavy : _def.TimeLight);
         _t = 0f;
@@ -271,7 +338,7 @@ public sealed class WeaponAnimator : MonoBehaviour
 
         float h = _heavy ? 1.15f : 1f;
 
-        PoseKey k = Sample(_def.Owner, t);
+        PoseKey k = Sample(_set, t);
         Vector3 sh = new Vector3(k.shX, k.shY, k.shZ) * h;
         float el = k.elX * h;
 
@@ -291,7 +358,7 @@ public sealed class WeaponAnimator : MonoBehaviour
                 break;
 
             case OffArm.Asym:
-                PoseKey ok = Sample(_def.Other, t);
+                PoseKey ok = Sample(_otherSet, t);
                 if (_otherShoulder != null)
                     _otherShoulder.localRotation = _otherShBase * Quaternion.Euler(ok.shX * h, ok.shY * h, ok.shZ * h);
                 if (_otherElbow != null)
@@ -357,8 +424,6 @@ public sealed class WeaponAnimator : MonoBehaviour
     // ──────────────────────────────────────────────────────────
     //  Pose-track playback
     // ──────────────────────────────────────────────────────────
-
-    private static PoseKey[] Track(params PoseKey[] keys) => keys;
 
     private static PoseKey Sample(PoseKey[] track, float t)
     {
