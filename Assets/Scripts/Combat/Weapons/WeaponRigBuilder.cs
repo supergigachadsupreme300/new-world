@@ -153,6 +153,15 @@ public static class WeaponRigBuilder
     /// </summary>
     public const float StowScale = 0.8f;
 
+    /// <summary>Sideways cant (°) for the drawn melee blade. 0 = blade upright next to the hand.</summary>
+    public const float DrawHoldYaw = 0f;
+
+    /// <summary>Model-space height of the grip (handle) used as the draw-rotation pivot.</summary>
+    public const float HandlePivotY = 0.15f;
+
+    /// <summary>How far the drawn blade sits forward of the hand (local +Z).</summary>
+    public const float DrawForward = 0.15f;
+
     /// <summary>Sideways cant (°) off vertical for the upside-down back blade — makes it read as a
     /// diagonal sling across the back instead of a straight hanging stick.</summary>
     public const float StowBladeCant = 40f;
@@ -205,7 +214,15 @@ public static class WeaponRigBuilder
         if (weapon != null && weapon.Category == WeaponCategory.Magic)
             return (new Vector3(side * 0.1f, -0.35f, 0f), Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f));
         if (weapon != null && weapon.Category == WeaponCategory.Melee)
-            return (new Vector3(side * 0.1f, -1.0f, 0f), Quaternion.Euler(WeaponHoldForwardLean, 90f, 0f));
+        {
+            // Upright blade (no sideways yaw), rotated about the handle pivot rather than the rig
+            // root so a bend stays anchored in the grip, and pushed slightly forward.
+            Quaternion rot = Quaternion.Euler(WeaponHoldForwardLean, DrawHoldYaw, 0f);
+            Vector3 pivot = new Vector3(0f, HandlePivotY, 0f);
+            Vector3 basePos = new Vector3(side * 0.1f, -1.0f, DrawForward);
+            Vector3 pos = basePos - (rot * pivot) + pivot;
+            return (pos, rot);
+        }
         return (new Vector3(side * 0.1f, -1.0f, 0f), Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f));
     }
 

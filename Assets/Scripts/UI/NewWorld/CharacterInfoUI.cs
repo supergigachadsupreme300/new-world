@@ -53,6 +53,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private TMP_Text _xpLabel;
     private readonly TMP_Text[] _statValueTexts = new TMP_Text[PlayerStats.StatCount];
     private readonly Button[] _plusButtons = new Button[PlayerStats.StatCount];
+    private readonly TMP_InputField[] _statEditFields = new TMP_InputField[PlayerStats.StatCount];
 
     // Skills tab widgets.
     private TMP_Text _skillPointsText;
@@ -443,6 +444,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
             _plusButtons[i] = MakePlusButton(parent, "Plus_" + i,
                 P(x0 + 222f, baseY), Sz(22f, 22f), i);
+
+            _statEditFields[i] = MakeStatEditField(parent, "StatEdit_" + i, x0 + 252f, baseY, i);
         }
 
         // Class / race summaries + change buttons.
@@ -548,6 +551,68 @@ public sealed class CharacterInfoUI : MenuPanelBase
         lt.color = Color.white;
         lt.alignment = TextAlignmentOptions.Center;
         return btn;
+    }
+
+    private TMP_InputField MakeStatEditField(Transform parent, string name, float x, float y, int statIndex)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = new Vector2(x, y);
+        rt.sizeDelta = Sz(64f, 26f);
+
+        var img = go.AddComponent<Image>();
+        img.color = new Color(0.08f, 0.08f, 0.12f, 0.9f);
+
+        var field = go.AddComponent<TMP_InputField>();
+        field.targetGraphic = img;
+        field.textViewport = rt;
+        field.lineType = TMP_InputField.LineType.SingleLine;
+        field.characterValidation = TMP_InputField.CharacterValidation.Decimal;
+        field.textComponent = MakeInputChild(go.transform, "Text", true);
+        field.pointSize = field.textComponent.fontSize;
+        field.placeholder = MakeInputChild(go.transform, "Placeholder", false);
+
+        var stats = PlayerStatsOf();
+        field.SetTextWithoutNotify(stats != null ? Mathf.RoundToInt(stats.GetTotal((StatType)statIndex)).ToString() : "0");
+
+        int captured = statIndex;
+        field.onEndEdit.AddListener((string value) =>
+        {
+            var s = PlayerStatsOf();
+            if (s == null) return;
+            if (string.IsNullOrEmpty(value)
+                || !float.TryParse(value, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out float parsed))
+            {
+                field.SetTextWithoutNotify(Mathf.RoundToInt(s.GetTotal((StatType)captured)).ToString());
+                return;
+            }
+            s.SetBaseStat((StatType)captured, parsed);
+            RefreshInfo();
+        });
+        return field;
+    }
+
+    private TextMeshProUGUI MakeInputChild(Transform parent, string childName, bool isText)
+    {
+        var child = new GameObject(childName);
+        child.transform.SetParent(parent, false);
+        var crt = child.AddComponent<RectTransform>();
+        crt.anchorMin = new Vector2(0f, 0f);
+        crt.anchorMax = new Vector2(1f, 1f);
+        crt.offsetMin = new Vector2(4f, 2f);
+        crt.offsetMax = new Vector2(-4f, -2f);
+        var tmp = child.AddComponent<TextMeshProUGUI>();
+        GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
+        tmp.fontSize = Mathf.Max(15f, Screen.height / 50f);
+        tmp.color = isText ? Color.white : new Color(0.7f, 0.7f, 0.75f, 0.6f);
+        tmp.alignment = TextAlignmentOptions.MidlineLeft;
+        tmp.raycastTarget = false;
+        return tmp;
     }
 
     // ── Skill tree ────────────────────────────────────────────────────────
