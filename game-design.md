@@ -355,7 +355,7 @@ Weapons are built on a **3-category base — Melee, Ranged, Magic** — structur
 
 #### Layers
 
-- **Layer 1 — `WeaponData` (ScriptableObject, data-only).** Shared fields: id, display name, weight (equip-load), Str requirement (weight class, §5.4), hand usage (single / dual / two-hand), base damage, speed, attack reach, scaling stat(s) + coefficients, `WeaponCategory`, `DamageType` (one of the 10 damage types, §3.7), and a Weapon Art reference. **Magic weapons** additionally carry magic mods — `MagicDamageMult`, `CastTimeMod`, `CooldownMod` (staff/wand/book scale spells).
+- **Layer 1 — `WeaponData` (ScriptableObject, data-only).** Shared fields: id, display name, weight (equip-load), Str requirement (weight class, §5.5), hand usage (single / dual / two-hand), base damage, speed, attack reach, scaling stat(s) + coefficients, `WeaponCategory`, `DamageType` (one of the 10 damage types, §3.7), and a Weapon Art reference. **Magic weapons** additionally carry magic mods — `MagicDamageMult`, `CastTimeMod`, `CooldownMod` (staff/wand/book scale spells).
 - **Layer 2 — `WeaponCategory` enum (expandable).** `Melee`, `Ranged`, `Magic`. Future values (Thrown, Shield, Summon, Hybrid, …) slot in as new enum entries + one behavior class each.
 - **Layer 3 — Behavior modules via `IWeaponBehavior`.** A minimal contract: `BeginAttack(cmd)`, `ActiveFrame()`, `Cancel()`. One concrete module per category:
   - **`MeleeWeaponBehavior`** → existing `HitboxSystem` arc sweep.
@@ -375,8 +375,9 @@ Weapons are built on a **3-category base — Melee, Ranged, Magic** — structur
 #### Notes
 
 - Weapons carry a **single `DamageType`** — one of the **10 damage types** (§3.7); the damage pipeline resolves that element/type's resist/weakness.
+- Dual-wield can pair **two of the same weapon type** — each hand holds one owned copy (one rig = one copy), subject to the §5.5 copy-accurate accounting rule: equipping the second hand consumes a spare bag copy, and without a spare the weapon *moves* instead of duplicating.
 - Magic weapons are **equipped gear that scales/alters spells** rather than delivering their own attacks — distinct from melee/ranged, which deliver their own.
-- Hand/wielding integration (§5.4): the equipped hand slots hold `WeaponData`; the categories of equipped weapons determine which behaviors are active. Wielding states modulate Str requirement as specified.
+- Hand/wielding integration (§5.5): the equipped hand slots hold `WeaponData`; the categories of equipped weapons determine which behaviors are active. Wielding states modulate Str requirement as specified.
 - Ranged ammo ties into the Inventory/consumables system.
 
 ### 3.7 Damage & Status Types
@@ -510,6 +511,10 @@ Inventory tab). Tools swap a matching **3D model** on equip (`ToolManager.ToolMo
 Drop items with **Q**; slot API: `SelectSlot` / `PeekSlot` / `AddItem` / `RemoveItem` / `MoveSlot`,
 with `GetInventorySave()` / `LoadInventorySave()`.
 
+Weapons are also physical bag items in this same 40-slot inventory (stack-counted, one copy per
+equipped rig); the `WeaponInventory` owned list gates what can be equipped to the hand slots, and
+equip/unequip is copy-accurate (§5.5).
+
 ### 5.2 Farming
 
 - **10 seed types** (wheat, corn, potato, carrot, tomato, strawberry, pumpkin, onion, sugarcane,
@@ -552,7 +557,7 @@ Equipment is split into **3 genres**, each mapped to a fixed set of gear slots (
 
 **Armor (5 slots):** The source of **physical damage reduction** (amplified by the **Defense** stat) and of **all elemental/magic resistance**. Per the equipment-only resistance rule (§3.4), no stat grants resistance — armor/gear does. Heavier armor weighs more (raising **EquipLoad**, gated by Endurance).
 
-**Weapon (2 hand slots):** Every weapon is **one-hand capable**, so any two can be dual-wielded. Wielding is governed by the weapon's **Strength (Str) requirement** (by weight class: light / medium / heavy):
+**Weapon (2 hand slots):** Every weapon is **one-hand capable**, so any two can be dual-wielded — including **two of the same weapon type** (one rig per hand = one owned copy per rig). Wielding is governed by the weapon's **Strength (Str) requirement** (by weight class: light / medium / heavy):
 
 | Configuration | Requirement |
 |---------------|-------------|
@@ -560,7 +565,14 @@ Equipment is split into **3 genres**, each mapped to a fixed set of gear slots (
 | **Two-hand grip** (both slots) | **Reduced** Str requirement (~half) — lets low-Str builds use heavy weapons at the cost of no off-hand weapon/shield |
 | **Dual-wield** (one per hand) | Roughly **2× the single-hand Str requirement** — high-Str builds can dual-wield greatswords, hammers, etc. |
 
-Two-handing occupies both hand slots (no off-hand); dual-wielding occupies both with separate weapons. Weapons carry their own **damage** (ranged uses `weapon.base`), **speed**, **range**, and a unique **Weapon Art** (§3.2 combat, costs FP). The **Knight** class raises equip-load carry; **Blacksmith** improves upgrades/repair/forging.
+Two-handing occupies both hand slots (no off-hand); dual-wielding occupies both with separate weapons (possibly two copies of the same weapon). Weapons carry their own **damage** (ranged uses `weapon.base`), **speed**, **range**, and a unique **Weapon Art** (§3.2 combat, costs FP). The **Knight** class raises equip-load carry; **Blacksmith** improves upgrades/repair/forging.
+
+##### Same-Type Dual-Wield & Copy Accounting
+
+Weapons are also **physical bag items** — stack-counted in the ToolManager inventory (§5.1) alongside tools — while the `WeaponInventory` **owned list** gates what can be dragged onto the hand slots. Equip/unequip is **copy-accurate** (never duplicates, never loses, an item):
+
+- **Equip — `EquipOwnedWeapon` (CharacterInfoUI.cs):** dropping a weapon onto the hand that already holds it is a no-op. When the *other* hand holds the same id, a **spare copy in the bag** (`CountItem >= 1`) permits dual-wield and the spare is consumed (`RemoveItemAmount(weaponId, 1)`); with no spare the weapon is **moved** (the other hand's rig is destroyed first) so a single owned item is never duplicated onto the body. Any weapon displaced from the target slot returns to the bag first; if the bag is full the swap aborts ("Túi đồ đầy").
+- **Unequip — `UnequipWeapon` (CharacterInfoUI.cs):** destroys one rig per copy released and refunds exactly that many copies back to the bag (`PutItem`/`AddItem`). An optional `sourceHand` clears only the dragged hand, so a second identical weapon on the other hand stays equipped; otherwise every hand holding the weapon is cleared.
 
 **Accessory (14 slots):** 10 rings (one per finger), 1 necklace, 2 ear pieces, 1 belt. These grant **passive bonuses** (stat, status, luck, utility). The bulk of defensive **resistance/DR** comes from armor — accessories supplement it and carry build-defining passive mods.
 
