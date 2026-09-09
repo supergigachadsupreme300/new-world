@@ -118,67 +118,67 @@ public sealed class WeaponAnimator : MonoBehaviour
                     T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, -55f, 0f, -15f, 45f, -90f), K(0.62f, -80f, 45f, 0f, -5f, 95f, -90f), K(1f, 0f, 0f, 0f, 0f)),   // 1. wind left/back → slash across right, wrist rolls into the cut
                     T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, 55f, 0f, -15f, 45f, 90f), K(0.62f, -80f, -45f, 0f, -5f, 95f, 90f), K(1f, 0f, 0f, 0f, 0f)),  // 2. wind right/back → slash across left, wrist rolls through
                     T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -150f, 0f, 0f, 10f, 45f, 0f), K(0.68f, -65f, 0f, 0f, 6f, 95f, 0f), K(1f, 0f, 0f, 0f, 0f)),     // 3. overhead chop — wrist flexes into the swing then settles
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.38f, -88f, -12f, 0f, -42f, 45f, -90f), K(0.58f, -62f, -8f, 0f, -4f, 95f, -90f), K(1f, 0f, 0f, 0f, 0f))), // 4. forward thrust — wrist flattens as the arm extends
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.38f, -88f, -12f, 0f, -42f, 45f, 0f), K(0.58f, -62f, -8f, 0f, -4f, 95f, 0f), K(1f, 0f, 0f, 0f, 0f))), // 4. forward thrust — wrist flattens as the arm extends
                     null, K_None, 0.30f, 0.50f, true)
             },
 
             // greatsword — heavy two-hander: overhead slam, low sweep, reverse-grip sweep, rising spin.
             {
                 "greatsword", new WeaponAnimDef(OffArm.Mirror, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -150f, 0f, 0f, 8f), K(0.70f, -55f, 0f, 0f, 14f), K(1f, 0f, 0f, 0f, 0f)),       // 1. overhead slam
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -70f, -75f, 0f, 8f), K(0.70f, -80f, 35f, 0f, 12f), K(1f, 0f, 0f, 0f, 0f)),   // 2. low sweep from the left across to the right
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -100f, 70f, 0f, 18f), K(0.68f, -70f, -55f, 0f, -10f), K(1f, 0f, 0f, 0f, 0f)),// 3. reverse-grip right wind, hard backswing to the left
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -120f, 30f, 0f, -30f), K(0.75f, -160f, 0f, 0f, -20f), K(1f, 0f, 0f, 0f, 0f))),// 4. rising spin uppercut (finisher)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -150f, 0f, 0f, 8f, 60f, 0f), K(0.70f, -55f, 0f, 0f, 14f, 30f, 0f), K(1f, 0f, 0f, 0f, 0f)),       // 1. overhead slam — wrists flex through the smash
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -70f, -75f, 0f, 8f, 30f, -90f), K(0.70f, -80f, 35f, 0f, 12f, 20f, -90f), K(1f, 0f, 0f, 0f, 0f)),   // 2. low sweep from the left across to the right — wrists roll into the cut
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -100f, 70f, 0f, 18f, 40f, 90f), K(0.68f, -70f, -55f, 0f, -10f, 25f, 90f), K(1f, 0f, 0f, 0f, 0f)),// 3. reverse-grip right wind, hard backswing to the left — wrists roll through
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -120f, 30f, 0f, -30f, 50f, 0f), K(0.75f, -160f, 0f, 0f, -20f, 20f, 0f), K(1f, 0f, 0f, 0f, 0f))),// 4. rising spin uppercut (finisher) — wrists flex to whip the spin
                     null, K_None, 0.45f, 0.65f)
             },
 
             // dagger — fast stabs: low jab, high jab, quick double, lunging stab.
             {
                 "dagger", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.20f, -58f, 6f, 0f, -28f), K(0.34f, 12f, 0f, 0f, 18f), K(1f, 0f, 0f, 0f, 0f)),    // 1. low jab
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.20f, -70f, 6f, 0f, -24f), K(0.34f, 10f, 0f, 0f, 20f), K(1f, 0f, 0f, 0f, 0f)),    // 2. high jab
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.20f, -58f, 6f, 0f, -28f), K(0.34f, 12f, 0f, 0f, 18f), K(0.55f, -58f, 6f, 0f, -28f), K(0.70f, 12f, 0f, 0f, 18f), K(1f, 0f, 0f, 0f, 0f)), // 3. quick double jab
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.42f, -60f, 0f, 0f, -45f), K(0.62f, -48f, 0f, 0f, -10f), K(1f, 0f, 0f, 0f, 0f))),// 4. lunging stab (finisher)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.20f, -58f, 6f, 0f, -28f, 55f, 0f), K(0.34f, 12f, 0f, 0f, 18f, 90f, 0f), K(1f, 0f, 0f, 0f, 0f)),    // 1. low jab — wrist snap drives the point
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.20f, -70f, 6f, 0f, -24f, 55f, 0f), K(0.34f, 10f, 0f, 0f, 20f, 95f, 0f), K(1f, 0f, 0f, 0f, 0f)),    // 2. high jab
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.20f, -58f, 6f, 0f, -28f, 55f, 0f), K(0.34f, 12f, 0f, 0f, 18f, 90f, 0f), K(0.55f, -58f, 6f, 0f, -28f, 55f, 0f), K(0.70f, 12f, 0f, 0f, 18f, 90f, 0f), K(1f, 0f, 0f, 0f, 0f)), // 3. quick double jab — two wrist snaps
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.42f, -60f, 0f, 0f, -45f, 45f, 0f), K(0.62f, -48f, 0f, 0f, -10f, 80f, 0f), K(1f, 0f, 0f, 0f, 0f))),// 4. lunging stab (finisher) — wrist flattens as the arm extends
                     null, K_None, 0.24f, 0.34f)
             },
 
             // katana — iaido draws: draw-slice, reverse draw, 360° spin, rising iai cuts.
             {
                 "katana", new WeaponAnimDef(OffArm.Mirror, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.25f, -70f, 70f, 0f, -40f), K(0.88f, -60f, -200f, 0f, -10f), K(1f, 0f, 0f, 0f, 0f)),   // 1. sheathe draw-slice (deep elbow curl)
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.25f, -70f, -70f, 0f, -40f), K(0.88f, -60f, 200f, 0f, -10f), K(1f, 0f, 0f, 0f, 0f)),  // 2. reverse (left) draw
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -85f, 90f, 0f, -30f), K(0.55f, -90f, -180f, 0f, -15f), K(0.85f, -70f, -260f, 0f, -8f), K(1f, 0f, 0f, 0f, 0f)), // 3. full 360° spinning sweep
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -120f, -50f, 0f, -20f), K(0.55f, -95f, 40f, 0f, -6f), K(0.75f, -135f, -30f, 0f, -14f), K(1f, 0f, 0f, 0f, 0f))), // 4. rising diagonal iai cuts
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.25f, -70f, 70f, 0f, -40f, 25f, -90f), K(0.88f, -60f, -200f, 0f, -10f, 15f, -90f), K(1f, 0f, 0f, 0f, 0f)),   // 1. sheathe draw-slice (deep elbow curl) — wrist rolls with the blade
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.25f, -70f, -70f, 0f, -40f, 25f, 90f), K(0.88f, -60f, 200f, 0f, -10f, 15f, 90f), K(1f, 0f, 0f, 0f, 0f)),  // 2. reverse (left) draw
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -85f, 90f, 0f, -30f, 35f, 90f), K(0.55f, -90f, -180f, 0f, -15f, 30f, 90f), K(0.85f, -70f, -260f, 0f, -8f, 20f, 60f), K(1f, 0f, 0f, 0f, 0f)), // 3. full 360° spinning sweep — wrist keeps the edge on the arc
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -120f, -50f, 0f, -20f, 45f, 0f), K(0.55f, -95f, 40f, 0f, -6f, 30f, 0f), K(0.75f, -135f, -30f, 0f, -14f, 20f, 0f), K(1f, 0f, 0f, 0f, 0f))), // 4. rising diagonal iai cuts — wrists flex through
                     null, K_None, 0.45f, 0.60f)
             },
 
             // greataxe — brutal cleaves: overhand, chest sweep, diagonal chop, 360° spin cleave.
             {
                 "greataxe", new WeaponAnimDef(OffArm.Mirror, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -120f, 0f, 0f, 8f), K(0.70f, -65f, 0f, 0f, 12f), K(1f, 0f, 0f, 0f, 0f)),       // 1. overhand cleave
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -45f, -60f, 0f, 10f), K(0.75f, -75f, 60f, 0f, 6f), K(1f, 0f, 0f, 0f, 0f)),    // 2. chest-level backswing sweep left→right
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -90f, 55f, 0f, 8f), K(0.70f, -70f, -50f, 0f, 10f), K(1f, 0f, 0f, 0f, 0f)),   // 3. diagonal shoulder chop right→left
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -85f, 80f, 0f, 6f), K(0.55f, -80f, -160f, 0f, 4f), K(0.80f, -70f, -200f, 0f, 8f), K(1f, 0f, 0f, 0f, 0f))), // 4. 360° spin cleave (finisher)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -120f, 0f, 0f, 8f, 65f, 0f), K(0.70f, -65f, 0f, 0f, 12f, 30f, 0f), K(1f, 0f, 0f, 0f, 0f)),       // 1. overhand cleave — wrists flex into the chop
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -45f, -60f, 0f, 10f, 25f, -90f), K(0.75f, -75f, 60f, 0f, 6f, 20f, -90f), K(1f, 0f, 0f, 0f, 0f)),    // 2. chest-level backswing sweep left→right — wrists roll into the cut
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -90f, 55f, 0f, 8f, 50f, 45f), K(0.70f, -70f, -50f, 0f, 10f, 35f, 45f), K(1f, 0f, 0f, 0f, 0f)),   // 3. diagonal shoulder chop right→left — wrists roll down the angle
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -85f, 80f, 0f, 6f, 40f, 90f), K(0.55f, -80f, -160f, 0f, 4f, 30f, 90f), K(0.80f, -70f, -200f, 0f, 8f, 20f, 60f), K(1f, 0f, 0f, 0f, 0f))), // 4. 360° spin cleave (finisher) — wrists roll through the spin
                     null, K_None, 0.40f, 0.60f)
             },
 
             // lance — mounted-style: low thrust, high lunge, couched charge, overhead riposte.
             {
                 "lance", new WeaponAnimDef(OffArm.Mirror, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, 20f, 0f, 0f, 38f), K(0.75f, -65f, 0f, 0f, -10f), K(1f, 0f, 0f, 0f, 0f)),     // 1. pull back → low thrust
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, 10f, 15f, 0f, 42f), K(0.75f, -75f, 0f, 0f, -14f), K(1f, 0f, 0f, 0f, 0f)),   // 2. high lunge
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -20f, 0f, 0f, 30f), K(0.45f, -20f, 0f, 0f, 34f), K(0.80f, -70f, 0f, 0f, -6f), K(1f, 0f, 0f, 0f, 0f)), // 3. couched charge (hold then drive)
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -120f, 0f, 0f, 18f), K(0.60f, -70f, 0f, 0f, -16f), K(1f, 0f, 0f, 0f, 0f))),  // 4. overhead-to-thrust riposte (finisher)
-                    null, K_None, 0.32f, 0.48f)
+T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, 20f, 0f, 0f, 38f, 35f, 0f), K(0.75f, -65f, 0f, 0f, -10f, 85f, 0f), K(1f, 0f, 0f, 0f, 0f)),     // 1. pull back → low thrust — wrist drives the tip down
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, 10f, 15f, 0f, 42f, 35f, 0f), K(0.75f, -75f, 0f, 0f, -14f, 90f, 0f), K(1f, 0f, 0f, 0f, 0f)),   // 2. high lunge
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -20f, 0f, 0f, 30f, 20f, 0f), K(0.45f, -20f, 0f, 0f, 34f, 20f, 0f), K(0.80f, -70f, 0f, 0f, -6f, 90f, 0f), K(1f, 0f, 0f, 0f, 0f)), // 3. couched charge (hold then drive) — wrist from hold to snap
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -120f, 0f, 0f, 18f, 55f, 0f), K(0.60f, -70f, 0f, 0f, -16f, 85f, 0f), K(1f, 0f, 0f, 0f, 0f))),  // 4. overhead-to-thrust riposte (finisher)
+                    null, K_None, 0.45f, 0.60f)
             },
 
             // gauntlets — boxer chain: jab, cross, double, uppercut (dual-wield alternates hands).
             {
                 "gauntlets", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f), K(0.48f, -24f, 0f, 0f, 34f), K(1f, 0f, 0f, 0f, 0f)),    // 1. straight jab
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -65f, 28f, 0f, -22f), K(0.48f, -20f, 0f, 0f, 30f), K(1f, 0f, 0f, 0f, 0f)), // 2. side cross
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f), K(0.48f, -24f, 0f, 0f, 34f), K(0.72f, -72f, 0f, 0f, -24f), K(1f, 0f, 0f, 0f, 0f)), // 3. quick double jab
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -140f, -10f, 0f, -35f), K(0.55f, -60f, 8f, 0f, -18f), K(1f, 0f, 0f, 0f, 0f))), // 4. heavy uppercut (finisher)
+T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 0f, 0f, 34f, 95f, 20f), K(1f, 0f, 0f, 0f, 0f)),    // 1. straight jab — fist snaps with the wrist
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -65f, 28f, 0f, -22f, 60f, -40f), K(0.48f, -20f, 0f, 0f, 30f, 95f, -40f), K(1f, 0f, 0f, 0f, 0f)), // 2. side cross — wrist rolls through the hook
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 0f, 0f, 34f, 95f, 20f), K(1f, 0f, 0f, 0f, 0f)), // 3. quick double jab — two wrist snaps
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -140f, -10f, 0f, -35f, 65f, 50f), K(0.55f, -60f, 8f, 0f, -18f, 90f, 50f), K(1f, 0f, 0f, 0f, 0f))), // 4. heavy uppercut (finisher) — wrist cocks then drives
                     null, K_Dual, 0.26f, 0.36f)
             },
 
@@ -187,10 +187,10 @@ public sealed class WeaponAnimator : MonoBehaviour
                 "longbow", new WeaponAnimDef(OffArm.Asym,
                     // Owner (right) = the draw hand.
                     V(
-                        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -20f, -15f, 0f, -90f), K(0.55f, -30f, -15f, 0f, -60f), K(0.75f, -55f, 0f, 0f, -15f), K(1f, 0f, 0f, 0f, 0f)),   // 1. quick snap shot
-                        T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -25f, -20f, 0f, -120f), K(0.65f, -25f, -20f, 0f, -120f), K(0.80f, -55f, 0f, 0f, -15f), K(1f, 0f, 0f, 0f, 0f)),   // 2. aimed draw-hold-loose
-                        T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -25f, -25f, 0f, -110f), K(0.55f, -30f, -25f, 0f, -110f), K(0.72f, -50f, 10f, 0f, -20f), K(1f, 0f, 0f, 0f, 0f)),  // 3. step-forward release
-                        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -22f, -15f, 0f, -95f), K(0.45f, -35f, -15f, 0f, -60f), K(0.60f, -50f, 10f, 0f, -15f), K(0.70f, -25f, -15f, 0f, -90f), K(0.85f, -35f, -15f, 0f, -60f), K(1f, 0f, 0f, 0f, 0f))), // 4. rapid double shot
+                        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -20f, -15f, 0f, -90f, 20f, 0f), K(0.55f, -30f, -15f, 0f, -60f, 40f, 0f), K(0.75f, -55f, 0f, 0f, -15f, 60f, 0f), K(1f, 0f, 0f, 0f, 0f)),   // 1. quick snap shot — wrist flexes on the loose
+                        T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -25f, -20f, 0f, -120f, 10f, 0f), K(0.65f, -25f, -20f, 0f, -120f, 10f, 0f), K(0.80f, -55f, 0f, 0f, -15f, 70f, 0f), K(1f, 0f, 0f, 0f, 0f)),   // 2. aimed draw-hold-loose — wrist holds then flexes on the loose
+                        T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -25f, -25f, 0f, -110f, 15f, 0f), K(0.55f, -30f, -25f, 0f, -110f, 15f, 0f), K(0.72f, -50f, 10f, 0f, -20f, 65f, 0f), K(1f, 0f, 0f, 0f, 0f)),  // 3. step-forward release
+                        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -22f, -15f, 0f, -95f, 20f, 0f), K(0.45f, -35f, -15f, 0f, -60f, 35f, 0f), K(0.60f, -50f, 10f, 0f, -15f, 55f, 0f), K(0.70f, -25f, -15f, 0f, -90f, 30f, 0f), K(0.85f, -35f, -15f, 0f, -60f, 60f, 0f), K(1f, 0f, 0f, 0f, 0f))), // 4. rapid double shot — two loose snaps
                     // Other (left) = the bow arm, extended toward the target.
                     V(
                         T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -85f, 0f, 0f, -6f), K(0.75f, -82f, 0f, 0f, -4f), K(1f, 0f, 0f, 0f, 0f)),
@@ -203,70 +203,70 @@ public sealed class WeaponAnimator : MonoBehaviour
             // throwing_hammer — windmills: underhand lob, overhand toss, side skip, full windmill.
             {
                 "throwing_hammer", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -95f, 0f, 0f, -45f), K(0.70f, -40f, 0f, 0f, -5f), K(1f, 0f, 0f, 0f, 0f)),      // 1. underhand lob
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.32f, -145f, 0f, 0f, -80f), K(0.70f, -50f, 0f, 0f, -5f), K(1f, 0f, 0f, 0f, 0f)),   // 2. overhand toss (elbow cocked)
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -100f, 55f, 0f, -20f), K(0.70f, -45f, 10f, 0f, -6f), K(1f, 0f, 0f, 0f, 0f)), // 3. side skip throw
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -160f, 0f, 0f, -70f), K(0.55f, -150f, 0f, 0f, -40f), K(0.75f, -55f, 0f, 0f, -8f), K(1f, 0f, 0f, 0f, 0f))),  // 4. full windmill overhead (finisher)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -95f, 0f, 0f, -45f, 25f, 60f), K(0.70f, -40f, 0f, 0f, -5f, 40f, 60f), K(1f, 0f, 0f, 0f, 0f)),      // 1. underhand lob — wrist whips the release
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.32f, -145f, 0f, 0f, -80f, 30f, -60f), K(0.70f, -50f, 0f, 0f, -5f, 50f, -60f), K(1f, 0f, 0f, 0f, 0f)),   // 2. overhand toss (elbow cocked) — wrist snap to launch
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -100f, 55f, 0f, -20f, 35f, 40f), K(0.70f, -45f, 10f, 0f, -6f, 55f, 40f), K(1f, 0f, 0f, 0f, 0f)), // 3. side skip throw
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -160f, 0f, 0f, -70f, 35f, 90f), K(0.55f, -150f, 0f, 0f, -40f, 35f, 90f), K(0.75f, -55f, 0f, 0f, -8f, 60f, 0f), K(1f, 0f, 0f, 0f, 0f))),  // 4. full windmill overhead (finisher) — wrist rolls through the spin then snaps
                     null, K_None, 0.32f, 0.45f)
             },
 
             // warhammer — slow crushing: telegraphed slam, side smashes, two-handed ground pound.
             {
                 "warhammer", new WeaponAnimDef(OffArm.Mirror, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.40f, -155f, 0f, 0f, 6f), K(0.55f, -155f, 0f, 0f, 6f), K(0.72f, -65f, 0f, 0f, 16f), K(0.86f, -72f, 0f, 0f, 22f), K(1f, 0f, 0f, 0f, 0f)),  // 1. telegraphed overhead slam
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.40f, -130f, -60f, 0f, 8f), K(0.55f, -130f, -60f, 0f, 8f), K(0.72f, -70f, -10f, 0f, 14f), K(1f, 0f, 0f, 0f, 0f)),            // 2. left-side smash
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.40f, -130f, 60f, 0f, 8f), K(0.55f, -130f, 60f, 0f, 8f), K(0.72f, -70f, 10f, 0f, 14f), K(1f, 0f, 0f, 0f, 0f)),            // 3. right backhand smash
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -155f, 0f, 0f, 6f), K(0.50f, -155f, 0f, 0f, 6f), K(0.70f, -20f, 0f, 0f, 20f), K(0.82f, -15f, 0f, 0f, 26f), K(1f, 0f, 0f, 0f, 0f))), // 4. two-handed ground pound (finisher)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.40f, -155f, 0f, 0f, 6f, 45f, 0f), K(0.55f, -155f, 0f, 0f, 6f, 45f, 0f), K(0.72f, -65f, 0f, 0f, 16f, 30f, 0f), K(0.86f, -72f, 0f, 0f, 22f, 25f, 0f), K(1f, 0f, 0f, 0f, 0f)),  // 1. telegraphed overhead slam — wrists held, flex on impact
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.40f, -130f, -60f, 0f, 8f, 30f, -50f), K(0.55f, -130f, -60f, 0f, 8f, 30f, -50f), K(0.72f, -70f, -10f, 0f, 14f, 25f, -50f), K(1f, 0f, 0f, 0f, 0f)),            // 2. left-side smash — wrists roll into the crush
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.40f, -130f, 60f, 0f, 8f, 30f, 50f), K(0.55f, -130f, 60f, 0f, 8f, 30f, 50f), K(0.72f, -70f, 10f, 0f, 14f, 25f, 50f), K(1f, 0f, 0f, 0f, 0f)),            // 3. right backhand smash
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -155f, 0f, 0f, 6f, 40f, 0f), K(0.50f, -155f, 0f, 0f, 6f, 40f, 0f), K(0.70f, -20f, 0f, 0f, 20f, 55f, 0f), K(0.82f, -15f, 0f, 0f, 26f, 45f, 0f), K(1f, 0f, 0f, 0f, 0f))), // 4. two-handed ground pound (finisher) — wrists flex into the pound
                     null, K_None, 0.55f, 0.75f)
             },
 
             // staff — caster: raised channel, angled sweeps, full overhead arc slam.
             {
                 "staff", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -60f, 0f, 0f, -18f), K(0.70f, -60f, 0f, 0f, -18f), K(1f, 0f, 0f, 0f, 0f)),     // 1. raised channel
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -60f, -35f, 0f, -18f), K(0.70f, -55f, -35f, 0f, -18f), K(1f, 0f, 0f, 0f, 0f)), // 2. angled sweep left
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -60f, 35f, 0f, -18f), K(0.70f, -55f, 35f, 0f, -18f), K(1f, 0f, 0f, 0f, 0f)),  // 3. angled sweep right
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -135f, 0f, 0f, 6f), K(0.60f, -100f, 0f, 0f, -6f), K(0.80f, -55f, 0f, 0f, -12f), K(1f, 0f, 0f, 0f, 0f))), // 4. full overhead arc slam (finisher)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -60f, 0f, 0f, -18f, 25f, 0f), K(0.70f, -60f, 0f, 0f, -18f, 25f, 0f), K(1f, 0f, 0f, 0f, 0f)),     // 1. raised channel — wrist subtly cants the shaft
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -60f, -35f, 0f, -18f, 25f, -20f), K(0.70f, -55f, -35f, 0f, -18f, 25f, -20f), K(1f, 0f, 0f, 0f, 0f)), // 2. angled sweep left
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -60f, 35f, 0f, -18f, 25f, 20f), K(0.70f, -55f, 35f, 0f, -18f, 25f, 20f), K(1f, 0f, 0f, 0f, 0f)),  // 3. angled sweep right
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -135f, 0f, 0f, 6f, 55f, 0f), K(0.60f, -100f, 0f, 0f, -6f, 40f, 0f), K(0.80f, -55f, 0f, 0f, -12f, 20f, 0f), K(1f, 0f, 0f, 0f, 0f))), // 4. full overhead arc slam (finisher) — wrist flex drives the smash
                     null, K_Staff, 0.42f, 0.62f)
             },
 
             // holy_book — tome chants: single raise, open-page, side tilt, beatific wide raise.
             {
                 "holy_book", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -45f, 0f, 0f, -26f), K(0.70f, -45f, 0f, 0f, -26f), K(1f, 0f, 0f, 0f, 0f)),       // 1. single raise
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -55f, 18f, 0f, -34f), K(0.55f, -52f, 22f, 0f, -32f), K(0.75f, -58f, 14f, 0f, -36f), K(1f, 0f, 0f, 0f, 0f)), // 2. open-page two-hand raise
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -45f, -30f, 0f, -30f), K(0.70f, -42f, -28f, 0f, -30f), K(1f, 0f, 0f, 0f, 0f)), // 3. side-tilt chant
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -80f, 0f, 0f, -40f), K(0.60f, -85f, 0f, 0f, -44f), K(1f, 0f, 0f, 0f, 0f))),    // 4. beatific wide raise (finisher)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -45f, 0f, 0f, -26f, 15f, 0f), K(0.70f, -45f, 0f, 0f, -26f, 15f, 0f), K(1f, 0f, 0f, 0f, 0f)),       // 1. single raise
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -55f, 18f, 0f, -34f, 15f, 20f), K(0.55f, -52f, 22f, 0f, -32f, 15f, 20f), K(0.75f, -58f, 14f, 0f, -36f, 15f, 15f), K(1f, 0f, 0f, 0f, 0f)), // 2. open-page two-hand raise
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -45f, -30f, 0f, -30f, 15f, -20f), K(0.70f, -42f, -28f, 0f, -30f, 15f, -20f), K(1f, 0f, 0f, 0f, 0f)), // 3. side-tilt chant
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -80f, 0f, 0f, -40f, 25f, 0f), K(0.60f, -85f, 0f, 0f, -44f, 25f, 0f), K(1f, 0f, 0f, 0f, 0f))),    // 4. beatific wide raise (finisher)
                     null, K_Book, 0.44f, 0.64f)
             },
 
             // bone_wand — quick flicks: up, side, downward point, wide swirl.
             {
                 "bone_wand", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -70f, 0f, 0f, -14f), K(0.70f, -70f, 0f, 0f, -14f), K(1f, 0f, 0f, 0f, 0f)),      // 1. up flick
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -70f, -40f, 0f, -14f), K(0.70f, -68f, -40f, 0f, -14f), K(1f, 0f, 0f, 0f, 0f)), // 2. side flick left
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -45f, 0f, 0f, -10f), K(0.70f, -40f, 0f, 0f, -10f), K(1f, 0f, 0f, 0f, 0f)),    // 3. downward point
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -85f, 55f, 0f, -18f), K(0.55f, -70f, -30f, 0f, -14f), K(0.75f, -80f, 60f, 0f, -16f), K(1f, 0f, 0f, 0f, 0f))), // 4. wide swirling flick (finisher)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -70f, 0f, 0f, -14f, 30f, 0f), K(0.70f, -70f, 0f, 0f, -14f, 30f, 0f), K(1f, 0f, 0f, 0f, 0f)),      // 1. up flick
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -70f, -40f, 0f, -14f, 30f, -35f), K(0.70f, -68f, -40f, 0f, -14f, 30f, -35f), K(1f, 0f, 0f, 0f, 0f)), // 2. side flick left
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -45f, 0f, 0f, -10f, 40f, 0f), K(0.70f, -40f, 0f, 0f, -10f, 40f, 0f), K(1f, 0f, 0f, 0f, 0f)),    // 3. downward point
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -85f, 55f, 0f, -18f, 35f, 40f), K(0.55f, -70f, -30f, 0f, -14f, 30f, -40f), K(0.75f, -80f, 60f, 0f, -16f, 35f, 40f), K(1f, 0f, 0f, 0f, 0f))), // 4. wide swirling flick (finisher)
                     null, K_Wand, 0.38f, 0.56f)
             },
 
             // control_orb — orbiting arcs: low, high wide, figure-eight, grand circle.
             {
                 "control_orb", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -80f, 10f, 0f, -12f), K(0.70f, -80f, 10f, 0f, -12f), K(1f, 0f, 0f, 0f, 0f)),       // 1. low arc
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -95f, -55f, 0f, -14f), K(0.70f, -90f, -55f, 0f, -14f), K(1f, 0f, 0f, 0f, 0f)),  // 2. high wide arc left
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -85f, 45f, 0f, -10f), K(0.55f, -75f, -35f, 0f, -12f), K(0.75f, -88f, 45f, 0f, -10f), K(1f, 0f, 0f, 0f, 0f)), // 3. figure-eight sweep
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -160f, 0f, 0f, -10f), K(0.60f, -120f, 0f, 0f, -6f), K(0.85f, -80f, 0f, 0f, -12f), K(1f, 0f, 0f, 0f, 0f))),   // 4. grand full circle (finisher)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -80f, 10f, 0f, -12f, 25f, 0f), K(0.70f, -80f, 10f, 0f, -12f, 25f, 0f), K(1f, 0f, 0f, 0f, 0f)),       // 1. low arc
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -95f, -55f, 0f, -14f, 25f, 30f), K(0.70f, -90f, -55f, 0f, -14f, 25f, 30f), K(1f, 0f, 0f, 0f, 0f)),  // 2. high wide arc left
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -85f, 45f, 0f, -10f, 25f, 40f), K(0.55f, -75f, -35f, 0f, -12f, 25f, -40f), K(0.75f, -88f, 45f, 0f, -10f, 25f, 40f), K(1f, 0f, 0f, 0f, 0f)), // 3. figure-eight sweep
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -160f, 0f, 0f, -10f, 40f, 0f), K(0.60f, -120f, 0f, 0f, -6f, 30f, 0f), K(0.85f, -80f, 0f, 0f, -12f, 20f, 0f), K(1f, 0f, 0f, 0f, 0f))),   // 4. grand full circle (finisher)
                     null, K_Orb, 0.46f, 0.66f)
             },
 
             // lute — bard strums: single, double, side tilt, flourish.
             {
                 "lute", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -30f, 15f, 0f, -34f), K(0.70f, -30f, 15f, 0f, -34f), K(1f, 0f, 0f, 0f, 0f)),   // 1. single strum
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -30f, 15f, 0f, -34f), K(0.50f, -28f, 12f, 0f, -30f), K(0.70f, -32f, 18f, 0f, -36f), K(1f, 0f, 0f, 0f, 0f)), // 2. double strum
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -30f, -25f, 0f, -32f), K(0.70f, -28f, -28f, 0f, -34f), K(1f, 0f, 0f, 0f, 0f)), // 3. side-tilt strum
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -40f, 30f, 0f, -38f), K(0.55f, -30f, 10f, 0f, -30f), K(0.75f, -45f, 35f, 0f, -40f), K(1f, 0f, 0f, 0f, 0f))), // 4. flourish strum (finisher)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -30f, 15f, 0f, -34f, 12f, 15f), K(0.70f, -30f, 15f, 0f, -34f, 12f, 15f), K(1f, 0f, 0f, 0f, 0f)),   // 1. single strum — wrist brushes across the strings
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -30f, 15f, 0f, -34f, 12f, 15f), K(0.50f, -28f, 12f, 0f, -30f, 10f, 10f), K(0.70f, -32f, 18f, 0f, -36f, 14f, 20f), K(1f, 0f, 0f, 0f, 0f)), // 2. double strum — two wrist flutters
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -30f, -25f, 0f, -32f, 12f, -20f), K(0.70f, -28f, -28f, 0f, -34f, 12f, -20f), K(1f, 0f, 0f, 0f, 0f)), // 3. side-tilt strum
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -40f, 30f, 0f, -38f, 20f, 40f), K(0.55f, -30f, 10f, 0f, -30f, 10f, -20f), K(0.75f, -45f, 35f, 0f, -40f, 20f, 40f), K(1f, 0f, 0f, 0f, 0f))), // 4. flourish strum (finisher)
                     null, K_Lute, 0.42f, 0.60f)
             },
         };
