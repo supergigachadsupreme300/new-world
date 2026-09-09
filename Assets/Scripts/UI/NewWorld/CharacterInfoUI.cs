@@ -907,8 +907,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         const float sectorHalf = 0.5f;      // ±28.6° rad of fan — inside the 60° wedge spacing (±30°),
                                             // so adjacent categories never occupy the same angles.
         const float ringStep = 200f;        // Radial px between rings.
-        const float ring0 = 320f;           // First (innermost) ring radius — pushes the category hubs apart.
-        const float nodePitch = 56f;        // Horiz. px budget per node (46 + gap) — fits a 5-root first tier on ring 0.
+        const float ring0 = 360f;           // First (innermost) ring radius — pushes the category hubs apart.
+        const float nodePitch = 56f;        // Horiz. px budget per node (46 + gap) — fits a 6-root first tier on ring 0.
 
         float RingRadius(int ring) => ring0 + ring * ringStep;
         int RingCapacity(int ring) => Mathf.Max(1, Mathf.FloorToInt(RingRadius(ring) * (2f * sectorHalf) / nodePitch));
