@@ -325,14 +325,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     private void SpawnBoss()
     {
-        Vector3 pos = new Vector3(PlatformCenter.x, PlatformCenter.y + 1f, PlatformCenter.z - PlatformSize * 0.42f);
-        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = "TestBoss";
-        go.transform.localScale = new Vector3(3f, 3f, 3f);
+        Vector3 pos = new Vector3(PlatformCenter.x, PlatformCenter.y + 0.1f, PlatformCenter.z - PlatformSize * 0.42f);
+        var go = new GameObject("TestBoss");
         go.transform.position = pos;
-        var mr = go.GetComponent<MeshRenderer>();
-        if (mr != null)
-            mr.sharedMaterial = SolidMaterial(new Color(0.4f, 0.1f, 0.15f));
+        go.AddComponent<BoxCollider>().size = new Vector3(2.4f, 3f, 1.6f);
         if (!go.GetComponent<BossController>())
         {
             var boss = go.AddComponent<BossController>();

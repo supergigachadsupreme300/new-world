@@ -58,6 +58,8 @@ public class BossController : MonoBehaviour, IDamageable
         CurrentPhase = 0;
         var col = GetComponent<Collider>();
         if (col != null) col.enabled = true;
+        if (transform.Find("BossModel") == null)
+            BossModelBuilder.BuildBoss(transform);
     }
 
     private void Update()

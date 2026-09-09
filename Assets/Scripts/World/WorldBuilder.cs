@@ -565,9 +565,10 @@ SittableSeat.Register(_worldRoot.transform);
 
         var go = new GameObject("DemonKing");
         go.transform.SetParent(_worldRoot.transform);
-        go.transform.position = _bossArenaCenter + new Vector3(0f, 0.5f, 0f);
+        go.transform.position = _bossArenaCenter + new Vector3(0f, 0.2f, 0f);
         go.transform.localScale = Vector3.one;
 
+        BossModelBuilder.BuildBoss(go.transform);
         go.AddComponent<Rigidbody>().isKinematic = true;
 
         _questBoss = go;

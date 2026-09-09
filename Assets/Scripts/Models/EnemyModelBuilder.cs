@@ -826,72 +826,135 @@ public static class EnemyModelBuilder
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     //  16. DEMON â€” horned humanoid, ~1.1u
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    private static Transform BuildDemon(Transform parent)
+private static Transform BuildDemon(Transform parent)
     {
-        Color sd = new Color(0.2f, 0.08f, 0.1f);
-        Color sm = new Color(0.3f, 0.1f, 0.12f);
-        Color hb = new Color(0.65f, 0.55f, 0.4f);
-        Color er = new Color(0.95f, 0.15f, 0.05f);
-        Color cb = new Color(0.08f, 0.05f, 0.04f);
-        Color tw = new Color(0.9f, 0.88f, 0.85f);
+        // Reuses the classic dark-caped grinning fiend from the archived enemy builder.
+        Color coatBlack = new Color(0.08f, 0.08f, 0.1f);
+        Color headBlack = new Color(0.05f, 0.05f, 0.06f);
+        Color darkPants = new Color(0.1f, 0.1f, 0.12f);
+        Color bootBlack = new Color(0.06f, 0.06f, 0.06f);
+        Color handRed = new Color(0.7f, 0.1f, 0.1f);
+        Color teethWhite = new Color(0.93f, 0.93f, 0.95f);
 
         var root = new GameObject("DemonModel");
         root.transform.SetParent(parent, false);
         root.transform.localPosition = Vector3.zero;
 
-        MakeBlock("Torso",  root.transform, new Vector3(0.3f, 0.24f, 0.18f),  new Vector3(0f, 0.6f, 0f),   sd);
-        MakeBlock("Chest",  root.transform, new Vector3(0.28f, 0.12f, 0.06f),  new Vector3(0f, 0.62f, 0.08f), sm);
-        MakeBlock("Neck",   root.transform, new Vector3(0.08f, 0.05f, 0.08f),  new Vector3(0f, 0.74f, 0f), sd);
-        MakeBlock("Head",   root.transform, new Vector3(0.22f, 0.2f, 0.22f),   new Vector3(0f, 0.9f, 0f),  sd);
-        MakeBlock("HornL",  root.transform, new Vector3(0.04f, 0.2f, 0.04f),   new Vector3(-0.08f, 1.05f, -0.02f), hb);
-        MakeBlock("HornR",  root.transform, new Vector3(0.04f, 0.2f, 0.04f),   new Vector3(0.08f, 1.05f, -0.02f),  hb);
-        MakeBlock("EyeL",   root.transform, new Vector3(0.05f, 0.04f, 0.02f),  new Vector3(-0.06f, 0.92f, 0.11f), er);
-        MakeBlock("EyeR",   root.transform, new Vector3(0.05f, 0.04f, 0.02f),  new Vector3(0.06f, 0.92f, 0.11f),  er);
-        MakeBlock("Mouth",  root.transform, new Vector3(0.12f, 0.04f, 0.02f),  new Vector3(0f, 0.84f, 0.11f),     cb);
-        MakeBlock("TthL",   root.transform, new Vector3(0.03f, 0.04f, 0.02f),  new Vector3(-0.04f, 0.82f, 0.11f), tw);
-        MakeBlock("TthR",   root.transform, new Vector3(0.03f, 0.04f, 0.02f),  new Vector3(0.04f, 0.82f, 0.11f),  tw);
-        MakeBlock("Brow",   root.transform, new Vector3(0.24f, 0.04f, 0.04f),  new Vector3(0f, 0.96f, 0.1f),       sm);
+        // Upper torso — tilted forward 8°  |  width 0.32 → edges ±0.16
+        var upperTorso = new GameObject("UpperTorso");
+        upperTorso.transform.SetParent(root.transform, false);
+        upperTorso.transform.localPosition = new Vector3(0f, 0.62f, 0f);
+        upperTorso.transform.localRotation = Quaternion.Euler(8f, 0f, 0f);
 
-        DemonArm(root.transform, -0.2f, sd, sm, cb, "L");
-        DemonArm(root.transform,  0.2f, sd, sm, cb, "R");
-        DemonLeg(root.transform, -0.08f, sd, cb, "L");
-        DemonLeg(root.transform,  0.08f, sd, cb, "R");
+        MakeBlock("BodyUpper", upperTorso.transform, new Vector3(0.32f, 0.2f, 0.2f), new Vector3(0f, 0.1f, 0f), coatBlack);
+        MakeBlock("CoatTornUL", upperTorso.transform, new Vector3(0.08f, 0.08f, 0.06f), new Vector3(-0.16f, -0.02f, 0f), coatBlack);
+        MakeBlock("CoatTornUR", upperTorso.transform, new Vector3(0.08f, 0.08f, 0.06f), new Vector3(0.16f, -0.02f, 0f), coatBlack);
+        MakeBlock("CollarBase", upperTorso.transform, new Vector3(0.22f, 0.08f, 0.08f), new Vector3(0f, 0.22f, 0.02f), coatBlack);
 
-        var tail = new GameObject("Tail");
-        tail.transform.SetParent(root.transform, false);
-        tail.transform.localPosition = new Vector3(0f, 0.45f, -0.12f);
-        tail.transform.localRotation = Quaternion.Euler(-10f, 0f, 0f);
-        MakeBlock("T1", tail.transform, new Vector3(0.06f, 0.06f, 0.2f),  new Vector3(0f, -0.02f, -0.1f),  sd);
-        MakeBlock("T2", tail.transform, new Vector3(0.04f, 0.04f, 0.15f), new Vector3(0f, -0.04f, -0.25f), sm);
-        MakeBlock("TS", tail.transform, new Vector3(0.03f, 0.08f, 0.03f), new Vector3(0f, -0.05f, -0.35f), cb);
+        // Mid torso — tilted forward 5°  |  width 0.34 → edges ±0.17
+        var midTorso = new GameObject("MidTorso");
+        midTorso.transform.SetParent(root.transform, false);
+        midTorso.transform.localPosition = new Vector3(0f, 0.52f, -0.01f);
+        midTorso.transform.localRotation = Quaternion.Euler(5f, 0f, 0f);
+
+        MakeBlock("BodyMid", midTorso.transform, new Vector3(0.34f, 0.22f, 0.21f), new Vector3(0f, 0f, 0f), coatBlack);
+        MakeBlock("CoatTornML", midTorso.transform, new Vector3(0.09f, 0.09f, 0.06f), new Vector3(-0.17f, -0.14f, 0f), coatBlack);
+        MakeBlock("CoatTornMR", midTorso.transform, new Vector3(0.09f, 0.09f, 0.06f), new Vector3(0.17f, -0.14f, 0f), coatBlack);
+        MakeBlock("CoatTornMB", midTorso.transform, new Vector3(0.18f, 0.08f, 0.06f), new Vector3(0f, -0.14f, -0.1f), coatBlack);
+
+        // Lower torso — tilted forward 3°  |  width 0.34 → edges ±0.17
+        var lowerTorso = new GameObject("LowerTorso");
+        lowerTorso.transform.SetParent(root.transform, false);
+        lowerTorso.transform.localPosition = new Vector3(0f, 0.42f, -0.015f);
+        lowerTorso.transform.localRotation = Quaternion.Euler(3f, 0f, 0f);
+
+        MakeBlock("BodyLower", lowerTorso.transform, new Vector3(0.34f, 0.2f, 0.21f), new Vector3(0f, -0.02f, 0f), coatBlack);
+        MakeBlock("CoatTornLL", lowerTorso.transform, new Vector3(0.1f, 0.1f, 0.06f), new Vector3(-0.17f, -0.14f, 0f), coatBlack);
+        MakeBlock("CoatTornLR", lowerTorso.transform, new Vector3(0.1f, 0.1f, 0.06f), new Vector3(0.17f, -0.14f, 0f), coatBlack);
+        MakeBlock("CoatTornLB", lowerTorso.transform, new Vector3(0.2f, 0.09f, 0.06f), new Vector3(0f, -0.14f, -0.1f), coatBlack);
+        MakeBlock("CoatTornLF", lowerTorso.transform, new Vector3(0.07f, 0.07f, 0.05f), new Vector3(-0.12f, -0.08f, 0.1f), coatBlack);
+        MakeBlock("CoatTornRF", lowerTorso.transform, new Vector3(0.07f, 0.07f, 0.05f), new Vector3(0.12f, -0.08f, 0.1f), coatBlack);
+
+        // Neck + head
+        MakeBlock("Neck", upperTorso.transform, new Vector3(0.1f, 0.06f, 0.1f), new Vector3(0f, 0.28f, 0f), headBlack);
+
+        var head = new GameObject("Head");
+        head.transform.SetParent(upperTorso.transform, false);
+        head.transform.localPosition = new Vector3(0f, 0.4f, 0f);
+
+        MakeBlock("HeadBlock", head.transform, new Vector3(0.28f, 0.26f, 0.26f), Vector3.zero, headBlack);
+
+        MakeBlock("EyeL", head.transform, new Vector3(0.06f, 0.06f, 0.02f), new Vector3(-0.06f, 0.03f, 0.13f), teethWhite);
+        MakeBlock("EyeR", head.transform, new Vector3(0.06f, 0.06f, 0.02f), new Vector3(0.06f, 0.03f, 0.13f), teethWhite);
+
+        // Wide grinning smile (strong upward curve at corners)
+        float mouthY = -0.035f;
+        float mouthZ = 0.135f;
+        float toothWidth = 0.02f;
+        float toothGap = 0.003f;
+        float totalToothW = toothWidth + toothGap;
+        int teethCount = 11;
+        float halfSpan = (teethCount - 1) * totalToothW * 0.5f;
+
+        for (int i = 0; i < teethCount; i++)
+        {
+            float t = (i - (teethCount - 1) * 0.5f) / ((teethCount - 1) * 0.5f);
+            float curve = t * t * t * t * 0.05f;
+            float tx = -halfSpan + i * totalToothW;
+            float ty = mouthY + curve;
+            MakeBlock("Tooth" + i, head.transform, new Vector3(toothWidth, 0.02f, 0.016f), new Vector3(tx, ty, mouthZ), teethWhite);
+        }
+
+        MakeBlock("MouthBG", head.transform, new Vector3(0.26f, 0.045f, 0.008f), new Vector3(0f, mouthY + 0.005f, mouthZ - 0.01f), headBlack);
+        MakeBlock("GumTop", head.transform, new Vector3(0.26f, 0.006f, 0.01f), new Vector3(0f, mouthY + 0.03f, mouthZ + 0.002f), headBlack);
+
+        // Left arm (pivot at shoulder, very long)
+        var armLPivot = new GameObject("ArmL");
+        armLPivot.transform.SetParent(upperTorso.transform, false);
+        armLPivot.transform.localPosition = new Vector3(-0.22f, 0.18f, 0f);
+
+        MakeBlock("ArmUpperL", armLPivot.transform, new Vector3(0.1f, 0.36f, 0.1f), new Vector3(0f, -0.17f, 0f), coatBlack);
+        MakeBlock("ArmLowerL", armLPivot.transform, new Vector3(0.09f, 0.34f, 0.09f), new Vector3(0f, -0.51f, 0f), coatBlack);
+        MakeBlock("HandL", armLPivot.transform, new Vector3(0.08f, 0.1f, 0.08f), new Vector3(0f, -0.72f, 0f), handRed);
+
+        // Right arm (pivot at shoulder, very long)
+        var armRPivot = new GameObject("ArmR");
+        armRPivot.transform.SetParent(upperTorso.transform, false);
+        armRPivot.transform.localPosition = new Vector3(0.22f, 0.18f, 0f);
+
+        MakeBlock("ArmUpperR", armRPivot.transform, new Vector3(0.1f, 0.36f, 0.1f), new Vector3(0f, -0.17f, 0f), coatBlack);
+        MakeBlock("ArmLowerR", armRPivot.transform, new Vector3(0.09f, 0.34f, 0.09f), new Vector3(0f, -0.51f, 0f), coatBlack);
+        MakeBlock("HandR", armRPivot.transform, new Vector3(0.08f, 0.1f, 0.08f), new Vector3(0f, -0.72f, 0f), handRed);
+
+        // Left leg (hip pivot → knee pivot → boot)
+        var legLPivot = new GameObject("LegL");
+        legLPivot.transform.SetParent(root.transform, false);
+        legLPivot.transform.localPosition = new Vector3(-0.1f, 0.42f, 0f);
+
+        MakeBlock("UpperLegL", legLPivot.transform, new Vector3(0.11f, 0.22f, 0.11f), new Vector3(0f, -0.1f, 0f), darkPants);
+
+        var kneeLPivot = new GameObject("KneeL");
+        kneeLPivot.transform.SetParent(legLPivot.transform, false);
+        kneeLPivot.transform.localPosition = new Vector3(0f, -0.22f, 0f);
+
+        MakeBlock("LowerLegL", kneeLPivot.transform, new Vector3(0.1f, 0.2f, 0.1f), new Vector3(0f, -0.1f, 0f), darkPants);
+        MakeBlock("BootL", kneeLPivot.transform, new Vector3(0.12f, 0.07f, 0.16f), new Vector3(0f, -0.24f, 0.02f), bootBlack);
+
+        // Right leg (hip pivot → knee pivot → boot)
+        var legRPivot = new GameObject("LegR");
+        legRPivot.transform.SetParent(root.transform, false);
+        legRPivot.transform.localPosition = new Vector3(0.1f, 0.42f, 0f);
+
+        MakeBlock("UpperLegR", legRPivot.transform, new Vector3(0.11f, 0.22f, 0.11f), new Vector3(0f, -0.1f, 0f), darkPants);
+
+        var kneeRPivot = new GameObject("KneeR");
+        kneeRPivot.transform.SetParent(legRPivot.transform, false);
+        kneeRPivot.transform.localPosition = new Vector3(0f, -0.22f, 0f);
+
+        MakeBlock("LowerLegR", kneeRPivot.transform, new Vector3(0.1f, 0.2f, 0.1f), new Vector3(0f, -0.1f, 0f), darkPants);
+        MakeBlock("BootR", kneeRPivot.transform, new Vector3(0.12f, 0.07f, 0.16f), new Vector3(0f, -0.24f, 0.02f), bootBlack);
 
         return root.transform;
-    }
-
-    private static void DemonArm(Transform r, float x, Color sd, Color sm, Color cb, string s)
-    {
-        var a = new GameObject("Arm" + s);
-        a.transform.SetParent(r, false);
-        a.transform.localPosition = new Vector3(x, 0.68f, 0f);
-        MakeBlock("UA" + s, a.transform, new Vector3(0.08f, 0.18f, 0.08f), new Vector3(0f, -0.08f, 0f), sd);
-        MakeBlock("LA" + s, a.transform, new Vector3(0.07f, 0.16f, 0.07f), new Vector3(0f, -0.26f, 0f), sd);
-        MakeBlock("Ha" + s, a.transform, new Vector3(0.08f, 0.08f, 0.06f), new Vector3(0f, -0.36f, 0f), sm);
-        MakeBlock("C1" + s, a.transform, new Vector3(0.02f, 0.07f, 0.02f), new Vector3(-0.03f, -0.42f, 0.02f), cb);
-        MakeBlock("C2" + s, a.transform, new Vector3(0.02f, 0.07f, 0.02f), new Vector3(0f, -0.42f, 0.02f),     cb);
-        MakeBlock("C3" + s, a.transform, new Vector3(0.02f, 0.07f, 0.02f), new Vector3(0.03f, -0.42f, 0.02f),  cb);
-    }
-
-    private static void DemonLeg(Transform r, float x, Color sd, Color cb, string s)
-    {
-        var h = new GameObject("Leg" + s);
-        h.transform.SetParent(r, false);
-        h.transform.localPosition = new Vector3(x, 0.4f, 0f);
-        MakeBlock("UL" + s, h.transform, new Vector3(0.09f, 0.2f, 0.09f), new Vector3(0f, -0.09f, 0f), sd);
-        var k = new GameObject("Knee" + s);
-        k.transform.SetParent(h.transform, false);
-        k.transform.localPosition = new Vector3(0f, -0.2f, 0f);
-        MakeBlock("LL" + s, k.transform, new Vector3(0.08f, 0.16f, 0.08f), new Vector3(0f, -0.08f, 0f), sd);
-        MakeBlock("Hf" + s, k.transform, new Vector3(0.1f, 0.05f, 0.12f),  new Vector3(0f, -0.2f, 0.02f), cb);
     }
 
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
