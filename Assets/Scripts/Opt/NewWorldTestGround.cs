@@ -140,6 +140,19 @@ public sealed class NewWorldTestGround : MonoBehaviour
     }
 
     /// <summary>
+    /// Re-apply the bag grants (tool kit, every catalog weapon, ritual stones) after a new game
+    /// clears the ToolManager inventory. At bootstrap <see cref="SpawnBench"/> runs during Awake,
+    /// but <see cref="GameManager.StartNewGame"/> clears the bag right after, so the grants above
+    /// alone would never be visible — call this from the new-game entry points post-clear.
+    /// </summary>
+    public void GrantBenchBag()
+    {
+        if (EnableTools) SpawnToolKit();
+        if (EnableWeapons) SpawnAllWeapons();
+        if (EnableRaces) GrantRaceAccess();
+    }
+
+    /// <summary>
     /// Snaps the floating platform to sit just above the streamed terrain so the
     /// platform collider never overlaps the player spawn point. Samples the height
     /// over the whole platform footprint at tile resolution (1m, matching the world

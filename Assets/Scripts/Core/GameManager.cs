@@ -374,6 +374,10 @@ public class GameManager : MonoSingleton<GameManager>
         if (ToolManager != null)
             ToolManager.ClearInventory();
 
+        // The test bench fills the bag during bootstrap Awake, which this clear wipes —
+        // re-grant after so the granted weapons/tool kit survive into the new session.
+        Object.FindAnyObjectByType<NewWorldTestGround>()?.GrantBenchBag();
+
         if (WifeNPC.Instance != null)
             WifeNPC.Instance.ResetForNewGame();
 
@@ -425,6 +429,10 @@ public class GameManager : MonoSingleton<GameManager>
 
         if (ToolManager != null)
             ToolManager.ClearInventory();
+
+        // The test bench fills the bag during bootstrap Awake, which this clear wipes —
+        // re-grant after so the granted weapons/tool kit survive into the new session.
+        Object.FindAnyObjectByType<NewWorldTestGround>()?.GrantBenchBag();
 
         if (WifeNPC.Instance != null)
             WifeNPC.Instance.ResetForNewGame();
