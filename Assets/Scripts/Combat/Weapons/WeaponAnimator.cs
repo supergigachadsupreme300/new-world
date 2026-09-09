@@ -398,9 +398,10 @@ public sealed class WeaponAnimator : MonoBehaviour
         if (_def.Accent == K_Dual && _offHand) t = Mathf.Repeat(t + 0.5f, 1f);
 
         float h = _heavy ? 1.15f : 1f;
+        float m = _offHand ? -1f : 1f;
 
         PoseKey k = Sample(_set, t);
-        Vector3 sh = new Vector3(ClampShX(k.shX), k.shY, k.shZ) * h;
+        Vector3 sh = new Vector3(ClampShX(k.shX), k.shY * m, k.shZ * m) * h;
         float el = k.elX * h;
 
         // Blade lead: rotate the weapon INTO the swing so the tip leads the arc instead of being
@@ -412,7 +413,7 @@ public sealed class WeaponAnimator : MonoBehaviour
         BladeLead lead = LeadScale();
         float snap = _strikeDir * lead.snapDeg * h * Mathf.Exp(-Mathf.Abs(t - _impactT) * 8f)
             * (_def.SlashLead && _sweepScale > 0f ? 0.3f : 1f);
-        Vector3 leadEuler = new Vector3(k.shX * lead.pitch, k.shY * lead.yaw + snap, 0f);
+        Vector3 leadEuler = new Vector3(k.shX * lead.pitch, (k.shY * lead.yaw + snap) * m, 0f);
 
         // Side-slash two-stage lead: the blade pitches tip-DOWN ~90° during the windup, then turns
         // ~90° SIDEWAYS into the swing's travel, and HOLDS that pose straight from the hand through
@@ -424,7 +425,7 @@ public sealed class WeaponAnimator : MonoBehaviour
             float down = hold * Ease(Seg(t, 0.05f, 0.35f));
             float side = hold * Ease(Seg(t, 0.30f, 0.50f));
             leadEuler.x += -SlashDownDeg * down;
-            leadEuler.y += _strikeDir * SlashYawFlip * SlashYawDeg * side;
+            leadEuler.y += _strikeDir * SlashYawFlip * SlashYawDeg * side * m;
         }
 
         // Impact pulse: right after the strike the arm rebounds briefly (a recoil kick opposite the
@@ -434,7 +435,7 @@ public sealed class WeaponAnimator : MonoBehaviour
             : 0f;
         if (_pulse > 0f)
         {
-            sh += new Vector3(0f, -_strikeDir * 6f * h * _pulse, 0f);
+            sh += new Vector3(0f, -_strikeDir * 6f * h * _pulse * m, 0f);
             el += 4f * h * _pulse;
         }
 
@@ -448,7 +449,7 @@ public sealed class WeaponAnimator : MonoBehaviour
             case OffArm.Mirror:
                 // Two-hand grip: the support arm mirrors the swing (yaw flipped side-to-side).
                 if (_otherShoulder != null)
-                    _otherShoulder.localRotation = _otherShBase * Quaternion.Euler(ClampShX(k.shX) * h, -k.shY * h, k.shZ * h);
+                    _otherShoulder.localRotation = _otherShBase * Quaternion.Euler(ClampShX(k.shX) * h, -k.shY * h * m, k.shZ * h * m);
                 if (_otherElbow != null)
                     _otherElbow.localRotation = _otherElBase * Quaternion.Euler(el, 0f, 0f);
                 break;
@@ -456,7 +457,7 @@ public sealed class WeaponAnimator : MonoBehaviour
             case OffArm.Asym:
                 PoseKey ok = Sample(_otherSet, t);
                 if (_otherShoulder != null)
-                    _otherShoulder.localRotation = _otherShBase * Quaternion.Euler(ClampShX(ok.shX) * h, ok.shY * h, ok.shZ * h);
+                    _otherShoulder.localRotation = _otherShBase * Quaternion.Euler(ClampShX(ok.shX) * h, ok.shY * h * m, ok.shZ * h * m);
                 if (_otherElbow != null)
                     _otherElbow.localRotation = _otherElBase * Quaternion.Euler(ok.elX * h, 0f, 0f);
                 break;
@@ -464,6 +465,7 @@ public sealed class WeaponAnimator : MonoBehaviour
 
         // The weapon rides the hand; only magic focuses add a small local accent.
         ApplyAccent(_def.Accent, t, out Vector3 aEuler, out Vector3 aPos, out float aScale);
+        aEuler.y *= m; aEuler.z *= m; aPos.x *= m;
         transform.localRotation = Quaternion.Euler(_baseEuler + aEuler + leadEuler);
         transform.localPosition = _basePos + aPos + new Vector3(0f, 0f, 0.02f * h * _pulse);
         transform.localScale = _baseScale * aScale;
@@ -613,6 +615,8 @@ public sealed class WeaponAnimator : MonoBehaviour
         {
             float s = 0.5f - 0.5f * Mathf.Cos(t * 0.9f);
             ApplyAccent(_def.Accent, 0.35f + 0.35f * s, out Vector3 aEuler, out Vector3 aPos, out float aScale);
+            float sm = _offHand ? -1f : 1f;
+            aEuler.y *= sm; aEuler.z *= sm; aPos.x *= sm;
             transform.localRotation = Quaternion.Euler(_baseEuler + aEuler);
             transform.localPosition = _basePos + aPos;
             transform.localScale = _baseScale * aScale;

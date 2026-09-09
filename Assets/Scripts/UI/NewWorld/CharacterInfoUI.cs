@@ -1407,6 +1407,31 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var weapon = WeaponCatalog.Find(weaponId);
         if (weapon == null) return;
 
+        // Single-instance rule: the same weapon id can never occupy both hands (two rigs would be
+        // one item duplicated onto the body, and every unequip would then lose a copy). Already on
+        // the drop hand → keep the single rig; on the OTHER hand → move it (drop that rig first).
+        bool targetHolds = slot == EquipSlot.LeftHand
+            ? RigHolds(combat.LeftHand, weaponId)
+            : RigHolds(combat.RightHand, weaponId);
+        if (targetHolds)
+        {
+            _selectedWeaponId = "";
+            RefreshInventoryUi();
+            return;
+        }
+        if (slot == EquipSlot.LeftHand && RigHolds(combat.RightHand, weaponId))
+        {
+            Destroy(combat.RightHand);
+            combat.RightHand = null;
+            combat.SetTwoHand(false);
+        }
+        else if (slot == EquipSlot.RightHand && RigHolds(combat.LeftHand, weaponId))
+        {
+            Destroy(combat.LeftHand);
+            combat.LeftHand = null;
+            combat.SetTwoHand(false);
+        }
+
         // Never lose the currently equipped weapon: anything that's about to be cleared by
         // EquipInto goes back into the bag first. If the bag can't hold it, abort the swap so
         // nothing disappears (re-equipping the same id on the other hand skips this).

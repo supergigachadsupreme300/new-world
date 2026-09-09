@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -46,6 +47,7 @@ public class PlayerController : MonoBehaviour
     private float _pitch;
     private PlayerSitController _sitController;
     private GameObject _playerModelInstance;
+    private readonly List<string> _pendingAutoRig = new List<string>();
     private float _waterSpeedMul = 1f;
     private bool _waterAllowJump = true;
     private float _staminaRegenModifierUntil = 0f;
@@ -655,11 +657,24 @@ public class PlayerController : MonoBehaviour
                           MobileInputController.Consume("use"));
         if (FightingMode)
         {
-            // Player model reloads (gender change etc.) destroy the old hand bones and any
-            // rigged weapon; re-equip the fighting weapon whenever the hands are empty.
-            var combat = GetComponent<CombatController>();
-            if (combat != null && combat.RightHand == null && combat.LeftHand == null)
-                TryAutoRigWeapon();
+            // Re-rig ONLY after a model reload (gender/race change) destroyed the hand rigs, and
+            // only for the weapons that were equipped before the rebuild. An intentional drag-out /
+            // unequip never gets resurrected.
+            if (_pendingAutoRig.Count > 0)
+            {
+                var combat = GetComponent<CombatController>();
+                if (combat != null && combat.RightHand == null && combat.LeftHand == null)
+                {
+                    foreach (var id in _pendingAutoRig)
+                    {
+                        var weapon = WeaponCatalog.Find(id);
+                        if (weapon != null)
+                            WeaponRigBuilder.EquipInto(gameObject, weapon);
+                    }
+                    WeaponRigBuilder.ApplyPose(gameObject, draw: true, instant: true);
+                }
+                _pendingAutoRig.Clear();
+            }
         }
         if (!dialogBlocked && leftClick && !MagicWheelUI.IsOpen)
         {
@@ -1001,6 +1016,19 @@ public class PlayerController : MonoBehaviour
         var existing = transform.Find("PlayerModel");
         if (existing != null)
             Destroy(existing.gameObject);
+
+        // Remember what was equipped so a model reload (gender/race change) can re-rig the same
+        // weapons once the fresh hands exist — but never auto-equips weapons the player unequipped.
+        _pendingAutoRig.Clear();
+        var combat = GetComponent<CombatController>();
+        if (combat != null)
+        {
+            var rh = combat.RightHand != null ? combat.RightHand.GetComponent<WeaponRigHost>() : null;
+            if (rh != null && rh.Data != null) _pendingAutoRig.Add(rh.Data.id);
+            var lh = combat.LeftHand != null ? combat.LeftHand.GetComponent<WeaponRigHost>() : null;
+            if (lh != null && lh.Data != null && !_pendingAutoRig.Contains(lh.Data.id))
+                _pendingAutoRig.Add(lh.Data.id);
+        }
 
         _playerModelInstance = MapBuilder.BuildPlayerModel(transform);
 
