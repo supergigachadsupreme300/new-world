@@ -55,7 +55,7 @@ public class CombatController : MonoBehaviour
     private float _bufferTimer;
     private bool _parryWindowOpen;
     private int _comboCount;
-    private float _lastAttackTime = float.MinValue;
+    private float _lastAttackEndTime = float.MinValue;
     private const int MaxCombo = 3;
 
     /// <summary>Pause (seconds) without a light attack that resets the combo chain to swing one.</summary>
@@ -176,8 +176,9 @@ public class CombatController : MonoBehaviour
 
         if (!_stamina.TrySpend(LightAttackCost)) return;
 
-        // Combo chain: a pause longer than ComboResetTime restarts at swing one.
-        if (Time.time - _lastAttackTime > ComboResetTime) _comboCount = 0;
+        // Combo chain: a pause longer than ComboResetTime restarts at swing one. Measured from the
+        // END of the previous swing (not its start) so long swing locks don't kill the chain.
+        if (Time.time - _lastAttackEndTime > ComboResetTime) _comboCount = 0;
 
         CurrentState = CombatState.LightAttack;
         float anim = NotifyWeaponAnimators(false, _comboCount);
@@ -194,7 +195,6 @@ public class CombatController : MonoBehaviour
         };
         behavior.BeginAttack(cmd);
         OnAttackStarted?.Invoke(behavior);
-        _lastAttackTime = Time.time;
     }
 
     /// <summary>Trigger a heavy attack (hold attack button).</summary>
@@ -223,7 +223,6 @@ public class CombatController : MonoBehaviour
         };
         behavior.BeginAttack(cmd);
         OnAttackStarted?.Invoke(behavior);
-        _lastAttackTime = Time.time;
     }
 
     /// <summary>Trigger a dodge roll.</summary>
@@ -303,6 +302,7 @@ public class CombatController : MonoBehaviour
                 if (_actionTimer <= 0f)
                 {
                     CurrentState = CombatState.Idle;
+                    _lastAttackEndTime = Time.time;
                     _comboCount++;
                     if (_comboCount > MaxCombo) _comboCount = 0;
                     OnStateChanged?.Invoke(CurrentState);

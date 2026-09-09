@@ -66,12 +66,14 @@ public sealed class WeaponAnimator : MonoBehaviour
         public float t;                 // normalized time 0..1
         public float shX, shY, shZ;     // owner shoulder pitch / yaw / roll (additive)
         public float elX;               // owner elbow flex (additive)
+        public float wrX, wrY;          // owner wrist flex / roll (additive)
 
-        public PoseKey(float t, float shX, float shY, float shZ, float elX)
+        public PoseKey(float t, float shX, float shY, float shZ, float elX, float wrX = 0f, float wrY = 0f)
         {
             this.t = t;
             this.shX = shX; this.shY = shY; this.shZ = shZ;
             this.elX = elX;
+            this.wrX = wrX; this.wrY = wrY;
         }
     }
 
@@ -103,6 +105,7 @@ public sealed class WeaponAnimator : MonoBehaviour
 
     // ── Pose-track authoring helpers ───────────────────────────────────────
     private static PoseKey K(float t, float shX, float shY, float shZ, float elX) => new PoseKey(t, shX, shY, shZ, elX);
+    private static PoseKey K(float t, float shX, float shY, float shZ, float elX, float wrX, float wrY) => new PoseKey(t, shX, shY, shZ, elX, wrX, wrY);
     private static PoseKey[] T(params PoseKey[] keys) => keys;
     private static PoseKey[][] V(params PoseKey[][] sets) => sets;
 
@@ -112,10 +115,10 @@ public sealed class WeaponAnimator : MonoBehaviour
             // iron_sword — balanced 1H blade: slash L→R, slash R→L, overhead chop, forward thrust.
             {
                 "iron_sword", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, -55f, 0f, -15f), K(0.62f, -80f, 45f, 0f, -5f), K(1f, 0f, 0f, 0f, 0f)),   // 1. wind left/back → slash across to the right
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, 55f, 0f, -15f), K(0.62f, -80f, -45f, 0f, -5f), K(1f, 0f, 0f, 0f, 0f)),  // 2. wind right/back → slash across to the left
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -150f, 0f, 0f, 10f), K(0.68f, -65f, 0f, 0f, 6f), K(1f, 0f, 0f, 0f, 0f)),     // 3. overhead chop
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.38f, -88f, -12f, 0f, -42f), K(0.58f, -62f, -8f, 0f, -4f), K(1f, 0f, 0f, 0f, 0f))), // 4. forward thrust (elbow extends)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, -55f, 0f, -15f, 45f, -90f), K(0.62f, -80f, 45f, 0f, -5f, 95f, -90f), K(1f, 0f, 0f, 0f, 0f)),   // 1. wind left/back → slash across right, wrist rolls into the cut
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, 55f, 0f, -15f, 5f, 14f), K(0.62f, -80f, -45f, 0f, -5f, 0f, -18f), K(1f, 0f, 0f, 0f, 0f)),  // 2. wind right/back → slash across left, wrist rolls through
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -150f, 0f, 0f, 10f, 8f, 0f), K(0.68f, -65f, 0f, 0f, 6f, -6f, 12f), K(1f, 0f, 0f, 0f, 0f)),     // 3. overhead chop — wrist flexes into the swing then settles
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.38f, -88f, -12f, 0f, -42f, 10f, 6f), K(0.58f, -62f, -8f, 0f, -4f, 2f, 0f), K(1f, 0f, 0f, 0f, 0f))), // 4. forward thrust — wrist flattens as the arm extends
                     null, K_None, 0.30f, 0.50f, true)
             },
 
@@ -284,8 +287,10 @@ public sealed class WeaponAnimator : MonoBehaviour
     private Vector3 _baseScale;
     private Quaternion _ownerShBase;
     private Quaternion _ownerElBase;
+    private Quaternion _ownerWrBase;
     private Quaternion _otherShBase;
     private Quaternion _otherElBase;
+    private Quaternion _otherWrBase;
 
     private bool _active;
     private bool _heavy;
@@ -296,8 +301,10 @@ public sealed class WeaponAnimator : MonoBehaviour
     private PlayerAnimator _playerAnim;
     private Transform _ownerShoulder;
     private Transform _ownerElbow;
+    private Transform _ownerWrist;
     private Transform _otherShoulder;
     private Transform _otherElbow;
+    private Transform _otherWrist;
 
     // Ready-stance sway — keeps the drawn weapon alive while the player stands still in combat.
     private WeaponStowAnimator _stow;
@@ -362,8 +369,10 @@ public sealed class WeaponAnimator : MonoBehaviour
 
         _ownerShBase = _ownerShoulder != null ? _ownerShoulder.localRotation : Quaternion.identity;
         _ownerElBase = _ownerElbow != null ? _ownerElbow.localRotation : Quaternion.identity;
+        _ownerWrBase = _ownerWrist != null ? _ownerWrist.localRotation : Quaternion.identity;
         _otherShBase = _otherShoulder != null ? _otherShoulder.localRotation : Quaternion.identity;
         _otherElBase = _otherElbow != null ? _otherElbow.localRotation : Quaternion.identity;
+        _otherWrBase = _otherWrist != null ? _otherWrist.localRotation : Quaternion.identity;
 
         if (_playerAnim != null) _playerAnim.AcquireArms();
 
@@ -428,6 +437,12 @@ public sealed class WeaponAnimator : MonoBehaviour
         if (_ownerElbow != null)
             _ownerElbow.localRotation = _ownerElBase * Quaternion.Euler(el, 0f, 0f);
 
+        // Wrist rotation: flex (wrX) bends the palm, roll (wrY) twists the blade in hand. The
+        // roll mirrors on the left hand so both hands twist the blade the same way.
+        Vector3 wr = new Vector3(k.wrX, k.wrY * m, 0f) * h;
+        if (_ownerWrist != null)
+            _ownerWrist.localRotation = _ownerWrBase * Quaternion.Euler(wr);
+
         switch (_def.Mode)
         {
             case OffArm.Mirror:
@@ -436,6 +451,8 @@ public sealed class WeaponAnimator : MonoBehaviour
                     _otherShoulder.localRotation = _otherShBase * Quaternion.Euler(ClampShX(k.shX) * h, -k.shY * h * m, k.shZ * h * m);
                 if (_otherElbow != null)
                     _otherElbow.localRotation = _otherElBase * Quaternion.Euler(el, 0f, 0f);
+                if (_otherWrist != null)
+                    _otherWrist.localRotation = _otherWrBase * Quaternion.Euler(-wr);
                 break;
 
             case OffArm.Asym:
@@ -444,6 +461,8 @@ public sealed class WeaponAnimator : MonoBehaviour
                     _otherShoulder.localRotation = _otherShBase * Quaternion.Euler(ClampShX(ok.shX) * h, ok.shY * h * m, ok.shZ * h * m);
                 if (_otherElbow != null)
                     _otherElbow.localRotation = _otherElBase * Quaternion.Euler(ok.elX * h, 0f, 0f);
+                if (_otherWrist != null)
+                    _otherWrist.localRotation = _otherWrBase * Quaternion.Euler(ok.wrX * h, ok.wrY * h * m, 0f);
                 break;
         }
 
@@ -466,8 +485,10 @@ public sealed class WeaponAnimator : MonoBehaviour
         transform.localScale = _baseScale;
         if (_ownerShoulder != null) _ownerShoulder.localRotation = _ownerShBase;
         if (_ownerElbow != null) _ownerElbow.localRotation = _ownerElBase;
+        if (_ownerWrist != null) _ownerWrist.localRotation = _ownerWrBase;
         if (_otherShoulder != null) _otherShoulder.localRotation = _otherShBase;
         if (_otherElbow != null) _otherElbow.localRotation = _otherElBase;
+        if (_otherWrist != null) _otherWrist.localRotation = _otherWrBase;
         if (_playerAnim != null) _playerAnim.ReleaseArms();
     }
 
@@ -498,6 +519,19 @@ public sealed class WeaponAnimator : MonoBehaviour
         return null;
     }
 
+    /// <summary>Recursively find a descendant transform by exact name (arm chains vary per model).</summary>
+    private static Transform FindNamedDescendant(Transform root, string name)
+    {
+        if (root == null) return null;
+        if (root.name == name) return root;
+        for (int i = 0; i < root.childCount; i++)
+        {
+            var t = FindNamedDescendant(root.GetChild(i), name);
+            if (t != null) return t;
+        }
+        return null;
+    }
+
     private void OnDisable()
     {
         StopSway();
@@ -514,10 +548,15 @@ public sealed class WeaponAnimator : MonoBehaviour
         if (_playerAnim == null) _playerAnim = GetComponentInParent<PlayerAnimator>();
         var parent = transform.parent;
         _offHand = parent != null && parent.name == "HandL";
+
+        // The owner wrist is the Hand bone the rig hangs from; the support wrist is the opposite
+        // hand, found below the other shoulder (Hand → Elbow → Shoulder chain varies per model).
+        _ownerWrist = parent;
         _ownerShoulder = FindOwnerShoulder(parent);
         _ownerElbow = FindOwnerElbow(parent);
         _otherShoulder = _playerAnim != null ? (_offHand ? _playerAnim.ShoulderR : _playerAnim.ShoulderL) : null;
         _otherElbow = _playerAnim != null ? (_offHand ? _playerAnim.ElbowR : _playerAnim.ElbowL) : null;
+        _otherWrist = FindNamedDescendant(_otherShoulder, _offHand ? "HandR" : "HandL");
     }
 
     /// <summary>True when the sway can safely own the arms: drawn, transition settled, player standing.</summary>
@@ -719,7 +758,9 @@ public sealed class WeaponAnimator : MonoBehaviour
                     Mathf.Lerp(track[i].shX, track[i + 1].shX, u),
                     Mathf.Lerp(track[i].shY, track[i + 1].shY, u),
                     Mathf.Lerp(track[i].shZ, track[i + 1].shZ, u),
-                    Mathf.Lerp(track[i].elX, track[i + 1].elX, u));
+                    Mathf.Lerp(track[i].elX, track[i + 1].elX, u),
+                    Mathf.Lerp(track[i].wrX, track[i + 1].wrX, u),
+                    Mathf.Lerp(track[i].wrY, track[i + 1].wrY, u));
             }
         }
         return track[track.Length - 1];
