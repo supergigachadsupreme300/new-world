@@ -148,7 +148,7 @@ public static class WeaponRigBuilder
     /// rather than up the torso/back, while keeping the attack-swing axes valid. ~20-30° balances
     /// the "in front" look against the long tip clipping the first-person view / surroundings.
     /// </summary>
-    public const float WeaponHoldForwardLean = 25f;
+    public const float WeaponHoldForwardLean = 0f;
 
     /// <summary>
     /// Uniform scale applied while a weapon is stowed on the body (waist/back). Stow anchors hang
@@ -158,7 +158,7 @@ public static class WeaponRigBuilder
     public const float StowScale = 0.8f;
 
     /// <summary>Sideways cant (°) for the drawn melee blade. 0 = blade upright next to the hand.</summary>
-    public const float DrawHoldYaw = 0f;
+    public const float DrawHoldYaw = 90f;
 
     /// <summary>Model-space height of the grip (handle) used as the draw-rotation pivot.</summary>
     public const float HandlePivotY = 0.15f;
@@ -221,7 +221,7 @@ public static class WeaponRigBuilder
         {
             // Upright blade (no sideways yaw), rotated about the handle pivot rather than the rig
             // root so a bend stays anchored in the grip, and pushed slightly forward.
-            Quaternion rot = Quaternion.Euler(WeaponHoldForwardLean, DrawHoldYaw, 0f);
+            Quaternion rot = Quaternion.Euler(WeaponHoldForwardLean, DrawHoldYaw, 30f);
             Vector3 pivot = new Vector3(0f, HandlePivotY, 0f);
             Vector3 basePos = new Vector3(side * 0.1f, -1.0f, DrawForward);
             Vector3 pos = basePos - (rot * pivot) + pivot;
@@ -354,7 +354,7 @@ public static class WeaponRigBuilder
         // Back carry: grip at the shoulder. Melee blades hang upside down but canted diagonally across the
         // back (tip down-and-out, not straight down); staffs/bows keep a gentle upright tilt.
         if (w.Category == WeaponCategory.Melee)
-            return (new Vector3(0f, 0.28f, -0.2f), Quaternion.Euler(StowBladePitch, 0f, StowBladeFlip + StowBladeCant));
+            return (new Vector3(-0.2f, 0.45f, -0.2f), Quaternion.Euler(StowBladePitch, 0f, StowBladeFlip + StowBladeCant));
         return (new Vector3(0f, 0.32f, -0.2f), Quaternion.Euler(StowStickLean, 0f, 0f));
     }
 
