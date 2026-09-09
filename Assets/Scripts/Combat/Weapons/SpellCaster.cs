@@ -179,9 +179,36 @@ public class SpellCaster : MonoBehaviour
                 return FireProjectile(totalPower, spell, pos, fwd);
             case SpellDelivery.Zone:
                 return ResolveZone(totalPower, spell, pos);
+            case SpellDelivery.Vortex:
+                return SpawnVortex(totalPower, spell, pos, fwd);
             default:
                 return new DamageResult();
         }
+    }
+
+    /// <summary>
+    /// Spawn a persistent <see cref="WindVortex"/> at the cast location. The vortex ticks
+    /// the spell's damage over its lifetime and drags enemies toward its center. Positioned
+    /// by raycasting along the cast direction up to <see cref="SpellData.Range"/>, then
+    /// dropped to the ground so the funnel sits on terrain.
+    /// </summary>
+    private DamageResult SpawnVortex(float power, SpellData spell, Vector3 pos, Vector3 fwd)
+    {
+        Vector3 at = pos;
+        if (Physics.Raycast(pos, fwd, out RaycastHit hit, Mathf.Max(spell.Range, 0.1f)))
+            at = hit.point;
+        else
+            at = pos + fwd * Mathf.Max(spell.Range, 0f);
+
+        Vector3 ground = at;
+        if (Physics.Raycast(at + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))
+            ground = groundHit.point;
+
+        var go = new GameObject("WindVortex");
+        go.transform.position = ground;
+        go.AddComponent<WindVortex>().Initialize(this, spell, power);
+
+        return new DamageResult { HitTargets = true };
     }
 
     private DamageResult ResolveDirect(float power, SpellData spell, Vector3 pos, Vector3 fwd)
@@ -253,6 +280,8 @@ public class SpellCaster : MonoBehaviour
             case DamageType.Dark:
                 return Orb("DarkBolt", PrimitiveType.Sphere, Vector3.one * 0.26f, shader, color,
                     OrbFx.Mode.Wisp);
+            case DamageType.Wind:
+                return Swirl("WindBlade", shader, color);
             default:
                 return Orb("Orb", PrimitiveType.Sphere, Vector3.one * 0.22f, shader, color,
                     OrbFx.Mode.Plain);
@@ -314,6 +343,30 @@ public class SpellCaster : MonoBehaviour
         return spark;
     }
 
+    /// <summary>Three stacked spinning flat rings forming a mini wind funnel.</summary>
+    private static Transform Swirl(string name, Shader shader, Color color)
+    {
+        var swirl = new GameObject(name).transform;
+        float dia = 0.34f;
+        for (int i = 0; i < 3; i++)
+        {
+            var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            ring.name = "Ring" + i;
+            Collider col = ring.GetComponent<Collider>();
+            if (col != null)
+                Destroy(col);
+            ring.transform.SetParent(swirl, false);
+            float t = (i - 1) * 0.16f;
+            ring.transform.localPosition = new Vector3(0f, t, 0f);
+            float size = Mathf.Lerp(dia, dia * 0.6f, Mathf.Abs(t) / 0.16f);
+            ring.transform.localScale = new Vector3(size, 0.03f, size);
+            ring.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
+        }
+
+        swirl.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Swirl;
+        return swirl;
+    }
+
     private static float EmissionRate(DamageType type)
     {
         switch (type)
@@ -322,6 +375,7 @@ public class SpellCaster : MonoBehaviour
             case DamageType.Ice: return 45f;
             case DamageType.Lightning: return 120f;
             case DamageType.Dark: return 30f;
+            case DamageType.Wind: return 40f;
             default: return 60f;
         }
     }
@@ -334,6 +388,7 @@ public class SpellCaster : MonoBehaviour
             case DamageType.Ice: return 0.70f;
             case DamageType.Lightning: return 0.25f;
             case DamageType.Dark: return 0.65f;
+            case DamageType.Wind: return 0.80f;
             default: return 0.50f;
         }
     }
@@ -346,6 +401,7 @@ public class SpellCaster : MonoBehaviour
             case DamageType.Ice: return 2f;
             case DamageType.Lightning: return 6f;
             case DamageType.Dark: return 1.5f;
+            case DamageType.Wind: return 1.5f;
             default: return 3f;
         }
     }
@@ -358,6 +414,7 @@ public class SpellCaster : MonoBehaviour
             case DamageType.Ice: return 0.06f;
             case DamageType.Lightning: return 0.04f;
             case DamageType.Dark: return 0.14f;
+            case DamageType.Wind: return 0.18f;
             default: return 0.08f;
         }
     }
@@ -434,7 +491,8 @@ public class SpellCaster : MonoBehaviour
             Ember,  // fast irregular flicker
             Shard,  // slight breathe + drill spin
             Bolt,   // fast crackle pulse
-            Wisp    // slow pulsing
+            Wisp,   // slow pulsing
+            Swirl   // gentle pulse + fast funnel spin
         }
 
         public Mode Pulse;
@@ -465,6 +523,10 @@ public class SpellCaster : MonoBehaviour
                     break;
                 case Mode.Wisp:
                     pulse = 1f + 0.10f * Mathf.Sin(t * 2.6f);
+                    break;
+                case Mode.Swirl:
+                    pulse = 1f + 0.10f * Mathf.Sin(t * 5.6f);
+                    spin = 220f;
                     break;
                 default:
                     pulse = 1f + 0.06f * Mathf.Sin(t * 3.4f);

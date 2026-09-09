@@ -426,7 +426,7 @@ A spell is a data asset carrying:
 - `DamageType` (one of the 10 damage types, §3.7) — or **none** for pure utility/heal spells
 - base power
 - **FP cost**, **cast time**, **cooldown**
-- range, area/radius, projectile vs instant vs self/zone
+- range, area/radius, delivery: projectile / instant / zone / **vortex** (persistent damage-zone, e.g. the Tornado wind spell)
 - cast animation reference
 - optional status-effect application (e.g., applies Burn/Frost; §3.7)
 
@@ -436,7 +436,7 @@ A spell is a data asset carrying:
 2. The weapon's magic mods — `MagicDamageMult`, `CastTimeMod`, `CooldownMod` — modulate the spell before resolution.
 3. `MagicWeaponBehavior.BeginAttack` routes the cast to `SpellCaster`.
 4. `SpellCaster` validates **FP** (`MaxFP` from Intelligence) and **cooldown**; if valid, begins the **cast time**.
-5. On cast completion, a `SpellEffect` spawns (projectile / instant / zone).
+5. On cast completion, a `SpellEffect` spawns (projectile / instant / zone) or a persistent **vortex** is summoned (e.g. `WindVortex` for Tornado).
 6. `DamageCalculator` resolves the spell with its `DamageType` against the target's equipment resistance; **Wisdom** scales spell power (`MagicAtkPower`), and `CooldownMult` from Intelligence shortens reuse.
 
 #### Spell Sources

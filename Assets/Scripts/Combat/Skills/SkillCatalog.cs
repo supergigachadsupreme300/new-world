@@ -2,7 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Runtime catalog of the 60 default skills (Phase 10) — 10 per <see cref="SkillType"/>.
+/// Runtime catalog of the 64 default skills (Phase 10) — 14 Magic (incl. the wind line),
+/// 10 per every other <see cref="SkillType"/>.
 /// Each skill composes shared effects (composition model): passive skills use a
 /// <see cref="StatBuffEffect"/> with a zero <see cref="Cost"/>; castables use
 /// <see cref="DamageZoneEffect"/> / <see cref="SpellCastEffect"/> / <see cref="WeaponSkillEffect"/>.
@@ -82,7 +83,8 @@ public static class SkillCatalog
     private static string[] P(params string[] ids) => ids;
 
     private static SpellCastEffect Spell(string spellId, string spellName, DamageType type,
-        float basePower, float fpCost, SpellDelivery delivery, float cooldown)
+        float basePower, float fpCost, SpellDelivery delivery, float cooldown,
+        float deliveryRange = 10f, float deliveryRadius = 1f, float castTime = 0.5f)
     {
         var spell = ScriptableObject.CreateInstance<SpellData>();
         spell.name = spellId;
@@ -91,9 +93,11 @@ public static class SkillCatalog
         spell.Type = type;
         spell.BasePower = basePower;
         spell.FpCost = fpCost;
-        spell.CastTime = 0.5f;
+        spell.CastTime = castTime;
         spell.Cooldown = cooldown;
         spell.Delivery = delivery;
+        spell.Range = deliveryRange;
+        spell.Radius = deliveryRadius;
         return new SpellCastEffect { Spell = spell };
     }
 
@@ -181,6 +185,25 @@ public static class SkillCatalog
             null, "Fire a shadow bolt.");
         Add(list, "magic_blizzard", "Blizzard", SkillType.Magic, false, Focus(28f), true, DamageType.Ice,
             Zone(3.4f, 26f, DamageType.Ice), P("magic_chain", "magic_frostbolt"), "A great frozen storm.");
+
+        // Wind line (§3.7 Wind): Gust → Wind Blade → Gale Force → Tornado. Tornado uses the
+        // Vortex delivery and leaks Wind damage + pulls enemies through WindVortex.
+        Add(list, "magic_gust", "Wind Gust", SkillType.Magic, false, Focus(12f), true, DamageType.Wind,
+            Spell("magic_gust_spell", "Wind Gust", DamageType.Wind, 14f, 12f, SpellDelivery.Zone, 3f,
+                deliveryRadius: 2.5f),
+            null, "A blast of wind that scatters nearby foes.");
+        Add(list, "magic_windblade", "Wind Blade", SkillType.Magic, false, Focus(15f), true, DamageType.Wind,
+            Spell("magic_windblade_spell", "Wind Blade", DamageType.Wind, 18f, 15f, SpellDelivery.Projectile, 4f,
+                deliveryRadius: 1.2f),
+            P("magic_gust"), "Hurl a razor-sharp blade of wind (requires Wind Gust).");
+        Add(list, "magic_gale", "Gale Force", SkillType.Magic, false, Focus(22f), true, DamageType.Wind,
+            Spell("magic_gale_spell", "Gale Force", DamageType.Wind, 24f, 22f, SpellDelivery.Zone, 6f,
+                deliveryRadius: 3.4f),
+            P("magic_windblade"), "Summon a towering storm of razor wind (requires Wind Blade).");
+        Add(list, "magic_tornado", "Tornado", SkillType.Magic, false, Focus(28f), true, DamageType.Wind,
+            Spell("magic_tornado_spell", "Tornado", DamageType.Wind, 16f, 28f, SpellDelivery.Vortex, 10f,
+                deliveryRange: 12f, deliveryRadius: 3f, castTime: 0.8f),
+            P("magic_gale"), "Summon a ravenous tornado that pulls foes in and shreds them (requires Gale Force).");
     }
 
     private static void BuildStealth(List<Skill> list)

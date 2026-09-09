@@ -8,7 +8,8 @@ public enum SpellDelivery
 {
     Instant = 0,
     Projectile = 1,
-    Zone = 2
+    Zone = 2,
+    Vortex = 3
 }
 
 /// <summary>
