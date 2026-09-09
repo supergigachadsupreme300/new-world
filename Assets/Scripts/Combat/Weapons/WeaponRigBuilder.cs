@@ -354,7 +354,8 @@ public static class WeaponRigBuilder
         // Back carry: grip at the shoulder. Melee blades hang upside down but canted diagonally across the
         // back (tip down-and-out, not straight down); staffs/bows keep a gentle upright tilt.
         if (w.Category == WeaponCategory.Melee)
-            return (new Vector3(-0.2f, 0.45f, -0.2f), Quaternion.Euler(StowBladePitch, 0f, StowBladeFlip + StowBladeCant));
+            return (new Vector3(isLeft ? 0.2f : -0.2f, 0.45f, -0.2f),
+                Quaternion.Euler(StowBladePitch, 0f, StowBladeFlip + (isLeft ? -StowBladeCant : StowBladeCant)));
         return (new Vector3(0f, 0.32f, -0.2f), Quaternion.Euler(StowStickLean, 0f, 0f));
     }
 
