@@ -382,7 +382,16 @@ public sealed class NewWorldTestGround : MonoBehaviour
         var inv = player.GetComponent<WeaponInventory>();
         if (inv == null)
             inv = player.gameObject.AddComponent<WeaponInventory>();
-        inv.EnsureOwned(WeaponCatalog.StarterWeaponId);
+
+        // Grant every catalog weapon into the player's inventory (owned list + bag copies) so
+        // each can be dragged onto the L. Hand / R. Hand slots from the Character Info sheet.
+        var tm = ToolManager.Instance;
+        foreach (var weapon in WeaponCatalog.All)
+        {
+            if (weapon == null) continue;
+            inv.EnsureOwned(weapon.id);
+            tm?.AddItem(weapon.id, 1);
+        }
 
         var starter = WeaponCatalog.Find(WeaponCatalog.StarterWeaponId);
         if (starter != null)
