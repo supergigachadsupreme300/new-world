@@ -23,6 +23,9 @@ public sealed class WeaponDragHandle : MonoBehaviour, IBeginDragHandler, IDragHa
     /// <summary>Weapon id currently being dragged, or null when idle.</summary>
     public static string DraggingWeaponId;
 
+    /// <summary>The hand slot a dragged equipped weapon was pulled from, or <c>(EquipSlot)(-1)</c>.</summary>
+    public static EquipSlot DraggingHandSlot = (EquipSlot)(-1);
+
     private GameObject _ghost;
     private RectTransform _ghostRect;
 
@@ -62,6 +65,7 @@ public sealed class WeaponDragHandle : MonoBehaviour, IBeginDragHandler, IDragHa
         if (string.IsNullOrEmpty(id)) return;
 
         DraggingWeaponId = id;
+        DraggingHandSlot = Slot;
         var canvas = FindTopCanvas();
         if (canvas == null) return;
 
@@ -108,6 +112,7 @@ public sealed class WeaponDragHandle : MonoBehaviour, IBeginDragHandler, IDragHa
         _ghost = null;
         _ghostRect = null;
         DraggingWeaponId = null;
+        DraggingHandSlot = (EquipSlot)(-1);
         CharacterInfoUI.Instance?.OnDragDropEnded();
     }
 }

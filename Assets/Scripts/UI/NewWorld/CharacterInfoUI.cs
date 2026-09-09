@@ -1407,9 +1407,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var weapon = WeaponCatalog.Find(weaponId);
         if (weapon == null) return;
 
-        // Single-instance rule: the same weapon id can never occupy both hands (two rigs would be
-        // one item duplicated onto the body, and every unequip would then lose a copy). Already on
-        // the drop hand → keep the single rig; on the OTHER hand → move it (drop that rig first).
+        // Dual-wield rule: the same weapon id CAN occupy both hands (one rig = one owned copy), but
+        // only when a spare copy still exists in the bag — RemoveItemAmount below consumes it.
+        // Without a spare (single owned sword / starter auto-equip), dropping onto the other hand
+        // MOVES it there (drop that rig first) so an item is never duplicated onto the body. Already
+        // on the drop hand → keep the rig in place.
         bool targetHolds = slot == EquipSlot.LeftHand
             ? RigHolds(combat.LeftHand, weaponId)
             : RigHolds(combat.RightHand, weaponId);
@@ -1419,17 +1421,26 @@ public sealed class CharacterInfoUI : MenuPanelBase
             RefreshInventoryUi();
             return;
         }
-        if (slot == EquipSlot.LeftHand && RigHolds(combat.RightHand, weaponId))
+        bool otherHolds = slot == EquipSlot.LeftHand
+            ? RigHolds(combat.RightHand, weaponId)
+            : RigHolds(combat.LeftHand, weaponId);
+        if (otherHolds)
         {
-            Destroy(combat.RightHand);
-            combat.RightHand = null;
-            combat.SetTwoHand(false);
-        }
-        else if (slot == EquipSlot.RightHand && RigHolds(combat.LeftHand, weaponId))
-        {
-            Destroy(combat.LeftHand);
-            combat.LeftHand = null;
-            combat.SetTwoHand(false);
+            var spareCopies = ToolManager.Instance != null ? ToolManager.Instance.CountItem(weaponId) : 0;
+            if (spareCopies < 1)
+            {
+                if (slot == EquipSlot.LeftHand)
+                {
+                    Destroy(combat.RightHand);
+                    combat.RightHand = null;
+                }
+                else
+                {
+                    Destroy(combat.LeftHand);
+                    combat.LeftHand = null;
+                }
+                combat.SetTwoHand(false);
+            }
         }
 
         // Never lose the currently equipped weapon: anything that's about to be cleared by
@@ -1478,9 +1489,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
     /// Remove <paramref name="weaponId"/> from the hands (single / two-hand / dual-wield mirrors)
     /// and return it to the backpack so equipment can be dragged back out of a slot.
     /// <paramref name="destSlot"/> is the specific sheet cell it was dropped onto (weapon lands
-    /// there instead of the first free slot).
+    /// there instead of the first free slot). <paramref name="sourceHand"/> is the hand slot the
+    /// drag started from — only that hand is unequipped (so a second identical weapon on the other
+    /// hand stays equipped); when absent, every hand holding the weapon is cleared.
     /// </summary>
-    public void UnequipWeapon(string weaponId, int destSlot = -1)
+    public void UnequipWeapon(string weaponId, int destSlot = -1, EquipSlot sourceHand = (EquipSlot)(-1))
     {
         if (string.IsNullOrEmpty(weaponId)) return;
         var combat = CombatOf();
@@ -1497,20 +1510,38 @@ public sealed class CharacterInfoUI : MenuPanelBase
             return;
         }
 
-        if (combat.RightHand != null && RigHolds(combat.RightHand, weaponId))
+        int removed = 0;
+        if ((int)sourceHand >= 0)
         {
-            Destroy(combat.RightHand);
-            combat.RightHand = null;
+            var handRig = sourceHand == EquipSlot.LeftHand ? combat.LeftHand : combat.RightHand;
+            if (handRig != null && RigHolds(handRig, weaponId))
+            {
+                Destroy(handRig);
+                if (sourceHand == EquipSlot.LeftHand) combat.LeftHand = null;
+                else combat.RightHand = null;
+                removed++;
+            }
         }
-        if (combat.LeftHand != null && RigHolds(combat.LeftHand, weaponId))
+        else
         {
-            Destroy(combat.LeftHand);
-            combat.LeftHand = null;
+            if (combat.RightHand != null && RigHolds(combat.RightHand, weaponId))
+            {
+                Destroy(combat.RightHand);
+                combat.RightHand = null;
+                removed++;
+            }
+            if (combat.LeftHand != null && RigHolds(combat.LeftHand, weaponId))
+            {
+                Destroy(combat.LeftHand);
+                combat.LeftHand = null;
+                removed++;
+            }
         }
+        if (removed <= 0) return;
 
         combat.SetTwoHand(false);
-        if (destSlot >= 0) tm?.PutItem(weaponId, 1, destSlot);
-        else tm?.AddItem(weaponId, 1);
+        if (destSlot >= 0) tm?.PutItem(weaponId, removed, destSlot);
+        else tm?.AddItem(weaponId, removed);
         RefreshInventoryUi();
     }
 

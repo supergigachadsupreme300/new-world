@@ -47,7 +47,7 @@ public class PlayerController : MonoBehaviour
     private float _pitch;
     private PlayerSitController _sitController;
     private GameObject _playerModelInstance;
-    private readonly List<string> _pendingAutoRig = new List<string>();
+    private readonly List<(string id, bool isLeft)> _pendingAutoRig = new List<(string id, bool isLeft)>();
     private float _waterSpeedMul = 1f;
     private bool _waterAllowJump = true;
     private float _staminaRegenModifierUntil = 0f;
@@ -665,11 +665,11 @@ public class PlayerController : MonoBehaviour
                 var combat = GetComponent<CombatController>();
                 if (combat != null && combat.RightHand == null && combat.LeftHand == null)
                 {
-                    foreach (var id in _pendingAutoRig)
+                    foreach (var pending in _pendingAutoRig)
                     {
-                        var weapon = WeaponCatalog.Find(id);
+                        var weapon = WeaponCatalog.Find(pending.id);
                         if (weapon != null)
-                            WeaponRigBuilder.EquipInto(gameObject, weapon);
+                            WeaponRigBuilder.EquipInto(gameObject, weapon, pending.isLeft);
                     }
                     WeaponRigBuilder.ApplyPose(gameObject, draw: true, instant: true);
                 }
@@ -1024,10 +1024,9 @@ public class PlayerController : MonoBehaviour
         if (combat != null)
         {
             var rh = combat.RightHand != null ? combat.RightHand.GetComponent<WeaponRigHost>() : null;
-            if (rh != null && rh.Data != null) _pendingAutoRig.Add(rh.Data.id);
+            if (rh != null && rh.Data != null) _pendingAutoRig.Add((rh.Data.id, false));
             var lh = combat.LeftHand != null ? combat.LeftHand.GetComponent<WeaponRigHost>() : null;
-            if (lh != null && lh.Data != null && !_pendingAutoRig.Contains(lh.Data.id))
-                _pendingAutoRig.Add(lh.Data.id);
+            if (lh != null && lh.Data != null) _pendingAutoRig.Add((lh.Data.id, true));
         }
 
         _playerModelInstance = MapBuilder.BuildPlayerModel(transform);

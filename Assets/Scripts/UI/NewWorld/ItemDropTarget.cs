@@ -17,7 +17,7 @@ public sealed class ItemDropTarget : MonoBehaviour, IDropHandler
         string unequipId = WeaponDragHandle.DraggingWeaponId;
         if (!string.IsNullOrEmpty(unequipId))
         {
-            CharacterInfoUI.Instance?.UnequipWeapon(unequipId, Slot);
+            CharacterInfoUI.Instance?.UnequipWeapon(unequipId, Slot, WeaponDragHandle.DraggingHandSlot);
             return;
         }
 
