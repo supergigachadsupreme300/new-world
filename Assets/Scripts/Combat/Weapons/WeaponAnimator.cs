@@ -410,23 +410,7 @@ public sealed class WeaponAnimator : MonoBehaviour
         // barely move their axes so jabs stay tight), plus a strike snap that briefly whips the
         // blade through the hit along the swing's travel direction. Tracks return to zero on
         // recovery, so the lead eases back to the grip.
-        BladeLead lead = LeadScale();
-        float snap = _strikeDir * lead.snapDeg * h * Mathf.Exp(-Mathf.Abs(t - _impactT) * 8f)
-            * (_def.SlashLead && _sweepScale > 0f ? 0.3f : 1f);
-        Vector3 leadEuler = new Vector3(k.shX * lead.pitch, (k.shY * lead.yaw + snap) * m, 0f);
-
-        // Side-slash two-stage lead: the blade pitches tip-DOWN ~90° during the windup, then turns
-        // ~90° SIDEWAYS into the swing's travel, and HOLDS that pose straight from the hand through
-        // the sweep — a clean slashing line instead of a vertical blade wobbling sideways. Released
-        // only right at recovery. Chops and thrusts (sweepScale 0) are untouched.
-        if (_def.SlashLead && _sweepScale > 0f)
-        {
-            float hold = 1f - Ease(Seg(t, 0.85f, 0.97f));
-            float down = hold * Ease(Seg(t, 0.05f, 0.35f));
-            float side = hold * Ease(Seg(t, 0.30f, 0.50f));
-            leadEuler.x += -SlashDownDeg * down;
-            leadEuler.y += _strikeDir * SlashYawFlip * SlashYawDeg * side * m;
-        }
+        Vector3 leadEuler = Vector3.zero;
 
         // Impact pulse: right after the strike the arm rebounds briefly (a recoil kick opposite the
         // swing's travel) and the blade shoves forward a touch, then eases into follow-through.
