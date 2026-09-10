@@ -45,6 +45,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
+    private bool _pendingPlayerGrants;
     private readonly List<WeaponRackStand> _rackStands = new List<WeaponRackStand>();
     private ContextPromptUI _contextPrompt;
     private static readonly int TestRootLayer = 0;
@@ -131,6 +132,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (EnableSkills) GrantAllSkills();
         if (EnableGear) GrantStarterGear();
         if (EnableRaces) GrantRaceAccess();
+        TryDeferPlayerGrants();
 
         var player = GameManager.Instance?.Player;
         if (player != null)
@@ -140,16 +142,42 @@ public sealed class NewWorldTestGround : MonoBehaviour
     }
 
     /// <summary>
-    /// Re-apply the bag grants (tool kit, every catalog weapon, ritual stones) after a new game
-    /// clears the ToolManager inventory. At bootstrap <see cref="SpawnBench"/> runs during Awake,
-    /// but <see cref="GameManager.StartNewGame"/> clears the bag right after, so the grants above
-    /// alone would never be visible — call this from the new-game entry points post-clear.
+    /// The player-dependent grants (skills/gear/races) bail out when the player doesn't exist yet
+    /// (GameManager.Player is wired by GameBootstrap / PlayerController.Start). Defer them to a
+    /// one-shot poll so boot order can never silently drop the whole skill/gear/race bench.
+    /// </summary>
+    private void TryDeferPlayerGrants()
+    {
+        if (_pendingPlayerGrants) return;
+        if (GameManager.Instance?.Player != null) return;
+        if (EnableSkills || EnableGear || EnableRaces) _pendingPlayerGrants = true;
+    }
+
+    private void RunPendingPlayerGrants()
+    {
+        if (!_pendingPlayerGrants) return;
+        if (GameManager.Instance?.Player == null) return;
+        _pendingPlayerGrants = false;
+        if (EnableSkills) GrantAllSkills();
+        if (EnableGear) GrantStarterGear();
+        if (EnableRaces) GrantRaceAccess();
+    }
+
+    /// <summary>
+    /// Re-apply the bench grants (tool kit, every catalog weapon, ritual stones, skill budget,
+    /// starter gear, race access) after a new game clears the ToolManager inventory. At bootstrap
+    /// <see cref="SpawnBench"/> runs during Awake, but <see cref="GameManager.StartNewGame"/>
+    /// clears the bag right after, so the grants above alone would never be visible — call this
+    /// from the new-game entry points post-clear.
     /// </summary>
     public void GrantBenchBag()
     {
         if (EnableTools) SpawnToolKit();
         if (EnableWeapons) SpawnAllWeapons();
         if (EnableRaces) GrantRaceAccess();
+        if (EnableSkills) GrantAllSkills();
+        if (EnableGear) GrantStarterGear();
+        TryDeferPlayerGrants();
     }
 
     /// <summary>
@@ -463,6 +491,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     private void Update()
     {
+        RunPendingPlayerGrants();
         if (!EnableWeapons || _rackStands.Count == 0) return;
         var gm = GameManager.Instance;
         if (gm == null || gm.Player == null || gm.GamePaused) return;

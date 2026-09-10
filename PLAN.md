@@ -1,6 +1,6 @@
 # Plan: UI polish + player model visuals + per-weapon attack animation
 
-> STATUS: Sections 1-12 shipped and pushed (commits 2b4bd6a, d8f5f46, 61827f0, 7fd5218, f097440). Batch 7 (one giant skill tree) pushed as dc8971f. Batch 8 (scroll-banner notifications + unrelated random-event removal + immigrant subsystem strip) implemented, pending play-test + push. Batch 9 (bare fists + melee RMB block) and Batch 10 (magic charging) implemented now, semantic-checker clean — uncommitted until play-tested.
+> STATUS: Sections 1-12 shipped and pushed (commits 2b4bd6a, d8f5f46, 61827f0, 7fd5218, f097440). Batch 7 (one giant skill tree) pushed as dc8971f. Batch 8 (scroll-banner notifications + unrelated random-event removal + immigrant subsystem strip) implemented, pending play-test + push. Batch 9 (bare fists + melee RMB block) and Batch 10 (magic charging) implemented now, semantic-checker clean — uncommitted until play-tested. Batch 11 (skill-tree learned state: deferred test-ground grants, SaveManager profile persistence, font-safe Learned hint, yellow learned nodes) implemented, semantic-checker clean, uncommitted.
 > Batch 5 (15-15.5) pushed as `3294a2e` + `4787f8e`; batch 6 (§16 — upper/lower limb split on all
 > player models + matching elbow/knee animation, sealed/driving/sit models rebuilt) shipped and
 > pushed as `71bb7ed`. Batch 7 (§17 — one combined 60-skill radial wheel, no tabs, legend, wheel
@@ -609,3 +609,26 @@ each weapon*. Batch 5 attacks each with a guarantee instead of another guess.
 - [ ] Mobile client still casts on tap with no charge behavior.
 - [ ] Melee LMB and RMB block unaffected (fists + sword still punch/block); ranged heavy RMB unaffected.
 - [ ] Semantic checker already 0 diagnostics; commit the touched .cs + PLAN.md alongside batch 9.
+
+## 21. Batch 11 — skill tree "learned" state fixes
+
+- Report (test ground): the detail-pane learned line showed an empty tick box (unreadable), learned
+  skill nodes didn't tint, and skills couldn't be learned. Root cause: the player's SkillProfile had
+  no points and an empty learned set — the test-ground skill grant silently no-ops when
+  GameManager.Player isn't wired yet, and SaveManager never persisted the Phase-10 profile.
+- `NewWorldTestGround.cs`: player-dependent grants (skills/gear/races) now defer via a one-shot poll
+  (`TryDeferPlayerGrants`/`RunPendingPlayerGrants` in Update) instead of permanently bailing on a
+  null player; `GrantBenchBag` now re-applies skills/gear/races too (was bag-only).
+- `SkillProfile.cs`: new `RestoreState(points, learnedIds)` rebuilds the learned set + point bank and
+  re-applies passives, guarded by a new `_appliedPassives` set so a restore never double-buffs.
+- `SaveManager.cs`: `SkillProfile.Points`/`LearnedSkillIds` added to `SaveData` (save + restore).
+- `CharacterInfoUI.cs`: node colors now learned = yellow, available = green, selected = brighter
+  yellow, locked = gray; the detail hint no longer uses the `✔` glyph (missing from the default font,
+  rendered as an empty box) — plain "Learned" tinted yellow / "Learnable (spend 1 pt)" green /
+  "Locked" gray.
+
+### 21.1 Verify (needs user — Unity can't be run here)
+- [ ] Test Ground boot: skill points show + all nodes yellow-learned (learned tint now yellow).
+- [ ] Select a learned node → detail pane shows a readable "Learned" line (no empty tick box).
+- [ ] New Game: points/grants still present after the inventory clear.
+- [ ] Save then Continue in a fresh session: learned skills + unspent points are restored.

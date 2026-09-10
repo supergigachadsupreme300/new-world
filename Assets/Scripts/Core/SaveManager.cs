@@ -63,7 +63,11 @@ public class SaveManager : MonoSingleton<SaveManager>
             chestStorageJson = ChestStorageManager.Instance != null ? ChestStorageManager.Instance.SerializeState() : "",
             goblinStorage = GoblinPet.Instance != null ? GoblinPet.Instance.GetStorageSaveItems() : null,
             goblinHeldSeed = GoblinPet.Instance != null ? GoblinPet.Instance.HeldSeedType : "",
-            goblinCarriedCrop = GoblinPet.Instance != null ? GoblinPet.Instance.CarriedCrop : ""
+            goblinCarriedCrop = GoblinPet.Instance != null ? GoblinPet.Instance.CarriedCrop : "",
+            skillPoints = player != null && player.GetComponent<SkillProfile>() != null
+                ? player.GetComponent<SkillProfile>().Points : 0,
+            learnedSkills = player != null && player.GetComponent<SkillProfile>() != null
+                ? player.GetComponent<SkillProfile>().LearnedSkillIds.ToArray() : null
         };
 
         var json = JsonUtility.ToJson(data, true);
@@ -168,6 +172,10 @@ public class SaveManager : MonoSingleton<SaveManager>
         if (ChestStorageManager.Instance != null && !string.IsNullOrEmpty(data.chestStorageJson))
             ChestStorageManager.Instance.DeserializeState(data.chestStorageJson);
 
+        var profile = GameManager.Instance?.Player?.GetComponent<SkillProfile>();
+        if (profile != null && data.learnedSkills != null)
+            profile.RestoreState(data.skillPoints, data.learnedSkills);
+
         var spawner = Object.FindAnyObjectByType<LivestockSpawner>();
         if (spawner != null) spawner.Restart();
 
@@ -232,6 +240,8 @@ public class SaveManager : MonoSingleton<SaveManager>
         public List<GoblinPet.GoblinStorageSaveItem> goblinStorage;
         public string goblinHeldSeed;
         public string goblinCarriedCrop;
+        public int skillPoints;
+        public string[] learnedSkills;
     }
 
     [System.Serializable]

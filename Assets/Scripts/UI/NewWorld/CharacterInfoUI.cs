@@ -94,9 +94,9 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private static readonly Color SlotSelectedColor = new Color(0.35f, 0.55f, 0.75f, 0.95f);
 
     // Skill tree node states.
-    private static readonly Color NodeSelected = new Color(0.93f, 0.82f, 0.4f, 1f);
-    private static readonly Color NodeLearned = new Color(0.3f, 0.72f, 0.42f, 1f);
-    private static readonly Color NodeAvailable = new Color(0.82f, 0.6f, 0.22f, 1f);
+    private static readonly Color NodeSelected = new Color(0.99f, 0.94f, 0.66f, 1f);
+    private static readonly Color NodeLearned = new Color(0.93f, 0.82f, 0.4f, 1f);
+    private static readonly Color NodeAvailable = new Color(0.4f, 0.75f, 0.46f, 1f);
     private static readonly Color NodeLocked = new Color(0.3f, 0.32f, 0.38f, 1f);
 
     private static readonly string[] CategoryNames = { "Melee", "Ranged", "Magic", "Stealth", "Crafting", "Defense" };
@@ -813,11 +813,24 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
         var profile = SkillProfileOf();
         if (profile != null && profile.HasLearned(skill.id))
-            _detailLearnHint.text = Localization.T("✔ Learned");
-        else if (profile != null && !profile.CanLearn(skill))
+        {
+            _detailLearnHint.text = Localization.T("Learned");   // font-safe (no ✔ glyph needed)
+            _detailLearnHint.color = NodeLearned;
+        }
+        else if (profile != null && profile.CanLearn(skill))
+        {
             _detailLearnHint.text = Localization.T("Learnable (spend 1 pt)");
+            _detailLearnHint.color = NodeAvailable;
+        }
+        else if (profile != null)
+        {
+            _detailLearnHint.text = Localization.T("Locked — prerequisites or points missing");
+            _detailLearnHint.color = NodeLocked;
+        }
         else
+        {
             _detailLearnHint.text = "";
+        }
     }
 
     private bool CanBindSelectedSkill()

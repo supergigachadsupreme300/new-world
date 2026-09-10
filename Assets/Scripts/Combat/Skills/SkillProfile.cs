@@ -24,6 +24,7 @@ public sealed class SkillProfile : MonoBehaviour
     public List<string> LearnedSkillIds = new List<string>();
 
     private readonly HashSet<string> _learned = new HashSet<string>();
+    private readonly HashSet<string> _appliedPassives = new HashSet<string>();
     private PlayerStats _stats;
     private SpellCaster _caster;
     private StaminaSystem _stamina;
@@ -106,8 +107,39 @@ public sealed class SkillProfile : MonoBehaviour
         {
             var ctx = BuildContext();
             skill.Effect?.Execute(ctx);
+            _appliedPassives.Add(skill.id);
         }
         return true;
+    }
+
+    /// <summary>
+    /// Rebuild the point bank + learned set from a save (used by <see cref="SaveManager"/> on load).
+    /// Passives that haven't been applied this session are re-run so restored skills keep working
+    /// without requiring a reload — guarded by <see cref="_appliedPassives"/> so a restore that
+    /// lands on an already-applied session never double-buffs.
+    /// </summary>
+    public void RestoreState(int points, IEnumerable<string> learned)
+    {
+        ReconcileDependencies();
+        Points = Mathf.Max(0, points);
+        _learned.Clear();
+        LearnedSkillIds.Clear();
+        if (learned != null)
+            foreach (var id in learned)
+                if (!string.IsNullOrEmpty(id) && _learned.Add(id))
+                    LearnedSkillIds.Add(id);
+
+        SkillCatalog.EnsureBuilt();
+        foreach (var id in _learned)
+        {
+            if (_appliedPassives.Contains(id)) continue;
+            var skill = SkillCatalog.Find(id);
+            if (skill != null && skill.IsPassive)
+            {
+                skill.Effect?.Execute(BuildContext());
+                _appliedPassives.Add(id);
+            }
+        }
     }
 
     /// <summary>
