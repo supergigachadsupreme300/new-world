@@ -958,12 +958,26 @@ public sealed class CharacterInfoUI : MenuPanelBase
         // rings the layout creates new rings further out (no cap) instead of stacking/colliding.
         const float sectorHalf = 0.52f;     // ±29.8° rad of fan — the full 60° wedge spacing (±30° = 0.524 rad)
                                             // minus a 0.2° clearance buffer so adjacent categories never touch.
-        const float ringStep = 120f;        // Radial px between rings.
-        const float ring0 = 280f;           // First (innermost) ring radius — pushes the category hubs apart.
-        float[] layerPitch = { 24f, 13f, 12f }; // Per-layer node pitch: L0 base (20px node + 4px gap),
-                                                // L1 branch (12px node + 1px gap), L2 deep (10px node + 2px gap).
+        // Tier-band radii (px). Each layer owns a fixed band of rings instead of drifting outward:
+        //   ring0      r=280  Layer 0 (base) — one ring, fits all 14 Magic base skills.
+        //   ring1-2    r=420,434  Layer 1 (branch) — a tight 14px pair that reads as ONE thick tier and
+        //              holds up to 73 branch skills (36 + 37), so branch nodes never spill past their band.
+        //   ring3+     r=560,...  Layer 2 (deep) — starts a full 126px moat past the branch band.
+        const float ring0 = 280f;
+        const float moatBase = 140f;    // base ring -> first branch ring.
+        const float branchStep = 14f;   // headroom between the two branch-band rings (10px node).
+        const float moatBranch = 126f;  // last branch ring -> first deep ring.
+        const float deepStep = 120f;    // spacing between deep rings.
+        float[] layerPitch = { 20f, 12f, 12f }; // Per-layer node pitch: L0 base (18px node + 2px gap),
+                                                // L1 branch (11px node + 1px gap), L2 deep (10px node + 2px gap).
 
-        float RingRadius(int ring) => ring0 + ring * ringStep;
+        float RingRadius(int ring)
+        {
+            if (ring <= 0) return ring0;
+            if (ring == 1) return ring0 + moatBase;
+            if (ring == 2) return ring0 + moatBase + branchStep;
+            return ring0 + moatBase + branchStep + moatBranch + (ring - 3) * deepStep;
+        }
         int RingCapacity(int ring, float pitch) => Mathf.Max(1, Mathf.FloorToInt(RingRadius(ring) * (2f * sectorHalf) / pitch));
 
         var posOf = new Dictionary<string, Vector2>();
@@ -1223,7 +1237,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = pos;
-        float nw = skill.Layer == 0 ? 20f : skill.Layer == 1 ? 12f : 10f;
+        float nw = skill.Layer == 0 ? 18f : skill.Layer == 1 ? 11f : 10f;
         float nh = skill.Layer == 0 ? 14f : skill.Layer == 1 ? 10f : 7f;
         rt.sizeDelta = Sz(nw, nh);
         var img = go.AddComponent<Image>();
