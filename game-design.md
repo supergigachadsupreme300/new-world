@@ -159,6 +159,29 @@ The game uses a **classless unlock system**. Players start as a **Wanderer** (ba
 
 Classes are **not exclusive** — if stats allow, a player can unlock multiple classes and mix abilities.
 
+#### 3.2.1 Class Skill Trees
+
+Each class owns a small **radial skill tree** — one **hub** at the center plus **3 thematic paths** of
+3 nodes each (path parent + 2 leaves/capstones), ~10 skills per class (~180 total across all classes).
+Trees are built in code (`ClassSkillCatalog`) mirroring the main skill catalog; no asset files.
+
+- **Auto-granted:** all 10 skills are granted the moment the class unlocks — there is no point
+  economy and no per-node gating. The tree is informational (what the class grants), not a build budget.
+- **Live only for the ACTIVE class:** passive modifiers are aggregated by `ClassPassiveManager` and
+  swap in/out when the player switches classes — a Warrior passive stops applying the moment the
+  active class changes to Mage (each has its own tree).
+- **Castables** run through the shared `ClassSkillCaster` (per-class cooldown/cost keys), hotkey-bound
+  via the same bindings UI as regular skills.
+- **Modifier kinds (additive):** `MeleePowerMul`, `SpellPowerMul`, `CooldownMul`, `AttackSpeedMul`,
+  `BackstabMul` (scales crits from behind), `HealPowerMul`, `BerserkScale` (dmg up as HP drops),
+  `ParryWindowMul`, `ConsumablePotencyMul`, `DefenseMeleeMul`, `EquipLoadBonus`, `RangedHandlingMul`,
+  `AuraStrength`, `BlockingMul` (÷ block stamina drain), `StaggerResistMul` (÷ knockback),
+  `CraftSuccessMul`, `RepairMul`, `StaminaRegenMul`, `HpRegenPerSecond`.
+- **Persistence:** unlocked class ids + the active class are saved/loaded (`SaveData.unlockedClassIds`,
+  `activeClassId`); restore is authoritative and skips re-deriving unlocks.
+- **UI:** the Skills panel has a **General / Class** sub-toggle. General shows the full 6-category tree;
+  Class shows the active class's radial tree (hub + paths) with an auto-grant detail pane.
+
 ### 3.3 Skill System (3-layer branching tree + use-based XP)
 
 A **use-based skill progression** spans 6 categories with a **3-layer branching tree** (~1984 skills total). No fixed class requirements — any player can advance any category based on how they play. Skills level by gaining XP in their category (with racial multipliers) and grant flat tier rewards at levels 5/10/15/20/25.
