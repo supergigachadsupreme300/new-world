@@ -936,3 +936,31 @@ village, plus a Taoist priest who accepts a 1-wood offering and grants the daily
 - [ ] Offer 1 wood: -1 wood, qi-blessing toast; priest says already blessed next chat.
 - [ ] Save + load while Taoist: religion state round-trips, taoist still there.
 - [ ] Stamina regen visibly ~x2 all day after the qi blessing (compare before/after).
+
+## 33. Batch 20d - Pagoda -> Buddhism retrofit (done: commit TBD - pending semantic check)
+
+Implements Batch D from the plan: the monk no longer owns the stamina blessing; it reports to
+ReligionManager so the three faiths share one centralized daily-blessing + switch path.
+
+- `PagodaMonkNPC.cs`: removed the private `_blessedDay` field and both direct writes to
+  `Player.StaminaRegenMultiplier` (the legacy 2f / day-reset 1f); `HasBlessingToday` now reads
+  `ReligionManager.HasDailyBlessingToday`. `PerformOffering` checks rice/rice_bag first, calls
+  `ReligionManager.Worship(Buddhism, out switched)` (join/convert + devotion, 1/day, 30% penalty +
+  once/day switch enforced centrally), consumes rice, shows the x2-stamina blessing toast; refuses
+  when already worshipped or already switched today. `Update()` day-rollover reset removed
+  (RefreshBlessings owns the multiplier).
+- Meditation minigame (max-karma gain) unchanged; it now also benefits from
+  `BuddhistMaxKarmaGainMult` for Buddhists via KarmaManager.
+- `Localization`: added the monk blessing toast EN entry (used via Localization.T).
+- Now the ONLY writer of `Player.StaminaRegenMultiplier` is `ReligionManager.RefreshBlessings`
+  (verbatim grep confirms: ReligionManager line + PlayerController reset-to-1 in Start remain).
+- Semantic check: pending (run before commit).
+
+### 33.1 Verify (needs user - Unity can't be run here) - batch D
+- [ ] Offer 1 rice/rice_bag at the pagoda: -1 rice, x2 stamina toast, blessing lasts the day; chat
+      again -> "already blessed"; next day the offer is available again (no leftover 2f bleed).
+- [ ] Be Taoist (qi-blessed) then visit the pagoda next day: offer switches to Buddhism, devotion
+      penalty applied to Taoism, current faith shows Buddhism.
+- [ ] Switch twice in one day (e.g. shrine then pagoda): second worship refused ("changed faith").
+- [ ] Rosary cost scales down for Buddhists (religion getter), unchanged for others.
+- [ ] Pagoda quests (Trừ Tà / Trấn Áp Quỷ Vương) still trigger exactly as before.

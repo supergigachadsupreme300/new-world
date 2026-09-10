@@ -38,7 +38,6 @@ private Transform _myTransform;
         "Con có gạo không? Dâng cho nhà chùa một bát gạo, ta sẽ ban phước lành sức khỏe cho con cả ngày hôm nay.";
 
     private int _lastLine = -1;
-    private int _blessedDay = -1;
     private bool _waitingOffering;
     private bool _waitingMeditation;
     private bool _meditationOptionShown;
@@ -70,12 +69,6 @@ private Transform _myTransform;
         var gm = GameManager.Instance;
         if (gm == null)
             return;
-        if (_blessedDay != gm.CurrentDay)
-        {
-            _blessedDay = -1;
-            if (gm.Player != null)
-                gm.Player.StaminaRegenMultiplier = 1f;
-        }
 
         var qm = QuestManager.Instance;
         var wb = WorldBuilder.Instance;
@@ -84,7 +77,11 @@ private Transform _myTransform;
     }
     public bool HasBlessingToday
     {
-        get { var gm = GameManager.Instance; return gm != null && _blessedDay == gm.CurrentDay; }
+        get
+        {
+            var rm = GameManager.Instance?.ReligionManager;
+            return rm != null && rm.HasDailyBlessingToday;
+        }
     }
     public void Interact()
     {
@@ -218,19 +215,28 @@ private Transform _myTransform;
         if (gm == null)
             return;
         var tm = gm.ToolManager;
-        int rice = tm != null ? tm.CountItem("rice") : 0;
-        int riceBag = tm != null ? tm.CountItem("tu_gao") : 0;
+        var rm = gm.ReligionManager;
+        if (tm == null || rm == null)
+            return;
+        int rice = tm.CountItem("rice");
+        int riceBag = tm.CountItem("tu_gao");
         if (rice >= 1 || riceBag >= 1)
         {
+            bool blessed = rm.Worship(ReligionManager.ReligionFaith.Buddhism, out bool switched);
+            if (!blessed)
+            {
+                _dialogQueue.Enqueue(rm.CanSwitchToday()
+                    ? "Con đã dâng gạo hôm nay rồi. Hãy quay lại vào ngày mai."
+                    : "Con đã đổi tín ngưỡng hôm nay rồi. Hãy quay lại vào ngày mai.");
+                return;
+            }
             if (rice >= 1)
                 tm.RemoveItemAmount("rice", 1);
             else
                 tm.RemoveItemAmount("tu_gao", 1);
-            _blessedDay = gm.CurrentDay;
-            if (gm.Player != null)
-                gm.Player.StaminaRegenMultiplier = 2f;
-            _dialogQueue.Enqueue(
-                "Con thành tâm dâng gạo, nhà chùa xin ban phước lành. Sức lực của con sẽ hồi phục nhanh gấp đôi cả ngày hôm nay.");
+            _dialogQueue.Enqueue(switched
+                ? "Chấp nhận Phật Giáo. Con thành tâm dâng gạo, nhà chùa xin ban phước lành. Sức lực của con sẽ hồi phục nhanh gấp đôi cả ngày hôm nay."
+                : "Con thành tâm dâng gạo, nhà chùa xin ban phước lành. Sức lực của con sẽ hồi phục nhanh gấp đôi cả ngày hôm nay.");
             if (gm.UIManager != null)
                 gm.UIManager.ShowMessage(Localization.T("Phước lành: hồi phục sức lực gấp đôi cả ngày!"), 2f);
         }
