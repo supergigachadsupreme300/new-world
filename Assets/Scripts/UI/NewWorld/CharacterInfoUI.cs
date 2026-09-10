@@ -38,6 +38,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     public static CharacterInfoUI Instance;
 
     public enum Tab { Info = 0, Skills = 1, Inventory = 2, Map = 3, Faith = 4 }
+    public enum SkillSubTab { General = 0, Class = 1 }
 
     public Tab ActiveTab = Tab.Info;
 
@@ -74,6 +75,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private Button _switchFaithBtn;
 
     // Skill tree.
+    private SkillSubTab _skillSubTab = SkillSubTab.General;
     private RectTransform _treeContent;
     private GameObject _detailPane;
     private readonly List<Skill> _treeSkills = new List<Skill>();
@@ -89,6 +91,15 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private readonly List<(SkillType type, TMP_Text label)> _sectorLabels = new List<(SkillType, TMP_Text)>();
     private readonly List<(SkillType type, Image image)> _categoryNodes = new List<(SkillType, Image)>();
     private readonly List<(SkillType type, Image swatch, TMP_Text label)> _legendChips = new List<(SkillType, Image, TMP_Text)>();
+
+    // Class skill tree.
+    private readonly List<ClassSkill> _classTreeSkills = new List<ClassSkill>();
+    private readonly List<(ClassSkill skill, Image image)> _classTreeNodes = new List<(ClassSkill, Image)>();
+    private readonly List<(Image image, ClassSkill target)> _classTreeLines = new List<(Image, ClassSkill)>();
+    private ClassSkill _selectedClassSkill;
+    private Button _generalTabBtn;
+    private Button _classTabBtn;
+    private GameObject _legendRoot;
 
     // Backpack storage grid (30 slots) + mirrored hotbar row (10 slots).
     private readonly Image[] _storageImgs = new Image[ToolManager.StorageSlotCount];
@@ -361,9 +372,20 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _panels[Tab.Skills] = MakePanel("SkillsPanel");
         _skillPointsText = MakeBodyText(_panels[Tab.Skills].transform, "SkillPoints", P(-450f, 222f), Sz(200f, 28f));
         _categoryLevelText = MakeBodyText(_panels[Tab.Skills].transform, "Learned", P(250f, 222f), Sz(220f, 28f));
+
+        // General / Class sub-toggle inside the skills panel.
+        _generalTabBtn = MakeButton(_panels[Tab.Skills].transform, "GenTabBtn", "General", P(-160f, 250f), OnGeneralTab);
+        _generalTabBtn.GetComponent<RectTransform>().sizeDelta = Sz(120f, 30f);
+        ApplyFullButtonSprite(_generalTabBtn.GetComponent<Image>());
+        _classTabBtn = MakeButton(_panels[Tab.Skills].transform, "ClassTabBtn", "Class", P(-30f, 250f), OnClassTab);
+        _classTabBtn.GetComponent<RectTransform>().sizeDelta = Sz(120f, 30f);
+        ApplyFullButtonSprite(_classTabBtn.GetComponent<Image>());
+
         RectTransform treeVt = BuildSkillTree(_panels[Tab.Skills].transform);
         BuildSkillDetail(treeVt.transform);
+        _legendRoot = treeVt.gameObject;
         BuildTreeLegend(treeVt);
+        UpdateSubTabButtons();
         RegisterFit(_panels[Tab.Skills].GetComponent<RectTransform>(), TabDesignBox(Tab.Skills));
 
         // Merged Inventory + Equipment panel: equipment sheet LEFT, backpack + use bar RIGHT.
@@ -707,11 +729,18 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private void DismissSkillDetail()
     {
         _selectedSkill = null;
+        _selectedClassSkill = null;
         RefreshSkillTree();
     }
 
     private void RefreshSkillTree()
     {
+        if (_skillSubTab == SkillSubTab.Class)
+        {
+            RefreshClassSkillTree();
+            return;
+        }
+
         var profile = SkillProfileOf();
         bool hasPoints = profile != null && profile.Points > 0;
 
@@ -766,11 +795,18 @@ public sealed class CharacterInfoUI : MenuPanelBase
         }
 
         RefreshSkillDetail();
+        // Ensure Learn/Assign buttons are visible in General mode (Class mode hides them).
         if (_learnBtn != null)
+        {
+            _learnBtn.gameObject.SetActive(true);
             _learnBtn.interactable = hasPoints && _selectedSkill != null &&
                 profile != null && profile.CanLearn(_selectedSkill);
+        }
         if (_assignKeyBtn != null)
+        {
+            _assignKeyBtn.gameObject.SetActive(true);
             _assignKeyBtn.interactable = CanBindSelectedSkill();
+        }
     }
 
     private void RefreshSkillDetail()
@@ -886,6 +922,12 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
     private void RebuildSkillTree()
     {
+        if (_skillSubTab == SkillSubTab.Class)
+        {
+            RebuildClassSkillTree();
+            return;
+        }
+
         if (_treeContent == null) return;
 
         for (int i = _treeContent.childCount - 1; i >= 0; i--)
@@ -1156,6 +1198,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
             if (image == null) continue;
             maxR = Mathf.Max(maxR, ((RectTransform)image.transform).anchoredPosition.magnitude);
         }
+        foreach (var (_, image) in _classTreeNodes)
+        {
+            if (image == null) continue;
+            maxR = Mathf.Max(maxR, ((RectTransform)image.transform).anchoredPosition.magnitude);
+        }
         maxR += 40f;
         _treeContent.sizeDelta = new Vector2(maxR * 2f, maxR * 2f);
         var vp = _treeContent.parent as RectTransform;
@@ -1238,6 +1285,255 @@ public sealed class CharacterInfoUI : MenuPanelBase
         img.color = LineInert;
         img.raycastTarget = false;
         return img;
+    }
+
+    // ── General / Class sub-tab toggle ───────────────────────────────────
+
+    private void OnGeneralTab() => SetSkillSubTab(SkillSubTab.General);
+    private void OnClassTab() => SetSkillSubTab(SkillSubTab.Class);
+
+    private void SetSkillSubTab(SkillSubTab tab)
+    {
+        if (_skillSubTab == tab) return;
+        _skillSubTab = tab;
+        _selectedSkill = null;
+        _selectedClassSkill = null;
+        if (_detailPane != null) _detailPane.SetActive(false);
+        // Legend only shown in General view (6-category colors irrelevant to class tree).
+        if (_legendRoot != null)
+        {
+            foreach (var chip in _legendChips)
+                if (chip.swatch != null) chip.swatch.transform.parent.gameObject.SetActive(tab == SkillSubTab.General);
+            foreach (var node in _categoryNodes)
+                if (node.image != null) node.image.gameObject.SetActive(tab == SkillSubTab.General);
+            foreach (var sec in _sectorLabels)
+                if (sec.label != null) sec.label.gameObject.SetActive(tab == SkillSubTab.General);
+        }
+        UpdateSubTabButtons();
+        RebuildSkillTree();
+    }
+
+    private void UpdateSubTabButtons()
+    {
+        bool gen = _skillSubTab == SkillSubTab.General;
+        if (_generalTabBtn != null)
+        {
+            var img = _generalTabBtn.GetComponent<Image>();
+            if (img != null) img.color = gen ? NodeLearned : NodeLocked;
+        }
+        if (_classTabBtn != null)
+        {
+            var img = _classTabBtn.GetComponent<Image>();
+            if (img != null) img.color = !gen ? NodeLearned : NodeLocked;
+        }
+    }
+
+    // ── Class skill tree builder ─────────────────────────────────────────
+
+    private void RebuildClassSkillTree()
+    {
+        if (_treeContent == null) return;
+
+        for (int i = _treeContent.childCount - 1; i >= 0; i--)
+            Destroy(_treeContent.GetChild(i).gameObject);
+        _classTreeNodes.Clear();
+        _classTreeLines.Clear();
+        _classTreeSkills.Clear();
+        _selectedClassSkill = null;
+        _treeNodes.Clear();
+        _treeLines.Clear();
+        _treeSkills.Clear();
+        _selectedSkill = null;
+        _treeContent.anchoredPosition = Vector2.zero;
+        _treeContent.localScale = Vector3.one;
+
+        ClassSkillCatalog.EnsureBuilt();
+        var unlocker = ClassUnlockerOf();
+        string classId = unlocker != null ? unlocker.ActiveClassId : "wanderer";
+        var list = new List<ClassSkill>();
+        foreach (var s in ClassSkillCatalog.ForClass(classId))
+            if (s != null) list.Add(s);
+        if (list.Count == 0) return;
+
+        // Radial layout: hub at center, 3 paths fan out at 120° intervals.
+        const float pathR = 200f;
+        const float leafR = 420f;
+        const float leafSpread = 50f;
+
+        // Hub node.
+        var hub = list.Find(s => s.Layer == 0);
+        if (hub != null)
+        {
+            _classTreeSkills.Add(hub);
+            _classTreeNodes.Add((hub, MakeClassTreeNode(hub, Vector2.zero, 24f)));
+        }
+
+        // Group Layer 1 nodes and their Layer 2 children by path order.
+        var layer1 = new List<ClassSkill>();
+        foreach (var s in list)
+            if (s.Layer == 1) layer1.Add(s);
+        layer1.Sort((a, b) => string.CompareOrdinal(a.id, b.id));
+
+        int pathCount = Mathf.Max(1, layer1.Count);
+        for (int pi = 0; pi < pathCount; pi++)
+        {
+            var pathNode = layer1[pi];
+            float angle = (-90f + pi * (360f / pathCount)) * Mathf.Deg2Rad;
+            Vector2 pos1 = new Vector2(Mathf.Cos(angle) * pathR, Mathf.Sin(angle) * pathR);
+
+            _classTreeSkills.Add(pathNode);
+            _classTreeNodes.Add((pathNode, MakeClassTreeNode(pathNode, pos1, 18f)));
+
+            // Line from hub to path parent.
+            var spoke = MakeTreeLine(Vector2.zero, pos1, 2.5f);
+            spoke.color = LineActive;
+            _classTreeLines.Add((spoke, pathNode));
+
+            // Find Layer 2 children of this path node.
+            var children = new List<ClassSkill>();
+            foreach (var s in list)
+            {
+                if (s.Layer != 2 || s.PrereqSkillIds == null) continue;
+                foreach (var pid in s.PrereqSkillIds)
+                    if (pid == pathNode.id) { children.Add(s); break; }
+            }
+            children.Sort((a, b) => string.CompareOrdinal(a.id, b.id));
+
+            for (int ci = 0; ci < children.Count; ci++)
+            {
+                var child = children[ci];
+                float childAngle = angle + (ci - (children.Count - 1) * 0.5f) * (leafSpread * Mathf.Deg2Rad);
+                Vector2 pos2 = new Vector2(Mathf.Cos(childAngle) * leafR, Mathf.Sin(childAngle) * leafR);
+
+                _classTreeSkills.Add(child);
+                _classTreeNodes.Add((child, MakeClassTreeNode(child, pos2, 14f)));
+
+                var line = MakeTreeLine(pos1, pos2, 1.5f);
+                _classTreeLines.Add((line, child));
+            }
+        }
+
+        FitTreeToViewport();
+        RefreshClassSkillTree();
+    }
+
+    private Image MakeClassTreeNode(ClassSkill skill, Vector2 pos, float size)
+    {
+        var go = new GameObject("CNode_" + skill.id);
+        go.transform.SetParent(_treeContent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = pos;
+        rt.sizeDelta = Sz(size * 2f, size);
+        var img = go.AddComponent<Image>();
+        img.color = skill.IsPassive ? NodeAvailable : new Color(0.55f, 0.48f, 0.9f, 1f);
+        var btn = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+        ClassSkill captured = skill;
+        btn.onClick.AddListener(() =>
+        {
+            _selectedClassSkill = captured;
+            RefreshClassSkillTree();
+        });
+
+        // Label.
+        var lbl = new GameObject("Label");
+        lbl.transform.SetParent(go.transform, false);
+        var lr = lbl.AddComponent<RectTransform>();
+        lr.anchorMin = Vector2.zero;
+        lr.anchorMax = Vector2.one;
+        lr.offsetMin = Vector2.zero;
+        lr.offsetMax = Vector2.zero;
+        var tmp = lbl.AddComponent<TextMeshProUGUI>();
+        GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
+        tmp.text = skill.displayName;
+        tmp.fontSize = skill.Layer == 0 ? Mathf.Max(10f, Screen.height / 100f)
+                     : skill.Layer == 1 ? Mathf.Max(8f, Screen.height / 140f)
+                     : Mathf.Max(7f, Screen.height / 180f);
+        tmp.color = Color.white;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.enableWordWrapping = true;
+        return img;
+    }
+
+    private void RefreshClassSkillTree()
+    {
+        if (_detailPane != null)
+            _detailPane.SetActive(_selectedClassSkill != null);
+
+        foreach (var (skill, image) in _classTreeNodes)
+        {
+            if (image == null) continue;
+            if (skill == _selectedClassSkill) image.color = NodeSelected;
+            else image.color = skill.IsPassive ? NodeAvailable : new Color(0.55f, 0.48f, 0.9f, 1f);
+        }
+
+        foreach (var (line, target) in _classTreeLines)
+        {
+            if (line == null) continue;
+            line.color = LineActive;
+        }
+
+        if (_skillPointsText != null)
+        {
+            var unlocker = ClassUnlockerOf();
+            string cls = unlocker != null ? unlocker.ActiveClassId : "wanderer";
+            _skillPointsText.text = Localization.F("Class: {0}", cls);
+        }
+
+        if (_categoryLevelText != null)
+            _categoryLevelText.text = Localization.F("Skills: {0}", _classTreeNodes.Count);
+
+        RefreshClassSkillDetail();
+    }
+
+    private void RefreshClassSkillDetail()
+    {
+        if (_detailTitle == null) return;
+        var skill = _selectedClassSkill;
+        if (skill == null)
+        {
+            _detailTitle.text = Localization.T("No skill selected");
+            _detailDesc.text = "";
+            _detailMeta.text = "";
+            _detailLearnHint.text = "";
+            return;
+        }
+        _detailTitle.text = skill.displayName;
+        _detailDesc.text = skill.description;
+
+        var meta = new StringBuilder();
+        meta.Append(skill.IsPassive ? Localization.T("Type: Passive") : Localization.T("Type: Castable"));
+        meta.Append('\n');
+
+        if (!skill.IsPassive)
+        {
+            meta.Append("Cost: ");
+            if (skill.SkillCost.Resource == ResourceKind.None) meta.Append("Free");
+            else meta.Append(skill.SkillCost.Resource.ToString()).Append(' ').Append(skill.SkillCost.Amount.ToString("0.##"));
+            if (skill.SkillCost.Cooldown > 0f)
+                meta.Append('\n').Append("CD: ").Append(skill.SkillCost.Cooldown.ToString("0.#")).Append('s');
+        }
+        else
+        {
+            meta.Append(Localization.T("Cost: Free (always-on)"));
+        }
+
+        if (skill.Mods != null && skill.Mods.Length > 0)
+        {
+            meta.Append('\n').Append(Localization.T("Passive Mods:"));
+            foreach (var m in skill.Mods)
+                meta.Append('\n').Append("  ").Append(m.kind.ToString()).Append(" +").Append((m.amount * 100f).ToString("0.#")).Append("%");
+        }
+
+        _detailMeta.text = meta.ToString();
+        _detailLearnHint.text = Localization.T("Auto-granted when class is unlocked.");
+
+        // Class castables run through ClassSkillCaster's own hotkey system — no manual binding.
+        if (_learnBtn != null) _learnBtn.gameObject.SetActive(false);
+        if (_assignKeyBtn != null) _assignKeyBtn.gameObject.SetActive(false);
     }
 
     /// <summary>Pan/zoom handler for the tree viewport — drags <see cref="Content"/> and scroll-zooms
@@ -2143,8 +2439,16 @@ public sealed class CharacterInfoUI : MenuPanelBase
         {
             case Tab.Info: RefreshInfo(); break;
             case Tab.Skills:
-            if (_treeNodes.Count == 0) RebuildSkillTree();
-            else RefreshSkillTree();
+            if (_skillSubTab == SkillSubTab.Class)
+            {
+                if (_classTreeNodes.Count == 0) RebuildSkillTree();
+                else RefreshSkillTree();
+            }
+            else
+            {
+                if (_treeNodes.Count == 0) RebuildSkillTree();
+                else RefreshSkillTree();
+            }
             break;
             case Tab.Inventory: RefreshInventoryUi(); break;
             case Tab.Map: RefreshMap(); break;
