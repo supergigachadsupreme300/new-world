@@ -256,6 +256,7 @@ bool nearHouse = Mathf.Abs(x) <= 9 && Mathf.Abs(z) <= 9;
         bool nearFishingShop = x >= 21 && x <= 39 && z >= 37 && z <= 55;
         bool nearMansion = x >= -14 && x <= 14 && z >= -42 && z <= -18;
         bool nearPagoda = Mathf.Abs(x - PagodaBasePos.x) <= PagodaExcludeHalf && Mathf.Abs(z - PagodaBasePos.z) <= PagodaExcludeHalf;
+        bool nearChurch = Mathf.Abs(x - ChurchBasePos.x) <= ChurchExcludeHalf && Mathf.Abs(z - ChurchBasePos.z) <= ChurchExcludeHalf;
         bool nearCafe = Mathf.Abs(x) <= 10 && z >= 33 && z <= 57;
         bool nearLibrary = x >= -9 && x <= 6 && z >= 24 && z <= 38;
         bool nearClub = x >= -12 && x <= 12 && z >= 84 && z <= 106;
@@ -263,7 +264,7 @@ bool nearHouse = Mathf.Abs(x) <= 9 && Mathf.Abs(z) <= 9;
         bool nearSouthBranch = x >= -123 && x <= 17 && z >= -54 && z <= -46;
         bool nearNorthBranch = x >= 11 && x <= 153 && z >= 173 && z <= 187;
         bool nearBossArena = Mathf.Abs(x - _bossArenaCenter.x) <= 12 && Mathf.Abs(z - _bossArenaCenter.z) <= 12;
-        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearFishingShop || nearMansion || nearPagoda || nearCafe || nearLibrary || nearClub || nearClubCorridor || nearSouthBranch || nearNorthBranch || nearBossArena;
+        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearFishingShop || nearMansion || nearPagoda || nearChurch || nearCafe || nearLibrary || nearClub || nearClubCorridor || nearSouthBranch || nearNorthBranch || nearBossArena;
     }
 
     private void BuildPolicePost()

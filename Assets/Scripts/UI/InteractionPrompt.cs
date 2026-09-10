@@ -22,6 +22,7 @@ public class InteractionPrompt : MonoBehaviour
         ("PoliceOfficer",      "Nói chuyện"),
         ("RestaurantNPC",      "Nói chuyện"),
         ("PagodaMonkNpc",      "Cầu nguyện"),
+        ("PriestNpc",          "Cầu nguyện"),
         ("LibrarianNPC",       "Đọc sách"),
         ("BuffaloEntity",      "Tương tác"),
         ("Bed",                "Ngủ"),

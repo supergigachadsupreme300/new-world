@@ -868,3 +868,39 @@ Implementation batches (each: semantic checker 0, PLAN.md note, auto-commit):
 - [ ] Boot + start a new game: no errors; Player.StaminaRegenMultiplier stays 1 (no faith yet).
 - [ ] Save + load: religion state round-trips (None/0) without resetting karma or quests.
 - [ ] Rosary still costs 1 karma before joining Buddhism.
+
+## 31. Batch 20b - Church + Priest (done: commit 0ba6b1f - pending semantic check)
+
+Implements Batch B from the plan: a Catholic village church (white nave + pitched red roof +
+front gable bell tower with a gold cross) next to the pagoda, plus a Priest NPC who accepts a
+50-money donation as the Church worship offering and grants the daily holy-water blessing.
+
+- `WorldBuilder.cs`: `ChurchBasePos` = (40, 0, -30) (SE of the village, mirror of the NE pagoda),
+  `ChurchExcludeHalf` 13, `ChurchPosition` property, `_churchSubBuildings` catalog, `BuildChurch()`;
+  `Build()` now spawns the church + priest (40, 0.93, -36.2) facing it.
+- `WorldBuilder.Blueprints.cs`: `SpawnStructurePart` dispatches `Church_*` parts; new
+  `BuildChurchPart` (foundation+steps, nave floor w/ altar & lectern, back wall w/ gold cross,
+  side walls w/ glass windows, front wall w/ door + tympanum, pitched roof, corner bell tower).
+- `MapBuilder.NPCs.cs`: new `BuildPriestNpc` (black cassock + white collar + gold chest cross +
+  gray hair) - identical collider box to the monk.
+- NEW `PriestNPC.cs`: dialog panel like the monk (no meditation/quests); offering "donate 50":
+  calls `ReligionManager.Worship(Church, out switched)`; on success deducts money, full-heal
+  (`HP = MaxHP`) + holy-water message; correctly refuses when already worshipped/switched today
+  or short on money.
+- `ReligionManager`: new `ChurchBlessedHealMult` getter (1.25 while `ChurchHolyWaterBlessed`).
+- `PlayerController` interact hook + `InteractionPrompt` ("PriestNpc" -> "Cầu nguyện"/Pray).
+- `Localization`: added Nha Tho/Church, Cha Xu/Priest, Cong Giao/Catholic, Dao Giao/Taoist,
+  Phat Giao/Buddhist, blessing message.
+- `WorldBuilder.NPCs.cs` reserve list + `WorldBuilder.Persistence.cs` prune box now cover the
+  church footprint.
+- Semantic check: pending (will be run before commit). Verbose CP1252 mojibake in WorldBuilder.cs
+  is pre-existing (pagoda block), untouched.
+
+### 31.1 Verify (needs user - Unity can't be run here) - batch B
+- [ ] Walk SE of the village around (40, 0, -30): church built (white walls, pitched red roof,
+      West-facing gold-cross bell tower); priest stands in front with "Cầu nguyện" prompt.
+- [ ] No trees/rocks inside the church footprint; no villager home spawned on top of it.
+- [ ] Talk to the priest (E): dialog + offer line; <50 money -> refusal line, no money lost.
+- [ ] Donate 50: money -50, HP fully restored, blessing toast; priest says already blessed next chat.
+- [ ] Save + load while Church: religion state round-trips, priest still there.
+- [ ] With <50 money then earning money: donation works; repeated donation same day is refused.

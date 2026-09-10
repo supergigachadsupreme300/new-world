@@ -46,6 +46,10 @@ private static readonly Vector3 PagodaBasePos = new Vector3(26f, 0f, 25f);
     private const float PagodaExcludeHalf = 12f;
     private Vector3 _pagodaPosition;
     public Vector3 PagodaPosition => _pagodaPosition;
+    private static readonly Vector3 ChurchBasePos = new Vector3(40f, 0f, -30f);
+    private const float ChurchExcludeHalf = 13f;
+    private Vector3 _churchPosition;
+    public Vector3 ChurchPosition => _churchPosition;
     private readonly Vector3 _bossArenaCenter = new Vector3(280f, 0f, 90f);
     public Vector3 BossArenaCenter => _bossArenaCenter;
     private static Texture2D _cachedDirtTex;
@@ -390,6 +394,20 @@ new BuildingPartDefinition { PartName = "Wall_FrontL",  LocalPosition = new Vect
     private const string _mansionQuestTarget = "mansion";
     public static readonly Vector3 MansionBasePos = new Vector3(-8f, 0f, -30f);
 
+    // ------------------------------------------------------------════════
+    //  CHURCH MEGA STRUCTURE DEFINITION  (Batch 20b: Church + Priest)
+    // ------------------------------------------------------------════════
+    private static readonly SubBuildingDefinition[] _churchSubBuildings = new SubBuildingDefinition[]
+    {
+        new SubBuildingDefinition { PartName = "Church_Foundation", Offset = new Vector3(0f, 0.1f, 0f),  Size = new Vector3(13f, 0.5f, 9f),    WoodCost = 0,   StoneCost = 60, Color = new Color(0.52f, 0.51f, 0.5f) },
+        new SubBuildingDefinition { PartName = "Church_NaveFloor",  Offset = new Vector3(0f, 0.45f, 0f),  Size = new Vector3(10.4f, 0.24f, 6.4f), WoodCost = 20, StoneCost = 0,  Color = new Color(0.8f, 0.78f, 0.74f) },
+        new SubBuildingDefinition { PartName = "Church_BackWall",   Offset = new Vector3(0f, 0.7f, 0f),   Size = new Vector3(10.6f, 4.7f, 0.3f), WoodCost = 15, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
+        new SubBuildingDefinition { PartName = "Church_SideWalls",  Offset = new Vector3(0f, 0.7f, 0f),   Size = new Vector3(0.3f, 4.7f, 6.5f),  WoodCost = 30, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
+        new SubBuildingDefinition { PartName = "Church_FrontWall",  Offset = new Vector3(0f, 0.7f, 0f),   Size = new Vector3(10.6f, 4.7f, 0.3f), WoodCost = 15, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
+        new SubBuildingDefinition { PartName = "Church_Roof",       Offset = new Vector3(0f, 5.5f, 0f),   Size = new Vector3(12f, 0.5f, 7f),    WoodCost = 0,   StoneCost = 50, Color = new Color(0.5f, 0.14f, 0.11f) },
+        new SubBuildingDefinition { PartName = "Church_Tower",      Offset = new Vector3(0f, 0.45f, 0f),  Size = new Vector3(3f, 6.4f, 3f),     WoodCost = 35, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
+    };
+
     private int _currentBuildingIndex;
     private int _currentRotation;
     private readonly HashSet<Vector3Int> _floorPositions = new HashSet<Vector3Int>();
@@ -461,6 +479,9 @@ SpawnBuffalo();
 BuildPagoda(PagodaBasePos);
         var monk = MapBuilder.BuildMonkNpc(_worldRoot.transform, new Vector3(24f, 1.815f, 27f), Quaternion.Euler(0f, -90f, 0f));
         monk.AddComponent<PagodaMonkNPC>();
+        BuildChurch(ChurchBasePos);
+        var priest = MapBuilder.BuildPriestNpc(_worldRoot.transform, new Vector3(40f, 0.93f, -36.2f), Quaternion.Euler(0f, 0f, 0f));
+        priest.AddComponent<PriestNPC>();
         BuildBossArena();
 PruneTreesAndRocksNearStructures();
         ClearFastTravelSpots();

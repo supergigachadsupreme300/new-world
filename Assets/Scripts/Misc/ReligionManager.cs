@@ -234,6 +234,9 @@ public class ReligionManager : MonoSingleton<ReligionManager>
     public float ChurchBuffDurationMult => CurrentFaith == ReligionFaith.Church
         ? 1f + Mathf.Clamp(0.02f * Dev(ReligionFaith.Church) + 0.01f * Faith, 0f, 1f) : 1f;
 
+    /// <summary>Church "holy water" blessing: healing output raised +25% while blessed today.</summary>
+    public float ChurchBlessedHealMult => ChurchHolyWaterBlessed ? 1.25f : 1f;
+
     public float ChurchDemonTakenMult => CurrentFaith == ReligionFaith.Church
         ? 1f - Mathf.Clamp(0.02f * Dev(ReligionFaith.Church) + 0.002f * Faith, 0f, 0.4f) : 1f;
 

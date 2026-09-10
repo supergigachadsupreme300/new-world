@@ -584,6 +584,12 @@ public class PlayerController : MonoBehaviour
                                 PagodaMonkNPC.Instance.Interact();
                             return;
                         }
+                        if (hit.collider.transform.name == "PriestNpc")
+                        {
+                            if (PriestNPC.Instance != null && !PriestNPC.Instance.IsDialogActive)
+                                PriestNPC.Instance.Interact();
+                            return;
+                        }
                         if (hit.collider.transform.name == "ToolShopNPC")
                         {
                             OpenVendorShop("tools");

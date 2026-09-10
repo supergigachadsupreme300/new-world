@@ -164,6 +164,21 @@ public partial class WorldBuilder
         }
     }
 
+    public void BuildChurch(Vector3 position)
+    {
+        _churchPosition = position;
+        foreach (var sub in _churchSubBuildings)
+        {
+            var bp = new BlueprintState
+            {
+                Type = sub.PartName,
+                Position = position + sub.Offset,
+                Rotation = 90
+            };
+            SpawnStructurePart(bp);
+        }
+    }
+
     private BlueprintState CreateMansionBlueprint(string typeName, Vector3 position, Vector3 size, Color color, int woodCost, int stoneCost)
     {
         var blueprint = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -640,6 +655,12 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
             if (bp.Type == "Pagoda_Foundation")
                 _pagodaPosition = bp.Position;
             BuildPagodaPart(root.transform, bp.Type);
+        }
+        else if (bp.Type.StartsWith("Church_"))
+        {
+            if (bp.Type == "Church_Foundation")
+                _churchPosition = bp.Position;
+            BuildChurchPart(root.transform, bp.Type);
         }
         else switch (bp.Type)
         {
@@ -1342,6 +1363,73 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
                 CreatePartCube(root, new Vector3(0, 2.3f, 0), new Vector3(0.55f, 0.12f, 0.55f), goldC);
                 CreatePartCube(root, new Vector3(0, 2.6f, 0), new Vector3(0.5f, 0.5f, 0.5f), goldC);
                 CreatePartCubeRotated(root, new Vector3(0, 2.95f, 0), new Vector3(0.35f, 0.35f, 0.35f), goldC, Quaternion.Euler(45f, 0f, 45f));
+                break;
+        }
+    }
+
+    private void BuildChurchPart(Transform root, string partType)
+    {
+        Color stoneBase = new Color(0.52f, 0.51f, 0.5f);
+        Color lightStoneC = new Color(0.8f, 0.78f, 0.74f);
+        Color whiteWallC = new Color(0.93f, 0.91f, 0.86f);
+        Color roofRedC = new Color(0.5f, 0.14f, 0.11f);
+        Color roofDarkC = new Color(0.32f, 0.09f, 0.08f);
+        Color darkWoodC = new Color(0.38f, 0.24f, 0.14f);
+        Color goldC = new Color(1f, 0.84f, 0.2f);
+        Color glassC = new Color(0.55f, 0.7f, 0.85f);
+
+        switch (partType)
+        {
+            case "Church_Foundation":
+                CreatePartCube(root, new Vector3(0f, 0f, 0f), new Vector3(13f, 0.28f, 9f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 0.22f, 0f), new Vector3(11.8f, 0.16f, 8.8f), lightStoneC);
+                CreatePartCube(root, new Vector3(0f, 0.02f, -4.35f), new Vector3(6f, 0.3f, 0.85f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 0.26f, -4.78f), new Vector3(4.4f, 0.3f, 0.85f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 0.5f, -5.21f), new Vector3(3.2f, 0.3f, 0.85f), stoneBase);
+                break;
+
+            case "Church_NaveFloor":
+                CreatePartCube(root, new Vector3(0f, 0.08f, 0f), new Vector3(10.4f, 0.24f, 6.4f), lightStoneC);
+                CreatePartCube(root, new Vector3(0f, 1.1f, 2.8f), new Vector3(3.4f, 1f, 1.1f), darkWoodC);
+                CreatePartCube(root, new Vector3(0f, 0.5f, -2.8f), new Vector3(1.5f, 0.8f, 0.5f), darkWoodC);
+                break;
+
+            case "Church_BackWall":
+                CreatePartCube(root, new Vector3(0f, 2.35f, 3.25f), new Vector3(10.6f, 4.7f, 0.3f), whiteWallC);
+                CreatePartCube(root, new Vector3(0f, 3f, 3.42f), new Vector3(0.32f, 2.4f, 0.2f), goldC);
+                CreatePartCube(root, new Vector3(0f, 3.55f, 3.42f), new Vector3(1.6f, 0.32f, 0.2f), goldC);
+                break;
+
+            case "Church_SideWalls":
+                CreatePartCube(root, new Vector3(-5.2f, 2.35f, 0f), new Vector3(0.3f, 4.7f, 6.5f), whiteWallC);
+                CreatePartCube(root, new Vector3(5.2f, 2.35f, 0f), new Vector3(0.3f, 4.7f, 6.5f), whiteWallC);
+                CreatePartCube(root, new Vector3(-5.14f, 2.7f, -1.6f), new Vector3(0.06f, 1.2f, 0.8f), glassC);
+                CreatePartCube(root, new Vector3(-5.14f, 2.7f, 1.6f), new Vector3(0.06f, 1.2f, 0.8f), glassC);
+                CreatePartCube(root, new Vector3(5.14f, 2.7f, -1.6f), new Vector3(0.06f, 1.2f, 0.8f), glassC);
+                CreatePartCube(root, new Vector3(5.14f, 2.7f, 1.6f), new Vector3(0.06f, 1.2f, 0.8f), glassC);
+                break;
+
+            case "Church_FrontWall":
+                CreatePartCube(root, new Vector3(-3.7f, 2.35f, -3.25f), new Vector3(3.2f, 4.7f, 0.3f), whiteWallC);
+                CreatePartCube(root, new Vector3(3.7f, 2.35f, -3.25f), new Vector3(3.2f, 4.7f, 0.3f), whiteWallC);
+                CreatePartCube(root, new Vector3(0f, 4.45f, -3.26f), new Vector3(4.4f, 2.2f, 0.3f), whiteWallC);
+                CreatePartCube(root, new Vector3(0f, 1.6f, -3.2f), new Vector3(3.8f, 2.1f, 0.14f), darkWoodC);
+                CreatePartCube(root, new Vector3(0f, 3.5f, -3.42f), new Vector3(1f, 1.3f, 0.06f), glassC);
+                break;
+
+            case "Church_Roof":
+                CreatePartCubeRotated(root, new Vector3(0f, 0.6f, -1.55f), new Vector3(11.4f, 0.42f, 3.7f), roofRedC, Quaternion.Euler(-28f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(0f, 0.6f, 1.55f), new Vector3(11.4f, 0.42f, 3.7f), roofRedC, Quaternion.Euler(28f, 0f, 0f));
+                CreatePartCube(root, new Vector3(0f, 1.6f, 0f), new Vector3(11.8f, 0.5f, 0.7f), roofDarkC);
+                break;
+
+            case "Church_Tower":
+                CreatePartCube(root, new Vector3(4.35f, 3f, -0.45f), new Vector3(3f, 6.4f, 3f), whiteWallC);
+                CreatePartCube(root, new Vector3(4.35f, 6.95f, -0.45f), new Vector3(2.3f, 2f, 2.3f), whiteWallC);
+                CreatePartCube(root, new Vector3(4.35f, 8.05f, -0.45f), new Vector3(2.7f, 0.45f, 2.7f), roofRedC);
+                CreatePartCube(root, new Vector3(4.35f, 8.85f, -0.45f), new Vector3(0.32f, 1.1f, 0.32f), goldC);
+                CreatePartCube(root, new Vector3(4.35f, 9.15f, -0.45f), new Vector3(0.8f, 0.32f, 0.32f), goldC);
+                CreatePartCube(root, new Vector3(4.35f, 1.4f, -1.9f), new Vector3(1f, 1.9f, 0.1f), darkWoodC);
                 break;
         }
     }
