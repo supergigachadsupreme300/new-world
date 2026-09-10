@@ -347,8 +347,38 @@ public sealed class NewWorldTestGround : MonoBehaviour
             go.AddComponent<EnemyController>().ApplyEnemyId(ids[i]);
         }
 
+        // Two indestructible training dummies — damage testing (plain vs 50% damage reduction).
+        SpawnDummy("TestDummy_Plain", startX - 4f, z, 0f);
+        SpawnDummy("TestDummy_Armored", startX + 2f, z, 0.5f);
+
         if (IncludeBoss)
             SpawnBoss();
+    }
+
+    private void SpawnDummy(string name, float x, float z, float damageReduction)
+    {
+        var go = new GameObject(name);
+        go.transform.position = new Vector3(x, PlatformCenter.y + 0.05f, z);
+        var col = go.AddComponent<SphereCollider>();
+        col.radius = 1f;
+        col.center = new Vector3(0f, 0.85f, 0f);
+
+        var ec = go.AddComponent<EnemyController>();
+        ec.ApplyEnemyId("dummy");
+        ec.SetMaxHealth(1000);
+        ec.Damage = 0;
+        ec.Armor = 0;
+        ec.DamageReduction = damageReduction;
+        ec.AttackRange = 0f;
+        ec.AttackCooldown = 1.2f;
+        ec.ChaseRange = 30f;
+        ec.AlertRange = 30f;
+        ec.LeashRange = 40f;
+        ec.MoveSpeed = 0f;
+        ec.PatrolSpeed = 0f;
+        ec.CanFlee = false;
+        ec.Immortal = true;
+        ec.RegenPerSecond = Mathf.RoundToInt(ec.MaxHealth * 0.15f);
     }
 
     private void SpawnBoss()

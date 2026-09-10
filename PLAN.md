@@ -720,3 +720,28 @@ each weapon*. Batch 5 attacks each with a guarantee instead of another guess.
 - [ ] The Alt wheel still overrides which spell is armed; that choice wins until changed/unlearned.
 - [ ] After one cast, re-aim/re-charge/re-cast works without reopening the wheel.
 - [ ] Bow and melee input unchanged; mobile unchanged.
+
+## 26. Batch 16 — training dummy enemy (indestructible damage target)
+
+- Report: add a "dummy type enemy" for damage testing. Nothing new needed to receive hits — an
+  `EnemyController` is already `IDamageable` (HitboxSystem / RangedProjectile / SpellCaster /
+  WeaponSkillExecutor all call `TakeDamage` + show `DamageNumber`), and `EnemyHealthBarHUD` auto
+  scans it by type. So the dummy is just a config: passive + never dies + regenerates.
+- `EnemyController.cs`: new `Immortal` (TakeDamage clamps HP at 1 — never `Die()`, and the
+  hit-wake to Chase is skipped) and `RegenPerSecond` (Update refills toward max while alive);
+  public `MaxHealth` getter + `SetMaxHealth(int)` (base `_maxHealth` is private). Defaults are 0/false
+  — normal enemies unchanged.
+- `EnemyModelBuilder.cs`: `case "dummy"` → wooden training post (~1.8u): base ring, tall post,
+  shoulder block + cross arm bar, round head with eyes, red/white/red bullseye painted on the chest.
+- `NewWorldTestGround.cs`: `SpawnDummy(...)` spawns two dummies in the enemy lane — `TestDummy_Plain`
+  (no mitigation) and `TestDummy_Armored` (`DamageReduction = 0.5`). Config: `SetMaxHealth(1000)`,
+  Damage 0, AttackRange 0, MoveSpeed 0 / PatrolSpeed 0, CanFlee false, `Immortal` true,
+  `RegenPerSecond` = 15% max/s (~7s to full), `ChaseRange`/`AlertRange` 30 (they slowly rotate to
+  face you), torso-height `SphereCollider`.
+
+### 26.1 Verify (needs user — Unity can't be run here)
+- [ ] Two wooden dummies spawn beside the other test enemies on the bench.
+- [ ] Every weapon type (melee, bow, magic spell, skill) pops a damage number on the dummy.
+- [ ] Dummy HP never hits 0; the bar refills to full in ~7s; hits keep landing after regen.
+- [ ] The armored dummy's bar depletes ~half as fast as the plain one.
+- [ ] Dummies never move or attack — only rotate to face the player while being hit.

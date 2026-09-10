@@ -62,6 +62,22 @@ public class EnemyController : MonoBehaviour, IDamageable
     /// <summary>MaxStat% bonus for this enemy tier (used by spawned variants).</summary>
     public float TierScale = 1f;
 
+    [Header("Training Dummy")]
+    [Tooltip("Never dies: damage clamps HP at 1 and the hit no longer wakes the FSM to chase (static practice target).")]
+    public bool Immortal;
+    [Tooltip("Passive HP regen per second back up to MaxHealth (0 = none).")]
+    public float RegenPerSecond;
+
+    /// <summary>Current max health derived from the base + <see cref="TierScale"/>.</summary>
+    public int MaxHealth => Mathf.RoundToInt(_maxHealth * TierScale);
+
+    /// <summary>Set the base max health (and re-sync current health to it).</summary>
+    public void SetMaxHealth(int value)
+    {
+        _maxHealth = Mathf.Max(1, value);
+        CurrentHealth = Mathf.RoundToInt(_maxHealth * TierScale);
+    }
+
     /// <summary>
     /// Assign the enemy type id and build its procedural model immediately.
     /// Needed for runtime-created enemies where Awake fires before EnemyId is set.
@@ -104,6 +120,8 @@ public class EnemyController : MonoBehaviour, IDamageable
     private void Update()
     {
         if (IsDead) return;
+        if (Immortal && RegenPerSecond > 0f && CurrentHealth < MaxHealth)
+            CurrentHealth = Mathf.Min(MaxHealth, CurrentHealth + Mathf.RoundToInt(RegenPerSecond * Time.deltaTime));
         TickTargets();
         switch (State)
         {
@@ -313,14 +331,14 @@ private void StrikeTarget(Transform target)
         if (IsDead) return 0;
         int final = Mathf.Max(0, amount - Armor);
         final = (int)(final * (1f - DamageReduction));
-        CurrentHealth = Mathf.Max(0, CurrentHealth - final);
+        CurrentHealth = Mathf.Max(CurrentHealth - final, Immortal ? 1 : 0);
         if (CurrentHealth <= 0)
         {
             Die();
             return 0;
         }
-        // First contact wakes patrol/alert to chase.
-        if (State == EnemyState.Patrol || State == EnemyState.Alert)
+        // First contact wakes patrol/alert to chase (training dummies stay put).
+        if (!Immortal && (State == EnemyState.Patrol || State == EnemyState.Alert))
             State = EnemyState.Chase;
         return CurrentHealth;
     }

@@ -40,8 +40,9 @@ public static class EnemyModelBuilder
             case "demon":          return BuildDemon(parent);
             case "mimic":          return BuildMimic(parent);
             case "sea_creature":   return BuildSeaCreature(parent);
-            case "skeleton":       return BuildSkeleton(parent);
+case "skeleton":       return BuildSkeleton(parent);
             case "bat":            return BuildBat(parent);
+            case "dummy":          return BuildDummy(parent);
             default:               return BuildSlime(parent);
         }
     }
@@ -67,7 +68,37 @@ public static class EnemyModelBuilder
         MakeBlock("EyeR",   root.transform, new Vector3(0.08f, 0.08f, 0.02f),   new Vector3(0.1f, 0.25f, 0.24f),  eyeWhite);
         MakeBlock("PupilL", root.transform, new Vector3(0.03f, 0.03f, 0.02f),   new Vector3(-0.1f, 0.25f, 0.25f), eyePupil);
         MakeBlock("PupilR", root.transform, new Vector3(0.03f, 0.03f, 0.02f),   new Vector3(0.1f, 0.25f, 0.25f),  eyePupil);
-        MakeBlock("Mouth",  root.transform, new Vector3(0.12f, 0.02f, 0.02f),   new Vector3(0f, 0.15f, 0.25f),    bodyDark);
+MakeBlock("Mouth",  root.transform, new Vector3(0.12f, 0.02f, 0.02f),   new Vector3(0f, 0.15f, 0.25f),    bodyDark);
+
+        return root.transform;
+    }
+
+    //  TRAINING DUMMY â€” wooden practice post with a painted bullseye, ~1.8u (damage testing).
+    private static Transform BuildDummy(Transform parent)
+    {
+        Color wood     = new Color(0.66f, 0.49f, 0.30f);
+        Color woodDark = new Color(0.42f, 0.30f, 0.18f);
+        Color tgtRed   = new Color(0.82f, 0.22f, 0.16f);
+        Color tgtWhite = new Color(0.92f, 0.92f, 0.88f);
+        Color eyeDark  = new Color(0.1f, 0.08f, 0.05f);
+
+        var root = new GameObject("DummyModel");
+        root.transform.SetParent(parent, false);
+        root.transform.localPosition = Vector3.zero;
+
+        MakeBlock("Base",   root.transform, new Vector3(0.46f, 0.07f, 0.46f), new Vector3(0f, 0.035f, 0f), woodDark);
+        MakeBlock("Post",   root.transform, new Vector3(0.14f, 1.5f, 0.14f),  new Vector3(0f, 0.82f, 0f),  wood);
+        MakeBlock("Shoul",  root.transform, new Vector3(0.52f, 0.2f, 0.15f),  new Vector3(0f, 1.38f, 0f),  wood);
+        MakeBlock("ArmBar", root.transform, new Vector3(0.95f, 0.09f, 0.09f), new Vector3(0f, 1.44f, 0f),  woodDark);
+        MakeBlock("ArmL",   root.transform, new Vector3(0.3f, 0.08f, 0.09f),  new Vector3(-0.65f, 1.44f, 0f), wood);
+        MakeBlock("ArmR",   root.transform, new Vector3(0.3f, 0.08f, 0.09f),  new Vector3(0.65f, 1.44f, 0f),  wood);
+        MakeBlock("Head",   root.transform, new Vector3(0.2f, 0.2f, 0.2f),    new Vector3(0f, 1.74f, 0f),  wood);
+        MakeBlock("EyeL",   root.transform, new Vector3(0.04f, 0.03f, 0.02f), new Vector3(-0.05f, 1.77f, 0.1f), eyeDark);
+        MakeBlock("EyeR",   root.transform, new Vector3(0.04f, 0.03f, 0.02f), new Vector3(0.05f, 1.77f, 0.1f),  eyeDark);
+        MakeBlock("RingR",  root.transform, new Vector3(0.3f, 0.3f, 0.02f),   new Vector3(0f, 1.2f, 0.075f),  tgtRed);
+        MakeBlock("RingW",  root.transform, new Vector3(0.17f, 0.17f, 0.02f), new Vector3(0f, 1.2f, 0.085f),  tgtWhite);
+        MakeBlock("RingC",  root.transform, new Vector3(0.06f, 0.06f, 0.02f), new Vector3(0f, 1.2f, 0.095f),  tgtRed);
+        MakeBlock("Peg",    root.transform, new Vector3(0.12f, 0.12f, 0.12f), new Vector3(0f, 1.84f, 0f),  woodDark);
 
         return root.transform;
     }
