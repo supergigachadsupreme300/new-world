@@ -76,6 +76,53 @@ public sealed class MagicWheelUI : MonoBehaviour
         return _instance.PlayerProfile() != null;
     }
 
+    /// <summary>
+    /// Ensure a spell is armed so magic aim/charge/fire works without visiting the wheel first.
+    /// Keeps the wheel's armed choice when still learned; otherwise auto-arms the most recently
+    /// armed spell if still learned, then the first learned castable skill off cooldown, then the
+    /// first learned castable. Returns true when a spell is armed afterwards.
+    /// </summary>
+    public static bool EnsureArmedMagic()
+    {
+        if (_instance == null) return false;
+        var profile = _instance.PlayerProfile();
+        if (profile == null || !_instance.HoldingMagicWeapon()) return false;
+
+        if (!string.IsNullOrEmpty(_instance._armedSkillId))
+        {
+            bool stillLearned = false;
+            foreach (var id in profile.Learned)
+                if (id == _instance._armedSkillId) { stillLearned = true; break; }
+            if (stillLearned) return true;
+        }
+
+        var caster = _instance._player != null ? _instance._player.GetComponent<SpellCaster>() : null;
+
+        foreach (var id in profile.Learned)
+        {
+            var skill = SkillCatalog.Find(id);
+            if (skill != null && !skill.IsPassive &&
+                (caster == null || caster.CooldownRemaining(skill.CooldownKey) <= 0f))
+            {
+                _instance._armedSkillId = id;
+                _instance.RefreshArmedChip();
+                return true;
+            }
+        }
+
+        foreach (var id in profile.Learned)
+        {
+            var skill = SkillCatalog.Find(id);
+            if (skill != null && !skill.IsPassive)
+            {
+                _instance._armedSkillId = id;
+                _instance.RefreshArmedChip();
+                return true;
+            }
+        }
+        return false;
+    }
+
     /// <summary>Fire the armed magic with a charge level (0..1). True if the cast began.</summary>
     public static bool ReleaseArmedCast(float charge)
     {

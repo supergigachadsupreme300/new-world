@@ -744,8 +744,9 @@ public class PlayerController : MonoBehaviour
             if (FightingMode)
             {
                 var combatPress = GetComponent<CombatController>();
+                // Auto-arm a spell on demand so magic aim/charge/fire works without the Alt wheel first.
                 bool aimable = !GameInput.IsMobile && !WeaponTransitionBusy() &&
-                    (MagicWheelUI.HasArmedMagic() || IsRangedEquipped(combatPress));
+                    (MagicWheelUI.EnsureArmedMagic() || IsRangedEquipped(combatPress));
                 if (aimable)
                 {
                     // Hold LMB to aim (no charge yet); the release fires, driven above.

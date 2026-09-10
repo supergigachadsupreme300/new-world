@@ -702,3 +702,21 @@ each weapon*. Batch 5 attacks each with a guarantee instead of another guess.
       sway/reset — until the spell fires or the aim is cancelled.
 - [ ] Cancel drops the hand straight back without a cast push; no spell fires.
 - [ ] Each weapon still shows its own magic accent and cast speed; melee + bow unchanged.
+
+## 25. Batch 15 — magic aims/charges without the Alt-wheel prerequisite
+
+- Report: magic "lost its charging function." The aim/charge gesture itself was right (LMB hold = aim +
+  held raise pose, RMB hold = charge, LMB release = shoot) — but the aim session only started when a
+  spell was already armed via the Alt wheel, so with nothing armed LMB did nothing (dead magic).
+- `MagicWheelUI.cs`: new static `EnsureArmedMagic()` — keeps the wheel's armed choice when still
+  learned; else auto-arms the most recently armed spell if still learned, then the first learned
+  castable skill off cooldown, then any first learned castable, and refreshes the Armed chip.
+- `PlayerController.cs`: the LMB-press aim gate now uses `EnsureArmedMagic()` (auto-arms on demand)
+  instead of the passive `HasArmedMagic()`; cancel/release keep the pure `HasArmedMagic()` checks.
+
+### 25.1 Verify (needs user — Unity can't be run here)
+- [ ] Equip a magic weapon WITHOUT opening the Alt wheel → hold LMB: hand raises and holds midway,
+      hold RMB: charge bar fills + accent ramps, release LMB: casts the auto-armed spell.
+- [ ] The Alt wheel still overrides which spell is armed; that choice wins until changed/unlearned.
+- [ ] After one cast, re-aim/re-charge/re-cast works without reopening the wheel.
+- [ ] Bow and melee input unchanged; mobile unchanged.
