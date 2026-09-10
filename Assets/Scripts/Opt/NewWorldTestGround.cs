@@ -281,10 +281,9 @@ public sealed class NewWorldTestGround : MonoBehaviour
         foreach (var type in kit)
             tm.AddItem(type, 1);
 
-        // Seeds + foods round out the visible inventory where slots remain.
+        // Foods round out the visible inventory where slots remain (no seeds by request).
         string[] extras = new[]
         {
-            "wheat_seed", "corn_seed", "tomato_seed", "rice_seed",
             "banh_mi", "com_tam", "nuoc_dau", "mi_chinh", "xap_phong"
         };
         foreach (var type in extras)

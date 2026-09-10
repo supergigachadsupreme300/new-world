@@ -745,3 +745,10 @@ each weapon*. Batch 5 attacks each with a guarantee instead of another guess.
 - [ ] Dummy HP never hits 0; the bar refills to full in ~7s; hits keep landing after regen.
 - [ ] The armored dummy's bar depletes ~half as fast as the plain one.
 - [ ] Dummies never move or attack — only rotate to face the player while being hit.
+
+## 27. Batch 17 — stop granting seeds in the bench starter kit
+
+- Requested: no more seeds/materials in the player inventory. Chosen scope: just stop granting
+  seeds on new games; leave materials and any existing items alone.
+- `NewWorldTestGround.SpawnToolKit`: removed the four seed entries from the `extras` grant
+  (`wheat_seed`, `corn_seed`, `tomato_seed`, `rice_seed`) — the five foods remain.
