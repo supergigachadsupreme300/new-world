@@ -904,7 +904,7 @@ front gable bell tower with a gold cross) next to the pagoda, plus a Priest NPC 
 - [ ] Save + load while Church: religion state round-trips, priest still there.
 - [ ] With <50 money then earning money: donation works; repeated donation same day is refused.
 
-## 32. Batch 20c - Taoist shrine + Taoist priest (done: commit TBD - pending semantic check)
+## 32. Batch 20c - Taoist shrine + Taoist priest (done: commit a5713d2)
 
 Implements Batch C from the plan: a Taoist shrine (open stone pavilion-hall with wide green-grey
 tiles, upturned gold eave tips, yin-yang emblem on the back wall, incense stand in front) NW of the
@@ -926,7 +926,7 @@ village, plus a Taoist priest who accepts a 1-wood offering and grants the daily
 - `Localization`: added Dao Si/Taoist Priest + qi-blessing toast.
 - `WorldBuilder.NPCs.cs` reserve list + `WorldBuilder.Persistence.cs` prune box now cover the
   shrine footprint.
-- Semantic check: pending (run before commit).
+- Semantic check: 0 diagnostics. Commit: a5713d2.
 
 ### 32.1 Verify (needs user - Unity can't be run here) - batch C
 - [ ] Walk NW around (-40, 0, -25): shrine built (open pavilion, grey-green tiled roof, yin-yang
