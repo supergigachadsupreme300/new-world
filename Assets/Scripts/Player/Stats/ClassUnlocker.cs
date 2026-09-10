@@ -41,6 +41,10 @@ public class ClassUnlocker : MonoBehaviour
         EvaluateAll();
         if (!IsUnlocked(ActiveClassId))
             SetActiveClass("wanderer");
+        // Ensure the passive manager is present so active-class modifiers are live
+        // (mirrors RaceChangeManager auto-adding RacePassiveManager).
+        if (GetComponent<ClassPassiveManager>() == null)
+            gameObject.AddComponent<ClassPassiveManager>();
     }
 
     /// <summary>Re-evaluate all classes; unlocks any newly satisfied (Wanderer baseline is always free).</summary>

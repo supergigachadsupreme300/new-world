@@ -82,6 +82,7 @@ public static class ClassSkillCatalog
         BuildBard(list);
         BuildTaoist(list);
         BuildMonk(list);
+        BuildBlacksmith(list);
         return list;
     }
 
@@ -742,5 +743,38 @@ public static class ClassSkillCatalog
             "Release a wave of chi that strikes and slows.",
             new ClassStrikeEffect { Radius = 2.2f, BasePower = 38f, Type = DamageType.Wind },
             M(ClassModType.StaggerResistMul, 0.05f));
+    }
+
+    // ── Blacksmith ──────────────────────────────────────────────────────────
+
+    private static void BuildBlacksmith(List<ClassSkill> list)
+    {
+        Make(list, "blacksmith", "hub", "Blacksmith", 0, true, None(), null,
+            "Crafting/forge support: gear upgrade success, repair, forgiving workmanship.");
+
+        // Forge.
+        Make(list, "blacksmith", "fo1", "Apprentice Forge", 1, true, None(), Chain("blacksmith"),
+            "+6% craft success.", mods: M(ClassModType.CraftSuccessMul, 0.06f));
+        Make(list, "blacksmith", "fo2", "Kept Coal", 2, true, None(), P(N("blacksmith", "fo1")),
+            "+8% craft success.", mods: M(ClassModType.CraftSuccessMul, 0.08f));
+        Make(list, "blacksmith", "fo3", "Masterwork", 2, true, None(), P(N("blacksmith", "fo1")),
+            "+8% craft success, +6% repair.", null, M(ClassModType.CraftSuccessMul, 0.08f), M(ClassModType.RepairMul, 0.06f));
+
+        // Anvil.
+        Make(list, "blacksmith", "an1", "Field Repair", 1, true, None(), Chain("blacksmith"),
+            "+5% repair efficiency.", mods: M(ClassModType.RepairMul, 0.05f));
+        Make(list, "blacksmith", "an2", "Sturdy Fixes", 2, true, None(), P(N("blacksmith", "an1")),
+            "+6% repair efficiency.", mods: M(ClassModType.RepairMul, 0.06f));
+        Make(list, "blacksmith", "an3", "Tempered Steel", 2, true, None(), P(N("blacksmith", "an1")),
+            "+5% melee defense (forged-hardened).", mods: M(ClassModType.DefenseMeleeMul, 0.05f));
+
+        // Ember.
+        Make(list, "blacksmith", "em1", "Ember Study", 1, true, None(), Chain("blacksmith"),
+            "+5% craft success.", mods: M(ClassModType.CraftSuccessMul, 0.05f));
+        Make(list, "blacksmith", "em2", "Quenching", 2, true, None(), P(N("blacksmith", "em1")),
+            "+5% melee defense.", mods: M(ClassModType.DefenseMeleeMul, 0.05f));
+        Make(list, "blacksmith", "em3", "Forging Spirit", 2, true, None(), P(N("blacksmith", "em1")),
+            "+6% blocking effectiveness, +10% stagger resistance.",
+            null, M(ClassModType.BlockingMul, 0.06f), M(ClassModType.StaggerResistMul, 0.10f));
     }
 }

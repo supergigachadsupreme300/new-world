@@ -58,6 +58,22 @@ public class PlayerStats : MonoBehaviour, IStatProvider, ILootLuckProvider
             Array.Resize(ref _baseStats, StatCount);
     }
 
+    // ── Class modifiers (§3.2.1) ─────────────────────────────────────────────
+    // Baked into the derived getters below so every consumer (weapons, spells, healing,
+    // parry, block, cooldowns) picks up the active class's modifiers through the same
+    // stat path. Safe fallback (1f/0f) when the class system is absent.
+
+    private ClassPassiveManager _classMods;
+
+    private ClassPassiveManager ActiveClassMods
+    {
+        get
+        {
+            if (_classMods == null) _classMods = GetComponent<ClassPassiveManager>();
+            return _classMods;
+        }
+    }
+
     /// <summary>Temporary dev switch: lifts every base stat to a huge floor so all derived stats are
     /// maxed for testing. Set false (or lower <see cref="DevMaxAllStatValue"/>) when tuning resumes.</summary>
     public const bool DevMaxAllStats = true;
@@ -119,36 +135,47 @@ public class PlayerStats : MonoBehaviour, IStatProvider, ILootLuckProvider
     public float AttackSpeedMultiplier =>
         (1f + GetTotal(StatType.AttackSpeed) * K_As)
         * (1f + GetTotal(StatType.Speed) * K_AsSpeed)
-        * (1f + GetTotal(StatType.Dexterity) * K_AsDex);
+        * (1f + GetTotal(StatType.Dexterity) * K_AsDex)
+        * (ActiveClassMods?.AttackSpeedMul ?? 1f);
 
     /// <summary>The attack-speed scale used for attack animation/action timing (capped). Driven
     /// by the AttackSpeed stat alone so a value of 1 plays at the authored tempo.</summary>
-    public float AttackSpeedScale => Mathf.Clamp(1f + GetTotal(StatType.AttackSpeed) * K_As, 1f, MaxAttackSpeedMult);
+    public float AttackSpeedScale => Mathf.Clamp(
+        (1f + GetTotal(StatType.AttackSpeed) * K_As) * (ActiveClassMods?.AttackSpeedMul ?? 1f),
+        1f, MaxAttackSpeedMult);
 
     public float MaxStamina => 100f + GetTotal(StatType.Endurance) * 10f;
 
-    public float EquipLoad => 40f + GetTotal(StatType.Endurance) * 2f;
+    public float EquipLoad => 40f + GetTotal(StatType.Endurance) * 2f + (ActiveClassMods?.EquipLoadBonus ?? 0f);
 
-    public float MeleeAtkPower => BaseMeleeAtkPower + GetTotal(StatType.Strength) * K_Str;
+    public float MeleeAtkPower => (BaseMeleeAtkPower + GetTotal(StatType.Strength) * K_Str)
+        * (ActiveClassMods?.EffectiveMeleeMul ?? 1f);
 
     public float StaggerPower => BaseMeleeAtkPower + GetTotal(StatType.Strength) * K_Stag;
 
-    public float LightAtkPower => BaseLightAtkPower + GetTotal(StatType.Dexterity) * K_Lt;
+    public float LightAtkPower => (BaseLightAtkPower + GetTotal(StatType.Dexterity) * K_Lt)
+        * (ActiveClassMods?.MeleePowerMul ?? 1f);
 
-    public float RangedAccuracy => 1f + GetTotal(StatType.Dexterity) * K_Racc;
+    public float RangedAccuracy => (1f + GetTotal(StatType.Dexterity) * K_Racc)
+        * (ActiveClassMods?.RangedHandlingMul ?? 1f);
 
-    public float ParryWindow => BaseParrySeconds + GetTotal(StatType.Dexterity) * K_Parry;
+    public float ParryWindow => (BaseParrySeconds + GetTotal(StatType.Dexterity) * K_Parry)
+        * (ActiveClassMods?.ParryWindowMul ?? 1f);
 
     /// <summary>Flat physical damage reduction, capped at 80%.</summary>
-    public float DamageReduction => Mathf.Clamp(GetTotal(StatType.Defense) * K_Def, 0f, 0.8f);
+    public float DamageReduction => Mathf.Clamp(
+        GetTotal(StatType.Defense) * K_Def * (ActiveClassMods?.DefenseMeleeMul ?? 1f), 0f, 0.8f);
 
     public float MaxFocusPoints => 50f + GetTotal(StatType.Intelligence) * 10f;
 
-    public float CooldownMultiplier => Mathf.Max(0.2f, 1f - GetTotal(StatType.Intelligence) * K_Cool);
+    public float CooldownMultiplier => Mathf.Max(0.2f,
+        (1f - GetTotal(StatType.Intelligence) * K_Cool) / (ActiveClassMods?.CooldownMul ?? 1f));
 
-    public float MagicAttackPower => BaseMagicAtkPower + GetTotal(StatType.Wisdom) * K_Mag;
+    public float MagicAttackPower => (BaseMagicAtkPower + GetTotal(StatType.Wisdom) * K_Mag)
+        * (ActiveClassMods?.SpellPowerMul ?? 1f);
 
-    public float HealPowerMultiplier => 1f + GetTotal(StatType.Faith) * K_Heal;
+    public float HealPowerMultiplier => (1f + GetTotal(StatType.Faith) * K_Heal)
+        * (ActiveClassMods?.HealPowerMul ?? 1f);
 
     public float BuffDurationMultiplier => 1f + GetTotal(StatType.Faith) * K_Buff;
 

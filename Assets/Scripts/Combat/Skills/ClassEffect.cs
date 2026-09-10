@@ -41,7 +41,6 @@ public sealed class HealEffect : IClassEffect
         if (ctx == null || ctx.Controller == null) return;
         float heal = Amount;
         if (ctx.Stats != null) heal *= ctx.Stats.HealPowerMultiplier;
-        if (ctx.Passives != null) heal *= ctx.Passives.HealPowerMul;
         if (heal <= 0f) return;
         ctx.Controller.Heal(Mathf.Max(1, Mathf.RoundToInt(heal)));
         DamageNumber.Spawn(ctx.Controller.transform.position + Vector3.up * 1.5f, heal, DamageType.Holy);

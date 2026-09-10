@@ -1,6 +1,6 @@
 # Plan — Class Skill Trees
 
-Each of the 17 classes gets its own **medium radial skill tree (13-15 skills: hub + 3 paths × 4-5 nodes, one capstone per path)**. Class skills are mechanically distinct from the ~1984-skill normal skill tree.
+Each of the 18 classes (17 unlockable + Wanderer baseline) gets its own **small radial skill tree (hub + 3 paths × 3 nodes — parent + 2 leaves ≈ 10 skills/class)**. Class skills are mechanically distinct from the ~1984-skill normal skill tree.
 
 ## Locked decisions
 - Class skills are **auto-granted at class unlock** (no skill-point economy; prereqs are cosmetic — the tree shows the class's kit).
@@ -18,7 +18,7 @@ Each of the 17 classes gets its own **medium radial skill tree (13-15 skills: hu
 | File | Purpose |
 |---|---|
 | `Assets/Scripts/Combat/Skills/ClassSkill.cs` | Data: id, displayName, description, IsPassive, PrereqSkillIds, Cost, Layer, ClassEffects (IClassEffect[]), ClassMods (ClassMod[]) |
-| `Assets/Scripts/Combat/Skills/ClassSkillCatalog.cs` | Static registry mirroring SkillCatalog; ~240 skills authored procedurally per class; EnsureBuilt/Find/ForClass |
+| `Assets/Scripts/Combat/Skills/ClassSkillCatalog.cs` | Static registry mirroring SkillCatalog; ~180 skills authored procedurally per class; EnsureBuilt/Find/ForClass |
 | `Assets/Scripts/Combat/Skills/ClassEffect.cs` | IClassEffect + ClassSkillContext + 7 active behaviors + ClassMod/ClassModType enum |
 | `Assets/Scripts/Combat/Skills/ClassSkillCaster.cs` | ExecuteClass(string id): validate active class, cooldown (SpellCaster keyed API), cost, run effect |
 | `Assets/Scripts/Player/Stats/ClassPassiveManager.cs` | Mirrors RacePassiveManager/ReligionManager: caches active-class modifiers, subscribes to OnActiveClassChanged, 15+ getters |
@@ -71,7 +71,7 @@ Each of the 17 classes gets its own **medium radial skill tree (13-15 skills: hu
 - LifestealStrikeEffect → direct overlap damage + Heal(% damage)
 - AuraEffect → timed buff stack (ApplyStaminaRegenModifier pattern), x AuraStrength
 
-## Per-class tree authoring (~240 skills) — hub `{class}.hub` + 3 paths
+## Per-class tree authoring (~180 skills) — hub `{class}.hub` + 3 paths
 | Class | Path A | Path B | Path C |
 |---|---|---|---|
 | Wanderer | Stamina regen → Heal "Field Bandage" | Consumable+Craft | small Melee+Def → basic strike |
@@ -89,6 +89,7 @@ Each of the 17 classes gets its own **medium radial skill tree (13-15 skills: hu
 | Brawler | Melee (unarmed) tiers + "Haymaker" | CcZone "Bone Throw" + Taunt "Bellow" | StaggerResist + "Whirlwind Fist" |
 | Paladin | HealPower + Heal "Lay on Hands" | Taunt "Holy Provocation" + Blocking | "Smite" holy cast + "Aegis" aura |
 | Bard | AuraStrength 8/8/10 → "Battle Hymn" | CcZone "Dissonance"(stun) | Heal-regen "Song of Rest" |
+| Blacksmith | Craft tiers 6/8/8 → "Masterwork" | Repair tiers + "Tempered Steel" def | Craft + "Forging Spirit" block/stagger |
 | Taoist | StaminaRegen 8/8/10 → "Talisman" cast | Cooldown + SpellPower | "Yi Symbol" regen capstone |
 | Monk | Stamina+Def(unarmed) → "Iron Body" block | Heal "Meditation" + StaggerResist | CcZone "Chi Wave" + fist capstone |
 
