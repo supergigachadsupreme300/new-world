@@ -862,7 +862,7 @@ Implementation batches (each: semantic checker 0, PLAN.md note, auto-commit):
 - `SaveManager`: SaveData gains `religion` (ReligionSaveData: current/devotion/lastWorshipDay/
   lastSwitchDay); saved + loaded on load with null-safe fallback to Initialize.
 - `ToolManager`: rosary use consumes `BuddhistRosaryCost` karma instead of a flat 1.
-- Semantic check: 0 diagnostics. Commit: f0dbc4b.
+- Semantic check: 0 diagnostics. Commit: 6262728.
 
 ### 30.2 Verify (needs user - Unity can't be run here) - batch A, no worship UI yet
 - [ ] Boot + start a new game: no errors; Player.StaminaRegenMultiplier stays 1 (no faith yet).
