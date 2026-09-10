@@ -68,7 +68,11 @@ public class SaveManager : MonoSingleton<SaveManager>
             skillPoints = player != null && player.GetComponent<SkillProfile>() != null
                 ? player.GetComponent<SkillProfile>().Points : 0,
             learnedSkills = player != null && player.GetComponent<SkillProfile>() != null
-                ? player.GetComponent<SkillProfile>().LearnedSkillIds.ToArray() : null
+                ? player.GetComponent<SkillProfile>().LearnedSkillIds.ToArray() : null,
+            unlockedClassIds = player != null && player.GetComponent<ClassUnlocker>() != null
+                ? player.GetComponent<ClassUnlocker>().UnlockedClassIds.ToArray() : null,
+            activeClassId = player != null && player.GetComponent<ClassUnlocker>() != null
+                ? player.GetComponent<ClassUnlocker>().ActiveClassId : ""
         };
 
         var json = JsonUtility.ToJson(data, true);
@@ -179,6 +183,10 @@ public class SaveManager : MonoSingleton<SaveManager>
         if (profile != null && data.learnedSkills != null)
             profile.RestoreState(data.skillPoints, data.learnedSkills);
 
+        var unlocker = GameManager.Instance?.Player?.GetComponent<ClassUnlocker>();
+        if (unlocker != null && data.unlockedClassIds != null)
+            unlocker.RestoreUnlocks(data.unlockedClassIds, data.activeClassId);
+
         var spawner = Object.FindAnyObjectByType<LivestockSpawner>();
         if (spawner != null) spawner.Restart();
 
@@ -246,6 +254,8 @@ public class SaveManager : MonoSingleton<SaveManager>
         public string goblinCarriedCrop;
         public int skillPoints;
         public string[] learnedSkills;
+        public string[] unlockedClassIds;
+        public string activeClassId;
     }
 
     [System.Serializable]

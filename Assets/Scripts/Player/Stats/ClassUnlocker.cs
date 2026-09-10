@@ -19,6 +19,9 @@ public class ClassUnlocker : MonoBehaviour
     private PlayerStats _stats;
     private SkillXpTracker _skills;
 
+    /// <summary>True after a save restore populated the roster — Start() skips re-deriving unlocks.</summary>
+    private bool _restoredFromSave;
+
     /// <summary>Fires when a class becomes unlocked.</summary>
     public event System.Action<ClassData> OnClassUnlocked;
 
@@ -38,13 +41,49 @@ public class ClassUnlocker : MonoBehaviour
 
     private void Start()
     {
-        EvaluateAll();
+        // A save restore is authoritative — don't re-derive unlocks from current stats
+        // (they may not match what the player earned at save time).
+        if (!_restoredFromSave)
+            EvaluateAll();
         if (!IsUnlocked(ActiveClassId))
             SetActiveClass("wanderer");
         // Ensure the passive manager is present so active-class modifiers are live
         // (mirrors RaceChangeManager auto-adding RacePassiveManager).
         if (GetComponent<ClassPassiveManager>() == null)
             gameObject.AddComponent<ClassPassiveManager>();
+    }
+
+    /// <summary>
+    /// Populate the unlocked roster + active class from a save (used by <see cref="SaveManager"/>
+    /// on load). The saved list is authoritative; the Wanderer baseline is always kept available.
+    /// Fires <see cref="OnActiveClassChanged"/> when the restored active differs from the current so
+    /// <see cref="ClassPassiveManager"/> re-aggregates the modifier set.
+    /// </summary>
+    public void RestoreUnlocks(IEnumerable<string> unlockedIds, string savedActiveClassId)
+    {
+        _restoredFromSave = true;
+        _unlocked.Clear();
+        UnlockedClassIds.Clear();
+        if (unlockedIds != null)
+            foreach (var id in unlockedIds)
+                if (!string.IsNullOrEmpty(id) && _unlocked.Add(id))
+                    UnlockedClassIds.Add(id);
+
+        // Wanderer baseline is always available.
+        var wanderer = Classes != null
+            ? Classes.Find(c => c != null && string.Equals(c.classId, "wanderer", System.StringComparison.OrdinalIgnoreCase))
+            : null;
+        if (wanderer != null && _unlocked.Add(wanderer.classId))
+            UnlockedClassIds.Add(wanderer.classId);
+
+        string target = savedActiveClassId;
+        if (string.IsNullOrEmpty(target) || !IsUnlocked(target))
+            target = "wanderer";
+        if (!string.Equals(ActiveClassId, target, System.StringComparison.OrdinalIgnoreCase))
+        {
+            ActiveClassId = target;
+            OnActiveClassChanged?.Invoke(ActiveClass);
+        }
     }
 
     /// <summary>Re-evaluate all classes; unlocks any newly satisfied (Wanderer baseline is always free).</summary>
