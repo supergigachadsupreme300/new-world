@@ -161,6 +161,12 @@ public sealed class SkillProfile : MonoBehaviour
         var skill = SkillCatalog.Find(id);
         if (skill == null)
         {
+            // Class-skill fallback (§3.2.1): hotkeyed ids of the form "cls.{class}.{node}" route
+            // through the class caster (active-class validation, shared cooldowns/costs).
+            ReconcileDependencies();
+            var classSkill = ClassSkillCatalog.Find(id);
+            if (classSkill != null)
+                return ClassSkillCaster.Execute(gameObject, id, charge, BuildContext());
             if (SkillDebug) Debug.Log($"[Skill] \"{id}\" not found in catalog");
             return false;
         }

@@ -56,11 +56,25 @@ public sealed class SkillBindings : MonoBehaviour
     {
         var caster = GetComponent<SpellCaster>();
         if (caster == null) return 0f;
+        Cost skillCost = default;
+        string cooldownKey = null;
         var skill = SkillCatalog.Find(skillId);
-        if (skill == null || skill.IsPassive) return 0f;
-        float remaining = caster.CooldownRemaining(skill.CooldownKey);
+        if (skill != null)
+        {
+            if (skill.IsPassive) return 0f;
+            skillCost = skill.SkillCost;
+            cooldownKey = skill.CooldownKey;
+        }
+        else
+        {
+            var classSkill = ClassSkillCatalog.Find(skillId); // class-skill fallback
+            if (classSkill == null || classSkill.IsPassive) return 0f;
+            skillCost = classSkill.SkillCost;
+            cooldownKey = classSkill.CooldownKey;
+        }
+        float remaining = caster.CooldownRemaining(cooldownKey);
         if (remaining <= 0f) return 0f;
-        float total = Mathf.Max(skill.SkillCost.Cooldown, 0.001f);
+        float total = Mathf.Max(skillCost.Cooldown, 0.001f);
         return Mathf.Clamp01(remaining / total);
     }
 
