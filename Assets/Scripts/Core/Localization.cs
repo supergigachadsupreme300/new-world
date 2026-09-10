@@ -1190,6 +1190,8 @@ public static class Localization
         { "Đạo Giáo", "Taoist" },
         { "Phật Giáo", "Buddhist" },
         { "Phước lành nước thánh: máu đã hồi đầy!", "Holy-water blessing: HP fully restored!" },
+        { "Đạo Sĩ", "Taoist Priest" },
+        { "Phước lành tiên khí: hồi phục sức lực gấp đôi cả ngày!", "Qi blessing: stamina regen x2 all day!" },
         { "Đọc sách", "Read" },
         { "Mở cửa", "Open" },
         { "Chặt", "Chop" },

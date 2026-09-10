@@ -179,6 +179,21 @@ public partial class WorldBuilder
         }
     }
 
+    public void BuildShrine(Vector3 position)
+    {
+        _shrinePosition = position;
+        foreach (var sub in _shrineSubBuildings)
+        {
+            var bp = new BlueprintState
+            {
+                Type = sub.PartName,
+                Position = position + sub.Offset,
+                Rotation = 0
+            };
+            SpawnStructurePart(bp);
+        }
+    }
+
     private BlueprintState CreateMansionBlueprint(string typeName, Vector3 position, Vector3 size, Color color, int woodCost, int stoneCost)
     {
         var blueprint = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -661,6 +676,12 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
             if (bp.Type == "Church_Foundation")
                 _churchPosition = bp.Position;
             BuildChurchPart(root.transform, bp.Type);
+        }
+        else if (bp.Type.StartsWith("Shrine_"))
+        {
+            if (bp.Type == "Shrine_Foundation")
+                _shrinePosition = bp.Position;
+            BuildShrinePart(root.transform, bp.Type);
         }
         else switch (bp.Type)
         {
@@ -1430,6 +1451,74 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
                 CreatePartCube(root, new Vector3(4.35f, 8.85f, -0.45f), new Vector3(0.32f, 1.1f, 0.32f), goldC);
                 CreatePartCube(root, new Vector3(4.35f, 9.15f, -0.45f), new Vector3(0.8f, 0.32f, 0.32f), goldC);
                 CreatePartCube(root, new Vector3(4.35f, 1.4f, -1.9f), new Vector3(1f, 1.9f, 0.1f), darkWoodC);
+                break;
+        }
+    }
+
+    private void BuildShrinePart(Transform root, string partType)
+    {
+        Color stoneBase = new Color(0.4f, 0.38f, 0.36f);
+        Color stoneDark = new Color(0.34f, 0.33f, 0.31f);
+        Color woodFloorC = new Color(0.42f, 0.28f, 0.16f);
+        Color pillarC = new Color(0.45f, 0.44f, 0.42f);
+        Color tileC = new Color(0.35f, 0.45f, 0.38f);
+        Color ridgeC = new Color(0.22f, 0.3f, 0.25f);
+        Color goldC = new Color(1f, 0.84f, 0.2f);
+        Color blackC = new Color(0.08f, 0.08f, 0.09f);
+        Color whiteC = new Color(0.95f, 0.95f, 0.94f);
+
+        switch (partType)
+        {
+            case "Shrine_Foundation":
+                CreatePartCube(root, new Vector3(0f, 0f, 0f), new Vector3(10f, 0.6f, 8.5f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 0.3f, 0f), new Vector3(9.4f, 0.2f, 7.9f), new Color(0.52f, 0.5f, 0.48f));
+                CreatePartCube(root, new Vector3(0f, 0.15f, -4.3f), new Vector3(5f, 0.3f, 0.95f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 0.4f, -4.85f), new Vector3(3.6f, 0.3f, 0.95f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 0.65f, -5.4f), new Vector3(2.4f, 0.3f, 0.95f), stoneBase);
+                break;
+
+            case "Shrine_Floor":
+                CreatePartCube(root, new Vector3(0f, 0f, 0f), new Vector3(9f, 0.28f, 6.8f), woodFloorC);
+                CreatePartCube(root, new Vector3(0f, 0.24f, 0f), new Vector3(8.4f, 0.05f, 6.2f), new Color(0.5f, 0.34f, 0.2f));
+                break;
+
+            case "Shrine_Pillars":
+                for (int sx = -1; sx <= 1; sx += 2)
+                {
+                    for (int sz = -1; sz <= 1; sz += 2)
+                        CreatePartCube(root, new Vector3(sx * 3.2f, 2.1f, sz * 2.9f), new Vector3(0.35f, 4.6f, 0.35f), pillarC);
+                    CreatePartCube(root, new Vector3(sx * 3.2f, 2.5f, 0f), new Vector3(0.35f, 0.5f, 5.8f), pillarC);
+                }
+                CreatePartCube(root, new Vector3(0f, 2.5f, -2.9f), new Vector3(6.4f, 0.5f, 0.35f), pillarC);
+                CreatePartCube(root, new Vector3(0f, 2.5f, 2.9f), new Vector3(6.4f, 0.5f, 0.35f), pillarC);
+                break;
+
+            case "Shrine_BackWall":
+                CreatePartCube(root, new Vector3(0f, 2.1f, 2.9f), new Vector3(6.8f, 4.4f, 0.35f), stoneDark);
+                CreatePartCube(root, new Vector3(0f, 3f, 3.14f), new Vector3(1.3f, 0.8f, 0.14f), whiteC);
+                CreatePartCube(root, new Vector3(0f, 2.2f, 3.14f), new Vector3(1.3f, 0.8f, 0.14f), blackC);
+                CreatePartCube(root, new Vector3(0f, 2.95f, 3.22f), new Vector3(0.2f, 0.2f, 0.08f), blackC);
+                CreatePartCube(root, new Vector3(0f, 2.25f, 3.22f), new Vector3(0.2f, 0.2f, 0.08f), whiteC);
+                break;
+
+            case "Shrine_Roof":
+                CreatePartCubeRotated(root, new Vector3(0f, 0.35f, -3.2f), new Vector3(8.4f, 0.45f, 5.5f), tileC, Quaternion.Euler(-12f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(0f, 0.35f, 3.2f), new Vector3(8.4f, 0.45f, 5.5f), tileC, Quaternion.Euler(12f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(-3.2f, 0.35f, 0f), new Vector3(5.5f, 0.45f, 8.4f), tileC, Quaternion.Euler(0f, 0f, -12f));
+                CreatePartCubeRotated(root, new Vector3(3.2f, 0.35f, 0f), new Vector3(5.5f, 0.45f, 8.4f), tileC, Quaternion.Euler(0f, 0f, 12f));
+                CreatePartCube(root, new Vector3(0f, 0.92f, 0f), new Vector3(4.2f, 0.45f, 4.2f), ridgeC);
+                CreatePartCube(root, new Vector3(0f, 1.35f, 0f), new Vector3(0.55f, 0.45f, 0.55f), goldC);
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int sz = -1; sz <= 1; sz += 2)
+                        CreatePartCubeRotated(root, new Vector3(sx * 4.35f, -0.3f, sz * 4.35f), new Vector3(0.6f, 0.16f, 0.6f), goldC, Quaternion.Euler(0f, 45f, 0f));
+                break;
+
+            case "Shrine_Incense":
+                CreatePartCube(root, new Vector3(0f, 0.6f, -2.8f), new Vector3(1.1f, 1.2f, 1.1f), pillarC);
+                CreatePartCube(root, new Vector3(0f, 1.28f, -2.8f), new Vector3(1.2f, 0.08f, 1.2f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 1.4f, -2.8f), new Vector3(0.05f, 0.5f, 0.05f), new Color(0.62f, 0.5f, 0.32f));
+                CreatePartCube(root, new Vector3(0.2f, 1.36f, -2.8f), new Vector3(0.04f, 0.4f, 0.04f), goldC);
+                CreatePartCube(root, new Vector3(-0.2f, 1.36f, -2.8f), new Vector3(0.04f, 0.4f, 0.04f), goldC);
                 break;
         }
     }

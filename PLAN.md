@@ -903,3 +903,36 @@ front gable bell tower with a gold cross) next to the pagoda, plus a Priest NPC 
 - [ ] Donate 50: money -50, HP fully restored, blessing toast; priest says already blessed next chat.
 - [ ] Save + load while Church: religion state round-trips, priest still there.
 - [ ] With <50 money then earning money: donation works; repeated donation same day is refused.
+
+## 32. Batch 20c - Taoist shrine + Taoist priest (done: commit TBD - pending semantic check)
+
+Implements Batch C from the plan: a Taoist shrine (open stone pavilion-hall with wide green-grey
+tiles, upturned gold eave tips, yin-yang emblem on the back wall, incense stand in front) NW of the
+village, plus a Taoist priest who accepts a 1-wood offering and grants the daily qi blessing
+(stamina regen x2, centralized in ReligionManager.RefreshBlessings).
+
+- `WorldBuilder.cs`: `ShrineBasePos` = (-40, 0, -25), `ShrineExcludeHalf` 12, `ShrinePosition`
+  property, `_shrineSubBuildings` catalog, `BuildShrine()`; `Build()` spawns the shrine + taoist
+  priest (-40, 0.93, -31.4) facing it.
+- `WorldBuilder.Blueprints.cs`: `SpawnStructurePart` dispatches `Shrine_*`; new `BuildShrinePart`
+  (stone platform + steps, raised wood floor, six open pillars with beams, back wall with yin-yang
+  two-tone emblem, wide paneled roof w/ ridge + gold knob + upturned eave tips, front incense stand).
+- `MapBuilder.NPCs.cs`: new `BuildTaoistNpc` (dark-blue robe + white yin-yang chest emblem +
+  topknot + hair ring + beard + gold fly-whisk); collider box same as monk/priest.
+- NEW `TaoistPriestNPC.cs`: dialog panel like the priest; offering "1 wood": checks wood first,
+  then `ReligionManager.Worship(Taoism, out switched)`; on success removes 1 wood + qi-blessing
+  toast; refuses when no wood / already worshipped / switched today.
+- `PlayerController` interact hook + `InteractionPrompt` ("TaoistPriestNpc" -> "Cầu nguyện"/Pray).
+- `Localization`: added Dao Si/Taoist Priest + qi-blessing toast.
+- `WorldBuilder.NPCs.cs` reserve list + `WorldBuilder.Persistence.cs` prune box now cover the
+  shrine footprint.
+- Semantic check: pending (run before commit).
+
+### 32.1 Verify (needs user - Unity can't be run here) - batch C
+- [ ] Walk NW around (-40, 0, -25): shrine built (open pavilion, grey-green tiled roof, yin-yang
+      emblem, incense stand); taoist priest stands in front with "Cầu nguyện" prompt.
+- [ ] No trees/rocks inside the shrine footprint; no villager home spawned on top of it.
+- [ ] Talk to the taoist (E): dialog + offer line; no wood -> refusal line, no wood lost.
+- [ ] Offer 1 wood: -1 wood, qi-blessing toast; priest says already blessed next chat.
+- [ ] Save + load while Taoist: religion state round-trips, taoist still there.
+- [ ] Stamina regen visibly ~x2 all day after the qi blessing (compare before/after).

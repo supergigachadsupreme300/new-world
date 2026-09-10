@@ -50,6 +50,10 @@ private static readonly Vector3 PagodaBasePos = new Vector3(26f, 0f, 25f);
     private const float ChurchExcludeHalf = 13f;
     private Vector3 _churchPosition;
     public Vector3 ChurchPosition => _churchPosition;
+    private static readonly Vector3 ShrineBasePos = new Vector3(-40f, 0f, -25f);
+    private const float ShrineExcludeHalf = 12f;
+    private Vector3 _shrinePosition;
+    public Vector3 ShrinePosition => _shrinePosition;
     private readonly Vector3 _bossArenaCenter = new Vector3(280f, 0f, 90f);
     public Vector3 BossArenaCenter => _bossArenaCenter;
     private static Texture2D _cachedDirtTex;
@@ -408,6 +412,19 @@ new BuildingPartDefinition { PartName = "Wall_FrontL",  LocalPosition = new Vect
         new SubBuildingDefinition { PartName = "Church_Tower",      Offset = new Vector3(0f, 0.45f, 0f),  Size = new Vector3(3f, 6.4f, 3f),     WoodCost = 35, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
     };
 
+    // ------------------------------------------------------------════════
+    //  TAOIST SHRINE MEGA STRUCTURE DEFINITION  (Batch 20c: shrine + Taoist priest)
+    // ------------------------------------------------------------════════
+    private static readonly SubBuildingDefinition[] _shrineSubBuildings = new SubBuildingDefinition[]
+    {
+        new SubBuildingDefinition { PartName = "Shrine_Foundation", Offset = new Vector3(0f, 0.1f, 0f),   Size = new Vector3(10f, 0.6f, 8.5f),     WoodCost = 0,   StoneCost = 60, Color = new Color(0.4f, 0.38f, 0.36f) },
+        new SubBuildingDefinition { PartName = "Shrine_Floor",      Offset = new Vector3(0f, 0.5f, 0f),   Size = new Vector3(9f, 0.28f, 6.8f),     WoodCost = 25, StoneCost = 0,  Color = new Color(0.42f, 0.28f, 0.16f) },
+        new SubBuildingDefinition { PartName = "Shrine_Pillars",    Offset = new Vector3(0f, 0.75f, 0f),  Size = new Vector3(0.35f, 4.6f, 0.35f),  WoodCost = 20, StoneCost = 20, Color = new Color(0.45f, 0.44f, 0.42f) },
+        new SubBuildingDefinition { PartName = "Shrine_BackWall",   Offset = new Vector3(0f, 0.75f, 0f),  Size = new Vector3(6.8f, 4.4f, 0.35f),   WoodCost = 0,   StoneCost = 40, Color = new Color(0.34f, 0.33f, 0.31f) },
+        new SubBuildingDefinition { PartName = "Shrine_Roof",       Offset = new Vector3(0f, 5.2f, 0f),   Size = new Vector3(9f, 0.5f, 9f),        WoodCost = 0,   StoneCost = 55, Color = new Color(0.35f, 0.45f, 0.38f) },
+        new SubBuildingDefinition { PartName = "Shrine_Incense",    Offset = new Vector3(0f, 0.5f, 0f),   Size = new Vector3(1.1f, 1.2f, 1.1f),    WoodCost = 5,   StoneCost = 10, Color = new Color(0.55f, 0.52f, 0.48f) },
+    };
+
     private int _currentBuildingIndex;
     private int _currentRotation;
     private readonly HashSet<Vector3Int> _floorPositions = new HashSet<Vector3Int>();
@@ -482,6 +499,9 @@ BuildPagoda(PagodaBasePos);
         BuildChurch(ChurchBasePos);
         var priest = MapBuilder.BuildPriestNpc(_worldRoot.transform, new Vector3(40f, 0.93f, -36.2f), Quaternion.Euler(0f, 0f, 0f));
         priest.AddComponent<PriestNPC>();
+        BuildShrine(ShrineBasePos);
+        var taoist = MapBuilder.BuildTaoistNpc(_worldRoot.transform, new Vector3(-40f, 0.93f, -31.4f), Quaternion.Euler(0f, 0f, 0f));
+        taoist.AddComponent<TaoistPriestNPC>();
         BuildBossArena();
 PruneTreesAndRocksNearStructures();
         ClearFastTravelSpots();

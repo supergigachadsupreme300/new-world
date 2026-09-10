@@ -285,6 +285,7 @@ private void PruneTreesAndRocksNearStructures()
         float exHalf = PagodaExcludeHalf;
         PruneTreesAndRocksInBox(PagodaBasePos.x, PagodaBasePos.z, exHalf, exHalf);
         PruneTreesAndRocksInBox(ChurchBasePos.x, ChurchBasePos.z, ChurchExcludeHalf, ChurchExcludeHalf);
+        PruneTreesAndRocksInBox(ShrineBasePos.x, ShrineBasePos.z, ShrineExcludeHalf, ShrineExcludeHalf);
         PruneTreesAndRocksInBox(_bossArenaCenter.x, _bossArenaCenter.z, 12f, 12f);
     }
 

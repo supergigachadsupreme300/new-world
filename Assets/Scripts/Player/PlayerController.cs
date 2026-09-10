@@ -590,6 +590,12 @@ public class PlayerController : MonoBehaviour
                                 PriestNPC.Instance.Interact();
                             return;
                         }
+                        if (hit.collider.transform.name == "TaoistPriestNpc")
+                        {
+                            if (TaoistPriestNPC.Instance != null && !TaoistPriestNPC.Instance.IsDialogActive)
+                                TaoistPriestNPC.Instance.Interact();
+                            return;
+                        }
                         if (hit.collider.transform.name == "ToolShopNPC")
                         {
                             OpenVendorShop("tools");
