@@ -981,7 +981,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         int RingCapacity(int ring, float pitch) => Mathf.Max(1, Mathf.FloorToInt(RingRadius(ring) * (2f * sectorHalf) / pitch));
 
         var posOf = new Dictionary<string, Vector2>();
-        float hubR = ring0 * 0.5f;
+        const float hubR = 170f;    // category wheel radius — widened (was ring0*0.5=140) so the six hub
+                                    // bubbles sit closer to the base ring and fill the inner dead zone.
 
         for (int ci = 0; ci < 6; ci++)
         {
@@ -1145,7 +1146,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             crt.anchorMax = new Vector2(0.5f, 0.5f);
             crt.pivot = new Vector2(0.5f, 0.5f);
             crt.anchoredPosition = new Vector2(Mathf.Cos(center) * hubR, Mathf.Sin(center) * hubR);
-            crt.sizeDelta = new Vector2(104f, 104f);
+            crt.sizeDelta = new Vector2(128f, 128f);
             var cimg = catGo.AddComponent<Image>();
             cimg.sprite = CategoryNodeSprite();
             cimg.type = Image.Type.Simple;
@@ -1156,7 +1157,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
             // Category name centered inside the hub bubble (drawn after -> on top of the node).
             var lbl = MakeBodyText(_treeContent, "Sector_" + CategoryNames[ci],
-                new Vector2(Mathf.Cos(center) * hubR - 52f, Mathf.Sin(center) * hubR), Sz(104f, 28f));
+                new Vector2(Mathf.Cos(center) * hubR - 64f, Mathf.Sin(center) * hubR), Sz(128f, 28f));
             lbl.alignment = TextAlignmentOptions.Center;
             lbl.fontSize = Mathf.Max(16f, Screen.height / 66f);
             lbl.color = Color.black;
