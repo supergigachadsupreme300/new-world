@@ -194,6 +194,15 @@ public class SpellCaster : MonoBehaviour
         Vector3 pos = origin != null ? origin.position : transform.position;
         Vector3 fwd = origin != null ? origin.forward : transform.forward;
 
+        Camera cam = Camera.main;
+        if (cam != null)
+        {
+            Vector3 aim = cam.transform.position + cam.transform.forward * Mathf.Max(spell.Range, 5f);
+            Vector3 dir = aim - pos;
+            if (dir.sqrMagnitude > 0.0001f)
+                fwd = dir.normalized;
+        }
+
         switch (spell.Delivery)
         {
             case SpellDelivery.Instant:
@@ -201,7 +210,7 @@ public class SpellCaster : MonoBehaviour
             case SpellDelivery.Projectile:
                 return FireProjectile(totalPower, spell, pos, fwd, charge);
             case SpellDelivery.Zone:
-                return ResolveZone(totalPower, spell, pos, charge);
+                return ResolveZone(totalPower, spell, pos, fwd, charge);
             case SpellDelivery.Vortex:
                 return SpawnVortex(totalPower, spell, pos, fwd, charge);
             default:
@@ -569,12 +578,25 @@ public class SpellCaster : MonoBehaviour
         }
     }
 
-    private DamageResult ResolveZone(float power, SpellData spell, Vector3 pos, float charge)
+    private DamageResult ResolveZone(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge)
     {
         float radius = spell.Radius * SizeScale(charge);
-        SpawnZoneRing(pos, spell, radius);
 
-        Collider[] cols = Physics.OverlapSphere(pos, radius);
+        Vector3 center = pos;
+        if (Physics.Raycast(pos, fwd, out RaycastHit aimHit, Mathf.Max(spell.Range, 0.1f)))
+        {
+            center = aimHit.point;
+            if (Physics.Raycast(center + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))
+                center = groundHit.point;
+        }
+        else if (Physics.Raycast(pos + fwd * Mathf.Max(spell.Range, 0f) + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))
+        {
+            center = groundHit.point;
+        }
+
+        SpawnZoneRing(center, spell, radius);
+
+        Collider[] cols = Physics.OverlapSphere(center, radius);
         bool hitAny = false;
         float total = 0f;
         foreach (var col in cols)

@@ -632,3 +632,21 @@ each weapon*. Batch 5 attacks each with a guarantee instead of another guess.
 - [ ] Select a learned node → detail pane shows a readable "Learned" line (no empty tick box).
 - [ ] New Game: points/grants still present after the inventory clear.
 - [ ] Save then Continue in a fresh session: learned skills + unspent points are restored.
+
+## 22. Batch 12 — cast spells where the camera looks
+
+- Report (test ground): a cast spell shot into the ground instead of the direction being looked at.
+  Root cause: `SpellCaster.Execute` aimed with `origin.forward` — the magic weapon rig's local axis,
+  which points down in the idle/draw pose. Ranged/melee aim via `AttackCommand.Direction` and are
+  intentionally unchanged (user chose "spells only").
+- `SpellCaster.cs`: the cast direction is now the camera crosshair line — aim point
+  `Camera.main.position + Camera.main.forward x max(spell.Range, 5)`, direction from the cast origin
+  to that point (keeps hand-to-sightline parallax in third person; falls back to rig forward when no
+  camera). Applies to Instant/projectile/vortex since all consume `fwd`.
+- `ResolveZone`: zone AoE now centers on the ground spot under the aim line (raycast + terrain
+  drop-snap), instead of around the cast hand — ground AoE follows the crosshair too.
+
+### 22.1 Verify (needs user — Unity can't be run here)
+- [ ] Projectile spell flies toward the crosshair (not into the ground).
+- [ ] Zone spell ring + damage appear on the ground where the crosshair points.
+- [ ] Charged casts follow the same aim; no camera / null preview latent-fallback doesn't crash.
