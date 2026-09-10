@@ -958,15 +958,18 @@ public sealed class CharacterInfoUI : MenuPanelBase
         // rings the layout creates new rings further out (no cap) instead of stacking/colliding.
         const float sectorHalf = 0.52f;     // ±29.8° rad of fan — the full 60° wedge spacing (±30° = 0.524 rad)
                                             // minus a 0.2° clearance buffer so adjacent categories never touch.
-        // Tier-band radii (px). Each layer owns a fixed band of rings instead of drifting outward:
-        //   ring0      r=280  Layer 0 (base) — one ring, fits all 14 Magic base skills.
-        //   ring1-2    r=420,434  Layer 1 (branch) — a tight 14px pair that reads as ONE thick tier and
-        //              holds up to 73 branch skills (36 + 37), so branch nodes never spill past their band.
-        //   ring3+     r=560,...  Layer 2 (deep) — starts a full 126px moat past the branch band.
+        // Tier-band radii (px). Each layer owns a fixed band of rings instead of drifting outward,
+        // and the wheel is sized OUT from the hub so every ring's arc has enough real estate:
+        //   ring0      r=280  Layer 0 (base) — one ring, exactly sized to the category's base count
+        //              (10 for most, 14 for Magic) so no slots go to waste.
+        //   ring1-2    r=580,596  Layer 1 (branch) — the first ring holds 50 slots (pitch 12), so the
+        //              full Layer-1 set of most categories sits on a single ring; only Magic's 70-node
+        //              stack spills 20 onto the tight 16px second ring.
+        //   ring3+     r=726,...  Layer 2 (deep) — starts a full 130px moat past the last branch ring.
         const float ring0 = 280f;
-        const float moatBase = 140f;    // base ring -> first branch ring.
-        const float branchStep = 14f;   // headroom between the two branch-band rings (10px node).
-        const float moatBranch = 126f;  // last branch ring -> first deep ring.
+        const float moatBase = 300f;    // base ring -> first branch ring (r1 = 580).
+        const float branchStep = 16f;   // headroom between the two branch-band rings (10px node).
+        const float moatBranch = 130f;  // last branch ring -> first deep ring (r3 = 726).
         const float deepStep = 120f;    // spacing between deep rings.
         float[] layerPitch = { 20f, 12f, 12f }; // Per-layer node pitch: L0 base (18px node + 2px gap),
                                                 // L1 branch (11px node + 1px gap), L2 deep (10px node + 2px gap).
@@ -981,8 +984,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         int RingCapacity(int ring, float pitch) => Mathf.Max(1, Mathf.FloorToInt(RingRadius(ring) * (2f * sectorHalf) / pitch));
 
         var posOf = new Dictionary<string, Vector2>();
-        const float hubR = 170f;    // category wheel radius — widened (was ring0*0.5=140) so the six hub
-                                    // bubbles sit closer to the base ring and fill the inner dead zone.
+        const float hubR = 180f;    // category wheel radius — widened so the six hub bubbles sit close to the
+                                    // base ring and give the outer bands more room to grow.
 
         for (int ci = 0; ci < 6; ci++)
         {
@@ -1099,11 +1102,15 @@ public sealed class CharacterInfoUI : MenuPanelBase
                 var layer = layers[li];
                 float pitch = li < layerPitch.Length ? layerPitch[li] : 12f;
                 if (layer.Count == 0) continue;
-                int ringIdx = ringCursor;
+                // Pin each layer to its fixed band slots (L0->0, L1->1-2, L2->3+) so a partially
+                // filled layer never shifts the next band inward onto a wrong radius.
+                int ringIdx = Mathf.Max(ringCursor, li == 0 ? 0 : li == 1 ? 1 : 3);
                 int onRing = 0;
                 foreach (var s in layer)
                 {
-                    if (onRing >= RingCapacity(ringIdx, pitch))
+                    // Layer 0 is exactly sized to its node count (no reserved/spare slots).
+                    int cap = li == 0 ? layer.Count : RingCapacity(ringIdx, pitch);
+                    if (onRing >= cap)
                     {
                         ringIdx++;
                         onRing = 0;
@@ -1113,7 +1120,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
                     ringTotal[ringIdx]++;
                     onRing++;
                 }
-                ringCursor = ringIdx + 1;
+                ringCursor = li == 1 ? 3 : ringIdx + 1;
             }
 
             // Center partially filled rings so isolated outer nodes sit mid-wedge, never hugging
@@ -1126,7 +1133,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
                 {
                     int ring = ringFor[s.id];
                     float pitch = s.Layer < layerPitch.Length ? layerPitch[s.Layer] : 12f;
-                    int slots = RingCapacity(ring, pitch);
+                    int slots = ring == 0 ? ringTotal[ring] : RingCapacity(ring, pitch);
                     int first = Mathf.Max(0, (slots - ringTotal[ring]) / 2);
                     float ang = center - sectorHalf +
                         (first + used[ring] + 0.5f) * (2f * sectorHalf) / slots;
