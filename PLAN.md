@@ -965,7 +965,7 @@ ReligionManager so the three faiths share one centralized daily-blessing + switc
 - [ ] Rosary cost scales down for Buddhists (religion getter), unchanged for others.
 - [ ] Pagoda quests (Trừ Tà / Trấn Áp Quỷ Vương) still trigger exactly as before.
 
-## 34. Batch 20e - Religion tab in CharacterInfoUI (done: commit TBD - pending semantic check)
+## 34. Batch 20e - Religion tab in CharacterInfoUI (done: commit 2a15998)
 
 Implements Batch E from the plan: a 5th tab "Faith" in the CharacterInfo tab menu.
 
@@ -980,7 +980,7 @@ Implements Batch E from the plan: a 5th tab "Faith" in the CharacterInfo tab men
   `ReligionManager.SwitchFaith` (refused with a dialog error when already switched today) and
   toasts the new faith.
 - `Localization`: added No religion / switch-denied / faith-changed / dialog-title keys (EN).
-- Semantic check passed (0 diagnostics) before commit.
+- Semantic check passed (0 diagnostics). Commit: 2a15998.
 
 ### 34.1 Verify (needs user - Unity can't be run here) - batch E
 - [ ] Character menu shows a 5th "Faith" tab in the top bar at all window sizes.
