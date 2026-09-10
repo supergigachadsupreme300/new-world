@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Runtime catalog of the 64 default skills (Phase 10) — 14 Magic (incl. the wind line),
-/// 10 per every other <see cref="SkillType"/>.
+/// Runtime catalog of skills — 64 base skills expanded via 3-layer branching into ~1984 total
+/// (Layer 0 base → Layer 1: 5 children each → Layer 2: 5 grandchildren each).
 /// Each skill composes shared effects (composition model): passive skills use a
 /// <see cref="StatBuffEffect"/> with a zero <see cref="Cost"/>; castables use
 /// <see cref="DamageZoneEffect"/> / <see cref="SpellCastEffect"/> / <see cref="WeaponSkillEffect"/>.
@@ -15,24 +15,27 @@ public static class SkillCatalog
     public static List<Skill> All { get; private set; }
 
     private static bool _built;
+    private static Dictionary<string, Skill> _cache;
 
-    /// <summary>Build the 60-skill roster on first access (idempotent).</summary>
+    /// <summary>Build the skill roster on first access (idempotent).</summary>
     public static void EnsureBuilt()
     {
         if (_built) return;
         _built = true;
         All = BuildDefault();
+        _cache = new Dictionary<string, Skill>(All.Count);
+        foreach (var s in All)
+            if (s != null && !string.IsNullOrEmpty(s.id))
+                _cache[s.id] = s;
     }
 
     /// <summary>Look up a skill by id, or null.</summary>
     public static Skill Find(string id)
     {
         EnsureBuilt();
-        if (All == null) return null;
-        for (int i = 0; i < All.Count; i++)
-            if (All[i] != null && All[i].id == id)
-                return All[i];
-        return null;
+        if (string.IsNullOrEmpty(id)) return null;
+        _cache.TryGetValue(id, out var skill);
+        return skill;
     }
 
     /// <summary>All skills in a given category.</summary>
@@ -56,11 +59,14 @@ public static class SkillCatalog
         BuildCrafting(list);
         BuildFortitude(list);
 
+        ExpandTree(list);
+
         return list;
     }
 
     private static void Add(List<Skill> list, string id, string name, SkillType type, bool passive,
-        Cost cost, bool isMagical, DamageType kind, IEffect effect, string[] prereqs, string desc)
+        Cost cost, bool isMagical, DamageType kind, IEffect effect, string[] prereqs, string desc,
+        int layer = 0)
     {
         var s = ScriptableObject.CreateInstance<Skill>();
         s.name = id;
@@ -74,6 +80,7 @@ public static class SkillCatalog
         s.Effect = effect;
         s.PrereqSkillIds = prereqs;
         s.description = desc;
+        s.Layer = layer;
         list.Add(s);
     }
 
@@ -279,5 +286,146 @@ public static class SkillCatalog
             Slash(14f, DamageType.Physical), null, "A bull-headed shoulder slam.");
         Add(list, "fort_wall", "Grim Wall", SkillType.Fortitude, false, Focus(20f), true, DamageType.Earth,
             Zone(2.8f, 20f, DamageType.Earth), P("fort_steadfast", "fort_stoneskin"), "Erupt the earth in defense.");
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    //  TREE EXPANSION — Layer 1 (5 children per Layer 0) + Layer 2 (5 per L1)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private static readonly string[][] _suffixesByType =
+    {
+        new[] { "Rending", "Force", "Flame", "Sweep", "Impact" },       // Melee
+        new[] { "Piercing", "Flame", "Frost", "Storm", "Shadow" },      // Ranged
+        new[] { "Flame", "Frost", "Storm", "Void", "Light" },           // Magic
+        new[] { "Shadow", "Venom", "Silence", "Mirror", "Phantom" },    // Stealth
+        new[] { "Tempering", "Binding", "Channeling", "Refining", "Forging" }, // Crafting
+        new[] { "Iron", "Stone", "Vitality", "Resolve", "Endurance" },  // Fortitude
+    };
+
+    private static readonly DamageType[] _activeElements =
+        { DamageType.Physical, DamageType.Fire, DamageType.Ice, DamageType.Wind, DamageType.Dark };
+
+    private static readonly StatType[] _passiveStats =
+        { StatType.Strength, StatType.Defense, StatType.Health, StatType.Endurance, StatType.Luck };
+
+    private static Cost ScaledCost(Cost baseCost, int layer)
+    {
+        float mult = 1f + layer * 0.35f;
+        return new Cost
+        {
+            Resource = baseCost.Resource,
+            Amount = Mathf.Round(baseCost.Amount * mult),
+            CastTime = baseCost.CastTime + layer * 0.1f,
+            Cooldown = baseCost.Cooldown + layer * 0.8f,
+        };
+    }
+
+    private static Cost ActiveCostForLayer(SkillType type, int layer)
+    {
+        float baseAmt = type == SkillType.Magic ? 15f : 12f;
+        float baseCd = type == SkillType.Magic ? 4f : 1.5f;
+        float mult = 1f + layer * 0.35f;
+        return type == SkillType.Magic
+            ? Focus(Mathf.Round(baseAmt * mult))
+            : Stamina(Mathf.Round(baseAmt * mult));
+    }
+
+    private static IEffect MakeChildEffect(Skill parent, int childIdx, int layer)
+    {
+        if (parent.IsPassive)
+        {
+            var buf = parent.Effect as StatBuffEffect;
+            if (buf != null)
+            {
+                float amt = layer == 1 ? buf.Amount + 1f : buf.Amount + 2.5f;
+                return new StatBuffEffect { Stat = buf.Stat, Amount = amt };
+            }
+            return new StatBuffEffect { Stat = _passiveStats[childIdx], Amount = layer == 1 ? 3f : 5f };
+        }
+
+        DamageType elem = _activeElements[childIdx];
+
+        var dz = parent.Effect as DamageZoneEffect;
+        if (dz != null)
+        {
+            float power = layer == 1 ? dz.BasePower * 1.3f : dz.BasePower * 1.7f;
+            float rad = layer == 1 ? dz.Radius + 0.3f : dz.Radius + 0.6f;
+            return new DamageZoneEffect { Radius = rad, BasePower = power, Type = elem };
+        }
+
+        var sc = parent.Effect as SpellCastEffect;
+        if (sc != null && sc.Spell != null)
+        {
+            var sd = ScriptableObject.CreateInstance<SpellData>();
+            sd.name = parent.id + "_L" + layer + "_s" + childIdx;
+            sd.id = sd.name;
+            sd.displayName = parent.displayName;
+            sd.Type = elem;
+            sd.BasePower = layer == 1 ? sc.Spell.BasePower * 1.3f : sc.Spell.BasePower * 1.7f;
+            sd.FpCost = layer == 1 ? sc.Spell.FpCost + 5f : sc.Spell.FpCost + 10f;
+            sd.CastTime = sc.Spell.CastTime + layer * 0.1f;
+            sd.Cooldown = sc.Spell.Cooldown + layer * 0.8f;
+            sd.Delivery = sc.Spell.Delivery;
+            sd.Range = sc.Spell.Range + layer * 1f;
+            sd.Radius = sc.Spell.Radius + layer * 0.4f;
+            return new SpellCastEffect { Spell = sd };
+        }
+
+        if (parent.Effect is WeaponSkillEffect)
+            return new WeaponSkillEffect();
+
+        float fallbackPower = layer == 1 ? 22f : 32f;
+        return new DamageZoneEffect { Radius = 2f + layer * 0.4f, BasePower = fallbackPower, Type = elem };
+    }
+
+    private static void ExpandTree(List<Skill> list)
+    {
+        var layer0 = new List<Skill>();
+        foreach (var s in list)
+            if (s.Layer == 0) layer0.Add(s);
+
+        var layer1All = new List<Skill>();
+
+        foreach (var parent in layer0)
+        {
+            string[] suffixes = _suffixesByType[(int)parent.Type];
+            bool isMagic = parent.Type == SkillType.Magic;
+
+            for (int ci = 0; ci < 5; ci++)
+            {
+                string childId = parent.id + "_b" + (ci + 1);
+                string childName = parent.displayName + " " + suffixes[ci];
+                string childDesc = "Requires " + parent.displayName + ".";
+                Cost cost = parent.IsPassive ? None() : ActiveCostForLayer(parent.Type, 1);
+                bool childMagic = isMagic && !parent.IsPassive;
+                DamageType childElem = parent.IsPassive ? DamageType.Physical : _activeElements[ci];
+                IEffect childFx = MakeChildEffect(parent, ci, 1);
+
+                Add(list, childId, childName, parent.Type, parent.IsPassive,
+                    cost, childMagic, childElem, childFx, P(parent.id), childDesc, 1);
+
+                layer1All.Add(list[list.Count - 1]);
+            }
+        }
+
+        foreach (var parent in layer1All)
+        {
+            string[] suffixes = _suffixesByType[(int)parent.Type];
+            bool isMagic = parent.Type == SkillType.Magic;
+
+            for (int ci = 0; ci < 5; ci++)
+            {
+                string childId = parent.id + "_b" + (ci + 1);
+                string childName = parent.displayName + " " + suffixes[ci];
+                string childDesc = "Requires " + parent.displayName + ".";
+                Cost cost = parent.IsPassive ? None() : ActiveCostForLayer(parent.Type, 2);
+                bool childMagic = isMagic && !parent.IsPassive;
+                DamageType childElem = parent.IsPassive ? DamageType.Physical : _activeElements[ci];
+                IEffect childFx = MakeChildEffect(parent, ci, 2);
+
+                Add(list, childId, childName, parent.Type, parent.IsPassive,
+                    cost, childMagic, childElem, childFx, P(parent.id), childDesc, 2);
+            }
+        }
     }
 }

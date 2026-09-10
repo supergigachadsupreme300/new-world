@@ -905,28 +905,10 @@ public sealed class CharacterInfoUI : MenuPanelBase
             if (s != null) list.Add(s);
         if (list.Count == 0) return;
 
-        // Depth = longest prerequisite chain, across the whole shared tree.
+        // Depth is read directly from each skill's Layer field (0 = base, 1 = branch, 2 = deep).
         var depth = new Dictionary<string, int>();
-        bool changed;
-        do
-        {
-            changed = false;
-            foreach (var s in list)
-            {
-                int d = 0;
-                if (s.PrereqSkillIds != null)
-                    foreach (var pid in s.PrereqSkillIds)
-                    {
-                        if (depth.TryGetValue(pid, out int pd))
-                            d = Mathf.Max(d, pd + 1);
-                    }
-                if (!depth.TryGetValue(s.id, out int cur) || cur != d)
-                {
-                    depth[s.id] = d;
-                    changed = true;
-                }
-            }
-        } while (changed);
+        foreach (var s in list)
+            depth[s.id] = s.Layer;
 
         // Polar slot grid: each category fans out inside its own 60° wedge as a cone from the
         // central category wheels, and every node claims a distinct ring/angle cell whose arc is
@@ -934,12 +916,12 @@ public sealed class CharacterInfoUI : MenuPanelBase
         // rings the layout creates new rings further out (no cap) instead of stacking/colliding.
         const float sectorHalf = 0.5f;      // ±28.6° rad of fan — inside the 60° wedge spacing (±30°),
                                             // so adjacent categories never occupy the same angles.
-        const float ringStep = 200f;        // Radial px between rings.
-        const float ring0 = 360f;           // First (innermost) ring radius — pushes the category hubs apart.
-        const float nodePitch = 56f;        // Horiz. px budget per node (46 + gap) — fits a 6-root first tier on ring 0.
+        const float ringStep = 120f;        // Radial px between rings.
+        const float ring0 = 280f;           // First (innermost) ring radius — pushes the category hubs apart.
+        float[] layerPitch = { 24f, 16f, 12f }; // Per-layer node pitch: L0 base, L1 branch, L2 deep.
 
         float RingRadius(int ring) => ring0 + ring * ringStep;
-        int RingCapacity(int ring) => Mathf.Max(1, Mathf.FloorToInt(RingRadius(ring) * (2f * sectorHalf) / nodePitch));
+        int RingCapacity(int ring, float pitch) => Mathf.Max(1, Mathf.FloorToInt(RingRadius(ring) * (2f * sectorHalf) / pitch));
 
         var posOf = new Dictionary<string, Vector2>();
         float hubR = ring0 * 0.5f;
@@ -1054,14 +1036,16 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var ringTotal = new List<int>();
             var ringFor = new Dictionary<string, int>();
             int ringCursor = 0;
-            foreach (var layer in layers)
+            for (int li = 0; li < layers.Count; li++)
             {
+                var layer = layers[li];
+                float pitch = li < layerPitch.Length ? layerPitch[li] : 12f;
                 if (layer.Count == 0) continue;
                 int ringIdx = ringCursor;
                 int onRing = 0;
                 foreach (var s in layer)
                 {
-                    if (onRing >= RingCapacity(ringIdx))
+                    if (onRing >= RingCapacity(ringIdx, pitch))
                     {
                         ringIdx++;
                         onRing = 0;
@@ -1083,7 +1067,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
                 foreach (var s in layer)
                 {
                     int ring = ringFor[s.id];
-                    int slots = RingCapacity(ring);
+                    float pitch = s.Layer < layerPitch.Length ? layerPitch[s.Layer] : 12f;
+                    int slots = RingCapacity(ring, pitch);
                     int first = Mathf.Max(0, (slots - ringTotal[ring]) / 2);
                     float ang = center - sectorHalf +
                         (first + used[ring] + 0.5f) * (2f * sectorHalf) / slots;
@@ -1124,16 +1109,17 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
         // Connection lines (prereq -> child), plus a spoke from each root skill (no prereq) to its
         // category hub so no node ever floats unconnected.
-        float thick = 3f * S;
+        float thick = 1.5f * S;
         foreach (var s in list)
         {
             if (!posOf.TryGetValue(s.id, out Vector2 end)) continue;
+            float lineThick = s.Layer == 0 ? thick * 1.3f : s.Layer == 1 ? thick : thick * 0.7f;
             if (s.PrereqSkillIds != null && s.PrereqSkillIds.Length > 0)
             {
                 foreach (var pid in s.PrereqSkillIds)
                 {
                     if (!posOf.TryGetValue(pid, out Vector2 start)) continue;
-                    var line = MakeTreeLine(start, end, thick);
+                    var line = MakeTreeLine(start, end, lineThick);
                     _treeLines.Add((line, s));
                 }
             }
@@ -1141,7 +1127,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             {
                 float c = (-90f + (int)s.Type * 60f) * Mathf.Deg2Rad;
                 Vector2 hub = new Vector2(Mathf.Cos(c) * hubR, Mathf.Sin(c) * hubR);
-                var spoke = MakeTreeLine(hub, end, thick * 0.7f);
+                var spoke = MakeTreeLine(hub, end, lineThick * 0.7f);
                 var tint = CategoryColors[(int)s.Type];
                 spoke.color = new Color(tint.r, tint.g, tint.b, 0.4f);
                 _treeLines.Add((spoke, s));
@@ -1170,7 +1156,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             if (image == null) continue;
             maxR = Mathf.Max(maxR, ((RectTransform)image.transform).anchoredPosition.magnitude);
         }
-        maxR += 80f;
+        maxR += 40f;
         _treeContent.sizeDelta = new Vector2(maxR * 2f, maxR * 2f);
         var vp = _treeContent.parent as RectTransform;
         if (vp == null || maxR <= 0f) return;
@@ -1189,7 +1175,9 @@ public sealed class CharacterInfoUI : MenuPanelBase
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = pos;
-        rt.sizeDelta = Sz(46f, 30f);
+        float nw = skill.Layer == 0 ? 20f : skill.Layer == 1 ? 14f : 10f;
+        float nh = skill.Layer == 0 ? 14f : skill.Layer == 1 ? 10f : 7f;
+        rt.sizeDelta = Sz(nw, nh);
         var img = go.AddComponent<Image>();
         img.color = NodeLocked;
         var btn = go.AddComponent<Button>();
@@ -1223,7 +1211,9 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var tmp = label.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = skill.displayName;
-        tmp.fontSize = Mathf.Max(10f, Screen.height / 130f);
+        tmp.fontSize = skill.Layer == 0 ? Mathf.Max(8f, Screen.height / 150f)
+                     : skill.Layer == 1 ? Mathf.Max(7f, Screen.height / 200f)
+                     : Mathf.Max(6f, Screen.height / 280f);
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.enableWordWrapping = true;

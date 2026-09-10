@@ -127,7 +127,7 @@ The **DamageType Modifier** resolves the specific damage type (§3.7 — Physica
 - Each action costs stamina.
 - Stamina management is the core skill expression.
 
-### 3.2 Classes (15 Unlockable)
+### 3.2 Classes (17 Unlockable)
 
 The game uses a **classless unlock system**. Players start as a **Wanderer** (base class) and unlock classes by meeting stat thresholds or finding class trainers/items in the world.
 
@@ -154,17 +154,42 @@ The game uses a **classless unlock system**. Players start as a **Wanderer** (ba
 | 13 | **Paladin** | Fth + End >= 35 | Holy tank/support (taunt, guard allies, sacred armor effectiveness) |
 | 14 | **Bard** | Fth + Intelligence >= 35 | Party-wide buffs/auras |
 | 15 | **Blacksmith** | Crafting skill >= level 10 | Crafting/forge support: gear upgrade success, repair, forging bonuses (skill-based, not stat) |
+| 16 | **Taoist** | Wisdom + Intelligence >= 35 | Qi manipulation: enhanced spell cooldowns & stamina regen; demon damage bonus |
+| 17 | **Monk** | Faith + Endurance >= 35 | Inner peace: meditation heals HP; reduced stagger, +defense while unarmed |
 
 Classes are **not exclusive** — if stats allow, a player can unlock multiple classes and mix abilities.
 
-### 3.3 Skill System (use-based XP — supersedes original skill tree)
+### 3.3 Skill System (3-layer branching tree + use-based XP)
 
-> **Scope update:** The originally planned giant skill TREE was replaced by a simpler, more
-> content-efficient **use-based Skill XP system** (6 categories, flat tier rewards) to pair
-> with the race system. See §3.5. Equippable active/ultimate skills and skill books remain
-> planned; only the node-tree progression was removed.
+A **use-based skill progression** spans 6 categories with a **3-layer branching tree** (~1984 skills total). No fixed class requirements — any player can advance any category based on how they play. Skills level by gaining XP in their category (with racial multipliers) and grant flat tier rewards at levels 5/10/15/20/25.
 
-A **use-based skill progression** spans multiple combat/utility categories. No fixed class requirements — any player can advance any category based on how they play. Skills level by gaining XP in their category (with racial multipliers) and grant flat tier rewards at levels 5/10/15/20/25.
+#### 3-Layer Branching Structure
+
+Each category has a **3-layer tree**:
+
+```
+Layer 0 (base):     5-14 skills per category — foundational passives and core actives
+                     ↓ each branches into 5
+Layer 1 (branch):   25-70 skills per category — specialized variants (elemental, stat focus)
+                     ↓ each branches into 5
+Layer 2 (deep):     125-350 skills per category — mastery-level abilities
+```
+
+| Category | Layer 0 | Layer 1 | Layer 2 | Total |
+|----------|---------|---------|---------|-------|
+| Melee | 10 | 50 | 250 | 310 |
+| Ranged | 10 | 50 | 250 | 310 |
+| Magic | 14 | 70 | 350 | 434 |
+| Stealth | 10 | 50 | 250 | 310 |
+| Crafting | 10 | 50 | 250 | 310 |
+| Fortitude | 10 | 50 | 250 | 310 |
+| **TOTAL** | **64** | **320** | **1600** | **1984** |
+
+**Prerequisites:** Each Layer 1 skill requires its parent Layer 0 skill. Each Layer 2 skill requires its parent Layer 1 skill. This creates clean branching paths — players must invest down a specific branch.
+
+**Specialization:** Players earn ~1 skill point per category level-up (max ~25 points per category at level 25). With 310+ skills per category, players must **specialize** in 1-2 branches rather than filling the whole tree.
+
+**Effect scaling:** Layer 1 skills are ~1.3× stronger than their parent. Layer 2 skills are ~1.7× stronger. Costs scale proportionally (1.35× per layer). Passive stat buffs increase by +1 (L1) and +2.5 (L2).
 
 #### Skill Categories
 

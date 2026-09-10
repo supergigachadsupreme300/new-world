@@ -139,7 +139,7 @@ public class ClassUnlocker : MonoBehaviour
     }
 
     /// <summary>
-    /// Programmatic 15-class roster (§3.2). Wanderer is the free baseline; the other 14 are
+    /// Programmatic 17-class roster (§3.2). Wanderer is the free baseline; the other 16 are
     /// stat / skill-threshold based and non-exclusive.
     /// </summary>
     public static List<ClassData> BuildDefaultClasses()
@@ -226,6 +226,18 @@ public class ClassUnlocker : MonoBehaviour
             none, noneC, 0f,
             new[] { new SkillReq { Skill = SkillType.Crafting, Level = 10 } },
             "Crafting/forge support: gear upgrade success, repair, forging bonuses."));
+
+        list.Add(Make("taoist", "Taoist",
+            none,
+            new[] { new CombinedReq { First = StatType.Wisdom, Second = StatType.Intelligence, MinimumTotal = 35 } },
+            0f, noneS,
+            "Qi manipulation: enhanced spell cooldowns & stamina regen; demon damage bonus."));
+
+        list.Add(Make("monk", "Monk",
+            none,
+            new[] { new CombinedReq { First = StatType.Faith, Second = StatType.Endurance, MinimumTotal = 35 } },
+            0f, noneS,
+            "Inner peace: meditation heals HP; reduced stagger, +defense while unarmed."));
 
         return list;
     }

@@ -33,6 +33,8 @@ public class Skill : ScriptableObject
     public IEffect Effect;
 
     [Header("Progression")]
+    [Tooltip("Structural layer: 0 = base skill, 1 = first branch, 2 = deep branch.")]
+    public int Layer;
     [Tooltip("Skills that must be learned before this one can be purchased.")]
     public string[] PrereqSkillIds = System.Array.Empty<string>();
     [Tooltip("True = passive (always-on once learned) rather than a castable.")]
