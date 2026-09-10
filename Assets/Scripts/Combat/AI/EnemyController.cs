@@ -96,7 +96,13 @@ public class EnemyController : MonoBehaviour, IDamageable
     private float _attackTimer;
     private float _alertTimer;
     private static readonly Collider[] _scanBuffer = new Collider[16];
-    private bool _scanningTargets;
+
+    // Class-skill hooks (§3.2.1): taunt lock, slow, stun.
+    private Transform _forcedTarget;
+    private float _tauntUntil;
+    private float _slowFactor = 1f;
+    private float _slowUntil;
+    private float _stunUntil;
 
     /// <summary>Night strength multiplier per §7.3 (enemies stronger at night, 1 = day).</summary>
     public static float NightMultiplier => 1.15f;
@@ -120,6 +126,18 @@ public class EnemyController : MonoBehaviour, IDamageable
     private void Update()
     {
         if (IsDead) return;
+
+        // Slow expires after its window ends (re-applied while inside a CC zone).
+        if (_slowUntil < Time.time && _slowFactor != 1f)
+        {
+            _slowFactor = 1f;
+            _slowUntil = 0f;
+        }
+        // Stunned: frozen in place (no movement, FSM advances, no attacks).
+        if (Time.time < _stunUntil)
+            return;
+        _stunUntil = 0f;
+
         if (Immortal && RegenPerSecond > 0f && CurrentHealth < MaxHealth)
             CurrentHealth = Mathf.Min(MaxHealth, CurrentHealth + Mathf.RoundToInt(RegenPerSecond * Time.deltaTime));
         TickTargets();
@@ -133,26 +151,67 @@ public class EnemyController : MonoBehaviour, IDamageable
         }
     }
 
+    /// <summary>
+    /// Force this enemy to focus <paramref name="taunter"/> for the duration (class taunt
+    /// skills §3.2.1). While active, target re-scanning is suppressed so the enemy keeps
+    /// attacking the taunter even if a closer target is present.
+    /// </summary>
+    public void ForceTarget(Transform taunter, float duration)
+    {
+        if (taunter == null || IsDead) return;
+        _forcedTarget = taunter;
+        _tauntUntil = Time.time + Mathf.Max(duration, 0.1f);
+        _target = taunter;
+        if (State == EnemyState.Patrol || State == EnemyState.Alert)
+            State = EnemyState.Chase;
+    }
+
+    /// <summary>Apply a movement slow (the stronger slow wins while stacked).</summary>
+    public void ApplySlow(float factor, float duration)
+    {
+        _slowFactor = Mathf.Min(_slowFactor, Mathf.Clamp01(factor));
+        _slowUntil = Time.time + Mathf.Max(duration, 0f);
+    }
+
+    /// <summary>Freeze the enemy in place for the duration.</summary>
+    public void ApplyStun(float duration)
+    {
+        _stunUntil = Mathf.Max(_stunUntil, Time.time + Mathf.Max(duration, 0f));
+    }
+
+    /// <summary>Instantly clear any ongoing slow/stun (zone expiry / cleanse).</summary>
+    public void RestoreSlow()
+    {
+        _slowFactor = 1f;
+        _slowUntil = 0f;
+    }
+
     private void TickTargets()
     {
+        // A live taunt overrides re-scanning — keep hammering the taunter.
+        if (_tauntUntil > Time.time)
+        {
+            _target = _forcedTarget;
+            return;
+        }
+        _tauntUntil = 0f;
+
         _targets.Clear();
         int n = Physics.OverlapSphereNonAlloc(transform.position, ChaseRange, _scanBuffer);
-        if (!_scanningTargets)
+        for (int i = 0; i < n; i++)
         {
-            for (int i = 0; i < n; i++)
+            var t = _scanBuffer[i].transform;
+            if (t.CompareTag("Player"))
             {
-                var t = _scanBuffer[i].transform;
-                if (t.CompareTag("Player"))
-                    _targets.Add(t);
+                // Stealth: invisible players are skipped entirely (class StealthEffect §3.2.1).
+                var pc = t.GetComponent<PlayerController>();
+                if (pc != null && pc.IsInvisible) continue;
+                _targets.Add(t);
             }
-        }
-        else
-        {
-            for (int i = 0; i < n; i++)
+            else if (t.CompareTag("Companion") && t.GetComponent<IDamageable>() != null)
             {
-                var t = _scanBuffer[i].transform;
-                if (t.CompareTag("Player") || t.CompareTag("Companion"))
-                    _targets.Add(t);
+                // Combat summons are hostile-worthy targets; farming pets are not IDamageable.
+                _targets.Add(t);
             }
         }
         _target = ClosestTarget();
@@ -302,7 +361,7 @@ public class EnemyController : MonoBehaviour, IDamageable
 
     private void MoveToward(Vector3 dest, float speed)
     {
-        transform.position = Vector3.MoveTowards(transform.position, dest, speed * Time.deltaTime);
+        transform.position = Vector3.MoveTowards(transform.position, dest, speed * _slowFactor * Time.deltaTime);
     }
 
     private void Face(Vector3 point)

@@ -61,6 +61,13 @@ public class PlayerController : MonoBehaviour
     private const float DodgeIFrameDuration = 0.3f;
     public float DodgeCost = 20f;
 
+    // Class skills (§3.2.1): stealth + aura buff state.
+    private float _stealthUntil;
+    private Renderer[] _stealthRenderers;
+    private float _classBuffUntil;
+    private float _classBuffDamageReduction;
+    private float _classBuffHpRegenPerSecond;
+
     // Aim/charge (armed magic via the Alt wheel, or any ranged weapon): hold LMB to aim only,
     // hold RMB to charge/draw (releasing RMB freezes the built level, re-holding resumes), and
     // release LMB to fire at the current level. Mobile taps still cast instantly.
@@ -203,6 +210,7 @@ public class PlayerController : MonoBehaviour
         HandleMouseLook();
         HandleMovement();
         HandleStamina();
+        UpdateClassState();
         HandleInteractionKeys();
         UpdateHud();
     }
@@ -294,6 +302,9 @@ public class PlayerController : MonoBehaviour
     {
         if (HP <= 0) return;
         if (Time.time < _invulnerableUntil) return;
+        // Aura buff: flat damage reduction from class aura skills (clamped to sane bounds).
+        if (_classBuffDamageReduction > 0f && Time.time < _classBuffUntil)
+            amount = Mathf.RoundToInt(amount * (1f - Mathf.Min(_classBuffDamageReduction, 0.5f)));
         // Melee guard: blocking absorbs 80% of the hit while stamina holds; if stamina runs out
         // the guard breaks and the full hit lands.
         var combat = GetComponent<CombatController>();
@@ -311,6 +322,60 @@ public class PlayerController : MonoBehaviour
             HP = 0;
             Debug.Log("Player died");
             GameManager.Instance?.TriggerPlayerDeath();
+        }
+        GameManager.Instance?.UIManager?.UpdatePlayerHud(HP, MaxHP, Stamina, MaxStamina, Money);
+    }
+
+    /// <summary>Restore HP up to max (class heal skills §3.2.1, consumables, miracles).</summary>
+    public void Heal(int amount)
+    {
+        if (HP <= 0 || amount <= 0) return;
+        HP = Mathf.Min(MaxHP, HP + amount);
+        GameManager.Instance?.UIManager?.UpdatePlayerHud(HP, MaxHP, Stamina, MaxStamina, Money);
+    }
+
+    /// <summary>
+    /// Stealth state — enemies ignore the player while active (Rogue "Vanish").
+    /// </summary>
+    public bool IsInvisible => Time.time < _stealthUntil;
+
+    /// <summary>Enter stealth for the given duration (hides renderers; enemies skip targeting).</summary>
+    public void ActivateStealth(float seconds)
+    {
+        if (seconds <= 0f) return;
+        if (_stealthRenderers == null || _stealthRenderers.Length == 0)
+            _stealthRenderers = GetComponentsInChildren<Renderer>(true);
+        if (Time.time < _stealthUntil) return; // already hidden
+        _stealthUntil = Time.time + seconds;
+        foreach (var r in _stealthRenderers)
+            if (r != null) r.enabled = false;
+    }
+
+    /// <summary>Grant the class aura buff (damage reduction + passive HP regen) for the duration.</summary>
+    public void ApplyClassBuff(float seconds, float damageReduction, float hpRegenPerSecond)
+    {
+        _classBuffUntil = Mathf.Max(_classBuffUntil, Time.time + Mathf.Max(seconds, 0f));
+        _classBuffDamageReduction = Mathf.Max(_classBuffDamageReduction, damageReduction);
+        _classBuffHpRegenPerSecond = Mathf.Max(_classBuffHpRegenPerSecond, hpRegenPerSecond);
+    }
+
+    /// <summary>Tick stealth expiry + aura buff lifetime once per frame.</summary>
+    private void UpdateClassState()
+    {
+        // Stealth expiry un-hides renderers.
+        if (_stealthUntil > 0f && Time.time >= _stealthUntil)
+        {
+            _stealthUntil = 0f;
+            if (_stealthRenderers != null)
+                foreach (var r in _stealthRenderers)
+                    if (r != null) r.enabled = true;
+        }
+        // Aura buff expiry resets both components together.
+        if (_classBuffUntil > 0f && Time.time >= _classBuffUntil)
+        {
+            _classBuffUntil = 0f;
+            _classBuffDamageReduction = 0f;
+            _classBuffHpRegenPerSecond = 0f;
         }
     }
 
@@ -447,8 +512,25 @@ public class PlayerController : MonoBehaviour
                 regenMul *= StaminaRegenModifier;
             else if (StaminaRegenModifier != 1f)
                 StaminaRegenModifier = 1f;
+
+            // Class passive: Taoist/Monk stamina-regen modifiers compound multiplicatively (§3.2.1).
+            var passives = GetComponent<ClassPassiveManager>();
+            if (passives != null)
+                regenMul *= passives.StaminaRegenMul;
+
             Stamina = Mathf.Min(MaxStamina, Stamina + StaminaRegenRate * regenMul * Time.deltaTime);
-            HP = Mathf.Min(MaxHP, HP + Mathf.RoundToInt(2f * (Stamina / MaxStamina) * Time.deltaTime));
+
+            // Base HP regen + class passive HP regen (Monk "Meditation", Taoist "Yi Symbol", aura buffs).
+            float hpRegenFraction = 2f * (Stamina / MaxStamina) * Time.deltaTime;
+            if (passives != null)
+                hpRegenFraction += passives.HpRegenPerSecond * MaxHP * Time.deltaTime;
+            if (Time.time < _classBuffUntil && _classBuffHpRegenPerSecond > 0f)
+                hpRegenFraction += _classBuffHpRegenPerSecond * MaxHP * Time.deltaTime;
+            if (hpRegenFraction > 0f && HP < MaxHP)
+            {
+                HP = Mathf.Min(MaxHP, HP + Mathf.RoundToInt(hpRegenFraction));
+                GameManager.Instance?.UIManager?.UpdatePlayerHud(HP, MaxHP, Stamina, MaxStamina, Money);
+            }
         }
     }
 
