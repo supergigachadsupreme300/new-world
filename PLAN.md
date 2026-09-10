@@ -937,7 +937,7 @@ village, plus a Taoist priest who accepts a 1-wood offering and grants the daily
 - [ ] Save + load while Taoist: religion state round-trips, taoist still there.
 - [ ] Stamina regen visibly ~x2 all day after the qi blessing (compare before/after).
 
-## 33. Batch 20d - Pagoda -> Buddhism retrofit (done: commit TBD - pending semantic check)
+## 33. Batch 20d - Pagoda -> Buddhism retrofit (done: commit c7459e9)
 
 Implements Batch D from the plan: the monk no longer owns the stamina blessing; it reports to
 ReligionManager so the three faiths share one centralized daily-blessing + switch path.
@@ -954,7 +954,7 @@ ReligionManager so the three faiths share one centralized daily-blessing + switc
 - `Localization`: added the monk blessing toast EN entry (used via Localization.T).
 - Now the ONLY writer of `Player.StaminaRegenMultiplier` is `ReligionManager.RefreshBlessings`
   (verbatim grep confirms: ReligionManager line + PlayerController reset-to-1 in Start remain).
-- Semantic check: pending (run before commit).
+- Semantic check: 0 diagnostics. Commit: c7459e9.
 
 ### 33.1 Verify (needs user - Unity can't be run here) - batch D
 - [ ] Offer 1 rice/rice_bag at the pagoda: -1 rice, x2 stamina toast, blessing lasts the day; chat
