@@ -768,3 +768,33 @@ each weapon*. Batch 5 attacks each with a guarantee instead of another guess.
       slot → the detail panel appears above the menu and follows the cursor; hides on exit.
 - [ ] Hovering an empty slot shows nothing.
 - [ ] World-hover tooltips (weapon rack, loot drops) still work as before.
+
+## 29. Batch 19 — AoE magic landing preview while aiming
+
+- Report: aimed AoE magic (Wind Gust / Gale Force / Tornado — the only SpellDelivery.Zone/Vortex
+  armed spells) gave no placement feedback until the zone ring flashed after cast time. Added a
+  live ground preview while holding LMB to aim.
+- NEW `AoeAimPreview.cs`: prefab-free world-space marker (no UI canvas) — translucent footprint
+  disc (flat cylinder, ~0.16 alpha) + crisp `LineRenderer` outline ring + pulsing center beacon,
+  tinted by `DamageNumber.ColorFor(spell.Type)`, raised above the ground to avoid z-fighting.
+  API: `Show(center, radius, color)` (live), `Lock(caster)` (freeze + auto-hide when the tracked
+  cast resolves), `Hide()`. Locked mode tracks `SpellCaster.CastCount` so it can't be fooled by
+  overlapping casts.
+- `SpellCaster.cs`: added `public int CastCount` (monotonic per cast) and `public bool IsCasting`
+  (true while ≥1 cast is in flight) — the preview uses these to hand off to the real ring flash.
+- `PlayerController.cs`: while `_aiming`, if the armed spell is Zone/Vortex, the preview is shown
+  each frame — ground point mirrors `SpellCaster` zone placement (camera ray to `spell.Range`,
+  dropped to ground), `radius = spell.Radius * (1 + charge * ChargeSizeBonus)`. Non-AoE armed
+  spells / ranged hide it. On LMB release the marker locks until the cast resolves; cancel hides it.
+  New helpers `UpdateAoePreview`, `HideAoePreview`, `ArmedSpell` (SkillCatalog → SpellCastEffect),
+  `TryAoeTarget`.
+
+### 29.1 Verify (needs user — Unity can't be run here)
+- [ ] Learn Wind Gust / Gale Force / Tornado; arm one via Alt wheel or auto-arm. Hold LMB: a
+      translucent ring + beacon appears on the ground at the aim point, tinted by the spell colour.
+- [ ] The ring grows while holding RMB to charge (final radius ≈ what the skill actually hits).
+- [ ] The ring follows the camera aim over terrain and stops at max range walls/edges.
+- [ ] Release LMB: the ring stays put through the cast time, disappears when the zone/vortex
+      flash actually lands (no dead gap).
+- [ ] Fireball / Frost Bolt / Dark Bolt / Lesser Heal and any bow show NO preview while aiming.
+- [ ] Cancelling (e.g. scramble cancel / weapon change) hides the marker immediately.

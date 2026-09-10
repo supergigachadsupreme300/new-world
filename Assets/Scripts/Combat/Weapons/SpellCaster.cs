@@ -32,6 +32,14 @@ public class SpellCaster : MonoBehaviour
 
     public float CurrentFp { get; private set; }
 
+    /// <summary>Total casts ever started on this caster (monotonic — used to track a specific cast).</summary>
+    public int CastCount { get; private set; }
+
+    /// <summary>True while at least one spell cast is still in progress (cast time / delivery).</summary>
+    public bool IsCasting => _activeCasts > 0;
+
+    private int _activeCasts;
+
     private float _regenTimer;
     private readonly Dictionary<string, float> _cooldowns = new Dictionary<string, float>();
 
@@ -150,6 +158,8 @@ public class SpellCaster : MonoBehaviour
         if (!HasFocusPoints(fpCost)) return false;
 
         TrySpendFocus(fpCost);
+        _activeCasts++;
+        CastCount++;
         StartCoroutine(CastRoutine(spell, origin, mods, charge));
         OnCastStarted?.Invoke(spell);
         return true;
@@ -183,6 +193,7 @@ public class SpellCaster : MonoBehaviour
 
         // Apply cooldown (modulated by weapon CooldownMod).
         _cooldowns[spell.id] = spell.Cooldown * Mathf.Max(mods.CooldownMult, 0.05f);
+        _activeCasts = Mathf.Max(0, _activeCasts - 1);
     }
 
     private DamageResult Execute(SpellData spell, Transform origin, MagicWeaponMods mods, float charge)

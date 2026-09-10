@@ -69,6 +69,7 @@ public class PlayerController : MonoBehaviour
     private bool _aiming;
     private bool _chargeRmbHeld;
     private float _chargeAccum;
+    private AoeAimPreview _aoePreview;
 
     public void SetInWater(bool inWater, float speedMul, bool allowJump)
     {
@@ -711,6 +712,7 @@ public class PlayerController : MonoBehaviour
                 _aiming = false;
                 _chargeRmbHeld = false;
                 _chargeAccum = 0f;
+                HideAoePreview();
                 combat?.EndCharge(false);
             }
             else
@@ -720,6 +722,8 @@ public class PlayerController : MonoBehaviour
                 if (rmbDown)
                     _chargeAccum = Mathf.Min(_chargeAccum + Time.deltaTime, MagicChargeMaxTime);
                 combat?.SetChargeLevel(MagicChargeLevel(_chargeAccum));
+
+                UpdateAoePreview(MagicChargeLevel(_chargeAccum));
 
                 bool lmbUp = !GameInput.IsMobile && Mouse.current != null &&
                              (Mouse.current.leftButton.wasReleasedThisFrame || !Mouse.current.leftButton.isPressed);
@@ -731,9 +735,22 @@ public class PlayerController : MonoBehaviour
                     _chargeAccum = 0f;
                     combat?.EndCharge(true);
                     if (MagicWheelUI.HasArmedMagic())
+                    {
+                        bool previewShown = _aoePreview != null && _aoePreview.IsActive;
                         MagicWheelUI.ReleaseArmedCast(charge);
+                        // Keep the marker up until the spell actually lands, then it hides itself.
+                        if (previewShown)
+                        {
+                            var caster = GetComponent<SpellCaster>();
+                            if (caster != null) _aoePreview.Lock(caster);
+                            else HideAoePreview();
+                        }
+                    }
                     else if (IsRangedEquipped(combat))
+                    {
+                        HideAoePreview();
                         combat.FireRanged(charge);
+                    }
                     else
                         combat?.EndCharge(false);
                 }
@@ -988,6 +1005,79 @@ public class PlayerController : MonoBehaviour
     {
         float t = (holdTime - MagicChargeTapThreshold) / (MagicChargeMaxTime - MagicChargeTapThreshold);
         return Mathf.Clamp01(t);
+    }
+
+    /// <summary>
+    /// Show/refresh the AoE landing preview each aim frame — but only for armed zone/vortex
+    /// magic, so projectile/instant spells and ranged weapons get no marker.
+    /// </summary>
+    private void UpdateAoePreview(float charge)
+    {
+        var spell = ArmedSpell();
+        if (spell != null && (spell.Delivery == SpellDelivery.Zone || spell.Delivery == SpellDelivery.Vortex))
+        {
+            if (TryAoeTarget(spell, charge, out var center, out var radius, out var color))
+                AoePreview().Show(center, radius, color);
+        }
+        else
+        {
+            HideAoePreview();
+        }
+    }
+
+    private void HideAoePreview()
+    {
+        if (_aoePreview != null)
+            _aoePreview.Hide();
+    }
+
+    private AoeAimPreview AoePreview()
+    {
+        if (_aoePreview == null)
+            _aoePreview = AoeAimPreview.Instance;
+        return _aoePreview;
+    }
+
+    /// <summary>SpellData of the armed magic skill (SpellCastEffect), or null when none is previewable.</summary>
+    private SpellData ArmedSpell()
+    {
+        string id = MagicWheelUI.ArmedSkillId;
+        if (string.IsNullOrEmpty(id)) return null;
+        var skill = SkillCatalog.Find(id);
+        if (skill == null || skill.Effect is not SpellCastEffect cast || cast.Spell == null)
+            return null;
+        return cast.Spell;
+    }
+
+    /// <summary>
+    /// Project the ground target for an AoE spell — mirrors <see cref="SpellCaster"/> zone/vortex
+    /// placement (ray along the camera forward to the spell range, then dropped to the ground).
+    /// The radius grows with the charge level using the caster's charge-size bonus.
+    /// </summary>
+    private bool TryAoeTarget(SpellData spell, float charge, out Vector3 center, out float radius, out Color color)
+    {
+        center = transform.position;
+        radius = 1f;
+        color = Color.white;
+        if (spell == null) return false;
+
+        var cam = Camera.main;
+        if (cam == null) return false;
+
+        Vector3 pos = cam.transform.position;
+        Vector3 fwd = cam.transform.forward;
+        Vector3 at = pos + fwd * Mathf.Max(spell.Range, 5f);
+        if (Physics.Raycast(pos, fwd, out RaycastHit aimHit, Mathf.Max(spell.Range, 0.1f)))
+            at = aimHit.point;
+        center = at;
+        if (Physics.Raycast(at + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))
+            center = groundHit.point;
+
+        var caster = GetComponent<SpellCaster>();
+        float sizeBonus = caster != null ? caster.ChargeSizeBonus : 0.8f;
+        radius = spell.Radius * (1f + charge * sizeBonus);
+        color = DamageNumber.ColorFor(spell.Type);
+        return true;
     }
 
     /// <summary>True when an in-progress aim/charge should be dropped without firing.</summary>
