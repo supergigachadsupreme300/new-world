@@ -130,7 +130,7 @@ public class HitboxSystem : MonoBehaviour
             Type               = Type,
             Resistance         = Resistance ?? NeutralResistance.Instance,
             WeaknessMultiplier = 1f,
-            CriticalMultiplier = 1f,
+            CriticalMultiplier = BackstabMultiplier(target),
         };
 
         var result = DamageCalculator.Calculate(hitCtx, blocked: false);
@@ -145,14 +145,37 @@ public class HitboxSystem : MonoBehaviour
         if (result.TotalDamage > 0f)
             DamageNumber.Spawn(target.transform.position, result.TotalDamage, Type);
 
-        // Knockback: apply a simple impulse to Rigidbody if present.
+        // Knockback: apply a simple impulse to Rigidbody if present. Class StaggerResistMul
+        // (Brawler/Monk) softens how easily the player is shoved around.
         Rigidbody rb = target.attachedRigidbody;
         if (rb != null && KnockbackForce > 0f)
         {
+            float force = KnockbackForce;
+            var resist = target.GetComponent<ClassPassiveManager>();
+            if (resist != null) force /= Mathf.Max(resist.StaggerResistMul, 0.1f);
+
             Vector3 dir = (target.transform.position - transform.position).normalized;
             dir.y = 0.3f; // slight upward pop
-            rb.AddForce(dir * KnockbackForce, ForceMode.Impulse);
+            rb.AddForce(dir * force, ForceMode.Impulse);
         }
+    }
+
+    /// <summary>
+    /// Class backstab multiplier (Rogue/Samurai §3.2.1): a player melee strike landing on an
+    /// enemy's back (enemy facing away) gains the accumulated BackstabMul as a critical
+    /// multiplier. Returns 1 when not applicable (no player owner, non-enemy target, frontal hit).
+    /// </summary>
+    private float BackstabMultiplier(Collider target)
+    {
+        if (_owner == null || target == null) return 1f;
+        var stats = _owner.GetComponentInParent<PlayerStats>();
+        if (stats == null) return 1f;
+        var passives = _owner.GetComponentInParent<ClassPassiveManager>();
+        float backMul = passives != null ? passives.BackstabMul : 1f;
+        if (backMul <= 1f) return 1f;
+        if (!target.TryGetComponent<EnemyController>(out _)) return 1f;
+        Vector3 dirToOwner = (_owner.position - target.transform.position).normalized;
+        return Vector3.Dot(target.transform.forward, dirToOwner) < 0f ? backMul : 1f;
     }
 
     // ── Gizmos ──────────────────────────────────────────────────────────────

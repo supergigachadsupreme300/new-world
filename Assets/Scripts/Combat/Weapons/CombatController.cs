@@ -269,8 +269,13 @@ public class CombatController : MonoBehaviour
         if (CurrentState != CombatState.Idle)
             return false;
 
+        // Window width comes from PlayerStats (BaseParrySeconds + Dex, × class ParryWindowMul).
+        var stats = GetComponent<PlayerStats>();
+        float window = stats != null ? stats.ParryWindow : ParryWindowDuration;
+        if (window <= 0f) window = ParryWindowDuration;
+
         _parryWindowOpen = true;
-        _actionTimer = ParryWindowDuration;
+        _actionTimer = window;
         CurrentState = CombatState.PostAction;
         OnStateChanged?.Invoke(CurrentState);
         return true;
@@ -283,11 +288,15 @@ public class CombatController : MonoBehaviour
     }
 
     /// <summary>Receive stamina drain from an incoming blocked hit. True while the block holds;
-    /// when stamina can't cover the cost the guard breaks (block released) and false is returned.</summary>
+    /// when stamina can't cover the cost the guard breaks (block released) and false is returned.
+    /// Class BlockingMul reduces the drain (stronger guard, less stamina eaten per hit).</summary>
     public bool OnBlockedHit(float incomingDamage)
     {
         if (!IsBlocking) return false;
-        if (_stamina == null || !_stamina.TrySpend(BlockDrainPerHit + incomingDamage * 0.2f))
+        var passives = GetComponent<ClassPassiveManager>();
+        float blocking = passives != null ? Mathf.Max(passives.BlockingMul, 0.1f) : 1f;
+        float drain = (BlockDrainPerHit + incomingDamage * 0.2f) / blocking;
+        if (_stamina == null || !_stamina.TrySpend(drain))
         {
             SetBlocking(false);
             return false;

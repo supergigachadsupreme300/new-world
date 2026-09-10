@@ -152,6 +152,14 @@ public partial class ToolManager : MonoBehaviour
         if (staminaRestore <= 0 && hpRestore <= 0)
             return false;
 
+        // Class passive: Alchemist ConsumablePotencyMul scales food effects (§3.2.1).
+        var passives = player.GetComponent<ClassPassiveManager>();
+        if (passives != null && passives.ConsumablePotencyMul != 1f)
+        {
+            staminaRestore = Mathf.RoundToInt(staminaRestore * passives.ConsumablePotencyMul);
+            hpRestore = Mathf.RoundToInt(hpRestore * passives.ConsumablePotencyMul);
+        }
+
         player.Stamina = Mathf.Min(player.MaxStamina, player.Stamina + staminaRestore);
         player.HP = Mathf.Min(player.MaxHP, player.HP + hpRestore);
         RemoveItemAmount(itemType, 1);
