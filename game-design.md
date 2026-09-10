@@ -182,6 +182,33 @@ Trees are built in code (`ClassSkillCatalog`) mirroring the main skill catalog; 
 - **UI:** the Skills panel has a **General / Class** sub-toggle. General shows the full 6-category tree;
   Class shows the active class's radial tree (hub + paths) with an auto-grant detail pane.
 
+#### Race ↔ Class Synergy
+
+Each class's 3 paths are themed around different **racial archetypes** (§3.5), so the player's race
+naturally synergizes with one path more than the others. This gives every race a "home" in multiple
+classes, and every class appeals to 2-3 racial archetypes:
+
+| Class | Path A (archetype) | Path B (archetype) | Path C (archetype) | Best Races |
+|---|---|---|---|---|
+| Wanderer | Survivor (all-around) | Crafter (utility) | Fighter (melee) | Human, Dwarf, Orc |
+| Warrior | Brute (raw power) | Bulwark (defense/taunt) | Duelist (speed) | Orc/Golem, Fire Giant, Werewolf |
+| Mage | Fire (damage) | Frost (control) | Arcane (cooldown) | Draconic, Ice Giant, Wraith/Elf |
+| Rogue | Shadow (backstab) | Vampiric (lifesteal) | Dagger (speed) | Vampire, Serpent-kin, Harpy |
+| Cleric | Light (healing) | Guardian (aura) | Restoration (regen) | Celestial/Angel, Angel, Dwarf |
+| Berserker | Rage (berserk) | Frenzy (speed) | Might (raw) | Orc/Demonkin, Werewolf, Orc/Fire Giant |
+| Necromancer | Undead (summons) | Blood (lifesteal) | Shadow (spells) | Wraith/Undead, Vampire, Elf |
+| Samurai | Blade (parry) | Bushido (balance) | Precision (backstab) | Elf, Human, Skeleton |
+| Alchemist | Potion (consumables) | Toxin (CC) | Forge (craft) | Gnome/Goblin, Serpent-kin, Dwarf |
+| Knight | Iron (defense) | Wall (blocking) | Crusader (holy) | Golem/Fire Giant, Orc, Draconic/Angel |
+| Archer | Marksman (ranged) | Wind (speed) | Trapper (CC) | Harpy/Elf, Elf, Goblin |
+| Enchanter | Time (cooldown) | Frost (CC) | Charm (aura) | Elf, Ice Giant, Succubus |
+| Brawler | Fist (power) | Grapple (CC) | Shout (defense) | Orc/Werewolf, Demonkin, Golem |
+| Paladin | Oath (heal+def) | Guard (blocking) | Smite (holy) | Celestial/Angel, Golem, Draconic |
+| Bard | Song (aura) | Dissonance (CC) | Drums (speed) | Celestial, Succubus, Orc/Elf |
+| Taoist | Qi (stamina) | Symbol (spell) | Flow (CC) | Undead/Elf, Celestial, Elf/Fishmen |
+| Monk | Body (defense) | Mind (heal) | Fist (melee) | Golem, Celestial, Orc |
+| Blacksmith | Forge (craft) | Anvil (repair) | Ember (block) | Dwarf, Golem, Draconic |
+
 ### 3.3 Skill System (3-layer branching tree + use-based XP)
 
 A **use-based skill progression** spans 6 categories with a **3-layer branching tree** (~1984 skills total). No fixed class requirements — any player can advance any category based on how they play. Skills level by gaining XP in their category (with racial multipliers) and grant flat tier rewards at levels 5/10/15/20/25.

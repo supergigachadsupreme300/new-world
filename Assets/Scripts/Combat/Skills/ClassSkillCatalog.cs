@@ -2,11 +2,14 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Runtime catalog of class skills (game-design §3.2.1). Each of the 17 classes owns a small
+/// Runtime catalog of class skills (game-design §3.2.1). Each of the 18 classes owns a small
 /// radial tree — one hub + 3 thematic paths of passive modifiers and castable abilities
-/// (~14 skills × 17 = ~240 total). Built in code (no .asset files), mirroring
+/// (~10 skills × 18 = ~180 total). Built in code (no .asset files), mirroring
 /// <see cref="SkillCatalog"/>. Skills are auto-granted at class unlock; passives apply only
 /// while that class is ACTIVE (aggregated by <see cref="ClassPassiveManager"/>).
+///
+/// Each class's 3 paths are themed around different racial archetypes (§3.5), so the player's
+/// race naturally synergizes with one path more than the others.
 /// </summary>
 public static class ClassSkillCatalog
 {
@@ -138,16 +141,18 @@ public static class ClassSkillCatalog
         return sd;
     }
 
-    // ── Wanderer ────────────────────────────────────────────────────────────
+    // ── Wanderer (baseline) ────────────────────────────────────────────────
+    // Paths: Survival / Focus / Combat — Universal; Human (all), Dwarf (Focus), Orc (Combat)
 
     private static void BuildWanderer(List<ClassSkill> list)
     {
         Make(list, "wanderer", "hub", "Wanderer", 0, true, None(), null,
-            "Balanced basics — a jack of all trades.");
+            "Balanced basics — a jack of all trades. Works with any race.");
 
-        // Survival: stamina & healing.
+        // Survival — universal survivability.
         Make(list, "wanderer", "surv1", "Field Toughness", 1, true, None(), Chain("wanderer"),
-            "+8% stamina regen.", mods: M(ClassModType.StaminaRegenMul, 0.08f));
+            "+8% stamina regen. Synergizes with Endurance-focused races (Undead, Fire Giant).",
+            mods: M(ClassModType.StaminaRegenMul, 0.08f));
         Make(list, "wanderer", "surv2", "Natural Mender", 2, false, None(), P(N("wanderer", "surv1")),
             "+8% healing power; +0.5% max HP/s regen.",
             null, M(ClassModType.HealPowerMul, 0.08f), M(ClassModType.HpRegenPerSecond, 0.005f));
@@ -155,17 +160,19 @@ public static class ClassSkillCatalog
             "Restore 40 HP (scales with healing power).", new HealEffect { Amount = 40f },
             M(ClassModType.HpRegenPerSecond, 0.002f));
 
-        // Focus: consumables & craftsmanship.
+        // Focus — crafting & consumables. Best with Dwarf (+20% craft yield), Goblin, Gnome.
         Make(list, "wanderer", "foc1", "Handy Hands", 1, true, None(), Chain("wanderer"),
-            "+8% consumable potency.", mods: M(ClassModType.ConsumablePotencyMul, 0.08f));
+            "+8% consumable potency. Dwarf/Goblin/Gnome gain the most from this path.",
+            mods: M(ClassModType.ConsumablePotencyMul, 0.08f));
         Make(list, "wanderer", "foc2", "Scavenger", 2, true, None(), P(N("wanderer", "foc1")),
             "+4% craft success, +5% repair.", null, M(ClassModType.CraftSuccessMul, 0.04f), M(ClassModType.RepairMul, 0.05f));
         Make(list, "wanderer", "foc3", "Tonic Focus", 2, false, Focus(6f), P(N("wanderer", "foc1")),
             "A restoring tonic: +1% max HP/s for a time.", new AuraEffect { Seconds = 20f, DamageReduction = 0f, HpRegenPerSecond = 0.01f });
 
-        // Combat basics.
+        // Combat — melee basics. Best with Orc (+25% Str), Werewolf, Draconic.
         Make(list, "wanderer", "cbt1", "First Knocks", 1, true, None(), Chain("wanderer"),
-            "+6% melee power.", mods: M(ClassModType.MeleePowerMul, 0.06f));
+            "+6% melee power. Strength-focused races (Orc, Werewolf) scale this hardest.",
+            mods: M(ClassModType.MeleePowerMul, 0.06f));
         Make(list, "wanderer", "cbt2", "Rough Hide", 2, true, None(), P(N("wanderer", "cbt1")),
             "+4% melee defense.", mods: M(ClassModType.DefenseMeleeMul, 0.04f));
         Make(list, "wanderer", "cbt3", "First Steps", 2, false, Stamina(10f), P(N("wanderer", "cbt1")),
@@ -173,33 +180,37 @@ public static class ClassSkillCatalog
     }
 
     // ── Warrior ─────────────────────────────────────────────────────────────
+    // Paths: Brute / Bulwark / Duelist — Orc/Golem (Brute+Bulwark), Fire Giant (Bulwark), Werewolf/Skeleton (Duelist)
 
     private static void BuildWarrior(List<ClassSkill> list)
     {
         Make(list, "warrior", "hub", "Warrior", 0, true, None(), null,
-            "Weapon Arts enhanced, stance breaking.");
+            "Frontline melee damage and battlefield control.");
 
-        // Power.
-        Make(list, "warrior", "pow1", "Mighty Grip", 1, true, None(), Chain("warrior"),
-            "+8% melee power.", mods: M(ClassModType.MeleePowerMul, 0.08f));
-        Make(list, "warrior", "pow2", "Watchman Cut", 2, true, None(), P(N("warrior", "pow1")),
+        // Brute — raw power. Orc (+25% Str, +15% stagger), Fire Giant, Golem.
+        Make(list, "warrior", "pow1", "Iron Grip", 1, true, None(), Chain("warrior"),
+            "+8% melee power. Orc's +25% Str scales this hardest.",
+            mods: M(ClassModType.MeleePowerMul, 0.08f));
+        Make(list, "warrior", "pow2", "Bone Crusher", 2, true, None(), P(N("warrior", "pow1")),
             "+8% melee power.", mods: M(ClassModType.MeleePowerMul, 0.08f));
         Make(list, "warrior", "pow3", "Titan Swing", 2, false, Stamina(22f), P(N("warrior", "pow1")),
             "A massive two-handed swing dealing heavy damage.",
             new ClassStrikeEffect { Radius = 2.6f, BasePower = 55f }, M(ClassModType.MeleePowerMul, 0.08f));
 
-        // War.
-        Make(list, "warrior", "war1", "Battledress", 1, true, None(), Chain("warrior"),
-            "+4% melee defense.", mods: M(ClassModType.DefenseMeleeMul, 0.04f));
-        Make(list, "warrior", "war2", "Mettle", 2, true, None(), P(N("warrior", "war1")),
+        // Bulwark — defense & taunt. Golem (Stone Skin stacks), Fire/Ice Giant (tanky).
+        Make(list, "warrior", "war1", "Ironhide", 1, true, None(), Chain("warrior"),
+            "+4% melee defense. Golem's Stone Skin stacks with this for extreme DR.",
+            mods: M(ClassModType.DefenseMeleeMul, 0.04f));
+        Make(list, "warrior", "war2", "Brace", 2, true, None(), P(N("warrior", "war1")),
             "+8% melee power, +5% melee defense.", null, M(ClassModType.MeleePowerMul, 0.08f), M(ClassModType.DefenseMeleeMul, 0.05f));
         Make(list, "warrior", "war3", "War Cry", 2, false, Focus(12f), P(N("warrior", "war1")),
             "Force nearby enemies to focus you for 4s.",
             new TauntEffect { Radius = 6f, Duration = 4f }, M(ClassModType.DefenseMeleeMul, 0.04f));
 
-        // Dual.
+        // Duelist — speed & precision. Werewolf (+10% AS, night +25% move), Skeleton (infinite stamina, +20% move).
         Make(list, "warrior", "dual1", "Quick Hands", 1, true, None(), Chain("warrior"),
-            "+4% attack speed.", mods: M(ClassModType.AttackSpeedMul, 0.04f));
+            "+4% attack speed. Werewolf's +10% AS and Skeleton's infinite stamina fuel this path.",
+            mods: M(ClassModType.AttackSpeedMul, 0.04f));
         Make(list, "warrior", "dual2", "Relentless", 2, true, None(), P(N("warrior", "dual1")),
             "+4% attack speed.", mods: M(ClassModType.AttackSpeedMul, 0.04f));
         Make(list, "warrior", "dual3", "Whirlwind", 2, false, Stamina(18f), P(N("warrior", "dual1")),
@@ -208,15 +219,17 @@ public static class ClassSkillCatalog
     }
 
     // ── Mage ────────────────────────────────────────────────────────────────
+    // Paths: Fire / Frost / Arcane — Draconic (Fire), Ice Giant (Frost), Wraith/Elf (Arcane)
 
     private static void BuildMage(List<ClassSkill> list)
     {
         Make(list, "mage", "hub", "Mage", 0, true, None(), null,
-            "Spell casting, magic damage.");
+            "Elemental destruction and battlefield control.");
 
-        // Fire.
+        // Fire — raw damage. Draconic (fire res 40%, Str+20 for fallback melee), Demonkin (fire aura).
         Make(list, "mage", "fire1", "Kindling", 1, true, None(), Chain("mage"),
-            "+8% spell power.", mods: M(ClassModType.SpellPowerMul, 0.08f));
+            "+8% spell power. Draconic's fire resistance lets them fight in their own flames.",
+            mods: M(ClassModType.SpellPowerMul, 0.08f));
         Make(list, "mage", "fire2", "Burning Focus", 2, true, None(), P(N("mage", "fire1")),
             "+8% spell power.", mods: M(ClassModType.SpellPowerMul, 0.08f));
         Make(list, "mage", "fire3", "Fireball", 2, false, Focus(15f), P(N("mage", "fire1")),
@@ -224,18 +237,20 @@ public static class ClassSkillCatalog
             new ClassSpellEffect { Spell = MakeSpell("mage", "Fireball", DamageType.Fire, 30f, 15f, SpellDelivery.Projectile, 4f) },
             M(ClassModType.SpellPowerMul, 0.08f));
 
-        // Cooldown / control.
+        // Frost — control. Ice Giant (cold immune, freeze aura stacks with Frost Nova).
         Make(list, "mage", "cd1", "Arcane Haste", 1, true, None(), Chain("mage"),
-            "+5% cooldown reduction.", mods: M(ClassModType.CooldownMul, 0.05f));
+            "+5% cooldown reduction. Ice Giant's freeze aura + Frost Nova = double crowd control.",
+            mods: M(ClassModType.CooldownMul, 0.05f));
         Make(list, "mage", "cd2", "Frost Study", 2, true, None(), P(N("mage", "cd1")),
             "+8% spell power.", mods: M(ClassModType.SpellPowerMul, 0.08f));
         Make(list, "mage", "cd3", "Frost Nova", 2, false, Focus(14f), P(N("mage", "cd1")),
             "Freeze nearby enemies, slowing them harshly.",
             new CcZoneEffect { Radius = 4f, Duration = 4f, SlowFactor = 0.45f });
 
-        // Arcane.
+        // Arcane — versatility. Wraith (Immaterial = pure caster, +25 Wisdom), Elf (+8% XP, +10% AS).
         Make(list, "mage", "arc1", "Astral Mind", 1, true, None(), Chain("mage"),
-            "+8% spell power.", mods: M(ClassModType.SpellPowerMul, 0.08f));
+            "+8% spell power. Wraith's Immaterial makes them the ultimate arcane caster.",
+            mods: M(ClassModType.SpellPowerMul, 0.08f));
         Make(list, "mage", "arc2", "Channeled", 2, true, None(), P(N("mage", "arc1")),
             "+4% cooldown reduction.", mods: M(ClassModType.CooldownMul, 0.04f));
         Make(list, "mage", "arc3", "Arcane Bolt", 2, false, Focus(12f), P(N("mage", "arc1")),
@@ -244,24 +259,26 @@ public static class ClassSkillCatalog
     }
 
     // ── Rogue ───────────────────────────────────────────────────────────────
+    // Paths: Shadow / Vampiric / Dagger — Vampire (Vampiric), Serpent-kin (Shadow), Harpy/Goblin (Dagger)
 
     private static void BuildRogue(List<ClassSkill> list)
     {
         Make(list, "rogue", "hub", "Rogue", 0, true, None(), null,
-            "Backstab bonus, stealth attacks.");
+            "Stealth, backstab, and assassination.");
 
-        // Shadow.
+        // Shadow — backstab. Serpent-kin (venom blade DoT + backstab), Vampire (lifesteal + move).
         Make(list, "rogue", "sh1", "Shadow Step", 1, true, None(), Chain("rogue"),
-            "+10% backstab damage.", mods: M(ClassModType.BackstabMul, 0.10f));
+            "+10% backstab damage. Serpent-kin's Venom Blade DoT stacks with backstab burst.",
+            mods: M(ClassModType.BackstabMul, 0.10f));
         Make(list, "rogue", "sh2", "Night Fang", 2, true, None(), P(N("rogue", "sh1")),
             "+10% backstab damage.", mods: M(ClassModType.BackstabMul, 0.10f));
         Make(list, "rogue", "sh3", "Vanish", 2, false, Stamina(12f), P(N("rogue", "sh1")),
             "Become invisible to enemies for 8s.",
             new StealthEffect { Seconds = 8f });
 
-        // Trick.
+        // Vampiric — lifesteal. Vampire (5% base lifesteal stacks), Wraith (Immaterial = safe draining).
         Make(list, "rogue", "tr1", "Vampiric Dagger", 1, false, Stamina(14f), Chain("rogue"),
-            "A draining strike that restores 35% of damage dealt as HP.",
+            "A draining strike that restores 35% of damage dealt as HP. Vampire's 5% lifesteal stacks.",
             new LifestealStrikeEffect { Radius = 2.2f, BasePower = 24f, LifestealFraction = 0.35f });
         Make(list, "rogue", "tr2", "Poisons", 2, true, None(), P(N("rogue", "tr1")),
             "+6% consumable potency, +4% attack speed.",
@@ -271,9 +288,10 @@ public static class ClassSkillCatalog
             new LifestealStrikeEffect { Radius = 2.2f, BasePower = 30f, LifestealFraction = 0.4f, Type = DamageType.Dark },
             M(ClassModType.BackstabMul, 0.10f));
 
-        // Dagger.
+        // Dagger — speed & precision. Harpy (+25% Dex, +10% AS), Goblin (+20% loot, 15% smaller hitbox).
         Make(list, "rogue", "dag1", "Flurry", 1, true, None(), Chain("rogue"),
-            "+4% attack speed.", mods: M(ClassModType.AttackSpeedMul, 0.04f));
+            "+4% attack speed. Harpy's +25% Dex and +10% AS make this path devastating.",
+            mods: M(ClassModType.AttackSpeedMul, 0.04f));
         Make(list, "rogue", "dag2", "Killer Instinct", 2, true, None(), P(N("rogue", "dag1")),
             "+12% backstab damage.", mods: M(ClassModType.BackstabMul, 0.12f));
         Make(list, "rogue", "dag3", "Assassinate", 2, false, Stamina(18f), P(N("rogue", "dag1")),
@@ -283,32 +301,36 @@ public static class ClassSkillCatalog
     }
 
     // ── Cleric ──────────────────────────────────────────────────────────────
+    // Paths: Light / Guardian / Restoration — Celestial/Angel (Light), Angel (Guardian), Dwarf (Restoration)
 
     private static void BuildCleric(List<ClassSkill> list)
     {
         Make(list, "cleric", "hub", "Cleric", 0, true, None(), null,
-            "Healing miracles, buffs.");
+            "Healing miracles and divine protection.");
 
-        // Light.
+        // Light — healing. Celestial (healing miracles +20%), Angel (+25% Faith).
         Make(list, "cleric", "l1", "Radiant Faith", 1, true, None(), Chain("cleric"),
-            "+8% healing power.", mods: M(ClassModType.HealPowerMul, 0.08f));
+            "+8% healing power. Celestial's +20% miracle bonus stacks multiplicatively.",
+            mods: M(ClassModType.HealPowerMul, 0.08f));
         Make(list, "cleric", "l2", "Guiding Light", 2, true, None(), P(N("cleric", "l1")),
             "+8% healing power.", mods: M(ClassModType.HealPowerMul, 0.08f));
         Make(list, "cleric", "l3", "Cure Wounds", 2, false, Focus(12f), P(N("cleric", "l1")),
             "Restore 60 HP (scales with healing power).", new HealEffect { Amount = 60f });
 
-        // Guard.
+        // Guardian — defense & aura. Angel (elemental res 20%), Celestial (Faith scaling).
         Make(list, "cleric", "g1", "Hardened Soul", 1, true, None(), Chain("cleric"),
-            "+5% blocking effectiveness.", mods: M(ClassModType.BlockingMul, 0.05f));
+            "+5% blocking effectiveness. Angel's elemental resist makes them an unbreakable guardian.",
+            mods: M(ClassModType.BlockingMul, 0.05f));
         Make(list, "cleric", "g2", "Fortitude", 2, true, None(), P(N("cleric", "g1")),
             "+8% healing power.", mods: M(ClassModType.HealPowerMul, 0.08f));
         Make(list, "cleric", "g3", "Sanctuary", 2, false, Focus(16f), P(N("cleric", "g1")),
             "A blessed aura: -8% damage taken, +0.2% max HP/s for 20s.",
             new AuraEffect { Seconds = 20f, DamageReduction = 0.08f, HpRegenPerSecond = 0.002f });
 
-        // Restore.
+        // Restoration — HP regen. Dwarf (End+25, tanky healer), Fishmen (Health+15).
         Make(list, "cleric", "r1", "Renewal", 1, true, None(), Chain("cleric"),
-            "+0.5% max HP/s regeneration.", mods: M(ClassModType.HpRegenPerSecond, 0.005f));
+            "+0.5% max HP/s regeneration. Dwarf's End+25 makes this scaling very effective.",
+            mods: M(ClassModType.HpRegenPerSecond, 0.005f));
         Make(list, "cleric", "r2", "Blessed", 2, true, None(), P(N("cleric", "r1")),
             "+10% healing power.", mods: M(ClassModType.HealPowerMul, 0.10f));
         Make(list, "cleric", "r3", "Restoration", 2, false, Focus(18f), P(N("cleric", "r1")),
@@ -316,15 +338,16 @@ public static class ClassSkillCatalog
     }
 
     // ── Berserker ───────────────────────────────────────────────────────────
+    // Paths: Rage / Frenzy / Might — Orc/Demonkin (Rage), Werewolf (Frenzy), Orc/Fire Giant (Might)
 
     private static void BuildBerserker(List<ClassSkill> list)
     {
         Make(list, "berserker", "hub", "Berserker", 0, true, None(), null,
-            "Damage increases as HP drops.");
+            "Damage increases as HP drops. Risk-for-reward combat.");
 
-        // Rage.
+        // Rage — berserk scaling. Orc (1% HP/s regen sustains low HP), Demonkin (fire aura).
         Make(list, "berserker", "ra1", "Blood Rage", 1, true, None(), Chain("berserker"),
-            "Melee power rises as your HP falls.",
+            "Melee power rises as your HP falls. Orc's 1% HP/s regen lets you ride the edge safely.",
             mods: M(ClassModType.BerserkScale, 0.10f));
         Make(list, "berserker", "ra2", "Thrill of Battle", 2, true, None(), P(N("berserker", "ra1")),
             "+8% melee power.", mods: M(ClassModType.MeleePowerMul, 0.08f));
@@ -333,9 +356,10 @@ public static class ClassSkillCatalog
             new LifestealStrikeEffect { Radius = 2.4f, BasePower = 30f, LifestealFraction = 0.4f },
             M(ClassModType.BerserkScale, 0.10f));
 
-        // Frenzy.
+        // Frenzy — speed. Werewolf (bleed claws + night +25% move +10% AS), Skeleton (infinite stamina).
         Make(list, "berserker", "fr1", "Frenzied", 1, true, None(), Chain("berserker"),
-            "+5% attack speed.", mods: M(ClassModType.AttackSpeedMul, 0.05f));
+            "+5% attack speed. Werewolf's night bonuses and bleed claws make this lethal.",
+            mods: M(ClassModType.AttackSpeedMul, 0.05f));
         Make(list, "berserker", "fr2", "Manic", 2, true, None(), P(N("berserker", "fr1")),
             "Berserk scaling deepens.",
             mods: M(ClassModType.BerserkScale, 0.10f));
@@ -343,9 +367,10 @@ public static class ClassSkillCatalog
             "Fury incarnate — a wide brutal swing.",
             new ClassStrikeEffect { Radius = 2.6f, BasePower = 40f, Type = DamageType.Fire });
 
-        // Might.
+        // Might — raw power. Orc (+25% Str, +15% stagger), Fire Giant (Str+20, tanky).
         Make(list, "berserker", "mi1", "Unforgiving", 1, true, None(), Chain("berserker"),
-            "+10% melee power.", mods: M(ClassModType.MeleePowerMul, 0.10f));
+            "+10% melee power. Orc's +25% Str and +15% stagger damage maximize this path.",
+            mods: M(ClassModType.MeleePowerMul, 0.10f));
         Make(list, "berserker", "mi2", "Scarred", 2, true, None(), P(N("berserker", "mi1")),
             "+4% melee defense.", mods: M(ClassModType.DefenseMeleeMul, 0.04f));
         Make(list, "berserker", "mi3", "Roar", 2, false, Stamina(12f), P(N("berserker", "mi1")),
@@ -354,15 +379,16 @@ public static class ClassSkillCatalog
     }
 
     // ── Necromancer ─────────────────────────────────────────────────────────
+    // Paths: Undead / Blood / Shadow — Wraith/Undead (Undead), Vampire (Blood), Elf/Wraith (Shadow)
 
     private static void BuildNecromancer(List<ClassSkill> list)
     {
         Make(list, "necromancer", "hub", "Necromancer", 0, true, None(), null,
-            "Summon undead allies.");
+            "Undead summoning and blood magic.");
 
-        // Dead.
+        // Undead — summons. Wraith (Immaterial = safe behind summons), Undead (infinite stamina).
         Make(list, "necromancer", "de1", "Raise Skeleton", 1, false, Focus(16f), Chain("necromancer"),
-            "Summon a skeleton ally for 30s.",
+            "Summon a skeleton ally for 30s. Wraith's Immaterial lets them summon from safety.",
             new SummonEffect { Power = 12f, Duration = 30f, Range = 5f });
         Make(list, "necromancer", "de2", "Bone Armor", 2, true, None(), P(N("necromancer", "de1")),
             "+5% melee defense (graveyard fortitude).", mods: M(ClassModType.DefenseMeleeMul, 0.05f));
@@ -370,9 +396,9 @@ public static class ClassSkillCatalog
             "Summon a powerful undead brute for 40s.",
             new SummonEffect { Power = 24f, Duration = 40f, Range = 5f }, M(ClassModType.DefenseMeleeMul, 0.04f));
 
-        // Blood.
+        // Blood — lifesteal. Vampire (5% base + class lifesteal), Demonkin (fire aura sustains).
         Make(list, "necromancer", "bl1", "Blood Siphon", 1, false, Focus(12f), Chain("necromancer"),
-            "Strike with blood magic, restoring HP.",
+            "Strike with blood magic, restoring HP. Vampire's lifesteal stacks for massive sustain.",
             new LifestealStrikeEffect { Radius = 2f, BasePower = 22f, LifestealFraction = 0.3f, Type = DamageType.Dark });
         Make(list, "necromancer", "bl2", "Pallid", 2, true, None(), P(N("necromancer", "bl1")),
             "+0.5% max HP/s regeneration.", mods: M(ClassModType.HpRegenPerSecond, 0.005f));
@@ -380,9 +406,10 @@ public static class ClassSkillCatalog
             "A brutal rite that heals half of damage dealt.",
             new LifestealStrikeEffect { Radius = 2.2f, BasePower = 30f, LifestealFraction = 0.5f, Type = DamageType.Dark });
 
-        // Shadow.
+        // Shadow — cooldown/spells. Wraith (+25 Wisdom → spell power), Elf (+8% XP, +10% AS).
         Make(list, "necromancer", "sd1", "Grave Call", 1, true, None(), Chain("necromancer"),
-            "+6% cooldown reduction.", mods: M(ClassModType.CooldownMul, 0.06f));
+            "+6% cooldown reduction. Wraith's Wisdom+25 fuels spell rotation speed.",
+            mods: M(ClassModType.CooldownMul, 0.06f));
         Make(list, "necromancer", "sd2", "Wither", 2, true, None(), P(N("necromancer", "sd1")),
             "+8% spell power.", mods: M(ClassModType.SpellPowerMul, 0.08f));
         Make(list, "necromancer", "sd3", "Bone Spear", 2, false, Focus(14f), P(N("necromancer", "sd1")),
@@ -391,15 +418,17 @@ public static class ClassSkillCatalog
     }
 
     // ── Samurai ─────────────────────────────────────────────────────────────
+    // Paths: Blade / Bushido / Precision — Elf (Blade), Human (Bushido), Skeleton/Serpent-kin (Precision)
 
     private static void BuildSamurai(List<ClassSkill> list)
     {
         Make(list, "samurai", "hub", "Samurai", 0, true, None(), null,
-            "Perfect parry window extended.");
+            "Precision parry-and-riposte combat.");
 
-        // Blade.
+        // Blade — parry/counter. Elf (+20% Dex, +10% AS for draw speed), Harpy (+25% Dex).
         Make(list, "samurai", "bl1", "Flow State", 1, true, None(), Chain("samurai"),
-            "+10% parry window.", mods: M(ClassModType.ParryWindowMul, 0.10f));
+            "+10% parry window. Elf's +20% Dex scales parry timing perfectly.",
+            mods: M(ClassModType.ParryWindowMul, 0.10f));
         Make(list, "samurai", "bl2", "Draw Speed", 2, true, None(), P(N("samurai", "bl1")),
             "+4% attack speed.", mods: M(ClassModType.AttackSpeedMul, 0.04f));
         Make(list, "samurai", "bl3", "Iaijutsu", 2, false, Stamina(16f), P(N("samurai", "bl1")),
@@ -407,17 +436,19 @@ public static class ClassSkillCatalog
             new ClassStrikeEffect { Radius = 2f, BasePower = 45f },
             M(ClassModType.ParryWindowMul, 0.05f));
 
-        // Bushido.
+        // Bushido — balance/heal. Human (+15% XP, balanced stats), Celestial (Faith scaling).
         Make(list, "samurai", "bu1", "Bushido Code", 1, true, None(), Chain("samurai"),
-            "+10% parry window.", mods: M(ClassModType.ParryWindowMul, 0.10f));
+            "+10% parry window. Human's balanced stats suit this disciplined path.",
+            mods: M(ClassModType.ParryWindowMul, 0.10f));
         Make(list, "samurai", "bu2", "Clear Mind", 2, true, None(), P(N("samurai", "bu1")),
             "+8% healing power.", mods: M(ClassModType.HealPowerMul, 0.08f));
         Make(list, "samurai", "bu3", "Moment of Clarity", 2, false, Focus(8f), P(N("samurai", "bu1")),
             "Breathe and center yourself, healing 50 HP.", new HealEffect { Amount = 50f });
 
-        // Precision.
+        // Precision — backstab/counter. Skeleton (bleed immune, +20% move), Serpent-kin (Venom Blade).
         Make(list, "samurai", "pr1", "Precision", 1, true, None(), Chain("samurai"),
-            "+10% backstab damage (ripostes hit harder).", mods: M(ClassModType.BackstabMul, 0.10f));
+            "+10% backstab damage (ripostes hit harder). Skeleton's speed closes distance fast.",
+            mods: M(ClassModType.BackstabMul, 0.10f));
         Make(list, "samurai", "pr2", "Keen Edge", 2, true, None(), P(N("samurai", "pr1")),
             "+12% parry window, +5% backstab.", null, M(ClassModType.ParryWindowMul, 0.12f), M(ClassModType.BackstabMul, 0.05f));
         Make(list, "samurai", "pr3", "Riposte", 2, false, Stamina(14f), P(N("samurai", "pr1")),
@@ -427,24 +458,26 @@ public static class ClassSkillCatalog
     }
 
     // ── Alchemist ───────────────────────────────────────────────────────────
+    // Paths: Potion / Toxin / Forge — Gnome/Goblin (Potion), Serpent-kin (Toxin), Dwarf (Forge)
 
     private static void BuildAlchemist(List<ClassSkill> list)
     {
         Make(list, "alchemist", "hub", "Alchemist", 0, true, None(), null,
-            "Enhanced consumable effects.");
+            "Consumable mastery and chemical warfare.");
 
-        // Potion.
+        // Potion — consumables. Gnome (+40% loot, +35 Luck), Goblin (+20% loot).
         Make(list, "alchemist", "po1", "Distiller", 1, true, None(), Chain("alchemist"),
-            "+8% consumable potency.", mods: M(ClassModType.ConsumablePotencyMul, 0.08f));
+            "+8% consumable potency. Gnome's Lucky Find (+40% loot) floods this path with reagents.",
+            mods: M(ClassModType.ConsumablePotencyMul, 0.08f));
         Make(list, "alchemist", "po2", "Master Alchemy", 2, true, None(), P(N("alchemist", "po1")),
             "+8% consumable potency.", mods: M(ClassModType.ConsumablePotencyMul, 0.08f));
         Make(list, "alchemist", "po3", "Philosopher's Stone", 2, false, Focus(10f), P(N("alchemist", "po1")),
             "Distilled life: heal 50 HP and gain slow HP regen.",
             new HealEffect { Amount = 50f }, M(ClassModType.HpRegenPerSecond, 0.005f));
 
-        // Goo.
+        // Toxin — CC/debuff. Serpent-kin (Venom Blade DoT stacks), Vampire (lifesteal + toxin).
         Make(list, "alchemist", "go1", "Acid Cloud", 1, false, Focus(14f), Chain("alchemist"),
-            "Spawn a corrosive cloud that slows enemies.",
+            "Spawn a corrosive cloud that slows enemies. Serpent-kin's Venom Blade stacks with this.",
             new CcZoneEffect { Radius = 3.5f, Duration = 4f, SlowFactor = 0.5f });
         Make(list, "alchemist", "go2", "Caustic", 2, true, None(), P(N("alchemist", "go1")),
             "+6% consumable potency.", mods: M(ClassModType.ConsumablePotencyMul, 0.06f));
@@ -452,9 +485,10 @@ public static class ClassSkillCatalog
             "A sleepy cloud that stuns enemies inside.",
             new CcZoneEffect { Radius = 2.2f, Duration = 3f, SlowFactor = 1f, Stun = true });
 
-        // Silver.
+        // Forge — craft/repair. Dwarf (+20% yield, forge discounts, End+25).
         Make(list, "alchemist", "si1", "Tiny Forge", 1, true, None(), Chain("alchemist"),
-            "+5% repair efficiency.", mods: M(ClassModType.RepairMul, 0.05f));
+            "+5% repair efficiency. Dwarf's forge discounts and craft yield make this path shine.",
+            mods: M(ClassModType.RepairMul, 0.05f));
         Make(list, "alchemist", "si2", "Goodsmith", 2, true, None(), P(N("alchemist", "si1")),
             "+5% craft success.", mods: M(ClassModType.CraftSuccessMul, 0.05f));
         Make(list, "alchemist", "si3", "Purification", 2, true, None(), P(N("alchemist", "si1")),
@@ -462,15 +496,17 @@ public static class ClassSkillCatalog
     }
 
     // ── Knight ──────────────────────────────────────────────────────────────
+    // Paths: Iron / Wall / Crusader — Golem/Fire Giant (Iron), Orc (Wall), Draconic/Angel (Crusader)
 
     private static void BuildKnight(List<ClassSkill> list)
     {
         Make(list, "knight", "hub", "Knight", 0, true, None(), null,
-            "Buffs defense & melee; increases equip-load carry.");
+            "Heavy armor defense and party protection.");
 
-        // Iron.
+        // Iron — defense/equip. Golem (Stone Skin + equip load), Fire/Ice Giant (tanky).
         Make(list, "knight", "ir1", "Plate Training", 1, true, None(), Chain("knight"),
-            "+4% melee defense, +10 equip load.", null, M(ClassModType.DefenseMeleeMul, 0.04f), M(ClassModType.EquipLoadBonus, 10f));
+            "+4% melee defense, +10 equip load. Golem's Stone Skin stacks for extreme DR.",
+            null, M(ClassModType.DefenseMeleeMul, 0.04f), M(ClassModType.EquipLoadBonus, 10f));
         Make(list, "knight", "ir2", "Bearer's Might", 2, true, None(), P(N("knight", "ir1")),
             "+5% melee defense, +10 equip load.", null, M(ClassModType.DefenseMeleeMul, 0.05f), M(ClassModType.EquipLoadBonus, 10f));
         Make(list, "knight", "ir3", "Bulwark", 2, false, Focus(16f), P(N("knight", "ir1")),
@@ -478,18 +514,20 @@ public static class ClassSkillCatalog
             new AuraEffect { Seconds = 25f, DamageReduction = 0.10f, HpRegenPerSecond = 0.002f },
             M(ClassModType.EquipLoadBonus, 10f));
 
-        // Wall.
+        // Wall — blocking/taunt. Orc (+15% stagger dmg, +1% HP/s), Undead (infinite stamina).
         Make(list, "knight", "wa1", "Stable Guard", 1, true, None(), Chain("knight"),
-            "+6% blocking effectiveness.", mods: M(ClassModType.BlockingMul, 0.06f));
+            "+6% blocking effectiveness. Orc's stagger bonus makes blocks devastating.",
+            mods: M(ClassModType.BlockingMul, 0.06f));
         Make(list, "knight", "wa2", "Iron Wall", 2, true, None(), P(N("knight", "wa1")),
             "+5% melee defense.", mods: M(ClassModType.DefenseMeleeMul, 0.05f));
         Make(list, "knight", "wa3", "Challenge", 2, false, Stamina(10f), P(N("knight", "wa1")),
             "Taunt nearby enemies for 5s.",
             new TauntEffect { Radius = 6f, Duration = 5f });
 
-        // Holy.
+        // Crusader — holy strike. Draconic (Str+20, fire res), Angel (Faith+25, elemental res).
         Make(list, "knight", "ho1", "Warden", 1, true, None(), Chain("knight"),
-            "+0.5% max HP/s regeneration.", mods: M(ClassModType.HpRegenPerSecond, 0.005f));
+            "+0.5% max HP/s regeneration. Angel's Faith+25 and elemental res suit this holy path.",
+            mods: M(ClassModType.HpRegenPerSecond, 0.005f));
         Make(list, "knight", "ho2", "Heavy Crusader", 2, true, None(), P(N("knight", "ho1")),
             "+4% melee defense, +10 equip load.", null, M(ClassModType.DefenseMeleeMul, 0.04f), M(ClassModType.EquipLoadBonus, 10f));
         Make(list, "knight", "ho3", "Crusader Strike", 2, false, Stamina(16f), P(N("knight", "ho1")),
@@ -498,33 +536,36 @@ public static class ClassSkillCatalog
     }
 
     // ── Archer ──────────────────────────────────────────────────────────────
+    // Paths: Marksman / Wind / Trapper — Harpy/Elf (Marksman), Elf (Wind), Goblin (Trapper)
 
     private static void BuildArcher(List<ClassSkill> list)
     {
         Make(list, "archer", "hub", "Archer", 0, true, None(), null,
-            "Ranged accuracy & handling.");
+            "Ranged precision and battlefield control.");
 
-        // Marksman.
+        // Marksman — ranged power. Harpy (+25% Dex, +10% AS, glide), Elf (+20% Dex, +8% XP).
         Make(list, "archer", "ma1", "Steady Aim", 1, true, None(), Chain("archer"),
-            "+5% ranged handling.", mods: M(ClassModType.RangedHandlingMul, 0.05f));
+            "+5% ranged handling. Harpy's +25% Dex and glide mobility make this deadly.",
+            mods: M(ClassModType.RangedHandlingMul, 0.05f));
         Make(list, "archer", "ma2", "Hawkeye", 2, true, None(), P(N("archer", "ma1")),
             "+6% ranged handling.", mods: M(ClassModType.RangedHandlingMul, 0.06f));
         Make(list, "archer", "ma3", "Sniper Shot", 2, false, Stamina(18f), P(N("archer", "ma1")),
             "A long-range precision shot.",
             new ClassStrikeEffect { Radius = 2f, BasePower = 50f });
 
-        // Wind.
+        // Wind — speed/utility. Elf (+10% AS, +8% XP, +20% perception).
         Make(list, "archer", "wi1", "Quick Nock", 1, true, None(), Chain("archer"),
-            "+5% attack speed.", mods: M(ClassModType.AttackSpeedMul, 0.05f));
+            "+5% attack speed. Elf's +10% AS and perception bonuses fuel rapid volleys.",
+            mods: M(ClassModType.AttackSpeedMul, 0.05f));
         Make(list, "archer", "wi2", "Wind Guide", 2, true, None(), P(N("archer", "wi1")),
             "+5% ranged handling.", mods: M(ClassModType.RangedHandlingMul, 0.05f));
         Make(list, "archer", "wi3", "Wind Shot", 2, false, Focus(8f), P(N("archer", "wi1")),
             "An arrow guided by wind force.",
             new ClassSpellEffect { Spell = MakeSpell("archer", "Wind Shot", DamageType.Wind, 18f, 8f, SpellDelivery.Projectile, 4f) });
 
-        // Hound.
+        // Trapper — CC/zone. Goblin (+20% loot, 15% smaller hitbox), Fishmen (End+15, water theme).
         Make(list, "archer", "ho1", "Concussive Arrow", 1, false, Stamina(10f), Chain("archer"),
-            "A shocking arrow that slows enemies.",
+            "A shocking arrow that slows enemies. Goblin's small hitbox lets them kite safely.",
             new CcZoneEffect { Radius = 2.2f, Duration = 3f, SlowFactor = 0.5f });
         Make(list, "archer", "ho2", "Field Craft", 2, true, None(), P(N("archer", "ho1")),
             "+5% consumable potency.", mods: M(ClassModType.ConsumablePotencyMul, 0.05f));
@@ -534,24 +575,26 @@ public static class ClassSkillCatalog
     }
 
     // ── Enchanter ───────────────────────────────────────────────────────────
+    // Paths: Time / Frost / Charm — Elf (Time), Ice Giant (Frost), Succubus/Angel (Charm)
 
     private static void BuildEnchanter(List<ClassSkill> list)
     {
         Make(list, "enchanter", "hub", "Enchanter", 0, true, None(), null,
-            "Control/zone mage (slow, roots, area denial).");
+            "Area control, debuffs, and party support.");
 
-        // Time.
+        // Time — cooldown. Elf (+10% AS, +8% XP, +6% Wisdom), Celestial (Faith+25).
         Make(list, "enchanter", "ti1", "Bend Time", 1, true, None(), Chain("enchanter"),
-            "+6% cooldown reduction.", mods: M(ClassModType.CooldownMul, 0.06f));
+            "+6% cooldown reduction. Elf's XP bonus and Wisdom fuel rapid spell rotation.",
+            mods: M(ClassModType.CooldownMul, 0.06f));
         Make(list, "enchanter", "ti2", "Rewind", 2, true, None(), P(N("enchanter", "ti1")),
             "+6% cooldown reduction.", mods: M(ClassModType.CooldownMul, 0.06f));
         Make(list, "enchanter", "ti3", "Time Slow", 2, false, Focus(16f), P(N("enchanter", "ti1")),
             "Bend time in an area, slowing enemies to a crawl.",
             new CcZoneEffect { Radius = 5f, Duration = 4f, SlowFactor = 0.35f });
 
-        // Frost.
+        // Frost — CC/zone. Ice Giant (cold immune, freeze aura stacks with Rime/Gravity Well).
         Make(list, "enchanter", "fr1", "Rime", 1, false, Focus(12f), Chain("enchanter"),
-            "A frost field that slows enemies.",
+            "A frost field that slows enemies. Ice Giant's freeze aura stacks for total lockdown.",
             new CcZoneEffect { Radius = 3.5f, Duration = 3f, SlowFactor = 0.4f });
         Make(list, "enchanter", "fr2", "Bitter Cold", 2, true, None(), P(N("enchanter", "fr1")),
             "+5% cooldown reduction.", mods: M(ClassModType.CooldownMul, 0.05f));
@@ -559,9 +602,10 @@ public static class ClassSkillCatalog
             "A crushing well that nearly roots and stuns.",
             new CcZoneEffect { Radius = 3f, Duration = 3f, SlowFactor = 0.25f, Stun = true });
 
-        // Charm.
+        // Charm — aura/support. Succubus (Charm Gaze), Angel (Faith+25, elemental res).
         Make(list, "enchanter", "ch1", "Magnetic Charm", 1, true, None(), Chain("enchanter"),
-            "+6% spell power.", mods: M(ClassModType.SpellPowerMul, 0.06f));
+            "+6% spell power. Succubus's Charm Gaze stacks with this for mass crowd control.",
+            mods: M(ClassModType.SpellPowerMul, 0.06f));
         Make(list, "enchanter", "ch2", "Aura Twisting", 2, true, None(), P(N("enchanter", "ch1")),
             "+15% aura strength.", mods: M(ClassModType.AuraStrength, 0.15f));
         Make(list, "enchanter", "ch3", "Mind Shield", 2, false, Focus(14f), P(N("enchanter", "ch1")),
@@ -570,24 +614,26 @@ public static class ClassSkillCatalog
     }
 
     // ── Brawler ─────────────────────────────────────────────────────────────
+    // Paths: Fist / Grapple / Shout — Orc/Werewolf (Fist), Demonkin (Grapple), Golem (Shout)
 
     private static void BuildBrawler(List<ClassSkill> list)
     {
         Make(list, "brawler", "hub", "Brawler", 0, true, None(), null,
-            "Unarmed/grapple crowd control.");
+            "Unarmed combat and crowd control.");
 
-        // Fist.
+        // Fist — raw power. Orc (+25% Str, +15% stagger), Werewolf (bleed claws + night bonuses).
         Make(list, "brawler", "fi1", "Calloused", 1, true, None(), Chain("brawler"),
-            "+8% melee power.", mods: M(ClassModType.MeleePowerMul, 0.08f));
+            "+8% melee power. Orc's +25% Str makes fists devastating.",
+            mods: M(ClassModType.MeleePowerMul, 0.08f));
         Make(list, "brawler", "fi2", "Badass", 2, true, None(), P(N("brawler", "fi1")),
             "+4% attack speed.", mods: M(ClassModType.AttackSpeedMul, 0.04f));
         Make(list, "brawler", "fi3", "Haymaker", 2, false, Stamina(16f), P(N("brawler", "fi1")),
             "A devastating telegraphed punch.",
             new ClassStrikeEffect { Radius = 2f, BasePower = 45f });
 
-        // Grapple.
+        // Grapple — CC/taunt. Demonkin (fire aura + Str+20), Fishmen (End+15, water theme).
         Make(list, "brawler", "gr1", "Bone Throw", 1, false, Stamina(10f), Chain("brawler"),
-            "Hurl debris that stuns enemies in the zone.",
+            "Hurl debris that stuns enemies in the zone. Demonkin's fire aura ignites the chaos.",
             new CcZoneEffect { Radius = 2f, Duration = 3f, SlowFactor = 1f, Stun = true });
         Make(list, "brawler", "gr2", "Shove", 2, true, None(), P(N("brawler", "gr1")),
             "+8% melee power.", mods: M(ClassModType.MeleePowerMul, 0.08f));
@@ -595,9 +641,10 @@ public static class ClassSkillCatalog
             "A booming shout that draws foes in for 3s.",
             new TauntEffect { Radius = 4f, Duration = 3f });
 
-        // Shout.
+        // Shout — stagger/defense. Golem (Stone Skin + stagger), Undead (infinite stamina).
         Make(list, "brawler", "st1", "Iron Chin", 1, true, None(), Chain("brawler"),
-            "+10% stagger resistance.", mods: M(ClassModType.StaggerResistMul, 0.10f));
+            "+10% stagger resistance. Golem's Stone Skin + Iron Chin = nearly unbreakable.",
+            mods: M(ClassModType.StaggerResistMul, 0.10f));
         Make(list, "brawler", "st2", "Bulldozer", 2, true, None(), P(N("brawler", "st1")),
             "+5% melee defense.", mods: M(ClassModType.DefenseMeleeMul, 0.05f));
         Make(list, "brawler", "st3", "Whirlwind Fist", 2, false, Stamina(14f), P(N("brawler", "st1")),
@@ -607,32 +654,36 @@ public static class ClassSkillCatalog
     }
 
     // ── Paladin ─────────────────────────────────────────────────────────────
+    // Paths: Oath / Guard / Smite — Celestial/Angel (Oath), Golem (Guard), Draconic/Angel (Smite)
 
     private static void BuildPaladin(List<ClassSkill> list)
     {
         Make(list, "paladin", "hub", "Paladin", 0, true, None(), null,
-            "Holy tank/support (taunt, guard allies).");
+            "Holy warrior — heal, tank, and smite.");
 
-        // Oath.
+        // Oath — heal+def. Celestial (healing miracles +20%), Angel (+25% Faith).
         Make(list, "paladin", "oa1", "Oathkeeper", 1, true, None(), Chain("paladin"),
-            "+8% healing power.", mods: M(ClassModType.HealPowerMul, 0.08f));
+            "+8% healing power. Celestial's +20% miracle bonus makes healing powerful.",
+            mods: M(ClassModType.HealPowerMul, 0.08f));
         Make(list, "paladin", "oa2", "Righteous", 2, true, None(), P(N("paladin", "oa1")),
             "+4% melee defense, +8% healing power.", null, M(ClassModType.DefenseMeleeMul, 0.04f), M(ClassModType.HealPowerMul, 0.08f));
         Make(list, "paladin", "oa3", "Lay on Hands", 2, false, Focus(14f), P(N("paladin", "oa1")),
             "Restore 70 HP (scales with healing power).", new HealEffect { Amount = 70f });
 
-        // Guard.
+        // Guard — blocking/taunt. Golem (Stone Skin stacks), Angel (elemental res).
         Make(list, "paladin", "gu1", "Aegis Training", 1, true, None(), Chain("paladin"),
-            "+6% blocking effectiveness.", mods: M(ClassModType.BlockingMul, 0.06f));
+            "+6% blocking effectiveness. Golem's Stone Skin + blocking = mobile fortress.",
+            mods: M(ClassModType.BlockingMul, 0.06f));
         Make(list, "paladin", "gu2", "Holy Provocation", 2, false, Stamina(8f), P(N("paladin", "gu1")),
             "Taunts enemies for 4s.", new TauntEffect { Radius = 6f, Duration = 4f });
         Make(list, "paladin", "gu3", "Aegis", 2, false, Focus(18f), P(N("paladin", "gu1")),
             "A radiant aura: -10% damage taken, +0.3% max HP/s for 24s.",
             new AuraEffect { Seconds = 24f, DamageReduction = 0.10f, HpRegenPerSecond = 0.003f });
 
-        // Smite.
+        // Smite — holy damage. Draconic (Str+20, fire res), Angel (Faith+25).
         Make(list, "paladin", "sm1", "Holy Fire", 1, true, None(), Chain("paladin"),
-            "+8% spell power.", mods: M(ClassModType.SpellPowerMul, 0.08f));
+            "+8% spell power. Draconic's Str+20 + Faith+5% dual-scales this path.",
+            mods: M(ClassModType.SpellPowerMul, 0.08f));
         Make(list, "paladin", "sm2", "Divine", 2, true, None(), P(N("paladin", "sm1")),
             "+8% healing power.", mods: M(ClassModType.HealPowerMul, 0.08f));
         Make(list, "paladin", "sm3", "Smite", 2, false, Focus(16f), P(N("paladin", "sm1")),
@@ -641,24 +692,26 @@ public static class ClassSkillCatalog
     }
 
     // ── Bard ────────────────────────────────────────────────────────────────
+    // Paths: Song / Dissonance / Drums — Celestial (Song), Succubus (Dissonance), Orc/Elf (Drums)
 
     private static void BuildBard(List<ClassSkill> list)
     {
         Make(list, "bard", "hub", "Bard", 0, true, None(), null,
-            "Party-wide buffs/auras.");
+            "Party-wide buffs, auras, and crowd control.");
 
-        // String.
+        // Song — aura/heal. Celestial (healing miracles +20%), Angel (Faith+25).
         Make(list, "bard", "st1", "Encore", 1, true, None(), Chain("bard"),
-            "+15% aura strength.", mods: M(ClassModType.AuraStrength, 0.15f));
+            "+15% aura strength. Celestial's healing bonus amplifies the entire party.",
+            mods: M(ClassModType.AuraStrength, 0.15f));
         Make(list, "bard", "st2", "Lullaby", 2, true, None(), P(N("bard", "st1")),
             "+8% healing power.", mods: M(ClassModType.HealPowerMul, 0.08f));
         Make(list, "bard", "st3", "Battle Hymn", 2, false, Focus(12f), P(N("bard", "st1")),
             "An inspiring song: -8% damage taken, +HP regen for 22s.",
             new AuraEffect { Seconds = 22f, DamageReduction = 0.08f, HpRegenPerSecond = 0.002f });
 
-        // Wind.
+        // Dissonance — CC. Succubus (Charm Gaze stacks with Dissonance), Elf (Wisdom+15).
         Make(list, "bard", "wi1", "Dissonance", 1, false, Focus(14f), Chain("bard"),
-            "A jarring tune that slows enemies.",
+            "A jarring tune that slows enemies. Succubus's Charm Gaze + Dissonance = crowd control king.",
             new CcZoneEffect { Radius = 3.5f, Duration = 4f, SlowFactor = 0.45f });
         Make(list, "bard", "wi2", "Harmony", 2, true, None(), P(N("bard", "wi1")),
             "+15% aura strength.", mods: M(ClassModType.AuraStrength, 0.15f));
@@ -666,9 +719,10 @@ public static class ClassSkillCatalog
             "Renewing song: heal 40 HP, +8% stamina regen.",
             new HealEffect { Amount = 40f }, M(ClassModType.StaminaRegenMul, 0.08f));
 
-        // Drum.
+        // Drums — speed/stamina. Orc (+15% stagger, End+10), Werewolf (night +25% move), Elf (+10% AS).
         Make(list, "bard", "dr1", "Drums of War", 1, true, None(), Chain("bard"),
-            "+8% stamina regen.", mods: M(ClassModType.StaminaRegenMul, 0.08f));
+            "+8% stamina regen. Orc's End+10 and Werewolf's night speed fuel the war drums.",
+            mods: M(ClassModType.StaminaRegenMul, 0.08f));
         Make(list, "bard", "dr2", "Tempo", 2, true, None(), P(N("bard", "dr1")),
             "+4% attack speed.", mods: M(ClassModType.AttackSpeedMul, 0.04f));
         Make(list, "bard", "dr3", "Taunting Jig", 2, false, Focus(12f), P(N("bard", "dr1")),
@@ -677,33 +731,37 @@ public static class ClassSkillCatalog
     }
 
     // ── Taoist ──────────────────────────────────────────────────────────────
+    // Paths: Qi / Symbol / Flow — Undead/Elf (Qi), Celestial (Symbol), Elf/Fishmen (Flow)
 
     private static void BuildTaoist(List<ClassSkill> list)
     {
         Make(list, "taoist", "hub", "Taoist", 0, true, None(), null,
-            "Qi manipulation: enhanced cooldowns & stamina regen; demon damage bonus.");
+            "Qi manipulation — enhanced cooldowns, stamina regen, and spiritual power.");
 
-        // Qi.
+        // Qi — stamina/cooldown. Undead (infinite stamina + Qi), Elf (+20% Dex, +8% XP).
         Make(list, "taoist", "qi1", "Qi Flow", 1, true, None(), Chain("taoist"),
-            "+8% stamina regen.", mods: M(ClassModType.StaminaRegenMul, 0.08f));
+            "+8% stamina regen. Undead's infinite stamina lets them channel Qi without rest.",
+            mods: M(ClassModType.StaminaRegenMul, 0.08f));
         Make(list, "taoist", "qi2", "Qi Coalescence", 2, true, None(), P(N("taoist", "qi1")),
             "+6% cooldown reduction.", mods: M(ClassModType.CooldownMul, 0.06f));
         Make(list, "taoist", "qi3", "Talisman", 2, false, Focus(14f), P(N("taoist", "qi1")),
             "Channel qi into a sealing talisman bolt.",
             new ClassSpellEffect { Spell = MakeSpell("taoist", "Talisman", DamageType.Arcane, 26f, 14f, SpellDelivery.Projectile, 6f) });
 
-        // Symbol.
+        // Symbol — spell/heal. Celestial (Faith+25, healing miracles +20%), Elf (+8% XP).
         Make(list, "taoist", "sy1", "Ba Gua Symbols", 1, true, None(), Chain("taoist"),
-            "+8% spell power.", mods: M(ClassModType.SpellPowerMul, 0.08f));
+            "+8% spell power. Celestial's Faith+25 and healing bonus amplify the symbols.",
+            mods: M(ClassModType.SpellPowerMul, 0.08f));
         Make(list, "taoist", "sy2", "Meditative", 2, true, None(), P(N("taoist", "sy1")),
             "+8% stamina regen, +0.3% max HP/s.", null, M(ClassModType.StaminaRegenMul, 0.08f), M(ClassModType.HpRegenPerSecond, 0.003f));
         Make(list, "taoist", "sy3", "Yi Symbol", 2, false, Focus(14f), P(N("taoist", "sy1")),
             "A yin-yang ward: -6% damage taken, +HP regen for 20s.",
             new AuraEffect { Seconds = 20f, DamageReduction = 0.06f, HpRegenPerSecond = 0.003f });
 
-        // Form.
+        // Flow — CC/zone. Elf (+10% AS, +8% XP), Fishmen (water theme, swim speed).
         Make(list, "taoist", "fo1", "Flowing Form", 1, true, None(), Chain("taoist"),
-            "+6% cooldown reduction.", mods: M(ClassModType.CooldownMul, 0.06f));
+            "+6% cooldown reduction. Elf's versatility and Fishmen's water affinity suit this path.",
+            mods: M(ClassModType.CooldownMul, 0.06f));
         Make(list, "taoist", "fo2", "Water & Wood", 2, true, None(), P(N("taoist", "fo1")),
             "+8% spell power.", mods: M(ClassModType.SpellPowerMul, 0.08f));
         Make(list, "taoist", "fo3", "Flowing Water", 2, false, Focus(12f), P(N("taoist", "fo1")),
@@ -712,31 +770,35 @@ public static class ClassSkillCatalog
     }
 
     // ── Monk ────────────────────────────────────────────────────────────────
+    // Paths: Body / Mind / Fist — Golem (Body), Celestial (Mind), Orc/Werewolf (Fist)
 
     private static void BuildMonk(List<ClassSkill> list)
     {
         Make(list, "monk", "hub", "Monk", 0, true, None(), null,
-            "Inner peace: meditation heals HP; reduced stagger, +defense while unarmed.");
+            "Inner peace — meditation heals HP; reduced stagger, defense while unarmed.");
 
-        // Body.
+        // Body — defense/block. Golem (Stone Skin stacks with Iron Flesh), Dwarf (End+25).
         Make(list, "monk", "bo1", "Discipline", 1, true, None(), Chain("monk"),
-            "+8% stamina regen.", mods: M(ClassModType.StaminaRegenMul, 0.08f));
+            "+8% stamina regen. Golem's Stone Skin + Discipline = nearly unbreakable body.",
+            mods: M(ClassModType.StaminaRegenMul, 0.08f));
         Make(list, "monk", "bo2", "Iron Flesh", 2, true, None(), P(N("monk", "bo1")),
             "+5% melee defense.", mods: M(ClassModType.DefenseMeleeMul, 0.05f));
         Make(list, "monk", "bo3", "Iron Body", 2, true, None(), P(N("monk", "bo1")),
             "+6% blocking effectiveness (unyielding body).", mods: M(ClassModType.BlockingMul, 0.06f));
 
-        // Mind.
+        // Mind — heal/stamina. Celestial (healing miracles +20%), Elf (+8% XP, Wisdom+15).
         Make(list, "monk", "mi1", "Zen", 1, true, None(), Chain("monk"),
-            "+0.5% max HP/s regeneration.", mods: M(ClassModType.HpRegenPerSecond, 0.005f));
+            "+0.5% max HP/s regeneration. Celestial's healing bonus amplifies meditation.",
+            mods: M(ClassModType.HpRegenPerSecond, 0.005f));
         Make(list, "monk", "mi2", "Calm Breath", 2, true, None(), P(N("monk", "mi1")),
             "+8% stamina regen.", mods: M(ClassModType.StaminaRegenMul, 0.08f));
         Make(list, "monk", "mi3", "Meditation", 2, false, Focus(6f), P(N("monk", "mi1")),
             "Sit in stillness and heal 60 HP.", new HealEffect { Amount = 60f });
 
-        // Fist.
+        // Fist — melee/stagger. Orc (+25% Str, +15% stagger), Werewolf (bleed claws, +20% move).
         Make(list, "monk", "fi1", "Centered", 1, true, None(), Chain("monk"),
-            "+8% melee power.", mods: M(ClassModType.MeleePowerMul, 0.08f));
+            "+8% melee power. Orc's +25% Str makes monk strikes devastating.",
+            mods: M(ClassModType.MeleePowerMul, 0.08f));
         Make(list, "monk", "fi2", "Unyielding", 2, true, None(), P(N("monk", "fi1")),
             "+10% stagger resistance.", mods: M(ClassModType.StaggerResistMul, 0.10f));
         Make(list, "monk", "fi3", "Chi Wave", 2, false, Stamina(14f), P(N("monk", "fi1")),
@@ -746,31 +808,35 @@ public static class ClassSkillCatalog
     }
 
     // ── Blacksmith ──────────────────────────────────────────────────────────
+    // Paths: Forge / Anvil / Ember — Dwarf (Forge), Golem (Anvil), Draconic/Fire Giant (Ember)
 
     private static void BuildBlacksmith(List<ClassSkill> list)
     {
         Make(list, "blacksmith", "hub", "Blacksmith", 0, true, None(), null,
-            "Crafting/forge support: gear upgrade success, repair, forgiving workmanship.");
+            "Crafting mastery and forged resilience.");
 
-        // Forge.
+        // Forge — craft success. Dwarf (+20% yield, forge discounts), Goblin (+20% loot).
         Make(list, "blacksmith", "fo1", "Apprentice Forge", 1, true, None(), Chain("blacksmith"),
-            "+6% craft success.", mods: M(ClassModType.CraftSuccessMul, 0.06f));
+            "+6% craft success. Dwarf's +20% yield and forge discounts make this path essential.",
+            mods: M(ClassModType.CraftSuccessMul, 0.06f));
         Make(list, "blacksmith", "fo2", "Kept Coal", 2, true, None(), P(N("blacksmith", "fo1")),
             "+8% craft success.", mods: M(ClassModType.CraftSuccessMul, 0.08f));
         Make(list, "blacksmith", "fo3", "Masterwork", 2, true, None(), P(N("blacksmith", "fo1")),
             "+8% craft success, +6% repair.", null, M(ClassModType.CraftSuccessMul, 0.08f), M(ClassModType.RepairMul, 0.06f));
 
-        // Anvil.
+        // Anvil — repair/defense. Golem (Stone Skin stacks with Tempered Steel), Orc (End+10).
         Make(list, "blacksmith", "an1", "Field Repair", 1, true, None(), Chain("blacksmith"),
-            "+5% repair efficiency.", mods: M(ClassModType.RepairMul, 0.05f));
+            "+5% repair efficiency. Golem's Stone Skin + Tempered Steel = mobile forge-fortress.",
+            mods: M(ClassModType.RepairMul, 0.05f));
         Make(list, "blacksmith", "an2", "Sturdy Fixes", 2, true, None(), P(N("blacksmith", "an1")),
             "+6% repair efficiency.", mods: M(ClassModType.RepairMul, 0.06f));
         Make(list, "blacksmith", "an3", "Tempered Steel", 2, true, None(), P(N("blacksmith", "an1")),
             "+5% melee defense (forged-hardened).", mods: M(ClassModType.DefenseMeleeMul, 0.05f));
 
-        // Ember.
+        // Ember — craft/block. Draconic (fire res 40%, Str+20), Fire Giant (lava walk, fire res 50%).
         Make(list, "blacksmith", "em1", "Ember Study", 1, true, None(), Chain("blacksmith"),
-            "+5% craft success.", mods: M(ClassModType.CraftSuccessMul, 0.05f));
+            "+5% craft success. Draconic's fire resistance lets them work the hottest forges.",
+            mods: M(ClassModType.CraftSuccessMul, 0.05f));
         Make(list, "blacksmith", "em2", "Quenching", 2, true, None(), P(N("blacksmith", "em1")),
             "+5% melee defense.", mods: M(ClassModType.DefenseMeleeMul, 0.05f));
         Make(list, "blacksmith", "em3", "Forging Spirit", 2, true, None(), P(N("blacksmith", "em1")),
