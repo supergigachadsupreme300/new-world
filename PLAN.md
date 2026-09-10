@@ -798,3 +798,73 @@ each weapon*. Batch 5 attacks each with a guarantee instead of another guess.
       flash actually lands (no dead gap).
 - [ ] Fireball / Frost Bolt / Dark Bolt / Lesser Heal and any bow show NO preview while aiming.
 - [ ] Cancelling (e.g. scramble cancel / weapon change) hides the marker immediately.
+
+## 30. Batch 20 - Three-faith religion system (plan)
+
+User goal: "differentiate religion as of faith - 3 main religions: Taoism, Buddhism, and the
+religion that has a church."
+Approved design: ONE Faith stat (unchanged level-up/gear source); each religion is a belief the
+player belongs to; worshipping at that holy place converts Faith into religion-specific perks.
+One faith at a time, switchable (30% devotion penalty + once/day). Add a Catholic church + Taoist
+shrine (both with NPCs), retrofit the existing pagoda as Buddhism. Small Religion tab in the
+CharacterInfo tab menu. All confirmed by the user (answers to the 5 scope questions).
+
+Research: "power of each religion" (world-wide sources: dao-world.org, the-taoism-for-modern-world.com,
+personaltao.com, en-wikipedia Merit (Buddhism), lionsroar.com, dhammatalks.org, catholic.com /
+newadvent.org holy-water encyclopedias).
+- Taoism: qi cultivation, inner/outer alchemy, longevity (health/regen), talismans & thunder rites
+  (protection/healing/exorcism vs demons), feng-shui harmony (harvest/luck). -> stamina/endurance,
+  survivaibility, farming luck, demon-fighting robustness.
+- Buddhism: karma/merit (transactions of good deeds), meditation/mindfulness (calm), compassion &
+  protection (defense), purification vs evil. -> karma economy + survivability vs demons.
+- Church (Christianity): holy water (heals, drives off demons), exorcism, cross, salvation/redemption,
+  faith. -> holy offense + healing + strong vs demons.
+
+Mechanics (all numbers tuning knobs, centralized in ReligionManager):
+- Devotion 0-10 per faith, +1 per worship day. Worship = interact with the faith NPC and give an
+  offering (Buddhism 1 rice/rice_bag [existing], Taoism 1 wood [incense], Church donate 50 money).
+- Passive perks apply ONLY for CurrentFaith, scaled by Faith stat (PlayerStats.GetTotal) + devotion.
+  - Taoism: +stamina regen multiplier; +harvest/fishing yield; +% damage vs demons (any weapon);
+    daily "qi" blessing = stamina regen x2 all day.
+  - Buddhism: +% karma gain & regen; rosary karma cost down to 0.5; -% demon damage taken;
+    meditation minigame grants more max karma.
+  - Church: +% holy damage; +heal power; -% demon damage taken; +buff duration; daily "holy water"
+    blessing = full heal + heal-power buff all day.
+- Switching: Religion tab or worshipping another faith; abandon penalty 30% devotion on old faith,
+  1 switch per day. Perks from old faith drop immediately.
+- Save: religionCurrent (int 0-3), religionDevotion[4], religionLastSwitchDay per faith/day.
+
+Implementation batches (each: semantic checker 0, PLAN.md note, auto-commit):
+  A. ReligionManager core + save/load wiring (this section's first entry below).
+  B. Church building (white nave + bell tower + cross) + PriestNPC (donation worship, holy-water
+     daily blessing, join Church).
+  C. Taoist shrine (stone hall + yin-yang emblem + incense stand) + TaoistPriestNPC (1-wood
+     offering, qi daily blessing, join Taoism).
+  D. Pagoda -> Buddhism retrofit (monk reports to ReligionManager, rice offering +devotion),
+     centralized daily blessing + switch rules.
+  E. Religion tab in CharacterInfoUI (faith, devotion bars, perk summary, switch button).
+
+### 30.1 Batch A status - ReligionManager + save (done)
+- Report: NEW `Assets/Scripts/Misc/ReligionManager.cs` (MonoSingleton, mirrors KarmaManager): enum
+  `ReligionFaith { None, Taoism, Buddhism, Church }`; `CurrentFaith`, `Devotion` (0-10 per faith),
+  `LastSwitchDay`, per-faith `HasWorshippedToday`, `Worship(...)` (join/convert + devotion, 1/day),
+  `SwitchFaith(...)` (30% penalty, 1/day), `HasDailyBlessingToday`, `ChurchHolyWaterBlessed`.
+  Perk getters (identity 1f when faith not current): Taoist stamina/harvest/demon-damage, Buddhist
+  karma gain/regen/max-karma/rosary-cost/demon-taken, Church holy-damage/heal-power/buff-duration/
+  demon-taken. All scale with Faith stat + devotion, caps clamped (fits the dev Faith=100 floor).
+  `RefreshBlessings()` owns the player's `StaminaRegenMultiplier` (passive + daily x2) so the three
+  faiths never overwrite each other.
+- `KarmaManager`: added `GainMultiplier` / `RegenMultiplier` / `MaxKarmaGainMultiplier` (default 1),
+  applied in AddKarma / AddMaxKarma / RegenKarma.
+- `GameManager`: new `ReligionManager` field; feeds karma multipliers each frame; `OnDayChanged()`
+  on the day rollover; `Initialize()` on new game.
+- `GameBootstrap`: ensures + initializes the manager, assigns to GameManager.
+- `SaveManager`: SaveData gains `religion` (ReligionSaveData: current/devotion/lastWorshipDay/
+  lastSwitchDay); saved + loaded on load with null-safe fallback to Initialize.
+- `ToolManager`: rosary use consumes `BuddhistRosaryCost` karma instead of a flat 1.
+- Semantic check: 0 diagnostics. Commit: f0dbc4b.
+
+### 30.2 Verify (needs user - Unity can't be run here) - batch A, no worship UI yet
+- [ ] Boot + start a new game: no errors; Player.StaminaRegenMultiplier stays 1 (no faith yet).
+- [ ] Save + load: religion state round-trips (None/0) without resetting karma or quests.
+- [ ] Rosary still costs 1 karma before joining Buddhism.

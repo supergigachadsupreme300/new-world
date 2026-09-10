@@ -57,6 +57,7 @@ public class SaveManager : MonoSingleton<SaveManager>
             unlockedBlueprints = _worldBuilder.GetUnlockedBlueprintsAsSave(),
             karmaCurrent = KarmaManager.Instance != null ? KarmaManager.Instance.CurrentKarma : 5f,
             karmaMax = KarmaManager.Instance != null ? KarmaManager.Instance.MaxKarma : 5f,
+            religion = ReligionManager.Instance != null ? ReligionManager.Instance.GetSaveData() : null,
             skillStateJson = SkillManager.Instance != null ? SkillManager.Instance.SerializeState() : "",
             friendshipStateJson = FriendshipManager.Instance != null ? FriendshipManager.Instance.SerializeState() : "",
             fishingRodJson = FishingProgression.Instance != null ? FishingProgression.Instance.SerializeState() : "",
@@ -160,6 +161,8 @@ public class SaveManager : MonoSingleton<SaveManager>
                 maxKarma = kMax
             });
         }
+        if (ReligionManager.Instance != null)
+            ReligionManager.Instance.LoadSaveData(data.religion);
         if (SkillManager.Instance != null && !string.IsNullOrEmpty(data.skillStateJson))
             SkillManager.Instance.DeserializeState(data.skillStateJson);
 
@@ -233,6 +236,7 @@ public class SaveManager : MonoSingleton<SaveManager>
         public string[] unlockedBlueprints;
         public float karmaCurrent;
         public float karmaMax;
+        public ReligionManager.ReligionSaveData religion;
         public string skillStateJson;
         public string friendshipStateJson;
         public string fishingRodJson;

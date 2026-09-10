@@ -19,6 +19,7 @@ public class GameManager : MonoSingleton<GameManager>
     public CutsceneManager CutsceneManager;
     public RandomEventManager RandomEventManager;
     public KarmaManager KarmaManager;
+    public ReligionManager ReligionManager;
     public List<PetController> Pets = new List<PetController>();
     public bool AutoStartGame = false;
 
@@ -139,12 +140,22 @@ public class GameManager : MonoSingleton<GameManager>
             CurrentDay++;
             if (WifeNPC.Instance != null)
                 WifeNPC.Instance.OnDayChanged();
+            if (ReligionManager != null)
+                ReligionManager.OnDayChanged();
         }
 
         UpdateTimeUI();
 
         if (KarmaManager != null)
+        {
+            if (ReligionManager != null)
+            {
+                KarmaManager.GainMultiplier = ReligionManager.BuddhistKarmaGainMult;
+                KarmaManager.RegenMultiplier = ReligionManager.BuddhistKarmaRegenMult;
+                KarmaManager.MaxKarmaGainMultiplier = ReligionManager.BuddhistMaxKarmaGainMult;
+            }
             KarmaManager.RegenKarma(Time.deltaTime);
+        }
 
         if (WorldBuilder != null && WorldBuilder.EnableLegacyGeneration)
         {
@@ -383,6 +394,9 @@ public class GameManager : MonoSingleton<GameManager>
 
         if (KarmaManager != null)
             KarmaManager.Initialize();
+
+        if (ReligionManager != null)
+            ReligionManager.Initialize();
 
         if (CutsceneManager != null)
         {

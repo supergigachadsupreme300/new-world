@@ -5,6 +5,11 @@ public class KarmaManager : MonoSingleton<KarmaManager>
 public float CurrentKarma { get; private set; }
     public float MaxKarma { get; private set; }
 
+    /// <summary>Multipliers fed by <see cref="ReligionManager"/> for the Buddhist faith perks.</summary>
+    public float GainMultiplier = 1f;
+    public float RegenMultiplier = 1f;
+    public float MaxKarmaGainMultiplier = 1f;
+
     private const float REGEN_PER_GAME_HOUR = 1f / 24f;
     private float _regenAccumulator;
 
@@ -15,12 +20,13 @@ public float CurrentKarma { get; private set; }
     }
     public void AddKarma(float amount)
     {
-        CurrentKarma = Mathf.Min(CurrentKarma + amount, MaxKarma);
+        CurrentKarma = Mathf.Min(CurrentKarma + amount * Mathf.Max(0f, GainMultiplier), MaxKarma);
     }
     public void AddMaxKarma(float amount)
     {
-        MaxKarma += amount;
-        CurrentKarma = Mathf.Min(CurrentKarma + amount, MaxKarma);
+        float scaled = amount * Mathf.Max(0f, MaxKarmaGainMultiplier);
+        MaxKarma += scaled;
+        CurrentKarma = Mathf.Min(CurrentKarma + scaled, MaxKarma);
     }
     public bool ConsumeKarma(float amount)
     {
@@ -42,7 +48,7 @@ public float CurrentKarma { get; private set; }
         {
             float toAdd = Mathf.Floor(_regenAccumulator);
             _regenAccumulator -= toAdd;
-            CurrentKarma = Mathf.Min(CurrentKarma + toAdd, MaxKarma);
+            CurrentKarma = Mathf.Min(CurrentKarma + toAdd * Mathf.Max(0f, RegenMultiplier), MaxKarma);
         }
     }
     public float GetKarmaNormalized()

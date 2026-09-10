@@ -45,6 +45,7 @@ public class GameBootstrap : MonoBehaviour
         var mobileInput = Object.FindAnyObjectByType<MobileInputController>() ?? root.AddComponent<MobileInputController>();
         var sleepManager = Object.FindAnyObjectByType<SleepManager>() ?? root.AddComponent<SleepManager>();
         var karmaManager = Object.FindAnyObjectByType<KarmaManager>() ?? root.AddComponent<KarmaManager>();
+        var religionManager = Object.FindAnyObjectByType<ReligionManager>() ?? root.AddComponent<ReligionManager>();
         var skillManager = Object.FindAnyObjectByType<SkillManager>() ?? root.AddComponent<SkillManager>();
         var friendshipManager = Object.FindAnyObjectByType<FriendshipManager>() ?? root.AddComponent<FriendshipManager>();
         var fishingProgression = Object.FindAnyObjectByType<FishingProgression>() ?? root.AddComponent<FishingProgression>();
@@ -58,6 +59,7 @@ public class GameBootstrap : MonoBehaviour
         gameManager.CutsceneManager = cutsceneManager;
         gameManager.RandomEventManager = randomEventManager;
         gameManager.KarmaManager = karmaManager;
+        gameManager.ReligionManager = religionManager;
 
         uiManager.InitializeUI();
         toolManager.Initialize(uiManager, worldBuilder);
@@ -70,6 +72,7 @@ public class GameBootstrap : MonoBehaviour
         wifeNPC.Initialize(uiManager.GetCanvas());
         wifeNPC.LoadState();
         karmaManager.Initialize();
+        religionManager.Initialize();
         skillManager.Initialize();
         friendshipManager.Initialize();
         fishingProgression.Initialize();

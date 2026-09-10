@@ -718,7 +718,8 @@ public partial class ToolManager : MonoBehaviour
         if (selectedItem == "rosary")
         {
             var km = KarmaManager.Instance;
-            if (km == null || !km.ConsumeKarma(1f))
+            float cost = ReligionManager.Instance != null ? ReligionManager.Instance.BuddhistRosaryCost : 1f;
+            if (km == null || !km.ConsumeKarma(cost))
             {
                 _uiManager?.ShowMessage(Localization.T("Hết phước đức!"), 1.5f);
                 return;
