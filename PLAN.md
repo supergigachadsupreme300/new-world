@@ -752,3 +752,19 @@ each weapon*. Batch 5 attacks each with a guarantee instead of another guess.
   seeds on new games; leave materials and any existing items alone.
 - `NewWorldTestGround.SpawnToolKit`: removed the four seed entries from the `extras` grant
   (`wheat_seed`, `corn_seed`, `tomato_seed`, `rice_seed`) — the five foods remain.
+
+## 28. Batch 18 — item detail panel in the inventory tab
+
+- Report: the hover item detail panel (ItemTooltipUI) shows over world items but not over the
+  inventory in the tab menu. The wiring was already correct — TooltipSlot is attached to the
+  storage grid (`CharacterInfoUI.cs:1313`), hotbar mirror (`:1358`) and gear/hand slots (`:1627`)
+  — the panel was drawn but INVISIBLE: its overlay canvas sorted at 20 while the tab menu
+  (MenuPanelBase) sorts at 40, so the opaque menu painted over the tooltip.
+- `ItemTooltipUI.SortingOrder`: 20 → 60, above the menus (40) / magic wheel (45), below
+  fishing (999), mobile (950) and toast messages (1100). World hover unchanged.
+
+### 28.1 Verify (needs user — Unity can't be run here)
+- [ ] Open the tab menu → Inventory; hover any storage slot, hotbar slot or equipped gear/hand
+      slot → the detail panel appears above the menu and follows the cursor; hides on exit.
+- [ ] Hovering an empty slot shows nothing.
+- [ ] World-hover tooltips (weapon rack, loot drops) still work as before.

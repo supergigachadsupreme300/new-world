@@ -15,7 +15,12 @@ using TMPro;
 /// </summary>
 public sealed class ItemTooltipUI : MonoBehaviour
 {
-    public const int SortingOrder = 20;
+    /// <summary>
+    /// Renders above the 40-order modal menus (MenuPanelBase, MagicWheel at 45) but below
+    /// fishing (999) / mobile (950) / toast messages (1100), so hover tooltips work over the
+    /// inventory tab too.
+    /// </summary>
+    public const int SortingOrder = 60;
 
     private static ItemTooltipUI _instance;
 
