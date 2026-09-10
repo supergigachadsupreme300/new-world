@@ -964,3 +964,30 @@ ReligionManager so the three faiths share one centralized daily-blessing + switc
 - [ ] Switch twice in one day (e.g. shrine then pagoda): second worship refused ("changed faith").
 - [ ] Rosary cost scales down for Buddhists (religion getter), unchanged for others.
 - [ ] Pagoda quests (Trừ Tà / Trấn Áp Quỷ Vương) still trigger exactly as before.
+
+## 34. Batch 20e - Religion tab in CharacterInfoUI (done: commit TBD - pending semantic check)
+
+Implements Batch E from the plan: a 5th tab "Faith" in the CharacterInfo tab menu.
+
+- `CharacterInfoUI.cs`: `enum Tab` gains `Faith = 4`; top button list now Info/Skills/Inventory/
+  Map/Faith (auto-spaced): `TabDesignBox` box for the new tab.
+- New `BuildFaithTab`/`RefreshFaith`: title = current belief (localized); status line = ask to
+  join / daily blessing active / worship-today hint; three devotion rows with color-coded bars
+  (0..10) + [current] highlight; perk summary computed live from ReligionManager getters per
+  faith; "Switch Faith" button + penalty/once-per-day footer.
+- `OpenChangeDialog` gains a "faith" mode: `BuildFaithOptions` (three religions; current is
+  disabled) -> confirm text warns about the 30% devotion loss -> `ApplyPendingChange` calls
+  `ReligionManager.SwitchFaith` (refused with a dialog error when already switched today) and
+  toasts the new faith.
+- `Localization`: added No religion / switch-denied / faith-changed / dialog-title keys (EN).
+- Semantic check passed (0 diagnostics) before commit.
+
+### 34.1 Verify (needs user - Unity can't be run here) - batch E
+- [ ] Character menu shows a 5th "Faith" tab in the top bar at all window sizes.
+- [ ] No faith: shows "No religion", zero bars, joining hint; perks text explains worship.
+- [ ] Worship at pagoda/shrine/church: Faith tab reflects current faith, +1 devotion bar and
+      updated perk percentages (incl. Faith-stat scaling).
+- [ ] "Switch Faith": dialog lists the 3 religions, current disabled, confirm warns 30% penalty;
+      switching updates title/bars/perks; second switch same day -> dialog shows the "already
+      switched today" error.
+- [ ] Daily blessing state reflects a fresh worship; save/load keeps the tab consistent.

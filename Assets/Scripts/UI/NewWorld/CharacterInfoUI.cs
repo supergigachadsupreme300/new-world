@@ -37,7 +37,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     /// <summary>Last shown instance (drag & drop targets resolve it via this).</summary>
     public static CharacterInfoUI Instance;
 
-    public enum Tab { Info = 0, Skills = 1, Inventory = 2, Map = 3 }
+    public enum Tab { Info = 0, Skills = 1, Inventory = 2, Map = 3, Faith = 4 }
 
     public Tab ActiveTab = Tab.Info;
 
@@ -63,6 +63,15 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private TMP_Text _moneyLine;
     private TMP_Text _classLine;
     private TMP_Text _raceLine;
+
+    // Faith tab widgets.
+    private TMP_Text _faithTitle;
+    private TMP_Text _faithStatus;
+    private readonly TMP_Text[] _devotionRowLabels = new TMP_Text[3];
+    private readonly Image[] _devotionFill = new Image[3];
+    private readonly TMP_Text[] _devotionBarLabels = new TMP_Text[3];
+    private TMP_Text _perksText;
+    private Button _switchFaithBtn;
 
     // Skill tree.
     private RectTransform _treeContent;
@@ -301,7 +310,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
     private void BuildTopButtons()
     {
-        string[] names = { "Info", "Skills", "Inventory", "Map" };
+        string[] names = { "Info", "Skills", "Inventory", "Map", "Faith" };
         _tabButtonRects.Clear();
         float w = SeenCanvasWidth() * 0.8f;
         float bw = w / names.Length;
@@ -371,6 +380,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _mapLine = MakeBodyText(_panels[Tab.Map].transform, "Map", P(-270f, 160f), Sz(500f, 200f));
         RegisterFit(_panels[Tab.Map].GetComponent<RectTransform>(), TabDesignBox(Tab.Map));
 
+        // Faith panel: current belief, devotion bars, perk summary, switch dialog.
+        _panels[Tab.Faith] = MakePanel("FaithPanel");
+        BuildFaithTab(_panels[Tab.Faith].transform);
+        RegisterFit(_panels[Tab.Faith].GetComponent<RectTransform>(), TabDesignBox(Tab.Faith));
+
         EnsureChangeDialog();
     }
 
@@ -387,6 +401,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             case Tab.Skills: return new Rect(-520f, -290f, 1040f, 580f);
             case Tab.Inventory: return new Rect(-510f, -260f, 1020f, 520f);
             case Tab.Map: return new Rect(-310f, -100f, 620f, 300f);
+            case Tab.Faith: return new Rect(-480f, -260f, 960f, 520f);
             default: return new Rect(-500f, -250f, 1000f, 500f);
         }
     }
@@ -1854,6 +1869,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
             _changeTitle.text = Localization.T("Change Class — pick a new class");
             BuildClassOptions(_changeOptions);
         }
+        else if (_changeMode == "faith")
+        {
+            _changeTitle.text = Localization.T("Switch Faith — pick a new faith (lose 30% devotion)");
+            BuildFaithOptions(_changeOptions);
+        }
         else
         {
             _changeTitle.text = Localization.T("Change Race — pick a new race");
@@ -1869,6 +1889,34 @@ public sealed class CharacterInfoUI : MenuPanelBase
         if (_changeDialog == null) return null;
         var b = _changeDialog.transform.Find("DialogBox/ConfirmBtn");
         return b != null ? b.GetComponent<Button>() : null;
+    }
+
+    private void BuildFaithOptions(Transform parent)
+    {
+        var rm = GameManager.Instance?.ReligionManager;
+        if (rm == null) return;
+
+        var values = (ReligionManager.ReligionFaith[])System.Enum.GetValues(typeof(ReligionManager.ReligionFaith));
+        int idx = 0;
+        foreach (var f in values)
+        {
+            if (f == ReligionManager.ReligionFaith.None) continue;
+            int col = idx % 2;
+            int row = idx / 2;
+            float x = col == 0 ? -270f : 10f;
+            float y = 150f - row * 28f;
+            bool isCurrent = rm.CurrentFaith == f;
+            var captured = f;
+            string option = FaithDisplayName(f) + (isCurrent ? "  (current)" : "");
+            MakeDialogOption(parent, option, P(x, y), 270f, !isCurrent, () =>
+            {
+                _pendingChange = captured;
+                _changeConfirmText.text = Localization.F("Switch faith to {0}? You lose 30% devotion in {1}.",
+                    FaithDisplayName(captured), FaithDisplayName(rm.CurrentFaith));
+                UpdateConfirmEnabled();
+            });
+            idx++;
+        }
     }
 
     private void BuildClassOptions(Transform parent)
@@ -1948,6 +1996,21 @@ public sealed class CharacterInfoUI : MenuPanelBase
                 unlocker.SetActiveClass(classId);
             }
         }
+        else if (_changeMode == "faith" && _pendingChange is ReligionManager.ReligionFaith faith)
+        {
+            var rm = GameManager.Instance?.ReligionManager;
+            if (rm != null)
+            {
+                if (!rm.SwitchFaith(faith))
+                {
+                    if (_changeConfirmText != null)
+                        _changeConfirmText.text = Localization.T("Bạn đã đổi tín ngưỡng hôm nay — hãy thử lại vào ngày mai.");
+                    return;
+                }
+                if (GameManager.Instance?.UIManager != null)
+                    GameManager.Instance.UIManager.ShowMessage(Localization.F("Faith changed to {0}!", FaithDisplayName(faith)), 2f);
+            }
+        }
         else if (_changeMode == "race" && _pendingChange is RaceData race)
         {
             var mgr = RaceMgrOf();
@@ -1965,6 +2028,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         CloseChangeDialog(false);
         if (_current == Tab.Info)
             RefreshInfo();
+        else if (_current == Tab.Faith)
+            RefreshFaith();
         else
             RefreshInventoryUi();
     }
@@ -2093,6 +2158,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             break;
             case Tab.Inventory: RefreshInventoryUi(); break;
             case Tab.Map: RefreshMap(); break;
+            case Tab.Faith: RefreshFaith(); break;
         }
     }
 
@@ -2259,6 +2325,118 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private void RefreshMap()
     {
         _mapLine.text = Localization.T("World Map — see the dedicated Map menu.\nChar Info Map is a placeholder summary.");
+    }
+
+    // ── Faith tab ─────────────────────────────────────────────────────────
+    // Current belief, devotion bars (0-10 per religion), perk summary for the
+    // current faith, and the Switch-Faith dialog.
+    private void BuildFaithTab(Transform parent)
+    {
+        _faithTitle = MakeBodyText(parent, "FaithTitle", P(0f, 238f), Sz(920f, 34f));
+        _faithTitle.alignment = TextAlignmentOptions.Center;
+        _faithTitle.fontSize = Mathf.Max(22f, Screen.height / 34f);
+
+        _faithStatus = MakeBodyText(parent, "FaithStatus", P(0f, 206f), Sz(920f, 26f));
+        _faithStatus.alignment = TextAlignmentOptions.Center;
+
+        string[] rowNames = { "Taoism", "Buddhism", "Church" };
+        Color[] fillColors =
+        {
+            new Color(0.35f, 0.75f, 0.55f),
+            new Color(0.95f, 0.78f, 0.3f),
+            new Color(0.4f, 0.55f, 0.95f)
+        };
+        for (int i = 0; i < 3; i++)
+        {
+            float y = 148f - i * 48f;
+            var rowLabel = MakeBodyText(parent, "DevotionLabel_" + rowNames[i], P(-460f, y), Sz(230f, 26f));
+            rowLabel.text = FaithDisplayName((ReligionManager.ReligionFaith)(i + 1));
+            rowLabel.fontSize = Mathf.Max(15f, Screen.height / 54f);
+            _devotionRowLabels[i] = rowLabel;
+            _devotionFill[i] = MakeBar(parent, "DevotionBar_" + rowNames[i], P(-205f, y), Sz(300f, 24f),
+                fillColors[i], out TMP_Text barLabel);
+            _devotionBarLabels[i] = barLabel;
+            barLabel.text = "0/" + ReligionManager.MaxDevotion;
+        }
+
+        var perksTitle = MakeBodyText(parent, "PerksTitle", P(-460f, -2f), Sz(420f, 26f));
+        perksTitle.text = "Perks (current belief):";
+        _perksText = MakeBodyText(parent, "PerksText", P(-460f, -34f), Sz(930f, 120f));
+        _perksText.fontSize = Mathf.Max(14f, Screen.height / 58f);
+        _perksText.lineSpacing = 1.25f;
+
+        _switchFaithBtn = MakeButton(parent, "SwitchFaithBtn", "Switch Faith", P(0f, -208f), OpenFaithDialog);
+        var footer = MakeBodyText(parent, "FaithFooter", P(0f, -242f), Sz(920f, 22f));
+        footer.alignment = TextAlignmentOptions.Center;
+        footer.fontSize = Mathf.Max(12f, Screen.height / 68f);
+        footer.text = "Switching faith removes 30% devotion from the abandoned faith and is limited to once per day.";
+    }
+
+    private void RefreshFaith()
+    {
+        var rm = GameManager.Instance?.ReligionManager;
+        if (rm == null) return;
+        var cur = rm.CurrentFaith;
+        _faithTitle.text = "Faith — " + FaithDisplayName(cur);
+
+        for (int i = 0; i < 3; i++)
+        {
+            var f = (ReligionManager.ReligionFaith)(i + 1);
+            int dev = rm.GetDevotion(f);
+            float frac = (float)dev / ReligionManager.MaxDevotion;
+            _devotionRowLabels[i].text = FaithDisplayName(f) + (cur == f ? "   [current]" : "");
+            _devotionRowLabels[i].color = cur == f ? new Color(0.4f, 1f, 0.6f) : Color.white;
+            _devotionFill[i].fillAmount = frac;
+            _devotionBarLabels[i].text = dev + "/" + ReligionManager.MaxDevotion;
+        }
+
+        bool blessed = rm.HasDailyBlessingToday;
+        _faithStatus.text = cur == ReligionManager.ReligionFaith.None
+            ? "You follow no religion yet. Worship at a pagoda, shrine, or church to join a faith."
+            : blessed
+                ? "Daily blessing active — you already worshiped at your faith's holy place today."
+                : "No daily blessing today — worship at your faith's holy place.";
+        _perksText.text = PerksText(rm);
+    }
+
+    private static string PerksText(ReligionManager rm)
+    {
+        switch (rm.CurrentFaith)
+        {
+            case ReligionManager.ReligionFaith.Taoism:
+                return Localization.F("· Stamina regen +{0:0}%\n· Harvest yield +{1:0}%\n· Demon damage +{2:0}%\n· Qi blessing (daily): stamina regen x2",
+                    rm.TaoistStaminaPassive * 100f, (rm.TaoistHarvestMult - 1f) * 100f, (rm.TaoistDemonDamageMult - 1f) * 100f);
+            case ReligionManager.ReligionFaith.Buddhism:
+                return Localization.F("· Karma gain +{0:0}%\n· Karma regen +{1:0}%\n· Max karma +{2:0}%\n· Rosary cost -{3:0}%\n· Demon damage taken -{4:0}%",
+                    (rm.BuddhistKarmaGainMult - 1f) * 100f, (rm.BuddhistKarmaRegenMult - 1f) * 100f,
+                    (rm.BuddhistMaxKarmaGainMult - 1f) * 100f, (1f - rm.BuddhistRosaryCost) * 100f,
+                    (1f - rm.BuddhistDemonTakenMult) * 100f);
+            case ReligionManager.ReligionFaith.Church:
+                return Localization.F("· Holy damage +{0:0}%\n· Heal power +{1:0}%\n· Buff duration +{2:0}%\n· Demon damage taken -{3:0}%\n· Holy-water blessing (daily): full heal + heal power +{4:0}%",
+                    (rm.ChurchHolyDamageMult - 1f) * 100f, (rm.ChurchHealPowerMult - 1f) * 100f,
+                    (rm.ChurchBuffDurationMult - 1f) * 100f, (1f - rm.ChurchDemonTakenMult) * 100f,
+                    (rm.ChurchBlessedHealMult - 1f) * 100f);
+            default:
+                return "Worship at a pagoda, shrine, or church to follow a faith and unlock its perks.\nDevotion +1 per worship day, up to " + ReligionManager.MaxDevotion + ".";
+        }
+    }
+
+    private static string FaithDisplayName(ReligionManager.ReligionFaith f)
+    {
+        switch (f)
+        {
+            case ReligionManager.ReligionFaith.Taoism: return Localization.T("Đạo Giáo");
+            case ReligionManager.ReligionFaith.Buddhism: return Localization.T("Phật Giáo");
+            case ReligionManager.ReligionFaith.Church: return Localization.T("Công Giáo");
+            default: return Localization.T("Không theo tín ngưỡng");
+        }
+    }
+
+    private void OpenFaithDialog()
+    {
+        var rm = GameManager.Instance?.ReligionManager;
+        if (rm == null) return;
+        OpenChangeDialog("faith");
     }
 
     private void CycleWeapon()
