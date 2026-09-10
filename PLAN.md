@@ -1,6 +1,6 @@
 # Plan: UI polish + player model visuals + per-weapon attack animation
 
-> STATUS: Sections 1-12 shipped and pushed (commits 2b4bd6a, d8f5f46, 61827f0, 7fd5218, f097440). Batch 7 (one giant skill tree) pushed as dc8971f. Batch 8 (scroll-banner notifications + unrelated random-event removal + immigrant subsystem strip) implemented, pending play-test + push.
+> STATUS: Sections 1-12 shipped and pushed (commits 2b4bd6a, d8f5f46, 61827f0, 7fd5218, f097440). Batch 7 (one giant skill tree) pushed as dc8971f. Batch 8 (scroll-banner notifications + unrelated random-event removal + immigrant subsystem strip) implemented, pending play-test + push. Batch 9 (bare fists + melee RMB block) and Batch 10 (magic charging) implemented now, semantic-checker clean — uncommitted until play-tested.
 > Batch 5 (15-15.5) pushed as `3294a2e` + `4787f8e`; batch 6 (§16 — upper/lower limb split on all
 > player models + matching elbow/knee animation, sealed/driving/sit models rebuilt) shipped and
 > pushed as `71bb7ed`. Batch 7 (§17 — one combined 60-skill radial wheel, no tabs, legend, wheel
@@ -514,3 +514,98 @@ each weapon*. Batch 5 attacks each with a guarantee instead of another guess.
 - [ ] Old save (pre-strip) still loads with no errors.
 - [ ] No references to ImmigrantNpc / immigrant / villager save data remain (grep clean).
 - [ ] Semantic checker 0 diagnostics; commit only the touched .cs (+ the two .png) + PLAN.md; push to `main`.
+
+## 19. Batch 9 — bare-fist combat (empty hands) + melee RMB block
+
+- User request A: "if player in fighting mode while not equip any weapon then player will fight using
+  fist." Choices locked: fists whenever BOTH hand slots are empty (no auto-equip of owned/starter
+  weapons), boxing animation (reuse gauntlets pose track). User request B: "melee right mouse =
+  block instead of heavy attack"; choices locked: melee heavy attack is DROPPED, block absorbs 80% and
+  breaks when stamina can't cover the per-hit cost.
+- **Files**: `WeaponCatalog.cs`, `WeaponRigBuilder.cs`, `WeaponAnimator.cs`, `PlayerController.cs`,
+  `CombatController.cs`, `CharacterInfoUI.cs`, `WeaponDragHandle.cs`.
+
+### 19.1 Fists (feature A)
+- `WeaponCatalog.cs`: `FistWeaponId = "fist"` + `Fists` WeaponData (Melee/Physical, dmg 4, speed 1.7,
+  reach 0.6, Dex scaling) kept OUT of `All` — never an inventory item. `BuildFists()` singleton.
+- `WeaponRigBuilder.cs`: `IsFist(rig)` (host id), `EnsureFists(playerRoot)` fills every EMPTY hand with an
+  invisible fist rig (BuildFistRig: WeaponRigHost + MeleeWeaponBehavior + HitboxSystem sphere 0.18s +
+  WeaponAnimator boxing, NO WeaponModelBuilder visual — the hand blocks are the fists), re-seats and
+  recomputes wielding. `ClearFists` destroys fist rigs; called at the top of `EquipInto` so a real
+  weapon never coexists with fists. `RegisterStow` skips fists (nothing to stow/draw);
+  `DrawPoseFor` parks a fist rig just forward of the palm.
+- `WeaponAnimator.cs`: `"fist"` def = gauntlets boxing chain (jab/cross/double/uppercut), `K_Dual`,
+  `OffArm.None` → alternate hands + idle ready-stance guard sway.
+- `PlayerController.cs`: `TryAutoRigWeapon` no longer equips `Owned[0]`/`StarterWeaponId` — empty hands
+  → `EnsureFists`. `Update` fighting block re-`EnsureFists`s when BOTH hands are null after a model
+  reload. `LoadPlayerModel` skips recording `"fist"` into `_pendingAutoRig`.
+- `CharacterInfoUI.cs` / `WeaponDragHandle.cs`: `"fist"` guarded out of `EquipOwnedWeapon`/
+  `UnequipWeapon`/`ReplacedWeaponId`/drag-resolve; fist rigs can't be dropped to the bag.
+  `HandName` already renders them as "Fists".
+
+### 19.2 Melee RMB block (feature B)
+- `PlayerController.cs`: RMB handling split by equipped category. Melee (incl. fists) → every frame
+  `combat.SetBlocking(rightButton.isPressed)` (hold = block); Ranged/magic keep heavy on RMB. The
+  casual-mode NPC raycast is unchanged.
+- `CombatController.cs`: `LightAttack`/`Dodge` return early while `IsBlocking`; `HeavyAttack` also
+  early-returns for melee weapons and while blocking (`ActiveCategory()`). `OnBlockedHit` now returns
+  bool: it spends `BlockDrainPerHit + dmg*0.2` via `TrySpend`, and on failure releases the block.
+- `PlayerController.TakeDamage`: while `combat.IsBlocking`, a successful `OnBlockedHit` reduces the hit
+  to 20% (80% absorbed); on break the full hit lands. `CombatAnimation` already feeds the "Blocking"
+  animator bool (pose confirmed by play-test).
+
+### 19.3 Verify (needs user — Unity can't be run here)
+- [ ] F1 with empty hands → boxing jab/cross/double work (alternating hands), guard sway @ idle.
+- [ ] Entering fighting mode with owned weapons → fists ONLY (no iron_sword auto-equip); equipping
+      from the gear sheet (drag/drop or click-cycle) replaces fists with the weapon, no dual-fist+weapon.
+- [ ] Unequipping the last weapon during a fight → fists return immediately.
+- [ ] Gender/race model change while fighting barehanded → fists still work after reload.
+- [ ] Fists cannot be dragged/unequipped/dropped and never appear in the bag or weapon rack list.
+- [ ] Melee RMB (sword or fists) holds a block guard; light attack is gated while blocking.
+- [ ] Enemy hits during block deal ~20% damage; repeat hits drain stamina and eventually break the
+      block (full damage on the breaking hit).
+- [ ] Ranged/magic RMB still heavy-attacks; casual-mode RMB NPC interaction unchanged.
+- [ ] Semantic checker 0 diagnostics; commit only the touched .cs + PLAN.md; push to `main`.
+
+## 20. Batch 10 — magic charging (armed spell): tap casts, hold charges
+
+- User request: "add charging to magic — holding a magic weapon with a chosen spell (armed via alt
+  wheel), tap LMB = normal magic, hold LMB = charge (increases mana cost, size, damage)." Choice
+  locked: hold indefinitely at max charge, cast fires ONLY on release (no auto-fire; cooldown starts
+  on release). PC-only; mobile tap still casts immediately (no charge path).
+- **Files**: `SpellCaster.cs`, `SpellEffect.cs`, `WindVortex.cs`, `SkillContext.cs`, `IEffect.cs`,
+  `SkillProfile.cs`, `MagicWheelUI.cs`, `PlayerController.cs`.
+- Implemented this batch; semantic-checker clean (0 diagnostics). Unity play-test required below.
+
+### 20.1 Charge pipeline
+- `SpellCaster.cs`: `[Header("Charging (§3.8)")]` consts `ChargeFpCostBonus = 0.6f` (cost up to +60%),
+  `ChargeDamageBonus = 1f` (2× power at full charge), `ChargeSizeBonus = 0.8f` (size up to +80%).
+  `BeginCast(..., float charge = 0f)` scales fp cost `base * (1 + charge*0.6)` and clamps the charge
+  down via `ClampChargeToAffordable` (uses current FP) so a cast never duds. `Execute` carries charge:
+  `power = BasePower*DamageMult*(1 + charge*ChargeDamageBonus) + MagicAttackPower`; `SizeScale(charge)`
+  feeds projectile localScale, zone radius (ring flash + overlap), and vortex radius.
+- `SpellEffect.cs` / `WindVortex.cs`: `Initialize(..., float radiusMult = 1f)` — splash/zone/vortex
+  radius multiplied by the charge size scale.
+- `SkillContext.cs`: new `public float ChargeLevel`. `IEffect.cs` `SpellCastEffect.Execute` passes
+  `ctx.ChargeLevel` into `BeginCast`. `SkillProfile.Execute` now delegates to new `ExecuteCharged(id,
+  charge)` (same validation/spend/cooldown; charge written onto the context).
+- `MagicWheelUI.cs`: `ConsumeArmedCast()` now delegates to new `ReleaseArmedCast(0f)`; new
+  `HasArmedMagic()` (armed id + holding magic weapon + profile) and `ReleaseArmedCast(float charge)`
+  → `profile.ExecuteCharged(_armedSkillId, charge)`.
+- `PlayerController.cs`: LMB fighting block — PC + armed magic begins a charge (`_magicCharging` +
+  `_magicChargeStart`); releasing fires `MagicWheelUI.ReleaseArmedCast(MagicChargeLevel(hold))` where
+  `MagicChargeLevel` = `clamp((hold − 0.15) / 1.85, 0, 1)`. `ShouldCancelCharge` drops the charge (no
+  cast) on wheel open / leaving fighting mode / weapon swap / mobile. Unarmed or non-magic fighting LMB
+  keeps the plain cast/light attack path.
+
+### 20.2 Verify (needs user — Unity can't be run here)
+- [ ] Alt-wheel arm a spell while holding a magic weapon; tap LMB casts at normal cost/size/damage.
+- [ ] Hold LMB 1.5s → clearly bigger projectile/zone/vortex and higher damage numbers at release.
+- [ ] Mana cost at full charge is ~1.6× and the cast still fires for as long as any portion is
+      affordable (charge clamps rather than dud being).
+- [ ] Holding at max forever never auto-fires; cast happens only when LMB is released.
+- [ ] Opening the wheel (Alt) mid-charge, leaving fighting mode, or swapping weapons cancels the charge
+      without casting.
+- [ ] Mobile client still casts on tap with no charge behavior.
+- [ ] Melee LMB and RMB block unaffected (fists + sword still punch/block); ranged heavy RMB unaffected.
+- [ ] Semantic checker already 0 diagnostics; commit the touched .cs + PLAN.md alongside batch 9.

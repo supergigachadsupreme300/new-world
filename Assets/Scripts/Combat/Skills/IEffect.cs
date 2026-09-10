@@ -72,7 +72,9 @@ public sealed class SpellCastEffect : IEffect
     public void Execute(SkillContext ctx)
     {
         if (ctx == null || Spell == null || ctx.Caster == null) return;
-        ctx.Caster.BeginCast(Spell, ctx.Origin != null ? ctx.Origin : ctx.User != null ? ctx.User.transform : null);
+        ctx.Caster.BeginCast(Spell,
+            ctx.Origin != null ? ctx.Origin : ctx.User != null ? ctx.User.transform : null,
+            default, ctx.ChargeLevel);
     }
 }
 

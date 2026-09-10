@@ -41,6 +41,31 @@ public static class WeaponCatalog
     /// <summary>Convenience default starter weapon id (Wanderer's Iron Sword).</summary>
     public const string StarterWeaponId = "iron_sword";
 
+    /// <summary>Base weapon id for the innate bare-fist rigs (not an inventory item).</summary>
+    public const string FistWeaponId = "fist";
+
+    /// <summary>
+    /// Data for the bare-fist combat mode used when fighting with NO weapon equipped — both hand
+    /// slots hold an invisible fist rig driven by the gauntlets boxing animation. Kept OUT of
+    /// <see cref="All"/> so it can never be granted as an inventory item or listed in the gear sheet.
+    /// </summary>
+    public static WeaponData Fists
+    {
+        get
+        {
+            if (_fists == null) _fists = BuildFists();
+            return _fists;
+        }
+    }
+    private static WeaponData _fists;
+
+    private static WeaponData BuildFists()
+    {
+        return Make("fist", "Fists", WeaponCategory.Melee, DamageType.Physical, 0f, 4f, 1.7f, 0.6f, 0.7f,
+            WeaponScalingStat.Dexterity, 0.06f, 0f, null,
+            Skill("wskill_fist", "Iron Fist", "strike", DamageType.Physical, 6f, 1.4f, 0.8f, 2f, 3f));
+    }
+
     /// <summary>
     /// Display name for an inventory item slot. Weapons use their authored <c>displayName</c>
     /// (their ids are English tokens), everything else falls back to <see cref="Localization"/>.

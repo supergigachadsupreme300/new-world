@@ -65,11 +65,25 @@ public sealed class MagicWheelUI : MonoBehaviour
     /// </summary>
     public static bool ConsumeArmedCast()
     {
+        return ReleaseArmedCast(0f);
+    }
+
+    /// <summary>True when a magic is armed AND a magic weapon is held (charge/basic gating).</summary>
+    public static bool HasArmedMagic()
+    {
+        if (_instance == null || string.IsNullOrEmpty(_instance._armedSkillId)) return false;
+        if (!_instance.HoldingMagicWeapon()) return false;
+        return _instance.PlayerProfile() != null;
+    }
+
+    /// <summary>Fire the armed magic with a charge level (0..1). True if the cast began.</summary>
+    public static bool ReleaseArmedCast(float charge)
+    {
         if (_instance == null || string.IsNullOrEmpty(_instance._armedSkillId)) return false;
         if (!_instance.HoldingMagicWeapon()) return false;
         var profile = _instance.PlayerProfile();
         if (profile == null) return false;
-        profile.Execute(_instance._armedSkillId);
+        profile.ExecuteCharged(_instance._armedSkillId, charge);
         return true;
     }
 

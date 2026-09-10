@@ -20,14 +20,18 @@ public class SpellEffect : MonoBehaviour
     private Vector3 _dir;
     private SpellCaster _caster;
     private bool _launched;
+    private float _radiusMult = 1f;
 
-    /// <summary>Configure the effect with spell + resolved power. Returns this for chaining.</summary>
-    public SpellEffect Initialize(SpellData spell, float power, Vector3 dir, SpellCaster caster)
+    /// <summary>Configure the effect with spell + resolved power. Returns this for chaining.
+    /// <paramref name="radiusMult"/> scales the splash/zone radius (charged casts).</summary>
+    public SpellEffect Initialize(SpellData spell, float power, Vector3 dir, SpellCaster caster,
+        float radiusMult = 1f)
     {
         _spell = spell;
         _power = power;
         _dir = dir;
         _caster = caster;
+        _radiusMult = Mathf.Max(radiusMult, 0.01f);
         return this;
     }
 
@@ -37,7 +41,7 @@ public class SpellEffect : MonoBehaviour
         if (_spell != null && _spell.Delivery == SpellDelivery.Zone)
         {
             IsZone = true;
-            Radius = _spell.Radius;
+            Radius = _spell.Radius * _radiusMult;
             ResolveZone();
             Destroy(gameObject);
             return;
@@ -72,7 +76,7 @@ public class SpellEffect : MonoBehaviour
     {
         // Also affect everything in the splash radius factoring in the caster.
         Collider[] cols = Physics.OverlapSphere(transform.position,
-            _spell != null && _spell.Radius > 0f ? _spell.Radius : 0.2f, HitLayers);
+            _spell != null && _spell.Radius > 0f ? _spell.Radius * _radiusMult : 0.2f, HitLayers);
         foreach (var col in cols)
         {
             if (_caster != null && col.transform.root == _caster.transform.root) continue;
@@ -92,7 +96,7 @@ public class SpellEffect : MonoBehaviour
             ground = hit.point;
         SkillFx.RingFlash(ground, Vector3.up,
             _spell != null ? DamageNumber.ColorFor(_spell.Type) : Color.white,
-            _spell != null ? _spell.Radius : 1f, 0.5f);
+            Radius, 0.5f);
 
         Collider[] cols = Physics.OverlapSphere(transform.position, Radius, HitLayers);
         foreach (var col in cols)

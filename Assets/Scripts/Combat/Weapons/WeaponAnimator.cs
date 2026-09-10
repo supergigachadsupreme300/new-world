@@ -172,6 +172,17 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, 20f, 0f, 0f, 38f, 35f, 0f), K(0.75f, -65f, 0f,
                     null, K_None, 0.45f, 0.60f)
             },
 
+            // fist — innate bare fists: same boxing chain as gauntlets (jab, cross, double, uppercut),
+            // dual fists alternate hands off-phase and hold the ready guard at idle. No weapon visual.
+            {
+                "fist", new WeaponAnimDef(OffArm.None, V(
+T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 0f, 0f, 34f, 95f, 20f), K(1f, 0f, 0f, 0f, 0f)),    // 1. straight jab — fist snaps with the wrist
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -65f, 28f, 0f, -22f, 60f, -40f), K(0.48f, -20f, 0f, 0f, 30f, 95f, -40f), K(1f, 0f, 0f, 0f, 0f)), // 2. side cross — wrist rolls through the hook
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 0f, 0f, 34f, 95f, 20f), K(1f, 0f, 0f, 0f, 0f)), // 3. quick double jab — two wrist snaps
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -140f, -10f, 0f, -35f, 65f, 50f), K(0.55f, -60f, 8f, 0f, -18f, 90f, 50f), K(1f, 0f, 0f, 0f, 0f))), // 4. heavy uppercut (finisher) — wrist cocks then drives
+                    null, K_Dual, 0.26f, 0.36f)
+            },
+
             // gauntlets — boxer chain: jab, cross, double, uppercut (dual-wield alternates hands).
             {
                 "gauntlets", new WeaponAnimDef(OffArm.None, V(

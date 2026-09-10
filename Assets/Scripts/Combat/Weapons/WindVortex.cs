@@ -21,17 +21,18 @@ public class WindVortex : MonoBehaviour
     private float _tick;
     private Transform _casterRoot;
 
-    public void Initialize(SpellCaster caster, SpellData spell, float power)
+    public void Initialize(SpellCaster caster, SpellData spell, float power, float radiusMult = 1f)
     {
         _caster = caster;
         _spell = spell;
         _power = power;
         _casterRoot = caster != null ? caster.transform.root : null;
-        Radius = spell != null && spell.Radius > 0f ? spell.Radius : Radius;
+        radiusMult = Mathf.Max(radiusMult, 0.01f);
+        Radius = spell != null && spell.Radius > 0f ? spell.Radius * radiusMult : Radius;
         BuildVisual(spell != null ? spell.Type : DamageType.Wind);
 
-        if (_spell != null && _spell.Radius > 0f)
-            SkillFx.RingFlash(transform.position, Vector3.up, DamageNumber.ColorFor(_spell.Type), _spell.Radius, 0.4f);
+        if (_spell != null && Radius > 0f)
+            SkillFx.RingFlash(transform.position, Vector3.up, DamageNumber.ColorFor(_spell.Type), Radius, 0.4f);
 
         Destroy(gameObject, Lifetime);
     }

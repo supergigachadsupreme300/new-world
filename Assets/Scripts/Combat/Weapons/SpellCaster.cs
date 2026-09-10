@@ -18,6 +18,14 @@ public class SpellCaster : MonoBehaviour
     public float RegenRate = 5f;
     public float RegenDelay = 0.3f;
 
+    [Header("Charging (§3.8)")]
+    [Tooltip("Extra focus-point cost per charge level (0.6 = up to +60% at full charge).")]
+    public float ChargeFpCostBonus = 0.6f;
+    [Tooltip("Extra spell power per charge level (1.0 = double damage at full charge).")]
+    public float ChargeDamageBonus = 1f;
+    [Tooltip("Extra size/radius per charge level (0.8 = up to +80% at full charge).")]
+    public float ChargeSizeBonus = 0.8f;
+
     [Header("Wiring")]
     [Tooltip("Optional stat provider for Wisdom scaling + FP pool (wired Phase 4).")]
     public IStatProvider Stats;
@@ -120,27 +128,42 @@ public class SpellCaster : MonoBehaviour
     /// <summary>
     /// Begin casting a spell. Applies weapon magic-mods, validates FP + cooldown, plays
     /// cast time, then executes. Returns true if the cast began.
+    /// <paramref name="charge"/> (0..1) raises the focus cost and scales power/size — clamped so the
+    /// cast always fires as strong as the caster can still afford rather than dudding out.
     /// </summary>
-    public bool BeginCast(SpellData spell, Transform origin, MagicWeaponMods mods = default)
+    public bool BeginCast(SpellData spell, Transform origin, MagicWeaponMods mods = default, float charge = 0f)
     {
         if (spell == null) return false;
         if (!IsReady(spell)) return false;
+        charge = Mathf.Clamp01(charge);
 
         if (mods.DamageMult <= 0f) mods.DamageMult = 1f;
         if (mods.CastTimeMult <= 0f) mods.CastTimeMult = 1f;
         if (mods.CooldownMult <= 0f) mods.CooldownMult = 1f;
         if (mods.FpCostMult <= 0f) mods.FpCostMult = 1f;
 
-        float fpCost = Mathf.Max(spell.FpCost * mods.FpCostMult, 0f);
+        float baseCost = Mathf.Max(spell.FpCost * mods.FpCostMult, 0f);
+        if (charge > 0f)
+            charge = ClampChargeToAffordable(baseCost, charge);
+
+        float fpCost = baseCost * (1f + charge * ChargeFpCostBonus);
         if (!HasFocusPoints(fpCost)) return false;
 
         TrySpendFocus(fpCost);
-        StartCoroutine(CastRoutine(spell, origin, mods));
+        StartCoroutine(CastRoutine(spell, origin, mods, charge));
         OnCastStarted?.Invoke(spell);
         return true;
     }
 
-    private IEnumerator CastRoutine(SpellData spell, Transform origin, MagicWeaponMods mods)
+    /// <summary>Reduce a held charge so its focus cost fits the current pool.</summary>
+    private float ClampChargeToAffordable(float baseCost, float charge)
+    {
+        if (baseCost <= 0f) return charge;
+        float maxCharge = (CurrentFp / baseCost - 1f) / ChargeFpCostBonus;
+        return Mathf.Min(charge, Mathf.Max(maxCharge, 0f));
+    }
+
+    private IEnumerator CastRoutine(SpellData spell, Transform origin, MagicWeaponMods mods, float charge)
     {
         // Cast time (modulated by weapon CastTimeMod).
         float castTime = spell.CastTime * Mathf.Max(mods.CastTimeMult, 0.05f);
@@ -155,16 +178,16 @@ public class SpellCaster : MonoBehaviour
         }
 
         // Execute the spell.
-        DamageResult result = Execute(spell, origin, mods);
+        DamageResult result = Execute(spell, origin, mods, charge);
         OnCastComplete?.Invoke(spell, result);
 
         // Apply cooldown (modulated by weapon CooldownMod).
         _cooldowns[spell.id] = spell.Cooldown * Mathf.Max(mods.CooldownMult, 0.05f);
     }
 
-    private DamageResult Execute(SpellData spell, Transform origin, MagicWeaponMods mods)
+    private DamageResult Execute(SpellData spell, Transform origin, MagicWeaponMods mods, float charge)
     {
-        float basePower = spell.BasePower * mods.DamageMult;
+        float basePower = spell.BasePower * mods.DamageMult * (1f + charge * ChargeDamageBonus);
         float wisdom = Stats != null ? Stats.MagicAttackPower : 0f;
         float totalPower = basePower + wisdom * 1f;
 
@@ -176,15 +199,18 @@ public class SpellCaster : MonoBehaviour
             case SpellDelivery.Instant:
                 return ResolveDirect(totalPower, spell, pos, fwd);
             case SpellDelivery.Projectile:
-                return FireProjectile(totalPower, spell, pos, fwd);
+                return FireProjectile(totalPower, spell, pos, fwd, charge);
             case SpellDelivery.Zone:
-                return ResolveZone(totalPower, spell, pos);
+                return ResolveZone(totalPower, spell, pos, charge);
             case SpellDelivery.Vortex:
-                return SpawnVortex(totalPower, spell, pos, fwd);
+                return SpawnVortex(totalPower, spell, pos, fwd, charge);
             default:
                 return new DamageResult();
         }
     }
+
+    /// <summary>Size multiplier applied to deliveries by charge level.</summary>
+    private float SizeScale(float charge) => 1f + charge * ChargeSizeBonus;
 
     /// <summary>
     /// Spawn a persistent <see cref="WindVortex"/> at the cast location. The vortex ticks
@@ -192,7 +218,7 @@ public class SpellCaster : MonoBehaviour
     /// by raycasting along the cast direction up to <see cref="SpellData.Range"/>, then
     /// dropped to the ground so the funnel sits on terrain.
     /// </summary>
-    private DamageResult SpawnVortex(float power, SpellData spell, Vector3 pos, Vector3 fwd)
+    private DamageResult SpawnVortex(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge)
     {
         Vector3 at = pos;
         if (Physics.Raycast(pos, fwd, out RaycastHit hit, Mathf.Max(spell.Range, 0.1f)))
@@ -206,7 +232,7 @@ public class SpellCaster : MonoBehaviour
 
         var go = new GameObject("WindVortex");
         go.transform.position = ground;
-        go.AddComponent<WindVortex>().Initialize(this, spell, power);
+        go.AddComponent<WindVortex>().Initialize(this, spell, power, SizeScale(charge));
 
         return new DamageResult { HitTargets = true };
     }
@@ -220,8 +246,9 @@ public class SpellCaster : MonoBehaviour
         return new DamageResult();
     }
 
-    private DamageResult FireProjectile(float power, SpellData spell, Vector3 pos, Vector3 fwd)
+    private DamageResult FireProjectile(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge)
     {
+        float sizeScale = SizeScale(charge);
         GameObject go;
         if (spell.CastEffectPrefab != null)
         {
@@ -229,7 +256,7 @@ public class SpellCaster : MonoBehaviour
             if (go.GetComponent<SpellEffect>() == null)
             {
                 var fx = go.AddComponent<SpellEffect>();
-                fx.Initialize(spell, power, fwd, this);
+                fx.Initialize(spell, power, fwd, this, sizeScale);
             }
         }
         else
@@ -238,8 +265,12 @@ public class SpellCaster : MonoBehaviour
             go.transform.position = pos;
             go.transform.rotation = Quaternion.LookRotation(fwd);
             AttachDefaultProjectileVisual(go, spell.Type);
-            go.AddComponent<SpellEffect>().Initialize(spell, power, fwd, this);
+            go.AddComponent<SpellEffect>().Initialize(spell, power, fwd, this, sizeScale);
         }
+
+        // Charge scales the whole projectile body (authored prefab or generated visual).
+        if (charge > 0f)
+            go.transform.localScale *= sizeScale;
 
         if (go.TryGetComponent<SpellEffect>(out var proj))
             proj.Launch(spell.ProjectileSpeed);
@@ -538,11 +569,12 @@ public class SpellCaster : MonoBehaviour
         }
     }
 
-    private DamageResult ResolveZone(float power, SpellData spell, Vector3 pos)
+    private DamageResult ResolveZone(float power, SpellData spell, Vector3 pos, float charge)
     {
-        SpawnZoneRing(pos, spell);
+        float radius = spell.Radius * SizeScale(charge);
+        SpawnZoneRing(pos, spell, radius);
 
-        Collider[] cols = Physics.OverlapSphere(pos, spell.Radius);
+        Collider[] cols = Physics.OverlapSphere(pos, radius);
         bool hitAny = false;
         float total = 0f;
         foreach (var col in cols)
@@ -556,13 +588,13 @@ public class SpellCaster : MonoBehaviour
     }
 
     /// <summary>Ground ring flash sized to the spell's radius so zone spells read on screen.</summary>
-    private static void SpawnZoneRing(Vector3 pos, SpellData spell)
+    private static void SpawnZoneRing(Vector3 pos, SpellData spell, float radius)
     {
-        if (spell == null || spell.Radius <= 0f) return;
+        if (spell == null || radius <= 0f) return;
         Vector3 ground = pos;
         if (Physics.Raycast(pos + Vector3.up * 0.1f, Vector3.down, out RaycastHit hit, 4f))
             ground = hit.point;
-        SkillFx.RingFlash(ground, Vector3.up, DamageNumber.ColorFor(spell.Type), spell.Radius, 0.5f);
+        SkillFx.RingFlash(ground, Vector3.up, DamageNumber.ColorFor(spell.Type), radius, 0.5f);
     }
 
     private DamageResult ApplyHit(SpellData spell, float power, GameObject target)

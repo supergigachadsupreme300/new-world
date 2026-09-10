@@ -24,4 +24,7 @@ public sealed class SkillContext
 
     /// <summary>The user's root GameObject (for self-buffs etc.).</summary>
     public GameObject User;
+
+    /// <summary>Charge level (0..1) of a held cast, forwarded to magic deliveries.</summary>
+    public float ChargeLevel;
 }

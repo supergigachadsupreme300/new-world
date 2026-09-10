@@ -67,6 +67,9 @@ public static class WeaponRigBuilder
     {
         if (playerRoot == null || weapon == null) return null;
 
+        // A real weapon replaces bare fists everywhere (no fist + sword dual-wield).
+        ClearFists(playerRoot);
+
         EnsureCombatStack(playerRoot);
         var combat = playerRoot.GetComponent<CombatController>();
         var caster = playerRoot.GetComponent<SpellCaster>();
@@ -106,6 +109,70 @@ public static class WeaponRigBuilder
     private static void ClearHand(GameObject rig)
     {
         if (rig != null) Object.Destroy(rig);
+    }
+
+    /// <summary>True when a hand rig is an innate bare-fist (no real weapon, nothing to stow/draw).</summary>
+    public static bool IsFist(GameObject rig)
+    {
+        var host = rig != null ? rig.GetComponent<WeaponRigHost>() : null;
+        return host != null && host.Data != null && host.Data.id == WeaponCatalog.FistWeaponId;
+    }
+
+    /// <summary>
+    /// Fill every empty hand slot with an invisible bare-fist rig (fighting with no weapon). Builds
+    /// the fist combat stack (MeleeWeaponBehavior + HitboxSystem + WeaponAnimator boxing track)
+    /// WITHOUT a visual proxy — the player's hand blocks are the fists. Never replaces an existing
+    /// rig, so equipping a real weapon later just clears the fists.
+    /// </summary>
+    public static void EnsureFists(GameObject playerRoot)
+    {
+        if (playerRoot == null) return;
+        EnsureCombatStack(playerRoot);
+        var combat = playerRoot.GetComponent<CombatController>();
+        if (combat == null) return;
+        var data = WeaponCatalog.Fists;
+        if (data == null) return;
+
+        bool changed = false;
+        if (combat.RightHand == null)
+        {
+            combat.RightHand = BuildFistRig(playerRoot, data, false);
+            changed = changed || combat.RightHand != null;
+        }
+        if (combat.LeftHand == null)
+        {
+            combat.LeftHand = BuildFistRig(playerRoot, data, true);
+            changed = changed || combat.LeftHand != null;
+        }
+        // Re-seat onto any fresh hand bones (model reload) and recompute the wield state.
+        if (changed)
+        {
+            ReparentToHands(playerRoot);
+            combat.RecomputeWielding();
+        }
+    }
+
+    /// <summary>Destroy every bare-fist rig from the hands (called when a real weapon equips).</summary>
+    public static void ClearFists(GameObject playerRoot)
+    {
+        if (playerRoot == null) return;
+        var combat = playerRoot.GetComponent<CombatController>();
+        if (combat == null) return;
+        bool changed = false;
+        if (IsFist(combat.RightHand))
+        {
+            Object.Destroy(combat.RightHand);
+            combat.RightHand = null;
+            changed = true;
+        }
+        if (IsFist(combat.LeftHand))
+        {
+            Object.Destroy(combat.LeftHand);
+            combat.LeftHand = null;
+            changed = true;
+        }
+        if (changed)
+            combat.RecomputeWielding();
     }
 
     /// <summary>
@@ -215,6 +282,10 @@ public static class WeaponRigBuilder
     private static (Vector3 pos, Quaternion rot) DrawPoseFor(WeaponData weapon, bool isLeft)
     {
         float side = isLeft ? -1f : 1f;
+        // Bare fists: no blade/grip to pose — park the invisible rig just in front of the palm so
+        // its hitbox reads as a punch; the hand blocks themselves are the visual.
+        if (weapon != null && weapon.id == WeaponCatalog.FistWeaponId)
+            return (new Vector3(0f, 0.05f, 0.12f), Quaternion.identity);
         if (weapon != null && weapon.Category == WeaponCategory.Magic)
             return (new Vector3(side * 0.1f, -0.35f, 0f), Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f));
         if (weapon != null && weapon.Category == WeaponCategory.Melee)
@@ -300,6 +371,8 @@ public static class WeaponRigBuilder
     private static void RegisterStow(WeaponStowAnimator animator, GameObject playerRoot, GameObject rig, bool isLeft)
     {
         if (rig == null) return;
+        // Bare fists have nothing to stow/draw — they always stay on the hands.
+        if (IsFist(rig)) return;
         var host = rig.GetComponent<WeaponRigHost>();
         if (host == null || host.Data == null) return;
 
@@ -407,6 +480,39 @@ public static class WeaponRigBuilder
             if (t != null) return t;
         }
         return null;
+    }
+
+    /// <summary>
+    /// Build an invisible bare-fist rig (no visual proxy — the player's hand blocks are the fists).
+    /// Carries the full melee combat stack: WeaponRigHost + MeleeWeaponBehavior + HitboxSystem
+    /// (small sphere just forward of the palm) + the gauntlets WeaponAnimator boxing track.
+    /// </summary>
+    private static GameObject BuildFistRig(GameObject playerRoot, WeaponData fist, bool isLeft)
+    {
+        if (playerRoot == null || fist == null) return null;
+        var stats = playerRoot.GetComponent<PlayerStats>();
+        var go = new GameObject(isLeft ? "FistL" : "FistR");
+        go.transform.SetParent(playerRoot.transform, false);
+
+        var host = go.AddComponent<WeaponRigHost>();
+        host.Data = fist;
+
+        var melee = go.AddComponent<MeleeWeaponBehavior>();
+        melee.Data = fist;
+        melee.AttackDamage = fist.BaseDamage;
+        melee.Stats = stats;
+
+        var hitbox = go.GetComponent<HitboxSystem>();
+        hitbox.Radius = Mathf.Max(0.4f, fist.Reach * 0.75f);
+        hitbox.Duration = 0.18f;
+        hitbox.KnockbackForce = 2.5f;
+        melee.Hitbox = hitbox;
+
+        // Boxing pose track; K_Dual accent alternates the hands off-phase and holds a ready guard.
+        go.AddComponent<WeaponAnimator>();
+
+        AttachToHand(playerRoot, go, isLeft);
+        return go;
     }
 
     private static GameObject BuildRig(GameObject playerRoot, WeaponData weapon,

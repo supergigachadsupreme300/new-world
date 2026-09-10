@@ -1403,6 +1403,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var player = GameManager.Instance?.Player;
         var combat = CombatOf();
         if (player == null || combat == null) return;
+        // Fists are innate — never granted/equipped as a bag item.
+        if (weaponId == WeaponCatalog.FistWeaponId) return;
 
         var weapon = WeaponCatalog.Find(weaponId);
         if (weapon == null) return;
@@ -1480,7 +1482,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         var rig = slot == EquipSlot.LeftHand ? combat.LeftHand : combat.RightHand;
         var host = rig != null ? rig.GetComponent<WeaponRigHost>() : null;
-        if (host != null && host.Data != null && host.Data.id != incomingId)
+        // Bare fists are innate (never a bag item) — EquipInto clears them itself.
+        if (host != null && host.Data != null && host.Data.id != incomingId && host.Data.id != WeaponCatalog.FistWeaponId)
             return host.Data.id;
         return null;
     }
@@ -1496,6 +1499,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
     public void UnequipWeapon(string weaponId, int destSlot = -1, EquipSlot sourceHand = (EquipSlot)(-1))
     {
         if (string.IsNullOrEmpty(weaponId)) return;
+        // Bare fists can't be unequipped/dropped — they are the empty-hand combat mode itself.
+        if (weaponId == WeaponCatalog.FistWeaponId) return;
         var combat = CombatOf();
         if (combat == null) return;
 

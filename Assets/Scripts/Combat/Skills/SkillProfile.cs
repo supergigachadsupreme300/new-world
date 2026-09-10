@@ -111,11 +111,20 @@ public sealed class SkillProfile : MonoBehaviour
     }
 
     /// <summary>
-    /// Execute a castable skill by id. Validates learned, affordability and cooldown, spends
-    /// the cost, starts the cooldown, then runs the composed effect. Returns true if it fired.
+    /// Execute a castable skill by id (no charge). Validates learned, affordability and cooldown,
+    /// spends the cost, starts the cooldown, then runs the composed effect. Returns true if it fired.
     /// Passives resolve to false (they are not cast).
     /// </summary>
     public bool Execute(string id)
+    {
+        return ExecuteCharged(id, 0f);
+    }
+
+    /// <summary>
+    /// Execute a castable skill by id with a charge level (0..1). Identical to <see cref="Execute"/>
+    /// except the charge is carried on the context so magic deliveries scale damage/size/cost.
+    /// </summary>
+    public bool ExecuteCharged(string id, float charge)
     {
         var skill = SkillCatalog.Find(id);
         if (skill == null)
@@ -136,6 +145,7 @@ public sealed class SkillProfile : MonoBehaviour
 
         ReconcileDependencies();
         var ctx = BuildContext();
+        ctx.ChargeLevel = Mathf.Clamp01(charge);
         if (!skill.CanAfford(ctx))
         {
             if (SkillDebug)

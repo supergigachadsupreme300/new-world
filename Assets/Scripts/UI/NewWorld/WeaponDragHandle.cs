@@ -45,7 +45,9 @@ public sealed class WeaponDragHandle : MonoBehaviour, IBeginDragHandler, IDragHa
         var hand = Slot == EquipSlot.LeftHand ? combat.LeftHand
             : Slot == EquipSlot.RightHand ? combat.RightHand : null;
         var host = hand != null ? hand.GetComponent<WeaponRigHost>() : null;
-        return host != null && host.Data != null ? host.Data.id : null;
+        if (host == null || host.Data == null || host.Data.id == WeaponCatalog.FistWeaponId)
+            return null;
+        return host.Data.id;
     }
 
     private Canvas FindTopCanvas()

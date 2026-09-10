@@ -61,6 +61,12 @@ public class PlayerController : MonoBehaviour
     private const float DodgeIFrameDuration = 0.3f;
     public float DodgeCost = 20f;
 
+    // Magic charging (armed spell via the Alt wheel): hold LMB to charge, release to fire.
+    private const float MagicChargeTapThreshold = 0.15f;
+    private const float MagicChargeMaxTime = 2f;
+    private bool _magicCharging;
+    private float _magicChargeStart;
+
     public void SetInWater(bool inWater, float speedMul, bool allowJump)
     {
         InWater = inWater;
@@ -284,6 +290,17 @@ public class PlayerController : MonoBehaviour
     {
         if (HP <= 0) return;
         if (Time.time < _invulnerableUntil) return;
+        // Melee guard: blocking absorbs 80% of the hit while stamina holds; if stamina runs out
+        // the guard breaks and the full hit lands.
+        var combat = GetComponent<CombatController>();
+        if (combat != null && combat.IsBlocking)
+        {
+            if (combat.OnBlockedHit(amount))
+            {
+                amount = Mathf.RoundToInt(amount * 0.2f);
+                if (amount <= 0) return;
+            }
+        }
         HP -= amount;
         if (HP <= 0)
         {
@@ -675,26 +692,71 @@ public class PlayerController : MonoBehaviour
                 }
                 _pendingAutoRig.Clear();
             }
+            // Nothing equipped (fought barehanded before the reload) — put the fists back on.
+            var combatNow = GetComponent<CombatController>();
+            if (combatNow != null && combatNow.RightHand == null && combatNow.LeftHand == null)
+                WeaponRigBuilder.EnsureFists(gameObject);
+        }
+        // Magic charging: while holding LMB with an armed spell, the cast builds up; releasing
+        // fires at the held charge level. Runs even while dialog-ish UI is up so the release isn't mired.
+        if (_magicCharging)
+        {
+            if (_magicCharging && ShouldCancelCharge())
+            {
+                _magicCharging = false;
+            }
+            else if (!GameInput.IsMobile && Mouse.current != null &&
+                     (Mouse.current.leftButton.wasReleasedThisFrame || !Mouse.current.leftButton.isPressed))
+            {
+                float hold = Time.time - _magicChargeStart;
+                _magicCharging = false;
+                MagicWheelUI.ReleaseArmedCast(MagicChargeLevel(hold));
+            }
         }
         if (!dialogBlocked && leftClick && !MagicWheelUI.IsOpen)
         {
             if (FightingMode)
             {
-                if (!WeaponTransitionBusy() && !MagicWheelUI.ConsumeArmedCast())
+                // Armed magic on PC charges on hold; a full release casts. Unarmed/basic cast stays.
+                if (!GameInput.IsMobile && !WeaponTransitionBusy() && MagicWheelUI.HasArmedMagic())
+                {
+                    _magicCharging = true;
+                    _magicChargeStart = Time.time;
+                }
+                else if (!WeaponTransitionBusy() && !MagicWheelUI.ConsumeArmedCast())
+                {
                     GetComponent<CombatController>()?.LightAttack();
+                }
             }
             else
                 ToolManager.Instance?.UseSelectedItem();
         }
-        if (!dialogBlocked && !GameInput.IsMobile && !MagicWheelUI.IsOpen && Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame)
+        if (!dialogBlocked && !GameInput.IsMobile && !MagicWheelUI.IsOpen && Mouse.current != null)
         {
             if (FightingMode)
             {
-                if (!WeaponTransitionBusy())
-                    GetComponent<CombatController>()?.HeavyAttack();
-                return;
+                var combat = GetComponent<CombatController>();
+                if (combat != null)
+                {
+                    if (IsMeleeEquipped(combat))
+                    {
+                        // RMB hold = block for melee weapons (incl. fists). Melee no longer has a
+                        // heavy attack — the finisher swing is dropped for melee.
+                        if (!WeaponTransitionBusy())
+                            combat.SetBlocking(Mouse.current.rightButton.isPressed);
+                    }
+                    else if (Mouse.current.rightButton.wasPressedThisFrame && !WeaponTransitionBusy())
+                    {
+                        // Ranged/magic keep the heavy attack on RMB.
+                        combat.HeavyAttack();
+                    }
+                }
+                if (Mouse.current.rightButton.wasPressedThisFrame)
+                    return;
             }
-            var cam = Camera.main;
+            else if (Mouse.current.rightButton.wasPressedThisFrame)
+            {
+                var cam = Camera.main;
             if (cam != null)
             {
                 var ray = new Ray(cam.transform.position, cam.transform.forward);
@@ -747,6 +809,7 @@ public class PlayerController : MonoBehaviour
                     }
                 }
             }
+        }
         }
         if (!dialogBlocked && ((Keyboard.current != null && Keyboard.current.qKey.wasPressedThisFrame) ||
             MobileInputController.Consume("drop")))
@@ -874,6 +937,30 @@ public class PlayerController : MonoBehaviour
         return animator != null && animator.IsBusy;
     }
 
+    /// <summary>True when the equipped hand(s) hold a melee weapon (incl. bare fists).</summary>
+    private bool IsMeleeEquipped(CombatController combat)
+    {
+        var hand = combat.RightHand ?? combat.LeftHand;
+        var host = hand != null ? hand.GetComponent<WeaponRigHost>() : null;
+        return host != null && host.Data != null && host.Data.Category == WeaponCategory.Melee;
+    }
+
+    /// <summary>Charge level (0..1) for a held cast; taps under the threshold cast uncharged.</summary>
+    private static float MagicChargeLevel(float holdTime)
+    {
+        float t = (holdTime - MagicChargeTapThreshold) / (MagicChargeMaxTime - MagicChargeTapThreshold);
+        return Mathf.Clamp01(t);
+    }
+
+    /// <summary>True when an in-progress magic charge should be dropped without casting.</summary>
+    private bool ShouldCancelCharge()
+    {
+        if (GameInput.IsMobile || Mouse.current == null) return true;
+        if (!FightingMode || WeaponTransitionBusy()) return true;
+        if (MagicWheelUI.IsOpen) return true;
+        return !MagicWheelUI.HasArmedMagic();
+    }
+
     private void TryAutoRigWeapon()
     {
         WeaponCatalog.EnsureBuilt();
@@ -886,13 +973,9 @@ public class PlayerController : MonoBehaviour
             WeaponRigBuilder.ReparentToHands(gameObject);
         var combat = GetComponent<CombatController>();
         if (combat != null && (combat.RightHand != null || combat.LeftHand != null)) return;
-        string id = null;
-        var inv = GetComponent<WeaponInventory>();
-        if (inv != null && inv.Owned.Count > 0)
-            id = inv.Owned[0];
-        WeaponData weapon = WeaponCatalog.Find(id ?? WeaponCatalog.StarterWeaponId);
-        if (weapon != null)
-            WeaponRigBuilder.EquipInto(gameObject, weapon);
+        // No weapon equipped — fight with the innate bare fists instead of auto-equipping an
+        // owned or starter weapon. The player chooses real weapons via the gear sheet.
+        WeaponRigBuilder.EnsureFists(gameObject);
     }
 
     private static void ShowPrompt(string message)
@@ -1024,9 +1107,11 @@ public class PlayerController : MonoBehaviour
         if (combat != null)
         {
             var rh = combat.RightHand != null ? combat.RightHand.GetComponent<WeaponRigHost>() : null;
-            if (rh != null && rh.Data != null) _pendingAutoRig.Add((rh.Data.id, false));
+            if (rh != null && rh.Data != null && rh.Data.id != WeaponCatalog.FistWeaponId)
+                _pendingAutoRig.Add((rh.Data.id, false));
             var lh = combat.LeftHand != null ? combat.LeftHand.GetComponent<WeaponRigHost>() : null;
-            if (lh != null && lh.Data != null) _pendingAutoRig.Add((lh.Data.id, true));
+            if (lh != null && lh.Data != null && lh.Data.id != WeaponCatalog.FistWeaponId)
+                _pendingAutoRig.Add((lh.Data.id, true));
         }
 
         _playerModelInstance = MapBuilder.BuildPlayerModel(transform);

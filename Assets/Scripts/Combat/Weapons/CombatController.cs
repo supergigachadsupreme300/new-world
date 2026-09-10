@@ -163,12 +163,33 @@ public class CombatController : MonoBehaviour
         return host != null && host.Data != null ? host.Data.Category : WeaponCategory.Melee;
     }
 
+    /// <summary>Category of the weapon the next attack would resolve (defaults to melee when empty).</summary>
+    private WeaponCategory ActiveCategory()
+    {
+        GameObject hand;
+        switch (Wielding)
+        {
+            case WieldingState.TwoHand:
+                hand = TwoHandWeapon;
+                break;
+            case WieldingState.Dual:
+                hand = _useOffHand ? LeftHand : RightHand;
+                break;
+            case WieldingState.Single:
+            default:
+                hand = RightHand ?? LeftHand;
+                break;
+        }
+        return CategoryOf(hand);
+    }
+
     // ── Input API ───────────────────────────────────────────────────────────
 
     /// <summary>Trigger a light attack (tap attack button).</summary>
     public void LightAttack()
     {
         if (!CanAct) return;
+        if (IsBlocking) return;
 
         // No weapon equipped — never consume stamina or lock an attack state.
         IWeaponBehavior behavior = ActiveBehavior;
@@ -197,13 +218,17 @@ public class CombatController : MonoBehaviour
         OnAttackStarted?.Invoke(behavior);
     }
 
-    /// <summary>Trigger a heavy attack (hold attack button).</summary>
+    /// <summary>Trigger a heavy attack (hold attack button). Melee weapons have no heavy attack — their
+    /// RMB is the block — so only ranged/magic weapons can perform one.</summary>
     public void HeavyAttack()
     {
         if (!CanAct) return;
+        if (IsBlocking) return;
 
         IWeaponBehavior behavior = ActiveBehavior;
         if (behavior == null) return;
+
+        if (ActiveCategory() == WeaponCategory.Melee) return;
 
         if (!_stamina.TrySpend(HeavyAttackCost)) return;
 
@@ -229,6 +254,7 @@ public class CombatController : MonoBehaviour
     public void Dodge()
     {
         if (!CanAct) return;
+        if (IsBlocking) return;
         if (!_stamina.TrySpend(DodgeCost)) return;
 
         CurrentState = CombatState.Dodge;
@@ -256,11 +282,17 @@ public class CombatController : MonoBehaviour
         IsBlocking = blocking && CurrentState == CombatState.Idle;
     }
 
-    /// <summary>Receive stamina drain from an incoming blocked hit.</summary>
-    public void OnBlockedHit(float incomingDamage)
+    /// <summary>Receive stamina drain from an incoming blocked hit. True while the block holds;
+    /// when stamina can't cover the cost the guard breaks (block released) and false is returned.</summary>
+    public bool OnBlockedHit(float incomingDamage)
     {
-        if (!IsBlocking) return;
-        _stamina.Drain(BlockDrainPerHit + incomingDamage * 0.2f);
+        if (!IsBlocking) return false;
+        if (_stamina == null || !_stamina.TrySpend(BlockDrainPerHit + incomingDamage * 0.2f))
+        {
+            SetBlocking(false);
+            return false;
+        }
+        return true;
     }
 
     /// <summary>Check if a parry is currently active (for enemy knockbacks).</summary>
