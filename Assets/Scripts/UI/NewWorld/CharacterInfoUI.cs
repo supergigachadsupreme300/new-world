@@ -947,10 +947,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
             if (s != null) list.Add(s);
         if (list.Count == 0) return;
 
-        // Depth is read directly from each skill's Layer field (0 = base, 1 = branch, 2 = deep).
+        // Depth is the effective layer per EffLayerOf: a Layer-0 skill with a prerequisite is a branch,
+        // so it reads as layer 1 instead of a root.
         var depth = new Dictionary<string, int>();
         foreach (var s in list)
-            depth[s.id] = s.Layer;
+            depth[s.id] = EffLayerOf(s);
 
         // Polar slot grid: each category fans out inside its own 60° wedge as a cone from the
         // central category wheels, and every node claims a distinct ring/angle cell whose arc is
@@ -960,19 +961,20 @@ public sealed class CharacterInfoUI : MenuPanelBase
                                             // minus a 0.2° clearance buffer so adjacent categories never touch.
         // Tier-band radii (px). Each layer owns a fixed band of rings instead of drifting outward,
         // and the wheel is sized OUT from the hub so every ring's arc has enough real estate:
-        //   ring0      r=280  Layer 0 (base) — one ring, exactly sized to the category's base count
-        //              (10 for most, 14 for Magic) so no slots go to waste.
-        //   ring1-2    r=580,596  Layer 1 (branch) — the first ring holds 50 slots (pitch 12), so the
-        //              full Layer-1 set of most categories sits on a single ring; only Magic's 70-node
-        //              stack spills 20 onto the tight 16px second ring.
+        //   ring0      r=280  Layer 0 (base) — one ring, exactly sized to the category's ROOT count
+        //              (5 for Melee/Ranged/Stealth/Crafting, 6 for Magic & Fortitude) so no slots
+        //              go to waste and branches never eat a root's slot.
+        //   ring1-2    r=580,596  Layer 1 (branch) — the first ring holds 60 slots (pitch 10), so the
+        //              full Layer-1 set of every category except Magic sits on a single ring; Magic's
+        //              78 skills spill just 18 onto the tight 16px second ring.
         //   ring3+     r=726,...  Layer 2 (deep) — starts a full 130px moat past the last branch ring.
         const float ring0 = 280f;
         const float moatBase = 300f;    // base ring -> first branch ring (r1 = 580).
-        const float branchStep = 16f;   // headroom between the two branch-band rings (10px node).
+        const float branchStep = 16f;   // headroom between the two branch-band rings (7px node).
         const float moatBranch = 130f;  // last branch ring -> first deep ring (r3 = 726).
         const float deepStep = 120f;    // spacing between deep rings.
-        float[] layerPitch = { 20f, 12f, 12f }; // Per-layer node pitch: L0 base (18px node + 2px gap),
-                                                // L1 branch (11px node + 1px gap), L2 deep (10px node + 2px gap).
+        float[] layerPitch = { 20f, 10f, 12f }; // Per-layer node pitch: L0 base (18px node + 2px gap),
+                                                // L1 branch (8px node + 2px gap), L2 deep (10px node + 2px gap).
 
         float RingRadius(int ring)
         {
@@ -1132,7 +1134,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
                 foreach (var s in layer)
                 {
                     int ring = ringFor[s.id];
-                    float pitch = s.Layer < layerPitch.Length ? layerPitch[s.Layer] : 12f;
+                    float pitch = EffLayerOf(s) < layerPitch.Length ? layerPitch[EffLayerOf(s)] : 12f;
                     int slots = ring == 0 ? ringTotal[ring] : RingCapacity(ring, pitch);
                     int first = Mathf.Max(0, (slots - ringTotal[ring]) / 2);
                     float ang = center - sectorHalf +
@@ -1236,6 +1238,17 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _treeContent.localScale = new Vector3(scale, scale, 1f);
     }
 
+    /// <summary>
+    /// Effective tree layer for a skill: a Layer-0 skill that still requires a prerequisite is a
+    /// branch off a root, not a root itself, so it belongs on the Layer-1 ring (and uses branch
+    /// node sizing) rather than eating a Layer-0 slot.
+    /// </summary>
+    private static int EffLayerOf(Skill s)
+    {
+        if (s == null) return 0;
+        return (s.Layer == 0 && s.PrereqSkillIds != null && s.PrereqSkillIds.Length > 0) ? 1 : s.Layer;
+    }
+
     private Image MakeTreeNode(Skill skill, Vector2 pos)
     {
         var go = new GameObject("Node_" + skill.id);
@@ -1245,8 +1258,9 @@ public sealed class CharacterInfoUI : MenuPanelBase
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = pos;
-        float nw = skill.Layer == 0 ? 18f : skill.Layer == 1 ? 11f : 10f;
-        float nh = skill.Layer == 0 ? 14f : skill.Layer == 1 ? 10f : 7f;
+        int le = EffLayerOf(skill);
+        float nw = le == 0 ? 18f : le == 1 ? 8f : 10f;
+        float nh = le == 0 ? 14f : le == 1 ? 7f : 7f;
         rt.sizeDelta = Sz(nw, nh);
         var img = go.AddComponent<Image>();
         img.color = NodeLocked;
@@ -1281,8 +1295,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var tmp = label.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = skill.displayName;
-        tmp.fontSize = skill.Layer == 0 ? Mathf.Max(8f, Screen.height / 150f)
-                     : skill.Layer == 1 ? Mathf.Max(7f, Screen.height / 200f)
+        tmp.fontSize = EffLayerOf(skill) == 0 ? Mathf.Max(8f, Screen.height / 150f)
+                     : EffLayerOf(skill) == 1 ? Mathf.Max(7f, Screen.height / 200f)
                      : Mathf.Max(6f, Screen.height / 280f);
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;
