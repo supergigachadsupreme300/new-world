@@ -46,6 +46,10 @@ public sealed class WeaponAnimator : MonoBehaviour
     /// plays at <see cref="BaseSwingTimeScale"/> × the authored beat.</summary>
     private const float BaseSwingTimeScale = 10f;
 
+    /// <summary>Normalized time of the hold plateau on charge/release tracks — the pose the arm
+    /// samples (and holds) while a cast/draw is charging, and where the loose resumes from.</summary>
+    private const float ChargeHoldT = 0.30f;
+
     /// <summary>Capped attack-speed scale from the player's stats (1 → authored tempo).</summary>
     private float SpeedScale()
     {
@@ -193,31 +197,20 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
                     null, K_Dual, 0.26f, 0.36f)
             },
 
-            // longbow — archer shots: snap, aimed draw-hold, step release, rapid double (asym arms).
+            // longbow — one aim-draw-loose: draw to full hold, loose on the shot, recover.
             {
                 "longbow", new WeaponAnimDef(OffArm.Asym,
-                    // Owner (right) = the draw hand.
                     V(
-                        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -20f, -15f, 0f, -90f, 20f, 0f), K(0.55f, -30f, -15f, 0f, -60f, 40f, 0f), K(0.75f, -55f, 0f, 0f, -15f, 60f, 0f), K(1f, 0f, 0f, 0f, 0f)),   // 1. quick snap shot — wrist flexes on the loose
-                        T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -25f, -20f, 0f, -120f, 10f, 0f), K(0.65f, -25f, -20f, 0f, -120f, 10f, 0f), K(0.80f, -55f, 0f, 0f, -15f, 70f, 0f), K(1f, 0f, 0f, 0f, 0f)),   // 2. aimed draw-hold-loose — wrist holds then flexes on the loose
-                        T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -25f, -25f, 0f, -110f, 15f, 0f), K(0.55f, -30f, -25f, 0f, -110f, 15f, 0f), K(0.72f, -50f, 10f, 0f, -20f, 65f, 0f), K(1f, 0f, 0f, 0f, 0f)),  // 3. step-forward release
-                        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -22f, -15f, 0f, -95f, 20f, 0f), K(0.45f, -35f, -15f, 0f, -60f, 35f, 0f), K(0.60f, -50f, 10f, 0f, -15f, 55f, 0f), K(0.70f, -25f, -15f, 0f, -90f, 30f, 0f), K(0.85f, -35f, -15f, 0f, -60f, 60f, 0f), K(1f, 0f, 0f, 0f, 0f))), // 4. rapid double shot — two loose snaps
-                    // Other (left) = the bow arm, extended toward the target.
+                        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -25f, -20f, 0f, -120f, 10f, 0f), K(0.60f, -25f, -20f, 0f, -120f, 10f, 0f), K(0.80f, -55f, 0f, 0f, -15f, 70f, 0f), K(1f, 0f, 0f, 0f, 0f))),
                     V(
-                        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -85f, 0f, 0f, -6f), K(0.75f, -82f, 0f, 0f, -4f), K(1f, 0f, 0f, 0f, 0f)),
-                        T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -85f, 0f, 0f, -6f), K(0.65f, -85f, 0f, 0f, -6f), K(0.80f, -82f, 0f, 0f, -4f), K(1f, 0f, 0f, 0f, 0f)),
-                        T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -85f, 5f, 0f, -6f), K(0.40f, -82f, 5f, 0f, -4f), K(0.72f, -80f, 0f, 0f, -4f), K(1f, 0f, 0f, 0f, 0f)),
-                        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -84f, 0f, 0f, -6f), K(0.60f, -80f, 0f, 0f, -4f), K(0.70f, -84f, 0f, 0f, -6f), K(1f, 0f, 0f, 0f, 0f))),
+                        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -85f, 0f, 0f, -6f), K(0.60f, -85f, 0f, 0f, -6f), K(0.80f, -82f, 0f, 0f, -4f), K(1f, 0f, 0f, 0f, 0f))),
                     K_None, 0.50f, 0.80f)
             },
 
-            // throwing_hammer — windmills: underhand lob, overhand toss, side skip, full windmill.
+            // throwing_hammer — one cocked charge: wind back, hold, whip-release, recover.
             {
                 "throwing_hammer", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -95f, 0f, 0f, -45f, 25f, 60f), K(0.70f, -40f, 0f, 0f, -5f, 40f, 60f), K(1f, 0f, 0f, 0f, 0f)),      // 1. underhand lob — wrist whips the release
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.32f, -145f, 0f, 0f, -80f, 30f, -60f), K(0.70f, -50f, 0f, 0f, -5f, 50f, -60f), K(1f, 0f, 0f, 0f, 0f)),   // 2. overhand toss (elbow cocked) — wrist snap to launch
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -100f, 55f, 0f, -20f, 35f, 40f), K(0.70f, -45f, 10f, 0f, -6f, 55f, 40f), K(1f, 0f, 0f, 0f, 0f)), // 3. side skip throw
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -160f, 0f, 0f, -70f, 35f, 90f), K(0.55f, -150f, 0f, 0f, -40f, 35f, 90f), K(0.75f, -55f, 0f, 0f, -8f, 60f, 0f), K(1f, 0f, 0f, 0f, 0f))),  // 4. full windmill overhead (finisher) — wrist rolls through the spin then snaps
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -150f, 0f, 0f, -60f, 30f, -70f), K(0.58f, -150f, 0f, 0f, -55f, 30f, -70f), K(0.85f, -55f, 0f, 0f, -8f, 60f, 0f), K(1f, 0f, 0f, 0f, 0f))),
                     null, K_None, 0.32f, 0.45f)
             },
 
@@ -231,53 +224,38 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
                     null, K_None, 0.55f, 0.75f)
             },
 
-            // staff — caster: raised channel, angled sweeps, full overhead arc slam.
+            // staff — one cast charge: raise the channel, hold, release forward, recover.
             {
                 "staff", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -60f, 0f, 0f, -18f, 25f, 0f), K(0.70f, -60f, 0f, 0f, -18f, 25f, 0f), K(1f, 0f, 0f, 0f, 0f)),     // 1. raised channel — wrist subtly cants the shaft
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -60f, -35f, 0f, -18f, 25f, -20f), K(0.70f, -55f, -35f, 0f, -18f, 25f, -20f), K(1f, 0f, 0f, 0f, 0f)), // 2. angled sweep left
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -60f, 35f, 0f, -18f, 25f, 20f), K(0.70f, -55f, 35f, 0f, -18f, 25f, 20f), K(1f, 0f, 0f, 0f, 0f)),  // 3. angled sweep right
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -135f, 0f, 0f, 6f, 55f, 0f), K(0.60f, -100f, 0f, 0f, -6f, 40f, 0f), K(0.80f, -55f, 0f, 0f, -12f, 20f, 0f), K(1f, 0f, 0f, 0f, 0f))), // 4. full overhead arc slam (finisher) — wrist flex drives the smash
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -60f, 0f, 0f, -18f, 25f, 0f), K(0.60f, -60f, 0f, 0f, -18f, 25f, 0f), K(0.82f, -55f, 0f, 0f, -12f, 20f, 0f), K(1f, 0f, 0f, 0f, 0f))),
                     null, K_Staff, 0.42f, 0.62f)
             },
 
-            // holy_book — tome chants: single raise, open-page, side tilt, beatific wide raise.
+            // holy_book — one chant: raise, hold, wide release, recover.
             {
                 "holy_book", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -45f, 0f, 0f, -26f, 15f, 0f), K(0.70f, -45f, 0f, 0f, -26f, 15f, 0f), K(1f, 0f, 0f, 0f, 0f)),       // 1. single raise
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -55f, 18f, 0f, -34f, 15f, 20f), K(0.55f, -52f, 22f, 0f, -32f, 15f, 20f), K(0.75f, -58f, 14f, 0f, -36f, 15f, 15f), K(1f, 0f, 0f, 0f, 0f)), // 2. open-page two-hand raise
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -45f, -30f, 0f, -30f, 15f, -20f), K(0.70f, -42f, -28f, 0f, -30f, 15f, -20f), K(1f, 0f, 0f, 0f, 0f)), // 3. side-tilt chant
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -80f, 0f, 0f, -40f, 25f, 0f), K(0.60f, -85f, 0f, 0f, -44f, 25f, 0f), K(1f, 0f, 0f, 0f, 0f))),    // 4. beatific wide raise (finisher)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -45f, 0f, 0f, -26f, 15f, 0f), K(0.60f, -45f, 0f, 0f, -26f, 15f, 0f), K(0.82f, -80f, 0f, 0f, -40f, 20f, 0f), K(1f, 0f, 0f, 0f, 0f))),
                     null, K_Book, 0.44f, 0.64f)
             },
 
-            // bone_wand — quick flicks: up, side, downward point, wide swirl.
+            // bone_wand — one cast: raise up, hold, swirl out, recover.
             {
                 "bone_wand", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -70f, 0f, 0f, -14f, 30f, 0f), K(0.70f, -70f, 0f, 0f, -14f, 30f, 0f), K(1f, 0f, 0f, 0f, 0f)),      // 1. up flick
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -70f, -40f, 0f, -14f, 30f, -35f), K(0.70f, -68f, -40f, 0f, -14f, 30f, -35f), K(1f, 0f, 0f, 0f, 0f)), // 2. side flick left
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -45f, 0f, 0f, -10f, 40f, 0f), K(0.70f, -40f, 0f, 0f, -10f, 40f, 0f), K(1f, 0f, 0f, 0f, 0f)),    // 3. downward point
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -85f, 55f, 0f, -18f, 35f, 40f), K(0.55f, -70f, -30f, 0f, -14f, 30f, -40f), K(0.75f, -80f, 60f, 0f, -16f, 35f, 40f), K(1f, 0f, 0f, 0f, 0f))), // 4. wide swirling flick (finisher)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -70f, 0f, 0f, -14f, 30f, 0f), K(0.60f, -70f, 0f, 0f, -14f, 30f, 0f), K(0.82f, -80f, 55f, 0f, -16f, 32f, 40f), K(1f, 0f, 0f, 0f, 0f))),
                     null, K_Wand, 0.38f, 0.56f)
             },
 
-            // control_orb — orbiting arcs: low, high wide, figure-eight, grand circle.
+            // control_orb — one arc: raise wide, hold, grand circle release, recover.
             {
                 "control_orb", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -80f, 10f, 0f, -12f, 25f, 0f), K(0.70f, -80f, 10f, 0f, -12f, 25f, 0f), K(1f, 0f, 0f, 0f, 0f)),       // 1. low arc
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -95f, -55f, 0f, -14f, 25f, 30f), K(0.70f, -90f, -55f, 0f, -14f, 25f, 30f), K(1f, 0f, 0f, 0f, 0f)),  // 2. high wide arc left
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -85f, 45f, 0f, -10f, 25f, 40f), K(0.55f, -75f, -35f, 0f, -12f, 25f, -40f), K(0.75f, -88f, 45f, 0f, -10f, 25f, 40f), K(1f, 0f, 0f, 0f, 0f)), // 3. figure-eight sweep
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -160f, 0f, 0f, -10f, 40f, 0f), K(0.60f, -120f, 0f, 0f, -6f, 30f, 0f), K(0.85f, -80f, 0f, 0f, -12f, 20f, 0f), K(1f, 0f, 0f, 0f, 0f))),   // 4. grand full circle (finisher)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -95f, -30f, 0f, -14f, 25f, 20f), K(0.60f, -95f, -30f, 0f, -14f, 25f, 20f), K(0.82f, -120f, 0f, 0f, -6f, 30f, 0f), K(1f, 0f, 0f, 0f, 0f))),
                     null, K_Orb, 0.46f, 0.66f)
             },
 
-            // lute — bard strums: single, double, side tilt, flourish.
+            // lute — one strum: rise, hold, flourish release, recover.
             {
                 "lute", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -30f, 15f, 0f, -34f, 12f, 15f), K(0.70f, -30f, 15f, 0f, -34f, 12f, 15f), K(1f, 0f, 0f, 0f, 0f)),   // 1. single strum — wrist brushes across the strings
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -30f, 15f, 0f, -34f, 12f, 15f), K(0.50f, -28f, 12f, 0f, -30f, 10f, 10f), K(0.70f, -32f, 18f, 0f, -36f, 14f, 20f), K(1f, 0f, 0f, 0f, 0f)), // 2. double strum — two wrist flutters
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -30f, -25f, 0f, -32f, 12f, -20f), K(0.70f, -28f, -28f, 0f, -34f, 12f, -20f), K(1f, 0f, 0f, 0f, 0f)), // 3. side-tilt strum
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -40f, 30f, 0f, -38f, 20f, 40f), K(0.55f, -30f, 10f, 0f, -30f, 10f, -20f), K(0.75f, -45f, 35f, 0f, -40f, 20f, 40f), K(1f, 0f, 0f, 0f, 0f))), // 4. flourish strum (finisher)
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -30f, 15f, 0f, -34f, 12f, 15f), K(0.60f, -32f, 18f, 0f, -36f, 14f, 20f), K(0.85f, -45f, 35f, 0f, -40f, 20f, 40f), K(1f, 0f, 0f, 0f, 0f))),
                     null, K_Lute, 0.42f, 0.60f)
             },
         };
@@ -334,6 +312,11 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
     // 1 when the current swing sweeps horizontally (yaw-dominant = side slash) — gates the
     // tip-down → sideways slash lead so chops and thrusts keep their own motion.
     private float _sweepScale;
+
+    // Live charge-hold: the arm holds the weapon's charge pose indefinitely while _charging,
+    // and the weapon-local accent ramps with _chargeLevel (0..1) as the cast/draw builds.
+    private bool _charging;
+    private float _chargeLevel;
 
     private static readonly HashSet<string> _leadLogged = new HashSet<string>();
 
@@ -399,11 +382,72 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
         return _duration;
     }
 
+    /// <summary>
+    /// Enter the weapon's charge-hold: the arm eases to the track's hold plateau and stays there
+    /// (driving <see cref="SetChargeLevel"/> scales the accent). Ends with <see cref="EndCharge"/>:
+    /// fire resumes the track through the loose/recover tail; cancel settles straight back.
+    /// </summary>
+    public void PlayCharge()
+    {
+        _set = _def.Owner != null && _def.Owner.Length > 0 ? _def.Owner[0] : null;
+        _otherSet = _def.Other != null && _def.Other.Length > 0 ? _def.Other[0] : null;
+
+        StopSway();
+        _chargeLevel = 0f;
+        _heavy = false;
+        float speed = SpeedScale();
+        _duration = Mathf.Max(0.001f, _def.TimeLight * BaseSwingTimeScale / speed);
+
+        // Rest poses freshly captured so re-parenting onto a hand (ReparentToHands) is harmless.
+        _basePos = transform.localPosition;
+        _baseEuler = transform.localRotation.eulerAngles;
+        _baseScale = transform.localScale;
+
+        ResolvePivots();
+
+        _ownerShBase = _ownerShoulder != null ? _ownerShoulder.localRotation : Quaternion.identity;
+        _ownerElBase = _ownerElbow != null ? _ownerElbow.localRotation : Quaternion.identity;
+        _ownerWrBase = _ownerWrist != null ? _ownerWrist.localRotation : Quaternion.identity;
+        _otherShBase = _otherShoulder != null ? _otherShoulder.localRotation : Quaternion.identity;
+        _otherElBase = _otherElbow != null ? _otherElbow.localRotation : Quaternion.identity;
+        _otherWrBase = _otherWrist != null ? _otherWrist.localRotation : Quaternion.identity;
+
+        if (_playerAnim != null) _playerAnim.AcquireArms();
+
+        _charging = true;
+        _active = false;
+    }
+
+    /// <summary>Set the live charge level (0..1) while charging — drives the weapon accent.</summary>
+    public void SetChargeLevel(float level) => _chargeLevel = Mathf.Clamp01(level);
+
+    /// <summary>End the charge-hold. <paramref name="fire"/> resumes the release tail of the track
+    /// (loose → recover); otherwise the arms settle straight back to the rest pose.</summary>
+    public void EndCharge(bool fire)
+    {
+        if (!_charging) return;
+        _charging = false;
+        if (fire)
+        {
+            _active = true;
+            _t = ChargeHoldT * _duration;
+        }
+        else
+        {
+            End();
+        }
+    }
+
     private void Update()
     {
         if (_active)
         {
             UpdateAttack();
+            return;
+        }
+        if (_charging)
+        {
+            UpdateCharge();
             return;
         }
         UpdateSway();
@@ -421,8 +465,6 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
         float m = _offHand ? -1f : 1f;
 
         PoseKey k = Sample(_set, t);
-        Vector3 sh = new Vector3(ClampShX(k.shX), k.shY * m, k.shZ * m) * h;
-        float el = k.elX * h;
 
         // Blade lead: rotate the weapon INTO the swing so the tip leads the arc instead of being
         // dragged along at a fixed grip angle. A subtle angle follows the shoulder track (the blade
@@ -437,10 +479,47 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
         _pulse = _impactT > 0f && t >= _impactT
             ? Mathf.Min(1f, Mathf.Exp(-(t - _impactT) * 18f))
             : 0f;
-        if (_pulse > 0f)
+
+        ApplyPose(k, m, h, _pulse, t);
+
+        // The weapon rides the hand; only magic focuses add a small local accent.
+        ApplyAccent(_def.Accent, t, out Vector3 aEuler, out Vector3 aPos, out float aScale);
+        aEuler.y *= m; aEuler.z *= m; aPos.x *= m;
+        transform.localRotation = Quaternion.Euler(_baseEuler + aEuler + leadEuler);
+        transform.localPosition = _basePos + aPos + new Vector3(0f, 0f, 0.02f * h * _pulse);
+        transform.localScale = _baseScale * aScale;
+
+        if (_t >= _duration)
+            End();
+    }
+
+    /// <summary>Hold the charge plateau: the arm sits at the track's hold pose while the weapon
+    /// accent (staff arc / book raise / wand pulse / orb sweep / bow draw) ramps with charge.</summary>
+    private void UpdateCharge()
+    {
+        float t = ChargeHoldT;
+        float m = _offHand ? -1f : 1f;
+        PoseKey k = Sample(_set, t);
+        ApplyPose(k, m, 1f, 0f, t);
+
+        ApplyAccent(_def.Accent, Mathf.Lerp(0.25f, 0.65f, _chargeLevel), out Vector3 aEuler, out Vector3 aPos, out float aScale);
+        aEuler.y *= m; aEuler.z *= m; aPos.x *= m;
+        transform.localRotation = Quaternion.Euler(_baseEuler + aEuler);
+        transform.localPosition = _basePos + aPos;
+        transform.localScale = _baseScale * aScale;
+    }
+
+    /// <summary>Apply the shoulder/elbow/wrist that the attack and charge phases share — arm (owner),
+    /// support arm by def mode, and the reflected left-hand mirror. Pulse = impact recoil (0 in idle
+    /// holds), h = heavy amplification, t = normalized time (needed for Asym support-arm sampling).</summary>
+    private void ApplyPose(PoseKey k, float m, float h, float pulse, float t)
+    {
+        Vector3 sh = new Vector3(ClampShX(k.shX), k.shY * m, k.shZ * m) * h;
+        float el = k.elX * h;
+        if (pulse > 0f)
         {
-            sh += new Vector3(0f, -_strikeDir * 6f * h * _pulse * m, 0f);
-            el += 4f * h * _pulse;
+            sh += new Vector3(0f, -_strikeDir * 6f * h * pulse * m, 0f);
+            el += 4f * h * pulse;
         }
 
         if (_ownerShoulder != null)
@@ -476,16 +555,6 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
                     _otherWrist.localRotation = _otherWrBase * Quaternion.Euler(ok.wrX * h, ok.wrY * h * m, 0f);
                 break;
         }
-
-        // The weapon rides the hand; only magic focuses add a small local accent.
-        ApplyAccent(_def.Accent, t, out Vector3 aEuler, out Vector3 aPos, out float aScale);
-        aEuler.y *= m; aEuler.z *= m; aPos.x *= m;
-        transform.localRotation = Quaternion.Euler(_baseEuler + aEuler + leadEuler);
-        transform.localPosition = _basePos + aPos + new Vector3(0f, 0f, 0.02f * h * _pulse);
-        transform.localScale = _baseScale * aScale;
-
-        if (_t >= _duration)
-            End();
     }
 
     private void End()

@@ -61,11 +61,14 @@ public class PlayerController : MonoBehaviour
     private const float DodgeIFrameDuration = 0.3f;
     public float DodgeCost = 20f;
 
-    // Magic charging (armed spell via the Alt wheel): hold LMB to charge, release to fire.
+    // Aim/charge (armed magic via the Alt wheel, or any ranged weapon): hold LMB to aim only,
+    // hold RMB to charge/draw (releasing RMB freezes the built level, re-holding resumes), and
+    // release LMB to fire at the current level. Mobile taps still cast instantly.
     private const float MagicChargeTapThreshold = 0.15f;
     private const float MagicChargeMaxTime = 2f;
-    private bool _magicCharging;
-    private float _magicChargeStart;
+    private bool _aiming;
+    private bool _chargeRmbHeld;
+    private float _chargeAccum;
 
     public void SetInWater(bool inWater, float speedMul, bool allowJump)
     {
@@ -697,35 +700,61 @@ public class PlayerController : MonoBehaviour
             if (combatNow != null && combatNow.RightHand == null && combatNow.LeftHand == null)
                 WeaponRigBuilder.EnsureFists(gameObject);
         }
-        // Magic charging: while holding LMB with an armed spell, the cast builds up; releasing
-        // fires at the held charge level. Runs even while dialog-ish UI is up so the release isn't mired.
-        if (_magicCharging)
+        // Aim/charge: while _aiming (armed magic or ranged), RMB builds the charge level and RMB
+        // release freezes it; releasing LMB fires at the current level. Runs even while dialog-ish
+        // UI is up so the release isn't mired.
+        if (_aiming)
         {
-            if (_magicCharging && ShouldCancelCharge())
+            var combat = GetComponent<CombatController>();
+            if (ShouldCancelCharge())
             {
-                _magicCharging = false;
+                _aiming = false;
+                _chargeRmbHeld = false;
+                _chargeAccum = 0f;
+                combat?.EndCharge(false);
             }
-            else if (!GameInput.IsMobile && Mouse.current != null &&
-                     (Mouse.current.leftButton.wasReleasedThisFrame || !Mouse.current.leftButton.isPressed))
+            else
             {
-                float hold = Time.time - _magicChargeStart;
-                _magicCharging = false;
-                MagicWheelUI.ReleaseArmedCast(MagicChargeLevel(hold));
+                bool rmbDown = !GameInput.IsMobile && Mouse.current != null && Mouse.current.rightButton.isPressed;
+                _chargeRmbHeld = rmbDown;
+                if (rmbDown)
+                    _chargeAccum = Mathf.Min(_chargeAccum + Time.deltaTime, MagicChargeMaxTime);
+                combat?.SetChargeLevel(MagicChargeLevel(_chargeAccum));
+
+                bool lmbUp = !GameInput.IsMobile && Mouse.current != null &&
+                             (Mouse.current.leftButton.wasReleasedThisFrame || !Mouse.current.leftButton.isPressed);
+                if (lmbUp)
+                {
+                    float charge = MagicChargeLevel(_chargeAccum);
+                    _aiming = false;
+                    _chargeRmbHeld = false;
+                    _chargeAccum = 0f;
+                    combat?.EndCharge(true);
+                    if (MagicWheelUI.HasArmedMagic())
+                        MagicWheelUI.ReleaseArmedCast(charge);
+                    else if (IsRangedEquipped(combat))
+                        combat.FireRanged(charge);
+                    else
+                        combat?.EndCharge(false);
+                }
             }
         }
         if (!dialogBlocked && leftClick && !MagicWheelUI.IsOpen)
         {
             if (FightingMode)
             {
-                // Armed magic on PC charges on hold; a full release casts. Unarmed/basic cast stays.
-                if (!GameInput.IsMobile && !WeaponTransitionBusy() && MagicWheelUI.HasArmedMagic())
+                var combatPress = GetComponent<CombatController>();
+                bool aimable = !GameInput.IsMobile && !WeaponTransitionBusy() &&
+                    (MagicWheelUI.HasArmedMagic() || IsRangedEquipped(combatPress));
+                if (aimable)
                 {
-                    _magicCharging = true;
-                    _magicChargeStart = Time.time;
+                    // Hold LMB to aim (no charge yet); the release fires, driven above.
+                    _aiming = true;
+                    combatPress?.PlayCharge();
                 }
                 else if (!WeaponTransitionBusy() && !MagicWheelUI.ConsumeArmedCast())
                 {
-                    GetComponent<CombatController>()?.LightAttack();
+                    combatPress?.LightAttack();
                 }
             }
             else
@@ -745,11 +774,7 @@ public class PlayerController : MonoBehaviour
                         if (!WeaponTransitionBusy())
                             combat.SetBlocking(Mouse.current.rightButton.isPressed);
                     }
-                    else if (Mouse.current.rightButton.wasPressedThisFrame && !WeaponTransitionBusy())
-                    {
-                        // Ranged/magic keep the heavy attack on RMB.
-                        combat.HeavyAttack();
-                    }
+                    // Ranged/magic: RMB is the charge/draw — driven by the aim session above.
                 }
                 if (Mouse.current.rightButton.wasPressedThisFrame)
                     return;
@@ -945,6 +970,18 @@ public class PlayerController : MonoBehaviour
         return host != null && host.Data != null && host.Data.Category == WeaponCategory.Melee;
     }
 
+    /// <summary>True when the equipped hand(s) hold a ranged weapon (bow / throwing hammer).</summary>
+    private bool IsRangedEquipped(CombatController combat)
+    {
+        var hand = combat != null ? (combat.RightHand ?? combat.LeftHand) : null;
+        var host = hand != null ? hand.GetComponent<WeaponRigHost>() : null;
+        return host != null && host.Data != null && host.Data.Category == WeaponCategory.Ranged;
+    }
+
+    /// <summary>Charge level (0..1) progress for a held aim — drives the HUD charge bar.</summary>
+    public bool IsCharging => _aiming && (_chargeRmbHeld || _chargeAccum > 0f);
+    public float MagicChargeProgress => IsCharging ? MagicChargeLevel(_chargeAccum) : 0f;
+
     /// <summary>Charge level (0..1) for a held cast; taps under the threshold cast uncharged.</summary>
     private static float MagicChargeLevel(float holdTime)
     {
@@ -952,13 +989,14 @@ public class PlayerController : MonoBehaviour
         return Mathf.Clamp01(t);
     }
 
-    /// <summary>True when an in-progress magic charge should be dropped without casting.</summary>
+    /// <summary>True when an in-progress aim/charge should be dropped without firing.</summary>
     private bool ShouldCancelCharge()
     {
         if (GameInput.IsMobile || Mouse.current == null) return true;
         if (!FightingMode || WeaponTransitionBusy()) return true;
         if (MagicWheelUI.IsOpen) return true;
-        return !MagicWheelUI.HasArmedMagic();
+        var combat = GetComponent<CombatController>();
+        return !MagicWheelUI.HasArmedMagic() && !IsRangedEquipped(combat);
     }
 
     private void TryAutoRigWeapon()

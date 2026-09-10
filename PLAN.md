@@ -650,3 +650,35 @@ each weapon*. Batch 5 attacks each with a guarantee instead of another guess.
 - [ ] Projectile spell flies toward the crosshair (not into the ground).
 - [ ] Zone spell ring + damage appear on the ground where the crosshair points.
 - [ ] Charged casts follow the same aim; no camera / null preview latent-fallback doesn't crash.
+
+## 23. Batch 13 — aim-charge-fire inputs + charge bar + single charge→shoot animations
+
+- Report: magic casts shouldn't charge on LMB hold; the bow should charge with RMB and shoot with
+  LMB, and both should have ONE animation showing the charge-up of the shot. Decisions: LMB hold = aim
+  only, RMB hold = charge/draw (RMB release freezes the level, re-hold resumes; 2s cap, no auto-fire),
+  LMB release = fire; bow draw scales damage (x1..x2.5), speed (x1..x1.5) and flight distance
+  (x1..x2 lifetime / reach).
+- `PlayerController.cs`: replaced the old `_magicCharging`/`_magicChargeStart` with an aim/charge
+  state machine (`_aiming`/`_chargeRmbHeld`/`_chargeAccum`). Aim eligible = armed magic OR ranged.
+  Release fires `MagicWheelUI.ReleaseArmedCast(charge)` (magic) or `combat.FireRanged(charge)`
+  (ranged). Exposed `IsCharging` + `MagicChargeProgress` for the HUD; `ShouldCancelCharge` now treats
+  ranged like armed magic. Mobile taps still cast instantly. Magic no longer `HeavyAttack`s on RMB.
+- `CombatController.cs`: `PlayCharge`/`SetChargeLevel`/`EndCharge` fan out to the equipped rigs'
+  `WeaponAnimator`s; new `FireRanged(charge)` builds an `AttackCommand` with `ChargeLevel` + light/heavy
+  stamina cost by level.
+- `IWeaponBehavior.cs`: `AttackCommand.ChargeLevel` (0..1). `RangedWeaponBehavior.cs`: damage, speed
+  and lifetime/reach scale with draw (hit-scan fallback too); projectile `Lifetime` set before `Launch`.
+- `WeaponAnimator.cs`: new `PlayCharge` (hold the weapon's charge pose + `AcquireArms`), `SetChargeLevel`
+  (accent ramps: staff arc / book raise / wand pulse / orb sweep / bow full draw), `EndCharge(fire)` —
+  fire resumes the release tail, cancel settles. Shared arm-pose math extracted into `ApplyPose`. The 7
+  magic/ranged weapons are collapsed to ONE hold→release track each (longbow = draw-hold-loose, hammer =
+  cock-hold→windmill); melee combo swings untouched.
+- `PlayerBarsHUD.cs`: 4th stacked bar below Stamina, hidden unless charging, `Charge {pct}%` label.
+
+### 23.1 Verify (needs user — Unity can't be run here)
+- [ ] Magic: hold LMB = aim pose (no charge/bar), hold RMB = bar fills + accent pulses; release LMB =
+      spell fires at the frozen level; release LMB early (no RMB) = uncharged cast.
+- [ ] Bow: LMB aim + RMB draw → release LMB looses; full draw = heavier/faster/farther arrow; RMB
+      release keeps the draw level; releasing LMB with draw 0 = light shot; no ammo spent on cancel.
+- [ ] Charge bar only visible while charging; clears on fire/cancel.
+- [ ] Ranged/magic each play one charge→shoot animation; melee combos unchanged; mobile tap-cast works.

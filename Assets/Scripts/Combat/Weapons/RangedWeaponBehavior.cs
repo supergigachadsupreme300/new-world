@@ -28,6 +28,9 @@ public class RangedWeaponBehavior : MonoBehaviour, IWeaponBehavior
     [Header("Projectile")]
     public float ProjectileSpeed = 30f;
 
+    /// <summary>Flight time of a fully-uncharged shot (draw extends it).</summary>
+    public float BaseLifetime = 4f;
+
     private bool _attacking;
 
     public event Action Completed;
@@ -44,8 +47,13 @@ public class RangedWeaponBehavior : MonoBehaviour, IWeaponBehavior
 
         _attacking = true;
 
+        // Charge/draw scales damage, projectile speed and flight distance: a full draw
+        // (~charge 0..1) roughly doubles damage and reach while the bolt flies ~1.5x faster.
+        float charge = Mathf.Clamp01(cmd.ChargeLevel);
+
         // Damage comes from weapon.base (weapon ceiling, not stat-scaled).
         float damage = Data != null ? Data.BaseDamage : 10f;
+        damage *= Mathf.Lerp(1f, 2.5f, charge);
         ShotType = Data != null ? Data.Type : ShotType;
 
         Vector3 origin = Muzzle != null ? Muzzle.position : cmd.Origin != null ? cmd.Origin.position : transform.position;
@@ -59,11 +67,17 @@ public class RangedWeaponBehavior : MonoBehaviour, IWeaponBehavior
             accuracy = 1f + Stats.GetStat(WeaponScalingStat.Dexterity) * Data.AccuracyFromDex;
         Vector3 aimed = ApplySpread(dir, Mathf.Clamp01(1f / Mathf.Max(accuracy, 0.01f)));
 
+        // Draw extends the flight envelope: speed rises and the projectile destroys later so a
+        // full draw carries roughly 2.4x the base distance (speed x lifetime).
+        float speed = ProjectileSpeed * Mathf.Lerp(1f, 1.5f, charge);
+        float lifetime = BaseLifetime * Mathf.Lerp(1f, 2f, charge);
+        float reach = Data != null ? Data.Reach * Mathf.Lerp(1f, 2f, charge) : 60f;
+
         // Consume ammo.
         if (Data != null && Data.AmmoItemId != null)
             Ammo?.Consume(Data.AmmoItemId);
 
-        FireProjectile(damage, origin, aimed, cmd);
+        FireProjectile(damage, origin, aimed, cmd, speed, lifetime, reach);
 
         // Ranged attacks complete immediately (projectile carries the damage).
         _attacking = false;
@@ -85,24 +99,27 @@ public class RangedWeaponBehavior : MonoBehaviour, IWeaponBehavior
         return (dir + UnityEngine.Random.insideUnitSphere * spread * 0.15f).normalized;
     }
 
-    private void FireProjectile(float damage, Vector3 origin, Vector3 dir, AttackCommand cmd)
+    private void FireProjectile(float damage, Vector3 origin, Vector3 dir, AttackCommand cmd, float speed, float lifetime, float reach)
     {
         if (ProjectilePrefab != null)
         {
             GameObject go = Instantiate(ProjectilePrefab, origin, Quaternion.LookRotation(dir));
             var proj = go.GetComponent<RangedProjectile>();
             if (proj != null)
-                proj.Launch(dir, ProjectileSpeed, damage, ShotType, cmd.Origin);
+            {
+                proj.Lifetime = lifetime;
+                proj.Launch(dir, speed, damage, ShotType, cmd.Origin);
+            }
             else if (go.TryGetComponent<Rigidbody>(out var rb))
-                rb.linearVelocity = dir * ProjectileSpeed;
+                rb.linearVelocity = dir * speed;
         }
         else
         {
             // Hit-scan fallback with tracer over reach.
 #if UNITY_EDITOR
-            Debug.DrawRay(origin, dir * (Data != null ? Data.Reach : 60f), Color.yellow, 0.5f);
+            Debug.DrawRay(origin, dir * reach, Color.yellow, 0.5f);
 #endif
-            if (Physics.Raycast(origin, dir, out RaycastHit hit, Data != null ? Data.Reach : 60f))
+            if (Physics.Raycast(origin, dir, out RaycastHit hit, reach))
             {
                 var ctx = new DamageCalculator.HitContext
                 {

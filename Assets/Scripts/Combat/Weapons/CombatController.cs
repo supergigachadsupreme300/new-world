@@ -321,6 +321,65 @@ public class CombatController : MonoBehaviour
         return duration;
     }
 
+    /// <summary>Ask every equipped rig to enter its charge-hold pose (aim/draw).</summary>
+    public void PlayCharge()
+    {
+        foreach (var a in AllAnimators)
+            a.PlayCharge();
+    }
+
+    /// <summary>Push the live charge level (0..1) to every equipped rig's charge-hold accent.</summary>
+    public void SetChargeLevel(float level)
+    {
+        foreach (var a in AllAnimators)
+            a.SetChargeLevel(level);
+    }
+
+    /// <summary>End the charge-hold on every equipped rig — fire resumes the release tail, else settles.</summary>
+    public void EndCharge(bool fire)
+    {
+        foreach (var a in AllAnimators)
+            a.EndCharge(fire);
+    }
+
+    private System.Collections.Generic.IEnumerable<WeaponAnimator> AllAnimators
+    {
+        get
+        {
+            if (RightHand != null)
+                foreach (var a in RightHand.GetComponentsInChildren<WeaponAnimator>(true))
+                    yield return a;
+            if (LeftHand != null)
+                foreach (var a in LeftHand.GetComponentsInChildren<WeaponAnimator>(true))
+                    yield return a;
+        }
+    }
+
+    /// <summary>Fire the equipped ranged weapon at a released charge/draw level (0..1): the shot's
+    /// damage, projectile speed and flight distance scale with the draw. Not usable while blocking.</summary>
+    public void FireRanged(float charge)
+    {
+        if (!CanAct) return;
+        if (IsBlocking) return;
+
+        IWeaponBehavior behavior = ActiveBehavior;
+        if (behavior == null) return;
+
+        charge = Mathf.Clamp01(charge);
+        float cost = Mathf.Lerp(LightAttackCost, HeavyAttackCost, charge);
+        if (!_stamina.TrySpend(cost)) return;
+
+        var cmd = new AttackCommand
+        {
+            IsHeavy = charge >= 0.5f,
+            ChargeLevel = charge,
+            Direction = transform.forward,
+            Origin = transform
+        };
+        behavior.BeginAttack(cmd);
+        OnAttackStarted?.Invoke(behavior);
+    }
+
     // ── Frame update ────────────────────────────────────────────────────────
 
     private void Update()

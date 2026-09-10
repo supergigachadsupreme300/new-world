@@ -24,9 +24,11 @@ public sealed class PlayerBarsHUD : MonoBehaviour
     private Image _hpFill;
     private Image _fpFill;
     private Image _stamFill;
+    private Image _chargeFill;
     private TMP_Text _hpText;
     private TMP_Text _fpText;
     private TMP_Text _stamText;
+    private TMP_Text _chargeText;
     private float _lastHp = -1f, _lastMaxHp = -1f;
     private float _lastFp = -1f, _lastMaxFp = -1f;
     private float _lastStam = -1f, _lastMaxStam = -1f;
@@ -68,6 +70,14 @@ public sealed class PlayerBarsHUD : MonoBehaviour
             new Vector2(16f, top - BarSpacing * 2f), new Vector2(BarWidth, BarHeight),
             new Color(0f, 0f, 0f, 0.65f), new Color(0.2f, 0.8f, 0.3f));
         _stamText = MakeLabel(_stamFill.transform.parent as RectTransform);
+
+        // Cast/draw charge bar (under Stamina) — only shown while an aim is charging.
+        _chargeFill = HudCanvas.CreateBar(rect, "MagicChargeBar",
+            new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+            new Vector2(16f, top - BarSpacing * 3f), new Vector2(BarWidth, BarHeight),
+            new Color(0f, 0f, 0f, 0.65f), new Color(0.55f, 0.35f, 0.9f));
+        _chargeText = MakeLabel(_chargeFill.transform.parent as RectTransform);
+        _chargeFill.transform.parent.gameObject.SetActive(false);
     }
 
     private static TMP_Text MakeLabel(RectTransform barRoot)
@@ -118,6 +128,8 @@ public sealed class PlayerBarsHUD : MonoBehaviour
         UpdateLabel(_fpText, "Mana", fp, maxFp);
         UpdateLabel(_stamText, "Stam", stam, maxStam);
 
+        UpdateChargeBar(player);
+
         if (hpHit && _hpFill != null)
         {
             _flashTimer = 0.25f;
@@ -165,6 +177,20 @@ public sealed class PlayerBarsHUD : MonoBehaviour
     {
         if (label == null) return;
         label.text = name + " " + Mathf.RoundToInt(cur) + "/" + Mathf.RoundToInt(max);
+    }
+
+    private void UpdateChargeBar(PlayerController player)
+    {
+        if (_chargeFill == null) return;
+        var root = _chargeFill.transform.parent;
+        bool charging = player != null && player.IsCharging;
+        if (root.gameObject.activeSelf != charging)
+            root.gameObject.SetActive(charging);
+        if (!charging) return;
+        float level = player.MagicChargeProgress;
+        _chargeFill.fillAmount = level;
+        if (_chargeText != null)
+            _chargeText.text = "Charge " + Mathf.RoundToInt(level * 100f) + "%";
     }
 
     private static float ReadCurrentFp(Transform player)

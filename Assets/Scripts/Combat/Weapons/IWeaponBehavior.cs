@@ -10,6 +10,10 @@ public struct AttackCommand
     /// <summary>Attack strength variant (light / heavy).</summary>
     public bool IsHeavy;
 
+    /// <summary>Charge/draw level (0..1) the shot was released at — ranged weapons scale
+    /// damage, projectile speed and flight distance from it.</summary>
+    public float ChargeLevel;
+
     /// <summary>World direction the attack faces (usually the owner's forward).</summary>
     public Vector3 Direction;
 
