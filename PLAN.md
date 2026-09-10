@@ -869,7 +869,7 @@ Implementation batches (each: semantic checker 0, PLAN.md note, auto-commit):
 - [ ] Save + load: religion state round-trips (None/0) without resetting karma or quests.
 - [ ] Rosary still costs 1 karma before joining Buddhism.
 
-## 31. Batch 20b - Church + Priest (done: commit 0ba6b1f - pending semantic check)
+## 31. Batch 20b - Church + Priest (done: commit cfccfd8)
 
 Implements Batch B from the plan: a Catholic village church (white nave + pitched red roof +
 front gable bell tower with a gold cross) next to the pagoda, plus a Priest NPC who accepts a
@@ -893,8 +893,7 @@ front gable bell tower with a gold cross) next to the pagoda, plus a Priest NPC 
   Phat Giao/Buddhist, blessing message.
 - `WorldBuilder.NPCs.cs` reserve list + `WorldBuilder.Persistence.cs` prune box now cover the
   church footprint.
-- Semantic check: pending (will be run before commit). Verbose CP1252 mojibake in WorldBuilder.cs
-  is pre-existing (pagoda block), untouched.
+- Semantic check: 0 diagnostics. Commit: cfccfd8.
 
 ### 31.1 Verify (needs user - Unity can't be run here) - batch B
 - [ ] Walk SE of the village around (40, 0, -30): church built (white walls, pitched red roof,
