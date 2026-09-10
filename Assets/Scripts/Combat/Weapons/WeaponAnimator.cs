@@ -113,6 +113,17 @@ public sealed class WeaponAnimator : MonoBehaviour
     private static PoseKey[] T(params PoseKey[] keys) => keys;
     private static PoseKey[][] V(params PoseKey[][] sets) => sets;
 
+    // Magic cast — ONE animation shared by every magic weapon: the casting hand raises up and
+    // forward (palm presenting), holds, then a forward push beats out the spell at launch, then the
+    // arm recovers. The t=0.30 plateau IS the live charge-hold pose (ChargeHoldT), so the raised
+    // hand stays put until the spell is actually launched; the cast push only plays at launch.
+    private static readonly PoseKey[] MagicCastKeys = T(
+        K(0f, 0f, 0f, 0f, 0f),
+        K(0.30f, -72f, 0f, 0f, -36f, 45f, 0f),  // raise hand up and forward, palm presenting
+        K(0.60f, -72f, 0f, 0f, -36f, 45f, 0f),  // hold — persists while charging
+        K(0.82f, -78f, 0f, 0f, -8f, 15f, 0f),   // cast: extend + push forward at launch
+        K(1f, 0f, 0f, 0f, 0f));                 // recover
+
     private static readonly System.Collections.Generic.Dictionary<string, WeaponAnimDef> Defs =
         new System.Collections.Generic.Dictionary<string, WeaponAnimDef>
         {
@@ -224,39 +235,27 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
                     null, K_None, 0.55f, 0.75f)
             },
 
-            // staff — one cast charge: raise the channel, hold, release forward, recover.
+            // staff / holy_book / bone_wand / control_orb / lute — ALL magic weapons share the one
+            // magic cast (MagicCastKeys): raise hand forward, hold while charging, cast at launch.
+            // Each keeps its own cast speed (TimeLight/TimeHeavy) and weapon-local magic accent.
             {
-                "staff", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -60f, 0f, 0f, -18f, 25f, 0f), K(0.60f, -60f, 0f, 0f, -18f, 25f, 0f), K(0.82f, -55f, 0f, 0f, -12f, 20f, 0f), K(1f, 0f, 0f, 0f, 0f))),
-                    null, K_Staff, 0.42f, 0.62f)
+                "staff", new WeaponAnimDef(OffArm.None, V(MagicCastKeys), null, K_Staff, 0.42f, 0.62f)
             },
 
-            // holy_book — one chant: raise, hold, wide release, recover.
             {
-                "holy_book", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -45f, 0f, 0f, -26f, 15f, 0f), K(0.60f, -45f, 0f, 0f, -26f, 15f, 0f), K(0.82f, -80f, 0f, 0f, -40f, 20f, 0f), K(1f, 0f, 0f, 0f, 0f))),
-                    null, K_Book, 0.44f, 0.64f)
+                "holy_book", new WeaponAnimDef(OffArm.None, V(MagicCastKeys), null, K_Book, 0.44f, 0.64f)
             },
 
-            // bone_wand — one cast: raise up, hold, swirl out, recover.
             {
-                "bone_wand", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -70f, 0f, 0f, -14f, 30f, 0f), K(0.60f, -70f, 0f, 0f, -14f, 30f, 0f), K(0.82f, -80f, 55f, 0f, -16f, 32f, 40f), K(1f, 0f, 0f, 0f, 0f))),
-                    null, K_Wand, 0.38f, 0.56f)
+                "bone_wand", new WeaponAnimDef(OffArm.None, V(MagicCastKeys), null, K_Wand, 0.38f, 0.56f)
             },
 
-            // control_orb — one arc: raise wide, hold, grand circle release, recover.
             {
-                "control_orb", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -95f, -30f, 0f, -14f, 25f, 20f), K(0.60f, -95f, -30f, 0f, -14f, 25f, 20f), K(0.82f, -120f, 0f, 0f, -6f, 30f, 0f), K(1f, 0f, 0f, 0f, 0f))),
-                    null, K_Orb, 0.46f, 0.66f)
+                "control_orb", new WeaponAnimDef(OffArm.None, V(MagicCastKeys), null, K_Orb, 0.46f, 0.66f)
             },
 
-            // lute — one strum: rise, hold, flourish release, recover.
             {
-                "lute", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -30f, 15f, 0f, -34f, 12f, 15f), K(0.60f, -32f, 18f, 0f, -36f, 14f, 20f), K(0.85f, -45f, 35f, 0f, -40f, 20f, 40f), K(1f, 0f, 0f, 0f, 0f))),
-                    null, K_Lute, 0.42f, 0.60f)
+                "lute", new WeaponAnimDef(OffArm.None, V(MagicCastKeys), null, K_Lute, 0.42f, 0.60f)
             },
         };
 

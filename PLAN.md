@@ -682,3 +682,23 @@ each weapon*. Batch 5 attacks each with a guarantee instead of another guess.
       release keeps the draw level; releasing LMB with draw 0 = light shot; no ammo spent on cancel.
 - [ ] Charge bar only visible while charging; clears on fire/cancel.
 - [ ] Ranged/magic each play one charge→shoot animation; melee combos unchanged; mobile tap-cast works.
+
+## 24. Batch 14 — one magic cast animation for all magic weapons (raise, hold, cast at launch)
+
+- Report: magic weapons should have ONE animation — the hand raises to the front, then casts, and the
+  raised pose stays until the spell is launched.
+- `WeaponAnimator.cs`: new shared `MagicCastKeys` track used by ALL magic weapons (staff, holy_book,
+  bone_wand, control_orb, lute): rest → hand raises up and forward palm-out (t=0.30) → hold (t=0.60)
+  → cast: extend + forward push at launch (t=0.82) → recover. The t=0.30 plateau is the live
+  charge-hold pose (`ChargeHoldT`), so while charging the raised hand stays in place; it only changes
+  when the spell is launched (`EndCharge(fire)` resumes the release tail). Cancel settles straight back.
+- Each magic def keeps its own cast speed (`TimeLight`/`TimeHeavy`) and weapon-local magic accent
+  (`K_Staff`/`K_Book`/`K_Wand`/`K_Orb`/`K_Lute`). Ranged and melee tracks untouched.
+
+### 24.1 Verify (needs user — Unity can't be run here)
+- [ ] Every magic weapon uses the SAME cast motion: hand raises forward, holds while charging, pushes
+      forward the moment the spell launches, then recovers.
+- [ ] While RMB-charging (or LMB-aiming) the raised hand stays frozen at the charge pose — no idle
+      sway/reset — until the spell fires or the aim is cancelled.
+- [ ] Cancel drops the hand straight back without a cast push; no spell fires.
+- [ ] Each weapon still shows its own magic accent and cast speed; melee + bow unchanged.
