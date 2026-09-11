@@ -7,8 +7,10 @@ public partial class WorldBuilder
 {
     public bool HitRock(GameObject rockRoot, Vector3 hitPoint, Vector3 hitNormal)
     {
-        if (rockRoot == null || !_rocks.Contains(rockRoot))
+        if (rockRoot == null)
             return false;
+        if (!_rocks.Contains(rockRoot))
+            _rocks.Add(rockRoot);
 
         if (_rockCrackStates.TryGetValue(rockRoot, out var state))
         {
@@ -422,6 +424,10 @@ public partial class WorldBuilder
     {
         if (rock == null)
             return false;
+
+        if (!_rocks.Contains(rock))
+            _rocks.Add(rock);
+
         if (_rocks.Contains(rock))
         {
             if (_rockCrackStates.TryGetValue(rock, out var state))

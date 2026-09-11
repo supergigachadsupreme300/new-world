@@ -10,6 +10,9 @@ public partial class WorldBuilder
         if (tree == null)
             return false;
 
+        if (!_trees.Contains(tree))
+            _trees.Add(tree);
+
         if (_trees.Contains(tree))
         {
             if (_treeChopStates.TryGetValue(tree, out var state))
@@ -26,8 +29,10 @@ public partial class WorldBuilder
 
     public bool ChopTree(GameObject treeRoot, Vector3 hitPoint, Vector3 hitNormal)
     {
-        if (treeRoot == null || !_trees.Contains(treeRoot))
+        if (treeRoot == null)
             return false;
+        if (!_trees.Contains(treeRoot))
+            _trees.Add(treeRoot);
 
         if (_treeChopStates.TryGetValue(treeRoot, out var state))
         {

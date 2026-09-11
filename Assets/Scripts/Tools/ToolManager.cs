@@ -823,7 +823,9 @@ public partial class ToolManager : MonoBehaviour
                 else
                 {
                     var debrisRoot = hit.collider.gameObject;
-                    while (debrisRoot.transform.parent != null && debrisRoot.transform.parent.name != "WorldRoot")
+                    while (debrisRoot.transform.parent != null &&
+                           debrisRoot.transform.parent.name != "WorldRoot" &&
+                           debrisRoot.transform.parent.GetComponent<ChunkObject>() == null)
                         debrisRoot = debrisRoot.transform.parent.gameObject;
                     if (debrisRoot.name == "BranchTop" || debrisRoot.name == "TreeFelled")
                     {
@@ -838,7 +840,9 @@ public partial class ToolManager : MonoBehaviour
             if (selectedItem == "pickaxe" && IsRock(hit.collider))
             {
                 var rockRoot = hit.collider.gameObject;
-                while (rockRoot.transform.parent != null && rockRoot.transform.parent.name != "WorldRoot")
+                while (rockRoot.transform.parent != null &&
+                       rockRoot.transform.parent.name != "WorldRoot" &&
+                       rockRoot.transform.parent.GetComponent<ChunkObject>() == null)
                     rockRoot = rockRoot.transform.parent.gameObject;
 
                 if (rockRoot.name == "RockDebris")
