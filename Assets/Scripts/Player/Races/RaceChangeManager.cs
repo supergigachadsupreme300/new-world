@@ -24,6 +24,8 @@ public class RaceChangeManager : MonoBehaviour
     private PlayerStats _stats;
     private RaceRig _rig;
     private RacePassiveManager _passive;
+    private RaceSkillPassiveManager _raceSkillPassive;
+    private RaceSkillState _raceSkillState;
 
     /// <summary>Fires when the active race changes (after applying reflex).</summary>
     public event System.Action<RaceData> OnActiveRaceChanged;
@@ -33,6 +35,8 @@ public class RaceChangeManager : MonoBehaviour
         _stats = GetComponent<PlayerStats>();
         _rig = GetComponent<RaceRig>();
         _passive = GetComponent<RacePassiveManager>();
+        _raceSkillPassive = GetComponent<RaceSkillPassiveManager>();
+        _raceSkillState = GetComponent<RaceSkillState>();
     }
 
     private void Start()
@@ -155,5 +159,14 @@ public class RaceChangeManager : MonoBehaviour
         if (_passive == null) _passive = GetComponent<RacePassiveManager>();
         if (_passive == null) _passive = gameObject.AddComponent<RacePassiveManager>();
         else _passive.enabled = true; // triggers passive refresh next Update
+
+        // Refresh race skill tree passives and state.
+        if (_raceSkillPassive == null) _raceSkillPassive = GetComponent<RaceSkillPassiveManager>();
+        if (_raceSkillPassive == null) _raceSkillPassive = gameObject.AddComponent<RaceSkillPassiveManager>();
+        _raceSkillPassive.Refresh();
+
+        if (_raceSkillState == null) _raceSkillState = GetComponent<RaceSkillState>();
+        if (_raceSkillState == null) _raceSkillState = gameObject.AddComponent<RaceSkillState>();
+        _raceSkillState.SetRace(race != null ? race.raceId : string.Empty);
     }
 }

@@ -38,7 +38,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     public static CharacterInfoUI Instance;
 
     public enum Tab { Info = 0, Skills = 1, Inventory = 2, Map = 3, Faith = 4 }
-    public enum SkillSubTab { General = 0, Class = 1 }
+    public enum SkillSubTab { General = 0, Class = 1, Race = 2 }
 
     public Tab ActiveTab = Tab.Info;
 
@@ -99,7 +99,14 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private ClassSkill _selectedClassSkill;
     private Button _generalTabBtn;
     private Button _classTabBtn;
+    private Button _raceTabBtn;
     private GameObject _legendRoot;
+
+    // Race skill tree.
+    private readonly List<RaceSkill> _raceTreeSkills = new List<RaceSkill>();
+    private readonly List<(RaceSkill skill, Image image)> _raceTreeNodes = new List<(RaceSkill, Image)>();
+    private readonly List<(Image image, RaceSkill target)> _raceTreeLines = new List<(Image, RaceSkill)>();
+    private RaceSkill _selectedRaceSkill;
 
     // Backpack storage grid (30 slots) + mirrored hotbar row (10 slots).
     private readonly Image[] _storageImgs = new Image[ToolManager.StorageSlotCount];
@@ -380,6 +387,9 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _classTabBtn = MakeButton(_panels[Tab.Skills].transform, "ClassTabBtn", "Class", P(-30f, 250f), OnClassTab);
         _classTabBtn.GetComponent<RectTransform>().sizeDelta = Sz(120f, 30f);
         ApplyFullButtonSprite(_classTabBtn.GetComponent<Image>());
+        _raceTabBtn = MakeButton(_panels[Tab.Skills].transform, "RaceTabBtn", "Race", P(100f, 250f), OnRaceTab);
+        _raceTabBtn.GetComponent<RectTransform>().sizeDelta = Sz(120f, 30f);
+        ApplyFullButtonSprite(_raceTabBtn.GetComponent<Image>());
 
         RectTransform treeVt = BuildSkillTree(_panels[Tab.Skills].transform);
         BuildSkillDetail(treeVt.transform);
@@ -740,6 +750,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
             RefreshClassSkillTree();
             return;
         }
+        if (_skillSubTab == SkillSubTab.Race)
+        {
+            RefreshRaceSkillTree();
+            return;
+        }
 
         var profile = SkillProfileOf();
         bool hasPoints = profile != null && profile.Points > 0;
@@ -908,7 +923,24 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private void AssignSelectedSkillKey()
     {
         var bindings = BindingsOf();
-        if (_selectedSkill == null || bindings == null) return;
+        if (bindings == null) return;
+
+        // Race tree: bind the selected racial active.
+        if (_selectedRaceSkill != null)
+        {
+            if (_selectedRaceSkill.IsPassive)
+            {
+                if (_detailLearnHint != null)
+                    _detailLearnHint.text = Localization.T("Passives are always-on — nothing to bind.");
+                return;
+            }
+            bindings.BeginCapture(_selectedRaceSkill.id);
+            if (_detailLearnHint != null)
+                _detailLearnHint.text = Localization.F("Press a key to bind: {0}", _selectedRaceSkill.displayName);
+            return;
+        }
+
+        if (_selectedSkill == null) return;
         if (!CanBindSelectedSkill())
         {
             if (_detailLearnHint != null)
@@ -925,6 +957,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
         if (_skillSubTab == SkillSubTab.Class)
         {
             RebuildClassSkillTree();
+            return;
+        }
+        if (_skillSubTab == SkillSubTab.Race)
+        {
+            RebuildRaceSkillTree();
             return;
         }
 
@@ -961,20 +998,22 @@ public sealed class CharacterInfoUI : MenuPanelBase
                                             // minus a 0.2° clearance buffer so adjacent categories never touch.
         // Tier-band radii (px). Each layer owns a fixed band of rings instead of drifting outward,
         // and the wheel is sized OUT from the hub so every ring's arc has enough real estate:
-        //   ring0      r=280  Layer 0 (base) — one ring, exactly sized to the category's ROOT count
+        //   ring0      r=250  Layer 0 (base) — one ring, exactly sized to the category's ROOT count
         //              (5 for Melee/Ranged/Stealth/Crafting, 6 for Magic & Fortitude) so no slots
         //              go to waste and branches never eat a root's slot.
-        //   ring1-2    r=580,596  Layer 1 (branch) — the first ring holds 60 slots (pitch 10), so the
-        //              full Layer-1 set of every category except Magic sits on a single ring; Magic's
-        //              78 skills spill just 18 onto the tight 16px second ring.
-        //   ring3+     r=726,...  Layer 2 (deep) — starts a full 130px moat past the last branch ring.
-        const float ring0 = 280f;
-        const float moatBase = 300f;    // base ring -> first branch ring (r1 = 580).
-        const float branchStep = 16f;   // headroom between the two branch-band rings (7px node).
-        const float moatBranch = 130f;  // last branch ring -> first deep ring (r3 = 726).
-        const float deepStep = 120f;    // spacing between deep rings.
-        float[] layerPitch = { 20f, 10f, 12f }; // Per-layer node pitch: L0 base (18px node + 2px gap),
-                                                // L1 branch (8px node + 2px gap), L2 deep (10px node + 2px gap).
+        //   ring1-2    r=500,522  Layer 1 (branch) — pulled inward so the branch band reads as a tight
+        //              arc: the first ring holds 52 slots (pitch 10), so a full Layer-1 set up to 52
+        //              skills sits centered on a single ring; only Magic (70) and Fortitude (60) spill
+        //              a few units onto the second ring.
+        //   ring3+     r=802,...  Layer 2 (deep) — starts a full 280px moat past the last branch ring
+        //              so layer-2 branches sit clearly on their own band, then grows 180px per ring.
+        const float ring0 = 250f;
+        const float moatBase = 250f;    // base ring -> first branch ring (r1 = 500).
+        const float branchStep = 22f;   // headroom between the two branch-band rings (7px node).
+        const float moatBranch = 280f;  // last branch ring -> first deep ring (r3 = 802).
+        const float deepStep = 180f;    // spacing between deep rings.
+        float[] layerPitch = { 22f, 10f, 14f }; // Per-layer node pitch: L0 base (18px node + 4px gap),
+                                                // L1 branch (8px node + 2px gap), L2 deep (10px node + 4px gap).
 
         float RingRadius(int ring)
         {
@@ -986,7 +1025,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         int RingCapacity(int ring, float pitch) => Mathf.Max(1, Mathf.FloorToInt(RingRadius(ring) * (2f * sectorHalf) / pitch));
 
         var posOf = new Dictionary<string, Vector2>();
-        const float hubR = 180f;    // category wheel radius — widened so the six hub bubbles sit close to the
+        const float hubR = 170f;    // category wheel radius — widened so the six hub bubbles sit close to the
                                     // base ring and give the outer bands more room to grow.
 
         for (int ci = 0; ci < 6; ci++)
@@ -1328,6 +1367,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
     private void OnGeneralTab() => SetSkillSubTab(SkillSubTab.General);
     private void OnClassTab() => SetSkillSubTab(SkillSubTab.Class);
+    private void OnRaceTab() => SetSkillSubTab(SkillSubTab.Race);
 
     private void SetSkillSubTab(SkillSubTab tab)
     {
@@ -1335,8 +1375,9 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _skillSubTab = tab;
         _selectedSkill = null;
         _selectedClassSkill = null;
+        _selectedRaceSkill = null;
         if (_detailPane != null) _detailPane.SetActive(false);
-        // Legend only shown in General view (6-category colors irrelevant to class tree).
+        // Legend only shown in General view (6-category colors irrelevant to class/race tree).
         if (_legendRoot != null)
         {
             foreach (var chip in _legendChips)
@@ -1353,6 +1394,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private void UpdateSubTabButtons()
     {
         bool gen = _skillSubTab == SkillSubTab.General;
+        bool cls = _skillSubTab == SkillSubTab.Class;
+        bool rac = _skillSubTab == SkillSubTab.Race;
         if (_generalTabBtn != null)
         {
             var img = _generalTabBtn.GetComponent<Image>();
@@ -1361,7 +1404,12 @@ public sealed class CharacterInfoUI : MenuPanelBase
         if (_classTabBtn != null)
         {
             var img = _classTabBtn.GetComponent<Image>();
-            if (img != null) img.color = !gen ? NodeLearned : NodeLocked;
+            if (img != null) img.color = cls ? NodeLearned : NodeLocked;
+        }
+        if (_raceTabBtn != null)
+        {
+            var img = _raceTabBtn.GetComponent<Image>();
+            if (img != null) img.color = rac ? NodeLearned : NodeLocked;
         }
     }
 
@@ -1571,6 +1619,226 @@ public sealed class CharacterInfoUI : MenuPanelBase
         // Class castables run through ClassSkillCaster's own hotkey system — no manual binding.
         if (_learnBtn != null) _learnBtn.gameObject.SetActive(false);
         if (_assignKeyBtn != null) _assignKeyBtn.gameObject.SetActive(false);
+    }
+
+    // ── Race skill tree builder ────────────────────────────────────────────
+
+    private void RebuildRaceSkillTree()
+    {
+        if (_treeContent == null) return;
+
+        for (int i = _treeContent.childCount - 1; i >= 0; i--)
+            Destroy(_treeContent.GetChild(i).gameObject);
+        _raceTreeNodes.Clear();
+        _raceTreeLines.Clear();
+        _raceTreeSkills.Clear();
+        _selectedRaceSkill = null;
+        _treeNodes.Clear();
+        _treeLines.Clear();
+        _treeSkills.Clear();
+        _selectedSkill = null;
+        _selectedClassSkill = null;
+        _treeContent.anchoredPosition = Vector2.zero;
+        _treeContent.localScale = Vector3.one;
+
+        RaceSkillCatalog.EnsureBuilt();
+        var stats = PlayerStatsOf();
+        string raceId = stats != null && stats.Race != null ? stats.Race.raceId : "human";
+        var list = new List<RaceSkill>();
+        foreach (var s in RaceSkillCatalog.ForRace(raceId))
+            if (s != null) list.Add(s);
+        if (list.Count == 0) return;
+
+        // Radial layout: hub at center, 3 paths fan out at 120° intervals.
+        const float pathR = 200f;
+        const float leafR = 420f;
+        const float leafSpread = 50f;
+
+        // Hub node.
+        var hub = list.Find(s => s.Layer == 0);
+        if (hub != null)
+        {
+            _raceTreeSkills.Add(hub);
+            _raceTreeNodes.Add((hub, MakeRaceSkillTreeNode(hub, Vector2.zero, 24f)));
+        }
+
+        // Group Layer 1 nodes and their Layer 2 children by path order.
+        var layer1 = new List<RaceSkill>();
+        foreach (var s in list)
+            if (s.Layer == 1) layer1.Add(s);
+        layer1.Sort((a, b) => string.CompareOrdinal(a.id, b.id));
+
+        int pathCount = Mathf.Max(1, layer1.Count);
+        for (int pi = 0; pi < pathCount; pi++)
+        {
+            var pathNode = layer1[pi];
+            float angle = (-90f + pi * (360f / pathCount)) * Mathf.Deg2Rad;
+            Vector2 pos1 = new Vector2(Mathf.Cos(angle) * pathR, Mathf.Sin(angle) * pathR);
+
+            _raceTreeSkills.Add(pathNode);
+            _raceTreeNodes.Add((pathNode, MakeRaceSkillTreeNode(pathNode, pos1, 18f)));
+
+            // Line from hub to path parent.
+            var spoke = MakeTreeLine(Vector2.zero, pos1, 2.5f);
+            spoke.color = LineActive;
+            _raceTreeLines.Add((spoke, pathNode));
+
+            // Find Layer 2 children of this path node.
+            var children = new List<RaceSkill>();
+            foreach (var s in list)
+            {
+                if (s.Layer != 2 || s.PrereqSkillIds == null) continue;
+                foreach (var pid in s.PrereqSkillIds)
+                    if (pid == pathNode.id) { children.Add(s); break; }
+            }
+            children.Sort((a, b) => string.CompareOrdinal(a.id, b.id));
+
+            for (int ci = 0; ci < children.Count; ci++)
+            {
+                var child = children[ci];
+                float childAngle = angle + (ci - (children.Count - 1) * 0.5f) * (leafSpread * Mathf.Deg2Rad);
+                Vector2 pos2 = new Vector2(Mathf.Cos(childAngle) * leafR, Mathf.Sin(childAngle) * leafR);
+
+                _raceTreeSkills.Add(child);
+                _raceTreeNodes.Add((child, MakeRaceSkillTreeNode(child, pos2, 14f)));
+
+                var line = MakeTreeLine(pos1, pos2, 1.5f);
+                _raceTreeLines.Add((line, child));
+            }
+        }
+
+        FitTreeToViewport();
+        RefreshRaceSkillTree();
+    }
+
+    // Race tree node color: passive = teal, active = purple-blue.
+    private static readonly Color RaceNodePassive = new Color(0.3f, 0.7f, 0.65f, 1f);
+    private static readonly Color RaceNodeActive = new Color(0.45f, 0.55f, 0.85f, 1f);
+
+    private Image MakeRaceSkillTreeNode(RaceSkill skill, Vector2 pos, float size)
+    {
+        var go = new GameObject("RNode_" + skill.id);
+        go.transform.SetParent(_treeContent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = pos;
+        rt.sizeDelta = Sz(size * 2f, size);
+        var img = go.AddComponent<Image>();
+        img.color = skill.IsPassive ? RaceNodePassive : RaceNodeActive;
+        var btn = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+        RaceSkill captured = skill;
+        btn.onClick.AddListener(() =>
+        {
+            _selectedRaceSkill = captured;
+            RefreshRaceSkillTree();
+        });
+
+        // Label.
+        var lbl = new GameObject("Label");
+        lbl.transform.SetParent(go.transform, false);
+        var lr = lbl.AddComponent<RectTransform>();
+        lr.anchorMin = Vector2.zero;
+        lr.anchorMax = Vector2.one;
+        lr.offsetMin = Vector2.zero;
+        lr.offsetMax = Vector2.zero;
+        var tmp = lbl.AddComponent<TextMeshProUGUI>();
+        GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
+        tmp.text = skill.displayName;
+        tmp.fontSize = skill.Layer == 0 ? Mathf.Max(10f, Screen.height / 100f)
+                     : skill.Layer == 1 ? Mathf.Max(8f, Screen.height / 140f)
+                     : Mathf.Max(7f, Screen.height / 180f);
+        tmp.color = Color.white;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.enableWordWrapping = true;
+        return img;
+    }
+
+    private void RefreshRaceSkillTree()
+    {
+        if (_detailPane != null)
+            _detailPane.SetActive(_selectedRaceSkill != null);
+
+        foreach (var (skill, image) in _raceTreeNodes)
+        {
+            if (image == null) continue;
+            if (skill == _selectedRaceSkill) image.color = NodeSelected;
+            else image.color = skill.IsPassive ? RaceNodePassive : RaceNodeActive;
+        }
+
+        foreach (var (line, target) in _raceTreeLines)
+        {
+            if (line == null) continue;
+            line.color = LineActive;
+        }
+
+        if (_skillPointsText != null)
+        {
+            var stats = PlayerStatsOf();
+            string race = stats != null && stats.Race != null ? stats.Race.displayName : "Human";
+            _skillPointsText.text = Localization.F("Race: {0}", race);
+        }
+
+        if (_categoryLevelText != null)
+            _categoryLevelText.text = Localization.F("Skills: {0}", _raceTreeNodes.Count);
+
+        RefreshRaceSkillDetail();
+    }
+
+    private void RefreshRaceSkillDetail()
+    {
+        if (_detailTitle == null) return;
+        var skill = _selectedRaceSkill;
+        if (skill == null)
+        {
+            _detailTitle.text = Localization.T("No skill selected");
+            _detailDesc.text = "";
+            _detailMeta.text = "";
+            _detailLearnHint.text = "";
+            return;
+        }
+        _detailTitle.text = skill.displayName;
+        _detailDesc.text = skill.description;
+
+        var meta = new StringBuilder();
+        meta.Append(skill.IsPassive ? Localization.T("Type: Passive") : Localization.T("Type: Castable"));
+        meta.Append('\n');
+
+        if (!skill.IsPassive)
+        {
+            meta.Append("Cost: ");
+            if (skill.SkillCost.Resource == ResourceKind.None) meta.Append("Free");
+            else meta.Append(skill.SkillCost.Resource.ToString()).Append(' ').Append(skill.SkillCost.Amount.ToString("0.##"));
+            if (skill.SkillCost.Cooldown > 0f)
+                meta.Append('\n').Append("CD: ").Append(skill.SkillCost.Cooldown.ToString("0.#")).Append('s');
+        }
+        else
+        {
+            meta.Append(Localization.T("Cost: Free (always-on)"));
+        }
+
+        if (skill.Mods != null && skill.Mods.Length > 0)
+        {
+            meta.Append('\n').Append(Localization.T("Passive Mods:"));
+            foreach (var m in skill.Mods)
+                meta.Append('\n').Append("  ").Append(m.kind.ToString()).Append(" +").Append((m.amount * 100f).ToString("0.#")).Append("%");
+        }
+
+        _detailMeta.text = meta.ToString();
+
+        // Race castables route through RaceSkillCaster via the shared hotkey system.
+        if (_learnBtn != null) _learnBtn.gameObject.SetActive(false);
+        if (_assignKeyBtn != null)
+        {
+            _assignKeyBtn.gameObject.SetActive(true);
+            _assignKeyBtn.interactable = !skill.IsPassive;
+        }
+        if (skill.IsPassive)
+            _detailLearnHint.text = Localization.T("Passive — always active while this race is active.");
+        else
+            _detailLearnHint.text = Localization.T("Bind a key to use this racial active.");
     }
 
     /// <summary>Pan/zoom handler for the tree viewport — drags <see cref="Content"/> and scroll-zooms
@@ -2479,6 +2747,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
             if (_skillSubTab == SkillSubTab.Class)
             {
                 if (_classTreeNodes.Count == 0) RebuildSkillTree();
+                else RefreshSkillTree();
+            }
+            else if (_skillSubTab == SkillSubTab.Race)
+            {
+                if (_raceTreeNodes.Count == 0) RebuildSkillTree();
                 else RefreshSkillTree();
             }
             else

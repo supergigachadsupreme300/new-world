@@ -167,6 +167,11 @@ public sealed class SkillProfile : MonoBehaviour
             var classSkill = ClassSkillCatalog.Find(id);
             if (classSkill != null)
                 return ClassSkillCaster.Execute(gameObject, id, charge, BuildContext());
+            // Race-skill fallback: hotkeyed ids of the form "rac.{race}.{node}" route
+            // through the race caster (active-race validation, shared cooldowns/costs).
+            var raceSkill = RaceSkillCatalog.Find(id);
+            if (raceSkill != null)
+                return RaceSkillCaster.Execute(gameObject, id, charge, BuildContext());
             if (SkillDebug) Debug.Log($"[Skill] \"{id}\" not found in catalog");
             return false;
         }
