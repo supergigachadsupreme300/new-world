@@ -6,8 +6,10 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Alt magic-selection wheel (PC). While fighting-mode and holding a magic weapon, holding
-/// Alt opens a ring at the screen's centre listing every learned castable skill and unlocks
-/// the cursor. Hovering highlights a spell; releasing Alt while a spell is hovered locks it in
+/// Alt opens concentric circles (an inner, middle and outer ring) at the screen's centre
+/// listing every learned castable magic skill (the Magic category only — no physical
+/// melee/ranged/stealth castables) and unlocks the cursor. Hovering highlights a spell;
+/// releasing Alt while a spell is hovered locks it in
 /// as the armed magic. With a magic armed and a magic weapon held, the fighting-mode left click
 /// casts it via <see cref="SkillProfile.Execute"/> instead of the weapon's basic attack
 /// (see <see cref="ConsumeArmedCast"/>).
@@ -16,6 +18,15 @@ public sealed class MagicWheelUI : MonoBehaviour
 {
     /// <summary>Hard upper bound on ring entries.</summary>
     public const int MaxEntries = 64;
+
+    /// <summary>Inner-ring slot capacity (multi-circle layout: inner → middle → outer).</summary>
+    private const int InnerRingCap = 6;
+
+    /// <summary>Middle-ring slot capacity; the outer ring takes the remainder.</summary>
+    private const int MidRingCap = 18;
+
+    /// <summary>Arc gap factor between adjacent slots on a ring.</summary>
+    private const float GapRatio = 1.15f;
 
     private static MagicWheelUI _instance;
 
@@ -26,6 +37,7 @@ public sealed class MagicWheelUI : MonoBehaviour
     private readonly List<RectTransform> _slots = new List<RectTransform>();
     private readonly List<TMP_Text> _slotLabels = new List<TMP_Text>();
     private readonly List<string> _slotIds = new List<string>();
+    private readonly List<float> _slotSizes = new List<float>();
     private TMP_Text _armedChipLabel;
     private RectTransform _armedChip;
     private bool _fontsApplied;
@@ -34,8 +46,6 @@ public sealed class MagicWheelUI : MonoBehaviour
     private bool _isOpen;
     private int _hovered = -1;
     private string _armedSkillId;
-    private float _slotSize;
-    private float _ringRadius;
 
     private static readonly Color SlotColor = new Color(0.13f, 0.13f, 0.18f, 0.95f);
     private static readonly Color SlotHover = new Color(0.30f, 0.50f, 0.95f, 1f);
@@ -92,10 +102,15 @@ public sealed class MagicWheelUI : MonoBehaviour
 
         if (!string.IsNullOrEmpty(_instance._armedSkillId))
         {
-            bool stillLearned = false;
+            bool keepArmed = false;
             foreach (var id in profile.Learned)
-                if (id == _instance._armedSkillId) { stillLearned = true; break; }
-            if (stillLearned) return true;
+            {
+                if (id != _instance._armedSkillId) continue;
+                var armed = SkillCatalog.Find(id);
+                if (armed != null && armed.Type == SkillType.Magic) keepArmed = true;
+                break;
+            }
+            if (keepArmed) return true;
         }
 
         var caster = _instance._player != null ? _instance._player.GetComponent<SpellCaster>() : null;
@@ -103,7 +118,7 @@ public sealed class MagicWheelUI : MonoBehaviour
         foreach (var id in profile.Learned)
         {
             var skill = SkillCatalog.Find(id);
-            if (skill != null && !skill.IsPassive &&
+            if (skill != null && !skill.IsPassive && skill.Type == SkillType.Magic &&
                 (caster == null || caster.CooldownRemaining(skill.CooldownKey) <= 0f))
             {
                 _instance._armedSkillId = id;
@@ -115,7 +130,7 @@ public sealed class MagicWheelUI : MonoBehaviour
         foreach (var id in profile.Learned)
         {
             var skill = SkillCatalog.Find(id);
-            if (skill != null && !skill.IsPassive)
+            if (skill != null && !skill.IsPassive && skill.Type == SkillType.Magic)
             {
                 _instance._armedSkillId = id;
                 _instance.RefreshArmedChip();
@@ -253,28 +268,35 @@ public sealed class MagicWheelUI : MonoBehaviour
         foreach (var id in profile.Learned)
         {
             var skill = SkillCatalog.Find(id);
-            if (skill != null && !skill.IsPassive) ids.Add(id);
+            // Magic-category only: physical melee/ranged/stealth castables never enter the wheel.
+            if (skill != null && !skill.IsPassive && skill.Type == SkillType.Magic) ids.Add(id);
             if (ids.Count >= MaxEntries) break;
         }
 
-        // Size the ring for the slot count: grow the ring radius (up to 0.42 of canvas height)
-        // and shrink the slots as needed so every slot keeps an arc gap and the ring fits on screen.
-        float h = CanvasHeight();
-        float maxRadius = h * 0.42f;
-        float desiredSlot = h * 0.13f;
-        float gapRatio = 1.15f;
-        _slotSize = ids.Count > 0 ? Mathf.Min(desiredSlot, (maxRadius * 2f * Mathf.PI) / (ids.Count * gapRatio)) : desiredSlot;
-        _ringRadius = ids.Count > 0 ? Mathf.Min(Mathf.Max(h * 0.28f, (ids.Count * _slotSize * gapRatio) / (2f * Mathf.PI)), maxRadius) : 0f;
+        // Multi-circle layout: up to 3 concentric rings so all slots stay visible at once.
+        // The inner ring takes up to InnerRingCap, the middle up to MidRingCap, and the outer
+        // ring the remainder; each ring centres its share and sizes its own slots.
+        int inner = Mathf.Min(ids.Count, InnerRingCap);
+        int mid = Mathf.Min(Mathf.Max(ids.Count - inner, 0), MidRingCap);
+        int outer = Mathf.Max(ids.Count - inner - mid, 0);
 
         for (int i = 0; i < ids.Count; i++)
-            CreateSlot(i, ids.Count, SkillCatalog.Find(ids[i]));
+        {
+            int ring = i < inner ? 0 : i < inner + mid ? 1 : 2;
+            int ringCount = ring == 0 ? inner : ring == 1 ? mid : outer;
+            CreateSlot(i, ring, ringCount, SkillCatalog.Find(ids[i]));
+        }
     }
 
-    private void CreateSlot(int index, int total, Skill skill)
+    private void CreateSlot(int index, int ringIndex, int ringCount, Skill skill)
     {
-        float slotSize = _slotSize;
-        float radius = _ringRadius;
-        float ang = -90f + (360f * index) / total;
+        if (ringCount <= 0) return;
+
+        float h = CanvasHeight();
+        float radius = RingRadius(ringIndex, h);
+        float baseSize = RingBaseSlot(ringIndex, h);
+        float slotSize = Mathf.Min(baseSize, (radius * 2f * Mathf.PI) / (ringCount * GapRatio));
+        float ang = -90f + (360f * index) / ringCount;
         float rad = ang * Mathf.Deg2Rad;
         Vector2 pos = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * radius;
 
@@ -290,6 +312,7 @@ public sealed class MagicWheelUI : MonoBehaviour
         img.color = SlotColor;
         img.raycastTarget = false;
         _slots.Add(rect);
+        _slotSizes.Add(slotSize);
 
         var label = MakeLabel(slot.transform, "Label", Vector2.zero, Vector2.one,
             Mathf.Max(7f, slotSize * 0.42f), Color.white);
@@ -300,6 +323,28 @@ public sealed class MagicWheelUI : MonoBehaviour
         _slotIds.Add(skill != null ? skill.id : "");
     }
 
+    // ── Multi-circle layout helpers ───────────────────────────────────────
+
+    private static float RingRadius(int ringIndex, float h)
+    {
+        switch (ringIndex)
+        {
+            case 1: return h * 0.30f;
+            case 2: return h * 0.42f;
+            default: return h * 0.17f;
+        }
+    }
+
+    private static float RingBaseSlot(int ringIndex, float h)
+    {
+        switch (ringIndex)
+        {
+            case 1: return h * 0.085f;
+            case 2: return h * 0.07f;
+            default: return h * 0.11f;
+        }
+    }
+
     private void ClearSlots()
     {
         for (int i = 0; i < _slots.Count; i++)
@@ -308,6 +353,7 @@ public sealed class MagicWheelUI : MonoBehaviour
         _slots.Clear();
         _slotLabels.Clear();
         _slotIds.Clear();
+        _slotSizes.Clear();
         _hovered = -1;
     }
 
@@ -327,10 +373,10 @@ public sealed class MagicWheelUI : MonoBehaviour
 
         _hovered = -1;
         float best = float.MaxValue;
-        float hit = _slotSize * 0.78f;
         for (int i = 0; i < _slots.Count; i++)
         {
             float d = Vector2.Distance(mouseCanvas, _slots[i].anchoredPosition);
+            float hit = _slotSizes[i] * 0.78f;
             if (d < hit && d < best)
             {
                 best = d;
