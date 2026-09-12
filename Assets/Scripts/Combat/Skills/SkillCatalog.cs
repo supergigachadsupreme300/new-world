@@ -2,14 +2,17 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Runtime catalog of skills — 64 base skills expanded via 3-layer branching into ~1984 total
-/// (Layer 0 base → Layer 1: 5 children each → Layer 2: 5 grandchildren each).
-/// Each skill composes shared effects (composition model): passive skills use a
-/// <see cref="StatBuffEffect"/> with a zero <see cref="Cost"/>; castables use
+/// Runtime catalog of skills — 64 hand-authored base skills expanded via true-prereq-depth branching
+/// into ~1002 total (Layer 0 roots → Layer 1: exactly 5 branches each → Layer 2: 5 children per
+/// branch + authored 2-hop locks → Layer 3: authored 3-hop locks like Tornado).
+/// EVERY node is individually designed: the branch/cluster tables in SkillCatalog.*.cs
+/// (partials of this class) spell out each skill's name, description and effect, so no tree slot
+/// is a generated placeholder. Each skill composes shared effects (composition model): passive
+/// skills use a <see cref="StatBuffEffect"/> with a zero <see cref="Cost"/>; castables use
 /// <see cref="DamageZoneEffect"/> / <see cref="SpellCastEffect"/> / <see cref="WeaponSkillEffect"/>.
 /// Skills are built in code (no .asset files) and carry their <see cref="DamageKind"/> element.
 /// </summary>
-public static class SkillCatalog
+public static partial class SkillCatalog
 {
     /// <summary>The built roster. <see cref="EnsureBuilt"/> populates it once.</summary>
     public static List<Skill> All { get; private set; }
@@ -62,6 +65,33 @@ public static class SkillCatalog
         ExpandTree(list);
 
         return list;
+    }
+
+    private static DesignBank _design;
+
+    /// <summary>
+    /// Every tree branch slot is spelled out in the partial content files. <see cref="EnsureBuilt"/>
+    /// is called before the tree expands, so the bank is available to <see cref="ExpandTree"/>.
+    /// </summary>
+    private static DesignBank Design
+    {
+        get
+        {
+            if (_design == null) _design = BuildDesignBank();
+            return _design;
+        }
+    }
+
+    private static DesignBank BuildDesignBank()
+    {
+        var bank = new DesignBank();
+        RegisterMeleeDesign(bank);
+        RegisterRangedDesign(bank);
+        RegisterMagicDesign(bank);
+        RegisterStealthDesign(bank);
+        RegisterCraftingDesign(bank);
+        RegisterFortitudeDesign(bank);
+        return bank;
     }
 
     private static void Add(List<Skill> list, string id, string name, SkillType type, bool passive,
@@ -289,142 +319,132 @@ public static class SkillCatalog
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    //  TREE EXPANSION — Layer 1 (5 children per Layer 0) + Layer 2 (5 per L1)
+    //  TREE EXPANSION — Layer 1 (5 branches per Layer 0) + Layer 2 (5 per L1 read
+    //  from the hand-designed branch tables in the SkillCatalog.{Category}.cs partials).
     // ──────────────────────────────────────────────────────────────────────────
 
-    private static readonly string[][] _suffixesByType =
+    /// <summary>
+    /// One designed tree-branch slot. <see cref="IsAuthored"/> slots reference a skill that
+    /// <c>Build*</c> already created; the rest carry a fully hand-written skill definition.
+    /// </summary>
+    internal sealed class BranchSlot
     {
-        new[] { "Rending", "Force", "Flame", "Sweep", "Impact" },       // Melee
-        new[] { "Piercing", "Flame", "Frost", "Storm", "Shadow" },      // Ranged
-        new[] { "Flame", "Frost", "Storm", "Void", "Light" },           // Magic
-        new[] { "Shadow", "Venom", "Silence", "Mirror", "Phantom" },    // Stealth
-        new[] { "Tempering", "Binding", "Channeling", "Refining", "Forging" }, // Crafting
-        new[] { "Iron", "Stone", "Vitality", "Resolve", "Endurance" },  // Fortitude
-    };
-
-    private static readonly DamageType[] _activeElements =
-        { DamageType.Physical, DamageType.Fire, DamageType.Ice, DamageType.Wind, DamageType.Dark };
-
-    private static readonly StatType[] _passiveStats =
-        { StatType.Strength, StatType.Defense, StatType.Health, StatType.Endurance, StatType.Luck };
-
-    private static Cost ScaledCost(Cost baseCost, int layer)
-    {
-        float mult = 1f + layer * 0.35f;
-        return new Cost
-        {
-            Resource = baseCost.Resource,
-            Amount = Mathf.Round(baseCost.Amount * mult),
-            CastTime = baseCost.CastTime + layer * 0.1f,
-            Cooldown = baseCost.Cooldown + layer * 0.8f,
-        };
+        public bool IsAuthored;
+        public string Id;
+        public string Name;
+        public bool IsPassive;
+        public Cost Cost;
+        public bool IsMagical;
+        public DamageType Kind;
+        public IEffect Effect;
+        public string Desc;
     }
 
-    private static Cost ActiveCostForLayer(SkillType type, int layer)
+    /// <summary>Authored-slot shorthand: references an existing skill from the <c>Build*</c> pass.</summary>
+    private static BranchSlot A(string authoredId) =>
+        new BranchSlot { IsAuthored = true, Id = authoredId };
+
+    /// <summary>Designed-slot shorthand: a brand-new, hand-written skill.</summary>
+    private static BranchSlot S(string id, string name, IEffect effect, string desc,
+        Cost cost = default, DamageType kind = DamageType.Physical, bool magical = false,
+        bool passive = false) =>
+        new BranchSlot { Id = id, Name = name, Effect = effect, Desc = desc,
+            Cost = cost, Kind = kind, IsMagical = magical, IsPassive = passive };
+
+    /// <summary>Aggregates every category's designed L1/L2 tables.</summary>
+    internal sealed class DesignBank
     {
-        float baseAmt = type == SkillType.Magic ? 15f : 12f;
-        float baseCd = type == SkillType.Magic ? 4f : 1.5f;
-        float mult = 1f + layer * 0.35f;
-        return type == SkillType.Magic
-            ? Focus(Mathf.Round(baseAmt * mult))
-            : Stamina(Mathf.Round(baseAmt * mult));
-    }
-
-    private static IEffect MakeChildEffect(Skill parent, int childIdx, int layer)
-    {
-        if (parent.IsPassive)
-        {
-            var buf = parent.Effect as StatBuffEffect;
-            if (buf != null)
-            {
-                float amt = layer == 1 ? buf.Amount + 1f : buf.Amount + 2.5f;
-                return new StatBuffEffect { Stat = buf.Stat, Amount = amt };
-            }
-            return new StatBuffEffect { Stat = _passiveStats[childIdx], Amount = layer == 1 ? 3f : 5f };
-        }
-
-        DamageType elem = _activeElements[childIdx];
-
-        var dz = parent.Effect as DamageZoneEffect;
-        if (dz != null)
-        {
-            float power = layer == 1 ? dz.BasePower * 1.3f : dz.BasePower * 1.7f;
-            float rad = layer == 1 ? dz.Radius + 0.3f : dz.Radius + 0.6f;
-            return new DamageZoneEffect { Radius = rad, BasePower = power, Type = elem };
-        }
-
-        var sc = parent.Effect as SpellCastEffect;
-        if (sc != null && sc.Spell != null)
-        {
-            var sd = ScriptableObject.CreateInstance<SpellData>();
-            sd.name = parent.id + "_L" + layer + "_s" + childIdx;
-            sd.id = sd.name;
-            sd.displayName = parent.displayName;
-            sd.Type = elem;
-            sd.BasePower = layer == 1 ? sc.Spell.BasePower * 1.3f : sc.Spell.BasePower * 1.7f;
-            sd.FpCost = layer == 1 ? sc.Spell.FpCost + 5f : sc.Spell.FpCost + 10f;
-            sd.CastTime = sc.Spell.CastTime + layer * 0.1f;
-            sd.Cooldown = sc.Spell.Cooldown + layer * 0.8f;
-            sd.Delivery = sc.Spell.Delivery;
-            sd.Range = sc.Spell.Range + layer * 1f;
-            sd.Radius = sc.Spell.Radius + layer * 0.4f;
-            return new SpellCastEffect { Spell = sd };
-        }
-
-        if (parent.Effect is WeaponSkillEffect)
-            return new WeaponSkillEffect();
-
-        float fallbackPower = layer == 1 ? 22f : 32f;
-        return new DamageZoneEffect { Radius = 2f + layer * 0.4f, BasePower = fallbackPower, Type = elem };
+        public readonly Dictionary<string, BranchSlot[]> L1 = new Dictionary<string, BranchSlot[]>();
+        public readonly Dictionary<string, BranchSlot[]> L2 = new Dictionary<string, BranchSlot[]>();
     }
 
     private static void ExpandTree(List<Skill> list)
     {
+        // Resolve each hand-authored lock to its TRUE prereq-chain depth: a root has no prereqs
+        // (Layer 0), a branch off a root is Layer 1, and skills that chain 2-3 deep (Tornado,
+        // Masterwork, Heart-Seeker) own Layers 2-3 instead of being flattened onto Layer 2 —
+        // otherwise the L2 band overfills and depth-3 skills read as a phantom layer inside it.
+        var authored = new List<Skill>(list);
+        var baseDepth = new Dictionary<string, int>();
+        foreach (var s in authored)
+        {
+            if (s.PrereqSkillIds == null || s.PrereqSkillIds.Length == 0)
+                baseDepth[s.id] = 0;
+            else
+            {
+                int md = 0;
+                foreach (var pid in s.PrereqSkillIds)
+                {
+                    int dv;
+                    if (baseDepth.TryGetValue(pid, out dv)) md = Mathf.Max(md, dv);
+                }
+                baseDepth[s.id] = md + 1;
+            }
+            s.Layer = baseDepth[s.id];
+        }
+
         var layer0 = new List<Skill>();
-        foreach (var s in list)
+        foreach (var s in authored)
             if (s.Layer == 0) layer0.Add(s);
 
         var layer1All = new List<Skill>();
+        var layer1Ids = new HashSet<string>();
 
         foreach (var parent in layer0)
         {
-            string[] suffixes = _suffixesByType[(int)parent.Type];
-            bool isMagic = parent.Type == SkillType.Magic;
-
-            for (int ci = 0; ci < 5; ci++)
+            // The branch table (SkillCatalog.*.cs) lists the ordered 5 slots for this root.
+            // Authored entries (A(...)) reference a skill Build* already created; new entries
+            // (S(...)) are added here with their hand-written identity + effect.
+            BranchSlot[] slots;
+            if (!Design.L1.TryGetValue(parent.id, out slots))
             {
-                string childId = parent.id + "_b" + (ci + 1);
-                string childName = parent.displayName + " " + suffixes[ci];
-                string childDesc = "Requires " + parent.displayName + ".";
-                Cost cost = parent.IsPassive ? None() : ActiveCostForLayer(parent.Type, 1);
-                bool childMagic = isMagic && !parent.IsPassive;
-                DamageType childElem = parent.IsPassive ? DamageType.Physical : _activeElements[ci];
-                IEffect childFx = MakeChildEffect(parent, ci, 1);
-
-                Add(list, childId, childName, parent.Type, parent.IsPassive,
-                    cost, childMagic, childElem, childFx, P(parent.id), childDesc, 1);
-
-                layer1All.Add(list[list.Count - 1]);
+                slots = new BranchSlot[0];
+                Debug.LogWarning("[SkillCatalog] No L1 design table for root: " + parent.id);
+            }
+            for (int ci = 0; ci < 5 && ci < slots.Length; ci++)
+            {
+                var slot = slots[ci];
+                Skill branch;
+                if (slot.IsAuthored)
+                {
+                    // Resolve the existing skill created by Build*. Layer is set by the
+                    // depth walk that runs before this loop.
+                    branch = authored.Find(s => s.id == slot.Id);
+                    if (branch == null)
+                    {
+                        Debug.LogError("[SkillCatalog] Authored L1 slot " + slot.Id + " not found in build list");
+                        continue;
+                    }
+                }
+                else
+                {
+                    Add(list, slot.Id, slot.Name, parent.Type, slot.IsPassive,
+                        slot.Cost, slot.IsMagical, slot.Kind, slot.Effect,
+                        P(parent.id), slot.Desc, 1);
+                    branch = list[list.Count - 1];
+                }
+                // Multi-root authored locks (e.g. Assassinate = Backstab + Sly Fox) appear
+                // in multiple root clusters but must expand only once.
+                if (layer1Ids.Add(branch.id))
+                    layer1All.Add(branch);
             }
         }
 
         foreach (var parent in layer1All)
         {
-            string[] suffixes = _suffixesByType[(int)parent.Type];
-            bool isMagic = parent.Type == SkillType.Magic;
-
-            for (int ci = 0; ci < 5; ci++)
+            // Layer-2 children are every L1 branch's 5 individually designed grandchildren.
+            BranchSlot[] kids;
+            if (!Design.L2.TryGetValue(parent.id, out kids))
             {
-                string childId = parent.id + "_b" + (ci + 1);
-                string childName = parent.displayName + " " + suffixes[ci];
-                string childDesc = "Requires " + parent.displayName + ".";
-                Cost cost = parent.IsPassive ? None() : ActiveCostForLayer(parent.Type, 2);
-                bool childMagic = isMagic && !parent.IsPassive;
-                DamageType childElem = parent.IsPassive ? DamageType.Physical : _activeElements[ci];
-                IEffect childFx = MakeChildEffect(parent, ci, 2);
-
-                Add(list, childId, childName, parent.Type, parent.IsPassive,
-                    cost, childMagic, childElem, childFx, P(parent.id), childDesc, 2);
+                kids = new BranchSlot[0];
+                Debug.LogWarning("[SkillCatalog] No L2 design table for L1 branch: " + parent.id);
+            }
+            for (int ci = 0; ci < 5 && ci < kids.Length; ci++)
+            {
+                var slot = kids[ci];
+                Add(list, slot.Id, slot.Name, parent.Type, slot.IsPassive,
+                    slot.Cost, slot.IsMagical, slot.Kind, slot.Effect,
+                    P(parent.id), slot.Desc, 2);
             }
         }
     }
