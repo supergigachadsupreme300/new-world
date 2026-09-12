@@ -1302,6 +1302,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
             if (image == null) continue;
             maxR = Mathf.Max(maxR, ((RectTransform)image.transform).anchoredPosition.magnitude);
         }
+        foreach (var (_, image) in _raceTreeNodes)
+        {
+            if (image == null) continue;
+            maxR = Mathf.Max(maxR, ((RectTransform)image.transform).anchoredPosition.magnitude);
+        }
         maxR += 40f;
         _treeContent.sizeDelta = new Vector2(maxR * 2f, maxR * 2f);
         var vp = _treeContent.parent as RectTransform;
@@ -1368,12 +1373,14 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var tmp = label.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = skill.displayName;
-        tmp.fontSize = EffLayerOf(skill) == 0 ? Mathf.Max(8f, Screen.height / 150f)
-                     : EffLayerOf(skill) == 1 ? Mathf.Max(8f, Screen.height / 180f)
-                     : Mathf.Max(6f, Screen.height / 280f);
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.enableWordWrapping = true;
+        tmp.overflowMode = TextOverflowModes.Ellipsis;
+        tmp.enableAutoSizing = true;
+        tmp.fontSizeMin = 2f;
+        tmp.fontSizeMax = Mathf.Max(3f, nh * 0.85f);
+        tmp.fontSize = tmp.fontSizeMax;
         return img;
     }
 
@@ -1568,12 +1575,14 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var tmp = lbl.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = skill.displayName;
-        tmp.fontSize = skill.Layer == 0 ? Mathf.Max(10f, Screen.height / 100f)
-                     : skill.Layer == 1 ? Mathf.Max(8f, Screen.height / 140f)
-                     : Mathf.Max(7f, Screen.height / 180f);
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.enableWordWrapping = true;
+        tmp.overflowMode = TextOverflowModes.Ellipsis;
+        tmp.enableAutoSizing = true;
+        tmp.fontSizeMin = 2f;
+        tmp.fontSizeMax = Mathf.Max(4f, size * 0.75f);
+        tmp.fontSize = tmp.fontSizeMax;
         return img;
     }
 
@@ -1781,12 +1790,14 @@ public sealed class CharacterInfoUI : MenuPanelBase
         var tmp = lbl.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = skill.displayName;
-        tmp.fontSize = skill.Layer == 0 ? Mathf.Max(10f, Screen.height / 100f)
-                     : skill.Layer == 1 ? Mathf.Max(8f, Screen.height / 140f)
-                     : Mathf.Max(7f, Screen.height / 180f);
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.enableWordWrapping = true;
+        tmp.overflowMode = TextOverflowModes.Ellipsis;
+        tmp.enableAutoSizing = true;
+        tmp.fontSizeMin = 2f;
+        tmp.fontSizeMax = Mathf.Max(4f, size * 0.75f);
+        tmp.fontSize = tmp.fontSizeMax;
         return img;
     }
 
@@ -1879,8 +1890,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
     /// it toward the cursor within the mask.</summary>
     private sealed class TreePan : MonoBehaviour, IPointerDownHandler, IDragHandler, IScrollHandler
     {
-        public const float MinScale = 0.28f;
-        public const float MaxScale = 3f;
+        public const float MinScale = 0.08f;
+        public const float MaxScale = 10f;
 
         public RectTransform Content;
         public RectTransform Viewport;
@@ -1910,7 +1921,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         {
             if (Content == null) return;
             float prev = Content.localScale.x;
-            float next = prev * Mathf.Pow(1.2f, Mathf.Sign(e.scrollDelta.y));
+            float next = prev * Mathf.Pow(1.25f, Mathf.Sign(e.scrollDelta.y));
             next = Mathf.Clamp(next, MinScale, MaxScale);
             if (Mathf.Approximately(next, prev)) return;
 
