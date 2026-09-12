@@ -58,6 +58,20 @@ public class CombatController : MonoBehaviour
     private float _lastAttackEndTime = float.MinValue;
     private const int MaxCombo = 3;
 
+    /// <summary>Per-hand swing progress for the independent dual scheme and combo chains (§5.16).</summary>
+    private struct HandSwing
+    {
+        /// <summary>Absolute time the swing completes (0 when the hand is free).</summary>
+        public float EndAt;
+        /// <summary>Absolute time the previous swing completed (per-hand combo reset).</summary>
+        public float LastEnd;
+        /// <summary>Per-hand combo stage (0..MaxCombo), driving the swing variant.</summary>
+        public int Combo;
+    }
+
+    private HandSwing _swingR;
+    private HandSwing _swingL;
+
     /// <summary>Pause (seconds) without a light attack that resets the combo chain to swing one.</summary>
     public float ComboResetTime = 0.8f;
 
@@ -190,6 +204,12 @@ public class CombatController : MonoBehaviour
         HasLoadedDual &&
         (CategoryOf(RightHand) == WeaponCategory.Ranged || CategoryOf(LeftHand) == WeaponCategory.Ranged);
 
+    /// <summary>
+    /// True when the per-hand dual scheme (§5.16) is active: both hands hold real weapons but not
+    /// both magic. Hand attacks in this mode run on per-hand timers so the two hands swing independently.
+    /// </summary>
+    private bool PerHandScheme => HasLoadedDual && !BothHandsMagic;
+
     /// <summary>Category of the weapon the next attack would resolve (defaults to melee when empty).</summary>
     private WeaponCategory ActiveCategory()
     {
@@ -220,6 +240,13 @@ public class CombatController : MonoBehaviour
         return null;
     }
 
+    /// <summary>Per-hand swing state for a given hand slot (right preferred).</summary>
+    private ref HandSwing SwingOf(GameObject hand)
+    {
+        if (hand == RightHand) return ref _swingR;
+        return ref _swingL;
+    }
+
     /// <summary>Trigger a light attack (tap attack button) on the live hand's weapon.</summary>
     public void LightAttack() => LightAttackWith(HandOf(ActiveBehavior));
 
@@ -229,12 +256,41 @@ public class CombatController : MonoBehaviour
     /// </summary>
     public void LightAttackWith(GameObject hand)
     {
-        if (!CanAct) return;
         if (IsBlocking) return;
 
         // No weapon in that hand — never consume stamina or lock an attack state.
         var behavior = ResolveBehavior(hand);
         if (behavior == null) return;
+
+        // Per-hand dual (§5.16): each hand swings on its OWN timer, so the two hands never share a
+        // wait. A global action (roll/heavy/parry) still gates every hand.
+        if (PerHandScheme)
+        {
+            ref var swing = ref SwingOf(hand);
+            if (Time.time < swing.EndAt) return;
+            if (CurrentState != CombatState.Idle) return;
+
+            if (!_stamina.TrySpend(LightAttackCost)) return;
+
+            // Per-hand combo chain: same pause-to-reset rule as the shared chain.
+            if (Time.time - swing.LastEnd > ComboResetTime) swing.Combo = 0;
+
+            float swingAnim = NotifyWeaponAnimator(hand, false, swing.Combo);
+            float swingSpeed = AttackSpeedScale();
+            swing.EndAt = Time.time + Mathf.Max(LightAttackDuration / swingSpeed, swingAnim);
+
+            var swingCmd = new AttackCommand
+            {
+                IsHeavy = false,
+                Direction = transform.forward,
+                Origin = transform
+            };
+            behavior.BeginAttack(swingCmd);
+            OnAttackStarted?.Invoke(behavior);
+            return;
+        }
+
+        if (!CanAct) return;
 
         if (!_stamina.TrySpend(LightAttackCost)) return;
 
@@ -298,6 +354,10 @@ public class CombatController : MonoBehaviour
         if (IsBlocking) return;
         if (!_stamina.TrySpend(DodgeCost)) return;
 
+        // Cancel any in-flight per-hand swing so the roll reads cleanly (§5.16).
+        _swingR.EndAt = 0f;
+        _swingL.EndAt = 0f;
+
         CurrentState = CombatState.Dodge;
         _actionTimer = DodgeDuration;
         _bufferTimer = PostActionBuffer;
@@ -322,10 +382,45 @@ public class CombatController : MonoBehaviour
         return true;
     }
 
-    /// <summary>Toggle blocking on/off (called by shield button hold/release).</summary>
+    /// <summary>Toggle blocking on/off (called by shield button hold/release). Drives every equipped
+    /// rig's defense guard animation only on the state edge, so spam/ressert churn never hits the
+    /// animators frame-to-frame.</summary>
     public void SetBlocking(bool blocking)
     {
-        IsBlocking = blocking && CurrentState == CombatState.Idle;
+        bool want = blocking && CurrentState == CombatState.Idle;
+        if (want && !IsBlocking)
+        {
+            IsBlocking = true;
+            PlayGuard();
+        }
+        else if (!want && IsBlocking)
+        {
+            IsBlocking = false;
+            EndGuard();
+        }
+    }
+
+    /// <summary>Blocking only stays up while the loadout is drawn and idle — a draw/stow transition
+    /// or a sheathed weapon drops the guard so the guard pose never fights the stow idle.</summary>
+    public bool CanKeepBlocking()
+    {
+        if (CurrentState != CombatState.Idle) return false;
+        var stow = GetComponent<WeaponStowAnimator>();
+        return stow == null || (stow.IsDrawn && !stow.IsBusy);
+    }
+
+    /// <summary>Raise every equipped rig's defense guard pose (the "defense" animation set).</summary>
+    public void PlayGuard()
+    {
+        foreach (var a in AllAnimators)
+            a.PlayGuard();
+    }
+
+    /// <summary>Drop every equipped rig's defense guard pose.</summary>
+    public void EndGuard()
+    {
+        foreach (var a in AllAnimators)
+            a.EndGuard();
     }
 
     /// <summary>Rig holding a shield weapon on either hand, or null.</summary>
@@ -395,7 +490,12 @@ public class CombatController : MonoBehaviour
     /// <summary>Check if a parry is currently active (for enemy knockbacks).</summary>
     public bool IsParryWindowOpen => _parryWindowOpen;
 
-    public void ResetCombo() => _comboCount = 0;
+    public void ResetCombo()
+    {
+        _comboCount = 0;
+        _swingR.Combo = 0;
+        _swingL.Combo = 0;
+    }
 
     /// <summary>Attack-speed scale applied to both the swing visuals and the action lock.</summary>
     private float AttackSpeedScale()
@@ -500,6 +600,9 @@ public class CombatController : MonoBehaviour
         _actionTimer -= Time.deltaTime;
         _bufferTimer -= Time.deltaTime;
 
+        TickHand(ref _swingR);
+        TickHand(ref _swingL);
+
         switch (CurrentState)
         {
             case CombatState.LightAttack:
@@ -534,6 +637,22 @@ public class CombatController : MonoBehaviour
             case CombatState.Idle:
                 break;
         }
+
+        // A sheathed loadout or in-flight stow transition can't hold a block — drop the guard so
+        // the guard animation never persists onto the stow idle.
+        if (IsBlocking && !CanKeepBlocking())
+            SetBlocking(false);
+    }
+
+    /// <summary>Advance one hand's independent swing: on completion, free the hand and bump its combo chain.</summary>
+    private static void TickHand(ref HandSwing swing)
+    {
+        if (swing.EndAt > 0f && Time.time >= swing.EndAt)
+        {
+            swing.LastEnd = swing.EndAt;
+            swing.EndAt = 0f;
+            swing.Combo = swing.Combo + 1 > MaxCombo ? 0 : swing.Combo + 1;
+        }
     }
 
     private void OnDisable()
@@ -541,5 +660,7 @@ public class CombatController : MonoBehaviour
         CurrentState = CombatState.Idle;
         _actionTimer = 0f;
         _bufferTimer = 0f;
+        _swingR = default;
+        _swingL = default;
     }
 }

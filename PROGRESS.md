@@ -1,9 +1,221 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-11. Read this first in a new session; then continue with the
+Last updated: 2026-09-12. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
 Companion docs: `PLAN.md`, `PLAN-class-skill-trees.md`, `planning.md`, `game-design.md`.
+
+---
+
+## 1o. Recent completed work (2026-09-12) — sword/shield defense animation + permanent-arm-corruption fix
+User: "the sword and shield should have 2 set of animation for attack and defense… it only don't have
+animation for that", then "if the player spam attack continuously the model might be bug and got
+permanently altered". Root cause of the corruption: no single-owner phase machine — re-entering a
+phase before it ended (spam/charge-cancel/guard) leaked `AcquireArms` claims, leaving `SuppressArms`
+stuck so `PlayerAnimator` never restored the arms; plus attck/sway "rest" was captured from the live
+(aesthetic-posed) bones, so `End()` re-committed a polluted pose as rest.
+- `WeaponAnimator.cs`: new **defense guard** — the "defense" set alongside the attack swings. `PlayGuard()`
+  / `EndGuard()` / `UpdateGuard()` ease the arms into a held guard pose (eased grab-in 0.18 s) while RMB
+  blocking; per-weapon `GuardPoses` (t=1 hold keys): shields raise the face up in front, blades tuck a
+  defensive guard, greatsword/warhammer/greataxe raise a two-hand cover, fists/gauntlets boxer guard,
+  magic/ranged fall back to neutral (never block).
+- **Single-owner phase fix**: `Acquire()`/`Release()` (idempotent, `_ownsArms`), `CaptureRest()` and a
+  unified `End()` teardown. Every phase transition (attack/charge/guard/sway) abandons the old hold
+  without releasing, so re-entrancy can't unbalance the arm-owner count; `OnDisable` does the same full
+  teardown. Arm "rest" is now always **local identity** (the model's documented rest) instead of a live
+  capture — a polluted capture can never bake an altered pose in. Weapon transform is still re-captured
+  per phase (re-parent safe).
+- `CombatController.cs`: `SetBlocking` drives `PlayGuard`/`EndGuard` on the state edge only, and
+  `CanKeepBlocking()` (idle + loadout drawn) runs in `Update` so sheathing/stow drops the guard and the
+  guard pose never fights the stow idle.
+- `PlayerAnimator.cs`: watchdog — any rig driving the arms pings every frame (`PingArms`); if
+  `SuppressArms` hangs > 0.5 s with no writer, owners are force-released + one log. Backstop if some
+  unrelated flow ever leaks again.
+### 1o-status
+- Source-compile verified by the semantic checker (0 diagnostics). Unity play-test pending (guard pose
+  angles are starting values — expect to tune):
+  1. **No corruption**: spam LMB 30 s single + dual wield, interleave guard/attack/charge spam, walk
+     + idle 5 s → arms always return to rest; no frozen/stuck arms; no `[PlayerAnimator] arm-owner
+     claim hung` watchdog log during normal play.
+  2. **Defense animation**: sword+shield → RMB hold raises the shield arm into a high guard, sword
+     arm tucks (attack swings vs guard stance clearly distinct); release → settles back to the ready
+     sway; blocked hits keep the guard until stamina breaks (then it drops).
+  3. Fists/gauntlets boxer guard; greatsword two-hand cover; guard dropped cleanly on sheathe, and
+     re-raised after re-draw while RMB still held.
+- Worktree remains uncommitted (candidate commits: guard+anim fix, plus the earlier pending ones).
+
+---
+
+## 1p. Recent completed work (2026-09-12) — removed the game-start tool/food seed
+User: "remove item that is not weapon from the player inventory … just delete the code that add them
+into player inventory when the game start". The non-weapons came from the test-bench seeding, so the
+tool-kit spawn was simply deleted — no new inventory plumbing.
+- `NewWorldTestGround.cs`: removed `EnableTools`, `SpawnToolKit()` (axe/pickaxe/hoe/hammer/scythe/
+  watering_can/fertilizer/club/rosary/fishing_rod ×1 + banh_mi/com_tam/nuoc_dau/mi_chinh/xap_phong ×5)
+  and its two call sites in `SpawnBench()` and `GrantBenchBag()`. Weapons-only grants
+  (`SpawnAllWeapons`, weapon rack) unchanged.
+- Non-weapons can still enter the bag mid-game via pickups/crafting/shops — only the start-of-game
+  seeding was removed, as requested.
+### 1p-status
+- Source-compile verified by the semantic checker (0 diagnostics). Unity play-test pending: new game /
+  bench spawn starts with only the weapon grants in the bag (no axe, no food); weapon rack + all
+  catalog weapons still spawn; rest of the bench lanes (farming/enemies/buildings/NPCs) unaffected.
+
+---
+
+## 1q. Recent completed work (2026-09-12) — skill tree: aggressive zoom + node labels auto-size
+User: "increase the zoom ability of the skill tree and fix the bug that the text is too big compare
+to the node". Scope confirmed via question: **aggressive** zoom range (Min 0.08 / Max 10) and
+**auto-size** labels that keep wrapping.
+- Root cause of the text bug: node boxes and label fonts were sized on unrelated scales — general
+  nodes are 18x14 / 12x10 / 8x6 px (`MakeTreeNode`) and class/race nodes are size*2 x size (24/18/14
+  tall), while labels used `Screen.height/…` with `Max()` minimum clamps (8/8/6pt general, 10/8/7pt
+  class/race) that dominate at 1080p+ — an 8pt font in a 10px box, 6pt in a 6px box, spilling over.
+- `CharacterInfoUI.cs` `MakeTreeNode` / `MakeClassTreeNode` / `MakeRaceSkillTreeNode`: labels now use
+  TMP auto-size bounded by the node itself — `enableAutoSizing`, `fontSizeMin 2f`, `fontSizeMax`
+  derived from the node (`nh * 0.85` general, `size * 0.75` class/race), wrapping kept, with
+  `overflowMode = Ellipsis` only as a last-resort for names that can't fit even at min size.
+- `TreePan`: `MinScale 0.28 -> 0.08` (full-wheel overview), `MaxScale 3 -> 10` (close reading of tiny
+  nodes), scroll step `1.2 -> 1.25` so the wider range is usable. `FitTreeToViewport` already clamps
+  to these constants, so the automatic fit is unchanged.
+- `FitTreeToViewport`: now also folds `_raceTreeNodes` into the max-radius fit (was omitted — Race
+  sub-tab could under-fit).
+### 1q-status
+- Source-compile verified by the semantic checker (0 diagnostics). Unity play-test pending: scroll-zoom
+  all the way in (10x) and out (0.08x) on General/Class/Race sub-tabs; long skill names auto-shrink to
+  fit their node and never spill outside it; the Race tree fits the viewport on open; no label blur/
+  NRE during zoom/pan.
+
+---
+
+## 1r. Recent completed work (2026-09-12) — magic redesign: school signatures, real healing, persistent zones
+User: "the magic is not very creative, most of the magic using the same thing over". Scope (confirmed):
+leverage existing/dormant systems rather than add new delivery types — statuses/DoT, real healing,
+knockback, and persistent zones. Applied to **both** the base 12 magic tree and the ~70-spell design
+bank. Existing FP/cooldown/cast pipeline untouched.
+- **School signatures** — Fire→Burn, Ice→Frost, Lightning→Stagger, Dark→Rot, Wind→Knockback (Tornado
+  stays a pull), Holy→heals, Arcane→Stagger (bind/hold). Spells that previously differed only by power
+  now read distinctly on hit.
+- `SpellData.cs`: added `Duration`, `Heals`, `Knockback`; status fields kept with `StatusProcChance = 1f`.
+- `SkillCatalog.cs` `Spell(...)` helper: new optional `heals`, `knockback`, `duration`, `statusEffect`
+  params — shared by both catalogs. `BuildMagic` base 12 retuned; **Ward**/*Arcane Ward* and
+  **Blizzard** converted from weak `Zone` to aimed `Spell` zones (Blizzard persistent 2.5 s + Frost).
+- `SkillCatalog.Magic.cs`: L1 blocks (focus/arcane/fireball/frostbolt/dark/gust) and L2 headliners
+  retuned — chain fork/arc/overload/leap→Stagger, Scorch Burn, Deep Freeze Stagger, chilled bolts
+  Frost, Consume Rot, Mini Tornado→**Vortex** (8 m, pulls), airburst Crack/Pressure/Shockwave knockback,
+  Arcane Shackles/Hold Stagger, and the whole heal family (Greater Heal, Light's Embrace, Purify,
+  Mending Light, Radiance, Beacon, Sunburst, Regrowth, Restore, Bloom) now carry `heals: true`.
+- New `IHealable.cs`; `PlayerController` implements it (uses its existing `Heal`).
+- New `SpellDoT.cs` — Bleed/Poison/Rot/Burn ticker (per-tick = power × 0.12 over 4 s; refreshes).
+- New `SpellZone.cs` — unified persistent zone (tick damage × per-delivery multiplier — Zone 0.4,
+  Vortex 1.0 — optional pull, Holy heals `IHealable` allies inside per tick; lifetime expiry). Replaces
+  and deletes `WindVortex.cs`.
+- `SpellCaster.cs`: `ResolveZone` routes `Duration > 0` to persistent `SpellZone` and heals allies when
+  `Heals`; `ApplyHit` gained heal branch + `ApplyStatus` (proc chance) + `ApplyKnockback`;
+  `ResolveDirect` self-heals for Instant heal spells; `SpawnVortex` now spawns `SpellZone` (pull 3.5).
+- Docs: `game-design.md` §3.7/§3.8 (signatures, healing, persistent `SpellZone`, fields).
+### 1r-status
+- Source-compile verified by the semantic checker (0 diagnostics). Unity play-test pending: hit an
+  enemy with each school and confirm the status/icons (Burn/Frost/Stagger/Rot) and Wind knockback;
+  cast a Holy heal at low HP and confirm self-heal, and a Holy zone near allies; verify Tornado pulls
+  and Blizzard ticks + chills; confirm projectiles still never detonate at the caster's feet.
+
+---
+
+## 1s. Recent completed work (2026-09-12) — magic projectile bolts no longer detonate on the caster/feet
+User reported magic projectile spells "hit the ground way too often". Root cause: the bolt spawns
+exactly at the in-hand rig root (no Muzzle offset — ranged uses a child Muzzle at local (0, 0.1, 1))
+and SpellEffect's flight raycast hit EVERYTHING with no owner-root skip. The `~0` layer-mask ray cast
+from the hand position clipped the player's own CharacterController capsule on the first frame and
+detonated at the caster's feet, reading as a ground hit.
+- `SpellEffect.cs` (`Update`): the flight raycast now ignores hits on the caster's own root
+  (`hit.collider.transform.root != _caster.transform.root`) and keeps flying — mirrors
+  `RangedProjectile.Update`. The splash `OverlapSphere` already skipped the caster's root.
+- `SpellCaster.cs` (`FireProjectile`): spawn lifted clear of the body like the bow Muzzle —
+  `pos += fwd * 0.5 + up * 0.3`. Applied only to projectiles; Instant/Zone/Vortex placement untouched.
+### 1s-status
+- Source-compile verified by the semantic checker (0 diagnostics). Unity play-test pending: fire a
+  projectile spell straight ahead / slightly downhill / at a close 3–5 m target / with an NPC beside
+  the caster — bolt leaves the hand and only bursts on real obstacles; no puff at the feet; no
+  self-damage from splash.
+
+---
+
+## 1t. Recent completed work (2026-09-12) — casting circle: two LineRenderer rings on own children
+User reported a play-test crash: `NullReferenceException … CastingCircle.Build() (line 144)` on first
+magic aim. Root cause (verified via Unity docs/QA): a GameObject can hold only **one** Renderer
+component — `gameObject.AddComponent<LineRenderer>()` for the second (inner) ring returns null in
+Unity 6, so `_innerRing.useWorldSpace` threw.
+- `CastingCircle.cs`: each halo ring now owns its own child GameObject ("OuterRing" / "InnerRing",
+  parented at local origin under the CastingCircle transform) before `AddComponent<LineRenderer>()`.
+  Visuals identical — `useWorldSpace = false` means both rings still render in local space around the
+  circle's origin, which the parent transform positions/rotates onto the weapon.
+### 1t-status
+- Source-compile verified by the semantic checker (0 diagnostics). Unity play-test pending: hold LMB
+  with armed magic → halo + inner spin ring appear (no NRE), charge grows, cast-burst ring still fires.
+
+---
+User: "some of the spell in the alt magic circle i'm sure is a physical skill, i want that circle to
+consist of magic skills only." Scope confirmed (via question): also align `EnsureArmedMagic` auto-arm.
+- `MagicWheelUI.cs`:
+  - `RebuildEntries` filter is now `!skill.IsPassive && skill.Type == SkillType.Magic` — melee, ranged,
+    stealth, crafting & fortitude castables never enter the wheel. (`Skill.IsMagical` was NOT used: it
+    flags elemental flavor and would wrongly include `melee_berserk`/`ranged_arrowrain` and wrongly
+    exclude `magic_heal`; `Type` is the correct gate and is carried onto every expanded magic-tree
+    branch in `SkillCatalog.ExpandTree`.)
+  - `EnsureArmedMagic` aligned: the "keep currently armed" path also requires the armed skill to be
+    Magic-type, and both fallback passes arm only Magic-type skills — auto-arm can never pick a
+    physical skill as the "magic".
+  - Class doc-comment updated ("learned castable magic skill … magic category only").
+- Docs: `game-design.md` §5.16 (wheel lists learned magic-category skills only); `PROGRESS.md` this
+  section.
+### 1u-status
+- Source-compile verified by the semantic checker (0 diagnostics). Unity play-test pending: armed
+  melee/ranged/stealth skills no longer appear; all magic spells still present (incl. Holy Heal);
+  player with only non-magic skills sees "No spells learned yet"; auto-arm without the wheel picks
+  only magic skills.
+
+---
+User: change the magic Alt quick-choose from one big ring to "multiple circle". Scope confirmed (via
+questions): concentric rings; keep hold-Alt / hover / release-to-select interaction and the same skill
+set (learned non-passive, cap 64).
+- `MagicWheelUI.cs`:
+  - Layout driven by `InnerRingCap = 6` / `MidRingCap = 18` (outer ring takes the rest): slots
+    `< 6` → inner, `< 24` → middle, else outer. 1–6 spells = single inner circle; 7–24 = inner+middle.
+  - Per-ring radii (% of canvas height): inner 0.17, middle 0.30, outer 0.42; per-ring base slot sizes
+    inner 0.11 / middle 0.085 / outer 0.07, then shrunk by `(2π·r)/(n·GapRatio)` so arcs keep a gap.
+    Every ring is a full circle starting at −90° (concentric).
+  - `CreateSlot(index, ringIndex, ringCount, skill)`; new `List<float> _slotSizes` (built/cleared with
+    slots) so `Paint()` hover hits each slot with its own radius (`size · 0.78`, nearest wins).
+  - Removed single-`_slotSize` / `_ringRadius` fields. Hover/cooldown-dim/armed-colour logic unchanged.
+- Docs: `game-design.md` §5.16 ("3 concentric circles"); `PROGRESS.md` this section.
+### 1v-status
+- Source-compile verified by the semantic checker (0 diagnostics). Unity play-test pending: 1–6 learned
+  spells (single inner circle), 7–24 (inner+middle), 25–64 (three circles), hover/highlight/dim/armed
+  colors, release-select, armed chip, fonts across all rings.
+
+---
+User: with 2 swords equipped both hands shared the same wait time; wanted each hand to swing
+independently. Scope confirmed: per-hand timing for all dual melee; a dodge cancels an in-flight swing.
+- `CombatController.cs`:
+  - New `HandSwing` struct (`EndAt` / `LastEnd` / `Combo`) + `_swingR/_swingL`; predicate
+    `PerHandScheme = HasLoadedDual && !BothHandsMagic` (same shape as `PlayerController.dualMode`).
+  - Per-hand branch in `LightAttackWith(hand)`: gates on THAT hand's own timer (not the global `CanAct`)
+    plus `CurrentState == Idle` (roll/heavy/parry still gate every hand). No global state change, so the
+    other hand stays free. Same stamina cost / light-attack duration / `AttackSpeedScale` math; per-hand
+    combo chain (pause > `ComboResetTime` reset, cap 3). Single / two-hand / both-magic keep the stock
+    global path.
+  - `TickHand(ref)` in `Update()` frees each hand and bumps its combo when the swing completes.
+  - `Dodge()` cancels in-flight per-hand swings (`EndAt = 0`) so the roll reads cleanly.
+  - `ResetCombo()` and `OnDisable()` also clear the per-hand state.
+- Docs: `PROGRESS.md` this section. (`game-design.md` §5.16 already specified the independence.)
+- Behavior notes: a shield guard can now stay raised while the other hand swings; a dodge still blocks
+  new presses; body-animator attack triggers don't fire during per-hand swings (weapon rigs drive the
+  visuals via `NotifyWeaponAnimator(hand, …)`).
+### 1w-status
+- Source-compile verified by the semantic checker (0 diagnostics). Unity play-test pending: 2 swords
+  alternating/spam per hand (independent cadence), sword+shield guard-drop, dodge-mid-swing cancel,
+  crossed ranged+melee, both-magic/single unchanged.
 
 ---
 

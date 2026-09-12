@@ -55,6 +55,11 @@ public sealed class PlayerAnimator : MonoBehaviour
 
     private int _armOwners;
 
+    /// <summary>Last frame a WeaponAnimator wrote the arm pivots (PingArms). Feeds the watchdog.</summary>
+    private float _lastArmWrite;
+
+    private bool _armWatchdogLogged;
+
     /// <summary>Claim ownership of the arm pivots (attack or ready sway). Calls SuppressArms on.</summary>
     public void AcquireArms()
     {
@@ -68,6 +73,10 @@ public sealed class PlayerAnimator : MonoBehaviour
         _armOwners = Mathf.Max(0, _armOwners - 1);
         SuppressArms = _armOwners > 0;
     }
+
+    /// <summary>WeaponAnimator pings each frame it actively drives the arm pivots, keeping the
+    /// watchdog (see LateUpdate) from force-releasing a healthy attack/charge/guard hold.</summary>
+    public void PingArms() => _lastArmWrite = Time.time;
 
     /// <summary>The player controller this model jumps with (null until resolved).</summary>
     public PlayerController Controller => _pc;
@@ -99,6 +108,21 @@ public sealed class PlayerAnimator : MonoBehaviour
     private void LateUpdate()
     {
         _time += Time.deltaTime;
+
+        // Safety net: a leaked arm-owner claim (a WeaponAnimator phase that ended without
+        // releasing) leaves SuppressArms stuck, freezing the arms in a stale pose forever. Every
+        // rig that actively drives the palms pings every frame; a long silence means a leak.
+        if (SuppressArms && _armOwners > 0 && Time.time - _lastArmWrite > 0.5f)
+        {
+            _armOwners = 0;
+            SuppressArms = false;
+            if (!_armWatchdogLogged)
+            {
+                _armWatchdogLogged = true;
+                Debug.LogWarning("[PlayerAnimator] arm-owner claim hung with no active writer " +
+                    "- watchdog released the arms (report a weapon-animator leak).");
+            }
+        }
 
         if (_pc == null)
         {

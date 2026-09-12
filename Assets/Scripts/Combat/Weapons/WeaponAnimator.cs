@@ -50,6 +50,9 @@ public sealed class WeaponAnimator : MonoBehaviour
     /// samples (and holds) while a cast/draw is charging, and where the loose resumes from.</summary>
     private const float ChargeHoldT = 0.30f;
 
+    /// <summary>Seconds the guard takes to raise into its hold pose (eased grab-in).</summary>
+    private const float GuardRaiseTime = 0.18f;
+
     /// <summary>Capped attack-speed scale from the player's stats (1 → authored tempo).</summary>
     private float SpeedScale()
     {
@@ -130,6 +133,29 @@ public sealed class WeaponAnimator : MonoBehaviour
         T(K(0f, 0f, 0f, 0f, 0f), K(0.25f, -55f, 0f, 0f, -25f, 30f, 0f), K(0.45f, -20f, 0f, 0f, -5f, 80f, 0f), K(1f, 0f, 0f, 0f, 0f)),
         T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -60f, -40f, 0f, -20f, 30f, -50f), K(0.55f, -70f, 30f, 0f, -8f, 70f, -50f), K(1f, 0f, 0f, 0f, 0f)),
         T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -140f, 0f, 0f, -10f, 30f, 0f), K(0.60f, -45f, 0f, 0f, -6f, 60f, 0f), K(1f, 0f, 0f, 0f, 0f)));
+
+    private static readonly PoseKey IdentityPose = new PoseKey(0f, 0f, 0f, 0f, 0f);
+
+    // Defense guard hold-pose per weapon (the "defense" set alongside the attack/swing set). The
+    // arms raise into a distinct blocking stance while RMB is held and hold it until the guard
+    // drops. Tuned per class; t=1 is the settled hold. Magic/ranged weapons never block (their RMB
+    // is charge/draw) so they fall back to IdentityPose and stay neutral.
+    private static readonly System.Collections.Generic.Dictionary<string, PoseKey> GuardPoses =
+        new System.Collections.Generic.Dictionary<string, PoseKey>
+        {
+            { "buckler",      new PoseKey(1f, -88f, 10f, 0f, -38f, -25f, 95f) },
+            { "round_shield", new PoseKey(1f, -88f, 10f, 0f, -38f, -25f, 95f) },
+            { "tower_shield", new PoseKey(1f, -92f, 8f, 0f, -22f, -18f, 95f) },
+            { "iron_sword",   new PoseKey(1f, -40f, 0f, 0f, -50f, 8f, 0f) },
+            { "dagger",       new PoseKey(1f, -30f, 8f, 0f, -58f, 15f, 0f) },
+            { "greatsword",   new PoseKey(1f, -122f, 0f, 0f, -18f, 28f, 0f) },
+            { "warhammer",    new PoseKey(1f, -52f, 0f, 0f, -55f, 55f, 0f) },
+            { "greataxe",     new PoseKey(1f, -60f, 0f, 0f, -45f, 30f, 0f) },
+            { "katana",       new PoseKey(1f, -24f, 0f, 0f, -38f, -12f, 0f) },
+            { "lance",        new PoseKey(1f, -26f, 0f, 0f, -28f, 6f, 0f) },
+            { "fist",         new PoseKey(1f, -72f, 0f, 0f, -68f, 82f, 0f) },
+            { "gauntlets",    new PoseKey(1f, -72f, 0f, 0f, -68f, 82f, 0f) },
+        };
 
     private static readonly System.Collections.Generic.Dictionary<string, WeaponAnimDef> Defs =
         new System.Collections.Generic.Dictionary<string, WeaponAnimDef>
@@ -338,6 +364,16 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
     private bool _charging;
     private float _chargeLevel;
 
+    // Defense guard hold: the arms ease into the weapon's guard pose and hold (a blocking stance)
+    // while CombatController keeps blocking. Mirrors the charge hold; only one phase owns the arms.
+    private bool _guarding;
+    private float _guardT;
+    private PoseKey _guardPose;
+    private PoseKey[] _guardTrack;
+
+    /// <summary>True when THIS rig currently holds an AcquireArms claim on the player arms.</summary>
+    private bool _ownsArms;
+
     private static readonly HashSet<string> _leadLogged = new HashSet<string>();
 
     private void OnEnable()
@@ -363,8 +399,12 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
         _set = _def.Owner != null && _def.Owner.Length > 0 ? _def.Owner[index] : null;
         _otherSet = _def.Other != null && _def.Other.Length > 0 ? _def.Other[index] : null;
 
-        // Hand the arms over from the ready sway to the attack cleanly.
-        StopSway();
+        // Abandon any lingering hold (sway / charge / guard) on this rig. The arms stay owned by
+        // the new phase instead of releasing and re-acquiring, so spam can never leak arm owners.
+        AbandonSway();
+        _charging = false;
+        _guarding = false;
+
         DetectStrike(_set);
         _sweepScale = SlashSweepScale(_set);
 
@@ -374,21 +414,7 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
         _t = 0f;
         _active = true;
 
-        // Rest poses freshly captured so re-parenting onto a hand (ReparentToHands) is harmless.
-        _basePos = transform.localPosition;
-        _baseEuler = transform.localRotation.eulerAngles;
-        _baseScale = transform.localScale;
-
-        ResolvePivots();
-
-        _ownerShBase = _ownerShoulder != null ? _ownerShoulder.localRotation : Quaternion.identity;
-        _ownerElBase = _ownerElbow != null ? _ownerElbow.localRotation : Quaternion.identity;
-        _ownerWrBase = _ownerWrist != null ? _ownerWrist.localRotation : Quaternion.identity;
-        _otherShBase = _otherShoulder != null ? _otherShoulder.localRotation : Quaternion.identity;
-        _otherElBase = _otherElbow != null ? _otherElbow.localRotation : Quaternion.identity;
-        _otherWrBase = _otherWrist != null ? _otherWrist.localRotation : Quaternion.identity;
-
-        if (_playerAnim != null) _playerAnim.AcquireArms();
+        CaptureRest();
 
         if (WeaponRigBuilder.LogRigging && _weaponId != null && _leadLogged.Add(_weaponId))
         {
@@ -412,30 +438,18 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
         _set = _def.Owner != null && _def.Owner.Length > 0 ? _def.Owner[0] : null;
         _otherSet = _def.Other != null && _def.Other.Length > 0 ? _def.Other[0] : null;
 
-        StopSway();
+        AbandonSway();
+        _active = false;
+        _guarding = false;
+
         _chargeLevel = 0f;
         _heavy = false;
         float speed = SpeedScale();
         _duration = Mathf.Max(0.001f, _def.TimeLight * BaseSwingTimeScale / speed);
 
-        // Rest poses freshly captured so re-parenting onto a hand (ReparentToHands) is harmless.
-        _basePos = transform.localPosition;
-        _baseEuler = transform.localRotation.eulerAngles;
-        _baseScale = transform.localScale;
-
-        ResolvePivots();
-
-        _ownerShBase = _ownerShoulder != null ? _ownerShoulder.localRotation : Quaternion.identity;
-        _ownerElBase = _ownerElbow != null ? _ownerElbow.localRotation : Quaternion.identity;
-        _ownerWrBase = _ownerWrist != null ? _ownerWrist.localRotation : Quaternion.identity;
-        _otherShBase = _otherShoulder != null ? _otherShoulder.localRotation : Quaternion.identity;
-        _otherElBase = _otherElbow != null ? _otherElbow.localRotation : Quaternion.identity;
-        _otherWrBase = _otherWrist != null ? _otherWrist.localRotation : Quaternion.identity;
-
-        if (_playerAnim != null) _playerAnim.AcquireArms();
+        CaptureRest();
 
         _charging = true;
-        _active = false;
     }
 
     /// <summary>Set the live charge level (0..1) while charging — drives the weapon accent.</summary>
@@ -458,6 +472,35 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
         }
     }
 
+    /// <summary>
+    /// Enter the weapon's defense guard (RMB hold): the arms ease from rest into the weapon's guard
+    /// pose and hold it while blocking — the "defense" animation set that pairs with the attack
+    /// swings. Ends with <see cref="EndGuard"/> (guard release), which settles the arms back so the
+    /// ready sway / PlayerAnimator retakes them.
+    /// </summary>
+    public void PlayGuard()
+    {
+        if (_guarding) return;
+        AbandonSway();
+        _active = false;
+        _charging = false;
+
+        _guardPose = _weaponId != null && GuardPoses.TryGetValue(_weaponId, out var g) ? g : IdentityPose;
+        _guardTrack = T(IdentityPose, _guardPose);
+        _guardT = 0f;
+
+        CaptureRest();
+
+        _guarding = true;
+    }
+
+    /// <summary>Drop the guard hold: arms settle straight back to rest (sway retakes them).</summary>
+    public void EndGuard()
+    {
+        if (!_guarding) return;
+        End();
+    }
+
     private void Update()
     {
         if (_active)
@@ -468,6 +511,11 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
         if (_charging)
         {
             UpdateCharge();
+            return;
+        }
+        if (_guarding)
+        {
+            UpdateGuard();
             return;
         }
         UpdateSway();
@@ -529,11 +577,28 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
         transform.localScale = _baseScale * aScale;
     }
 
+    /// <summary>Raise into the guard hold: the arm eases from rest to the weapon's guard pose and
+    /// holds it (a blocking stance) until <see cref="EndGuard"/> drops it. No weapon accent — the
+    /// weapon simply rides the guarding arm.</summary>
+    private void UpdateGuard()
+    {
+        _guardT = Mathf.MoveTowards(_guardT, 1f, Time.deltaTime / GuardRaiseTime);
+        float m = _offHand ? -1f : 1f;
+        PoseKey k = Sample(_guardTrack, _guardT);
+        ApplyPose(k, m, 1f, 0f, _guardT);
+        if (_playerAnim != null) _playerAnim.PingArms();
+
+        transform.localRotation = Quaternion.Euler(_baseEuler);
+        transform.localPosition = _basePos;
+        transform.localScale = _baseScale;
+    }
+
     /// <summary>Apply the shoulder/elbow/wrist that the attack and charge phases share — arm (owner),
     /// support arm by def mode, and the reflected left-hand mirror. Pulse = impact recoil (0 in idle
     /// holds), h = heavy amplification, t = normalized time (needed for Asym support-arm sampling).</summary>
     private void ApplyPose(PoseKey k, float m, float h, float pulse, float t)
     {
+        if (_playerAnim != null) _playerAnim.PingArms();
         Vector3 sh = new Vector3(ClampShX(k.shX), k.shY * m, k.shZ * m) * h;
         float el = k.elX * h;
         if (pulse > 0f)
@@ -577,19 +642,70 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
         }
     }
 
-    private void End()
+    /// <summary>Claim the player arms ONCE per phase (balanced with exactly one release in End).</summary>
+    private void Acquire()
     {
-        _active = false;
-        transform.localRotation = Quaternion.Euler(_baseEuler);
-        transform.localPosition = _basePos;
-        transform.localScale = _baseScale;
+        if (_ownsArms) return;
+        _ownsArms = true;
+        if (_playerAnim != null) _playerAnim.AcquireArms();
+    }
+
+    /// <summary>Release the arm claim held by this rig. Safe to call when not owning.</summary>
+    private void Release()
+    {
+        if (!_ownsArms) return;
+        _ownsArms = false;
+        if (_playerAnim != null) _playerAnim.ReleaseArms();
+    }
+
+    /// <summary>Restore the arm pivots to their rest pose. The model's rest is local identity
+    /// (see PlayerAnimator), so phases restore to identity rather than an arbitrary live capture —
+    /// a polluted capture can never bake an altered pose into the model.</summary>
+    private void RestoreArms()
+    {
         if (_ownerShoulder != null) _ownerShoulder.localRotation = _ownerShBase;
         if (_ownerElbow != null) _ownerElbow.localRotation = _ownerElBase;
         if (_ownerWrist != null) _ownerWrist.localRotation = _ownerWrBase;
         if (_otherShoulder != null) _otherShoulder.localRotation = _otherShBase;
         if (_otherElbow != null) _otherElbow.localRotation = _otherElBase;
         if (_otherWrist != null) _otherWrist.localRotation = _otherWrBase;
-        if (_playerAnim != null) _playerAnim.ReleaseArms();
+    }
+
+    /// <summary>
+    /// Capture the per-phase rest state (weapon transform + arm pivots) and claim the arms. The
+    /// weapon transform is re-captured so re-parenting onto a hand (ReparentToHands) is harmless;
+    /// the arm pivots' rest is always local identity.
+    /// </summary>
+    private void CaptureRest()
+    {
+        _basePos = transform.localPosition;
+        _baseEuler = transform.localRotation.eulerAngles;
+        _baseScale = transform.localScale;
+
+        ResolvePivots();
+
+        _ownerShBase = Quaternion.identity;
+        _ownerElBase = Quaternion.identity;
+        _ownerWrBase = Quaternion.identity;
+        _otherShBase = Quaternion.identity;
+        _otherElBase = Quaternion.identity;
+        _otherWrBase = Quaternion.identity;
+
+        Acquire();
+    }
+
+    /// <summary>End whatever phase is active: restore weapon + arms to rest and release ownership.</summary>
+    private void End()
+    {
+        transform.localRotation = Quaternion.Euler(_baseEuler);
+        transform.localPosition = _basePos;
+        transform.localScale = _baseScale;
+        RestoreArms();
+        Release();
+        _active = false;
+        _charging = false;
+        _guarding = false;
+        _swayActive = false;
     }
 
     /// <summary>
@@ -634,8 +750,10 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
 
     private void OnDisable()
     {
-        StopSway();
-        if (_playerAnim != null) _playerAnim.ReleaseArms();
+        // Fully tear the active phase down (balanced release) so the player arms always return to
+        // rest — stale attack/charge/guard holds must never leak their arm ownership.
+        if (_ownsArms)
+            End();
     }
 
     // ──────────────────────────────────────────────────────────
@@ -673,20 +791,20 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
     private void StartSway()
     {
         ResolvePivots();
-        if (_ownerShoulder == null) return;
-        _swayShBase = _ownerShoulder.localRotation;
-        _swayElBase = _ownerElbow != null ? _ownerElbow.localRotation : Quaternion.identity;
+        if (_ownerShoulder == null || _ownsArms) return;
+        _swayShBase = Quaternion.identity;
+        _swayElBase = Quaternion.identity;
         if (_def.Mode == OffArm.Mirror)
         {
-            _swayOtherShBase = _otherShoulder != null ? _otherShoulder.localRotation : Quaternion.identity;
-            _swayOtherElBase = _otherElbow != null ? _otherElbow.localRotation : Quaternion.identity;
+            _swayOtherShBase = Quaternion.identity;
+            _swayOtherElBase = Quaternion.identity;
         }
         _basePos = transform.localPosition;
         _baseEuler = transform.localRotation.eulerAngles;
         _baseScale = transform.localScale;
         _swayGuard = 0f;
         _swayActive = true;
-        if (_playerAnim != null) _playerAnim.AcquireArms();
+        Acquire();
     }
 
     private void StopSway()
@@ -696,7 +814,19 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
         transform.localRotation = Quaternion.Euler(_baseEuler);
         transform.localPosition = _basePos;
         transform.localScale = _baseScale;
-        if (_playerAnim != null) _playerAnim.ReleaseArms();
+        Release();
+    }
+
+    /// <summary>Drop an active ready sway WITHOUT releasing the arms (a newer phase — attack, charge
+    /// or guard — is taking them over): restore the weapon transform to the sway's captured base so
+    /// the live swing accent never leaks into the new phase, but keep the single arm claim.</summary>
+    private void AbandonSway()
+    {
+        if (!_swayActive) return;
+        _swayActive = false;
+        transform.localRotation = Quaternion.Euler(_baseEuler);
+        transform.localPosition = _basePos;
+        transform.localScale = _baseScale;
     }
 
     private void UpdateSway()
@@ -711,6 +841,7 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
             if (!ShouldSway()) return;
             StartSway();
         }
+        if (_playerAnim != null) _playerAnim.PingArms();
         _swayGuard = Mathf.MoveTowards(_swayGuard, 1f, Time.deltaTime / 0.25f);
 
         float t = Time.time;
