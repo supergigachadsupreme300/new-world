@@ -24,7 +24,6 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool AutoSpawnOnStart = true;
 
     [Header("Lanes")]
-    public bool EnableTools = true;
     public bool EnableFarming = true;
     public bool EnableLivestock = true;
     public bool EnableEnemies = true;
@@ -117,7 +116,6 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (_spawned) return;
         _spawned = true;
 
-        if (EnableTools) SpawnToolKit();
         if (EnableFarming) SpawnFarmingPlot();
         if (EnableLivestock) SpawnLivestock();
         if (EnableEnemies) SpawnEnemies();
@@ -172,7 +170,6 @@ public sealed class NewWorldTestGround : MonoBehaviour
     /// </summary>
     public void GrantBenchBag()
     {
-        if (EnableTools) SpawnToolKit();
         if (EnableWeapons) SpawnAllWeapons();
         if (EnableRaces) GrantRaceAccess();
         if (EnableSkills) GrantAllSkills();
@@ -265,32 +262,6 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public Vector3 GetSpawnPoint()
     {
         return PlatformCenter + new Vector3(0f, 2f, PlatformSize * 0.45f);
-    }
-
-    private void SpawnToolKit()
-    {
-        var tm = ToolManager.Instance;
-        if (tm == null) return;
-
-        // The 10-slot tool rack — a representative discovery kit.
-        string[] kit = new[]
-        {
-            "axe", "pickaxe", "hoe", "hammer", "scythe", "watering_can",
-            "fertilizer", "club", "rosary", "fishing_rod"
-        };
-        foreach (var type in kit)
-            tm.AddItem(type, 1);
-
-        // Foods round out the visible inventory where slots remain (no seeds by request).
-        string[] extras = new[]
-        {
-            "banh_mi", "com_tam", "nuoc_dau", "mi_chinh", "xap_phong"
-        };
-        foreach (var type in extras)
-        {
-            if (!tm.CanHoldItem(type)) break;
-            tm.AddItem(type, 5);
-        }
     }
 
     private void SpawnFarmingPlot()
