@@ -138,8 +138,9 @@ public sealed class CharacterInfoUI : MenuPanelBase
         new Color(0.92f, 0.72f, 0.3f, 1f),   // Crafting
         new Color(0.55f, 0.78f, 0.42f, 1f),  // Defense
     };
-    private static readonly Color LineActive = new Color(0.72f, 0.68f, 0.55f, 0.9f);
-    private static readonly Color LineInert = new Color(0.4f, 0.42f, 0.48f, 0.75f);
+    private static readonly Color LineActive = Color.black;
+    private static readonly Color LineInert = Color.black;
+    private static readonly Color LineHighlight = Color.white;
 
     /// <summary>Horizontal shift applied to the humanoid sheet so the backpack uses the right half.</summary>
     private const float EquipShiftX = -145f;
@@ -784,6 +785,21 @@ public sealed class CharacterInfoUI : MenuPanelBase
             line.color = active ? LineActive : LineInert;
         }
 
+        // Selected-skill highlight: light up every link touching the clicked skill.
+        if (_selectedSkill != null)
+        {
+            for (int i = 0; i < _treeLines.Count; i++)
+            {
+                var (line, target) = _treeLines[i];
+                if (line == null) continue;
+                bool touches = target.id == _selectedSkill.id;
+                if (!touches && target.PrereqSkillIds != null)
+                    foreach (var pid in target.PrereqSkillIds)
+                        if (pid == _selectedSkill.id) { touches = true; break; }
+                if (touches) line.color = LineHighlight;
+            }
+        }
+
         if (_skillPointsText != null)
             _skillPointsText.text = profile != null
                 ? Localization.F("Skill Points: {0}", profile.Points)
@@ -984,8 +1000,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
             if (s != null) list.Add(s);
         if (list.Count == 0) return;
 
-        // Depth is the effective layer per EffLayerOf: a Layer-0 skill with a prerequisite is a branch,
-        // so it reads as layer 1 instead of a root.
+        // Depth is the effective layer per EffLayerOf: ExpandTree has already placed every skill
+        // at its true prereq-chain depth (root = 0, branch = 1, deep chains = 2-3).
         var depth = new Dictionary<string, int>();
         foreach (var s in list)
             depth[s.id] = EffLayerOf(s);
@@ -1001,19 +1017,24 @@ public sealed class CharacterInfoUI : MenuPanelBase
         //   ring0      r=250  Layer 0 (base) — one ring, exactly sized to the category's ROOT count
         //              (5 for Melee/Ranged/Stealth/Crafting, 6 for Magic & Fortitude) so no slots
         //              go to waste and branches never eat a root's slot.
-        //   ring1-2    r=500,522  Layer 1 (branch) — pulled inward so the branch band reads as a tight
-        //              arc: the first ring holds 52 slots (pitch 10), so a full Layer-1 set up to 52
-        //              skills sits centered on a single ring; only Magic (70) and Fortitude (60) spill
-        //              a few units onto the second ring.
-        //   ring3+     r=802,...  Layer 2 (deep) — starts a full 280px moat past the last branch ring
-        //              so layer-2 branches sit clearly on their own band, then grows 180px per ring.
+        //   ring1-2    r=470,492  Layer 1 (branch) — holds exactly roots×5 branches (25 for
+        //              Melee/Ranged/Stealth/Crafting, 30 for Magic & Fortitude). Branches use the
+        //              room freed by the 25/30 cap: bigger 12x10 nodes with a 16px pitch (~4px gap)
+        //              fit the first ring's 30 slots exactly (Magic/Fortitude fill all of them).
+        //   ring3      r=1490   Layer 2 (deep) — a single ring holding the FULL L2 catalog (5
+        //              grandchildren per L1 = 126-152 nodes) in one pass: an 8px-node/10px-pitch row
+        //              fits arc capacity 154 ≥ Magic's 152, so nothing spills to a second deep ring.
+        //   ring4      r=1770   Layer 3 (deepest) — the 2-3 hop locks (Tornado, Masterwork,
+        //              Heart-Seeker) sit alone one ring out from the L2 ring.
         const float ring0 = 250f;
-        const float moatBase = 250f;    // base ring -> first branch ring (r1 = 500).
-        const float branchStep = 22f;   // headroom between the two branch-band rings (7px node).
-        const float moatBranch = 280f;  // last branch ring -> first deep ring (r3 = 802).
-        const float deepStep = 180f;    // spacing between deep rings.
-        float[] layerPitch = { 22f, 10f, 14f }; // Per-layer node pitch: L0 base (18px node + 4px gap),
-                                                // L1 branch (8px node + 2px gap), L2 deep (10px node + 4px gap).
+        const float moatBase = 220f;    // base ring -> first branch ring (r1 = 470) — pulled in from 250
+                                        // so L0 and L1 sit closer together now that L1 is a single row.
+        const float branchStep = 22f;   // headroom between the branch-band rings (10px node).
+        const float moatBranch = 998f;  // last branch ring -> L2 ring (r3 = 1490) — sized so a single
+                                        // L2 ring (10px pitch) seats 154 slots ≥ the 152-node Magic band.
+        const float deepStep = 280f;    // L2 ring -> L3 ring spacing (r4 = 1770).
+        float[] layerPitch = { 22f, 16f, 10f }; // Per-layer node pitch: L0 base (18px node + 4px gap),
+                                                // L1 branch (12px node + ~4px gap), L2 deep (8px node + 2px gap).
 
         float RingRadius(int ring)
         {
@@ -1146,22 +1167,36 @@ public sealed class CharacterInfoUI : MenuPanelBase
                 // Pin each layer to its fixed band slots (L0->0, L1->1-2, L2->3+) so a partially
                 // filled layer never shifts the next band inward onto a wrong radius.
                 int ringIdx = Mathf.Max(ringCursor, li == 0 ? 0 : li == 1 ? 1 : 3);
-                int onRing = 0;
+
+                // Every layer lands on a single ring: the L2 ring (r3) is sized so its 10px pitch
+                // seats all 126-152 nodes in one row. If a layer ever exceeds its ring's capacity
+                // the band still grows outward (rings widen) instead of colliding.
+                int band = 1;
+                while (band < 8)
+                {
+                    int total = 0;
+                    for (int b = 0; b < band; b++) total += RingCapacity(ringIdx + b, pitch);
+                    if (total >= layer.Count) break;
+                    band++;
+                }
+                var load = new int[band];
                 foreach (var s in layer)
                 {
-                    // Layer 0 is exactly sized to its node count (no reserved/spare slots).
-                    int cap = li == 0 ? layer.Count : RingCapacity(ringIdx, pitch);
-                    if (onRing >= cap)
+                    int pick = 0;
+                    for (int b = 1; b < band; b++)
                     {
-                        ringIdx++;
-                        onRing = 0;
+                        int pickCap = li == 0 ? layer.Count : RingCapacity(ringIdx + pick, pitch);
+                        int capB = li == 0 ? layer.Count : RingCapacity(ringIdx + b, pitch);
+                        bool pickFull = load[pick] >= pickCap;
+                        if (!pickFull && load[b] >= capB) continue;
+                        if (pickFull || load[b] < load[pick]) pick = b;
                     }
-                    while (ringTotal.Count <= ringIdx) ringTotal.Add(0);
-                    ringFor[s.id] = ringIdx;
-                    ringTotal[ringIdx]++;
-                    onRing++;
+                    while (ringTotal.Count <= ringIdx + pick) ringTotal.Add(0);
+                    ringFor[s.id] = ringIdx + pick;
+                    ringTotal[ringIdx + pick]++;
+                    load[pick]++;
                 }
-                ringCursor = li == 1 ? 3 : ringIdx + 1;
+                ringCursor = li == 2 ? ringIdx + band : (li == 1 ? 3 : ringIdx + 1);
             }
 
             // Center partially filled rings so isolated outer nodes sit mid-wedge, never hugging
@@ -1278,14 +1313,13 @@ public sealed class CharacterInfoUI : MenuPanelBase
     }
 
     /// <summary>
-    /// Effective tree layer for a skill: a Layer-0 skill that still requires a prerequisite is a
-    /// branch off a root, not a root itself, so it belongs on the Layer-1 ring (and uses branch
-    /// node sizing) rather than eating a Layer-0 slot.
+    /// Effective tree layer for a skill: ExpandTree has already resolved every skill to its true
+    /// prereq-chain depth (root = 0, branch = 1, deep chains = 2-3), so the data layer is final.
     /// </summary>
     private static int EffLayerOf(Skill s)
     {
         if (s == null) return 0;
-        return (s.Layer == 0 && s.PrereqSkillIds != null && s.PrereqSkillIds.Length > 0) ? 1 : s.Layer;
+        return s.Layer;
     }
 
     private Image MakeTreeNode(Skill skill, Vector2 pos)
@@ -1298,8 +1332,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         rt.pivot = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = pos;
         int le = EffLayerOf(skill);
-        float nw = le == 0 ? 18f : le == 1 ? 8f : 10f;
-        float nh = le == 0 ? 14f : le == 1 ? 7f : 7f;
+        float nw = le == 0 ? 18f : le == 1 ? 12f : 8f;
+        float nh = le == 0 ? 14f : le == 1 ? 10f : 6f;
         rt.sizeDelta = Sz(nw, nh);
         var img = go.AddComponent<Image>();
         img.color = NodeLocked;
@@ -1335,7 +1369,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.text = skill.displayName;
         tmp.fontSize = EffLayerOf(skill) == 0 ? Mathf.Max(8f, Screen.height / 150f)
-                     : EffLayerOf(skill) == 1 ? Mathf.Max(7f, Screen.height / 200f)
+                     : EffLayerOf(skill) == 1 ? Mathf.Max(8f, Screen.height / 180f)
                      : Mathf.Max(6f, Screen.height / 280f);
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;

@@ -7,6 +7,138 @@ Companion docs: `PLAN.md`, `PLAN-class-skill-trees.md`, `planning.md`, `game-des
 
 ---
 
+## 1z. Recent completed work (2026-09-11) — per-hand dual-wield mouse scheme
+User: with 2 weapons equipped, make each mouse button drive its own hand (2 swords = LMB/RMB attack
+separately); trade-off = no block except via a shield hand; sword+shield = sword side attacks & shield
+side guards; magic in a mixed dual loses its charge (fires uncharged); both-magic/0-or-1 weapon keep
+the standard scheme; ranged keeps its charge and the buttons cross (LMB→right hand's weapon, RMB→left
+hand's) so a bow in the right hand fires on LMB ("the first mouse clicked fires the other one").
+- `CombatController.cs`:
+  - `HasLoadedDual` (both hands = real non-fist rigs; fists never count), `BothHandsMagic` (both-magic
+    keeps the normal aim/charge/fire flow), `HasRangedDual` (crossed-button trigger).
+  - Public `CategoryOfHand(hand)` (wraps private `CategoryOf`).
+  - `LightAttack()`/`FireRanged(charge)` now resolve through new `HandOf(behavior)`; added per-hand
+    `LightAttackWith(hand)` and `FireRangedWith(hand, charge)` (resolve that hand's behavior — the
+    dual scheme) that can't be used while blocking.
+  - New `NotifyWeaponAnimator(hand, …)` animates only the acting hand in per-hand attacks; the
+    existing broadcast `NotifyWeaponAnimators` stays for the heavy/mobile paths.
+- `PlayerController.cs`:
+  - New `_dualChargeL/_dualChargeR` accumulator per hand; `HandleDualModeCombat` +
+    `HandleDualHand` dispatch each mouse button to one hand: Melee = swing on press, Shield = guard
+    while held (release unguards), Magic (mixed) = `MagicWheelUI.EnsureArmedMagic` +
+    `ReleaseArmedCast(0)` on press (uncharged), Ranged = hold-to-charge (`MagicChargeLevel`) +
+    release-to-fire (`FireRangedWith`).
+  - `dualMode = FightingMode && !IsMobile && HasLoadedDual && !BothHandsMagic`; guards skip the old
+    `_aiming` block, LMB-press block and RMB-block branch while in dual mode. Attack press auto-releases
+    a raised guard before swinging. Gates: Not FightingMode (stowed weapons) or mobile ⇒ stock behavior.
+- Docs: `game-design.md` §5.4 (Dual hand-state bullet) + §5.16 controls (full dual scheme table);
+  `PROGRESS.md` this section.
+### 1z-status
+- Source-compile verified by review (Unity project — no CLI build, not play-tested).
+
+---
+
+## 1y. Recent completed work (2026-09-11) — shield weapons (Block category)
+User: "the game have shield skill but nt a sheild, add it in." User confirmed scope: new
+`WeaponCategory.Shield`, 3 shields, shields = strictly better block.
+- `WeaponCategory.cs`: new `Shield = 3` (`Melee/Ranged/Magic/Shield`).
+- `WeaponData.cs`: new guard mods `BlockAbsorbPercent = 0.8f` (min — default 80% absorb, matching
+  the old bare-hand guard) + `BlockStaminaDrainMult = 1f` under `[Header("Per-Category (Shield)")]`.
+- New `Assets/Scripts/Combat/Weapons/ShieldWeaponBehavior.cs` (+ `.meta`, guid
+  `d118249d90894ed682054489e68be0a2`): `[RequireComponent(HitboxSystem)]`, `IWeaponBehavior` bash —
+  mirrors `MeleeWeaponBehavior` (Str-scaled hit, `Completed` fires when the $ hitbox is not active).
+  - Repo `.meta` convention (verified this session): metas are the **minimal 2-line format**
+    (`fileFormatVersion: 2` + `guid: …`) like `CastingCircle.cs.meta` / `MeleeWeaponBehavior.cs.meta`.
+    The first shield commit wrote a full 11-line `MonoImporter` block instead, which Unity rejected
+    ("YAML Parsing error — Parser Failure at line 11"), so the asset was ignored and the downstream
+    compile died at `WeaponDatabase.cs:28` with `CS0246` for `ShieldWeaponBehavior`. Rewrote it to the
+    2-line form (guid kept `d118249d90894ed682054489e68be0a2`) — imports and compiles in Unity.
+- `WeaponCatalog.cs`: 3 shields via new `MakeShield` helper —
+  `buckler` (wt 2, req 1, base 4, Dex scale, absorb 0.85, drain ×0.6, skill `wskill_buckler`),
+  `round_shield` (wt 5, req 3, base 6, Str, absorb 0.9, ×0.7, `wskill_round_shield`),
+  `tower_shield` (wt 9, req 6, base 8, Str, absorb 0.95, ×0.8, `wskill_tower_shield`).
+- `WeaponModelBuilder.cs`: `BuildBuckler` / `BuildRoundShield` / `BuildTowerShield` proc-cube models +
+  dispatcher cases.
+- `WeaponRigBuilder.cs`: `Shield` BuildRig case (ShieldWeaponBehavior + databind); `DrawPoseFor`
+  shield branch (flat on forearm, `(side*0.08, -0.35, 0.18)`, identity rot — face normal = +Z);
+  `StowPoseFor` shield branch (flat on back, `(0, 0.32, -0.26)`, Euler(0,180,0)).
+- `WeaponAnimator.cs`: shared `ShieldBashKeys` track (forward jab / lateral sweep / overhead slam);
+  per-id defs `buckler`/`round_shield`/`tower_shield` (sd 0.28/0.32/0.38, so 0.40/0.46/0.55).
+- Blocking is now shield-aware (`CombatController.cs` + `PlayerController.cs`):
+  - `CombatController`: new `EquippedShield` (scans both hands for `Category==Shield`), `HasShield`,
+    `BlockTakenMultiplier` (= 1 − shield `BlockAbsorbPercent`, else 0.2) and `BlockDrainMultiplier`
+    (= shield `BlockStaminaDrainMult`, clamped ≥0.1). `OnBlockedHit` divides drain by class
+    `BlockingMul` again and multiplies by `BlockDrainMultiplier`.
+  - `PlayerController.TakeDamage`: blocked hits now use `combat.BlockTakenMultiplier` (was hard-coded
+    ×0.2 — updated `if (amount <= 0) return;` guard kept).
+  - `PlayerController` RMB gate: `IsMeleeEquipped(combat) || IsShieldEquipped(combat)` (new helper →
+    `combat.HasShield`) so a shield-only or sword+shield guard blocks; bow/staff + shield still
+    reserves RMB for aim/charge.
+- No `NewWorldTestGround.cs` change needed: `SpawnAllWeapons` already loops the whole
+  `WeaponCatalog.All` list (EnsureOwned + AddItem), so the 3 shields are granted & rack-displayed
+  automatically.
+- Docs: `game-design.md` §3.6 (4-category wording, Shield row + Layer 1/2/3 + Notes bullet on the
+  off-hand defense / RMB pairing), §5.16 controls line ("block (melee or shield)");
+  `PROGRESS.md` this section.
+
+### 1y-status
+- Unity integration complete: the `.meta` rewrite (2-line format) fixed both the YAML parse error and
+  the CS0246, and the shield script now imports and compiles. Blocking math verified by code review
+  only — not play-tested (no human-in-loop fight test yet).
+
+---
+
+## 1x. Recent completed work (2026-09-11) — skill-tree link highlight, magic wheel, casting circle
+
+### 1x-a. Skill-tree links black; clicked node lights its links white
+User: "change nodes link to black, add functions that light up the link when clicking a skill."
+- `CharacterInfoUI.cs`: `LineInert` and `LineActive` both now `Color.black`; new `LineHighlight =
+  Color.white` (~line 141-143). `RefreshSkillTree` picked every `_treeLine` line once more after
+  painting: a line goes white if `target.id == selected` OR the selected skill appears in
+  `target.PrereqSkillIds` (i.e. the clicked node's direct parent→child links).
+- Decision (user-confirmed): the highlight algorithm lives in `CharacterInfoUI.cs`, NOT
+  `SkillCatalog.Ranged.cs` / the catalog partials — those stay data-only.
+
+### 1x-b. Magic wheel (Alt) — labels now visible + capacity 16 → 64
+Complaint: wheel circles had no text (only the centre hint named the spell) and 16 slots was too
+small once the spell pool grew.
+- `MagicWheelUI.cs`:
+  - `MaxEntries` 16 → 64.
+  - New `_slotSize` / `_ringRadius` fields; `RebuildEntries` now sizes dynamically —
+    `_slotSize = min(h*0.13f, (maxRadius*2π)/(count*1.15f))`, `_ringRadius = min(max(h*0.28f,
+    count*_slotSize*1.15f/2π), maxRadius = h*0.42f)` (h = canvas height in px). Ring grows with skill
+    count, slots shrink with 1.15× arc gap so all 64 fit on screen.
+  - Fixed latent bug: `CreateSlot` built the label but never assigned `.text`
+    (`slot.label.text = skill.displayName`), font `max(7f, slotSize*0.42f)`,
+    `enableWordWrapping = false`, `overflowMode = Ellipsis` — long names truncate, full name in the
+    centre hint on hover.
+  - `Paint` hover hit-radius now `_slotSize * 0.78f` (was hardcoded) so picking stays accurate on the
+    small slots.
+
+### 1x-c. Casting circle — halo around the magic weapon while charging (new files)
+Feature: visible ring around the weapon during aim/charge so a charging cast reads clearly.
+- New `Assets/Scripts/Combat/Effects/CastingCircle.cs` (+ `.meta`, guid
+  `0c99a538ff784eab94de853363fa8fc8` since the repo tracks meta files). Lazy singleton
+  (`Instance`), prefab-free (builds objects in code like `AoeAimPreview`):
+  - Disc (solid translucent) + outer LineRenderer ring (48 seg, 0.06 width) + inner spinning ring
+    (36 seg, 0.03 width, faster spin). Orientation: ring plane ⊥ weapon up-axis
+    (`Quaternion.LookRotation(up)`).
+  - `Show(anchor, charge, color)`: radius 0.35 → 0.75, alpha 0.35 → 1, spin `18f + charge*60f` deg/s —
+    all lerped by charge.
+  - `Burst(radius, color, upDir)` → one-shot `SkillFx.RingFlash` on cast release.
+  - `Hide()` sets all renderers inactive (keeps one-shot rings playing).
+- `PlayerController.cs`: new `_castingCircle` field. `UpdateCastingCircle(charge)` called right after
+  `UpdateAoePreview` in the magic aim path; on cancel `HideCastingCircle()`; on release
+  `BurstCastingCircle(charge)` then `HideCastingCircle()`, then `MagicWheelUI.ReleaseArmedCast(charge)`.
+  Helpers `Casting()`, `MagicHand(CombatController)`, `HandIsMagic(GameObject)` (~lines 1140-1210).
+
+### 1x-status
+- All three compile-level verified (git diff reviewed; no name conflicts). **Not yet visually
+  confirmed in Unity** — next session: play with a magic weapon, Alt-wheel >64 spells, charge and
+  eyeball the halo + white link highlight.
+
+---
+
 ## 1. Recent completed work (race/class skill trees + general tree layout)
 
 ### 1a. Race skill tree system (files created this round)
@@ -50,6 +182,71 @@ Complaint: "Layer 1 has too many slots; skills that branch from layer 1 are taki
   - Ring-allocation math untouched; L2 is still pinned to ring 3+ (never shares an L1 ring).
 - Also verified: ring1 cap now floor(500*1.04/10)=52, ring2 54 → L1 band holds max 70 (Magic) fine.
 - NOT yet visually confirmed in Unity — next session should eyeball the tree.
+
+### 1b-update (2026-09-11): ROOT fix — Layer 1 is now true-roots × 5, not 10 bases × 5
+The real bug was DATA: `SkillCatalog.ExpandTree` expanded ALL 10 raw L0 skills per category
+(5 true roots + 5 hand-authored locked skills) → 55 eff-L1 nodes (Magic 78), not the intended 25.
+Fixed in `SkillCatalog.ExpandTree` (SkillCatalog.cs:381): a 4-line pre-pass promotes every
+Layer-0 skill that has a prereq to Layer 2 (the deep band), so expansion now only branches the true
+roots → L1 = 25 per category (Magic/Fortitude 30, they have 6 roots), L2 = 125 (+ relabeled locks).
+`CharacterInfoUI` tier-band comment updated (lines 1001-1008) to match. No layout constants changed.
+
+### 1c-update (2026-09-11): TRUE-depth layering — L2 no longer overfiles, L3 owns the deepest chains
+Follow-up complaint: "same problem on layer 2-3" — the flat "promote every lock to Layer 2" fix from
+1b crowded L2 (Melee 130 / Ranged 130 / Magic 158 / Stealth 130 / Crafting 130 / Fortitude 154 against
+ring caps 59/72/86) and 2-3-hop chains (Tornado, Masterwork, Heart-Seeker) read as a phantom layer 3.
+Fix (`SkillCatalog.ExpandTree`, still SkillCatalog.cs:381): each hand-authored lock now gets its TRUE
+prereq-chain depth (root=0, branch=1, deep=2/3) via a DAG depth walk. Depth-1 locks take the 5 slots of
+the root they hang from (authored first, synthetic fill) so L1 stays exactly 25/30; a lock that spans
+multiple roots (Assassinate: Backstab + Sly Fox) is deduped so it never spawns duplicate L2 children.
+Depth-2 locks sit with the synthetic L2 grandkids; depth-3 locks form a real Layer 3 band (0-1 nodes).
+New counts: Melee 5/25/126/-, Ranged 5/25/126/1, Magic 6/30/152/1, Stealth 5/25/126/-, Crafting
+5/25/126/1, Fortitude 6/30/151/-. `CharacterInfoUI.EffLayerOf` simplified to return `s.Layer` (data is
+now final); tier-band + depth comments updated. No layout constants changed.
+
+### 1d-update (2026-09-11): L1 uses its freed room — bigger nodes, wider gaps, closer to the roots
+With L1 now a single row of 25/30, its ring band is repurposed for readability: L1 nodes grow
+8x7 → 12x10 and `layerPitch` L1 10 → 16 (edge gap 2px → ~4px; ring1 cap 52 → 30, Magic/Fortitude
+fill it exactly), label font bumps 7→8. `moatBase` 250 → 220 pulls ring1 in to r=470 so Layer 0 and
+Layer 1 sit closer. Derived ring caps rechecked: r1=470(30), r3=772(57), r4=952(70), r5=1132(84) —
+all L2 bands (126-152) and lone L3 nodes still fit.
+
+### 1e-update (2026-09-11): L2 gets real room — bigger wheel, two spacious rings, no catalog cut
+Complaint: "layer 2 doesn't have enough space, more than half the skills got pushed up to layer 3".
+Root cause: ring3 (r=772) held only 57 L2 nodes vs 126-152, so 55-62% poured onto rings 4-5 (read as
+"layer 3"). No catalog shrink (Option C chosen): `moatBranch` 280 → 550 and `deepStep` 180 → 260.
+ring3 r=1042 (cap 77), ring4 r=1302 (cap 96) → every category's L2 fits 2 well-sized rings
+(Magic 152 = 77+75, ring4 ~78% full), and true L3 (Tornado/Masterwork/Heart-Seeker) sits alone on
+ring5 r=1562. L1 band untouched. New derived caps: r3=1042(77), r4=1302(96), r5=1562(116), r6=1822(135).
+
+### 1f-update (2026-09-11): SHELVED — "2 synthetic grandchildren per L1" (skill cut)
+Cut synthetic L2 grandkids 5 → 2 per L1 and pitched L2 to 16 so the band fit one ring. User REJECTED
+the skill reduction: "i dont want to reduce the amount of skills, i want to keep the amount as it is".
+Full catalog restored (5/L1). SUPERSEDED by 1g. Kept only `layerPitch` L2 = 16 from this attempt.
+
+### 1g-update (2026-09-11): L2 keeps ALL skills — balanced 3-ring band, no ring packed to the seams
+Complaint: cut is not acceptable; L2 must keep 5 grandchildren/L1 (126-152 nodes/category, ~1034 total).
+Physics: that volume can't sit on one ring, so instead of greedily filling the innermost ring until it
+is 100% full, `CharacterInfoUI` allocator (CharacterInfoUI.cs:1142) now SPREADS dense bands: each L2
+node picks the least-loaded ring of a 3-ring band (rings 4-6 = r=1092/1372/1652), growing the band only
+if capacity demands. Every ring ends up ~50-73% full with 6px gaps instead of one seam-packed ring.
+Radii: `moatBranch` 550 → 600 (ring3 r=1092), `deepStep` 260 → 280 (r4=1372, r5=1652). L2 caps at
+16px pitch: 70/89/107 (Magic 152 = ~51 per ring). True L3 (Tornado/Masterwork/Heart-Seeker) sits singly
+on ring6 r=1932 (cap 167). SkillCatalog.ExpandTree back to `ci < 5`; class doc ~1034 restored.
+L0 (6 roots) and L1 (exactly 25/30 on ring1) untouched.
+
+### 1h-update (2026-09-11): L2 collapsed to a SINGLE ring — verified against real content files
+Re-check after the six SkillCatalog.{Category}.cs content files landed (960 new skills, ExpandTree now
+produces layer counts 126/126/152/126/126/151): every L2 child is `Layer=2` and max authored depth is 3
+(only Tornado/Masterwork/Heart-Seeker), so no L4 and no overflow exists in DATA. What read as "pushed to
+layer 3/4" was the 1g 3-ring L2 spread (rings 3-5) — L2 nodes visually occupied two extra rings.
+User chose single-ring L2. Changes in CharacterInfoUI.cs:
+- `layerPitch` L2 16 → 10; L2/L3 nodes 10x7 → 8x6 (2px gaps), so one ring seats all 126-152 nodes.
+- `moatBranch` 600 → 998: ring3 r=1092 → 1490 (cap 154 @ 10px ≥ Magic 152). ring4 r=1770 (cap 153) = L3.
+- Allocator band hard-coded 3-ring for L2 → `band = 1` (single ring; still grows outward only if a layer
+  ever exceeds a ring's capacity).
+Simulation (real counts): L2 = exactly ring3 for all 6 categories (126/126/152/126/126/151 ≤ 154),
+L3 = exactly ring4 (Ranged/Magic/Crafting 1 each); wheel maxR shrinks 1972 → ~1810.
 
 ---
 
@@ -115,6 +312,255 @@ Changes (code, not yet verified in Editor):
    be the raycast itself missing (line 770), not registration.
 5. Known minor leak (pre-existing): chunk-unloaded trees/rocks stay as stale null entries in
    `_trees`/`_rocks`; harmless to chopping (null-guarded) but inflates respawn counters.
+
+---
+
+## 5. Skill tree content design — continuation plan (2026-09-11)
+
+### What's been done
+- **SkillCatalog.cs refactored** to `public static partial class SkillCatalog` with:
+  - `BranchSlot` class (IsAuthored, Id, Name, IsPassive, Cost, IsMagical, Kind, Effect, Desc).
+  - `A(authoredId)` — shortcut for referencing an existing skill from Build*.
+  - `S(id, name, effect, desc, cost, kind, magical, passive)` — shortcut for a new hand-written skill.
+  - `DesignBank` (Dictionary L1[rootId] → 5 BranchSlot[], Dictionary L2[parentId] → 5 BranchSlot[]).
+  - `_design` field + `Design` lazy property + `BuildDesignBank()` calling `Register*Design(bank)`.
+  - **ExpandTree rewritten** to read from `Design.L1` / `Design.L2` tables instead of generating
+    suffix names. Authored slots (A(...)) resolve existing skills by id; new slots (S(...)) get
+    Add(...). Multi-root dedupe via `layer1Ids` preserved.
+  - Old synthetic machinery removed: `_suffixesByType`, `_activeElements`, `_passiveStats`,
+    `ScaledCost`, `ActiveCostForLayer`, `MakeChildEffect` all deleted.
+- **Content files created 2026-09-11** — all 6 partial files now exist:
+  `SkillCatalog.Melee.cs`, `SkillCatalog.Ranged.cs`, `SkillCatalog.Magic.cs`,
+  `SkillCatalog.Stealth.cs`, `SkillCatalog.Crafting.cs`, `SkillCatalog.Fortitude.cs`.
+  `Register*Design(bank)` methods are resolved; `BuildDesignBank()` compiles.
+  VERIFIED (static sweep, no Unity compile): per-category L1/L2 tables are exact
+  bijections (every L1 child has an L2 table, every L2 key is an L1 child),
+  22 authored `A()` refs + 6× L0 root keys all resolve to existing `Build*` ids,
+  zero duplicate skill ids, 98 unique `Spell()` ids with no collision vs the 9 base spells.
+
+### Architecture for content files
+Each category gets its own file: `Assets/Scripts/Combat/Skills/SkillCatalog.{Category}.cs`.
+Each file contains:
+```csharp
+partial class SkillCatalog
+{
+    private static void Register{Category}Design(DesignBank bank) { /* populate bank.L1 + bank.L2 */ }
+}
+```
+Content uses `A()` and `S()` helpers (private static in the main partial), plus existing effect
+helpers: `Buff(stat, amt)`, `Slash(power, kind)`, `Zone(radius, power, kind)`, `Spell(...)`,
+`Stamina(amt)`, `Focus(amt)`, `P(ids)`.
+
+### Node counts per category (new = hand-written)
+
+| Category   | L0 | Auth L1 | New L1 | Total L1 | Auth L2+L3 | New L2 | Total L2 | Auth L3 | Total |
+|------------|----|---------|--------|----------|------------|--------|----------|---------|-------|
+| Melee      | 5  | 4       | 21     | 25       | 1 (execute)| 125    | 126      | 0       | 156   |
+| Ranged     | 5  | 3       | 22     | 25       | 1 (arrowrain)| 125  | 126      | 1 (heartseeker) | 157 |
+| Magic      | 6  | 5       | 25     | 30       | 2 (blizzard, gale) | 150 | 152 | 1 (tornado) | 189 |
+| Stealth    | 5  | 4       | 21     | 25       | 1 (shadowstep)| 125  | 126      | 0       | 156   |
+| Crafting   | 5  | 3       | 22     | 25       | 1 (transmute)| 125  | 126      | 1 (forge)| 157   |
+| Fortitude  | 6  | 3       | 27     | 30       | 1 (wall)   | 150    | 151      | 0       | 187   |
+| **Total**  | 32 | 22      | 138    | 160      | 7          | 800    | 807      | 3       | 1002  |
+
+### Authored L1 skills (22) — already exist in Build*, placed via A() in tables
+
+| Skill id            | Name              | Root (prereq)  | Type    |
+|---------------------|-------------------|----------------|---------|
+| melee_tough         | Tough Knuckles    | heavy_mastery  | passive |
+| melee_whirlwind     | Whirlwind         | cleave         | active  |
+| melee_berserk       | Berserk Slash     | cleave         | active  |
+| melee_couter        | Counter Strike    | finesse        | active  |
+| ranged_steady       | Steady Hands      | marksman       | passive |
+| ranged_multishot    | Multishot         | pierce         | active  |
+| ranged_iceshot      | Ice Shot          | flamearrow     | active  |
+| magic_manaflow      | Mana Flow         | arcane         | passive |
+| magic_chain         | Chain Lightning   | fireball       | active  |
+| magic_heal          | Lesser Heal       | focus          | active  |
+| magic_ward          | Arcane Ward       | arcane         | active  |
+| magic_windblade     | Wind Blade        | gust           | active  |
+| stealth_sneak       | Silent Steps      | reflexes       | passive |
+| stealth_veil        | Veil of Night     | shadow         | passive |
+| stealth_cloak       | Smoke Cloud       | nimble         | active  |
+| stealth_assassinate | Assassinate       | backstab+fox   | active  |
+| craft_purity        | Pure Materials    | hands          | passive |
+| craft_refine        | Refinement        | knowledge      | passive |
+| craft_repair        | Field Repair      | knowledge      | active  |
+| fort_vitality       | Vitality          | health         | passive |
+| fort_stamina        | Relentless        | armor          | passive |
+| fort_steadfast      | Steadfast         | armor          | passive |
+
+### Authored d2/d3 locks (10) — already exist, no table entries needed
+- d2: melee_execute, ranged_arrowrain, magic_blizzard, magic_gale, stealth_shadowstep, craft_transmute, fort_wall
+- d3: ranged_execute (Heart-Seeker), magic_tornado, craft_forge (Masterwork)
+
+### Melee L1 design (25 slots — 4 authored + 21 new)
+
+Root: melee_heavy_mastery (passive, Strength+3)
+1. A(melee_tough)
+2. S(melee_heavy_sunder, "Sunder", Slash(24, Physical), Stamina(14)) — "A blow that tears through armor."
+3. S(melee_heavy_crag, "Crag Breaker", Slash(26, Earth), Stamina(16), Earth, true) — "A downward smash that cracks the ground."
+4. S(melee_heavy_goliath, "Goliath Stance", Buff(Endurance, 3), passive) — "Permanent +3 Endurance."
+5. S(melee_heavy_skullcrush, "Skullcrush", Zone(2f, 22f, Physical), Stamina(16)) — "A devastating overhead strike."
+
+Root: melee_finesse (passive, Dexterity+3)
+1. A(melee_couter)
+2. S(melee_finesse_expose, "Expose Weakness", Slash(22, Physical), Stamina(12)) — "A surgical strike that finds the weak seam."
+3. S(melee_finesse_flick, "Lightning Flick", Slash(26, Lightning), Stamina(14), Lightning, true) — "A blade flicker as fast as lightning."
+4. S(melee_finesse_mirage, "Mirage Blade", Slash(24, Dark), Stamina(16), Dark, true) — "A feint that cuts from a shadow after-image."
+5. S(melee_finesse_rhythm, "Blade Rhythm", Buff(Dexterity, 3), passive) — "Permanent +3 Dexterity."
+
+Root: melee_cleave (active, Stamina 10, Slash 18 Physical)
+1. A(melee_whirlwind)
+2. A(melee_berserk)
+3. S(melee_cleave_rending, "Rending Cleave", Slash(26, Physical), Stamina(16)) — "A cleave that bites deep and tears."
+4. S(melee_cleave_ember, "Ember Sweep", Slash(28, Fire), Stamina(18), Fire, true) — "A cleave trailing a curtain of embers."
+5. S(melee_cleave_tempest, "Tempest Cut", Zone(1.8f, 22f, Wind), Stamina(18), Wind, true) — "A sweeping cut that carries a storm."
+
+Root: melee_lunge (active, Stamina 12, WeaponSkillEffect)
+1. S(melee_lunge_piercer, "Piercer", Slash(20, Physical), Stamina(10)) — "A single lunging thrust aimed at vitals."
+2. S(melee_lunge_bullrush, "Bull Rush", Slash(22, Physical), Stamina(14)) — "A lowered-shoulder lunge that bowls foes over."
+3. S(melee_lunge_hotsteel, "Hot Steel", Slash(24, Fire), Stamina(16), Fire, true) — "A lunge searing the wound as it enters."
+4. S(melee_lunge_shockjab, "Jab of Static", Slash(24, Lightning), Stamina(14), Lightning, true) — "A quick lunge crackling with static."
+5. S(melee_lunge_longarm, "Long Arm", Slash(28, Ice), Stamina(18), Ice, true) — "An impossibly extended lunge chilling the target."
+
+Root: melee_shieldbash (active, Stamina 14, Slash 22 Physical)
+1. S(melee_shield_slam, "Shield Slam", Slash(24, Physical), Stamina(14)) — "A deafening full-body shield slam."
+2. S(melee_shield_wallspike, "Spiked Wall", Zone(2f, 20f, Physical), Stamina(16)) — "A bristling shield line that lashes out."
+3. S(melee_shield_sunwall, "Sunwall", Zone(2.2f, 24f, Holy), Stamina(18), Holy, true) — "A gleaming shield flare of holy light."
+4. S(melee_shield_ironrip, "Iron Riposte", Slash(22, Physical), Stamina(14)) — "Brace and punish an enemy that hit you."
+5. S(melee_shield_earthwarden, "Earthwarden", Zone(2f, 22f, Earth), Stamina(18), Earth, true) — "Strike the ground, sending rubble against foes."
+
+### Melee L2 design (125 entries — 5 per L1 parent)
+
+**melee_tough** children (all passive):
+- Resolute Guard (+5 Def), Siegebreaker (+5 HP), Titan Plate (+5 End), Ironclad (+6 Def), Fortress Core (+5 Str)
+
+**melee_heavy_sunder** children:
+- Razor Sunder (Phys 28), Blazing Sunder (Fire 30), Frostbite Sunder (Ice 30), Rending Sunder (Phys Zone 28), Abyssal Sunder (Dark 34)
+
+**melee_heavy_crag** children:
+- Fissure Strike (Earth 30), Magma Crag (Fire Zone 28), Tremor Slam (Earth Zone 26), Obsidian Edge (Dark 32), Boulder Crush (Phys 30)
+
+**melee_heavy_goliath** children (all passive):
+- Resilience of Stone (+5 HP), Living Fortress (+5 Def), Molten Core (+5 Str), Iron Will (+5 End), Unbroken (+6 HP)
+
+**melee_heavy_skullcrush** children:
+- Skull Maul (Phys Zone 26), Volcanic Crash (Fire Zone 28), Quake Strike (Earth Zone 28), Dark Crush (Dark Zone 30), Boneshatter (Phys 32)
+
+**melee_couter** children:
+- Counter Flurry (Phys 28), Arcane Riposte (Arcane 30), Thunder Counter (Lightning 30), Viper Riposte (Phys 30), Shadow Counter (Dark 34)
+
+**melee_finesse_expose** children:
+- Sever Weakness (Phys 26), Ember Expose (Fire 28), Venom Expose (Dark 28), Rend Open (Phys 30), Void Slice (Arcane 32)
+
+**melee_finesse_flick** children:
+- Spark Flick (Lightning 30), Blur Strike (Wind 28), Tempest Flick (Wind 32), Frost Flick (Ice 32), Shadow Flick (Dark 34)
+
+**melee_finesse_mirage** children:
+- Phantom Strike (Dark 30), Echo Blade (Phys 28), Doppelganger (Arcane 30), Shade Cut (Dark 32), Mist Veil (Wind Zone 28)
+
+**melee_finesse_rhythm** children (all passive):
+- Blade Tempo (+5 Dex), Combat Grace (+5 Speed), Refined Reflex (+5 Dex), Fluid Motion (+5 AtkSpd), Absolute Precision (+5 Luck)
+
+**melee_whirlwind** children:
+- Fervor Spin (Wind Zone 24), Flame Vortex (Fire Zone 26), Frost Cyclone (Ice Zone 26), Razor Vortex (Phys Zone 22), Void Cyclone (Dark Zone 28)
+
+**melee_berserk** children:
+- Reckless Fury (Fire 30), Blood Frenzy (Phys 28), Searing Burn (Fire Zone 26), Berserker Rage (Dark 34), Berserker Storm (Wind Zone 28)
+
+**melee_cleave_rending** children:
+- Deep Rending (Phys 30), Flame Rend (Fire 32), Ice Rend (Ice 32), Storm Rend (Wind Zone 28), Void Rend (Dark 36)
+
+**melee_cleave_ember** children:
+- Ember Burst (Fire Zone 28), Magma Sweep (Fire Zone 30), Cinder Cleave (Fire 30), Inferno Arc (Fire Zone 32), Vapor Sweep (Water Zone 28)
+
+**melee_cleave_tempest** children:
+- Gale Cleave (Wind Zone 26), Squall Strike (Wind Zone 24), Hurricane Arc (Wind Zone 30), Thunder Sweep (Lightning Zone 28), Frost Sweep (Ice Zone 28)
+
+**melee_lunge_piercer** children:
+- Deep Pierce (Phys 24), Flame Thrust (Fire 26), Frost Thrust (Ice 26), Static Pierce (Lightning 28), Void Pierce (Dark 30)
+
+**melee_lunge_bullrush** children:
+- Tackle (Phys 26), Charging Bull (Earth 28), Blazing Charge (Fire 30), Frost Charge (Ice 30), Thunder Rush (Lightning 32)
+
+**melee_lunge_hotsteel** children:
+- Smoldering Steel (Fire 28), Infernal Lunge (Fire 30), Molten Jab (Fire 30), Volcanic Thrust (Earth 32), Searing Thrust (Fire 30)
+
+**melee_lunge_shockjab** children:
+- Spark Jab (Lightning 28), Bolt Lunge (Lightning 30), Arc Strike (Lightning 30), Storm Jab (Wind 32), Thunder Lunge (Lightning 34)
+
+**melee_lunge_longarm** children:
+- Glacial Reach (Ice 30), Frost Lance (Ice 28), Abyssal Reach (Dark 32), Void Reach (Dark 34), Static Reach (Lightning 30)
+
+**melee_shield_slam** children:
+- Aftershock Slam (Phys Zone 28), Flame Slam (Fire Zone 28), Frost Slam (Ice Zone 28), Thunder Slam (Lightning Zone 30), Earth Slam (Earth Zone 30)
+
+**melee_shield_wallspike** children:
+- Bristle Wall (Phys Zone 24), Blazing Wall (Fire Zone 26), Frost Wall (Ice Zone 26), Stone Wall (Earth Zone 28), Gale Wall (Wind Zone 26)
+
+**melee_shield_sunwall** children:
+- Radiant Wall (Holy Zone 28), Blessed Slam (Holy Zone 26), Hymn of Light (Holy Zone 30), Dawn's Shield (Holy Zone 32), Purifying Light (Holy Zone 28)
+
+**melee_shield_ironrip** children:
+- Rebound (Phys 26), Retribution (Holy 28), Vengeance (Dark 30), Reflect (Phys Zone 24), Guardian's Riposte (Holy 28)
+
+**melee_shield_earthwarden** children:
+- Tremor Stomp (Earth Zone 28), Lava Burst (Fire Zone 30), Frozen Earth (Ice Zone 30), Boulder Hurl (Phys Zone 26), Ore Slam (Earth Zone 30)
+
+### Remaining categories — design approach (not yet drafted)
+
+**Ranged** (5 roots: marksman, carry, pierce, quickshot, flamearrow)
+- Auth L1: steady(marksman), multishot(pierce), iceshot(flamearrow). Auth d2: arrowrain[multishot]. Auth d3: heartseeker[arrowrain].
+- 25 L1 + 125 L2 to design. Theme families: accuracy (marksman), speed (carry), piercing (pierce), rapid-fire (quickshot), elemental arrows (flamearrow).
+
+**Magic** (6 roots: focus, arcane, fireball, frostbolt, dark, gust)
+- Auth L1: manaflow(arcane), chain(fireball), heal(focus), ward(arcane), windblade(gust). Auth d2: blizzard[chain+frostbolt], gale[windblade]. Auth d3: tornado[gale].
+- 30 L1 + 150 L2 to design. Theme families: FP/intelligence (focus), ward/utility (arcane), fire line, ice line, dark line, wind line.
+
+**Stealth** (5 roots: shadow, reflexes, fox, nimble, backstab)
+- Auth L1: sneak(reflexes), veil(shadow), cloak(nimble), assassinate(backstab+fox). Auth d2: shadowstep[veil].
+- 25 L1 + 125 L2 to design. Theme families: darkness (shadow), agility (reflexes), trickery (fox), speed (nimble), stealth attacks (backstab).
+
+**Crafting** (5 roots: hands, knowledge, focus, endurance, efficiency)
+- Auth L1: purity(hands), refine(knowledge), repair(knowledge). Auth d2: transmute[purity]. Auth d3: forge[transmute] (Masterwork).
+- 25 L1 + 125 L2 to design. Theme families: quality/luck (hands), recipes (knowledge), concentration (focus), stamina (endurance), speed (efficiency).
+
+**Fortitude** (6 roots: health, armor, recovery, bulwark, stoneskin, guro)
+- Auth L1: vitality(health), stamina(armor), steadfast(armor). Auth d2: wall[steadfast+stoneskin].
+- 30 L1 + 150 L2 to design. Theme families: HP (health/recovery/bulwark), defense (armor), earth (stoneskin), grit (guro).
+
+### Conventions to follow
+- **Ids**: `{category}_{root}_{name}` for L1, `{l1_id}_{name}` for L2. Semantic, not numeric.
+- **Names**: short, punchy (1-3 words). Match existing tone (Whirlwind, Berserk Slash, Execute).
+- **Descriptions**: one sentence, flavor + mechanical fact. E.g., "A cleave that bites deep and tears."
+- **Effects**: purposeful per skill, NOT element-swapped copies. Passive = `Buff(stat, amt)`.
+  Active = `Slash(power, kind)` or `Zone(radius, power, kind)`. Power scales by depth:
+  L1 ~1.3× root power, L2 ~1.7×. Costs via `Stamina(amt)` / `Focus(amt)`.
+- **Passive roots can spawn active L1 branches** (and vice versa) — makes the tree varied.
+- **Elements**: rotate through Physical/Fire/Ice/Lightning/Holy/Dark/Wind/Earth/Water/Arcane.
+  Each L1's 5 children should cover ~3-5 different elements for variety.
+- **Authored d2/d3 locks** (execute, arrowrain, etc.) are NOT in L2 tables — they're in the
+  build list already and appear alongside designed L2 children via the depth walk.
+
+### Execution order
+1. ✅ SkillCatalog.cs refactored (partial, BranchSlot, DesignBank, table-driven ExpandTree)
+2. ✅ SkillCatalog.Melee.cs (25 L1 + 125 L2 = 150 entries)
+3. ✅ SkillCatalog.Ranged.cs (25 L1 + 125 L2 = 150 entries)
+4. ✅ SkillCatalog.Magic.cs (30 L1 + 150 L2 = 180 entries)
+5. ✅ SkillCatalog.Stealth.cs (25 L1 + 125 L2 = 150 entries)
+6. ✅ SkillCatalog.Crafting.cs (25 L1 + 125 L2 = 150 entries)
+7. ✅ SkillCatalog.Fortitude.cs (30 L1 + 150 L2 = 180 entries)
+8. ✅ Sweep: unique ids, prereq resolution, per-category counts, no orphan refs
+   (static grep verified 2026-09-11 — see "Content files created" note above)
+9. 🔲 Update PROGRESS.md counts (left in table form — current table still matches), commit with fix:/ui: prefix
+
+### Known issues
+- ~~SkillCatalog.cs class doc says ~1034 but actual count is ~1002~~ — FIXED (class doc now says ~1002;
+  the 1002 total = 6 cats: 156/157/189/156/157/187 = L0+L1+L2+L3 per 1c-update counts).
+- Dev saves referencing old `*_b1..b5` ids will lose those unlocks (acceptable — full content redesign).
+- No Unity compile available — verification is static (grep for id graph) + user eyeball.
+- `Assets/unused script.md` remains untracked — do not commit.
 
 ---
 

@@ -77,6 +77,13 @@ public class PlayerController : MonoBehaviour
     private bool _chargeRmbHeld;
     private float _chargeAccum;
     private AoeAimPreview _aoePreview;
+    private CastingCircle _castingCircle;
+
+    // Per-hand dual-wield charge accumulators (ranged in one of the two hands keeps its draw).
+    private float _dualChargeL;
+    private bool _dualChargeActiveL;
+    private float _dualChargeR;
+    private bool _dualChargeActiveR;
 
     public void SetInWater(bool inWater, float speedMul, bool allowJump)
     {
@@ -312,7 +319,7 @@ public class PlayerController : MonoBehaviour
         {
             if (combat.OnBlockedHit(amount))
             {
-                amount = Mathf.RoundToInt(amount * 0.2f);
+                amount = Mathf.RoundToInt(amount * combat.BlockTakenMultiplier);
                 if (amount <= 0) return;
             }
         }
@@ -795,10 +802,18 @@ public class PlayerController : MonoBehaviour
             if (combatNow != null && combatNow.RightHand == null && combatNow.LeftHand == null)
                 WeaponRigBuilder.EnsureFists(gameObject);
         }
+        // Per-hand dual-wield (both hands hold real weapons, NOT both magic): LMB and RMB drive each
+        // hand directly instead of the magic aim / RMB-block scheme — so dual loadouts never enter
+        // the single-weapon aim flow below. Runs regardless of dialog so a held ranged release fires.
+        var dualCombat = GetComponent<CombatController>();
+        bool dualMode = FightingMode && dualCombat != null && !GameInput.IsMobile &&
+                        dualCombat.HasLoadedDual && !dualCombat.BothHandsMagic;
+        if (dualMode)
+            HandleDualModeCombat(dualCombat, !dialogBlocked && !MagicWheelUI.IsOpen);
         // Aim/charge: while _aiming (armed magic or ranged), RMB builds the charge level and RMB
         // release freezes it; releasing LMB fires at the current level. Runs even while dialog-ish
         // UI is up so the release isn't mired.
-        if (_aiming)
+        if (_aiming && !dualMode)
         {
             var combat = GetComponent<CombatController>();
             if (ShouldCancelCharge())
@@ -807,6 +822,7 @@ public class PlayerController : MonoBehaviour
                 _chargeRmbHeld = false;
                 _chargeAccum = 0f;
                 HideAoePreview();
+                HideCastingCircle();
                 combat?.EndCharge(false);
             }
             else
@@ -818,6 +834,7 @@ public class PlayerController : MonoBehaviour
                 combat?.SetChargeLevel(MagicChargeLevel(_chargeAccum));
 
                 UpdateAoePreview(MagicChargeLevel(_chargeAccum));
+                UpdateCastingCircle(MagicChargeLevel(_chargeAccum));
 
                 bool lmbUp = !GameInput.IsMobile && Mouse.current != null &&
                              (Mouse.current.leftButton.wasReleasedThisFrame || !Mouse.current.leftButton.isPressed);
@@ -831,6 +848,8 @@ public class PlayerController : MonoBehaviour
                     if (MagicWheelUI.HasArmedMagic())
                     {
                         bool previewShown = _aoePreview != null && _aoePreview.IsActive;
+                        BurstCastingCircle(charge);
+                        HideCastingCircle();
                         MagicWheelUI.ReleaseArmedCast(charge);
                         // Keep the marker up until the spell actually lands, then it hides itself.
                         if (previewShown)
@@ -850,7 +869,7 @@ public class PlayerController : MonoBehaviour
                 }
             }
         }
-        if (!dialogBlocked && leftClick && !MagicWheelUI.IsOpen)
+        if (!dialogBlocked && leftClick && !MagicWheelUI.IsOpen && !dualMode)
         {
             if (FightingMode)
             {
@@ -872,17 +891,18 @@ public class PlayerController : MonoBehaviour
             else
                 ToolManager.Instance?.UseSelectedItem();
         }
-        if (!dialogBlocked && !GameInput.IsMobile && !MagicWheelUI.IsOpen && Mouse.current != null)
+        if (!dialogBlocked && !GameInput.IsMobile && !MagicWheelUI.IsOpen && Mouse.current != null && !dualMode)
         {
             if (FightingMode)
             {
                 var combat = GetComponent<CombatController>();
                 if (combat != null)
                 {
-                    if (IsMeleeEquipped(combat))
+                    if (IsMeleeEquipped(combat) || IsShieldEquipped(combat))
                     {
-                        // RMB hold = block for melee weapons (incl. fists). Melee no longer has a
-                        // heavy attack — the finisher swing is dropped for melee.
+                        // RMB hold = block for melee weapons and shields (incl. fists, incl. a
+                        // shield held in the off-hand). Melee no longer has a heavy attack — the
+                        // finisher swing is dropped for melee, and shields never charge.
                         if (!WeaponTransitionBusy())
                             combat.SetBlocking(Mouse.current.rightButton.isPressed);
                     }
@@ -1082,6 +1102,100 @@ public class PlayerController : MonoBehaviour
         return host != null && host.Data != null && host.Data.Category == WeaponCategory.Melee;
     }
 
+    /// <summary>True when a shield weapon is held in either hand (enables RMB block + strict guard).</summary>
+    private bool IsShieldEquipped(CombatController combat)
+    {
+        return combat != null && combat.HasShield;
+    }
+
+    /// <summary>
+    /// Per-hand dual-wield input (§5.16). Both hands carry real weapons (not both magic — that keeps
+    /// the normal magic flow). LMB drives one hand and RMB the other: same-side when no ranged weapon
+    /// is present, CROSSED (LMB→right hand, RMB→left hand) whenever a bow/throwing hammer is among the
+    /// two so the ranged hand keeps its hold-to-charge/release-to-fire draw. Melee swings on press,
+    /// shields guard while held, magic fires the armed spell uncharged on press (loses its charge),
+    /// ranged charges on hold and fires on release. Only a shield hand can raise a guard (the dual
+    /// weapon trade-off).
+    /// </summary>
+    private void HandleDualModeCombat(CombatController combat, bool inputAvailable)
+    {
+        if (Mouse.current == null) return;
+
+        bool crossed = combat.HasRangedDual;
+        GameObject lmbHand = crossed ? combat.RightHand : combat.LeftHand;
+        GameObject rmbHand = crossed ? combat.LeftHand : combat.RightHand;
+
+        var lmb = Mouse.current.leftButton;
+        var rmb = Mouse.current.rightButton;
+
+        bool blockRequested = false;
+        HandleDualHand(combat, lmbHand, lmb.isPressed, lmb.wasPressedThisFrame,
+            lmb.wasReleasedThisFrame || !lmb.isPressed, inputAvailable,
+            ref _dualChargeL, ref _dualChargeActiveL, ref blockRequested);
+        HandleDualHand(combat, rmbHand, rmb.isPressed, rmb.wasPressedThisFrame,
+            rmb.wasReleasedThisFrame || !rmb.isPressed, inputAvailable,
+            ref _dualChargeR, ref _dualChargeActiveR, ref blockRequested);
+
+        combat.SetBlocking(blockRequested);
+    }
+
+    /// <summary>Drive a single hand's weapon from its mapped mouse button in dual mode.</summary>
+    private void HandleDualHand(CombatController combat, GameObject hand, bool held, bool pressed,
+        bool released, bool inputAvailable, ref float charge, ref bool charging, ref bool blockRequested)
+    {
+        if (hand == null) return;
+
+        switch (combat.CategoryOfHand(hand))
+        {
+            case WeaponCategory.Melee:
+                // Swing on press. A raised guard (other hand's shield) drops first so the swing lands.
+                if (pressed && inputAvailable && !WeaponTransitionBusy())
+                {
+                    if (combat.IsBlocking) combat.SetBlocking(false);
+                    combat.LightAttackWith(hand);
+                }
+                break;
+
+            case WeaponCategory.Shield:
+                // Hold to guard, release to unguard. The caller re-applies SetBlocking after both
+                // hands so a same-frame attack click takes the guard down again.
+                if (held && inputAvailable) blockRequested = true;
+                break;
+
+            case WeaponCategory.Magic:
+                // Magic loses its charge in a mixed dual: a tap fires the armed spell uncharged.
+                if (pressed && inputAvailable && !WeaponTransitionBusy())
+                {
+                    if (combat.IsBlocking) combat.SetBlocking(false);
+                    MagicWheelUI.EnsureArmedMagic();
+                    MagicWheelUI.ReleaseArmedCast(0f);
+                }
+                break;
+
+            case WeaponCategory.Ranged:
+                // Ranged keeps its charge in dual: hold to draw, release to fire at that level.
+                if (pressed && inputAvailable)
+                {
+                    charging = true;
+                    charge = 0f;
+                }
+                if (!charging) break;
+                if (held)
+                    charge = Mathf.Min(charge + Time.deltaTime, MagicChargeMaxTime);
+                combat.SetChargeLevel(MagicChargeLevel(charge));
+                if (released)
+                {
+                    float level = MagicChargeLevel(charge);
+                    charging = false;
+                    charge = 0f;
+                    if (inputAvailable && !WeaponTransitionBusy())
+                        combat.FireRangedWith(hand, level);
+                    combat.EndCharge(level > 0f);
+                }
+                break;
+        }
+    }
+
     /// <summary>True when the equipped hand(s) hold a ranged weapon (bow / throwing hammer).</summary>
     private bool IsRangedEquipped(CombatController combat)
     {
@@ -1130,6 +1244,77 @@ public class PlayerController : MonoBehaviour
         if (_aoePreview == null)
             _aoePreview = AoeAimPreview.Instance;
         return _aoePreview;
+    }
+
+    /// <summary>
+    /// Show/refresh the halo casting circle around the held magic weapon each aim frame. Only
+    /// armed magic gets the halo — ranged draws show their own weapon accent instead.
+    /// </summary>
+    private void UpdateCastingCircle(float charge)
+    {
+        if (!MagicWheelUI.HasArmedMagic())
+        {
+            HideCastingCircle();
+            return;
+        }
+        var combat = GetComponent<CombatController>();
+        var hand = MagicHand(combat);
+        if (hand == null)
+        {
+            HideCastingCircle();
+            return;
+        }
+        var spell = ArmedSpell();
+        Color color;
+        if (spell != null) color = DamageNumber.ColorFor(spell.Type);
+        else
+        {
+            var skill = SkillCatalog.Find(MagicWheelUI.ArmedSkillId);
+            color = skill != null ? DamageNumber.ColorFor(skill.DamageKind) : Color.white;
+        }
+        Casting().Show(hand.transform, charge, color);
+    }
+
+    /// <summary>One-shot expansion ring at the magic weapon on cast release.</summary>
+    private void BurstCastingCircle(float charge)
+    {
+        var combat = GetComponent<CombatController>();
+        var hand = MagicHand(combat);
+        if (hand == null) return;
+        var spell = ArmedSpell();
+        Color color = spell != null ? DamageNumber.ColorFor(spell.Type) : Color.white;
+        float radius = spell != null ? spell.Radius : 1.5f;
+        Casting().Burst(radius * (0.6f + charge * 0.5f), color, hand.transform.up);
+        HideCastingCircle();
+    }
+
+    private void HideCastingCircle()
+    {
+        if (_castingCircle != null)
+            _castingCircle.Hide();
+    }
+
+    private CastingCircle Casting()
+    {
+        if (_castingCircle == null)
+            _castingCircle = CastingCircle.Instance;
+        return _castingCircle;
+    }
+
+    /// <summary>Returns the equipped hand holding a magic weapon, or null.</summary>
+    private GameObject MagicHand(CombatController combat)
+    {
+        if (combat == null) return null;
+        if (combat.RightHand != null && HandIsMagic(combat.RightHand)) return combat.RightHand;
+        if (combat.LeftHand != null && HandIsMagic(combat.LeftHand)) return combat.LeftHand;
+        return null;
+    }
+
+    private static bool HandIsMagic(GameObject hand)
+    {
+        if (hand == null) return false;
+        var host = hand.GetComponent<WeaponRigHost>();
+        return host != null && host.Data != null && host.Data.Category == WeaponCategory.Magic;
     }
 
     /// <summary>SpellData of the armed magic skill (SpellCastEffect), or null when none is previewable.</summary>

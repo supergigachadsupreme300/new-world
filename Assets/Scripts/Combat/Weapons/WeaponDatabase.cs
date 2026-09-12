@@ -25,6 +25,7 @@ public class WeaponDatabase : ScriptableObject
         BehaviorTypes[WeaponCategory.Melee] = typeof(MeleeWeaponBehavior);
         BehaviorTypes[WeaponCategory.Ranged] = typeof(RangedWeaponBehavior);
         BehaviorTypes[WeaponCategory.Magic] = typeof(MagicWeaponBehavior);
+        BehaviorTypes[WeaponCategory.Shield] = typeof(ShieldWeaponBehavior);
     }
 
     /// <summary>Look up a weapon by id, or null if not present.</summary>

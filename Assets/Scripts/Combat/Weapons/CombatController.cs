@@ -163,6 +163,33 @@ public class CombatController : MonoBehaviour
         return host != null && host.Data != null ? host.Data.Category : WeaponCategory.Melee;
     }
 
+    /// <summary>Category of the weapon rigged into a specific hand slot.</summary>
+    public WeaponCategory CategoryOfHand(GameObject hand) => CategoryOf(hand);
+
+    /// <summary>
+    /// True when both hands hold a real (non-fist) weapon — the per-hand dual-wield scheme. Fists
+    /// never count, so a bare-fisted (or single-weapon) fighter keeps the standard single-hand controls.
+    /// </summary>
+    public bool HasLoadedDual
+    {
+        get
+        {
+            if (RightHand == null || LeftHand == null) return false;
+            return !WeaponRigBuilder.IsFist(RightHand) && !WeaponRigBuilder.IsFist(LeftHand);
+        }
+    }
+
+    /// <summary>True when both loaded hands hold magic weapons (dual-magic keeps the standard magic flow).</summary>
+    public bool BothHandsMagic =>
+        HasLoadedDual &&
+        CategoryOf(RightHand) == WeaponCategory.Magic &&
+        CategoryOf(LeftHand) == WeaponCategory.Magic;
+
+    /// <summary>True when a loaded dual loadout contains a ranged weapon (mouse buttons cross hands).</summary>
+    public bool HasRangedDual =>
+        HasLoadedDual &&
+        (CategoryOf(RightHand) == WeaponCategory.Ranged || CategoryOf(LeftHand) == WeaponCategory.Ranged);
+
     /// <summary>Category of the weapon the next attack would resolve (defaults to melee when empty).</summary>
     private WeaponCategory ActiveCategory()
     {
@@ -185,14 +212,28 @@ public class CombatController : MonoBehaviour
 
     // ── Input API ───────────────────────────────────────────────────────────
 
-    /// <summary>Trigger a light attack (tap attack button).</summary>
-    public void LightAttack()
+    /// <summary>The hand rig currently holding <paramref name="behavior"/>, or null.</summary>
+    private GameObject HandOf(IWeaponBehavior behavior)
+    {
+        if (RightHand != null && RightHand.GetComponent<IWeaponBehavior>() == behavior) return RightHand;
+        if (LeftHand != null && LeftHand.GetComponent<IWeaponBehavior>() == behavior) return LeftHand;
+        return null;
+    }
+
+    /// <summary>Trigger a light attack (tap attack button) on the live hand's weapon.</summary>
+    public void LightAttack() => LightAttackWith(HandOf(ActiveBehavior));
+
+    /// <summary>
+    /// Trigger a light attack specifically from the weapon rigged in <paramref name="hand"/>
+    /// (per-hand dual-wield scheme, §5.16). The acting hand drives the swing animation only.
+    /// </summary>
+    public void LightAttackWith(GameObject hand)
     {
         if (!CanAct) return;
         if (IsBlocking) return;
 
-        // No weapon equipped — never consume stamina or lock an attack state.
-        IWeaponBehavior behavior = ActiveBehavior;
+        // No weapon in that hand — never consume stamina or lock an attack state.
+        var behavior = ResolveBehavior(hand);
         if (behavior == null) return;
 
         if (!_stamina.TrySpend(LightAttackCost)) return;
@@ -202,7 +243,7 @@ public class CombatController : MonoBehaviour
         if (Time.time - _lastAttackEndTime > ComboResetTime) _comboCount = 0;
 
         CurrentState = CombatState.LightAttack;
-        float anim = NotifyWeaponAnimators(false, _comboCount);
+        float anim = NotifyWeaponAnimator(hand, false, _comboCount);
         float speed = AttackSpeedScale();
         _actionTimer = Mathf.Max(LightAttackDuration / speed, anim);
         _bufferTimer = PostActionBuffer;
@@ -287,15 +328,62 @@ public class CombatController : MonoBehaviour
         IsBlocking = blocking && CurrentState == CombatState.Idle;
     }
 
+    /// <summary>Rig holding a shield weapon on either hand, or null.</summary>
+    public WeaponRigHost EquippedShield
+    {
+        get
+        {
+            var right = RightHand != null ? RightHand.GetComponent<WeaponRigHost>() : null;
+            if (right != null && right.Data != null && right.Data.Category == WeaponCategory.Shield)
+                return right;
+            var left = LeftHand != null ? LeftHand.GetComponent<WeaponRigHost>() : null;
+            if (left != null && left.Data != null && left.Data.Category == WeaponCategory.Shield)
+                return left;
+            return null;
+        }
+    }
+
+    /// <summary>True when either hand holds a shield weapon (enables the strict shield guard).</summary>
+    public bool HasShield => EquippedShield != null;
+
+    /// <summary>
+    /// Fraction of a blocked hit that still lands: 1 − the equipped shield's BlockAbsorbPercent,
+    /// falling back to 0.2 (the bare-hand guard absorbs 80%) when no shield is held.
+    /// </summary>
+    public float BlockTakenMultiplier
+    {
+        get
+        {
+            var shield = EquippedShield;
+            return shield != null && shield.Data != null
+                ? 1f - shield.Data.BlockAbsorbPercent
+                : 0.2f;
+        }
+    }
+
+    /// <summary>Stamina-drain multiplier applied per absorbed hit: the equipped shield's
+    /// BlockStaminaDrainMult (1 = bare-hand guard).</summary>
+    public float BlockDrainMultiplier
+    {
+        get
+        {
+            var shield = EquippedShield;
+            return shield != null && shield.Data != null
+                ? Mathf.Clamp(shield.Data.BlockStaminaDrainMult, 0.1f, 5f)
+                : 1f;
+        }
+    }
+
     /// <summary>Receive stamina drain from an incoming blocked hit. True while the block holds;
     /// when stamina can't cover the cost the guard breaks (block released) and false is returned.
-    /// Class BlockingMul reduces the drain (stronger guard, less stamina eaten per hit).</summary>
+    /// Class BlockingMul reduces the drain (stronger guard, less stamina eaten per hit); an
+    /// equipped shield's BlockStaminaDrainMult multiplies it again (cheaper guard).</summary>
     public bool OnBlockedHit(float incomingDamage)
     {
         if (!IsBlocking) return false;
         var passives = GetComponent<ClassPassiveManager>();
         float blocking = passives != null ? Mathf.Max(passives.BlockingMul, 0.1f) : 1f;
-        float drain = (BlockDrainPerHit + incomingDamage * 0.2f) / blocking;
+        float drain = (BlockDrainPerHit + incomingDamage * 0.2f) / blocking * BlockDrainMultiplier;
         if (_stamina == null || !_stamina.TrySpend(drain))
         {
             SetBlocking(false);
@@ -316,8 +404,8 @@ public class CombatController : MonoBehaviour
         return stats != null ? stats.AttackSpeedScale : 1f;
     }
 
-    /// <summary>Drive the per-weapon swing visuals on any equipped rigs. Returns the longest attack
-    /// duration the rigs reported so the action lock stays in sync with the animation.</summary>
+    /// <summary>Drive the per-weapon swing visuals on ANY equipped rigs (broadcast — used by the
+    /// single/magic flows). Returns the longest attack duration reported so the lock stays in sync.</summary>
     private float NotifyWeaponAnimators(bool heavy, int variant)
     {
         float duration = 0f;
@@ -327,6 +415,16 @@ public class CombatController : MonoBehaviour
         if (LeftHand != null)
             foreach (var a in LeftHand.GetComponentsInChildren<WeaponAnimator>(true))
                 duration = Mathf.Max(duration, a.PlayAttack(heavy, variant));
+        return duration;
+    }
+
+    /// <summary>Drive the swing visuals on a SINGLE hand's rig only (per-hand dual attacks).</summary>
+    private float NotifyWeaponAnimator(GameObject hand, bool heavy, int variant)
+    {
+        float duration = 0f;
+        if (hand == null) return 0f;
+        foreach (var a in hand.GetComponentsInChildren<WeaponAnimator>(true))
+            duration = Mathf.Max(duration, a.PlayAttack(heavy, variant));
         return duration;
     }
 
@@ -366,12 +464,18 @@ public class CombatController : MonoBehaviour
 
     /// <summary>Fire the equipped ranged weapon at a released charge/draw level (0..1): the shot's
     /// damage, projectile speed and flight distance scale with the draw. Not usable while blocking.</summary>
-    public void FireRanged(float charge)
+    public void FireRanged(float charge) => FireRangedWith(HandOf(ActiveBehavior), charge);
+
+    /// <summary>
+    /// Fire a specific hand's ranged weapon at a released charge/draw level (0..1) — the per-hand
+    /// dual-wield variant of <see cref="FireRanged"/>. Launches from that hand's muzzle.
+    /// </summary>
+    public void FireRangedWith(GameObject hand, float charge)
     {
         if (!CanAct) return;
         if (IsBlocking) return;
 
-        IWeaponBehavior behavior = ActiveBehavior;
+        var behavior = ResolveBehavior(hand);
         if (behavior == null) return;
 
         charge = Mathf.Clamp01(charge);

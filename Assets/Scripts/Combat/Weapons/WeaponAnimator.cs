@@ -124,6 +124,13 @@ public sealed class WeaponAnimator : MonoBehaviour
         K(0.82f, -78f, 0f, 0f, -8f, 15f, 0f),   // cast: extend + push forward at launch
         K(1f, 0f, 0f, 0f, 0f));                 // recover
 
+    // Shield bash — shared by every shield: a short forward jab, a lateral sweep bash, and an
+    // overhead slam (heavy/finisher). The wrist drives the shield face into the strike.
+    private static readonly PoseKey[][] ShieldBashKeys = V(
+        T(K(0f, 0f, 0f, 0f, 0f), K(0.25f, -55f, 0f, 0f, -25f, 30f, 0f), K(0.45f, -20f, 0f, 0f, -5f, 80f, 0f), K(1f, 0f, 0f, 0f, 0f)),
+        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -60f, -40f, 0f, -20f, 30f, -50f), K(0.55f, -70f, 30f, 0f, -8f, 70f, -50f), K(1f, 0f, 0f, 0f, 0f)),
+        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -140f, 0f, 0f, -10f, 30f, 0f), K(0.60f, -45f, 0f, 0f, -6f, 60f, 0f), K(1f, 0f, 0f, 0f, 0f)));
+
     private static readonly System.Collections.Generic.Dictionary<string, WeaponAnimDef> Defs =
         new System.Collections.Generic.Dictionary<string, WeaponAnimDef>
         {
@@ -256,6 +263,20 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 
 
             {
                 "lute", new WeaponAnimDef(OffArm.None, V(MagicCastKeys), null, K_Lute, 0.42f, 0.60f)
+            },
+
+            // buckler / round_shield / tower_shield — one shared bash track (quick jab, lateral
+            // sweep, overhead slam); the shield's heavier tiers just move at their own speed.
+            {
+                "buckler", new WeaponAnimDef(OffArm.None, ShieldBashKeys, null, K_None, 0.28f, 0.40f)
+            },
+
+            {
+                "round_shield", new WeaponAnimDef(OffArm.None, ShieldBashKeys, null, K_None, 0.32f, 0.46f)
+            },
+
+            {
+                "tower_shield", new WeaponAnimDef(OffArm.None, ShieldBashKeys, null, K_None, 0.38f, 0.55f)
             },
         };
 

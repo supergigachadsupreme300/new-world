@@ -15,7 +15,7 @@ using UnityEngine.InputSystem;
 public sealed class MagicWheelUI : MonoBehaviour
 {
     /// <summary>Hard upper bound on ring entries.</summary>
-    public const int MaxEntries = 16;
+    public const int MaxEntries = 64;
 
     private static MagicWheelUI _instance;
 
@@ -34,6 +34,8 @@ public sealed class MagicWheelUI : MonoBehaviour
     private bool _isOpen;
     private int _hovered = -1;
     private string _armedSkillId;
+    private float _slotSize;
+    private float _ringRadius;
 
     private static readonly Color SlotColor = new Color(0.13f, 0.13f, 0.18f, 0.95f);
     private static readonly Color SlotHover = new Color(0.30f, 0.50f, 0.95f, 1f);
@@ -254,15 +256,24 @@ public sealed class MagicWheelUI : MonoBehaviour
             if (skill != null && !skill.IsPassive) ids.Add(id);
             if (ids.Count >= MaxEntries) break;
         }
+
+        // Size the ring for the slot count: grow the ring radius (up to 0.42 of canvas height)
+        // and shrink the slots as needed so every slot keeps an arc gap and the ring fits on screen.
+        float h = CanvasHeight();
+        float maxRadius = h * 0.42f;
+        float desiredSlot = h * 0.13f;
+        float gapRatio = 1.15f;
+        _slotSize = ids.Count > 0 ? Mathf.Min(desiredSlot, (maxRadius * 2f * Mathf.PI) / (ids.Count * gapRatio)) : desiredSlot;
+        _ringRadius = ids.Count > 0 ? Mathf.Min(Mathf.Max(h * 0.28f, (ids.Count * _slotSize * gapRatio) / (2f * Mathf.PI)), maxRadius) : 0f;
+
         for (int i = 0; i < ids.Count; i++)
             CreateSlot(i, ids.Count, SkillCatalog.Find(ids[i]));
     }
 
     private void CreateSlot(int index, int total, Skill skill)
     {
-        float h = CanvasHeight();
-        float slotSize = h * 0.13f;
-        float radius = h * 0.28f;
+        float slotSize = _slotSize;
+        float radius = _ringRadius;
         float ang = -90f + (360f * index) / total;
         float rad = ang * Mathf.Deg2Rad;
         Vector2 pos = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * radius;
@@ -281,10 +292,12 @@ public sealed class MagicWheelUI : MonoBehaviour
         _slots.Add(rect);
 
         var label = MakeLabel(slot.transform, "Label", Vector2.zero, Vector2.one,
-            Mathf.Max(11f, Screen.height / 82f), Color.white);
+            Mathf.Max(7f, slotSize * 0.42f), Color.white);
+        label.text = skill != null && !string.IsNullOrEmpty(skill.displayName) ? skill.displayName : skill != null ? skill.id : "?";
         label.enableWordWrapping = false;
+        label.overflowMode = TextOverflowModes.Ellipsis;
         _slotLabels.Add(label);
-        _slotIds.Add(skill.id);
+        _slotIds.Add(skill != null ? skill.id : "");
     }
 
     private void ClearSlots()
@@ -314,7 +327,7 @@ public sealed class MagicWheelUI : MonoBehaviour
 
         _hovered = -1;
         float best = float.MaxValue;
-        float hit = CanvasHeight() * 0.13f * 0.78f;
+        float hit = _slotSize * 0.78f;
         for (int i = 0; i < _slots.Count; i++)
         {
             float d = Vector2.Distance(mouseCanvas, _slots[i].anchoredPosition);

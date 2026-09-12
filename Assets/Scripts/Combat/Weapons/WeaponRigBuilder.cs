@@ -288,6 +288,12 @@ public static class WeaponRigBuilder
             return (new Vector3(0f, 0.05f, 0.12f), Quaternion.identity);
         if (weapon != null && weapon.Category == WeaponCategory.Magic)
             return (new Vector3(side * 0.1f, -0.35f, 0f), Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f));
+        if (weapon != null && weapon.Category == WeaponCategory.Shield)
+        {
+            // Shield sits flat on the forearm, face pointing forward (+Z is the shield's face
+            // normal), angled slightly out so the held guard reads naturally in front of the hand.
+            return (new Vector3(side * 0.08f, -0.35f, 0.18f), Quaternion.Euler(0f, 0f, 0f));
+        }
         if (weapon != null && weapon.Category == WeaponCategory.Melee)
         {
             // Upright blade (no sideways yaw), rotated about the handle pivot rather than the rig
@@ -426,6 +432,9 @@ public static class WeaponRigBuilder
 
         // Back carry: grip at the shoulder. Melee blades hang upside down but canted diagonally across the
         // back (tip down-and-out, not straight down); staffs/bows keep a gentle upright tilt.
+        if (w.Category == WeaponCategory.Shield)
+            // Flat against the back, face pointing backwards (180° about Y) so the boss hugs the spine.
+            return (new Vector3(0f, 0.32f, -0.26f), Quaternion.Euler(0f, 180f, 0f));
         if (w.Category == WeaponCategory.Melee)
             return (new Vector3(isLeft ? 0.2f : -0.2f, 0.45f, -0.2f),
                 Quaternion.Euler(StowBladePitch, 0f, StowBladeFlip + (isLeft ? -StowBladeCant : StowBladeCant)));
@@ -558,6 +567,16 @@ public static class WeaponRigBuilder
                 magic.CastOrigin = go.transform;
                 WeaponModelBuilder.Build(weapon.id, go.transform);
                 behavior = magic;
+                break;
+
+            case WeaponCategory.Shield:
+                var shield = go.AddComponent<ShieldWeaponBehavior>();
+                shield.Data = weapon;
+                shield.AttackDamage = weapon.BaseDamage;
+                shield.Hitbox = go.GetComponent<HitboxSystem>();
+                shield.Stats = stats;
+                WeaponModelBuilder.Build(weapon.id, go.transform);
+                behavior = shield;
                 break;
 
             default:

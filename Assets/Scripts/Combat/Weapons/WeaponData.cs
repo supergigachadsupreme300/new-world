@@ -81,6 +81,12 @@ public class WeaponData : ScriptableObject
     [Tooltip("Multiplier applied to spell cooldown (<1 = shorter).")]
     public float CooldownMod = 1f;
 
+    [Header("Per-Category (Shield)")]
+    [Tooltip("Fraction of incoming damage absorbed while blocking with this shield. 0.8 = 20% gets through (parity with the bare-hand guard); 0.95 = only 5%.")]
+    public float BlockAbsorbPercent = 0.8f;
+    [Tooltip("Multiplier on stamina drained per absorbed hit while blocking (<1 = cheaper guard).")]
+    public float BlockStaminaDrainMult = 1f;
+
     [Header("Weapon Skill (§5.4)")]
     public WeaponSkill Skill;
 }

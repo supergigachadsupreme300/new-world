@@ -294,6 +294,58 @@ public static class WeaponModelBuilder
     }
 
     // ──────────────────────────────────────────────────────────
+    //  16. BUCKLER
+    // ──────────────────────────────────────────────────────────
+    public static Transform BuildBuckler(Transform parent)
+    {
+        var root = new GameObject("Buckler").transform;
+        root.SetParent(parent, false);
+        MakeBlock("Face", root, new Vector3(0.34f, 0.30f, 0.06f), new Vector3(0f, 0f, 0f), DarkSteel);
+        MakeBlock("Boss", root, new Vector3(0.14f, 0.14f, 0.08f), new Vector3(0f, 0f, 0.07f), Bronze);
+        MakeBlock("Rim", root, new Vector3(0.38f, 0.34f, 0.03f), new Vector3(0f, 0f, 0.04f), SteelSilver);
+        MakeBlock("GripBar", root, new Vector3(0.10f, 0.04f, 0.12f), new Vector3(0f, -0.13f, -0.02f), LeatherBrown);
+        return root;
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  17. ROUND SHIELD
+    // ──────────────────────────────────────────────────────────
+    public static Transform BuildRoundShield(Transform parent)
+    {
+        var root = new GameObject("RoundShield").transform;
+        root.SetParent(parent, false);
+        MakeBlock("Face", root, new Vector3(0.60f, 0.55f, 0.07f), new Vector3(0f, 0f, 0f), WoodBrown);
+        MakeBlock("PlankL", root, new Vector3(0.30f, 0.50f, 0.06f), new Vector3(-0.15f, 0f, 0.04f), WarmBrown);
+        MakeBlock("PlankR", root, new Vector3(0.30f, 0.50f, 0.06f), new Vector3(0.15f, 0f, 0.04f), WarmBrown);
+        MakeBlock("Boss", root, new Vector3(0.20f, 0.20f, 0.10f), new Vector3(0f, 0f, 0.10f), SteelSilver);
+        MakeBlock("KiteStrip", root, new Vector3(0.08f, 0.52f, 0.04f), new Vector3(0f, 0f, 0.12f), SteelSilver);
+        MakeBlock("Rim", root, new Vector3(0.64f, 0.59f, 0.03f), new Vector3(0f, 0f, 0.07f), DarkSteel);
+        MakeBlock("GripBar", root, new Vector3(0.14f, 0.05f, 0.14f), new Vector3(0f, -0.22f, -0.03f), LeatherBrown);
+        return root;
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  18. TOWER SHIELD
+    // ──────────────────────────────────────────────────────────
+    public static Transform BuildTowerShield(Transform parent)
+    {
+        var root = new GameObject("TowerShield").transform;
+        root.SetParent(parent, false);
+        MakeBlock("Face", root, new Vector3(0.72f, 0.95f, 0.09f), new Vector3(0f, 0.05f, 0f), DarkSteel);
+        MakeBlock("RightEdge", root, new Vector3(0.10f, 0.80f, 0.06f), new Vector3(0.32f, 0.05f, 0.05f), SteelSilver);
+        MakeBlock("LeftEdge", root, new Vector3(0.10f, 0.80f, 0.06f), new Vector3(-0.32f, 0.05f, 0.05f), SteelSilver);
+        MakeBlock("TopCap", root, new Vector3(0.62f, 0.10f, 0.08f), new Vector3(0f, 0.52f, 0.03f), SteelSilver);
+        MakeBlock("BossRound", root, new Vector3(0.20f, 0.20f, 0.10f), new Vector3(0f, 0.05f, 0.10f), Bronze);
+        MakeBlock("BossStrip", root, new Vector3(0.10f, 0.70f, 0.08f), new Vector3(0f, 0.05f, 0.08f), Bronze);
+        MakeBlock("Stud1", root, new Vector3(0.05f, 0.05f, 0.05f), new Vector3(-0.22f, 0.32f, 0.12f), Gold);
+        MakeBlock("Stud2", root, new Vector3(0.05f, 0.05f, 0.05f), new Vector3(0.22f, 0.32f, 0.12f), Gold);
+        MakeBlock("Stud3", root, new Vector3(0.05f, 0.05f, 0.05f), new Vector3(-0.22f, -0.22f, 0.12f), Gold);
+        MakeBlock("Stud4", root, new Vector3(0.05f, 0.05f, 0.05f), new Vector3(0.22f, -0.22f, 0.12f), Gold);
+        MakeBlock("GripBar", root, new Vector3(0.16f, 0.06f, 0.16f), new Vector3(0f, -0.42f, -0.04f), LeatherBrown);
+        return root;
+    }
+
+    // ──────────────────────────────────────────────────────────
     //  DISPATCHER
     // ──────────────────────────────────────────────────────────
     public static Transform Build(string weaponId, Transform parent)
@@ -318,6 +370,9 @@ public static class WeaponModelBuilder
             case "bone_wand":        return BuildBoneWand(parent);
             case "control_orb":      return BuildControlOrb(parent);
             case "lute":             return BuildLute(parent);
+            case "buckler":          return BuildBuckler(parent);
+            case "round_shield":     return BuildRoundShield(parent);
+            case "tower_shield":     return BuildTowerShield(parent);
             default:                 return null;
         }
     }

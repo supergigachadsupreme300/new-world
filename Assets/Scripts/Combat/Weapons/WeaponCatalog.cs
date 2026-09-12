@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Runtime catalog of the 15 default weapons (Phase 10). Builds <see cref="WeaponData"/>
+/// Runtime catalog of the default weapons (Phase 10). Builds <see cref="WeaponData"/>
 /// instances in code — no .asset files needed — mirroring the <c>ClassUnlocker.BuildDefaultClasses</c>
 /// pattern. Each weapon is authored to represent a class archetype's distinct fighting style
 /// (category, wielding, damage type, base damage/speed/reach/weight, scaling) so the archetypes
@@ -117,6 +117,14 @@ public static class WeaponCatalog
         list.Add(MakeMagic("lute", "Bard's Lute", WeaponCategory.Magic, DamageType.Physical, 5f, 8f, 1f, 4f, 1f, WeaponScalingStat.Wisdom, 0.06f, 1f,
             1f, 1.1f, 1f, Skill("wskill_lute", "Sonic Wave", "strike", DamageType.Physical, 8f, 2.4f, 1.4f, 3.5f, 6f)));
 
+        // ── Shields (off-hand defense; RMB guards, LMB bashes) ─────────────
+        list.Add(MakeShield("buckler", "Buckler", DamageType.Physical, 2f, 4f, 1.6f, 0.9f, WeaponScalingStat.Dexterity, 0.06f, 4f, 1f,
+            0.85f, 0.6f, Skill("wskill_buckler", "Bash Flurry", "strike", DamageType.Physical, 8f, 1.6f, 0.5f, 2.5f, 4f)));
+        list.Add(MakeShield("round_shield", "Round Shield", DamageType.Physical, 5f, 6f, 1.3f, 1f, WeaponScalingStat.Strength, 0.07f, 6f, 3f,
+            0.9f, 0.7f, Skill("wskill_round_shield", "Shield Bash", "strike", DamageType.Physical, 12f, 2f, 0.8f, 3.5f, 6f)));
+        list.Add(MakeShield("tower_shield", "Tower Shield", DamageType.Physical, 9f, 8f, 1.1f, 1.1f, WeaponScalingStat.Strength, 0.08f, 8f, 6f,
+            0.95f, 0.8f, Skill("wskill_tower_shield", "Fortress Slam", "strike", DamageType.Physical, 16f, 2.2f, 1f, 4f, 8f)));
+
         return list;
     }
 
@@ -152,6 +160,17 @@ public static class WeaponCatalog
         w.MagicDamageMult = damageMult;
         w.CastTimeMod = castTimeMod;
         w.CooldownMod = cooldownMod;
+        return w;
+    }
+
+    private static WeaponData MakeShield(string id, string displayName, DamageType type,
+        float weight, float baseDamage, float speed, float reach,
+        WeaponScalingStat scaling, float coefficient, float stagger, float strengthRequirement,
+        float blockAbsorb, float blockDrainMult, WeaponSkill skill)
+    {
+        var w = Make(id, displayName, WeaponCategory.Shield, type, weight, baseDamage, speed, reach, coefficient, scaling, stagger, strengthRequirement, null, skill);
+        w.BlockAbsorbPercent = blockAbsorb;
+        w.BlockStaminaDrainMult = blockDrainMult;
         return w;
     }
 

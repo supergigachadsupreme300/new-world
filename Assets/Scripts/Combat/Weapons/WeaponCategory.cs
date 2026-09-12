@@ -14,5 +14,11 @@ public enum WeaponCategory
     Ranged = 1,
 
     /// <summary>Routes to the spell pipeline (§3.8). Damage from spell × Wisdom; costs FP.</summary>
-    Magic = 2
+    Magic = 2,
+
+    /// <summary>
+    /// Off-hand defense: bash = a short hitbox slam; blocking instead of charging on RMB, with
+    /// stricter damage absorb and cheaper stamina drain than bare-hand guard (see WeaponData shield mods).
+    /// </summary>
+    Shield = 3
 }

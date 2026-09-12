@@ -426,16 +426,17 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
 
 ### 3.6 Weapon Architecture (Expandable)
 
-Weapons are built on a **3-category base — Melee, Ranged, Magic** — structured so new categories/subtypes drop in without touching existing code. The core principle: separate **what a weapon is** (data) from **how it attacks** (delivery behavior) from **how damage resolves** (damage pipeline).
+Weapons are built on a **4-category base — Melee, Ranged, Magic, Shield** — structured so new categories/subtypes drop in without touching existing code. The core principle: separate **what a weapon is** (data) from **how it attacks** (delivery behavior) from **how damage resolves** (damage pipeline).
 
 #### Layers
 
-- **Layer 1 — `WeaponData` (ScriptableObject, data-only).** Shared fields: id, display name, weight (equip-load), Str requirement (weight class, §5.5), hand usage (single / dual / two-hand), base damage, speed, attack reach, scaling stat(s) + coefficients, `WeaponCategory`, `DamageType` (one of the 10 damage types, §3.7), and a Weapon Art reference. **Magic weapons** additionally carry magic mods — `MagicDamageMult`, `CastTimeMod`, `CooldownMod` (staff/wand/book scale spells).
-- **Layer 2 — `WeaponCategory` enum (expandable).** `Melee`, `Ranged`, `Magic`. Future values (Thrown, Shield, Summon, Hybrid, …) slot in as new enum entries + one behavior class each.
+- **Layer 1 — `WeaponData` (ScriptableObject, data-only).** Shared fields: id, display name, weight (equip-load), Str requirement (weight class, §5.5), hand usage (single / dual / two-hand), base damage, speed, attack reach, scaling stat(s) + coefficients, `WeaponCategory`, `DamageType` (one of the 10 damage types, §3.7), and a Weapon Art reference. **Magic weapons** additionally carry magic mods — `MagicDamageMult`, `CastTimeMod`, `CooldownMod` (staff/wand/book scale spells). **Shield weapons** additionally carry guard mods — `BlockAbsorbPercent` (fraction of a blocked hit absorbed) and `BlockStaminaDrainMult` (multiplier on per-hit block stamina cost).
+- **Layer 2 — `WeaponCategory` enum (expandable).** `Melee`, `Ranged`, `Magic`, `Shield`. Future values (Thrown, Summon, Hybrid, …) slot in as new enum entries + one behavior class each.
 - **Layer 3 — Behavior modules via `IWeaponBehavior`.** A minimal contract: `BeginAttack(cmd)`, `ActiveFrame()`, `Cancel()`. One concrete module per category:
   - **`MeleeWeaponBehavior`** → existing `HitboxSystem` arc sweep.
   - **`RangedWeaponBehavior`** → projectile/raycast, **consumes ammo** (arrows/bolts from inventory), accuracy from Dexterity.
   - **`MagicWeaponBehavior`** → routes to the spell/skills pipeline; the equipped staff/wand/book's magic mods scale the spell (damage %, cast time, cooldown); costs FP; spell power from Wisdom.
+  - **`ShieldWeaponBehavior`** → short hitbox bash on LMB (the equip's bash art, Shield-bash skill family §3.3) + enables the RMB guard; the shield's guard mods make blocking strictly stronger than the bare-hand guard.
   - `CombatController` talks **only** to `IWeaponBehavior` — it never knows melee vs ranged vs magic. **Adding a weapon kind = one new behavior class.**
 - **Layer 4 — Damage pipeline & registry.** `DamageCalculator` (existing flexible `HitContext`) stays the single damage formula, extended to carry the weapon's `DamageType` (one of the 10 damage types, §3.7) for per-hit element/resist resolution. `WeaponDatabase` (ScriptableObject registry) holds all weapon assets and resolves each equipped weapon's category → behavior.
 
@@ -446,11 +447,13 @@ Weapons are built on a **3-category base — Melee, Ranged, Magic** — structur
 | **Melee** | Hitbox arc | weapon.base + Str/Dex scaling | Str (heavy) / Dex (light) | Stamina |
 | **Ranged** | Projectile / raycast | `weapon.base` (weapon ceiling) | Dex (accuracy) | **Ammo** (arrows/bolts) |
 | **Magic** | Spell / skill pipeline | spell base × Wisdom, modulated by weapon magic-mods | Wisdom | FP |
+| **Shield** | Short bash arc + guard | weapon.base + Str scaling | Str | **Stamina** (bash + block drain) · absorbs more / drains less than the bare-hand guard |
 
 #### Notes
 
 - Weapons carry a **single `DamageType`** — one of the **10 damage types** (§3.7); the damage pipeline resolves that element/type's resist/weakness.
 - Dual-wield can pair **two of the same weapon type** — each hand holds one owned copy (one rig = one copy), subject to the §5.5 copy-accurate accounting rule: equipping the second hand consumes a spare bag copy, and without a spare the weapon *moves* instead of duplicating.
+- Shields are the **off-hand defense** (§5.5): a shield weapon equips to either hand; while held it enables RMB blocking and raises the guard's damage absorb (up to 95% on tower shields, vs. the bare-hand guard's 80%) while cutting the per-hit stamina drain to as little as 60%. Holding a shield *without* a melee weapon still blocks; with a **ranged or magic** weapon in the other hand the loadout enters the §5.16 per-hand dual scheme — the ranged (or magic) hand keeps its own draw/charge button while the shield hand guards while held (crossed-button mapping when a ranged weapon is present).
 - Magic weapons are **equipped gear that scales/alters spells** rather than delivering their own attacks — distinct from melee/ranged, which deliver their own.
 - Hand/wielding integration (§5.5): the equipped hand slots hold `WeaponData`; the categories of equipped weapons determine which behaviors are active. Wielding states modulate Str requirement as specified.
 - Ranged ammo ties into the Inventory/consumables system.
@@ -513,6 +516,20 @@ A spell is a data asset carrying:
 4. `SpellCaster` validates **FP** (`MaxFP` from Intelligence) and **cooldown**; if valid, begins the **cast time**.
 5. On cast completion, a `SpellEffect` spawns (projectile / instant / zone) or a persistent **vortex** is summoned (e.g. `WindVortex` for Tornado).
 6. `DamageCalculator` resolves the spell with its `DamageType` against the target's equipment resistance; **Wisdom** scales spell power (`MagicAtkPower`), and `CooldownMult` from Intelligence shortens reuse.
+
+#### Charging & Casting Circle
+
+- Arming a spell from the **Alt wheel** then hold **LMB** to start the aim pose (hands raise); **RMB**
+  builds a **charge level** (0–100%, ~2 s, no auto-fire). **Releasing LMB** fires at the frozen level.
+  Charge scales the cast: FP cost (up to ×1.6), damage (up to ×2.0), and AoE radius (up to ×1.8), so
+  a deeper charge is always a gamble for more FP — never a dud.
+- While aiming/charging, the held **magic weapon shows a "casting circle" halo**: a translucent disc
+  beneath the tip plus an outer ring and a spinning inner rune ring wrapping the weapon, ramping its
+  radius, brightness, and spin speed with charge level and tinted by the **armed spell's element**.
+  Releasing the cast pops a one-shot expanding ring at the weapon. (`CastingCircle.cs`, driven by
+  `PlayerController`; split aim → charge → release is used by both magic and ranged.) Unarmed casts
+  still play a plain hand glow instead of the halo.
+- Zone/vortex spells additionally show a **ground AoE preview** ring that also grows with charge.
 
 #### Spell Sources
 
@@ -654,7 +671,10 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
 #### Hand States the system tracks
 
 - **Single** — one weapon, off-hand free (weapon, shield, or orb).
-- **Dual** — one weapon per hand.
+- **Dual** — one weapon per hand. Controls split per-hand on the mouse (§5.16): **LMB and RMB each
+  drive one hand** (crossed sides whenever a ranged weapon is among the two). Melee swings on press,
+  shield guards while held, magic fires uncharged, ranged holds-to-charge/release-to-fire.
+  **Blocking is only possible through a shield hand while dual-wielding.**
 - **Two-hand grip** — both hands on a single heavy weapon (reduced Str need).
 
 ### 5.6 Night & Survival
@@ -761,6 +781,22 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
 - **WASD** move · **Space** jump · **Shift** sprint · **Mouse** look
 - **LMB** use tool · **E** interact/open · **Q** drop item · **F** build menu (with Hammer)
 - **1–0** hotbar — mobile touch support included.
+- **Fighting mode** (weapon drawn): **LMB** attack / begin a magic aim · **RMB** block (melee **or** shield) or
+  charge/draw (magic/ranged) · release **LMB** fires at the frozen charge level.
+  **Dual-wield (both hands hold real weapons):** the buttons split per hand instead —
+  **LMB → one hand, RMB → the other** (`PlayerController.HandleDualModeCombat`, §5.4):
+  - **Same-side** by default: **LMB = left-hand weapon**, **RMB = right-hand weapon**.
+  - **Crossed** (LMB → right hand, RMB → left hand) whenever a **ranged** weapon is one of the two,
+    so the bow/throwing hammer keeps its hold-to-charge/release-to-fire draw on its own button.
+  - Hand action: **Melee** swings on press · **Shield** guards while held (release drops the guard) ·
+    **Magic** (mixed dual) loses charge and taps fire the armed spell uncharged · **Ranged** holds to
+    charge and releases to fire.
+  - **Trade-off:** dual = no block except via a shield hand (2 swords = 2 independent attack buttons).
+    Pressing the attack button while a guard is raised drops the guard and swings. **Both-magic** and
+    any 0/1-weapon loadout (incl. barehanded fists) keep the standard single-button scheme above.
+- **Alt** (fighting mode, magic weapon held) — opens the **magic-selection wheel** at screen centre:
+  hover a labeled spell slot, release to arm it. The wheel holds up to **64** labeled slots and sizes
+  its ring automatically so all armed castables stay visible.
 
 ---
 
@@ -867,6 +903,12 @@ Generated from noise layers, each biome has unique terrain characteristics:
 
 - Main Menu (New Game, Continue, Multiplayer, Settings)
 - Pause Menu (Inventory, Skills, Map, Quests, Settings, Quit)
+- **Skills menu** — one **giant radial skill tree** (hub + branching layers) per SkillCatalog category,
+  built in code (no asset files), grouped into colored sectors (Melee / Ranged / Magic / Stealth /
+  Crafting / Fortitude), pannable + zoomable. Nodes show state (selected / learned / available /
+  locked); **connection links are black**, and a clicked node's direct parent→child links **light up
+  white** so grouping is readable while idle. Class & Race tabs show each class/race's compact radial
+  tree.
 - Character Creation (race select + stat/passive preview)
 - Race & Stat Sheet (current race, stats, skill XP, classes)
 - Inventory Menu (equipment, items, materials, consumables)
