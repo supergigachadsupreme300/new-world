@@ -63,11 +63,15 @@ public class SpellEffect : MonoBehaviour
         }
 
         float step = Speed * Time.deltaTime;
-        // Raycast the full step to avoid tunneling and to respect HitLayers.
+        // Raycast the full step to avoid tunneling and to respect HitLayers. The caster's own
+        // body is ignored so a bolt spawned at the hand never detonates on the caster.
         if (Physics.Raycast(transform.position, _dir, out RaycastHit hit, step, HitLayers))
         {
-            ResolveProjectileImpact(hit.collider.gameObject);
-            return;
+            if (_caster == null || hit.collider.transform.root != _caster.transform.root)
+            {
+                ResolveProjectileImpact(hit.collider.gameObject);
+                return;
+            }
         }
         transform.position += _dir * step;
     }

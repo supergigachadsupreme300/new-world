@@ -492,6 +492,12 @@ Status effects are **not damage types** — they are applied **on hit** and do D
 | **Burn** | Fire damage-over-time + light stagger buildup |
 | **Stagger** | Poise break / crowd-control (interrupts actions) |
 
+Damage-over-time statuses (Bleed/Poison/Rot/Burn) are driven by `SpellDoT.cs` (refreshes on re-apply;
+per-tick = spell power × 0.12 over 4 s); Frost routes to `EnemyController.ApplySlow`, Stagger to
+`EnemyController.ApplyStun`. Each magic school has a **signature status** so spells read distinctly
+even when they share a delivery type — Fire→Burn, Ice→Frost, Lightning→Stagger, Dark→Rot,
+Wind→Knockback, Holy→heals (§3.8), Arcane→Stagger (bind/hold).
+
 ### 3.8 Spell-Casting Pipeline
 
 Spells are how the **Magic** weapon category (staff / wand / book) deals damage and casts abilities. The pipeline connects the weapon architecture (§3.6), the skill system (§3.3), the stats (§3.4 Wisdom/Intelligence), and the damage types (§3.7).
@@ -504,9 +510,16 @@ A spell is a data asset carrying:
 - `DamageType` (one of the 10 damage types, §3.7) — or **none** for pure utility/heal spells
 - base power
 - **FP cost**, **cast time**, **cooldown**
-- range, area/radius, delivery: projectile / instant / zone / **vortex** (persistent damage-zone, e.g. the Tornado wind spell)
+- range, area/radius, delivery: projectile / instant / zone / **vortex** (persistent damage-zone that pulls, e.g. the Tornado wind spell)
+- **duration** (zone/vortex lifetime; `> 0` makes the zone **persistent**, ticked by `SpellZone.cs`)
+- **heals** (Holy/utility spells: instant/self-heal, or an ally-heal aura when on a zone; only `IHealable` targets — the player — are ever healed, enemies still take damage)
+- **knockback** (impulse applied to enemies; the Wind school signature)
 - cast animation reference
-- optional status-effect application (e.g., applies Burn/Frost; §3.7)
+- optional status-effect application with a proc chance (e.g., applies Burn/Frost/Stagger; §3.7)
+
+Persistent zones are handled by the unified **`SpellZone`** (tick damage scaled by a per-delivery
+multiplier — Zone ×0.4, Vortex ×1.0 — optional pull, plus Holy ally-healing of `IHealable` inside
+per tick); it replaces the former one-off `WindVortex`.
 
 #### Casting Flow
 
@@ -514,8 +527,15 @@ A spell is a data asset carrying:
 2. The weapon's magic mods — `MagicDamageMult`, `CastTimeMod`, `CooldownMod` — modulate the spell before resolution.
 3. `MagicWeaponBehavior.BeginAttack` routes the cast to `SpellCaster`.
 4. `SpellCaster` validates **FP** (`MaxFP` from Intelligence) and **cooldown**; if valid, begins the **cast time**.
-5. On cast completion, a `SpellEffect` spawns (projectile / instant / zone) or a persistent **vortex** is summoned (e.g. `WindVortex` for Tornado).
+5. On cast completion, a `SpellEffect` spawns (projectile / instant / zone) or a persistent **zone/vortex** is summoned (`SpellZone` — e.g. Tornado/Blizzard, or a holy healing aura).
 6. `DamageCalculator` resolves the spell with its `DamageType` against the target's equipment resistance; **Wisdom** scales spell power (`MagicAtkPower`), and `CooldownMult` from Intelligence shortens reuse.
+
+#### Healing
+
+**Holy** spells (and a few utility spells) instead carry `heals`. An **Instant** heal is applied to the
+caster via `SpellCaster.ResolveDirect`; a **Zone** heal both damages enemies in radius and mends any
+`IHealable` ally inside (the player), and a persistent zone heals on each tick. Healing scales with the
+same Wisdom-derived spell power; only `IHealable` targets are ever healed — enemies are never healed.
 
 #### Charging & Casting Circle
 
@@ -795,8 +815,10 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
     Pressing the attack button while a guard is raised drops the guard and swings. **Both-magic** and
     any 0/1-weapon loadout (incl. barehanded fists) keep the standard single-button scheme above.
 - **Alt** (fighting mode, magic weapon held) — opens the **magic-selection wheel** at screen centre:
-  hover a labeled spell slot, release to arm it. The wheel holds up to **64** labeled slots and sizes
-  its ring automatically so all armed castables stay visible.
+  hover a labeled spell slot, release to arm it. The wheel lists **learned magic-category skills only**
+  (no physical melee/ranged/stealth castables) and holds up to **64** labeled slots spread
+  across **3 concentric circles** (inner ring 6, middle 18, outer ring the rest) so all armed
+  castables stay visible at once.
 
 ---
 

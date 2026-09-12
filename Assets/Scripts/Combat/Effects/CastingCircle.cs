@@ -125,8 +125,11 @@ public sealed class CastingCircle : MonoBehaviour
             _discRenderer.enabled = false;
         }
 
-        // Crisp outer halo ring.
-        _outerRing = gameObject.AddComponent<LineRenderer>();
+        // Crisp outer halo ring (owns its GameObject — a single GameObject permits only one
+        // Renderer component, so a second LineRenderer here returns null in Unity 6).
+        var outerGo = new GameObject("OuterRing");
+        outerGo.transform.SetParent(transform, false);
+        _outerRing = outerGo.AddComponent<LineRenderer>();
         _outerRing.useWorldSpace = false;
         _outerRing.loop = true;
         _outerRing.positionCount = OuterSegments;
@@ -139,8 +142,10 @@ public sealed class CastingCircle : MonoBehaviour
             _outerRing.material = _outerMat;
         }
 
-        // Inner rune ring that spins while charging.
-        _innerRing = gameObject.AddComponent<LineRenderer>();
+        // Inner rune ring that spins while charging (own child GameObject too).
+        var innerGo = new GameObject("InnerRing");
+        innerGo.transform.SetParent(transform, false);
+        _innerRing = innerGo.AddComponent<LineRenderer>();
         _innerRing.useWorldSpace = false;
         _innerRing.loop = true;
         _innerRing.positionCount = InnerSegments;

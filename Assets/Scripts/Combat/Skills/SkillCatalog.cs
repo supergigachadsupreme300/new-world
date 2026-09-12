@@ -121,7 +121,9 @@ public static partial class SkillCatalog
 
     private static SpellCastEffect Spell(string spellId, string spellName, DamageType type,
         float basePower, float fpCost, SpellDelivery delivery, float cooldown,
-        float deliveryRange = 10f, float deliveryRadius = 1f, float castTime = 0.5f)
+        float deliveryRange = 10f, float deliveryRadius = 1f, float castTime = 0.5f,
+        bool heals = false, float knockback = 0f, float duration = 0f,
+        StatusEffectType? statusEffect = null)
     {
         var spell = ScriptableObject.CreateInstance<SpellData>();
         spell.name = spellId;
@@ -135,6 +137,11 @@ public static partial class SkillCatalog
         spell.Delivery = delivery;
         spell.Range = deliveryRange;
         spell.Radius = deliveryRadius;
+        spell.Duration = duration;
+        spell.Heals = heals;
+        spell.Knockback = knockback;
+        spell.AppliesStatus = statusEffect.HasValue;
+        spell.StatusEffect = statusEffect ?? default;
         return new SpellCastEffect { Spell = spell };
     }
 
@@ -204,39 +211,48 @@ public static partial class SkillCatalog
             Buff(StatType.Intelligence, 2f), P("magic_arcane"), "Permanent +2 Intelligence (regen/FP, requires Arcane Study).");
 
         Add(list, "magic_fireball", "Fireball", SkillType.Magic, false, Focus(15f), true, DamageType.Fire,
-            Spell("magic_fireball_spell", "Fireball", DamageType.Fire, 25f, 15f, SpellDelivery.Projectile, 4f),
-            null, "Launch a fireball.");
+            Spell("magic_fireball_spell", "Fireball", DamageType.Fire, 25f, 15f, SpellDelivery.Projectile, 4f,
+                statusEffect: StatusEffectType.Burn),
+            null, "Launch a fireball that burns the target.");
         Add(list, "magic_frostbolt", "Frost Bolt", SkillType.Magic, false, Focus(13f), true, DamageType.Ice,
-            Spell("magic_frostbolt_spell", "Frost Bolt", DamageType.Ice, 22f, 13f, SpellDelivery.Projectile, 4f),
-            null, "Launch a freezing bolt.");
+            Spell("magic_frostbolt_spell", "Frost Bolt", DamageType.Ice, 22f, 13f, SpellDelivery.Projectile, 4f,
+                statusEffect: StatusEffectType.Frost),
+            null, "Launch a freezing bolt that chills the target.");
         Add(list, "magic_chain", "Chain Lightning", SkillType.Magic, false, Focus(20f), true, DamageType.Lightning,
-            Spell("magic_chain_spell", "Chain Lightning", DamageType.Lightning, 28f, 20f, SpellDelivery.Projectile, 5f),
-            P("magic_fireball"), "Electric blast (requires Fireball).");
+            Spell("magic_chain_spell", "Chain Lightning", DamageType.Lightning, 28f, 20f, SpellDelivery.Projectile, 5f,
+                statusEffect: StatusEffectType.Stagger),
+            P("magic_fireball"), "Electric blast that staggers foes (requires Fireball).");
         Add(list, "magic_heal", "Lesser Heal", SkillType.Magic, false, Focus(10f), false, DamageType.Holy,
-            Spell("magic_heal_spell", "Lesser Heal", DamageType.Holy, 15f, 10f, SpellDelivery.Instant, 0f),
+            Spell("magic_heal_spell", "Lesser Heal", DamageType.Holy, 15f, 10f, SpellDelivery.Instant, 0f,
+                heals: true),
             P("magic_focus"), "Restore health with a holy miracle (requires Focal Mind).");
         Add(list, "magic_ward", "Arcane Ward", SkillType.Magic, false, Focus(12f), true, DamageType.Arcane,
-            Zone(2f, 14f, DamageType.Arcane), P("magic_arcane"), "A protective arcane wave.");
+            Spell("magic_ward_spell", "Arcane Ward", DamageType.Arcane, 14f, 12f, SpellDelivery.Zone, 3f,
+                deliveryRange: 8f, deliveryRadius: 2f, knockback: 1.5f),
+            P("magic_arcane"), "A protective arcane wave that shoves foes back.");
         Add(list, "magic_dark", "Dark Bolt", SkillType.Magic, false, Focus(14f), true, DamageType.Dark,
-            Spell("magic_dark_spell", "Dark Bolt", DamageType.Dark, 24f, 14f, SpellDelivery.Projectile, 4f),
-            null, "Fire a shadow bolt.");
+            Spell("magic_dark_spell", "Dark Bolt", DamageType.Dark, 24f, 14f, SpellDelivery.Projectile, 4f,
+                statusEffect: StatusEffectType.Rot),
+            null, "Fire a shadow bolt that rots the target.");
         Add(list, "magic_blizzard", "Blizzard", SkillType.Magic, false, Focus(28f), true, DamageType.Ice,
-            Zone(3.4f, 26f, DamageType.Ice), P("magic_chain", "magic_frostbolt"), "A great frozen storm.");
+            Spell("magic_blizzard_spell", "Blizzard", DamageType.Ice, 22f, 28f, SpellDelivery.Zone, 6f,
+                deliveryRange: 8f, deliveryRadius: 3.2f, duration: 2.5f, statusEffect: StatusEffectType.Frost),
+            P("magic_chain", "magic_frostbolt"), "A persistent frozen storm that chills all inside.");
 
         // Wind line (§3.7 Wind): Gust → Wind Blade → Gale Force → Tornado. Tornado uses the
-        // Vortex delivery and leaks Wind damage + pulls enemies through WindVortex.
+        // Vortex delivery and leaks Wind damage + pulls enemies through SpellZone.
         Add(list, "magic_gust", "Wind Gust", SkillType.Magic, false, Focus(12f), true, DamageType.Wind,
             Spell("magic_gust_spell", "Wind Gust", DamageType.Wind, 14f, 12f, SpellDelivery.Zone, 3f,
-                deliveryRadius: 2.5f),
+                deliveryRadius: 2.5f, knockback: 2.5f),
             null, "A blast of wind that scatters nearby foes.");
         Add(list, "magic_windblade", "Wind Blade", SkillType.Magic, false, Focus(15f), true, DamageType.Wind,
             Spell("magic_windblade_spell", "Wind Blade", DamageType.Wind, 18f, 15f, SpellDelivery.Projectile, 4f,
-                deliveryRadius: 1.2f),
+                deliveryRadius: 1.2f, knockback: 1f),
             P("magic_gust"), "Hurl a razor-sharp blade of wind (requires Wind Gust).");
         Add(list, "magic_gale", "Gale Force", SkillType.Magic, false, Focus(22f), true, DamageType.Wind,
             Spell("magic_gale_spell", "Gale Force", DamageType.Wind, 24f, 22f, SpellDelivery.Zone, 6f,
-                deliveryRadius: 3.4f),
-            P("magic_windblade"), "Summon a towering storm of razor wind (requires Wind Blade).");
+                deliveryRadius: 3.4f, knockback: 2f),
+            P("magic_windblade"), "Summon a towering storm of razor wind that drives foes back (requires Wind Blade).");
         Add(list, "magic_tornado", "Tornado", SkillType.Magic, false, Focus(28f), true, DamageType.Wind,
             Spell("magic_tornado_spell", "Tornado", DamageType.Wind, 16f, 28f, SpellDelivery.Vortex, 10f,
                 deliveryRange: 12f, deliveryRadius: 3f, castTime: 0.8f),

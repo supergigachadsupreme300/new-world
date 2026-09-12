@@ -233,10 +233,11 @@ public class SpellCaster : MonoBehaviour
     private float SizeScale(float charge) => 1f + charge * ChargeSizeBonus;
 
     /// <summary>
-    /// Spawn a persistent <see cref="WindVortex"/> at the cast location. The vortex ticks
-    /// the spell's damage over its lifetime and drags enemies toward its center. Positioned
-    /// by raycasting along the cast direction up to <see cref="SpellData.Range"/>, then
-    /// dropped to the ground so the funnel sits on terrain.
+    /// Spawn a persistent <see cref="SpellZone"/> at the cast location (SpellDelivery.Vortex).
+    /// The funnel ticks the spell's damage over its lifetime and drags enemies toward its
+    /// center — winds pulled in like the tornado. Positioned by raycasting along the cast
+    /// direction up to <see cref="SpellData.Range"/>, then dropped to the ground so the funnel
+    /// sits on terrain.
     /// </summary>
     private DamageResult SpawnVortex(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge)
     {
@@ -250,15 +251,23 @@ public class SpellCaster : MonoBehaviour
         if (Physics.Raycast(at + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))
             ground = groundHit.point;
 
-        var go = new GameObject("WindVortex");
+        var go = new GameObject("SpellVortex");
         go.transform.position = ground;
-        go.AddComponent<WindVortex>().Initialize(this, spell, power, SizeScale(charge));
+        var zone = go.AddComponent<SpellZone>();
+        zone.Initialize(this, spell, power, SizeScale(charge), 1f, 3.5f);
+        zone.Lifetime = Mathf.Max(spell.Duration > 0f ? spell.Duration : 5f, 1f);
 
         return new DamageResult { HitTargets = true };
     }
 
     private DamageResult ResolveDirect(float power, SpellData spell, Vector3 pos, Vector3 fwd)
     {
+        if (spell.Heals)
+        {
+            // Instant restoration casts on the caster (the classic "holy touch").
+            int healed = ResolveHeal(spell, power, transform.root.gameObject);
+            return new DamageResult { TotalDamage = healed, HitTargets = healed > 0 };
+        }
         if (Physics.Raycast(pos, fwd, out RaycastHit hit, spell.Range))
         {
             return ApplyHit(spell, power, hit.collider.gameObject);
@@ -268,6 +277,9 @@ public class SpellCaster : MonoBehaviour
 
     private DamageResult FireProjectile(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge)
     {
+        // Spawn clear of the caster's body (mirrors the ranged Muzzle offset) so the bolt does
+        // not clip the player's own collider or the terrain at the hand level on its first step.
+        pos += fwd * 0.5f + Vector3.up * 0.3f;
         float sizeScale = SizeScale(charge);
         GameObject go;
         if (spell.CastEffectPrefab != null)
@@ -605,6 +617,18 @@ public class SpellCaster : MonoBehaviour
             center = groundHit.point;
         }
 
+        // Duration > 0 keeps the zone alive: it ticks the spell's damage while it lasts.
+        if (spell.Duration > 0f)
+        {
+            SpawnZoneRing(center, spell, radius);
+            var go = new GameObject("SpellZone");
+            go.transform.position = center;
+            var zone = go.AddComponent<SpellZone>();
+            zone.Initialize(this, spell, power, SizeScale(charge), 0.4f, 0f);
+            zone.Lifetime = Mathf.Max(spell.Duration, 0.5f);
+            return new DamageResult { HitTargets = true };
+        }
+
         SpawnZoneRing(center, spell, radius);
 
         Collider[] cols = Physics.OverlapSphere(center, radius);
@@ -612,7 +636,24 @@ public class SpellCaster : MonoBehaviour
         float total = 0f;
         foreach (var col in cols)
         {
-            if (col.transform.root == transform.root) continue;
+            if (col.transform.root == transform.root)
+            {
+                // Holy bursts heal the caster too when standing inside the light.
+                if (spell.Heals)
+                {
+                    int healed = ResolveHeal(spell, power, col.gameObject);
+                    total += healed;
+                    hitAny |= healed > 0;
+                }
+                continue;
+            }
+            if (spell.Heals && TryFindHealable(col.gameObject, out _))
+            {
+                int healed = ResolveHeal(spell, power, col.gameObject);
+                total += healed;
+                hitAny |= healed > 0;
+                continue;
+            }
             var hit = ApplyHit(spell, power, col.gameObject);
             total += hit.TotalDamage;
             hitAny |= hit.HitTargets;
@@ -632,6 +673,15 @@ public class SpellCaster : MonoBehaviour
 
     private DamageResult ApplyHit(SpellData spell, float power, GameObject target)
     {
+        // Friendly-heal delivery: restore health on allies instead of damaging them.
+        if (spell.Heals && TryFindHealable(target, out var healable))
+        {
+            int healed = Mathf.Max(1, Mathf.RoundToInt(power));
+            healable.Heal(healed);
+            DamageNumber.Spawn(target.transform.position, healed, spell.Type);
+            return new DamageResult { TotalDamage = healed, HitTargets = true };
+        }
+
         var ctx = new DamageCalculator.HitContext
         {
             AttackPower = power,
@@ -650,6 +700,9 @@ public class SpellCaster : MonoBehaviour
         if (result.TotalDamage > 0f)
             DamageNumber.Spawn(target.transform.position, result.TotalDamage, spell.Type);
 
+        ApplyStatus(spell, power, target);
+        ApplyKnockback(spell, target);
+
         if (spell.ImpactEffectPrefab != null)
             Instantiate(spell.ImpactEffectPrefab, target.transform.position, Quaternion.identity);
 
@@ -661,7 +714,7 @@ public class SpellCaster : MonoBehaviour
     }
 
     /// <summary>
-    /// Resolve a spell's damage against a specific target (used by SpellEffect on
+    /// Resolve a spell's damage against a specific target (used by SpellEffect / SpellZone on
     /// projectile/zone impact). Accessible so effects can route back through the shared
     /// DamageCalculator pipeline.
     /// </summary>
@@ -669,5 +722,64 @@ public class SpellCaster : MonoBehaviour
     {
         if (target == null || spell == null) return;
         ApplyHit(spell, power, target);
+    }
+
+    /// <summary>Restore health to a friendly target via an <see cref="IHealable"/> (used by
+    /// SpawnZone/SelfHeal). Returns the amount healed, or 0 when the target cannot heal.</summary>
+    public int ResolveHeal(SpellData spell, float power, GameObject target)
+    {
+        if (spell == null || target == null) return 0;
+        if (!TryFindHealable(target, out var healable)) return 0;
+        int healed = Mathf.Max(1, Mathf.RoundToInt(power));
+        healable.Heal(healed);
+        DamageNumber.Spawn(target.transform.position, healed, spell.Type);
+        return healed;
+    }
+
+    /// <summary>Friendly target check for healing: the object or its root implements <see cref="IHealable"/>.</summary>
+    private static bool TryFindHealable(GameObject target, out IHealable healable)
+    {
+        healable = null;
+        if (target == null) return false;
+        if (target.TryGetComponent<IHealable>(out healable)) return true;
+        return target.transform.root != null && target.transform.root.TryGetComponent<IHealable>(out healable);
+    }
+
+    /// <summary>Apply a spell's status effect on a damage hit. DoT statuses attach a SpellDoT to
+    /// the target's root; Frost slows and Stagger stuns via the enemy controller.</summary>
+    private static void ApplyStatus(SpellData spell, float power, GameObject target)
+    {
+        if (spell == null || !spell.AppliesStatus) return;
+        if (spell.StatusProcChance > 0f && UnityEngine.Random.value > spell.StatusProcChance) return;
+
+        Transform root = target != null ? target.transform.root : null;
+        switch (spell.StatusEffect)
+        {
+            case StatusEffectType.Bleed:
+            case StatusEffectType.Burn:
+            case StatusEffectType.Poison:
+            case StatusEffectType.Rot:
+                SpellDoT.Apply(target, power * 0.12f, 4f, 0.5f, spell.Type);
+                break;
+            case StatusEffectType.Frost:
+                if (root != null && root.TryGetComponent<EnemyController>(out var frostEnemy))
+                    frostEnemy.ApplySlow(0.35f, 2.5f);
+                break;
+            case StatusEffectType.Stagger:
+                if (root != null && root.TryGetComponent<EnemyController>(out var staggerEnemy))
+                    staggerEnemy.ApplyStun(0.35f);
+                break;
+        }
+    }
+
+    /// <summary>Outward shove on a damage hit — transform-driven (enemies hold no rigidbody).</summary>
+    private void ApplyKnockback(SpellData spell, GameObject target)
+    {
+        if (spell == null || spell.Knockback <= 0f || target == null) return;
+        Transform root = target.transform.root;
+        Vector3 dir = root.position - transform.position;
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 0.0001f) return;
+        root.position += dir.normalized * spell.Knockback;
     }
 }

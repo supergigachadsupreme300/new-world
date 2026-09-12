@@ -40,13 +40,22 @@ public class SpellData : ScriptableObject
     [Tooltip("Zone radius (Zone delivery) or projectile explosion radius.")]
     public float Radius = 1f;
     public float ProjectileSpeed = 20f;
+    [Tooltip("Lifetime of a persistent zone delivery in seconds. 0 = zone resolves instantly.")]
+    public float Duration = 0f;
 
     [Header("Status (optional, §3.7)")]
     public bool AppliesStatus;
     public StatusEffectType StatusEffect;
-    public float StatusProcChance;
+    [Tooltip("Chance (0..1) the status applies on a hit. Default 1 when AppliesStatus is set.")]
+    public float StatusProcChance = 1f;
 
     [Header("Presentation")]
     public GameObject CastEffectPrefab;
     public GameObject ImpactEffectPrefab;
+
+    [Header("Mechanics")]
+    [Tooltip("Restores health to friendly (Player/companion) targets instead of damaging them. Zone healing also heals allies while still damaging enemies.")]
+    public bool Heals;
+    [Tooltip("Outward shove (world units) applied to the target's root on hit. Positive pushes away from the caster.")]
+    public float Knockback;
 }
