@@ -30,10 +30,10 @@ public class WorldStreamer : MonoBehaviour
 
     [Header("Threading")]
     [Tooltip("Max terrain chunks finalized per poll tick (main-thread work).")]
-    public int ChunksPerFrame = 4;
+    public int ChunksPerFrame = 8;
 
     [Tooltip("Max terrain chunks being generated on background threads simultaneously.")]
-    public int MaxInFlight = 4;
+    public int MaxInFlight = 8;
 
     // --- Tile-level state (existing public API; 900 entries per loaded chunk) ---
     private readonly Dictionary<ChunkCoord, ChunkData> _loadedData = new Dictionary<ChunkCoord, ChunkData>();
@@ -344,9 +344,9 @@ public class WorldStreamer : MonoBehaviour
 
     /// <summary>
     /// Generate an entire terrain chunk synchronously on the main thread.
-    /// Used at startup to ensure the spawn area has terrain + colliders before
+    /// Used at startup to ensure the spawn tile has terrain + colliders before
     /// the player is placed. Now builds a single merged mesh per chunk, so the
-    /// 3x3 spawn area costs ~9 GameObjects instead of 8,100 — the boot hitches.
+    /// boot charge is one GameObject + mesh instead of 900 tiles.
     /// </summary>
     public void GenerateChunkSync(TerrainChunkCoord tc)
     {

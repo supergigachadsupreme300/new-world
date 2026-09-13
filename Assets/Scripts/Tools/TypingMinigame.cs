@@ -291,7 +291,7 @@ private GameObject _panel;
         rt.sizeDelta = size;
         var tmp = go.AddComponent<TextMeshProUGUI>();
         var font = GameManager.Instance?.UIManager?.defaultTmpFont;
-        if (font == null) font = Resources.Load<TMP_FontAsset>("VietPixel");
+        if (font == null) font = UiAssetCache.DefaultFont;
         if (font != null) tmp.font = font;
         tmp.text = text;
         tmp.fontSize = fontSize;

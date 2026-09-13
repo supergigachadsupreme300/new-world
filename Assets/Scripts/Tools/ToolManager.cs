@@ -862,13 +862,15 @@ public partial class ToolManager : MonoBehaviour
             if (selectedItem == "hoe")
             {
                 Vector3 placePosition = hit.point;
-                if (FieldManager.Instance != null && FieldManager.Instance.TryGetPreviewPosition(out var previewPos))
+                if (FarmingManager.Instance != null && FarmingManager.Instance.TryGetPreviewPosition(out var previewPos))
                 {
                     placePosition = previewPos;
                 }
 
-                var field = _worldBuilder.TillGround(placePosition);
-                if (field != null)
+                bool tilled = FarmingManager.Instance != null
+                    ? FarmingManager.Instance.TillGround(placePosition) != null
+                    : _worldBuilder.TillGround(placePosition) != null;
+                if (tilled)
                 {
                     SpendToolStamina(player);
                     SoundManager.Instance?.Play("hoe");
@@ -887,7 +889,7 @@ public partial class ToolManager : MonoBehaviour
                 if (_buildingChosen)
                 {
                     var bDef = _worldBuilder.GetBuildingByIndex(_worldBuilder.CurrentBuildingIndex);
-                    if (_worldBuilder.IsWallOrStair(bDef.Name) && !_worldBuilder.HasFloorAt(placePos))
+                    if (_worldBuilder.IsWallOrStair(bDef.Name) && _worldBuilder.EnableLegacyGeneration && !_worldBuilder.HasFloorAt(placePos))
                     {
                         _uiManager.ShowMessage(Localization.T("Cần sàn! Tường và cầu thang cần sàn trước."), 1.5f);
                     }
@@ -940,16 +942,19 @@ public partial class ToolManager : MonoBehaviour
 
             if (selectedItem == "watering_can")
             {
-                var field = _worldBuilder.GetFieldAt(hit.point);
-                if (field != null && field.Tilled && field.HasCrop && !field.IsHarvested)
+                bool watered = FarmingManager.Instance != null && FarmingManager.Instance.WaterPlot(hit.point);
+                if (!watered)
                 {
-                    if (_worldBuilder.WaterField(hit.point))
-                    {
-                        SpendToolStamina(player);
-                        SoundManager.Instance?.Play("pop");
-                        _uiManager.ShowMessage(Localization.T("Ruộng đã tưới."), 1.5f);
-                        QuestManager.Instance?.AddProgress("water", 1);
-                    }
+                    var legacy = _worldBuilder.GetFieldAt(hit.point);
+                    watered = legacy != null && legacy.Tilled && legacy.HasCrop && !legacy.IsHarvested &&
+                              _worldBuilder.WaterField(hit.point);
+                }
+                if (watered)
+                {
+                    SpendToolStamina(player);
+                    SoundManager.Instance?.Play("pop");
+                    _uiManager.ShowMessage(Localization.T("Ruộng đã tưới."), 1.5f);
+                    QuestManager.Instance?.AddProgress("water", 1);
                 }
                 else
                 {
@@ -960,16 +965,19 @@ public partial class ToolManager : MonoBehaviour
 
             if (selectedItem == "fertilizer")
             {
-                var field = _worldBuilder.GetFieldAt(hit.point);
-                if (field != null && field.Tilled && field.HasCrop && !field.IsHarvested)
+                bool applied = FarmingManager.Instance != null && FarmingManager.Instance.FertilizePlot(hit.point);
+                if (!applied)
                 {
-                    if (_worldBuilder.FertilizeField(hit.point))
-                    {
-                        SpendToolStamina(player);
-                        RemoveItem(_selectedSlot, 1);
-                        SoundManager.Instance?.Play("pop");
-                        _uiManager.ShowMessage(Localization.T("Ruộng đã bón phân!"), 1.5f);
-                    }
+                    var legacy = _worldBuilder.GetFieldAt(hit.point);
+                    applied = legacy != null && legacy.Tilled && legacy.HasCrop && !legacy.IsHarvested &&
+                              _worldBuilder.FertilizeField(hit.point);
+                }
+                if (applied)
+                {
+                    SpendToolStamina(player);
+                    RemoveItem(_selectedSlot, 1);
+                    SoundManager.Instance?.Play("pop");
+                    _uiManager.ShowMessage(Localization.T("Ruộng đã bón phân!"), 1.5f);
                 }
                 else
                 {
@@ -980,16 +988,19 @@ public partial class ToolManager : MonoBehaviour
 
             if (selectedItem == "mi_chinh")
             {
-                var field = _worldBuilder.GetFieldAt(hit.point);
-                if (field != null && field.Tilled && field.HasCrop && !field.IsHarvested)
+                bool applied = FarmingManager.Instance != null && FarmingManager.Instance.BoostPlot(hit.point);
+                if (!applied)
                 {
-                    if (_worldBuilder.BoostFieldGrowth(hit.point))
-                    {
-                        SpendToolStamina(player);
-                        RemoveItem(_selectedSlot, 1);
-                        SoundManager.Instance?.Play("pop");
-                        _uiManager.ShowMessage(Localization.T("Ruộng đã lớn nhanh hơn!"), 1.5f);
-                    }
+                    var legacy = _worldBuilder.GetFieldAt(hit.point);
+                    applied = legacy != null && legacy.Tilled && legacy.HasCrop && !legacy.IsHarvested &&
+                              _worldBuilder.BoostFieldGrowth(hit.point);
+                }
+                if (applied)
+                {
+                    SpendToolStamina(player);
+                    RemoveItem(_selectedSlot, 1);
+                    SoundManager.Instance?.Play("pop");
+                    _uiManager.ShowMessage(Localization.T("Ruộng đã lớn nhanh hơn!"), 1.5f);
                 }
                 else
                 {
@@ -1006,42 +1017,68 @@ public partial class ToolManager : MonoBehaviour
 
             if (selectedItem == "scythe")
             {
+                var fm = FarmingManager.Instance;
+                var plot = fm != null ? fm.GetPlotAt(hit.point) : null;
                 var field = _worldBuilder.GetFieldAt(hit.point);
-                if (field != null && field.HasCrop && field.Stage >= 4)
+
+                string item = null;
+                int quality = 0;
+                bool canHarvest = false;
+
+                if (plot != null && plot.IsMature && !plot.Harvested)
                 {
-                    var harvestedItem = field.CropType;
-                    if (!CanHoldItem(harvestedItem))
+                    item = plot.HarvestYield;
+                    canHarvest = true;
+                }
+                else if (field != null && field.HasCrop && field.Stage >= 4)
+                {
+                    item = field.CropType;
+                    quality = field.Quality;
+                    canHarvest = true;
+                }
+
+                if (canHarvest)
+                {
+                    if (string.IsNullOrEmpty(item) || !CanHoldItem(item))
                     {
                         _uiManager.ShowMessage(Localization.T("Túi đồ đầy."), 1.5f);
                         return;
                     }
-                    int quality = field.Quality;
-                    if (_worldBuilder.HarvestField(field, out var item))
+                    bool performed;
+                    if (plot != null)
                     {
-                        SpendToolStamina(player);
-                        AddItem(item, 1);
-                        if (item == "wheat")
-                            GameStats.AddWheat(1);
-                        var sm = SkillManager.Instance;
-                        if (sm != null)
-                            sm.AddXP(SkillManager.Track.Farming, sm.FarmingXPFor(item));
-                        if (sm != null && sm.BonusCropChance() > 0f && Random.value < sm.BonusCropChance() && CanHoldItem(item))
-                        {
-                            AddItem(item, 1);
-                            _uiManager.ShowMessage(Localization.F("Năng suất! +1 {0} nhờ kỹ năng Canh Tác.", Localization.ItemName(item)), 1.5f);
-                        }
-                        float qChance = quality >= 2 ? 0.5f : (quality == 1 ? 0.25f : 0f);
-                        if (qChance > 0f && Random.value < qChance && CanHoldItem(item))
-                        {
-                            AddItem(item, 1);
-                            _uiManager.ShowMessage(Localization.F(
-                                quality >= 2 ? "Chất lượng Tuyệt! +1 {0} nông sản." : "Chất lượng Tốt! +1 {0} nông sản.",
-                                Localization.ItemName(item)), 1.5f);
-                        }
-                        SoundManager.Instance?.Play("sickle");
-                        _uiManager.ShowMessage(Localization.F("Đã thu hoạch {0}.", Localization.ItemName(item)), 1.5f);
-                        QuestManager.Instance?.AddProgress(item, 1);
+                        performed = fm.HarvestPlot(hit.point, out var plotYield) && !string.IsNullOrEmpty(plotYield);
                     }
+                    else
+                    {
+                        performed = _worldBuilder.HarvestField(field, out var legacyYield) && !string.IsNullOrEmpty(legacyYield);
+                    }
+                    if (!performed)
+                        return;
+
+                    SpendToolStamina(player);
+                    AddItem(item, 1);
+                    if (item == "wheat")
+                        GameStats.AddWheat(1);
+                    var sm = SkillManager.Instance;
+                    if (sm != null)
+                        sm.AddXP(SkillManager.Track.Farming, sm.FarmingXPFor(item));
+                    if (sm != null && sm.BonusCropChance() > 0f && Random.value < sm.BonusCropChance() && CanHoldItem(item))
+                    {
+                        AddItem(item, 1);
+                        _uiManager.ShowMessage(Localization.F("Năng suất! +1 {0} nhờ kỹ năng Canh Tác.", Localization.ItemName(item)), 1.5f);
+                    }
+                    float qChance = quality >= 2 ? 0.5f : (quality == 1 ? 0.25f : 0f);
+                    if (qChance > 0f && Random.value < qChance && CanHoldItem(item))
+                    {
+                        AddItem(item, 1);
+                        _uiManager.ShowMessage(Localization.F(
+                            quality >= 2 ? "Chất lượng Tuyệt! +1 {0} nông sản." : "Chất lượng Tốt! +1 {0} nông sản.",
+                            Localization.ItemName(item)), 1.5f);
+                    }
+                    SoundManager.Instance?.Play("sickle");
+                    _uiManager.ShowMessage(Localization.F("Đã thu hoạch {0}.", Localization.ItemName(item)), 1.5f);
+                    QuestManager.Instance?.AddProgress(item, 1);
                 }
                 return;
             }

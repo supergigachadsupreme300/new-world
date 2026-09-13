@@ -8,9 +8,12 @@ public partial class WorldBuilder
 {
     public BuildingDefinition GetBuildingByIndex(int i) => _availableBuildings[i];
 
+    public int BlueprintOptionCount => EnableLegacyGeneration ? _buildings.Count : _availableBuildings.Length;
+
     public bool IsBlueprintUnlocked(string name)
     {
         if (string.IsNullOrEmpty(name)) return true;
+        if (!EnableLegacyGeneration) return true; // streaming world: all blueprints usable
         if (!ResearchCosts.ContainsKey(name)) return true;
         return _unlockedBlueprints.Contains(name);
     }
@@ -70,7 +73,7 @@ public partial class WorldBuilder
         }
         var size = definition.Size;
         Vector3 snapped = SnapToGrid(position);
-        if (IsWallOrStair(definition.Name) && !HasFloorAt(snapped))
+        if (EnableLegacyGeneration && IsWallOrStair(definition.Name) && !HasFloorAt(snapped))
         {
             Debug.Log("Must place on a floor first!");
             return false;
@@ -109,6 +112,7 @@ public partial class WorldBuilder
 
     private BlueprintState CreateSingleBlueprint(string typeName, Vector3 position, Vector3 size, Color color, int woodCost, int stoneCost)
     {
+        EnsureWorldRoot();
         var blueprint = GameObject.CreatePrimitive(PrimitiveType.Cube);
         blueprint.name = "Blueprint";
         blueprint.transform.position = position + Vector3.up * (size.y * 0.5f);

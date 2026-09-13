@@ -140,15 +140,17 @@ public sealed class MagicWheelUI : MonoBehaviour
         return false;
     }
 
-    /// <summary>Fire the armed magic with a charge level (0..1). True if the cast began.</summary>
-    public static bool ReleaseArmedCast(float charge)
+    /// <summary>
+    /// Fire the armed magic with a charge level (0..1+) and the focus already drained in real time
+    /// during the charge hold. True if the cast actually began (FP/cooldown gates may reject it).
+    /// </summary>
+    public static bool ReleaseArmedCast(float charge, float prepaidFocus = 0f)
     {
         if (_instance == null || string.IsNullOrEmpty(_instance._armedSkillId)) return false;
         if (!_instance.HoldingMagicWeapon()) return false;
         var profile = _instance.PlayerProfile();
         if (profile == null) return false;
-        profile.ExecuteCharged(_instance._armedSkillId, charge);
-        return true;
+        return profile.ExecuteCharged(_instance._armedSkillId, charge, prepaidFocus);
     }
 
     private void Awake()

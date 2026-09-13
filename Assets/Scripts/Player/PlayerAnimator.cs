@@ -60,6 +60,10 @@ public sealed class PlayerAnimator : MonoBehaviour
 
     private bool _armWatchdogLogged;
 
+    [Tooltip("How much the upper body pitches with the camera look (0 = none, 1 = full camera pitch). "
+        + "Looking down bends the torso forward, looking up leans it back.")]
+    public float TorsoLookBlend = 0.5f;
+
     /// <summary>Claim ownership of the arm pivots (attack or ready sway). Calls SuppressArms on.</summary>
     public void AcquireArms()
     {
@@ -137,6 +141,10 @@ public sealed class PlayerAnimator : MonoBehaviour
             return;
         }
 
+        // Upper body pitches with the camera look: looking down bends the torso forward, looking
+        // up leans it back. Applied to the torso in both the idle and moving poses.
+        float lookTilt = -Mathf.Clamp(_pc.LookPitch, -60f, 60f) * TorsoLookBlend;
+
         Vector3 rootPos = _pc.transform.position;
         Vector3 delta = rootPos - _lastRootPos;
         _lastRootPos = rootPos;
@@ -149,6 +157,8 @@ public sealed class PlayerAnimator : MonoBehaviour
         {
             Breathe();
             RestoreIdle(0f);
+            if (_torso != null)
+                _torso.localRotation = Quaternion.Euler(lookTilt, 0f, 0f);
             return;
         }
 
@@ -169,15 +179,19 @@ public sealed class PlayerAnimator : MonoBehaviour
         float wArmAmp = (0.3f + norm * 0.35f) * Mathf.Rad2Deg;
         float wLegL = Mathf.Sin(_phase) * wLegAmp;
         float wLegR = Mathf.Sin(_phase + Mathf.PI) * wLegAmp;
-        float wArmR = Mathf.Sin(_phase + Mathf.PI + 0.35f) * wArmAmp;
-        float wArmL = Mathf.Sin(_phase + 0.35f) * wArmAmp;
+        // Contralateral swing: each arm moves OPPOSITE its same-side leg, so the left and right
+        // sides pump in alternate directions and the body visibly swings on both sides.
+        float wArmR = Mathf.Sin(_phase + 0.35f) * wArmAmp;
+        float wArmL = Mathf.Sin(_phase + Mathf.PI + 0.35f) * wArmAmp;
         float wKneeBend = (0.42f + norm * 0.5f) * Mathf.Rad2Deg;
         float wKneeL = Mathf.Max(0f, wLegL) * (wKneeBend / Mathf.Max(0.01f, wLegAmp));
         float wKneeR = Mathf.Max(0f, wLegR) * (wKneeBend / Mathf.Max(0.01f, wLegAmp));
-        float wElbowBase = (0.35f + norm * 0.2f) * Mathf.Rad2Deg;
-        float wElbowAmp = wArmAmp * 0.6f;
-        float wElbowL = wElbowBase + Mathf.Max(0f, wArmL) * (wElbowAmp / Mathf.Max(0.01f, wArmAmp));
-        float wElbowR = wElbowBase + Mathf.Max(0f, wArmR) * (wElbowAmp / Mathf.Max(0.01f, wArmAmp));
+        float wElbowAmp = wArmAmp;
+        // Elbow mirrors the arm direction with the SAME angular in both directions: crooks back by
+        // the full swing angle on the back-swing and crooks forward by the same amount on the
+        // forward-swing, so the bend is perfectly symmetric about the straight arm.
+        float wElbowL = (wArmL / Mathf.Max(0.01f, wArmAmp)) * wElbowAmp;
+        float wElbowR = (wArmR / Mathf.Max(0.01f, wArmAmp)) * wElbowAmp;
 
         // ── Run pose (exaggerated cartoon: big strides, high knees, wide pumping arms) ──
         float rEase = Mathf.Clamp01((norm - 0.45f) / 0.35f); // 0 at run start .. 1 at sprint
@@ -185,15 +199,14 @@ public sealed class PlayerAnimator : MonoBehaviour
         float rArmAmp = (0.55f + rEase * 0.3f) * Mathf.Rad2Deg;
         float rLegL = Mathf.Sin(_phase) * rLegAmp;
         float rLegR = Mathf.Sin(_phase + Mathf.PI) * rLegAmp;
-        float rArmR = Mathf.Sin(_phase + Mathf.PI + 0.2f) * rArmAmp;
-        float rArmL = Mathf.Sin(_phase + 0.2f) * rArmAmp;
+        float rArmR = Mathf.Sin(_phase + 0.2f) * rArmAmp;
+        float rArmL = Mathf.Sin(_phase + Mathf.PI + 0.2f) * rArmAmp;
         float rKneeBend = (0.9f + rEase * 0.25f) * Mathf.Rad2Deg;
         float rKneeL = Mathf.Max(0f, rLegL) * (rKneeBend / Mathf.Max(0.01f, rLegAmp));
         float rKneeR = Mathf.Max(0f, rLegR) * (rKneeBend / Mathf.Max(0.01f, rLegAmp));
-        float rElbowBase = (1.05f + rEase * 0.15f) * Mathf.Rad2Deg;
-        float rElbowAmp = rArmAmp * 0.7f;
-        float rElbowL = rElbowBase + Mathf.Max(0f, rArmL) * (rElbowAmp / Mathf.Max(0.01f, rArmAmp));
-        float rElbowR = rElbowBase + Mathf.Max(0f, rArmR) * (rElbowAmp / Mathf.Max(0.01f, rArmAmp));
+        float rElbowAmp = rArmAmp * 0.8f;
+        float rElbowL = (rArmL / Mathf.Max(0.01f, rArmAmp)) * rElbowAmp;
+        float rElbowR = (rArmR / Mathf.Max(0.01f, rArmAmp)) * rElbowAmp;
 
         float legL = Mathf.Lerp(wLegL, rLegL, runBlend);
         float legR = Mathf.Lerp(wLegR, rLegR, runBlend);
@@ -219,14 +232,16 @@ public sealed class PlayerAnimator : MonoBehaviour
         // When SuppressArms is set, a WeaponAnimator fully owns the shoulders AND elbows
         // (windup/strike/charge pose tracks), so nothing is written here mid-attack.
 
-        // Cartoon run top body: forward lean, bounce on the torso and bobble the head.
+        // Cartoon run top body: forward lean, gentle bob — the upper body stays stable so only the
+        // arms and legs carry the motion (no wild torso/head swinging). The + lookTilt bends the
+        // torso up/down with the camera's vertical aim.
         if (_torso != null)
-            _torso.localRotation = Quaternion.Euler(-12f * runBlend, 0f, 0f);
+            _torso.localRotation = Quaternion.Euler(-12f * runBlend + lookTilt, 0f, 0f);
         if (_head != null)
-            _head.localRotation = Quaternion.Euler(-(3f + 5f * runBlend) * Mathf.Sin(_phase * 2f) - 4f * runBlend, 0f, 0f);
+            _head.localRotation = Quaternion.Euler(-(1f + 2f * runBlend) * Mathf.Sin(_phase * 2f) - 2f * runBlend, 0f, 0f);
         if (_body != null && _bodyBasePos != default)
         {
-            float bob = Mathf.Sin(_phase * 2f) * (0.03f * runBlend);
+            float bob = Mathf.Sin(_phase * 2f) * (0.012f * runBlend);
             _body.localPosition = _bodyBasePos + new Vector3(0f, bob, 0f);
         }
     }

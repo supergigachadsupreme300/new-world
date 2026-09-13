@@ -155,7 +155,7 @@ public partial class UIManager
         fillImg.raycastTarget = false;
         if (_hudBgSprite == null)
         {
-            var tex = Resources.Load<Texture2D>("menu");
+            var tex = UiAssetCache.MenuTexture;
             if (tex != null)
                 _hudBgSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
         }
@@ -209,7 +209,7 @@ public partial class UIManager
         fillImg.raycastTarget = false;
         if (_hudBgSprite == null)
         {
-            var tex = Resources.Load<Texture2D>("menu");
+            var tex = UiAssetCache.MenuTexture;
             if (tex != null)
                 _hudBgSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
         }

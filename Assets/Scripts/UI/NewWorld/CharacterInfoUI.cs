@@ -38,7 +38,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     public static CharacterInfoUI Instance;
 
     public enum Tab { Info = 0, Skills = 1, Inventory = 2, Map = 3, Faith = 4 }
-    public enum SkillSubTab { General = 0, Class = 1, Race = 2 }
+    public enum SkillSubTab { General = 0, Class = 1, Race = 2, Talents = 3 }
 
     public Tab ActiveTab = Tab.Info;
 
@@ -79,7 +79,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private RectTransform _treeContent;
     private GameObject _detailPane;
     private readonly List<Skill> _treeSkills = new List<Skill>();
-    private readonly List<(Skill skill, Image image)> _treeNodes = new List<(Skill, Image)>();
+    private readonly List<(Skill skill, Image image, TMP_Text label)> _treeNodes = new List<(Skill, Image, TMP_Text)>();
     private readonly List<(Image image, Skill target)> _treeLines = new List<(Image, Skill)>();
     private Skill _selectedSkill;
     private TMP_Text _detailTitle;
@@ -100,7 +100,13 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private Button _generalTabBtn;
     private Button _classTabBtn;
     private Button _raceTabBtn;
+    private Button _talentTabBtn;
+    private GameObject _talentsView;
+    private TMP_Text _talentPointsText;
+    private RectTransform _talentContent;
+    private readonly List<(Talent talent, TMP_Text label, Button upBtn)> _talentRows = new List<(Talent, TMP_Text, Button)>();
     private GameObject _legendRoot;
+    private readonly List<TMP_Text> _generalHeadings = new List<TMP_Text>();
 
     // Race skill tree.
     private readonly List<RaceSkill> _raceTreeSkills = new List<RaceSkill>();
@@ -292,6 +298,9 @@ public sealed class CharacterInfoUI : MenuPanelBase
             player.gameObject.AddComponent<SkillXpTracker>();
         if (player.GetComponent<SkillProfile>() == null)
             player.gameObject.AddComponent<SkillProfile>();
+        // TalentTracker after LevelUpSystem so it subscribes to level-ups.
+        if (player.GetComponent<TalentTracker>() == null)
+            player.gameObject.AddComponent<TalentTracker>();
         if (player.GetComponent<SkillBindings>() == null)
             player.gameObject.AddComponent<SkillBindings>();
         if (player.GetComponent<EquipmentSystem>() == null)
@@ -391,6 +400,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _raceTabBtn = MakeButton(_panels[Tab.Skills].transform, "RaceTabBtn", "Race", P(100f, 250f), OnRaceTab);
         _raceTabBtn.GetComponent<RectTransform>().sizeDelta = Sz(120f, 30f);
         ApplyFullButtonSprite(_raceTabBtn.GetComponent<Image>());
+        _talentTabBtn = MakeButton(_panels[Tab.Skills].transform, "TalentTabBtn", "Talents", P(230f, 250f), OnTalentsTab);
+        _talentTabBtn.GetComponent<RectTransform>().sizeDelta = Sz(120f, 30f);
+        ApplyFullButtonSprite(_talentTabBtn.GetComponent<Image>());
+
+        BuildTalentsView(_panels[Tab.Skills].transform);
 
         RectTransform treeVt = BuildSkillTree(_panels[Tab.Skills].transform);
         BuildSkillDetail(treeVt.transform);
@@ -756,6 +770,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
             RefreshRaceSkillTree();
             return;
         }
+        if (_skillSubTab == SkillSubTab.Talents)
+        {
+            RefreshTalentsView();
+            return;
+        }
 
         var profile = SkillProfileOf();
         bool hasPoints = profile != null && profile.Points > 0;
@@ -764,13 +783,21 @@ public sealed class CharacterInfoUI : MenuPanelBase
             _detailPane.SetActive(_selectedSkill != null);
 
         // Node colors by state.
-        foreach (var (skill, image) in _treeNodes)
+        foreach (var (skill, image, label) in _treeNodes)
         {
             if (image == null) continue;
-            if (skill == _selectedSkill) image.color = NodeSelected;
-            else if (profile != null && profile.HasLearned(skill.id)) image.color = NodeLearned;
-            else if (profile != null && profile.CanLearn(skill)) image.color = NodeAvailable;
-            else image.color = NodeLocked;
+            if (skill == _selectedSkill) image.color = NodeColor(skill, NodeSelected);
+            else if (profile != null && profile.HasLearned(skill.id)) image.color = NodeColor(skill, NodeLearned);
+            else if (profile != null && profile.CanLearn(skill)) image.color = NodeColor(skill, NodeAvailable);
+            else image.color = NodeColor(skill, NodeLocked);
+
+            if (label != null)
+            {
+                if (profile != null && profile.HasLearned(skill.id))
+                    label.text = skill.displayName + "\nLv " + profile.LevelOf(skill.id);
+                else
+                    label.text = skill.displayName;
+            }
         }
 
         // Lines: active when the target (child) or any prereq is learned.
@@ -810,7 +837,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         {
             int learned = 0;
             if (profile != null)
-                foreach (var (skill, _) in _treeNodes)
+                foreach (var (skill, _, _) in _treeNodes)
                     if (profile.HasLearned(skill.id)) learned++;
             _categoryLevelText.text = Localization.F("Learned {0}/{1}", learned, _treeNodes.Count);
         }
@@ -890,6 +917,18 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var key = bindings != null ? bindings.KeyOf(skill.id) : (Key?)null;
             if (key.HasValue)
                 meta.Append('\n').Append("Key: ").Append(SkillBarHUD.KeyLabel(key.Value));
+        }
+
+        // Learned level + XP toward the next level.
+        var levelProfile = SkillProfileOf();
+        if (levelProfile != null && levelProfile.HasLearned(skill.id))
+        {
+            meta.Append('\n').Append("Lv ").Append(levelProfile.LevelOf(skill.id));
+            if (!skill.IsPassive)
+            {
+                levelProfile.TryGetProgress(skill.id, out _, out float xp, out float toNext);
+                meta.Append("  ·  XP ").Append(xp.ToString("0")).Append('/').Append(toNext.ToString("0"));
+            }
         }
         _detailMeta.text = meta.ToString();
 
@@ -980,6 +1019,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
             RebuildRaceSkillTree();
             return;
         }
+        if (_skillSubTab == SkillSubTab.Talents)
+        {
+            RefreshTalentsView();
+            return;
+        }
 
         if (_treeContent == null) return;
 
@@ -990,6 +1034,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _treeSkills.Clear();
         _sectorLabels.Clear();
         _categoryNodes.Clear();
+        _generalHeadings.Clear();
         _selectedSkill = null;
         _treeContent.anchoredPosition = Vector2.zero;
         _treeContent.localScale = Vector3.one;
@@ -1006,58 +1051,70 @@ public sealed class CharacterInfoUI : MenuPanelBase
         foreach (var s in list)
             depth[s.id] = EffLayerOf(s);
 
-        // Polar slot grid: each category fans out inside its own 60° wedge as a cone from the
-        // central category wheels, and every node claims a distinct ring/angle cell whose arc is
-        // sized to the node pitch, so no nodes ever overlap. When a category outgrows its current
-        // rings the layout creates new rings further out (no cap) instead of stacking/colliding.
-        const float sectorHalf = 0.52f;     // ±29.8° rad of fan — the full 60° wedge spacing (±30° = 0.524 rad)
-                                            // minus a 0.2° clearance buffer so adjacent categories never touch.
-        // Tier-band radii (px). Each layer owns a fixed band of rings instead of drifting outward,
-        // and the wheel is sized OUT from the hub so every ring's arc has enough real estate:
-        //   ring0      r=250  Layer 0 (base) — one ring, exactly sized to the category's ROOT count
-        //              (5 for Melee/Ranged/Stealth/Crafting, 6 for Magic & Fortitude) so no slots
-        //              go to waste and branches never eat a root's slot.
-        //   ring1-2    r=470,492  Layer 1 (branch) — holds exactly roots×5 branches (25 for
-        //              Melee/Ranged/Stealth/Crafting, 30 for Magic & Fortitude). Branches use the
-        //              room freed by the 25/30 cap: bigger 12x10 nodes with a 16px pitch (~4px gap)
-        //              fit the first ring's 30 slots exactly (Magic/Fortitude fill all of them).
-        //   ring3      r=1490   Layer 2 (deep) — a single ring holding the FULL L2 catalog (5
-        //              grandchildren per L1 = 126-152 nodes) in one pass: an 8px-node/10px-pitch row
-        //              fits arc capacity 154 ≥ Magic's 152, so nothing spills to a second deep ring.
-        //   ring4      r=1770   Layer 3 (deepest) — the 2-3 hop locks (Tornado, Masterwork,
-        //              Heart-Seeker) sit alone one ring out from the L2 ring.
-        const float ring0 = 250f;
-        const float moatBase = 220f;    // base ring -> first branch ring (r1 = 470) — pulled in from 250
-                                        // so L0 and L1 sit closer together now that L1 is a single row.
-        const float branchStep = 22f;   // headroom between the branch-band rings (10px node).
-        const float moatBranch = 998f;  // last branch ring -> L2 ring (r3 = 1490) — sized so a single
-                                        // L2 ring (10px pitch) seats 154 slots ≥ the 152-node Magic band.
-        const float deepStep = 280f;    // L2 ring -> L3 ring spacing (r4 = 1770).
+        // Polar slot grid: each category fans out inside its own wedge as a cone from the central
+        // category wheels, and every node claims a distinct ring/angle cell whose arc is sized to
+        // the node pitch, so no nodes ever overlap. When a category outgrows its current rings the
+        // layout creates new rings further out (no cap) instead of stacking/colliding.
         float[] layerPitch = { 22f, 16f, 10f }; // Per-layer node pitch: L0 base (18px node + 4px gap),
                                                 // L1 branch (12px node + ~4px gap), L2 deep (8px node + 2px gap).
 
-        float RingRadius(int ring)
-        {
-            if (ring <= 0) return ring0;
-            if (ring == 1) return ring0 + moatBase;
-            if (ring == 2) return ring0 + moatBase + branchStep;
-            return ring0 + moatBase + branchStep + moatBranch + (ring - 3) * deepStep;
-        }
-        int RingCapacity(int ring, float pitch) => Mathf.Max(1, Mathf.FloorToInt(RingRadius(ring) * (2f * sectorHalf) / pitch));
-
         var posOf = new Dictionary<string, Vector2>();
-        const float hubR = 170f;    // category wheel radius — widened so the six hub bubbles sit close to the
-                                    // base ring and give the outer bands more room to grow.
+        var hubPosOf = new Dictionary<string, Vector2>();
 
-        for (int ci = 0; ci < 6; ci++)
+        // Builds one independent tree wheel on the shared canvas. Compact wheels spread a single
+        // category over a full circle with tighter rings and the hub bubble at the wheel center
+        // (Magic, Crafting); standard wheels fan each category inside an equal wedge around the hub
+        // (Physical combat). All positions are offset by the wheel origin so several wheels share
+        // the board without overlapping.
+        void BuildWheel(IReadOnlyList<SkillType> wheelTypes, Vector2 origin, bool compact)
         {
-            SkillType type = (SkillType)ci;
-            float center = (-90f + ci * 60f) * Mathf.Deg2Rad;
+            int wheelCount = wheelTypes.Count;
+            float sectorHalf = compact
+                ? Mathf.PI - 0.02f
+                : (Mathf.PI / wheelCount) - 0.004f;
+            float wheelHubR = compact ? 0f : 170f;
 
-            var catList = new List<Skill>();
-            foreach (var s in list)
-                if (s.Type == type) catList.Add(s);
-            if (catList.Count == 0) continue;
+            // Tier-band radii (px). Each layer owns a fixed band of rings instead of drifting
+            // outward, and each wheel is sized OUT from its hub so every ring's arc has enough
+            // real estate. The original tuned bands describe the Physical wheel:
+            //   ring0      r=250  Layer 0 (base) — one ring, exactly sized to the category's ROOT
+            //              count (5 Melee/Ranged/Stealth, 6 Fortitude) so no slots go to waste.
+            //   ring1-2    r=470,492  Layer 1 (branch) — roots×5 branches (25 for Melee/Ranged/
+            //              Stealth, 30 for Fortitude) at a 16px pitch fill the first ring's slots.
+            //   ring3      r=1490   Layer 2 (deep) — one ring for the FULL L2 catalog (~150 nodes
+            //              for Fortitude) at a 10px pitch; arc capacity 232 ≥ Fortitude's band.
+            //   ring4      r=1770   Layer 3 (deepest) — the 2-3 hop locks sit one ring further out.
+            // Compact wheels reuse the same layer bands scaled down for a full-circle single wedge
+            // (arc capacity 6× wider), which is what lets the Magic/Crafting trees stay small:
+            //   ring0 r=200, ring1-2 r=300/318, ring3 r=400 (full-circle seats 251 ≥ Magic's 152),
+            //   ring4 r=470.
+            float RingRadius(int ring)
+            {
+                if (compact)
+                {
+                    if (ring <= 0) return 200f;
+                    if (ring == 1) return 300f;
+                    if (ring == 2) return 318f;
+                    if (ring == 3) return 400f;
+                    return 470f + (ring - 4) * 70f;
+                }
+                if (ring <= 0) return 250f;
+                if (ring == 1) return 470f;
+                if (ring == 2) return 492f;
+                if (ring == 3) return 1490f;
+                return 1770f + (ring - 4) * 280f;
+            }
+            int RingCapacity(int ring, float pitch) => Mathf.Max(1, Mathf.FloorToInt(RingRadius(ring) * (2f * sectorHalf) / pitch));
+
+            for (int ci = 0; ci < wheelCount; ci++)
+            {
+                SkillType type = wheelTypes[ci];
+                float center = (-90f + ci * (360f / wheelCount)) * Mathf.Deg2Rad;
+
+                var catList = new List<Skill>();
+                foreach (var s in list)
+                    if (s.Type == type) catList.Add(s);
+                if (catList.Count == 0) continue;
 
             // Layered tree layout. Groups every category's skills into concentric bands by layer:
             // layer 0 = skills that require no condition; layer L = skills that branch out from
@@ -1216,37 +1273,55 @@ public sealed class CharacterInfoUI : MenuPanelBase
                     used[ring]++;
 
                     float radial = RingRadius(ring);
-                    posOf[s.id] = new Vector2(Mathf.Cos(ang) * radial, Mathf.Sin(ang) * radial);
+                    posOf[s.id] = origin + new Vector2(Mathf.Cos(ang) * radial, Mathf.Sin(ang) * radial);
                     _treeSkills.Add(s);
                 }
 
+            // Hub position per skill: the wheel's hub bubble point, so the spoke pass below can
+            // connect every root to THIS wheel's center (not a global category angle).
+            Vector2 hubPos = origin + new Vector2(Mathf.Cos(center) * wheelHubR, Mathf.Sin(center) * wheelHubR);
+            foreach (var s in catList)
+                hubPosOf[s.id] = hubPos;
+
             // Category hub node: a circle at the wedge center that acts as the root parent of
             // every root skill's spoke.
-            var catGo = new GameObject("CategoryNode_" + CategoryNames[ci]);
+            var catGo = new GameObject("CategoryNode_" + CategoryNames[(int)type]);
             catGo.transform.SetParent(_treeContent, false);
             var crt = catGo.AddComponent<RectTransform>();
             crt.anchorMin = new Vector2(0.5f, 0.5f);
             crt.anchorMax = new Vector2(0.5f, 0.5f);
             crt.pivot = new Vector2(0.5f, 0.5f);
-            crt.anchoredPosition = new Vector2(Mathf.Cos(center) * hubR, Mathf.Sin(center) * hubR);
+            crt.anchoredPosition = hubPos;
             crt.sizeDelta = new Vector2(128f, 128f);
             var cimg = catGo.AddComponent<Image>();
             cimg.sprite = CategoryNodeSprite();
             cimg.type = Image.Type.Simple;
             cimg.preserveAspect = true;
-            cimg.color = CategoryColors[ci];
+            cimg.color = CategoryColors[(int)type];
             cimg.raycastTarget = false;
             _categoryNodes.Add((type, cimg));
 
             // Category name centered inside the hub bubble (drawn after -> on top of the node).
-            var lbl = MakeBodyText(_treeContent, "Sector_" + CategoryNames[ci],
-                new Vector2(Mathf.Cos(center) * hubR - 64f, Mathf.Sin(center) * hubR), Sz(128f, 28f));
+            var lbl = MakeBodyText(_treeContent, "Sector_" + CategoryNames[(int)type],
+                new Vector2(hubPos.x - 64f, hubPos.y), Sz(128f, 28f));
             lbl.alignment = TextAlignmentOptions.Center;
             lbl.fontSize = Mathf.Max(16f, Screen.height / 66f);
             lbl.color = Color.black;
             _sectorLabels.Add((type, lbl));
         }
-        if (posOf.Count == 0) return;
+    }
+
+    // Compose the three independent trees on one board: Magic (compact full-circle wheel) left,
+    // Physical combat (standard 4-wedge wheel) center, Crafting (compact full-circle wheel) right.
+    BuildWheel(new[] { SkillType.Magic }, new Vector2(-2200f, 0f), compact: true);
+    BuildWheel(new[] { SkillType.Melee, SkillType.Ranged, SkillType.Stealth, SkillType.Fortitude }, Vector2.zero, compact: false);
+    BuildWheel(new[] { SkillType.Crafting }, new Vector2(2200f, 0f), compact: true);
+
+    MakeGeneralHeading("MAGIC", new Vector2(-2200f, 560f));
+    MakeGeneralHeading("PHYSICAL", new Vector2(0f, 1840f));
+    MakeGeneralHeading("CRAFTING", new Vector2(2200f, 560f));
+
+    if (posOf.Count == 0) return;
 
         // Connection lines (prereq -> child), plus a spoke from each root skill (no prereq) to its
         // category hub so no node ever floats unconnected.
@@ -1264,10 +1339,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
                     _treeLines.Add((line, s));
                 }
             }
-            else
+            else if (hubPosOf.TryGetValue(s.id, out Vector2 hub))
             {
-                float c = (-90f + (int)s.Type * 60f) * Mathf.Deg2Rad;
-                Vector2 hub = new Vector2(Mathf.Cos(c) * hubR, Mathf.Sin(c) * hubR);
                 var spoke = MakeTreeLine(hub, end, lineThick * 0.7f);
                 var tint = CategoryColors[(int)s.Type];
                 spoke.color = new Color(tint.r, tint.g, tint.b, 0.4f);
@@ -1280,7 +1353,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         {
             if (!posOf.TryGetValue(s.id, out Vector2 pos)) continue;
             var node = MakeTreeNode(s, pos);
-            _treeNodes.Add((s, node));
+            _treeNodes.Add((s, node.image, node.label));
         }
 
         FitTreeToViewport();
@@ -1291,30 +1364,52 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private void FitTreeToViewport()
     {
         if (_treeContent == null || _treeContent.parent == null) return;
-        float maxR = 0f;
-        foreach (var (_, image) in _treeNodes)
+
+        // Bounding-box fit (not max-radius): the General board hosts several off-center wheels, so a
+        // centered maxR would clip the outer magic/crafting clusters. Re-center content on the box.
+        bool any = false;
+        float minX = float.PositiveInfinity, maxX = float.NegativeInfinity;
+        float minY = float.PositiveInfinity, maxY = float.NegativeInfinity;
+        void Include(Image image)
         {
-            if (image == null) continue;
-            maxR = Mathf.Max(maxR, ((RectTransform)image.transform).anchoredPosition.magnitude);
+            if (image == null) return;
+            var a = ((RectTransform)image.transform).anchoredPosition;
+            minX = Mathf.Min(minX, a.x);
+            maxX = Mathf.Max(maxX, a.x);
+            minY = Mathf.Min(minY, a.y);
+            maxY = Mathf.Max(maxY, a.y);
+            any = true;
         }
-        foreach (var (_, image) in _classTreeNodes)
+        foreach (var (_, image, _) in _treeNodes) Include(image);
+        foreach (var (_, image) in _classTreeNodes) Include(image);
+        foreach (var (_, image) in _raceTreeNodes) Include(image);
+        if (!any)
         {
-            if (image == null) continue;
-            maxR = Mathf.Max(maxR, ((RectTransform)image.transform).anchoredPosition.magnitude);
+            _treeContent.anchoredPosition = Vector2.zero;
+            _treeContent.sizeDelta = new Vector2(2200f, 2200f);
+            return;
         }
-        foreach (var (_, image) in _raceTreeNodes)
-        {
-            if (image == null) continue;
-            maxR = Mathf.Max(maxR, ((RectTransform)image.transform).anchoredPosition.magnitude);
-        }
-        maxR += 40f;
-        _treeContent.sizeDelta = new Vector2(maxR * 2f, maxR * 2f);
+
+        float w = Mathf.Max(1f, maxX - minX) + 80f;
+        float h = Mathf.Max(1f, maxY - minY) + 80f;
+        _treeContent.anchoredPosition = -new Vector2((minX + maxX) * 0.5f, (minY + maxY) * 0.5f);
+        _treeContent.sizeDelta = new Vector2(w, h);
         var vp = _treeContent.parent as RectTransform;
-        if (vp == null || maxR <= 0f) return;
-        float scale = Mathf.Min(vp.rect.width / (maxR * 2f), vp.rect.height / (maxR * 2f));
+        if (vp == null) return;
+        float scale = Mathf.Min(vp.rect.width / w, vp.rect.height / h);
         float fitFloor = Mathf.Min(TreePan.MinScale, scale);
         scale = Mathf.Clamp(scale, fitFloor, TreePan.MaxScale);
         _treeContent.localScale = new Vector3(scale, scale, 1f);
+    }
+
+    /// <summary>Title label placed above one of the three General-tree wheels.</summary>
+    private void MakeGeneralHeading(string text, Vector2 pos)
+    {
+        var h = MakeBodyText(_treeContent, "GeneralHeading_" + text, pos, Sz(420f, 30f));
+        h.alignment = TextAlignmentOptions.Center;
+        h.fontSize = Mathf.Max(16f, Screen.height / 44f);
+        h.color = new Color(0.85f, 0.88f, 0.92f, 0.95f);
+        _generalHeadings.Add(h);
     }
 
     /// <summary>
@@ -1327,7 +1422,22 @@ public sealed class CharacterInfoUI : MenuPanelBase
         return s.Layer;
     }
 
-    private Image MakeTreeNode(Skill skill, Vector2 pos)
+    /// <summary>
+    /// Node body color for the General tree. Magic nodes blend their unlock-state color ~60%
+    /// toward the skill's element (DamageKind) color, so fireball reads orange, frostbolt icy-blue,
+    /// dark nodes violet, etc. — while learned/available/locked stays readable. Non-magic nodes
+    /// keep their plain state color.
+    /// </summary>
+    private static Color NodeColor(Skill skill, Color stateColor)
+    {
+        if (skill == null || skill.Type != SkillType.Magic) return stateColor;
+        Color element = skill.DamageKind != DamageType.Physical
+            ? DamageNumber.ColorFor(skill.DamageKind)
+            : CategoryColors[(int)SkillType.Magic];
+        return Color.Lerp(stateColor, element, 0.6f);
+    }
+
+    private (Image image, TMP_Text label) MakeTreeNode(Skill skill, Vector2 pos)
     {
         var go = new GameObject("Node_" + skill.id);
         go.transform.SetParent(_treeContent, false);
@@ -1379,9 +1489,9 @@ public sealed class CharacterInfoUI : MenuPanelBase
         tmp.overflowMode = TextOverflowModes.Ellipsis;
         tmp.enableAutoSizing = true;
         tmp.fontSizeMin = 2f;
-        tmp.fontSizeMax = Mathf.Max(3f, nh * 0.85f);
+        tmp.fontSizeMax = Mathf.Max(2f, nh * 0.55f);
         tmp.fontSize = tmp.fontSizeMax;
-        return img;
+        return (img, tmp);
     }
 
     private Image MakeTreeLine(Vector2 start, Vector2 end, float thick)
@@ -1409,6 +1519,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private void OnGeneralTab() => SetSkillSubTab(SkillSubTab.General);
     private void OnClassTab() => SetSkillSubTab(SkillSubTab.Class);
     private void OnRaceTab() => SetSkillSubTab(SkillSubTab.Race);
+    private void OnTalentsTab() => SetSkillSubTab(SkillSubTab.Talents);
 
     private void SetSkillSubTab(SkillSubTab tab)
     {
@@ -1418,6 +1529,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _selectedClassSkill = null;
         _selectedRaceSkill = null;
         if (_detailPane != null) _detailPane.SetActive(false);
+        if (_talentsView != null) _talentsView.SetActive(tab == SkillSubTab.Talents);
         // Legend only shown in General view (6-category colors irrelevant to class/race tree).
         if (_legendRoot != null)
         {
@@ -1427,6 +1539,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
                 if (node.image != null) node.image.gameObject.SetActive(tab == SkillSubTab.General);
             foreach (var sec in _sectorLabels)
                 if (sec.label != null) sec.label.gameObject.SetActive(tab == SkillSubTab.General);
+            foreach (var heading in _generalHeadings)
+                if (heading != null) heading.gameObject.SetActive(tab == SkillSubTab.General);
         }
         UpdateSubTabButtons();
         RebuildSkillTree();
@@ -1437,6 +1551,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         bool gen = _skillSubTab == SkillSubTab.General;
         bool cls = _skillSubTab == SkillSubTab.Class;
         bool rac = _skillSubTab == SkillSubTab.Race;
+        bool tal = _skillSubTab == SkillSubTab.Talents;
         if (_generalTabBtn != null)
         {
             var img = _generalTabBtn.GetComponent<Image>();
@@ -1452,6 +1567,163 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var img = _raceTabBtn.GetComponent<Image>();
             if (img != null) img.color = rac ? NodeLearned : NodeLocked;
         }
+        if (_talentTabBtn != null)
+        {
+            var img = _talentTabBtn.GetComponent<Image>();
+            if (img != null) img.color = tal ? NodeLearned : NodeLocked;
+        }
+    }
+
+    // ── Talents view (rankable XP/stat perks) ─────────────────────────────
+
+    private void BuildTalentsView(Transform parent)
+    {
+        var view = new GameObject("TalentsView");
+        view.transform.SetParent(parent, false);
+        var vrt = view.AddComponent<RectTransform>();
+        vrt.anchorMin = Vector2.zero;
+        vrt.anchorMax = Vector2.one;
+        vrt.offsetMin = Vector2.zero;
+        vrt.offsetMax = new Vector2(0f, -70f);
+        _talentsView = view;
+
+        var points = new GameObject("TalentPoints");
+        points.transform.SetParent(view.transform, false);
+        var prt = points.AddComponent<RectTransform>();
+        prt.anchorMin = new Vector2(0.5f, 1f);
+        prt.anchorMax = new Vector2(0.5f, 1f);
+        prt.pivot = new Vector2(0.5f, 1f);
+        prt.anchoredPosition = new Vector2(0f, -18f);
+        prt.sizeDelta = new Vector2(360f, 26f);
+        _talentPointsText = points.AddComponent<TextMeshProUGUI>();
+        GameManager.Instance?.UIManager?.ApplyDefaultFont(_talentPointsText);
+        _talentPointsText.fontSize = Mathf.Max(15f, Screen.height / 48f);
+        _talentPointsText.color = Color.white;
+        _talentPointsText.alignment = TextAlignmentOptions.Center;
+
+        var vpGo = new GameObject("TalentViewport");
+        vpGo.transform.SetParent(view.transform, false);
+        var vprt = vpGo.AddComponent<RectTransform>();
+        vprt.anchorMin = new Vector2(0f, 0f);
+        vprt.anchorMax = new Vector2(1f, 1f);
+        vprt.offsetMin = new Vector2(10f, 10f);
+        vprt.offsetMax = new Vector2(-10f, -52f);
+        var vpImg = vpGo.AddComponent<Image>();
+        vpImg.raycastTarget = true;
+        vpImg.color = new Color(0f, 0f, 0f, 0.35f);
+        vpGo.AddComponent<RectMask2D>();
+        var sr = vpGo.AddComponent<ScrollRect>();
+        sr.horizontal = false;
+        sr.vertical = true;
+        sr.viewport = vprt;
+
+        var contentGo = new GameObject("TalentContent");
+        contentGo.transform.SetParent(vpGo.transform, false);
+        var crt = contentGo.AddComponent<RectTransform>();
+        crt.anchorMin = new Vector2(0f, 1f);
+        crt.anchorMax = new Vector2(1f, 1f);
+        crt.pivot = new Vector2(0.5f, 1f);
+        crt.sizeDelta = new Vector2(0f, 20f);
+        _talentContent = crt;
+        sr.content = crt;
+
+        TalentCatalog.EnsureBuilt();
+        const float step = 56f;
+        foreach (var talent in TalentCatalog.All)
+        {
+            if (talent == null) continue;
+            var row = MakeTalentRow(crt, talent, _talentRows.Count);
+            crt.sizeDelta = new Vector2(0f, _talentRows.Count * step + 8f);
+            _talentRows.Add((talent, row.label, row.btn));
+        }
+    }
+
+    private (TMP_Text label, Button btn) MakeTalentRow(RectTransform parent, Talent talent, int index)
+    {
+        const float step = 56f;
+        var go = new GameObject("Row_" + talent.Id);
+        go.transform.SetParent(parent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.pivot = new Vector2(0.5f, 1f);
+        rt.anchoredPosition = new Vector2(0f, -(index * step));
+        rt.sizeDelta = new Vector2(0f, step - 6f);
+        var bg = go.AddComponent<Image>();
+        bg.raycastTarget = false;
+        bg.color = new Color(1f, 1f, 1f, 0.06f);
+
+        var label = new GameObject("Label");
+        label.transform.SetParent(go.transform, false);
+        var lr = label.AddComponent<RectTransform>();
+        lr.anchorMin = Vector2.zero;
+        lr.anchorMax = new Vector2(1f, 1f);
+        lr.offsetMin = new Vector2(12f, 4f);
+        lr.offsetMax = new Vector2(-168f, -4f);
+        var tmp = label.AddComponent<TextMeshProUGUI>();
+        GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
+        tmp.fontSize = Mathf.Max(14f, Screen.height / 52f);
+        tmp.color = Color.white;
+        tmp.alignment = TextAlignmentOptions.MidlineLeft;
+        tmp.enableWordWrapping = false;
+        tmp.overflowMode = TextOverflowModes.Ellipsis;
+
+        var btnGo = new GameObject("RankUpBtn");
+        btnGo.transform.SetParent(go.transform, false);
+        var brt = btnGo.AddComponent<RectTransform>();
+        brt.anchorMin = new Vector2(1f, 0.5f);
+        brt.anchorMax = new Vector2(1f, 0.5f);
+        brt.pivot = new Vector2(1f, 0.5f);
+        brt.anchoredPosition = new Vector2(-10f, 0f);
+        brt.sizeDelta = new Vector2(150f, 36f);
+        var bImg = btnGo.AddComponent<Image>();
+        ApplyMenuButtonSprite(bImg);
+        var btn = btnGo.AddComponent<Button>();
+        btn.targetGraphic = bImg;
+        Talent captured = talent;
+        btn.onClick.AddListener(() => RankUpTalent(captured));
+        var bl = new GameObject("Label");
+        bl.transform.SetParent(btnGo.transform, false);
+        var blr = bl.AddComponent<RectTransform>();
+        blr.anchorMin = Vector2.zero;
+        blr.anchorMax = Vector2.one;
+        blr.offsetMin = Vector2.zero;
+        blr.offsetMax = Vector2.zero;
+        var blt = bl.AddComponent<TextMeshProUGUI>();
+        GameManager.Instance?.UIManager?.ApplyDefaultFont(blt);
+        blt.text = "Rank Up";
+        blt.fontSize = Mathf.Max(14f, Screen.height / 56f);
+        blt.color = Color.white;
+        blt.alignment = TextAlignmentOptions.Center;
+
+        return (tmp, btn);
+    }
+
+    private void RefreshTalentsView()
+    {
+        if (_talentsView == null) return;
+        var tracker = TalentTrackerOf();
+        if (_talentPointsText != null)
+            _talentPointsText.text = tracker != null
+                ? Localization.F("Talent Points: {0}", tracker.Points)
+                : "";
+        foreach (var (talent, label, btn) in _talentRows)
+        {
+            if (label == null || btn == null) continue;
+            int rank = tracker != null ? tracker.RankOf(talent.Id) : 0;
+            label.text = talent.DisplayName
+                + "  ·  " + Localization.F("Rank {0}/{1}", rank, talent.MaxRanks)
+                + "\n" + talent.EffectPerRank();
+            btn.interactable = tracker != null && tracker.CanSpend(talent.Id);
+        }
+    }
+
+    private void RankUpTalent(Talent talent)
+    {
+        var tracker = TalentTrackerOf();
+        if (tracker == null) return;
+        if (tracker.TrySpend(talent.Id))
+            RefreshTalentsView();
     }
 
     // ── Class skill tree builder ─────────────────────────────────────────
@@ -1581,7 +1853,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         tmp.overflowMode = TextOverflowModes.Ellipsis;
         tmp.enableAutoSizing = true;
         tmp.fontSizeMin = 2f;
-        tmp.fontSizeMax = Mathf.Max(4f, size * 0.75f);
+        tmp.fontSizeMax = Mathf.Max(2f, size * 0.55f);
         tmp.fontSize = tmp.fontSizeMax;
         return img;
     }
@@ -1796,7 +2068,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         tmp.overflowMode = TextOverflowModes.Ellipsis;
         tmp.enableAutoSizing = true;
         tmp.fontSizeMin = 2f;
-        tmp.fontSizeMax = Mathf.Max(4f, size * 0.75f);
+        tmp.fontSizeMax = Mathf.Max(2f, size * 0.55f);
         tmp.fontSize = tmp.fontSizeMax;
         return img;
     }
@@ -1890,8 +2162,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
     /// it toward the cursor within the mask.</summary>
     private sealed class TreePan : MonoBehaviour, IPointerDownHandler, IDragHandler, IScrollHandler
     {
-        public const float MinScale = 0.08f;
-        public const float MaxScale = 10f;
+        public const float MinScale = 0.05f;
+        public const float MaxScale = 20f;
 
         public RectTransform Content;
         public RectTransform Viewport;
@@ -2347,7 +2619,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         boxRt.anchoredPosition = Vector2.zero;
         boxRt.sizeDelta = Sz(580f, 440f);
         var boxImg = box.AddComponent<Image>();
-        var menuTex = Resources.Load<Texture2D>("menu");
+        var menuTex = UiAssetCache.MenuTexture;
         if (menuTex != null)
         {
             boxImg.sprite = Sprite.Create(menuTex,
@@ -2558,11 +2830,10 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private void BuildClassOptions(Transform parent)
     {
         var unlocker = ClassUnlockerOf();
-        if (unlocker == null || unlocker.Classes == null) return;
-
-        var list = new List<object>();
-        foreach (var c in unlocker.Classes)
-            if (c != null) list.Add(c);
+        List<ClassData> list = unlocker != null && unlocker.Classes != null && unlocker.Classes.Count > 0
+            ? unlocker.Classes
+            : ClassUnlocker.BuildDefaultClasses();
+        string currentClassId = unlocker != null ? unlocker.ActiveClassId : "wanderer";
 
         for (int i = 0; i < list.Count; i++)
         {
@@ -2570,11 +2841,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
             int row = i / 2;
             float x = col == 0 ? -270f : 10f;
             float y = 150f - row * 28f;
-            var c = list[i] as ClassData;
+            var c = list[i];
             if (c == null) continue;
             string name = !string.IsNullOrEmpty(c.displayName) ? c.displayName : c.classId;
-            string req = unlocker.IsUnlocked(c.classId) ? "" : "  (" + c.RequirementSummary() + ")";
-            MakeDialogOption(parent, name + req, P(x, y), 270f, unlocker.IsUnlocked(c.classId), () =>
+            bool isCurrent = string.Equals(currentClassId, c.classId, System.StringComparison.OrdinalIgnoreCase);
+            MakeDialogOption(parent, name + (isCurrent ? "  (current)" : ""), P(x, y), 270f, !isCurrent, () =>
             {
                 _pendingChange = c.classId;
                 _changeConfirmText.text = Localization.F("Change class to {0}?", name);
@@ -2585,7 +2856,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
     private void BuildRaceOptions(Transform parent)
     {
-        var unlock = RaceUnlockManager.Instance;
+        var mgr = RaceMgrOf();
+        string currentRaceId = mgr != null ? mgr.ActiveRaceId : "human";
         var roster = RaceDatabase.BuildDefaultRoster();
         if (roster == null) return;
 
@@ -2597,13 +2869,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
             float y = 150f - row * 28f;
             var r = roster[i];
             if (r == null) continue;
-            bool unlocked = unlock == null || unlock.IsUnlocked(r);
-            bool costsStone = !string.Equals(r.raceId, "human", System.StringComparison.OrdinalIgnoreCase);
-            string cost = costsStone ? "  (1 Ritual Stone)" : "";
-            MakeDialogOption(parent, r.displayName + cost, P(x, y), 270f, unlocked, () =>
+            bool isCurrent = string.Equals(currentRaceId, r.raceId, System.StringComparison.OrdinalIgnoreCase);
+            MakeDialogOption(parent, r.displayName + (isCurrent ? "  (current)" : ""), P(x, y), 270f, !isCurrent, () =>
             {
                 _pendingChange = r;
-                _changeConfirmText.text = Localization.F("Change race to {0}?{1}", r.displayName, costsStone ? "  Cost: 1 Ritual Stone." : "");
+                _changeConfirmText.text = Localization.F("Change race to {0}?", r.displayName);
                 UpdateConfirmEnabled();
             });
         }
@@ -2652,12 +2922,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var mgr = RaceMgrOf();
             if (mgr != null)
             {
-                if (!mgr.SetActiveRace(race, requireStone: true, unlockIfNeeded: false))
-                {
-                    if (_changeConfirmText != null)
-                        _changeConfirmText.text = Localization.T("Need a Ritual Stone to change race.");
-                    return;
-                }
+                mgr.SetActiveRace(race, requireStone: false, unlockIfNeeded: true);
             }
         }
 
@@ -2798,6 +3063,10 @@ public sealed class CharacterInfoUI : MenuPanelBase
             {
                 if (_raceTreeNodes.Count == 0) RebuildSkillTree();
                 else RefreshSkillTree();
+            }
+            else if (_skillSubTab == SkillSubTab.Talents)
+            {
+                RefreshTalentsView();
             }
             else
             {
@@ -3147,6 +3416,12 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         var p = GameManager.Instance?.Player;
         return p != null ? p.GetComponent<SkillXpTracker>() : null;
+    }
+
+    private TalentTracker TalentTrackerOf()
+    {
+        var p = GameManager.Instance?.Player;
+        return p != null ? p.GetComponent<TalentTracker>() : null;
     }
 
     private SkillBindings BindingsOf()

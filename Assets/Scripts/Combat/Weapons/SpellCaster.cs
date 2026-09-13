@@ -19,12 +19,14 @@ public class SpellCaster : MonoBehaviour
     public float RegenDelay = 0.3f;
 
     [Header("Charging (§3.8)")]
-    [Tooltip("Extra focus-point cost per charge level (0.6 = up to +60% at full charge).")]
-    public float ChargeFpCostBonus = 0.6f;
-    [Tooltip("Extra spell power per charge level (1.0 = double damage at full charge).")]
-    public float ChargeDamageBonus = 1f;
-    [Tooltip("Extra size/radius per charge level (0.8 = up to +80% at full charge).")]
-    public float ChargeSizeBonus = 0.8f;
+    [Tooltip("Extra focus-point cost per charge level (1.0 = up to +100% at full charge, so cost keeps pace with power).")]
+    public float ChargeFpCostBonus = 1f;
+    [Tooltip("Extra spell power per charge level (1.6 = up to +160% at full charge).")]
+    public float ChargeDamageBonus = 1.6f;
+    [Tooltip("Extra size/radius per charge level (1.2 = up to +120% at full charge).")]
+    public float ChargeSizeBonus = 1.2f;
+    [Tooltip("Focus points drained per second while charging at level 1 (real-time charge drain). Scales with the charge level, so overcharging burns FP faster.")]
+    public float FpChargeDrainRate = 1.5f;
 
     [Header("Wiring")]
     [Tooltip("Optional stat provider for Wisdom scaling + FP pool (wired Phase 4).")]
@@ -38,7 +40,11 @@ public class SpellCaster : MonoBehaviour
     /// <summary>True while at least one spell cast is still in progress (cast time / delivery).</summary>
     public bool IsCasting => _activeCasts > 0;
 
+    /// <summary>True while a Beam channel is active (held by the user with LMB, draining FP).</summary>
+    public bool IsChanneling => _activeBeam != null;
+
     private int _activeCasts;
+    private SpellBeam _activeBeam;
 
     private float _regenTimer;
     private readonly Dictionary<string, float> _cooldowns = new Dictionary<string, float>();
@@ -55,13 +61,24 @@ public class SpellCaster : MonoBehaviour
         public bool HitTargets;
     }
 
+    private bool _poolInitialized;
+
     private void Awake()
     {
-        CurrentFp = MaxFocusPoints();
+        // Don't snapshot the start pool here: the real max comes from Stats, which the combat-stack
+        // builder wires AFTER AddComponent<SpellCaster>() (so Stats is still null during Awake).
+        // Snapshoting it now would leave the player with the 50-FP fallback instead of full mana.
+        // The pool is filled from the real max on the first Update once the provider is available.
     }
 
     private void Update()
     {
+        if (!_poolInitialized)
+        {
+            _poolInitialized = true;
+            CurrentFp = MaxFocusPoints();
+        }
+
         // Regen FP (only when below max).
         float max = MaxFocusPoints();
         if (CurrentFp < max)
@@ -136,54 +153,71 @@ public class SpellCaster : MonoBehaviour
     /// <summary>
     /// Begin casting a spell. Applies weapon magic-mods, validates FP + cooldown, plays
     /// cast time, then executes. Returns true if the cast began.
-    /// <paramref name="charge"/> (0..1) raises the focus cost and scales power/size — clamped so the
-    /// cast always fires as strong as the caster can still afford rather than dudding out.
+    /// <paramref name="charge"/> (0..1+; no upper cap) raises the focus cost and scales power/size —
+    /// clamped so the cast always fires as strong as the caster can still afford (paid via the
+    /// <paramref name="prepaidFocus"/> real-time charge drain plus the current pool) rather than
+    /// dudding out. Only the remainder after the prepaid drain is spent.
+    /// <paramref name="fast"/> skips both the cooldown gate and the cast-time wait (wheel-cast magic
+    /// resolves instantly on every click; FP is the only limiter) and never starts a cooldown.
     /// </summary>
-    public bool BeginCast(SpellData spell, Transform origin, MagicWeaponMods mods = default, float charge = 0f)
+    public bool BeginCast(SpellData spell, Transform origin, MagicWeaponMods mods = default, float charge = 0f, float prepaidFocus = 0f, bool fast = false)
     {
         if (spell == null) return false;
-        if (!IsReady(spell)) return false;
-        charge = Mathf.Clamp01(charge);
+        if (!fast && !IsReady(spell)) return false;
+        charge = Mathf.Max(0f, charge);
+        prepaidFocus = Mathf.Max(0f, prepaidFocus);
 
         if (mods.DamageMult <= 0f) mods.DamageMult = 1f;
         if (mods.CastTimeMult <= 0f) mods.CastTimeMult = 1f;
         if (mods.CooldownMult <= 0f) mods.CooldownMult = 1f;
         if (mods.FpCostMult <= 0f) mods.FpCostMult = 1f;
+        if (mods.RadiusMult <= 0f) mods.RadiusMult = 1f;
+        if (mods.RangeMult <= 0f) mods.RangeMult = 1f;
 
         float baseCost = Mathf.Max(spell.FpCost * mods.FpCostMult, 0f);
         if (charge > 0f)
-            charge = ClampChargeToAffordable(baseCost, charge);
+            charge = ClampChargeToAffordable(baseCost, charge, prepaidFocus);
 
         float fpCost = baseCost * (1f + charge * ChargeFpCostBonus);
-        if (!HasFocusPoints(fpCost)) return false;
+        float remainder = Mathf.Max(0f, fpCost - prepaidFocus);
+        if (!HasFocusPoints(remainder)) return false;
 
-        TrySpendFocus(fpCost);
+        TrySpendFocus(remainder);
+        // A successful new cast replaces the active beam channel (rejected casts leave it alone).
+        StopChannel();
         _activeCasts++;
         CastCount++;
-        StartCoroutine(CastRoutine(spell, origin, mods, charge));
+        StartCoroutine(CastRoutine(spell, origin, mods, charge, fast));
         OnCastStarted?.Invoke(spell);
         return true;
     }
 
-    /// <summary>Reduce a held charge so its focus cost fits the current pool.</summary>
-    private float ClampChargeToAffordable(float baseCost, float charge)
+    /// <summary>Reduce a held charge so its focus cost fits the total the caster can pay
+    /// (the prepaid real-time drain plus the current pool).</summary>
+    private float ClampChargeToAffordable(float baseCost, float charge, float prepaidFocus)
     {
         if (baseCost <= 0f) return charge;
-        float maxCharge = (CurrentFp / baseCost - 1f) / ChargeFpCostBonus;
+        float available = prepaidFocus + CurrentFp;
+        float maxCharge = (available / baseCost - 1f) / ChargeFpCostBonus;
         return Mathf.Min(charge, Mathf.Max(maxCharge, 0f));
     }
 
-    private IEnumerator CastRoutine(SpellData spell, Transform origin, MagicWeaponMods mods, float charge)
+    private IEnumerator CastRoutine(SpellData spell, Transform origin, MagicWeaponMods mods, float charge, bool fast)
     {
-        // Cast time (modulated by weapon CastTimeMod).
-        float castTime = spell.CastTime * Mathf.Max(mods.CastTimeMult, 0.05f);
-        if (castTime > 0f)
+        // Cast time (modulated by weapon CastTimeMod). A fast cast (wheel-cast magic) resolves
+        // immediately — both charged casts (wind-up spent on the hold) and tap casts — so the burst
+        // ring and the delivery land on the same frame. Only non-fast casts wait.
+        if (!fast)
         {
-            float t = 0f;
-            while (t < castTime)
+            float castTime = spell.CastTime * Mathf.Max(mods.CastTimeMult, 0.05f);
+            if (castTime > 0f && charge <= 0f)
             {
-                t += Time.deltaTime;
-                yield return null;
+                float t = 0f;
+                while (t < castTime)
+                {
+                    t += Time.deltaTime;
+                    yield return null;
+                }
             }
         }
 
@@ -191,8 +225,9 @@ public class SpellCaster : MonoBehaviour
         DamageResult result = Execute(spell, origin, mods, charge);
         OnCastComplete?.Invoke(spell, result);
 
-        // Apply cooldown (modulated by weapon CooldownMod).
-        _cooldowns[spell.id] = spell.Cooldown * Mathf.Max(mods.CooldownMult, 0.05f);
+        // Apply cooldown (modulated by weapon CooldownMod). Fast casts skip it — FP is the limiter.
+        if (!fast)
+            _cooldowns[spell.id] = spell.Cooldown * Mathf.Max(mods.CooldownMult, 0.05f);
         _activeCasts = Mathf.Max(0, _activeCasts - 1);
     }
 
@@ -217,16 +252,99 @@ public class SpellCaster : MonoBehaviour
         switch (spell.Delivery)
         {
             case SpellDelivery.Instant:
-                return ResolveDirect(totalPower, spell, pos, fwd);
+                return ResolveDirect(totalPower, spell, pos, fwd, spell.Range * mods.RangeMult);
             case SpellDelivery.Projectile:
-                return FireProjectile(totalPower, spell, pos, fwd, charge);
+                return FireProjectile(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult);
             case SpellDelivery.Zone:
-                return ResolveZone(totalPower, spell, pos, fwd, charge);
+                return ResolveZone(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, spell.Range * mods.RangeMult);
             case SpellDelivery.Vortex:
-                return SpawnVortex(totalPower, spell, pos, fwd, charge);
+                return SpawnVortex(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, spell.Range * mods.RangeMult);
+            case SpellDelivery.Beam:
+                return ResolveBeam(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult);
+            case SpellDelivery.Summon:
+                return ResolveSummon(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, spell.Range * mods.RangeMult);
+            case SpellDelivery.Storm:
+                return ResolveStorm(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, spell.Range * mods.RangeMult);
             default:
                 return new DamageResult();
         }
+    }
+
+    /// <summary>End the active Beam channel (if any). Returns true when one was running.</summary>
+    public bool StopChannel()
+    {
+        if (_activeBeam == null) return false;
+        _activeBeam.StopChannel();
+        _activeBeam = null;
+        return true;
+    }
+
+    /// <summary>Clear the caster's channel reference after the beam destroys itself.</summary>
+    internal void ForgetBeam(SpellBeam beam)
+    {
+        if (_activeBeam == beam) _activeBeam = null;
+    }
+
+    /// <summary>
+    /// Spawn a channeled beam from the cast point toward the aim. The beam lives while the caster
+    /// holds the sustain input (LMB) and can afford its per-second focus upkeep; it fades out on
+    /// release or when the pool runs dry. Charge widens the beam and raises its tick power.
+    /// </summary>
+    private DamageResult ResolveBeam(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale)
+    {
+        StopChannel();
+        var go = new GameObject("SpellBeam");
+        go.transform.position = pos + fwd * 0.5f + Vector3.up * 0.2f;
+        go.transform.rotation = Quaternion.LookRotation(fwd);
+        var beam = go.AddComponent<SpellBeam>();
+        beam.Initialize(this, spell, power, fwd, sizeScale, sizeScale);
+        _activeBeam = beam;
+        return new DamageResult { HitTargets = true };
+    }
+
+    /// <summary>Drop the forward aim onto the ground — shared ground-placement for zone/summon/storm.</summary>
+    private static Vector3 GroundTarget(Vector3 pos, Vector3 fwd, float range)
+    {
+        Vector3 at = pos;
+        if (Physics.Raycast(pos, fwd, out RaycastHit aimHit, Mathf.Max(range, 0.1f)))
+            at = aimHit.point;
+        else
+            at = pos + fwd * Mathf.Max(range, 0f);
+        if (Physics.Raycast(at + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))
+            at = groundHit.point;
+        return at;
+    }
+
+    /// <summary>
+    /// Summon a persistent object at the goal point (SpellDelivery.Summon). Damage summons act as
+    /// turrets firing at the nearest enemy; healing summons become a persistent heal aura.
+    /// </summary>
+    private DamageResult ResolveSummon(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale, float range)
+    {
+        Vector3 center = GroundTarget(pos, fwd, range);
+        var go = new GameObject("SpellSummon");
+        go.transform.position = center;
+        go.AddComponent<SpellSummon>().Initialize(this, spell, power, sizeScale);
+        return new DamageResult { HitTargets = true };
+    }
+
+    /// <summary>
+    /// Summon a storm over the goal point (SpellDelivery.Storm): repeated element-styled strikes
+    /// inside the radius for the spell's duration.
+    /// </summary>
+    private DamageResult ResolveStorm(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale, float range)
+    {
+        Vector3 center = GroundTarget(pos, fwd, range);
+        var go = new GameObject("SpellStorm");
+        go.transform.position = center;
+        go.AddComponent<SpellStorm>().Initialize(this, spell, power, sizeScale);
+        return new DamageResult { HitTargets = true };
+    }
+
+    /// <summary>Public access to the default projectile visual (used by summoned turrets).</summary>
+    public void DecorateProjectile(GameObject go, DamageType type)
+    {
+        AttachDefaultProjectileVisual(go, type);
     }
 
     /// <summary>Size multiplier applied to deliveries by charge level.</summary>
@@ -239,13 +357,13 @@ public class SpellCaster : MonoBehaviour
     /// direction up to <see cref="SpellData.Range"/>, then dropped to the ground so the funnel
     /// sits on terrain.
     /// </summary>
-    private DamageResult SpawnVortex(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge)
+    private DamageResult SpawnVortex(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale, float range)
     {
         Vector3 at = pos;
-        if (Physics.Raycast(pos, fwd, out RaycastHit hit, Mathf.Max(spell.Range, 0.1f)))
+        if (Physics.Raycast(pos, fwd, out RaycastHit hit, Mathf.Max(range, 0.1f)))
             at = hit.point;
         else
-            at = pos + fwd * Mathf.Max(spell.Range, 0f);
+            at = pos + fwd * Mathf.Max(range, 0f);
 
         Vector3 ground = at;
         if (Physics.Raycast(at + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))
@@ -254,13 +372,13 @@ public class SpellCaster : MonoBehaviour
         var go = new GameObject("SpellVortex");
         go.transform.position = ground;
         var zone = go.AddComponent<SpellZone>();
-        zone.Initialize(this, spell, power, SizeScale(charge), 1f, 3.5f);
+        zone.Initialize(this, spell, power, sizeScale, 1f, 3.5f);
         zone.Lifetime = Mathf.Max(spell.Duration > 0f ? spell.Duration : 5f, 1f);
 
         return new DamageResult { HitTargets = true };
     }
 
-    private DamageResult ResolveDirect(float power, SpellData spell, Vector3 pos, Vector3 fwd)
+    private DamageResult ResolveDirect(float power, SpellData spell, Vector3 pos, Vector3 fwd, float range)
     {
         if (spell.Heals)
         {
@@ -268,19 +386,18 @@ public class SpellCaster : MonoBehaviour
             int healed = ResolveHeal(spell, power, transform.root.gameObject);
             return new DamageResult { TotalDamage = healed, HitTargets = healed > 0 };
         }
-        if (Physics.Raycast(pos, fwd, out RaycastHit hit, spell.Range))
+        if (Physics.Raycast(pos, fwd, out RaycastHit hit, range))
         {
             return ApplyHit(spell, power, hit.collider.gameObject);
         }
         return new DamageResult();
     }
 
-    private DamageResult FireProjectile(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge)
+    private DamageResult FireProjectile(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale)
     {
         // Spawn clear of the caster's body (mirrors the ranged Muzzle offset) so the bolt does
         // not clip the player's own collider or the terrain at the hand level on its first step.
         pos += fwd * 0.5f + Vector3.up * 0.3f;
-        float sizeScale = SizeScale(charge);
         GameObject go;
         if (spell.CastEffectPrefab != null)
         {
@@ -601,18 +718,18 @@ public class SpellCaster : MonoBehaviour
         }
     }
 
-    private DamageResult ResolveZone(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge)
+    private DamageResult ResolveZone(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale, float range)
     {
-        float radius = spell.Radius * SizeScale(charge);
+        float radius = spell.Radius * sizeScale;
 
         Vector3 center = pos;
-        if (Physics.Raycast(pos, fwd, out RaycastHit aimHit, Mathf.Max(spell.Range, 0.1f)))
+        if (Physics.Raycast(pos, fwd, out RaycastHit aimHit, Mathf.Max(range, 0.1f)))
         {
             center = aimHit.point;
             if (Physics.Raycast(center + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))
                 center = groundHit.point;
         }
-        else if (Physics.Raycast(pos + fwd * Mathf.Max(spell.Range, 0f) + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))
+        else if (Physics.Raycast(pos + fwd * Mathf.Max(range, 0f) + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))
         {
             center = groundHit.point;
         }
@@ -624,7 +741,7 @@ public class SpellCaster : MonoBehaviour
             var go = new GameObject("SpellZone");
             go.transform.position = center;
             var zone = go.AddComponent<SpellZone>();
-            zone.Initialize(this, spell, power, SizeScale(charge), 0.4f, 0f);
+            zone.Initialize(this, spell, power, sizeScale, 0.4f, 0f);
             zone.Lifetime = Mathf.Max(spell.Duration, 0.5f);
             return new DamageResult { HitTargets = true };
         }

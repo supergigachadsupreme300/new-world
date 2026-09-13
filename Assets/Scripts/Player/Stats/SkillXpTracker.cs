@@ -64,13 +64,16 @@ public class SkillXpTracker : MonoBehaviour
 
     public float XpToNextLevel(SkillType skill) => XpToNextLevelFor(Categories[(int)skill]);
 
-    /// <summary>Add category XP applying the race's per-category XP bonus; level up + grant tier rewards.</summary>
+    /// <summary>Add category XP applying the race's all-category + per-category XP bonuses; level up + grant tier rewards.</summary>
     public void AddXp(SkillType skill, float amount)
     {
         if (amount <= 0f) return;
         EnsureCategories(CategoryCount);
 
-        float bonus = _stats != null && _stats.Race != null ? _stats.Race.GetXpBonus(skill) : 0f;
+        float bonus = _stats != null && _stats.Race != null
+            ? _stats.Race.XpBonusAll + _stats.Race.GetXpBonus(skill) : 0f;
+        var talents = GetComponent<TalentTracker>();
+        if (talents != null) bonus += talents.TypeXpBonus(skill);
         var c = Categories[(int)skill];
         c.Xp += amount * (1f + bonus / 100f);
 
@@ -99,4 +102,36 @@ public class SkillXpTracker : MonoBehaviour
     /// <summary>The tier reward title earned at a given category level, or null if none.</summary>
     public string TierRewardFor(int index) =>
         index >= 0 && index < TierRewardNames.Length ? TierRewardNames[index] : null;
+
+    /// <summary>Serialize the 6 category states to JSON for the save file.</summary>
+    public string Serialize()
+    {
+        EnsureCategories(CategoryCount);
+        return JsonUtility.ToJson(new CategorySave { Categories = Categories });
+    }
+
+    /// <summary>Restore the 6 category states from a saved JSON blob.</summary>
+    public void Restore(string json)
+    {
+        if (string.IsNullOrEmpty(json)) return;
+        try
+        {
+            var save = JsonUtility.FromJson<CategorySave>(json);
+            if (save == null || save.Categories == null || save.Categories.Length != CategoryCount) return;
+            EnsureCategories(CategoryCount);
+            for (int i = 0; i < CategoryCount; i++)
+                if (save.Categories[i] != null)
+                    Categories[i] = save.Categories[i];
+        }
+        catch
+        {
+            // Malformed save → keep a clean slate rather than crashing the load.
+        }
+    }
+
+    [Serializable]
+    private sealed class CategorySave
+    {
+        public CategoryState[] Categories = new CategoryState[CategoryCount];
+    }
 }

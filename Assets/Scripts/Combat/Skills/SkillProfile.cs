@@ -30,6 +30,23 @@ public sealed class SkillProfile : MonoBehaviour
     private StaminaSystem _stamina;
     private SkillXpTracker _xp;
 
+    // ── Skill leveling ────────────────────────────────────────────────────
+    public const int MaxSkillLevel = 100;
+
+    /// <summary>XP granted per successful cast (raw, before the race all-bonus).</summary>
+    private const float XpPerUse = 12f;
+
+    /// <summary>Category-bar XP granted per cast (before the race per-category bonus).</summary>
+    private const float CategoryXpPerUse = 10f;
+
+    /// <summary>XP needed for the first level-up.</summary>
+    private const float BaseXpToNext = 20f;
+
+    /// <summary>Extra XP added per level to the next-level threshold (linear curve).</summary>
+    private const float XpGrowthPerLevel = 15f;
+
+    private readonly List<SkillProgress> _progress = new List<SkillProgress>();
+
     private void Awake()
     {
         _stats = GetComponent<PlayerStats>();
@@ -55,6 +72,96 @@ public sealed class SkillProfile : MonoBehaviour
     private void OnCategoryLevelUp(SkillType skill, int level)
     {
         Points++;
+    }
+
+    // ── Skill leveling: read / persist / advance ──────────────────────────
+
+    /// <summary>Current learned level of a skill (1 when never used).</summary>
+    public int LevelOf(string id)
+    {
+        foreach (var p in _progress)
+            if (p.SkillId == id) return p.Level;
+        return 1;
+    }
+
+    /// <summary>Progress of a skill, if it has earned any XP yet.</summary>
+    public bool TryGetProgress(string id, out int level, out float xp, out float toNext)
+    {
+        foreach (var p in _progress)
+        {
+            if (p.SkillId != id) continue;
+            level = p.Level;
+            xp = p.Xp;
+            toNext = XpToNext(p.Level);
+            return true;
+        }
+        level = 1;
+        xp = 0f;
+        toNext = BaseXpToNext;
+        return false;
+    }
+
+    /// <summary>Grants per-use XP (skill level + category bar balanced by an existing architecture).</summary>
+    private void GainUse(Skill skill, SkillContext ctx)
+    {
+        if (skill == null) return;
+        var entry = _progress.Find(p => p.SkillId == skill.id);
+        if (entry == null)
+        {
+            entry = new SkillProgress { SkillId = skill.id };
+            _progress.Add(entry);
+        }
+
+        float raceBonus = 1f;
+        if (ctx.Stats != null && ctx.Stats.Race != null)
+            raceBonus = 1f + ctx.Stats.Race.XpBonusAll / 100f;
+        float skillXp = XpPerUse * raceBonus;
+        var talents = GetComponent<TalentTracker>();
+        if (talents != null)
+            skillXp *= 1f + talents.TypeXpBonus(skill.Type) / 100f;
+        entry.Xp += skillXp;
+
+        while (entry.Level < MaxSkillLevel && entry.Xp >= XpToNext(entry.Level))
+        {
+            entry.Xp -= XpToNext(entry.Level);
+            entry.Level++;
+        }
+
+        if (_xp != null)
+            _xp.AddXp(skill.Type, CategoryXpPerUse);
+    }
+
+    private static float XpToNext(int level) => BaseXpToNext + XpGrowthPerLevel * (level - 1);
+
+    /// <summary>Serialize per-skill levels to JSON for the save file.</summary>
+    public string SaveProgress()
+    {
+        return JsonUtility.ToJson(new SkillProgressSet { Progress = _progress });
+    }
+
+    /// <summary>Load per-skill levels from a saved JSON blob.</summary>
+    public void RestoreProgress(string json)
+    {
+        _progress.Clear();
+        if (string.IsNullOrEmpty(json)) return;
+        try
+        {
+            var set = JsonUtility.FromJson<SkillProgressSet>(json);
+            if (set?.Progress != null)
+                foreach (var p in set.Progress)
+                    if (p != null && !string.IsNullOrEmpty(p.SkillId))
+                        _progress.Add(p);
+        }
+        catch
+        {
+            _progress.Clear();
+        }
+    }
+
+    [System.Serializable]
+    private sealed class SkillProgressSet
+    {
+        public List<SkillProgress> Progress = new List<SkillProgress>();
     }
 
     /// <summary>
@@ -153,10 +260,14 @@ public sealed class SkillProfile : MonoBehaviour
     }
 
     /// <summary>
-    /// Execute a castable skill by id with a charge level (0..1). Identical to <see cref="Execute"/>
-    /// except the charge is carried on the context so magic deliveries scale damage/size/cost.
+    /// Execute a castable skill by id with a charge level (0..1+) and any focus already drained
+    /// in real time while charging. Identical to <see cref="Execute"/> except the charge is carried
+    /// on the context so magic deliveries scale damage/size/cost.
+    /// Wheel-cast magic (a <see cref="SpellCastEffect"/> skill) hands everything to SpellCaster: the
+    /// fast cast owns FP/instant delivery/cooldown and reports the true begin result so callers never
+    /// fake-fire — other skills keep the flat resource spend + cooldown here.
     /// </summary>
-    public bool ExecuteCharged(string id, float charge)
+    public bool ExecuteCharged(string id, float charge, float prepaidFocus = 0f)
     {
         var skill = SkillCatalog.Find(id);
         if (skill == null)
@@ -187,30 +298,59 @@ public sealed class SkillProfile : MonoBehaviour
         }
 
         ReconcileDependencies();
-        var ctx = BuildContext();
-        ctx.ChargeLevel = Mathf.Clamp01(charge);
-        if (!skill.CanAfford(ctx))
+        if (skill.Effect is SpellCastEffect cast && cast.Spell != null)
+        {
+            // Wheel-cast magic: SpellCaster owns the FP cost (settled against the prepaid drain),
+            // casts instantly with no cooldown, and reports whether the delivery actually began.
+            // The learned level multiplies power/size and lowers cost the same way a weapon would.
+            var ctx = BuildContext();
+            ctx.ChargeLevel = Mathf.Max(0f, charge);
+            ctx.PrepaidFocus = Mathf.Max(0f, prepaidFocus);
+            ctx.SkillLevel = LevelOf(skill.id);
+            var mods = new MagicWeaponMods
+            {
+                DamageMult = ctx.PowerScale,
+                CastTimeMult = 1f,
+                CooldownMult = ctx.EcoScale,
+                FpCostMult = ctx.EcoScale,
+                RadiusMult = ctx.SizeScale,
+                RangeMult = ctx.SizeScale
+            };
+            Transform origin = ctx.Origin != null ? ctx.Origin : (ctx.User != null ? ctx.User.transform : null);
+            bool began = ctx.Caster != null && ctx.Caster.BeginCast(cast.Spell, origin, mods,
+                ctx.ChargeLevel, ctx.PrepaidFocus, fast: true);
+            if (began) GainUse(skill, ctx);
+            return began;
+        }
+
+        var costCtx = BuildContext();
+        costCtx.ChargeLevel = Mathf.Max(0f, charge);
+        costCtx.PrepaidFocus = Mathf.Max(0f, prepaidFocus);
+        costCtx.SkillLevel = LevelOf(skill.id);
+        if (!skill.CanAfford(costCtx))
         {
             if (SkillDebug)
                 Debug.Log($"[Skill] \"{id}\" cannot afford cost {skill.SkillCost.ToString()}");
             return false;
         }
-        if (ctx.Caster != null && !ctx.Caster.CooldownReady(skill.CooldownKey))
+        if (costCtx.Caster != null && !costCtx.Caster.CooldownReady(skill.CooldownKey))
         {
             if (SkillDebug)
-                Debug.Log($"[Skill] \"{id}\" on cooldown ({ctx.Caster.CooldownRemaining(skill.CooldownKey):F1}s left)");
+                Debug.Log($"[Skill] \"{id}\" on cooldown ({costCtx.Caster.CooldownRemaining(skill.CooldownKey):F1}s left)");
             return false;
         }
-        if (!skill.TrySpend(ctx))
+        if (!skill.TrySpend(costCtx))
         {
             if (SkillDebug) Debug.Log($"[Skill] \"{id}\" cost spend failed");
             return false;
         }
 
-        if (ctx.Caster != null && skill.SkillCost.Cooldown > 0f)
-            ctx.Caster.StartCooldown(skill.CooldownKey, skill.SkillCost.Cooldown);
+        // Economy from leveling shaves the cooldown (floor 50%).
+        if (costCtx.Caster != null && skill.SkillCost.Cooldown > 0f)
+            costCtx.Caster.StartCooldown(skill.CooldownKey, skill.SkillCost.Cooldown * costCtx.EcoScale);
 
-        skill.Effect?.Execute(ctx);
+        skill.Effect?.Execute(costCtx);
+        GainUse(skill, costCtx);
         if (SkillDebug) Debug.Log($"[Skill] \"{id}\" executed");
         return true;
     }
@@ -230,4 +370,13 @@ public sealed class SkillProfile : MonoBehaviour
             User = gameObject
         };
     }
+}
+
+/// <summary>Per-skill leveling record (one entry per skill that has earned XP).</summary>
+[System.Serializable]
+public sealed class SkillProgress
+{
+    public string SkillId;
+    public int Level = 1;
+    public float Xp;
 }

@@ -107,7 +107,42 @@ public sealed class NewWorldTestGround : MonoBehaviour
         }
 
         if (AutoSpawnOnStart)
-            SpawnBench();
+            StartCoroutine(SpawnBenchBudgeted());
+    }
+
+    /// <summary>
+    /// Spawns the test bench one lane group per frame instead of all at once in Awake, so the
+    /// heavy setup (weapon models, NPCs, enemies, grants) no longer blocks the first frames.
+    /// Preserves the ordering and guarantees of <see cref="SpawnBench"/>.
+    /// </summary>
+    private System.Collections.IEnumerator SpawnBenchBudgeted()
+    {
+        if (_spawned) yield break;
+        _spawned = true;
+
+        if (EnableFarming) { SpawnFarmingPlot(); yield return null; }
+        if (EnableLivestock) { SpawnLivestock(); yield return null; }
+        if (EnableEnemies) { SpawnEnemies(); yield return null; }
+        if (EnableBuildings) { SpawnBuildings(); yield return null; }
+        if (EnableNpcs) { SpawnNpcs(); yield return null; }
+        if (EnablePoiHub) { RegisterPoiHub(); yield return null; }
+        if (EnableWeapons)
+        {
+            SpawnAllWeapons();
+            yield return null;
+            SpawnWeaponRack();
+            yield return null;
+        }
+        if (EnableSkills) { GrantAllSkills(); yield return null; }
+        if (EnableGear) { GrantStarterGear(); yield return null; }
+        if (EnableRaces) { GrantRaceAccess(); yield return null; }
+        TryDeferPlayerGrants();
+
+        var player = GameManager.Instance?.Player;
+        if (player != null)
+        {
+            player.transform.position = PlatformCenter + new Vector3(0f, 2f, PlatformSize * 0.45f);
+        }
     }
 
     /// <summary>Build the flat ground + spawn all test lanes. Safe to call repeatedly.</summary>
@@ -195,7 +230,9 @@ public sealed class NewWorldTestGround : MonoBehaviour
         float cz = PlatformCenter.z;
         long seed = streamer.Seed;
 
-        int steps = Mathf.Max(2, Mathf.RoundToInt(PlatformSize));
+        // Sample every 2m instead of 1m: ~4x fewer PerlinNoise calls at boot (61x61 grid
+        // instead of 121x121). The +3m clearance absorbs the coarser maxima.
+        int steps = Mathf.Max(2, Mathf.RoundToInt(PlatformSize * 0.5f));
         float maxY = float.MinValue;
         for (int x = 0; x <= steps; x++)
         {

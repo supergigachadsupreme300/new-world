@@ -19,6 +19,8 @@ public class FarmPlot : MonoBehaviour
     public bool Tilled;
     public bool Watered;
     public bool Harvested;
+    [Tooltip("Bonus grow-hours applied on the next tick (fertilizer / growth boost).")]
+    public float NutrientHours;
 
     private float _growHours;
     private GameObject _cropVisual;
@@ -26,6 +28,9 @@ public class FarmPlot : MonoBehaviour
 
     public bool HasCrop => Tilled && Stage > 0;
     public bool IsMature => CropData != null && Stage >= CropData.Stages;
+
+    /// <summary>Harvest item id for the current crop, pre-harvest (safe to query).</summary>
+    public string HarvestYield => CropData != null ? CropData.HarvestItemId : null;
 
     private CropData CropData => CropRegistry.Get(Crop);
 
@@ -37,7 +42,8 @@ public class FarmPlot : MonoBehaviour
         if (isNight) return; // crops only grow during the day.
         if (CropData.NeedsWater && !Watered) return;
 
-        _growHours += gameHours;
+        _growHours += gameHours + NutrientHours;
+        NutrientHours = 0f;
         float perStage = CropData.BaseGrowHours / Mathf.Max(1, CropData.Stages);
         int targetStage = 1 + Mathf.FloorToInt(_growHours / Mathf.Max(0.001f, perStage));
         int newStage = Mathf.Clamp(targetStage, 1, CropData.Stages);
@@ -55,6 +61,7 @@ public class FarmPlot : MonoBehaviour
         Stage = 1;
         Watered = false;
         Harvested = false;
+        NutrientHours = 0f;
         _growHours = 0f;
         UpdateVisual();
         return true;
@@ -68,6 +75,22 @@ public class FarmPlot : MonoBehaviour
         return true;
     }
 
+    /// <summary>Apply a nutrient bonus (fertilizer): +25% base grow time.</summary>
+    public bool Fertilize()
+    {
+        if (!Tilled || !HasCrop || Harvested) return false;
+        NutrientHours += (CropData != null ? CropData.BaseGrowHours : 4f) * 0.25f;
+        return true;
+    }
+
+    /// <summary>Apply a growth boost (mi chính): +50% base grow time.</summary>
+    public bool Boost()
+    {
+        if (!Tilled || !HasCrop || Harvested) return false;
+        NutrientHours += (CropData != null ? CropData.BaseGrowHours : 8f) * 0.5f;
+        return true;
+    }
+
     public bool Harvest(out string yieldId)
     {
         yieldId = null;
@@ -78,6 +101,7 @@ public class FarmPlot : MonoBehaviour
         Stage = 0;
         _growHours = 0f;
         Watered = false;
+        NutrientHours = 0f;
         Harvested = true;
         UpdateVisual();
         return true;

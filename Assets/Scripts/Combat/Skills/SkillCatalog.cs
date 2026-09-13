@@ -123,7 +123,8 @@ public static partial class SkillCatalog
         float basePower, float fpCost, SpellDelivery delivery, float cooldown,
         float deliveryRange = 10f, float deliveryRadius = 1f, float castTime = 0.5f,
         bool heals = false, float knockback = 0f, float duration = 0f,
-        StatusEffectType? statusEffect = null)
+        StatusEffectType? statusEffect = null, float projectileSpeed = 20f,
+        float tickInterval = 0.5f, float channelDrainPerSecond = 0f)
     {
         var spell = ScriptableObject.CreateInstance<SpellData>();
         spell.name = spellId;
@@ -138,6 +139,9 @@ public static partial class SkillCatalog
         spell.Range = deliveryRange;
         spell.Radius = deliveryRadius;
         spell.Duration = duration;
+        spell.ProjectileSpeed = projectileSpeed;
+        spell.TickInterval = tickInterval;
+        spell.ChannelDrainPerSecond = channelDrainPerSecond;
         spell.Heals = heals;
         spell.Knockback = knockback;
         spell.AppliesStatus = statusEffect.HasValue;
@@ -218,10 +222,14 @@ public static partial class SkillCatalog
             Spell("magic_frostbolt_spell", "Frost Bolt", DamageType.Ice, 22f, 13f, SpellDelivery.Projectile, 4f,
                 statusEffect: StatusEffectType.Frost),
             null, "Launch a freezing bolt that chills the target.");
+        // Lightning line (§4.8): Storm Focus roots the lightning school as its OWN element now.
+        // Chain Lightning is no longer a Fireball offshoot — it hangs from a dedicated lightning root.
+        Add(list, "magic_lightning", "Storm Focus", SkillType.Magic, true, None(), false, DamageType.Lightning,
+            Buff(StatType.Intelligence, 3f), null, "Permanent +3 Intelligence (max FP), enfolding the storm.");
         Add(list, "magic_chain", "Chain Lightning", SkillType.Magic, false, Focus(20f), true, DamageType.Lightning,
             Spell("magic_chain_spell", "Chain Lightning", DamageType.Lightning, 28f, 20f, SpellDelivery.Projectile, 5f,
                 statusEffect: StatusEffectType.Stagger),
-            P("magic_fireball"), "Electric blast that staggers foes (requires Fireball).");
+            P("magic_lightning"), "Electric blast that staggers foes (requires Storm Focus).");
         Add(list, "magic_heal", "Lesser Heal", SkillType.Magic, false, Focus(10f), false, DamageType.Holy,
             Spell("magic_heal_spell", "Lesser Heal", DamageType.Holy, 15f, 10f, SpellDelivery.Instant, 0f,
                 heals: true),
@@ -235,9 +243,9 @@ public static partial class SkillCatalog
                 statusEffect: StatusEffectType.Rot),
             null, "Fire a shadow bolt that rots the target.");
         Add(list, "magic_blizzard", "Blizzard", SkillType.Magic, false, Focus(28f), true, DamageType.Ice,
-            Spell("magic_blizzard_spell", "Blizzard", DamageType.Ice, 22f, 28f, SpellDelivery.Zone, 6f,
+            Spell("magic_blizzard_spell", "Blizzard", DamageType.Ice, 22f, 28f, SpellDelivery.Storm, 6f,
                 deliveryRange: 8f, deliveryRadius: 3.2f, duration: 2.5f, statusEffect: StatusEffectType.Frost),
-            P("magic_chain", "magic_frostbolt"), "A persistent frozen storm that chills all inside.");
+            P("magic_chain", "magic_frostbolt"), "A frozen storm that repeatedly strikes all inside with frost.");
 
         // Wind line (§3.7 Wind): Gust → Wind Blade → Gale Force → Tornado. Tornado uses the
         // Vortex delivery and leaks Wind damage + pulls enemies through SpellZone.

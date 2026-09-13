@@ -29,6 +29,7 @@ public class LevelUpSystem : MonoBehaviour
     public int MaxLevel = 99;
 
     private PlayerStats _stats;
+    private TalentTracker _talents;
 
     /// <summary>Fires on level-up with the new level; afterwards Stats.Points increase.</summary>
     public event Action<int> OnLevelUp;
@@ -39,6 +40,7 @@ public class LevelUpSystem : MonoBehaviour
     private void Awake()
     {
         _stats = GetComponent<PlayerStats>();
+        _talents = GetComponent<TalentTracker>();
     }
 
     /// <summary>XP required to advance from the given level to the next.</summary>
@@ -50,12 +52,13 @@ public class LevelUpSystem : MonoBehaviour
     /// <summary>Current level-up threshold (XP needed for the next level).</summary>
     public float XpToNextLevel => XpForLevel(Level);
 
-    /// <summary>Add XP, applying the active race's all-source XP bonus, and level up as needed.</summary>
+    /// <summary>Add XP, applying the active race's all-source XP bonus and any XP talents, and level up as needed.</summary>
     public void AddXp(float amount)
     {
         if (amount <= 0f) return;
         float racialBonus = _stats != null && _stats.Race != null ? _stats.Race.XpBonusAll : 0f;
-        Xp += amount * (1f + racialBonus / 100f);
+        float talentBonus = _talents != null ? _talents.PlayerXpBonus : 0f;
+        Xp += amount * (1f + (racialBonus + talentBonus) / 100f);
 
         while (Level < MaxLevel && Xp >= XpForLevel(Level))
         {

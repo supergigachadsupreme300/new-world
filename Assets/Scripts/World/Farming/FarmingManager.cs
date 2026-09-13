@@ -89,7 +89,7 @@ public class FarmingManager : MonoSingleton<FarmingManager>
             Vector2Int grid = new Vector2Int(
                 Mathf.RoundToInt(hit.point.x / PlotSize),
                 Mathf.RoundToInt(hit.point.z / PlotSize));
-            Vector3 pos = new Vector3(grid.x * PlotSize, 0, grid.y * PlotSize);
+            Vector3 pos = new Vector3(grid.x * PlotSize, hit.point.y, grid.y * PlotSize);
             _preview.transform.position = pos;
             _preview.SetActive(true);
             return;
@@ -110,7 +110,7 @@ public class FarmingManager : MonoSingleton<FarmingManager>
     public FarmPlot TillGround(Vector3 position)
     {
         Vector3 rounded = new Vector3(
-            Mathf.Round(position.x / PlotSize) * PlotSize, 0f,
+            Mathf.Round(position.x / PlotSize) * PlotSize, position.y,
             Mathf.Round(position.z / PlotSize) * PlotSize);
         var existing = GetPlotAt(rounded);
         if (existing != null)
@@ -144,6 +144,12 @@ public class FarmingManager : MonoSingleton<FarmingManager>
     }
 
     public bool WaterPlot(Vector3 position) => GetPlotAt(position)?.Water() ?? false;
+
+    public bool PlantPlot(Vector3 position, CropType type) => GetPlotAt(position)?.Plant(type) ?? false;
+
+    public bool FertilizePlot(Vector3 position) => GetPlotAt(position)?.Fertilize() ?? false;
+
+    public bool BoostPlot(Vector3 position) => GetPlotAt(position)?.Boost() ?? false;
 
     public bool HarvestPlot(Vector3 position, out string yieldId)
     {

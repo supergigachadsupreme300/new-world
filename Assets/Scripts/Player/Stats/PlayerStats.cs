@@ -100,6 +100,7 @@ public class PlayerStats : MonoBehaviour, IStatProvider, ILootLuckProvider
 
     private ClassPassiveManager _classMods;
     private RaceSkillPassiveManager _raceSkillMods;
+    private TalentTracker _talents;
 
     private ClassPassiveManager ActiveClassMods
     {
@@ -116,6 +117,16 @@ public class PlayerStats : MonoBehaviour, IStatProvider, ILootLuckProvider
         {
             if (_raceSkillMods == null) _raceSkillMods = GetComponent<RaceSkillPassiveManager>();
             return _raceSkillMods;
+        }
+    }
+
+    /// <summary>Ranked Stat talents — a flat point bonus layered on every stat total.</summary>
+    private TalentTracker ActiveTalents
+    {
+        get
+        {
+            if (_talents == null) _talents = GetComponent<TalentTracker>();
+            return _talents;
         }
     }
 
@@ -143,13 +154,15 @@ public class PlayerStats : MonoBehaviour, IStatProvider, ILootLuckProvider
     /// <summary>The invested (unmodified) stat points for the given stat.</summary>
     public float GetBaseStat(StatType stat) => _baseStats[(int)stat];
 
-    /// <summary>Base stat × (1 + race % + race skill bonuses) + temp buffs — the total stat used by all derived formulas.</summary>
+    /// <summary>Base stat × (1 + race % + race skill bonuses) + talent stat points + temp buffs — the total stat used by all derived formulas.</summary>
     public float GetTotal(StatType stat)
     {
         float modifier = Race != null ? Race.GetStatModifier(stat) : 0f;
         var rsm = ActiveRaceSkillMods;
         if (rsm != null) modifier += rsm.GetStatBonus(stat);
-        return GetBaseStat(stat) * (1f + modifier / 100f) + GetTempBuffSum(stat);
+        return GetBaseStat(stat) * (1f + modifier / 100f)
+            + (ActiveTalents?.StatBonus(stat) ?? 0f)
+            + GetTempBuffSum(stat);
     }
 
     /// <summary>Set base stat points directly (character creation / level-ups / items).</summary>

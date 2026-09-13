@@ -9,7 +9,10 @@ public enum SpellDelivery
     Instant = 0,
     Projectile = 1,
     Zone = 2,
-    Vortex = 3
+    Vortex = 3,
+    Beam = 4,
+    Summon = 5,
+    Storm = 6
 }
 
 /// <summary>
@@ -42,6 +45,10 @@ public class SpellData : ScriptableObject
     public float ProjectileSpeed = 20f;
     [Tooltip("Lifetime of a persistent zone delivery in seconds. 0 = zone resolves instantly.")]
     public float Duration = 0f;
+    [Tooltip("Seconds between damage ticks for Beam / Summon / Storm deliveries. 0 = default (0.5s).")]
+    public float TickInterval = 0.5f;
+    [Tooltip("Focus points drained per second while a Beam channel is held alive (0 = no upkeep).")]
+    public float ChannelDrainPerSecond = 0f;
 
     [Header("Status (optional, §3.7)")]
     public bool AppliesStatus;

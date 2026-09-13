@@ -12,7 +12,7 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "RenderDistanceConfig", menuName = "NewWorld/Render Distance", order = 1)]
 public class RenderDistanceController : ScriptableObject
 {
-    [Range(1, 160)] public int Radius = 3;
+    [Range(1, 160)] public int Radius = 5;
     [Range(1, 160)] public int MaxRadius = 160;
     [Range(1, 8)] public int MinRadius = 1;
 

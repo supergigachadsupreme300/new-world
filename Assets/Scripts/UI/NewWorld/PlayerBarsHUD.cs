@@ -188,7 +188,10 @@ public sealed class PlayerBarsHUD : MonoBehaviour
             root.gameObject.SetActive(charging);
         if (!charging) return;
         float level = player.MagicChargeProgress;
-        _chargeFill.fillAmount = level;
+        _chargeFill.fillAmount = Mathf.Clamp01(level);
+        // Magic overcharges past 100% — overflow the fill past the track's end so the bar keeps
+        // expressing the released cap (fill is left-anchored, so scaling X grows rightward).
+        _chargeFill.transform.localScale = level > 1f ? new Vector3(level, 1f, 1f) : Vector3.one;
         if (_chargeText != null)
             _chargeText.text = "Charge " + Mathf.RoundToInt(level * 100f) + "%";
     }

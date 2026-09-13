@@ -69,6 +69,12 @@ public class SaveManager : MonoSingleton<SaveManager>
                 ? player.GetComponent<SkillProfile>().Points : 0,
             learnedSkills = player != null && player.GetComponent<SkillProfile>() != null
                 ? player.GetComponent<SkillProfile>().LearnedSkillIds.ToArray() : null,
+            skillLevelsJson = player != null && player.GetComponent<SkillProfile>() != null
+                ? player.GetComponent<SkillProfile>().SaveProgress() : "",
+            skillCategoriesJson = player != null && player.GetComponent<SkillXpTracker>() != null
+                ? player.GetComponent<SkillXpTracker>().Serialize() : "",
+            talentStateJson = player != null && player.GetComponent<TalentTracker>() != null
+                ? player.GetComponent<TalentTracker>().Serialize() : "",
             unlockedClassIds = player != null && player.GetComponent<ClassUnlocker>() != null
                 ? player.GetComponent<ClassUnlocker>().UnlockedClassIds.ToArray() : null,
             activeClassId = player != null && player.GetComponent<ClassUnlocker>() != null
@@ -182,6 +188,16 @@ public class SaveManager : MonoSingleton<SaveManager>
         var profile = GameManager.Instance?.Player?.GetComponent<SkillProfile>();
         if (profile != null && data.learnedSkills != null)
             profile.RestoreState(data.skillPoints, data.learnedSkills);
+        if (profile != null)
+            profile.RestoreProgress(data.skillLevelsJson);
+
+        var xpTracker = GameManager.Instance?.Player?.GetComponent<SkillXpTracker>();
+        if (xpTracker != null)
+            xpTracker.Restore(data.skillCategoriesJson);
+
+        var talents = GameManager.Instance?.Player?.GetComponent<TalentTracker>();
+        if (talents != null)
+            talents.Restore(data.talentStateJson);
 
         var unlocker = GameManager.Instance?.Player?.GetComponent<ClassUnlocker>();
         if (unlocker != null && data.unlockedClassIds != null)
@@ -254,6 +270,9 @@ public class SaveManager : MonoSingleton<SaveManager>
         public string goblinCarriedCrop;
         public int skillPoints;
         public string[] learnedSkills;
+        public string skillLevelsJson;
+        public string skillCategoriesJson;
+        public string talentStateJson;
         public string[] unlockedClassIds;
         public string activeClassId;
     }

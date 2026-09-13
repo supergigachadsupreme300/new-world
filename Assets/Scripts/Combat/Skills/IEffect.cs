@@ -25,17 +25,19 @@ public sealed class DamageZoneEffect : IEffect
     public void Execute(SkillContext ctx)
     {
         if (ctx == null) return;
-        Vector3 origin = ctx.Origin != null ? ctx.Origin.position + ctx.Origin.forward * (Radius * 0.5f)
+        float radius = Radius * (ctx.SizeScale > 0f ? ctx.SizeScale : 1f);
+        float power = BasePower * (ctx.PowerScale > 0f ? ctx.PowerScale : 1f);
+        Vector3 origin = ctx.Origin != null ? ctx.Origin.position + ctx.Origin.forward * (radius * 0.5f)
             : Vector3.zero;
 
         // Visible swing so the skill reads even with no target in range.
         if (ctx.User != null)
         {
             Vector3 fwd = ctx.Origin != null ? ctx.Origin.forward : Vector3.forward;
-            SkillFx.SlashFlash(origin, fwd, Radius, 0.18f, DamageNumber.ColorFor(Type));
+            SkillFx.SlashFlash(origin, fwd, radius, 0.18f, DamageNumber.ColorFor(Type));
         }
 
-        Collider[] cols = Physics.OverlapSphere(origin, Radius, ~0);
+        Collider[] cols = Physics.OverlapSphere(origin, radius, ~0);
         foreach (var col in cols)
         {
             if (col.transform.root == (ctx.User != null ? ctx.User.transform.root : null)) continue;
@@ -43,7 +45,7 @@ public sealed class DamageZoneEffect : IEffect
             {
                 var result = DamageCalculator.Calculate(new DamageCalculator.HitContext
                 {
-                    AttackPower = BasePower,
+                    AttackPower = power,
                     SkillMultiplier = 1f,
                     Defense = 5f,
                     DefenseMultiplier = 1f,
@@ -72,9 +74,26 @@ public sealed class SpellCastEffect : IEffect
     public void Execute(SkillContext ctx)
     {
         if (ctx == null || Spell == null || ctx.Caster == null) return;
+        // Skill level scales the cast the same way a weapon does: power, size, economy.
+        if (ctx.Level <= 1)
+        {
+            ctx.Caster.BeginCast(Spell,
+                ctx.Origin != null ? ctx.Origin : ctx.User != null ? ctx.User.transform : null,
+                default, ctx.ChargeLevel, ctx.PrepaidFocus);
+            return;
+        }
+        var mods = new MagicWeaponMods
+        {
+            DamageMult = ctx.PowerScale,
+            CastTimeMult = 1f,
+            CooldownMult = ctx.EcoScale,
+            FpCostMult = ctx.EcoScale,
+            RadiusMult = ctx.SizeScale,
+            RangeMult = ctx.SizeScale
+        };
         ctx.Caster.BeginCast(Spell,
             ctx.Origin != null ? ctx.Origin : ctx.User != null ? ctx.User.transform : null,
-            default, ctx.ChargeLevel);
+            mods, ctx.ChargeLevel, ctx.PrepaidFocus);
     }
 }
 

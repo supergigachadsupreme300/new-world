@@ -125,8 +125,8 @@ public class ClassUnlocker : MonoBehaviour
     }
 
     /// <summary>
-    /// Change the active class. Only unlocked classes can be selected; the Wanderer baseline is
-    /// always available. Returns false (and leaves the current class) when the id is unknown/locked.
+    /// Change the active class. Any known class can be selected freely (class switching is not
+    /// gated by unlock state). Returns false only when the id is unknown.
     /// </summary>
     public bool SetActiveClass(string classId)
     {
@@ -135,8 +135,6 @@ public class ClassUnlocker : MonoBehaviour
             ? Classes.Find(c => c != null && string.Equals(c.classId, classId, System.StringComparison.OrdinalIgnoreCase))
             : null;
         if (target == null) return false;
-        bool freeBaseline = string.Equals(target.classId, "wanderer", System.StringComparison.OrdinalIgnoreCase);
-        if (!freeBaseline && !IsUnlocked(target.classId)) return false;
 
         if (!string.Equals(ActiveClassId, target.classId, System.StringComparison.OrdinalIgnoreCase))
         {

@@ -19,6 +19,12 @@ public struct MagicWeaponMods
     /// <summary>Multiplier applied to spell FP cost.</summary>
     public float FpCostMult;
 
+    /// <summary>Multiplier applied to spell AoE radius / beam width (MagicRadiusScale or 1).</summary>
+    public float RadiusMult;
+
+    /// <summary>Multiplier applied to spell range / aim distance (MagicRangeScale or 1).</summary>
+    public float RangeMult;
+
     public static MagicWeaponMods FromWeapon(WeaponData data)
     {
         if (data == null)
@@ -27,14 +33,18 @@ public struct MagicWeaponMods
                 DamageMult = 1f,
                 CastTimeMult = 1f,
                 CooldownMult = 1f,
-                FpCostMult = 1f
+                FpCostMult = 1f,
+                RadiusMult = 1f,
+                RangeMult = 1f
             };
         return new MagicWeaponMods
         {
             DamageMult = Mathf.Max(data.MagicDamageMult, 0f),
             CastTimeMult = Mathf.Max(data.CastTimeMod, 0.05f),
             CooldownMult = Mathf.Max(data.CooldownMod, 0.05f),
-            FpCostMult = 1f
+            FpCostMult = 1f,
+            RadiusMult = 1f,
+            RangeMult = 1f
         };
     }
 }

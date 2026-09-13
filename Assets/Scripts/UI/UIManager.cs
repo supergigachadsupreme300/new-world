@@ -311,7 +311,7 @@ public partial class UIManager : MonoBehaviour
             _canvas = CreateCanvas();
 
         if (defaultTmpFont == null)
-            defaultTmpFont = Resources.Load<TMP_FontAsset>("VietPixel");
+            defaultTmpFont = UiAssetCache.DefaultFont;
 
         // Calculate responsive sizes based on screen dimensions
         float screenHeight = Screen.height;
@@ -439,7 +439,7 @@ public partial class UIManager : MonoBehaviour
             var slotImg = slotGo.AddComponent<Image>();
             if (_hudBgSprite == null)
             {
-                var tex = Resources.Load<Texture2D>("menu");
+                var tex = UiAssetCache.MenuTexture;
                 if (tex != null)
                     _hudBgSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
             }
@@ -1031,7 +1031,7 @@ public partial class UIManager : MonoBehaviour
     {
         if (target == null) return;
         if (defaultTmpFont == null)
-            defaultTmpFont = Resources.Load<TMP_FontAsset>("VietPixel");
+            defaultTmpFont = UiAssetCache.DefaultFont;
         if (defaultTmpFont != null)
             target.font = defaultTmpFont;
     }
@@ -1277,7 +1277,7 @@ public partial class UIManager : MonoBehaviour
         img.raycastTarget = false;
         if (_hudBgSprite == null)
         {
-            var tex = Resources.Load<Texture2D>("menu");
+            var tex = UiAssetCache.MenuTexture;
             if (tex != null)
                 _hudBgSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
         }
@@ -1315,7 +1315,7 @@ public partial class UIManager : MonoBehaviour
         var image = panelObject.AddComponent<Image>();
         if (_menuBgSprite == null)
         {
-            var tex = Resources.Load<Texture2D>("menu");
+            var tex = UiAssetCache.MenuTexture;
             if (tex != null)
                 _menuBgSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
         }

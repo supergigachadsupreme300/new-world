@@ -707,6 +707,7 @@ public bool TryToggleDoor(RaycastHit hit)
 
     public void SetBuildingPreviewVisible(bool visible)
     {
+        if (visible) EnsureBuildingPreview();
         if (_buildingPreview == null)
             return;
 
@@ -715,8 +716,15 @@ public bool TryToggleDoor(RaycastHit hit)
             UpdateBuildingPreview();
     }
 
+    private void EnsureBuildingPreview()
+    {
+        if (_buildingPreview == null)
+            InitializeBuildingPreview();
+    }
+
     private void InitializeBuildingPreview()
     {
+        EnsureWorldRoot();
         _buildingPreview = GameObject.CreatePrimitive(PrimitiveType.Cube);
         _buildingPreview.name = "BuildingPreview";
         _buildingPreview.transform.SetParent(_worldRoot.transform);
@@ -753,12 +761,13 @@ public bool TryToggleDoor(RaycastHit hit)
 
     public void UpdatePreviewPosition(Vector3 position, bool isValid)
     {
+        if (isValid) EnsureBuildingPreview();
         if (_buildingPreview == null)
             return;
 
         var definition = _availableBuildings[_currentBuildingIndex];
         Vector3 snapped = SnapToGrid(position);
-        bool floorOk = !IsWallOrStair(definition.Name) || HasFloorAt(snapped);
+        bool floorOk = !IsWallOrStair(definition.Name) || !EnableLegacyGeneration || HasFloorAt(snapped);
 
         if (!isValid || !floorOk)
         {

@@ -1,0 +1,131 @@
+using System.Collections.Generic;
+
+/// <summary>
+/// What a talent's ranks improve.
+/// </summary>
+public enum TalentKind
+{
+    /// <summary>Boosts all character XP (<see cref="LevelUpSystem.AddXp"/>).</summary>
+    PlayerXp,
+
+    /// <summary>Boosts a skill type's per-skill leveling XP and its category bar.</summary>
+    SkillTypeXp,
+
+    /// <summary>Adds flat points to a core stat (<see cref="StatType"/>).</summary>
+    Stat
+}
+
+/// <summary>
+/// Definition of a talent — a rankable perk. Every rank costs one talent point and stacks
+/// additively. The first talent is granted at random on game creation; further talents are
+/// unlocked with points earned per character level-up.
+/// </summary>
+[System.Serializable]
+public sealed class Talent
+{
+    public string Id;
+    public string DisplayName;
+    public int MaxRanks = 3;
+    public TalentKind Kind;
+
+    /// <summary>Category scoped by <see cref="TalentKind.SkillTypeXp"/> talents.</summary>
+    public SkillType Scope;
+
+    /// <summary>Stat boosted by <see cref="TalentKind.Stat"/> talents.</summary>
+    public StatType Stat;
+
+    /// <summary>Effect per rank: +% XP (PlayerXp / SkillTypeXp) or +flat stat points (Stat).</summary>
+    public float PerRank;
+
+    /// <summary>Human-readable effect for one rank: "+X% XP" or "+X stat".</summary>
+    public string EffectPerRank()
+    {
+        if (Kind == TalentKind.PlayerXp) return "+" + PerRank.ToString("0") + "% character XP";
+        if (Kind == TalentKind.SkillTypeXp) return "+" + PerRank.ToString("0") + "% " + DisplayName + " XP";
+        return "+" + PerRank.ToString("0") + " " + Stat;
+    }
+}
+
+/// <summary>
+/// Runtime catalog of talents (built in code, no .asset files). Backs the random first grant,
+/// the rank-spend flow, and the XP/stat bonus reads on <see cref="TalentTracker"/>.
+/// </summary>
+public static class TalentCatalog
+{
+    /// <summary>The built roster. <see cref="EnsureBuilt"/> populates it once.</summary>
+    public static List<Talent> All { get; private set; }
+
+    private static bool _built;
+    private static Dictionary<string, Talent> _cache;
+
+    /// <summary>Build the roster on first access (idempotent).</summary>
+    public static void EnsureBuilt()
+    {
+        if (_built) return;
+        _built = true;
+        All = BuildDefault();
+        _cache = new Dictionary<string, Talent>(All.Count);
+        foreach (var t in All)
+            if (t != null && !string.IsNullOrEmpty(t.Id))
+                _cache[t.Id] = t;
+    }
+
+    /// <summary>Look up a talent by id, or null.</summary>
+    public static Talent Find(string id)
+    {
+        EnsureBuilt();
+        if (string.IsNullOrEmpty(id)) return null;
+        _cache.TryGetValue(id, out var talent);
+        return talent;
+    }
+
+    private static List<Talent> BuildDefault()
+    {
+        var list = new List<Talent>();
+
+        list.Add(new Talent
+        {
+            Id = "t.fast_learner", DisplayName = "Fast Learner",
+            MaxRanks = 3, Kind = TalentKind.PlayerXp, PerRank = 5f
+        });
+
+        AddType(list, SkillType.Melee, "t.melee", "Melee Training");
+        AddType(list, SkillType.Ranged, "t.ranged", "Ranged Drills");
+        AddType(list, SkillType.Magic, "t.magic", "Arcane Study");
+        AddType(list, SkillType.Stealth, "t.stealth", "Shadow Arts");
+        AddType(list, SkillType.Crafting, "t.crafting", "Craftsmanship");
+        AddType(list, SkillType.Fortitude, "t.fortitude", "Fortitude");
+
+        AddStat(list, StatType.Health, "t.health", "Vitality");
+        AddStat(list, StatType.Speed, "t.speed", "Fleet");
+        AddStat(list, StatType.Endurance, "t.endurance", "Conditioning");
+        AddStat(list, StatType.Strength, "t.strength", "Might");
+        AddStat(list, StatType.Dexterity, "t.dexterity", "Finesse");
+        AddStat(list, StatType.AttackSpeed, "t.attackspeed", "Celerity");
+        AddStat(list, StatType.Defense, "t.defense", "Armored");
+        AddStat(list, StatType.Intelligence, "t.intelligence", "Focused Mind");
+        AddStat(list, StatType.Wisdom, "t.wisdom", "Sage");
+        AddStat(list, StatType.Faith, "t.faith", "Devoted");
+        AddStat(list, StatType.Luck, "t.luck", "Lucky");
+
+        return list;
+    }
+
+    private static void AddType(List<Talent> list, SkillType type, string id, string name)
+    {
+        list.Add(new Talent
+        {
+            Id = id, DisplayName = name,
+            MaxRanks = 3, Kind = TalentKind.SkillTypeXp, Scope = type, PerRank = 6f
+        });
+    }
+
+    private static void AddStat(List<Talent> list, StatType stat, string id, string name)
+    {
+        list.Add(new Talent
+        {
+            Id = id, DisplayName = name,
+            MaxRanks = 3, Kind = TalentKind.Stat, Stat = stat, PerRank = 1f
+        });
+    }
+}

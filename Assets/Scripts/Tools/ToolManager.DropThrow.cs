@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public partial class ToolManager
@@ -52,6 +53,22 @@ public partial class ToolManager
 
         if (!seedToCrop.TryGetValue(itemType, out var cropType))
             return false;
+
+        var farm = FarmingManager.Instance;
+        if (farm != null && farm.GetPlotAt(hitPoint) != null)
+        {
+            if (Enum.TryParse(cropType, true, out CropType parsed) && farm.PlantPlot(hitPoint, parsed))
+            {
+                RemoveItem(_selectedSlot, 1);
+                SoundManager.Instance?.Play("pop");
+                _uiManager.ShowMessage(Localization.F("Đã gieo {0}.", Localization.ItemName(cropType)), 1.5f);
+            }
+            else
+            {
+                _uiManager.ShowMessage(Localization.T("Dùng hạt giống trên đất đã cày."), 1.5f);
+            }
+            return true;
+        }
 
         var field = _worldBuilder.GetFieldAt(hitPoint);
         if (field != null && field.Tilled && !field.HasCrop)

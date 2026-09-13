@@ -28,12 +28,13 @@ public sealed class ChunkLodManager : MonoBehaviour
         new LodBand { StartDistance = 60f, DetailName = "Lod2" }
     };
 
-    [Tooltip("Distant chunks beyond the last band are hidden.")]
+    [Tooltip("Distant chunks beyond the last band are hidden. The effective cull distance auto-scales with the WorldStreamer render radius so streamed chunks are never hidden early.")]
     public float CullDistance = 120f;
     [Tooltip("Re-evaluate selection after this many frames instead of every frame.")]
     public int RefreshEveryFrames = 2;
 
     private readonly List<ChunkEntry> _chunks = new List<ChunkEntry>();
+    private WorldStreamer _streamer;
     private int _frame;
 
     private class ChunkEntry
@@ -96,7 +97,7 @@ public sealed class ChunkLodManager : MonoBehaviour
 
             float dist = Vector3.Distance(camPos, chunk.Root.position);
             int band = BandFor(dist);
-            chunk.Root.gameObject.SetActive(dist <= CullDistance);
+            chunk.Root.gameObject.SetActive(dist <= EffectiveCullDistance());
             if (band != chunk.BandIndex)
             {
                 chunk.BandIndex = band;
@@ -116,6 +117,20 @@ public sealed class ChunkLodManager : MonoBehaviour
                 break;
         }
         return index;
+    }
+
+    /// <summary>
+    /// Effective cull distance auto-matches the streaming render radius: a chunk extends
+    /// (radius + 1) chunk-steps from the focus (hysteresis keep-margin), so chunks are only
+    /// hidden once they fall beyond the streamed area, never while still being streamed in.
+    /// </summary>
+    private float EffectiveCullDistance()
+    {
+        if (_streamer == null)
+            _streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (_streamer != null && _streamer.RenderDistance != null)
+            return Mathf.Max(CullDistance, (_streamer.RenderDistance.Radius + 1) * TerrainChunkCoord.ChunkSize);
+        return CullDistance;
     }
 
     private void ApplyBand(ChunkEntry chunk, int band)

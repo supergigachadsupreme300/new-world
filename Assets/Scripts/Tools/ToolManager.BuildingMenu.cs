@@ -108,7 +108,7 @@ public partial class ToolManager
         scrollRect.elasticity = 0.1f;
 
         var wb = WorldBuilder.Instance;
-        int count = wb != null ? wb.BuildingCount : 0;
+        int count = wb != null ? wb.BlueprintOptionCount : 0;
 
         for (int i = 0; i < count; i++)
         {
@@ -171,7 +171,7 @@ public partial class ToolManager
             if (t != null) t.text = Localization.T("Xây Dựng");
         }
         var wb = WorldBuilder.Instance;
-        int count = wb != null ? wb.BuildingCount : 0;
+        int count = wb != null ? wb.BlueprintOptionCount : 0;
         for (int i = 0; i < count; i++)
         {
             var def = wb.GetBuildingByIndex(i);

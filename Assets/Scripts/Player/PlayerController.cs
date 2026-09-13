@@ -73,11 +73,14 @@ public class PlayerController : MonoBehaviour, IHealable
     // release LMB to fire at the current level. Mobile taps still cast instantly.
     private const float MagicChargeTapThreshold = 0.15f;
     private const float MagicChargeMaxTime = 2f;
+    private const float MagicChargeFullTime = 1.2f;
     private bool _aiming;
     private bool _chargeRmbHeld;
     private float _chargeAccum;
+    private float _chargeDrained;
     private AoeAimPreview _aoePreview;
     private CastingCircle _castingCircle;
+    private ProjectilePathPreview _pathPreview;
 
     // Per-hand dual-wield charge accumulators (ranged in one of the two hands keeps its draw).
     private float _dualChargeL;
@@ -304,6 +307,10 @@ public class PlayerController : MonoBehaviour, IHealable
         if (_cameraPivot != null)
             _cameraPivot.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
     }
+
+    /// <summary>Current vertical look pitch (°; positive = looking down, negative = up).
+    /// Used by the procedural torso/upper-body animation to bend with the camera.</summary>
+    public float LookPitch => _pitch;
 
     public void TakeDamage(int amount)
     {
@@ -821,42 +828,89 @@ public class PlayerController : MonoBehaviour, IHealable
                 _aiming = false;
                 _chargeRmbHeld = false;
                 _chargeAccum = 0f;
+                _chargeDrained = 0f;
                 HideAoePreview();
                 HideCastingCircle();
+                HidePathPreview();
                 combat?.EndCharge(false);
             }
             else
             {
                 bool rmbDown = !GameInput.IsMobile && Mouse.current != null && Mouse.current.rightButton.isPressed;
                 _chargeRmbHeld = rmbDown;
+                var armedSpell = ArmedSpell();
+                bool armedMagic = armedSpell != null;
+                bool chargeGrow = false;
                 if (rmbDown)
-                    _chargeAccum = Mathf.Min(_chargeAccum + Time.deltaTime, MagicChargeMaxTime);
-                combat?.SetChargeLevel(MagicChargeLevel(_chargeAccum));
+                {
+                    if (armedSpell != null)
+                    {
+                        // Magic overcharges past level 1 until the pool runs dry; each aim frame
+                        // drains focus in real time (gated by remaining FP) so holding is a gamble.
+                        var caster = GetComponent<SpellCaster>();
+                        if (caster != null)
+                        {
+                            float level = SpellChargeLevel(_chargeAccum);
+                            if (caster.CurrentFp > 0f)
+                            {
+                                float drain = armedSpell.FpCost * caster.ChargeFpCostBonus *
+                                              level * caster.FpChargeDrainRate * Time.deltaTime;
+                                drain = Mathf.Min(drain, caster.CurrentFp);
+                                if (caster.TrySpendFocus(drain))
+                                    _chargeDrained += drain;
+                            }
+                            chargeGrow = caster.CurrentFp > 0f;
+                        }
+                    }
+                    else
+                    {
+                        // Ranged keeps its capped draw (no focus involved).
+                        _chargeAccum = Mathf.Min(_chargeAccum + Time.deltaTime, MagicChargeMaxTime);
+                    }
+                }
+                if (chargeGrow)
+                    _chargeAccum += Time.deltaTime;
+                float previewLevel = armedMagic ? SpellChargeLevel(_chargeAccum) : MagicChargeLevel(_chargeAccum);
+                float hudLevel = MagicChargeLevel(_chargeAccum);
+                combat?.SetChargeLevel(Mathf.Clamp01(hudLevel));
 
-                UpdateAoePreview(MagicChargeLevel(_chargeAccum));
-                UpdateCastingCircle(MagicChargeLevel(_chargeAccum));
+                UpdateAoePreview(previewLevel);
+                UpdateCastingCircle(previewLevel);
+                UpdatePathPreview(previewLevel, armedSpell);
 
                 bool lmbUp = !GameInput.IsMobile && Mouse.current != null &&
                              (Mouse.current.leftButton.wasReleasedThisFrame || !Mouse.current.leftButton.isPressed);
                 if (lmbUp)
                 {
-                    float charge = MagicChargeLevel(_chargeAccum);
+                    float charge = armedMagic ? SpellChargeLevel(_chargeAccum) : MagicChargeLevel(_chargeAccum);
+                    float prepaid = _chargeDrained;
                     _aiming = false;
                     _chargeRmbHeld = false;
                     _chargeAccum = 0f;
+                    _chargeDrained = 0f;
                     combat?.EndCharge(true);
+                    HidePathPreview();
                     if (MagicWheelUI.HasArmedMagic())
                     {
                         bool previewShown = _aoePreview != null && _aoePreview.IsActive;
-                        BurstCastingCircle(charge);
-                        HideCastingCircle();
-                        MagicWheelUI.ReleaseArmedCast(charge);
-                        // Keep the marker up until the spell actually lands, then it hides itself.
-                        if (previewShown)
+                        if (MagicWheelUI.ReleaseArmedCast(charge, prepaid))
                         {
-                            var caster = GetComponent<SpellCaster>();
-                            if (caster != null) _aoePreview.Lock(caster);
-                            else HideAoePreview();
+                            BurstCastingCircle(charge);
+                            HideCastingCircle();
+                            // Keep the marker up until the spell actually lands, then it hides itself.
+                            if (previewShown)
+                            {
+                                var caster = GetComponent<SpellCaster>();
+                                if (caster != null) _aoePreview.Lock(caster);
+                                else HideAoePreview();
+                            }
+                        }
+                        else
+                        {
+                            // Rejected (e.g. tap with an empty pool): tear the charge down silently —
+                            // no ring-without-bolt phantom.
+                            HideCastingCircle();
+                            if (previewShown) HideAoePreview();
                         }
                     }
                     else if (IsRangedEquipped(combat))
@@ -869,7 +923,7 @@ public class PlayerController : MonoBehaviour, IHealable
                 }
             }
         }
-        if (!dialogBlocked && leftClick && !MagicWheelUI.IsOpen && !dualMode)
+        if (!dialogBlocked && leftClick && !MagicWheelUI.IsOpen && !dualMode && !BeamChanneling())
         {
             if (FightingMode)
             {
@@ -881,6 +935,7 @@ public class PlayerController : MonoBehaviour, IHealable
                 {
                     // Hold LMB to aim (no charge yet); the release fires, driven above.
                     _aiming = true;
+                    _chargeDrained = 0f;
                     combatPress?.PlayCharge();
                 }
                 else if (!WeaponTransitionBusy() && !MagicWheelUI.ConsumeArmedCast())
@@ -1181,13 +1236,17 @@ public class PlayerController : MonoBehaviour, IHealable
                 }
                 if (!charging) break;
                 if (held)
+                {
                     charge = Mathf.Min(charge + Time.deltaTime, MagicChargeMaxTime);
+                    ShowRangedPathPreview(hand.GetComponent<RangedWeaponBehavior>(), hand, charge);
+                }
                 combat.SetChargeLevel(MagicChargeLevel(charge));
                 if (released)
                 {
                     float level = MagicChargeLevel(charge);
                     charging = false;
                     charge = 0f;
+                    HidePathPreview();
                     if (inputAvailable && !WeaponTransitionBusy())
                         combat.FireRangedWith(hand, level);
                     combat.EndCharge(level > 0f);
@@ -1204,9 +1263,14 @@ public class PlayerController : MonoBehaviour, IHealable
         return host != null && host.Data != null && host.Data.Category == WeaponCategory.Ranged;
     }
 
-    /// <summary>Charge level (0..1) progress for a held aim — drives the HUD charge bar.</summary>
+    /// <summary>True while an aim/charge is in progress (drives the HUD charge bar visibility).</summary>
     public bool IsCharging => _aiming && (_chargeRmbHeld || _chargeAccum > 0f);
-    public float MagicChargeProgress => IsCharging ? MagicChargeLevel(_chargeAccum) : 0f;
+
+    /// <summary>Charge progress for the HUD. Magic overcharges past 100% (level 1+ keeps climbing);
+    /// ranged picks only the capped draw level.</summary>
+    public float MagicChargeProgress => IsCharging
+        ? (ArmedSpell() != null ? SpellChargeLevel(_chargeAccum) : MagicChargeLevel(_chargeAccum))
+        : 0f;
 
     /// <summary>Charge level (0..1) for a held cast; taps under the threshold cast uncharged.</summary>
     private static float MagicChargeLevel(float holdTime)
@@ -1216,13 +1280,25 @@ public class PlayerController : MonoBehaviour, IHealable
     }
 
     /// <summary>
+    /// Uncapped charge level for held magic casts: same ramp as <see cref="MagicChargeLevel"/> but
+    /// with no upper limit, so overcharging past full grows power/size/cost and real-time FP drain
+    /// becomes the only ceiling. Taps under the threshold sit at 0 (cast uncharged).
+    /// </summary>
+    private static float SpellChargeLevel(float holdTime)
+    {
+        float t = (holdTime - MagicChargeTapThreshold) / (MagicChargeFullTime - MagicChargeTapThreshold);
+        return Mathf.Max(t, 0f);
+    }
+
+    /// <summary>
     /// Show/refresh the AoE landing preview each aim frame — but only for armed zone/vortex
     /// magic, so projectile/instant spells and ranged weapons get no marker.
     /// </summary>
     private void UpdateAoePreview(float charge)
     {
         var spell = ArmedSpell();
-        if (spell != null && (spell.Delivery == SpellDelivery.Zone || spell.Delivery == SpellDelivery.Vortex))
+        if (spell != null && (spell.Delivery == SpellDelivery.Zone || spell.Delivery == SpellDelivery.Vortex
+            || spell.Delivery == SpellDelivery.Summon || spell.Delivery == SpellDelivery.Storm))
         {
             if (TryAoeTarget(spell, charge, out var center, out var radius, out var color))
                 AoePreview().Show(center, radius, color);
@@ -1301,6 +1377,72 @@ public class PlayerController : MonoBehaviour, IHealable
         return _castingCircle;
     }
 
+    /// <summary>
+    /// Show/refresh the projectile flight-path preview each aim frame — a wide cone over the
+    /// possible spread that narrows into a precision ray as the draw/charge builds. Covers the
+    /// bow &amp; throwing hammer (true Dexterity spread) and projectile magic (straight laser,
+    /// shrinking cone is focus feedback).
+    /// </summary>
+    private void UpdatePathPreview(float charge, SpellData armedSpell)
+    {
+        if (armedSpell != null && armedSpell.Delivery == SpellDelivery.Projectile)
+        {
+            var combat = GetComponent<CombatController>();
+            var hand = MagicHand(combat);
+            var cam = Camera.main;
+            if (hand == null || cam == null) { HidePathPreview(); return; }
+
+            // Mirror caster aim (SpellCaster.Execute): from the hand toward the camera line.
+            Vector3 pos = hand.transform.position;
+            Vector3 fwd = cam.transform.position + cam.transform.forward * Mathf.Max(armedSpell.Range, 5f) - pos;
+            if (fwd.sqrMagnitude < 0.0001f) fwd = hand.transform.forward; else fwd = fwd.normalized;
+
+            float c = Mathf.Clamp01(charge);
+            float reach = Mathf.Max(armedSpell.ProjectileSpeed, 1f) * 4f; // SpellEffect flight envelope
+            PathPreview().Show(pos + fwd * 0.5f + Vector3.up * 0.3f, fwd, reach,
+                8f * (1f - c), DamageNumber.ColorFor(armedSpell.Type), transform);
+            return;
+        }
+
+        var rangedCombat = GetComponent<CombatController>();
+        var hand2 = rangedCombat != null ? (rangedCombat.RightHand ?? rangedCombat.LeftHand) : null;
+        var ranged = hand2 != null ? hand2.GetComponent<RangedWeaponBehavior>() : null;
+        if (ranged == null) { HidePathPreview(); return; }
+        ShowRangedPathPreview(ranged, hand2, charge);
+    }
+
+    /// <summary>Bounded ranged-weapon preview (regular aim or dual per-hand draw).</summary>
+    private void ShowRangedPathPreview(RangedWeaponBehavior ranged, GameObject hand, float charge)
+    {
+        if (ranged == null) { HidePathPreview(); return; }
+
+        float accuracy = 1f;
+        if (ranged.Stats != null && ranged.Data != null)
+            accuracy = 1f + ranged.Stats.GetStat(WeaponScalingStat.Dexterity) * ranged.Data.AccuracyFromDex;
+        float spread = Mathf.Atan2(0.15f / Mathf.Max(accuracy, 0.01f), 1f) * Mathf.Rad2Deg;
+
+        float c = Mathf.Clamp01(charge);
+        float speed = ranged.ProjectileSpeed * Mathf.Lerp(1f, 1.5f, c);
+        float lifetime = ranged.BaseLifetime * Mathf.Lerp(1f, 2f, c);
+        Vector3 origin = ranged.Muzzle != null ? ranged.Muzzle.position
+            : hand != null ? hand.transform.position : transform.position;
+        PathPreview().Show(origin, transform.forward, speed * lifetime,
+            spread * (1f - c), DamageNumber.ColorFor(ranged.ShotType), transform);
+    }
+
+    private void HidePathPreview()
+    {
+        if (_pathPreview != null)
+            _pathPreview.Hide();
+    }
+
+    private ProjectilePathPreview PathPreview()
+    {
+        if (_pathPreview == null)
+            _pathPreview = ProjectilePathPreview.Instance;
+        return _pathPreview;
+    }
+
     /// <summary>Returns the equipped hand holding a magic weapon, or null.</summary>
     private GameObject MagicHand(CombatController combat)
     {
@@ -1315,6 +1457,13 @@ public class PlayerController : MonoBehaviour, IHealable
         if (hand == null) return false;
         var host = hand.GetComponent<WeaponRigHost>();
         return host != null && host.Data != null && host.Data.Category == WeaponCategory.Magic;
+    }
+
+    /// <summary>True while a beam channel is active (LMB is sustaining the beam, so it must not re-aim/attack).</summary>
+    private bool BeamChanneling()
+    {
+        var caster = GetComponent<SpellCaster>();
+        return caster != null && caster.IsChanneling;
     }
 
     /// <summary>SpellData of the armed magic skill (SpellCastEffect), or null when none is previewable.</summary>

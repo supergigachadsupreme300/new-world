@@ -92,7 +92,7 @@ public abstract class MenuPanelBase : MonoBehaviour
         PanelRect.offsetMin = Vector2.zero;
         PanelRect.offsetMax = Vector2.zero;
         var panelImg = panel.AddComponent<Image>();
-        var menuTex = Resources.Load<Texture2D>("menu");
+        var menuTex = UiAssetCache.MenuTexture;
         if (menuTex != null)
         {
             panelImg.sprite = Sprite.Create(menuTex,

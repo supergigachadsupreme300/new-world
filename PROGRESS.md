@@ -7,6 +7,137 @@ Companion docs: `PLAN.md`, `PLAN-class-skill-trees.md`, `planning.md`, `game-des
 
 ---
 
+## 1m. Recent completed work (2026-09-12) — magic delivery overhaul (Beam / Summon / Storm) + throwing-hammer fix
+User: duplicate-feeling spells across the magic schools should each behave distinctly. Three new spell
+deliveries (Beam, Summon, Storm) added alongside projectile / instant / zone / vortex; 16 spells
+reworked to use them. Spell **ids unchanged** (learned-skill data safe).
+- `SpellData.cs` — `SpellDelivery` += `Beam=4, Summon=5, Storm=6`; new fields `TickInterval=0.5f`,
+  `ChannelDrainPerSecond=0f`.
+- `SkillCatalog.cs` `Spell()` factory gained optional `projectileSpeed=20f, tickInterval=0.5f,
+  channelDrainPerSecond=0f`; new delivery drivers `Assets/Scripts/Combat/Weapons/SpellBeam.cs`,
+  `SpellSummon.cs`, `SpellStorm.cs`.
+- **Beam (user-approved controls):** the cast fires on the normal cast release (LMB-up at the frozen
+  charge level); **holding LMB keeps the beam on while `ChannelDrainPerSecond` FP drains real time**
+  (via `TrySpendFocus`; a rejected cast ends without killing a live beam — `StopChannel` runs after the
+  spend). Ticks damage/heals every `TickInterval` on the capsule caster→aim; 0.4 s release-grace; ~1.6 s
+  fixed-sustain fallback on mobile/no-mouse. `PlayerController.cs:921` blocks re-aim/melee while
+  `SpellCaster.IsChanneling` (hold keeps the beam, doesn't retrigger).
+- **Summon:** ground-targeted (AoE preview, like zone/vortex). Damage summons = persistent **turrets**
+  firing bolts at the nearest enemy (`BoltPowerMultiplier=0.6`, reuses bolt flight via
+  `SpellCaster.DecorateProjectile`); `Heals` summons = standing heal aura for `IHealable` allies.
+- **Storm:** persistent ground zone striking repeatedly (`StrikesPerTick=2`, `StrikePowerMultiplier=0.8`,
+  randomized 0–0.35 s delays via coroutines), element-styled FX (crossed bolt bars for Lightning).
+- `SpellCaster.cs` — 3 new switch cases + `ResolveBeam/ResolveSummon/ResolveStorm`, `GroundTarget`
+  helper, `IsChanneling`, `StopChannel`, `ForgetBeam`, `DecorateProjectile`.
+- 16 reworked spells (ids unchanged): **Beams** — Searing Ray (magic_fireball_scorch_searing, Fire/Burn),
+  Arc Storm (magic_chain_arc, Lightning/Stagger), Beacon (magic_focus_holylight_beacon, Holy heal+damage),
+  Hunger (magic_dark_devour_hunger, Dark/Rot), Cold Stare (magic_frostbolt_chill_stare, Ice/Frost),
+  Storm Breath (magic_gust_stormbreath, Wind/Knockback); **Summons** — Frost Obelisk
+  (magic_frostbolt_glacier_wall, ice turret/Frost), Shadow Totem (magic_dark_shadowbolt_pool, Dark/Rot),
+  Arcane Rune (magic_ward_aegis, Arcane), Healing Shrine (magic_heal_light, Holy heal aura),
+  Ember Effigy (magic_fireball_meteor_ember, Fire/Burn), Gust Totem (magic_gust_airburst, Wind);
+  **Storms** — Thunderstorm (magic_chain_overload, Lightning/Stagger), Meteor Rain
+  (magic_fireball_meteor_rain, Fire), Blizzard (magic_blizzard in `SkillCatalog.BuildMagic`, Ice/Frost),
+  Eclipse (magic_dark_nightfall_eclipse, Dark/Rot).
+- **Throwing-hammer fix:** `throwing_hammer` is `WeaponCategory.Ranged` (WeaponCatalog.cs:105) so it
+  fired via `RangedWeaponBehavior.FireProjectile`, whose no-prefab fallback spawned a *generated arrow*.
+  New `BuildDefaultProjectileVisual()` in `RangedWeaponBehavior.cs` picks a tumbling hammer
+  (`BuildHammerVisual`: handle + head + `TumbleSpin` 360°/s) for `id == "throwing_hammer"`, arrows
+  otherwise. Checker 0 diagnostics.
+- Docs: `game-design.md` §3.8 (delivery behaviors) + §5.16 (beam sustain); `PROGRESS.md` this section.
+### 1m-status
+- Source-compile verified by the semantic checker (0 diagnostics, run twice). Unity play-test pending:
+  beam fire-on-release + LMB-hold sustain draining FP; summon turret bolting nearest enemy / heal aura;
+  storm repeated strikes; hammer tumble visual; all 16 reworked spells from staff/wand/book.
+
+---
+
+## 1n. Recent completed work (2026-09-12) — charged magic casts skip the post-release cast time
+User: "the endlag on spell cast is crazy … the wait time between the explosion and the projectile is
+too long." Root cause: on LMB release the player already spent the wind-up charging, but
+`SpellCaster.CastRoutine` then waited another full `SpellData.CastTime` (0.5 s default, 0.8 s Tornado)
+between the CastingCircle burst and the actual delivery — a second wind-up after the burst.
+- `SpellCaster.cs` `CastRoutine`: the cast-time wait now runs **only for uncharged casts**
+  (`charge <= 0f`); a charged cast (`charge > 0`) resolves immediately on release, so the burst ring
+  and the projectile/delivery land on the same frame. Applies to every delivery (projectile / instant /
+  zone / vortex) and every charging caller (Alt-wheel, class/race casters) since all share
+  `BeginCast -> CastRoutine`. Tap-casts keep the short wind-up (0.5 s) unchanged per the user's choice.
+- Docs: `PROGRESS.md` this section.
+### 1n-status
+- Source-compile verified by the semantic checker (0 diagnostics). Unity play-test pending: charge any
+  magic spell (staff fireball/wind-blade/Tornado) to ~50-100%, release → burst + bolt appear together
+  (no ~0.5 s / 0.8 s gap); tap-cast still shows the brief wind-up; FP cost / cooldown / charge-damage
+  math unchanged.
+
+---
+
+## 1v. Recent completed work (2026-09-12) — released the charge cap + real-time mana drain while charging
+User: "release the charge limit, and mana would decrease on realtime as player charge the spell." Magic
+spells now overcharge past the old 2 s / level-1 ceiling while the focus pool lasts, and FP drains
+continuously every aim frame instead of being spent all at once.
+- **Charge cap released (magic only).** `PlayerController`: the magic aim branch grows `_chargeAccum`
+  unbounded while RMB is held and FP > 0; new `SpellChargeLevel(hold)` = same ramp as the capped
+  `MagicChargeLevel` but with no `Clamp01`, so level 1+ keeps scaling power/size/cost. Ranged draws keep
+  the 2 s cap (`MagicChargeMaxTime`); the HUD bar and weapon anim stay clamped (represent the "readable"
+  band).
+- **Real-time FP drain.** Each aim frame: `drain = spell.FpCost × ChargeFpCostBonus × level ×
+  FpChargeDrainRate × Δt`, capped at current FP, spent via `SpellCaster.TrySpendFocus` (also stays the
+  regen delay), accumulated into `_chargeDrained` (reset on aim start / cancel / release). Charge growth
+  **freezes when the pool hits 0** — releasing still fires at the level already paid (never a dud).
+- **Prepaid settlement / single cost authority.** `SpellCaster.BeginCast(…, charge, prepaidFocus)`
+  spends only `max(0, fpCost − prepaid)` and clamps the charge to what `prepaid + CurrentFp` can cover.
+  To keep that coherent, the wheel-cast flat `SkillCost` spend is skipped for `SpellCastEffect` skills in
+  `SkillProfile.ExecuteCharged` (drop the `Clamp01` on charge there too) — which also **fixes a
+  pre-existing double-spend** (tap-cast cost 2× `FpCost` before; now exactly `FpCost`, full charge
+  1.6× `FpCost` as documented). New `SkillContext.PrepaidFocus`; threaded through
+  `MagicWheelUI.ReleaseArmedCast` and `SpellCastEffect.Execute`.
+- Docs: `PROGRESS.md` this section.
+### 1v-status
+- Source-compile verified by the semantic checker (0 diagnostics). Unity play-test pending:
+  - Hold RMB + LMB on an armed spell past full charge → FP bar ticks down in real time, casting
+    circle / AoE marker keep growing past the old cap, charge stalls at empty FP.
+  - Release → burst ring + delivery still land together (1n behavior kept), costs follow
+    `FpCost × (1 + 0.6 × level)`.
+  - Tap-cast (no hold) → costs exactly `FpCost`, resolves instantly now (cast wind-up removed, see 1w).
+  - Cancelling a charge (weapon switch / mount / UI) discards the drained FP — deliberate.
+  - Ranged (bow/throwing hammer) draw unchanged.
+
+---
+
+## 1w. Recent completed work (2026-09-12) — magic spam casts instant, FP-only, no more ring-without-bolt
+User: "when the player click to spam magic multiple time the magic effect still play but the projectile
+did not spawn." Root cause: the local release FX (`BurstCastingCircle` + ring) ran in `PlayerController`
+*before* `ReleaseArmedCast`, so a cast rejected downstream (per-spell `SpellData.Cooldown` 4-10 s, the
+profile `SkillCost.Cooldown` 2 s gate, or an empty FP pool) still played the ring while no bolt flew —
+`ReleaseArmedCast` also returned `true` unconditionally, hiding the reject.
+- **FP-only limiter (no magic cooldown).** `SpellCaster.BeginCast(…, fast: true)` skips the `IsReady`
+  cooldown gate entirely and `CastRoutine` never writes `_cooldowns` on fast casts; `SkillProfile.
+  ExecuteCharged` routes `SpellCastEffect` skills straight to `BeginCast(…, fast: true)` (skipping the
+  profile's flat cost + 2 s cooldown gates). The equipped spell's FP cost + the real-time charge drain
+  are the only limiter — every click casts as long as mana holds. Non-magic skills, class/race spells
+  and magic weapon arts keep their `fast=false` behavior (cast time + cooldown) unchanged.
+- **Instant tap-casts (wind-up removed).** The `CastRoutine` wait is fully skipped for fast casts, so
+  both charged releases (1n) and plain taps resolve the bolt on the same frame the click releases.
+- **True cast result + no phantom FX.** `MagicWheelUI.ReleaseArmedCast` propagates `ExecuteCharged`'s
+  result (now the real `BeginCast` bool for magic), and `PlayerController` only plays
+  `BurstCastingCircle` / locks the AoE preview when the cast actually began; a rejected cast (empty
+  pool) hides the circle/preview silently instead of fake-firing.
+- Docs: `PROGRESS.md` this section.
+### 1w-status
+- Source-compile verified by the semantic checker (0 diagnostics). Unity play-test pending:
+  - Spam-click fireball/wind-blade → a bolt spawns on every click, instantly, until FP runs out; no
+    ring flashes without a bolt; no wind-up delay.
+  - Charged casts still land instantly on release (1n) with overcharge drain intact (1v).
+  - Magic weapon Arts (staff Art), class/race spells and ranged weapons keep their cast time/cooldown.
+  - Consequence to confirm: spell-cooldown stats/passives (Int `CooldownMul`, Mage/Enchanter arcane
+    timing) no longer affect wheel-cast magic.
+  - Charge bar now overflows past 100% during overcharge (magic only): `MagicChargeProgress` reports
+    the uncapped `SpellChargeLevel` for armed magic, and `PlayerBarsHUD` scales the left-anchored fill
+    by `level` so it grows past the track end; the % label climbs past 100. Ranged draw stays capped
+    at 100%.
+
+---
+
 ## 1o. Recent completed work (2026-09-12) — sword/shield defense animation + permanent-arm-corruption fix
 User: "the sword and shield should have 2 set of animation for attack and defense… it only don't have
 animation for that", then "if the player spam attack continuously the model might be bug and got
@@ -42,7 +173,9 @@ stuck so `PlayerAnimator` never restored the arms; plus attck/sway "rest" was ca
      sway; blocked hits keep the guard until stamina breaks (then it drops).
   3. Fists/gauntlets boxer guard; greatsword two-hand cover; guard dropped cleanly on sheathe, and
      re-raised after re-draw while RMB still held.
-- Worktree remains uncommitted (candidate commits: guard+anim fix, plus the earlier pending ones).
+- **Committed + pushed** with the rest of the session's work — 5 commits (`0063afd..cc3e787`, origin/main):
+  `b6ff2ba` feat magic redesign · `9c44ea7` ui magic wheel circles · `ea56467` ui skill tree zoom/labels ·
+  `eb9feaa` fix weapons-only start bag · `cc3e787` feat guard animation + arm-leak fix. Worktree clean.
 
 ---
 

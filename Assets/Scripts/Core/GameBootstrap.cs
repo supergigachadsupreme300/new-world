@@ -51,6 +51,7 @@ public class GameBootstrap : MonoBehaviour
         var fishingProgression = Object.FindAnyObjectByType<FishingProgression>() ?? root.AddComponent<FishingProgression>();
         var chestStorageManager = Object.FindAnyObjectByType<ChestStorageManager>() ?? root.AddComponent<ChestStorageManager>();
         var typingMinigame = Object.FindAnyObjectByType<TypingMinigame>() ?? root.AddComponent<TypingMinigame>();
+        var farmingManager = Object.FindAnyObjectByType<FarmingManager>() ?? root.AddComponent<FarmingManager>();
 
         gameManager.UIManager = uiManager;
         gameManager.WorldBuilder = worldBuilder;
@@ -84,7 +85,7 @@ public class GameBootstrap : MonoBehaviour
         if (worldStreamer.RenderDistance == null)
         {
             var rd = ScriptableObject.CreateInstance<RenderDistanceController>();
-            rd.Radius = 3;
+            rd.Radius = 5;
             rd.MaxRadius = 160;
             worldStreamer.RenderDistance = rd;
         }
@@ -97,16 +98,13 @@ public class GameBootstrap : MonoBehaviour
             worldStreamer.GroundMaterial = mat;
         }
 
-        // Generate spawn terrain synchronously so the player has ground to land on
-        // before the first frame. Player spawns at (0, 2, -10).
+        // Generate ONLY the spawn chunk synchronously so the player has ground to land on before
+        // the first frame; the surrounding chunks build in the background from frame 1 (the chunk
+        // pipeline + ChunksPerFrame budget fills the render radius over ~1.5s). The player actually
+        // spawns on the TestGround platform, so the brief neighbor-chunk fill-in is not visible.
+        // Player spawns at (0, 2, -10).
         TerrainChunkCoord spawnChunk = TerrainChunkCoord.FromTile(new ChunkCoord(0, -10));
-        for (int dz = -1; dz <= 1; dz++)
-        {
-            for (int dx = -1; dx <= 1; dx++)
-            {
-                worldStreamer.GenerateChunkSync(new TerrainChunkCoord(spawnChunk.X + dx, spawnChunk.Z + dz));
-            }
-        }
+        worldStreamer.GenerateChunkSync(spawnChunk);
 
         worldStreamer.SetFocus(playerController != null ? playerController.transform : null);
 

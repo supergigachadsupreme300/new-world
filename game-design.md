@@ -458,6 +458,31 @@ Weapons are built on a **4-category base — Melee, Ranged, Magic, Shield** — 
 - Hand/wielding integration (§5.5): the equipped hand slots hold `WeaponData`; the categories of equipped weapons determine which behaviors are active. Wielding states modulate Str requirement as specified.
 - Ranged ammo ties into the Inventory/consumables system.
 
+#### Visuals — attack + defense animation sets
+
+Melee and shield weapons ship **two animation sets each**: an attack swing set and a defense guard
+hold. Both live in `WeaponAnimator` (mounted on each weapon rig by `WeaponRigBuilder`) as
+keyframed pose tracks driving the arm pivots — "the animation pack lives on the weapon".
+
+- **Attack set** — the windup → strike → recover limb pose-tracks per weapon (slash / jab / bash
+  chains, e.g. the sword's 4-swing set, the shield's bash set). The arms are owned during the swing
+  (`PlayerAnimator.SuppressArms`) and restored to rest on recovery.
+- **Defense set (guard)** — holding RMB (block) eases the arms into a held guard pose
+  (`PlayGuard` / `EndGuard`, ~0.18 s grab-in) that stays raised while blocking:
+  - **Shields** raise the shield face up in front — the cover stance.
+  - **One-hand blades** (sword/dagger) tuck a defensive guard before the chest.
+  - **Two-handers** (greatsword/warhammer/greataxe/katana/lance) raise the weapon in a two-hand cover.
+  - **Fists/gauntlets** hold a boxer guard. The off-hand mirrors automatically.
+  - **Magic/ranged** never block (their RMB is charge/draw) and fall back to neutral.
+  `CombatController.SetBlocking` raises/drops the guard on the state edge only, and `CanKeepBlocking`
+  drops it on sheathe/stow so the guard pose never fights the stow idle; a stamina-break on a
+  blocked hit drops it too.
+- **Robustness** — `WeaponAnimator` is a **single-owner phase machine** (attack / charge / guard /
+  ready-sway; each phase owns the arms exactly once and releases on `End`/`OnDisable`), and the arm
+  rest is always the model's local identity. Rapid attack spam, charge-cancel, and guard→attack
+  juggling can never leak arm ownership or bake an altered pose into the model; a `PlayerAnimator`
+  watchdog force-releases a hung arm-owner claim as a backstop.
+
 ### 3.7 Damage & Status Types
 
 All damage is one of **10 damage types**. Every weapon, spell, and ability declares a **single `DamageType`** (per the single-element rule in §3.6); armor/gear provides resistance per type (equipment-only rule, §3.4). The `DamageCalculator` resolves the attacker's type against the target's resistance.
@@ -510,7 +535,7 @@ A spell is a data asset carrying:
 - `DamageType` (one of the 10 damage types, §3.7) — or **none** for pure utility/heal spells
 - base power
 - **FP cost**, **cast time**, **cooldown**
-- range, area/radius, delivery: projectile / instant / zone / **vortex** (persistent damage-zone that pulls, e.g. the Tornado wind spell)
+- range, area/radius, delivery: projectile / instant / zone / **vortex** (persistent damage-zone that pulls, e.g. the Tornado wind spell) / **beam** / **summon** / **storm** (see §3.8.1 Delivery Behaviors)
 - **duration** (zone/vortex lifetime; `> 0` makes the zone **persistent**, ticked by `SpellZone.cs`)
 - **heals** (Holy/utility spells: instant/self-heal, or an ally-heal aura when on a zone; only `IHealable` targets — the player — are ever healed, enemies still take damage)
 - **knockback** (impulse applied to enemies; the Wind school signature)
@@ -520,6 +545,28 @@ A spell is a data asset carrying:
 Persistent zones are handled by the unified **`SpellZone`** (tick damage scaled by a per-delivery
 multiplier — Zone ×0.4, Vortex ×1.0 — optional pull, plus Holy ally-healing of `IHealable` inside
 per tick); it replaces the former one-off `WindVortex`.
+
+#### §3.8.1 Delivery Behaviors
+
+Beyond the core projectile / instant / zone / vortex, spells use three richer deliveries so spells in
+a school read distinctly instead of feeling like copies:
+
+- **Beam** — a channeled ray from the caster to the aim point. The cast **fires on the normal cast
+  release** (LMB-up at the frozen charge level, §3.8); **holding LMB keeps the beam on while
+  `ChannelDrainPerSecond` FP drains in real time** (via `TrySpendFocus` — a rejected spend ends the
+  beam). Each `TickInterval` (default 0.5 s) it ticks damage (or healing for `heals` spells) to
+  everything inside the beam capsule caster→aim. A short release-grace (~0.4 s) lets a sloppy release
+  keep the ray a moment; on mobile / no-mouse the beam auto-sustains ~1.6 s. While channeling, LMB is
+  consumed by the sustain (`IsChanneling` guard) so the beam can't be re-aimed or switched to melee.
+  Examples: Searing Ray, Arc Storm, Beacon (heal), Hunger, Cold Stare, Storm Breath.
+- **Summon** — ground-targeted (shows the AoE preview ring). **Damage** summons are persistent
+  **turrets** that repeatedly fire bolts at the nearest enemy (`BoltPowerMultiplier` ×0.6, reusing the
+  projectile flight); **`heals`** summons are standing **heal auras** mending `IHealable` allies inside
+  (enemies still take damage). Examples: Frost Obelisk, Shadow Totem, Arcane Rune, Healing Shrine,
+  Ember Effigy, Gust Totem.
+- **Storm** — a persistent ground zone that **strikes repeatedly** while it lasts: `StrikesPerTick`
+  (2) bolts per tick at `StrikePowerMultiplier` ×0.8 with randomized sub-second delays, element-styled
+  visuals (e.g. crossed bolt bars on Lightning). Examples: Thunderstorm, Meteor Rain, Blizzard, Eclipse.
 
 #### Casting Flow
 
@@ -803,6 +850,8 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
 - **1–0** hotbar — mobile touch support included.
 - **Fighting mode** (weapon drawn): **LMB** attack / begin a magic aim · **RMB** block (melee **or** shield) or
   charge/draw (magic/ranged) · release **LMB** fires at the frozen charge level.
+  **Beam spells** keep firing but **holding LMB extends the beam** and drains FP per second — releasing
+  ends the channel early (see §3.8.1).
   **Dual-wield (both hands hold real weapons):** the buttons split per hand instead —
   **LMB → one hand, RMB → the other** (`PlayerController.HandleDualModeCombat`, §5.4):
   - **Same-side** by default: **LMB = left-hand weapon**, **RMB = right-hand weapon**.

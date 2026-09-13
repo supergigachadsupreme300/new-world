@@ -4,7 +4,7 @@ public static partial class SkillCatalog
 {
     private static void RegisterMagicDesign(DesignBank bank)
     {
-        /* ──────────────── L1 (30 slots — 6 roots × 5 children each) ──────────────── */
+        /* ──────────────── L1 (7 roots; 6 full + Lightning's own school) ──────────────── */
 
         // Root: magic_focus (passive, Intelligence+3)
         bank.L1["magic_focus"] = new BranchSlot[]
@@ -29,7 +29,6 @@ public static partial class SkillCatalog
         // Root: magic_fireball (active, Focus 15, projectile fire)
         bank.L1["magic_fireball"] = new BranchSlot[]
         {
-            A("magic_chain"),
             S("magic_fireball_meteor", "Meteor", Spell("magic_fireball_meteor_spell", "Meteor", DamageType.Fire, 30f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, knockback: 1.5f), "A burning meteor falls from the sky, scattering the blast.", Focus(22f), DamageType.Fire, true),
             S("magic_fireball_inferno", "Inferno", Spell("magic_fireball_inferno_spell", "Inferno", DamageType.Fire, 32f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.4f, statusEffect: StatusEffectType.Burn), "An expanding ring of fire that scorches all it touches.", Focus(24f), DamageType.Fire, true),
             S("magic_fireball_ember", "Embermind", Buff(StatType.Intelligence, 3f), "Permanent +3 Intelligence.", passive: true),
@@ -60,10 +59,20 @@ public static partial class SkillCatalog
         bank.L1["magic_gust"] = new BranchSlot[]
         {
             A("magic_windblade"),
-            S("magic_gust_stormbreath", "Storm Breath", Spell("magic_gust_stormbreath_spell", "Storm Breath", DamageType.Wind, 26f, 16f, SpellDelivery.Zone, 4f, deliveryRadius: 3f, knockback: 2f), "A howling breath of storm wind that drives foes back.", Focus(16f), DamageType.Wind, true),
+            S("magic_gust_stormbreath", "Storm Breath", Spell("magic_gust_stormbreath_spell", "Storm Breath", DamageType.Wind, 26f, 16f, SpellDelivery.Beam, 4f, deliveryRange: 10f, deliveryRadius: 1.6f, knockback: 2f, channelDrainPerSecond: 8f), "A howling breath of storm wind — hold it to drive foes back.", Focus(16f), DamageType.Wind, true),
             S("magic_gust_cyclone", "Cyclone", Spell("magic_gust_cyclone_spell", "Cyclone", DamageType.Wind, 30f, 20f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, knockback: 2.5f), "A spinning cyclone that scatters foes.", Focus(20f), DamageType.Wind, true),
             S("magic_gust_airmastery", "Air Mastery", Buff(StatType.AttackSpeed, 3f), "Permanent +3 Attack Speed.", passive: true),
-            S("magic_gust_airburst", "Air Burst", Spell("magic_gust_airburst_spell", "Air Burst", DamageType.Wind, 24f, 14f, SpellDelivery.Zone, 3f, deliveryRadius: 2.4f, knockback: 2f), "A sudden detonation of air that hurls foes away.", Focus(14f), DamageType.Wind, true),
+            S("magic_gust_airburst", "Gust Totem", Spell("magic_gust_airburst_spell", "Gust Totem", DamageType.Wind, 24f, 14f, SpellDelivery.Summon, 3f, deliveryRange: 8f, deliveryRadius: 5.5f, duration: 6f, projectileSpeed: 20f), "Summon a wind totem that blasts nearby foes with gales.", Focus(14f), DamageType.Wind, true),
+        };
+
+        // Root: magic_lightning (passive, Intelligence+3) — Lightning is its own school.
+        bank.L1["magic_lightning"] = new BranchSlot[]
+        {
+            A("magic_chain"),
+            S("magic_lightning_volt", "Volt", Spell("magic_lightning_volt_spell", "Volt", DamageType.Lightning, 26f, 16f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Stagger), "A jolting bolt that staggers on impact.", Focus(16f), DamageType.Lightning, true),
+            S("magic_lightning_storm", "Stormcall", Spell("magic_lightning_storm_spell", "Stormcall", DamageType.Lightning, 32f, 24f, SpellDelivery.Storm, 7f, deliveryRange: 10f, deliveryRadius: 3.2f, duration: 3.5f, statusEffect: StatusEffectType.Stagger), "Call lightning down in a storm over the target.", Focus(24f), DamageType.Lightning, true),
+            S("magic_lightning_charge", "Deep Charge", Buff(StatType.Intelligence, 3f), "Permanent +3 Intelligence.", passive: true),
+            S("magic_lightning_fury", "Sky Fury", Spell("magic_lightning_fury_spell", "Sky Fury", DamageType.Lightning, 30f, 20f, SpellDelivery.Beam, 5f, deliveryRange: 13f, deliveryRadius: 1.2f, statusEffect: StatusEffectType.Stagger, channelDrainPerSecond: 9f), "Hold a crackling sky-fury that staggers everything in its path.", Focus(20f), DamageType.Lightning, true),
         };
 
         /* ──────────────── L2 (150 slots — 30 L1 parents × 5 children each) ──────────────── */
@@ -72,7 +81,7 @@ public static partial class SkillCatalog
         bank.L2["magic_heal"] = new BranchSlot[]
         {
             S("magic_heal_greater", "Greater Heal", Spell("magic_heal_greater_spell", "Greater Heal", DamageType.Holy, 28f, 20f, SpellDelivery.Instant, 0f, heals: true), "A powerful surge of healing.", Focus(20f), DamageType.Holy, true),
-            S("magic_heal_light", "Light's Embrace", Spell("magic_heal_light_spell", "Light's Embrace", DamageType.Holy, 22f, 16f, SpellDelivery.Zone, 4f, deliveryRadius: 2f, heals: true), "A warm embrace of healing light.", Focus(16f), DamageType.Holy, true),
+            S("magic_heal_light", "Healing Shrine", Spell("magic_heal_light_spell", "Healing Shrine", DamageType.Holy, 22f, 16f, SpellDelivery.Summon, 4f, deliveryRange: 6f, deliveryRadius: 4f, duration: 8f, heals: true), "Summon a shrine of light that mends allies within its glow.", Focus(16f), DamageType.Holy, true),
             S("magic_heal_bless", "Blessing", Buff(StatType.Faith, 5f), "Permanent +5 Faith.", passive: true),
             S("magic_heal_purify", "Purify", Spell("magic_heal_purify_spell", "Purify", DamageType.Holy, 24f, 16f, SpellDelivery.Zone, 4f, deliveryRadius: 2.2f, heals: true), "A holy wave that cleanses and mends.", Focus(16f), DamageType.Holy, true),
             S("magic_heal_mend", "Mending Light", Spell("magic_heal_mend_spell", "Mending Light", DamageType.Holy, 20f, 12f, SpellDelivery.Instant, 0f, heals: true), "A steady light that knits wounds.", Focus(12f), DamageType.Holy, true),
@@ -91,7 +100,7 @@ public static partial class SkillCatalog
         /* magic_ward children */
         bank.L2["magic_ward"] = new BranchSlot[]
         {
-            S("magic_ward_aegis", "Aegis", Spell("magic_ward_aegis_spell", "Aegis", DamageType.Arcane, 20f, 16f, SpellDelivery.Zone, 5f, deliveryRadius: 2.6f), "A protective shell of arcane force.", Focus(16f), DamageType.Arcane, true),
+            S("magic_ward_aegis", "Arcane Rune", Spell("magic_ward_aegis_spell", "Arcane Rune", DamageType.Arcane, 20f, 16f, SpellDelivery.Summon, 5f, deliveryRange: 8f, deliveryRadius: 5f, duration: 5f, projectileSpeed: 18f), "Summon a guardian rune ward that fires arcane missiles at foes.", Focus(16f), DamageType.Arcane, true),
             S("magic_ward_barrier", "Arcane Barrier", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
             S("magic_ward_bulwark", "Ward Bulwark", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
             S("magic_ward_reflect", "Reflect", Spell("magic_ward_reflect_spell", "Reflect", DamageType.Arcane, 22f, 14f, SpellDelivery.Zone, 4f, deliveryRadius: 2f), "An arcane shell that punishes attackers.", Focus(14f), DamageType.Arcane, true),
@@ -102,10 +111,50 @@ public static partial class SkillCatalog
         bank.L2["magic_chain"] = new BranchSlot[]
         {
             S("magic_chain_fork", "Fork Bolt", Spell("magic_chain_fork_spell", "Fork Bolt", DamageType.Lightning, 32f, 20f, SpellDelivery.Projectile, 5f, statusEffect: StatusEffectType.Stagger), "A bolt that forks into many and staggers.", Focus(20f), DamageType.Lightning, true),
-            S("magic_chain_arc", "Arc Storm", Spell("magic_chain_arc_spell", "Arc Storm", DamageType.Lightning, 34f, 24f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, statusEffect: StatusEffectType.Stagger), "A storm of arcing electricity that shocks foes still.", Focus(24f), DamageType.Lightning, true),
+            S("magic_chain_arc", "Arc Storm", Spell("magic_chain_arc_spell", "Arc Storm", DamageType.Lightning, 34f, 24f, SpellDelivery.Beam, 6f, deliveryRange: 14f, deliveryRadius: 1.1f, statusEffect: StatusEffectType.Stagger, channelDrainPerSecond: 10f), "Hold a crackling arc across foes, staggering everything it passes.", Focus(24f), DamageType.Lightning, true),
             S("magic_chain_static", "Static Field", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
-            S("magic_chain_overload", "Overload", Spell("magic_chain_overload_spell", "Overload", DamageType.Lightning, 36f, 26f, SpellDelivery.Zone, 7f, deliveryRadius: 2.8f, statusEffect: StatusEffectType.Stagger), "A burst of overcharged lightning that stuns.", Focus(26f), DamageType.Lightning, true),
+            S("magic_chain_overload", "Thunderstorm", Spell("magic_chain_overload_spell", "Thunderstorm", DamageType.Lightning, 36f, 26f, SpellDelivery.Storm, 7f, deliveryRange: 9f, deliveryRadius: 3f, duration: 3f, statusEffect: StatusEffectType.Stagger), "Summon a thunderstorm that repeatedly strikes foes with lightning.", Focus(26f), DamageType.Lightning, true),
             S("magic_chain_leap", "Leap Bolt", Spell("magic_chain_leap_spell", "Leap Bolt", DamageType.Lightning, 30f, 18f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Stagger), "A bolt that leaps from target to target, buzzing.", Focus(18f), DamageType.Lightning, true),
+        };
+
+        /* magic_lightning_volt children */
+        bank.L2["magic_lightning_volt"] = new BranchSlot[]
+        {
+            S("magic_lightning_volt_arc", "Arc Volley", Spell("magic_lightning_volt_arc_spell", "Arc Volley", DamageType.Lightning, 30f, 18f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Stagger), "A volley of crackling bolts.", Focus(18f), DamageType.Lightning, true),
+            S("magic_lightning_volt_spark", "Volt Spark", Spell("magic_lightning_volt_spark_spell", "Volt Spark", DamageType.Lightning, 26f, 14f, SpellDelivery.Projectile, 3f, statusEffect: StatusEffectType.Stagger), "A quick jolting spark that staggers.", Focus(14f), DamageType.Lightning, true),
+            S("magic_lightning_volt_potential", "High Potential", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
+            S("magic_lightning_volt_bolt", "Volt Bolt", Spell("magic_lightning_volt_bolt_spell", "Volt Bolt", DamageType.Lightning, 32f, 20f, SpellDelivery.Projectile, 5f, statusEffect: StatusEffectType.Stagger), "A heavy bolt charged with static.", Focus(20f), DamageType.Lightning, true),
+            S("magic_lightning_volt_charge", "Static Coil", Spell("magic_lightning_volt_charge_spell", "Static Coil", DamageType.Lightning, 28f, 16f, SpellDelivery.Zone, 4f, deliveryRadius: 2.2f, statusEffect: StatusEffectType.Stagger), "A coil of static that staggers all it touches.", Focus(16f), DamageType.Lightning, true),
+        };
+
+        /* magic_lightning_storm children */
+        bank.L2["magic_lightning_storm"] = new BranchSlot[]
+        {
+            S("magic_lightning_storm_rain", "Storm Rain", Spell("magic_lightning_storm_rain_spell", "Storm Rain", DamageType.Lightning, 36f, 26f, SpellDelivery.Storm, 7f, deliveryRange: 10f, deliveryRadius: 3.4f, duration: 3.5f, statusEffect: StatusEffectType.Stagger), "A relentless storm that lashes the whole area.", Focus(26f), DamageType.Lightning, true),
+            S("magic_lightning_storm_eye", "Storm Sight", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
+            S("magic_lightning_storm_pulse", "Storm Pulse", Spell("magic_lightning_storm_pulse_spell", "Storm Pulse", DamageType.Lightning, 30f, 20f, SpellDelivery.Beam, 5f, deliveryRange: 12f, deliveryRadius: 1.4f, statusEffect: StatusEffectType.Stagger, channelDrainPerSecond: 9f), "Hold a pulsing storm beam that staggers everything it crosses.", Focus(20f), DamageType.Lightning, true),
+            S("magic_lightning_storm_wrack", "Stormwrack", Spell("magic_lightning_storm_wrack_spell", "Stormwrack", DamageType.Lightning, 34f, 24f, SpellDelivery.Zone, 6f, deliveryRadius: 2.8f, statusEffect: StatusEffectType.Stagger), "A crackling wrack that staggers all nearby foes.", Focus(24f), DamageType.Lightning, true),
+            S("magic_lightning_storm_will", "Storm Will", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
+        };
+
+        /* magic_lightning_charge children (all passive) */
+        bank.L2["magic_lightning_charge"] = new BranchSlot[]
+        {
+            S("magic_lightning_charge_amp", "Amp", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
+            S("magic_lightning_charge_volt", "Volt Mind", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
+            S("magic_lightning_charge_energy", "Energy", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
+            S("magic_lightning_charge_conduit", "True Conduit", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
+            S("magic_lightning_charge_heart", "Storm Heart", Buff(StatType.Faith, 5f), "Permanent +5 Faith.", passive: true),
+        };
+
+        /* magic_lightning_fury children */
+        bank.L2["magic_lightning_fury"] = new BranchSlot[]
+        {
+            S("magic_lightning_fury_bolt", "Fury Bolt", Spell("magic_lightning_fury_bolt_spell", "Fury Bolt", DamageType.Lightning, 34f, 22f, SpellDelivery.Projectile, 5f, statusEffect: StatusEffectType.Stagger), "A bolt with the fury of the sky.", Focus(22f), DamageType.Lightning, true),
+            S("magic_lightning_fury_beam", "Sky Beam", Spell("magic_lightning_fury_beam_spell", "Sky Beam", DamageType.Lightning, 36f, 24f, SpellDelivery.Beam, 6f, deliveryRange: 14f, deliveryRadius: 1.3f, statusEffect: StatusEffectType.Stagger, channelDrainPerSecond: 10f), "A furious beam from above — hold it to sear the whole line.", Focus(24f), DamageType.Lightning, true),
+            S("magic_lightning_fury_rage", "Stormsurge", Buff(StatType.AttackSpeed, 5f), "Permanent +5 Attack Speed.", passive: true),
+            S("magic_lightning_fury_devastation", "Devastation", Spell("magic_lightning_fury_devastation_spell", "Devastation", DamageType.Lightning, 38f, 28f, SpellDelivery.Storm, 8f, deliveryRange: 10f, deliveryRadius: 3.6f, duration: 3.5f, statusEffect: StatusEffectType.Stagger), "A devastating sky-fury that batters the area.", Focus(28f), DamageType.Lightning, true),
+            S("magic_lightning_fury_tempest", "Lightning Tempest", Spell("magic_lightning_fury_tempest_spell", "Lightning Tempest", DamageType.Lightning, 30f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 2.6f, statusEffect: StatusEffectType.Stagger), "A furious field of crackling might.", Focus(20f), DamageType.Lightning, true),
         };
 
         /* magic_windblade children */
@@ -132,7 +181,7 @@ public static partial class SkillCatalog
         bank.L2["magic_focus_holylight"] = new BranchSlot[]
         {
             S("magic_focus_holylight_radiance", "Radiance", Spell("magic_focus_holylight_radiance_spell", "Radiance", DamageType.Holy, 28f, 18f, SpellDelivery.Zone, 5f, deliveryRadius: 2.8f, heals: true), "A blinding burst of holy radiance that sears foes and mends allies.", Focus(18f), DamageType.Holy, true),
-            S("magic_focus_holylight_beacon", "Beacon", Spell("magic_focus_holylight_beacon_spell", "Beacon", DamageType.Holy, 26f, 16f, SpellDelivery.Zone, 4f, deliveryRadius: 2.4f, heals: true), "A tower of holy light that heals all beneath it.", Focus(16f), DamageType.Holy, true),
+            S("magic_focus_holylight_beacon", "Beacon", Spell("magic_focus_holylight_beacon_spell", "Beacon", DamageType.Holy, 26f, 16f, SpellDelivery.Beam, 4f, deliveryRange: 12f, deliveryRadius: 1.5f, heals: true, channelDrainPerSecond: 7f), "A tower of holy light — hold it over enemies to sear them and over allies to mend them.", Focus(16f), DamageType.Holy, true),
             S("magic_focus_holylight_glory", "Glory", Buff(StatType.Faith, 5f), "Permanent +5 Faith.", passive: true),
             S("magic_focus_holylight_sunburst", "Sunburst", Spell("magic_focus_holylight_sunburst_spell", "Sunburst", DamageType.Holy, 30f, 20f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, heals: true), "A sun-bright explosion that wounds the wicked and heals the faithful.", Focus(20f), DamageType.Holy, true),
             S("magic_focus_holylight_illum", "Illumination", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
@@ -191,11 +240,11 @@ public static partial class SkillCatalog
         /* magic_fireball_meteor children */
         bank.L2["magic_fireball_meteor"] = new BranchSlot[]
         {
-            S("magic_fireball_meteor_rain", "Meteor Rain", Spell("magic_fireball_meteor_rain_spell", "Meteor Rain", DamageType.Fire, 36f, 26f, SpellDelivery.Zone, 8f, deliveryRadius: 3.6f), "A barrage of falling meteors.", Focus(26f), DamageType.Fire, true),
+            S("magic_fireball_meteor_rain", "Meteor Rain", Spell("magic_fireball_meteor_rain_spell", "Meteor Rain", DamageType.Fire, 36f, 26f, SpellDelivery.Storm, 8f, deliveryRange: 10f, deliveryRadius: 3.6f, duration: 3.5f), "A storm of falling meteors that bombards the area.", Focus(26f), DamageType.Fire, true),
             S("magic_fireball_meteor_comet", "Comet", Spell("magic_fireball_meteor_comet_spell", "Comet", DamageType.Fire, 34f, 24f, SpellDelivery.Projectile, 6f), "A swift streak of burning light.", Focus(24f), DamageType.Fire, true),
             S("magic_fireball_meteor_impact", "Impact", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
             S("magic_fireball_meteor_astroid", "Asteroid", Spell("magic_fireball_meteor_astroid_spell", "Asteroid", DamageType.Fire, 40f, 30f, SpellDelivery.Zone, 9f, deliveryRadius: 3.6f), "A colossal mass of burning rock.", Focus(30f), DamageType.Fire, true),
-            S("magic_fireball_meteor_ember", "Emberfall", Spell("magic_fireball_meteor_ember_spell", "Emberfall", DamageType.Fire, 30f, 20f, SpellDelivery.Zone, 6f, deliveryRadius: 3f), "A cascade of burning embers.", Focus(20f), DamageType.Fire, true),
+            S("magic_fireball_meteor_ember", "Ember Effigy", Spell("magic_fireball_meteor_ember_spell", "Ember Effigy", DamageType.Fire, 30f, 20f, SpellDelivery.Summon, 6f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, statusEffect: StatusEffectType.Burn, projectileSpeed: 18f), "Summon a burning effigy that hurls embers at nearby foes.", Focus(20f), DamageType.Fire, true),
         };
 
         /* magic_fireball_inferno children */
@@ -224,7 +273,7 @@ public static partial class SkillCatalog
             S("magic_fireball_scorch_burn", "Burn", Spell("magic_fireball_scorch_burn_spell", "Burn", DamageType.Fire, 30f, 18f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Burn), "A searing burn that lingers long after impact.", Focus(18f), DamageType.Fire, true),
             S("magic_fireball_scorch_ignite", "Ignite", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
             S("magic_fireball_scorch_flash", "Flash Fire", Spell("magic_fireball_scorch_flash_spell", "Flash Fire", DamageType.Fire, 32f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 2.2f), "A swift flash of scorching fire.", Focus(20f), DamageType.Fire, true),
-            S("magic_fireball_scorch_searing", "Searing Ray", Spell("magic_fireball_scorch_searing_spell", "Searing Ray", DamageType.Fire, 34f, 22f, SpellDelivery.Projectile, 5f), "A narrow beam of searing heat.", Focus(22f), DamageType.Fire, true),
+            S("magic_fireball_scorch_searing", "Searing Ray", Spell("magic_fireball_scorch_searing_spell", "Searing Ray", DamageType.Fire, 34f, 22f, SpellDelivery.Beam, 5f, deliveryRange: 13f, deliveryRadius: 1.3f, statusEffect: StatusEffectType.Burn, channelDrainPerSecond: 9f), "A narrow beam of searing heat — hold it over foes, burning the whole line.", Focus(22f), DamageType.Fire, true),
             S("magic_fireball_scorch_heat", "Radiant Heat", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
         };
 
@@ -261,7 +310,7 @@ public static partial class SkillCatalog
         /* magic_frostbolt_glacier children */
         bank.L2["magic_frostbolt_glacier"] = new BranchSlot[]
         {
-            S("magic_frostbolt_glacier_wall", "Glacier Wall", Spell("magic_frostbolt_glacier_wall_spell", "Glacier Wall", DamageType.Ice, 36f, 26f, SpellDelivery.Zone, 8f, deliveryRadius: 3.4f), "A colossal wall of glacier ice.", Focus(26f), DamageType.Ice, true),
+            S("magic_frostbolt_glacier_wall", "Frost Obelisk", Spell("magic_frostbolt_glacier_wall_spell", "Frost Obelisk", DamageType.Ice, 36f, 26f, SpellDelivery.Summon, 8f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, statusEffect: StatusEffectType.Frost, projectileSpeed: 16f), "Summon a frozen obelisk that hurls frost bolts at nearby foes.", Focus(26f), DamageType.Ice, true),
             S("magic_frostbolt_glacier_surge", "Glacial Surge", Spell("magic_frostbolt_glacier_surge_spell", "Glacial Surge", DamageType.Ice, 40f, 30f, SpellDelivery.Zone, 9f, deliveryRadius: 3.8f), "A surge of suffocating cold.", Focus(30f), DamageType.Ice, true),
             S("magic_frostbolt_glacier_weight", "Glacial Weight", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
             S("magic_frostbolt_glacier_avalanche", "Avalanche", Spell("magic_frostbolt_glacier_avalanche_spell", "Avalanche", DamageType.Ice, 38f, 28f, SpellDelivery.Zone, 8f, deliveryRadius: 3.6f), "A cascading avalanche of ice.", Focus(28f), DamageType.Ice, true),
@@ -274,7 +323,7 @@ public static partial class SkillCatalog
             S("magic_frostbolt_chill_soul", "Chill Soul", Spell("magic_frostbolt_chill_soul_spell", "Chill Soul", DamageType.Ice, 30f, 18f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Frost), "A cold that seeps into the soul and slows it.", Focus(18f), DamageType.Ice, true),
             S("magic_frostbolt_chill_curse", "Frost Curse", Spell("magic_frostbolt_chill_curse_spell", "Frost Curse", DamageType.Ice, 28f, 16f, SpellDelivery.Zone, 4f, deliveryRadius: 2f), "A curse of creeping frost.", Focus(16f), DamageType.Ice, true),
             S("magic_frostbolt_chill_will", "Frost Will", Buff(StatType.Faith, 5f), "Permanent +5 Faith.", passive: true),
-            S("magic_frostbolt_chill_stare", "Cold Stare", Spell("magic_frostbolt_chill_stare_spell", "Cold Stare", DamageType.Ice, 26f, 14f, SpellDelivery.Projectile, 3f), "A gaze that freezes the heart.", Focus(14f), DamageType.Ice, true),
+            S("magic_frostbolt_chill_stare", "Cold Stare", Spell("magic_frostbolt_chill_stare_spell", "Cold Stare", DamageType.Ice, 26f, 14f, SpellDelivery.Beam, 3f, deliveryRange: 11f, deliveryRadius: 1f, statusEffect: StatusEffectType.Frost, channelDrainPerSecond: 7f), "A gaze of ice that freezes the heart — hold it to chill and slow.", Focus(14f), DamageType.Ice, true),
             S("magic_frostbolt_chill_hour", "Witching Chill", Spell("magic_frostbolt_chill_hour_spell", "Witching Chill", DamageType.Ice, 32f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 2.4f), "An unnatural hour of deep cold.", Focus(20f), DamageType.Ice, true),
         };
 
@@ -283,7 +332,7 @@ public static partial class SkillCatalog
         {
             S("magic_dark_shadowbolt_doom", "Doom Bolt", Spell("magic_dark_shadowbolt_doom_spell", "Doom Bolt", DamageType.Dark, 34f, 22f, SpellDelivery.Projectile, 5f), "A bolt of impending doom.", Focus(22f), DamageType.Dark, true),
             S("magic_dark_shadowbolt_gloom", "Gloom", Buff(StatType.Faith, 5f), "Permanent +5 Faith.", passive: true),
-            S("magic_dark_shadowbolt_pool", "Shadow Pool", Spell("magic_dark_shadowbolt_pool_spell", "Shadow Pool", DamageType.Dark, 32f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 2.6f), "A pool of writhing shadow.", Focus(20f), DamageType.Dark, true),
+            S("magic_dark_shadowbolt_pool", "Shadow Totem", Spell("magic_dark_shadowbolt_pool_spell", "Shadow Totem", DamageType.Dark, 32f, 20f, SpellDelivery.Summon, 5f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, statusEffect: StatusEffectType.Rot, projectileSpeed: 16f), "Summon a totem of writhing shadow that hunts foes with rotting bolts.", Focus(20f), DamageType.Dark, true),
             S("magic_dark_shadowbolt_spear", "Shadow Spear", Spell("magic_dark_shadowbolt_spear_spell", "Shadow Spear", DamageType.Dark, 36f, 24f, SpellDelivery.Projectile, 6f), "A spear of condensed darkness.", Focus(24f), DamageType.Dark, true),
             S("magic_dark_shadowbolt_tendrils", "Tendrils", Spell("magic_dark_shadowbolt_tendrils_spell", "Tendrils", DamageType.Dark, 30f, 18f, SpellDelivery.Zone, 4f, deliveryRadius: 2.4f), "Shadow tentacles lash all around.", Focus(18f), DamageType.Dark, true),
         };
@@ -315,13 +364,13 @@ public static partial class SkillCatalog
             S("magic_dark_devour_swallow", "Swallow", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
             S("magic_dark_devour_gullet", "Void Gullet", Spell("magic_dark_devour_gullet_spell", "Void Gullet", DamageType.Dark, 40f, 30f, SpellDelivery.Zone, 8f, deliveryRadius: 3f), "A gaping void that swallows foes.", Focus(30f), DamageType.Dark, true),
             S("magic_dark_devour_feast", "Dark Feast", Spell("magic_dark_devour_feast_spell", "Dark Feast", DamageType.Dark, 34f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 2.6f), "Darkness that feasts on the enemy.", Focus(22f), DamageType.Dark, true),
-            S("magic_dark_devour_hunger", "Hunger", Spell("magic_dark_devour_hunger_spell", "Hunger", DamageType.Dark, 30f, 18f, SpellDelivery.Projectile, 4f), "A hungry beam of darkness.", Focus(18f), DamageType.Dark, true),
+            S("magic_dark_devour_hunger", "Hunger", Spell("magic_dark_devour_hunger_spell", "Hunger", DamageType.Dark, 30f, 18f, SpellDelivery.Beam, 4f, deliveryRange: 11f, deliveryRadius: 1.1f, statusEffect: StatusEffectType.Rot, channelDrainPerSecond: 8f), "A hungry beam of darkness — hold it over foes, rotting the whole line.", Focus(18f), DamageType.Dark, true),
         };
 
         /* magic_dark_nightfall children */
         bank.L2["magic_dark_nightfall"] = new BranchSlot[]
         {
-            S("magic_dark_nightfall_eclipse", "Eclipse", Spell("magic_dark_nightfall_eclipse_spell", "Eclipse", DamageType.Dark, 38f, 28f, SpellDelivery.Zone, 8f, deliveryRadius: 3.4f), "The sky darkens into eclipse.", Focus(28f), DamageType.Dark, true),
+            S("magic_dark_nightfall_eclipse", "Eclipse", Spell("magic_dark_nightfall_eclipse_spell", "Eclipse", DamageType.Dark, 38f, 28f, SpellDelivery.Storm, 8f, deliveryRange: 9f, deliveryRadius: 3.4f, duration: 3f, statusEffect: StatusEffectType.Rot), "The sky darkens — shadow strikes rain down on the area.", Focus(28f), DamageType.Dark, true),
             S("magic_dark_nightfall_midnight", "Midnight", Buff(StatType.Faith, 6f), "Permanent +6 Faith.", passive: true),
             S("magic_dark_nightfall_enshroud", "Enshroud", Spell("magic_dark_nightfall_enshroud_spell", "Enshroud", DamageType.Dark, 34f, 24f, SpellDelivery.Zone, 6f, deliveryRadius: 3f), "Darkness enshrouds the area.", Focus(24f), DamageType.Dark, true),
             S("magic_dark_nightfall_veil", "Veil of Night", Spell("magic_dark_nightfall_veil_spell", "Veil of Night", DamageType.Dark, 30f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 2.6f), "A veil of impenetrable night.", Focus(20f), DamageType.Dark, true),

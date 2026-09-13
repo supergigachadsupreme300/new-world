@@ -109,7 +109,7 @@ public class FishingUI : MonoBehaviour
         stRect.pivot = new Vector2(0.5f, 0.5f);
         stRect.anchoredPosition = new Vector2(0f, barH + 50f);
         _statusText = stGo.AddComponent<TextMeshProUGUI>();
-        _statusText.font = Resources.Load<TMP_FontAsset>("VietPixel");
+        _statusText.font = UiAssetCache.DefaultFont;
         _statusText.fontSize = 22;
         _statusText.alignment = TextAlignmentOptions.Center;
         _statusText.color = Color.white;
