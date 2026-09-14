@@ -258,6 +258,9 @@ school bubbles).
 - No CLI build — code-review verified. Play-test pending: learn/arm Water ("Wet") and Earth (Tremor /
   Spire Field deform the ground) schools from the magic wheel; verify wet-target Ice/Lightning bonus
   and that deformed chunks persist after reload.
+- Compile-fix follow-up (2026-09-14, `ee3b97b`): `WorldStreamer.DeformAt`'s spike hash is now `int`
+  (bitwise `&` was illegal on `float`), and the unedited-corner fallback `CornerOrBase` is a non-static
+  method so it can call the instance `CurrentHeightOf`. No design change — pure compile fixes.
 
 ---
 
