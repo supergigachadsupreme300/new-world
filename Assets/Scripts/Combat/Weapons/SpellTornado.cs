@@ -34,7 +34,8 @@ public class SpellTornado : MonoBehaviour
         TickInterval = spell != null && spell.TickInterval > 0f ? spell.TickInterval : 0.5f;
 
         // Scale the environmental tornado's fields down to the spell's footprint so pulled
-        // objects don't ride up to the old 80-unit orbit height.
+        // objects don't ride up to the old 80-unit orbit height, and crank up the churn so the
+        // funnel visibly spins like the old tornado.
         var tb = GetComponent<TornadoBehavior>();
         if (tb != null)
         {
@@ -42,6 +43,16 @@ public class SpellTornado : MonoBehaviour
             tb.OrbitHeight = Mathf.Max(Radius * 1.6f, 4f);
             tb.PullForce = Mathf.Max(Radius * 0.8f, 2f);
             tb.MaxPullSpeed = Mathf.Max(Radius * 0.8f, 4f);
+            tb.BaseRotateSpeed = 70f;
+            tb.RotateSpeedVariation = 55f;
+            // Orbiting debris swirl (the old tornado's visible spin): a handful of small chunks
+            // that circle the funnel just above its base.
+            for (int d = 0; d < 12; d++)
+            {
+                float s = Random.Range(0.4f, 1.1f);
+                tb.AddDebrisBlock(new Vector3(s, Random.Range(0.3f, 0.8f), s), ColorPalette.StoneGray);
+            }
+            tb.AddDebrisBlock(new Vector3(0.9f, 0.5f, 0.9f), new Color(0.35f, 0.27f, 0.19f));
         }
 
         if (spell != null && Radius > 0f)

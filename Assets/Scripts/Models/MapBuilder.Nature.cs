@@ -434,7 +434,7 @@ public static partial class MapBuilder
             float width = (0.5f + t * 35f) * widthScale;
 
             var block = MakeBlock("Block" + i, root.transform,
-                new Vector3(width, blockHeight, width),
+                new Vector3(width, blockHeight, width * 1.55f),
                 new Vector3(0f, y, 0f), col, true);
             block.transform.localRotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f);
         }

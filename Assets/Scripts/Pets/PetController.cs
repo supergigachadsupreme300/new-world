@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class PetController : MonoBehaviour
+public class PetController : MonoBehaviour, ITornadoCarried
 {
     public float FollowSpeed = 2.5f;
     public float FollowDistance = 2.2f;
@@ -15,6 +15,10 @@ public class PetController : MonoBehaviour
     private Rigidbody _rb;
     private GameManager _gm;
     private static readonly Collider[] _enemyBuffer = new Collider[32];
+
+    /// <summary>True while a tornado carries this pet (see ITornadoCarried): the follow script
+    /// yields so the tornado's orbit pull isn't overwritten.</summary>
+    public bool TornadoCarried { get; set; }
 
     private void Awake()
     {
@@ -78,6 +82,9 @@ public class PetController : MonoBehaviour
     {
         if (_gm == null) _gm = GameManager.Instance;
         if (_gm != null && _gm.GamePaused) return;
+
+        // While carried by a tornado the tornado owns this Rigidbody's velocity.
+        if (TornadoCarried) return;
 
         if (_player == null)
         {

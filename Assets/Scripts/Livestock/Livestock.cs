@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections;
 
-public class Livestock : MonoBehaviour
+public class Livestock : MonoBehaviour, ITornadoCarried
 {
     public enum AnimalType { Cow, Pig, Sheep, Goat, Chicken, Duck, Turkey }
     public enum BehaviorMode { Passive, Fight, Flee }
@@ -36,6 +36,10 @@ public class Livestock : MonoBehaviour
     private float _walkCycle;
     private Vector3 _wantedVel;
 
+    /// <summary>True while a tornado carries this animal (see ITornadoCarried): the animal's
+    /// own wander script yields so the tornado's orbit pull isn't overwritten.</summary>
+    public bool TornadoCarried { get; set; }
+
     private void Awake()
     {
         _rb = gameObject.AddComponent<Rigidbody>();
@@ -54,6 +58,8 @@ public class Livestock : MonoBehaviour
     private void FixedUpdate()
     {
         if (_rb == null) return;
+        // While carried by a tornado the tornado owns this Rigidbody's velocity.
+        if (TornadoCarried) return;
         var vel = _rb.linearVelocity;
         if (!_spawned || (GameManager.Instance != null && GameManager.Instance.GamePaused))
         {

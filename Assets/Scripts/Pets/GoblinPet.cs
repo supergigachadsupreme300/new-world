@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class GoblinPet : MonoBehaviour
+public class GoblinPet : MonoBehaviour, ITornadoCarried
 {
     public enum CommandMode { Follow, Stay, GoHome }
 
@@ -29,6 +29,10 @@ public class GoblinPet : MonoBehaviour
     private Transform _kneeR;
     private SphereCollider _collider;
     private Rigidbody _rb;
+
+    /// <summary>True while a tornado carries this pet (see ITornadoCarried): the goblin's own
+    /// movement yields so the tornado's orbit pull isn't overwritten.</summary>
+    public bool TornadoCarried { get; set; }
 
     private int _health;
     private bool _isDead;
@@ -268,6 +272,9 @@ public class GoblinPet : MonoBehaviour
     {
         if (_gm == null) _gm = GameManager.Instance;
         if (_gm != null && _gm.GamePaused) return;
+
+        // While carried by a tornado the tornado owns this Rigidbody's velocity.
+        if (TornadoCarried) return;
 
         if (_player == null)
         {
