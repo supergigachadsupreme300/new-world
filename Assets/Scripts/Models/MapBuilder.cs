@@ -73,18 +73,71 @@ public static partial class MapBuilder
     //  LOW-LEVEL BLOCK
     // ═══════════════════════════════════════════════════════════════
 
+    private static Mesh _sharedCubeMesh;
+
+    /// <summary>
+    /// One geometry cube shared by every box the game builds. CreatePrimitive allocates a
+    /// fresh hidden mesh per call; streaming chunks spawn hundreds of prop cubes, so sharing a
+    /// single unit cube mesh removes that allocation churn (identical shape — transforms handle
+    /// all scaling).
+    /// </summary>
+    public static Mesh SharedCubeMesh()
+    {
+        if (_sharedCubeMesh != null)
+            return _sharedCubeMesh;
+        // Peel the mesh once from a throwaway primitive, then reuse it forever.
+        var temp = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        _sharedCubeMesh = temp.GetComponent<MeshFilter>().sharedMesh;
+        _sharedCubeMesh.name = "SharedCube";
+        Object.Destroy(temp);
+        _sharedCubeMesh.hideFlags |= HideFlags.HideAndDontSave;
+        return _sharedCubeMesh;
+    }
+
+    /// <summary>
+    /// Build a cube using the shared unit mesh and a shared (cached) material. Equivalent to
+    /// CreatePrimitive(Cube) + ApplyBlockColor, without the per-call mesh allocation and with
+    /// no default-material instance. Adds a BoxCollider only when requested.
+    /// </summary>
     public static GameObject MakeBlock(string name, Transform parent, Vector3 scale, Vector3 position, Color color, bool removeCollider = false, Quaternion rotation = default)
     {
-        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = name;
+        var go = new GameObject(name);
         go.transform.SetParent(parent);
         go.transform.localScale = scale;
         go.transform.localPosition = position;
         if (rotation != default) go.transform.localRotation = rotation;
-        var r = go.GetComponent<Renderer>();
+        var mf = go.AddComponent<MeshFilter>();
+        mf.sharedMesh = SharedCubeMesh();
+        var r = go.AddComponent<MeshRenderer>();
         ApplyBlockColor(r, color);
-        if (removeCollider)
-            Object.Destroy(go.GetComponent<Collider>());
+        if (!removeCollider)
+            go.AddComponent<BoxCollider>();
+        return go;
+    }
+
+    /// <summary>
+    /// Cube builder for geometry that has a shared texture material (tree branches/leaves).
+    /// Uses the shared unit cube mesh; assigns the material with <c>sharedMaterial</c> so no
+    /// per-renderer Material copy is created (the old <c>r.material = x</c> leaked one copy per
+    /// cube). Falls back to the cached solid-color material when no texture material exists.
+    /// </summary>
+    public static GameObject MakeCubeShared(string name, Transform parent, Vector3 scale,
+        Vector3 position, Quaternion rotation, Material sharedMat, Color fallback, bool withCollider)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent);
+        go.transform.localPosition = position;
+        go.transform.localRotation = rotation;
+        go.transform.localScale = scale;
+        var mf = go.AddComponent<MeshFilter>();
+        mf.sharedMesh = SharedCubeMesh();
+        var r = go.AddComponent<MeshRenderer>();
+        if (sharedMat != null)
+            r.sharedMaterial = sharedMat;
+        else
+            ApplyBlockColor(r, fallback);
+        if (withCollider)
+            go.AddComponent<BoxCollider>();
         return go;
     }
 

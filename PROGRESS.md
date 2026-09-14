@@ -8,7 +8,86 @@ Companion docs: `PLAN.md`, `PLAN-class-skill-trees.md`, `planning.md`, `game-des
 `OPTIMIZATION.md` (optimization plan + phase status).
 
 ---
-## 1aj. Optimization Phase 3 — spell/FX GC sweep + pragmatic pooling
+## 1ak. Optimization Phase 4 — world streaming / terrain persistence rewrite
+
+Audit hot spots #10, #11, #12, #13, #14 all live in the world/terrain pipeline and hit one of
+three pain points: **revisit latency** (every chunk regenerated from noise on revisit even though
+loads of tiny deformation files existed), **write burst** (each Earth cast wrote 250+ individual
+per-tile files synchronously, each with tmp+move overhead), and **frame hitches** (full 900-tile
+mesh rebuild + collider cook + prop spawn every cast/finalize). All six terrain files are touched:
+
+**#10 — ChunkSaveManager rewritten for terrain-chunk granularity:**
+- `World/Chunks/ChunkSaveManager.cs` — new binary format (`"NWTC"`, one file per terrain
+  chunk under `worlds/{seed}/tc_{x}_{z}.dat`) holding only locally-deformed tiles (the old
+  per-tile files are orphaned and harmless). `TryLoadChunk` returns a `ChunkSaveData` of
+  `ChunkTileMod` structs (local coords + 4 heights + version stamp) which BuildOrLoadChunk uses
+  to reconstruct deformed corner heights before noise-filling pristine corners.
+
+**#10, #11a — Background generation now reads-or-generates:**
+- `World/Streaming/WorldStreamer.cs` — `BackgroundGenerateChunk` and `GenerateChunkSync` both
+  call the new `BuildOrLoadChunk(tc, seed)`, which tries `ChunkSaveManager.TryLoadChunk` first.
+  If the file exists, deformed tiles restore their saved heights (gapless within + across chunks
+  because DeformAt always deforms/Modifies/saves all co-affected neighbor tiles together);
+  pristine corners remain deterministic noise. This cuts revisit CPU from ~961 octave samples
+  to one small file read per chunk (only mod tiles restored from disk).
+
+**#11a — Batched dirty-tile flush (250 writes → 1 file per cast):**
+- `WorldStreamer.MarkDirty` now only adds to `_dirtyTiles` (no per-tile sync write);
+  `FlushDirtyChunk(tc)` gathers all dirty tiles inside one `TerrainChunkCoord`, clones the
+  heights, and writes a single `SaveChunk` atomically (when `ChunkSaveManager.SynchronousWrites`
+  is true, which is the default — one sync write per chunk per cast is <1ms, eliminating the old
+  250+ tiny writes). An Earth cast touching 2 chunks now writes 2 files (one per chunk) total,
+  not 250. `UnloadChunk` and `OnDestroy` also flush (OnDestroy groups `_dirtyTiles` by
+  `TerrainChunkCoord` and flushes each). The old per-tile `ChunkSaveManager.Save` code path is
+  gone.
+
+**#11b — Sub-region mesh patch (only touched quads rebuilt):**
+- `WorldStreamer.RebuildChunkRegion(tc, obj, minCX…maxCZ)` builds `ChunkMeshData` for only the
+  local-tile rectangle affected by the deformation (not all 900 tiles). `ChunkObject.PatchRegion`
+  writes the rebuilt quads' vertices/UVs/normals into the cached `_merged` arrays and re-uploads
+  only those channels, then re-cooks the collider once. Falls back to the full 900-tile
+  `ApplyMerged` path when the region exceeds ~75% of the chunk.
+
+**#12 — Time-budgeted finalize + incremental prop streaming + shared Random:**
+- `FinalizeChunks` now measures wall-clock time (`Time.realtimeSinceStartup`) and breaks at ~6ms
+  per poll tick, in addition to the `ChunksPerFrame` cap.
+- Props are NO LONGER spawned inside `CreateChunkGameObject`. `ChunkObject.BeginProps(seed)` now
+  queues the 900 local tile indices and a single deterministic `System.Random` instance (one
+  `new Random` per chunk instead of 900). `WorldStreamer.StepChunkProps` drives
+  `ChunkObject.StepProps(budget)` from a global budget of 40 tiles per poll tick, spreading
+  prop spawning across the next few ticks so an 8-chunk fill never spikes a single frame.
+  Determinism is preserved (same seed/chunk → same Random stream → same prop layout), though
+  placement differs from the old per-tile Random approach (noted below).
+
+**#13 — Shared cube mesh + shared materials for all terrain props:**
+- `Models/MapBuilder.cs` — new `SharedCubeMesh()` peels a unit cube from a single CreatePrimitive
+  and caches it; every `MakeBlock` call (rocks, houses, NPCs, cars — the whole game) now adds a
+  `MeshFilter.sharedMesh = SharedCubeMesh()` + `BoxCollider` (no per-call hidden mesh allocation,
+  no collider destroy; identical unit-cube shape).
+- `Models/MapBuilder.Nature.cs` — new `MakeCubeShared(...)` helper uses the shared mesh + assigns
+  material via `sharedMaterial` (not `r.material`). The three functions that spawned ~2-3 cubes
+  per tree/rock (`GrowBranchSegment`, `SpawnLeaves`, `GrowLeafChain`) were leaking per-renderer
+  Material copies (via `r.material = mat`); they now use `MakeCubeShared` with `r.sharedMaterial`.
+
+**#14 — Single mesh upload (five setters → one pass):**
+- `World/Terrain/ChunkMeshGenerator.cs` — `CreateMeshFromMerged` now calls
+  `SetVertices/SetTriangles/SetNormals/SetUVs` then `mesh.UploadMeshData(false)` (one upload
+  instead of five implicit per-property uploads on the old direct-setter path).
+
+### 1ak-status
+- No CLI build — code-review verified (all six touched files brace-balanced; no stale references to
+  `SpawnProps`, `ChunkSaveManager.Save`, old `_dirty` field, or `Physics.OverlapSphere(` in Combat).
+  `ChunkLodManager` and `ChunkValidator` public APIs unchanged. `DeformAt` access to locals fixed
+  by parameter pass.)
+- Regressions to watch on play-test: (1) **First revisit of a deformed area** — run an Earth
+  spell, walk away, then return; verify heights persist and corners match (no gaps at chunk edges).
+  (2) **Cross-chunk deformation** — run a large Earth cast near a chunk seam; walk away and return;
+  verify both sides persisted and seam is smooth. (3) **Tree/rock placement** — return to a
+  previously-generated area; trees should be deterministic (same positions) even after the
+  single-Random refactor. (4) **Chunk unload+reload** — trigger a chunk unload (move far away and
+  come back); verify deformed heights load from file and tree/rock placement is recreated identically
+  via the determinism stream. (5) **Booting** — startup should feel identical (spawn-chunk props now
+  stream over 2-3 ticks after terrain appears; boots under 1s total anyway).
 
 Audit hot spots #4, #5, #7 all live inside combat: every spell tick/impact/burst ran **allocating**
 `Physics.Overlap*` (a fresh `Collider[]` per call, several per second per spell), the caster rebuilt

@@ -210,21 +210,11 @@ public static partial class MapBuilder
             ? (depth == 0 ? chainSegName : (chainSegName == "Trunk" ? "TrunkSeg" : chainSegName))
             : "Branch";
 
-        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = segName;
-        go.transform.SetParent(root);
-        go.transform.localPosition = segStart + dir.normalized * (segLen * 0.5f);
-        go.transform.localRotation = Quaternion.FromToRotation(Vector3.up, dir.normalized);
-        go.transform.localScale = new Vector3(width, segLen, width);
-        var r = go.GetComponent<Renderer>();
-        if (r != null)
-        {
-            var mat = GetWoodMaterial();
-            if (mat != null)
-                r.material = mat;
-            else
-                r.material.color = wood;
-        }
+        var go = MakeCubeShared(segName, root,
+            new Vector3(width, segLen, width),
+            segStart + dir.normalized * (segLen * 0.5f),
+            Quaternion.FromToRotation(Vector3.up, dir.normalized),
+            GetWoodMaterial(), wood, true);
 
         tipPos = segStart + dir.normalized * segLen;
         tipRot = go.transform.localRotation;
@@ -264,22 +254,9 @@ public static partial class MapBuilder
 
     private static void SpawnLeaves(Transform root, Vector3 position, Color color)
     {
-        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = "Leaf";
-        go.transform.SetParent(root);
-        go.transform.localPosition = position;
-        float s = Random.Range(0.8f, 1.4f);
-        go.transform.localScale = new Vector3(s, s, s);
-        var r = go.GetComponent<Renderer>();
-        if (r != null)
-        {
-            var mat = GetLeafMaterial();
-            if (mat != null)
-                r.material = mat;
-            else
-                r.material.color = color;
-        }
-        Object.Destroy(go.GetComponent<Collider>());
+        MakeCubeShared("Leaf", root,
+            Vector3.one * Random.Range(0.8f, 1.4f),
+            position, Quaternion.identity, GetLeafMaterial(), color, false);
     }
 
     private static void GrowLeafChain(Transform root, Vector3 startPos, Vector3 dir, Vector3 branchDir, Vector3 horzAxis, float segLen, int remaining, Color color)
@@ -287,22 +264,11 @@ public static partial class MapBuilder
         float wid = Random.Range(0.7f, 1.1f);
         Vector3 d = dir.normalized;
 
-        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = "Leaf";
-        go.transform.SetParent(root);
-        go.transform.localPosition = startPos + d * (segLen * 0.5f);
-        go.transform.localScale = new Vector3(wid, segLen, 0.01f);
-        go.transform.localRotation = Quaternion.LookRotation(branchDir, d) * Quaternion.Euler((3 - remaining) * -12f, 0f, 0f);
-        var r = go.GetComponent<Renderer>();
-        if (r != null)
-        {
-            var mat = GetLeafMaterial();
-            if (mat != null)
-                r.material = mat;
-            else
-                r.material.color = color;
-        }
-        Object.Destroy(go.GetComponent<Collider>());
+        MakeCubeShared("Leaf", root,
+            new Vector3(wid, segLen, 0.01f),
+            startPos + d * (segLen * 0.5f),
+            Quaternion.LookRotation(branchDir, d) * Quaternion.Euler((3 - remaining) * -12f, 0f, 0f),
+            GetLeafMaterial(), color, false);
 
         remaining--;
         if (remaining <= 0) return;

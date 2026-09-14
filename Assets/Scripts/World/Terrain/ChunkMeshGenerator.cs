@@ -199,16 +199,18 @@ public static class ChunkMeshGenerator
 
     /// <summary>
     /// Creates a Unity Mesh from the pre-built merged chunk arrays. Main thread only.
+    /// Uses SetVertices/SetTriangles/SetNormals/SetUVs then one UploadMeshData pass so
+    /// the upload happens once instead of five sequential dirty-setter passes.
     /// </summary>
     public static Mesh CreateMeshFromMerged(MergedChunkMeshData md, string meshName)
     {
         Mesh mesh = new Mesh { name = meshName };
-        mesh.Clear();
-        mesh.vertices = md.Vertices;
-        mesh.uv = md.UV;
-        mesh.triangles = md.Triangles;
-        mesh.normals = md.Normals;
+        mesh.SetVertices(md.Vertices);
+        mesh.SetTriangles(md.Triangles, 0);
+        mesh.SetNormals(md.Normals);
+        mesh.SetUVs(0, md.UV);
         mesh.bounds = md.Bounds;
+        mesh.UploadMeshData(false);
         return mesh;
     }
 
