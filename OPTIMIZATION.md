@@ -44,6 +44,12 @@ build; user play-tests in Unity afterwards), and recorded in `PROGRESS.md`.
 - `EntityId` + `GameObject.GetEntityId()` referenced in `Combat/Weapons/HitboxSystem.cs:40,107` and
   `Opt/ObjectPooler.cs` but **defined nowhere in Assets** (verified). Legacy commits introduced the
   names but never the types. Fix: revert both files to `int`/`GetInstanceID()` (Phase 0).
+- **Unity 6 update (2026-09-14):** `Object.GetInstanceID()` is now `[Obsolete]` (error CS0619). All 5
+  remaining call sites migrated to `GetEntityId()` (`Dictionary<int,…>` → `Dictionary<EntityId,…>` in
+  `ObjectPooler`, `HashSet<int>` → `HashSet<EntityId>` in `HitboxSystem`, EnemyController phase
+  offset uses `GetEntityId().GetHashCode() & 0xFF`). `Physics.OverlapBoxNonAlloc` now takes
+  `Collider[] results` **before** the `Quaternion orientation` — arg order fixed in `HitboxSystem`.
+  PROGRESS `1am`.
 
 ## Phases
 

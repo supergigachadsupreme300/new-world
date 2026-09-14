@@ -8,6 +8,30 @@ Companion docs: `PLAN.md`, `PLAN-class-skill-trees.md`, `planning.md`, `game-des
 `OPTIMIZATION.md` (optimization plan + phase status).
 
 ---
+## 1am. Unity 6 compile fix — GetInstanceID → GetEntityId + OverlapBoxNonAlloc arg order
+
+Follow-up to Phase 0 (the project opened in Unity 6, 2026): `Object.GetInstanceID()` is now
+`[Obsolete]` as an error (CS0619) and `Physics.OverlapBoxNonAlloc` changed its argument order, so a
+build reported 5 errors across 3 files. All fixed in code review; no Unity build run.
+
+- `Opt/ObjectPooler.cs` — pool key type `Dictionary<int, Queue<GameObject>>` → `Dictionary<EntityId,
+  Queue<GameObject>>`; `Warm`/`Get`/`ReleaseNow` now use `prefab.GetEntityId()` / `go.GetEntityId()`.
+- `Combat/Weapons/HitboxSystem.cs` — `_hitThisSwing` is now `HashSet<EntityId>` keyed by
+  `col.gameObject.GetEntityId()`; **`OverlapBoxNonAlloc` arg order fixed**: Unity 6's signature puts
+  `Collider[] results` **before** `Quaternion orientation` (`position, halfExtents, _detectBuffer,
+  rotation, HitLayers, TriggerInteraction`). The sphere overload was already correct.
+- `Combat/AI/EnemyController.cs` — scan phase offset now derives from
+  `GetEntityId().GetHashCode() & 0xFF` (the old `GetInstanceID() & 0xFF` bit-op doesn't exist on
+  `EntityId`).
+
+### 1am-status
+- No CLI build — code-review verified (all three files brace-balanced; grep confirms zero
+  `GetInstanceID` left in Assets; no project-local `EntityId` type that would shadow the engine
+  struct; other `OverlapCapsuleNonAlloc`/`OverlapSphereNonAlloc` calls in Combat keep the unchanged
+  non-rotated signatures).
+- Play-test: enemy scan staggering, hitbox multi-hit detection, and object pooling continue to
+  behave as before (pool reuse only observable as less GC).
+
 ## 1al. Optimization Phase 5 — skill-tree UI cache/pool (#15)
 
 Audit: the skill tree destroyed+recreated ~3,000 GameObjects on every rebuild. That happened on the

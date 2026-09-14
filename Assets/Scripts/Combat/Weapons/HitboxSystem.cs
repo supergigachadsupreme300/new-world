@@ -37,7 +37,7 @@ public class HitboxSystem : MonoBehaviour
     private float _timer;
     private float _cooldownTimer;
     private Transform _owner;
-    private readonly System.Collections.Generic.HashSet<int> _hitThisSwing = new System.Collections.Generic.HashSet<int>();
+    private readonly System.Collections.Generic.HashSet<EntityId> _hitThisSwing = new System.Collections.Generic.HashSet<EntityId>();
     private readonly Collider[] _detectBuffer = new Collider[64];
 
     public bool IsActive => _active;
@@ -99,14 +99,14 @@ public class HitboxSystem : MonoBehaviour
         else
         {
             count = Physics.OverlapBoxNonAlloc(
-                transform.position, BoxSize * 0.5f, transform.rotation,
-                _detectBuffer, HitLayers, TriggerInteraction);
+                transform.position, BoxSize * 0.5f, _detectBuffer,
+                transform.rotation, HitLayers, TriggerInteraction);
         }
 
         for (int i = 0; i < count; i++)
         {
             Collider col = _detectBuffer[i];
-            int id = col.gameObject.GetInstanceID();
+            EntityId id = col.gameObject.GetEntityId();
             if (_hitThisSwing.Contains(id))
                 continue;
 

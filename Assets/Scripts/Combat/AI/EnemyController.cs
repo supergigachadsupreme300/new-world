@@ -124,7 +124,7 @@ public class EnemyController : MonoBehaviour, IDamageable
 
         // Phase offset < ScanInterval (deterministic per instance) so freshly spawned waves
         // don't all scan on the same frame.
-        _nextScanTime = Time.time + (GetInstanceID() & 0xFF) * 0.001f;
+        _nextScanTime = Time.time + (GetEntityId().GetHashCode() & 0xFF) * 0.001f;
 
         if (!string.IsNullOrEmpty(EnemyId) && ModelRoot == null)
             ModelRoot = EnemyModelBuilder.BuildEnemy(transform, EnemyId);
