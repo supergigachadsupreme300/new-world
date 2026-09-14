@@ -8,6 +8,46 @@ Companion docs: `PLAN.md`, `PLAN-class-skill-trees.md`, `planning.md`, `game-des
 `OPTIMIZATION.md` (optimization plan + phase status).
 
 ---
+## 1al. Optimization Phase 5 — skill-tree UI cache/pool (#15)
+
+Audit: the skill tree destroyed+recreated ~3,000 GameObjects on every rebuild. That happened on the
+Skills panel's first open **and** on every General/Class/Race sub-tab switch — `SetSkillSubTab` →
+`RebuildSkillTree`/`RebuildClassSkillTree`/`RebuildRaceSkillTree` each destroyed **every** child of
+`_treeContent` (`Destroy(_treeContent.GetChild(i))`) then re-instantiated the whole current-tree from
+scratch. `FitTreeToViewport` also mixed the three trees' bounding boxes into one fit. Now each tree is
+built **once** into its own container root under `_treeContent` and shown/hidden on switch; switching
+back to an already-built tree is a repaint only (no GO churn).
+
+**Structure (`UI/NewWorld/CharacterInfoUI.cs`):**
+- New per-tree roots `_generalTreeRoot` / `_classTreeRoot` / `_raceTreeRoot`, created lazily by
+  `EnsureTreeRoot(...)` (a `RectTransform` container centered under `_treeContent`). New helpers
+  `ShowTree(root)` (activate the tree, hide the other two via `HideOtherTreeRoots`, reset the shared
+  content pan transform) and build-id stamps `_classTreeBuildId` / `_raceTreeBuildId`.
+- Each builder now starts with an "already built" fast path: build once, then on re-entry just
+  `ShowTree` → `FitTreeToViewport()` → cheap repaint (`RefreshSkillTree`/`RefreshClassSkillTree`/
+  `RefreshRaceSkillTree`). A **class or race change still forces a real rebuild** (build-id mismatch),
+  so the change dialogs keep working.
+- The old destroy loops that wiped ALL `_treeContent` children (killing sibling trees) now target only
+  the current tree's own root. `MakeTreeNode` / `MakeTreeLine` / `MakeGeneralHeading` /
+  `MakeClassTreeNode` / `MakeRaceSkillTreeNode` parent through the transient field `_treeBuildRoot`
+  (set at the top of each builder) instead of hard-coded `_treeContent`.
+- `FitTreeToViewport` now fits only the **current** sub-tab's node list (`switch _skillSubTab`), so a
+  hidden tree's nodes can no longer inflate the other tree's fit box.
+- Class/race builders no longer clear the General bookkeeping lists (`_treeNodes`/`_treeLines`/
+  `_treeSkills`) — those GOs persist now, so returning to the General tab repaints correctly.
+
+### 1al-status
+- No CLI build — code-review verified (single file `CharacterInfoUI.cs` touched; brace-balanced
+  369/369; grep-confirmed no remaining `SetParent(_treeContent` / `Destroy(_treeContent.GetChild`
+  outside `EnsureTreeRoot`; `_treeBuildRoot` assigned in all three builders before any
+  node/line/heading creation. Public API unchanged.)
+- Regressions to watch on play-test: (1) **Sub-tab switching** — General/Class/Race should switch
+  instantly with identical layout (wheel positions, class radial, race radial unchanged from before);
+  (2) **class/race change dialog** — pick a different class/race, return to that sub-tab, confirm the
+  tree actually rebuilds (build-id mismatch triggers it); (3) **per-tree fit** — each tree frames to
+  the viewport on entry with no clipping (mixed-bounds bug fix); (4) **learned-state repaint** — learn
+  a skill, switch away and back, confirm node colors/labels still update (persisted node lists).
+
 ## 1ak. Optimization Phase 4 — world streaming / terrain persistence rewrite
 
 Audit hot spots #10, #11, #12, #13, #14 all live in the world/terrain pipeline and hit one of

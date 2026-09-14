@@ -114,6 +114,15 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private readonly List<(Image image, RaceSkill target)> _raceTreeLines = new List<(Image, RaceSkill)>();
     private RaceSkill _selectedRaceSkill;
 
+    // Per-tree container roots: each tree is built once into its own root under _treeContent,
+    // then shown/hidden on sub-tab switch instead of being destroyed and re-created (~3k GOs).
+    private RectTransform _generalTreeRoot;
+    private RectTransform _classTreeRoot;
+    private RectTransform _raceTreeRoot;
+    private string _classTreeBuildId;
+    private string _raceTreeBuildId;
+    private Transform _treeBuildRoot;
+
     // Backpack storage grid (30 slots) + mirrored hotbar row (10 slots).
     private readonly Image[] _storageImgs = new Image[ToolManager.StorageSlotCount];
     private readonly TMP_Text[] _storageLabels = new TMP_Text[ToolManager.StorageSlotCount];
@@ -1007,6 +1016,39 @@ public sealed class CharacterInfoUI : MenuPanelBase
             _detailLearnHint.text = Localization.F("Press a key to bind: {0}", _selectedSkill.displayName);
     }
 
+    private RectTransform EnsureTreeRoot(ref RectTransform cached, string name)
+    {
+        if (cached == null)
+        {
+            var go = new GameObject(name);
+            var rt = go.AddComponent<RectTransform>();
+            rt.SetParent(_treeContent, false);
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(2200f, 2200f);
+            cached = rt;
+        }
+        return cached;
+    }
+
+    private void ShowTree(RectTransform root)
+    {
+        root.gameObject.SetActive(true);
+        HideOtherTreeRoots(root);
+        _treeContent.anchoredPosition = Vector2.zero;
+        _treeContent.localScale = Vector3.one;
+    }
+
+    private void HideOtherTreeRoots(Transform keep)
+    {
+        if (_generalTreeRoot != null && _generalTreeRoot != keep)
+            _generalTreeRoot.gameObject.SetActive(false);
+        if (_classTreeRoot != null && _classTreeRoot != keep)
+            _classTreeRoot.gameObject.SetActive(false);
+        if (_raceTreeRoot != null && _raceTreeRoot != keep)
+            _raceTreeRoot.gameObject.SetActive(false);
+    }
+
     private void RebuildSkillTree()
     {
         if (_skillSubTab == SkillSubTab.Class)
@@ -1027,8 +1069,20 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
         if (_treeContent == null) return;
 
-        for (int i = _treeContent.childCount - 1; i >= 0; i--)
-            Destroy(_treeContent.GetChild(i).gameObject);
+        var treeRoot = EnsureTreeRoot(ref _generalTreeRoot, "GeneralTreeRoot");
+        _treeBuildRoot = treeRoot;
+
+        // Already built once: re-frame and repaint instead of destroying ~3k GameObjects.
+        if (treeRoot.childCount > 0)
+        {
+            ShowTree(treeRoot);
+            FitTreeToViewport();
+            RefreshSkillTree();
+            return;
+        }
+
+        for (int i = treeRoot.childCount - 1; i >= 0; i--)
+            Destroy(treeRoot.GetChild(i).gameObject);
         _treeNodes.Clear();
         _treeLines.Clear();
         _treeSkills.Clear();
@@ -1038,6 +1092,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _selectedSkill = null;
         _treeContent.anchoredPosition = Vector2.zero;
         _treeContent.localScale = Vector3.one;
+        treeRoot.localScale = Vector3.one;
 
         SkillCatalog.EnsureBuilt();
         var list = new List<Skill>();
@@ -1348,7 +1403,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
                             if (EffLayerOf(wedgeSkills[i]) == 0) { root = wedgeSkills[i]; break; }
 
                         var scol = new GameObject("SchoolNode_" + root.id);
-                        scol.transform.SetParent(_treeContent, false);
+                        scol.transform.SetParent(treeRoot, false);
                         var srt = scol.AddComponent<RectTransform>();
                         srt.anchorMin = new Vector2(0.5f, 0.5f);
                         srt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -1362,7 +1417,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
                         simg.color = NodeColor(root, CategoryColors[(int)type]);
                         simg.raycastTarget = false;
 
-                        var slbl = MakeBodyText(_treeContent, "SchoolLabel_" + root.id,
+                        var slbl = MakeBodyText(treeRoot, "SchoolLabel_" + root.id,
                             new Vector2(hubPos.x, hubPos.y), Sz(80f, 20f));
                         slbl.alignment = TextAlignmentOptions.Center;
                         slbl.fontSize = Mathf.Max(11f, Screen.height / 80f);
@@ -1375,7 +1430,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
                 // (standard) that shows the category name and level.
                 Vector2 catHub = origin + new Vector2(Mathf.Cos(categoryCenter) * categoryHubR, Mathf.Sin(categoryCenter) * categoryHubR);
                 var catGo = new GameObject("CategoryNode_" + CategoryNames[(int)type]);
-                catGo.transform.SetParent(_treeContent, false);
+                catGo.transform.SetParent(treeRoot, false);
                 var crt = catGo.AddComponent<RectTransform>();
                 crt.anchorMin = new Vector2(0.5f, 0.5f);
                 crt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -1391,7 +1446,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
                 _categoryNodes.Add((type, cimg));
 
                 // Category name centered inside the hub bubble (drawn after -> on top of the node).
-                var lbl = MakeBodyText(_treeContent, "Sector_" + CategoryNames[(int)type],
+                var lbl = MakeBodyText(treeRoot, "Sector_" + CategoryNames[(int)type],
                     new Vector2(catHub.x - 64f, catHub.y), Sz(128f, 28f));
                 lbl.alignment = TextAlignmentOptions.Center;
                 lbl.fontSize = Mathf.Max(16f, Screen.height / 66f);
@@ -1470,9 +1525,18 @@ public sealed class CharacterInfoUI : MenuPanelBase
             maxY = Mathf.Max(maxY, a.y);
             any = true;
         }
-        foreach (var (_, image, _) in _treeNodes) Include(image);
-        foreach (var (_, image) in _classTreeNodes) Include(image);
-        foreach (var (_, image) in _raceTreeNodes) Include(image);
+        switch (_skillSubTab)
+        {
+            case SkillSubTab.Class:
+                foreach (var (_, image) in _classTreeNodes) Include(image);
+                break;
+            case SkillSubTab.Race:
+                foreach (var (_, image) in _raceTreeNodes) Include(image);
+                break;
+            default:
+                foreach (var (_, image, _) in _treeNodes) Include(image);
+                break;
+        }
         if (!any)
         {
             _treeContent.anchoredPosition = Vector2.zero;
@@ -1495,7 +1559,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     /// <summary>Title label placed above one of the three General-tree wheels.</summary>
     private void MakeGeneralHeading(string text, Vector2 pos)
     {
-        var h = MakeBodyText(_treeContent, "GeneralHeading_" + text, pos, Sz(420f, 30f));
+        var h = MakeBodyText(_treeBuildRoot, "GeneralHeading_" + text, pos, Sz(420f, 30f));
         h.alignment = TextAlignmentOptions.Center;
         h.fontSize = Mathf.Max(16f, Screen.height / 44f);
         h.color = new Color(0.85f, 0.88f, 0.92f, 0.95f);
@@ -1530,7 +1594,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private (Image image, TMP_Text label) MakeTreeNode(Skill skill, Vector2 pos)
     {
         var go = new GameObject("Node_" + skill.id);
-        go.transform.SetParent(_treeContent, false);
+        go.transform.SetParent(_treeBuildRoot, false);
         var rt = go.AddComponent<RectTransform>();
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -1587,7 +1651,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private Image MakeTreeLine(Vector2 start, Vector2 end, float thick)
     {
         var go = new GameObject("Line");
-        go.transform.SetParent(_treeContent, false);
+        go.transform.SetParent(_treeBuildRoot, false);
         var rt = go.AddComponent<RectTransform>();
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -1822,22 +1886,33 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         if (_treeContent == null) return;
 
-        for (int i = _treeContent.childCount - 1; i >= 0; i--)
-            Destroy(_treeContent.GetChild(i).gameObject);
+        var unlocker = ClassUnlockerOf();
+        string classId = unlocker != null ? unlocker.ActiveClassId : "wanderer";
+        var root = EnsureTreeRoot(ref _classTreeRoot, "ClassTreeRoot");
+        _treeBuildRoot = root;
+
+        // Already built for this class: re-frame and repaint instead of destroying ~3k GameObjects.
+        if (root.childCount > 0 && _classTreeBuildId == classId)
+        {
+            ShowTree(root);
+            FitTreeToViewport();
+            RefreshClassSkillTree();
+            return;
+        }
+        _classTreeBuildId = classId;
+
+        for (int i = root.childCount - 1; i >= 0; i--)
+            Destroy(root.GetChild(i).gameObject);
         _classTreeNodes.Clear();
         _classTreeLines.Clear();
         _classTreeSkills.Clear();
         _selectedClassSkill = null;
-        _treeNodes.Clear();
-        _treeLines.Clear();
-        _treeSkills.Clear();
         _selectedSkill = null;
         _treeContent.anchoredPosition = Vector2.zero;
         _treeContent.localScale = Vector3.one;
+        root.localScale = Vector3.one;
 
         ClassSkillCatalog.EnsureBuilt();
-        var unlocker = ClassUnlockerOf();
-        string classId = unlocker != null ? unlocker.ActiveClassId : "wanderer";
         var list = new List<ClassSkill>();
         foreach (var s in ClassSkillCatalog.ForClass(classId))
             if (s != null) list.Add(s);
@@ -1908,7 +1983,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private Image MakeClassTreeNode(ClassSkill skill, Vector2 pos, float size)
     {
         var go = new GameObject("CNode_" + skill.id);
-        go.transform.SetParent(_treeContent, false);
+        go.transform.SetParent(_treeBuildRoot, false);
         var rt = go.AddComponent<RectTransform>();
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -2032,23 +2107,34 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         if (_treeContent == null) return;
 
-        for (int i = _treeContent.childCount - 1; i >= 0; i--)
-            Destroy(_treeContent.GetChild(i).gameObject);
+        var stats = PlayerStatsOf();
+        string raceId = stats != null && stats.Race != null ? stats.Race.raceId : "human";
+        var root = EnsureTreeRoot(ref _raceTreeRoot, "RaceTreeRoot");
+        _treeBuildRoot = root;
+
+        // Already built for this race: re-frame and repaint instead of destroying ~3k GameObjects.
+        if (root.childCount > 0 && _raceTreeBuildId == raceId)
+        {
+            ShowTree(root);
+            FitTreeToViewport();
+            RefreshRaceSkillTree();
+            return;
+        }
+        _raceTreeBuildId = raceId;
+
+        for (int i = root.childCount - 1; i >= 0; i--)
+            Destroy(root.GetChild(i).gameObject);
         _raceTreeNodes.Clear();
         _raceTreeLines.Clear();
         _raceTreeSkills.Clear();
         _selectedRaceSkill = null;
-        _treeNodes.Clear();
-        _treeLines.Clear();
-        _treeSkills.Clear();
         _selectedSkill = null;
         _selectedClassSkill = null;
         _treeContent.anchoredPosition = Vector2.zero;
         _treeContent.localScale = Vector3.one;
+        root.localScale = Vector3.one;
 
         RaceSkillCatalog.EnsureBuilt();
-        var stats = PlayerStatsOf();
-        string raceId = stats != null && stats.Race != null ? stats.Race.raceId : "human";
         var list = new List<RaceSkill>();
         foreach (var s in RaceSkillCatalog.ForRace(raceId))
             if (s != null) list.Add(s);
@@ -2123,7 +2209,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private Image MakeRaceSkillTreeNode(RaceSkill skill, Vector2 pos, float size)
     {
         var go = new GameObject("RNode_" + skill.id);
-        go.transform.SetParent(_treeContent, false);
+        go.transform.SetParent(_treeBuildRoot, false);
         var rt = go.AddComponent<RectTransform>();
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);

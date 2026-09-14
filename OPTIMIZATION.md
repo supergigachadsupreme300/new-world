@@ -31,7 +31,7 @@ build; user play-tests in Unity afterwards), and recorded in `PROGRESS.md`.
 ### UI
 | # | Hot spot | File:Line | Fix |
 |---|----------|-----------|-----|
-| 15 | Skill tree destroys+recreates ~3,000 GOs on rebuild; re-paints whole tree on every open/node click | `UI/NewWorld/CharacterInfoUI.cs:1030,1573-1636,3072` | Cache/pool nodes+lines; re-paint only on data change |
+| 15 | Skill tree destroys+recreates ~3,000 GOs on rebuild; re-paints whole tree on every open/node click | `UI/NewWorld/CharacterInfoUI.cs:1030,1573-1636,3072` | Persist each sub-tab tree in its own root + show/hide on switch; rebuild only once (or when class/race changes); repaint reuses cached nodes/lines |
 | 16 | Magic wheel rebuilds up to 64 slots on every Alt-press; Paint does per-slot `GetComponent` + string every frame | `UI/NewWorld/MagicWheelUI.cs:167-247,362-427` | Pool slots; cache components; dirty-check armed chip |
 
 ### Startup
@@ -65,5 +65,5 @@ build; user play-tests in Unity afterwards), and recorded in `PROGRESS.md`.
 - [x] Phase 2 — HUD/UI allocations
 - [x] Phase 3 — spell/FX GC + pragmatic pooling
 - [x] Phase 4 — world streaming
-- [ ] Phase 5 — skill-tree UI
+- [x] Phase 5 — skill-tree UI cache/pool
 - [ ] Phase 6 — startup
