@@ -8,8 +8,28 @@ Companion docs: `PLAN.md`, `PLAN-class-skill-trees.md`, `planning.md`, `game-des
 `OPTIMIZATION.md` (optimization plan + phase status).
 
 ---
+## 1ah. Optimization Phase 1 — enemy scan stagger, tornado pull + camera collision throttles
 
-## 1ag. Optimization Phase 0 — resurrect dead `EntityId`/`GetEntityId` references (compile risk)
+Per-frame physics hot spots from the OPTIMIZATION.md audit (#1, #6, #8):
+- **`Combat/AI/EnemyController.cs`** — the per-enemy `OverlapSphereNonAlloc` target scan ran **every
+  frame** (60 live enemies = 60 broad-phase queries/frame). Now staggered to **4 Hz** with a
+  per-instance phase offset (`_nextScanTime = Time + (GetInstanceID() & 0xFF) * 0.001f` in Awake;
+  `TickTargets` early-outs between scans). First scan is ~immediate; taunt lock still overrides
+  scans. `ClosestTarget` uses `sqrMagnitude` instead of `Vector3.Distance`.
+- **`World/TornadoBehavior.cs`** — the 30u `OverlapSphereNonAlloc` pull query ran every frame;
+  now throttled to **~4 Hz** (caught objects keep orbiting via the per-frame `_pulled` velocity
+  writes, so captures stay smooth).
+- **`Player/Controller/ThirdPersonCamera.cs` + `Player/CameraModeSwitch.cs`** — the third-person
+  terrain-collision `SphereCast` ran every LateUpdate; now re-run at **~10 Hz** with the cached
+  clamp distance reused between casts (per-frame position math unchanged; result identical).
+- `OpenWorldGrounding` (per-body raycast) skipped — already confirmed a dead, unreferenced script
+  (see §3 parked cleanup).
+
+### 1ah-status
+- No CLI build — code-review verified (logic + braces checked; no API changes). Play-test in Unity:
+  enemies still aggro/chase/attack normally (≤0.25 s scan latency at worst); spawn a wave of 40+
+  enemies and compare frame time (CPU drop expected); tornado still spins, tows, swirls; third-person
+  camera still avoids walls while turning/zooming. No observable feel regression expected.
 
 Legacy commits (`c9103d9`, `77a685d`) rewrote `HitboxSystem` + `ObjectPooler` value keys from
 `long`/`GetInstanceID()` to a custom `EntityId`/`GameObject.GetEntityId()` **that were never

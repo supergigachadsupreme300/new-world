@@ -56,6 +56,12 @@ public class TornadoBehavior : MonoBehaviour
     private readonly List<PulledObject> _pulled = new List<PulledObject>();
     private static readonly Collider[] _overlapBuffer = new Collider[64];
 
+    // Perf (§OPT): the pull query is a 30u OverlapSphereNonAlloc broad-phase pass every frame
+    // (expensive against many large MeshColliders). Throttle it to ~4 Hz — catch latency of a
+    // quarter second is imperceptible against the tornado's own drift.
+    private static readonly float PullInterval = 0.25f;
+    private float _pullTimer;
+
     void Start()
     {
         int count = transform.childCount;
@@ -144,7 +150,14 @@ public class TornadoBehavior : MonoBehaviour
             p.Rb.linearVelocity = vel;
         }
 
-        PullNearbyObjects();
+        // Throttled physics query (see _pullTimer field): captures stay smooth because a caught
+        // object keeps orbiting via the _pulled velocity writes every frame.
+        _pullTimer -= Time.deltaTime;
+        if (_pullTimer <= 0f)
+        {
+            PullNearbyObjects();
+            _pullTimer = PullInterval;
+        }
 
         _dirTimer -= Time.deltaTime;
         if (_dirTimer <= 0f) PickNewDirection();

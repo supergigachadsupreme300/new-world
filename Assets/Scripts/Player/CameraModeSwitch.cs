@@ -50,6 +50,12 @@ public sealed class CameraModeSwitch : MonoBehaviour
     private CameraFollow _follow;
     private Vector3 _velocity;
 
+    // Perf (§OPT): terrain-collision SphereCast every frame in third person; re-run at ~10 Hz
+    // and reuse the cached clamp distance between casts.
+    private const float CollisionCheckInterval = 0.1f;
+    private float _collisionTimer;
+    private float _cachedFinalDist = -1f;
+
     public Mode CurrentMode { get; private set; }
 
     private void OnEnable()
@@ -140,15 +146,24 @@ public sealed class CameraModeSwitch : MonoBehaviour
             - _pivot.forward * ThirdPersonDistance;
 
         // Terrain / wall collision: pull the camera forward if it would be inside geometry.
+        // The SphereCast runs at ~10 Hz; the cached clamp distance is reused between casts so
+        // direction changes (facing) stay smooth without re-querying physics each frame.
         Vector3 toCam = (desired - pivotPos).normalized;
         float targetDist = Vector3.Distance(pivotPos, desired);
         float finalDist = targetDist;
-        if (Physics.SphereCast(pivotPos, CollisionRadius, toCam,
-                out RaycastHit hit, targetDist, CollisionMask, QueryTriggerInteraction.Ignore))
+        _collisionTimer -= Time.deltaTime;
+        if (_collisionTimer <= 0f)
         {
-            finalDist = Mathf.Max(hit.distance - CollisionRadius, 0.1f);
-            desired = pivotPos + toCam * finalDist;
+            _collisionTimer = CollisionCheckInterval;
+            if (Physics.SphereCast(pivotPos, CollisionRadius, toCam,
+                    out RaycastHit hit, targetDist, CollisionMask, QueryTriggerInteraction.Ignore))
+                _cachedFinalDist = Mathf.Max(hit.distance - CollisionRadius, 0.1f);
+            else
+                _cachedFinalDist = -1f;
         }
+        if (_cachedFinalDist >= 0f)
+            finalDist = Mathf.Min(finalDist, _cachedFinalDist);
+        desired = pivotPos + toCam * finalDist;
 
         _camera.transform.position = Vector3.SmoothDamp(
             _camera.transform.position, desired, ref _velocity, SmoothTime);

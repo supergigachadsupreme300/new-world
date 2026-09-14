@@ -44,6 +44,12 @@ public class ThirdPersonCamera : MonoBehaviour
     private Vector3 _currentVelocity;
     private bool _lockOnActive;
 
+    // Perf (§OPT): the terrain-collision SphereCast is a physics query; re-run it at ~10 Hz and
+    // reuse the cached clamp distance in between. The per-frame position math stays continuous.
+    private const float CollisionCheckInterval = 0.1f;
+    private float _collisionTimer;
+    private float _cachedDistance = -1f;
+
     private void Start()
     {
         if (Pivot == null && Target != null)
@@ -100,18 +106,25 @@ public class ThirdPersonCamera : MonoBehaviour
 
         Quaternion rot = Quaternion.Euler(_pitch, _yaw, 0f);
 
-        Vector3 desiredCamPos = pivotPos - rot * Vector3.forward * Distance;
-
-        // Terrain / wall collision: push the camera out of any geometry so it
-        // does not clip behind the ground.
+        // Terrain / wall collision: push the camera out of any geometry so it does not clip
+        // behind the ground. The cast itself runs at ~10 Hz; between casts the cached clamp
+        // distance keeps the view steady (position math below continues every frame).
         float finalDistance = Distance;
-        if (Physics.SphereCast(
-                pivotPos, CollisionRadius, rot * Vector3.back,
-                out RaycastHit hit, Distance, CollisionMask, QueryTriggerInteraction.Ignore))
+        _collisionTimer -= Time.deltaTime;
+        if (_collisionTimer <= 0f)
         {
-            finalDistance = Mathf.Max(hit.distance - CollisionRadius, MinDistance * 0.5f);
-            desiredCamPos = pivotPos - rot * Vector3.forward * finalDistance;
+            _collisionTimer = CollisionCheckInterval;
+            if (Physics.SphereCast(
+                    pivotPos, CollisionRadius, rot * Vector3.back,
+                    out RaycastHit hit, Distance, CollisionMask, QueryTriggerInteraction.Ignore))
+                _cachedDistance = Mathf.Max(hit.distance - CollisionRadius, MinDistance * 0.5f);
+            else
+                _cachedDistance = -1f;
         }
+        if (_cachedDistance >= 0f)
+            finalDistance = Mathf.Min(finalDistance, _cachedDistance);
+
+        Vector3 desiredCamPos = pivotPos - rot * Vector3.forward * finalDistance;
 
         Vector3 smoothPos = Vector3.SmoothDamp(
             transform.position, desiredCamPos, ref _currentVelocity, PositionSmoothTime);

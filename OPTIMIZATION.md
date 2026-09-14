@@ -61,7 +61,7 @@ build; user play-tests in Unity afterwards), and recorded in `PROGRESS.md`.
 
 - [x] Audit + plan written
 - [x] Phase 0 — EntityId fix
-- [ ] Phase 1 — enemy/camera/tornado frame-rate
+- [x] Phase 1 — enemy/camera/tornado frame-rate
 - [ ] Phase 2 — HUD/UI allocations
 - [ ] Phase 3 — spell/FX GC + pragmatic pooling
 - [ ] Phase 4 — world streaming

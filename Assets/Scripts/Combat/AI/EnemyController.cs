@@ -97,6 +97,12 @@ public class EnemyController : MonoBehaviour, IDamageable
     private float _alertTimer;
     private static readonly Collider[] _scanBuffer = new Collider[16];
 
+    // Perf (§OPT): the target scan is the enemy's most expensive per-frame cost (a physics
+    // broad-phase query per enemy per frame). Stagger scans across 4 Hz with a per-enemy phase
+    // offset so 60 enemies cost ~24 queries/s spread out instead of 60 every frame.
+    private static readonly float ScanInterval = 0.25f;
+    private float _nextScanTime;
+
     // Class-skill hooks (§3.2.1): taunt lock, slow, stun.
     private Transform _forcedTarget;
     private float _tauntUntil;
@@ -115,6 +121,10 @@ public class EnemyController : MonoBehaviour, IDamageable
         CurrentHealth = Mathf.RoundToInt(_maxHealth * TierScale);
         var col = GetComponent<Collider>();
         if (col != null) col.enabled = true;
+
+        // Phase offset < ScanInterval (deterministic per instance) so freshly spawned waves
+        // don't all scan on the same frame.
+        _nextScanTime = Time.time + (GetInstanceID() & 0xFF) * 0.001f;
 
         if (!string.IsNullOrEmpty(EnemyId) && ModelRoot == null)
             ModelRoot = EnemyModelBuilder.BuildEnemy(transform, EnemyId);
@@ -196,6 +206,11 @@ public class EnemyController : MonoBehaviour, IDamageable
         }
         _tauntUntil = 0f;
 
+        // Staggered scan: re-scan at 4 Hz instead of every frame (see _nextScanTime field).
+        if (Time.time < _nextScanTime)
+            return;
+        _nextScanTime = Time.time + ScanInterval;
+
         _targets.Clear();
         int n = Physics.OverlapSphereNonAlloc(transform.position, ChaseRange, _scanBuffer);
         for (int i = 0; i < n; i++)
@@ -221,10 +236,11 @@ public class EnemyController : MonoBehaviour, IDamageable
     {
         Transform best = null;
         float bestD = float.MaxValue;
+        var pos = transform.position;
         foreach (var t in _targets)
         {
             if (t == null) continue;
-            float d = Vector3.Distance(transform.position, t.position);
+            float d = (t.position - pos).sqrMagnitude;
             if (d < bestD) { bestD = d; best = t; }
         }
         return best;
