@@ -446,6 +446,160 @@ public class WorldStreamer : MonoBehaviour
         }
     }
 
+    // --- Runtime terrain deformation (Earth school, §3.8) ---
+
+    /// <summary>
+    /// Reshape the loaded heightmap around a world-space center (main thread only).
+    /// <para>
+    /// Earth spells carry no status effect — instead they deform the ground (Ring: raised
+    /// annulus circling the impact; Spikes: scattered rock spikes). Corner heights are edited
+    /// in the tile-level data so shared corners always match (gapless mesh), each touched tile
+    /// is marked modified/dirty so it persists and syncs, and the whole affected chunk(s) are
+    /// rebuilt (merged mesh + collider) in place. Unloaded tiles are ignored — spells only
+    /// deform terrain the streamer already has in memory.
+    /// </para>
+    /// </summary>
+    public void DeformAt(Vector3 center, float radius, TerrainShape shape)
+    {
+        if (shape == TerrainShape.None || radius <= 0f) return;
+
+        float feather = 0.5f;
+        float reach = radius + feather;
+        int minCX = Mathf.FloorToInt(center.x - reach);
+        int maxCX = Mathf.FloorToInt(center.x + reach);
+        int minCZ = Mathf.FloorToInt(center.z - reach);
+        int maxCZ = Mathf.FloorToInt(center.z + reach);
+
+        // Ring: a raised annulus with its center left level. Spikes: smooth mound + sparse
+        // deterministic peaks so the ground reads jagged but never chessboard-y.
+        float lift = shape == TerrainShape.Ring ? 0.9f : 0.7f;
+        float ringMid = radius * 0.72f;
+        float ringHalfWidth = Mathf.Max(0.6f, radius * 0.28f);
+
+        // New height for every world corner (integer x/z) inside the reach.
+        var newHeights = new Dictionary<long, float>();
+
+        for (int cz = minCZ; cz <= maxCZ; cz++)
+        {
+            for (int cx = minCX; cx <= maxCX; cx++)
+            {
+                float wx = cx + 0.5f;
+                float wz = cz + 0.5f;
+                float dx = wx - center.x;
+                float dz = wz - center.z;
+                float dist = Mathf.Sqrt(dx * dx + dz * dz);
+
+                float influence;
+                if (shape == TerrainShape.Ring)
+                {
+                    float off = Mathf.Abs(dist - ringMid);
+                    influence = off >= ringHalfWidth ? 0f : 1f - off / ringHalfWidth;
+                }
+                else
+                {
+                    float fall = 1f - Mathf.Clamp01(dist / reach);
+                    influence = fall * fall;
+                }
+
+                if (influence <= 0f)
+                    continue;
+
+                // Smooth the influence curve (smootherstep) so the deform blends out at the rim.
+                float s = influence * influence * (3f - 2f * influence) * lift;
+
+                if (shape == TerrainShape.Spikes)
+                {
+                    float raw = (cx * 73856093) ^ (cz * 19349663) ^ Seed.GetHashCode();
+                    float r = (raw & 0x7fffffff) / (float)0x7fffffff;
+                    if (r > 0.78f)
+                        s += lift * (0.4f + r * 0.6f) * influence * influence;
+                }
+
+                newHeights[EncodeCorner(cx, cz)] = CurrentHeightOf(cx, cz) + s;
+            }
+        }
+
+        if (newHeights.Count == 0)
+            return;
+
+        // Apply edits to every loaded tile touched by the corner set. Corners not in the
+        // influence set simply keep their current (unchanged) height, so shared edges with
+        // untouched neighbours line up perfectly.
+        var rebuiltChunks = new HashSet<TerrainChunkCoord>();
+        bool changedAny = false;
+        for (int cz = minCZ; cz <= maxCZ; cz++)
+        {
+            for (int cx = minCX; cx <= maxCX; cx++)
+            {
+                var tile = new ChunkCoord(cx, cz);
+                if (!_loadedData.TryGetValue(tile, out ChunkData data))
+                    continue;
+
+                data.Heights[0] = CornerOrBase(cx, cz + 1, newHeights);     // NW
+                data.Heights[1] = CornerOrBase(cx + 1, cz + 1, newHeights); // NE
+                data.Heights[2] = CornerOrBase(cx + 1, cz, newHeights);     // SE
+                data.Heights[3] = CornerOrBase(cx, cz, newHeights);         // SW
+                data.HasModifications = true;
+                data.Version++;
+                _loadedData[tile] = data;
+                MarkDirty(tile);
+                rebuiltChunks.Add(TerrainChunkCoord.FromTile(tile));
+                changedAny = true;
+            }
+        }
+
+        if (!changedAny)
+            return;
+
+        // Rebuild the merged chunk mesh + collider in place so edits render and collide.
+        foreach (var tc in rebuiltChunks)
+        {
+            ChunkObject obj;
+            if (!_loadedChunks.TryGetValue(tc, out obj))
+                continue;
+            tc.GetTileRange(out int minX, out int minZ, out int maxX, out int maxZ);
+            var tiles = new ChunkMeshData[TerrainChunkCoord.ChunkArea];
+            int area = TerrainChunkCoord.ChunkSize;
+            for (int localZ = 0; localZ < area; localZ++)
+            {
+                for (int localX = 0; localX < area; localX++)
+                {
+                    var tileCoord = new ChunkCoord(minX + localX, minZ + localZ);
+                    if (!_loadedData.TryGetValue(tileCoord, out ChunkData tileData))
+                        continue;
+                    tiles[localZ * area + localX] = ChunkMeshGenerator.BuildMeshData(tileData, TerrainNoiseGenerator.DefaultLayers);
+                }
+            }
+            obj.ApplyMerged(ChunkMeshGenerator.BuildMergedMeshData(tiles), GroundMaterial, buildCollider: true);
+        }
+    }
+
+    private static long EncodeCorner(int cx, int cz) => ((long)cx << 32) | (uint)cz;
+
+    private static float CornerOrBase(int cx, int cz, Dictionary<long, float> newHeights)
+    {
+        return newHeights.TryGetValue(EncodeCorner(cx, cz), out float h) ? h : CurrentHeightOf(cx, cz);
+    }
+
+    /// <summary>Current height of a world corner from whichever loaded tile owns it
+    /// (shared corners agree, so the first loaded tile wins).</summary>
+    private float CurrentHeightOf(int cx, int cz)
+    {
+        ChunkCoord[] owners =
+        {
+            new ChunkCoord(cx, cz),         // SW slot of tile (cx, cz)
+            new ChunkCoord(cx - 1, cz),     // SE slot of tile (cx-1, cz)
+            new ChunkCoord(cx, cz - 1),     // NW slot of tile (cx, cz-1)
+            new ChunkCoord(cx - 1, cz - 1), // NE slot of tile (cx-1, cz-1)
+        };
+        if (_loadedData.TryGetValue(owners[0], out ChunkData d0)) return d0.Heights[3];
+        if (_loadedData.TryGetValue(owners[1], out ChunkData d1)) return d1.Heights[2];
+        if (_loadedData.TryGetValue(owners[2], out ChunkData d2)) return d2.Heights[0];
+        if (_loadedData.TryGetValue(owners[3], out ChunkData d3)) return d3.Heights[1];
+        // Corner has no loaded owner tile — neutral base (only ever read by loaded tiles).
+        return TerrainNoiseGenerator.GetHeight(Seed, cx + 0.5f, cz + 0.5f);
+    }
+
     private void OnDestroy()
     {
         foreach (ChunkCoord coord in _dirty)

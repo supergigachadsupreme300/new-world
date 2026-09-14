@@ -22,5 +22,9 @@ public enum StatusEffectType
     Burn = 4,
 
     /// <summary>Poise break / crowd-control (interrupts actions).</summary>
-    Stagger = 5
+    Stagger = 5,
+
+    /// <summary>Wetted by water magic: slows slightly and conducts — Ice/Lightning hits a wet
+    /// foe deal bonus damage (see <see cref="WetStatus"/>).</summary>
+    Wet = 6
 }

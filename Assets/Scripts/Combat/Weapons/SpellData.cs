@@ -16,6 +16,22 @@ public enum SpellDelivery
 }
 
 /// <summary>
+/// Ground deformation a spell triggers when it resolves on terrain (§3.8 — the Earth
+/// school's signature; Earth spells carry no status effect and reshape the ground instead).
+/// </summary>
+public enum TerrainShape
+{
+    None = 0,
+
+    /// <summary>Raise an annulus (stone ring) around the impact center — the "circle around"
+    /// earth move. The center stays level so nothing is buried at the strike point.</summary>
+    Ring = 1,
+
+    /// <summary>Raise a cluster of rock spikes across the impact area.</summary>
+    Spikes = 2
+}
+
+/// <summary>
 /// Data asset defining a spell (§3.8). Spells are cast through Magic weapons
 /// (staff / wand / book) or equippable active skills, routed via SpellCaster.
 /// </summary>
@@ -55,6 +71,10 @@ public class SpellData : ScriptableObject
     public StatusEffectType StatusEffect;
     [Tooltip("Chance (0..1) the status applies on a hit. Default 1 when AppliesStatus is set.")]
     public float StatusProcChance = 1f;
+
+    [Header("Terrain (§3.8, Earth school)")]
+    [Tooltip("Earth spells reshape the ground: Ring raises a stone circle around the impact point, Spikes raise rock spikes across the area. None for all other schools.")]
+    public TerrainShape TerrainShape;
 
     [Header("Presentation")]
     public GameObject CastEffectPrefab;

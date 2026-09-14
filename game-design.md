@@ -7,7 +7,7 @@
 **Multiplayer:** Dedicated server with co-op/invasion/arena
 **Core Loop:** Explore → Fight → Grow → Craft → Dominate
 
-Seamless open-world with real-time action combat, classless progression via a **6-category skill-XP system**, an **11-stat** system, **15 unlockable classes**, and a **22-race system** (with passive-only racial kits), procedurally generated seed-based chunk terrain, and all existing CountryLife systems retained as optional side content. Combat is built on a **3-genre equipment** set (21 slots), an expandable **weapon architecture** (§3.6, Melee/Ranged/Magic), a **spell-casting pipeline** (§3.8) for magic, and **10 damage types** with **6 status effects** (§3.7).
+Seamless open-world with real-time action combat, classless progression via a **6-category skill-XP system**, an **11-stat** system, **15 unlockable classes**, and a **22-race system** (with passive-only racial kits), procedurally generated seed-based chunk terrain, and all existing CountryLife systems retained as optional side content. Combat is built on a **3-genre equipment** set (21 slots), an expandable **weapon architecture** (§3.6, Melee/Ranged/Magic), a **spell-casting pipeline** (§3.8) for magic, and **10 damage types** with **7 status effects** (§3.7).
 
 ---
 
@@ -226,8 +226,9 @@ A **use-based skill progression** spans 6 categories with a **3-layer branching 
 itself** — each successful use grants skill-level XP (unaffected by prereqs, boosted by the race's
 all-XP bonus and any matching talent, §3.9), following a linear threshold curve to a cap of level 100.
 The skill detail pane shows "Lv N · XP x/y" for a learned active skill, and learned nodes in the tree
-display their level. Magic's tree currently runs **7 L1 roots — the six classic schools plus Lightning
-as its own school** (Chain Lightning hangs under Lightning's root, not Fireball's).
+display their level. Magic's tree currently runs **9 L1 roots — the six classic schools plus Lightning,
+Water, and Earth as their own schools** (Chain Lightning hangs under Lightning's root, not Fireball's;
+Water soaks with Wet; Earth reshapes terrain instead of applying a status).
 
 #### 3-Layer Branching Structure
 
@@ -245,11 +246,11 @@ Layer 2 (deep):     125-350 skills per category — mastery-level abilities
 |----------|---------|---------|---------|-------|
 | Melee | 10 | 50 | 250 | 310 |
 | Ranged | 10 | 50 | 250 | 310 |
-| Magic | 14 | 70 | 350 | 434 |
+| Magic | 16 | 80 | 400 | 496 |
 | Stealth | 10 | 50 | 250 | 310 |
 | Crafting | 10 | 50 | 250 | 310 |
 | Fortitude | 10 | 50 | 250 | 310 |
-| **TOTAL** | **64** | **320** | **1600** | **1984** |
+| **TOTAL** | **66** | **330** | **1650** | **2046** |
 
 **Prerequisites:** Each Layer 1 skill requires its parent Layer 0 skill. Each Layer 2 skill requires its parent Layer 1 skill. This creates clean branching paths — players must invest down a specific branch.
 
@@ -535,12 +536,15 @@ Status effects are **not damage types** — they are applied **on hit** and do D
 | **Frost** (frostbite) | Builds up, then a burst + slow |
 | **Burn** | Fire damage-over-time + light stagger buildup |
 | **Stagger** | Poise break / crowd-control (interrupts actions) |
+| **Wet** | Soaked — slight slow (`WetStatus`: ApplySlow 0.85) + **conducts**: Ice/Lightning deal +40% vs a wet target. Applied by **Water** spells. |
 
 Damage-over-time statuses (Bleed/Poison/Rot/Burn) are driven by `SpellDoT.cs` (refreshes on re-apply;
 per-tick = spell power × 0.12 over 4 s); Frost routes to `EnemyController.ApplySlow`, Stagger to
 `EnemyController.ApplyStun`. Each magic school has a **signature status** so spells read distinctly
 even when they share a delivery type — Fire→Burn, Ice→Frost, Lightning→Stagger, Dark→Rot,
-Wind→Knockback, Holy→heals (§3.8), Arcane→Stagger (bind/hold).
+Wind→Knockback, Holy→heals (§3.8), Arcane→Stagger (bind/hold), Water→**Wet** (soak: slight slow plus
+Ice/Lightning conductance, `WetStatus`), Earth→**no status — it reshapes terrain itself**
+(ring/spire ground deformation on the impact point, §3.8).
 
 ### 3.8 Spell-Casting Pipeline
 
@@ -559,6 +563,12 @@ A spell is a data asset carrying:
 - **selfbuff** (Instant delivery grants a timed caster effect instead of damage/heal — e.g. **Wind Walk**: `PlayerController.BeginFlight(Duration)`, free vertical movement for the buff's seconds)
 - **heals** (Holy/utility spells: instant/self-heal, or an ally-heal aura when on a zone; only `IHealable` targets — the player — are ever healed, enemies still take damage)
 - **knockback** (impulse applied to enemies; the Wind school signature)
+- **terrain shape** (Earth school signature, §3.8): an optional `TerrainShape` reshapes the tiled
+  heightmap at the spell's impact point before damage resolves — **Ring** rears a circular stone wall
+  around the impact, **Spikes** erupts spires beneath it (ground deform via `TerrainDeformer` →
+  `WorldStreamer.DeformAt`, which lifts the affected tile corners, rebuilds the merged chunk
+  mesh+collider, and persists the edit as a terrain modification). Earth spells use this instead of a
+  status effect.
 - cast animation reference
 - optional status-effect application with a proc chance (e.g., applies Burn/Frost/Stagger; §3.7)
 

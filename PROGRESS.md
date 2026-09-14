@@ -223,6 +223,44 @@ called and nothing opened it. It is now reachable from the Pause menu.
 
 ---
 
+## 1af. Recent completed work (2026-09-14) — Water + Earth magic schools: Wet status & terrain deformation
+
+User: "add water and earth magic" (with the schools sharing the tree's existing depth: full L1/L2
+rosters like the other schools; Water applies a **Wet** status; Earth has **no status** — its spells
+reshape the terrain, "earth move would circle around modifying terrain"; school name on the wheel's
+school bubbles).
+
+- **Wet status** — `StatusEffectType.Wet = 6`. New **`WetStatus.cs`**: `SlowFactor 0.85` + `Duration 4 s`
+  (re-applies `EnemyController.ApplySlow` on apply + first Update, so it stacks safely with Frost via
+  `Mathf.Min`), and **conducts Ice/Lightning** — `IceLightningDamageBonus 1.4`. `SpellCaster.ApplyStatus`
+  routes Wet → `WetStatus.Apply`; `ApplyHit` boosts Ice/Lightning vs wet targets via
+  `WeaknessMultiplier 1.4` (Ice/Lightning × Wet = ×1.4).
+- **`TerrainShape`** (`None/Ring/Spikes`) on `SpellData` + `Spell(...)` factory param. New
+  **`TerrainDeformer.cs`** facade → **`WorldStreamer.DeformAt(center, radius, shape)`**: lifts affected
+  tile-corner heights (Ring = stone wall at ~0.72·radius, Spikes = mound + deterministic hash peaks;
+  smootherstep falloff), marks the tiles modified/dirty, and rebuilds the affected chunk's merged
+  mesh+collider. Hooked in `SpellCaster.ResolveZone` — zone Earth spells deform the ground at impact
+  before damage resolves.
+- **Water school** — root **"Water Bolt"** (magic_water, Focus 14, projectile, Wet). L1: Tidal Stream
+  (beam), Whirlpool (vortex), Mist Veil (zone), Deep Mind (Int+3), Healing Spring (instant heal).
+  L2 tables ×5 (Tsunami storm, Maelstrom, Downpour, Healing Tide, etc.) — wet-applying throughout.
+- **Earth school** — root **"Stone Shard"** (magic_earth, Focus 15, projectile). L1: Boulder Crash
+  (zone knockback), Tremor (**Ring** deform), Spire Field (**Spikes** deform), Earth Bulwark (Def+3),
+  Stone Effigy (summon). L2 tables ×5 — Ring/Spikes deform escalates (Seismic Ring, Epicenter, Stone
+  Pillars, Crystal Field, Colossus, etc.).
+- **Wheel labels** — `CharacterInfoUI.BuildWheel`: the compact-wheel school bubble never set its label
+  text; now displays the root skill's name (`slbl.text = root.displayName`) — Magic grows from 7 to 9
+  school wedges (Water Bolt / Stone Shard included).
+- Docs: game-design.md §3.7 (Wet row, 6→7 statuses, signature list Water→Wet / Earth→terrain),
+  §3.8 (`terrain shape` bullet), §3.3 (9 L1 roots; Magic 16/80/400/496, TOTAL 2046).
+
+### 1af-status
+- No CLI build — code-review verified. Play-test pending: learn/arm Water ("Wet") and Earth (Tremor /
+  Spire Field deform the ground) schools from the magic wheel; verify wet-target Ice/Lightning bonus
+  and that deformed chunks persist after reload.
+
+---
+
 ## 1m. Recent completed work (2026-09-12) — magic delivery overhaul (Beam / Summon / Storm) + throwing-hammer fix
 User: duplicate-feeling spells across the magic schools should each behave distinctly. Three new spell
 deliveries (Beam, Summon, Storm) added alongside projectile / instant / zone / vortex; 16 spells

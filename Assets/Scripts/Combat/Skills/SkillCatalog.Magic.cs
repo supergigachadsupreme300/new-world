@@ -4,7 +4,7 @@ public static partial class SkillCatalog
 {
     private static void RegisterMagicDesign(DesignBank bank)
     {
-        /* ──────────────── L1 (7 roots; 6 full + Lightning's own school) ──────────────── */
+        /* ──────────────── L1 (9 roots: the classic schools + Lightning, Water, Earth) ─── */
 
         // Root: magic_focus (passive, Intelligence+3)
         bank.L1["magic_focus"] = new BranchSlot[]
@@ -75,7 +75,33 @@ public static partial class SkillCatalog
             S("magic_lightning_fury", "Sky Fury", Spell("magic_lightning_fury_spell", "Sky Fury", DamageType.Lightning, 30f, 20f, SpellDelivery.Beam, 5f, deliveryRange: 13f, deliveryRadius: 1.2f, statusEffect: StatusEffectType.Stagger, channelDrainPerSecond: 9f), "Hold a crackling sky-fury that staggers everything in its path.", Focus(20f), DamageType.Lightning, true),
         };
 
-        /* ──────────────── L2 (150 slots — 30 L1 parents × 5 children each) ──────────────── */
+        // Root: magic_water (active, Focus 14, projectile water; signature status = Wet).
+        // Water spells soak foes — Wet slows slightly and conducts, so Ice/Lightning follow-ups
+        // deal bonus damage (WetStatus); deliveries favour flow: beam tide, vortex whirlpool,
+        // mist zone, healing spring. The school carries no terrain reshaping (Earth's domain).
+        bank.L1["magic_water"] = new BranchSlot[]
+        {
+            S("magic_water_stream", "Tidal Stream", Spell("magic_water_stream_spell", "Tidal Stream", DamageType.Water, 24f, 16f, SpellDelivery.Beam, 4f, deliveryRange: 11f, deliveryRadius: 1.4f, statusEffect: StatusEffectType.Wet, channelDrainPerSecond: 8f), "Hold a surging line of water that soaks everything it crosses.", Focus(16f), DamageType.Water, true),
+            S("magic_water_whirlpool", "Whirlpool", Spell("magic_water_whirlpool_spell", "Whirlpool", DamageType.Water, 24f, 20f, SpellDelivery.Vortex, 6f, deliveryRange: 8f, deliveryRadius: 2.6f, duration: 4f, statusEffect: StatusEffectType.Wet), "A sucking vortex that drags foes in and drowns them.", Focus(20f), DamageType.Water, true),
+            S("magic_water_veil", "Mist Veil", Spell("magic_water_veil_spell", "Mist Veil", DamageType.Water, 22f, 16f, SpellDelivery.Zone, 5f, deliveryRadius: 2.8f, duration: 4f, statusEffect: StatusEffectType.Wet), "A clinging mist that soaks and slows all inside.", Focus(16f), DamageType.Water, true),
+            S("magic_water_deep", "Deep Mind", Buff(StatType.Intelligence, 3f), "Permanent +3 Intelligence.", passive: true),
+            S("magic_water_spring", "Healing Spring", Spell("magic_water_spring_spell", "Healing Spring", DamageType.Water, 20f, 12f, SpellDelivery.Instant, 0f, heals: true), "Living water restores the body.", Focus(12f), DamageType.Water, true),
+        };
+
+        // Root: magic_earth (active, Focus 15, projectile earth; signature = terrain reshaping).
+        // Earth spells carry NO status effect — they hit like falling rock (heavy knockback) and
+        // reshape the ground itself (TerrainShape → TerrainDeformer): rings that circle the
+        // impact, spires that erupt beneath the target.
+        bank.L1["magic_earth"] = new BranchSlot[]
+        {
+            S("magic_earth_boulder", "Boulder Crash", Spell("magic_earth_boulder_spell", "Boulder Crash", DamageType.Earth, 28f, 18f, SpellDelivery.Zone, 5f, deliveryRadius: 3f, knockback: 2.5f), "A tumbling boulder that flattens and shoves foes.", Focus(18f), DamageType.Earth, true),
+            S("magic_earth_quake", "Tremor", Spell("magic_earth_quake_spell", "Tremor", DamageType.Earth, 26f, 20f, SpellDelivery.Zone, 6f, deliveryRadius: 2.8f, terrainShape: TerrainShape.Ring), "The ground ripples — a stone ring rears up around the impact.", Focus(20f), DamageType.Earth, true),
+            S("magic_earth_spires", "Spire Field", Spell("magic_earth_spires_spell", "Spire Field", DamageType.Earth, 24f, 18f, SpellDelivery.Zone, 5f, deliveryRadius: 3f, terrainShape: TerrainShape.Spikes), "Stone spires erupt from beneath the target area.", Focus(18f), DamageType.Earth, true),
+            S("magic_earth_bulwark", "Earth Bulwark", Buff(StatType.Defense, 3f), "Permanent +3 Defense.", passive: true),
+            S("magic_earth_golem", "Stone Effigy", Spell("magic_earth_golem_spell", "Stone Effigy", DamageType.Earth, 28f, 20f, SpellDelivery.Summon, 5f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, projectileSpeed: 18f), "Summon a stone effigy that flings rocks at nearby foes.", Focus(20f), DamageType.Earth, true),
+        };
+
+        /* ──────────────── L2 (banks per L1 parent — up to 5 children each) ─────────── */
 
         /* magic_heal children */
         bank.L2["magic_heal"] = new BranchSlot[]
@@ -415,6 +441,106 @@ public static partial class SkillCatalog
             S("magic_gust_airburst_crack", "Crack", Spell("magic_gust_airburst_crack_spell", "Crack", DamageType.Wind, 28f, 16f, SpellDelivery.Zone, 4f, deliveryRadius: 2.4f, knockback: 2f), "A sonic crack of bursting air.", Focus(16f), DamageType.Wind, true),
             S("magic_gust_airburst_pressure", "Pressure", Spell("magic_gust_airburst_pressure_spell", "Pressure", DamageType.Wind, 30f, 18f, SpellDelivery.Zone, 5f, deliveryRadius: 2.6f, knockback: 2.2f), "Crushing air pressure.", Focus(18f), DamageType.Wind, true),
             S("magic_gust_airburst_shock", "Shockwave", Spell("magic_gust_airburst_shock_spell", "Shockwave", DamageType.Wind, 32f, 20f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, knockback: 2.5f), "A wide shockwave of air that scatters everything.", Focus(20f), DamageType.Wind, true),
+        };
+
+        /* magic_water_stream children */
+        bank.L2["magic_water_stream"] = new BranchSlot[]
+        {
+            S("magic_water_stream_surge", "Tidal Surge", Spell("magic_water_stream_surge_spell", "Tidal Surge", DamageType.Water, 28f, 18f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Wet), "A heavy surge of water.", Focus(18f), DamageType.Water, true),
+            S("magic_water_stream_rapids", "Rapids", Buff(StatType.AttackSpeed, 5f), "Permanent +5 Attack Speed.", passive: true),
+            S("magic_water_stream_flood", "Flood", Spell("magic_water_stream_flood_spell", "Flood", DamageType.Water, 30f, 20f, SpellDelivery.Zone, 6f, deliveryRadius: 2.6f, duration: 3f, statusEffect: StatusEffectType.Wet), "Rising water that floods the area.", Focus(20f), DamageType.Water, true),
+            S("magic_water_stream_tide", "Tide", Spell("magic_water_stream_tide_spell", "Tide", DamageType.Water, 32f, 22f, SpellDelivery.Beam, 5f, deliveryRange: 13f, deliveryRadius: 1.5f, statusEffect: StatusEffectType.Wet, channelDrainPerSecond: 9f), "Hold a rolling tide that soaks the whole line.", Focus(22f), DamageType.Water, true),
+            S("magic_water_stream_tsunami", "Tsunami", Spell("magic_water_stream_tsunami_spell", "Tsunami", DamageType.Water, 34f, 26f, SpellDelivery.Storm, 7f, deliveryRange: 9f, deliveryRadius: 3.2f, duration: 3f, statusEffect: StatusEffectType.Wet), "A towering wave crashes down on the area.", Focus(26f), DamageType.Water, true),
+        };
+
+        /* magic_water_whirlpool children */
+        bank.L2["magic_water_whirlpool"] = new BranchSlot[]
+        {
+            S("magic_water_whirlpool_suck", "Suction", Spell("magic_water_whirlpool_suck_spell", "Suction", DamageType.Water, 26f, 18f, SpellDelivery.Vortex, 5f, deliveryRange: 8f, deliveryRadius: 2.8f, duration: 3f, statusEffect: StatusEffectType.Wet), "A vortex that drags foes toward its maw.", Focus(18f), DamageType.Water, true),
+            S("magic_water_whirlpool_drown", "Drown", Spell("magic_water_whirlpool_drown_spell", "Drown", DamageType.Water, 30f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 2.4f, statusEffect: StatusEffectType.Wet), "A drowning pull that suffocates foes.", Focus(20f), DamageType.Water, true),
+            S("magic_water_whirlpool_abyss", "Abyssal Well", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
+            S("magic_water_whirlpool_maelstrom", "Maelstrom", Spell("magic_water_whirlpool_maelstrom_spell", "Maelstrom", DamageType.Water, 34f, 24f, SpellDelivery.Vortex, 7f, deliveryRange: 9f, deliveryRadius: 3f, duration: 4f, statusEffect: StatusEffectType.Wet), "A sea-wide whirlpool that pulls and shreds.", Focus(24f), DamageType.Water, true),
+            S("magic_water_whirlpool_vortex", "Water Vortex", Spell("magic_water_whirlpool_vortex_spell", "Water Vortex", DamageType.Water, 36f, 26f, SpellDelivery.Storm, 8f, deliveryRange: 9f, deliveryRadius: 3.4f, duration: 3f, statusEffect: StatusEffectType.Wet), "Waterspouts rake the area, soaking everything.", Focus(26f), DamageType.Water, true),
+        };
+
+        /* magic_water_veil children */
+        bank.L2["magic_water_veil"] = new BranchSlot[]
+        {
+            S("magic_water_veil_drizzle", "Drizzle", Spell("magic_water_veil_drizzle_spell", "Drizzle", DamageType.Water, 26f, 18f, SpellDelivery.Zone, 4f, deliveryRadius: 2.4f, statusEffect: StatusEffectType.Wet), "A soft but relentless drizzle.", Focus(18f), DamageType.Water, true),
+            S("magic_water_veil_soaked", "Soaked", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
+            S("magic_water_veil_rain", "Raincall", Spell("magic_water_veil_rain_spell", "Raincall", DamageType.Water, 28f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 3f, duration: 3f, statusEffect: StatusEffectType.Wet), "Rain hammers the whole area.", Focus(20f), DamageType.Water, true),
+            S("magic_water_veil_mist", "Mist", Spell("magic_water_veil_mist_spell", "Mist", DamageType.Water, 24f, 16f, SpellDelivery.Zone, 4f, deliveryRadius: 2.6f, statusEffect: StatusEffectType.Wet), "A creeping mist that clings and slows.", Focus(16f), DamageType.Water, true),
+            S("magic_water_veil_downpour", "Downpour", Spell("magic_water_veil_downpour_spell", "Downpour", DamageType.Water, 32f, 24f, SpellDelivery.Storm, 7f, deliveryRange: 10f, deliveryRadius: 3.4f, duration: 3.5f, statusEffect: StatusEffectType.Wet), "A drenching downpour over the target.", Focus(24f), DamageType.Water, true),
+        };
+
+        /* magic_water_deep children (all passive) */
+        bank.L2["magic_water_deep"] = new BranchSlot[]
+        {
+            S("magic_water_deep_intellect", "Deep Intellect", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
+            S("magic_water_deep_wisdom", "Deep Wisdom", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
+            S("magic_water_deep_endurance", "Deep Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
+            S("magic_water_deep_defense", "Water Shield", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
+            S("magic_water_deep_luck", "Currents of Fate", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
+        };
+
+        /* magic_water_spring children */
+        bank.L2["magic_water_spring"] = new BranchSlot[]
+        {
+            S("magic_water_spring_well", "Living Well", Spell("magic_water_spring_well_spell", "Living Well", DamageType.Water, 26f, 18f, SpellDelivery.Instant, 0f, heals: true), "A deep well of living water.", Focus(18f), DamageType.Water, true),
+            S("magic_water_spring_vigor", "Spring Vigor", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
+            S("magic_water_spring_tide", "Healing Tide", Spell("magic_water_spring_tide_spell", "Healing Tide", DamageType.Water, 24f, 16f, SpellDelivery.Zone, 4f, deliveryRadius: 2.4f, duration: 3f, heals: true), "A restorative tide that mends allies inside it.", Focus(16f), DamageType.Water, true),
+            S("magic_water_spring_renew", "Renewal", Spell("magic_water_spring_renew_spell", "Renewal", DamageType.Water, 28f, 20f, SpellDelivery.Instant, 0f, heals: true), "A surge of cleansing water.", Focus(20f), DamageType.Water, true),
+            S("magic_water_spring_mist", "Mist of Life", Spell("magic_water_spring_mist_spell", "Mist of Life", DamageType.Water, 22f, 14f, SpellDelivery.Zone, 3f, deliveryRadius: 2.6f, heals: true), "A revitalising mist that mends allies within.", Focus(14f), DamageType.Water, true),
+        };
+
+        /* magic_earth_boulder children */
+        bank.L2["magic_earth_boulder"] = new BranchSlot[]
+        {
+            S("magic_earth_boulder_crash", "Crash", Spell("magic_earth_boulder_crash_spell", "Crash", DamageType.Earth, 32f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3.2f, knockback: 3f), "A colossal boulder that crashes into the enemy.", Focus(22f), DamageType.Earth, true),
+            S("magic_earth_boulder_weight", "Boulderweight", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
+            S("magic_earth_boulder_landslide", "Landslide", Spell("magic_earth_boulder_landslide_spell", "Landslide", DamageType.Earth, 34f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.6f, knockback: 3f), "A tumbling wall of rock.", Focus(24f), DamageType.Earth, true),
+            S("magic_earth_boulder_fall", "Rockfall", Spell("magic_earth_boulder_fall_spell", "Rockfall", DamageType.Earth, 30f, 20f, SpellDelivery.Storm, 6f, deliveryRange: 9f, deliveryRadius: 3.2f, duration: 3f), "Boulders rain down over the area.", Focus(20f), DamageType.Earth, true),
+            S("magic_earth_boulder_tectonic", "Tectonic", Spell("magic_earth_boulder_tectonic_spell", "Tectonic", DamageType.Earth, 36f, 26f, SpellDelivery.Zone, 8f, deliveryRadius: 3.8f, knockback: 3.5f), "A tectonic blow that shatters the ground.", Focus(26f), DamageType.Earth, true),
+        };
+
+        /* magic_earth_quake children (Ring terrain shaping escalates the stone ring) */
+        bank.L2["magic_earth_quake"] = new BranchSlot[]
+        {
+            S("magic_earth_quake_faultline", "Faultline", Spell("magic_earth_quake_faultline_spell", "Faultline", DamageType.Earth, 30f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, terrainShape: TerrainShape.Ring), "A second stone ring rears up around the impact.", Focus(22f), DamageType.Earth, true),
+            S("magic_earth_quake_stable", "Stable Ground", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
+            S("magic_earth_quake_epicenter", "Epicenter", Spell("magic_earth_quake_epicenter_spell", "Epicenter", DamageType.Earth, 34f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.4f, terrainShape: TerrainShape.Ring), "The ground heaves in a rising ring.", Focus(24f), DamageType.Earth, true),
+            S("magic_earth_quake_aftermath", "Aftershock", Spell("magic_earth_quake_aftermath_spell", "Aftershock", DamageType.Earth, 26f, 18f, SpellDelivery.Zone, 4f, deliveryRadius: 2.8f, knockback: 2f), "A second tremor that tosses foes.", Focus(18f), DamageType.Earth, true),
+            S("magic_earth_quake_seismic", "Seismic Ring", Spell("magic_earth_quake_seismic_spell", "Seismic Ring", DamageType.Earth, 32f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.2f, terrainShape: TerrainShape.Ring), "A towering stone circle that closes in on foes.", Focus(24f), DamageType.Earth, true),
+        };
+
+        /* magic_earth_spires children (Spikes terrain shaping escalates the spires) */
+        bank.L2["magic_earth_spires"] = new BranchSlot[]
+        {
+            S("magic_earth_spires_spike", "Spike Burst", Spell("magic_earth_spires_spike_spell", "Spike Burst", DamageType.Earth, 30f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 3f, terrainShape: TerrainShape.Spikes), "Spikes erupt in a violent burst.", Focus(20f), DamageType.Earth, true),
+            S("magic_earth_spires_bedrock", "Bedrock", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
+            S("magic_earth_spires_needles", "Needle Field", Spell("magic_earth_spires_needles_spell", "Needle Field", DamageType.Earth, 28f, 18f, SpellDelivery.Zone, 5f, deliveryRadius: 3.4f, terrainShape: TerrainShape.Spikes), "A field of needle-thin stone spikes.", Focus(18f), DamageType.Earth, true),
+            S("magic_earth_spires_pillar", "Stone Pillars", Spell("magic_earth_spires_pillar_spell", "Stone Pillars", DamageType.Earth, 32f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3.2f, terrainShape: TerrainShape.Spikes), "Massive pillars erupt across the area.", Focus(22f), DamageType.Earth, true),
+            S("magic_earth_spires_crystal", "Crystal Field", Spell("magic_earth_spires_crystal_spell", "Crystal Field", DamageType.Earth, 30f, 20f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, terrainShape: TerrainShape.Spikes), "Jagged crystal shards tear up the ground.", Focus(20f), DamageType.Earth, true),
+        };
+
+        /* magic_earth_bulwark children (all passive) */
+        bank.L2["magic_earth_bulwark"] = new BranchSlot[]
+        {
+            S("magic_earth_bulwark_granite", "Granite", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
+            S("magic_earth_bulwark_armor", "Rock Armor", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
+            S("magic_earth_bulwark_stone", "Stone Heart", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
+            S("magic_earth_bulwark_ward", "Earth Ward", Buff(StatType.Defense, 6f), "Permanent +6 Defense.", passive: true),
+            S("magic_earth_bulwark_iron", "Ironhide", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
+        };
+
+        /* magic_earth_golem children */
+        bank.L2["magic_earth_golem"] = new BranchSlot[]
+        {
+            S("magic_earth_golem_sentinel", "Stone Sentinel", Spell("magic_earth_golem_sentinel_spell", "Stone Sentinel", DamageType.Earth, 32f, 22f, SpellDelivery.Summon, 6f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, projectileSpeed: 18f), "Summon a vigilant stone sentinel.", Focus(22f), DamageType.Earth, true),
+            S("magic_earth_golem_mason", "Mason's Craft", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
+            S("magic_earth_golem_guardian", "Stone Guardian", Spell("magic_earth_golem_guardian_spell", "Stone Guardian", DamageType.Earth, 34f, 24f, SpellDelivery.Summon, 7f, deliveryRange: 8f, deliveryRadius: 6f, duration: 7f, projectileSpeed: 18f), "Summon a hulking stone guardian.", Focus(24f), DamageType.Earth, true),
+            S("magic_earth_golem_core", "Effigy Core", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
+            S("magic_earth_golem_colossus", "Colossus", Spell("magic_earth_golem_colossus_spell", "Colossus", DamageType.Earth, 36f, 26f, SpellDelivery.Summon, 8f, deliveryRange: 8f, deliveryRadius: 6f, duration: 8f, projectileSpeed: 18f), "Summon a towering colossus of living rock.", Focus(26f), DamageType.Earth, true),
         };
     }
 }

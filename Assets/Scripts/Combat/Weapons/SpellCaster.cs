@@ -768,6 +768,9 @@ public class SpellCaster : MonoBehaviour
             center = groundHit.point;
         }
 
+        // Earth spells reshape the ground at the impact point before damage resolves (§3.8).
+        TerrainDeformer.Apply(center, radius, spell.TerrainShape);
+
         // Duration > 0 keeps the zone alive: it ticks the spell's damage while it lasts.
         if (spell.Duration > 0f)
         {
@@ -844,6 +847,15 @@ public class SpellCaster : MonoBehaviour
             WeaknessMultiplier = 1f,
             CriticalMultiplier = 1f,
         };
+
+        // Wet conduction (§3.7): a soaked foe takes bonus Ice/Lightning spell damage.
+        // Melee/ranged attacks ignore the amp — water combos with frost/shock magic only.
+        if ((spell.Type == DamageType.Ice || spell.Type == DamageType.Lightning)
+            && WetStatus.IsWet(target))
+        {
+            ctx.WeaknessMultiplier = WetStatus.IceLightningDamageBonus;
+        }
+
         var result = DamageCalculator.Calculate(ctx, false);
 
         if (target.TryGetComponent<IDamageable>(out var damageable))
@@ -897,7 +909,8 @@ public class SpellCaster : MonoBehaviour
     }
 
     /// <summary>Apply a spell's status effect on a damage hit. DoT statuses attach a SpellDoT to
-    /// the target's root; Frost slows and Stagger stuns via the enemy controller.</summary>
+    /// the target's root; Frost slows and Stagger stuns via the enemy controller; Wet soaks the
+    /// target (WetStatus) so Ice/Lightning follow-ups hit harder.</summary>
     private static void ApplyStatus(SpellData spell, float power, GameObject target)
     {
         if (spell == null || !spell.AppliesStatus) return;
@@ -919,6 +932,9 @@ public class SpellCaster : MonoBehaviour
             case StatusEffectType.Stagger:
                 if (root != null && root.TryGetComponent<EnemyController>(out var staggerEnemy))
                     staggerEnemy.ApplyStun(0.35f);
+                break;
+            case StatusEffectType.Wet:
+                WetStatus.Apply(target, 4f);
                 break;
         }
     }

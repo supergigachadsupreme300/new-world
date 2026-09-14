@@ -124,7 +124,8 @@ public static partial class SkillCatalog
         float deliveryRange = 10f, float deliveryRadius = 1f, float castTime = 0.5f,
         bool heals = false, float knockback = 0f, float duration = 0f,
         StatusEffectType? statusEffect = null, float projectileSpeed = 20f,
-        float tickInterval = 0.5f, float channelDrainPerSecond = 0f, bool selfBuff = false)
+        float tickInterval = 0.5f, float channelDrainPerSecond = 0f, bool selfBuff = false,
+        TerrainShape terrainShape = TerrainShape.None)
     {
         var spell = ScriptableObject.CreateInstance<SpellData>();
         spell.name = spellId;
@@ -145,6 +146,7 @@ public static partial class SkillCatalog
         spell.Heals = heals;
         spell.Knockback = knockback;
         spell.SelfBuff = selfBuff;
+        spell.TerrainShape = terrainShape;
         spell.AppliesStatus = statusEffect.HasValue;
         spell.StatusEffect = statusEffect ?? default;
         return new SpellCastEffect { Spell = spell };
@@ -273,6 +275,22 @@ public static partial class SkillCatalog
             Spell("magic_flight_spell", "Wind Walk", DamageType.Wind, 0f, 18f, SpellDelivery.Instant, 25f,
                 duration: 10f, selfBuff: true),
             P("magic_gale"), "Ride the wind and take flight for 10 seconds (requires Gale Force).");
+
+        // Water school (§3.7): Water Bolt roots the school; water spells soak targets with the
+        // Wet status (WetStatus) — Wet slows slightly and conducts, so Ice/Lightning spells deal
+        // bonus damage against soaked foes. Deliveries favour flow: beam tide, vortex whirlpool,
+        // mist zone, and healing spring (water as life). No terrain reshaping — that is Earth's.
+        Add(list, "magic_water", "Water Bolt", SkillType.Magic, false, Focus(14f), true, DamageType.Water,
+            Spell("magic_water_spell", "Water Bolt", DamageType.Water, 22f, 13f, SpellDelivery.Projectile, 4f,
+                statusEffect: StatusEffectType.Wet),
+            null, "Launch a splash that soaks and slows the target.");
+
+        // Earth school (§3.7): Stone Shard roots the school. Earth spells carry NO status effect —
+        // they hit like falling rock (heavy knockback) and reshape the ground itself
+        // (TerrainShape, via TerrainDeformer): rings that circle the impact, spikes that erupt.
+        Add(list, "magic_earth", "Stone Shard", SkillType.Magic, false, Focus(15f), true, DamageType.Earth,
+            Spell("magic_earth_spell", "Stone Shard", DamageType.Earth, 26f, 15f, SpellDelivery.Projectile, 4f),
+            null, "Hurl a shard of living stone.");
     }
 
     private static void BuildStealth(List<Skill> list)

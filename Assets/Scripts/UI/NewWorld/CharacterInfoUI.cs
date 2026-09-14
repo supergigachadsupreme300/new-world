@@ -1110,8 +1110,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
                 // Union co-prereq root groups so parents of a shared child — skills that share a
                 // common child — end up in the same wedge (adjacent siblings instead of scatter).
-                // On a compact wheel each merged group becomes one school wedge (Magic: 7 roots ->
-                // 7 wedges; Crafting: 5 roots -> 5 wedges); on a standard wheel the whole category
+                // On a compact wheel each merged group becomes one school wedge (Magic: 9 roots ->
+                // 9 wedges; Crafting: 5 roots -> 5 wedges); on a standard wheel the whole category
                 // stays a single wedge.
                 var groups = new Dictionary<int, List<Skill>>();
                 var groupOf = new Dictionary<string, int>();
@@ -1213,9 +1213,9 @@ public sealed class CharacterInfoUI : MenuPanelBase
                 //              nodes per category) at a 10px pitch; arc capacity 179 ≥ Fortitude's 151.
                 //   ring4      r=1400   Layer 3 (deepest) — the 2-3 hop locks sit one ring further out.
                 // Compact wheels reuse tighter bands for school-sized wedges:
-                //   ring0 r=200, ring1-2 r=300/318, ring3 r=400, ring4 r=470 — Magic's 7 wedges seat
-                //   ~25-30 depth-2 nodes each at a 10px pitch (capacity 35) and Crafting's 5 wedges
-                //   seat ~25 (capacity 49), so the tree stays small.
+                //   ring0 r=200, ring1-2 r=300/318, ring3 r=400, ring4 r=470 — Magic's 9 wedges seat
+                //   ~25-30 depth-2 nodes each at a 10px pitch (capacity ~27 at ring3) and Crafting's 5
+                //   wedges seat ~25 (capacity 49), so the tree stays small.
                 float RingRadius(int ring)
                 {
                     if (compact)
@@ -1367,6 +1367,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
                         slbl.alignment = TextAlignmentOptions.Center;
                         slbl.fontSize = Mathf.Max(11f, Screen.height / 80f);
                         slbl.color = Color.black;
+                        slbl.text = root.displayName;
                     }
                 }
 
