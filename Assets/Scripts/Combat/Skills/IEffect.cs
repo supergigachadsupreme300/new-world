@@ -21,6 +21,7 @@ public sealed class DamageZoneEffect : IEffect
     public float Radius = 1f;
     public float BasePower = 20f;
     public DamageType Type = DamageType.Physical;
+    private static readonly Collider[] _buf = new Collider[64];
 
     public void Execute(SkillContext ctx)
     {
@@ -37,9 +38,11 @@ public sealed class DamageZoneEffect : IEffect
             SkillFx.SlashFlash(origin, fwd, radius, 0.18f, DamageNumber.ColorFor(Type));
         }
 
-        Collider[] cols = Physics.OverlapSphere(origin, radius, ~0);
-        foreach (var col in cols)
+        int count = Physics.OverlapSphereNonAlloc(origin, radius, _buf, ~0);
+        for (int i = 0; i < count; i++)
         {
+            var col = _buf[i];
+            if (col == null) continue;
             if (col.transform.root == (ctx.User != null ? ctx.User.transform.root : null)) continue;
             if (col.TryGetComponent<IDamageable>(out var damageable))
             {

@@ -48,6 +48,10 @@ public class SpellCaster : MonoBehaviour
 
     private float _regenTimer;
     private readonly Dictionary<string, float> _cooldowns = new Dictionary<string, float>();
+    // Reused key list so the per-frame cooldown tick never allocates.
+    private readonly List<string> _cooldownKeys = new List<string>();
+    // Reused burst-damage overlap buffer (ResolveBurst below).
+    private readonly Collider[] _overlapBuffer = new Collider[128];
 
     /// <summary>Spell id whose Vortex delivery is the Great Tornado (old environmental tornado model + function).</summary>
     private const string GreatTornadoSpellId = "magic_tornado_spell";
@@ -92,14 +96,21 @@ public class SpellCaster : MonoBehaviour
         }
 
         // Tick cooldowns every frame regardless of FP level, so spells/arts are
-        // never stuck while the pool is full.
+        // never stuck while the pool is full. Iterate a reused key list (no per-frame alloc),
+        // writing back the decremented value once instead of double-indexing the dictionary.
         if (_cooldowns.Count > 0)
         {
-            var keys = new List<string>(_cooldowns.Keys);
-            foreach (var k in keys)
+            _cooldownKeys.Clear();
+            foreach (var k in _cooldowns.Keys)
+                _cooldownKeys.Add(k);
+            for (int i = 0; i < _cooldownKeys.Count; i++)
             {
-                _cooldowns[k] -= Time.deltaTime;
-                if (_cooldowns[k] <= 0f) _cooldowns.Remove(k);
+                string k = _cooldownKeys[i];
+                float rem = _cooldowns[k] - Time.deltaTime;
+                if (rem <= 0f)
+                    _cooldowns.Remove(k);
+                else
+                    _cooldowns[k] = rem;
             }
         }
     }
@@ -785,11 +796,13 @@ public class SpellCaster : MonoBehaviour
 
         SpawnZoneRing(center, spell, radius);
 
-        Collider[] cols = Physics.OverlapSphere(center, radius);
+        int count = Physics.OverlapSphereNonAlloc(center, radius, _overlapBuffer);
         bool hitAny = false;
         float total = 0f;
-        foreach (var col in cols)
+        for (int i = 0; i < count; i++)
         {
+            var col = _overlapBuffer[i];
+            if (col == null) continue;
             if (col.transform.root == transform.root)
             {
                 // Holy bursts heal the caster too when standing inside the light.

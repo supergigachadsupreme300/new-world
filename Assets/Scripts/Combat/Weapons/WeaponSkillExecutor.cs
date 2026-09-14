@@ -80,13 +80,17 @@ public class WeaponSkillExecutor : MonoBehaviour
         Caster.StartCooldown(SkillKey(skill), skill.Cooldown);
     }
 
+    private static readonly Collider[] _strikeBuffer = new Collider[64];
+
     private void ExecuteStrike(WeaponSkill skill)
     {
         Vector3 origin = transform.position + transform.forward * (skill.Range * 0.5f);
 
-        Collider[] cols = Physics.OverlapSphere(origin, skill.Radius, TargetLayers);
-        foreach (var col in cols)
+        int count = Physics.OverlapSphereNonAlloc(origin, skill.Radius, _strikeBuffer, TargetLayers);
+        for (int i = 0; i < count; i++)
         {
+            var col = _strikeBuffer[i];
+            if (col == null) continue;
             if (col.transform.root == transform.root) continue;
             ResolveSkillHit(skill, col.gameObject);
         }

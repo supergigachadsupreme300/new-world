@@ -117,13 +117,15 @@ public sealed class TauntEffect : IClassEffect
 {
     public float Radius = 6f;
     public float Duration = 4f;
+    private static readonly Collider[] _buf = new Collider[64];
 
     public void Execute(ClassSkillContext ctx)
     {
         if (ctx == null || ctx.User == null) return;
-        Collider[] cols = Physics.OverlapSphere(ctx.User.transform.position, Radius, ~0);
-        foreach (var col in cols)
+        int count = Physics.OverlapSphereNonAlloc(ctx.User.transform.position, Radius, _buf, ~0);
+        for (int i = 0; i < count; i++)
         {
+            var col = _buf[i];
             if (col == null || col.transform == null) continue;
             if (col.transform.root == ctx.User.transform.root) continue;
             if (col.TryGetComponent<EnemyController>(out var enemy))
@@ -185,6 +187,7 @@ public sealed class LifestealStrikeEffect : IClassEffect
     public float BasePower = 25f;
     public float LifestealFraction = 0.35f;
     public DamageType Type = DamageType.Physical;
+    private static readonly Collider[] _buf = new Collider[64];
 
     public void Execute(ClassSkillContext ctx)
     {
@@ -198,10 +201,11 @@ public sealed class LifestealStrikeEffect : IClassEffect
             SkillFx.SlashFlash(origin, fwd, Radius, 0.18f, DamageNumber.ColorFor(Type));
         }
 
-        Collider[] cols = Physics.OverlapSphere(origin, Radius, ~0);
+        int count = Physics.OverlapSphereNonAlloc(origin, Radius, _buf, ~0);
         float healed = 0f;
-        foreach (var col in cols)
+        for (int i = 0; i < count; i++)
         {
+            var col = _buf[i];
             if (col == null || col.transform == null) continue;
             if (ctx.User != null && col.transform.root == ctx.User.transform.root) continue;
             if (col.TryGetComponent<IDamageable>(out var damageable))
@@ -238,6 +242,7 @@ public sealed class ClassStrikeEffect : IClassEffect
     public float Radius = 2f;
     public float BasePower = 24f;
     public DamageType Type = DamageType.Physical;
+    private static readonly Collider[] _buf = new Collider[64];
 
     public void Execute(ClassSkillContext ctx)
     {
@@ -251,9 +256,10 @@ public sealed class ClassStrikeEffect : IClassEffect
             SkillFx.SlashFlash(origin, fwd, Radius, 0.18f, DamageNumber.ColorFor(Type));
         }
 
-        Collider[] cols = Physics.OverlapSphere(origin, Radius, ~0);
-        foreach (var col in cols)
+        int count = Physics.OverlapSphereNonAlloc(origin, Radius, _buf, ~0);
+        for (int i = 0; i < count; i++)
         {
+            var col = _buf[i];
             if (col == null || col.transform == null) continue;
             if (ctx.User != null && col.transform.root == ctx.User.transform.root) continue;
             if (col.TryGetComponent<IDamageable>(out var damageable))

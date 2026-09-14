@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -5,6 +6,9 @@ using UnityEngine;
 ///
 /// Self-contained: spawns via DamageNumber.Spawn and auto-creates a world-space TextMesh
 /// if none is present, so it works without authored prefabs.
+///
+/// Instances are pooled (see <see cref="PoolCap"/>) so combat popups stop allocating a
+/// GameObject + TextMesh per hit; the TextMesh/material are created once per pooled entry.
 /// </summary>
 public class DamageNumber : MonoBehaviour
 {
@@ -20,20 +24,59 @@ public class DamageNumber : MonoBehaviour
     private TextMesh _text;
     private float _lifetime;
 
-    /// <summary>Spawn a floating damage number above a world position.</summary>
+    private static readonly List<DamageNumber> _pool = new List<DamageNumber>();
+    private const int PoolCap = 256;
+
+    /// <summary>Spawn a floating damage number above a world position (pooled).</summary>
     public static void Spawn(Vector3 worldPos, float amount, bool critical = false)
     {
-        GameObject go = new GameObject("DamageNumber");
-        var dn = go.AddComponent<DamageNumber>();
+        DamageNumber dn = Acquire();
         dn.Show(worldPos, amount, critical);
     }
 
-    /// <summary>Spawn a floating damage number tinted by a damage type.</summary>
+    /// <summary>Spawn a floating damage number tinted by a damage type (pooled).</summary>
     public static void Spawn(Vector3 worldPos, float amount, DamageType type)
     {
-        GameObject go = new GameObject("DamageNumber");
-        var dn = go.AddComponent<DamageNumber>();
+        DamageNumber dn = Acquire();
         dn.Show(worldPos, amount, false, ColorFor(type));
+    }
+
+    /// <summary>Pull a dormant entry from the pool, else build a fresh one.</summary>
+    private static DamageNumber Acquire()
+    {
+        for (int i = 0; i < _pool.Count; i++)
+        {
+            var dn = _pool[i];
+            if (dn == null)
+            {
+                _pool.RemoveAt(i);
+                i--;
+                continue;
+            }
+            if (dn.gameObject.activeSelf) continue;
+            _pool.RemoveAt(i);
+            dn.gameObject.SetActive(true);
+            return dn;
+        }
+        var go = new GameObject("DamageNumber");
+        return go.AddComponent<DamageNumber>();
+    }
+
+    /// <summary>Return an expired entry to the pool (bounded; excess are destroyed).</summary>
+    private void Release()
+    {
+        _lifetime = 0f;
+        if (_text != null)
+        {
+            Color c = _text.color;
+            c.a = 1f;
+            _text.color = c;
+        }
+        gameObject.SetActive(false);
+        if (_pool.Count < PoolCap)
+            _pool.Add(this);
+        else
+            Destroy(gameObject);
     }
 
     /// <summary>Display color for a damage type (used by popups).</summary>
@@ -105,6 +148,6 @@ public class DamageNumber : MonoBehaviour
         }
 
         if (_lifetime >= Lifetime)
-            Destroy(gameObject);
+            Release();
     }
 }

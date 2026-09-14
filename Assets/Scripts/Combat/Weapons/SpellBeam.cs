@@ -37,6 +37,7 @@ public class SpellBeam : MonoBehaviour
     private Color _baseColor;
     private Vector3 _bodyBaseScale;
     private Vector3 _orbBaseScale;
+    private readonly Collider[] _tickBuffer = new Collider[64];
 
     /// <summary>Configure the beam. Length/width multiplied by the charged size scale.</summary>
     public void Initialize(SpellCaster caster, SpellData spell, float power,
@@ -143,10 +144,10 @@ public class SpellBeam : MonoBehaviour
     {
         if (_caster == null || _spell == null) return;
 
-        Collider[] cols = Physics.OverlapCapsule(transform.position, EndPoint(), Width);
-        for (int i = 0; i < cols.Length; i++)
+        int count = Physics.OverlapCapsuleNonAlloc(transform.position, EndPoint(), Width, _tickBuffer);
+        for (int i = 0; i < count; i++)
         {
-            var col = cols[i];
+            var col = _tickBuffer[i];
             if (col == null) continue;
 
             Transform root = col.transform.root;

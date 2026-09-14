@@ -122,12 +122,12 @@ public class SpellSummon : MonoBehaviour
     /// <summary>Nearest hostable enemy root inside the radius (EnemyController / BossController).</summary>
     private Transform NearestEnemy()
     {
-        Collider[] cols = Physics.OverlapSphere(transform.position, Radius);
+        int count = Physics.OverlapSphereNonAlloc(transform.position, Radius, _hitBuffer);
         Transform best = null;
         float bestSqr = float.MaxValue;
-        for (int i = 0; i < cols.Length; i++)
+        for (int i = 0; i < count; i++)
         {
-            var col = cols[i];
+            var col = _hitBuffer[i];
             if (col == null) continue;
             Transform root = col.transform.root;
             if (root == _casterRoot) continue;

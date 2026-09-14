@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -23,6 +24,7 @@ public class SpellStorm : MonoBehaviour
     private float _tick;
     private Color _color;
     private DamageType _type;
+    private readonly Collider[] _strikeBuffer = new Collider[128];
 
     public void Initialize(SpellCaster caster, SpellData spell, float power, float radiusMult = 1f)
     {
@@ -86,12 +88,12 @@ public class SpellStorm : MonoBehaviour
     /// <summary>Largely prefer striking near an enemy inside the area; otherwise a random point.</summary>
     private Vector3 RandomStrikePoint()
     {
-        Collider[] cols = Physics.OverlapSphere(transform.position, Radius);
+        int count = Physics.OverlapSphereNonAlloc(transform.position, Radius, _strikeBuffer);
         float bestSqr = float.MaxValue;
         Transform best = null;
-        for (int i = 0; i < cols.Length && i < 24; i++)
+        for (int i = 0; i < count && i < 24; i++)
         {
-            var col = cols[i];
+            var col = _strikeBuffer[i];
             if (col == null) continue;
             Transform root = col.transform.root;
             if (root == _casterRoot) continue;
@@ -118,10 +120,10 @@ public class SpellStorm : MonoBehaviour
         if (_caster == null || _spell == null) return;
 
         float strikeRadius = Mathf.Max(_spell.Radius * 0.55f, 1.2f);
-        Collider[] cols = Physics.OverlapSphere(at, strikeRadius);
-        for (int i = 0; i < cols.Length; i++)
+        int count = Physics.OverlapSphereNonAlloc(at, strikeRadius, _strikeBuffer);
+        for (int i = 0; i < count; i++)
         {
-            var col = cols[i];
+            var col = _strikeBuffer[i];
             if (col == null) continue;
             Transform root = col.transform.root;
             if (root == _casterRoot) continue;
@@ -146,16 +148,17 @@ public class SpellStorm : MonoBehaviour
 
         if (_type == DamageType.Lightning)
         {
-            // Crackling bolt column: two crossed tall thin bars.
-            Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
-            if (shader != null)
+            // Crackling bolt column: two crossed tall thin bars, faded out by BoltFader.
+            // (The old code forgot to destroy these — each strike leaked two permanent cubes.)
+            Material sharedMat = SkillFx.SharedSpriteMaterial(c);
+            if (sharedMat != null)
             {
                 GameObject bolt = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 bolt.name = "StormBoltA";
                 DestroyCollider(bolt.transform);
                 bolt.transform.position = at;
                 bolt.transform.localScale = new Vector3(0.1f, 3.2f, 0.1f);
-                SetMaterial(bolt.transform, shader, c);
+                AssembleBolt(bolt, sharedMat);
 
                 GameObject boltB = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 boltB.name = "StormBoltB";
@@ -163,12 +166,20 @@ public class SpellStorm : MonoBehaviour
                 boltB.transform.position = at;
                 boltB.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
                 boltB.transform.localScale = new Vector3(0.1f, 3.2f, 0.1f);
-                SetMaterial(boltB.transform, shader, c);
+                AssembleBolt(boltB, sharedMat);
             }
         }
 
         StrikeFlash.Spawn(at, c, 1.6f);
         SkillFx.RingFlash(ground, Vector3.up, c, Random.Range(0.8f, 1.4f), 0.35f);
+    }
+
+    private static void AssembleBolt(GameObject bolt, Material sharedMat)
+    {
+        var r = bolt.GetComponent<MeshRenderer>();
+        if (r != null && sharedMat != null)
+            r.sharedMaterial = sharedMat;
+        bolt.AddComponent<BoltFader>().Init(new Vector3(0.1f, 3.2f, 0.1f), 0.25f);
     }
 
     private static void DestroyCollider(Transform t)
@@ -177,30 +188,80 @@ public class SpellStorm : MonoBehaviour
         if (col != null) Destroy(col);
     }
 
-    private static void SetMaterial(Transform t, Shader shader, Color color)
+    /// <summary>Shrinks the lightning bars to nothing, then removes them (no lingering leak).</summary>
+    private sealed class BoltFader : MonoBehaviour
     {
-        var r = t.GetComponent<MeshRenderer>();
-        if (r != null) r.material = new Material(shader) { color = color };
+        private Vector3 _startScale;
+        private float _lifetime = 0.25f;
+        private float _age;
+
+        public void Init(Vector3 startScale, float lifetime)
+        {
+            _startScale = startScale;
+            _lifetime = lifetime;
+        }
+
+        private void Update()
+        {
+            _age += Time.deltaTime;
+            float t = Mathf.Clamp01(_age / _lifetime);
+            transform.localScale = _startScale * (1f - t);
+            if (t >= 1f)
+                Destroy(gameObject);
+        }
     }
 
-    /// <summary>Short-lived bright burst sphere that scales up and fades.</summary>
+    /// <summary>Short-lived bright burst sphere that scales up and fades. Pooled so heavy
+    /// storms (strikes every ~0.5s) stop allocating new spheres + materials per strike.</summary>
     private sealed class StrikeFlash : MonoBehaviour
     {
         private float _age;
         private float _lifetime = 0.3f;
         private float _scale = 1f;
+        private Material _mat;
+        private static readonly List<StrikeFlash> _pool = new List<StrikeFlash>();
+        private const int PoolCap = 32;
 
         public static void Spawn(Vector3 at, Color color, float scale)
         {
+            StrikeFlash flash = Acquire();
+            if (flash == null) return;
+            flash.transform.position = at;
+            flash._scale = scale;
+            flash._age = 0f;
+            if (flash._mat == null)
+                return;
+            flash._mat.color = color;
+            flash.gameObject.SetActive(true);
+        }
+
+        private static StrikeFlash Acquire()
+        {
+            for (int i = 0; i < _pool.Count; i++)
+            {
+                var f = _pool[i];
+                if (f == null)
+                {
+                    _pool.RemoveAt(i);
+                    i--;
+                    continue;
+                }
+                if (f.gameObject.activeSelf) continue;
+                _pool.RemoveAt(i);
+                return f;
+            }
+
             Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
-            if (shader == null) return;
+            if (shader == null) return null;
             var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             go.name = "StormFlash";
             DestroyCollider(go.transform);
-            go.transform.position = at;
             var flash = go.AddComponent<StrikeFlash>();
-            flash._scale = scale;
-            SetMaterial(go.transform, shader, color);
+            flash._mat = new Material(shader);
+            var r = go.GetComponent<MeshRenderer>();
+            if (r != null)
+                r.material = flash._mat;
+            return flash;
         }
 
         private void Update()
@@ -209,15 +270,20 @@ public class SpellStorm : MonoBehaviour
             float t = Mathf.Clamp01(_age / _lifetime);
             float s = Mathf.Lerp(0.3f, 1f, Mathf.SmoothStep(0f, 0.4f, t));
             transform.localScale = Vector3.one * (_scale * s);
-            var r = GetComponent<MeshRenderer>();
-            if (r != null && r.material != null)
+            if (_mat != null)
             {
-                Color c = r.material.color;
+                Color c = _mat.color;
                 c.a = 1f - t;
-                r.material.color = c;
+                _mat.color = c;
             }
             if (t >= 1f)
-                Destroy(gameObject);
+            {
+                gameObject.SetActive(false);
+                if (_pool.Count < PoolCap)
+                    _pool.Add(this);
+                else
+                    Destroy(gameObject);
+            }
         }
     }
 }

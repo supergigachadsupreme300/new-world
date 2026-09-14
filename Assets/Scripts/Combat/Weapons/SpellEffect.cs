@@ -27,6 +27,7 @@ public class SpellEffect : MonoBehaviour
     private bool _launched;
     private float _radiusMult = 1f;
     private readonly Collider[] _groundHits = new Collider[8];
+    private readonly Collider[] _splashBuffer = new Collider[128];
 
     /// <summary>Configure the effect with spell + resolved power. Returns this for chaining.
     /// <paramref name="radiusMult"/> scales the splash/zone radius (charged casts).</summary>
@@ -108,10 +109,13 @@ public class SpellEffect : MonoBehaviour
     private void ResolveProjectileImpact(GameObject hitObject)
     {
         // Also affect everything in the splash radius factoring in the caster.
-        Collider[] cols = Physics.OverlapSphere(transform.position,
-            _spell != null && _spell.Radius > 0f ? _spell.Radius * _radiusMult : 0.2f, HitLayers);
-        foreach (var col in cols)
+        int count = Physics.OverlapSphereNonAlloc(transform.position,
+            _spell != null && _spell.Radius > 0f ? _spell.Radius * _radiusMult : 0.2f,
+            _splashBuffer, HitLayers);
+        for (int i = 0; i < count; i++)
         {
+            var col = _splashBuffer[i];
+            if (col == null) continue;
             if (_caster != null && col.transform.root == _caster.transform.root) continue;
             _caster?.ResolveHitAt(col.gameObject, _spell, _power);
         }
@@ -141,9 +145,11 @@ public class SpellEffect : MonoBehaviour
             _spell != null ? DamageNumber.ColorFor(_spell.Type) : Color.white,
             Radius, 0.5f);
 
-        Collider[] cols = Physics.OverlapSphere(transform.position, Radius, HitLayers);
-        foreach (var col in cols)
+        int count = Physics.OverlapSphereNonAlloc(transform.position, Radius, _splashBuffer, HitLayers);
+        for (int i = 0; i < count; i++)
         {
+            var col = _splashBuffer[i];
+            if (col == null) continue;
             if (_caster != null && col.transform.root == _caster.transform.root) continue;
             _caster?.ResolveHitAt(col.gameObject, _spell, _power);
         }

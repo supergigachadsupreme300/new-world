@@ -8,7 +8,50 @@ Companion docs: `PLAN.md`, `PLAN-class-skill-trees.md`, `planning.md`, `game-des
 `OPTIMIZATION.md` (optimization plan + phase status).
 
 ---
-## 1ai. Optimization Phase 2 — HUD/UI allocation sweep (per-frame GC kills)
+## 1aj. Optimization Phase 3 — spell/FX GC sweep + pragmatic pooling
+
+Audit hot spots #4, #5, #7 all live inside combat: every spell tick/impact/burst ran **allocating**
+`Physics.Overlap*` (a fresh `Collider[]` per call, several per second per spell), the caster rebuilt
+`new List<string>(_cooldowns.Keys)` every frame, and combat FX/DamageNumber did `new GameObject` +
+`new Material` per popup/strike with (in one case) a **permanent bolt leak**. Now:
+- **NonAlloc buffers everywhere** — all remaining allocating overlaps in `Assets/Scripts/Combat`
+  are gone (verified by grep — every call is now a `*NonAlloc` into a recycled buffer):
+  - `Combat/Weapons/SpellCaster.cs` — `ResolveBurst` uses a shared `_overlapBuffer[128]` (#4); the
+    cooldown tick iterates a reused `_cooldownKeys` list instead of `new List<>(Keys)` each frame (#5).
+  - `Combat/Weapons/SpellZone.cs`, `SpellTornado.cs`, `SpellStorm.cs` — per-tick `_tickBuffer[128]`
+    / `_strikeBuffer[128]`; `SpellStorm.RandomStrikePoint` and `ResolveStrike` share `_strikeBuffer`.
+  - `Combat/Weapons/SpellEffect.cs` — impact + zone bursts share `_splashBuffer[128]` (its ground
+    probe was already NonAlloc).
+  - `Combat/Weapons/SpellBeam.cs` — channel tick now `OverlapCapsuleNonAlloc` into `_tickBuffer[64]`.
+  - `Combat/Weapons/SpellSummon.cs` — `NearestEnemy` reuses its `_hitBuffer` via NonAlloc.
+  - `Combat/Weapons/HitboxSystem.cs` — sphere/box both `NonAlloc` into instance `_detectBuffer[64]`
+    (was the same allocating call twice per swing).
+  - `Combat/Weapons/WeaponSkillExecutor.cs` — weapon-skill strikes share static `_strikeBuffer[64]`.
+  - `Combat/Skills/IEffect.cs` (DamageZoneEffect), `ClassEffect.cs` (Taunt / LifestealStrike /
+    ClassStrike), `RaceEffect.cs` (RaceStrike / RaceLifesteal / RaceTaunt / RaceRoar) — each uses a
+    static `_buf[64]` (single-threaded, safe) instead of allocating `Collider[]`.
+- **Pragmatic pooling (#7)**:
+  - `Combat/Effects/DamageNumber.cs` — every hit used to spawn a new GameObject + TextMesh +
+    Material. Now a static pool (cap 256): `Acquire()` reuses a released entry, alpha/scale reset on
+    re-show, overflow destroys. API unchanged (`DamageNumber.Spawn` static overloads).
+  - `Combat/Weapons/SpellStorm.cs` — `StrikeFlash` (the bright per-strike burst sphere) is pooled
+    (cap 32) with one shared material; the lightning "bolt" bars reuse `SkillFx.SharedSpriteMaterial`.
+    **Leak fix:** the old `SpawnStrikeFx` created 2 cubes per lightning strike that were never
+    destroyed — now `BoltFader` shrinks them to nothing over 0.25s and destroys them.
+  - `Combat/Effects/SkillFx.cs` — new `SharedSpriteMaterial(Color)` cache (keyed by damage-palette
+    color, so the pool stays tiny); `SpellZone`/`SpellStorm` visuals share these instead of
+    `new Material` per cast. Faders that animate alpha still own per-instance materials.
+
+### 1aj-status
+- No CLI build — code-review verified (all 13 touched files brace-balanced; every allocating
+  `Physics.Overlap*` call in `Assets/Scripts/Combat` eliminated — grep-confirmed; no API changes
+  outside internal fields; `SpellCaster` still `using System.Collections.Generic`).
+- Regressions to watch on play-test: (1) **storm bolts** now fade out — confirm lightning strikes
+  no longer leave two permanent cubes behind; (2) **DamageNumber pool** — many rapid hits should cap
+  at ~256 simultaneous popups, alpha fully resets on reuse (watch for half-transparent numbers after
+  heavy AoE); (3) spell zone/disc colors should look identical (shared palette materials — confirm
+  heals/buffs/damage tints are still distinct); (4) bursts that used to hit >128 colliders would now
+  truncate (no in-game content that dense — verify a big storm + 6 enemies still hits everything).
 
 The audit's UI row all ran **every frame** with `GetComponent(InChildren)` lookups, string
 formatting and TMP repaints. Now cached/dirty-checked:

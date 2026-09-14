@@ -20,6 +20,7 @@ public class SpellTornado : MonoBehaviour
     private float _age;
     private float _tick;
     private Transform _casterRoot;
+    private readonly Collider[] _tickBuffer = new Collider[128];
 
     public void Initialize(SpellCaster caster, SpellData spell, float power, float radiusMult = 1f, float tickMultiplier = 1f)
     {
@@ -78,10 +79,10 @@ public class SpellTornado : MonoBehaviour
         if (_caster == null || _spell == null) return;
 
         Vector3 center = transform.position;
-        Collider[] cols = Physics.OverlapSphere(center, Radius);
-        for (int i = 0; i < cols.Length; i++)
+        int count = Physics.OverlapSphereNonAlloc(center, Radius, _tickBuffer);
+        for (int i = 0; i < count; i++)
         {
-            var col = cols[i];
+            var col = _tickBuffer[i];
             if (col == null) continue;
 
             Transform root = col.transform.root;

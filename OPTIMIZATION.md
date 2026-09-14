@@ -63,7 +63,7 @@ build; user play-tests in Unity afterwards), and recorded in `PROGRESS.md`.
 - [x] Phase 0 — EntityId fix
 - [x] Phase 1 — enemy/camera/tornado frame-rate
 - [x] Phase 2 — HUD/UI allocations
-- [ ] Phase 3 — spell/FX GC + pragmatic pooling
+- [x] Phase 3 — spell/FX GC + pragmatic pooling
 - [ ] Phase 4 — world streaming
 - [ ] Phase 5 — skill-tree UI
 - [ ] Phase 6 — startup

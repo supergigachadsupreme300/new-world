@@ -22,6 +22,7 @@ public class SpellZone : MonoBehaviour
     private float _age;
     private float _tick;
     private Transform _casterRoot;
+    private readonly Collider[] _tickBuffer = new Collider[128];
 
     public void Initialize(SpellCaster caster, SpellData spell, float power,
         float radiusMult = 1f, float tickMultiplier = 1f, float pullSpeed = 0f)
@@ -63,10 +64,10 @@ public class SpellZone : MonoBehaviour
     {
         if (_caster == null || _spell == null) return;
 
-        Collider[] cols = Physics.OverlapSphere(transform.position, Radius);
-        for (int i = 0; i < cols.Length; i++)
+        int count = Physics.OverlapSphereNonAlloc(transform.position, Radius, _tickBuffer);
+        for (int i = 0; i < count; i++)
         {
-            var col = cols[i];
+            var col = _tickBuffer[i];
             if (col == null) continue;
 
             Transform root = col.transform.root;
@@ -107,10 +108,8 @@ public class SpellZone : MonoBehaviour
     /// Disc: a single wide flat ring on the ground for persistent AoE zones.</summary>
     private void BuildVisual(DamageType type)
     {
-        Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
-        if (shader == null) return;
-
         Color color = DamageNumber.ColorFor(type);
+        Material sharedMat = SkillFx.SharedSpriteMaterial(color);
 
         if (PullSpeed > 0f)
         {
@@ -128,7 +127,8 @@ public class SpellZone : MonoBehaviour
                 ring.transform.SetParent(transform, false);
                 ring.transform.localPosition = new Vector3(0f, t * height, 0f);
                 ring.transform.localScale = new Vector3(radius, 0.015f, radius);
-                ring.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
+                var ringR = ring.GetComponent<MeshRenderer>();
+                if (ringR != null && sharedMat != null) ringR.sharedMaterial = sharedMat;
             }
 
             for (int i = 0; i < 6; i++)
@@ -146,7 +146,8 @@ public class SpellZone : MonoBehaviour
                     t * height * 0.8f,
                     Mathf.Sin(ang * Mathf.Deg2Rad) * orbit);
                 block.transform.localScale = Vector3.one * Mathf.Lerp(0.22f, 0.08f, t);
-                block.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
+                var blockR = block.GetComponent<MeshRenderer>();
+                if (blockR != null && sharedMat != null) blockR.sharedMaterial = sharedMat;
             }
             return;
         }
@@ -157,7 +158,8 @@ public class SpellZone : MonoBehaviour
         if (discCol != null) Destroy(discCol);
         disc.transform.SetParent(transform, false);
         disc.transform.localScale = new Vector3(Radius * 2f, 0.02f, Radius * 2f);
-        disc.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
+        var discR = disc.GetComponent<MeshRenderer>();
+        if (discR != null && sharedMat != null) discR.sharedMaterial = sharedMat;
 
         var halo = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         halo.name = "SpellHalo";
@@ -166,6 +168,7 @@ public class SpellZone : MonoBehaviour
         halo.transform.SetParent(transform, false);
         halo.transform.localPosition = new Vector3(0f, 0.9f, 0f);
         halo.transform.localScale = new Vector3(Radius * 1.6f, 0.03f, Radius * 1.6f);
-        halo.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
+        var haloR = halo.GetComponent<MeshRenderer>();
+        if (haloR != null && sharedMat != null) haloR.sharedMaterial = sharedMat;
     }
 }

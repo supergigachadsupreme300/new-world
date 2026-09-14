@@ -38,6 +38,7 @@ public class HitboxSystem : MonoBehaviour
     private float _cooldownTimer;
     private Transform _owner;
     private readonly System.Collections.Generic.HashSet<int> _hitThisSwing = new System.Collections.Generic.HashSet<int>();
+    private readonly Collider[] _detectBuffer = new Collider[64];
 
     public bool IsActive => _active;
 
@@ -89,21 +90,22 @@ public class HitboxSystem : MonoBehaviour
 
     private void DetectTargets()
     {
-        Collider[] hits;
+        int count;
         if (Shape == HitboxShape.Sphere)
         {
-            hits = Physics.OverlapSphere(
-                transform.position, Radius, HitLayers, TriggerInteraction);
+            count = Physics.OverlapSphereNonAlloc(
+                transform.position, Radius, _detectBuffer, HitLayers, TriggerInteraction);
         }
         else
         {
-            hits = Physics.OverlapBox(
-                transform.position, BoxSize * 0.5f,
-                transform.rotation, HitLayers, TriggerInteraction);
+            count = Physics.OverlapBoxNonAlloc(
+                transform.position, BoxSize * 0.5f, transform.rotation,
+                _detectBuffer, HitLayers, TriggerInteraction);
         }
 
-        foreach (Collider col in hits)
+        for (int i = 0; i < count; i++)
         {
+            Collider col = _detectBuffer[i];
             int id = col.gameObject.GetInstanceID();
             if (_hitThisSwing.Contains(id))
                 continue;

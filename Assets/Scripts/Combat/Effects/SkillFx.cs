@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -6,6 +7,26 @@ using UnityEngine;
 /// </summary>
 public static class SkillFx
 {
+    private static Shader _spriteShader;
+    private static readonly Dictionary<Color, Material> _spriteMats = new Dictionary<Color, Material>();
+
+    /// <summary>
+    /// Cached persistent material shared across FX renderers (zone/storm visuals), so persistent
+    /// effects stop allocating a fresh Material per cast. Keyed by color, which caps the pool at
+    /// the damage-palette size. Never mutate the returned material's color — fading FX (Faders,
+    /// StrikeFlash) must keep their own per-face instance.
+    /// </summary>
+    public static Material SharedSpriteMaterial(Color color)
+    {
+        if (_spriteShader == null)
+            _spriteShader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+        if (_spriteShader == null) return null;
+        if (_spriteMats.TryGetValue(color, out var mat) && mat != null)
+            return mat;
+        mat = new Material(_spriteShader) { color = color };
+        _spriteMats[color] = mat;
+        return mat;
+    }
     /// <summary>
     /// Spawn a bright, forward-facing slash sheet at the strike origin and shrink it to
     /// nothing over <paramref name="lifetime"/> seconds. No collider, pure visual.
