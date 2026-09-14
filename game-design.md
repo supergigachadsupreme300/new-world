@@ -556,6 +556,7 @@ A spell is a data asset carrying:
 - **FP cost**, **cast time**, **cooldown**
 - range, area/radius, delivery: projectile / instant / zone / **vortex** (persistent damage-zone that pulls, e.g. the Tornado wind spell) / **beam** / **summon** / **storm** (see §3.8.1 Delivery Behaviors)
 - **duration** (zone/vortex lifetime; `> 0` makes the zone **persistent**, ticked by `SpellZone.cs`)
+- **selfbuff** (Instant delivery grants a timed caster effect instead of damage/heal — e.g. **Wind Walk**: `PlayerController.BeginFlight(Duration)`, free vertical movement for the buff's seconds)
 - **heals** (Holy/utility spells: instant/self-heal, or an ally-heal aura when on a zone; only `IHealable` targets — the player — are ever healed, enemies still take damage)
 - **knockback** (impulse applied to enemies; the Wind school signature)
 - cast animation reference
@@ -566,8 +567,10 @@ multiplier — Zone ×0.4, Vortex ×1.0 — optional pull, plus Holy ally-healin
 per tick); it replaces the former one-off `WindVortex`. The **Tornado** wind spell is Vortex's one
 exception: `SpellCaster` routes it to **`SpellTornado`**, which rebuilds the old environmental
 tornado model + function (`MapBuilder.BuildTornado` → `TornadoBehavior`: a tall drifting funnel of
-debris blocks that pulls objects via physics, scaled down to the spell radius) and layers the same
-damage ticks + enemy pull on top; all other Vortex spells keep the `SpellZone` funnel.
+rectangular debris blocks that churns around the axis, tows caught rigidbodies into the axis first,
+then carries them on a low orbit — creatures implement `ITornadoCarried` so their own controller
+yields while carried; scaled down to the spell radius) and layers the same damage ticks + enemy
+pull on top; all other Vortex spells keep the `SpellZone` funnel.
 
 #### §3.8.1 Delivery Behaviors
 

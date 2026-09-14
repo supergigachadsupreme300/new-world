@@ -124,7 +124,7 @@ public static partial class SkillCatalog
         float deliveryRange = 10f, float deliveryRadius = 1f, float castTime = 0.5f,
         bool heals = false, float knockback = 0f, float duration = 0f,
         StatusEffectType? statusEffect = null, float projectileSpeed = 20f,
-        float tickInterval = 0.5f, float channelDrainPerSecond = 0f)
+        float tickInterval = 0.5f, float channelDrainPerSecond = 0f, bool selfBuff = false)
     {
         var spell = ScriptableObject.CreateInstance<SpellData>();
         spell.name = spellId;
@@ -144,6 +144,7 @@ public static partial class SkillCatalog
         spell.ChannelDrainPerSecond = channelDrainPerSecond;
         spell.Heals = heals;
         spell.Knockback = knockback;
+        spell.SelfBuff = selfBuff;
         spell.AppliesStatus = statusEffect.HasValue;
         spell.StatusEffect = statusEffect ?? default;
         return new SpellCastEffect { Spell = spell };
@@ -247,10 +248,11 @@ public static partial class SkillCatalog
                 deliveryRange: 8f, deliveryRadius: 3.2f, duration: 2.5f, statusEffect: StatusEffectType.Frost),
             P("magic_chain", "magic_frostbolt"), "A frozen storm that repeatedly strikes all inside with frost.");
 
-        // Wind line (§3.7 Wind): Gust → Wind Blade → Gale Force → Tornado. Tornado uses the
+        // Wind line (§3.7 Wind): Gust → Wind Blade → Gale Force → Tornado / Wind Walk. Tornado uses the
         // Vortex delivery and resolves the Great Tornado: the old environmental tornado model
-        // (BuildTornado + TornadoBehavior) scaled to the spell — drifts and pulls via physics —
+        // (BuildTornado + TornadoBehavior) scaled to the spell — spins, tows and carries creatures —
         // plus Wind damage ticks + enemy pull. Other Vortex spells keep the SpellZone funnel.
+        // Wind Walk is an Instant self-buff that grants timed flight (PlayerController.BeginFlight).
         Add(list, "magic_gust", "Wind Gust", SkillType.Magic, false, Focus(12f), true, DamageType.Wind,
             Spell("magic_gust_spell", "Wind Gust", DamageType.Wind, 14f, 12f, SpellDelivery.Zone, 3f,
                 deliveryRadius: 2.5f, knockback: 2.5f),
@@ -267,6 +269,10 @@ public static partial class SkillCatalog
             Spell("magic_tornado_spell", "Tornado", DamageType.Wind, 16f, 28f, SpellDelivery.Vortex, 10f,
                 deliveryRange: 12f, deliveryRadius: 3f, castTime: 0.8f),
             P("magic_gale"), "Summon a ravenous tornado that pulls foes in and shreds them (requires Gale Force).");
+        Add(list, "magic_flight", "Wind Walk", SkillType.Magic, false, Focus(20f), true, DamageType.Wind,
+            Spell("magic_flight_spell", "Wind Walk", DamageType.Wind, 0f, 18f, SpellDelivery.Instant, 25f,
+                duration: 10f, selfBuff: true),
+            P("magic_gale"), "Ride the wind and take flight for 10 seconds (requires Gale Force).");
     }
 
     private static void BuildStealth(List<Skill> list)

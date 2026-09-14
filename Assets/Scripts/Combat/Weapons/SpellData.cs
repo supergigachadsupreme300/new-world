@@ -65,4 +65,6 @@ public class SpellData : ScriptableObject
     public bool Heals;
     [Tooltip("Outward shove (world units) applied to the target's root on hit. Positive pushes away from the caster.")]
     public float Knockback;
+    [Tooltip("Self-buff: the Instant delivery grants a timed effect on the caster (e.g. flight) instead of a damage/heal raycast. Duration is the buff length in seconds.")]
+    public bool SelfBuff;
 }

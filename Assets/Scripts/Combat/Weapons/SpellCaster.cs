@@ -402,6 +402,18 @@ public class SpellCaster : MonoBehaviour
 
     private DamageResult ResolveDirect(float power, SpellData spell, Vector3 pos, Vector3 fwd, float range)
     {
+        if (spell.SelfBuff)
+        {
+            // Self-buff: grant the caster (the player) a timed effect — e.g. flight for the
+            // Duration. No damage, no target raycast. Applied to whatever owns this caster.
+            var pc = transform.root.GetComponent<PlayerController>();
+            if (pc != null && spell.Duration > 0f)
+            {
+                pc.BeginFlight(spell.Duration);
+                SkillFx.RingFlash(transform.position, Vector3.up, DamageNumber.ColorFor(spell.Type), 2.5f, 0.5f);
+            }
+            return new DamageResult { HitTargets = true };
+        }
         if (spell.Heals)
         {
             // Instant restoration casts on the caster (the classic "holy touch").

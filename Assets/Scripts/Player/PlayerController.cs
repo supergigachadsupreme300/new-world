@@ -68,6 +68,12 @@ public class PlayerController : MonoBehaviour, IHealable
     private float _classBuffDamageReduction;
     private float _classBuffHpRegenPerSecond;
 
+    // Flight (Wind Walk spell, §3.8): timed free vertical movement gated in HandleMovement.
+    private float _flightUntil;
+    public bool IsFlying => Time.time < _flightUntil;
+    public float FlightSpeed = 12f;
+    public float FlightVerticalSpeed = 6f;
+
     // Aim/charge (armed magic via the Alt wheel, or any ranged weapon): hold LMB to aim only,
     // hold RMB to charge/draw (releasing RMB freezes the built level, re-holding resumes), and
     // release LMB to fire at the current level. Mobile taps still cast instantly.
@@ -373,6 +379,19 @@ public class PlayerController : MonoBehaviour, IHealable
         _classBuffHpRegenPerSecond = Mathf.Max(_classBuffHpRegenPerSecond, hpRegenPerSecond);
     }
 
+    /// <summary>Start flying for the given duration (free vertical movement, no gravity).</summary>
+    public void BeginFlight(float seconds)
+    {
+        if (seconds <= 0f) return;
+        _flightUntil = Mathf.Max(_flightUntil, Time.time + seconds);
+    }
+
+    /// <summary>End flight immediately; gravity resumes and the player falls/lands normally.</summary>
+    public void EndFlight()
+    {
+        _flightUntil = 0f;
+    }
+
     /// <summary>Tick stealth expiry + aura buff lifetime once per frame.</summary>
     private void UpdateClassState()
     {
@@ -444,15 +463,16 @@ public class PlayerController : MonoBehaviour, IHealable
         }
 
         bool canSprint = !InWater && !IsRiding;
-        bool sprint = canSprint &&
+        bool flying = IsFlying;
+        bool sprint = canSprint && !flying &&
             ((Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed) ||
              (GameInput.IsMobile && MobileInputController.IsHeld("sprint"))) &&
             Stamina > 0f && mag > 0f;
         float speed = IsRiding
             ? RideSpeed * _waterSpeedMul
-            : MoveSpeed * _waterSpeedMul * (sprint ? SprintMultiplier : 1f);
+            : (flying ? FlightSpeed : MoveSpeed * _waterSpeedMul * (sprint ? SprintMultiplier : 1f));
 
-        bool dodgePressed = !dialogBlocked && !IsRiding && _controller != null && _controller.isGrounded &&
+        bool dodgePressed = !dialogBlocked && !IsRiding && !flying && _controller != null && _controller.isGrounded &&
             ((Keyboard.current != null && Keyboard.current.cKey.wasPressedThisFrame) ||
              (GameInput.IsMobile && MobileInputController.Consume("dodge")));
         if (dodgePressed && !_dodging && Stamina >= DodgeCost)
@@ -474,7 +494,18 @@ public class PlayerController : MonoBehaviour, IHealable
                     _dodging = false;
             }
 
-            if (_controller.isGrounded)
+            if (flying)
+            {
+                // Free vertical movement: hold Space to ascend, LeftCtrl to descend.
+                float vertical = 0f;
+                if (Keyboard.current != null)
+                {
+                    if (Keyboard.current.spaceKey.isPressed) vertical += 1f;
+                    if (Keyboard.current.leftCtrlKey.isPressed) vertical -= 1f;
+                }
+                _velocity.y = vertical * FlightVerticalSpeed;
+            }
+            else if (_controller.isGrounded)
             {
                 if (_velocity.y < 0f)
                     _velocity.y = -1f;

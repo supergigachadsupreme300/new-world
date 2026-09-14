@@ -155,6 +155,55 @@ in `CharacterInfoUI`, `MenuPanelBase`, `TypingMinigame`, `FishingUI`.
 
 ---
 
+## 1ac. Recent completed work (2026-09-14) — Tornado spell visibly spins and carries animals into a swirl
+
+User: "the tornado spell currently does not spin and does not pull animals toward it, only makes
+them fly up." Cause: funnel blocks were square prisms (Y-rotation invisible, no axis orbit), and
+`Livestock`/pet controllers overwrote the Rigidbody X/Z every physics step while keeping Y — so
+the orbit push was erased and only the vertical lift survived.
+
+- **`TornadoBehavior.cs`** — blocks now orbit the tornado axis at their own radius + self-rotate
+  (visible churn); defaults `BaseRotateSpeed 8→24`, `RotateSpeedVariation 4→16`. Pulled objects get
+  a two-phase tow: ~0.8s drag into the axis at ground level, then lift + swirl. New carry flag via
+  `ITornadoCarried` (set on capture, cleared on release/destroy). `AddDebrisBlock` orbit heights use
+  `OrbitHeight` (was hardcoded 80) so spell-sized tornados keep debris low.
+- **`MapBuilder.BuildTornado`** — blocks are rectangular (`width × h × width*1.55`) so rotation shows.
+- New **`Assets/Scripts/World/ITornadoCarried.cs`**; **`Livestock.cs`** + **`PetController.cs`**
+  implement it and stop writing their own velocity while carried.
+- **`SpellTornado.cs`** — faster spin (BaseRotateSpeed 70 / Variation 55) + 13 `AddDebrisBlock`
+  chunks for the old-game swirling debris look.
+- Docs: game-design.md §3.8 Vortex note, SkillCatalog wind-line comment.
+
+### 1ac-status
+- No CLI build — code-review verified. Play-test pending: cast Tornado — the funnel should visibly
+  churn; chickens/cows/pets and physics props get towed into the axis, then carried in a low swirl
+  for the tornado's life (no more instant vertical pop). Town-event tornado inherits the same churn.
+
+---
+
+## 1ad. Recent completed work (2026-09-14) — Wind Walk flight spell
+
+User: "add flight spell." A timed self-buff (Instant delivery that affects the caster) in the Wind
+school after Tornado; prereq Gale Force.
+
+- **`SpellData`** — new `SelfBuff` flag; **`SkillCatalog.Spell`** factory gains an optional
+  `selfBuff` param. New skill **`magic_flight`** "Wind Walk": Wind, Focus 20, FP 18, Instant,
+  cooldown 25 s, `duration 10` (self-buff), prereq `magic_gale` — baked into wind-wheel layout.
+- **`SpellCaster.ResolveDirect`** — `SelfBuff` spells skip the hit scan and run a caster effect:
+  `PlayerController.BeginFlight(Duration)` + RingFlash, then return.
+- **`PlayerController`** — flight state (`BeginFlight`/`EndFlight`/`IsFlying`, `FlightSpeed 12`,
+  `FlightVerticalSpeed 6`): flying disables sprint + dodge, moves at flight speed, and replaces the
+  grounded/gravity vertical branch with free vertical movement (hold **Space** to ascend,
+  **LeftCtrl** to descend; release to hover). Buffs stack by extending `_flightUntil`.
+- Docs: game-design.md §3.8 `selfbuff` field line, SkillCatalog wind-line comment.
+
+### 1ad-status
+- No CLI build — code-review verified. Play-test pending: learn Wind Walk (requires Gale Force), cast
+  it from the wheel or a hotkey — instant RingFlash, then 10 s of fly; Space/LeftCtrl move vertically,
+  landing resumes normal movement. Cooldown 25 s; recast mid-flight extends the timer.
+
+---
+
 ## 1m. Recent completed work (2026-09-12) — magic delivery overhaul (Beam / Summon / Storm) + throwing-hammer fix
 User: duplicate-feeling spells across the magic schools should each behave distinctly. Three new spell
 deliveries (Beam, Summon, Storm) added alongside projectile / instant / zone / vortex; 16 spells
