@@ -49,6 +49,9 @@ public class SpellCaster : MonoBehaviour
     private float _regenTimer;
     private readonly Dictionary<string, float> _cooldowns = new Dictionary<string, float>();
 
+    /// <summary>Spell id whose Vortex delivery is the Great Tornado (old environmental tornado model + function).</summary>
+    private const string GreatTornadoSpellId = "magic_tornado_spell";
+
     /// <summary>Fires with the spell data whenever a cast begins.</summary>
     public event Action<SpellData> OnCastStarted;
     /// <summary>Fires with the spell data + resolved results whenever a cast completes.</summary>
@@ -351,11 +354,13 @@ public class SpellCaster : MonoBehaviour
     private float SizeScale(float charge) => 1f + charge * ChargeSizeBonus;
 
     /// <summary>
-    /// Spawn a persistent <see cref="SpellZone"/> at the cast location (SpellDelivery.Vortex).
-    /// The funnel ticks the spell's damage over its lifetime and drags enemies toward its
-    /// center — winds pulled in like the tornado. Positioned by raycasting along the cast
-    /// direction up to <see cref="SpellData.Range"/>, then dropped to the ground so the funnel
-    /// sits on terrain.
+    /// Spawn a tornado at the cast location (SpellDelivery.Vortex). The Great Tornado
+    /// (magic_tornado) uses the old environmental tornado model + function — a tall drifting
+    /// debris funnel (TornadoBehavior); other Vortex spells use a persistent
+    /// <see cref="SpellZone"/>. Both tick the spell's damage over their lifetime and drag
+    /// enemies toward the center — winds pulled in like the tornado. Positioned by raycasting
+    /// along the cast direction up to <see cref="SpellData.Range"/>, then dropped to the
+    /// ground so the funnel sits on terrain.
     /// </summary>
     private DamageResult SpawnVortex(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale, float range)
     {
@@ -368,6 +373,23 @@ public class SpellCaster : MonoBehaviour
         Vector3 ground = at;
         if (Physics.Raycast(at + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))
             ground = groundHit.point;
+
+        // The Great Tornado (magic_tornado) rebuilds the old environmental tornado — a tall
+        // tapering funnel of debris blocks (MapBuilder.BuildTornado) that drifts and pulls
+        // objects around via physics (TornadoBehavior) — scaled down to the spell radius,
+        // instead of the small stationary SpellZone funnel used by other Vortex spells.
+        if (spell != null && spell.id == GreatTornadoSpellId)
+        {
+            float radius = Mathf.Max(spell.Radius > 0f ? spell.Radius * sizeScale : 3f, 0.5f);
+            float height = Mathf.Max(radius * 3.5f, 10f);
+            float widthScale = Mathf.Max((radius * 2.2f) / 35.5f, 0.12f);
+
+            var tornado = MapBuilder.BuildTornado(null, ground, height, widthScale);
+            var spellTornado = tornado.AddComponent<SpellTornado>();
+            spellTornado.Initialize(this, spell, power, sizeScale, 1f);
+            spellTornado.Lifetime = Mathf.Max(spell.Duration > 0f ? spell.Duration : 5f, 1f);
+            return new DamageResult { HitTargets = true };
+        }
 
         var go = new GameObject("SpellVortex");
         go.transform.position = ground;

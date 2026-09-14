@@ -248,7 +248,9 @@ public static partial class SkillCatalog
             P("magic_chain", "magic_frostbolt"), "A frozen storm that repeatedly strikes all inside with frost.");
 
         // Wind line (§3.7 Wind): Gust → Wind Blade → Gale Force → Tornado. Tornado uses the
-        // Vortex delivery and leaks Wind damage + pulls enemies through SpellZone.
+        // Vortex delivery and resolves the Great Tornado: the old environmental tornado model
+        // (BuildTornado + TornadoBehavior) scaled to the spell — drifts and pulls via physics —
+        // plus Wind damage ticks + enemy pull. Other Vortex spells keep the SpellZone funnel.
         Add(list, "magic_gust", "Wind Gust", SkillType.Magic, false, Focus(12f), true, DamageType.Wind,
             Spell("magic_gust_spell", "Wind Gust", DamageType.Wind, 14f, 12f, SpellDelivery.Zone, 3f,
                 deliveryRadius: 2.5f, knockback: 2.5f),

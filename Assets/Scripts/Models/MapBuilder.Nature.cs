@@ -417,7 +417,7 @@ public static partial class MapBuilder
         return root;
     }
 
-    public static GameObject BuildTornado(Transform parent, Vector3 position, float height = 90f)
+    public static GameObject BuildTornado(Transform parent, Vector3 position, float height = 90f, float widthScale = 1f)
     {
         var root = new GameObject("Tornado");
         root.transform.SetParent(parent);
@@ -431,7 +431,7 @@ public static partial class MapBuilder
         {
             float t = (float)i / (count - 1);
             float y = i * blockHeight + blockHeight * 0.5f;
-            float width = 0.5f + t * 35f;
+            float width = (0.5f + t * 35f) * widthScale;
 
             var block = MakeBlock("Block" + i, root.transform,
                 new Vector3(width, blockHeight, width),

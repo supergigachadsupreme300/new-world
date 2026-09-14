@@ -79,6 +79,10 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
 - At each frame, the system calculates which chunks are within radius of the player.
 - Chunks entering radius: loaded from cache or generated.
 - Chunks leaving radius: unloaded from memory (kept in cache on disk).
+- **Boot (current build):** only the **spawn chunk** is generated synchronously so the player is usable
+  immediately; the rest of the visible ring builds in a background pass over ~1.5 s. The game bootstrap
+  defaults render radius to **5** with a hard clamp of **160** chunks, and the LOD cull distance
+  auto-matches the current render radius so culling never fights the visible ring.
 
 ### 2.6 Chunk Persistence (File Caching)
 
@@ -159,6 +163,11 @@ The game uses a **classless unlock system**. Players start as a **Wanderer** (ba
 
 Classes are **not exclusive** — if stats allow, a player can unlock multiple classes and mix abilities.
 
+**Switching is free (current build):** changing the active class is **not gated by unlock state** — any
+class in the roster can be selected at any time; the class-change dialog highlights the current class
+("(current)") and no longer shows requirement summaries or locks. Unlocks remain as roster/persistence
+bookkeeping only. Race changes are likewise free (no Ritual Stone, target race auto-unlocks) — see §3.5.
+
 #### 3.2.1 Class Skill Trees
 
 Each class owns a small **radial skill tree** — one **hub** at the center plus **3 thematic paths** of
@@ -212,6 +221,13 @@ classes, and every class appeals to 2-3 racial archetypes:
 ### 3.3 Skill System (3-layer branching tree + use-based XP)
 
 A **use-based skill progression** spans 6 categories with a **3-layer branching tree** (~1984 skills total). No fixed class requirements — any player can advance any category based on how they play. Skills level by gaining XP in their category (with racial multipliers) and grant flat tier rewards at levels 5/10/15/20/25.
+
+**Per-skill levels (current build):** on top of the category bar, every **learned skill also levels
+itself** — each successful use grants skill-level XP (unaffected by prereqs, boosted by the race's
+all-XP bonus and any matching talent, §3.9), following a linear threshold curve to a cap of level 100.
+The skill detail pane shows "Lv N · XP x/y" for a learned active skill, and learned nodes in the tree
+display their level. Magic's tree currently runs **7 L1 roots — the six classic schools plus Lightning
+as its own school** (Chain Lightning hangs under Lightning's root, not Fireball's).
 
 #### 3-Layer Branching Structure
 
@@ -412,6 +428,9 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
 
 - Discovered races can be swapped to at any **Race Discovery Point**.
 - Cost: **1 Ritual Stone** (rare consumable). Human is always free.
+  *(Current build: the change dialog calls `SetActiveRace(requireStone: false, unlockIfNeeded: true)` —
+  changing race is **free and auto-unlocks the target race** for this character; the Ritual Stone cost
+  applies to the world-discovery flow.)*
 - On change: `PlayerStats` modifiers refresh, `RaceRig` swaps the model, `RacePassiveManager` re-applies passives. Current HP/FP/stamina preserved as % of their new max.
 
 #### Race Visuals (Separate Rigs)
@@ -544,7 +563,11 @@ A spell is a data asset carrying:
 
 Persistent zones are handled by the unified **`SpellZone`** (tick damage scaled by a per-delivery
 multiplier — Zone ×0.4, Vortex ×1.0 — optional pull, plus Holy ally-healing of `IHealable` inside
-per tick); it replaces the former one-off `WindVortex`.
+per tick); it replaces the former one-off `WindVortex`. The **Tornado** wind spell is Vortex's one
+exception: `SpellCaster` routes it to **`SpellTornado`**, which rebuilds the old environmental
+tornado model + function (`MapBuilder.BuildTornado` → `TornadoBehavior`: a tall drifting funnel of
+debris blocks that pulls objects via physics, scaled down to the spell radius) and layers the same
+damage ticks + enemy pull on top; all other Vortex spells keep the `SpellZone` funnel.
 
 #### §3.8.1 Delivery Behaviors
 
@@ -597,6 +620,13 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   `PlayerController`; split aim → charge → release is used by both magic and ranged.) Unarmed casts
   still play a plain hand glow instead of the halo.
 - Zone/vortex spells additionally show a **ground AoE preview** ring that also grows with charge.
+- Projectile deliveries (magic **projectile** spells, and ranged draws — regular and per-hand dual) show a
+  **flight-path cone** while charging: a stack of translucent rings from the hand along the aim line that
+  **narrows as the charge builds**, collapsing to a thin centre ray of the exact predicted trajectory at
+  full charge, and clipped at the first solid hit. Magic previews are tinted by the spell's element;
+  ranged previews are tinted by shot type and spread outward with low accuracy. (`ProjectilePathPreview.cs`,
+  driven by `PlayerController`; hidden on cancel/release/weapon switch.) Ranged weapons with no projectile
+  prefab fire a runtime-generated arrow instead of a hit-scan tracer.
 
 #### Spell Sources
 
@@ -606,6 +636,27 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
 #### Expandability
 
 Adding a spell = creating a new `SpellData` asset (zero code changes), consistent with the rest of the data-driven systems.
+
+### 3.9 Talent System (Player-Level Perks)
+
+A small **rankable perk layer** sitting on top of character leveling — separate from the skill trees and
+the stat points you spend per level-up. It rewards long-term play and lets every build tune how it
+progression-by-progression grows.
+
+- **Earning:** **1 talent point per character level-up**; a brand-new character is granted **one random
+  talent at rank 1** at game creation so the system is immediately visible.
+- **Talents (18 total, all max rank 3, effects additive per rank):**
+  - *Fast Learner* — **+5 % character XP** per rank.
+  - Six **skill-type** talents (Melee/Ranged/Magic/Stealth/Crafting/Fortitude, e.g. "Arcane Study"),
+    **+6 % XP per rank** for that skill type — boosts both the per-skill levels (§3.3) and the category bar.
+  - Eleven **stat** talents (one per core stat, e.g. "Vitality" = Health), **+1 flat stat point per rank**
+    layered onto the stat total.
+- **Effect reads are live:** XP bonuses are applied as a +% on every XP grant; stat talents add flat
+  points inside `GetTotal` (base × race/race-skill % **+** talent points + temp buffs). Because bonuses are
+  computed from owned ranks on every read, saving/loading can never double-apply them.
+- **Persistence & UI:** owned ranks + unspent points + the first-grant flag are saved
+  (`talentStateJson`); the Skills panel has a **Talents sub-tab** with a "Talent Points" counter and a
+  *Rank Up* button per talent (enabled when you have a point and the talent is below max rank).
 
 ---
 

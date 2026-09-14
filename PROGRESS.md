@@ -1,9 +1,157 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-12. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug).
+Last updated: 2026-09-13. Read this first in a new session; then continue with the
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work = commit
+`125a775` (2026-09-13) — see the new `1aa` section on top of §1.
 
 Companion docs: `PLAN.md`, `PLAN-class-skill-trees.md`, `planning.md`, `game-design.md`.
+
+---
+
+## 1aa. Recent completed work (2026-09-13) — talent system, per-skill levels, Lightning school, 3-wheel skill tree, projectile path preview, free class/race switching
+Commit `125a775` ("re-organize skill trê, add projectile path, add diferent skill type", 2026-09-13, TVQ01) —
+the largest single commit in the history so far (58 files, +3691/−377). Some of the beam/summon/storm
+delivery code from 1m (dated 09-12) landed in this same commit.
+
+### Talent system — rankable player-level perks (new)
+- `Assets/Scripts/Player/Stats/TalentCatalog.cs` (+ .meta) — in-code roster (no .assets), `TalentKind` =
+  `PlayerXp` / `SkillTypeXp` / `Stat`; every talent `MaxRanks = 3`, effects **additive per rank**:
+  - `t.fast_learner` "Fast Learner" — +5 % **character XP**/rank.
+  - 6 skill-type talents (`t.melee` … `t.fortitude`; "Arcane Study", "Craftsmanship", …) — +6 % XP/rank
+    for that skill type (applies to both the per-skill level and the category bar).
+  - 11 stat talents (`t.health` … `t.luck`; "Vitality", "Fleet", "Might", "Sage", …) — +1 **flat stat
+    point**/rank.
+- `TalentTracker.cs` (+ .meta) — const `PointsPerLevel = 1`; subscribes to `LevelUpSystem.OnLevelUp`;
+  `EnsureOn(root)` auto-adds `LevelUpSystem` first so boot paths work before the character panel exists.
+  - **New game**: `GameManager` grants ONE **random talent at rank 1** (`GrantRandomFirstTalent`, idempotent
+    via `FirstGranted`); further points = 1 per character level-up.
+  - `CanSpend`/`TrySpend` (point → +1 rank), `RankOf`, bonus readers `PlayerXpBonus` / `TypeXpBonus` /
+    `StatBonus` — all **live additive reads over owned ranks**, so restore never double-applies.
+- Integration: `LevelUpSystem.AddXp` adds the character-XP talent bonus (stacks with race all-XP);
+  `SkillXpTracker` adds `TypeXpBonus` to the category bar; `SkillProfile.GainUse` adds it to per-skill XP;
+  `PlayerStats.GetTotal` = `base × (1 + race% + race-skill%) + talent stat points + temp buffs`.
+- Persistence: `SaveData.talentStateJson` (`SaveManager.cs:76` write `Points/Owned/FirstGranted`,
+  restore at `SaveManager.cs:200`); blank/malformed → clean slate.
+- UI: `CharacterInfoUI` → **Skills panel gained a "Talents" sub-tab** (`SkillSubTab.Talents`): a
+  "Talent Points: N" header plus one row per talent (name, `Rank x/3`, `EffectPerRank()` text) with a
+  **Rank Up** button enabled when a point exists and rank < max.
+
+### Per-skill levels ("different skill type") — every learned skill levels itself
+- `SkillProfile.cs` — each learned skill now carries its own **level** (`SkillProgress`;
+  `MaxSkillLevel = 100`). Every successful use grants **per-skill XP** (`XpPerUse = 12`; the category bar
+  gets `CategoryXpPerUse = 10`) scaled by race `XpBonusAll` + talent `TypeXpBonus`; level-ups follow a
+  **linear curve** (`BaseXpToNext = 20`, +15 per level). New `LevelOf(id)` / `TryGetProgress(...)`.
+- UI (`CharacterInfoUI`): General-tree **node labels show "Lv N"** under the name once learned; the detail
+  pane adds "Lv N · XP x/y" for learned **active** skills (passives show just the level).
+
+### Magic: Lightning is now its own school (7th L1 root)
+`SkillCatalog.Magic.cs` — L1 comment becomes "7 roots; 6 full + Lightning's own school". New **`magic_lightning`
+root** (passive Int+3) with L1 branches **Volt** (Projectile/Stagger), **Stormcall** (Storm, 3.5 s),
+**Deep Charge** (passive Int+3), **Sky Fury** (Beam 13 m, `channelDrainPerSecond 9`) plus four full L2
+subtrees (`magic_lightning_volt/_storm/_charge/_fury` — 20 new nodes incl. Storm Rain, Sky Beam,
+Devastation, Lightning Tempest). **`magic_chain` (Chain Lightning) moved** out of `magic_fireball` to the
+Lightning root. Several branches retuned onto the 1m deliveries (ids unchanged):
+- **Storm Breath** (was Zone) → **Beam** 10 m, drain 8/s · **Gust Totem** (was "Air Burst" Zone) → **Summon**
+  wind totem, 6 s · **Healing Shrine** (was "Light's Embrace" Zone) → **Summon** heal aura, 8 s ·
+  **Arcane Rune** (was "Aegis" Zone) → **Summon** turret, 5 s · **Arc Storm** (was Zone) → **Beam** 14 m,
+  drain 10/s · **Thunderstorm** (was "Overload" Zone) → **Storm** 3 s.
+- `SkillCatalog.cs` `Spell()` gained optional `deliveryRange`; `SpellContext` gained the ranged fields.
+
+### Skill tree reorganization — three wheels on one board (CharacterInfoUI)
+- The **General sub-tab now composes 3 independent tree wheels**: **Magic** (compact full-circle wheel,
+  left, origin −2200,0), **Physical combat** (standard 4-wedge wheel — Melee/Ranged/Stealth/Fortitude,
+  centre, 0,0), **Crafting** (compact full-circle, right, +2200,0); each wheel has its own hub bubble
+  plus a heading ("MAGIC"/"PHYSICAL"/"CRAFTING"). Compact wheels reuse the tuned layer bands scaled for a
+  single full circle (arc capacity ~6× wider).
+- `FitTreeToViewport` switched from centred max-radius to a **bounding-box fit** (re-centres the content
+  on the box — off-centre wheels no longer clip); `TreePan` zoom widened to **0.05×–20×**.
+- **Magic nodes tint by element**: `NodeColor` lerps learned/available/locked state color 60 % toward the
+  skill's `DamageKind` color (`DamageNumber.ColorFor`) — fireball reads orange, frostbolt icy-blue, etc.
+- `EnsureProgression` now also adds `TalentTracker` (after `LevelUpSystem`) so the skills panel always has
+  the tracker.
+
+### Projectile path preview — full flight-path cone while charging (new)
+- `Assets/Scripts/Combat/Weapons/ProjectilePathPreview.cs` (+ .meta) — prefab-free singleton, world-space:
+  a **cone of 10 translucent rings** (`Rings=10`, `RingSegments=18`, `MaxHalfAngleDeg=45`) from the weapon
+  along the aim line that **narrows as charge builds**, collapsing to a thin centre ray of the exact
+  predicted trajectory at full charge; clipped at the first solid hit.
+- `PlayerController.cs` (`_pathPreview` field via `ProjectilePathPreview.Instance`):
+  - **Magic projectile spells** while charging → preview mirrors caster aim (spawn near the hand,
+    `fwd×0.5 + up×0.3`, reach = `max(speed,1)×4` flight envelope), tinted by the **spell element**.
+  - **Ranged** (regular draw AND the per-hand dual draw) → preview from the hand along aim, reach =
+    `speed×lifetime`, spread from ranged accuracy; half-angle shrinks as charge grows, tinted by shot type.
+  - Hidden on cancel/release/weapon-switch (`HidePathPreview`). New `MagicChargeFullTime = 1.2f` (ramp for
+    `SpellChargeLevel`), public `LookPitch` (torso bends with camera), `_chargeDrained` tracks the 1v
+    real-time FP drain.
+
+### Class & race switching are now free
+- `ClassUnlocker.cs` `SetActiveClass`: the `freeBaseline` (Wanderer) + `IsUnlocked` gate is **removed** — any
+  **known class id switches freely**; returns false only for unknown ids. The class-change dialog shows
+  "(current)" and no requirement summary / lock dimming; falls back to `ClassUnlocker.BuildDefaultClasses()`
+  when the roster is empty.
+- Race dialog: same "(current)" treatment; confirm now calls `SetActiveRace(requireStone: false,
+  unlockIfNeeded: true)` — **no Ritual Stone cost, the target race auto-unlocks** for this character.
+
+### UiAssetCache — central UI asset cache (new)
+`Assets/Scripts/UI/NewWorld/UiAssetCache.cs` (+ .meta) caches `MenuTexture` + `DefaultFont`
+(`VietPixel`), replacing per-file `Resources.Load("menu")` / `Resources.Load<TMP_FontAsset>("VietPixel")`
+in `CharacterInfoUI`, `MenuPanelBase`, `TypingMinigame`, `FishingUI`.
+
+### Farming — plots + seeds plant on drop
+- `ToolManager.DropThrow.cs`: dropping **seeds onto a farm Plot** now plants directly
+  (`FarmingManager.GetPlotAt` → `PlantPlot`, "pop" sfx) instead of only gifting the world.
+- `ToolManager.cs` farming actions (till / water / fertilize / boost-growth / harvest) route through
+  `FarmingManager` plots first with the legacy `_worldBuilder`-field fallback; `BuildingCount` →
+  `BlueprintOptionCount` (`ToolManager.BuildingMenu.cs`). `FarmPlot.cs` / `FarmingManager.cs` gained the
+  plot-query/harvest helpers.
+
+### Ranged — runtime arrow fallback when no prefab
+- `RangedWeaponBehavior.cs` (175 changed lines): `FireProjectile` with no projectile prefab now builds a
+  **generated arrow** projectile at runtime (shaft + head) instead of the old hit-scan raycast tracer.
+  (Throwing-hammer visual already existed from 1m.)
+
+### World gen & boot perf
+- `GameBootstrap.cs`: `FarmingManager` ensured at boot; render distance **3 → 5**, `MaxRadius 160`; only the
+  **spawn chunk builds synchronously** — the surrounding chunks stream in via the background pass (~1.5 s).
+- `ChunkLodManager.cs`: `EffectiveCullDistance()` **auto-scales the LOD cull distance to the streamer's
+  render radius** (`_streamer`), so culling no longer fights the bumped radius; `WorldStreamer.cs` and
+  `RenderDistanceController.cs` got the matching radius plumbing.
+- `NewWorldTestGround.cs`: `SpawnBenchBudgeted` coroutine spawns the test bench **one lane group per frame**
+  (was all-at-once in Awake, which blocked early frames) while preserving `SpawnBench` ordering; the platform
+  max-height scan samples Perlin **every 2 m (61×61 vs 121×121, ~4× fewer noise calls)** with a +3 m clearance.
+
+### Housekeeping
+- **Accidental commit**: `Assets/_Recovery/0 (16).unity` + `0 (17).unity` (347-line unused crash scenes,
+  with metas) snuck into this commit — they belong in the pending `_Recovery` cleanup (see §3).
+
+### 1aa-status
+- No CLI build available in this environment (Unity project) — compile/behaviour verified by code review
+  only. Unity play-test pending: new game grants one random talent + Talents tab ranks it; level-ups grant
+  talent points; skill detail shows Lv/XP climbing per use; Lightning root + Chain Lightning relocation;
+  3-wheel General tree pans/zooms without clipping; path cone narrows on magic/ranged charge and clips at
+  walls; free class/race switching; seed-drop planting on plots; render-distance bump + LOD cull;
+  bench spawn no longer hitches at boot.
+
+---
+
+## 1ab. Recent completed work (2026-09-14) — Tornado spell uses the old environmental tornado model + function; Magic-wheel per-school wedges
+
+- **`MapBuilder.BuildTornado`** gains a `widthScale` param (default 1 — town-tornado event unchanged).
+- New **`SpellTornado.cs`** (Vortex delivery for `magic_tornado_spell`): rebuilds the old tall
+  drifting debris funnel (`BuildTornado` → `TornadoBehavior`) scaled to the spell radius, tunes the
+  TornadoBehavior fields to spell scale (so pulled objects don't ride up to the old 80-unit orbit),
+  and layers SpellZone-style Wind damage ticks + enemy pull on top; destroyed after its lifetime (5 s).
+- **`SpellCaster.SpawnVortex`** routes only the Tornado spell to `SpellTornado`; all other Vortex
+  spells (e.g. Mini Tornado) keep the `SpellZone` funnel unchanged.
+- **`CharacterInfoUI.BuildWheel`** (compact three-wheel board): each school/category now gets its own
+  wedge around the full circle (`sectorHalf = π/groups − gap`, per-wedge hub + school label) instead of
+  all nodes cramming into the bottom sector. Standard single-wheel layout is untouched.
+- Docs: game-design.md §3.8 (Vortex exception → `SpellTornado`), SkillCatalog wind-line comment.
+
+### 1ab-status
+- No CLI build — code-review verified (braces, ids, per-wedge capacity). Play-test pending: cast
+  Tornado — expect a big drifting debris tornado (~10 tall / ~7 wide) that pulls props via physics +
+  enemies and ticks Wind damage for ~5 s; Magic wheel per-school wedges read cleanly around the circle.
 
 ---
 
