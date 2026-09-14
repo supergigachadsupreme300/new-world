@@ -177,6 +177,10 @@ public partial class UIManager : MonoBehaviour
     private bool _karmaBarVisible;
 
     private GameObject _eventTestPanel;
+    // Menu dimensions captured in InitializeUI() — used to lazily build the Event panel on first open.
+    private float _menuPanelW;
+    private float _menuPanelH;
+    private float _menuPad;
 
     private TMP_Text _timeText;
     private TMP_Text _hpText;
@@ -325,6 +329,9 @@ public partial class UIManager : MonoBehaviour
         float menuButtonWidth = Mathf.Max(160f, screenHeight * 0.25f);
         float panelWidth = Mathf.Min(screenWidth * 0.4f, 560f);
         float panelHeight = Mathf.Min(screenHeight * 0.8f, 520f);
+        _menuPanelW = panelWidth;
+        _menuPanelH = panelHeight;
+        _menuPad = padding;
         // Stats background panel (behind Time, HP, Stamina, Money, Quest)
         _statsScale = Mathf.Clamp(Screen.width / 1400f, 0.8f, 2f);
         float sW = 320f * _statsScale;
@@ -587,11 +594,12 @@ public partial class UIManager : MonoBehaviour
         // Panels - responsive sizes
         _pauseMenuPanel = CreateMenuPanel("PauseMenu", Vector2.zero, new Vector2(panelWidth, panelHeight));
         CreateButton("ContinueButton", _pauseMenuPanel.transform, Localization.T("Tiếp Tục"), new Vector2(0f, panelHeight * 0.40f), () => GameManager.Instance?.TogglePause(false));
-        CreateButton("StatsButton", _pauseMenuPanel.transform, Localization.T("Thống Kê"), new Vector2(0f, panelHeight * 0.10f), () => ShowRecordPanel(true));
-        CreateButton("QuestsButton", _pauseMenuPanel.transform, Localization.T("Nhiệm Vụ"), new Vector2(0f, 0f), () => ShowQuestPanel(true));
-        CreateButton("SettingsButton", _pauseMenuPanel.transform, Localization.T("Cài Đặt"), new Vector2(0f, -panelHeight * 0.10f), () => ShowSettingsPanel(true));
-        CreateButton("TutorialButton", _pauseMenuPanel.transform, Localization.T("Hướng Dẫn"), new Vector2(0f, -panelHeight * 0.20f), () => ShowTutorial(true));
-        CreateButton("ExitButton", _pauseMenuPanel.transform, Localization.T("Thoát"), new Vector2(0f, -panelHeight * 0.30f), () => GameManager.Instance?.ReturnToMainMenu());
+        CreateButton("StatsButton", _pauseMenuPanel.transform, Localization.T("Thống Kê"), new Vector2(0f, panelHeight * 0.30f), () => ShowRecordPanel(true));
+        CreateButton("QuestsButton", _pauseMenuPanel.transform, Localization.T("Nhiệm Vụ"), new Vector2(0f, panelHeight * 0.20f), () => ShowQuestPanel(true));
+        CreateButton("EventsButton", _pauseMenuPanel.transform, Localization.T("Sự Kiện"), new Vector2(0f, panelHeight * 0.10f), () => ShowEventTestPanel(true));
+        CreateButton("SettingsButton", _pauseMenuPanel.transform, Localization.T("Cài Đặt"), new Vector2(0f, 0f), () => ShowSettingsPanel(true));
+        CreateButton("TutorialButton", _pauseMenuPanel.transform, Localization.T("Hướng Dẫn"), new Vector2(0f, -panelHeight * 0.10f), () => ShowTutorial(true));
+        CreateButton("ExitButton", _pauseMenuPanel.transform, Localization.T("Thoát"), new Vector2(0f, -panelHeight * 0.20f), () => GameManager.Instance?.ReturnToMainMenu());
         _pauseMenuPanel.SetActive(false);
 
         CreateSaveSlotMenu(panelWidth, padding, largefontSize);
@@ -1566,6 +1574,7 @@ public partial class UIManager : MonoBehaviour
         SetButtonText("ContinueButton", "Tiếp Tục");
         SetButtonText("StatsButton", "Thống Kê");
         SetButtonText("QuestsButton", "Nhiệm Vụ");
+        SetButtonText("EventsButton", "Sự Kiện");
         SetButtonText("SettingsButton", "Cài Đặt");
         SetButtonText("TutorialButton", "Hướng Dẫn");
         SetButtonText("ExitButton", "Thoát");

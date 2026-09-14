@@ -231,8 +231,12 @@ public partial class UIManager
         _eventTestPanel.SetActive(false);
     }
 
+    /// <summary>Show the event-browser panel, building it lazily on first open so the event list
+    /// reflects whatever is registered by the time the player reaches the pause menu.</summary>
     public void ShowEventTestPanel(bool show)
     {
+        if (show && _eventTestPanel == null)
+            CreateEventTestPanel(_menuPanelW, _menuPanelH, _menuPad);
         if (_eventTestPanel != null)
             _eventTestPanel.SetActive(show);
     }

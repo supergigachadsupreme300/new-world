@@ -204,6 +204,25 @@ school after Tornado; prereq Gale Force.
 
 ---
 
+## 1ae. Recent completed work (2026-09-14) — Event tab unlocked in the pause menu (new game)
+
+The Event Test panel (`UIManager.EventTest.cs`) existed but was dead: `CreateEventTestPanel` was never
+called and nothing opened it. It is now reachable from the Pause menu.
+
+- **`UIManager.cs`** — capture menu dimensions (`_menuPanelW/H/_menuPad`) in `InitializeUI` so the panel
+  can be built lazily; new pause-menu button **"Sự Kiện"** (Events) between Quests and Settings; pause
+  buttons re-spaced to a uniform 0.10·panelHeight pitch to fit all 7; button text re-applied on the
+  localization refresh path.
+- **`UIManager.EventTest.cs`** — `ShowEventTestPanel(true)` lazily calls `CreateEventTestPanel` on first
+  open (list reflects events registered by then). The panel's event buttons already close the pause
+  menu, resume the game, and `ForceEventByIndex` — unchanged.
+
+### 1ae-status
+- No CLI build — code-review verified. Play-test pending: Pause → **Sự Kiện** → pick an event (grouped
+  Tier 0/1/2 grid) — the game resumes and that event triggers (e.g. tornado storm over the town).
+
+---
+
 ## 1m. Recent completed work (2026-09-12) — magic delivery overhaul (Beam / Summon / Storm) + throwing-hammer fix
 User: duplicate-feeling spells across the magic schools should each behave distinctly. Three new spell
 deliveries (Beam, Summon, Storm) added alongside projectile / instant / zone / vortex; 16 spells
