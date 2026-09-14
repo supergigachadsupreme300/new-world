@@ -37,7 +37,7 @@ public class HitboxSystem : MonoBehaviour
     private float _timer;
     private float _cooldownTimer;
     private Transform _owner;
-    private readonly System.Collections.Generic.HashSet<EntityId> _hitThisSwing = new System.Collections.Generic.HashSet<EntityId>();
+    private readonly System.Collections.Generic.HashSet<int> _hitThisSwing = new System.Collections.Generic.HashSet<int>();
 
     public bool IsActive => _active;
 
@@ -104,7 +104,7 @@ public class HitboxSystem : MonoBehaviour
 
         foreach (Collider col in hits)
         {
-            EntityId id = col.gameObject.GetEntityId();
+            int id = col.gameObject.GetInstanceID();
             if (_hitThisSwing.Contains(id))
                 continue;
 

@@ -1,12 +1,29 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-13. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work = commit
-`125a775` (2026-09-13) — see the new `1aa` section on top of §1.
+Last updated: 2026-09-14. Read this first in a new session; then continue with the
+`# OPEN TASKS` section (especially the axe/pickaxe bug). An **optimization sweep** is in progress —
+see the `1ag`+ sections on top of §1 and `OPTIMIZATION.md` for the full plan.
 
-Companion docs: `PLAN.md`, `PLAN-class-skill-trees.md`, `planning.md`, `game-design.md`.
+Companion docs: `PLAN.md`, `PLAN-class-skill-trees.md`, `planning.md`, `game-design.md`,
+`OPTIMIZATION.md` (optimization plan + phase status).
 
 ---
+
+## 1ag. Optimization Phase 0 — resurrect dead `EntityId`/`GetEntityId` references (compile risk)
+
+Legacy commits (`c9103d9`, `77a685d`) rewrote `HitboxSystem` + `ObjectPooler` value keys from
+`long`/`GetInstanceID()` to a custom `EntityId`/`GameObject.GetEntityId()` **that were never
+defined** anywhere in `Assets` — a latent compile blocker for the whole project. Reverted both
+files to plain `int` + `GetInstanceID()`:
+- `Combat/Weapons/HitboxSystem.cs:40,107` — `HashSet<EntityId>` → `HashSet<int>`;
+  `col.gameObject.GetEntityId()` → `GetInstanceID()`.
+- `Opt/ObjectPooler.cs:14-15,33,47,88` — pool dictionary + keys → `int`/`GetInstanceID()`.
+Verified: zero `EntityId`/`GetEntityId` references remain. No behavior change (`GetInstanceID` is a
+stable, unique per-object id — correct identity for both swing dedup and pool keying).
+
+### 1ag-status
+- No CLI build — code-review verified (grep clean; semantic checker 0 diagnostics). Play-test in
+  Unity: game compiles and boots; melee hits still dedupe per swing; nothing else observable changes.
 
 ## 1aa. Recent completed work (2026-09-13) — talent system, per-skill levels, Lightning school, 3-wheel skill tree, projectile path preview, free class/race switching
 Commit `125a775` ("re-organize skill trê, add projectile path, add diferent skill type", 2026-09-13, TVQ01) —

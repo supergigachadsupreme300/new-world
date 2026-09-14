@@ -11,8 +11,8 @@ public sealed class ObjectPooler : MonoBehaviour
 {
     public static ObjectPooler Instance { get; private set; }
 
-    private readonly Dictionary<EntityId, Queue<GameObject>> _pools =
-        new Dictionary<EntityId, Queue<GameObject>>();
+    private readonly Dictionary<int, Queue<GameObject>> _pools =
+        new Dictionary<int, Queue<GameObject>>();
 
     private void Awake()
     {
@@ -30,7 +30,7 @@ public sealed class ObjectPooler : MonoBehaviour
     public void Warm(GameObject prefab, int count)
     {
         if (prefab == null || count <= 0) return;
-        EntityId key = prefab.GetEntityId();
+        int key = prefab.GetInstanceID();
         if (!_pools.TryGetValue(key, out var queue))
         {
             queue = new Queue<GameObject>(count);
@@ -44,7 +44,7 @@ public sealed class ObjectPooler : MonoBehaviour
     public GameObject Get(GameObject prefab)
     {
         if (prefab == null) return null;
-        EntityId key = prefab.GetEntityId();
+        int key = prefab.GetInstanceID();
         if (_pools.TryGetValue(key, out var queue) && queue.Count > 0)
         {
             GameObject go = queue.Dequeue();
@@ -85,7 +85,7 @@ public sealed class ObjectPooler : MonoBehaviour
     /// <summary>Releases to the pool immediately (also used by the delay timer).</summary>
     private void ReleaseNow(GameObject go)
     {
-        EntityId key = go.GetEntityId();
+        int key = go.GetInstanceID();
         if (!_pools.TryGetValue(key, out var queue))
         {
             // Register from the pool the object originally came from, else a throwaway pool.
