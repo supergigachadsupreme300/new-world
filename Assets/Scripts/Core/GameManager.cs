@@ -366,7 +366,7 @@ public class GameManager : MonoSingleton<GameManager>
             Player.EnableInput(true);
             Player.ResetPlayer();
             // Account perk: every new run starts with one randomized talent.
-            TalentTracker.EnsureOn(Player).GrantRandomFirstTalent();
+            TalentTracker.EnsureOn(Player.gameObject).GrantRandomFirstTalent();
         }
 
         if (UIManager != null)
@@ -427,7 +427,7 @@ public class GameManager : MonoSingleton<GameManager>
             Player.EnableInput(true);
             Player.ResetPlayer();
             // Account perk: every new run starts with one randomized talent.
-            TalentTracker.EnsureOn(Player).GrantRandomFirstTalent();
+            TalentTracker.EnsureOn(Player.gameObject).GrantRandomFirstTalent();
         }
 
         if (UIManager != null)

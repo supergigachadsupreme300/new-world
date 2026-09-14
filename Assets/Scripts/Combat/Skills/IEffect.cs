@@ -75,7 +75,7 @@ public sealed class SpellCastEffect : IEffect
     {
         if (ctx == null || Spell == null || ctx.Caster == null) return;
         // Skill level scales the cast the same way a weapon does: power, size, economy.
-        if (ctx.Level <= 1)
+        if (ctx.SkillLevel <= 1)
         {
             ctx.Caster.BeginCast(Spell,
                 ctx.Origin != null ? ctx.Origin : ctx.User != null ? ctx.User.transform : null,
