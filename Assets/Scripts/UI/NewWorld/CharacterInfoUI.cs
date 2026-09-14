@@ -1069,247 +1069,335 @@ public sealed class CharacterInfoUI : MenuPanelBase
         void BuildWheel(IReadOnlyList<SkillType> wheelTypes, Vector2 origin, bool compact)
         {
             int wheelCount = wheelTypes.Count;
-            float sectorHalf = compact
-                ? Mathf.PI - 0.02f
-                : (Mathf.PI / wheelCount) - 0.004f;
-            float wheelHubR = compact ? 0f : 170f;
-
-            // Tier-band radii (px). Each layer owns a fixed band of rings instead of drifting
-            // outward, and each wheel is sized OUT from its hub so every ring's arc has enough
-            // real estate. The original tuned bands describe the Physical wheel:
-            //   ring0      r=250  Layer 0 (base) — one ring, exactly sized to the category's ROOT
-            //              count (5 Melee/Ranged/Stealth, 6 Fortitude) so no slots go to waste.
-            //   ring1-2    r=470,492  Layer 1 (branch) — roots×5 branches (25 for Melee/Ranged/
-            //              Stealth, 30 for Fortitude) at a 16px pitch fill the first ring's slots.
-            //   ring3      r=1490   Layer 2 (deep) — one ring for the FULL L2 catalog (~150 nodes
-            //              for Fortitude) at a 10px pitch; arc capacity 232 ≥ Fortitude's band.
-            //   ring4      r=1770   Layer 3 (deepest) — the 2-3 hop locks sit one ring further out.
-            // Compact wheels reuse the same layer bands scaled down for a full-circle single wedge
-            // (arc capacity 6× wider), which is what lets the Magic/Crafting trees stay small:
-            //   ring0 r=200, ring1-2 r=300/318, ring3 r=400 (full-circle seats 251 ≥ Magic's 152),
-            //   ring4 r=470.
-            float RingRadius(int ring)
-            {
-                if (compact)
-                {
-                    if (ring <= 0) return 200f;
-                    if (ring == 1) return 300f;
-                    if (ring == 2) return 318f;
-                    if (ring == 3) return 400f;
-                    return 470f + (ring - 4) * 70f;
-                }
-                if (ring <= 0) return 250f;
-                if (ring == 1) return 470f;
-                if (ring == 2) return 492f;
-                if (ring == 3) return 1490f;
-                return 1770f + (ring - 4) * 280f;
-            }
-            int RingCapacity(int ring, float pitch) => Mathf.Max(1, Mathf.FloorToInt(RingRadius(ring) * (2f * sectorHalf) / pitch));
+            // Category bubble sits at the wheel center (compact) or along the category angle (standard).
+            float categoryHubR = compact ? 0f : 170f;
+            // Root spokes end at each wedge's own hub: the school bubble on a compact wheel, the
+            // category bubble on a standard wheel.
+            float wedgeHubR = compact ? 100f : 170f;
 
             for (int ci = 0; ci < wheelCount; ci++)
             {
                 SkillType type = wheelTypes[ci];
-                float center = (-90f + ci * (360f / wheelCount)) * Mathf.Deg2Rad;
+                float categoryCenter = (-90f + ci * (360f / wheelCount)) * Mathf.Deg2Rad;
 
                 var catList = new List<Skill>();
                 foreach (var s in list)
                     if (s.Type == type) catList.Add(s);
                 if (catList.Count == 0) continue;
 
-            // Layered tree layout. Groups every category's skills into concentric bands by layer:
-            // layer 0 = skills that require no condition; layer L = skills that branch out from
-            // layer L-1 (deepest prerequisite chain). The node count on a layer drives how many
-            // rings its band claims (rings widen outward), and a ring never mixes two layers, so
-            // unlock tiers read as clean onion layers instead of slots shared first-come-first-served.
-            var childIndex = new Dictionary<string, List<Skill>>();
-            foreach (var s in catList)
-            {
-                if (s.PrereqSkillIds == null) continue;
-                foreach (var pid in s.PrereqSkillIds)
-                {
-                    if (!childIndex.TryGetValue(pid, out var kids))
-                        childIndex[pid] = kids = new List<Skill>();
-                    kids.Add(s);
-                }
-            }
-
-            var layerOf = new Dictionary<string, int>();
-            int maxLayer = 0;
-            foreach (var s in catList)
-            {
-                int cd = depth.TryGetValue(s.id, out int v) ? v : 0;
-                layerOf[s.id] = cd;
-                maxLayer = Mathf.Max(maxLayer, cd);
-            }
-
-            // Group by layer. Order rule (rings kept, adjacency fixed): each layer is ordered so
-            // every node's children are emitted right after their parent, and co-prereq roots —
-            // skills that share a common child — are clustered into adjacent siblings. Walking the
-            // wheel left→right then reads as prereq flow (Backstab and Sly Fox sit side by side
-            // because Assassinate requires both) instead of catalog scatter.
-            var layers = new List<List<Skill>>();
-
-            var roots = new List<Skill>();
-            foreach (var s in catList)
-                if (layerOf[s.id] == 0) roots.Add(s);
-
-            // Union co-prereq root groups so parents of a shared child are emitted adjacent.
-            var groupOf = new Dictionary<string, int>();
-            var groups = new Dictionary<int, List<Skill>>();
-            int nextGroup = 0;
-            foreach (var r in roots)
-            {
-                groupOf[r.id] = nextGroup;
-                groups[nextGroup] = new List<Skill> { r };
-                nextGroup++;
-            }
-
-            void MergeGroups(int into, int from)
-            {
-                foreach (var m in groups[from])
-                {
-                    groupOf[m.id] = into;
-                    groups[into].Add(m);
-                }
-                groups.Remove(from);
-            }
-
-            foreach (var s in catList)
-            {
-                if (s.PrereqSkillIds == null || s.PrereqSkillIds.Length < 2) continue;
-                int anchor = -1;
-                foreach (var pid in s.PrereqSkillIds)
-                {
-                    if (!groupOf.TryGetValue(pid, out int g) || g == anchor) continue;
-                    if (anchor < 0) anchor = g;
-                    else MergeGroups(anchor, g);
-                }
-            }
-
-            var layer0 = new List<Skill>();
-            for (int g = 0; g < nextGroup; g++)
-                if (groups.TryGetValue(g, out var members))
-                    layer0.AddRange(members);
-            layers.Add(layer0);
-
-            for (int L = 1; L <= maxLayer; L++)
-            {
-                var layer = new List<Skill>();
-                var placed = new HashSet<string>();
-                foreach (var parent in layers[L - 1])
-                {
-                    if (!childIndex.TryGetValue(parent.id, out var kids)) continue;
-                    kids.Sort((a, b) => string.CompareOrdinal(a.id, b.id));
-                    foreach (var k in kids)
-                        if (layerOf[k.id] == L && placed.Add(k.id))
-                            layer.Add(k);
-                }
+                // Group every skill by true prereq-chain depth (root = 0, branch = 1, deep = 2-3).
+                var layerOf = new Dictionary<string, int>();
+                int maxLayer = 0;
                 foreach (var s in catList)
-                    if (layerOf[s.id] == L && placed.Add(s.id))
-                        layer.Add(s);
-                layers.Add(layer);
-            }
-
-            // Ring-band allocation: the amount of nodes needed on a layer determines how many
-            // rings that band takes (rings widen outward). Every link then points from an inner
-            // band ring to an outer band ring.
-            var ringTotal = new List<int>();
-            var ringFor = new Dictionary<string, int>();
-            int ringCursor = 0;
-            for (int li = 0; li < layers.Count; li++)
-            {
-                var layer = layers[li];
-                float pitch = li < layerPitch.Length ? layerPitch[li] : 12f;
-                if (layer.Count == 0) continue;
-                // Pin each layer to its fixed band slots (L0->0, L1->1-2, L2->3+) so a partially
-                // filled layer never shifts the next band inward onto a wrong radius.
-                int ringIdx = Mathf.Max(ringCursor, li == 0 ? 0 : li == 1 ? 1 : 3);
-
-                // Every layer lands on a single ring: the L2 ring (r3) is sized so its 10px pitch
-                // seats all 126-152 nodes in one row. If a layer ever exceeds its ring's capacity
-                // the band still grows outward (rings widen) instead of colliding.
-                int band = 1;
-                while (band < 8)
                 {
-                    int total = 0;
-                    for (int b = 0; b < band; b++) total += RingCapacity(ringIdx + b, pitch);
-                    if (total >= layer.Count) break;
-                    band++;
+                    int cd = depth.TryGetValue(s.id, out int v) ? v : 0;
+                    layerOf[s.id] = cd;
+                    maxLayer = Mathf.Max(maxLayer, cd);
                 }
-                var load = new int[band];
-                foreach (var s in layer)
+
+                // childIndex: parent -> direct children. Drives both layer ordering and wedge spread.
+                var childIndex = new Dictionary<string, List<Skill>>();
+                foreach (var s in catList)
                 {
-                    int pick = 0;
-                    for (int b = 1; b < band; b++)
+                    if (s.PrereqSkillIds == null) continue;
+                    foreach (var pid in s.PrereqSkillIds)
                     {
-                        int pickCap = li == 0 ? layer.Count : RingCapacity(ringIdx + pick, pitch);
-                        int capB = li == 0 ? layer.Count : RingCapacity(ringIdx + b, pitch);
-                        bool pickFull = load[pick] >= pickCap;
-                        if (!pickFull && load[b] >= capB) continue;
-                        if (pickFull || load[b] < load[pick]) pick = b;
+                        if (!childIndex.TryGetValue(pid, out var kids))
+                            childIndex[pid] = kids = new List<Skill>();
+                        kids.Add(s);
                     }
-                    while (ringTotal.Count <= ringIdx + pick) ringTotal.Add(0);
-                    ringFor[s.id] = ringIdx + pick;
-                    ringTotal[ringIdx + pick]++;
-                    load[pick]++;
                 }
-                ringCursor = li == 2 ? ringIdx + band : (li == 1 ? 3 : ringIdx + 1);
-            }
 
-            // Center partially filled rings so isolated outer nodes sit mid-wedge, never hugging
-            // the low-angle (left) edge of the cone.
-            var used = new List<int>(ringTotal.Count);
-            for (int r = 0; r < ringTotal.Count; r++) used.Add(0);
-
-            foreach (var layer in layers)
-                foreach (var s in layer)
+                // Union co-prereq root groups so parents of a shared child — skills that share a
+                // common child — end up in the same wedge (adjacent siblings instead of scatter).
+                // On a compact wheel each merged group becomes one school wedge (Magic: 7 roots ->
+                // 7 wedges; Crafting: 5 roots -> 5 wedges); on a standard wheel the whole category
+                // stays a single wedge.
+                var groups = new Dictionary<int, List<Skill>>();
+                var groupOf = new Dictionary<string, int>();
+                int nextGroup = 0;
+                foreach (var s in catList)
                 {
-                    int ring = ringFor[s.id];
-                    float pitch = EffLayerOf(s) < layerPitch.Length ? layerPitch[EffLayerOf(s)] : 12f;
-                    int slots = ring == 0 ? ringTotal[ring] : RingCapacity(ring, pitch);
-                    int first = Mathf.Max(0, (slots - ringTotal[ring]) / 2);
-                    float ang = center - sectorHalf +
-                        (first + used[ring] + 0.5f) * (2f * sectorHalf) / slots;
-                    used[ring]++;
-
-                    float radial = RingRadius(ring);
-                    posOf[s.id] = origin + new Vector2(Mathf.Cos(ang) * radial, Mathf.Sin(ang) * radial);
-                    _treeSkills.Add(s);
+                    if (layerOf[s.id] != 0) continue;
+                    groupOf[s.id] = nextGroup;
+                    groups[nextGroup] = new List<Skill> { s };
+                    nextGroup++;
                 }
 
-            // Hub position per skill: the wheel's hub bubble point, so the spoke pass below can
-            // connect every root to THIS wheel's center (not a global category angle).
-            Vector2 hubPos = origin + new Vector2(Mathf.Cos(center) * wheelHubR, Mathf.Sin(center) * wheelHubR);
-            foreach (var s in catList)
-                hubPosOf[s.id] = hubPos;
+                void MergeGroups(int into, int from)
+                {
+                    foreach (var m in groups[from])
+                    {
+                        groupOf[m.id] = into;
+                        groups[into].Add(m);
+                    }
+                    groups.Remove(from);
+                }
 
-            // Category hub node: a circle at the wedge center that acts as the root parent of
-            // every root skill's spoke.
-            var catGo = new GameObject("CategoryNode_" + CategoryNames[(int)type]);
-            catGo.transform.SetParent(_treeContent, false);
-            var crt = catGo.AddComponent<RectTransform>();
-            crt.anchorMin = new Vector2(0.5f, 0.5f);
-            crt.anchorMax = new Vector2(0.5f, 0.5f);
-            crt.pivot = new Vector2(0.5f, 0.5f);
-            crt.anchoredPosition = hubPos;
-            crt.sizeDelta = new Vector2(128f, 128f);
-            var cimg = catGo.AddComponent<Image>();
-            cimg.sprite = CategoryNodeSprite();
-            cimg.type = Image.Type.Simple;
-            cimg.preserveAspect = true;
-            cimg.color = CategoryColors[(int)type];
-            cimg.raycastTarget = false;
-            _categoryNodes.Add((type, cimg));
+                foreach (var s in catList)
+                {
+                    if (s.PrereqSkillIds == null || s.PrereqSkillIds.Length < 2) continue;
+                    int anchor = -1;
+                    foreach (var pid in s.PrereqSkillIds)
+                    {
+                        if (!groupOf.TryGetValue(pid, out int g) || g == anchor) continue;
+                        if (anchor < 0) anchor = g;
+                        else MergeGroups(anchor, g);
+                    }
+                }
 
-            // Category name centered inside the hub bubble (drawn after -> on top of the node).
-            var lbl = MakeBodyText(_treeContent, "Sector_" + CategoryNames[(int)type],
-                new Vector2(hubPos.x - 64f, hubPos.y), Sz(128f, 28f));
-            lbl.alignment = TextAlignmentOptions.Center;
-            lbl.fontSize = Mathf.Max(16f, Screen.height / 66f);
-            lbl.color = Color.black;
-            _sectorLabels.Add((type, lbl));
+                // ---- Wedges ----------------------------------------------------------------.
+                // Standard wheels fan one whole category inside its equal wedge (legacy behavior);
+                // compact wheels split the full circle into one wedge per school, starting at the
+                // top (+90°), so each element spreads toward its own side of the wheel instead of
+                // packing every ring's nodes into the bottom arc the way a single full-circle wedge
+                // did.
+                var wedges = new List<(List<Skill> wedgeSkills, float center)>();
+                float sectorHalf;
+                if (!compact)
+                {
+                    wedges.Add((catList, categoryCenter));
+                    sectorHalf = (Mathf.PI / wheelCount) - 0.004f;
+                }
+                else
+                {
+                    sectorHalf = (Mathf.PI / groups.Count) - 0.004f;
+                    // Assign every skill to exactly one school wedge via BFS from that school's
+                    // roots. After the merge pass no child is shared across groups, so each skill
+                    // lands in exactly one wedge.
+                    var home = new Dictionary<string, int>();
+                    var queue = new Queue<Skill>();
+                    for (int g = 0; g < groups.Count; g++)
+                    {
+                        foreach (var r in groups[g])
+                        {
+                            home[r.id] = g;
+                            queue.Enqueue(r);
+                        }
+                        while (queue.Count > 0)
+                        {
+                            var p = queue.Dequeue();
+                            if (!childIndex.TryGetValue(p.id, out var kids)) continue;
+                            foreach (var k in kids)
+                                if (!home.ContainsKey(k.id))
+                                {
+                                    home[k.id] = g;
+                                    queue.Enqueue(k);
+                                }
+                        }
+                    }
+                    for (int g = 0; g < groups.Count; g++)
+                        wedges.Add((new List<Skill>(), (90f + g * (360f / groups.Count)) * Mathf.Deg2Rad));
+                    foreach (var s in catList)
+                        if (home.TryGetValue(s.id, out int g))
+                            wedges[g].wedgeSkills.Add(s);
+                }
+
+                // Layered tree layout inside each wedge. Order rule (rings kept, adjacency fixed):
+                // each layer is ordered so every node's children are emitted right after their
+                // parent, and co-prereq roots — skills that share a common child — are clustered
+                // into adjacent siblings. Walking the wedge left→right then reads as prereq flow
+                // (Backstab and Sly Fox sit side by side because Assassinate requires both) instead
+                // of catalog scatter.
+
+                // Tier-band radii (px). Each layer owns a fixed band of rings instead of drifting
+                // outward, and each wedge is sized OUT from its hub so every ring's arc has enough
+                // real estate. The Physical wheel is only 4 categories, so each wedge is wide
+                // (sectorHalf = π/4 ≈ 0.781) — the rings are shorted accordingly and never need a
+                // pinhole arc:
+                //   ring0      r=250  Layer 0 (base) — one ring, exactly sized to the category's ROOT
+                //              count (5 Melee/Ranged/Stealth, 6 Fortitude) so no slots go to waste.
+                //   ring1-2    r=380,400  Layer 1 (branch) — roots×5 branches (25 for Melee/Ranged/
+                //              Stealth, 30 for Fortitude) at a 16px pitch: ring1 seats 37 ≥ 30.
+                //   ring3      r=1150   Layer 2 (deep) — one ring for the FULL L2 catalog (126-151
+                //              nodes per category) at a 10px pitch; arc capacity 179 ≥ Fortitude's 151.
+                //   ring4      r=1400   Layer 3 (deepest) — the 2-3 hop locks sit one ring further out.
+                // Compact wheels reuse tighter bands for school-sized wedges:
+                //   ring0 r=200, ring1-2 r=300/318, ring3 r=400, ring4 r=470 — Magic's 7 wedges seat
+                //   ~25-30 depth-2 nodes each at a 10px pitch (capacity 35) and Crafting's 5 wedges
+                //   seat ~25 (capacity 49), so the tree stays small.
+                float RingRadius(int ring)
+                {
+                    if (compact)
+                    {
+                        if (ring <= 0) return 200f;
+                        if (ring == 1) return 300f;
+                        if (ring == 2) return 318f;
+                        if (ring == 3) return 400f;
+                        return 470f + (ring - 4) * 70f;
+                    }
+                    if (ring <= 0) return 250f;
+                    if (ring == 1) return 380f;
+                    if (ring == 2) return 400f;
+                    if (ring == 3) return 1150f;
+                    return 1400f + (ring - 4) * 200f;
+                }
+                int RingCapacity(int ring, float pitch, float half) =>
+                    Mathf.Max(1, Mathf.FloorToInt(RingRadius(ring) * (2f * half) / pitch));
+
+                foreach (var (wedgeSkills, center) in wedges)
+                {
+                    if (wedgeSkills.Count == 0) continue;
+
+                    var layers = new List<List<Skill>>();
+                    var layer0 = new List<Skill>();
+                    for (int g = 0; g < nextGroup; g++)
+                        if (groups.TryGetValue(g, out var members))
+                            foreach (var m in members)
+                                if (wedgeSkills.Contains(m)) layer0.Add(m);
+                    if (layer0.Count == 0) continue;
+                    layers.Add(layer0);
+
+                    for (int L = 1; L <= maxLayer; L++)
+                    {
+                        var layer = new List<Skill>();
+                        var placed = new HashSet<string>();
+                        foreach (var parent in layers[L - 1])
+                        {
+                            if (!childIndex.TryGetValue(parent.id, out var kids)) continue;
+                            kids.Sort((a, b) => string.CompareOrdinal(a.id, b.id));
+                            foreach (var k in kids)
+                                if (layerOf[k.id] == L && placed.Add(k.id))
+                                    layer.Add(k);
+                        }
+                        foreach (var s in wedgeSkills)
+                            if (layerOf[s.id] == L && placed.Add(s.id))
+                                layer.Add(s);
+                        layers.Add(layer);
+                    }
+
+                    // Ring-band allocation: the number of nodes on a layer decides how many rings
+                    // that band takes (rings widen outward). Every link then points from an inner
+                    // band ring to an outer band ring.
+                    var ringTotal = new List<int>();
+                    var ringFor = new Dictionary<string, int>();
+                    int ringCursor = 0;
+                    for (int li = 0; li < layers.Count; li++)
+                    {
+                        var layer = layers[li];
+                        float pitch = li < layerPitch.Length ? layerPitch[li] : 12f;
+                        if (layer.Count == 0) continue;
+                        // Pin each layer to its fixed band slots (L0->0, L1->1-2, L2->3+) so a
+                        // partially filled layer never shifts the next band inward onto a wrong
+                        // radius.
+                        int ringIdx = Mathf.Max(ringCursor, li == 0 ? 0 : li == 1 ? 1 : 3);
+
+                        int band = 1;
+                        while (band < 8)
+                        {
+                            int total = 0;
+                            for (int b = 0; b < band; b++) total += RingCapacity(ringIdx + b, pitch, sectorHalf);
+                            if (total >= layer.Count) break;
+                            band++;
+                        }
+                        var load = new int[band];
+                        foreach (var s in layer)
+                        {
+                            int pick = 0;
+                            for (int b = 1; b < band; b++)
+                            {
+                                int pickCap = li == 0 ? layer.Count : RingCapacity(ringIdx + pick, pitch, sectorHalf);
+                                int capB = li == 0 ? layer.Count : RingCapacity(ringIdx + b, pitch, sectorHalf);
+                                bool pickFull = load[pick] >= pickCap;
+                                if (!pickFull && load[b] >= capB) continue;
+                                if (pickFull || load[b] < load[pick]) pick = b;
+                            }
+                            while (ringTotal.Count <= ringIdx + pick) ringTotal.Add(0);
+                            ringFor[s.id] = ringIdx + pick;
+                            ringTotal[ringIdx + pick]++;
+                            load[pick]++;
+                        }
+                        ringCursor = li == 2 ? ringIdx + band : (li == 1 ? 3 : ringIdx + 1);
+                    }
+
+                    // Spread partially filled rings around the wedge center so isolated outer nodes
+                    // sit mid-wedge, never hugging the low-angle (left) edge of the cone.
+                    var used = new List<int>(ringTotal.Count);
+                    for (int r = 0; r < ringTotal.Count; r++) used.Add(0);
+
+                    foreach (var layer in layers)
+                        foreach (var s in layer)
+                        {
+                            int ring = ringFor[s.id];
+                            float pitch = EffLayerOf(s) < layerPitch.Length ? layerPitch[EffLayerOf(s)] : 12f;
+                            int slots = ring == 0 ? ringTotal[ring] : RingCapacity(ring, pitch, sectorHalf);
+                            int first = Mathf.Max(0, (slots - ringTotal[ring]) / 2);
+                            float ang = center - sectorHalf +
+                                (first + used[ring] + 0.5f) * (2f * sectorHalf) / slots;
+                            used[ring]++;
+
+                            float radial = RingRadius(ring);
+                            posOf[s.id] = origin + new Vector2(Mathf.Cos(ang) * radial, Mathf.Sin(ang) * radial);
+                            _treeSkills.Add(s);
+                        }
+
+                    // Hub position per skill: this wedge's hub point, so the spoke pass below
+                    // connects every root to ITS wedge's hub (a school bubble on compact wheels)
+                    // instead of one shared center angle.
+                    Vector2 hubPos = origin + new Vector2(Mathf.Cos(center) * wedgeHubR, Mathf.Sin(center) * wedgeHubR);
+                    foreach (var s in wedgeSkills)
+                        hubPosOf[s.id] = hubPos;
+
+                    // School hub bubble on a compact wheel: a small circle at the wedge's inner end
+                    // labeled with the school's name, so each element reads as its own cluster on
+                    // the wheel instead of every root sharing the category bubble.
+                    if (compact)
+                    {
+                        Skill root = wedgeSkills[0];
+                        for (int i = 1; i < wedgeSkills.Count; i++)
+                            if (EffLayerOf(wedgeSkills[i]) == 0) { root = wedgeSkills[i]; break; }
+
+                        var scol = new GameObject("SchoolNode_" + root.id);
+                        scol.transform.SetParent(_treeContent, false);
+                        var srt = scol.AddComponent<RectTransform>();
+                        srt.anchorMin = new Vector2(0.5f, 0.5f);
+                        srt.anchorMax = new Vector2(0.5f, 0.5f);
+                        srt.pivot = new Vector2(0.5f, 0.5f);
+                        srt.anchoredPosition = hubPos;
+                        srt.sizeDelta = new Vector2(56f, 56f);
+                        var simg = scol.AddComponent<Image>();
+                        simg.sprite = CategoryNodeSprite();
+                        simg.type = Image.Type.Simple;
+                        simg.preserveAspect = true;
+                        simg.color = NodeColor(root, CategoryColors[(int)type]);
+                        simg.raycastTarget = false;
+
+                        var slbl = MakeBodyText(_treeContent, "SchoolLabel_" + root.id,
+                            new Vector2(hubPos.x, hubPos.y), Sz(80f, 20f));
+                        slbl.alignment = TextAlignmentOptions.Center;
+                        slbl.fontSize = Mathf.Max(11f, Screen.height / 80f);
+                        slbl.color = Color.black;
+                    }
+                }
+
+                // Category hub node: a circle at the wheel center (compact) or wedge center
+                // (standard) that shows the category name and level.
+                Vector2 catHub = origin + new Vector2(Mathf.Cos(categoryCenter) * categoryHubR, Mathf.Sin(categoryCenter) * categoryHubR);
+                var catGo = new GameObject("CategoryNode_" + CategoryNames[(int)type]);
+                catGo.transform.SetParent(_treeContent, false);
+                var crt = catGo.AddComponent<RectTransform>();
+                crt.anchorMin = new Vector2(0.5f, 0.5f);
+                crt.anchorMax = new Vector2(0.5f, 0.5f);
+                crt.pivot = new Vector2(0.5f, 0.5f);
+                crt.anchoredPosition = catHub;
+                crt.sizeDelta = new Vector2(128f, 128f);
+                var cimg = catGo.AddComponent<Image>();
+                cimg.sprite = CategoryNodeSprite();
+                cimg.type = Image.Type.Simple;
+                cimg.preserveAspect = true;
+                cimg.color = CategoryColors[(int)type];
+                cimg.raycastTarget = false;
+                _categoryNodes.Add((type, cimg));
+
+                // Category name centered inside the hub bubble (drawn after -> on top of the node).
+                var lbl = MakeBodyText(_treeContent, "Sector_" + CategoryNames[(int)type],
+                    new Vector2(catHub.x - 64f, catHub.y), Sz(128f, 28f));
+                lbl.alignment = TextAlignmentOptions.Center;
+                lbl.fontSize = Mathf.Max(16f, Screen.height / 66f);
+                lbl.color = Color.black;
+                _sectorLabels.Add((type, lbl));
+            }
         }
-    }
 
     // Compose the three independent trees on one board: Magic (compact full-circle wheel) left,
     // Physical combat (standard 4-wedge wheel) center, Crafting (compact full-circle wheel) right.
@@ -1324,7 +1412,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
     if (posOf.Count == 0) return;
 
         // Connection lines (prereq -> child), plus a spoke from each root skill (no prereq) to its
-        // category hub so no node ever floats unconnected.
+        // wedge hub (school bubble on compact wheels, category bubble on standard wheels) so no node
+        // ever floats unconnected.
         float thick = 1.5f * S;
         foreach (var s in list)
         {
