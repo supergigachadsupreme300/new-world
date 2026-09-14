@@ -35,6 +35,7 @@ public sealed class MagicWheelUI : MonoBehaviour
     private GameObject _dim;
     private TMP_Text _centerLabel;
     private readonly List<RectTransform> _slots = new List<RectTransform>();
+    private readonly List<Image> _slotImages = new List<Image>();
     private readonly List<TMP_Text> _slotLabels = new List<TMP_Text>();
     private readonly List<string> _slotIds = new List<string>();
     private readonly List<float> _slotSizes = new List<float>();
@@ -43,9 +44,13 @@ public sealed class MagicWheelUI : MonoBehaviour
     private bool _fontsApplied;
 
     private PlayerController _player;
+    private SpellCaster _caster;
+    private PlayerController _casterFor;
     private bool _isOpen;
     private int _hovered = -1;
     private string _armedSkillId;
+    private string _centerText;
+    private string _chipText;
 
     private static readonly Color SlotColor = new Color(0.13f, 0.13f, 0.18f, 0.95f);
     private static readonly Color SlotHover = new Color(0.30f, 0.50f, 0.95f, 1f);
@@ -178,6 +183,13 @@ public sealed class MagicWheelUI : MonoBehaviour
         if (gm == null)
             return;
         _player = gm.Player;
+
+        // Cache the caster against the current player (swapped between game sessions).
+        if (_casterFor != _player)
+        {
+            _casterFor = _player;
+            _caster = _player != null ? _player.GetComponent<SpellCaster>() : null;
+        }
 
         if (gm.InGame && !gm.GamePaused && !MenuPanelBase.AnyShown)
         {
@@ -314,6 +326,7 @@ public sealed class MagicWheelUI : MonoBehaviour
         img.color = SlotColor;
         img.raycastTarget = false;
         _slots.Add(rect);
+        _slotImages.Add(img);
         _slotSizes.Add(slotSize);
 
         var label = MakeLabel(slot.transform, "Label", Vector2.zero, Vector2.one,
@@ -353,6 +366,7 @@ public sealed class MagicWheelUI : MonoBehaviour
             if (_slots[i] != null)
                 Destroy(_slots[i].gameObject);
         _slots.Clear();
+        _slotImages.Clear();
         _slotLabels.Clear();
         _slotIds.Clear();
         _slotSizes.Clear();
@@ -363,8 +377,12 @@ public sealed class MagicWheelUI : MonoBehaviour
     {
         if (_slotIds.Count == 0)
         {
-            if (_centerLabel != null)
-                _centerLabel.text = "No spells learned yet";
+            const string none = "No spells learned yet";
+            if (_centerLabel != null && _centerText != none)
+            {
+                _centerText = none;
+                _centerLabel.text = none;
+            }
             return;
         }
 
@@ -390,7 +408,7 @@ public sealed class MagicWheelUI : MonoBehaviour
         {
             bool hover = i == _hovered;
             _slots[i].localScale = hover ? Vector3.one * 1.18f : Vector3.one;
-            var img = _slots[i].GetComponent<Image>();
+            var img = _slotImages[i];
             Color c;
             if (hover) c = SlotHover;
             else if (_slotIds[i] == _armedSkillId) c = SlotArmed;
@@ -401,18 +419,22 @@ public sealed class MagicWheelUI : MonoBehaviour
 
         if (_centerLabel != null)
         {
-            _centerLabel.text = _hovered >= 0
+            string hint = _hovered >= 0
                 ? "Release to lock in " + SkillName(_slotIds[_hovered])
                 : "Release to keep \"" + SkillName(_armedSkillId) + "\"";
+            if (hint != _centerText)
+            {
+                _centerText = hint;
+                _centerLabel.text = hint;
+            }
         }
     }
 
     private bool IsOnCooldown(string skillId)
     {
-        var caster = _player != null ? _player.GetComponent<SpellCaster>() : null;
-        if (caster == null) return false;
+        if (_caster == null) return false;
         var skill = SkillCatalog.Find(skillId);
-        return skill != null && caster.CooldownRemaining(skill.CooldownKey) > 0f;
+        return skill != null && _caster.CooldownRemaining(skill.CooldownKey) > 0f;
     }
 
     private void RefreshArmedChip()
@@ -422,9 +444,17 @@ public sealed class MagicWheelUI : MonoBehaviour
             && _player != null
             && _player.FightingMode
             && HoldingMagicWeapon();
-        if (_armedChip != null) _armedChip.gameObject.SetActive(show);
+        if (_armedChip != null && _armedChip.gameObject.activeSelf != show)
+            _armedChip.gameObject.SetActive(show);
         if (show && _armedChipLabel != null)
-            _armedChipLabel.text = "Armed: " + SkillName(_armedSkillId);
+        {
+            string s = "Armed: " + SkillName(_armedSkillId);
+            if (s != _chipText)
+            {
+                _chipText = s;
+                _armedChipLabel.text = s;
+            }
+        }
     }
 
     private static string SkillName(string id)

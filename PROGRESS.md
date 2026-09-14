@@ -8,6 +8,37 @@ Companion docs: `PLAN.md`, `PLAN-class-skill-trees.md`, `planning.md`, `game-des
 `OPTIMIZATION.md` (optimization plan + phase status).
 
 ---
+## 1ai. Optimization Phase 2 — HUD/UI allocation sweep (per-frame GC kills)
+
+The audit's UI row all ran **every frame** with `GetComponent(InChildren)` lookups, string
+formatting and TMP repaints. Now cached/dirty-checked:
+- **`UI/NewWorld/PlayerBarsHUD.cs`** (#2) — `SpellCaster`/`PlayerStats` refs cached once per
+  player object (`EnsureRefs`, re-resolved when the player root swaps) instead of
+  `GetComponentInChildren` every frame; the HP/FP/Stam text labels now repaint only when the
+  rounded value changes (`UpdateLabel` stores last ints) and the charge-% text only when the
+  percent ticks.
+- **`UI/NewWorld/SkillBarHUD.cs`** (#3) — the `new List + AddRange + Sort` per frame became a
+  reused sorted cache (`_entries`/`_prevEntries`); label texts are repainted only when the
+  binding set actually changed; the (cheap) cooldown `fillAmount` update remains per-frame.
+- **`UI/NewWorld/MagicWheelUI.cs`** (#16) — per-slot `GetComponent<Image>` in `Paint` is a cached
+  `_slotImages` list; `SpellCaster` cached against the current player; the armed chip and ring
+  hint texts repaint only on change.
+- **`UI/NewWorld/CompassMinimapHUD.cs`** — `Camera.main` cached, and the heading label only
+  repaints when the yaw crosses a cardinal boundary (`CardinalIndex`).
+- **`UI/NewWorld/EnemyHealthBarHUD.cs`** — `Camera.main` + the bar's `RectTransform` cached;
+  `SetActive`/`fillAmount` are dirty-checked so steady frames skip canvas rebounds. **Also fixed a
+  latent pooling bug:** a released bar re-used by a *different* enemy kept the previous enemy's Max,
+  skewing its health fraction — Max now resets whenever the bar attaches to a new target.
+- **`Opt/NewWorldTestGround.cs`** — the per-frame `PlayerController` lookup is now cached per
+  player object.
+
+### 1ai-status
+- No CLI build — code-review verified (all six files brace-balanced; labels still formatted per
+  call site). Play-test: damage/spend/charge bars still tick at the same thresholds; compass
+  flips N→NE→E… correctly; the armed-magic chip appears/disappears with weapon swap; enemy bars
+  track fills correctly — verify the re-pool fix by killing the boss (or 25 enemies) and confirming
+  a reused bar shows the correct fraction on the next target. Skill-bar cooldown fills unchanged.
+
 ## 1ah. Optimization Phase 1 — enemy scan stagger, tornado pull + camera collision throttles
 
 Per-frame physics hot spots from the OPTIMIZATION.md audit (#1, #6, #8):

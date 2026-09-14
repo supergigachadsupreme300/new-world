@@ -15,6 +15,7 @@ public sealed class EnemyHealthBarHUD : MonoBehaviour
 
     private Canvas _canvas;
     private readonly List<EnemyHealthBar> _bars = new List<EnemyHealthBar>();
+    private Camera _cam;
 
     // Scanned enemy pool, refreshed periodically instead of every frame so a fully
     // streamed world (tens of thousands of objects) is never swept per-frame.
@@ -25,6 +26,7 @@ public sealed class EnemyHealthBarHUD : MonoBehaviour
     private sealed class EnemyHealthBar
     {
         public GameObject Root;
+        public RectTransform Rect;
         public Image Fill;
         public Transform Target;
         public float Max;
@@ -86,6 +88,7 @@ public sealed class EnemyHealthBarHUD : MonoBehaviour
             bar.Root = new GameObject("EnemyBar_" + _bars.Count);
             bar.Root.transform.SetParent(_canvas.transform, false);
             var rect = bar.Root.AddComponent<RectTransform>();
+            bar.Rect = rect;
             rect.anchorMin = new Vector2(0f, 0f);
             rect.anchorMax = new Vector2(0f, 0f);
             rect.pivot = new Vector2(0.5f, 0.5f);
@@ -113,24 +116,35 @@ public sealed class EnemyHealthBarHUD : MonoBehaviour
 
     private void Attach(EnemyHealthBar bar, EnemyController enemy)
     {
-        bar.Target = enemy.transform;
-        if (bar.Max <= 0f)
-            bar.Max = Mathf.Max(1f, enemy.CurrentHealth);
-
-        var cam = Camera.main;
-        if (cam != null)
+        // Bars are pooled: (re)initialise max when a different enemy takes over the bar.
+        if (bar.Target != enemy.transform)
         {
-            Vector3 screen = cam.WorldToScreenPoint(enemy.transform.position + Vector3.up * bar.HeightOffset);
-            RectTransform rect = bar.Root.GetComponent<RectTransform>();
-            if (bar.Target != null && screen.z > 0f)
-            {
-                rect.anchoredPosition = new Vector3(screen.x - Screen.width * 0.5f, screen.y - Screen.height * 0.5f, 0f);
-                float frac = bar.Max > 0f ? Mathf.Clamp01(enemy.CurrentHealth / bar.Max) : 0f;
-                bar.Fill.fillAmount = frac;
-                bar.Root.SetActive(true);
-                return;
-            }
+            bar.Target = enemy.transform;
+            bar.Max = Mathf.Max(1f, enemy.CurrentHealth);
         }
-        bar.Root.SetActive(false);
+
+        if (_cam == null)
+            _cam = Camera.main;
+        if (_cam == null)
+        {
+            SetShown(bar, false);
+            return;
+        }
+
+        Vector3 screen = _cam.WorldToScreenPoint(enemy.transform.position + Vector3.up * bar.HeightOffset);
+        bool shown = screen.z > 0f;
+        SetShown(bar, shown);
+        if (!shown) return;
+
+        bar.Rect.anchoredPosition = new Vector3(screen.x - Screen.width * 0.5f, screen.y - Screen.height * 0.5f, 0f);
+        float frac = bar.Max > 0f ? Mathf.Clamp01(enemy.CurrentHealth / bar.Max) : 0f;
+        if (Mathf.Abs(bar.Fill.fillAmount - frac) > 0.0005f)
+            bar.Fill.fillAmount = frac;
+    }
+
+    private static void SetShown(EnemyHealthBar bar, bool shown)
+    {
+        if (bar.Root.activeSelf != shown)
+            bar.Root.SetActive(shown);
     }
 }

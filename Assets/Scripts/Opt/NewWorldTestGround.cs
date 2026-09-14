@@ -47,6 +47,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private bool _pendingPlayerGrants;
     private readonly List<WeaponRackStand> _rackStands = new List<WeaponRackStand>();
     private ContextPromptUI _contextPrompt;
+    private PlayerController _playerController;
     private static readonly int TestRootLayer = 0;
 
     /// <summary>XZ bounds + top height of the built test platform (for prop suppression).</summary>
@@ -526,13 +527,21 @@ public sealed class NewWorldTestGround : MonoBehaviour
         }
     }
 
+    /// <summary>Cache the player's controller ref (resolved once per player object).</summary>
+    private PlayerController PlayerControllerCached(PlayerController player)
+    {
+        if (_playerController == null || _playerController.gameObject != player.gameObject)
+            _playerController = player;
+        return _playerController;
+    }
+
     private void Update()
     {
         RunPendingPlayerGrants();
         if (!EnableWeapons || _rackStands.Count == 0) return;
         var gm = GameManager.Instance;
         if (gm == null || gm.Player == null || gm.GamePaused) return;
-        var playerController = gm.Player.GetComponent<PlayerController>();
+        var playerController = PlayerControllerCached(gm.Player);
         if (playerController != null && playerController.FightingMode) return;
 
         var prompt = _contextPrompt;

@@ -36,6 +36,16 @@ public sealed class PlayerBarsHUD : MonoBehaviour
     private float _hpShown = -1f, _fpShown = -1f, _stamShown = -1f;
     private float _flashTimer;
 
+    // Cached player refs (resolve once per player object instead of GetComponentInChildren
+    // every frame) and last-drawn label values so unchanged bars never touch the text mesh.
+    private Transform _cachedPlayerRoot;
+    private SpellCaster _caster;
+    private PlayerStats _stats;
+    private int _lastHpText = -1, _lastMaxHpText = -1;
+    private int _lastFpText = -1, _lastMaxFpText = -1;
+    private int _lastStamText = -1, _lastMaxStamText = -1;
+    private int _lastChargePct = -1;
+
     private void OnEnable()
     {
         if (_canvas == null)
@@ -110,12 +120,14 @@ public sealed class PlayerBarsHUD : MonoBehaviour
         }
         if (player == null) return;
 
+        EnsureRefs(player.transform);
+
         float hp = player.HP;
         float maxHp = Mathf.Max(1f, player.MaxHP);
         float stam = player.Stamina;
         float maxStam = Mathf.Max(1f, player.MaxStamina);
-        float fp = ReadCurrentFp(player.transform);
-        float maxFp = Mathf.Max(1f, ReadMaxFp(player.transform));
+        float fp = ReadCurrentFp();
+        float maxFp = Mathf.Max(1f, ReadMaxFp());
 
         // Damage flash must compare to the raw previous value BEFORE Tick syncs it.
         bool hpHit = hp < _lastHpRaw - 0.01f;
@@ -124,9 +136,9 @@ public sealed class PlayerBarsHUD : MonoBehaviour
         Tick(_hpFill, hp, maxHp, ref _lastHp, ref _lastMaxHp, ref _hpShown);
         Tick(_stamFill, stam, maxStam, ref _lastStam, ref _lastMaxStam, ref _stamShown);
         Tick(_fpFill, fp, maxFp, ref _lastFp, ref _lastMaxFp, ref _fpShown);
-        UpdateLabel(_hpText, "HP", hp, maxHp);
-        UpdateLabel(_fpText, "Mana", fp, maxFp);
-        UpdateLabel(_stamText, "Stam", stam, maxStam);
+        UpdateLabel(_hpText, "HP", hp, maxHp, ref _lastHpText, ref _lastMaxHpText);
+        UpdateLabel(_fpText, "Mana", fp, maxFp, ref _lastFpText, ref _lastMaxFpText);
+        UpdateLabel(_stamText, "Stam", stam, maxStam, ref _lastStamText, ref _lastMaxStamText);
 
         UpdateChargeBar(player);
 
@@ -173,10 +185,16 @@ public sealed class PlayerBarsHUD : MonoBehaviour
         }
     }
 
-    private static void UpdateLabel(TMP_Text label, string name, float cur, float max)
+    private static void UpdateLabel(TMP_Text label, string name, float cur, float max,
+        ref int lastCur, ref int lastMax)
     {
         if (label == null) return;
-        label.text = name + " " + Mathf.RoundToInt(cur) + "/" + Mathf.RoundToInt(max);
+        int c = Mathf.RoundToInt(cur);
+        int m = Mathf.RoundToInt(max);
+        if (c == lastCur && m == lastMax) return;
+        lastCur = c;
+        lastMax = m;
+        label.text = name + " " + c + "/" + m;
     }
 
     private void UpdateChargeBar(PlayerController player)
@@ -193,21 +211,36 @@ public sealed class PlayerBarsHUD : MonoBehaviour
         // expressing the released cap (fill is left-anchored, so scaling X grows rightward).
         _chargeFill.transform.localScale = level > 1f ? new Vector3(level, 1f, 1f) : Vector3.one;
         if (_chargeText != null)
-            _chargeText.text = "Charge " + Mathf.RoundToInt(level * 100f) + "%";
+        {
+            int pct = Mathf.RoundToInt(level * 100f);
+            if (pct != _lastChargePct)
+            {
+                _lastChargePct = pct;
+                _chargeText.text = "Charge " + pct + "%";
+            }
+        }
     }
 
-    private static float ReadCurrentFp(Transform player)
+    /// <summary>
+    /// Resolve the FP data sources once per player object. The player can be swapped between
+    /// game sessions, so the cache is keyed to the player root transform.
+    /// </summary>
+    private void EnsureRefs(Transform playerRoot)
     {
-        var caster = player != null ? player.GetComponentInChildren<SpellCaster>() : null;
-        if (caster != null) return caster.CurrentFp;
-        return 0f;
+        if (_cachedPlayerRoot == playerRoot) return;
+        _cachedPlayerRoot = playerRoot;
+        _caster = playerRoot != null ? playerRoot.GetComponentInChildren<SpellCaster>() : null;
+        _stats = playerRoot != null ? playerRoot.GetComponentInChildren<PlayerStats>() : null;
     }
 
-    private static float ReadMaxFp(Transform player)
+    private float ReadCurrentFp()
     {
-        var stats = player != null ? player.GetComponentInChildren<PlayerStats>() : null;
-        if (stats != null) return stats.MaxFocusPoints;
-        var caster = player != null ? player.GetComponentInChildren<SpellCaster>() : null;
-        return caster != null ? Mathf.Max(1f, caster.MaxFp) : 1f;
+        return _caster != null ? _caster.CurrentFp : 0f;
+    }
+
+    private float ReadMaxFp()
+    {
+        if (_stats != null) return _stats.MaxFocusPoints;
+        return _caster != null ? Mathf.Max(1f, _caster.MaxFp) : 1f;
     }
 }

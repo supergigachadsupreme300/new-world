@@ -27,6 +27,12 @@ public sealed class SkillBarHUD : MonoBehaviour
     private readonly List<TMP_Text> _labels = new List<TMP_Text>();
     private bool _visible = true;
 
+    // Reused slot-entry cache: rebuilt only when the bindings change so steady-state frames
+    // allocate nothing and only repaint what actually moved.
+    private readonly List<KeyValuePair<Key, string>> _entries = new List<KeyValuePair<Key, string>>();
+    private readonly List<KeyValuePair<Key, string>> _prevEntries = new List<KeyValuePair<Key, string>>();
+    private bool _entriesDirty = true;
+
     private void OnEnable()
     {
         _canvas = HudCanvas.CreateOverlay("SkillBarCanvas");
@@ -72,29 +78,67 @@ public sealed class SkillBarHUD : MonoBehaviour
         var player = gm != null ? gm.Player : null;
         var bindings = player != null ? player.GetComponent<SkillBindings>() : null;
 
-        var entries = new List<KeyValuePair<Key, string>>();
-        if (bindings != null) entries.AddRange(bindings.Bindings);
-        // Sort by key for a stable layout across frames.
-        entries.Sort((a, b) => ((int)a.Key).CompareTo((int)b.Key));
+        RefreshEntries(bindings);
 
-        int count = Mathf.Clamp(entries.Count, 1, MaxSlots);
+        int count = Mathf.Clamp(_entries.Count, 1, MaxSlots);
         EnsureSlots(count);
 
-        for (int i = 0; i < _labels.Count; i++)
+        // Label text depends only on the (sorted) binding set — repaint only when it changes.
+        if (_entriesDirty)
         {
-            if (i < entries.Count)
+            for (int i = 0; i < _labels.Count; i++)
             {
-                var kv = entries[i];
-                var skill = SkillCatalog.Find(kv.Value);
-                string name = skill != null ? skill.displayName : kv.Value;
-                _labels[i].text = name + "\n" + KeyLabel(kv.Key);
-                if (_fills[i] != null)
-                    _fills[i].fillAmount = 1f - (bindings != null ? bindings.CooldownFraction(kv.Value) : 0f);
+                if (i < _entries.Count)
+                {
+                    var kv = _entries[i];
+                    var skill = SkillCatalog.Find(kv.Value);
+                    string name = skill != null ? skill.displayName : kv.Value;
+                    _labels[i].text = name + "\n" + KeyLabel(kv.Key);
+                }
+                else
+                {
+                    _labels[i].text = "";
+                }
             }
-            else
+        }
+
+        // Cooldown fill changes continuously while a skill cools down — no allocation.
+        for (int i = 0; i < _entries.Count && i < _fills.Count; i++)
+        {
+            if (_fills[i] != null)
+                _fills[i].fillAmount = 1f - (bindings != null ? bindings.CooldownFraction(_entries[i].Value) : 0f);
+        }
+    }
+
+    /// <summary>
+    /// Copy the current bindings into the reused cache and flag whether the sorted set changed,
+    /// so steady-state frames skip the label repaint entirely.
+    /// </summary>
+    private void RefreshEntries(SkillBindings bindings)
+    {
+        _entries.Clear();
+        if (bindings != null)
+            _entries.AddRange(bindings.Bindings);
+        _entries.Sort((a, b) => ((int)a.Key).CompareTo((int)b.Key));
+
+        bool same = _entries.Count == _prevEntries.Count;
+        if (same)
+        {
+            for (int i = 0; i < _entries.Count; i++)
             {
-                _labels[i].text = "";
+                if (_entries[i].Key != _prevEntries[i].Key || _entries[i].Value != _prevEntries[i].Value)
+                {
+                    same = false;
+                    break;
+                }
             }
+        }
+
+        _entriesDirty = !same;
+        if (_entriesDirty)
+        {
+            _prevEntries.Clear();
+            _prevEntries.AddRange(_entries);
         }
     }
 

@@ -21,6 +21,9 @@ public sealed class CompassMinimapHUD : MonoBehaviour
     private TMP_Text _compassLabel;
     private RectTransform _minimapRoot;
     private float _radius;
+    private Camera _cam;
+    private int _lastCompassIdx = -1;
+    private static readonly string[] CardinalNames = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
 
     private void OnEnable()
     {
@@ -152,22 +155,30 @@ public sealed class CompassMinimapHUD : MonoBehaviour
         if (focus == null) return;
 
         float yaw;
-        var cam = Camera.main;
-        yaw = cam != null ? cam.transform.eulerAngles.y : focus.eulerAngles.y;
-        if (_compassLabel != null)
-            _compassLabel.text = Cardinal(yaw);
+        if (_cam == null)
+            _cam = Camera.main;
+        yaw = _cam != null ? _cam.transform.eulerAngles.y : focus.eulerAngles.y;
+        // The label only changes when the yaw crosses a cardinal boundary — skip the expensive
+        // TMP repaint (and the Camera.main lookup) on every steady frame.
+        int idx = CardinalIndex(yaw);
+        if (idx != _lastCompassIdx)
+        {
+            _lastCompassIdx = idx;
+            if (_compassLabel != null)
+                _compassLabel.text = CardinalNames[idx];
+        }
     }
 
-    private static string Cardinal(float yaw)
+    private static int CardinalIndex(float yaw)
     {
         yaw = ((yaw % 360f) + 360f) % 360f;
-        if (yaw < 22.5f || yaw >= 337.5f) return "N";
-        if (yaw < 67.5f) return "NE";
-        if (yaw < 112.5f) return "E";
-        if (yaw < 157.5f) return "SE";
-        if (yaw < 202.5f) return "S";
-        if (yaw < 247.5f) return "SW";
-        if (yaw < 292.5f) return "W";
-        return "NW";
+        if (yaw < 22.5f || yaw >= 337.5f) return 0;
+        if (yaw < 67.5f) return 1;
+        if (yaw < 112.5f) return 2;
+        if (yaw < 157.5f) return 3;
+        if (yaw < 202.5f) return 4;
+        if (yaw < 247.5f) return 5;
+        if (yaw < 292.5f) return 6;
+        return 7;
     }
 }
