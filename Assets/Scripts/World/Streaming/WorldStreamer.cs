@@ -509,7 +509,7 @@ public class WorldStreamer : MonoBehaviour
 
                 if (shape == TerrainShape.Spikes)
                 {
-                    float raw = (cx * 73856093) ^ (cz * 19349663) ^ Seed.GetHashCode();
+                    int raw = (cx * 73856093) ^ (cz * 19349663) ^ Seed.GetHashCode();
                     float r = (raw & 0x7fffffff) / (float)0x7fffffff;
                     if (r > 0.78f)
                         s += lift * (0.4f + r * 0.6f) * influence * influence;
@@ -576,7 +576,7 @@ public class WorldStreamer : MonoBehaviour
 
     private static long EncodeCorner(int cx, int cz) => ((long)cx << 32) | (uint)cz;
 
-    private static float CornerOrBase(int cx, int cz, Dictionary<long, float> newHeights)
+    private float CornerOrBase(int cx, int cz, Dictionary<long, float> newHeights)
     {
         return newHeights.TryGetValue(EncodeCorner(cx, cz), out float h) ? h : CurrentHeightOf(cx, cz);
     }
