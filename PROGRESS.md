@@ -67,6 +67,35 @@ event's `RandomEventManager.SpawnJaggedBolt`, colored per element instead of bei
   spear tiers read distinct.
 
 ---
+## 1as. Add homing/pathfinding to the Missile projectile shape — it bends its way to the target
+
+Follow-up on `1ar` review: user asked to "add pathfinder to missile, will bend its way to hit the
+target, prioritize the target on the raycast". Projectile-delivery spells whose shape is
+`ProjectileShape.Missile` (Arcane Missiles) now home instead of flying straight.
+
+- **`SpellEffect.cs`**: `Launch` acquires a target when the spell's (resolved) shape is Missile —
+  `AcquireMissileTarget` first raycasts along the aim line (`RaycastAll`, sorted by distance, skipping
+  ground/caster-root/non-enemy) and locks the **first enemy on the raycast** ("prioritize the target
+  on the raycast"); if none, falls back to the nearest enemy in a 50°-forward cone
+  (`NearestEnemyInCone`, scored by distance + angle). `SteerTowardTarget` runs every update: bends
+  `_dir` toward the (live or last-known) target spot at 240°/s via `Vector3.RotateTowards` and
+  re-orients the body; the existing per-step raycast + ground-probe hitboxes then detonate on the
+  chased target as usual. No target = flies straight. Target filter matches the turret's
+  (`EnemyController`/`BossController` roots, excluding caster root / Player / Companion; ground
+  colliders skipped).
+- Docs updated: `magic-skills.md` regenerated (Missile shape row now says **homing** - locks the aim-
+  raycast target and bends to chase), `game-design.md` §3.8.1 Missile row describes the lock priority
+  + turn rate. `SpellData`/`SpellCaster` unchanged — homing is implicit to the Missile shape.
+
+### 1as-status
+- No CLI build — verified by code review: homing gated on `_spell.Shape == ProjectileShape.Missile`,
+  `Array.Sort(RaycastHit[])` is valid (default distance comparer), `using System` already present,
+  generator rerun ASCII-clean (fixed the em-dash mojibake in the ps1 shape row).
+- Play-test after review: cast Arcane Missiles at a foe slightly off the aim line and at a foe on the
+  line — missiles should bank toward both, prioritize the raycast target, and still detonate on
+  intervening walls/ground; kill a mid-flight target and confirm the missile chases the last spot.
+
+---
 ## 1aq. Add `magic-skills.md` — full generated list of all magic tree skills + SpellDelivery reference
 
 User asked: "make a list of all the spell and their function, i'll tell you what need to be redo" —

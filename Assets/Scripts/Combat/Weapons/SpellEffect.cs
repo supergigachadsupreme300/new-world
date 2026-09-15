@@ -24,10 +24,17 @@ public class SpellEffect : MonoBehaviour
     private float _power;
     private Vector3 _dir;
     private SpellCaster _caster;
+    private Transform _casterRoot;
     private bool _launched;
     private float _radiusMult = 1f;
     private readonly Collider[] _groundHits = new Collider[8];
     private readonly Collider[] _splashBuffer = new Collider[128];
+    private readonly Collider[] _homingBuffer = new Collider[32];
+
+    private const float MissileTurnRate = 240f;
+    private bool _homing;
+    private Transform _homingTarget;
+    private Vector3 _homingAim;
 
     /// <summary>Configure the effect with spell + resolved power. Returns this for chaining.
     /// <paramref name="radiusMult"/> scales the splash/zone radius (charged casts).</summary>
@@ -38,6 +45,7 @@ public class SpellEffect : MonoBehaviour
         _power = power;
         _dir = dir;
         _caster = caster;
+        _casterRoot = caster != null ? caster.transform.root : null;
         _radiusMult = Mathf.Max(radiusMult, 0.01f);
         return this;
     }
@@ -56,6 +64,8 @@ public class SpellEffect : MonoBehaviour
 
         _launched = true;
         Speed = speed;
+        if (_spell != null && _spell.Shape == ProjectileShape.Missile)
+            AcquireMissileTarget();
     }
 
     private void Update()
@@ -68,6 +78,9 @@ public class SpellEffect : MonoBehaviour
             Destroy(gameObject);
             return;
         }
+
+        if (_homing)
+            SteerTowardTarget();
 
         float step = Speed * Time.deltaTime;
 
@@ -104,6 +117,85 @@ public class SpellEffect : MonoBehaviour
         }
 
         transform.position += _dir * step;
+    }
+
+    /// <summary>
+    /// Missile homing (§3.8.1, ProjectileShape.Missile): bends the flight toward a target so
+    /// missiles chase rather than fly straight. Targeting priority — (1) the target sitting on
+    /// the aim raycast, i.e. the foe a straight shot would already hit; (2) otherwise the nearest
+    /// enemy in a forward cone ahead of the missile. With no target the missile flies straight.
+    /// </summary>
+    private void AcquireMissileTarget()
+    {
+        float rayRange = _spell != null && _spell.Range > 0f ? _spell.Range : 12f;
+        var hits = Physics.RaycastAll(transform.position, _dir, rayRange, HitLayers);
+        Array.Sort(hits);
+        foreach (var h in hits)
+        {
+            if (h.collider == null) continue;
+            if (IsGroundCollider(h.collider)) continue;
+            Transform root = h.collider.transform.root;
+            if (root == _casterRoot) continue;
+            if (!IsEnemyRoot(root)) continue;
+            LockOn(root);
+            return;
+        }
+
+        Transform nearest = NearestEnemyInCone(rayRange, 50f);
+        if (nearest != null) LockOn(nearest);
+    }
+
+    /// <summary>Steer toward the locked target (or its last known spot), bending the flight path.</summary>
+    private void SteerTowardTarget()
+    {
+        if (_homingTarget != null)
+            _homingAim = _homingTarget.position + Vector3.up * 0.8f;
+        Vector3 to = _homingAim - transform.position;
+        if (to.sqrMagnitude < 0.01f) return;
+        Vector3 next = Vector3.RotateTowards(_dir, to.normalized,
+            MissileTurnRate * Mathf.Deg2Rad * Time.deltaTime, 0f);
+        _dir = next.sqrMagnitude < 0.001f ? to.normalized : next.normalized;
+        transform.rotation = Quaternion.LookRotation(_dir);
+    }
+
+    private void LockOn(Transform root)
+    {
+        _homing = true;
+        _homingTarget = root;
+        _homingAim = root.position + Vector3.up * 0.8f;
+    }
+
+    /// <summary>Nearest hostile root roughly ahead of the missile (enemy/boss, not player or partner).</summary>
+    private Transform NearestEnemyInCone(float radius, float maxAngleDeg)
+    {
+        int count = Physics.OverlapSphereNonAlloc(transform.position, radius, _homingBuffer, HitLayers);
+        Transform best = null;
+        float bestScore = float.MaxValue;
+        for (int i = 0; i < count; i++)
+        {
+            var col = _homingBuffer[i];
+            if (col == null) continue;
+            Transform root = col.transform.root;
+            if (root == transform.root || root == _casterRoot) continue;
+            if (!IsEnemyRoot(root)) continue;
+            Vector3 to = col.transform.position - transform.position;
+            float ang = Vector3.Angle(_dir, to);
+            if (ang > maxAngleDeg) continue;
+            float score = to.sqrMagnitude * (1f + ang * 0.02f);
+            if (score < bestScore)
+            {
+                bestScore = score;
+                best = root;
+            }
+        }
+        return best;
+    }
+
+    private static bool IsEnemyRoot(Transform root)
+    {
+        if (root == null) return false;
+        if (root.CompareTag("Player") || root.CompareTag("Companion")) return false;
+        return root.TryGetComponent<EnemyController>(out _) || root.TryGetComponent<BossController>(out _);
     }
 
     private void ResolveProjectileImpact(GameObject hitObject)
