@@ -67,6 +67,29 @@ event's `RandomEventManager.SpawnJaggedBolt`, colored per element instead of bei
   spear tiers read distinct.
 
 ---
+## 1at. Missile homing follow-up: "raycast" meant the trajectory — prioritization is now per-frame along the flight path
+
+User clarified `1as`: "when i said raycast i meant trajectory". The one-shot aim-line lock was the
+wrong read — missiles should re-evaluate every frame along the path they are **bending on right
+now**, and whatever foe sits on that trajectory is what they home to.
+
+- **`SpellEffect.cs`**: `AcquireMissileTarget` (launch-time, aim-line raycast) replaced by
+  `UpdateMissileTargeting` called every Update while the shape is Missile. Priority each frame:
+  (1) `FirstEnemyOnTrajectory(Lookahead())` — a ray down the **current** `_dir` (the live
+  trajectory; `Lookahead()` = spell Range or at least one second of flight), sorted by distance,
+  first enemy root wins; (2) otherwise keep chasing the locked target's last known spot; (3) if
+  never locked or the locked foe died, lock the nearest enemy in a 50° forward cone. Locked target
+  re-acquires instantly whenever a foe drifts onto the trajectory. Docs reworded to "trajectory /
+  flight path".
+
+### 1at-status
+- No CLI build — verified by code review: `FirstEnemyOnTrajectory`/`Lookahead`/`_locked` flag
+  added, old launch-time lock removed, generator rerun ASCII-clean with the reworded Missile row.
+- Play-test after review: cast Arcane Missiles past a row of foes — the missile should keep bending
+  toward whichever one is on its current path and re-target if another steps into the trajectory
+  mid-flight; killing the locked foe mid-flight should still finish toward the last spot.
+
+---
 ## 1as. Add homing/pathfinding to the Missile projectile shape — it bends its way to the target
 
 Follow-up on `1ar` review: user asked to "add pathfinder to missile, will bend its way to hit the

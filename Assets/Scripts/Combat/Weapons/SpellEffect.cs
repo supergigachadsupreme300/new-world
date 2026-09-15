@@ -33,6 +33,7 @@ public class SpellEffect : MonoBehaviour
 
     private const float MissileTurnRate = 240f;
     private bool _homing;
+    private bool _locked;
     private Transform _homingTarget;
     private Vector3 _homingAim;
 
@@ -65,7 +66,7 @@ public class SpellEffect : MonoBehaviour
         _launched = true;
         Speed = speed;
         if (_spell != null && _spell.Shape == ProjectileShape.Missile)
-            AcquireMissileTarget();
+            _homing = true;
     }
 
     private void Update()
@@ -80,7 +81,10 @@ public class SpellEffect : MonoBehaviour
         }
 
         if (_homing)
+        {
+            UpdateMissileTargeting();
             SteerTowardTarget();
+        }
 
         float step = Speed * Time.deltaTime;
 
@@ -121,14 +125,34 @@ public class SpellEffect : MonoBehaviour
 
     /// <summary>
     /// Missile homing (§3.8.1, ProjectileShape.Missile): bends the flight toward a target so
-    /// missiles chase rather than fly straight. Targeting priority — (1) the target sitting on
-    /// the aim raycast, i.e. the foe a straight shot would already hit; (2) otherwise the nearest
-    /// enemy in a forward cone ahead of the missile. With no target the missile flies straight.
+    /// missiles chase rather than fly straight. Reevaluated every frame along the CURRENT
+    /// trajectory (the direction we are bending right now), so whichever foe comes onto the
+    /// flight path gets top priority. Priority — (1) the enemy sitting on the trajectory ahead;
+    /// (2) otherwise keep chasing the locked target's last known spot; (3) if never locked (or
+    /// the locked foe died), lock the nearest enemy in a forward cone. With no target at all the
+    /// missile flies straight.
     /// </summary>
-    private void AcquireMissileTarget()
+    private void UpdateMissileTargeting()
     {
-        float rayRange = _spell != null && _spell.Range > 0f ? _spell.Range : 12f;
-        var hits = Physics.RaycastAll(transform.position, _dir, rayRange, HitLayers);
+        Transform onTrajectory = FirstEnemyOnTrajectory(Lookahead());
+        if (onTrajectory != null)
+        {
+            LockOn(onTrajectory);
+            return;
+        }
+        if (_locked && _homingTarget != null)
+            return;
+
+        Transform nearest = NearestEnemyInCone(Lookahead(), 50f);
+        if (nearest != null)
+            LockOn(nearest);
+    }
+
+    /// <summary>First enemy root laying on the trajectory probe (a ray down the current flight
+    /// direction), ground and caster skipped — the target the missile is about to fly into.</summary>
+    private Transform FirstEnemyOnTrajectory(float distance)
+    {
+        var hits = Physics.RaycastAll(transform.position, _dir, distance, HitLayers);
         Array.Sort(hits);
         foreach (var h in hits)
         {
@@ -137,12 +161,17 @@ public class SpellEffect : MonoBehaviour
             Transform root = h.collider.transform.root;
             if (root == _casterRoot) continue;
             if (!IsEnemyRoot(root)) continue;
-            LockOn(root);
-            return;
+            return root;
         }
+        return null;
+    }
 
-        Transform nearest = NearestEnemyInCone(rayRange, 50f);
-        if (nearest != null) LockOn(nearest);
+    /// <summary>How far ahead to probe the trajectory: the spell's reach, at least one second of
+    /// flight so the bend has time to engage.</summary>
+    private float Lookahead()
+    {
+        float d = _spell != null && _spell.Range > 0f ? _spell.Range : 12f;
+        return Mathf.Max(d, Speed);
     }
 
     /// <summary>Steer toward the locked target (or its last known spot), bending the flight path.</summary>
@@ -150,6 +179,8 @@ public class SpellEffect : MonoBehaviour
     {
         if (_homingTarget != null)
             _homingAim = _homingTarget.position + Vector3.up * 0.8f;
+        if (!_locked)
+            return;
         Vector3 to = _homingAim - transform.position;
         if (to.sqrMagnitude < 0.01f) return;
         Vector3 next = Vector3.RotateTowards(_dir, to.normalized,
@@ -160,7 +191,7 @@ public class SpellEffect : MonoBehaviour
 
     private void LockOn(Transform root)
     {
-        _homing = true;
+        _locked = true;
         _homingTarget = root;
         _homingAim = root.position + Vector3.up * 0.8f;
     }

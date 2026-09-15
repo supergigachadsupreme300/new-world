@@ -30,7 +30,7 @@ Every spell that uses the **Projectile** delivery has a `projectileShape:` visua
 | **Blade** | Flat cross-blade that spins in-plane with a shimmer envelope | Wind Blade, Razor Blade, Wind Scissor, Laceration |
 | **Splash** | Rolling surge with a splash envelope that soaks on contact | Tidal Surge |
 | **Comet** | Streaking fire with a trailing ember tail | Scorch, Burn, Comet |
-| **Missile** | Small dart with a soft halo; **homing** - locks the target on the aim raycast (nearest foe ahead as fallback) and bends its flight to chase it | Arcane Missiles |
+| **Missile** | Small dart with a soft halo; **homing** - re-evaluates its trajectory every frame and prioritizes the target that ends up on the flight path, bending to chase it | Arcane Missiles |
 | **Dart** | Sleek single dart, thin and fast | physical shots (Archer Wind Shot, Taoist Talisman) |
 
 Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto` to resolve by school: Fire=Sphere, Ice=Shard, Lightning=Bolt, Wind=Blade, Water=Splash, Earth=Shard, anything else=Sphere.

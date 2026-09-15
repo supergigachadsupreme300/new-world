@@ -627,7 +627,7 @@ color swap, so each spell looks like its name and not a recolor of the same ball
 | **Blade** | Flat cross-blade that spins in its own plane — Wind Blade, Razor Blade, Wind Scissor, Laceration. |
 | **Splash** | Oblate droplet with a trailing splash of smaller drops — Water Bolt, Tidal Surge. |
 | **Comet** | Bright core + fading streak tail (ember flicker) — Scorch, Burn, Comet. |
-| **Missile** | Small clump of darts; **homing** — at launch locks the target sitting on the aim raycast (the foe a straight shot would already hit gets priority), or the nearest foe in a 50°-forward cone as fallback, then steers smoothly (`SpellEffect.SteerTowardTarget`, 240°/s turn rate) so the flight bends and chases — chasing the last known spot if the target dies. No target = flies straight. Arcane Missiles. |
+| **Missile** | Small clump of darts; **homing** — `SpellEffect.UpdateMissileTargeting` probes the **current trajectory** every frame and prioritizes the target on the flight path (the foe it is about to fly into), otherwise keeps chasing the locked target's last spot (or locks the nearest foe ahead if never locked), steering smoothly at 240°/s so the flight bends; no target = flies straight. Arcane Missiles. |
 | **Dart** | Sleek thin bolt-line with a tip — physical shots (Archer Wind Shot, Taoist Talisman). |
 
 `Auto` resolves per school: Fire→Sphere, Ice→Shard, Lightning→Bolt, Wind→Blade, Water→Splash,
