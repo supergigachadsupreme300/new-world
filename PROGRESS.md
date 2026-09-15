@@ -22,6 +22,29 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
     corners for the platform snap.
 
 ---
+## 1ap. Fix: talents list overlays the General skill tree on first open (TalentsView never hidden)
+
+Bug: the player reported "the talent appears in the general skill tree". Root cause:
+`BuildTalentsView` (CharacterInfoUI.cs) creates the `TalentsView` GameObject **active by default**,
+and it was only ever toggled inside `SetSkillSubTab` (i.e. on a sub-tab button click). Since the
+initial Skills tab defaults to `SkillSubTab.General` and `ShowTree`/`HideOtherTreeRoots` only hide
+the three tree roots (General/Class/Race — never the talents view), the freshly-built TalentsView
+rendered **on top of** the General tree (it is a later sibling, created last). The catalog itself
+contains no "talent" skill, so no wheel node was the culprit.
+
+- **Fix** (`UI/NewWorld/CharacterInfoUI.cs`): deactivate `TalentsView` at the end of
+  `BuildTalentsView`. The Talents sub-tab still shows it via `SetSkillSubTab(tab == Talents)`; the
+  General/Class/Race tabs render without the talent rows overlaying the wheels.
+- No gameplay/design change — pure visibility default fix, `game-design.md` unaffected.
+
+### 1ap-status
+- No CLI build — code-review verified (edit is a single `SetActive(false)` + no new braces; grep
+  confirms `_talentsView.SetActive` is still only in `SetSkillSubTab`).
+- Play-test: (1) open Character Info → Skills with General selected: only the three wheels + legend
+  (no `TalentPoints` / talent rows); (2) click Talents tab: rows appear; click back to General: rows
+  disappear; (3) close character info while on Talents and reopen: panel still shows the correct tab.
+
+---
 ## 1ao. Fix: map not generating — background chunk gen hit main-thread-only Application.persistentDataPath
 
 Regression introduced by Phase 4 (`1ak`): `BuildOrLoadChunk` now calls `ChunkSaveManager.TryLoadChunk`

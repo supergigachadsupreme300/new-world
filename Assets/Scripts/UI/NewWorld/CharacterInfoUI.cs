@@ -1790,6 +1790,10 @@ public sealed class CharacterInfoUI : MenuPanelBase
             crt.sizeDelta = new Vector2(0f, _talentRows.Count * step + 8f);
             _talentRows.Add((talent, row.label, row.btn));
         }
+
+        // Talents view is only shown on the Talents sub-tab (SetSkillSubTab toggles it);
+        // it must start hidden so it never overlays the General skill tree on first open.
+        view.SetActive(false);
     }
 
     private (TMP_Text label, Button btn) MakeTalentRow(RectTransform parent, Talent talent, int index)
@@ -1856,6 +1860,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private void RefreshTalentsView()
     {
         if (_talentsView == null) return;
+        if (!_talentsView.activeSelf) _talentsView.SetActive(true);
         var tracker = TalentTrackerOf();
         if (_talentPointsText != null)
             _talentPointsText.text = tracker != null
