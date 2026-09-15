@@ -204,17 +204,12 @@ public sealed class MagicWheelUI : MonoBehaviour
                 return;
             }
 
-            if (AltHeld())
-            {
-                if (!_isOpen) Open();
-            }
-            else if (_isOpen)
-            {
-                Close(true, true);
-            }
+            // Alt no longer opens the ring (retired, note 1av): the dev/test magic matrix owns it.
+            MagicTestMatrix.Ensure().HandleAlt(AltHeld());
 
-            if (_isOpen) Paint();
-            else RefreshArmedChip();
+            // The ring never opens now, so the armed chip + charged-cast flow is what remains.
+            if (_isOpen) Close(false, false);
+            RefreshArmedChip();
             return;
         }
 

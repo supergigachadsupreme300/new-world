@@ -220,6 +220,22 @@ public sealed class SkillProfile : MonoBehaviour
     }
 
     /// <summary>
+    /// Dev/test grant (used by the magic test matrix): learn a castable active skill for this
+    /// session without spending a point or meeting prerequisites, so any magic spell can be cast
+    /// for testing without levelling. Passives are refused (their effects are not applied). Returns
+    /// true when the skill is castable and learned afterwards.
+    /// </summary>
+    public bool TestGrant(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return false;
+        var skill = SkillCatalog.Find(id);
+        if (skill == null || skill.IsPassive) return false;
+        if (_learned.Add(id))
+            LearnedSkillIds.Add(id);
+        return true;
+    }
+
+    /// <summary>
     /// Rebuild the point bank + learned set from a save (used by <see cref="SaveManager"/> on load).
     /// Passives that haven't been applied this session are re-run so restored skills keep working
     /// without requiring a reload — guarded by <see cref="_appliedPassives"/> so a restore that

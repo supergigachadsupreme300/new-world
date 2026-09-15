@@ -130,6 +130,9 @@ public class SpellCaster : MonoBehaviour
         return true;
     }
 
+    /// <summary>Dev/test convenience (magic test matrix): refill the focus pool to its max.</summary>
+    public void TopUpFocus() => CurrentFp = MaxFocusPoints();
+
     /// <summary>Whether the spell's cooldown has elapsed (true = ready to cast).</summary>
     public bool IsReady(SpellData spell)
     {
