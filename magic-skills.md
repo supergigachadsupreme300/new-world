@@ -1,6 +1,6 @@
 # Magic Skills - full tree list
 
-Source: `Assets/Scripts/Combat/Skills/SkillCatalog.cs` (base skills) + `SkillCatalog.Magic.cs` (L1/L2 branch tables). Generated 2026-09-15. All costs are Focus unless noted; cast time 0.5s default. `A("id")` = authoring reference to a base skill; `S("id", ...)` = skill node defined in the branch table.
+Source: `Assets/Scripts/Combat/Skills/SkillCatalog.cs` (base skills) + `SkillCatalog.Magic.cs` (L1/L2 branch tables). Generated 2026-09-15. All costs are Focus unless noted; cast time 0.5s default. Projectile spells show their effective `shape:` out front from the summary above. `A("id")` = authoring reference to a base skill; `S("id", ...)` = skill node defined in the branch table.
 
 ## SpellDeliveries - what each delivery does
 
@@ -16,6 +16,25 @@ Source: `Assets/Scripts/Combat/Skills/SkillCatalog.cs` (base skills) + `SkillCat
 
 Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size; **ProjectileSpeed** = bolt speed (default 20); **Duration** = persistent-zone lifetime (0 = instant); **TickInterval** = seconds between ticks (default 0.5); **ChannelDrainPerSecond** = focus upkeep for Beams (0 = none).
 
+## Projectile Shapes - what each projectile looks like
+
+Every spell that uses the **Projectile** delivery has a `projectileShape:` visual. Each effect line ends with `shape:<Name>` (the *effective* shape, Auto resolved per school).
+
+| Shape | Built as | Used by name |
+|---|---|---|
+| **Bolt** | Jagged segmented bolt along the flight axis, crackling afterimages (same technique as the thunder-event lightning, `SpawnJaggedBolt`) | every spell with "Bolt" in the name, e.g. Frost Bolt, Chain Lightning, Volt, Fork/Leap/Doom/Fury Bolt |
+| **Sphere** | Classic orb with elemental pulse | fireball/plain orbs when the name gives no better shape |
+| **Shard** | Elongated crystal that slowly drills/spins along the axis | ice/stone shards (Stone Shard, Frost Bite, Chill Soul) |
+| **Lance** | Long thin spear of ice, heavier and faster than a bolt | Ice Lance, Frost Pierce, Glacial Impale |
+| **Spear** | Thick dark spear, the heaviest of the linear shapes | Shadow Spear |
+| **Blade** | Flat cross-blade that spins in-plane with a shimmer envelope | Wind Blade, Razor Blade, Wind Scissor, Laceration |
+| **Splash** | Rolling surge with a splash envelope that soaks on contact | Tidal Surge |
+| **Comet** | Streaking fire with a trailing ember tail | Scorch, Burn, Comet |
+| **Missile** | Small dart with a soft halo, arcing in a volley | Arcane Missiles |
+| **Dart** | Sleek single dart, thin and fast | physical shots (Archer Wind Shot, Taoist Talisman) |
+
+Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto` to resolve by school: Fire=Sphere, Ice=Shard, Lightning=Bolt, Wind=Blade, Water=Splash, Earth=Shard, anything else=Sphere.
+
 ## Base skills (roots)
 
 | Skill id | Name | Passive? | Kind | Effect | Desc |
@@ -23,21 +42,21 @@ Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size;
 | magic_focus | Focal Mind | true | Arcane | + 3 Intelligence (passive) | Permanent +3 Intelligence (max FP). |
 | magic_arcane | Arcane Study | true | Arcane | + 3 Wisdom (passive) | Permanent +3 Wisdom (spell power). |
 | magic_manaflow | Mana Flow | true | Arcane | + 2 Intelligence (passive) | Permanent +2 Intelligence (regen/FP, requires Arcane Study). |
-| magic_fireball | Fireball | false | Fire | Active (Fire) - power 25, FP 15, cd 4s, Burn | Launch a fireball that burns the target. |
-| magic_frostbolt | Frost Bolt | false | Ice | Active (Ice) - power 22, FP 13, cd 4s, Frost | Launch a freezing bolt that chills the target. |
+| magic_fireball | Fireball | false | Fire | Active (Fire) - power 25, FP 15, cd 4s, Burn, shape:Sphere | Launch a fireball that burns the target. |
+| magic_frostbolt | Frost Bolt | false | Ice | Active (Ice) - power 22, FP 13, cd 4s, Frost, shape:Bolt | Launch a freezing bolt that chills the target. |
 | magic_lightning | Storm Focus | true | Lightning | + 3 Intelligence (passive) | Permanent +3 Intelligence (max FP), enfolding the storm. |
-| magic_chain | Chain Lightning | false | Lightning | Active (Lightning) - power 28, FP 20, cd 5s, Stagger | Electric blast that staggers foes (requires Storm Focus). |
+| magic_chain | Chain Lightning | false | Lightning | Active (Lightning) - power 28, FP 20, cd 5s, Stagger, shape:Bolt | Electric blast that staggers foes (requires Storm Focus). |
 | magic_heal | Lesser Heal | false | Holy | Active (Holy) - power 15, FP 10, heals | Restore health with a holy miracle (requires Focal Mind). |
 | magic_ward | Arcane Ward | false | Arcane | Active (Arcane) - power 14, FP 12, cd 3s, range 8, radius 2, knockback 1.5 | A protective arcane wave that shoves foes back. |
-| magic_dark | Dark Bolt | false | Dark | Active (Dark) - power 24, FP 14, cd 4s, Rot | Fire a shadow bolt that rots the target. |
+| magic_dark | Dark Bolt | false | Dark | Active (Dark) - power 24, FP 14, cd 4s, Rot, shape:Bolt | Fire a shadow bolt that rots the target. |
 | magic_blizzard | Blizzard | false | Ice | Active (Ice) - power 22, FP 28, cd 6s, range 8, radius 3.2, dur 2.5s, Frost | A frozen storm that repeatedly strikes all inside with frost. |
 | magic_gust | Wind Gust | false | Wind | Active (Wind) - power 14, FP 12, cd 3s, radius 2.5, knockback 2.5 | A blast of wind that scatters nearby foes. |
-| magic_windblade | Wind Blade | false | Wind | Active (Wind) - power 18, FP 15, cd 4s, radius 1.2, knockback 1 | Hurl a razor-sharp blade of wind (requires Wind Gust). |
+| magic_windblade | Wind Blade | false | Wind | Active (Wind) - power 18, FP 15, cd 4s, radius 1.2, knockback 1, shape:Blade | Hurl a razor-sharp blade of wind (requires Wind Gust). |
 | magic_gale | Gale Force | false | Wind | Active (Wind) - power 24, FP 22, cd 6s, radius 3.4, knockback 2 | Summon a towering storm of razor wind that drives foes back (requires Wind Blade). |
 | magic_tornado | Tornado | false | Wind | Active (Wind) - power 16, FP 28, cd 10s, range 12, radius 3 | Summon a ravenous tornado that pulls foes in and shreds them (requires Gale Force). |
 | magic_flight | Wind Walk | false | Wind | Active (Wind) - power 0, FP 18, cd 25s, dur 10s, self-buff | Ride the wind and take flight for 10 seconds (requires Gale Force). |
-| magic_water | Water Bolt | false | Water | Active (Water) - power 22, FP 13, cd 4s, Wet | Launch a splash that soaks and slows the target. |
-| magic_earth | Stone Shard | false | Earth | Active (Earth) - power 26, FP 15, cd 4s | Hurl a shard of living stone. |
+| magic_water | Water Bolt | false | Water | Active (Water) - power 22, FP 13, cd 4s, Wet, shape:Bolt | Launch a splash that soaks and slows the target. |
+| magic_earth | Stone Shard | false | Earth | Active (Earth) - power 26, FP 15, cd 4s, shape:Shard | Hurl a shard of living stone. |
 
 ## Tree branches (L1 + L2)
 
@@ -73,12 +92,12 @@ Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size;
 
 - **authoring ref** `magic_manaflow` (links to a base skill above)
 - **authoring ref** `magic_ward` (links to a base skill above)
-- **Arcane Bolt** (`magic_arcane_bolt`) - Active (Arcane) - power 26, FP 14, cd 3s | A bolt of raw arcane energy.
-  - **Force Bolt** (`magic_arcane_bolt_force`) - Active (Arcane) - power 30, FP 18, cd 4s | A heavy bolt of arcane force.
-  - **Prism Bolt** (`magic_arcane_bolt_prism`) - Active (Arcane) - power 32, FP 20, cd 5s | A bolt that splits into a prism of colors.
+- **Arcane Bolt** (`magic_arcane_bolt`) - Active (Arcane) - power 26, FP 14, cd 3s, shape:Bolt | A bolt of raw arcane energy.
+  - **Force Bolt** (`magic_arcane_bolt_force`) - Active (Arcane) - power 30, FP 18, cd 4s, shape:Bolt | A heavy bolt of arcane force.
+  - **Prism Bolt** (`magic_arcane_bolt_prism`) - Active (Arcane) - power 32, FP 20, cd 5s, shape:Bolt | A bolt that splits into a prism of colors.
   - **Arcane Insight** (`magic_arcane_bolt_insight`) - + 5 Wisdom (passive) | Permanent +5 Wisdom.
   - **Rupture** (`magic_arcane_bolt_rupture`) - Active (Arcane) - power 34, FP 22, cd 5s, radius 2.2 | A rupturing blast of arcane power.
-  - **Arcane Missiles** (`magic_arcane_bolt_missile`) - Active (Arcane) - power 28, FP 16, cd 4s | A stream of small arcane missiles.
+  - **Arcane Missiles** (`magic_arcane_bolt_missile`) - Active (Arcane) - power 28, FP 16, cd 4s, shape:Missile | A stream of small arcane missiles.
 - **Arcane Surge** (`magic_arcane_surge`) - + 3 Wisdom (passive) | Permanent +3 Wisdom.
   - **Arcane Power** (`magic_arcane_surge_power`) - + 5 Wisdom (passive) | Permanent +5 Wisdom.
   - **Arcane Intellect** (`magic_arcane_surge_intellect`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
@@ -100,7 +119,7 @@ Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size;
 
 - **Meteor** (`magic_fireball_meteor`) - Active (Fire) - power 30, FP 22, cd 6s, radius 3, knockback 1.5 | A burning meteor falls from the sky, scattering the blast.
   - **Meteor Rain** (`magic_fireball_meteor_rain`) - Active (Fire) - power 36, FP 26, cd 8s, range 10, radius 3.6, dur 3.5s | A storm of falling meteors that bombards the area.
-  - **Comet** (`magic_fireball_meteor_comet`) - Active (Fire) - power 34, FP 24, cd 6s | A swift streak of burning light.
+  - **Comet** (`magic_fireball_meteor_comet`) - Active (Fire) - power 34, FP 24, cd 6s, shape:Comet | A swift streak of burning light.
   - **Impact** (`magic_fireball_meteor_impact`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
   - **Asteroid** (`magic_fireball_meteor_astroid`) - Active (Fire) - power 40, FP 30, cd 9s, radius 3.6 | A colossal mass of burning rock.
   - **Ember Effigy** (`magic_fireball_meteor_ember`) - Active (Fire) - power 30, FP 20, cd 6s, range 8, radius 6, dur 6s, Burn | Summon a burning effigy that hurls embers at nearby foes.
@@ -116,8 +135,8 @@ Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size;
   - **Ember Faith** (`magic_fireball_ember_faith`) - + 5 Faith (passive) | Permanent +5 Faith.
   - **Luck of the Flame** (`magic_fireball_ember_luck`) - + 5 Luck (passive) | Permanent +5 Luck.
   - **Flame Reflex** (`magic_fireball_ember_speed`) - + 5 Speed (passive) | Permanent +5 Speed.
-- **Scorch** (`magic_fireball_scorch`) - Active (Fire) - power 26, FP 16, cd 4s, Burn | A narrow, searing jet of fire that leaves nothing unburnt.
-  - **Burn** (`magic_fireball_scorch_burn`) - Active (Fire) - power 30, FP 18, cd 4s, Burn | A searing burn that lingers long after impact.
+- **Scorch** (`magic_fireball_scorch`) - Active (Fire) - power 26, FP 16, cd 4s, Burn, shape:Comet | A narrow, searing jet of fire that leaves nothing unburnt.
+  - **Burn** (`magic_fireball_scorch_burn`) - Active (Fire) - power 30, FP 18, cd 4s, Burn, shape:Comet | A searing burn that lingers long after impact.
   - **Ignite** (`magic_fireball_scorch_ignite`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
   - **Flash Fire** (`magic_fireball_scorch_flash`) - Active (Fire) - power 32, FP 20, cd 5s, radius 2.2 | A swift flash of scorching fire.
   - **Searing Ray** (`magic_fireball_scorch_searing`) - Active (Fire) - power 34, FP 22, cd 5s, range 13, radius 1.3, channels 9 FP/s, Burn | A narrow beam of searing heat — hold it over foes, burning the whole line.
@@ -125,12 +144,12 @@ Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size;
 
 ### Frost Bolt (magic_frostbolt)
 
-- **Ice Lance** (`magic_frostbolt_icelance`) - Active (Ice) - power 26, FP 16, cd 4s | A long spear of solid ice.
-  - **Frost Pierce** (`magic_frostbolt_icelance_pierce`) - Active (Ice) - power 30, FP 18, cd 4s | A lance that pierces through armor.
+- **Ice Lance** (`magic_frostbolt_icelance`) - Active (Ice) - power 26, FP 16, cd 4s, shape:Lance | A long spear of solid ice.
+  - **Frost Pierce** (`magic_frostbolt_icelance_pierce`) - Active (Ice) - power 30, FP 18, cd 4s, shape:Lance | A lance that pierces through armor.
   - **Ice Havoc** (`magic_frostbolt_icelance_havoc`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
-  - **Glacial Impale** (`magic_frostbolt_icelance_impale`) - Active (Ice) - power 34, FP 22, cd 5s | A massive spike that impales.
+  - **Glacial Impale** (`magic_frostbolt_icelance_impale`) - Active (Ice) - power 34, FP 22, cd 5s, shape:Lance | A massive spike that impales.
   - **Hail Lance** (`magic_frostbolt_icelance_hail`) - Active (Ice) - power 30, FP 20, cd 5s, radius 2 | A volley of ice lances.
-  - **Frost Bite** (`magic_frostbolt_icelance_bite`) - Active (Ice) - power 28, FP 16, cd 4s, Frost | A biting cold that chills to the bone.
+  - **Frost Bite** (`magic_frostbolt_icelance_bite`) - Active (Ice) - power 28, FP 16, cd 4s, Frost, shape:Shard | A biting cold that chills to the bone.
 - **Freeze** (`magic_frostbolt_freeze`) - Active (Ice) - power 28, FP 18, cd 5s, radius 2.4, Frost | A wave of freezing air that clings to all it touches.
   - **Deep Freeze** (`magic_frostbolt_freeze_deep`) - Active (Ice) - power 34, FP 24, cd 6s, radius 2.6, Stagger | A paralyzing cold that freezes foes solid.
   - **Cold Snap** (`magic_frostbolt_freeze_snap`) - Active (Ice) - power 32, FP 20, cd 5s, radius 2.4 | A sudden snap-freeze of the air.
@@ -149,8 +168,8 @@ Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size;
   - **Glacial Weight** (`magic_frostbolt_glacier_weight`) - + 5 Strength (passive) | Permanent +5 Strength.
   - **Avalanche** (`magic_frostbolt_glacier_avalanche`) - Active (Ice) - power 38, FP 28, cd 8s, radius 3.6 | A cascading avalanche of ice.
   - **Eternal Cold** (`magic_frostbolt_glacier_eternal`) - + 6 Wisdom (passive) | Permanent +6 Wisdom.
-- **Chill Touch** (`magic_frostbolt_chill`) - Active (Ice) - power 24, FP 14, cd 3s, Frost | A numbing cold that slows the foe.
-  - **Chill Soul** (`magic_frostbolt_chill_soul`) - Active (Ice) - power 30, FP 18, cd 4s, Frost | A cold that seeps into the soul and slows it.
+- **Chill Touch** (`magic_frostbolt_chill`) - Active (Ice) - power 24, FP 14, cd 3s, Frost, shape:Shard | A numbing cold that slows the foe.
+  - **Chill Soul** (`magic_frostbolt_chill_soul`) - Active (Ice) - power 30, FP 18, cd 4s, Frost, shape:Shard | A cold that seeps into the soul and slows it.
   - **Frost Curse** (`magic_frostbolt_chill_curse`) - Active (Ice) - power 28, FP 16, cd 4s, radius 2 | A curse of creeping frost.
   - **Frost Will** (`magic_frostbolt_chill_will`) - + 5 Faith (passive) | Permanent +5 Faith.
   - **Cold Stare** (`magic_frostbolt_chill_stare`) - Active (Ice) - power 26, FP 14, cd 3s, range 11, radius 1, channels 7 FP/s, Frost | A gaze of ice that freezes the heart — hold it to chill and slow.
@@ -159,11 +178,11 @@ Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size;
 ### Storm Focus (magic_lightning)
 
 - **authoring ref** `magic_chain` (links to a base skill above)
-- **Volt** (`magic_lightning_volt`) - Active (Lightning) - power 26, FP 16, cd 4s, Stagger | A jolting bolt that staggers on impact.
-  - **Arc Volley** (`magic_lightning_volt_arc`) - Active (Lightning) - power 30, FP 18, cd 4s, Stagger | A volley of crackling bolts.
-  - **Volt Spark** (`magic_lightning_volt_spark`) - Active (Lightning) - power 26, FP 14, cd 3s, Stagger | A quick jolting spark that staggers.
+- **Volt** (`magic_lightning_volt`) - Active (Lightning) - power 26, FP 16, cd 4s, Stagger, shape:Bolt | A jolting bolt that staggers on impact.
+  - **Arc Volley** (`magic_lightning_volt_arc`) - Active (Lightning) - power 30, FP 18, cd 4s, Stagger, shape:Bolt | A volley of crackling bolts.
+  - **Volt Spark** (`magic_lightning_volt_spark`) - Active (Lightning) - power 26, FP 14, cd 3s, Stagger, shape:Bolt | A quick jolting spark that staggers.
   - **High Potential** (`magic_lightning_volt_potential`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
-  - **Volt Bolt** (`magic_lightning_volt_bolt`) - Active (Lightning) - power 32, FP 20, cd 5s, Stagger | A heavy bolt charged with static.
+  - **Volt Bolt** (`magic_lightning_volt_bolt`) - Active (Lightning) - power 32, FP 20, cd 5s, Stagger, shape:Bolt | A heavy bolt charged with static.
   - **Static Coil** (`magic_lightning_volt_charge`) - Active (Lightning) - power 28, FP 16, cd 4s, radius 2.2, Stagger | A coil of static that staggers all it touches.
 - **Stormcall** (`magic_lightning_storm`) - Active (Lightning) - power 32, FP 24, cd 7s, range 10, radius 3.2, dur 3.5s, Stagger | Call lightning down in a storm over the target.
   - **Storm Rain** (`magic_lightning_storm_rain`) - Active (Lightning) - power 36, FP 26, cd 7s, range 10, radius 3.4, dur 3.5s, Stagger | A relentless storm that lashes the whole area.
@@ -178,7 +197,7 @@ Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size;
   - **True Conduit** (`magic_lightning_charge_conduit`) - + 5 Wisdom (passive) | Permanent +5 Wisdom.
   - **Storm Heart** (`magic_lightning_charge_heart`) - + 5 Faith (passive) | Permanent +5 Faith.
 - **Sky Fury** (`magic_lightning_fury`) - Active (Lightning) - power 30, FP 20, cd 5s, range 13, radius 1.2, channels 9 FP/s, Stagger | Hold a crackling sky-fury that staggers everything in its path.
-  - **Fury Bolt** (`magic_lightning_fury_bolt`) - Active (Lightning) - power 34, FP 22, cd 5s, Stagger | A bolt with the fury of the sky.
+  - **Fury Bolt** (`magic_lightning_fury_bolt`) - Active (Lightning) - power 34, FP 22, cd 5s, Stagger, shape:Bolt | A bolt with the fury of the sky.
   - **Sky Beam** (`magic_lightning_fury_beam`) - Active (Lightning) - power 36, FP 24, cd 6s, range 14, radius 1.3, channels 10 FP/s, Stagger | A furious beam from above — hold it to sear the whole line.
   - **Stormsurge** (`magic_lightning_fury_rage`) - + 5 AttackSpeed (passive) | Permanent +5 Attack Speed.
   - **Devastation** (`magic_lightning_fury_devastation`) - Active (Lightning) - power 38, FP 28, cd 8s, range 10, radius 3.6, dur 3.5s, Stagger | A devastating sky-fury that batters the area.
@@ -198,18 +217,18 @@ Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size;
 
 ### Dark Bolt (magic_dark)
 
-- **Shadow Bolt** (`magic_dark_shadowbolt`) - Active (Dark) - power 28, FP 16, cd 4s | A bolt of concentrated shadow.
-  - **Doom Bolt** (`magic_dark_shadowbolt_doom`) - Active (Dark) - power 34, FP 22, cd 5s | A bolt of impending doom.
+- **Shadow Bolt** (`magic_dark_shadowbolt`) - Active (Dark) - power 28, FP 16, cd 4s, shape:Bolt | A bolt of concentrated shadow.
+  - **Doom Bolt** (`magic_dark_shadowbolt_doom`) - Active (Dark) - power 34, FP 22, cd 5s, shape:Bolt | A bolt of impending doom.
   - **Gloom** (`magic_dark_shadowbolt_gloom`) - + 5 Faith (passive) | Permanent +5 Faith.
   - **Shadow Totem** (`magic_dark_shadowbolt_pool`) - Active (Dark) - power 32, FP 20, cd 5s, range 8, radius 6, dur 6s, Rot | Summon a totem of writhing shadow that hunts foes with rotting bolts.
-  - **Shadow Spear** (`magic_dark_shadowbolt_spear`) - Active (Dark) - power 36, FP 24, cd 6s | A spear of condensed darkness.
+  - **Shadow Spear** (`magic_dark_shadowbolt_spear`) - Active (Dark) - power 36, FP 24, cd 6s, shape:Spear | A spear of condensed darkness.
   - **Tendrils** (`magic_dark_shadowbolt_tendrils`) - Active (Dark) - power 30, FP 18, cd 4s, radius 2.4 | Shadow tentacles lash all around.
 - **Void Rend** (`magic_dark_voidrend`) - Active (Dark) - power 30, FP 18, cd 5s, radius 2.2, knockback 1, Rot | Darkness tears through the area, rots and shoves.
   - **Void Rip** (`magic_dark_voidrend_rip`) - Active (Dark) - power 36, FP 24, cd 6s, radius 2.6 | A tear in reality that rends the target.
   - **Tear** (`magic_dark_voidrend_tear`) - + 5 Faith (passive) | Permanent +5 Faith.
   - **Abyss** (`magic_dark_voidrend_abyss`) - Active (Dark) - power 38, FP 26, cd 7s, radius 2.8 | Darkness opens into a void abyss.
-  - **Laceration** (`magic_dark_voidrend_laceration`) - Active (Dark) - power 32, FP 20, cd 5s | A void that lacerates on contact.
-  - **Void Rend** (`magic_dark_voidrend_rend`) - Active (Dark) - power 34, FP 22, cd 5s | A rending projectile of void nothing.
+  - **Laceration** (`magic_dark_voidrend_laceration`) - Active (Dark) - power 32, FP 20, cd 5s, shape:Blade | A void that lacerates on contact.
+  - **Void Rend** (`magic_dark_voidrend_rend`) - Active (Dark) - power 34, FP 22, cd 5s, shape:Bolt | A rending projectile of void nothing.
 - **Dark Pact** (`magic_dark_curse`) - + 3 Faith (passive) | Permanent +3 Faith.
   - **Pact of Dark** (`magic_dark_curse_pact`) - + 5 Faith (passive) | Permanent +5 Faith.
   - **Dark Might** (`magic_dark_curse_might`) - + 5 Strength (passive) | Permanent +5 Strength.
@@ -280,7 +299,7 @@ Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size;
 ### Water Bolt (magic_water)
 
 - **Tidal Stream** (`magic_water_stream`) - Active (Water) - power 24, FP 16, cd 4s, range 11, radius 1.4, channels 8 FP/s, Wet | Hold a surging line of water that soaks everything it crosses.
-  - **Tidal Surge** (`magic_water_stream_surge`) - Active (Water) - power 28, FP 18, cd 4s, Wet | A heavy surge of water.
+  - **Tidal Surge** (`magic_water_stream_surge`) - Active (Water) - power 28, FP 18, cd 4s, Wet, shape:Splash | A heavy surge of water.
   - **Rapids** (`magic_water_stream_rapids`) - + 5 AttackSpeed (passive) | Permanent +5 Attack Speed.
   - **Flood** (`magic_water_stream_flood`) - Active (Water) - power 30, FP 20, cd 6s, radius 2.6, dur 3s, Wet | Rising water that floods the area.
   - **Tide** (`magic_water_stream_tide`) - Active (Water) - power 32, FP 22, cd 5s, range 13, radius 1.5, channels 9 FP/s, Wet | Hold a rolling tide that soaks the whole line.

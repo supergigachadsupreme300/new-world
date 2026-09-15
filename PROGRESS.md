@@ -22,6 +22,51 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
     corners for the platform snap.
 
 ---
+## 1ar. Redo projectiles as named shapes — every spell's projectile looks like its name
+
+Follow-up on `1aq` review: user said projectiles should stop being same-colored balls — "bolt is the
+shape of lightning, which should have generated like lightning from the thunder event". So projectile
+visuals were split into **named `ProjectileShape`s** and each projectile spell's shape now matches its
+name; a "Bolt"-named spell is built with the same jagged-segment technique as the thunder-storm
+event's `RandomEventManager.SpawnJaggedBolt`, colored per element instead of being a sphere recolor.
+
+- **`SpellData.cs`**: new `ProjectileShape` enum (`Auto, Bolt, Sphere, Shard, Lance, Spear, Blade,
+  Splash, Comet, Missile, Dart`) + `Shape` field under a new `[Header("Presentation")]`.
+- **`SpellCaster.cs`**: `DecorateProjectile(go, type, shape)`; `FireProjectile` passes `spell.Shape`;
+  `AttachDefaultProjectileVisual` resolves `Auto` via `AutoShapeFor(DamageType)` (Fire→Sphere,
+  Ice→Shard, Lightning→Bolt, Wind→Blade, Water→Splash, Earth→Shard, Physical→Dart, else→Sphere) and
+  builds the body in `BuildProjectileBody`: `Bolt` (8 segment jittered cubes along +Z with taper —
+  same look as `SpawnJaggedBolt`), `Shard` (drilling diamond), `Lance` (shaft+tip spike), `Spear`
+  (dark shaft + diamond head), `Blade` (cross-blade spinning in-plane, `OrbFx.Swirl`), `Splash`
+  (droplet + trailing drops), `Comet` (core + streak tail), `Missile` (clumped darts), `Dart`
+  (sleek tip+body); removed the old per-type `Spark`/`Swirl` sphere builders. Added `Primitive`/
+  `Materialize` helpers. `OrbFx.Mode` gained `Bolt`/`Swirl` pulse behaviors alongside Plain/Ember/
+  Shard/Wisp.
+- **Catalogs**: `SkillCatalog.Spell(...)` + class/race `MakeSpell(...)` gained a
+  `projectileShape:`/`shape:` param. Assigned by name — every `*Bolt` spell (incl. Frost Bolt, Chain
+  Lightning, Dark Bolt, Volt/Fork/Leap/Arc Spark/Volt Bolt, Fury Bolt, Shadow/Doom Bolt, Void Rend,
+  Arcane/Force/Prism Bolt) → `Bolt`; `Ice Lance`/`Frost Pierce`/`Glacial Impale` → `Lance`; `Shadow
+  Spear` → `Spear`; `Wind Blade`/`Razor Blade`/`Wind Scissor`/`Laceration` → `Blade`; `Scorch`/`Burn`/
+  `Comet` → `Comet`; `Arcane Missiles` → `Missile`; `Tidal Surge`/`Water Bolt` → `Splash`;
+  `Stone Shard` → `Shard`; Fireball/Chill Touch/Chill Soul/Frost Bite stay `Auto` (→ Sphere/Shard);
+  class spells Mage Fireball (Auto→Sphere), Mage Arcane Bolt→Bolt, Archer Wind Shot→Dart, Taoist
+  Talisman→Dart. `SpellSummon` turret bolts pass `_spell.Shape` too.
+- **`magic-skills.md`** regenerated: new **Projectile Shapes** table (each shape, how it's built,
+  which spells use it) + every projectile effect line ends with `shape:<effective>`.
+- **`game-design.md`** updated: `projectile shape` bullet in the SpellData list, `ProjectileShape`
+  doc comment in §3.8.1, and a shape table describing each shape + the Auto resolution rule.
+
+### 1ar-status
+- No CLI build — verified by code review: 31 `projectileShape:` assignments across both catalogs,
+  `BuildProjectileBody` switch covers all 10 shaped cases with a default, no stale `Spark`/`Swirl`
+  builder references, `OrbFx.Mode` members all defined, generator rerun idempotent (shape counts:
+  Bolt×16, Shard×4, Lance×3, Blade×4, Comet×3, Missile×1, Splash×1, Spear×1, Sphere×1 = 34 total).
+- Play-test after review: cast each school's projectile (Fireball sphere, Frost Bolt jagged bolt,
+  Chain Lightning jagged bolt, Wind Blade spinning cross, Ice Lance spike, Shadow Spear, Tidal
+  Surge splash, Arcane Missiles cluster, class spells) — confirm bolts read as lightning and 2× lance/
+  spear tiers read distinct.
+
+---
 ## 1aq. Add `magic-skills.md` — full generated list of all magic tree skills + SpellDelivery reference
 
 User asked: "make a list of all the spell and their function, i'll tell you what need to be redo" —

@@ -570,6 +570,9 @@ A spell is a data asset carrying:
 - **selfbuff** (Instant delivery grants a timed caster effect instead of damage/heal — e.g. **Wind Walk**: `PlayerController.BeginFlight(Duration)`, free vertical movement for the buff's seconds)
 - **heals** (Holy/utility spells: instant/self-heal, or an ally-heal aura when on a zone; only `IHealable` targets — the player — are ever healed, enemies still take damage)
 - **knockback** (impulse applied to enemies; the Wind school signature)
+- **projectile shape** (`ProjectileShape`, §3.8.1): the *visual* built for a Projectile-delivery
+  spell. When a spell leaves it `Auto`, `SpellCaster.AutoShapeFor` picks the school default; every
+  bolt/lance/blade/spear-named spell sets it explicitly so projectiles read as their name.
 - **terrain shape** (Earth school signature, §3.8): an optional `TerrainShape` reshapes the tiled
   heightmap at the spell's impact point before damage resolves — **Ring** rears a circular stone wall
   around the impact, **Spikes** erupts spires beneath it (ground deform via `TerrainDeformer` →
@@ -610,6 +613,28 @@ a school read distinctly instead of feeling like copies:
 - **Storm** — a persistent ground zone that **strikes repeatedly** while it lasts: `StrikesPerTick`
   (2) bolts per tick at `StrikePowerMultiplier` ×0.8 with randomized sub-second delays, element-styled
   visuals (e.g. crossed bolt bars on Lightning). Examples: Thunderstorm, Meteor Rain, Blizzard, Eclipse.
+
+Fifth, **Projectile Shapes** — projectile visuals are split into named shapes rather than one element
+color swap, so each spell looks like its name and not a recolor of the same ball:
+
+| Shape | Rendered as |
+|---|---|
+| **Bolt** | Jagged segmented bolt along the flight axis (the same segment technique as the thunder-storm event's `SpawnJaggedBolt`), fast crackle pulse — used by every spell with "Bolt" in the name: Frost Bolt, Chain Lightning, Dark Bolt, Volt, Fork/Leap/Arc/Volt Bolt, Fury Bolt, Shadow/Doom Bolt, Void Rend, and the class-flavored Arcane Bolt. |
+| **Sphere** | Classic orb (soft breathe) — school default / the Fireball. |
+| **Shard** | Diamond crystal that drills forward (spin + breathe) — stone shards and generic frost chips (Stone Shard, Chill Touch, Chill Soul, Frost Bite). |
+| **Lance** | Long straight pointed spike (shaft + tip), heavier than a bolt — Ice Lance, Frost Pierce, Glacial Impale. |
+| **Spear** | Tapered spear: dark shaft + broad diamond head — Shadow Spear. |
+| **Blade** | Flat cross-blade that spins in its own plane — Wind Blade, Razor Blade, Wind Scissor, Laceration. |
+| **Splash** | Oblate droplet with a trailing splash of smaller drops — Water Bolt, Tidal Surge. |
+| **Comet** | Bright core + fading streak tail (ember flicker) — Scorch, Burn, Comet. |
+| **Missile** | Small clump of darts (crackle pulse) — Arcane Missiles. |
+| **Dart** | Sleek thin bolt-line with a tip — physical shots (Archer Wind Shot, Taoist Talisman). |
+
+`Auto` resolves per school: Fire→Sphere, Ice→Shard, Lightning→Bolt, Wind→Blade, Water→Splash,
+Earth→Shard, Physical→Dart, everything else→Sphere. Builders live in `SpellCaster.BuildProjectileBody`
+(primitives + `OrbFx` pulse modes: Plain/Ember/Shard/Bolt/Wisp/Swirl), colored per damage type and
+layered with `AttachProjectileParticles` trails; turret summons render the projectile through the same
+call (`SpellSummon` passes the turret spell's shape).
 
 #### Casting Flow
 

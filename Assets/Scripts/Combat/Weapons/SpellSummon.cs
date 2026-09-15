@@ -113,7 +113,7 @@ public class SpellSummon : MonoBehaviour
         var go = new GameObject("SummonBolt");
         go.transform.position = muzzle;
         go.transform.rotation = Quaternion.LookRotation(dir);
-        _caster.DecorateProjectile(go, _spell.Type);
+        _caster.DecorateProjectile(go, _spell.Type, _spell.Shape);
         float speed = _spell.ProjectileSpeed > 0f ? _spell.ProjectileSpeed : 18f;
         var fx = go.AddComponent<SpellEffect>().Initialize(_spell, _power * BoltPowerMultiplier, dir, _caster, 1f);
         fx.Launch(speed);

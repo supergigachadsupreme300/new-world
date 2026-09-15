@@ -32,6 +32,47 @@ public enum TerrainShape
 }
 
 /// <summary>
+/// Visual shape of a Projectile-delivery spell (§3.8). The shape follows the spell's
+/// name ("Frost Bolt" is a jagged Bolt, "Ice Lance" a Lance, "Stone Shard" a Shard...),
+/// not the element. `Auto` picks the element's default shape (see SpellCaster).
+/// </summary>
+public enum ProjectileShape
+{
+    Auto = 0,     // element default (Fire→Sphere, Ice→Shard, Lightning→Bolt, Wind→Blade, ...)
+
+    /// <summary>Jagged segmented streak built like the thunder-storm lightning bolt
+    /// (RandomEventManager.SpawnJaggedBolt), colored by the element.</summary>
+    Bolt = 1,
+
+    /// <summary>Round orb (classic fireballs, plain magic balls).</summary>
+    Sphere = 2,
+
+    /// <summary>Diamond crystal that tumbles/drills (stone &amp; frost chips).</summary>
+    Shard = 3,
+
+    /// <summary>Long straight pointed ice spike.</summary>
+    Lance = 4,
+
+    /// <summary>Tapered spear with a broad head and a trailing shaft.</summary>
+    Spear = 5,
+
+    /// <summary>Flat spinning slashing disc (wind blades / crossing blades).</summary>
+    Blade = 6,
+
+    /// <summary>Water droplet with a splash trail.</summary>
+    Splash = 7,
+
+    /// <summary>Streaking fire/energy tail (burning comet line).</summary>
+    Comet = 8,
+
+    /// <summary>Cluster of small darts (arcane missiles).</summary>
+    Missile = 9,
+
+    /// <summary>Small sleek fast bolt-line (quick ranged shots / talisman darts).</summary>
+    Dart = 10
+}
+
+/// <summary>
 /// Data asset defining a spell (§3.8). Spells are cast through Magic weapons
 /// (staff / wand / book) or equippable active skills, routed via SpellCaster.
 /// </summary>
@@ -79,6 +120,8 @@ public class SpellData : ScriptableObject
     [Header("Presentation")]
     public GameObject CastEffectPrefab;
     public GameObject ImpactEffectPrefab;
+    [Tooltip("Projectile-delivery visual shape. Auto = element default (SpellCaster).")]
+    public ProjectileShape Shape = ProjectileShape.Auto;
 
     [Header("Mechanics")]
     [Tooltip("Restores health to friendly (Player/companion) targets instead of damaging them. Zone healing also heals allies while still damaging enemies.")]

@@ -356,9 +356,9 @@ public class SpellCaster : MonoBehaviour
     }
 
     /// <summary>Public access to the default projectile visual (used by summoned turrets).</summary>
-    public void DecorateProjectile(GameObject go, DamageType type)
+    public void DecorateProjectile(GameObject go, DamageType type, ProjectileShape shape = ProjectileShape.Auto)
     {
-        AttachDefaultProjectileVisual(go, type);
+        AttachDefaultProjectileVisual(go, type, shape);
     }
 
     /// <summary>Size multiplier applied to deliveries by charge level.</summary>
@@ -458,7 +458,7 @@ public class SpellCaster : MonoBehaviour
             go = new GameObject("SpellProjectile");
             go.transform.position = pos;
             go.transform.rotation = Quaternion.LookRotation(fwd);
-            AttachDefaultProjectileVisual(go, spell.Type);
+            AttachDefaultProjectileVisual(go, spell.Type, spell.Shape);
             go.AddComponent<SpellEffect>().Initialize(spell, power, fwd, this, sizeScale);
         }
 
@@ -473,45 +473,78 @@ public class SpellCaster : MonoBehaviour
     }
 
     /// <summary>
-    /// Build a per-type visible projectile body + comet-exhaust particles for spells with no
-    /// authored CastEffectPrefab, so magic skills read on screen. Renderer-only: the root keeps
-    /// no collider so SpellEffect's flight raycast never self-hits.
+    /// Build a shape-aware visible projectile body + comet-exhaust particles for spells with no
+    /// authored CastEffectPrefab, so magic skills read on screen. `shape` is the ProjectileShape
+    /// from SpellData (§3.8): Auto resolves to the element default so every projectile still has a
+    /// sane look; explicit shapes follow the spell's NAME ("Frost Bolt" = a Bolt, "Ice Lance" = a
+    /// Lance, "Stone Shard" = a Shard...). Renderer-only: the root keeps no collider so
+    /// SpellEffect's flight raycast never self-hits.
     /// </summary>
-    private void AttachDefaultProjectileVisual(GameObject go, DamageType type)
+    private void AttachDefaultProjectileVisual(GameObject go, DamageType type, ProjectileShape shape)
     {
         Color color = DamageNumber.ColorFor(type);
         Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
         if (shader == null)
             return;
 
-        var body = BuildProjectileBody(type, shader, color);
+        var body = BuildProjectileBody(ResolveShape(type, shape), shader, color);
         body.SetParent(go.transform, false);
 
         AttachProjectileParticles(body, type, color);
     }
 
-    /// <summary>Color-matched visual body for a projectile by damage type.</summary>
-    private static Transform BuildProjectileBody(DamageType type, Shader shader, Color color)
+    /// <summary>Element default shape used when a spell leaves Shape = Auto.</summary>
+    private static ProjectileShape AutoShapeFor(DamageType type)
     {
         switch (type)
         {
-            case DamageType.Fire:
-                return Orb("Fireball", PrimitiveType.Sphere, Vector3.one * 0.3f, shader, color,
-                    OrbFx.Mode.Ember);
-            case DamageType.Ice:
-                return Shard("Frostbolt", shader, color);
-            case DamageType.Lightning:
-                return Spark("ChainBolt", shader, color);
-            case DamageType.Dark:
-                return Orb("DarkBolt", PrimitiveType.Sphere, Vector3.one * 0.26f, shader, color,
-                    OrbFx.Mode.Wisp);
-            case DamageType.Wind:
-                return Swirl("WindBlade", shader, color);
-            default:
-                return Orb("Orb", PrimitiveType.Sphere, Vector3.one * 0.22f, shader, color,
-                    OrbFx.Mode.Plain);
+            case DamageType.Fire: return ProjectileShape.Sphere;    // fireball
+            case DamageType.Ice: return ProjectileShape.Shard;      // generic frost chip
+            case DamageType.Lightning: return ProjectileShape.Bolt; // crackling bolt
+            case DamageType.Wind: return ProjectileShape.Blade;     // wind blade
+            case DamageType.Water: return ProjectileShape.Splash;   // droplet
+            case DamageType.Earth: return ProjectileShape.Shard;    // grey stone chip
+            case DamageType.Physical: return ProjectileShape.Dart;  // arrow / bolt line
+            default: return ProjectileShape.Sphere;
         }
     }
+
+    private static ProjectileShape ResolveShape(DamageType type, ProjectileShape shape)
+        => shape == ProjectileShape.Auto ? AutoShapeFor(type) : shape;
+
+    /// <summary>Color-matched visual body for a projectile by resolved shape.</summary>
+    private static Transform BuildProjectileBody(ProjectileShape shape, Shader shader, Color color)
+    {
+        switch (shape)
+        {
+            case ProjectileShape.Bolt: return Bolt("JaggedBolt", shader, color);
+            case ProjectileShape.Shard: return Shard("Shard", shader, color);
+            case ProjectileShape.Lance: return Lance("IceLance", shader, color);
+            case ProjectileShape.Spear: return Spear("Spear", shader, color);
+            case ProjectileShape.Blade: return Blade("WindBlade", shader, color);
+            case ProjectileShape.Splash: return Splash("WaterSplash", shader, color);
+            case ProjectileShape.Comet: return Comet("Comet", shader, color);
+            case ProjectileShape.Missile: return Missile("ArcaneMissiles", shader, color);
+            case ProjectileShape.Dart: return Dart("Dart", shader, color);
+            default: return Orb("Orb", PrimitiveType.Sphere, Vector3.one * 0.22f, shader, color,
+                OrbFx.Mode.Plain);
+        }
+    }
+
+    /// <summary>Primitive with its collider stripped, parented to `parent` at local zero.</summary>
+    private static Transform Primitive(PrimitiveType kind, string name, Transform parent)
+    {
+        var go = GameObject.CreatePrimitive(kind);
+        go.name = name;
+        Collider col = go.GetComponent<Collider>();
+        if (col != null)
+            Destroy(col);
+        go.transform.SetParent(parent, false);
+        return go.transform;
+    }
+
+    private static void Materialize(Transform t, Shader shader, Color color)
+        => t.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
 
     private static Transform Orb(string name, PrimitiveType shape, Vector3 scale, Shader shader,
         Color color, OrbFx.Mode mode)
@@ -527,7 +560,7 @@ public class SpellCaster : MonoBehaviour
         return orb.transform;
     }
 
-    /// <summary>Diamond-shaped ice shard that drills forward.</summary>
+    /// <summary>Diamond-shaped shard that drills forward.</summary>
     private static Transform Shard(string name, Shader shader, Color color)
     {
         var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -542,54 +575,154 @@ public class SpellCaster : MonoBehaviour
         return shard.transform;
     }
 
-    /// <summary>Two crossed thin bars forming a crackling X bolt.</summary>
-    private static Transform Spark(string name, Shader shader, Color color)
+    /// <summary>
+    /// Jagged segmented bolt laid down the flight line — the same segment technique as the
+    /// thunder-storm event's lightning bolt (RandomEventManager.SpawnJaggedBolt), so a "Bolt"
+    /// reads as lightning (element-colored) rather than a plain sphere. Parent rotates to the
+    /// aim, so the jitter lives in the local XY plane and the bolt streaks +Z.
+    /// </summary>
+    private static Transform Bolt(string name, Shader shader, Color color)
     {
-        var spark = new GameObject(name).transform;
-        var a = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        a.name = "BarA";
-        Collider colA = a.GetComponent<Collider>();
-        if (colA != null)
-            Destroy(colA);
-        a.transform.SetParent(spark, false);
-        a.transform.localScale = new Vector3(0.26f, 0.03f, 0.03f);
-        a.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
-
-        var b = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        b.name = "BarB";
-        Collider colB = b.GetComponent<Collider>();
-        if (colB != null)
-            Destroy(colB);
-        b.transform.SetParent(spark, false);
-        b.transform.localScale = new Vector3(0.03f, 0.03f, 0.26f);
-        b.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
-
-        spark.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Bolt;
-        return spark;
+        var root = new GameObject(name).transform;
+        int segments = 8;
+        float length = 1.25f;
+        float jitter = 0.09f;
+        Vector3 prev = new Vector3(0f, 0f, -length * 0.5f);
+        for (int i = 0; i < segments; i++)
+        {
+            float t = i / (float)(segments - 1);
+            Vector3 next = i == segments - 1
+                ? new Vector3(0f, 0f, length * 0.5f)
+                : new Vector3(
+                    UnityEngine.Random.Range(-jitter, jitter),
+                    UnityEngine.Random.Range(-jitter, jitter),
+                    Mathf.Lerp(-length * 0.5f, length * 0.5f, t));
+            var seg = Primitive(PrimitiveType.Cube, "Seg" + i, root);
+            seg.localPosition = (prev + next) * 0.5f;
+            Vector3 segDir = (next - prev).normalized;
+            seg.localScale = new Vector3(
+                Mathf.Lerp(0.17f, 0.05f, t),
+                Mathf.Lerp(0.17f, 0.05f, t),
+                Mathf.Max(0.1f, Vector3.Distance(prev, next)));
+            if (segDir.sqrMagnitude > 0.001f && Mathf.Abs(segDir.z) < 0.999f)
+                seg.rotation = Quaternion.LookRotation(segDir, Vector3.up);
+            Materialize(seg, shader, color);
+            prev = next;
+        }
+        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Bolt;
+        return root;
     }
 
-    /// <summary>Three stacked spinning flat rings forming a mini wind funnel.</summary>
-    private static Transform Swirl(string name, Shader shader, Color color)
+    /// <summary>Long, straight pointed spike (ice lance line) oriented along the flight line.</summary>
+    private static Transform Lance(string name, Shader shader, Color color)
     {
-        var swirl = new GameObject(name).transform;
-        float dia = 0.34f;
+        var root = new GameObject(name).transform;
+        var shaft = Primitive(PrimitiveType.Cube, "Shaft", root);
+        shaft.localScale = new Vector3(0.1f, 0.1f, 1.1f);
+        Materialize(shaft, shader, color);
+        var tip = Primitive(PrimitiveType.Cube, "Tip", root);
+        tip.localPosition = new Vector3(0f, 0f, 0.62f);
+        tip.localScale = new Vector3(0.12f, 0.12f, 0.22f);
+        Materialize(tip, shader, color);
+        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Shard;
+        return root;
+    }
+
+    /// <summary>Tapered spear: broad diamond head + trailing shaft (shadow/void spears).</summary>
+    private static Transform Spear(string name, Shader shader, Color color)
+    {
+        var root = new GameObject(name).transform;
+        var shaft = Primitive(PrimitiveType.Cube, "Shaft", root);
+        shaft.localScale = new Vector3(0.045f, 0.045f, 0.95f);
+        var shaftColor = new Color(color.r * 0.5f, color.g * 0.5f, color.b * 0.5f, 1f);
+        Materialize(shaft, shader, shaftColor);
+        var head = Primitive(PrimitiveType.Cube, "Head", root);
+        head.localPosition = new Vector3(0f, 0f, 0.48f);
+        head.localScale = new Vector3(0.24f, 0.07f, 0.44f);
+        head.localRotation = Quaternion.Euler(0f, 45f, 0f);
+        Materialize(head, shader, color);
+        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Plain;
+        return root;
+    }
+
+    /// <summary>Flat slashing cross-blade that spins in its own plane (wind blades / scissor).</summary>
+    private static Transform Blade(string name, Shader shader, Color color)
+    {
+        var root = new GameObject(name).transform;
+        var a = Primitive(PrimitiveType.Cube, "BladeA", root);
+        a.localScale = new Vector3(0.42f, 0.05f, 0.03f);
+        Materialize(a, shader, color);
+        var b = Primitive(PrimitiveType.Cube, "BladeB", root);
+        b.localScale = new Vector3(0.05f, 0.42f, 0.03f);
+        Materialize(b, shader, color);
+        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Swirl;
+        return root;
+    }
+
+    /// <summary>Water droplet (oblate sphere) with a short trailing splash of smaller drops.</summary>
+    private static Transform Splash(string name, Shader shader, Color color)
+    {
+        var root = new GameObject(name).transform;
+        var drop = Primitive(PrimitiveType.Sphere, "Drop", root);
+        drop.localScale = new Vector3(0.26f, 0.2f, 0.26f);
+        Materialize(drop, shader, color);
         for (int i = 0; i < 3; i++)
         {
-            var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            ring.name = "Ring" + i;
-            Collider col = ring.GetComponent<Collider>();
-            if (col != null)
-                Destroy(col);
-            ring.transform.SetParent(swirl, false);
-            float t = (i - 1) * 0.16f;
-            ring.transform.localPosition = new Vector3(0f, t, 0f);
-            float size = Mathf.Lerp(dia, dia * 0.6f, Mathf.Abs(t) / 0.16f);
-            ring.transform.localScale = new Vector3(size, 0.03f, size);
-            ring.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
+            var trail = Primitive(PrimitiveType.Sphere, "Trail" + i, root);
+            trail.localPosition = new Vector3(
+                UnityEngine.Random.Range(-0.05f, 0.05f),
+                UnityEngine.Random.Range(-0.04f, 0.04f),
+                -0.28f - i * 0.15f);
+            trail.localScale = Vector3.one * Mathf.Lerp(0.09f, 0.04f, i / 2f);
+            Materialize(trail, shader, color);
         }
+        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Plain;
+        return root;
+    }
 
-        swirl.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Swirl;
-        return swirl;
+    /// <summary>Streaking fire/energy comet: bright core + fading tail (hard to miss on screen).</summary>
+    private static Transform Comet(string name, Shader shader, Color color)
+    {
+        var root = new GameObject(name).transform;
+        var core = Primitive(PrimitiveType.Sphere, "Core", root);
+        core.localScale = new Vector3(0.2f, 0.2f, 0.28f);
+        Materialize(core, shader, color);
+        var streak = Primitive(PrimitiveType.Cube, "Streak", root);
+        streak.localPosition = new Vector3(0f, 0f, -0.35f);
+        streak.localScale = new Vector3(0.07f, 0.07f, 0.6f);
+        Materialize(streak, shader, color * 0.6f);
+        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Ember;
+        return root;
+    }
+
+    /// <summary>Cluster of small darts representing a volley (arcane missiles / darts).</summary>
+    private static Transform Missile(string name, Shader shader, Color color)
+    {
+        var root = new GameObject(name).transform;
+        for (int i = 0; i < 3; i++)
+        {
+            var m = Primitive(PrimitiveType.Sphere, "Missile" + i, root);
+            m.localPosition = new Vector3(i * 0.16f - 0.16f, 0f, 0f);
+            m.localScale = Vector3.one * 0.12f;
+            Materialize(m, shader, color);
+        }
+        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Bolt;
+        return root;
+    }
+
+    /// <summary>Small sleek bolt-line for quick shots (ranged darts / talisman trails).</summary>
+    private static Transform Dart(string name, Shader shader, Color color)
+    {
+        var root = new GameObject(name).transform;
+        var body = Primitive(PrimitiveType.Cube, "Body", root);
+        body.localScale = new Vector3(0.06f, 0.06f, 0.6f);
+        Materialize(body, shader, color);
+        var tip = Primitive(PrimitiveType.Cube, "Tip", root);
+        tip.localPosition = new Vector3(0f, 0f, 0.32f);
+        tip.localScale = new Vector3(0.08f, 0.08f, 0.12f);
+        Materialize(tip, shader, color);
+        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Bolt;
+        return root;
     }
 
     private static float EmissionRate(DamageType type)

@@ -131,7 +131,8 @@ public static class RaceSkillCatalog
     private static RaceMod M(RaceModType kind, float amount) => new RaceMod { kind = kind, amount = amount };
 
     private static SpellData MakeSpell(string raceId, string name, DamageType type, float power,
-        float fp, SpellDelivery delivery, float cooldown, float range = 10f, float radius = 1.5f)
+        float fp, SpellDelivery delivery, float cooldown, float range = 10f, float radius = 1.5f,
+        ProjectileShape shape = ProjectileShape.Auto)
     {
         var sd = ScriptableObject.CreateInstance<SpellData>();
         sd.name = "rac_" + raceId + "_" + name.ToLower().Replace(" ", "_");
@@ -145,6 +146,7 @@ public static class RaceSkillCatalog
         sd.Delivery = delivery;
         sd.Range = range;
         sd.Radius = radius;
+        sd.Shape = shape;
         return sd;
     }
 

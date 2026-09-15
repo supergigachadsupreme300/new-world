@@ -124,7 +124,8 @@ public static class ClassSkillCatalog
     private static ClassMod M(ClassModType kind, float amount) => new ClassMod { kind = kind, amount = amount };
 
     private static SpellData MakeSpell(string classId, string name, DamageType type, float power,
-        float fp, SpellDelivery delivery, float cooldown, float range = 10f, float radius = 1.5f)
+        float fp, SpellDelivery delivery, float cooldown, float range = 10f, float radius = 1.5f,
+        ProjectileShape shape = ProjectileShape.Auto)
     {
         var sd = ScriptableObject.CreateInstance<SpellData>();
         sd.name = "cls_" + classId + "_" + name.ToLower().Replace(" ", "_");
@@ -138,6 +139,7 @@ public static class ClassSkillCatalog
         sd.Delivery = delivery;
         sd.Range = range;
         sd.Radius = radius;
+        sd.Shape = shape;
         return sd;
     }
 
@@ -255,7 +257,8 @@ public static class ClassSkillCatalog
             "+4% cooldown reduction.", mods: M(ClassModType.CooldownMul, 0.04f));
         Make(list, "mage", "arc3", "Arcane Bolt", 2, false, Focus(12f), P(N("mage", "arc1")),
             "Hurl a bolt of raw arcane energy.",
-            new ClassSpellEffect { Spell = MakeSpell("mage", "Arcane Bolt", DamageType.Arcane, 26f, 12f, SpellDelivery.Projectile, 3f) });
+            new ClassSpellEffect { Spell = MakeSpell("mage", "Arcane Bolt", DamageType.Arcane, 26f, 12f, SpellDelivery.Projectile, 3f,
+                shape: ProjectileShape.Bolt) });
     }
 
     // ── Rogue ───────────────────────────────────────────────────────────────
@@ -561,7 +564,8 @@ public static class ClassSkillCatalog
             "+5% ranged handling.", mods: M(ClassModType.RangedHandlingMul, 0.05f));
         Make(list, "archer", "wi3", "Wind Shot", 2, false, Focus(8f), P(N("archer", "wi1")),
             "An arrow guided by wind force.",
-            new ClassSpellEffect { Spell = MakeSpell("archer", "Wind Shot", DamageType.Wind, 18f, 8f, SpellDelivery.Projectile, 4f) });
+            new ClassSpellEffect { Spell = MakeSpell("archer", "Wind Shot", DamageType.Wind, 18f, 8f, SpellDelivery.Projectile, 4f,
+                shape: ProjectileShape.Dart) });
 
         // Trapper — CC/zone. Goblin (+20% loot, 15% smaller hitbox), Fishmen (End+15, water theme).
         Make(list, "archer", "ho1", "Concussive Arrow", 1, false, Stamina(10f), Chain("archer"),
@@ -746,7 +750,8 @@ public static class ClassSkillCatalog
             "+6% cooldown reduction.", mods: M(ClassModType.CooldownMul, 0.06f));
         Make(list, "taoist", "qi3", "Talisman", 2, false, Focus(14f), P(N("taoist", "qi1")),
             "Channel qi into a sealing talisman bolt.",
-            new ClassSpellEffect { Spell = MakeSpell("taoist", "Talisman", DamageType.Arcane, 26f, 14f, SpellDelivery.Projectile, 6f) });
+            new ClassSpellEffect { Spell = MakeSpell("taoist", "Talisman", DamageType.Arcane, 26f, 14f, SpellDelivery.Projectile, 6f,
+                shape: ProjectileShape.Dart) });
 
         // Symbol — spell/heal. Celestial (Faith+25, healing miracles +20%), Elf (+8% XP).
         Make(list, "taoist", "sy1", "Ba Gua Symbols", 1, true, None(), Chain("taoist"),

@@ -125,7 +125,7 @@ public static partial class SkillCatalog
         bool heals = false, float knockback = 0f, float duration = 0f,
         StatusEffectType? statusEffect = null, float projectileSpeed = 20f,
         float tickInterval = 0.5f, float channelDrainPerSecond = 0f, bool selfBuff = false,
-        TerrainShape terrainShape = TerrainShape.None)
+        TerrainShape terrainShape = TerrainShape.None, ProjectileShape projectileShape = ProjectileShape.Auto)
     {
         var spell = ScriptableObject.CreateInstance<SpellData>();
         spell.name = spellId;
@@ -147,6 +147,7 @@ public static partial class SkillCatalog
         spell.Knockback = knockback;
         spell.SelfBuff = selfBuff;
         spell.TerrainShape = terrainShape;
+        spell.Shape = projectileShape;
         spell.AppliesStatus = statusEffect.HasValue;
         spell.StatusEffect = statusEffect ?? default;
         return new SpellCastEffect { Spell = spell };
@@ -223,7 +224,7 @@ public static partial class SkillCatalog
             null, "Launch a fireball that burns the target.");
         Add(list, "magic_frostbolt", "Frost Bolt", SkillType.Magic, false, Focus(13f), true, DamageType.Ice,
             Spell("magic_frostbolt_spell", "Frost Bolt", DamageType.Ice, 22f, 13f, SpellDelivery.Projectile, 4f,
-                statusEffect: StatusEffectType.Frost),
+                statusEffect: StatusEffectType.Frost, projectileShape: ProjectileShape.Bolt),
             null, "Launch a freezing bolt that chills the target.");
         // Lightning line (§4.8): Storm Focus roots the lightning school as its OWN element now.
         // Chain Lightning is no longer a Fireball offshoot — it hangs from a dedicated lightning root.
@@ -231,7 +232,7 @@ public static partial class SkillCatalog
             Buff(StatType.Intelligence, 3f), null, "Permanent +3 Intelligence (max FP), enfolding the storm.");
         Add(list, "magic_chain", "Chain Lightning", SkillType.Magic, false, Focus(20f), true, DamageType.Lightning,
             Spell("magic_chain_spell", "Chain Lightning", DamageType.Lightning, 28f, 20f, SpellDelivery.Projectile, 5f,
-                statusEffect: StatusEffectType.Stagger),
+                statusEffect: StatusEffectType.Stagger, projectileShape: ProjectileShape.Bolt),
             P("magic_lightning"), "Electric blast that staggers foes (requires Storm Focus).");
         Add(list, "magic_heal", "Lesser Heal", SkillType.Magic, false, Focus(10f), false, DamageType.Holy,
             Spell("magic_heal_spell", "Lesser Heal", DamageType.Holy, 15f, 10f, SpellDelivery.Instant, 0f,
@@ -243,7 +244,7 @@ public static partial class SkillCatalog
             P("magic_arcane"), "A protective arcane wave that shoves foes back.");
         Add(list, "magic_dark", "Dark Bolt", SkillType.Magic, false, Focus(14f), true, DamageType.Dark,
             Spell("magic_dark_spell", "Dark Bolt", DamageType.Dark, 24f, 14f, SpellDelivery.Projectile, 4f,
-                statusEffect: StatusEffectType.Rot),
+                statusEffect: StatusEffectType.Rot, projectileShape: ProjectileShape.Bolt),
             null, "Fire a shadow bolt that rots the target.");
         Add(list, "magic_blizzard", "Blizzard", SkillType.Magic, false, Focus(28f), true, DamageType.Ice,
             Spell("magic_blizzard_spell", "Blizzard", DamageType.Ice, 22f, 28f, SpellDelivery.Storm, 6f,
@@ -261,7 +262,7 @@ public static partial class SkillCatalog
             null, "A blast of wind that scatters nearby foes.");
         Add(list, "magic_windblade", "Wind Blade", SkillType.Magic, false, Focus(15f), true, DamageType.Wind,
             Spell("magic_windblade_spell", "Wind Blade", DamageType.Wind, 18f, 15f, SpellDelivery.Projectile, 4f,
-                deliveryRadius: 1.2f, knockback: 1f),
+                deliveryRadius: 1.2f, knockback: 1f, projectileShape: ProjectileShape.Blade),
             P("magic_gust"), "Hurl a razor-sharp blade of wind (requires Wind Gust).");
         Add(list, "magic_gale", "Gale Force", SkillType.Magic, false, Focus(22f), true, DamageType.Wind,
             Spell("magic_gale_spell", "Gale Force", DamageType.Wind, 24f, 22f, SpellDelivery.Zone, 6f,
@@ -282,14 +283,15 @@ public static partial class SkillCatalog
         // mist zone, and healing spring (water as life). No terrain reshaping — that is Earth's.
         Add(list, "magic_water", "Water Bolt", SkillType.Magic, false, Focus(14f), true, DamageType.Water,
             Spell("magic_water_spell", "Water Bolt", DamageType.Water, 22f, 13f, SpellDelivery.Projectile, 4f,
-                statusEffect: StatusEffectType.Wet),
+                statusEffect: StatusEffectType.Wet, projectileShape: ProjectileShape.Bolt),
             null, "Launch a splash that soaks and slows the target.");
 
         // Earth school (§3.7): Stone Shard roots the school. Earth spells carry NO status effect —
         // they hit like falling rock (heavy knockback) and reshape the ground itself
         // (TerrainShape, via TerrainDeformer): rings that circle the impact, spikes that erupt.
         Add(list, "magic_earth", "Stone Shard", SkillType.Magic, false, Focus(15f), true, DamageType.Earth,
-            Spell("magic_earth_spell", "Stone Shard", DamageType.Earth, 26f, 15f, SpellDelivery.Projectile, 4f),
+            Spell("magic_earth_spell", "Stone Shard", DamageType.Earth, 26f, 15f, SpellDelivery.Projectile, 4f,
+                projectileShape: ProjectileShape.Shard),
             null, "Hurl a shard of living stone.");
     }
 
