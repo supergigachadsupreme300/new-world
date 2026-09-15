@@ -95,6 +95,15 @@ public class WorldStreamer : MonoBehaviour
         int radius = RenderDistance != null ? RenderDistance.Radius : 3;
         TerrainChunkCoord centre = TerrainChunkCoord.FromWorld(_focus.position);
 
+        // TEMP DEBUG (map-not-generating): report the pump state once per poll tick.
+        Debug.Log("[WS-DEBUG] pump focus=" + _focus.position + " radius=" + radius
+            + " centre=" + centre
+            + " pending=" + _pendingChunks.Count
+            + " order=" + _chunkDispatchOrder.Count
+            + " inFlight=" + _chunksInFlight.Count
+            + " ready=" + _readyChunks.Count
+            + " loaded=" + _loadedChunks.Count);
+
         StreamAround(centre, radius);
         DispatchPending();
         FinalizeChunks();
@@ -224,7 +233,10 @@ public class WorldStreamer : MonoBehaviour
     {
         try
         {
+            // TEMP DEBUG (map-not-generating): confirm each background job is entered + finished.
+            Debug.Log("[WS-DEBUG] bg start " + tc);
             _readyChunks.Enqueue(BuildOrLoadChunk(tc, seed));
+            Debug.Log("[WS-DEBUG] bg done " + tc);
         }
         catch (System.Exception ex)
         {
