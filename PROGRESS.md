@@ -1,11 +1,54 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-14. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). An **optimization sweep** is in progress —
-see the `1ag`+ sections on top of §1 and `OPTIMIZATION.md` for the full plan.
+Last updated: 2026-09-15. Read this first in a new session; then continue with the
+`# OPEN TASKS` section (especially the axe/pickaxe bug). The **optimization sweep** ran Phases 0-5
+(`1ag`-`1al` below); the sweep's planning doc (`OPTIMIZATION.md`) was retired once Phases 0-5 shipped —
+only **Phase 6 / startup** (#17, #18) remains open, recorded under OPEN TASKS. Legacy working plans
+(`PLAN.md`, `PLAN-class-skill-trees.md`, `planning.md`) were deleted; `game-design.md` is the single
+durable design reference.
 
-Companion docs: `PLAN.md`, `PLAN-class-skill-trees.md`, `planning.md`, `game-design.md`,
-`OPTIMIZATION.md` (optimization plan + phase status).
+Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
+
+---
+## # OPEN TASKS
+
+- **Axe/pickaxe bug** (from earlier sessions) — still open; see older entries below.
+- **Optimization Phase 6 — startup (#17, #18)** (the old `OPTIMIZATION.md` carried the detail):
+  - **#17** — `Core/GameBootstrap.cs:15-80` runs ~30 full-scene `FindAnyObjectByType` scans and
+    initializes all managers synchronously. Fix: a registry to cache the lookups; split init across
+    frames.
+  - **#18** — `GameBootstrap.cs:107` + `Opt/NewWorldTestGround.cs:237-246`: boot spawn-chunk build is
+    synchronous and the platform snap re-samples 61×61=3,721 noise points. Fix: reuse the spawn-chunk
+    corners for the platform snap.
+
+---
+## 1an. Doc consolidation — retired finished plans, folded Phase 6 into OPEN TASKS, synced game-design
+
+Follow-up housekeeping requested by the user: delete planning documents that have no remaining use now
+that the work they planned is shipped, and refresh `game-design.md` so it stays the single durable
+design reference.
+
+- **Deleted** (completed/superseded working plans, per user request):
+  - `OPTIMIZATION.md` — the 6-phase audit/tracking sheet. Phases 0-5 shipped (`1ag`-`1al`); the last
+    open item, **startup Phase 6 (#17/#18)**, was first folded into `PROGRESS.md` `# OPEN TASKS`
+    (above) so no actionable detail is lost.
+  - `PLAN.md` — the UI/polish/one-giant-skill-tree batch plan; all batches shipped/pushed.
+  - `PLAN-class-skill-trees.md` — class/race radial trees plan; shipped (§3.2.1 in game-design).
+  - `planning.md` — the original 10-Phase implementation roadmap; superseded by PROGRESS.md.
+- **`game-design.md` updated** to match implemented behavior:
+  - **§2.6 Chunk Persistence** — rewritten for the terrain-chunk save format: per-terrain-chunk files
+    `worlds/{seed}/tc_{x}_{z}.dat` (`"NWTC"` magic) storing only **locally deformed tiles**
+    (`ChunkTileMod`: local coords + 4 heights), loaded via `TryLoadChunk` and re-filling deformed
+    corners before noise-filling pristine ones; dirty tiles flush batched per chunk (default
+    synchronous one-write-per-cast).
+  - **§9.1 Engine** — Unity 2022 LTS → **Unity 6 (6000.x)**, URP; notes `GetInstanceID`→`GetEntityId`.
+  - **§9.3 Save System** — chunk files: `tc_{x}_{z}.dat` per terrain chunk, deformed-tiles only.
+
+### 1an-status
+- No CLI build — docs only. Verified: no remaining references to the deleted docs in `AGENTS.md` /
+  `PROGRESS.md` / `game-design.md` (grep for `OPTIMIZATION.md`, `PLAN.md`, `planning.md` returns no
+  roots outside stale PROGRESS history entries).
+- Play-test: none needed (no gameplay code touched).
 
 ---
 ## 1am. Unity 6 compile fix — GetInstanceID → GetEntityId + OverlapBoxNonAlloc arg order

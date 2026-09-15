@@ -86,11 +86,15 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
 
 ### 2.6 Chunk Persistence (File Caching)
 
-- Each chunk saved as an individual file: `worlds/{seed}/chunk_{x}_{z}.dat`
-- File contains: 5 vertex heights, terrain metadata, any modifications (damage, built structures).
-- On first load: generate from noise → save to disk.
-- On subsequent loads: read from disk (fast).
-- Player modifications (terrain deformation, placed objects) are delta-patched into the chunk file.
+- Deformations are saved **per terrain chunk** (`30×30` local tiles) as a single binary file:
+  `worlds/{seed}/tc_{x}_{z}.dat` (magic `"NWTC"`).
+- A file stores only **locally deformed tiles** (`ChunkTileMod`: local coords + 4 corner heights),
+  never pristine terrain. On load (`TryLoadChunk`) deformed corners restore their saved heights
+  before noise-filling pristine corners — so un-modified chunks stay fully deterministic from the
+  seed and only edited areas consume disk/IO.
+- Dirty tiles record at **mark-time** (no IO); each chunk's accumulated tiles flush **batched** into
+  one file write (default synchronous, one write per chunk per cast; unload and shutdown also flush).
+- Player modifications (terrain deformation) are delta-patched into the chunk file on flush.
 
 ---
 
@@ -1061,7 +1065,9 @@ Generated from noise layers, each biome has unique terrain characteristics:
 
 ### 9.1 Engine
 
-- Unity 2022 LTS or newer
+- **Unity 6** (6000.x, 2026) — the project was migrated from Unity 2022; Unity 6 changes already
+  absorbed: `Object.GetEntityId()` replaces the now-obsolete `GetInstanceID()`, and
+  `Physics.OverlapBoxNonAlloc` takes the results buffer before the orientation.
 - Universal Render Pipeline (URP) for performance
 - Dedicated server framework (Netcode structure)
 
@@ -1075,7 +1081,8 @@ Generated from noise layers, each biome has unique terrain characteristics:
 
 ### 9.3 Save System
 
-- Chunks: individual .dat files per chunk (binary format)
+- Chunks: one binary `.dat` per terrain chunk (`worlds/{seed}/tc_{x}_{z}.dat`), storing only
+  locally-deformed tiles (§2.6)
 - Player: JSON save file (stats, inventory, position, skills, world flags)
 - Server: authoritative world state stored server-side
 
