@@ -22,6 +22,33 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
     corners for the platform snap.
 
 ---
+## 1aq. Add `magic-skills.md` — full generated list of all magic tree skills + SpellDelivery reference
+
+User asked: "make a list of all the spell and their function, i'll tell you what need to be redo" —
+scoped down to "only all the magic skills and put em in a file, also list me what deas delivery do".
+Since the magic tree is huge (18 roots + ~400 L1/L2 branch nodes in `SkillCatalog.Magic.cs`, hand
+transcription would be error-prone), a PowerShell generator script parses the skill files and emits
+the listing into a new repo file `magic-skills.md`.
+
+- `magic-skills.md` (repo root) contains: (1) **SpellDeliveries** reference — what each of the 7
+  `SpellDelivery` values does (Instant / Projectile / Zone / Vortex / Beam / Summon / Storm), resolved
+  from `SpellCaster.Execute`/`ResolveZone`; (2) **Base skills (roots)** table — all 18 base magic
+  skills with passive/active, school, power/FP/cooldown/range/radius/status detail and description;
+  (3) **Tree branches** — every L1 branch (and its L2 children, indented) parsed from the
+  `bank.L1[...]` / `bank.L2[...]` branch tables, plus `A("id")` authoring refs to base skills.
+- Generator lives at `C:\Users\antic\AppData\Local\Temp\opencode\gen-magic-list.ps1` (ASCII-safe;
+  regenerable). No game code changed — `game-design.md` unaffected.
+- Parsing verified by spot-checking generated rows against source lines (Fireball 25 power ✓, Holy
+  Light zone/heal ✓, Storm Breath beam with drain 8 ✓, Tremor `terrain:Ring` ✓) and by counts (5
+  authoring refs across the tree ✓).
+
+### 1aq-status
+- No CLI build — generator output verified by code review (read of `magic-skills.md`, spot-checked
+  against `SkillCatalog.cs`/`SkillCatalog.Magic.cs` source lines).
+- Play-test after review: user reviews `magic-skills.md` and tells us which magic skills / deliveries
+  to redo.
+
+---
 ## 1ap. Fix: talents list overlays the General skill tree on first open (TalentsView never hidden)
 
 Bug: the player reported "the talent appears in the general skill tree". Root cause:
