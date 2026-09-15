@@ -47,18 +47,39 @@ public static class ChunkSaveManager
     private const int CurrentVersion = 1;
     private static readonly byte[] Magic = { (byte)'N', (byte)'W', (byte)'T', (byte)'C' };
 
+    /// <summary>Chunk save-path cache. <see cref="Application.persistentDataPath"/> is
+    /// main-thread-only in modern Unity, but chunk generation resolves the file path on the
+    /// background threads — so the path is captured once on the main thread (see <see cref="Warmup"/>)
+    /// and background threads only read this cached string.</summary>
+    private static string _cachedBaseDir;
+
+    /// <summary>Root base directory for all saved worlds (persistent storage).</summary>
+    public static string BaseDir
+    {
+        get
+        {
+            if (_cachedBaseDir == null)
+                _cachedBaseDir = Path.Combine(Application.persistentDataPath, ChunkKey.WorldsRoot);
+            return _cachedBaseDir;
+        }
+    }
+
+    /// <summary>
+    /// Populate the <see cref="BaseDir"/> cache on the main thread. MUST be called before any
+    /// background-thread chunk generation reads a file (WorldStreamer does this in Awake); worker
+    /// threads never touch <see cref="Application"/> APIs.
+    /// </summary>
+    public static void Warmup()
+    {
+        _ = BaseDir;
+    }
+
     /// <summary>
     /// If true, deformation flushes dirty tiles to disk immediately (batched per terrain chunk,
     /// so a cast writes 1-2 files, not 250+), which is the safe default. When false the write is
     /// deferred until the chunk unloads or the world closes.
     /// </summary>
     public static bool SynchronousWrites = true;
-
-    /// <summary>Root base directory for all saved worlds (persistent storage).</summary>
-    public static string BaseDir
-    {
-        get { return Path.Combine(Application.persistentDataPath, ChunkKey.WorldsRoot); }
-    }
 
     /// <summary>Full path of a terrain chunk's save file.</summary>
     public static string ChunkFilePath(long seed, TerrainChunkCoord tc)

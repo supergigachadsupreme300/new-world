@@ -95,6 +95,9 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
 - Dirty tiles record at **mark-time** (no IO); each chunk's accumulated tiles flush **batched** into
   one file write (default synchronous, one write per chunk per cast; unload and shutdown also flush).
 - Player modifications (terrain deformation) are delta-patched into the chunk file on flush.
+- The save path is **captured once on the main thread** (`ChunkSaveManager.Warmup`, called by
+  `WorldStreamer.Awake`): `Application.persistentDataPath` is main-thread-only in Unity 6, but chunk
+  generation resolves the file path on background threads — they read the cached string only.
 
 ---
 

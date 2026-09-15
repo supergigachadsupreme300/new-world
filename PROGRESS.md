@@ -22,7 +22,34 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
     corners for the platform snap.
 
 ---
-## 1an. Doc consolidation — retired finished plans, folded Phase 6 into OPEN TASKS, synced game-design
+## 1ao. Fix: map not generating — background chunk gen hit main-thread-only Application.persistentDataPath
+
+Regression introduced by Phase 4 (`1ak`): `BuildOrLoadChunk` now calls `ChunkSaveManager.TryLoadChunk`
+on the **background** generation threads, and `TryLoadChunk` → `ChunkFilePath` → `BaseDir` →
+`Application.persistentDataPath` — which is **main-thread-only**. Every background chunk job threw
+`get_persistentDataPath can only be called from the main thread` (caught, logged as a warning), so the
+async pump produced nothing: only the synchronous main-thread boot chunk (`TerrainChunk_0_-1`) ever
+spawned and the world was a void (no red errors, hence "no errors at all").
+
+- **Diagnosed** with temporary `WorldStreamer` pump + background-job logging (commit `d970076`): the
+  pump, dispatch, and finalize were healthy; the console showed the background warning with the
+  `persistentDataPath` exception stack → root cause locked.
+- **Fix** (`World/Chunks/ChunkSaveManager.cs`): `BaseDir` is now computed from
+  `Application.persistentDataPath` **once** into a cached static string; new `Warmup()` populates it.
+  `WorldStreamer.Awake()` calls `ChunkSaveManager.Warmup()` on the main thread before the first
+  background dispatch, so worker threads only ever read the cached path. Debug logs removed.
+
+### 1ao-status
+- No CLI build — code-review verified (both touched files brace-balanced; grep confirms the **only**
+  remaining `Application.` access in the world path is the cached warmup; `BackgroundGenerateChunk`'s
+  try/catch keeps its warning for genuine failures). The prior debug commit `d970076` was superseded by
+  this fix commit (debug lines removed in this entry's files).
+- Play-test items: (1) boot → surrounding terrain should stream in around the player within ~1.5s
+  (not just the boot chunk); (2) walk away and back → chunks persist/unload/reload, deformed areas
+  still restore from `tc_{x}_{z}.dat`; (3) no `[WorldStreamer] Background chunk generation failed`
+  warnings in the console.
+
+---
 
 Follow-up housekeeping requested by the user: delete planning documents that have no remaining use now
 that the work they planned is shipped, and refresh `game-design.md` so it stays the single durable
