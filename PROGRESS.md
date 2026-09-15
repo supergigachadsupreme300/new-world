@@ -22,6 +22,23 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
     corners for the platform snap.
 
 ---
+## 1as. Fix MagicTestMatrix compile error (CS1106 + corrupted text)
+
+`MagicTestMatrix.cs` did not compile: CS1106 "Extension method must be defined in a non-generic static
+class" because `AsRect(this Transform t)` was an extension method inside a non-static MonoBehaviour;
+the file also carried two corrupted snippets (`returnauthors;` on the mobile early-out and stray
+`在全` characters on `_built = true;`, plus a `Executecast` mis-capitalization).
+
+- **`MagicTestMatrix.cs`**: `AsRect` is now a plain static helper (called as `AsRect(viewport.transform)`
+  instead of `.AsRect()`); `returnauthors;` → `return;`; `_built = true在全;` → `_built = true;`;
+  `Executecast` → `ExecuteCast`. No behavior change.
+
+### 1as-status
+- No CLI build — verified by code review: no extension methods remain in the non-static class and the
+  corrupted tokens are gone. Pending user play-test (Alt → magic matrix opens/scrolls, cast a spell).
+- No `game-design.md` change: matrix behavior unchanged (design doc has no matrix reference).
+
+---
 ## 1ar. Redo projectiles as named shapes — every spell's projectile looks like its name
 
 Follow-up on `1aq` review: user said projectiles should stop being same-colored balls — "bolt is the

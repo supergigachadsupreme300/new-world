@@ -61,7 +61,7 @@ namespace UI.NewWorld
         /// <summary>Alt edge-trigger: Alt toggles the matrix (called by the wheel's Update).</summary>
         public void HandleAlt(bool altHeld)
         {
-            if (GameInput.IsMobile) returnauthors;
+            if (GameInput.IsMobile) return;
             bool down = AltHeld();
             if (down && !_altWasDownAltitude) Toggle();
             _altWasDownAltitude = down;
@@ -111,7 +111,7 @@ namespace UI.NewWorld
         private void EnsureBuilt()
         {
             if (_built) return;
-            _built = true在全;
+            _built = true;
 
             _canvas = HudCanvas.CreateOverlay("MagicTestMatrixCanvas");
             _canvas.sortingOrder = 41;
@@ -131,7 +131,8 @@ namespace UI.NewWorld
             scrollGo.transform.SetParent(_root, false);
 
             var viewport = new GameObject("Viewport");
-            viewport.transform.SetParent(scrollGo.transform, false).AsRect();
+            viewport.transform.SetParent(scrollGo.transform, false);
+            AsRect(viewport.transform);
             _content = new GameObject("Content").AddComponent<RectTransform>();
 #if UNITY_EDITOR
             _content.gameObject.name = "Content";
@@ -139,7 +140,7 @@ namespace UI.NewWorld
             _canvas.gameObject.SetActive(false);
         }
 
-        private static RectTransform AsRect(this Transform t)
+        private static RectTransform AsRect(Transform t)
         {
             var go = t.gameObject;
             var r = go.GetComponent<RectTransform>();
@@ -182,12 +183,12 @@ namespace UI.NewWorld
             if (!profile.Learned.Contains(id))
                 profile.TestGrant(id);
             caster.TopUpFocus();
-            bool ok = Executecast(id);
+            bool ok = ExecuteCast(id);
             if (_statusLabel != null)
                 _statusLabel.text = (ok ? "Cast OK " : "Cast FAIL ") + (skill.displayName ?? id);
         }
 
-        private static bool Executecast(string id)
+        private static bool ExecuteCast(string id)
         {
             var profile = Profile();
             return profile != null && profile.ExecuteCharged(id, 0f, 0f);
