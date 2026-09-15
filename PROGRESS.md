@@ -22,6 +22,29 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
     corners for the platform snap.
 
 ---
+## 1av. Fix MagicTestMatrix's remaining compile errors (namespace, Keyboard, LINQ)
+
+Follow-up on `1as`: three more CS errors in `MagicTestMatrix.cs`. The file was the only one in
+`Assets/Scripts/UI/NewWorld` wrapped in `namespace UI.NewWorld` — every sibling (incl.
+`MagicWheelUI`, which calls `MagicTestMatrix.Ensure()`) lives in the global namespace, so the matrix
+was invisible from the wheel (`CS0103`). It also used `Keyboard` without
+`using UnityEngine.InputSystem;` (`CS0103`) and `profile.Learned.Contains(...)` on an
+`IEnumerable<string>` without `using System.Linq;` (`CS1061`).
+
+- **`MagicTestMatrix.cs`**: dropped the `namespace UI.NewWorld { }` wrapper (matrix now global like
+  the rest of the folder); added `using UnityEngine.InputSystem;` for `Keyboard.current`;
+  `profile.Learned.Contains(id)` → `profile.HasLearned(id)` (exact-set method on `SkillProfile`, no
+  LINQ needed). Still no behavior change.
+
+### 1av-status
+- No CLI build — verified by code review: namespace wrapper removed (grep shows zero remaining
+  `UI.NewWorld` references), `Keyboard` import present, `HasLearned(string)` exists at
+  `SkillProfile.cs:185`, `SkillCatalog.Find` / `HudCanvas.CreateOverlay` / `TestGrant` /
+  `TopUpFocus` / `ExecuteCharged` all resolved in the global namespace. Pending play-test: Alt opens
+  the matrix and a row cast works.
+- No `game-design.md` change: matrix behavior unchanged.
+
+---
 ## 1as. Fix MagicTestMatrix compile error (CS1106 + corrupted text)
 
 `MagicTestMatrix.cs` did not compile: CS1106 "Extension method must be defined in a non-generic static
