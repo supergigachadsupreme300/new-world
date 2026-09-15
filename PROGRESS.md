@@ -67,6 +67,33 @@ event's `RandomEventManager.SpawnJaggedBolt`, colored per element instead of bei
   spear tiers read distinct.
 
 ---
+## 1au. Projectile trajectory now launches from the center of the casting circle
+
+Play-test feedback on `1at` (missile homing): "the trajectory is not at the center of the magic
+circle". The magic circle halo `CastingCircle` anchors to the magic rig/hand (`MagicHand`), and
+`CastOrigin` is the same rig object, so the origin point already matched — the break was a hardcoded
+**vertical lift**: `SpellCaster.FireProjectile` spawned projectiles at `pos + fwd·0.5 + Vector3.up·0.3`
+and `PlayerController.UpdatePathPreview` drew the aim path from the same lifted point. That raised the
+whole flight line ~0.3 above the halo's center plane, so the trajectory visually missed the circle's
+heart.
+
+- **`SpellCaster.FireProjectile`**: spawn is now just `pos + fwd * 0.5f` — on the aim line, no lift —
+  so the trajectory passes through the casting circle's center. Self/terrain clearance stays safe via
+  the `SpellEffect` caster-root skip + the small constant ground probe.
+- **`PlayerController.UpdatePathPreview`**: the projectile path preview uses the same origin math
+  (`pos + fwd * 0.5f`), keeping the pre-cast ray and the actual launch aligned (#1 preview-vs-fire
+  drift fixed too).
+- `game-design.md` "Charging & Casting Circle" notes the launch-from-center rule and the shared
+  origin math.
+
+### 1au-status
+- No CLI build — verified by code review: rig == hand == CastOrigin == CastingCircle anchor confirmed
+  in `WeaponRigBuilder` (weapon `go` becomes `combat.RightHand`, `magic.CastOrigin = go.transform`);
+  both `FireProjectile` and `UpdatePathPreview` now use `pos + fwd*0.5f` (no `+Vector3.up*0.3f`).
+- Play-test after review: aim a projectile spell (Arcane Missiles / Frost Bolt / Fireball) and confirm
+  the path preview ray starts at the halo's center and the fired missile leaves from that same point.
+
+---
 ## 1at. Missile homing follow-up: "raycast" meant the trajectory — prioritization is now per-frame along the flight path
 
 User clarified `1as`: "when i said raycast i meant trajectory". The one-shot aim-line lock was the

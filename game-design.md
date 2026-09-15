@@ -664,6 +664,10 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   Releasing the cast pops a one-shot expanding ring at the weapon. (`CastingCircle.cs`, driven by
   `PlayerController`; split aim → charge → release is used by both magic and ranged.) Unarmed casts
   still play a plain hand glow instead of the halo.
+- Projectile spells launch **from the casting circle's center**: the spawn point sits on the aim line
+  at the rig/hand origin (a small forward muzzle offset only, no vertical lift), so the flight
+  trajectory passes through the circle's heart. The pre-cast **path preview** mirrors the exact launch
+  (`SpellCaster.FireProjectile` ↔ `PlayerController.UpdatePathPreview` share the same origin math).
 - Zone/vortex spells additionally show a **ground AoE preview** ring that also grows with charge.
 - Projectile deliveries (magic **projectile** spells, and ranged draws — regular and per-hand dual) show a
   **flight-path cone** while charging: a stack of translucent rings from the hand along the aim line that

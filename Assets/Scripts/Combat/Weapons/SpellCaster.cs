@@ -440,9 +440,12 @@ public class SpellCaster : MonoBehaviour
 
     private DamageResult FireProjectile(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale)
     {
-        // Spawn clear of the caster's body (mirrors the ranged Muzzle offset) so the bolt does
-        // not clip the player's own collider or the terrain at the hand level on its first step.
-        pos += fwd * 0.5f + Vector3.up * 0.3f;
+        // Spawn on the aim line only (no vertical lift) so the trajectory passes through the
+        // casting circle's center (the circle is anchored on the same origin as this cast).
+        // The small forward muzzle offset mirrors the ranged Muzzle and keeps the bolt clear of
+        // the caster's own collider; the SpellEffect's caster-root skip and ground probe handle
+        // self/terrain contacts from there.
+        pos += fwd * 0.5f;
         GameObject go;
         if (spell.CastEffectPrefab != null)
         {

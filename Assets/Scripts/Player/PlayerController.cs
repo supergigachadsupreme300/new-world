@@ -1430,7 +1430,7 @@ public class PlayerController : MonoBehaviour, IHealable
 
             float c = Mathf.Clamp01(charge);
             float reach = Mathf.Max(armedSpell.ProjectileSpeed, 1f) * 4f; // SpellEffect flight envelope
-            PathPreview().Show(pos + fwd * 0.5f + Vector3.up * 0.3f, fwd, reach,
+            PathPreview().Show(pos + fwd * 0.5f, fwd, reach,
                 8f * (1f - c), DamageNumber.ColorFor(armedSpell.Type), transform);
             return;
         }
