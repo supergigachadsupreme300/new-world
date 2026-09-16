@@ -227,6 +227,10 @@ public static class WeaponRigBuilder
     /// <summary>Sideways cant (°) for the drawn melee blade. 0 = blade upright next to the hand.</summary>
     public const float DrawHoldYaw = 90f;
 
+    /// <summary>Roll (°) off vertical for the drawn held blade/staff — leans the length in the hand
+    /// the same way the sword reads, instead of hanging dead-vertical.</summary>
+    public const float DrawHoldCant = 30f;
+
     /// <summary>Model-space height of the grip (handle) used as the draw-rotation pivot.</summary>
     public const float HandlePivotY = 0.15f;
 
@@ -287,7 +291,14 @@ public static class WeaponRigBuilder
         if (weapon != null && weapon.id == WeaponCatalog.FistWeaponId)
             return (new Vector3(0f, 0.05f, 0.12f), Quaternion.identity);
         if (weapon != null && weapon.Category == WeaponCategory.Magic)
+        {
+            // The staff grips like the sword: same yaw + roll in the fist so its raisable length
+            // reads at the sword's angle rather than hanging dead-vertical off the hand. Other
+            // focuses (book / wand / orb / lute) keep their own natural hold.
+            if (weapon.id == "staff")
+                return (new Vector3(side * 0.1f, -0.35f, 0f), Quaternion.Euler(WeaponHoldForwardLean, DrawHoldYaw, DrawHoldCant));
             return (new Vector3(side * 0.1f, -0.35f, 0f), Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f));
+        }
         if (weapon != null && weapon.Category == WeaponCategory.Shield)
         {
             // Shield sits flat on the forearm, face pointing forward (+Z is the shield's face
@@ -298,7 +309,7 @@ public static class WeaponRigBuilder
         {
             // Upright blade (no sideways yaw), rotated about the handle pivot rather than the rig
             // root so a bend stays anchored in the grip, and pushed slightly forward.
-            Quaternion rot = Quaternion.Euler(WeaponHoldForwardLean, DrawHoldYaw, 30f);
+            Quaternion rot = Quaternion.Euler(WeaponHoldForwardLean, DrawHoldYaw, DrawHoldCant);
             Vector3 pivot = new Vector3(0f, HandlePivotY, 0f);
             Vector3 basePos = new Vector3(side * 0.1f, -1.0f, DrawForward);
             Vector3 pos = basePos - (rot * pivot) + pivot;

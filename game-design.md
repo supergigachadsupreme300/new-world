@@ -503,6 +503,11 @@ keyframed pose tracks driving the arm pivots — "the animation pack lives on th
 - **Attack set** — the windup → strike → recover limb pose-tracks per weapon (slash / jab / bash
   chains, e.g. the sword's 4-swing set, the shield's bash set). The arms are owned during the swing
   (`PlayerAnimator.SuppressArms`) and restored to rest on recovery.
+- **Drawn hold pose** — the rest pose of a drawn weapon (the rotation from
+  `WeaponRigBuilder.DrawPoseFor`). One-hand blades **and the staff** share one angle in the fist:
+  90° yaw so the length reads side-on to the camera plus a 30° off-vertical cant, so the staff grips
+  exactly like the sword rather than hanging dead-vertical. Other magic focuses (book / wand / orb /
+  lute) keep their own natural upright hold at a short grip-height below the hand.
 - **Defense set (guard)** — holding RMB (block) eases the arms into a held guard pose
   (`PlayGuard` / `EndGuard`, ~0.18 s grab-in) that stays raised while blocking:
   - **Shields** raise the shield face up in front — the cover stance.

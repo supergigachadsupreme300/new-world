@@ -22,6 +22,32 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
     corners for the platform snap.
 
 ---
+## 1ax. Staff now grips at the sword's angle (same drawn hold pose)
+
+Play-test feedback on the held magic staff: it hung dead-vertical off the hand while a sword in the
+same hand reads side-on with a slight cant. The staff (Magic category, id `staff`) now uses the
+**exact same drawn-hold rotation as the sword** — `Quaternion.Euler(WeaponHoldForwardLean,
+DrawHoldYaw, DrawHoldCant)` (90° yaw so the length reads side-on to the camera + 30° roll cant) —
+instead of `Euler(0, 0, 0)`. Other magic focuses (book / wand / orb / lute) keep their own natural
+upright hold.
+
+- **`WeaponRigBuilder.cs`**: new `DrawHoldCant = 30f` constant (the melee blade's off-vertical roll,
+  previously an inline `30f` in the melee draw pose) so sword and staff share one angle source of
+  truth. The melee branch now references `DrawHoldCant`; the staff branch returns the sword's
+  rotation for its drawn pose (still at its short magic grip-height position, `y = -0.35` — only the
+  *angle* changes).
+- **`game-design.md`**: §3.6 Visuals gains a "drawn hold pose" note — the staff grips like the sword
+  (same yaw + cant), other magic focuses stay upright.
+
+### 1ax-status
+- No CLI build — verified by code review: both the staff and melee branches now emit the identical
+  `Quaternion.Euler(WeaponHoldForwardLean, DrawHoldYaw, DrawHoldCant)`, `DrawHoldCant` is referenced
+  by both (no stale inline `30f`), and the staff keeps its `y = -0.35` grip near the fist.
+- Play-test after review: equip the Mage's Staff and draw it — the length should lean/cant exactly
+  like the sword's blade in the same hand, not hang vertical; book/wand/orb should still hold
+  upright (unchanged branch).
+
+---
 ## 1aw. Shield skill category — the shield tree is its own 7th skill category (bash/guard/counter)
 
 The shield tree (root `shield_bash`, 5 branches, 25 children) was split out of Melee so the shield
