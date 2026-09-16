@@ -22,6 +22,54 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
     corners for the arena ground height sample.
 ---
 
+## 1bc. Signature statuses are now guaranteed per magic element — Ice→Chill, Dark→Blind, Arcane→none
+
+User: "add status condition for each magic element attack" → then refined the mapping: **Ice→Chill,
+Lightning keeps Stun (Stagger), Dark→Blind, Arcane→no status** (Fire→Burn and Water→Wet unchanged).
+Every magic attack of an element with a signature now applies it automatically on hit, even when the
+skill declares no explicit status (a per-skill `statusEffect:` still overrides the default).
+
+- **`ElementSignatureStatus.cs`** (new) — the single source of truth: Fire→Burn, Ice→Chill,
+  Lightning→Stagger, Dark→Blind, Water→Wet, everything else (Arcane, Wind, Earth, Holy, Physical)
+  → null (no automatic status).
+- **`StatusEffectType.cs`** — adds **`Chill`** (light cold, the Ice signature) and **`Blind`**
+  (black-fog); `Frost` is kept as the heavier full-freeze status (the literal Freeze / Deep Freeze
+  spells), `Stagger` stays the Lightning stun, `Rot` remains defined but is no longer Dark's default.
+- **`BlindStatus.cs`** (new) — attaches to the victim's root: a semi-transparent black fog dome
+  follows the character for the duration; when the victim is the local player the fog hugs the main
+  camera instead, visibly cutting their field of vision (only that player sees it).
+- **`SpellCaster.ApplyStatus`** — resolves the effective status as explicit `spell.StatusEffect`
+  when the skill declares one, otherwise `ElementSignatureStatus.For(spell.Type)`; the old
+  `!spell.AppliesStatus → return` gate is gone so the signature flows to every delivery.
+  Switch gains `Chill` (`ApplySlow(0.25, 2.5)`), `Frost` heavier (`ApplySlow(0.5, 3.5)`), and
+  `Blind` (`BlindStatus.Apply`, 4s). `StatusProcChance` gate unchanged.
+- **Swept the existing schools** so the new identity actually shows in-game: Ice spells
+  (Frost Bolt, Blizzard, Chill Touch, Chill Soul, Frost Bite, Frost Obelisk, Cold Stare)
+  Frost→Chill while **Freeze** and **Deep Freeze** (was Stagger) now use the heavier **Frost**;
+  Dark spells (Dark Bolt, Void Rend, Devour, Shadow Totem, Consume, Hunger, Eclipse) Rot→**Blind**
+  with "rot" flavor text updated; Arcane spells (Arcane Bind, Shackles, Hold) dropped their
+  **Stagger** so Arcane is pure force.
+- **Docs** — `game-design.md` §3.7 (status table gains Chill + Blind rows, the signature paragraph
+  now states statuses are automatically applied per element with explicit overrides; Fire→Burn,
+  Ice→Chill, Lightning→Stun, Dark→Blind, Water→Wet, Arcane→none, Wind=knockback, Earth=terrain,
+  Holy=heals); `magic-skills.md` entries updated to the new statuses + a header note.
+
+### 1bc-status
+- No CLI build — verified by code review: `ElementSignatureStatus.For` covers exactly the five
+  signature elements and returns null otherwise (Arcane/Wind/Earth/Holy/Physical → `ApplyStatus`
+  bails before the switch); explicit overrides still win (Freeze/Deep Freeze→Frost, Deep Freeze
+  no longer staggers); Chill/Frost/Blind cases added to an exhaustive switch; `BlindStatus` uses
+  code-based Standard-shader transparency (Fade) + primitives, cleans up its fog on expiry, and the
+  player-vs-world follow logic has no null refs (Camera.main guarded).
+- Play-test after review: (1) cast Ice — target visibly slows a little (**Chill**); **Freeze** /
+  **Deep Freeze** slow much heavier (**Frost**, not stun); (2) Lightning still staggers/stuns;
+  (3) cast **Dark Bolt / Eclipse** at a group — each affected enemy is engulfed in black fog for ~4s
+  (no DoT ticks now); (4) **Arcane Bind / Hold** deal pure damage, no stun; (5) Fire still burns,
+  Water still wets, Earth meteor still only craters terrain, Wind still only knocks back;
+  (6) if the player somehow gets blinded, the fog clings to the camera and dims vision.
+
+---
+
 ## 1bb. Earth magic gains "Meteor" — the school's sky-event spell (cratering deep skill)
 
 User: "add meteor event as a earth magic". The Earth school already owns terrain reshaping (1az:

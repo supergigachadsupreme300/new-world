@@ -2,6 +2,8 @@
 
 Source: `Assets/Scripts/Combat/Skills/SkillCatalog.cs` (base skills) + `SkillCatalog.Magic.cs` (L1/L2 branch tables). Generated 2026-09-15. All costs are Focus unless noted; cast time 0.5s default. Projectile spells show their effective `shape:` out front from the summary above. `A("id")` = authoring reference to a base skill; `S("id", ...)` = skill node defined in the branch table.
 
+**Statuses are automatic (§3.7):** every magic attack applies its element's signature status on hit — Fire→**Burn**, Ice→**Chill** (light slow), Lightning→**Stagger** (stun), Dark→**Blind** (black fog), Water→**Wet**, Arcane→**none** (pure force). A skill that lists its own status below overrides the default (e.g. Freeze / Deep Freeze use the heavier **Frost**). Wind = knockback, Earth = terrain reshape, Holy = heals.
+
 ## SpellDeliveries - what each delivery does
 
 | Delivery | Behavior (resolved in `SpellCaster.Execute`) |
@@ -43,13 +45,13 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
 | magic_arcane | Arcane Study | true | Arcane | + 3 Wisdom (passive) | Permanent +3 Wisdom (spell power). |
 | magic_manaflow | Mana Flow | true | Arcane | + 2 Intelligence (passive) | Permanent +2 Intelligence (regen/FP, requires Arcane Study). |
 | magic_fireball | Fireball | false | Fire | Active (Fire) - power 25, FP 15, cd 4s, Burn, shape:Sphere | Launch a fireball that burns the target. |
-| magic_frostbolt | Frost Bolt | false | Ice | Active (Ice) - power 22, FP 13, cd 4s, Frost, shape:Bolt | Launch a freezing bolt that chills the target. |
+| magic_frostbolt | Frost Bolt | false | Ice | Active (Ice) - power 22, FP 13, cd 4s, Chill, shape:Bolt | Launch a freezing bolt that chills the target. |
 | magic_lightning | Storm Focus | true | Lightning | + 3 Intelligence (passive) | Permanent +3 Intelligence (max FP), enfolding the storm. |
 | magic_chain | Chain Lightning | false | Lightning | Active (Lightning) - power 28, FP 20, cd 5s, Stagger, shape:Bolt | Electric blast that staggers foes (requires Storm Focus). |
 | magic_heal | Lesser Heal | false | Holy | Active (Holy) - power 15, FP 10, heals | Restore health with a holy miracle (requires Focal Mind). |
 | magic_ward | Arcane Ward | false | Arcane | Active (Arcane) - power 14, FP 12, cd 3s, range 8, radius 2, knockback 1.5 | A protective arcane wave that shoves foes back. |
-| magic_dark | Dark Bolt | false | Dark | Active (Dark) - power 24, FP 14, cd 4s, Rot, shape:Bolt | Fire a shadow bolt that rots the target. |
-| magic_blizzard | Blizzard | false | Ice | Active (Ice) - power 22, FP 28, cd 6s, range 8, radius 3.2, dur 2.5s, Frost | A frozen storm that repeatedly strikes all inside with frost. |
+| magic_dark | Dark Bolt | false | Dark | Active (Dark) - power 24, FP 14, cd 4s, Blind, shape:Bolt | Fire a shadow bolt that blinds the target. |
+| magic_blizzard | Blizzard | false | Ice | Active (Ice) - power 22, FP 28, cd 6s, range 8, radius 3.2, dur 2.5s, Chill | A frozen storm that repeatedly chills all inside with light frost. |
 | magic_gust | Wind Gust | false | Wind | Active (Wind) - power 14, FP 12, cd 3s, radius 2.5, knockback 2.5 | A blast of wind that scatters nearby foes. |
 | magic_windblade | Wind Blade | false | Wind | Active (Wind) - power 18, FP 15, cd 4s, radius 1.2, knockback 1, shape:Blade | Hurl a razor-sharp blade of wind (requires Wind Gust). |
 | magic_gale | Gale Force | false | Wind | Active (Wind) - power 24, FP 22, cd 6s, radius 3.4, knockback 2 | Summon a towering storm of razor wind that drives foes back (requires Wind Blade). |
@@ -104,9 +106,9 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
   - **Focused Energy** (`magic_arcane_surge_focus`) - + 4 Intelligence (passive) | Permanent +4 Intelligence.
   - **Arcane Spirit** (`magic_arcane_surge_spirit`) - + 5 Faith (passive) | Permanent +5 Faith.
   - **Arcane Mastery** (`magic_arcane_surge_mastery`) - + 6 Wisdom (passive) | Permanent +6 Wisdom.
-- **Arcane Bind** (`magic_arcane_bind`) - Active (Arcane) - power 24, FP 12, cd 5s, radius 2, Stagger | A binding wave of arcane force that staggers foes.
-  - **Shackles** (`magic_arcane_bind_shackle`) - Active (Arcane) - power 28, FP 16, cd 4s, radius 2.2, Stagger | Arcane chains that bind, burn and stagger.
-  - **Hold** (`magic_arcane_bind_hold`) - Active (Arcane) - power 26, FP 14, cd 4s, radius 2, Stagger | An arcane grip that stops foes in their tracks.
+- **Arcane Bind** (`magic_arcane_bind`) - Active (Arcane) - power 24, FP 12, cd 5s, radius 2 | A binding wave of pure arcane force.
+  - **Shackles** (`magic_arcane_bind_shackle`) - Active (Arcane) - power 28, FP 16, cd 4s, radius 2.2 | Arcane chains that bind and crush.
+  - **Hold** (`magic_arcane_bind_hold`) - Active (Arcane) - power 26, FP 14, cd 4s, radius 2 | A solid arcane grip that crushes foes in place.
   - **Vine Cage** (`magic_arcane_bind_vine`) - Active (Arcane) - power 24, FP 12, cd 4s, radius 2.4 | Arcanum vines that ensnare.
   - **Bound Endurance** (`magic_arcane_bind_endurance`) - + 5 Endurance (passive) | Permanent +5 Endurance.
   - **Warding Bind** (`magic_arcane_bind_warding`) - + 5 Defense (passive) | Permanent +5 Defense.
@@ -149,9 +151,9 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
   - **Ice Havoc** (`magic_frostbolt_icelance_havoc`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
   - **Glacial Impale** (`magic_frostbolt_icelance_impale`) - Active (Ice) - power 34, FP 22, cd 5s, shape:Lance | A massive spike that impales.
   - **Hail Lance** (`magic_frostbolt_icelance_hail`) - Active (Ice) - power 30, FP 20, cd 5s, radius 2 | A volley of ice lances.
-  - **Frost Bite** (`magic_frostbolt_icelance_bite`) - Active (Ice) - power 28, FP 16, cd 4s, Frost, shape:Shard | A biting cold that chills to the bone.
+  - **Frost Bite** (`magic_frostbolt_icelance_bite`) - Active (Ice) - power 28, FP 16, cd 4s, Chill, shape:Shard | A biting cold that chills to the bone.
 - **Freeze** (`magic_frostbolt_freeze`) - Active (Ice) - power 28, FP 18, cd 5s, radius 2.4, Frost | A wave of freezing air that clings to all it touches.
-  - **Deep Freeze** (`magic_frostbolt_freeze_deep`) - Active (Ice) - power 34, FP 24, cd 6s, radius 2.6, Stagger | A paralyzing cold that freezes foes solid.
+  - **Deep Freeze** (`magic_frostbolt_freeze_deep`) - Active (Ice) - power 34, FP 24, cd 6s, radius 2.6, Frost | A paralyzing cold that freezes foes solid.
   - **Cold Snap** (`magic_frostbolt_freeze_snap`) - Active (Ice) - power 32, FP 20, cd 5s, radius 2.4 | A sudden snap-freeze of the air.
   - **Frozen Will** (`magic_frostbolt_freeze_chill`) - + 5 Wisdom (passive) | Permanent +5 Wisdom.
   - **Tundra** (`magic_frostbolt_freeze_tundra`) - Active (Ice) - power 32, FP 22, cd 6s, radius 3 | The ground becomes frozen tundra.
@@ -163,16 +165,16 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
   - **Crystal Armor** (`magic_frostbolt_crystal_defense`) - + 5 Defense (passive) | Permanent +5 Defense.
   - **Crystal Luck** (`magic_frostbolt_crystal_luck`) - + 5 Luck (passive) | Permanent +5 Luck.
 - **Glacier** (`magic_frostbolt_glacier`) - Active (Ice) - power 30, FP 20, cd 6s, radius 2.6 | A massive wall of glacial ice.
-  - **Frost Obelisk** (`magic_frostbolt_glacier_wall`) - Active (Ice) - power 36, FP 26, cd 8s, range 8, radius 6, dur 6s, Frost | Summon a frozen obelisk that hurls frost bolts at nearby foes.
+  - **Frost Obelisk** (`magic_frostbolt_glacier_wall`) - Active (Ice) - power 36, FP 26, cd 8s, range 8, radius 6, dur 6s, Chill | Summon a frozen obelisk that hurls frost bolts at nearby foes.
   - **Glacial Surge** (`magic_frostbolt_glacier_surge`) - Active (Ice) - power 40, FP 30, cd 9s, radius 3.8 | A surge of suffocating cold.
   - **Glacial Weight** (`magic_frostbolt_glacier_weight`) - + 5 Strength (passive) | Permanent +5 Strength.
   - **Avalanche** (`magic_frostbolt_glacier_avalanche`) - Active (Ice) - power 38, FP 28, cd 8s, radius 3.6 | A cascading avalanche of ice.
   - **Eternal Cold** (`magic_frostbolt_glacier_eternal`) - + 6 Wisdom (passive) | Permanent +6 Wisdom.
-- **Chill Touch** (`magic_frostbolt_chill`) - Active (Ice) - power 24, FP 14, cd 3s, Frost, shape:Shard | A numbing cold that slows the foe.
-  - **Chill Soul** (`magic_frostbolt_chill_soul`) - Active (Ice) - power 30, FP 18, cd 4s, Frost, shape:Shard | A cold that seeps into the soul and slows it.
+- **Chill Touch** (`magic_frostbolt_chill`) - Active (Ice) - power 24, FP 14, cd 3s, Chill, shape:Shard | A numbing cold that slows the foe.
+  - **Chill Soul** (`magic_frostbolt_chill_soul`) - Active (Ice) - power 30, FP 18, cd 4s, Chill, shape:Shard | A cold that seeps into the soul and slows it.
   - **Frost Curse** (`magic_frostbolt_chill_curse`) - Active (Ice) - power 28, FP 16, cd 4s, radius 2 | A curse of creeping frost.
   - **Frost Will** (`magic_frostbolt_chill_will`) - + 5 Faith (passive) | Permanent +5 Faith.
-  - **Cold Stare** (`magic_frostbolt_chill_stare`) - Active (Ice) - power 26, FP 14, cd 3s, range 11, radius 1, channels 7 FP/s, Frost | A gaze of ice that freezes the heart — hold it to chill and slow.
+  - **Cold Stare** (`magic_frostbolt_chill_stare`) - Active (Ice) - power 26, FP 14, cd 3s, range 11, radius 1, channels 7 FP/s, Chill | A gaze of ice that freezes the heart — hold it to chill and slow.
   - **Witching Chill** (`magic_frostbolt_chill_hour`) - Active (Ice) - power 32, FP 20, cd 5s, radius 2.4 | An unnatural hour of deep cold.
 
 ### Storm Focus (magic_lightning)
@@ -220,10 +222,10 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
 - **Shadow Bolt** (`magic_dark_shadowbolt`) - Active (Dark) - power 28, FP 16, cd 4s, shape:Bolt | A bolt of concentrated shadow.
   - **Doom Bolt** (`magic_dark_shadowbolt_doom`) - Active (Dark) - power 34, FP 22, cd 5s, shape:Bolt | A bolt of impending doom.
   - **Gloom** (`magic_dark_shadowbolt_gloom`) - + 5 Faith (passive) | Permanent +5 Faith.
-  - **Shadow Totem** (`magic_dark_shadowbolt_pool`) - Active (Dark) - power 32, FP 20, cd 5s, range 8, radius 6, dur 6s, Rot | Summon a totem of writhing shadow that hunts foes with rotting bolts.
+  - **Shadow Totem** (`magic_dark_shadowbolt_pool`) - Active (Dark) - power 32, FP 20, cd 5s, range 8, radius 6, dur 6s, Blind | Summon a totem of writhing shadow that hunts foes with blinding bolts.
   - **Shadow Spear** (`magic_dark_shadowbolt_spear`) - Active (Dark) - power 36, FP 24, cd 6s, shape:Spear | A spear of condensed darkness.
   - **Tendrils** (`magic_dark_shadowbolt_tendrils`) - Active (Dark) - power 30, FP 18, cd 4s, radius 2.4 | Shadow tentacles lash all around.
-- **Void Rend** (`magic_dark_voidrend`) - Active (Dark) - power 30, FP 18, cd 5s, radius 2.2, knockback 1, Rot | Darkness tears through the area, rots and shoves.
+- **Void Rend** (`magic_dark_voidrend`) - Active (Dark) - power 30, FP 18, cd 5s, radius 2.2, knockback 1, Blind | Darkness tears through the area, blinding and shoving.
   - **Void Rip** (`magic_dark_voidrend_rip`) - Active (Dark) - power 36, FP 24, cd 6s, radius 2.6 | A tear in reality that rends the target.
   - **Tear** (`magic_dark_voidrend_tear`) - + 5 Faith (passive) | Permanent +5 Faith.
   - **Abyss** (`magic_dark_voidrend_abyss`) - Active (Dark) - power 38, FP 26, cd 7s, radius 2.8 | Darkness opens into a void abyss.
@@ -235,14 +237,14 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
   - **Unholy Wisdom** (`magic_dark_curse_wisdom`) - + 5 Wisdom (passive) | Permanent +5 Wisdom.
   - **Dark Intellect** (`magic_dark_curse_intellect`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
   - **Dark Endurance** (`magic_dark_curse_endurance`) - + 5 Endurance (passive) | Permanent +5 Endurance.
-- **Devour** (`magic_dark_devour`) - Active (Dark) - power 34, FP 22, cd 6s, radius 2, Rot | Void mouths snap at all nearby foes, rotting them.
-  - **Consume** (`magic_dark_devour_consume`) - Active (Dark) - power 38, FP 26, cd 7s, radius 2.4, Rot | Maws of darkness consume and rot all they touch.
+- **Devour** (`magic_dark_devour`) - Active (Dark) - power 34, FP 22, cd 6s, radius 2, Blind | Void mouths snap at all nearby foes, blinding them.
+  - **Consume** (`magic_dark_devour_consume`) - Active (Dark) - power 38, FP 26, cd 7s, radius 2.4, Blind | Maws of darkness consume and blind all they touch.
   - **Swallow** (`magic_dark_devour_swallow`) - + 5 Health (passive) | Permanent +5 Health.
   - **Void Gullet** (`magic_dark_devour_gullet`) - Active (Dark) - power 40, FP 30, cd 8s, radius 3 | A gaping void that swallows foes.
   - **Dark Feast** (`magic_dark_devour_feast`) - Active (Dark) - power 34, FP 22, cd 6s, radius 2.6 | Darkness that feasts on the enemy.
-  - **Hunger** (`magic_dark_devour_hunger`) - Active (Dark) - power 30, FP 18, cd 4s, range 11, radius 1.1, channels 8 FP/s, Rot | A hungry beam of darkness — hold it over foes, rotting the whole line.
+  - **Hunger** (`magic_dark_devour_hunger`) - Active (Dark) - power 30, FP 18, cd 4s, range 11, radius 1.1, channels 8 FP/s, Blind | A hungry beam of darkness — hold it over foes, blinding the whole line.
 - **Nightfall** (`magic_dark_nightfall`) - Active (Dark) - power 30, FP 20, cd 6s, radius 3 | A plane of unnatural darkness descends.
-  - **Eclipse** (`magic_dark_nightfall_eclipse`) - Active (Dark) - power 38, FP 28, cd 8s, range 9, radius 3.4, dur 3s, Rot | The sky darkens — shadow strikes rain down on the area.
+  - **Eclipse** (`magic_dark_nightfall_eclipse`) - Active (Dark) - power 38, FP 28, cd 8s, range 9, radius 3.4, dur 3s, Blind | The sky darkens — shadow strikes blind the whole area.
   - **Midnight** (`magic_dark_nightfall_midnight`) - + 6 Faith (passive) | Permanent +6 Faith.
   - **Enshroud** (`magic_dark_nightfall_enshroud`) - Active (Dark) - power 34, FP 24, cd 6s, radius 3 | Darkness enshrouds the area.
   - **Veil of Night** (`magic_dark_nightfall_veil`) - Active (Dark) - power 30, FP 20, cd 5s, radius 2.6 | A veil of impenetrable night.

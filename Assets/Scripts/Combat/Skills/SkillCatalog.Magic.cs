@@ -23,7 +23,7 @@ public static partial class SkillCatalog
             A("magic_ward"),
             S("magic_arcane_bolt", "Arcane Bolt", Spell("magic_arcane_bolt_spell", "Arcane Bolt", DamageType.Arcane, 26f, 14f, SpellDelivery.Projectile, 3f, projectileShape: ProjectileShape.Bolt), "A bolt of raw arcane energy.", Focus(14f), DamageType.Arcane, true),
             S("magic_arcane_surge", "Arcane Surge", Buff(StatType.Wisdom, 3f), "Permanent +3 Wisdom.", passive: true),
-            S("magic_arcane_bind", "Arcane Bind", Spell("magic_arcane_bind_spell", "Arcane Bind", DamageType.Arcane, 24f, 12f, SpellDelivery.Zone, 5f, deliveryRadius: 2f, statusEffect: StatusEffectType.Stagger), "A binding wave of arcane force that staggers foes.", Focus(12f), DamageType.Arcane, true),
+            S("magic_arcane_bind", "Arcane Bind", Spell("magic_arcane_bind_spell", "Arcane Bind", DamageType.Arcane, 24f, 12f, SpellDelivery.Zone, 5f, deliveryRadius: 2f), "A binding wave of pure arcane force.", Focus(12f), DamageType.Arcane, true),
         };
 
         // Root: magic_fireball (active, Focus 15, projectile fire)
@@ -42,16 +42,16 @@ public static partial class SkillCatalog
             S("magic_frostbolt_freeze", "Freeze", Spell("magic_frostbolt_freeze_spell", "Freeze", DamageType.Ice, 28f, 18f, SpellDelivery.Zone, 5f, deliveryRadius: 2.4f, statusEffect: StatusEffectType.Frost), "A wave of freezing air that clings to all it touches.", Focus(18f), DamageType.Ice, true),
             S("magic_frostbolt_crystal", "Crystal Mind", Buff(StatType.Intelligence, 3f), "Permanent +3 Intelligence.", passive: true),
             S("magic_frostbolt_glacier", "Glacier", Spell("magic_frostbolt_glacier_spell", "Glacier", DamageType.Ice, 30f, 20f, SpellDelivery.Zone, 6f, deliveryRadius: 2.6f), "A massive wall of glacial ice.", Focus(20f), DamageType.Ice, true),
-            S("magic_frostbolt_chill", "Chill Touch", Spell("magic_frostbolt_chill_spell", "Chill Touch", DamageType.Ice, 24f, 14f, SpellDelivery.Projectile, 3f, statusEffect: StatusEffectType.Frost), "A numbing cold that slows the foe.", Focus(14f), DamageType.Ice, true),
+            S("magic_frostbolt_chill", "Chill Touch", Spell("magic_frostbolt_chill_spell", "Chill Touch", DamageType.Ice, 24f, 14f, SpellDelivery.Projectile, 3f, statusEffect: StatusEffectType.Chill), "A numbing cold that slows the foe.", Focus(14f), DamageType.Ice, true),
         };
 
         // Root: magic_dark (active, Focus 14, projectile dark)
         bank.L1["magic_dark"] = new BranchSlot[]
         {
             S("magic_dark_shadowbolt", "Shadow Bolt", Spell("magic_dark_shadowbolt_spell", "Shadow Bolt", DamageType.Dark, 28f, 16f, SpellDelivery.Projectile, 4f, projectileShape: ProjectileShape.Bolt), "A bolt of concentrated shadow.", Focus(16f), DamageType.Dark, true),
-            S("magic_dark_voidrend", "Void Rend", Spell("magic_dark_voidrend_spell", "Void Rend", DamageType.Dark, 30f, 18f, SpellDelivery.Zone, 5f, deliveryRadius: 2.2f, knockback: 1f, statusEffect: StatusEffectType.Rot), "Darkness tears through the area, rots and shoves.", Focus(18f), DamageType.Dark, true),
+            S("magic_dark_voidrend", "Void Rend", Spell("magic_dark_voidrend_spell", "Void Rend", DamageType.Dark, 30f, 18f, SpellDelivery.Zone, 5f, deliveryRadius: 2.2f, knockback: 1f, statusEffect: StatusEffectType.Blind), "Darkness tears through the area, blinding and shoving.", Focus(18f), DamageType.Dark, true),
             S("magic_dark_curse", "Dark Pact", Buff(StatType.Faith, 3f), "Permanent +3 Faith.", passive: true),
-            S("magic_dark_devour", "Devour", Spell("magic_dark_devour_spell", "Devour", DamageType.Dark, 34f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 2f, statusEffect: StatusEffectType.Rot), "Void mouths snap at all nearby foes, rotting them.", Focus(22f), DamageType.Dark, true),
+            S("magic_dark_devour", "Devour", Spell("magic_dark_devour_spell", "Devour", DamageType.Dark, 34f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 2f, statusEffect: StatusEffectType.Blind), "Void mouths snap at all nearby foes, blinding them.", Focus(22f), DamageType.Dark, true),
             S("magic_dark_nightfall", "Nightfall", Spell("magic_dark_nightfall_spell", "Nightfall", DamageType.Dark, 30f, 20f, SpellDelivery.Zone, 6f, deliveryRadius: 3f), "A plane of unnatural darkness descends.", Focus(20f), DamageType.Dark, true),
         };
 
@@ -256,8 +256,8 @@ public static partial class SkillCatalog
         /* magic_arcane_bind children */
         bank.L2["magic_arcane_bind"] = new BranchSlot[]
         {
-            S("magic_arcane_bind_shackle", "Shackles", Spell("magic_arcane_bind_shackle_spell", "Shackles", DamageType.Arcane, 28f, 16f, SpellDelivery.Zone, 4f, deliveryRadius: 2.2f, statusEffect: StatusEffectType.Stagger), "Arcane chains that bind, burn and stagger.", Focus(16f), DamageType.Arcane, true),
-            S("magic_arcane_bind_hold", "Hold", Spell("magic_arcane_bind_hold_spell", "Hold", DamageType.Arcane, 26f, 14f, SpellDelivery.Zone, 4f, deliveryRadius: 2f, statusEffect: StatusEffectType.Stagger), "An arcane grip that stops foes in their tracks.", Focus(14f), DamageType.Arcane, true),
+            S("magic_arcane_bind_shackle", "Shackles", Spell("magic_arcane_bind_shackle_spell", "Shackles", DamageType.Arcane, 28f, 16f, SpellDelivery.Zone, 4f, deliveryRadius: 2.2f), "Arcane chains that bind and crush.", Focus(16f), DamageType.Arcane, true),
+            S("magic_arcane_bind_hold", "Hold", Spell("magic_arcane_bind_hold_spell", "Hold", DamageType.Arcane, 26f, 14f, SpellDelivery.Zone, 4f, deliveryRadius: 2f), "A solid arcane grip that crushes foes in place.", Focus(14f), DamageType.Arcane, true),
             S("magic_arcane_bind_vine", "Vine Cage", Spell("magic_arcane_bind_vine_spell", "Vine Cage", DamageType.Arcane, 24f, 12f, SpellDelivery.Zone, 4f, deliveryRadius: 2.4f), "Arcanum vines that ensnare.", Focus(12f), DamageType.Arcane, true),
             S("magic_arcane_bind_endurance", "Bound Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
             S("magic_arcane_bind_warding", "Warding Bind", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
@@ -310,13 +310,13 @@ public static partial class SkillCatalog
             S("magic_frostbolt_icelance_havoc", "Ice Havoc", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
             S("magic_frostbolt_icelance_impale", "Glacial Impale", Spell("magic_frostbolt_icelance_impale_spell", "Glacial Impale", DamageType.Ice, 34f, 22f, SpellDelivery.Projectile, 5f, projectileShape: ProjectileShape.Lance), "A massive spike that impales.", Focus(22f), DamageType.Ice, true),
             S("magic_frostbolt_icelance_hail", "Hail Lance", Spell("magic_frostbolt_icelance_hail_spell", "Hail Lance", DamageType.Ice, 30f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 2f), "A volley of ice lances.", Focus(20f), DamageType.Ice, true),
-            S("magic_frostbolt_icelance_bite", "Frost Bite", Spell("magic_frostbolt_icelance_bite_spell", "Frost Bite", DamageType.Ice, 28f, 16f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Frost), "A biting cold that chills to the bone.", Focus(16f), DamageType.Ice, true),
+            S("magic_frostbolt_icelance_bite", "Frost Bite", Spell("magic_frostbolt_icelance_bite_spell", "Frost Bite", DamageType.Ice, 28f, 16f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Chill), "A biting cold that chills to the bone.", Focus(16f), DamageType.Ice, true),
         };
 
         /* magic_frostbolt_freeze children */
         bank.L2["magic_frostbolt_freeze"] = new BranchSlot[]
         {
-            S("magic_frostbolt_freeze_deep", "Deep Freeze", Spell("magic_frostbolt_freeze_deep_spell", "Deep Freeze", DamageType.Ice, 34f, 24f, SpellDelivery.Zone, 6f, deliveryRadius: 2.6f, statusEffect: StatusEffectType.Stagger), "A paralyzing cold that freezes foes solid.", Focus(24f), DamageType.Ice, true),
+            S("magic_frostbolt_freeze_deep", "Deep Freeze", Spell("magic_frostbolt_freeze_deep_spell", "Deep Freeze", DamageType.Ice, 34f, 24f, SpellDelivery.Zone, 6f, deliveryRadius: 2.6f, statusEffect: StatusEffectType.Frost), "A paralyzing cold that freezes foes solid.", Focus(24f), DamageType.Ice, true),
             S("magic_frostbolt_freeze_snap", "Cold Snap", Spell("magic_frostbolt_freeze_snap_spell", "Cold Snap", DamageType.Ice, 32f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 2.4f), "A sudden snap-freeze of the air.", Focus(20f), DamageType.Ice, true),
             S("magic_frostbolt_freeze_chill", "Frozen Will", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
             S("magic_frostbolt_freeze_tundra", "Tundra", Spell("magic_frostbolt_freeze_tundra_spell", "Tundra", DamageType.Ice, 32f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3f), "The ground becomes frozen tundra.", Focus(22f), DamageType.Ice, true),
@@ -336,7 +336,7 @@ public static partial class SkillCatalog
         /* magic_frostbolt_glacier children */
         bank.L2["magic_frostbolt_glacier"] = new BranchSlot[]
         {
-            S("magic_frostbolt_glacier_wall", "Frost Obelisk", Spell("magic_frostbolt_glacier_wall_spell", "Frost Obelisk", DamageType.Ice, 36f, 26f, SpellDelivery.Summon, 8f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, statusEffect: StatusEffectType.Frost, projectileSpeed: 16f), "Summon a frozen obelisk that hurls frost bolts at nearby foes.", Focus(26f), DamageType.Ice, true),
+            S("magic_frostbolt_glacier_wall", "Frost Obelisk", Spell("magic_frostbolt_glacier_wall_spell", "Frost Obelisk", DamageType.Ice, 36f, 26f, SpellDelivery.Summon, 8f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, statusEffect: StatusEffectType.Chill, projectileSpeed: 16f), "Summon a frozen obelisk that hurls frost bolts at nearby foes.", Focus(26f), DamageType.Ice, true),
             S("magic_frostbolt_glacier_surge", "Glacial Surge", Spell("magic_frostbolt_glacier_surge_spell", "Glacial Surge", DamageType.Ice, 40f, 30f, SpellDelivery.Zone, 9f, deliveryRadius: 3.8f), "A surge of suffocating cold.", Focus(30f), DamageType.Ice, true),
             S("magic_frostbolt_glacier_weight", "Glacial Weight", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
             S("magic_frostbolt_glacier_avalanche", "Avalanche", Spell("magic_frostbolt_glacier_avalanche_spell", "Avalanche", DamageType.Ice, 38f, 28f, SpellDelivery.Zone, 8f, deliveryRadius: 3.6f), "A cascading avalanche of ice.", Focus(28f), DamageType.Ice, true),
@@ -346,10 +346,10 @@ public static partial class SkillCatalog
         /* magic_frostbolt_chill children */
         bank.L2["magic_frostbolt_chill"] = new BranchSlot[]
         {
-            S("magic_frostbolt_chill_soul", "Chill Soul", Spell("magic_frostbolt_chill_soul_spell", "Chill Soul", DamageType.Ice, 30f, 18f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Frost), "A cold that seeps into the soul and slows it.", Focus(18f), DamageType.Ice, true),
+            S("magic_frostbolt_chill_soul", "Chill Soul", Spell("magic_frostbolt_chill_soul_spell", "Chill Soul", DamageType.Ice, 30f, 18f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Chill), "A cold that seeps into the soul and slows it.", Focus(18f), DamageType.Ice, true),
             S("magic_frostbolt_chill_curse", "Frost Curse", Spell("magic_frostbolt_chill_curse_spell", "Frost Curse", DamageType.Ice, 28f, 16f, SpellDelivery.Zone, 4f, deliveryRadius: 2f), "A curse of creeping frost.", Focus(16f), DamageType.Ice, true),
             S("magic_frostbolt_chill_will", "Frost Will", Buff(StatType.Faith, 5f), "Permanent +5 Faith.", passive: true),
-            S("magic_frostbolt_chill_stare", "Cold Stare", Spell("magic_frostbolt_chill_stare_spell", "Cold Stare", DamageType.Ice, 26f, 14f, SpellDelivery.Beam, 3f, deliveryRange: 11f, deliveryRadius: 1f, statusEffect: StatusEffectType.Frost, channelDrainPerSecond: 7f), "A gaze of ice that freezes the heart — hold it to chill and slow.", Focus(14f), DamageType.Ice, true),
+            S("magic_frostbolt_chill_stare", "Cold Stare", Spell("magic_frostbolt_chill_stare_spell", "Cold Stare", DamageType.Ice, 26f, 14f, SpellDelivery.Beam, 3f, deliveryRange: 11f, deliveryRadius: 1f, statusEffect: StatusEffectType.Chill, channelDrainPerSecond: 7f), "A gaze of ice that freezes the heart — hold it to chill and slow.", Focus(14f), DamageType.Ice, true),
             S("magic_frostbolt_chill_hour", "Witching Chill", Spell("magic_frostbolt_chill_hour_spell", "Witching Chill", DamageType.Ice, 32f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 2.4f), "An unnatural hour of deep cold.", Focus(20f), DamageType.Ice, true),
         };
 
@@ -358,7 +358,7 @@ public static partial class SkillCatalog
         {
             S("magic_dark_shadowbolt_doom", "Doom Bolt", Spell("magic_dark_shadowbolt_doom_spell", "Doom Bolt", DamageType.Dark, 34f, 22f, SpellDelivery.Projectile, 5f, projectileShape: ProjectileShape.Bolt), "A bolt of impending doom.", Focus(22f), DamageType.Dark, true),
             S("magic_dark_shadowbolt_gloom", "Gloom", Buff(StatType.Faith, 5f), "Permanent +5 Faith.", passive: true),
-            S("magic_dark_shadowbolt_pool", "Shadow Totem", Spell("magic_dark_shadowbolt_pool_spell", "Shadow Totem", DamageType.Dark, 32f, 20f, SpellDelivery.Summon, 5f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, statusEffect: StatusEffectType.Rot, projectileSpeed: 16f), "Summon a totem of writhing shadow that hunts foes with rotting bolts.", Focus(20f), DamageType.Dark, true),
+            S("magic_dark_shadowbolt_pool", "Shadow Totem", Spell("magic_dark_shadowbolt_pool_spell", "Shadow Totem", DamageType.Dark, 32f, 20f, SpellDelivery.Summon, 5f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, statusEffect: StatusEffectType.Blind, projectileSpeed: 16f), "Summon a totem of writhing shadow that hunts foes with blinding bolts.", Focus(20f), DamageType.Dark, true),
             S("magic_dark_shadowbolt_spear", "Shadow Spear", Spell("magic_dark_shadowbolt_spear_spell", "Shadow Spear", DamageType.Dark, 36f, 24f, SpellDelivery.Projectile, 6f, projectileShape: ProjectileShape.Spear), "A spear of condensed darkness.", Focus(24f), DamageType.Dark, true),
             S("magic_dark_shadowbolt_tendrils", "Tendrils", Spell("magic_dark_shadowbolt_tendrils_spell", "Tendrils", DamageType.Dark, 30f, 18f, SpellDelivery.Zone, 4f, deliveryRadius: 2.4f), "Shadow tentacles lash all around.", Focus(18f), DamageType.Dark, true),
         };
@@ -386,17 +386,17 @@ public static partial class SkillCatalog
         /* magic_dark_devour children */
         bank.L2["magic_dark_devour"] = new BranchSlot[]
         {
-            S("magic_dark_devour_consume", "Consume", Spell("magic_dark_devour_consume_spell", "Consume", DamageType.Dark, 38f, 26f, SpellDelivery.Zone, 7f, deliveryRadius: 2.4f, statusEffect: StatusEffectType.Rot), "Maws of darkness consume and rot all they touch.", Focus(26f), DamageType.Dark, true),
+            S("magic_dark_devour_consume", "Consume", Spell("magic_dark_devour_consume_spell", "Consume", DamageType.Dark, 38f, 26f, SpellDelivery.Zone, 7f, deliveryRadius: 2.4f, statusEffect: StatusEffectType.Blind), "Maws of darkness consume and blind all they touch.", Focus(26f), DamageType.Dark, true),
             S("magic_dark_devour_swallow", "Swallow", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
             S("magic_dark_devour_gullet", "Void Gullet", Spell("magic_dark_devour_gullet_spell", "Void Gullet", DamageType.Dark, 40f, 30f, SpellDelivery.Zone, 8f, deliveryRadius: 3f), "A gaping void that swallows foes.", Focus(30f), DamageType.Dark, true),
             S("magic_dark_devour_feast", "Dark Feast", Spell("magic_dark_devour_feast_spell", "Dark Feast", DamageType.Dark, 34f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 2.6f), "Darkness that feasts on the enemy.", Focus(22f), DamageType.Dark, true),
-            S("magic_dark_devour_hunger", "Hunger", Spell("magic_dark_devour_hunger_spell", "Hunger", DamageType.Dark, 30f, 18f, SpellDelivery.Beam, 4f, deliveryRange: 11f, deliveryRadius: 1.1f, statusEffect: StatusEffectType.Rot, channelDrainPerSecond: 8f), "A hungry beam of darkness — hold it over foes, rotting the whole line.", Focus(18f), DamageType.Dark, true),
+            S("magic_dark_devour_hunger", "Hunger", Spell("magic_dark_devour_hunger_spell", "Hunger", DamageType.Dark, 30f, 18f, SpellDelivery.Beam, 4f, deliveryRange: 11f, deliveryRadius: 1.1f, statusEffect: StatusEffectType.Blind, channelDrainPerSecond: 8f), "A hungry beam of darkness — hold it over foes, blinding the whole line.", Focus(18f), DamageType.Dark, true),
         };
 
         /* magic_dark_nightfall children */
         bank.L2["magic_dark_nightfall"] = new BranchSlot[]
         {
-            S("magic_dark_nightfall_eclipse", "Eclipse", Spell("magic_dark_nightfall_eclipse_spell", "Eclipse", DamageType.Dark, 38f, 28f, SpellDelivery.Storm, 8f, deliveryRange: 9f, deliveryRadius: 3.4f, duration: 3f, statusEffect: StatusEffectType.Rot), "The sky darkens — shadow strikes rain down on the area.", Focus(28f), DamageType.Dark, true),
+            S("magic_dark_nightfall_eclipse", "Eclipse", Spell("magic_dark_nightfall_eclipse_spell", "Eclipse", DamageType.Dark, 38f, 28f, SpellDelivery.Storm, 8f, deliveryRange: 9f, deliveryRadius: 3.4f, duration: 3f, statusEffect: StatusEffectType.Blind), "The sky darkens — shadow strikes blind the whole area.", Focus(28f), DamageType.Dark, true),
             S("magic_dark_nightfall_midnight", "Midnight", Buff(StatType.Faith, 6f), "Permanent +6 Faith.", passive: true),
             S("magic_dark_nightfall_enshroud", "Enshroud", Spell("magic_dark_nightfall_enshroud_spell", "Enshroud", DamageType.Dark, 34f, 24f, SpellDelivery.Zone, 6f, deliveryRadius: 3f), "Darkness enshrouds the area.", Focus(24f), DamageType.Dark, true),
             S("magic_dark_nightfall_veil", "Veil of Night", Spell("magic_dark_nightfall_veil_spell", "Veil of Night", DamageType.Dark, 30f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 2.6f), "A veil of impenetrable night.", Focus(20f), DamageType.Dark, true),

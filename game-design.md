@@ -574,19 +574,23 @@ Status effects are **not damage types** — they are applied **on hit** and do D
 | **Bleed** | Accumulating damage-over-time on repeated hits |
 | **Poison** | Damage-over-time over a duration |
 | **Rot** | Strong, lingering damage-over-time |
-| **Frost** (frostbite) | Builds up, then a burst + slow |
+| **Chill** | Light cold slow (`EnemyController.ApplySlow` 0.25) — the **Ice** signature |
+| **Frost** (freeze) | Heavy freeze slow (`ApplySlow` 0.5, longer) — the literal freeze spells |
 | **Burn** | Fire damage-over-time + light stagger buildup |
-| **Stagger** | Poise break / crowd-control (interrupts actions) |
+| **Stagger** | Poise break / crowd-control (stun — the **Lightning** signature) |
 | **Wet** | Soaked — slight slow (`WetStatus`: ApplySlow 0.85) + **conducts**: Ice/Lightning deal +40% vs a wet target. Applied by **Water** spells. |
+| **Blind** | Black fog (`BlindStatus`) engulfs the victim, reducing its field of vision — the **Dark** signature |
 
 Damage-over-time statuses (Bleed/Poison/Rot/Burn) are driven by `SpellDoT.cs` (refreshes on re-apply;
-per-tick = spell power × 0.12 over 4 s); Frost routes to `EnemyController.ApplySlow`, Stagger to
-`EnemyController.ApplyStun`. Each magic school has a **signature status** so spells read distinctly
-even when they share a delivery type — Fire→Burn, Ice→Frost, Lightning→Stagger, Dark→Rot,
-Wind→Knockback, Holy→heals (§3.8), Arcane→Stagger (bind/hold), Water→**Wet** (soak: slight slow plus
-Ice/Lightning conductance, `WetStatus`), Earth→**no status — it reshapes terrain itself**
-(ring / spike / wall / pillar / crater ground deformation on the impact point, §3.8; the deep
-**Meteor** Earth skill strikes the ground and carves a permanent crater where it lands).
+per-tick = spell power × 0.12 over 4 s); Chill/Frost route to `EnemyController.ApplySlow`,
+Stagger to `EnemyController.ApplyStun`, Blind to `BlindStatus`, Wet to `WetStatus`.
+Each magic school's **signature status is applied automatically to every magic attack** of that
+element (an explicit per-skill `statusEffect:` overrides the default) — Fire→Burn, Ice→Chill
+(deep-freeze spells use the heavier Frost), Lightning→Stagger (stun), Dark→Blind, Water→Wet,
+Arcane→**no status** (pure force), Wind→Knockback, Holy→heals (§3.8), Earth→**no status — it
+reshapes terrain itself** (ring / spike / wall / pillar / crater ground deformation on the impact
+point, §3.8; the deep **Meteor** Earth skill strikes the ground and carves a permanent crater
+where it lands).
 
 ### 3.8 Spell-Casting Pipeline
 

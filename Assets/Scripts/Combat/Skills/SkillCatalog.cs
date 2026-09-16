@@ -225,7 +225,7 @@ public static partial class SkillCatalog
             null, "Launch a fireball that burns the target.");
         Add(list, "magic_frostbolt", "Frost Bolt", SkillType.Magic, false, Focus(13f), true, DamageType.Ice,
             Spell("magic_frostbolt_spell", "Frost Bolt", DamageType.Ice, 22f, 13f, SpellDelivery.Projectile, 4f,
-                statusEffect: StatusEffectType.Frost, projectileShape: ProjectileShape.Bolt),
+                statusEffect: StatusEffectType.Chill, projectileShape: ProjectileShape.Bolt),
             null, "Launch a freezing bolt that chills the target.");
         // Lightning line (§4.8): Storm Focus roots the lightning school as its OWN element now.
         // Chain Lightning is no longer a Fireball offshoot — it hangs from a dedicated lightning root.
@@ -245,12 +245,12 @@ public static partial class SkillCatalog
             P("magic_arcane"), "A protective arcane wave that shoves foes back.");
         Add(list, "magic_dark", "Dark Bolt", SkillType.Magic, false, Focus(14f), true, DamageType.Dark,
             Spell("magic_dark_spell", "Dark Bolt", DamageType.Dark, 24f, 14f, SpellDelivery.Projectile, 4f,
-                statusEffect: StatusEffectType.Rot, projectileShape: ProjectileShape.Bolt),
-            null, "Fire a shadow bolt that rots the target.");
+                statusEffect: StatusEffectType.Blind, projectileShape: ProjectileShape.Bolt),
+            null, "Fire a shadow bolt that blinds the target.");
         Add(list, "magic_blizzard", "Blizzard", SkillType.Magic, false, Focus(28f), true, DamageType.Ice,
             Spell("magic_blizzard_spell", "Blizzard", DamageType.Ice, 22f, 28f, SpellDelivery.Storm, 6f,
-                deliveryRange: 8f, deliveryRadius: 3.2f, duration: 2.5f, statusEffect: StatusEffectType.Frost),
-            P("magic_chain", "magic_frostbolt"), "A frozen storm that repeatedly strikes all inside with frost.");
+                deliveryRange: 8f, deliveryRadius: 3.2f, duration: 2.5f, statusEffect: StatusEffectType.Chill),
+            P("magic_chain", "magic_frostbolt"), "A frozen storm that repeatedly chills all inside with light frost.");
 
         // Wind line (§3.7 Wind): Gust → Wind Blade → Gale Force → Tornado / Wind Walk. Tornado uses the
         // Vortex delivery and resolves the Great Tornado: the old environmental tornado model

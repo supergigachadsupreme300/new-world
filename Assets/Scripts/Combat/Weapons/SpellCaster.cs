@@ -1073,15 +1073,32 @@ public class SpellCaster : MonoBehaviour
     }
 
     /// <summary>Apply a spell's status effect on a damage hit. DoT statuses attach a SpellDoT to
-    /// the target's root; Frost slows and Stagger stuns via the enemy controller; Wet soaks the
-    /// target (WetStatus) so Ice/Lightning follow-ups hit harder.</summary>
+    /// the target's root; Chill/Frost slow, Stagger stuns and Blind cloaks the victim in fog via
+    /// the enemy controller / <see cref="BlindStatus"/>; Wet soaks the target (WetStatus) so
+    /// Ice/Lightning follow-ups hit harder. When the skill declares no explicit status, the
+    /// element's signature status (§3.7) is applied automatically.</summary>
     private static void ApplyStatus(SpellData spell, float power, GameObject target)
     {
-        if (spell == null || !spell.AppliesStatus) return;
+        if (spell == null) return;
+
+        // Explicit per-skill status wins; otherwise the element's signature status is applied to
+        // every magic attack automatically. Wind/Earth/Holy/Physical have no signature status.
+        StatusEffectType effect;
+        if (spell.AppliesStatus)
+        {
+            effect = spell.StatusEffect;
+        }
+        else
+        {
+            var signature = ElementSignatureStatus.For(spell.Type);
+            if (!signature.HasValue) return;
+            effect = signature.Value;
+        }
+
         if (spell.StatusProcChance > 0f && UnityEngine.Random.value > spell.StatusProcChance) return;
 
         Transform root = target != null ? target.transform.root : null;
-        switch (spell.StatusEffect)
+        switch (effect)
         {
             case StatusEffectType.Bleed:
             case StatusEffectType.Burn:
@@ -1089,9 +1106,13 @@ public class SpellCaster : MonoBehaviour
             case StatusEffectType.Rot:
                 SpellDoT.Apply(target, power * 0.12f, 4f, 0.5f, spell.Type);
                 break;
+            case StatusEffectType.Chill:
+                if (root != null && root.TryGetComponent<EnemyController>(out var chillEnemy))
+                    chillEnemy.ApplySlow(0.25f, 2.5f);
+                break;
             case StatusEffectType.Frost:
                 if (root != null && root.TryGetComponent<EnemyController>(out var frostEnemy))
-                    frostEnemy.ApplySlow(0.35f, 2.5f);
+                    frostEnemy.ApplySlow(0.5f, 3.5f);
                 break;
             case StatusEffectType.Stagger:
                 if (root != null && root.TryGetComponent<EnemyController>(out var staggerEnemy))
@@ -1099,6 +1120,9 @@ public class SpellCaster : MonoBehaviour
                 break;
             case StatusEffectType.Wet:
                 WetStatus.Apply(target, 4f);
+                break;
+            case StatusEffectType.Blind:
+                BlindStatus.Apply(target, 4f);
                 break;
         }
     }
