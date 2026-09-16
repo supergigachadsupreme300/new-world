@@ -100,13 +100,20 @@ public class GameBootstrap : MonoBehaviour
 
         // Generate ONLY the spawn chunk synchronously so the player has ground to land on before
         // the first frame; the surrounding chunks build in the background from frame 1 (the chunk
-        // pipeline + ChunksPerFrame budget fills the render radius over ~1.5s). The player spawns
-        // on the procedural terrain; NewWorldTestGround carves its flat arena in place once the
-        // pad's chunks stream in (real generated terrain, not a floating platform), then teleports
-        // the player onto the level ground.
-        // Player spawns at (0, 2, -10).
+        // pipeline + ChunksPerFrame budget fills the render radius over ~1.5s).
+        //
+        // Boot order is "ground first, then player": the player is placed on the pre-generated
+        // spawn chunk at (0, ~y+2, -10) — never an unloaded void — and NewWorldTestGround carves
+        // its flat arena in place (real generated terrain, not a floating platform) once the pad's
+        // chunks stream in, then teleports the player onto the settled pad.
         TerrainChunkCoord spawnChunk = TerrainChunkCoord.FromTile(new ChunkCoord(0, -10));
         worldStreamer.GenerateChunkSync(spawnChunk);
+
+        if (playerController != null)
+        {
+            float spawnY = TerrainNoiseGenerator.GetHeight(worldStreamer.Seed, 0.5f, -9.5f);
+            playerController.transform.position = new Vector3(0f, spawnY + 2f, -10f);
+        }
 
         worldStreamer.SetFocus(playerController != null ? playerController.transform : null);
 

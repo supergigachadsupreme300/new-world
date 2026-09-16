@@ -54,6 +54,9 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private ContextPromptUI _contextPrompt;
     private PlayerController _playerController;
 
+    /// <summary>True when the flat test arena has been carved (never a void to spawn into).</summary>
+    public bool IsArenaReady => _arenaReady && PlatformTopY != float.MinValue;
+
     /// <summary>XZ bounds + ground height of the flat arena carved out of the procedural terrain.</summary>
     public static float PlatformTopY { get; private set; } = float.MinValue;
     public static float PlatformMinX { get; private set; }
@@ -116,8 +119,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
     /// Spawns the test bench one lane group per frame instead of all at once in Awake, so the
     /// heavy setup (weapon models, NPCs, enemies, grants) no longer blocks the first frames. When
     /// the arena is enabled it first waits for the pad's terrain chunks to stream in, then carves
-    /// the flat ground in place (the real procedural terrain), so every lane lands on the settled
-    /// pad. Preserves the ordering and guarantees of the original bench.
+    /// the flat ground in place (the real procedural terrain) and PULLS THE PLAYER ONTO IT before
+    /// spawning any lane, so the player is never left in the void ("ground first, then player").
+    /// Every lane runs isolated — a failure in one (e.g. one enemy spawn) logs an error instead of
+    /// aborting the bench and stranding the player.
     /// </summary>
     private System.Collections.IEnumerator RunBenchSpawn()
     {
@@ -127,33 +132,62 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (CreatePlatform)
         {
             yield return StartCoroutine(WaitForArenaTerrain());
-            FlattenArenaTerrain();
-            ClearPropsInsidePlatform();
+            RunSafely("arena flatten", () =>
+            {
+                FlattenArenaTerrain();
+                ClearPropsInsidePlatform();
+            });
+
+            // "Ground first, then player": the pad is (mostly) settled now — put the player on it
+            // BEFORE laying the bench lanes, so whoever is playing never floats/fell in the void
+            // while the rest of the bench builds.
+            RunSafely("player placement", PlacePlayerOnArena);
         }
 
-        if (EnableFarming) { SpawnFarmingPlot(); yield return null; }
-        if (EnableLivestock) { SpawnLivestock(); yield return null; }
-        if (EnableEnemies) { SpawnEnemies(); yield return null; }
-        if (EnableBuildings) { SpawnBuildings(); yield return null; }
-        if (EnableNpcs) { SpawnNpcs(); yield return null; }
-        if (EnablePoiHub) { RegisterPoiHub(); yield return null; }
+        if (EnableFarming) { RunSafely("farming plot", SpawnFarmingPlot); yield return null; }
+        if (EnableLivestock) { RunSafely("livestock", SpawnLivestock); yield return null; }
+        if (EnableEnemies) { RunSafely("enemies", SpawnEnemies); yield return null; }
+        if (EnableBuildings) { RunSafely("buildings", SpawnBuildings); yield return null; }
+        if (EnableNpcs) { RunSafely("npcs", SpawnNpcs); yield return null; }
+        if (EnablePoiHub) { RunSafely("POI hub", RegisterPoiHub); yield return null; }
         if (EnableWeapons)
         {
-            SpawnAllWeapons();
+            RunSafely("weapons", SpawnAllWeapons);
             yield return null;
-            SpawnWeaponRack();
+            RunSafely("weapon rack", SpawnWeaponRack);
             yield return null;
         }
-        if (EnableSkills) { GrantAllSkills(); yield return null; }
-        if (EnableGear) { GrantStarterGear(); yield return null; }
-        if (EnableRaces) { GrantRaceAccess(); yield return null; }
-        TryDeferPlayerGrants();
+        if (EnableSkills) { RunSafely("skills", GrantAllSkills); yield return null; }
+        if (EnableGear) { RunSafely("gear", GrantStarterGear); yield return null; }
+        if (EnableRaces) { RunSafely("races", GrantRaceAccess); yield return null; }
+        RunSafely("player grants", TryDeferPlayerGrants);
 
-        var player = GameManager.Instance?.Player;
-        if (player != null)
+        // Safety net: if no platform could be carved (CreatePlatform off or flatten failed), pull
+        // the player to the bench point at the very end so they never sit stranded mid-void.
+        if (!IsArenaReady)
+            RunSafely("player placement (fallback)", PlacePlayerOnArena);
+    }
+
+    /// <summary>A failing lane (one bench system) must never abort the whole bench coroutine and
+    /// strand the player away from the arena — log it and keep going.</summary>
+    private void RunSafely(string lane, System.Action spawn)
+    {
+        try
         {
-            player.transform.position = PlatformCenter + new Vector3(0f, 2f, PlatformSize * 0.45f);
+            spawn?.Invoke();
         }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[NewWorldTestGround] Lane \"{lane}\" failed — detail below. Anything already placed stays.\n{ex}");
+        }
+    }
+
+    /// <summary>Teleport the player onto the settled arena (2 m above the flattened pad).</summary>
+    private void PlacePlayerOnArena()
+    {
+        var player = GameManager.Instance?.Player;
+        if (player == null) return;
+        player.transform.position = GetSpawnPoint();
     }
 
     /// <summary>
@@ -222,17 +256,20 @@ public sealed class NewWorldTestGround : MonoBehaviour
         float cz = PlatformCenter.z;
         long seed = streamer.Seed;
 
-        // Sample every 2m instead of 1m: ~4x fewer PerlinNoise calls at boot (61x61 grid
-        // instead of 121x121) — the world's own generator fills the 1m tiles in between.
+        // Sample every 2m across the FULL footprint (61x61 grid instead of 121x121 — the world's
+        // own generator fills the 1m tiles in between). Iterating i/j over the footprint with a
+        // 2 m stride (not stepping the whole 120 m by 1 m from one edge) matters: the old loop
+        // only covered half the pad, so a taller far corner could poke through the "level" arena.
         int steps = Mathf.Max(2, Mathf.RoundToInt(PlatformSize * 0.5f));
+        float stepSize = PlatformSize / steps;
         float maxY = float.MinValue;
         float minY = float.MaxValue;
-        for (int x = 0; x <= steps; x++)
+        for (int i = 0; i <= steps; i++)
         {
-            float wx = cx - half + x;
-            for (int z = 0; z <= steps; z++)
+            float wx = cx - half + i * stepSize;
+            for (int j = 0; j <= steps; j++)
             {
-                float wz = cz - half + z;
+                float wz = cz - half + j * stepSize;
                 float y = TerrainNoiseGenerator.GetHeight(seed, wx, wz);
                 if (y > maxY) maxY = y;
                 if (y < minY) minY = y;
@@ -331,7 +368,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     public Vector3 GetSpawnPoint()
     {
-        return PlatformCenter + new Vector3(0f, 2f, PlatformSize * 0.45f);
+        // Prefer the flattened pad top once prepared; before that, fall back to the configured
+        // center height so callers never get a pit the arena didn't actually carve.
+        float groundY = PlatformTopY != float.MinValue ? PlatformTopY : PlatformCenter.y;
+        return new Vector3(PlatformCenter.x, groundY + 2f, PlatformCenter.z + PlatformSize * 0.45f);
     }
 
     private void SpawnFarmingPlot()

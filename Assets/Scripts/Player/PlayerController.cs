@@ -237,16 +237,20 @@ public class PlayerController : MonoBehaviour, IHealable
         Stamina = MaxStamina;
         Money = 1000;
         var testGround = Object.FindAnyObjectByType<NewWorldTestGround>();
-        if (testGround != null)
+        if (testGround != null && testGround.IsArenaReady)
         {
             transform.position = testGround.GetSpawnPoint();
         }
         else
         {
-            float spawnX = 0f;
-            float spawnZ = -10f;
-            float terrainY = TerrainNoiseGenerator.GetHeight(1337, spawnX, spawnZ);
-            transform.position = new Vector3(spawnX, terrainY + 3f, spawnZ);
+            // Test ground not carved yet (early boot): spawn on the world's boot chunk.
+            // GameBootstrap generates the tile at (0,-10) synchronously, so the player
+            // never falls into the void; NewWorldTestGround teleports the player onto the
+            // flat pad as soon as the arena settles ("ground first, then player").
+            var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+            long spawnSeed = streamer != null ? streamer.Seed : 1337;
+            float terrainY = TerrainNoiseGenerator.GetHeight(spawnSeed, 0f, -10f);
+            transform.position = new Vector3(0f, terrainY + 3f, -10f);
         }
         transform.rotation = Quaternion.identity;
         _velocity = Vector3.zero;

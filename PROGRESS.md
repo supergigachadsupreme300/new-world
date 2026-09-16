@@ -22,7 +22,50 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
     corners for the arena ground height sample.
 
 ---
-## 1az. Earth magic legacy terrain reshaping — walls, pillars, and projectile craters
+## 1ba. Boot places the player in the void & the test arena never visibly spawns — fixed with "ground first, then player"
+
+Play-test feedback after the 1ay arena carve: at boot the player appears to fall through the world into
+the void, and the flat test ground isn't visibly generated. Root cause review: `PlayerController.ResetPlayer`
+teleported straight to the arena spawn point on frame one, BEFORE the pad's chunks had streamed in and
+before `FlattenAt` had carved — the player fell into unloaded terrain; and the bench coroutine ran every
+lane back-to-back, so a single failing lane aborted the whole coroutine (see `_spawned` gate) and could
+leave both the lanes AND the final player teleport un-executed.
+
+- **`GameBootstrap.cs`**: the player is now physically placed on the synchronously-generated spawn chunk
+  (tile `(0,-10)`) right after `GenerateChunkSync`, sampled with the streamer's own seed
+  (`TerrainNoiseGenerator.GetHeight(seed, 0.5, -9.5) + 2f`) — never an unloaded void at frame one. Boot
+  comment rewritten: "ground first, then player".
+- **`PlayerController.ResetPlayer`**: only teleports to `NewWorldTestGround.GetSpawnPoint()` once
+  `IsArenaReady` (pad carved); otherwise it falls back to the boot chunk `(0, terrainY+3, -10)` using the
+  live streamer seed (was a hardcoded `1337`). Covers death respawns during the first few seconds too.
+- **`NewWorldTestGround.cs`**:
+  - New `IsArenaReady` (arena flattened AND `PlatformTopY` valid) — the single gate other systems query.
+  - `RunBenchSpawn` reordered: wait chunks → carve arena → **teleport the player onto the pad FIRST** →
+    then lay the lanes with one `yield return null` per group.
+  - Every lane (farm/livestock/enemies/buildings/NPCs/POI/weapons/skills/gear/races/player-grants) now
+    runs through `RunSafely` (try/catch + `Debug.LogError`), so a failing lane logs and the coroutine —
+    and the player-placement fallback at the end — always completes.
+  - `GetSpawnPoint` uses `PlatformTopY` when prepared (falls back to the configured `PlatformCenter.y`,
+    never the raw default 50 in the void once the arena exists); `PlacePlayerOnArena` helper centralizes
+    the teleport.
+  - Bug fix: `PrepareArenaGround` only sampled the SOUTH-WEST quadrant of the pad (loop stepped from one
+    edge by 1 m over the half-size), so the flatten target could fall lower than a taller far corner —
+    now it strides the FULL `±half` footprint every 2 m (still a 61x61 grid, ~3721 noise reads).
+- **`game-design.md`**: §2.7 documents the "ground first, then player" boot order and lane isolation.
+
+### 1ba-status
+- No CLI build — verified by code review: the safe spawn chunk (tile `(0,-10)` → chunk `(0,-1)`) is the
+  same one `GenerateChunkSync` builds, and `FromWorld(0, ~y, -10)` resolves to it; `ResetPlayer` no longer
+  has a path to the un-carved arena; all `RunSafely` call sites pass method groups/fiddles matching
+  `System.Action`; coroutine structure mirrors the old lane-budgeting (yields intact).
+- Play-test after review: (1) boot / new game — the player stands on solid grass at spawn within 1-2s,
+  never drops into the void, then gets pulled to the centre of the flat arena; (2) the flat pad + weapon
+  racks / farms / enemies / NPCs all appear (check Console for any `Lane ... failed` error and report it —
+  that's the exact place an old silent abort would have hidden); (3) death-respawn quickly during boot —
+  no void (falls back to the boot chunk until the arena is ready); (4) the pad is visibly level all the
+  way to its far edges (the SW-quadrant sampling fix).
+
+---
 
 Earth spells already persisted their ground edits forever (per-chunk save files, §2.6), but the roster
 only RAISED terrain with two shapes (Ring / Spikes) applied by Zone spells; projectile spells never
