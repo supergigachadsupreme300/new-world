@@ -291,11 +291,21 @@ public static partial class SkillCatalog
         // they hit like falling rock (heavy knockback) and reshape the ground itself
         // (TerrainShape, via TerrainDeformer): rings that circle the impact, spikes that erupt,
         // walls/pillars that rear up along the cast axis, and the root projectile tears a slab
-        // loose from the ground (leaving a solid-floored crater) to throw.
+        // loose from the ground (leaving a solid-floored crater) to throw; the deep Meteor skill
+        // craters the ground where it strikes.
         Add(list, "magic_earth", "Stone Shard", SkillType.Magic, false, Focus(15f), true, DamageType.Earth,
             Spell("magic_earth_spell", "Stone Shard", DamageType.Earth, 26f, 15f, SpellDelivery.Projectile, 4f,
                 projectileShape: ProjectileShape.Shard, terrainShape: TerrainShape.Crater),
             null, "Tear a slab of living stone from the ground and hurl it.");
+
+        // Meteor — the Earth school's sky-event, gated behind Boulder Crash (the falling-rock line).
+        // A rock from above strikes the aim point hard and carves one of the school's permanent
+        // craters there (depth-clamped solid floor — never a void). Zone delivery so the crater
+        // resolves on the ground at impact; the heavy knockback reads like a meteor landing.
+        Add(list, "magic_earth_meteor", "Meteor", SkillType.Magic, false, Focus(28f), true, DamageType.Earth,
+            Spell("magic_earth_meteor_spell", "Meteor", DamageType.Earth, 40f, 28f, SpellDelivery.Zone, 9f,
+                deliveryRange: 12f, deliveryRadius: 4f, knockback: 4f, terrainShape: TerrainShape.Crater),
+            P("magic_earth_boulder"), "A meteor plunges from the sky, carving a crater into the ground.");
     }
 
     private static void BuildStealth(List<Skill> list)

@@ -1,6 +1,6 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-15. Read this first in a new session; then continue with the
+Last updated: 2026-09-16. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug). The **optimization sweep** ran Phases 0-5
 (`1ag`-`1al` below); the sweep's planning doc (`OPTIMIZATION.md`) was retired once Phases 0-5 shipped —
 only **Phase 6 / startup** (#17, #18) remains open, recorded under OPEN TASKS. Legacy working plans
@@ -20,8 +20,44 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `GameBootstrap.cs:107` + `Opt/NewWorldTestGround.cs:225-244`: boot spawn-chunk build is
     synchronous and the arena-ground snap re-samples 61×61=3,721 noise points. Fix: reuse the spawn-chunk
     corners for the arena ground height sample.
+---
+
+## 1bb. Earth magic gains "Meteor" — the school's sky-event spell (cratering deep skill)
+
+User: "add meteor event as a earth magic". The Earth school already owns terrain reshaping (1az:
+Ring / Spikes / Wall / Pillar / Crater) but had no "big rock from the sky" capstone — the closest
+spells were Fire-school Meteor / Meteor Rain. Added an **Earth-school Meteor** as an authored deep
+skill gated behind the falling-rock line (`magic_earth_boulder`), so it renders in the tree's
+auto-growing rings with no design-table changes.
+
+- **`SkillCatalog.cs` (BuildMagic)** — new authored skill:
+  `magic_earth_meteor` "Meteor", Earth damage, power 40, FP 28, cd 9s, **Zone** delivery at range 12,
+  radius 4, knockback 4, **`terrainShape: TerrainShape.Crater`**. Zone + Crater was chosen (not a
+  Storm) so the crater resolves ON the ground at the aim point — the "meteor event" landing — reusing
+  the depth-clamped solid-floor carve from 1az (spamming can't grind through the floor). Prereq
+  `P("magic_earth_boulder")` → effective Layer 2 under Boulder Crash (branch Layer-1 slot tables are
+  full at 5, so a designed/slot approach would have bumped the `ci < 5` layout cap — auth deployed
+  instead, same pattern as Blizzard). Earth school comment updated.
+- **`magic-skills.md`** — Meteor added under Stone Shard's Boulder Crash line; also fixed two stale
+  earth tags from the 1az retag (Landslide → `terrain:Wall` "an earth wall rears up..." and Stone
+  Pillars → `terrain:Pillar`).
+- **`game-design.md`** — §3.7 signature line notes the deep Earth **Meteor** skill craters the ground
+  where it lands.
+
+### 1bb-status
+- No CLI build — verified by code review: `Add(list, id, name, SkillType.Magic, false, Focus(...),
+  true, DamageType.Earth, Spell(...), P("magic_earth_boulder"), desc)` matches the authored-skill
+  signature; `magic_earth_boulder` exists in the built tree (designed L1, built before/independently
+  of this add); prereq → layer-2 depth keeps it inside the Earth wedge's growing rings; the spell
+  factory accepts `knockback:` / `deliveryRange:` / `deliveryRadius:` / `terrainShape:`; GrantAllSkills
+  (test ground) and the skill wheel read it automatically from `SkillCatalog.All`.
+- Play-test after review: learn/arm **Meteor** from the Earth wedge → cast at a flat area — a wide
+  crater dish carves into the ground at the aim point (never a void), enemies near the point take 40
+  power with knockback 4, and the crater persists after reload (1az pipeline); Tree doesn't overflow
+  the Boulder Crash wedge (Meteor sits one ring out from the other boulder children).
 
 ---
+
 ## 1ba. Boot places the player in the void & the test arena never visibly spawns — fixed with "ground first, then player"
 
 Play-test feedback after the 1ay arena carve: at boot the player appears to fall through the world into

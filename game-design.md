@@ -585,7 +585,8 @@ per-tick = spell power × 0.12 over 4 s); Frost routes to `EnemyController.Apply
 even when they share a delivery type — Fire→Burn, Ice→Frost, Lightning→Stagger, Dark→Rot,
 Wind→Knockback, Holy→heals (§3.8), Arcane→Stagger (bind/hold), Water→**Wet** (soak: slight slow plus
 Ice/Lightning conductance, `WetStatus`), Earth→**no status — it reshapes terrain itself**
-(ring / spike / wall / pillar / crater ground deformation on the impact point, §3.8).
+(ring / spike / wall / pillar / crater ground deformation on the impact point, §3.8; the deep
+**Meteor** Earth skill strikes the ground and carves a permanent crater where it lands).
 
 ### 3.8 Spell-Casting Pipeline
 

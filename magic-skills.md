@@ -334,9 +334,10 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
 - **Boulder Crash** (`magic_earth_boulder`) - Active (Earth) - power 28, FP 18, cd 5s, radius 3, knockback 2.5 | A tumbling boulder that flattens and shoves foes.
   - **Crash** (`magic_earth_boulder_crash`) - Active (Earth) - power 32, FP 22, cd 6s, radius 3.2, knockback 3 | A colossal boulder that crashes into the enemy.
   - **Boulderweight** (`magic_earth_boulder_weight`) - + 5 Strength (passive) | Permanent +5 Strength.
-  - **Landslide** (`magic_earth_boulder_landslide`) - Active (Earth) - power 34, FP 24, cd 7s, radius 3.6, knockback 3 | A tumbling wall of rock.
+  - **Landslide** (`magic_earth_boulder_landslide`) - Active (Earth) - power 34, FP 24, cd 7s, radius 3.6, knockback 3, terrain:Wall | An earth wall rears up along the cast and crashes onto foes.
   - **Rockfall** (`magic_earth_boulder_fall`) - Active (Earth) - power 30, FP 20, cd 6s, range 9, radius 3.2, dur 3s | Boulders rain down over the area.
   - **Tectonic** (`magic_earth_boulder_tectonic`) - Active (Earth) - power 36, FP 26, cd 8s, radius 3.8, knockback 3.5 | A tectonic blow that shatters the ground.
+  - **Meteor** (`magic_earth_meteor`, deep, requires Boulder Crash) - Active (Earth) - power 40, FP 28, cd 9s, range 12, radius 4, knockback 4, terrain:Crater | A meteor plunges from the sky, carving a crater into the ground.
 - **Tremor** (`magic_earth_quake`) - Active (Earth) - power 26, FP 20, cd 6s, radius 2.8, terrain:Ring | The ground ripples — a stone ring rears up around the impact.
   - **Faultline** (`magic_earth_quake_faultline`) - Active (Earth) - power 30, FP 22, cd 6s, radius 3, terrain:Ring | A second stone ring rears up around the impact.
   - **Stable Ground** (`magic_earth_quake_stable`) - + 5 Defense (passive) | Permanent +5 Defense.
@@ -347,7 +348,7 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
   - **Spike Burst** (`magic_earth_spires_spike`) - Active (Earth) - power 30, FP 20, cd 5s, radius 3, terrain:Spikes | Spikes erupt in a violent burst.
   - **Bedrock** (`magic_earth_spires_bedrock`) - + 5 Defense (passive) | Permanent +5 Defense.
   - **Needle Field** (`magic_earth_spires_needles`) - Active (Earth) - power 28, FP 18, cd 5s, radius 3.4, terrain:Spikes | A field of needle-thin stone spikes.
-  - **Stone Pillars** (`magic_earth_spires_pillar`) - Active (Earth) - power 32, FP 22, cd 6s, radius 3.2, terrain:Spikes | Massive pillars erupt across the area.
+  - **Stone Pillars** (`magic_earth_spires_pillar`) - Active (Earth) - power 32, FP 22, cd 6s, radius 3.2, terrain:Pillar | Massive pillars thrust up out of the ground.
   - **Crystal Field** (`magic_earth_spires_crystal`) - Active (Earth) - power 30, FP 20, cd 6s, radius 3, terrain:Spikes | Jagged crystal shards tear up the ground.
 - **Earth Bulwark** (`magic_earth_bulwark`) - + 3 Defense (passive) | Permanent +3 Defense.
   - **Granite** (`magic_earth_bulwark_granite`) - + 5 Defense (passive) | Permanent +5 Defense.
