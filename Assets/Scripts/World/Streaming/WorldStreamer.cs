@@ -539,14 +539,17 @@ public class WorldStreamer : MonoBehaviour
     /// Reshape the loaded heightmap around a world-space center (main thread only).
     /// <para>
     /// Earth spells carry no status effect — instead they deform the ground (Ring: raised
-    /// annulus circling the impact; Spikes: scattered rock spikes). Corner heights are edited
-    /// in the tile-level data so shared corners always match (gapless mesh), each touched tile
-    /// is marked modified/dirty so it persists and syncs, and the whole affected chunk(s) are
-    /// rebuilt (merged mesh + collider) in place. Unloaded tiles are ignored — spells only
-    /// deform terrain the streamer already has in memory.
+    /// annulus circling the impact; Spikes: scattered rock spikes; Wall: a stone ridge rearing
+    /// up along <paramref name="dir"/>; Pillar: a tall flat-topped column at the center; Crater:
+    /// a shallow solid-floored dish excavated downward, depth-clamped so it never becomes a
+    /// bottomless void). Corner heights are edited in the tile-level data so shared corners
+    /// always match (gapless mesh), each touched tile is marked modified/dirty so it persists
+    /// and syncs (deformations last forever — chunk save files, §2.6), and the whole affected
+    /// chunk(s) are rebuilt (merged mesh + collider) in place. Unloaded tiles are ignored —
+    /// spells only deform terrain the streamer already has in memory.
     /// </para>
     /// </summary>
-    public void DeformAt(Vector3 center, float radius, TerrainShape shape)
+    public void DeformAt(Vector3 center, float radius, TerrainShape shape, Vector3 dir = default)
     {
         if (shape == TerrainShape.None || radius <= 0f) return;
 
@@ -557,11 +560,25 @@ public class WorldStreamer : MonoBehaviour
         int minCZ = Mathf.FloorToInt(center.z - reach);
         int maxCZ = Mathf.FloorToInt(center.z + reach);
 
+        // Wall orientation: the cast direction projected onto the XZ plane.
+        Vector3 wallDir = new Vector3(dir.x, 0f, dir.z);
+        if (wallDir.sqrMagnitude < 0.0001f)
+            wallDir = Vector3.right;
+        wallDir.Normalize();
+
         // Ring: a raised annulus with its center left level. Spikes: smooth mound + sparse
-        // deterministic peaks so the ground reads jagged but never chessboard-y.
-        float lift = shape == TerrainShape.Ring ? 0.9f : 0.7f;
+        // deterministic peaks so the ground reads jagged but never chessboard-y. Wall: a ridge
+        // band along the cast direction. Pillar: a flat-topped column. Crater: a dish, dug down.
+        float lift = shape == TerrainShape.Ring ? 0.9f
+            : shape == TerrainShape.Pillar ? 1.8f
+            : shape == TerrainShape.Wall ? 1.3f
+            : 0.7f; // Spikes
         float ringMid = radius * 0.72f;
         float ringHalfWidth = Mathf.Max(0.6f, radius * 0.28f);
+        float pillarCore = radius * 0.45f;
+        float wallHalfThick = Mathf.Max(0.6f, radius * 0.25f);
+        float wallHalfLen = radius;
+        const float CraterMaxDepth = 1.8f;
 
         // New height for every world corner (integer x/z) inside the reach.
         var newHeights = new Dictionary<long, float>();
@@ -582,7 +599,25 @@ public class WorldStreamer : MonoBehaviour
                     float off = Mathf.Abs(dist - ringMid);
                     influence = off >= ringHalfWidth ? 0f : 1f - off / ringHalfWidth;
                 }
-                else
+                else if (shape == TerrainShape.Pillar)
+                {
+                    influence = dist <= pillarCore ? 1f
+                        : Mathf.Clamp01(1f - (dist - pillarCore) / Mathf.Max(0.01f, radius - pillarCore));
+                }
+                else if (shape == TerrainShape.Wall)
+                {
+                    // Distance perpendicular to the cast axis (the ridge spine) + rounded length caps.
+                    float along = dx * wallDir.x + dz * wallDir.z;
+                    float perp = Mathf.Sqrt(Mathf.Max(0f, dx * dx + dz * dz - along * along));
+                    float band = 1f - Mathf.Clamp01((perp - wallHalfThick) / Mathf.Max(0.01f, wallHalfThick));
+                    float ends = 1f - Mathf.Clamp01((Mathf.Abs(along) - (wallHalfLen - wallHalfThick)) / Mathf.Max(0.01f, wallHalfThick));
+                    influence = Mathf.Min(band, ends);
+                }
+                else if (shape == TerrainShape.Crater)
+                {
+                    influence = 1f - Mathf.Clamp01(dist / reach);
+                }
+                else // Spikes
                 {
                     float fall = 1f - Mathf.Clamp01(dist / reach);
                     influence = fall * fall;
@@ -592,17 +627,31 @@ public class WorldStreamer : MonoBehaviour
                     continue;
 
                 // Smooth the influence curve (smootherstep) so the deform blends out at the rim.
-                float s = influence * influence * (3f - 2f * influence) * lift;
+                float s = influence * influence * (3f - 2f * influence);
+                float current = CurrentHeightOf(cx, cz);
 
-                if (shape == TerrainShape.Spikes)
+                if (shape == TerrainShape.Crater)
                 {
-                    int raw = (cx * 73856093) ^ (cz * 19349663) ^ Seed.GetHashCode();
-                    float r = (raw & 0x7fffffff) / (float)0x7fffffff;
-                    if (r > 0.78f)
-                        s += lift * (0.4f + r * 0.6f) * influence * influence;
+                    // Excavate down, but clamp the floor to (original noise height − cap): the pit
+                    // always keeps a solid, walkable bottom — no void — and repeated casts can't
+                    // grind it deeper than the first carve.
+                    float floorY = TerrainNoiseGenerator.GetHeight(Seed, wx, wz) - CraterMaxDepth;
+                    newHeights[EncodeCorner(cx, cz)] = Mathf.Max(current - s * CraterMaxDepth, floorY);
                 }
+                else
+                {
+                    float value = current + s * lift;
 
-                newHeights[EncodeCorner(cx, cz)] = CurrentHeightOf(cx, cz) + s;
+                    if (shape == TerrainShape.Spikes)
+                    {
+                        int raw = (cx * 73856093) ^ (cz * 19349663) ^ Seed.GetHashCode();
+                        float r = (raw & 0x7fffffff) / (float)0x7fffffff;
+                        if (r > 0.78f)
+                            value += lift * (0.4f + r * 0.6f) * influence * influence;
+                    }
+
+                    newHeights[EncodeCorner(cx, cz)] = value;
+                }
             }
         }
 

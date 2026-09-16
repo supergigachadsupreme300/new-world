@@ -289,11 +289,13 @@ public static partial class SkillCatalog
 
         // Earth school (§3.7): Stone Shard roots the school. Earth spells carry NO status effect —
         // they hit like falling rock (heavy knockback) and reshape the ground itself
-        // (TerrainShape, via TerrainDeformer): rings that circle the impact, spikes that erupt.
+        // (TerrainShape, via TerrainDeformer): rings that circle the impact, spikes that erupt,
+        // walls/pillars that rear up along the cast axis, and the root projectile tears a slab
+        // loose from the ground (leaving a solid-floored crater) to throw.
         Add(list, "magic_earth", "Stone Shard", SkillType.Magic, false, Focus(15f), true, DamageType.Earth,
             Spell("magic_earth_spell", "Stone Shard", DamageType.Earth, 26f, 15f, SpellDelivery.Projectile, 4f,
-                projectileShape: ProjectileShape.Shard),
-            null, "Hurl a shard of living stone.");
+                projectileShape: ProjectileShape.Shard, terrainShape: TerrainShape.Crater),
+            null, "Tear a slab of living stone from the ground and hurl it.");
     }
 
     private static void BuildStealth(List<Skill> list)

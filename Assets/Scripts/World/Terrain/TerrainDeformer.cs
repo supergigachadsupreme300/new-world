@@ -7,12 +7,13 @@ using UnityEngine;
 /// </summary>
 public static class TerrainDeformer
 {
-    /// <summary>Raise terrain according to the spell's shape at a world-space ground point.</summary>
-    public static void Apply(Vector3 center, float radius, TerrainShape shape)
+    /// <summary>Raise/lower the terrain according to the spell's shape at a world-space ground point.
+    /// <paramref name="dir"/> orients directional shapes (the Wall ridge follows the cast axis).</summary>
+    public static void Apply(Vector3 center, float radius, TerrainShape shape, Vector3 dir = default)
     {
         if (shape == TerrainShape.None || radius <= 0f) return;
         var streamer = Object.FindAnyObjectByType<WorldStreamer>();
         if (streamer == null) return;
-        streamer.DeformAt(center, radius, shape);
+        streamer.DeformAt(center, radius, shape, dir);
     }
 }

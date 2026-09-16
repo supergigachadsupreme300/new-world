@@ -28,7 +28,18 @@ public enum TerrainShape
     Ring = 1,
 
     /// <summary>Raise a cluster of rock spikes across the impact area.</summary>
-    Spikes = 2
+    Spikes = 2,
+
+    /// <summary>Raise an elongated stone ridge (an earth wall) along the cast direction.</summary>
+    Wall = 3,
+
+    /// <summary>Raise a tall flat-topped column (an earth pillar) at the impact center.</summary>
+    Pillar = 4,
+
+    /// <summary>Excavate a shallow dish (an earth projectile tears its slab loose here, leaving a
+    /// crater). The floor is depth-clamped so the pit is always solid and walkable — never a
+    /// bottomless void.</summary>
+    Crater = 5
 }
 
 /// <summary>
@@ -114,7 +125,7 @@ public class SpellData : ScriptableObject
     public float StatusProcChance = 1f;
 
     [Header("Terrain (§3.8, Earth school)")]
-    [Tooltip("Earth spells reshape the ground: Ring raises a stone circle around the impact point, Spikes raise rock spikes across the area. None for all other schools.")]
+    [Tooltip("Earth spells reshape the ground: Ring raises a stone circle around the impact point, Spikes raise rock spikes across the area, Wall rears an earth ridge along the cast direction, Pillar raises a tall column, and Crater excavates a shallow solid-floored dish (an earth projectile tears its slab loose here). None for all other schools.")]
     public TerrainShape TerrainShape;
 
     [Header("Presentation")]

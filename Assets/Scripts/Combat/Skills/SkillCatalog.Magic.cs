@@ -498,7 +498,7 @@ public static partial class SkillCatalog
         {
             S("magic_earth_boulder_crash", "Crash", Spell("magic_earth_boulder_crash_spell", "Crash", DamageType.Earth, 32f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3.2f, knockback: 3f), "A colossal boulder that crashes into the enemy.", Focus(22f), DamageType.Earth, true),
             S("magic_earth_boulder_weight", "Boulderweight", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("magic_earth_boulder_landslide", "Landslide", Spell("magic_earth_boulder_landslide_spell", "Landslide", DamageType.Earth, 34f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.6f, knockback: 3f), "A tumbling wall of rock.", Focus(24f), DamageType.Earth, true),
+            S("magic_earth_boulder_landslide", "Landslide", Spell("magic_earth_boulder_landslide_spell", "Landslide", DamageType.Earth, 34f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.6f, knockback: 3f, terrainShape: TerrainShape.Wall), "An earth wall rears up along the cast and crashes onto foes.", Focus(24f), DamageType.Earth, true),
             S("magic_earth_boulder_fall", "Rockfall", Spell("magic_earth_boulder_fall_spell", "Rockfall", DamageType.Earth, 30f, 20f, SpellDelivery.Storm, 6f, deliveryRange: 9f, deliveryRadius: 3.2f, duration: 3f), "Boulders rain down over the area.", Focus(20f), DamageType.Earth, true),
             S("magic_earth_boulder_tectonic", "Tectonic", Spell("magic_earth_boulder_tectonic_spell", "Tectonic", DamageType.Earth, 36f, 26f, SpellDelivery.Zone, 8f, deliveryRadius: 3.8f, knockback: 3.5f), "A tectonic blow that shatters the ground.", Focus(26f), DamageType.Earth, true),
         };
@@ -519,7 +519,7 @@ public static partial class SkillCatalog
             S("magic_earth_spires_spike", "Spike Burst", Spell("magic_earth_spires_spike_spell", "Spike Burst", DamageType.Earth, 30f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 3f, terrainShape: TerrainShape.Spikes), "Spikes erupt in a violent burst.", Focus(20f), DamageType.Earth, true),
             S("magic_earth_spires_bedrock", "Bedrock", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
             S("magic_earth_spires_needles", "Needle Field", Spell("magic_earth_spires_needles_spell", "Needle Field", DamageType.Earth, 28f, 18f, SpellDelivery.Zone, 5f, deliveryRadius: 3.4f, terrainShape: TerrainShape.Spikes), "A field of needle-thin stone spikes.", Focus(18f), DamageType.Earth, true),
-            S("magic_earth_spires_pillar", "Stone Pillars", Spell("magic_earth_spires_pillar_spell", "Stone Pillars", DamageType.Earth, 32f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3.2f, terrainShape: TerrainShape.Spikes), "Massive pillars erupt across the area.", Focus(22f), DamageType.Earth, true),
+            S("magic_earth_spires_pillar", "Stone Pillars", Spell("magic_earth_spires_pillar_spell", "Stone Pillars", DamageType.Earth, 32f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3.2f, terrainShape: TerrainShape.Pillar), "Massive stone pillars thrust up out of the ground.", Focus(22f), DamageType.Earth, true),
             S("magic_earth_spires_crystal", "Crystal Field", Spell("magic_earth_spires_crystal_spell", "Crystal Field", DamageType.Earth, 30f, 20f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, terrainShape: TerrainShape.Spikes), "Jagged crystal shards tear up the ground.", Focus(20f), DamageType.Earth, true),
         };
 

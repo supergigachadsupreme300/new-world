@@ -578,7 +578,7 @@ per-tick = spell power × 0.12 over 4 s); Frost routes to `EnemyController.Apply
 even when they share a delivery type — Fire→Burn, Ice→Frost, Lightning→Stagger, Dark→Rot,
 Wind→Knockback, Holy→heals (§3.8), Arcane→Stagger (bind/hold), Water→**Wet** (soak: slight slow plus
 Ice/Lightning conductance, `WetStatus`), Earth→**no status — it reshapes terrain itself**
-(ring/spire ground deformation on the impact point, §3.8).
+(ring / spike / wall / pillar / crater ground deformation on the impact point, §3.8).
 
 ### 3.8 Spell-Casting Pipeline
 
@@ -601,11 +601,16 @@ A spell is a data asset carrying:
   spell. When a spell leaves it `Auto`, `SpellCaster.AutoShapeFor` picks the school default; every
   bolt/lance/blade/spear-named spell sets it explicitly so projectiles read as their name.
 - **terrain shape** (Earth school signature, §3.8): an optional `TerrainShape` reshapes the tiled
-  heightmap at the spell's impact point before damage resolves — **Ring** rears a circular stone wall
-  around the impact, **Spikes** erupts spires beneath it (ground deform via `TerrainDeformer` →
-  `WorldStreamer.DeformAt`, which lifts the affected tile corners, rebuilds the merged chunk
-  mesh+collider, and persists the edit as a terrain modification). Earth spells use this instead of a
-  status effect.
+  heightmap before damage resolves — **Ring** rears a circular stone wall around the impact,
+  **Spikes** erupts spires beneath it, **Wall** rears an elongated stone ridge along the cast
+  direction, **Pillar** thrusts a tall flat-topped column up at the center, and **Crater**
+  excavates a shallow solid-floored dish (ground deform via `TerrainDeformer` →
+  `WorldStreamer.DeformAt`, which lifts/lowers the affected tile corners, rebuilds the merged chunk
+  mesh+collider, and persists the edit as a terrain modification). **Crater is also the Earth
+  projectile signature**: a Crater-shaped projectile (the root Stone Shard) tears its slab loose
+  from the ground just ahead of the caster — each cast leaves a permanent, depth-clamped pit on the
+  spot (never a bottomless void), while the impact itself only deals damage. All edits survive
+  forever (§2.6 saves them per chunk). Earth spells use terrain shapes instead of a status effect.
 - cast animation reference
 - optional status-effect application with a proc chance (e.g., applies Burn/Frost/Stagger; §3.7)
 

@@ -22,6 +22,49 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
     corners for the arena ground height sample.
 
 ---
+## 1az. Earth magic legacy terrain reshaping — walls, pillars, and projectile craters
+
+Earth spells already persisted their ground edits forever (per-chunk save files, §2.6), but the roster
+only RAISED terrain with two shapes (Ring / Spikes) applied by Zone spells; projectile spells never
+touched the ground, and there was no wall, pillar, or excavation shape. The Earth school now does what
+the design promised: castable terrain changes that last forever, at both ends of the fight.
+
+- **`SpellData.cs`** — `TerrainShape` gains **`Wall`** (a stone ridge rears up along the cast axis),
+  **`Pillar`** (a tall flat-topped column at the impact center), and **`Crater`** (excavates a shallow
+  solid-floored dish); the terrain tooltip documents all five shapes.
+- **`WorldStreamer.DeformAt(center, radius, shape, dir = default)`** — new `dir` projects the cast
+  direction onto the XZ plane for directional shapes. Per-corner influence: **Wall** = raised band
+  around the spine with rounded length caps (lift 1.3); **Pillar** = flat-top core inside `0.45·radius`
+  with smootherstep falloff (lift 1.8, the tallest shape); **Crater** = LOWERS terrain (`current −
+  smootherstep·1.8m`) clamped so the floor never goes below `originalNoiseHeight − 1.8m`. The clamp is
+  the "avoid the void" guarantee — every pit keeps a solid, walkable bottom and spamming the cast can't
+  grind it deeper than the first carve. All shapes still route through the shared `ApplyHeightEdits`
+  (corner stamping, dirty-mark, chunk mesh/collider rebuild, per-chunk flush → permanent).
+- **`TerrainDeformer.Apply`** — accepts the directional `dir` and passes it through.
+- **`SpellCaster.cs`** — `ResolveZone` passes the cast `fwd` so Walls orient along the aim;
+  `FireProjectile` now carves a Crater-shaped throw-site pit (ground just ahead of the caster,
+  `max(1.2, spell.Radius) · sizeScale`) BEFORE the projectile spawns, so an Earth projectile literally
+  tears its slab loose from the ground; impact only damages.
+- **`SkillCatalog.Magic.cs` / `SkillCatalog.cs`** — retagged the existing Earth spells that already
+  read as these names: **Stone Pillars** (`magic_earth_spires_pillar`) → `Pillar`, **Landslide**
+  (`magic_earth_boulder_landslide`, "a wall of rock") → `Wall`, and the Earth ROOT skill
+  **Stone Shard** (`magic_earth_spell`, the school's projectile) → `Crater`. No tree count changes.
+- **`game-design.md`** — §3.7 Earth line and the §3.8 terrain-shape bullet now list all five shapes
+  and the projectile crater carve + depth-clamp rule.
+
+### 1az-status
+- No CLI build — verified by code review: shape switch is exhaustive (Ring/Spikes/Wall/Pillar raise,
+  Crater lowers with the `max(current − s·1.8, noise − 1.8)` clamp — second carve at the same spot
+  stays depth-flat); Wall/wallDir is XZ-normalized with a right-axis fallback; `TerrainDeformer.Apply`
+  and `SpellCaster` call sites carry `dir`; the retagged spell factories both accept `terrainShape:`.
+- Play-test after review: (1) cast **Stone Shard** repeatedly — a shallow crater appears ahead of the
+  caster on the first cast, later casts don't deepen it, and the shard still flies/damages;
+  (2) **Stone Pillars** — tall flat-topped columns thrust up at the aim point; (3) **Landslide** — a
+  wall ridge rears up along the aim direction; (4) rings/spikes unchanged (Tremor, Spire Field);
+  (5) reload the game / walk away and back — every edit is still there (persisted chunk files).
+
+---
+
 ## 1ay. Test ground now uses the world's own terrain generation (flat procedural arena, no floating platform)
 
 Play-test/dev feedback: the test bench sat on hand-built GameObjects (a Quad floor + thin cube collider +
