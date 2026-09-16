@@ -16,5 +16,8 @@ public enum SkillType : int
     Crafting = 4,
 
     /// <summary>Survival / damage-taken resilience (was "Defense").</summary>
-    Fortitude = 5
+    Fortitude = 5,
+
+    /// <summary>Shield use: bash/guard/counter skills that require a shield in hand (§3.3).</summary>
+    Shield = 6
 }

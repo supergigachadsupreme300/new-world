@@ -22,6 +22,54 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
     corners for the platform snap.
 
 ---
+## 1aw. Shield skill category — the shield tree is its own 7th skill category (bash/guard/counter)
+
+The shield tree (root `shield_bash`, 5 branches, 25 children) was split out of Melee so the shield
+reads as its own identity. Every Shield skill plays the *equipped* shield's own bash — the
+`ShieldWeaponBehavior` bash animation + face hitbox with knockback — powered by the skill's damage
+instead of the weapon's raw bash, and Shield skills can't fire (or spend cost/cooldown) unless a
+shield is actually in hand.
+
+- **`SkillType.cs`**: new `SkillType.Shield = 6` — the 7th skill-XP category (after Fortitude).
+- **`SkillXpTracker.cs`**: `CategoryCount` 6 → 7; `TierRewardNames` gains "Shield bash damage +5%"
+  (tier index 6). Save/restore compares against the same constant, so old 6-category saves load clean.
+- **`SkillCatalog.Shield.cs`** (new): `RegisterShieldDesign` — root `shield_bash` (active, Stamina
+  14, `Bash(22f, Physical)`), L1 `shield_slam` / `shield_spikewall` / `shield_flash` /
+  `shield_riposte` / `shield_earthwarden`, each with 5 L2 children (aftershock/flame/frost/thunder/
+  earth, bristle/blazing/frost/stone/gale, radiant/blessed/hymn/dawn/purify,
+  rebound/retribution/vengeance/reflect/guardian, tremor/lava/frozen/boulder/ore) — all `Bash(...)`
+  castables.
+- **`SkillCatalog.Melee.cs`**: the old `melee_shieldbash` layer-1 root + its 5 L2 branch tables are
+  removed (the L2 comment drops to 20 L1 parents / 100 slots).
+- **`SkillCatalog.cs`**: `BuildShield` + `RegisterShieldDesign` wired into the build/expand path;
+  new `Bash(power, kind, knockback)` helper; `shield_bash` root added under `SkillType.Shield`.
+- **`IEffect.cs`**: new `ShieldBashEffect` — fetches the equipped shield
+  (`CombatController.EquippedShield`), plays its `WeaponAnimator` bash track, routes
+  `ShieldWeaponBehavior.BeginAttack` (charge level, direction/origin from the skill context) and
+  overrides the power path (`AttackDamage`, `Hitbox.AttackPower/Type/KnockbackForce` = skill values),
+  plus a shield-face `SkillFx.SlashFlash` accent. Without a shield it no-ops with a debug log.
+- **`SkillProfile.cs`**: `TryUse` gates `SkillType.Shield` skills on `combat.HasShield` *before* any
+  cost/cooldown is spent (`[Skill] "id" needs a shield equipped`).
+- **`CharacterInfoUI.cs`**: the center PHYSICAL wheel now has **5 wedges** (Melee / Ranged /
+  Stealth / Fortitude / Shield); `CategoryNames` + legend + a Shield accent color.
+- **`game-design.md`** synced: §3.3 counts 6 → 7 categories (new Shield row 1/5/25 = 31; TOTAL
+  67/335/1675/2077), a "Shield category (current build)" block, the XP-categories table gains the
+  Shield row, and §3.6 reroutes `ShieldWeaponBehavior`'s bash identity to the §3.3 Shield category.
+
+### 1aw-status
+- No CLI build — verified by code review: `SkillType.Shield` / `CategoryCount` / `CategoryNames` all
+  at index 6 with their new 7th entries; `ShieldBashEffect` references existing `EquippedShield` /
+  `ShieldWeaponBehavior` / `WeaponAnimator.PlayAttack(false)` / `SkillFx.SlashFlash` APIs; the
+  `HasShield` gate sits after the learned check and before any cost spend; grep confirms zero
+  remaining `melee_shield*` / melee-shield branch references in code (only stale PROGRESS history);
+  tree counts recomputed 1 + 5 + 25 = 31.
+- Play-test after review: (1) with a shield equipped, learn/cast a Shield skill (e.g. Shield Bash) —
+  it should play the shield's bash animation, hit in front with knockback, and deal the skill's
+  power; (2) without a shield, the hotkey/wheel cast should fail with no FP/stamina/cooldown spent;
+  (3) the center PHYSICAL wheel/legend shows 5 wedges incl. Shield; (4) old savegames still load
+  (category index 6 defaulting clean).
+
+---
 ## 1av. Fix MagicTestMatrix's remaining compile errors (namespace, Keyboard, LINQ)
 
 Follow-up on `1as`: three more CS errors in `MagicTestMatrix.cs`. The file was the only one in

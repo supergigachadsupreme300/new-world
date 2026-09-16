@@ -61,6 +61,7 @@ public static partial class SkillCatalog
         BuildStealth(list);
         BuildCrafting(list);
         BuildFortitude(list);
+        BuildShield(list);
 
         ExpandTree(list);
 
@@ -91,6 +92,7 @@ public static partial class SkillCatalog
         RegisterStealthDesign(bank);
         RegisterCraftingDesign(bank);
         RegisterFortitudeDesign(bank);
+        RegisterShieldDesign(bank);
         return bank;
     }
 
@@ -156,6 +158,7 @@ public static partial class SkillCatalog
     private static StatBuffEffect Buff(StatType stat, float amount) => new StatBuffEffect { Stat = stat, Amount = amount };
     private static DamageZoneEffect Slash(float power, DamageType kind) => new DamageZoneEffect { Radius = 2.0f, BasePower = power, Type = kind };
     private static DamageZoneEffect Zone(float radius, float power, DamageType kind) => new DamageZoneEffect { Radius = radius, BasePower = power, Type = kind };
+    private static ShieldBashEffect Bash(float power, DamageType kind, float knockback = 4f) => new ShieldBashEffect { BasePower = power, Type = kind, KnockbackForce = knockback };
 
     private static void BuildMelee(List<Skill> list)
     {
@@ -174,8 +177,6 @@ public static partial class SkillCatalog
             new WeaponSkillEffect(), null, "A forward thrust weapon skill (equipped weapon skill).");
         Add(list, "melee_whirlwind", "Whirlwind", SkillType.Melee, false, Stamina(18f), false, DamageType.Wind,
             Zone(2.2f, 20f, DamageType.Wind), P("melee_cleave"), "Spin, striking all nearby foes with wind force (requires Cleave).");
-        Add(list, "melee_shieldbash", "Shield Bash", SkillType.Melee, false, Stamina(14f), false, DamageType.Physical,
-            Slash(22f, DamageType.Physical), null, "A heavy blunt shield strike.");
         Add(list, "melee_berserk", "Berserk Slash", SkillType.Melee, false, Stamina(20f), true, DamageType.Fire,
             Slash(26f, DamageType.Fire), P("melee_cleave"), "A furious flaming slash (requires Cleave).");
         Add(list, "melee_couter", "Counter Strike", SkillType.Melee, false, Stamina(16f), false, DamageType.Physical,
@@ -368,6 +369,15 @@ public static partial class SkillCatalog
             Slash(14f, DamageType.Physical), null, "A bull-headed shoulder slam.");
         Add(list, "fort_wall", "Grim Wall", SkillType.Fortitude, false, Focus(20f), true, DamageType.Earth,
             Zone(2.8f, 20f, DamageType.Earth), P("fort_steadfast", "fort_stoneskin"), "Erupt the earth in defense.");
+    }
+
+    private static void BuildShield(List<Skill> list)
+    {
+        // Shield category root (§3.3): the bash line grounds every shield skill. Castables use the
+        // shield's OWN bash (ShieldBashEffect) — hitting with the face of the equipped shield, not
+        // with a hand-held blade — so a shield skill is meaningless without a shield in hand.
+        Add(list, "shield_bash", "Shield Bash", SkillType.Shield, false, Stamina(14f), false, DamageType.Physical,
+            Bash(22f, DamageType.Physical), null, "A heavy blunt bash with the face of your equipped shield.");
     }
 
     // ──────────────────────────────────────────────────────────────────────────

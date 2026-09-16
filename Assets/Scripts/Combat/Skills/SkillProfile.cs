@@ -68,7 +68,7 @@ public sealed class SkillProfile : MonoBehaviour
             _xp.OnSkillLevelUp -= OnCategoryLevelUp;
     }
 
-    /// <summary>Grant one skill point per category level-up (any of the 6 categories).</summary>
+    /// <summary>Grant one skill point per category level-up (any of the 7 categories).</summary>
     private void OnCategoryLevelUp(SkillType skill, int level)
     {
         Points++;
@@ -314,6 +314,19 @@ public sealed class SkillProfile : MonoBehaviour
         }
 
         ReconcileDependencies();
+
+        // Shield skills (§3.3) bash with the equipped shield — they are meaningless without one
+        // in hand, so gate before any cost/cooldown is spent.
+        if (skill.Type == SkillType.Shield)
+        {
+            var combat = GetComponent<CombatController>();
+            if (combat == null || !combat.HasShield)
+            {
+                if (SkillDebug) Debug.Log($"[Skill] \"{id}\" needs a shield equipped");
+                return false;
+            }
+        }
+
         if (skill.Effect is SpellCastEffect cast && cast.Spell != null)
         {
             // Wheel-cast magic: SpellCaster owns the FP cost (settled against the prepaid drain),

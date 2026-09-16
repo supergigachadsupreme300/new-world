@@ -65,6 +65,63 @@ public sealed class DamageZoneEffect : IEffect
 }
 
 /// <summary>
+/// Shield skill effect (§3.3 Shield): drives the equipped shield's OWN bash — the real
+/// <see cref="ShieldWeaponBehavior"/> attack (bash animation + forward hitbox arc) — scoped by the
+/// skill's <see cref="BasePower"/> instead of the weapon's raw bash. The shield's bash animation set
+/// (WeaponAnimator ShieldBashKeys) is the visible identity, plus a shield-face flash accent. Requires
+/// a shield in hand: without an equipped <see cref="CombatController.EquippedShield"/> the effect
+/// does nothing (the SkillProfile gate normally rejects these skills before they reach here).
+/// </summary>
+[System.Serializable]
+public sealed class ShieldBashEffect : IEffect
+{
+    public float BasePower = 20f;
+    public DamageType Type = DamageType.Physical;
+    public float KnockbackForce = 4f;
+
+    public void Execute(SkillContext ctx)
+    {
+        if (ctx == null || ctx.User == null) return;
+        var combat = ctx.User.GetComponent<CombatController>();
+        var shield = combat != null ? combat.EquippedShield : null;
+        var behavior = shield != null ? shield.GetComponent<ShieldWeaponBehavior>() : null;
+        if (behavior == null)
+        {
+            if (SkillProfile.SkillDebug)
+                Debug.Log("[Skill] shield skill needs a shield equipped — nothing to bash with");
+            return;
+        }
+
+        float power = BasePower * (ctx.PowerScale > 0f ? ctx.PowerScale : 1f);
+        Transform origin = ctx.Origin != null ? ctx.Origin : ctx.User.transform;
+        Vector3 fwd = ctx.Origin != null ? ctx.Origin.forward : ctx.User.transform.forward;
+
+        // The bash animation is the shield's own (short jab / lateral sweep / overhead slam).
+        shield.GetComponent<WeaponAnimator>()?.PlayAttack(false);
+
+        behavior.BeginAttack(new AttackCommand
+        {
+            IsHeavy = false,
+            ChargeLevel = ctx.ChargeLevel,
+            Direction = fwd,
+            Origin = origin
+        });
+
+        // The skill's power wins over the weapon's own bash-scaling path.
+        behavior.AttackDamage = power;
+        if (behavior.Hitbox != null)
+        {
+            behavior.Hitbox.AttackPower = power;
+            behavior.Hitbox.Type = Type;
+            behavior.Hitbox.KnockbackForce = KnockbackForce;
+        }
+
+        // Distinct shield-face flash — the bash reads as a wall of force, not a blade slash.
+        SkillFx.SlashFlash(origin.position + fwd * 0.4f, fwd, 1.4f, 0.16f, DamageNumber.ColorFor(Type));
+    }
+}
+
+/// <summary>
 /// Magic cast effect: forwards a <see cref="SpellData"/> to the caster's <see cref="SpellCaster"/>,
 /// routing through the shared casting pipeline (FP, cast time, cooldown, delivery). Used by magic
 /// castable skills.

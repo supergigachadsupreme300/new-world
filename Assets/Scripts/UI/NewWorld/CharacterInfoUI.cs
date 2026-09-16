@@ -141,7 +141,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private static readonly Color NodeAvailable = new Color(0.4f, 0.75f, 0.46f, 1f);
     private static readonly Color NodeLocked = new Color(0.3f, 0.32f, 0.38f, 1f);
 
-    private static readonly string[] CategoryNames = { "Melee", "Ranged", "Magic", "Stealth", "Crafting", "Defense" };
+    private static readonly string[] CategoryNames = { "Melee", "Ranged", "Magic", "Stealth", "Crafting", "Defense", "Shield" };
 
     /// <summary>Per-category accent colors (legend chips, sector labels, node top strips).</summary>
     private static readonly Color[] CategoryColors =
@@ -152,6 +152,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         new Color(0.55f, 0.5f, 0.85f, 1f),   // Stealth
         new Color(0.92f, 0.72f, 0.3f, 1f),   // Crafting
         new Color(0.55f, 0.78f, 0.42f, 1f),  // Defense
+        new Color(0.66f, 0.55f, 0.85f, 1f),  // Shield
     };
     private static readonly Color LineActive = Color.black;
     private static readonly Color LineInert = Color.black;
@@ -1458,7 +1459,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     // Compose the three independent trees on one board: Magic (compact full-circle wheel) left,
     // Physical combat (standard 4-wedge wheel) center, Crafting (compact full-circle wheel) right.
     BuildWheel(new[] { SkillType.Magic }, new Vector2(-2200f, 0f), compact: true);
-    BuildWheel(new[] { SkillType.Melee, SkillType.Ranged, SkillType.Stealth, SkillType.Fortitude }, Vector2.zero, compact: false);
+    BuildWheel(new[] { SkillType.Melee, SkillType.Ranged, SkillType.Stealth, SkillType.Fortitude, SkillType.Shield }, Vector2.zero, compact: false);
     BuildWheel(new[] { SkillType.Crafting }, new Vector2(2200f, 0f), compact: true);
 
     MakeGeneralHeading("MAGIC", new Vector2(-2200f, 560f));
@@ -3120,7 +3121,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         const float gap = 122f * S;
         const float swatch = 14f * S;
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < CategoryNames.Length; i++)
         {
             var go = new GameObject("Legend_" + CategoryNames[i]);
             go.transform.SetParent(viewport, false);

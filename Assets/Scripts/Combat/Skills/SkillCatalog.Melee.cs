@@ -46,17 +46,7 @@ public static partial class SkillCatalog
             S("melee_lunge_longarm", "Long Arm", Slash(28f, DamageType.Ice), "An impossibly extended lunge chilling the target.", Stamina(18f), DamageType.Ice, true),
         };
 
-        // Root: melee_shieldbash (active, Stamina 14, Slash 22 Physical)
-        bank.L1["melee_shieldbash"] = new BranchSlot[]
-        {
-            S("melee_shield_slam", "Shield Slam", Slash(24f, DamageType.Physical), "A deafening full-body shield slam.", Stamina(14f)),
-            S("melee_shield_wallspike", "Spiked Wall", Zone(2f, 20f, DamageType.Physical), "A bristling shield line that lashes out.", Stamina(16f)),
-            S("melee_shield_sunwall", "Sunwall", Zone(2.2f, 24f, DamageType.Holy), "A gleaming shield flare of holy light.", Stamina(18f), DamageType.Holy, true),
-            S("melee_shield_ironrip", "Iron Riposte", Slash(22f, DamageType.Physical), "Brace and punish an enemy that hit you.", Stamina(14f)),
-            S("melee_shield_earthwarden", "Earthwarden", Zone(2f, 22f, DamageType.Earth), "Strike the ground, sending rubble against foes.", Stamina(18f), DamageType.Earth, true),
-        };
-
-        /* ──────────────── L2 (125 slots — 25 L1 parents × 5 children each) ──────────────── */
+        /* ──────────────── L2 (100 slots — 20 L1 parents × 5 children each) ──────────────── */
 
         /* melee_tough children (all passive) */
         bank.L2["melee_tough"] = new BranchSlot[]
@@ -256,56 +246,6 @@ public static partial class SkillCatalog
             S("melee_longarm_abyssal", "Abyssal Reach", Slash(32f, DamageType.Dark), "A reach that extends through the abyss.", Stamina(22f), DamageType.Dark, true),
             S("melee_longarm_void", "Void Reach", Slash(34f, DamageType.Dark), "A lunge that pierces through dimensional voids.", Stamina(24f), DamageType.Dark, true),
             S("melee_longarm_static", "Static Reach", Slash(30f, DamageType.Lightning), "An electrified reach that chains on impact.", Stamina(20f), DamageType.Lightning, true),
-        };
-
-        /* melee_shield_slam children */
-        bank.L2["melee_shield_slam"] = new BranchSlot[]
-        {
-            S("melee_slam_aftershock", "Aftershock Slam", Zone(2.4f, 28f, DamageType.Physical), "A slam that sends aftershocks through the ground.", Stamina(20f)),
-            S("melee_slam_flame", "Flame Slam", Zone(2.4f, 28f, DamageType.Fire), "A fiery shield slam that scorches on impact.", Stamina(20f), DamageType.Fire, true),
-            S("melee_slam_frost", "Frost Slam", Zone(2.4f, 28f, DamageType.Ice), "A freezing shield slam that chills all nearby.", Stamina(20f), DamageType.Ice, true),
-            S("melee_slam_thunder", "Thunder Slam", Zone(2.6f, 30f, DamageType.Lightning), "A thunderous slam that shocks enemies.", Stamina(22f), DamageType.Lightning, true),
-            S("melee_slam_earth", "Earth Slam", Zone(2.6f, 30f, DamageType.Earth), "A ground-shattering slam of earthen force.", Stamina(22f), DamageType.Earth, true),
-        };
-
-        /* melee_shield_wallspike children */
-        bank.L2["melee_shield_wallspike"] = new BranchSlot[]
-        {
-            S("melee_wallspike_bristle", "Bristle Wall", Zone(2.2f, 24f, DamageType.Physical), "A wall of bristling spikes that damages on contact.", Stamina(18f)),
-            S("melee_wallspike_blazing", "Blazing Wall", Zone(2.4f, 26f, DamageType.Fire), "A fiery wall of spikes that burns nearby foes.", Stamina(20f), DamageType.Fire, true),
-            S("melee_wallspike_frost", "Frost Wall", Zone(2.4f, 26f, DamageType.Ice), "An ice-covered spike wall that chills.", Stamina(20f), DamageType.Ice, true),
-            S("melee_wallspike_stone", "Stone Wall", Zone(2.6f, 28f, DamageType.Earth), "A stone spike wall that crushes on contact.", Stamina(22f), DamageType.Earth, true),
-            S("melee_wallspike_gale", "Gale Wall", Zone(2.4f, 26f, DamageType.Wind), "A wind-blasted spike wall that knocks back.", Stamina(20f), DamageType.Wind, true),
-        };
-
-        /* melee_shield_sunwall children */
-        bank.L2["melee_shield_sunwall"] = new BranchSlot[]
-        {
-            S("melee_sunwall_radiant", "Radiant Wall", Zone(2.4f, 28f, DamageType.Holy), "A blinding wall of holy radiance.", Stamina(20f), DamageType.Holy, true),
-            S("melee_sunwall_blessed", "Blessed Slam", Zone(2.2f, 26f, DamageType.Holy), "A blessed shield slam that purifies foes.", Stamina(18f), DamageType.Holy, true),
-            S("melee_sunwall_hymn", "Hymn of Light", Zone(2.6f, 30f, DamageType.Holy), "A sacred hymn that radiates holy power.", Stamina(22f), DamageType.Holy, true),
-            S("melee_sunwall_dawn", "Dawn's Shield", Zone(2.8f, 32f, DamageType.Holy), "A dawn-bright shield flare that banishes darkness.", Stamina(24f), DamageType.Holy, true),
-            S("melee_sunwall_purify", "Purifying Light", Zone(2.4f, 28f, DamageType.Holy), "A purifying light that burns the unholy.", Stamina(20f), DamageType.Holy, true),
-        };
-
-        /* melee_shield_ironrip children */
-        bank.L2["melee_shield_ironrip"] = new BranchSlot[]
-        {
-            S("melee_ironrip_rebound", "Rebound", Slash(26f, DamageType.Physical), "A riposte that rebounds enemy force.", Stamina(16f)),
-            S("melee_ironrip_retribution", "Retribution", Slash(28f, DamageType.Holy), "A holy retribution strike.", Stamina(18f), DamageType.Holy, true),
-            S("melee_ironrip_vengeance", "Vengeance", Slash(30f, DamageType.Dark), "A dark vengeance that feeds on pain.", Stamina(20f), DamageType.Dark, true),
-            S("melee_ironrip_reflect", "Reflect", Zone(2f, 24f, DamageType.Physical), "A riposte that reflects damage back.", Stamina(16f)),
-            S("melee_ironrip_guardian", "Guardian's Riposte", Slash(28f, DamageType.Holy), "A guardian's counter blessed by light.", Stamina(18f), DamageType.Holy, true),
-        };
-
-        /* melee_shield_earthwarden children */
-        bank.L2["melee_shield_earthwarden"] = new BranchSlot[]
-        {
-            S("melee_earthwarden_tremor", "Tremor Stomp", Zone(2.6f, 28f, DamageType.Earth), "A ground-shaking stomp that stuns.", Stamina(20f), DamageType.Earth, true),
-            S("melee_earthwarden_lava", "Lava Burst", Zone(2.4f, 30f, DamageType.Fire), "A molten burst from the earth.", Stamina(22f), DamageType.Fire, true),
-            S("melee_earthwarden_frozen", "Frozen Earth", Zone(2.4f, 30f, DamageType.Ice), "Frozen ground that chills all who stand on it.", Stamina(22f), DamageType.Ice, true),
-            S("melee_earthwarden_boulder", "Boulder Hurl", Zone(2.2f, 26f, DamageType.Physical), "A massive boulder hurled at enemies.", Stamina(18f)),
-            S("melee_earthwarden_ore", "Ore Slam", Zone(2.6f, 30f, DamageType.Earth), "A slam of raw mineral force.", Stamina(22f), DamageType.Earth, true),
         };
     }
 }

@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Per-category skill XP (game-design §3.3, planning Task 4.2). Six categories each track
+/// Per-category skill XP (game-design §3.3, planning Task 4.2). Seven categories each track
 /// their own XP and level; leveling grants flat tier rewards at 5 / 10 / 15 / 20 / 25.
 /// <see cref="SkillXpTracker.AddXp"/> applies the active race's per-category XP bonus.
 ///
@@ -23,7 +23,7 @@ public class SkillXpTracker : MonoBehaviour
     public const int TierStep = 5;
 
     public CategoryState[] Categories = new CategoryState[CategoryCount];
-    public const int CategoryCount = 6;
+    public const int CategoryCount = 7;
 
     public float BaseXpForLevel = 100f;
     public float LevelCurve = 1.3f;
@@ -38,7 +38,7 @@ public class SkillXpTracker : MonoBehaviour
     public string[] TierRewardNames =
     {
         "Melee damage +5%", "Ranged damage +5%", "Spell power +5%",
-        "Sneak/Action noise -10%", "Crafting yield +5%", "Max HP +5%"
+        "Sneak/Action noise -10%", "Crafting yield +5%", "Max HP +5%", "Shield bash damage +5%"
     };
 
     private void Awake()

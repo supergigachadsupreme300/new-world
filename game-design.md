@@ -227,7 +227,7 @@ classes, and every class appeals to 2-3 racial archetypes:
 
 ### 3.3 Skill System (3-layer branching tree + use-based XP)
 
-A **use-based skill progression** spans 6 categories with a **3-layer branching tree** (~1984 skills total). No fixed class requirements — any player can advance any category based on how they play. Skills level by gaining XP in their category (with racial multipliers) and grant flat tier rewards at levels 5/10/15/20/25.
+A **use-based skill progression** spans 7 categories with a **3-layer branching tree** (~2,077 skills total). No fixed class requirements — any player can advance any category based on how they play. Skills level by gaining XP in their category (with racial multipliers) and grant flat tier rewards at levels 5/10/15/20/25.
 
 **Per-skill levels (current build):** on top of the category bar, every **learned skill also levels
 itself** — each successful use grants skill-level XP (unaffected by prereqs, boosted by the race's
@@ -257,7 +257,8 @@ Layer 2 (deep):     125-350 skills per category — mastery-level abilities
 | Stealth | 10 | 50 | 250 | 310 |
 | Crafting | 10 | 50 | 250 | 310 |
 | Fortitude | 10 | 50 | 250 | 310 |
-| **TOTAL** | **66** | **330** | **1650** | **2046** |
+| Shield | 1 | 5 | 25 | 31 |
+| **TOTAL** | **67** | **335** | **1675** | **2077** |
 
 **Prerequisites:** Each Layer 1 skill requires its parent Layer 0 skill. Each Layer 2 skill requires its parent Layer 1 skill. This creates clean branching paths — players must invest down a specific branch.
 
@@ -268,10 +269,17 @@ Layer 2 (deep):     125-350 skills per category — mastery-level abilities
 #### Skill Categories
 
 ```
-   [MELEE]  [RANGED]  [MAGIC]
-      \        |        /
+   [MELEE]  [RANGED]  [MAGIC]  [SHIELD]
+      \        |        /        /
       [SURVIVAL: STEALTH + CRAFTING + FORTITUDE]
 ```
+
+**Shield category (current build):** the shield-tree (root `shield_bash`, 5 branches, 25 children) was
+split out of the Melee tree so the shield reads as its own identity — **bash / guard / counter**, played
+with the *equipped shield* (every Shield skill drives `ShieldWeaponBehavior`'s own bash animation + face
+hitbox with knockback). Shield skills **require a shield in hand** — a learned Shield skill can't fire
+(or spend its cost) while the player carries no shield. The wheel puts Shield under the center PHYSICAL
+tree (5 wedges: Melee / Ranged / Stealth / Fortitude / Shield).
 
 #### Skill Types
 
@@ -348,7 +356,7 @@ StatusProcLuck = base + (Luck × k_status)             # poison/bleed/rot/frost 
 
 Example — a race with **Health +20%**: at base Health 30 → total 36 → MaxHP = 100 + 36×12 = **532** (vs unmodified 460). Because the bonus scales with the total stat, it represents ~16–18% more HP in the late game.
 
-**Damage calculator wiring:** Strength/Dexterity/Wisdom/Luck feed the `DamageCalculator` context (AttackPower, LightAttackPower, ElementalPower, CriticalMultiplier). Ranged damage uses the **weapon's base damage** directly. Incoming damage is reduced by **equipment-based resistances** (armor physical DR, gear elemental/magic resist) — no stat contributes resistance. The 6 skill-XP categories (Melee, Ranged, Magic, Stealth, Crafting, **Fortitude**) are separate from the 11 stats.
+**Damage calculator wiring:** Strength/Dexterity/Wisdom/Luck feed the `DamageCalculator` context (AttackPower, LightAttackPower, ElementalPower, CriticalMultiplier). Ranged damage uses the **weapon's base damage** directly. Incoming damage is reduced by **equipment-based resistances** (armor physical DR, gear elemental/magic resist) — no stat contributes resistance. The 7 skill-XP categories (Melee, Ranged, Magic, Stealth, Crafting, Fortitude, **Shield**) are separate from the 11 stats.
 
 ### 3.5 Race System (22 Races)
 
@@ -366,7 +374,7 @@ TotalStat = BaseStat × (1 + RacialPercent)
 - Negative % (e.g. Dex -10%) is a permanent handicap the player must build around.
 - Modifiers recalc immediately whenever the player levels or changes race.
 
-#### Skill XP Categories (6)
+#### Skill XP Categories (7)
 
 Instead of a node-based skill tree, skills level via **use-based XP**. Each category has its own XP bar and flat tier rewards at levels 5/10/15/20/25. Races grant **XP multipliers** in categories that match their archetype, pushing builds in a natural direction.
 
@@ -378,6 +386,7 @@ Instead of a node-based skill tree, skills level via **use-based XP**. Each cate
 | **Stealth** | Stealth/survival proficiency | Sneak damage, detection range, lockpicking |
 | **Crafting** | Crafting/gathering proficiency | Potion potency, upgrade success, yield |
 | **Fortitude** | Defensive proficiency | Shield stability, armor effectiveness (physical DR), perk effectiveness |
+| **Shield** | Shield proficiency | Bash/slam/counter skills in the Shield tree; bash power, knockback (requires a shield equipped) |
 
 #### The 22 Races
 
@@ -463,7 +472,7 @@ Weapons are built on a **4-category base — Melee, Ranged, Magic, Shield** — 
   - **`MeleeWeaponBehavior`** → existing `HitboxSystem` arc sweep.
   - **`RangedWeaponBehavior`** → projectile/raycast, **consumes ammo** (arrows/bolts from inventory), accuracy from Dexterity.
   - **`MagicWeaponBehavior`** → routes to the spell/skills pipeline; the equipped staff/wand/book's magic mods scale the spell (damage %, cast time, cooldown); costs FP; spell power from Wisdom.
-  - **`ShieldWeaponBehavior`** → short hitbox bash on LMB (the equip's bash art, Shield-bash skill family §3.3) + enables the RMB guard; the shield's guard mods make blocking strictly stronger than the bare-hand guard.
+  - **`ShieldWeaponBehavior`** → short hitbox bash on LMB (the equip's bash art, the §3.3 Shield category's bash identity) + enables the RMB guard; the shield's guard mods make blocking strictly stronger than the bare-hand guard.
   - `CombatController` talks **only** to `IWeaponBehavior` — it never knows melee vs ranged vs magic. **Adding a weapon kind = one new behavior class.**
 - **Layer 4 — Damage pipeline & registry.** `DamageCalculator` (existing flexible `HitContext`) stays the single damage formula, extended to carry the weapon's `DamageType` (one of the 10 damage types, §3.7) for per-hit element/resist resolution. `WeaponDatabase` (ScriptableObject registry) holds all weapon assets and resolves each equipped weapon's category → behavior.
 
