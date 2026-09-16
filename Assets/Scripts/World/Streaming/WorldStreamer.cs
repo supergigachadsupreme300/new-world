@@ -609,9 +609,60 @@ public class WorldStreamer : MonoBehaviour
         if (newHeights.Count == 0)
             return;
 
-        // Apply edits to every loaded tile touched by the corner set. Corners not in the
-        // influence set simply keep their current (unchanged) height, so shared edges with
-        // untouched neighbours line up perfectly.
+        ApplyHeightEdits(minCX, minCZ, maxCX, maxCZ, newHeights);
+    }
+
+    /// <summary>
+    /// Levels a rectangular patch of the loaded heightmap to a target height, blending out over a
+    /// feathered rim. The testing ground carves its flat arena out of the real procedural terrain
+    /// this way (the "similar method to generate the world") — it routes through the exact same
+    /// tile-edit + chunk-rebuild + persistence pipeline as <see cref="DeformAt"/>, so the pad is
+    /// genuine generated terrain (mesh, collider, save files), not a floating overlay. Unloaded
+    /// tiles are ignored, so callers must wait for the pad's chunks (see <see cref="LoadedChunks"/>)
+    /// before flattening.
+    /// </summary>
+    public void FlattenAt(Vector3 center, float halfSize, float targetHeight, float feather = 3f)
+    {
+        if (halfSize <= 0f) return;
+
+        int minCX = Mathf.FloorToInt(center.x - halfSize - feather);
+        int maxCX = Mathf.FloorToInt(center.x + halfSize + feather);
+        int minCZ = Mathf.FloorToInt(center.z - halfSize - feather);
+        int maxCZ = Mathf.FloorToInt(center.z + halfSize + feather);
+
+        // Pad interiors go fully level to the target; the rim blends influence 1 → 0 over `feather`
+        // units (smootherstep) so the flat arena melts into the untouched surrounding terrain.
+        var newHeights = new Dictionary<long, float>();
+        for (int cz = minCZ; cz <= maxCZ; cz++)
+        {
+            for (int cx = minCX; cx <= maxCX; cx++)
+            {
+                float wx = cx + 0.5f;
+                float wz = cz + 0.5f;
+                float ix = 1f - Mathf.Clamp01((Mathf.Abs(wx - center.x) - halfSize) / Mathf.Max(0.01f, feather));
+                float iz = 1f - Mathf.Clamp01((Mathf.Abs(wz - center.z) - halfSize) / Mathf.Max(0.01f, feather));
+                float influence = Mathf.Min(ix, iz);
+                if (influence <= 0f) continue;
+                float s = influence * influence * (3f - 2f * influence);
+                newHeights[EncodeCorner(cx, cz)] = Mathf.Lerp(CurrentHeightOf(cx, cz), targetHeight, s);
+            }
+        }
+
+        if (newHeights.Count == 0)
+            return;
+
+        ApplyHeightEdits(minCX, minCZ, maxCX, maxCZ, newHeights);
+    }
+
+    /// <summary>
+    /// Writes an edited corner set into every loaded tile it touches, marks them dirty, and rebuilds
+    /// the affected chunks' meshes + colliders (and flushes their save files). Shared by shape
+    /// deformation (<see cref="DeformAt"/>) and by arena flattening (<see cref="FlattenAt"/>).
+    /// Corners not in the set simply keep their current (unchanged) height, so shared edges with
+    /// untouched neighbours line up perfectly.
+    /// </summary>
+    private void ApplyHeightEdits(int minCX, int minCZ, int maxCX, int maxCZ, Dictionary<long, float> newHeights)
+    {
         var rebuiltChunks = new HashSet<TerrainChunkCoord>();
         bool changedAny = false;
         for (int cz = minCZ; cz <= maxCZ; cz++)

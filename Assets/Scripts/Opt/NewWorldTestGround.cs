@@ -2,21 +2,24 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Testing ground for the open world. Drop this ONE component on a GameObject and it builds a
-/// flat platform and lays out a deterministic test bench: the player tool/seed kit, a farming
-/// plot, livestock pens, an enemy arena, a building row, an NPC row, and a crafted fast-travel
-/// POI hub. It composes existing public APIs only (no rewrites of live contracts), so every
-/// Phase 4-8/9 system can be exercised from a single area.
+/// Testing ground for the open world. Drop this ONE component on a GameObject and it carves a flat
+/// arena out of the real procedural terrain (the world's own generator + <see cref="WorldStreamer"/>
+/// chunk pipeline — same 5-octave noise the terrain is built from — rather than an artificial
+/// floating floor) and lays out a deterministic test bench on it: the player tool/seed kit, a
+/// farming plot, livestock pens, an enemy arena, a building row, an NPC row, and a crafted
+/// fast-travel POI hub. It composes existing public APIs only (no rewrites of live contracts), so
+/// every Phase 4-8/9 system can be exercised from a single area.
 ///
 /// Opt-in lanes via serialized toggles; spawn once (idempotent) on <see cref="AutoSpawnOnStart"/>.
 /// </summary>
 public sealed class NewWorldTestGround : MonoBehaviour
 {
-    [Header("Platform")]
-    [Tooltip("Size of the flat test platform (X/Z world units).")]
+    [Header("Arena")]
+    [Tooltip("Size of the flat test arena (X/Z world units).")]
     public float PlatformSize = 120f;
-    [Tooltip("Centre of the platform in world space.")]
+    [Tooltip("Centre of the arena in world space. Its Y is snapped to the sampled ground height.")]
     public Vector3 PlatformCenter = new Vector3(0f, 50f, 0f);
+    [Tooltip("Carve a flat arena out of the procedural terrain (WorldStreamer.FlattenAt).")]
     public bool CreatePlatform = true;
 
     [Header("Spawning")]
@@ -45,19 +48,20 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
     private bool _pendingPlayerGrants;
+    private bool _arenaReady;
+    private float _flattenFeather = 3f;
     private readonly List<WeaponRackStand> _rackStands = new List<WeaponRackStand>();
     private ContextPromptUI _contextPrompt;
     private PlayerController _playerController;
-    private static readonly int TestRootLayer = 0;
 
-    /// <summary>XZ bounds + top height of the built test platform (for prop suppression).</summary>
+    /// <summary>XZ bounds + ground height of the flat arena carved out of the procedural terrain.</summary>
     public static float PlatformTopY { get; private set; } = float.MinValue;
     public static float PlatformMinX { get; private set; }
     public static float PlatformMaxX { get; private set; }
     public static float PlatformMinZ { get; private set; }
     public static float PlatformMaxZ { get; private set; }
 
-    /// <summary>True when a world position lies inside the built test platform footprint.</summary>
+    /// <summary>True when a world position lies inside the flat test arena footprint.</summary>
     public static bool IsInsidePlatform(float x, float z)
     {
         return PlatformTopY != float.MinValue
@@ -66,8 +70,9 @@ public sealed class NewWorldTestGround : MonoBehaviour
     }
 
     /// <summary>
-    /// Remove nature props that were generated synchronously before this component existed
-    /// (GameBootstrap generates the spawn chunks first), so none can poke through the platform.
+    /// Remove nature props already spawned inside the arena footprint before the ground was
+    /// flattened (chunk props stream in over ticks after their chunk loads), so nothing can
+    /// poke its collider up through the pad and eject the player.
     /// </summary>
     private static void ClearPropsInsidePlatform()
     {
@@ -93,11 +98,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private void Awake()
     {
         if (CreatePlatform)
-        {
-            SnapPlatformToTerrain();
-            BuildPlatform();
-            ClearPropsInsidePlatform();
-        }
+            PrepareArenaGround();
 
         _npcPlacer = Object.FindAnyObjectByType<WorldNpcPlacer>();
         if (_npcPlacer == null)
@@ -108,18 +109,27 @@ public sealed class NewWorldTestGround : MonoBehaviour
         }
 
         if (AutoSpawnOnStart)
-            StartCoroutine(SpawnBenchBudgeted());
+            StartCoroutine(RunBenchSpawn());
     }
 
     /// <summary>
     /// Spawns the test bench one lane group per frame instead of all at once in Awake, so the
-    /// heavy setup (weapon models, NPCs, enemies, grants) no longer blocks the first frames.
-    /// Preserves the ordering and guarantees of <see cref="SpawnBench"/>.
+    /// heavy setup (weapon models, NPCs, enemies, grants) no longer blocks the first frames. When
+    /// the arena is enabled it first waits for the pad's terrain chunks to stream in, then carves
+    /// the flat ground in place (the real procedural terrain), so every lane lands on the settled
+    /// pad. Preserves the ordering and guarantees of the original bench.
     /// </summary>
-    private System.Collections.IEnumerator SpawnBenchBudgeted()
+    private System.Collections.IEnumerator RunBenchSpawn()
     {
         if (_spawned) yield break;
         _spawned = true;
+
+        if (CreatePlatform)
+        {
+            yield return StartCoroutine(WaitForArenaTerrain());
+            FlattenArenaTerrain();
+            ClearPropsInsidePlatform();
+        }
 
         if (EnableFarming) { SpawnFarmingPlot(); yield return null; }
         if (EnableLivestock) { SpawnLivestock(); yield return null; }
@@ -146,33 +156,14 @@ public sealed class NewWorldTestGround : MonoBehaviour
         }
     }
 
-    /// <summary>Build the flat ground + spawn all test lanes. Safe to call repeatedly.</summary>
+    /// <summary>
+    /// Spawn the whole test bench through the budgeted coroutine (safe to call repeatedly). The
+    /// arena carve waits for streamed terrain, so a sync caller just starts the async path.
+    /// </summary>
     public void SpawnBench()
     {
         if (_spawned) return;
-        _spawned = true;
-
-        if (EnableFarming) SpawnFarmingPlot();
-        if (EnableLivestock) SpawnLivestock();
-        if (EnableEnemies) SpawnEnemies();
-        if (EnableBuildings) SpawnBuildings();
-        if (EnableNpcs) SpawnNpcs();
-        if (EnablePoiHub) RegisterPoiHub();
-        if (EnableWeapons)
-        {
-            SpawnAllWeapons();
-            SpawnWeaponRack();
-        }
-        if (EnableSkills) GrantAllSkills();
-        if (EnableGear) GrantStarterGear();
-        if (EnableRaces) GrantRaceAccess();
-        TryDeferPlayerGrants();
-
-        var player = GameManager.Instance?.Player;
-        if (player != null)
-        {
-            player.transform.position = PlatformCenter + new Vector3(0f, 2f, PlatformSize * 0.45f);
-        }
+        StartCoroutine(RunBenchSpawn());
     }
 
     /// <summary>
@@ -214,13 +205,13 @@ public sealed class NewWorldTestGround : MonoBehaviour
     }
 
     /// <summary>
-    /// Snaps the floating platform to sit just above the streamed terrain so the
-    /// platform collider never overlaps the player spawn point. Samples the height
-    /// over the whole platform footprint at tile resolution (1m, matching the world
-    /// tile grid) and raises the platform above the true maximum, so tiles streaming
-    /// in below it can never poke through and depenetrate the player's capsule.
+    /// Fixes the arena footprint on the REAL procedural terrain (the "similar method to generate
+    /// the world" — the platform GameObjects are gone): samples the height over the whole footprint
+    /// at tile resolution using the world's own noise function, and levels the pad UP to the true
+    /// maximum so nothing inside can poke through the bench. The pad itself is carved in place by
+    /// <see cref="WorldStreamer.FlattenAt"/> once its chunks finish streaming.
     /// </summary>
-    private void SnapPlatformToTerrain()
+    private void PrepareArenaGround()
     {
         var streamer = Object.FindAnyObjectByType<WorldStreamer>();
         if (streamer == null)
@@ -232,9 +223,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
         long seed = streamer.Seed;
 
         // Sample every 2m instead of 1m: ~4x fewer PerlinNoise calls at boot (61x61 grid
-        // instead of 121x121). The +3m clearance absorbs the coarser maxima.
+        // instead of 121x121) — the world's own generator fills the 1m tiles in between.
         int steps = Mathf.Max(2, Mathf.RoundToInt(PlatformSize * 0.5f));
         float maxY = float.MinValue;
+        float minY = float.MaxValue;
         for (int x = 0; x <= steps; x++)
         {
             float wx = cx - half + x;
@@ -243,58 +235,98 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 float wz = cz - half + z;
                 float y = TerrainNoiseGenerator.GetHeight(seed, wx, wz);
                 if (y > maxY) maxY = y;
+                if (y < minY) minY = y;
             }
         }
         if (maxY == float.MinValue)
             maxY = TerrainNoiseGenerator.GetHeight(seed, cx, cz);
+        if (minY == float.MaxValue)
+            minY = maxY;
 
-        PlatformCenter.y = maxY + 3f;
-        PlatformTopY = PlatformCenter.y;
+        PlatformCenter.y = maxY;
+        PlatformTopY = maxY;
         PlatformMinX = cx - half;
         PlatformMaxX = cx + half;
         PlatformMinZ = cz - half;
         PlatformMaxZ = cz + half;
+
+        // Rim blend: wider when the raw terrain inside the pad spans a bigger height range, so a
+        // tall mesa ramps down into the untouched hills instead of dropping off a cliff wall.
+        _flattenFeather = Mathf.Max(3f, (maxY - minY) * 0.2f);
     }
 
-    private void BuildPlatform()
+    /// <summary>
+    /// Waits until every streamed terrain chunk under the arena footprint (+ rim feather margin)
+    /// is loaded before flattening, so the carve always edits the real chunk tiles. Default boot
+    /// puts the arena inside the render radius (the streamer streams around the player focus and
+    /// fills that ring over ~1s). If the chunks never load (arena moved far from the focus) it
+    /// gives up after 15s and the bench spawns on whatever terrain exists.
+    /// </summary>
+    private System.Collections.IEnumerator WaitForArenaTerrain()
     {
-        var root = new GameObject("TestPlatformRoot");
-        root.transform.position = PlatformCenter;
-        root.transform.rotation = Quaternion.identity;
-
-        var floor = GameObject.CreatePrimitive(PrimitiveType.Quad);
-        floor.name = "TestFloor";
-        floor.transform.SetParent(root.transform, false);
-        floor.transform.localScale = new Vector3(PlatformSize, PlatformSize, 1f);
-        floor.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        floor.transform.localPosition = Vector3.zero;
-        var mr = floor.GetComponent<MeshRenderer>();
-        if (mr != null)
-            mr.sharedMaterial = SolidMaterial(ColorPalette.GrassGreen);
-        Destroy(floor.GetComponent<Collider>());
-
-        // A thin under-collider so the player physically stands on the platform.
-        var solid = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        solid.name = "TestFloorCollider";
-        solid.transform.SetParent(root.transform, false);
-        solid.transform.localScale = new Vector3(PlatformSize, 0.2f, PlatformSize);
-        solid.transform.localPosition = new Vector3(0f, -0.1f, 0f);
-        var smr = solid.GetComponent<MeshRenderer>();
-        if (smr != null) Destroy(smr);
-        solid.layer = TestRootLayer;
-
-        // Boundary poles for orientation.
-        for (int i = 0; i < 4; i++)
+        var coords = ArenaChunkCoords();
+        float deadline = Time.time + 15f;
+        while (Time.time < deadline)
         {
-            var pole = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            pole.name = "Corner_" + i;
-            pole.transform.SetParent(root.transform, false);
-            float s = PlatformSize * 0.5f;
-            float signX = (i % 2 == 0) ? -1f : 1f;
-            float signZ = (i < 2) ? -1f : 1f;
-            pole.transform.localScale = new Vector3(0.6f, 4f, 0.6f);
-            pole.transform.localPosition = new Vector3(signX * s, 2f, signZ * s);
+            var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+            if (streamer != null)
+            {
+                bool allLoaded = true;
+                for (int i = 0; i < coords.Count; i++)
+                {
+                    if (!streamer.LoadedChunks.ContainsKey(coords[i]))
+                    {
+                        allLoaded = false;
+                        break;
+                    }
+                }
+                if (allLoaded)
+                {
+                    _arenaReady = true;
+                    yield break;
+                }
+            }
+            yield return new WaitForSeconds(0.1f);
         }
+        Debug.LogWarning("[NewWorldTestGround] Arena chunks didn't load in time; flattening what's loaded.");
+    }
+
+    /// <summary>Terrain chunks overlapping the arena footprint plus the rim blend margin.</summary>
+    private List<TerrainChunkCoord> ArenaChunkCoords()
+    {
+        float margin = PlatformSize * 0.5f + _flattenFeather + 1f;
+        int minX = Mathf.FloorToInt(PlatformCenter.x - margin);
+        int maxX = Mathf.FloorToInt(PlatformCenter.x + margin);
+        int minZ = Mathf.FloorToInt(PlatformCenter.z - margin);
+        int maxZ = Mathf.FloorToInt(PlatformCenter.z + margin);
+
+        var result = new List<TerrainChunkCoord>();
+        for (int cx = minX; cx <= maxX; cx++)
+        {
+            for (int cz = minZ; cz <= maxZ; cz++)
+            {
+                var tc = TerrainChunkCoord.FromTile(new ChunkCoord(cx, cz));
+                if (!result.Contains(tc))
+                    result.Add(tc);
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Carves the arena: levels the loaded procedural terrain across the footprint to
+    /// <see cref="PlatformTopY"/> with a feathered rim, then clears any props already spawned
+    /// inside the pad (new tree/rock spawns are suppressed by <see cref="ChunkObject"/>).
+    /// </summary>
+    private void FlattenArenaTerrain()
+    {
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (streamer == null)
+            return;
+
+        float half = PlatformSize * 0.5f;
+        streamer.FlattenAt(new Vector3(PlatformCenter.x, 0f, PlatformCenter.z), half, PlatformTopY, _flattenFeather);
+        _arenaReady = true;
     }
 
     public Vector3 GetSpawnPoint()

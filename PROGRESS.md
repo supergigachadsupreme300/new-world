@@ -17,9 +17,50 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#17** — `Core/GameBootstrap.cs:15-80` runs ~30 full-scene `FindAnyObjectByType` scans and
     initializes all managers synchronously. Fix: a registry to cache the lookups; split init across
     frames.
-  - **#18** — `GameBootstrap.cs:107` + `Opt/NewWorldTestGround.cs:237-246`: boot spawn-chunk build is
-    synchronous and the platform snap re-samples 61×61=3,721 noise points. Fix: reuse the spawn-chunk
-    corners for the platform snap.
+  - **#18** — `GameBootstrap.cs:107` + `Opt/NewWorldTestGround.cs:225-244`: boot spawn-chunk build is
+    synchronous and the arena-ground snap re-samples 61×61=3,721 noise points. Fix: reuse the spawn-chunk
+    corners for the arena ground height sample.
+
+---
+## 1ay. Test ground now uses the world's own terrain generation (flat procedural arena, no floating platform)
+
+Play-test/dev feedback: the test bench sat on hand-built GameObjects (a Quad floor + thin cube collider +
+corner poles) floating above the generated world, visually and physically divorced from the terrain.
+The ground is now the **real procedural chunk terrain**: the test ground samples the world's own height
+function (`TerrainNoiseGenerator.GetHeight`, the same 5-octave noise the chunk generator uses) over the
+footprint, waits for the streamer to load every chunk under the pad, then levels it in place with a new
+`WorldStreamer.FlattenAt` — the exact tile-edit / chunk-rebuild / per-chunk persistence pipeline the Earth
+spells already use (§3.8) — so the flat arena is genuine generated terrain (mesh, collider, save files),
+leveled UP to the footprint's maximum so nothing pokes through the bench.
+
+- **`WorldStreamer.cs`**: new public `FlattenAt(Vector3 center, float halfSize, float targetHeight, float feather = 3f)`
+  — levels a rectangular patch of the loaded heightmap with a smootherstep-feathered rim (pad interior
+  fully flat; rim blends 1→0 into untouched terrain over `feather` units). The apply/rebuild/flush tail
+  of `DeformAt` is extracted into shared `ApplyHeightEdits(...)`; both spell shapes and the flatten route
+  through it, so the pad shares the gapless-corner / dirty-mark / flush-per-chunk guarantees.
+- **`NewWorldTestGround.cs`**: floating-platform build (`BuildPlatform` Quad/Cube/poles) deleted;
+  `SnapPlatformToTerrain` → `PrepareArenaGround` (samples footprint max/min height with the world noise,
+  sets `PlatformCenter.y = PlatformTopY = maxY`, XZ bounds = footprint, computes the rim feather from the
+  pad's height span). `SpawnBenchBudgeted`/`SpawnBench` are folded into a `RunBenchSpawn` coroutine that
+  first waits for the arena's chunk ring (`WaitForArenaTerrain` + `ArenaChunkCoords`), then flattens +
+  clears any streamed-in props before laying lanes. Prop suppression in `ChunkObject.StepProps`, the
+  weapon-rack placement and every lane's `PlatformCenter.y + offset` math still work unchanged — they key
+  off the same static bounds/`PlatformTopY`, which now point at the real flattened ground.
+- **`GameBootstrap.cs`**: boot comment updated — the player spawns directly onto procedural terrain;
+  the arena carves in place once its chunks stream in (~1s), then the player is placed mid-pad.
+- **`game-design.md`**: new §2.7 "Testing Arena — Real Procedural Terrain" documenting the flatten approach.
+
+### 1ay-status
+- No CLI build — verified by code review: `FlattenAt` box-influence + smootherstep feather math reuses the
+  extracted `ApplyHeightEdits` apply path; every tile inside the flatten rect gets its 4 corners stamped
+  before `RebuildChunkRegion` rebuilds the touched chunk rects (same shared-corner contract as `DeformAt`);
+  the wait-for-loaded gate means no pad chunk can pop in un-flattened later; lanes/racks use
+  `PlatformCenter.y`/`PlatformTopY`, which are now the flattened ground height.
+- Play-test after review: (1) boot — the player drops onto real terrain for ~1s, then the pad settles flat
+  and the player is placed mid-arena; (2) the flat pad uses the world's grass material and ramps into the
+  surrounding hills at the rim (no floating quad, no corner poles); (3) no trees/rocks anywhere on the pad;
+  (4) farm a plot and cast an Earth spell on the pad — both work on the real terrain; (5) walk off the rim,
+  come back heavy-budgeted (or reload) — the pad is unchanged (persisted via chunk files).
 
 ---
 ## 1ax. Staff now grips at the sword's angle (same drawn hold pose)

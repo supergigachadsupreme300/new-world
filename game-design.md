@@ -99,6 +99,19 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   `WorldStreamer.Awake`): `Application.persistentDataPath` is main-thread-only in Unity 6, but chunk
   generation resolves the file path on background threads — they read the cached string only.
 
+### 2.7 Testing Arena — Real Procedural Terrain (dev tool)
+
+- The QA test bench (Opt/NewWorldTestGround) no longer floats on a fabricated platform. Its ground is
+  the **actual generated terrain** of the current world: it samples the same 5-octave height function
+  (`TerrainNoiseGenerator.GetHeight`) over the footprint at boot, and once the pad's streamed chunks
+  are loaded it levels them in place via `WorldStreamer.FlattenAt` — the same tile-edit / chunk-rebuild /
+  per-chunk persistence pipeline Earth spells use (§3.8).
+- `FlattenAt` raises a rectangular patch to the footprint's maximum height (so nothing inside the pad
+  pokes through the bench) and feathers influence `1 → 0` over a few metres (smootherstep) so the flat
+  arena melts into the untouched rolling terrain around it. The result is neither a prefab nor flat
+  noise: it is ordinary, save-able world terrain, so farming plots dig real soil, Earth spells deform
+  the pad, and the flatten survives unload/reload from the chunk save files.
+
 ---
 
 ## 3. Combat System
