@@ -574,11 +574,12 @@ Status effects are **not damage types** — they are applied **on hit** and do D
 | **Bleed** | Accumulating damage-over-time on repeated hits |
 | **Poison** | Damage-over-time over a duration |
 | **Rot** | Strong, lingering damage-over-time |
-| **Chill** | Light cold slow (`EnemyController.ApplySlow` 0.25) — the **Ice** signature |
-| **Frost** (freeze) | Heavy freeze slow (`ApplySlow` 0.5, longer) — the literal freeze spells |
+| **Chill** | Cold **build-gauge** (`ChillStatus`): each Ice hit adds 1 cold (2 if the target is **Wet** — water conducts); at **5 cold** it converts into a full **Frost** freeze. The gauge decays on its own; **Fire melts** it instantly (§3.7 fire-vs-ice). The **Ice** signature |
+| **Frost** (freeze) | Heavy freeze slow (`ApplySlow` 0.5, ~3.5 s) — delivered by crossing 5 chill stacks, or directly by literal deep-freeze spells |
 | **Burn** | Fire damage-over-time + light stagger buildup |
 | **Stagger** | Poise break / crowd-control (stun — the **Lightning** signature) |
-| **Wet** | Soaked — slight slow (`WetStatus`: ApplySlow 0.85) + **conducts**: Ice/Lightning deal +40% vs a wet target. Applied by **Water** spells. |
+| **Wet** | Soaked — slight slow (`WetStatus`: ApplySlow 0.85) + **conducts**: Ice/Lightning deal +40% vs a wet target. Applied by **Water** spells. Fog douses fire: applying **Wet instantly puts out an active Burn** (SpellDoT douse). A wet foe also **cannot be ignited** while soaked — water-vs-fire always wins. |
+| **Burn** | Fire damage-over-time + light stagger buildup. Gated: **won't catch on a wet target**, and a water hit douses it outright (§3.7). While active it **melts Chill/Frost instantly** (fire-vs-ice). |
 | **Blind** | Black fog (`BlindStatus`) engulfs the victim, reducing its field of vision — the **Dark** signature |
 
 Damage-over-time statuses (Bleed/Poison/Rot/Burn) are driven by `SpellDoT.cs` (refreshes on re-apply;

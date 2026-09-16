@@ -1101,14 +1101,21 @@ public class SpellCaster : MonoBehaviour
         switch (effect)
         {
             case StatusEffectType.Bleed:
-            case StatusEffectType.Burn:
             case StatusEffectType.Poison:
             case StatusEffectType.Rot:
                 SpellDoT.Apply(target, power * 0.12f, 4f, 0.5f, spell.Type);
                 break;
+            case StatusEffectType.Burn:
+                // Fire-vs-water tug of war (§3.7): fire always melts any cold buildup, but a
+                // soaked target can't be ignited — burn only takes hold if it isn't wet.
+                ChillStatus.Melt(target);
+                if (!WetStatus.IsWet(target))
+                    SpellDoT.Apply(target, power * 0.12f, 4f, 0.5f, DamageType.Fire);
+                break;
             case StatusEffectType.Chill:
-                if (root != null && root.TryGetComponent<EnemyController>(out var chillEnemy))
-                    chillEnemy.ApplySlow(0.25f, 2.5f);
+                // Chill accumulates on the target's root; Wet conducts (+2 stacks) and reaching
+                // the frost threshold converts it into a full Frost freeze (§3.7).
+                ChillStatus.Apply(target);
                 break;
             case StatusEffectType.Frost:
                 if (root != null && root.TryGetComponent<EnemyController>(out var frostEnemy))

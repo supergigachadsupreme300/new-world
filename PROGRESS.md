@@ -22,6 +22,34 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
     corners for the arena ground height sample.
 ---
 
+## 1bd. Magic statuses now interact on the same target — wet douses fire, fire melts ice, chill builds into frost
+
+User: "wet would stop burning, chill would stack into frost but if hit wet player then chill stack
+faster and stuff like that" → designed and shipped the **status-interaction gauge grid** (§3.7),
+runtime-verified via `git diff/index` code review (no Unity build run, per project rule):
+
+- **Chill→Frost build gauge (`ChillStatus.cs`, new)** — Ice's signature is no longer a one-shot
+  slow. Each Ice hit adds **1 cold** to the gauge (the hit target's root); at **5 cold** the gauge
+  converts into a full **Frost freeze** (heavy `ApplySlow 0.5 / 3.5 s`, the literal freeze). Gauge
+  self-decays; sitting at 4/5 doesn't stick forever.
+- **Water conducts cold (`WetStatus.IsWet`)** — a **Wet** target gains **+2 cold per Ice hit** (water
+  conducts), so a soaked foe freezes in 3 hits instead of 5.
+- **Fire melts ice instantly (`ChillStatus.Melt`)** — any Fire hit on a chilled/frosted target resets
+  the gauge to zero (fire-vs-ice tug of war).
+- **Water douses fire (`SpellDoT.RemoveType`)** — applying **Wet instantly removes an active Burn
+  DoT** off the target, and a **soaked target cannot be ignited** while wet (fire-vs-water: water
+  always wins). Fire Burn is now gated in `SpellCaster.ApplyStatus` behind `!WetStatus.IsWet(target)`.
+- Cross-package wiring: `SpellDoT` gained `RemoveType(GameObject, DamageType)` (douse helper, null-safe)
+  + `TakeDamage(int, DamageType)` so Burn drops its own damage numbers; `WetStatus.Apply` now douses
+  burns; `SpellCaster.ApplyStatus` eases **Chill → ChillStatus.Apply**, **Burn** (signature) now
+  routes to the wet-gated doT + fire-melt.
+
+### 1bd-status
+Compile verified by code review + git diff (index == worktree). No Unity build run (project rule:
+no CLI/Unity build). Pending play-test items: chill 5-stack → frost freeze transition, wet +2 gain,
+fire-melt of a frozen foe, and wet dousing an active burn (see `game-design.md` §3.7 for expected
+behavior).
+
 ## 1bc. Signature statuses are now guaranteed per magic element — Ice→Chill, Dark→Blind, Arcane→none
 
 User: "add status condition for each magic element attack" → then refined the mapping: **Ice→Chill,

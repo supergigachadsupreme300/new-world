@@ -40,6 +40,8 @@ public class WetStatus : MonoBehaviour
         wet.Duration = Mathf.Max(duration, 0.5f);
         wet._expiresAt = Time.time + wet.Duration;
         wet.RapplySlow();
+        // Water douses fire (§3.7): instantly douse any active Burn DoT as the target soaks.
+        SpellDoT.RemoveType(target, DamageType.Fire);
         return wet;
     }
 

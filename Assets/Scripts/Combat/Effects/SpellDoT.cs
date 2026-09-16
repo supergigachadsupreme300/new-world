@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Damage-over-time ticker for spell statuses (Burn / Poison / Rot / Bleed, §3.7).
-/// Attached to the hit target's root; ticks the resolved spell-damage fragments and drops
+/// Attached to the hit target's root; ticks resolved spell-damage fragments and drops
 /// DamageNumbers. Re-applying the same status refreshes the full duration and takes the
 /// stronger per-tick damage.
 /// </summary>
@@ -18,6 +18,7 @@ public class SpellDoT : MonoBehaviour
     public static SpellDoT Apply(GameObject target, float damagePerTick, float duration,
         float tickInterval, DamageType type)
     {
+        if (target == null) return null;
         var root = target.transform.root.gameObject;
         var dot = root.GetComponent<SpellDoT>();
         if (dot == null)
@@ -28,6 +29,18 @@ public class SpellDoT : MonoBehaviour
         dot.Type = type;
         dot._cooldown = Mathf.Min(dot._cooldown, dot.TickInterval);
         return dot;
+    }
+
+    /// <summary>Douse: remove an active DoT of the given type off a target's root
+    /// (Wet extinguishes an active Burn fire-vs-water, §3.7).</summary>
+    public static void RemoveType(GameObject target, DamageType type)
+    {
+        if (target == null) return;
+        var root = target.transform.root.gameObject;
+        var dots = root.GetComponents<SpellDoT>();
+        for (int i = 0; i < dots.Length; i++)
+            if (dots[i].Type == type)
+                Destroy(dots[i]);
     }
 
     private void Update()
@@ -52,7 +65,7 @@ public class SpellDoT : MonoBehaviour
         if (gameObject.TryGetComponent<IDamageable>(out var damageable))
         {
             int amount = Mathf.Max(1, Mathf.RoundToInt(DamagePerTick));
-            damageable.TakeDamage(amount);
+            damageable.TakeDamage(amount, Type);
             DamageNumber.Spawn(transform.position, amount, Type);
         }
     }
