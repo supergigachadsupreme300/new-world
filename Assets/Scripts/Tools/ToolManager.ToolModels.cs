@@ -75,6 +75,7 @@ public partial class ToolManager
         // Tools
         CreateToolModel("axe", new Color(0.5f, 0.2f, 0.05f));
         CreateToolModel("pickaxe", new Color(0.5f, 0.5f, 0.5f));
+        CreateToolModel("shovel", new Color(0.35f, 0.28f, 0.12f));
         CreateToolModel("hoe", new Color(0.4f, 0.4f, 0.4f));
         CreateToolModel("hammer", new Color(0.2f, 0.2f, 0.2f));
         CreateToolModel("scythe", new Color(0.4f, 0.4f, 0.4f));

@@ -64,8 +64,8 @@ public class SpellDoT : MonoBehaviour
     {
         if (gameObject.TryGetComponent<IDamageable>(out var damageable))
         {
-            int amount = Mathf.Max(1, Mathf.RoundToInt(DamagePerTick));
-            damageable.TakeDamage(amount, Type);
+                int amount = Mathf.Max(1, Mathf.RoundToInt(DamagePerTick));
+                damageable.TakeDamage(amount);
             DamageNumber.Spawn(transform.position, amount, Type);
         }
     }

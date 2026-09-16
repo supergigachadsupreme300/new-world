@@ -59,6 +59,7 @@ public partial class ToolManager : MonoBehaviour
         { "axe", 15f },
         { "pickaxe", 15f },
         { "hoe", 12f },
+        { "shovel", 10f },
         { "hammer", 20f },
         { "scythe", 10f },
         { "watering_can", 8f },
@@ -105,6 +106,7 @@ public partial class ToolManager : MonoBehaviour
         {
             case "axe":
             case "pickaxe":
+            case "shovel":
             case "hoe":
             case "scythe":
             case "hammer":
