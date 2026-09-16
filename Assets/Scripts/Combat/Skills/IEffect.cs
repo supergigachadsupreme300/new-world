@@ -75,6 +75,8 @@ public sealed class DamageZoneEffect : IEffect
 [System.Serializable]
 public sealed class ShieldBashEffect : IEffect
 {
+    private const bool SkillDebug = true;
+
     public float BasePower = 20f;
     public DamageType Type = DamageType.Physical;
     public float KnockbackForce = 4f;
@@ -87,7 +89,7 @@ public sealed class ShieldBashEffect : IEffect
         var behavior = shield != null ? shield.GetComponent<ShieldWeaponBehavior>() : null;
         if (behavior == null)
         {
-            if (SkillProfile.SkillDebug)
+            if (SkillDebug)
                 Debug.Log("[Skill] shield skill needs a shield equipped — nothing to bash with");
             return;
         }

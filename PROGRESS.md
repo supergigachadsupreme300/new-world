@@ -63,6 +63,10 @@ the design promised: castable terrain changes that last forever, at both ends of
   wall ridge rears up along the aim direction; (4) rings/spikes unchanged (Tremor, Spire Field);
   (5) reload the game / walk away and back — every edit is still there (persisted chunk files).
 
+Follow-up fix: `ShieldBashEffect` logged against `SkillProfile.SkillDebug`, which is `private` in
+`SkillProfile.cs` — CS0122. `IEffect.cs` now owns the same `private const bool SkillDebug = true;`
+convention the other skill files use.
+
 ---
 
 ## 1ay. Test ground now uses the world's own terrain generation (flat procedural arena, no floating platform)
