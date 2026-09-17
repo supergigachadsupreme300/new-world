@@ -62,6 +62,46 @@ kept for the remaining readers; all touched files brace-balanced.
   (5) farming/Earth-spell edits near the arena still deform real terrain as before.
 ---
 
+## 1bg. Player never teleported/falls into the void — hard spawn-ground gate replaces the loading race
+
+Report (after `1bf`): "the terrain under player load to long result in player falling into the void".
+The old flow waited for the whole 120 m footprint behind a **15s vote**: if the chunks didn't all
+finish in time, the end-of-bench fallback teleported the player to the arena spawn regardless — over
+whatever terrain was (or wasn't) loaded. Fixed by making the player's ground a correctness gate.
+
+- **`NewWorldTestGround.cs`**:
+  - New **hard gate** `WaitForSpawnGround()`: waits until the chunk directly under the arena spawn
+    point (`PlatformCenter` + `0.45 × size` on Z, chunk `(0,1)` for the defaults) is in
+    `WorldStreamer.LoadedChunks` — mesh + collider are applied before a chunk registers, so this
+    guarantees real standing ground. It streams among the first (near the boot focus). If it never
+    streams (30s), `_spawnGroundReady` stays false, the player is kept on the solid boot chunk, and
+    an error logs — **no void fall, ever**.
+  - `PlacePlayerOnArena()` now **self-guards**: it verifies the chunk under the spawn point is in
+    `LoadedChunks` (mesh + collider applied) before moving the player and otherwise logs a warning
+    and stays put — the end-of-bench fallback stays unconditional but can never teleport over a void.
+  - `WaitForArenaTerrain()` is now the **soft** footprint gate (still 15s): tile-dependent lanes
+    (farming tills real soil, NPC placer, buildings) prefer the full footprint but soft-fail via
+    `RunSafely` if it never arrives.
+  - `GroundAt(x,z)` now prefers the **live loaded terrain** — bilinear-sample the loaded tile's
+    4 corners via `WorldStreamer.TryGetData` (honours old flattened saves and Earth-spell edits) —
+    and falls back to pure noise for tiles that haven't streamed. Player/bench placement therefore
+    matches the actual ground height, never the pending-noise height.
+- **`game-design.md`** §2.7 — boot-order bullet documents the hard vs soft gates + live-terrain sampling.
+
+### 1bg-status
+No CLI build — verified by code review (project rule): `LoadedChunks` is populated after
+`ChunkObject.ApplyMerged(... buildCollider: true)` on the main thread, so a chunk present there has
+mesh + collider; tile registration into `_loadedData` happens synchronously in the same frame as
+`_loadedChunks`, so `TryGetData` never races the gate; corner order for the bilinear sample matches
+`ChunkData`'s documented NW/NE/SE/SW layout and `BuildOrLoadChunk`; all touched files brace-balanced.
+- Play-test after review: (1) boot (fresh) — player lands on the natural terrain at the arena, no
+  drop, no flicker; (2) deliberately stall terrain loads (e.g. temporarily lower `ChunksPerFrame` /
+  move `PlatformCenter` far away) — the player stays grounded on the boot chunk and never falls; the
+  error logs and lanes still spawn; (3) load an old save that has the flattened pad — the player and
+  bench land on the real (still-flattened) saved ground, not below it.
+
+---
+
 ## 1be. Test ground spawns the tool kit as pickups — "spawn tools on testground for player to pickup"
 
 The non-weapon tool/food kit (removed from the start bag in `1p`) is back as **world pickups** laid

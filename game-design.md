@@ -116,10 +116,16 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   (tile `(0,-10)`) synchronously and grounds the player on it at `(0, ~y+2, -10)`, so the first frames
   are never a void; `PlayerController.ResetPlayer` only uses the arena spawn point once
   `NewWorldTestGround.IsArenaReady` (the arena's chunks are in place), else it falls back to the boot
-  chunk. The test ground then waits for the arena's streamed chunks, teleports the player onto the
-  natural ground FIRST, and only afterwards lays the bench lanes — each lane runs in an isolated
-  try/catch so one failing lane (e.g. one enemy spawn) logs instead of aborting the bench and
-  stranding the player.
+  chunk. The test ground then runs TWO gates before laying any lane: a **hard** gate
+  (`WaitForSpawnGround`) that waits until the chunk under the arena spawn point is loaded — the player
+  is never teleported over unloaded terrain, so a slow machine can never drop them into the void
+  (failure keeps them on the solid boot chunk and logs an error) — then a **soft** footprint gate
+  (`WaitForArenaTerrain`, 15s) so tile-dependent lanes (farming tills real soil, the NPC placer,
+  buildings) have their terrain. With ground assured, the player is pulled onto the natural terrain
+  FIRST, then the bench lanes spawn — each lane runs in an isolated try/catch so one failing lane
+  (e.g. one enemy spawn) logs instead of aborting the bench and stranding the player. Prop heights
+  are sampled from the **live loaded terrain** when available (so old flattened/edited saves are
+  honoured; tiles yet to stream fall back to pure noise).
 - The bench also lays the **tool/food discovery kit** along the platform's **east edge as real world
   pickups** (`Pickup_<id>` drops, `WorldBuilder.SpawnPickup`) instead of seeding the bag: the 10 tools
   (axe, pickaxe, hoe, hammer, scythe, watering_can, fertilizer, club, rosary, fishing_rod) + 5 food

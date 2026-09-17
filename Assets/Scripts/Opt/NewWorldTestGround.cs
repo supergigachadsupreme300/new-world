@@ -54,7 +54,9 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private bool _pendingPlayerGrants;
     private bool _arenaReady;
     private bool _groundSampled;
+    private bool _spawnGroundReady;
     private long _worldSeed;
+    private WorldStreamer _streamer;
     private readonly List<WeaponRackStand> _rackStands = new List<WeaponRackStand>();
     private ContextPromptUI _contextPrompt;
     private PlayerController _playerController;
@@ -85,12 +87,13 @@ public sealed class NewWorldTestGround : MonoBehaviour
     /// <summary>
     /// Spawns the test bench one lane group per frame instead of all at once in Awake, so the
     /// heavy setup (weapon models, NPCs, enemies, grants) no longer blocks the first frames. When
-    /// the arena is enabled it first waits for the terrain chunks under the arena to stream in,
-    /// then PULLS THE PLAYER ONTO THE NATURAL GROUND before spawning any lane, so the player is
-    /// never left in the void ("ground first, then player"). The terrain itself is never edited —
-    /// every lane just samples the ground height with <see cref="GroundAt"/> and sits on it.
-    /// Every lane runs isolated — a failure in one (e.g. one enemy spawn) logs an error instead of
-    /// aborting the bench and stranding the player.
+    /// the arena is enabled it first waits for the terrain under the arena spawn point to stream
+    /// in (HARD gate — the player is never pulled over unloaded ground), then PULLS THE PLAYER
+    /// ONTO THE NATURAL GROUND before spawning any lane, so the player is never left in the void
+    /// ("ground first, then player"). The terrain itself is never edited — every lane just samples
+    /// the ground height with <see cref="GroundAt"/> and sits on it. Every lane runs isolated — a
+    /// failure in one (e.g. one enemy spawn) logs an error instead of aborting the bench and
+    /// stranding the player.
     /// </summary>
     private System.Collections.IEnumerator RunBenchSpawn()
     {
@@ -99,12 +102,16 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
         if (CreatePlatform)
         {
+            // "Ground first, then player": first a HARD gate — never pull the player over terrain
+            // that isn't loaded (the chunk under the arena spawn point streams among the first, so
+            // this is fast and simply removes the void-fall race). Then a SOFT wait for the whole
+            // footprint so tile-dependent lanes (farming tills real soil, the NPC placer, buildings)
+            // have their terrain; it gives up after a deadline rather than blocking boot on the far
+            // corners. The player is placed once the spawn ground is assured.
+            yield return StartCoroutine(WaitForSpawnGround());
             yield return StartCoroutine(WaitForArenaTerrain());
-
-            // "Ground first, then player": the arena's chunks are loaded now — put the player on
-            // the natural terrain BEFORE laying the bench lanes, so whoever is playing never floats
-            // or fell in the void while the rest of the bench builds.
-            RunSafely("player placement", PlacePlayerOnArena);
+            if (_spawnGroundReady)
+                RunSafely("player placement", PlacePlayerOnArena);
         }
 
         if (EnableTools) { RunSafely("tool pickups", SpawnToolKit); yield return null; }
@@ -126,8 +133,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (EnableRaces) { RunSafely("races", GrantRaceAccess); yield return null; }
         RunSafely("player grants", TryDeferPlayerGrants);
 
-        // Safety net: if the arena chunks never loaded (CreatePlatform off or the wait timed out),
-        // pull the player to the bench point at the very end so they never sit stranded mid-void.
+        // Safety net: if the arena returned partial (e.g. the footprint wait timed out), pull the player
+        // onto the bench point at the very end. PlacePlayerOnArena self-guards — it only teleports
+        // over a chunk that is actually loaded (mesh + collider), so a slow streamer can never drop
+        // the player into the void; they simply stay on the solid boot chunk.
         if (!IsArenaReady)
             RunSafely("player placement (fallback)", PlacePlayerOnArena);
     }
@@ -146,11 +155,20 @@ public sealed class NewWorldTestGround : MonoBehaviour
         }
     }
 
-    /// <summary>Teleport the player onto the arena (2 m above the natural ground height).</summary>
+    /// <summary>Teleport the player onto the arena (2 m above the sampled ground). Never fires over
+    /// unloaded terrain — the chunk under the spawn point must actually be loaded (mesh + collider
+    /// applied) before the player is moved, otherwise they stay where they are.</summary>
     private void PlacePlayerOnArena()
     {
         var player = GameManager.Instance?.Player;
         if (player == null) return;
+
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (streamer == null || !streamer.LoadedChunks.ContainsKey(SpawnGroundChunk()))
+        {
+            Debug.LogWarning("[NewWorldTestGround] Skipped arena teleport — spawn ground not loaded yet.");
+            return;
+        }
         player.transform.position = GetSpawnPoint();
     }
 
@@ -212,30 +230,75 @@ public sealed class NewWorldTestGround : MonoBehaviour
     /// </summary>
     private void PrepareArenaGround()
     {
-        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
-        if (streamer == null)
+        _streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (_streamer == null)
             return;
 
-        _worldSeed = streamer.Seed;
+        _worldSeed = _streamer.Seed;
         _groundSampled = true;
         PlatformCenter.y = TerrainNoiseGenerator.GetHeight(_worldSeed, PlatformCenter.x, PlatformCenter.z);
         PlatformTopY = PlatformCenter.y;
     }
 
-    /// <summary>Natural ground height at a world position (the world's own 5-octave noise).
-    /// Falls back to the configured centre height when the world seed was never captured.</summary>
+    /// <summary>Natural ground height at a world position. Prefers the LIVE terrain (the loaded tile's
+    /// own corner heights, so it honours saved deformations from earlier runs and Earth-spell edits)
+    /// and falls back to the world's 5-octave noise for tiles that aren't loaded yet, then to the
+    /// configured centre height when the world seed was never captured.</summary>
     private float GroundAt(float x, float z)
     {
         if (!_groundSampled) return PlatformCenter.y;
+
+        var tile = new ChunkCoord(Mathf.FloorToInt(x), Mathf.FloorToInt(z));
+        if (_streamer != null && _streamer.TryGetData(tile, out ChunkData data) && data.IsValid)
+        {
+            // Bilinear sample of the loaded quad's 4 corners (NW/NE/SE/SW).
+            float tx = Mathf.Clamp01(x - tile.X);
+            float tz = Mathf.Clamp01(z - tile.Z);
+            float top = Mathf.Lerp(data.Heights[0], data.Heights[1], tx);
+            float bottom = Mathf.Lerp(data.Heights[3], data.Heights[2], tx);
+            return Mathf.Lerp(bottom, top, tz);
+        }
         return TerrainNoiseGenerator.GetHeight(_worldSeed, x, z);
     }
 
+    /// <summary>Terrain chunk directly under the arena spawn point — the only ground the player
+    /// absolutely needs before being pulled onto the bench.</summary>
+    private TerrainChunkCoord SpawnGroundChunk()
+    {
+        return TerrainChunkCoord.FromWorld(new Vector3(PlatformCenter.x, 0f, PlatformCenter.z + PlatformSize * 0.45f));
+    }
+
     /// <summary>
-    /// Waits until every streamed terrain chunk under the arena footprint is loaded before the
-    /// player is pulled onto the ground, so "ground first, then player" never drops into a void.
-    /// Default boot puts the arena inside the render radius (the streamer streams around the player
-    /// focus and fills that ring over ~1s). If the chunks never load (arena moved far from the
-    /// focus) it gives up after 15s and places the player on whatever terrain exists.
+    /// HARD gate for "ground first, then player": waits until the chunk under the arena spawn point
+    /// is loaded (mesh + collider applied), so the player is NEVER teleported over unloaded terrain.
+    /// That chunk lies near the boot focus so it streams among the first; this wait just makes the
+    /// guarantee load-independent instead of racing the footprint vote timer. If streaming never
+    /// delivers it (30s) the player simply stays grounded on the boot chunk — no void fall.
+    /// </summary>
+    private System.Collections.IEnumerator WaitForSpawnGround()
+    {
+        TerrainChunkCoord target = SpawnGroundChunk();
+        float deadline = Time.time + 30f;
+        while (Time.time < deadline)
+        {
+            var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+            if (streamer != null && streamer.LoadedChunks.ContainsKey(target))
+            {
+                _spawnGroundReady = true;
+                yield break;
+            }
+            yield return new WaitForSeconds(0.1f);
+        }
+        _spawnGroundReady = false;
+        Debug.LogError("[NewWorldTestGround] Arena spawn ground never streamed in (30s). Player stays on the boot chunk — bench lanes still spawn.");
+    }
+
+    /// <summary>
+    /// SOFT gate: waits until every streamed terrain chunk under the arena footprint is loaded so
+    /// the tile-dependent lanes (farming tills real soil, the NPC placer, buildings) have their
+    /// terrain. Unlike <see cref="WaitForSpawnGround"/> this is not a correctness requirement and
+    /// gives up after 15s (warning) rather than blocking boot on the far corners; the player ground
+    /// is already assured by the hard gate, and lanes soft-fail via <see cref="RunSafely"/>.
     /// </summary>
     private System.Collections.IEnumerator WaitForArenaTerrain()
     {
