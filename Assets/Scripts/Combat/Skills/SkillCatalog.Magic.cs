@@ -93,8 +93,10 @@ public static partial class SkillCatalog
         // EVERY damaging Earth spell carries a TerrainShape → TerrainDeformer, so the ground
         // itself reacts on impact: rings that circle the impact, spires that erupt beneath it,
         // walls/pillars that rear up, and craters dug where boulders and meteors land. Zone
-        // impacts deform at the aim point, Storm strikes (Rockfall) dent under each boulder,
-        // and Summons (the golem line) erupt a small rock field where the construct rises.
+        // impacts deform at the aim point, Storm strikes (Rockfall) dent under each boulder, the
+        // deep Earth Wall (magic_earth_wall, gated behind Landslide) rears a taller ridge along
+        // the cast, and Summons (the golem line) erupt a small rock field where the construct
+        // rises — the Projectile root (Stone Shard) carves its crater where the shard strikes.
         bank.L1["magic_earth"] = new BranchSlot[]
         {
             S("magic_earth_boulder", "Boulder Crash", Spell("magic_earth_boulder_spell", "Boulder Crash", DamageType.Earth, 28f, 18f, SpellDelivery.Zone, 5f, deliveryRadius: 3f, knockback: 2.5f, terrainShape: TerrainShape.Crater), "A tumbling boulder that flattens and shoves foes, carving a dent where it lands.", Focus(18f), DamageType.Earth, true),

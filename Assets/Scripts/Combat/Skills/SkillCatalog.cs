@@ -290,13 +290,13 @@ public static partial class SkillCatalog
         // Earth school (§3.7): Stone Shard roots the school. Earth spells carry NO status effect —
         // they hit like falling rock (heavy knockback) and reshape the ground itself
         // (TerrainShape, via TerrainDeformer): rings that circle the impact, spikes that erupt,
-        // walls/pillars that rear up along the cast axis, and the root projectile tears a slab
-        // loose from the ground (leaving a solid-floored crater) to throw; the deep Meteor skill
-        // craters the ground where it strikes.
+        // walls/pillars that rear up along the cast axis, and the root Stone Shard projectile
+        // carves its crater where the shard strikes (never at the caster's footing); the deep
+        // Meteor and Earth Wall skills crater / wall the ground where they land.
         Add(list, "magic_earth", "Stone Shard", SkillType.Magic, false, Focus(15f), true, DamageType.Earth,
             Spell("magic_earth_spell", "Stone Shard", DamageType.Earth, 26f, 15f, SpellDelivery.Projectile, 4f,
                 projectileShape: ProjectileShape.Shard, terrainShape: TerrainShape.Crater),
-            null, "Tear a slab of living stone from the ground and hurl it.");
+            null, "Hurl a shard of living stone that carves a crater where it strikes.");
 
         // Meteor — the Earth school's sky-event, gated behind Boulder Crash (the falling-rock line).
         // A rock from above strikes the aim point hard and carves one of the school's permanent
@@ -306,6 +306,16 @@ public static partial class SkillCatalog
             Spell("magic_earth_meteor_spell", "Meteor", DamageType.Earth, 40f, 28f, SpellDelivery.Zone, 9f,
                 deliveryRange: 12f, deliveryRadius: 4f, knockback: 4f, terrainShape: TerrainShape.Crater),
             P("magic_earth_boulder"), "A meteor plunges from the sky, carving a crater into the ground.");
+
+        // Earth Wall — the wall-line's deep skill, gated behind Landslide (the Wall-shape branch
+        // of the Boulder Crash line). Zone delivery rears a taller stone ridge along the cast axis
+        // at the aim point (§3.8, TerrainShape.Wall oriented by `fwd`); the solid ridge also blocks
+        // movement and projectiles. Landslide (34/24/7) → Earth Wall (36/26/8) reads as the
+        // escalating wall family.
+        Add(list, "magic_earth_wall", "Earth Wall", SkillType.Magic, false, Focus(26f), true, DamageType.Earth,
+            Spell("magic_earth_wall_spell", "Earth Wall", DamageType.Earth, 36f, 26f, SpellDelivery.Zone, 8f,
+                deliveryRange: 10f, deliveryRadius: 3.6f, knockback: 3.5f, terrainShape: TerrainShape.Wall),
+            P("magic_earth_boulder_landslide"), "A towering wall of stone rears up along the cast and crashes down on foes.");
     }
 
     private static void BuildStealth(List<Skill> list)

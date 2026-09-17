@@ -614,15 +614,16 @@ Each magic school's **signature status is applied automatically to every magic a
 element (an explicit per-skill `statusEffect:` overrides the default) — Fire→Burn, Ice→Chill
 (deep-freeze spells use the heavier Frost), Lightning→Stagger (stun), Dark→Blind, Water→Wet,
 Arcane→**no status** (pure force), Wind→Knockback, Holy→heals (§3.8), Earth→**no status — it
-reshapes terrain itself** (ring / spike / wall / pillar / crater ground deformation on the impact
-point, §3.8; the deep **Meteor** Earth skill strikes the ground and carves a permanent crater
-where it lands).
-**(current build) every damaging Earth spell deforms the ground when it lands** — not just the
-tagged zones: Zone impacts dent (Crater) or rear (Ring/Spikes/Wall/Pillar) at the aim point
-(Boulder Crash, Crash and Tectonic carve craters; Aftershock rears a ring); Storm strikes
-(Rockfall) pit the ground under each boulder; Summons (the golem line) erupt a small raised rock
-field where the construct tears out of the earth; the root Stone Shard projectile keeps its launch
-tear-pit.
+  reshapes terrain itself** (ring / spike / wall / pillar / crater ground deformation on the impact
+  point, §3.8; the deep **Meteor** Earth skill strikes the ground and carves a permanent crater
+  where it lands, and the deep **Earth Wall** (gated behind Landslide) rears a taller stone ridge
+  along the cast).
+  **(current build) every damaging Earth spell deforms the ground when it lands** — not just the
+  tagged zones: Zone impacts dent (Crater) or rear (Ring/Spikes/Wall/Pillar) at the aim point
+  (Boulder Crash, Crash and Tectonic carve craters; Aftershock rears a ring); Storm strikes
+  (Rockfall) pit the ground under each boulder; Summons (the golem line) erupt a small raised rock
+  field where the construct tears out of the earth; the root Stone Shard projectile carves its
+  crater where the shard strikes — never at the caster's footing.
 
 ### 3.8 Spell-Casting Pipeline
 
@@ -651,17 +652,19 @@ A spell is a data asset carrying:
   excavates a shallow solid-floored dish (ground deform via `TerrainDeformer` →
   `WorldStreamer.DeformAt`, which lifts/lowers the affected tile corners, rebuilds the merged chunk
   mesh+collider, and persists the edit as a terrain modification). **Crater is also the Earth
-  projectile signature**: a Crater-shaped projectile (the root Stone Shard) tears its slab loose
-  from the ground just ahead of the caster — each cast leaves a permanent, depth-clamped pit on the
-  spot (never a bottomless void), while the impact itself only deals damage. All edits survive
+  projectile signature**: a Crater-shaped projectile (the root Stone Shard) carves its crater
+  where the shard **strikes** — `SpellEffect.ResolveProjectileImpact` down-probes the ground at
+  impact and deforms it there, so a cast never dents the caster's own feet; the pit is permanent
+  and depth-clamped (never a bottomless void). All edits survive
   forever (§2.6 saves them per chunk). Earth spells use terrain shapes instead of a status effect.
   **(current build) every damaging Earth spell carries a terrain shape, regardless of delivery:**
   Zone impacts (Boulder Crash, Crash, Tectonic → Crater; Aftershock, the tremor ring family, Spire
-  Field etc. → Ring/Spikes/Pillar/Wall) deform at the aim point via `ResolveZone`; Storm strikes
+  Field etc. → Ring/Spikes/Pillar/Wall; the deep Earth Wall, gated behind Landslide → Wall, rears a
+  taller ridge along the cast) deform at the aim point via `ResolveZone`; Storm strikes
   (Rockfall → Crater) dent under each boulder via `SpellStorm.DeformGround`; Summons (the golem
   line → Spikes) erupt a small rock field where the construct rises via `ResolveSummon`; the
-  Projectile root (Stone Shard) keeps its launch tear-pit. The crater/dent floor stays
-  depth-clamped everywhere, so no shape — zone, storm, or summon — can ever carve a void.
+  Projectile root (Stone Shard) carves its crater at the impact point. The crater/dent floor stays
+  depth-clamped everywhere, so no shape — zone, storm, summon, or projectile — can ever carve a void.
 - cast animation reference
 - optional status-effect application with a proc chance (e.g., applies Burn/Frost/Stagger; §3.7)
 

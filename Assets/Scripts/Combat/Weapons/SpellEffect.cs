@@ -246,6 +246,19 @@ public class SpellEffect : MonoBehaviour
             _caster?.ResolveHitAt(hitObject, _spell, _power);
         if (_spell != null && _spell.ImpactEffectPrefab != null)
             Instantiate(_spell.ImpactEffectPrefab, transform.position, Quaternion.identity);
+
+        // Earth projectiles (TerrainShape.Crater) carve their crater where the shard strikes:
+        // probe the ground beneath the impact point and deform it there (depth-clamped — never a
+        // void). The carve never happens at the caster's own feet at cast time (FireProjectile
+        // only spawns the bolt; no launch-site pit).
+        if (_spell != null && _spell.TerrainShape == TerrainShape.Crater)
+        {
+            Vector3 probe = transform.position + Vector3.up * 0.1f;
+            if (Physics.Raycast(probe, Vector3.down, out RaycastHit groundHit, 30f))
+                TerrainDeformer.Apply(groundHit.point,
+                    Mathf.Max(1.2f, _spell.Radius) * _radiusMult, TerrainShape.Crater, _dir);
+        }
+
         Destroy(gameObject);
     }
 

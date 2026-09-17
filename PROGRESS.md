@@ -23,7 +23,51 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
-## 1bl. Every Earth spell now deforms the ground on impact — dents and raises across all deliveries
+## 1bm. Stone Shard dents at impact (not the caster's feet) + new Earth Wall deep skill
+
+User: "the terrain dent at the player feet when cast instead of impact fix it and add earth wall skill"
+(placement choice: **Earth Wall gated behind Landslide**). Two changes: (1) the root **Stone Shard**
+projectile no longer carves its crater at cast time just ahead of the caster — the dent now appears
+exactly where the shard **strikes**; (2) a brand-new authored deep skill **Earth Wall** rears a taller
+stone ridge along the cast.
+
+- **`SpellCaster.FireProjectile`** — removed the launch-time crater carve (`pos + fwd·0.7` → a pit at
+  the caster's feet/floor on every cast). The muzzle offset + spawn logic is unchanged.
+- **`SpellEffect.ResolveProjectileImpact`** — when `_spell.TerrainShape == Crater`, down-probes the
+  ground beneath the impact point (`impact + up·0.1 → down·30`) and applies `TerrainDeformer.Apply`
+  (`max(1.2, Radius)·radiusMult`, Crater) there — so Stone Shard dents where it lands (or under an
+  enemy it hit), never at the caster's footing. Depth-clamped floor, persisted per chunk (§2.6).
+- **`SkillCatalog.cs`** — new authored deep skill (Meteor pattern, no bank-slot change):
+  **Earth Wall** (`magic_earth_wall`) — Zone, power 36, FP 26, cd 8s, range 10, radius 3.6, knockback
+  3.5, `terrainShape: Wall`, prereq **Landslide** (`magic_earth_boulder_landslide`);
+  `ResolveZone` deforms + orients the ridge along the cast axis (existing code, no new combat wiring);
+  the solid ridge also blocks movement/projectiles. Root Stone Shard description reworded to the
+  impact-carve ("…carves a crater where it strikes"). Earth comment block updated.
+- **`SkillCatalog.Magic.cs`** — Earth-school comment notes the projectile carves at impact and the
+  Earth Wall deep skill rears a taller ridge.
+- **Docs** — `game-design.md` §3.7 signature line (adds Earth Wall; projectile wording now "carves at
+  the impact point") and §3.8 terrain-shape bullet (projectile reshape on strike + Earth Wall row);
+  `magic-skills.md` root Stone Shard row (`terrain:Crater (impact)`) and **Earth Wall** row under
+  **Landslide**, right beside Meteor; `PROGRESS.md` this entry.
+- Out of scope: Zone/Storm/Summon deformations already dent at the right points (aim / per-boulder /
+  summon ground-target) — untouched.
+
+### 1bm-status
+No CLI/Unity build — verified by **code review** (project rule): carved-only-on-impact — the new
+`TerrainDeformer.Apply` call sits inside `ResolveProjectileImpact` after damage + impact-fx and before
+`Destroy`, so exactly one carve per projectile that resolves; down-probe uses a 0.1 up-offset so a
+ground-level impact still finds the surface; `_radiusMult` mirrors the launch-carve's `sizeScale`
+scaling; `_dir` supplied for orientation (Crater ignores it) — no new fields/imports needed
+(`TerrainDeformer` is global-namespace static, already used by this caster). Earth Wall reuses the
+exact authored-skill pattern of `magic_earth_meteor` (`Add(...)` in `BuildMagic` + `P(prereq)`), so
+`ExpandTree`'s prereq-depth walk resolves it the same way — no L1/L2 slot cap touched (the boulder
+bank keeps its 5 children). All touched files brace-balanced.
+- Play-test after this: (1) cast **Stone Shard** repeatedly — **no pit appears at your feet**; a
+  shallow crater appears where each shard lands/impacts (step off the QA platform onto world terrain);
+  (2) after learning **Landslide** (boulder line), check **Earth Wall** (`magic_earth_wall`) appears
+  in the tree under Landslide and rears a Wall ridge along the cast, crushing with knockback;
+  (3) reload / walk away and back — both the impact craters and the Earth Wall ridge persist from the
+  `tc_*.dat` chunks; (4) confirm repeated casts never grind a void (Crater floor clamp holds).
 
 User: "i want the earth magic to have impact on the terrain" (confirmed scope: every earth spell dents
 the ground; some also raise). Earth reshaping already existed (1az/1bb) but only for Zone spells that
@@ -45,9 +89,11 @@ carries a terrain shape and all four delivery paths feed `TerrainDeformer` → `
 - **`SpellCaster.ResolveSummon`** — erupts a modest rock field at the ground-target point
   (`min(Radius·0.4, 2.5)`, Spikes) when the spell carries a shape — the golem line "rises" out of
   real ground. Zone spells need no new code — `ResolveZone` already calls `TerrainDeformer.Apply`
-  for every shape-tagged zone; the root **Stone Shard** projectile keeps its launch tear-pit crater.
+  for every shape-tagged zone. (The root **Stone Shard** projectile's launch tear-pit was later
+  moved to the impact point in `1bm`.)
 - **Delivery coverage now**: Zone (Crater/Ring/Spikes/Wall/Pillar) + Storm (per-strike Crater) +
-  Summon (Spikes eruption) + Projectile (Stone Shard tear). Every Earth magic cast leaves a mark.
+  Summon (Spikes eruption) + Projectile (Stone Shard crater, carved at impact per `1bm`). Every Earth
+  magic cast leaves a mark.
 - **Docs** — `game-design.md` §3.7 signature line and §3.8 terrain-shape bullet updated ("current
   build" notes per-delivery coverage + depth-clamp everywhere); `magic-skills.md` Earth rows updated
   with `terrain:` tags.

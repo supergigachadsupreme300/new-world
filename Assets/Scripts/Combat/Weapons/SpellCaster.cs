@@ -450,16 +450,10 @@ public class SpellCaster : MonoBehaviour
 
     private DamageResult FireProjectile(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale)
     {
-        // Earth projectiles (TerrainShape.Crater) tear their stone slab loose from the ground:
-        // carve a shallow, permanently-persisting crater at the break-away point just ahead of
-        // the caster (the floor is depth-clamped, so it can never become a bottomless void). The
-        // shard itself deals damage on impact without reshaping there.
-        if (spell.TerrainShape == TerrainShape.Crater)
-        {
-            Vector3 tearPoint = pos + fwd * 0.7f;
-            if (Physics.Raycast(tearPoint + Vector3.up * 0.1f, Vector3.down, out RaycastHit craterHit, 6f))
-                TerrainDeformer.Apply(craterHit.point, Mathf.Max(1.2f, spell.Radius) * sizeScale, TerrainShape.Crater, fwd);
-        }
+        // Earth projectiles (TerrainShape.Crater) carve their crater where the shard STRIKES —
+        // the impact point, not the caster's own footing. The carve lives in
+        // SpellEffect.ResolveProjectileImpact (down-probed onto the ground there), so casting
+        // never dents the ground under the player.
 
         // Spawn on the aim line only (no vertical lift) so the trajectory passes through the
         // casting circle's center (the circle is anchored on the same origin as this cast).

@@ -58,7 +58,7 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
 | magic_tornado | Tornado | false | Wind | Active (Wind) - power 16, FP 28, cd 10s, range 12, radius 3 | Summon a ravenous tornado that pulls foes in and shreds them (requires Gale Force). |
 | magic_flight | Wind Walk | false | Wind | Active (Wind) - power 0, FP 18, cd 25s, dur 10s, self-buff | Ride the wind and take flight for 10 seconds (requires Gale Force). |
 | magic_water | Water Bolt | false | Water | Active (Water) - power 22, FP 13, cd 4s, Wet, shape:Bolt | Launch a splash that soaks and slows the target. |
-| magic_earth | Stone Shard | false | Earth | Active (Earth) - power 26, FP 15, cd 4s, shape:Shard | Hurl a shard of living stone. |
+| magic_earth | Stone Shard | false | Earth | Active (Earth) - power 26, FP 15, cd 4s, shape:Shard, terrain:Crater (impact) | Hurl a shard of living stone that carves a crater where it strikes. |
 
 ## Tree branches (L1 + L2)
 
@@ -340,6 +340,7 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
   - **Rockfall** (`magic_earth_boulder_fall`) - Active (Earth) - power 30, FP 20, cd 6s, range 9, radius 3.2, dur 3s, terrain:Crater | Boulders rain down over the area, pitting the ground with craters.
   - **Tectonic** (`magic_earth_boulder_tectonic`) - Active (Earth) - power 36, FP 26, cd 8s, radius 3.8, knockback 3.5, terrain:Crater | A tectonic blow that shatters the ground, carving a wide crater.
   - **Meteor** (`magic_earth_meteor`, deep, requires Boulder Crash) - Active (Earth) - power 40, FP 28, cd 9s, range 12, radius 4, knockback 4, terrain:Crater | A meteor plunges from the sky, carving a crater into the ground.
+  - **Earth Wall** (`magic_earth_wall`, deep, requires Landslide) - Active (Earth) - power 36, FP 26, cd 8s, range 10, radius 3.6, knockback 3.5, terrain:Wall | A towering wall of stone rears up along the cast and crashes down on foes.
 - **Tremor** (`magic_earth_quake`) - Active (Earth) - power 26, FP 20, cd 6s, radius 2.8, terrain:Ring | The ground ripples — a stone ring rears up around the impact.
   - **Faultline** (`magic_earth_quake_faultline`) - Active (Earth) - power 30, FP 22, cd 6s, radius 3, terrain:Ring | A second stone ring rears up around the impact.
   - **Stable Ground** (`magic_earth_quake_stable`) - + 5 Defense (passive) | Permanent +5 Defense.
