@@ -1375,11 +1375,14 @@ public sealed class CharacterInfoUI : MenuPanelBase
                         foreach (var s in layer)
                         {
                             int ring = ringFor[s.id];
-                            float pitch = EffLayerOf(s) < layerPitch.Length ? layerPitch[EffLayerOf(s)] : 12f;
-                            int slots = ring == 0 ? ringTotal[ring] : RingCapacity(ring, pitch, sectorHalf);
-                            int first = Mathf.Max(0, (slots - ringTotal[ring]) / 2);
+                            // Spread the ring's own nodes evenly across the wedge's FULL arc, like
+                            // ring0's roots: a sparse layer (Fortitude's 3 branch nodes) fans across
+                            // the whole category wedge instead of bunching at the center while the
+                            // dense categories (Melee/Ranged/Stealth) span it. Single-node rings
+                            // stay centered; count never exceeds the loader's balanced capacity so
+                            // rings can't overlap.
                             float ang = center - sectorHalf +
-                                (first + used[ring] + 0.5f) * (2f * sectorHalf) / slots;
+                                (used[ring] + 0.5f) * (2f * sectorHalf) / ringTotal[ring];
                             used[ring]++;
 
                             float radial = RingRadius(ring);

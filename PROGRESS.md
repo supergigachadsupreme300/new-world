@@ -23,6 +23,35 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
+## 1bq. Fortitude branch (L1) skills spread across their wedge like the other categories
+
+User: "the skills on fortitude layer 1 not spreading out like other category but grouped instead".
+On the General skill-tree wheel, rings spread nodes by capacity then **centered** them in their
+slots. Dense categories (Melee/Ranged/Stealth have ~25 L1 nodes on ring1, capacity 29) landed
+`first≈0` → spanned ~83% of the wedge and looked spread. Fortitude's L1 has only **3** nodes
+(Vitality / Relentless / Steadfast — `fort_vitality`, `fort_stamina`, `fort_steadfast`), so
+`first=(29-3)/2=13` parked them at fractions 13.5/14.5/15.5 of the slots — a ~±0.03 rad sliver at
+the wedge center where 12 px nodes at r=380 visibly stack/overlap, with empty arcs each side.
+
+- **`CharacterInfoUI.cs` `BuildWheel`** — the "Spread partially filled rings" placement now spreads
+  each ring's **own node count** over the wedge's **full arc** (`(used+0.5)·2·sectorHalf/count`,
+  mirroring ring0's root spacing) instead of capacity-centering. Removed the now-dead
+  `pitch`/`slots`/`first` locals (RingCapacity still drives the band-allocation pass above).
+- **Docs** — `PROGRESS.md` this entry. No `game-design.md` change: §8.2's radial-tree description
+  stays accurate; the layout detail is internal to `BuildWheel`.
+
+### 1bq-status
+No CLI/Unity build — verified by **code review** (project rule): the change is one angle formula;
+single-node rings land exactly at the wedge center ((0+0.5)·2·half/1 = half); a ring's count can
+never exceed its loader-balanced capacity, so count-based spacing (`2·half/count`) is always ≥ the
+capacity pitch (`2·half/cap ≈ nodeSize/radius`) — no overlap is possible where the capacity spacing
+already held; `posOf`/lines/labels all consume the new positions identically. Affects every
+partially-filled ring on both standard (Physical) and compact (Magic/Crafting) wheels uniformly.
+- Play-test after this: open Skills → General, Fortitude sector — Vitality / Relentless / Steadfast
+  (ring1) now fan out across the wedge's full arc at ring0-style spacing, matching Melee / Ranged /
+  Stealth; Melee's dense branch ring reads near-identical to before (slightly wider); single deep
+  nodes stay centered; no node overlaps anywhere.
+
 ## 1bp. Every magic projectile dents the ground at impact (not just Earth's Stone Shard)
 
 User: "also add impact dent to other magic projectile". Follow-up to `1bm` (Earth Shard carves at
