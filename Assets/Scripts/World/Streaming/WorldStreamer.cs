@@ -663,12 +663,10 @@ public class WorldStreamer : MonoBehaviour
 
     /// <summary>
     /// Levels a rectangular patch of the loaded heightmap to a target height, blending out over a
-    /// feathered rim. The testing ground carves its flat arena out of the real procedural terrain
-    /// this way (the "similar method to generate the world") — it routes through the exact same
-    /// tile-edit + chunk-rebuild + persistence pipeline as <see cref="DeformAt"/>, so the pad is
-    /// genuine generated terrain (mesh, collider, save files), not a floating overlay. Unloaded
-    /// tiles are ignored, so callers must wait for the pad's chunks (see <see cref="LoadedChunks"/>)
-    /// before flattening.
+    /// feathered rim. Routes through the exact same tile-edit + chunk-rebuild + persistence pipeline
+    /// as <see cref="DeformAt"/>, so the result is genuine generated terrain (mesh, collider, save
+    /// files), not a floating overlay. Unloaded tiles are ignored, so callers must wait for the
+    /// patch's chunks (see <see cref="LoadedChunks"/>) before flattening.
     /// </summary>
     public void FlattenAt(Vector3 center, float halfSize, float targetHeight, float feather = 3f)
     {
@@ -706,7 +704,7 @@ public class WorldStreamer : MonoBehaviour
     /// <summary>
     /// Writes an edited corner set into every loaded tile it touches, marks them dirty, and rebuilds
     /// the affected chunks' meshes + colliders (and flushes their save files). Shared by shape
-    /// deformation (<see cref="DeformAt"/>) and by arena flattening (<see cref="FlattenAt"/>).
+    /// deformation (<see cref="DeformAt"/>) and <see cref="FlattenAt"/>.
     /// Corners not in the set simply keep their current (unchanged) height, so shared edges with
     /// untouched neighbours line up perfectly.
     /// </summary>

@@ -1,6 +1,6 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-16. Read this first in a new session; then continue with the
+Last updated: 2026-09-17. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug). The **optimization sweep** ran Phases 0-5
 (`1ag`-`1al` below); the sweep's planning doc (`OPTIMIZATION.md`) was retired once Phases 0-5 shipped —
 only **Phase 6 / startup** (#17, #18) remains open, recorded under OPEN TASKS. Legacy working plans
@@ -17,9 +17,49 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#17** — `Core/GameBootstrap.cs:15-80` runs ~30 full-scene `FindAnyObjectByType` scans and
     initializes all managers synchronously. Fix: a registry to cache the lookups; split init across
     frames.
-  - **#18** — `GameBootstrap.cs:107` + `Opt/NewWorldTestGround.cs:225-244`: boot spawn-chunk build is
-    synchronous and the arena-ground snap re-samples 61×61=3,721 noise points. Fix: reuse the spawn-chunk
-    corners for the arena ground height sample.
+  - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
+    noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
+    `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1bf. Test ground leaves the terrain untouched — no more flatten/carve at the arena coordinate
+
+Fixes the report "when testground spawn the terrain that already spawn at that coordinate get
+deleted". Every boot the test ground permanently carved the arena: `WorldStreamer.FlattenAt` raised
+the 120 m footprint to the pad's highest point and **persisted it to the chunk save files**, while
+`ClearPropsInsidePlatform` + `ChunkObject`'s `IsInsidePlatform` check destroyed/blocked the trees and
+rocks there. All of that is gone — the bench now spawns on the untouched procedural terrain.
+
+- **`NewWorldTestGround.cs`** — removed `FlattenArenaTerrain()` (and its `FlattenAt` call) and
+  `ClearPropsInsidePlatform()` / `IsTreeOrRock`; removed the `PlatformMin/MaxX/Z` statics +
+  `IsInsidePlatform`; `PrepareArenaGround` now just samples the natural ground at the arena centre
+  (and captures the world seed) with no 61×61 scan or flatten feather. Added `GroundAt(x,z)` (world
+  noise height) and switched every lane to place each prop on the natural ground at its own anchor:
+  farming plots, livestock, enemies/dummies/boss, buildings, NPCs, weapon pedestals, and the tool
+  pickups. `GetSpawnPoint` samples the ground at the player's actual XZ. `CreatePlatform`'s meaning
+  changed from "carve the pad" to "wait for the arena's chunks, then pull the player onto the natural
+  terrain first" ("ground first, then player" kept; the bench is never placed mid-void).
+- **`ChunkObject.cs`** — `StepProps` no longer skips tiles inside the platform: trees/rocks spawn
+  naturally on every tile (they sit on real ground now — no raised pad to poke through).
+- **`game-design.md`** §2.7 — rewritten: the arena is the actual generated terrain, left completely
+  untouched (no tile edits, no chunk-save writes, no prop suppression/clearing).
+- **`WorldStreamer.FlattenAt`** kept as public API (unused); the Earth-spell `DeformAt` pipeline is
+  untouched. Its doc comments no longer claim the test ground as a caller.
+
+### 1bf-status
+No CLI build — verified by code review (project rule): all removed symbols (`FlattenArenaTerrain`,
+`ClearPropsInsidePlatform`, `IsTreeOrRock`, `IsInsidePlatform`, `PlatformMin/MaxX/Z`, `_flattenFeather`)
+were referenced only by the test ground + `ChunkObject` (grep-clean); `PrepareArenaGround`/`GroundAt`
+call the existing `TerrainNoiseGenerator.GetHeight(long, float, float)` overload; `PlatformTopY` static
+kept for the remaining readers; all touched files brace-balanced.
+- Note: an **existing** chunk save from an earlier session still holds the old flattened pad — start a
+  fresh world/delete saves to see the untouched terrain.
+- Play-test after review: (1) boot — the arena coordinate keeps the original rolling terrain (no flat
+  pad, no height writes); (2) each bench prop (racks, pickups, animals, buildings, NPCs, enemies) sits
+  on the natural ground and follows slopes, not floating/sunk; (3) trees/rocks now appear among the
+  bench (nothing suppressed); (4) the player still lands on solid ground first and benches spawn after;
+  (5) farming/Earth-spell edits near the arena still deform real terrain as before.
 ---
 
 ## 1be. Test ground spawns the tool kit as pickups — "spawn tools on testground for player to pickup"

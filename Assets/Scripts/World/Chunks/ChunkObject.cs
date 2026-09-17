@@ -168,15 +168,12 @@ public class ChunkObject : MonoBehaviour
             int tileX = ChunkCoord.X * cs + (idx % cs);
             int tileZ = ChunkCoord.Z * cs + (idx / cs);
 
-            // Skip nature props inside the test-platform footprint so trees/rocks can't poke
-            // their colliders up through the floating bench and eject the player.
-            if (!NewWorldTestGround.IsInsidePlatform(tileX + 0.5f, tileZ + 0.5f))
-            {
-                if (_propRng.Next(200) == 0)
-                    SpawnTree(_propSeed, tileX, tileZ, _propRng);
-                if (_propRng.Next(200) == 0)
-                    SpawnRock(_propSeed, tileX, tileZ, _propRng);
-            }
+            // Nature props (trees/rocks) spawn on every tile — the test ground no longer carves
+            // or suppresses anything, so the procedural world is left exactly as generated.
+            if (_propRng.Next(200) == 0)
+                SpawnTree(_propSeed, tileX, tileZ, _propRng);
+            if (_propRng.Next(200) == 0)
+                SpawnRock(_propSeed, tileX, tileZ, _propRng);
             consumed++;
         }
         return consumed;

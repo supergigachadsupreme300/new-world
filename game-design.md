@@ -101,23 +101,25 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
 
 ### 2.7 Testing Arena — Real Procedural Terrain (dev tool)
 
-- The QA test bench (Opt/NewWorldTestGround) no longer floats on a fabricated platform. Its ground is
-  the **actual generated terrain** of the current world: it samples the same 5-octave height function
-  (`TerrainNoiseGenerator.GetHeight`) over the footprint at boot, and once the pad's streamed chunks
-  are loaded it levels them in place via `WorldStreamer.FlattenAt` — the same tile-edit / chunk-rebuild /
-  per-chunk persistence pipeline Earth spells use (§3.8).
-- `FlattenAt` raises a rectangular patch to the footprint's maximum height (so nothing inside the pad
-  pokes through the bench) and feathers influence `1 → 0` over a few metres (smootherstep) so the flat
-  arena melts into the untouched rolling terrain around it. The result is neither a prefab nor flat
-  noise: it is ordinary, save-able world terrain, so farming plots dig real soil, Earth spells deform
-  the pad, and the flatten survives unload/reload from the chunk save files.
+- The QA test bench (Opt/NewWorldTestGround) no longer floats on a fabricated platform, and it no
+  longer carves/flattens the world either — the ground under it is the **actual generated terrain**,
+  left completely untouched. Boot just samples the same 5-octave height function
+  (`TerrainNoiseGenerator.GetHeight`) at the arena centre (and at every prop's own anchor) so each
+  item sits exactly on the natural ground height. No tile edits, no chunk-save writes: the terrain
+  at the arena coordinate is exactly what the procedural generator produced (trees/rocks included —
+  `ChunkObject` spawns nature props on every tile, nothing is suppressed or cleared).
+- Each lane places every prop on the sampled natural ground (`GroundAt(x,z)` = world noise height at
+  that spot): farming plots, livestock, enemies/dummies/boss, buildings, NPCs, weapon pedestals, and
+  the tool pickups all hug the rolling terrain item-by-item instead of keying off one flat pad
+  height. Because the arena is not level, edge lanes follow whatever slope the generator made there.
 - **Boot order is "ground first, then player"** (§2.7): `GameBootstrap` generates only the spawn chunk
   (tile `(0,-10)`) synchronously and grounds the player on it at `(0, ~y+2, -10)`, so the first frames
   are never a void; `PlayerController.ResetPlayer` only uses the arena spawn point once
-  `NewWorldTestGround.IsArenaReady` (the pad is carved), else it falls back to the boot chunk. The test
-ground then waits for the pad's chunks, carves the arena, teleports the player onto the settled pad
-   FIRST, and only afterwards lays the bench lanes — each lane runs in an isolated try/catch so one
-   failing lane (e.g. one enemy spawn) logs instead of aborting the bench and stranding the player.
+  `NewWorldTestGround.IsArenaReady` (the arena's chunks are in place), else it falls back to the boot
+  chunk. The test ground then waits for the arena's streamed chunks, teleports the player onto the
+  natural ground FIRST, and only afterwards lays the bench lanes — each lane runs in an isolated
+  try/catch so one failing lane (e.g. one enemy spawn) logs instead of aborting the bench and
+  stranding the player.
 - The bench also lays the **tool/food discovery kit** along the platform's **east edge as real world
   pickups** (`Pickup_<id>` drops, `WorldBuilder.SpawnPickup`) instead of seeding the bag: the 10 tools
   (axe, pickaxe, hoe, hammer, scythe, watering_can, fertilizer, club, rosary, fishing_rod) + 5 food
