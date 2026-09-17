@@ -92,6 +92,17 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   never pristine terrain. On load (`TryLoadChunk`) deformed corners restore their saved heights
   before noise-filling pristine corners — so un-modified chunks stay fully deterministic from the
   seed and only edited areas consume disk/IO.
+- **Corner sentinel is NaN, not zero (1bk):** `BuildOrLoadChunk` prefills the corner grid with
+  `float.NaN`; a zero-filled grid treats `0f` as a valid saved height (`float.IsNaN(0f)` is false)
+  and collapses every unstamped corner to height 0 — i.e. an un-edited chunk renders flat. NaN
+  marks "no saved value", so only genuinely saved corners are restored and all others re-roll from
+  the seed noise.
+- **Force-rebuild API (1bk):** `WorldStreamer.ForceRebuildArenaLane()` drops the in-memory
+  arena-lane chunks (`tc_-1_0/-1_1/-1_2`) and re-queues them through `UnloadChunk` +
+  `EnqueueChunkIfNeeded` (the normal streaming path), so a stale flat mesh is re-streamed from
+  noise + saves **without writing to any `tc_*.dat` file**. Auto-fired on New Game and bound to
+  editor **F12**; `GameManager` holds the streamer reference (resolved by `AutoResolveReferences`,
+  the streamer is created by `GameBootstrap`).
 - Dirty tiles record at **mark-time** (no IO); each chunk's accumulated tiles flush **batched** into
   one file write (default synchronous, one write per chunk per cast; unload and shutdown also flush).
 - Player modifications (terrain deformation) are delta-patched into the chunk file on flush.
