@@ -1119,9 +1119,10 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
         // Builds one independent tree wheel on the shared canvas. Compact wheels spread a single
         // category over a full circle with tighter rings and the hub bubble at the wheel center
-        // (Magic, Crafting); standard wheels fan each category inside an equal wedge around the hub
-        // (Physical combat). All positions are offset by the wheel origin so several wheels share
-        // the board without overlapping.
+        // (Magic, Crafting); standard wheels fan each category inside its own wedge around the hub,
+        // Shield taking a small slice while the rest share the remaining arc (Physical combat). All
+        // positions are offset by the wheel origin so several wheels share the board without
+        // overlapping.
         void BuildWheel(IReadOnlyList<SkillType> wheelTypes, Vector2 origin, bool compact)
         {
             int wheelCount = wheelTypes.Count;
@@ -1131,10 +1132,25 @@ public sealed class CharacterInfoUI : MenuPanelBase
             // category bubble on a standard wheel.
             float wedgeHubR = compact ? 100f : 170f;
 
+            // Per-category wedge layout for the standard wheel: Shield gets a small fixed slice
+            // (30°) and the other categories share the rest equally, so a small category no longer
+            // spreads across a full-size sector. Centers accumulate from the top (-90° in radians);
+            // compact wheels ignore this (they build per-school wedges below).
+            float startAngle = !compact ? -90f * Mathf.Deg2Rad : 0f;
+
             for (int ci = 0; ci < wheelCount; ci++)
             {
                 SkillType type = wheelTypes[ci];
-                float categoryCenter = (-90f + ci * (360f / wheelCount)) * Mathf.Deg2Rad;
+                // Standard wheel: Shield = 30°, the remaining arc split equally among the rest.
+                // Compact wheels keep the whole-circle layout (per-school wedges built below).
+                float wedgeFull = !compact
+                    ? (type == SkillType.Shield ? 30f : (360f - 30f) / (wheelCount - 1f))
+                    : (360f / wheelCount);
+                float wedgeRad = wedgeFull * Mathf.Deg2Rad;
+                float categoryCenter = !compact
+                    ? startAngle + wedgeRad * 0.5f
+                    : (-90f + ci * (360f / wheelCount)) * Mathf.Deg2Rad;
+                startAngle += wedgeRad;
 
                 var catList = new List<Skill>();
                 foreach (var s in list)
@@ -1203,17 +1219,19 @@ public sealed class CharacterInfoUI : MenuPanelBase
                 }
 
                 // ---- Wedges ----------------------------------------------------------------.
-                // Standard wheels fan one whole category inside its equal wedge (legacy behavior);
-                // compact wheels split the full circle into one wedge per school, starting at the
-                // top (+90°), so each element spreads toward its own side of the wheel instead of
-                // packing every ring's nodes into the bottom arc the way a single full-circle wedge
-                // did.
+                // Standard wheels fan one whole category inside its wedge: Shield takes a small
+                // fixed slice (~30°) and the rest share the remaining arc equally (~82.5° each on
+                // the 5-category Physical wheel), so a small category no longer spreads across a
+                // full-size sector; compact wheels split the full circle into one wedge per school,
+                // starting at the top (+90°), so each element spreads toward its own side of the
+                // wheel instead of packing every ring's nodes into the bottom arc the way a single
+                // full-circle wedge did.
                 var wedges = new List<(List<Skill> wedgeSkills, float center)>();
                 float sectorHalf;
                 if (!compact)
                 {
                     wedges.Add((catList, categoryCenter));
-                    sectorHalf = (Mathf.PI / wheelCount) - 0.004f;
+                    sectorHalf = (wedgeRad * 0.5f) - 0.004f;
                 }
                 else
                 {
@@ -1258,15 +1276,15 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
                 // Tier-band radii (px). Each layer owns a fixed band of rings instead of drifting
                 // outward, and each wedge is sized OUT from its hub so every ring's arc has enough
-                // real estate. The Physical wheel is only 4 categories, so each wedge is wide
-                // (sectorHalf = π/4 ≈ 0.781) — the rings are shorted accordingly and never need a
-                // pinhole arc:
+                // real estate. The 5-category Physical wheel gives Shield a small slice
+                // (sectorHalf ≈ 0.258) and the other four a wide one (≈ 0.716) — the rings are
+                // shorted accordingly and never need a pinhole arc:
                 //   ring0      r=250  Layer 0 (base) — one ring, exactly sized to the category's ROOT
-                //              count (5 Melee/Ranged/Stealth, 6 Fortitude) so no slots go to waste.
+                //              count (5 Melee/Ranged/Stealth/Shield, 6 Fortitude) so no slots go to waste.
                 //   ring1-2    r=380,400  Layer 1 (branch) — roots×5 branches (25 for Melee/Ranged/
-                //              Stealth, 30 for Fortitude) at a 16px pitch: ring1 seats 37 ≥ 30.
-                //   ring3      r=1150   Layer 2 (deep) — one ring for the FULL L2 catalog (126-151
-                //              nodes per category) at a 10px pitch; arc capacity 179 ≥ Fortitude's 151.
+                //              Stealth/Shield, 30 for Fortitude) at a 16px pitch: ring1 seats 37 ≥ 30.
+                //   ring3      r=1150   Layer 2 (deep) — one ring for the FULL L2 catalog at a 10px
+                //              pitch; arc capacity ~165 for the four big wedges, ~59 for Shield.
                 //   ring4      r=1400   Layer 3 (deepest) — the 2-3 hop locks sit one ring further out.
                 // Compact wheels reuse tighter bands for school-sized wedges:
                 //   ring0 r=200, ring1-2 r=300/318, ring3 r=400, ring4 r=470 — Magic's 9 wedges seat

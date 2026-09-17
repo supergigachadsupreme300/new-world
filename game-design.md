@@ -1173,10 +1173,13 @@ Generated from noise layers, each biome has unique terrain characteristics:
 - Pause Menu (Inventory, Skills, Map, Quests, Settings, Quit)
 - **Skills menu** — one **giant radial skill tree** (hub + branching layers) per SkillCatalog category,
   built in code (no asset files), grouped into colored sectors (Melee / Ranged / Magic / Stealth /
-  Crafting / Fortitude), pannable + zoomable. Nodes show state (selected / learned / available /
-  locked); **connection links are black**, and a clicked node's direct parent→child links **light up
-  white** so grouping is readable while idle. Class & Race tabs show each class/race's compact radial
-  tree.
+  Crafting / Fortitude / Shield). On the standard PHYSICAL wheel each category fans out inside its
+  own wedge: **Shield takes a small slice (~30°)**, the other four (Melee / Ranged / Stealth /
+  Fortitude) share the remaining arc equally (~82.5° each), and ring positions re-spread across each
+  wedge so every category's branches fill their sector. Pannable + zoomable. Nodes show state
+  (selected / learned / available / locked); **connection links are black**, and a clicked node's
+  direct parent→child links **light up white** so grouping is readable while idle. Class & Race tabs
+  show each class/race's compact radial tree.
 - Character Creation (race select + stat/passive preview)
 - Race & Stat Sheet (current race, stats, skill XP, classes)
 - Inventory Menu (equipment, items, materials, consumables)

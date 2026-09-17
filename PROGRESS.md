@@ -23,6 +23,35 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
+## 1bs. Shield wedge shrunk to 30°, standard wheel re-laid out (Fortitude re-spread)
+
+User: "shield category spreading too wide taking up too much space so reduce the area of shield
+category and recalculate the fortifide again". The standard PHYSICAL wheel (`BuildWheel`, non-compact
+path) gave all 5 categories an equal 72° wedge (`sectorHalf = π/5`), so Shield — the smallest
+category (~31 skills) — spread its branches across a full-size sector. Changed the layout so **Shield
+gets a fixed 30° wedge** and the other four (Melee / Ranged / Stealth / Fortitude) **share the
+remaining 330° equally (~82.5° each)**.
+
+- **`CharacterInfoUI.cs` `BuildWheel`** — replaced the fixed `categoryCenter = -90 + ci·(360/5)` /
+  uniform `sectorHalf` with a cumulative per-category layout: a `startAngle` accumulator begins at
+  the top (-90°), and each category's `wedgeRad` (Shield 30°, others `(360−30)/(count−1)`) feeds its
+  own `categoryCenter` and `sectorHalf = wedgeRad/2 − 0.004`. The existing count-based full-arc ring
+  spread (`1bq`) and `RingCapacity`-driven band allocation both consume the per-wedge `sectorHalf`,
+  so **Fortitude's nodes automatically re-spread across its wider wedge** (0.716 rad vs. the old
+  0.624). Compact wheels (Magic / Crafting per-school wedges) are untouched.
+- **Docs** — `game-design.md` §8.2: sector list now includes Shield + describes the wedge contract
+  (30° / ~82.5°). `PROGRESS.md` this entry.
+
+### 1bs-status
+No CLI/Unity build — verified by **code review** (project rule). Formal checks: adjacent category
+bubbles (r=170, 128 px) don't collide — non-Shield centers are 82.5° apart (chord ≈ 224 px), Shield's
+neighbors land ≥82.5°/30° boundaries; Shield's ring3 (r=1150, 10 px pitch) capacity ≈ 59 slots ≥ its
+~25 L2 nodes; the four big wedges' ring3 capacity ≈ 165 slots ≥ Fortitude's ~90 skills (~80 L2/L3).
+- Play-test after this: (1) open General → PHYSICAL — Shield occupies a visibly narrower cone and its
+  branches pack tighter; (2) Fortitude's L1 / L2 / L3 nodes spread across a wider arc without
+  overlap; (3) Melee / Ranged / Stealth take up the freed space and never collide with neighbor
+  bubbles or run off their wedge edges.
+
 ## 1br. Render distance raised to 20 chunks (~600 m) — map/terrain streams much further
 
 User: "increase the map rendering range". The game's "map" = the seamless chunk terrain; the
