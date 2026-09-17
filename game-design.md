@@ -99,33 +99,29 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   `WorldStreamer.Awake`): `Application.persistentDataPath` is main-thread-only in Unity 6, but chunk
   generation resolves the file path on background threads — they read the cached string only.
 
-### 2.7 Testing Arena — Real Procedural Terrain (dev tool)
+### 2.7 Testing Arena — Independent Floating Platform (dev tool)
 
-- The QA test bench (Opt/NewWorldTestGround) no longer floats on a fabricated platform, and it no
-  longer carves/flattens the world either — the ground under it is the **actual generated terrain**,
-  left completely untouched. Boot just samples the same 5-octave height function
-  (`TerrainNoiseGenerator.GetHeight`) at the arena centre (and at every prop's own anchor) so each
-  item sits exactly on the natural ground height. No tile edits, no chunk-save writes: the terrain
-  at the arena coordinate is exactly what the procedural generator produced (trees/rocks included —
-  `ChunkObject` spawns nature props on every tile, nothing is suppressed or cleared).
-- Each lane places every prop on the sampled natural ground (`GroundAt(x,z)` = world noise height at
-  that spot): farming plots, livestock, enemies/dummies/boss, buildings, NPCs, weapon pedestals, and
-  the tool pickups all hug the rolling terrain item-by-item instead of keying off one flat pad
-  height. Because the arena is not level, edge lanes follow whatever slope the generator made there.
-- **Boot order is "ground first, then player"** (§2.7): `GameBootstrap` generates only the spawn chunk
-  (tile `(0,-10)`) synchronously and grounds the player on it at `(0, ~y+2, -10)`, so the first frames
-  are never a void; `PlayerController.ResetPlayer` only uses the arena spawn point once
-  `NewWorldTestGround.IsArenaReady` (the arena's chunks are in place), else it falls back to the boot
-  chunk. The test ground then runs TWO gates before laying any lane: a **hard** gate
-  (`WaitForSpawnGround`) that waits until the chunk under the arena spawn point is loaded — the player
-  is never teleported over unloaded terrain, so a slow machine can never drop them into the void
-  (failure keeps them on the solid boot chunk and logs an error) — then a **soft** footprint gate
-  (`WaitForArenaTerrain`, 15s) so tile-dependent lanes (farming tills real soil, the NPC placer,
-  buildings) have their terrain. With ground assured, the player is pulled onto the natural terrain
-  FIRST, then the bench lanes spawn — each lane runs in an isolated try/catch so one failing lane
-  (e.g. one enemy spawn) logs instead of aborting the bench and stranding the player. Prop heights
-  are sampled from the **live loaded terrain** when available (so old flattened/edited saves are
-  honoured; tiles yet to stream fall back to pure noise).
+- The QA test bench (Opt/NewWorldTestGround) lays a **self-contained floating platform** that is fully
+  INDEPENDENT of the world's procedural terrain: a solid mesh slab + collider (with 4 corner posts so
+  it reads as a structure) is built in `Awake`, raised **clear of the natural ground** at the arena
+  coordinate. The world's rolling terrain is **never edited in any way** — no carve, no flatten, no
+  chunk-save writes, no prop clearing/suppression. The platform's top sits above a **coarse sample of
+  the world's own best natural height** (same 5-octave noise the streamer uses, read-only, plus 12 m
+  clearance) so terrain and trees never poke through.
+- **Legacy flatten saves purged (1bi):** `worlds/1337/tc_*.dat` full-chunk flatten files (900-mod tiles
+  all keyed off the old hub's flat pad) were **deleted**, so the map streams back as the generator
+  designed it — each tile with its natural rolling surface and dedicated noise sample, no more
+  "one-surface test field". Sparse files (real Earth-spell/tool edits, e.g. freshly tilled lanes) are
+  kept untouched.
+- The whole bench sits flat on the platform's **single level top** (`PlatformTopY`): every lane —
+  farming plots/tilled soil, livestock, enemies/dummies/boss, buildings, NPCs, weapon pedestals/racks,
+  and the tool-pickup kit — keys its placement off that one height, so nothing hugs a slope and every
+  prop stands edge-to-edge level. `GetSpawnPoint` pulls the player onto the platform (top + 2 m).
+- **Boot order is "platform first, then player"** (§2.7): the platform is built in `Awake` (before any
+  lane and before `PlayerController.ResetPlayer` runs in `Start`), so the player is never teleported
+  over a void. The bench spawn is deferred (one lane group per frame) — the platform exists up front;
+  the lanes just lay props on it. Every lane runs in an isolated try/catch so one failing lane (e.g.
+  one enemy spawn) logs instead of aborting the bench.
 - The bench also lays the **tool/food discovery kit** along the platform's **east edge as real world
   pickups** (`Pickup_<id>` drops, `WorldBuilder.SpawnPickup`) instead of seeding the bag: the 10 tools
   (axe, pickaxe, hoe, hammer, scythe, watering_can, fertilizer, club, rosary, fishing_rod) + 5 food

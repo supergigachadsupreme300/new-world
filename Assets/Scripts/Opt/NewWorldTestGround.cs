@@ -2,26 +2,30 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Testing ground for the open world. Drop this ONE component on a GameObject and it lays a
-/// deterministic test bench on the REAL procedural terrain, which is left untouched: the bench
-/// samples the world's own 5-octave noise (the same <see cref="WorldStreamer"/> terrain the world
-/// is built from) and places every prop on the natural ground height — no artificial floor and no
-/// carve/flatten, so the terrain at the arena coordinate is never edited. Contents: the player
-/// tool/seed kit, a farming plot, livestock pens, an enemy arena, a building row, an NPC row, and
-/// a crafted fast-travel POI hub. It composes existing public APIs only (no rewrites of live
-/// contracts), so every Phase 4-8/9 system can be exercised from a single area.
+/// Testing ground for the open world. Drop this ONE component on a GameObject and it builds an
+/// INDEPENDENT floating platform and lays a deterministic, perfectly level test bench on top of it.
+/// The world's procedural terrain is never edited in any way — no carve, no flatten, no chunk-save
+/// writes, no prop clearing/suppression: the platform is a self-contained mesh + collider that
+/// floats clear of the local ground, so the world keeps its own rolling terrain underneath.
+/// Contents: the player tool/seed kit, a farming plot, livestock pens, an enemy arena, a building
+/// row, an NPC row, and a crafted fast-travel POI hub. It composes existing public APIs only (no
+/// rewrites of live contracts), so every Phase 4-8/9 system can be exercised from a single area.
 ///
 /// Opt-in lanes via serialized toggles; spawn once (idempotent) on <see cref="AutoSpawnOnStart"/>.
 /// </summary>
 public sealed class NewWorldTestGround : MonoBehaviour
 {
     [Header("Arena")]
-    [Tooltip("Footprint of the test arena (X/Z world units). It marks the bench layout area; the terrain itself is left untouched.")]
+    [Tooltip("Footprint of the independent floating test platform (X/Z world units).")]
     public float PlatformSize = 120f;
-    [Tooltip("Centre of the arena in world space. Its Y is snapped to the sampled ground height.")]
+    [Tooltip("Centre of the platform in world space (X/Z). Its Y is set to the platform's top surface.")]
     public Vector3 PlatformCenter = new Vector3(0f, 50f, 0f);
-    [Tooltip("Wait for the arena's terrain chunks to stream in, then place the player onto the natural ground (no terrain is edited).")]
+    [Tooltip("Build the independent floating platform on Awake. The world terrain is never edited.")]
     public bool CreatePlatform = true;
+    [Tooltip("How far the platform's top floats above the highest local terrain sample.")]
+    public float PlatformClearance = 12f;
+    [Tooltip("Thickness of the platform slab below its top surface.")]
+    public float PlatformThickness = 0.6f;
 
     [Header("Spawning")]
     [Tooltip("Spawn the bench automatically on Awake.")]
@@ -53,24 +57,21 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private bool _toolKitSpawned;
     private bool _pendingPlayerGrants;
     private bool _arenaReady;
-    private bool _groundSampled;
-    private bool _spawnGroundReady;
-    private long _worldSeed;
-    private WorldStreamer _streamer;
+    private GameObject _testGroundRoot;
     private readonly List<WeaponRackStand> _rackStands = new List<WeaponRackStand>();
     private ContextPromptUI _contextPrompt;
     private PlayerController _playerController;
 
-    /// <summary>True when the arena's terrain chunks are in place (never a void to spawn into).</summary>
+    /// <summary>True once the independent floating platform has been built (safe to place the player on).</summary>
     public bool IsArenaReady => _arenaReady && PlatformTopY != float.MinValue;
 
-    /// <summary>Natural ground height at the arena centre, sampled from the world's own noise.</summary>
+    /// <summary>Top-surface height of the independent test platform (world Y).</summary>
     public static float PlatformTopY { get; private set; } = float.MinValue;
 
     private void Awake()
     {
         if (CreatePlatform)
-            PrepareArenaGround();
+            BuildTestGround();
 
         _npcPlacer = Object.FindAnyObjectByType<WorldNpcPlacer>();
         if (_npcPlacer == null)
@@ -86,33 +87,21 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     /// <summary>
     /// Spawns the test bench one lane group per frame instead of all at once in Awake, so the
-    /// heavy setup (weapon models, NPCs, enemies, grants) no longer blocks the first frames. When
-    /// the arena is enabled it first waits for the terrain under the arena spawn point to stream
-    /// in (HARD gate — the player is never pulled over unloaded ground), then PULLS THE PLAYER
-    /// ONTO THE NATURAL GROUND before spawning any lane, so the player is never left in the void
-    /// ("ground first, then player"). The terrain itself is never edited — every lane just samples
-    /// the ground height with <see cref="GroundAt"/> and sits on it. Every lane runs isolated — a
-    /// failure in one (e.g. one enemy spawn) logs an error instead of aborting the bench and
-    /// stranding the player.
+    /// heavy setup (weapon models, NPCs, enemies, grants) no longer blocks the first frames. The
+    /// independent platform was already built in <see cref="Awake"/> (so it exists before any
+    /// caller asks to place the player), and every lane sits flat on its top surface — no world
+    /// terrain is read or written. Every lane runs isolated — a failure in one (e.g. one enemy
+    /// spawn) logs an error instead of aborting the bench and stranding the player.
     /// </summary>
     private System.Collections.IEnumerator RunBenchSpawn()
     {
         if (_spawned) yield break;
         _spawned = true;
 
+        // The platform is a solid collider built in Awake, so the player can be placed on it
+        // immediately — there is no streaming gate and no void to race.
         if (CreatePlatform)
-        {
-            // "Ground first, then player": first a HARD gate — never pull the player over terrain
-            // that isn't loaded (the chunk under the arena spawn point streams among the first, so
-            // this is fast and simply removes the void-fall race). Then a SOFT wait for the whole
-            // footprint so tile-dependent lanes (farming tills real soil, the NPC placer, buildings)
-            // have their terrain; it gives up after a deadline rather than blocking boot on the far
-            // corners. The player is placed once the spawn ground is assured.
-            yield return StartCoroutine(WaitForSpawnGround());
-            yield return StartCoroutine(WaitForArenaTerrain());
-            if (_spawnGroundReady)
-                RunSafely("player placement", PlacePlayerOnArena);
-        }
+            RunSafely("player placement", PlacePlayerOnArena);
 
         if (EnableTools) { RunSafely("tool pickups", SpawnToolKit); yield return null; }
         if (EnableFarming) { RunSafely("farming plot", SpawnFarmingPlot); yield return null; }
@@ -133,10 +122,9 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (EnableRaces) { RunSafely("races", GrantRaceAccess); yield return null; }
         RunSafely("player grants", TryDeferPlayerGrants);
 
-        // Safety net: if the arena returned partial (e.g. the footprint wait timed out), pull the player
-        // onto the bench point at the very end. PlacePlayerOnArena self-guards — it only teleports
-        // over a chunk that is actually loaded (mesh + collider), so a slow streamer can never drop
-        // the player into the void; they simply stay on the solid boot chunk.
+        // Safety net: if the platform wasn't ready when the bench started (e.g. built later or
+        // CreatePlatform toggled), pull the player onto it at the very end. PlacePlayerOnArena
+        // self-guards on IsArenaReady, so this can never teleport onto missing ground.
         if (!IsArenaReady)
             RunSafely("player placement (fallback)", PlacePlayerOnArena);
     }
@@ -155,18 +143,16 @@ public sealed class NewWorldTestGround : MonoBehaviour
         }
     }
 
-    /// <summary>Teleport the player onto the arena (2 m above the sampled ground). Never fires over
-    /// unloaded terrain — the chunk under the spawn point must actually be loaded (mesh + collider
-    /// applied) before the player is moved, otherwise they stay where they are.</summary>
+    /// <summary>Teleport the player onto the independent platform (2 m above its top surface).
+    /// Self-guards on <see cref="IsArenaReady"/> — never moves the player onto missing ground.</summary>
     private void PlacePlayerOnArena()
     {
         var player = GameManager.Instance?.Player;
         if (player == null) return;
 
-        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
-        if (streamer == null || !streamer.LoadedChunks.ContainsKey(SpawnGroundChunk()))
+        if (!IsArenaReady)
         {
-            Debug.LogWarning("[NewWorldTestGround] Skipped arena teleport — spawn ground not loaded yet.");
+            Debug.LogWarning("[NewWorldTestGround] Skipped arena teleport — the test platform isn't built.");
             return;
         }
         player.transform.position = GetSpawnPoint();
@@ -174,7 +160,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     /// <summary>
     /// Spawn the whole test bench through the budgeted coroutine (safe to call repeatedly). The
-    /// arena chunk-wait runs async, so a sync caller just starts the async path.
+    /// platform is built in Awake, so a sync caller just starts the async lane path.
     /// </summary>
     public void SpawnBench()
     {
@@ -222,143 +208,96 @@ public sealed class NewWorldTestGround : MonoBehaviour
     }
 
     /// <summary>
-    /// Reads the natural ground height at the arena centre from the world's own noise function.
-    /// The terrain is left completely untouched — no carve, no flatten, no persistence writes —
-    /// <see cref="PlatformTopY"/> is just the sampled height the bench lanes key their placement
-    /// off. Also caches the world seed so every lane can sample <see cref="GroundAt"/> at its own
-    /// anchor for per-item ground placement.
+    /// Builds the INDEPENDENT floating test platform: a self-contained mesh + collider raised clear
+    /// of the local terrain, so the world's procedural ground is never edited (no carve, no flatten,
+    /// no persistence writes). The platform's top is a flat surface at <see cref="PlatformTopY"/>;
+    /// every bench lane keys its placement off it. The world seed is only read to coarse-sample the
+    /// same 5-octave noise the streamed terrain uses, so the platform floats just above the local
+    /// high point instead of intersecting it.
     /// </summary>
-    private void PrepareArenaGround()
+    private void BuildTestGround()
     {
-        _streamer = Object.FindAnyObjectByType<WorldStreamer>();
-        if (_streamer == null)
+        if (_testGroundRoot != null)
             return;
 
-        _worldSeed = _streamer.Seed;
-        _groundSampled = true;
-        PlatformCenter.y = TerrainNoiseGenerator.GetHeight(_worldSeed, PlatformCenter.x, PlatformCenter.z);
-        PlatformTopY = PlatformCenter.y;
-    }
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        long seed = streamer != null ? streamer.Seed : 1337;
 
-    /// <summary>Natural ground height at a world position. Prefers the LIVE terrain (the loaded tile's
-    /// own corner heights, so it honours saved deformations from earlier runs and Earth-spell edits)
-    /// and falls back to the world's 5-octave noise for tiles that aren't loaded yet, then to the
-    /// configured centre height when the world seed was never captured.</summary>
-    private float GroundAt(float x, float z)
-    {
-        if (!_groundSampled) return PlatformCenter.y;
-
-        var tile = new ChunkCoord(Mathf.FloorToInt(x), Mathf.FloorToInt(z));
-        if (_streamer != null && _streamer.TryGetData(tile, out ChunkData data) && data.IsValid)
+        // Coarse-sample the local terrain (the surface is smooth, so a few samples per side is
+        // enough) and float the platform clear of the highest point so terrain and trees never poke
+        // through. This only READS the noise — the terrain itself is never modified.
+        float half = PlatformSize * 0.5f;
+        float maxGround = float.MinValue;
+        const int steps = 8;
+        for (int i = 0; i <= steps; i++)
         {
-            // Bilinear sample of the loaded quad's 4 corners (NW/NE/SE/SW).
-            float tx = Mathf.Clamp01(x - tile.X);
-            float tz = Mathf.Clamp01(z - tile.Z);
-            float top = Mathf.Lerp(data.Heights[0], data.Heights[1], tx);
-            float bottom = Mathf.Lerp(data.Heights[3], data.Heights[2], tx);
-            return Mathf.Lerp(bottom, top, tz);
-        }
-        return TerrainNoiseGenerator.GetHeight(_worldSeed, x, z);
-    }
-
-    /// <summary>Terrain chunk directly under the arena spawn point — the only ground the player
-    /// absolutely needs before being pulled onto the bench.</summary>
-    private TerrainChunkCoord SpawnGroundChunk()
-    {
-        return TerrainChunkCoord.FromWorld(new Vector3(PlatformCenter.x, 0f, PlatformCenter.z + PlatformSize * 0.45f));
-    }
-
-    /// <summary>
-    /// HARD gate for "ground first, then player": waits until the chunk under the arena spawn point
-    /// is loaded (mesh + collider applied), so the player is NEVER teleported over unloaded terrain.
-    /// That chunk lies near the boot focus so it streams among the first; this wait just makes the
-    /// guarantee load-independent instead of racing the footprint vote timer. If streaming never
-    /// delivers it (30s) the player simply stays grounded on the boot chunk — no void fall.
-    /// </summary>
-    private System.Collections.IEnumerator WaitForSpawnGround()
-    {
-        TerrainChunkCoord target = SpawnGroundChunk();
-        float deadline = Time.time + 30f;
-        while (Time.time < deadline)
-        {
-            var streamer = Object.FindAnyObjectByType<WorldStreamer>();
-            if (streamer != null && streamer.LoadedChunks.ContainsKey(target))
+            for (int j = 0; j <= steps; j++)
             {
-                _spawnGroundReady = true;
-                yield break;
-            }
-            yield return new WaitForSeconds(0.1f);
-        }
-        _spawnGroundReady = false;
-        Debug.LogError("[NewWorldTestGround] Arena spawn ground never streamed in (30s). Player stays on the boot chunk — bench lanes still spawn.");
-    }
-
-    /// <summary>
-    /// SOFT gate: waits until every streamed terrain chunk under the arena footprint is loaded so
-    /// the tile-dependent lanes (farming tills real soil, the NPC placer, buildings) have their
-    /// terrain. Unlike <see cref="WaitForSpawnGround"/> this is not a correctness requirement and
-    /// gives up after 15s (warning) rather than blocking boot on the far corners; the player ground
-    /// is already assured by the hard gate, and lanes soft-fail via <see cref="RunSafely"/>.
-    /// </summary>
-    private System.Collections.IEnumerator WaitForArenaTerrain()
-    {
-        var coords = ArenaChunkCoords();
-        float deadline = Time.time + 15f;
-        while (Time.time < deadline)
-        {
-            var streamer = Object.FindAnyObjectByType<WorldStreamer>();
-            if (streamer != null)
-            {
-                bool allLoaded = true;
-                for (int i = 0; i < coords.Count; i++)
-                {
-                    if (!streamer.LoadedChunks.ContainsKey(coords[i]))
-                    {
-                        allLoaded = false;
-                        break;
-                    }
-                }
-                if (allLoaded)
-                {
-                    _arenaReady = true;
-                    yield break;
-                }
-            }
-            yield return new WaitForSeconds(0.1f);
-        }
-        Debug.LogWarning("[NewWorldTestGround] Arena chunks didn't load in time; placing the bench on whatever terrain exists.");
-    }
-
-    /// <summary>Terrain chunks overlapping the arena footprint (placement uses real tile heights).</summary>
-    private List<TerrainChunkCoord> ArenaChunkCoords()
-    {
-        float margin = PlatformSize * 0.5f + 1f;
-        int minX = Mathf.FloorToInt(PlatformCenter.x - margin);
-        int maxX = Mathf.FloorToInt(PlatformCenter.x + margin);
-        int minZ = Mathf.FloorToInt(PlatformCenter.z - margin);
-        int maxZ = Mathf.FloorToInt(PlatformCenter.z + margin);
-
-        var result = new List<TerrainChunkCoord>();
-        for (int cx = minX; cx <= maxX; cx++)
-        {
-            for (int cz = minZ; cz <= maxZ; cz++)
-            {
-                var tc = TerrainChunkCoord.FromTile(new ChunkCoord(cx, cz));
-                if (!result.Contains(tc))
-                    result.Add(tc);
+                float sx = PlatformCenter.x - half + PlatformSize * i / steps;
+                float sz = PlatformCenter.z - half + PlatformSize * j / steps;
+                float h = TerrainNoiseGenerator.GetHeight(seed, sx, sz);
+                if (h > maxGround)
+                    maxGround = h;
             }
         }
-        return result;
+        if (maxGround == float.MinValue)
+            maxGround = PlatformCenter.y;
+
+        float topY = maxGround + PlatformClearance;
+
+        _testGroundRoot = new GameObject("TestGroundRoot");
+        _testGroundRoot.transform.SetParent(null);
+        _testGroundRoot.transform.SetPositionAndRotation(
+            new Vector3(PlatformCenter.x, topY, PlatformCenter.z), Quaternion.identity);
+
+        // Solid slab — its BoxCollider top face (local 0) is the standing surface at topY.
+        var slab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        slab.name = "TestGroundSlab";
+        slab.transform.SetParent(_testGroundRoot.transform, false);
+        slab.transform.localScale = new Vector3(PlatformSize, PlatformThickness, PlatformSize);
+        slab.transform.localPosition = new Vector3(0f, -PlatformThickness * 0.5f, 0f);
+        var slabRenderer = slab.GetComponent<MeshRenderer>();
+        if (slabRenderer != null)
+            slabRenderer.sharedMaterial = PlatformMaterial(streamer);
+
+        // Four corner legs hang BELOW the slab so the platform reads as an independent floating
+        // structure (its top stays one flat level for the bench lanes).
+        float post = Mathf.Max(0.8f, PlatformSize * 0.012f);
+        float legHeight = PlatformThickness * 7f;
+        for (int i = 0; i < 4; i++)
+        {
+            var pole = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            pole.name = "TestGroundLeg" + i;
+            pole.transform.SetParent(_testGroundRoot.transform, false);
+            pole.transform.localScale = new Vector3(post, legHeight, post);
+            pole.transform.localPosition = new Vector3(
+                (i % 2 == 0 ? -1f : 1f) * (half - post),
+                -PlatformThickness - legHeight * 0.5f,
+                (i < 2 ? -1f : 1f) * (half - post));
+            var poleRenderer = pole.GetComponent<MeshRenderer>();
+            if (poleRenderer != null)
+                poleRenderer.sharedMaterial = SolidMaterial(new Color(0.24f, 0.2f, 0.17f));
+        }
+
+        PlatformCenter.y = topY;
+        PlatformTopY = topY;
+        _arenaReady = true;
+    }
+
+    /// <summary>Material for the platform top: the streamer's ground material, else a lit grass fallback.</summary>
+    private static Material PlatformMaterial(WorldStreamer streamer)
+    {
+        if (streamer != null && streamer.GroundMaterial != null)
+            return streamer.GroundMaterial;
+
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null) shader = Shader.Find("Standard");
+        return new Material(shader) { color = ColorPalette.GrassGreen };
     }
 
     public Vector3 GetSpawnPoint()
     {
-        // Sample the natural ground at the player's XZ anchor so the +2 offset always lands on real
-        // terrain; before that, fall back to the configured center height so callers never get a
-        // pit the arena didn't actually carve.
-        float groundY = PlatformTopY != float.MinValue
-            ? GroundAt(PlatformCenter.x, PlatformCenter.z + PlatformSize * 0.45f)
-            : PlatformCenter.y;
+        float groundY = PlatformTopY != float.MinValue ? PlatformTopY : PlatformCenter.y;
         return new Vector3(PlatformCenter.x, groundY + 2f, PlatformCenter.z + PlatformSize * 0.45f);
     }
 
@@ -374,8 +313,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
         for (int i = 0; i < seeds.Length; i++)
         {
             float x = startX + i * 3.5f;
-            Vector3 pos = new Vector3(x, GroundAt(x, z) + 0.1f, z);
-            var field = wb.TillGround(pos);
+            Vector3 pos = new Vector3(x, PlatformTopY + 0.1f, z);
+            var field = wb.TillGround(pos, PlatformTopY);
             if (field == null) continue;
             wb.PlantCrop(field, seeds[i].Replace("_seed", ""));
             if (i % 2 == 0) wb.WaterField(pos);
@@ -397,7 +336,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         {
             var go = new GameObject("Test_" + all[i]);
             float x = startX + i * 4f;
-            go.transform.position = new Vector3(x, GroundAt(x, z) + 0.1f, z);
+            go.transform.position = new Vector3(x, PlatformTopY + 0.1f, z);
             var live = go.AddComponent<Livestock>();
             live.Type = all[i];
             Livestock.BuildModelInto(go.transform, all[i]);
@@ -413,7 +352,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         {
             var go = new GameObject("TestEnemy_" + ids[i]);
             float eX = startX + i * 6f;
-            go.transform.position = new Vector3(eX, GroundAt(eX, z) + 0.05f, z);
+            go.transform.position = new Vector3(eX, PlatformTopY + 0.05f, z);
             go.AddComponent<SphereCollider>();
             go.AddComponent<EnemyController>().ApplyEnemyId(ids[i]);
         }
@@ -429,7 +368,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private void SpawnDummy(string name, float x, float z, float damageReduction)
     {
         var go = new GameObject(name);
-        go.transform.position = new Vector3(x, GroundAt(x, z) + 0.05f, z);
+        go.transform.position = new Vector3(x, PlatformTopY + 0.05f, z);
         var col = go.AddComponent<SphereCollider>();
         col.radius = 1f;
         col.center = new Vector3(0f, 0.85f, 0f);
@@ -455,7 +394,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private void SpawnBoss()
     {
         float bz = PlatformCenter.z - PlatformSize * 0.42f;
-        Vector3 pos = new Vector3(PlatformCenter.x, GroundAt(PlatformCenter.x, bz) + 0.1f, bz);
+        Vector3 pos = new Vector3(PlatformCenter.x, PlatformTopY + 0.1f, bz);
         var go = new GameObject("TestBoss");
         go.transform.position = pos;
         go.AddComponent<BoxCollider>().size = new Vector3(2.4f, 3f, 1.6f);
@@ -477,7 +416,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         for (int i = 0; i < types.Length; i++)
         {
             float bx = startX + i * 8f;
-            wb.SpawnBuildingDirect(types[i], new Vector3(bx, GroundAt(bx, z), z), 0);
+            wb.SpawnBuildingDirect(types[i], new Vector3(bx, PlatformTopY, z), 0);
         }
     }
 
@@ -487,11 +426,11 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
         float z = PlatformCenter.z - PlatformSize * 0.18f;
         float startX = PlatformCenter.x + 6f;
-        _npcPlacer.Place("test_vendor", "QA Merchant", NpcRoleKind.Vendor, NpcShopMode.Tools, new Vector3(startX, GroundAt(startX, z), z), "fishshop");
-        _npcPlacer.Place("test_quest", "QA Hermit", NpcRoleKind.QuestGiver, NpcShopMode.Vendor, new Vector3(startX + 4f, GroundAt(startX + 4f, z), z));
-        _npcPlacer.Place("test_follower", "QA Companion", NpcRoleKind.Follower, NpcShopMode.Vendor, new Vector3(startX + 8f, GroundAt(startX + 8f, z), z));
-        _npcPlacer.Place("test_grocer", "QA Grocer", NpcRoleKind.Vendor, NpcShopMode.Grocery, new Vector3(startX + 12f, GroundAt(startX + 12f, z), z));
-        _npcPlacer.Place("test_cafe", "QA Cafe", NpcRoleKind.Vendor, NpcShopMode.Cafe, new Vector3(startX + 16f, GroundAt(startX + 16f, z), z));
+        _npcPlacer.Place("test_vendor", "QA Merchant", NpcRoleKind.Vendor, NpcShopMode.Tools, new Vector3(startX, PlatformTopY, z), "fishshop");
+        _npcPlacer.Place("test_quest", "QA Hermit", NpcRoleKind.QuestGiver, NpcShopMode.Vendor, new Vector3(startX + 4f, PlatformTopY, z));
+        _npcPlacer.Place("test_follower", "QA Companion", NpcRoleKind.Follower, NpcShopMode.Vendor, new Vector3(startX + 8f, PlatformTopY, z));
+        _npcPlacer.Place("test_grocer", "QA Grocer", NpcRoleKind.Vendor, NpcShopMode.Grocery, new Vector3(startX + 12f, PlatformTopY, z));
+        _npcPlacer.Place("test_cafe", "QA Cafe", NpcRoleKind.Vendor, NpcShopMode.Cafe, new Vector3(startX + 16f, PlatformTopY, z));
     }
 
     private void RegisterPoiHub()
@@ -511,9 +450,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     /// <summary>
     /// Lay the tool/food discovery kit out along the platform's east edge as real world pickups
     /// (the west edge hosts the weapon pedestals) — press E on one to add it to the inventory
-    /// (see <see cref="ToolManager.TryPickupNearby"/>). Runs once from the deferred bench lane
-    /// (after the ground gates), so every drop sits on the loaded terrain; the guard keeps a
-    /// re-entry from duplicating pickups still sitting on the ground.
+    /// (see <see cref="ToolManager.TryPickupNearby"/>). Runs once from the deferred bench lane so
+    /// the platform is already built; the guard keeps a re-entry from duplicating pickups.
     /// </summary>
     private void SpawnToolKit()
     {
@@ -541,13 +479,13 @@ public sealed class NewWorldTestGround : MonoBehaviour
         foreach (var type in kit)
         {
             float iz = startZ + i * step;
-            SpawnToolPickup(wb, type, new Vector3(x, GroundAt(x, iz) + 0.15f, iz), 1);
+            SpawnToolPickup(wb, type, new Vector3(x, PlatformTopY + 0.15f, iz), 1);
             i++;
         }
         foreach (var type in extras)
         {
             float iz = startZ + i * step;
-            SpawnToolPickup(wb, type, new Vector3(x, GroundAt(x, iz) + 0.15f, iz), 5);
+            SpawnToolPickup(wb, type, new Vector3(x, PlatformTopY + 0.15f, iz), 5);
             i++;
         }
     }
@@ -623,7 +561,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
             var rt = stand.AddComponent<WeaponRackStand>();
             rt.WeaponId = weapon.id;
             float iz = startZ + i * step;
-            stand.transform.position = new Vector3(x, GroundAt(x, iz) + 0.15f, iz);
+            stand.transform.position = new Vector3(x, PlatformTopY + 0.15f, iz);
             stand.transform.rotation = Quaternion.identity;
 
             var pedestal = GameObject.CreatePrimitive(PrimitiveType.Cube);

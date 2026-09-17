@@ -52,13 +52,19 @@ public partial class WorldBuilder
             field.Quality = 0;
     }
 
-    public FieldState TillGround(Vector3 position)
+    /// <summary>Till at <paramref name="position"/> (XZ) on the world ground (Y = 0).</summary>
+    public FieldState TillGround(Vector3 position) => TillGround(position, 0f);
+
+    /// <summary>Till at <paramref name="position"/> (XZ). <paramref name="groundY"/> is the surface
+    /// height the field is laid on — world callers pass 0, the test bench passes its platform top.
+    /// A road tile always keeps its own road surface height (override wins).</summary>
+    public FieldState TillGround(Vector3 position, float groundY)
     {
         EnsureWorldRoot();
         position.x = Mathf.Round(position.x);
         position.z = Mathf.Round(position.z);
         bool onRoad = IsOnRoad(position);
-        position.y = onRoad ? GetRoadSurfaceY() + 0.01f : 0f;
+        position.y = onRoad ? GetRoadSurfaceY() + 0.01f : groundY;
         var field = GetFieldAt(position);
         if (field != null)
         {

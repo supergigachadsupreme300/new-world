@@ -23,6 +23,48 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
+## 1bi. Test ground = independent floating platform; legacy flatten saves purged; world terrain untouched
+
+Supersedes the "real procedural terrain" ranges of `1bf`/`1bg` (§2.7). The QA bench no longer tries to
+place props on the world's rolling terrain at all — it now builds a **self-contained floating
+platform** (solid slab + collider + 4 corner posts, `BuildTestGround`) in `Awake`, floats clear of the
+natural ground (coarse 9×9 read-only sample of the world's own 5-octave noise + 12 m clearance), and
+lays every lane flat on its **single level top** (`PlatformTopY`). The world terrain is never read for
+placement and **never written** (no carve/flatten/chunk-save/prop suppression).
+
+- **Root cause of the "still flattened map" report was DATA, not code:** the previous runs' FlattenAt
+  feature had persisted full-chunk flatten saves — `worlds/1337/tc_-1_-1 … tc_1_0` etc. — 13 files
+  where all 900 tiles carried the old hub's uniform height (parsed one: `NWTC` v1, seed 1337, 900 mods,
+  every corner `14.988`). Current code no longer flattens, but `ChunkSaveManager.TryLoadChunk` still
+  reloaded those saves, so each chunk rendered as a single flat surface (the "test field" the player
+  saw). **Fix:** deleted the 13 legacy full-chunk flatten saves (sparse files — real Earth-spell/tool
+  edits — kept), so the map streams back exactly as the noise generator designed it.
+- **`NewWorldTestGround.cs`** — `PrepareArenaGround`/`GroundAt`/`WaitForSpawnGround`/
+  `WaitForArenaTerrain`/`ArenaChunkCoords` (+ `_streamer`/`_groundSampled`/`_spawnGroundReady`
+  fields) removed; replaced by `BuildTestGround()` (idempotent, called from `Awake` — platform exists
+  before `PlayerController.ResetPlayer` runs in `Start`, so no void-race). All bench lanes key
+  placement off `PlatformTopY` (`GetSpawnPoint` = top + 2 m). `IsArenaReady` now = platform built.
+- **`WorldBuilder.Farming.cs`** — `TillGround` gets an optional `groundY` param; the bench passes
+  `PlatformTopY` so the floating field tiles sit on the platform (world callers keep default y=0;
+  road override still wins).
+- Bench-spawn order (“platform first, then player”, then lanes deferred one-per-frame, isolated
+  try/catch) and the rest of the kit/networking/WIP details unchanged from `1bg`.
+
+### 1bi-status
+No CLI/Unity build — verified by **code review** (project rule): no dangling refs to the removed
+`GroundAt`/gates/fields; `TillGround(Vector3,float)` overload compiles clean; `BuildTestGround`
+idempotent + self-guards; bench lanes only read `PlatformTopY`.
+- Play-test after this: **(1)** New Game — no NullReferenceException; the player stands on the floating
+  platform (not the terrain, not the void) at `(0, topY+2, 0+ …)`; **(2)** the bench lanes (farming,
+  livestock, enemies/boss/dummies, buildings, NPCs, weapon pedestals/racks, tool/food kit pickups) sit
+  level on the platform top; **(3)** the world map is **rolling terrain again** — each chunk shows its
+  natural 5-octave surface and per-tile noise, no more single-flat-surface "test field"; **(4)** prop
+  collisions work on the platform (slab collider); **(5)** farming still tills/plants/water/fertilizes
+  on the platform top; **(6)** NPCs/enemies behave in the bench area; **(7)** second New Game doesn't
+  duplicate the bench.
+
+---
+
 ## 1bh. New Game NullReferenceException at startup — tool-kit pickup path built before the world container existed
 
 Report (after `1bg`): on `GameManager.Start` → `StartNewGame` → `GrantBenchBag` → `SpawnToolKit`,
