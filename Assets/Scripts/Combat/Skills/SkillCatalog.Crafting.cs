@@ -61,31 +61,31 @@ public static partial class SkillCatalog
         /* craft_purity children */
         bank.L2["craft_purity"] = new BranchSlot[]
         {
-            S("craft_purity_refinedluck", "Refined Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
-            S("craft_purity_cleansing", "Cleansing Touch", Buff(StatType.Luck, 4f), "Permanent +4 Luck.", passive: true),
+            S("craft_purity_refinedluck", "Refined Luck", Perk(PassivePerkType.LootLuckPercent, 8f), "Refinement pays out — loot luck climbs 8%.", passive: true),
+            S("craft_purity_cleansing", "Cleansing Touch", Perk(PassivePerkType.HealthRegenPerSecond, 0.002f), "A cleansing touch mends 0.2% max health each second.", passive: true),
             S("craft_purity_golden", "Golden Touch", Slash(18f, DamageType.Arcane), "A touch that transmutes matter to gold.", Focus(14f), DamageType.Arcane, true),
-            S("craft_purity_essence", "Pure Essence", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
-            S("craft_purity_craft", "Pure Craft", Buff(StatType.Dexterity, 5f), "Permanent +5 Dexterity.", passive: true),
+            S("craft_purity_essence", "Pure Essence", Perk(PassivePerkType.MaxHealthPercent, 3f), "Distilled essence hardens the frame with 3% more health.", passive: true),
+            S("craft_purity_craft", "Pure Craft", Perk(PassivePerkType.AttackPowerPercent, 3f), "Forge-perfection lends 3% to attack power.", passive: true),
         };
 
         /* craft_refine children (all passive) */
         bank.L2["craft_refine"] = new BranchSlot[]
         {
-            S("craft_refine_polish", "Polish", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
-            S("craft_refine_perfectcut", "Perfect Cut", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
-            S("craft_refine_finework", "Fine Work", Buff(StatType.Dexterity, 5f), "Permanent +5 Dexterity.", passive: true),
-            S("craft_refine_masterhand", "Masterful Hand", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
-            S("craft_refine_core", "Refined Core", Buff(StatType.Intelligence, 4f), "Permanent +4 Intelligence.", passive: true),
+            S("craft_refine_polish", "Polish", Perk(PassivePerkType.CritDamagePercent, 5f), "A razor shine makes criticals bite 5% harder.", passive: true),
+            S("craft_refine_perfectcut", "Perfect Cut", Perk(PassivePerkType.CritDamagePercent, 10f), "One flawless line — critical damage up 10%.", passive: true),
+            S("craft_refine_finework", "Fine Work", Perk(PassivePerkType.LootLuckPercent, 4f), "Fine execution tips chance 4% toward loot.", passive: true),
+            S("craft_refine_masterhand", "Masterful Hand", Perk(PassivePerkType.LootLuckPercent, 6f), "A master's touch raises loot luck by 6%.", passive: true),
+            S("craft_refine_core", "Refined Core", Perk(PassivePerkType.SpellDamagePercent, 3f), "The refined heart casts spells 3% stronger.", passive: true),
         };
 
         /* craft_repair children */
         bank.L2["craft_repair"] = new BranchSlot[]
         {
-            S("craft_repair_reinforce", "Reinforce", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
+            S("craft_repair_reinforce", "Reinforce", Perk(PassivePerkType.DamageReductionFlat, 0.02f), "Reinforced hide ignores 2% more incoming harm.", passive: true),
             S("craft_repair_mend", "Mend", Zone(1.6f, 14f, DamageType.Physical), "A repairing pulse of force.", Stamina(12f)),
-            S("craft_repair_fortify", "Fortify", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
+            S("craft_repair_fortify", "Fortify", Perk(PassivePerkType.DamageReductionFlat, 0.01f), "A fortified frame takes 1% less damage.", passive: true),
             S("craft_repair_restore", "Restore", Zone(1.8f, 16f, DamageType.Arcane), "An arcane restoration wave.", Focus(14f), DamageType.Arcane, true),
-            S("craft_repair_enduring", "Enduring Fix", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
+            S("craft_repair_enduring", "Enduring Fix", Perk(PassivePerkType.MaxHealthPercent, 3f), "Mended twice over — health holds 3% higher.", passive: true),
         };
 
         /* craft_hands_knife children */
@@ -101,51 +101,51 @@ public static partial class SkillCatalog
         /* craft_hands_steady children (all passive) */
         bank.L2["craft_hands_steady"] = new BranchSlot[]
         {
-            S("craft_hands_steady_dex", "Steady Dexterity", Buff(StatType.Dexterity, 5f), "Permanent +5 Dexterity.", passive: true),
-            S("craft_hands_steady_luck", "Steady Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
-            S("craft_hands_steady_attackspeed", "Steady Hands", Buff(StatType.AttackSpeed, 5f), "Permanent +5 Attack Speed.", passive: true),
-            S("craft_hands_steady_speed", "Steady Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("craft_hands_steady_wisdom", "Steady Wisdom", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
+            S("craft_hands_steady_dex", "Steady Dexterity", Perk(PassivePerkType.BackstabPercent, 15f), "Precision from behind — backstabs deal 15% more.", passive: true),
+            S("craft_hands_steady_luck", "Steady Luck", Perk(PassivePerkType.LootLuckPercent, 6f), "Patience steadies fortune; luck gains 6%.", passive: true),
+            S("craft_hands_steady_attackspeed", "Steady Hands", Perk(PassivePerkType.LootLuckPercent, 4f), "Tremor-free hands pull luck 4% closer.", passive: true),
+            S("craft_hands_steady_speed", "Steady Speed", Perk(PassivePerkType.MovementSpeedPercent, 2f), "A measured stride quickens movement by 2%.", passive: true),
+            S("craft_hands_steady_wisdom", "Steady Wisdom", Perk(PassivePerkType.FocusMaxPercent, 3f), "Slower thoughts hold 3% more focus.", passive: true),
         };
 
         /* craft_hands_dex children (all passive) */
         bank.L2["craft_hands_dex"] = new BranchSlot[]
         {
-            S("craft_hands_dex_attackspeed", "Dex Hands", Buff(StatType.AttackSpeed, 5f), "Permanent +5 Attack Speed.", passive: true),
-            S("craft_hands_dex_dex", "Dexterous Core", Buff(StatType.Dexterity, 5f), "Permanent +5 Dexterity.", passive: true),
-            S("craft_hands_dex_speed", "Dex Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("craft_hands_dex_luck", "Deft Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
-            S("craft_hands_dex_intelligence", "Deft Mind", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
+            S("craft_hands_dex_attackspeed", "Dex Hands", Perk(PassivePerkType.AttackSpeedPercent, 2f), "Nimble knuckles add 2% attack speed.", passive: true),
+            S("craft_hands_dex_dex", "Dexterous Core", Perk(PassivePerkType.CritDamagePercent, 5f), "A deft core lets criticals strike 5% harder.", passive: true),
+            S("craft_hands_dex_speed", "Dex Speed", Perk(PassivePerkType.MovementSpeedPercent, 3f), "Agile footwork adds 3% movement speed.", passive: true),
+            S("craft_hands_dex_luck", "Deft Luck", Perk(PassivePerkType.BackstabPercent, 10f), "Quick behind the guard — backstabs gain 10%.", passive: true),
+            S("craft_hands_dex_intelligence", "Deft Mind", Perk(PassivePerkType.FocusMaxPercent, 3f), "A sharp mind cradles 3% more focus.", passive: true),
         };
 
         /* craft_hands_quality children (all passive) */
         bank.L2["craft_hands_quality"] = new BranchSlot[]
         {
-            S("craft_hands_quality_luck", "Quality Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
-            S("craft_hands_quality_wisdom", "Quality Wisdom", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
-            S("craft_hands_quality_dex", "Quality Dexterity", Buff(StatType.Dexterity, 5f), "Permanent +5 Dexterity.", passive: true),
-            S("craft_hands_quality_attackspeed", "Quality Hands", Buff(StatType.AttackSpeed, 5f), "Permanent +5 Attack Speed.", passive: true),
-            S("craft_hands_quality_health", "Quality Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
+            S("craft_hands_quality_luck", "Quality Luck", Perk(PassivePerkType.LootLuckPercent, 8f), "Quality begets fortune — loot luck rises 8%.", passive: true),
+            S("craft_hands_quality_wisdom", "Quality Wisdom", Perk(PassivePerkType.FocusMaxPercent, 3f), "Hard-won wisdom deepens the focus pool 3%.", passive: true),
+            S("craft_hands_quality_dex", "Quality Dexterity", Perk(PassivePerkType.ParryWindowPercent, 8f), "Precise timing widens the parry window 8%.", passive: true),
+            S("craft_hands_quality_attackspeed", "Quality Hands", Perk(PassivePerkType.LootLuckPercent, 4f), "Quality control tips luck up 4%.", passive: true),
+            S("craft_hands_quality_health", "Quality Health", Perk(PassivePerkType.MaxHealthPercent, 6f), "A quality constitution raises health by 6%.", passive: true),
         };
 
         /* craft_knowledge_sage children (all passive) */
         bank.L2["craft_knowledge_sage"] = new BranchSlot[]
         {
-            S("craft_knowledge_sage_intelligence", "Sage Intelligence", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
-            S("craft_knowledge_sage_wisdom", "Sage Wisdom", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
-            S("craft_knowledge_sage_faith", "Sage Faith", Buff(StatType.Faith, 5f), "Permanent +5 Faith.", passive: true),
-            S("craft_knowledge_sage_luck", "Sage Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
-            S("craft_knowledge_sage_dex", "Sage Dexterity", Buff(StatType.Dexterity, 5f), "Permanent +5 Dexterity.", passive: true),
+            S("craft_knowledge_sage_intelligence", "Sage Intelligence", Perk(PassivePerkType.FocusMaxPercent, 6f), "Sage-born intellect hoards 6% more focus.", passive: true),
+            S("craft_knowledge_sage_wisdom", "Sage Wisdom", Perk(PassivePerkType.FocusRegenPercent, 10f), "Old wisdom recycles focus 10% faster.", passive: true),
+            S("craft_knowledge_sage_faith", "Sage Faith", Perk(PassivePerkType.HealPowerPercent, 4f), "Devotion strengthens every heal by 4%.", passive: true),
+            S("craft_knowledge_sage_luck", "Sage Luck", Perk(PassivePerkType.LootLuckPercent, 6f), "The sage's star lifts loot luck by 6%.", passive: true),
+            S("craft_knowledge_sage_dex", "Sage Dexterity", Perk(PassivePerkType.CritChanceFlat, 2f), "Learned hands land 2% more criticals.", passive: true),
         };
 
         /* craft_knowledge_scribe children (all passive) */
         bank.L2["craft_knowledge_scribe"] = new BranchSlot[]
         {
-            S("craft_knowledge_scribe_wisdom", "Scribe Wisdom", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
-            S("craft_knowledge_scribe_intelligence", "Scribe Intelligence", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
-            S("craft_knowledge_scribe_faith", "Scribe Faith", Buff(StatType.Faith, 5f), "Permanent +5 Faith.", passive: true),
-            S("craft_knowledge_scribe_luck", "Scribe Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
-            S("craft_knowledge_scribe_speed", "Scribe Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
+            S("craft_knowledge_scribe_wisdom", "Scribe Wisdom", Perk(PassivePerkType.FocusMaxPercent, 3f), "Recorded truths enlarge focus by 3%.", passive: true),
+            S("craft_knowledge_scribe_intelligence", "Scribe Intelligence", Perk(PassivePerkType.FocusRegenPercent, 10f), "Kept knowledge regrows focus 10% faster.", passive: true),
+            S("craft_knowledge_scribe_faith", "Scribe Faith", Perk(PassivePerkType.HealPowerPercent, 4f), "Ink and faith empower heals by 4%.", passive: true),
+            S("craft_knowledge_scribe_luck", "Scribe Luck", Perk(PassivePerkType.LootLuckPercent, 4f), "Copied omens edge luck upward 4%.", passive: true),
+            S("craft_knowledge_scribe_speed", "Scribe Speed", Perk(PassivePerkType.MovementSpeedPercent, 4f), "Quick quills spill into 4% movement speed.", passive: true),
         };
 
         /* craft_knowledge_alchemy children */
@@ -161,31 +161,31 @@ public static partial class SkillCatalog
         /* craft_focus_consume children (all passive) */
         bank.L2["craft_focus_consume"] = new BranchSlot[]
         {
-            S("craft_focus_consume_wisdom", "Consumed Wisdom", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
-            S("craft_focus_consume_intelligence", "Consumed Intellect", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
-            S("craft_focus_consume_health", "Consumed Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("craft_focus_consume_endurance", "Consumed Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("craft_focus_consume_faith", "Consumed Faith", Buff(StatType.Faith, 5f), "Permanent +5 Faith.", passive: true),
+            S("craft_focus_consume_wisdom", "Consumed Wisdom", Perk(PassivePerkType.FocusRegenPercent, 5f), "Wisdom consumed returns as focus 5% sooner.", passive: true),
+            S("craft_focus_consume_intelligence", "Consumed Intellect", Perk(PassivePerkType.FocusMaxPercent, 6f), "Devoured thoughts swell focus by 6%.", passive: true),
+            S("craft_focus_consume_health", "Consumed Health", Perk(PassivePerkType.MaxHealthPercent, 6f), "Feeding the flesh adds 6% to health.", passive: true),
+            S("craft_focus_consume_endurance", "Consumed Endurance", Perk(PassivePerkType.StaminaMaxPercent, 6f), "Burning fuel fills stamina 6% fuller.", passive: true),
+            S("craft_focus_consume_faith", "Consumed Faith", Perk(PassivePerkType.HealPowerPercent, 3f), "Offered devotion lifts heals by 3%.", passive: true),
         };
 
         /* craft_focus_block children (all passive) */
         bank.L2["craft_focus_block"] = new BranchSlot[]
         {
-            S("craft_focus_block_intelligence", "Blocked Mind", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
-            S("craft_focus_block_wisdom", "Blocked Wisdom", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
-            S("craft_focus_block_defense", "Blocked Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("craft_focus_block_health", "Blocked Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("craft_focus_block_endurance", "Blocked Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
+            S("craft_focus_block_intelligence", "Blocked Mind", Perk(PassivePerkType.BlockEfficiencyPercent, 4f), "Mental walls hold block 4% better.", passive: true),
+            S("craft_focus_block_wisdom", "Blocked Wisdom", Perk(PassivePerkType.FocusMaxPercent, 3f), "Guarded thoughts reserve 3% more focus.", passive: true),
+            S("craft_focus_block_defense", "Blocked Defense", Perk(PassivePerkType.DamageReductionFlat, 0.01f), "A barred guard turns away 1% of damage.", passive: true),
+            S("craft_focus_block_health", "Blocked Health", Perk(PassivePerkType.MaxHealthPercent, 3f), "Hardened resolve boosts health by 3%.", passive: true),
+            S("craft_focus_block_endurance", "Blocked Endurance", Perk(PassivePerkType.StaminaMaxPercent, 3f), "A sealed reservoir holds 3% more stamina.", passive: true),
         };
 
         /* craft_focus_magician children (all passive) */
         bank.L2["craft_focus_magician"] = new BranchSlot[]
         {
-            S("craft_focus_magician_wisdom", "Magician Wisdom", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
-            S("craft_focus_magician_faith", "Magician Faith", Buff(StatType.Faith, 5f), "Permanent +5 Faith.", passive: true),
-            S("craft_focus_magician_intelligence", "Magician Intellect", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
-            S("craft_focus_magician_luck", "Magician Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
-            S("craft_focus_magician_speed", "Magician Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
+            S("craft_focus_magician_wisdom", "Magician Wisdom", Perk(PassivePerkType.FocusRegenPercent, 5f), "A showman's insight refills focus 5% faster.", passive: true),
+            S("craft_focus_magician_faith", "Magician Faith", Perk(PassivePerkType.SpellDamagePercent, 3f), "Prestige amplifies spell damage by 3%.", passive: true),
+            S("craft_focus_magician_intelligence", "Magician Intellect", Perk(PassivePerkType.FocusMaxPercent, 6f), "The great trick hoards 6% extra focus.", passive: true),
+            S("craft_focus_magician_luck", "Magician Luck", Perk(PassivePerkType.LootLuckPercent, 5f), "Sleight of hand gifts 5% loot luck.", passive: true),
+            S("craft_focus_magician_speed", "Magician Speed", Perk(PassivePerkType.CooldownReductionPercent, 5f), "A fast flourish slashes cooldowns by 5%.", passive: true),
         };
 
         /* craft_focus_mana children */
@@ -201,11 +201,11 @@ public static partial class SkillCatalog
         /* craft_focus_peace children (all passive) */
         bank.L2["craft_focus_peace"] = new BranchSlot[]
         {
-            S("craft_focus_peace_health", "Peaceful Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("craft_focus_peace_endurance", "Peaceful Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("craft_focus_peace_wisdom", "Peaceful Wisdom", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
-            S("craft_focus_peace_defense", "Peaceful Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("craft_focus_peace_luck", "Peaceful Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
+            S("craft_focus_peace_health", "Peaceful Health", Perk(PassivePerkType.HealthRegenPerSecond, 0.001f), "Calm seeps back — 0.1% max health per second.", passive: true),
+            S("craft_focus_peace_endurance", "Peaceful Endurance", Perk(PassivePerkType.StaminaRegenPercent, 10f), "Serenity restores stamina 10% faster.", passive: true),
+            S("craft_focus_peace_wisdom", "Peaceful Wisdom", Perk(PassivePerkType.FocusRegenPercent, 5f), "Tranquil thoughts regrow focus 5% sooner.", passive: true),
+            S("craft_focus_peace_defense", "Peaceful Defense", Perk(PassivePerkType.DamageReductionFlat, 0.03f), "Untroubled skin turns aside 3% of harm.", passive: true),
+            S("craft_focus_peace_luck", "Peaceful Luck", Perk(PassivePerkType.LootLuckPercent, 4f), "A quiet fate nudges luck 4% higher.", passive: true),
         };
 
         /* craft_endurance_tireless children (all passive) */

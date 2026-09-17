@@ -309,7 +309,7 @@ Layer 2 (deep):     125-350 skills per category — mastery-level abilities
 
 **Specialization:** Players earn ~1 skill point per category level-up (max ~25 points per category at level 25). With 310+ skills per category, players must **specialize** in 1-2 branches rather than filling the whole tree.
 
-**Effect scaling:** Layer 1 skills are ~1.3× stronger than their parent. Layer 2 skills are ~1.7× stronger. Costs scale proportionally (1.35× per layer). Passive stat buffs increase by +1 (L1) and +2.5 (L2).
+**Effect scaling:** Layer 1 skills are ~1.3× stronger than their parent. Layer 2 skills are ~1.7× stronger. Costs scale proportionally (1.35× per layer). The Stealth category's passives are **themed perks** (`Perk(PassivePerkType, value)`, aggregated by `PassivePerkManager` / `PlayerStats` per §3.3) instead of flat stat buffs — e.g. backstab, movement speed, loot luck, crit, stamina/focus, damage reduction, regen, and stagger/parry themed nodes (see `SkillCatalog.Stealth.cs`). Perk values are on the same L1→L2 scaling curve as effect skills; other categories retain flat stat-buff passives.
 
 #### Skill Categories
 
