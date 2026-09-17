@@ -27,6 +27,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool AutoSpawnOnStart = true;
 
     [Header("Lanes")]
+    [Tooltip("Lay the tool/food discovery kit along the platform's east edge as world pickups to grab with E.")]
+    public bool EnableTools = true;
     public bool EnableFarming = true;
     public bool EnableLivestock = true;
     public bool EnableEnemies = true;
@@ -47,6 +49,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
+    private bool _toolKitSpawned;
     private bool _pendingPlayerGrants;
     private bool _arenaReady;
     private float _flattenFeather = 3f;
@@ -144,6 +147,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
             RunSafely("player placement", PlacePlayerOnArena);
         }
 
+        if (EnableTools) { RunSafely("tool pickups", SpawnToolKit); yield return null; }
         if (EnableFarming) { RunSafely("farming plot", SpawnFarmingPlot); yield return null; }
         if (EnableLivestock) { RunSafely("livestock", SpawnLivestock); yield return null; }
         if (EnableEnemies) { RunSafely("enemies", SpawnEnemies); yield return null; }
@@ -231,6 +235,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
     /// </summary>
     public void GrantBenchBag()
     {
+        if (EnableTools) SpawnToolKit();
         if (EnableWeapons) SpawnAllWeapons();
         if (EnableRaces) GrantRaceAccess();
         if (EnableSkills) GrantAllSkills();
@@ -511,6 +516,51 @@ public sealed class NewWorldTestGround : MonoBehaviour
         def.Radius = PlatformSize * 0.5f;
         def.IsFastTravelPoint = true;
         POIRegistry.Register(def);
+    }
+
+    /// <summary>
+    /// Lay the tool/food discovery kit out along the platform's east edge as real world pickups
+    /// (the west edge hosts the weapon pedestals) — press E on one to add it to the inventory
+    /// (see <see cref="ToolManager.TryPickupNearby"/>). Idempotent so a new game (which wipes the
+    /// bag) can re-seed without duplicating pickups still sitting on the ground.
+    /// </summary>
+    private void SpawnToolKit()
+    {
+        if (_toolKitSpawned) return;
+        _toolKitSpawned = true;
+
+        var wb = WorldBuilder.Instance;
+        if (wb == null) return;
+
+        // The 10-slot tool rack — a representative discovery kit.
+        string[] kit =
+        {
+            "axe", "pickaxe", "hoe", "hammer", "scythe", "watering_can",
+            "fertilizer", "club", "rosary", "fishing_rod"
+        };
+        // Foods round out the kit (no seeds by request).
+        string[] extras = { "banh_mi", "com_tam", "nuoc_dau", "mi_chinh", "xap_phong" };
+
+        float groundY = PlatformTopY != float.MinValue ? PlatformTopY : PlatformCenter.y;
+        float x = PlatformCenter.x + PlatformSize * 0.42f;
+        float startZ = PlatformCenter.z - 26f;
+        int total = kit.Length + extras.Length;
+        float step = 52f / Mathf.Max(1, total - 1);
+
+        int i = 0;
+        foreach (var type in kit)
+            SpawnToolPickup(wb, type, new Vector3(x, groundY + 0.15f, startZ + (i++) * step), 1);
+        foreach (var type in extras)
+            SpawnToolPickup(wb, type, new Vector3(x, groundY + 0.15f, startZ + (i++) * step), 5);
+    }
+
+    /// <summary>One <c>Pickup_&lt;itemId&gt;</c> world drop that grants <paramref name="amount"/>
+    /// of the item when pressed E on (see <see cref="ToolManager.TryPickupTool"/>).</summary>
+    private void SpawnToolPickup(WorldBuilder wb, string itemId, Vector3 pos, int amount)
+    {
+        var pickup = wb.SpawnPickup(itemId, pos);
+        if (pickup == null) return;
+        pickup.AddComponent<PickupAmount>().Amount = amount;
     }
 
     /// <summary>

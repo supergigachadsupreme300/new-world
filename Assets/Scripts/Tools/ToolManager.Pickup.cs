@@ -264,7 +264,10 @@ public partial class ToolManager
             return true;
         }
 
-        AddItem(itemType, 1);
+        // Multi-count pickups (e.g. the test-ground food stacks) carry a PickupAmount tag.
+        var amountTag = pickupRoot.GetComponent<PickupAmount>();
+        int amount = amountTag != null ? Mathf.Max(1, amountTag.Amount) : 1;
+        AddItem(itemType, amount);
         SoundManager.Instance?.Play("pop");
         _uiManager.ShowMessage(Localization.F("Đã nhặt {0}.", Localization.ItemName(itemType)), 1.5f);
         Destroy(pickupRoot);

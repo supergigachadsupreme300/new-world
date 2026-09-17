@@ -115,9 +115,14 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   (tile `(0,-10)`) synchronously and grounds the player on it at `(0, ~y+2, -10)`, so the first frames
   are never a void; `PlayerController.ResetPlayer` only uses the arena spawn point once
   `NewWorldTestGround.IsArenaReady` (the pad is carved), else it falls back to the boot chunk. The test
-  ground then waits for the pad's chunks, carves the arena, teleports the player onto the settled pad
-  FIRST, and only afterwards lays the bench lanes — each lane runs in an isolated try/catch so one
-  failing lane (e.g. one enemy spawn) logs instead of aborting the bench and stranding the player.
+ground then waits for the pad's chunks, carves the arena, teleports the player onto the settled pad
+   FIRST, and only afterwards lays the bench lanes — each lane runs in an isolated try/catch so one
+   failing lane (e.g. one enemy spawn) logs instead of aborting the bench and stranding the player.
+- The bench also lays the **tool/food discovery kit** along the platform's **east edge as real world
+  pickups** (`Pickup_<id>` drops, `WorldBuilder.SpawnPickup`) instead of seeding the bag: the 10 tools
+  (axe, pickaxe, hoe, hammer, scythe, watering_can, fertilizer, club, rosary, fishing_rod) + 5 food
+  stacks (banh_mi, com_tam, nuoc_dau, mi_chinh, xap_phong ×5) — press E on a drop to collect it. The
+  west edge hosts the weapon pedestals; a `PickupAmount` tag lets a single drop hand over a stack.
 
 ---
 

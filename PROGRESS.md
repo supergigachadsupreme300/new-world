@@ -22,6 +22,40 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
     corners for the arena ground height sample.
 ---
 
+## 1be. Test ground spawns the tool kit as pickups — "spawn tools on testground for player to pickup"
+
+The non-weapon tool/food kit (removed from the start bag in `1p`) is back as **world pickups** laid
+out along the test ground's east edge — the player walks over and presses E on each drop to collect
+it (the existing `Pickup_<id>` drop path → `ToolManager.TryPickupTool`), instead of the bag being
+seeded at game start.
+
+- **`Opt/PickupAmount.cs`** (new) — a tiny optional tag a world `Pickup_<id>` drop can carry;
+  `ToolManager.TryPickupTool` now grants `PickupAmount.Amount` (default 1) when present, so a single
+  pickup can hand over a stack (foods ×5).
+- **`NewWorldTestGround.cs`** — new `EnableTools` lane (default on): `SpawnToolKit()` lays the 10
+  tools (axe/pickaxe/hoe/hammer/scythe/watering_can/fertilizer/club/rosary/fishing_rod) + 5 food
+  stacks (banh_mi/com_tam/nuoc_dau/mi_chinh/xap_phong ×5) as `WorldBuilder.SpawnPickup` drops along
+  the platform's east edge (mirroring the west-edge weapon pedestals). Idempotent (`_toolKitSpawned`),
+  so the `GrantBenchBag` re-seed after a new game's inventory wipe can't double-spawn pickups still
+  sitting on the ground.
+- **`ToolManager.Pickup.cs`** — `TryPickupTool` honors the `PickupAmount` tag (grants the tag's count
+  instead of 1).
+- **`game-design.md`** §2.7 — notes the east-edge tool/food pickup row.
+
+### 1be-status
+No CLI build — verified by code review (project rule): `WorldBuilder.SpawnPickup` exists and builds
+the item visual (`ItemBuilder` covers all 15 ids); `TryPickupNearby` raycasts triggers
+(`QueryTriggerInteraction.Collide`), so the `Pickup_*` trigger BoxCollider is grabbable within the 4 m
+pickup ray; the PlayerController E-raycast in `HandleInteractionKeys` falls through to
+`ToolManager.TryPickupNearby` for a `Pickup_*` name (no NPC/stand/chest branch matches);
+`PickupAmount` has no name clash; all touched files brace-balanced.
+- Play-test after review: (1) walk the arena's east edge — each tool + food drop is visible and
+  grabbable; pressing E adds the item to the hotbar/bag and destroys the drop (foods land as +5);
+  (2) the west edge weapon racks still work unchanged; (3) start a new game (bag wipes) — the tool
+  drops are still on the ground once, no duplicates.
+
+---
+
 ## 1bd. Magic statuses now interact on the same target — wet douses fire, fire melts ice, chill builds into frost
 
 User: "wet would stop burning, chill would stack into frost but if hit wet player then chill stack
