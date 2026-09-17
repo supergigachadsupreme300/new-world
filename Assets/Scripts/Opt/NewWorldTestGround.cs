@@ -205,15 +205,15 @@ public sealed class NewWorldTestGround : MonoBehaviour
     }
 
     /// <summary>
-    /// Re-apply the bench grants (tool kit, every catalog weapon, ritual stones, skill budget,
-    /// starter gear, race access) after a new game clears the ToolManager inventory. At bootstrap
-    /// <see cref="SpawnBench"/> runs during Awake, but <see cref="GameManager.StartNewGame"/>
-    /// clears the bag right after, so the grants above alone would never be visible — call this
-    /// from the new-game entry points post-clear.
+    /// Re-apply the bench grants (every catalog weapon, skill budget, starter gear, race access)
+    /// after a new game clears the ToolManager inventory. At bootstrap <see cref="SpawnBench"/>
+    /// runs during Awake, but <see cref="GameManager.StartNewGame"/> clears the bag right after,
+    /// so the grants above alone would never be visible — call this from the new-game entry points
+    /// post-clear. The tool/food kit is NOT here: it lives as world pickups, which the inventory
+    /// clear cannot touch — those are placed once by the deferred bench lane on the loaded terrain.
     /// </summary>
     public void GrantBenchBag()
     {
-        if (EnableTools) SpawnToolKit();
         if (EnableWeapons) SpawnAllWeapons();
         if (EnableRaces) GrantRaceAccess();
         if (EnableSkills) GrantAllSkills();
@@ -511,8 +511,9 @@ public sealed class NewWorldTestGround : MonoBehaviour
     /// <summary>
     /// Lay the tool/food discovery kit out along the platform's east edge as real world pickups
     /// (the west edge hosts the weapon pedestals) — press E on one to add it to the inventory
-    /// (see <see cref="ToolManager.TryPickupNearby"/>). Idempotent so a new game (which wipes the
-    /// bag) can re-seed without duplicating pickups still sitting on the ground.
+    /// (see <see cref="ToolManager.TryPickupNearby"/>). Runs once from the deferred bench lane
+    /// (after the ground gates), so every drop sits on the loaded terrain; the guard keeps a
+    /// re-entry from duplicating pickups still sitting on the ground.
     /// </summary>
     private void SpawnToolKit()
     {

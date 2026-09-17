@@ -23,6 +23,40 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
+## 1bh. New Game NullReferenceException at startup — tool-kit pickup path built before the world container existed
+
+Report (after `1bg`): on `GameManager.Start` → `StartNewGame` → `GrantBenchBag` → `SpawnToolKit`,
+`WorldBuilder.CreateToolPickup` threw `NullReferenceException` at `pickup.transform.SetParent(
+_worldRoot.transform)` and the tool lane never spawned.
+
+- **Root cause**: `WorldBuilder.EnableLegacyGeneration` defaults to **false**, so `_worldRoot` is only
+  created lazily by `EnsureWorldRoot()` — the farming / NPC / blueprint APIs call it, but the
+  `SpawnPickup` / `ThrowPickup` / `ThrowCage` path never did. `GrantBenchBag()` runs synchronously
+  from `GameManager.StartNewGame()` (which itself runs from `GameManager.Start()`, before any bench
+  lane had created the root), so `_worldRoot` was still null and the NRE aborted the lane.
+- **`WorldBuilder.cs`** — `CreateToolPickup()` (covers `SpawnPickup` + `ThrowPickup`) and `ThrowCage()`
+  now call `EnsureWorldRoot()` before touching `_worldRoot`, matching the pattern the other WorldBuilder
+  APIs already use; any early/legacy-off caller is now safe.
+- **`NewWorldTestGround.cs`** — removed `SpawnToolKit()` from `GrantBenchBag()` (a world-placement lane
+  has no business running from the synchronous bag re-grant — the inventory clear cannot touch world
+  pickups). The kit is placed once by the deferred bench lane (`EnableTools`), i.e. after the
+  `1bg` ground gates, so every drop sits on the loaded terrain instead of a boot-time noise height.
+  `GrantBenchBag` now only does the actual bag grants (weapons/skills/gear/races) and no longer
+  references `WorldBuilder`.
+
+### 1bh-status
+No CLI build — verified by code review (project rule): `WorldBuilder` derives from
+`MonoSingleton<WorldBuilder>` (Instance set in Awake, so `WorldBuilder.Instance` is non-null by
+`GameManager.Start`) while `_worldRoot` stays null under the default `EnableLegacyGeneration = false`
+until `EnsureWorldRoot()`; the two added calls are the only `_worldRoot` uses on the pickup path;
+`GrantBenchBag`'s remaining grants do not touch `WorldBuilder`; all touched files brace-balanced.
+- Play-test after review: (1) New Game (and New Game from the pause menu) — no NullReferenceException in
+  the console; (2) the tool/food kit pickups appear on the arena's east edge on the real ground and can
+  be picked up with E; (3) weapons/skills/gear/races still granted on New Game; (4) start a second New
+  Game — the kit does not duplicate.
+
+---
+
 ## 1bf. Test ground leaves the terrain untouched — no more flatten/carve at the arena coordinate
 
 Fixes the report "when testground spawn the terrain that already spawn at that coordinate get

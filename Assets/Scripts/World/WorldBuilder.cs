@@ -1156,6 +1156,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
     }
     private GameObject CreateToolPickup(string toolType, Vector3 position)
     {
+        EnsureWorldRoot();
         var pickup = new GameObject("Pickup_" + toolType);
         pickup.transform.SetParent(_worldRoot.transform);
         pickup.transform.position = position;
@@ -1170,6 +1171,7 @@ public GameObject SpawnPickup(string toolType, Vector3 position)
     }
     public GameObject ThrowCage(string cageType, Vector3 position, Vector3 velocity, Livestock.AnimalType? capturedAnimal = null)
     {
+        EnsureWorldRoot();
         var pickup = new GameObject("ThrownCage");
         pickup.transform.SetParent(_worldRoot.transform);
         pickup.transform.position = position;
