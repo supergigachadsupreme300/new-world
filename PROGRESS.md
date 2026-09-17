@@ -23,6 +23,37 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
+## 1bo. Earth Wall repeat casts no longer "shrink the world" — raised shapes are height-capped
+
+User: "from the 2nd using onward the world got shrinking when using earth wall". Follow-up to the
+`1bn` Wall fixes. Root cause in `WorldStreamer.DeformAt`: every raised shape writes
+`current + s * lift` — it **stacks** on whatever the previous cast left there. Earth Wall at
+2.6 m became 5.2 m on cast #2, 7.8 m on #3… Each taller stack embeds the player's
+CharacterController deeper in the rebuilt chunk mesh; the next `Move()` depenetrates it more
+violently with each cast, eventually launching the player far enough that either distant chunks
+unload (streaming recenters) or the player ends up inside the raise where the terrain mesh culls
+the view — readings as "the world got shrinking".
+
+- **`WorldStreamer.DeformAt`** — raise branch now clamps `value` to **`base noise height + lift`**
+  (a `ceiling`, mirroring Crater's `floorY` clamp): a wall/spire/ring/pillar reaches its intended
+  height once and repeat casts can no longer stack it higher. Checks after the Spikes peak
+  modifier, so even a spike tip respects the cap.
+- **Docs** — `PROGRESS.md` this entry. No `game-design.md` change: the behavior is now "consistent
+  fixed height" (matches the existing Crater depth-clamp precedent in §3.8).
+
+### 1bo-status
+No CLI/Unity build — verified by **code review** (project rule): the cap is one extra
+`TerrainNoiseGenerator.GetHeight` sample (same as the Crater branch already pays, and the Spikes
+branch already calls it via `current`) + a compare; placement after the Spikes modifier is
+intentional so a peak can never exceed the ceiling; `ceiling` ≥ `current` on the first cast
+(changes nothing for an unchanged tile), and on later casts it wins — so repetition is idempotent
+in height while still re-running the mesh/re-cook + save path (a no-op visual but a correct
+persist). Brace-balanced; no signature/caller changes.
+- Play-test after this: (1) cast **Earth Wall** at the same spot repeatedly — the ridge tops out at
+  ~2.6 m and **never grows taller**; (2) the player is **never launched / world never shrinks**;
+  (3) Crater spells (Stone Shard / Boulder Crash) still dent and clamp exactly as before; (4) a
+  wall built where a previous wall stood keeps its fixed 2.6 m height after reload (`tc_*.dat`).
+
 ## 1bn. Earth Wall fix: taller blocking wall + no more player "teleport" on repeat casts
 
 User: "the earth wall are teleporting player the 2nd and so forth time using, and the wall that is

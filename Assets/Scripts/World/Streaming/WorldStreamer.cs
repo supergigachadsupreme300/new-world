@@ -701,6 +701,15 @@ public class WorldStreamer : MonoBehaviour
                 {
                     float value = current + s * lift;
 
+                    // Cap the raise at (base noise height + lift): repeat casts must never stack a
+                    // ridge higher than the intended release (e.g. Earth Wall at 2.6 m). Unbounded
+                    // stacking embeds the player capsule deeper with every cast and the Character
+                    // Controller's depenetration push grows violent — it launches the player far
+                    // enough that the streamed world "shrinks" around them (chunk unload / mesh
+                    // backface culling from inside the raise). Same clamp pattern as Crater's floor.
+                    float baseY = TerrainNoiseGenerator.GetHeight(Seed, wx, wz);
+                    float ceiling = baseY + lift;
+
                     if (shape == TerrainShape.Spikes)
                     {
                         int raw = (cx * 73856093) ^ (cz * 19349663) ^ Seed.GetHashCode();
@@ -708,6 +717,11 @@ public class WorldStreamer : MonoBehaviour
                         if (r > 0.78f)
                             value += lift * (0.4f + r * 0.6f) * influence * influence;
                     }
+
+                    // Reject the raise before writing the tile so even a spike peak respects the cap
+                    // (the baseY+lift ceiling keeps every raised shape predictable across casts).
+                    if (value > ceiling)
+                        value = ceiling;
 
                     newHeights[EncodeCorner(cx, cz)] = value;
                 }
