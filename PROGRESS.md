@@ -23,6 +23,36 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
+## 1br. Render distance raised to 20 chunks (~600 m) — map/terrain streams much further
+
+User: "increase the map rendering range". The game's "map" = the seamless chunk terrain; the
+default streaming radius was 5 chunks (11×11 = 121 chunks, ~165 m half-width). Raised to **20**:
+41×41 = **1,681 chunks ≈ 600 m half-width**, ~5x linear / ~14x the loaded area, still comfortably
+inside the 1000 m camera far clip.
+
+- **`GameBootstrap.cs`** — the runtime default `rd.Radius = 5` → `20` (the effective default; the
+  scene derives `WorldStreamer.RenderDistance` at boot).
+- **`RenderDistanceController.cs`** — serialized default field `Radius = 5` → `20` so any
+  designer-created / scene-serialized config matches; `MaxRadius = 160` untouched.
+- **No other code change needed by review:** `ChunkLodManager.EffectiveCullDistance` already
+  auto-matches `(radius + 1) · 30 = 630 m`, so no chunk is LOD-hidden while still streamed; the
+  fill pipeline is time-budgeted (8 chunks/tick + ~6 ms cap, props 40 tiles/tick) so the bigger
+  radius streams in over a few seconds with no hitching; scene fog is off (volume density 0).
+- **Docs** — `game-design.md` §2.5: default 5 (121) → **20 (1,681)**, max aligned to the code's
+  hard clamp of **160**, boot note updated. §9.2 PC (High) target range (16-32 chunks) already
+  covers 20.
+
+### 1br-status
+No CLI/Unity build — verified by **code review** (project rule). Budget at radius 20 ≈ 1,681
+chunks (~3 M terrain tris + streamed props) — heavier than the old 121-chunk fill but within the
+§9.2 PC (High) 16-32-chunk target; background generation + prop streaming scale linearely and are
+time-capped per tick, so no single-frame hitch is expected.
+- Play-test after this: (1) open world — the terrain ring visibly extends to ~600 m in every
+  direction (no hard world edge in view); (2) run straight — new chunks stream in ahead smoothly,
+  old ones unload behind after the +1 hysteresis; (3) distant chunks still switch LOD correctly and
+  are never hidden while in range; (4) spawn still ground-ready immediately (chunks fill over a few
+  seconds, props after).
+
 ## 1bq. Fortitude branch (L1) skills spread across their wedge like the other categories
 
 User: "the skills on fortitude layer 1 not spreading out like other category but grouped instead".

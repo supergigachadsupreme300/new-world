@@ -74,14 +74,14 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
 ### 2.5 Chunk Loading & Render Distance
 
 - The player controls **render distance** in chunk radius.
-- **Default radius:** 5 chunks (121 chunks loaded).
-- **Maximum radius:** 32 chunks (4,225 chunks loaded).
+- **Default radius:** 20 chunks (1,681 chunks loaded ≈ 600 m half-width).
+- **Maximum radius:** 160 chunks (code clamp, `RenderDistanceController.MaxRadius`).
 - At each frame, the system calculates which chunks are within radius of the player.
 - Chunks entering radius: loaded from cache or generated.
 - Chunks leaving radius: unloaded from memory (kept in cache on disk).
 - **Boot (current build):** only the **spawn chunk** is generated synchronously so the player is usable
   immediately; the rest of the visible ring builds in a background pass over ~1.5 s. The game bootstrap
-  defaults render radius to **5** with a hard clamp of **160** chunks, and the LOD cull distance
+  defaults render radius to **20** with a hard clamp of **160** chunks, and the LOD cull distance
   auto-matches the current render radius so culling never fights the visible ring.
 
 ### 2.6 Chunk Persistence (File Caching)
