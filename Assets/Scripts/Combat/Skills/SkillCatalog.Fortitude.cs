@@ -10,10 +10,10 @@ public static partial class SkillCatalog
         bank.L1["fort_health"] = new BranchSlot[]
         {
             A("fort_vitality"),
-            S("fort_health_meat", "Meat Shield", Buff(StatType.Health, 3f), "Permanent +3 Health.", passive: true),
-            S("fort_health_brawn", "Brawn", Buff(StatType.Strength, 3f), "Permanent +3 Strength.", passive: true),
-            S("fort_health_lionheart", "Lionheart", Buff(StatType.Health, 3f), "Permanent +3 Health.", passive: true),
-            S("fort_health_regenerate", "Regenerate", Buff(StatType.Health, 2f), "Permanent +2 Health.", passive: true),
+            S("fort_health_meat", "Meat Shield", Perk(PassivePerkType.MaxHealthPercent, 4f), "A body armored in pure mass.", passive: true),
+            S("fort_health_brawn", "Brawn", Perk(PassivePerkType.AttackPowerPercent, 3f), "Might that cracks armor with bare hands.", passive: true),
+            S("fort_health_lionheart", "Lionheart", Perk(PassivePerkType.MaxHealthPercent, 3f), "A heart that refuses to stop beating.", passive: true),
+            S("fort_health_regenerate", "Regenerate", Perk(PassivePerkType.HealthRegenPerSecond, 0.003f), "Flesh knits itself between blows.", passive: true),
         };
 
         // Root: fort_armor (passive, Defense+4)
@@ -21,29 +21,29 @@ public static partial class SkillCatalog
         {
             A("fort_stamina"),
             A("fort_steadfast"),
-            S("fort_armor_steelskin", "Steel Skin", Buff(StatType.Defense, 3f), "Permanent +3 Defense.", passive: true),
-            S("fort_armor_ironwall", "Iron Wall", Buff(StatType.Defense, 3f), "Permanent +3 Defense.", passive: true),
-            S("fort_armor_shield", "Shielded", Buff(StatType.Endurance, 3f), "Permanent +3 Endurance.", passive: true),
+            S("fort_armor_steelskin", "Steel Skin", Perk(PassivePerkType.DamageReductionFlat, 0.02f), "Skin tempered like layered plate.", passive: true),
+            S("fort_armor_ironwall", "Iron Wall", Perk(PassivePerkType.BlockEfficiencyPercent, 5f), "Deflects strikes with an iron resolve.", passive: true),
+            S("fort_armor_shield", "Shielded", Perk(PassivePerkType.BlockEfficiencyPercent, 6f), "An invisible ward guards every opening.", passive: true),
         };
 
         // Root: fort_recovery (passive, Health+2)
         bank.L1["fort_recovery"] = new BranchSlot[]
         {
-            S("fort_recovery_regen", "Regen", Buff(StatType.Health, 3f), "Permanent +3 Health.", passive: true),
-            S("fort_recovery_reclaim", "Reclaim", Buff(StatType.Endurance, 3f), "Permanent +3 Endurance.", passive: true),
-            S("fort_recovery_revive", "Revive", Buff(StatType.Health, 2f), "Permanent +2 Health.", passive: true),
-            S("fort_recovery_hardened", "Hardened Recovery", Buff(StatType.Endurance, 2f), "Permanent +2 Endurance.", passive: true),
-            S("fort_recovery_woundmend", "Wound Mending", Buff(StatType.Health, 2f), "Permanent +2 Health.", passive: true),
+            S("fort_recovery_regen", "Regen", Perk(PassivePerkType.HealthRegenPerSecond, 0.003f), "Wounds close with uncanny persistence.", passive: true),
+            S("fort_recovery_reclaim", "Reclaim", Perk(PassivePerkType.StaminaRegenPercent, 6f), "Takes back what the fight has taken.", passive: true),
+            S("fort_recovery_revive", "Revive", Perk(PassivePerkType.MaxHealthPercent, 4f), "The body rallies from the brink.", passive: true),
+            S("fort_recovery_hardened", "Hardened Recovery", Perk(PassivePerkType.DamageReductionFlat, 0.02f), "Each scar strengthens the skin beneath.", passive: true),
+            S("fort_recovery_woundmend", "Wound Mending", Perk(PassivePerkType.HealthRegenPerSecond, 0.004f), "Mend what was broken, fight anew.", passive: true),
         };
 
         // Root: fort_bulwark (passive, Health+3)
         bank.L1["fort_bulwark"] = new BranchSlot[]
         {
-            S("fort_bulwark_stand", "Stand Guard", Buff(StatType.Defense, 3f), "Permanent +3 Defense.", passive: true),
-            S("fort_bulwark_solid", "Solid", Buff(StatType.Health, 3f), "Permanent +3 Health.", passive: true),
-            S("fort_bulwark_staunch", "Staunch", Buff(StatType.Endurance, 3f), "Permanent +3 Endurance.", passive: true),
-            S("fort_bulwark_breachless", "Breachless", Buff(StatType.Defense, 3f), "Permanent +3 Defense.", passive: true),
-            S("fort_bulwark_rampart", "Rampart", Buff(StatType.Health, 3f), "Permanent +3 Health.", passive: true),
+            S("fort_bulwark_stand", "Stand Guard", Perk(PassivePerkType.DamageReductionFlat, 0.02f), "Immovable as the guardians of old.", passive: true),
+            S("fort_bulwark_solid", "Solid", Perk(PassivePerkType.MaxHealthPercent, 5f), "Dense and unyielding as bedrock.", passive: true),
+            S("fort_bulwark_staunch", "Staunch", Perk(PassivePerkType.StaminaRegenPercent, 8f), "Breath steadies, will does not waver.", passive: true),
+            S("fort_bulwark_breachless", "Breachless", Perk(PassivePerkType.BlockEfficiencyPercent, 7f), "No gap, no weakness, no entry.", passive: true),
+            S("fort_bulwark_rampart", "Rampart", Perk(PassivePerkType.DamageReductionFlat, 0.03f), "A living wall against the horde.", passive: true),
         };
 
         // Root: fort_stoneskin (active, Focus 12, Zone(2,14,Earth))
@@ -52,7 +52,7 @@ public static partial class SkillCatalog
             S("fort_stoneskin_granite", "Granite", Slash(18f, DamageType.Earth), "Fists hardened to granite.", Focus(14f), DamageType.Earth, true),
             S("fort_stoneskin_boulder", "Boulder Charge", Slash(18f, DamageType.Physical), "A boulder of a shoulder charge.", Stamina(12f)),
             S("fort_stoneskin_earthcrash", "Earth Crash", Zone(2.2f, 16f, DamageType.Earth), "Crash the earth around you.", Focus(14f), DamageType.Earth, true),
-            S("fort_stoneskin_mountain", "Mountain", Buff(StatType.Health, 3f), "Permanent +3 Health.", passive: true),
+            S("fort_stoneskin_mountain", "Mountain", Perk(PassivePerkType.StaggerResistPercent, 7f), "Rooted like a peak in the storm.", passive: true),
             S("fort_stoneskin_pebble", "Pebble Wall", Zone(2f, 14f, DamageType.Earth), "A wall of pebbles driven outward.", Focus(12f), DamageType.Earth, true),
         };
 
@@ -61,9 +61,9 @@ public static partial class SkillCatalog
         {
             S("fort_guro_headbutt", "Headbutt", Slash(16f, DamageType.Physical), "A solid, skull-first strike.", Stamina(12f)),
             S("fort_guro_warcry", "War Cry", Zone(1.8f, 14f, DamageType.Physical), "A cry that shoves the air outward.", Stamina(12f)),
-            S("fort_guro_unyielding", "Unyielding", Buff(StatType.Endurance, 3f), "Permanent +3 Endurance.", passive: true),
+            S("fort_guro_unyielding", "Unyielding", Perk(PassivePerkType.StaggerResistPercent, 6f), "The spine bends for no creature.", passive: true),
             S("fort_guro_ironcharge", "Iron Charge", Slash(18f, DamageType.Physical), "A pseudo-iron charge of a strike.", Stamina(14f)),
-            S("fort_guro_juggernaut", "Juggernaut", Buff(StatType.Defense, 3f), "Permanent +3 Defense.", passive: true),
+            S("fort_guro_juggernaut", "Juggernaut", Perk(PassivePerkType.AttackPowerPercent, 4f), "Unstoppable ruin in motion.", passive: true),
         };
 
         /* ──────────────── L2 (150 slots — 30 L1 parents × 5 children each) ──────────────── */
@@ -71,201 +71,201 @@ public static partial class SkillCatalog
         /* fort_vitality children (all passive) */
         bank.L2["fort_vitality"] = new BranchSlot[]
         {
-            S("fort_vitality_vim", "Vim", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_vitality_pep", "Pep", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("fort_vitality_vigor", "Vigor", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_vitality_zest", "Zest", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
-            S("fort_vitality_flourish", "Flourish", Buff(StatType.Health, 4f), "Permanent +4 Health.", passive: true),
+            S("fort_vitality_vim", "Vim", Perk(PassivePerkType.MaxHealthPercent, 5f), "A roaring reservoir of vital force.", passive: true),
+            S("fort_vitality_pep", "Pep", Perk(PassivePerkType.AttackSpeedPercent, 3f), "Spirit quickens every strike.", passive: true),
+            S("fort_vitality_vigor", "Vigor", Perk(PassivePerkType.MaxHealthPercent, 4f), "Overflowing with raw, primal health.", passive: true),
+            S("fort_vitality_zest", "Zest", Perk(PassivePerkType.LootLuckPercent, 5f), "The spirited draw fortune's gaze.", passive: true),
+            S("fort_vitality_flourish", "Flourish", Perk(PassivePerkType.HealthRegenPerSecond, 0.003f), "Life thrives where will is strong.", passive: true),
         };
 
         /* fort_stamina children (all passive) */
         bank.L2["fort_stamina"] = new BranchSlot[]
         {
-            S("fort_stamina_grit", "Grit", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_stamina_last", "Lasting", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_stamina_well", "Stamina Well", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_stamina_drive", "Drive", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("fort_stamina_plod", "Plod", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
+            S("fort_stamina_grit", "Grit", Perk(PassivePerkType.StaminaMaxPercent, 4f), "A deep reserve of grit-laced stamina.", passive: true),
+            S("fort_stamina_last", "Lasting", Perk(PassivePerkType.StaminaMaxPercent, 5f), "Outlasts all who stand against.", passive: true),
+            S("fort_stamina_well", "Stamina Well", Perk(PassivePerkType.StaminaRegenPercent, 6f), "The well of endurance never dries.", passive: true),
+            S("fort_stamina_drive", "Drive", Perk(PassivePerkType.MovementSpeedPercent, 3f), "Propelled forward by relentless drive.", passive: true),
+            S("fort_stamina_plod", "Plod", Perk(PassivePerkType.DamageReductionFlat, 0.02f), "Slow and unbreakable as a glacier.", passive: true),
         };
 
         /* fort_steadfast children (all passive) */
         bank.L2["fort_steadfast"] = new BranchSlot[]
         {
-            S("fort_steadfast_rocksteady", "Rocksteady", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_steadfast_unshakable", "Unshakable", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_steadfast_resolute", "Resolute", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_steadfast_fixed", "Fixed", Buff(StatType.Defense, 4f), "Permanent +4 Defense.", passive: true),
-            S("fort_steadfast_stalwart", "Stalwart", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
+            S("fort_steadfast_rocksteady", "Rocksteady", Perk(PassivePerkType.StaggerResistPercent, 8f), "Not the faintest tremor shakes this will.", passive: true),
+            S("fort_steadfast_unshakable", "Unshakable", Perk(PassivePerkType.StaggerResistPercent, 7f), "An anchor hammered into the earth.", passive: true),
+            S("fort_steadfast_resolute", "Resolute", Perk(PassivePerkType.StaminaRegenPercent, 5f), "Unbending resolve feeds the fire.", passive: true),
+            S("fort_steadfast_fixed", "Fixed", Perk(PassivePerkType.StaggerResistPercent, 6f), "Locked in place, unmoved by fury.", passive: true),
+            S("fort_steadfast_stalwart", "Stalwart", Perk(PassivePerkType.MaxHealthPercent, 4f), "A stout fortress of living flesh.", passive: true),
         };
 
         /* fort_health_meat children (all passive) */
         bank.L2["fort_health_meat"] = new BranchSlot[]
         {
-            S("fort_health_meat_health", "Meat Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_health_meat_defense", "Meat Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_health_meat_endurance", "Meat Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_health_meat_strength", "Meat Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("fort_health_meat_attackspeed", "Meat Hands", Buff(StatType.AttackSpeed, 5f), "Permanent +5 Attack Speed.", passive: true),
+            S("fort_health_meat_health", "Meat Health", Perk(PassivePerkType.MaxHealthPercent, 5f), "Built thick with primal vitality.", passive: true),
+            S("fort_health_meat_defense", "Meat Defense", Perk(PassivePerkType.DamageReductionFlat, 0.03f), "Layers of flesh blunt the keenest blade.", passive: true),
+            S("fort_health_meat_endurance", "Meat Endurance", Perk(PassivePerkType.StaminaMaxPercent, 5f), "Forged to outlast what fells the frail.", passive: true),
+            S("fort_health_meat_strength", "Meat Strength", Perk(PassivePerkType.AttackPowerPercent, 4f), "Every fist carries the weight of a carcass.", passive: true),
+            S("fort_health_meat_attackspeed", "Meat Hands", Perk(PassivePerkType.AttackSpeedPercent, 3f), "Blunt hands swing faster than expected.", passive: true),
         };
 
         /* fort_health_brawn children (all passive) */
         bank.L2["fort_health_brawn"] = new BranchSlot[]
         {
-            S("fort_health_brawn_strength", "Heavy Brawn", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("fort_health_brawn_health", "Brawn Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_health_brawn_defense", "Brawn Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_health_brawn_endurance", "Brawn Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_health_brawn_attackspeed", "Brawn Hands", Buff(StatType.AttackSpeed, 5f), "Permanent +5 Attack Speed.", passive: true),
+            S("fort_health_brawn_strength", "Heavy Brawn", Perk(PassivePerkType.AttackPowerPercent, 5f), "Bones crack under the force of each swing.", passive: true),
+            S("fort_health_brawn_health", "Brawn Health", Perk(PassivePerkType.MaxHealthPercent, 5f), "A titan's reservoir of stubborn life.", passive: true),
+            S("fort_health_brawn_defense", "Brawn Defense", Perk(PassivePerkType.DamageReductionFlat, 0.03f), "Muscle woven tight becomes living armor.", passive: true),
+            S("fort_health_brawn_endurance", "Brawn Endurance", Perk(PassivePerkType.StaminaRegenPercent, 7f), "Strength that refuses to ebb.", passive: true),
+            S("fort_health_brawn_attackspeed", "Brawn Hands", Perk(PassivePerkType.CritDamagePercent, 8f), "When brawn meets precision, bones shatter.", passive: true),
         };
 
         /* fort_health_lionheart children (all passive) */
         bank.L2["fort_health_lionheart"] = new BranchSlot[]
         {
-            S("fort_health_lionheart_courage", "Courage", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_health_lionheart_lion", "Lion's Heart", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_health_lionheart_brave", "Brave", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("fort_health_lionheart_roar", "Lion's Roar", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_health_lionheart_pride", "Pride", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
+            S("fort_health_lionheart_courage", "Courage", Perk(PassivePerkType.MaxHealthPercent, 6f), "A heart ablaze with unbreakable daring.", passive: true),
+            S("fort_health_lionheart_lion", "Lion's Heart", Perk(PassivePerkType.MaxHealthPercent, 5f), "Beats with the fury of a savage king.", passive: true),
+            S("fort_health_lionheart_brave", "Brave", Perk(PassivePerkType.StaggerResistPercent, 8f), "Fear is a stranger to this blood.", passive: true),
+            S("fort_health_lionheart_roar", "Lion's Roar", Perk(PassivePerkType.AttackPowerPercent, 4f), "A roar that shatters courage.", passive: true),
+            S("fort_health_lionheart_pride", "Pride", Perk(PassivePerkType.ParryWindowPercent, 6f), "Swift and sure, pride meets the blade clean.", passive: true),
         };
 
         /* fort_health_regenerate children (all passive) */
         bank.L2["fort_health_regenerate"] = new BranchSlot[]
         {
-            S("fort_health_regenerate_health", "Regen Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_health_regenerate_endurance", "Regen Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_health_regenerate_defense", "Regen Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_health_regenerate_speed", "Regen Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("fort_health_regenerate_will", "Regen Will", Buff(StatType.Health, 4f), "Permanent +4 Health.", passive: true),
+            S("fort_health_regenerate_health", "Regen Health", Perk(PassivePerkType.HealthRegenPerSecond, 0.005f), "Flesh regenerates with predatory speed.", passive: true),
+            S("fort_health_regenerate_endurance", "Regen Endurance", Perk(PassivePerkType.StaminaRegenPercent, 7f), "Breath returns in rhythmic surges.", passive: true),
+            S("fort_health_regenerate_defense", "Regen Defense", Perk(PassivePerkType.DamageReductionFlat, 0.02f), "New skin grows tougher than old.", passive: true),
+            S("fort_health_regenerate_speed", "Regen Speed", Perk(PassivePerkType.MovementSpeedPercent, 3f), "Swift renewal quickens the stride.", passive: true),
+            S("fort_health_regenerate_will", "Regen Will", Perk(PassivePerkType.FocusRegenPercent, 5f), "Inner calm restores what steel has taken.", passive: true),
         };
 
         /* fort_armor_steelskin children (all passive) */
         bank.L2["fort_armor_steelskin"] = new BranchSlot[]
         {
-            S("fort_armor_steelskin_defense", "Steel Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_armor_steelskin_endurance", "Steel Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_armor_steelskin_health", "Steel Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_armor_steelskin_strength", "Steel Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("fort_armor_steelskin_reflex", "Steel Reflex", Buff(StatType.Defense, 4f), "Permanent +4 Defense.", passive: true),
+            S("fort_armor_steelskin_defense", "Steel Defense", Perk(PassivePerkType.DamageReductionFlat, 0.03f), "Dents and gouges find no hold.", passive: true),
+            S("fort_armor_steelskin_endurance", "Steel Endurance", Perk(PassivePerkType.StaminaMaxPercent, 4f), "Tempered for the long, brutal war.", passive: true),
+            S("fort_armor_steelskin_health", "Steel Health", Perk(PassivePerkType.MaxHealthPercent, 5f), "A furnace of life behind cold metal.", passive: true),
+            S("fort_armor_steelskin_strength", "Steel Strength", Perk(PassivePerkType.AttackPowerPercent, 4f), "Steel-limbed strikes shatter what they meet.", passive: true),
+            S("fort_armor_steelskin_reflex", "Steel Reflex", Perk(PassivePerkType.ParryWindowPercent, 5f), "Tempered nerves guide the perfect parry.", passive: true),
         };
 
         /* fort_armor_ironwall children (all passive) */
         bank.L2["fort_armor_ironwall"] = new BranchSlot[]
         {
-            S("fort_armor_ironwall_defense", "Iron Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_armor_ironwall_health", "Iron Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_armor_ironwall_endurance", "Iron Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_armor_ironwall_strength", "Iron Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("fort_armor_ironwall_luck", "Iron Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
+            S("fort_armor_ironwall_defense", "Iron Defense", Perk(PassivePerkType.DamageReductionFlat, 0.04f), "An iron wall no blade has breached.", passive: true),
+            S("fort_armor_ironwall_health", "Iron Health", Perk(PassivePerkType.MaxHealthPercent, 5f), "Iron will, iron body, iron refusal to fall.", passive: true),
+            S("fort_armor_ironwall_endurance", "Iron Endurance", Perk(PassivePerkType.StaminaRegenPercent, 6f), "The iron spirit does not tire.", passive: true),
+            S("fort_armor_ironwall_strength", "Iron Strength", Perk(PassivePerkType.AttackPowerPercent, 5f), "Strikes ring like hammer on anvil.", passive: true),
+            S("fort_armor_ironwall_luck", "Iron Luck", Perk(PassivePerkType.LootLuckPercent, 6f), "Iron stubbornness draws iron fortune.", passive: true),
         };
 
         /* fort_armor_shield children (all passive) */
         bank.L2["fort_armor_shield"] = new BranchSlot[]
         {
-            S("fort_armor_shield_endurance", "Shield Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_armor_shield_defense", "Shield Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_armor_shield_health", "Shield Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_armor_shield_strength", "Shield Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("fort_armor_shield_attackspeed", "Shield Hands", Buff(StatType.AttackSpeed, 5f), "Permanent +5 Attack Speed.", passive: true),
+            S("fort_armor_shield_endurance", "Shield Endurance", Perk(PassivePerkType.StaminaMaxPercent, 5f), "A guardian's stamina stretches beyond measure.", passive: true),
+            S("fort_armor_shield_defense", "Shield Defense", Perk(PassivePerkType.BlockEfficiencyPercent, 7f), "Every blow crashes against unyielding oak and iron.", passive: true),
+            S("fort_armor_shield_health", "Shield Health", Perk(PassivePerkType.MaxHealthPercent, 5f), "Life sheltered behind the warding shield.", passive: true),
+            S("fort_armor_shield_strength", "Shield Strength", Perk(PassivePerkType.AttackPowerPercent, 4f), "The shield itself becomes a crushing weapon.", passive: true),
+            S("fort_armor_shield_attackspeed", "Shield Hands", Perk(PassivePerkType.AttackSpeedPercent, 3f), "Quick riposte flows from the shield-arm.", passive: true),
         };
 
         /* fort_recovery_regen children (all passive) */
         bank.L2["fort_recovery_regen"] = new BranchSlot[]
         {
-            S("fort_recovery_regen_health", "Regen Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_recovery_regen_endurance", "Regen Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_recovery_regen_speed", "Regen Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("fort_recovery_regen_defense", "Regen Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_recovery_regen_strength", "Regen Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
+            S("fort_recovery_regen_health", "Regen Health", Perk(PassivePerkType.HealthRegenPerSecond, 0.005f), "The body mends itself in ceaseless silence.", passive: true),
+            S("fort_recovery_regen_endurance", "Regen Endurance", Perk(PassivePerkType.StaminaRegenPercent, 7f), "Stamina floods back like a dark tide.", passive: true),
+            S("fort_recovery_regen_speed", "Regen Speed", Perk(PassivePerkType.CooldownReductionPercent, 3f), "Quick recovery quickens the next assault.", passive: true),
+            S("fort_recovery_regen_defense", "Regen Defense", Perk(PassivePerkType.DamageReductionFlat, 0.02f), "Healed flesh resists the coming wound.", passive: true),
+            S("fort_recovery_regen_strength", "Regen Strength", Perk(PassivePerkType.AttackPowerPercent, 3f), "Reborn strength surges through the arms.", passive: true),
         };
 
         /* fort_recovery_reclaim children (all passive) */
         bank.L2["fort_recovery_reclaim"] = new BranchSlot[]
         {
-            S("fort_recovery_reclaim_endurance", "Reclaimed Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_recovery_reclaim_health", "Reclaimed Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_recovery_reclaim_speed", "Reclaimed Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("fort_recovery_reclaim_strength", "Reclaimed Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("fort_recovery_reclaim_luck", "Reclaimed Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
+            S("fort_recovery_reclaim_endurance", "Reclaimed Endurance", Perk(PassivePerkType.StaminaRegenPercent, 8f), "Snatches back what exhaustion devoured.", passive: true),
+            S("fort_recovery_reclaim_health", "Reclaimed Health", Perk(PassivePerkType.HealthRegenPerSecond, 0.004f), "Life dragged back from death's threshold.", passive: true),
+            S("fort_recovery_reclaim_speed", "Reclaimed Speed", Perk(PassivePerkType.MovementSpeedPercent, 3f), "Regains the ground that weakness stole.", passive: true),
+            S("fort_recovery_reclaim_strength", "Reclaimed Strength", Perk(PassivePerkType.CritChanceFlat, 3f), "Recovered fury lands with sharper precision.", passive: true),
+            S("fort_recovery_reclaim_luck", "Reclaimed Luck", Perk(PassivePerkType.LootLuckPercent, 5f), "Those who refuse death find its gifts.", passive: true),
         };
 
         /* fort_recovery_revive children (all passive) */
         bank.L2["fort_recovery_revive"] = new BranchSlot[]
         {
-            S("fort_recovery_revive_health", "Revive Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_recovery_revive_endurance", "Revive Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_recovery_revive_defense", "Revive Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_recovery_revive_luck", "Revive Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
-            S("fort_recovery_revive_speed", "Revive Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
+            S("fort_recovery_revive_health", "Revive Health", Perk(PassivePerkType.MaxHealthPercent, 5f), "Rises from the brink with savage vitality.", passive: true),
+            S("fort_recovery_revive_endurance", "Revive Endurance", Perk(PassivePerkType.StaminaMaxPercent, 5f), "Revived vigor floods every sinew.", passive: true),
+            S("fort_recovery_revive_defense", "Revive Defense", Perk(PassivePerkType.DamageReductionFlat, 0.02f), "Battlescarred skin shrugs off the fatal blow.", passive: true),
+            S("fort_recovery_revive_luck", "Revive Luck", Perk(PassivePerkType.LootLuckPercent, 6f), "Cheating death sharpens the senses.", passive: true),
+            S("fort_recovery_revive_speed", "Revive Speed", Perk(PassivePerkType.MovementSpeedPercent, 4f), "Spring returns to the fallen step.", passive: true),
         };
 
         /* fort_recovery_hardened children (all passive) */
         bank.L2["fort_recovery_hardened"] = new BranchSlot[]
         {
-            S("fort_recovery_hardened_endurance", "Hardened Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_recovery_hardened_health", "Hardened Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_recovery_hardened_attackspeed", "Hardened Hands", Buff(StatType.AttackSpeed, 5f), "Permanent +5 Attack Speed.", passive: true),
-            S("fort_recovery_hardened_speed", "Hardened Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("fort_recovery_hardened_defense", "Hardened Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
+            S("fort_recovery_hardened_endurance", "Hardened Endurance", Perk(PassivePerkType.StaminaMaxPercent, 6f), "The body schooled to endure beyond limits.", passive: true),
+            S("fort_recovery_hardened_health", "Hardened Health", Perk(PassivePerkType.MaxHealthPercent, 4f), "Toughened by pain upon pain.", passive: true),
+            S("fort_recovery_hardened_attackspeed", "Hardened Hands", Perk(PassivePerkType.AttackSpeedPercent, 4f), "Scarred knuckles strike without mercy.", passive: true),
+            S("fort_recovery_hardened_speed", "Hardened Speed", Perk(PassivePerkType.CooldownReductionPercent, 3f), "Hardened limbs recover and lash out.", passive: true),
+            S("fort_recovery_hardened_defense", "Hardened Defense", Perk(PassivePerkType.DamageReductionFlat, 0.03f), "Each scar a new plate of armor.", passive: true),
         };
 
         /* fort_recovery_woundmend children (all passive) */
         bank.L2["fort_recovery_woundmend"] = new BranchSlot[]
         {
-            S("fort_recovery_woundmend_health", "Mend Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_recovery_woundmend_endurance", "Mend Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_recovery_woundmend_defense", "Mend Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_recovery_woundmend_speed", "Mend Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("fort_recovery_woundmend_strength", "Mend Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
+            S("fort_recovery_woundmend_health", "Mend Health", Perk(PassivePerkType.HealthRegenPerSecond, 0.005f), "Wounds seal with unnatural swiftness.", passive: true),
+            S("fort_recovery_woundmend_endurance", "Mend Endurance", Perk(PassivePerkType.StaminaRegenPercent, 6f), "Steady breath mends the fighting spirit.", passive: true),
+            S("fort_recovery_woundmend_defense", "Mend Defense", Perk(PassivePerkType.StaggerResistPercent, 6f), "Mended sinew teaches the body to endure.", passive: true),
+            S("fort_recovery_woundmend_speed", "Mend Speed", Perk(PassivePerkType.MovementSpeedPercent, 3f), "Healed legs carry without faltering.", passive: true),
+            S("fort_recovery_woundmend_strength", "Mend Strength", Perk(PassivePerkType.BackstabPercent, 6f), "Rebuilt muscle finds the vulnerable seam.", passive: true),
         };
 
         /* fort_bulwark_stand children (all passive) */
         bank.L2["fort_bulwark_stand"] = new BranchSlot[]
         {
-            S("fort_bulwark_stand_defense", "Stand Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_bulwark_stand_health", "Stand Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_bulwark_stand_endurance", "Stand Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_bulwark_stand_strength", "Stand Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("fort_bulwark_stand_luck", "Stand Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
+            S("fort_bulwark_stand_defense", "Stand Defense", Perk(PassivePerkType.DamageReductionFlat, 0.03f), "Plants deep and becomes immovable.", passive: true),
+            S("fort_bulwark_stand_health", "Stand Health", Perk(PassivePerkType.MaxHealthPercent, 5f), "The sentinel's life runs long and deep.", passive: true),
+            S("fort_bulwark_stand_endurance", "Stand Endurance", Perk(PassivePerkType.StaminaRegenPercent, 7f), "A guard's breath never falters.", passive: true),
+            S("fort_bulwark_stand_strength", "Stand Strength", Perk(PassivePerkType.CritDamagePercent, 7f), "A sentinel's decisive blow ends the dance.", passive: true),
+            S("fort_bulwark_stand_luck", "Stand Luck", Perk(PassivePerkType.LootLuckPercent, 5f), "Patience is its own dark reward.", passive: true),
         };
 
         /* fort_bulwark_solid children (all passive) */
         bank.L2["fort_bulwark_solid"] = new BranchSlot[]
         {
-            S("fort_bulwark_solid_health", "Solid Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_bulwark_solid_defense", "Solid Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_bulwark_solid_endurance", "Solid Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_bulwark_solid_strength", "Solid Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("fort_bulwark_solid_speed", "Solid Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
+            S("fort_bulwark_solid_health", "Solid Health", Perk(PassivePerkType.MaxHealthPercent, 6f), "Dense as the bones of the world.", passive: true),
+            S("fort_bulwark_solid_defense", "Solid Defense", Perk(PassivePerkType.DamageReductionFlat, 0.03f), "Hard as the stone that broke the first sword.", passive: true),
+            S("fort_bulwark_solid_endurance", "Solid Endurance", Perk(PassivePerkType.StaminaMaxPercent, 5f), "Solid lungs, solid will, solid refusal.", passive: true),
+            S("fort_bulwark_solid_strength", "Solid Strength", Perk(PassivePerkType.AttackPowerPercent, 4f), "A granite fist behind every blow.", passive: true),
+            S("fort_bulwark_solid_speed", "Solid Speed", Perk(PassivePerkType.MovementSpeedPercent, 3f), "Unhurried but absolutely relentless.", passive: true),
         };
 
         /* fort_bulwark_staunch children (all passive) */
         bank.L2["fort_bulwark_staunch"] = new BranchSlot[]
         {
-            S("fort_bulwark_staunch_endurance", "Staunch Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_bulwark_staunch_health", "Staunch Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_bulwark_staunch_defense", "Staunch Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_bulwark_staunch_speed", "Staunch Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("fort_bulwark_staunch_strength", "Staunch Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
+            S("fort_bulwark_staunch_endurance", "Staunch Endurance", Perk(PassivePerkType.StaminaRegenPercent, 9f), "The wellspring of will runs deepest here.", passive: true),
+            S("fort_bulwark_staunch_health", "Staunch Health", Perk(PassivePerkType.MaxHealthPercent, 5f), "A staunch vessel brimming with dark life.", passive: true),
+            S("fort_bulwark_staunch_defense", "Staunch Defense", Perk(PassivePerkType.BlockEfficiencyPercent, 6f), "Blocks with the firmness of ancient oak.", passive: true),
+            S("fort_bulwark_staunch_speed", "Staunch Speed", Perk(PassivePerkType.CooldownReductionPercent, 4f), "A steadfast pace that never slows.", passive: true),
+            S("fort_bulwark_staunch_strength", "Staunch Strength", Perk(PassivePerkType.AttackPowerPercent, 4f), "Unwavering force behind the unwavering fist.", passive: true),
         };
 
         /* fort_bulwark_breachless children (all passive) */
         bank.L2["fort_bulwark_breachless"] = new BranchSlot[]
         {
-            S("fort_bulwark_breachless_defense", "Breachless Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_bulwark_breachless_endurance", "Breachless Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_bulwark_breachless_health", "Breachless Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_bulwark_breachless_strength", "Breachless Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("fort_bulwark_breachless_luck", "Breachless Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
+            S("fort_bulwark_breachless_defense", "Breachless Defense", Perk(PassivePerkType.BlockEfficiencyPercent, 8f), "No crack, no breach, no way inside.", passive: true),
+            S("fort_bulwark_breachless_endurance", "Breachless Endurance", Perk(PassivePerkType.StaminaMaxPercent, 5f), "An inexhaustible bastion of grim will.", passive: true),
+            S("fort_bulwark_breachless_health", "Breachless Health", Perk(PassivePerkType.MaxHealthPercent, 5f), "Life held behind walls none can shatter.", passive: true),
+            S("fort_bulwark_breachless_strength", "Breachless Strength", Perk(PassivePerkType.CritDamagePercent, 10f), "Break them before they break you.", passive: true),
+            S("fort_bulwark_breachless_luck", "Breachless Luck", Perk(PassivePerkType.LootLuckPercent, 5f), "The unbroken find fortune at their feet.", passive: true),
         };
 
         /* fort_bulwark_rampart children (all passive) */
         bank.L2["fort_bulwark_rampart"] = new BranchSlot[]
         {
-            S("fort_bulwark_rampart_health", "Rampart Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_bulwark_rampart_defense", "Rampart Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_bulwark_rampart_endurance", "Rampart Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_bulwark_rampart_strength", "Rampart Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("fort_bulwark_rampart_attackspeed", "Rampart Hands", Buff(StatType.AttackSpeed, 5f), "Permanent +5 Attack Speed.", passive: true),
+            S("fort_bulwark_rampart_health", "Rampart Health", Perk(PassivePerkType.MaxHealthPercent, 5f), "A living wall of sinew, bone, and rage.", passive: true),
+            S("fort_bulwark_rampart_defense", "Rampart Defense", Perk(PassivePerkType.DamageReductionFlat, 0.04f), "Stands above the fallen like a tower.", passive: true),
+            S("fort_bulwark_rampart_endurance", "Rampart Endurance", Perk(PassivePerkType.StaminaRegenPercent, 7f), "Endurance poured like mortar between stones.", passive: true),
+            S("fort_bulwark_rampart_strength", "Rampart Strength", Perk(PassivePerkType.AttackPowerPercent, 4f), "Strikes from the wall shake the ground.", passive: true),
+            S("fort_bulwark_rampart_attackspeed", "Rampart Hands", Perk(PassivePerkType.AttackSpeedPercent, 3f), "Crenellations hide a storm of blows.", passive: true),
         };
 
         /* fort_stoneskin_granite children */
@@ -301,11 +301,11 @@ public static partial class SkillCatalog
         /* fort_stoneskin_mountain children (all passive) */
         bank.L2["fort_stoneskin_mountain"] = new BranchSlot[]
         {
-            S("fort_stoneskin_mountain_health", "Mountain Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_stoneskin_mountain_defense", "Mountain Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_stoneskin_mountain_strength", "Mountain Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("fort_stoneskin_mountain_endurance", "Mountain Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_stoneskin_mountain_immovable", "Immovable", Buff(StatType.Health, 4f), "Permanent +4 Health.", passive: true),
+            S("fort_stoneskin_mountain_health", "Mountain Health", Perk(PassivePerkType.MaxHealthPercent, 5f), "Life as vast as the mountain's roots.", passive: true),
+            S("fort_stoneskin_mountain_defense", "Mountain Defense", Perk(PassivePerkType.DamageReductionFlat, 0.03f), "An avalanche of armor beneath the skin.", passive: true),
+            S("fort_stoneskin_mountain_strength", "Mountain Strength", Perk(PassivePerkType.AttackPowerPercent, 5f), "The mountain's fist descends without mercy.", passive: true),
+            S("fort_stoneskin_mountain_endurance", "Mountain Endurance", Perk(PassivePerkType.StaminaMaxPercent, 5f), "Breath drawn from the peak's thin air.", passive: true),
+            S("fort_stoneskin_mountain_immovable", "Immovable", Perk(PassivePerkType.StaggerResistPercent, 10f), "No force in heaven or earth shifts this stone.", passive: true),
         };
 
         /* fort_stoneskin_pebble children */
@@ -341,11 +341,11 @@ public static partial class SkillCatalog
         /* fort_guro_unyielding children (all passive) */
         bank.L2["fort_guro_unyielding"] = new BranchSlot[]
         {
-            S("fort_guro_unyielding_endurance", "Unyielding Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_guro_unyielding_defense", "Unyielding Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_guro_unyielding_health", "Unyielding Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_guro_unyielding_strength", "Unyielding Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("fort_guro_unyielding_luck", "Unyielding Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
+            S("fort_guro_unyielding_endurance", "Unyielding Endurance", Perk(PassivePerkType.StaminaRegenPercent, 8f), "Refuses to bend, refuses to falter.", passive: true),
+            S("fort_guro_unyielding_defense", "Unyielding Defense", Perk(PassivePerkType.DamageReductionFlat, 0.03f), "Armor forged from pure defiance.", passive: true),
+            S("fort_guro_unyielding_health", "Unyielding Health", Perk(PassivePerkType.MaxHealthPercent, 5f), "A body that simply will not quit.", passive: true),
+            S("fort_guro_unyielding_strength", "Unyielding Strength", Perk(PassivePerkType.CritChanceFlat, 3f), "Defiance sharpens every blow.", passive: true),
+            S("fort_guro_unyielding_luck", "Unyielding Luck", Perk(PassivePerkType.LootLuckPercent, 6f), "Fate bows to those who never yield.", passive: true),
         };
 
         /* fort_guro_ironcharge children */
@@ -361,11 +361,11 @@ public static partial class SkillCatalog
         /* fort_guro_juggernaut children (all passive) */
         bank.L2["fort_guro_juggernaut"] = new BranchSlot[]
         {
-            S("fort_guro_juggernaut_defense", "Juggernaut Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("fort_guro_juggernaut_health", "Juggernaut Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("fort_guro_juggernaut_endurance", "Juggernaut Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("fort_guro_juggernaut_strength", "Juggernaut Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("fort_guro_juggernaut_speed", "Juggernaut Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
+            S("fort_guro_juggernaut_defense", "Juggernaut Defense", Perk(PassivePerkType.BlockEfficiencyPercent, 7f), "Carves through resistance like siege upon stone.", passive: true),
+            S("fort_guro_juggernaut_health", "Juggernaut Health", Perk(PassivePerkType.MaxHealthPercent, 5f), "The bulk of a walking fortress.", passive: true),
+            S("fort_guro_juggernaut_endurance", "Juggernaut Endurance", Perk(PassivePerkType.StaminaMaxPercent, 5f), "Never stops, never rests, never breaks.", passive: true),
+            S("fort_guro_juggernaut_strength", "Juggernaut Strength", Perk(PassivePerkType.AttackPowerPercent, 5f), "An oncoming doom no wall can halt.", passive: true),
+            S("fort_guro_juggernaut_speed", "Juggernaut Speed", Perk(PassivePerkType.MovementSpeedPercent, 4f), "The earth trembles beneath the juggernaut's tread.", passive: true),
         };
     }
 }

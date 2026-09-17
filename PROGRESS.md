@@ -23,6 +23,34 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
+## 1bt. Stealth passive nodes rewritten to Perk system
+
+### 1bt-status
+- **What**: Rewrote all 67 `passive: true` nodes in `SkillCatalog.Stealth.cs` from flat `Buff(StatType.X, Nf)` to `Perk(PassivePerkType.Z, Vf)`. Zero `Buff(` calls remain; 67 `passive: true` confirmed. Committed `f6ee70c`, pushed to `main`.
+- **Verification**: `Select-String` grep — 0 `Buff(`, 67 `passive: true`, 67 `Perk(PassivePerkType.`.
+- **Play-test**: User to open Unity and confirm passive tooltips show perk descriptions (not "Permanent +N X"). Confirm no compile errors.
+
+### 1bt-perk-distribution
+| Perk Kind | Count |
+|---|---|
+| MovementSpeedPercent | 17 |
+| LootLuckPercent | 10 |
+| AttackSpeedPercent | 9 |
+| CritChanceFlat | 9 |
+| DamageReductionFlat | 4 |
+| StaminaMaxPercent | 4 |
+| AttackPowerPercent | 3 |
+| CritDamagePercent | 3 |
+| HealthRegenPerSecond | 2 |
+| ParryWindowPercent | 2 |
+| BackstabPercent | 1 |
+| CooldownReductionPercent | 1 |
+| FocusMaxPercent | 1 |
+| StaggerResistPercent | 1 |
+| **Total** | **67** |
+
+---
+
 ## 1bs. Shield wedge shrunk to 30°, standard wheel re-laid out (Fortitude re-spread)
 
 User: "shield category spreading too wide taking up too much space so reduce the area of shield

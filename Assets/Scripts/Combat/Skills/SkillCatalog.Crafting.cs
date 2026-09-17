@@ -11,9 +11,9 @@ public static partial class SkillCatalog
         {
             A("craft_purity"),
             S("craft_hands_knife", "Craft Knife", Slash(16f, DamageType.Physical), "A precise crafting cut.", Stamina(10f)),
-            S("craft_hands_steady", "Steady Craft", Buff(StatType.Dexterity, 3f), "Permanent +3 Dexterity.", passive: true),
-            S("craft_hands_dex", "Dexterous Hands", Buff(StatType.AttackSpeed, 3f), "Permanent +3 Attack Speed.", passive: true),
-            S("craft_hands_quality", "Adept Hands", Buff(StatType.Luck, 3f), "Permanent +3 Luck.", passive: true),
+            S("craft_hands_steady", "Steady Craft", Perk(PassivePerkType.LootLuckPercent, 4f), "Steady hands court fortune; loot luck rises 4%.", passive: true),
+            S("craft_hands_dex", "Dexterous Hands", Perk(PassivePerkType.AttackSpeedPercent, 3f), "Swift fingers speed every tool and strike by 3%.", passive: true),
+            S("craft_hands_quality", "Adept Hands", Perk(PassivePerkType.LootLuckPercent, 4f), "Four percent more luck settles into adept palms.", passive: true),
         };
 
         // Root: craft_knowledge (passive, Intelligence+3)
@@ -21,38 +21,38 @@ public static partial class SkillCatalog
         {
             A("craft_refine"),
             A("craft_repair"),
-            S("craft_knowledge_sage", "Sage Lore", Buff(StatType.Intelligence, 3f), "Permanent +3 Intelligence.", passive: true),
-            S("craft_knowledge_scribe", "Scribe", Buff(StatType.Wisdom, 3f), "Permanent +3 Wisdom.", passive: true),
+            S("craft_knowledge_sage", "Sage Lore", Perk(PassivePerkType.FocusMaxPercent, 6f), "Deep lore swells focus reserves by 6%.", passive: true),
+            S("craft_knowledge_scribe", "Scribe", Perk(PassivePerkType.FocusRegenPercent, 5f), "Scribbled wisdom restores focus 5% faster.", passive: true),
             S("craft_knowledge_alchemy", "Alchemy", Zone(1.6f, 14f, DamageType.Arcane), "A reactive alchemical pulse.", Focus(12f), DamageType.Arcane, true),
         };
 
         // Root: craft_focus (passive, Wisdom+2)
         bank.L1["craft_focus"] = new BranchSlot[]
         {
-            S("craft_focus_consume", "Consume", Buff(StatType.Wisdom, 3f), "Permanent +3 Wisdom.", passive: true),
-            S("craft_focus_block", "Block Mind", Buff(StatType.Intelligence, 3f), "Permanent +3 Intelligence.", passive: true),
-            S("craft_focus_magician", "Magician", Buff(StatType.Wisdom, 3f), "Permanent +3 Wisdom.", passive: true),
+            S("craft_focus_consume", "Consume", Perk(PassivePerkType.FocusRegenPercent, 5f), "What is consumed feeds focus back 5% faster.", passive: true),
+            S("craft_focus_block", "Block Mind", Perk(PassivePerkType.BlockEfficiencyPercent, 8f), "A walled mind holds block 8% more efficiently.", passive: true),
+            S("craft_focus_magician", "Magician", Perk(PassivePerkType.SpellDamagePercent, 6f), "Arcane craft ignites spell power by 6%.", passive: true),
             S("craft_focus_mana", "Mana Whorl", Zone(1.8f, 14f, DamageType.Arcane), "A whorl of gathered mana.", Focus(12f), DamageType.Arcane, true),
-            S("craft_focus_peace", "Peaceful Mind", Buff(StatType.Health, 3f), "Permanent +3 Health.", passive: true),
+            S("craft_focus_peace", "Peaceful Mind", Perk(PassivePerkType.CooldownReductionPercent, 3f), "Stillness trims every cooldown by 3%.", passive: true),
         };
 
         // Root: craft_endurance (passive, Endurance+3)
         bank.L1["craft_endurance"] = new BranchSlot[]
         {
-            S("craft_endurance_tireless", "Tireless", Buff(StatType.Endurance, 3f), "Permanent +3 Endurance.", passive: true),
-            S("craft_endurance_marathon", "Marathon", Buff(StatType.Speed, 3f), "Permanent +3 Speed.", passive: true),
-            S("craft_endurance_longwork", "Long Work", Buff(StatType.Health, 3f), "Permanent +3 Health.", passive: true),
-            S("craft_endurance_hold", "Hold Ground", Buff(StatType.Defense, 3f), "Permanent +3 Defense.", passive: true),
+            S("craft_endurance_tireless", "Tireless", Perk(PassivePerkType.StaminaRegenPercent, 10f), "Exhaustion flees; stamina returns 10% faster.", passive: true),
+            S("craft_endurance_marathon", "Marathon", Perk(PassivePerkType.StaminaMaxPercent, 6f), "Unflagging lungs widen the stamina pool 6%.", passive: true),
+            S("craft_endurance_longwork", "Long Work", Perk(PassivePerkType.StaminaMaxPercent, 3f), "The long shift bulks stamina reserves by 3%.", passive: true),
+            S("craft_endurance_hold", "Hold Ground", Perk(PassivePerkType.StaggerResistPercent, 10f), "Rooted feet shrug off 10% more stagger.", passive: true),
             S("craft_endurance_shock", "Shock Endurance", Slash(16f, DamageType.Physical), "A shoulder-driven shock slam.", Stamina(10f)),
         };
 
         // Root: craft_efficiency (passive, AttackSpeed+2)
         bank.L1["craft_efficiency"] = new BranchSlot[]
         {
-            S("craft_efficiency_quickswap", "Quick Swap", Buff(StatType.AttackSpeed, 3f), "Permanent +3 Attack Speed.", passive: true),
-            S("craft_efficiency_optimize", "Optimize", Buff(StatType.Dexterity, 3f), "Permanent +3 Dexterity.", passive: true),
-            S("craft_efficiency_streamline", "Streamline", Buff(StatType.Speed, 3f), "Permanent +3 Speed.", passive: true),
-            S("craft_efficiency_workfast", "Work Fast", Buff(StatType.AttackSpeed, 2f), "Permanent +2 Attack Speed.", passive: true),
+            S("craft_efficiency_quickswap", "Quick Swap", Perk(PassivePerkType.CooldownReductionPercent, 3f), "Swapped grips cool down 3% faster.", passive: true),
+            S("craft_efficiency_optimize", "Optimize", Perk(PassivePerkType.CooldownReductionPercent, 4f), "Optimized motion cuts cooldowns by 4%.", passive: true),
+            S("craft_efficiency_streamline", "Streamline", Perk(PassivePerkType.AttackSpeedPercent, 3f), "Trimmed form lets swings land 3% faster.", passive: true),
+            S("craft_efficiency_workfast", "Work Fast", Perk(PassivePerkType.AttackSpeedPercent, 4f), "Bench-haste grants 4% attack speed.", passive: true),
             S("craft_efficiency_pulse", "Efficiency Pulse", Zone(1.6f, 12f, DamageType.Physical), "A well-timed pulse of force.", Stamina(10f)),
         };
 
