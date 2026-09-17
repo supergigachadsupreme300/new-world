@@ -648,14 +648,18 @@ A spell is a data asset carrying:
 - **terrain shape** (Earth school signature, §3.8): an optional `TerrainShape` reshapes the tiled
   heightmap before damage resolves — **Ring** rears a circular stone wall around the impact,
   **Spikes** erupts spires beneath it, **Wall** rears an elongated stone ridge along the cast
-  direction, **Pillar** thrusts a tall flat-topped column up at the center, and **Crater**
-  excavates a shallow solid-floored dish (ground deform via `TerrainDeformer` →
-  `WorldStreamer.DeformAt`, which lifts/lowers the affected tile corners, rebuilds the merged chunk
-  mesh+collider, and persists the edit as a terrain modification). **Crater is also the Earth
-  projectile signature**: a Crater-shaped projectile (the root Stone Shard) carves its crater
-  where the shard **strikes** — `SpellEffect.ResolveProjectileImpact` down-probes the ground at
-  impact and deforms it there, so a cast never dents the caster's own feet; the pit is permanent
-  and depth-clamped (never a bottomless void). All edits survive
+  direction (2.6 m high — tall enough to fully block the player's CharacterController), **Pillar**
+  thrusts a tall flat-topped column up at the center, and **Crater** excavates a shallow solid-
+  floored dish (ground deform via `TerrainDeformer` → `WorldStreamer.DeformAt`, which lifts/lowers
+  the affected tile corners, rebuilds the merged chunk mesh+collider, and persists the edit as a
+  terrain modification). Raised shapes (Ring/Spikes/Wall/Pillar) skip corners inside a small
+  keep-out ring (~0.9 m) around the player's feet to prevent the ground from growing directly
+  under the capsule and violently depenetrating it on the next physics step ("teleport" on repeat
+  casts). **Crater is also the Earth projectile signature**: a Crater-shaped projectile (the root
+  Stone Shard) carves its crater where the shard **strikes** —
+  `SpellEffect.ResolveProjectileImpact` down-probes the ground at impact and deforms it there, so
+  a cast never dents the caster's own feet; the pit is permanent and depth-clamped (never a
+  bottomless void). All edits survive
   forever (§2.6 saves them per chunk). Earth spells use terrain shapes instead of a status effect.
   **(current build) every damaging Earth spell carries a terrain shape, regardless of delivery:**
   Zone impacts (Boulder Crash, Crash, Tectonic → Crater; Aftershock, the tremor ring family, Spire

@@ -585,6 +585,21 @@ public class WorldStreamer : MonoBehaviour
     {
         if (shape == TerrainShape.None || radius <= 0f) return;
 
+        // Never raise the ground directly beneath the player's feet: a Wall/ring/pillar rearing
+        // up under the capsule embeds it in the rebuilt chunk collider, and the next physics step
+        // depenetrates it violently — reads as a teleport, and repeat casts (which stack the
+        // ridge on the previous height) make it worse. Raised shapes skip corners inside a small
+        // keep-out ring around the player's feet; Crater (excavation) is unaffected.
+        float keepOutR = 0.9f; // player capsule radius + margin
+        bool protectCaster = shape != TerrainShape.Crater;
+        Vector3? casterFeet = null;
+        if (protectCaster)
+        {
+            var player = Object.FindAnyObjectByType<PlayerController>();
+            if (player != null)
+                casterFeet = player.transform.position;
+        }
+
         float feather = 0.5f;
         float reach = radius + feather;
         int minCX = Mathf.FloorToInt(center.x - reach);
@@ -600,10 +615,11 @@ public class WorldStreamer : MonoBehaviour
 
         // Ring: a raised annulus with its center left level. Spikes: smooth mound + sparse
         // deterministic peaks so the ground reads jagged but never chessboard-y. Wall: a ridge
-        // band along the cast direction. Pillar: a flat-topped column. Crater: a dish, dug down.
+        // band along the cast direction (tall enough to fully block the player). Pillar: a flat-
+        // topped column. Crater: a dish, dug down.
         float lift = shape == TerrainShape.Ring ? 0.9f
             : shape == TerrainShape.Pillar ? 1.8f
-            : shape == TerrainShape.Wall ? 1.3f
+            : shape == TerrainShape.Wall ? 2.6f
             : 0.7f; // Spikes
         float ringMid = radius * 0.72f;
         float ringHalfWidth = Mathf.Max(0.6f, radius * 0.28f);
@@ -657,6 +673,17 @@ public class WorldStreamer : MonoBehaviour
 
                 if (influence <= 0f)
                     continue;
+
+                // Skip raising the ground inside the player's keep-out ring: this prevents a
+                // Wall / Ring / Pillar from growing directly under the capsule and triggering
+                // a violent depenetration "teleport" on the next physics step.
+                if (protectCaster && casterFeet.HasValue)
+                {
+                    float pdx = wx - casterFeet.Value.x;
+                    float pdz = wz - casterFeet.Value.z;
+                    if (pdx * pdx + pdz * pdz <= keepOutR * keepOutR)
+                        continue;
+                }
 
                 // Smooth the influence curve (smootherstep) so the deform blends out at the rim.
                 float s = influence * influence * (3f - 2f * influence);

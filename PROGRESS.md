@@ -23,6 +23,48 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
+## 1bn. Earth Wall fix: taller blocking wall + no more player "teleport" on repeat casts
+
+User: "the earth wall are teleporting player the 2nd and so forth time using, and the wall that is
+created is not high enough as it creates a wall that is not blocking player". Two root causes, both
+in `WorldStreamer.DeformAt` (the Earth Wall skill, `1bm`, rides the existing `TerrainShape.Wall`
+Zone path):
+
+- **Wall not blocking**: the Wall `lift` was only **1.3 m** — below the ~2 m player capsule, so the
+  ridge read as a low berm the CharacterController could walk over. Raised to **2.6 m** (full-height
+  barrier; shoulders stay ~71° steep, above the controller's slope limit, so it cannot be climbed).
+- **Player "teleport" on 2nd+ casts**: every repeat cast stacks the ridge on the previous height
+  (`current + lift`), and a tall ridge rearing up under the node grows terrain into the player's
+  capsule → the rebuilt chunk collider intersects them → the CharacterController violently
+  depenetrates on the next `Move()` (a burst that reads as a teleport). Fixed with a **caster-foot
+  keep-out**: raised shapes (Ring/Spikes/Wall/Pillar) now skip corners inside ~0.9 m horizontally of
+  the player's feet, so terrain never grows under the capsule. Crater (excavation) is exempt.
+
+- **`WorldStreamer.DeformAt`** — `Wall` lift 1.3 → **2.6**; new `protectCaster` keep-out
+  (`keepOutR = 0.9`, ground-sampled at the player's feet via `FindAnyObjectByType<PlayerController>`,
+  only for non-Crater shapes, skipped inside the corner loop before the height write).
+- **Docs** — `game-design.md` §3.8 terrain-shape bullet: Wall noted as a 2.6 m full-blocking ridge +
+  caster keep-out rationale. `PROGRESS.md` this entry.
+- Note: `ChunkObject.PatchRegion` momentarily nulls the chunk collider to force a re-cook; with the
+  keep-out the player is guaranteed outside the raised patch, so that collider-less frame no longer
+  affects them. Repeats at the same spot still stack taller, as designed.
+
+### 1bn-status
+No CLI/Unity build — verified by **code review** (project rule): keep-out evaluated per corner using
+world-space center (`wx`,`wz`) vs. the player `transform.position` XZ, square-distance compare vs
+`keepOutR²` (0.81) — no ray, no allocations beyond the one nullable vector; placed after the
+`influence <= 0` skip and before the smootherstep/height write, so non-overlapping and protected
+corners both skip exactly like pre-existing early-outs; `protectCaster` is false for Crater so the
+Stone Shard / boulder dent path is unchanged. Wall lift comment updated alongside the constant.
+Brace-balance re-checked around the new block; no signature changes (all three callers —
+`TerrainDeformer.Apply`, `SpellStorm.DeformGround`, `ResolveSummon` — are unaffected).
+- Play-test after this: (1) cast the deep **Earth Wall** (needs Landslide) into open ground — a ~2.6 m
+  ridge rears and the player **cannot walk through or over it**; (2) cast it repeatedly while
+  standing next to/near the rise — the player is **never teleported/launched** (ground underfoot
+  stays flat); (3) cast it directly on your feet spot — the wall simply does not grow under the
+  character; (4) reload / walk away and back — ridges persist from the `tc_*.dat` chunks; (5)
+  confirm Crater spells (Stone Shard / Boulder Crash) still dent exactly as before.
+
 ## 1bm. Stone Shard dents at impact (not the caster's feet) + new Earth Wall deep skill
 
 User: "the terrain dent at the player feet when cast instead of impact fix it and add earth wall skill"
