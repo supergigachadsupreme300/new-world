@@ -14,6 +14,7 @@ public class GameManager : MonoSingleton<GameManager>
 
     public PlayerController Player;
     public WorldBuilder WorldBuilder;
+    public WorldStreamer WorldStreamer;
     public UIManager UIManager;
     public ToolManager ToolManager;
     public CutsceneManager CutsceneManager;
@@ -124,6 +125,11 @@ public class GameManager : MonoSingleton<GameManager>
                 if (CutsceneManager.IsActive)
                     CutsceneManager.CancelCutscene();
                 CutsceneManager.PlayHappyEnding();
+            }
+            else if (Keyboard.current.f12Key.wasPressedThisFrame)
+            {
+                if (WorldStreamer != null)
+                    WorldStreamer.ForceRebuildArenaLane();
             }
         }
 #endif
@@ -246,6 +252,7 @@ public class GameManager : MonoSingleton<GameManager>
     {
         Player = Object.FindAnyObjectByType<PlayerController>();
         WorldBuilder = Object.FindAnyObjectByType<WorldBuilder>();
+        WorldStreamer = Object.FindAnyObjectByType<WorldStreamer>();
         UIManager = Object.FindAnyObjectByType<UIManager>();
         ToolManager = Object.FindAnyObjectByType<ToolManager>();
         CutsceneManager = Object.FindAnyObjectByType<CutsceneManager>();
@@ -409,6 +416,9 @@ public class GameManager : MonoSingleton<GameManager>
 
         var spawner = Object.FindAnyObjectByType<LivestockSpawner>();
         if (spawner != null) spawner.Restart();
+
+        // 1bk: drop any cached flat arena-lane mesh so it re-streams from noise + saves.
+        WorldStreamer?.ForceRebuildArenaLane();
 
         UpdateTimeUI();
     }

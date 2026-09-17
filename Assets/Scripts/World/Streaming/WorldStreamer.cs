@@ -270,7 +270,14 @@ public class WorldStreamer : MonoBehaviour
 
         // Corner grid: NaN marks a corner that must regenerate from noise. Deformed tiles stamp
         // their saved corner heights first so shared edges within the patch stay gapless.
+        // CRITICAL: the grid MUST be NaN-seeded, not zero-seeded. `new float[,]` zero-fills every
+        // element, and zero is a VALID height — so an unstamped corner would read as "present"
+        // (float.IsNaN(0f) is false) and the whole chunk would collapse to height 0 instead of
+        // regenerating from noise. Prefill with NaN so only genuinely saved corners count as
+        // present and every other corner rolls.
         float[,] corners = new float[gridSize, gridSize];
+        for (int gi = 0; gi < gridSize * gridSize; gi++)
+            corners[gi / gridSize, gi % gridSize] = float.NaN;
         if (mods != null)
         {
             foreach (KeyValuePair<int, ChunkTileMod> kv in mods)
@@ -486,6 +493,31 @@ public class WorldStreamer : MonoBehaviour
         if (obj != null)
             Destroy(obj.gameObject);
         _loadedChunks.Remove(tc);
+    }
+
+    /// <summary>
+    /// Force an in-memory rebuild of the historical farming-lane chunks (tc -1,0 / -1,1 / -1,2)
+    /// so any pre-NaN-fix flat mesh from an earlier session is dropped and regenerated from the
+    /// corner grid (saved sparse lane heights + rolling noise for every unstamped corner). This
+    /// is the runtime-side of the lane-flatten purge: data files are already clean, so a plain
+    /// unload + re-dispatch makes the patch re-roll without touching saved files.
+    /// </summary>
+    public void ForceRebuildArenaLane()
+    {
+        ForceRebuildChunk(new TerrainChunkCoord(-1, 0));
+        ForceRebuildChunk(new TerrainChunkCoord(-1, 1));
+        ForceRebuildChunk(new TerrainChunkCoord(-1, 2));
+    }
+
+    /// <summary>
+    /// Unload one terrain chunk (persisting its dirty tiles atomically, dropping the in-memory
+    /// object + tile bookkeeping) then re-queue it for background generation via the SAME
+    /// BuildOrLoadChunk path as normal streaming.
+    /// </summary>
+    private void ForceRebuildChunk(TerrainChunkCoord tc)
+    {
+        UnloadChunk(tc);
+        EnqueueChunkIfNeeded(tc); // background regen: saved heights + NaN-missing corners
     }
 
     public void MarkDirty(ChunkCoord coord)

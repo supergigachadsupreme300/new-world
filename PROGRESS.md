@@ -23,6 +23,40 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
+## 1bk. NaN corner-grid bug (flat chunks) fixed in the streamer; arena-lane force-rebuild on New Game + F12
+
+Report (after `1bi` play-test): the arena-lane terrain (bench junction `tc_-1_0/-1_1/-1_2`) intermittently rendered
+**flat at height 0** even though the full-chunk flatten files were purged. Root cause was **not data** �?"
+all 11 `worlds/1337/tc_*.dat` files re-validated clean (`NWTC` v1, seed 1337, coords match filenames, rolling
+heights 11.7-15.5 in the sparse lanes). The bug was a **zero-vs-NaN corner sentinel bug** in
+`WorldStreamer.BuildOrLoadChunk`: `new float[gridSize, gridSize]` zero-fills every corner, and an unstamped
+corner then reads as "present" because `float.IsNaN(0f)` is false �?" so every corner without a saved mod
+collapsed to height 0 instead of regenerating from noise. The sparsest saves (smallest stamp count) showed
+the biggest flat plane.
+
+- **Fix (2i):** the corner grid (`WorldStreamer.cs:278`) is now **NaN-prefilled** in a pre-loop, so only
+  genuinely saved corners count as present and every other corner re-rolls from the 5-octave generator.
+- **Fix (2ii):** new **`WorldStreamer.ForceRebuildArenaLane()`** (public) unloads the 3 arena-lane chunks and
+  re-queues them through the same `UnloadChunk` + `EnqueueChunkIfNeeded` streaming path, so a stale flat
+  mesh is dropped and re-streamed from noise + saves. No save files are touched.
+- **Fix (2iii):** auto-called from `GameManager.StartNewGame()` (after bench respawn); plus an editor
+  hotkey **F12** in `GameManager.Update` (the `#if UNITY_EDITOR` F-key block; F9 is the blackmail ending,
+  so the force-rebuild took F12) to re-fire it live during play-test. `WorldStreamer` is resolved as a new
+  field in `GameManager.AutoResolveReferences` (streamer is created by `GameBootstrap`, not `GameManager`).
+
+### 1bk-status
+No CLI/Unity build �?" verified by **code review** (project rule): `float.NaN` prefill sits before the mod
+stamp loop and after the `IsNaN` guard contract; `ForceRebuildArenaLane` -> `ForceRebuildChunk` ->
+`UnloadChunk(TerrainChunkCoord)` + `EnqueueChunkIfNeeded` (both private methods confirmed present by literal
+scan); GameManager field + resolve + F12 hook + `StartNewGame` auto-call all parse inside the right methods
+(confirmed by line-number context). No `using` needed �?" both classes are in the global namespace.
+- Play-test after this: **(1)** New Game �?" arena-lane chunks roll with natural noise, no flat-0 patch at the
+  bench junction; **(2)** press **F12** in the editor �?" the lane rebuilds instantly without touching save
+  files; **(3)** deform a lane with the Earth tool, leave the area, return �?" the edited heights persist and
+  the rest of the chunk is noise, not a flat plane.
+
+---
+
 ## 1bi. Test ground = independent floating platform; legacy flatten saves purged; world terrain untouched
 
 Supersedes the "real procedural terrain" ranges of `1bf`/`1bg` (§2.7). The QA bench no longer tries to

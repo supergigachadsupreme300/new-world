@@ -113,6 +113,11 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   designed it — each tile with its natural rolling surface and dedicated noise sample, no more
   "one-surface test field". Sparse files (real Earth-spell/tool edits, e.g. freshly tilled lanes) are
   kept untouched.
+- **Corner sentinel is NaN, not zero (1bk):** `WorldStreamer.BuildOrLoadChunk` prefills the corner grid
+  with `float.NaN` so an unstamped corner regenerates from noise instead of reading `0f` as a valid
+  saved height (which collapsed whole chunks flat at height 0). `WorldStreamer.ForceRebuildArenaLane()`
+  unloads + re-queues the arena-lane chunks; it is auto-fired on New Game and via editor **F12**, and it
+  never writes to `tc_*.dat` files.
 - The whole bench sits flat on the platform's **single level top** (`PlatformTopY`): every lane —
   farming plots/tilled soil, livestock, enemies/dummies/boss, buildings, NPCs, weapon pedestals/racks,
   and the tool-pickup kit — keys its placement off that one height, so nothing hugs a slope and every
