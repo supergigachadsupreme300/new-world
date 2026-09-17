@@ -123,16 +123,17 @@ public class HitboxSystem : MonoBehaviour
     {
         float targetDef = 5f;
 
+        var stats = _owner != null ? _owner.GetComponentInParent<PlayerStats>() : null;
         var hitCtx = new DamageCalculator.HitContext
         {
-            AttackPower        = AttackPower,
+            AttackPower        = AttackPower * (stats != null ? stats.TreeAttackPowerMul : 1f),
             SkillMultiplier    = SkillMultiplier,
             Defense            = targetDef,
             DefenseMultiplier  = 1f,
             Type               = Type,
             Resistance         = Resistance ?? NeutralResistance.Instance,
             WeaknessMultiplier = 1f,
-            CriticalMultiplier = BackstabMultiplier(target),
+            CriticalMultiplier = BackstabMultiplier(target, stats) * RollCrit(stats),
         };
 
         var result = DamageCalculator.Calculate(hitCtx, blocked: false);
@@ -147,14 +148,16 @@ public class HitboxSystem : MonoBehaviour
         if (result.TotalDamage > 0f)
             DamageNumber.Spawn(target.transform.position, result.TotalDamage, Type);
 
-        // Knockback: apply a simple impulse to Rigidbody if present. Class StaggerResistMul
-        // (Brawler/Monk) softens how easily the player is shoved around.
+        // Knockback: apply a simple impulse to Rigidbody if present. Class + tree stagger resist
+        // (Brawler/Monk §3.2.1, Fortitude/Melee perks §3.3) soften how easily a player is shoved around.
         Rigidbody rb = target.attachedRigidbody;
         if (rb != null && KnockbackForce > 0f)
         {
             float force = KnockbackForce;
             var resist = target.GetComponent<ClassPassiveManager>();
             if (resist != null) force /= Mathf.Max(resist.StaggerResistMul, 0.1f);
+            var resistStats = target.GetComponentInParent<PlayerStats>();
+            if (resistStats != null) force /= Mathf.Max(resistStats.TreeStaggerResistMul, 0.1f);
 
             Vector3 dir = (target.transform.position - transform.position).normalized;
             dir.y = 0.3f; // slight upward pop
@@ -163,21 +166,34 @@ public class HitboxSystem : MonoBehaviour
     }
 
     /// <summary>
-    /// Class backstab multiplier (Rogue/Samurai §3.2.1): a player melee strike landing on an
-    /// enemy's back (enemy facing away) gains the accumulated BackstabMul as a critical
-    /// multiplier. Returns 1 when not applicable (no player owner, non-enemy target, frontal hit).
+    /// Class backstab multiplier (Rogue/Samurai §3.2.1) compounded with the tree backstab perk
+    /// (§3.3): a player melee strike landing on an enemy's back (enemy facing away) gains the
+    /// accumulated multiplier as critical damage. Returns 1 when not applicable (no player owner,
+    /// non-enemy target, frontal hit).
     /// </summary>
-    private float BackstabMultiplier(Collider target)
+    private float BackstabMultiplier(Collider target, PlayerStats stats)
     {
         if (_owner == null || target == null) return 1f;
-        var stats = _owner.GetComponentInParent<PlayerStats>();
         if (stats == null) return 1f;
         var passives = _owner.GetComponentInParent<ClassPassiveManager>();
         float backMul = passives != null ? passives.BackstabMul : 1f;
+        backMul *= stats.TreeBackstabMul;
         if (backMul <= 1f) return 1f;
         if (!target.TryGetComponent<EnemyController>(out _)) return 1f;
         Vector3 dirToOwner = (_owner.position - target.transform.position).normalized;
         return Vector3.Dot(target.transform.forward, dirToOwner) < 0f ? backMul : 1f;
+    }
+
+    /// <summary>
+    /// Tree crit roll (§3.3): physical swings gain a chance to deal critical damage. PlayerStats.CritChance
+    /// (base + Luck + perks) is a percent — rolled per hit. A crit deals 2× damage, further raised by the
+    /// crit-damage perk. Returns the multiplier (1 on a non-crit).
+    /// </summary>
+    private float RollCrit(PlayerStats stats)
+    {
+        if (stats == null) return 1f;
+        if (Random.value * 100f > stats.CritChance) return 1f;
+        return 2f * stats.TreeCritDamageMul;
     }
 
     // ── Gizmos ──────────────────────────────────────────────────────────────

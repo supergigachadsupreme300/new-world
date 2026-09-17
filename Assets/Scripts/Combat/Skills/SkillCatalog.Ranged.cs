@@ -61,11 +61,11 @@ public static partial class SkillCatalog
         /* ranged_steady children (all passive) */
         bank.L2["ranged_steady"] = new BranchSlot[]
         {
-            S("ranged_steady_eagle", "Eagle Eye", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
-            S("ranged_steady_hawk", "Hawk Sight", Buff(StatType.Dexterity, 5f), "Permanent +5 Dexterity.", passive: true),
-            S("ranged_steady_deadeye", "Dead Eye", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
-            S("ranged_steady_surefoot", "Sure Footed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("ranged_steady_farsight", "Farsight", Buff(StatType.Wisdom, 5f), "Permanent +5 Wisdom.", passive: true),
+            S("ranged_steady_eagle", "Eagle Eye", Perk(PassivePerkType.LootLuckPercent, 6f), "The eagle's gaze uncovers 6% more spoils.", passive: true),
+            S("ranged_steady_hawk", "Hawk Sight", Perk(PassivePerkType.CritChanceFlat, 3f), "A hawk's sharper sight grants 3% crit chance.", passive: true),
+            S("ranged_steady_deadeye", "Dead Eye", Perk(PassivePerkType.CritDamagePercent, 10f), "Cold, dead eyes deliver 10% deadlier criticals.", passive: true),
+            S("ranged_steady_surefoot", "Sure Footed", Perk(PassivePerkType.MovementSpeedPercent, 3f), "Steady footing lends 3% swifter movement.", passive: true),
+            S("ranged_steady_farsight", "Farsight", Perk(PassivePerkType.FocusRegenPercent, 7f), "Far-seeing focus regenerates 7% faster.", passive: true),
         };
 
         /* ranged_multishot children */

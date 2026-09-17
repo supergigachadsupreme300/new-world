@@ -8,7 +8,7 @@ using UnityEngine;
 /// EVERY node is individually designed: the branch/cluster tables in SkillCatalog.*.cs
 /// (partials of this class) spell out each skill's name, description and effect, so no tree slot
 /// is a generated placeholder. Each skill composes shared effects (composition model): passive
-/// skills use a <see cref="StatBuffEffect"/> with a zero <see cref="Cost"/>; castables use
+/// skills use a <see cref="PassivePerkEffect"/> with a zero <see cref="Cost"/>; castables use
 /// <see cref="DamageZoneEffect"/> / <see cref="SpellCastEffect"/> / <see cref="WeaponSkillEffect"/>.
 /// Skills are built in code (no .asset files) and carry their <see cref="DamageKind"/> element.
 /// </summary>
@@ -156,19 +156,20 @@ public static partial class SkillCatalog
     }
 
     private static StatBuffEffect Buff(StatType stat, float amount) => new StatBuffEffect { Stat = stat, Amount = amount };
+    private static PassivePerkEffect Perk(PassivePerkType perk, float amount) => new PassivePerkEffect { Perk = perk, Amount = amount };
     private static DamageZoneEffect Slash(float power, DamageType kind) => new DamageZoneEffect { Radius = 2.0f, BasePower = power, Type = kind };
     private static DamageZoneEffect Zone(float radius, float power, DamageType kind) => new DamageZoneEffect { Radius = radius, BasePower = power, Type = kind };
     private static ShieldBashEffect Bash(float power, DamageType kind, float knockback = 4f) => new ShieldBashEffect { BasePower = power, Type = kind, KnockbackForce = knockback };
 
     private static void BuildMelee(List<Skill> list)
     {
-        /* Passives (Stats) */
+        /* Passives (Perks) */
         Add(list, "melee_heavy_mastery", "Heavy Mastery", SkillType.Melee, true, None(), false, DamageType.Physical,
-            Buff(StatType.Strength, 3f), null, "Permanent +3 Strength.");
+            Perk(PassivePerkType.AttackPowerPercent, 5f), null, "Increases physical attack power by 5%.");
         Add(list, "melee_finesse", "Finesse", SkillType.Melee, true, None(), false, DamageType.Physical,
-            Buff(StatType.Dexterity, 3f), null, "Permanent +3 Dexterity.");
+            Perk(PassivePerkType.AttackSpeedPercent, 5f), null, "Increases attack speed by 5%.");
         Add(list, "melee_tough", "Tough Knuckles", SkillType.Melee, true, None(), false, DamageType.Physical,
-            Buff(StatType.Defense, 2f), P("melee_heavy_mastery"), "Permanent +2 Defense (requires Heavy Mastery).");
+            Perk(PassivePerkType.DamageReductionFlat, 0.02f), P("melee_heavy_mastery"), "Adds 2% damage reduction (requires Heavy Mastery).");
 
         /* Castables (Weapon arts / strike zones) */
         Add(list, "melee_cleave", "Cleave", SkillType.Melee, false, Stamina(10f), false, DamageType.Physical,
@@ -188,11 +189,11 @@ public static partial class SkillCatalog
     private static void BuildRanged(List<Skill> list)
     {
         Add(list, "ranged_marksman", "Marksman", SkillType.Ranged, true, None(), false, DamageType.Physical,
-            Buff(StatType.Dexterity, 4f), null, "Permanent +4 Dexterity (accuracy).");
+            Perk(PassivePerkType.CritChanceFlat, 5f), null, "Adds 5% critical-hit chance (physical attacks).");
         Add(list, "ranged_steady", "Steady Hands", SkillType.Ranged, true, None(), false, DamageType.Physical,
-            Buff(StatType.Luck, 2f), P("ranged_marksman"), "Permanent +2 Luck (requires Marksman).");
+            Perk(PassivePerkType.CritDamagePercent, 10f), P("ranged_marksman"), "Critical hits deal 10% extra damage (requires Marksman).");
         Add(list, "ranged_carry", "Swift Quiver", SkillType.Ranged, true, None(), false, DamageType.Physical,
-            Buff(StatType.AttackSpeed, 2f), null, "Permanent +2 Attack Speed.");
+            Perk(PassivePerkType.AttackSpeedPercent, 5f), null, "Increases attack speed by 5%.");
 
         Add(list, "ranged_pierce", "Piercing Shot", SkillType.Ranged, false, Stamina(12f), false, DamageType.Physical,
             Zone(1f, 20f, DamageType.Physical), null, "A precise piercing shot.");
@@ -213,11 +214,11 @@ public static partial class SkillCatalog
     private static void BuildMagic(List<Skill> list)
     {
         Add(list, "magic_focus", "Focal Mind", SkillType.Magic, true, None(), false, DamageType.Arcane,
-            Buff(StatType.Intelligence, 3f), null, "Permanent +3 Intelligence (max FP).");
+            Perk(PassivePerkType.FocusMaxPercent, 6f), null, "Increases maximum focus points by 6%.");
         Add(list, "magic_arcane", "Arcane Study", SkillType.Magic, true, None(), false, DamageType.Arcane,
-            Buff(StatType.Wisdom, 3f), null, "Permanent +3 Wisdom (spell power).");
+            Perk(PassivePerkType.SpellDamagePercent, 6f), null, "Increases magic attack power by 6%.");
         Add(list, "magic_manaflow", "Mana Flow", SkillType.Magic, true, None(), false, DamageType.Arcane,
-            Buff(StatType.Intelligence, 2f), P("magic_arcane"), "Permanent +2 Intelligence (regen/FP, requires Arcane Study).");
+            Perk(PassivePerkType.FocusMaxPercent, 4f), P("magic_arcane"), "Increases maximum focus points by 4% (requires Arcane Study).");
 
         Add(list, "magic_fireball", "Fireball", SkillType.Magic, false, Focus(15f), true, DamageType.Fire,
             Spell("magic_fireball_spell", "Fireball", DamageType.Fire, 25f, 15f, SpellDelivery.Projectile, 4f,
@@ -230,7 +231,7 @@ public static partial class SkillCatalog
         // Lightning line (§4.8): Storm Focus roots the lightning school as its OWN element now.
         // Chain Lightning is no longer a Fireball offshoot — it hangs from a dedicated lightning root.
         Add(list, "magic_lightning", "Storm Focus", SkillType.Magic, true, None(), false, DamageType.Lightning,
-            Buff(StatType.Intelligence, 3f), null, "Permanent +3 Intelligence (max FP), enfolding the storm.");
+            Perk(PassivePerkType.CooldownReductionPercent, 6f), null, "Spells ready 6% faster, enfolding the storm.");
         Add(list, "magic_chain", "Chain Lightning", SkillType.Magic, false, Focus(20f), true, DamageType.Lightning,
             Spell("magic_chain_spell", "Chain Lightning", DamageType.Lightning, 28f, 20f, SpellDelivery.Projectile, 5f,
                 statusEffect: StatusEffectType.Stagger, projectileShape: ProjectileShape.Bolt),
@@ -321,17 +322,17 @@ public static partial class SkillCatalog
     private static void BuildStealth(List<Skill> list)
     {
         Add(list, "stealth_sneak", "Silent Steps", SkillType.Stealth, true, None(), false, DamageType.Physical,
-            Buff(StatType.Dexterity, 3f), P("stealth_reflexes"), "Permanent +3 Dexterity (requires Quick Reflexes).");
+            Perk(PassivePerkType.BackstabPercent, 10f), P("stealth_reflexes"), "Backstabs deal 10% extra damage (requires Quick Reflexes).");
         Add(list, "stealth_shadow", "Shadow-Touched", SkillType.Stealth, true, None(), false, DamageType.Physical,
-            Buff(StatType.Speed, 2f), null, "Permanent +2 Speed.");
+            Perk(PassivePerkType.MovementSpeedPercent, 4f), null, "Increases movement speed by 4%.");
         Add(list, "stealth_reflexes", "Quick Reflexes", SkillType.Stealth, true, None(), false, DamageType.Physical,
-            Buff(StatType.Dexterity, 2f), null, "Permanent +2 Dexterity.");
+            Perk(PassivePerkType.CritChanceFlat, 4f), null, "Adds 4% critical-hit chance (physical attacks).");
         Add(list, "stealth_fox", "Sly Fox", SkillType.Stealth, true, None(), false, DamageType.Physical,
-            Buff(StatType.Luck, 3f), null, "Permanent +3 Luck.");
+            Perk(PassivePerkType.LootLuckPercent, 10f), null, "Increases loot quality by 10%.");
         Add(list, "stealth_nimble", "Nimble", SkillType.Stealth, true, None(), false, DamageType.Physical,
-            Buff(StatType.AttackSpeed, 2f), null, "Permanent +2 Attack Speed.");
+            Perk(PassivePerkType.AttackSpeedPercent, 4f), null, "Increases attack speed by 4%.");
         Add(list, "stealth_veil", "Veil of Night", SkillType.Stealth, true, None(), false, DamageType.Physical,
-            Buff(StatType.Dexterity, 4f), P("stealth_shadow"), "Deepens the darkness around you (requires Shadow-Touched).");
+            Perk(PassivePerkType.DamageReductionFlat, 0.03f), P("stealth_shadow"), "The dark softens blows — adds 3% damage reduction (requires Shadow-Touched).");
 
         Add(list, "stealth_shadowstep", "Shadow Step", SkillType.Stealth, false, Stamina(12f), true, DamageType.Dark,
             Zone(3f, 16f, DamageType.Dark), P("stealth_veil"), "Strike from the shadows.");
@@ -346,19 +347,19 @@ public static partial class SkillCatalog
     private static void BuildCrafting(List<Skill> list)
     {
         Add(list, "craft_hands", "Steady Hands", SkillType.Crafting, true, None(), false, DamageType.Physical,
-            Buff(StatType.Luck, 3f), null, "Permanent +3 Luck (crafting quality).");
+            Perk(PassivePerkType.LootLuckPercent, 8f), null, "Increases loot quality by 8% (gear and materials).");
         Add(list, "craft_knowledge", "Crafter's Knowledge", SkillType.Crafting, true, None(), false, DamageType.Physical,
-            Buff(StatType.Intelligence, 3f), null, "Permanent +3 Intelligence.");
+            Perk(PassivePerkType.FocusMaxPercent, 8f), null, "Increases maximum focus points by 8%.");
         Add(list, "craft_focus", "Deep Focus", SkillType.Crafting, true, None(), false, DamageType.Physical,
-            Buff(StatType.Wisdom, 2f), null, "Permanent +2 Wisdom.");
+            Perk(PassivePerkType.FocusRegenPercent, 10f), null, "Increases focus regeneration rate by 10%.");
         Add(list, "craft_endurance", "Endless Bending", SkillType.Crafting, true, None(), false, DamageType.Physical,
-            Buff(StatType.Endurance, 3f), null, "Permanent +3 Endurance.");
+            Perk(PassivePerkType.StaminaMaxPercent, 8f), null, "Increases maximum stamina by 8%.");
         Add(list, "craft_efficiency", "Efficient Work", SkillType.Crafting, true, None(), false, DamageType.Physical,
-            Buff(StatType.AttackSpeed, 2f), null, "Permanent +2 Attack Speed.");
+            Perk(PassivePerkType.AttackSpeedPercent, 5f), null, "Increases attack speed by 5%.");
         Add(list, "craft_purity", "Pure Materials", SkillType.Crafting, true, None(), false, DamageType.Physical,
-            Buff(StatType.Luck, 3f), P("craft_hands"), "Permanent +3 Luck (requires Steady Hands).");
+            Perk(PassivePerkType.LootLuckPercent, 6f), P("craft_hands"), "Increases loot quality by 6% (requires Steady Hands).");
         Add(list, "craft_refine", "Refinement", SkillType.Crafting, true, None(), false, DamageType.Physical,
-            Buff(StatType.Intelligence, 2f), P("craft_knowledge"), "Permanent +2 Intelligence (requires Crafter's Knowledge).");
+            Perk(PassivePerkType.FocusMaxPercent, 5f), P("craft_knowledge"), "Increases maximum focus points by 5% (requires Crafter's Knowledge).");
 
         Add(list, "craft_repair", "Field Repair", SkillType.Crafting, false, Stamina(8f), false, DamageType.Physical,
             Zone(1f, 8f, DamageType.Physical), P("craft_knowledge"), "A repair pulse (restores durability, requires Crafter's Knowledge).");
@@ -371,19 +372,19 @@ public static partial class SkillCatalog
     private static void BuildFortitude(List<Skill> list)
     {
         Add(list, "fort_health", "Tough Body", SkillType.Fortitude, true, None(), false, DamageType.Physical,
-            Buff(StatType.Health, 4f), null, "Permanent +4 Health.");
+            Perk(PassivePerkType.MaxHealthPercent, 8f), null, "Increases maximum health by 8%.");
         Add(list, "fort_vitality", "Vitality", SkillType.Fortitude, true, None(), false, DamageType.Physical,
-            Buff(StatType.Health, 4f), P("fort_health"), "Permanent +4 Health (requires Tough Body).");
+            Perk(PassivePerkType.MaxHealthPercent, 4f), P("fort_health"), "Increases maximum health by 4% (requires Tough Body).");
         Add(list, "fort_armor", "Iron Flesh", SkillType.Fortitude, true, None(), false, DamageType.Physical,
-            Buff(StatType.Defense, 4f), null, "Permanent +4 Defense.");
+            Perk(PassivePerkType.DamageReductionFlat, 0.04f), null, "Adds 4% damage reduction.");
         Add(list, "fort_stamina", "Relentless", SkillType.Fortitude, true, None(), false, DamageType.Physical,
-            Buff(StatType.Endurance, 4f), P("fort_armor"), "Permanent +4 Endurance (requires Iron Flesh).");
+            Perk(PassivePerkType.StaminaMaxPercent, 8f), P("fort_armor"), "Increases maximum stamina by 8% (requires Iron Flesh).");
         Add(list, "fort_recovery", "Fast Recovery", SkillType.Fortitude, true, None(), false, DamageType.Physical,
-            Buff(StatType.Health, 2f), null, "Permanent +2 Health (regen).");
+            Perk(PassivePerkType.HealthRegenPerSecond, 0.003f), null, "Regenerates 0.3% of max health per second.");
         Add(list, "fort_steadfast", "Steadfast", SkillType.Fortitude, true, None(), false, DamageType.Physical,
-            Buff(StatType.Defense, 3f), P("fort_armor"), "Permanent +3 Defense (requires Iron Flesh).");
+            Perk(PassivePerkType.StaggerResistPercent, 10f), P("fort_armor"), "Increases stagger resistance by 10% (requires Iron Flesh).");
         Add(list, "fort_bulwark", "Bulwark", SkillType.Fortitude, true, None(), false, DamageType.Physical,
-            Buff(StatType.Health, 3f), null, "Permanent +3 Health.");
+            Perk(PassivePerkType.MaxHealthPercent, 6f), null, "Increases maximum health by 6%.");
 
         Add(list, "fort_stoneskin", "Stoneskin", SkillType.Fortitude, false, Focus(12f), true, DamageType.Earth,
             Zone(2f, 14f, DamageType.Earth), null, "Harden your body; smash nearby ground.");

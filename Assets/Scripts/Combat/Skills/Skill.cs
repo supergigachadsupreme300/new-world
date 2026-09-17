@@ -7,7 +7,7 @@ using UnityEngine;
 /// ("what it does"), plus its <see cref="SkillType"/> source category and <see cref="DamageKind"/>
 /// (the element when the skill is offensive). Spells count as skills: a magic castable skill's
 /// effect is a <see cref="SpellCastEffect"/> over a <see cref="SpellData"/>. Passive skills use a
-/// <see cref="StatBuffEffect"/> and a zero <see cref="Cost"/>.
+/// <see cref="PassivePerkEffect"/> and a zero <see cref="Cost"/>.
 ///
 /// Data-only ScriptableObject (built at runtime by <c>SkillCatalog</c>), consistent with the
 /// data-driven design. Execution is delegated to the composed effect — this class never branches.

@@ -374,9 +374,10 @@ public sealed class SkillProfile : MonoBehaviour
             return false;
         }
 
-        // Economy from leveling shaves the cooldown (floor 50%).
+        // Economy from leveling shaves the cooldown (floor 50%), tree cooldown-reduction perks §3.3 too.
         if (costCtx.Caster != null && skill.SkillCost.Cooldown > 0f)
-            costCtx.Caster.StartCooldown(skill.CooldownKey, skill.SkillCost.Cooldown * costCtx.EcoScale);
+            costCtx.Caster.StartCooldown(skill.CooldownKey, skill.SkillCost.Cooldown * costCtx.EcoScale
+                * (costCtx.Stats != null ? costCtx.Stats.CooldownReductionMult : 1f));
 
         skill.Effect?.Execute(costCtx);
         GainUse(skill, costCtx);

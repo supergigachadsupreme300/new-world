@@ -471,13 +471,16 @@ public class CombatController : MonoBehaviour
 
     /// <summary>Receive stamina drain from an incoming blocked hit. True while the block holds;
     /// when stamina can't cover the cost the guard breaks (block released) and false is returned.
-    /// Class BlockingMul reduces the drain (stronger guard, less stamina eaten per hit); an
-    /// equipped shield's BlockStaminaDrainMult multiplies it again (cheaper guard).</summary>
+    /// Class BlockingMul (§3.2.1) and the tree block-efficiency perk (§3.3) reduce the drain
+    /// (stronger guard, less stamina eaten per hit); an equipped shield's BlockStaminaDrainMult
+    /// multiplies it again (cheaper guard).</summary>
     public bool OnBlockedHit(float incomingDamage)
     {
         if (!IsBlocking) return false;
         var passives = GetComponent<ClassPassiveManager>();
         float blocking = passives != null ? Mathf.Max(passives.BlockingMul, 0.1f) : 1f;
+        var stats = GetComponent<PlayerStats>();
+        if (stats != null) blocking *= Mathf.Max(stats.TreeBlockEfficiencyMul, 0.1f);
         float drain = (BlockDrainPerHit + incomingDamage * 0.2f) / blocking * BlockDrainMultiplier;
         if (_stamina == null || !_stamina.TrySpend(drain))
         {

@@ -92,7 +92,7 @@ public class SpellCaster : MonoBehaviour
         {
             _regenTimer -= Time.deltaTime;
             if (_regenTimer <= 0f)
-                CurrentFp = Mathf.Min(CurrentFp + RegenRate * Time.deltaTime, max);
+                CurrentFp = Mathf.Min(CurrentFp + RegenRate * FocusRegenMult() * Time.deltaTime, max);
         }
 
         // Tick cooldowns every frame regardless of FP level, so spells/arts are
@@ -117,6 +117,9 @@ public class SpellCaster : MonoBehaviour
 
     private float MaxFocusPoints() =>
         Stats != null ? Mathf.Max(Stats.MaxFocusPoints, 0f) : MaxFp;
+
+    /// <summary>Focus-regen multiplier: tree perks (§3.3) folded over the base regen rate.</summary>
+    private float FocusRegenMult() => Stats != null ? Stats.FocusRegenMul : 1f;
 
     /// <summary>True if the given FP amount is currently available.</summary>
     public bool HasFocusPoints(float amount) => CurrentFp >= amount;
@@ -242,9 +245,11 @@ public class SpellCaster : MonoBehaviour
         DamageResult result = Execute(spell, origin, mods, charge);
         OnCastComplete?.Invoke(spell, result);
 
-        // Apply cooldown (modulated by weapon CooldownMod). Fast casts skip it — FP is the limiter.
+        // Apply cooldown (modulated by weapon CooldownMod and tree cooldown-reduction perks §3.3).
+        // Fast casts skip it — FP is the limiter.
         if (!fast)
-            _cooldowns[spell.id] = spell.Cooldown * Mathf.Max(mods.CooldownMult, 0.05f);
+            _cooldowns[spell.id] = spell.Cooldown * Mathf.Max(mods.CooldownMult, 0.05f)
+                * (Stats != null ? Stats.CooldownReductionMult : 1f);
         _activeCasts = Mathf.Max(0, _activeCasts - 1);
     }
 

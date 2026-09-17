@@ -12,9 +12,30 @@ public class PlayerController : MonoBehaviour, IHealable
     public float Gravity = -9.81f;
     public float JumpHeight = 1.5f;
     public int HP = 100;
-    public int MaxHP = 100;
+
+    /// <summary>Max health (HP cap). Reads the current <see cref="PlayerStats"/> maximum
+    /// (Health-scaled + tree perks §3.3) when available; falls back to 100 before stats are rigged.</summary>
+    public int MaxHP
+    {
+        get
+        {
+            var stats = GetComponent<PlayerStats>();
+            return stats != null ? Mathf.Max(1, Mathf.RoundToInt(stats.MaxHP)) : 100;
+        }
+    }
+
     public float Stamina = 1000f;
-    public float MaxStamina = 1000f;
+
+    /// <summary>Max stamina (stamina cap). Reads the current <see cref="PlayerStats"/> maximum
+    /// (Endurance-scaled + tree perks §3.3) when available; falls back to 1000 before stats are rigged.</summary>
+    public float MaxStamina
+    {
+        get
+        {
+            var stats = GetComponent<PlayerStats>();
+            return stats != null ? stats.MaxStamina : 1000f;
+        }
+    }
     public float StaminaRegenRate = 4f;
     public float StaminaRegenMultiplier = 1f;
     public float StaminaRegenModifier = 1f;
@@ -329,6 +350,10 @@ public class PlayerController : MonoBehaviour, IHealable
         // Aura buff: flat damage reduction from class aura skills (clamped to sane bounds).
         if (_classBuffDamageReduction > 0f && Time.time < _classBuffUntil)
             amount = Mathf.RoundToInt(amount * (1f - Mathf.Min(_classBuffDamageReduction, 0.5f)));
+        // Skill-tree perks: flat damage reduction stacks on top (§3.3).
+        var pStats = GetComponent<PlayerStats>();
+        if (pStats != null)
+            amount -= Mathf.RoundToInt(amount * Mathf.Min(pStats.DamageReductionPerkFlat, 0.45f));
         // Melee guard: blocking absorbs 80% of the hit while stamina holds; if stamina runs out
         // the guard breaks and the full hit lands.
         var combat = GetComponent<CombatController>();
@@ -472,9 +497,12 @@ public class PlayerController : MonoBehaviour, IHealable
             ((Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed) ||
              (GameInput.IsMobile && MobileInputController.IsHeld("sprint"))) &&
             Stamina > 0f && mag > 0f;
+        var playerStats = GetComponent<PlayerStats>();
+        float moveSpeedPerkMult = playerStats != null && playerStats.BaseMoveSpeed > 0f
+            ? playerStats.MaxMoveSpeed / playerStats.BaseMoveSpeed : 1f;
         float speed = IsRiding
             ? RideSpeed * _waterSpeedMul
-            : (flying ? FlightSpeed : MoveSpeed * _waterSpeedMul * (sprint ? SprintMultiplier : 1f));
+            : (flying ? FlightSpeed : MoveSpeed * _waterSpeedMul * (sprint ? SprintMultiplier : 1f) * moveSpeedPerkMult);
 
         bool dodgePressed = !dialogBlocked && !IsRiding && !flying && _controller != null && _controller.isGrounded &&
             ((Keyboard.current != null && Keyboard.current.cKey.wasPressedThisFrame) ||
@@ -567,12 +595,19 @@ public class PlayerController : MonoBehaviour, IHealable
             if (passives != null)
                 regenMul *= passives.StaminaRegenMul;
 
+            // Skill-tree perk: stamina-regen % (§3.3).
+            var pStats = GetComponent<PlayerStats>();
+            if (pStats != null)
+                regenMul *= pStats.StaminaRegenMul;
+
             Stamina = Mathf.Min(MaxStamina, Stamina + StaminaRegenRate * regenMul * Time.deltaTime);
 
             // Base HP regen + class passive HP regen (Monk "Meditation", Taoist "Yi Symbol", aura buffs).
             float hpRegenFraction = 2f * (Stamina / MaxStamina) * Time.deltaTime;
             if (passives != null)
                 hpRegenFraction += passives.HpRegenPerSecond * MaxHP * Time.deltaTime;
+            if (pStats != null)
+                hpRegenFraction += pStats.HealthRegenPerSecondFlat * MaxHP * Time.deltaTime;
             if (Time.time < _classBuffUntil && _classBuffHpRegenPerSecond > 0f)
                 hpRegenFraction += _classBuffHpRegenPerSecond * MaxHP * Time.deltaTime;
             if (hpRegenFraction > 0f && HP < MaxHP)

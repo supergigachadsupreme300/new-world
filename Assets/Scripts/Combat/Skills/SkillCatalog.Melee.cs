@@ -12,7 +12,7 @@ public static partial class SkillCatalog
             A("melee_tough"),
             S("melee_heavy_sunder", "Sunder", Slash(24f, DamageType.Physical), "A blow that tears through armor.", Stamina(14f)),
             S("melee_heavy_crag", "Crag Breaker", Slash(26f, DamageType.Earth), "A downward smash that cracks the ground.", Stamina(16f), DamageType.Earth, true),
-            S("melee_heavy_goliath", "Goliath Stance", Buff(StatType.Endurance, 3f), "Permanent +3 Endurance.", passive: true),
+            S("melee_heavy_goliath", "Goliath Stance", Perk(PassivePerkType.MaxHealthPercent, 5f), "Fills the blood with iron resolve. +5% max health.", passive: true),
             S("melee_heavy_skullcrush", "Skullcrush", Zone(2f, 22f, DamageType.Physical), "A devastating overhead strike.", Stamina(16f)),
         };
 
@@ -23,7 +23,7 @@ public static partial class SkillCatalog
             S("melee_finesse_expose", "Expose Weakness", Slash(22f, DamageType.Physical), "A surgical strike that finds the weak seam.", Stamina(12f)),
             S("melee_finesse_flick", "Lightning Flick", Slash(26f, DamageType.Lightning), "A blade flicker as fast as lightning.", Stamina(14f), DamageType.Lightning, true),
             S("melee_finesse_mirage", "Mirage Blade", Slash(24f, DamageType.Dark), "A feint that cuts from a shadow after-image.", Stamina(16f), DamageType.Dark, true),
-            S("melee_finesse_rhythm", "Blade Rhythm", Buff(StatType.Dexterity, 3f), "Permanent +3 Dexterity.", passive: true),
+            S("melee_finesse_rhythm", "Blade Rhythm", Perk(PassivePerkType.AttackSpeedPercent, 3f), "Each cut flows into the next like a heartbeat. +3% attack speed.", passive: true),
         };
 
         // Root: melee_cleave (active, Stamina 10, Slash 18 Physical)
@@ -51,11 +51,11 @@ public static partial class SkillCatalog
         /* melee_tough children (all passive) */
         bank.L2["melee_tough"] = new BranchSlot[]
         {
-            S("melee_tough_resolute", "Resolute Guard", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("melee_tough_siege", "Siegebreaker", Buff(StatType.Health, 5f), "Permanent +5 HP.", passive: true),
-            S("melee_tough_titan", "Titan Plate", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("melee_tough_ironclad", "Ironclad", Buff(StatType.Defense, 6f), "Permanent +6 Defense.", passive: true),
-            S("melee_tough_fortress", "Fortress Core", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
+            S("melee_tough_resolute", "Resolute Guard", Perk(PassivePerkType.BlockEfficiencyPercent, 6f), "Raises a guard that lets nothing pass. +6% block efficiency.", passive: true),
+            S("melee_tough_siege", "Siegebreaker", Perk(PassivePerkType.MaxHealthPercent, 5f), "Body tempered like a fortress wall. +5% max health.", passive: true),
+            S("melee_tough_titan", "Titan Plate", Perk(PassivePerkType.DamageReductionFlat, 0.02f), "Skin hardens like titan-scale armor. +2% damage reduction.", passive: true),
+            S("melee_tough_ironclad", "Ironclad", Perk(PassivePerkType.StaggerResistPercent, 8f), "An immovable mass that cannot be buckled. +8% stagger resistance.", passive: true),
+            S("melee_tough_fortress", "Fortress Core", Perk(PassivePerkType.AttackPowerPercent, 5f), "A core of iron forged in siege fire. +5% attack power.", passive: true),
         };
 
         /* melee_heavy_sunder children */
@@ -81,11 +81,11 @@ public static partial class SkillCatalog
         /* melee_heavy_goliath children (all passive) */
         bank.L2["melee_heavy_goliath"] = new BranchSlot[]
         {
-            S("melee_goliath_resilience", "Resilience of Stone", Buff(StatType.Health, 5f), "Permanent +5 HP.", passive: true),
-            S("melee_goliath_fortress", "Living Fortress", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("melee_goliath_molten", "Molten Core", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("melee_goliath_will", "Iron Will", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("melee_goliath_unbroken", "Unbroken", Buff(StatType.Health, 6f), "Permanent +6 HP.", passive: true),
+            S("melee_goliath_resilience", "Resilience of Stone", Perk(PassivePerkType.HealthRegenPerSecond, 0.002f), "Wounds close like stone reforms. Regenerates 0.2% max HP/s.", passive: true),
+            S("melee_goliath_fortress", "Living Fortress", Perk(PassivePerkType.DamageReductionFlat, 0.02f), "Flesh becomes an impenetrable wall. +2% damage reduction.", passive: true),
+            S("melee_goliath_molten", "Molten Core", Perk(PassivePerkType.AttackPowerPercent, 4f), "A core of molten fury fuels each blow. +4% attack power.", passive: true),
+            S("melee_goliath_will", "Iron Will", Perk(PassivePerkType.StaggerResistPercent, 7f), "Unyielding will that refuses to bend. +7% stagger resistance.", passive: true),
+            S("melee_goliath_unbroken", "Unbroken", Perk(PassivePerkType.MaxHealthPercent, 6f), "A body that refuses to fall. +6% max health.", passive: true),
         };
 
         /* melee_heavy_skullcrush children */
@@ -141,11 +141,11 @@ public static partial class SkillCatalog
         /* melee_finesse_rhythm children (all passive) */
         bank.L2["melee_finesse_rhythm"] = new BranchSlot[]
         {
-            S("melee_rhythm_tempo", "Blade Tempo", Buff(StatType.Dexterity, 5f), "Permanent +5 Dexterity.", passive: true),
-            S("melee_rhythm_grace", "Combat Grace", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("melee_rhythm_reflex", "Refined Reflex", Buff(StatType.Dexterity, 5f), "Permanent +5 Dexterity.", passive: true),
-            S("melee_rhythm_fluid", "Fluid Motion", Buff(StatType.AttackSpeed, 5f), "Permanent +5 Attack Speed.", passive: true),
-            S("melee_rhythm_precision", "Absolute Precision", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
+            S("melee_rhythm_tempo", "Blade Tempo", Perk(PassivePerkType.CritChanceFlat, 3f), "Each strike lands with surgical timing. +3% critical hit chance.", passive: true),
+            S("melee_rhythm_grace", "Combat Grace", Perk(PassivePerkType.MovementSpeedPercent, 3f), "Feet glide across the battlefield like smoke. +3% movement speed.", passive: true),
+            S("melee_rhythm_reflex", "Refined Reflex", Perk(PassivePerkType.ParryWindowPercent, 7f), "Reflexes honed to deflect a striking viper. +7% parry window.", passive: true),
+            S("melee_rhythm_fluid", "Fluid Motion", Perk(PassivePerkType.AttackSpeedPercent, 4f), "No wasted motion, only seamless flow. +4% attack speed.", passive: true),
+            S("melee_rhythm_precision", "Absolute Precision", Perk(PassivePerkType.CritDamagePercent, 10f), "Every critical strike lands with crushing force. +10% critical damage.", passive: true),
         };
 
         /* melee_whirlwind children */
