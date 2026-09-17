@@ -624,6 +624,10 @@ Arcane→**no status** (pure force), Wind→Knockback, Holy→heals (§3.8), Ear
   (Rockfall) pit the ground under each boulder; Summons (the golem line) erupt a small raised rock
   field where the construct tears out of the earth; the root Stone Shard projectile carves its
   crater where the shard strikes — never at the caster's footing.
+  **Beyond Earth, every magic projectile leaves a small impact dent where it strikes**
+  (`SpellEffect.ResolveProjectileImpact` — fireball, frost bolt, arcane bolt, lightning, dark,
+  wind blade, water bolt, etc. carve a small Crater under the impact point), so bolts visibly
+  disturb the terrain; Earth's craters stay larger and depth-notable (the school's signature).
 
 ### 3.8 Spell-Casting Pipeline
 
@@ -655,11 +659,14 @@ A spell is a data asset carrying:
   terrain modification). Raised shapes (Ring/Spikes/Wall/Pillar) skip corners inside a small
   keep-out ring (~0.9 m) around the player's feet to prevent the ground from growing directly
   under the capsule and violently depenetrating it on the next physics step ("teleport" on repeat
-  casts). **Crater is also the Earth projectile signature**: a Crater-shaped projectile (the root
+  casts). **Crater is the Earth projectile signature**: a Crater-shaped projectile (the root
   Stone Shard) carves its crater where the shard **strikes** —
   `SpellEffect.ResolveProjectileImpact` down-probes the ground at impact and deforms it there, so
   a cast never dents the caster's own feet; the pit is permanent and depth-clamped (never a
-  bottomless void). All edits survive
+  bottomless void). **Every non-Earth magic projectile (fire/ice/arcane/lightning/dark/wind/water)
+  also leaves a small uniform impact dent** (a fixed ~1.4 m Crater where the bolt strikes) through
+  the same path, so any bolt visibly disturbs the terrain — Earth retains the bigger, spell-scaled
+  craters and the raised shapes (Ring/Spikes/Wall/Pillar) as its signature. All edits survive
   forever (§2.6 saves them per chunk). Earth spells use terrain shapes instead of a status effect.
   **(current build) every damaging Earth spell carries a terrain shape, regardless of delivery:**
   Zone impacts (Boulder Crash, Crash, Tectonic → Crater; Aftershock, the tremor ring family, Spire

@@ -247,16 +247,22 @@ public class SpellEffect : MonoBehaviour
         if (_spell != null && _spell.ImpactEffectPrefab != null)
             Instantiate(_spell.ImpactEffectPrefab, transform.position, Quaternion.identity);
 
-        // Earth projectiles (TerrainShape.Crater) carve their crater where the shard strikes:
-        // probe the ground beneath the impact point and deform it there (depth-clamped — never a
-        // void). The carve never happens at the caster's own feet at cast time (FireProjectile
+        // Every magic projectile dents the ground where it strikes. Earth projectiles
+        // (TerrainShape.Crater — the school signature) carve a full crater scaled to the
+        // spell radius; every other projectile leaves a small uniform impact dent so any
+        // bolt (fireball, frost, arcane, lightning, dark, wind, water…) visibly disturbs
+        // the terrain. Both probe the ground beneath the impact (depth-clamped — never a
+        // void) and never carve at the caster's own feet at cast time (FireProjectile
         // only spawns the bolt; no launch-site pit).
-        if (_spell != null && _spell.TerrainShape == TerrainShape.Crater)
+        if (_spell != null)
         {
+            float dentRadius = 1.4f;
+            if (_spell.TerrainShape == TerrainShape.Crater)
+                dentRadius = Mathf.Max(1.2f, _spell.Radius);
             Vector3 probe = transform.position + Vector3.up * 0.1f;
             if (Physics.Raycast(probe, Vector3.down, out RaycastHit groundHit, 30f))
-                TerrainDeformer.Apply(groundHit.point,
-                    Mathf.Max(1.2f, _spell.Radius) * _radiusMult, TerrainShape.Crater, _dir);
+                TerrainDeformer.Apply(groundHit.point, dentRadius * _radiusMult,
+                    TerrainShape.Crater, _dir);
         }
 
         Destroy(gameObject);

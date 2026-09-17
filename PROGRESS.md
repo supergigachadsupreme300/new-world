@@ -23,6 +23,35 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
+## 1bp. Every magic projectile dents the ground at impact (not just Earth's Stone Shard)
+
+User: "also add impact dent to other magic projectile". Follow-up to `1bm` (Earth Shard carves at
+impact). Previously only `TerrainShape.Crater` projectiles deformed the ground; fire / ice /
+arcane / lightning / dark / wind / water bolts struck terrain with zero visual disturbance.
+
+- **`SpellEffect.ResolveProjectileImpact`** — replaced the Earth-only carve with a universal one:
+  every magic projectile down-probes the ground beneath its impact point and carves a **Crater**.
+  Earth projectiles (`TerrainShape.Crater`) keep the full spell-scaled crater
+  (`Mathf.Max(1.2, Radius)·radiusMult`); every other projectile leaves a small uniform **~1.4 m
+  dent** (`1.4f·radiusMult`). Same depth-clamp / no-void behavior, same "never at the caster's
+  launch feet" guarantee; `_radiusMult` (charge) still scales both.
+- **Docs** — `game-design.md` §3.7 (signature rule adds the universal projectile dent line) and
+  §3.8 (terrain-shape bullet: Crater stays Earth's signature, others get a small dent);
+  `magic-skills.md` Projectile delivery row notes the impact dent.
+
+### 1bp-status
+No CLI/Unity build — verified by **code review** (project rule). Reasoning: the Earth branch keeps
+its exact radius formula; the new `dentRadius` default (1.4) applies to every non-Earth projectile
+since no magic spell carries a non-Crater `TerrainShape` on a projectile delivery (Zone/Storm/
+Summon spells never reach `ResolveProjectileImpact`); the ground `Physics.Raycast` + 
+`TerrainDeformer.Apply(Crater)` matches the proven `1bm` path, so chunk rebuild/re-cook/save
+(`tc_*.dat`) and Crater floor clamp all hold unchanged.
+- Play-test after this: (1) cast **Fireball / Frost Bolt / Arcane Bolt / Chain Lightning / Dark
+  Bolt / Wind Blade / Water Bolt** at world terrain — each leaves a small permanent ~1.4 m dent
+  where the bolt lands; (2) **Stone Shard** still carves its bigger spell-scaled crater; (3) no
+  dent ever appears at the caster's feet at cast time; (4) reload / walk away and back — the new
+  dents persist (they ride the normal chunk-save path).
+
 ## 1bo. Earth Wall repeat casts no longer "shrink the world" — raised shapes are height-capped
 
 User: "from the 2nd using onward the world got shrinking when using earth wall". Follow-up to the
