@@ -83,6 +83,20 @@ public class SpellStorm : MonoBehaviour
         Vector3 at = RandomStrikePoint();
         SpawnStrikeFx(at);
         ResolveStrike(at);
+        DeformGround(at);
+    }
+
+    /// <summary>Earth storms (TerrainShape, e.g. Rockfall) dent the ground under each strike —
+    /// a permanent pit where every boulder lands (§3.8). Only runs for spells that carry a
+    /// terrain shape; other elements no-op in TerrainDeformer.</summary>
+    private void DeformGround(Vector3 at)
+    {
+        if (_spell == null || _spell.TerrainShape == TerrainShape.None) return;
+        Vector3 ground = at;
+        if (Physics.Raycast(at + Vector3.up * 0.5f, Vector3.down, out RaycastHit hit, 10f))
+            ground = hit.point;
+        float strikeRadius = Mathf.Max(_spell.Radius * 0.55f, 1.2f);
+        TerrainDeformer.Apply(ground, strikeRadius, _spell.TerrainShape);
     }
 
     /// <summary>Largely prefer striking near an enemy inside the area; otherwise a random point.</summary>

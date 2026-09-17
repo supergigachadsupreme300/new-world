@@ -339,6 +339,13 @@ public class SpellCaster : MonoBehaviour
     private DamageResult ResolveSummon(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale, float range)
     {
         Vector3 center = GroundTarget(pos, fwd, range);
+
+        // Earth summons (the golem line) erupt a small rock field where the construct rises
+        // (§3.8). Other schools carry no terrain shape and no-op in TerrainDeformer. A modest
+        // radius so the bump reads as the construct breaking the surface, not a wide reshape.
+        if (spell.TerrainShape != TerrainShape.None)
+            TerrainDeformer.Apply(center, Mathf.Min(spell.Radius * 0.4f, 2.5f), spell.TerrainShape, fwd);
+
         var go = new GameObject("SpellSummon");
         go.transform.position = center;
         go.AddComponent<SpellSummon>().Initialize(this, spell, power, sizeScale);

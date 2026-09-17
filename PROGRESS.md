@@ -23,6 +23,58 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
+## 1bl. Every Earth spell now deforms the ground on impact — dents and raises across all deliveries
+
+User: "i want the earth magic to have impact on the terrain" (confirmed scope: every earth spell dents
+the ground; some also raise). Earth reshaping already existed (1az/1bb) but only for Zone spells that
+explicitly carried a `terrainShape` — Boulder Crash, Crash, Rockfall (Storm), Tectonic, Aftershock and
+the whole golem/summon line hit the ground with **zero** deformation. Now **every damaging Earth spell
+carries a terrain shape and all four delivery paths feed `TerrainDeformer` → `WorldStreamer.DeformAt`**
+(permanent, depth-clamped, persisted per chunk, §2.6).
+
+- **`SkillCatalog.Magic.cs`** — shape assignments so the ground reacts to each spell:
+  - Dent (**Crater**): **Boulder Crash**, **Crash**, **Rockfall** (Storm), **Tectonic**.
+  - Raise (**Ring**): **Aftershock** (joins the quake family's rings).
+  - Raise (**Spikes**): **Stone Effigy / Stone Sentinel / Stone Guardian / Colossus** (rocks erupt
+    where the construct tears out of the earth). Descriptions updated to match. Earth-school comment
+    now states the "every spell deforms" rule.
+- **`SpellStorm.cs`** — new `DeformGround(at)`: each strike (Rockfall) down-rayscasts to the real
+  ground and carves a small Crater (`max(Radius·0.55, 1.2)`) exactly where each boulder lands;
+  gated on `_spell.TerrainShape != None` so non-earth storms stay purely visual-elements (no-op in
+  `TerrainDeformer` anyway).
+- **`SpellCaster.ResolveSummon`** — erupts a modest rock field at the ground-target point
+  (`min(Radius·0.4, 2.5)`, Spikes) when the spell carries a shape — the golem line "rises" out of
+  real ground. Zone spells need no new code — `ResolveZone` already calls `TerrainDeformer.Apply`
+  for every shape-tagged zone; the root **Stone Shard** projectile keeps its launch tear-pit crater.
+- **Delivery coverage now**: Zone (Crater/Ring/Spikes/Wall/Pillar) + Storm (per-strike Crater) +
+  Summon (Spikes eruption) + Projectile (Stone Shard tear). Every Earth magic cast leaves a mark.
+- **Docs** — `game-design.md` §3.7 signature line and §3.8 terrain-shape bullet updated ("current
+  build" notes per-delivery coverage + depth-clamp everywhere); `magic-skills.md` Earth rows updated
+  with `terrain:` tags.
+- Out of scope (unchanged): Earth-damage skills in the **Fortitude / Melee / Shield** trees
+  (Stoneskin line, Tremor Slam, Earthwarden, Grim Wall…) are physical strikes, not magic-school
+  spells — they keep their existing no-terrain behavior.
+
+### 1bl-status
+No CLI/Unity build — verified by **code review** (project rule): all 9 edited `Spell(...)` factory
+calls parse with the existing `terrainShape:` parameter (SkillCatalog.cs:130 default `None`);
+`SpellStorm.DeformGround` gated on `_spell.TerrainShape != None`, raycast `at + up·0.5 → down·10`
+lands near the strike (strikes centre at ground-level; `_spell` null is already guarded earlier in
+the component); `TerrainDeformer.Apply` is a static helper callable from both MonoBehaviour
+coroutines (main thread) and SpellCaster — no import added (global namespace); `ResolveSummon` uses
+`spell.Radius` (turret range 6) × 0.4 clamped to 2.5 → small bump, no wide reshape; all touched
+files brace-balanced. Earth spell count / tree layout unchanged (no new skills, no retags).
+- Play-test after this (step off the QA platform onto the **world terrain** — the floating slab is
+  not the heightmap, so casts while standing on it carve invisibly below): (1) cast **Boulder Crash
+  / Crash / Tectonic** — a wide permanent crater dents the aim point; (2) cast **Rockfall** — the
+  whole area ends pocked with small craters under each landing boulder; (3) cast **Aftershock** — a
+  stone ring rears up; (4) summon **Stone Effigy / Sentinel / Guardian / Colossus** — a small rock
+  field erupts where each construct rises; (5) reload / walk away and back — every dent and raise
+  persists from the `tc_*.dat` chunk files; (6) confirm repeated casts never grind a void (the
+  Crater floor clamp holds).
+
+---
+
 ## 1bk. NaN corner-grid bug (flat chunks) fixed in the streamer; arena-lane force-rebuild on New Game + F12
 
 Report (after `1bi` play-test): the arena-lane terrain (bench junction `tc_-1_0/-1_1/-1_2`) intermittently rendered

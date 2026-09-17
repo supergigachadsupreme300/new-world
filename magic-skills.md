@@ -333,18 +333,18 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
 
 ### Stone Shard (magic_earth)
 
-- **Boulder Crash** (`magic_earth_boulder`) - Active (Earth) - power 28, FP 18, cd 5s, radius 3, knockback 2.5 | A tumbling boulder that flattens and shoves foes.
-  - **Crash** (`magic_earth_boulder_crash`) - Active (Earth) - power 32, FP 22, cd 6s, radius 3.2, knockback 3 | A colossal boulder that crashes into the enemy.
+- **Boulder Crash** (`magic_earth_boulder`) - Active (Earth) - power 28, FP 18, cd 5s, radius 3, knockback 2.5, terrain:Crater | A tumbling boulder that flattens and shoves foes, carving a dent where it lands.
+  - **Crash** (`magic_earth_boulder_crash`) - Active (Earth) - power 32, FP 22, cd 6s, radius 3.2, knockback 3, terrain:Crater | A colossal boulder that crashes into the enemy, denting the ground.
   - **Boulderweight** (`magic_earth_boulder_weight`) - + 5 Strength (passive) | Permanent +5 Strength.
   - **Landslide** (`magic_earth_boulder_landslide`) - Active (Earth) - power 34, FP 24, cd 7s, radius 3.6, knockback 3, terrain:Wall | An earth wall rears up along the cast and crashes onto foes.
-  - **Rockfall** (`magic_earth_boulder_fall`) - Active (Earth) - power 30, FP 20, cd 6s, range 9, radius 3.2, dur 3s | Boulders rain down over the area.
-  - **Tectonic** (`magic_earth_boulder_tectonic`) - Active (Earth) - power 36, FP 26, cd 8s, radius 3.8, knockback 3.5 | A tectonic blow that shatters the ground.
+  - **Rockfall** (`magic_earth_boulder_fall`) - Active (Earth) - power 30, FP 20, cd 6s, range 9, radius 3.2, dur 3s, terrain:Crater | Boulders rain down over the area, pitting the ground with craters.
+  - **Tectonic** (`magic_earth_boulder_tectonic`) - Active (Earth) - power 36, FP 26, cd 8s, radius 3.8, knockback 3.5, terrain:Crater | A tectonic blow that shatters the ground, carving a wide crater.
   - **Meteor** (`magic_earth_meteor`, deep, requires Boulder Crash) - Active (Earth) - power 40, FP 28, cd 9s, range 12, radius 4, knockback 4, terrain:Crater | A meteor plunges from the sky, carving a crater into the ground.
 - **Tremor** (`magic_earth_quake`) - Active (Earth) - power 26, FP 20, cd 6s, radius 2.8, terrain:Ring | The ground ripples — a stone ring rears up around the impact.
   - **Faultline** (`magic_earth_quake_faultline`) - Active (Earth) - power 30, FP 22, cd 6s, radius 3, terrain:Ring | A second stone ring rears up around the impact.
   - **Stable Ground** (`magic_earth_quake_stable`) - + 5 Defense (passive) | Permanent +5 Defense.
   - **Epicenter** (`magic_earth_quake_epicenter`) - Active (Earth) - power 34, FP 24, cd 7s, radius 3.4, terrain:Ring | The ground heaves in a rising ring.
-  - **Aftershock** (`magic_earth_quake_aftermath`) - Active (Earth) - power 26, FP 18, cd 4s, radius 2.8, knockback 2 | A second tremor that tosses foes.
+  - **Aftershock** (`magic_earth_quake_aftermath`) - Active (Earth) - power 26, FP 18, cd 4s, radius 2.8, knockback 2, terrain:Ring | A second tremor that tosses foes, rearing a ring of stone.
   - **Seismic Ring** (`magic_earth_quake_seismic`) - Active (Earth) - power 32, FP 24, cd 7s, radius 3.2, terrain:Ring | A towering stone circle that closes in on foes.
 - **Spire Field** (`magic_earth_spires`) - Active (Earth) - power 24, FP 18, cd 5s, radius 3, terrain:Spikes | Stone spires erupt from beneath the target area.
   - **Spike Burst** (`magic_earth_spires_spike`) - Active (Earth) - power 30, FP 20, cd 5s, radius 3, terrain:Spikes | Spikes erupt in a violent burst.
@@ -358,10 +358,10 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
   - **Stone Heart** (`magic_earth_bulwark_stone`) - + 5 Strength (passive) | Permanent +5 Strength.
   - **Earth Ward** (`magic_earth_bulwark_ward`) - + 6 Defense (passive) | Permanent +6 Defense.
   - **Ironhide** (`magic_earth_bulwark_iron`) - + 5 Health (passive) | Permanent +5 Health.
-- **Stone Effigy** (`magic_earth_golem`) - Active (Earth) - power 28, FP 20, cd 5s, range 8, radius 6, dur 6s | Summon a stone effigy that flings rocks at nearby foes.
-  - **Stone Sentinel** (`magic_earth_golem_sentinel`) - Active (Earth) - power 32, FP 22, cd 6s, range 8, radius 6, dur 6s | Summon a vigilant stone sentinel.
+- **Stone Effigy** (`magic_earth_golem`) - Active (Earth) - power 28, FP 20, cd 5s, range 8, radius 6, dur 6s, terrain:Spikes | Summon a stone effigy that erupts from the ground and flings rocks at nearby foes.
+  - **Stone Sentinel** (`magic_earth_golem_sentinel`) - Active (Earth) - power 32, FP 22, cd 6s, range 8, radius 6, dur 6s, terrain:Spikes | Summon a vigilant stone sentinel that erupts from the ground.
   - **Mason's Craft** (`magic_earth_golem_mason`) - + 5 Defense (passive) | Permanent +5 Defense.
-  - **Stone Guardian** (`magic_earth_golem_guardian`) - Active (Earth) - power 34, FP 24, cd 7s, range 8, radius 6, dur 7s | Summon a hulking stone guardian.
+  - **Stone Guardian** (`magic_earth_golem_guardian`) - Active (Earth) - power 34, FP 24, cd 7s, range 8, radius 6, dur 7s, terrain:Spikes | Summon a hulking stone guardian that tears out of the earth.
   - **Effigy Core** (`magic_earth_golem_core`) - + 5 Health (passive) | Permanent +5 Health.
-  - **Colossus** (`magic_earth_golem_colossus`) - Active (Earth) - power 36, FP 26, cd 8s, range 8, radius 6, dur 8s | Summon a towering colossus of living rock.
+  - **Colossus** (`magic_earth_golem_colossus`) - Active (Earth) - power 36, FP 26, cd 8s, range 8, radius 6, dur 8s, terrain:Spikes | Summon a towering colossus of living rock that heaves out of the ground.
 

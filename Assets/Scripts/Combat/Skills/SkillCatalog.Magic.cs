@@ -90,15 +90,18 @@ public static partial class SkillCatalog
 
         // Root: magic_earth (active, Focus 15, projectile earth; signature = terrain reshaping).
         // Earth spells carry NO status effect — they hit like falling rock (heavy knockback) and
-        // reshape the ground itself (TerrainShape → TerrainDeformer): rings that circle the
-        // impact, spires that erupt beneath the target.
+        // EVERY damaging Earth spell carries a TerrainShape → TerrainDeformer, so the ground
+        // itself reacts on impact: rings that circle the impact, spires that erupt beneath it,
+        // walls/pillars that rear up, and craters dug where boulders and meteors land. Zone
+        // impacts deform at the aim point, Storm strikes (Rockfall) dent under each boulder,
+        // and Summons (the golem line) erupt a small rock field where the construct rises.
         bank.L1["magic_earth"] = new BranchSlot[]
         {
-            S("magic_earth_boulder", "Boulder Crash", Spell("magic_earth_boulder_spell", "Boulder Crash", DamageType.Earth, 28f, 18f, SpellDelivery.Zone, 5f, deliveryRadius: 3f, knockback: 2.5f), "A tumbling boulder that flattens and shoves foes.", Focus(18f), DamageType.Earth, true),
+            S("magic_earth_boulder", "Boulder Crash", Spell("magic_earth_boulder_spell", "Boulder Crash", DamageType.Earth, 28f, 18f, SpellDelivery.Zone, 5f, deliveryRadius: 3f, knockback: 2.5f, terrainShape: TerrainShape.Crater), "A tumbling boulder that flattens and shoves foes, carving a dent where it lands.", Focus(18f), DamageType.Earth, true),
             S("magic_earth_quake", "Tremor", Spell("magic_earth_quake_spell", "Tremor", DamageType.Earth, 26f, 20f, SpellDelivery.Zone, 6f, deliveryRadius: 2.8f, terrainShape: TerrainShape.Ring), "The ground ripples — a stone ring rears up around the impact.", Focus(20f), DamageType.Earth, true),
             S("magic_earth_spires", "Spire Field", Spell("magic_earth_spires_spell", "Spire Field", DamageType.Earth, 24f, 18f, SpellDelivery.Zone, 5f, deliveryRadius: 3f, terrainShape: TerrainShape.Spikes), "Stone spires erupt from beneath the target area.", Focus(18f), DamageType.Earth, true),
             S("magic_earth_bulwark", "Earth Bulwark", Buff(StatType.Defense, 3f), "Permanent +3 Defense.", passive: true),
-            S("magic_earth_golem", "Stone Effigy", Spell("magic_earth_golem_spell", "Stone Effigy", DamageType.Earth, 28f, 20f, SpellDelivery.Summon, 5f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, projectileSpeed: 18f), "Summon a stone effigy that flings rocks at nearby foes.", Focus(20f), DamageType.Earth, true),
+            S("magic_earth_golem", "Stone Effigy", Spell("magic_earth_golem_spell", "Stone Effigy", DamageType.Earth, 28f, 20f, SpellDelivery.Summon, 5f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, projectileSpeed: 18f, terrainShape: TerrainShape.Spikes), "Summon a stone effigy that erupts from the ground and flings rocks at nearby foes.", Focus(20f), DamageType.Earth, true),
         };
 
         /* ──────────────── L2 (banks per L1 parent — up to 5 children each) ─────────── */
@@ -496,11 +499,11 @@ public static partial class SkillCatalog
         /* magic_earth_boulder children */
         bank.L2["magic_earth_boulder"] = new BranchSlot[]
         {
-            S("magic_earth_boulder_crash", "Crash", Spell("magic_earth_boulder_crash_spell", "Crash", DamageType.Earth, 32f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3.2f, knockback: 3f), "A colossal boulder that crashes into the enemy.", Focus(22f), DamageType.Earth, true),
+            S("magic_earth_boulder_crash", "Crash", Spell("magic_earth_boulder_crash_spell", "Crash", DamageType.Earth, 32f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3.2f, knockback: 3f, terrainShape: TerrainShape.Crater), "A colossal boulder that crashes into the enemy, denting the ground.", Focus(22f), DamageType.Earth, true),
             S("magic_earth_boulder_weight", "Boulderweight", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
             S("magic_earth_boulder_landslide", "Landslide", Spell("magic_earth_boulder_landslide_spell", "Landslide", DamageType.Earth, 34f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.6f, knockback: 3f, terrainShape: TerrainShape.Wall), "An earth wall rears up along the cast and crashes onto foes.", Focus(24f), DamageType.Earth, true),
-            S("magic_earth_boulder_fall", "Rockfall", Spell("magic_earth_boulder_fall_spell", "Rockfall", DamageType.Earth, 30f, 20f, SpellDelivery.Storm, 6f, deliveryRange: 9f, deliveryRadius: 3.2f, duration: 3f), "Boulders rain down over the area.", Focus(20f), DamageType.Earth, true),
-            S("magic_earth_boulder_tectonic", "Tectonic", Spell("magic_earth_boulder_tectonic_spell", "Tectonic", DamageType.Earth, 36f, 26f, SpellDelivery.Zone, 8f, deliveryRadius: 3.8f, knockback: 3.5f), "A tectonic blow that shatters the ground.", Focus(26f), DamageType.Earth, true),
+            S("magic_earth_boulder_fall", "Rockfall", Spell("magic_earth_boulder_fall_spell", "Rockfall", DamageType.Earth, 30f, 20f, SpellDelivery.Storm, 6f, deliveryRange: 9f, deliveryRadius: 3.2f, duration: 3f, terrainShape: TerrainShape.Crater), "Boulders rain down over the area, pitting the ground with craters.", Focus(20f), DamageType.Earth, true),
+            S("magic_earth_boulder_tectonic", "Tectonic", Spell("magic_earth_boulder_tectonic_spell", "Tectonic", DamageType.Earth, 36f, 26f, SpellDelivery.Zone, 8f, deliveryRadius: 3.8f, knockback: 3.5f, terrainShape: TerrainShape.Crater), "A tectonic blow that shatters the ground, carving a wide crater.", Focus(26f), DamageType.Earth, true),
         };
 
         /* magic_earth_quake children (Ring terrain shaping escalates the stone ring) */
@@ -509,7 +512,7 @@ public static partial class SkillCatalog
             S("magic_earth_quake_faultline", "Faultline", Spell("magic_earth_quake_faultline_spell", "Faultline", DamageType.Earth, 30f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, terrainShape: TerrainShape.Ring), "A second stone ring rears up around the impact.", Focus(22f), DamageType.Earth, true),
             S("magic_earth_quake_stable", "Stable Ground", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
             S("magic_earth_quake_epicenter", "Epicenter", Spell("magic_earth_quake_epicenter_spell", "Epicenter", DamageType.Earth, 34f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.4f, terrainShape: TerrainShape.Ring), "The ground heaves in a rising ring.", Focus(24f), DamageType.Earth, true),
-            S("magic_earth_quake_aftermath", "Aftershock", Spell("magic_earth_quake_aftermath_spell", "Aftershock", DamageType.Earth, 26f, 18f, SpellDelivery.Zone, 4f, deliveryRadius: 2.8f, knockback: 2f), "A second tremor that tosses foes.", Focus(18f), DamageType.Earth, true),
+            S("magic_earth_quake_aftermath", "Aftershock", Spell("magic_earth_quake_aftermath_spell", "Aftershock", DamageType.Earth, 26f, 18f, SpellDelivery.Zone, 4f, deliveryRadius: 2.8f, knockback: 2f, terrainShape: TerrainShape.Ring), "A second tremor that tosses foes, rearing a ring of stone.", Focus(18f), DamageType.Earth, true),
             S("magic_earth_quake_seismic", "Seismic Ring", Spell("magic_earth_quake_seismic_spell", "Seismic Ring", DamageType.Earth, 32f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.2f, terrainShape: TerrainShape.Ring), "A towering stone circle that closes in on foes.", Focus(24f), DamageType.Earth, true),
         };
 
@@ -536,11 +539,11 @@ public static partial class SkillCatalog
         /* magic_earth_golem children */
         bank.L2["magic_earth_golem"] = new BranchSlot[]
         {
-            S("magic_earth_golem_sentinel", "Stone Sentinel", Spell("magic_earth_golem_sentinel_spell", "Stone Sentinel", DamageType.Earth, 32f, 22f, SpellDelivery.Summon, 6f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, projectileSpeed: 18f), "Summon a vigilant stone sentinel.", Focus(22f), DamageType.Earth, true),
+            S("magic_earth_golem_sentinel", "Stone Sentinel", Spell("magic_earth_golem_sentinel_spell", "Stone Sentinel", DamageType.Earth, 32f, 22f, SpellDelivery.Summon, 6f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, projectileSpeed: 18f, terrainShape: TerrainShape.Spikes), "Summon a vigilant stone sentinel that erupts from the ground.", Focus(22f), DamageType.Earth, true),
             S("magic_earth_golem_mason", "Mason's Craft", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("magic_earth_golem_guardian", "Stone Guardian", Spell("magic_earth_golem_guardian_spell", "Stone Guardian", DamageType.Earth, 34f, 24f, SpellDelivery.Summon, 7f, deliveryRange: 8f, deliveryRadius: 6f, duration: 7f, projectileSpeed: 18f), "Summon a hulking stone guardian.", Focus(24f), DamageType.Earth, true),
+            S("magic_earth_golem_guardian", "Stone Guardian", Spell("magic_earth_golem_guardian_spell", "Stone Guardian", DamageType.Earth, 34f, 24f, SpellDelivery.Summon, 7f, deliveryRange: 8f, deliveryRadius: 6f, duration: 7f, projectileSpeed: 18f, terrainShape: TerrainShape.Spikes), "Summon a hulking stone guardian that tears out of the earth.", Focus(24f), DamageType.Earth, true),
             S("magic_earth_golem_core", "Effigy Core", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("magic_earth_golem_colossus", "Colossus", Spell("magic_earth_golem_colossus_spell", "Colossus", DamageType.Earth, 36f, 26f, SpellDelivery.Summon, 8f, deliveryRange: 8f, deliveryRadius: 6f, duration: 8f, projectileSpeed: 18f), "Summon a towering colossus of living rock.", Focus(26f), DamageType.Earth, true),
+            S("magic_earth_golem_colossus", "Colossus", Spell("magic_earth_golem_colossus_spell", "Colossus", DamageType.Earth, 36f, 26f, SpellDelivery.Summon, 8f, deliveryRange: 8f, deliveryRadius: 6f, duration: 8f, projectileSpeed: 18f, terrainShape: TerrainShape.Spikes), "Summon a towering colossus of living rock that heaves out of the ground.", Focus(26f), DamageType.Earth, true),
         };
     }
 }
