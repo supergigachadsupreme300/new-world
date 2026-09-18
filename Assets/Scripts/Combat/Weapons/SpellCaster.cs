@@ -551,7 +551,7 @@ public class SpellCaster : MonoBehaviour
             case ProjectileShape.Dart: return Dart("Dart", shader, color);
             case ProjectileShape.Debris: return Debris("RockDebris", shader);
             default: return Orb("Orb", PrimitiveType.Sphere, Vector3.one * 0.22f, shader, color,
-                OrbFx.Mode.Plain);
+                OrbFx.Mode.Ember); // fireball: fast warm flicker, not the plain gentle breathe
         }
     }
 
@@ -594,7 +594,9 @@ public class SpellCaster : MonoBehaviour
             Destroy(col);
         shard.transform.localScale = new Vector3(0.12f, 0.38f, 0.12f);
         shard.transform.localRotation = Quaternion.Euler(0f, 45f, 0f);
-        shard.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
+        // Translucent glassy frost chip: "Sprites/Default" blends via the material color alpha.
+        Color glass = new Color(color.r, color.g, color.b, 0.5f);
+        shard.GetComponent<MeshRenderer>().material = new Material(shader) { color = glass };
         shard.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Shard;
         return shard.transform;
     }
@@ -709,12 +711,14 @@ public class SpellCaster : MonoBehaviour
     private static Transform Blade(string name, Shader shader, Color color)
     {
         var root = new GameObject(name).transform;
+        // Translucent ethereal wind: "Sprites/Default" blends via the material color alpha.
+        Color air = new Color(color.r, color.g, color.b, 0.4f);
         var a = Primitive(PrimitiveType.Cube, "BladeA", root);
         a.localScale = new Vector3(0.42f, 0.05f, 0.03f);
-        Materialize(a, shader, color);
+        Materialize(a, shader, air);
         var b = Primitive(PrimitiveType.Cube, "BladeB", root);
         b.localScale = new Vector3(0.05f, 0.42f, 0.03f);
-        Materialize(b, shader, color);
+        Materialize(b, shader, air);
         root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Swirl;
         return root;
     }
@@ -789,7 +793,7 @@ public class SpellCaster : MonoBehaviour
     {
         switch (type)
         {
-            case DamageType.Fire: return 90f;
+            case DamageType.Fire: return 150f;
             case DamageType.Ice: return 45f;
             case DamageType.Lightning: return 120f;
             case DamageType.Dark: return 30f;
@@ -828,7 +832,7 @@ public class SpellCaster : MonoBehaviour
     {
         switch (type)
         {
-            case DamageType.Fire: return 0.09f;
+            case DamageType.Fire: return 0.12f;
             case DamageType.Ice: return 0.06f;
             case DamageType.Lightning: return 0.04f;
             case DamageType.Dark: return 0.14f;
@@ -842,7 +846,7 @@ public class SpellCaster : MonoBehaviour
         switch (type)
         {
             case DamageType.Lightning: return 300;
-            case DamageType.Fire: return 400;
+            case DamageType.Fire: return 700;
             default: return 250;
         }
     }

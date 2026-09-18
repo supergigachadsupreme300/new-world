@@ -1,7 +1,10 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cp` (the Earth
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cq` (Wind/Ice
+projectile visuals are now translucent — the frost chip is a glassy alpha-0.5 diamond, the wind
+blade an ethereal alpha-0.4 cross — and the fireball body flickers in `Ember` mode with a much
+denser/ larger ember exhaust), `1cp` (the Earth
 school's Stone Shard projectile is now a **tumbling cluster of grey rock debris** styled on the
 world's breakable-rock chunks, and the carved crater throws up a short debris burst at impact),
 `1co` (every race
@@ -53,6 +56,51 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1cq. Translucent Wind/Ice + denser Fire projectiles
+
+Request: **"wind, ice magic projectile should be transparent, cover fire magic projectile with more
+particle to be more fiery."** All changes are in the procedural projectile-visual pipeline
+(`SpellCaster.cs`); no new assets. The `"Sprites/Default"` shader already supports alpha blending
+via `material.color.a`, so no shader or pipeline work was needed.
+
+### In-flight changes (`SpellCaster.cs`)
+- **Wind Blade** (`Blade` builder): both cross-cube primitives now get a translucent color
+  `Color(r, g, b, 0.4f)` — the "Sprites/Default" shader blends with the alpha channel, making
+  the blade read as a ghost of air rather than a solid painted prop.
+- **Ice Shard** (`Shard` builder): the diamond-cube's material now gets alpha 0.5
+  (`new Color(r, g, b, 0.5f)`) — semi-transparent glassy crystal, so the frost chip reads as ice
+  rather than plastic.
+- **Fireball Sphere** (`Orb` via the `default` case): `OrbFx.Mode.Plain` → `Mode.Ember` — the
+  fireball body now flickers with a fast warm two-sine irregular pulse (same animation as the
+  Comet shape), instead of the previous gentle breathe.
+
+### Exhaust particle changes (per-element particle tuning methods)
+- `EmissionRate(Fire)`: 90 → 150 particles/s (already the densest non-Lightning stream).
+- `MaxParticles(Fire)`: 400 → 700 (sustains the dense exhaust during longer flights).
+- `StartSize(Fire)`: 0.09 → 0.12 (noticeably larger ember motes).
+
+### 1cq-status
+- **`SpellCaster.cs`** — `Blade(...)` translucent alpha 0.4; `Shard(...)` translucent alpha 0.5;
+  `BuildProjectileBody` default sphere → `Mode.Ember`; `EmissionRate(Fire)` 90→150,
+  `MaxParticles(Fire)` 400→700, `StartSize(Fire)` 0.09→0.12. Signature changes: none public —
+  all are private static local to the visual builder.
+- **`game-design.md`** — §3.8 Projectile Shapes table: **Sphere** row updated to flicker (Ember) +
+  dense exhaust; **Shard** row = translucent glass; **Blade** row = translucent (alpha ~0.4);
+  paragraph below the table notes translucency depends on `"Sprites/Default"` shader.
+- **`magic-skills.md`** — matching shape-table rows updated.
+- **Verification**: no CLI/Unity build per project rule 3 — confirmed that `"Sprites/Default"` honours
+  alpha via existing `CCZone`/`CastingCircle` precedent; grepped the full pipeline to ensure no
+  other material site on Wind/Ice shapes would override alpha; confirmed Comet/Scorch/Burn use
+  the dedicated `Comet(...)` builder (untouched).
+- **Open questions**: none. *Play-test note*: cast Wind Blade + Ice Lance / Chill Touch / Frost Bolt
+  to confirm the translucent bodies are visible and readable in-flight (not too transparent);
+  cast Fireball, Scorch, and Comet to confirm the denser, larger ember exhaust and the flickering
+  fireball body.
+
+### Play-test (pending, user)
 
 ---
 

@@ -804,12 +804,12 @@ color swap, so each spell looks like its name and not a recolor of the same ball
 | Shape | Rendered as |
 |---|---|
 | **Bolt** | Jagged segmented bolt along the flight axis (the same segment technique as the thunder-storm event's `SpawnJaggedBolt`), fast crackle pulse — used by every spell with "Bolt" in the name: Frost Bolt, Chain Lightning, Dark Bolt, Volt, Fork/Leap/Arc/Volt Bolt, Fury Bolt, Shadow/Doom Bolt, Void Rend, and the class-flavored Arcane Bolt. |
-| **Sphere** | Classic orb (soft breathe) — school default / the Fireball. |
-| **Shard** | Diamond crystal that drills forward (spin + breathe) — frost chips (the Ice school default; Chill Touch). |
+| **Sphere** | Classic orb on a fast warm **flicker** (`OrbFx.Ember`) with the densest ember exhaust in the game — school default / the Fireball (Scorch/Burn/Comet use the Comet shape instead). |
+| **Shard** | Diamond crystal in **translucent glass** that drills forward (spin + breathe) — frost chips (the Ice school default; Chill Touch). |
 | **Debris** | Tumbling cluster of grey rock chunks (mixed sizes, random rotations, one leading chunk) that spins around random axes in flight — the Earth school's Stone Shard. Dressed like the world's breakable-rock debris (`Color.Lerp(gray, black, rand)` cubes) with two chunks dusted in the earthy tan accent so it reads as magic; a short debris burst also kicks out of the crater at impact. |
 | **Lance** | Long straight pointed spike (shaft + tip), heavier than a bolt — Ice Lance, Frost Pierce, Glacial Impale. |
 | **Spear** | Tapered spear: dark shaft + broad diamond head — Shadow Spear. |
-| **Blade** | Flat cross-blade that spins in its own plane — Wind Blade, Razor Blade, Wind Scissor, Laceration. |
+| **Blade** | Flat cross-blade that spins in its own plane, **translucent** (alpha ~0.4 so wind reads as a ghost of air) — Wind Blade, Razor Blade, Wind Scissor, Laceration. |
 | **Splash** | Oblate droplet with a trailing splash of smaller drops — Water Bolt, Tidal Surge. |
 | **Comet** | Bright core + fading streak tail (ember flicker) — Scorch, Burn, Comet, Frost Bite. |
 | **Missile** | Small clump of darts; **homing** — `SpellEffect.UpdateMissileTargeting` probes the **current trajectory** every frame and prioritizes the target on the flight path (the foe it is about to fly into), otherwise keeps chasing the locked target's last spot (or locks the nearest foe ahead if never locked), steering smoothly at 240°/s so the flight bends; no target = flies straight. Arcane Missiles, Chill Soul. |
@@ -819,7 +819,9 @@ color swap, so each spell looks like its name and not a recolor of the same ball
 Earth→Debris, Physical→Dart, everything else→Sphere. Builders live in `SpellCaster.BuildProjectileBody`
 (primitives + `OrbFx` pulse modes: Plain/Ember/Shard/Bolt/Wisp/Swirl/Tumble), colored per damage type and
 layered with `AttachProjectileParticles` trails; turret summons render the projectile through the same
-call (`SpellSummon` passes the turret spell's shape).
+call (`SpellSummon` passes the turret spell's shape). Translucency (Wind/Ice) is set via
+`material.color.a` and relies on the `"Sprites/Default"` shader blending (the `"Unlit/Color"`
+fallback would render opaque).
 
 #### Casting Flow
 

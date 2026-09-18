@@ -15,6 +15,43 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1cq — Translucent Wind/Ice + denser Fire projectiles (RESOLVED — shipped in `1cq`)
+
+### VERDICT
+Wind/Ice bodies made translucent by passing a lower alpha through the existing `"Sprites/Default"`
+material; Fire made "hotter" by switching the sphere to `OrbFx.Ember` flicker and roughly doubling
+the ember exhaust (`EmissionRate`/`MaxParticles` up, `StartSize` up). No new shaders or assets.
+
+### Hypotheses & evidence
+- **H1 — translucency needs a shader change.** REJECTED. `Sprites/Default` (the projectile body
+  shader) already blends with `SrcAlpha/OneMinusSrcAlpha`, proven by existing semi-transparent
+  visuals: `CCZone` (alpha 0.4 disc), `CastingCircle`, `AoeAimPreview`, `ProjectilePathPreview` —
+  all just set `material.color.a`. So the fix is purely data: give the color alpha.
+- **H2 — set alpha in `DamageNumber.ColorFor`.** REJECTED — it drives ~30 call sites (bodies,
+  particles, UI, skill FX across many files). Overriding alpha inside the two builders keeps Wind/
+  Ice translucent without tinting damage popups or other effects.
+- **H3 — the `Unlit/Color` fallback would kill transparency.** Confirmed finding, not a fix here:
+  `Materialize` picks `Sprites/Default` first and only falls back to the opaque `Unlit/Color` if the
+  former is missing (it never is in practice). Recorded as a doc caveat, matching how the rest of
+  the codebase (RingFader, CastingCircle) already relies on this.
+- **H4 — Ice/Lance share geometry?** Ice's *Lance* shape (Ice Lance/Frost Pierce, explicit `Lance`
+  builder) is a separate, solid spike — kept opaque. Only the Auto `Shard` frost chip becomes
+  glassy, which matches "ice magic should be transparent" for the generic chip while named lances
+  keep their heft.
+- **H5 — fire = bump just one number.** REJECTED — a single bump reads as a minor density change.
+  Combined three levers (rate ×1.67, cap ×1.75 for sustained flight, size ×1.33) + a flickery body
+  gives the obvious "more fiery" read. Kept the existing additive `Particles/Additive` exhaust and
+  the gradient fade (rates seen as alpha/brightness of the glow).
+- **H6 — Comet/Scorch/Burn also need the boost.** Already Ember-flickered AND have their own dense
+  `Comet(...)` body; exhaust boost applies automatically (per-element tuning is shared by all fire
+  delivery visuals). No per-shape change needed.
+
+### Known limits (noted, not fixed)
+- Translucency is Z-write-off sprite blending: two projectiles crossing can overdraw, but projectiles
+  are transient and fast — acceptable, same as friendly/enemy cast circles today.
+
+---
+
 ## 1cp — Earth magic projectile as rock debris (RESOLVED — shipped in `1cp`)
 
 ### VERDICT (read this first)

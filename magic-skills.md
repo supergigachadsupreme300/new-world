@@ -35,12 +35,12 @@ Every spell that uses the **Projectile** delivery has a `projectileShape:` visua
 | Shape | Built as | Used by name |
 |---|---|---|
 | **Bolt** | Jagged segmented bolt along the flight axis, crackling afterimages (same technique as the thunder-event lightning, `SpawnJaggedBolt`) | every spell with "Bolt" in the name, e.g. Frost Bolt, Chain Lightning, Volt, Fork/Leap/Doom/Fury Bolt |
-| **Sphere** | Classic orb with elemental pulse | fireball/plain orbs when the name gives no better shape |
-| **Shard** | Elongated crystal that slowly drills/spins along the axis | frost chips (Chill Touch) |
+| **Sphere** | Classic orb on a fast warm flicker (`Ember` mode) with the densest ember exhaust in the game — fireball / plain orbs when the name gives no better shape |
+| **Shard** | Elongated translucent glassy crystal (alpha ~0.5) that slowly drills/spins along the axis | frost chips (Chill Touch) |
 | **Debris** | Tumbling cluster of grey rock chunks (mixed sizes, random spins, one leader) - the Earth school's "Stone Shard", dressed like world rock-debris; a short debris burst kicks up from the crater at impact | Stone Shard |
 | **Lance** | Long thin spear of ice, heavier and faster than a bolt | Ice Lance, Frost Pierce, Glacial Impale |
 | **Spear** | Thick dark spear, the heaviest of the linear shapes | Shadow Spear |
-| **Blade** | Flat cross-blade that spins in-plane with a shimmer envelope | Wind Blade, Razor Blade, Wind Scissor, Laceration |
+| **Blade** | Flat translucent cross-blade (alpha ~0.4) that spins in-plane with a shimmer envelope | Wind Blade, Razor Blade, Wind Scissor, Laceration |
 | **Splash** | Rolling surge with a splash envelope that soaks on contact | Tidal Surge |
 | **Comet** | Streaking fire with a trailing ember tail | Scorch, Burn, Comet, Frost Bite |
 | **Missile** | Small dart with a soft halo; **homing** - re-evaluates its trajectory every frame and prioritizes the target that ends up on the flight path, bending to chase it | Arcane Missiles, Chill Soul |
