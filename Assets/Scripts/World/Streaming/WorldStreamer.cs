@@ -58,6 +58,20 @@ public class WorldStreamer : MonoBehaviour
     private float _timer;
     private const float PollInterval = 0.1f;
 
+    /// <summary>Plausible terrain-height band (5-octave noise max ≈ ±63.5 m + ≤ ~4.4 m
+    /// deformation headroom). Rejects garbage from a corrupt/non-finite chunk save so it can
+    /// never reach a chunk mesh + MeshCollider — a stray ±1000s vertex poisons the physics
+    /// broadphase and the Character Controller depenetrates the player thousands of metres on
+    /// one step.</summary>
+    private const float MaxTerrainHeight = 200f;
+
+    /// <summary>True when a height value is finite and inside the plausible terrain band.
+    /// Invalid values are treated as missing corners so they regenerate from noise.</summary>
+    private static bool IsSaneHeight(float h)
+    {
+        return float.IsFinite(h) && h > -MaxTerrainHeight && h < MaxTerrainHeight;
+    }
+
     public IReadOnlyDictionary<ChunkCoord, ChunkObject> Loaded => _loadedObjects;
 
     /// <summary>Loaded terrain chunks keyed by chunk coord (one object per chunk).</summary>
@@ -285,10 +299,12 @@ public class WorldStreamer : MonoBehaviour
                 ChunkTileMod m = kv.Value;
                 if (m.Heights == null || m.Heights.Length < ChunkData.VertexCount)
                     continue;
-                corners[m.LocalX, m.LocalZ + 1] = m.Heights[0];     // NW
-                corners[m.LocalX + 1, m.LocalZ + 1] = m.Heights[1]; // NE
-                corners[m.LocalX + 1, m.LocalZ] = m.Heights[2];     // SE
-                corners[m.LocalX, m.LocalZ] = m.Heights[3];         // SW
+                // Only stamp finite, in-band heights; any other value leaves the corner as
+                // NaN so the regeneration loop below re-rolls it from noise (never garbage).
+                corners[m.LocalX, m.LocalZ + 1] = IsSaneHeight(m.Heights[0]) ? m.Heights[0] : float.NaN;     // NW
+                corners[m.LocalX + 1, m.LocalZ + 1] = IsSaneHeight(m.Heights[1]) ? m.Heights[1] : float.NaN; // NE
+                corners[m.LocalX + 1, m.LocalZ] = IsSaneHeight(m.Heights[2]) ? m.Heights[2] : float.NaN;     // SE
+                corners[m.LocalX, m.LocalZ] = IsSaneHeight(m.Heights[3]) ? m.Heights[3] : float.NaN;         // SW
             }
         }
         for (int gz = 0; gz < gridSize; gz++)
@@ -316,8 +332,12 @@ public class WorldStreamer : MonoBehaviour
                 {
                     if (m.Heights != null && m.Heights.Length >= ChunkData.VertexCount)
                     {
-                        for (int k = 0; k < ChunkData.VertexCount; k++)
-                            data.Heights[k] = m.Heights[k];
+                        // Reject any garbage slot — fall back to the (already-sanitized/
+                        // regenerated) corner grid so the high value never enters the mesh.
+                        data.Heights[0] = IsSaneHeight(m.Heights[0]) ? m.Heights[0] : corners[tx, tz + 1];     // NW
+                        data.Heights[1] = IsSaneHeight(m.Heights[1]) ? m.Heights[1] : corners[tx + 1, tz + 1]; // NE
+                        data.Heights[2] = IsSaneHeight(m.Heights[2]) ? m.Heights[2] : corners[tx + 1, tz];     // SE
+                        data.Heights[3] = IsSaneHeight(m.Heights[3]) ? m.Heights[3] : corners[tx, tz];          // SW
                     }
                     data.Version = m.Version;
                     data.HasModifications = true;

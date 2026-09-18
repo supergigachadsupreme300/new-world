@@ -98,6 +98,7 @@ public class ChunkObject : MonoBehaviour
                 for (int k = 0; k < 4; k++)
                 {
                     Vector3 p = tile.Vertices[k] + offset;
+                    p.y = ChunkMeshGenerator.SanitizeHeight(p.y);
                     int v = baseIndex + k;
                     _merged.Vertices[v] = p;
                     if (k < tile.UV.Length) _merged.UV[v] = tile.UV[k];

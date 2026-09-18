@@ -1,7 +1,8 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1bz` (no boot auto-teleport;
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1ca` (physics integrity
+guard rails — no more one-step 5 km teleport), `1bz` (no boot auto-teleport;
 spawn on the boot chunk), `1by` (build fixes), `1bx` (eight new
 talents), `1bw` (religion
 structures + worship NPCs on the test ground), `1bv` (talents moved to the Info tab, talent-point
@@ -24,6 +25,47 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1ca. Physics integrity guard rails — no more one-step 5 km teleport
+
+The `1bz` report persisted after the boot-teleport removal: "i take one step and teleported to -671.5826
+5163.997". User confirmed those two numbers were **(x, z) — a horizontal blast ~5.2 km along +Z with a
+−672 X drift**, not vertical. Investigation (grep + reread, no Unity build): **no script** can place the
+player there (audited every position set; endings/intro cutscenes disabled; `OpenWorldGrounding` and
+`ClearSpawnOverlap` only ever move Y, never X/Z — and this blast moved X and Z, so both are exonerated).
+The only X/Z relocator is the CharacterController's own one-step depenetration: a single garbage/NaN
+vertex anywhere in a streamed chunk poisons that chunk's `MeshCollider.bounds` → broadphase corruption →
+the CC is ejected toward the nearest boundary of the corrupted AABB on the first `Move`. `1bz` alone
+did NOT fix it. User chose: **full defense-in-depth** (sanitize at source + player fail-net +
+diagnostics).
+
+### 1ca-status
+- **Height sanitization at source (`WorldStreamer.BuildOrLoadChunk`)**: new `IsSaneHeight` (finite + inside
+  ±200 m band; const `MaxTerrainHeight`) replaces "stamp whatever the save says". A garbage corner slot is
+  left as NaN → regenerates from noise; a garbage height slot on a mod tile falls back to the already
+  sanitized/regenerated corner grid, so corrupt values never enter a chunk mesh.
+- **Final mesh backstop (`ChunkMeshGenerator`)**: new `SanitizeHeight` (non-finite → 0, out-of-band →
+  clamp to ±200) applied in `BuildMeshData`, `BuildMergedMeshData`, and `ChunkObject.PatchRegion` — every
+  vertex Y that reaches a MeshCollider is guaranteed finite and in band no matter the source.
+- **Player CC fail-net (`PlayerController`)**: `_lastSafePosition` + `EnforcePhysicsSanity()` run every
+  `Update` before input. Reverts (with `Debug.LogWarning`) if any coordinate is non-finite or a **single
+  frame** moved the player > 150 m (max legit one-frame move ≈ 14 m/s dodge — impossible false-positive).
+  A `LogSanityBlast` sweep (`Physics.OverlapSphere` around last-safe + blast pos) reports any collider
+  with non-finite/oversized `bounds` → names the culprit chunk for a single targeted follow-up fix.
+- **Teleport routing**: new public `PlayerController.TeleportTo(destination)` stamps the destination as
+  the last-safe position. All intentional relocations now go through it so the fail-net never
+  false-positives: `GameBootstrap` boot spawn (`playerController.TeleportTo`), `ResetPlayer` both
+  branches, `FastTravelMenu.TravelTo`, `SleepManager` sleep/wake, `SaveManager` load-game, and
+  `NewWorldTestGround.PlacePlayerOnArena`. Endings are disabled and use their own per-frame small moves.
+- **Docs**: `game-design.md` **§2.8 "Physics Integrity Guard Rails"** added; PROGRESS intro refreshed.
+- **Verification**: no CLI/Unity build per project rule — code review + grep only. Grep-confirmed all
+  player-teleport sites route through `TeleportTo` and no other `>150 m` one-frame relocator exists.
+- **Play-test (pending)**: (1) start play mode, walk ~one step on the boot chunk — no blast, no log
+  warning; (2) if it ever recurs, the Console log names the culprit collider (bounds) in
+  `[PlayerController] Physics blast restored...`; (3) fast travel, sleep, load-game, respawn and the
+  opt-in pad pull all still land the player correctly (no snap-back).
 
 ---
 

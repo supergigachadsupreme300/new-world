@@ -29,6 +29,19 @@ using UnityEngine;
 /// </summary>
 public static class ChunkMeshGenerator
 {
+    /// <summary>Final mesh-safety clamp band (matches WorldStreamer's height sanitization):
+    /// a non-finite or absurd height must never reach a chunk mesh (and from there a
+    /// MeshCollider whose corrupted bounds break the physics broadphase).</summary>
+    public const float MaxTerrainHeight = 200f;
+
+    /// <summary>Clamps/normalizes a height value for mesh safety. Pure math, thread-safe.</summary>
+    public static float SanitizeHeight(float h)
+    {
+        if (!float.IsFinite(h))
+            return 0f;
+        return Mathf.Clamp(h, -MaxTerrainHeight, MaxTerrainHeight);
+    }
+
     /// <summary>
     /// Builds pure C# arrays for the mesh — safe to call from a background thread.
     /// No Unity API types are allocated; only arrays and a Bounds struct.
@@ -45,9 +58,9 @@ public static class ChunkMeshGenerator
         float[] h = new float[ChunkData.VertexCount];
         for (int i = 0; i < ChunkData.CornerCount; i++)
         {
-            h[i] = (data.IsValid && data.Heights != null)
+            h[i] = SanitizeHeight((data.IsValid && data.Heights != null)
                 ? data.Heights[i]
-                : SampleCornerHeight(data, i, layers);
+                : SampleCornerHeight(data, i, layers));
         }
 
         Vector3[] vertices =
@@ -168,6 +181,7 @@ public static class ChunkMeshGenerator
             for (int k = 0; k < 4; k++)
             {
                 Vector3 p = tile.Vertices[k] + offset;
+                p.y = SanitizeHeight(p.y);
                 int v = baseIndex + k;
                 vertices[v] = p;
                 uv[v] = k < tile.UV.Length ? tile.UV[k] : Vector2.zero;

@@ -150,6 +150,27 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   stacks (banh_mi, com_tam, nuoc_dau, mi_chinh, xap_phong ×5) — press E on a drop to collect it. The
   west edge hosts the weapon pedestals; a `PickupAmount` tag lets a single drop hand over a stack.
 
+### 2.8 Physics Integrity Guard Rails
+
+- **Problem:** one garbage/NaN vertex anywhere in the streamed terrain poisons the chunk `MeshCollider`
+  (corrupted `bounds` → broken physics broadphase) and the CharacterController gets **depenetrated
+  thousands of metres in a single step** ("take one step → teleported to -671, 5164").
+- **Height sanitization:** `WorldStreamer` validates every height read from a `tc_*.dat` save via
+  `IsSaneHeight` (finite **and** inside the ±200 m band — 5-octave noise max ≈ ±63.5 m + deformation
+  headroom). Invalid/wild values are treated as **missing corners** and regenerate from noise; a mod
+  tile's garbage slot falls back to the (already-sanitized) corner grid. As a final backstop,
+  `ChunkMeshGenerator.SanitizeHeight` clamps every vertex Y in `BuildMeshData`,
+  `BuildMergedMeshData` and `ChunkObject.PatchRegion`, so no code path can push a corrupted height
+  into a MeshCollider.
+- **Player CC fail-net:** `PlayerController` records `_lastSafePosition` every sane frame.
+  `EnforcePhysicsSanity` (runs each `Update` before input) reverts the player if any coordinate is
+  non-finite or a **single frame** moved them > 150 m (impossible via normal movement — dodge is
+  ~14 m/s), then logs the blast position, the local terrain height there, and sweeps nearby colliders
+  for non-finite/oversized bounds to identify the culprit chunk.
+- **Teleport routing:** every intentional teleport goes through `PlayerController.TeleportTo`
+  (spawn/respawn, fast travel, sleep, load-game, test-platform entry), which stamps the destination as
+  the new "last safe" position so the fail-net never false-positives on legit relocation.
+
 ---
 
 ## 3. Combat System

@@ -111,7 +111,7 @@ public class FastTravelMenu : MonoBehaviour
         var player = GameManager.Instance?.Player;
         if (player == null || sign == null)
             return;
-        player.transform.position = sign.transform.position + Vector3.up * 1f;
+        player.TeleportTo(sign.transform.position + Vector3.up * 1f);
         GameManager.Instance?.UIManager?.ShowMessage(
             Localization.F("Đã di chuyển đến {0}!", Localization.T(sign.Label)), 2f);
         Close();

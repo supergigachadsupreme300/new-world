@@ -63,6 +63,12 @@ public class PlayerController : MonoBehaviour, IHealable
 
     private CharacterController _controller;
     private Vector3 _velocity;
+    // Physics-integrity fail-net (1ca): a corrupted collider (NaN/garbage mesh height) can
+    // depenetrate the CharacterController thousands of metres in one step. _lastSafePosition
+    // holds the last sane position; EnforcePhysicsSanity reverts any such launch.
+    private Vector3 _lastSafePosition;
+    private bool _hadSafePosition;
+    private const float MaxSanityStepMeters = 150f;
     private Transform _cameraPivot;
     private float _yaw;
     private float _pitch;
@@ -220,6 +226,10 @@ public class PlayerController : MonoBehaviour, IHealable
         if (SleepManager.IsSleeping)
             return;
 
+        // Fail-net (1ca): a corrupted collider can depenetrate the CharacterController thousands
+        // of metres in one step. Revert to the last sane position before any further input runs.
+        EnforcePhysicsSanity();
+
         // A new-world modal menu is open: only process menu-management keys (Tab closes
         // Character Info; Escape closes the topmost panel via MenuPanelBase.Update).
         if (MenuPanelBase.AnyShown)
@@ -263,21 +273,112 @@ public class PlayerController : MonoBehaviour, IHealable
             // The player has already walked to the test platform — re-home them onto its top
             // instead of yanking them elsewhere. Boot never auto-teleports here (the pad is
             // opt-in via NewWorldTestGround.AutoTeleportPlayerOnStart).
-            transform.position = testGround.GetSpawnPoint();
+            TeleportTo(testGround.GetSpawnPoint());
         }
         else
         {
             // Default spawn: the world's boot chunk. GameBootstrap generates the tile under
             // (0, -10) synchronously, so the player never falls into the void; the platform
             // (NewWorldTestGround) stays where it is for the player to walk to.
-            var streamer = Object.FindAnyObjectByType<WorldStreamer>();
-            long spawnSeed = streamer != null ? streamer.Seed : 1337;
-            float terrainY = TerrainNoiseGenerator.GetHeight(spawnSeed, 0f, -10f);
-            transform.position = new Vector3(0f, terrainY + 3f, -10f);
+            TeleportTo(BootSpawnPosition());
         }
         transform.rotation = Quaternion.identity;
         _velocity = Vector3.zero;
         ClearSpawnOverlap();
+    }
+
+    /// <summary>The world's boot-chunk spawn point: above the terrain under (0, -10).</summary>
+    private Vector3 BootSpawnPosition()
+    {
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        long spawnSeed = streamer != null ? streamer.Seed : 1337;
+        float terrainY = TerrainNoiseGenerator.GetHeight(spawnSeed, 0f, -10f);
+        return new Vector3(0f, terrainY + 3f, -10f);
+    }
+
+    /// <summary>Teleports the player and records the destination as the fail-net's last safe
+    /// position, so intentional teleports (spawn, fast travel, sleep, load) never trip it.</summary>
+    public void TeleportTo(Vector3 destination)
+    {
+        transform.position = destination;
+        _lastSafePosition = destination;
+        _hadSafePosition = true;
+        _velocity = Vector3.zero;
+        if (_controller != null)
+            Physics.SyncTransforms();
+    }
+
+    /// <summary>
+    /// Physics-integrity fail-net (1ca). Reverts the player to the last sane position when a
+    /// single frame moved them more than 150 m (impossible via normal movement — dodge is ~14 m/s)
+    /// or produced a non-finite coordinate. Legit one-frame steps far below the 150 m threshold.
+    /// </summary>
+    private void EnforcePhysicsSanity()
+    {
+        Vector3 p = transform.position;
+        if (!float.IsFinite(p.x) || !float.IsFinite(p.y) || !float.IsFinite(p.z))
+        {
+            Vector3 safe = _hadSafePosition ? _lastSafePosition : BootSpawnPosition();
+            Debug.LogWarning($"[PlayerController] Non-finite position {p} — restored to {safe}.");
+            TeleportTo(safe);
+            return;
+        }
+
+        if (_hadSafePosition)
+        {
+            float ds = (_lastSafePosition - p).sqrMagnitude;
+            float maxSqr = MaxSanityStepMeters * MaxSanityStepMeters;
+            if (ds > maxSqr)
+            {
+                LogSanityBlast(p);
+                TeleportTo(_lastSafePosition);
+                return;
+            }
+        }
+
+        _lastSafePosition = p;
+        _hadSafePosition = true;
+    }
+
+    /// <summary>Logs the blast and scans nearby colliders for corrupted (non-finite / oversized)
+    /// bounds, so the culprit chunk can be identified and fixed in one targeted follow-up.</summary>
+    private void LogSanityBlast(Vector3 blastPos)
+    {
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        float terrain = streamer != null
+            ? TerrainNoiseGenerator.GetHeight(streamer.Seed, blastPos.x, blastPos.z)
+            : 0f;
+        string msg = $"[PlayerController] Physics blast restored to last safe position. " +
+            $"Blast pos {blastPos} (local terrain height there ~{terrain:F2}). " +
+            $"Last safe {_lastSafePosition}. Suspicious colliders:";
+        bool any = false;
+
+        void Probe(Vector3 origin, float radius, float maxExtent)
+        {
+            Collider[] hits = Physics.OverlapSphere(origin, radius, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            if (hits == null)
+                return;
+            foreach (Collider c in hits)
+            {
+                if (c == null || c.transform == null)
+                    continue;
+                Vector3 max = c.bounds.max;
+                Vector3 min = c.bounds.min;
+                if (!float.IsFinite(max.x) || !float.IsFinite(max.y) || !float.IsFinite(max.z) ||
+                    !float.IsFinite(min.x) || !float.IsFinite(min.y) || !float.IsFinite(min.z) ||
+                    Mathf.Abs(max.y) > maxExtent)
+                {
+                    msg += $"\n  {c.name} bounds {min} .. {max}";
+                    any = true;
+                }
+            }
+        }
+
+        Probe(_lastSafePosition, MaxSanityStepMeters, 400f);
+        Probe(blastPos, 50f, 400f);
+        if (!any)
+            msg += " none found in a radius sweep.";
+        Debug.LogWarning(msg);
     }
 
     /// <summary>True when the player has actually reached the test platform (stands on or within a

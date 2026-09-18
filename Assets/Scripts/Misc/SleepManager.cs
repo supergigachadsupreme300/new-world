@@ -206,7 +206,7 @@ public static bool IsSleeping { get; private set; }
         Transform bed = FindBedTransform();
         Vector3 bedPos = bed != null ? bed.position : _savedPosition;
 
-        _player.transform.position = bedPos + Vector3.up * 0.35f;
+        _player.TeleportTo(bedPos + Vector3.up * 0.35f);
         _player.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
         _player.EnableInput(false);
 
@@ -270,7 +270,7 @@ public static bool IsSleeping { get; private set; }
 
         if (_player != null)
         {
-            _player.transform.position = _savedPosition;
+            _player.TeleportTo(_savedPosition);
             _player.transform.rotation = _savedRotation;
             _player.EnableInput(true);
 

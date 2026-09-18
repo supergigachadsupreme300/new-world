@@ -132,7 +132,7 @@ public class SaveManager : MonoSingleton<SaveManager>
                 stamina = 1000f,
                 money = 0
             };
-            GameManager.Instance.Player.transform.position = player.position;
+            GameManager.Instance.Player.TeleportTo(player.position);
             GameManager.Instance.Player.transform.rotation = Quaternion.Euler(0f, player.rotationY, 0f);
             GameManager.Instance.Player.HP = player.hp;
             GameManager.Instance.Player.Stamina = player.stamina;

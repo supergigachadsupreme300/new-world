@@ -163,7 +163,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
             Debug.LogWarning("[NewWorldTestGround] Skipped arena teleport — the test platform isn't built.");
             return;
         }
-        player.transform.position = GetSpawnPoint();
+        player.TeleportTo(GetSpawnPoint());
     }
 
     /// <summary>

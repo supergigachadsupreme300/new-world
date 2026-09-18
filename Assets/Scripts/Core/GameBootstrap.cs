@@ -112,7 +112,7 @@ public class GameBootstrap : MonoBehaviour
         if (playerController != null)
         {
             float spawnY = TerrainNoiseGenerator.GetHeight(worldStreamer.Seed, 0.5f, -9.5f);
-            playerController.transform.position = new Vector3(0f, spawnY + 2f, -10f);
+            playerController.TeleportTo(new Vector3(0f, spawnY + 2f, -10f));
         }
 
         worldStreamer.SetFocus(playerController != null ? playerController.transform : null);
