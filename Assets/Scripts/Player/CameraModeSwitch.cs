@@ -98,6 +98,10 @@ public sealed class CameraModeSwitch : MonoBehaviour
         CurrentMode = mode;
         ApplyPlayerModelVisibility();
         ApplyCameraFollow();
+        // First person keeps equipped weapons drawn (even out of combat); third person sheathes
+        // them when casual. Re-pose so an F5 switch mirrors the new view.
+        if (_player != null)
+            _player.ReApplyWeaponPose();
     }
 
     /// <summary>

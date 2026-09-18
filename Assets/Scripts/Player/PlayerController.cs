@@ -120,6 +120,7 @@ public class PlayerController : MonoBehaviour, IHealable
     private AoeAimPreview _aoePreview;
     private CastingCircle _castingCircle;
     private ProjectilePathPreview _pathPreview;
+    private CameraModeSwitch _cameraMode;
 
     // Per-hand dual-wield charge accumulators (ranged in one of the two hands keeps its draw).
     private float _dualChargeL;
@@ -1006,7 +1007,7 @@ public class PlayerController : MonoBehaviour, IHealable
                         if (weapon != null)
                             WeaponRigBuilder.EquipInto(gameObject, weapon, pending.isLeft);
                     }
-                    WeaponRigBuilder.ApplyPose(gameObject, draw: true, instant: true);
+                    ReApplyWeaponPose(instant: true);
                 }
                 _pendingAutoRig.Clear();
             }
@@ -1330,8 +1331,9 @@ public class PlayerController : MonoBehaviour, IHealable
                 ToolManager.Instance?.SelectSlot(_cachedFightSlot);
             _cachedFightSlot = -1;
             ShowPrompt(Localization.T("Casual mode."));
-            // Sheathe the equipped weapon onto the body (waist/back) instead of leaving it in hand.
-            WeaponRigBuilder.ApplyPose(gameObject, draw: false);
+            // Sheathe the equipped weapon onto the body (waist/back) in third person; in first
+            // person WeaponsDrawn keeps it in the hand so the player always sees what they hold.
+            ReApplyWeaponPose(instant: false);
         }
         else
         {
@@ -1344,7 +1346,7 @@ public class PlayerController : MonoBehaviour, IHealable
             if (skillBar != null) skillBar.SetVisible(true);
             TryAutoRigWeapon();
             // Draw the weapon from its stow point into the hand.
-            WeaponRigBuilder.ApplyPose(gameObject, draw: true);
+            ReApplyWeaponPose(instant: false);
         }
     }
 
@@ -1845,10 +1847,30 @@ public class PlayerController : MonoBehaviour, IHealable
         if (switcher == null)
             switcher = gameObject.AddComponent<CameraModeSwitch>();
         switcher.Setup(this, cam, _cameraPivot);
+        _cameraMode = switcher;
     }
 
     /// <summary>Public accessor for the camera pivot (used by <see cref="CameraModeSwitch"/>).</summary>
     public Transform PlayerCameraPivot => _cameraPivot;
+
+    /// <summary>
+    /// Whether the equipped weapons should be visually drawn in the hands (vs. stowed on the body).
+    /// Weapons are always drawn while fighting, and stay drawn in first person so the player always
+    /// sees what they hold; only third-person casual mode sheathes them onto the back/waist.
+    /// </summary>
+    public bool WeaponsDrawn => FightingMode || (_cameraMode != null && _cameraMode.IsFirstPerson);
+
+    /// <summary>
+    /// Re-apply the current draw/stow pose for all equipped weapons based on
+    /// <see cref="WeaponsDrawn"/> (combat mode or camera mode changed). No-op until the combat
+    /// stack/hands exist so a camera toggle during Awake is safe.
+    /// </summary>
+    public void ReApplyWeaponPose(bool instant = true)
+    {
+        var combat = GetComponent<CombatController>();
+        if (combat == null) return;
+        WeaponRigBuilder.ApplyPose(gameObject, draw: WeaponsDrawn, instant);
+    }
 
     public void ApplyGender()
     {
@@ -1893,10 +1915,10 @@ public class PlayerController : MonoBehaviour, IHealable
         // The rebuilt model may have appeared after an early equip parked the weapon rig on the
         // player root (hidden inside the torso); re-seat it onto the fresh hand bones.
         WeaponRigBuilder.ReparentToHands(gameObject);
-        // Re-apply the current weapon pose (drawn in combat, stowed otherwise) now that the
-        // model's hand + body anchors exist again. Snap immediately — a fresh model has no
+        // Re-apply the current weapon pose (drawn in combat or first person, stowed otherwise) now
+        // that the model's hand + body anchors exist again. Snap immediately — a fresh model has no
         // in-flight draw/stow transition to continue.
-        WeaponRigBuilder.ApplyPose(gameObject, draw: FightingMode, instant: true);
+        ReApplyWeaponPose(instant: true);
 
         // Subscribe once: a race change rebuilds the model with the new palette/body ratios
         // (§3.5 Race Visuals). Idempotent — LoadPlayerModel runs on Awake, gender, and respawn.

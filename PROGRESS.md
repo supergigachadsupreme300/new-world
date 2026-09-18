@@ -1,7 +1,10 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cq` (Wind/Ice
+Last updated: 2026-09-19. Read this first in a new session; then continue with the
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cr` (equipped
+weapons stay **drawn in the hand in first person even out of combat** — third-person casual is the
+only view that sheathes them, so holding a weapon in an inventory hand slot now visibly puts it on
+your hand), `1cq` (Wind/Ice
 projectile visuals are now translucent — the frost chip is a glassy alpha-0.5 diamond, the wind
 blade an ethereal alpha-0.4 cross — and the fireball body flickers in `Ember` mode with a much
 denser/ larger ember exhaust), `1cp` (the Earth
@@ -56,6 +59,40 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1cr. Weapon drawn on hands in first person even out of combat
+
+User: "weapon not visible on hand when held in inventory slots" → clarified as **invisible only when
+not fighting**. Root cause: out-of-combat weapons are stowed onto body anchors (`StowBack`/
+`StowWaist` under Torso); in first person (the default view) those anchors sit behind the camera, so
+the equipped weapon could never be seen until Fighting Mode (draw) or switching to third person.
+
+### Changes
+- `PlayerController.cs` — new `WeaponsDrawn => FightingMode || (_cameraMode?.IsFirstPerson ?? false)`
+  and `ReApplyWeaponPose(instant)` (no-op until the combat stack exists). `ToggleCombatMode` casual
+  and fighting branches, `LoadPlayerModel`, and the post-reload re-rig block all route through it now.
+  `SetupPlayerCamera` caches the `CameraModeSwitch` ref.
+- `CameraModeSwitch.cs` — `SetMode` calls `_player.ReApplyWeaponPose()` so an F5 view cut re-poses
+  weapons (first person ⇒ draw, third-person casual ⇒ stow).
+- `CharacterInfoUI.cs` — both equip call sites (`EquipOwnedWeapon`, `CycleWeapon`) use `WeaponsDrawn`
+  instead of `FightingMode`, so equipping a weapon from the gear sheet shows it in hand immediately
+  when first person.
+- `NewWorldTestGround.cs` — test-platform boot starter now poses via `ReApplyWeaponPose` (first person
+  at boot ⇒ starter weapon visible on hand) with the old sheathed fallback if no controller.
+- Behavior: fighting ⇒ always drawn; first-person (fighting or casual) ⇒ drawn; only **third-person
+  casual** sheathes to the back/waist. Combat toggles keep the animated draw/stow transition.
+- Docs: `game-design.md` §3.6 Notes (draw-vs-stow rule) + §5.5 Hand States (draw/stow by view);
+  `PROGRESS.md` this entry; `THINKING.md` `## 1cr`.
+
+### 1cr-status
+- Source-compile verified by review: greped every `ApplyPose(`/`WeaponsDrawn`/`ReApplyWeaponPose`
+  call site and reread `ToggleCombatMode`, `LoadPlayerModel`, `CameraModeSwitch.SetMode`. No CLI/Unity
+  build (rule 3) — user play-tests.
+- Play-test checklist: equip a weapon into a hand slot while casually in first person ⇒ visible on
+  hand; F5 to third person while casual ⇒ sheathes on back/waist; F5 back ⇒ drawn; toggling combat in
+  third person ⇒ animated draw/stow; race/gender change in second → weapon stays re-rigged in view.
 
 ---
 

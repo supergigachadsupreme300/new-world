@@ -578,6 +578,7 @@ Weapons are built on a **4-category base — Melee, Ranged, Magic, Shield** — 
 
 - Weapons carry a **single `DamageType`** — one of the **10 damage types** (§3.7); the damage pipeline resolves that element/type's resist/weakness.
 - Dual-wield can pair **two of the same weapon type** — each hand holds one owned copy (one rig = one copy), subject to the §5.5 copy-accurate accounting rule: equipping the second hand consumes a spare bag copy, and without a spare the weapon *moves* instead of duplicating.
+- **Draw vs stow (`WeaponRigBuilder.DrawScale`/`StowScale`, `WeaponStowAnimator`):** equipped weapons are **always drawn in the hands while fighting**, and stay drawn whenever the view is **first person** (the player sees their own hands, so the held weapon must read). They sheath onto the body (back carry / waist scabbard) only in **third-person casual** mode; entering combat or returning to first person draws them again (animated `.ApplyPose` transition on combat toggle, instant snap on a model/camera rebuild).
 - Shields are the **off-hand defense** (§5.5): a shield weapon equips to either hand; while held it enables RMB blocking and raises the guard's damage absorb (up to 95% on tower shields, vs. the bare-hand guard's 80%) while cutting the per-hit stamina drain to as little as 60%. Holding a shield *without* a melee weapon still blocks; with a **ranged or magic** weapon in the other hand the loadout enters the §5.16 per-hand dual scheme — the ranged (or magic) hand keeps its own draw/charge button while the shield hand guards while held (crossed-button mapping when a ranged weapon is present).
 - Magic weapons are **equipped gear that scales/alters spells** rather than delivering their own attacks — distinct from melee/ranged, which deliver their own.
 - Hand/wielding integration (§5.5): the equipped hand slots hold `WeaponData`; the categories of equipped weapons determine which behaviors are active. Wielding states modulate Str requirement as specified.
@@ -1042,6 +1043,10 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
   shield guards while held, magic fires uncharged, ranged holds-to-charge/release-to-fire.
   **Blocking is only possible through a shield hand while dual-wielding.**
 - **Two-hand grip** — both hands on a single heavy weapon (reduced Str need).
+- **Draw/stow by view** — the equipped weapons read as **drawn (in hand)** whenever the player is
+  fighting **or** looking through a **first-person** camera (the rig's renderers stay on the Default
+  layer, kept visible by `CameraModeSwitch`). Only **third-person casual** sheathes them onto the
+  body (back carry / waist scabbard, see §3.6), and a switch back to first person re-draws them.
 
 ### 5.6 Night & Survival
 

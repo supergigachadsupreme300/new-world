@@ -2607,11 +2607,11 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
         var rig = WeaponRigBuilder.EquipInto(player.gameObject, weapon, slot == EquipSlot.LeftHand);
         if (rig == null) return;
-        // Match the new weapon's visual pose to the current combat state (drawn if fighting,
-        // stowed on the body if not).
+        // Match the new weapon's visual pose to the current state (drawn if fighting or first
+        // person, stowed on the body if casually in third person).
         var pc = player.GetComponent<PlayerController>();
-        bool fighting = pc != null && pc.FightingMode;
-        WeaponRigBuilder.ApplyPose(player.gameObject, draw: fighting, instant: true);
+        bool drawn = pc != null && pc.WeaponsDrawn;
+        WeaponRigBuilder.ApplyPose(player.gameObject, draw: drawn, instant: true);
 
         // Equipping takes the weapon out of the bag: it's now on the character. Removing a copy
         // that isn't in the ToolManager inventory (e.g. owned but never picked up as an item, or
@@ -3609,8 +3609,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         {
             WeaponRigBuilder.EquipInto(player.gameObject, next);
             var pc = player.GetComponent<PlayerController>();
-            bool fighting = pc != null && pc.FightingMode;
-            WeaponRigBuilder.ApplyPose(player.gameObject, draw: fighting, instant: true);
+            bool drawn = pc != null && pc.WeaponsDrawn;
+            WeaponRigBuilder.ApplyPose(player.gameObject, draw: drawn, instant: true);
         }
         RefreshEquipment();
     }

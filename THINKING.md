@@ -15,6 +15,37 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1cr — Weapon not visible on hand (held in inventory slots) (RESOLVED — shipped in `1cr`)
+
+### VERDICT
+Equipped weapons were stowed onto body anchors (`StowBack`/`StowWaist`) whenever NOT fighting; in
+first person those anchors are behind the head-mounted camera, so the weapon could never appear on
+screen. Fixed by making "visually drawn" = `FightingMode || firstPerson`, re-applied on combat
+toggles, camera switches (F5), model rebuilds, and equip. Only third-person casual sheathes.
+
+### Hypotheses & evidence
+- **H1 — a weapon id is missing a `WeaponModelBuilder.Build` case → null visual.** REJECTED. Checked
+  every catalog id vs the dispatch; all 18 weapons (incl. the 3 shields) have builders.
+- **H2 — weapon renderers land on a culled layer in first person.** REJECTED. `CameraModeSwitch`
+  culling only clears the body bit (layer 6); rigs stay on Default (layer 0), visible in both modes.
+- **H3 — attach/hand-bone lookup fails.** REJECTED. `FindHand` resolves `PlayerModel/Torso/ShoulderX/
+  …/HandX` for the standing model and `ReparentToHands` re-seats park-fallback rigs after rebuilds.
+- **H4 — the weapon IS stowed, but the stow anchors are positioned behind the first-person camera.**
+  **CONFIRMED.** `ToggleCombatMode` casual → `ApplyPose(draw:false)` → `WeaponStowAnimator` moves the
+  rig to `StowBack`/`StowWaist` under Torso; the first-person camera looks forward from the head pivot
+  and never sees behind the body. Fix: draw whenever first person.
+- **H5 — stow/draw could stay per-combat-only if the user prefers.** User chose "Show in hand when
+  first person" over "always in hand / drop stow" and "keep stow everywhere" — so sheathing only in
+  third-person casual was the accepted target.
+
+### Implementation notes
+- Central source of truth: `PlayerController.WeaponsDrawn` + `ReApplyWeaponPose`.
+- Combat toggles pass `instant:false` to keep the existing draw/stow *animation*; model rebuild /
+  camera-switch equip-snap use `instant:true`. `CameraModeSwitch.SetMode` invoking the player's
+  re-pose is safe during Awake because `ReApplyWeaponPose` no-ops without a `CombatController`.
+
+---
+
 ## 1cq — Translucent Wind/Ice + denser Fire projectiles (RESOLVED — shipped in `1cq`)
 
 ### VERDICT

@@ -5,7 +5,8 @@
    `git add -A; git commit -m "..." ; git push origin main`). Make a new commit for follow-up
    fixes rather than amending. Do not commit unless a task is complete.
 
-2. **Always read and update the design, agents, and progress files.**
+2. **Before finishing any implementation, read AND update all "read/update" docs below in the same
+   pass as the code change** (never a follow-up commit by itself):
    - `game-design.md` — keep it in sync with implemented behavior (section references like §3.3,
      §3.7, §3.8, §5.7). Update stats/counts, status tables, and signature mechanisms on any feature
      change, and remove stale text (e.g. a removed currency/UI leftover) in the same pass.

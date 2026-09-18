@@ -613,8 +613,12 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (starter != null)
         {
             WeaponRigBuilder.EquipInto(player.gameObject, starter);
-            // Out of combat at boot → keep the starter weapon sheathed on the body until toggled.
-            WeaponRigBuilder.ApplyPose(player.gameObject, draw: false, instant: true);
+            var pc = player.GetComponent<PlayerController>();
+            if (pc != null)
+                // First person at boot → keep the starter weapon drawn so it's visible on the hand.
+                pc.ReApplyWeaponPose(instant: true);
+            else
+                WeaponRigBuilder.ApplyPose(player.gameObject, draw: false, instant: true);
         }
     }
 
