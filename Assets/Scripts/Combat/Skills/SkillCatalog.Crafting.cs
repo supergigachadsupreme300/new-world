@@ -211,41 +211,41 @@ public static partial class SkillCatalog
         /* craft_endurance_tireless children (all passive) */
         bank.L2["craft_endurance_tireless"] = new BranchSlot[]
         {
-            S("craft_endurance_tireless_endurance", "Tireless Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("craft_endurance_tireless_health", "Tireless Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("craft_endurance_tireless_speed", "Tireless Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("craft_endurance_tireless_attackspeed", "Tireless Hands", Buff(StatType.AttackSpeed, 5f), "Permanent +5 Attack Speed.", passive: true),
-            S("craft_endurance_tireless_strength", "Tireless Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
+            S("craft_endurance_tireless_endurance", "Tireless Endurance", Perk(PassivePerkType.StaminaRegenPercent, 10f), "Second winds come 10% earlier.", passive: true),
+            S("craft_endurance_tireless_health", "Tireless Health", Perk(PassivePerkType.MaxHealthPercent, 3f), "Never weary — the body bulks up 3%.", passive: true),
+            S("craft_endurance_tireless_speed", "Tireless Speed", Perk(PassivePerkType.MovementSpeedPercent, 3f), "Legs that do not rest move 3% faster.", passive: true),
+            S("craft_endurance_tireless_attackspeed", "Tireless Hands", Perk(PassivePerkType.AttackSpeedPercent, 4f), "Hands unflagging strike 4% quicker.", passive: true),
+            S("craft_endurance_tireless_strength", "Tireless Strength", Perk(PassivePerkType.AttackPowerPercent, 6f), "Unrelenting muscle lends 6% attack power.", passive: true),
         };
 
         /* craft_endurance_marathon children (all passive) */
         bank.L2["craft_endurance_marathon"] = new BranchSlot[]
         {
-            S("craft_endurance_marathon_speed", "Marathon Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("craft_endurance_marathon_endurance", "Marathon Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("craft_endurance_marathon_health", "Marathon Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("craft_endurance_marathon_dex", "Marathon Dexterity", Buff(StatType.Dexterity, 5f), "Permanent +5 Dexterity.", passive: true),
-            S("craft_endurance_marathon_luck", "Marathon Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
+            S("craft_endurance_marathon_speed", "Marathon Speed", Perk(PassivePerkType.MovementSpeedPercent, 4f), "A long-distance turn grants 4% speed.", passive: true),
+            S("craft_endurance_marathon_endurance", "Marathon Endurance", Perk(PassivePerkType.StaminaMaxPercent, 6f), "Deeper lungs swell stamina reserves 6%.", passive: true),
+            S("craft_endurance_marathon_health", "Marathon Health", Perk(PassivePerkType.HealthRegenPerSecond, 0.002f), "Recovery on the run mends 0.2% health a second.", passive: true),
+            S("craft_endurance_marathon_dex", "Marathon Dexterity", Perk(PassivePerkType.ParryWindowPercent, 5f), "Stamina-savvy reflexes widen parry timing 5%.", passive: true),
+            S("craft_endurance_marathon_luck", "Marathon Luck", Perk(PassivePerkType.LootLuckPercent, 4f), "Endurance blesses the patient finder with 4% luck.", passive: true),
         };
 
         /* craft_endurance_longwork children (all passive) */
         bank.L2["craft_endurance_longwork"] = new BranchSlot[]
         {
-            S("craft_endurance_longwork_health", "Long Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("craft_endurance_longwork_endurance", "Long Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("craft_endurance_longwork_defense", "Long Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("craft_endurance_longwork_strength", "Long Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("craft_endurance_longwork_luck", "Long Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
+            S("craft_endurance_longwork_health", "Long Health", Perk(PassivePerkType.MaxHealthPercent, 6f), "Years of labor bolster health by 6%.", passive: true),
+            S("craft_endurance_longwork_endurance", "Long Endurance", Perk(PassivePerkType.StaminaRegenPercent, 5f), "Weathered wind recovers stamina 5% faster.", passive: true),
+            S("craft_endurance_longwork_defense", "Long Defense", Perk(PassivePerkType.StaggerResistPercent, 8f), "A stubborn stance negates 8% of stagger.", passive: true),
+            S("craft_endurance_longwork_strength", "Long Strength", Perk(PassivePerkType.AttackPowerPercent, 3f), "Raised since youth — attack power up 3%.", passive: true),
+            S("craft_endurance_longwork_luck", "Long Luck", Perk(PassivePerkType.LootLuckPercent, 4f), "Slow-burning fortune grants 4% luck.", passive: true),
         };
 
         /* craft_endurance_hold children (all passive) */
         bank.L2["craft_endurance_hold"] = new BranchSlot[]
         {
-            S("craft_endurance_hold_defense", "Held Defense", Buff(StatType.Defense, 5f), "Permanent +5 Defense.", passive: true),
-            S("craft_endurance_hold_endurance", "Held Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("craft_endurance_hold_health", "Held Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("craft_endurance_hold_strength", "Held Strength", Buff(StatType.Strength, 5f), "Permanent +5 Strength.", passive: true),
-            S("craft_endurance_hold_luck", "Held Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
+            S("craft_endurance_hold_defense", "Held Defense", Perk(PassivePerkType.BlockEfficiencyPercent, 8f), "A shield held fast blocks 8% more efficiently.", passive: true),
+            S("craft_endurance_hold_endurance", "Held Endurance", Perk(PassivePerkType.StaminaMaxPercent, 6f), "A held line buys 6% more stamina.", passive: true),
+            S("craft_endurance_hold_health", "Held Health", Perk(PassivePerkType.MaxHealthPercent, 3f), "Bracing the bulwark raises health 3%.", passive: true),
+            S("craft_endurance_hold_strength", "Held Strength", Perk(PassivePerkType.StaggerResistPercent, 8f), "Braced muscle resists 8% more stagger.", passive: true),
+            S("craft_endurance_hold_luck", "Held Luck", Perk(PassivePerkType.LootLuckPercent, 5f), "Standing firm at the bench tips luck 5%.", passive: true),
         };
 
         /* craft_endurance_shock children */
@@ -261,41 +261,41 @@ public static partial class SkillCatalog
         /* craft_efficiency_quickswap children (all passive) */
         bank.L2["craft_efficiency_quickswap"] = new BranchSlot[]
         {
-            S("craft_efficiency_quickswap_attackspeed", "Swap Hands", Buff(StatType.AttackSpeed, 5f), "Permanent +5 Attack Speed.", passive: true),
-            S("craft_efficiency_quickswap_dex", "Swap Dexterity", Buff(StatType.Dexterity, 5f), "Permanent +5 Dexterity.", passive: true),
-            S("craft_efficiency_quickswap_speed", "Swap Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("craft_efficiency_quickswap_luck", "Swap Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
-            S("craft_efficiency_quickswap_endurance", "Swap Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
+            S("craft_efficiency_quickswap_attackspeed", "Swap Hands", Perk(PassivePerkType.AttackSpeedPercent, 3f), "Relays between grips speed attacks by 3%.", passive: true),
+            S("craft_efficiency_quickswap_dex", "Swap Dexterity", Perk(PassivePerkType.CritChanceFlat, 4f), "Flick-passing hands land 4% more criticals.", passive: true),
+            S("craft_efficiency_quickswap_speed", "Swap Speed", Perk(PassivePerkType.MovementSpeedPercent, 3f), "Relay footwork quickens pace by 3%.", passive: true),
+            S("craft_efficiency_quickswap_luck", "Swap Luck", Perk(PassivePerkType.LootLuckPercent, 4f), "Traded hands trade luck — 4% more.", passive: true),
+            S("craft_efficiency_quickswap_endurance", "Swap Endurance", Perk(PassivePerkType.StaminaRegenPercent, 10f), "Rotating loads recover stamina 10% faster.", passive: true),
         };
 
         /* craft_efficiency_optimize children (all passive) */
         bank.L2["craft_efficiency_optimize"] = new BranchSlot[]
         {
-            S("craft_efficiency_optimize_dex", "Optimized Dexterity", Buff(StatType.Dexterity, 5f), "Permanent +5 Dexterity.", passive: true),
-            S("craft_efficiency_optimize_intelligence", "Optimized Intellect", Buff(StatType.Intelligence, 5f), "Permanent +5 Intelligence.", passive: true),
-            S("craft_efficiency_optimize_speed", "Optimized Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("craft_efficiency_optimize_attackspeed", "Optimized Hands", Buff(StatType.AttackSpeed, 5f), "Permanent +5 Attack Speed.", passive: true),
-            S("craft_efficiency_optimize_luck", "Optimized Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
+            S("craft_efficiency_optimize_dex", "Optimized Dexterity", Perk(PassivePerkType.BackstabPercent, 10f), "Optimized angles make backstabs 10% deadlier.", passive: true),
+            S("craft_efficiency_optimize_intelligence", "Optimized Intellect", Perk(PassivePerkType.FocusRegenPercent, 5f), "Streamlined thought regrows focus 5% faster.", passive: true),
+            S("craft_efficiency_optimize_speed", "Optimized Speed", Perk(PassivePerkType.MovementSpeedPercent, 4f), "Fine-tuned gait adds 4% movement speed.", passive: true),
+            S("craft_efficiency_optimize_attackspeed", "Optimized Hands", Perk(PassivePerkType.AttackSpeedPercent, 4f), "Tuned grips strike 4% more often.", passive: true),
+            S("craft_efficiency_optimize_luck", "Optimized Luck", Perk(PassivePerkType.LootLuckPercent, 6f), "Every variable set — luck rises 6%.", passive: true),
         };
 
         /* craft_efficiency_streamline children (all passive) */
         bank.L2["craft_efficiency_streamline"] = new BranchSlot[]
         {
-            S("craft_efficiency_streamline_speed", "Streamlined Speed", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("craft_efficiency_streamline_attackspeed", "Streamlined Hands", Buff(StatType.AttackSpeed, 5f), "Permanent +5 Attack Speed.", passive: true),
-            S("craft_efficiency_streamline_dex", "Streamlined Dexterity", Buff(StatType.Dexterity, 5f), "Permanent +5 Dexterity.", passive: true),
-            S("craft_efficiency_streamline_endurance", "Streamlined Endurance", Buff(StatType.Endurance, 5f), "Permanent +5 Endurance.", passive: true),
-            S("craft_efficiency_streamline_luck", "Streamlined Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
+            S("craft_efficiency_streamline_speed", "Streamlined Speed", Perk(PassivePerkType.MovementSpeedPercent, 4f), "Drag removed — the stride quickens 4%.", passive: true),
+            S("craft_efficiency_streamline_attackspeed", "Streamlined Hands", Perk(PassivePerkType.AttackSpeedPercent, 2f), "Trimmed motions gain 2% attack speed.", passive: true),
+            S("craft_efficiency_streamline_dex", "Streamlined Dexterity", Perk(PassivePerkType.CritChanceFlat, 1f), "Clean lines edge critical chance up 1%.", passive: true),
+            S("craft_efficiency_streamline_endurance", "Streamlined Endurance", Perk(PassivePerkType.StaminaRegenPercent, 5f), "Removed waste restores stamina 5% faster.", passive: true),
+            S("craft_efficiency_streamline_luck", "Streamlined Luck", Perk(PassivePerkType.LootLuckPercent, 4f), "Smooth output sways luck 4% your way.", passive: true),
         };
 
         /* craft_efficiency_workfast children (all passive) */
         bank.L2["craft_efficiency_workfast"] = new BranchSlot[]
         {
-            S("craft_efficiency_workfast_attackspeed", "Work Speed", Buff(StatType.AttackSpeed, 5f), "Permanent +5 Attack Speed.", passive: true),
-            S("craft_efficiency_workfast_dex", "Work Dexterity", Buff(StatType.Dexterity, 5f), "Permanent +5 Dexterity.", passive: true),
-            S("craft_efficiency_workfast_speed", "Fast Style", Buff(StatType.Speed, 5f), "Permanent +5 Speed.", passive: true),
-            S("craft_efficiency_workfast_health", "Work Health", Buff(StatType.Health, 5f), "Permanent +5 Health.", passive: true),
-            S("craft_efficiency_workfast_luck", "Work Luck", Buff(StatType.Luck, 5f), "Permanent +5 Luck.", passive: true),
+            S("craft_efficiency_workfast_attackspeed", "Work Speed", Perk(PassivePerkType.AttackSpeedPercent, 4f), "Pace of the bench — attacks 4% faster.", passive: true),
+            S("craft_efficiency_workfast_dex", "Work Dexterity", Perk(PassivePerkType.ParryWindowPercent, 10f), "Tool-tested timing widens parries 10%.", passive: true),
+            S("craft_efficiency_workfast_speed", "Fast Style", Perk(PassivePerkType.MovementSpeedPercent, 4f), "A brisk bearing travels 4% faster.", passive: true),
+            S("craft_efficiency_workfast_health", "Work Health", Perk(PassivePerkType.MaxHealthPercent, 3f), "A break-resistant body gains 3% health.", passive: true),
+            S("craft_efficiency_workfast_luck", "Work Luck", Perk(PassivePerkType.LootLuckPercent, 5f), "Working the wood coaxes 5% more luck.", passive: true),
         };
 
         /* craft_efficiency_pulse children */

@@ -155,7 +155,6 @@ public static partial class SkillCatalog
         return new SpellCastEffect { Spell = spell };
     }
 
-    private static StatBuffEffect Buff(StatType stat, float amount) => new StatBuffEffect { Stat = stat, Amount = amount };
     private static PassivePerkEffect Perk(PassivePerkType perk, float amount) => new PassivePerkEffect { Perk = perk, Amount = amount };
     private static DamageZoneEffect Slash(float power, DamageType kind) => new DamageZoneEffect { Radius = 2.0f, BasePower = power, Type = kind };
     private static DamageZoneEffect Zone(float radius, float power, DamageType kind) => new DamageZoneEffect { Radius = radius, BasePower = power, Type = kind };

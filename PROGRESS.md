@@ -1,6 +1,6 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-17. Read this first in a new session; then continue with the
+Last updated: 2026-09-18. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug). The **optimization sweep** ran Phases 0-5
 (`1ag`-`1al` below); the sweep's planning doc (`OPTIMIZATION.md`) was retired once Phases 0-5 shipped —
 only **Phase 6 / startup** (#17, #18) remains open, recorded under OPEN TASKS. Legacy working plans
@@ -23,31 +23,46 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
-## 1bt. Stealth passive nodes rewritten to Perk system
+## 1bt. All skill-tree passives replaced with themed perks (446 nodes) + perk pipeline wired
+
+User: "replace all the passive skill in the game (skill tree only, unique passive perk style)".
+Every `passive: true` node in the six non-shield skill trees was converted from the flat
+`Buff(StatType.X, Nf)` stat bump to a themed `Perk(PassivePerkType.Z, Vf)` §3.3 perk.
 
 ### 1bt-status
-- **What**: Rewrote all 67 `passive: true` nodes in `SkillCatalog.Stealth.cs` from flat `Buff(StatType.X, Nf)` to `Perk(PassivePerkType.Z, Vf)`. Zero `Buff(` calls remain; 67 `passive: true` confirmed. Committed `f6ee70c`, pushed to `main`.
-- **Verification**: `Select-String` grep — 0 `Buff(`, 67 `passive: true`, 67 `Perk(PassivePerkType.`.
-- **Play-test**: User to open Unity and confirm passive tooltips show perk descriptions (not "Permanent +N X"). Confirm no compile errors.
-
-### 1bt-perk-distribution
-| Perk Kind | Count |
-|---|---|
-| MovementSpeedPercent | 17 |
-| LootLuckPercent | 10 |
-| AttackSpeedPercent | 9 |
-| CritChanceFlat | 9 |
-| DamageReductionFlat | 4 |
-| StaminaMaxPercent | 4 |
-| AttackPowerPercent | 3 |
-| CritDamagePercent | 3 |
-| HealthRegenPerSecond | 2 |
-| ParryWindowPercent | 2 |
-| BackstabPercent | 1 |
-| CooldownReductionPercent | 1 |
-| FocusMaxPercent | 1 |
-| StaggerResistPercent | 1 |
-| **Total** | **67** |
+- **Infra** (new): `PassivePerkType.cs` (20 perks), `PassivePerkEffect.cs` (`IEffect` that registers
+  into a `PassivePerkManager`), `PassivePerkManager.cs` (per-player aggregator; `Mul`/`Sum`/`Count`).
+  `SkillCatalog.Perk(...)` shorthand added; the old `Buff(...)` helper was deleted.
+- **Catalog rewritten** (446 nodes, zero `Buff(` remaining): Melee 17, Ranged 5, Magic 108,
+  Stealth 67, Fortitude 135, Crafting 114. Each node keeps id/name/prereqs/cost; effect + tooltip
+  re-theme with unique dark-fantasy text (no more "Permanent +N X").
+- **Consumers wired** so every perk does something real:
+  - `PlayerStats` folds — MaxHP (MaxHealthPercent), MaxStamina (StaminaMaxPercent), MaxFocusPoints
+    (FocusMaxPercent), AttackSpeedScale/Multiplier (AttackSpeedPercent), MaxMoveSpeed
+    (MovementSpeedPercent), MeleeAtkPower/LightAtkPower/AttackPower (AttackPowerPercent),
+    MagicAttackPower (SpellDamagePercent), HealPowerMultiplier (HealPowerPercent), ParryWindow
+    (ParryWindowPercent), DamageReduction (+DamageReductionFlat fraction, cap 80%), CooldownMultiplier
+    (CooldownReductionPercent), CritChance (+CritChanceFlat), LootQuality (LootLuckPercent). New
+    public getters: StaminaRegenMul, FocusRegenMul, HealthRegenPerSecondFlat, DamageReductionPerkFlat,
+    CooldownReductionMult, TreeAttackPowerMul, TreeBackstabMul, TreeStaggerResistMul,
+    TreeBlockEfficiencyMul, TreeCritDamageMul.
+  - `PlayerController` — `MaxHP`/`MaxStamina` are now computed properties reading PlayerStats
+    (Health + Endurance actually scale the player now, plus max-% perks); move speed includes
+    `MaxMoveSpeed/BaseMoveSpeed`; stamina/HP regen include StaminaRegenMul + HealthRegenPerSecondFlat;
+    `TakeDamage` applies DamageReductionPerkFlat (clamped 45%).
+  - `SpellCaster` — focus regen × FocusRegenMul; spell cooldowns × CooldownReductionMult.
+  - `SkillProfile` — weapon-skill cooldowns × CooldownReductionMult.
+  - `HitboxSystem` — NEW crit roll: physical swings crit at `PlayerStats.CritChance`% for ×2
+    (×TreeCritDamageMul); AttackPower × TreeAttackPowerMul; backstab compounds TreeBackstabMul;
+    knockback/force ÷ TreeStaggerResistMul.
+  - `CombatController` — block stamina drain ÷ TreeBlockEfficiencyMul.
+- **Commits**: `b55d5cd` (Melee), `f6ee70c` (Stealth — swept the Ranged rewrite via `git add -A`),
+  `832e705` (Fortitude), `b9cf585` (docs), + this commit for Magic/Crafting/wiring/docs. Pushed to `main`.
+- **Verification**: (no CLI/Unity build per project rule) grep-verified — `Buff(` count 0 across all
+  partials, `Perk(PassivePerkType.` = 446, `passive: true` = 446; code-review of all consumer edits.
+- **Play-test**: open Unity; learn passives in each tree and confirm (a) no compile errors,
+  (b) tooltips show perk text, (c) crits/cooldowns/regen/move-speed/max-HP/stamina visibly reflect the
+  perks, (d) save/load keeps perks applied (restore replays them via SkillProfile.RestoreState).
 
 ---
 
