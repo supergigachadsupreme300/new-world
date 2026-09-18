@@ -800,8 +800,8 @@ progression-by-progression grows.
   - Eleven **stat** talents (one per core stat, e.g. "Vitality" = Health), **+1 flat stat point per rank**
     layered onto the stat total.
 - **Effect reads are live:** XP bonuses are applied as a +% on every XP grant; stat talents add flat
-  points inside `GetTotal` (base × race/race-skill % **+** talent points + temp buffs). Because bonuses are
-  computed from owned ranks on every read, saving/loading can never double-apply them.
+  points inside `GetTotal` (base × race/race-skill % **+** the stat talents' flat add + temp buffs). Because
+  bonuses are computed from owned ranks on every read, saving/loading can never double-apply them.
 - **Persistence & UI:** owned ranks + the first-grant flag are saved (`talentStateJson`); the
   **Character Info panel** lists all talents below the stat/level block (one vertical scroll), each with
   a *Rank Up* button enabled while the talent is below max rank. There is no talent-point counter.

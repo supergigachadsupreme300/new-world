@@ -1,7 +1,9 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). The **optimization sweep** ran Phases 0-5
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1bw` (religion
+structures + worship NPCs on the test ground), `1bv` (talents moved to the Info tab, talent-point
+currency removed). The **optimization sweep** ran Phases 0-5
 (`1ag`-`1al` below); the sweep's planning doc (`OPTIMIZATION.md`) was retired once Phases 0-5 shipped —
 only **Phase 6 / startup** (#17, #18) remains open, recorded under OPEN TASKS. Legacy working plans
 (`PLAN.md`, `PLAN-class-skill-trees.md`, `planning.md`) were deleted; `game-design.md` is the single
