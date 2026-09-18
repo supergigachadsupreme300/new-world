@@ -30,13 +30,13 @@ Every spell that uses the **Projectile** delivery has a `projectileShape:` visua
 |---|---|---|
 | **Bolt** | Jagged segmented bolt along the flight axis, crackling afterimages (same technique as the thunder-event lightning, `SpawnJaggedBolt`) | every spell with "Bolt" in the name, e.g. Frost Bolt, Chain Lightning, Volt, Fork/Leap/Doom/Fury Bolt |
 | **Sphere** | Classic orb with elemental pulse | fireball/plain orbs when the name gives no better shape |
-| **Shard** | Elongated crystal that slowly drills/spins along the axis | ice/stone shards (Stone Shard, Frost Bite, Chill Soul) |
+| **Shard** | Elongated crystal that slowly drills/spins along the axis | ice/stone shards (Stone Shard, Chill Touch) |
 | **Lance** | Long thin spear of ice, heavier and faster than a bolt | Ice Lance, Frost Pierce, Glacial Impale |
 | **Spear** | Thick dark spear, the heaviest of the linear shapes | Shadow Spear |
 | **Blade** | Flat cross-blade that spins in-plane with a shimmer envelope | Wind Blade, Razor Blade, Wind Scissor, Laceration |
 | **Splash** | Rolling surge with a splash envelope that soaks on contact | Tidal Surge |
-| **Comet** | Streaking fire with a trailing ember tail | Scorch, Burn, Comet |
-| **Missile** | Small dart with a soft halo; **homing** - re-evaluates its trajectory every frame and prioritizes the target that ends up on the flight path, bending to chase it | Arcane Missiles |
+| **Comet** | Streaking fire with a trailing ember tail | Scorch, Burn, Comet, Frost Bite |
+| **Missile** | Small dart with a soft halo; **homing** - re-evaluates its trajectory every frame and prioritizes the target that ends up on the flight path, bending to chase it | Arcane Missiles, Chill Soul |
 | **Dart** | Sleek single dart, thin and fast | physical shots (Archer Wind Shot, Taoist Talisman) |
 
 Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto` to resolve by school: Fire=Sphere, Ice=Shard, Lightning=Bolt, Wind=Blade, Water=Splash, Earth=Shard, anything else=Sphere.
@@ -144,7 +144,7 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
 - **Scorch** (`magic_fireball_scorch`) - Active (Fire) - power 26, FP 16, cd 4s, Burn, shape:Comet | A narrow, searing jet of fire that leaves nothing unburnt.
   - **Burn** (`magic_fireball_scorch_burn`) - Active (Fire) - power 30, FP 18, cd 4s, Burn, shape:Comet | A searing burn that lingers long after impact.
   - **Ignite** (`magic_fireball_scorch_ignite`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
-  - **Flash Fire** (`magic_fireball_scorch_flash`) - Active (Fire) - power 32, FP 20, cd 5s, range 6, Burn | A swift flash of scorching fire that strikes whatever you look at.
+  - **Flash Fire** (`magic_fireball_scorch_flash`) - Active (Fire) - power 32, FP 20, cd 5s, Burn | A swift flash of scorching fire that strikes whatever you look at.
   - **Searing Ray** (`magic_fireball_scorch_searing`) - Active (Fire) - power 34, FP 22, cd 5s, range 13, radius 1.3, channels 9 FP/s, Burn | A narrow beam of searing heat — hold it over foes, burning the whole line.
   - **Radiant Heat** (`magic_fireball_scorch_heat`) - + 5 Health (passive) | Permanent +5 Health.
 
@@ -154,32 +154,32 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
   - **Frost Pierce** (`magic_frostbolt_icelance_pierce`) - Active (Ice) - power 30, FP 18, cd 4s, shape:Lance | A lance that pierces through armor.
   - **Ice Havoc** (`magic_frostbolt_icelance_havoc`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
   - **Glacial Impale** (`magic_frostbolt_icelance_impale`) - Active (Ice) - power 34, FP 22, cd 5s, shape:Lance | A massive spike that impales.
-  - **Hail Lance** (`magic_frostbolt_icelance_hail`) - Active (Ice) - power 30, FP 20, cd 5s, radius 2 | A volley of ice lances.
-  - **Frost Bite** (`magic_frostbolt_icelance_bite`) - Active (Ice) - power 28, FP 16, cd 4s, Chill, shape:Shard | A biting cold that chills to the bone.
-- **Freeze** (`magic_frostbolt_freeze`) - Active (Ice) - power 28, FP 18, cd 5s, radius 2.4, Frost | A wave of freezing air that clings to all it touches.
-  - **Deep Freeze** (`magic_frostbolt_freeze_deep`) - Active (Ice) - power 34, FP 24, cd 6s, radius 2.6, Frost | A paralyzing cold that freezes foes solid.
-  - **Cold Snap** (`magic_frostbolt_freeze_snap`) - Active (Ice) - power 32, FP 20, cd 5s, radius 2.4 | A sudden snap-freeze of the air.
+  - **Hail Lance** (`magic_frostbolt_icelance_hail`) - Active (Ice) - power 30, FP 20, cd 5s, range 10, radius 2.6, dur 3.5s, Chill | A storm of hail lances that batters the whole area.
+  - **Frost Bite** (`magic_frostbolt_icelance_bite`) - Active (Ice) - power 28, FP 16, cd 4s, Chill, shape:Comet | A biting cold that flashes in and chills to the bone.
+- **Freeze** (`magic_frostbolt_freeze`) - Active (Ice) - power 28, FP 18, cd 5s, radius 2.4, dur 3s, Frost | A wave of freezing air that clings, leaving a field of frost.
+  - **Deep Freeze** (`magic_frostbolt_freeze_deep`) - Active (Ice) - power 34, FP 24, cd 6s, radius 2.6, dur 3.5s, Frost | A lingering cold that freezes foes solid.
+  - **Cold Snap** (`magic_frostbolt_freeze_snap`) - Active (Ice) - power 32, FP 20, cd 5s, Frost | A sudden snap-freeze of whatever you look at.
   - **Frozen Will** (`magic_frostbolt_freeze_chill`) - + 5 Wisdom (passive) | Permanent +5 Wisdom.
-  - **Tundra** (`magic_frostbolt_freeze_tundra`) - Active (Ice) - power 32, FP 22, cd 6s, radius 3 | The ground becomes frozen tundra.
-  - **Frozen Touch** (`magic_frostbolt_freeze_touch`) - Active (Ice) - power 28, FP 18, cd 4s, radius 2 | An ice touch that slows and bites.
+  - **Tundra** (`magic_frostbolt_freeze_tundra`) - Active (Ice) - power 32, FP 22, cd 6s, radius 3, dur 3.5s, Chill | The ground becomes frozen tundra — a wide field that slows all inside.
+  - **Frozen Touch** (`magic_frostbolt_freeze_touch`) - Active (Ice) - power 28, FP 18, cd 4s, range 8, radius 2.2, dur 2.5s, Chill | An ice vortex that drags foes in and slows them.
 - **Crystal Mind** (`magic_frostbolt_crystal`) - + 3 Intelligence (passive) | Permanent +3 Intelligence.
   - **Crystal Intellect** (`magic_frostbolt_crystal_intellect`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
   - **Crystal Wisdom** (`magic_frostbolt_crystal_wisdom`) - + 5 Wisdom (passive) | Permanent +5 Wisdom.
   - **Crystal Endurance** (`magic_frostbolt_crystal_endurance`) - + 5 Endurance (passive) | Permanent +5 Endurance.
   - **Crystal Armor** (`magic_frostbolt_crystal_defense`) - + 5 Defense (passive) | Permanent +5 Defense.
   - **Crystal Luck** (`magic_frostbolt_crystal_luck`) - + 5 Luck (passive) | Permanent +5 Luck.
-- **Glacier** (`magic_frostbolt_glacier`) - Active (Ice) - power 30, FP 20, cd 6s, radius 2.6 | A massive wall of glacial ice.
+- **Glacier** (`magic_frostbolt_glacier`) - Active (Ice) - power 30, FP 20, cd 6s, radius 2.6, knockback 2 | A massive wall of glacial ice that crushes and shoves foes.
   - **Frost Obelisk** (`magic_frostbolt_glacier_wall`) - Active (Ice) - power 36, FP 26, cd 8s, range 8, radius 6, dur 6s, Chill | Summon a frozen obelisk that hurls frost bolts at nearby foes.
-  - **Glacial Surge** (`magic_frostbolt_glacier_surge`) - Active (Ice) - power 40, FP 30, cd 9s, radius 3.8 | A surge of suffocating cold.
+  - **Glacial Surge** (`magic_frostbolt_glacier_surge`) - Active (Ice) - power 40, FP 30, cd 9s, radius 3.8, dur 4s, Frost | A suffocating surge of cold that swallows the area.
   - **Glacial Weight** (`magic_frostbolt_glacier_weight`) - + 5 Strength (passive) | Permanent +5 Strength.
-  - **Avalanche** (`magic_frostbolt_glacier_avalanche`) - Active (Ice) - power 38, FP 28, cd 8s, radius 3.6 | A cascading avalanche of ice.
+  - **Avalanche** (`magic_frostbolt_glacier_avalanche`) - Active (Ice) - power 38, FP 28, cd 8s, range 10, radius 3.6, dur 3.5s, Frost | A cascading avalanche that crushes the area under falling ice.
   - **Eternal Cold** (`magic_frostbolt_glacier_eternal`) - + 6 Wisdom (passive) | Permanent +6 Wisdom.
 - **Chill Touch** (`magic_frostbolt_chill`) - Active (Ice) - power 24, FP 14, cd 3s, Chill, shape:Shard | A numbing cold that slows the foe.
-  - **Chill Soul** (`magic_frostbolt_chill_soul`) - Active (Ice) - power 30, FP 18, cd 4s, Chill, shape:Shard | A cold that seeps into the soul and slows it.
-  - **Frost Curse** (`magic_frostbolt_chill_curse`) - Active (Ice) - power 28, FP 16, cd 4s, radius 2 | A curse of creeping frost.
+  - **Chill Soul** (`magic_frostbolt_chill_soul`) - Active (Ice) - power 30, FP 18, cd 4s, Chill, shape:Missile | A homing cold that hunts its prey and seeps into the soul.
+  - **Frost Curse** (`magic_frostbolt_chill_curse`) - Active (Ice) - power 28, FP 16, cd 4s, range 8, radius 2, dur 3s, Chill | A creeping cold that spirals, cursing all it touches.
   - **Frost Will** (`magic_frostbolt_chill_will`) - + 5 Faith (passive) | Permanent +5 Faith.
   - **Cold Stare** (`magic_frostbolt_chill_stare`) - Active (Ice) - power 26, FP 14, cd 3s, range 11, radius 1, channels 7 FP/s, Chill | A gaze of ice that freezes the heart — hold it to chill and slow.
-  - **Witching Chill** (`magic_frostbolt_chill_hour`) - Active (Ice) - power 32, FP 20, cd 5s, radius 2.4 | An unnatural hour of deep cold.
+  - **Witching Chill** (`magic_frostbolt_chill_hour`) - Active (Ice) - power 32, FP 20, cd 5s, radius 2.4, dur 3s, Frost | An unnatural hour of deep cold that lingers where it strikes.
 
 ### Storm Focus (magic_lightning)
 

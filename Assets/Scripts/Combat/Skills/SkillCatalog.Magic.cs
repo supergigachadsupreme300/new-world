@@ -39,9 +39,9 @@ public static partial class SkillCatalog
         bank.L1["magic_frostbolt"] = new BranchSlot[]
         {
             S("magic_frostbolt_icelance", "Ice Lance", Spell("magic_frostbolt_icelance_spell", "Ice Lance", DamageType.Ice, 26f, 16f, SpellDelivery.Projectile, 4f, projectileShape: ProjectileShape.Lance), "A long spear of solid ice.", Focus(16f), DamageType.Ice, true),
-            S("magic_frostbolt_freeze", "Freeze", Spell("magic_frostbolt_freeze_spell", "Freeze", DamageType.Ice, 28f, 18f, SpellDelivery.Zone, 5f, deliveryRadius: 2.4f, statusEffect: StatusEffectType.Frost), "A wave of freezing air that clings to all it touches.", Focus(18f), DamageType.Ice, true),
+            S("magic_frostbolt_freeze", "Freeze", Spell("magic_frostbolt_freeze_spell", "Freeze", DamageType.Ice, 28f, 18f, SpellDelivery.Zone, 5f, deliveryRadius: 2.4f, duration: 3f, statusEffect: StatusEffectType.Frost), "A wave of freezing air that clings, leaving a field of frost.", Focus(18f), DamageType.Ice, true),
             S("magic_frostbolt_crystal", "Crystal Mind", Perk(PassivePerkType.CooldownReductionPercent, 3f), "A cold clarity lowers casting cooldowns by 3%.", passive: true),
-            S("magic_frostbolt_glacier", "Glacier", Spell("magic_frostbolt_glacier_spell", "Glacier", DamageType.Ice, 30f, 20f, SpellDelivery.Zone, 6f, deliveryRadius: 2.6f), "A massive wall of glacial ice.", Focus(20f), DamageType.Ice, true),
+            S("magic_frostbolt_glacier", "Glacier", Spell("magic_frostbolt_glacier_spell", "Glacier", DamageType.Ice, 30f, 20f, SpellDelivery.Zone, 6f, deliveryRadius: 2.6f, knockback: 2f), "A massive wall of glacial ice that crushes and shoves foes.", Focus(20f), DamageType.Ice, true),
             S("magic_frostbolt_chill", "Chill Touch", Spell("magic_frostbolt_chill_spell", "Chill Touch", DamageType.Ice, 24f, 14f, SpellDelivery.Projectile, 3f, statusEffect: StatusEffectType.Chill), "A numbing cold that slows the foe.", Focus(14f), DamageType.Ice, true),
         };
 
@@ -281,7 +281,7 @@ public static partial class SkillCatalog
         /* magic_fireball_inferno children */
         bank.L2["magic_fireball_inferno"] = new BranchSlot[]
         {
-            S("magic_fireball_inferno_conflagration", "Conflagration", Spell("magic_fireball_inferno_conflagration_spell", "Conflagration", DamageType.Fire, 38f, 28f, SpellDelivery.Vortex, 7f, deliveryRange: 8f, deliveryRadius: 2.6f, duration: 3f, statusEffect: StatusEffectType.Burn), "A blazing whirl of fire that drags foes in and burns them alive.", Focus(28f), DamageType.Fire, true),
+            S("magic_fireball_inferno_conflagration", "Conflagration", Spell("magic_fireball_inferno_conflagration_spell", "Conflagration", DamageType.Fire, 38f, 28f, SpellDelivery.Vortex, 8f, deliveryRange: 8f, deliveryRadius: 2.6f, duration: 3f, statusEffect: StatusEffectType.Burn), "A blazing whirl of fire that drags foes in and burns them alive.", Focus(28f), DamageType.Fire, true),
             S("magic_fireball_inferno_firestorm", "Firestorm", Spell("magic_fireball_inferno_firestorm_spell", "Firestorm", DamageType.Fire, 36f, 26f, SpellDelivery.Storm, 7f, deliveryRange: 10f, deliveryRadius: 3.8f, duration: 3.5f, statusEffect: StatusEffectType.Burn), "A storm of whirling flame that rains burning embers over the area.", Focus(26f), DamageType.Fire, true),
             S("magic_fireball_inferno_rage", "Infernal Rage", Perk(PassivePerkType.AttackPowerPercent, 5f), "Rage feeds the flame — physical attack +5%.", passive: true),
             S("magic_fireball_inferno_peak", "Inferno Peak", Spell("magic_fireball_inferno_peak_spell", "Inferno Peak", DamageType.Fire, 40f, 30f, SpellDelivery.Zone, 9f, deliveryRadius: 4.2f, duration: 3.5f, knockback: 1f, statusEffect: StatusEffectType.Burn), "A towering eruption of flame that leaves the ground burning for seconds.", Focus(30f), DamageType.Fire, true),
@@ -303,7 +303,7 @@ public static partial class SkillCatalog
         {
             S("magic_fireball_scorch_burn", "Burn", Spell("magic_fireball_scorch_burn_spell", "Burn", DamageType.Fire, 30f, 18f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Burn, projectileShape: ProjectileShape.Comet), "A searing burn that lingers long after impact.", Focus(18f), DamageType.Fire, true),
             S("magic_fireball_scorch_ignite", "Ignite", Perk(PassivePerkType.SpellDamagePercent, 6f), "Everything burns — spell damage +6%.", passive: true),
-            S("magic_fireball_scorch_flash", "Flash Fire", Spell("magic_fireball_scorch_flash_spell", "Flash Fire", DamageType.Fire, 32f, 20f, SpellDelivery.Instant, 6f, statusEffect: StatusEffectType.Burn), "A swift flash of scorching fire that strikes whatever you look at.", Focus(20f), DamageType.Fire, true),
+            S("magic_fireball_scorch_flash", "Flash Fire", Spell("magic_fireball_scorch_flash_spell", "Flash Fire", DamageType.Fire, 32f, 20f, SpellDelivery.Instant, 5f, statusEffect: StatusEffectType.Burn), "A swift flash of scorching fire that strikes whatever you look at.", Focus(20f), DamageType.Fire, true),
             S("magic_fireball_scorch_searing", "Searing Ray", Spell("magic_fireball_scorch_searing_spell", "Searing Ray", DamageType.Fire, 34f, 22f, SpellDelivery.Beam, 5f, deliveryRange: 13f, deliveryRadius: 1.3f, statusEffect: StatusEffectType.Burn, channelDrainPerSecond: 9f), "A narrow beam of searing heat — hold it over foes, burning the whole line.", Focus(22f), DamageType.Fire, true),
             S("magic_fireball_scorch_heat", "Radiant Heat", Perk(PassivePerkType.HealthRegenPerSecond, 0.002f), "Warmth that mends — +0.2% max health per second.", passive: true),
         };
@@ -314,18 +314,18 @@ public static partial class SkillCatalog
             S("magic_frostbolt_icelance_pierce", "Frost Pierce", Spell("magic_frostbolt_icelance_pierce_spell", "Frost Pierce", DamageType.Ice, 30f, 18f, SpellDelivery.Projectile, 4f, projectileShape: ProjectileShape.Lance), "A lance that pierces through armor.", Focus(18f), DamageType.Ice, true),
             S("magic_frostbolt_icelance_havoc", "Ice Havoc", Perk(PassivePerkType.CritChanceFlat, 4f), "Chaos crystallized — +4% crit chance.", passive: true),
             S("magic_frostbolt_icelance_impale", "Glacial Impale", Spell("magic_frostbolt_icelance_impale_spell", "Glacial Impale", DamageType.Ice, 34f, 22f, SpellDelivery.Projectile, 5f, projectileShape: ProjectileShape.Lance), "A massive spike that impales.", Focus(22f), DamageType.Ice, true),
-            S("magic_frostbolt_icelance_hail", "Hail Lance", Spell("magic_frostbolt_icelance_hail_spell", "Hail Lance", DamageType.Ice, 30f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 2f), "A volley of ice lances.", Focus(20f), DamageType.Ice, true),
-            S("magic_frostbolt_icelance_bite", "Frost Bite", Spell("magic_frostbolt_icelance_bite_spell", "Frost Bite", DamageType.Ice, 28f, 16f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Chill), "A biting cold that chills to the bone.", Focus(16f), DamageType.Ice, true),
+            S("magic_frostbolt_icelance_hail", "Hail Lance", Spell("magic_frostbolt_icelance_hail_spell", "Hail Lance", DamageType.Ice, 30f, 20f, SpellDelivery.Storm, 5f, deliveryRange: 10f, deliveryRadius: 2.6f, duration: 3.5f, statusEffect: StatusEffectType.Chill), "A storm of hail lances that batters the whole area.", Focus(20f), DamageType.Ice, true),
+            S("magic_frostbolt_icelance_bite", "Frost Bite", Spell("magic_frostbolt_icelance_bite_spell", "Frost Bite", DamageType.Ice, 28f, 16f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Chill, projectileShape: ProjectileShape.Comet), "A biting cold that flashes in and chills to the bone.", Focus(16f), DamageType.Ice, true),
         };
 
         /* magic_frostbolt_freeze children */
         bank.L2["magic_frostbolt_freeze"] = new BranchSlot[]
         {
-            S("magic_frostbolt_freeze_deep", "Deep Freeze", Spell("magic_frostbolt_freeze_deep_spell", "Deep Freeze", DamageType.Ice, 34f, 24f, SpellDelivery.Zone, 6f, deliveryRadius: 2.6f, statusEffect: StatusEffectType.Frost), "A paralyzing cold that freezes foes solid.", Focus(24f), DamageType.Ice, true),
-            S("magic_frostbolt_freeze_snap", "Cold Snap", Spell("magic_frostbolt_freeze_snap_spell", "Cold Snap", DamageType.Ice, 32f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 2.4f), "A sudden snap-freeze of the air.", Focus(20f), DamageType.Ice, true),
+            S("magic_frostbolt_freeze_deep", "Deep Freeze", Spell("magic_frostbolt_freeze_deep_spell", "Deep Freeze", DamageType.Ice, 34f, 24f, SpellDelivery.Zone, 6f, deliveryRadius: 2.6f, duration: 3.5f, statusEffect: StatusEffectType.Frost), "A lingering cold that freezes foes solid.", Focus(24f), DamageType.Ice, true),
+            S("magic_frostbolt_freeze_snap", "Cold Snap", Spell("magic_frostbolt_freeze_snap_spell", "Cold Snap", DamageType.Ice, 32f, 20f, SpellDelivery.Instant, 5f, statusEffect: StatusEffectType.Frost), "A sudden snap-freeze of whatever you look at.", Focus(20f), DamageType.Ice, true),
             S("magic_frostbolt_freeze_chill", "Frozen Will", Perk(PassivePerkType.StaminaRegenPercent, 8f), "Cold discipline — stamina recovery +8%.", passive: true),
-            S("magic_frostbolt_freeze_tundra", "Tundra", Spell("magic_frostbolt_freeze_tundra_spell", "Tundra", DamageType.Ice, 32f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3f), "The ground becomes frozen tundra.", Focus(22f), DamageType.Ice, true),
-            S("magic_frostbolt_freeze_touch", "Frozen Touch", Spell("magic_frostbolt_freeze_touch_spell", "Frozen Touch", DamageType.Ice, 28f, 18f, SpellDelivery.Zone, 4f, deliveryRadius: 2f), "An ice touch that slows and bites.", Focus(18f), DamageType.Ice, true),
+            S("magic_frostbolt_freeze_tundra", "Tundra", Spell("magic_frostbolt_freeze_tundra_spell", "Tundra", DamageType.Ice, 32f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, duration: 3.5f, statusEffect: StatusEffectType.Chill), "The ground becomes frozen tundra — a wide field that slows all inside.", Focus(22f), DamageType.Ice, true),
+            S("magic_frostbolt_freeze_touch", "Frozen Touch", Spell("magic_frostbolt_freeze_touch_spell", "Frozen Touch", DamageType.Ice, 28f, 18f, SpellDelivery.Vortex, 4f, deliveryRange: 8f, deliveryRadius: 2.2f, duration: 2.5f, statusEffect: StatusEffectType.Chill), "An ice vortex that drags foes in and slows them.", Focus(18f), DamageType.Ice, true),
         };
 
         /* magic_frostbolt_crystal children (all passive) */
@@ -342,20 +342,20 @@ public static partial class SkillCatalog
         bank.L2["magic_frostbolt_glacier"] = new BranchSlot[]
         {
             S("magic_frostbolt_glacier_wall", "Frost Obelisk", Spell("magic_frostbolt_glacier_wall_spell", "Frost Obelisk", DamageType.Ice, 36f, 26f, SpellDelivery.Summon, 8f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, statusEffect: StatusEffectType.Chill, projectileSpeed: 16f), "Summon a frozen obelisk that hurls frost bolts at nearby foes.", Focus(26f), DamageType.Ice, true),
-            S("magic_frostbolt_glacier_surge", "Glacial Surge", Spell("magic_frostbolt_glacier_surge_spell", "Glacial Surge", DamageType.Ice, 40f, 30f, SpellDelivery.Zone, 9f, deliveryRadius: 3.8f), "A surge of suffocating cold.", Focus(30f), DamageType.Ice, true),
+            S("magic_frostbolt_glacier_surge", "Glacial Surge", Spell("magic_frostbolt_glacier_surge_spell", "Glacial Surge", DamageType.Ice, 40f, 30f, SpellDelivery.Zone, 9f, deliveryRadius: 3.8f, duration: 4f, statusEffect: StatusEffectType.Frost), "A suffocating surge of cold that swallows the area.", Focus(30f), DamageType.Ice, true),
             S("magic_frostbolt_glacier_weight", "Glacial Weight", Perk(PassivePerkType.StaggerResistPercent, 8f), "The weight of ages — stagger resistance +8%.", passive: true),
-            S("magic_frostbolt_glacier_avalanche", "Avalanche", Spell("magic_frostbolt_glacier_avalanche_spell", "Avalanche", DamageType.Ice, 38f, 28f, SpellDelivery.Zone, 8f, deliveryRadius: 3.6f), "A cascading avalanche of ice.", Focus(28f), DamageType.Ice, true),
+            S("magic_frostbolt_glacier_avalanche", "Avalanche", Spell("magic_frostbolt_glacier_avalanche_spell", "Avalanche", DamageType.Ice, 38f, 28f, SpellDelivery.Storm, 8f, deliveryRange: 10f, deliveryRadius: 3.6f, duration: 3.5f, statusEffect: StatusEffectType.Frost), "A cascading avalanche that crushes the area under falling ice.", Focus(28f), DamageType.Ice, true),
             S("magic_frostbolt_glacier_eternal", "Eternal Cold", Perk(PassivePerkType.SpellDamagePercent, 8f), "A cold that never ends — spell damage +8%.", passive: true),
         };
 
         /* magic_frostbolt_chill children */
         bank.L2["magic_frostbolt_chill"] = new BranchSlot[]
         {
-            S("magic_frostbolt_chill_soul", "Chill Soul", Spell("magic_frostbolt_chill_soul_spell", "Chill Soul", DamageType.Ice, 30f, 18f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Chill), "A cold that seeps into the soul and slows it.", Focus(18f), DamageType.Ice, true),
-            S("magic_frostbolt_chill_curse", "Frost Curse", Spell("magic_frostbolt_chill_curse_spell", "Frost Curse", DamageType.Ice, 28f, 16f, SpellDelivery.Zone, 4f, deliveryRadius: 2f), "A curse of creeping frost.", Focus(16f), DamageType.Ice, true),
+            S("magic_frostbolt_chill_soul", "Chill Soul", Spell("magic_frostbolt_chill_soul_spell", "Chill Soul", DamageType.Ice, 30f, 18f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Chill, projectileShape: ProjectileShape.Missile), "A homing cold that hunts its prey and seeps into the soul.", Focus(18f), DamageType.Ice, true),
+            S("magic_frostbolt_chill_curse", "Frost Curse", Spell("magic_frostbolt_chill_curse_spell", "Frost Curse", DamageType.Ice, 28f, 16f, SpellDelivery.Vortex, 4f, deliveryRange: 8f, deliveryRadius: 2f, duration: 3f, statusEffect: StatusEffectType.Chill), "A creeping cold that spirals, cursing all it touches.", Focus(16f), DamageType.Ice, true),
             S("magic_frostbolt_chill_will", "Frost Will", Perk(PassivePerkType.HealthRegenPerSecond, 0.002f), "Frost preserves the living — +0.2% max health per second.", passive: true),
             S("magic_frostbolt_chill_stare", "Cold Stare", Spell("magic_frostbolt_chill_stare_spell", "Cold Stare", DamageType.Ice, 26f, 14f, SpellDelivery.Beam, 3f, deliveryRange: 11f, deliveryRadius: 1f, statusEffect: StatusEffectType.Chill, channelDrainPerSecond: 7f), "A gaze of ice that freezes the heart — hold it to chill and slow.", Focus(14f), DamageType.Ice, true),
-            S("magic_frostbolt_chill_hour", "Witching Chill", Spell("magic_frostbolt_chill_hour_spell", "Witching Chill", DamageType.Ice, 32f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 2.4f), "An unnatural hour of deep cold.", Focus(20f), DamageType.Ice, true),
+            S("magic_frostbolt_chill_hour", "Witching Chill", Spell("magic_frostbolt_chill_hour_spell", "Witching Chill", DamageType.Ice, 32f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 2.4f, duration: 3f, statusEffect: StatusEffectType.Frost), "An unnatural hour of deep cold that lingers where it strikes.", Focus(20f), DamageType.Ice, true),
         };
 
         /* magic_dark_shadowbolt children */

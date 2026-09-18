@@ -1,7 +1,9 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1ch` (fire school
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1ci` (frost/ice
+school remixed to distinct deliveries — lingering frost fields, hailstorm/avalanche storm strikes,
+ice vortices, homing soul-chill, instant snap-freeze — following the fire remix), `1ch` (fire school
 skills remixed to distinct deliveries — vortex/storm/instant/lingering-burn vs. slam/knockback — and
 channeled **beam** magic now sweeps with the player's aim), `1cg` (earth
 terrain deforms are now flat-topped 1x1x1 m slab stacks — vertical side walls, uncapped up to the
@@ -35,6 +37,64 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
+## 1ci. Ice school remix (distinct deliveries)
+
+Request: "avalanche, cold snap, deep freeze, freeze, frost curse, frozen touch, glacial surge,
+glacier, hail lance, tundra, witching chill" (the AoE list) and "chill soul, chill touch, frost
+bite" (the projectile list) in the ice element are basically the same — differentiate them. Followed
+the fire remix ("full delivery remix") so each pick reads distinctly: most AoEs were near-identical
+**Zone** casts that only bumped power/radius, and the shard projectiles were recolors.
+
+Ice remix (all in `SkillCatalog.Magic.cs`):
+- **Freeze** — stays Zone but becomes a **lingering frost field**: + `duration 3f` (SpellZone tick),
+  Frost kept.
+- **Deep Freeze** — Zone linger: `duration 3.5f`, Frost kept (heavy paralyzing field).
+- **Cold Snap** — Zone → **Instant** (crosshair snap-freeze, Frost; no travel, no AoE marker).
+  Mirrors Flash Fire.
+- **Tundra** — Zone linger: `duration 3.5f`, **Chill** (wide creeping-slow field).
+- **Frozen Touch** — Zone → **Vortex** (ice whirl that drags + chills): `deliveryRange 8f,
+  deliveryRadius 2.2f, duration 2.5f`, Chill. Mirrors the Whirlpool vortex archetype.
+- **Glacier** — the crush slam: Zone + knockback 2, no status ("crushes and shoves foes").
+- **Glacial Surge** — crowning frost field: radius → 3.8, `duration 4f`, Frost.
+- **Avalanche** — Zone → **Storm** (hail crashes down over the area): `duration 3.5f`, Frost. Mirrors
+  Thunderstorm/Meteor Rain archetypes.
+- **Hail Lance** — Zone → **Storm** (a storm of hail lances batters the area): `duration 3.5f`, Chill.
+- **Frost Bite** — projectile shape Shard (Auto) → **Comet** (streaking flash of biting cold).
+- **Chill Soul** — projectile shape Shard (Auto) → **Missile** (homing soul-chill; reuses
+  `SpellEffect.UpdateMissileTargeting`, the Arcane Missiles precedent).
+- **Frost Curse** — Zone → **Vortex** (spiraling curse of creeping cold): `deliveryRange 8f,
+  deliveryRadius 2f, duration 3f`, Chill.
+- **Witching Chill** — Zone linger: `duration 3f`, Frost.
+- Unchanged: Ice Lance, Frost Pierce, Glacial Impale (linear lances), Cold Stare (beam), Frost
+  Obelisk (summon), Chill Touch (already a distinct shard projectile, kept as the cheap chill).
+
+### 1ci-status
+- **`SkillCatalog.Magic.cs`** — frost L1 (Freeze, Glacier) + L2 blocks remixed as above; tooltips
+  reworded to match each new identity. Signature verified against the `Spell(...)` factory
+  (`SkillCatalog.cs:124-130`): the positional float after `SpellDelivery.X` is the **cooldown**, then
+  named `deliveryRange:`/`deliveryRadius:`/`duration:`/`statusEffect:` (defaults 10 / 1 / 0 / none).
+  Cooldowns preserved from originals (Hail Lance 5, Cold Snap 5, Frost Bite 4, Chill Soul 4, ...). Same
+  pass fixed two fire leftovers: Conflagration cd 8→**8** (was accidentally 7) and Flash Fire cd 6→**5**
+  (was accidentally 6) — Flash Fire is Instant with the default range, so the old "range 6" note was
+  wrong on both counts.
+- **Docs** — `magic-skills.md` frost rows updated (deliveries/stats/tooltips) plus the stale Flash Fire
+  row fixed; `game-design.md` §3.8.1 Storm examples and the Projectile Shapes table synced (Frost Bite
+  → Comet, Chill Soul → Missile, Shard back to Stone Shard / Chill Touch). PROGRESS intro refreshed.
+- **Verification**: no CLI/Unity build per project rule 3 — grep + full re-read. All 13 touched frost
+  spell ids appear only in `SkillCatalog.Magic.cs` (no stale callers). Delivery behavior re-checked:
+  Zone linger = `SpellZone` tick, Vortex = `SpawnVortex`, Storm = `SpellStorm`, Instant =
+  `ResolveDirect` (status applies via `ApplyHit` → `ApplyStatus`, `SpellCaster.cs:1036-1037`),
+  Missile/Comet shapes resolve in `SpellCaster.BuildProjectileBody`. `UpdateAoePreview`
+  (`PlayerController.cs:1505`) still rings Zone/Vortex/Storm — Cold Snap (Instant) correctly shows no
+  marker.
+- **Play-test (pending)**: cast each remixed frost skill — Freeze / Deep Freeze / Tundra / Witching
+  Chill / Glacial Surge should leave lingering frost/chill fields; Hail Lance and Avalanche strike
+  repeatedly over the area (storm); Frozen Touch and Frost Curse whirl and pull foes; Glacier slams and
+  shoves; Cold Snap hits instantly along the crosshair; Chill Soul's dart bends to chase its prey; Frost
+  Bite streaks in as a comet.
+
+---
+
 ## 1ch. Fire school remix (distinct deliveries) + beam magic sweeps with player aim
 
 Request: "asteroid, conflagration, firewave, firestorm, flash fire, inferno, inferno peak, meteor
@@ -53,8 +113,8 @@ Fire remix (all in `SkillCatalog.Magic.cs`):
   Thunderstorm/Meteor Rain archetypes.
 - **Inferno Peak** — crowning burn zone: radius → 4.2, `duration 3.5f`, Burn, knockback 1.
 - **Fire Wave** — the push wave: knockback → **2.5**, no burn ("sweeps foes across the field").
-- **Flash Fire** — Zone → **Instant** (crosshair flash strike, `range 6`, Burn; no travel, no AoE
-  marker). Unchanged: Scorch, Meteor Rain, Comet, Burn, Searing Ray (already distinct).
+- **Flash Fire** — Zone → **Instant** (crosshair flash strike, Burn; no travel, no AoE marker;
+  cooldown stays 5s). Unchanged: Scorch, Meteor Rain, Comet, Burn, Searing Ray (already distinct).
 - All new entries copy established delivery signatures (Whirlpool `duration`/`deliveryRadius`/Burn,
   Stormcall `deliveryRange`/`deliveryRadius`/`duration`/status, Instant range/Burn) — no per-skill
   special-casing added; `ResolveDirect`/`SpellZone`/`SpellStorm`/`SpawnVortex` already apply status

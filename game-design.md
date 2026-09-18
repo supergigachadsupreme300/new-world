@@ -761,7 +761,8 @@ a school read distinctly instead of feeling like copies:
   Ember Effigy, Gust Totem.
 - **Storm** — a persistent ground zone that **strikes repeatedly** while it lasts: `StrikesPerTick`
   (2) bolts per tick at `StrikePowerMultiplier` ×0.8 with randomized sub-second delays, element-styled
-  visuals (e.g. crossed bolt bars on Lightning). Examples: Thunderstorm, Meteor Rain, Blizzard, Eclipse.
+  visuals (e.g. crossed bolt bars on Lightning). Examples: Thunderstorm, Meteor Rain, Blizzard,
+  Hail Lance, Avalanche, Eclipse.
 
 Fifth, **Projectile Shapes** — projectile visuals are split into named shapes rather than one element
 color swap, so each spell looks like its name and not a recolor of the same ball:
@@ -770,13 +771,13 @@ color swap, so each spell looks like its name and not a recolor of the same ball
 |---|---|
 | **Bolt** | Jagged segmented bolt along the flight axis (the same segment technique as the thunder-storm event's `SpawnJaggedBolt`), fast crackle pulse — used by every spell with "Bolt" in the name: Frost Bolt, Chain Lightning, Dark Bolt, Volt, Fork/Leap/Arc/Volt Bolt, Fury Bolt, Shadow/Doom Bolt, Void Rend, and the class-flavored Arcane Bolt. |
 | **Sphere** | Classic orb (soft breathe) — school default / the Fireball. |
-| **Shard** | Diamond crystal that drills forward (spin + breathe) — stone shards and generic frost chips (Stone Shard, Chill Touch, Chill Soul, Frost Bite). |
+| **Shard** | Diamond crystal that drills forward (spin + breathe) — stone shards and frost chips (Stone Shard, Chill Touch). |
 | **Lance** | Long straight pointed spike (shaft + tip), heavier than a bolt — Ice Lance, Frost Pierce, Glacial Impale. |
 | **Spear** | Tapered spear: dark shaft + broad diamond head — Shadow Spear. |
 | **Blade** | Flat cross-blade that spins in its own plane — Wind Blade, Razor Blade, Wind Scissor, Laceration. |
 | **Splash** | Oblate droplet with a trailing splash of smaller drops — Water Bolt, Tidal Surge. |
-| **Comet** | Bright core + fading streak tail (ember flicker) — Scorch, Burn, Comet. |
-| **Missile** | Small clump of darts; **homing** — `SpellEffect.UpdateMissileTargeting` probes the **current trajectory** every frame and prioritizes the target on the flight path (the foe it is about to fly into), otherwise keeps chasing the locked target's last spot (or locks the nearest foe ahead if never locked), steering smoothly at 240°/s so the flight bends; no target = flies straight. Arcane Missiles. |
+| **Comet** | Bright core + fading streak tail (ember flicker) — Scorch, Burn, Comet, Frost Bite. |
+| **Missile** | Small clump of darts; **homing** — `SpellEffect.UpdateMissileTargeting` probes the **current trajectory** every frame and prioritizes the target on the flight path (the foe it is about to fly into), otherwise keeps chasing the locked target's last spot (or locks the nearest foe ahead if never locked), steering smoothly at 240°/s so the flight bends; no target = flies straight. Arcane Missiles, Chill Soul. |
 | **Dart** | Sleek thin bolt-line with a tip — physical shots (Archer Wind Shot, Taoist Talisman). |
 
 `Auto` resolves per school: Fire→Sphere, Ice→Shard, Lightning→Bolt, Wind→Blade, Water→Splash,
