@@ -111,8 +111,8 @@ public static partial class MapBuilder
             Vector3 perp = GetPerpendicular(root.transform.up);
             Vector3 horz = Quaternion.AngleAxis(azimuth * Mathf.Rad2Deg, root.transform.up) * perp;
             Vector3 branchDir = (root.transform.up * Mathf.Cos(angle) + horz * Mathf.Sin(angle)).normalized;
-            float branchLen = trunkH * Random.Range(0.5f, 0.75f);
-            float branchW = trunkW * Random.Range(0.3f, 0.5f);
+            float branchLen = trunkH * Random.Range(0.75f, 1f);
+            float branchW = trunkW * Random.Range(0.45f, 0.65f);
             GrowBranchSegment(root.transform, tip, branchDir, branchLen, branchW, wood, leaf,
                 ref count, maxBranches, 0,
                 0, null, 0f, 1f, -1, "",
@@ -238,8 +238,8 @@ public static partial class MapBuilder
             Vector3 p = GetPerpendicular(dir.normalized);
             Vector3 h = Quaternion.AngleAxis(azi * Mathf.Rad2Deg, dir.normalized) * p;
             Vector3 subDir = (dir.normalized * Mathf.Cos(a) + h * Mathf.Sin(a)).normalized;
-            float subLen = segLen * Random.Range(0.45f, 0.7f);
-            float subW = width * Random.Range(0.35f, 0.6f);
+            float subLen = segLen * Random.Range(0.6f, 0.85f);
+            float subW = width * Random.Range(0.5f, 0.75f);
             if (subW < 0.06f)
             {
                 SpawnLeaves(root, tipPos + subDir * subLen * 0.5f, leaf);
