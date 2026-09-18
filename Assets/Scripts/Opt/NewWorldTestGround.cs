@@ -39,6 +39,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableEnemies = true;
     public bool EnableBuildings = true;
     public bool EnableNpcs = true;
+    [Tooltip("Build the three holy places (taoist shrine / church / pagoda) + worship NPCs (taoist / priest / monk) so the Faith system can be exercised.")]
+    public bool EnableReligion = true;
     public bool EnablePoiHub = true;
     public bool IncludeBoss = false;
 
@@ -109,6 +111,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (EnableEnemies) { RunSafely("enemies", SpawnEnemies); yield return null; }
         if (EnableBuildings) { RunSafely("buildings", SpawnBuildings); yield return null; }
         if (EnableNpcs) { RunSafely("npcs", SpawnNpcs); yield return null; }
+        if (EnableReligion) { RunSafely("religion", SpawnReligion); yield return null; }
         if (EnablePoiHub) { RunSafely("POI hub", RegisterPoiHub); yield return null; }
         if (EnableWeapons)
         {
@@ -418,6 +421,41 @@ public sealed class NewWorldTestGround : MonoBehaviour
             float bx = startX + i * 8f;
             wb.SpawnBuildingDirect(types[i], new Vector3(bx, PlatformTopY, z), 0);
         }
+    }
+
+    /// <summary>
+    /// Build the three holy places — taoist shrine, church, pagoda — plus their worship NPCs
+    /// (taoist / priest / monk) so the Faith system can be exercised on the bench. Mirrors the
+    /// legacy <c>CreateWorld</c> wiring (<see cref="WorldBuilder.BuildShrine"/>/<c>BuildChurch</c>/
+    /// <c>BuildPagoda</c> + <c>MapBuilder.Build*Npc</c> + the matching NPC component); each site is
+    /// placed on the platform clear of the other bench lanes.
+    /// </summary>
+    private void SpawnReligion()
+    {
+        var wb = WorldBuilder.Instance;
+        if (wb == null) return;
+        wb.EnsureWorldRoot();
+        if (PlatformTopY == float.MinValue)
+        {
+            Debug.LogWarning("[NewWorldTestGround] Skipped religion lane — the test platform isn't built.");
+            return;
+        }
+
+        float baseY = PlatformTopY;
+        float cx = PlatformCenter.x;
+        float cz = PlatformCenter.z;
+
+        wb.BuildShrine(new Vector3(cx - 30f, baseY, cz - 38f));
+        var taoist = MapBuilder.BuildTaoistNpc(wb.WorldRoot.transform, new Vector3(cx - 30f, baseY, cz - 31.6f), Quaternion.identity);
+        taoist.AddComponent<TaoistPriestNPC>();
+
+        wb.BuildChurch(new Vector3(cx + 30f, baseY, cz - 35f));
+        var priest = MapBuilder.BuildPriestNpc(wb.WorldRoot.transform, new Vector3(cx + 30f, baseY, cz - 41.2f), Quaternion.identity);
+        priest.AddComponent<PriestNPC>();
+
+        wb.BuildPagoda(new Vector3(cx - 30f, baseY, cz + 44f));
+        var monk = MapBuilder.BuildMonkNpc(wb.WorldRoot.transform, new Vector3(cx - 32f, baseY, cz + 46f), Quaternion.Euler(0f, -90f, 0f));
+        monk.AddComponent<PagodaMonkNPC>();
     }
 
     private void SpawnNpcs()

@@ -23,6 +23,38 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
+## 1bw. All three religion structures + worship NPCs spawn on the test ground
+
+User: "spawn the religion structure on the test ground" (+ "all three" + "include the NPCs"). The
+Faith system's holy places (taoist shrine / church / pagoda) were previously only built inside the
+legacy `WorldBuilder.CreateWorld()` path (`EnableLegacyGeneration = false`), so they never appeared
+anywhere in the streaming world or on the QA bench. Now the test platform (`NewWorldTestGround`)
+builds all three structures plus their worship NPCs.
+
+### 1bw-status
+- **`NewWorldTestGround.cs`**: new opt-in lane `EnableReligion` (default `true`) runs after the NPC
+  lane; `SpawnReligion()` calls `wb.EnsureWorldRoot()` (guards `PlatformTopY == float.MinValue`),
+  then mirrors the legacy wiring: `wb.BuildShrine/BuildChurch/BuildPagoda` at platform positions
+  clear of the other lanes, and `MapBuilder.BuildTaoistNpc/BuildPriestNpc/BuildMonkNpc` (parented to
+  `wb.WorldRoot`) + `AddComponent<TaoistPriestNPC/PriestNPC/PagodaMonkNPC>`.
+- **Placement** (all at `PlatformTopY`, `PlatformSize` 120): Taoist Shrine `(cx-30, cz-38)` + taoist
+  NPC `(cx-30, cz-31.6)`; Church `(cx+30, cz-35)` + priest `(cx+30, cz-41.2)`; Pagoda `(cx-30, cz+44)`
+  + monk `(cx-32, cz+46)` (monk `Euler(0,-90,0)`, others identity).
+- **Notes**: religion parts spawn visually only (same as legacy — not registered in `_buildings`,
+  so not persisted); worship itself is NPC-driven, so each structure keeps its working NPC. The
+  bench's tool kit already includes the **rosary** (Buddhist offering); taoist (1 wood) and church
+  (50 coins) offerings may need grants in play-test.
+- **Docs**: `game-design.md` §5.7 gained a **"The three holy places"** bullet (Faith system worship
+  sites + QA test platform placement).
+- **Verification**: no CLI/Unity build per project rule — code review + grep only; confirmed
+  `BuildShrine`/`BuildChurch`/`BuildPagoda` and `MapBuilder.Build*Npc` are public, `EnsureWorldRoot`
+  exists, and the three NPC classes + `MapBuilder` are in the global namespace (no usings needed).
+- **Play-test (pending)**: (1) bench shows shrine NW, church NE, pagoda SW with their NPCs nearby;
+  (2) press E on each worship NPC → dialog offers worship; joining a faith updates Character Info >
+  Faith (devotion +1/day, blessing perks); (3) toggle `EnableReligion` off → no structures spawn.
+
+---
+
 ## 1bv. Talents moved to the Info tab; talent-point currency removed (free Rank Up)
 
 User: "talent should be show in the info tab not the skill tab" + decided to drop the talent-point

@@ -960,6 +960,13 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
 - **Pagoda**: the 4-tiered, curved-roof landmark east of the village beside the neighbor's house —
   pray, **meditate** (typing/meditation minigame), and watch the sunset. The **Monk** there is
   connected to the **exorcism quest** (Rosary kills only).
+- **The three holy places** — **pagoda** (Buddhism / monk), **church** (Catholic / priest), and
+  **taoist shrine** (Taoism / taoist priest) — are the worship sites for the Faith system
+  (`ReligionManager`): worshipping joins/switches the player's faith, grants devotion (+1 per worship
+  day, up to a cap) and unlocks that faith's blessing perks. Each site is built from its
+  `WorldBuilder.Build*` structure + matching worship NPC. **QA/Test Ground**: the independent test
+  platform (`NewWorldTestGround.EnableReligion`) places all three structures and worship NPCs so the
+  Faith tab is testable without the legacy village.
 
 ### 5.8 NPCs & Relationships
 
