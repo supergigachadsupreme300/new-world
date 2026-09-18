@@ -59,6 +59,8 @@ boot chunk near (0, terrain, -10) and let the player walk to the pad.**
   two callers of `PlacePlayerOnArena`/`GetSpawnPoint` (`NewWorldTestGround` internal + `ResetPlayer`),
   both behave under the new gates; no other `FindAnyObjectByType<NewWorldTestGround>` consumer depends
   on the old unconditional pull.
+- **Follow-up fix (8682424):** `NewWorldTestGround.PlatformTopY` is **static** — the two instance
+  accesses in `IsOnOrNearArena` were CS0176 compile errors; qualified with the type name.
 - **Play-test (pending)**: (1) play-mode start puts the player on the ground near `(0, terrain, -10)`
   with no further teleports and the camera settles on them; (2) walking to the pad and dying/resetting
   keeps the player on the pad; (3) with `AutoTeleportPlayerOnStart=true`, the old pull-onto-pad
