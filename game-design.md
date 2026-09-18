@@ -745,6 +745,16 @@ A spell is a data asset carrying:
 - cast animation reference
 - optional status-effect application with a proc chance (e.g., applies Burn/Frost/Stagger; §3.7)
 
+**Known issue (OPEN — `1cm`, investigation in progress; no fix shipped):** a repeat **Earth Wall**
+cast at the same spot (first cast works) reports "the entire chunk moving" on every subsequent cast.
+Verified so far: repeat-cast height math is a clamped no-op (per-corner `noise + 2.6` ceiling), the
+merged mesh's tops-first layout keeps `PatchRegion` index-safe, and no code path translates a chunk
+transform — so the symptom is a mesh-route / collider-re-cook / streaming artifact, not changed
+heights. Unconfirmed candidates: the second cast's aim ray hitting the first wall's `MeshCollider`
+(`ResolveZone`) and moving the deform center; the null-collider physics frame during
+`PatchRegion`/`ApplyMerged` recook under a nearby player; a full-chunk re-mesh re-emitting side bands;
+and a background-generate race. See `PROGRESS.md` `## 1cm` for the full findings + next steps.
+
 Persistent zones are handled by the unified **`SpellZone`** (tick damage scaled by a per-delivery
 multiplier — Zone ×0.4, Vortex ×1.0 — optional pull, plus Holy ally-healing of `IHealable` inside
 per tick); it replaces the former one-off `WindVortex`. The **Tornado** wind spell is Vortex's one

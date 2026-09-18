@@ -1,7 +1,10 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cl` (dents carve
+`# OPEN TASKS` section (especially the axe/pickaxe bug, and the new `1cm` Earth Wall repeat-cast
+investigation). Latest work at the top: `1cm` (OPEN, in progress — "Earth Wall works the first time,
+the next cast makes the entire chunk moving"; docs-only so far, no fix shipped yet — continue from
+that entry), `1cl` (dents carve
 smooth per-corner dishes/ridges instead of flat walled step-pits — the "tile disappears instead of
 changing shape" and "world still shrinking" fix; any flat tile relaxes on load so old carves read
 as smooth terrain; merged mesh keeps tops-first so region patches can't corrupt a tile), `1ck` (terrain
@@ -34,6 +37,9 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 ---
 ## # OPEN TASKS
 
+- **`1cm` — Earth Wall repeat cast "makes the entire chunk moving"** — OPEN, investigation in
+  progress; see the `## 1cm` entry at the top for findings + next steps. Deterministic (every
+  second+ cast), same spot standing close; not yet root-caused, no fix shipped.
 - **Axe/pickaxe bug** (from earlier sessions) — still open; see older entries below.
 - **Optimization Phase 6 — startup (#17, #18)** (the old `OPTIMIZATION.md` carried the detail):
   - **#17** — `Core/GameBootstrap.cs:15-80` runs ~30 full-scene `FindAnyObjectByType` scans and
@@ -42,6 +48,86 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1cm. (OPEN / in progress) Earth Wall repeat cast: "the entire chunk moving" — investigation only
+
+Request (after 1cl shipped): **"when cast earthwall it only work the first time and the next time it
+make the entire chunk moving."** Repro facts gathered (3 questions): deterministic — happens on
+**every** cast after the first, not timing-dependent; user is at roughly the **same spot, standing
+close** to where the first wall came up; the player can't pin down exactly what "moving" looks like
+(no confirmed player-launch vs mesh re-shape vs chunk relocation).
+
+This entry is a **docs-only handoff — no behavior change, nothing shipped.** Do NOT treat any
+hypothesis below as root cause; confirm by read first.
+
+### What was verified by reread (facts, not guesses)
+
+- **Coordinates are consistent** — `ChunkData.Size = 1f`, `TerrainChunkCoord.ChunkSize = 30`,
+  `FromTile` `FloorToInt` (negatives included), chunk origin = `(tc.X*30, 0, tc.Z*30)`. Wall deform
+  AABB corners (`cx, cz`) are integer world metres and match the tile coord system.
+- **Height math for a repeat Wall is a provable no-op** (`WorldStreamer.DeformAt` ~L800-824):
+  each corner is raised then clamped to `ceiling = TerrainNoiseGenerator.GetHeight(Seed, cx, cz) +
+  2.6`. A first cast leaves corners at/near that ceiling, so a repeat cast computes the same value
+  and clamps back — it cannot stack higher or dirty the terrain into a different shape. **Therefore
+  the report is a mesh-route / collider / streaming artifact, not changed heights.**
+- **`PatchRegion` is index-safe** — `ChunkObject.PatchRegion` writes only top quads at the fixed
+  offset `(lz*cs + lx)*4` with local offset `(lx, 0, lz)`; `BuildMergedMeshData` is tops-first
+  (all 4×900 top verts contiguous, then wall bands), so the patch is valid even in a chunk that
+  also has wall bands. No other consumer of `_merged.Vertices` exists besides `ApplyMerged` /
+  `PatchRegion`.
+- **No runtime chunk translation** — `CreateChunkGameObject` fixes `transform.position` at
+  `(tc.X*cs, 0, tc.Z*cs)`; nothing moves/reparents a `ChunkObject` afterward. `ChunkObject.Release`
+  only destroys props/mesh. So "the chunk moved" cannot be a literal transform move.
+- **`IsFlatTile` cannot be flipped by a Wall** — it requires all 4 corners within `0.001f`; a smooth
+  ridge tile's 4 corners are `noise(corner)+2.6` with real per-corner noise slope, so ridge tiles
+  are **not** flat. The 75%-area full-rebuild flip also can't trigger for the default Wall:
+  radius 3.6 × max charge 1.8 ≈ 6.5, reach ≈ 7 → AABB ≈ 13×13 = 169 tiles, far under
+  0.75×900 = 675. (Both were the leading "route flip" candidates and are now ruled out for the
+  plain repeat-cast case.)
+
+### Candidates still open (ranked, unconfirmed)
+
+1. **Second-cast aim ray hits the first wall's `MeshCollider`.** `SpellCaster.ResolveZone` L927-936:
+   the first `Physics.Raycast(pos, fwd, range)` now hits the raised terrain of the wall, and the
+   follow-up down-ray can land `center` **on/near the first wall** instead of the intended ground
+   point. That moves the second deform's center and — more importantly — its **collider re-cook** to
+   a different place than cast #1. Check whether the wall's own collider should be ignored by the
+   aim probe (only the first aim, not the down-probe).
+2. **Collider re-cook gap under the player.** `ChunkObject.PatchRegion` (and `ApplyMerged`) does
+   `_mc.sharedMesh = null; _mc.sharedMesh = mesh;` — a physics step with a null collider under a
+   player standing on that chunk can drop/pop the CharacterController (depenetration), which reads
+   as the world jerking. First cast may land far from the feet; the repeat cast near the wall / near
+   the feet would expose it. Consider recooking atomically (cook the new collider first, then swap
+   `sharedMesh` once; never leave it null).
+3. **Full-chunk re-mesh / wall-band emission on the repeat cast.** Any route into
+   `FullRebuildChunk` rebuilds the whole 30×30 mesh + collider and re-runs `EdgeIsRaised`; if the
+   first wall's ridge edges now emit side bands (or the mesh vert/tri counts change), the whole
+   chunk visibly re-meshes at once. Determine whether the second cast enters the full-rebuild route
+   (which route did cast #1 take, which did #2 take) and whether `EdgeHeights` emits bands for the
+   2.6 m smooth-ridge edges.
+4. **Streaming/background race** — `BackgroundGenerateChunk` runs `BuildOrLoadChunk` (reads
+   `_loadedData` + save files) on a ThreadPool thread while `ApplyHeightEdits`/`FlushDirtyChunk`
+   mutate them on the main thread; a chunk that the first wall crossed can finish generating from a
+   stale file mid-edit and snap its mesh. The user reports deterministic reproduction, which argues
+   against a race, but keep it as a fallback if 1-3 are ruled out.
+
+### Next session — concrete steps
+
+1. Add temporary aim logging (or read-only reason) for cast #1 vs #2: log `center`, `aimHit`
+   collider name, whether the route was `PatchRegion` vs `FullRebuildChunk`, and region
+   `w,h`. Confirm which of the four candidates actually fires.
+2. Read `ChunkMeshGenerator.EdgeIsRaised` / `EdgeHeights` / the collapse threshold and confirm
+   whether a smooth 2.6 m ridge edge emits wall bands on a full rebuild.
+3. Decide the fix from evidence. Likely shape: (a) exclude the deformed terrain collider from the
+   aim ray / re-resolve `center` to the true ground, (b) make collider recook atomic (no null
+   frame), and/or (c) keep repeat casts on the region-patch route.
+4. Play-test checklist after the fix: cast Earth Wall at the same spot 3-4× in a row → each cast
+   must look/behave like the first (ridge ~2.6 m, no whole-chunk re-mesh, no player jerk); do it
+   standing on the chunk and from range; walk away and back → wall persists identical.
+
+Status: **not verified / not implemented** (no build per rule 3). Docs synced for the handoff only.
 
 ---
 
