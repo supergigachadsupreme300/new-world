@@ -198,9 +198,13 @@ public static class ChunkMeshGenerator
     /// Merges the per-tile mesh arrays of a terrain chunk into one thread-safe chunk-local mesh
     /// (ONE GameObject + ONE collider per chunk). Runs on the background thread; no Unity API
     /// objects are touched. Per-tile top-quad UVs/normals are preserved unchanged.
+    /// The buffer layout is TOPS-FIRST: the 4 * tileCount top-quad vertices occupy a contiguous
+    /// block, then all vertical side-wall vertices follow. ChunkObject.PatchRegion exploits the
+    /// fixed top layout ((lz * cs + lx) * 4) to re-skin just one region after a height edit, so the
+    /// two groups must never interleave.
     ///
     /// On top of the top-surface quads, wherever a height discontinuity sits between two
-    /// neighbouring tiles (only legacy 1cg flat-slab tiles saved before the 1cj smooth revert),
+    /// neighbouring tiles (only legacy flat-slab tiles, whole-metre or older fractional carves),
     /// the higher
     /// tile emits vertical side walls down to the lower tile, subdivided one horizontal band per
     /// metre so each band reads as a single stackable terrace step. Each wall is emitted exactly
@@ -277,6 +281,10 @@ public static class ChunkMeshGenerator
 
         int vertex = 0;
         int tri = 0;
+
+        // Pass 2 — emit every tile's top quad first. All 4 * tileCount top vertices stay in one
+        // contiguous block so PatchRegion's fixed quad offsets ((lz * cs + lx) * 4) are always
+        // valid, even when a chunk mixes flat slab tiles (side walls) with smooth deforms.
         for (int i = 0; i < tileCount; i++)
         {
             ChunkMeshData tile = tiles[i];
@@ -303,6 +311,18 @@ public static class ChunkMeshGenerator
                 triangles[tri++] = tile.Triangles[k] + vertex;
 
             vertex += topVertsPerTile;
+        }
+
+        // Pass 3 — emit the vertical side walls after every top quad so the 4 * tileCount top
+        // vertices stay one contiguous block (PatchRegion's fixed quad offsets stay valid even
+        // when walls exist). Same iteration and per-edge order as Pass 1 keeps counts aligned.
+        for (int i = 0; i < tileCount; i++)
+        {
+            ChunkMeshData tile = tiles[i];
+            if (tile.Vertices == null)
+                continue;
+            int localX = i % cs;
+            int localZ = i / cs;
 
             // --- Vertical side walls where this tile is taller than its neighbour ---
             for (int e = 0; e < 4; e++)

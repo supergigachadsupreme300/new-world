@@ -704,9 +704,12 @@ A spell is a data asset carrying:
   mesh + collider, and persists the edit as a terrain modification (§2.6 saves them per chunk).
   Raised shapes (Ring/Spikes/Wall/Pillar) skip tiles inside a small keep-out ring (~0.9 m) around
   the player's feet so the ground never grows directly under the capsule and violently depenetrates
-  it on the next physics step. Deforms are **bounded**: raised shapes cap at (original noise height
-  + lift) and a crater floor clamps at (original noise height − 1.8 m), so repeated casts can never
-  grind the ground deeper or stack a ridge higher than the intended release (a repeat Wall stays
+  it on the next physics step. Deforms are **bounded**: the raised cap and the crater floor are sampled **per-corner at each
+  corner's own world coords**, so raised shapes cap at (original noise height + lift) and a crater
+  floor clamps at (original noise height − 1.8 m) — but every corner keeps its own natural slope and
+  no tile collapses to a uniform level. Crater interiors are therefore a genuine smooth dish and
+  crests are smooth rounded ridges, never flat plateaus; repeated casts can never grind the ground
+  deeper or stack a ridge higher than the intended release (a repeat Wall stays
   ~2.6 m, never taller). **Crater is the Earth projectile signature**: a Crater-shaped projectile
   (the root Stone Shard) carves its crater where the shard **strikes** —
   `SpellEffect.ResolveProjectileImpact` down-probes the ground at impact and deforms it there, so
@@ -715,15 +718,19 @@ A spell is a data asset carrying:
   ~1.4 m Crater where the bolt strikes) through the same path, so any bolt visibly disturbs the
   terrain — Earth retains the bigger, spell-scaled craters and the raised shapes
   (Ring/Spikes/Wall/Pillar) as its signature. All edits survive forever. Earth spells use terrain
-  shapes instead of a status effect. Legacy 1cg **flat-slab tiles saved by older builds are
-  re-smoothed toward their noise corner heights when their chunk loads** (1cj/1ck): an in-memory
-  relaxation — the file keeps the slab until the player next deforms that tile, then the smooth
-  values persist naturally. **Smooth 1cj+ Earth shapes are never re-smoothed**: only legacy
-  *whole-metre* flat tiles qualify for relaxation — fractional inside-metre plateaus (Wall/Pillar/
-  Ring caps at noise + lift, Crater floors at noise − 1.8) load back exactly as cast, so the map
-  never "re-randomizes" on reopen. The merged chunk mesh is **hole-proof**: any tile whose
+  shapes instead of a status effect. Legacy **flat tiles saved by older builds are
+  re-smoothed toward their noise corner heights when their chunk loads** (1cl): an in-memory
+  relaxation — the file keeps the plateau until the player next deforms that tile, then the smooth
+  values persist naturally. This covers BOTH legacy whole-metre slabs AND fractional flat plateaus
+  that older carves produced (clamped crater floors / shape caps), so a carve from any build reads
+  as smooth terrain, never a torn-out tile. Relaxation is deterministic, so reopening yields the
+  same smooth shapes — the map never "re-randomizes". Current Earth shapes are never flat to begin
+  with (per-corner caps), so they are never re-smoothed. The merged chunk mesh is **hole-proof and
+  patch-safe**: any tile whose
   bookkeeping is momentarily missing (unload/reload races) is filled with the same deterministic
-  noise corners, so a chunk rebuild can never drop a quad and open a fall-through; and a deliberate
+  noise corners, so a chunk rebuild can never drop a quad and open a fall-through; and the merged
+  buffer keeps all top quads first and wall bands last, so `PatchRegion`'s fixed quad offsets can
+  never write into a wall slot and corrupt a tile; and a deliberate
   clean map is available as an opt-in `EnableResetTerrainSaves` QA lane on `NewWorldTestGround`
   (deletes this seed's `tc_*.dat` chunk saves and regenerates the loaded chunks from noise).
   **(current build) every damaging Earth spell carries a terrain shape, regardless of delivery:**

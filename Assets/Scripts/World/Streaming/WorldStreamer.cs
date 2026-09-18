@@ -78,16 +78,17 @@ public class WorldStreamer : MonoBehaviour
     private const float OldSlabRelaxKeep = 0.5f;
 
     /// <summary>
-    /// Re-smooths a legacy flat-slab tile when it loads (1cj): if the tile is a whole-metre
-    /// block (all 4 corners equal) whose level clearly deviates from the local noise, each corner
-    /// is blended back toward its own noise height rather than set to the same level — the block
-    /// becomes a gentle smooth rise/dip with no vertical step. Pure-noise flat tiles (corners
-    /// already match noise) are left untouched. ONLY legacy 1cg-era slabs qualify — they were
-    /// flattened to whole-metre levels — while 1cj's smooth Earth shapes (Wall/Pillar/Ring caps at
-    /// noise + lift, Crater floors at noise − 1.8) are FRACTIONAL plateaus that must never be
-    /// re-blended on load, or the player's carvings would morph every open. In-memory only: the
-    /// save file keeps the slab so the relaxation is deterministic and idempotent, and the next
-    /// player deformation on the tile persists the smooth values naturally.
+    /// Re-smooths any flat modified tile when it loads (1cl): if all 4 corners are equal and the
+    /// level clearly deviates from the local noise, each corner is blended back toward its own
+    /// noise height rather than set to the same level — the plateau becomes a gentle smooth
+    /// rise/dip with no vertical step. This covers BOTH legacy 1cg-era whole-metre slabs and the
+    /// fractional flat plateaus that older Earth carves produced (clamped crater floors / shape
+    /// caps), so a carve from any build always reads as smooth terrain instead of a torn-out or
+    /// blocked tile. Pure-noise flat tiles (corners already match noise) are left untouched.
+    /// Current Earth shapes are never flat to begin with (per-corner caps), so they never re-blend.
+    /// In-memory only: the save file keeps the plateau so the relaxation is deterministic and
+    /// idempotent, and the next player deformation on the tile persists the smooth values
+    /// naturally.
     /// </summary>
     private static void RelaxLegacySlabTile(ref ChunkData data)
     {
@@ -95,11 +96,6 @@ public class WorldStreamer : MonoBehaviour
             return;
 
         float flat = data.Heights[0];
-
-        // Whole-metre gate — only 1cg-era slabs (flatten applications rounded to whole metres)
-        // relax. Any fractional flat plateau is a 1cj Earth carve and is left exactly as saved.
-        if (Mathf.Abs(flat - Mathf.Round(flat)) > 0.01f)
-            return;
 
         float[] noise = new float[4];
         noise[0] = TerrainNoiseGenerator.GetHeight(data.Seed, data.VertexWorldX(0), data.VertexWorldZ(0)); // NW
@@ -790,10 +786,13 @@ public class WorldStreamer : MonoBehaviour
 
                 if (shape == TerrainShape.Crater)
                 {
-                    // Excavate down, but clamp the floor to (original noise height − cap): the pit
-                    // always keeps a solid, walkable bottom — never a void — and repeated casts
-                    // can't grind it deeper than the first carve.
-                    float floorY = TerrainNoiseGenerator.GetHeight(Seed, wx, wz) - CraterMaxDepth;
+                    // Excavate down, but clamp the floor to (original noise height − cap) sampled at
+                    // the CORNER (cx, cz), not the tile centre: each corner keeps its own natural
+                    // slope, so the dish stays a smooth depression instead of flattening into a slab
+                    // (a flat floor re-arms the legacy side-wall rendering and reads as a torn-out
+                    // tile). Repeated casts can't grind deeper — corners already at their floor just
+                    // clamp back to it.
+                    float floorY = TerrainNoiseGenerator.GetHeight(Seed, cx, cz) - CraterMaxDepth;
                     newHeights[EncodeCorner(cx, cz)] = Mathf.Max(current - s * CraterMaxDepth, floorY);
                 }
                 else
@@ -809,13 +808,15 @@ public class WorldStreamer : MonoBehaviour
                             value += lift * (0.4f + r * 0.6f) * influence * influence;
                     }
 
-                    // Cap the raise at (original noise height + lift): repeat casts must never stack
-                    // a ridge higher than the intended release (e.g. Earth Wall at 2.6 m). Unbounded
-                    // stacking embeds the player capsule deeper with every cast and the Character
-                    // Controller's depenetration push grows violent — it launches the player far
-                    // enough that the streamed world "shrinks" around them (chunk unload / mesh
-                    // backface culling from inside the raise). Same clamp pattern as Crater's floor.
-                    float baseY = TerrainNoiseGenerator.GetHeight(Seed, wx, wz);
+                    // Cap the raise at (original noise height + lift), sampled at the CORNER (cx, cz)
+                    // so each corner keeps its own natural slope — the crest stays a smooth rounded
+                    // ridge, never a flat slab top. Repeat casts must never stack a ridge higher than
+                    // the intended release (e.g. Earth Wall at 2.6 m). Unbounded stacking embeds the
+                    // player capsule deeper with every cast and the Character Controller's
+                    // depenetration push grows violent — it launches the player far enough that the
+                    // streamed world "shrinks" around them (chunk unload / mesh backface culling from
+                    // inside the raise). Same clamp pattern as Crater's floor.
+                    float baseY = TerrainNoiseGenerator.GetHeight(Seed, cx, cz);
                     float ceiling = baseY + lift;
                     if (value > ceiling)
                         value = ceiling;

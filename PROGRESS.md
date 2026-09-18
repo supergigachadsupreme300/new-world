@@ -1,7 +1,10 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1ck` (terrain
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cl` (dents carve
+smooth per-corner dishes/ridges instead of flat walled step-pits — the "tile disappears instead of
+changing shape" and "world still shrinking" fix; any flat tile relaxes on load so old carves read
+as smooth terrain; merged mesh keeps tops-first so region patches can't corrupt a tile), `1ck` (terrain
 persistence hardening on top of 1cj: legacy slab relaxation gated to whole-metre flats so smooth
 Earth carves load back exactly as cast instead of "re-generating fresh"; merged chunk mesh made
 hole-proof so a chunk rebuild can never drop a tile; opt-in world-save-reset QA lane), `1cj` (terrain
@@ -39,6 +42,51 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1cl. Terrain deformation: per-corner caps (smooth dishes/ridges) + tops-first mesh layout
+
+Request: after 1ck, "dent still causes a tile to disappear instead of changing shape, and the
+world still shrinks." Investigation found both symptoms have one source plus one latent bug:
+
+- **Root cause A — cap/floor sampled at the tile CENTRE.** `DeformAt` clamped Crater floors to
+  `GetHeight(Seed, wx, wz) − 1.8` and raised ceilings to `GetHeight(Seed, wx, wz) + lift`, where
+  `(wx, wz)` is the TILE'S CENTRE (`cx + 0.5, cz + 0.5`). All 4 corners of a tile therefore clamped
+  to one constant → the interior collapsed into a flat plate (crater = flat-bottomed step pit;
+  Wall/Pillar/Ring = flat-topped slabs). A flat tile re-armed the legacy path: `IsFlatTile` →
+  `ChunkContainsFlatTile` → full rebuild, and neighbours emitted vertical side-wall bands down to
+  the pit's floor → the dent read as a torn-out/blocky tile. The flat floor + hard walls also made
+  the rebuilt collider jagged under/near the player → CharacterController depenetration → the
+  "world shrinking" launch.
+- **Root cause B — wall bands interleaved into the merged vertex buffer.** `BuildMergedMeshData`
+  emitted each tile's walls right after its top quads, so `PatchRegion`'s fixed quad offsets
+  `(lz · cs + lx) · 4` were only valid when a chunk had NO walls — a chunk mixing flat tiles
+  (walls) with smooth re-carves had region patches write heights into the wrong vertex slots
+  (latent tile-vanish).
+
+Fixes (`WorldStreamer.cs` / `ChunkMeshGenerator.cs`):
+
+- **Per-corner caps (A).** `DeformAt` samples the noise at the CORNER coords `(cx, cz)` for both
+  the Crater floor (`noise − 1.8`) and the raise ceiling (`noise + lift`). Every corner keeps its
+  own slope → interiors are genuine smooth dishes and ridges, never flat; no walls, no full-rebuild
+  churn, no jagged collider steps. Bounds still hold — repeat casts can't grind deeper or stack
+  higher.
+- **Any-flat relaxation (1ck gate reversed, deliberate).** `RelaxLegacySlabTile` relaxes ANY flat
+  modified tile (whole-metre slabs AND fractional carve plateaus) deterministically on load, so the
+  user's existing flat craters read as smooth rounded dents, identical every reopen; new shapes are
+  never flat, so they never re-blend.
+- **Tops-first merged layout (B).** `BuildMergedMeshData` emits all top quads first, then all wall
+  bands — `PatchRegion`'s fixed offsets stay valid in every chunk. Output geometry unchanged.
+
+Status: verified by grep + reread (rule 3; no build run) — `DeformAt` clamp sites,
+`RelaxLegacySlabTile` gate removal, and the two-pass `BuildMergedMeshData` layout all re-read
+consistent; no other code depends on the interleaved wall order (`PatchRegion`/`ApplyMerged` use
+fixed top offsets). Play-test check: cast a Crater at a fresh spot — it must read as a smooth
+concave dish with NO flat floor/step; cast a Wall twice — second cast must cap at ~2.6 m with a
+rounded crest, no slab top; walk into a cast crater — no launch/shrink; reopen the world — carved
+dishes and walls return smooth and identical; with `EnableResetTerrainSaves` on, the world
+regenerates pristine once.
 
 ---
 

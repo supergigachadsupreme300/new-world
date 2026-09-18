@@ -19,12 +19,13 @@ Source: `Assets/Scripts/Combat/Skills/SkillCatalog.cs` (base skills) + `SkillCat
 Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size; **ProjectileSpeed** = bolt speed (default 20); **Duration** = persistent-zone lifetime (0 = instant); **TickInterval** = seconds between ticks (default 0.5); **ChannelDrainPerSecond** = focus upkeep for Beams (0 = none).
 
 Every terrain shape renders as **smooth feathered terrain**, written as continuous per-corner
-heights and smoothstep-blended at the rim — never flat slabs. Raised shapes (Ring/Spikes/Wall/
-Pillar) cap at (noise + lift); Crater floors clamp at (noise − 1.8 m), so repeat casts never stack
-or grind deeper. Legacy 1cg flat-slab tiles saved by older builds are re-smoothed toward their
-noise when loaded (§3.8, 1cj) — gate (1ck): ONLY legacy **whole-metre** slabs relax; smooth
-inside-metre carve plateaus (noise ± depth) load back exactly as cast, so the map never
-"re-randomizes" on reopen.
+heights and smoothstep-blended at the rim — never flat slabs. Raised caps and crater floors are
+sampled **per-corner** (each corner keeps its own natural slope), so Raised shapes (Ring/Spikes/
+Wall/Pillar) cap at (noise + lift) and Crater floors clamp at (noise − 1.8 m) — smooth dishes and
+rounded ridges, never flat plateaus — and repeat casts never stack or grind deeper. Flat tiles
+saved by older builds (legacy whole-metre slabs OR fractional carve plateaus) are re-smoothed
+toward their noise when loaded (§3.8, 1cl), deterministically, so the map never "re-randomizes"
+on reopen; current shapes are never flat, so they are never re-smoothed.
 
 ## Projectile Shapes - what each projectile looks like
 
