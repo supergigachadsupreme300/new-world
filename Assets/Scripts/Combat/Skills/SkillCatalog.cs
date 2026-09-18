@@ -300,7 +300,7 @@ public static partial class SkillCatalog
 
         // Meteor — the Earth school's sky-event, gated behind Boulder Crash (the falling-rock line).
         // A rock from above strikes the aim point hard and carves one of the school's permanent
-        // craters there (flat slab-steps — always a solid walkable floor, never a void). Zone
+        // craters there (a smooth shallow dish — always a solid walkable floor, never a void). Zone
         // delivery so the crater
         // resolves on the ground at impact; the heavy knockback reads like a meteor landing.
         Add(list, "magic_earth_meteor", "Meteor", SkillType.Magic, false, Focus(28f), true, DamageType.Earth,

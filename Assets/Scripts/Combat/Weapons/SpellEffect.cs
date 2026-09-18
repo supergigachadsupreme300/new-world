@@ -252,7 +252,7 @@ public class SpellEffect : MonoBehaviour
         // spell radius; every other projectile leaves a small uniform impact dent so any
         // bolt (fireball, frost, arcane, lightning, dark, wind, water…) visibly disturbs
         // the terrain. Both probe the ground beneath the impact (the pit is carved as
-        // flat-topped slab steps that always keep a walkable floor — never a void) and
+        // a smooth shallow dish that always keeps a walkable floor — never a void) and
         // never carve at the caster's own feet at cast time (FireProjectile
         // only spawns the bolt; no launch-site pit).
         if (_spell != null)

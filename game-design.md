@@ -691,40 +691,43 @@ A spell is a data asset carrying:
   spell. When a spell leaves it `Auto`, `SpellCaster.AutoShapeFor` picks the school default; every
   bolt/lance/blade/spear-named spell sets it explicitly so projectiles read as their name.
 - **terrain shape** (Earth school signature, §3.8): an optional `TerrainShape` reshapes the tiled
-  heightmap before damage resolves — but it does it as **flat-topped 1×1×1 m slab** terrain, never a
-  stretched surface. **Ring** rears a raised annular wall around the impact, **Spikes** erupts
-  flat-topped spires beneath it, **Wall** rears an elongated ridge along the cast direction
-  (~2.6–3 m on a first cast — three 1 m slabs, tall enough to fully block the player's
-  CharacterController), **Pillar** thrusts a tall column up at the center, and **Crater** excavates a
-  stepped flat-bottomed pit. Every touched TILE (a 1×1 m column) is set to **one whole-metre level —
-  all four corners equal** — so it becomes a single flat slab; wherever two neighbouring slabs differ
-  in height, the higher one renders vertical 1 m side-wall bands down to the lower one
-  (`ChunkMeshGenerator` builds them into the merged chunk mesh + collider, so walls are real, solid,
-  and blocking). Ground deform runs via `TerrainDeformer` → `WorldStreamer.DeformAt`, which writes
-  the flat tile levels, rebuilds the merged chunk mesh + collider, and persists the edit as a terrain
-  modification (§2.6 saves them per chunk). Raised shapes (Ring/Spikes/Wall/Pillar) skip tiles inside
-  a small keep-out ring (~0.9 m) around the player's feet to prevent the ground from growing directly
-  under the capsule and violently depenetrating it on the next physics step ("teleport" on repeat
-  casts). Stacking is **uncapped** — casting the same shape again simply adds another 1 m slab on
-  top, bounded only by the ±200 m mesh-safety band (`ChunkMeshGenerator.MaxTerrainHeight`); there is
-  no per-shape height cap anymore, and the keep-out ring stops the extra height from ever embedding
-  the caster. **Crater is the Earth projectile signature**: a Crater-shaped projectile (the root
-  Stone Shard) carves its crater where the shard **strikes** —
+  heightmap before damage resolves — as **smooth feathered per-corner edits**, never flat blocks.
+  **Ring** rears a raised annular wall around the impact, **Spikes** erupts rock spikes beneath it,
+  **Wall** rears an elongated ridge along the cast direction (~2.6 m on a first cast, tall enough to
+  fully block the player's CharacterController), **Pillar** thrusts a tall column up at the center,
+  and **Crater** excavates a wide shallow dish. Heights are written as continuous per-corner
+  elevations (4 corners per 1×1 m TILE, shared with neighbours — which is what keeps the
+  triangulated mesh gapless), smoothstep-blended at the rim so a deform reads as genuine terrain;
+  `ChunkMeshGenerator` only emits slab side-wall bands for *legacy saved flat tiles*, so smooth
+  deforms build no artificial walls. Ground deform runs via `TerrainDeformer` → `WorldStreamer
+  .DeformAt`, which writes the corner heights, rebuilds the affected region of the merged chunk
+  mesh + collider, and persists the edit as a terrain modification (§2.6 saves them per chunk).
+  Raised shapes (Ring/Spikes/Wall/Pillar) skip tiles inside a small keep-out ring (~0.9 m) around
+  the player's feet so the ground never grows directly under the capsule and violently depenetrates
+  it on the next physics step. Deforms are **bounded**: raised shapes cap at (original noise height
+  + lift) and a crater floor clamps at (original noise height − 1.8 m), so repeated casts can never
+  grind the ground deeper or stack a ridge higher than the intended release (a repeat Wall stays
+  ~2.6 m, never taller). **Crater is the Earth projectile signature**: a Crater-shaped projectile
+  (the root Stone Shard) carves its crater where the shard **strikes** —
   `SpellEffect.ResolveProjectileImpact` down-probes the ground at impact and deforms it there, so
   a cast never dents the caster's own feet; the pit is permanent. **Every non-Earth magic projectile
   (fire/ice/arcane/lightning/dark/wind/water) also leaves a small uniform impact dent** (a fixed
   ~1.4 m Crater where the bolt strikes) through the same path, so any bolt visibly disturbs the
   terrain — Earth retains the bigger, spell-scaled craters and the raised shapes
   (Ring/Spikes/Wall/Pillar) as its signature. All edits survive forever. Earth spells use terrain
-  shapes instead of a status effect.
+  shapes instead of a status effect. Legacy 1cg **flat-slab tiles saved by older builds are
+  re-smoothed toward their noise corner heights when their chunk loads** (1cj): an in-memory
+  relaxation — the file keeps the slab until the player next deforms that tile, then the smooth
+  values persist naturally.
   **(current build) every damaging Earth spell carries a terrain shape, regardless of delivery:**
   Zone impacts (Boulder Crash, Crash, Tectonic → Crater; Aftershock, the tremor ring family, Spire
   Field etc. → Ring/Spikes/Pillar/Wall; the deep Earth Wall, gated behind Landslide → Wall, rears a
   taller ridge along the cast) deform at the aim point via `ResolveZone`; Storm strikes
   (Rockfall → Crater) dent under each boulder via `SpellStorm.DeformGround`; Summons (the golem
   line → Spikes) erupt a small rock field where the construct rises via `ResolveSummon`; the
-  Projectile root (Stone Shard) carves its crater at the impact point. Because every slab is a
-  solid flat-topped piece, no shape — zone, storm, summon, or projectile — can ever carve a void.
+  Projectile root (Stone Shard) carves its crater at the impact point. Because raised shapes cap
+  and craters clamp, no shape — zone, storm, summon, or projectile — can ever carve a void or
+  stack unbounded.
 - cast animation reference
 - optional status-effect application with a proc chance (e.g., applies Burn/Frost/Stagger; §3.7)
 

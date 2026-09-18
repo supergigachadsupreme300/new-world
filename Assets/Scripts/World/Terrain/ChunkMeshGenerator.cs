@@ -148,10 +148,11 @@ public static class ChunkMeshGenerator
     }
 
     /// <summary>
-    /// True when a tile's 4 corner heights are (near-)equal — a flat-top block. 1cg
-    /// deformation writes every deformed tile flat, so flatness is derivable from the heights
-    /// alone (no extra persisted field), and flat tiles are the ones that must render with
-    /// vertical side walls instead of stretched quads.
+    /// True when a tile's 4 corner heights are (near-)equal — a flat-top block. Only LEGACY 1cg
+    /// deformation wrote tiles flat, so flatness is derivable from the heights alone (no extra
+    /// persisted field); those saved tiles are the ones that must render with vertical side walls
+    /// instead of stretched quads. (1cj smooth deforms never produce a flat block — corners stay
+    /// equal with neighbours — so they emit no walls.)
     /// </summary>
     public static bool IsFlatTile(ChunkData data)
     {
@@ -171,11 +172,13 @@ public static class ChunkMeshGenerator
     /// objects are touched. Per-tile top-quad UVs/normals are preserved unchanged.
     ///
     /// On top of the top-surface quads, wherever a height discontinuity sits between two
-    /// neighbouring tiles (raised walls / dug craters — the 1x1x1 m "slab" terraces), the higher
+    /// neighbouring tiles (only legacy 1cg flat-slab tiles saved before the 1cj smooth revert),
+    /// the higher
     /// tile emits vertical side walls down to the lower tile, subdivided one horizontal band per
-    /// metre so each band reads as a single stackable slab. Each wall is emitted exactly once (by
-    /// the higher tile), so a vertical drop is never double-rendered, and untouched smooth-smooth
-    /// edges (identical corners) add no geometry at all.
+    /// metre so each band reads as a single stackable terrace step. Each wall is emitted exactly
+    /// once (by
+    /// the higher tile), so a vertical drop is never double-rendered, and touched smooth-smooth
+    /// edges (shared corners equal) add no geometry at all.
     /// <paramref name="border"/> maps world corner coords ((x &lt;&lt; 32) | z) that lie one tile
     /// OUTSIDE the chunk to their current heights, so seam walls against another chunk use that
     /// chunk's real heights; missing corners fall back to the same deterministic world noise the

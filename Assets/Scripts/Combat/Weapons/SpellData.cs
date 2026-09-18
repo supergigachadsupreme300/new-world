@@ -36,9 +36,9 @@ public enum TerrainShape
     /// <summary>Raise a tall flat-topped column (an earth pillar) at the impact center.</summary>
     Pillar = 4,
 
-    /// <summary>Excavate a stepped flat-bottomed dish (an earth projectile tears its slab loose
-    /// here). The pit is carved as 1x1x1 m flat slab steps that always keep a solid walkable
-    /// floor — never a bottomless void.</summary>
+    /// <summary>Excavate a wide shallow smooth dish (an earth projectile carves its crater
+    /// here). The pit has a smooth feathered rim and always keeps a solid walkable floor —
+    /// clamped to never grind deeper than one excavation — never a bottomless void.</summary>
     Crater = 5
 }
 
@@ -125,7 +125,7 @@ public class SpellData : ScriptableObject
     public float StatusProcChance = 1f;
 
     [Header("Terrain (§3.8, Earth school)")]
-    [Tooltip("Earth spells reshape the ground: Ring raises a stone circle around the impact point, Spikes raise rock spikes across the area, Wall rears an earth ridge along the cast direction, Pillar raises a tall column, and Crater excavates a shallow solid-floored dish (an earth projectile tears its slab loose here). None for all other schools.")]
+    [Tooltip("Earth spells reshape the ground: Ring raises a stone circle around the impact point, Spikes raise rock spikes across the area, Wall rears an earth ridge along the cast direction, Pillar raises a tall column, and Crater excavates a shallow solid-floored dish (its floor clamps, so it never grinds into a void). None for all other schools.")]
     public TerrainShape TerrainShape;
 
     [Header("Presentation")]

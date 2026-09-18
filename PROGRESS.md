@@ -1,13 +1,15 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1ci` (frost/ice
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cj` (terrain
+deformation reverted from 1cg's flat-slab blocks back to smooth feathered per-corner edits with
+stacking/grinding caps restored — "world shrinking down" fixed; legacy slab saves re-smooth on
+load), `1ci` (frost/ice
 school remixed to distinct deliveries — lingering frost fields, hailstorm/avalanche storm strikes,
 ice vortices, homing soul-chill, instant snap-freeze — following the fire remix), `1ch` (fire school
 skills remixed to distinct deliveries — vortex/storm/instant/lingering-burn vs. slam/knockback — and
 channeled **beam** magic now sweeps with the player's aim), `1cg` (earth
-terrain deforms are now flat-topped 1x1x1 m slab stacks — vertical side walls, uncapped up to the
-±200 m mesh-safety band, no more stretched/capped quads), `1cf` (Alt magic grid keeps its scroll
+terrain deforms were made flat-topped 1x1x1 m slab stacks — since reverted by `1cj`), `1cf` (Alt magic grid keeps its scroll
 position across close/reopen), `1ce` (Alt magic grid
 click no longer casts — arm-only + attack-input suppression), `1cd` (100x percent-perk
 multiplier bug + additive MoveSpeed — the real "still very fast" cause), `1cc` (super-speed root
@@ -34,6 +36,41 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1cj. Terrain deformation: revert slabs → smooth, restore caps, relax old saves
+
+Request/Root cause: 1cg turned every Earth terrain shape into flat-topped 1x1x1 m "slab" stacks
+(offset from the aim point, vertical side-wall bands) and removed the stacking caps (`9e5bbaa`/
+`fc08738` predecessors) — the world visibly **"shrank down"**: craters ground deeper with every
+overlapping cast (no floor clamp), raises stacked until the capsule got embedded and the Character
+Controller's depenetration launched the player (and repeated raises on fractional terrain snapped
+whole tiles DOWN via `Mathf.Round`). Fix in `WorldStreamer.cs` (1cj):
+
+- **`DeformAt` rewritten to smooth per-corner edits** (restores the proven pre-1cg `c990e58`
+  algorithm): heights are continuous per-corner elevations smoothstep-blended at the rim — no
+  quantized maths, no forced whole-metre steps, so the deform centers on the aim point and reads as
+  genuine terrain. Raised shapes keep the ~0.9 m caster keep-out ring + `SanitizeHeight`.
+- **Bounded again (caps restored)**: Crater clamps at `floorY = baseNoise − 1.8` (never grinds
+  deeper or carves a void); raised shapes (Ring/Spikes/Wall/Pillar) cap at `noise + lift` (repeat Wall
+  stays ~2.6 m — never stacks, never embeds the capsule). Spikes' deterministic peaks are added
+  *before* the ceiling clamp so they keep their jagged shape but stay bounded.
+- **Deleted the 1cg-only dead code**: `TileTopAt`, `ApplyFlatEdits` (grep-verified — only `DeformAt`
+  called them). `ChunkMeshGenerator` slab side-wall/`IsFlatTile` infra is KEPT — it still serves
+  legacy flat saves; smooth deforms never emit walls (shared corners stay equal).
+- **Legacy 1cg slabs relax on load**: `BuildOrLoadChunk` re-smooths each loaded flat-slab tile
+  (`RelaxLegacySlabTile`) toward its own 4 corner-noise heights (`OldSlabRelaxKeep 0.5`, lives>0.15 m
+  deviation) BEFORE the mesh is built. In-memory only — deterministic/idempotent; the file keeps the
+  slab until the next player deformation persists the smooth values naturally.
+- Demo + docs: `NewWorldTestGround` terrain demo kept (off by default) but re-demos smooth shapes +
+  capped repeat Wall; comments reworded in `SpellData.cs`, `SpellEffect.cs`, `SkillCatalog.cs`;
+  `game-design.md` §3.8 + `magic-skills.md` header describe smooth feathered edits + caps.
+
+Status: verified by grep + reread (rule 3; no build run) — `TileTopAt`/`ApplyFlatEdits` gone, call
+sites/signatures consistent, clamp math reviewed. Play-test check: cast Wall twice at the same spot
+(test late, `baseX+0`) — second cast must NOT raise higher; cast Crater repeatedly — must NOT grind
+deeper; cast on a pre-1cj save — old slabs must blend into smooth rounded shapes.
 
 ---
 

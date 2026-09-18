@@ -18,9 +18,11 @@ Source: `Assets/Scripts/Combat/Skills/SkillCatalog.cs` (base skills) + `SkillCat
 
 Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size; **ProjectileSpeed** = bolt speed (default 20); **Duration** = persistent-zone lifetime (0 = instant); **TickInterval** = seconds between ticks (default 0.5); **ChannelDrainPerSecond** = focus upkeep for Beams (0 = none).
 
-Every terrain shape renders as **flat-topped 1×1×1 m stacked slabs** with vertical side walls, built
-into the chunk mesh + collider by `ChunkMeshGenerator`; repeated casts stack the slabs uncapped up to
-the ±200 m safety band (§3.8, 1cg).
+Every terrain shape renders as **smooth feathered terrain**, written as continuous per-corner
+heights and smoothstep-blended at the rim — never flat slabs. Raised shapes (Ring/Spikes/Wall/
+Pillar) cap at (noise + lift); Crater floors clamp at (noise − 1.8 m), so repeat casts never stack
+or grind deeper. Legacy 1cg flat-slab tiles saved by older builds are re-smoothed toward their
+noise when loaded (§3.8, 1cj).
 
 ## Projectile Shapes - what each projectile looks like
 
