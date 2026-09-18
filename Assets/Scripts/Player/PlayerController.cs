@@ -79,6 +79,7 @@ public class PlayerController : MonoBehaviour, IHealable
     private float _pitch;
     private PlayerSitController _sitController;
     private GameObject _playerModelInstance;
+    private bool _raceSubscribed;
     private readonly List<(string id, bool isLeft)> _pendingAutoRig = new List<(string id, bool isLeft)>();
     private float _waterSpeedMul = 1f;
     private bool _waterAllowJump = true;
@@ -1896,6 +1897,18 @@ public class PlayerController : MonoBehaviour, IHealable
         // model's hand + body anchors exist again. Snap immediately — a fresh model has no
         // in-flight draw/stow transition to continue.
         WeaponRigBuilder.ApplyPose(gameObject, draw: FightingMode, instant: true);
+
+        // Subscribe once: a race change rebuilds the model with the new palette/body ratios
+        // (§3.5 Race Visuals). Idempotent — LoadPlayerModel runs on Awake, gender, and respawn.
+        if (!_raceSubscribed)
+        {
+            var rcm = GetComponent<RaceChangeManager>();
+            if (rcm != null)
+            {
+                rcm.OnActiveRaceChanged += _ => LoadPlayerModel();
+                _raceSubscribed = true;
+            }
+        }
     }
 
     /// <summary>True when the renderer sits on the arm chain (Shoulder → Elbow → Hand) or a held

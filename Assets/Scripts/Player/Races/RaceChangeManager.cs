@@ -56,7 +56,7 @@ public class RaceChangeManager : MonoBehaviour
         {
             if (string.IsNullOrEmpty(ActiveRaceId))
                 return null;
-            var roster = RaceDatabase.BuildDefaultRoster();
+            var roster = RaceDatabase.DefaultRoster;
             if (roster == null) return null;
             for (int i = 0; i < roster.Count; i++)
             {

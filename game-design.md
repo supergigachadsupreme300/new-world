@@ -534,12 +534,15 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   *(Current build: the change dialog calls `SetActiveRace(requireStone: false, unlockIfNeeded: true)` —
   changing race is **free and auto-unlocks the target race** for this character; the Ritual Stone cost
   applies to the world-discovery flow.)*
-- On change: `PlayerStats` modifiers refresh, `RaceRig` swaps the model, `RacePassiveManager` re-applies passives. Current HP/FP/stamina preserved as % of their new max.
+- On change: `PlayerStats` modifiers refresh, the block player model **rebuilds** with the race's palette + body ratios (§3.5 Race Visuals), `RaceRig` applies the uniform scale, `RacePassiveManager` re-applies passives. Current HP/FP/stamina preserved as % of their new max.
 
-#### Race Visuals (Separate Rigs)
+#### Race Visuals (Palette + Body Ratios on the Shared Block Model)
 
-- Each race has its **own rig** (model + scale + offset + material tint).
-- Rigs are **data-driven** (`RaceData` → `RaceRig`). Procedural placeholder bodies ship now; real 3D models drop in later without code changes.
+- All 22 races share the **blocky player model** — it is recolored and re-proportioned per race, not swapped. `RaceData` carries the look, so races stay data-driven and real models can still drop into `RigPrefab` later without code changes.
+- **Palette** (6 colors): skin, hair, eyes (whites stay white), clothes, pants, shoes. The female skirt uses the cloth color with a darkened hem. Human reproduces the original colors exactly.
+- **Body ratios** (6 knobs, all default 1 = Human, clamped ≥ 0.6): `Height` / `Bulk` stretch the whole model; `Head` scales head+neck+eyes+hair; `ShoulderWidth` spreads the shoulder pivots; `Arm` / `Leg` lengthen the arm/leg chains (so players *see* correct proportions in 1st person arms and on the body). Representative silhouettes: Dwarf & Gnome are short and stocky (big head), Orc/Fire Giant broad-shouldered, Elf/Harpy tall and slim with long limbs, Skeleton/Harpy frail and thin.
+- **Scale stays a hitbox matter**: `RaceRig` applies the race's uniform `RigScale` (Goblin 0.8 / Gnome 0.7 keep their smaller hitbox, Fire Giant 1.35 / Ice Giant 1.4 / Golem 1.4 / Draconic 1.2 read big) — it deliberately does **not** flat-tint the block model, whose colors already come from the race.
+- **Race-aware builders (`MapBuilder.BuildPlayerModel` / `BuildSeatedPlayerModel` / `BuildSitPlayerModel`)**: read the live `RaceChangeManager` off the model's parent; `null` parents (car cutscene, etc.) fall back to Human so non-player models keep the classic look. A race change wired to `RaceChangeManager.OnActiveRaceChanged` rebuilds the model with the new look and re-seats held weapons.
 
 #### Expandability
 

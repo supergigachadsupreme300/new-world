@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 public static partial class MapBuilder
 {
@@ -6,6 +7,89 @@ public static partial class MapBuilder
     // ═══════════════════════════════════════════════════════════════
     //  PLAYER MODEL  (blocky farmer character)
     // ═══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// The race the given parent player (or <c>null</c> host, e.g. cutscenes) should look like.
+    /// Reads the live <see cref="RaceChangeManager"/> on the host; falls back to Human so cutscene
+    /// models keep the classic look.
+    /// </summary>
+    private static RaceData ResolvePlayerRace(Transform parent)
+    {
+        if (parent != null)
+        {
+            var mgr = parent.GetComponent<RaceChangeManager>();
+            if (mgr != null && mgr.ActiveRace != null)
+                return mgr.ActiveRace;
+        }
+        var roster = RaceDatabase.DefaultRoster;
+        if (roster == null) return null;
+        for (int i = 0; i < roster.Count; i++)
+            if (roster[i] != null && string.Equals(roster[i].raceId, "human", StringComparison.OrdinalIgnoreCase))
+                return roster[i];
+        return null;
+    }
+
+    private static Color Darken(Color c, float k) => new Color(c.r * k, c.g * k, c.b * k);
+
+    /// <summary>
+    /// Apply a race's body-ratio knobs to a freshly built player model (§3.5 Race Visuals).
+    /// Height/Bulk stretch the whole root; the head, neck, eyes and hair are counter-scaled to read
+    /// at the race's Head size; shoulder pivots get the arm-length + spread, hip pivots the leg length.
+    /// All-1 values (Human) are a strict no-op.
+    /// </summary>
+    private static void ApplyRaceLook(Transform modelRoot, RaceData race, bool calibrateFeet)
+    {
+        if (modelRoot == null || race == null) return;
+
+        float h = Mathf.Max(0.6f, race.BodyHeight);
+        float b = Mathf.Max(0.6f, race.BodyBulk);
+        float hd = Mathf.Max(0.6f, race.BodyHead);
+        float sw = Mathf.Max(0.6f, race.BodyShoulderWidth);
+        float arm = Mathf.Max(0.6f, race.BodyArm);
+        float leg = Mathf.Max(0.6f, race.BodyLeg);
+
+        if (h == 1f && b == 1f && hd == 1f && sw == 1f && arm == 1f && leg == 1f)
+            return;
+
+        var s = modelRoot.localScale;
+        modelRoot.localScale = new Vector3(s.x * b, s.y * h, s.z * b);
+
+        var headScale = new Vector3(hd / b, hd / h, hd / b);
+        ApplyRaceRatioRecurse(modelRoot, headScale, sw, arm, leg);
+
+        // Standing pose: re-plant the feet on the ground after height/leg changes (derived from the
+        // standing leg chain: hip -0.25, thigh+shin+shoe ≈ -0.62 below it).
+        if (calibrateFeet)
+        {
+            var p = modelRoot.localPosition;
+            modelRoot.localPosition = new Vector3(p.x, h * (0.25f + 0.62f * leg), p.z);
+        }
+    }
+
+    private static void ApplyRaceRatioRecurse(Transform t, Vector3 headScale, float sw, float arm, float leg)
+    {
+        for (int i = 0; i < t.childCount; i++)
+        {
+            var c = t.GetChild(i);
+            if (c == null) continue;
+            string n = c.name;
+            if (n == "Head" || n == "Neck" || n.StartsWith("Eye") || n.StartsWith("Hair") || n.StartsWith("Ponytail"))
+            {
+                c.localScale = Vector3.Scale(c.localScale, headScale);
+            }
+            else if (n == "ShoulderL" || n == "ShoulderR")
+            {
+                c.localScale = new Vector3(c.localScale.x, c.localScale.y * arm, c.localScale.z);
+                var sp = c.localPosition;
+                c.localPosition = new Vector3(sp.x * sw, sp.y, sp.z);
+            }
+            else if (n == "HipL" || n == "HipR")
+            {
+                c.localScale = new Vector3(c.localScale.x, c.localScale.y * leg, c.localScale.z);
+            }
+            ApplyRaceRatioRecurse(c, headScale, sw, arm, leg);
+        }
+    }
 
     public static GameObject BuildPlayerModel(Transform parent, float scale = 1f)
     {
@@ -23,20 +107,21 @@ public static partial class MapBuilder
         torso.transform.localRotation = Quaternion.identity;
 
         bool female = ActiveGender == PlayerGender.Female;
+        var race = ResolvePlayerRace(parent);
 
-        Color skinC = new Color(220f / 255f, 178f / 255f, 132f / 255f);
-        Color shirtC = new Color(0.2f, 0.6f, 0.9f);
-        Color pantsC = new Color(0.25f, 0.25f, 0.35f);
-        Color hairC = new Color(0.2f, 0.12f, 0.05f);
-        Color eyeC = new Color(0.05f, 0.03f, 0.01f);
-        Color shoeC = new Color(0.2f, 0.2f, 0.2f);
-        Color dressC = new Color(0.14f, 0.44f, 0.72f);
+        Color skinC = race != null ? race.SkinColor : new Color(220f / 255f, 178f / 255f, 132f / 255f);
+        Color shirtC = race != null ? race.ClothColor : new Color(0.2f, 0.6f, 0.9f);
+        Color pantsC = race != null ? race.PantsColor : new Color(0.25f, 0.25f, 0.35f);
+        Color hairC = race != null ? race.HairColor : new Color(0.2f, 0.12f, 0.05f);
+        Color eyeC = race != null ? race.EyeColor : new Color(0.05f, 0.03f, 0.01f);
+        Color shoeC = race != null ? race.ShoeColor : new Color(0.2f, 0.2f, 0.2f);
+        Color dressC = shirtC;
 
         MakeBlock("Body", torso.transform, new Vector3(female ? 0.46f : 0.5f, 0.6f, 0.25f), new Vector3(0f, 0.05f, 0f), shirtC, true);
         if (female)
         {
             MakeBlock("Skirt", torso.transform, new Vector3(0.52f, 0.28f, 0.3f), new Vector3(0f, -0.27f, 0f), dressC, true);
-            MakeBlock("SkirtHem", torso.transform, new Vector3(0.56f, 0.06f, 0.34f), new Vector3(0f, -0.42f, 0f), new Color(0.09f, 0.3f, 0.52f), true);
+            MakeBlock("SkirtHem", torso.transform, new Vector3(0.56f, 0.06f, 0.34f), new Vector3(0f, -0.42f, 0f), Darken(dressC, 0.6f), true);
         }
         MakeBlock("Head", torso.transform, new Vector3(0.3f, 0.3f, 0.3f), new Vector3(0f, 0.65f, 0f), skinC, true);
         MakeBlock("Neck", torso.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0f, 0.4f, 0f), skinC, true);
@@ -118,6 +203,8 @@ public static partial class MapBuilder
         MakeBlock("EyeIrisL", torso.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(-0.08f, 0.72f, 0.165f), eyeC, true);
         MakeBlock("EyeIrisR", torso.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(0.08f, 0.72f, 0.165f), eyeC, true);
 
+        ApplyRaceLook(root.transform, race, calibrateFeet: true);
+
         return root;
     }
 
@@ -134,20 +221,21 @@ public static partial class MapBuilder
         root.transform.localScale = Vector3.one * scale;
 
         bool female = ActiveGender == PlayerGender.Female;
+        var race = ResolvePlayerRace(parent);
 
-        Color skinC = new Color(220f / 255f, 178f / 255f, 132f / 255f);
-        Color shirtC = new Color(0.2f, 0.6f, 0.9f);
-        Color pantsC = new Color(0.25f, 0.25f, 0.35f);
-        Color hairC = female ? new Color(0.16f, 0.1f, 0.08f) : new Color(0.2f, 0.12f, 0.05f);
-        Color eyeC = new Color(0.05f, 0.03f, 0.01f);
-        Color dressC = new Color(0.14f, 0.44f, 0.72f);
+        Color skinC = race != null ? race.SkinColor : new Color(220f / 255f, 178f / 255f, 132f / 255f);
+        Color shirtC = race != null ? race.ClothColor : new Color(0.2f, 0.6f, 0.9f);
+        Color pantsC = race != null ? race.PantsColor : new Color(0.25f, 0.25f, 0.35f);
+        Color hairC = race != null ? race.HairColor : (female ? new Color(0.16f, 0.1f, 0.08f) : new Color(0.2f, 0.12f, 0.05f));
+        Color eyeC = race != null ? race.EyeColor : new Color(0.05f, 0.03f, 0.01f);
+        Color dressC = shirtC;
 
         // ── Torso (seated, upright) ──
         MakeBlock("Body", root.transform, new Vector3(0.38f, 0.5f, 0.28f), new Vector3(0f, 0.25f, 0f), shirtC, true);
         if (female)
         {
             MakeBlock("Skirt", root.transform, new Vector3(0.42f, 0.2f, 0.32f), new Vector3(0f, -0.02f, 0f), dressC, true);
-            MakeBlock("SkirtHem", root.transform, new Vector3(0.46f, 0.05f, 0.36f), new Vector3(0f, -0.13f, 0f), new Color(0.09f, 0.3f, 0.52f), true);
+            MakeBlock("SkirtHem", root.transform, new Vector3(0.46f, 0.05f, 0.36f), new Vector3(0f, -0.13f, 0f), Darken(dressC, 0.6f), true);
         }
         // ── Head ──
         MakeBlock("Head", root.transform, new Vector3(0.28f, 0.28f, 0.28f), new Vector3(0f, 0.74f, 0f), skinC, true);
@@ -224,6 +312,8 @@ public static partial class MapBuilder
         kneeR.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
         MakeBlock("ShinR", kneeR.transform, new Vector3(0.11f, 0.26f, 0.11f), new Vector3(0f, -0.13f, 0f), pantsC, true);
 
+        ApplyRaceLook(root.transform, race, calibrateFeet: false);
+
         return root;
     }
     // ═══════════════════════════════════════════════════════════════
@@ -239,14 +329,15 @@ public static partial class MapBuilder
         root.transform.localScale = Vector3.one * scale;
 
         bool female = ActiveGender == PlayerGender.Female;
+        var race = ResolvePlayerRace(parent);
 
-        Color skinC = new Color(220f / 255f, 178f / 255f, 132f / 255f);
-        Color shirtC = new Color(0.2f, 0.6f, 0.9f);
-        Color pantsC = new Color(0.25f, 0.25f, 0.35f);
-        Color hairC = new Color(0.2f, 0.12f, 0.05f);
-        Color eyeC = new Color(0.05f, 0.03f, 0.01f);
-        Color shoeC = new Color(0.2f, 0.2f, 0.2f);
-        Color dressC = new Color(0.14f, 0.44f, 0.72f);
+        Color skinC = race != null ? race.SkinColor : new Color(220f / 255f, 178f / 255f, 132f / 255f);
+        Color shirtC = race != null ? race.ClothColor : new Color(0.2f, 0.6f, 0.9f);
+        Color pantsC = race != null ? race.PantsColor : new Color(0.25f, 0.25f, 0.35f);
+        Color hairC = race != null ? race.HairColor : new Color(0.2f, 0.12f, 0.05f);
+        Color eyeC = race != null ? race.EyeColor : new Color(0.05f, 0.03f, 0.01f);
+        Color shoeC = race != null ? race.ShoeColor : new Color(0.2f, 0.2f, 0.2f);
+        Color dressC = shirtC;
 
         // ── Legs (hip -> knee chain, thighs forward, shins down, feet on floor) ──
         var hipL = new GameObject("HipL");
@@ -281,7 +372,7 @@ public static partial class MapBuilder
         if (female)
         {
             MakeBlock("Skirt", root.transform, new Vector3(0.48f, 0.2f, 0.32f), new Vector3(0f, 0.02f, 0f), dressC, true);
-            MakeBlock("SkirtHem", root.transform, new Vector3(0.52f, 0.05f, 0.35f), new Vector3(0f, -0.08f, 0f), new Color(0.09f, 0.3f, 0.52f), true);
+            MakeBlock("SkirtHem", root.transform, new Vector3(0.52f, 0.05f, 0.35f), new Vector3(0f, -0.08f, 0f), Darken(dressC, 0.6f), true);
         }
         MakeBlock("Chest", root.transform, new Vector3(0.44f, 0.28f, 0.26f), new Vector3(0f, 0.42f, 0f), shirtC, true);
 
@@ -332,6 +423,8 @@ public static partial class MapBuilder
         elbowR.transform.localRotation = Quaternion.identity;
         MakeBlock("ForearmR", elbowR.transform, new Vector3(0.11f, 0.16f, 0.11f), new Vector3(0f, -0.08f, -0.007f), shirtC, true);
         MakeBlock("HandR", elbowR.transform, new Vector3(0.11f, 0.09f, 0.11f), new Vector3(0f, -0.16f, -0.007f), skinC, true);
+
+        ApplyRaceLook(root.transform, race, calibrateFeet: false);
 
         return root;
     }

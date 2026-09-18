@@ -15,6 +15,52 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1co — Race look on the block player model (RESOLVED — shipped in `1co`)
+
+### VERDICT (read this first)
+Confirmed approach: **palette + body ratios on the shared block model**, race resolved from the
+model's parent at build time, uniform RigScale raised for the giants, and a model rebuild on race
+change. Walking list of hypotheses below is the trail.
+
+### Hypotheses & evidence
+- **H1 — tint the block model via `RaceRig.RigTint`.** REJECTED. One flat tint hits every renderer:
+  eye whites go dark, hair/clothes/pants/shoes can't differ, and RigTint is inherently uniform per
+  race. `RaceRig.ApplyRace` therefore keeps *only* the uniform scale and the prefab-branch tint.
+- **H2 — swap a per-race prefab at build.** REJECTED for now. Needs authored `.asset` bodies; nothing
+  exists yet. `RigPrefab` stays as the documented later path (drop-in, no code change).
+- **H3 — per-race palette + ratio data on `RaceData`.** CONFIRMED (chosen). 6 colors + 6 knobs with
+  Human defaults = original colors / 1, so Human output is a strict no-op (checked `ApplyRaceLook`
+  exits when all ratios == 1 and the colors fall back to the same constexprs).
+- **H4 — rebuild the model on race change.** CONFIRMED as a gap: `OnActiveRaceChanged`
+  (RaceChangeManager.cs:125) had **zero subscribers**; `LoadPlayerModel` runs on Awake/ApplyGender
+  only. Fix: idempotent subscription in `LoadPlayerModel` guarded by `_raceSubscribed`. Dead end I
+  avoided: subscribing in Awake only — respawn/reparent paths that reload the model may drop the
+  subscription; guarding inside `LoadPlayerModel` covers every reload.
+- **H5 — `ActiveRace` allocates 22 ScriptableObjects per get.** CONFIRMED (calls `BuildDefaultRoster`).
+  Fix: static cached `RaceDatabase.DefaultRoster`. (RebuildIndex still runs the serialized `Races` on
+  OnEnable — unchanged.)
+- **H6 — cutscene models.** CONFIRMED via call-site trace: `BuildSeatedPlayerModel` parents the model
+  to the **car**, which has no `RaceChangeManager` → always Human. `null`-parent fallback also covers
+  any other host; the seated model built off the player root (`PlayerSitController`) *is* race-aware.
+- **H7 — head counter-scale.** The standing model's Hair/Eyes/Neck live under the **Torso pivot**, not
+  the root, so a root-only scale would leave them embedded after Height/Bulk/RigScale → must recurse
+  and counter-scale names Head/Neck/Eye*/Hair*/Ponytail* by `(Head/Bulk, Head/Height, Head/Bulk)`.
+  Dead end checked: relying on RigScale only would look correct until the first Height/Bulk knob — so
+  ratios are authored on top of the uniform scale, ratios decide the *look*.
+- **H8 — foot calibration.** Standing leg chain: Hip at -0.25, Thigh/Shin/Shoe bottom ≈ -0.62 → foot
+  bottom = `root.y − 0.25 − 0.62`; after scaling root by h and legs by leg the bottom sits at
+  `root.y − 0.25*h − 0.62*leg`; setting `root.y = h*(0.25 + 0.62*leg)` re-lands it at 0 (Human ≈ 0.87
+  vs 0.86 — 1 cm, absorbed by boots). Seated/sit models skip calibration (their pose isn't ground
+  planted; a bottom-heavier sit for short-legged races is acceptable).
+- **H9 — raise vs lengthen giants.** User chose **raise** (global `RigScale`, also enlarges the
+  hitbox for "feel"). Goblin/Gnome scale unchanged (15% smaller hitbox is a real contract in §3.5).
+
+### Known limitation (noted, not fixed)
+`SaveManager` has no race field (grep of save/restore paths found none) — a saved game loads as Human
+until the player re-picks a race. Pre-existing behavior; remains out of scope.
+
+---
+
 ## 1cm — Earth Wall repeat cast "makes the entire chunk moving" (RESOLVED — fix shipped in `1cm`)
 
 ### VERDICT (read this first — the trail below is the *before* picture)

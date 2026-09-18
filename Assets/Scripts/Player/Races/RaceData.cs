@@ -56,6 +56,34 @@ public class RaceData : ScriptableObject
     [Tooltip("Placeholder body prefab (real models drop in later without code changes).")]
     public GameObject RigPrefab;
 
+    [Header("Model Palette (block player model)")]
+    [Tooltip("Skin color of the blocky player body (head/neck/hands). Human = default skintone.")]
+    public Color SkinColor = new Color(220f / 255f, 178f / 255f, 132f / 255f);
+    [Tooltip("Hair / ponytail color.")]
+    public Color HairColor = new Color(0.2f, 0.12f, 0.05f);
+    [Tooltip("Eye iris color (eye whites stay white).")]
+    public Color EyeColor = new Color(0.05f, 0.03f, 0.01f);
+    [Tooltip("Clothing tint (shirt, sleeves, skirt, hem).")]
+    public Color ClothColor = new Color(0.2f, 0.6f, 0.9f);
+    [Tooltip("Pants tint (thighs / shins).")]
+    public Color PantsColor = new Color(0.25f, 0.25f, 0.35f);
+    [Tooltip("Shoes / boots tint.")]
+    public Color ShoeColor = new Color(0.2f, 0.2f, 0.2f);
+
+    [Header("Body Ratio (block player model)")]
+    [Tooltip("Overall height multiplier (stretches the whole model on Y).")]
+    public float BodyHeight = 1f;
+    [Tooltip("Overall width/depth multiplier (bulk).")]
+    public float BodyBulk = 1f;
+    [Tooltip("Head (and hair) size multiplier.")]
+    public float BodyHead = 1f;
+    [Tooltip("Shoulder spread multiplier (moves the shoulder pivots sideways).")]
+    public float BodyShoulderWidth = 1f;
+    [Tooltip("Arm length multiplier (scales the shoulder arm-chains).")]
+    public float BodyArm = 1f;
+    [Tooltip("Leg length multiplier (scales the hip leg-chains).")]
+    public float BodyLeg = 1f;
+
     /// <summary>Net stat budget (sum of all modifiers) — for balance tiers / UI.</summary>
     public int NetStatBudget
     {

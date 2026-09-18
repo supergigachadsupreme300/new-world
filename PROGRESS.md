@@ -1,7 +1,10 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cn` (player hair —
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1co` (every race
+gets its own look on the blocky player model — full palette skin/hair/eyes/clothes/pants/shoes plus
+body ratios Height/Bulk/Head/ShoulderWidth/Arm/Leg; giants read bigger via raised global RigScale;
+a race change rebuilds the model), `1cn` (player hair —
 top cap raised clear of the skull, back hair lowered, on the standing/sitting/car player models),
 `1cm` (Earth Wall
 repeat cast no longer "moves the entire chunk" — deforms are now idempotent so a repeat cast
@@ -47,6 +50,63 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1co. Race looks on the block player model (palette + body ratios, race-aware)
+
+Request: **"take current player model as human base, and color according to race, change body ratio to
+fit the race description."** Every race now colors and proportions the shared blocky player model.
+Decisions confirmed with the user: full palette (clothes/pants/shoes also change), six ratio knobs,
+race-aware wherever the model is built (cutscenes with no player parent stay Human), and **raise** the
+giant races via a bigger global scale.
+
+### Data (`RaceData.cs`, `RaceDatabase.cs`)
+- `RaceData` gains a **Model Palette** group — `SkinColor, HairColor, EyeColor, ClothColor, PantsColor,
+  ShoeColor` (defaults = original Human colors) — and a **Body Ratio** group — `BodyHeight, BodyBulk,
+  BodyHead, BodyShoulderWidth, BodyArm, BodyLeg` (all 1).
+- `RaceDatabase.Make(...)` now also fills the look; every one of the 22 roster entries got values
+  (Human = exact original palette, all ratios 1 → strict visual no-op).
+- **Global scale raised**: Fire Giant 1.25→**1.35**, Ice Giant 1.3→**1.4**, Golem 1.3→**1.4**,
+  Draconic 1.15→**1.2**. Small races keep their contract (Goblin 0.8, Gnome 0.7 → small hitbox).
+- `RaceDatabase.DefaultRoster` is now a **cached** build — `RaceChangeManager.ActiveRace` reuses it
+  instead of re-instantiating 22 ScriptableObjects on every get.
+
+### Rendering (`MapBuilder.PlayerModels.cs`, `RaceRig.cs`, `PlayerController.cs`)
+- New `MapBuilder.ResolvePlayerRace(parent)` reads `RaceChangeManager` on the parent (Human fallback
+  for `null`), and `ApplyRaceLook(root, race, calibrateFeet)` applies Height/Bulk to the root,
+  head-scale to Head/Neck/Eye*/Hair*/Ponytail* (recursive — they live under the Torso pivot in the
+  standing model), Arm+spread to the shoulder pivots, Leg to the hip pivots; the standing builder
+  re-plants the feet (`localPosition.y = h*(0.25 + 0.62*leg)`). All-1 ratios exit immediately.
+- All three builders (standing / car-seated / sitting) swap the hardcoded colors for the race
+  palette; skirt = cloth color with a ~0.6× darkened hem. Human output is pixel-identical.
+- `RaceRig.ApplyRace` keeps the uniform `Body.localScale = RigScale` + prefab tint, but **no longer
+  flat-tints the block model** (its colors come from the race now).
+- `PlayerController.LoadPlayerModel` subscribes **once** to `RaceChangeManager.OnActiveRaceChanged`
+  (`_raceSubscribed` guard) → a mid-play race change rebuilds the model with the new look and
+  re-seats held weapons. (Race still isn't saved/restored — on load the player is Human; existing
+  behavior, unchanged.)
+
+### 1co-status
+- **`RaceData.cs`** — 12 new serialized fields (6-color palette + 6 ratio knobs), defaults = Human.
+- **`RaceDatabase.cs`** — cached `DefaultRoster`; `Look` struct; all 22 races populated; 4 giant
+  RigScales raised; `Make` signature extended (internal, one restore path — no asset/consumer edits).
+- **`RaceChangeManager.cs`** — `ActiveRace` uses the cached roster.
+- **`RaceRig.cs`** — block-model flat-tint removed; scale + prefab tint kept; TintRenderers field dropped.
+- **`MapBuilder.PlayerModels.cs`** — `ResolvePlayerRace` / `ApplyRaceLook` / `ApplyRaceRatioRecurse` /
+  `Darken` added; 3 builders race-aware (null parent → Human). No signature changes to the public
+  builders, so all existing call sites (spawn, gender, cutscenes) are unaffected.
+- **`PlayerController.cs`** — `_raceSubscribed` + idempotent `OnActiveRaceChanged` → `LoadPlayerModel`.
+- **`game-design.md`** — §3.5 Race Visuals rewritten (palette + ratios + raise + race-aware), change
+  flow line updated to "model rebuilds".
+- **Verification**: no CLI/Unity build per project rule 3 — greps + full re-reads confirmed no stray
+  reference to the removed `RaceRig.TintRenderers` and no other hardcoded player-part colors outside
+  the roster; existing call sites of the three public builders are untouched.
+- **Open questions**: none. *Play-test note*: the giants, Dwarf/Gnome, Elf/Harpy and the car-cutscene
+  human are the high-signal checks; confirm mid-play race change rebuilds visuals and held weapons
+  re-seat on the fresh hands.
+
+### Play-test (pending, user)
 
 ---
 
