@@ -55,6 +55,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableGear = true;
     [Tooltip("Wire the RaceChangeManager, unlock every race, and grant Ritual Stones for the Race tab (testing).")]
     public bool EnableRaces = true;
+    [Tooltip("Cast 1x1x1 m terraced-slab terrain demos (Wall raise + repeat stack, Pillar, Crater dent) onto the streamed terrain just off the platform (1cg). Deforms REAL terrain — permanent chunk saves — so it is off by default and never touches the platform or legacy village.")]
+    public bool EnableTerrainSlabDemo = false;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
@@ -127,6 +129,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (EnableSkills) { RunSafely("skills", GrantAllSkills); yield return null; }
         if (EnableGear) { RunSafely("gear", GrantStarterGear); yield return null; }
         if (EnableRaces) { RunSafely("races", GrantRaceAccess); yield return null; }
+        if (EnableTerrainSlabDemo) { RunSafely("terrain slab demo", SpawnTerrainSlabDemo); yield return null; }
         RunSafely("player grants", TryDeferPlayerGrants);
 
         // Safety net: if the platform wasn't ready when the bench started (e.g. built later or
@@ -164,6 +167,24 @@ public sealed class NewWorldTestGround : MonoBehaviour
             return;
         }
         player.TeleportTo(GetSpawnPoint());
+    }
+
+    /// <summary>
+    /// Opt-in demo for the 1x1x1 m terraced-slab terrain feature (1cg): casts an Earth Wall
+    /// (raised slabs), stacks it again to show uncapped growth, then a Pillar and a Crater
+    /// (stepped dent) via <see cref="TerrainDeformer"/>. This deforms REAL streamed terrain
+    /// (permanent per-chunk saves), so it is off by default and aimed clear of the platform
+    /// footprint and the legacy WorldBuilder village.
+    /// </summary>
+    private void SpawnTerrainSlabDemo()
+    {
+        float baseX = PlatformCenter.x - PlatformSize * 0.5f - 18f;
+        float baseZ = PlatformCenter.z;
+
+        TerrainDeformer.Apply(new Vector3(baseX, 0f, baseZ), 2f, TerrainShape.Wall, Vector3.forward);
+        TerrainDeformer.Apply(new Vector3(baseX, 0f, baseZ), 2f, TerrainShape.Wall, Vector3.forward);
+        TerrainDeformer.Apply(new Vector3(baseX - 7f, 0f, baseZ), 1.8f, TerrainShape.Pillar, default);
+        TerrainDeformer.Apply(new Vector3(baseX + 7f, 0f, baseZ), 2.2f, TerrainShape.Crater, default);
     }
 
     /// <summary>

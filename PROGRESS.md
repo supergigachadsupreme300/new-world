@@ -1,8 +1,10 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cf` (Alt magic grid
-keeps its scroll position across close/reopen), `1ce` (Alt magic grid
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cg` (earth
+terrain deforms are now flat-topped 1x1x1 m slab stacks — vertical side walls, uncapped up to the
+±200 m mesh-safety band, no more stretched/capped quads), `1cf` (Alt magic grid keeps its scroll
+position across close/reopen), `1ce` (Alt magic grid
 click no longer casts — arm-only + attack-input suppression), `1cd` (100x percent-perk
 multiplier bug + additive MoveSpeed — the real "still very fast" cause), `1cc` (super-speed root
 cause + speed-aware fail-net), `1cb` (class + race locked to ONE choice), `1ca` (physics integrity
@@ -28,6 +30,54 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1cg. Earth terrain deforms = flat-topped 1x1x1 m slab stacks (uncapped, vertical side walls)
+
+Request: "slab the stretched ground surface; a slab can be smaller but there is a max size — and
+generate another slab to cover the space." Old behavior stretched one terrain quad and capped the
+lift/depth. New behavior: every touched TILE (1×1 m column) is set to **one whole-metre level — all
+four corners equal** — so it becomes a flat-topped slab; neighbours at different heights render
+**vertical 1 m side-wall bands** built into the merged chunk mesh + collider (stacked-slab look);
+repeating a cast **stacks another slab uncapped** up to the ±200 m `ChunkMeshGenerator.MaxTerrainHeight`
+safety band. The keep-out ring inject around the caster's feet is kept (never embed the capsule),
+and the crater is a stepped flat-bottomed pit — never a void.
+
+### 1cg-status
+- **`ChunkMeshGenerator.cs`**: `BuildMergedMeshData` now takes optional `border`/`seed` params and, in
+  a first sizing pass, counts side-wall bands (4 verts + 6 tris each) before emitting the unchanged
+  top quads, then emits vertical wall bands across every edge where this tile is the higher owner.
+  New helpers: `IsFlatTile`, `SideBandCount` (ceil of drop, clamped 1..256), `EdgeHeights`
+  (in-chunk tiles → border dict → corner noise), `EdgeIsRaised` (owned by the higher tile;
+  identical pristine corners never raise), `CornerHeight`, `EdgeEnds`, `EdgeOutward`. Wall normals face
+  outward and UVs tile once per metre per band (slab read). Winding flips per edge so walls render
+  from inside and outside.
+- **`WorldStreamer.cs`**: `DeformAt` rewritten — per-TILE flat levels keyed by `EncodeCorner(cx,cz)`,
+  quantization `Mathf.Round(target)` with a forced ±1 slab step where the rim influence `s >= 0.6`,
+  Spikes keep deterministic extra peaks, ring crater floors sampled with `TileTopAt(cx,cz,max)` (max
+  for raises, min for craters). New `ApplyFlatEdits` writes all 4 corners per footprint tile, marks
+  dirty, rebuilds + flushes save files, then `ReconcileModifiedBorders`. New `FullRebuildChunk`
+  (all 900 tiles via `BuildBorderCorners`), `BuildBorderCorners`/`CornerIfLoaded` (border map built
+  from **loaded** tiles only — unloaded seams fall back to noise, no phantom walls), and
+  `ReconcileNewlyLoadedChunk` wired into `FinalizeChunks`/`GenerateChunkSync` so cross-chunk seam
+  walls appear once both sides load. `RebuildChunkRegion` dispatches to `FullRebuildChunk` whenever
+  the chunk contains a flat tile (or the region covers ≥75% of the chunk); `PatchRegion` is retained
+  for smooth flatten-only deforms. Per-shape height caps and `CraterMaxDepth` were **removed**.
+- **`NewWorldTestGround.cs`**: new default-**off** toggle `EnableTerrainSlabDemo` → opt-in
+  `RunSafely("terrain slab demo", SpawnTerrainSlabDemo)` lane casting Wall (twice, to demo the stack)
+  + Pillar + Crater off the platform's west edge via `TerrainDeformer` (deforms REAL terrain —
+  permanent saves — hence off by default; never touches the platform or legacy village).
+- **Docs**: `game-design.md` §3.8 terrain-shape bullet rewritten (slab decomposition, vertical wall
+  bands, uncapped stacking, keep-out retained, stepped crater, no cap sentinel). PROGRESS intro
+  refreshed.
+- **Verification**: no CLI/Unity build per project rule 3 — grep + full re-read of both edited
+  regions; call sites of `BuildMergedMeshData` (background load + full rebuild) and `RebuildChunkRegion`
+  match the new signatures; no lingering `CraterMaxDepth` references.
+- **Play-test (pending)**: cast an Earth Wall → flat-topped blocky ridge with vertical sides;
+  cast again on the same spot → ridge grows taller (uncapped); Crater → stepped flat-bottomed pit;
+  reload the game → slabs persist; deform a wall directly on a chunk seam → seam wall renders
+  (both chunks loaded).
 
 ---
 

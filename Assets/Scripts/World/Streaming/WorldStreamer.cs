@@ -386,6 +386,9 @@ public class WorldStreamer : MonoBehaviour
                 continue;
 
             CreateChunkGameObject(chunk);
+            // Slab seam walls need BOTH sides of a chunk boundary in memory to render with real
+            // neighbour heights — reconcile now that this chunk's tiles exist.
+            ReconcileNewlyLoadedChunk(chunk.Coord);
             finalized++;
             if ((Time.realtimeSinceStartup - start) * 1000f >= 6f)
                 break;
@@ -471,7 +474,9 @@ public class WorldStreamer : MonoBehaviour
         if (_loadedChunks.ContainsKey(tc))
             return;
 
-        CreateChunkGameObject(BuildOrLoadChunk(tc, Seed));
+        TerrainChunkMeshData chunk = BuildOrLoadChunk(tc, Seed);
+        CreateChunkGameObject(chunk);
+        ReconcileNewlyLoadedChunk(tc);
     }
 
     /// <summary>
@@ -590,15 +595,18 @@ public class WorldStreamer : MonoBehaviour
     /// <summary>
     /// Reshape the loaded heightmap around a world-space center (main thread only).
     /// <para>
-    /// Earth spells carry no status effect — instead they deform the ground (Ring: raised
-    /// annulus circling the impact; Spikes: scattered rock spikes; Wall: a stone ridge rearing
-    /// up along <paramref name="dir"/>; Pillar: a tall flat-topped column at the center; Crater:
-    /// a shallow solid-floored dish excavated downward, depth-clamped so it never becomes a
-    /// bottomless void). Corner heights are edited in the tile-level data so shared corners
-    /// always match (gapless mesh), each touched tile is marked modified/dirty so it persists
-    /// and syncs (deformations last forever — chunk save files, §2.6), and the whole affected
-    /// chunk(s) are rebuilt (merged mesh + collider) in place. Unloaded tiles are ignored —
-    /// spells only deform terrain the streamer already has in memory.
+    /// Earth spells carry no status effect — instead they deform the ground as flat-topped
+    /// 1x1x1 m "slab" terrain (Ring: a raised annular wall; Spikes: scattered stone spikes;
+    /// Wall: an elongated ridge rearing along <paramref name="dir"/>; Pillar: a tall
+    /// flat-topped column at the center; Crater: a stepped dish excavated downward). Each
+    /// touched TILE is set to one whole-metre level (all 4 corners equal), so it becomes a flat
+    /// slab; vertical side walls between neighbouring slabs are derived geometry built by
+    /// ChunkMeshGenerator (§3.8). Stacking is UNCAPPED — repeated casts simply add another slab,
+    /// bounded only by the ±MaxTerrainHeight mesh-safety band — while every tile stays a solid
+    /// flat-topped piece (a crater is a flat-bottomed pit, never a bottomless void). Each touched
+    /// tile is marked modified/dirty so it persists and syncs (deformations last forever — chunk
+    /// save files, §2.6), and the whole affected chunk(s) are rebuilt (merged mesh + collider) in
+    /// place. Unloaded tiles are ignored — spells only deform terrain the streamer has in memory.
     /// </para>
     /// </summary>
     public void DeformAt(Vector3 center, float radius, TerrainShape shape, Vector3 dir = default)
@@ -608,7 +616,7 @@ public class WorldStreamer : MonoBehaviour
         // Never raise the ground directly beneath the player's feet: a Wall/ring/pillar rearing
         // up under the capsule embeds it in the rebuilt chunk collider, and the next physics step
         // depenetrates it violently — reads as a teleport, and repeat casts (which stack the
-        // ridge on the previous height) make it worse. Raised shapes skip corners inside a small
+        // ridge on the previous height) make it worse. Raised shapes skip tiles inside a small
         // keep-out ring around the player's feet; Crater (excavation) is unaffected.
         float keepOutR = 0.9f; // player capsule radius + margin
         bool protectCaster = shape != TerrainShape.Crater;
@@ -633,23 +641,26 @@ public class WorldStreamer : MonoBehaviour
             wallDir = Vector3.right;
         wallDir.Normalize();
 
-        // Ring: a raised annulus with its center left level. Spikes: smooth mound + sparse
-        // deterministic peaks so the ground reads jagged but never chessboard-y. Wall: a ridge
+        // Ring: a raised annulus with its center left level. Spikes: flat-topped mound + sparse
+        // deterministic peaks so the field reads jagged but never chessboard-y. Wall: a ridge
         // band along the cast direction (tall enough to fully block the player). Pillar: a flat-
-        // topped column. Crater: a dish, dug down.
+        // topped column. Crater: a dish, stepped down one metre at a time.
         float lift = shape == TerrainShape.Ring ? 0.9f
             : shape == TerrainShape.Pillar ? 1.8f
             : shape == TerrainShape.Wall ? 2.6f
             : 0.7f; // Spikes
+        float craterDepth = 1.8f;
         float ringMid = radius * 0.72f;
         float ringHalfWidth = Mathf.Max(0.6f, radius * 0.28f);
         float pillarCore = radius * 0.45f;
         float wallHalfThick = Mathf.Max(0.6f, radius * 0.25f);
         float wallHalfLen = radius;
-        const float CraterMaxDepth = 1.8f;
 
-        // New height for every world corner (integer x/z) inside the reach.
-        var newHeights = new Dictionary<long, float>();
+        // New whole-metre top level for every world TILE (keyed by its SW corner, see
+        // EncodeCorner) inside the reach. Every touched tile becomes one flat-topped "slab"
+        // column — all 4 corners equal — so raised earth reads as stacked 1x1x1 m blocks with
+        // vertical side walls (built by ChunkMeshGenerator) instead of the old stretched quads.
+        var flatTops = new Dictionary<long, float>();
 
         for (int cz = minCZ; cz <= maxCZ; cz++)
         {
@@ -707,51 +718,250 @@ public class WorldStreamer : MonoBehaviour
 
                 // Smooth the influence curve (smootherstep) so the deform blends out at the rim.
                 float s = influence * influence * (3f - 2f * influence);
-                float current = CurrentHeightOf(cx, cz);
 
+                // Raises start from this tile's highest point (so the slab always sits on the
+                // terrain), craters from its lowest (so the floor is always below the rim). For
+                // an already-flat slab tile that is just its level, so repeat casts stack.
+                float cur = shape == TerrainShape.Crater
+                    ? TileTopAt(cx, cz, max: false)
+                    : TileTopAt(cx, cz, max: true);
+
+                float target = shape == TerrainShape.Crater
+                    ? cur - s * craterDepth
+                    : cur + s * lift;
+
+                // Spikes: a deterministic few tiles jump one extra slab so the field reads jagged.
+                if (shape == TerrainShape.Spikes)
+                {
+                    int raw = (cx * 73856093) ^ (cz * 19349663) ^ Seed.GetHashCode();
+                    float r = (raw & 0x7fffffff) / (float)0x7fffffff;
+                    if (r > 0.78f)
+                        target += Mathf.Max(0.5f, lift);
+                }
+
+                // Quantize to the 1 m slab grid. Where the rim influence is strong (s >= 0.6),
+                // force at least ONE whole slab so even a small raise/dent visibly steps.
+                float level = Mathf.Round(target);
+                float curRound = Mathf.Round(cur);
                 if (shape == TerrainShape.Crater)
                 {
-                    // Excavate down, but clamp the floor to (original noise height − cap): the pit
-                    // always keeps a solid, walkable bottom — no void — and repeated casts can't
-                    // grind it deeper than the first carve.
-                    float floorY = TerrainNoiseGenerator.GetHeight(Seed, wx, wz) - CraterMaxDepth;
-                    newHeights[EncodeCorner(cx, cz)] = Mathf.Max(current - s * CraterMaxDepth, floorY);
+                    if (s >= 0.6f)
+                        level = Mathf.Min(level, curRound - 1f);
                 }
-                else
+                else if (s >= 0.6f)
                 {
-                    float value = current + s * lift;
-
-                    // Cap the raise at (base noise height + lift): repeat casts must never stack a
-                    // ridge higher than the intended release (e.g. Earth Wall at 2.6 m). Unbounded
-                    // stacking embeds the player capsule deeper with every cast and the Character
-                    // Controller's depenetration push grows violent — it launches the player far
-                    // enough that the streamed world "shrinks" around them (chunk unload / mesh
-                    // backface culling from inside the raise). Same clamp pattern as Crater's floor.
-                    float baseY = TerrainNoiseGenerator.GetHeight(Seed, wx, wz);
-                    float ceiling = baseY + lift;
-
-                    if (shape == TerrainShape.Spikes)
-                    {
-                        int raw = (cx * 73856093) ^ (cz * 19349663) ^ Seed.GetHashCode();
-                        float r = (raw & 0x7fffffff) / (float)0x7fffffff;
-                        if (r > 0.78f)
-                            value += lift * (0.4f + r * 0.6f) * influence * influence;
-                    }
-
-                    // Reject the raise before writing the tile so even a spike peak respects the cap
-                    // (the baseY+lift ceiling keeps every raised shape predictable across casts).
-                    if (value > ceiling)
-                        value = ceiling;
-
-                    newHeights[EncodeCorner(cx, cz)] = value;
+                    level = Mathf.Max(level, curRound + 1f);
                 }
+
+                flatTops[EncodeCorner(cx, cz)] = ChunkMeshGenerator.SanitizeHeight(level);
             }
         }
 
-        if (newHeights.Count == 0)
+        if (flatTops.Count == 0)
             return;
 
-        ApplyHeightEdits(minCX, minCZ, maxCX, maxCZ, newHeights);
+        ApplyFlatEdits(minCX, minCZ, maxCX, maxCZ, flatTops);
+    }
+
+    /// <summary>Highest (or lowest, when <paramref name="max"/> is false) of a tile's 4 corner
+    /// heights — the tile's current top for slab quantization. Unloaded tile: neutral noise.</summary>
+    private float TileTopAt(int cx, int cz, bool max)
+    {
+        if (_loadedData.TryGetValue(new ChunkCoord(cx, cz), out ChunkData d) && d.IsValid)
+        {
+            float m = d.Heights[0];
+            for (int i = 1; i < ChunkData.VertexCount; i++)
+                m = max ? Mathf.Max(m, d.Heights[i]) : Mathf.Min(m, d.Heights[i]);
+            return m;
+        }
+        return TerrainNoiseGenerator.GetHeight(Seed, cx + 0.5f, cz + 0.5f);
+    }
+
+    /// <summary>
+    /// Writes one flat whole-metre level onto every loaded tile in <paramref name="flatTops"/>
+    /// (all 4 corners equal), marks them dirty, and rebuilds the affected chunks' meshes +
+    /// colliders (and flushes their save files). Unlike <see cref="ApplyHeightEdits"/>, only the
+    /// footprint tiles are stamped — untouched neighbours keep their own corners, which is what
+    /// produces a crisp vertical step between a slab and the surrounding terrain.
+    /// </summary>
+    private void ApplyFlatEdits(int minCX, int minCZ, int maxCX, int maxCZ, Dictionary<long, float> flatTops)
+    {
+        var rebuiltChunks = new HashSet<TerrainChunkCoord>();
+        bool changedAny = false;
+        for (int cz = minCZ; cz <= maxCZ; cz++)
+        {
+            for (int cx = minCX; cx <= maxCX; cx++)
+            {
+                if (!flatTops.TryGetValue(EncodeCorner(cx, cz), out float level))
+                    continue;
+
+                var tile = new ChunkCoord(cx, cz);
+                if (!_loadedData.TryGetValue(tile, out ChunkData data))
+                    continue;
+
+                data.Heights[0] = level; // NW
+                data.Heights[1] = level; // NE
+                data.Heights[2] = level; // SE
+                data.Heights[3] = level; // SW
+                data.HasModifications = true;
+                data.Version++;
+                _loadedData[tile] = data;
+                MarkDirty(tile);
+                rebuiltChunks.Add(TerrainChunkCoord.FromTile(tile));
+                changedAny = true;
+            }
+        }
+
+        if (!changedAny)
+            return;
+
+        // Rebuild each touched chunk in place (full rebuild — slab side walls change vertex
+        // counts, so the fast in-place region patch can't be used here) and batch-persist the
+        // modified tiles (one file per chunk, not one per tile).
+        foreach (var tc in rebuiltChunks)
+        {
+            if (!_loadedChunks.TryGetValue(tc, out ChunkObject obj))
+                continue;
+            RebuildChunkRegion(tc, obj, minCX, minCZ, maxCX, maxCZ);
+            FlushDirtyChunk(tc);
+        }
+
+        // A chunk whose footprint sits at a seam only owns HALF a wall; the adjacent chunk owns
+        // the other (higher) half, so rebuild any loaded modified neighbour with its true border
+        // heights now that this chunk's tiles exist.
+        foreach (var tc in rebuiltChunks)
+            ReconcileModifiedBorders(tc);
+    }
+
+    /// <summary>
+    /// Full rebuild of one chunk's merged mesh + collider from the in-memory tile data, feeding
+    /// the boundary ring (adjacent loaded chunks' corner heights) so cross-chunk slab walls are
+    /// seamless. Main thread only.
+    /// </summary>
+    private void FullRebuildChunk(TerrainChunkCoord tc)
+    {
+        if (!_loadedChunks.TryGetValue(tc, out ChunkObject obj))
+            return;
+
+        tc.GetTileRange(out int cminX, out int cminZ, out int cmaxX, out int cmaxZ);
+        int cs = TerrainChunkCoord.ChunkSize;
+        var tiles = new ChunkMeshData[cs * cs];
+        for (int localZ = 0; localZ < cs; localZ++)
+        {
+            for (int localX = 0; localX < cs; localX++)
+            {
+                var tileCoord = new ChunkCoord(cminX + localX, cminZ + localZ);
+                if (_loadedData.TryGetValue(tileCoord, out ChunkData tileData))
+                    tiles[localZ * cs + localX] =
+                        ChunkMeshGenerator.BuildMeshData(tileData, TerrainNoiseGenerator.DefaultLayers);
+            }
+        }
+
+        obj.ApplyMerged(ChunkMeshGenerator.BuildMergedMeshData(tiles, BuildBorderCorners(tc), Seed),
+            GroundMaterial, buildCollider: true);
+    }
+
+    /// <summary>
+    /// Corner heights for the one-tile ring OUTSIDE a chunk, from loaded tiles only. Unloaded
+    /// neighbour terrain is left out so the mesh builder falls back to the same deterministic
+    /// world noise the pristine corner grid uses (no phantom walls on untouched seams).
+    /// </summary>
+    private Dictionary<long, float> BuildBorderCorners(TerrainChunkCoord tc)
+    {
+        int cs = TerrainChunkCoord.ChunkSize;
+        tc.GetTileRange(out int cminX, out int cminZ, out int cmaxX, out int cmaxZ);
+
+        var border = new Dictionary<long, float>(cs * 4);
+        for (int gx = 0; gx <= cs; gx++)
+        {
+            CornerIfLoaded(cminX + gx, cminZ - 1, border);
+            CornerIfLoaded(cminX + gx, cmaxZ + 1, border);
+        }
+        for (int gz = 0; gz <= cs; gz++)
+        {
+            CornerIfLoaded(cminX - 1, cminZ + gz, border);
+            CornerIfLoaded(cmaxX + 1, cminZ + gz, border);
+        }
+        return border;
+    }
+
+    private void CornerIfLoaded(int wx, int wz, Dictionary<long, float> border)
+    {
+        ChunkCoord[] owners =
+        {
+            new ChunkCoord(wx, wz),         // SW slot of tile (wx, wz)
+            new ChunkCoord(wx - 1, wz),     // SE slot of tile (wx-1, wz)
+            new ChunkCoord(wx, wz - 1),     // NW slot of tile (wx, wz-1)
+            new ChunkCoord(wx - 1, wz - 1), // NE slot of tile (wx-1, wz-1)
+        };
+        if (_loadedData.TryGetValue(owners[0], out ChunkData d0)) border[EncodeCorner(wx, wz)] = d0.Heights[3];
+        else if (_loadedData.TryGetValue(owners[1], out ChunkData d1)) border[EncodeCorner(wx, wz)] = d1.Heights[2];
+        else if (_loadedData.TryGetValue(owners[2], out ChunkData d2)) border[EncodeCorner(wx, wz)] = d2.Heights[0];
+        else if (_loadedData.TryGetValue(owners[3], out ChunkData d3)) border[EncodeCorner(wx, wz)] = d3.Heights[1];
+    }
+
+    /// <summary>True when any tile of the chunk carries a localised player modification.</summary>
+    private bool ChunkHasModifiedTiles(TerrainChunkCoord tc)
+    {
+        tc.GetTileRange(out int minX, out int minZ, out int maxX, out int maxZ);
+        for (int x = minX; x <= maxX; x++)
+        {
+            for (int z = minZ; z <= maxZ; z++)
+            {
+                if (_loadedData.TryGetValue(new ChunkCoord(x, z), out ChunkData d) && d.HasModifications)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>True when any tile of the chunk is a flat-top block (held any 1cg slab).</summary>
+    private bool ChunkContainsFlatTile(TerrainChunkCoord tc)
+    {
+        tc.GetTileRange(out int minX, out int minZ, out int maxX, out int maxZ);
+        for (int x = minX; x <= maxX; x++)
+        {
+            for (int z = minZ; z <= maxZ; z++)
+            {
+                if (_loadedData.TryGetValue(new ChunkCoord(x, z), out ChunkData d)
+                    && ChunkMeshGenerator.IsFlatTile(d))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// After a chunk loads/changes, rebuild any loaded modified orthogonal neighbour so a slab
+    /// wall that straddles a chunk seam gets the true neighbour edge as its wall bottom (the
+    /// neighbour owns the wall when it is the higher side). Bounded — only modified chunks.
+    /// </summary>
+    private void ReconcileModifiedBorders(TerrainChunkCoord tc)
+    {
+        TerrainChunkCoord[] neighbours =
+        {
+            new TerrainChunkCoord(tc.X + 1, tc.Z),
+            new TerrainChunkCoord(tc.X - 1, tc.Z),
+            new TerrainChunkCoord(tc.X, tc.Z + 1),
+            new TerrainChunkCoord(tc.X, tc.Z - 1),
+        };
+        foreach (var n in neighbours)
+        {
+            if (!_loadedChunks.ContainsKey(n) || !ChunkHasModifiedTiles(n))
+                continue;
+            FullRebuildChunk(n);
+        }
+    }
+
+    /// <summary>
+    /// Full-rebuilds a just-loaded chunk (and any loaded modified neighbour) with real border
+    /// heights so seam slab walls are correct once both sides of a seam are in memory.
+    /// </summary>
+    private void ReconcileNewlyLoadedChunk(TerrainChunkCoord tc)
+    {
+        if (ChunkHasModifiedTiles(tc))
+            FullRebuildChunk(tc);
+        ReconcileModifiedBorders(tc);
     }
 
     /// <summary>
@@ -842,16 +1052,24 @@ public class WorldStreamer : MonoBehaviour
     }
 
     /// <summary>
-    /// Rebuilds the mesh quads spanned by the deformation over one chunk. Builds mesh data for
-    /// just the touched local-tile rectangle and patches the merged mesh in place (fast, and the
-    /// collider re-cooks once against the same mesh). Falls back to a full 900-tile rebuild only
-    /// when the patch would cover nearly the whole chunk.
+    /// Rebuilds the mesh quads spanned by the deformation over one chunk. Slab side walls change
+    /// the merged mesh's vertex counts, so once a chunk holds any flat-top block tile it is FULL
+    /// rebuilt (with real neighbour border heights); otherwise the fast in-place region patch
+    /// (smooth blending — e.g. farm-plot flattening) is used, falling back to a full rebuild when
+    /// the patch would cover nearly the whole chunk.
     /// </summary>
     private void RebuildChunkRegion(TerrainChunkCoord tc, ChunkObject obj,
         int minCX, int minCZ, int maxCX, int maxCZ)
     {
         int cs = TerrainChunkCoord.ChunkSize;
         tc.GetTileRange(out int cminX, out int cminZ, out int cmaxX, out int cmaxZ);
+
+        // Any flat slab tile in the chunk forces a full rebuild (side walls change vertex counts).
+        if (ChunkContainsFlatTile(tc))
+        {
+            FullRebuildChunk(tc);
+            return;
+        }
 
         int lMinX = Mathf.Clamp(minCX - cminX, 0, cs - 1);
         int lMinZ = Mathf.Clamp(minCZ - cminZ, 0, cs - 1);
@@ -863,18 +1081,7 @@ public class WorldStreamer : MonoBehaviour
         if (w * h >= TerrainChunkCoord.ChunkArea * 0.75f)
         {
             // Region is (almost) the whole chunk — full rebuild is the same cost and safest.
-            var tiles = new ChunkMeshData[TerrainChunkCoord.ChunkArea];
-            for (int localZ = 0; localZ < cs; localZ++)
-            {
-                for (int localX = 0; localX < cs; localX++)
-                {
-                    var tileCoord = new ChunkCoord(cminX + localX, cminZ + localZ);
-                    if (!_loadedData.TryGetValue(tileCoord, out ChunkData tileData))
-                        continue;
-                    tiles[localZ * cs + localX] = ChunkMeshGenerator.BuildMeshData(tileData, TerrainNoiseGenerator.DefaultLayers);
-                }
-            }
-            obj.ApplyMerged(ChunkMeshGenerator.BuildMergedMeshData(tiles), GroundMaterial, buildCollider: true);
+            FullRebuildChunk(tc);
             return;
         }
 
