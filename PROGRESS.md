@@ -1,7 +1,10 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1co` (every race
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cp` (the Earth
+school's Stone Shard projectile is now a **tumbling cluster of grey rock debris** styled on the
+world's breakable-rock chunks, and the carved crater throws up a short debris burst at impact),
+`1co` (every race
 gets its own look on the blocky player model — full palette skin/hair/eyes/clothes/pants/shoes plus
 body ratios Height/Bulk/Head/ShoulderWidth/Arm/Leg; giants read bigger via raised global RigScale;
 a race change rebuilds the model), `1cn` (player hair —
@@ -50,6 +53,58 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1cp. Earth magic projectile = rock debris (in-flight cluster + impact burst)
+
+Request: **"use rock debris as earth magic projectile."** The Earth school's only projectile spell,
+**Stone Shard**, previously flew as a single polished diamond `Shard` (a shape it shared with frost
+chips via Ice's `Auto`). Confirmed with the user: rock debris **in flight** and a **short debris
+burst at impact** (when the crater is carved).
+
+### In-flight (`SpellCaster.cs`, `SpellData.cs`)
+- New `ProjectileShape.Debris` (renamed enum entry after `Dart`).
+- New `Debris(...)` builder — 5-7 collider-stripped cubes of mixed scale (0.05-0.11 m, one ~0.14 m
+  leading chunk), random rotations, clustered with the leader ahead and the tail trailing along the
+  flight line. Colored exactly like the world's breakable-rock debris
+  (`Color.Lerp(Color.gray, Color.black, Random.value * 0.5f)`, mirroring
+  `WorldBuilder.RockMining.SpawnRockDebris`), with two chunks dusted in the Earth accent
+  (`DamageNumber.ColorFor(Earth)` = 0.78/0.62/0.42) so it reads as magic, not terrain.
+- `OrbFx` gains `Mode.Tumble` — each chunk captures `Random.onUnitSphere` as its spin axis in `Start`
+  and rotates around it at ~120°/s (existing modes still spin the old Y-axis path, untouched).
+- `AutoShapeFor(Earth)` → `Debris`, so summoned-turret Earth shots (`SpellSummon` →
+  `DecorateProjectile`) and any future Auto-shape Earth spell pick the same look.
+
+### Impact burst (`SpellEffect.cs`)
+- `ResolveProjectileImpact`: in the `TerrainShape.Crater` branch, after the carve resolves, spawn
+  3-5 grey rock cubes (0.08-0.16 m, `Lerp(gray, black, rand*0.5)`), `Rigidbody` mass ≈ `s³·1000`,
+  up-biased outward scatter (up 2-4, lateral ±2.5), `Random.insideUnitSphere*6` tumble, named
+  `SpellImpactDebris`, destroyed after 2.5 s (no litter, no pickup interference).
+
+### Skill wiring (`SkillCatalog.cs`)
+- `magic_earth` "Stone Shard": `projectileShape: ProjectileShape.Shard` → `ProjectileShape.Debris`
+  (the only Earth projectile skill; Meteor / Earth Wall are Zone delivery). `Shard` stays reserved
+  for frost via Ice's `Auto`.
+
+### 1cp-status
+- **`SpellData.cs`** — `ProjectileShape.Debris = 11`.
+- **`SpellCaster.cs`** — `Debris` shape → `BuildProjectileBody`; new `Debris` builder; `OrbFx.Mode.Tumble`
+  (+ per-object random spin axis). Signature changes: none public — enum gained an entry only.
+- **`SkillCatalog.cs`** — Stone Shard line flipped to `Debris`; desc now "a fistful of living rock".
+- **`SpellEffect.cs`** — `SpawnImpactDebris(pos)` helper + call in the crater branch.
+- **`game-design.md`** — §3.8 Crater signature line (debris burst at impact) + Projectile Shapes table
+  (new **Debris** row, **Shard** row narrowed to frost chips, Auto Earth→Debris, OrbFx mode list).
+- **`magic-skills.md`** — shape table (Debris row, Shard row), Auto-resolve line, Stone Shard row.
+- **Verification**: no CLI/Unity build per project rule 3 — greps confirmed the only Earth projectile
+  is Stone Shard, `ProjectileShape.Shard` explicit usage reduced to none in spell tables (Ice still
+  routes via Auto→Shard), and no other callers reference the changed paths; full re-read of the four
+  touched methods done.
+- **Open questions**: none. *Play-test note*: cast Stone Shard charged and uncharged (cluster should
+  scale with charge), confirm chunks tumble (not drill), confirm the impact burst pops from the
+  crater, and confirm an ice Auto spell (Chill Touch) still shows the old diamond shard.
+
+### Play-test (pending, user)
 
 ---
 

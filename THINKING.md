@@ -15,6 +15,45 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1cp — Earth magic projectile as rock debris (RESOLVED — shipped in `1cp`)
+
+### VERDICT (read this first)
+Confirmed approach: a **new `ProjectileShape.Debris`** (tumbling grey rock-clump, dressed like
+`WorldBuilder.SpawnRockDebris`) wired to the Earth school + an **impact debris burst** out of the
+crater. Trail below records the dead ends checked.
+
+### Hypotheses & evidence
+- **H1 — swap the existing `Shard` builder to rock chunks.** REJECTED. `Shard` is Ice's `Auto` shape
+  too (`SpellCaster.AutoShapeFor(Ice) → Shard`), so editing it silently reskins frost chips. Instead a
+  new enum value keeps Ice's diamond and gives Earth its own builder.
+- **H2 — change only `AutoShapeFor(Earth)`.** INSUFFICIENT on its own. The Earth school's only
+  projectile spell sets `projectileShape: ProjectileShape.Shard` **explicitly** on its `Spell(...)`
+  line, so it bypasses Auto resolution. Confirmed via `SpellCastEffect Spell(...)` helper: the
+  `projectileShape` param lands straight on `spell.Shape`. Fix = flip that one line AND the Auto
+  default (for summoned-turret earth shots `SpellSummon.DecorateProjectile`, which pass `Auto`).
+- **H3 — reuse the world debris pieces themselves.** The world chunks have `Rigidbody`/colliders and
+  are interactable by the pickaxe/pickup system (`SmashDebris`, name `RockDebris`); reusing them as
+  renderer-only projectile chunks risks the flight raycast self-hitting or pickups grabbing a
+  fleeting chunk. The projectile keeps **renderer-only** primitives (matching the other shapes'
+  "no collider" contract) but borrows the exact color formula.
+- **H4 — tumbling = single Y spin (existing OrbFx path).** REJECTED for the chunks: a shared Y-spin
+  looks like a drill, not debris. Added `Mode.Tumble` with a per-object `Random.onUnitSphere` axis
+  captured in `Start()`; existing modes keep the old `Rotate(0, spin, 0)` branch untouched.
+- **H5 — impact burst reuses the in-flight cluster builder.** REJECTED. The flight body is a static
+  cluster parented to the projectile; impact needs independent physics chunks that fall out of the
+  crater. Small throwaway `SpawnImpactDebris` (3-5 cubes, up-bias scatter, `Destroy` after 2.5 s),
+  mirroring SpawnRockDebris' mass/velocity values.
+- **H6 — could the burst chunks collide with the just-carved crater collider?** Terrain collider
+  rebuilds once per deformer apply (1ck made the swap atomic) — the physics chunks spawn above the
+  impact point and fall freely; the crater floor is solid walkable terrain. No special handling.
+
+### Known limitation (noted, not fixed)
+The StarEffigy/Golem **summon** spells (Stone Effigy/Sentinel/Guardian/Colossus) fire rocks via
+`SpellSummon` with `Auto` shape → they now read as the same Debris cluster. Consistent, intended;
+not a regression.
+
+---
+
 ## 1co — Race look on the block player model (RESOLVED — shipped in `1co`)
 
 ### VERDICT (read this first)

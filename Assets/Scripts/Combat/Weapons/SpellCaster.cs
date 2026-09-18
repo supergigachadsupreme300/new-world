@@ -500,7 +500,7 @@ public class SpellCaster : MonoBehaviour
     /// authored CastEffectPrefab, so magic skills read on screen. `shape` is the ProjectileShape
     /// from SpellData (§3.8): Auto resolves to the element default so every projectile still has a
     /// sane look; explicit shapes follow the spell's NAME ("Frost Bolt" = a Bolt, "Ice Lance" = a
-    /// Lance, "Stone Shard" = a Shard...). Renderer-only: the root keeps no collider so
+    /// Lance, "Stone Shard" = a Debris clump...). Renderer-only: the root keeps no collider so
     /// SpellEffect's flight raycast never self-hits.
     /// </summary>
     private void AttachDefaultProjectileVisual(GameObject go, DamageType type, ProjectileShape shape)
@@ -526,7 +526,7 @@ public class SpellCaster : MonoBehaviour
             case DamageType.Lightning: return ProjectileShape.Bolt; // crackling bolt
             case DamageType.Wind: return ProjectileShape.Blade;     // wind blade
             case DamageType.Water: return ProjectileShape.Splash;   // droplet
-            case DamageType.Earth: return ProjectileShape.Shard;    // grey stone chip
+            case DamageType.Earth: return ProjectileShape.Debris;   // tumbling rock chunks
             case DamageType.Physical: return ProjectileShape.Dart;  // arrow / bolt line
             default: return ProjectileShape.Sphere;
         }
@@ -549,6 +549,7 @@ public class SpellCaster : MonoBehaviour
             case ProjectileShape.Comet: return Comet("Comet", shader, color);
             case ProjectileShape.Missile: return Missile("ArcaneMissiles", shader, color);
             case ProjectileShape.Dart: return Dart("Dart", shader, color);
+            case ProjectileShape.Debris: return Debris("RockDebris", shader);
             default: return Orb("Orb", PrimitiveType.Sphere, Vector3.one * 0.22f, shader, color,
                 OrbFx.Mode.Plain);
         }
@@ -596,6 +597,42 @@ public class SpellCaster : MonoBehaviour
         shard.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
         shard.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Shard;
         return shard.transform;
+    }
+
+    /// <summary>
+    /// Tumbling cluster of rock chunks — the Earth school's projectile (Stone Shard / stone shards).
+    /// Mirrors the world's breakable-rock debris look (WorldBuilder.SpawnRockDebris): random grey
+    /// <c>Color.Lerp(Color.gray, Color.black, rand)</c> cubes of mixed sizes, each tumbling around its
+    /// own random axis (OrbFx.Tumble), clustered with the leader ahead and the tail trailing so the
+    /// clump reads as one forward-striking debris blob. Two chunks are dusted with the Earth accent
+    /// color so it still reads as magic, not just a terrain chunk.
+    /// </summary>
+    private static Transform Debris(string name, Shader shader)
+    {
+        var root = new GameObject(name).transform;
+        Color earth = DamageNumber.ColorFor(DamageType.Earth);
+        int count = 5 + UnityEngine.Random.Range(0, 3); // 5-7 chunks
+        for (int i = 0; i < count; i++)
+        {
+            var chunk = Primitive(PrimitiveType.Cube, "Chunk" + i, root);
+            float s = Mathf.Lerp(0.05f, 0.11f, UnityEngine.Random.value);
+            if (i == 0) s = 0.14f; // leader chunk
+            if (s < 0.075f) s = UnityEngine.Random.Range(0.05f, 0.09f);
+            chunk.localScale = Vector3.one * s;
+            chunk.localRotation = UnityEngine.Random.rotation;
+            chunk.localPosition = new Vector3(
+                UnityEngine.Random.Range(-0.10f, 0.10f),
+                UnityEngine.Random.Range(-0.10f, 0.10f),
+                i == 0 ? 0.18f : UnityEngine.Random.Range(-0.42f, -0.08f));
+
+            Color rock = Color.Lerp(Color.gray, Color.black, UnityEngine.Random.value * 0.5f);
+            if (i == 1 || i == count - 1)
+                rock = Color.Lerp(rock, earth, 0.55f); // earthy accent on two chunks
+            Materialize(chunk, shader, rock);
+            chunk.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Tumble;
+        }
+        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Plain;
+        return root;
     }
 
     /// <summary>
@@ -873,16 +910,20 @@ public class SpellCaster : MonoBehaviour
             Shard,  // slight breathe + drill spin
             Bolt,   // fast crackle pulse
             Wisp,   // slow pulsing
-            Swirl   // gentle pulse + fast funnel spin
+            Swirl,  // gentle pulse + fast funnel spin
+            Tumble  // gentle pulse + spin around a per-object random axis (rock debris chunks)
         }
 
         public Mode Pulse;
 
         private Vector3 _baseScale;
+        private Vector3 _spinAxis = Vector3.up;
 
         private void Start()
         {
             _baseScale = transform.localScale;
+            if (Pulse == Mode.Tumble)
+                _spinAxis = UnityEngine.Random.onUnitSphere;
         }
 
         private void Update()
@@ -909,13 +950,22 @@ public class SpellCaster : MonoBehaviour
                     pulse = 1f + 0.10f * Mathf.Sin(t * 5.6f);
                     spin = 220f;
                     break;
+                case Mode.Tumble:
+                    pulse = 1f + 0.05f * Mathf.Sin(t * 5.1f);
+                    spin = 120f;
+                    break;
                 default:
                     pulse = 1f + 0.06f * Mathf.Sin(t * 3.4f);
                     break;
             }
             transform.localScale = _baseScale * Mathf.Max(0.1f, pulse);
             if (spin != 0f)
-                transform.Rotate(0f, spin * Time.deltaTime, 0f, Space.Self);
+            {
+                if (Pulse == Mode.Tumble)
+                    transform.Rotate(_spinAxis, spin * Time.deltaTime, Space.Self);
+                else
+                    transform.Rotate(0f, spin * Time.deltaTime, 0f, Space.Self);
+            }
         }
     }
 

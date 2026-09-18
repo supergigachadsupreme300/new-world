@@ -713,10 +713,12 @@ A spell is a data asset carrying:
   no tile collapses to a uniform level. Crater interiors are therefore a genuine smooth dish and
   crests are smooth rounded ridges, never flat plateaus; repeated casts can never grind the ground
   deeper or stack a ridge higher than the intended release (a repeat Wall stays
-  ~2.6 m, never taller). **Crater is the Earth projectile signature**: a Crater-shaped projectile
-  (the root Stone Shard) carves its crater where the shard **strikes** —
-  `SpellEffect.ResolveProjectileImpact` down-probes the ground at impact and deforms it there, so
-  a cast never dents the caster's own feet; the pit is permanent. **Every non-Earth magic projectile
+  ~2.6 m, never taller). ***Crater is the Earth projectile signature**: a Crater-shaped projectile
+  (the root Stone Shard) carves its crater where the rock **strikes** —
+  `SpellEffect.ResolveProjectileImpact` down-probes the ground at impact and deforms it there, and
+  throws up a short burst of rock chunks from the crater mouth (same grey-debris look as the
+  in-flight projectile, destroyed after ~2.5 s), so a
+  cast never dents the caster's own feet; the pit is permanent. **Every non-Earth magic projectile
   (fire/ice/arcane/lightning/dark/wind/water) also leaves a small uniform impact dent** (a fixed
   ~1.4 m Crater where the bolt strikes) through the same path, so any bolt visibly disturbs the
   terrain — Earth retains the bigger, spell-scaled craters and the raised shapes
@@ -803,7 +805,8 @@ color swap, so each spell looks like its name and not a recolor of the same ball
 |---|---|
 | **Bolt** | Jagged segmented bolt along the flight axis (the same segment technique as the thunder-storm event's `SpawnJaggedBolt`), fast crackle pulse — used by every spell with "Bolt" in the name: Frost Bolt, Chain Lightning, Dark Bolt, Volt, Fork/Leap/Arc/Volt Bolt, Fury Bolt, Shadow/Doom Bolt, Void Rend, and the class-flavored Arcane Bolt. |
 | **Sphere** | Classic orb (soft breathe) — school default / the Fireball. |
-| **Shard** | Diamond crystal that drills forward (spin + breathe) — stone shards and frost chips (Stone Shard, Chill Touch). |
+| **Shard** | Diamond crystal that drills forward (spin + breathe) — frost chips (the Ice school default; Chill Touch). |
+| **Debris** | Tumbling cluster of grey rock chunks (mixed sizes, random rotations, one leading chunk) that spins around random axes in flight — the Earth school's Stone Shard. Dressed like the world's breakable-rock debris (`Color.Lerp(gray, black, rand)` cubes) with two chunks dusted in the earthy tan accent so it reads as magic; a short debris burst also kicks out of the crater at impact. |
 | **Lance** | Long straight pointed spike (shaft + tip), heavier than a bolt — Ice Lance, Frost Pierce, Glacial Impale. |
 | **Spear** | Tapered spear: dark shaft + broad diamond head — Shadow Spear. |
 | **Blade** | Flat cross-blade that spins in its own plane — Wind Blade, Razor Blade, Wind Scissor, Laceration. |
@@ -813,8 +816,8 @@ color swap, so each spell looks like its name and not a recolor of the same ball
 | **Dart** | Sleek thin bolt-line with a tip — physical shots (Archer Wind Shot, Taoist Talisman). |
 
 `Auto` resolves per school: Fire→Sphere, Ice→Shard, Lightning→Bolt, Wind→Blade, Water→Splash,
-Earth→Shard, Physical→Dart, everything else→Sphere. Builders live in `SpellCaster.BuildProjectileBody`
-(primitives + `OrbFx` pulse modes: Plain/Ember/Shard/Bolt/Wisp/Swirl), colored per damage type and
+Earth→Debris, Physical→Dart, everything else→Sphere. Builders live in `SpellCaster.BuildProjectileBody`
+(primitives + `OrbFx` pulse modes: Plain/Ember/Shard/Bolt/Wisp/Swirl/Tumble), colored per damage type and
 layered with `AttachProjectileParticles` trails; turret summons render the projectile through the same
 call (`SpellSummon` passes the turret spell's shape).
 

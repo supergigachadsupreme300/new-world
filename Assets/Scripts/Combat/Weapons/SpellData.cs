@@ -80,7 +80,11 @@ public enum ProjectileShape
     Missile = 9,
 
     /// <summary>Small sleek fast bolt-line (quick ranged shots / talisman darts).</summary>
-    Dart = 10
+    Dart = 10,
+
+    /// <summary>Tumbling cluster of rock chunks (the Earth school / stone shards). Dressed like the
+    /// world's breakable-rock debris (grey <c>Color.Lerp(Color.gray, Color.black, rand)</c> cubes).</summary>
+    Debris = 11
 }
 
 /// <summary>

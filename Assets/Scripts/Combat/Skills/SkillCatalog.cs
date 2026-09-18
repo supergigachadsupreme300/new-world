@@ -295,8 +295,8 @@ public static partial class SkillCatalog
         // Meteor and Earth Wall skills crater / wall the ground where they land.
         Add(list, "magic_earth", "Stone Shard", SkillType.Magic, false, Focus(15f), true, DamageType.Earth,
             Spell("magic_earth_spell", "Stone Shard", DamageType.Earth, 26f, 15f, SpellDelivery.Projectile, 4f,
-                projectileShape: ProjectileShape.Shard, terrainShape: TerrainShape.Crater),
-            null, "Hurl a shard of living stone that carves a crater where it strikes.");
+                projectileShape: ProjectileShape.Debris, terrainShape: TerrainShape.Crater),
+            null, "Hurl a fistful of living rock that carves a crater where it strikes.");
 
         // Meteor — the Earth school's sky-event, gated behind Boulder Crash (the falling-rock line).
         // A rock from above strikes the aim point hard and carves one of the school's permanent

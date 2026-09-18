@@ -36,7 +36,8 @@ Every spell that uses the **Projectile** delivery has a `projectileShape:` visua
 |---|---|---|
 | **Bolt** | Jagged segmented bolt along the flight axis, crackling afterimages (same technique as the thunder-event lightning, `SpawnJaggedBolt`) | every spell with "Bolt" in the name, e.g. Frost Bolt, Chain Lightning, Volt, Fork/Leap/Doom/Fury Bolt |
 | **Sphere** | Classic orb with elemental pulse | fireball/plain orbs when the name gives no better shape |
-| **Shard** | Elongated crystal that slowly drills/spins along the axis | ice/stone shards (Stone Shard, Chill Touch) |
+| **Shard** | Elongated crystal that slowly drills/spins along the axis | frost chips (Chill Touch) |
+| **Debris** | Tumbling cluster of grey rock chunks (mixed sizes, random spins, one leader) - the Earth school's "Stone Shard", dressed like world rock-debris; a short debris burst kicks up from the crater at impact | Stone Shard |
 | **Lance** | Long thin spear of ice, heavier and faster than a bolt | Ice Lance, Frost Pierce, Glacial Impale |
 | **Spear** | Thick dark spear, the heaviest of the linear shapes | Shadow Spear |
 | **Blade** | Flat cross-blade that spins in-plane with a shimmer envelope | Wind Blade, Razor Blade, Wind Scissor, Laceration |
@@ -45,7 +46,7 @@ Every spell that uses the **Projectile** delivery has a `projectileShape:` visua
 | **Missile** | Small dart with a soft halo; **homing** - re-evaluates its trajectory every frame and prioritizes the target that ends up on the flight path, bending to chase it | Arcane Missiles, Chill Soul |
 | **Dart** | Sleek single dart, thin and fast | physical shots (Archer Wind Shot, Taoist Talisman) |
 
-Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto` to resolve by school: Fire=Sphere, Ice=Shard, Lightning=Bolt, Wind=Blade, Water=Splash, Earth=Shard, anything else=Sphere.
+Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto` to resolve by school: Fire=Sphere, Ice=Shard, Lightning=Bolt, Wind=Blade, Water=Splash, Earth=Debris, anything else=Sphere.
 
 ## Base skills (roots)
 
@@ -68,7 +69,7 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
 | magic_tornado | Tornado | false | Wind | Active (Wind) - power 16, FP 28, cd 10s, range 12, radius 3 | Summon a ravenous tornado that pulls foes in and shreds them (requires Gale Force). |
 | magic_flight | Wind Walk | false | Wind | Active (Wind) - power 0, FP 18, cd 25s, dur 10s, self-buff | Ride the wind and take flight for 10 seconds (requires Gale Force). |
 | magic_water | Water Bolt | false | Water | Active (Water) - power 22, FP 13, cd 4s, Wet, shape:Bolt | Launch a splash that soaks and slows the target. |
-| magic_earth | Stone Shard | false | Earth | Active (Earth) - power 26, FP 15, cd 4s, shape:Shard, terrain:Crater (impact) | Hurl a shard of living stone that carves a crater where it strikes. |
+| magic_earth | Stone Shard | false | Earth | Active (Earth) - power 26, FP 15, cd 4s, shape:Debris, terrain:Crater (impact + debris burst) | Hurl a fistful of living rock that carves a crater where it strikes. |
 
 ## Tree branches (L1 + L2)
 

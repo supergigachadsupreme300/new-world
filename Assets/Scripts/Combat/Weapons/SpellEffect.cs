@@ -261,12 +261,48 @@ public class SpellEffect : MonoBehaviour
             if (_spell.TerrainShape == TerrainShape.Crater)
                 dentRadius = Mathf.Max(1.2f, _spell.Radius);
             Vector3 probe = transform.position + Vector3.up * 0.1f;
+            Vector3 impactGround = transform.position;
             if (Physics.Raycast(probe, Vector3.down, out RaycastHit groundHit, 30f))
-                TerrainDeformer.Apply(groundHit.point, dentRadius * _radiusMult,
+            {
+                impactGround = groundHit.point;
+                TerrainDeformer.Apply(impactGround, dentRadius * _radiusMult,
                     TerrainShape.Crater, _dir);
+            }
+
+            // Earth projectiles throw a burst of rock chunks up out of the crater — the same
+            // debris look as the in-flight projectile (verified against WorldBuilder.SpawnRockDebris:
+            // color.Lerp(gray,black) cubes + up-bias scatter) — so the impact reads like a fistful
+            // of rock striking the ground.
+            if (_spell.TerrainShape == TerrainShape.Crater)
+                SpawnImpactDebris(impactGround);
         }
 
         Destroy(gameObject);
+    }
+
+    /// <summary>Scatter a few transient rock chunks out of the crater (rock-debris impact burst).
+    /// Short-lived (2.5 s) so repeated casts don't litter the ground.</summary>
+    private static void SpawnImpactDebris(Vector3 pos)
+    {
+        int count = UnityEngine.Random.Range(3, 6);
+        Vector3 spawn = pos + Vector3.up * 0.08f;
+        for (int i = 0; i < count; i++)
+        {
+            float s = UnityEngine.Random.Range(0.08f, 0.16f);
+            var chunk = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            chunk.name = "SpellImpactDebris";
+            chunk.transform.position = spawn + UnityEngine.Random.insideUnitSphere * 0.15f;
+            chunk.transform.rotation = UnityEngine.Random.rotation;
+            chunk.transform.localScale = Vector3.one * s;
+            var r = chunk.GetComponent<Renderer>();
+            if (r != null) r.material.color = Color.Lerp(Color.gray, Color.black, UnityEngine.Random.value * 0.5f);
+            var rb = chunk.AddComponent<Rigidbody>();
+            rb.mass = s * s * s * 1000f;
+            rb.linearVelocity = new Vector3(
+                UnityEngine.Random.Range(-2.5f, 2.5f), UnityEngine.Random.Range(2f, 4f), UnityEngine.Random.Range(-2.5f, 2.5f));
+            rb.angularVelocity = UnityEngine.Random.insideUnitSphere * 6f;
+            Destroy(chunk, 2.5f);
+        }
     }
 
     /// <summary>True when the collider belongs to the world terrain — the "Ground" plane, a field
