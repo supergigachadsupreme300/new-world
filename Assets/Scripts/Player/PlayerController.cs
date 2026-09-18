@@ -285,13 +285,13 @@ public class PlayerController : MonoBehaviour, IHealable
     /// never yanks the player onto the pad from the open world.</summary>
     private bool IsOnOrNearArena(NewWorldTestGround testGround)
     {
-        if (testGround.PlatformTopY == float.MinValue)
+        if (NewWorldTestGround.PlatformTopY == float.MinValue)
             return false;
         Vector3 p = transform.position;
         Vector3 c = testGround.PlatformCenter;
         float margin = testGround.PlatformSize * 0.6f;
         bool nearXZ = Mathf.Abs(p.x - c.x) <= margin && Mathf.Abs(p.z - c.z) <= margin;
-        bool onLevel = Mathf.Abs(p.y - testGround.PlatformTopY) <= 6f;
+        bool onLevel = Mathf.Abs(p.y - NewWorldTestGround.PlatformTopY) <= 6f;
         return nearXZ && onLevel;
     }
 
