@@ -1,7 +1,8 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cc` (super-speed root
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cd` (100x percent-perk
+multiplier bug + additive MoveSpeed — the real "still very fast" cause), `1cc` (super-speed root
 cause + speed-aware fail-net), `1cb` (class + race locked to ONE choice), `1ca` (physics integrity
 guard rails — no more one-step 5 km teleport), `1bz`
 (no boot auto-teleport; spawn on the boot chunk), `1by` (build fixes), `1bx` (eight new talents), `1bw` (religion
@@ -25,6 +26,51 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1cd. 100x percent-perk multiplier bug + additive MoveSpeed (the real "still very fast" cause)
+
+Play report after `1cc`: **"still very fast."** `1cc` only removed the dev stat floor; it left the actual
+arithmetic bug. Investigated with grep + reread (no Unity build):
+
+- **Root cause (100× bug):** `PassivePerkManager.Mul` returned `1f + Sum(kind)`, but skill-tree perks are
+  authored as **integer percents** (`Perk(PassivePerkType.MovementSpeedPercent, 3f)` = +3%; `PassivePerkEffect`
+  passes the raw value, catalog doc says "5 = +5%"). So every percent perk was applied ~100× too large.
+  The ~40 `MovementSpeedPercent` nodes sum to **+158** → `Mul = 159` instead of `2.58`.
+  `PlayerController` then did `MoveSpeed × (1 + Speed×0.5) × 159` → Speed 10 → ×954 → walk ≈ **4,770 m/s**.
+  The class/race `*Mul` managers are correct because their catalogs pass **fractions** (`0.08f` = +8%,
+  `ClassSkill.cs:7`); the tree perks were the odd one out. It also inflated **every** percent stat (HP,
+  damage, cooldowns, regen, loot luck) ~100× — the player was effectively unkillable.
+- **Secondary:** `PlayerStats.MaxMoveSpeed` used the multiplicative `BaseMoveSpeed × (1 + Speed×k_mov)` and
+  `PlayerController` re-scaled by `MoveSpeed/BaseMoveSpeed`, so Speed applied with a ~5× steeper coefficient
+  than design (§3.4 `base + Speed·k_mov`).
+
+User direction: "both" — fix the bug **and** align the movement formula (kept the controller's
+`MoveSpeed × MaxMoveSpeed/BaseMoveSpeed` ratio wiring per user preference). No speed cap.
+
+### 1cd-status
+- **Percent aggregation fixed** (`PassivePerkManager.cs`): `Mul(kind) => 1f + Sum(kind) / 100f`; doc comment
+  updated (integer percents; `Σ 5+3 → 1.08`). `Sum`/`AddPerk` unchanged so flat kinds still accumulate raw
+  (`HealthRegenPerSecond` 0.003 = +0.3%/s, `DamageReductionFlat` 0.02). Class/race modifier managers
+  (fractional convention) untouched.
+- **MoveSpeed made additive** (`PlayerStats.cs`): `MaxMoveSpeed => (BaseMoveSpeed + GetTotal(Speed)·K_Move) ×
+  TreeMul(MovementSpeedPercent)` — matches §3.4 and applies Speed once; the controller's ratio wiring is
+  unchanged, so walk = `MoveSpeed × (BaseMoveSpeed + Speed·K_Move)/BaseMoveSpeed × TreeMul`.
+- **Over-max clamp** (`PlayerController.Update`): a stored/legacy `HP`/`Stamina` above the now-lower maxima
+  snaps down each frame, so the HUD never shows over-max after the rebalance.
+- **Docs**: `game-design.md` §3.3 perk-aggregation convention note + §3.4 implementation paragraph rewritten
+  (additive MoveSpeed, integer-percent aggregation, 1cc/1cd history). PROGRESS intro refreshed.
+- **Verification**: no CLI/Unity build per project rule 3 — code review + grep only. Grep confirmed no
+  percent perk passes a fraction (`Percent, 0.` → no matches), and `.Mul(`/`TreeMul` consumers all multiply
+  multiplicatively (no caller assumed the old integer scale). Flats still read via `TreeSum`.
+- **Expected** (with the controller ratio wiring): Speed 10, no perks → walk ≈ **11 m/s** / sprint ≈ 22;
+  Speed 10, all tree movement perks (+158% → ×2.58) → walk ≈ **29 m/s** / sprint ≈ 58. Down from ~4,770 m/s.
+- **Play-test (pending)**: (1) fresh + loaded characters move sanely; (2) HP/damage/cooldown now reflect
+  intended magnitudes (combat will feel much lower than the inflated 100× build — expected); (3) current
+  HP/Stamina clamp cleanly to the new lower maxima on the first tick.
+- **Follow-up (parked)**: fully-perked top speed (~58 m/s sprint) may still be tuned via `K_Move` /
+  `MovementSpeedPercent` values; class/race `MoveSpeedMul` still unconsumed by `MaxMoveSpeed`.
 
 ---
 

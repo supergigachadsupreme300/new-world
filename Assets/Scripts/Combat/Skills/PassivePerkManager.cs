@@ -23,8 +23,9 @@ public class PassivePerkManager : MonoBehaviour
     /// <summary>Accumulated flat sum for <paramref name="kind"/> (flats, and checked by Sum-based getters).</summary>
     public float Sum(PassivePerkType kind) => _perks.TryGetValue(kind, out float v) ? v : 0f;
 
-    /// <summary>1 + accumulated percent for <paramref name="kind"/> — the multiplier consumers apply.</summary>
-    public float Mul(PassivePerkType kind) => 1f + Sum(kind);
+    /// <summary>Multiplier consumers apply for percent kinds: percentages accumulate as integer
+    /// percents (5 = +5%), so the result is 1 + Σpercent/100 (e.g. Σ 5+3 → 1.08). Flats use <see cref="Sum"/>.</summary>
+    public float Mul(PassivePerkType kind) => 1f + Sum(kind) / 100f;
 
     /// <summary>How many distinct perk kinds the player has invested in.</summary>
     public int Count => _perks.Count;

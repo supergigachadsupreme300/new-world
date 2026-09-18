@@ -183,7 +183,7 @@ public class PlayerStats : MonoBehaviour, IStatProvider, ILootLuckProvider
 
     public float MaxHP => (100f + GetTotal(StatType.Health) * 12f) * TreeMul(PassivePerkType.MaxHealthPercent);
 
-    public float MaxMoveSpeed => BaseMoveSpeed * (1f + GetTotal(StatType.Speed) * K_Move)
+    public float MaxMoveSpeed => (BaseMoveSpeed + GetTotal(StatType.Speed) * K_Move)
         * TreeMul(PassivePerkType.MovementSpeedPercent);
 
     public float DodgeSpeedMultiplier => 1f + GetTotal(StatType.Speed) * K_Dodge;

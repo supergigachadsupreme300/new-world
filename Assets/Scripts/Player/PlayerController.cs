@@ -231,6 +231,11 @@ public class PlayerController : MonoBehaviour, IHealable
         if (SleepManager.IsSleeping)
             return;
 
+        // 1cd: the percent-perk fix lowers the maxima, so a stored/legacy HP or Stamina value can
+        // exceed them. Snap down so the HUD never shows over-max (heal/regen clamp on their own).
+        if (HP > MaxHP) HP = MaxHP;
+        if (Stamina > MaxStamina) Stamina = MaxStamina;
+
         // Fail-net (1ca): a corrupted collider can depenetrate the CharacterController thousands
         // of metres in one step. Revert to the last sane position before any further input runs.
         EnforcePhysicsSanity();
