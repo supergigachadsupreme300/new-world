@@ -30,6 +30,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     [Header("Spawning")]
     [Tooltip("Spawn the bench automatically on Awake.")]
     public bool AutoSpawnOnStart = true;
+    [Tooltip("Automatically teleport the player onto the platform when the bench spawns. Disabled by default: the game starts the player on the world's boot chunk near (0, terrain, -10) and the platform is left for the player to walk to.")]
+    public bool AutoTeleportPlayerOnStart = false;
 
     [Header("Lanes")]
     [Tooltip("Lay the tool/food discovery kit along the platform's east edge as world pickups to grab with E.")]
@@ -101,8 +103,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
         _spawned = true;
 
         // The platform is a solid collider built in Awake, so the player can be placed on it
-        // immediately — there is no streaming gate and no void to race.
-        if (CreatePlatform)
+        // immediately — there is no streaming gate and no void to race. This is opt-in only
+        // (AutoTeleportPlayerOnStart, default off): the player starts on the world's boot chunk
+        // and walks to the platform when they want the bench.
+        if (CreatePlatform && AutoTeleportPlayerOnStart)
             RunSafely("player placement", PlacePlayerOnArena);
 
         if (EnableTools) { RunSafely("tool pickups", SpawnToolKit); yield return null; }
@@ -126,9 +130,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
         RunSafely("player grants", TryDeferPlayerGrants);
 
         // Safety net: if the platform wasn't ready when the bench started (e.g. built later or
-        // CreatePlatform toggled), pull the player onto it at the very end. PlacePlayerOnArena
-        // self-guards on IsArenaReady, so this can never teleport onto missing ground.
-        if (!IsArenaReady)
+        // CreatePlatform toggled) AND an auto-teleport was requested, pull the player onto it at
+        // the very end. PlacePlayerOnArena self-guards on IsArenaReady, so this can never teleport
+        // onto missing ground.
+        if (AutoTeleportPlayerOnStart && !IsArenaReady)
             RunSafely("player placement (fallback)", PlacePlayerOnArena);
     }
 

@@ -132,12 +132,18 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
 - The whole bench sits flat on the platform's **single level top** (`PlatformTopY`): every lane —
   farming plots/tilled soil, livestock, enemies/dummies/boss, buildings, NPCs, weapon pedestals/racks,
   and the tool-pickup kit — keys its placement off that one height, so nothing hugs a slope and every
-  prop stands edge-to-edge level. `GetSpawnPoint` pulls the player onto the platform (top + 2 m).
-- **Boot order is "platform first, then player"** (§2.7): the platform is built in `Awake` (before any
-  lane and before `PlayerController.ResetPlayer` runs in `Start`), so the player is never teleported
-  over a void. The bench spawn is deferred (one lane group per frame) — the platform exists up front;
-  the lanes just lay props on it. Every lane runs in an isolated try/catch so one failing lane (e.g.
-  one enemy spawn) logs instead of aborting the bench.
+  prop stands edge-to-edge level.
+- **No auto-teleport at boot (1bz):** the player starts on the world's boot chunk near `(0, terrain, -10)`
+  and the platform is left in place for the player to walk to. `GetSpawnPoint` still returns the pad's
+  top + 2 m, but `PlayerController.ResetPlayer` only re-homes the player there when they have **already
+  reached the platform** (XZ within ~0.6 × platform and Y within 6 m of the top surface); otherwise it
+  spawns on the boot chunk. `NewWorldTestGround.AutoTeleportPlayerOnStart` (default **off**) restores
+  the old pull-onto-pad behaviour when enabled for dev sessions.
+- **Boot order stays "ground first, then player"** (§2.7): the platform is built in `Awake` (before any
+  lane), the benchmark lanes target `PlatformTopY`, and the only sync-ground is the boot chunk — so the
+  player is never teleported over a void. The bench spawn is deferred (one lane group per frame); every
+  lane runs in an isolated try/catch so one failing lane (e.g. one enemy spawn) logs instead of aborting
+  the bench.
 - The bench also lays the **tool/food discovery kit** along the platform's **east edge as real world
   pickups** (`Pickup_<id>` drops, `WorldBuilder.SpawnPickup`) instead of seeding the bag: the 10 tools
   (axe, pickaxe, hoe, hammer, scythe, watering_can, fertilizer, club, rosary, fishing_rod) + 5 food

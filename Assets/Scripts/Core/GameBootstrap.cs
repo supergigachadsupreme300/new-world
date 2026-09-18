@@ -103,9 +103,9 @@ public class GameBootstrap : MonoBehaviour
         // pipeline + ChunksPerFrame budget fills the render radius over ~1.5s).
         //
         // Boot order is "ground first, then player": the player is placed on the pre-generated
-        // spawn chunk at (0, ~y+2, -10) — never an unloaded void — and NewWorldTestGround carves
-        // its flat arena in place (real generated terrain, not a floating platform) once the pad's
-        // chunks stream in, then teleports the player onto the settled pad.
+        // spawn chunk at (0, ~y+2, -10) — never an unloaded void. NewWorldTestGround builds its
+        // independent floating platform in Awake but does NOT auto-teleport the player onto it
+        // (that's opt-in, AutoTeleportPlayerOnStart) — the pad is left for the player to walk to.
         TerrainChunkCoord spawnChunk = TerrainChunkCoord.FromTile(new ChunkCoord(0, -10));
         worldStreamer.GenerateChunkSync(spawnChunk);
 

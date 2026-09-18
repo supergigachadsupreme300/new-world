@@ -1,8 +1,8 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1by` (build fixes),
-`1bx` (eight new
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1bz` (no boot auto-teleport;
+spawn on the boot chunk), `1by` (build fixes), `1bx` (eight new
 talents), `1bw` (religion
 structures + worship NPCs on the test ground), `1bv` (talents moved to the Info tab, talent-point
 currency removed). The **optimization sweep** ran Phases 0-5
@@ -24,6 +24,45 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1bz. No boot auto-teleport — player spawns on the world's boot chunk, pad is walk-to
+
+Reported after the `1bx` play-test: "player appears on the testground, then teleports further and further"
+at play-mode start (seen as "teleported very far away"). Investigation (grep + reread, no Unity build):
+the new world pitches the player onto the QA pad **every** boot — `NewWorldTestGround.RunBenchSpawn` →
+`PlacePlayerOnArena` → `GetSpawnPoint()` `(PlatformCenter.x, PlatformTopY+2, PlatformCenter.z + 54)`, and
+`PlayerController.Start`/`StartNewGame` → `ResetPlayer()` re-homes to the same pad point. On a tall
+platform (`PlatformTopY = maxGround + 12` over the 120 m box) that repeated <-2-frame> yank around the
+high pad looked like a growing teleport. No repeated/accumulating position code exists (checked every
+`Player.transform.position =` / `.position +=` site; endings + intro cutscenes are disabled), so the
+symptom was the multi-path boot re-homing itself. User chose: **stop the auto-teleport; spawn on the
+boot chunk near (0, terrain, -10) and let the player walk to the pad.**
+
+### 1bz-status
+- **`NewWorldTestGround.cs`**: new serialized **`AutoTeleportPlayerOnStart`** toggle (default `false`).
+  The boot `PlacePlayerOnArena` lane and the end-of-spawn fallback now only run when the toggle is on;
+  `GetSpawnPoint`/`PlacePlayerOnArena` are unchanged for manual/dev use.
+- **`PlayerController.cs` `ResetPlayer()`**: no longer teleports to the pad whenever it is arena-ready.
+  It now re-homes to `GetSpawnPoint()` **only if the player already reached the platform** (new
+  `IsOnOrNearArena`: XZ within `PlatformSize * 0.6` of `PlatformCenter` **and** Y within 6 m of
+  `PlatformTopY`); otherwise it uses the boot-chunk spawn `(0, terrainY + 3, -10)`. The 6 m-Y gate is
+  what stops the boot spawn (≈ 9-12+ m below the pad top on flat ground) from matching.
+- **Boot ground verified**: `ChunkData.Size == 1f`, so `GameBootstrap` `FromTile((0, -10))` maps to
+  chunk `(0, -1)` whose world Z range is `[-30, 0]` — the player at `(0, y, -10)` stands on
+  pre-generated ground the first frame (no void, no fall racing).
+- **Docs**: `game-design.md` §2.7 rewritten — "no auto-teleport at boot (1bz)" bullet + `GetSpawnPoint`
+  is only used when the player has reached the pad; `AutoTeleportPlayerOnStart` restores the old pull
+  for dev sessions. PROGRESS intro refreshed.
+- **Verification**: no CLI/Unity build per project rule — code review + grep only. Grep-confirmed only
+  two callers of `PlacePlayerOnArena`/`GetSpawnPoint` (`NewWorldTestGround` internal + `ResetPlayer`),
+  both behave under the new gates; no other `FindAnyObjectByType<NewWorldTestGround>` consumer depends
+  on the old unconditional pull.
+- **Play-test (pending)**: (1) play-mode start puts the player on the ground near `(0, terrain, -10)`
+  with no further teleports and the camera settles on them; (2) walking to the pad and dying/resetting
+  keeps the player on the pad; (3) with `AutoTeleportPlayerOnStart=true`, the old pull-onto-pad
+  behaviour still works.
 
 ---
 

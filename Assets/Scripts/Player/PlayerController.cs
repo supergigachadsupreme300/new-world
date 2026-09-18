@@ -258,16 +258,18 @@ public class PlayerController : MonoBehaviour, IHealable
         Stamina = MaxStamina;
         Money = 1000;
         var testGround = Object.FindAnyObjectByType<NewWorldTestGround>();
-        if (testGround != null && testGround.IsArenaReady)
+        if (testGround != null && testGround.IsArenaReady && IsOnOrNearArena(testGround))
         {
+            // The player has already walked to the test platform — re-home them onto its top
+            // instead of yanking them elsewhere. Boot never auto-teleports here (the pad is
+            // opt-in via NewWorldTestGround.AutoTeleportPlayerOnStart).
             transform.position = testGround.GetSpawnPoint();
         }
         else
         {
-            // Test ground not carved yet (early boot): spawn on the world's boot chunk.
-            // GameBootstrap generates the tile at (0,-10) synchronously, so the player
-            // never falls into the void; NewWorldTestGround teleports the player onto the
-            // flat pad as soon as the arena settles ("ground first, then player").
+            // Default spawn: the world's boot chunk. GameBootstrap generates the tile under
+            // (0, -10) synchronously, so the player never falls into the void; the platform
+            // (NewWorldTestGround) stays where it is for the player to walk to.
             var streamer = Object.FindAnyObjectByType<WorldStreamer>();
             long spawnSeed = streamer != null ? streamer.Seed : 1337;
             float terrainY = TerrainNoiseGenerator.GetHeight(spawnSeed, 0f, -10f);
@@ -276,6 +278,21 @@ public class PlayerController : MonoBehaviour, IHealable
         transform.rotation = Quaternion.identity;
         _velocity = Vector3.zero;
         ClearSpawnOverlap();
+    }
+
+    /// <summary>True when the player has actually reached the test platform (stands on or within a
+    /// few metres of its top surface). Keeps a respawn on the bench only for players already there,
+    /// never yanks the player onto the pad from the open world.</summary>
+    private bool IsOnOrNearArena(NewWorldTestGround testGround)
+    {
+        if (testGround.PlatformTopY == float.MinValue)
+            return false;
+        Vector3 p = transform.position;
+        Vector3 c = testGround.PlatformCenter;
+        float margin = testGround.PlatformSize * 0.6f;
+        bool nearXZ = Mathf.Abs(p.x - c.x) <= margin && Mathf.Abs(p.z - c.z) <= margin;
+        bool onLevel = Mathf.Abs(p.y - testGround.PlatformTopY) <= 6f;
+        return nearXZ && onLevel;
     }
 
     /// <summary>
