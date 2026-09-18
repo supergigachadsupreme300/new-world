@@ -1124,11 +1124,13 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
   **right edge** of the screen (the old centre-screen ring/wheel is retired, note 1av). The grid is a
   tall, scrollable, clickable list of **every castable magic-category skill in the game** (base +
   branch schools — not just those the current profile has learned; no physical melee/ranged/stealth
-  castables), **grouped by school** (`Skill.DamageKind`, §3.7). Clicking a row **top-ups focus,
-  test-grants the skill if unlearned, arms it in the bottom-left "Armed: X" chip, and fast-casts it
-  at the current aim** — so any spell can be tried without spending skill points (cooldowns still
-  apply). The armed-chip + charge/release flow above is unchanged; the grid only borrows the armed
-  cast backend. Toggle closed with **Alt** or **Esc**; scroll with the mouse wheel or by dragging.
+  castables), **grouped by school** (`Skill.DamageKind`, §3.7). Clicking a row **only arms** that spell
+  in the bottom-left "Armed: X" chip — it does **not** cast, learn, or top up focus (a click picks a
+  spell, it never fires one). While the grid is open the controller **suppresses attack / aim / charge
+  input** so a row click cannot leak into a cast (an aim already in progress is cancelled on open).
+  Close the grid, then use the LMB/RMB charge/release flow above to fire the armed spell. The
+  armed-chip + charge/release backend is otherwise unchanged; the grid only borrows it. Toggle closed
+  with **Alt** or **Esc**; scroll with the mouse wheel or by dragging.
 
 ---
 

@@ -1021,7 +1021,7 @@ public class PlayerController : MonoBehaviour, IHealable
         bool dualMode = FightingMode && dualCombat != null && !GameInput.IsMobile &&
                         dualCombat.HasLoadedDual && !dualCombat.BothHandsMagic;
         if (dualMode)
-            HandleDualModeCombat(dualCombat, !dialogBlocked && !MagicWheelUI.IsOpen);
+            HandleDualModeCombat(dualCombat, !dialogBlocked && !MagicWheelUI.IsOpen && !MagicTestMatrix.IsOpen);
         // Aim/charge: while _aiming (armed magic or ranged), RMB builds the charge level and RMB
         // release freezes it; releasing LMB fires at the current level. Runs even while dialog-ish
         // UI is up so the release isn't mired.
@@ -1128,7 +1128,7 @@ public class PlayerController : MonoBehaviour, IHealable
                 }
             }
         }
-        if (!dialogBlocked && leftClick && !MagicWheelUI.IsOpen && !dualMode && !BeamChanneling())
+        if (!dialogBlocked && leftClick && !MagicWheelUI.IsOpen && !MagicTestMatrix.IsOpen && !dualMode && !BeamChanneling())
         {
             if (FightingMode)
             {
@@ -1151,7 +1151,7 @@ public class PlayerController : MonoBehaviour, IHealable
             else
                 ToolManager.Instance?.UseSelectedItem();
         }
-        if (!dialogBlocked && !GameInput.IsMobile && !MagicWheelUI.IsOpen && Mouse.current != null && !dualMode)
+        if (!dialogBlocked && !GameInput.IsMobile && !MagicWheelUI.IsOpen && !MagicTestMatrix.IsOpen && Mouse.current != null && !dualMode)
         {
             if (FightingMode)
             {
@@ -1719,6 +1719,7 @@ public class PlayerController : MonoBehaviour, IHealable
         if (GameInput.IsMobile || Mouse.current == null) return true;
         if (!FightingMode || WeaponTransitionBusy()) return true;
         if (MagicWheelUI.IsOpen) return true;
+        if (MagicTestMatrix.IsOpen) return true;
         var combat = GetComponent<CombatController>();
         return !MagicWheelUI.HasArmedMagic() && !IsRangedEquipped(combat);
     }

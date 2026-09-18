@@ -1,7 +1,8 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cd` (100x percent-perk
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1ce` (Alt magic grid
+click no longer casts — arm-only + attack-input suppression), `1cd` (100x percent-perk
 multiplier bug + additive MoveSpeed — the real "still very fast" cause), `1cc` (super-speed root
 cause + speed-aware fail-net), `1cb` (class + race locked to ONE choice), `1ca` (physics integrity
 guard rails — no more one-step 5 km teleport), `1bz`
@@ -26,6 +27,40 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1ce. Alt magic grid — click arms only, never casts (attack input suppressed while open)
+
+Play report: **"when clicking to choose magic in the alt menu it shouldn't shoot the magic out."** The
+Alt "menu" is the dev/test **MagicTestMatrix** (Alt grid). Two things fired a spell on one click:
+
+- **By design:** `Button.onClick → CastId(id)` called `profile.ExecuteCharged(id, 0f, 0f)` — an instant
+  fast-cast — so selecting a row literally cast it.
+- **Input leak:** the matrix is not a `MenuPanelBase`, so `PlayerController.Update` ran its full input
+  pass. The combat press guard (`PlayerController.cs:1131`) only checked `!MagicWheelUI.IsOpen` (the
+  retired wheel, always false), so LMB press auto-armed a spell (`EnsureArmedMagic`) and the release
+  fired it (`ReleaseArmedCast`) — a second cast from the same click.
+
+User chose **arm only** (no learn/top-up, no cast).
+
+### 1ce-status
+- **`MagicTestMatrix.cs`**: `CastId` → `SelectId` (`:345`), now just `MagicWheelUI.ForceArmMagic(id)` +
+  status "Armed  <name>" — removed `ExecuteCharged`, the `HasLearned/TestGrant` grant, and
+  `TopUpFocus`. Row listener (`:317`), class docstring, and hint text updated. Removed the now-unused
+  `Profile()` helper. Unlearned spells can still be armed (chip updates) but will not cast (arm-only).
+- **`PlayerController.cs`**: added `if (MagicTestMatrix.IsOpen) return true;` to `ShouldCancelCharge()`
+  (`:1722`) so an aim in progress is cancelled when the grid opens; added `&& !MagicTestMatrix.IsOpen`
+  to the dual-mode availability (`:1024`), the fighting press/aim-start guard (`:1131`), and the RMB
+  block/charge guard (`:1154`). Movement/mouse-look unaffected. Now a row click cannot leak into an
+  aim/charge/fire.
+- **Docs**: `game-design.md` §5.16 Alt bullet rewritten (click only arms; attack input suppressed).
+  PROGRESS intro refreshed.
+- **Verification**: no CLI/Unity build per project rule 3 — code review + grep only. `CastId` has zero
+  remaining references; the four `MagicTestMatrix.IsOpen` guards reread; `TestGrant`/`TopUpFocus`/
+  `ExecuteCharged` remain used elsewhere so no dead-symbol issues.
+- **Play-test (pending)**: Alt → click a spell → it arms ("Armed: X" chip) and does **not** fire; close
+  the grid and hold LMB/RMB → release to cast the armed spell normally.
 
 ---
 

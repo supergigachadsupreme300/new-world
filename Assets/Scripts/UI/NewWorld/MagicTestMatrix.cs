@@ -9,10 +9,10 @@ using UnityEngine.InputSystem;
 /// selection). The matrix is the Alt destination - a tall, scrollable grid pinned to the right edge
 /// that lists every castable magic skill in the game (the full Magic category: base + branch schools,
 /// not just what the current profile has learned), grouped by school (<see cref="DamageType"/>).
-/// Clicking a row top-ups focus, test-grants the skill if the test profile does not have it yet, arms
-/// that spell in the wheel's armed chip, and fast-casts it immediately at the current aim so any spell
-/// can be tried without spending skill points or focus. The armed-chip + charged release flow that the
-/// wheel kept for real fights is untouched; the matrix only borrows the armed-cast backend.
+/// Clicking a row only arms that spell in the wheel's armed chip — it does not cast (the click must not
+/// fire a spell; it picks one). Close the grid and use the normal LMB/RMB charge/release flow to fire.
+/// While the grid is open the controller suppresses its attack/aim/charge input so a row click cannot
+/// leak into a cast.
 /// </summary>
 public sealed class MagicTestMatrix : MonoBehaviour
 {
@@ -154,7 +154,7 @@ public sealed class MagicTestMatrix : MonoBehaviour
         var title = MakeTopLabel(br, "Title", 10f, 40f, 18f, Color.white);
         title.text = "MAGIC TEST GRID";
         _statusLabel = MakeTopLabel(br, "Status", 56f, 22f, 12f, StatusIdle);
-        _statusLabel.text = "Click a spell to focus, learn, arm and cast it.";
+        _statusLabel.text = "Click a spell to arm it.";
 
         var scrollGo = new GameObject("Scroll");
         scrollGo.transform.SetParent(br, false);
@@ -314,7 +314,7 @@ public sealed class MagicTestMatrix : MonoBehaviour
         var button = row.AddComponent<Button>();
         button.targetGraphic = rowImg;
         var id = skill.id;
-        button.onClick.AddListener(() => CastId(id));
+        button.onClick.AddListener(() => SelectId(id));
 
         _rows.Add(new RowEntry { Id = skill.id, Image = rowImg });
     }
@@ -341,32 +341,18 @@ public sealed class MagicTestMatrix : MonoBehaviour
         return skill != null && caster.CooldownRemaining(skill.CooldownKey) > 0f;
     }
 
-    private static SkillProfile Profile()
+    /// <summary>Arm a single magic id in the wheel's armed chip (no cast, no learn, no focus top-up).</summary>
+    private void SelectId(string id)
     {
-        var gm = GameManager.Instance;
-        var p = gm != null ? gm.Player : null;
-        return p != null ? p.GetComponent<SkillProfile>() : null;
-    }
-
-    /// <summary>Test-cast a single magic id: top-up focus, test-grant if missing, arm, then cast now.</summary>
-    public void CastId(string id)
-    {
-        var profile = Profile();
-        var caster = SpellCaster();
         var skill = SkillCatalog.Find(id);
-        if (profile == null || caster == null || skill == null)
+        if (skill == null)
         {
-            SetStatus("Cannot cast " + id, false);
+            SetStatus("Cannot select " + id, false);
             return;
         }
 
-        if (!profile.HasLearned(id))
-            profile.TestGrant(id);
-        caster.TopUpFocus();
-
-        bool ok = profile.ExecuteCharged(id, 0f, 0f);
-        if (ok) MagicWheelUI.ForceArmMagic(id);
-        SetStatus((ok ? "Cast OK  " : "Cast FAIL  ") + (skill.displayName ?? id), ok);
+        MagicWheelUI.ForceArmMagic(id);
+        SetStatus("Armed  " + (skill.displayName ?? id), true);
     }
 
     private void SetStatus(string text, bool ok)
