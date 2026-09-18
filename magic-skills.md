@@ -22,7 +22,9 @@ Every terrain shape renders as **smooth feathered terrain**, written as continuo
 heights and smoothstep-blended at the rim — never flat slabs. Raised shapes (Ring/Spikes/Wall/
 Pillar) cap at (noise + lift); Crater floors clamp at (noise − 1.8 m), so repeat casts never stack
 or grind deeper. Legacy 1cg flat-slab tiles saved by older builds are re-smoothed toward their
-noise when loaded (§3.8, 1cj).
+noise when loaded (§3.8, 1cj) — gate (1ck): ONLY legacy **whole-metre** slabs relax; smooth
+inside-metre carve plateaus (noise ± depth) load back exactly as cast, so the map never
+"re-randomizes" on reopen.
 
 ## Projectile Shapes - what each projectile looks like
 

@@ -716,9 +716,16 @@ A spell is a data asset carrying:
   terrain — Earth retains the bigger, spell-scaled craters and the raised shapes
   (Ring/Spikes/Wall/Pillar) as its signature. All edits survive forever. Earth spells use terrain
   shapes instead of a status effect. Legacy 1cg **flat-slab tiles saved by older builds are
-  re-smoothed toward their noise corner heights when their chunk loads** (1cj): an in-memory
+  re-smoothed toward their noise corner heights when their chunk loads** (1cj/1ck): an in-memory
   relaxation — the file keeps the slab until the player next deforms that tile, then the smooth
-  values persist naturally.
+  values persist naturally. **Smooth 1cj+ Earth shapes are never re-smoothed**: only legacy
+  *whole-metre* flat tiles qualify for relaxation — fractional inside-metre plateaus (Wall/Pillar/
+  Ring caps at noise + lift, Crater floors at noise − 1.8) load back exactly as cast, so the map
+  never "re-randomizes" on reopen. The merged chunk mesh is **hole-proof**: any tile whose
+  bookkeeping is momentarily missing (unload/reload races) is filled with the same deterministic
+  noise corners, so a chunk rebuild can never drop a quad and open a fall-through; and a deliberate
+  clean map is available as an opt-in `EnableResetTerrainSaves` QA lane on `NewWorldTestGround`
+  (deletes this seed's `tc_*.dat` chunk saves and regenerates the loaded chunks from noise).
   **(current build) every damaging Earth spell carries a terrain shape, regardless of delivery:**
   Zone impacts (Boulder Crash, Crash, Tectonic → Crater; Aftershock, the tremor ring family, Spire
   Field etc. → Ring/Spikes/Pillar/Wall; the deep Earth Wall, gated behind Landslide → Wall, rears a

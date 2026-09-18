@@ -82,9 +82,12 @@ public class WorldStreamer : MonoBehaviour
     /// block (all 4 corners equal) whose level clearly deviates from the local noise, each corner
     /// is blended back toward its own noise height rather than set to the same level — the block
     /// becomes a gentle smooth rise/dip with no vertical step. Pure-noise flat tiles (corners
-    /// already match noise) are left untouched. In-memory only: the save file keeps the slab so
-    /// the relaxation is deterministic and idempotent, and the next player deformation on the
-    /// tile persists the smooth values naturally (the old block never re-renders, only re-relaxes).
+    /// already match noise) are left untouched. ONLY legacy 1cg-era slabs qualify — they were
+    /// flattened to whole-metre levels — while 1cj's smooth Earth shapes (Wall/Pillar/Ring caps at
+    /// noise + lift, Crater floors at noise − 1.8) are FRACTIONAL plateaus that must never be
+    /// re-blended on load, or the player's carvings would morph every open. In-memory only: the
+    /// save file keeps the slab so the relaxation is deterministic and idempotent, and the next
+    /// player deformation on the tile persists the smooth values naturally.
     /// </summary>
     private static void RelaxLegacySlabTile(ref ChunkData data)
     {
@@ -92,6 +95,12 @@ public class WorldStreamer : MonoBehaviour
             return;
 
         float flat = data.Heights[0];
+
+        // Whole-metre gate — only 1cg-era slabs (flatten applications rounded to whole metres)
+        // relax. Any fractional flat plateau is a 1cj Earth carve and is left exactly as saved.
+        if (Mathf.Abs(flat - Mathf.Round(flat)) > 0.01f)
+            return;
+
         float[] noise = new float[4];
         noise[0] = TerrainNoiseGenerator.GetHeight(data.Seed, data.VertexWorldX(0), data.VertexWorldZ(0)); // NW
         noise[1] = TerrainNoiseGenerator.GetHeight(data.Seed, data.VertexWorldX(1), data.VertexWorldZ(1)); // NE
@@ -399,7 +408,7 @@ public class WorldStreamer : MonoBehaviour
         {
             Coord = tc,
             Tiles = tiles,
-            Merged = ChunkMeshGenerator.BuildMergedMeshData(tiles),
+            Merged = ChunkMeshGenerator.BuildMergedMeshData(tiles, null, seed),
         };
     }
 
@@ -584,6 +593,26 @@ public class WorldStreamer : MonoBehaviour
     {
         UnloadChunk(tc);
         EnqueueChunkIfNeeded(tc); // background regen: saved heights + NaN-missing corners
+    }
+
+    /// <summary>
+    /// QA helper: deliberately start a clean map for this seed. Wipes every terrain-chunk save
+    /// file, clears in-memory dirty marks, then unloads + requeues every loaded chunk so the
+    /// ground regenerates pristine from noise (no leftover slabs, closed mesh, no holes). The
+    /// files are gone afterwards — this is a permanent discard of all terrain edits for the seed.
+    /// </summary>
+    public void ResetTerrainSaves()
+    {
+        ChunkSaveManager.ResetWorldSaves(Seed);
+        _dirtyTiles.Clear();
+
+        var loaded = new List<TerrainChunkCoord>(_loadedChunks.Keys);
+        foreach (TerrainChunkCoord tc in loaded)
+        {
+            UnloadChunk(tc);
+            EnqueueChunkIfNeeded(tc);
+        }
+        Debug.Log($"[WorldStreamer] Reset terrain saves for seed {Seed} — {loaded.Count} loaded chunk(s) requeued to regenerate from noise.");
     }
 
     public void MarkDirty(ChunkCoord coord)
@@ -815,6 +844,7 @@ public class WorldStreamer : MonoBehaviour
         tc.GetTileRange(out int cminX, out int cminZ, out int cmaxX, out int cmaxZ);
         int cs = TerrainChunkCoord.ChunkSize;
         var tiles = new ChunkMeshData[cs * cs];
+        bool anyMissing = false;
         for (int localZ = 0; localZ < cs; localZ++)
         {
             for (int localX = 0; localX < cs; localX++)
@@ -823,11 +853,25 @@ public class WorldStreamer : MonoBehaviour
                 if (_loadedData.TryGetValue(tileCoord, out ChunkData tileData))
                     tiles[localZ * cs + localX] =
                         ChunkMeshGenerator.BuildMeshData(tileData, TerrainNoiseGenerator.DefaultLayers);
+                else
+                    anyMissing = true;
             }
         }
 
-        obj.ApplyMerged(ChunkMeshGenerator.BuildMergedMeshData(tiles, BuildBorderCorners(tc), Seed),
-            GroundMaterial, buildCollider: true);
+        MergedChunkMeshData merged;
+        if (anyMissing)
+        {
+            // A loaded chunk with missing tile bookkeeping (mid unload/reload at the streaming
+            // edge or the arena-lane rebuild race) must NOT rebuild sparse: null entries are
+            // filled with noise by the merged-mesh builder, which is better than a gap, but the
+            // cleanest result is a whole-chunk rebuild from saves/noise — every quad emitted.
+            merged = BuildOrLoadChunk(tc, Seed).Merged;
+        }
+        else
+        {
+            merged = ChunkMeshGenerator.BuildMergedMeshData(tiles, BuildBorderCorners(tc), Seed);
+        }
+        obj.ApplyMerged(merged, GroundMaterial, buildCollider: true);
     }
 
     /// <summary>
@@ -1061,7 +1105,7 @@ public class WorldStreamer : MonoBehaviour
             {
                 var tileCoord = new ChunkCoord(cminX + localX, cminZ + localZ);
                 if (!_loadedData.TryGetValue(tileCoord, out ChunkData tileData))
-                    continue;
+                    tileData = ChunkMeshGenerator.BuildFallbackTileData(cminX + localX, cminZ + localZ, Seed);
                 region[(localZ - lMinZ) * w + (localX - lMinX)] =
                     ChunkMeshGenerator.BuildMeshData(tileData, TerrainNoiseGenerator.DefaultLayers);
             }

@@ -57,6 +57,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableRaces = true;
     [Tooltip("Cast Earth-shape terrain demos (Wall smooth ridge, Pillar, Crater smooth dent) onto the streamed terrain just off the platform. The Wall is cast twice to show repeat casts are CAPPED (smooth feathered deforms, no slab stacking — 1cj). Deforms REAL terrain — permanent chunk saves — so it is off by default and never touches the platform or legacy village.")]
     public bool EnableTerrainSlabDemo = false;
+    [Tooltip("QA: delete this world's terrain chunk saves and regenerate every loaded chunk from noise — a deliberate clean map (no leftover slabs, closed mesh). Permanently discards ALL terrain edits for the current seed, so it is off by default and never touches the platform or legacy village.")]
+    public bool EnableResetTerrainSaves = false;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
@@ -130,6 +132,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (EnableGear) { RunSafely("gear", GrantStarterGear); yield return null; }
         if (EnableRaces) { RunSafely("races", GrantRaceAccess); yield return null; }
         if (EnableTerrainSlabDemo) { RunSafely("terrain shapes demo", SpawnTerrainSlabDemo); yield return null; }
+        if (EnableResetTerrainSaves) { RunSafely("terrain saves reset", ResetTerrainSaves); yield return null; }
         RunSafely("player grants", TryDeferPlayerGrants);
 
         // Safety net: if the platform wasn't ready when the bench started (e.g. built later or
@@ -185,6 +188,22 @@ public sealed class NewWorldTestGround : MonoBehaviour
         TerrainDeformer.Apply(new Vector3(baseX, 0f, baseZ), 2f, TerrainShape.Wall, Vector3.forward);
         TerrainDeformer.Apply(new Vector3(baseX - 7f, 0f, baseZ), 1.8f, TerrainShape.Pillar, default);
         TerrainDeformer.Apply(new Vector3(baseX + 7f, 0f, baseZ), 2.2f, TerrainShape.Crater, default);
+    }
+
+    /// <summary>
+    /// Opt-in QA lane: permanently wipe the current world's terrain chunk saves and reload every
+    /// loaded chunk so the ground regenerates pristine from noise (no leftover slabs, no holes).
+    /// Operates on the streamed world only — never the platform or the legacy WorldBuilder village.
+    /// </summary>
+    private void ResetTerrainSaves()
+    {
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (streamer == null)
+        {
+            Debug.LogWarning("[NewWorldTestGround] ResetTerrainSaves skipped — no WorldStreamer found.");
+            return;
+        }
+        streamer.ResetTerrainSaves();
     }
 
     /// <summary>

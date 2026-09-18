@@ -193,4 +193,25 @@ public static class ChunkSaveManager
         if (File.Exists(path))
             File.Delete(path);
     }
+
+    /// <summary>
+    /// Delete every terrain-chunk save file for a world: a permanent, deliberate map reset. The
+    /// next load of any chunk regenerates pristine from noise. Idempotent — missing files/slots
+    /// are skipped.
+    /// </summary>
+    public static void ResetWorldSaves(long seed)
+    {
+        try
+        {
+            string dir = Path.Combine(BaseDir, seed.ToString());
+            if (!Directory.Exists(dir))
+                return;
+            foreach (string path in Directory.GetFiles(dir, "tc_*.dat"))
+                File.Delete(path);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[ChunkSaveManager] Failed to reset world saves for seed {seed}: {e.Message}");
+        }
+    }
 }

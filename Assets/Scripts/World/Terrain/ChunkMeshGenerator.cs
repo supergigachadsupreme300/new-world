@@ -148,6 +148,34 @@ public static class ChunkMeshGenerator
     }
 
     /// <summary>
+    /// Deterministic noise-backed tile data for a world tile (defensive fill). Used when a loaded
+    /// chunk's tile bookkeeping is momentarily incomplete (unload/reload races at the streaming
+    /// edge / arena-lane rebuild): the tile's quad is then emitted with the SAME pure-noise corner
+    /// heights the pristine corner grid would produce — never a hole in the merged mesh, never a
+    /// null slot that crashes a patch.
+    /// </summary>
+    public static ChunkData BuildFallbackTileData(int worldX, int worldZ, long seed)
+    {
+        var data = new ChunkData(worldX, worldZ, seed);
+        data.Heights[0] = SanitizeHeight(TerrainNoiseGenerator.GetHeight(seed, worldX, worldZ + 1));     // NW
+        data.Heights[1] = SanitizeHeight(TerrainNoiseGenerator.GetHeight(seed, worldX + 1, worldZ + 1)); // NE
+        data.Heights[2] = SanitizeHeight(TerrainNoiseGenerator.GetHeight(seed, worldX + 1, worldZ));     // SE
+        data.Heights[3] = SanitizeHeight(TerrainNoiseGenerator.GetHeight(seed, worldX, worldZ));         // SW
+        data.Version = 1;
+        data.HasModifications = false;
+        return data;
+    }
+
+    /// <summary>Chunk-local mesh data for a fallback tile at local <paramref name="lx"/>/<paramref name="lz"/>
+    /// of a chunk whose origin tile is at world <paramref name="origin"/> (pure-noise corners).</summary>
+    private static ChunkMeshData BuildFallbackTile(ChunkCoord origin, int lx, int lz, long seed)
+    {
+        int worldX = origin.X + lx;
+        int worldZ = origin.Z + lz;
+        return BuildMeshData(BuildFallbackTileData(worldX, worldZ, seed), TerrainNoiseGenerator.DefaultLayers);
+    }
+
+    /// <summary>
     /// True when a tile's 4 corner heights are (near-)equal — a flat-top block. Only LEGACY 1cg
     /// deformation wrote tiles flat, so flatness is derivable from the heights alone (no extra
     /// persisted field); those saved tiles are the ones that must render with vertical side walls
@@ -191,6 +219,31 @@ public static class ChunkMeshGenerator
         int tileCount = cs * cs;
         int topVertsPerTile = ChunkData.VertexCount;      // 4
         int topTrisPerTile = ChunkData.TriangleCount * 3; // 6
+
+        // Defensive fill: a null tile (partial chunk bookkeeping under unload/reload races) MUST
+        // still emit its quad, or the merged mesh gets a literal hole in it — a fall-through the
+        // player can hit. Substitute the same deterministic noise heights the pristine corner grid
+        // uses; never silence the tile.
+        ChunkCoord fillOrigin = default;
+        for (int i = 0; i < tileCount; i++)
+        {
+            if (tiles[i].Vertices != null)
+            {
+                fillOrigin = tiles[i].Coord;
+                break;
+            }
+        }
+        {
+            var resolved = new ChunkMeshData[tileCount];
+            for (int i = 0; i < tileCount; i++)
+            {
+                ChunkMeshData t = tiles[i];
+                if (t.Vertices == null)
+                    t = BuildFallbackTile(fillOrigin, i % cs, i / cs, seed);
+                resolved[i] = t;
+            }
+            tiles = resolved;
+        }
 
         // Pass 1 — count the side-wall bands (4 verts + 6 tris each) so the arrays fit exactly.
         int wallBands = 0;

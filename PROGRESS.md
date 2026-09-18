@@ -1,7 +1,10 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cj` (terrain
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1ck` (terrain
+persistence hardening on top of 1cj: legacy slab relaxation gated to whole-metre flats so smooth
+Earth carves load back exactly as cast instead of "re-generating fresh"; merged chunk mesh made
+hole-proof so a chunk rebuild can never drop a tile; opt-in world-save-reset QA lane), `1cj` (terrain
 deformation reverted from 1cg's flat-slab blocks back to smooth feathered per-corner edits with
 stacking/grinding caps restored — "world shrinking down" fixed; legacy slab saves re-smooth on
 load), `1ci` (frost/ice
@@ -36,6 +39,48 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1ck. Terrain persistence hardening: relaxation gate + hole-proof mesh + save-reset lane
+
+Request/Root cause: two reports — (a) "each time the game closes and reopens the map reset new"
+and (b) "there is a literal hole with no tile" (a fall-through into the void). Investigation
+confirmed the save/load pipeline is healthy: seed `1337` constant, noise deterministic
+(`TerrainNoiseGenerator` offset cache), `ChunkSaveManager` files present + valid in
+`worlds/1337/tc_*.dat` with no load/save errors, chunk folder keyed stably. The real defects:
+
+- **(a) carves appear to "re-generate fresh" each open.** `RelaxLegacySlabTile` (1cj) fired on
+  EVERY load for any flat mod tile. 1cj's own shapes are flat plateaus (Wall/Pillar/Ring caps
+  clamp to one constant `noise + lift`; Crater floors clamp to `noise − 1.8`), so each reopen the
+  player's carvings got re-blended 50% toward noise — the map morphed and read as "new".
+- **(b) literal mesh holes.** `ChunkMeshGenerator.BuildMergedMeshData` skipped tiles whose
+  `Vertices == null` (no quad emitted), and `FullRebuildChunk` / `RebuildChunkRegion` left null
+  slots for any chunk tile missing from `_loadedData` (unload/reload races at the streaming edge,
+  the boot-time `ForceRebuildArenaLane`). A skipped quad = a real gap you can fall through.
+
+Fixes (all in `WorldStreamer.cs` / `ChunkMeshGenerator.cs` / `NewWorldTestGround.cs`):
+
+- **Whole-metre gate (a):** `RelaxLegacySlabTile` now relaxes ONLY legacy whole-metre flat tiles
+  (`Mathf.Abs(flat − Mathf.Round(flat)) > 0.01f → return`). Smooth inside-metre carve plateaus
+  load back exactly as cast — the map is stable across sessions, forever.
+- **Hole-proof mesh (b):** `BuildMergedMeshData` defensively fills any null tile with the SAME
+  deterministic noise corner heights the pristine grid uses (`BuildFallbackTile`/`BuildFallbackTileData`)
+  so a quad is always emitted; `FullRebuildChunk` falls back to the whole-chunk `BuildOrLoadChunk`
+  builder when any loaded-chunk tile is missing; `RebuildChunkRegion`'s region patch fills missing
+  tiles from noise instead of leaving a default slot. `BuildOrLoadChunk` also now passes its `seed`
+  through to `BuildMergedMeshData` so cross-chunk seam walls agree with the real noise.
+- **QA reset lane:** `WorldStreamer.ResetTerrainSaves()` (public) + `ChunkSaveManager.ResetWorldSaves(seed)`
+  delete every `tc_*.dat` for the world, clear dirty marks, and reload the loaded chunks from
+  noise — a deliberate clean map. Opt-in via `NewWorldTestGround.EnableResetTerrainSaves` (default
+  off, never touches the platform or legacy village).
+
+Status: verified by grep + reread (rule 3; no build run) — new symbols referenced/defined
+consistently (`BuildFallbackTileData`, `BuildFallbackTile`, `ResetWorldSaves`, `ResetTerrainSaves`,
+`EnableResetTerrainSaves`), signatures match, comments/code consistent.  Play-test check: cast a
+Wall/Pillar/Crater, close the game and reopen — the carved shapes must return EXACTLY (no morph);
+walk the older whole-metre farm/village slabs — they smooth once and stay; with
+`EnableResetTerrainSaves` on, the world regenerates pristine once.
 
 ---
 
