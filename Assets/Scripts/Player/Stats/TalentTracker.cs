@@ -2,11 +2,12 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Player talent ownership (account/creation perks that boost XP gain or stats). A new player
-/// is granted ONE random talent at game creation; any talent can then be handed ranks freely
-/// (no currency) up to its max rank. XP bonuses are read live (additive), stat bonuses are flat
-/// additions resolved through <see cref="PlayerStats.GetTotal"/>, so restore never double-applies
-/// anything.
+/// Player talent ownership (account/creation perks that boost XP gain, stats, or combat/regen).
+/// A new player is granted ONE random talent at game creation; any talent can then be handed ranks
+/// freely (no currency) up to its max rank. XP bonuses are read live (additive), stat bonuses are flat
+/// additions resolved through <see cref="PlayerStats.GetTotal"/>, and the combat/regen percent bonuses
+/// fold additively into the same PlayerStats getters as the skill-tree perks, so restore never
+/// double-applies anything.
 /// </summary>
 [DisallowMultipleComponent]
 public class TalentTracker : MonoBehaviour
@@ -87,19 +88,7 @@ public class TalentTracker : MonoBehaviour
     // ── XP / stat bonus reads (summed additive over ranked talents) ───────
 
     /// <summary>Combined +% character XP from ranked PlayerXp talents.</summary>
-    public float PlayerXpBonus
-    {
-        get
-        {
-            float sum = 0f;
-            foreach (var o in Owned)
-            {
-                var t = TalentCatalog.Find(o.TalentId);
-                if (t != null && t.Kind == TalentKind.PlayerXp) sum += t.PerRank * o.Ranks;
-            }
-            return sum;
-        }
-    }
+    public float PlayerXpBonus => SumKind(TalentKind.PlayerXp);
 
     /// <summary>Combined +% XP for the given skill type (per-skill + category bar).</summary>
     public float TypeXpBonus(SkillType type)
@@ -122,6 +111,39 @@ public class TalentTracker : MonoBehaviour
         {
             var t = TalentCatalog.Find(o.TalentId);
             if (t != null && t.Kind == TalentKind.Stat && t.Stat == stat) sum += t.PerRank * o.Ranks;
+        }
+        return sum;
+    }
+
+    /// <summary>Combined +% critical-hit chance (flat percent, e.g. 6 = +6%) from ranked CritChance talents.</summary>
+    public float CritChanceBonus => SumKind(TalentKind.CritChance);
+
+    /// <summary>Combined +% crit damage (percent units) from ranked CritDamage talents.</summary>
+    public float CritDamageBonus => SumKind(TalentKind.CritDamage);
+
+    /// <summary>Combined +% backstab damage from ranked Backstab talents.</summary>
+    public float BackstabBonus => SumKind(TalentKind.Backstab);
+
+    /// <summary>Combined +% block stamina efficiency (less stamina drained per blocked hit) from ranked talents.</summary>
+    public float BlockEfficiencyBonus => SumKind(TalentKind.BlockEfficiency);
+
+    /// <summary>Combined +% stagger/knockback resistance from ranked StaggerResist talents.</summary>
+    public float StaggerResistBonus => SumKind(TalentKind.StaggerResist);
+
+    /// <summary>Combined +% stamina regeneration from ranked StaminaRegen talents.</summary>
+    public float StaminaRegenBonus => SumKind(TalentKind.StaminaRegen);
+
+    /// <summary>Combined +% focus (FP) regeneration from ranked FocusRegen talents.</summary>
+    public float FocusRegenBonus => SumKind(TalentKind.FocusRegen);
+
+    /// <summary>Sum of PerRank × Ranks across every owned talent of the given kind.</summary>
+    private float SumKind(TalentKind kind)
+    {
+        float sum = 0f;
+        foreach (var o in Owned)
+        {
+            var t = TalentCatalog.Find(o.TalentId);
+            if (t != null && t.Kind == kind) sum += t.PerRank * o.Ranks;
         }
         return sum;
     }

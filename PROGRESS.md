@@ -1,7 +1,8 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1bw` (religion
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1bx` (eight new
+talents), `1bw` (religion
 structures + worship NPCs on the test ground), `1bv` (talents moved to the Info tab, talent-point
 currency removed). The **optimization sweep** ran Phases 0-5
 (`1ag`-`1al` below); the sweep's planning doc (`OPTIMIZATION.md`) was retired once Phases 0-5 shipped —
@@ -22,6 +23,44 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1bx. Eight new talents: 7 distinct combat/regen kinds + Shield skill-type filler
+
+User: "add more talents into the game, and not the same as the talents that already is". The talent
+roster (18 → **26** perks, §3.9) gained a **Shield** skill-type talent (fills the one missing category)
+plus seven talents with brand-new effect kinds — none of which duplicate the existing XP/stat talents.
+
+### 1bx-status
+- **`TalentCatalog.cs`**: `TalentKind` extended with `CritChance`, `CritDamage`, `Backstab`,
+  `BlockEfficiency`, `StaggerResist`, `StaminaRegen`, `FocusRegen`. New roster entries (all max rank 3):
+  `t.shield` "Shield Work" (+6 % Shield XP/rank, same path as the other skill-type talents),
+  `t.crit_chance` "Critical Eye" (+2 % crit chance), `t.crit_damage` "Executioner" (+15 % crit damage),
+  `t.backstab` "Ambush" (+10 % backstab), `t.block_efficiency` "Bulwark" (+10 % block efficiency),
+  `t.stagger_resist` "Grounded" (+10 % stagger resist), `t.stamina_regen` "Second Wind" (+10 % stamina
+  regen), `t.focus_regen` "Arcane Spring" (+10 % focus regen). New `AddPercent` helper + `EffectPerRank`
+  label strings for each new kind.
+- **`TalentTracker.cs`**: one shared `SumKind(TalentKind)` helper (PerRank × Ranks); `PlayerXpBonus`
+  refactored onto it; new bonus reads `CritChanceBonus` (flat %) and `CritDamageBonus` / `BackstabBonus` /
+  `BlockEfficiencyBonus` / `StaggerResistBonus` / `StaminaRegenBonus` / `FocusRegenBonus` (percent units).
+- **`PlayerStats.cs`**: the combat/regen bonuses fold **additively** into the getters the combat pipeline
+  already reads — `CritChance` (+ talent flat), `TreeCritDamageMul` / `TreeBackstabMul` /
+  `TreeStaggerResistMul` / `TreeBlockEfficiencyMul` / `StaminaRegenMul` / `FocusRegenMul` (+ talent %/100
+  onto the tree `1 + x/100` multiplier). **No consumer edits needed**: HitboxSystem, CombatController,
+  PlayerController and SpellCaster all query these same getters.
+- **Persistence/UI**: save/restore already filters owned ids through `TalentCatalog.Find`, so old saves
+  load clean (new talents simply start at rank 0); Character Info builds its talent rows from
+  `TalentCatalog.All`, so the 8 new rows appear automatically in the existing TALENTS scroll.
+- **Docs**: `game-design.md` §3.9 updated (18 → 26 total, seven skill-type talents incl. Shield,
+  seven new combat/regen rows, "effect reads are live" bullet now lists the additive fold).
+- **Verification**: no CLI/Unity build per project rule — code review + grep only. Grep-confirmed all
+  eight new ids + every `TalentKind` reference resolve in `TalentCatalog`/`TalentTracker`/`PlayerStats`;
+  re-read all three files and the two consumers' getter names match unchanged.
+- **Play-test (pending)**: (1) Info tab shows 26 talent rows; (2) ranking Critical Eye/Executioner/Ambush/
+  Bulwark/Grounded/Second Wind/Arcane Spring visibly changes crits, backstabs, block stamina drain,
+  stagger knockback, stamina/focus regen; (3) ranking Shield Work makes the Shield category XP bar climb
+  faster; (4) an old save loads without losing talent ranks or stat points.
 
 ---
 

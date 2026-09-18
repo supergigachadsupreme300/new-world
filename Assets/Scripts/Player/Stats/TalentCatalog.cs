@@ -12,7 +12,28 @@ public enum TalentKind
     SkillTypeXp,
 
     /// <summary>Adds flat points to a core stat (<see cref="StatType"/>).</summary>
-    Stat
+    Stat,
+
+    /// <summary>Adds flat critical-hit chance % (additive with tree crit perks).</summary>
+    CritChance,
+
+    /// <summary>Adds critical-hit damage % (stacks with tree crit-damage perks).</summary>
+    CritDamage,
+
+    /// <summary>Adds backstab damage %.</summary>
+    Backstab,
+
+    /// <summary>Adds block stamina-efficiency % (less stamina drained per blocked hit).</summary>
+    BlockEfficiency,
+
+    /// <summary>Adds stagger/knockback resistance %.</summary>
+    StaggerResist,
+
+    /// <summary>Adds stamina regeneration %.</summary>
+    StaminaRegen,
+
+    /// <summary>Adds focus (FP) regeneration %.</summary>
+    FocusRegen
 }
 
 /// <summary>
@@ -34,14 +55,22 @@ public sealed class Talent
     /// <summary>Stat boosted by <see cref="TalentKind.Stat"/> talents.</summary>
     public StatType Stat;
 
-    /// <summary>Effect per rank: +% XP (PlayerXp / SkillTypeXp) or +flat stat points (Stat).</summary>
+    /// <summary>Effect per rank: +% XP (PlayerXp / SkillTypeXp), +% combat/regen (CritChance … FocusRegen),
+    /// or +flat stat points (Stat).</summary>
     public float PerRank;
 
-    /// <summary>Human-readable effect for one rank: "+X% XP" or "+X stat".</summary>
+    /// <summary>Human-readable effect for one rank: "+X% XP", "+X% combat/regen", or "+X stat".</summary>
     public string EffectPerRank()
     {
         if (Kind == TalentKind.PlayerXp) return "+" + PerRank.ToString("0") + "% character XP";
         if (Kind == TalentKind.SkillTypeXp) return "+" + PerRank.ToString("0") + "% " + DisplayName + " XP";
+        if (Kind == TalentKind.CritChance) return "+" + PerRank.ToString("0") + "% critical hit chance";
+        if (Kind == TalentKind.CritDamage) return "+" + PerRank.ToString("0") + "% crit damage";
+        if (Kind == TalentKind.Backstab) return "+" + PerRank.ToString("0") + "% backstab damage";
+        if (Kind == TalentKind.BlockEfficiency) return "+" + PerRank.ToString("0") + "% block efficiency";
+        if (Kind == TalentKind.StaggerResist) return "+" + PerRank.ToString("0") + "% stagger resistance";
+        if (Kind == TalentKind.StaminaRegen) return "+" + PerRank.ToString("0") + "% stamina regen";
+        if (Kind == TalentKind.FocusRegen) return "+" + PerRank.ToString("0") + "% focus regen";
         return "+" + PerRank.ToString("0") + " " + Stat;
     }
 }
@@ -95,6 +124,7 @@ public static class TalentCatalog
         AddType(list, SkillType.Stealth, "t.stealth", "Shadow Arts");
         AddType(list, SkillType.Crafting, "t.crafting", "Craftsmanship");
         AddType(list, SkillType.Fortitude, "t.fortitude", "Fortitude");
+        AddType(list, SkillType.Shield, "t.shield", "Shield Work");
 
         AddStat(list, StatType.Health, "t.health", "Vitality");
         AddStat(list, StatType.Speed, "t.speed", "Fleet");
@@ -107,6 +137,14 @@ public static class TalentCatalog
         AddStat(list, StatType.Wisdom, "t.wisdom", "Sage");
         AddStat(list, StatType.Faith, "t.faith", "Devoted");
         AddStat(list, StatType.Luck, "t.luck", "Lucky");
+
+        AddPercent(list, "t.crit_chance", "Critical Eye", TalentKind.CritChance, 2f);
+        AddPercent(list, "t.crit_damage", "Executioner", TalentKind.CritDamage, 15f);
+        AddPercent(list, "t.backstab", "Ambush", TalentKind.Backstab, 10f);
+        AddPercent(list, "t.block_efficiency", "Bulwark", TalentKind.BlockEfficiency, 10f);
+        AddPercent(list, "t.stagger_resist", "Grounded", TalentKind.StaggerResist, 10f);
+        AddPercent(list, "t.stamina_regen", "Second Wind", TalentKind.StaminaRegen, 10f);
+        AddPercent(list, "t.focus_regen", "Arcane Spring", TalentKind.FocusRegen, 10f);
 
         return list;
     }
@@ -126,6 +164,15 @@ public static class TalentCatalog
         {
             Id = id, DisplayName = name,
             MaxRanks = 3, Kind = TalentKind.Stat, Stat = stat, PerRank = 1f
+        });
+    }
+
+    private static void AddPercent(List<Talent> list, string id, string name, TalentKind kind, float perRank)
+    {
+        list.Add(new Talent
+        {
+            Id = id, DisplayName = name,
+            MaxRanks = 3, Kind = kind, PerRank = perRank
         });
     }
 }

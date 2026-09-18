@@ -793,14 +793,25 @@ progression-by-progression grows.
 - **Earning:** ranks are granted **freely** (no talent-point currency) — click *Rank Up* on any talent,
   capped at max rank. A brand-new character is granted **one random talent at rank 1** at game creation
   so the system is immediately visible.
-- **Talents (18 total, all max rank 3, effects additive per rank):**
+- **Talents (26 total, all max rank 3, effects additive per rank):**
   - *Fast Learner* — **+5 % character XP** per rank.
-  - Six **skill-type** talents (Melee/Ranged/Magic/Stealth/Crafting/Fortitude, e.g. "Arcane Study"),
-    **+6 % XP per rank** for that skill type — boosts both the per-skill levels (§3.3) and the category bar.
+  - Seven **skill-type** talents (Melee/Ranged/Magic/Stealth/Crafting/Fortitude/Shield, e.g. "Arcane Study",
+    "*Shield Work*"), **+6 % XP per rank** for that skill type — boosts both the per-skill levels (§3.3)
+    and the category bar.
   - Eleven **stat** talents (one per core stat, e.g. "Vitality" = Health), **+1 flat stat point per rank**
     layered onto the stat total.
+  - *Critical Eye* — **+2 % critical-hit chance** per rank.
+  - *Executioner* — **+15 % crit damage** per rank.
+  - *Ambush* — **+10 % backstab damage** per rank.
+  - *Bulwark* — **+10 % block stamina efficiency** per rank.
+  - *Grounded* — **+10 % stagger resistance** per rank.
+  - *Second Wind* — **+10 % stamina regeneration** per rank.
+  - *Arcane Spring* — **+10 % focus regeneration** per rank.
 - **Effect reads are live:** XP bonuses are applied as a +% on every XP grant; stat talents add flat
-  points inside `GetTotal` (base × race/race-skill % **+** the stat talents' flat add + temp buffs). Because
+  points inside `GetTotal` (base × race/race-skill % **+** the stat talents' flat add + temp buffs). The
+  combat/regen talents fold **additively** into the same `PlayerStats` getters as the skill-tree perks
+  (crit chance, crit/backstab/block/stagger multipliers, stamina/focus regen), so HitboxSystem,
+  CombatController, PlayerController and SpellCaster pick them up with no extra plumbing. Because
   bonuses are computed from owned ranks on every read, saving/loading can never double-apply them.
 - **Persistence & UI:** owned ranks + the first-grant flag are saved (`talentStateJson`); the
   **Character Info panel** lists all talents below the stat/level block (one vertical scroll), each with

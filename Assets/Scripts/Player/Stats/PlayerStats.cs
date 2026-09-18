@@ -228,11 +228,13 @@ public class PlayerStats : MonoBehaviour, IStatProvider, ILootLuckProvider
     public float MaxStamina => (100f + GetTotal(StatType.Endurance) * 10f)
         * TreeMul(PassivePerkType.StaminaMaxPercent);
 
-    /// <summary>Stamina-regen multiplier from tree perks (§3.3) — consumed by PlayerController.</summary>
-    public float StaminaRegenMul => TreeMul(PassivePerkType.StaminaRegenPercent);
+    /// <summary>Stamina-regen multiplier from tree perks + ranked talents (§3.3, §3.9) — consumed by PlayerController.</summary>
+    public float StaminaRegenMul => TreeMul(PassivePerkType.StaminaRegenPercent)
+        + (ActiveTalents?.StaminaRegenBonus ?? 0f) / 100f;
 
-    /// <summary>Focus-regen multiplier from tree perks (§3.3) — consumed by SpellCaster.</summary>
-    public float FocusRegenMul => TreeMul(PassivePerkType.FocusRegenPercent);
+    /// <summary>Focus-regen multiplier from tree perks + ranked talents (§3.3, §3.9) — consumed by SpellCaster.</summary>
+    public float FocusRegenMul => TreeMul(PassivePerkType.FocusRegenPercent)
+        + (ActiveTalents?.FocusRegenBonus ?? 0f) / 100f;
 
     /// <summary>Flat HP-regen fraction of max HP per second from tree perks (§3.3) — consumed by PlayerController.</summary>
     public float HealthRegenPerSecondFlat => TreeSum(PassivePerkType.HealthRegenPerSecond);
@@ -246,17 +248,21 @@ public class PlayerStats : MonoBehaviour, IStatProvider, ILootLuckProvider
     /// <summary>Tree physical-attack-power multiplier (§3.3) — consumed by HitboxSystem alongside MeleeAtkPower.</summary>
     public float TreeAttackPowerMul => TreeMul(PassivePerkType.AttackPowerPercent);
 
-    /// <summary>Tree backstab multiplier (§3.3) — compounds class backstab (HitboxSystem).</summary>
-    public float TreeBackstabMul => TreeMul(PassivePerkType.BackstabPercent);
+    /// <summary>Tree + talent backstab multiplier (§3.3, §3.9) — compounds class backstab (HitboxSystem).</summary>
+    public float TreeBackstabMul => TreeMul(PassivePerkType.BackstabPercent)
+        + (ActiveTalents?.BackstabBonus ?? 0f) / 100f;
 
-    /// <summary>Tree stagger-resist multiplier (§3.3) — compounds class stagger resistance (HitboxSystem).</summary>
-    public float TreeStaggerResistMul => TreeMul(PassivePerkType.StaggerResistPercent);
+    /// <summary>Tree + talent stagger-resist multiplier (§3.3, §3.9) — compounds class stagger resistance (HitboxSystem).</summary>
+    public float TreeStaggerResistMul => TreeMul(PassivePerkType.StaggerResistPercent)
+        + (ActiveTalents?.StaggerResistBonus ?? 0f) / 100f;
 
-    /// <summary>Tree block-efficiency multiplier (§3.3) — less stamina drained per blocked hit (CombatController).</summary>
-    public float TreeBlockEfficiencyMul => TreeMul(PassivePerkType.BlockEfficiencyPercent);
+    /// <summary>Tree + talent block-efficiency multiplier (§3.3, §3.9) — less stamina drained per blocked hit (CombatController).</summary>
+    public float TreeBlockEfficiencyMul => TreeMul(PassivePerkType.BlockEfficiencyPercent)
+        + (ActiveTalents?.BlockEfficiencyBonus ?? 0f) / 100f;
 
-    /// <summary>Tree crit-damage multiplier (§3.3) — applied on top of a crit's base 2× (HitboxSystem).</summary>
-    public float TreeCritDamageMul => TreeMul(PassivePerkType.CritDamagePercent);
+    /// <summary>Tree + talent crit-damage multiplier (§3.3, §3.9) — applied on top of a crit's base 2× (HitboxSystem).</summary>
+    public float TreeCritDamageMul => TreeMul(PassivePerkType.CritDamagePercent)
+        + (ActiveTalents?.CritDamageBonus ?? 0f) / 100f;
 
     public float EquipLoad => 40f + GetTotal(StatType.Endurance) * 2f
         + (ActiveClassMods?.EquipLoadBonus ?? 0f)
@@ -319,8 +325,10 @@ public class PlayerStats : MonoBehaviour, IStatProvider, ILootLuckProvider
 
     public float BuffDurationMultiplier => 1f + GetTotal(StatType.Faith) * K_Buff;
 
-    /// <summary>Crit chance % = 5% base + Luck × 0.15% + tree crit perks.</summary>
-    public float CritChance => 5f + GetTotal(StatType.Luck) * 0.15f + TreeSum(PassivePerkType.CritChanceFlat);
+    /// <summary>Crit chance % = 5% base + Luck × 0.15% + tree crit perks + Critical Eye talent.</summary>
+    public float CritChance => 5f + GetTotal(StatType.Luck) * 0.15f
+        + TreeSum(PassivePerkType.CritChanceFlat)
+        + (ActiveTalents?.CritChanceBonus ?? 0f);
 
     public float StatusProcLuck => GetTotal(StatType.Luck) * K_Status;
 
