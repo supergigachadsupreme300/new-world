@@ -666,13 +666,14 @@ public class WorldStreamer : MonoBehaviour
     /// elongated ridge rearing along <paramref name="dir"/>; Pillar: a tall column at the
     /// center; Crater: a wide shallow dish excavated downward). Heights are written as
     /// continuous per-corner elevations — never quantized blocks — so a deform blends into the
-    /// untouched turf with a smoothstep rim. Deforms are bounded: raised shapes cap at (original
-    /// noise height + lift) and a crater floor clamps at (original noise height − 1.8 m), so
-    /// repeat casts never grind the ground deeper or stack a ridge that embeds the player. Each
-    /// touched tile is marked modified/dirty so it persists and syncs (deformations last
-    /// forever — chunk save files, §2.6), and the affected region of each chunk is rebuilt
-    /// (merged mesh + collider) in place. Unloaded tiles are ignored — spells only deform terrain
-    /// the streamer has in memory.
+    /// untouched turf with a smoothstep rim. Deforms are bounded AND idempotent: raised shapes
+    /// raise toward a per-corner target of (original noise height + blended lift) and a crater digs
+    /// toward (original noise height − blended depth), each applied with Max/Min against the current
+    /// height so a repeat cast at the same spot reproduces the exact same profile and changes
+    /// nothing (never grinds deeper, never stacks a ridge higher). Each touched tile is marked
+    /// modified/dirty so it persists and syncs (deformations last forever — chunk save files, §2.6),
+    /// and the affected region of each chunk is rebuilt (merged mesh + collider) in place. Unloaded
+    /// tiles are ignored — spells only deform terrain the streamer has in memory.
     /// </para>
     /// </summary>
     public void DeformAt(Vector3 center, float radius, TerrainShape shape, Vector3 dir = default)
@@ -681,8 +682,7 @@ public class WorldStreamer : MonoBehaviour
 
         // Never raise the ground directly beneath the player's feet: a Wall/ring/pillar rearing
         // up under the capsule embeds it in the rebuilt chunk collider, and the next physics step
-        // depenetrates it violently — reads as a teleport, and repeat casts (which stack the
-        // ridge on the previous height) make it worse. Raised shapes skip tiles inside a small
+        // depenetrates it violently — reads as a teleport. Raised shapes skip tiles inside a small
         // keep-out ring around the player's feet; Crater (excavation) is unaffected.
         float keepOutR = 0.9f; // player capsule radius + margin
         bool protectCaster = shape != TerrainShape.Crater;
@@ -786,42 +786,42 @@ public class WorldStreamer : MonoBehaviour
 
                 if (shape == TerrainShape.Crater)
                 {
-                    // Excavate down, but clamp the floor to (original noise height − cap) sampled at
-                    // the CORNER (cx, cz), not the tile centre: each corner keeps its own natural
-                    // slope, so the dish stays a smooth depression instead of flattening into a slab
-                    // (a flat floor re-arms the legacy side-wall rendering and reads as a torn-out
-                    // tile). Repeated casts can't grind deeper — corners already at their floor just
-                    // clamp back to it.
-                    float floorY = TerrainNoiseGenerator.GetHeight(Seed, cx, cz) - CraterMaxDepth;
-                    newHeights[EncodeCorner(cx, cz)] = Mathf.Max(current - s * CraterMaxDepth, floorY);
+                    // Dig toward the per-corner dish target, sampled at the CORNER (cx, cz) — never
+                    // the tile centre — so each corner keeps its own natural slope and the dish stays
+                    // smooth, never a flat slab floor. Min against the CURRENT height makes the edit
+                    // IDEMPOTENT: a repeat cast recomputes the same target and changes nothing, so a
+                    // crater can never deepen on recast. (The old `current - s*depth` form subtracted
+                    // from the already-dug floor every cast, grinding deeper toward the cap.)
+                    float target = TerrainNoiseGenerator.GetHeight(Seed, cx, cz) - s * CraterMaxDepth;
+                    newHeights[EncodeCorner(cx, cz)] = Mathf.Min(current, target);
                 }
                 else
                 {
-                    float value = current + s * lift;
+                    // Raise toward the per-corner ridge target (pristine noise + blended lift), then
+                    // Max against the CURRENT height so the edit is IDEMPOTENT: a repeat cast at the
+                    // same spot recomputes the same target and changes nothing. The old additive form
+                    // (`current + s*lift` capped) kept lifting the whole influence footprint every
+                    // cast — steepest near the crest, but a wide low-influence swath too — so the
+                    // ground visibly rose across the chunk on the second+ cast. The per-corner target
+                    // also keeps the crest a smooth rounded ridge (never a flat slab), and Max can
+                    // never LOWER terrain that already sits above the target.
+                    float baseY = TerrainNoiseGenerator.GetHeight(Seed, cx, cz);
+                    float target = baseY + s * lift;
 
-                    // Spikes: a deterministic few tiles jump higher so the field reads jagged.
+                    // Spikes: a deterministic few corners jump higher so the field reads jagged.
                     if (shape == TerrainShape.Spikes)
                     {
                         int raw = (cx * 73856093) ^ (cz * 19349663) ^ Seed.GetHashCode();
                         float r = (raw & 0x7fffffff) / (float)0x7fffffff;
                         if (r > 0.78f)
-                            value += lift * (0.4f + r * 0.6f) * influence * influence;
+                            target += lift * (0.4f + r * 0.6f) * influence * influence;
                     }
 
-                    // Cap the raise at (original noise height + lift), sampled at the CORNER (cx, cz)
-                    // so each corner keeps its own natural slope — the crest stays a smooth rounded
-                    // ridge, never a flat slab top. Repeat casts must never stack a ridge higher than
-                    // the intended release (e.g. Earth Wall at 2.6 m). Unbounded stacking embeds the
-                    // player capsule deeper with every cast and the Character Controller's
-                    // depenetration push grows violent — it launches the player far enough that the
-                    // streamed world "shrinks" around them (chunk unload / mesh backface culling from
-                    // inside the raise). Same clamp pattern as Crater's floor.
-                    float baseY = TerrainNoiseGenerator.GetHeight(Seed, cx, cz);
-                    float ceiling = baseY + lift;
-                    if (value > ceiling)
-                        value = ceiling;
+                    // Preserve the absolute raise cap (pristine + lift): the target never exceeds it,
+                    // so no shape — zone, storm, summon, or projectile — can stack unbounded.
+                    target = Mathf.Min(target, baseY + lift);
 
-                    newHeights[EncodeCorner(cx, cz)] = value;
+                    newHeights[EncodeCorner(cx, cz)] = Mathf.Max(current, target);
                 }
             }
         }

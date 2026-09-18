@@ -53,18 +53,20 @@ public class ChunkObject : MonoBehaviour
         _merged = md;
         Mesh mesh = ChunkMeshGenerator.CreateMeshFromMerged(md, $"ChunkMesh_{ChunkCoord.X}_{ChunkCoord.Z}");
 
+        // Point the filter/collider at the new mesh BEFORE destroying the old one so neither ever
+        // references a destroyed mesh (the collider is queried every physics step).
+        Mesh previous = _mf != null ? _mf.sharedMesh : null;
         if (_mf != null)
-        {
-            if (_mf.sharedMesh != null)
-                Destroy(_mf.sharedMesh);
             _mf.sharedMesh = mesh;
-        }
 
         if (_mr != null && material != null)
             _mr.sharedMaterial = material;
 
         if (buildCollider && _mc != null)
             _mc.sharedMesh = mesh;
+
+        if (previous != null && previous != mesh)
+            Destroy(previous);
     }
 
     /// <summary>
@@ -125,7 +127,9 @@ public class ChunkObject : MonoBehaviour
         mesh.SetUVs(0, _merged.UV);
         mesh.bounds = _merged.Bounds;
 
-        // Force the collider to re-cook against the new heights.
+        // Force the collider to re-cook against the new heights. The null→assign pair runs inside a
+        // single synchronous call, so no physics step ever observes the null collider (Unity only
+        // re-cooks when the mesh reference actually changes).
         if (_mc != null)
         {
             _mc.sharedMesh = null;

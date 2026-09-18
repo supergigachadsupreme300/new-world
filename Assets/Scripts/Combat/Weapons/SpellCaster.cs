@@ -923,17 +923,9 @@ public class SpellCaster : MonoBehaviour
     {
         float radius = spell.Radius * sizeScale;
 
-        Vector3 center = pos;
-        if (Physics.Raycast(pos, fwd, out RaycastHit aimHit, Mathf.Max(range, 0.1f)))
-        {
-            center = aimHit.point;
-            if (Physics.Raycast(center + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))
-                center = groundHit.point;
-        }
-        else if (Physics.Raycast(pos + fwd * Mathf.Max(range, 0f) + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))
-        {
-            center = groundHit.point;
-        }
+        // Aim at the ground the player is pointing at, skipping any already-raised terrain (a wall
+        // this spell itself reared) so a repeat cast targets the intended ground, not the wall face.
+        Vector3 center = TerrainDeformer.ResolveGroundTarget(pos, fwd, Mathf.Max(range, 0.1f));
 
         // Earth spells reshape the ground at the impact point before damage resolves (§3.8).
         // `fwd` orients directional shapes (e.g. the Wall ridge) along the cast axis.

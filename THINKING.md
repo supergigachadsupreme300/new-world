@@ -15,7 +15,34 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
-## 1cm — Earth Wall repeat cast "makes the entire chunk moving" (OPEN)
+## 1cm — Earth Wall repeat cast "makes the entire chunk moving" (RESOLVED — fix shipped in `1cm`)
+
+### VERDICT (read this first — the trail below is the *before* picture)
+Confirmed root cause: **`DeformAt` was additive, not idempotent.** Raise was `current + s*lift`
+(capped at `noise+lift`) and crater `max(current − s*1.8, noise−1.8)`. Because `current` already held
+the previous cast's raise, a repeat cast added the raise **again**, lifting the whole influence
+footprint toward the cap on each of the first several casts (the low-influence flanks included), so
+the ground rose across a wide swath of the chunk on cast #2+ → "the entire chunk moving". Craters
+compounded identically (deeper each cast).
+
+**My "provable no-op" claim below (H1) was WRONG.** The cap bounds the *final* height but does not
+make the operation idempotent; the additive form still compounds up to that cap. The tell I missed:
+`DeformAt`'s own comment admitted "repeat casts (which stack the ridge on the previous height)".
+`1bo` bounded the height, not the compounding.
+
+Fix shipped (`1cm`):
+- `DeformAt` uses absolute per-corner targets — raise `Mathf.Max(current, noise + s*lift)`, crater
+  `Mathf.Min(current, noise − s*depth)` → idempotent.
+- H7 addressed: `TerrainDeformer.ResolveGroundTarget` skips a forward hit that is the chunk's OWN
+  `ChunkObject` terrain collider **and** sits above pristine noise + 0.25 m (a reared wall), so a
+  repeat cast targets the intended ground rather than the wall face. (NOTE: the wall is the terrain
+  `MeshCollider` itself — there is no separate wall collider/layer, which is why the "ignore a layer"
+  idea below was unworkable.)
+- H8 addressed: `ChunkObject.ApplyMerged` re-points filter + collider at the new mesh before
+  destroying the old one. (`PatchRegion`'s `null → assign` is a single synchronous call; physics
+  never observes the null, so it was left as-is with a comment.)
+
+The hypotheses below are kept as the raw trail; see each for its final status.
 
 ### The report
 > "when cast earthwall it only work the first time and the next time it make the entire chunk moving"
@@ -55,12 +82,14 @@ hint the remaining cause is NOT in the height math at all.
 
 ### Hypotheses and verdicts
 
-**H1 — heights stack/grind on repeat (dirty heights).** REJECTED.
-`DeformAt` raises then clamps each corner to `ceiling = GetHeight(Seed, cx, cz) + lift`
-(`WorldStreamer.cs:811-824`). After a first cast the corners sit at/below that ceiling; a repeat cast
-recomputes the same value and clamps back. It is a provable no-op for the Wall (and Crater clamps to
-`floorY` the same way). This is the single most useful fact in the whole investigation: **it means the
-bug is not in the terrain values.**
+**H1 — heights stack/grind on repeat (dirty heights).** **WRONG — this turned out to BE the bug.**
+(Originally mislabeled "REJECTED".) `DeformAt` computed `current + s*lift` (capped at `noise + lift`)
+for raises and `max(current − s*1.8, noise − 1.8)` for craters. The clamp bounds the *final* height but
+does **not** make the operation idempotent: `current` already includes cast #1's raise, so each repeat
+cast adds it again and compounds toward the cap — lifting the whole influence footprint (low-influence
+flanks included) and reading as the entire chunk's ground rising. Craters compounded identically.
+`DeformAt`'s own comment admitted "stack the ridge on the previous height"; I read past it. Fixed by
+switching to absolute per-corner targets with `Mathf.Max`/`Mathf.Min`.
 
 **H2 — coordinate/frame mismatch (corners vs tiles, chunk origin).** REJECTED.
 Checked `ChunkData.Size = 1f`, `TerrainChunkCoord.ChunkSize = 30`, `FromTile` `FloorToInt`, chunk
@@ -90,34 +119,29 @@ plain case. Default Earth Wall radius 3.6; charged max `sizeScale ≈ 1.8` → r
 ≈ 7 → AABB ≈ 13×13 = 169 tiles, far below `0.75 × 900 = 675`. Would only matter if heavily charged
 AND near a chunk edge; user says same spot every time, so not the default explanation.
 
-**H7 — the second cast's aim ray hits the first wall's collider. OPEN (leading candidate).**
-`ResolveZone` does a plain `Physics.Raycast(pos, fwd, range)` with no layer filtering. After cast #1
-there is a 2.6 m ridge in the aim path, so cast #2's `aimHit` lands on the wall, and the follow-up
-down-probe can leave `center` on/near the wall instead of the intended ground point. This changes
-where the deform + **collider recook** happen, even though the heights clamp. Needs a decision on
-whether the aim probe should ignore the already-deformed terrain collider (but NOT ignore it for the
-down-probe, which legitimately wants the ground).
+**H7 — the second cast's aim ray hits the first wall's collider. ADDRESSED (real, but a secondary
+contributor).** `ResolveZone` did a plain `Physics.Raycast(pos, fwd, range)` with no layer filtering,
+so after cast #1 a repeat cast's `aimHit` could land on the 2.6 m ridge and leave `center` on/near the
+wall instead of the intended ground — moving the deform + collider recook. There is no separate wall
+collider/layer to filter (the wall IS the chunk's terrain `MeshCollider`), so the fix is geometric:
+`TerrainDeformer.ResolveGroundTarget` now skips a forward hit only when it is the chunk's OWN
+`ChunkObject` collider **and** sits above pristine noise + 0.25 m (a reared shape), then re-probes;
+craters/ground/entities/props are never skipped. `ResolveZone` uses it.
 
-**H8 — null-collider physics frame during recook. OPEN.**
-`PatchRegion`/`ApplyMerged` set `_mc.sharedMesh = null` then `= mesh`. Between those statements there
-is a physics step with no collider under anything standing on that chunk → CharacterController drop /
-re-depenetration pop, which reads as the world jerking. Cast #1 may land far from the feet; the
-repeat cast (same spot, standing close) could expose it. Fix shape: cook the new collider/asset first
-and swap `sharedMesh` once, never leaving it null.
+**H8 — null-collider physics frame during recook. ADDRESSED (defensive).**
+`ApplyMerged` used to do `_mc.sharedMesh = null; … _mc.sharedMesh = mesh` (and `PatchRegion` still
+does). The corrupt-order path is fixed: `ApplyMerged` now assigns the new mesh to the filter/collider
+**before** destroying the old mesh. `PatchRegion`'s null→assign is one synchronous call the physics
+step never observes, so it was left as-is with a clarifying comment.
 
-**H9 — full-chunk re-mesh re-emits side bands around the smooth ridge. OPEN.**
-Any route into `FullRebuildChunk` rebuilds the whole 30×30 mesh + collider and re-runs `EdgeIsRaised`.
-If the first wall's ridge edges now emit side bands (or vert/tri counts change), the entire chunk
-visibly re-meshes at once. Need to read `EdgeIsRaised`/`EdgeHeights` and the collapse threshold, and
-establish which route cast #1 vs cast #2 actually take. H5/H6 argued against the *default* route
-flip, so this is only live if something else forces the full rebuild (e.g. the wall crossing into a
-neighbour chunk that does contain a flat tile).
+**H9 — full-chunk re-mesh re-emits side bands around the smooth ridge. REJECTED / not needed.**
+H5/H6 already argued the default repeat Wall doesn't flip to `FullRebuildChunk`, and once H1 (additive
+compounding) explained the chunk-wide rise, no full-rebuild re-mesh was required to account for the
+symptom. Not investigated further.
 
-**H10 — background-generate race. OPEN (fallback).**
-`BackgroundGenerateChunk` runs `BuildOrLoadChunk` (reads `_loadedData` + save files) on a ThreadPool
-thread while `ApplyHeightEdits`/`FlushDirtyChunk` mutate them on the main thread. A chunk the first
-wall crossed could finish generating from a stale file mid-edit and snap its mesh. The user's
-deterministic repro argues against a race, so this is last until H7-H9 are ruled out.
+**H10 — background-generate race. REJECTED.**
+`BackgroundGenerateChunk` does run `BuildOrLoadChunk` off-thread, but the report is fully
+deterministic (every second+ cast), which a race can't explain. Superseded by H1.
 
 ### Dead ends worth remembering
 - Time was spent chasing a "fill origin" bug in `BuildMergedMeshData`'s defensive null-tile fill
@@ -130,13 +154,14 @@ deterministic repro argues against a race, so this is last until H7-H9 are ruled
   capsule can't be newly embedded by the cast itself.
 
 ### Facts to carry forward (verified by reread)
-- Repeat-cast height math is a clamped no-op (H1).
+- **CORRECTED:** repeat-cast height math was **NOT** a no-op — the additive form compounded up to the
+  cap (H1). Now genuinely idempotent via absolute `Max`/`Min` targets.
 - Coordinates/origins are consistent (H2).
 - Merged mesh is tops-first; `PatchRegion` offsets are safe (H3).
 - Nothing translates a `ChunkObject` at runtime (H4).
 - `IsFlatTile` and the 75% threshold do NOT flip for a plain repeat Wall (H5/H6).
 
-### Next session plan
+### Next session plan (EXECUTED — outcome in VERDICT)
 1. Instrument cast #1 vs #2 (temporary logging, or careful read): log `center`, which collider the
    aim ray hits, the route chosen (`PatchRegion` vs `FullRebuildChunk`), and the region `w,h`. This
    single step should collapse H7 vs H9.
@@ -149,7 +174,12 @@ deterministic repro argues against a race, so this is last until H7-H9 are ruled
    behave like the first (ridge ≈ 2.6 m, no whole-chunk re-mesh, no jerk); walk away and back → wall
    persists identical.
 
-### Open questions I still want answered
+### Open questions I still wanted answered (resolved)
+**Answered:** the compounding is per-cast and independent of charge/radius (the flanks compound up to
+the cap regardless); the "move" is the terrain re-mesh at cast time, not a delayed physics pop (H8 is
+not the cause); a Crater repeat also compounded (ground got deeper each cast), consistent with H1
+rather than H7 alone.
+
 - Was the first cast the DEFAULT radius or heavily charged? (changes H6/H9 exposure)
 - Does the "move" happen at the instant of the cast, or a frame or two later (physics step → H8)?
 - Does a non-Wall repeat cast (Crater at the same spot) also do it? If no, H7 (aim hitting the raised

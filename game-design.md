@@ -745,15 +745,17 @@ A spell is a data asset carrying:
 - cast animation reference
 - optional status-effect application with a proc chance (e.g., applies Burn/Frost/Stagger; §3.7)
 
-**Known issue (OPEN — `1cm`, investigation in progress; no fix shipped):** a repeat **Earth Wall**
-cast at the same spot (first cast works) reports "the entire chunk moving" on every subsequent cast.
-Verified so far: repeat-cast height math is a clamped no-op (per-corner `noise + 2.6` ceiling), the
-merged mesh's tops-first layout keeps `PatchRegion` index-safe, and no code path translates a chunk
-transform — so the symptom is a mesh-route / collider-re-cook / streaming artifact, not changed
-heights. Unconfirmed candidates: the second cast's aim ray hitting the first wall's `MeshCollider`
-(`ResolveZone`) and moving the deform center; the null-collider physics frame during
-`PatchRegion`/`ApplyMerged` recook under a nearby player; a full-chunk re-mesh re-emitting side bands;
-and a background-generate race. See `PROGRESS.md` `## 1cm` for the full findings + next steps.
+**Deforms are idempotent (`1cm`):** the per-corner target is an absolute profile — raised shapes aim
+at (original noise height + blended lift), craters at (original noise height − blended depth) — and
+the edit applies `Max`/`Min` against the current height, so a repeat cast at the same spot reproduces
+the exact same shape and changes nothing. (Earlier, the raise added `s·lift` to the *current* height
+every cast, so the second+ cast kept lifting the whole influence footprint toward the cap — the
+ground visibly rose across the chunk, reported as "the entire chunk moving"; craters grinded deeper
+the same way.) `Max` also means a deform can never *lower* terrain that already sits above the target.
+Two robustness fixes ride along: `SpellCaster`'s zone aim probe skips **raised terrain taller than
+pristine noise** (a wall the spell itself reared) so a repeat cast targets the ground the player is
+looking at rather than the wall face, and `ChunkObject` re-points the mesh filter/collider at the new
+mesh **before** destroying the old one (no frame ever references a destroyed mesh).
 
 Persistent zones are handled by the unified **`SpellZone`** (tick damage scaled by a per-delivery
 multiplier — Zone ×0.4, Vortex ×1.0 — optional pull, plus Holy ally-healing of `IHealable` inside

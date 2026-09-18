@@ -22,7 +22,8 @@ Every terrain shape renders as **smooth feathered terrain**, written as continuo
 heights and smoothstep-blended at the rim — never flat slabs. Raised caps and crater floors are
 sampled **per-corner** (each corner keeps its own natural slope), so Raised shapes (Ring/Spikes/
 Wall/Pillar) cap at (noise + lift) and Crater floors clamp at (noise − 1.8 m) — smooth dishes and
-rounded ridges, never flat plateaus — and repeat casts never stack or grind deeper. Flat tiles
+rounded ridges, never flat plateaus — and deforms are **idempotent**: a repeat cast at the same spot
+reproduces the exact same profile, so it never stacks higher or grinds deeper (`1cm`). Flat tiles
 saved by older builds (legacy whole-metre slabs OR fractional carve plateaus) are re-smoothed
 toward their noise when loaded (§3.8, 1cl), deterministically, so the map never "re-randomizes"
 on reopen; current shapes are never flat, so they are never re-smoothed.
