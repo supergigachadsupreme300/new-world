@@ -36,9 +36,9 @@ public enum TerrainShape
     /// <summary>Raise a tall flat-topped column (an earth pillar) at the impact center.</summary>
     Pillar = 4,
 
-    /// <summary>Excavate a shallow dish (an earth projectile tears its slab loose here, leaving a
-    /// crater). The floor is depth-clamped so the pit is always solid and walkable — never a
-    /// bottomless void.</summary>
+    /// <summary>Excavate a stepped flat-bottomed dish (an earth projectile tears its slab loose
+    /// here). The pit is carved as 1x1x1 m flat slab steps that always keep a solid walkable
+    /// floor — never a bottomless void.</summary>
     Crater = 5
 }
 

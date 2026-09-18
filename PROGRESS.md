@@ -74,6 +74,10 @@ and the crater is a stepped flat-bottomed pit — never a void.
 - **Verification**: no CLI/Unity build per project rule 3 — grep + full re-read of both edited
   regions; call sites of `BuildMergedMeshData` (background load + full rebuild) and `RebuildChunkRegion`
   match the new signatures; no lingering `CraterMaxDepth` references.
+- **Follow-up tidy** (new commit after `1cg`): `magic-skills.md` delivery table now covers the full
+  `TerrainShape` set (Crater/Ring/Spikes/Wall/Pillar) + a slab-rendering note; stale "depth-clamped"
+  comments in `SpellEffect.cs` / `SpellData.cs` / `SkillCatalog.cs` reworded to "flat slab-steps with
+  a walkable floor" (behavior never had a void — the clamp label was the outdated part).
 - **Play-test (pending)**: cast an Earth Wall → flat-topped blocky ridge with vertical sides;
   cast again on the same spot → ridge grows taller (uncapped); Crater → stepped flat-bottomed pit;
   reload the game → slabs persist; deform a wall directly on a chunk seam → seam wall renders

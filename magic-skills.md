@@ -10,13 +10,17 @@ Source: `Assets/Scripts/Combat/Skills/SkillCatalog.cs` (base skills) + `SkillCat
 |---|---|
 | **Instant** | No travel. If `SelfBuff` is set -> applies a timed buff to the caster (e.g. Wind Walk flight for `Duration`s). If `Heals` is set -> instant holy-touch heal on the caster. Otherwise a straight hitscan raycast up to `Range`, damaging the first target hit. |
 | **Projectile** | Casts a bolt that flies along the aim at `ProjectileSpeed` up to `Range`; explodes/damages within `Radius` (explosion or direct hit). Applies status/knockback on contact. **Every projectile dents the terrain where it strikes** (`SpellEffect.ResolveProjectileImpact`): Earth craters (TerrainShape) are spell-scaled, every other magic bolt leaves a small ~1.4 m impact dent. |
-| **Zone** | Ground-targeted AoE at aim point. Instant burst if `Duration`=0, else a persistent `SpellZone` that ticks damage every `TickInterval` for `Duration`. Earth school applies `TerrainShape` (Ring/Spikes) first. `Heals` is set -> also mends allies inside. |
+| **Zone** | Ground-targeted AoE at aim point. Instant burst if `Duration`=0, else a persistent `SpellZone` that ticks damage every `TickInterval` for `Duration`. Earth school applies its `TerrainShape` (Crater / Ring / Spikes / Wall / Pillar, §3.8) first. `Heals` is set -> also mends allies inside. |
 | **Vortex** | Ground-targeted funnel. The Great Tornado (`magic_tornado`) = old environmental Tornado behavior (tall drifting funnel, physics drag/pull). All other Vortex spells = persistent `SpellZone` that ticks damage and drags enemies toward the center. Lifetime = `Duration` (or 5s). |
 | **Beam** | Channeled beam while the sustain input is held and focus upkeep (`ChannelDrainPerSecond`) is affordable. Ticks damage along the line; charge widens it and boosts tick power. Fades on release or when focus runs dry. |
 | **Summon** | Spawns a persistent object at the ground target. Damage summons = turret firing (projectile) at nearest foe; `Heals` summons = persistent heal aura. |
 | **Storm** | Persistent storm over the ground target: repeated element-styled strikes inside `Radius` for `Duration`, ticking every `TickInterval`. |
 
 Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size; **ProjectileSpeed** = bolt speed (default 20); **Duration** = persistent-zone lifetime (0 = instant); **TickInterval** = seconds between ticks (default 0.5); **ChannelDrainPerSecond** = focus upkeep for Beams (0 = none).
+
+Every terrain shape renders as **flat-topped 1×1×1 m stacked slabs** with vertical side walls, built
+into the chunk mesh + collider by `ChunkMeshGenerator`; repeated casts stack the slabs uncapped up to
+the ±200 m safety band (§3.8, 1cg).
 
 ## Projectile Shapes - what each projectile looks like
 

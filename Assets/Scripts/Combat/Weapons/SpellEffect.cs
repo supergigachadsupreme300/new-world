@@ -251,8 +251,9 @@ public class SpellEffect : MonoBehaviour
         // (TerrainShape.Crater — the school signature) carve a full crater scaled to the
         // spell radius; every other projectile leaves a small uniform impact dent so any
         // bolt (fireball, frost, arcane, lightning, dark, wind, water…) visibly disturbs
-        // the terrain. Both probe the ground beneath the impact (depth-clamped — never a
-        // void) and never carve at the caster's own feet at cast time (FireProjectile
+        // the terrain. Both probe the ground beneath the impact (the pit is carved as
+        // flat-topped slab steps that always keep a walkable floor — never a void) and
+        // never carve at the caster's own feet at cast time (FireProjectile
         // only spawns the bolt; no launch-site pit).
         if (_spell != null)
         {
