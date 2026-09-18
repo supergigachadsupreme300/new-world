@@ -60,7 +60,8 @@ close** to where the first wall came up; the player can't pin down exactly what 
 (no confirmed player-launch vs mesh re-shape vs chunk relocation).
 
 This entry is a **docs-only handoff — no behavior change, nothing shipped.** Do NOT treat any
-hypothesis below as root cause; confirm by read first.
+hypothesis below as root cause; confirm by read first. The full raw reasoning trail (every
+hypothesis with evidence for/against + the rejected dead ends) is in **`THINKING.md` → `## 1cm`**.
 
 ### What was verified by reread (facts, not guesses)
 

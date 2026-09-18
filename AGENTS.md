@@ -13,6 +13,10 @@
    - `PROGRESS.md` — record every completed task as a new `## 1xx` entry at the top with a `### 1xx-status`
      block; note pending play-test items and any follow-up fixes. Refresh the intro ("Last updated")
      when older entries drift.
+   - `THINKING.md` — for any non-trivial investigation, keep the raw reasoning trail (hypotheses,
+     evidence for/against, dead ends, verdicts) in a `## 1xx` section; mark each hypothesis
+     confirmed/rejected/open and keep the section marked OPEN until the task ships. This is the
+     "how I reasoned it out" log — never cite it as implemented behavior.
 
 3. **No CLI/Unity build is run in this project.** Compile and behavior are verified by code review;
    the user play-tests in Unity afterwards. Note that verification status in each task's status block.
