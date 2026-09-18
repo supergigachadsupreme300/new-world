@@ -48,7 +48,7 @@ public sealed class Talent
 
 /// <summary>
 /// Runtime catalog of talents (built in code, no .asset files). Backs the random first grant,
-/// the rank-spend flow, and the XP/stat bonus reads on <see cref="TalentTracker"/>.
+    /// the free rank-up flow, and the XP/stat bonus reads on <see cref="TalentTracker"/>.
 /// </summary>
 public static class TalentCatalog
 {

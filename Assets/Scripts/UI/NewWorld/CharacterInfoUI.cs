@@ -13,7 +13,8 @@ using TMPro;
 /// The Info panel shows the character level, XP-to-next-level with a progress bar, unspent stat
 /// points (each level-up grants <see cref="LevelUpSystem.PointsPerLevel"/>), HP/FP/Stamina bars,
 /// an 11-stat readout with "+" allocator buttons (only assignment, no refund), and the current
-/// class / race with change buttons.
+/// class / race with change buttons. Below that stat/level block the same tab lists the talents
+/// (<see cref="TalentCatalog"/>) with a free *Rank Up* button per talent (no talent-point currency).
 ///
 /// The Skills panel renders ONE combined skill tree: all <see cref="SkillCatalog.All"/> skills on a
     /// single large pannable + zoomable board, grouped into six colored sectors (one per
@@ -38,7 +39,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     public static CharacterInfoUI Instance;
 
     public enum Tab { Info = 0, Skills = 1, Inventory = 2, Map = 3, Faith = 4 }
-    public enum SkillSubTab { General = 0, Class = 1, Race = 2, Talents = 3 }
+    public enum SkillSubTab { General = 0, Class = 1, Race = 2 }
 
     public Tab ActiveTab = Tab.Info;
 
@@ -100,10 +101,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private Button _generalTabBtn;
     private Button _classTabBtn;
     private Button _raceTabBtn;
-    private Button _talentTabBtn;
+    private RectTransform _infoContent;
     private GameObject _talentsView;
-    private TMP_Text _talentPointsText;
-    private RectTransform _talentContent;
     private readonly List<(Talent talent, TMP_Text label, Button upBtn)> _talentRows = new List<(Talent, TMP_Text, Button)>();
     private GameObject _legendRoot;
     private readonly List<TMP_Text> _generalHeadings = new List<TMP_Text>();
@@ -308,7 +307,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             player.gameObject.AddComponent<SkillXpTracker>();
         if (player.GetComponent<SkillProfile>() == null)
             player.gameObject.AddComponent<SkillProfile>();
-        // TalentTracker after LevelUpSystem so it subscribes to level-ups.
+        // TalentTracker (free rank-ups, no level-up subscription) — order independent of the others.
         if (player.GetComponent<TalentTracker>() == null)
             player.gameObject.AddComponent<TalentTracker>();
         if (player.GetComponent<SkillBindings>() == null)
@@ -390,9 +389,10 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
     private void BuildPanels()
     {
-        // Info panel: level/XP/points/bars + stat allocator + class/race.
+        // Info panel: one vertical scroll — stat/level block (level/XP/points/stat allocator/
+        // class/race) on top, then the talent rank list below it in the same scroll content.
         _panels[Tab.Info] = MakePanel("InfoPanel");
-        BuildInfoTab(_panels[Tab.Info].transform);
+        BuildInfoTabScroll(_panels[Tab.Info].transform);
         RegisterFit(_panels[Tab.Info].GetComponent<RectTransform>(), TabDesignBox(Tab.Info));
 
         // Skills panel: draggable skill tree + detail pane.
@@ -400,7 +400,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _skillPointsText = MakeBodyText(_panels[Tab.Skills].transform, "SkillPoints", P(-450f, 222f), Sz(200f, 28f));
         _categoryLevelText = MakeBodyText(_panels[Tab.Skills].transform, "Learned", P(250f, 222f), Sz(220f, 28f));
 
-        // General / Class sub-toggle inside the skills panel.
+        // General / Class / Race sub-toggle inside the skills panel.
         _generalTabBtn = MakeButton(_panels[Tab.Skills].transform, "GenTabBtn", "General", P(-160f, 250f), OnGeneralTab);
         _generalTabBtn.GetComponent<RectTransform>().sizeDelta = Sz(120f, 30f);
         ApplyFullButtonSprite(_generalTabBtn.GetComponent<Image>());
@@ -410,11 +410,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _raceTabBtn = MakeButton(_panels[Tab.Skills].transform, "RaceTabBtn", "Race", P(100f, 250f), OnRaceTab);
         _raceTabBtn.GetComponent<RectTransform>().sizeDelta = Sz(120f, 30f);
         ApplyFullButtonSprite(_raceTabBtn.GetComponent<Image>());
-        _talentTabBtn = MakeButton(_panels[Tab.Skills].transform, "TalentTabBtn", "Talents", P(230f, 250f), OnTalentsTab);
-        _talentTabBtn.GetComponent<RectTransform>().sizeDelta = Sz(120f, 30f);
-        ApplyFullButtonSprite(_talentTabBtn.GetComponent<Image>());
-
-        BuildTalentsView(_panels[Tab.Skills].transform);
 
         RectTransform treeVt = BuildSkillTree(_panels[Tab.Skills].transform);
         BuildSkillDetail(treeVt.transform);
@@ -487,6 +482,62 @@ public sealed class CharacterInfoUI : MenuPanelBase
     // ── Info tab ──────────────────────────────────────────────────────────
     // Level, unspent stat points, XP progress bar, 11-stat "+" allocator lines,
     // and class/race change controls. (HP/FP/Stamina bars live on the HUD, not here.)
+    // The whole block plus the TALENTS section below it share one vertical scroll.
+
+    /// <summary>Height of the stat/level block above the talent list (design units).</summary>
+    private const float InfoStatBlockHeight = 480f;
+
+    private void BuildInfoTabScroll(Transform parent)
+    {
+        var view = new GameObject("InfoScroll");
+        view.transform.SetParent(parent, false);
+        var vrt = view.AddComponent<RectTransform>();
+        vrt.anchorMin = Vector2.zero;
+        vrt.anchorMax = Vector2.one;
+        vrt.offsetMin = Vector2.zero;
+        vrt.offsetMax = Vector2.zero;
+        var vImg = view.AddComponent<Image>();
+        vImg.color = new Color(0f, 0f, 0f, 0f);
+        vImg.raycastTarget = true;
+        view.AddComponent<RectMask2D>();
+        var sr = view.AddComponent<ScrollRect>();
+        sr.horizontal = false;
+        sr.vertical = true;
+        sr.movementType = ScrollRect.MovementType.Clamped;
+        sr.inertia = true;
+        sr.scrollSensitivity = 48f;
+        sr.viewport = vrt;
+
+        _infoContent = new GameObject("InfoContent").AddComponent<RectTransform>();
+        _infoContent.SetParent(view.transform, false);
+        _infoContent.anchorMin = new Vector2(0f, 1f);
+        _infoContent.anchorMax = new Vector2(1f, 1f);
+        _infoContent.pivot = new Vector2(0.5f, 1f);
+        _infoContent.sizeDelta = new Vector2(0f, InfoStatBlockHeight);
+        sr.content = _infoContent;
+
+        var statBlock = new GameObject("StatBlock").AddComponent<RectTransform>();
+        statBlock.SetParent(_infoContent, false);
+        statBlock.anchorMin = new Vector2(0f, 1f);
+        statBlock.anchorMax = new Vector2(1f, 1f);
+        statBlock.pivot = new Vector2(0.5f, 1f);
+        statBlock.anchoredPosition = new Vector2(0f, 0f);
+        statBlock.sizeDelta = new Vector2(0f, InfoStatBlockHeight);
+        BuildInfoTab(statBlock);
+
+        BuildTalentsView(_infoContent);
+
+        // Size the scroll content to fit both the stat/level block and the talent section
+        // so the full stack is reachable by scrolling (drag range = content - viewport).
+        float talentH = 0f;
+        if (_talentsView != null)
+        {
+            var srt = _talentsView.GetComponent<RectTransform>();
+            if (srt != null) talentH = srt.rect.height;
+        }
+        _infoContent.sizeDelta = new Vector2(0f, InfoStatBlockHeight + talentH + 24f);
+    }
+
     private void BuildInfoTab(Transform parent)
     {
         _levelText = MakeBodyText(parent, "Level", P(-330f, 210f), Sz(220f, 64f));
@@ -780,11 +831,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
             RefreshRaceSkillTree();
             return;
         }
-        if (_skillSubTab == SkillSubTab.Talents)
-        {
-            RefreshTalentsView();
-            return;
-        }
 
         var profile = SkillProfileOf();
         bool hasPoints = profile != null && profile.Points > 0;
@@ -1060,11 +1106,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
         if (_skillSubTab == SkillSubTab.Race)
         {
             RebuildRaceSkillTree();
-            return;
-        }
-        if (_skillSubTab == SkillSubTab.Talents)
-        {
-            RefreshTalentsView();
             return;
         }
 
@@ -1695,7 +1736,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private void OnGeneralTab() => SetSkillSubTab(SkillSubTab.General);
     private void OnClassTab() => SetSkillSubTab(SkillSubTab.Class);
     private void OnRaceTab() => SetSkillSubTab(SkillSubTab.Race);
-    private void OnTalentsTab() => SetSkillSubTab(SkillSubTab.Talents);
 
     private void SetSkillSubTab(SkillSubTab tab)
     {
@@ -1705,7 +1745,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
         _selectedClassSkill = null;
         _selectedRaceSkill = null;
         if (_detailPane != null) _detailPane.SetActive(false);
-        if (_talentsView != null) _talentsView.SetActive(tab == SkillSubTab.Talents);
         // Legend only shown in General view (6-category colors irrelevant to class/race tree).
         if (_legendRoot != null)
         {
@@ -1727,7 +1766,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
         bool gen = _skillSubTab == SkillSubTab.General;
         bool cls = _skillSubTab == SkillSubTab.Class;
         bool rac = _skillSubTab == SkillSubTab.Race;
-        bool tal = _skillSubTab == SkillSubTab.Talents;
         if (_generalTabBtn != null)
         {
             var img = _generalTabBtn.GetComponent<Image>();
@@ -1743,82 +1781,55 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var img = _raceTabBtn.GetComponent<Image>();
             if (img != null) img.color = rac ? NodeLearned : NodeLocked;
         }
-        if (_talentTabBtn != null)
-        {
-            var img = _talentTabBtn.GetComponent<Image>();
-            if (img != null) img.color = tal ? NodeLearned : NodeLocked;
-        }
     }
 
     // ── Talents view (rankable XP/stat perks) ─────────────────────────────
+    // Lives inside the Info panel's single vertical scroll, directly below the stat/level block.
 
     private void BuildTalentsView(Transform parent)
     {
-        var view = new GameObject("TalentsView");
-        view.transform.SetParent(parent, false);
-        var vrt = view.AddComponent<RectTransform>();
-        vrt.anchorMin = Vector2.zero;
-        vrt.anchorMax = Vector2.one;
-        vrt.offsetMin = Vector2.zero;
-        vrt.offsetMax = new Vector2(0f, -70f);
-        _talentsView = view;
-
-        var points = new GameObject("TalentPoints");
-        points.transform.SetParent(view.transform, false);
-        var prt = points.AddComponent<RectTransform>();
-        prt.anchorMin = new Vector2(0.5f, 1f);
-        prt.anchorMax = new Vector2(0.5f, 1f);
-        prt.pivot = new Vector2(0.5f, 1f);
-        prt.anchoredPosition = new Vector2(0f, -18f);
-        prt.sizeDelta = new Vector2(360f, 26f);
-        _talentPointsText = points.AddComponent<TextMeshProUGUI>();
-        GameManager.Instance?.UIManager?.ApplyDefaultFont(_talentPointsText);
-        _talentPointsText.fontSize = Mathf.Max(15f, Screen.height / 48f);
-        _talentPointsText.color = Color.white;
-        _talentPointsText.alignment = TextAlignmentOptions.Center;
-
-        var vpGo = new GameObject("TalentViewport");
-        vpGo.transform.SetParent(view.transform, false);
-        var vprt = vpGo.AddComponent<RectTransform>();
-        vprt.anchorMin = new Vector2(0f, 0f);
-        vprt.anchorMax = new Vector2(1f, 1f);
-        vprt.offsetMin = new Vector2(10f, 10f);
-        vprt.offsetMax = new Vector2(-10f, -52f);
-        var vpImg = vpGo.AddComponent<Image>();
-        vpImg.raycastTarget = true;
-        vpImg.color = new Color(0f, 0f, 0f, 0.35f);
-        vpGo.AddComponent<RectMask2D>();
-        var sr = vpGo.AddComponent<ScrollRect>();
-        sr.horizontal = false;
-        sr.vertical = true;
-        sr.viewport = vprt;
-
-        var contentGo = new GameObject("TalentContent");
-        contentGo.transform.SetParent(vpGo.transform, false);
-        var crt = contentGo.AddComponent<RectTransform>();
-        crt.anchorMin = new Vector2(0f, 1f);
-        crt.anchorMax = new Vector2(1f, 1f);
-        crt.pivot = new Vector2(0.5f, 1f);
-        crt.sizeDelta = new Vector2(0f, 20f);
-        _talentContent = crt;
-        sr.content = crt;
+        const float headerH = 28f;
+        const float step = 56f;
 
         TalentCatalog.EnsureBuilt();
-        const float step = 56f;
+        int count = 0;
+        foreach (var t in TalentCatalog.All)
+            if (t != null) count++;
+
+        var section = new GameObject("TalentsView");
+        section.transform.SetParent(parent, false);
+        var srt = section.AddComponent<RectTransform>();
+        srt.anchorMin = new Vector2(0f, 1f);
+        srt.anchorMax = new Vector2(1f, 1f);
+        srt.pivot = new Vector2(0.5f, 1f);
+        srt.anchoredPosition = new Vector2(0f, -InfoStatBlockHeight);
+        srt.sizeDelta = new Vector2(0f, headerH + count * step + 16f);
+        _talentsView = section;
+
+        var titleGo = new GameObject("TalentsTitle");
+        titleGo.transform.SetParent(section.transform, false);
+        var tirt = titleGo.AddComponent<RectTransform>();
+        tirt.anchorMin = new Vector2(0f, 1f);
+        tirt.anchorMax = new Vector2(1f, 1f);
+        tirt.pivot = new Vector2(0.5f, 1f);
+        tirt.anchoredPosition = new Vector2(0f, 0f);
+        tirt.sizeDelta = new Vector2(0f, headerH);
+        var title = titleGo.AddComponent<TextMeshProUGUI>();
+        GameManager.Instance?.UIManager?.ApplyDefaultFont(title);
+        title.fontSize = Mathf.Max(17f, Screen.height / 40f);
+        title.color = new Color(0.85f, 0.85f, 0.95f, 1f);
+        title.alignment = TextAlignmentOptions.Center;
+        title.text = "TALENTS";
+
         foreach (var talent in TalentCatalog.All)
         {
             if (talent == null) continue;
-            var row = MakeTalentRow(crt, talent, _talentRows.Count);
-            crt.sizeDelta = new Vector2(0f, _talentRows.Count * step + 8f);
+            var row = MakeTalentRow(section.transform, talent, _talentRows.Count, headerH);
             _talentRows.Add((talent, row.label, row.btn));
         }
-
-        // Talents view is only shown on the Talents sub-tab (SetSkillSubTab toggles it);
-        // it must start hidden so it never overlays the General skill tree on first open.
-        view.SetActive(false);
     }
 
-    private (TMP_Text label, Button btn) MakeTalentRow(RectTransform parent, Talent talent, int index)
+    private (TMP_Text label, Button btn) MakeTalentRow(RectTransform parent, Talent talent, int index, float startY)
     {
         const float step = 56f;
         var go = new GameObject("Row_" + talent.Id);
@@ -1827,7 +1838,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         rt.anchorMin = new Vector2(0f, 1f);
         rt.anchorMax = new Vector2(1f, 1f);
         rt.pivot = new Vector2(0.5f, 1f);
-        rt.anchoredPosition = new Vector2(0f, -(index * step));
+        rt.anchoredPosition = new Vector2(0f, -(startY + index * step));
         rt.sizeDelta = new Vector2(0f, step - 6f);
         var bg = go.AddComponent<Image>();
         bg.raycastTarget = false;
@@ -1882,12 +1893,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private void RefreshTalentsView()
     {
         if (_talentsView == null) return;
-        if (!_talentsView.activeSelf) _talentsView.SetActive(true);
         var tracker = TalentTrackerOf();
-        if (_talentPointsText != null)
-            _talentPointsText.text = tracker != null
-                ? Localization.F("Talent Points: {0}", tracker.Points)
-                : "";
         foreach (var (talent, label, btn) in _talentRows)
         {
             if (label == null || btn == null) continue;
@@ -1895,7 +1901,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             label.text = talent.DisplayName
                 + "  ·  " + Localization.F("Rank {0}/{1}", rank, talent.MaxRanks)
                 + "\n" + talent.EffectPerRank();
-            btn.interactable = tracker != null && tracker.CanSpend(talent.Id);
+            btn.interactable = tracker != null && tracker.CanRank(talent.Id);
         }
     }
 
@@ -1903,7 +1909,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         var tracker = TalentTrackerOf();
         if (tracker == null) return;
-        if (tracker.TrySpend(talent.Id))
+        if (tracker.RankUp(talent.Id))
             RefreshTalentsView();
     }
 
@@ -3255,7 +3261,10 @@ public sealed class CharacterInfoUI : MenuPanelBase
     {
         switch (_current)
         {
-            case Tab.Info: RefreshInfo(); break;
+            case Tab.Info:
+            RefreshInfo();
+            RefreshTalentsView();
+            break;
             case Tab.Skills:
             if (_skillSubTab == SkillSubTab.Class)
             {
@@ -3266,10 +3275,6 @@ public sealed class CharacterInfoUI : MenuPanelBase
             {
                 if (_raceTreeNodes.Count == 0) RebuildSkillTree();
                 else RefreshSkillTree();
-            }
-            else if (_skillSubTab == SkillSubTab.Talents)
-            {
-                RefreshTalentsView();
             }
             else
             {

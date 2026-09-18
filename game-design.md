@@ -240,8 +240,9 @@ Trees are built in code (`ClassSkillCatalog`) mirroring the main skill catalog; 
   `CraftSuccessMul`, `RepairMul`, `StaminaRegenMul`, `HpRegenPerSecond`.
 - **Persistence:** unlocked class ids + the active class are saved/loaded (`SaveData.unlockedClassIds`,
   `activeClassId`); restore is authoritative and skips re-deriving unlocks.
-- **UI:** the Skills panel has a **General / Class** sub-toggle. General shows the full 6-category tree;
-  Class shows the active class's radial tree (hub + paths) with an auto-grant detail pane.
+- **UI:** the Skills panel has a **General / Class / Race** sub-toggle. General shows the full 6-category tree;
+  Class shows the active class's radial tree (hub + paths) with an auto-grant detail pane. (Talents live
+  on the Character Info panel — see §3.9.)
 
 #### Race ↔ Class Synergy
 
@@ -789,8 +790,9 @@ A small **rankable perk layer** sitting on top of character leveling — separat
 the stat points you spend per level-up. It rewards long-term play and lets every build tune how it
 progression-by-progression grows.
 
-- **Earning:** **1 talent point per character level-up**; a brand-new character is granted **one random
-  talent at rank 1** at game creation so the system is immediately visible.
+- **Earning:** ranks are granted **freely** (no talent-point currency) — click *Rank Up* on any talent,
+  capped at max rank. A brand-new character is granted **one random talent at rank 1** at game creation
+  so the system is immediately visible.
 - **Talents (18 total, all max rank 3, effects additive per rank):**
   - *Fast Learner* — **+5 % character XP** per rank.
   - Six **skill-type** talents (Melee/Ranged/Magic/Stealth/Crafting/Fortitude, e.g. "Arcane Study"),
@@ -800,9 +802,9 @@ progression-by-progression grows.
 - **Effect reads are live:** XP bonuses are applied as a +% on every XP grant; stat talents add flat
   points inside `GetTotal` (base × race/race-skill % **+** talent points + temp buffs). Because bonuses are
   computed from owned ranks on every read, saving/loading can never double-apply them.
-- **Persistence & UI:** owned ranks + unspent points + the first-grant flag are saved
-  (`talentStateJson`); the Skills panel has a **Talents sub-tab** with a "Talent Points" counter and a
-  *Rank Up* button per talent (enabled when you have a point and the talent is below max rank).
+- **Persistence & UI:** owned ranks + the first-grant flag are saved (`talentStateJson`); the
+  **Character Info panel** lists all talents below the stat/level block (one vertical scroll), each with
+  a *Rank Up* button enabled while the talent is below max rank. There is no talent-point counter.
 
 ---
 

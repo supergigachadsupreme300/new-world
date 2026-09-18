@@ -23,6 +23,42 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
+## 1bv. Talents moved to the Info tab; talent-point currency removed (free Rank Up)
+
+User: "talent should be show in the info tab not the skill tab" + decided to drop the talent-point
+currency. The talent list (18 rankable perks, §3.9) now lives inside the Character Info panel as one
+vertical scroll (stat/level block on top, TALENTS section below), and ranking a talent is **free** —
+no "Talent Points" counter, no points granted per level-up, rank cap 3 unchanged.
+
+### 1bv-status
+- **`TalentTracker.cs`**: removed `Points`, `PointsPerLevel`, and the `Awake`/`OnDestroy`/`OnLevelUp`
+  subscription (level-ups no longer award points). `CanSpend`/`TrySpend` replaced by free
+  `CanRank(id)` (talent != null && rank < max) and `RankUp(id)` (gains one rank, returns true).
+  `TalentSave` no longer carries a points field; `Serialize`/`Restore` updated. `LevelUpSystem`
+  keeps firing `OnLevelUp` with no subscribers (harmless public event).
+- **`CharacterInfoUI.cs`**: Info panel is now `BuildInfoTabScroll` — a `RectMask2D`+`ScrollRect`
+  (`_infoContent`, top-anchored) holding a 480-high `StatBlock` built by the unchanged `BuildInfoTab`
+  plus the `BuildTalentsView` section below it (28-high "TALENTS" header + 18 rows at 56 step, no
+  inner ScrollRect, no points counter); content height sized to stat block + talent section so the
+  full stack scrolls. `RefreshTalentsView` drops the counter + force-activate and sets
+  `btn.interactable = tracker.CanRank(id)`; `RankUpTalent` calls `tracker.RankUp(id)`.
+- **Skills tab**: `SkillSubTab.Talents` removed entirely — subtabs are now General / Class / Race
+  only (buttons at -160/-30/100, Talents button deleted); all Talents branches removed from
+  `RefreshSkillTree`, `RebuildSkillTree`, `SetSkillSubTab`, `UpdateSubTabButtons`, and `Refresh()`
+  (Info case now calls `RefreshInfo()` + `RefreshTalentsView()`). Grep-confirmed zero remaining
+  references to `_talentTabBtn`/`_talentPointsText`/`_talentContent`/`OnTalentsTab`/`CanSpend`/
+  `TrySpend`/`SkillSubTab.Talents`.
+- **Save compat**: old saves' unknown JSON "Points" field is ignored by `JsonUtility` — no migration
+  needed; owned ranks + first-grant flag restore unchanged.
+- **Docs**: `game-design.md` §3.9 rewritten (free ranks, list lives in the Character Info panel, no
+  counter) and §3.2.1 subtoggle updated to "General / Class / Race".
+- **Verification**: no CLI/Unity build per project rule — code review + grep only; pending play-test:
+  (1) open Character → Info tab scrolls; stat block at top, TALENTS rows below; (2) Rank Up adds a
+  rank for free up to 3, button greys at cap; (3) level-up grants stat points only, no talent points;
+  (4) Skills tab shows General / Class / Race only; (5) rank changes persist across save/load.
+
+---
+
 ## 1bu. Alt magic grid fixed — MagicTestMatrix now actually builds/populates the list
 
 User: "the alt magic grid didnt work" — pressing Alt (fighting mode, magic weapon held) showed only
