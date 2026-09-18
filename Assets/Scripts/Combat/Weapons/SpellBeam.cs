@@ -72,6 +72,22 @@ public class SpellBeam : MonoBehaviour
         if (_caster != null)
             transform.position = _caster.transform.position;
 
+        // Re-aim with the caster's current aim each frame so the beam sweeps as the
+        // player turns. Mirrors SpellCaster.Execute's aim derivation (camera forward,
+        // caster forward fallback) so the tick capsule tracks the same line as the visual.
+        Camera cam = Camera.main;
+        if (cam != null)
+        {
+            Vector3 aim = cam.transform.position + cam.transform.forward * Length;
+            Vector3 dir = aim - transform.position;
+            if (dir.sqrMagnitude > 0.0001f)
+                Direction = dir.normalized;
+        }
+        else if (_caster != null && _caster.transform.forward.sqrMagnitude > 0.0001f)
+        {
+            Direction = _caster.transform.forward;
+        }
+
         if (_fadeOut)
         {
             _fadeAge += Time.deltaTime;

@@ -748,8 +748,11 @@ a school read distinctly instead of feeling like copies:
   `ChannelDrainPerSecond` FP drains in real time** (via `TrySpendFocus` — a rejected spend ends the
   beam). Each `TickInterval` (default 0.5 s) it ticks damage (or healing for `heals` spells) to
   everything inside the beam capsule caster→aim. A short release-grace (~0.4 s) lets a sloppy release
-  keep the ray a moment; on mobile / no-mouse the beam auto-sustains ~1.6 s. While channeling, LMB is
-  consumed by the sustain (`IsChanneling` guard) so the beam can't be re-aimed or switched to melee.
+  keep the ray a moment; on mobile / no-mouse the beam auto-sustains ~1.6 s. The beam **sweeps with the
+  caster's aim while channeling** — `SpellBeam` re-derives its `Direction` every frame from the camera
+  aim (caster-forward fallback, mirroring `SpellCaster.Execute`), so turning sweeps the ray and its tick
+  capsule across the field. While channeling, LMB is consumed by the sustain (`IsChanneling` guard) so
+  the beam can't be re-cast or switched to melee.
   Examples: Searing Ray, Arc Storm, Beacon (heal), Hunger, Cold Stare, Storm Breath.
 - **Summon** — ground-targeted (shows the AoE preview ring). **Damage** summons are persistent
   **turrets** that repeatedly fire bolts at the nearest enemy (`BoltPowerMultiplier` ×0.6, reusing the

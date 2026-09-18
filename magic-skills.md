@@ -123,18 +123,18 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
 
 ### Fireball (magic_fireball)
 
-- **Meteor** (`magic_fireball_meteor`) - Active (Fire) - power 30, FP 22, cd 6s, radius 3, knockback 1.5 | A burning meteor falls from the sky, scattering the blast.
+- **Meteor** (`magic_fireball_meteor`) - Active (Fire) - power 30, FP 22, cd 6s, radius 3, knockback 2 | A burning meteor falls from the sky, scattering the blast.
   - **Meteor Rain** (`magic_fireball_meteor_rain`) - Active (Fire) - power 36, FP 26, cd 8s, range 10, radius 3.6, dur 3.5s | A storm of falling meteors that bombards the area.
   - **Comet** (`magic_fireball_meteor_comet`) - Active (Fire) - power 34, FP 24, cd 6s, shape:Comet | A swift streak of burning light.
   - **Impact** (`magic_fireball_meteor_impact`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
-  - **Asteroid** (`magic_fireball_meteor_astroid`) - Active (Fire) - power 40, FP 30, cd 9s, radius 3.6 | A colossal mass of burning rock.
+  - **Asteroid** (`magic_fireball_meteor_astroid`) - Active (Fire) - power 40, FP 30, cd 9s, radius 4, knockback 3 | A colossal mass of burning rock that levels everything it lands on.
   - **Ember Effigy** (`magic_fireball_meteor_ember`) - Active (Fire) - power 30, FP 20, cd 6s, range 8, radius 6, dur 6s, Burn | Summon a burning effigy that hurls embers at nearby foes.
-- **Inferno** (`magic_fireball_inferno`) - Active (Fire) - power 32, FP 24, cd 7s, radius 3.4, Burn | An expanding ring of fire that scorches all it touches.
-  - **Conflagration** (`magic_fireball_inferno_conflagration`) - Active (Fire) - power 38, FP 28, cd 8s, radius 4 | An inferno that spreads across the ground.
-  - **Firestorm** (`magic_fireball_inferno_firestorm`) - Active (Fire) - power 36, FP 26, cd 7s, radius 3.8 | A storm of whirling flame.
+- **Inferno** (`magic_fireball_inferno`) - Active (Fire) - power 32, FP 24, cd 7s, radius 3.4, dur 3.5s, Burn | An expanding ring of fire that lingers, scorching all it touches.
+  - **Conflagration** (`magic_fireball_inferno_conflagration`) - Active (Fire) - power 38, FP 28, cd 8s, range 7, radius 2.6, dur 3s, Burn | A blazing whirl of fire that drags foes in and burns them alive.
+  - **Firestorm** (`magic_fireball_inferno_firestorm`) - Active (Fire) - power 36, FP 26, cd 7s, range 10, radius 3.8, dur 3.5s, Burn | A storm of whirling flame that rains burning embers over the area.
   - **Infernal Rage** (`magic_fireball_inferno_rage`) - + 5 Strength (passive) | Permanent +5 Strength.
-  - **Inferno Peak** (`magic_fireball_inferno_peak`) - Active (Fire) - power 40, FP 30, cd 9s, radius 4 | A towering eruption of flame.
-  - **Fire Wave** (`magic_fireball_inferno_wave`) - Active (Fire) - power 32, FP 22, cd 6s, radius 3.4 | A rolling wave of fire.
+  - **Inferno Peak** (`magic_fireball_inferno_peak`) - Active (Fire) - power 40, FP 30, cd 9s, radius 4.2, dur 3.5s, Burn, knockback 1 | A towering eruption of flame that leaves the ground burning for seconds.
+  - **Fire Wave** (`magic_fireball_inferno_wave`) - Active (Fire) - power 32, FP 22, cd 6s, radius 3.4, knockback 2.5 | A rolling wave of fire that sweeps foes across the field.
 - **Embermind** (`magic_fireball_ember`) - + 3 Intelligence (passive) | Permanent +3 Intelligence.
   - **Ember Intellect** (`magic_fireball_ember_intellect`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
   - **Ember Wisdom** (`magic_fireball_ember_wisdom`) - + 5 Wisdom (passive) | Permanent +5 Wisdom.
@@ -144,7 +144,7 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
 - **Scorch** (`magic_fireball_scorch`) - Active (Fire) - power 26, FP 16, cd 4s, Burn, shape:Comet | A narrow, searing jet of fire that leaves nothing unburnt.
   - **Burn** (`magic_fireball_scorch_burn`) - Active (Fire) - power 30, FP 18, cd 4s, Burn, shape:Comet | A searing burn that lingers long after impact.
   - **Ignite** (`magic_fireball_scorch_ignite`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
-  - **Flash Fire** (`magic_fireball_scorch_flash`) - Active (Fire) - power 32, FP 20, cd 5s, radius 2.2 | A swift flash of scorching fire.
+  - **Flash Fire** (`magic_fireball_scorch_flash`) - Active (Fire) - power 32, FP 20, cd 5s, range 6, Burn | A swift flash of scorching fire that strikes whatever you look at.
   - **Searing Ray** (`magic_fireball_scorch_searing`) - Active (Fire) - power 34, FP 22, cd 5s, range 13, radius 1.3, channels 9 FP/s, Burn | A narrow beam of searing heat — hold it over foes, burning the whole line.
   - **Radiant Heat** (`magic_fireball_scorch_heat`) - + 5 Health (passive) | Permanent +5 Health.
 

@@ -29,8 +29,8 @@ public static partial class SkillCatalog
         // Root: magic_fireball (active, Focus 15, projectile fire)
         bank.L1["magic_fireball"] = new BranchSlot[]
         {
-            S("magic_fireball_meteor", "Meteor", Spell("magic_fireball_meteor_spell", "Meteor", DamageType.Fire, 30f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, knockback: 1.5f), "A burning meteor falls from the sky, scattering the blast.", Focus(22f), DamageType.Fire, true),
-            S("magic_fireball_inferno", "Inferno", Spell("magic_fireball_inferno_spell", "Inferno", DamageType.Fire, 32f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.4f, statusEffect: StatusEffectType.Burn), "An expanding ring of fire that scorches all it touches.", Focus(24f), DamageType.Fire, true),
+            S("magic_fireball_meteor", "Meteor", Spell("magic_fireball_meteor_spell", "Meteor", DamageType.Fire, 30f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, knockback: 2f), "A burning meteor falls from the sky, scattering the blast.", Focus(22f), DamageType.Fire, true),
+            S("magic_fireball_inferno", "Inferno", Spell("magic_fireball_inferno_spell", "Inferno", DamageType.Fire, 32f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.4f, duration: 3.5f, statusEffect: StatusEffectType.Burn), "An expanding ring of fire that lingers, scorching all it touches.", Focus(24f), DamageType.Fire, true),
             S("magic_fireball_ember", "Embermind", Perk(PassivePerkType.SpellDamagePercent, 3f), "Embers simmer in your thoughts — spell damage +3%.", passive: true),
             S("magic_fireball_scorch", "Scorch", Spell("magic_fireball_scorch_spell", "Scorch", DamageType.Fire, 26f, 16f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Burn, projectileShape: ProjectileShape.Comet), "A narrow, searing jet of fire that leaves nothing unburnt.", Focus(16f), DamageType.Fire, true),
         };
@@ -274,18 +274,18 @@ public static partial class SkillCatalog
             S("magic_fireball_meteor_rain", "Meteor Rain", Spell("magic_fireball_meteor_rain_spell", "Meteor Rain", DamageType.Fire, 36f, 26f, SpellDelivery.Storm, 8f, deliveryRange: 10f, deliveryRadius: 3.6f, duration: 3.5f), "A storm of falling meteors that bombards the area.", Focus(26f), DamageType.Fire, true),
             S("magic_fireball_meteor_comet", "Comet", Spell("magic_fireball_meteor_comet_spell", "Comet", DamageType.Fire, 34f, 24f, SpellDelivery.Projectile, 6f, projectileShape: ProjectileShape.Comet), "A swift streak of burning light.", Focus(24f), DamageType.Fire, true),
             S("magic_fireball_meteor_impact", "Impact", Perk(PassivePerkType.SpellDamagePercent, 6f), "Impact magnified — spell damage +6%.", passive: true),
-            S("magic_fireball_meteor_astroid", "Asteroid", Spell("magic_fireball_meteor_astroid_spell", "Asteroid", DamageType.Fire, 40f, 30f, SpellDelivery.Zone, 9f, deliveryRadius: 3.6f), "A colossal mass of burning rock.", Focus(30f), DamageType.Fire, true),
+            S("magic_fireball_meteor_astroid", "Asteroid", Spell("magic_fireball_meteor_astroid_spell", "Asteroid", DamageType.Fire, 40f, 30f, SpellDelivery.Zone, 9f, deliveryRadius: 4f, knockback: 3f), "A colossal mass of burning rock that levels everything it lands on.", Focus(30f), DamageType.Fire, true),
             S("magic_fireball_meteor_ember", "Ember Effigy", Spell("magic_fireball_meteor_ember_spell", "Ember Effigy", DamageType.Fire, 30f, 20f, SpellDelivery.Summon, 6f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, statusEffect: StatusEffectType.Burn, projectileSpeed: 18f), "Summon a burning effigy that hurls embers at nearby foes.", Focus(20f), DamageType.Fire, true),
         };
 
         /* magic_fireball_inferno children */
         bank.L2["magic_fireball_inferno"] = new BranchSlot[]
         {
-            S("magic_fireball_inferno_conflagration", "Conflagration", Spell("magic_fireball_inferno_conflagration_spell", "Conflagration", DamageType.Fire, 38f, 28f, SpellDelivery.Zone, 8f, deliveryRadius: 4f), "An inferno that spreads across the ground.", Focus(28f), DamageType.Fire, true),
-            S("magic_fireball_inferno_firestorm", "Firestorm", Spell("magic_fireball_inferno_firestorm_spell", "Firestorm", DamageType.Fire, 36f, 26f, SpellDelivery.Zone, 7f, deliveryRadius: 3.8f), "A storm of whirling flame.", Focus(26f), DamageType.Fire, true),
+            S("magic_fireball_inferno_conflagration", "Conflagration", Spell("magic_fireball_inferno_conflagration_spell", "Conflagration", DamageType.Fire, 38f, 28f, SpellDelivery.Vortex, 7f, deliveryRange: 8f, deliveryRadius: 2.6f, duration: 3f, statusEffect: StatusEffectType.Burn), "A blazing whirl of fire that drags foes in and burns them alive.", Focus(28f), DamageType.Fire, true),
+            S("magic_fireball_inferno_firestorm", "Firestorm", Spell("magic_fireball_inferno_firestorm_spell", "Firestorm", DamageType.Fire, 36f, 26f, SpellDelivery.Storm, 7f, deliveryRange: 10f, deliveryRadius: 3.8f, duration: 3.5f, statusEffect: StatusEffectType.Burn), "A storm of whirling flame that rains burning embers over the area.", Focus(26f), DamageType.Fire, true),
             S("magic_fireball_inferno_rage", "Infernal Rage", Perk(PassivePerkType.AttackPowerPercent, 5f), "Rage feeds the flame — physical attack +5%.", passive: true),
-            S("magic_fireball_inferno_peak", "Inferno Peak", Spell("magic_fireball_inferno_peak_spell", "Inferno Peak", DamageType.Fire, 40f, 30f, SpellDelivery.Zone, 9f, deliveryRadius: 4f), "A towering eruption of flame.", Focus(30f), DamageType.Fire, true),
-            S("magic_fireball_inferno_wave", "Fire Wave", Spell("magic_fireball_inferno_wave_spell", "Fire Wave", DamageType.Fire, 32f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3.4f), "A rolling wave of fire.", Focus(22f), DamageType.Fire, true),
+            S("magic_fireball_inferno_peak", "Inferno Peak", Spell("magic_fireball_inferno_peak_spell", "Inferno Peak", DamageType.Fire, 40f, 30f, SpellDelivery.Zone, 9f, deliveryRadius: 4.2f, duration: 3.5f, knockback: 1f, statusEffect: StatusEffectType.Burn), "A towering eruption of flame that leaves the ground burning for seconds.", Focus(30f), DamageType.Fire, true),
+            S("magic_fireball_inferno_wave", "Fire Wave", Spell("magic_fireball_inferno_wave_spell", "Fire Wave", DamageType.Fire, 32f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3.4f, knockback: 2.5f), "A rolling wave of fire that sweeps foes across the field.", Focus(22f), DamageType.Fire, true),
         };
 
         /* magic_fireball_ember children (all passive) */
@@ -303,7 +303,7 @@ public static partial class SkillCatalog
         {
             S("magic_fireball_scorch_burn", "Burn", Spell("magic_fireball_scorch_burn_spell", "Burn", DamageType.Fire, 30f, 18f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Burn, projectileShape: ProjectileShape.Comet), "A searing burn that lingers long after impact.", Focus(18f), DamageType.Fire, true),
             S("magic_fireball_scorch_ignite", "Ignite", Perk(PassivePerkType.SpellDamagePercent, 6f), "Everything burns — spell damage +6%.", passive: true),
-            S("magic_fireball_scorch_flash", "Flash Fire", Spell("magic_fireball_scorch_flash_spell", "Flash Fire", DamageType.Fire, 32f, 20f, SpellDelivery.Zone, 5f, deliveryRadius: 2.2f), "A swift flash of scorching fire.", Focus(20f), DamageType.Fire, true),
+            S("magic_fireball_scorch_flash", "Flash Fire", Spell("magic_fireball_scorch_flash_spell", "Flash Fire", DamageType.Fire, 32f, 20f, SpellDelivery.Instant, 6f, statusEffect: StatusEffectType.Burn), "A swift flash of scorching fire that strikes whatever you look at.", Focus(20f), DamageType.Fire, true),
             S("magic_fireball_scorch_searing", "Searing Ray", Spell("magic_fireball_scorch_searing_spell", "Searing Ray", DamageType.Fire, 34f, 22f, SpellDelivery.Beam, 5f, deliveryRange: 13f, deliveryRadius: 1.3f, statusEffect: StatusEffectType.Burn, channelDrainPerSecond: 9f), "A narrow beam of searing heat — hold it over foes, burning the whole line.", Focus(22f), DamageType.Fire, true),
             S("magic_fireball_scorch_heat", "Radiant Heat", Perk(PassivePerkType.HealthRegenPerSecond, 0.002f), "Warmth that mends — +0.2% max health per second.", passive: true),
         };

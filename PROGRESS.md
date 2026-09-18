@@ -1,7 +1,9 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cg` (earth
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1ch` (fire school
+skills remixed to distinct deliveries — vortex/storm/instant/lingering-burn vs. slam/knockback — and
+channeled **beam** magic now sweeps with the player's aim), `1cg` (earth
 terrain deforms are now flat-topped 1x1x1 m slab stacks — vertical side walls, uncapped up to the
 ±200 m mesh-safety band, no more stretched/capped quads), `1cf` (Alt magic grid keeps its scroll
 position across close/reopen), `1ce` (Alt magic grid
@@ -30,6 +32,57 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1ch. Fire school remix (distinct deliveries) + beam magic sweeps with player aim
+
+Request: "asteroid, conflagration, firewave, firestorm, flash fire, inferno, inferno peak, meteor
+skill in fire element are basically the same — differentiate them; beam magic should turn when the
+player turns." All eight were near-identical **Zone** casts that only bumped power/radius. Remixed to
+distinct deliveries per pick, keeping the tree's family logic, and the channeled **Beam** delivery now
+re-aims every frame.
+
+Fire remix (all in `SkillCatalog.Magic.cs`):
+- **Meteor** — stays Zone, the instant impact slam: knockback 1.5 → **2**.
+- **Inferno** — Zone becomes a **lingering burn field**: + `duration 3.5f` (SpellZone tick), Burn kept.
+- **Asteroid** — the payload payoff: radius 3.6 → **4**, knockback → **3** (no burn, pure slam).
+- **Conflagration** — Zone → **Vortex** (fire whirl that drags + burns): `duration 3f`, Burn. Mirrors
+  the Whirlpool vortex archetype.
+- **Firestorm** — Zone → **Storm** (embers rain down over the area): `duration 3.5f`, Burn. Mirrors
+  Thunderstorm/Meteor Rain archetypes.
+- **Inferno Peak** — crowning burn zone: radius → 4.2, `duration 3.5f`, Burn, knockback 1.
+- **Fire Wave** — the push wave: knockback → **2.5**, no burn ("sweeps foes across the field").
+- **Flash Fire** — Zone → **Instant** (crosshair flash strike, `range 6`, Burn; no travel, no AoE
+  marker). Unchanged: Scorch, Meteor Rain, Comet, Burn, Searing Ray (already distinct).
+- All new entries copy established delivery signatures (Whirlpool `duration`/`deliveryRadius`/Burn,
+  Stormcall `deliveryRange`/`deliveryRadius`/`duration`/status, Instant range/Burn) — no per-skill
+  special-casing added; `ResolveDirect`/`SpellZone`/`SpellStorm`/`SpawnVortex` already apply status
+  and knockback on these paths (verified in `ApplyHit` at `SpellCaster.cs:1036-1037`, Zone linger at
+  `:943-951`, Stormcall/Whirlpool precedents).
+
+### 1ch-status
+- **`SpellBeam.cs`** — `Update()` re-derives `Direction` every frame from the camera aim point
+  (`cam.position + cam.forward * Length`, caster `transform.forward` fallback), mirroring
+  `SpellCaster.Execute`'s aim math at `SpellCaster.cs:265-272`. The beam body, end orb, and tick
+  capsule all derive from `Direction`, so the whole effect sweeps with the player's turn while
+  channeling; LMB sustain/focus upkeep/grace logic unchanged.
+- **`SkillCatalog.Magic.cs`** — fire L1 (Meteor, Inferno) + L2 blocks (Asteroid, Conflagration,
+  Firestorm, Inferno Peak, Fire Wave, Flash Fire) retuned as above; tooltips reworded to match.
+- **Docs** — `magic-skills.md` fire rows updated (deliveries/stats/tooltips); `game-design.md` §3.8.1
+  Beam bullet rewritten ("sweeps with the caster's aim while channeling"; removes stale
+  "can't be re-aimed"). PROGRESS intro refreshed.
+- **Verification**: no CLI/Unity build per project rule 3 — grep + full re-read. All 8 touched
+  spell ids appear only in `SkillCatalog.Magic.cs` (no stale callers). `ApplyHit` applies
+  `ApplyStatus` + `ApplyKnockback` for Instant (Flash Fire); `resolve Zone duration` linger is
+  `SpellZone`; Vortex/Storm status verified by Whirlpool/Stormcall precedents. Flash Fire's change
+  Zone→Instant simply means `PlayerController.UpdateAoePreview` (`.cs:1505`) no longer shows an AoE
+  marker for it — intended (its comment explicitly excludes projectile/instant spells).
+- **Play-test (pending)**: (1) learn/arm each remixed fire skill and cast — Conflagration should
+  visibly whirl and pull, Firestorm rain embers over the zone, Inferno/Peak leave the ground burning
+  for ~3.5 s, Fire Wave shove foes, Flash Fire hit instantly along the crosshair; (2) channel Searing
+  Ray / Arc Storm / Tidal Stream and turn the camera — the beam should sweep across enemies and keep
+  damaging the new line.
 
 ---
 
