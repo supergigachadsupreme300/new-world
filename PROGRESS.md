@@ -1,7 +1,9 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cm` (Earth Wall
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cn` (player hair —
+top cap raised clear of the skull, back hair lowered, on the standing/sitting/car player models),
+`1cm` (Earth Wall
 repeat cast no longer "moves the entire chunk" — deforms are now idempotent so a repeat cast
 reproduces the exact same dish/ridge instead of stacking it higher; the zone aim probe skips raised
 terrain; the chunk mesh/collider swap is atomic), `1cl` (dents carve
@@ -45,6 +47,40 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1cn. Player hair: top cap raised clear of the head, back hair lowered
+
+Request: **"the player top hair is overlap with head, raise top hair higher, lower backhair."** The
+blocky player model's top "Hair" cap was clipping into the skull and the "HairBack" slab rose past
+the crown.
+
+Head geometry (standing model): 0.3 m cube centred at y 0.65 → head spans y `[0.50, 0.80]`. The top
+cap (centre 0.82, height 0.08) spanned `[0.78, 0.86]` — intersecting the head top by 0.02 m. The
+back-hair slab (centre 0.70/0.72, height 0.26–0.30) topped out at y 0.85, above the crown.
+
+### Fix (`MapBuilder.PlayerModels.cs`, all three player-model builders for consistency)
+- **Standing (`BuildPlayerModel`)** — top cap 0.82 → **0.88** (spans `[0.84, 0.92]`, clear of the 0.80
+  crown); HairBack 0.70/0.72 → **0.62** (spans `[0.47, 0.77]`: hangs from the lower back of the head
+  down to the neck, below the crown).
+- **Driving cutscene (`BuildSeatedPlayerModel`)** — top cap 0.90 → **0.94**; HairBack 0.80 → **0.72**.
+- **Sitting (`BuildSitPlayerModel`)** — top cap 0.95 → **1.0**; HairBack 0.83/0.85 → **0.74**.
+
+The female hair band, side hair and ponytails were left untouched — the band sits under the raised cap
+and the ponytail still reads as attached to the lowered back hair.
+
+### 1cn-status
+- **`MapBuilder.PlayerModels.cs`** — top "Hair" cap raised (0.88 / 0.94 / 1.0) above the head cube in
+  the standing, seated and sitting builders; "HairBack" lowered (0.62 / 0.72 / 0.74) to hang below the
+  crown. Band, side hair and ponytails unchanged. No signature/consumer changes (position-only edit).
+- **Verification**: no CLI/Unity build per project rule 3 — grep + full re-read confirmed only the
+  intended block positions changed and no other call sites reference these hair offsets.
+
+### Play-test (pending, user)
+In Unity, check the player model standing, sitting, and in the car cutscene: the top hair reads as
+sitting on the skull with no clipping, and the back hair hangs off the lower back of the head/neck
+instead of poking past the crown.
 
 ---
 
