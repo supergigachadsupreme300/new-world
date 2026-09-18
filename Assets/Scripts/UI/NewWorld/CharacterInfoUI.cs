@@ -362,7 +362,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
             rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 16f);
-            rt.sizeDelta = new Vector2(bw - 6f, 56f * S);
+            rt.sizeDelta = new Vector2(bw - 6f, 64f * S);
             _tabButtonRects.Add(rt);
             var img = go.AddComponent<Image>();
             ApplyFullButtonSprite(img);
