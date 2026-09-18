@@ -145,6 +145,15 @@ public sealed class MagicWheelUI : MonoBehaviour
         return false;
     }
 
+    /// <summary>Force-arm a specific magic skill id on the wheel's armed chip (used by the dev/test grid).</summary>
+    public static void ForceArmMagic(string id)
+    {
+        if (_instance == null || string.IsNullOrEmpty(id)) return;
+        if (SkillCatalog.Find(id) == null) return;
+        _instance._armedSkillId = id;
+        _instance.RefreshArmedChip();
+    }
+
     /// <summary>
     /// Fire the armed magic with a charge level (0..1+) and the focus already drained in real time
     /// during the charge hold. True if the cast actually began (FP/cooldown gates may reject it).

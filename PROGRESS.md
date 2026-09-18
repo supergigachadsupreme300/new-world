@@ -23,6 +23,40 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 
 ---
 
+## 1bu. Alt magic grid fixed — MagicTestMatrix now actually builds/populates the list
+
+User: "the alt magic grid didnt work" — pressing Alt (fighting mode, magic weapon held) showed only
+an empty dark panel on the right edge. Cause: `MagicTestMatrix.cs` was a skeleton — `EnsureBuilt()`
+created a background + three empty `RectTransform`s (no `ScrollRect` wiring, no layout, no rows), and
+`AddSkillRow`/`RowIds` were dead code nothing called, so `CastId` could never run.
+
+### 1bu-status
+- **`MagicTestMatrix.cs` rewritten**: `EnsureBuilt()` now builds a real right-edge panel — title +
+  status line, a `ScrollRect` body (viewport with `RectMask2D`, content with `VerticalLayoutGroup`
+  + `ContentSizeFitter`), and one `Button` row per **castable magic skill** from
+  `SkillCatalog.OfType(SkillType.Magic)` (skips passives), **grouped by school** (`Skill.DamageKind`
+  in enum order) with a colored `DamageType` header per group. Rows highlight gold while armed, dim
+  while on cooldown. `Update` refreshes row tints and closes on **Esc**; mouse-wheel + drag scroll;
+  cursor unlocks while open.
+- **Click flow** (`CastId`): top-up focus → `TestGrant` if unlearned → `ExecuteCharged` (chargeless)
+  → arm via new `MagicWheelUI.ForceArmMagic(id)` → status "Cast OK/FAIL <name>". Cooldowns still apply
+  (normal-cost choice); grid stays open for repeated testing.
+- **`MagicWheelUI.cs`**: added `public static void ForceArmMagic(string id)` (sets `_armedSkillId` +
+  `RefreshArmedChip`) so the bottom-left armed chip / LMB charged-release flow tracks the tested spell.
+- **Dead code removed** from the matrix (`AddSkillRow`, `RowIds`, `_rowIds`, unused `_profileForSan`/
+  `_armedId`/`AsRect`).
+- **Docs**: `game-design.md` §5.16 Alt bullet rewritten (right-edge scrollable grid grouped by school,
+  click-to-focus/learn/arm/cast) and the §3.8 charging-circle "Alt wheel" reference updated.
+- **Verification**: no CLI/Unity build per project rule — code review only; grep-confirmed the removed
+  symbols are gone and `SkillCatalog.OfType` / `SkillProfile.HasLearned`/`TestGrant`/`ExecuteCharged`
+  / `SpellCaster.TopUpFocus`/`CooldownRemaining` signatures used all match. Note: the Alt **gate**
+  (fighting mode + magic weapon held) in `MagicWheelUI.Update` is intentionally unchanged.
+- **Play-test (pending)**: in fighting mode holding a magic weapon press Alt → the right-edge grid
+  lists spells grouped by school; a row click fast-casts + arms the chip (status line updates); Esc/
+  Alt closes; scrolling works.
+
+---
+
 ## 1bt. All skill-tree passives replaced with themed perks (446 nodes) + perk pipeline wired
 
 User: "replace all the passive skill in the game (skill tree only, unique passive perk style)".

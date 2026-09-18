@@ -751,7 +751,7 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
 
 #### Charging & Casting Circle
 
-- Arming a spell from the **Alt wheel** then hold **LMB** to start the aim pose (hands raise); **RMB**
+- Arming a spell from the **Alt magic grid** (§5.16) then hold **LMB** to start the aim pose (hands raise); **RMB**
   builds a **charge level** (0–100%, ~2 s, no auto-fire). **Releasing LMB** fires at the frozen level.
   Charge scales the cast: FP cost (up to ×1.6), damage (up to ×2.0), and AoE radius (up to ×1.8), so
   a deeper charge is always a gamble for more FP — never a dud.
@@ -1060,11 +1060,15 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
   - **Trade-off:** dual = no block except via a shield hand (2 swords = 2 independent attack buttons).
     Pressing the attack button while a guard is raised drops the guard and swings. **Both-magic** and
     any 0/1-weapon loadout (incl. barehanded fists) keep the standard single-button scheme above.
-- **Alt** (fighting mode, magic weapon held) — opens the **magic-selection wheel** at screen centre:
-  hover a labeled spell slot, release to arm it. The wheel lists **learned magic-category skills only**
-  (no physical melee/ranged/stealth castables) and holds up to **64** labeled slots spread
-  across **3 concentric circles** (inner ring 6, middle 18, outer ring the rest) so all armed
-  castables stay visible at once.
+- **Alt** (fighting mode, magic weapon held) — opens the dev/test **magic grid** pinned to the
+  **right edge** of the screen (the old centre-screen ring/wheel is retired, note 1av). The grid is a
+  tall, scrollable, clickable list of **every castable magic-category skill in the game** (base +
+  branch schools — not just those the current profile has learned; no physical melee/ranged/stealth
+  castables), **grouped by school** (`Skill.DamageKind`, §3.7). Clicking a row **top-ups focus,
+  test-grants the skill if unlearned, arms it in the bottom-left "Armed: X" chip, and fast-casts it
+  at the current aim** — so any spell can be tried without spending skill points (cooldowns still
+  apply). The armed-chip + charge/release flow above is unchanged; the grid only borrows the armed
+  cast backend. Toggle closed with **Alt** or **Esc**; scroll with the mouse wheel or by dragging.
 
 ---
 
