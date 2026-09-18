@@ -1,7 +1,8 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1bx` (eight new
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1by` (build fixes),
+`1bx` (eight new
 talents), `1bw` (religion
 structures + worship NPCs on the test ground), `1bv` (talents moved to the Info tab, talent-point
 currency removed). The **optimization sweep** ran Phases 0-5
@@ -23,6 +24,23 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1by. Build fixes: IStatProvider regen/cdr members + MakeTalentRow parent type
+
+Unity play-test raised three pre-existing compile errors (not introduced by `1bx`, but found when the
+editor compiled the talent work). Fixes verified by grep + reread; no CLI build per project rule.
+
+- **`IStatProvider.cs`**: interface lacked `FocusRegenMul` and `CooldownReductionMult`, which
+  `SpellCaster.cs:122/252` already accessed through its `IStatProvider Stats` field → CS1061. Added both
+  members to the interface; the sole implementer `PlayerStats` already exposes matching public getters.
+- **`CharacterInfoUI.cs`**: `BuildTalentsView` passed `section.transform` (Transform) into
+  `MakeTalentRow(RectTransform parent, …)` → CS1503. The body only uses `parent` for
+  `go.transform.SetParent(parent, false)`, so the parameter type was changed to `Transform parent`
+  (matching the rest of the file's `Make*` helpers). Grep-confirmed `MakeTalentRow` has a single caller.
+- **Play-test (pending)**: editor compiles; talents panel + spell casting (FP regen, spell cooldowns)
+  work as before.
 
 ---
 

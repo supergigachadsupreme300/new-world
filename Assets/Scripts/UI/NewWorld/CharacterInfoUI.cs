@@ -1829,7 +1829,7 @@ public sealed class CharacterInfoUI : MenuPanelBase
         }
     }
 
-    private (TMP_Text label, Button btn) MakeTalentRow(RectTransform parent, Talent talent, int index, float startY)
+    private (TMP_Text label, Button btn) MakeTalentRow(Transform parent, Talent talent, int index, float startY)
     {
         const float step = 56f;
         var go = new GameObject("Row_" + talent.Id);

@@ -20,4 +20,10 @@ public interface IStatProvider
 
     /// <summary>Luck-driven status proc chance (%) — see StatusProcLuck, §3.4.</summary>
     float StatusProcLuck { get; }
+
+    /// <summary>Focus-regen multiplier (tree perks + FocusRegen talents, §3.3/§3.9).</summary>
+    float FocusRegenMul { get; }
+
+    /// <summary>Cooldown-reduction multiplier (tree perks only, §3.3).</summary>
+    float CooldownReductionMult { get; }
 }
