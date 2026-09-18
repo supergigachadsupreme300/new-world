@@ -1,7 +1,8 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1ce` (Alt magic grid
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cf` (Alt magic grid
+keeps its scroll position across close/reopen), `1ce` (Alt magic grid
 click no longer casts — arm-only + attack-input suppression), `1cd` (100x percent-perk
 multiplier bug + additive MoveSpeed — the real "still very fast" cause), `1cc` (super-speed root
 cause + speed-aware fail-net), `1cb` (class + race locked to ONE choice), `1ca` (physics integrity
@@ -27,6 +28,22 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1cf. Alt magic grid keeps scroll position across close/reopen
+
+Play report: "when close and open the alt tab it reset the top, change it." Cause: `MagicTestMatrix.Open()`
+set `_scroll.verticalNormalizedPosition = 1f` on every open, snapping the list back to the top.
+
+### 1cf-status
+- **`MagicTestMatrix.cs`**: removed the per-open reset; the position is now set to the top once in
+  `EnsureBuilt()` after `PopulateRows()`, so the first open starts at the top and later opens retain
+  whatever position the player scrolled to (the canvas is only deactivated, the `ScrollRect` state is
+  kept).
+- **Verification**: no CLI/Unity build per project rule 3 — code reread only.
+- **Play-test (pending)**: open Alt grid, scroll down, close, reopen → the list stays where it was; a
+  fresh session starts at the top.
 
 ---
 

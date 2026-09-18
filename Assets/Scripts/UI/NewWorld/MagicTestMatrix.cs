@@ -108,7 +108,6 @@ public sealed class MagicTestMatrix : MonoBehaviour
         if (caster == null) return;
         _matrixOpen = true;
         if (_canvas != null) _canvas.gameObject.SetActive(true);
-        if (_scroll != null) _scroll.verticalNormalizedPosition = 1f;
         GameInput.SetCursorLocked(false);
     }
 
@@ -203,6 +202,9 @@ public sealed class MagicTestMatrix : MonoBehaviour
         _scroll.content = _content;
 
         PopulateRows();
+
+        // Top of the list on first build only; reopening keeps the scroll position (1ce follow-up).
+        if (_scroll != null) _scroll.verticalNormalizedPosition = 1f;
 
         _canvas.gameObject.SetActive(false);
     }
