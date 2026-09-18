@@ -164,9 +164,11 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   into a MeshCollider.
 - **Player CC fail-net:** `PlayerController` records `_lastSafePosition` every sane frame.
   `EnforcePhysicsSanity` (runs each `Update` before input) reverts the player if any coordinate is
-  non-finite or a **single frame** moved them > 150 m (impossible via normal movement — dodge is
-  ~14 m/s), then logs the blast position, the local terrain height there, and sweeps nearby colliders
-  for non-finite/oversized bounds to identify the culprit chunk.
+  non-finite or a **single frame** moved them beyond a **speed-aware tolerance** of at least 150 m
+  (`max(last-frame effective speed × 1.5, 150)` — 1cc) — fast-but-legit movement (buffed sprint) can
+  never trip it even during a ~1 s frame hitch, while every real corrupted-collider launch
+  (thousands of metres) still does. On a revert it logs the blast position, the local terrain height
+  there, and sweeps nearby colliders for non-finite/oversized bounds to identify the culprit chunk.
 - **Teleport routing:** every intentional teleport goes through `PlayerController.TeleportTo`
   (spawn/respawn, fast travel, sleep, load-game, test-platform entry), which stamps the destination as
   the new "last safe" position so the fail-net never false-positives on legit relocation.
@@ -435,6 +437,8 @@ LootQuality    = base + (Luck × k_loot)
 CraftLuck      = base + (Luck × k_craft)
 StatusProcLuck = base + (Luck × k_status)             # poison/bleed/rot/frost procs
 ```
+
+In the implementation the player's walk/sprint velocity is `MoveSpeed × (1 + Speed·k_mov) × TreeMul(MovementSpeedPercent)` (class/race passives layer in too) — i.e. the **all-perks skill tree** contributes a large additive movement package. A temporary **dev all-stats floor** (`DevMaxAllStats`, which forced Speed=100 → a ~145× walk-speed blow-up) was **removed in 1cc**, so velocity again reflects the character's real Speed stat.
 
 Example — a race with **Health +20%**: at base Health 30 → total 36 → MaxHP = 100 + 36×12 = **532** (vs unmodified 460). Because the bonus scales with the total stat, it represents ~16–18% more HP in the late game.
 

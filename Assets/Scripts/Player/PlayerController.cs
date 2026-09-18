@@ -68,6 +68,11 @@ public class PlayerController : MonoBehaviour, IHealable
     // holds the last sane position; EnforcePhysicsSanity reverts any such launch.
     private Vector3 _lastSafePosition;
     private bool _hadSafePosition;
+
+    /// <summary>The effective movement speed (m/s) resolved last frame by HandleMovement — lets the
+    /// fail-net (1cc) size its one-frame tolerance to fast-but-legit movement instead of assuming a
+    /// ~14 m/s dodge.</summary>
+    private float _lastEffectiveSpeed;
     private const float MaxSanityStepMeters = 150f;
     private Transform _cameraPivot;
     private float _yaw;
@@ -309,9 +314,11 @@ public class PlayerController : MonoBehaviour, IHealable
     }
 
     /// <summary>
-    /// Physics-integrity fail-net (1ca). Reverts the player to the last sane position when a
-    /// single frame moved them more than 150 m (impossible via normal movement — dodge is ~14 m/s)
-    /// or produced a non-finite coordinate. Legit one-frame steps far below the 150 m threshold.
+    /// Physics-integrity fail-net (1ca/1cc). Reverts the player to the last sane position when a
+    /// single frame moved them farther than the tolerable step: at least 150 m, scaled up by the
+    /// last frame's effective speed (max(speed×1.5, 150)) so fast-but-legit movement during frame
+    /// hitches never trips it, while every corrupted-collider depenetration launch (thousands of
+    /// metres) still does. Non-finite coordinates always revert.
     /// </summary>
     private void EnforcePhysicsSanity()
     {
@@ -326,11 +333,15 @@ public class PlayerController : MonoBehaviour, IHealable
 
         if (_hadSafePosition)
         {
+            // Tolerance is speed-aware (1cc): fast-but-legit movement (e.g. a buffed sprint during a
+            // frame hitch of ~0.5-1 s) must not be mistaken for a corrupted-collider blast. The 150 m
+            // floor still catches every real depenetration launch (those are thousands of metres).
+            float threshold = Mathf.Max(MaxSanityStepMeters, _lastEffectiveSpeed * 1.5f);
             float ds = (_lastSafePosition - p).sqrMagnitude;
-            float maxSqr = MaxSanityStepMeters * MaxSanityStepMeters;
+            float maxSqr = threshold * threshold;
             if (ds > maxSqr)
             {
-                LogSanityBlast(p);
+                LogSanityBlast(p, threshold);
                 TeleportTo(_lastSafePosition);
                 return;
             }
@@ -342,7 +353,7 @@ public class PlayerController : MonoBehaviour, IHealable
 
     /// <summary>Logs the blast and scans nearby colliders for corrupted (non-finite / oversized)
     /// bounds, so the culprit chunk can be identified and fixed in one targeted follow-up.</summary>
-    private void LogSanityBlast(Vector3 blastPos)
+    private void LogSanityBlast(Vector3 blastPos, float threshold)
     {
         var streamer = Object.FindAnyObjectByType<WorldStreamer>();
         float terrain = streamer != null
@@ -374,7 +385,7 @@ public class PlayerController : MonoBehaviour, IHealable
             }
         }
 
-        Probe(_lastSafePosition, MaxSanityStepMeters, 400f);
+        Probe(_lastSafePosition, threshold, 400f);
         Probe(blastPos, 50f, 400f);
         if (!any)
             msg += " none found in a radius sweep.";
@@ -621,6 +632,7 @@ public class PlayerController : MonoBehaviour, IHealable
         float speed = IsRiding
             ? RideSpeed * _waterSpeedMul
             : (flying ? FlightSpeed : MoveSpeed * _waterSpeedMul * (sprint ? SprintMultiplier : 1f) * moveSpeedPerkMult);
+        _lastEffectiveSpeed = speed;
 
         bool dodgePressed = !dialogBlocked && !IsRiding && !flying && _controller != null && _controller.isGrounded &&
             ((Keyboard.current != null && Keyboard.current.cKey.wasPressedThisFrame) ||

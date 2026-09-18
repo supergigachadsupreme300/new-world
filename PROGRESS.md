@@ -1,8 +1,9 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cb` (class + race
-locked to ONE choice), `1ca` (physics integrity guard rails — no more one-step 5 km teleport), `1bz`
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cc` (super-speed root
+cause + speed-aware fail-net), `1cb` (class + race locked to ONE choice), `1ca` (physics integrity
+guard rails — no more one-step 5 km teleport), `1bz`
 (no boot auto-teleport; spawn on the boot chunk), `1by` (build fixes), `1bx` (eight new talents), `1bw` (religion
 structures + worship NPCs on the test ground), `1bv` (talents moved to the Info tab, talent-point
 currency removed). The **optimization sweep** ran Phases 0-5
@@ -24,6 +25,46 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1cc. Super-speed root cause + speed-aware fail-net (fixes "continuously pulled back")
+
+Play report: "player have like super speed and being continuously pulled back." Investigated the
+movement pipeline (grep + reread, no Unity build). Two effects, one chain:
+
+- **Super speed cause:** `PlayerStats.DevMaxAllStats = true` floored every stat to 100, so Speed=100
+  → `moveSpeedPerkMult = (1 + 100×0.5) × TreeMul(MovementSpeedPercent)`. The test-ground all-perk
+  grant adds ~47 `MovementSpeedPercent` nodes ≈ +184% → `TreeMul ≈ 2.84`. Net multiplier ≈ 145× on
+  `MoveSpeed` → walk ≈ **724 m/s**, sprint ≈ **1,448 m/s**.
+- **"Continuously pulled back" cause:** NOT death/respawn (`ResetPlayer` only runs at `Start`). It was
+  the `1ca` fail-net doing its job against the monster speed: `EnforcePhysicsSanity` reverts when one
+  frame moves > 150 m. At 1,448 m/s you cross a 30 m chunk in ~21 ms, so chunk-stream/build hitches
+  (>~104 ms) exceeded 150 m every time → repeated snap-back to the previous frame's position.
+
+User direction: **no speed cap** — find the actual cause; and **set `DevMaxAllStats=false`**.
+
+### 1cc-status
+- **Root cause removed** (`PlayerStats.cs`): deleted the `DevMaxAllStats` / `DevMaxAllStatValue` consts,
+  `MaxOutAllStats()`, and the `Start()` hook that called them (grep-verified no other call sites). Speed
+  now reflects real allocation (creation seeds all stats to 10) → `moveSpeedPerkMult ≈ (1+10×0.5)×2.84
+  ≈ 17×`, walk ≈ 85 m/s, sprint ≈ 170 m/s. No cap added (per direction); the deeper "too fast while
+  fully-perked" balance question stays parked.
+- **Fail-net made speed-aware** (`PlayerController`): cached `_lastEffectiveSpeed` from
+  `HandleMovement`; `EnforcePhysicsSanity` now uses `threshold = max(150, _lastEffectiveSpeed × 1.5)`
+  instead of a flat 150 m, and `LogSanityBlast(blastPos, threshold)` probes with that radius. Real
+  corruption blasts (thousands of metres) still revert; legit fast movement during a ~1 s hitch cannot
+  false-trigger. This directly kills the "continuously pulled back" symptom even at the new top speed.
+- **Docs**: `game-design.md` §2.8 fail-net bullet rewritten (speed-aware tolerance); §3.4 derived-formula
+  block gains the implementation note (walk/sprint multiplier + dev floor removed). PROGRESS intro refreshed.
+- **Verification**: no CLI/Unity build per project rule — code review + grep only. Grep confirms
+  `DevMaxAllStats` / `MaxOutAllStats` have zero remaining references; `EnforcePhysicsSanity` and
+  `LogSanityBlast` call sites both updated to the new signature.
+- **Play-test (pending)**: (1) walk/sprint feel normal on a fresh + loaded character (no 1,500 m/s
+  blur); (2) no repeated yank-back while sprinting across loading chunks; (3) if a genuine
+  corruption blast ever occurs, the log still reports it (threshold floor 150 m unchanged).
+- **Follow-up (parked)**: the all-perks test grant still yields ~85/170 m/s movement; if that reads as
+  too fast once stats are real, tune `K_Move` / the `MovementSpeedPercent` perk values (separate task).
 
 ---
 
