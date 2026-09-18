@@ -716,8 +716,9 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     /// <summary>
     /// Equip a representative starter set into the player's 21-slot equipment system (testing),
-    /// so the humanoid Equipment tab has something to show. Also wires up the ClassUnlocker for
-    /// the Class tab — its Start() evaluates requirements automatically.
+///     so the humanoid Equipment tab has something to show. Also wires up the ClassUnlocker for
+    ///     the Class tab — under its exclusive single-choice model the Wanderer baseline is active
+    ///     until the player picks a class.
     /// </summary>
     private void GrantStarterGear()
     {
@@ -744,8 +745,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
     }
 
     /// <summary>
-    /// Wire the player's active-race manager, unlock the full 22-race roster, and grant a few
-    /// Ritual Stones (testing) so the Character Info Race tab can exercise race changes.
+    /// Wire the player's active-race manager (testing). Game-design §3.5 keeps race choice to ONE
+    /// active race, so this grants no unlock-everything roster and no Ritual Stones — the player
+    /// starts Human and may change only to Human or an actually-discovered race (via the Character
+    /// Info Race tab / RaceDiscoveryPoint), consuming a Ritual Stone when offered.
     /// </summary>
     private void GrantRaceAccess()
     {
@@ -754,20 +757,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
         var mgr = player.GetComponent<RaceChangeManager>();
         if (mgr == null)
-            mgr = player.gameObject.AddComponent<RaceChangeManager>();
-
-        var unlocker = RaceUnlockManager.Instance;
-        var roster = RaceDatabase.BuildDefaultRoster();
-        if (unlocker != null && roster != null)
-        {
-            foreach (var r in roster)
-                if (r != null && !string.IsNullOrEmpty(r.raceId))
-                    unlocker.UnlockRace(r.raceId);
-        }
-
-        var tm = ToolManager.Instance;
-        if (tm != null && tm.CountItem(RaceChangeManager.RitualStoneItemId) < 3)
-            tm.AddItem(RaceChangeManager.RitualStoneItemId, 3 - tm.CountItem(RaceChangeManager.RitualStoneItemId));
+            player.gameObject.AddComponent<RaceChangeManager>();
     }
 
     private static Material SolidMaterial(Color c)

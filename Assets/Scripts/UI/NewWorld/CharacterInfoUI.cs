@@ -3066,7 +3066,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
     private void BuildRaceOptions(Transform parent)
     {
         var mgr = RaceMgrOf();
-        string currentRaceId = mgr != null ? mgr.ActiveRaceId : "human";
+        if (mgr == null) return; // no race manager wired -> nothing to change
+        string currentRaceId = mgr.ActiveRaceId;
         var roster = RaceDatabase.BuildDefaultRoster();
         if (roster == null) return;
 
@@ -3078,11 +3079,13 @@ public sealed class CharacterInfoUI : MenuPanelBase
             float y = 150f - row * 28f;
             var r = roster[i];
             if (r == null) continue;
+            // Single-choice model (§3.5): only Human or an actually-discovered race is selectable.
+            if (!mgr.CanSelectRace(r)) continue;
             bool isCurrent = string.Equals(currentRaceId, r.raceId, System.StringComparison.OrdinalIgnoreCase);
             MakeDialogOption(parent, r.displayName + (isCurrent ? "  (current)" : ""), P(x, y), 270f, !isCurrent, () =>
             {
                 _pendingChange = r;
-                _changeConfirmText.text = Localization.F("Change race to {0}?", r.displayName);
+                _changeConfirmText.text = Localization.F("Change race to {0}? (requires a Ritual Stone)", r.displayName);
                 UpdateConfirmEnabled();
             });
         }
@@ -3131,7 +3134,17 @@ public sealed class CharacterInfoUI : MenuPanelBase
             var mgr = RaceMgrOf();
             if (mgr != null)
             {
-                mgr.SetActiveRace(race, requireStone: false, unlockIfNeeded: true);
+                // Single-choice model (§3.5): switching costs a Ritual Stone and never auto-unlocks.
+                if (!mgr.SetActiveRace(race, requireStone: true, unlockIfNeeded: false))
+                {
+                    if (_changeConfirmText != null)
+                        _changeConfirmText.text = Localization.T("Bạn cần Đá Nghi Thức để hóa thân sang chủng tộc khác.");
+                    return;
+                }
+                if (GameManager.Instance?.UIManager != null &&
+                    !string.Equals(race.raceId, "human", System.StringComparison.OrdinalIgnoreCase))
+                    GameManager.Instance.UIManager.ShowMessage(
+                        Localization.F("Bạn đã hóa thân thành {0}!", race.displayName), 2f);
             }
         }
 

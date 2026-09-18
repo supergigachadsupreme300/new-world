@@ -1,10 +1,9 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-18. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1ca` (physics integrity
-guard rails — no more one-step 5 km teleport), `1bz` (no boot auto-teleport;
-spawn on the boot chunk), `1by` (build fixes), `1bx` (eight new
-talents), `1bw` (religion
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cb` (class + race
+locked to ONE choice), `1ca` (physics integrity guard rails — no more one-step 5 km teleport), `1bz`
+(no boot auto-teleport; spawn on the boot chunk), `1by` (build fixes), `1bx` (eight new talents), `1bw` (religion
 structures + worship NPCs on the test ground), `1bv` (talents moved to the Info tab, talent-point
 currency removed). The **optimization sweep** ran Phases 0-5
 (`1ag`-`1al` below); the sweep's planning doc (`OPTIMIZATION.md`) was retired once Phases 0-5 shipped —
@@ -25,6 +24,54 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1cb. Class + race locked to ONE choice — exclusive single-class / single-race model
+
+User rule: **"the player can only have 1 class, 1 race at a time."** Prior build was explicitly
+non-exclusive — `ClassUnlocker` mass-unlocked every eligible class at Start (`EvaluateAll`), held a
+growing roster, and the test ground granted **all 22 races + 3 Ritual Stones** (`GrantRaceAccess`);
+the Change Race tab listed every race and switching auto-unlocked the target for free
+(`SetActiveRace(..., unlockIfNeeded:true)`). User chose the **"Lock class+race to one choice"**
+ladder: generic SkillType skills/talents stay GLOBAL (separate base-tree axis — untouched), but the
+class/race system is strictly exclusive; the test ground may no longer unlock everything.
+
+### 1cb-status
+- **`ClassUnlocker` rewritten for single-choice exclusivity** (`classUnlocker.cs`): `UnlockedClassIds`
+  always holds exactly the one chosen id. `Awake` collapses any legacy multi-class roster to
+  ActiveClassId; `Start` no longer runs a mass-unlock pass (only `EnsureChosenClass`, Wanderer
+  baseline); `EvaluateAll` is now "guarantee a valid chosen class exists" (callers like
+  `CharacterInfoUI.CurrentClassLine` unchanged); `SetActiveClass` REPLACES the roster + fires
+  `OnActiveClassChanged`/`OnClassUnlocked` (idempotent for the same pick); `RestoreUnlocks` collapses
+  old saves to the one saved active class (Wanderer fallback) — old multi-class saves migrate
+  gracefully. Removed the stat/skill-requirement auto-unlock machinery (`MeetsRequirements`,
+  `UnlockIfAbsent`, `_unlocked` set, `_skills`).
+- **Test ground no longer grants roster/stones** (`NewWorldTestGround.GrantRaceAccess`): now wires the
+  `RaceChangeManager` only — no unlock-all-22 loop, no 3-Ritual-Stone boost; player starts Human.
+- **Change Race dialog gated** (`CharacterInfoUI.BuildRaceOptions`): lists ONLY Human + actually
+  discovered races (new `RaceChangeManager.CanSelectRace` wrapper over private `IsSelectable`), and
+  `ApplyPendingChange` race branch now calls `SetActiveRace(race, requireStone: true,
+  unlockIfNeeded: false)` — non-Human changes consume a Ritual Stone, never auto-unlock; failure shows
+  the in-dialog hint + stays open.
+- **Untouched/kept** (per scope): `CharacterCreationUI:132` / `CharacterCreation.cs:49` free creation
+  race pick (it is the ONE chosen starter race), `RaceDiscoveryPoint` still grants a race you actually
+  discover (unlockIfNeeded:true is the legit earn path), `RaceChangeManager` human-free + stone-gated
+  logic, `SaveManager` save/restore of `unlockedClassIds`+`activeClassId`, and the managers that already
+  scope modifiers to the active class/race (`ClassPassiveManager`, `RaceSkillPassiveManager`) plus the
+  GLOBAL `PassivePerkManager` skill axis.
+- **Docs**: `game-design.md` (§3.2 classes-exclusive paragraph + persistence bullet; §3.5 discover/
+  change → single-active + stone-gated) updated; `ClassUnlocker` class doc rewritten.
+- **Verification**: no CLI/Unity build per project rule — code review + grep only. Grep-confirmed:
+  removed symbols (`MeetsRequirements`, `UnlockIfAbsent`) have no call sites; `IsUnlocked` call sites
+  are all legitimate (ClassSkillCaster gates casts, RaceUnlockManager/RaceDiscoveryPoint/CharacterCreation
+  on the race side); every `SetActiveRace` caller re-read (creation = free pick, discovery = earn,
+  UI = stone-gated no-unlock).
+- **Play-test (pending)**: (1) open Character Info → Class tab — exactly one class "current", picking
+  another swaps it (no accumulation); (2) Race tab — only Human + discovered races shown; re-pick Human
+  free, non-Human change consumes a Ritual Stone and shows the hint when you have none; (3) new game +
+  reload an OLD save — class roster collapses to the saved single active class; (4) confirm no
+  startup log floods from the removed unlock pass.
 
 ---
 

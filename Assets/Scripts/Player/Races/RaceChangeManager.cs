@@ -134,6 +134,12 @@ public class RaceChangeManager : MonoBehaviour
         ApplyRace(race);
     }
 
+    /// <summary>
+    /// True when the player may change to this race under the single-choice model (§3.5):
+    /// Human is always re-selectable, other races only when actually discovered/unlocked.
+    /// </summary>
+    public bool CanSelectRace(RaceData race) => IsSelectable(race);
+
     /// <summary>True when the race is Human or currently unlocked in the persistent unlock set.</summary>
     private bool IsSelectable(RaceData race)
     {

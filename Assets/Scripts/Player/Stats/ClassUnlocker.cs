@@ -2,27 +2,27 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Evaluates class unlock conditions against the player's current stats / skill levels
-/// (game-design §3.2, planning Task 4.5). Classes are classless and non-exclusive — a player
-/// can unlock many and mix abilities. Fires <see cref="OnClassUnlocked"/> when a new one is
-/// earned. Attach to the player root and register the pool of ClassData to evaluate.
+/// Tracks the player's single chosen class (game-design §3.2.1). The class system is
+/// EXCLUSIVE — the player has exactly ONE class at a time (<see cref="ActiveClassId"/>), and
+/// <see cref="UnlockedClassIds"/> always holds that one id. Changing class (via the Class tab /
+/// <see cref="SetActiveClass"/>) replaces the choice; there is no accumulating roster and no
+/// "unlock everything when requirements are met" pass. Fires
+/// <see cref="OnActiveClassChanged"/> / <see cref="OnClassUnlocked"/> so
+/// <see cref="ClassPassiveManager"/> re-aggregates the active class's kit. Attach to the player root.
 /// </summary>
 [DisallowMultipleComponent]
 public class ClassUnlocker : MonoBehaviour
 {
     public List<ClassData> Classes = new List<ClassData>();
+    [Tooltip("The single chosen class (the only id in the unlock set).")]
     public List<string> UnlockedClassIds = new List<string>();
-    [Tooltip("The class the player currently identifies with (always one of the unlocked classes).")]
+    [Tooltip("The class the player currently identifies with (always the one chosen class).")]
     public string ActiveClassId = "wanderer";
 
-    private readonly HashSet<string> _unlocked = new HashSet<string>();
-    private PlayerStats _stats;
-    private SkillXpTracker _skills;
-
-    /// <summary>True after a save restore populated the roster — Start() skips re-deriving unlocks.</summary>
+    /// <summary>True after a save restore populated the choice — Start() skips re-deriving it.</summary>
     private bool _restoredFromSave;
 
-    /// <summary>Fires when a class becomes unlocked.</summary>
+    /// <summary>Fires when a class becomes the chosen class.</summary>
     public event System.Action<ClassData> OnClassUnlocked;
 
     /// <summary>Fires when the active class changes.</summary>
@@ -30,23 +30,20 @@ public class ClassUnlocker : MonoBehaviour
 
     private void Awake()
     {
-        _stats = GetComponent<PlayerStats>();
-        _skills = GetComponent<SkillXpTracker>();
-        foreach (var id in UnlockedClassIds) _unlocked.Add(id);
         if (Classes.Count == 0)
             Classes = BuildDefaultClasses();
-        if (string.IsNullOrEmpty(ActiveClassId))
+        if (string.IsNullOrEmpty(ActiveClassId) || !IsKnown(ActiveClassId))
             ActiveClassId = "wanderer";
+        // Single-choice model: collapse any legacy multi-class roster to the one active class.
+        if (!IsUnlocked(ActiveClassId))
+            SetActiveClass(ActiveClassId);
     }
 
     private void Start()
     {
-        // A save restore is authoritative — don't re-derive unlocks from current stats
-        // (they may not match what the player earned at save time).
+        // A save restore is authoritative — the restored class is already chosen.
         if (!_restoredFromSave)
-            EvaluateAll();
-        if (!IsUnlocked(ActiveClassId))
-            SetActiveClass("wanderer");
+            EnsureChosenClass();
         // Ensure the passive manager is present so active-class modifiers are live
         // (mirrors RaceChangeManager auto-adding RacePassiveManager).
         if (GetComponent<ClassPassiveManager>() == null)
@@ -54,62 +51,48 @@ public class ClassUnlocker : MonoBehaviour
     }
 
     /// <summary>
-    /// Populate the unlocked roster + active class from a save (used by <see cref="SaveManager"/>
-    /// on load). The saved list is authoritative; the Wanderer baseline is always kept available.
-    /// Fires <see cref="OnActiveClassChanged"/> when the restored active differs from the current so
-    /// <see cref="ClassPassiveManager"/> re-aggregates the modifier set.
+    /// Restore the single chosen class from a save (used by <see cref="SaveManager"/> on load).
+    /// Any legacy multi-class roster collapses to the saved active class (Wanderer baseline if
+    /// unknown). Fires <see cref="OnActiveClassChanged"/> when the restored active differs from the
+    /// current so <see cref="ClassPassiveManager"/> re-aggregates the modifier set.
     /// </summary>
     public void RestoreUnlocks(IEnumerable<string> unlockedIds, string savedActiveClassId)
     {
         _restoredFromSave = true;
-        _unlocked.Clear();
-        UnlockedClassIds.Clear();
-        if (unlockedIds != null)
-            foreach (var id in unlockedIds)
-                if (!string.IsNullOrEmpty(id) && _unlocked.Add(id))
-                    UnlockedClassIds.Add(id);
-
-        // Wanderer baseline is always available.
-        var wanderer = Classes != null
-            ? Classes.Find(c => c != null && string.Equals(c.classId, "wanderer", System.StringComparison.OrdinalIgnoreCase))
-            : null;
-        if (wanderer != null && _unlocked.Add(wanderer.classId))
-            UnlockedClassIds.Add(wanderer.classId);
-
-        string target = savedActiveClassId;
-        if (string.IsNullOrEmpty(target) || !IsUnlocked(target))
-            target = "wanderer";
+        string target = GetKnownOrDefault(savedActiveClassId);
         if (!string.Equals(ActiveClassId, target, System.StringComparison.OrdinalIgnoreCase))
         {
             ActiveClassId = target;
             OnActiveClassChanged?.Invoke(ActiveClass);
         }
+        if (!IsUnlocked(target))
+            SetActiveClass(target);
     }
 
-    /// <summary>Re-evaluate all classes; unlocks any newly satisfied (Wanderer baseline is always free).</summary>
+    /// <summary>
+    /// Single-choice model: there is no auto-unlock roster. This call only guarantees a valid
+    /// chosen class exists (Wanderer baseline) so UI/combat code can rely on <see cref="ActiveClass"/>
+    /// being non-null.
+    /// </summary>
     public void EvaluateAll()
     {
-        if (Classes == null) return;
-        foreach (var c in Classes)
-        {
-            if (c == null) continue;
-            if (string.Equals(c.classId, "wanderer", System.StringComparison.OrdinalIgnoreCase))
-                UnlockIfAbsent(c);
-            else if (MeetsRequirements(c))
-                UnlockIfAbsent(c);
-        }
+        EnsureChosenClass();
     }
 
-    private void UnlockIfAbsent(ClassData c)
+    private void EnsureChosenClass()
     {
-        if (_unlocked.Add(c.classId))
-        {
-            UnlockedClassIds.Add(c.classId);
-            OnClassUnlocked?.Invoke(c);
-        }
+        if (!IsKnown(ActiveClassId)) ActiveClassId = "wanderer";
+        if (!IsUnlocked(ActiveClassId))
+            SetActiveClass(ActiveClassId);
     }
 
-    public bool IsUnlocked(string classId) => _unlocked.Contains(classId);
+    /// <summary>True only for the single currently-chosen class.</summary>
+    public bool IsUnlocked(string classId)
+    {
+        if (string.IsNullOrEmpty(classId)) return false;
+        return UnlockedClassIds != null && UnlockedClassIds.Count == 1
+            && string.Equals(UnlockedClassIds[0], classId, System.StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>The currently-read <see cref="ClassData"/> for <see cref="ActiveClassId"/>.</summary>
     public ClassData ActiveClass
@@ -124,64 +107,44 @@ public class ClassUnlocker : MonoBehaviour
         }
     }
 
+    public ClassData FindClass(string classId)
+    {
+        if (string.IsNullOrEmpty(classId) || Classes == null) return null;
+        foreach (var c in Classes)
+            if (c != null && string.Equals(c.classId, classId, System.StringComparison.OrdinalIgnoreCase))
+                return c;
+        return null;
+    }
+
     /// <summary>
-    /// Change the active class. Any known class can be selected freely (class switching is not
-    /// gated by unlock state). Returns false only when the id is unknown.
+    /// Choose the active class. Selecting any known class REPLACES the current choice — the unlock
+    /// set always contains exactly one id. Returns false only when the id is unknown.
     /// </summary>
     public bool SetActiveClass(string classId)
     {
-        if (string.IsNullOrEmpty(classId)) return false;
-        var target = Classes != null
-            ? Classes.Find(c => c != null && string.Equals(c.classId, classId, System.StringComparison.OrdinalIgnoreCase))
-            : null;
+        var target = FindClass(classId);
         if (target == null) return false;
 
+        bool firstSelection = !IsUnlocked(target.classId);
         if (!string.Equals(ActiveClassId, target.classId, System.StringComparison.OrdinalIgnoreCase))
         {
             ActiveClassId = target.classId;
             OnActiveClassChanged?.Invoke(target);
         }
+        UnlockedClassIds.Clear();
+        UnlockedClassIds.Add(target.classId);
+        if (firstSelection)
+            OnClassUnlocked?.Invoke(target);
         return true;
     }
 
-    private bool MeetsRequirements(ClassData c)
-    {
-        if (c.StatRequirements != null)
-        {
-            foreach (var req in c.StatRequirements)
-            {
-                float current = _stats != null ? _stats.GetTotal(req.Stat) : 0f;
-                if (current < req.Minimum) return false;
-            }
-        }
-        if (c.CombinedRequirements != null)
-        {
-            foreach (var req in c.CombinedRequirements)
-            {
-                float sum = _stats != null
-                    ? _stats.GetTotal(req.First) + _stats.GetTotal(req.Second)
-                    : 0f;
-                if (sum < req.MinimumTotal) return false;
-            }
-        }
-        if (c.MinAnyTwoStats > 0f)
-        {
-            int met = 0;
-            for (int i = 0; i < (int)StatType.Luck + 1 && _stats != null; i++)
-                if (_stats.GetTotal((StatType)i) >= c.MinAnyTwoStats) met++;
-            if (met < 2) return false;
-        }
-        if (c.SkillRequirements != null && _skills != null)
-        {
-            foreach (var req in c.SkillRequirements)
-                if (_skills.GetLevel(req.Skill) < req.Level) return false;
-        }
-        return true;
-    }
+    private bool IsKnown(string classId) => FindClass(classId) != null;
+
+    private string GetKnownOrDefault(string classId) => IsKnown(classId) ? classId : "wanderer";
 
     /// <summary>
     /// Programmatic 17-class roster (§3.2). Wanderer is the free baseline; the other 16 are
-    /// stat / skill-threshold based and non-exclusive.
+    /// stat / skill-threshold based. Exactly one class is chosen at a time (exclusive model).
     /// </summary>
     public static List<ClassData> BuildDefaultClasses()
     {

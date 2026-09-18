@@ -240,12 +240,19 @@ The game uses a **classless unlock system**. Players start as a **Wanderer** (ba
 | 16 | **Taoist** | Wisdom + Intelligence >= 35 | Qi manipulation: enhanced spell cooldowns & stamina regen; demon damage bonus |
 | 17 | **Monk** | Faith + Endurance >= 35 | Inner peace: meditation heals HP; reduced stagger, +defense while unarmed |
 
-Classes are **not exclusive** — if stats allow, a player can unlock multiple classes and mix abilities.
+Classes are **exclusive — exactly ONE class is chosen at a time.** The player holds a single
+`UnlockedClassIds` entry (the chosen class); switching via the Class tab *replaces* the choice
+(no accumulating roster, no "unlock all eligible classes" pass). Any class with a highlighted
+"(current)" state; the others are every-known-class options that swap the choice on confirm.
+The rule *"player can only have 1 class, 1 race at a time"* is enforced in `ClassUnlocker`
+(single-choice `UnlockedClassIds`, `SetActiveClass` replaces, `EvaluateAll` only guarantees a
+valid baseline — Wanderer) and UI (`CharacterInfoUI.BuildClassOptions` marks the sole current).
 
-**Switching is free (current build):** changing the active class is **not gated by unlock state** — any
-class in the roster can be selected at any time; the class-change dialog highlights the current class
-("(current)") and no longer shows requirement summaries or locks. Unlocks remain as roster/persistence
-bookkeeping only. Race changes are likewise free (no Ritual Stone, target race auto-unlocks) — see §3.5.
+**Switching (current build):** changing the active class is **not gated by unlock state** — any
+known class may be chosen at any time and simply *becomes* the single unlocked class; the class
+dialog no longer shows requirement summaries or locks. Race changes are likewise single-choice —
+only Human or an actually-discovered race is selectable and a non-Human change costs a Ritual
+Stone (no auto-unlock) — see §3.5.
 
 #### 3.2.1 Class Skill Trees
 
@@ -265,8 +272,10 @@ Trees are built in code (`ClassSkillCatalog`) mirroring the main skill catalog; 
   `ParryWindowMul`, `ConsumablePotencyMul`, `DefenseMeleeMul`, `EquipLoadBonus`, `RangedHandlingMul`,
   `AuraStrength`, `BlockingMul` (÷ block stamina drain), `StaggerResistMul` (÷ knockback),
   `CraftSuccessMul`, `RepairMul`, `StaminaRegenMul`, `HpRegenPerSecond`.
-- **Persistence:** unlocked class ids + the active class are saved/loaded (`SaveData.unlockedClassIds`,
-  `activeClassId`); restore is authoritative and skips re-deriving unlocks.
+- **Persistence:** the single chosen class id + the active class are saved/loaded
+  (`SaveData.unlockedClassIds`, `activeClassId`); on restore any legacy multi-class roster
+  collapses to the saved active class (Wanderer baseline if unknown), so old saves migrate
+  gracefully and never re-gain the old "unlock everything" pass.
 - **UI:** the Skills panel has a **General / Class / Race** sub-toggle. General shows the full 6-category tree;
   Class shows the active class's radial tree (hub + paths) with an auto-grant detail pane. (Talents live
   on the Character Info panel — see §3.9.)
@@ -433,7 +442,7 @@ Example — a race with **Health +20%**: at base Health 30 → total 36 → MaxH
 
 ### 3.5 Race System (22 Races)
 
-Players pick a race at **character creation** (weighted-random roll that auto-commits, or manual pick). Races are also **discoverable in the world** at altar/ritual sites, which unlock them and allow a **mid-play race change** (costs a rare Ritual Stone; Human is always free to swap to).
+Players pick a race at **character creation** (weighted-random roll that auto-commits, or manual pick) — that single race is the player's chosen race. Races are also **discoverable in the world** at altar/ritual sites, which mark them as selectable. The race system is **exclusive — exactly ONE race is active at a time** (§"player can only have 1 class, 1 race at a time"). A **mid-play change** is possible to Human (always free) or an actually-discovered race, and a non-Human change **costs a rare Ritual Stone** (the Change Race tab lists only Human + discovered races and never auto-unlocks; the test ground grants no full-roster unlock and no starter stones).
 
 #### How Races Modify Stats
 
