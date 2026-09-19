@@ -16,6 +16,59 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
+## 1cx — The "whole terrain moves" bug was NEVER the deformer: knockback teleports the shared Terrain root (FIXED in `1cx`)
+
+Player (Earth Wall report, verbatim): "when using earth wall it cause the same error, investigate the
+root cause of this". Clarified symptom: "when im using skill, the scene camera litteraly see the
+entire terrain move". This forced a rethink — the 1cv/1cw deform-width theory did NOT fit.
+
+### Hypotheses & evidence
+- **H1 - the deformer width was still leaking (1cv/1cw follow-up).** REJECTED as THE cause. Three
+  facts broke the width theory: (a) the width is now capped for every shape (SpellCaster.cs:999-1001),
+  (b) the very FIRST report was **Asteroid** (`magic_fireball_meteor_astroid`, SkillCatalog.Magic.cs:
+  277), which carries **no `terrainShape:` arg** so `TerrainDeformer.Apply` no-ops — it cannot have
+  moved terrain, yet the user saw it move, and (c) 1cv/1cw shipped and the user still saw the bug with
+  Earth Wall. The width fixes corrected a genuine independent bug (charged shapes repaint a huge dish)
+  but were a red herring for THIS symptom.
+- **H2 - the camera does the moving (shake/FOV/dolly).** INVESTIGATED, REJECTED. `ScreenShake`
+  (MaxAmplitude 0.15, child "CameraShakeRig" targeting), `CombatFeedback` (0.5 shake, HitStop),
+  `ThirdPersonCamera`/`CameraModeSwitch`/`CameraFollow` (smooth damp footsteps, no cast-time snap).
+  None can translate the whole visible world by meters. The shake note even documents that follow
+  cameras overwrite the root — so shake is a tiny child-rig jitter, not terrain motion.
+- **H3 - the CHAR cast pushes the player (depenetration from re-cooked chunk colliders / overlap).
+  PARTIAL. `PlayerController.EnforcePhysicsSanity` only reverts launches ≥150 m, so a moderate
+  physics depenetration could yank the player (and therefore the pivoted camera). BUT the symptom
+  ALSO showed for Asteroid with zero chunk recook, and the camera pivot rides the player — a player
+  launch alone doesn't make "the scene camera see the terrain move". Kept as an open edge case, not
+  the driver.
+- **H4 - ApplyKnockback teleports the shared Terrain root [THE WINNER].** CONFIRMED. `ResolveZone`
+  (SpellCaster.cs:1017) queries `Physics.OverlapSphereNonAlloc(center, radius, _overlapBuffer)` with
+  the default mask and calls `ApplyHit` on each collider. `ApplyHit` feeds `ApplyKnockback`
+  (SpellCaster.cs:1205-1213): `Transform root = target.transform.root; root.position += dir.normalized
+  * spell.Knockback`. Every streamed terrain chunk is parented under ONE `"Terrain"` root
+  (`Terrain` → `Chunks` → `TerrainChunk_x_z`, WorldStreamer.cs:447-471), so ALL chunks share that root.
+  A zone spell overlapping chunk MeshColliders moves the entire world's root by `Knockback` per chunk
+  caught (charge-scaled radius → several chunks → big one-frame lurch) — the exact "entire terrain
+  moved" read from a player-pivoted camera. Explains Every report: Asteroid (knockback 3, no deform),
+  Earth Wall (knockback 3.5), Meteor (knockback 4). Real victims are `IDamageable` (EnemyController /
+  BossController / SummonedAlly); terrain/props are not.
+- **H5 - the fix could live in ApplyKnockback (guard root).** Option DESIGNED, merged into H4 fix:
+  guard earlier in `ApplyHit` so ALL spell damage machinery (DamageNumber, status, knockback) skips
+  non-`IDamageable` targets — a single point covering ResolveZone, `ResolveDirect`, and every
+  `ResolveHitAt` caller. The other delivery components already pre-filter (`SpellZone`/`SpellStorm`/
+  `SpellTornado`/`SpellBeam` loop-check `IDamageable`; `SpellEffect` uses `HitLayers`), so nothing
+  legitimate is blocked — grep confirmed.
+
+### Verdict
+CONFIRMED (H4 + H1-rejected). Fix (`SpellCaster.cs:1076-1081`): at the top of `ApplyHit`, return an
+empty `DamageResult` unless `target` or `target.transform.root` implements `IDamageable`. Overcharge
+size/radius mechanic untouched (player wants no caps). Same-pass: PROGRESS.md `1cx`. Verified by
+grep+reread only (rule 3); Unity play-test should confirm Asteroid/Earth Wall/Meteor no longer lurch
+the world while enemies still take knockback. Legacy 1cv/1cw marks this trail's earlier theory as
+rejected (regarding THIS symptom) — that history stays in the `1cv`/`1cw` sections.
+
+---
+
 ## 1cv  - Crater dishes stay a LOCAL bowl: width bounded, depth UNBOUNDED (SHIPPED in `1cv`)
 
 Player (play-test): "when i use asteroid skill the entire chunk moving for some reason, or could be

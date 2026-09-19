@@ -3,6 +3,37 @@
 Last updated: 2026-09-19. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1cx. TRUE root cause of "cast an AoE → the entire terrain moves": knockback teleports the shared "Terrain" root
+
+The 1cv/1cw width fixes were real but **not** the reported bug. Earth Wall still "moved the terrain",
+and the original report was **Asteroid** — which has **no `terrainShape`** (SkillCatalog.Magic.cs:277),
+so `TerrainDeformer` never runs for it. The actual mechanism, now CONFIRMED:
+
+`SpellCaster.ResolveZone` does `Physics.OverlapSphereNonAlloc(center, radius, _overlapBuffer)` with the
+**default layer mask** (SpellCaster.cs:1017) and calls `ApplyHit` on every collider it catches
+(line 1042) — no `IDamageable`/layer guard, unlike `SpellZone`/`SpellStorm`/`SpellTornado`/
+`SpellBeam`/`HitboxSystem`, which all filter. `ApplyHit` → `ApplyKnockback` (SpellCaster.cs:1205-1213)
+does `root.position += dir.normalized * spell.Knockback` where `root = target.transform.root` — and
+**every streamed terrain chunk is a child of the single shared `"Terrain"` root**
+(WorldStreamer.cs:447-451). So one zone cast shoves the WHOLE world's root by `Knockback` **per
+overlapping chunk collider** (charge-scaled radius catches several chunks → a large one-frame lurch),
+seen from the player-pivoted camera as "the entire terrain moved". Enemies (`EnemyController`,
+`BossController`, `SummonedAlly`) are the only `IDamageable`s, so real victims are unaffected.
+
+Fix (single point): a guard at the top of `SpellCaster.ApplyHit` (SpellCaster.cs:1076-1081) bails out
+with an empty `DamageResult` unless the target **or its transform.root** implements `IDamageable`.
+This covers ResolveZone, `ResolveDirect` raycasts, and every `ResolveHitAt` caller (Beam/Storm/
+Tornado/Zone/Effect — which already pre-filter, so the guard is defense-in-depth). It also stops
+`DamageNumber`/status/knockback spam on terrain and props. Overcharge width/radius mechanic untouched
+(deliberately — user wants no caps).
+
+- **Verification**: no CLI/Unity build (rule 3) — grep (`ApplyHit`/`ResolveHitAt` call sites:
+  SpellCaster.cs:451/1042/1131, SpellBeam.cs:181, SpellStorm.cs:153, SpellEffect.cs:243/246/334,
+  SpellTornado.cs:95, SpellZone.cs:91; `IDamageable` implementers = EnemyController/BossController/
+  SummonedAlly) + reread only. Unity play-test: cast **Asteroid, Earth Wall, Meteor** (charged and
+  tap) and confirm the scene camera no longer sees the terrain lurch; enemies still take damage and
+  get knocked back.
+
 ## 1cw. AoE *still* reshaped the whole chunk — raised shapes + projectiles fed the charge-scaled blast radius
 
 After the 1cv fix, the crater (Meteor) carves only its local bowl, but the user reported the same

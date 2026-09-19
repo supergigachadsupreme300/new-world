@@ -1067,6 +1067,19 @@ public class SpellCaster : MonoBehaviour
             return new DamageResult { TotalDamage = healed, HitTargets = true };
         }
 
+        // Non-damageable colliders (terrain chunk MeshColliders, props, FX) must never be treated
+        // as spell targets: every streamed terrain chunk shares the "Terrain" root, and the old
+        // path ran ApplyKnockback on ANY collider caught by the default-mask overlap sphere, so a
+        // single zone cast teleported the whole world's root by Knockback per overlapping chunk
+        // (1cx). Only real combatants (EnemyController / BossController / SummonedAlly) act as
+        // victims — same predicate the other delivery paths (Zone/Storm/Tornado/Beam) already use.
+        if (!target.TryGetComponent<IDamageable>(out _))
+        {
+            Transform root = target.transform.root;
+            if (root == null || !root.TryGetComponent<IDamageable>(out _))
+                return new DamageResult();
+        }
+
         var ctx = new DamageCalculator.HitContext
         {
             AttackPower = power,
