@@ -1331,8 +1331,8 @@ public class PlayerController : MonoBehaviour, IHealable
                 ToolManager.Instance?.SelectSlot(_cachedFightSlot);
             _cachedFightSlot = -1;
             ShowPrompt(Localization.T("Casual mode."));
-            // Sheathe the equipped weapon onto the body (waist/back) in third person; in first
-            // person WeaponsDrawn keeps it in the hand so the player always sees what they hold.
+            // Sheathe the equipped weapon onto the body (waist/back) — casual mode never holds a
+            // fighting pose, in any camera view.
             ReApplyWeaponPose(instant: false);
         }
         else
@@ -1855,14 +1855,17 @@ public class PlayerController : MonoBehaviour, IHealable
 
     /// <summary>
     /// Whether the equipped weapons should be visually drawn in the hands (vs. stowed on the body).
-    /// Weapons are always drawn while fighting, and stay drawn in first person so the player always
-    /// sees what they hold; only third-person casual mode sheathes them onto the back/waist.
+    /// Weapons only draw while fighting — casual mode always sheathes them onto the back/waist,
+    /// regardless of camera view (first person included). Reverted from the 1cr rule ("keep drawn
+    /// in first person") per play-test feedback: a weapon at port arms is a fighting pose and does
+    /// not belong in normal mode.
     /// </summary>
-    public bool WeaponsDrawn => FightingMode || (_cameraMode != null && _cameraMode.IsFirstPerson);
+    public bool WeaponsDrawn => FightingMode;
 
     /// <summary>
     /// Re-apply the current draw/stow pose for all equipped weapons based on
-    /// <see cref="WeaponsDrawn"/> (combat mode or camera mode changed). No-op until the combat
+    /// <see cref="WeaponsDrawn"/> (combat mode changed; camera switches are harmless no-ops now
+    /// that casual always sheathes). No-op until the combat
     /// stack/hands exist so a camera toggle during Awake is safe.
     /// </summary>
     public void ReApplyWeaponPose(bool instant = true)
@@ -1915,7 +1918,7 @@ public class PlayerController : MonoBehaviour, IHealable
         // The rebuilt model may have appeared after an early equip parked the weapon rig on the
         // player root (hidden inside the torso); re-seat it onto the fresh hand bones.
         WeaponRigBuilder.ReparentToHands(gameObject);
-        // Re-apply the current weapon pose (drawn in combat or first person, stowed otherwise) now
+        // Re-apply the current weapon pose (drawn only while fighting, stowed in casual mode) now
         // that the model's hand + body anchors exist again. Snap immediately — a fresh model has no
         // in-flight draw/stow transition to continue.
         ReApplyWeaponPose(instant: true);

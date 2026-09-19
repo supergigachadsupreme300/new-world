@@ -15,6 +15,75 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1ct — Play-test fixes: pink terrain (1cs shader) + casual fighting pose (1cr revert) (SHIPPED in `1ct`)
+
+### VERDICT
+Two play-test bugs, two root causes, both confirmed by source review (no build, rule 3):
+
+1. **Pink terrain** = `TerrainLayered.shader` got **rejected entirely**: its ForwardLit vertex called
+   `GetVertexNormalInputs(input.normalOS, input.normalOS)` — URP 17.5 has no `(float3, float3)`
+   overload, only `(float3)` and `(float3, float4 tangentOS)` (`ShaderVariablesFunctions.hlsl:22,31`)
+   → HLSL compile error → subshader fails → Unity SRP shows magenta (the shader's URP-Lit `FallBack`
+   is **not** used under URP). Trees/rocks looked fine because they keep their own working URP Lit
+   materials — only the ground material was broken. Fix: single-arg `GetVertexNormalInputs(input.normalOS)`.
+2. **Fighting pose in normal mode** = `1cr`'s `WeaponsDrawn => FightingMode || firstPerson`
+   (`PlayerController.cs:1861`) kept the weapon drawn at port arms in every first-person frame,
+   casual included. Fix (confirmed with user: "draw only while fighting"): `WeaponsDrawn => FightingMode`.
+
+### Hypotheses & evidence
+- **H1 — pink terrain is a shader *name/path* problem (e.g. material lost the shader on reload).**
+  REJECTED. `GameBootstrap` assigns the layered shader to the ground material by name at boot; a
+  missing/dropped shader reference would pink EVERYTHING on the ground renderer, which it did — but
+  the giveaway was that trees/rocks (plain URP Lit) were unaffected, so the ground's **own material**
+  was at fault, i.e. its shader failing to compile (not a shared/global shader that all materials
+  reference). Compile failure under SRP => magenta.
+- **H2 — the pink is a missing *keyword* (fog / shadows) tricking URP into an error branch.**
+  REJECTED after reading `Core.hlsl`/`Lighting.hlsl` include chain: keywords select variants, they
+  don't produce magenta. Magenta requires the shader itself to be uncompiled/rejected.
+- **H3 — the exact HLSL error is the `GetVertexNormalInputs(f3,f3)` call.** CONFIRMED (compile error
+  in the strict sense — no such overload). Audited every other API call against the 17.5 package:
+  `UniversalFragmentPBR(InputData, SurfaceData)` exists exactly at `Lighting.hlsl:302` with matching
+  field names; `TransformWorldToShadowCoord` lives in `Shadows.hlsl:356` (reachable via
+  `Lighting→RealtimeLights→Shadows` and `Lighting→GlobalIllumination→SphericalHarmonics→Shadows`);
+  `MixFog`/`ComputeFogFactor`/`GetVertexPositionInputs` fine; ShadowCaster's `_LightDirection`,
+  `_LightPosition`, `ApplyShadowBias`, `_CASTING_PUNCTUAL_LIGHT_SHADOW`, `UNITY_REVERSED_Z` all match
+  the URP 17.5 `ShadowCasterPass.hlsl`. Only the overload was wrong. The tangent overload needed a
+  `float4` tangent — the terrain has no tangent stream and no normal map, so the single-`float3`
+  overload is exactly right.
+  - Side-check: shader references `half4 _Color; float _UseVertexColor;` at file scope without a
+    `CBUFFER UnityPerMaterial` — legal (plain uniforms), just not SRP-batcher friendly; not the bug.
+- **H4 — the fighting pose is a `/pose` console command or an animation state leak.**
+  REJECTED. Grep found no pose command; the pose is entirely driven by `WeaponsDrawn` →
+  `ReApplyWeaponPose` → `WeaponRigBuilder.ApplyPose(gameObject, draw)`. `ApplyPose` (`WeaponRigBuilder.cs:363`)
+  is binary draw/stow (`WeaponStowAnimator.Snap/SetPose`) — there is NO neutral-carry pose, so the
+  only ways to kill a port-arm look in casual are (a) stow (what the user chose) or (b) build a whole
+  new "carry" pose API (rejected: not what the user asked for).
+- **H5 — boot/test-ground drew the weapon regardless of `WeaponsDrawn`.**
+  PARTLY TRUE: `NewWorldTestGround.SpawnAllWeapons` called `pc.ReApplyWeaponPose(instant: true)` at
+  spawn with a comment claiming first-person visibility — under the 1cr rule that DREW the weapon at
+  boot. With the revert, the same call now STOWS at boot (single code path) and the stale comment was
+  rewritten. No extra toggle exists.
+- **H6 — `WeaponsDrawn` revert is safe for all *hand-visibility* consumers.** CONFIRMED by grep:
+  `CharacterInfoUI` (2613, 3612) only uses it to pose the preview after equip/cycle (stowed while
+  casual is correct); `CameraModeSwitch.SetMode`'s `ReApplyWeaponPose` becomes a harmless no-op when
+  casual; `LoadPlayerModel` re-rig + respawn re-pose flow through the same property. The arms/hands
+  themselves stay visible in first person (that's `CameraModeSwitch` layer logic, untouched) — the
+  player still sees their hands, just not a raised weapon.
+
+### Dead ends & gotchas
+- **FallBack is a red herring for SRP:** `FallBack "Universal Render Pipeline/Lit"` in the subshader
+  is ignored under URP — don't rely on it to save a broken pass. The only fix path is a valid
+  subshader.
+- **`VertexNormalInputs` vs `TransformObjectToWorldNormal`:** I considered dropping the struct and
+  just normalizing `TransformObjectToWorldNormal(input.normalOS)` — equivalent for a no-tangent
+  surface, but the struct form is the URP-idiomatic one and shares the code path the working */
+  /* URP-content objects use, so I kept `GetVertexNormalInputs(f3)`.
+- **Doc drift:** `PROGRESS`'s `1cr` entry and `THINKING`'s 1cr verdict describe keep-drawn-in-first-
+  person as shipped behavior — 1ct explicitly **reverses** that decision per play-test feedback;
+  `game-design.md` §3.6 and §5.5 were rewritten in the same pass so no doc still claims the old rule.
+
+---
+
 ## 1cs — Infinite digging depth + terrain strata (grass → dirt → stone) (SHIPPED in `1cs`)
 
 ### VERDICT

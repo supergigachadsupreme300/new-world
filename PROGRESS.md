@@ -1,7 +1,11 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-19. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cs` (digging
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1ct` (play-test
+fixes for 1cs/1cr: the layered-terrain shader's two-`float3` `GetVertexNormalInputs` call was an
+URP 17.5 compile error → magenta "pink" terrain (now single-arg), and the weapon **draws only
+while fighting again** — casual mode always sheathes, in any view — reverting 1cr's keep-drawn-in-
+first-person rule which read as a fighting pose in normal mode), `1cs` (digging
 now goes **infinitely deep and shows real strata**: craters/shovel/pickaxe excavate via one shared
 `CraterStep` ratchet with no depth cap, and the terrain is vertex-colored at build time into
 grass → dirt → stone bands revealed by depth — shovel stops at stone, pickaxe breaks it; opt-in
@@ -125,6 +129,50 @@ only — raised shapes keep their `Max`-cap idempotency.
   lighting still render on the carved terrain.
 - Follow-ups noted: `SpawnDigPuff` shards are unparented (harmless, self-destruct ~1 s); if the
   per-swing puff proves noisy in play-test, gate it behind the tool sound or drop to 2 shards.
+
+---
+
+## 1ct. Play-test fixes: pink terrain shader (1cs) + weapon drawing in casual mode (1cr revert)
+
+Two play-test fixes after 1cs shipped — one for each reported bug.
+
+### Changes (pink terrain)
+- Root cause: the new `TerrainLayered.shader` ForwardLit vertex called
+  `GetVertexNormalInputs(input.normalOS, input.normalOS)`. URP 17.5 only defines the overloads
+  `GetVertexNormalInputs(float3)` and `GetVertexNormalInputs(float3, float4 tangentOS)`
+  (`ShaderLibrary/ShaderVariablesFunctions.hlsl:22,31`), so the two-`float3` call is an HLSL
+  compile error → the whole subshader is rejected → SRP renders the material **magenta** (FallBack
+  is not used under URP) → "pink terrain" while trees/rocks (their own working URP Lit materials)
+  looked fine. Every other API the shader uses was verified against the 17.5 package cache
+  (`UniversalFragmentPBR(InputData, SurfaceData)` at `Lighting.hlsl:302`, `TransformWorldToShadowCoord`
+  via `RealtimeLights→Shadows`, shadow-caster `_LightDirection`/`_LightPosition`/`ApplyShadowBias`,
+  `MixFog`/`ComputeFogFactor`) — the overload was the only error.
+- Fix: `Assets/Shaders/TerrainLayered.shader` — `GetVertexNormalInputs(input.normalOS)` (single-arg;
+  no tangent needed since the terrain has no normal mapping). The test platform top uses the
+  streamer's `GroundMaterial`, so it un-pinks automatically.
+
+### Changes (weapon pose revert, per user choice "draw only while fighting")
+- Root cause: `1cr` set `PlayerController.WeaponsDrawn => FightingMode || firstPerson`, so the
+  default first-person view always showed the equipped weapon at port arms — a "fighting pose" even
+  in normal/casual mode, incl. at boot via the test-ground's `SpawnAllWeapons` → `ReApplyWeaponPose`.
+- Fix: `PlayerController.cs` — `WeaponsDrawn => FightingMode` (+ doc/comments on the property, the
+  casual-mode toggle, `ReApplyWeaponPose`, and `LoadPlayerModel` re-rig). All downstream paths flow
+  through that single property: casual toggle sheath, `CameraModeSwitch.SetMode` re-pose (now a
+  harmless no-op in casual), `CharacterInfoUI` equip/cycle previews, respawn/model-rebuild re-poses.
+  `NewWorldTestGround.SpawnAllWeapons` now sheathes the starter weapon at boot.
+- Docs: `game-design.md` §3.6 draw-vs-stow bullet + §5.5 Hand States draw/stow → fight-only rule
+  with the 1cr exemption removed (noted as reverted in 1ct); `PROGRESS.md` this entry;
+  `THINKING.md` `## 1ct`.
+
+### 1ct-status
+- Source-compile verified by review (rule 3; no CLI/Unity build — user play-tests): shader overload
+  fixed and the rest of `TerrainLayered.shader` re-read against URP 17.5 APIs; greped every
+  `GetVertexNormalInputs` (no other misuse exists), `WeaponsDrawn`/`ReApplyWeaponPose` refs flow
+  through the single property, no stale "drawn in first person" comments/docs remain.
+- Play-test checklist: (1) terrain renders green/tan lit (not magenta) and the platform top matches;
+  shadows + fog still work; (2) spawn in first person casual → weapon is sheathed (no port-arm pose);
+  fight → draws on the hand; F5 third person → still sheathed in casual; equip/cycle a weapon from
+  Character Info → stowed while casual.
 
 ---
 

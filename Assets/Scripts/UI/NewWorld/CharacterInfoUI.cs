@@ -2607,8 +2607,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
 
         var rig = WeaponRigBuilder.EquipInto(player.gameObject, weapon, slot == EquipSlot.LeftHand);
         if (rig == null) return;
-        // Match the new weapon's visual pose to the current state (drawn if fighting or first
-        // person, stowed on the body if casually in third person).
+        // Match the new weapon's visual pose to the current state (drawn only while fighting,
+        // stowed on the body in casual mode — any camera view).
         var pc = player.GetComponent<PlayerController>();
         bool drawn = pc != null && pc.WeaponsDrawn;
         WeaponRigBuilder.ApplyPose(player.gameObject, draw: drawn, instant: true);

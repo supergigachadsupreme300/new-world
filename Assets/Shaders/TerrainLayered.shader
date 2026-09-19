@@ -64,7 +64,7 @@ Shader "NewWorld/TerrainLayered"
                 Varyings output = (Varyings)0;
 
                 VertexPositionInputs posInputs = GetVertexPositionInputs(input.positionOS.xyz);
-                VertexNormalInputs normalInputs = GetVertexNormalInputs(input.normalOS, input.normalOS);
+                VertexNormalInputs normalInputs = GetVertexNormalInputs(input.normalOS);
 
                 output.positionCS = posInputs.positionCS;
                 output.positionWS = posInputs.positionWS;

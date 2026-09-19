@@ -641,7 +641,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
             WeaponRigBuilder.EquipInto(player.gameObject, starter);
             var pc = player.GetComponent<PlayerController>();
             if (pc != null)
-                // First person at boot → keep the starter weapon drawn so it's visible on the hand.
+                // Casual at boot → the starter weapon stays stowed on the body; it only draws
+                // while fighting (reverted 1cr rule).
                 pc.ReApplyWeaponPose(instant: true);
             else
                 WeaponRigBuilder.ApplyPose(player.gameObject, draw: false, instant: true);
