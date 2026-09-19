@@ -39,6 +39,7 @@ Shader "NewWorld/TerrainLayered"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 
             half4 _Color;
             float _UseVertexColor;
@@ -57,6 +58,7 @@ Shader "NewWorld/TerrainLayered"
                 float3 normalWS : TEXCOORD1;
                 float4 vertexColor : COLOR;
                 float fogFactor : TEXCOORD2;
+                float4 shadowCoord : TEXCOORD3;
             };
 
             Varyings vert(Attributes input)
@@ -71,6 +73,13 @@ Shader "NewWorld/TerrainLayered"
                 output.normalWS = normalInputs.normalWS;
                 output.vertexColor = lerp(half4(1, 1, 1, 1), input.vertexColor, _UseVertexColor);
                 output.fogFactor = ComputeFogFactor(posInputs.positionCS.z);
+                // Same source of truth as URP Lit: under _MAIN_LIGHT_SHADOWS_SCREEN
+                // GetShadowCoord returns screen coords (for the screen-space shadow texture),
+                // otherwise world->shadow-atlas coords. My earlier attempt always ran
+                // TransformWorldToShadowCoord in the fragment, which the screen-space variant
+                // sampled as garbage -> shadowAttenuation ~ 0 -> no direct sun on the terrain
+                // ("blue by day, black at night").
+                output.shadowCoord = GetShadowCoord(posInputs);
                 return output;
             }
 
@@ -85,7 +94,8 @@ Shader "NewWorld/TerrainLayered"
                 lightingInput.positionWS = input.positionWS;
                 lightingInput.normalWS = normalWS;
                 lightingInput.viewDirectionWS = viewDirWS;
-                lightingInput.shadowCoord = TransformWorldToShadowCoord(input.positionWS);
+                lightingInput.shadowCoord = input.shadowCoord;
+                lightingInput.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
 
                 SurfaceData surf = (SurfaceData)0;
                 surf.albedo = albedo;

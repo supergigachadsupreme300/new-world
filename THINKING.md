@@ -96,6 +96,35 @@ Two play-test bugs, two root causes, both confirmed by source review (no build, 
   right before the fix). Lesson: when a URP pass-support file declares its uniforms in the body of
   that file (not in a `ShaderLibrary/*.hlsl`), a custom shader must duplicate those declarations.
 
+### Follow-up: "blue by day, black at night" = fragment computed the WRONG shadow-coord variant (fixed in 1ct third commit)
+- **Symptom:** shader compiles (both compile bugs gone) but the terrain has NO direct sun light —
+  lit only by sky/ambient, so it reads blue-ish at start and goes black at night (trees/rocks were
+  fine, which was the tell: same scene, same sun, same ambient — so the difference is the MESH, i.e.
+  my shader not the scene lighting).
+- **H1 — no main light in the scene.** REJECTED: trees/rocks (URP Lit) visibly lit by a sun.
+- **H2 — vertex colors never reach the GPU, albedo black, only environment reflection visible**
+  (blue sky sheen by day / black at night). Tested by reading the pipeline: `BuildMeshData` fills
+  per-vertex `colors` (ChunkMeshGenerator.cs:313,350,408-411), the merge keeps them, and
+  `CreateMeshFromMerged` calls `mesh.SetColors(md.Colors)` (line 596-597); `PatchRegion` re-uploads
+  too. Vertex colors ARE uploaded → albedo is grass/dirt/stone, not black. REJECTED.
+- **H3 — `shadowAttenuation` collides to ~0 in the same frame the terrain is drawn → direct term
+  zero → only GI (sky reflection + SH ambient).** CONFIRMED as the mechanism, with the exact wiring
+  error: `UniversalFragmentPBR` (Lighting.hlsl:336) computes `GetMainLight(inputData, shadowMask,
+  aoFactor)`; `MainLightShadow` reads the main light's shadow coord. I populated
+  `inputData.shadowCoord` with `TransformWorldToShadowCoord(positionWS)` in the FRAGMENT. URP Lit
+  instead fills it in the VERTEX via `GetShadowCoord(vertexInput)` (Shadows.hlsl:529-536), which
+  UNDER `_MAIN_LIGHT_SHADOWS_SCREEN` (screen-space shadows; on in this project's URP asset) returns
+  `ComputeScreenPos(positionCS)` — a SCREEN coord — and only otherwise falls back to the atlas
+  transform. Passing atlas coords into the screen-space sampler = sampling a `_ScreenSpaceShadowMapTexture`
+  at garbage UVs → `MainLightRealtimeShadow` ≈ 0 → `shadowAttenuation` ≈ 0 → `LightingPhysicallyBased`
+  ≈ 0 → terrain colors = GI only (blue-sky ambient; black when sky darkens). Trees/rocks use the
+  correct `GetShadowCoord`, so they kept their sun — exactly the observed asymmetry.
+- **Fix:** mirror Lit — `Varyings.shadowCoord`, compute `GetShadowCoord(posInputs)` in `vert`,
+  `lightingInput.shadowCoord = input.shadowCoord` in `frag`, plus `normalizedScreenSpaceUV =
+  GetNormalizedScreenSpaceUV(positionCS)` (ShaderVariablesFunctions.hlsl:594) for correct screen-
+  coord-adjacent GI/reflection inputs. `Shadows.hlsl` explicitly included for forward pass too.
+  **Confirmed-by-verification:** `GetShadowCoord` branches exactly as described at Shadows.hlsl:531-534.
+
 ---
 
 ## 1cs — Infinite digging depth + terrain strata (grass → dirt → stone) (SHIPPED in `1cs`)

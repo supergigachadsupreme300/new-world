@@ -165,6 +165,17 @@ Two play-test fixes after 1cs shipped — one for each reported bug.
   `THINKING.md` `## 1ct`.
 
 ### 1ct-status
+- Follow-up fix (same tag, third commit): after the two compile fixes the shader compiled but the
+  terrain rendered **blue by day, black at night** (direct sun was missing; only sky/ambient lit it).
+  Root cause: my ForwardLit computed `lightingInput.shadowCoord = TransformWorldToShadowCoord(...)`
+  in the **fragment**, but URP's screen-space shadow variant (`_MAIN_LIGHT_SHADOWS_SCREEN`, on in
+  the current URP asset) needs the coord from `GetShadowCoord(vertexInput)` — which returns
+  `ComputeScreenPos(positionCS)` under that keyword (Shadows.hlsl:529-536). Feeding it shadow-atlas
+  coords sampled garbage -> shadowAttenuation ~ 0 -> `UniversalFragmentPBR`'s
+  `GetMainLight(inputData,...)` returned no direct light. URP Lit trees/rocks use `GetShadowCoord`
+  correctly, which is why only the terrain broke. Fix: compute `output.shadowCoord = GetShadowCoord(posInputs)`
+  in the vertex (interpolated to the fragment) exactly like URP Lit, plus
+  `lightingInput.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(positionCS)`.
 - Follow-up fix (same tag, second commit): the ShadowCaster pass reported
   `undeclared identifier '_LightDirection'` at `TerrainLayered.shader(145)` on d3d11. URP 17.5
   declares `float3 _LightDirection; float3 _LightPosition;` inside its own utility file
