@@ -16,6 +16,58 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
+## 1de — "dirt explode or rock debris when creating a dent, depends on the layer" (SHIPPED in `1de`)
+
+User: "when creating dent, make a dirtblock explode as well or rock debris depends on the layer,
+the explosion would much like when stone got destroyed by pickaxe".
+
+### Step 1 — what IS a "dent", and where are they created?
+- "Dent" = the crater excavation (`TerrainShape.Crater`), the ground disturbance shared by the tools
+  (shovel/pickaxe via `TerrainDeformer.Dig`) and Earth magic (zone casts, Storm strikes, the Stone
+  Shard projectile impact). Hypothesized the right hook is `WorldStreamer.DeformAt`, the single
+  funnel every crater goes through.
+- **Confirmed by grep**: every crater call site routes through `TerrainDeformer.Apply` →
+  `WorldStreamer.DeformAt` — `SpellCaster.ResolveZone`, `SpellCaster` charged casts,
+  `SpellStorm.DeformGround`, `SpellEffect.ResolveProjectileImpact`, `ToolManager` shovel/pickaxe
+  `Dig`, and the QA strata lane on `NewWorldTestGround`. One hook covers all of them.
+
+### Step 2 — "depends on the layer": where does the layer color come from?
+- The strata system from `1cs` already paints the pit walls: `ChunkMeshGenerator.TerrainBandColor
+  (seed, x, z, vertexY)` returns grass green ≤ 0.35 m depth, dirt-brown to ~2.3 m, stone-grey ≥ 2.7 m
+  (`StoneBandEnd`). Bonus: `vertexY` can be the floor height at the crater center
+  (`WorldStreamer.CurrentHeightOf`), so the debris exactly matches the stratum the dig just reached.
+- Rejected alternatives (dead ends): (a) hard-coding `DirtBrown` for tools / `StoneGray` for spells —
+  spells and the pickaxe both cross bands, so a fixed tint would lie half the time; (b) spawning from
+  `ToolManager` only — leaves spell dents (the biggest craters) bare. Verdict: single `DeformAt` hook
+  + `TerrainBandColor`.
+
+### Step 3 — the "like stone destroyed by pickaxe" look
+- `WorldBuilder.SpawnRockDebris` (WorldBuilder.RockMining.cs:178): 3–6 cubes sized from volume,
+  `Color.Lerp(gray, black, rand*0.5)`, mass = volume·1000, up-bias velocity (4–8 up), spin. Its
+  pieces persist forever (by design — they're smashable again). For dents that would litter across
+  repeated digs, so the new `DentDebris` copies the physics but `Destroy`s after 2.5 s (the
+  prior-impact-burst timeout).
+- **Hypothesis H6 (from `1cx` re-checked):** do freshly-carved debris chunks fall through the chunk
+  collider while it rebuilds mid-frame? The previous investigation concluded the crater floor is
+  solid walkable terrain and chunks fall freely on it — same reasoning holds; debris spawns at floor
+  + 0.08 m. No special handling.
+- **Double-burst risk (confirmed, fixed):** `SpellEffect` already threw its own grey
+  `SpawnImpactDebris` (3–5 grey cubes) on every Earth projectile impact. With the DeformAt hook that
+  would fire twice at the same point. Decision (user-backed): delete `SpawnImpactDebris`/its call,
+  let DeformAt own ALL crater debris. Grep after removal: the only remaining`SpawnImpactDebris`
+  symbol is `RandomEventManager`'s unrelated `(Vector3, Transform)` method — untouched.
+- `SpawnDigPuff` (the tools' quick 1 s shard poof) deliberately kept — it is the stroke accent, the
+  new debris is the excavation chunk ("explode ... as well").
+
+### Step 4 — edge cases
+- Unloaded terrain: `DeformAt` early-returns when `newHeights.Count == 0`, so no debris without an
+  actual edit. Raised shapes guarded out (`shape == TerrainShape.Crater` check).
+- Massive spell radii: debris count/size fixed small (3–5 cubes, 0.08–0.16) regardless of radius —
+  authored look, no per-cast allocation spike.
+
+---
+
+
 ## 1dd — "enemies explode like in the old game" + "add more enemy" (SHIPPED in `1dd`)
 
 User: "add more enemy and every time the enemy die they explode like in the old game". Clarified via

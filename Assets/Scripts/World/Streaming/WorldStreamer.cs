@@ -838,6 +838,14 @@ public class WorldStreamer : MonoBehaviour
             return;
 
         ApplyHeightEdits(minCX, minCZ, maxCX, maxCZ, newHeights);
+
+        // Excavation kicks up debris that matches the stratum being dug (grass-blend/dirt-brown
+        // near the surface, stone-grey once the pit reaches the stone band) — the same physical
+        // cube-burst look as pickaxe rock destruction (WorldBuilder.SpawnRockDebris), short-lived
+        // so repeated digs and spells don't litter. Only a Crater dent throws debris; the raised
+        // shapes (Wall/Ring/Pillar/Spikes) never do.
+        if (shape == TerrainShape.Crater)
+            SpawnCraterDebris(center);
     }
 
     /// <summary>
@@ -1159,6 +1167,42 @@ public class WorldStreamer : MonoBehaviour
         int cx = Mathf.FloorToInt(worldX);
         int cz = Mathf.FloorToInt(worldZ);
         return TerrainNoiseGenerator.GetHeight(Seed, cx, cz) - CurrentHeightOf(cx, cz);
+    }
+
+    /// <summary>
+    /// A small burst of excavation debris out of a fresh crater dent, tinted by the stratum the
+    /// dig just reached — grass-blend/dirt-brown near the surface, stone-grey once the pit hits
+    /// the stone band (the same <see cref="ChunkMeshGenerator.TerrainBandColor"/> the pit walls
+    /// render). The look mirrors pickaxe rock destruction (<c>WorldBuilder.SpawnRockDebris</c>):
+    /// volume-weighted cubes with an up-biased rigidbody scatter. Short-lived (2.5 s) so repeated
+    /// digs and spells never accumulate litter.
+    /// </summary>
+    private void SpawnCraterDebris(Vector3 center)
+    {
+        int cx = Mathf.FloorToInt(center.x);
+        int cz = Mathf.FloorToInt(center.z);
+        float floorY = CurrentHeightOf(cx, cz);
+        Color band = ChunkMeshGenerator.TerrainBandColor(Seed, cx, cz, floorY);
+        Vector3 spawn = new Vector3(center.x, floorY + 0.08f, center.z);
+
+        int count = Random.Range(3, 6);
+        for (int i = 0; i < count; i++)
+        {
+            float s = Random.Range(0.08f, 0.16f);
+            var chunk = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            chunk.name = "DentDebris";
+            chunk.transform.position = spawn + Random.insideUnitSphere * 0.15f;
+            chunk.transform.rotation = Random.rotation;
+            chunk.transform.localScale = Vector3.one * s;
+            var r = chunk.GetComponent<Renderer>();
+            if (r != null) r.material.color = Color.Lerp(band, Color.black, Random.value * 0.5f);
+            var rb = chunk.AddComponent<Rigidbody>();
+            rb.mass = s * s * s * 1000f;
+            rb.linearVelocity = new Vector3(
+                Random.Range(-2.5f, 2.5f), Random.Range(2.5f, 5f), Random.Range(-2.5f, 2.5f));
+            rb.angularVelocity = Random.insideUnitSphere * 6f;
+            Destroy(chunk, 2.5f);
+        }
     }
 
     private void OnDestroy()

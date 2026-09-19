@@ -3,6 +3,39 @@
 Last updated: 2026-09-19. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1de. Creating a dent throws layer-tinted debris (dirt blocks or rock, like pickaxe stone)
+
+User: "when creating dent, make a dirtblock explode as well or rock debris depends on the layer,
+the explosion would much like when stone got destroyed by pickaxe."
+
+- **Single chokepoint for every dent.** All crater excavation funnels through
+  `WorldStreamer.DeformAt` (`TerrainDeformer.Dig` for the tools, `SpellCaster.ResolveZone`/
+  `SpellEffect.ResolveProjectileImpact`/`SpellStorm` for Earth magic), so the new debris spawns there
+  once: `if (shape == TerrainShape.Crater) SpawnCraterDebris(center)` after the height edits apply.
+  Raised shapes (Wall/Ring/Pillar/Spikes) and no-op digs (unloaded tiles → 0 edits) never throw
+  debris.
+- **Layer = the strata wall color.** `SpawnCraterDebris` samples the floor at the crater center and
+  tints the 3–5 cubes with `ChunkMeshGenerator.TerrainBandColor(seed, x, z, floorY)` — dirt-brown
+  blocks while the dig is in grass/dirt, grey rock once the pit reaches the stone band (≥ ~2.7 m).
+  The physics look mirrors pickaxe rock destruction (`WorldBuilder.SpawnRockDebris`): mass by
+  volume, up-biased velocity, spin; cubes are `Destroy`d after ~2.5 s so repeated digs never litter.
+- **Doubled grey burst removed.** `SpellEffect.SpawnImpactDebris` (the Earth projectile's own grey
+  "fistful of rock" burst) was deleted — DeformAt now throws the layer-tinted debris for projectile
+  dents too, so Earth impacts no longer double up. The tool `SpawnDigPuff` (quick 1 s shard poof)
+  stays as the tool-stroke accent.
+
+### 1de-status
+- Implemented; no CLI/Unity build (rule 3) — verification by grep + reread: `SpawnCraterDebris` +
+  `DentDebris` exist only in `WorldStreamer.cs`, `SpawnImpactDebris`/`SpellImpactDebris` gone from
+  `SpellEffect.cs` (the remaining `RandomEventManager.SpawnImpactDebris` is an unrelated
+  `(pos, parent)` method), `DeformAt`'s crater guard placed after the `newHeights.Count == 0` early
+  return, comments in `SpellEffect` rewritten.
+- Docs updated in one pass: `game-design.md` §3.8 (crater debris bullet + shovel/pickaxe tool rows),
+  `PROGRESS.md` `1de`, `THINKING.md` `1de`.
+- Play-test pending: dig with the shovel (expect dirt-brown blocks), dig past the stone band with the
+  pickaxe (expect grey rock chunks), cast a Crater Earth spell / Stone Shard projectile (layer-tinted
+  debris, no doubled burst), confirm raised shapes throw nothing and debris vanishes after ~2.5 s.
+
 ## 1dd. Enemies explode into voxel debris on death + test platform hosts all 20 enemy types
 
 User: "add more enemy and every time the enemy die they explode like in the old game."

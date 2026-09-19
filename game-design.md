@@ -740,10 +740,14 @@ A spell is a data asset carrying:
   down) → stone (≥ 2.7 m down)**, small blends between bands (1cs). The shovel can only dig the
   soft bands and stops at stone; the pickaxe excavates at any depth. Every crater is a genuine
   smooth dish — corners keep their own slope, the rim feathers out — and it is permanent (1cs).
+  **Excavation ejects debris matching the stratum it just reached (1de):** `WorldStreamer
+  .SpawnCraterDebris` pops 3–5 physical cubes out of the fresh dent — dirt blocks (dirt-brown) while
+  the floor digs through grass/dirt, rock (grey, the same look as pickaxe rock destruction,
+  `WorldBuilder.SpawnRockDebris`) once the pit reaches the stone band — tinted by the same
+  `TerrainBandColor` the pit walls render and destroyed after ~2.5 s so repeated digs never litter.
+  Only a Crater throws debris; the raised shapes never do.
   A Crater-shaped projectile (the root Stone Shard) carves its crater where the rock **strikes** —
-  `SpellEffect.ResolveProjectileImpact` down-probes the ground at impact and deforms it there, and
-  throws up a short burst of rock chunks from the crater mouth (same grey-debris look as the
-  in-flight projectile, destroyed after ~2.5 s), so a
+  `SpellEffect.ResolveProjectileImpact` down-probes the ground at impact and deforms it there — so a
   cast never dents the caster's own feet; the pit is permanent. **Every non-Earth magic projectile
   (fire/ice/arcane/lightning/dark/wind/water) also leaves a small uniform impact dent** (a fixed
   ~1.4 m Crater where the bolt strikes) through the same path, so any bolt visibly disturbs the
@@ -1005,8 +1009,8 @@ Inventory tab). Tools swap a matching **3D model** on equip (`ToolManager.ToolMo
 | **Hoe** | Till soil for planting |
 | **Sickle** | Harvest crops (yields quality bonuses, skill XP, quest progress) |
 | **Axe / Mattock** | Gather materials |
-| **Shovel** | **Excavate terrain (1cs):** each swing digs a small bowl of soft ground (grass/dirt) one `CraterStep` deeper, revealing the strata bands as the hole descends. Stops at the **stone band** at ~2.7 m down — the pickaxe takes over there. Uses the same crater excavation path as Earth magic, so tool pits and spell craters share one shape. |
-| **Pickaxe** | Mine **rock props** (loose boulders/rock debris in the world) AND **excavate terrain at any depth** (1cs), including the stone band the shovel cannot break — the ground-breaking tool once a pit reaches stone. Both cost stamina per successful strike. |
+| **Shovel** | **Excavate terrain (1cs):** each swing digs a small bowl of soft ground (grass/dirt) one `CraterStep` deeper, revealing the strata bands as the hole descends. Stops at the **stone band** at ~2.7 m down — the pickaxe takes over there. Uses the same crater excavation path as Earth magic, so tool pits and spell craters share one shape. Each swing pops a few **dirt-block debris chunks** out of the floor, tinted by the stratum being dug (1de). |
+| **Pickaxe** | Mine **rock props** (loose boulders/rock debris in the world) AND **excavate terrain at any depth** (1cs), including the stone band the shovel cannot break — the ground-breaking tool once a pit reaches stone. Terrain digs eject **stratum-tinted debris** (dirt blocks near the surface, rock once the pit reaches stone). Both cost stamina per successful strike. |
 | **Fishing Rod** | Fish (gift from Jessica) |
 | **Hammer** | Open the build menu (**hold Hammer + F**) |
 | **Club** | Melee demons; knock out thrashing fish on the shore |
