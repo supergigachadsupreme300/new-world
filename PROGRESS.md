@@ -3,6 +3,20 @@
 Last updated: 2026-09-19. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1cv follow-up fix: crater dish width reads `spell.Radius` — `1cv` shipped against a nonexistent field
+
+The `1cv` commit compiled in review but not in Unity: `SpellCaster.ResolveZone`
+(SpellCaster.cs:995-997) referenced `spell.DeliveryRadius`, yet `SpellData` has **no** such field
+(the compile error reported by the user). The catalog's `deliveryRadius:` factory arg maps to
+`spell.Radius` (SkillCatalog.cs:143), so the crater's local-dish width is now
+`spell.Radius > 0 ? spell.Radius * 0.5f : 1.6f` (Meteor radius 4 → ~2 m, matching the doc's
+"~2 m for Earth Meteor"). No behavior change — same dish width as intended, verified by grep
+(no `DeliveryRadius` left in `Assets\Scripts`) + reread. Code comment updated to say "delivery
+Radius (the `deliveryRadius:` catalog arg × 0.5)".
+
+- **Verification**: no CLI/Unity build (rule 3) — grep + reread only. Unity play-test should
+  re-confirm a Meteor/crater cast carves only the small ~2 m local bowl, not the whole chunk.
+
 ## 1cv. Crater dishes stay a LOCAL bowl — width bounded, depth UNBOUNDED (player: "no limit")
 
 Earth **Meteor** (Meteor/asteroid-style) was feeding the full blast splash (`spell.Radius` ×
