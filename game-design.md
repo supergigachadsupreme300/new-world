@@ -720,7 +720,12 @@ A spell is a data asset carrying:
   shapes: original noise height + lift) is sampled **per-corner at each corner's own world coords**,
   so every corner keeps its own natural slope and no tile collapses to a uniform level — crests are
   smooth rounded ridges, never flat plateaus, and a repeat cast can never stack a ridge higher than
-  the intended release (a repeat Wall stays ~2.6 m, never taller).
+  the intended release (a repeat Wall stays ~2.6 m, never taller). In addition to being
+  height-capped, **the WIDTH of every terrain shape is bounded to the spell's authored delivery
+  dish — `spell.Radius` (crater: `spell.Radius * 0.5`, ~2 m for Earth Meteor), never the blast
+  splash and never the (unbounded) hold-to-overcharge `sizeScale`** (1cw). Charge still enlarges the
+  *damage* splash and the zone/ring visuals, but never the ground edit — so a charged Tremor,
+  Spire Field, Earth Wall or Landslide rears only its own ~2.6–6 m dish, not a whole chunk.
   ***Crater rears the terrain's strata as a signature**: unlike the capped raises, an excavation
   is **WIDTH-bounded but DEPTH-unbounded** (1cv). The crater's **width** is always the spell's small
   local delivery dish (`DeliveryRadius * 0.5`, ~2 m for Earth Meteor) — never the full blast splash —

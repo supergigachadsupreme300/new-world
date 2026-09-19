@@ -45,6 +45,43 @@ keeps no floor) + PROGRESS.md `1cv` + THINKING.md. No new QA lane (existing crat
 NewWorldTestGround covers the shape).
 
 ---
+
+## 1cw — AoE *still* reshaped the whole chunk: raised shapes + projectiles fed the charge-scaled blast radius (SHIPPED in `1cw`)
+
+Player (follow-up, verbatim): "still that bug where if player using an aoe skill it would move the
+entire terrain." This arrived right after `1cv` fixed the Meteor crater, so the same whole-chunk
+symptom survived on a DIFFERENT path.
+
+### Hypotheses & evidence
+- **H1 - `1cv` only bounded `Crater`; every RAISED shape still fed `radius = spell.Radius * sizeScale`
+  into the deformer, and `sizeScale` is unbounded (overcharge).** CONFIRMED. In
+  `SpellCaster.ResolveZone` the fix was `deformRadius = shape == Crater ? dish*0.5 : radius`, so
+  Tremor (Ring), Spire Field (Spikes), Earth Wall (Wall), Landslide (Wall), Stone Pillars (Pillar)
+  still passed the charge-scaled blast radius (SpellCaster.cs:997). `SpellChargeLevel` has no upper
+  clamp (PlayerController.cs:1501 returns `(t-0.15)/(1.2-0.15)` unbounded), so a player who holds
+  RMB can drive `sizeScale = 1 + charge*1.2` to 3.4+ before FP drains - a 3 m-delivery raise becomes
+  a ~10 m+ raise spanning a whole chunk. Death-march match: any AoE skill (not just crater).
+- **H2 - the projectile dent also scaled by charge.** CONFIRMED. `SpellEffect.ResolveProjectileImpact`
+  did `dentRadius * _radiusMult` where `_radiusMult = sizeScale`; charged Stone Shard (Earth, Crater
+  dent `max(1.2, Radius)` = 1.2 m) carves `1.2*3.4 ≈ 4 m+`. Same width-leak family.
+- **H3 - Storm/Summon were also leaking.** REJECTED. `SpellStorm.DeformGround` uses
+  `max(Radius*0.55, 1.2)` (no sizeScale) and Summon uses `min(Radius*0.4, 2.5)` — both already
+  dish-capped. Grep confirmed no other `TerrainDeformer.Apply` call sites (ToolManager Dig, test
+  lanes fixed radii).
+
+### Verdict
+CONFIRMED (H1+H2). Fix: **width-capped for EVERY shape**, charge still scales the damage splash
+(`radius`/`zoneRadius` untouched) but never the ground edit.
+- `SpellCaster.cs:999-1001`: `dish = max(Radius>0 ? Radius : 1.6f, 0.5f)`;
+  `deformRadius = Crater ? dish*0.5f : dish`.
+- `SpellEffect.cs:262-270`: dent `max(1.2, Radius)` (Earth) / 1.4 m (others), `_radiusMult` dropped —
+  also restores the doc's "fixed ~1.4 m non-Earth dent" to literal truth.
+Crater depth remains unbounded (player's no-limit rule). Same-pass: game-design.md §3.8 (width bounded
+for every shape incl. raised, `1cw`) + PROGRESS.md `1cw` + THINKING.md. Verify by grep+reread only
+(rule 3); Unity play-test should confirm a **charged** raise/AoE stays a local dish.
+
+---
+
 ## 1cu — Player HUD status strip under the bars (SHIPPED in `1cu`)
 
 User asked: "add a show status function that show player the status effect that they're having under

@@ -984,18 +984,20 @@ public class SpellCaster : MonoBehaviour
         // Earth spells reshape the ground at the impact point before damage resolves (§3.8).
         // `fwd` orients directional shapes (e.g. the Wall ridge) along the cast axis.
         //
-        // WIDTH is bounded, DEPTH is not (1cv). The deform shape's width is its local dish — the
-        // same small bowl a shovel makes — never the full blast splash. Feeding the blast radius
-        // (spell.Radius = 9m, up to ~13+ tiles with charge sizeScale) straight into the deformer
-        // made a single Meteor carve page-every corner of a 30-tile chunk at once, reading as "the
-        // whole chunk / whole terrain moving". Width is therefore capped to a small local dish from
-        // the spell's delivery Radius (spell.Radius, the `deliveryRadius:` catalog arg × 0.5); the
-        // Crater's per-cast DEPTH ratchet (current − s·CraterStep in
-        // WorldStreamer.DeformAt) stays deliberately UNBOUNDED — each cast digs a fresh CraterStep
-        // deeper with no floor, no cap, no limit. Player wants the game to have no limit.
-        float deformRadius = spell.TerrainShape == TerrainShape.Crater
-            ? Mathf.Max(spell.Radius > 0f ? spell.Radius * 0.5f : 1.6f, 0.5f)
-            : radius;
+        // WIDTH is bounded for EVERY shape, DEPTH is not (1cv, 1cw). The deform shape's width is
+        // its local delivery dish — the same small bowl a shovel makes — never the full blast
+        // splash, and NEVER scaled by the (unbounded) hold-to-overcharge sizeScale. Feeding the
+        // blast radius (spell.Radius × charge sizeScale, up to ~13+ tiles) straight into the
+        // deformer made a single cast carve/rear every corner of a 30-tile chunk at once, reading
+        // as "the whole chunk / whole terrain moving" — for Crater (Meteor, 1cv) AND for the
+        // raised shapes (Ring/Spikes/Wall/Pillar — Tremor, Spire Field, Earth Wall, Landslide).
+        // Width is therefore capped to a small local dish from the spell's own delivery Radius
+        // (spell.Radius, the `deliveryRadius:` catalog arg); the Crater's per-cast DEPTH ratchet
+        // (current − s·CraterStep in WorldStreamer.DeformAt) stays deliberately UNBOUNDED — each
+        // cast digs a fresh CraterStep deeper with no floor, no cap, no limit. Player wants the
+        // game to have no limit.
+        float dish = Mathf.Max(spell.Radius > 0f ? spell.Radius : 1.6f, 0.5f);
+        float deformRadius = spell.TerrainShape == TerrainShape.Crater ? dish * 0.5f : dish;
         TerrainDeformer.Apply(center, deformRadius, spell.TerrainShape, fwd);
 
         // Duration > 0 keeps the zone alive: it ticks the spell's damage while it lasts.

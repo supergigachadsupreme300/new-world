@@ -3,6 +3,36 @@
 Last updated: 2026-09-19. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1cw. AoE *still* reshaped the whole chunk — raised shapes + projectiles fed the charge-scaled blast radius
+
+After the 1cv fix, the crater (Meteor) carves only its local bowl, but the user reported the same
+symptom ("still that bug where if the player uses an AoE skill it would move the entire terrain").
+Root cause: `SpellCaster.ResolveZone` bounded ONLY the `Crater` shape — **every other shape
+(`Ring`/`Spikes`/`Wall`/`Pillar`: Tremor, Spire Field, Earth Wall/Landslide, Stone Pillars) still
+passed `deformRadius = radius = spell.Radius * sizeScale`** (SpellCaster.cs:997), and
+`SpellChargeLevel` is deliberately **unbounded** (hold-to-overcharge, PlayerController.cs:1501),
+so a charged raise rears every corner of a 30-tile chunk at once — the same "whole terrain moved"
+read. Projectile path had the same leak: `SpellEffect.ResolveProjectileImpact` dented with
+`dentRadius * _radiusMult` (charge sizeScale), so a charged Stone Shard carved a giant dent.
+
+Fix (both paths): **terrain WIDTH is capped to the spell's authored delivery dish for EVERY shape —
+`spell.Radius` (crater `* 0.5`), never the charge-scaled blast radius**:
+- SpellCaster.cs:999-1001 — `dish = max(spell.Radius > 0 ? spell.Radius : 1.6, 0.5)`;
+  `deformRadius = crater ? dish * 0.5 : dish`.
+- SpellEffect.cs:262-270 — dent is `max(1.2, spell.Radius)` for Earth, fixed 1.4 m otherwise; no
+  `* _radiusMult`. (This also makes the existing doc line "every non-Earth bolt leaves a fixed
+  ~1.4 m dent" literally true again.)
+
+Charge still enlarges the **damage** splash and zone/ring visuals (`radius` is unchanged); only the
+*ground edit* is dish-capped. Storm (SpellStorm.cs:98 `max(Radius*0.55, 1.2)`) and Summon
+(SpellCaster.cs:352 `min(Radius*0.4, 2.5)`) were already bounded — verified by grep+reread.
+Crater **depth stays unbounded** (the 1cv ratchet, no floor — player's no-limit rule).
+
+- **Verification**: no CLI/Unity build (rule 3) — grep (no `sizeScale`/`radiusMult` reaching any
+  `TerrainDeformer.Apply`; call sites are SpellCaster.cs:352/1001, SpellEffect.cs:270,
+  SpellStorm.cs:99, ToolManager Dig, test lanes) + reread only. Unity play-test should re-confirm
+  that a **charged** raise/crater/projectile AoE carves only its local dish, never a whole chunk.
+
 ## 1cv follow-up fix: crater dish width reads `spell.Radius` — `1cv` shipped against a nonexistent field
 
 The `1cv` commit compiled in review but not in Unity: `SpellCaster.ResolveZone`

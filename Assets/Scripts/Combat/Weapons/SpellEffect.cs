@@ -251,10 +251,12 @@ public class SpellEffect : MonoBehaviour
         // (TerrainShape.Crater — the school signature) carve a full crater scaled to the
         // spell radius; every other projectile leaves a small uniform impact dent so any
         // bolt (fireball, frost, arcane, lightning, dark, wind, water…) visibly disturbs
-        // the terrain. Both probe the ground beneath the impact (the pit is carved as
-        // a smooth shallow dish that always keeps a walkable floor — never a void) and
-        // never carve at the caster's own feet at cast time (FireProjectile
-        // only spawns the bolt; no launch-site pit).
+        // the terrain. The dent stays a LOCAL bowl — never the blast splash nor the
+        // (unbounded) hold-to-overcharge sizeScale, exactly like zone casts (1cv/1cw) — so a
+        // charged bolt still carves an authored-sized crater instead of a whole chunk. Both
+        // probe the ground beneath the impact (the pit is carved as a smooth shallow dish that
+        // always keeps a walkable floor — never a void) and never carve at the caster's own
+        // feet at cast time (FireProjectile only spawns the bolt; no launch-site pit).
         if (_spell != null)
         {
             float dentRadius = 1.4f;
@@ -265,8 +267,7 @@ public class SpellEffect : MonoBehaviour
             if (Physics.Raycast(probe, Vector3.down, out RaycastHit groundHit, 30f))
             {
                 impactGround = groundHit.point;
-                TerrainDeformer.Apply(impactGround, dentRadius * _radiusMult,
-                    TerrainShape.Crater, _dir);
+                TerrainDeformer.Apply(impactGround, dentRadius, TerrainShape.Crater, _dir);
             }
 
             // Earth projectiles throw a burst of rock chunks up out of the crater — the same
