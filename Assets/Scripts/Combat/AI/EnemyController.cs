@@ -1,6 +1,4 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -433,7 +431,8 @@ private void StrikeTarget(Transform target)
     /// Classic death burst: detach every model block, give it a collider + rigidbody, and blast
     /// it outward with impulse + torque (mirrors the legacy enemy runtime's <c>ExplodeModel</c>).
     /// Purely visual — no damage, no chain reactions. The blocks fall with real physics and are
-    /// cleaned up after <see cref="DebrisLifetime"/> seconds.
+    /// cleaned up after <see cref="DebrisLifetime"/> seconds (each block self-destructs — a
+    /// coroutine on this dead-in-0.2s component would be killed before its timer could fire).
     /// </summary>
     private void ExplodeModel()
     {
@@ -441,7 +440,6 @@ private void StrikeTarget(Transform target)
 
         Vector3 center = transform.position + Vector3.up * 0.9f;
         var renderers = ModelRoot.GetComponentsInChildren<Renderer>();
-        var debris = new List<GameObject>();
 
         foreach (var r in renderers)
         {
@@ -462,22 +460,13 @@ private void StrikeTarget(Transform target)
             rb.AddForce(dir * 8f + Vector3.up * 6f, ForceMode.Impulse);
             rb.AddTorque(UnityEngine.Random.Range(-10f, 10f), UnityEngine.Random.Range(-10f, 10f), UnityEngine.Random.Range(-10f, 10f), ForceMode.Impulse);
 
-            debris.Add(block);
+            Destroy(block, DebrisLifetime);
         }
 
         ModelRoot = null;
-        StartCoroutine(DestroyDebris(debris));
     }
 
     private const float DebrisLifetime = 5f;
-
-    private IEnumerator DestroyDebris(List<GameObject> debris)
-    {
-        yield return new WaitForSeconds(DebrisLifetime);
-        for (int i = 0; i < debris.Count; i++)
-            if (debris[i] != null)
-                Destroy(debris[i]);
-    }
 
     private void DropDrop()
     {

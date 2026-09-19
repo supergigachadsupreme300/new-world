@@ -1,7 +1,7 @@
-using UnityEngine;
 using System.Collections;
+using UnityEngine;
 
-public class Livestock : MonoBehaviour, ITornadoCarried
+public class Livestock : MonoBehaviour, ITornadoCarried, IDamageable
 {
     public enum AnimalType { Cow, Pig, Sheep, Goat, Chicken, Duck, Turkey }
     public enum BehaviorMode { Passive, Fight, Flee }
@@ -264,21 +264,86 @@ public class Livestock : MonoBehaviour, ITornadoCarried
         _wanderTarget = _origin + new Vector3(r.x, 0f, r.y);
     }
 
-    public void TakeDamage(int amount)
+    public int TakeDamage(int amount)
     {
-        if (IsKnockedOut) return;
-        Health -= amount;
+        if (IsKnockedOut) return Health;
+        Health = Mathf.Max(0, Health - amount);
         StartFlash();
         if (Health <= 0)
         {
-            Knockout();
-            return;
+            ExplodeAnimal();
+            return 0;
         }
         if (_behavior == BehaviorMode.Flee)
             _isFleeing = true;
         else if (_behavior == BehaviorMode.Fight && !_isFighting)
             _isFighting = true;
+        return Health;
     }
+
+    /// <summary>
+    /// Non-lethal stun for the club: knocks the animal out (existing 15 s recover loop) without
+    /// touching its health — the cage/capture path. Lethal damage reaching 0 HP goes through
+    /// <see cref="TakeDamage"/> → <see cref="ExplodeAnimal"/> instead.
+    /// </summary>
+    public void KnockDown()
+    {
+        if (IsKnockedOut || Health <= 0) return;
+        Knockout();
+    }
+
+    /// <summary>
+    /// Classic death burst (mirrors <c>EnemyController.ExplodeModel</c>): every model part detaches,
+    /// gains a collider + rigidbody, and is blasted outward with impulse + torque. Purely visual —
+    /// the animal is gone and its voxel pieces fall with real physics, cleaned up after ~5 s.
+    /// </summary>
+    private void ExplodeAnimal()
+    {
+        if (_exploded) return;
+        _exploded = true;
+
+        if (_flashCoroutine != null)
+        {
+            StopCoroutine(_flashCoroutine);
+            _flashCoroutine = null;
+        }
+
+        var center = transform.position + Vector3.up * 0.9f;
+        var parts = _modelRoot != null ? _modelRoot.GetComponentsInChildren<Renderer>() : null;
+        if (parts != null)
+        {
+            foreach (var r in parts)
+            {
+                var part = r.gameObject;
+                Vector3 worldPos = part.transform.position;
+                Quaternion worldRot = part.transform.rotation;
+
+                part.transform.SetParent(null);
+                part.transform.position = worldPos;
+                part.transform.rotation = worldRot;
+
+                part.AddComponent<BoxCollider>();
+                var rb = part.AddComponent<Rigidbody>();
+                rb.mass = 0.3f;
+
+                Vector3 dir = (worldPos - center).normalized;
+                dir.y += 0.5f;
+                rb.AddForce(dir * 8f + Vector3.up * 6f, ForceMode.Impulse);
+                rb.AddTorque(Random.Range(-10f, 10f), Random.Range(-10f, 10f), Random.Range(-10f, 10f), ForceMode.Impulse);
+
+                // Clean up on the part itself — coroutines on this dead-in-0.2s component would be
+                // killed before their 5 s timer, so no array + coroutine indirection here.
+                Destroy(part, DebrisLifetime);
+            }
+            _modelRoot = null;
+        }
+
+        Destroy(gameObject, 0.2f);
+    }
+
+    private bool _exploded;
+
+    private const float DebrisLifetime = 5f;
 
     private void Knockout()
     {

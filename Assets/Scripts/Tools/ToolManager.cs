@@ -749,7 +749,7 @@ public partial class ToolManager : MonoBehaviour
                 if (target != null)
                 {
                     SpendToolStamina(player);
-                    target.TakeDamage(20);
+                    target.KnockDown();
                     SoundManager.Instance?.Play("club");
                     return;
                 }

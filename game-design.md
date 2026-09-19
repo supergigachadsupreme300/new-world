@@ -1013,7 +1013,7 @@ Inventory tab). Tools swap a matching **3D model** on equip (`ToolManager.ToolMo
 | **Pickaxe** | Mine **rock props** (loose boulders/rock debris in the world) AND **excavate terrain at any depth** (1cs), including the stone band the shovel cannot break — the ground-breaking tool once a pit reaches stone. Terrain digs eject **stratum-tinted debris** (dirt blocks near the surface, rock once the pit reaches stone). Both cost stamina per successful strike. |
 | **Fishing Rod** | Fish (gift from Jessica) |
 | **Hammer** | Open the build menu (**hold Hammer + F**) |
-| **Club** | Melee demons; knock out thrashing fish on the shore |
+| **Club** | Melee demons; knock out thrashing fish on the shore; knock out livestock **non-lethally** for cage capture (1df) |
 | **Rosary** | Ranged holy orb — **one-shots** enemies but costs **1 Karma** per shot |
 
 Drop items with **Q**; slot API: `SelectSlot` / `PeekSlot` / `AddItem` / `RemoveItem` / `MoveSlot`,
@@ -1151,6 +1151,15 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
   entity sold/purchased at the **Buffalo Shop**.
 - **Pets** (dog, and the **goblin** — late-game) follow and aid combat; the goblin has its own
   **command menu** (follow/stay/home), **own HP**, and **own storage**.
+- **Livestock are damageable through the combat pipeline (`IDamageable`, 1df):** melee, weapon
+  skills, spells, zones, projectiles, tornadoes, storms and damage-over-time all hurt them — pigs
+  and goats fight back, chickens/ducks/turkeys flee, cows and sheep stay passive, and every hit
+  flashes the animal red. **At 0 HP an animal explodes the old-game way:** all its voxel parts
+  detach, gain colliders + rigidbodies and are blasted outward with impulse + torque (the same
+  death burst as enemies, §7.1.1), self-cleaned after ~5 s, and the animal is gone (the spawner
+  trickles replacements). No loot/meat. The **club is the non-lethal capture tool** — it knocks an
+  animal out (~15 s, no HP loss) so it can be caged; lethal weapons/spells, not the club, kill. A
+  knocked-out animal is briefly immune so damage-over-time can't finish it mid-capture.
 
 ### 5.10 Construction, Housing & Infrastructure
 

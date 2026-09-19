@@ -16,6 +16,55 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
+## 1df — "the animals are basically invincible" (SHIPPED in `1df`)
+
+User: "the animals dont have damage interaction so they basicly invincible right now". Clarified via
+questions: at 0 HP → "explode and part flung everywhere" (the old-game voxel burst); club stays
+non-lethal so cage capture keeps working.
+
+### Step 1 — why were they invincible?
+- H1: no collider → hits never connect. REJECTED — `Livestock.Awake` adds a root `SphereCollider`
+  (radius 0.4) and the club's raycast hits it fine.
+- H2: no health system. Mostly NOT the issue — `TakeDamage` already exists (red flash, flee/fight,
+  knockout → capture, 15 s recover), reachable today via the club.
+- H3 (CONFIRMED): the combat pipeline only routes damage to `IDamageable` — every sink greps to
+  `target.TryGetComponent<IDamageable>` (HitboxSystem, RangedProjectile, SpellCaster, SpellZone,
+  SpellStorm, SpellBeam, SpellTornado, SpellDoT, IEffect/ClassEffect/RaceEffect, SummonedAlly).
+  `Livestock` (or its root) never implements it, so every non-club attack no-ops. Played weird: the
+  spell pipeline computes full damage numbers and pops them above the animal even though nothing is
+  applied — hits visibly "connect" while HP never drops, exactly the reported "basically invincible".
+
+### Step 2 — 0-HP behavior (design fork, user answered)
+- Existing knockout → capture was the only outcome; user wanted the old-game explosion. Kept BOTH by
+  splitting the sources: lethal damage (any combat hit reaching 0 HP) → `ExplodeAnimal()` (mirrors
+  `EnemyController.ExplodeModel`, 1dd — detach parts, BoxCollider + Rigidbody mass 0.3,
+  `AddForce(dir*8+up*6)` torque, cleaned after 5 s) then destroy the animal; the club gets a new
+  non-lethal `KnockDown()` (stun, no HP loss) so cages/capture still function.
+- Return type: `IDamageable.TakeDamage` is `int` (remaining health). Club callers previously ignored
+  the return; changed signature to match — verified the only other `Livestock.TakeDamage` caller is
+  the club (grep) and it now calls `KnockDown()`.
+- Statuses: burning/chill DoTs attach now that animals are damageable; knocked-out animals early-return
+  from `TakeDamage`, so a DoT can't kill a downed animal mid-capture. Knockback shoves the animal
+  rigidbody — acceptable flavor of "damage interaction".
+
+### Step 3 — latent debris-cleanup bug caught during build (fixed here)
+- Both the shipped `EnemyController.ExplodeModel` (1dd) and my first `ExplodeAnimal` draft scheduled
+  cleanup with `StartCoroutine(DestroyDebris)` on the controller, which `Destroy(gameObject, 0.2f)`
+  destroys right after — Unity kills coroutines when their component dies, so the ~5 s cleanup never
+  ran and debris would accumulate forever (the 1dd play-test item never confirmed this).
+  Fixed by scheduling `Destroy(part, DebrisLifetime)` on EACH part (live objects), dropping the
+  coroutine + list. Also trimmed `EnemyController`'s now-unused `System.Collections*` usings (its
+  `_targets` field is fully-qualified `System.Collections.Generic.List`, so removal is safe).
+- Noted for future bursts: never put a cleanup coroutine on an object that is being destroyed in the
+  same breath.
+
+### Step 4 — no-loot decision
+- User only asked for the explosion; deaths grant nothing. Exploded animals are removed and the
+  spawner (`LivestockSpawner`, 45–80 s trickle, Max 20) replaces them. If hunting loot is wanted it
+  is a separate task.
+
+---
+
 ## 1de — "dirt explode or rock debris when creating a dent, depends on the layer" (SHIPPED in `1de`)
 
 User: "when creating dent, make a dirtblock explode as well or rock debris depends on the layer,

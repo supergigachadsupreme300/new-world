@@ -3,6 +3,51 @@
 Last updated: 2026-09-19. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1df. Animals are damageable — 0 HP explodes them old-game style; club stays the non-lethal capture tool
+
+User: "the animals dont have damage interaction so they basicly invincible right now". Clarified via
+questions: at 0 HP "explode and part flung everywhere"; club stays non-lethal (capture).
+
+- **Root cause.** The combat pipeline (melee `HitboxSystem`, weapon skills, `SpellCaster.ApplyHit`
+  + zones/tornado/beam/storm, `SpellDoT`, race/class effects, summons) damages ONLY targets that
+  implement `IDamageable`. `Livestock` had a full `TakeDamage` (red flash → flee/fight → knockout
+  → capture) but never implemented the interface — so every weapon/spell hit silently no-oped and
+  only the club reached it directly (`GetComponentInParent<Livestock>().TakeDamage(20)`,
+  `ToolManager.cs`), leaving animals invincible to everything else.
+- **`Livestock.cs`** — now `MonoBehaviour, ITornadoCarried, IDamageable`; `public int TakeDamage(int)`
+  (interface contract; returns remaining Health): subtract/clamp, `StartFlash()`, at 0 →
+  `ExplodeAnimal()`, else the existing flee/fight triggers. `ExplodeAnimal()` mirrors
+  `EnemyController.ExplodeModel` (1dd): every model part detaches, gains `BoxCollider` + `Rigidbody`
+  (mass 0.3), `AddForce(dir*8 + up*6, Impulse)` + torque, each part `Destroy(part, 5f)`; the animal
+  root dies 0.2 s later. New `KnockDown()` — non-lethal: `Knockout()` (15 s recover), no HP loss,
+  capture loop intact.
+- **`ToolManager.cs` (club)** — `target.TakeDamage(20)` → `target.KnockDown()`: the club remains the
+  capture tool, never kills.
+- **Follow-up safety fix riding along.** Both `EnemyController.ExplodeModel` (shipped `1dd`) and the
+  new `ExplodeAnimal` initially scheduled debris cleanup via `StartCoroutine(DestroyDebris)` on the
+  controller — but `Destroy(gameObject, 0.2f)` kills the coroutine with the component, so debris
+  never vanished. Both now `Destroy(part, DebrisLifetime)` per part (no coroutine indirection);
+  `EnemyController`'s now-unused `System.Collections*` usings trimmed.
+- Behavior notes: pig/goat fight, chicken/duck/turkey flee, cow/sheep passive — those triggers were
+  already coded but unreachable, now fire on any hit. Knocked-out animals are immune
+  (`TakeDamage` early-return) so DoTs can't finish them mid-capture. No loot/meat by choice; the
+  spawner trickles replacements (45–80 s) as exploded animals are cleaned from `_activeAnimals`.
+
+### 1df-status
+- Implemented; no CLI/Unity build (rule 3) — verification by grep + reread: `Livestock` implements
+  `IDamageable` with `int TakeDamage(int)` matching the interface; no other `Livestock.TakeDamage`
+  callers (lone caller `ToolManager.cs:752` switched to `KnockDown`); `ExplodeAnimal`/`KnockDown`/
+  `_exploded` no name collisions; per-part debris cleanup in both `Livestock` and `EnemyController`;
+  unused usings removed from `EnemyController` without touching its fully-qualified `_targets`
+  list.
+- Docs updated in one pass: `game-design.md` §5.9 (damageable livestock + explosion + club capture)
+  and the §5.1 club tool row, `PROGRESS.md` `1df`, `THINKING.md` `1df`.
+- Play-test pending: hit each of the 7 species with melee and a spell — expect red flash + the
+  right reaction (pig/goat charge, chicken/duck/turkey flee); lethal damage → the animal bursts into
+  flung voxel parts that fall and vanish after ~5 s; club → animal falls over with NO explosion and
+  can still be caged (cage pickup still works); tornado/DoT still damage animals; no debris remains
+  after ~5 s (enemy burst cleanup fix).
+
 ## 1de. Creating a dent throws layer-tinted debris (dirt blocks or rock, like pickaxe stone)
 
 User: "when creating dent, make a dirtblock explode as well or rock debris depends on the layer,
