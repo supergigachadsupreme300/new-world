@@ -1113,6 +1113,14 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
   `WorldBuilder.Build*` structure + matching worship NPC. **QA/Test Ground**: the independent test
   platform (`NewWorldTestGround.EnableReligion`) places all three structures and worship NPCs so the
   Faith tab is testable without the legacy village.
+- **Structure scale (1cz)**: all three holy sites now match the pagoda in size and detail —
+  **church** is 16×13 (~20 tall, 13 parts: nave + arcade columns, gothic side windows + rose window,
+  gold-cross apse, gabled nave roof, tall front steeple tower with belfry + gold spire + cross, stepped
+  buttresses, interior pews/pulpit/altar); **shrine** is 14×12 (~14 tall, 12 parts: two-tier pagoda-style
+  hall — tiled tier-1 roof, upper tier floor/balustrade + tier-2 roof — topped by a jewelled gold spire,
+  with a yin-yang back wall, deity statue, offering altar, and a large tripod incense censer at the
+  entrance). Exclude-radii were raised (church 15, shrine 14) and the worship NPCs stand in front of
+  each entrance (priest west of the church, taoist south of the shrine).
 
 ### 5.8 NPCs & Relationships
 

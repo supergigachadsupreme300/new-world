@@ -1402,59 +1402,229 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
         Color darkWoodC = new Color(0.38f, 0.24f, 0.14f);
         Color goldC = new Color(1f, 0.84f, 0.2f);
         Color glassC = new Color(0.55f, 0.7f, 0.85f);
+        Color flameC = new Color(0.95f, 0.85f, 0.5f);
 
         switch (partType)
         {
             case "Church_Foundation":
-                CreatePartCube(root, new Vector3(0f, 0f, 0f), new Vector3(13f, 0.28f, 9f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 0.22f, 0f), new Vector3(11.8f, 0.16f, 8.8f), lightStoneC);
-                CreatePartCube(root, new Vector3(0f, 0.02f, -4.35f), new Vector3(6f, 0.3f, 0.85f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 0.26f, -4.78f), new Vector3(4.4f, 0.3f, 0.85f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 0.5f, -5.21f), new Vector3(3.2f, 0.3f, 0.85f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 0f, 0f), new Vector3(16f, 0.5f, 13f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 0.22f, 0f), new Vector3(15f, 0.16f, 12f), lightStoneC);
+                CreatePartCube(root, new Vector3(0f, 0.4f, -8.2f), new Vector3(7.2f, 0.8f, 3.2f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 0.82f, -9.7f), new Vector3(3.6f, 0.16f, 0.7f), lightStoneC);
+                CreatePartCube(root, new Vector3(0f, 0.62f, -10.3f), new Vector3(4.4f, 0.3f, 0.9f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 0.42f, -10.85f), new Vector3(5.2f, 0.3f, 0.9f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 0.22f, -11.4f), new Vector3(6f, 0.3f, 0.9f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 0.05f, -11.95f), new Vector3(6.8f, 0.2f, 0.9f), stoneBase);
                 break;
 
             case "Church_NaveFloor":
-                CreatePartCube(root, new Vector3(0f, 0.08f, 0f), new Vector3(10.4f, 0.24f, 6.4f), lightStoneC);
-                CreatePartCube(root, new Vector3(0f, 1.1f, 2.8f), new Vector3(3.4f, 1f, 1.1f), darkWoodC);
-                CreatePartCube(root, new Vector3(0f, 0.5f, -2.8f), new Vector3(1.5f, 0.8f, 0.5f), darkWoodC);
+                CreatePartCube(root, new Vector3(0f, 0.08f, 0f), new Vector3(13f, 0.2f, 10f), lightStoneC);
+                CreatePartCube(root, new Vector3(0f, 0.16f, 0f), new Vector3(1.8f, 0.08f, 8.6f), stoneBase);
                 break;
 
-            case "Church_BackWall":
-                CreatePartCube(root, new Vector3(0f, 2.35f, 3.25f), new Vector3(10.6f, 4.7f, 0.3f), whiteWallC);
-                CreatePartCube(root, new Vector3(0f, 3f, 3.42f), new Vector3(0.32f, 2.4f, 0.2f), goldC);
-                CreatePartCube(root, new Vector3(0f, 3.55f, 3.42f), new Vector3(1.6f, 0.32f, 0.2f), goldC);
+            case "Church_Pillars":
+                for (int ring = 0; ring < 2; ring++)
+                {
+                    float px = ring == 0 ? 1.7f : 4.7f;
+                    for (int pz = -1; pz <= 1; pz++)
+                    {
+                        CreatePartCube(root, new Vector3(px, 0.4f, pz * 3f), new Vector3(0.9f, 0.45f, 0.9f), stoneBase);
+                        CreatePartCube(root, new Vector3(-px, 0.4f, pz * 3f), new Vector3(0.9f, 0.45f, 0.9f), stoneBase);
+                        CreatePartCube(root, new Vector3(px, 2.4f, pz * 3f), new Vector3(0.6f, 3.4f, 0.6f), whiteWallC);
+                        CreatePartCube(root, new Vector3(-px, 2.4f, pz * 3f), new Vector3(0.6f, 3.4f, 0.6f), whiteWallC);
+                        CreatePartCube(root, new Vector3(px, 4.3f, pz * 3f), new Vector3(0.8f, 0.4f, 0.8f), goldC);
+                        CreatePartCube(root, new Vector3(-px, 4.3f, pz * 3f), new Vector3(0.8f, 0.4f, 0.8f), goldC);
+                    }
+                }
                 break;
 
             case "Church_SideWalls":
-                CreatePartCube(root, new Vector3(-5.2f, 2.35f, 0f), new Vector3(0.3f, 4.7f, 6.5f), whiteWallC);
-                CreatePartCube(root, new Vector3(5.2f, 2.35f, 0f), new Vector3(0.3f, 4.7f, 6.5f), whiteWallC);
-                CreatePartCube(root, new Vector3(-5.14f, 2.7f, -1.6f), new Vector3(0.06f, 1.2f, 0.8f), glassC);
-                CreatePartCube(root, new Vector3(-5.14f, 2.7f, 1.6f), new Vector3(0.06f, 1.2f, 0.8f), glassC);
-                CreatePartCube(root, new Vector3(5.14f, 2.7f, -1.6f), new Vector3(0.06f, 1.2f, 0.8f), glassC);
-                CreatePartCube(root, new Vector3(5.14f, 2.7f, 1.6f), new Vector3(0.06f, 1.2f, 0.8f), glassC);
+                CreatePartCube(root, new Vector3(-6.8f, 2f, 0f), new Vector3(0.35f, 4f, 11f), whiteWallC);
+                CreatePartCube(root, new Vector3(6.8f, 2f, 0f), new Vector3(0.35f, 4f, 11f), whiteWallC);
+                CreatePartCube(root, new Vector3(-6.72f, 0.5f, 0f), new Vector3(0.5f, 0.7f, 11.2f), stoneBase);
+                CreatePartCube(root, new Vector3(6.72f, 0.5f, 0f), new Vector3(0.5f, 0.7f, 11.2f), stoneBase);
+                CreatePartCube(root, new Vector3(-6.72f, 4.2f, 0f), new Vector3(0.42f, 0.4f, 11.2f), lightStoneC);
+                CreatePartCube(root, new Vector3(6.72f, 4.2f, 0f), new Vector3(0.42f, 0.4f, 11.2f), lightStoneC);
+                for (int sx = -1; sx <= 1; sx += 2)
+                {
+                    for (int wz = -1; wz <= 1; wz++)
+                    {
+                        float zw = wz * 3.2f;
+                        for (int side = -1; side <= 1; side += 2)
+                        {
+                            float x = side * 6.62f;
+                            CreatePartCube(root, new Vector3(x, 0.95f, zw), new Vector3(0.5f, 0.2f, 1.6f), lightStoneC);
+                            CreatePartCube(root, new Vector3(x, 2.1f, zw), new Vector3(0.1f, 1.7f, 1.3f), glassC);
+                            CreatePartCube(root, new Vector3(x, 2.1f, zw - 0.66f), new Vector3(0.14f, 1.7f, 0.14f), goldC);
+                            CreatePartCube(root, new Vector3(x, 2.1f, zw + 0.66f), new Vector3(0.14f, 1.7f, 0.14f), goldC);
+                            CreatePartCubeRotated(root, new Vector3(x, 3.0f, zw - 0.35f), new Vector3(0.14f, 0.7f, 0.4f), whiteWallC, Quaternion.Euler(35f, 0f, 0f));
+                            CreatePartCubeRotated(root, new Vector3(x, 3.0f, zw + 0.35f), new Vector3(0.14f, 0.7f, 0.4f), whiteWallC, Quaternion.Euler(-35f, 0f, 0f));
+                            CreatePartCube(root, new Vector3(x, 3.7f, zw), new Vector3(0.16f, 0.22f, 1.6f), lightStoneC);
+                        }
+                    }
+                    CreatePartCube(root, new Vector3(sx * 6.75f, 2.05f, -5f), new Vector3(0.45f, 4f, 0.45f), lightStoneC);
+                    CreatePartCube(root, new Vector3(sx * 6.75f, 2.05f, 5f), new Vector3(0.45f, 4f, 0.45f), lightStoneC);
+                }
                 break;
 
             case "Church_FrontWall":
-                CreatePartCube(root, new Vector3(-3.7f, 2.35f, -3.25f), new Vector3(3.2f, 4.7f, 0.3f), whiteWallC);
-                CreatePartCube(root, new Vector3(3.7f, 2.35f, -3.25f), new Vector3(3.2f, 4.7f, 0.3f), whiteWallC);
-                CreatePartCube(root, new Vector3(0f, 4.45f, -3.26f), new Vector3(4.4f, 2.2f, 0.3f), whiteWallC);
-                CreatePartCube(root, new Vector3(0f, 1.6f, -3.2f), new Vector3(3.8f, 2.1f, 0.14f), darkWoodC);
-                CreatePartCube(root, new Vector3(0f, 3.5f, -3.42f), new Vector3(1f, 1.3f, 0.06f), glassC);
+                CreatePartCube(root, new Vector3(-4.7f, 2f, -6.15f), new Vector3(3f, 4f, 0.35f), whiteWallC);
+                CreatePartCube(root, new Vector3(4.7f, 2f, -6.15f), new Vector3(3f, 4f, 0.35f), whiteWallC);
+                CreatePartCube(root, new Vector3(-4.8f, 2f, -5f), new Vector3(0.5f, 4f, 0.45f), lightStoneC);
+                CreatePartCube(root, new Vector3(4.8f, 2f, -5f), new Vector3(0.5f, 4f, 0.45f), lightStoneC);
+                CreatePartCube(root, new Vector3(-4.7f, 4.25f, -6.15f), new Vector3(3.2f, 0.35f, 0.45f), lightStoneC);
+                CreatePartCube(root, new Vector3(4.7f, 4.25f, -6.15f), new Vector3(3.2f, 0.35f, 0.45f), lightStoneC);
+                for (int fw = -1; fw <= 1; fw += 2)
+                {
+                    float x = fw * 4.7f;
+                    CreatePartCube(root, new Vector3(x, 0.95f, -6.3f), new Vector3(1.7f, 0.2f, 0.4f), lightStoneC);
+                    CreatePartCube(root, new Vector3(x, 2.1f, -6.35f), new Vector3(1.3f, 1.7f, 0.08f), glassC);
+                    CreatePartCube(root, new Vector3(x, 2.1f, -6.22f), new Vector3(0.14f, 1.7f, 0.14f), goldC);
+                    CreatePartCubeRotated(root, new Vector3(x, 3.0f, -6.35f), new Vector3(0.7f, 0.6f, 0.3f), whiteWallC, Quaternion.Euler(0f, 0f, 35f));
+                }
+                break;
+
+            case "Church_BackWall":
+                CreatePartCube(root, new Vector3(0f, 2f, 6.15f), new Vector3(13.2f, 4f, 0.35f), whiteWallC);
+                CreatePartCube(root, new Vector3(0f, 0.4f, 6.15f), new Vector3(13.6f, 0.7f, 0.5f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 4.2f, 6.15f), new Vector3(13.6f, 0.35f, 0.42f), lightStoneC);
+                CreatePartCubeRotated(root, new Vector3(-5.6f, 2f, 6.1f), new Vector3(2.4f, 4f, 0.35f), whiteWallC, Quaternion.Euler(0f, 35f, 0f));
+                CreatePartCubeRotated(root, new Vector3(5.6f, 2f, 6.1f), new Vector3(2.4f, 4f, 0.35f), whiteWallC, Quaternion.Euler(0f, -35f, 0f));
+                CreatePartCube(root, new Vector3(0f, 2.5f, 6.4f), new Vector3(0.5f, 3f, 0.22f), goldC);
+                CreatePartCube(root, new Vector3(0f, 2.9f, 6.4f), new Vector3(1.9f, 0.5f, 0.22f), goldC);
+                CreatePartCube(root, new Vector3(0f, 0.9f, 6.42f), new Vector3(12.4f, 0.18f, 0.06f), darkWoodC);
+                CreatePartCube(root, new Vector3(0f, 3.5f, 6.42f), new Vector3(12.4f, 0.18f, 0.06f), darkWoodC);
                 break;
 
             case "Church_Roof":
-                CreatePartCubeRotated(root, new Vector3(0f, 0.6f, -1.55f), new Vector3(11.4f, 0.42f, 3.7f), roofRedC, Quaternion.Euler(-28f, 0f, 0f));
-                CreatePartCubeRotated(root, new Vector3(0f, 0.6f, 1.55f), new Vector3(11.4f, 0.42f, 3.7f), roofRedC, Quaternion.Euler(28f, 0f, 0f));
-                CreatePartCube(root, new Vector3(0f, 1.6f, 0f), new Vector3(11.8f, 0.5f, 0.7f), roofDarkC);
+                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, 0.9f), new Vector3(16.6f, 0.5f, 6.6f), roofRedC, Quaternion.Euler(-24f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, -0.9f), new Vector3(16.6f, 0.5f, 6.6f), roofRedC, Quaternion.Euler(24f, 0f, 0f));
+                CreatePartCube(root, new Vector3(0f, 2.35f, 0f), new Vector3(16.8f, 0.45f, 0.8f), roofDarkC);
+                CreatePartCube(root, new Vector3(0f, 2.3f, -6.6f), new Vector3(14f, 0.4f, 0.25f), lightStoneC);
+                CreatePartCube(root, new Vector3(0f, 2.3f, 6.6f), new Vector3(14f, 0.4f, 0.25f), lightStoneC);
+                CreatePartCubeRotated(root, new Vector3(0f, 2.55f, -6.75f), new Vector3(0.7f, 0.4f, 0.7f), goldC, Quaternion.Euler(0f, 45f, 0f));
                 break;
 
             case "Church_Tower":
-                CreatePartCube(root, new Vector3(4.35f, 3f, -0.45f), new Vector3(3f, 6.4f, 3f), whiteWallC);
-                CreatePartCube(root, new Vector3(4.35f, 6.95f, -0.45f), new Vector3(2.3f, 2f, 2.3f), whiteWallC);
-                CreatePartCube(root, new Vector3(4.35f, 8.05f, -0.45f), new Vector3(2.7f, 0.45f, 2.7f), roofRedC);
-                CreatePartCube(root, new Vector3(4.35f, 8.85f, -0.45f), new Vector3(0.32f, 1.1f, 0.32f), goldC);
-                CreatePartCube(root, new Vector3(4.35f, 9.15f, -0.45f), new Vector3(0.8f, 0.32f, 0.32f), goldC);
-                CreatePartCube(root, new Vector3(4.35f, 1.4f, -1.9f), new Vector3(1f, 1.9f, 0.1f), darkWoodC);
+                CreatePartCube(root, new Vector3(0f, 3.3f, -6.2f), new Vector3(6.2f, 6.6f, 6.2f), whiteWallC);
+                CreatePartCube(root, new Vector3(0f, 0.4f, -6.2f), new Vector3(7f, 0.8f, 7f), stoneBase);
+                CreatePartCube(root, new Vector3(-2.9f, 3.3f, -6.2f - 2.9f), new Vector3(0.6f, 6.6f, 0.6f), lightStoneC);
+                CreatePartCube(root, new Vector3(2.9f, 3.3f, -6.2f - 2.9f), new Vector3(0.6f, 6.6f, 0.6f), lightStoneC);
+                CreatePartCube(root, new Vector3(-2.9f, 3.3f, -6.2f + 2.9f), new Vector3(0.6f, 6.6f, 0.6f), lightStoneC);
+                CreatePartCube(root, new Vector3(2.9f, 3.3f, -6.2f + 2.9f), new Vector3(0.6f, 6.6f, 0.6f), lightStoneC);
+                CreatePartCube(root, new Vector3(0f, 6.8f, -6.2f), new Vector3(6.8f, 0.4f, 6.8f), lightStoneC);
+                CreatePartCube(root, new Vector3(0f, 2.2f, -9.6f), new Vector3(3.2f, 3.6f, 0.35f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 2f, -9.71f), new Vector3(2.8f, 3.1f, 0.18f), darkWoodC);
+                CreatePartCube(root, new Vector3(-1.55f, 2f, -9.5f), new Vector3(0.16f, 3.1f, 0.12f), goldC);
+                CreatePartCube(root, new Vector3(1.55f, 2f, -9.5f), new Vector3(0.16f, 3.1f, 0.12f), goldC);
+                CreatePartCubeRotated(root, new Vector3(0f, 4.35f, -9.55f), new Vector3(1.6f, 0.6f, 0.3f), stoneBase, Quaternion.Euler(35f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(0f, 4.35f, -9.55f), new Vector3(1.6f, 0.6f, 0.3f), stoneBase, Quaternion.Euler(-35f, 0f, 0f));
+                CreatePartCube(root, new Vector3(0f, 4.85f, -9.6f), new Vector3(0.5f, 0.35f, 0.35f), goldC);
+                CreatePartCube(root, new Vector3(0f, 5.4f, -9.32f), new Vector3(1.5f, 1.5f, 0.08f), goldC);
+                CreatePartCube(root, new Vector3(0f, 5.4f, -9.26f), new Vector3(1.1f, 1.1f, 0.06f), glassC);
+                CreatePartCube(root, new Vector3(0f, 5.4f, -9.2f), new Vector3(0.06f, 1.2f, 0.06f), darkWoodC);
+                CreatePartCube(root, new Vector3(0f, 5.4f, -9.2f), new Vector3(1.2f, 0.06f, 0.06f), darkWoodC);
+                CreatePartCube(root, new Vector3(3.22f, 3f, -6.2f), new Vector3(0.12f, 1.8f, 1.2f), glassC);
+                CreatePartCube(root, new Vector3(-3.22f, 3f, -6.2f), new Vector3(0.12f, 1.8f, 1.2f), glassC);
+                CreatePartCube(root, new Vector3(0f, 2f, -3.28f), new Vector3(2.8f, 3.6f, 0.4f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 1.85f, -3.15f), new Vector3(2.4f, 3f, 0.18f), darkWoodC);
+                CreatePartCube(root, new Vector3(-1.25f, 1.85f, -3.15f), new Vector3(0.14f, 3f, 0.12f), goldC);
+                CreatePartCube(root, new Vector3(1.25f, 1.85f, -3.15f), new Vector3(0.14f, 3f, 0.12f), goldC);
+                CreatePartCube(root, new Vector3(0f, 4.45f, -3.28f), new Vector3(1.4f, 0.9f, 0.12f), glassC);
+                break;
+
+            case "Church_Belfry":
+                CreatePartCube(root, new Vector3(0f, 1.2f, -6.2f), new Vector3(4.6f, 2.4f, 4.6f), whiteWallC);
+                for (int bz = -1; bz <= 1; bz++)
+                    CreatePartCube(root, new Vector3(2.31f, 1.3f, -6.2f + bz * 0.55f), new Vector3(0.08f, 1.8f, 0.12f), darkWoodC);
+                for (int bz = -1; bz <= 1; bz++)
+                    CreatePartCube(root, new Vector3(-2.31f, 1.3f, -6.2f + bz * 0.55f), new Vector3(0.08f, 1.8f, 0.12f), darkWoodC);
+                for (int bx = -1; bx <= 1; bx++)
+                    CreatePartCube(root, new Vector3(bx * 0.55f, 1.3f, -8.42f), new Vector3(0.12f, 1.8f, 0.08f), darkWoodC);
+                for (int bx = -1; bx <= 1; bx++)
+                    CreatePartCube(root, new Vector3(bx * 0.55f, 1.3f, -3.98f), new Vector3(0.12f, 1.8f, 0.08f), darkWoodC);
+                CreatePartCube(root, new Vector3(-2.2f, 2.75f, -6.2f - 2.2f), new Vector3(0.45f, 0.5f, 0.45f), roofDarkC);
+                CreatePartCube(root, new Vector3(2.2f, 2.75f, -6.2f - 2.2f), new Vector3(0.45f, 0.5f, 0.45f), roofDarkC);
+                CreatePartCube(root, new Vector3(-2.2f, 2.75f, -6.2f + 2.2f), new Vector3(0.45f, 0.5f, 0.45f), roofDarkC);
+                CreatePartCube(root, new Vector3(2.2f, 2.75f, -6.2f + 2.2f), new Vector3(0.45f, 0.5f, 0.45f), roofDarkC);
+                CreatePartCube(root, new Vector3(0f, 2.6f, -6.2f), new Vector3(5.2f, 0.3f, 5.2f), lightStoneC);
+                break;
+
+            case "Church_SpireRoof":
+                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, -2.2f), new Vector3(5.2f, 0.45f, 3f), roofDarkC, Quaternion.Euler(38f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, 2.2f), new Vector3(5.2f, 0.45f, 3f), roofDarkC, Quaternion.Euler(-38f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(-2.2f, 0.5f, 0f), new Vector3(3f, 0.45f, 5.2f), roofDarkC, Quaternion.Euler(0f, 0f, 38f));
+                CreatePartCubeRotated(root, new Vector3(2.2f, 0.5f, 0f), new Vector3(3f, 0.45f, 5.2f), roofDarkC, Quaternion.Euler(0f, 0f, -38f));
+                CreatePartCube(root, new Vector3(0f, 0.02f, -4.4f), new Vector3(5.4f, 0.16f, 0.2f), goldC);
+                CreatePartCube(root, new Vector3(0f, 0.02f, 4.4f), new Vector3(5.4f, 0.16f, 0.2f), goldC);
+                CreatePartCube(root, new Vector3(-4.4f, 0.02f, 0f), new Vector3(0.2f, 0.16f, 5.4f), goldC);
+                CreatePartCube(root, new Vector3(4.4f, 0.02f, 0f), new Vector3(0.2f, 0.16f, 5.4f), goldC);
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int sz = -1; sz <= 1; sz += 2)
+                        CreatePartCubeRotated(root, new Vector3(sx * 3.95f, 1.2f, sz * 3.95f), new Vector3(0.4f, 0.7f, 0.4f), goldC, Quaternion.Euler(0f, 45f, 0f));
+                break;
+
+            case "Church_Spire":
+                CreatePartCube(root, new Vector3(0f, 0.5f, -6.2f), new Vector3(1.8f, 0.8f, 1.8f), roofDarkC);
+                CreatePartCube(root, new Vector3(0f, 4f, -6.2f), new Vector3(1.1f, 6.2f, 1.1f), roofDarkC);
+                CreatePartCube(root, new Vector3(0f, 2.4f, -6.2f), new Vector3(1.25f, 0.16f, 1.25f), goldC);
+                CreatePartCube(root, new Vector3(0f, 4.6f, -6.2f), new Vector3(1.25f, 0.16f, 1.25f), goldC);
+                CreatePartCube(root, new Vector3(0f, 6.4f, -6.2f), new Vector3(1.25f, 0.16f, 1.25f), goldC);
+                CreatePartCube(root, new Vector3(0f, 7.6f, -6.2f), new Vector3(0.9f, 0.7f, 0.9f), roofDarkC);
+                CreatePartCube(root, new Vector3(0f, 8.4f, -6.2f), new Vector3(0.9f, 0.9f, 0.9f), goldC);
+                CreatePartCubeRotated(root, new Vector3(0f, 8.9f, -6.2f), new Vector3(0.35f, 0.35f, 0.35f), goldC, Quaternion.Euler(45f, 0f, 45f));
+                CreatePartCube(root, new Vector3(0f, 9.8f, -6.2f), new Vector3(0.14f, 1.2f, 0.14f), goldC);
+                CreatePartCube(root, new Vector3(0f, 9.7f, -6.2f), new Vector3(0.75f, 0.14f, 0.14f), goldC);
+                break;
+
+            case "Church_Buttresses":
+                for (int bz = 0; bz < 4; bz++)
+                {
+                    float z = -4.8f + bz * 3.2f;
+                    for (int sd = -1; sd <= 1; sd += 2)
+                    {
+                        CreatePartCube(root, new Vector3(sd * 7.1f, 0.9f, z), new Vector3(0.9f, 1.8f, 1.1f), stoneBase);
+                        CreatePartCube(root, new Vector3(sd * 7.25f, 2.7f, z), new Vector3(0.5f, 1.8f, 0.8f), stoneBase);
+                        CreatePartCube(root, new Vector3(sd * 7.4f, 3.9f, z), new Vector3(0.3f, 1f, 0.5f), lightStoneC);
+                    }
+                }
+                for (int fx = -1; fx <= 1; fx += 2)
+                {
+                    CreatePartCube(root, new Vector3(fx * 4.7f, 0.9f, -7.7f), new Vector3(1.1f, 1.8f, 0.9f), stoneBase);
+                    CreatePartCube(root, new Vector3(fx * 4.8f, 2.7f, -7.85f), new Vector3(0.5f, 1.8f, 0.7f), stoneBase);
+                    CreatePartCube(root, new Vector3(fx * 4.9f, 3.9f, -8f), new Vector3(0.3f, 1f, 0.4f), lightStoneC);
+                }
+                for (int bx = -1; bx <= 1; bx += 2)
+                {
+                    CreatePartCube(root, new Vector3(bx * 6.4f, 0.9f, 7.2f), new Vector3(1.1f, 1.8f, 0.9f), stoneBase);
+                    CreatePartCube(root, new Vector3(bx * 6.5f, 2.7f, 7.35f), new Vector3(0.5f, 1.8f, 0.7f), stoneBase);
+                    CreatePartCube(root, new Vector3(bx * 6.6f, 3.9f, 7.5f), new Vector3(0.3f, 1f, 0.4f), lightStoneC);
+                }
+                break;
+
+            case "Church_Interior":
+                CreatePartCube(root, new Vector3(-4.2f, 1f, 1.5f), new Vector3(1.5f, 1.6f, 1.2f), darkWoodC);
+                CreatePartCube(root, new Vector3(-3.4f, 0.25f, 1.6f), new Vector3(1f, 0.5f, 1.2f), darkWoodC);
+                CreatePartCube(root, new Vector3(-4.4f, 2f, 1.5f), new Vector3(0.12f, 0.3f, 1.2f), darkWoodC);
+                CreatePartCube(root, new Vector3(0f, 1.4f, 4.3f), new Vector3(3f, 0.6f, 1.1f), darkWoodC);
+                CreatePartCube(root, new Vector3(0f, 1.75f, 4.3f), new Vector3(3.1f, 0.08f, 1.2f), lightStoneC);
+                CreatePartCube(root, new Vector3(0f, 2.6f, 4.65f), new Vector3(0.3f, 1.2f, 0.1f), goldC);
+                CreatePartCube(root, new Vector3(0f, 3f, 4.65f), new Vector3(1f, 0.3f, 0.1f), goldC);
+                for (int cdx = -1; cdx <= 1; cdx += 2)
+                {
+                    CreatePartCube(root, new Vector3(cdx * 1f, 2.1f, 4.3f), new Vector3(0.18f, 0.7f, 0.18f), goldC);
+                    CreatePartCube(root, new Vector3(cdx * 1f, 2.48f, 4.3f), new Vector3(0.08f, 0.14f, 0.08f), flameC);
+                    CreatePartCube(root, new Vector3(-4.4f, 3.3f, 1.5f), new Vector3(0.3f, 0.4f, 1.2f), darkWoodC);
+                }
+                for (int prow = 0; prow < 3; prow++)
+                {
+                    float z = -2.8f + prow * 2.8f;
+                    for (int pp = -1; pp <= 1; pp += 2)
+                    {
+                        CreatePartCube(root, new Vector3(pp * 3.2f, 0.55f, z), new Vector3(1.5f, 0.5f, 2.4f), darkWoodC);
+                        CreatePartCube(root, new Vector3(pp * 3.2f, 1.05f, z + (pp > 0 ? -1.2f : 1.2f)), new Vector3(1.5f, 0.7f, 0.16f), darkWoodC);
+                    }
+                }
                 break;
         }
     }
@@ -1470,59 +1640,179 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
         Color goldC = new Color(1f, 0.84f, 0.2f);
         Color blackC = new Color(0.08f, 0.08f, 0.09f);
         Color whiteC = new Color(0.95f, 0.95f, 0.94f);
+        Color robeC = new Color(0.62f, 0.12f, 0.16f);
+        Color bronzeC = new Color(0.45f, 0.24f, 0.12f);
+        Color woodDarkC = new Color(0.3f, 0.18f, 0.1f);
+        Color skinC = new Color(0.55f, 0.5f, 0.45f);
+        Color flameC = new Color(0.95f, 0.85f, 0.5f);
+        Color smokeC = new Color(0.85f, 0.82f, 0.78f);
 
         switch (partType)
         {
             case "Shrine_Foundation":
-                CreatePartCube(root, new Vector3(0f, 0f, 0f), new Vector3(10f, 0.6f, 8.5f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 0.3f, 0f), new Vector3(9.4f, 0.2f, 7.9f), new Color(0.52f, 0.5f, 0.48f));
-                CreatePartCube(root, new Vector3(0f, 0.15f, -4.3f), new Vector3(5f, 0.3f, 0.95f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 0.4f, -4.85f), new Vector3(3.6f, 0.3f, 0.95f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 0.65f, -5.4f), new Vector3(2.4f, 0.3f, 0.95f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 0f, 0f), new Vector3(14f, 0.6f, 12f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 0.3f, 0f), new Vector3(13f, 0.25f, 11f), new Color(0.52f, 0.5f, 0.48f));
+                CreatePartCube(root, new Vector3(0f, 0.15f, -6f), new Vector3(8f, 0.35f, 0.9f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 0.45f, -6.55f), new Vector3(6.4f, 0.35f, 0.9f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 0.75f, -7.1f), new Vector3(4.8f, 0.35f, 0.9f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 1.02f, -7.6f), new Vector3(3.4f, 0.16f, 0.8f), goldC);
                 break;
 
             case "Shrine_Floor":
-                CreatePartCube(root, new Vector3(0f, 0f, 0f), new Vector3(9f, 0.28f, 6.8f), woodFloorC);
-                CreatePartCube(root, new Vector3(0f, 0.24f, 0f), new Vector3(8.4f, 0.05f, 6.2f), new Color(0.5f, 0.34f, 0.2f));
+                CreatePartCube(root, new Vector3(0f, 0f, 0f), new Vector3(12f, 0.25f, 10f), woodFloorC);
+                CreatePartCube(root, new Vector3(0f, 0.22f, 0f), new Vector3(10.4f, 0.05f, 8.4f), new Color(0.5f, 0.34f, 0.2f));
+                CreatePartCube(root, new Vector3(0f, 0.24f, -4.4f), new Vector3(2.6f, 0.06f, 0.9f), goldC);
                 break;
 
             case "Shrine_Pillars":
                 for (int sx = -1; sx <= 1; sx += 2)
                 {
                     for (int sz = -1; sz <= 1; sz += 2)
-                        CreatePartCube(root, new Vector3(sx * 3.2f, 2.1f, sz * 2.9f), new Vector3(0.35f, 4.6f, 0.35f), pillarC);
-                    CreatePartCube(root, new Vector3(sx * 3.2f, 2.5f, 0f), new Vector3(0.35f, 0.5f, 5.8f), pillarC);
+                    {
+                        CreatePartCube(root, new Vector3(sx * 4.9f, 0.4f, sz * 3.9f), new Vector3(0.95f, 0.4f, 0.95f), stoneDark);
+                        CreatePartCube(root, new Vector3(sx * 4.9f, 2.3f, sz * 3.9f), new Vector3(0.6f, 3.6f, 0.6f), pillarC);
+                        CreatePartCube(root, new Vector3(sx * 4.9f, 4.2f, sz * 3.9f), new Vector3(0.95f, 0.4f, 0.95f), stoneDark);
+                        CreatePartCube(root, new Vector3(sx * 4.9f, 4.35f, sz * 3.9f), new Vector3(0.8f, 0.14f, 0.8f), goldC);
+                    }
+                    CreatePartCube(root, new Vector3(sx * 4.9f, 0.4f, 0f), new Vector3(0.95f, 0.4f, 0.95f), stoneDark);
+                    CreatePartCube(root, new Vector3(sx * 4.9f, 2.3f, 0f), new Vector3(0.6f, 3.6f, 0.6f), pillarC);
+                    CreatePartCube(root, new Vector3(sx * 4.9f, 4.2f, 0f), new Vector3(0.95f, 0.4f, 0.95f), stoneDark);
+                    CreatePartCube(root, new Vector3(sx * 4.9f, 4.35f, 0f), new Vector3(0.8f, 0.14f, 0.8f), goldC);
                 }
-                CreatePartCube(root, new Vector3(0f, 2.5f, -2.9f), new Vector3(6.4f, 0.5f, 0.35f), pillarC);
-                CreatePartCube(root, new Vector3(0f, 2.5f, 2.9f), new Vector3(6.4f, 0.5f, 0.35f), pillarC);
+                for (int mz = -1; mz <= 1; mz += 2)
+                {
+                    CreatePartCube(root, new Vector3(0f, 0.4f, mz * 3.9f), new Vector3(0.95f, 0.4f, 0.95f), stoneDark);
+                    CreatePartCube(root, new Vector3(0f, 2.3f, mz * 3.9f), new Vector3(0.6f, 3.6f, 0.6f), pillarC);
+                    CreatePartCube(root, new Vector3(0f, 4.2f, mz * 3.9f), new Vector3(0.95f, 0.4f, 0.95f), stoneDark);
+                    CreatePartCube(root, new Vector3(0f, 4.35f, mz * 3.9f), new Vector3(0.8f, 0.14f, 0.8f), goldC);
+                    CreatePartCube(root, new Vector3(0f, 4.5f, mz * 3.9f), new Vector3(10.2f, 0.45f, 0.35f), ridgeC);
+                }
+                for (int mx = -1; mx <= 1; mx += 2)
+                    CreatePartCube(root, new Vector3(mx * 4.9f, 4.5f, 0f), new Vector3(0.35f, 0.45f, 7.8f), ridgeC);
                 break;
 
             case "Shrine_BackWall":
-                CreatePartCube(root, new Vector3(0f, 2.1f, 2.9f), new Vector3(6.8f, 4.4f, 0.35f), stoneDark);
-                CreatePartCube(root, new Vector3(0f, 3f, 3.14f), new Vector3(1.3f, 0.8f, 0.14f), whiteC);
-                CreatePartCube(root, new Vector3(0f, 2.2f, 3.14f), new Vector3(1.3f, 0.8f, 0.14f), blackC);
-                CreatePartCube(root, new Vector3(0f, 2.95f, 3.22f), new Vector3(0.2f, 0.2f, 0.08f), blackC);
-                CreatePartCube(root, new Vector3(0f, 2.25f, 3.22f), new Vector3(0.2f, 0.2f, 0.08f), whiteC);
+                CreatePartCube(root, new Vector3(0f, 2f, 4.9f), new Vector3(9.2f, 4.2f, 0.4f), stoneDark);
+                CreatePartCube(root, new Vector3(-4.5f, 2f, 4.9f), new Vector3(0.45f, 4.2f, 0.45f), robeC);
+                CreatePartCube(root, new Vector3(4.5f, 2f, 4.9f), new Vector3(0.45f, 4.2f, 0.45f), robeC);
+                CreatePartCube(root, new Vector3(0f, 4.5f, 4.9f), new Vector3(8.6f, 0.3f, 0.1f), goldC);
+                CreatePartCube(root, new Vector3(0f, 2.6f, 4.7f), new Vector3(2.2f, 2.2f, 0.1f), goldC);
+                CreatePartCube(root, new Vector3(0f, 2.6f, 4.64f), new Vector3(1.9f, 1.9f, 0.08f), whiteC);
+                CreatePartCube(root, new Vector3(0f, 2.6f, 4.59f), new Vector3(0.95f, 1.9f, 0.05f), blackC);
+                CreatePartCube(root, new Vector3(0.48f, 3.18f, 4.56f), new Vector3(0.34f, 0.34f, 0.06f), whiteC);
+                CreatePartCube(root, new Vector3(-0.48f, 2.02f, 4.56f), new Vector3(0.34f, 0.34f, 0.06f), blackC);
                 break;
 
             case "Shrine_Roof":
-                CreatePartCubeRotated(root, new Vector3(0f, 0.35f, -3.2f), new Vector3(8.4f, 0.45f, 5.5f), tileC, Quaternion.Euler(-12f, 0f, 0f));
-                CreatePartCubeRotated(root, new Vector3(0f, 0.35f, 3.2f), new Vector3(8.4f, 0.45f, 5.5f), tileC, Quaternion.Euler(12f, 0f, 0f));
-                CreatePartCubeRotated(root, new Vector3(-3.2f, 0.35f, 0f), new Vector3(5.5f, 0.45f, 8.4f), tileC, Quaternion.Euler(0f, 0f, -12f));
-                CreatePartCubeRotated(root, new Vector3(3.2f, 0.35f, 0f), new Vector3(5.5f, 0.45f, 8.4f), tileC, Quaternion.Euler(0f, 0f, 12f));
-                CreatePartCube(root, new Vector3(0f, 0.92f, 0f), new Vector3(4.2f, 0.45f, 4.2f), ridgeC);
-                CreatePartCube(root, new Vector3(0f, 1.35f, 0f), new Vector3(0.55f, 0.45f, 0.55f), goldC);
+                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, -3.2f), new Vector3(14.4f, 0.5f, 5.4f), tileC, Quaternion.Euler(-14f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, 3.2f), new Vector3(14.4f, 0.5f, 5.4f), tileC, Quaternion.Euler(14f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(-3.2f, 0.5f, 0f), new Vector3(5.4f, 0.5f, 13.2f), tileC, Quaternion.Euler(0f, 0f, -14f));
+                CreatePartCubeRotated(root, new Vector3(3.2f, 0.5f, 0f), new Vector3(5.4f, 0.5f, 13.2f), tileC, Quaternion.Euler(0f, 0f, 14f));
+                CreatePartCube(root, new Vector3(0f, 1.6f, 0f), new Vector3(7f, 0.45f, 7f), ridgeC);
+                CreatePartCube(root, new Vector3(0f, 2.15f, 0f), new Vector3(0.75f, 0.5f, 0.75f), goldC);
                 for (int sx = -1; sx <= 1; sx += 2)
                     for (int sz = -1; sz <= 1; sz += 2)
-                        CreatePartCubeRotated(root, new Vector3(sx * 4.35f, -0.3f, sz * 4.35f), new Vector3(0.6f, 0.16f, 0.6f), goldC, Quaternion.Euler(0f, 45f, 0f));
+                        CreatePartCubeRotated(root, new Vector3(sx * 4.9f, -0.2f, sz * 4.9f), new Vector3(0.7f, 0.2f, 0.7f), goldC, Quaternion.Euler(0f, 45f, 0f));
+                break;
+
+            case "Shrine_Tier2Floor":
+                CreatePartCube(root, new Vector3(0f, 0.1f, 0f), new Vector3(8.6f, 0.25f, 7.6f), woodFloorC);
+                for (int ex = -1; ex <= 1; ex += 2)
+                    CreatePartCube(root, new Vector3(ex * 4.3f, 0.3f, 0f), new Vector3(0.16f, 0.12f, 7.6f), ridgeC);
+                for (int ez = -1; ez <= 1; ez += 2)
+                    CreatePartCube(root, new Vector3(0f, 0.3f, ez * 3.8f), new Vector3(8.6f, 0.12f, 0.16f), ridgeC);
+                CreatePartCube(root, new Vector3(0f, 0.4f, -3.92f), new Vector3(8.6f, 0.2f, 0.12f), ridgeC);
+                for (int px = -3; px <= 3; px += 2)
+                    CreatePartCube(root, new Vector3(px, 0.55f, -3.92f), new Vector3(0.12f, 0.5f, 0.12f), goldC);
+                break;
+
+            case "Shrine_Tier2Walls":
+                for (int cx = -1; cx <= 1; cx += 2)
+                    for (int cz = -1; cz <= 1; cz += 2)
+                        CreatePartCube(root, new Vector3(cx * 3.6f, 1f, cz * 3f), new Vector3(0.5f, 2f, 0.5f), pillarC);
+                CreatePartCube(root, new Vector3(0f, 0.95f, -3.05f), new Vector3(7.4f, 0.9f, 0.16f), ridgeC);
+                CreatePartCube(root, new Vector3(0f, 0.95f, 3.05f), new Vector3(7.4f, 0.9f, 0.16f), ridgeC);
+                CreatePartCube(root, new Vector3(-3.6f, 0.95f, 0f), new Vector3(0.16f, 0.9f, 6f), ridgeC);
+                CreatePartCube(root, new Vector3(3.6f, 0.95f, 0f), new Vector3(0.16f, 0.9f, 6f), ridgeC);
+                CreatePartCube(root, new Vector3(0f, 1.45f, -3.05f), new Vector3(7.4f, 0.1f, 0.2f), goldC);
+                CreatePartCube(root, new Vector3(0f, 1.45f, 3.05f), new Vector3(7.4f, 0.1f, 0.2f), goldC);
+                CreatePartCube(root, new Vector3(-3.6f, 1.45f, 0f), new Vector3(0.2f, 0.1f, 6f), goldC);
+                CreatePartCube(root, new Vector3(3.6f, 1.45f, 0f), new Vector3(0.2f, 0.1f, 6f), goldC);
+                for (int lx = -1; lx <= 1; lx += 2)
+                    for (int lz = -1; lz <= 1; lz += 2)
+                    {
+                        CreatePartCube(root, new Vector3(lx * 3.85f, 1.15f, lz * 3.25f), new Vector3(0.5f, 0.6f, 0.5f), goldC);
+                        CreatePartCube(root, new Vector3(lx * 3.85f, 1.5f, lz * 3.25f), new Vector3(0.14f, 0.16f, 0.14f), goldC);
+                    }
+                break;
+
+            case "Shrine_Roof2":
+                CreatePartCubeRotated(root, new Vector3(0f, 0.45f, -2.4f), new Vector3(10.4f, 0.45f, 4f), tileC, Quaternion.Euler(-18f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(0f, 0.45f, 2.4f), new Vector3(10.4f, 0.45f, 4f), tileC, Quaternion.Euler(18f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(-2.4f, 0.45f, 0f), new Vector3(4f, 0.45f, 9.6f), tileC, Quaternion.Euler(0f, 0f, -18f));
+                CreatePartCubeRotated(root, new Vector3(2.4f, 0.45f, 0f), new Vector3(4f, 0.45f, 9.6f), tileC, Quaternion.Euler(0f, 0f, 18f));
+                CreatePartCube(root, new Vector3(0f, 1.5f, 0f), new Vector3(4.4f, 0.4f, 4.4f), ridgeC);
+                CreatePartCube(root, new Vector3(0f, 2f, 0f), new Vector3(0.6f, 0.4f, 0.6f), goldC);
+                break;
+
+            case "Shrine_Spire":
+                CreatePartCube(root, new Vector3(0f, 0.6f, 0f), new Vector3(1.2f, 0.6f, 1.2f), ridgeC);
+                CreatePartCube(root, new Vector3(0f, 1.1f, 0f), new Vector3(1.5f, 0.18f, 1.5f), goldC);
+                CreatePartCube(root, new Vector3(0f, 2.6f, 0f), new Vector3(0.95f, 2.8f, 0.95f), goldC);
+                CreatePartCube(root, new Vector3(0f, 4.4f, 0f), new Vector3(1.2f, 0.16f, 1.2f), goldC);
+                CreatePartCube(root, new Vector3(0f, 5f, 0f), new Vector3(1f, 0.14f, 1f), goldC);
+                CreatePartCube(root, new Vector3(0f, 5.5f, 0f), new Vector3(0.8f, 0.12f, 0.8f), goldC);
+                CreatePartCube(root, new Vector3(0f, 6.2f, 0f), new Vector3(0.9f, 0.7f, 0.9f), goldC);
+                CreatePartCubeRotated(root, new Vector3(0f, 6.9f, 0f), new Vector3(0.4f, 0.4f, 0.4f), goldC, Quaternion.Euler(45f, 0f, 45f));
                 break;
 
             case "Shrine_Incense":
-                CreatePartCube(root, new Vector3(0f, 0.6f, -2.8f), new Vector3(1.1f, 1.2f, 1.1f), pillarC);
-                CreatePartCube(root, new Vector3(0f, 1.28f, -2.8f), new Vector3(1.2f, 0.08f, 1.2f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 1.4f, -2.8f), new Vector3(0.05f, 0.5f, 0.05f), new Color(0.62f, 0.5f, 0.32f));
-                CreatePartCube(root, new Vector3(0.2f, 1.36f, -2.8f), new Vector3(0.04f, 0.4f, 0.04f), goldC);
-                CreatePartCube(root, new Vector3(-0.2f, 1.36f, -2.8f), new Vector3(0.04f, 0.4f, 0.04f), goldC);
+                CreatePartCube(root, new Vector3(0f, 0.25f, -3.6f), new Vector3(2f, 0.6f, 2f), stoneBase);
+                CreatePartCube(root, new Vector3(-0.55f, 0.15f, -3.55f), new Vector3(0.3f, 0.7f, 0.3f), bronzeC);
+                CreatePartCube(root, new Vector3(0.55f, 0.15f, -3.55f), new Vector3(0.3f, 0.7f, 0.3f), bronzeC);
+                CreatePartCube(root, new Vector3(0f, 0.15f, -4.1f), new Vector3(0.3f, 0.7f, 0.3f), bronzeC);
+                CreatePartCube(root, new Vector3(0f, 1.05f, -3.6f), new Vector3(1.9f, 0.8f, 1.9f), bronzeC);
+                CreatePartCube(root, new Vector3(0f, 1.5f, -3.6f), new Vector3(2f, 0.1f, 2f), goldC);
+                CreatePartCube(root, new Vector3(0f, 1.9f, -3.6f), new Vector3(1.3f, 0.7f, 1.3f), bronzeC);
+                CreatePartCube(root, new Vector3(0f, 2.4f, -3.6f), new Vector3(0.32f, 0.35f, 0.32f), goldC);
+                CreatePartCube(root, new Vector3(0f, 2.9f, -3.6f), new Vector3(0.14f, 0.6f, 0.14f), smokeC);
+                CreatePartCube(root, new Vector3(0f, 3.3f, -3.6f), new Vector3(0.1f, 0.5f, 0.1f), smokeC);
+                CreatePartCube(root, new Vector3(0f, 1.75f, -2.95f), new Vector3(0.8f, 0.15f, 0.5f), stoneBase);
+                CreatePartCube(root, new Vector3(-0.2f, 2f, -2.95f), new Vector3(0.04f, 0.4f, 0.04f), goldC);
+                CreatePartCube(root, new Vector3(0.2f, 2f, -2.95f), new Vector3(0.04f, 0.4f, 0.04f), goldC);
+                break;
+
+            case "Shrine_Deity":
+                CreatePartCube(root, new Vector3(0f, 0.5f, 3f), new Vector3(2.4f, 0.9f, 1.5f), stoneBase);
+                CreatePartCube(root, new Vector3(0f, 1f, 3f), new Vector3(2.5f, 0.1f, 1.6f), goldC);
+                CreatePartCube(root, new Vector3(0f, 1.35f, 2.95f), new Vector3(2f, 0.35f, 1.3f), robeC);
+                CreatePartCube(root, new Vector3(0f, 2.15f, 2.9f), new Vector3(1.2f, 1.1f, 0.9f), robeC);
+                CreatePartCube(root, new Vector3(0f, 2.15f, 2.45f), new Vector3(0.24f, 1.1f, 0.2f), goldC);
+                CreatePartCube(root, new Vector3(0f, 2.8f, 2.95f), new Vector3(1.9f, 0.5f, 0.95f), robeC);
+                CreatePartCube(root, new Vector3(0f, 2.45f, 2.35f), new Vector3(0.5f, 0.5f, 0.3f), goldC);
+                CreatePartCube(root, new Vector3(0f, 3.3f, 2.95f), new Vector3(0.75f, 0.7f, 0.75f), skinC);
+                CreatePartCube(root, new Vector3(-0.16f, 3.35f, 3.28f), new Vector3(0.05f, 0.08f, 0.05f), blackC);
+                CreatePartCube(root, new Vector3(0.16f, 3.35f, 3.28f), new Vector3(0.05f, 0.08f, 0.05f), blackC);
+                CreatePartCube(root, new Vector3(0f, 3.7f, 2.95f), new Vector3(0.9f, 0.45f, 0.9f), blackC);
+                CreatePartCube(root, new Vector3(0f, 3.55f, 2.95f), new Vector3(0.95f, 0.1f, 0.95f), goldC);
+                CreatePartCube(root, new Vector3(0f, 3.95f, 2.95f), new Vector3(0.2f, 0.18f, 0.2f), goldC);
+                CreatePartCube(root, new Vector3(1f, 2.15f, 2.9f), new Vector3(0.12f, 1.7f, 0.12f), goldC);
+                CreatePartCubeRotated(root, new Vector3(1f, 3.05f, 2.9f), new Vector3(0.2f, 0.2f, 0.2f), goldC, Quaternion.Euler(45f, 0f, 45f));
+                break;
+
+            case "Shrine_Altar":
+                CreatePartCube(root, new Vector3(0f, 0.45f, 1.6f), new Vector3(2.6f, 0.9f, 1.2f), woodDarkC);
+                CreatePartCube(root, new Vector3(0f, 0.95f, 1.6f), new Vector3(2.7f, 0.08f, 1.3f), goldC);
+                for (int cdx = -1; cdx <= 1; cdx += 2)
+                {
+                    CreatePartCube(root, new Vector3(cdx * 0.7f, 1.25f, 1.6f), new Vector3(0.14f, 0.5f, 0.14f), goldC);
+                    CreatePartCube(root, new Vector3(cdx * 0.7f, 1.55f, 1.6f), new Vector3(0.07f, 0.14f, 0.07f), flameC);
+                }
+                CreatePartCube(root, new Vector3(0f, 1.1f, 1.6f), new Vector3(0.5f, 0.3f, 0.5f), bronzeC);
+                CreatePartCube(root, new Vector3(-0.55f, 1.05f, 2f), new Vector3(0.4f, 0.2f, 0.4f), blackC);
+                CreatePartCube(root, new Vector3(0.55f, 1.05f, 2f), new Vector3(0.4f, 0.2f, 0.4f), blackC);
+                CreatePartCube(root, new Vector3(0f, 0.15f, 0.6f), new Vector3(2.2f, 0.1f, 1.2f), robeC);
+                CreatePartCube(root, new Vector3(0f, 0.3f, 2.3f), new Vector3(1.8f, 0.3f, 0.6f), stoneBase);
                 break;
         }
     }

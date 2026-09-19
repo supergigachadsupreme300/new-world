@@ -16,7 +16,59 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
-## 1cy — "the comet, meteor, ...etc skills are suppose to have effect of summon a big rock" (SHIPPED in `1cy`)
+## 1cz — "make the church and shrine as big and detailed as the pagoda" (SHIPPED in `1cz`)
+
+### Context
+User asked for the church and taoist shrine to match the pagoda in size and detail. Measured gap
+before the change: pagoda = 15 parts, 14×14, ~21 tall, ~430-line builder; church = 7 parts, 13×9,
+~9.6 tall, ~65-line builder; shrine = 6 parts, 10×8.5, ~6 tall, ~65-line builder.
+
+### Scope decisions (asked user; answers recorded)
+1. Match pagoda scale (~14-16 wide, ~20 tall)? → CHOSE match-pagoda scale.
+2. Steeple style → CHOSE a single tall front steeple (gothic, not a twin-tower or a separate topknot).
+3. Shrine design → CHOSE a two-tier pagoda-style hall (main tiled roof + an upper tier roof) topped
+   by a jewelled gold spire.
+
+### Design hypotheses
+- **H1 - keep part names vs rename.** CHOSE keep every existing part name and add new ones. Save/load
+  restores `structure_part_*` by name generically (`LoadBuildingsFromSave`); no gameplay code matches
+  part names except the two builders' switch. Renaming would break old saves for no gain.
+- **H2 - part granularity.** CHOSE 13 church / 12 shrine parts. Enough to separate the vertical stack
+  (foundation → interior → roof → steeple) so each cube-stack reads clearly, while staying in the
+  same order of magnitude as the pagoda's 15 so the structure loop cost doesn't blow up.
+- **H3 - NPC anchor orientation.** CONFIRMED by rotation math: `BuildChurch` rotates every part +90°
+  about Y, so the new church's local -Z front (steps/tower door) faces world **-X (west)**; shrine
+  rotation is 0, so its front faces world **-Z (south)**. The priest therefore moved from south of the
+  church to **west** in front of the steps (rot 90→facing +X), and the taoist moved further south
+  (-40,-33.4) in front of the widened steps and now faces the shrine (rot 0). Follow-up correction
+  while landing `1cz`: after shifting the church's foundation from a 9-deep to a 13-deep slab and
+  adding a full-width front porch + 4 descending steps (apron z -9.8..-6.6, landing to z≈-12), the
+  priest anchor moved out to (27.5,-30) so he stands at the foot of the steps, not on the apron cube
+  (the original 31.6 point landed inside the new porch volume). Test platform mirrored: priest
+  `(cx+17.5, cz-35)` at the foot of the west steps (church center cx+30).
+- **H4 - window/roof idiom.** Reused the pagoda's rotated-cube idiom (`CreatePartCubeRotated`) for
+  eaves; used the same rotation trick at ±35° to build the gothic pointed arch heads (chevron), which
+  is the one non-pagoda motif the design needed.
+- **H5 - pruning radius.** `ChurchExcludeHalf`/`ShrineExcludeHalf` raised to 15/14 so the tree/rock
+  pruning box clears the grown footprints (16×13 and 14×12 → half-extents ~8 and ~7-7.2).
+
+### Evidence / verification (grep, no build — rule 3)
+- Every new part name present in BOTH `_churchSubBuildings`/`_shrineSubBuildings` AND its switch case
+  (25/25 via grep; see PROGRESS.md `1cz`). No legacy name dropped, so save-restore stays intact.
+- New part names are only referenced in WorldBuilder.cs (array) + WorldBuilder.Blueprints.cs (switch);
+  no other consumer strings (CharacterInfoUI, save/restore) refer to them.
+- `IsFloorType` only matches `wood_floor`/`stone_floor`, so the new props can't pollute floor spawns.
+
+### Dead ends / decisions NOT taken
+- Did NOT add a side "village clock tower" or twin towers to the church (user picked single steeple).
+- Did NOT make the shrine a literal 2nd pagoda — kept the deity statue + altar + censer interior so it
+  stays a worship hall rather than a clone.
+- Did NOT touch the pagoda or the legacy village layout.
+
+### Open items
+- Play-test: visual overlap of newly widened steps vs NPC box-collider walks; confirm pruning radius
+  covers the grown footprints (esp. church east flank at x=48 now inside the 15 box) and the west
+  priest placement reads as "in front of the door".
 
 ### Context
 Player read the sky-spell descriptions ("a burning meteor falls from the sky", "a colossal mass of

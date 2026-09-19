@@ -543,11 +543,11 @@ public sealed class NewWorldTestGround : MonoBehaviour
         float cz = PlatformCenter.z;
 
         wb.BuildShrine(new Vector3(cx - 30f, baseY, cz - 38f));
-        var taoist = MapBuilder.BuildTaoistNpc(wb.WorldRoot.transform, new Vector3(cx - 30f, baseY, cz - 31.6f), Quaternion.identity);
+        var taoist = MapBuilder.BuildTaoistNpc(wb.WorldRoot.transform, new Vector3(cx - 30f, baseY, cz - 46.6f), Quaternion.identity);
         taoist.AddComponent<TaoistPriestNPC>();
 
         wb.BuildChurch(new Vector3(cx + 30f, baseY, cz - 35f));
-        var priest = MapBuilder.BuildPriestNpc(wb.WorldRoot.transform, new Vector3(cx + 30f, baseY, cz - 41.2f), Quaternion.identity);
+        var priest = MapBuilder.BuildPriestNpc(wb.WorldRoot.transform, new Vector3(cx + 17.5f, baseY, cz - 35f), Quaternion.Euler(0f, 90f, 0f));
         priest.AddComponent<PriestNPC>();
 
         wb.BuildPagoda(new Vector3(cx - 30f, baseY, cz + 44f));

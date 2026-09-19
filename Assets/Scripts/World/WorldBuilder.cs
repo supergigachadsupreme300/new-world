@@ -47,11 +47,11 @@ private static readonly Vector3 PagodaBasePos = new Vector3(26f, 0f, 25f);
     private Vector3 _pagodaPosition;
     public Vector3 PagodaPosition => _pagodaPosition;
     private static readonly Vector3 ChurchBasePos = new Vector3(40f, 0f, -30f);
-    private const float ChurchExcludeHalf = 13f;
+    private const float ChurchExcludeHalf = 15f;
     private Vector3 _churchPosition;
     public Vector3 ChurchPosition => _churchPosition;
     private static readonly Vector3 ShrineBasePos = new Vector3(-40f, 0f, -25f);
-    private const float ShrineExcludeHalf = 12f;
+    private const float ShrineExcludeHalf = 14f;
     private Vector3 _shrinePosition;
     public Vector3 ShrinePosition => _shrinePosition;
     private readonly Vector3 _bossArenaCenter = new Vector3(280f, 0f, 90f);
@@ -403,13 +403,19 @@ new BuildingPartDefinition { PartName = "Wall_FrontL",  LocalPosition = new Vect
     // ------------------------------------------------------------════════
     private static readonly SubBuildingDefinition[] _churchSubBuildings = new SubBuildingDefinition[]
     {
-        new SubBuildingDefinition { PartName = "Church_Foundation", Offset = new Vector3(0f, 0.1f, 0f),  Size = new Vector3(13f, 0.5f, 9f),    WoodCost = 0,   StoneCost = 60, Color = new Color(0.52f, 0.51f, 0.5f) },
-        new SubBuildingDefinition { PartName = "Church_NaveFloor",  Offset = new Vector3(0f, 0.45f, 0f),  Size = new Vector3(10.4f, 0.24f, 6.4f), WoodCost = 20, StoneCost = 0,  Color = new Color(0.8f, 0.78f, 0.74f) },
-        new SubBuildingDefinition { PartName = "Church_BackWall",   Offset = new Vector3(0f, 0.7f, 0f),   Size = new Vector3(10.6f, 4.7f, 0.3f), WoodCost = 15, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
-        new SubBuildingDefinition { PartName = "Church_SideWalls",  Offset = new Vector3(0f, 0.7f, 0f),   Size = new Vector3(0.3f, 4.7f, 6.5f),  WoodCost = 30, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
-        new SubBuildingDefinition { PartName = "Church_FrontWall",  Offset = new Vector3(0f, 0.7f, 0f),   Size = new Vector3(10.6f, 4.7f, 0.3f), WoodCost = 15, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
-        new SubBuildingDefinition { PartName = "Church_Roof",       Offset = new Vector3(0f, 5.5f, 0f),   Size = new Vector3(12f, 0.5f, 7f),    WoodCost = 0,   StoneCost = 50, Color = new Color(0.5f, 0.14f, 0.11f) },
-        new SubBuildingDefinition { PartName = "Church_Tower",      Offset = new Vector3(0f, 0.45f, 0f),  Size = new Vector3(3f, 6.4f, 3f),     WoodCost = 35, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
+        new SubBuildingDefinition { PartName = "Church_Foundation", Offset = new Vector3(0f, 0.1f, 0f),    Size = new Vector3(16f, 0.5f, 13f),   WoodCost = 0,   StoneCost = 90, Color = new Color(0.52f, 0.51f, 0.5f) },
+        new SubBuildingDefinition { PartName = "Church_NaveFloor",  Offset = new Vector3(0f, 0.5f, 0f),    Size = new Vector3(13f, 0.2f, 10f),   WoodCost = 30, StoneCost = 0,  Color = new Color(0.8f, 0.78f, 0.74f) },
+        new SubBuildingDefinition { PartName = "Church_Pillars",    Offset = new Vector3(0f, 0.85f, 0f),   Size = new Vector3(11f, 3.9f, 7f),    WoodCost = 40, StoneCost = 45, Color = new Color(0.93f, 0.91f, 0.86f) },
+        new SubBuildingDefinition { PartName = "Church_SideWalls",  Offset = new Vector3(0f, 0.9f, 0f),    Size = new Vector3(0.35f, 4.2f, 11f), WoodCost = 35, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
+        new SubBuildingDefinition { PartName = "Church_FrontWall",  Offset = new Vector3(0f, 0.9f, 0f),    Size = new Vector3(10f, 4.2f, 0.35f), WoodCost = 20, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
+        new SubBuildingDefinition { PartName = "Church_BackWall",   Offset = new Vector3(0f, 0.9f, 0f),    Size = new Vector3(13.2f, 4.2f, 0.35f), WoodCost = 20, StoneCost = 0, Color = new Color(0.93f, 0.91f, 0.86f) },
+        new SubBuildingDefinition { PartName = "Church_Roof",       Offset = new Vector3(0f, 5.2f, 0f),    Size = new Vector3(17f, 0.5f, 6.5f),  WoodCost = 0,   StoneCost = 70, Color = new Color(0.5f, 0.14f, 0.11f) },
+        new SubBuildingDefinition { PartName = "Church_Tower",      Offset = new Vector3(0f, 0.5f, 0f),    Size = new Vector3(7.2f, 6.6f, 7.2f), WoodCost = 40, StoneCost = 20, Color = new Color(0.93f, 0.91f, 0.86f) },
+        new SubBuildingDefinition { PartName = "Church_Belfry",     Offset = new Vector3(0f, 7.3f, 0f),    Size = new Vector3(4.6f, 2.4f, 4.6f), WoodCost = 20, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
+        new SubBuildingDefinition { PartName = "Church_SpireRoof",  Offset = new Vector3(0f, 10f, 0f),    Size = new Vector3(5.6f, 0.5f, 5.6f), WoodCost = 0,  StoneCost = 35, Color = new Color(0.32f, 0.09f, 0.08f) },
+        new SubBuildingDefinition { PartName = "Church_Spire",      Offset = new Vector3(0f, 12.5f, 0f),   Size = new Vector3(1.1f, 7.2f, 1.1f), WoodCost = 5,  StoneCost = 0,  Color = new Color(1f, 0.84f, 0.2f) },
+        new SubBuildingDefinition { PartName = "Church_Buttresses", Offset = new Vector3(0f, 0.9f, 0f),    Size = new Vector3(1f, 4.4f, 4f),    WoodCost = 15, StoneCost = 0,  Color = new Color(0.52f, 0.51f, 0.5f) },
+        new SubBuildingDefinition { PartName = "Church_Interior",   Offset = new Vector3(0f, 0.6f, 0f),    Size = new Vector3(11f, 1.6f, 9f),    WoodCost = 35, StoneCost = 0,  Color = new Color(0.38f, 0.24f, 0.14f) },
     };
 
     // ------------------------------------------------------------════════
@@ -417,12 +423,18 @@ new BuildingPartDefinition { PartName = "Wall_FrontL",  LocalPosition = new Vect
     // ------------------------------------------------------------════════
     private static readonly SubBuildingDefinition[] _shrineSubBuildings = new SubBuildingDefinition[]
     {
-        new SubBuildingDefinition { PartName = "Shrine_Foundation", Offset = new Vector3(0f, 0.1f, 0f),   Size = new Vector3(10f, 0.6f, 8.5f),     WoodCost = 0,   StoneCost = 60, Color = new Color(0.4f, 0.38f, 0.36f) },
-        new SubBuildingDefinition { PartName = "Shrine_Floor",      Offset = new Vector3(0f, 0.5f, 0f),   Size = new Vector3(9f, 0.28f, 6.8f),     WoodCost = 25, StoneCost = 0,  Color = new Color(0.42f, 0.28f, 0.16f) },
-        new SubBuildingDefinition { PartName = "Shrine_Pillars",    Offset = new Vector3(0f, 0.75f, 0f),  Size = new Vector3(0.35f, 4.6f, 0.35f),  WoodCost = 20, StoneCost = 20, Color = new Color(0.45f, 0.44f, 0.42f) },
-        new SubBuildingDefinition { PartName = "Shrine_BackWall",   Offset = new Vector3(0f, 0.75f, 0f),  Size = new Vector3(6.8f, 4.4f, 0.35f),   WoodCost = 0,   StoneCost = 40, Color = new Color(0.34f, 0.33f, 0.31f) },
-        new SubBuildingDefinition { PartName = "Shrine_Roof",       Offset = new Vector3(0f, 5.2f, 0f),   Size = new Vector3(9f, 0.5f, 9f),        WoodCost = 0,   StoneCost = 55, Color = new Color(0.35f, 0.45f, 0.38f) },
-        new SubBuildingDefinition { PartName = "Shrine_Incense",    Offset = new Vector3(0f, 0.5f, 0f),   Size = new Vector3(1.1f, 1.2f, 1.1f),    WoodCost = 5,   StoneCost = 10, Color = new Color(0.55f, 0.52f, 0.48f) },
+        new SubBuildingDefinition { PartName = "Shrine_Foundation", Offset = new Vector3(0f, 0.1f, 0f),    Size = new Vector3(14f, 0.6f, 12f),    WoodCost = 0,   StoneCost = 90, Color = new Color(0.4f, 0.38f, 0.36f) },
+        new SubBuildingDefinition { PartName = "Shrine_Floor",      Offset = new Vector3(0f, 0.55f, 0f),   Size = new Vector3(12f, 0.25f, 10f),   WoodCost = 30, StoneCost = 0,  Color = new Color(0.42f, 0.28f, 0.16f) },
+        new SubBuildingDefinition { PartName = "Shrine_Pillars",    Offset = new Vector3(0f, 0.85f, 0f),   Size = new Vector3(10f, 3.6f, 8f),     WoodCost = 35, StoneCost = 35, Color = new Color(0.45f, 0.44f, 0.42f) },
+        new SubBuildingDefinition { PartName = "Shrine_BackWall",   Offset = new Vector3(0f, 0.85f, 0f),   Size = new Vector3(9.2f, 3.2f, 0.4f),  WoodCost = 0,   StoneCost = 50, Color = new Color(0.34f, 0.33f, 0.31f) },
+        new SubBuildingDefinition { PartName = "Shrine_Roof",       Offset = new Vector3(0f, 4.6f, 0f),    Size = new Vector3(14.4f, 0.5f, 5.2f), WoodCost = 0,   StoneCost = 65, Color = new Color(0.35f, 0.45f, 0.38f) },
+        new SubBuildingDefinition { PartName = "Shrine_Tier2Floor", Offset = new Vector3(0f, 5.9f, 0f),    Size = new Vector3(8.6f, 0.25f, 7.6f), WoodCost = 25, StoneCost = 0,  Color = new Color(0.42f, 0.28f, 0.16f) },
+        new SubBuildingDefinition { PartName = "Shrine_Tier2Walls", Offset = new Vector3(0f, 6.5f, 0f),    Size = new Vector3(7.6f, 1.1f, 6.6f),  WoodCost = 25, StoneCost = 20, Color = new Color(0.45f, 0.44f, 0.42f) },
+        new SubBuildingDefinition { PartName = "Shrine_Roof2",      Offset = new Vector3(0f, 8.2f, 0f),    Size = new Vector3(10.4f, 0.45f, 3.8f), WoodCost = 0,  StoneCost = 45, Color = new Color(0.35f, 0.45f, 0.38f) },
+        new SubBuildingDefinition { PartName = "Shrine_Spire",      Offset = new Vector3(0f, 9.8f, 0f),    Size = new Vector3(1.4f, 6.5f, 1.4f),  WoodCost = 5,   StoneCost = 0,  Color = new Color(1f, 0.84f, 0.2f) },
+        new SubBuildingDefinition { PartName = "Shrine_Incense",    Offset = new Vector3(0f, 0.85f, 0f),   Size = new Vector3(2f, 1.6f, 2f),      WoodCost = 10, StoneCost = 15, Color = new Color(0.55f, 0.52f, 0.48f) },
+        new SubBuildingDefinition { PartName = "Shrine_Deity",      Offset = new Vector3(0f, 0.85f, 0f),   Size = new Vector3(2.4f, 3.9f, 1.6f),  WoodCost = 0,   StoneCost = 30, Color = new Color(0.62f, 0.12f, 0.16f) },
+        new SubBuildingDefinition { PartName = "Shrine_Altar",      Offset = new Vector3(0f, 0.85f, 0f),   Size = new Vector3(2.8f, 0.8f, 1.5f),  WoodCost = 20, StoneCost = 5,  Color = new Color(0.3f, 0.18f, 0.1f) },
     };
 
     private int _currentBuildingIndex;
@@ -497,10 +509,10 @@ BuildPagoda(PagodaBasePos);
         var monk = MapBuilder.BuildMonkNpc(_worldRoot.transform, new Vector3(24f, 1.815f, 27f), Quaternion.Euler(0f, -90f, 0f));
         monk.AddComponent<PagodaMonkNPC>();
         BuildChurch(ChurchBasePos);
-        var priest = MapBuilder.BuildPriestNpc(_worldRoot.transform, new Vector3(40f, 0.93f, -36.2f), Quaternion.Euler(0f, 0f, 0f));
+        var priest = MapBuilder.BuildPriestNpc(_worldRoot.transform, new Vector3(27.5f, 0.93f, -30f), Quaternion.Euler(0f, 90f, 0f));
         priest.AddComponent<PriestNPC>();
         BuildShrine(ShrineBasePos);
-        var taoist = MapBuilder.BuildTaoistNpc(_worldRoot.transform, new Vector3(-40f, 0.93f, -31.4f), Quaternion.Euler(0f, 0f, 0f));
+        var taoist = MapBuilder.BuildTaoistNpc(_worldRoot.transform, new Vector3(-40f, 0.93f, -33.4f), Quaternion.Euler(0f, 0f, 0f));
         taoist.AddComponent<TaoistPriestNPC>();
         BuildBossArena();
 PruneTreesAndRocksNearStructures();

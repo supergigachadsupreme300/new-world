@@ -3,6 +3,48 @@
 Last updated: 2026-09-19. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1cz. Church & Taoist Shrine rebuilt to pagoda scale and detail
+
+User: make the church and shrine as big and detailed as the pagoda. Both were small boxes
+(church 13×9×~9.6 in 7 parts; shrine 10×8.5×~6 in 6 parts) next to the ~21-tall, 15-part pagoda.
+
+Now both structures match the pagoda's size and richness:
+
+- **Church 16×13, ~21 tall, 13 parts** (`_churchSubBuildings` WorldBuilder.cs:405 + `BuildChurchPart`
+  WorldBuilder.Blueprints.cs:1408). Kept all 7 original part names (save-compatible) and added 6:
+  `Church_Pillars` (2 arcade rings, gilded capitals), `Church_Belfry` (louvered bell stage),
+  `Church_SpireRoof` (4 steep dark panels + gold trim + corner finials), `Church_Spire` (gold rings
+  + ball + cross, ~20 u), `Church_Buttresses` (stepped along both sides + fronts), `Church_Interior`
+  (pulpit, pews, altar + candlesticks + inner cross). Upgraded originals: widened nave w/ central
+  aisle, **gothic arched windows** (glass + gold jambs + pointed arch) on both side walls, front wall
+  flanks with gabled rose-window arch, apse (chamfered end walls) + big gold cross, wider gabled
+  roof + gable fascia, and a **tall front steeple** (6.2 sq tower w/ door + rose window replacing the
+  old 3-wide offset box).
+- **Shrine 14×12, ~13 tall, 12 parts** (`_shrineSubBuildings` WorldBuilder.cs:425 + `BuildShrinePart`
+  Blueprints.cs:1645). All 6 original names kept; added `Shrine_Tier2Floor`, `Shrine_Tier2Walls`
+  (lanterns + parapet), `Shrine_Roof2`, `Shrine_Spire` (jewelled gold spire, ~13 u tall),
+  `Shrine_Deity` (robed taoist statue + golden crown + staff), `Shrine_Altar` (offerings table +
+  candles + urns). Upgraded originals: bigger foundation + gold bottom step, full 8-column ring
+  (+ mids) with gold brackets + ridge lintels, wall-mounted **yin-yang emblem** (gold ring, black/white
+  swirl + dots) replacing the old hanging disks, larger 4-slope tile roof, and a **big tripod incense
+  censer** (bronze legs/bowl/lid + smoke wisp) at the entrance.
+- **NPCs follow the new footprints**: `ChurchExcludeHalf` 13→15, `ShrineExcludeHalf` 12→14
+  (WorldBuilder.cs:50/54); priest moved to (27.5, -30) at the foot of the west-facing front steps
+  (facing +X), taoist moved to (-40, -33.4) south of the shrine (WorldBuilder.cs:513/516). Test
+  platform anchors updated the same way (NewWorldTestGround.cs:545-551); church/taoist anchors are
+  grounded on the new full-width porch + front steps.
+
+### 1cz-status
+- Implemented + docs updated in one pass (`game-design.md` §5.7; arrays switched same-pass).
+- Verification: no CLI/Unity build (rule 3) — grep + reread only: every new part name exists in BOTH
+  the part array and its `Build*Part` switch (13 church + 12 shrine = 25/25, see THINKING.md `1cz`);
+  no legacy part name was dropped (save-restore keeps working); no gameplay code references part
+  names by string outside these two files.
+- Play-test pending: walk the village to see the new church (west-facing steeple + priest at the foot
+  of its new full-width front steps) and shrine (south-facing steps + taoist); confirm the front
+  steps/doors align with the NPCs, tree/rock pruning radius now clears around the bigger footprints,
+  and the test-ground religion lane places all three sites upright with their NPCs.
+
 ## 1cy. Comet / Meteor / Asteroid (etc.) now summon a big falling rock on cast
 
 User: "the comet, meteor, ...etc skills are suppose to have effect of summon a big rock". Previously
