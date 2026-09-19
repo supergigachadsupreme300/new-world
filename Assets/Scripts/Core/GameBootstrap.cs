@@ -85,7 +85,7 @@ public class GameBootstrap : MonoBehaviour
         if (worldStreamer.RenderDistance == null)
         {
             var rd = ScriptableObject.CreateInstance<RenderDistanceController>();
-            rd.Radius = 20;
+            rd.Radius = 30;
             rd.MaxRadius = 160;
             worldStreamer.RenderDistance = rd;
         }
@@ -104,7 +104,7 @@ public class GameBootstrap : MonoBehaviour
 
         // Generate ONLY the spawn chunk synchronously so the player has ground to land on before
         // the first frame; the surrounding chunks build in the background from frame 1 (the chunk
-        // pipeline + ChunksPerFrame budget fills the render radius over ~1.5s).
+        // pipeline + aggressive burst budget fills the full radius-30 ring in ~10-15s (1dg)).
         //
         // Boot order is "ground first, then player": the player is placed on the pre-generated
         // spawn chunk at (0, ~y+2, -10) — never an unloaded void. NewWorldTestGround builds its

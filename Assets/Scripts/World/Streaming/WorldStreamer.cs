@@ -30,10 +30,10 @@ public class WorldStreamer : MonoBehaviour
 
     [Header("Threading")]
     [Tooltip("Max terrain chunks finalized per poll tick (main-thread work).")]
-    public int ChunksPerFrame = 8;
+    public int ChunksPerFrame = 16;
 
     [Tooltip("Max terrain chunks being generated on background threads simultaneously.")]
-    public int MaxInFlight = 8;
+    public int MaxInFlight = 24;
 
     // --- Tile-level state (existing public API; 900 entries per loaded chunk) ---
     private readonly Dictionary<ChunkCoord, ChunkData> _loadedData = new Dictionary<ChunkCoord, ChunkData>();
@@ -56,7 +56,7 @@ public class WorldStreamer : MonoBehaviour
 
     private Transform _focus;
     private float _timer;
-    private const float PollInterval = 0.1f;
+    private const float PollInterval = 0.05f;
 
     /// <summary>Plausible terrain-height band (5-octave noise max ≈ ±63.5 m + ≤ ~4.4 m
     /// deformation headroom). Rejects garbage from a corrupt/non-finite chunk save so it can
@@ -413,14 +413,15 @@ public class WorldStreamer : MonoBehaviour
     /// <summary>
     /// Dequeue completed terrain chunks and create ONE GameObject (merged mesh +
     /// single collider) per chunk on the main thread. A capped budget
-    /// (ChunksPerFrame, max 8/tick) PLUS a wall-clock time budget (~6ms) spreads the
-    /// work so the whole render radius fills in about a second without frame hitches.
-    /// Props are NOT spawned here — they stream in over the next ticks (StepChunkProps).
+    /// (ChunksPerFrame, max 16/tick) PLUS a wall-clock time budget (~12ms) spreads the
+    /// work so the render-radius fill completes in ~10-15s (1dg) without a burst hitches
+    /// a single frame. Props are NOT spawned here — they stream in over the next ticks
+    /// (StepChunkProps).
     /// </summary>
     private void FinalizeChunks()
     {
         int finalized = 0;
-        int budget = Mathf.Max(1, Mathf.Min(ChunksPerFrame, 8));
+        int budget = Mathf.Max(1, Mathf.Min(ChunksPerFrame, 16));
         float start = Time.realtimeSinceStartup;
         while (finalized < budget && _readyChunks.TryDequeue(out TerrainChunkMeshData chunk))
         {
@@ -436,7 +437,7 @@ public class WorldStreamer : MonoBehaviour
             // neighbour heights — reconcile now that this chunk's tiles exist.
             ReconcileNewlyLoadedChunk(chunk.Coord);
             finalized++;
-            if ((Time.realtimeSinceStartup - start) * 1000f >= 6f)
+            if ((Time.realtimeSinceStartup - start) * 1000f >= 12f)
                 break;
         }
     }
@@ -487,10 +488,12 @@ public class WorldStreamer : MonoBehaviour
 
     /// <summary>
     /// Time-budgeted prop spawning: each tick, a global budget of prop tiles is consumed
-    /// across the newest pending chunks. This keeps a full render-radius fill (450 props,
-    /// some trees 100+ cubes) from hitching a single frame.
+    /// across the newest pending chunks. The budget is shared per tick (120 tiles) so props
+    /// trail the terrain fill by only a few seconds at the larger render radius (1dg) while
+    /// still never hitching a single frame (a density of ~1/200 trees + 1/200 rocks = ~150
+    /// cube-heavy GameObjects per chunk at worst).
     /// </summary>
-    private const int PropTilesPerTick = 40;
+    private const int PropTilesPerTick = 120;
 
     private void StepChunkProps()
     {

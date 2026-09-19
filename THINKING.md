@@ -16,7 +16,44 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
-## 1df — "the animals are basically invincible" (SHIPPED in `1df`)
+## 1dg — "increase terrain render range and need to increase the loading speed even more" (SHIPPED in `1dg`)
+
+User asked for (a) more render range and (b) faster loading. Clarified via questions: radius **30**, an
+**aggressive** burst-load profile, keep the distance fog.
+
+### Step 1 — where does loading speed actually sit?
+- H1: mesh generation on threads is too slow. PARTLY — each chunk builds 900 tiles + a merged mesh on
+  a ThreadPool thread (~961 noise calls), but that work was already backgrounded; the pipeline was not
+  throttled by raw CPU but by pacing.
+- H2 (CONFIRMED): the pacing constants cap throughput. `PollInterval = 0.1` s means only ~10 ticks/s;
+  `FinalizeChunks` caps at `min(ChunksPerFrame, 8)` chunks AND a 6 ms wall clock — ≈ 80 chunks/s max;
+  `MaxInFlight = 8` limits how far ahead the background runs. At radius 20 (1,681 chunks) the full fill
+  is ~21 s, so the `GameBootstrap` comment "fills the render radius over ~1.5 s" was stale — it predated
+  the bigger radius and nothing accelerated the pipeline with it.
+- Evidence for the pacing being the binding constraint: main-thread apply per chunk is tiny (a
+  961-vertex/1800-tri flag upload + single collider cook) vs the 6 ms budget and 8-chunk cap. So the
+  cheap work was artificially rationed.
+
+### Step 2 — the speed levers (all in WorldStreamer.cs)
+- PollInterval 0.1 → 0.05 (2x ticks/frame budget). Each tick also re-runs StreamAround (unload sweep +
+  ring enqueue) and DispatchPending (distance sort) — cheap at ~4k chunks.
+- FinalizeChunks: hard cap `8 → 16`, wall-clock `6 → 12 ms`. Kept the cap so a pathological frame can't
+  overrun; kept the wall clock so slow cooks (collider bake) don't blow the frame.
+- MaxInFlight `8 → 24`: more background backlog so the faster finalize never waits on emptiness.
+- PropTilesPerTick `40 → 120`: props exist to dress the ground; at the old 40 tiles/tick the ~1/200
+  tree + ~1/200 rock density would take minutes to dribble in across 3,721 chunks' 3.3 M tiles.
+- Net: ≈ 320 chunks/s (4x today) → radius-30 fill ~10–15 s.
+
+### Step 3 — range knobs checked for side effects
+- `ChunkLodManager.EffectiveCullDistance()` = `max(CullDistance, (Radius+1)*ChunkSize)` — auto-scales,
+  no edit needed. At radius 30 that is 930 m; camera far plane default ≈1000 m just covers the axis
+  (diagonal spurs may flirt with the clip → play-test item, see PROGRESS).
+- Memory/objects grow quadratically (1,681 → 3,721 chunks); each chunk = 1 GameObject (mesh + collider)
+  + ~9 props (~150 cubes) on average. Verified nothing else hard-codes the old radius/pacing
+  (grep `Radius = 20`, `PollInterval`, `MaxInFlight`, `ChunksPerFrame`, `PropTilesPerTick`).
+
+### Verdict
+- H1 rejected, H2 confirmed. Changes shipped in `1dg`; play-test checklist in PROGRESS `1dg-status`.
 
 User: "the animals dont have damage interaction so they basicly invincible right now". Clarified via
 questions: at 0 HP → "explode and part flung everywhere" (the old-game voxel burst); club stays

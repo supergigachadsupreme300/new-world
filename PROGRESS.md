@@ -3,6 +3,43 @@
 Last updated: 2026-09-19. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1dg. Render radius raised to 30; streaming burst sped up ~4x (poll 2x + bigger budgets)
+
+User: "increase terrain render range and need to increase the loading speed even more". Clarified:
+radius **30** (~900 m half-width), **aggressive** burst loading, keep fog as-is.
+
+- The fill rate was paced by constants in `WorldStreamer.cs`, not CPU: a poll tick every 0.1 s, a
+  finalize cap of `min(ChunksPerFrame, 8)` chunks + a 6 ms wall clock (≤ 8 chunks/tick ≈ 80 chunks/s),
+  and only 8 background generations in flight. At that rate even the old radius-20 (1,681 chunks) took
+  ~21 s to fill — the bootstrap comment claiming "~1.5 s" was stale (it predated the big radius).
+- **Render range** — `RenderDistanceController.cs` default `Radius = 20 → 30` (61×61 = 3,721 chunks);
+  `GameBootstrap.cs` sets `rd.Radius = 30`. `ChunkLodManager.EffectiveCullDistance` already
+  auto-scales to `(Radius + 1) * ChunkSize` (~930 m at radius 30), and the camera far plane default
+  (~1000 m) just covers it.
+- **Burst loading** — `PollInterval` `0.1 → 0.05` s (2x ticks); `ChunksPerFrame` `8 → 16` and finalize
+  cap `8 → 16` with wall-clock `6 → 12` ms (main-thread apply is cheap: 961-vert/1800-tri mesh upload +
+  one collider cook per chunk); `MaxInFlight` `8 → 24` so the background backlog never starves the
+  main thread. Net ≈ 320 chunks/s → radius 30 fills in ~10–15 s vs ~46 s on the old pacing (if it had
+  been used at this radius).
+- `PropTilesPerTick` `40 → 120` — props (~1/200 trees + 1/200 rocks per tile) trail the terrain fill
+  by only a few seconds instead of minutes across the bigger ring, still globally budgeted per tick.
+- Fog untouched (user choice): the far ring stays hazy at density up to 0.015.
+- Docs updated in one pass: `game-design.md` §2.5 (30 chunks / 3,721 / ~900 m + burst-fill note),
+  `GameBootstrap` stale-comment fix, `PROGRESS.md` `1dg`, `THINKING.md` `1dg`.
+
+### 1dg-status
+- Implemented; no CLI/Unity build (rule 3) — verification by grep + reread: `Radius = 30` only in
+  `RenderDistanceController.cs` (default) and `GameBootstrap.cs` (boot injection); `PollInterval`
+  0.05, `MaxInFlight` 24, `ChunksPerFrame` 16, finalize cap 16 + 12 ms, `PropTilesPerTick` 120 only in
+  `WorldStreamer.cs`; no other consumer hard-codes the old radius/pacing; ChunkLodManager cull
+  formula still matches the new radius.
+- Play-test pending: at boot the ground ring around the spawn chunk reaches the horizon; the fill
+  completes in roughly 10–15 s without a visible single-frame hitch; walk at speed and confirm the
+  leading edge keeps up with no holes; farthest ring corners are NOT clipped by e.g. camera far plane
+  (< 1000 m) — if the diagonal reaches the clip, bump the camera far plane to ~1500 and note in the
+  follow-up; trees/rocks stream in shortly after the terrain; no obvious frame-rate drop from ~5,600+
+  chunk objects + props at once.
+
 ## 1df. Animals are damageable — 0 HP explodes them old-game style; club stays the non-lethal capture tool
 
 User: "the animals dont have damage interaction so they basicly invincible right now". Clarified via
