@@ -16,6 +16,50 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
+## 1dc — "Church + taoist roofs upside down" (SHIPPED in `1dc`)
+
+User: "you kinda got the roofs of church and taoist upsidedown". The gable/hip panels of the four
+new roof blocks (church nave gable, church spire pitch, shrine hip, shrine tier-2 hip) read as an
+inverted V — ridge low, eaves high.
+
+### Step 1 — establish the ground truth (which roof was correct?)
+- `Pagoda_Roof1` (Blueprints.cs:1144-1147) had been play-tested and looked right: the roof forms a
+  **peak** — panels slope DOWN from the ridge (top center) toward each eave. So it is the reference
+  for the sign convention.
+
+### Step 2 — derive the convention from the reference
+- Z-axis panel at **+z** (`Euler(+14,0,0)`): R_x(θ) moves a point's height by `sinθ * zOffset` — a
+  panel centered ahead of the ridge needs +θ so its far (+z) edge dips LOW (eave) and its near edge
+  stays up (ridge). Z-axis panel at **−z** mirrors it (`Euler(−14,0,0)`).
+- X-axis panel at **+x** (`Euler(0,0,−14)`): R_z(θ) moves height by `sinθ * xOffset`: +x panel needs
+  −θ so its far (+x) edge dips low. X-axis panel at **−x** mirrors (`Euler(0,0,+14)`).
+- So: `z=+ → Euler(+θ)`, `z=− → Euler(−θ)`, `x=+ → Euler(0,0,−θ)`, `x=− → Euler(0,0,+θ)`.
+
+### Step 3 — compare each rewritten block against the convention
+- `Church_Roof` (1500-1501): both Z panels inverted (z=+ had −24, z=− had +24). **CONFIRMED** → swap.
+- `Church_SpireRoof` (1554-1557): Z pitch panels inverted (z=− had +38, z=+ had −38) — swap; the X
+  panels (1556-1557, `x=− → +38`, `x=+ → −38`) already matched. **CONFIRMED** → swap Z only.
+- `Shrine_Roof` (1707-1710): Z panels already matched (z=−14/z=+14); X panels inverted (x=− had −14,
+  x=+ had +14) — swap X only. **CONFIRMED**.
+- `Shrine_Roof2` (1750-1753): same pattern — Z fine, X swapped (±18) — swap X only. **CONFIRMED**.
+
+Total: 8 sign flips across the four blocks.
+
+### Hypotheses considered
+- **H1 — only the church is wrong.** REJECTED: user said "church and taoist", and both shrine hip
+  roofs (tiers 1+2) had the same inverted X-panel signs.
+- **H2 — all four panels per roof are wrong.** PARTIAL: each roof mixed one correct axis with one
+  inverted axis; only the offending axis per block was flipped (Z for church nave+gable, X for
+  shrine hips; spire Z). This is why per-axis comparison against the reference was the right call.
+- **H3 — geometries changed as well.** REJECTED: only the `Quaternion.Euler` rotation arguments
+  changed; positions/sizes untouched (save-compatible since part names/offsets are unchanged).
+
+### Open/risk notes
+- Rotation signs are baked into blueprint visuals; building-damage/state persistence only stores
+  part transforms, not Euler args — no save/load impact expected.
+- Other roof blocks (pagoda 1144-1147, well/house hips 1220-1223, 1284-1287, 1358-1361) were all
+  re-checked against the convention and are correct — no collateral fixes.
+
 ## 1db — "Raise the tab button in tab menu height" (SHIPPED in `1db`)
 
 Ask clarified to the Character Info top tab strip at ~1.3x.

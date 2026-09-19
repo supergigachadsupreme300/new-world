@@ -3,6 +3,41 @@
 Last updated: 2026-09-19. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1dc. Church + shrine roofs slope the right way (eave low, ridge high)
+
+User: "you kinda got the roofs of church and taoist upsidedown" — the gable/hip panels of
+`Church_Roof`, `Church_SpireRoof`, `Shrine_Roof` and `Shrine_Roof2` were rotated with the wrong
+sign, so the ridge sat LOW and the eaves rode high (an inverted "V"). The pagoda's
+`Pagoda_Roof1` was correct the whole time.
+
+Convention (verified against `Pagoda_Roof1`, WorldBuilder.Blueprints.cs:1144-1147):
+- Z-axis panels — a panel at **+z** slopes down toward that +z eave with `Euler(+θ, 0, 0)`,
+  a panel at **−z** with `Euler(−θ, 0, 0)` ✓
+- X-axis panels — a panel at **+x** slopes toward that +x eave with `Euler(0, 0, −θ)`,
+  a panel at **−x** with `Euler(0, 0, +θ)` ✓
+
+Fixed (8 rotation signs flipped in WorldBuilder.Blueprints.cs):
+- `Church_Roof` (1500-1501): Z gable panels were swapped (±24) — now `+24` at z=+0.9,
+  `−24` at z=−0.9.
+- `Church_SpireRoof` (1554-1555): Z pitch panels were swapped (±38) — now `−38` at z=−2.2,
+  `+38` at z=+2.2. The X panels (1556-1557) were already correct.
+- `Shrine_Roof` (1709-1710): X hip panels were swapped (±14 on Z-rot) — now `+14` at x=−3.2,
+  `−14` at x=+3.2. The Z panels (1707-1708) were already correct.
+- `Shrine_Roof2` (1752-1753): X hip panels were swapped (±18 on Z-rot) — now `+18` at x=−2.4,
+  `−18` at x=+2.4. The Z panels (1750-1751) were already correct.
+
+Every other roof block in the file already matched the pagoda convention (checked all `Euler(`
+calls in the four `case` blocks and the pagoda/wellhouse/mini-pagoda references).
+
+### 1dc-status
+- Implemented; no CLI/Unity build (rule 3) — verification was grep + reread: the four fixed blocks
+  now match `Pagoda_Roof1`'s sign convention; no other rotated roof part was inverted.
+- Docs updated in one pass: `PROGRESS.md` `1dc` + `THINKING.md` `1dc`. `game-design.md` has no
+  roof-geometry section (no change needed).
+- Play-test pending: walk both the church and the taoist shrine — roofs should form a proper
+  ridge at top center with eaves low (not a valley), for the main roof, the two-tiered shrine
+  roofs, and the church spire roof. Existing saves reuse the same part names (no save impact).
+
 ## 1db. Character Info tab buttons ~1.3x taller (grow upward, content gap kept)
 
 User: "raise the tab button in tab menu height" — clarified to the Character Info top tab strip

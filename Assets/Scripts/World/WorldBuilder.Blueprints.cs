@@ -1497,8 +1497,8 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
                 break;
 
             case "Church_Roof":
-                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, 0.9f), new Vector3(16.6f, 0.5f, 6.6f), roofRedC, Quaternion.Euler(-24f, 0f, 0f));
-                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, -0.9f), new Vector3(16.6f, 0.5f, 6.6f), roofRedC, Quaternion.Euler(24f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, 0.9f), new Vector3(16.6f, 0.5f, 6.6f), roofRedC, Quaternion.Euler(24f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, -0.9f), new Vector3(16.6f, 0.5f, 6.6f), roofRedC, Quaternion.Euler(-24f, 0f, 0f));
                 CreatePartCube(root, new Vector3(0f, 2.35f, 0f), new Vector3(16.8f, 0.45f, 0.8f), roofDarkC);
                 CreatePartCube(root, new Vector3(0f, 2.3f, -6.6f), new Vector3(14f, 0.4f, 0.25f), lightStoneC);
                 CreatePartCube(root, new Vector3(0f, 2.3f, 6.6f), new Vector3(14f, 0.4f, 0.25f), lightStoneC);
@@ -1551,8 +1551,8 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
                 break;
 
             case "Church_SpireRoof":
-                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, -2.2f), new Vector3(5.2f, 0.45f, 3f), roofDarkC, Quaternion.Euler(38f, 0f, 0f));
-                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, 2.2f), new Vector3(5.2f, 0.45f, 3f), roofDarkC, Quaternion.Euler(-38f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, -2.2f), new Vector3(5.2f, 0.45f, 3f), roofDarkC, Quaternion.Euler(-38f, 0f, 0f));
+                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, 2.2f), new Vector3(5.2f, 0.45f, 3f), roofDarkC, Quaternion.Euler(38f, 0f, 0f));
                 CreatePartCubeRotated(root, new Vector3(-2.2f, 0.5f, 0f), new Vector3(3f, 0.45f, 5.2f), roofDarkC, Quaternion.Euler(0f, 0f, 38f));
                 CreatePartCubeRotated(root, new Vector3(2.2f, 0.5f, 0f), new Vector3(3f, 0.45f, 5.2f), roofDarkC, Quaternion.Euler(0f, 0f, -38f));
                 CreatePartCube(root, new Vector3(0f, 0.02f, -4.4f), new Vector3(5.4f, 0.16f, 0.2f), goldC);
@@ -1706,8 +1706,8 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
             case "Shrine_Roof":
                 CreatePartCubeRotated(root, new Vector3(0f, 0.5f, -3.2f), new Vector3(14.4f, 0.5f, 5.4f), tileC, Quaternion.Euler(-14f, 0f, 0f));
                 CreatePartCubeRotated(root, new Vector3(0f, 0.5f, 3.2f), new Vector3(14.4f, 0.5f, 5.4f), tileC, Quaternion.Euler(14f, 0f, 0f));
-                CreatePartCubeRotated(root, new Vector3(-3.2f, 0.5f, 0f), new Vector3(5.4f, 0.5f, 13.2f), tileC, Quaternion.Euler(0f, 0f, -14f));
-                CreatePartCubeRotated(root, new Vector3(3.2f, 0.5f, 0f), new Vector3(5.4f, 0.5f, 13.2f), tileC, Quaternion.Euler(0f, 0f, 14f));
+                CreatePartCubeRotated(root, new Vector3(-3.2f, 0.5f, 0f), new Vector3(5.4f, 0.5f, 13.2f), tileC, Quaternion.Euler(0f, 0f, 14f));
+                CreatePartCubeRotated(root, new Vector3(3.2f, 0.5f, 0f), new Vector3(5.4f, 0.5f, 13.2f), tileC, Quaternion.Euler(0f, 0f, -14f));
                 CreatePartCube(root, new Vector3(0f, 1.6f, 0f), new Vector3(7f, 0.45f, 7f), ridgeC);
                 CreatePartCube(root, new Vector3(0f, 2.15f, 0f), new Vector3(0.75f, 0.5f, 0.75f), goldC);
                 for (int sx = -1; sx <= 1; sx += 2)
@@ -1749,8 +1749,8 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
             case "Shrine_Roof2":
                 CreatePartCubeRotated(root, new Vector3(0f, 0.45f, -2.4f), new Vector3(10.4f, 0.45f, 4f), tileC, Quaternion.Euler(-18f, 0f, 0f));
                 CreatePartCubeRotated(root, new Vector3(0f, 0.45f, 2.4f), new Vector3(10.4f, 0.45f, 4f), tileC, Quaternion.Euler(18f, 0f, 0f));
-                CreatePartCubeRotated(root, new Vector3(-2.4f, 0.45f, 0f), new Vector3(4f, 0.45f, 9.6f), tileC, Quaternion.Euler(0f, 0f, -18f));
-                CreatePartCubeRotated(root, new Vector3(2.4f, 0.45f, 0f), new Vector3(4f, 0.45f, 9.6f), tileC, Quaternion.Euler(0f, 0f, 18f));
+                CreatePartCubeRotated(root, new Vector3(-2.4f, 0.45f, 0f), new Vector3(4f, 0.45f, 9.6f), tileC, Quaternion.Euler(0f, 0f, 18f));
+                CreatePartCubeRotated(root, new Vector3(2.4f, 0.45f, 0f), new Vector3(4f, 0.45f, 9.6f), tileC, Quaternion.Euler(0f, 0f, -18f));
                 CreatePartCube(root, new Vector3(0f, 1.5f, 0f), new Vector3(4.4f, 0.4f, 4.4f), ridgeC);
                 CreatePartCube(root, new Vector3(0f, 2f, 0f), new Vector3(0.6f, 0.4f, 0.6f), goldC);
                 break;
