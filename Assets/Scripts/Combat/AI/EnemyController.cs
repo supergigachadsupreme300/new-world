@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -423,7 +425,58 @@ private void StrikeTarget(Transform target)
         State = EnemyState.Dead;
         RollAndSpawnLoot();
         DropDrop();
+        ExplodeModel();
         Destroy(gameObject, 0.2f);
+    }
+
+    /// <summary>
+    /// Classic death burst: detach every model block, give it a collider + rigidbody, and blast
+    /// it outward with impulse + torque (mirrors the legacy enemy runtime's <c>ExplodeModel</c>).
+    /// Purely visual — no damage, no chain reactions. The blocks fall with real physics and are
+    /// cleaned up after <see cref="DebrisLifetime"/> seconds.
+    /// </summary>
+    private void ExplodeModel()
+    {
+        if (ModelRoot == null) return;
+
+        Vector3 center = transform.position + Vector3.up * 0.9f;
+        var renderers = ModelRoot.GetComponentsInChildren<Renderer>();
+        var debris = new List<GameObject>();
+
+        foreach (var r in renderers)
+        {
+            var block = r.gameObject;
+            Vector3 worldPos = block.transform.position;
+            Quaternion worldRot = block.transform.rotation;
+
+            block.transform.SetParent(null);
+            block.transform.position = worldPos;
+            block.transform.rotation = worldRot;
+
+            block.AddComponent<BoxCollider>();
+            var rb = block.AddComponent<Rigidbody>();
+            rb.mass = 0.3f;
+
+            Vector3 dir = (worldPos - center).normalized;
+            dir.y += 0.5f;
+            rb.AddForce(dir * 8f + Vector3.up * 6f, ForceMode.Impulse);
+            rb.AddTorque(UnityEngine.Random.Range(-10f, 10f), UnityEngine.Random.Range(-10f, 10f), UnityEngine.Random.Range(-10f, 10f), ForceMode.Impulse);
+
+            debris.Add(block);
+        }
+
+        ModelRoot = null;
+        StartCoroutine(DestroyDebris(debris));
+    }
+
+    private const float DebrisLifetime = 5f;
+
+    private IEnumerator DestroyDebris(List<GameObject> debris)
+    {
+        yield return new WaitForSeconds(DebrisLifetime);
+        for (int i = 0; i < debris.Count; i++)
+            if (debris[i] != null)
+                Destroy(debris[i]);
     }
 
     private void DropDrop()

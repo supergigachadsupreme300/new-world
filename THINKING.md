@@ -16,6 +16,44 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
+## 1dd — "enemies explode like in the old game" + "add more enemy" (SHIPPED in `1dd`)
+
+User: "add more enemy and every time the enemy die they explode like in the old game". Clarified via
+questions: test platform only; both new types + more numbers; visual-only explosion.
+
+### Step 1 — what was "the old game" explosion?
+- Hypothesis A: the project already had a death-explosion somewhere live — rejected; grep for
+  Explosion/explode/burst across `Assets\Scripts` found only spell/skill FX, no enemy death burst.
+- Hypothesis B: the archived legacy runtime had it — **confirmed**. `_Archived\Enemies\
+  EnemyController.cs:980 Die()` calls `ExplodeModel()` (line 1057): every model block detaches,
+  gets `BoxCollider` + `Rigidbody` (mass 0.3), `AddForce(dir*8 + up*6, Impulse)` with
+  `dir = (blockPos - center).normalized; dir.y += 0.5`, random torque, destroyed after 5 s. That is
+  the exact "old game" feel.
+
+### Step 2 — mirror it into the new EnemyController (live) vs. new FX file
+- Considered a new `EnemyDeathFx` particle/chunk helper. Decided against inventing a new look — the
+  user asked for "like the old game", so replicate `ExplodeModel` directly inside
+  `EnemyController.Die()` (prefixed same method names). Verdict: mirror, keep the 0.2 s destroy tail.
+  Added `using System.Collections` + `System.Collections.Generic` for the coroutine/list (the file
+  previously fully-qualified `System.Collections.Generic.List` — the new using is additive, no clash).
+- Perf sanity: a few blocks per enemy, 5 s lifetime, bounded by world budget (`EnemySpawner
+  MaxLiveEnemies = 60`) and the platform's ~26 enemies. No pooling needed (matches old game, spell
+  debris does the same).
+
+### Step 3 — "more enemy" scope
+- `NewWorldTestGround.SpawnEnemies` had 5 types. Roster (EnemyModelBuilder) has 20. Laid out all 20
+  in two rows of 10 (6-unit spacing from `x = center-27`) + a 6-copy horde row for density.
+- Geometry check (platform 120², center (0,50,0), half 60): rows span x −27..+27, z −40/−32/−24 —
+  inside bounds. Dummies moved from `z=center-36` (would collide with new rows) to `z=center-18`;
+  boss at `z=center-50.4` clear of row A (−40). Confirmed.
+
+### Step 4 — doc references
+- `game-design.md` §3.7 is "Damage & Status Types", NOT loot — avoided a wrong §3.7 citation for the
+  loot-before-burst note (draft had it, removed).
+
+---
+
+
 ## 1dc — "Church + taoist roofs upside down" (SHIPPED in `1dc`)
 
 User: "you kinda got the roofs of church and taoist upsidedown". The gable/hip panels of the four

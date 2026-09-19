@@ -445,9 +445,35 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     private void SpawnEnemies()
     {
-        string[] ids = { "slime", "wolf", "goblin", "skeleton", "bat" };
-        float z = PlatformCenter.z - PlatformSize * 0.3f;
-        float startX = PlatformCenter.x - 10f;
+        // Every enemy type the model builder knows, in two rows (all 20 in the roster).
+        string[] rowA =
+        {
+            "slime", "wolf", "goblin", "bandit", "treant", "golem", "drake", "undead", "slug", "scorpion"
+        };
+        string[] rowB =
+        {
+            "mummy", "yeti", "ice_wolf", "fire_elemental", "dragon", "demon", "mimic", "sea_creature", "skeleton", "bat"
+        };
+        // Extra copies so the arena has a denser horde to clear.
+        string[] horde = { "slime", "slime", "goblin", "goblin", "bat", "skeleton" };
+
+        float startX = PlatformCenter.x - 27f;
+        SpawnEnemyRow(rowA, startX, PlatformCenter.z - 40f);
+        SpawnEnemyRow(rowB, startX, PlatformCenter.z - 32f);
+        SpawnEnemyRow(horde, startX, PlatformCenter.z - 24f);
+
+        // Two indestructible training dummies — damage testing (plain vs 50% damage reduction).
+        // Moved clear of the enemy rows so the grid layout above owns the south arena.
+        SpawnDummy("TestDummy_Plain", PlatformCenter.x - 4f, PlatformCenter.z - 18f, 0f);
+        SpawnDummy("TestDummy_Armored", PlatformCenter.x + 4f, PlatformCenter.z - 18f, 0.5f);
+
+        if (IncludeBoss)
+            SpawnBoss();
+    }
+
+    /// <summary>One row of enemies from <paramref name="ids"/> at 6-unit spacing.</summary>
+    private void SpawnEnemyRow(string[] ids, float startX, float z)
+    {
         for (int i = 0; i < ids.Length; i++)
         {
             var go = new GameObject("TestEnemy_" + ids[i]);
@@ -456,13 +482,6 @@ public sealed class NewWorldTestGround : MonoBehaviour
             go.AddComponent<SphereCollider>();
             go.AddComponent<EnemyController>().ApplyEnemyId(ids[i]);
         }
-
-        // Two indestructible training dummies — damage testing (plain vs 50% damage reduction).
-        SpawnDummy("TestDummy_Plain", startX - 4f, z, 0f);
-        SpawnDummy("TestDummy_Armored", startX + 2f, z, 0.5f);
-
-        if (IncludeBoss)
-            SpawnBoss();
     }
 
     private void SpawnDummy(string name, float x, float z, float damageReduction)

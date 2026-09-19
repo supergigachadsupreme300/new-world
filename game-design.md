@@ -1305,6 +1305,14 @@ Generated from noise layers, each biome has unique terrain characteristics:
 | **Deep** | Underground caves | Demons, Mimics | Dark crystals, loot |
 | **Ocean** | Water terrain | Sea creatures | Pearls, coral |
 
+### 7.1.1 Enemy Death Explosion
+
+Every enemy bursts into its own voxel blocks on death — the classic buster from the legacy runtime
+(`ExplodeModel`, now mirrored in `EnemyController`): each model block detaches, gains a collider +
+rigidbody, and is blasted outward/upward with impulse + torque, then cleaned up after ~5 s. Purely
+visual — no damage, no knockback, no chain reactions. Loot still drops normally before the burst.
+Training dummies are `Immortal` and never die, so they never burst.
+
 ### 7.2 Points of Interest
 
 - Towns (NPCs, shops, crafting)

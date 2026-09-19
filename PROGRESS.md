@@ -3,6 +3,35 @@
 Last updated: 2026-09-19. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1dd. Enemies explode into voxel debris on death + test platform hosts all 20 enemy types
+
+User: "add more enemy and every time the enemy die they explode like in the old game."
+
+- **Death explosion (old-game burst restored).** The legacy enemy runtime had `ExplodeModel`
+  (`_Archived\Enemies\EnemyController.cs:1057`): every model block detaches, gains a collider +
+  rigidbody, and is blasted outward/upward with impulse + torque, cleaned up after ~5 s. The new
+  open-world `EnemyController` never had it. Mirrored it into `EnemyController.Die()` →
+  `ExplodeModel()` + `DestroyDebris()` coroutine (EnemyController.cs). Kept the existing 0.2 s
+  `Destroy(gameObject)` tail. Purely visual — no damage/knockback/chain. Loot still drops first.
+  Training dummies are `Immortal` and cannot die, so they never burst.
+- **More enemies on the QA platform.** `NewWorldTestGround.SpawnEnemies` previously placed 5 types
+  (slime/wolf/goblin/skeleton/bat) + 2 dummies in one row. Now it lays out **all 20 roster types**
+  in two 10-wide rows (south arena, `z = center-40` and `center-32`) plus a 6-enemy horde row
+  (`center-24`, repeat slime/goblin/bat/skeleton) → ~26 enemies vs 5 before. The two training
+  dummies moved to `z = center-18` (`x = center±4`), clear of the rows; boss spot untouched. New
+  rows reuse the existing `SphereCollider` + `ApplyEnemyId(id)` pattern via a shared
+  `SpawnEnemyRow(ids, startX, z)` helper.
+
+### 1dd-status
+- Implemented; no CLI/Unity build (rule 3) — verification by grep + reread: `ExplodeModel`/
+  `DestroyDebris` added to `EnemyController` with no name collisions, `SpawnEnemies` callers and the
+  `SpawnEnemyRow` seam reviewed, dummies/boss positions clear of the new grid.
+- Docs updated in one pass: `game-design.md` §7.1.1 (Enemy Death Explosion), `PROGRESS.md` `1dd`,
+  `THINKING.md` `1dd`.
+- Play-test pending: on the platform, kill each row of enemies and confirm every one bursts into its
+  own colored voxel blocks that fall with physics and vanish after ~5 s, loot drops before the burst,
+  dummies never burst, and the boss (if `IncludeBoss`) is untouched.
+
 ## 1dc. Church + shrine roofs slope the right way (eave low, ridge high)
 
 User: "you kinda got the roofs of church and taoist upsidedown" — the gable/hip panels of
