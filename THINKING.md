@@ -15,6 +15,48 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1cu — Player HUD status strip under the bars (SHIPPED in `1cu`)
+
+User asked: "add a show status function that show player the status effect that they're having under
+their bars." Raw trail:
+
+### Hypotheses & evidence
+- **H1 — there is a dedicated player status tracker/manager to hook into.** REJECTED. Exploring
+  `Assets/Scripts/Combat/Effects/` showed statuses are **stapled to the target's root**:
+  `SpellDoT` (Burn/Poison/Rot/Bleed DoT), `WetStatus`, `BlindStatus`, `ChillStatus` (build gauge).
+  No registry, no manager — each is a root `MonoBehaviour` with its own timer. So the HUD must
+  poll `player.transform.root` for the components; no event bus exists or is needed.
+- **H2 — remaining-time is uniformly readable.** MOSTLY REJECTED: only `SpellDoT.Remaining` was
+  public. `WetStatus`/`BlindStatus` hide `_expiresAt` behind a private field and `Update()` destroys
+  on expiry. Decision: add a tiny additive `Remaining` property to each (reads `_expiresAt -
+  Time.time`), keeping behaviour identical. `ChillStatus` has NO timer at all — it's a decaying
+  integer gauge decaying 1/sec that either converts to a Frost slow or self-destroys; a full freeze
+  (`IsFrozen`) flips `_cold=0; Destroy(this)` on the next `Update`, so "FROZEN" literally cannot be
+  displayed from this component. Display the gauge (`CHILL n/5`) instead.
+- **H3 — the food/drink stamina buff is displayable from existing fields.** The user picked
+  "combat statuses + food/drink buff". `ToolManager` calls
+  `PlayerController.ApplyStaminaRegenModifier(0.5f | 1.2f, 120f)`; the expiry was already stored as
+  `_staminaRegenModifierUntil` (used in `HandleStamina`). Added read-only `StaminaBuffRemaining` +
+  `HasStaminaBuff` — pure exposure, no gameplay change. Sign/pct derived from the public
+  `StaminaRegenModifier` field.
+- **H4 — one bulletproof rendering style.** User chose "colored square + text" over text-only chips.
+  No icon assets exist anywhere, so a plain `Image` colored per status + centered `TextMeshProUGUI`
+  is the honest minimum; a `GridLayoutGroup` (4 fixed columns, 82×24 cells) wraps to a second row and
+  the panel height is resized to fit the row count. Pool of 10 chips is enough (max ~6 concurrent
+  statuses today); chips update only when color/text actually change (mirrors the bars' label
+  caching), so the strip never allocates per frame in steady state.
+- **H5 — QA lane ordering matters.** `WetStatus.Apply` actively *douses* an active Burn
+  (`SpellDoT.RemoveType(Fire)`), so the demo applies Wet FIRST, then Burn — otherwise the DoT is
+  cancelled instantly. Chill twice while wet gives +2+2=4 stacks (below the 5-threshold the "freeze"
+  path would destroy the component); a third stack would throw it into the invisible frozen/self-
+  destroy state, so the demo stays at 4/5 to keep the gauge visible while it decays. Placement is
+  direct-to-player (no `PlatformTopY` geometry, so the rule-4 lane convention is trivially obeyed).
+- **Verdict:** H1 rejected (no tracker — poll components), H2 fix (add `Remaining`), H3 confirmed
+  (buff already timed), H4 style as above, H5 ordering confirmed. Feature shipped in `1cu`;
+  verification by source review (rule 3), play-test listed in `PROGRESS.md ## 1cu-status`.
+
+---
+
 ## 1ct — Play-test fixes: pink terrain (1cs shader) + casual fighting pose (1cr revert) (SHIPPED in `1ct`)
 
 ### VERDICT

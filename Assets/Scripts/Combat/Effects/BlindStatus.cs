@@ -12,6 +12,9 @@ public class BlindStatus : MonoBehaviour
     /// <summary>Seconds the blindness lingers.</summary>
     public float Duration = 4f;
 
+    /// <summary>Seconds the status has left (HUD strip reads this under the player bars).</summary>
+    public float Remaining => Mathf.Max(0f, _expiresAt - Time.time);
+
     /// <summary>Radius of the fog dome around a world target.</summary>
     private const float FogRadius = 1.6f;
 

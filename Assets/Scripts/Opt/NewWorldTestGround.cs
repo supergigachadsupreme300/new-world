@@ -61,6 +61,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableDigLayersDemo = false;
     [Tooltip("QA: delete this world's terrain chunk saves and regenerate every loaded chunk from noise — a deliberate clean map (no leftover slabs, closed mesh). Permanently discards ALL terrain edits for the current seed, so it is off by default and never touches the platform or legacy village.")]
     public bool EnableResetTerrainSaves = false;
+    [Tooltip("QA: self-apply every combat status (Burn DoT, Wet, Blind, two wet-conducted Chill stacks) plus the food/drink stamina buff to the local player, so the status strip under the HUD bars can be play-tested. Applies to the player directly — no world placement.")]
+    public bool EnableStatusEffectsDemo = false;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
@@ -136,6 +138,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (EnableTerrainSlabDemo) { RunSafely("terrain shapes demo", SpawnTerrainSlabDemo); yield return null; }
         if (EnableDigLayersDemo) { RunSafely("dig layers demo", SpawnDigLayersDemo); yield return null; }
         if (EnableResetTerrainSaves) { RunSafely("terrain saves reset", ResetTerrainSaves); yield return null; }
+        if (EnableStatusEffectsDemo) { RunSafely("status effects demo", SpawnStatusEffectsDemo); yield return null; }
         RunSafely("player grants", TryDeferPlayerGrants);
 
         // Safety net: if the platform wasn't ready when the bench started (e.g. built later or
@@ -173,6 +176,27 @@ public sealed class NewWorldTestGround : MonoBehaviour
             return;
         }
         player.TeleportTo(GetSpawnPoint());
+    }
+
+    /// <summary>
+    /// QA for the status strip under the HUD bars (1cu): self-apply every combat status plus the
+    /// food/drink stamina modifier to the local player so the strip is visible immediately. Wet is
+    /// applied first (Burn taken afterwards would be instantly doused by the soak), then Chill twice
+    /// — water conduction grants +2 stacks each, stopping at 4/5 so the gauge displays without the
+    /// wet "freeze" path destroying the component. All durations refresh on re-run (idempotent).
+    /// </summary>
+    private void SpawnStatusEffectsDemo()
+    {
+        var player = GameManager.Instance?.Player;
+        if (player == null) return;
+
+        var root = player.transform.root.gameObject;
+        WetStatus.Apply(root, 4f);
+        SpellDoT.Apply(root, 0.5f, 6f, 0.5f, DamageType.Fire);
+        ChillStatus.Apply(root);
+        ChillStatus.Apply(root);
+        BlindStatus.Apply(root, 4f);
+        player.ApplyStaminaRegenModifier(1.2f, 120f);
     }
 
     /// <summary>

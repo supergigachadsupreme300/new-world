@@ -1,7 +1,11 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-19. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1ct` (play-test
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cu` (a player
+HUD **status strip** under the HP/FP/Stamina bars — every active status polled off the player root
+each frame: combat DoT/CC (Burn/DoT, Wet, Chill gauge, Blind) as colored square chips with seconds
+left, plus the food/drink stamina-regen modifier (+20%/−50% STAM); opt-in `EnableStatusEffectsDemo`
+QA lane self-applies all of them on the test platform), `1ct` (play-test
 fixes for 1cs/1cr: the layered-terrain shader's two-`float3` `GetVertexNormalInputs` call was an
 URP 17.5 compile error → magenta "pink" terrain (now single-arg), and the weapon **draws only
 while fighting again** — casual mode always sheathes, in any view — reverting 1cr's keep-drawn-in-
@@ -129,6 +133,46 @@ only — raised shapes keep their `Max`-cap idempotency.
   lighting still render on the carved terrain.
 - Follow-ups noted: `SpawnDigPuff` shards are unparented (harmless, self-destruct ~1 s); if the
   per-swing puff proves noisy in play-test, gate it behind the tool sound or drop to 2 shards.
+
+---
+
+## 1cu. Player HUD status strip under the bars (show active status effects)
+
+The player's HUD now lists every active status directly under the HP/FP/Stamina bars as a row of
+**colored square chips with text** (wraps past 4). User's ask: "show status effect that they're
+having under their bars". Chosen scope/style: combat statuses **plus** the food/drink stamina buff,
+rendered as **colored square + text**.
+
+### Changes
+- `Assets/Scripts/Combat/Effects/WetStatus.cs` + `BlindStatus.cs`: added a public
+  `Remaining => Mathf.Max(0f, _expiresAt - Time.time)` read for the HUD (behaviour unchanged).
+- `Assets/Scripts/Player/PlayerController.cs`: exposed `StaminaBuffRemaining` / `HasStaminaBuff`
+  from the existing `_staminaRegenModifierUntil` timer set by `ApplyStaminaRegenModifier`
+  (ToolManager food/drink call it — +20% / −50% for 120 s). No gameplay change.
+- `Assets/Scripts/UI/NewWorld/PlayerBarsHUD.cs`: new "StatusPanel" under the charge-bar slot
+  (`top - BarSpacing*4`) with a `GridLayoutGroup` (4 columns) of 10 pooled chips. Each frame polls
+  the player root: `SpellDoT` (Fire → "BURN ns", other → "DOT ns"), `WetStatus` ("WET ns"),
+  `ChillStatus` ("CHILL n/5" while the gauge is > 0 — a full freeze self-destroys the component so
+  it can't be displayed), `BlindStatus` ("BLIND ns"), and the stamina buff ("+20% STAM ns" /
+  "−50% STAM ns"). Chips enable/disable and re-color/re-text only on change; panel height grows to
+  fit wrapped rows. Canvas (`ShowOnInGame`) already gates the whole thing with the bars.
+- `Assets/Scripts/Opt/NewWorldTestGround.cs`: opt-in `EnableStatusEffectsDemo` lane
+  (`SpawnStatusEffectsDemo`, via `RunSafely`) that self-applies to the player root: Wet (4 s),
+  then Burn DoT (`SpellDoT.Apply` Fire, 6 s — after Wet so the douse doesn't cancel it), two
+  wet-conducted Chill stacks (+2 each = 4/5, keeps the gauge visible without the freeze path),
+  Blind (4 s), and the food stamina buff (1.2×, 120 s). No world placement — applies to the player
+  directly. All applications refresh on re-run.
+
+### 1cu-status
+- Source-review verified (rule 3; no CLI/Unity build — user play-tests): greped every caller of the
+  changed members — `WetStatus.Remaining`/`BlindStatus.Remaining` are new additive reads (no other
+  consumers to break), `PlayerController` gained only two read-only properties, `PlayerBarsHUD`
+  reads only components that already exist on the player root, and `NewWorldTestGround` uses only
+  existing static `Apply` APIs + the public `ApplyStaminaRegenModifier`.
+- Play-test checklist: (1) tick `EnableStatusEffectsDemo` on the test platform → the strip under the
+  bars shows BURN/WET/CHILL/BLIND chips with counting-down seconds ("ns") and the green "+20% STAM";
+  (2) chips wrap to a second row when many; (3) eating food / drinking in the world shows the stamina
+  chip with the correct sign and seconds; (4) when nothing is active the strip is empty/hidden.
 
 ---
 

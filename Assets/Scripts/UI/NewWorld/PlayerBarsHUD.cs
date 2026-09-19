@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -16,6 +17,10 @@ public sealed class PlayerBarsHUD : MonoBehaviour
     private const float BarWidth = 340f;
     private const float BarHeight = 30f;
     private const float BarSpacing = 36f;
+
+    /// <summary>Status chip columns and pooled chip count for the strip under the bars.</summary>
+    private const int StatusColumns = 4;
+    private const int MaxStatusChips = 10;
 
     /// <summary>How fast the fill eases down toward a lower target (fraction per second).</summary>
     private const float DrainRate = 1.6f;
@@ -45,6 +50,12 @@ public sealed class PlayerBarsHUD : MonoBehaviour
     private int _lastFpText = -1, _lastMaxFpText = -1;
     private int _lastStamText = -1, _lastMaxStamText = -1;
     private int _lastChargePct = -1;
+
+    // Status strip: a pooled row of colored-square chips under the bars that lists every active
+    // status on the player root (combat DoT/CC + the food/drink stamina modifier).
+    private RectTransform _statusPanel;
+    private readonly List<StatusChip> _statusChips = new List<StatusChip>();
+    private readonly List<StatusEntry> _statusEntries = new List<StatusEntry>();
 
     private void OnEnable()
     {
@@ -88,6 +99,54 @@ public sealed class PlayerBarsHUD : MonoBehaviour
             new Color(0f, 0f, 0f, 0.65f), new Color(0.55f, 0.35f, 0.9f));
         _chargeText = MakeLabel(_chargeFill.transform.parent as RectTransform);
         _chargeFill.transform.parent.gameObject.SetActive(false);
+
+        BuildStatusPanel(rect, top);
+    }
+
+    /// <summary>Build the status chip strip under the bars (colored squares + text, pooled).</summary>
+    private void BuildStatusPanel(RectTransform canvasRect, float top)
+    {
+        var panelGo = new GameObject("StatusPanel");
+        panelGo.transform.SetParent(canvasRect, false);
+        _statusPanel = panelGo.AddComponent<RectTransform>();
+        _statusPanel.anchorMin = new Vector2(0f, 1f);
+        _statusPanel.anchorMax = new Vector2(0f, 1f);
+        _statusPanel.pivot = new Vector2(0f, 1f);
+        _statusPanel.anchoredPosition = new Vector2(16f, top - BarSpacing * 4f);
+        _statusPanel.sizeDelta = new Vector2(BarWidth, BarHeight * 0.8f);
+
+        var grid = panelGo.AddComponent<GridLayoutGroup>();
+        grid.cellSize = new Vector2(82f, 24f);
+        grid.spacing = new Vector2(4f, 4f);
+        grid.childAlignment = TextAnchor.UpperLeft;
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = StatusColumns;
+
+        for (int i = 0; i < MaxStatusChips; i++)
+        {
+            var chipGo = new GameObject("StatusChip" + i);
+            chipGo.transform.SetParent(_statusPanel, false);
+            var chipRect = chipGo.AddComponent<RectTransform>();
+            var chipColor = chipGo.AddComponent<Image>();
+            chipColor.raycastTarget = false;
+
+            var labelGo = new GameObject("Label");
+            labelGo.transform.SetParent(chipRect, false);
+            var labelRect = labelGo.AddComponent<RectTransform>();
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+            var tmp = labelGo.AddComponent<TextMeshProUGUI>();
+            tmp.fontSize = 12f;
+            tmp.color = Color.white;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.enableWordWrapping = false;
+            tmp.raycastTarget = false;
+
+            _statusChips.Add(new StatusChip { Root = chipRect, Target = chipColor, Text = tmp });
+            chipGo.SetActive(false);
+        }
     }
 
     private static TMP_Text MakeLabel(RectTransform barRoot)
@@ -141,6 +200,8 @@ public sealed class PlayerBarsHUD : MonoBehaviour
         UpdateLabel(_stamText, "Stam", stam, maxStam, ref _lastStamText, ref _lastMaxStamText);
 
         UpdateChargeBar(player);
+
+        UpdateStatusStrip(player);
 
         if (hpHit && _hpFill != null)
         {
@@ -222,6 +283,68 @@ public sealed class PlayerBarsHUD : MonoBehaviour
     }
 
     /// <summary>
+    /// Poll the player root for every active status (combat DoT/CC components and the food/drink
+    /// stamina modifier) and mirror it onto the pooled chip strip under the bars. Chips update
+    /// only when their color or text actually changes.
+    /// </summary>
+    private void UpdateStatusStrip(PlayerController player)
+    {
+        if (_statusPanel == null) return;
+        _statusEntries.Clear();
+        var root = player.transform.root;
+
+        var dot = root.GetComponent<SpellDoT>();
+        if (dot != null)
+        {
+            bool burn = dot.Type == DamageType.Fire;
+            _statusEntries.Add(new StatusEntry(
+                burn ? BurnStatusColor : OtherDotStatusColor,
+                (burn ? "BURN " : "DOT ") + Mathf.CeilToInt(dot.Remaining) + "s"));
+        }
+
+        var wet = root.GetComponent<WetStatus>();
+        if (wet != null)
+            _statusEntries.Add(new StatusEntry(WetStatusColor, "WET " + Mathf.CeilToInt(wet.Remaining) + "s"));
+
+        var chill = root.GetComponent<ChillStatus>();
+        if (chill != null && chill.Cold > 0)
+            _statusEntries.Add(new StatusEntry(ChillStatusColor,
+                "CHILL " + chill.Cold + "/" + ChillStatus.FrostStackThreshold));
+
+        var blind = root.GetComponent<BlindStatus>();
+        if (blind != null)
+            _statusEntries.Add(new StatusEntry(BlindStatusColor, "BLIND " + Mathf.CeilToInt(blind.Remaining) + "s"));
+
+        if (player.HasStaminaBuff)
+        {
+            int pct = Mathf.RoundToInt((player.StaminaRegenModifier - 1f) * 100f);
+            int secs = Mathf.CeilToInt(player.StaminaBuffRemaining);
+            if (pct >= 0)
+                _statusEntries.Add(new StatusEntry(StamBuffColor, "+" + pct + "% STAM " + secs + "s"));
+            else
+                _statusEntries.Add(new StatusEntry(StamDebuffColor, pct + "% STAM " + secs + "s"));
+        }
+
+        int rows = (_statusEntries.Count + StatusColumns - 1) / StatusColumns;
+        float h = rows * 24f + Mathf.Max(0, rows - 1) * 4f;
+        if (Mathf.Abs(_statusPanel.sizeDelta.y - h) > 0.01f)
+            _statusPanel.sizeDelta = new Vector2(BarWidth, h);
+
+        for (int i = 0; i < _statusChips.Count; i++)
+        {
+            var chip = _statusChips[i];
+            bool active = i < _statusEntries.Count;
+            chip.Root.gameObject.SetActive(active);
+            if (!active) continue;
+            var entry = _statusEntries[i];
+            if (chip.Target.color != entry.Color)
+                chip.Target.color = entry.Color;
+            if (chip.Text.text != entry.Text)
+                chip.Text.text = entry.Text;
+        }
+    }
+
+    /// <summary>
     /// Resolve the FP data sources once per player object. The player can be swapped between
     /// game sessions, so the cache is keyed to the player root transform.
     /// </summary>
@@ -242,5 +365,35 @@ public sealed class PlayerBarsHUD : MonoBehaviour
     {
         if (_stats != null) return _stats.MaxFocusPoints;
         return _caster != null ? Mathf.Max(1f, _caster.MaxFp) : 1f;
+    }
+
+    // Status chip colors (colored squares per status in the strip under the bars).
+    private static readonly Color BurnStatusColor = new Color(0.9f, 0.42f, 0.15f);
+    private static readonly Color OtherDotStatusColor = new Color(0.45f, 0.7f, 0.3f);
+    private static readonly Color WetStatusColor = new Color(0.2f, 0.55f, 0.9f);
+    private static readonly Color ChillStatusColor = new Color(0.4f, 0.85f, 0.95f);
+    private static readonly Color BlindStatusColor = new Color(0.3f, 0.3f, 0.32f);
+    private static readonly Color StamBuffColor = new Color(0.3f, 0.8f, 0.45f);
+    private static readonly Color StamDebuffColor = new Color(0.85f, 0.3f, 0.3f);
+
+    /// <summary>One pooled chip in the status strip: a colored square plus a centered label.</summary>
+    private sealed class StatusChip
+    {
+        public RectTransform Root;
+        public Image Target;
+        public TMP_Text Text;
+    }
+
+    /// <summary>A transient status display line (color square + text) resolved each frame.</summary>
+    private struct StatusEntry
+    {
+        public readonly Color Color;
+        public readonly string Text;
+
+        public StatusEntry(Color color, string text)
+        {
+            Color = color;
+            Text = text;
+        }
     }
 }

@@ -655,6 +655,12 @@ Status effects are **not damage types** — they are applied **on hit** and do D
 Damage-over-time statuses (Bleed/Poison/Rot/Burn) are driven by `SpellDoT.cs` (refreshes on re-apply;
 per-tick = spell power × 0.12 over 4 s); Chill/Frost route to `EnemyController.ApplySlow`,
 Stagger to `EnemyController.ApplyStun`, Blind to `BlindStatus`, Wet to `WetStatus`.
+The player's HUD surfaces every active status as a strip of **colored square chips under the
+HP/FP/Stamina bars** (`PlayerBarsHUD`): Burn/DoT with seconds left, Wet, the Chill build-gauge
+(n/5), Blind, and the **food/drink stamina-regen modifier** (+X% / −X% with seconds left, from
+`ApplyStaminaRegenModifier`). Status components are polled off the player root each frame;
+`WetStatus`/`BlindStatus` expose `Remaining` and `PlayerController` exposes
+`StaminaBuffRemaining`/`HasStaminaBuff` for the read.
 Each magic school's **signature status is applied automatically to every magic attack** of that
 element (an explicit per-skill `statusEffect:` overrides the default) — Fire→Burn, Ice→Chill
 (deep-freeze spells use the heavier Frost), Lightning→Stagger (stun), Dark→Blind, Water→Wet,

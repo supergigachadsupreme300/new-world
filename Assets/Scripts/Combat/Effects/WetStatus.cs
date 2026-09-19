@@ -19,6 +19,9 @@ public class WetStatus : MonoBehaviour
     /// <summary>Multiplier applied to Ice/Lightning spell damage against a wet target.</summary>
     public const float IceLightningDamageBonus = 1.4f;
 
+    /// <summary>Seconds the status has left (HUD strip reads this under the player bars).</summary>
+    public float Remaining => Mathf.Max(0f, _expiresAt - Time.time);
+
     private float _expiresAt;
     private bool _active;
 

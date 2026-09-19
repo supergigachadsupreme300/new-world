@@ -761,6 +761,12 @@ public class PlayerController : MonoBehaviour, IHealable
         _staminaRegenModifierUntil = Time.time + duration;
     }
 
+    /// <summary>Seconds left on the eat/drink stamina-regen modifier (HUD status strip).</summary>
+    public float StaminaBuffRemaining => Mathf.Max(0f, _staminaRegenModifierUntil - Time.time);
+
+    /// <summary>True while a food/drink stamina-regen modifier is still active.</summary>
+    public bool HasStaminaBuff => StaminaBuffRemaining > 0f;
+
     private void HandleInteractionKeys()
     {
         bool wifeDialog = WifeNPC.Instance != null && WifeNPC.Instance.IsDialogActive;
