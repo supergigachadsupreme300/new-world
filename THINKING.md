@@ -16,6 +16,56 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
+## 1da — "Ground AoE can't be placed far away" (SHIPPED in `1da`)
+
+User report (paraphrased): the outdoor AoE spells can only be placed within their short spell
+`Range`, so you can't drop a zone/summon/storm far across the world — the open-world game wants
+long-distance placement.
+
+### Root-cause trace (what actually capped the ground target)
+- `SpellCaster.Execute` (SpellCaster.cs:264) builds the aim direction: `aim = cam.position +
+  cam.forward * Mathf.Max(spell.Range, 5f)` — so the aim RAY was pinned to a point only
+  `spell.Range` out. Ground deliveries then received `spell.Range * mods.RangeMult` as their delivery
+  `range` (old lines 281/283/287/289 → now 296/298/302/304).
+- The ground-target resolvers honor that `range` as the probe length: `ResolveZone` →
+  `TerrainDeformer.ResolveGroundTarget(pos, fwd, range)` (line 48), `ResolveSummon`/`ResolveStorm` →
+  `GroundTarget(pos, fwd, range)` (line 328), `SpawnVortex` → its own raycast (line 394). So even if
+  the player points far away, the landing point was clamped to the spell's short range.
+- The preview mirrored the same: `PlayerController.TryAoeTarget` (PlayerController.cs:1711) projected
+  the landing ring at `Mathf.Max(spell.Range, 5f)` and raycast `Mathf.Max(spell.Range, 0.1f)` —
+  preview and landing agreed, both short. That agreement is why the bug read as "can't aim far"
+  rather than "preview lies".
+
+### Hypotheses & decision
+- **H1 — keep the aim pinned to spell.Range but scale it up.** REJECTED: spell `Range` is a delivery
+  property (≈12-30 on the earth/sky zones); multiplying it is a hack with no principled value.
+- **H2 — unbounded (= float.MaxValue) probe.** REJECTED for the fallback branch: `aimHit.point`
+  misses → `pos + fwd * range` would hand positions at literal float infinity to the resolvers /
+  preview ring. `float.MaxValue` math invites NaN/inf edge cases in squares/distance checks later.
+- **H3 — a large fixed practical cap (1200) for GROUND deliveries only. [ADOPTED]** One constant
+  `SpellCaster.GroundAimMax = 1200f`, used for the aim direction AND the four ground resolvers'
+  range; preview mirrors the constant. Finite, safe in squared-distance math, and > any visible
+  world distance (map ~20-chunk render ≈ 600 m). Projectile/instant/beam deliveries keep
+  `Mathf.Max(spell.Range, 5f)` and `spell.Range * mods.RangeMult` untouched.
+- Scope guard: only the four GROUND deliveries (Zone/Vortex/Summon/Storm) — `FireProjectile`,
+  `ResolveDirect` (instant), `ResolveBeam` and `SpellBeam.Length` still use spell.Range, and
+  `SpellEffect` flight caps are untouched. Projectile spells keep their normal shot range; only AoE
+  ground placement is opened up.
+
+### Open/risk notes
+- `TerrainDeformer.ResolveGroundTarget` walks up to 4 skip iterations over RAISED terrain while
+  consuming `remaining`; with a 1200 probe the rest of the algorithm is unchanged (same skip loop,
+  now just more ray budget). No new failure mode observed on reread.
+- The ground-down probe in all paths stays fixed at 30 u (`Vector3.up * 0.1f` then down 30 u); a
+  target on a very steep far face could land slightly below the hit surface, but that pre-existed and
+  is unchanged.
+- Verification is grep + reread only (rule 3 — no build). Confirm by searching the two call sites.
+
+### Play-test checklist (user verifies in Unity)
+Try aiming a Zone/Storm/Summon/Vortex well past the old spell Range; the preview ring should land far
+away and the delivery should resolve there; confirm projectiles/instants/beams still behave exactly
+as before.
+
 ## 1cz — "make the church and shrine as big and detailed as the pagoda" (SHIPPED in `1cz`)
 
 ### Context

@@ -3,6 +3,36 @@
 Last updated: 2026-09-19. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1da. Ground AoE placement is now unbounded — cast anywhere, not just within spell Range
+
+User: the outdoor AoE spells can't be placed far away — the landing point is capped at the spell's
+own short `Range`, so you can't drop a zone/summon/storm on something across the map.
+
+Now the four **ground deliveries (Zone / Vortex / Summon / Storm)** land wherever the camera points,
+out to a practical `SpellCaster.GroundAimMax` cap of **1200 units** — open-world placement instead
+of the old spell-`Range` (typically ~12-30) clamp:
+
+- `SpellCaster.Execute` (SpellCaster.cs:264) computes the aim direction from the camera for ground
+  deliveries at `GroundAimMax` (vs `Mathf.Max(spell.Range, 5f)` for projectile/instant/beam), and
+  passes `GroundAimMax` as the delivery range to `ResolveZone` / `SpawnVortex` / `ResolveSummon` /
+  `ResolveStorm`. The resolvers' probe directions scale accordingly (`TerrainDeformer
+  .ResolveGroundTarget`, `GroundTarget`, vortex raycast) — no other resolver logic changed.
+- Preview stays in sync: `PlayerController.TryAoeTarget` (PlayerController.cs:1711) projects the
+  landing ring along the camera to `SpellCaster.GroundAimMax` too (it's only called for the four
+  ground deliveries via `UpdateAoePreview`).
+- Projectile / instant / beam keep their spell-`Range` cap — only ground placement is opened up;
+  1200 was chosen over `float.MaxValue` to keep the aim math safe from infinity edge cases.
+
+### 1da-status
+- Implemented + docs updated in one pass (`game-design.md` §3.8.1 "Ground placement is unbounded").
+- Verification: no CLI/Unity build (rule 3) — grep + reread only (see THINKING.md `1da`): all four
+  ground-delivery call sites in `Execute` now pass `GroundAimMax`; aim-direction branch only differs
+  for the four ground deliveries; preview mirrors with the same constant; no other `spell.Range`
+  usage in the aim path changed (SpellBeam, SpellEffect flight caps untouched).
+- Play-test pending: aim a Zone/Storm/Summon/Vortex at objects far across the world (well past the
+  old Range) — confirm the preview ring lands there, the delivery happens there, and projectile
+  spells/beams still aim/behave exactly as before (unchanged shot range).
+
 ## 1cz. Church & Taoist Shrine rebuilt to pagoda scale and detail
 
 User: make the church and shrine as big and detailed as the pagoda. Both were small boxes

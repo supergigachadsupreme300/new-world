@@ -827,6 +827,13 @@ a school read distinctly instead of feeling like copies:
   visuals (e.g. crossed bolt bars on Lightning). Examples: Thunderstorm, Meteor Rain, Blizzard,
   Hail Lance, Avalanche, Eclipse.
 
+**Ground placement is unbounded.** The four ground deliveries (Zone / Vortex / Summon / Storm) aim
+where the camera actually points — out to a practical `SpellCaster.GroundAimMax` (1200 units) cap,
+not the spell's own `Range` — so AoE magic can be cast anywhere in the open world (e.g. dropping a
+zone on a distant ridge or a summoned turret near a far road). The landing preview
+(`PlayerController.TryAoeTarget`) mirrors the same compute. Projectile / instant / beam deliveries
+keep their spell `Range` cap, so only ground placement is unbounded.
+
 **Sky spells** (`SummonFallingRock`, the meteor/boulder family) summon a **big rock** that drops from
 high above the ground target and reads as the spell landing: the burst (damage, knockback, terrain
 deform) is deferred until the rock hits the ground (Zone deliveries ~0.6-0.8 s drop; Storm strikes

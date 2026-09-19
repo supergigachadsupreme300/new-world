@@ -1708,8 +1708,10 @@ public class PlayerController : MonoBehaviour, IHealable
 
         Vector3 pos = cam.transform.position;
         Vector3 fwd = cam.transform.forward;
-        Vector3 at = pos + fwd * Mathf.Max(spell.Range, 5f);
-        if (Physics.Raycast(pos, fwd, out RaycastHit aimHit, Mathf.Max(spell.Range, 0.1f)))
+        // Ground deliveries land where the camera points — out to the practical GroundAimMax cap,
+        // mirroring SpellCaster.Execute's unbounded aim (matches `RunBenchSpawn`-style far placement).
+        Vector3 at = pos + fwd * SpellCaster.GroundAimMax;
+        if (Physics.Raycast(pos, fwd, out RaycastHit aimHit, SpellCaster.GroundAimMax))
             at = aimHit.point;
         center = at;
         if (Physics.Raycast(at + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))

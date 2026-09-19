@@ -56,6 +56,14 @@ public class SpellCaster : MonoBehaviour
     /// <summary>Spell id whose Vortex delivery is the Great Tornado (old environmental tornado model + function).</summary>
     private const string GreatTornadoSpellId = "magic_tornado_spell";
 
+    /// <summary>
+    /// Practical aim cap for GROUND deliveries (Zone / Vortex / Summon / Storm): the landing point
+    /// follows the camera line-of-sight out to ~GroundAimMax instead of the spell's own Range, so
+    /// AoE magic can be placed anywhere in the open world. Ranged/instant/beam deliveries keep their
+    /// weapon/spell range cap — only ground placement is unbounded (to this large, safe distance).
+    /// </summary>
+    public const float GroundAimMax = 1200f;
+
     /// <summary>Fires with the spell data whenever a cast begins.</summary>
     public event Action<SpellData> OnCastStarted;
     /// <summary>Fires with the spell data + resolved results whenever a cast completes.</summary>
@@ -265,7 +273,14 @@ public class SpellCaster : MonoBehaviour
         Camera cam = Camera.main;
         if (cam != null)
         {
-            Vector3 aim = cam.transform.position + cam.transform.forward * Mathf.Max(spell.Range, 5f);
+            // Ground deliveries (Zone/Vortex/Summon/Storm) land where the camera actually points —
+            // out to the practical GroundAimMax cap, not the spell's short Range — so AoE magic can
+            // be placed anywhere in the open world (§3.8). Projectile/instant/beam casts keep their
+            // spell range so their aim stays conventional.
+            bool groundDelivery = spell.Delivery == SpellDelivery.Zone || spell.Delivery == SpellDelivery.Vortex
+                || spell.Delivery == SpellDelivery.Summon || spell.Delivery == SpellDelivery.Storm;
+            float aimDist = groundDelivery ? GroundAimMax : Mathf.Max(spell.Range, 5f);
+            Vector3 aim = cam.transform.position + cam.transform.forward * aimDist;
             Vector3 dir = aim - pos;
             if (dir.sqrMagnitude > 0.0001f)
                 fwd = dir.normalized;
@@ -278,15 +293,15 @@ public class SpellCaster : MonoBehaviour
             case SpellDelivery.Projectile:
                 return FireProjectile(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult);
             case SpellDelivery.Zone:
-                return ResolveZone(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, spell.Range * mods.RangeMult);
+                return ResolveZone(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, GroundAimMax);
             case SpellDelivery.Vortex:
-                return SpawnVortex(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, spell.Range * mods.RangeMult);
+                return SpawnVortex(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, GroundAimMax);
             case SpellDelivery.Beam:
                 return ResolveBeam(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult);
             case SpellDelivery.Summon:
-                return ResolveSummon(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, spell.Range * mods.RangeMult);
+                return ResolveSummon(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, GroundAimMax);
             case SpellDelivery.Storm:
-                return ResolveStorm(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, spell.Range * mods.RangeMult);
+                return ResolveStorm(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, GroundAimMax);
             default:
                 return new DamageResult();
         }
