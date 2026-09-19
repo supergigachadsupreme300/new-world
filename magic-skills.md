@@ -19,11 +19,15 @@ Source: `Assets/Scripts/Combat/Skills/SkillCatalog.cs` (base skills) + `SkillCat
 Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size; **ProjectileSpeed** = bolt speed (default 20); **Duration** = persistent-zone lifetime (0 = instant); **TickInterval** = seconds between ticks (default 0.5); **ChannelDrainPerSecond** = focus upkeep for Beams (0 = none).
 
 Every terrain shape renders as **smooth feathered terrain**, written as continuous per-corner
-heights and smoothstep-blended at the rim — never flat slabs. Raised caps and crater floors are
-sampled **per-corner** (each corner keeps its own natural slope), so Raised shapes (Ring/Spikes/
-Wall/Pillar) cap at (noise + lift) and Crater floors clamp at (noise − 1.8 m) — smooth dishes and
-rounded ridges, never flat plateaus — and deforms are **idempotent**: a repeat cast at the same spot
-reproduces the exact same profile, so it never stacks higher or grinds deeper (`1cm`). Flat tiles
+heights and smoothstep-blended at the rim — never flat slabs. Raised caps are sampled **per-corner**
+(each corner keeps its own natural slope), so Raised shapes (Ring/Spikes/
+Wall/Pillar) cap at (noise + lift) and are **idempotent**: a repeat cast at the same spot
+reproduces the exact same profile and never stacks higher (`1cm`). **Craters are the inverse
+(1cs):** each cast excavates one `CraterStep` (~1.1 m at full influence) below the current floor,
+so repeated craters dig progressively deeper — with no floor cap of their own, bounded only by the
+±200 m mesh-sanity band — exposing the terrain's **strata bands**: grass → dirt (~0.65–2.3 m down)
+→ stone (≥ 2.7 m down), painted per-vertex as small-blend bands (§3.8; the shovel stops at stone,
+the pickaxe digs on). Flat tiles
 saved by older builds (legacy whole-metre slabs OR fractional carve plateaus) are re-smoothed
 toward their noise when loaded (§3.8, 1cl), deterministically, so the map never "re-randomizes"
 on reopen; current shapes are never flat, so they are never re-smoothed.

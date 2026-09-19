@@ -34,6 +34,41 @@ public static class ChunkMeshGenerator
     /// MeshCollider whose corrupted bounds break the physics broadphase).</summary>
     public const float MaxTerrainHeight = 200f;
 
+    // Strata bands (dig depth below the pristine noise surface, in metres):
+    //   depth <=        DirtBandStart -> grass (untouched surface, raised terrain too)
+    //   DirtBandStart .. DirtBandEnd  -> grass->dirt blend
+    //   DirtBandEnd .. StoneBandStart -> dirt
+    //   StoneBandStart .. StoneBandEnd-> dirt->stone blend
+    //   depth >=        StoneBandEnd  -> stone (deep excavation)
+    public const float DirtBandStart = 0.35f;
+    public const float DirtBandEnd = 0.65f;
+    public const float StoneBandStart = 2.3f;
+    public const float StoneBandEnd = 2.7f;
+
+    /// <summary>
+    /// Per-vertex surface color by dig depth below the pristine noise surface at the corner's
+    /// world coordinate (see the strata band constants above). Pure math + deterministic noise,
+    /// so it is thread-safe and needs NO saved state: the reference surface is recomputed from
+    /// the seed, and a saved corner's own height is what it is compared against. Raised terrain
+    /// (depth &lt;= 0) and untouched ground (depth ~ 0) render pure grass. Blends are small so
+    /// layers read as discrete strata.
+    /// </summary>
+    public static Color TerrainBandColor(long seed, int worldX, int worldZ, float vertexY)
+    {
+        float depth = TerrainNoiseGenerator.GetHeight(seed, worldX, worldZ) - vertexY;
+        if (depth <= DirtBandStart)
+            return ColorPalette.GrassGreen;
+        if (depth < DirtBandEnd)
+            return Color.Lerp(ColorPalette.GrassGreen, ColorPalette.DirtBrown,
+                (depth - DirtBandStart) / (DirtBandEnd - DirtBandStart));
+        if (depth <= StoneBandStart)
+            return ColorPalette.DirtBrown;
+        if (depth < StoneBandEnd)
+            return Color.Lerp(ColorPalette.DirtBrown, ColorPalette.StoneGray,
+                (depth - StoneBandStart) / (StoneBandEnd - StoneBandStart));
+        return ColorPalette.StoneGray;
+    }
+
     /// <summary>Clamps/normalizes a height value for mesh safety. Pure math, thread-safe.</summary>
     public static float SanitizeHeight(float h)
     {
@@ -275,6 +310,7 @@ public static class ChunkMeshGenerator
         int[] triangles = new int[triCount];
         Vector2[] uv = new Vector2[vertCount];
         Vector3[] normals = new Vector3[vertCount];
+        Color[] colors = new Color[vertCount];
 
         float minY = float.MaxValue;
         float maxY = float.MinValue;
@@ -303,6 +339,15 @@ public static class ChunkMeshGenerator
                 vertices[v] = p;
                 uv[v] = k < tile.UV.Length ? tile.UV[k] : Vector2.zero;
                 normals[v] = k < tile.Normals.Length ? tile.Normals[k] : Vector3.up;
+                int wx, wz;
+                switch (k)
+                {
+                    case 0: wx = tile.Coord.X; wz = tile.Coord.Z + 1; break;      // NW
+                    case 1: wx = tile.Coord.X + 1; wz = tile.Coord.Z + 1; break;  // NE
+                    case 2: wx = tile.Coord.X + 1; wz = tile.Coord.Z; break;      // SE
+                    default: wx = tile.Coord.X; wz = tile.Coord.Z; break;         // SW
+                }
+                colors[v] = TerrainBandColor(seed, wx, wz, p.y);
                 if (p.y < minY) minY = p.y;
                 if (p.y > maxY) maxY = p.y;
             }
@@ -355,6 +400,15 @@ public static class ChunkMeshGenerator
                     vertices[iv1] = p1;
                     vertices[iv2] = p2;
                     vertices[iv3] = p3;
+
+                    // Strata colors by the world corner each wall vertex stands at (chunk-local
+                    // coords + the chunk's min-tile world coord). A tall drop therefore shows the
+                    // grass rim then dirt, fading into stone as the wall descends.
+                    ChunkCoord origin = tiles.Length > 0 ? tiles[0].Coord : new ChunkCoord(0, 0);
+                    colors[iv0] = TerrainBandColor(seed, origin.X + ex0, origin.Z + ez0, p0.y);
+                    colors[iv1] = TerrainBandColor(seed, origin.X + ex1, origin.Z + ez1, p1.y);
+                    colors[iv2] = TerrainBandColor(seed, origin.X + ex1, origin.Z + ez1, p2.y);
+                    colors[iv3] = TerrainBandColor(seed, origin.X + ex0, origin.Z + ez0, p3.y);
 
                     // U tiles across the 1 m edge; V tiles once per band so each slab face
                     // shows one full texture repeat (the stacked-slab read).
@@ -413,6 +467,7 @@ public static class ChunkMeshGenerator
             Triangles = triangles,
             UV = uv,
             Normals = normals,
+            Colors = colors,
             Bounds = bounds,
         };
     }
@@ -538,6 +593,8 @@ public static class ChunkMeshGenerator
         mesh.SetTriangles(md.Triangles, 0);
         mesh.SetNormals(md.Normals);
         mesh.SetUVs(0, md.UV);
+        if (md.Colors != null)
+            mesh.SetColors(md.Colors);
         mesh.bounds = md.Bounds;
         mesh.UploadMeshData(false);
         return mesh;

@@ -18,6 +18,27 @@ public static class TerrainDeformer
     }
 
     /// <summary>
+    /// Excavate a small crater pit at a ground point — the tools' digging path (shovel/pickaxe).
+    /// Shares the Earth-magic crater shape, so tools and spells carve the same smooth bowls and
+    /// each call ratchets the floor a CraterStep deeper (dirt, then stone).
+    /// </summary>
+    public static void Dig(Vector3 center, float radius)
+    {
+        Apply(center, radius, TerrainShape.Crater, default);
+    }
+
+    /// <summary>
+    /// Current dig depth below the pristine surface at a ground point (positive = dug down,
+    /// ~0 = untouched grass, negative = raised). Tools gate the dirt/stone boundary on this.
+    /// </summary>
+    public static float DigDepthAt(Vector3 point)
+    {
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (streamer == null) return 0f;
+        return streamer.GetDigDepth(point.x, point.z);
+    }
+
+    /// <summary>
     /// Resolves the ground point a caster is aiming at, skipping already-RAISED terrain (a Wall /
     /// Ring / Pillar the Earth spells themselves reared) so a repeat cast targets the ground the
     /// player is looking at instead of the wall face now in front of them. Normal ground and

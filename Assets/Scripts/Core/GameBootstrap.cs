@@ -91,10 +91,14 @@ public class GameBootstrap : MonoBehaviour
         }
         if (worldStreamer.GroundMaterial == null)
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            var mat = new Material(shader);
-            mat.color = ColorPalette.GrassGreen; // reused existing palette
+            // Layered terrain material: a URP-lit vertex-color shader whose per-vertex colors
+            // paint the grass/dirt/stone strata bands (ChunkMeshGenerator.TerrainBandColor). The
+            // vertex colors carry the full look, so the base color is white — grass-green base
+            // would tint the dirt/stone deep enough to wash out. Falls back to the plain URP Lit
+            // grass material if the layered shader isn't present (e.g. it was stripped).
+            Shader shader = Shader.Find("NewWorld/TerrainLayered");
+            var mat = new Material(shader != null ? shader : Shader.Find("Universal Render Pipeline/Lit"));
+            mat.color = Color.white;
             worldStreamer.GroundMaterial = mat;
         }
 

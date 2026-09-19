@@ -15,6 +15,71 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1cs — Infinite digging depth + terrain strata (grass → dirt → stone) (SHIPPED in `1cs`)
+
+### VERDICT
+Digging now goes infinitely deep (bounded only by the ±200 m mesh-sanity band) and the terrain is
+vertex-colored at mesh-build time into discrete strata bands (grass → dirt → stone) derived from
+`pristine noise at the corner − current vertex Y`. Craters ratchet a fixed `CraterStep` down per
+cast/swing (deliberately NOT idempotent anymore), while the raised shapes keep their idempotent
+`Max`-cap. No save-format or hash change — the colors are derived, never stored.
+
+### Hypotheses & evidence
+- **H1 — store a per-corner "layer" value in the save.** REJECTED. Would change `ChunkTileMod`'s
+  4-float payload, the `tc_*.dat` format version/hash, `AntiCheat`/`ChunkSync` hashing and every
+  save-format doc/const. Too wide a blast radius for a cosmetic read. The save already stores each
+  corner's CURRENT height; depth below the *pristine* surface is the only extra datum needed, and it
+  is recomputable from the seed (deterministic).
+- **H2 — derive band from height alone (absolute Y).** REJECTED. Terrain rolls over ~±60 m; banding by
+  absolute Y would paint whole mountains dirt/stone and river-beds grass regardless of excavation.
+  Depth below the local noise surface is the only self-consistent measure ("how far am I below where
+  this corner was born").
+- **H3 — depth from a saved "original height" copy in memory only.** REJECTED after closer look: on
+  first load after an edit, pristine height doesn't exist in memory for a loaded chunk (only the
+  saved deformed corner + the noise formula). Since the noise is pure-deterministic function of the
+  seed + corner coords, sampling `GetHeight(seed, cx, cz)` directly is both simpler and always
+  correct, for pristine, deformed, and raised corners alike. **CONFIRMED as the implementation.**
+- **H4 — idempotent "grind" is fine (revert the 1cm crater clamp, keep everything else).**
+  **CONFIRMED by user.** The user explicitly wants digging to be able to go arbitrarily deep, which
+  is the exact inverse of the `1cm` "crater floors clamp at noise − 1.8" idempotency. Decided to keep
+  the raised shapes idempotent AND make craters compounding again (the pre-1cm behavior) — a clean
+  split, and the `1cm`/`1cj` fixes that matter (no whole-chunk rise, smooth per-corner profiles,
+  mesh atomicity, no flat slabs) are untouched. The old cap code (`CraterMaxDepth`) and its XML
+  claims were fully removed; stale prose in `DeformAt`'s doc and `game-design.md`/`magic-skills.md`
+  was rewritten in the same pass so no doc still claims craters clamp.
+- **H5 — band boundaries as soft blends vs hard cuts.** User asked for "discrete strata bands" — small
+  blends (0.3 m) keep the band transitions readable as layers without hard maché seams, per-corner at
+  the SAME coords used for the height, so the color field is watertight across tile edges
+  (neighbours share corners → identical colors — same contract that keeps the mesh gapless).
+  **CONFIRMED.**
+
+### Dead ends & gotchas
+- **Rename drift:** the first implementation named the band constants `*BlendStart/BlendEnd`, then the
+  public rename to `*BandStart/BandEnd` left `TerrainBandColor`'s body referencing the old names (a
+  compile error caught by grep before doc pass). Fixed + grep-verified no `BlendStart`/`CraterMaxDepth`
+  remain in `Assets/Scripts`.
+- **Wall-pass color origin:** wall vertices are chunk-LOCAL `(ex, ez)`; their world corner is
+  `tiles[0].Coord` (the chunk's min-tile world coord) + `(ex, ez)`. The defensive `tiles` fill in
+  `BuildMergedMeshData` guarantees `tiles[0]` non-null before the color pass, so no NRE. Both
+  `BuildMergedMeshData` call sites build the 900-array in the same (lx, lz) local order — cross-checked
+  the two call sites in `WorldStreamer.cs:407` and `:879`.
+- **`PatchRegion` must pass the seed too:** the newly-added seed parameter demanded a call-site update
+  that the project can't compiler-check — grep-verified exactly 2 `PatchRegion` refs (definition +
+  `WorldStreamer.cs:1120`), both 6-arg after the edit.
+- **Crater rim "digs sideways":** repeating a cast at the same center ratchets the rim corners down a
+  hair too (small `s`), slowly WIDENING the pit as it deepens. Accepted — reads as a natural bowl and
+  matches "repeat casts keep digging"; flagged in the play-test checklist, not a bug.
+- **Shader is the unverifiable risk:** no build is run (rule 3); `TerrainLayered.shader` is a hand-
+  written URP ForwardLit (PBR + fog) + ShadowCaster + DepthOnly. If it fails to compile under URP 17.5
+  the terrain goes magenta/pink in play-test and the fix is a shader compile pass, NOT the C# code.
+  Fallback chain (`Shader.Find` → URP Lit → white base) is intentionally boring.
+- **Tool gating uses the same math:** `shovel` gate compares `DigDepthAt(hit.point)` against
+  `StoneBandEnd` (2.7); the pit floor at the hit point is interpolated across its corner heights and
+  noise, and the floored integer corner sample is a faithful proxy for the band the tool is digging
+  in. `Dig` shares the Crater shape so tool pits and spell craters stay one code path.
+
+---
+
 ## 1cr — Weapon not visible on hand (held in inventory slots) (RESOLVED — shipped in `1cr`)
 
 ### VERDICT

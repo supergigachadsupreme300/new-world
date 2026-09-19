@@ -672,7 +672,9 @@ Arcane→**no status** (pure force), Wind→Knockback, Holy→heals (§3.8), Ear
   **Beyond Earth, every magic projectile leaves a small impact dent where it strikes**
   (`SpellEffect.ResolveProjectileImpact` — fireball, frost bolt, arcane bolt, lightning, dark,
   wind blade, water bolt, etc. carve a small Crater under the impact point), so bolts visibly
-  disturb the terrain; Earth's craters stay larger and depth-notable (the school's signature).
+  disturb the terrain; Earth's craters stay larger and depth-notable (the school's signature) —
+  and a crater digs progressively deeper on repeat casts, descending through the
+  grass → dirt → stone strata bands revealed in the pit walls (§3.8).
 
 ### 3.8 Spell-Casting Pipeline
 
@@ -699,7 +701,7 @@ A spell is a data asset carrying:
   **Ring** rears a raised annular wall around the impact, **Spikes** erupts rock spikes beneath it,
   **Wall** rears an elongated ridge along the cast direction (~2.6 m on a first cast, tall enough to
   fully block the player's CharacterController), **Pillar** thrusts a tall column up at the center,
-  and **Crater** excavates a wide shallow dish. Heights are written as continuous per-corner
+  and **Crater** excavates a smooth dish. Heights are written as continuous per-corner
   elevations (4 corners per 1×1 m TILE, shared with neighbours — which is what keeps the
   triangulated mesh gapless), smoothstep-blended at the rim so a deform reads as genuine terrain;
   `ChunkMeshGenerator` only emits slab side-wall bands for *legacy saved flat tiles*, so smooth
@@ -708,14 +710,20 @@ A spell is a data asset carrying:
   mesh + collider, and persists the edit as a terrain modification (§2.6 saves them per chunk).
   Raised shapes (Ring/Spikes/Wall/Pillar) skip tiles inside a small keep-out ring (~0.9 m) around
   the player's feet so the ground never grows directly under the capsule and violently depenetrates
-  it on the next physics step. Deforms are **bounded**: the raised cap and the crater floor are sampled **per-corner at each
-  corner's own world coords**, so raised shapes cap at (original noise height + lift) and a crater
-  floor clamps at (original noise height − 1.8 m) — but every corner keeps its own natural slope and
-  no tile collapses to a uniform level. Crater interiors are therefore a genuine smooth dish and
-  crests are smooth rounded ridges, never flat plateaus; repeated casts can never grind the ground
-  deeper or stack a ridge higher than the intended release (a repeat Wall stays
-  ~2.6 m, never taller). ***Crater is the Earth projectile signature**: a Crater-shaped projectile
-  (the root Stone Shard) carves its crater where the rock **strikes** —
+  it on the next physics step. Raised shapes are **bounded and idempotent**: their cap (raised
+  shapes: original noise height + lift) is sampled **per-corner at each corner's own world coords**,
+  so every corner keeps its own natural slope and no tile collapses to a uniform level — crests are
+  smooth rounded ridges, never flat plateaus, and a repeat cast can never stack a ridge higher than
+  the intended release (a repeat Wall stays ~2.6 m, never taller).
+  ***Crater rears the terrain's strata as a signature**: unlike the capped raises, an excavation
+  ratchets **a `CraterStep` (~1.1 m at full influence) deeper per cast or tool swing, with no floor
+  cap of its own** — repeated craters dig progressively deeper pits, bounded only by WorldStreamer's
+  ±200 m mesh-safety sanity band. Vertex colors painted at build time then reveal the dug depth
+  below the pristine noise surface as discrete strata bands: **grass (surface) → dirt (~0.65–2.3 m
+  down) → stone (≥ 2.7 m down)**, small blends between bands (1cs). The shovel can only dig the
+  soft bands and stops at stone; the pickaxe excavates at any depth. Every crater is a genuine
+  smooth dish — corners keep their own slope, the rim feathers out — and it is permanent (1cs).
+  A Crater-shaped projectile (the root Stone Shard) carves its crater where the rock **strikes** —
   `SpellEffect.ResolveProjectileImpact` down-probes the ground at impact and deforms it there, and
   throws up a short burst of rock chunks from the crater mouth (same grey-debris look as the
   in-flight projectile, destroyed after ~2.5 s), so a
@@ -746,19 +754,22 @@ A spell is a data asset carrying:
   (Rockfall → Crater) dent under each boulder via `SpellStorm.DeformGround`; Summons (the golem
   line → Spikes) erupt a small rock field where the construct rises via `ResolveSummon`; the
   Projectile root (Stone Shard) carves its crater at the impact point. Because raised shapes cap
-  and craters clamp, no shape — zone, storm, summon, or projectile — can ever carve a void or
-  stack unbounded.
+  and only craters excavate, no raised shape — zone, storm, summon, or projectile — can ever stack
+  unbounded, and craters dig as deep as the player has patience for.
 - cast animation reference
 - optional status-effect application with a proc chance (e.g., applies Burn/Frost/Stagger; §3.7)
 
-**Deforms are idempotent (`1cm`):** the per-corner target is an absolute profile — raised shapes aim
-at (original noise height + blended lift), craters at (original noise height − blended depth) — and
-the edit applies `Max`/`Min` against the current height, so a repeat cast at the same spot reproduces
+**Deforms are idempotent for raised shapes (`1cm`) but craters ratchet down (`1cs`):** the per-corner
+raised-shape target is an absolute profile — raised shapes aim
+at (original noise height + blended lift) — and the edit applies `Max`
+against the current height, so a repeat cast at the same spot reproduces
 the exact same shape and changes nothing. (Earlier, the raise added `s·lift` to the *current* height
 every cast, so the second+ cast kept lifting the whole influence footprint toward the cap — the
 ground visibly rose across the chunk, reported as "the entire chunk moving"; craters grinded deeper
-the same way.) `Max` also means a deform can never *lower* terrain that already sits above the target.
-Two robustness fixes ride along: `SpellCaster`'s zone aim probe skips **raised terrain taller than
+the same way.) `Max` also means a raised deform can never *lower* terrain that already sits above the
+target. A **Crater** is the deliberate inverse (see the terrain-shape bullet): each cast/swing lowers
+the floor one `CraterStep` below its current height, so excavation is bounded only by the mesh-safety
+sanity band. Two robustness fixes ride along: `SpellCaster`'s zone aim probe skips **raised terrain taller than
 pristine noise** (a wall the spell itself reared) so a repeat cast targets the ground the player is
 looking at rather than the wall face, and `ChunkObject` re-points the mesh filter/collider at the new
 mesh **before** destroying the old one (no frame ever references a destroyed mesh).
@@ -962,6 +973,8 @@ Inventory tab). Tools swap a matching **3D model** on equip (`ToolManager.ToolMo
 | **Hoe** | Till soil for planting |
 | **Sickle** | Harvest crops (yields quality bonuses, skill XP, quest progress) |
 | **Axe / Mattock** | Gather materials |
+| **Shovel** | **Excavate terrain (1cs):** each swing digs a small bowl of soft ground (grass/dirt) one `CraterStep` deeper, revealing the strata bands as the hole descends. Stops at the **stone band** at ~2.7 m down — the pickaxe takes over there. Uses the same crater excavation path as Earth magic, so tool pits and spell craters share one shape. |
+| **Pickaxe** | Mine **rock props** (loose boulders/rock debris in the world) AND **excavate terrain at any depth** (1cs), including the stone band the shovel cannot break — the ground-breaking tool once a pit reaches stone. Both cost stamina per successful strike. |
 | **Fishing Rod** | Fish (gift from Jessica) |
 | **Hammer** | Open the build menu (**hold Hammer + F**) |
 | **Club** | Melee demons; knock out thrashing fish on the shore |

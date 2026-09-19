@@ -57,6 +57,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableRaces = true;
     [Tooltip("Cast Earth-shape terrain demos (Wall smooth ridge, Pillar, Crater smooth dent) onto the streamed terrain just off the platform. The Wall is cast twice to show repeat casts are CAPPED (smooth feathered deforms, no slab stacking — 1cj). Deforms REAL terrain — permanent chunk saves — so it is off by default and never touches the platform or legacy village.")]
     public bool EnableTerrainSlabDemo = false;
+    [Tooltip("QA the layered strata (grass -> dirt -> stone): two craters excavated on the streamed terrain just off the platform by repeating the shared crater digs (each cast ratchets the floor a step deeper, like the shovel/pickaxe path). One pit reaches the dirt band, the other digs through into stone. Deforms REAL terrain — permanent chunk saves — so it is off by default and never touches the platform or legacy village.")]
+    public bool EnableDigLayersDemo = false;
     [Tooltip("QA: delete this world's terrain chunk saves and regenerate every loaded chunk from noise — a deliberate clean map (no leftover slabs, closed mesh). Permanently discards ALL terrain edits for the current seed, so it is off by default and never touches the platform or legacy village.")]
     public bool EnableResetTerrainSaves = false;
 
@@ -132,6 +134,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (EnableGear) { RunSafely("gear", GrantStarterGear); yield return null; }
         if (EnableRaces) { RunSafely("races", GrantRaceAccess); yield return null; }
         if (EnableTerrainSlabDemo) { RunSafely("terrain shapes demo", SpawnTerrainSlabDemo); yield return null; }
+        if (EnableDigLayersDemo) { RunSafely("dig layers demo", SpawnDigLayersDemo); yield return null; }
         if (EnableResetTerrainSaves) { RunSafely("terrain saves reset", ResetTerrainSaves); yield return null; }
         RunSafely("player grants", TryDeferPlayerGrants);
 
@@ -188,6 +191,29 @@ public sealed class NewWorldTestGround : MonoBehaviour
         TerrainDeformer.Apply(new Vector3(baseX, 0f, baseZ), 2f, TerrainShape.Wall, Vector3.forward);
         TerrainDeformer.Apply(new Vector3(baseX - 7f, 0f, baseZ), 1.8f, TerrainShape.Pillar, default);
         TerrainDeformer.Apply(new Vector3(baseX + 7f, 0f, baseZ), 2.2f, TerrainShape.Crater, default);
+    }
+
+    /// <summary>
+    /// QA lane for the layered strata (grass -> dirt -> stone): excavates two craters on the
+    /// streamed terrain just off the platform east edge by REPEATING the shared crater dig (each
+    /// cast ratchets the floor one CraterStep deeper — exactly the shovel/pickaxe excavation path).
+    /// The shallow pit bottoms out in the dirt band (2 casts), the deep one digs through into the
+    /// stone band (4 casts), so their side walls show the banding: a grass ring, a dirt band, then
+    /// stone. Deforms REAL streamed terrain (permanent per-chunk saves) — off by default, clear of
+    /// the platform footprint and the legacy WorldBuilder village.
+    /// </summary>
+    private void SpawnDigLayersDemo()
+    {
+        float baseX = PlatformCenter.x + PlatformSize * 0.5f + 20f;
+        float baseZ = PlatformCenter.z + 22f;
+
+        // Shallow pit — well into the dirt band (2 * ~1.1 m step ~ 2.2 m deep).
+        for (int i = 0; i < 2; i++)
+            TerrainDeformer.Apply(new Vector3(baseX, 0f, baseZ), 2.4f, TerrainShape.Crater, default);
+
+        // Deep pit — through the dirt/stone blend into solid stone (4 casts ~ 4.4 m).
+        for (int i = 0; i < 4; i++)
+            TerrainDeformer.Apply(new Vector3(baseX + 10f, 0f, baseZ), 2.4f, TerrainShape.Crater, default);
     }
 
     /// <summary>

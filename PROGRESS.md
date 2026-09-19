@@ -1,7 +1,11 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-19. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cr` (equipped
+`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cs` (digging
+now goes **infinitely deep and shows real strata**: craters/shovel/pickaxe excavate via one shared
+`CraterStep` ratchet with no depth cap, and the terrain is vertex-colored at build time into
+grass → dirt → stone bands revealed by depth — shovel stops at stone, pickaxe breaks it; opt-in
+`EnableDigLayersDemo` QA lane), `1cr` (equipped
 weapons stay **drawn in the hand in first person even out of combat** — third-person casual is the
 only view that sheathes them, so holding a weapon in an inventory hand slot now visibly puts it on
 your hand), `1cq` (Wind/Ice
@@ -59,6 +63,68 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
   - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
     noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
     `PrepareArenaGround` is just a single `GetHeight` sample now.)
+
+---
+
+## 1cs. Infinite digging depth + layered terrain strata (grass → dirt → stone)
+
+User: "Deeper we dig, the lower the ground gets. Can we add terrain layers (grass → dirt → stone)?"
+→ scoped with the user: **discrete strata bands** (small blends at the cuts, not continuous
+gradients), **infinitely deep** excavation (bounded only by the existing ±200 m mesh-sanity band),
+and **shovel digs the soft bands, pickaxe breaks the stone** (its rock-prop logic stays intact).
+Key architectural choice: the band color is derived at mesh-build time from `pristine noise height
+at the corner − current vertex Y`, so **nothing is added to the save format** — untouched ground and
+raised terrain render pure grass, and pits just show deeper bands every reload. Craters are
+**deliberately no longer idempotent**: each cast/swing ratchets the floor one `CraterStep` down
+(~1.1 m at full influence, feathered rim), reversing the `1cm` "crater floor clamp" for excavation
+only — raised shapes keep their `Max`-cap idempotency.
+
+### Changes
+- `ColorPalette.cs` — new `DirtBrown` (0.45, 0.33, 0.21).
+- `TerrainChunkMeshData.cs` — `MergedChunkMeshData.Colors` (Color[]).
+- `ChunkMeshGenerator.cs` — public band constants (`DirtBandStart 0.35`, `DirtBandEnd 0.65`,
+  `StoneBandStart 2.3`, `StoneBandEnd 2.7`); new `TerrainBandColor(seed, worldX, worldZ, vertexY)`
+  (grass ≤0.35, grass→dirt blend, dirt, dirt→stone blend, stone ≥2.7); `BuildMergedMeshData` fills
+  colors on every top quad corner (world coords from `tile.Coord`) and every side-wall band vertex
+  (`tiles[0].Coord` + local edge coords, i.e. the chunk's min-tile world corner); `CreateMeshFromMerged`
+  uploads `mesh.SetColors` when present.
+- `ChunkObject.cs` — `PatchRegion(..., long seed)` recomputes the region's top-vertex colors and
+  lazily back-fills a grass default if the CPU copy had none; re-upload includes `SetColors`, collider
+  re-cook unchanged.
+- `WorldStreamer.cs` — `PatchRegion` call site passes `Seed`; crater branch rewritten to
+  `target = current − s·CraterStep` (unbounded excavation; `CraterMaxDepth` const removed); new
+  `GetDigDepth(worldX, worldZ)` = pristine noise height − `CurrentHeightOf` (the tools' gate).
+- `TerrainDeformer.cs` — `Dig(center, radius)` (shares the Crater shape) + `DigDepthAt(point)`.
+- `Assets/Shaders/TerrainLayered.shader` — new URP lit shader: ForwardLit (vertex color × `_Color`,
+  URP lighting + fog) + ShadowCaster + DepthOnly; fallback `Universal Render Pipeline/Lit`.
+- `GameBootstrap.cs` — `GroundMaterial` now uses the layered shader with a white base (vertex colors
+  carry the look); falls back to URP Lit.
+- `ToolManager.cs` — **shovel** branch digs terrain (radius 0.55) but refuses once
+  `DigDepthAt ≥ StoneBandEnd` ("Đá cứng — dùng cuốc chim!"); **pickaxe** branch excavates terrain at
+  ANY depth (radius 0.5) before its unchanged rock-prop handling; both spend tool stamina, play their
+  sound, and pop a small tinted `SpawnDigPuff` (dirt-brown / stone-gray shards, ~1 s lifetime).
+- `NewWorldTestGround.cs` — opt-in `EnableDigLayersDemo` lane casts 2× and 4× craters on the streamed
+  terrain east of the platform (through dirt, then into stone) to reveal the banding.
+- Docs: `game-design.md` §3.7 Earth bullet + §3.8 terrain-shape bullet + idempotency paragraph
+  (crater carve-out), §5.1 tools table (shovel/pickaxe excavation), §2.6 unchanged (no save-format
+  change); `magic-skills.md` delivery legend; `PROGRESS.md` this entry; `THINKING.md` `## 1cs`.
+
+### 1cs-status
+- Source-compile verified by review (rule 3; no CLI/Unity build — user play-tests): greped every
+  `BuildMergedMeshData`/`CreateMeshFromMerged`/`PatchRegion` call site (both `PatchRegion` refs match
+  the new 6-arg signature), no lingering `CraterMaxDepth`/`DirtBlendStart` refs, band consts renamed
+  consistently, `Colors` allocated once per merged mesh, wall-pass origin = `tiles[0].Coord`,
+  `SetColors` in both build and patch paths, terrain shader present at `Assets/Shaders`.
+  **The one thing review can't prove is the shader compiling under URP 17.5** — if the terrain turns
+  pink/mra in play-test, that's the first thing to check (fallback is URP Lit).
+- Play-test checklist: (1) cast a Crater twice → the pit visibly deepens; repeat casts keep digging
+  through dirt into stone, memorable pit walls show grass ring → dirt band → stone face; untouched and
+  raised ground stays grass-green; (2) shovel on grass digs; shovel at rock-hard stone depth is
+  refused with the hint; pickaxe then excavates the pit further; (3) reopen the world → bands persist
+  exactly (save format untouched); (4) walls/ridges still capped at first cast height; shadows +
+  lighting still render on the carved terrain.
+- Follow-ups noted: `SpawnDigPuff` shards are unparented (harmless, self-destruct ~1 s); if the
+  per-swing puff proves noisy in play-test, gate it behind the tool sound or drop to 2 shards.
 
 ---
 

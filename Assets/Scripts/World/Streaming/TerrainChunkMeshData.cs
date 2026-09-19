@@ -35,5 +35,6 @@ public struct MergedChunkMeshData
     public int[] Triangles;
     public Vector2[] UV;
     public Vector3[] Normals;
+    public Color[] Colors;
     public Bounds Bounds;
 }

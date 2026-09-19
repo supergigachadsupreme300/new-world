@@ -839,24 +839,62 @@ public partial class ToolManager : MonoBehaviour
                 return;
             }
 
-            if (selectedItem == "pickaxe" && IsRock(hit.collider))
+            if (selectedItem == "shovel")
             {
-                var rockRoot = hit.collider.gameObject;
-                while (rockRoot.transform.parent != null &&
-                       rockRoot.transform.parent.name != "WorldRoot" &&
-                       rockRoot.transform.parent.GetComponent<ChunkObject>() == null)
-                    rockRoot = rockRoot.transform.parent.gameObject;
+                // Shovel excavates the terrain surface itself (grass/dirt). The stroke digs a
+                // CraterStep-shaped bowl in the ground and is gated to the soft bands: once the
+                // hole reaches stone (StoneBandEnd, ~2.7 m down) the shovel just scrapes rock —
+                // the pickaxe takes over from there.
+                if (hit.collider.GetComponent<ChunkObject>() == null)
+                    return;
 
-                if (rockRoot.name == "RockDebris")
+                if (TerrainDeformer.DigDepthAt(hit.point) >= ChunkMeshGenerator.StoneBandEnd)
                 {
-                    _worldBuilder.SmashDebris(rockRoot);
-                    SpendToolStamina(player);
-                    SoundManager.Instance?.Play("pickaxe");
+                    _uiManager.ShowMessage(Localization.T("Đá cứng — dùng cuốc chim!"), 1.5f);
+                    return;
                 }
-                else if (_worldBuilder.HitRock(rockRoot, hit.point, hit.normal))
+
+                if (!SpendToolStamina(player))
+                    return;
+                TerrainDeformer.Dig(hit.point, 0.55f);
+                SoundManager.Instance?.Play("shovel");
+                SpawnDigPuff(hit.point, ColorPalette.DirtBrown);
+                return;
+            }
+
+            if (selectedItem == "pickaxe")
+            {
+                // Pickaxe will break the stone band the shovel cannot: swing it at plain terrain
+                // to excavate at ANY depth (each swing ratchets the pit a CraterStep deeper).
+                if (hit.collider.GetComponent<ChunkObject>() != null)
                 {
-                    SpendToolStamina(player);
+                    if (!SpendToolStamina(player))
+                        return;
+                    TerrainDeformer.Dig(hit.point, 0.5f);
                     SoundManager.Instance?.Play("pickaxe");
+                    SpawnDigPuff(hit.point, ColorPalette.StoneGray);
+                    return;
+                }
+
+                if (IsRock(hit.collider))
+                {
+                    var rockRoot = hit.collider.gameObject;
+                    while (rockRoot.transform.parent != null &&
+                           rockRoot.transform.parent.name != "WorldRoot" &&
+                           rockRoot.transform.parent.GetComponent<ChunkObject>() == null)
+                        rockRoot = rockRoot.transform.parent.gameObject;
+
+                    if (rockRoot.name == "RockDebris")
+                    {
+                        _worldBuilder.SmashDebris(rockRoot);
+                        SpendToolStamina(player);
+                        SoundManager.Instance?.Play("pickaxe");
+                    }
+                    else if (_worldBuilder.HitRock(rockRoot, hit.point, hit.normal))
+                    {
+                        SpendToolStamina(player);
+                        SoundManager.Instance?.Play("pickaxe");
+                    }
                 }
                 return;
             }
@@ -1091,6 +1129,27 @@ public partial class ToolManager : MonoBehaviour
     {
         if (_worldBuilder != null)
             _worldBuilder.SetBuildingPreviewVisible(GetSelectedItemType() == "hammer");
+    }
+
+    /// <summary>A few tiny tinted shards scattered out of an excavation stroke, so a dig has a
+    /// light, readable feedback puff (dirt-brown for the shovel, stone-gray for the pickaxe).
+    /// Only cosmetic: the shards are unparented, gravity-driven and self-destruct in ~1 s.</summary>
+    private void SpawnDigPuff(Vector3 point, Color color)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            shard.name = "DigPuff";
+            shard.transform.position = point + Random.insideUnitSphere * 0.15f;
+            shard.transform.localScale = Vector3.one * (0.03f + Random.value * 0.04f);
+            var body = shard.AddComponent<Rigidbody>();
+            body.linearVelocity = (Vector3.up * 0.6f) + Random.insideUnitSphere * 1.2f;
+            shard.GetComponent<Renderer>().material = new Material(Shader.Find("Universal Render Pipeline/Lit"))
+            {
+                color = color
+            };
+            Destroy(shard, 1f);
+        }
     }
 
     private void UpdateInventoryUI()

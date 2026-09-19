@@ -666,14 +666,16 @@ public class WorldStreamer : MonoBehaviour
     /// elongated ridge rearing along <paramref name="dir"/>; Pillar: a tall column at the
     /// center; Crater: a wide shallow dish excavated downward). Heights are written as
     /// continuous per-corner elevations — never quantized blocks — so a deform blends into the
-    /// untouched turf with a smoothstep rim. Deforms are bounded AND idempotent: raised shapes
-    /// raise toward a per-corner target of (original noise height + blended lift) and a crater digs
-    /// toward (original noise height − blended depth), each applied with Max/Min against the current
-    /// height so a repeat cast at the same spot reproduces the exact same profile and changes
-    /// nothing (never grinds deeper, never stacks a ridge higher). Each touched tile is marked
-    /// modified/dirty so it persists and syncs (deformations last forever — chunk save files, §2.6),
-    /// and the affected region of each chunk is rebuilt (merged mesh + collider) in place. Unloaded
-    /// tiles are ignored — spells only deform terrain the streamer has in memory.
+    /// untouched turf with a smoothstep rim. Raised shapes (Wall/Ring/Pillar/Spikes) are bounded
+    /// AND idempotent: they raise toward a per-corner target of (original noise height + blended
+    /// lift) applied with Max against the current height, so a repeat cast reproduces the same
+    /// profile and can never stack higher. A Crater is deliberately the inverse — each cast/swing
+    /// excavates another CraterStep below the current floor, so pits dig progressively deeper
+    /// (revealing the dirt/stone strata bands) with no cap of their own: only the ±MaxTerrainHeight
+    /// sanity band bounds them. Each touched tile is marked modified/dirty so it persists and syncs
+    /// (deformations last forever — chunk save files, §2.6), and the affected region of each chunk is
+    /// rebuilt (merged mesh + collider) in place. Unloaded tiles are ignored — spells only deform
+    /// terrain the streamer has in memory.
     /// </para>
     /// </summary>
     public void DeformAt(Vector3 center, float radius, TerrainShape shape, Vector3 dir = default)
@@ -715,7 +717,13 @@ public class WorldStreamer : MonoBehaviour
             : shape == TerrainShape.Pillar ? 1.8f
             : shape == TerrainShape.Wall ? 2.6f
             : 0.7f; // Spikes
-        const float CraterMaxDepth = 1.8f;
+        // Excavation step per Crater cast/swing (~1.1 m at full influence, feathered at the rim).
+        // Unlike the raised shapes (which are IDEMPOTENT and capped), a crater ratchets the floor
+        // DOWN by the step every cast: pits dig progressively deeper — through dirt, then stone —
+        // with no floor cap of their own. The only bound is WorldStreamer's ±MaxTerrainHeight
+        // sanity band (SanitizeHeight), which exists to protect the mesh/collider, not to limit
+        // how deep an excavator may go.
+        const float CraterStep = 1.1f;
         float ringMid = radius * 0.72f;
         float ringHalfWidth = Mathf.Max(0.6f, radius * 0.28f);
         float pillarCore = radius * 0.45f;
@@ -786,14 +794,14 @@ public class WorldStreamer : MonoBehaviour
 
                 if (shape == TerrainShape.Crater)
                 {
-                    // Dig toward the per-corner dish target, sampled at the CORNER (cx, cz) — never
-                    // the tile centre — so each corner keeps its own natural slope and the dish stays
-                    // smooth, never a flat slab floor. Min against the CURRENT height makes the edit
-                    // IDEMPOTENT: a repeat cast recomputes the same target and changes nothing, so a
-                    // crater can never deepen on recast. (The old `current - s*depth` form subtracted
-                    // from the already-dug floor every cast, grinding deeper toward the cap.)
-                    float target = TerrainNoiseGenerator.GetHeight(Seed, cx, cz) - s * CraterMaxDepth;
-                    newHeights[EncodeCorner(cx, cz)] = Mathf.Min(current, target);
+                    // Deliberate per-cast excavation: lower each corner by s*CraterStep below its
+                    // CURRENT floor. Repeating the cast (or swinging a digging tool) deepens the pit
+                    // each time — the inverse of the raised shapes' idempotency — so the player can
+                    // dig indefinitely deep (revealing the dirt/stone strata bands). The rim stays
+                    // feathered (s ~ 0 at influence edge) so the pit is a smooth bowl, never a cliff;
+                    // corners keep their own slope, so the dish is never a flat slab floor.
+                    float target = current - s * CraterStep;
+                    newHeights[EncodeCorner(cx, cz)] = target;
                 }
                 else
                 {
@@ -1111,7 +1119,7 @@ public class WorldStreamer : MonoBehaviour
                     ChunkMeshGenerator.BuildMeshData(tileData, TerrainNoiseGenerator.DefaultLayers);
             }
         }
-        obj.PatchRegion(lMinX, lMinZ, lMaxX, lMaxZ, region);
+        obj.PatchRegion(lMinX, lMinZ, lMaxX, lMaxZ, region, Seed);
     }
 
     private static long EncodeCorner(int cx, int cz) => ((long)cx << 32) | (uint)cz;
@@ -1138,6 +1146,19 @@ public class WorldStreamer : MonoBehaviour
         if (_loadedData.TryGetValue(owners[3], out ChunkData d3)) return d3.Heights[1];
         // Corner has no loaded owner tile — neutral base (only ever read by loaded tiles).
         return TerrainNoiseGenerator.GetHeight(Seed, cx + 0.5f, cz + 0.5f);
+    }
+
+    /// <summary>
+    /// Current dig depth at a world-space ground point: how far the current floor sits BELOW the
+    /// pristine noise surface (positive = dug down, ~0 = untouched, negative = raised terrain).
+    /// Tools use this to gate the dirt/stone boundary — e.g. the shovel stops once a pit reaches
+    /// the stone band and the pickaxe takes over.
+    /// </summary>
+    public float GetDigDepth(float worldX, float worldZ)
+    {
+        int cx = Mathf.FloorToInt(worldX);
+        int cz = Mathf.FloorToInt(worldZ);
+        return TerrainNoiseGenerator.GetHeight(Seed, cx, cz) - CurrentHeightOf(cx, cz);
     }
 
     private void OnDestroy()

@@ -75,7 +75,7 @@ public class ChunkObject : MonoBehaviour
     /// must cover the whole rectangle (including untouched neighbours, so shared corners line up).
     /// Only the touched region is rebuilt + re-uploaded; the collider is re-cooked once.
     /// </summary>
-    public void PatchRegion(int localMinX, int localMinZ, int localMaxX, int localMaxZ, ChunkMeshData[] region)
+    public void PatchRegion(int localMinX, int localMinZ, int localMaxX, int localMaxZ, ChunkMeshData[] region, long seed)
     {
         if (_merged.Vertices == null || _mf == null)
             return; // mesh not present — restore via full rebuild path
@@ -89,6 +89,15 @@ public class ChunkObject : MonoBehaviour
         int h = localMaxZ - localMinZ + 1;
         float minY = float.MaxValue;
         float maxY = float.MinValue;
+
+        // The color channel tracks the strata bands per corner; lazily back-fill it so a patched
+        // region always has a writable array even if a mesh was built without one.
+        if (_merged.Colors == null)
+        {
+            _merged.Colors = new Color[_merged.Vertices.Length];
+            for (int i = 0; i < _merged.Colors.Length; i++)
+                _merged.Colors[i] = ColorPalette.GrassGreen;
+        }
 
         for (int lz = localMinZ; lz <= localMaxZ; lz++)
         {
@@ -105,6 +114,15 @@ public class ChunkObject : MonoBehaviour
                     _merged.Vertices[v] = p;
                     if (k < tile.UV.Length) _merged.UV[v] = tile.UV[k];
                     if (k < tile.Normals.Length) _merged.Normals[v] = tile.Normals[k];
+                    int wx, wz;
+                    switch (k)
+                    {
+                        case 0: wx = tile.Coord.X; wz = tile.Coord.Z + 1; break;      // NW
+                        case 1: wx = tile.Coord.X + 1; wz = tile.Coord.Z + 1; break;  // NE
+                        case 2: wx = tile.Coord.X + 1; wz = tile.Coord.Z; break;      // SE
+                        default: wx = tile.Coord.X; wz = tile.Coord.Z; break;         // SW
+                    }
+                    _merged.Colors[v] = ChunkMeshGenerator.TerrainBandColor(seed, wx, wz, p.y);
                 }
             }
         }
@@ -125,6 +143,8 @@ public class ChunkObject : MonoBehaviour
         mesh.SetVertices(_merged.Vertices);
         mesh.SetNormals(_merged.Normals);
         mesh.SetUVs(0, _merged.UV);
+        if (_merged.Colors != null)
+            mesh.SetColors(_merged.Colors);
         mesh.bounds = _merged.Bounds;
 
         // Force the collider to re-cook against the new heights. The null→assign pair runs inside a
