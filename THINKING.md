@@ -96,34 +96,40 @@ Two play-test bugs, two root causes, both confirmed by source review (no build, 
   right before the fix). Lesson: when a URP pass-support file declares its uniforms in the body of
   that file (not in a `ShaderLibrary/*.hlsl`), a custom shader must duplicate those declarations.
 
-### Follow-up: "blue by day, black at night" = fragment computed the WRONG shadow-coord variant (fixed in 1ct third commit)
-- **Symptom:** shader compiles (both compile bugs gone) but the terrain has NO direct sun light —
-  lit only by sky/ambient, so it reads blue-ish at start and goes black at night (trees/rocks were
-  fine, which was the tell: same scene, same sun, same ambient — so the difference is the MESH, i.e.
-  my shader not the scene lighting).
-- **H1 — no main light in the scene.** REJECTED: trees/rocks (URP Lit) visibly lit by a sun.
-- **H2 — vertex colors never reach the GPU, albedo black, only environment reflection visible**
-  (blue sky sheen by day / black at night). Tested by reading the pipeline: `BuildMeshData` fills
-  per-vertex `colors` (ChunkMeshGenerator.cs:313,350,408-411), the merge keeps them, and
-  `CreateMeshFromMerged` calls `mesh.SetColors(md.Colors)` (line 596-597); `PatchRegion` re-uploads
-  too. Vertex colors ARE uploaded → albedo is grass/dirt/stone, not black. REJECTED.
-- **H3 — `shadowAttenuation` collides to ~0 in the same frame the terrain is drawn → direct term
-  zero → only GI (sky reflection + SH ambient).** CONFIRMED as the mechanism, with the exact wiring
-  error: `UniversalFragmentPBR` (Lighting.hlsl:336) computes `GetMainLight(inputData, shadowMask,
-  aoFactor)`; `MainLightShadow` reads the main light's shadow coord. I populated
-  `inputData.shadowCoord` with `TransformWorldToShadowCoord(positionWS)` in the FRAGMENT. URP Lit
-  instead fills it in the VERTEX via `GetShadowCoord(vertexInput)` (Shadows.hlsl:529-536), which
-  UNDER `_MAIN_LIGHT_SHADOWS_SCREEN` (screen-space shadows; on in this project's URP asset) returns
-  `ComputeScreenPos(positionCS)` — a SCREEN coord — and only otherwise falls back to the atlas
-  transform. Passing atlas coords into the screen-space sampler = sampling a `_ScreenSpaceShadowMapTexture`
-  at garbage UVs → `MainLightRealtimeShadow` ≈ 0 → `shadowAttenuation` ≈ 0 → `LightingPhysicallyBased`
-  ≈ 0 → terrain colors = GI only (blue-sky ambient; black when sky darkens). Trees/rocks use the
-  correct `GetShadowCoord`, so they kept their sun — exactly the observed asymmetry.
-- **Fix:** mirror Lit — `Varyings.shadowCoord`, compute `GetShadowCoord(posInputs)` in `vert`,
-  `lightingInput.shadowCoord = input.shadowCoord` in `frag`, plus `normalizedScreenSpaceUV =
-  GetNormalizedScreenSpaceUV(positionCS)` (ShaderVariablesFunctions.hlsl:594) for correct screen-
-  coord-adjacent GI/reflection inputs. `Shadows.hlsl` explicitly included for forward pass too.
-  **Confirmed-by-verification:** `GetShadowCoord` branches exactly as described at Shadows.hlsl:531-534.
+### Follow-up: still black after the GetShadowCoord fix → shadow-free explicit Lambert (fixed in 1ct fourth commit)
+- **Symptom:** terrain AND test-ground platform both black; trees/rocks/player fine; the
+  GetShadowCoord change changed nothing.
+- **H1 — screen-space shadows.** REJECTED (again, harder): read `Assets/Settings/PC_Renderer.asset`
+  — the Forward renderer has no screen-space-shadow feature (only SSAO, `m_ShadowTransparentReceive`),
+  so `_MAIN_LIGHT_SHADOWS_SCREEN` can't be the active variant. The whole 1ct-third-commit theory
+  was chasing the wrong keyword set. Also read `MainLightRealtimeShadow` (17.5 Shadows.hlsl): when
+  `MAIN_LIGHT_CALCULATE_SHADOWS` is not defined it returns `half(1.0)` — full light — so a missing/
+  garbage shadow coord CANNOT zero the direct term in this pipeline. Direct light was never the bug.
+- **H2 — the platform is black because of vertex colors.** CONFIRMED: `NewWorldTestGround.BuildTestGround`
+  builds the top as `GameObject.CreatePrimitive(PrimitiveType.Cube)` and assigns `streamer.GroundMaterial`
+  — the layered shader with `_UseVertexColor = 1`. A stock cube has no COLOR channel → vertexColor
+  reads (0,0,0,0) → `albedo = _Color * black = black` → black cube (URP Lit grass earlier worked
+  because Lit ignores vertex colors). Fix: `PlatformMaterial` returns a plain URP Lit `GrassGreen`
+  material instead (a platform has no strata bands anyway).
+- **H3 — the TERRAIN is black from the same missing-color path.** REJECTED: `BuildMergedMeshData`
+  fills `Colors` (ChunkMeshGenerator.cs:470) and `CreateMeshFromMerged` uploads via
+  `mesh.SetColors` (line 596-597); chunk load/rebuild paths both verified to include colors. Terrain
+  albedo is genuinely green on the GPU — yet output still black.
+- **H4 — `UniversalFragmentPBR`/`InputData`/`SurfaceData`/BRDF plumbing outputs ~0 for this
+  hand-rolled input regardless of light.** ACCEPTED as the working theory (with H2 kept for the
+  platform): after three build rounds the remaining moving part is exactly that machinery, and it
+  cannot be audited to zero-guarantee from the package in reasonable time. **Decision (user's call:
+  "fuck the shadow"): delete it.** The ForwardLit now shades with three source-verified functions
+  that are individually trivially correct — `GetMainLight()` (RealtimeLights.hlsl:89,
+  shadowAttenuation = 1, no shadow data needed), `LightingLambert(half3,half3,half3)` (Lighting.hlsl:32,
+  `color * saturate(dot)`), `SampleSHVertex(half3)` (GlobalIllumination.hlsl:45, sky ambient) — plus
+  `ComputeFogFactor`/`MixFog`. `direct = albedo*LightingLambert(sun...);` is positive whenever the
+  scene's main directional sun exists (it does: SampleScene.unity "Directional Light", intensity 2),
+  so a fully black terrain becomes impossible. Cost: the terrain no longer samples realtime shadow
+  maps (still casts via ShadowCaster). Re-add shadows later on a known-good base if needed.
+- **Confirmed verdict:** H4 + H2. Fixed in 1ct fourth commit; `PROGRESS` notes it. Play-test
+  checklist: terrain shows lit green strata (day), sun side brighter than sky side, fog at distance,
+  digging exposes dirt/stone bands; platform top + legs render grass/brown respectively.
 
 ---
 

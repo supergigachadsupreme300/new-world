@@ -1,9 +1,10 @@
 // Lit URP shader for the streamed terrain's layered strata. Each mesh vertex carries a color
 // (ChunkMeshGenerator.TerrainBandColor) that encodes the dig depth below the pristine surface:
 // grass -> dirt -> stone. The ForwardLit pass multiplies that vertex color into the albedo and
-// reuses URP's standard lighting + fog, so the terrain keeps the same lit look it had when it was
-// a single flat URP Lit grass material. ShadowCaster/DepthOnly passes keep the terrain in the
-// shadow/depth pipelines. If the shader is ever missing, GameBootstrap falls back to URP Lit.
+// shades it with an explicit Lambert + sky-ambient model (no shadow maps / no UniversalFragmentPBR
+// — deliberately small, verifiable against URP 17.5). ShadowCaster/DepthOnly passes keep the
+// terrain in the shadow/depth pipelines. If the shader is ever missing, GameBootstrap falls back
+// to URP Lit.
 Shader "NewWorld/TerrainLayered"
 {
     Properties
@@ -29,17 +30,14 @@ Shader "NewWorld/TerrainLayered"
             #pragma vertex vert
             #pragma fragment frag
 
-            // URP lighting keywords (fog + main-light shadows; a "simple lit" subset of the full
-            // URP Lit variant set, enough for directional main light + fog on the terrain).
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
-            #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
-            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
-            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            // Fog only. Direct sun + sky ambient are computed explicitly in frag with NO shadow
+            // maps and NO UniversalFragmentPBR/InputData plumbing — a deliberately small, verified
+            // lighting surface so the terrain can never silently render black. (The terrain still
+            // casts shadows via the ShadowCaster pass below; it just doesn't sample them.)
             #pragma multi_compile_fog
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 
             half4 _Color;
             float _UseVertexColor;
@@ -58,7 +56,6 @@ Shader "NewWorld/TerrainLayered"
                 float3 normalWS : TEXCOORD1;
                 float4 vertexColor : COLOR;
                 float fogFactor : TEXCOORD2;
-                float4 shadowCoord : TEXCOORD3;
             };
 
             Varyings vert(Attributes input)
@@ -73,43 +70,28 @@ Shader "NewWorld/TerrainLayered"
                 output.normalWS = normalInputs.normalWS;
                 output.vertexColor = lerp(half4(1, 1, 1, 1), input.vertexColor, _UseVertexColor);
                 output.fogFactor = ComputeFogFactor(posInputs.positionCS.z);
-                // Same source of truth as URP Lit: under _MAIN_LIGHT_SHADOWS_SCREEN
-                // GetShadowCoord returns screen coords (for the screen-space shadow texture),
-                // otherwise world->shadow-atlas coords. My earlier attempt always ran
-                // TransformWorldToShadowCoord in the fragment, which the screen-space variant
-                // sampled as garbage -> shadowAttenuation ~ 0 -> no direct sun on the terrain
-                // ("blue by day, black at night").
-                output.shadowCoord = GetShadowCoord(posInputs);
                 return output;
             }
 
             half4 frag(Varyings input) : SV_Target
             {
                 float3 normalWS = normalize(input.normalWS);
-                float3 viewDirWS = GetWorldSpaceViewDir(input.positionWS);
-
                 half3 albedo = _Color.rgb * input.vertexColor.rgb;
 
-                InputData lightingInput = (InputData)0;
-                lightingInput.positionWS = input.positionWS;
-                lightingInput.normalWS = normalWS;
-                lightingInput.viewDirectionWS = viewDirWS;
-                lightingInput.shadowCoord = input.shadowCoord;
-                lightingInput.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
+                // Explicit Lambert + sky ambient, verified against URP 17.5 sources:
+                //   GetMainLight()        RealtimeLights.hlsl:89  (no shadow sampling, atten = 1)
+                //   LightingLambert(...)  Lighting.hlsl:32
+                //   SampleSHVertex(...)   GlobalIllumination.hlsl:45
+                // All reachable via the Lighting.hlsl include chain. Direct light is always
+                // positive while the scene has a main directional sun, so the terrain never goes
+                // fully black.
+                Light sun = GetMainLight();
+                half3 direct = albedo * LightingLambert(sun.color, sun.direction, normalWS);
+                half3 ambient = albedo * SampleSHVertex(normalWS);
 
-                SurfaceData surf = (SurfaceData)0;
-                surf.albedo = albedo;
-                surf.metallic = 0.0;
-                surf.specular = 0.0;
-                surf.smoothness = 0.5;
-                surf.normalTS = half3(0, 0, 1);
-                surf.emission = 0.0;
-                surf.occlusion = 1.0;
-                surf.alpha = 1.0;
-
-                half4 color = UniversalFragmentPBR(lightingInput, surf);
-                color.rgb = MixFog(color.rgb, input.fogFactor);
-                return color;
+                half3 color = direct + ambient;
+                color = MixFog(color, input.fogFactor);
+                return half4(color, 1.0);
             }
             ENDHLSL
         }

@@ -165,6 +165,20 @@ Two play-test fixes after 1cs shipped — one for each reported bug.
   `THINKING.md` `## 1ct`.
 
 ### 1ct-status
+- Follow-up fix (same tag, fourth commit): terrain AND test-ground platform still rendered black
+  after the shadow-coord change. New evidence: (1) the platform top is a stock `PrimitiveType.Cube`
+  sharing `GroundMaterial` — a cube has NO vertex colors, so the layered shader's
+  `_UseVertexColor=1` resolved its albedo to black; (2) the terrain mesh genuinely carries green
+  vertex colors (`BuildMergedMeshData` -> `Colors` -> `mesh.SetColors`), so its blackness is the
+  PBR plumbing, not the albedo. Decision (user: "fuck the shadow"): the ForwardLit pass no longer
+  samples shadows or uses `UniversalFragmentPBR`/`InputData`/`SurfaceData` at all. It now shades
+  with an explicit, source-verified Lambert + sky ambient (`GetMainLight()` RealtimeLights.hlsl:89,
+  `LightingLambert` Lighting.hlsl:32, `SampleSHVertex` GlobalIllumination.hlsl:45, reachable via
+  the Lighting.hlsl include chain) + fog. Direct light is always positive while a main directional
+  sun exists, so the terrain cannot silently go black. The terrain still CASTS (ShadowCaster pass
+  kept); it just doesn't receive realtime shadow maps. Also: `NewWorldTestGround.PlatformMaterial`
+  now returns a plain URP Lit grass material instead of reusing the streamer's layered `GroundMaterial`
+  (the cube slab has no strata bands to show and would stay black otherwise).
 - Follow-up fix (same tag, third commit): after the two compile fixes the shader compiled but the
   terrain rendered **blue by day, black at night** (direct sun was missing; only sky/ambient lit it).
   Root cause: my ForwardLit computed `lightingInput.shadowCoord = TransformWorldToShadowCoord(...)`
@@ -176,6 +190,7 @@ Two play-test fixes after 1cs shipped — one for each reported bug.
   correctly, which is why only the terrain broke. Fix: compute `output.shadowCoord = GetShadowCoord(posInputs)`
   in the vertex (interpolated to the fragment) exactly like URP Lit, plus
   `lightingInput.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(positionCS)`.
+  (Later superseded by the fourth commit's shadow-free Lambert rewrite.)
 - Follow-up fix (same tag, second commit): the ShadowCaster pass reported
   `undeclared identifier '_LightDirection'` at `TerrainLayered.shader(145)` on d3d11. URP 17.5
   declares `float3 _LightDirection; float3 _LightPosition;` inside its own utility file

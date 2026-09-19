@@ -358,12 +358,14 @@ public sealed class NewWorldTestGround : MonoBehaviour
         _arenaReady = true;
     }
 
-    /// <summary>Material for the platform top: the streamer's ground material, else a lit grass fallback.</summary>
+    /// <summary>
+    /// Material for the platform top: a plain URP Lit grass material, NOT the streamer's layered
+    /// terrain material. The slab is a stock cube with no vertex colors, so the vertex-color
+    /// TerrainLayered shader would resolve its albedo to black; the platform is a test bench and
+    /// has no strata bands to show anyway.
+    /// </summary>
     private static Material PlatformMaterial(WorldStreamer streamer)
     {
-        if (streamer != null && streamer.GroundMaterial != null)
-            return streamer.GroundMaterial;
-
         Shader shader = Shader.Find("Universal Render Pipeline/Lit");
         if (shader == null) shader = Shader.Find("Standard");
         return new Material(shader) { color = ColorPalette.GrassGreen };
