@@ -165,6 +165,12 @@ Two play-test fixes after 1cs shipped — one for each reported bug.
   `THINKING.md` `## 1ct`.
 
 ### 1ct-status
+- Follow-up fix (same tag, second commit): the ShadowCaster pass reported
+  `undeclared identifier '_LightDirection'` at `TerrainLayered.shader(145)` on d3d11. URP 17.5
+  declares `float3 _LightDirection; float3 _LightPosition;` inside its own utility file
+  `Shaders/ShadowCasterPass.hlsl:13-14` — not in `Shadows.hlsl`/`Lighting.hlsl` — so including
+  `Shadows.hlsl` alone never put them in scope. Fixed by declaring the two `float3` globals in the
+  caster's `HLSLPROGRAM` block (matching URP's own declarations exactly).
 - Source-compile verified by review (rule 3; no CLI/Unity build — user play-tests): shader overload
   fixed and the rest of `TerrainLayered.shader` re-read against URP 17.5 APIs; greped every
   `GetVertexNormalInputs` (no other misuse exists), `WeaponsDrawn`/`ReApplyWeaponPose` refs flow

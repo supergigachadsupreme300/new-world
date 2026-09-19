@@ -82,6 +82,20 @@ Two play-test bugs, two root causes, both confirmed by source review (no build, 
   person as shipped behavior — 1ct explicitly **reverses** that decision per play-test feedback;
   `game-design.md` §3.6 and §5.5 were rewritten in the same pass so no doc still claims the old rule.
 
+### Follow-up: ShadowCaster `_LightDirection` undeclared (fixed in 1ct second commit)
+- **New evidence after the first 1ct fix:** ForwardLit now compiles, but the ShadowCaster pass failed
+  with `undeclared identifier '_LightDirection' at TerrainLayered.shader(145)`. My 1ct H3 audit was
+  wrong in one detail: I confirmed the *names* `_LightDirection`/`_LightPosition`/`ApplyShadowBias`
+  exist in URP 17.5's `Shaders/ShadowCasterPass.hlsl` — but those two `float3` globals are declared
+  **inside that pass-utility file** (`ShadowCasterPass.hlsl:13-14`), NOT in `Shadows.hlsl` (which only
+  defines `ApplyShadowBias`/`ApplyNormalBias` functions and shadow-matrix helpers). Since the custom
+  caster includes only `Core.hlsl` + `Shadows.hlsl`, the variables were never in scope. **CONFIRMED:
+  URP declares them itself only in its own inclue-able shadow-caster file `ShadowCasterPass.hlsl`.
+  Fix: declare `float3 _LightDirection; float3 _LightPosition;` in the caster's `HLSLPROGRAM` block,
+  byte-for-byte matching URP's own declaration** (verified again by reading `ShadowCasterPass.hlsl:13-14`
+  right before the fix). Lesson: when a URP pass-support file declares its uniforms in the body of
+  that file (not in a `ShaderLibrary/*.hlsl`), a custom shader must duplicate those declarations.
+
 ---
 
 ## 1cs — Infinite digging depth + terrain strata (grass → dirt → stone) (SHIPPED in `1cs`)

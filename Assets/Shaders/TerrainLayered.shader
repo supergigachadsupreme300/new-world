@@ -123,6 +123,12 @@ Shader "NewWorld/TerrainLayered"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 
+            // Directional main-light direction (and punctual-light position) for shadow bias. URP
+            // declares these inside its own ShadowCasterPass.hlsl, which we do not include, so we
+            // declare them here for the caster to compile.
+            float3 _LightDirection;
+            float3 _LightPosition;
+
             struct Attributes
             {
                 float4 positionOS : POSITION;
