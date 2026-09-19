@@ -1,7 +1,22 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-19. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug). Latest work at the top: `1cu` (a player
+`# OPEN TASKS` section (especially the axe/pickaxe bug).
+
+## 1cv. Crater dishes stay a LOCAL bowl — width bounded, depth UNBOUNDED (player: "no limit")
+
+Earth **Meteor** (Meteor/asteroid-style) was feeding the full blast splash (`spell.Radius` ×
+charge sizeScale, up to ~13+ tiles) straight into `TerrainDeformer.Apply` (SpellCaster.cs:
+ResolveZone), lowering **every corner inside the whole 30-tile ChunkSize dish at once** — read in
+play as "the entire chunk / the entire terrain moved." Fix (SpellCaster.cs:995-998): the crater's
+**deform WIDTH** is the small local delivery dish (`DeliveryRadius × 0.5`, ~2 m for Earth Meteor),
+never the blast splash — one cast carves a bounded shallow bowl, verified idempotent-ish (repeat
+cast re-carves only that same local bowl; the ratchet below stays). **DEPTH stays deliberately
+unbounded with NO floor cap** — each cast ratchets `CraterStep` (~1.1 m) deeper with no limit, per
+the player's "i want no limit on my game." Crater multi-cast deeply ratchets; raised shapes stay
+idempotent/capped. Docs note updated in game-design.md §3.8 (width bounded, depth keeps no floor).
+No new QA lane — the existing crater deform lane on NewWorldTestGround covers the shape.
+
 HUD **status strip** under the HP/FP/Stamina bars — every active status polled off the player root
 each frame: combat DoT/CC (Burn/DoT, Wet, Chill gauge, Blind) as colored square chips with seconds
 left, plus the food/drink stamina-regen modifier (+20%/−50% STAM); opt-in `EnableStatusEffectsDemo`

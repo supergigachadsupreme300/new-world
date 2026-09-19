@@ -983,7 +983,19 @@ public class SpellCaster : MonoBehaviour
 
         // Earth spells reshape the ground at the impact point before damage resolves (§3.8).
         // `fwd` orients directional shapes (e.g. the Wall ridge) along the cast axis.
-        TerrainDeformer.Apply(center, radius, spell.TerrainShape, fwd);
+        //
+        // WIDTH is bounded, DEPTH is not (1co). The deform shape's width is its local dish — the
+        // same small bowl a shovel makes — never the full blast splash. Feeding the blast radius
+        // (spell.Radius = 9m, up to ~13+ tiles with charge sizeScale) straight into the deformer
+        // made a single Meteor carve page-every corner of a 30-tile chunk at once, reading as "the
+        // whole chunk / whole terrain moving". Width is therefore capped to a small local dish from
+        // DeliveryRadius; the Crater's per-cast DEPTH ratchet (current − s·CraterStep in
+        // WorldStreamer.DeformAt) stays deliberately UNBOUNDED — each cast digs a fresh CraterStep
+        // deeper with no floor, no cap, no limit. Player wants the game to have no limit.
+        float deformRadius = spell.TerrainShape == TerrainShape.Crater
+            ? Mathf.Max(spell.DeliveryRadius > 0f ? spell.DeliveryRadius * 0.5f : 1.6f, 0.5f)
+            : radius;
+        TerrainDeformer.Apply(center, deformRadius, spell.TerrainShape, fwd);
 
         // Duration > 0 keeps the zone alive: it ticks the spell's damage while it lasts.
         if (spell.Duration > 0f)

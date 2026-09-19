@@ -15,6 +15,36 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+
+## 1cv  - Crater dishes stay a LOCAL bowl: width bounded, depth UNBOUNDED (SHIPPED in `1cv`)
+
+Player (play-test): "when i use asteroid skill the entire chunk moving for some reason, or could be
+the entire terrain." Follow-up (verbatim): "i want no limit on my game / no limit."
+
+### Hypotheses & evidence
+- **H1 - Earth Meteor's crater fed the FULL blast splash straight into the deformer, so one cast
+  lowered every corner inside the whole 30-tile ChunkSize dish at the same time.** CONFIRMED.
+  `SpellCaster.ResolveZone` built `radius = spell.Radius * sizeScale` (Earth Meteor `Radius` 9 m,
+  up to ~13+ tiles with charge `sizeScale`) and handed that whole radius to
+  `TerrainDeformer.Apply(center, radius, Crater, fwd)` (SpellCaster.cs:986). `TerrainDeformer`
+  lowers **every** corner inside `reach = radius + feather`, so a radius of 9-13+ tiles dropped the
+  whole chunk at once - read as "the entire chunk / the entire terrain moved." This is the driver.
+- **H2 - the whole chunk streams/reloads or the chunk teleports.** REJECTED. Each tile's height
+  lives in the mutable terrain stream state (WorldStreamer) and is only addressed by fixed chunk
+  coords; the heights themselves are the thing deformed. Nothing relocates a chunk.
+- **H3 - the player wanted a depth/global cap (games usually clamp).** REJECTED - the player's "i
+  want no limit on my game / no limit" is explicit, so DEPTH must stay unbounded (`CraterStep`
+  ratchets ~1.1 m deeper per cast with NO floor, per 1cs) and the fix must live on WIDTH.
+
+### Verdict
+CONFIRMED (H1). Fix (`SpellCaster.cs:995-998`): bound the crater **WIDTH** to the spell's small
+local delivery dish (`DeliveryRadius * 0.5`, ~2 m for Earth Meteor, floor-clamped to 0.5 m) instead
+of the blast splash; **DEPTH stays unbounded** - each cast still ratchets `CraterStep` deeper with
+no floor cap (per the player's "no limit"). Same-pass: game-design.md 3.8 (width bounded / depth
+keeps no floor) + PROGRESS.md `1cv` + THINKING.md. No new QA lane (existing crater deform lane on
+NewWorldTestGround covers the shape).
+
+---
 ## 1cu — Player HUD status strip under the bars (SHIPPED in `1cu`)
 
 User asked: "add a show status function that show player the status effect that they're having under

@@ -722,9 +722,13 @@ A spell is a data asset carrying:
   smooth rounded ridges, never flat plateaus, and a repeat cast can never stack a ridge higher than
   the intended release (a repeat Wall stays ~2.6 m, never taller).
   ***Crater rears the terrain's strata as a signature**: unlike the capped raises, an excavation
-  ratchets **a `CraterStep` (~1.1 m at full influence) deeper per cast or tool swing, with no floor
-  cap of its own** — repeated craters dig progressively deeper pits, bounded only by WorldStreamer's
-  ±200 m mesh-safety sanity band. Vertex colors painted at build time then reveal the dug depth
+  is **WIDTH-bounded but DEPTH-unbounded** (1cv). The crater's **width** is always the spell's small
+  local delivery dish (`DeliveryRadius * 0.5`, ~2 m for Earth Meteor) — never the full blast splash —
+  so one cast carves a bounded local bowl in the ground and never reads as "the whole chunk / the
+  whole terrain moved." Its **depth** ratchets **a `CraterStep` (~1.1 m at full influence) deeper per
+  cast or tool swing, with NO floor cap of its own** — repeated craters dig progressively deeper pits,
+  with no limit (the player's "i want no limit on my game"); the only global backstop is
+  WorldStreamer's ±200 m mesh-safety sanity band. Vertex colors painted at build time then reveal the dug depth
   below the pristine noise surface as discrete strata bands: **grass (surface) → dirt (~0.65–2.3 m
   down) → stone (≥ 2.7 m down)**, small blends between bands (1cs). The shovel can only dig the
   soft bands and stops at stone; the pickaxe excavates at any depth. Every crater is a genuine
