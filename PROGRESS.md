@@ -3,6 +3,28 @@
 Last updated: 2026-09-19. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1db. Character Info tab buttons ~1.3x taller (grow upward, content gap kept)
+
+User: "raise the tab button in tab menu height" — clarified to the Character Info top tab strip
+(Info / Skills / Inventory / Map / Faith) at ~1.3x.
+
+- `BuildTopButtons` (CharacterInfoUI.cs:364-365): tab height `64f` → `84f` (~1.3x); `anchoredPosition.y`
+  16 → 36 so the bar grows UPWARD — the button bottom edge stays where it was (−48), preserving the
+  ~10px gap to `BodyRow` (top at −60) so content never overlaps.
+- `OnLayoutFitted` (CharacterInfoUI.cs:477-478): height `56f` → `84f` and `y` 6 → 34 (bottom edge kept
+  at −50). Both heights must change because the aspect-fit pass re-applies `56f * S` after build,
+  otherwise the taller buttons would snap back to 56 on the first fit / window resize.
+- Tab label (lines 374-386) is anchored to the full button rect (`offsetMin/Max ±8f`), so it
+  auto-stretches with the taller button — no label change needed.
+
+### 1db-status
+- Implemented; no CLI/Unity build (rule 3) — grep verification: both sizeDelta writes are now `84f * S`
+  and both anchoredPosition writes are updated; no other reader of the tab height/number exists
+  (`_tabButtonRects` only touched in `BuildTopButtons`/`OnLayoutFitted`).
+- `game-design.md`: no change — no section documents tab-button pixel dimensions.
+- Play-test pending: open Character Info at 16:9 and non-16:9 windows — tabs ~1.3x taller, still flush
+  above the content panels with no overlap, labels centered, resize re-fits cleanly.
+
 ## 1da. Ground AoE placement is now unbounded — cast anywhere, not just within spell Range
 
 User: the outdoor AoE spells can't be placed far away — the landing point is capped at the spell's

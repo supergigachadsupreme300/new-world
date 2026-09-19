@@ -16,6 +16,34 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
+## 1db — "Raise the tab button in tab menu height" (SHIPPED in `1db`)
+
+Ask clarified to the Character Info top tab strip at ~1.3x.
+
+### Why two size writes had to change (the trap)
+- `BuildTopButtons` writes `sizeDelta.y = 64f * S` at build time (CharacterInfoUI.cs:365), but the
+  aspect-fit pass `OnLayoutFitted` (line 478) re-writes it to `56f * S` — and that pass runs during
+  `BuildPanels` via `RegisterFit → ApplyFits`, i.e. AFTER the buttons are built.
+- Hypothesis: changing only the 64 in the builder would be enough. REJECTED on reread: the first
+  RegisterFit immediately overwrites the height to 56, and every window resize after that re-applies
+  56 too. To be effective at runtime, BOTH writes must match. Confirmed by grepping both call sites
+  to the same `84f * S`.
+- Height target: 64 × 1.3 ≈ 84, chosen over a round 80 so the "1.3x" ask is met honestly.
+
+### Why buttons grow UP, not down
+- `BodyRow` top edge sits 60 u below the panel top (`offsetMax.y = -60`, MenuPanelBase.cs:142);
+  tabs (children of `PanelRect`, top-anchored) must not cover it. Tab bottom is currently at −50
+  (`y=6, h=56`) / −48 (`y=16, h=64`), leaving ~10-12px clearance.
+- Naive height bump (keep y) would push the bottom down to −78 → overlap content by ~18px.
+  Solution: raise `anchoredPosition.y` by the same delta as the height (+20 / +28) so the bar grows
+  UPWARD and the bottom edge stays at its old spot. Verified position arithmetic on reread.
+
+### Open/risk notes
+- Label uses anchorMin/Max 0..1 with ±8f offsets → stretches with the taller button. No other code
+  reads the tab bar geometry (`_tabButtonRects` is only used inside these two methods).
+- On a very short window the fit clamps scale ≥ 0.25 but the tab bar derives its width from
+  `availW * 0.8f` and keeps 84 height design units — pre-existing behavior, unchanged.
+
 ## 1da — "Ground AoE can't be placed far away" (SHIPPED in `1da`)
 
 User report (paraphrased): the outdoor AoE spells can only be placed within their short spell

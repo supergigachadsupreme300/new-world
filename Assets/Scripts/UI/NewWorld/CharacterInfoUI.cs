@@ -361,8 +361,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 1f);
             rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 16f);
-            rt.sizeDelta = new Vector2(bw - 6f, 64f * S);
+            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 36f);
+            rt.sizeDelta = new Vector2(bw - 6f, 84f * S);
             _tabButtonRects.Add(rt);
             var img = go.AddComponent<Image>();
             ApplyFullButtonSprite(img);
@@ -474,8 +474,8 @@ public sealed class CharacterInfoUI : MenuPanelBase
         float bw = w / _tabButtonRects.Count;
         for (int i = 0; i < _tabButtonRects.Count; i++)
         {
-            _tabButtonRects[i].anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 6f);
-            _tabButtonRects[i].sizeDelta = new Vector2(bw - 6f, 56f * S);
+            _tabButtonRects[i].anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 34f);
+            _tabButtonRects[i].sizeDelta = new Vector2(bw - 6f, 84f * S);
         }
     }
 
