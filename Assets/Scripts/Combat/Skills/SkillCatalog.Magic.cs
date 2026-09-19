@@ -29,7 +29,7 @@ public static partial class SkillCatalog
         // Root: magic_fireball (active, Focus 15, projectile fire)
         bank.L1["magic_fireball"] = new BranchSlot[]
         {
-            S("magic_fireball_meteor", "Meteor", Spell("magic_fireball_meteor_spell", "Meteor", DamageType.Fire, 30f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, knockback: 2f), "A burning meteor falls from the sky, scattering the blast.", Focus(22f), DamageType.Fire, true),
+            S("magic_fireball_meteor", "Meteor", Spell("magic_fireball_meteor_spell", "Meteor", DamageType.Fire, 30f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, knockback: 2f, summonFallingRock: true), "A burning meteor falls from the sky, scattering the blast.", Focus(22f), DamageType.Fire, true),
             S("magic_fireball_inferno", "Inferno", Spell("magic_fireball_inferno_spell", "Inferno", DamageType.Fire, 32f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.4f, duration: 3.5f, statusEffect: StatusEffectType.Burn), "An expanding ring of fire that lingers, scorching all it touches.", Focus(24f), DamageType.Fire, true),
             S("magic_fireball_ember", "Embermind", Perk(PassivePerkType.SpellDamagePercent, 3f), "Embers simmer in your thoughts — spell damage +3%.", passive: true),
             S("magic_fireball_scorch", "Scorch", Spell("magic_fireball_scorch_spell", "Scorch", DamageType.Fire, 26f, 16f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Burn, projectileShape: ProjectileShape.Comet), "A narrow, searing jet of fire that leaves nothing unburnt.", Focus(16f), DamageType.Fire, true),
@@ -271,10 +271,10 @@ public static partial class SkillCatalog
         /* magic_fireball_meteor children */
         bank.L2["magic_fireball_meteor"] = new BranchSlot[]
         {
-            S("magic_fireball_meteor_rain", "Meteor Rain", Spell("magic_fireball_meteor_rain_spell", "Meteor Rain", DamageType.Fire, 36f, 26f, SpellDelivery.Storm, 8f, deliveryRange: 10f, deliveryRadius: 3.6f, duration: 3.5f), "A storm of falling meteors that bombards the area.", Focus(26f), DamageType.Fire, true),
-            S("magic_fireball_meteor_comet", "Comet", Spell("magic_fireball_meteor_comet_spell", "Comet", DamageType.Fire, 34f, 24f, SpellDelivery.Projectile, 6f, projectileShape: ProjectileShape.Comet), "A swift streak of burning light.", Focus(24f), DamageType.Fire, true),
+            S("magic_fireball_meteor_rain", "Meteor Rain", Spell("magic_fireball_meteor_rain_spell", "Meteor Rain", DamageType.Fire, 36f, 26f, SpellDelivery.Storm, 8f, deliveryRange: 10f, deliveryRadius: 3.6f, duration: 3.5f, summonFallingRock: true), "A storm of falling meteors that bombards the area.", Focus(26f), DamageType.Fire, true),
+            S("magic_fireball_meteor_comet", "Comet", Spell("magic_fireball_meteor_comet_spell", "Comet", DamageType.Fire, 34f, 24f, SpellDelivery.Projectile, 6f, projectileShape: ProjectileShape.Comet, summonFallingRock: true), "A swift streak of burning light.", Focus(24f), DamageType.Fire, true),
             S("magic_fireball_meteor_impact", "Impact", Perk(PassivePerkType.SpellDamagePercent, 6f), "Impact magnified — spell damage +6%.", passive: true),
-            S("magic_fireball_meteor_astroid", "Asteroid", Spell("magic_fireball_meteor_astroid_spell", "Asteroid", DamageType.Fire, 40f, 30f, SpellDelivery.Zone, 9f, deliveryRadius: 4f, knockback: 3f), "A colossal mass of burning rock that levels everything it lands on.", Focus(30f), DamageType.Fire, true),
+            S("magic_fireball_meteor_astroid", "Asteroid", Spell("magic_fireball_meteor_astroid_spell", "Asteroid", DamageType.Fire, 40f, 30f, SpellDelivery.Zone, 9f, deliveryRadius: 4f, knockback: 3f, summonFallingRock: true), "A colossal mass of burning rock that levels everything it lands on.", Focus(30f), DamageType.Fire, true),
             S("magic_fireball_meteor_ember", "Ember Effigy", Spell("magic_fireball_meteor_ember_spell", "Ember Effigy", DamageType.Fire, 30f, 20f, SpellDelivery.Summon, 6f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, statusEffect: StatusEffectType.Burn, projectileSpeed: 18f), "Summon a burning effigy that hurls embers at nearby foes.", Focus(20f), DamageType.Fire, true),
         };
 
@@ -504,7 +504,7 @@ public static partial class SkillCatalog
             S("magic_earth_boulder_crash", "Crash", Spell("magic_earth_boulder_crash_spell", "Crash", DamageType.Earth, 32f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3.2f, knockback: 3f, terrainShape: TerrainShape.Crater), "A colossal boulder that crashes into the enemy, denting the ground.", Focus(22f), DamageType.Earth, true),
             S("magic_earth_boulder_weight", "Boulderweight", Perk(PassivePerkType.StaggerResistPercent, 10f), "Heavy as a boulder — stagger resistance +10%.", passive: true),
             S("magic_earth_boulder_landslide", "Landslide", Spell("magic_earth_boulder_landslide_spell", "Landslide", DamageType.Earth, 34f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.6f, knockback: 3f, terrainShape: TerrainShape.Wall), "An earth wall rears up along the cast and crashes onto foes.", Focus(24f), DamageType.Earth, true),
-            S("magic_earth_boulder_fall", "Rockfall", Spell("magic_earth_boulder_fall_spell", "Rockfall", DamageType.Earth, 30f, 20f, SpellDelivery.Storm, 6f, deliveryRange: 9f, deliveryRadius: 3.2f, duration: 3f, terrainShape: TerrainShape.Crater), "Boulders rain down over the area, pitting the ground with craters.", Focus(20f), DamageType.Earth, true),
+            S("magic_earth_boulder_fall", "Rockfall", Spell("magic_earth_boulder_fall_spell", "Rockfall", DamageType.Earth, 30f, 20f, SpellDelivery.Storm, 6f, deliveryRange: 9f, deliveryRadius: 3.2f, duration: 3f, terrainShape: TerrainShape.Crater, summonFallingRock: true), "Boulders rain down over the area, pitting the ground with craters.", Focus(20f), DamageType.Earth, true),
             S("magic_earth_boulder_tectonic", "Tectonic", Spell("magic_earth_boulder_tectonic_spell", "Tectonic", DamageType.Earth, 36f, 26f, SpellDelivery.Zone, 8f, deliveryRadius: 3.8f, knockback: 3.5f, terrainShape: TerrainShape.Crater), "A tectonic blow that shatters the ground, carving a wide crater.", Focus(26f), DamageType.Earth, true),
         };
 

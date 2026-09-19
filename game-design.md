@@ -699,6 +699,8 @@ A spell is a data asset carrying:
 - **selfbuff** (Instant delivery grants a timed caster effect instead of damage/heal — e.g. **Wind Walk**: `PlayerController.BeginFlight(Duration)`, free vertical movement for the buff's seconds)
 - **heals** (Holy/utility spells: instant/self-heal, or an ally-heal aura when on a zone; only `IHealable` targets — the player — are ever healed, enemies still take damage)
 - **knockback** (impulse applied to enemies; the Wind school signature)
+- **summonFallingRock** (sky spells: a big rock drops from the sky onto the target and the burst
+  resolves on landing — see §3.8.1 Delivery Behaviors "Sky spells")
 - **projectile shape** (`ProjectileShape`, §3.8.1): the *visual* built for a Projectile-delivery
   spell. When a spell leaves it `Auto`, `SpellCaster.AutoShapeFor` picks the school default; every
   bolt/lance/blade/spear-named spell sets it explicitly so projectiles read as their name.
@@ -825,6 +827,14 @@ a school read distinctly instead of feeling like copies:
   visuals (e.g. crossed bolt bars on Lightning). Examples: Thunderstorm, Meteor Rain, Blizzard,
   Hail Lance, Avalanche, Eclipse.
 
+**Sky spells** (`SummonFallingRock`, the meteor/boulder family) summon a **big rock** that drops from
+high above the ground target and reads as the spell landing: the burst (damage, knockback, terrain
+deform) is deferred until the rock hits the ground (Zone deliveries ~0.6-0.8 s drop; Storm strikes
+drop a smaller rock per strike and fire their flash/damage/deform on landing; the meteor-line Comet
+projectile flies as a rough burning boulder). Built by `SkillFx.FallRock` — a collider-less visual
+(never triggers the knockback-terrain-root bug 1cx), self-destroying, shards + ring flash on impact.
+Spells: Fire Meteor, Asteroid, Earth Meteor, Comet, Meteor Rain, Rockfall.
+
 Fifth, **Projectile Shapes** — projectile visuals are split into named shapes rather than one element
 color swap, so each spell looks like its name and not a recolor of the same ball:
 
@@ -838,7 +848,7 @@ color swap, so each spell looks like its name and not a recolor of the same ball
 | **Spear** | Tapered spear: dark shaft + broad diamond head — Shadow Spear. |
 | **Blade** | Flat cross-blade that spins in its own plane, **translucent** (alpha ~0.4 so wind reads as a ghost of air) — Wind Blade, Razor Blade, Wind Scissor, Laceration. |
 | **Splash** | Oblate droplet with a trailing splash of smaller drops — Water Bolt, Tidal Surge. |
-| **Comet** | Bright core + fading streak tail (ember flicker) — Scorch, Burn, Comet, Frost Bite. |
+| **Comet** | Bright core + fading streak tail (ember flicker) — Scorch, Burn, Comet, Frost Bite. The meteor-line **Comet** (`SummonFallingRock`) trades the plain core for a rough **burning boulder** + tail, so it reads as a rock tearing through the sky. |
 | **Missile** | Small clump of darts; **homing** — `SpellEffect.UpdateMissileTargeting` probes the **current trajectory** every frame and prioritizes the target on the flight path (the foe it is about to fly into), otherwise keeps chasing the locked target's last spot (or locks the nearest foe ahead if never locked), steering smoothly at 240°/s so the flight bends; no target = flies straight. Arcane Missiles, Chill Soul. |
 | **Dart** | Sleek thin bolt-line with a tip — physical shots (Archer Wind Shot, Taoist Talisman). |
 

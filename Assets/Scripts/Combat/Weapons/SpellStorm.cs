@@ -81,6 +81,24 @@ public class SpellStorm : MonoBehaviour
         if (this == null) yield break;
 
         Vector3 at = RandomStrikePoint();
+
+        // Sky storms (summonFallingRock: Meteor Rain, Rockfall) send a big rock down to each strike
+        // point; the strike's flash/damage/deform fire when it lands, so the storm reads as boulders
+        // raining in rather than instant ground pings. Purely visual rock — no collider (1cx).
+        if (_spell != null && _spell.SummonFallingRock)
+        {
+            float scale = Mathf.Max(_spell.Radius * 0.5f, 1.2f);
+            Color tint = _color;
+            SkillFx.FallRock(at, scale, tint, () =>
+            {
+                if (this == null) return;
+                SpawnStrikeFx(at);
+                ResolveStrike(at);
+                DeformGround(at);
+            });
+            yield break;
+        }
+
         SpawnStrikeFx(at);
         ResolveStrike(at);
         DeformGround(at);

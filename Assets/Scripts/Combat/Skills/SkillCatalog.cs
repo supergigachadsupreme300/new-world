@@ -127,7 +127,8 @@ public static partial class SkillCatalog
         bool heals = false, float knockback = 0f, float duration = 0f,
         StatusEffectType? statusEffect = null, float projectileSpeed = 20f,
         float tickInterval = 0.5f, float channelDrainPerSecond = 0f, bool selfBuff = false,
-        TerrainShape terrainShape = TerrainShape.None, ProjectileShape projectileShape = ProjectileShape.Auto)
+        TerrainShape terrainShape = TerrainShape.None, ProjectileShape projectileShape = ProjectileShape.Auto,
+        bool summonFallingRock = false)
     {
         var spell = ScriptableObject.CreateInstance<SpellData>();
         spell.name = spellId;
@@ -152,6 +153,7 @@ public static partial class SkillCatalog
         spell.Shape = projectileShape;
         spell.AppliesStatus = statusEffect.HasValue;
         spell.StatusEffect = statusEffect ?? default;
+        spell.SummonFallingRock = summonFallingRock;
         return new SpellCastEffect { Spell = spell };
     }
 
@@ -305,7 +307,7 @@ public static partial class SkillCatalog
         // resolves on the ground at impact; the heavy knockback reads like a meteor landing.
         Add(list, "magic_earth_meteor", "Meteor", SkillType.Magic, false, Focus(28f), true, DamageType.Earth,
             Spell("magic_earth_meteor_spell", "Meteor", DamageType.Earth, 40f, 28f, SpellDelivery.Zone, 9f,
-                deliveryRange: 12f, deliveryRadius: 4f, knockback: 4f, terrainShape: TerrainShape.Crater),
+                deliveryRange: 12f, deliveryRadius: 4f, knockback: 4f, terrainShape: TerrainShape.Crater, summonFallingRock: true),
             P("magic_earth_boulder"), "A meteor plunges from the sky, carving a crater into the ground.");
 
         // Earth Wall — the wall-line's deep skill, gated behind Landslide (the Wall-shape branch

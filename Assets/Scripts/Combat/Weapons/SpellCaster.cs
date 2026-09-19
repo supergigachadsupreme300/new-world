@@ -481,7 +481,7 @@ public class SpellCaster : MonoBehaviour
             go = new GameObject("SpellProjectile");
             go.transform.position = pos;
             go.transform.rotation = Quaternion.LookRotation(fwd);
-            AttachDefaultProjectileVisual(go, spell.Type, spell.Shape);
+            AttachDefaultProjectileVisual(go, spell.Type, spell.Shape, spell.SummonFallingRock);
             go.AddComponent<SpellEffect>().Initialize(spell, power, fwd, this, sizeScale);
         }
 
@@ -503,14 +503,14 @@ public class SpellCaster : MonoBehaviour
     /// Lance, "Stone Shard" = a Debris clump...). Renderer-only: the root keeps no collider so
     /// SpellEffect's flight raycast never self-hits.
     /// </summary>
-    private void AttachDefaultProjectileVisual(GameObject go, DamageType type, ProjectileShape shape)
+    private void AttachDefaultProjectileVisual(GameObject go, DamageType type, ProjectileShape shape, bool rockBody = false)
     {
         Color color = DamageNumber.ColorFor(type);
         Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
         if (shader == null)
             return;
 
-        var body = BuildProjectileBody(ResolveShape(type, shape), shader, color);
+        var body = BuildProjectileBody(ResolveShape(type, shape), shader, color, rockBody);
         body.SetParent(go.transform, false);
 
         AttachProjectileParticles(body, type, color);
@@ -535,8 +535,9 @@ public class SpellCaster : MonoBehaviour
     private static ProjectileShape ResolveShape(DamageType type, ProjectileShape shape)
         => shape == ProjectileShape.Auto ? AutoShapeFor(type) : shape;
 
-    /// <summary>Color-matched visual body for a projectile by resolved shape.</summary>
-    private static Transform BuildProjectileBody(ProjectileShape shape, Shader shader, Color color)
+    /// <summary>Color-matched visual body for a projectile by resolved shape. <paramref name="rockBody"/>
+    /// dresses the shape as a rough burning rock (sky-rock spells like Comet that summon a boulder).</summary>
+    private static Transform BuildProjectileBody(ProjectileShape shape, Shader shader, Color color, bool rockBody = false)
     {
         switch (shape)
         {
@@ -546,7 +547,7 @@ public class SpellCaster : MonoBehaviour
             case ProjectileShape.Spear: return Spear("Spear", shader, color);
             case ProjectileShape.Blade: return Blade("WindBlade", shader, color);
             case ProjectileShape.Splash: return Splash("WaterSplash", shader, color);
-            case ProjectileShape.Comet: return Comet("Comet", shader, color);
+            case ProjectileShape.Comet: return Comet("Comet", shader, color, rockBody);
             case ProjectileShape.Missile: return Missile("ArcaneMissiles", shader, color);
             case ProjectileShape.Dart: return Dart("Dart", shader, color);
             case ProjectileShape.Debris: return Debris("RockDebris", shader);
@@ -744,13 +745,36 @@ public class SpellCaster : MonoBehaviour
         return root;
     }
 
-    /// <summary>Streaking fire/energy comet: bright core + fading tail (hard to miss on screen).</summary>
-    private static Transform Comet(string name, Shader shader, Color color)
+    /// <summary>Streaking fire/energy comet: bright core + fading tail (hard to miss on screen).
+    /// For sky-rock spells (summonFallingRock, e.g. the meteor-line Comet) the core becomes a
+    /// rough burning boulder so it reads as a rock tearing through the sky, not a light streak.</summary>
+    private static Transform Comet(string name, Shader shader, Color color, bool rockBody = false)
     {
         var root = new GameObject(name).transform;
-        var core = Primitive(PrimitiveType.Sphere, "Core", root);
-        core.localScale = new Vector3(0.2f, 0.2f, 0.28f);
-        Materialize(core, shader, color);
+        if (rockBody)
+        {
+            Color rock = Color.Lerp(Color.Lerp(Color.gray, Color.black, 0.4f), color, 0.35f);
+            var boulder = Primitive(PrimitiveType.Cube, "BoulderCore", root);
+            boulder.localScale = new Vector3(0.28f, 0.24f, 0.3f);
+            Materialize(boulder, shader, rock);
+            for (int i = 0; i < 3; i++)
+            {
+                var chunk = Primitive(PrimitiveType.Cube, "BoulderChunk" + i, root);
+                chunk.localScale = Vector3.one * UnityEngine.Random.Range(0.12f, 0.18f);
+                chunk.localRotation = UnityEngine.Random.rotation;
+                chunk.localPosition = new Vector3(
+                    UnityEngine.Random.Range(-0.14f, 0.14f),
+                    UnityEngine.Random.Range(-0.12f, 0.12f),
+                    UnityEngine.Random.Range(-0.1f, 0.1f));
+                Materialize(chunk, shader, Color.Lerp(rock, Color.black, UnityEngine.Random.value * 0.35f));
+            }
+        }
+        else
+        {
+            var core = Primitive(PrimitiveType.Sphere, "Core", root);
+            core.localScale = new Vector3(0.2f, 0.2f, 0.28f);
+            Materialize(core, shader, color);
+        }
         var streak = Primitive(PrimitiveType.Cube, "Streak", root);
         streak.localPosition = new Vector3(0f, 0f, -0.35f);
         streak.localScale = new Vector3(0.07f, 0.07f, 0.6f);
@@ -981,6 +1005,31 @@ public class SpellCaster : MonoBehaviour
         // this spell itself reared) so a repeat cast targets the intended ground, not the wall face.
         Vector3 center = TerrainDeformer.ResolveGroundTarget(pos, fwd, Mathf.Max(range, 0.1f));
 
+        // Sky spells (summonFallingRock: Meteor / Asteroid / Earth Meteor) summon a big rock that
+        // drops from high above; the burst resolves in ResolveZoneImpact only when the rock lands,
+        // so the cast reads as "a meteor fell here" rather than an instant ground flash. The rock
+        // itself is pure visual (no collider) — damage/knockback/deform still go through the normal
+        // pipeline, on impact, so this never touches the terrain root (1cx).
+        if (spell != null && spell.SummonFallingRock)
+        {
+            float rockScale = Mathf.Max(radius, 1.5f);
+            SkillFx.FallRock(center, rockScale, DamageNumber.ColorFor(spell.Type),
+                () =>
+                {
+                    if (this == null) return;
+                    ResolveZoneImpact(spell, power, center, fwd, radius, sizeScale);
+                });
+            return new DamageResult { HitTargets = true };
+        }
+
+        return ResolveZoneImpact(spell, power, center, fwd, radius, sizeScale);
+    }
+
+    /// <summary>The zone burst: reshape terrain, then either keep a persistent zone alive or
+    /// resolve the instant overlap blast. Called synchronously for normal Zone spells and from the
+    /// falling rock's landing callback for sky spells (delayed by the rock's drop).</summary>
+    private DamageResult ResolveZoneImpact(SpellData spell, float power, Vector3 center, Vector3 fwd, float radius, float sizeScale)
+    {
         // Earth spells reshape the ground at the impact point before damage resolves (§3.8).
         // `fwd` orients directional shapes (e.g. the Wall ridge) along the cast axis.
         //

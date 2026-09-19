@@ -3,6 +3,40 @@
 Last updated: 2026-09-19. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1cy. Comet / Meteor / Asteroid (etc.) now summon a big falling rock on cast
+
+User: "the comet, meteor, ...etc skills are suppose to have effect of summon a big rock". Previously
+the whole meteor/boulder line read as an instant ground flash — no rock anywhere, even though the
+tooltips say "a burning meteor falls from the sky" / "a colossal mass of burning rock".
+
+Now the sky/rock family visibly summons a **rock from the sky** that reads as the spell landing:
+
+- **New `SpellData.SummonFallingRock`** flag + `summonFallingRock:` arg in the `Spell(...)` factory
+  (SkillCatalog.cs:124). Set on **6 spells**: Fire Meteor, Asteroid, Earth Meteor (Zone), Comet
+  (Projectile), Meteor Rain + Rockfall (Storm). Scorch stays a light-streak (it's a searing jet, not
+  a rock).
+- **New `SkillFx.FallRock(groundTarget, scale, tint, onImpact)`** (SkillFx.cs:153) — a ragged
+  collider-less boulder (grey cubes, warm-tinted for fire) spawns ~30+ u above the target, falls with
+  gravity, and on landing fires the `onImpact` callback + shards + ring flash, then shrinks away
+  (self-contained `RockDrop` + `ShardFader` components, mirroring the existing RingFader pattern).
+  Purely visual — **no collider** so it can never re-trigger the 1cx terrain-root knockback bug or
+  ragdoll anyone.
+- **Zone sky spells**: `SpellCaster.ResolveZone` (SpellCaster.cs:1000) — the existing burst body was
+  extracted to `ResolveZoneImpact`; sky spells spawn `FallRock` and **defer damage/knockback/deform
+  until the rock lands** (~0.6-0.8 s drop), so the cast reads "a meteor fell here".
+- **Storm sky spells**: `SpellStorm.StrikeDelayed` (SpellStorm.cs:78) drops a smaller rock per strike;
+  the strike's flash/damage/deform fire from the landing callback (storm cadence otherwise unchanged).
+- **Comet projectile**: `Comet(...)` builder (SpellCaster.cs:748) now takes `rockBody`; the meteor-line
+  Comet flies as a rough burning boulder + tail instead of a plain light streak.
+
+### 1cy-status
+- Implemented + doc updates in one pass (`game-design.md` §3.8/§3.8.1 + magic-skills.md rows/tables).
+- Verification: no CLI/Unity build (rule 3) — grep + reread only (see THINKING.md `1cy`).
+  `OnCastComplete` has zero subscribers, so deferring the return DamageResult harms nothing.
+- Play-test pending: cast **Meteor (fire), Asteroid, Earth Meteor, Comet, Meteor Rain, Rockfall** —
+  confirm a big rock drops from the sky and the damage/knockback/crater resolves on landing; confirm
+  Scorch still flies as a light streak; confirm no terrain lurch (the rock has no collider).
+
 ## 1cx. TRUE root cause of "cast an AoE → the entire terrain moves": knockback teleports the shared "Terrain" root
 
 The 1cv/1cw width fixes were real but **not** the reported bug. Earth Wall still "moved the terrain",

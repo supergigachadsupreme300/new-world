@@ -145,4 +145,6 @@ public class SpellData : ScriptableObject
     public float Knockback;
     [Tooltip("Self-buff: the Instant delivery grants a timed effect on the caster (e.g. flight) instead of a damage/heal raycast. Duration is the buff length in seconds.")]
     public bool SelfBuff;
+    [Tooltip("Sky spell: summon a big rock that falls from above the target and reads as the spell landing. Zone and Storm deliveries defer their damage/terrain resolve to the moment the rock hits the ground. Pure visual rock — no collider.")]
+    public bool SummonFallingRock;
 }

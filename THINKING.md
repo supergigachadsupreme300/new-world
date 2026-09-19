@@ -16,6 +16,58 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
+## 1cy — "the comet, meteor, ...etc skills are suppose to have effect of summon a big rock" (SHIPPED in `1cy`)
+
+### Context
+Player read the sky-spell descriptions ("a burning meteor falls from the sky", "a colossal mass of
+burning rock that levels everything") and noticed the cast only flashed a ring on the ground — no rock
+was ever summoned. Wanted the effect to match the tooltip.
+
+### Scope decision (asked user)
+- Asked: which spells → "All sky/rock spells (Recommended)": Fire Meteor, Asteroid, Earth Meteor
+  (Zone); Comet (Projectile); Meteor Rain + Rockfall (Storm).
+- Asked: damage timing → "Delay damage until landing": the rock should visibly fall and the burst
+  resolves on impact, not instantly (a cast-time-driven beam of drama for the meteor family).
+
+### Design hypotheses
+- **H1 - data-driven flag vs hard-coded skill ids.** CHOSE the flag (`SpellData.SummonFallingRock`).
+  The catalog already builds the whole spell via the `Spell(...)` factory; a new optional
+  `summonFallingRock:` arg is the established pattern (`terrainShape:`/`projectileShape:`) and avoids
+  scattering skill-id strings through damage paths. Scorch explicitly NOT flagged (jet of light, not a
+  rock) even though it shares the Comet projectile shape.
+- **H2 - defer via coroutine in SpellCaster vs a self-driving FX component.** CHOSE the component.
+  `ResolveZone` is a pure method called from `Execute` (synchronous); making it start a coroutine
+  breaks the return-value contract. Instead: `SkillFx.FallRock` owns a `RockDrop` MonoBehaviour that
+  animates the fall and fires the `onImpact` callback. `ResolveZone` extracted the burst body into
+  `ResolveZoneImpact` which the normal path calls synchronously and the sky path calls from the
+  landing callback (guarded by `if (this == null) return`). Return-value check: `Execute`'s result
+  only feeds `OnCastComplete`, which has **zero subscribers** — returning an early DamageResult for
+  sky zones is harmless (verified by grep).
+- **H3 - storm cadence change risk.** `SpellStorm.StrikeDelayed` already delays each strike by a
+  random 0-0.35 s; adding the rock's fall only shifts the flash/damage/deform to landing time. Rocks
+  are spawned per strike (~2/tick × ticks), each short-lived and self-destroying, so no leak like the
+  old lightning-bolt leak (which the comment explicitly warns about). No pooled allocation needed at
+  this scale (a storm spawns single-digit rocks per tick; `StrikeFlash` is already pooled).
+- **H4 - rock must never have a collider.** CONFIRMED constraint: the whole point of 1cx was that
+  collider-grazing + knockback teleported the shared Terrain root. `FallRock` cubes strip their
+  collider (`CubeChild`), like every other FX primitive in the codebase. Damage/knockback/deform are
+  ONLY produced by the spell's own overlap/raycast pipeline inside the landing callback.
+
+### Verified read-only before committing (per rule 3)
+- `OnCastComplete` — only the declaration (SpellCaster.cs:62) + invoke (246); **no subscribers**.
+- `Execute` switch routes Zone → `ResolveZone` (line 281); Projectile → `FireProjectile` (279) which
+  calls `AttachDefaultProjectileVisual(go, type, shape)` (484) — threaded `summonFallingRock` through.
+- `SpellStorm.StrikeDelayed` (SpellStorm.cs:78) → `SpawnStrikeFx`/`ResolveStrike`/`DeformGround`;
+  `RandomStrikePoint` returns world points (enemy pos or ±radius random), so `FallRock` lands there.
+- `Comet()` builder + `BuildProjectileBody` switch on shape — added `rockBody` without touching
+  Scorch/Burn/Frost Bite (they keep the light core).
+- SkillFx already has `RingFader`/`SlashFader` self-contained faders; `FallRock` mirrors them.
+
+### Play-test checklist (user verifies in Unity)
+Cast all six flagged spells; confirm the rock drops and the burst lands with it, Scorch still streaks
+as light, and no terrain moves (rock has no collider).
+
+
 ## 1cx — The "whole terrain moves" bug was NEVER the deformer: knockback teleports the shared Terrain root (FIXED in `1cx`)
 
 Player (Earth Wall report, verbatim): "when using earth wall it cause the same error, investigate the
