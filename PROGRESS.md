@@ -3,6 +3,46 @@
 Last updated: 2026-09-20. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1dq. Collider-on-demand — physics ring + magic requests (terrain MeshColliders)
+
+User: "currently the entire everything in 30 radius is loading at the same time, so would there be a
+way to load only those with neccessity without reduceing the range"; then: "only load the collider of
+those near the player and and magic". **Render radius stays 30** (user rejected shrinking it).
+
+- **Before:** every loaded radius-30 chunk carried a MeshCollider — ~3,721 cooks on first pass, ~2.2M
+  triangles sitting in the broadphase even far from the player, every raycast/overlap (player ground
+  probe, SpellCaster ≤40 m, NavGrid, TornadoBehavior, ToolManager, Fishing, debris) walked a huge set.
+- **Now:** a chunk streams in **collider-less** (`CreateChunkGameObject` default `buildCollider:false`);
+  a per-poll `ReconcileColliders(centre)` assigns the collider exactly when it is needed and drops it
+  when it stops being needed (cheap state guard — idle polls toggle nothing):
+  - **Player ring:** `WorldStreamer.ColliderRingRadius = 8` (~9×9 chunks = 240 m) covers every gameplay
+    raycast distance (SpellCaster ≤40 m, NavGrid, Tornado, ToolManager, Fishing). Ring jump on death/
+    new game/F12 is safe: reconcile scans the full loaded map every poll, so interior chunks lost by a
+    teleport get re-enabled before the player lands.
+  - **Magic requests:** `ColliderRequestRegistry` — `SpellEffect` keeps its current flight chunk
+    requested (moves chunk-by-chunk, each crossing releases the old so no stale requests accumulate),
+    releases on `OnDestroy`; reconcile expands each request by `ColliderRequestExpand = 1` so a bolt
+    grazing a seam still stops on terrain. Long-range fireballs still detonate on far hills; other far
+    chunks render meshes but cost zero physics.
+  - **Rebuild paths preserve state:** `ChunkObject.ApplyMerged` now takes the collider flag through to
+    the MeshCollider and tracks it; `FullRebuildChunk` passes `buildCollider: obj.HasCollider`;
+    `PatchRegion` re-cooks only live colliders; `Release()` resets the flag. The synchronous boot chunk
+    (`GenerateChunkSync`) still builds its collider so the player can land before the first poll.
+- Estimate (no measurements, rule 3): at radius 8 of 30 (~6.4% of the square), steady-state cooked
+  collider triangles drop to ~140k vs ~2.2M (~94% less); prop ring (1di) already covers the visuals the
+  player sees, this closes the physics gap for the rest.
+- game-design §2.7 (new bullet) + THINKING + PROGRESS updated same pass. Verification (no CLI build,
+  rule 3): grep — 24 refs consistent across ChunkObject / WorldStreamer cs files / ColliderRequestRegistry /
+  SpellEffect; `ApplyMerged` call sites preserved (buildCollider param threaded, boot path explicit).
+
+### 1dq-status
+- Implemented; verified by grep + reread (no CLI build). Play-test: run the build — visuals identical
+  at radius 30; **stand still** and walk out — you should encounter a hard, walkable ground edge ~240 m
+  from center (collider ring), not a void; fire a long-range firebolt far past the ring — it must still
+  explode on the terrain it reaches (magic request); chips/carves/waves still dent the ground near the
+  player; F12/death/new-game respawn on the pad with no fall through; no physics hitch on promo (a chunk
+  entering the ring cooks its collider once).
+
 ## 1dp. Magic model bench — strip OrbFx so pedestal models are static
 
 User: "some magic keep switch between big and small continuously which really fuck up the visual".

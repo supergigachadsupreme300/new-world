@@ -128,8 +128,9 @@ public partial class WorldStreamer
     /// Generate an entire terrain chunk synchronously on the main thread.
     /// Used at startup to ensure the spawn tile has terrain + colliders before
     /// the player is placed. Uses the shared noise-or-disk builder, then creates a
-    /// single merged GameObject per chunk. Props begin queuing immediately and stream
-    /// in over the next ticks so boot stays light.
+    /// single merged GameObject per chunk. The boot chunk keeps its collider (1dq) so the
+    /// player can land before the first ReconcileColliders poll. Props begin queuing
+    /// immediately and stream in over the next ticks so boot stays light.
     /// </summary>
     public void GenerateChunkSync(TerrainChunkCoord tc)
     {
@@ -137,7 +138,7 @@ public partial class WorldStreamer
             return;
 
         TerrainChunkMeshData chunk = BuildOrLoadChunk(tc, Seed);
-        CreateChunkGameObject(chunk);
+        CreateChunkGameObject(chunk, buildCollider: true);
         ReconcileNewlyLoadedChunk(tc);
     }
 

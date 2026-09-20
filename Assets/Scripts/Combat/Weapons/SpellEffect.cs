@@ -37,6 +37,12 @@ public class SpellEffect : MonoBehaviour
     private Transform _homingTarget;
     private Vector3 _homingAim;
 
+    // Collider-on-demand (1dq): the projectile keeps its current chunk in the
+    // ColliderRequestRegistry so a long-range bolt still lands on far terrain, while every other
+    // chunk beyond the player ring stays collider-free. Moved chunk-by-chunk as the bolt flies.
+    private TerrainChunkCoord _requestedChunk;
+    private bool _requestActive;
+
     /// <summary>Configure the effect with spell + resolved power. Returns this for chaining.
     /// <paramref name="radiusMult"/> scales the splash/zone radius (charged casts).</summary>
     public SpellEffect Initialize(SpellData spell, float power, Vector3 dir, SpellCaster caster,
@@ -72,6 +78,18 @@ public class SpellEffect : MonoBehaviour
     private void Update()
     {
         if (!_launched) return;
+
+        // Keep the chunk we're flying over collider-enabled (1dq). Only track the single current
+        // chunk: each boundary crossing releases the old one, so no stale requests can accumulate.
+        TerrainChunkCoord here = TerrainChunkCoord.FromWorld(transform.position);
+        if (!_requestActive || here != _requestedChunk)
+        {
+            if (_requestActive)
+                ColliderRequestRegistry.Release(_requestedChunk);
+            _requestedChunk = here;
+            ColliderRequestRegistry.Request(_requestedChunk);
+            _requestActive = true;
+        }
 
         Lifetime -= Time.deltaTime;
         if (Lifetime <= 0f)
@@ -227,6 +245,16 @@ public class SpellEffect : MonoBehaviour
         if (root == null) return false;
         if (root.CompareTag("Player") || root.CompareTag("Companion")) return false;
         return root.TryGetComponent<EnemyController>(out _) || root.TryGetComponent<BossController>(out _);
+    }
+
+    private void OnDestroy()
+    {
+        // Release the collider request so the chunk can fall back to collider-free (1dq).
+        if (_requestActive)
+        {
+            ColliderRequestRegistry.Release(_requestedChunk);
+            _requestActive = false;
+        }
     }
 
     private void ResolveProjectileImpact(GameObject hitObject)

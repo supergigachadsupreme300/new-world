@@ -15,6 +15,43 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1dq — "load only those with neccessity" → collider-on-demand (SHIPPED in `1dq`)
+
+User: "currently the entire everything in 30 radius is loading at the same time, so would there be a
+way to load only those with neccessity without reduceing the range"; clarification: "only load the
+collider of those near the player and and magic".
+
+- **Frame of the ask:** the WHOLE radius-30 square visibly streamed in at once (3,721 chunks: 900-tile
+  meshes + merged colliders + props). The user explicitly does NOT want the render range cut. So the
+  "necessity" axis must be *what physics needs*, not what renders.
+- H0 — only mesh-upload nearby, keep all 900-tile per-tile NO builds at full radius: equivalent cost to
+  today at boot; H0 rejected as not satisfying "optimize".
+- H1 — shrink the streamed square but keep radius 30: rejected by the user (would reduce the render
+  range they can see / walk to).
+- H2 — collider on demand only (1dq): stream everything, gate the merged MeshCollider. Evidence it's
+  the right axis: chunk creation passes a `buildCollider` flag to the SAME path that already renders
+  meshes; collider cooks (~7,200 tri/chunk) + broadphase bodies are exactly the expensive per-chunk
+  physics objects, and every gameplay raycast probe (player, SpellCaster ≤40 m, NavGrid, Tornado,
+  ToolManager, Fishing) uses ranges ≪ 240 m — so radius 8 covers all of it.
+- **Component risk — long-range spells:** a firebolt's ground probe needs the terrain beneath it to
+  NOT fly clean through the far world. => SpellEffect registers the chunk it currently flies over in
+  a static registry; reconcile expands by 1 chunk. Design constraint: only track ONE chunk per bolt
+  (release old on each boundary crossing) so the registry can't accumulate stale coords.
+- **Component risk — ring jump (death/new game/F12):** interior chunks of a teleported ring could sit
+  collider-less => the player falls through before the ring re-promotes them. Full-map reconcile each
+  poll with the `HasCollider != want` guard closes this: toggles are zero while idle, and a jump just
+  flips a square of colliders once (each cooked once).
+- **Component risk — rebuilds:** deformation/arena-lane code path re-cooks colliders via
+  `FullRebuildChunk`/`PatchRegion`; both must respect the flag or far chunks get incinerated colliders
+  back. => `ApplyMerged` stores the collider intent (one authoritative `_colliderActive`), rebuild paths
+  read it (`buildCollider: obj.HasCollider`, `&& _colliderActive`), `Release()` clears it.
+- **Boot risk:** the placeholder spawn needs a collider BEFORE the first reconcile poll. =>
+  `GenerateChunkSync` keeps `buildCollider:true` (single boot chunk, one cook).
+- Chosen scope: 1dq = collider gating only. Mesh uploads/noise still cost per chunk at radius 30 —
+  deferred to 1dt (noise memo) + 1dv (mesh pooling); props already limited by `PropRingRadius` (1di).
+  NOTE these are separate knobs; a future per-chunk draw budget is out of scope (rendering is GPU-bound,
+  the collider change targets CPU physics).
+
 ## 1dp — "some magic keep switch between big and small continuously" (SHIPPED in `1dp`)
 
 User: "some magic keep switch between big and small continuously which really fuck up the visual".

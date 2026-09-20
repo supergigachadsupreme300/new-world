@@ -76,12 +76,15 @@ public partial class WorldStreamer
     }
 
     /// <summary>
-    /// Creates the chunk GameObject (mesh + collider) and registers its 900 tiles in the
+    /// Creates the chunk GameObject (mesh + optional collider) and registers its 900 tiles in the
     /// tile-level lookup dictionaries for persistence/validation. Props are NOT queued here —
     /// <see cref="SyncPropRing"/> owns the prop stream and starts it only for chunks inside the
     /// prop ring, so most of the distant radius-N ring never spawns trees/rocks (1di).
+    /// Streaming chunks build COLLIDER-LESS (1dq) — the per-poll ReconcileColliders assigns the
+    /// MeshCollider once a chunk enters the player or magic ring. The synchronous boot chunk keeps
+    /// its collider so the player can land on it before the first poll.
     /// </summary>
-    private void CreateChunkGameObject(TerrainChunkMeshData chunk)
+    private void CreateChunkGameObject(TerrainChunkMeshData chunk, bool buildCollider = false)
     {
         TerrainChunkCoord tc = chunk.Coord;
         Vector3 origin = new Vector3(
@@ -96,7 +99,7 @@ public partial class WorldStreamer
 
         var obj = go.AddComponent<ChunkObject>();
         obj.Init(tc);
-        obj.ApplyMerged(chunk.Merged, GroundMaterial, buildCollider: true);
+        obj.ApplyMerged(chunk.Merged, GroundMaterial, buildCollider);
         _loadedChunks[tc] = obj;
 
         for (int i = 0; i < chunk.Tiles.Length; i++)

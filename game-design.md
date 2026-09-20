@@ -101,6 +101,17 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   original 1/200 ratio) — a chunk (~900 tiles) averages ~2 cube-heavy props instead of ~9, so the
   world reads sparser/cleaner while the prop ring stays light. The odds live in
   `ChunkObject.PropSpawnOdds`.
+- **Collider-on-demand (1dq):** terrain **MeshColliders exist only where gameplay physics needs them**
+  — chunks inside the `ColliderRingRadius` ring around the focus (default **8** ≈ 240 m, covers every
+  gameplay probe: player ground ray, spell ≤40 m, NavGrid, Tornado, ToolManager, fishing) plus chunks
+  under an active spell projectile (`ColliderRequestRegistry`, requested chunk-by-chunk as the bolt
+  flies and expanded by one chunk). Every chunk at full render radius still looks identical — the far
+  ring streams its mesh and **no collider**, so the ~2.2M pillar of cooked broadphase triangles drops
+  to the ~140k the gameplay actually queries (~94% less), at the cost of a hard *walkable-physics*
+  edge at the ring (the world visually continues; you just cannot walk past it). Promotion/deferral is
+  a cheap state-guarded toggle per poll (no re-meshing), rebuilds (`FullRebuildChunk`/`PatchRegion`)
+  and unloads preserve each chunk's collider state, and the synchronous boot chunk keeps its collider
+  so the player lands before the first poll.
 
 ### 2.6 Chunk Persistence (File Caching)
 

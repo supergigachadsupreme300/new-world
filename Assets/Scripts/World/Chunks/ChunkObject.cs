@@ -22,6 +22,27 @@ public class ChunkObject : MonoBehaviour
     private MeshRenderer _mr;
     private MeshCollider _mc;
 
+    // Collider-on-demand (1dq): only chunks near the player or near active magic carry a
+    // MeshCollider. The far radius-N world still renders its full meshes; its physics load
+    // (collider cooks + ~7k-tri broadphase bodies) is gated to what the gameplay uses.
+    private bool _colliderActive;
+
+    /// <summary>True while this chunk's MeshCollider is assigned (near the player or magic, 1dq).</summary>
+    public bool HasCollider => _colliderActive;
+
+    /// <summary>
+    /// Toggle the chunk's physics collider without touching the mesh or re-running the merged
+    /// builder (1dq). Enabling cooks the cached collider once; disabling drops it to zero physics.
+    /// </summary>
+    public void SetColliderActive(bool active)
+    {
+        if (_colliderActive == active)
+            return;
+        _colliderActive = active;
+        if (_mc != null)
+            _mc.sharedMesh = active && _mf != null ? _mf.sharedMesh : null;
+    }
+
     // CPU-side copy of the merged chunk mesh arrays, kept so terrain deformation can patch only
     // the touched tiles' vertices without re-running a full 900-tile rebuild.
     private MergedChunkMeshData _merged;
@@ -67,8 +88,12 @@ public class ChunkObject : MonoBehaviour
         if (_mr != null && material != null)
             _mr.sharedMaterial = material;
 
-        if (buildCollider && _mc != null)
-            _mc.sharedMesh = mesh;
+        // Collider is assigned only for chunks the streamer has routed into the near ring (1dq).
+        // Keeping the flag in sync means a later FullRebuildChunk preserves the intended state
+        // and PatchRegion only re-cooks colliders that are actually live.
+        if (_mc != null)
+            _mc.sharedMesh = buildCollider ? mesh : null;
+        _colliderActive = buildCollider;
 
         if (previous != null && previous != mesh)
             Destroy(previous);
@@ -154,8 +179,8 @@ public class ChunkObject : MonoBehaviour
 
         // Force the collider to re-cook against the new heights. The null→assign pair runs inside a
         // single synchronous call, so no physics step ever observes the null collider (Unity only
-        // re-cooks when the mesh reference actually changes).
-        if (_mc != null)
+        // re-cooks when the mesh reference actually changes). Skipped for collider-less chunks (1dq).
+        if (_mc != null && _colliderActive)
         {
             _mc.sharedMesh = null;
             _mc.sharedMesh = mesh;
@@ -264,6 +289,7 @@ public class ChunkObject : MonoBehaviour
     {
         ReleaseProps();
         _merged = default;
+        _colliderActive = false;
 
         if (_mf != null && _mf.sharedMesh != null)
             Destroy(_mf.sharedMesh);

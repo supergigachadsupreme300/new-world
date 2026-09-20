@@ -32,6 +32,13 @@ public partial class WorldStreamer : MonoBehaviour
     [Tooltip("Trees/rocks stream only within this many chunks of the focus (Chebyshev ring, 1di). Chunks beyond it keep their terrain mesh + collider but NO props, so the distant radius-N ring never spawns ~33k prop GameObjects — the ~450k BoxCollider physics load and ~33k scene-graph renderers collapse to the ring alone. Pop-in reads as normal streaming since the ring follows the player.")]
     public int PropRingRadius = 4;
 
+    [Header("Colliders")]
+    [Tooltip("Collider-on-demand ring (1dq): terrain MeshColliders exist only on chunks within this many chunks of the focus (plus any chunk under an active spell projectile). Everything further still renders its full mesh but has no physics — the draw stays identical while the collider cooks / 7k-tri broadphase bodies drop ~92% at the default radius.")]
+    public int ColliderRingRadius = 8;
+
+    /// <summary>Chunks around each magic collider request that also keep a collider (1dq).</summary>
+    public const int ColliderRequestExpand = 1;
+
     [Header("Threading")]
     [Tooltip("Max terrain chunks finalized per poll tick (main-thread work).")]
     public int ChunksPerFrame = 16;
@@ -168,8 +175,32 @@ public partial class WorldStreamer : MonoBehaviour
         StreamAround(centre, radius);
         DispatchPending();
         FinalizeChunks();
+        ReconcileColliders(centre);
         SyncPropRing(centre);
         StepChunkProps();
+    }
+
+    /// <summary>
+    /// Collider-on-demand (1dq): keeps the MeshCollider only on chunks inside the
+    /// <see cref="ColliderRingRadius"/> ring around the focus and on chunks under active magic
+    /// (spell projectile flight paths — <see cref="ColliderRequestRegistry"/>). The far radius-N
+    /// world still renders its full meshes; only the physics load (the per-chunk collider cook and
+    /// the ~7k-tri broadphase bodies behind every raycast/overlap) is gated. A full-map scan each
+    /// poll with a state guard: an idle ring toggles nothing, a walking player flips only the ring
+    /// boundary, and a promoted chunk cooks its collider exactly once.
+    /// </summary>
+    private void ReconcileColliders(TerrainChunkCoord centre)
+    {
+        foreach (KeyValuePair<TerrainChunkCoord, ChunkObject> kv in _loadedChunks)
+        {
+            bool want = ColliderRingRadius > 0
+                && Mathf.Abs(kv.Key.X - centre.X) <= ColliderRingRadius
+                && Mathf.Abs(kv.Key.Z - centre.Z) <= ColliderRingRadius;
+            if (!want && ColliderRequestRegistry.HasNear(kv.Key, ColliderRequestExpand))
+                want = true;
+            if (kv.Value.HasCollider != want)
+                kv.Value.SetColliderActive(want);
+        }
     }
 
     private void OnDestroy()

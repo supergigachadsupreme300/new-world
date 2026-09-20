@@ -242,7 +242,9 @@ public partial class WorldStreamer
         {
             merged = ChunkMeshGenerator.BuildMergedMeshData(tiles, BuildBorderCorners(tc), Seed);
         }
-        obj.ApplyMerged(merged, GroundMaterial, buildCollider: true);
+        // Preserve the chunk's collider-on-demand state (1dq): a far collider-less chunk that gets
+        // reconciled/rebuild for a border corner stays collider-less; a live ring chunk re-cooks.
+        obj.ApplyMerged(merged, GroundMaterial, buildCollider: obj.HasCollider);
     }
 
     /// <summary>
