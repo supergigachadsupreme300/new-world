@@ -15,6 +15,34 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1dr — per-frame component lookups (SHIPPED in `1dr`)
+
+Hotspot scan prompted by "need to optimize the game even more": profile-by-reading the per-frame Update
+loops (no profiler on this machine; rule 3 = read + grep).
+
+- **PlayerController** was the champion: 14 raw `GetComponent` calls per frame across Movement/Combat/Stamina
+  (MaxHP, MaxStamina, HandleMovement, HandleStamina, TakeDamage, aim paths). All target permanent
+  components on the player root. Decided: lazy accessors whose null case re-scans (safe vs.
+  CombatController added late by WeaponRigBuilder), because caching a null forever would silently break
+  late-rigged combat.
+- H1 — cache once in Start: REJECTED for combat-specific refs (WeaponRigBuilder adds CombatController
+  after Start on first rig). Lazy accessor chosen instead.
+- H2 — cache CombatController in Awake/Start era: same flaw. [decide: lazy]
+- **Wheel/skill-bar**: per-frame `GetComponent<SpellCaster>`/`GetComponent<CombatController>`/
+  `GetComponent<SkillBindings>` — same fix pattern (cache against player swap, MagicWheelUI already
+  had that idiom for `_caster`).
+- **PlayerBarsHUD status strip**: `getComponent`×4 + `SetActive`×10 every frame. SetActive guard fixes
+  the pointless native toggles; a 3-frame poll is invisible (values are whole-second countdowns) and
+  cuts the scan by 2/3. Rejected gate-by-status-change because statuses are added/removed by other
+  systems with no notification channel.
+- **AudioManager**: `Camera.main` per frame → cached field; `Crossfade` wrote both volumes every frame
+  even at full settle → settle guards `> 0.0001f`.
+- **ChunkLodManager**: unguarded `gameObject.SetActive(cond)` per chunk per pass → activeSelf guard.
+- Left alone (each already gated or event-driven): EnemyHealthBarHUD (0.5 s scan), InteractionPrompt
+  (1/3-frame raycast), SittableSeat.FindNearest (bounded list), menu/modal builders (on-open).
+- Verdict path: each change is semantics-preserving (null-fallback identical); the remaining greps
+  confirm the one-time/event-driven frames.
+
 ## 1dq — "load only those with neccessity" → collider-on-demand (SHIPPED in `1dq`)
 
 User: "currently the entire everything in 30 radius is loading at the same time, so would there be a

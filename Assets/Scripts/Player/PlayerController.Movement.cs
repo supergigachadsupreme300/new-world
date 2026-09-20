@@ -38,7 +38,7 @@ public partial class PlayerController
     {
         get
         {
-            var stats = GetComponent<PlayerStats>();
+            var stats = StatsCached;
             return stats != null ? stats.MaxStamina : 1000f;
         }
     }
@@ -68,7 +68,7 @@ public partial class PlayerController
             ((Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed) ||
              (GameInput.IsMobile && MobileInputController.IsHeld("sprint"))) &&
             Stamina > 0f && mag > 0f;
-        var playerStats = GetComponent<PlayerStats>();
+        var playerStats = StatsCached;
         float moveSpeedPerkMult = playerStats != null && playerStats.BaseMoveSpeed > 0f
             ? playerStats.MaxMoveSpeed / playerStats.BaseMoveSpeed : 1f;
         float speed = IsRiding
@@ -190,12 +190,12 @@ public partial class PlayerController
                 StaminaRegenModifier = 1f;
 
             // Class passive: Taoist/Monk stamina-regen modifiers compound multiplicatively (§3.2.1).
-            var passives = GetComponent<ClassPassiveManager>();
+            var passives = ClassPassivesCached;
             if (passives != null)
                 regenMul *= passives.StaminaRegenMul;
 
             // Skill-tree perk: stamina-regen % (§3.3).
-            var pStats = GetComponent<PlayerStats>();
+            var pStats = StatsCached;
             if (pStats != null)
                 regenMul *= pStats.StaminaRegenMul;
 

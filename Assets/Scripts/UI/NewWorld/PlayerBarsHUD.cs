@@ -56,6 +56,7 @@ public sealed class PlayerBarsHUD : MonoBehaviour
     private RectTransform _statusPanel;
     private readonly List<StatusChip> _statusChips = new List<StatusChip>();
     private readonly List<StatusEntry> _statusEntries = new List<StatusEntry>();
+    private int _statusFrameCounter;
 
     private void OnEnable()
     {
@@ -290,6 +291,11 @@ public sealed class PlayerBarsHUD : MonoBehaviour
     private void UpdateStatusStrip(PlayerController player)
     {
         if (_statusPanel == null) return;
+        // Statuses count down in whole seconds and appear/disappear at event pace — a 3-frame
+        // (~50 ms) poll is invisible but cuts the GetComponent scan + chip preserves by 1/3 (1dr).
+        _statusFrameCounter++;
+        if (_statusFrameCounter % 3 != 0)
+            return;
         _statusEntries.Clear();
         var root = player.transform.root;
 
@@ -334,7 +340,8 @@ public sealed class PlayerBarsHUD : MonoBehaviour
         {
             var chip = _statusChips[i];
             bool active = i < _statusEntries.Count;
-            chip.Root.gameObject.SetActive(active);
+            if (chip.Root.gameObject.activeSelf != active)
+                chip.Root.gameObject.SetActive(active);
             if (!active) continue;
             var entry = _statusEntries[i];
             if (chip.Target.color != entry.Color)

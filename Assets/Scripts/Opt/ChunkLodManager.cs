@@ -97,7 +97,9 @@ public sealed class ChunkLodManager : MonoBehaviour
 
             float dist = Vector3.Distance(camPos, chunk.Root.position);
             int band = BandFor(dist);
-            chunk.Root.gameObject.SetActive(dist <= EffectiveCullDistance());
+            bool wantVisible = dist <= EffectiveCullDistance();
+            if (chunk.Root.gameObject.activeSelf != wantVisible)
+                chunk.Root.gameObject.SetActive(wantVisible);
             if (band != chunk.BandIndex)
             {
                 chunk.BandIndex = band;

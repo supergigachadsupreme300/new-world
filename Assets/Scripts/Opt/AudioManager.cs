@@ -48,10 +48,11 @@ public sealed class AudioManager : MonoBehaviour
     private float _musicTarget;
     private Biome _current;
 
-    // Audio sources are parented to this movable rig. The manager's own transform is never
-    // moved: AudioManager can be hosted on GameRoot or (in a bare-scene bootstrap) on the
+// Audio sources are parented to this movable rig. The manager's own transform is never
+    // moved: AudioManager can be hosted on GameRoot or in (a bare-scene bootstrap) on the
     // player, and moving its transform would teleport that host object off the ground.
     private Transform _rig;
+    private Camera _cam;
 
     private void Awake()
     {
@@ -95,7 +96,9 @@ public sealed class AudioManager : MonoBehaviour
     {
         // Keep the audio rig parented to the camera/listener each frame. Only the rig
         // moves — never AudioManager.transform, which may be shared with the player.
-        var cam = Camera.main;
+        if (_cam == null)
+            _cam = Camera.main;
+        var cam = _cam;
         if (cam != null)
             _rig.position = cam.transform.position;
         else if (GameManager.Instance?.Player != null)
@@ -115,14 +118,18 @@ public sealed class AudioManager : MonoBehaviour
     {
         if (main)
         {
-            a.volume = Mathf.MoveTowards(a.volume, target, FadeSeconds * Time.deltaTime);
-            b.volume = Mathf.MoveTowards(b.volume, 0f, FadeSeconds * Time.deltaTime);
+            if (Mathf.Abs(a.volume - target) > 0.0001f)
+                a.volume = Mathf.MoveTowards(a.volume, target, FadeSeconds * Time.deltaTime);
+            if (b.volume > 0.0001f)
+                b.volume = Mathf.MoveTowards(b.volume, 0f, FadeSeconds * Time.deltaTime);
             if (b.volume <= 0.001f && b.isPlaying) b.Stop();
         }
         else
         {
-            b.volume = Mathf.MoveTowards(b.volume, target, FadeSeconds * Time.deltaTime);
-            a.volume = Mathf.MoveTowards(a.volume, 0f, FadeSeconds * Time.deltaTime);
+            if (Mathf.Abs(b.volume - target) > 0.0001f)
+                b.volume = Mathf.MoveTowards(b.volume, target, FadeSeconds * Time.deltaTime);
+            if (a.volume > 0.0001f)
+                a.volume = Mathf.MoveTowards(a.volume, 0f, FadeSeconds * Time.deltaTime);
             if (a.volume <= 0.001f && a.isPlaying) a.Stop();
         }
     }

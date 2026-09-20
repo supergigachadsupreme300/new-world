@@ -46,6 +46,8 @@ public sealed class MagicWheelUI : MonoBehaviour
     private PlayerController _player;
     private SpellCaster _caster;
     private PlayerController _casterFor;
+    private CombatController _combat;
+    private PlayerController _combatFor;
     private bool _isOpen;
     private int _hovered = -1;
     private string _armedSkillId;
@@ -200,6 +202,13 @@ public sealed class MagicWheelUI : MonoBehaviour
             _caster = _player != null ? _player.GetComponent<SpellCaster>() : null;
         }
 
+        // Same swap-agnostic cache for the combat rig (HoldingMagicWeapon runs every frame, 1dr).
+        if (_combatFor != _player)
+        {
+            _combatFor = _player;
+            _combat = _player != null ? _player.GetComponent<CombatController>() : null;
+        }
+
         if (gm.InGame && !gm.GamePaused && !MenuPanelBase.AnyShown)
         {
             if (_player == null || _player.IgnoreInput)
@@ -234,7 +243,7 @@ public sealed class MagicWheelUI : MonoBehaviour
 
     private bool HoldingMagicWeapon()
     {
-        var combat = _player != null ? _player.GetComponent<CombatController>() : null;
+        var combat = _combat;
         if (combat == null) return false;
         return HandIsMagic(combat.RightHand) || HandIsMagic(combat.LeftHand);
     }

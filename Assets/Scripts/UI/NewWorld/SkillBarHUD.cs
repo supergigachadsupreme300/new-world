@@ -33,6 +33,12 @@ public sealed class SkillBarHUD : MonoBehaviour
     private readonly List<KeyValuePair<Key, string>> _prevEntries = new List<KeyValuePair<Key, string>>();
     private bool _entriesDirty = true;
 
+    // Per-frame component caches (1dr): PlayerController + SkillBindings are permanent on the
+    // player root and resolved through GameManager each frame; cache against player swap.
+    private PlayerController _playerFor;
+    private PlayerController _playerCached;
+    private SkillBindings _bindingsCached;
+
     private void OnEnable()
     {
         _canvas = HudCanvas.CreateOverlay("SkillBarCanvas");
@@ -61,12 +67,13 @@ public sealed class SkillBarHUD : MonoBehaviour
     {
         var gm = GameManager.Instance;
         bool inGame = gm != null && gm.InGame;
-        bool fighting = false;
-        if (gm != null && gm.Player != null)
+        if (_playerFor != gm?.Player)
         {
-            var pc = gm.Player.GetComponent<PlayerController>();
-            fighting = pc != null && pc.FightingMode;
+            _playerFor = gm != null ? gm.Player : null;
+            _playerCached = _playerFor != null ? _playerFor.GetComponent<PlayerController>() : null;
+            _bindingsCached = _playerFor != null ? _playerFor.GetComponent<SkillBindings>() : null;
         }
+        bool fighting = _playerCached != null && _playerCached.FightingMode;
         bool wantCanvas = inGame && fighting && _visible;
         if (_canvas == null)
             return;
@@ -75,8 +82,7 @@ public sealed class SkillBarHUD : MonoBehaviour
         if (!wantCanvas)
             return;
 
-        var player = gm != null ? gm.Player : null;
-        var bindings = player != null ? player.GetComponent<SkillBindings>() : null;
+        var bindings = _bindingsCached;
 
         RefreshEntries(bindings);
 

@@ -16,7 +16,7 @@ public partial class PlayerController
     {
         get
         {
-            var stats = GetComponent<PlayerStats>();
+            var stats = StatsCached;
             return stats != null ? Mathf.Max(1, Mathf.RoundToInt(stats.MaxHP)) : 100;
         }
     }
@@ -29,12 +29,12 @@ public partial class PlayerController
         if (_classBuffDamageReduction > 0f && Time.time < _classBuffUntil)
             amount = Mathf.RoundToInt(amount * (1f - Mathf.Min(_classBuffDamageReduction, 0.5f)));
         // Skill-tree perks: flat damage reduction stacks on top (§3.3).
-        var pStats = GetComponent<PlayerStats>();
+        var pStats = StatsCached;
         if (pStats != null)
             amount -= Mathf.RoundToInt(amount * Mathf.Min(pStats.DamageReductionPerkFlat, 0.45f));
         // Melee guard: blocking absorbs 80% of the hit while stamina holds; if stamina runs out
         // the guard breaks and the full hit lands.
-        var combat = GetComponent<CombatController>();
+        var combat = CombatCached;
         if (combat != null && combat.IsBlocking)
         {
             if (combat.OnBlockedHit(amount))
@@ -341,7 +341,7 @@ public partial class PlayerController
             HideCastingCircle();
             return;
         }
-        var combat = GetComponent<CombatController>();
+        var combat = CombatCached;
         var hand = MagicHand(combat);
         if (hand == null)
         {
@@ -362,7 +362,7 @@ public partial class PlayerController
     /// <summary>One-shot expansion ring at the magic weapon on cast release.</summary>
     private void BurstCastingCircle(float charge)
     {
-        var combat = GetComponent<CombatController>();
+        var combat = CombatCached;
         var hand = MagicHand(combat);
         if (hand == null) return;
         var spell = ArmedSpell();
@@ -395,9 +395,9 @@ public partial class PlayerController
     {
         if (armedSpell != null && armedSpell.Delivery == SpellDelivery.Projectile)
         {
-            var combat = GetComponent<CombatController>();
+            var combat = CombatCached;
             var hand = MagicHand(combat);
-            var cam = Camera.main;
+            var cam = MainCam;
             if (hand == null || cam == null) { HidePathPreview(); return; }
 
             // Mirror caster aim (SpellCaster.Execute): from the hand toward the camera line.
@@ -412,7 +412,7 @@ public partial class PlayerController
             return;
         }
 
-        var rangedCombat = GetComponent<CombatController>();
+        var rangedCombat = CombatCached;
         var hand2 = rangedCombat != null ? (rangedCombat.RightHand ?? rangedCombat.LeftHand) : null;
         var ranged = hand2 != null ? hand2.GetComponent<RangedWeaponBehavior>() : null;
         if (ranged == null) { HidePathPreview(); return; }
@@ -470,7 +470,7 @@ public partial class PlayerController
     /// <summary>True while a beam channel is active (LMB is sustaining the beam, so it must not re-aim/attack).</summary>
     private bool BeamChanneling()
     {
-        var caster = GetComponent<SpellCaster>();
+        var caster = SpellCasterRef;
         return caster != null && caster.IsChanneling;
     }
 
@@ -497,7 +497,7 @@ public partial class PlayerController
         color = Color.white;
         if (spell == null) return false;
 
-        var cam = Camera.main;
+        var cam = MainCam;
         if (cam == null) return false;
 
         Vector3 pos = cam.transform.position;
@@ -511,7 +511,7 @@ public partial class PlayerController
         if (Physics.Raycast(at + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))
             center = groundHit.point;
 
-        var caster = GetComponent<SpellCaster>();
+        var caster = SpellCasterRef;
         float sizeBonus = caster != null ? caster.ChargeSizeBonus : 0.8f;
         radius = spell.Radius * (1f + charge * sizeBonus);
         color = DamageNumber.ColorFor(spell.Type);
@@ -525,7 +525,7 @@ public partial class PlayerController
         if (!FightingMode || WeaponTransitionBusy()) return true;
         if (MagicWheelUI.IsOpen) return true;
         if (MagicTestMatrix.IsOpen) return true;
-        var combat = GetComponent<CombatController>();
+        var combat = CombatCached;
         return !MagicWheelUI.HasArmedMagic() && !IsRangedEquipped(combat);
     }
 

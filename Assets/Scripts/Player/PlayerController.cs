@@ -26,6 +26,22 @@ public bool IgnoreInput { get; private set; }
 
     private CharacterController _controller;
     private Vector3 _velocity;
+
+    // Per-frame component caches (1dr): the player root ran GetComponent/graph scans ~14x/frame
+    // across Movement/Combat/Stamina/HUD reads. All of these components are permanent on the player
+    // root (stamina rig + PlayerStats from build, CombatController/class passives from WeaponRigBuilder/
+    // race systems, the camera made in Awake), so each lazy look-up caches forever after first use.
+    private PlayerStats _statsCached;
+    private CombatController _combatCached;
+    private ClassPassiveManager _classPassivesCached;
+    private SpellCaster _casterCached;
+    private Camera _mainCamCached;
+
+    private PlayerStats StatsCached => _statsCached != null ? _statsCached : _statsCached = GetComponent<PlayerStats>();
+    private CombatController CombatCached => _combatCached != null ? _combatCached : _combatCached = GetComponent<CombatController>();
+    private ClassPassiveManager ClassPassivesCached => _classPassivesCached != null ? _classPassivesCached : _classPassivesCached = GetComponent<ClassPassiveManager>();
+    private SpellCaster SpellCasterRef => _casterCached != null ? _casterCached : _casterCached = GetComponent<SpellCaster>();
+    private Camera MainCam => _mainCamCached != null ? _mainCamCached : _mainCamCached = Camera.main;
     // Physics-integrity fail-net (1ca): a corrupted collider (NaN/garbage mesh height) can
     // depenetrate the CharacterController thousands of metres in one step. _lastSafePosition
     // holds the last sane position; EnforcePhysicsSanity reverts any such launch.

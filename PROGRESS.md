@@ -43,6 +43,46 @@ those near the player and and magic". **Render radius stays 30** (user rejected 
   player; F12/death/new-game respawn on the pad with no fall through; no physics hitch on promo (a chunk
   entering the ring cooks its collider once).
 
+## 1dr. Per-frame caching sweep (no behavior change)
+
+- Killed the residual every-frame component lookups flagged during the 1di/1dq investigation
+  (per-frame CPU already dominates the frame budget at radius 30; these were pure overhead):
+  - **PlayerController** (partials): added lazy null-cached accessors `StatsCached`, `CombatCached`,
+    `ClassPassivesCached`, `SpellCasterRef`, `MainCam` (PlayerController.cs) and switched the hot
+    paths off raw `GetComponent`: `MaxHP`/`MaxStamina`, `HandleMovement`, `HandleStamina` (regen
+    reads), `TakeDamage`, and the aim-frame reads in `UpdateCastingCircle`/`BurstCastingCircle`/
+    `UpdatePathPreview`/`BeamChanneling`/`TryAoeTarget`/`ShouldCancelCharge`. The accessors are lazy
+    and never cache a null, so late-rigged components (CombatController added by WeaponRigBuilder)
+    still resolve — old per-frame lookups were ~14/frame before, now ~0.
+  - **MagicWheelUI**: cached `_combat` (swap-agnostic like the existing `_caster`) so the per-frame
+    `HoldingMagicWeapon` no longer GetComponent-scans.
+  - **SkillBarHUD**: cached `PlayerController` + `SkillBindings` against player swap (2 fewer
+    GetComponents/frame).
+  - **PlayerBarsHUD**: status-chip `SetActive` calls now compare before toggling, and the strip
+    poll is gated to every 3rd frame (statuses only change per whole second — invisible, −2/3 of
+    the GetComponent scan + preserves).
+  - **AudioManager**: cached `_cam` (one `Camera.main`/frame) and wrapped the two steady-state
+    `Crossfade` volume writes in settle guards so a settled audio mix stops hammering native
+    property sets.
+  - **ChunkLodManager**: `SetActive` guarded per chunk per pass (no more re-calling SetActive on
+    ~every registered chunk each refresh).
+- Left as-is: event-driven GetComponents (interaction-key presses, combat toggles, model reloads,
+  menu builders), `EnemyHealthBarHUD` (already 0.5 s scan-gated), `InteractionPrompt`
+  (already 1/3-frame raycast + seat scan), `SittableSeat.FindNearest` (bounded list, gated).
+- Also committed the 44 Unity-generated `Assets\Scripts\Enemies\**\*.meta` files that 1do left
+  untracked (GUID-stable folders committed in the same pass so the race folders stop swallowing
+  later `git add -A`).
+- Verification (no CLI build, rule 3): grep — remaining `GetComponent`/`Camera.main` in
+  `PlayerController*` are one-time (Awake/model-load/menu) or inside key-press branches; the new
+  accessors are the only per-frame lookups and all live behind a null guard. No behavior change:
+  each replacement preserves its null-fallback semantics.
+
+### 1dr-status
+- Implemented; verified by grep + reread (no CLI build). Play-test: everything should feel/behave
+  EXACTLY identical (this pass only deleted redundant lookups) — walk + sprint + regen, equip/unequip
+  + cast aim, skill bar slots + cooldown fills, status chips appear/expire under the bars, ambient/
+  music crossfades, distant-chunk render culling. Watch the console for warnings (none expected).
+
 ## 1dp. Magic model bench — strip OrbFx so pedestal models are static
 
 User: "some magic keep switch between big and small continuously which really fuck up the visual".
