@@ -5,13 +5,13 @@ using UnityEngine;
 /// <summary>
 /// Spawns biome-appropriate enemies across the world (planning Task 5.1, game-design §7.1).
 /// Reads the biome registry, rolls per-biome enemy tables, honors density and day/night
-/// variants (§7.3), and boots an <see cref="EnemyController"/> at the given point.
+/// variants (§7.3), and boots the race's per-race brain (EnemyCatalog → EnemyController subclass).
 /// Player/designers drop this on the persistent world root.
 /// </summary>
 public class EnemySpawner : MonoSingleton<EnemySpawner>
 {
     [Header("Prefab")]
-    [Tooltip("EnemyController prefab to clone for each spawn.")]
+    [Tooltip("Optional prefab template cloned for each spawn (extra visuals/components). The brain (stats + identity) always comes from EnemyCatalog per race, never this prefab.")]
     public EnemyController EnemyPrefab;
 
     [Header("Budget")]
@@ -49,7 +49,6 @@ public class EnemySpawner : MonoSingleton<EnemySpawner>
     /// </summary>
     public EnemyController SpawnAt(BiomeType biome, Vector3 position, float tierScale = 1f)
     {
-        if (EnemyPrefab == null) return null;
         PruneDead();
         if (_live.Count >= MaxLiveEnemies) return null;
 
@@ -60,10 +59,23 @@ public class EnemySpawner : MonoSingleton<EnemySpawner>
         string enemyId = data.RollEnemyId();
         if (string.IsNullOrEmpty(enemyId)) return null;
 
-        var go = Instantiate(EnemyPrefab, position + Vector3.up * 0.05f, Quaternion.identity);
+        // Clone the prefab (if any) for visuals, then swap in the race's own brain component.
+        GameObject go;
+        if (EnemyPrefab != null)
+        {
+            go = Instantiate(EnemyPrefab.gameObject, position + Vector3.up * 0.05f, Quaternion.identity);
+            var staleBrain = go.GetComponent<EnemyController>();
+            if (staleBrain != null)
+                Destroy(staleBrain);
+        }
+        else
+        {
+            go = new GameObject("Enemy");
+            go.transform.position = position + Vector3.up * 0.05f;
+        }
         go.name = enemyId + "_" + _live.Count;
 
-        var enemy = go.GetComponent<EnemyController>();
+        var enemy = EnemyCatalog.AddEnemyComponent(go, enemyId);
         if (enemy == null)
         {
             Destroy(go);
@@ -71,7 +83,6 @@ public class EnemySpawner : MonoSingleton<EnemySpawner>
         }
 
         enemy.Biome = biome;
-        enemy.EnemyId = enemyId;
 
         // Day/night variant strength scaling (§7.3).
         float variant = 1f;

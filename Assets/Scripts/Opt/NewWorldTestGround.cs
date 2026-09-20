@@ -483,7 +483,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
             float eX = startX + i * 6f;
             go.transform.position = new Vector3(eX, PlatformTopY + 0.05f, z);
             go.AddComponent<SphereCollider>();
-            go.AddComponent<EnemyController>().ApplyEnemyId(ids[i]);
+            EnemyCatalog.AddEnemyComponent(go, ids[i]);
         }
     }
 
@@ -495,22 +495,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
         col.radius = 1f;
         col.center = new Vector3(0f, 0.85f, 0f);
 
-        var ec = go.AddComponent<EnemyController>();
-        ec.ApplyEnemyId("dummy");
-        ec.SetMaxHealth(1000);
-        ec.Damage = 0;
-        ec.Armor = 0;
+        // DummyEnemy carries the immortal/0-damage/regen defaults (1do); only the flat damage
+        // reduction variant and aggro ranges differ between the two dummies.
+        var ec = go.AddComponent<DummyEnemy>();
         ec.DamageReduction = damageReduction;
-        ec.AttackRange = 0f;
-        ec.AttackCooldown = 1.2f;
-        ec.ChaseRange = 30f;
-        ec.AlertRange = 30f;
-        ec.LeashRange = 40f;
-        ec.MoveSpeed = 0f;
-        ec.PatrolSpeed = 0f;
-        ec.CanFlee = false;
-        ec.Immortal = true;
-        ec.RegenPerSecond = Mathf.RoundToInt(ec.MaxHealth * 0.15f);
     }
 
     private void SpawnBoss()

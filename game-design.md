@@ -152,6 +152,8 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   the tool-pickup kit, and the magic-model grid — keys its placement off that one height, so nothing hugs
   a slope and every prop stands edge-to-edge level. Since the `1dl` follow-up the **enemy arena is off by
   default** (`EnableEnemies` = false — the spawn code stays, tick the toggle back on to fight the roster).
+  Since `1do` each row/dummy spawns the race's OWN script (`EnemyCatalog` → `Enemies\<Race>`) carrying its
+  distinct stats (§7.1.0) — the test-ground rows + dummies are the fastest way to diff every race.
 - **Magic-model grid (1dk):** `NewWorldTestGround.EnableMagicModels` (default **on**) places **every
   castable magic spell** on the platform's middle band — one pedestal + school-colored projectile-style
   body (the exact live-cast visuals via `SpellCaster.CreateProjectileDisplay`; Comet/Earth Meteor show
@@ -1344,6 +1346,44 @@ Generated from noise layers, each biome has unique terrain characteristics:
 | **Volcanic** | Molten, extreme heights | Fire elementals, Dragons | Obsidian, fire essence |
 | **Deep** | Underground caves | Demons, Mimics | Dark crystals, loot |
 | **Ocean** | Water terrain | Sea creatures | Pearls, coral |
+
+#### 7.1.0 Enemy Races — one folder + script per race (1do)
+
+Enemy races are **not** data-only strings anymore: every race owns a folder under
+`Assets\Scripts\Enemies\<Race>\` containing `<Race>Enemy.cs` — a subclass of the shared
+`EnemyController` FSM (`Enemies\_Shared\`, the unchanged brain) that stamps its own `EnemyId` and a
+**distinct stat profile** via `ApplyRaceConfig()`. `EnemyCatalog` maps a race id to its script
+(spawners `AddComponent` the race's type, so each folder's script IS that race's brain and edits to
+it apply everywhere — `EnemySpawner`, test-platform rows/dummies). `BossController` lives in
+`Enemies\Boss\`. `EnemyModelBuilder` still supplies all procedural models and `BuildEnemy` by id.
+The 21-race roster (HP / Dmg / MoveSpeed ; notable extras):
+
+| Race (folder) | HP | Dmg | Speed | Signatures |
+|---|---|---|---|---|
+| Slime | 80 | 8 | 1.2 | never flees |
+| Wolf | 55 | 12 | 3.5 | Alert 7 |
+| Goblin | 45 | 10 | 2.8 | quick skirmisher |
+| Bandit | 60 | 12 | 2.6 | baseline humanoid |
+| Treant | 95 | 14 | 1.4 | AttackRange 2.0 |
+| Golem | 120 | 16 | 1.2 | Armor 3, DR 10% |
+| Drake | 70 | 13 | 3.0 | fast |
+| Undead | 75 | 11 | 1.6 | shambler |
+| Slug | 65 | 9 | 0.9 | never flees |
+| Scorpion | 50 | 12 | 2.2 | balanced |
+| Mummy | 70 | 12 | 2.0 | balanced |
+| Yeti | 100 | 15 | 1.8 | Armor 2 |
+| Ice Wolf | 60 | 12 | 3.3 | Alert 7 |
+| Fire Elemental | 60 | 14 | 2.4 | Armor 1 |
+| Dragon | 140 | 20 | 1.6 | Armor 3, DR 15%, range 2.2 |
+| Demon | 130 | 18 | 2.2 | Armor 2, DR 10%, range 2.0 |
+| Mimic | 90 | 16 | 0.0 | stationary ambush, tiny aggro |
+| Sea Creature | 85 | 13 | 2.0 | balanced |
+| Skeleton | 50 | 10 | 2.5 | baseline (original profile) |
+| Bat | 30 | 7 | 4.0 | Alert 8 / Chase 12 / Leash 20 |
+| Dummy (training) | 1000 | 0 | 0 | Immortal, never dies, regen 15%/s |
+
+Mimic has no movement at all (ambush chest); the two test dummies differ only in flat
+`DamageReduction`. Day/night tier scaling (§7.3) and `TierScale` multiply these bases as before.
 
 ### 7.1.1 Enemy Death Explosion
 

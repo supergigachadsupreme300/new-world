@@ -3,6 +3,46 @@
 Last updated: 2026-09-20. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1do. Per-race enemy folders — one script per race (distinct stats)
+
+User: "there is no enemy in enemy folders, split each enemy race into a folder of each own, that folder
+would contain the script of enemy from that race".
+
+- **Before:** enemies were fully data-driven — one generic `EnemyController` FSM shared by all 21
+  races (a race was just a string `EnemyId`), identical default stats everywhere, no per-race files.
+  Now every race owns a folder + script under **`Assets\Scripts\Enemies\<Race>\<Race>Enemy.cs`**:
+  - `Enemies\_Shared\EnemyController.cs` (moved from `Combat\AI`, .meta GUID preserved) — the FSM
+    base; added `protected virtual ApplyRaceConfig()` called from `Awake` + `ApplyEnemyId` so each
+    subclass stamps its `EnemyId` + stats.
+  - 21 race classes (`SlimeEnemy … BatEnemy`, `DummyEnemy`), each with a **distinct stat profile**
+    (HP 30–140, dmg 7–20, etc. — full table in game-design §7.1.0); `DummyEnemy` is the immortal
+    1000-HP training target (0 dmg, 15%/s regen — the test ground only overrides DamageReduction +
+    aggro ranges for the armored variant).
+  - `Enemies\_Shared\EnemyCatalog.cs` — maps race id → per-race component type (unknown ids fall
+    back to the generic controller).
+  - `Enemies\Boss\BossController.cs` — moved unchanged (3 call sites keep working: POI, Dungeon,
+    test ground).
+- **Spawners wired to per-race brains:** `EnemySpawner.SpawnAt` no longer early-outs without a
+  prefab — it clones the prefab only as a visual template (stale brain swapped out) or builds a
+  plain GO, then `EnemyCatalog` adds the race's component; `NewWorldTestGround.SpawnEnemyRow` and
+  `SpawnDummy` use the catalog / `DummyEnemy`. So editing a folder's script affects every spawn.
+- `EnemyModelBuilder.BuildEnemy(id)` still supplies all models (kept centralized). `BossController`
+  still data-driven by `BossId`.
+- game-design §7.1.0 (race stat table + folder layout) + §2.7 and these docs updated same pass.
+- Verification (no CLI build, rule 3): grep — `ApplyEnemyId`/`AddComponent<EnemyController>` remain
+  only as (a) the base definition, (b) the intended catalog fallback; `_Archived\*` legacy refs are
+  outside Assets (not compiled); `BossController`/`EnemyController` consumers (HitboxSystem,
+  Spell*, CC/statuses, EnemyHealthBarHUD, NewWorldSystems, EnemyStateSync, RaceEffect/ClassEffect,
+  DungeonSystem, POIGenerator) resolve via the class name, path moves are GUID-stable (.meta
+  git-mv'd). Stat names compile against the base's public fields.
+
+### 1do-status
+- Implemented; verified by grep + reread (no CLI build). Play-test: enable `EnableEnemies` on the
+  test ground — each row should now show noticeably race-specific survivability/speed (hit a golem
+  vs a bat; dps check the dragon/demon); the armored dummy should still be ~50% DR and immortally
+  regenerate; world spawns (`EnemySpawner`) behave with no prefab assigned. Tune any race by editing
+  its folder's `ApplyRaceConfig()`.
+
 ## 1dn. Player spawn point moved to the test ground
 
 User: "change the player spawn point to be on the test ground".

@@ -16,6 +16,44 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
+## 1do — "there is no enemy in enemy folders, split each enemy race into a folder of each own" (SHIPPED in `1do`)
+
+User: "there is no enemy in enemy folders, split each enemy race into a folder of each own, that
+folder would contain the script of enemy from that race".
+
+- **Symptom:** zero enemy folders exist anywhere in Assets. Grep found NO `EnemyType` enum and NO
+  `enemy race` concept: every race was a bare string `EnemyId` driving ONE shared `EnemyController`
+  FSM + `EnemyModelBuilder.BuildEnemy(id)` for looks. Identical default stats (50 HP / 10 dmg /
+  2.5 speed) on ALL 21 races. So "the script of that race" had to be CREATED per race, not found.
+- H1 — just MOVE the shared `EnemyController` into each race folder? REJECTED: one shared brain
+  cannot also be "the script of each race" without duplication or lying folder contents; subclasses
+  are the honest mapping (each folder owns a real, editable script that governs that race).
+- H2 — keep spawners on the generic `AddComponent<EnemyController>` and ship the folders
+  reference-only? User explicitly chose "Wire spawners to per-race" — otherwise the per-race
+  scripts would be dead code. CONFIRMED wiring via new `EnemyCatalog`.
+- H3 — where does model-building go? Kept centralized in `EnemyModelBuilder` (each race's script
+  sets id; base builds model in Awake). Full per-race model split would duplicate `MakeBlock`
+  plumbing and explode the diff; not what "the script of enemy from that race" needs. DEFERRED.
+- Stat presets: user chose "Distinct stat presets now". Table designed along archetype lines
+  (slime tanky/no-flee, golem armor/DR, dragon/demon elite, mimic stationary ambush with tiny
+  aggro, bat fastest + wide perception, skeleton = pristine baseline). Numbers tunable; recorded as
+  the authoritative table in game-design §7.1.0.
+- Stat application timing: base `Awake` is `private` on the base — subclasses can't override it
+  safely, so added `protected virtual ApplyRaceConfig()` called at the TOP of `Awake` AND in
+  `ApplyEnemyId`. Field-initializer stats were an alternative (no hook) but serialized Inspector
+  defaults on the base would fight them; runtime stamping is unambiguous given the project has no
+  enemy prefabs/enemy scene instances (all runtime `AddComponent`).
+- `EnemySpawner` trap: existing `if (EnemyPrefab == null) return null;` would have silently killed
+  ALL world spawns once the brain moved to the catalog (no prefab assigned anywhere). Removed;
+  prefab is now only an optional visual template with its stale brain destroyed.
+- File moves preserve Unity GUIDs via `git mv` of `.meta` (EnemyController + BossController); the
+  new per-race files get fresh GUIDs (no existing asset references). `Assembly-CSharp.csproj` is
+  git-ignored (Unity regenerates) — its stale `Assets\Scripts\EnemyController.cs` entries are
+  legacy leftovers, not tracked.
+- Dummy regression risk: `SpawnDummy` used to override 9 fields; `DummyEnemy` now carries all of
+  them, and the armored variant still needs only `DamageReduction` + aggro ranges — kept identical
+  values (cross-checked line-by-line).
+
 ## 1dn — "change the player spawn point to be on the test ground" (SHIPPED in `1dn`)
 
 User: "change the player spawn point to be on the test ground".

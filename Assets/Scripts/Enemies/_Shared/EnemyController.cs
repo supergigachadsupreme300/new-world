@@ -85,9 +85,19 @@ public class EnemyController : MonoBehaviour, IDamageable
     public void ApplyEnemyId(string id)
     {
         EnemyId = id;
+        ApplyRaceConfig();
         if (ModelRoot == null)
             ModelRoot = EnemyModelBuilder.BuildEnemy(transform, id);
     }
+
+    /// <summary>
+    /// Per-race identity/stat hook (1do): every <c>XEnemy</c> subclass overrides this to stamp its
+    /// <see cref="EnemyId"/> and distinct combat profile the moment the component appears. Runs
+    /// from <see cref="Awake"/> (AddComponent path) and from <see cref="ApplyEnemyId"/>
+    /// (late-bind path); subclasses keep setting public fields here so Inspector edits win when
+    /// the component is configured in the editor instead.
+    /// </summary>
+    protected virtual void ApplyRaceConfig() { }
 
     private Transform _target;
     private readonly System.Collections.Generic.List<Transform> _targets = new System.Collections.Generic.List<Transform>();
@@ -116,6 +126,7 @@ public class EnemyController : MonoBehaviour, IDamageable
 
     private void Awake()
     {
+        ApplyRaceConfig();
         _origin = transform.position;
         _patrolTarget = PickPatrolTarget();
         CurrentHealth = Mathf.RoundToInt(_maxHealth * TierScale);
