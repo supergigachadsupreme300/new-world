@@ -4,8 +4,9 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Phase 8 (Task 8.1): enemy health bars. A screen-space overlay that positions a compact
-/// health bar above every live <see cref="EnemyController"/> (and other IDamageable when the
-/// <see cref="TrackDamageable"/> flag is set). Bars auto-pool; dead enemies release theirs.
+/// health bar above every live <see cref="EnemyController"/>. Bars auto-pool; dead enemies
+/// release theirs. Each bar anchors to its enemy's actual model head (highest renderer bounds)
+/// instead of a fixed offset, so small enemies (slime, bat) don't get bars floating far above.
 /// Uses the first on-screen enemy's max the moment a bar attaches (public max is deferred to
 /// <see cref="EnemyController"/> internals, so we capture the initial CurrentHealth).
 /// </summary>
@@ -116,11 +117,12 @@ public sealed class EnemyHealthBarHUD : MonoBehaviour
 
     private void Attach(EnemyHealthBar bar, EnemyController enemy)
     {
-        // Bars are pooled: (re)initialise max when a different enemy takes over the bar.
+        // Bars are pooled: (re)initialise max and head height when a different enemy takes over the bar.
         if (bar.Target != enemy.transform)
         {
             bar.Target = enemy.transform;
             bar.Max = Mathf.Max(1f, enemy.CurrentHealth);
+            bar.HeightOffset = ComputeHeadOffset(enemy);
         }
 
         if (_cam == null)
@@ -146,5 +148,30 @@ public sealed class EnemyHealthBarHUD : MonoBehaviour
     {
         if (bar.Root.activeSelf != shown)
             bar.Root.SetActive(shown);
+    }
+
+    private static float ComputeHeadOffset(EnemyController enemy)
+    {
+        // Default height above the root (used only when the model is unavailable).
+        const float Fallback = 2.2f;
+        const float Margin = 0.25f;
+
+        if (enemy == null || enemy.ModelRoot == null)
+            return Fallback;
+
+        var renderers = enemy.ModelRoot.GetComponentsInChildren<Renderer>();
+        if (renderers == null || renderers.Length == 0)
+            return Fallback;
+
+        float rootY = enemy.transform.position.y;
+        float top = renderers[0].bounds.max.y;
+        for (int i = 1; i < renderers.Length; i++)
+        {
+            float t = renderers[i].bounds.max.y;
+            if (t > top)
+                top = t;
+        }
+
+        return top - rootY + Margin;
     }
 }

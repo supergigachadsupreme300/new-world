@@ -16,6 +16,35 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
+## 1dj — enemy HP bar "does not stay on their head" (SHIPPED in `1dj`)
+
+User: "the hp bar of enemy does not stay on their head, fix".
+
+### Step 1 — what anchors the bar, and why does it float?
+- H1: bar lags behind a moving enemy. REJECTED — the HUD repositions every frame from the enemy root
+  transform (`WorldToScreenPoint` in Update), so it tracks position exactly.
+- H2: enemies bob/hover so the root height wobbles. REJECTED — grep of `Combat/AI` shows no
+  hover/bob/sin code; enemy models are static cube children of the root built at local zero.
+- H3 (CONFIRMED): the bar height is a FIXED 2.2u above the root, but models top out at very different
+  heights (model top: slime ~0.43u, wolf ~0.8u, bandit 0.95u, golem ~1.2u, dummy ~1.9u). So bars
+  float far above small enemies — reads as "not on their head".
+
+### Step 2 — fix options
+- A. Add a dedicated `Head`/top anchor transform to all ~20 model builders and anchor the HUD to it.
+  REJECTED — large surface area for no gain: models are static, so a model's top never moves relative
+  to the root; a measured bounds top is equivalent at attach time.
+- B. Measure the model's renderer-bounds top once per enemy (on pool rebind) and cache the offset;
+  keep following the root every frame. ACCEPTED — one-file change; `GetComponentsInChildren` only on
+  target-change, never per-frame; fallback 2.2u if the model/renderers are missing.
+- Margin `0.25` so the bar sits just above the head rather than inside it. Dragon/demon do have wide
+  wings/tail, but the head/horns are still the highest point on those builds here, so the absolute-top
+  rule is good enough without special-casing.
+
+### Verdict
+- CONFIRMED H3; implemented as B in `1dj` (`EnemyHealthBarHUD.ComputeHeadOffset`). OPEN until the user
+  play-tests (damage a spread of enemy sizes and check the bars hug each head).
+
+
 ## 1di — "game too lag" at radius 30: root-cause + prop ring + burst fix (SHIPPED in `1di`)
 
 User reported lag after `1dg` (radius 30). The `1dh` file refactor went first per their choice; this

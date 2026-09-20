@@ -1376,7 +1376,9 @@ Training dummies are `Immortal` and never die, so they never burst.
 - Skill bar (bottom center, 6-8 slots)
 - Minimap with chunk boundaries (toggle)
 - Multiplayer indicators (player names, health bars)
-- Enemy health bars (above enemies during combat)
+- Enemy health bars (anchored to each enemy's model head during combat — the bar height is measured
+  per enemy from the model's highest renderer, not a fixed offset, so small enemies (slime, bat) don't
+  get bars floating far above them; bars stay glued to the head while the enemy moves)
 
 ### 8.2 Menus
 

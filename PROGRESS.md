@@ -3,6 +3,34 @@
 Last updated: 2026-09-20. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1dj. Enemy health bars anchor to each enemy's model head (not a fixed offset)
+
+User: "the hp bar of enemy does not stay on their head, fix".
+
+- **Bug:** `EnemyHealthBarHUD` positioned every bar at `enemy.transform.position + (0, 2.2, 0)` — a fixed
+  height above the enemy ROOT (feet). Enemy models vary a lot (model top ≈ slime/slug/mimic/bat
+  0.3–0.45u, wolf/drake/ice_wolf 0.6u, scorpion 0.35u, bandit/undead/mummy/skeleton 0.95u, fire
+  elemental/yeti/golem/treant 1.1–1.2u, dummy 1.9u), so the constant 2.2u floated far above small
+  enemies and only roughly matched big ones — bars never sat on heads.
+- **Fix:** `ComputeHeadOffset(enemy)` (new, in `EnemyHealthBarHUD`) measures the model's highest
+  renderer bounds (`ModelRoot.GetComponentsInChildren<Renderer>().bounds.max.y` minus the root's y)
+  and adds a `0.25` margin; it runs only on bar target-change (pool rebind), never per frame, so up to
+  24 bars have zero steady-state cost. Fallback stays 2.2u when the model is missing. The bar still
+  tracks the root transform every frame, so it stays glued to the head while the enemy walks; the
+  cached offset is stable because models are static children of the root (no hover/bob/animation in
+  `EnemyController`).
+- Verification (no CLI/Unity build, rule 3): grep — `ModelRoot` is public on `EnemyController`
+  (`EnemyController.cs:53`, its only external consumer is this HUD); `ComputeHeadOffset` is new and
+  cited once; no other enemy HP-bar path exists (legacy WorldBuilder has none; `NewWorldSystems`
+  routes to this HUD). Reread of the HUD confirms balanced braces and the stale `TrackDamageable`
+  class doc-comment was corrected (that symbol never existed in code).
+
+### 1dj-status
+- Implemented; verified by grep + reread only (rule 3 — no compile). The user play-tests in Unity.
+- Play-test pending: damage a slime, a wolf, a bandit, a dummy, a bat, and a tall one (golem/undead) —
+  each bar should sit just above that model's head, stay glued while the enemy chases, and never float
+  high above small enemies.
+
 ## 1di. Lag fix: prop ring + adaptive burst smoothing (steady 60 trails the stream)
 
 User: "game too lag" (after `1dg` radius 30). After the `1dh` file refactor, scope was clarified via
