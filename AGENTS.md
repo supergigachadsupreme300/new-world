@@ -10,7 +10,7 @@
    - `game-design.md` — keep it in sync with implemented behavior (section references like §3.3,
      §3.7, §3.8, §5.7). Update stats/counts, status tables, and signature mechanisms on any feature
      change, and remove stale text (e.g. a removed currency/UI leftover) in the same pass.
-   - `AGENTS.md` — this file; update it whenever a recurring convention changes (see rules 4-5).
+   - `AGENTS.md` — this file; update it whenever a recurring convention changes (see rules 4-6).
    - `PROGRESS.md` — record every completed task as a new `## 1xx` entry at the top with a `### 1xx-status`
      block; note pending play-test items and any follow-up fixes. Refresh the intro ("Last updated")
      when older entries drift.
@@ -32,3 +32,9 @@
    a currency, renaming a method), grep `Assets\Scripts` for every removed symbol and its call sites
    (UI builders like `CharacterInfoUI`, save/restore paths, consumers) and confirm signatures match
    before finishing the commit.
+
+6. **When done with all requested tasks, wrap up with a short closing summary** in your final message:
+   one line per task naming the task id (`1xx`), the commit hash it shipped in, and the files touched;
+   then state the verification performed (grep/reread — no build) and list the pending play-test items
+   the user should check in Unity. Do not add this summary until every requested task is actually
+   committed and pushed.
