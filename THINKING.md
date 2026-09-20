@@ -15,6 +15,35 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1dp — "some magic keep switch between big and small continuously" (SHIPPED in `1dp`)
+
+User: "some magic keep switch between big and small continuously which really fuck up the visual".
+
+- **Symptom:** on the magic-model bench, parts of the grid visibly breathe/scale up and down — not
+  all models, and not at a constant speed (some flicker fast, some slow-pulse).
+- Evidence scan: the bench uses `SpellCaster.CreateProjectileDisplay`, which routes through the SAME
+  `AttachDefaultProjectileVisual` builders as live casts. Those builders attach `OrbFx` on every
+  shape (Orb/Shard/Debris/Bolt/Lance/Spear/Blade/Splash/Comet/Missile/Dart).
+- H1 — models carry a `SpellEffect` scaling them? REJECTED: the display explicitly adds none; no
+  collider/launch.
+- H2 — pedestal/timing hack animates them? REJECTED: nothing else in NewWorldTestGround touches the
+  bench models post-build (they're plain children of a labelled group).
+- H3 — `OrbFx` is the animator. CONFIRMED: `OrbFx.Update()` recomputes `localScale = base * pulse`
+  every frame with per-mode amplitudes; `Bolt` (±0.22, ~24 Hz × 7 Hz beat) is the worst "big/small"
+  offender, `Ember` (±0.22) solid second; `Plain`/`Shard` amplitudes (0.04–0.06) are the subtle ones
+  the user wouldn't complain about. Spins (Shard/Swirl/Tumble) add wobble.
+- Options: (a) thread an `animate=false` param through 12+ private builders to skip `AddComponent<OrbFx>`
+  — cleanest signature-wise but a large mechanical diff touching every shape; (b) strip the components
+  inside `CreateProjectileDisplay` after building (`GetComponentsInChildren<OrbFx>` + Destroy). Chose
+  **(b)**: one 3-line change fully inside the display path, live casts untouched (they never call
+  CreateProjectileDisplay — single caller is the bench). OrbFx is a private nested class, so the strip
+  must stay inside SpellCaster — it does.
+- Kept the comet-exhaust ParticleSystems on pedestal models (they don't rescale the body). If the user
+  later wants a dead-calm gallery, gate `AttachProjectileParticles` too.
+- Open: none. Verified by reread + grep (single `CreateProjectileDisplay` caller; `OrbFx` added only
+  in `SpellCaster.Projectiles.cs`, destroyed for the display before any child Update runs).
+
+---
 
 ## 1do — "there is no enemy in enemy folders, split each enemy race into a folder of each own" (SHIPPED in `1do`)
 

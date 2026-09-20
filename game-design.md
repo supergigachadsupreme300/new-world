@@ -159,7 +159,9 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   body (the exact live-cast visuals via `SpellCaster.CreateProjectileDisplay`; Comet/Earth Meteor show
   the summonFallingRock boulder, zone/beam/storm/summon/instant spells show their school-colored default
   icon) + a world-TMP label — pure visuals (no colliders/interaction) so each spell's magic model can be
-  looked at and edited.
+  looked at and edited. Since `1dp` the pedestal models are **static**: `CreateProjectileDisplay` strips
+  the live-cast `OrbFx` scale-pulse/spin components after building, so they no longer bob/crackle
+  between big and small while sitting on the bench (the real casts still flicker in flight).
 - **Player spawns on the test ground (1dn):** the test platform is now the **default spawn point**.
   `GameBootstrap` creates the test ground before placing the player and lands them on
   `NewWorldTestGround.GetSpawnPoint()` (pad top + 2 m) whenever the platform is built

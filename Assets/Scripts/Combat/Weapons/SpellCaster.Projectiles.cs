@@ -70,6 +70,10 @@ public partial class SpellCaster
     {
         var go = new GameObject("MagicModelDisplay");
         AttachDefaultProjectileVisual(go, type, shape, rockBody);
+        // Bench models are static (1dp): live casts carry OrbFx so bolts flicker/crackle in flight,
+        // but on the pedestal the same pulse reads as the model switching between big and small.
+        foreach (var fx in go.GetComponentsInChildren<OrbFx>(true))
+            Destroy(fx);
         return go;
     }
 

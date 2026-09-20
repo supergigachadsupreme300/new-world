@@ -3,6 +3,30 @@
 Last updated: 2026-09-20. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1dp. Magic model bench — strip OrbFx so pedestal models are static
+
+User: "some magic keep switch between big and small continuously which really fuck up the visual".
+
+- **Root cause:** the bench's `SpellCaster.CreateProjectileDisplay` builds each model through the same
+  `AttachDefaultProjectileVisual` path as live casts, which always attaches `OrbFx`. That component's
+  `Update()` rescales + spins every model continuously (`Bolt` pulses ±0.22 at ~24 Hz, `Ember` up to
+  ±0.22, spins on Shard/Swirl/Tumble). On a flying projectile that flicker is the intent; sitting on a
+  pedestal it reads as "switching between big and small".
+- **Fix:** inside `CreateProjectileDisplay`, after building the visual, destroy all child `OrbFx`
+  components — the pedestal models are now fully static. Live-cast visuals are untouched (every
+  `AddComponent<OrbFx>` lives in the projectile builders that the display strips after the fact).
+- Grep: `CreateProjectileDisplay` has a single caller (NewWorldTestGround magic-model grid); `OrbFx`
+  is only added inside `SpellCaster.Projectiles.cs`. The comet-exhaust particle streams on the pedestal
+  models are kept (they don't change size/shape).
+- game-design §2.7 magic-model grid bullet updated in the same pass.
+- Verification (no CLI build, rule 3): reread `CreateProjectileDisplay` + `OrbFx` — strip loop runs
+  before any child `Update`, destroys the only animation source on the display.
+
+### 1dp-status
+- Implemented; verified by grep + reread (no CLI build). Play-test: enable the magic-model grid — the
+  pedestal models should now sit perfectly still (no more big/small pulsing or wobble); casting any
+  spell still flickers/crackles/spins in flight as before.
+
 ## 1do. Per-race enemy folders — one script per race (distinct stats)
 
 User: "there is no enemy in enemy folders, split each enemy race into a folder of each own, that folder
