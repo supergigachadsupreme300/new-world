@@ -1,7 +1,50 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-19. Read this first in a new session; then continue with the
+Last updated: 2026-09-20. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
+
+## 1dh. Refactor pass: split the top 8 monolith files into partial classes (no behavior change)
+
+User: "game too lag, first optimize the files structure" — clarified: do the code/file refactor FIRST
+(this task), then the game-object structure lag fix as a separate task (planned as `1di`, next).
+
+- Pure **mechanical** split: methods/properties/whole #regions moved out of each monolith into new
+  same-class partial files, following the repo's existing convention (`WorldBuilder.*`, `MapBuilder.*`).
+  **No logic, member name, signature, field, or serialized layout changed.** Fields and
+  `Awake/Update/Start/OnDestroy` and any trailing helper classes stayed in each original file.
+- 8 monoliths split (original → kept + new files):
+  - `CharacterInfoUI.cs` 3321 → core + Stats / Equipment / Faith / Inventory / Map / Skills (7 files).
+  - `MapBuilder.cs` 2276 → core + Stores / Restaurants / Nightclub / Vehicles / Police (11 files total).
+  - `WorldBuilder.cs` core → core + Environment (sky/weather/fog) + Lights (street lights) (14 files total).
+  - `PlayerController.cs` → core + Movement / Camera / Animation / Combat / Interactions (6 files).
+  - `UIManager.cs` → core + Settings / Menus / Feedback (3 new parts; 13 files total).
+  - `SpellCaster.cs` → core + Cast / Channels / Projectiles / ApplyHit (5 files).
+  - `WorldStreamer.cs` → core + Streaming / ChunkBuild / Mesh / Props / Deform (6 files).
+  - `ToolManager.cs` → core + Dig / Weapons (2 new parts; 8 files total).
+- **Verification (no CLI/Unity build, rule 3):** `git diff` on every original shows only deletions (+
+  `partial` keyword / repositioning): WorldBuilder 0 add/142 del, MapBuilder 0/2027, ToolManager 0/70,
+  UIManager 0/325, WorldStreamer 1/1042, SpellCaster 2/1061, PlayerController 3/1549,
+  CharacterInfoUI 50/2774 (the `+` lines were content repositioned within the family — TreePan,
+  RaceNode colors, IgnoreInput all verified present at HEAD). Per-family line totals preserved
+  (delta ≤ 64 = new-file headers/usings). `partial class X` file counts: CharacterInfoUI 7, MapBuilder
+  11, WorldBuilder 14, PlayerController 6, UIManager 13, SpellCaster 5, WorldStreamer 6, ToolManager 8.
+  Moved-member uniqueness re-checked by grep; new-file subtrees have balanced braces/#regions; no
+  duplicate script GUIDs; per-part usings are supersets of the original (warnings at worst, never
+  missing types).
+- Docs: `game-design.md` unchanged (pure file-move, no design/behavior delta). `PROGRESS.md` `1dh`,
+  `THINKING.md` `1dh`.
+
+### 1dh-status
+- Implemented; verified by grep + reread + git-diff only (rule 3 — no compile). The user play-tests
+  in Unity.
+- Play-test pending: boot still works (WorldBuilder boot path intact), character/stats/map UI opens
+  and populates (CharacterInfoUI partials), skills/race-trees render, shop/nightclub/restaurant/
+  police-station buildings still build at their spots (MapBuilder partials), player movement/combat/
+  sit/interact all respond (PlayerController partials), spells cast + projectiles + channels work
+  (SpellCaster partials), tools swing/dig (ToolManager partials), chunk streaming still fills the
+  radius-30 ring (WorldStreamer partials), settings/menus/feedback UI still open (UIManager partials).
+- NEXT task (per user): `1di` — game-object structure lag fix (collider band + prop ring + prop mesh
+  merge/instancing). Files are now small enough to make that surgical.
 
 ## 1dg. Render radius raised to 30; streaming burst sped up ~4x (poll 2x + bigger budgets)
 

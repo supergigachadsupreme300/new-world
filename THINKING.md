@@ -16,6 +16,53 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
+## 1dh — "game too lag, first optimize the files structure" (SHIPPED in `1dh`)
+
+User reported lag right after `1dg` (radius 30). Clarified via question: "optimize the files structure"
+= reorganize the C# code files FIRST (their answer also included the game-object structure fix, but as
+the explicit "Refactor first, perf after" ordering — so `1dh` is refactor, `1di` is the lag fix).
+
+### Step 1 — what "structure" really meant here
+- The folder tree was already sane (`Combat/*`, `World/*`, `NPCs`, `UI/NewWorld`, ...). The real
+  structural debt is 25 `.cs` files over ~600 lines (god files: CharacterInfoUI 3321, MapBuilder 2030,
+  WorldBuilder 1973, PlayerController 1779, UIManager 1609, SpellCaster 1165, WorldStreamer 1096,
+  ToolManager 1076). The repo already has the right convention: `public partial class X` split by
+  domain (WorldBuilder.*, MapBuilder.*). So "file structure" = extend that to the gods.
+- H1: rename/refolder files → would break Unity MonoBehaviourt GUID/meta references. REJECTED — a
+  pure rename invalidates script references. Strategy: KEEP original filenames as the partial cores,
+  ADD new `X.Group.cs` files (Unity auto-meta). Verified no duplicate meta GUIDs.
+
+### Step 2 — the split rules that made it mechanical + safe
+- Fields NEVER move (serialized layout untouched — Unity serializes by name regardless of file).
+- Methods/properties/whole #regions move verbatim; base-class/interfaces/attributes stay on the core
+  part; `sealed`/`static` repeated on every part (C# requires matching modifiers);
+  `public static partial class MapBuilder` parts — static keyword required on ALL parts.
+- New parts copy the original's FULL using block (superset) — unused usings are warnings, never
+  compile breaks; this dodges "missing using" entirely.
+- Trailing helper classes (WorldBuilder.Fields/Building/ThrownItem..., ToolManager.InventorySlot...)
+  stay put.
+- Partial classes: a MonoBehaviour's asset reference follows the file whose name matches the class —
+  the cores keep those names, so scene/prefab references survive the split.
+
+### Step 3 — verification reality-check (elsewhere I caught a fabrication risk)
+- `git diff -U0` on every original: all hunks are pure deletions (+ `partial` keyword). Small "+"
+  counts that appeared got scrutinized against `git show HEAD:<file>`:
+  - CharacterInfoUI "+50": TreePan pan/zoom class, RaceNode colors, BuildRaceTree helpers — all
+    PRESENT at HEAD, so the "+" is diff repositioning after big deletions, not invented code.
+  - PlayerController "+3": IgnoreInput property present at HEAD (it was genuinely un-indented at
+    line 23 originally — agent kept it verbatim, causing a repositioning hunk).
+  - Per-family line totals are preserved (delta ≤ 64 = new-file header comments + using supersets).
+- Grep: `partial class X` file counts match the created files exactly; moved member names unique
+  across Assets/Scripts (the few "dupes" — ApplyHit/BuildCafe/ResetTerrainSaves/TakeDamage — were
+  same-named members on DIFFERENT classes, verified per-hit).
+
+### Verdict
+- H1 rejected; the mechanical partial-split convention is confirmed as the low-risk path. Shipped in
+  `1dh`. No compile (rule 3); user play-tests. Lag fix pending as `1di` (collider band + prop ring +
+  prop mesh merge/instancing to cut ~450k colliders / ~33k renderers at radius 30).
+
+---
+
 ## 1dg — "increase terrain render range and need to increase the loading speed even more" (SHIPPED in `1dg`)
 
 User asked for (a) more render range and (b) faster loading. Clarified via questions: radius **30**, an
