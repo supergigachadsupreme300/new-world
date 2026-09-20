@@ -97,6 +97,10 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   keeps its colliders, so chopping/mining targets near the player stay fully hit-able; props pop in/out
   only at the ring edge (~600 m away) and are deterministic per chunk, so re-entering the ring restores
   the exact same trees/rocks.
+- **Nature props are sparse (1dm):** trees AND rocks each spawn 1-in-1000 per tile (a fifth of the
+  original 1/200 ratio) — a chunk (~900 tiles) averages ~2 cube-heavy props instead of ~9, so the
+  world reads sparser/cleaner while the prop ring stays light. The odds live in
+  `ChunkObject.PropSpawnOdds`.
 
 ### 2.6 Chunk Persistence (File Caching)
 

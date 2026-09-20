@@ -16,6 +16,29 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
+## 1dm — "reduce tree and stone spawn ratio to 1/5" (SHIPPED in `1dm`)
+
+User: "reduce tree and stone spawn ratio to 1/5".
+
+- H1 — the ratio is in `ChunkObject.StepProps` (streamed world): each tile rolls `_propRng.Next(200)`
+  once for a tree and once for a rock → 1/200 each. "reduce … to 1/5" reads as "× 1/5" (an absolute
+  "1/5" would be 40× DENSER than today, so that can't be the intent) → 1/200 ÷ 5 = **1/1000**.
+- H2 — did the legacy `WorldBuilder.SpawnTrees(150)/SpawnRocks(75)` also need the cut? REJECTED: that
+  path only runs under `EnableLegacyGeneration` (default false — the comment "streaming world: all
+  blueprints usable" and Start/GenerateWorld gates confirm legacy generation is off). Only the streamed
+  path drives what the player sees.
+- Implementation: single const `ChunkObject.PropSpawnOdds = 1000`, both rolls use it (deterministic
+  per-chunk RNG unchanged, so chunk-to-chunk placement is still deterministic — just sparser).
+- Expected counts (chunk = 30×30 = 900 tiles, `TerrainChunkCoord.ChunkSize`): old ≈ 900×(1/200×2) =
+  ~9 props/chunk; new ≈ 900×(1/1000×2) = **~1.8 props/chunk** (poisson, most chunks 0-2, rare tail to
+  ~5). A full ring-4 (81 chunks) holds ~150 props instead of ~730.
+  WORTHY of a play-test check: at ring 4 the world may now read fairly empty in spots.
+
+### Verdict
+- CONFIRMED H1 (1-in-1000), H2 rejected. Implemented as `1dm`. OPEN until the user play-tests the new
+  density.
+
+
 ## 1dl — stop spawning enemies, keep the code (SHIPPED in `1dl`)
 
 User: "stop spawning enemy for now but keep the enemy code, i'll test them later".

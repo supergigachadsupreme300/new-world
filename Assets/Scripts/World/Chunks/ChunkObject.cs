@@ -32,6 +32,11 @@ public class ChunkObject : MonoBehaviour
     private int[] _propTiles;
     private int _propCursor;
 
+    /// <summary>Nature-prop spawn odds per tile: 1-in-<see cref="PropSpawnOdds"/> for BOTH trees and
+    /// rocks. Was 200 (1/200 each) until `1dm` cut the ratio to a fifth → 1-in-1000, so a chunk
+    /// (~900 tiles) now averages ~2 cube-heavy props instead of ~9.</summary>
+    private const int PropSpawnOdds = 1000;
+
     private void Awake()
     {
         _mf = GetComponent<MeshFilter>();
@@ -201,10 +206,12 @@ public class ChunkObject : MonoBehaviour
             int tileZ = ChunkCoord.Z * cs + (idx / cs);
 
             // Nature props (trees/rocks) spawn on every tile — the test ground no longer carves
-            // or suppresses anything, so the procedural world is left exactly as generated.
-            if (_propRng.Next(200) == 0)
+            // or suppresses anything, so the procedural world is left exactly as generated. Each
+            // 1-in-N roll is 1-in-1000 per tile since `1dm` (tree AND rock cut to a fifth of the
+            // original 1/200 density).
+            if (_propRng.Next(PropSpawnOdds) == 0)
                 SpawnTree(_propSeed, tileX, tileZ, _propRng);
-            if (_propRng.Next(200) == 0)
+            if (_propRng.Next(PropSpawnOdds) == 0)
                 SpawnRock(_propSeed, tileX, tileZ, _propRng);
             consumed++;
         }

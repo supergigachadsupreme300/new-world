@@ -3,6 +3,28 @@
 Last updated: 2026-09-20. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1dm. Nature props (trees + rocks) cut to 1/5 density
+
+User: "reduce tree and stone spawn ratio to 1/5".
+
+- The streamed world's nature props spawn in `ChunkObject.StepProps`: one 1-in-200 roll per tile for
+  trees and one for rocks. Both were cut to **1-in-1000 per tile** (= 1/5 of the original 1/200):
+  new const `ChunkObject.PropSpawnOdds = 1000` drives both `SpawnTree`/`SpawnRock` calls. A chunk
+  (~900 tiles) now averages ~2 cube-heavy props instead of ~9 (a full ring-4 = 81 chunks ≈ 150 props
+  vs ~730). The ring keeps everything else: pop-in/out at the `PropRingRadius` edge, deterministic
+  per-chunk stream, colliders for chopping/mining.
+- Only the STREAMED world was changed. The legacy `WorldBuilder.SpawnTrees(150)`/`SpawnRocks(75)`
+  spawn path is legacy-mode only (`EnableLegacyGeneration = false`) and untouched.
+- Comments in `ChunkObject` + `WorldStreamer.Props` and game-design §2.6/§2.7 updated in the same pass.
+- Verification (no CLI build, rule 3): grep — `Next(200)` no longer exists (0 matches);
+  `PropSpawnOdds` cited only by both `StepProps` rolls; `SpawnTree`/`SpawnRock` callers unchanged;
+  legacy `SpawnTrees(SpawnRocks` still only run under `EnableLegacyGeneration`.
+
+### 1dm-status
+- Implemented; verified by grep + reread. Play-test: walk the streamed world — noticeably fewer trees
+  and rocks (~1/5 the previous density), still in sparse clusters; chop/mining targets near the player
+  still respawn deterministically; perf is even lighter.
+
 ## 1dl. Enemy arena off by default on the test platform (code kept)
 
 User: "stop spawning enemy for now but keep the enemy code, i'll test them later".
