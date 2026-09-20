@@ -58,14 +58,30 @@ public partial class SpellCaster
     }
 
     /// <summary>
+    /// Stand-alone render-only spell visual for the test ground's magic model bench (1dk): builds
+    /// the exact projectile body + comet-exhaust particles a live cast carries, with no
+    /// <see cref="SpellEffect"/>, no collider, and no launch — it simply sits at its root so each
+    /// spell's model can be looked at and edited. `shape` resolves like a real cast (Auto → element
+    /// default); <paramref name="rockBody"/> dresses it as the rough burning rock sky-rock spells
+    /// (summonFallingRock: Meteor / Asteroid / Comet) summon.
+    /// </summary>
+    public static GameObject CreateProjectileDisplay(DamageType type, ProjectileShape shape = ProjectileShape.Auto,
+        bool rockBody = false)
+    {
+        var go = new GameObject("MagicModelDisplay");
+        AttachDefaultProjectileVisual(go, type, shape, rockBody);
+        return go;
+    }
+
+    /// <summary>
     /// Build a shape-aware visible projectile body + comet-exhaust particles for spells with no
     /// authored CastEffectPrefab, so magic skills read on screen. `shape` is the ProjectileShape
     /// from SpellData (§3.8): Auto resolves to the element default so every projectile still has a
     /// sane look; explicit shapes follow the spell's NAME ("Frost Bolt" = a Bolt, "Ice Lance" = a
     /// Lance, "Stone Shard" = a Debris clump...). Renderer-only: the root keeps no collider so
-    /// SpellEffect's flight raycast never self-hits.
+    /// SpellEffect's flight raycast never self-hits. Static — the visual has no instance state.
     /// </summary>
-    private void AttachDefaultProjectileVisual(GameObject go, DamageType type, ProjectileShape shape, bool rockBody = false)
+    private static void AttachDefaultProjectileVisual(GameObject go, DamageType type, ProjectileShape shape, bool rockBody = false)
     {
         Color color = DamageNumber.ColorFor(type);
         Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");

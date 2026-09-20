@@ -3,6 +3,41 @@
 Last updated: 2026-09-20. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1dk. Magic model bench: every castable magic spell placed on the test platform
+
+User: "place down every magic on the test ground so i can look and edit the magic model".
+
+- **Scope (user-chosen):** ONE display per castable magic spell (the full 90+ `MagicTestMatrix`
+  roster — `SkillCatalog.OfType(SkillType.Magic)` minus passives, gated on
+  `skill.Effect is SpellCastEffect cast && cast.Spell != null`, sorted by school then display name)
+  + an in-game world-TMP label above each (user-chosen).
+- **Display:** each spell gets a pedestal + a school-colored projectile-style body placed on a grid
+  across the platform's clear middle band (x ±0.78·PlatformSize at 3u pitch → 32 columns × 3 rows on
+  the default 120 platform), oriented to face the platform center. Bodies reuse the EXACT live-cast
+  visuals via the new `SpellCaster.CreateProjectileDisplay(type, shape, rockBody)` static — Comet /
+  Earth Meteor / Asteroid show the summonFallingRock boulder, explicit shapes (Ice Lance, Shadow
+  Spear, Arcane Missiles, Wind Scissor...) show their real body, and zone/beam/vortex/storm/summon/
+  instant spells show their school-colored default icon (those deliveries are runtime-animated, no
+  static projectile — flagged to the user; animated delivery models are a possible follow-up).
+- **Plumbing:** `SpellCaster.AttachDefaultProjectileVisual` made `static` (it only called statics;
+  the instance `DecorateProjectile` wrapper for turrets is unchanged). New opt-in lane:
+  `NewWorldTestGround.EnableMagicModels` (default on, after the skills lane in `RunBenchSpawn`) →
+  `SpawnMagicModels()`. Pedestals and bodies get **no collider** (grid stays walkable). Labels copy
+  the world-TMP pattern of the legacy building signs (text/fontSize/alignment/color/outline/sizeDelta),
+  colored by `DamageNumber.ColorFor(school)`.
+- Verification (no CLI/Unity build, rule 3): grep — `AttachDefaultProjectileVisual` callers
+  (`FireProjectile`, `DecorateProjectile`) unchanged; `CreateProjectileDisplay` cited only by
+  `SpawnMagicModels`; `SkillCatalog.OfType`, `UiAssetCache.DefaultFont` (not used now — label follows
+  the sign pattern), `SkillCastEffect.Spell` accessor all verified present. Reread of both files
+  confirms balanced braces/flow. `game-design.md` §2.7 and these docs updated in the same pass.
+
+### 1dk-status
+- Implemented; verified by grep + reread only (rule 3 — no compile). User play-tests in Unity.
+- Play-test pending: walk the platform's center band — every magic spell should be present with a
+  readable school-colored label, each projectile shape should match what that spell casts, the grid
+  should not overlap the enemy/dummy/village lanes, and the bench stays walkable (open the spell's
+  ProjectileShape-related code and re-run to see the edit).
+
 ## 1dj. Enemy health bars anchor to each enemy's model head (not a fixed offset)
 
 User: "the hp bar of enemy does not stay on their head, fix".

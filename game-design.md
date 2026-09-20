@@ -145,8 +145,14 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   never writes to `tc_*.dat` files.
 - The whole bench sits flat on the platform's **single level top** (`PlatformTopY`): every lane —
   farming plots/tilled soil, livestock, enemies/dummies/boss, buildings, NPCs, weapon pedestals/racks,
-  and the tool-pickup kit — keys its placement off that one height, so nothing hugs a slope and every
-  prop stands edge-to-edge level.
+  the tool-pickup kit, and the magic-model grid — keys its placement off that one height, so nothing hugs
+  a slope and every prop stands edge-to-edge level.
+- **Magic-model grid (1dk):** `NewWorldTestGround.EnableMagicModels` (default **on**) places **every
+  castable magic spell** on the platform's middle band — one pedestal + school-colored projectile-style
+  body (the exact live-cast visuals via `SpellCaster.CreateProjectileDisplay`; Comet/Earth Meteor show
+  the summonFallingRock boulder, zone/beam/storm/summon/instant spells show their school-colored default
+  icon) + a world-TMP label — pure visuals (no colliders/interaction) so each spell's magic model can be
+  looked at and edited.
 - **No auto-teleport at boot (1bz):** the player starts on the world's boot chunk near `(0, terrain, -10)`
   and the platform is left in place for the player to walk to. `GetSpawnPoint` still returns the pad's
   top + 2 m, but `PlayerController.ResetPlayer` only re-homes the player there when they have **already

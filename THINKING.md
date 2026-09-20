@@ -16,6 +16,50 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
+## 1dk — "place down every magic on the test ground" (SHIPPED in `1dk`)
+
+User: "place down every magic on the test ground so i can look and edit the magic model".
+
+### Step 1 — what IS "the magic model"
+- The game has no `MagicModelBuilder`; every magic spell's visual is either a projectile body built at
+  runtime by `SpellCaster.Projectiles.cs` (`BuildProjectileBody` switch: Orb-Sphere, Bolt, Shard,
+  Lance, Spear, Blade, Splash, Comet, Missile, Dart, Debris + the summonFallingRock boulder) or an
+  animated delivery object (SpellZone ring/column, SpellBeam line, SpellStorm strikes, SpellTornado
+  funnel, SpellSummon totem/effigy, transient SkillFx flashes).
+- User picked scope C: **one display per castable magic spell** (the 90+ MagicTestMatrix roster) + a
+  world-TMP label above each. So I re-read the cast path (`SpellCaster.Cast.cs`) to ground how each
+  delivery looks before deciding what to display.
+
+### Step 2 — how to display a spell statically
+- Projectile spells: reuse the exact live-cast visuals by making the (instance-but-stateless)
+  `AttachDefaultProjectileVisual` **static** and adding `public static CreateProjectileDisplay(type,
+  shape, rockBody)` — same body + comet-exhaust particles, no `SpellEffect`/collider/launch.
+- Non-projectile deliveries (Zone/Vortex/Beam/Storm/Summon/Instant) have **no static projectile** —
+  their visuals are runtime-animated and would need live casts. Decision: show their school-colored
+  default icon body + the spell name label, so the bench still lists every magic spell with a
+  recognizable id to edit. Flagged to the user before shipping; folding in animated delivery models
+  is a possible follow-up.
+
+### Step 3 — where on the platform (spatial reasoning)
+- Layout constraints read from `NewWorldTestGround.cs`: tool kit at x +0.42·PlatformSize (z −26..+22),
+  weapon rack at x −0.42·PlatformSize, enemy rows z −24..−40 (x ±27), dummies z −18 (x ±4), NPC row
+  z −0.18·PlatformSize (x +6..+22), farm/livestock/buildings z ≥ +18. Player spawns at z +0.45·PlatformSize.
+- Free middle band: x ±0.40·PlatformSize, z −14..+10. Placed the grid there (default 120 platform:
+  32 columns × 3 spacer-3u rows ≈ 93u wide × 6u deep). 3u pitch keeps labels apart and rows walkable;
+  pedestals/bodies get **no collider** so the grid never blocks movement or E-interaction.
+
+### Step 4 — labels
+- World TMP pattern copied from the legacy building signs (`MapBuilder.Nightclub` neon label:
+  text/fontSize/alignment/color/outline/sizeDelta, no explicit font assignment) — consistent with the
+  codebase; relies on the project's configured TMP default font like the signs do.
+
+### Verdict
+- CONFIRMED: the reusable body builders (Step 2) are all static → the static-visual approach needs
+  no live caster. Implemented as `1dk`. OPEN until the user play-tests (walk the grid: every magic
+  spell visible + labeled; each shape matches the cast; grid clear of other lanes; big icons not busy)
+  or asks for the animated delivery models as a follow-up.
+
+
 ## 1dj — enemy HP bar "does not stay on their head" (SHIPPED in `1dj`)
 
 User: "the hp bar of enemy does not stay on their head, fix".

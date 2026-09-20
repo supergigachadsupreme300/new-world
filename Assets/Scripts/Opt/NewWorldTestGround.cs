@@ -55,6 +55,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableGear = true;
     [Tooltip("Wire the RaceChangeManager, unlock every race, and grant Ritual Stones for the Race tab (testing).")]
     public bool EnableRaces = true;
+    [Tooltip("Place EVERY castable magic spell on the platform's middle band as a static, school-colored projectile-style model on a pedestal with an in-game label (mirrors the MagicTestMatrix roster, 1dk). Pure visuals for looking at/editing each spell's model — no collision, no interaction.")]
+    public bool EnableMagicModels = true;
     [Tooltip("Cast Earth-shape terrain demos (Wall smooth ridge, Pillar, Crater smooth dent) onto the streamed terrain just off the platform. The Wall is cast twice to show repeat casts are CAPPED (smooth feathered deforms, no slab stacking — 1cj). Deforms REAL terrain — permanent chunk saves — so it is off by default and never touches the platform or legacy village.")]
     public bool EnableTerrainSlabDemo = false;
     [Tooltip("QA the layered strata (grass -> dirt -> stone): two craters excavated on the streamed terrain just off the platform by repeating the shared crater digs (each cast ratchets the floor a step deeper, like the shovel/pickaxe path). One pit reaches the dirt band, the other digs through into stone. Deforms REAL terrain — permanent chunk saves — so it is off by default and never touches the platform or legacy village.")]
@@ -133,6 +135,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
             yield return null;
         }
         if (EnableSkills) { RunSafely("skills", GrantAllSkills); yield return null; }
+        if (EnableMagicModels) { RunSafely("magic models", SpawnMagicModels); yield return null; }
         if (EnableGear) { RunSafely("gear", GrantStarterGear); yield return null; }
         if (EnableRaces) { RunSafely("races", GrantRaceAccess); yield return null; }
         if (EnableTerrainSlabDemo) { RunSafely("terrain shapes demo", SpawnTerrainSlabDemo); yield return null; }
@@ -828,6 +831,94 @@ public sealed class NewWorldTestGround : MonoBehaviour
                     learnedAny = true;
             }
         } while (learnedAny);
+    }
+
+    /// <summary>
+    /// Place EVERY castable magic spell down on the platform's middle band as a static,
+    /// school-colored projectile-style model on a pedestal + in-game label, so each spell's magic
+    /// model can be looked at and edited on the test ground (1dk). The roster mirrors the
+    /// MagicTestMatrix grid: every <see cref="SkillType.Magic"/> skill that isn't passive and casts
+    /// a real <see cref="SpellData"/>, grouped by school then display name. Each display reuses the
+    /// exact live-cast body builders via <see cref="SpellCaster.CreateProjectileDisplay"/> — Comet /
+    /// Earth Meteor show the rough rock body (SummonFallingRock), explicit shapes (Ice Lance, Shadow
+    /// Spear, Arcane Missiles...) show their real body, and zone/beam/vortex/storm/summon/instant
+    /// spells show their school-colored default icon (those deliveries have no static projectile).
+    /// The label uses the world-TMP pattern from the legacy building signs. Pure visuals — pedestals
+    /// and bodies get no collider, so the grid stays walkable and nothing is interactable.
+    /// </summary>
+    private void SpawnMagicModels()
+    {
+        SkillCatalog.EnsureBuilt();
+
+        var castables = new List<(Skill skill, SpellData spell)>();
+        foreach (var skill in SkillCatalog.OfType(SkillType.Magic))
+        {
+            if (skill == null || skill.IsPassive) continue;
+            if (skill.Effect is not SpellCastEffect cast || cast.Spell == null) continue;
+            castables.Add((skill, cast.Spell));
+        }
+        if (castables.Count == 0) return;
+        castables.Sort((a, b) =>
+        {
+            int bySchool = ((int)a.skill.DamageKind).CompareTo((int)b.skill.DamageKind);
+            return bySchool != 0 ? bySchool
+                : string.CompareOrdinal(a.skill.displayName ?? a.skill.id, b.skill.displayName ?? b.skill.id);
+        });
+
+        // Grid across the platform's middle band — clear of the tool kit east / weapon rack west
+        // lines (x ±0.42·PlatformSize), the enemy rows + dummies south of z-18, the farming/
+        // livestock/buildings band at z+18+, and the NPC row at z-0.18·PlatformSize.
+        float spacing = 3f;
+        float usable = PlatformSize * 0.78f;
+        int columns = Mathf.Clamp(Mathf.FloorToInt(usable / spacing) + 1, 1, Mathf.Max(1, castables.Count));
+        int rows = Mathf.CeilToInt(castables.Count / (float)columns);
+        float startX = PlatformCenter.x - (columns - 1) * spacing * 0.5f;
+        float startZ = PlatformCenter.z + (rows - 1) * spacing * 0.5f;
+
+        for (int i = 0; i < castables.Count; i++)
+        {
+            Skill skill = castables[i].skill;
+            SpellData spell = castables[i].spell;
+            int col = i % columns;
+            int row = i / columns;
+
+            var cell = new GameObject("MagicModel_" + skill.id);
+            cell.transform.position = new Vector3(startX + col * spacing, PlatformTopY + 0.1f,
+                startZ - row * spacing);
+            Vector3 look = new Vector3(PlatformCenter.x - cell.transform.position.x, 0f,
+                PlatformCenter.z - cell.transform.position.z);
+            if (look.sqrMagnitude > 0.0001f)
+                cell.transform.rotation = Quaternion.LookRotation(look.normalized, Vector3.up);
+
+            var pedestal = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            pedestal.name = "Pedestal";
+            Collider pcol = pedestal.GetComponent<Collider>();
+            if (pcol != null) Destroy(pcol);
+            pedestal.transform.SetParent(cell.transform, false);
+            pedestal.transform.localScale = new Vector3(0.9f, 0.9f, 0.9f);
+            pedestal.transform.localPosition = new Vector3(0f, -0.05f, 0f);
+            var pmr = pedestal.GetComponent<MeshRenderer>();
+            if (pmr != null)
+                pmr.sharedMaterial = SolidMaterial(new Color(0.24f, 0.2f, 0.17f));
+
+            var modelRoot = new GameObject("Model");
+            modelRoot.transform.SetParent(cell.transform, false);
+            modelRoot.transform.localPosition = new Vector3(0f, 1.35f, 0f);
+            SpellCaster.CreateProjectileDisplay(skill.DamageKind, spell.Shape, spell.SummonFallingRock)
+                .transform.SetParent(modelRoot.transform, false);
+
+            var labelGo = new GameObject("Label");
+            labelGo.transform.SetParent(cell.transform, false);
+            labelGo.transform.localPosition = new Vector3(0f, 2.7f, 0f);
+            var tmp = labelGo.AddComponent<TMPro.TextMeshPro>();
+            tmp.text = skill.displayName ?? skill.id;
+            tmp.fontSize = 1.6f;
+            tmp.alignment = TMPro.TextAlignmentOptions.Center;
+            tmp.color = DamageNumber.ColorFor(skill.DamageKind);
+            tmp.outlineWidth = 0.1f;
+            tmp.outlineColor = Color.black;
+            tmp.rectTransform.sizeDelta = new Vector3(3f, 0.6f);
+        }
     }
 
     /// <summary>
