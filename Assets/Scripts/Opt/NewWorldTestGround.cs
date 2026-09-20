@@ -38,7 +38,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableTools = true;
     public bool EnableFarming = true;
     public bool EnableLivestock = true;
-    public bool EnableEnemies = true;
+    [Tooltip("Spawn the enemy arena down the platform's south side (20 roster types + dummies + optional boss). OFF by default since 1dl follow-up — the user is play-testing magic models now; the spawn code is fully kept for later (tick back on to test enemies).")]
+    public bool EnableEnemies = false;
     public bool EnableBuildings = true;
     public bool EnableNpcs = true;
     [Tooltip("Build the three holy places (taoist shrine / church / pagoda) + worship NPCs (taoist / priest / monk) so the Faith system can be exercised.")]

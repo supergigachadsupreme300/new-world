@@ -3,6 +3,24 @@
 Last updated: 2026-09-20. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1dl. Enemy arena off by default on the test platform (code kept)
+
+User: "stop spawning enemy for now but keep the enemy code, i'll test them later".
+
+- `NewWorldTestGround.EnableEnemies` default flipped `true → false`; the whole `SpawnEnemies`/
+  `SpawnEnemyRow`/`SpawnDummy`/`SpawnBoss` lane and its `RunBenchSpawn` wiring are UNTOUCHED. Since the
+  live game adds the component at runtime via `GameBootstrap` (`AddComponent`, no scene instance — the
+  only serialized scene copy is a `_Recovery` backup), the C# default governs: no enemies/dummies spawn,
+  the magic model bench and every other lane run as before. Tick `EnableEnemies` back on to test later.
+- game-design.md §2.7 + these docs updated in the same pass.
+- Verification (no CLI build, rule 3): grep — `EnableEnemies` cited only by the field + the
+  `RunBenchSpawn` guard; `SpawnEnemies*` methods still present and referenced only by that guard.
+
+### 1dl-status
+- Implemented; verified by grep + reread. Play-test: load the scene → the south arena stays empty
+  (enemy rows/dummies/boss absent), magic grid + all other lanes normal; re-tick `EnableEnemies` to
+  bring the arena back.
+
 ## 1dk. Magic model bench: every castable magic spell placed on the test platform
 
 User: "place down every magic on the test ground so i can look and edit the magic model".

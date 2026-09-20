@@ -146,7 +146,8 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
 - The whole bench sits flat on the platform's **single level top** (`PlatformTopY`): every lane —
   farming plots/tilled soil, livestock, enemies/dummies/boss, buildings, NPCs, weapon pedestals/racks,
   the tool-pickup kit, and the magic-model grid — keys its placement off that one height, so nothing hugs
-  a slope and every prop stands edge-to-edge level.
+  a slope and every prop stands edge-to-edge level. Since the `1dl` follow-up the **enemy arena is off by
+  default** (`EnableEnemies` = false — the spawn code stays, tick the toggle back on to fight the roster).
 - **Magic-model grid (1dk):** `NewWorldTestGround.EnableMagicModels` (default **on**) places **every
   castable magic spell** on the platform's middle band — one pedestal + school-colored projectile-style
   body (the exact live-cast visuals via `SpellCaster.CreateProjectileDisplay`; Comet/Earth Meteor show

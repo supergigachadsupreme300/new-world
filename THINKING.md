@@ -16,6 +16,22 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
+## 1dl — stop spawning enemies, keep the code (SHIPPED in `1dl`)
+
+User: "stop spawning enemy for now but keep the enemy code, i'll test them later".
+
+- H1 — comment out the `SpawnEnemies` lane. REJECTED — the toggles are THE documented off-switch for
+  lanes; deleting/commenting invites the code to rot and blocks a simple re-enable.
+- H2 — flip `EnableEnemies` to `false`. ACCEPTED. Checked for scene instances first: the only
+  serialized copy is `Assets\_Recovery\0 (10).unity` (a backup, `EnableEnemies: 1`); the live game
+  adds the component at runtime (`GameBootstrap` → `root.AddComponent<NewWorldTestGround>()`), so the
+  C# default governs and enemies stop immediately. The `RunBenchSpawn` guard already keeps the whole
+  `SpawnEnemies*` code path intact for later.
+
+### Verdict
+- CONFIRMED H2 (default flip is sufficient; no scene edit needed). Implemented as `1dl`.
+
+
 ## 1dk — "place down every magic on the test ground" (SHIPPED in `1dk`)
 
 User: "place down every magic on the test ground so i can look and edit the magic model".
