@@ -107,16 +107,24 @@ public class GameBootstrap : MonoBehaviour
         // pipeline + aggressive burst budget fills the full radius-30 ring in ~10-15s (1dg)).
         //
         // Boot order is "ground first, then player": the player is placed on the pre-generated
-        // spawn chunk at (0, ~y+2, -10) — never an unloaded void. NewWorldTestGround builds its
-        // independent floating platform in Awake but does NOT auto-teleport the player onto it
-        // (that's opt-in, AutoTeleportPlayerOnStart) — the pad is left for the player to walk to.
+        // spawn chunk at (0, ~y+2, -10) — never an unloaded void — OR directly on the independent
+        // test platform, which is the DEFAULT spawn since 1dn (see below). NewWorldTestGround
+        // builds its floating platform synchronously in Awake, so the pad surface exists before
+        // the player is placed; the boot chunk stays as the fallback when the platform is off.
         TerrainChunkCoord spawnChunk = TerrainChunkCoord.FromTile(new ChunkCoord(0, -10));
         worldStreamer.GenerateChunkSync(spawnChunk);
 
+        // --- Testing ground (weapons, enemies, skills, NPCs) ----------------------------
+        // Created BEFORE the player teleport so the spawn can land on the test ground (1dn).
+        var testGround = Object.FindAnyObjectByType<NewWorldTestGround>()
+            ?? root.AddComponent<NewWorldTestGround>();
+
         if (playerController != null)
         {
-            float spawnY = TerrainNoiseGenerator.GetHeight(worldStreamer.Seed, 0.5f, -9.5f);
-            playerController.TeleportTo(new Vector3(0f, spawnY + 2f, -10f));
+            Vector3 spawn = testGround != null && testGround.CreatePlatform && testGround.IsArenaReady
+                ? testGround.GetSpawnPoint()
+                : new Vector3(0f, TerrainNoiseGenerator.GetHeight(worldStreamer.Seed, 0.5f, -9.5f) + 2f, -10f);
+            playerController.TeleportTo(spawn);
         }
 
         worldStreamer.SetFocus(playerController != null ? playerController.transform : null);
@@ -124,9 +132,5 @@ public class GameBootstrap : MonoBehaviour
         // --- Phase 8/9 UI, LOD, culling, pooling ---------------------------------------
         var newWorldSystems = Object.FindAnyObjectByType<NewWorldSystems>()
             ?? root.AddComponent<NewWorldSystems>();
-
-        // --- Testing ground (weapons, enemies, skills, NPCs) ----------------------------
-        var testGround = Object.FindAnyObjectByType<NewWorldTestGround>()
-            ?? root.AddComponent<NewWorldTestGround>();
     }
 }

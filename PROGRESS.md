@@ -3,6 +3,38 @@
 Last updated: 2026-09-20. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1dn. Player spawn point moved to the test ground
+
+User: "change the player spawn point to be on the test ground".
+
+- The test platform is now the **default spawn** across all three placement paths:
+  - `GameBootstrap` creates `NewWorldTestGround` BEFORE the player teleport and lands the player on
+    `GetSpawnPoint()` (pad top + 2 m) whenever the platform is built (`CreatePlatform` +
+    `IsArenaReady`) — the deck is built synchronously in `Awake`, so there is never a void to fall
+    through; the boot chunk `(0, terrain+2, -10)` stays as the fallback when the platform is off.
+    Removed the duplicate `testGround` add at the end of the boot.
+  - `PlayerController.ResetPlayer` (new game / death respawn) now re-homes to `GetSpawnPoint()`
+    whenever `IsArenaReady`, instead of only when the player had already reached the pad; the
+    proximity gate `IsOnOrNearArena` was deleted (its only caller).
+  - `NewWorldTestGround.AutoTeleportPlayerOnStart` default flipped `false → true` — the
+    `RunBenchSpawn` pull-onto-pad is now belt-and-braces for the same spot (harmless: it teleports to
+    the identical coordinate on frame 1).
+- Boot order stays "ground first, then player": the spawn chunk is still generated synchronously (the
+  boot chunk remains the sync ground), the pad surface exists before placement, and `TeleportTo`
+  stamps a safe position so the physics fail-net never trips.
+- game-design §2.7 (rewrote the old "No auto-teleport at boot (1bz)" bullet) + these docs updated in
+  the same pass.
+- Verification (no CLI build, rule 3): grep — `IsOnOrNearArena` 0 matches; `AutoTeleportPlayerOnStart`
+  cited by the field + the `RunBenchSpawn`/fallback guards only; the legacy `BootSpawnPosition()` and
+  boot-chunk fallback remain reachable.
+
+### 1dn-status
+- Implemented; verified by grep + reread (no CLI build — rule 3). Play-test: boot into play mode —
+  the player should stand on the test platform (south edge, facing away from center; mouse turns
+  around), bench lanes spawn as before, and no physics snap-back or fall through the deck; press F12
+  / start a new game → same pad spawn; disable `AutoTeleportPlayerOnStart` (or `CreatePlatform`) →
+  boot-chunk start near `(0, ~terrain+2, -10)` with the pad walk-to as before.
+
 ## 1dm. Nature props (trees + rocks) cut to 1/5 density
 
 User: "reduce tree and stone spawn ratio to 1/5".

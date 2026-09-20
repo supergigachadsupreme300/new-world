@@ -16,6 +16,34 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
+## 1dn — "change the player spawn point to be on the test ground" (SHIPPED in `1dn`)
+
+User: "change the player spawn point to be on the test ground".
+
+- H1 — flip `AutoTeleportPlayerOnStart` to default on. The pull-onto-pad in `RunBenchSpawn` runs one
+  frame in (coroutines started in Awake don't tick before the first frame), so the player would flash
+  on the boot chunk for a frame then teleport. It also self-gates on `IsArenaReady`, and more
+  importantly it's a teleport, not "the spawn point". PARTIAL — used as belt-and-braces, not the main
+  mechanism.
+- H2 — move the actual spawn: `GameBootstrap` creates the test ground at the END of boot (after the
+  player teleport), so I reordered it BEFORE the player placement and spawn on `GetSpawnPoint()` when
+  `CreatePlatform && IsArenaReady`. Is the deck safe to stand on at that instant? YES — the platform
+  mesh/collider is built synchronously in `BuildTestGround` (Awake), no streaming gate like terrain.
+  Boot-chunk placement stays as fallback (platform off). CONFIRMED as the core change.
+- H3 — `ResetPlayer` (new game + death respawn) only re-homed to the pad if the player had already
+  REACHED it (`IsOnOrNearArena`: XZ within 0.6×platform, Y within 6 m). With the pad as default spawn,
+  a brand-new game would immediately bounce back to the boot chunk — inconsistent. Dropped the gate:
+  teleport to `GetSpawnPoint()` whenever `IsArenaReady`, boot chunk otherwise; deleted
+  `IsOnOrNearArena` (only caller was the gate). CONFIRMED.
+- Spawn rotation: `ResetPlayer` sets `Quaternion.identity` (facing +Z); `GetSpawnPoint` is at
+  `PlatformCenter.z + 0.45·PlatformSize` (south edge), so the player faces AWAY from the deck centre
+  at spawn. Accepted — mouse turns the camera anyway; not changing rotation (matches old pad-spawn
+  behaviour).
+- Double-teleport check: with the toggle on, `RunBenchSpawn.PlacePlayerOnArena` fires on frame 1 to
+  the SAME coordinate GameBootstrap already placed — idempotent, no snap-back (records safe pos via
+  `TeleportTo`). Fallback guard at the end of `RunBenchSpawn` also still fires only when
+  `!IsArenaReady`. No conflict.
+
 ## 1dm — "reduce tree and stone spawn ratio to 1/5" (SHIPPED in `1dm`)
 
 User: "reduce tree and stone spawn ratio to 1/5".

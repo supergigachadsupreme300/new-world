@@ -30,8 +30,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     [Header("Spawning")]
     [Tooltip("Spawn the bench automatically on Awake.")]
     public bool AutoSpawnOnStart = true;
-    [Tooltip("Automatically teleport the player onto the platform when the bench spawns. Disabled by default: the game starts the player on the world's boot chunk near (0, terrain, -10) and the platform is left for the player to walk to.")]
-    public bool AutoTeleportPlayerOnStart = false;
+    [Tooltip("Automatically teleport the player onto the platform when the bench spawns. ON by default since 1dn — the player now spawns on the test ground. Disable it to start on the world's boot chunk near (0, terrain, -10) and walk to the platform.")]
+    public bool AutoTeleportPlayerOnStart = true;
 
     [Header("Lanes")]
     [Tooltip("Lay the tool/food discovery kit along the platform's east edge as world pickups to grab with E.")]
@@ -114,9 +114,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
         _spawned = true;
 
         // The platform is a solid collider built in Awake, so the player can be placed on it
-        // immediately — there is no streaming gate and no void to race. This is opt-in only
-        // (AutoTeleportPlayerOnStart, default off): the player starts on the world's boot chunk
-        // and walks to the platform when they want the bench.
+        // immediately — there is no streaming gate and no void to race. This is the DEFAULT spawn
+        // now (1dn): the player appears on the test ground unless AutoTeleportPlayerOnStart is off.
         if (CreatePlatform && AutoTeleportPlayerOnStart)
             RunSafely("player placement", PlacePlayerOnArena);
 
