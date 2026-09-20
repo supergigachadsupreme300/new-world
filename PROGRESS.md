@@ -83,6 +83,33 @@ those near the player and and magic". **Render radius stays 30** (user rejected 
   + cast aim, skill bar slots + cooldown fills, status chips appear/expire under the bars, ambient/
   music crossfades, distant-chunk render culling. Watch the console for warnings (none expected).
 
+## 1dt. Terrain noise memoization in the merged-mesh builder
+
+- **Hotspot:** `ChunkMeshGenerator.BuildMergedMeshData` re-sampled the pristine 5-octave noise
+  surface **per vertex** for strata coloring — ~3,600 `TerrainNoiseGenerator.GetHeight` calls per
+  chunk (~18,000 `Mathf.PerlinNoise` evaluations), even though a chunk only has 31×31 = 961 distinct
+  world corners and every corner is a pure function of (seed, x, z).
+- **Fix:** one thread-local memo per build call, `Dictionary<long,float>` keyed by
+  `((long)wx << 32) | (uint)wz` (exact same keying the border-corner map already uses):
+  - new `TerrainBandColor(seed, wx, wz, vertexY, memo)` overload → each band sample reads the memo
+    instead of re-running GetHeight; the public 4-arg overload is kept (PatchRegion in
+    `ChunkObject`, terrain-aim `WorldStreamer.Deform`) with identical behavior.
+  - `EdgeIsRaised`/`EdgeHeights`/`CornerHeight` thread the same memo, so the out-of-chunk seam
+    noise fallback is also sampled once (was: once in Pass 1 and again in Pass 3).
+  - Colors are byte-for-byte the same (the memo returns the identical deterministic value).
+- Effect: band-color noise per chunk drops ~3,600 → ≤961 GetHeight calls (~3.7×); no behavior change,
+  terrain is deterministically identical, memo is confined to one (background) chunk build.
+- game-design unchanged (implementation detail under the §2.7 streaming bullet); PROGRESS + THINKING
+  updated same pass. Verification (no CLI build, rule 3): grep — all `TerrainBandColor`/edge/corner
+  call sites resolve to the kept 4-arg overload or the threaded internal paths; `MemoizedHeight` is
+  the only new noise entry point in the builder.
+
+### 1dt-status
+- Implemented; verified by grep + reread (no CLI build). Play-test: identical terrain qua every
+  frontier (colors, strata on carved pits and walls already saved) — full-radius boot should feel
+  slightly snappier since the background chunk build spends less CPU on noise; watch burst
+  hitches at boot/streaming edges.
+
 ## 1dp. Magic model bench — strip OrbFx so pedestal models are static
 
 User: "some magic keep switch between big and small continuously which really fuck up the visual".

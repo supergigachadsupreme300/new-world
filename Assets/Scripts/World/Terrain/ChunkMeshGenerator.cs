@@ -55,7 +55,25 @@ public static class ChunkMeshGenerator
     /// </summary>
     public static Color TerrainBandColor(long seed, int worldX, int worldZ, float vertexY)
     {
-        float depth = TerrainNoiseGenerator.GetHeight(seed, worldX, worldZ) - vertexY;
+        return BandColor(vertexY, TerrainNoiseGenerator.GetHeight(seed, worldX, worldZ));
+    }
+
+    /// <summary>
+    /// Band-color overload that reuses a chunk build's height memo (1dt): TerrainBandColor
+    /// resampled the 5-octave pristine surface once per vertex (~3,600 GetHeight calls per
+    /// chunk); with the memo the 31×31 world corners do the sampling once (~961 calls) and every
+    /// vertex reads the same deterministic value back — identical colors, ~3.7× fewer Perlin
+    /// evaluations on the background build. The memo is local to one chunk build (thread-confined).
+    /// </summary>
+    public static Color TerrainBandColor(long seed, int worldX, int worldZ, float vertexY,
+        System.Collections.Generic.Dictionary<long, float> heightMemo)
+    {
+        return BandColor(vertexY, MemoizedHeight(seed, worldX, worldZ, heightMemo));
+    }
+
+    private static Color BandColor(float vertexY, float surfaceHeight)
+    {
+        float depth = surfaceHeight - vertexY;
         if (depth <= DirtBandStart)
             return ColorPalette.GrassGreen;
         if (depth < DirtBandEnd)
@@ -285,6 +303,10 @@ public static class ChunkMeshGenerator
         }
 
         // Pass 1 — count the side-wall bands (4 verts + 6 tris each) so the arrays fit exactly.
+        // Per-build pristine-height memo (1dt): the band colors and the out-of-chunk seam corners
+        // share the 31×31 grid of 5-octave samples instead of re-sampling the noise per vertex.
+        var heightMemo = new System.Collections.Generic.Dictionary<long, float>(
+            TerrainChunkCoord.CornerGridSize * TerrainChunkCoord.CornerGridSize);
         int wallBands = 0;
         for (int i = 0; i < tileCount; i++)
         {
@@ -295,9 +317,9 @@ public static class ChunkMeshGenerator
             int lz = i / cs;
             for (int e = 0; e < 4; e++)
             {
-                if (!EdgeIsRaised(tile, lx, lz, e, tiles, cs, border, seed))
+                if (!EdgeIsRaised(tile, lx, lz, e, tiles, cs, border, seed, heightMemo))
                     continue;
-                EdgeHeights(tile, lx, lz, e, tiles, cs, border, seed,
+                EdgeHeights(tile, lx, lz, e, tiles, cs, border, seed, heightMemo,
                     out float topA, out float topB, out float botA, out float botB);
                 wallBands += SideBandCount(topA, topB, botA, botB);
             }
@@ -347,7 +369,7 @@ public static class ChunkMeshGenerator
                     case 2: wx = tile.Coord.X + 1; wz = tile.Coord.Z; break;      // SE
                     default: wx = tile.Coord.X; wz = tile.Coord.Z; break;         // SW
                 }
-                colors[v] = TerrainBandColor(seed, wx, wz, p.y);
+                colors[v] = TerrainBandColor(seed, wx, wz, p.y, heightMemo);
                 if (p.y < minY) minY = p.y;
                 if (p.y > maxY) maxY = p.y;
             }
@@ -372,10 +394,10 @@ public static class ChunkMeshGenerator
             // --- Vertical side walls where this tile is taller than its neighbour ---
             for (int e = 0; e < 4; e++)
             {
-                if (!EdgeIsRaised(tile, localX, localZ, e, tiles, cs, border, seed))
+                if (!EdgeIsRaised(tile, localX, localZ, e, tiles, cs, border, seed, heightMemo))
                     continue;
 
-                EdgeHeights(tile, localX, localZ, e, tiles, cs, border, seed,
+                EdgeHeights(tile, localX, localZ, e, tiles, cs, border, seed, heightMemo,
                     out float topA, out float topB, out float botA, out float botB);
                 EdgeEnds(localX, localZ, e, out int ex0, out int ez0, out int ex1, out int ez1);
                 int bands = SideBandCount(topA, topB, botA, botB);
@@ -405,10 +427,10 @@ public static class ChunkMeshGenerator
                     // coords + the chunk's min-tile world coord). A tall drop therefore shows the
                     // grass rim then dirt, fading into stone as the wall descends.
                     ChunkCoord origin = tiles.Length > 0 ? tiles[0].Coord : new ChunkCoord(0, 0);
-                    colors[iv0] = TerrainBandColor(seed, origin.X + ex0, origin.Z + ez0, p0.y);
-                    colors[iv1] = TerrainBandColor(seed, origin.X + ex1, origin.Z + ez1, p1.y);
-                    colors[iv2] = TerrainBandColor(seed, origin.X + ex1, origin.Z + ez1, p2.y);
-                    colors[iv3] = TerrainBandColor(seed, origin.X + ex0, origin.Z + ez0, p3.y);
+                    colors[iv0] = TerrainBandColor(seed, origin.X + ex0, origin.Z + ez0, p0.y, heightMemo);
+                    colors[iv1] = TerrainBandColor(seed, origin.X + ex1, origin.Z + ez1, p1.y, heightMemo);
+                    colors[iv2] = TerrainBandColor(seed, origin.X + ex1, origin.Z + ez1, p2.y, heightMemo);
+                    colors[iv3] = TerrainBandColor(seed, origin.X + ex0, origin.Z + ez0, p3.y, heightMemo);
 
                     // U tiles across the 1 m edge; V tiles once per band so each slab face
                     // shows one full texture repeat (the stacked-slab read).
@@ -482,10 +504,11 @@ public static class ChunkMeshGenerator
     /// <summary>The two edge-corner heights of this tile plus its neighbour's two matching
     /// heights on the shared edge. Neighbour data is read from the in-chunk <paramref name="tiles"/>
     /// array when present, else from the <paramref name="border"/> corner map, else from the same
-    /// deterministic world noise the pristine corner grid uses.</summary>
+    /// deterministic world noise the pristine corner grid uses (memoized per build, 1dt).</summary>
     private static void EdgeHeights(ChunkMeshData tile, int lx, int lz, int edge,
         ChunkMeshData[] tiles, int cs,
         System.Collections.Generic.IReadOnlyDictionary<long, float> border, long seed,
+        System.Collections.Generic.Dictionary<long, float> heightMemo,
         out float thisA, out float thisB, out float nbrA, out float nbrB)
     {
         float[] h = tile.Data.Heights;
@@ -530,31 +553,50 @@ public static class ChunkMeshGenerator
             default: wxA = x0; wzA = z0 + 1; wxB = x0; wzB = z0; break;
         }
 
-        nbrA = CornerHeight(wxA, wzA, border, seed);
-        nbrB = CornerHeight(wxB, wzB, border, seed);
+        nbrA = CornerHeight(wxA, wzA, border, seed, heightMemo);
+        nbrB = CornerHeight(wxB, wzB, border, seed, heightMemo);
     }
 
     /// <summary>True when this tile is the higher owner of the shared edge — the side that must
     /// render the wall. Pristine smooth-smooth edges have identical corners, so they never raise.</summary>
     private static bool EdgeIsRaised(ChunkMeshData tile, int lx, int lz, int edge,
         ChunkMeshData[] tiles, int cs,
-        System.Collections.Generic.IReadOnlyDictionary<long, float> border, long seed)
+        System.Collections.Generic.IReadOnlyDictionary<long, float> border, long seed,
+        System.Collections.Generic.Dictionary<long, float> heightMemo)
     {
         if (!tile.Data.IsValid)
             return false;
-        EdgeHeights(tile, lx, lz, edge, tiles, cs, border, seed,
+        EdgeHeights(tile, lx, lz, edge, tiles, cs, border, seed, heightMemo,
             out float topA, out float topB, out float nbrA, out float nbrB);
         return Mathf.Max(topA, topB) > Mathf.Max(nbrA, nbrB) + 0.001f;
     }
 
     /// <summary>Height of a world corner from the border map (current neighbour-chunk height),
-    /// else the deterministic world noise at that exact corner.</summary>
+    /// else the deterministic world noise at that exact corner (memoized per build, 1dt).</summary>
     private static float CornerHeight(int wx, int wz,
-        System.Collections.Generic.IReadOnlyDictionary<long, float> border, long seed)
+        System.Collections.Generic.IReadOnlyDictionary<long, float> border, long seed,
+        System.Collections.Generic.Dictionary<long, float> heightMemo)
     {
         if (border != null && border.TryGetValue(((long)wx << 32) | (uint)wz, out float h))
             return h;
-        return TerrainNoiseGenerator.GetHeight(seed, wx, wz);
+        return MemoizedHeight(seed, wx, wz, heightMemo);
+    }
+
+    /// <summary>
+    /// Deterministic pristine height for a world corner, cached per chunk build (1dt). Corner
+    /// heights are pure functions of (seed, x, z), so a chunk-local memo is exact — the merged
+    /// builder's 3,600 band-color vertex samples collapse onto the 961 corner grid's samples.
+    /// Local to one build call; thread-confined by construction.
+    /// </summary>
+    private static float MemoizedHeight(long seed, int wx, int wz,
+        System.Collections.Generic.Dictionary<long, float> memo)
+    {
+        long key = ((long)wx << 32) | (uint)wz;
+        if (memo.TryGetValue(key, out float h))
+            return h;
+        h = TerrainNoiseGenerator.GetHeight(seed, wx, wz);
+        memo.Add(key, h);
+        return h;
     }
 
     /// <summary>Chunk-local end points of a tile's shared edge (start, then end along the edge).</summary>

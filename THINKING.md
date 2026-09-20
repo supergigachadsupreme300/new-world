@@ -15,6 +15,29 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1dt — noise resampling in the chunk builder (SHIPPED in `1dt`)
+
+Follow-up to 1dq (which left background mesh/noise work untouched by design). Second pass over the
+costliest CPU: `BuildMergedMeshData`.
+
+- Count: chunk = 900 tiles, 4 verts each → **3,600 `TerrainBandColor` calls per chunk**, each
+  re-running `GetHeight` (5 octaves → ~18,000 `PerlinNoise`), plus pass1/pass3 `EdgeHeights` noise
+  fallbacks for out-of-chunk borders, plus separate 961 corner-grid samples upstream in the chunk
+  build.
+- Observation: colors key on the **pristine noise surface** at world corner coords; those corners are
+  pure functions of (seed, x, z). A chunk owns at most 31×31 = 961 distinct corners. => memoize.
+- H1 — reuse `tile.Data.Heights` (corner grid) instead of re-sampling noise: REJECTED. Heights on a
+  deformed tile are the SAVED height (== vertexY), so colors would read depth ≈ 0 everywhere → all
+  grass. The code deliberately compares against the pristine surface so a dug tile shows strata.
+  Getting this wrong would silently kill strata colors on all carved terrain.
+- H2 — thread a per-build dictionary through the band + border paths. CONFIRMED. Cost: one
+  Dictionary with ≤961 entries per chunk build, thread-local, GC-pausing nothing (allocated once per
+  build). Determinism preserved (same seed/coords → same value; memo never changes the outcome).
+- H3 — share the memo with the corner-grid sampling in WorldStreamer.ChunkBuild: possible but couples
+  two call paths; skipped for now (961 samples × 5 octaves stays, the band sampling collapses).
+- Verdict: 3,600 → ≤961 GetHeight/chunk (~3.7×), byte-identical colors, no public-signature break
+  (PatchRegion/terrain-aim use the kept 4-arg overload).
+
 ## 1dr — per-frame component lookups (SHIPPED in `1dr`)
 
 Hotspot scan prompted by "need to optimize the game even more": profile-by-reading the per-frame Update
