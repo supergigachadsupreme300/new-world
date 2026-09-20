@@ -157,15 +157,22 @@ public class ChunkObject : MonoBehaviour
         }
     }
 
+    /// <summary>True while this chunk's prop stream has been queued (inside the prop ring).
+    /// False both before the ring reaches it and after the ring drops its props.</summary>
+    public bool PropsOn => _propRng != null;
+
     /// <summary>True while this chunk still has prop tiles waiting to spawn.</summary>
-    public bool PropsPending => _propTiles != null && _propCursor < _propTiles.Length;
+    public bool PropsPending => PropsOn && _propTiles != null && _propCursor < _propTiles.Length;
 
     /// <summary>
     /// Queue the chunk's props (trees/rocks) for incremental spawning. One deterministic Random
-    /// stream per chunk (previously 900 per-tile Random allocations).
+    /// stream per chunk (previously 900 per-tile Random allocations). No-op when the props are
+    /// already queued, so the prop ring re-entry path can call it idempotently.
     /// </summary>
     public void BeginProps(long seed)
     {
+        if (PropsOn)
+            return;
         _propSeed = seed;
         int cs = TerrainChunkCoord.ChunkSize;
         _propRng = new System.Random(seed.GetHashCode() ^ (ChunkCoord.X * 73856093) ^ (ChunkCoord.Z * 19349663));
@@ -228,7 +235,13 @@ public class ChunkObject : MonoBehaviour
         _props.Add(rock);
     }
 
-    public void Release()
+    /// <summary>
+    /// Destroys this chunk's spawned props and drops the pending stream state. The merged terrain
+    /// mesh + collider are untouched, so the chunk stays rendered and collidable. Used by the prop
+    /// ring (1di): a chunk keeps its ground but loses its trees/rocks once it falls outside the
+    /// prop radius; re-entering the ring restarts the same deterministic stream via BeginProps.
+    /// </summary>
+    public void ReleaseProps()
     {
         for (int i = _props.Count - 1; i >= 0; i--)
         {
@@ -236,9 +249,13 @@ public class ChunkObject : MonoBehaviour
                 Destroy(_props[i]);
         }
         _props.Clear();
-
         _propRng = null;
         _propCursor = 0;
+    }
+
+    public void Release()
+    {
+        ReleaseProps();
         _merged = default;
 
         if (_mf != null && _mf.sharedMesh != null)

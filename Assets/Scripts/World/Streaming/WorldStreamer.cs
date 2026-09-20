@@ -28,6 +28,10 @@ public partial class WorldStreamer : MonoBehaviour
     [Header("Render Distance")]
     public RenderDistanceController RenderDistance;
 
+    [Header("Props")]
+    [Tooltip("Trees/rocks stream only within this many chunks of the focus (Chebyshev ring, 1di). Chunks beyond it keep their terrain mesh + collider but NO props, so the distant radius-N ring never spawns ~33k prop GameObjects — the ~450k BoxCollider physics load and ~33k scene-graph renderers collapse to the ring alone. Pop-in reads as normal streaming since the ring follows the player.")]
+    public int PropRingRadius = 4;
+
     [Header("Threading")]
     [Tooltip("Max terrain chunks finalized per poll tick (main-thread work).")]
     public int ChunksPerFrame = 16;
@@ -164,6 +168,7 @@ public partial class WorldStreamer : MonoBehaviour
         StreamAround(centre, radius);
         DispatchPending();
         FinalizeChunks();
+        SyncPropRing(centre);
         StepChunkProps();
     }
 

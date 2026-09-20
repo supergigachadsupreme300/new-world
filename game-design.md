@@ -81,11 +81,22 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
 - Chunks entering radius: loaded from cache or generated.
 - Chunks leaving radius: unloaded from memory (kept in cache on disk).
 - **Boot (current build):** only the **spawn chunk** is generated synchronously so the player is usable
-  immediately; the rest of the visible ring builds in a **burst pass** (poll every 0.05 s, up to
-  16 chunks / ~12 ms finalize budget, 24 background generations in flight) that fills the full
-  radius-30 ring in roughly 10–15 s (1dg). The game bootstrap defaults render radius to **30** with a
+  immediately; the rest of the visible ring builds in an **adaptive burst pass** (poll every 0.05 s, up to
+  12 chunks / base ~6 ms finalize budget that self-shrinks while frames hitch, 24 background generations
+  in flight) that fills the full radius-30 ring without dropping a steady 60 fps (**1di** — the earlier
+  16-chunk/12 ms burst shrank the budget so chunk finalization + collider cooking stop competing with the
+  frame). The game bootstrap defaults render radius to **30** with a
   hard clamp of **160** chunks, and the LOD cull distance auto-matches the current render radius so
   culling never fights the visible ring.
+- **Prop ring (1di):** trees/rocks are only streamed within `PropRingRadius` chunks of the focus
+  (default **4**, Chebyshev ring ≈ 600 m) — `WorldStreamer` (props sync in `SyncPropRing`) queues the
+  deterministic prop stream for chunks that enter the ring and drops their spawned props (`ChunkObject.
+  ReleaseProps`) for chunks that leave it, while the terrain mesh + collider stay loaded for the whole
+  ring. The distant radius-N ring therefore never holds the ~33k prop GameObjects (~450k prop BoxColliders
+  in the physics broadphase) that made the old full-stream "game too lag". Everything inside the ring
+  keeps its colliders, so chopping/mining targets near the player stay fully hit-able; props pop in/out
+  only at the ring edge (~600 m away) and are deterministic per chunk, so re-entering the ring restores
+  the exact same trees/rocks.
 
 ### 2.6 Chunk Persistence (File Caching)
 

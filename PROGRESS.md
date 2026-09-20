@@ -3,6 +3,44 @@
 Last updated: 2026-09-20. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1di. Lag fix: prop ring + adaptive burst smoothing (steady 60 trails the stream)
+
+User: "game too lag" (after `1dg` radius 30). After the `1dh` file refactor, scope was clarified via
+questions: implement **prop ring** AND **only the burst-hitch smoothing** (no collider band, no prop
+mesh-merge/instancing); keep **player + targets hit-able**; target **steady 60 on default settings**.
+
+- **Prop ring (new behavior):** `WorldStreamer.PropRingRadius` (serialized, default **4** chunks ≈ 600 m,
+  Chebyshev) — trees/rocks stream only within the ring of the focus. `ChunkObject` gained a prop-state
+  lifecycle: `PropsOn` (stream queued) + `ReleaseProps()` (destroys spawned props, keeps terrain mesh +
+  collider). `SyncPropRing(centre)` (new, per tick) begins the deterministic stream for chunks entering
+  the ring and releases it for chunks leaving it; `CreateChunkGameObject` no longer queues props — the
+  ring owns that (spawn chunk is always inside the ring, so boot ground keeps its trees/rocks instantly).
+  Cut: the distant radius-30 ring no longer holds ~33k prop GameObjects / ~450k prop BoxColliders; the
+  ring alone (~81 chunks at default 4) keeps ~800 props. Hit-ability preserved: everything inside the
+  ring keeps colliders; props pop in/out only at ~600 m (chunk-boundary pop reads as normal streaming).
+  Behavior note: props are regenerable/deterministic per chunk — re-entering the ring after chopping
+  respawns the same tree/rock, matching the existing chunk-unload/reload behavior.
+- **Burst smoothing:** `FinalizeChunks` cap dropped 16 → 12 chunks/tick and wall-clock budget 12 ms →
+  base 6 ms via new `AdaptiveBudgetMs(baseMs)` (scales by previous frame length — a hitchy frame shrinks
+  the next tick's budget toward ~2 ms; a smooth one spends the full budget; never zero). `StepChunkProps`
+  gained `PropsOn` guard + `PropBudgetMs = 3f` wall-clock ceiling. Loading speed barely changes (the
+  background pipeline was not the bottleneck); per-frame spikes from chunk mesh+MeshCollider cooking and
+  prop GameObjects no longer extend frames.
+- Verification (no CLI/Unity build, rule 3): grep — `BeginProps` now called only from `SyncPropRing`;
+  `ReleaseProps`/`PropsOn` cited only by `SyncPropRing`/`StepChunkProps`/`Release`; no legacy WorldBuilder/
+  test-ground path touches chunk props (NewWorldTestGround only reads `WorldStreamer.Seed`/`Radius`/
+  `ResetTerrainSaves`). Reread of ChunkObject + all 6 WorldStreamer partials confirms balanced braces,
+  no stale references to the removed `obj.BeginProps` call in the finalize path.
+
+### 1di-status
+- Implemented; verified by grep + reread only (rule 3 — no compile). The user play-tests in Unity.
+- Play-test pending: boot — spawn chunk has trees/rocks immediately; walk outward — trees/rocks stream
+  in around the player, pop out ~600 m behind, terrain stays solid for the whole ring; the radius-30
+  fill holds ~60 fps (the frame-timer no longer green-lines during the fill); chop/mine targets within
+  the ring still hit; a chopped tree that leaves the ring then re-enters respawns (expected, deterministic).
+- Deferred (explicitly not chosen this pass): full collider band (~120–180 m), per-chunk prop mesh
+  merge/GPU instancing — those remain candidates if the ring alone isn't enough at high radii.
+
 ## 1dh. Refactor pass: split the top 8 monolith files into partial classes (no behavior change)
 
 User: "game too lag, first optimize the files structure" — clarified: do the code/file refactor FIRST
@@ -43,8 +81,8 @@ User: "game too lag, first optimize the files structure" — clarified: do the c
   sit/interact all respond (PlayerController partials), spells cast + projectiles + channels work
   (SpellCaster partials), tools swing/dig (ToolManager partials), chunk streaming still fills the
   radius-30 ring (WorldStreamer partials), settings/menus/feedback UI still open (UIManager partials).
-- NEXT task (per user): `1di` — game-object structure lag fix (collider band + prop ring + prop mesh
-  merge/instancing). Files are now small enough to make that surgical.
+- NEXT task (per user): `1di` — done above (prop ring + burst smoothing; collider band / mesh-merge
+  explicitly deferred if the ring alone isn't enough at high radii).
 
 ## 1dg. Render radius raised to 30; streaming burst sped up ~4x (poll 2x + bigger budgets)
 

@@ -16,6 +16,59 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 ---
 
 
+## 1di — "game too lag" at radius 30: root-cause + prop ring + burst fix (SHIPPED in `1di`)
+
+User reported lag after `1dg` (radius 30). The `1dh` file refactor went first per their choice; this
+task is the actual perf work.
+
+### Step 1 — where does the lag actually come from at radius 30?
+- H1: draw calls / overdraw from terrain meshes. WEAK — each chunk is ONE merged mesh (~900 quads,
+  11k tris), so 3,721 chunks ≈ 3.7-4k draw calls worst case. URP handles that; not the "lag" feel.
+- H2: memory allocation / GC from streaming. PARTLY — chunk finalize allocates a mesh + merges arrays
+  per chunk, but that's incremental and bounded per tick.
+- H3 (STRONG, CONFIRMED): **prop GameObject + BoxCollider count at full load.** Each tagged tile spawns
+  a tree AND/OR rock prop as separate cube-based GameObjects with colliders (~450k BoxColliders across
+  the ring), because (a) `MapBuilder.MakeBlock` defaults `removeCollider=false` and (b) tree trunks/
+  branches are created with colliders. Props are never LOD'd or culled (`ChunkLodManager` explicitly
+  skips props; chunk-root culling by distance never engages while inside the render radius). 33k props ×
+  (Transform sync + collider) + broadphase cost = sustained drag and spawn burst hitches.
+- H4: the per-tick **finalize burst** hitching frames during the initial fill (12-16 chunk mesh uploads +
+  MeshCollider cooking inside one poll tick at 20 ticks/s). SEPARATE from H3 (happens during load, H3
+  during play), but reinforces the "lag" complaint right after boot.
+
+### Step 2 — user scoping (questions answered)
+- Chose: **prop ring** + **only the burst smoothing**. Explicitly NOT chosen: full collider band
+  (~120-180 m), prop mesh-merge + instancing.
+- Requires: **player + targets stay hit-able**; goal **steady 60 fps on default settings**.
+
+### Step 3 — design reasoning
+- Prop ring reuses the existing streaming pipeline (deterministic per-chunk RNG) instead of a new LOD/
+  instancing system. Ring must be Chebyshev (matching `StreamAround` square) so "inside/outside" is
+  unambiguous at chunk boundaries — props pop at the square edge, exactly like terrain streams in.
+- Prop cleanup must NOT touch the chunk mesh/collider (`ChunkObject.ReleaseProps` keeps them), else the
+  terrain would flicker out whenever the player turns slightly — the mesh is authoritative for physics.
+- Who owns BeginProps? Moved OUT of `CreateChunkGameObject` into `SyncPropRing`, otherwise far chunks
+  would queue 900 pending tiles even though nothing ever steps them (StepChunkProps would stream them
+  because it only checked PropsPending, not position). `PropsPending` now requires `PropsOn`.
+- Spawn chunk safety: the player's own chunk is always within the ring (ring is measured from exactly
+  that focus), so boot ground keeps its trees immediately — no "no props at spawn".
+- Burst smoothing: instead of hand-tuning constants again (1dg already raised them), made the budget
+  ADAPTIVE to the previous frame (`AdaptiveBudgetMs` = base 6 ms × clamp(target/delta, 0.35, 1.2)). A
+  hitch, once, self-shrinks the next tick's chunk finalize work; a smooth frame spends the full budget,
+  so average load speed is preserved while the per-frame spike is gone. Same pattern (wall-clock 3 ms)
+  on prop spawning.
+- Rejected: pooling the prop GameObjects for the pop-in/pop-out churn — adds a pool + lifecycle state
+  for ~800 props at ring 4; the pop cost (~a few dozen destroy/create) is inside the 3 ms prop budget
+  and churn only happens while the player actively walks the ring edge. Cheap enough not to justify it.
+  REOPEN if ring is raised a lot or the user wants the collider band.
+
+### Verdict
+- H3 + H4 confirmed; H1 weak; H2 partial. Fix shipped in `1di`: prop ring (default 4) + adaptive
+  finalize/prop budgets. Deferred by user choice: collider band, mesh merge/instancing.
+
+---
+
+
 ## 1dh — "game too lag, first optimize the files structure" (SHIPPED in `1dh`)
 
 User reported lag right after `1dg` (radius 30). Clarified via question: "optimize the files structure"
