@@ -3,7 +3,46 @@
 Last updated: 2026-09-21. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1dx. Faceted low-poly skin — chunky triangle/square mosaic with deterministic jitter
+
+User feedback after 1dw: the player model "is currently only plain original shape" — they want
+"multiple surface triangle, square shape generate all over the skin". Choices taken: **chunky
+low-poly** facets (fewer, larger panels), slight **deterministic jitter** for a hand-cut organic look,
+applied to **all parts** (body, limbs, head, hair, skirt, shoes, eyes).
+
+- **`PlayerPartMesher.Generate` rewritten** (only code change; `MakePart`, the three builders, every
+  pivot/layer/weapon contract and the cache are untouched): the smooth Rings 9 × Segs 16 shared-vertex
+  sphere is replaced by a **corner lattice + panel emission** pipeline:
+  1. Sculpt the corner lattice (Rings 7 → 6 bands × Segs 12) exactly as 1dw did — the dent silhouette
+     (waist/chest/sockets/knee etc.) is preserved on the bones of the mosaic.
+  2. Deterministic tangent-plane jitter (~0.03 unit-space) per SHARED corner (hash of corner index +
+     profile seed) so panel boundaries read hand-cut while staying watertight — no cracks to see
+     through, identical every build.
+  3. Emit panels with **duplicated vertices and flat face normals** (no `RecalculateNormals`): each
+     band cell becomes a SQUARE panel (4 verts, 2 coplanar triangles, one shared normal → reads as a
+     square) or a pair of TRIANGLE panels (split along a hash-chosen diagonal, ~35% of cells);
+     pole fans are always triangles. Each panel is wound outward by checking its normal against the
+     panel centroid — no global winding assumption.
+- **Invariants kept** (rule 5 audit): mesh still spans [-0.5, 0.5] → `localScale` = old size vector
+  reproduces dimensions; race ratios/gender/weapon hand-scale stay transform-only; cache keyed by
+  profile id; `HideAndDontSave`; no collider. All part names/pivots/sizes/rotations untouched.
+
+### 1dx-status
+- Implemented; verified by grep + reread (no CLI build, rule 3): `Generate`/`EmitTriangle`/
+  `EmitQuad`/`Hash01`/`AnchorSeed` self-consistent; no remaining `RecalculateNormals` in
+  `PlayerPartMesher`; public surface (`BuildEllipsoid`) unchanged, so `MapBuilder.MakePart` compiles
+  as-is; variable shadowing checked (`s1`-vs-seg counter, `n`-vs-`inf` in prior 1dv CS0136 class of
+  bug — none in this file). game-design §3.5 + PROGRESS + THINKING updated same pass.
+  Play-test (pending, user runs Unity): every part shows the chunky triangle+square mosaic (not a
+  smooth ball); squares AND triangles both readable; dent silhouettes still visible under the facets;
+  no cracks/see-through from any camera angle; race-ratio/gender/cutscene variants scale identically;
+  eyes still sit in the head sockets and read as faceted discs; hands/weapons alignment unchanged
+  (hand parts are just smaller faceted ellipsoids).
+
 ## 1dw. Smooth player model — ellipsoid part surfaces with terrain-style dent sculpt
+
+> Superseded visually by **1dx** below (the generator is now a Rings 7 × Segs 12 CHUNKY FACETED
+> mosaic; sculpt, cache and transform sizing all still work exactly as documented here).
 
 The player model is no longer a boxy doll. Every body part now gets a **tessellated unit-space
 ellipsoid mesh** (`PlayerPartMesher`), generated once per part profile and sculpted with the same

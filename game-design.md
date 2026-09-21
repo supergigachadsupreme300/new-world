@@ -589,20 +589,27 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   applies to the world-discovery flow.)*
 - On change: `PlayerStats` modifiers refresh, the player model **rebuilds** with the race's palette + body ratios (§3.5 Race Visuals), `RaceRig` applies the uniform scale, `RacePassiveManager` re-applies passives. Current HP/FP/stamina preserved as % of their new max.
 
-#### Player Model (Smooth Ellipsoid Character, 1dw)
+#### Player Model (Faceted Low-Poly Character, 1dw + 1dx)
 
-- Every body part of the player model is a **tessellated unit-space ellipsoid mesh** instead of a box
-  (`PlayerPartMesher`): a Rings 9 × Segs 16 sphere grid generated once per part profile, occupying the
-  same half-extent cube [-0.5, 0.5] as the old shared unit cube — so a part GameObject's
-  `localScale` = its size vector reproduces the exact world dimensions. `MakePart` (`MapBuilder`)
-  builds these on the same pivot hierarchy the animator/weapon rigs expect; `MakeBlock` still serves
-  creatures, vehicles and props.
+- Every body part of the player model is a **unit-space faceted ellipsoid mesh** instead of a box
+  (`PlayerPartMesher`): a chunkier Rings 7 × Segs 12 corner lattice generated once per part profile,
+  occupying the same half-extent cube [-0.5, 0.5] as the old shared unit cube — so a part
+  GameObject's `localScale` = its size vector reproduces the exact world dimensions. `MakePart`
+  (`MapBuilder`) builds these on the same pivot hierarchy the animator/weapon rigs expect;
+  `MakeBlock` still serves creatures, vehicles and props.
 - Parts are **sculpted with terrain-style "dents"** (the `WorldStreamer.DeformAt` crater carve
   generalized to 3D): per-vertex influence from a normalized ellipsoid distance to an anchor, the
   same `s = t²(3−2t)` smoothstep, the vertex pushed along its original radial. Examples: waist pinch +
   chest raise on the torso, eye sockets + nose + chin on the head, deltoid/elbow/wrist tapers on the
   arms, knee taper + calf + quad on the legs, bell flare on the skirt; hair/hairband keep their own
   slim parts. Eyes are thin bulging discs seated into the head's eye-socket dents.
+- The sculpted corners are then emitted as a **chunky low-poly mosaic (1dx)** covering the whole
+  skin: every band cell becomes a flat-shaded **square** panel or a pair of flat-shaded **triangle**
+  panels (deterministic per-cell hash, squares dominant, pole fans always triangles), and every
+  shared corner gets a small deterministic tangent jitter so the panel boundaries read hand-cut —
+  yet the corners stay shared, so the mosaic is watertight (no cracks/see-through). Each panel
+  carries its own flat (face) normal, so the facets visibly catch the light; the dent silhouettes
+  still read through the facets.
 - Meshes are **static and size-independent** — one cached mesh per profile serves every gender, race
   ratio and model variant. Sizing happens purely on `Transform.localScale`, so race ratios (§3.5
   below) and weapon hand-scale compensation (`WeaponRigBuilder.ScaleForWorld`) keep working untouched.

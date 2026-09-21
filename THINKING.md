@@ -15,7 +15,59 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
-## 1dw — smooth player model: ellipsoid part surfaces with dent sculpt (SHIPPED in `1dw`)
+## 1dx — faceted low-poly player skin: chunky triangle/square mosaic with deterministic jitter (SHIPPED in `1dx`)
+
+Follow-up to 1dw. User: the model "is currently only plain original shape" — wants "multiple surface
+triangle, square shape generate all over the skin". Clarified: chunky low-poly facets, slight
+hand-cut jitter (deterministic), all parts.
+
+### Step 1 — what "triangle and square shapes all over" means technically
+- H1 — flat-shading only: drop `RecalculateNormals()` so the existing smooth 9×16 grid shows hard
+  edges. REJECTED: the grid is a plain lat/long mesh — every band cell is already 2 thin triangles
+  pointing at the poles; flat shading would read as slivers, not "triangles and squares".
+- H2 — re-topology into a panel mosaic: chunkier lattice, each cell becomes a QUAD (square) panel or
+  two TRIANGLE panels, all flat-shaded via duplicated vertices with face normals. ACCEPTED: gives
+  exactly the requested mixed mosaic and a stylized low-poly read; keeps the ellipsoid silhouette
+  and the 1dw dents (sculpt happens on the lattice corners first).
+- H3 — jitter per panel with independent corners (cracked/shattered gem look). REJECTED: single-sided
+  solid meshes — any gap between panels shows the backfaces-culled hole straight through to the
+  background/collider. Instead jitter the SHARED lattice corners: boundaries warp organically, mesh
+  stays watertight, and it's trivially deterministic.
+
+### Step 2 — panel winding, correctness traps
+- Old code had ONE global winding check on the first face. New emission is per-panel: compute the
+  face normal from the (pre-swap) triangle, compare against the panel centroid's outward radial,
+  swap two indices + negate the normal when inward. This is safe for the pole fans too (south fan is
+  emitted in the same loop direction as north — the per-panel flip absorbs the handedness), and for
+  quads the single averaged normal is oriented consistently with the diagonal-triangle order used for
+  the index buffer.
+- Quad "square" read: both triangles share one flat normal, so the light seam that would split a
+  quad into two shaded triangles disappears — it renders as one square. Coplanarity is only
+  approximate on a curved ellipsoid cell (they're not planar), but at chunky scale with a shared
+  normal this is invisible.
+- Determinism: `Hash01(x, seed, salt)` (integer hash → [0,1)) with `AnchorSeed(profileId)` means the
+  facet layout is byte-identical across sessions/processes — no `UnityEngine.Random` (results would
+  change every play session and every rebuild). Cache stays keyed by profile only.
+- CS0136-class shadowing audit (learned from 1dv): the method uses `s` (seg counter), `s1`, `b`,
+  `lat`, `k`, `n`, `sm`, `h1/h2`, `t1/t2`, `iv`, `nn` — no redeclaration of an outer variable in the
+  same block; the split branch redeclares nothing that collides. `0x5EEDF`/`0xCAFE` are plain int
+  salts — fine.
+- Latency: per-panel vertex duplication ≈ 400 verts / ~500 tris per part (quads ~47×4 + split tris
+  ~50×3 + caps 24×3), built once per profile and cached — trivial.
+
+### Step 3 — verification
+- Grep + reread (rule 3): `MakePart`/`BuildEllipsoid`/cache/profiles untouched; `RecalculateNormals`
+  gone from `PlayerPartMesher`; the three `MapBuilder` builders + all part/pivot names unchanged;
+  parts still span [-0.5, 0.5] so `localScale` sizing (race ratios, weapon hand-scale) is intact.
+- Left OPEN for Unity play-test: whether 6 bands × 12 cells reads "chunky" enough at every part size
+  (the Head at 0.3 has the densest-eye region — hang looser than chunky on small parts), and whether
+  35% triangle split vs squares feels right in-game.
+- Verdict: SHIPPED in `1dx`. No CLI build (rule 3) — verified by grep + reread; the user compiles in
+  Unity.
+
+---
+
+## 1dw — smooth player model: ellipsoid part surfaces with dent sculpt (SHIPPED in `1dw`; generator superseded by `1dx`)
 
 Request: player model is "too blocky" — keep the existing spine/pivots for animation, generate the
 visual surface of each part as an ellipsoid shape, and sculpt each part with multiple dents like the
