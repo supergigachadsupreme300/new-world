@@ -24,6 +24,11 @@ public class GameManager : MonoSingleton<GameManager>
     public List<PetController> Pets = new List<PetController>();
     public bool AutoStartGame = false;
 
+    // 1e5: AutoResolveReferences runs once (GameManager.Start). The rescan + full InitializeUI /
+    // ToolManager.Initialize / menu pass used to re-run even though GameBootstrap already built
+    // everything — leaving it without a guard re-created UI panels at every resolve.
+    private bool _referencesResolved;
+
     protected override void Awake()
     {
         base.Awake();
@@ -250,21 +255,35 @@ public class GameManager : MonoSingleton<GameManager>
 
     public void AutoResolveReferences()
     {
-        Player = Object.FindAnyObjectByType<PlayerController>();
-        WorldBuilder = Object.FindAnyObjectByType<WorldBuilder>();
-        WorldStreamer = Object.FindAnyObjectByType<WorldStreamer>();
-        UIManager = Object.FindAnyObjectByType<UIManager>();
-        ToolManager = Object.FindAnyObjectByType<ToolManager>();
-        CutsceneManager = Object.FindAnyObjectByType<CutsceneManager>();
-        RandomEventManager = Object.FindAnyObjectByType<RandomEventManager>();
+        // 1e5: field resolution + the Pets scan stay every-pass (a pre-placed scene pet must be
+        // picked up), but the side-effecting builds (UI layout, tool catalog, menu, cutscene wiring)
+        // are guarded — GameBootstrap already built them and Start() re-invoked the whole method.
+        // Lookups now go through ComponentRegistry so the repeated resolve stays sweepless.
+        Player = ComponentRegistry.Find<PlayerController>();
+        WorldBuilder = ComponentRegistry.Find<WorldBuilder>();
+        WorldStreamer = ComponentRegistry.Find<WorldStreamer>();
+        UIManager = ComponentRegistry.Find<UIManager>();
+        ToolManager = ComponentRegistry.Find<ToolManager>();
+        CutsceneManager = ComponentRegistry.Find<CutsceneManager>();
+        RandomEventManager = ComponentRegistry.Find<RandomEventManager>();
         Pets = new List<PetController>(Object.FindObjectsByType<PetController>(FindObjectsSortMode.None));
 
         if (UIManager == null)
+        {
             UIManager = gameObject.AddComponent<UIManager>();
+            ComponentRegistry.Cache(UIManager);
+        }
         if (ToolManager == null)
+        {
             ToolManager = gameObject.AddComponent<ToolManager>();
-        if (Object.FindAnyObjectByType<MainMenuController>() == null)
+            ComponentRegistry.Cache(ToolManager);
+        }
+        if (ComponentRegistry.Find<MainMenuController>() == null)
             gameObject.AddComponent<MainMenuController>();
+
+        if (_referencesResolved)
+            return;
+        _referencesResolved = true;
 
         if (MainMenuController.Instance != null)
             MainMenuController.Instance.InitializeMenu(this);

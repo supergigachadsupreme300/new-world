@@ -15,6 +15,12 @@ public sealed class MultiplayerIndicatorHUD : MonoBehaviour
     private Canvas _canvas;
     private TMP_Text _label;
 
+    // 1e5: cached host + throttled text refresh. Previously re-found NetServerHost and rewrote
+    // _label.text every frame.
+    private NetServerHost _host;
+    private float _textTimer;
+    private const float TextInterval = 0.25f;
+
     private void OnEnable()
     {
         _canvas = HudCanvas.CreateOverlay("MultiplayerIndicatorCanvas");
@@ -43,11 +49,21 @@ public sealed class MultiplayerIndicatorHUD : MonoBehaviour
             _canvas.gameObject.SetActive(ShowOnInGame ? inGame : true);
         if (!inGame || _label == null) return;
 
-        var host = Object.FindAnyObjectByType<NetServerHost>();
+        // The host is a persistent bootstrap singleton; re-find only when missing (fixed host
+        // disappears only on teardown). Refresh the displayed text at ~4Hz — the value changes
+        // on connect/disconnect events, never per-frame.
+        if (_host == null)
+            _host = Object.FindAnyObjectByType<NetServerHost>();
+
+        _textTimer -= Time.deltaTime;
+        if (_textTimer > 0f)
+            return;
+        _textTimer = TextInterval;
+
         string text;
-        if (host != null && host.IsRunning)
+        if (_host != null && _host.IsRunning)
         {
-            var server = host.Server;
+            var server = _host.Server;
             int sessions = server != null ? server.Sessions.Count : 0;
             text = "Server: " + sessions + " online";
         }

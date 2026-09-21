@@ -30,6 +30,9 @@ public class BlindStatus : MonoBehaviour
     private bool _isPlayer;
     private float _radius;
 
+    // 1e5: cached main camera for the per-frame fog follow (was Camera.main every frame).
+    private Camera _mainCam;
+
     /// <summary>Apply/refresh the blind status on a hit target.</summary>
     public static BlindStatus Apply(GameObject target, float duration)
     {
@@ -87,9 +90,10 @@ public class BlindStatus : MonoBehaviour
         if (_fog == null) return;
         if (_isPlayer)
         {
-            var cam = Camera.main;
-            if (cam != null)
-                _fog.position = cam.transform.position - cam.transform.forward * (_radius * 0.25f) + Vector3.up * 0.2f;
+            if (_mainCam == null)
+                _mainCam = Camera.main;
+            if (_mainCam != null)
+                _fog.position = _mainCam.transform.position - _mainCam.transform.forward * (_radius * 0.25f) + Vector3.up * 0.2f;
         }
         else
         {

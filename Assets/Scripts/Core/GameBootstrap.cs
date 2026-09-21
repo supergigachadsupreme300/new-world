@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -14,12 +15,17 @@ public class GameBootstrap : MonoBehaviour
         var root = new GameObject("GameRoot");
         Object.DontDestroyOnLoad(root);
 
-        var gameManager = Object.FindAnyObjectByType<GameManager>() ?? root.AddComponent<GameManager>();
-        var uiManager = Object.FindAnyObjectByType<UIManager>() ?? root.AddComponent<UIManager>();
-        var worldBuilder = Object.FindAnyObjectByType<WorldBuilder>() ?? root.AddComponent<WorldBuilder>();
-        var worldStreamer = Object.FindAnyObjectByType<WorldStreamer>() ?? root.AddComponent<WorldStreamer>();
-        var toolManager = Object.FindAnyObjectByType<ToolManager>() ?? root.AddComponent<ToolManager>();
-        var existingPlayer = Object.FindAnyObjectByType<PlayerController>();
+        // --- Managers (1e5) --------------------------------------------------------------
+        // Lookups go through ComponentRegistry: the first find per type casts from ONE shared
+        // scene sweep instead of a per-type FindAnyObjectByType scan (~24 sweeps at boot before
+        // this change). Missing singletons are created on the GameRoot exactly as before, and the
+        // fresh component is cached so later resolve passes stay sweepless.
+        var gameManager = Ensure(root, ComponentRegistry.Find<GameManager>());
+        var uiManager = Ensure(root, ComponentRegistry.Find<UIManager>());
+        var worldBuilder = Ensure(root, ComponentRegistry.Find<WorldBuilder>());
+        var worldStreamer = Ensure(root, ComponentRegistry.Find<WorldStreamer>());
+        var toolManager = Ensure(root, ComponentRegistry.Find<ToolManager>());
+        var existingPlayer = ComponentRegistry.Find<PlayerController>();
         PlayerController playerController;
         if (existingPlayer != null)
         {
@@ -35,23 +41,23 @@ public class GameBootstrap : MonoBehaviour
             playerController = playerObject.AddComponent<PlayerController>();
             Object.DontDestroyOnLoad(playerObject);
         }
-        var mainMenuController = Object.FindAnyObjectByType<MainMenuController>() ?? root.AddComponent<MainMenuController>();
-        var saveManager = Object.FindAnyObjectByType<SaveManager>() ?? root.AddComponent<SaveManager>();
-        var soundManager = Object.FindAnyObjectByType<SoundManager>() ?? root.AddComponent<SoundManager>();
-        var questManager = Object.FindAnyObjectByType<QuestManager>() ?? root.AddComponent<QuestManager>();
-        var cutsceneManager = Object.FindAnyObjectByType<CutsceneManager>() ?? root.AddComponent<CutsceneManager>();
-        var randomEventManager = Object.FindAnyObjectByType<RandomEventManager>() ?? root.AddComponent<RandomEventManager>();
-        var wifeNPC = Object.FindAnyObjectByType<WifeNPC>() ?? root.AddComponent<WifeNPC>();
-        var mobileInput = Object.FindAnyObjectByType<MobileInputController>() ?? root.AddComponent<MobileInputController>();
-        var sleepManager = Object.FindAnyObjectByType<SleepManager>() ?? root.AddComponent<SleepManager>();
-        var karmaManager = Object.FindAnyObjectByType<KarmaManager>() ?? root.AddComponent<KarmaManager>();
-        var religionManager = Object.FindAnyObjectByType<ReligionManager>() ?? root.AddComponent<ReligionManager>();
-        var skillManager = Object.FindAnyObjectByType<SkillManager>() ?? root.AddComponent<SkillManager>();
-        var friendshipManager = Object.FindAnyObjectByType<FriendshipManager>() ?? root.AddComponent<FriendshipManager>();
-        var fishingProgression = Object.FindAnyObjectByType<FishingProgression>() ?? root.AddComponent<FishingProgression>();
-        var chestStorageManager = Object.FindAnyObjectByType<ChestStorageManager>() ?? root.AddComponent<ChestStorageManager>();
-        var typingMinigame = Object.FindAnyObjectByType<TypingMinigame>() ?? root.AddComponent<TypingMinigame>();
-        var farmingManager = Object.FindAnyObjectByType<FarmingManager>() ?? root.AddComponent<FarmingManager>();
+        var mainMenuController = Ensure(root, ComponentRegistry.Find<MainMenuController>());
+        var saveManager = Ensure(root, ComponentRegistry.Find<SaveManager>());
+        var soundManager = Ensure(root, ComponentRegistry.Find<SoundManager>());
+        var questManager = Ensure(root, ComponentRegistry.Find<QuestManager>());
+        var cutsceneManager = Ensure(root, ComponentRegistry.Find<CutsceneManager>());
+        var randomEventManager = Ensure(root, ComponentRegistry.Find<RandomEventManager>());
+        var wifeNPC = Ensure(root, ComponentRegistry.Find<WifeNPC>());
+        var mobileInput = Ensure(root, ComponentRegistry.Find<MobileInputController>());
+        var sleepManager = Ensure(root, ComponentRegistry.Find<SleepManager>());
+        var karmaManager = Ensure(root, ComponentRegistry.Find<KarmaManager>());
+        var religionManager = Ensure(root, ComponentRegistry.Find<ReligionManager>());
+        var skillManager = Ensure(root, ComponentRegistry.Find<SkillManager>());
+        var friendshipManager = Ensure(root, ComponentRegistry.Find<FriendshipManager>());
+        var fishingProgression = Ensure(root, ComponentRegistry.Find<FishingProgression>());
+        var chestStorageManager = Ensure(root, ComponentRegistry.Find<ChestStorageManager>());
+        var typingMinigame = Ensure(root, ComponentRegistry.Find<TypingMinigame>());
+        var farmingManager = Ensure(root, ComponentRegistry.Find<FarmingManager>());
 
         gameManager.UIManager = uiManager;
         gameManager.WorldBuilder = worldBuilder;
@@ -62,22 +68,14 @@ public class GameBootstrap : MonoBehaviour
         gameManager.KarmaManager = karmaManager;
         gameManager.ReligionManager = religionManager;
 
+        // Boot-critical (frame 0): the HUD panels the player reads immediately and the tool
+        // catalog. The remaining manager setups are queued to BootInitDeferrer and trickle in
+        // over the next frames instead of stalling the first rendered frame (1e5). Note the
+        // idempotency guards (1e5) mean UIManager.InitializeUI / ToolManager.Initialize /
+        // SoundManager.LoadSoundClips each actually run once even though UIManager.Start and
+        // GameManager.AutoResolveReferences call them again.
         uiManager.InitializeUI();
         toolManager.Initialize(uiManager, worldBuilder);
-        mainMenuController.InitializeMenu(gameManager);
-        soundManager.LoadSoundClips();
-        saveManager.Initialize(gameManager, toolManager, worldBuilder, uiManager, questManager);
-        questManager.InitializeQuests();
-        cutsceneManager.Initialize(uiManager);
-        randomEventManager.Initialize(uiManager);
-        wifeNPC.Initialize(uiManager.GetCanvas());
-        wifeNPC.LoadState();
-        karmaManager.Initialize();
-        religionManager.Initialize();
-        skillManager.Initialize();
-        friendshipManager.Initialize();
-        fishingProgression.Initialize();
-        chestStorageManager.Initialize();
 
         // --- Open-world chunk streaming -------------------------------------------------
         // The new seed/coordinate open world. If a default ground material is not
@@ -102,26 +100,23 @@ public class GameBootstrap : MonoBehaviour
             worldStreamer.GroundMaterial = mat;
         }
 
-        // Generate ONLY the spawn chunk synchronously so the player has ground to land on before
-        // the first frame; the surrounding chunks build in the background from frame 1 (the chunk
-        // pipeline + aggressive burst budget fills the full radius-30 ring in ~10-15s (1dg)).
-        //
-        // Boot order is "ground first, then player": the player is placed on the pre-generated
-        // spawn chunk at (0, ~y+2, -10) — never an unloaded void — OR directly on the independent
-        // test platform, which is the DEFAULT spawn since 1dn (see below). NewWorldTestGround
-        // builds its floating platform synchronously in Awake, so the pad surface exists before
-        // the player is placed; the boot chunk stays as the fallback when the platform is off.
-        TerrainChunkCoord spawnChunk = TerrainChunkCoord.FromTile(new ChunkCoord(0, -10));
-        worldStreamer.GenerateChunkSync(spawnChunk);
-
         // --- Testing ground (weapons, enemies, skills, NPCs) ----------------------------
-        // Created BEFORE the player teleport so the spawn can land on the test ground (1dn).
-        var testGround = Object.FindAnyObjectByType<NewWorldTestGround>()
-            ?? root.AddComponent<NewWorldTestGround>();
+        // Resolved BEFORE the spawn-chunk decision (1e5). The floating platform is the DEFAULT
+        // spawn, so building a ground chunk synchronously under it spent 5-20ms of frame-0 budget
+        // on ground never seen. The synchronous boot chunk is kept as the landing ground for the
+        // non-platform fallback path only; platform spawns stream their chunks normally from frame 1.
+        var testGround = Ensure(root, ComponentRegistry.Find<NewWorldTestGround>());
+        var spawnOnPlatform = testGround != null && testGround.CreatePlatform && testGround.IsArenaReady;
+
+        if (!spawnOnPlatform)
+        {
+            TerrainChunkCoord spawnChunk = TerrainChunkCoord.FromTile(new ChunkCoord(0, -10));
+            worldStreamer.GenerateChunkSync(spawnChunk);
+        }
 
         if (playerController != null)
         {
-            Vector3 spawn = testGround != null && testGround.CreatePlatform && testGround.IsArenaReady
+            Vector3 spawn = spawnOnPlatform
                 ? testGround.GetSpawnPoint()
                 : new Vector3(0f, TerrainNoiseGenerator.GetHeight(worldStreamer.Seed, 0.5f, -9.5f) + 2f, -10f);
             playerController.TeleportTo(spawn);
@@ -130,7 +125,52 @@ public class GameBootstrap : MonoBehaviour
         worldStreamer.SetFocus(playerController != null ? playerController.transform : null);
 
         // --- Phase 8/9 UI, LOD, culling, pooling ---------------------------------------
-        var newWorldSystems = Object.FindAnyObjectByType<NewWorldSystems>()
-            ?? root.AddComponent<NewWorldSystems>();
+        Ensure(root, ComponentRegistry.Find<NewWorldSystems>());
+
+        // --- Deferred initializers (1e5) -------------------------------------------------
+        // Non-critical manager setup that used to run synchronously in this method. Runs after
+        // the first rendered frame; original dependency order preserved (bag/tool -> save; HUD
+        // canvas -> menu/cutscene/wife). quest/karma/religion are deliberately NOT queued here —
+        // GameManager.Start -> StartNewGame already re-initializes them on frame 1.
+        var deferrer = root.AddComponent<BootInitDeferrer>();
+        deferrer.Queue(new[]
+        {
+            // Frame 1: menus, save system, quest state, cutscene/random-event wiring.
+            new Action(() =>
+            {
+                mainMenuController.InitializeMenu(gameManager);
+                saveManager.Initialize(gameManager, toolManager, worldBuilder, uiManager, questManager);
+                questManager.InitializeQuests();
+                cutsceneManager.Initialize(uiManager);
+                randomEventManager.Initialize(uiManager);
+            }),
+            // Frame 2: wife NPC (needs the HUD canvas) + remaining lightweight manager setup.
+            new Action(() =>
+            {
+                wifeNPC.Initialize(uiManager.GetCanvas());
+                wifeNPC.LoadState();
+                skillManager.Initialize();
+                friendshipManager.Initialize();
+                fishingProgression.Initialize();
+                chestStorageManager.Initialize();
+            }),
+        });
+
+        // Kept locals alive for the deferred closures/singleton guarantees (suppress unused).
+        _ = mobileInput;
+        _ = sleepManager;
+        _ = soundManager;
+        _ = typingMinigame;
+        _ = farmingManager;
+    }
+
+    /// <summary>Reuse an existing singleton or create it on the boot root and cache it (1e5).</summary>
+    private static T Ensure<T>(GameObject root, T existing) where T : Component
+    {
+        if (existing != null)
+            return existing;
+        var created = root.AddComponent<T>();
+        ComponentRegistry.Cache(created);
+        return created;
     }
 }

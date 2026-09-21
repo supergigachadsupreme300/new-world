@@ -22,6 +22,10 @@ public class SoundManager : MonoSingleton<SoundManager>
     private readonly Dictionary<string, AudioClip> _overrides = new Dictionary<string, AudioClip>();
     private AudioSource _source;
 
+    // 1e5: LoadSoundClips is called from Awake and from GameBootstrap; without a guard the 8
+    // synchronous Resources.Load calls ran twice at boot.
+    private bool _clipsLoaded;
+
     protected override void Awake()
     {
         base.Awake();
@@ -33,6 +37,8 @@ public class SoundManager : MonoSingleton<SoundManager>
 
     public void LoadSoundClips()
     {
+        if (_clipsLoaded) return;
+        _clipsLoaded = true;
         var names = new[] {"pop", "axe", "pickaxe", "hoe", "sickle", "hammer", "bonk", "mexican_truck"};
         foreach (var name in names)
         {

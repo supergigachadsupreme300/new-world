@@ -80,14 +80,23 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
 - At each frame, the system calculates which chunks are within radius of the player.
 - Chunks entering radius: loaded from cache or generated.
 - Chunks leaving radius: unloaded from memory (kept in cache on disk).
-- **Boot (current build):** only the **spawn chunk** is generated synchronously so the player is usable
-  immediately; the rest of the visible ring builds in an **adaptive burst pass** (poll every 0.05 s, up to
+- **Boot (current build):** the **spawn chunk** was generated synchronously so the player is usable
+  immediately; since **1e5** that sync build is gated behind the **non-platform fallback spawn** — the
+  default test-platform spawn (independent floating pad, §9) streams its chunks exactly like every
+  other from frame 1, so the first rendered frame no longer pays the 5-20 ms sync chunk. The rest of
+  the visible ring builds in an **adaptive burst pass** (poll every 0.05 s, up to
   12 chunks / base ~6 ms finalize budget that self-shrinks while frames hitch, 24 background generations
   in flight) that fills the full radius-30 ring without dropping a steady 60 fps (**1di** — the earlier
   16-chunk/12 ms burst shrank the budget so chunk finalization + collider cooking stop competing with the
   frame). The game bootstrap defaults render radius to **30** with a
   hard clamp of **160** chunks, and the LOD cull distance auto-matches the current render radius so
   culling never fights the visible ring.
+- **Boot cost (1e5):** manager lookups go through a `ComponentRegistry` (one shared scene sweep per
+  type instead of ~24 `FindAnyObjectByType` scans), `UIManager.InitializeUI` / `SoundManager.
+  LoadSoundClips` / `GameManager.AutoResolveReferences` idempotency guards stop the same UI layout /
+  8× audio loads from running 2-3× at boot, and the non-critical manager setup (menus, save system,
+  quests, cutscenes, wife NPC, skill/friendship/fishing/chest) is deferred one batch per frame by
+  `BootInitDeferrer` so the first rendered frame only waits on the HUD + tool catalog.
 - **Prop ring (1di):** trees/rocks are only streamed within `PropRingRadius` chunks of the focus
   (default **4**, Chebyshev ring ≈ 600 m) — `WorldStreamer` (props sync in `SyncPropRing`) queues the
   deterministic prop stream for chunks that enter the ring and hides their spawned props (`ChunkObject.

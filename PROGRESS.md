@@ -3,6 +3,48 @@
 Last updated: 2026-09-21. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1e5. Optimization Phase 6a — boot path + per-frame hotspots
+
+Closed the last open optimization item: **Phase 6 / startup (#17, #18)** (the documented boot-path
+work left over from the Phase 0-5 sweep), plus a set of safe per-frame hot-path fixes found by the
+deep performance re-audit (boot timeline, per-frame HUD scans, render/physics budget). No build/CLI
+run (rule 3) — verified by grep + reread; the render/physics structural work is 1e6.
+
+- **Boot: ComponentRegistry** (`Assets\Scripts\Opt\ComponentRegistry.cs`) — one shared scene sweep
+  per type instead of ~24 `FindAnyObjectByType` scans in `GameBootstrap`; freshly-`AddComponent`'d
+  singletons are cached so later resolve passes stay sweepless.
+- **Boot: idempotency guards** — `GameManager.AutoResolveReferences` no longer re-runs the UI/tool/
+  menu build (side-effecting cluster guarded by `_referencesResolved`; field resolution + the Pets
+  scan still run every pass so pre-placed scene pets are picked up), `UIManager.InitializeUI` and
+  `SoundManager.LoadSoundClips` guard themselves (each was running 2-3x at boot — duplicate panel
+  layout + duplicate 8× `Resources.Load`). `ToolManager.Initialize` already had its own guard.
+- **Boot: gated sync spawn chunk** — `NewWorldTestGround` is now resolved BEFORE the decision;
+  `GenerateChunkSync((0,-10))` only runs for the non-platform fallback spawn (the platform IS the
+  default spawn, so the 5-20ms synchronous chunk was building ground never seen).
+- **Boot: `BootInitDeferrer`** (`Assets\Scripts\Opt\BootInitDeferrer.cs`) — non-critical manager
+  setup (main menu, save system, quest init, cutscene + random-event wiring, then wife NPC + skill/
+  friendship/fishing/chest) now runs one batch per frame after the first rendered frame; original
+  dependency order preserved. quest/karma/religion are deliberately excluded — `StartNewGame`
+  already re-initializes them on frame 1.
+- **Per-frame:** `MultiplayerIndicatorHUD` caches the `NetServerHost` and refreshes its label at
+  ~4Hz (was: re-find + text write every frame); `EnemyHealthBarHUD` re-projects bar positions at
+  ~30Hz instead of every frame and skips enemies > 60m (the 0.5s scene scan is unchanged);
+  `SpellBeam`/`BlindStatus` cache the main camera; `FlickerLight` caches its `Light`. (Interaction
+  prompt audited — already 3-frame raycast-gated with text-change guards, left untouched.)
+
+### 1e5-status
+- Implemented; verified by grep + reread (rule 3, no CLI build): every changed member is private or
+  signature-preserving (`InitializeUI`/`LoadSoundClips`/`AutoResolveReferences` callers re-checked —
+  UIManager.cs:236/GameBootstrap/GameManager.Start only), the deferred lambda captures only
+  bootstrap locals, `BootInitDeferrer` runs its queue exactly once then self-destroys, and
+  `QuestManager.InitializeQuests` was confirmed self-guarded before deferral. game-design §8.6
+  (boot + opt) + PROGRESS + THINKING updated same pass.
+- Play-test (pending, user runs Unity): boot-to-playable noticeably snappier; every menu/settings/
+  tutorial/ending/save-slot panel still opens (single-pass UI init must not drop any panel); world
+  spawn with `CreatePlatform` off still lands on ground (sync-chunk fallback path); enemy bars track
+  at 30Hz with no visible lag; server indicator still updates on connect/disconnect; channeled
+  beams/fog follow the camera when the camera is moved at runtime.
+
 ## 1e4. Shoulder-dome torso — remove the flat collar, keep the pivots covered
 
 The 1e2 flat top plateau read as a collar ring / hat brim around the neck base. Replaced with a
@@ -1226,7 +1268,8 @@ guard rails — no more one-step 5 km teleport), `1bz`
 structures + worship NPCs on the test ground), `1bv` (talents moved to the Info tab, talent-point
 currency removed). The **optimization sweep** ran Phases 0-5
 (`1ag`-`1al` below); the sweep's planning doc (`OPTIMIZATION.md`) was retired once Phases 0-5 shipped —
-only **Phase 6 / startup** (#17, #18) remains open, recorded under OPEN TASKS. Legacy working plans
+only **Phase 6 / startup** (#17, #18) remains open, recorded under OPEN TASKS — and that shipped in
+**1e5** (registry + split init + gated sync boot chunk; see the top entry). Legacy working plans
 (`PLAN.md`, `PLAN-class-skill-trees.md`, `planning.md`) were deleted; `game-design.md` is the single
 durable design reference.
 
@@ -1236,13 +1279,10 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 ## # OPEN TASKS
 
 - **Axe/pickaxe bug** (from earlier sessions) — still open; see older entries below.
-- **Optimization Phase 6 — startup (#17, #18)** (the old `OPTIMIZATION.md` carried the detail):
-  - **#17** — `Core/GameBootstrap.cs:15-80` runs ~30 full-scene `FindAnyObjectByType` scans and
-    initializes all managers synchronously. Fix: a registry to cache the lookups; split init across
-    frames.
-  - **#18** — `Core/GameBootstrap.cs:107`: boot spawn-chunk build is synchronous. (The 61×61=3,721
-    noise-point arena re-scan was removed in `1bf` — the arena is no longer carved, so
-    `PrepareArenaGround` is just a single `GetHeight` sample now.)
+- ~~**Optimization Phase 6 — startup (#17, #18)**: #17 registry + split init (Core/GameBootstrap.cs
+  scans, `OPTIMIZATION.md` legacy)~~ — **SHIPPED in 1e5** (see entry at top). #18 — boot spawn-chunk
+  is now synchronous only for the non-platform fallback spawn (the default test-platform spawn
+  streams its chunks like every other).
 
 ---
 

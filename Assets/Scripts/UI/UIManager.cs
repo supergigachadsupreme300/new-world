@@ -194,6 +194,10 @@ public partial class UIManager : MonoBehaviour
     private readonly Image[] _inventorySlotImages = new Image[InventorySlotCount];
     private bool _inventoryCreated;
     private bool _tutorialCreated;
+    // 1e5: idempotency flag for InitializeUI — the UI builder is invoked from the Bootstrap,
+    // from Start, and from GameManager.AutoResolveReferences; without this the whole panel layout
+    // (and duplicate canvases/panels) re-ran at every call.
+    private bool _uiInitialized;
     private RectTransform _statsBg;
     private float _statsScale = 1f;
     private TMP_Text _messageText;
@@ -307,6 +311,11 @@ public partial class UIManager : MonoBehaviour
 
     public void InitializeUI()
     {
+        // 1e5: the layout is fully built on first call (Bootstrap frame 0); Start() and
+        // GameManager.AutoResolveReferences() re-invoked it and re-created duplicate panels.
+        if (_uiInitialized) return;
+        _uiInitialized = true;
+
         EnsureEventSystem();
         var existingHud = GameObject.Find("HUD_Canvas");
         if (existingHud != null)

@@ -15,6 +15,64 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1e5 — Performance deep-dive: is there real mileage left after Phases 0-5? (SHIPPED in `1e5`, structural work deferred to `1e6`)
+
+Three parallel audits (boot timeline, per-frame hot-path grep, render/physics budget) produced a mix
+of real wins and false alarms. The adjust-the-ratios verdict was: startup had genuine leftover cost
+(an actual triple-build), the per-frame field was mostly already clean, and the render/physics layer
+holds the remaining big items (→ 1e6).
+
+### H1 — "Boot is slow because of ~24 FindAnyObjectByType scans" → REVISED
+Evidence: GameBootstrap.cs:17-54 does ~24 `FindAnyObjectByType<T>()` sweeps. But each sweep is ~0.1ms
+on a sparse early scene — the whole scan block is ~1-3ms, small v. the init bodies. VERDICT: the
+scans are NOT the main cost; the main cost is that `InitializeUI` (120-180 GOs + 8 textures, 15-35ms),
+`ToolManager.Initialize` (53 tool models) and `SoundManager.LoadSoundClips` (8 sync Resources.Load,
+No-alloc — each may be 0.5x-5x ms) run MULTIPLE times: UIManager's own `Start()` (UIManager.cs:236),
+`GameBootstrap` (line 65/66), AND `GameManager.Start`→`AutoResolveReferences` (line 272/273). Three
+UI builds. The registry (#17 documented approach) is still the right mechanism to remove the sweeps,
+but the dedup guards are the real seconds-fraction win. → CONFIRMED-by-read, shipped.
+
+### H2 — "Adding an `_initialized` guard to AutoResolveReferences is safe" → PARTIAL-CONFIRMED with a catch
+The catch found by re-reading Start(): `AutoResolveReferences` is the ONLY place that fills `Pets` from
+the scene (`FindObjectsByType<PetController>`) before `SpawnDefaultPets()` checks `Pets.Count`. An
+early-return guard would stop a pre-placed scene pet from being counted → `SpawnDefaultPets` would
+spawn an extra default pet that never existed before. FIX: guard only the side-effecting init cluster
+(menu/UI/tool/cutscene/randomEvent), leave field resolution + Pets scan per-pass. → confirmed.
+
+### H3 — "Deferring the non-critical boot inits to a BootInitDeferrer is safe" → CONFIRMED with exclusions
+Evidence read: `QuestManager.InitializeQuests` is self-guarded (`_quests.Count > 0`), and
+`GameManager.Start`→`StartNewGame` already calls `ResetQuests()`+`InitializeQuests()` + `Karma`/`Religion`
+Initialize on frame 1 → re-queueing those from bootstrap would DOUBLE them. Excluded. `WifeNPC.Initialize`
+only builds the dialog canvas; `WifeNPC.Start` only starts coroutines, and `ResetForNewGame` only resets
+fields → delering Initialize/LoadState to frame 2 is invisible. `CutsceneManager.Start` only starts a
+coroutine, `Initialize` prebuilds driving assets when enabled (deferred OK). → confirmed by read.
+
+### H4 — Audit's per-frame "SkillBarHUD RefreshEntries Clear+AddRange+Sort per frame" → REJECTED as noise
+Re-read: SkillBarHUD.Update only runs while the skill bar is visible, `RefreshEntries` writes into
+pre-allocated lists (AddRange onto a zero-capacity list reallocates once then reuses; Sort on ≤10
+items), and label repaint is already change-guarded (`_entriesDirty`). Not worth touching.
+
+### H5 — Audit's "InteractionPrompt LateUpdate GetComponent<Collider> + FindNearest each frame" → REJECTED as already-mitigated
+Re-read `UI/InteractionPrompt.cs`: the crosshair raycast already runs every 3rd frame with a cached
+last-hit; text writes are change-guarded; the only true-every-frame cost is `ResolveEKeyLocKey`'s
+`SittableSeat.FindNearest` when pointing at empty terrain (small linear scan) and one
+`GetComponent<Collider>` guarded by Unity's per-type cache. Left untouched.
+
+### H6 — "EnemyHealthBarHUD runs 24 WorldToScreenPoint/frame" → CONFIRMED, throttled
+The 0.5s full-scene `FindObjectsByType<EnemyController>` rescan is intentional (`1dr`); the per-frame
+cost was the screen-space projection for up to 24 bars. Throttled projections to 30Hz (position
+stale for ≤1 frame only) + skipped bars for enemies > 60m + fill writes stay change-guarded.
+CONFIRMED the previous narrowing (PlayerBars/MagicWheel already throttled by 1dr).
+
+### Dead end recorded (so it isn't re-walked)
+`SittableSeat.FindNearest` per-frame was hypothesized as the "interaction prompt" cost — the actual
+per-frame prompt already caches it behind the raycast gate. Camera per-frame items were real but small.
+The big render/physics findings (LOD meshes never created — `ChunkLodManager` band children don't exist;
+~3,700 chunk draw calls; per-cast collider re-cook + save flush; ObjectPooler with zero consumers;
+per-projectile `new Material`) are the structured second-half work → **1e6**, separate commit.
+
+---
+
 ## 1e4 — shoulder-dome torso: kill the flat-collar look WITHOUT stranding the shoulder pivots (SHIPPED in `1e4`)
 
 Motivation: the 1e2 flat top plateau read as a collar ring / hat brim around the neck base. 1e4

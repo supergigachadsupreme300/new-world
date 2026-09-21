@@ -24,6 +24,13 @@ public sealed class EnemyHealthBarHUD : MonoBehaviour
     private float _scanTimer;
     private const float ScanInterval = 0.5f;
 
+    // 1e5: bar positions are re-projected at ~30Hz instead of every frame (up to MaxBars
+    // WorldToScreenPoint calls), and enemies beyond MaxTrackDistance never claim a bar.
+    private float _posTimer;
+    private const float PosInterval = 1f / 30f;
+    private const float MaxTrackDistance = 60f;
+    private const float MaxTrackDistanceSqr = MaxTrackDistance * MaxTrackDistance;
+
     private sealed class EnemyHealthBar
     {
         public GameObject Root;
@@ -54,14 +61,27 @@ public sealed class EnemyHealthBarHUD : MonoBehaviour
         var enemies = AllEnemies();
         int used = 0;
 
+        _posTimer -= Time.deltaTime;
+        bool reposition = _posTimer <= 0f;
+        if (reposition)
+            _posTimer = PosInterval;
+
+        // Distance gate needs a camera reference even on non-reposition frames.
+        if (_cam == null)
+            _cam = Camera.main;
+        Vector3 camPos = _cam != null ? _cam.transform.position : Vector3.zero;
+        bool camOk = _cam != null;
+
         for (int i = 0; i < enemies.Count && used < MaxBars; i++)
         {
             var e = enemies[i];
             if (e == null || e.IsDead) continue;
+            if (camOk && (e.transform.position - camPos).sqrMagnitude > MaxTrackDistanceSqr)
+                continue;
 
             EnemyHealthBar bar = Acquire(used);
             used++;
-            Attach(bar, e);
+            Attach(bar, e, reposition);
         }
 
         // Release surplus bars.
@@ -115,7 +135,7 @@ public sealed class EnemyHealthBarHUD : MonoBehaviour
         return _bars[index];
     }
 
-    private void Attach(EnemyHealthBar bar, EnemyController enemy)
+    private void Attach(EnemyHealthBar bar, EnemyController enemy, bool reposition)
     {
         // Bars are pooled: (re)initialise max and head height when a different enemy takes over the bar.
         if (bar.Target != enemy.transform)
@@ -133,12 +153,17 @@ public sealed class EnemyHealthBarHUD : MonoBehaviour
             return;
         }
 
-        Vector3 screen = _cam.WorldToScreenPoint(enemy.transform.position + Vector3.up * bar.HeightOffset);
-        bool shown = screen.z > 0f;
-        SetShown(bar, shown);
-        if (!shown) return;
+        // 1e5: on non-reposition frames the bar keeps its last screen position; only the health
+        // fill (which changes continuously) is updated. WorldToScreenPoint runs at ~30Hz.
+        if (reposition)
+        {
+            Vector3 screen = _cam.WorldToScreenPoint(enemy.transform.position + Vector3.up * bar.HeightOffset);
+            bool shown = screen.z > 0f;
+            SetShown(bar, shown);
+            if (shown)
+                bar.Rect.anchoredPosition = new Vector3(screen.x - Screen.width * 0.5f, screen.y - Screen.height * 0.5f, 0f);
+        }
 
-        bar.Rect.anchoredPosition = new Vector3(screen.x - Screen.width * 0.5f, screen.y - Screen.height * 0.5f, 0f);
         float frac = bar.Max > 0f ? Mathf.Clamp01(enemy.CurrentHealth / bar.Max) : 0f;
         if (Mathf.Abs(bar.Fill.fillAmount - frac) > 0.0005f)
             bar.Fill.fillAmount = frac;

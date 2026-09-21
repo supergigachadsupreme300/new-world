@@ -8,15 +8,18 @@ public class FlickerLight : MonoBehaviour
 {
     public float Intensity = 3f;
     private float _phase;
+    private Light _light;
 
     void Start()
     {
         _phase = Random.value * 20f;
+        _light = GetComponent<Light>();
     }
 
     void Update()
     {
-        var l = GetComponent<Light>();
+        // 1e5: Light component cached once (was GetComponent per frame).
+        var l = _light;
         if (l == null || !l.enabled)
             return;
         float n = Mathf.PerlinNoise(Time.time * 1.4f, _phase);

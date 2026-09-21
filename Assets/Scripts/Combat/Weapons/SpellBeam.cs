@@ -39,6 +39,10 @@ public class SpellBeam : MonoBehaviour
     private Vector3 _orbBaseScale;
     private readonly Collider[] _tickBuffer = new Collider[64];
 
+    // 1e5: cached main camera (re-fetch only when the cache goes stale), instead of Camera.main
+    // per channeled frame.
+    private Camera _mainCam;
+
     /// <summary>Configure the beam. Length/width multiplied by the charged size scale.</summary>
     public void Initialize(SpellCaster caster, SpellData spell, float power,
         Vector3 dir, float lengthMult = 1f, float widthMult = 1f)
@@ -75,7 +79,9 @@ public class SpellBeam : MonoBehaviour
         // Re-aim with the caster's current aim each frame so the beam sweeps as the
         // player turns. Mirrors SpellCaster.Execute's aim derivation (camera forward,
         // caster forward fallback) so the tick capsule tracks the same line as the visual.
-        Camera cam = Camera.main;
+        if (_mainCam == null)
+            _mainCam = Camera.main;
+        Camera cam = _mainCam;
         if (cam != null)
         {
             Vector3 aim = cam.transform.position + cam.transform.forward * Length;
