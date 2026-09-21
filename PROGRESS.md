@@ -3,6 +3,33 @@
 Last updated: 2026-09-21. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1dz. Neck switched to a pillar shape
+
+Follow-up to 1dx/1dy: "the neck switch to pillar shape". The `Neck` part is no longer the round
+faceted ellipsoid — it is now a **unit-space square masonry column**.
+
+- **`PlayerPartMesher.cs`**: new `BuildPillar()` + `BuildBox()` helpers emit a flat-faced stack of
+  three boxes (foot slab full width → straight shaft → cap/abacus), each face a flat-shaded quad via
+  the existing `EmitQuad` (per-face outward winding check against the face centroid). Covered by the
+  same [-0.5, 0.5] half-extent contract, so `localScale` = size vector still reproduces dimensions
+  and the mesh stays size-independent/cached. New `"Pillar"` profile key; `Generate` special-cases it.
+- **`MapBuilder.PlayerModels.cs`**: all three `Neck` `MakePart` calls switched to the `"Pillar"`
+  profile, slightly wider/taller so it reads as a column under the head — standing
+  (0.15, 0.16, 0.15) at (0, 0.4, 0); seated (0.13, 0.10, 0.13) at (0, 0.55, 0); sit
+  (0.14, 0.12, 0.14) at (0, 0.62, 0). GameObject name stays `"Neck"` so race-ratio counter-scaling
+  (head/neck) and every consumer are untouched. The old `"Neck"` dent profile is retained but unused.
+
+### 1dz-status
+- Implemented; verified by grep + reread (no CLI build, rule 3): `BuildPillar` referenced only from
+  `Generate`; `BuildBox` called 3× per pillar; `"Pillar"` profile present and `MakePart` calls use it
+  (grep `profileId "Pillar"` / `"Pillar"`); the `Neck` GameObjects remain named `"Neck"`;
+  `ApplyRaceRatioRecurse`/`PlayerAnimator`/weapon contracts untouched. game-design §3.5 + PROGRESS +
+  THINKING updated same pass.
+  Play-test (pending, user runs Unity): neck reads as a straight square column (foot/shaft/cap) on
+  standing, seated and sit; no gap overlapping the head chin / torso; race-ratio counter-scale of the
+  head/neck still looks fine (column scales with ratios); pillar catches light with its own flat
+  faces (no faceted round read).
+
 ## 1dy. Slimmer torso, +8% overall size, faceted ball joints at limb pivots
 
 Follow-up to 1dx: "reduce the torso width abit then increase the total size, add sphere with similar

@@ -139,7 +139,7 @@ public static partial class MapBuilder
             MakePart("SkirtHem", torso.transform, new Vector3(0.56f, 0.06f, 0.34f), new Vector3(0f, -0.42f, 0f), Darken(dressC, 0.6f), "SkirtHem");
         }
         MakePart("Head", torso.transform, new Vector3(0.3f, 0.3f, 0.3f), new Vector3(0f, 0.65f, 0f), skinC, "Head");
-        MakePart("Neck", torso.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0f, 0.4f, 0f), skinC, "Neck");
+        MakePart("Neck", torso.transform, new Vector3(0.15f, 0.16f, 0.15f), new Vector3(0f, 0.4f, 0f), skinC, "Pillar");
 
         // ── Shoulder pivots (rotate from shoulder joint) ──
         // Arm chain: Shoulder -> Elbow -> Forearm + Hand (upper/lower arm split).
@@ -263,7 +263,7 @@ public static partial class MapBuilder
         }
         // ── Head ──
         MakePart("Head", root.transform, new Vector3(0.28f, 0.28f, 0.28f), new Vector3(0f, 0.74f, 0f), skinC, "Head");
-        MakePart("Neck", root.transform, new Vector3(0.1f, 0.08f, 0.1f), new Vector3(0f, 0.55f, 0f), skinC, "Neck");
+        MakePart("Neck", root.transform, new Vector3(0.13f, 0.10f, 0.13f), new Vector3(0f, 0.55f, 0f), skinC, "Pillar");
         // ── Hair ──
         MakePart("Hair", root.transform, new Vector3(0.3f, 0.07f, 0.28f), new Vector3(0f, 0.94f, 0f), hairC, "Hair");
         MakePart("HairL", root.transform, new Vector3(0.08f, 0.3f, 0.12f), new Vector3(-0.18f, 0.72f, 0f), hairC, "HairSide");
@@ -414,7 +414,7 @@ public static partial class MapBuilder
         MakePart("Chest", root.transform, new Vector3(0.39f, 0.28f, 0.26f), new Vector3(0f, 0.42f, 0f), shirtC, "Chest");
 
         // ── Neck + head ──
-        MakePart("Neck", root.transform, new Vector3(0.12f, 0.1f, 0.12f), new Vector3(0f, 0.62f, 0f), skinC, "Neck");
+        MakePart("Neck", root.transform, new Vector3(0.14f, 0.12f, 0.14f), new Vector3(0f, 0.62f, 0f), skinC, "Pillar");
         MakePart("Head", root.transform, new Vector3(0.3f, 0.3f, 0.3f), new Vector3(0f, 0.78f, 0f), skinC, "Head");
         MakePart("EyeWhiteL", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(-0.08f, 0.85f, 0.155f), new Color(0.95f, 0.95f, 0.97f), "EyeWhite");
         MakePart("EyeWhiteR", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(0.08f, 0.85f, 0.155f), new Color(0.95f, 0.95f, 0.97f), "EyeWhite");

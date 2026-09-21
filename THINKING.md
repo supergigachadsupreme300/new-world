@@ -15,6 +15,54 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1dz — neck switched to a pillar shape (SHIPPED in `1dz`)
+
+Follow-up to 1dy. User: "the neck switch to pillar shape". No clarifying questions asked — "pillar"
+in this block-style game reads as a straight square masonry column, and switching just the neck's
+mesh keeps every contract intact.
+
+### Step 1 — what shape is a "pillar"
+- H1 — a plain box (the old pre-1dw cube) for the neck. REJECTED as the sole option: identical to the
+  legacy cube, reads as a regression rather than a deliberate column.
+- H2 — a round cylinder column (lathe). REJECTED: "pillar" here implies square masonry (the world's
+  pillars are box/square); a cylinder is "column", and it'd fight the flat-shaded block teshetic.
+- H3 — a **square masonry pillar**: foot slab + straight shaft + cap/abacus, all flat-faced.
+  ACCEPTED: unmistakably a pillar, still occupies the [-0.5, 0.5] unit cube → `localScale` = size
+  vector contract unchanged, cache still keyed by profile, race ratios transform-only.
+- Taper idea (entasis): a true frustum needs non-axis-aligned faces — extra generator code, no real
+  gain at neck scale. Dropped; straight shaft between the slabs already reads as a pillar.
+
+### Step 2 — mesh build
+- Reuse `EmitQuad` for each of the 6 faces of three stacked axis-aligned boxes. EmitQuad already does
+  the per-panel outward winding check against the panel centroid — for a box face the centroid dot
+  its outward face normal is positive, so orientation is automatically correct with NO new winding
+  logic (verified by reasoning, not by build — rule 3).
+- Interior faces between slabs (base-top/shaft-bottom, shaft-top/cap-bottom) are emitted but buried
+  inside solid geometry: backface-culled and invisible, so the mesh is fully closed and watertight
+  with zero special-casing.
+- Profiling: 18 quads ≈ 72 verts — trivial; cached once under `"Pillar"` like every other profile.
+
+### Step 3 — builders
+- Only the `Neck` `MakePart` calls change (profile `"Pillar"`, sizes bumped so the column reads:
+  standing 0.15×0.16, seated 0.13×0.10, sit 0.14×0.12). GameObject NAME stays `"Neck"` — the name is
+  what `ApplyRaceRatioRecurse` matches for head/neck counter-scaling and what `PlayerAnimator`-adjacent
+  lookups use; changing it would break the race ratios. The old `"Neck"` dent profile stays in the
+  dict (harmless, documented unused).
+- Overlap checks (neck top vs head base, computed by reread): standing neck spans y [0.32, 0.48],
+  head base 0.50 → clean 0.02 gap; seated spans [0.50, 0.60], head base 0.60 → flush;
+  sit spans [0.56, 0.68], head base 0.63 → 0.05 tuck (invisible under the head). Acceptable.
+
+### Step 4 — verification
+- Grep + reread (rule 3): `"Pillar"` profile present; `Generate` routes to `BuildPillar`;
+  `BuildBox` call sites = 3; the three `Neck` MakePart calls use `"Pillar"`. No public API change;
+  `BuildEllipsoid`/cache/fallback untouched; the pillar is a separate cached mesh keyed by profile.
+- Left OPEN for Unity play-test: whether foot/cap slab proportions read at neck scale (~0.1 world
+  height) or want slightly thicker slabs; race-ratio counter-scale of a box neck (visual only).
+- Verdict: SHIPPED in `1dz`. No CLI build (rule 3) — verified by grep + reread; the user compiles in
+  Unity.
+
+---
+
 ## 1dy — slimmer torso, +8% overall size, faceted ball joints at limb pivots (SHIPPED in `1dy`)
 
 Follow-up to 1dx. User: "reduce the torso width abit then increase the total size, add sphere with

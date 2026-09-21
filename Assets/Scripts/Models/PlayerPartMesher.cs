@@ -119,6 +119,7 @@ public static class PlayerPartMesher
             new Dent(new Vector3(0f, 0f, -0.05f), new Vector3(0.34f, 0.28f, 0.30f), -0.04f),// slim inward
         } },
         { "HairBand", new Dent[0] },
+        { "Pillar", new Dent[0] }, // square masonry neck column (1dz) — flat box stack, not ellipsoid
         { "Ponytail", new[]
         {
             new Dent(new Vector3(0f, 0.28f, 0f), new Vector3(0.30f, 0.12f, 0.30f), 0.03f),  // top
@@ -165,6 +166,8 @@ public static class PlayerPartMesher
 
     private static Mesh Generate(string profileId)
     {
+        if (profileId == "Pillar")
+            return BuildPillar();
         _profiles.TryGetValue(profileId, out var dents);
         int seed = AnchorSeed(profileId);
         int grid = (Rings + 1) * Segs;
@@ -295,6 +298,47 @@ public static class PlayerPartMesher
     }
 
     private static Vector2 CornerUV(int lat, int s) => new Vector2((float)(s % Segs) / Segs, 1f - (float)lat / Rings);
+
+    /// <summary>
+    /// Unit-space square masonry pillar (1dz): a foot slab (full width), a straight shaft, and a cap/
+    /// abacus slab — the neck switched from the faceted round ellipsoid to this straight column. Same
+    /// half-extent cube [-0.5, 0.5] contract, so localScale = size vector still reproduces dimensions.
+    /// </summary>
+    private static Mesh BuildPillar()
+    {
+        var verts = new List<Vector3>();
+        var uvs = new List<Vector2>();
+        var norms = new List<Vector3>();
+        var tris = new List<int>();
+
+        // Foot slab (full width) → shaft → cap (abacus), stacked and fully closed. The interior
+        // faces between the slabs are hidden (backface-culled) and cost nothing visible.
+        BuildBox(new Vector3(-0.50f, -0.50f, -0.50f), new Vector3(0.50f, -0.34f, 0.50f), verts, uvs, norms, tris);
+        BuildBox(new Vector3(-0.30f, -0.34f, -0.30f), new Vector3(0.30f, 0.32f, 0.30f), verts, uvs, norms, tris);
+        BuildBox(new Vector3(-0.42f, 0.32f, -0.42f), new Vector3(0.42f, 0.50f, 0.42f), verts, uvs, norms, tris);
+
+        var mesh = new Mesh { name = "PlayerPart_Pillar" };
+        mesh.SetVertices(verts);
+        mesh.SetUVs(0, uvs);
+        mesh.SetNormals(norms);
+        mesh.SetTriangles(tris, 0, true);
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    /// <summary>Emit one axis-aligned box as 6 flat-shaded quads (reuses EmitQuad's per-face outward
+    /// winding check against each face centroid).</summary>
+    private static void BuildBox(Vector3 min, Vector3 max,
+        List<Vector3> verts, List<Vector2> uvs, List<Vector3> norms, List<int> tris)
+    {
+        Vector2 u0 = Vector2.zero, u1 = Vector2.one;
+        EmitQuad(new Vector3(max.x, min.y, min.z), new Vector3(max.x, min.y, max.z), new Vector3(max.x, max.y, max.z), new Vector3(max.x, max.y, min.z), u0, u1, u1, u0, verts, uvs, norms, tris); // +X
+        EmitQuad(new Vector3(min.x, min.y, max.z), new Vector3(min.x, min.y, min.z), new Vector3(min.x, max.y, min.z), new Vector3(min.x, max.y, max.z), u0, u1, u1, u0, verts, uvs, norms, tris); // -X
+        EmitQuad(new Vector3(min.x, max.y, min.z), new Vector3(max.x, max.y, min.z), new Vector3(max.x, max.y, max.z), new Vector3(min.x, max.y, max.z), u0, u1, u1, u0, verts, uvs, norms, tris); // +Y
+        EmitQuad(new Vector3(min.x, min.y, max.z), new Vector3(max.x, min.y, max.z), new Vector3(max.x, min.y, min.z), new Vector3(min.x, min.y, min.z), u0, u1, u1, u0, verts, uvs, norms, tris); // -Y
+        EmitQuad(new Vector3(min.x, min.y, max.z), new Vector3(max.x, min.y, max.z), new Vector3(max.x, max.y, max.z), new Vector3(min.x, max.y, max.z), u0, u1, u1, u0, verts, uvs, norms, tris); // +Z
+        EmitQuad(new Vector3(max.x, min.y, min.z), new Vector3(min.x, min.y, min.z), new Vector3(min.x, max.y, min.z), new Vector3(max.x, max.y, min.z), u0, u1, u1, u0, verts, uvs, norms, tris); // -Z
+    }
 
     /// <summary>Emit one triangle with its OWN vertices and a flat (face) normal — the visible
     /// facet seams of the low-poly look. Winding is flipped per-panel against the outward radial.</summary>

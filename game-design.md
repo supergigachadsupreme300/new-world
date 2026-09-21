@@ -589,7 +589,7 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   applies to the world-discovery flow.)*
 - On change: `PlayerStats` modifiers refresh, the player model **rebuilds** with the race's palette + body ratios (§3.5 Race Visuals), `RaceRig` applies the uniform scale, `RacePassiveManager` re-applies passives. Current HP/FP/stamina preserved as % of their new max.
 
-#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy)
+#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy + 1dz)
 
 - Every body part of the player model is a **unit-space faceted ellipsoid mesh** instead of a box
   (`PlayerPartMesher`): a chunkier Rings 7 × Segs 12 corner lattice generated once per part profile,
@@ -622,6 +622,11 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   shoulder / elbow / hip / knee pivot (`JShoulder`/`JElbow`/`JHip`/`JKnee`, so no animator/weapon name
   collisions). It rotates with the pivot, inherits race-ratio pivot scaling, and is colored to match
   the adjacent part (arm sleeves `shirtC`, pants legs `pantsC`).
+- **Pillar neck (1dz)**: the `Neck` part is a unit-space **square masonry column** instead of the
+  round faceted ellipsoid — a flat-faced foot slab, straight shaft and cap/abacus stack
+  (`PlayerPartMesher.BuildPillar`, profile `"Pillar"`), still spanning the [-0.5, 0.5] cube so the
+  same size-vector/localScale contract holds. Slightly wider/taller than the old round neck so it
+  reads as a column under the head (standing 0.15×0.16, seated 0.13×0.10, sit 0.14×0.12).
 - Part renderers are colored via `ApplyBlockColor` and carry **no collider** (the CharacterController
   owns collision). First/third-person camera culling is unchanged (model on layer 6).
 
