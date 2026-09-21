@@ -243,10 +243,10 @@ public class ChunkObject : MonoBehaviour
         _propRng = new System.Random(seed.GetHashCode() ^ (ChunkCoord.X * 73856093) ^ (ChunkCoord.Z * 19349663));
         if (_propTiles == null || _propTiles.Length != cs * cs)
             _propTiles = new int[cs * cs];
-        int i = 0;
+        int tileIdx = 0;
         for (int z = 0; z < cs; z++)
             for (int x = 0; x < cs; x++)
-                _propTiles[i++] = z * cs + x;
+                _propTiles[tileIdx++] = z * cs + x;
         _propCursor = 0;
         _propActive = true;
     }

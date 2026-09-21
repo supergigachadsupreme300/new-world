@@ -33,7 +33,10 @@ The mesh-allocation half of the 1dq deferral ("mesh uploads … deferred to 1dt 
   `FullRebuildChunk`) all still thread `buildCollider:` unchanged; the pool is main-thread only.
 
 ### 1dv-status
-- Implemented; verified by grep + reread (no CLI build, rule 3). Play-test: dig/cast Earth terrain
+- Implemented; verified by grep + reread (no CLI build, rule 3). Follow-up fix: the user's Unity
+  compile surfaced CS0136 in `BeginProps` (the 1du keep-alive branch's `for (int i …)` collided with
+  the method-block `int i = 0;` tile fill counter) — renamed the fill counter to `tileIdx`.
+  Play-test: dig/cast Earth terrain
   spells near chunk seams — the ground visuals AND walkable physics must both update (collider
   re-cook intact after rebuilds); walk far so chunks unload→reload — terrain identical, no stutter
   from mesh realloc; F12/new-game/`ResetTerrainSaves` loop still streams cleanly; no memory warnings
