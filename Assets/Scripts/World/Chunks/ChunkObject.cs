@@ -47,6 +47,11 @@ public class ChunkObject : MonoBehaviour
     // the touched tiles' vertices without re-running a full 900-tile rebuild.
     private MergedChunkMeshData _merged;
 
+    // One pooled Mesh for this chunk's whole life (1dv): acquired from the freed-mesh pool on the
+    // first ApplyMerged, then re-uploaded in place on every rebuild — no new+Destroy churn and no
+    // transient double GPU buffer. Returned to the pool on Release() for the next chunk to reuse.
+    private Mesh _mesh;
+
     // Incremental prop spawning (one deterministic Random per chunk, spread over ticks).
     private long _propSeed;
     private System.Random _propRng;
@@ -82,13 +87,19 @@ public class ChunkObject : MonoBehaviour
     public void ApplyMerged(MergedChunkMeshData md, Material material, bool buildCollider = true)
     {
         _merged = md;
-        Mesh mesh = ChunkMeshGenerator.CreateMeshFromMerged(md, $"ChunkMesh_{ChunkCoord.X}_{ChunkCoord.Z}");
+        // Pooled mesh (1dv): a chunk owns one Mesh instance. The first apply acquires it from the
+        // freed-mesh pool (or allocates when the pool is empty); rebuilds re-upload into the SAME
+        // instance, so FullRebuildChunk/etc. stop spinning new Mesh objects + Destroying the old.
+        // Chunk meshes share a uniform vertex/index count (~961 verts / ~1800 tris), so a reused
+        // buffer never needs to reallocate once warm (slab side walls can grow it, never corrupt it).
+        if (_mesh == null)
+            _mesh = ChunkMeshGenerator.AcquireChunkMesh($"ChunkMesh_{ChunkCoord.X}_{ChunkCoord.Z}");
+        ChunkMeshGenerator.UploadMerged(md, _mesh);
 
-        // Point the filter/collider at the new mesh BEFORE destroying the old one so neither ever
-        // references a destroyed mesh (the collider is queried every physics step).
-        Mesh previous = _mf != null ? _mf.sharedMesh : null;
+        // Point the filter/collider at the pooled mesh. The sharedMesh reference never changes after
+        // the first apply, so the collider keeps cooking against the same instance across rebuilds.
         if (_mf != null)
-            _mf.sharedMesh = mesh;
+            _mf.sharedMesh = _mesh;
 
         if (_mr != null && material != null)
             _mr.sharedMaterial = material;
@@ -96,12 +107,17 @@ public class ChunkObject : MonoBehaviour
         // Collider is assigned only for chunks the streamer has routed into the near ring (1dq).
         // Keeping the flag in sync means a later FullRebuildChunk preserves the intended state
         // and PatchRegion only re-cooks colliders that are actually live.
-        if (_mc != null)
-            _mc.sharedMesh = buildCollider ? mesh : null;
+        // Re-cook must be explicit: the pooled mesh (1dv) keeps the SAME sharedMesh reference across
+        // rebuilds, and a MeshCollider only republishes its baked physics mesh on a reference change
+        // — the null→assign pair (same as PatchRegion) forces it regardless.
+        if (_mc != null && buildCollider)
+        {
+            _mc.sharedMesh = null;
+            _mc.sharedMesh = _mesh;
+        }
+        else if (_mc != null)
+            _mc.sharedMesh = null;
         _colliderActive = buildCollider;
-
-        if (previous != null && previous != mesh)
-            Destroy(previous);
     }
 
     /// <summary>
@@ -322,8 +338,15 @@ public class ChunkObject : MonoBehaviour
         _merged = default;
         _colliderActive = false;
 
-        if (_mf != null && _mf.sharedMesh != null)
-            Destroy(_mf.sharedMesh);
+        // Return this chunk's pooled mesh to the shared freed-mesh pool (1dv) — a later chunk
+        // reuses the same GPU buffer instead of allocating a fresh one.
+        if (_mesh != null)
+        {
+            ChunkMeshGenerator.ReleaseChunkMesh(_mesh);
+            _mesh = null;
+        }
+        if (_mf != null)
+            _mf.sharedMesh = null;
         if (_mc != null)
             _mc.sharedMesh = null;
     }

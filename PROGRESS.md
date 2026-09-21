@@ -3,6 +3,42 @@
 Last updated: 2026-09-21. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1dv. Chunk mesh pooling — one persistent Mesh per chunk + a capped freed-mesh pool
+
+The mesh-allocation half of the 1dq deferral ("mesh uploads … deferred to 1dt (noise memo) + 1dv
+(mesh pooling)"):
+
+- **Where allocation lived:** `ChunkObject.ApplyMerged` did `new Mesh` + `UploadMeshData(false)` on
+  EVERY call and `Destroy`ed the previous one — so `FullRebuildChunk` (whole-chunk deform rebuilds,
+  slab chunks, seam/border reconciles) and every chunk (re)creation on fill/unload/reload spun a
+  fresh Mesh + GPU upload each time and carried a transient double GPU buffer until the delayed
+  Destroy ran. The deform fast path (`PatchRegion`) already reused the chunk's mesh + `_merged` CPU
+  arrays in place and was untouched.
+- **Now:** a chunk owns ONE `Mesh` for its whole life (`ChunkObject._mesh`): the first `ApplyMerged`
+  acquires it from a small capped pool (`ChunkMeshGenerator` `_chunkMeshPool`, cap **48**); every
+  rebuild re-uploads into the SAME instance (`UploadMerged` = the trimmed setter sequence + one
+  `UploadMeshData`); `Release()` returns the mesh to the pool instead of destroying it, so a later
+  chunk reuses the same GPU buffer. `CreateMeshFromMerged` is kept as a convenience factory over the
+  same path (no remaining callers). Chunk meshes share a uniform ~961-vert / ~1800-tri size, so a
+  pooled buffer never reallocates once warm (slab side walls only ever grow it; every upload fully
+  re-specifies the arrays, so it can never corrupt).
+- **Correctness catch in review:** the collider can no longer rely on the `sharedMesh` reference
+  change to re-cook (same pooled instance across rebuilds) — `ApplyMerged` now explicitly
+  null→assigns `sharedMesh` for collider-active chunks (the pattern `PatchRegion` already used), so
+  a rebuilt chunk's physics stays in sync with its visuals after a deform.
+- game-design §2.7 (mesh-pooling bullet) + PROGRESS + THINKING updated same pass. Verification
+  (no CLI build, rule 3): grep — `CreateMeshFromMerged` cited only by its own definition (retained
+  public factory); `AcquireChunkMesh`/`ReleaseChunkMesh`/`UploadMerged` referenced only by
+  `ChunkObject` + the factory; `ApplyMerged` call sites (boot sync chunk, `CreateChunkGameObject`,
+  `FullRebuildChunk`) all still thread `buildCollider:` unchanged; the pool is main-thread only.
+
+### 1dv-status
+- Implemented; verified by grep + reread (no CLI build, rule 3). Play-test: dig/cast Earth terrain
+  spells near chunk seams — the ground visuals AND walkable physics must both update (collider
+  re-cook intact after rebuilds); walk far so chunks unload→reload — terrain identical, no stutter
+  from mesh realloc; F12/new-game/`ResetTerrainSaves` loop still streams cleanly; no memory warnings
+  from the pool.
+
 ## 1du. Prop-ring keep-alive + shared dent-debris cube template (micro-opt)
 
 Two allocation/behaviour nits from the 1di/1dq/1dt follow-up sweep:

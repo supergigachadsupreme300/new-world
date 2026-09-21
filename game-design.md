@@ -113,6 +113,13 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   a cheap state-guarded toggle per poll (no re-meshing), rebuilds (`FullRebuildChunk`/`PatchRegion`)
   and unloads preserve each chunk's collider state, and the synchronous boot chunk keeps its collider
   so the player lands before the first poll.
+- **Chunk mesh pooling (1dv):** each chunk owns ONE `Mesh` for its entire life — acquired from a small
+  capped freed-mesh pool (`ChunkMeshGenerator`, cap 48) on first stream, then **re-uploaded in place**
+  on every rebuild and unload→reload instead of allocating + destroying a fresh Mesh each time
+  (~961-vert / ~1800-tri GPU buffers shared across the pool). Deformation and walk cycles therefore
+  stop generating Mesh/GC churn and transient double-buffer uploads; `ApplyMerged` explicitly
+  null→assigns the collider mesh so a rebuilt collider-active chunk re-cooks its physics (the same
+  pattern `PatchRegion` uses). Purely an implementation detail — zero visual/behavior change.
 
 ### 2.6 Chunk Persistence (File Caching)
 

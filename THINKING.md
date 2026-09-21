@@ -15,6 +15,42 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1dv — chunk mesh pooling: one Mesh per chunk + capped freed-mesh pool (SHIPPED in `1dv`)
+
+Second half of the 1dq deferral ("deferred to 1dt (noise memo) + 1dv (mesh pooling)"). Scope B per
+user choice (persistent mesh + reload pool; NOT reusing the merged CPU arrays too).
+
+### Step 1 — where the allocation churn actually is
+- `ApplyMerged` was the single mesh constructor: `new Mesh` + `UploadMeshData(false)`, then
+  `Destroy(previous)`. Callers: boot sync chunk, `CreateChunkGameObject` (every chunk fill/reload),
+  `FullRebuildChunk` (whole-chunk rebuilds: slab chunks, seam/border reconciles, deform fallback
+  when a chunk holds flat tiles or a patch nearly covers it).
+- The deform FAST path (`PatchRegion`) already mutates `_mf.sharedMesh` + the retained `_merged` CPU
+  arrays in place — it never allocated. So the honest churn is FullRebuildChunk rebuilds + chunk
+  unload→reload (walk far). Volume is modest: this is a GC/GPU-fragment micro-opt, not a lag fix
+  (1di/1dq already took the real physics cost).
+- H1 — size-keyed pool: REJECTED. Every chunk mesh is the same shape (~961 verts / ~1800 tris; slab
+  walls may add verts), so ONE unordered pool suffices — no buckets.
+- H2 — per-chunk persistent Mesh + return to a capped pool on Release. ACCEPTED: covers rebuild churn
+  (same instance re-uploaded, no Destroy) AND reload churn (freed mesh reused by the next chunk). Cap
+  48 bounds retained GPU memory; overflow destroys.
+
+### Step 2 — pitfalls found while writing it
+- **Overwrite-only pooling is safe** because every upload re-specifies ALL arrays (UploadMerged runs
+  the full setter sequence) — a reused buffer is never left with stale index/vertex counts. A slab
+  wall chunk uploads more verts → buffer grows; a later plain chunk uploads fewer → array length
+  truncates; Unity retains the larger GPU allocation (memory retention, no corruption).
+- **COLLIDER RE-COOK TRAP (the important one):** old code swapped `sharedMesh` to a NEW instance each
+  apply, implicitly re-cooking the MeshCollider. With a persistent shared instance the reference never
+  changes, and a MeshCollider does NOT republish its baked physics mesh on vertex mutation → a
+  FullRebuildChunk on a collider-active chunk would update visuals but keep stale physics (player
+  falls through a rebuilt wall). Fixed with the explicit null→assign used by `PatchRegion`
+  (`_mc.sharedMesh = null; _mc.sharedMesh = _mesh;`).
+- **Threading:** the pool is main-thread only by construction (ApplyMerged + Release both run on the
+  main thread); documented, no lock.
+- Verdict: H1 rejected, H2 confirmed. Shipped in `1dv`. No behavior change expected — play-test that
+  rebuilt collider terrain matches visuals (the catch above) and F12/reset loops stream cleanly.
+
 ## 1du — prop-ring keep-alive + shared dent-debris cube (SHIPPED in `1du`)
 
 Follow-up micro-opt from the 1di/1dq/1dt sweep. Two independent findings, two one-file fixes.

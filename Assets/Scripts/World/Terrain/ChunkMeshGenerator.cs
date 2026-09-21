@@ -630,7 +630,55 @@ public static class ChunkMeshGenerator
     /// </summary>
     public static Mesh CreateMeshFromMerged(MergedChunkMeshData md, string meshName)
     {
-        Mesh mesh = new Mesh { name = meshName };
+        Mesh mesh = AcquireChunkMesh(meshName);
+        UploadMerged(md, mesh);
+        return mesh;
+    }
+
+    /// <summary>Cap on pooled chunk Mesh objects (1dv) — bounds the GPU memory held by the
+    /// freed-mesh pool; anything beyond the cap is destroyed outright on release.</summary>
+    private const int PooledChunkMeshCap = 48;
+
+    private static readonly System.Collections.Generic.Queue<Mesh> _chunkMeshPool =
+        new System.Collections.Generic.Queue<Mesh>();
+
+    /// <summary>
+    /// Returns a cached chunk Mesh when one is free (a released chunk's buffer, same uniform
+    /// ~961-vert / ~1800-tri size), else a fresh Mesh (1dv). Main thread only — chunk meshes are
+    /// created/uploaded on the main thread by this project's convention.
+    /// </summary>
+    public static Mesh AcquireChunkMesh(string meshName)
+    {
+        Mesh mesh = _chunkMeshPool.Count > 0 ? _chunkMeshPool.Dequeue() : new Mesh();
+        mesh.name = meshName;
+        return mesh;
+    }
+
+    /// <summary>
+    /// Returns a chunk Mesh to the freed-mesh pool (capped, 1dv), or destroys it when the pool is
+    /// full. Overwrite-only reuse is safe: every merged chunk uploads via <see cref="UploadMerged"/>,
+    /// which fully re-specifies vertices/indices, so a stale buffer is never partially referenced —
+    /// it only retains its largest-upload GPU size (slab side walls can grow it, never corrupt it).
+    /// </summary>
+    public static void ReleaseChunkMesh(Mesh mesh)
+    {
+        if (mesh == null)
+            return;
+        if (_chunkMeshPool.Count >= PooledChunkMeshCap)
+        {
+            Object.Destroy(mesh);
+            return;
+        }
+        _chunkMeshPool.Enqueue(mesh);
+    }
+
+    /// <summary>
+    /// Uploads the merged chunk arrays into a Mesh in one pass (trimmed setter sequence + a single
+    /// UploadMeshData). Works identically for a fresh Mesh and for a pooled one being re-uploaded in
+    /// place (1dv), so rebuilds never allocate a new Mesh object.
+    /// </summary>
+    public static void UploadMerged(MergedChunkMeshData md, Mesh mesh)
+    {
         mesh.SetVertices(md.Vertices);
         mesh.SetTriangles(md.Triangles, 0);
         mesh.SetNormals(md.Normals);
@@ -639,7 +687,6 @@ public static class ChunkMeshGenerator
             mesh.SetColors(md.Colors);
         mesh.bounds = md.Bounds;
         mesh.UploadMeshData(false);
-        return mesh;
     }
 
     /// <summary>
