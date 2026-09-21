@@ -53,6 +53,11 @@ public class ChunkObject : MonoBehaviour
     private int[] _propTiles;
     private int _propCursor;
 
+    // Prop-ring keep-alive (1du): the RNG/tiles/cursor survive release so a chunk that slips out of
+    // the prop ring and re-enters reactivates its SAME GameObjects instead of destroy/respawn
+    // churn. _propActive mirrors exactly "props currently visible".
+    private bool _propActive;
+
     /// <summary>Nature-prop spawn odds per tile: 1-in-<see cref="PropSpawnOdds"/> for BOTH trees and
     /// rocks. Was 200 (1/200 each) until `1dm` cut the ratio to a fifth → 1-in-1000, so a chunk
     /// (~900 tiles) now averages ~2 cube-heavy props instead of ~9.</summary>
@@ -187,22 +192,36 @@ public class ChunkObject : MonoBehaviour
         }
     }
 
-    /// <summary>True while this chunk's prop stream has been queued (inside the prop ring).
-    /// False both before the ring reaches it and after the ring drops its props.</summary>
-    public bool PropsOn => _propRng != null;
+    /// <summary>True while this chunk's props are visible (queued AND inside the prop ring).
+    /// False both before the ring reaches it and while the ring keeps its props dormant (1du).</summary>
+    public bool PropsOn => _propActive;
 
     /// <summary>True while this chunk still has prop tiles waiting to spawn.</summary>
-    public bool PropsPending => PropsOn && _propTiles != null && _propCursor < _propTiles.Length;
+    public bool PropsPending => PropsOn && _propRng != null && _propTiles != null && _propCursor < _propTiles.Length;
 
     /// <summary>
     /// Queue the chunk's props (trees/rocks) for incremental spawning. One deterministic Random
-    /// stream per chunk (previously 900 per-tile Random allocations). No-op when the props are
-    /// already queued, so the prop ring re-entry path can call it idempotently.
+    /// stream per chunk (previously 900 per-tile Random allocations). When the chunk is coming
+    /// back into the ring after a release (1du), the existing GameObjects are reactivated instead
+    /// — a fully-streamed chunk skips the re-roll entirely (was: destroy + full deterministic
+    /// respawn ~= ~2 GOs + re-roll of ~900 tiles); a partially-streamed one resumes from the
+    /// cursor the release preserved. No-op when the props are already active.
     /// </summary>
     public void BeginProps(long seed)
     {
-        if (PropsOn)
+        if (_propActive)
             return;
+        if (_propRng != null && _propTiles != null)
+        {
+            // Return visit (1du): reactivate this chunk's own props, stream-position intact.
+            for (int i = 0; i < _props.Count; i++)
+            {
+                if (_props[i] != null)
+                    _props[i].SetActive(true);
+            }
+            _propActive = true;
+            return;
+        }
         _propSeed = seed;
         int cs = TerrainChunkCoord.ChunkSize;
         _propRng = new System.Random(seed.GetHashCode() ^ (ChunkCoord.X * 73856093) ^ (ChunkCoord.Z * 19349663));
@@ -213,6 +232,7 @@ public class ChunkObject : MonoBehaviour
             for (int x = 0; x < cs; x++)
                 _propTiles[i++] = z * cs + x;
         _propCursor = 0;
+        _propActive = true;
     }
 
     /// <summary>
@@ -221,7 +241,7 @@ public class ChunkObject : MonoBehaviour
     /// </summary>
     public int StepProps(int budget)
     {
-        if (_propRng == null || _propTiles == null) return 0;
+        if (_propRng == null || !_propActive || _propTiles == null) return 0;
         int cs = TerrainChunkCoord.ChunkSize;
         int consumed = 0;
         while (consumed < budget && _propCursor < _propTiles.Length)
@@ -268,26 +288,37 @@ public class ChunkObject : MonoBehaviour
     }
 
     /// <summary>
-    /// Destroys this chunk's spawned props and drops the pending stream state. The merged terrain
-    /// mesh + collider are untouched, so the chunk stays rendered and collidable. Used by the prop
-    /// ring (1di): a chunk keeps its ground but loses its trees/rocks once it falls outside the
-    /// prop radius; re-entering the ring restarts the same deterministic stream via BeginProps.
+    /// Hides this chunk's spawned props (keep-alive, 1du) when the prop ring moves past — was
+    /// Destroy + full deterministic respawn on re-entry. The merged terrain mesh + collider are
+    /// untouched, so the chunk stays rendered and collidable. The deterministic stream position
+    /// (RNG/tiles/cursor) is preserved so a later BeginProps reactivates the same GameObjects and
+    /// a partially-streamed chunk resumes exactly where StepProps stopped.
     /// </summary>
     public void ReleaseProps()
     {
+        if (!_propActive)
+            return;
+        for (int i = 0; i < _props.Count; i++)
+        {
+            if (_props[i] != null)
+                _props[i].SetActive(false);
+        }
+        _propActive = false;
+    }
+
+    public void Release()
+    {
+        // Full teardown — props are destroyed outright (dormant or visible; nothing is pooled
+        // across releases, this is a chunk unload).
         for (int i = _props.Count - 1; i >= 0; i--)
         {
             if (_props[i] != null)
                 Destroy(_props[i]);
         }
         _props.Clear();
+        _propActive = false;
         _propRng = null;
         _propCursor = 0;
-    }
-
-    public void Release()
-    {
-        ReleaseProps();
         _merged = default;
         _colliderActive = false;
 

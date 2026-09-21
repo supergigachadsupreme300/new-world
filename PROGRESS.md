@@ -1,7 +1,36 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-20. Read this first in a new session; then continue with the
+Last updated: 2026-09-21. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
+
+## 1du. Prop-ring keep-alive + shared dent-debris cube template (micro-opt)
+
+Two allocation/behaviour nits from the 1di/1dq/1dt follow-up sweep:
+
+- **Prop-ring keep-alive (ChunkObject):** before, a chunk leaving the prop ring had its spawned props
+  `Destroy`ed and re-entering re-rolled the whole deterministic stream — walking the ring edge kept
+  killing + re-creating every tree/rock (~2 GOs + a 900-tile re-roll per chunk toggled). Now
+  `ReleaseProps` merely `SetActive(false)`s them and `BeginProps` on re-entry reactivates the SAME
+  GameObjects (the RNG/tiles/cursor survive, so a partially-streamed chunk resumes exactly where it
+  stopped) — the edge costs a hide/show toggle instead of destroy/respawn churn. `ChunkObject.Release()`
+  (chunk unload) still destroys props outright. Behavior change vs `1di`: a chopped tree/rock now stays
+  chopped when the ring leaves then returns (it was a documented deterministic respawn before).
+- **Shared dent-debris cube (WorldStreamer.Deform):** `SpawnCraterDebris` instantiates each piece from
+  one shared inactive cube template instead of `GameObject.CreatePrimitive` per piece (mesh/material
+  resolved once, per-piece GO/component init skipped). The clones drop the BoxCollider — debris is
+  cosmetic rigidbody scatter (3–5 pieces, 2.5 s life) and, per user choice, now flies up then **sinks
+  through the terrain** rather than landing in the pit (accepted trade-off for lighter debris physics).
+- Also committed the untracked `ColliderRequestRegistry.cs.meta` left over from `1dq`.
+- game-design §2.7 (prop-ring bullet → keep-alive semantics) + PROGRESS + THINKING updated same pass.
+  Verification (no CLI build, rule 3): grep — `PropsOn`/`BeginProps`/`ReleaseProps`/`PropsPending`/
+  `StepProps` confined to `ChunkObject` + `WorldStreamer.Props.cs`; `SpawnCraterDebris`/`SharedDebrisCube`
+  each cited once; no other consumer of the old destroy-on-release semantics.
+
+### 1du-status
+- Implemented; verified by grep + reread (no CLI build, rule 3). Play-test: walk the prop-ring edge —
+  trees/rocks hide/show at ~600 m with no create/destroy hitch; chop a tree then leave + re-enter the
+  ring — it stays chopped; dig or cast a crater — debris bursts up briefly, sinks into the ground, and
+  vanishes at ~2.5 s; chunk unload (walk far) still tears props down cleanly.
 
 ## 1dq. Collider-on-demand — physics ring + magic requests (terrain MeshColliders)
 

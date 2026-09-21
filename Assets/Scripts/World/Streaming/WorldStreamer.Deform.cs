@@ -534,7 +534,12 @@ public partial class WorldStreamer
         for (int i = 0; i < count; i++)
         {
             float s = Random.Range(0.08f, 0.16f);
-            var chunk = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            // Cloned from one shared cube template (1du): CreatePrimitive allocated a fresh cube
+            // Mesh per piece; Instantiate(reference) reuses the template's mesh and adds only the
+            // GameObject/transform weights the debris visually needs. The cube collider is dropped
+            // — debris is cosmetic rigidbody scatter, no functional path reads it.
+            var chunk = Instantiate(SharedDebrisCube);
+            chunk.SetActive(true);
             chunk.name = "DentDebris";
             chunk.transform.position = spawn + Random.insideUnitSphere * 0.15f;
             chunk.transform.rotation = Random.rotation;
@@ -547,6 +552,27 @@ public partial class WorldStreamer
                 Random.Range(-2.5f, 2.5f), Random.Range(2.5f, 5f), Random.Range(-2.5f, 2.5f));
             rb.angularVelocity = Random.insideUnitSphere * 6f;
             Destroy(chunk, 2.5f);
+        }
+    }
+
+    /// <summary>One static cube GO shared by every crater-debris clone (1du). Built once, kept
+    /// inactive so its own transform/renderer cost is zero, collider removed up front because the
+    /// debris clones never need physics interaction beyond their explicit Rigidbody.</summary>
+    private static GameObject _sharedDebrisCube;
+
+    private static GameObject SharedDebrisCube
+    {
+        get
+        {
+            if (_sharedDebrisCube != null)
+                return _sharedDebrisCube;
+            _sharedDebrisCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            _sharedDebrisCube.name = "DentDebrisTemplate";
+            Collider col = _sharedDebrisCube.GetComponent<Collider>();
+            if (col != null)
+                Destroy(col);
+            _sharedDebrisCube.SetActive(false);
+            return _sharedDebrisCube;
         }
     }
 }

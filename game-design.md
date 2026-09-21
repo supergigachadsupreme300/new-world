@@ -90,13 +90,14 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   culling never fights the visible ring.
 - **Prop ring (1di):** trees/rocks are only streamed within `PropRingRadius` chunks of the focus
   (default **4**, Chebyshev ring ≈ 600 m) — `WorldStreamer` (props sync in `SyncPropRing`) queues the
-  deterministic prop stream for chunks that enter the ring and drops their spawned props (`ChunkObject.
+  deterministic prop stream for chunks that enter the ring and hides their spawned props (`ChunkObject.
   ReleaseProps`) for chunks that leave it, while the terrain mesh + collider stay loaded for the whole
   ring. The distant radius-N ring therefore never holds the ~33k prop GameObjects (~450k prop BoxColliders
   in the physics broadphase) that made the old full-stream "game too lag". Everything inside the ring
-  keeps its colliders, so chopping/mining targets near the player stay fully hit-able; props pop in/out
-  only at the ring edge (~600 m away) and are deterministic per chunk, so re-entering the ring restores
-  the exact same trees/rocks.
+  keeps its colliders, so chopping/mining targets near the player stay fully hit-able. Props pop in/out
+  only at the ring edge (~600 m away); leaving the ring merely **deactivates** them (keep-alive, 1du), so
+  re-entering reactivates the SAME GameObjects instantly — no destroy/respawn churn at the edge — and a
+  prop you already chopped stays chopped (the stream position is preserved, not re-rolled).
 - **Nature props are sparse (1dm):** trees AND rocks each spawn 1-in-1000 per tile (a fifth of the
   original 1/200 ratio) — a chunk (~900 tiles) averages ~2 cube-heavy props instead of ~9, so the
   world reads sparser/cleaner while the prop ring stays light. The odds live in

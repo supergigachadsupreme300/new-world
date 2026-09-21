@@ -15,7 +15,35 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
-## 1dt — noise resampling in the chunk builder (SHIPPED in `1dt`)
+## 1du — prop-ring keep-alive + shared dent-debris cube (SHIPPED in `1du`)
+
+Follow-up micro-opt from the 1di/1dq/1dt sweep. Two independent findings, two one-file fixes.
+
+### H1 — prop ring destroy/respawn churn at ring equilibrium
+- Walking the ring edge toggles chunks in/out constantly. Old behavior: leave → `ReleaseProps` destroyed
+  the spawned GOs; re-enter → `BeginProps` re-rolled the full deterministic stream (~2 destroy + a
+  900-tile re-roll per chunk toggle). That churn was the last per-frame hiccup left at the edge.
+- CONFIRMED + fixed: keep-alive. `ReleaseProps` deactivates (`SetActive(false)`), `BeginProps` reactivates
+  the same GameObjects; the RNG/tiles/cursor survive so no re-roll. `_propActive` becomes the single
+  "props visible" flag, `PropsOn` mirrors it, `PropsPending` additionally requires a live stream, and
+  `Release()` (chunk unload) still destroys outright.
+- Behavior delta vs the `1di` doc: a chopped prop is a destroyed GO leaving a null `_props` slot; the
+  preserved stream cursor is already past that tile, so re-entry does NOT respawn it (1di: documented
+  deterministic respawn). Kept — "the world stays as I left it" is the friendlier read. Play-test item.
+- Caller audit (grep): the five members are touched only by `SyncPropRing`/`StepChunkProps`
+  (WorldStreamer.Props.cs) and `ChunkObject` itself. No wider surface to keep old semantics for.
+
+### H2 — CreatePrimitive dent debris per piece
+- `SpawnCraterDebris` called `GameObject.CreatePrimitive(PrimitiveType.Cube)` 3–5× per dig/cast.
+  Fact-check for the draft comment: CreatePrimitive does NOT allocate a fresh Mesh (Unity's built-in
+  cube mesh is shared), so the original "allocates a fresh cube Mesh per piece" claim was WRONG. The real
+  saving is skipping per-piece GO + MeshFilter/MeshRenderer initialization — modest, harmless.
+- CONFIRMED + fixed: one shared inactive template (`SharedDebrisCube`) + `Instantiate`.
+- REGRESSION caught in review: the template strips the BoxCollider, so clones (Rigidbody, no collider)
+  **tunnel through the terrain** instead of landing in the crater. OLD debris had per-piece BoxColliders
+  and thud-crumbled in the pit (the 1de "explode like pickaxe" look). User chose "collider-less is fine":
+  accepted — brief up-burst, sink below-ground, `Destroy` at 2.5 s. Documented honestly in PROGRESS.
+- Verdict: H1 + H2 confirmed; both shipped in `1du`. H2 carries an accepted visual trade-off.
 
 Follow-up to 1dq (which left background mesh/noise work untouched by design). Second pass over the
 costliest CPU: `BuildMergedMeshData`.
