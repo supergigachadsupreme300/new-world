@@ -3,6 +3,41 @@
 Last updated: 2026-09-21. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1e2. Shouldered torso silhouette — torso/chest no longer ellipsoids
+
+"the torso still has gaps, change the shape" after 1e0. Root cause: the shoulder/hip pivots sit
+OUTSIDE the ellipsoid (pivot radii ~0.8–1.6 unit vs the 0.5 lattice radius), so dent pushes along
+the radial (bounded by `Strength` ≈0.15) could never bridge the shell gap. The torso/chest parts
+are now a dedicated **flat-facet torso silhouette** that physically reaches the pivots.
+
+- **`PlayerPartMesher.cs`**: the `"Body"`, `"SitTorso"`, `"Chest"` profile entries (ellipsoid +
+  dents) were REMOVED; `Generate` now routes those ids to a new `BuildTorso(profileId)`: 12-seg ×
+  7-band flat-facet mosaic (reusing the deterministic shared-corner jitter and square/triangle
+  emission — watertight), a closed bottom cap, and a flat **top shoulder plateau** disc the neck
+  cylinder passes through (reads as the collar). Silhouette reach per band (unit, world half-width =
+  `size.x·W`; height still `size.y`):
+  - `Body`: hip flare 0.55 → waist 0.46 → chest 0.58 → **shoulders 0.80** (world 0.35 standing,
+    covering pivot ±0.28), held through the top plateau.
+  - `Chest`: mid-band plateau **0.72** (carries the sit shoulders).
+  - `SitTorso`: **0.70** at its top.
+- **`MapBuilder.PlayerModels.cs`**: shoulder pivots tucked ~1 cm DOWN so they sit inside the band
+  (standing 0.36→0.35, sit 0.41→0.40; seated unchanged at 0.47); joint balls shrank to sit embedded-
+  but-visible (standing `JShoulder` 0.16→0.14, `JHip` 0.15→0.13; seated 0.14→0.13, 0.13→0.12;
+  sit 0.15→0.13, 0.14→0.13). Pivot names/rotations and the `Torso`/`Shoulder*`/`Hip*` hierarchy
+  untouched → animator, weapon rig (`Torso/ShoulderL`), race-ratio logic unaffected.
+
+### 1e2-status
+- Implemented; verified by grep + reread (rule 3, no CLI build): removed `"Body"`/`"SitTorso"`/
+  `"Chest"` from `PlayerPartMesher._profiles`; `Generate` special-cases → `BuildTorso`; silhouette
+  tables present; all `AddJoint`/shoulder-position edits present once per builder; no other consumer
+  references the removed profiles; the EmitTriangle doc header (damaged mid-insert) restored.
+  game-design §3.5 + PROGRESS + THINKING updated same pass.
+- Play-test (pending, user runs Unity): no visible shell gap at shoulders/hips on standing, seated,
+  sit (male+female); shoulder plateau reads as a collar ring around the neck base, not a hat brim;
+  arms hang attached (upper-arm inner edge buried ~2 cm); race ratios up to shoulder-spread ≈1.3
+  still covered (beyond that the far joint ball starts to float — flagged); seated/sit cutscene and
+  car-fit unchanged (shoulder tucks ≤1 cm); `PlayerModelScale` remains the one-line bulk revert.
+
 ## 1e1. Neck switched from pillar to a cylinder
 
 Follow-up to 1dz: "change the neck into cylinder". The `Neck` part is now a **round cylinder

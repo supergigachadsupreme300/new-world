@@ -15,6 +15,59 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1e2 — shouldered torso silhouette: torso/chest stop being ellipsoids (SHIPPED in `1e2`)
+
+After 1e1, the user reported "the torso still has gaps, change the shape" and separately that the
+hair "doesn't fit the head at all". 1e2 = torso; 1e3 = hair.
+
+### Step 1 — why 1e0's dents couldn't close the remaining gaps
+- H1 — the shelf/flare dents just need to be stronger. COMPUTATION splits the hypothesis: dents push
+  a corner along its RADIAL by ≤ `Strength` (0.15 unit). The standing shoulder pivot in unit space is
+  (±0.28/0.44, (0.36−0.05)/0.6) = (±0.64, 0.52) → radius ≈ 0.82 against a 0.5 sphere. Even a corner
+  at the shoulder cap (radial 0.5) can only reach 0.65. CONFIRMED: dents can never bridge the shell.
+  REJECTED as the fix.
+- H2 — tuck pivots further in. Rejected: shoulder x was already tucked 0.33→0.28; going to ≤0.15
+  breaks arm/body proportions and misplaces the whole arm/weapon reach.
+- H3 — REPLACE the ellipsoid with a shouldered torso silhouette whose shoulder band physically
+  reaches ±0.8 unit (world 0.35 at size.x 0.44). ACCEPTED (user: "change the shape"; chose
+  "moderate athletic"). Because world half-width = `size.x·W`, keeping size vectors means the reach
+  scales automatically for all variants (reasoned through each: standing pivot needs ≥0.64·ux,
+  seated 0.71, sit-chest 0.64, sit-torso clamped top 0.70 → one 0.80 Body curve + 0.72 Chest +
+  0.70 SitTorso covers all).
+
+### Step 2 — the shape
+- Kept the 1dx visual language: 12 segs × 7 flat bands, same jitter seeds → watertight mosaic
+  identical in feel to the limbs. Reused the mosaic emission block verbatim from `Generate`.
+- TOP: instead of a pole, a flat **shoulder plateau** disc (W 0.80 held to t=1). The `"Cylinder"`
+  neck passes through its middle; the plateau annulus reads as the collar ring, and the neck base is
+  half-buried so no see-through sneaks around the pirce point (the neck cylinder occludes the cap's
+  centre triangles). Collar-vs-hat rim flagged for play-test.
+- BOTTOM: closed cap at the waist/hip ring (female skirt + male pants cover it anyway).
+- Height still spans y ±0.5 → `size.y` scaling unchanged; the torso is the ONE mesh that breaks the
+  [-0.5,0.5] half-cube doc contract (shoulders 0.8) BY DESIGN — updated in game-design.md and the
+  class doc rather than hiding the exception.
+- Sit model: two stacked parts (Torso + Chest). Chest gets a mid-band 0.72 plateau because the sit
+  shoulder pivot (0.25, 0.40) lives ~at the Chest's vertical centre, not near its top — verified the
+  pivot's unit height (0.40−0.42)/0.28 = −0.07 → t≈0.43 → Chest silhouette 0.72 → world 0.28 ≥ 0.25.
+  SitTorso's top 0.70 keeps the hip band covering sit hips (±0.13, bolted by hip ball).
+
+### Step 3 — joint balls + pivot pucks
+- Shoulder/hip balls shrank ~15% so they sit EMBEDDED in the plateau/hip band instead of poking free
+  (the plateau skin now reaches past their centres). Standing JShoulder 0.16→0.14, JHip 0.15→0.13;
+  seated 0.14→0.13, 0.13→0.12; sit 0.15→0.13, 0.14→0.13.
+- Shoulders dropped ≤1 cm so the ball's top sits under the plateau: standing 0.36→0.35 (unit height
+  0.5 = plateau row), sit 0.41→0.40; seated stayed 0.47 (already inside, unit 0.44 → t≈0.94). The
+  ~1 cm drop is arm-chain-following, reach-length-neutral; flagged for play-test.
+
+### Step 4 — verification
+- Grep + reread (rule 3): three profiles gone from `_profiles`; no other caller references them
+  (`MakePart` strings only live in the three PlayerModels builders); `BuildTorso` routed for exactly
+  Body/SitTorso/Chest; all tucks/ball sizes single-edit verified; the Emit doc-header fix confirmed.
+- Left OPEN: plateau collar read, extreme race spread (>1.3) shoulder float, skirt/waist cap seam.
+- Verdict: SHIPPED in `1e2`. No CLI build (rule 3).
+
+---
+
 ## 1e1 — neck switched from pillar to a cylinder (SHIPPED in `1e1`)
 
 Follow-up to 1dz. User: "change the neck into cylinder". This REPLACES the 1dz square pillar

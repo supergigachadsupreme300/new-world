@@ -589,7 +589,7 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   applies to the world-discovery flow.)*
 - On change: `PlayerStats` modifiers refresh, the player model **rebuilds** with the race's palette + body ratios (§3.5 Race Visuals), `RaceRig` applies the uniform scale, `RacePassiveManager` re-applies passives. Current HP/FP/stamina preserved as % of their new max.
 
-#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy + 1dz + 1e0 + 1e1)
+#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy + 1dz + 1e0 + 1e1 + 1e2 + 1e3)
 
 - Every body part of the player model is a **unit-space faceted ellipsoid mesh** instead of a box
   (`PlayerPartMesher`): a chunkier Rings 7 × Segs 12 corner lattice generated once per part profile,
@@ -628,6 +628,24 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   `"Cylinder"`), still spanning the [-0.5, 0.5] cube so the same size-vector/localScale contract
   holds and the mesh stays size-independent/cached. Sized like the pillar it replaced: standing
   0.15×0.16, seated 0.13×0.10, sit 0.14×0.12.
+- **Shouldered torso silhouette (1e2)**: the shoulder/hip pivots sit OUTSIDE a plain ellipsoid
+  (pivot radii ~0.8–1.6 unit vs the 0.5 lattice radius), so dents could never close the last gaps.
+  The `"Body"` / `"SitTorso"` / `"Chest"` profiles are now a dedicated **flat-facet torso silhouette**
+  (`PlayerPartMesher.BuildTorso`): 12-seg × 7-band mosaic (same watertight jitter), bottom cap + a
+  flat **top shoulder plateau** that the neck cylinder passes through (reads as the collar). Reach is
+  baked per band — shoulders W 0.80 (world 0.35 on the standing body, covering pivot ±0.28), waist
+  pinch 0.46, hip flare 0.55; `Chest` carries the sit shoulders (0.72 mid-band), `SitTorso` plateaus
+  0.70. The torso is the ONE mesh wider than the [-0.5,0.5] half-cube by design (world half-width =
+  `size.x · W`; height still `size.y` exactly). Joint balls shrank to sit embedded-but-visible
+  (standing `JShoulder` 0.14, `JHip` 0.13; shoulder pivots tucked ~1 cm down so they sit in the band).
+  Other parts keep the 1dw/1dx ellipsoid pipeline untouched.
+- **Scalp-cap hair (1e3)**: hair was 4–6 floating slabs placed against an ideal sphere — the crown
+  slab hovered 4 cm above the scalp and the side/back panels drifted off the skull. All `Hair`/
+  `HairSide`/`HairBack`/`HairBand`/`Ponytail` parts are retuned to HUG the actual head hull (thin
+  oblate cap lens resting on the crown so it neither floats nor gaps, side slabs buried ~1 cm into
+  the skull, nape panel lapping the back shell), sized to the real head (0.3 standing/sit, 0.28
+  seated) per variant. No hierarchy change — parent stays torso/root so `ApplyRaceRatioRecurse`
+  `Hair*`/`Ponytail*` scaling (`headScale`) and all name lookups are untouched.
 - **Seamless torso↔limb attachment (1e0)**: the faceted ellipsoid rounds the torso corners where the
   cube used to hide the arm/leg attach points, so the shoulder/hip pivots floated off the skin and
   left gaps. Fixed three ways that stack: (1) the `"Body"`/`"SitTorso"` profiles gained symmetric
@@ -636,7 +654,8 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   little closer (standing shoulders 0.33→0.28, hips 0.13→0.12; seated shoulders 0.26→0.24; sit
   shoulders 0.27→0.25); (3) shoulder/hip joint balls enlarged (`JShoulder` up to 0.14–0.16, `JHip`
   0.13–0.15) so the balls lap over the seam. Pivot names/rotations unchanged → animator/weapon
-  contracts unaffected (tucks are visual-scale only, ~2–4 cm).
+  contracts unaffected (tucks are visual-scale only, ~2–4 cm). *Superseded by the 1e2 silhouette —
+  the dents were no longer the (working) mechanism, but the pucks/tucks + joint sizes still apply.*
 - Part renderers are colored via `ApplyBlockColor` and carry **no collider** (the CharacterController
   owns collision). First/third-person camera culling is unchanged (model on layer 6).
 

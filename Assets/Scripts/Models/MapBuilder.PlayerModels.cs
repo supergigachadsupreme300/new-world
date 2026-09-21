@@ -145,16 +145,16 @@ public static partial class MapBuilder
         // Arm chain: Shoulder -> Elbow -> Forearm + Hand (upper/lower arm split).
         var shoulderL = new GameObject("ShoulderL");
         shoulderL.transform.SetParent(torso.transform);
-        shoulderL.transform.localPosition = new Vector3(-0.28f, 0.36f, 0f);
+        shoulderL.transform.localPosition = new Vector3(-0.28f, 0.35f, 0f);
         shoulderL.transform.localRotation = Quaternion.identity;
 
         var shoulderR = new GameObject("ShoulderR");
         shoulderR.transform.SetParent(torso.transform);
-        shoulderR.transform.localPosition = new Vector3(0.28f, 0.36f, 0f);
+        shoulderR.transform.localPosition = new Vector3(0.28f, 0.35f, 0f);
         shoulderR.transform.localRotation = Quaternion.identity;
 
-        AddJoint("JShoulderL", shoulderL.transform, new Vector3(0.16f, 0.16f, 0.16f), shirtC);
-        AddJoint("JShoulderR", shoulderR.transform, new Vector3(0.16f, 0.16f, 0.16f), shirtC);
+        AddJoint("JShoulderL", shoulderL.transform, new Vector3(0.14f, 0.14f, 0.14f), shirtC);
+        AddJoint("JShoulderR", shoulderR.transform, new Vector3(0.14f, 0.14f, 0.14f), shirtC);
 
         MakePart("UpperArmL", shoulderL.transform, new Vector3(0.12f, 0.26f, 0.12f), new Vector3(0f, -0.13f, 0f), shirtC, "UpperArm");
         var elbowL = new GameObject("ElbowL");
@@ -179,13 +179,13 @@ public static partial class MapBuilder
         hipL.transform.SetParent(root.transform);
         hipL.transform.localPosition = new Vector3(-0.12f, -0.25f, 0f);
         hipL.transform.localRotation = Quaternion.identity;
-        AddJoint("JHipL", hipL.transform, new Vector3(0.15f, 0.15f, 0.15f), pantsC);
+        AddJoint("JHipL", hipL.transform, new Vector3(0.13f, 0.13f, 0.13f), pantsC);
 
         var hipR = new GameObject("HipR");
         hipR.transform.SetParent(root.transform);
         hipR.transform.localPosition = new Vector3(0.12f, -0.25f, 0f);
         hipR.transform.localRotation = Quaternion.identity;
-        AddJoint("JHipR", hipR.transform, new Vector3(0.15f, 0.15f, 0.15f), pantsC);
+        AddJoint("JHipR", hipR.transform, new Vector3(0.13f, 0.13f, 0.13f), pantsC);
 
         // Leg chain: Hip -> Knee -> Shin + Shoe (upper/lower leg split).
         MakePart("ThighL", hipL.transform, new Vector3(0.14f, 0.3f, 0.14f), new Vector3(0f, -0.15f, 0f), pantsC, "Thigh");
@@ -295,8 +295,8 @@ public static partial class MapBuilder
         shoulderR.transform.localPosition = new Vector3(0.24f, 0.47f, 0.01f);
         shoulderR.transform.localRotation = Quaternion.Euler(-60f, 0f, 0f);
 
-        AddJoint("JShoulderL", shoulderL.transform, new Vector3(0.14f, 0.14f, 0.14f), shirtC);
-        AddJoint("JShoulderR", shoulderR.transform, new Vector3(0.14f, 0.14f, 0.14f), shirtC);
+        AddJoint("JShoulderL", shoulderL.transform, new Vector3(0.13f, 0.13f, 0.13f), shirtC);
+        AddJoint("JShoulderR", shoulderR.transform, new Vector3(0.13f, 0.13f, 0.13f), shirtC);
 
         MakePart("UpperArmL", shoulderL.transform, new Vector3(0.1f, 0.2f, 0.1f), new Vector3(0f, -0.1f, 0f), shirtC, "UpperArm");
         var elbowL = new GameObject("ElbowL");
@@ -321,13 +321,13 @@ public static partial class MapBuilder
         hipL.transform.SetParent(root.transform);
         hipL.transform.localPosition = new Vector3(-0.12f, 0.06f, 0f);
         hipL.transform.localRotation = Quaternion.Euler(-80f, 0f, 0f);
-        AddJoint("JHipL", hipL.transform, new Vector3(0.13f, 0.13f, 0.13f), pantsC);
+        AddJoint("JHipL", hipL.transform, new Vector3(0.12f, 0.12f, 0.12f), pantsC);
 
         var hipR = new GameObject("HipR");
         hipR.transform.SetParent(root.transform);
         hipR.transform.localPosition = new Vector3(0.12f, 0.06f, 0f);
         hipR.transform.localRotation = Quaternion.Euler(-80f, 0f, 0f);
-        AddJoint("JHipR", hipR.transform, new Vector3(0.13f, 0.13f, 0.13f), pantsC);
+        AddJoint("JHipR", hipR.transform, new Vector3(0.12f, 0.12f, 0.12f), pantsC);
 
         MakePart("ThighL", hipL.transform, new Vector3(0.13f, 0.3f, 0.13f), new Vector3(0f, -0.15f, 0f), pantsC, "Thigh");
         var kneeL = new GameObject("KneeL");
@@ -377,13 +377,13 @@ public static partial class MapBuilder
         hipL.transform.SetParent(root.transform);
         hipL.transform.localPosition = new Vector3(-0.13f, -0.03f, 0.16f);
         hipL.transform.localRotation = Quaternion.identity;
-        AddJoint("JHipL", hipL.transform, new Vector3(0.14f, 0.14f, 0.14f), pantsC);
+        AddJoint("JHipL", hipL.transform, new Vector3(0.13f, 0.13f, 0.13f), pantsC);
 
         var hipR = new GameObject("HipR");
         hipR.transform.SetParent(root.transform);
         hipR.transform.localPosition = new Vector3(0.13f, -0.03f, 0.16f);
         hipR.transform.localRotation = Quaternion.identity;
-        AddJoint("JHipR", hipR.transform, new Vector3(0.14f, 0.14f, 0.14f), pantsC);
+        AddJoint("JHipR", hipR.transform, new Vector3(0.13f, 0.13f, 0.13f), pantsC);
 
         MakePart("ThighL", hipL.transform, new Vector3(0.14f, 0.26f, 0.14f), Vector3.zero, pantsC, "Thigh", Quaternion.Euler(-75f, 0f, 0f));
         MakePart("ThighR", hipR.transform, new Vector3(0.14f, 0.26f, 0.14f), Vector3.zero, pantsC, "Thigh", Quaternion.Euler(-75f, 0f, 0f));
@@ -436,15 +436,15 @@ public static partial class MapBuilder
         // ── Arms (shoulder -> elbow chain, hands resting on the lap) ──
         var shoulderL = new GameObject("ShoulderL");
         shoulderL.transform.SetParent(root.transform);
-        shoulderL.transform.localPosition = new Vector3(-0.25f, 0.41f, 0f);
+        shoulderL.transform.localPosition = new Vector3(-0.25f, 0.40f, 0f);
         shoulderL.transform.localRotation = Quaternion.identity;
 
         var shoulderR = new GameObject("ShoulderR");
         shoulderR.transform.SetParent(root.transform);
-        shoulderR.transform.localPosition = new Vector3(0.25f, 0.41f, 0f);
+        shoulderR.transform.localPosition = new Vector3(0.25f, 0.40f, 0f);
         shoulderR.transform.localRotation = Quaternion.identity;
-        AddJoint("JShoulderL", shoulderL.transform, new Vector3(0.15f, 0.15f, 0.15f), shirtC);
-        AddJoint("JShoulderR", shoulderR.transform, new Vector3(0.15f, 0.15f, 0.15f), shirtC);
+        AddJoint("JShoulderL", shoulderL.transform, new Vector3(0.13f, 0.13f, 0.13f), shirtC);
+        AddJoint("JShoulderR", shoulderR.transform, new Vector3(0.13f, 0.13f, 0.13f), shirtC);
 
         MakePart("UpperArmL", shoulderL.transform, new Vector3(0.12f, 0.34f, 0.12f), new Vector3(0f, -0.12f, 0.06f), shirtC, "UpperArm", Quaternion.Euler(-60f, 0f, 0f));
         MakePart("UpperArmR", shoulderR.transform, new Vector3(0.12f, 0.34f, 0.12f), new Vector3(0f, -0.12f, 0.06f), shirtC, "UpperArm", Quaternion.Euler(-60f, 0f, 0f));

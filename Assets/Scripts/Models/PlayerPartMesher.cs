@@ -42,16 +42,6 @@ public static class PlayerPartMesher
 
     private static readonly Dictionary<string, Dent[]> _profiles = new Dictionary<string, Dent[]>
     {
-        { "Body", new[]
-        {
-            new Dent(new Vector3(0f, -0.06f, 0f), new Vector3(0.30f, 0.18f, 0.20f), -0.06f), // waist pinch
-            new Dent(new Vector3(0f, 0.10f, 0.05f), new Vector3(0.28f, 0.20f, 0.22f), 0.04f),  // chest raise
-            new Dent(new Vector3(0f, -0.16f, 0f), new Vector3(0.28f, 0.12f, 0.20f), -0.03f),  // hip taper
-            new Dent(new Vector3(-0.34f, 0.34f, 0f), new Vector3(0.28f, 0.22f, 0.26f), 0.15f),// shoulder shelf L (1e0)
-            new Dent(new Vector3(0.34f, 0.34f, 0f), new Vector3(0.28f, 0.22f, 0.26f), 0.15f), // shoulder shelf R (1e0)
-            new Dent(new Vector3(-0.26f, -0.36f, 0f), new Vector3(0.22f, 0.16f, 0.20f), 0.05f),// hip flare L (1e0)
-            new Dent(new Vector3(0.26f, -0.36f, 0f), new Vector3(0.22f, 0.16f, 0.20f), 0.05f), // hip flare R (1e0)
-        } },
         { "Skirt", new[]
         {
             new Dent(new Vector3(0f, -0.26f, 0f), new Vector3(0.34f, 0.14f, 0.30f), 0.05f),   // bell flare
@@ -137,19 +127,7 @@ public static class PlayerPartMesher
         {
             new Dent(new Vector3(0f, 0f, 0.10f), new Vector3(0.36f, 0.36f, 0.14f), 0.04f),  // front bulge
         } },
-        { "SitTorso", new[]
-        {
-            new Dent(new Vector3(0f, -0.06f, 0f), new Vector3(0.30f, 0.18f, 0.20f), -0.05f), // waist pinch
-            new Dent(new Vector3(0f, 0.10f, 0.05f), new Vector3(0.28f, 0.20f, 0.22f), 0.04f),// chest
-            new Dent(new Vector3(-0.34f, 0.34f, 0f), new Vector3(0.28f, 0.22f, 0.26f), 0.15f),// shoulder shelf L (1e0)
-            new Dent(new Vector3(0.34f, 0.34f, 0f), new Vector3(0.28f, 0.22f, 0.26f), 0.15f), // shoulder shelf R (1e0)
-        } },
         { "Joint", new Dent[0] }, // plain faceted ball joint (1dy) — no dents
-        { "Chest", new[]
-        {
-            new Dent(new Vector3(0f, 0.08f, 0.06f), new Vector3(0.28f, 0.20f, 0.20f), 0.04f), // pec raise
-            new Dent(new Vector3(0f, -0.08f, 0f), new Vector3(0.28f, 0.14f, 0.20f), -0.03f), // mid pinch
-        } },
     };
 
     private static readonly Dictionary<string, Mesh> _cache = new Dictionary<string, Mesh>();
@@ -174,6 +152,8 @@ public static class PlayerPartMesher
     {
         if (profileId == "Cylinder")
             return BuildCylinder();
+        if (profileId == "Body" || profileId == "SitTorso" || profileId == "Chest")
+            return BuildTorso(profileId);
         _profiles.TryGetValue(profileId, out var dents);
         int seed = AnchorSeed(profileId);
         int grid = (Rings + 1) * Segs;
@@ -356,6 +336,151 @@ public static class PlayerPartMesher
         mesh.SetTriangles(tris, 0, true);
         mesh.RecalculateBounds();
         return mesh;
+    }
+
+    /// <summary>
+    /// Unit-space SHOULDERED torso (1e2): the shoulder/hip pivots sit OUTSIDE the old ellipsoid
+    /// (pivot radii ~0.8–1.6 unit vs the 0.5 lattice radius) — dents could never bridge that, so the
+    /// torso/chest parts are no longer ellipsoids but a flat-facet silhouette that reaches the limb
+    /// pivots. Same construction language as BuildCylinder: 12 segments, 7 flat bands, the same
+    /// deterministic shared-corner jitter mosaic (watertight), plus a closed bottom cap and a flat
+    /// TOP SHOULDER PLATEAU disc that the neck cylinder passes through (the plateau ring reads as the
+    /// collar). Silhouette per profile (t = normalized height, 0 bottom → 1 top), W = per-axis unit
+    /// reach along ±x, D along ±z; world half-width at a band = size.x · W:
+    ///   Body:      hip flare 0.55 → waist 0.46 → chest 0.58 → SHOULDERS 0.80 (world 0.35 standing,
+    ///   covering pivot ±0.28); held 0.80 through the top plateau so the shoulder band brackets the pivots.
+    ///   SitTorso:  reaches 0.70 at its top (pitched under the chest).
+    ///   Chest:     mid-band plateau 0.72 (carries the sit shoulders, which poke through the chest).
+    /// Height still spans y ±0.5 so size.y scales it exactly like the old cube/ellipsoid.
+    /// </summary>
+    private static Mesh BuildTorso(string profileId)
+    {
+        float[] tB, wB, dB;
+        if (profileId == "SitTorso")
+        {
+            tB = new[] { 0f, .20f, .50f, .80f, 1f };
+            wB = new[] { .50f, .55f, .50f, .66f, .70f };
+            dB = new[] { .44f, .46f, .44f, .44f, .44f };
+        }
+        else if (profileId == "Chest")
+        {
+            tB = new[] { 0f, .25f, .55f, .80f, 1f };
+            wB = new[] { .46f, .72f, .72f, .58f, .42f };
+            dB = new[] { .40f, .46f, .46f, .44f, .40f };
+        }
+        else
+        {
+            tB = new[] { 0f, .17f, .33f, .50f, .67f, .83f, 1f };
+            wB = new[] { .45f, .55f, .44f, .46f, .58f, .76f, .80f };
+            dB = new[] { .42f, .46f, .42f, .42f, .48f, .42f, .42f };
+        }
+
+        var verts = new List<Vector3>();
+        var uvs = new List<Vector2>();
+        var norms = new List<Vector3>();
+        var tris = new List<int>();
+        int seed = AnchorSeed(profileId);
+        int rows = Rings + 1;
+
+        // Rows are ellipse cross-sections (12 segs) whose width/depth follow the silhouette.
+        var corners = new Vector3[rows * Segs];
+        for (int lat = 0; lat < rows; lat++)
+        {
+            float t = lat / (float)Rings;
+            float y = -Half + lat / (float)Rings;
+            float W = Silhouette(t, tB, wB);
+            float D = Silhouette(t, tB, dB);
+            for (int s = 0; s < Segs; s++)
+            {
+                float theta = s * (2f * Mathf.PI) / Segs;
+                corners[lat * Segs + s] = new Vector3(Mathf.Cos(theta) * W, y, Mathf.Sin(theta) * D);
+            }
+        }
+
+        // Deterministic shared-corner jitter (same scheme/seeds as the ellipsoid lattice → watertight).
+        for (int lat = 1; lat < Rings; lat++)
+        {
+            for (int s = 0; s < Segs; s++)
+            {
+                int k = lat * Segs + s;
+                Vector3 r = corners[k].normalized;
+                Vector3 t1 = Vector3.Cross(r, Vector3.up);
+                if (t1.sqrMagnitude < 1e-6f)
+                    t1 = Vector3.Cross(r, Vector3.right);
+                t1.Normalize();
+                Vector3 t2 = Vector3.Cross(r, t1).normalized;
+                float h1 = Hash01(k, seed, 0x1234AB) - 0.5f;
+                float h2 = Hash01(k, seed, 0x5678CD) - 0.5f;
+                corners[k] += (t1 * h1 + t2 * h2) * (2f * FacetJitter);
+            }
+        }
+
+        // Bands — the same square-panel / triangle-panel mosaic as the ellipsoid parts.
+        for (int b = 1; b < Rings; b++)
+        {
+            for (int s = 0; s < Segs; s++)
+            {
+                int s1 = (s + 1) % Segs;
+                int ctl = (b - 1) * Segs + s, ctr = (b - 1) * Segs + s1;
+                int cbl = b * Segs + s, cbr = b * Segs + s1;
+                if (Hash01(b * 131 + s, seed, 0x5EEDF) < SplitChance)
+                {
+                    if (Hash01(b * 131 + s, seed, 0xCAFE) < 0.5f)
+                    {
+                        EmitTriangle(corners[ctl], corners[ctr], corners[cbr],
+                            CornerUV(b - 1, s), CornerUV(b - 1, s1), CornerUV(b, s1), verts, uvs, norms, tris);
+                        EmitTriangle(corners[ctl], corners[cbr], corners[cbl],
+                            CornerUV(b - 1, s), CornerUV(b, s1), CornerUV(b, s), verts, uvs, norms, tris);
+                    }
+                    else
+                    {
+                        EmitTriangle(corners[ctr], corners[cbr], corners[cbl],
+                            CornerUV(b - 1, s1), CornerUV(b, s1), CornerUV(b, s), verts, uvs, norms, tris);
+                        EmitTriangle(corners[ctr], corners[cbl], corners[ctl],
+                            CornerUV(b - 1, s1), CornerUV(b, s), CornerUV(b - 1, s), verts, uvs, norms, tris);
+                    }
+                }
+                else
+                {
+                    EmitQuad(corners[ctl], corners[ctr], corners[cbr], corners[cbl],
+                        CornerUV(b - 1, s), CornerUV(b - 1, s1), CornerUV(b, s1), CornerUV(b, s),
+                        verts, uvs, norms, tris);
+                }
+            }
+        }
+
+        // Closed caps: bottom ring (waist/hip base) and TOP SHOULDER PLATEAU (the neck cylinder pokes
+        // through its middle — per-triangle winding flips keep both orientations correct).
+        int topOff = Rings * Segs;
+        for (int s = 0; s < Segs; s++)
+        {
+            int s1 = (s + 1) % Segs;
+            EmitTriangle(new Vector3(0f, Half, 0f), corners[topOff + s1], corners[topOff + s],
+                CornerUV(Rings, s), CornerUV(Rings, s1), CornerUV(Rings, s), verts, uvs, norms, tris);
+            EmitTriangle(new Vector3(0f, -Half, 0f), corners[s], corners[s1],
+                CornerUV(0, s), CornerUV(0, s), CornerUV(0, s1), verts, uvs, norms, tris);
+        }
+
+        var mesh = new Mesh { name = "PlayerPart_Torso" };
+        mesh.SetVertices(verts);
+        mesh.SetUVs(0, uvs);
+        mesh.SetNormals(norms);
+        mesh.SetTriangles(tris, 0, true);
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    /// <summary>Piecewise-linear silhouette value for normalized height <paramref name="t"/>,
+    /// interpolating the control-point arrays <paramref name="tB"/>/<paramref name="vB"/>.</summary>
+    private static float Silhouette(float t, float[] tB, float[] vB)
+    {
+        if (t <= tB[0]) return vB[0];
+        for (int i = 1; i < tB.Length; i++)
+        {
+            if (t <= tB[i])
+                return Mathf.Lerp(vB[i - 1], vB[i], Mathf.InverseLerp(tB[i - 1], tB[i], t));
+        }
+        return vB[vB.Length - 1];
     }
 
     /// <summary>Emit one triangle with its OWN vertices and a flat (face) normal — the visible
