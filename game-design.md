@@ -589,7 +589,7 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   applies to the world-discovery flow.)*
 - On change: `PlayerStats` modifiers refresh, the player model **rebuilds** with the race's palette + body ratios (§3.5 Race Visuals), `RaceRig` applies the uniform scale, `RacePassiveManager` re-applies passives. Current HP/FP/stamina preserved as % of their new max.
 
-#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy + 1dz)
+#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy + 1dz + 1e0)
 
 - Every body part of the player model is a **unit-space faceted ellipsoid mesh** instead of a box
   (`PlayerPartMesher`): a chunkier Rings 7 × Segs 12 corner lattice generated once per part profile,
@@ -627,6 +627,15 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   (`PlayerPartMesher.BuildPillar`, profile `"Pillar"`), still spanning the [-0.5, 0.5] cube so the
   same size-vector/localScale contract holds. Slightly wider/taller than the old round neck so it
   reads as a column under the head (standing 0.15×0.16, seated 0.13×0.10, sit 0.14×0.12).
+- **Seamless torso↔limb attachment (1e0)**: the faceted ellipsoid rounds the torso corners where the
+  cube used to hide the arm/leg attach points, so the shoulder/hip pivots floated off the skin and
+  left gaps. Fixed three ways that stack: (1) the `"Body"`/`"SitTorso"` profiles gained symmetric
+  **shoulder-shelf dents** (+0.15 strength at the upper corners, no effect on chest centre/waist) and
+  gentle **hip-flare dents** so the torso skin bulges out toward the pivots; (2) limb pivots tucked a
+  little closer (standing shoulders 0.33→0.28, hips 0.13→0.12; seated shoulders 0.26→0.24; sit
+  shoulders 0.27→0.25); (3) shoulder/hip joint balls enlarged (`JShoulder` up to 0.14–0.16, `JHip`
+  0.13–0.15) so the balls lap over the seam. Pivot names/rotations unchanged → animator/weapon
+  contracts unaffected (tucks are visual-scale only, ~2–4 cm).
 - Part renderers are colored via `ApplyBlockColor` and carry **no collider** (the CharacterController
   owns collision). First/third-person camera culling is unchanged (model on layer 6).
 

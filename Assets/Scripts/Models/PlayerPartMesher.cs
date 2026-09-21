@@ -47,6 +47,10 @@ public static class PlayerPartMesher
             new Dent(new Vector3(0f, -0.06f, 0f), new Vector3(0.30f, 0.18f, 0.20f), -0.06f), // waist pinch
             new Dent(new Vector3(0f, 0.10f, 0.05f), new Vector3(0.28f, 0.20f, 0.22f), 0.04f),  // chest raise
             new Dent(new Vector3(0f, -0.16f, 0f), new Vector3(0.28f, 0.12f, 0.20f), -0.03f),  // hip taper
+            new Dent(new Vector3(-0.34f, 0.34f, 0f), new Vector3(0.28f, 0.22f, 0.26f), 0.15f),// shoulder shelf L (1e0)
+            new Dent(new Vector3(0.34f, 0.34f, 0f), new Vector3(0.28f, 0.22f, 0.26f), 0.15f), // shoulder shelf R (1e0)
+            new Dent(new Vector3(-0.26f, -0.36f, 0f), new Vector3(0.22f, 0.16f, 0.20f), 0.05f),// hip flare L (1e0)
+            new Dent(new Vector3(0.26f, -0.36f, 0f), new Vector3(0.22f, 0.16f, 0.20f), 0.05f), // hip flare R (1e0)
         } },
         { "Skirt", new[]
         {
@@ -137,6 +141,8 @@ public static class PlayerPartMesher
         {
             new Dent(new Vector3(0f, -0.06f, 0f), new Vector3(0.30f, 0.18f, 0.20f), -0.05f), // waist pinch
             new Dent(new Vector3(0f, 0.10f, 0.05f), new Vector3(0.28f, 0.20f, 0.22f), 0.04f),// chest
+            new Dent(new Vector3(-0.34f, 0.34f, 0f), new Vector3(0.28f, 0.22f, 0.26f), 0.15f),// shoulder shelf L (1e0)
+            new Dent(new Vector3(0.34f, 0.34f, 0f), new Vector3(0.28f, 0.22f, 0.26f), 0.15f), // shoulder shelf R (1e0)
         } },
         { "Joint", new Dent[0] }, // plain faceted ball joint (1dy) — no dents
         { "Chest", new[]

@@ -15,6 +15,63 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1e0 — seal the torso↔limb gaps (SHIPPED in `1e0`)
+
+Follow-up to 1dy. User: "the torso and limbs has gaps either change the shape of torso". Chose:
+all junctions (shoulders + hips; elbows/knees flush already verified), reshape + tuck pivots.
+
+### Step 1 — why the gap appeared
+- The 1dw ellipsoid swap rounded the torso corners; the old shared cube's sharp top/side corners
+  physically covered the arm-attach region, masking the shoulder pivot offset. The dent mosaic kept
+  the rounded silhouette → surface receded from the pivot.
+- Quantified (by reread of sizes/positions, standing): Body ellipsoid radii (0.22, 0.30, 0.125) at
+  centre (0, 0.05); shoulder pivot (±0.33, 0.37). Radius along the pivot direction u=(0.67,0.74):
+  1/sqrt((0.67/0.22)²+(0.74/0.30)²) = 0.255; pivot distance 0.418 → gap ≈ 0.16 world units; the
+  0.13 (r 0.065) JShoulder ball covered < half → visible pinch. 1dy's narrower torso worsened it
+  (0.25→0.22 half-extent).
+
+### Step 2 — fix design decision
+- H1 — enlarge the joint balls enough to bridge everything. REJECTED as the sole fix: would need
+  balls much bigger than the limbs → bloated knobs, not seams.
+- H2 — only reshape the torso (bulge skins out to the pivots). REJECTED as the sole fix: dent push
+  is bounded (radial, ≤ ~strength), physically can't reach the pivots that sit past the surface.
+- H3 — three-part stack: (a) torso **shelf dents** bulging the skin toward the pivots, (b) tuck the
+  pivots in a few cm so they land inside the (bulged) surface + ball radius, (c) enlarge the
+  shoulder/hip balls slightly so they lap the seam. ACCEPTED — each part is modest, together they
+  overlap rather than leave a gap. Proportions kept ball ≈ limb cross-section (shoulder 0.16 vs
+  upper arm 0.12/0.26 tall — reads as a shoulder ball in a socket).
+- Dent placement care: shelf anchors at unit ±(0.34, 0.34) with radius (0.28,0.22,0.26) → influence
+  at chest centre ≈ 0 (offset magnitude beyond radius) — verified by reread of the Dent math, so the
+  chest/waist profiles don't bloat. Hip flare anchors ±(0.26,-0.36) keep the pelvis subtle for the
+  female skirt + male trunk.
+
+### Step 3 — pivot tuck safety
+- Tucked only the spawn POSITIONS of Shoulder/Hip pivots; names, rotations, and all child chain
+  offsets untouched. PlayerAnimator does rotation-driven DoF — the ~2–4 cm origin shift is within
+  the swing envelope. WeaponRigBuilder measures shoulder→hand reach from these pivots; the shoulder
+  tuck shifts reach by < 4 cm (arm length chained off the pivot) — acceptable, flagged for play-test.
+- Race ratios: `ApplyRaceRatioRecurse` sets pivot `localScale`/`localPosition` (spread, arm, leg)
+  AFTER build — it multiplies into whatever base we baked, so the tuck and ratio spread compose.
+- The shelf bulge is on the SHARED `"Body"` mesh: female/seated benefit too; ratio-scaled bodies
+  scale the same unit mesh → proportionally the shelves belong to the same silhouette family.
+
+### Step 4 — verification
+- Grep + reread (rule 3): shelf+flare dents only on `"Body"` + `"SitTorso"`; shoulder position values
+  per builder distinct + tucks applied (0.33→0.28 etc.); JShoulder/JHip sizes bumped per plan (0.13/0.16,
+  0.12/0.14, 0.13/0.15; hips 0.14/0.15, 0.12/0.13, 0.13/0.14); no other profiles touched; no API/
+  name/collider change. One near-miss walked: an earlier JHipL edit's oldString matched two builders
+  (sit 0.13 and standing-on… actually stood 0.14 / seated 0.12 / sit 0.13 — the sit one collided only
+  with the seated 0.13 after seated edit? no — it matched once, DISAMBIGUATED by position context;
+  the "multiple matches" error surfaced and I anchored with the hip localPosition line). Caught by
+  the tool — good example of why edits want surrounding context.
+- Left OPEN for Unity play-test: whether the shelf bulge reads as deliberate breadth vs a hump at
+  small races; ball override on the forward-reached seated arms; first-person arm visibility at the
+  shoulder.
+- Verdict: SHIPPED in `1e0`. No CLI build (rule 3) — verified by grep + reread; user compiles in
+  Unity.
+
+---
+
 ## 1dz — neck switched to a pillar shape (SHIPPED in `1dz`)
 
 Follow-up to 1dy. User: "the neck switch to pillar shape". No clarifying questions asked — "pillar"

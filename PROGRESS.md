@@ -3,6 +3,40 @@
 Last updated: 2026-09-21. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1e0. Seal the torso↔limb gaps — reshape torso + tuck pivots + bigger joint balls
+
+Follow-up to 1dy: "the torso and limbs has gaps either change the shape of torso". Choices taken:
+**all junctions** (shoulders + hips; elbows/knees were already flush), **reshape + tuck pivots**.
+Clarified reasoning path: the old cube torso hid the attach points under sharp corners; the faceted
+ellipsoid rounds them, and 1dy tightened the torso — so shoulder/hip pivots floated up to ~0.16
+world-units off the skin. Dents alone can't reach the pivots, hence the three-part stack.
+
+- **`PlayerPartMesher.cs`** — reshape the shared profiles:
+  - `"Body"` gains symmetric **shoulder-shelf dents** (anchor ±(0.34, 0.34, 0), radius (0.28, 0.22,
+    0.26), strength +0.15 — bulges the upper-torso skin out/up toward the shoulder pivots; zero
+    influence at chest centre/waist by design) and gentle **hip-flare dents** (±(0.26, -0.36, 0),
+    radius (0.22, 0.16, 0.20), +0.05) so the lower torso keeps a hint of pelvis breadth instead of a
+    bare taper point.
+  - `"SitTorso"` gains the same shoulder-shelf dents (sit model). Seated reuses shared `"Body"`.
+  - Meshes stay size-independent/cached — one Body mesh serves male/female/seated.
+- **`MapBuilder.PlayerModels.cs`** — tuck pivots + enlarge balls:
+  - Standing: shoulders (±0.33, 0.37)→(±0.28, 0.36), `JShoulder` 0.13→**0.16**; hips
+    (±0.13, -0.25)→(±0.12, -0.25), `JHip` 0.14→**0.15**.
+  - Seated: shoulders (±0.26, 0.485)→(±0.24, 0.47), `JShoulder` 0.12→**0.14**; `JHip` 0.12→**0.13**.
+  - Sit: shoulders (±0.27, 0.42)→(±0.25, 0.41), `JShoulder` 0.13→**0.15**; `JHip` 0.13→**0.14**.
+  - Pivot NAMES + rotations untouched → `PlayerAnimator`/`WeaponRigBuilder`/`ApplyRaceRatioRecurse`
+    unaffected; the ~2–4 cm tuck is visual-scale only.
+
+### 1e0-status
+- Implemented; verified by grep + reread (no CLI build, rule 3): shelf/flare dents present on
+  `"Body"` + `"SitTorso"` only; every shoulder/hip pivot position + joint size updated per builder
+  (grep `JShoulder/JHip` + position lines); no other profiles touched; no API/name/collider changes.
+  game-design §3.5 + PROGRESS + THINKING updated same pass.
+  Play-test (pending, user runs Unity): no pinch gap between torso and shoulder/hip balls on
+  standing/seated/sit, male+female, and the small/large race ratios (ratio-scaled pivots carry the
+  joints); the shoulder shelf reads as natural breadth, not a hump, and doesn't collide with the
+  neck/head; arm swing + weapon reach unchanged; joint balls lap the seam from every camera angle.
+
 ## 1dz. Neck switched to a pillar shape
 
 Follow-up to 1dx/1dy: "the neck switch to pillar shape". The `Neck` part is no longer the round
