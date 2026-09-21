@@ -116,6 +116,28 @@ public static partial class MapBuilder
     }
 
     /// <summary>
+    /// Player-body builder (1dw): a smooth ellipsoid part instead of a cube. Same transform contract
+    /// as <see cref="MakeBlock"/> (localScale = the part's size vector reproduces today's exact
+    /// dimensions because the mesh occupies the same [-0.5, 0.5] cube), so race ratios, gender sizes
+    /// and weapon hand-scale compensation keep working untouched. The mesh comes from the static
+    /// shared cache in <see cref="PlayerPartMesher"/>; no collider (the CharacterController owns
+    /// collision). Falls back to a plain ellipsoid for unknown profile ids.
+    /// </summary>
+    public static GameObject MakePart(string name, Transform parent, Vector3 scale, Vector3 position, Color color, string profileId, Quaternion rotation = default)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent);
+        go.transform.localScale = scale;
+        go.transform.localPosition = position;
+        if (rotation != default) go.transform.localRotation = rotation;
+        var mf = go.AddComponent<MeshFilter>();
+        mf.sharedMesh = PlayerPartMesher.BuildEllipsoid(profileId);
+        var r = go.AddComponent<MeshRenderer>();
+        ApplyBlockColor(r, color);
+        return go;
+    }
+
+    /// <summary>
     /// Cube builder for geometry that has a shared texture material (tree branches/leaves).
     /// Uses the shared unit cube mesh; assigns the material with <c>sharedMaterial</c> so no
     /// per-renderer Material copy is created (the old <c>r.material = x</c> leaked one copy per

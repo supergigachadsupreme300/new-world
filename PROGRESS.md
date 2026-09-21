@@ -3,6 +3,52 @@
 Last updated: 2026-09-21. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1dw. Smooth player model — ellipsoid part surfaces with terrain-style dent sculpt
+
+The player model is no longer a boxy doll. Every body part now gets a **tessellated unit-space
+ellipsoid mesh** (`PlayerPartMesher`), generated once per part profile and sculpted with the same
+crater-dent math the terrain deform uses; the spine/pivot hierarchy and all animation/weapon contracts
+are untouched.
+
+- **`PlayerPartMesher` (new, `Assets\Scripts\Models\PlayerPartMesher.cs`)**: builds an ellipsoid per
+  profile as a Rings 9 × Segs 16 sphere grid spanning the same half-extent cube [-0.5, 0.5] the old
+  shared unit cube spanned, so `localScale` = old size vector reproduces the exact dimensions. Each
+  profile carries dent ops (anchor + ellipsoid radius + strength): normalized ellipsoid-distance
+  influence, the same `s = t²(3−2t)` smoothstep as `WorldStreamer.DeformAt`, vertex pushed along its
+  original radial. Winding is auto-checked (first-face normal dot vs origin) and `RecalculateNormals`
+  runs after sculpting. Meshes are static + cached `Dictionary<string, Mesh>` (HideAndDontSave),
+  shared across gender/race/model variants.
+- **`MakePart` (`MapBuilder`)**: player-part builder over the cached mesh — same transform/color
+  contract as `MakeBlock` plus a profile id, no collider (CharacterController owns collision).
+  `MakeBlock` is untouched (still used by creatures/vehicles/props/NPCs).
+- **`MapBuilder.PlayerModels.cs` (rewritten)**: all three builders (`BuildPlayerModel`,
+  `BuildSeatedPlayerModel`, `BuildSitPlayerModel`) call `MakePart` with profile ids; every part name,
+  pivot, size, position and rotation (sit/seat poses keep their elbow/shoulder `Quaternion.Euler`
+  args) is preserved verbatim, so `PlayerAnimator`, `WeaponRigBuilder`, `WeaponAnimator`,
+  `PlayerController.Animation` (layer 6/7 first-person culling) and `IsArmUnderShoulder` still
+  resolve.
+- **Profiles**: Body, Skirt, SkirtHem, Head (eye-socket dents at ±(0.13, 0.02, 0.16), nose, chin,
+  jaw taper), Neck, UpperArm, Forearm, Hand, Thigh, Shin, Shoe, Hair, HairSide, HairBack, HairBand,
+  Ponytail, EyeWhite, EyeIris, SitTorso, Chest. Unknown/empty ids fall back to the plain ellipsoid.
+- **Race ratios are transform-only (hard invariant)**: unit-space meshes mean `ApplyRaceLook` /
+  `ApplyRaceRatioRecurse` / `ApplyRaceLook`'s foot replant / `RaceRig.RigScale` /
+  `WeaponRigBuilder.ScaleForHandScale` all work unchanged — the mesh is never baking a size-derived
+  radius and the cache key is size-independent.
+
+### 1dw-status
+- Implemented; verified by grep + reread (no CLI build, rule 3): zero `MakeBlock` left in
+  `MapBuilder.PlayerModels.cs`; all part names match the animator/weapon/race-ratio consumers;
+  `MakePart` defined in `MapBuilder`, `BuildEllipsoid` defined in `PlayerPartMesher`; sit/seat pose
+  rotation args carried through. game-design §3.5 + PROGRESS + THINKING updated same pass.
+  Play-test (pending, user runs Unity): model look in standing/sit/seat + cutscenes — all parts read
+  smooth, no Z-fighting where hair/skirt/hands sit on bodies; gender variants (skirt + ponytail vs
+  male); every race ratio — `BodyHeight`/`BodyBulk` stretch, `BodyHead` counter-scale keeps head/eyes
+  proportioned (eye dents scale with the head), `BodyShoulderWidth` spread, `BodyArm`/`BodyLeg`
+  lengths with feet replanted on the ground; 1st person arms unchanged; weapon draw/stow/stance and
+  hands still aligned (Hand parts keep the scale `ScaleForHandScale` compensates for); walk/run/jump
+  bob and body-lean still animate the same pivots; and after
+  the race change rebuild the skeleton→muscle look still reads correctly.
+
 ## 1dv. Chunk mesh pooling — one persistent Mesh per chunk + a capped freed-mesh pool
 
 The mesh-allocation half of the 1dq deferral ("mesh uploads … deferred to 1dt (noise memo) + 1dv

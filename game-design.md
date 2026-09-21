@@ -584,15 +584,37 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   *(Current build: the change dialog calls `SetActiveRace(requireStone: false, unlockIfNeeded: true)` —
   changing race is **free and auto-unlocks the target race** for this character; the Ritual Stone cost
   applies to the world-discovery flow.)*
-- On change: `PlayerStats` modifiers refresh, the block player model **rebuilds** with the race's palette + body ratios (§3.5 Race Visuals), `RaceRig` applies the uniform scale, `RacePassiveManager` re-applies passives. Current HP/FP/stamina preserved as % of their new max.
+- On change: `PlayerStats` modifiers refresh, the player model **rebuilds** with the race's palette + body ratios (§3.5 Race Visuals), `RaceRig` applies the uniform scale, `RacePassiveManager` re-applies passives. Current HP/FP/stamina preserved as % of their new max.
 
-#### Race Visuals (Palette + Body Ratios on the Shared Block Model)
+#### Player Model (Smooth Ellipsoid Character, 1dw)
 
-- All 22 races share the **blocky player model** — it is recolored and re-proportioned per race, not swapped. `RaceData` carries the look, so races stay data-driven and real models can still drop into `RigPrefab` later without code changes.
+- Every body part of the player model is a **tessellated unit-space ellipsoid mesh** instead of a box
+  (`PlayerPartMesher`): a Rings 9 × Segs 16 sphere grid generated once per part profile, occupying the
+  same half-extent cube [-0.5, 0.5] as the old shared unit cube — so a part GameObject's
+  `localScale` = its size vector reproduces the exact world dimensions. `MakePart` (`MapBuilder`)
+  builds these on the same pivot hierarchy the animator/weapon rigs expect; `MakeBlock` still serves
+  creatures, vehicles and props.
+- Parts are **sculpted with terrain-style "dents"** (the `WorldStreamer.DeformAt` crater carve
+  generalized to 3D): per-vertex influence from a normalized ellipsoid distance to an anchor, the
+  same `s = t²(3−2t)` smoothstep, the vertex pushed along its original radial. Examples: waist pinch +
+  chest raise on the torso, eye sockets + nose + chin on the head, deltoid/elbow/wrist tapers on the
+  arms, knee taper + calf + quad on the legs, bell flare on the skirt; hair/hairband keep their own
+  slim parts. Eyes are thin bulging discs seated into the head's eye-socket dents.
+- Meshes are **static and size-independent** — one cached mesh per profile serves every gender, race
+  ratio and model variant. Sizing happens purely on `Transform.localScale`, so race ratios (§3.5
+  below) and weapon hand-scale compensation (`WeaponRigBuilder.ScaleForWorld`) keep working untouched.
+- Part renderers are colored via `ApplyBlockColor` and carry **no collider** (the CharacterController
+  owns collision). First/third-person camera culling is unchanged (model on layer 6).
+
+#### Race Visuals (Palette + Body Ratios on the Shared Model)
+
+- All 22 races share the procedural player model — it is recolored and re-proportioned per race, not
+  swapped. `RaceData` carries the look, so races stay data-driven and real models can still drop into
+  `RigPrefab` later without code changes.
 - **Palette** (6 colors): skin, hair, eyes (whites stay white), clothes, pants, shoes. The female skirt uses the cloth color with a darkened hem. Human reproduces the original colors exactly.
-- **Body ratios** (6 knobs, all default 1 = Human, clamped ≥ 0.6): `Height` / `Bulk` stretch the whole model; `Head` scales head+neck+eyes+hair; `ShoulderWidth` spreads the shoulder pivots; `Arm` / `Leg` lengthen the arm/leg chains (so players *see* correct proportions in 1st person arms and on the body). Representative silhouettes: Dwarf & Gnome are short and stocky (big head), Orc/Fire Giant broad-shouldered, Elf/Harpy tall and slim with long limbs, Skeleton/Harpy frail and thin.
-- **Scale stays a hitbox matter**: `RaceRig` applies the race's uniform `RigScale` (Goblin 0.8 / Gnome 0.7 keep their smaller hitbox, Fire Giant 1.35 / Ice Giant 1.4 / Golem 1.4 / Draconic 1.2 read big) — it deliberately does **not** flat-tint the block model, whose colors already come from the race.
-- **Race-aware builders (`MapBuilder.BuildPlayerModel` / `BuildSeatedPlayerModel` / `BuildSitPlayerModel`)**: read the live `RaceChangeManager` off the model's parent; `null` parents (car cutscene, etc.) fall back to Human so non-player models keep the classic look. A race change wired to `RaceChangeManager.OnActiveRaceChanged` rebuilds the model with the new look and re-seats held weapons.
+- **Body ratios** (6 knobs, all default 1 = Human, clamped ≥ 0.6): `Height` / `Bulk` stretch the whole model; `Head` scales head+neck+eyes+hair; `ShoulderWidth` spreads the shoulder pivots; `Arm` / `Leg` lengthen the arm/leg chains (so players *see* correct proportions in 1st person arms and on the body). Ratios only ever move Transforms — the unit-space ellipsoid meshes scale with them, so no per-race mesh rebuild is ever needed. Representative silhouettes: Dwarf & Gnome are short and stocky (big head), Orc/Fire Giant broad-shouldered, Elf/Harpy tall and slim with long limbs, Skeleton/Harpy frail and thin.
+- **Scale stays a hitbox matter**: `RaceRig` applies the race's uniform `RigScale` (Goblin 0.8 / Gnome 0.7 keep their smaller hitbox, Fire Giant 1.35 / Ice Giant 1.4 / Golem 1.4 / Draconic 1.2 read big) — it deliberately does **not** flat-tint the player model, whose colors already come from the race.
+- **Race-aware builders (`MapBuilder.BuildPlayerModel` / `BuildSeatedPlayerModel` / `BuildSitPlayerModel`)**: read the live `RaceChangeManager` off the model's parent; `null` parents (car cutscene, etc.) fall back to Human so non-player models keep the default look. A race change wired to `RaceChangeManager.OnActiveRaceChanged` rebuilds the model with the new look and re-seats held weapons.
 
 #### Expandability
 

@@ -15,6 +15,75 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1dw — smooth player model: ellipsoid part surfaces with dent sculpt (SHIPPED in `1dw`)
+
+Request: player model is "too blocky" — keep the existing spine/pivots for animation, generate the
+visual surface of each part as an ellipsoid shape, and sculpt each part with multiple dents like the
+terrain dents. Follow-up: MUST account for race-ratio differences.
+
+### Step 1 — how to scope it without breaking the animated rig
+- Constraint A (user): keep the spine/bone pivots so `PlayerAnimator`/`WeaponRigBuilder`/cutscenes
+  don't move; only the visible surface changes.
+- Constraint B: race ratios (`ApplyRaceLook`/`ApplyRaceRatioRecurse`) size parts through
+  `Transform.localScale`; `RaceRig` scales the whole root; `WeaponRigBuilder.ScaleForHandScale`
+  compensates hand size for draw/stow. If the mesh baked a fixed radius, every one of these breaks.
+- H1 — replace each cube's MeshFilter with a pre-sized ellipsoid mesh (radius = size vector) at build
+  time. REJECTED: bakes sizes into the mesh, so race/ratio/gender/weapon scale changes would need a
+  mesh rebuild per part and the cache becomes size-dependent; also the older "ratios only move
+  Transforms" invariant (1co) would be violated, and weapon-hand compensation targets a scale that
+  would now be double-applied (mesh radius + localScale).
+- H2 — unit-space ellipsoid (occupies the same [-0.5, 0.5] cube) + keeping the exact old size vectors
+  as `localScale`. ACCEPTED: `localScale = old size` reproduces identical world dimensions, so every
+  consumer that multiplies/averages part scales keeps working with zero change. Cache key becomes pure
+  profile id; gender/race/model variants share one mesh per part.
+- H3 — sculpt = hard boolean carve. REJECTED: adds per-vertex inside/outside tests, risky winding, no
+  analogue in the codebase. Generalizing the existing terrain dent (`WorldStreamer.DeformAt`) was the
+  natural fit (same codebase language, same smoothstep, only the falloff goes ellipsoid in 3D instead
+  of a heightfield crater) and keeps meshes manifold.
+
+### Step 2 — sculpt math = the DeformAt carve, generalized
+- DeformAt: for a tile, influence from normalized distance to a pit center, `s = t²(3−2t)`
+  smoothstep, then height is lowered along the terrain normal. Here: per-vertex influence from
+  normalized ellipsoid distance `n = sqrt((dx/rx)² + (dy/ry)² + (dz/rz)²)`, `t = 1 − clamp01(n)`,
+  and the vertex is pushed along its ORIGINAL radial (so positive strength bulges out, negative
+  carves in — the same sign convention as height up/down). Anchors/radii live in unit space and scale
+  linearly with the part (visual check: eyes seated in the Head's dents at ±(0.13, 0.02, 0.16) align
+  with the EyeWhite/EyeIris positions at z≈0.155–0.165 of a 0.3-wide head — they sink consistently).
+- Winding: sphere-grid generation could come out inside-out depending on Unity's handedness reading.
+  Cheap guarantee: compute the first triangle's normal, dot against the first vertex position; flip
+  the whole index list if it points toward the origin. Confirmed correct against Unity's
+  counter-clockwise-front convention and cheap enough to leave always-on.
+- After sculpting, `RecalculateNormals()` (the DeformAt path already does the same) so the smoothed
+  surface gets correct normals; `RecalculateBounds`.
+- Eye parts: old "EyeWhite" was a flat box (0.09 x 0.07 x 0.03) on the head front. As an ellipsoid
+  it would stick through the dents, so EyeWhite/EyeIris get a front-bulge dent only (thin disc look);
+  the head's sockets accept them.
+
+### Step 3 — caching and threading
+- Meshes are Deterministic/static; built lazily on first `MakePart`. H4 — cache per profile in a
+  static Dictionary with hideFlags HideAndDontSave (like `SharedCubeMesh`, which the player no longer
+  uses). ACCEPTED: N profiles → ≤ N meshes ever exist; no per-part allocations beyond transforms.
+  Main thread only (model builds are already main-thread).
+- Mesh selection: `PlayerPartMesher.BuildEllipsoid(profileId)` returns the shared instance; each part
+  GameObject is just a MeshFilter/MeshRenderer + Transform. This mirrors how `SharedCubeMesh` +
+  `MakeBlock` worked, so `MakePart` is a drop-in sibling with an extra profile arg and no collider.
+
+### Step 4 — verification / dead ends
+- Grep: no `MakeBlock` remains in `MapBuilder.PlayerModels.cs` (all player parts → `MakePart`);
+  part names/pivots/sizes/rotations preserved verbatim (PlayerAnimator shoulder/elbow/hip/knee
+  chains, WeaponRigBuilder hand lookup, WeaponAnimator.FindOwnerShoulder, layer 6/7 culling,
+  ApplyRaceRatioRecurse name matching Head/Neck/Eye/Hair/Ponytail and Shoulder/Hip) — all still
+  resolve. Race ratios remain transform-only; nothing bakes a size-derived radius.
+- Dead end walked: considering a `Dent` as a reusable struct array with per-profile static fields was
+  fine but Dictionary-of-arrays is terser and grep-checkable; no GC impact (static init once).
+- Left OPEN for Unity play-test: proportion tuning (dent strengths/radii are hand-tuned, one pass),
+  the eye-dent alignment on non-Human `BodyHead` ratios (head counter-scale scales dents too — expect
+  them to stay proportional), and overlap/Z-fighting where hair, skirt and hands sit on bodies.
+- Verdict: SHIPPED in `1dw`. No CLI build (rule 3) — verified by grep + reread; the user compiles in
+  Unity.
+
+---
+
 ## 1dv — chunk mesh pooling: one Mesh per chunk + capped freed-mesh pool (SHIPPED in `1dv`)
 
 Second half of the 1dq deferral ("deferred to 1dt (noise memo) + 1dv (mesh pooling)"). Scope B per
