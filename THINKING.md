@@ -15,6 +15,44 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1e1 — neck switched from pillar to a cylinder (SHIPPED in `1e1`)
+
+Follow-up to 1dz. User: "change the neck into cylinder". This REPLACES the 1dz square pillar
+(removed) rather than layering on top of it — no clarifications needed: a cylinder is a round column.
+
+### Step 1 — mesh design
+- H1 — taper/reuse the pillar's box-scale silhouette, just round the shaft in 8–12 facets.
+  ACCEPTED (12 facets = same band count as the body's mosaic → consistent flat-shading scale).
+- H2 — soft-shaded lathe (many segments, smooth normals). REJECTED: fights the flat-facet look
+  established in 1dx; the pre-1dz round neck was already rejected as a plain sphere, a smooth
+  cylinder would read as a leftover primitive.
+- Winding: sides + caps all go through `EmitQuad`/`EmitTriangle` per-panel centroid flips — no global
+  orientation assumptions (same reasoning as 1dx/1dz). Verified by hand for the top cap (normal +Y)
+  and bottom cap (normal −Y) before relying on the flip logic.
+- Top/bottom caps use the pole point duplicated per triangle (fan) — watertight, no polar cap gap.
+
+### Step 2 — cleanup + why removal is safe
+- `BuildPillar` + `BuildBox` + the `"Pillar"` profile were only reachable from the neck (grep showed
+  the only `"Pillar"` consumers were the three `Neck` MakePart calls + docs). Swapped the profile key,
+  deleted the dead generator + box helper → no orphan code, no fallback risk. Documented the 1dz
+  removal as a supersede note rather than deleting the PROGRESS entry (record authority).
+- Sizes kept identical to the pillar (standing 0.15×0.16, seated 0.13×0.10, sit 0.14×0.12): the unit
+  cylinder's width = size.x (it spans ±0.5 in xz), so the column now has radius size.x/2 (0.075) —
+  slightly slimmer than the pillar's 0.09 shaft but reads as a proper neck; head/torso overlap
+  unchanged (same height envelopes as verified in 1dz).
+
+### Step 3 — verification
+- Grep + reread (rule 3): zero remaining `Pillar`/`BuildPillar`/`BuildBox` references under
+  `Assets\Scripts`; `"Cylinder"` profile + `BuildCylinder` + Generate branch present; three `Neck`
+  MakePart calls use `"Cylinder"`. No API/name/collider changes; the `Neck` GameObject name kept →
+  race-ratio counter-scale + all consumers untouched.
+- Left OPEN for Unity play-test: 12 facets on a ~0.1-scale neck reads "cylindrical" vs "octagon";
+  cap shading vs head shadow; overlap flushness under the head.
+- Verdict: SHIPPED in `1e1`. No CLI build (rule 3) — verified by grep + reread; the user compiles in
+  Unity.
+
+---
+
 ## 1e0 — seal the torso↔limb gaps (SHIPPED in `1e0`)
 
 Follow-up to 1dy. User: "the torso and limbs has gaps either change the shape of torso". Chose:

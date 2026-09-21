@@ -589,7 +589,7 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   applies to the world-discovery flow.)*
 - On change: `PlayerStats` modifiers refresh, the player model **rebuilds** with the race's palette + body ratios (§3.5 Race Visuals), `RaceRig` applies the uniform scale, `RacePassiveManager` re-applies passives. Current HP/FP/stamina preserved as % of their new max.
 
-#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy + 1dz + 1e0)
+#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy + 1dz + 1e0 + 1e1)
 
 - Every body part of the player model is a **unit-space faceted ellipsoid mesh** instead of a box
   (`PlayerPartMesher`): a chunkier Rings 7 × Segs 12 corner lattice generated once per part profile,
@@ -622,11 +622,12 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   shoulder / elbow / hip / knee pivot (`JShoulder`/`JElbow`/`JHip`/`JKnee`, so no animator/weapon name
   collisions). It rotates with the pivot, inherits race-ratio pivot scaling, and is colored to match
   the adjacent part (arm sleeves `shirtC`, pants legs `pantsC`).
-- **Pillar neck (1dz)**: the `Neck` part is a unit-space **square masonry column** instead of the
-  round faceted ellipsoid — a flat-faced foot slab, straight shaft and cap/abacus stack
-  (`PlayerPartMesher.BuildPillar`, profile `"Pillar"`), still spanning the [-0.5, 0.5] cube so the
-  same size-vector/localScale contract holds. Slightly wider/taller than the old round neck so it
-  reads as a column under the head (standing 0.15×0.16, seated 0.13×0.10, sit 0.14×0.12).
+- **Cylinder neck (1e1)**: the `Neck` part is a unit-space **round cylinder column** instead of the
+  round faceted ellipsoid (and the short-lived square pillar of 1dz) — 12 flat side facets matching
+  the faceted-band count, plus closed top/bottom caps (`PlayerPartMesher.BuildCylinder`, profile
+  `"Cylinder"`), still spanning the [-0.5, 0.5] cube so the same size-vector/localScale contract
+  holds and the mesh stays size-independent/cached. Sized like the pillar it replaced: standing
+  0.15×0.16, seated 0.13×0.10, sit 0.14×0.12.
 - **Seamless torso↔limb attachment (1e0)**: the faceted ellipsoid rounds the torso corners where the
   cube used to hide the arm/leg attach points, so the shoulder/hip pivots floated off the skin and
   left gaps. Fixed three ways that stack: (1) the `"Body"`/`"SitTorso"` profiles gained symmetric

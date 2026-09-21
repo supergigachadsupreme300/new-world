@@ -3,6 +3,30 @@
 Last updated: 2026-09-21. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1e1. Neck switched from pillar to a cylinder
+
+Follow-up to 1dz: "change the neck into cylinder". The `Neck` part is now a **round cylinder
+column** (`"Cylinder"` profile); the square masonry pillar of 1dz is removed.
+
+- **`PlayerPartMesher.cs`**: `"Pillar"` profile, `BuildPillar()` and `BuildBox()` removed; new
+  `BuildCylinder()` emits 12 flat side facets (matching the faceted-band count) + closed top/bottom
+  caps, all via the existing `EmitQuad`/`EmitTriangle` (per-panel outward winding checks). Same
+  [-0.5, 0.5] half-extent contract → `localScale` = size vector still reproduces dimensions; size
+  independent and cached under `"Cylinder"`.
+- **`MapBuilder.PlayerModels.cs`**: the three `Neck` `MakePart` calls switched profile `"Pillar"` →
+  `"Cylinder"`, sizes unchanged (standing 0.15×0.16, seated 0.13×0.10, sit 0.14×0.12); GameObject
+  name stays `"Neck"` (race-ratio counter-scaling and consumers untouched).
+
+### 1e1-status
+- Implemented; verified by grep + reread (no CLI build, rule 3): no `Pillar`/`BuildPillar`/`BuildBox`
+  references remain in `Assets\Scripts`; `"Cylinder"` profile + `BuildCylinder` present; the three
+  `Neck` MakePart calls use `"Cylinder"`. No API/name/collider changes. game-design §3.5 + PROGRESS +
+  THINKING updated same pass.
+  Play-test (pending, user runs Unity): neck reads as a round column (12 flat facets + flat caps) on
+  standing, seated and sit; sits flush under the head and above the torso shoulder-shelf; race-ratio
+  counter-scale still proportioned; capsule silhouette reads cylindrical from every angle (not the
+  square pillar of 1dz).
+
 ## 1e0. Seal the torso↔limb gaps — reshape torso + tuck pivots + bigger joint balls
 
 Follow-up to 1dy: "the torso and limbs has gaps either change the shape of torso". Choices taken:
@@ -38,6 +62,9 @@ world-units off the skin. Dents alone can't reach the pivots, hence the three-pa
   neck/head; arm swing + weapon reach unchanged; joint balls lap the seam from every camera angle.
 
 ## 1dz. Neck switched to a pillar shape
+
+> Superseded by **1e1** below (the neck is now the `"Cylinder"` profile; the pillar mesh, `BuildPillar`
+> and `BuildBox` were removed in 1e1). Keep this entry for the record only.
 
 Follow-up to 1dx/1dy: "the neck switch to pillar shape". The `Neck` part is no longer the round
 faceted ellipsoid — it is now a **unit-space square masonry column**.
