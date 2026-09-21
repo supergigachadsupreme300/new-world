@@ -79,12 +79,20 @@ The mesh-allocation half of the 1dq deferral ("mesh uploads … deferred to 1dt 
   `FullRebuildChunk`) all still thread `buildCollider:` unchanged; the pool is main-thread only.
 
 ### 1dv-status
-- Implemented; verified by grep + reread (no CLI build, rule 3). Follow-up fix: the user's Unity
+- Implemented; verified by grep + reread (no CLI build, rule 3). Follow-up fixes: (1) the user's Unity
   compile surfaced CS0136 in `BeginProps` (the 1du keep-alive branch's `for (int i …)` collided with
-  the method-block `int i = 0;` tile fill counter) — renamed the fill counter to `tileIdx`.
-  Play-test: dig/cast Earth terrain
+  the method-block `int i = 0;` tile fill counter) — renamed the fill counter to `tileIdx`. (2) Unity
+  runtime surfaced `Mesh.normals/uv/colors is out of bounds` from `UploadMerged` on a POOLED mesh
+  whose previous upload held more vertices than the incoming one (e.g. a slab chunk's side walls) —
+  Unity Mesh buffers only ever GROW through the typed setters, so a smaller re-upload wrote channels
+  against the stale larger buffer; `UploadMerged` now `Clear()`s the mesh whenever
+  `mesh.vertexCount != md.Vertices.Length` (hot same-size path stays allocation-free). The
+  overwrite-only-is-safe claim in the 1dv notes was wrong in that direction and is corrected here +
+  in THINKING + game-design §2.7. Play-test: dig/cast Earth terrain
   spells near chunk seams — the ground visuals AND walkable physics must both update (collider
-  re-cook intact after rebuilds); walk far so chunks unload→reload — terrain identical, no stutter
+  re-cook intact after rebuilds); deform a tall cliff drop so a chunk gains slab side walls, then
+  flatten it back (pooled mesh must handle the downsize cleanly); walk far so chunks
+  unload→reload — terrain identical, no stutter
   from mesh realloc; F12/new-game/`ResetTerrainSaves` loop still streams cleanly; no memory warnings
   from the pool.
 

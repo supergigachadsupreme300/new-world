@@ -109,6 +109,15 @@ user choice (persistent mesh + reload pool; NOT reusing the merged CPU arrays to
   the full setter sequence) — a reused buffer is never left with stale index/vertex counts. A slab
   wall chunk uploads more verts → buffer grows; a later plain chunk uploads fewer → array length
   truncates; Unity retains the larger GPU allocation (memory retention, no corruption).
+  - **PARTIALLY REJECTED by runtime evidence (1dv follow-up fix):** Unity's typed channel setters do
+    NOT let the VERTEX COUNT shrink via re-specification alone — the mesh retains its previous larger
+    vertex count, so a pooled mesh that held more verts (slab walls) than the incoming upload threw
+    `SetNormals/SetUVs/SetColors "is out of bounds"` on the first smaller re-upload. The fix keeps
+    overwrite-only semantics but adds `if (mesh.vertexCount != md.Vertices.Length) mesh.Clear();` at
+    the top of `UploadMerged` — Clear resets every channel buffer to zero so the setters grow them
+    fresh to md's size; the same-count hot path stays fully allocation-free. Memory-retention note is
+    still true (Clear may drop/rebuild the GPU allocation on downsize — the old transient double-buffer
+    cost, but only when counts change, not on the common identical rebuild).
 - **COLLIDER RE-COOK TRAP (the important one):** old code swapped `sharedMesh` to a NEW instance each
   apply, implicitly re-cooking the MeshCollider. With a persistent shared instance the reference never
   changes, and a MeshCollider does NOT republish its baked physics mesh on vertex mutation → a
@@ -117,8 +126,10 @@ user choice (persistent mesh + reload pool; NOT reusing the merged CPU arrays to
   (`_mc.sharedMesh = null; _mc.sharedMesh = _mesh;`).
 - **Threading:** the pool is main-thread only by construction (ApplyMerged + Release both run on the
   main thread); documented, no lock.
-- Verdict: H1 rejected, H2 confirmed. Shipped in `1dv`. No behavior change expected — play-test that
-  rebuilt collider terrain matches visuals (the catch above) and F12/reset loops stream cleanly.
+- Verdict: H1 rejected, H2 confirmed (with the vertex-count shrink correction above). Shipped in `1dv`
+  plus a follow-up fix commit. No behavior change expected — play-test that rebuilt collider terrain
+  matches visuals (the catch above), a slab-walled chunk deforming flat handles the downsize, and
+  F12/reset loops stream cleanly.
 
 ## 1du — prop-ring keep-alive + shared dent-debris cube (SHIPPED in `1du`)
 

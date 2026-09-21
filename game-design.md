@@ -119,7 +119,10 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   (~961-vert / ~1800-tri GPU buffers shared across the pool). Deformation and walk cycles therefore
   stop generating Mesh/GC churn and transient double-buffer uploads; `ApplyMerged` explicitly
   null→assigns the collider mesh so a rebuilt collider-active chunk re-cooks its physics (the same
-  pattern `PatchRegion` uses). Purely an implementation detail — zero visual/behavior change.
+  pattern `PatchRegion` uses). Because Unity mesh buffers only ever grow, `UploadMerged` clears the
+  mesh whenever the incoming vertex count differs from the retained one (slab side walls add verts;
+  a later smaller re-upload must not write channels against a stale larger buffer). Purely an
+  implementation detail — zero visual/behavior change.
 
 ### 2.6 Chunk Persistence (File Caching)
 

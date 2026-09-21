@@ -657,8 +657,10 @@ public static class ChunkMeshGenerator
     /// <summary>
     /// Returns a chunk Mesh to the freed-mesh pool (capped, 1dv), or destroys it when the pool is
     /// full. Overwrite-only reuse is safe: every merged chunk uploads via <see cref="UploadMerged"/>,
-    /// which fully re-specifies vertices/indices, so a stale buffer is never partially referenced —
-    /// it only retains its largest-upload GPU size (slab side walls can grow it, never corrupt it).
+    /// which fully re-specifies vertices/indices and <see cref="Mesh.Clear"/>s upfront whenever the
+    /// vertex count changed (Unity buffers never shrink through the setters), so a stale buffer is
+    /// never partially referenced — it only ever grows in place, and a smaller re-upload is reset
+    /// fresh instead of hitting an out-of-bounds channel write.
     /// </summary>
     public static void ReleaseChunkMesh(Mesh mesh)
     {
@@ -679,6 +681,14 @@ public static class ChunkMeshGenerator
     /// </summary>
     public static void UploadMerged(MergedChunkMeshData md, Mesh mesh)
     {
+        // Pooled reuse (1dv fix): Unity Mesh buffers only ever GROW through the typed setter
+        // APIs — a pooled mesh whose last upload held MORE vertices (e.g. a slab chunk with side
+        // walls) keeps that larger buffer, so a smaller re-upload fails the SetNormals/SetUVs/
+        // SetColors size check against the retained vertex count. Clear() resets all channel
+        // buffers to zero so the setters below grow them fresh to md's size. Skipped on the hot
+        // path (identical counts → no clear), so consecutive same-size rebuilds stay allocation-free.
+        if (mesh.vertexCount != md.Vertices.Length)
+            mesh.Clear();
         mesh.SetVertices(md.Vertices);
         mesh.SetTriangles(md.Triangles, 0);
         mesh.SetNormals(md.Normals);

@@ -91,7 +91,8 @@ public class ChunkObject : MonoBehaviour
         // freed-mesh pool (or allocates when the pool is empty); rebuilds re-upload into the SAME
         // instance, so FullRebuildChunk/etc. stop spinning new Mesh objects + Destroying the old.
         // Chunk meshes share a uniform vertex/index count (~961 verts / ~1800 tris), so a reused
-        // buffer never needs to reallocate once warm (slab side walls can grow it, never corrupt it).
+        // buffer normally uploads as-is; a count change (slab side walls add verts) is handled by
+        // UploadMerged clearing the mesh before re-specifying (1dv fix — Unity buffers never shrink).
         if (_mesh == null)
             _mesh = ChunkMeshGenerator.AcquireChunkMesh($"ChunkMesh_{ChunkCoord.X}_{ChunkCoord.Z}");
         ChunkMeshGenerator.UploadMerged(md, _mesh);
