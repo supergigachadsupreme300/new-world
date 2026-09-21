@@ -143,7 +143,7 @@ public sealed class PlayerAnimator : MonoBehaviour
 
         // Upper body pitches with the camera look: looking down bends the torso forward, looking
         // up leans it back. Applied to the torso in both the idle and moving poses.
-        float lookTilt = -Mathf.Clamp(_pc.LookPitch, -60f, 60f) * TorsoLookBlend;
+        float lookTilt = Mathf.Clamp(_pc.LookPitch, -60f, 60f) * TorsoLookBlend;
 
         Vector3 rootPos = _pc.transform.position;
         Vector3 delta = rootPos - _lastRootPos;
@@ -236,7 +236,7 @@ public sealed class PlayerAnimator : MonoBehaviour
         // arms and legs carry the motion (no wild torso/head swinging). The + lookTilt bends the
         // torso up/down with the camera's vertical aim.
         if (_torso != null)
-            _torso.localRotation = Quaternion.Euler(-12f * runBlend + lookTilt, 0f, 0f);
+            _torso.localRotation = Quaternion.Euler(12f * runBlend + lookTilt, 0f, 0f);
         if (_head != null)
             _head.localRotation = Quaternion.Euler(-(1f + 2f * runBlend) * Mathf.Sin(_phase * 2f) - 2f * runBlend, 0f, 0f);
         if (_body != null && _bodyBasePos != default)

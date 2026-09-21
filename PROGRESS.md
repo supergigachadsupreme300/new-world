@@ -3,6 +3,31 @@
 Last updated: 2026-09-21. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1e9. PlayerAnimator — upper-body look-pitch direction was inverted
+
+User report: "the upper body bending when moving cursor up and down is reversed". Root cause: a sign
+inversion in `PlayerAnimator`. `PlayerController.LookPitch` is documented positive = looking down
+(PlayerController.Camera.cs), and on the Torso pivot a positive X rotation = lean forward (toward the
+model's facing). The look tilt negated the pitch, so looking down pitched the torso BACKWARD and
+looking up pitched it forward. The sprint run-lean (`-12f * runBlend`) shared the same inverted
+convention. Verified by grep + reread (rule 3, no CLI build); `LookPitch` has no other consumers.
+
+- `PlayerAnimator.cs:146` — dropped the leading minus:
+  `lookTilt = Mathf.Clamp(_pc.LookPitch, -60f, 60f) * TorsoLookBlend` → looking down leans the torso
+  forward, looking up leans it back (applied in both idle line 161 and the moving pose).
+- `PlayerAnimator.cs:239` — run lean flipped `-12` → `+12` so the sprint genuinely leans the torso
+  forward per the "cartoon run forward lean" comment (previously a backward arch). The head-bob
+  baseline (line 241) was left untouched — it reads coherent with the corrected torso.
+
+### 1e9-status
+- Implemented; verified by grep + reread (rule 3, no CLI build): `LookPitch`/`TorsoLookBlend`/
+  `lookTilt` consumers are confined to PlayerAnimator (1660-style grep); sign math checked against the
+  pitch doc (+ = down) and the Torso pivot's identity local rotation on the +Z-facing model
+  (+X = forward lean). game-design §3.5 + PROGRESS + THINKING updated same pass.
+- Play-test (pending, user runs Unity): moving the cursor up/down while idle and moving bends the
+  upper body the correct way (down = forward lean, up = lean back); sprinting leans forward instead
+  of arching back; aiming down while sprinting blends smoothly.
+
 ## 1e8. Torso follow-up from play-test — close the crown band hole, reveal the shoulder joints
 
 User play-tested 1e7 and reported two things: some torso faces "not loading", and the shoulder joints

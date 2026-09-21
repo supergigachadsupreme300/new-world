@@ -698,6 +698,11 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   a see-through ring: the band between the dome row (t=0.875) and the crown row (t=1.0) was never
   emitted (`for b < bands` — the 8th gap was skipped, leaving the crown disc as a floating lid), fixed
   by emitting `b <= bands`; the crown cone is now connected and watertight.
+- **Upper body follows the camera pitch (1e9)**: `PlayerAnimator` pitches the Torso pivot with the
+  vertical look — looking DOWN leans the torso forward, looking UP leans it back
+  (`lookTilt = LookPitch · TorsoLookBlend`; `LookPitch` positive = down, and +X rotation on the Torso
+  pivot = forward lean, so the patient reads correctly). The cartoon-run pose also pitches the torso
+  forward with speed (+12° at sprint); the bobbing head baseline keeps its own slight counter-tilt.
 - **Scalp-cap hair (1e3)**: hair was 4–6 floating slabs placed against an ideal sphere — the crown
   slab hovered 4 cm above the scalp and the side/back panels drifted off the skull. All `Hair`/
   `HairSide`/`HairBack`/`HairBand`/`Ponytail` parts are retuned to HUG the actual head hull (thin

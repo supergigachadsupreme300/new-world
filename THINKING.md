@@ -17,6 +17,35 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1e9 — "The upper body bending when moving the cursor up/down is reversed" (SHIPPED in `1e9`)
+
+User report right after 1e8 (they now see the torso clearly). One-line class of bug: sign inversion.
+
+### H1 — the cursor-to-torso sign is inverted at the animator → CONFIRMED
+Traced the sign chain, no build:
+- `PlayerController` pitch source: `_pitch -= delta.y * ...`, clamped ±60; `LookPitch` documented
+  "positive = looking down, negative = up" (PlayerController.Camera.cs:26-27) and applied straight to
+  the camera pivot `Euler(_pitch, 0, 0)` → +X at the camera = nose down. Consistent.
+- Torso pivot: identity local rotation on the +Z-facing model (`Torso` under root, Euler(0,0,0)), so a
+  positive X rotation moves the torso top (head end) toward +Z = the facing = a FORWARD lean.
+- `PlayerAnimator` line 146 negated it: `lookTilt = -clamp(pitch)`. Look down (+30) → −15° X on the
+  Torso → backward pitch; look up → forward pitch. Exactly "reversed", and it contradicts the
+  function's own comment ("looking down bends the torso forward").
+- Grep: `LookPitch` is consumed only by PlayerAnimator; `lookTilt` feeds idle (161) and moving (239)
+  explicitly. No other consumer to keep sign-consistent with.
+
+### H2 — the sprint "forward lean" (-12) used the same flipped convention → CONFIRMED (user chose to fix)
+Line 239 `Euler(-12f * runBlend + lookTilt, 0, 0)` is commented "cartoon run top body: forward lean".
+Under +X = forward, −12 is a backward arch. The user confirmed they want a genuine forward lean →
+flipped to `+12f * runBlend`. The head-bob constant (line 241, `-2f * runBlend`) left untouched: with
+the torso now +12, the −2 head term just keeps the head slightly less pitched than the body during a
+sprint (reads "charging ahead, head up"), and is a separate 2° subtlety to tune only if the sprint
+still reads odd in play-test.
+
+### FIX
+`lookTilt = Mathf.Clamp(_pc.LookPitch, -60f, 60f) * TorsoLookBlend;` (146) and
+`Euler(12f * runBlend + lookTilt, 0, 0)` (239). Both values stay within existing clamp ranges.
+
 ## 1e8 — Play-test of 1e7: "some faces not loading" + "shoulder joint too narrow" (SHIPPED in `1e8`)
 
 Two user reports right after 1e7 (first real render of the shouldered torso). Two separate root
