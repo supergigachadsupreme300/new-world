@@ -339,40 +339,49 @@ public static class PlayerPartMesher
     }
 
     /// <summary>
-    /// Unit-space SHOULDERED torso (1e2): the shoulder/hip pivots sit OUTSIDE the old ellipsoid
+    /// Unit-space SHOULDERED torso (1e2 + 1e4): the shoulder/hip pivots sit OUTSIDE the old ellipsoid
     /// (pivot radii ~0.8–1.6 unit vs the 0.5 lattice radius) — dents could never bridge that, so the
     /// torso/chest parts are no longer ellipsoids but a flat-facet silhouette that reaches the limb
-    /// pivots. Same construction language as BuildCylinder: 12 segments, 7 flat bands, the same
-    /// deterministic shared-corner jitter mosaic (watertight), plus a closed bottom cap and a flat
-    /// TOP SHOULDER PLATEAU disc that the neck cylinder passes through (the plateau ring reads as the
-    /// collar). Silhouette per profile (t = normalized height, 0 bottom → 1 top), W = per-axis unit
-    /// reach along ±x, D along ±z; world half-width at a band = size.x · W:
-    ///   Body:      hip flare 0.55 → waist 0.46 → chest 0.58 → SHOULDERS 0.80 (world 0.35 standing,
-    ///   covering pivot ±0.28); held 0.80 through the top plateau so the shoulder band brackets the pivots.
-    ///   SitTorso:  reaches 0.70 at its top (pitched under the chest).
-    ///   Chest:     mid-band plateau 0.72 (carries the sit shoulders, which poke through the chest).
+    /// pivots. Same construction language as BuildCylinder: 12 segments, 8 flat bands (9 rows — a
+    /// finer schedule than the shared 7-band ellipsoid/cylinder so the waist taper and shoulder dome
+    /// slope smoothly), the same deterministic shared-corner jitter mosaic (watertight), a closed
+    /// bottom cap, and a small closed CROWN disc at the top: 1e4 replaced the old flat top plateau
+    /// (1e2) with a SLOPED SHOULDER DOME that tucks under the neck cylinder (crown W ≈ 0.20 ≈ the neck
+    /// radius — no hat-brim collar ring, no seam gap). The `"Body"` parts are built TALLER in
+    /// MapBuilder (standing 0.8 tall, centre torso-local 0.13 = root 0.18; seated 0.6 tall at root
+    /// 0.25) precisely so the shoulder pivots sit on the dome band — NOT on the small crown row
+    /// (which is why build sizes matter to this silhouette). Silhouette per profile (t = normalized
+    /// height, 0 bottom → 1 top, rows exactly on t = i/8), W = per-axis unit reach along ±x, D along
+    /// ±z; world half-width at a band = size.x · W:
+    ///   Body:      hip flare 0.68 → PINCHED WAIST 0.40 → pec chest 0.72 → deltoid 0.80 (shelf) →
+    ///              dome slope 0.74–0.76 → crown 0.20. With the standing part 0.8 tall the pivots land
+    ///              at t≈0.78 (W 0.79 → world 0.347 ≥ ±0.28; female body 0.40·0.79 = 0.315 ≥ ±0.28);
+    ///              the seated body 0.6 tall puts its pivots at t≈0.87 (W 0.74 → world 0.252 ≥ ±0.24).
+    ///              Crown world 0.088 (0.068 seated) snugs under the neck/head base. Muscular V-taper.
+    ///   SitTorso:  hip flare 0.62 → waist 0.50, top 0.46 (tucks under the Chest bottom).
+    ///   Chest:     pec plateau 0.72 at t≈.4 (carries the sit shoulder pivots, world 0.28 ≥ ±0.25)
+    ///              → shoulders 0.58 → crown 0.18.
     /// Height still spans y ±0.5 so size.y scales it exactly like the old cube/ellipsoid.
     /// </summary>
     private static Mesh BuildTorso(string profileId)
     {
-        float[] tB, wB, dB;
+        const int bands = 8;
+        float[] tB = { 0f, .125f, .250f, .375f, .500f, .625f, .750f, .875f, 1f };
+        float[] wB, dB;
         if (profileId == "SitTorso")
         {
-            tB = new[] { 0f, .20f, .50f, .80f, 1f };
-            wB = new[] { .50f, .55f, .50f, .66f, .70f };
-            dB = new[] { .44f, .46f, .44f, .44f, .44f };
+            wB = new[] { .50f, .62f, .56f, .50f, .48f, .46f, .46f, .46f, .46f };
+            dB = new[] { .44f, .46f, .44f, .42f, .42f, .42f, .42f, .42f, .42f };
         }
         else if (profileId == "Chest")
         {
-            tB = new[] { 0f, .25f, .55f, .80f, 1f };
-            wB = new[] { .46f, .72f, .72f, .58f, .42f };
-            dB = new[] { .40f, .46f, .46f, .44f, .40f };
+            wB = new[] { .52f, .60f, .68f, .72f, .70f, .66f, .58f, .44f, .18f };
+            dB = new[] { .44f, .48f, .50f, .50f, .48f, .46f, .44f, .40f, .18f };
         }
         else
         {
-            tB = new[] { 0f, .17f, .33f, .50f, .67f, .83f, 1f };
-            wB = new[] { .45f, .55f, .44f, .46f, .58f, .76f, .80f };
-            dB = new[] { .42f, .46f, .42f, .42f, .48f, .42f, .42f };
+            wB = new[] { .55f, .68f, .46f, .40f, .64f, .72f, .80f, .74f, .20f };
+            dB = new[] { .46f, .50f, .44f, .42f, .50f, .50f, .48f, .44f, .20f };
         }
 
         var verts = new List<Vector3>();
@@ -380,14 +389,14 @@ public static class PlayerPartMesher
         var norms = new List<Vector3>();
         var tris = new List<int>();
         int seed = AnchorSeed(profileId);
-        int rows = Rings + 1;
+        int rows = bands + 1;
 
         // Rows are ellipse cross-sections (12 segs) whose width/depth follow the silhouette.
         var corners = new Vector3[rows * Segs];
         for (int lat = 0; lat < rows; lat++)
         {
-            float t = lat / (float)Rings;
-            float y = -Half + lat / (float)Rings;
+            float t = lat / (float)bands;
+            float y = -Half + lat / (float)bands;
             float W = Silhouette(t, tB, wB);
             float D = Silhouette(t, tB, dB);
             for (int s = 0; s < Segs; s++)
@@ -398,7 +407,7 @@ public static class PlayerPartMesher
         }
 
         // Deterministic shared-corner jitter (same scheme/seeds as the ellipsoid lattice → watertight).
-        for (int lat = 1; lat < Rings; lat++)
+        for (int lat = 1; lat < bands; lat++)
         {
             for (int s = 0; s < Segs; s++)
             {
@@ -415,8 +424,9 @@ public static class PlayerPartMesher
             }
         }
 
-        // Bands — the same square-panel / triangle-panel mosaic as the ellipsoid parts.
-        for (int b = 1; b < Rings; b++)
+        // Bands — the same square-panel / triangle-panel mosaic as the ellipsoid parts, over the
+        // finer 8-band (9-row) torso schedule.
+        for (int b = 1; b < bands; b++)
         {
             for (int s = 0; s < Segs; s++)
             {
@@ -449,14 +459,14 @@ public static class PlayerPartMesher
             }
         }
 
-        // Closed caps: bottom ring (waist/hip base) and TOP SHOULDER PLATEAU (the neck cylinder pokes
-        // through its middle — per-triangle winding flips keep both orientations correct).
-        int topOff = Rings * Segs;
+        // Closed caps: bottom rim (waist/hip base) and a SMALL CROWN disc the neck cylinder tucks over
+        // (per-triangle winding flips keep both orientations correct).
+        int topOff = bands * Segs;
         for (int s = 0; s < Segs; s++)
         {
             int s1 = (s + 1) % Segs;
             EmitTriangle(new Vector3(0f, Half, 0f), corners[topOff + s1], corners[topOff + s],
-                CornerUV(Rings, s), CornerUV(Rings, s1), CornerUV(Rings, s), verts, uvs, norms, tris);
+                CornerUV(bands, s), CornerUV(bands, s1), CornerUV(bands, s), verts, uvs, norms, tris);
             EmitTriangle(new Vector3(0f, -Half, 0f), corners[s], corners[s1],
                 CornerUV(0, s), CornerUV(0, s), CornerUV(0, s1), verts, uvs, norms, tris);
         }

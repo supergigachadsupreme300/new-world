@@ -15,6 +15,51 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1e4 — shoulder-dome torso: kill the flat-collar look WITHOUT stranding the shoulder pivots (SHIPPED in `1e4`)
+
+Motivation: the 1e2 flat top plateau read as a collar ring / hat brim around the neck base. 1e4
+replaces it with a sloped shoulder dome + small crown. The SELF-REVIEW trap: the first 1e4 cut shipped
+only "silhouette math looks right in the doc comment" — it did NOT recompute the shoulder pivots, which
+turned out to sit exactly on the crown row.
+
+### Step 1 — H1 "the crown covers the pivots": REJECTED by recomputation
+- Standing shoulder pivot: torso-local (±0.28, 0.35) → root (±0.28, 0.40). Standing `Body` is
+  size (0.44, 0.6, 0.25) @ root 0.05 → center root 0.10, top root 0.40. So the pivot is EXACTLY at the
+  part top → t = 1.0 → the crown row (W 0.20) → world 0.44·0.20 = **0.088** vs pivot ±0.28 → freed.
+- Seated: body (0.34, 0.5, 0.28) @ root 0.25 → spans [0, 0.50]; pivot (±0.24, 0.47) → unit y 0.44 →
+  t 0.94 → silhouette ~0.46 → world 0.156 vs ±0.24 → freed.
+- Sit: `Chest` (0.39, 0.28, 0.26) @ root 0.42 → spans [0.28, 0.56]; pivot (±0.25, 0.40) → t 0.43 →
+  W ≈ 0.71 → world 0.277 ≥ ±0.25 ✓ COVERED (only this one was fine).
+- Lesson already written in 1e2's log: the flat plateau W 0.80 held through t=1 WAS load-bearing for
+  the pivots (1e2 Step 2). The 1e4 dome narrows to 0.20 at t=1 → any silhouette-only change was
+  doomed to regress 1e0/1e2. The WIP doc comment even claimed coverage with a half-worked fragment
+  ("0.65·0.44=0.286 ≥ ±0.13") that was never true arithmetic.
+
+### Step 2 — H2 "just keep the top wide": viable but fails the mission
+- Constraint: SHARED `"Body"` silhouette must satisfy BOTH standing (needs ≥ 0.28/0.44 = 0.636 at
+  t 1.0) and seated (needs ≥ 0.24/0.34 = 0.706 at t 0.94 — the binding one). A dome that stays
+  ≥ 0.72 at the very top covers both BUT the crown is gone → reads like the old plateau again. So a
+  true small crown REQUIRES moving the pivot down the silhouette (taller body OR lower pivot).
+
+### Step 3 — H3/H4 "taller body" vs "lower pivot": chose taller body (H3)
+- H3 — build `"Body"` taller so pivots land on the dome band (t 0.78–0.87) instead of the crown row.
+  Standing body center moves 0.05→0.13 (TORSO-LOCAL; the Torso pivot sits at root 0.05, so root
+  center 0.18) and size.y 0.6→0.8 → spans torso-local [−0.27, 0.53]: pivot torso-local (±0.28, 0.35)
+  → unit y (0.35−0.13)/0.8 = 0.275 → t 0.775 → W 0.79 → world 0.44·0.79 = 0.347 ≥ 0.28 (F 0.315 ✓);
+  crown 0.088 tucks under the neck+head base. Seated body 0.5→0.6 (root center 0.25, spans
+  [−0.05, 0.55]): pivot (±0.24, 0.47) → t 0.867 → W 0.744 → world 0.252 ≥ 0.24 ✓; crown flush under
+  [0.50, 0.60]. Effects verified by inspection: hip pivots (standing −0.25, seated 0.06) stay inside
+  the taller bodies; female skirt top (−0.22/−0.13 …) still overlaps the waist; `ApplyRaceLook` scales
+  root + silhouettes equally → coverage invariant. CONFIRMED.
+- H4 — drop the pivots 10–15 cm (standing 0.35→0.20, seated 0.47→0.36): best margins but moves every
+  arm/hand/weapon chain and re-risks the driving cutscene reach. REJECTED (kept as the C-option).
+- Verdict: SHIPPED in `1e4` (H3). Silhouette arrays unchanged from the 1e4 WIP — the fix was purely
+  the two `MakePart("Body"…)` size/pos lines + the corrected doc text. No CLI build (rule 3); user
+  compiles in Unity. Play-test: shoulder seams stand/seated, longer-torso waist/shirt-hem look, race
+  spread > 1.2 coverage, skirt seam, ponytail clearance.
+
+---
+
 ## 1e3 — hair refit: scalp cap that hugs the skull, not floating slabs (SHIPPED in `1e3`)
 
 User: "need a way to fix the hair since its not fit the head at all". Chose "cap that hugs the

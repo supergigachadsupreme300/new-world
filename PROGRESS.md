@@ -3,6 +3,38 @@
 Last updated: 2026-09-21. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1e4. Shoulder-dome torso — remove the flat collar, keep the pivots covered
+
+The 1e2 flat top plateau read as a collar ring / hat brim around the neck base. Replaced with a
+**sloped shoulder dome** that tucks a small crown under the neck — but the FIRST cut of 1e4 (selftuned
+silhouette only) left the standing/seated shoulder pivots floating: the pivots sit on the very top row
+of the part silhouette (standing root (±0.28, 0.40) = unit t 1.0 = the crown row W 0.20 → world 0.088;
+seated (±0.24, 0.47) = t≈0.94 → world ~0.156), i.e. the 1e2 plateau's W 0.80 through t=1 had been
+LOAD-BEARING. Fixed by building the `"Body"` parts TALLER so the pivots land on the dome band.
+
+- **`PlayerPartMesher.cs`** — `BuildTorso` (8-band / 9-row lattice, closed bottom cap + CROWN disc W≈
+  0.20 ≈ neck radius): deltoid W 0.80 (shelf) → dome band 0.74–0.76 → crown 0.20; `SitTorso`/`Chest`
+  keep their tucking roles. Doc comment updated with the verified coverage arithmetic.
+- **`MapBuilder.PlayerModels.cs`** — standing `Body` (line ~135): size.y **0.6 → 0.8**, torso-local
+  center **0.05 → 0.13** (spans torso-local [−0.27, 0.53]; crown tucks under the neck+head base);
+  seated `Body` (line ~258): size.y **0.5 → 0.6** (root center 0.25, spans [−0.05, 0.55], crown flush
+  under neck [0.50, 0.60]). Sit model untouched — `Chest` already carries its pivots (t≈0.43, world
+  0.28 ≥ ±0.25).
+- Coverage now (world half-width at pivot height ≥ pivot offset): standing male 0.44·0.79 = **0.347 ≥
+  ±0.28**, female 0.40·0.79 = **0.315 ≥ ±0.28**; seated 0.34·0.74 = **0.252 ≥ ±0.24**.
+
+### 1e4-status
+- Implemented; verified by grep + reread (rule 3, no CLI build): both `MakePart("Body"...)` size/pos
+  lines updated once each; `Body`/`SitTorso`/`Chest` silhouette arrays intact and 9 entries each;
+  no other consumer of the `"Body"` part size (grep of `MakePart`/`"Body"` call sites); skirt/waist +
+  seated hip pivots still inside the taller bodies by inspection; game-design §3.5 (1e2/1e4/1e3
+  bullets cleaned of the leftover half-worked text) + PROGRESS + THINKING updated same pass.
+- Play-test (pending, user runs Unity): male+female standing — shoulder seam flush, no joint-ball
+  poke, no crown ring at the neck, waist/shirt-hem look with the taller torso; race shoulder-spread
+  s/b > 1.2 still covers the far joint ball; seated-in-car — crown under the neck, torso height in
+  the seat, arm/steering pivot unchanged; sit-on-chair — `Chest` unchanged, `SitTorso` top tucks;
+  skirt/waist cap seam; ponytail/back-hair clearance against the taller torso top.
+
 ## 1e3. Hair refit — scalp cap that hugs the head
 
 "the hair isn't fit to the head at all": the hair was 4–6 free-floating slabs placed against an
