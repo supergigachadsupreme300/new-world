@@ -3,6 +3,40 @@
 Last updated: 2026-09-21. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1e3. Hair refit — scalp cap that hugs the head
+
+"the hair isn't fit to the head at all": the hair was 4–6 free-floating slabs placed against an
+ideal sphere — the crown slab hovered **4 cm above the scalp**, the side panels drifted off the
+skull laterally, the nape panel floated behind the head shell. Retuned all `Hair`/`HairSide`/
+`HairBack`/`HairBand`/`Ponytail` parts to hug the ACTUAL head hull in every variant.
+
+- **`MapBuilder.PlayerModels.cs`** (all three builders):
+  - `Hair` crown: now a thin **cap lens** (oblate ellipsoid, e.g. standing 0.36×0.12×0.30 at y
+    0.80) whose widest band sits ON the crown — top of the skull pierces its lower half while the
+    upper rim rises ~0.05 above (no float, no gap), and its front rim stays behind the eye line
+    (rz ≈0.10 at eye height < eye z 0.155 → face clear). Same lens profile for seated (0.34×0.12×
+    0.28 @ 0.87) and sit (0.36×0.12×0.30 @ 0.92), matching each head's crown height.
+  - `HairL/R` sides: pulled in and down (standing ±0.18 @ y 0.70, 0.08×0.26×0.28) so the inner face
+    sits ~1 cm INSIDE the skull side (attached, not floating).
+  - `HairBack` nape: thickened slightly and lapping the back shell (standing female 0.30×0.36×0.11 @
+    (0,0.66,−0.16); male 0.30×0.30×0.11 @ (0,0.68,−0.16)) so outward protrusion reads as nape volume
+    while the inner face is buried.
+  - `HairBand` (female): placed across the cap's brow arc (0.36×0.05×0.34 @ (0,0.80,0.02)); ponytail
+    chain re-anchored (t1 @ (0,0.63,−0.21)) to overlap the nape panel instead of floating behind.
+  - No hierarchy/parent/name changes → `ApplyRaceRatioRecurse` (`Hair*`/`Ponytail*` → `headScale`)
+    and all name lookups behave exactly as before.
+
+### 1e3-status
+- Implemented; verified by grep + reread (rule 3, no CLI build): all 18 hair MakePart lines updated
+  across the three builders with the new sizes/positions (grep of `"Hair"`/`"HairSide"`/
+  `"HairBack"`/`"HairBand"`/`"Ponytail"` call sites); no other consumer of the player hair parts
+  exists (NPC/restaurant hairdos are `MakeBlock`-based and untouched). game-design §3.5 (1e3 bullet
+  written in the 1e2 pass) + PROGRESS + THINKING updated same pass.
+- Play-test (pending, user runs Unity): no scalp float on standing/seated/sit male+female; crown cap
+  reads as hair thickness not a pancake; side panels don't cover the eyes at any race head scale;
+  nape/band/tail attached without free-floating shards; race `BodyHead` ratios still grow hair with
+  the head.
+
 ## 1e2. Shouldered torso silhouette — torso/chest no longer ellipsoids
 
 "the torso still has gaps, change the shape" after 1e0. Root cause: the shoulder/hip pivots sit

@@ -15,6 +15,47 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1e3 — hair refit: scalp cap that hugs the skull, not floating slabs (SHIPPED in `1e3`)
+
+User: "need a way to fix the hair since its not fit the head at all". Chose "cap that hugs the
+skull (Recommended)". During implementation I found the RECOMMENDED nesting-under-Head variant has a
+hidden trap; resolved by position-fitting instead (same hug, zero hierarchy risk) — recorded here.
+
+### Step 1 — measured the float, disproved the nesting shortcut
+- Standing head centre (0.65, r 0.15, crown ~0.81 with cranium dent); the old crown slab sat at y
+  0.88 → floated 0.04–0.07 above the scalp. Sides (±0.19) and nape (−0.16z) also missed the shell.
+- H1 — nest hair under Head with head-local offsets. FOUND BROKEN: parenting under Head multiplies
+  every child localScale by Head's `localScale` (0.3 for the standing head, and per-race `headScale`
+  later) → the same world look would need local sizes ≥1.0 (0.32/0.3 ≈ 1.07), ugly and fragile, and
+  a solid ellipsoid "cap" can NEVER hug a sphere from above without either floating above the crown
+  or covering the eyes (a shell cap with a face window needs a cutout our solid parts can't make;
+  the crescent between eye-line y 0.76 and crown y 0.81 is only 0.05 tall). REJECTED nesting; kept
+  parents (torso/root).
+- H2 — the "scalp cap" IS best built as a **thin oblate lens**: sized so its widest band sits on the
+  crown at the PLATEAU (skull top pierces the lens's lower half, upper rim rises ~0.05 — attached,
+  no float), with front rim ry around 0.10 at the eye line (rz ≈ 0.10 < eye z 0.155 → face clear).
+  That's just an ellipsoid with the RIGHT size/position. ACCEPTED: values tuned per head (standing/
+  sit crown 0.80–0.92, seated 0.87) from actual head hull numbers, not guesses.
+
+### Step 2 — measured-value table (standing shown; seated/sit scaled for their heads)
+- `Hair` lens 0.36×0.12×0.30 @ (0,0.80,0): rim at y 0.74, half-x 0.18 → at y 0.755 (eye top) the
+  lens radius is ~0.12x/0.10z << eye Z 0.155 → eyes clear; at the crown it covers to rx 0.177 ≥
+  cranium 0.162 → crown buried with margin. Verdict: the "cap hugs" claim is now arithmetic, not vibes.
+- `HairL/R` ±0.18 @ y 0.70: inner face 0.14 < skull side 0.141 → 1 mm buried; outer 0.22 = visible
+  hair mass. `HairBack` @ (0,0.66,−0.16) w 0.11: inner face buried 0.05 into the back shell, outer
+  protrudes 0.05 = nape volume. `Band`/tail re-anchored on the same numbers.
+
+### Step 3 — verification
+- Grep + reread (rule 3): 18 hair MakePart lines updated; no consumer outside the builders touches
+  `Hair*`/`Ponytail*` names except the `headScale` prefix check (unsafe to change) and NPC hairdos
+  (MakeBlock, separate). No hierarchy change → zero contract risk.
+- Left OPEN for play-test: lens thickness reads "thick hair" not "helmet"; side/nape panels blend at
+  the skull seams; big-head races (headScale) keep the relative fit (numbers scale with Head because
+  both head and hair get the same ratio recursion scaling).
+- Verdict: SHIPPED in `1e3`. No CLI build (rule 3); user compiles in Unity.
+
+---
+
 ## 1e2 — shouldered torso silhouette: torso/chest stop being ellipsoids (SHIPPED in `1e2`)
 
 After 1e1, the user reported "the torso still has gaps, change the shape" and separately that the

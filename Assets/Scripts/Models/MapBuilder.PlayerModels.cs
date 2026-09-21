@@ -206,20 +206,20 @@ public static partial class MapBuilder
         MakePart("ShinR", kneeR.transform, new Vector3(0.14f, 0.24f, 0.14f), new Vector3(0f, -0.12f, 0f), pantsC, "Shin");
         MakePart("ShoeR", kneeR.transform, new Vector3(0.16f, 0.08f, 0.22f), new Vector3(0f, -0.27f, 0.02f), shoeC, "Shoe");
 
-        MakePart("Hair", torso.transform, new Vector3(0.32f, 0.08f, 0.3f), new Vector3(0f, 0.88f, 0f), hairC, "Hair");
-        MakePart("HairL", torso.transform, new Vector3(0.08f, 0.32f, 0.26f), new Vector3(-0.19f, 0.69f, 0f), hairC, "HairSide");
-        MakePart("HairR", torso.transform, new Vector3(0.08f, 0.32f, 0.26f), new Vector3(0.19f, 0.69f, 0f), hairC, "HairSide");
+        MakePart("Hair", torso.transform, new Vector3(0.36f, 0.12f, 0.30f), new Vector3(0f, 0.80f, 0f), hairC, "Hair");
+        MakePart("HairL", torso.transform, new Vector3(0.08f, 0.26f, 0.28f), new Vector3(-0.18f, 0.70f, 0f), hairC, "HairSide");
+        MakePart("HairR", torso.transform, new Vector3(0.08f, 0.26f, 0.28f), new Vector3(0.18f, 0.70f, 0f), hairC, "HairSide");
         if (female)
         {
-            MakePart("HairBack", torso.transform, new Vector3(0.3f, 0.3f, 0.1f), new Vector3(0f, 0.62f, -0.16f), hairC, "HairBack");
-            MakePart("HairBand", torso.transform, new Vector3(0.34f, 0.05f, 0.32f), new Vector3(0f, 0.8f, 0f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
-            MakePart("Ponytail1", torso.transform, new Vector3(0.18f, 0.24f, 0.14f), new Vector3(0f, 0.7f, -0.23f), hairC, "Ponytail");
-            MakePart("Ponytail2", torso.transform, new Vector3(0.15f, 0.22f, 0.13f), new Vector3(0f, 0.5f, -0.27f), hairC, "Ponytail");
-            MakePart("Ponytail3", torso.transform, new Vector3(0.12f, 0.2f, 0.12f), new Vector3(0f, 0.3f, -0.29f), hairC, "Ponytail");
+            MakePart("HairBack", torso.transform, new Vector3(0.30f, 0.36f, 0.11f), new Vector3(0f, 0.66f, -0.16f), hairC, "HairBack");
+            MakePart("HairBand", torso.transform, new Vector3(0.36f, 0.05f, 0.34f), new Vector3(0f, 0.80f, 0.02f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
+            MakePart("Ponytail1", torso.transform, new Vector3(0.18f, 0.26f, 0.15f), new Vector3(0f, 0.63f, -0.21f), hairC, "Ponytail");
+            MakePart("Ponytail2", torso.transform, new Vector3(0.16f, 0.24f, 0.14f), new Vector3(0f, 0.45f, -0.25f), hairC, "Ponytail");
+            MakePart("Ponytail3", torso.transform, new Vector3(0.13f, 0.22f, 0.13f), new Vector3(0f, 0.27f, -0.27f), hairC, "Ponytail");
         }
         else
         {
-            MakePart("HairBack", torso.transform, new Vector3(0.3f, 0.26f, 0.1f), new Vector3(0f, 0.62f, -0.16f), hairC, "HairBack");
+            MakePart("HairBack", torso.transform, new Vector3(0.30f, 0.30f, 0.11f), new Vector3(0f, 0.68f, -0.16f), hairC, "HairBack");
         }
         Color eyeWhiteC = new Color(0.95f, 0.95f, 0.97f);
         MakePart("EyeWhiteL", torso.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(-0.08f, 0.72f, 0.155f), eyeWhiteC, "EyeWhite");
@@ -265,16 +265,16 @@ public static partial class MapBuilder
         MakePart("Head", root.transform, new Vector3(0.28f, 0.28f, 0.28f), new Vector3(0f, 0.74f, 0f), skinC, "Head");
         MakePart("Neck", root.transform, new Vector3(0.13f, 0.10f, 0.13f), new Vector3(0f, 0.55f, 0f), skinC, "Cylinder");
         // ── Hair ──
-        MakePart("Hair", root.transform, new Vector3(0.3f, 0.07f, 0.28f), new Vector3(0f, 0.94f, 0f), hairC, "Hair");
-        MakePart("HairL", root.transform, new Vector3(0.08f, 0.3f, 0.12f), new Vector3(-0.18f, 0.72f, 0f), hairC, "HairSide");
-        MakePart("HairR", root.transform, new Vector3(0.08f, 0.3f, 0.12f), new Vector3(0.18f, 0.72f, 0f), hairC, "HairSide");
+        MakePart("Hair", root.transform, new Vector3(0.34f, 0.12f, 0.28f), new Vector3(0f, 0.87f, 0f), hairC, "Hair");
+        MakePart("HairL", root.transform, new Vector3(0.07f, 0.24f, 0.24f), new Vector3(-0.17f, 0.79f, 0f), hairC, "HairSide");
+        MakePart("HairR", root.transform, new Vector3(0.07f, 0.24f, 0.24f), new Vector3(0.17f, 0.79f, 0f), hairC, "HairSide");
         if (female)
         {
-            MakePart("HairBack", root.transform, new Vector3(0.28f, 0.26f, 0.08f), new Vector3(0f, 0.72f, -0.14f), hairC, "HairBack");
-            MakePart("HairBand", root.transform, new Vector3(0.3f, 0.05f, 0.3f), new Vector3(0f, 0.9f, 0f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
-            MakePart("Ponytail1", root.transform, new Vector3(0.16f, 0.22f, 0.12f), new Vector3(0f, 0.76f, -0.19f), hairC, "Ponytail");
-            MakePart("Ponytail2", root.transform, new Vector3(0.13f, 0.2f, 0.11f), new Vector3(0f, 0.58f, -0.23f), hairC, "Ponytail");
-            MakePart("Ponytail3", root.transform, new Vector3(0.11f, 0.18f, 0.1f), new Vector3(0f, 0.4f, -0.25f), hairC, "Ponytail");
+            MakePart("HairBack", root.transform, new Vector3(0.28f, 0.34f, 0.10f), new Vector3(0f, 0.74f, -0.14f), hairC, "HairBack");
+            MakePart("HairBand", root.transform, new Vector3(0.32f, 0.05f, 0.32f), new Vector3(0f, 0.87f, 0.02f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
+            MakePart("Ponytail1", root.transform, new Vector3(0.17f, 0.24f, 0.14f), new Vector3(0f, 0.71f, -0.19f), hairC, "Ponytail");
+            MakePart("Ponytail2", root.transform, new Vector3(0.14f, 0.22f, 0.13f), new Vector3(0f, 0.55f, -0.23f), hairC, "Ponytail");
+            MakePart("Ponytail3", root.transform, new Vector3(0.12f, 0.20f, 0.12f), new Vector3(0f, 0.39f, -0.25f), hairC, "Ponytail");
         }
         // ── Eyes ──
         Color eyeWhiteC = new Color(0.95f, 0.95f, 0.97f);
@@ -420,17 +420,17 @@ public static partial class MapBuilder
         MakePart("EyeWhiteR", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(0.08f, 0.85f, 0.155f), new Color(0.95f, 0.95f, 0.97f), "EyeWhite");
         MakePart("EyeIrisL", root.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(-0.08f, 0.85f, 0.165f), eyeC, "EyeIris");
         MakePart("EyeIrisR", root.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(0.08f, 0.85f, 0.165f), eyeC, "EyeIris");
-        MakePart("Hair", root.transform, new Vector3(0.32f, 0.08f, 0.3f), new Vector3(0f, 1f, 0f), hairC, "Hair");
-        MakePart("HairL", root.transform, new Vector3(0.08f, 0.32f, 0.26f), new Vector3(-0.19f, 0.82f, 0f), hairC, "HairSide");
-        MakePart("HairR", root.transform, new Vector3(0.08f, 0.32f, 0.26f), new Vector3(0.19f, 0.82f, 0f), hairC, "HairSide");
+        MakePart("Hair", root.transform, new Vector3(0.36f, 0.12f, 0.30f), new Vector3(0f, 0.92f, 0f), hairC, "Hair");
+        MakePart("HairL", root.transform, new Vector3(0.08f, 0.26f, 0.26f), new Vector3(-0.18f, 0.83f, 0f), hairC, "HairSide");
+        MakePart("HairR", root.transform, new Vector3(0.08f, 0.26f, 0.26f), new Vector3(0.18f, 0.83f, 0f), hairC, "HairSide");
         if (female)
         {
-            MakePart("HairBack", root.transform, new Vector3(0.3f, 0.3f, 0.1f), new Vector3(0f, 0.74f, -0.16f), hairC, "HairBack");
-            MakePart("HairBand", root.transform, new Vector3(0.34f, 0.05f, 0.32f), new Vector3(0f, 0.93f, 0f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
+            MakePart("HairBack", root.transform, new Vector3(0.30f, 0.34f, 0.11f), new Vector3(0f, 0.80f, -0.15f), hairC, "HairBack");
+            MakePart("HairBand", root.transform, new Vector3(0.36f, 0.05f, 0.34f), new Vector3(0f, 0.92f, 0.02f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
         }
         else
         {
-            MakePart("HairBack", root.transform, new Vector3(0.3f, 0.26f, 0.1f), new Vector3(0f, 0.74f, -0.16f), hairC, "HairBack");
+            MakePart("HairBack", root.transform, new Vector3(0.30f, 0.30f, 0.11f), new Vector3(0f, 0.82f, -0.15f), hairC, "HairBack");
         }
 
         // ── Arms (shoulder -> elbow chain, hands resting on the lap) ──
