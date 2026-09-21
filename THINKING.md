@@ -15,6 +15,78 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1dy — slimmer torso, +8% overall size, faceted ball joints at limb pivots (SHIPPED in `1dy`)
+
+Follow-up to 1dx. User: "reduce the torso width abit then increase the total size, add sphere with
+similar skin generate to between parts as joints". Clarified: moderate width cut (−12%) + +8% whole
+model, joints colored to match the adjacent part, limb joints only (shoulder/elbow/hip/knee), applied
+to standing + seated + sit variants.
+
+### Step 1 — how to make the model bigger without breaking the grounded feet / car-fit
+- H1 — raise each part's size vector by the factor by hand. REJECTED: ~40 MakePart call sites across
+  three builders, easy to miss; feet re-plant (ApplyRaceLook) and the car/chair fits would drift in a
+  piecemeal way.
+- H2 — a single root `localScale` multiplier (a module const `PlayerModelScale`) applied to every
+  root's scale AND position, plus the same factor in the standing `calibrateFeet` re-plant. ACCEPTED:
+  scale cascades to every child offset + part size exactly like the old unit-cube contract; one
+  constant to revert is the car-cutscene clipping fallback; human (K=1) is the old no-op shape.
+  Caveat logged: `ApplyRaceLook` reads `modelRoot.localScale` (already includes K) for Height/Bulk so
+  ratios compose correctly; only the y re-plant needed the K factor.
+- H3 — change the `scale` default/arg of the builders. REJECTED (mostly): all callers pass scale=1;
+  scaling a position/root would still need the calibrateFeet factor, and cutscene parents would
+  silently drift. K baked in the builders matches the "make the model bigger everywhere" intent.
+
+### Step 2 — torso width
+- Standing male `Body` x 0.50→0.44, female 0.46→0.40 (−12%). Kept shoulders at ±0.33 → arms sit a
+  touch wider than the torso; the shoulder JOINT balls (1dy) land exactly there, which is what makes
+  the wider-than-torso arms read as articulated shoulders rather than a bug. Seated `Body` 0.38→0.34
+  and sit `Torso` 0.42/0.46→0.37/0.40 + `Chest` 0.44→0.39 proportion the same cut. No neck-joint
+  sphere (user: limb joints only) — the Neck part already bridges head/torso.
+
+### Step 3 — the joint spheres: placement, naming, layer routing
+- Placement: `AddJoint(...)` parents a `"Joint"` profile part at the pivot transform's ORIGIN
+  (localPosition zero) — zero pose work, rotates with the pivot in every animator/cutscene pose.
+  Sizes tuned per joint around the arm/leg cross-section (shoulder 0.13, elbow 0.11, hip 0.14,
+  knee 0.12; slightly smaller in the seated car model so the profile stays dainty in the car).
+- Naming: `JShoulder/JElbow/JHip/JKnee` — the `J` prefix guarantees no collision with
+  `PlayerAnimator` (`Torso/ShoulderL`, `ElbowL` under shoulder), `WeaponAnimator.FindOwnerShoulder`,
+  `WeaponRigBuilder`, or `ApplyRaceRatioRecurse`'s Head/Neck/Eye/Hair/Ponytail/Shoulder/Hip patterns.
+  A `StartsWith("Shoulder")` joint would be safe as a name but I chose `J…` anyway — belt and braces.
+- Layer routing: `IsArmUnderShoulder` walks UP from a renderer to a `Shoulder*`/`Elbow*` ancestor;
+  a `"Joint"` part on `ShoulderL` has parent `ShoulderL` → layer 7 (visible first-person) exactly
+  like the arm parts. Hip/knee joints on `HipL`/`KneeL` stay layer 6 (not arm chains). Confirmed by
+  rereading `PlayerController.Animation.cs` (arm-chain walk is ancestor-based, so child name is
+  irrelevant).
+- Race ratios: `ApplyRaceRatioRecurse` scales `ShoulderL/R` (y·arm, x·sw) and `HipL/R` (y·leg) —
+  joints are CHILDREN of those pivots (not matched themselves), so they inherit the scaled pivot and
+  stay proportional for Dwarf/Gnome/Fire Giant etc. Good.
+- "Similar skin generate": reuse the SAME faceted mosaic via a new `{ "Joint", new Dent[0] }`
+  profile (plain faceted sphere, no dents — joints are mechanical balls, not knobbly flesh).
+
+### Step 4 — traps hit / caught during the pass
+- First drafted the sit-builder root edit as oldString that ALSO swallowed the `female/race/color`
+  declarations, replacing them with just the scaled-root lines → would have been a compile error
+  (`race`/`shirtC` undefined downstream). Caught on the follow-up read, restored the block verbatim in
+  the same pass. Lesson: when widening an edit's oldString, re-check the following lines still get
+  their declarations.
+- game-design edit briefly left a stray `----- "still reads" marker -----` line and a duplicated
+  "Part renderers" bullet; both removed in the same pass. (No leftover markers/dups verified on
+  final reread.)
+
+### Step 5 — verification
+- Grep + reread (rule 3): `PlayerModelScale` used in all three builders + calibrateFeet only;
+  `AddJoint` defined once, used for all 8 joints × 3 builders; `"Joint"` profile exists in
+  `PlayerPartMesher`; no public API/name/contract changes; no new colliders. Two method-of-record
+  greps (`BuildPlayerModel(|BuildSeatedPlayerModel(|BuildSitPlayerModel(`) still resolve at their
+  unchanged call sites.
+- Left OPEN for Unity play-test: joint sphere sizes vs their parts (clip/float), whether +8% clips the
+  car cutscene or chair seats (one-line revert via `PlayerModelScale`), and how the narrower torso +
+  ball shoulders read on the small races.
+- Verdict: SHIPPED in `1dy`. No CLI build (rule 3) — verified by grep + reread; the user compiles in
+  Unity.
+
+---
+
 ## 1dx — faceted low-poly player skin: chunky triangle/square mosaic with deterministic jitter (SHIPPED in `1dx`)
 
 Follow-up to 1dw. User: the model "is currently only plain original shape" — wants "multiple surface

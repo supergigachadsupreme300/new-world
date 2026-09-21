@@ -137,6 +137,7 @@ public static class PlayerPartMesher
             new Dent(new Vector3(0f, -0.06f, 0f), new Vector3(0.30f, 0.18f, 0.20f), -0.05f), // waist pinch
             new Dent(new Vector3(0f, 0.10f, 0.05f), new Vector3(0.28f, 0.20f, 0.22f), 0.04f),// chest
         } },
+        { "Joint", new Dent[0] }, // plain faceted ball joint (1dy) — no dents
         { "Chest", new[]
         {
             new Dent(new Vector3(0f, 0.08f, 0.06f), new Vector3(0.28f, 0.20f, 0.20f), 0.04f), // pec raise

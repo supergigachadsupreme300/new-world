@@ -3,6 +3,44 @@
 Last updated: 2026-09-21. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1dy. Slimmer torso, +8% overall size, faceted ball joints at limb pivots
+
+Follow-up to 1dx: "reduce the torso width abit then increase the total size, add sphere with similar
+skin generate to between parts as joints" (plural = faceted with the same low-poly mosaic). Choices
+taken: **moderate** (-12% torso width, whole model +8%), **match adjacent part** joint color,
+**limb joints only** (shoulder/elbow/hip/knee — no neck joint), applied to all three model variants.
+
+- **`MapBuilder.PlayerModels.cs`**:
+  - Torso slimmer: standing `Body` x 0.50→0.44 (male) / 0.46→0.40 (female); seated `Body` 0.38→0.34;
+    sit `Torso` 0.42/0.46→0.37/0.40, `Chest` 0.44→0.39. Skirt/shoulders/limbs untouched.
+  - Whole-model size: new `PlayerModelScale = 1.08f` const applied to every root's `localScale`
+    (`one * scale * K`) and root `localPosition` (standing `0.86·K`, seated `(-0.35,0.65,-0.1)·K`,
+    sit stays zero). `ApplyRaceLook.calibrateFeet` now multiplies by `K` so feet stay planted. One
+    constant = single-line revert if the car cutscene / chair fits clip.
+  - Faceted ball joints: new `AddJoint(name, pivot, size, color)` helper → `MakePart(..., "Joint")`
+    at the pivot origin (rotates with the pivot, inherits race-ratio pivot scaling). Added after each
+    shoulder (`JShoulderL/R` ~0.13 `shirtC`), elbow (`JElbowL/R` ~0.11 `shirtC`), hip (`JHipL/R`
+    ~0.14 `pantsC`) and knee (`JKneeL/R` ~0.12 `pantsC`) in all three builders (slightly smaller in
+    the seated car model). `J…` names never collide with animator/weapon lookups; `IsArmUnderShoulder`
+    still routes arm joints to layer 7 via their `Shoulder`/`Elbow` ancestors.
+- **`PlayerPartMesher.cs`**: new `{ "Joint", new Dent[0] }` profile — a plain faceted sphere (no dents,
+  same mosaic) reused by every joint part.
+- **Contracts kept** (rule 5 audit): no public API changes; part/pivot names used by `PlayerAnimator`,
+  `WeaponRigBuilder`, `WeaponAnimator`, `ApplyRaceRatioRecurse` untouched; no new colliders (hitbox
+  unchanged — CharacterController/RaceRig own collision, the +8% is visual only).
+
+### 1dy-status
+- Implemented; verified by grep + reread (no CLI build, rule 3): `PlayerModelScale`, `AddJoint` and
+  the `"Joint"` profile are referenced only where intended; the accidental deletion/re-add of the sit
+  color declarations was caught and corrected during the same pass; `calibrateFeet` math re-read.
+  game-design §3.5 + PROGRESS + THINKING updated same pass.
+  Play-test (pending, user runs Unity): torso reads slimmer on male/female standing, seated and sit;
+  whole model ~8% bigger with feet still grounded and no hitbox change; joints facet-match the 1dx
+  mosaic, sit at the limb pivots, rotate with walk/run/jump, and don't clip into limbs (may need size
+  tweaks); race-ratio variants still proportional (joints inherit pivot scale, incl. the 1.35 etc.);
+  first-person arms + joints + weapons visible on layer 7; car cutscene / chair fits don't clip
+  (revert `PlayerModelScale` to 1 if they do).
+
 ## 1dx. Faceted low-poly skin — chunky triangle/square mosaic with deterministic jitter
 
 User feedback after 1dw: the player model "is currently only plain original shape" — they want

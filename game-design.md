@@ -589,7 +589,7 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   applies to the world-discovery flow.)*
 - On change: `PlayerStats` modifiers refresh, the player model **rebuilds** with the race's palette + body ratios (§3.5 Race Visuals), `RaceRig` applies the uniform scale, `RacePassiveManager` re-applies passives. Current HP/FP/stamina preserved as % of their new max.
 
-#### Player Model (Faceted Low-Poly Character, 1dw + 1dx)
+#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy)
 
 - Every body part of the player model is a **unit-space faceted ellipsoid mesh** instead of a box
   (`PlayerPartMesher`): a chunkier Rings 7 × Segs 12 corner lattice generated once per part profile,
@@ -613,6 +613,15 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
 - Meshes are **static and size-independent** — one cached mesh per profile serves every gender, race
   ratio and model variant. Sizing happens purely on `Transform.localScale`, so race ratios (§3.5
   below) and weapon hand-scale compensation (`WeaponRigBuilder.ScaleForWorld`) keep working untouched.
+- **Slim torso + bigger build (1dy)**: the torso is ~12% narrower (standing `Body` 0.50→0.44 male /
+  0.46→0.40 female; seated 0.38→0.34; sit `Torso` 0.42/0.46→0.37/0.40, `Chest` 0.44→0.39) and the
+  whole model runs +8% (`PlayerModelScale = 1.08f`) on every root's `localScale`/position — feet are
+  re-planted with the same factor in `ApplyRaceLook`. Hitbox unchanged (CharacterController / `RaceRig`
+  own collision; the +8% is visual only).
+- **Faceted ball joints at limb pivots (1dy)**: a plain faceted `"Joint"`-profile sphere sits at each
+  shoulder / elbow / hip / knee pivot (`JShoulder`/`JElbow`/`JHip`/`JKnee`, so no animator/weapon name
+  collisions). It rotates with the pivot, inherits race-ratio pivot scaling, and is colored to match
+  the adjacent part (arm sleeves `shirtC`, pants legs `pantsC`).
 - Part renderers are colored via `ApplyBlockColor` and carry **no collider** (the CharacterController
   owns collision). First/third-person camera culling is unchanged (model on layer 6).
 
