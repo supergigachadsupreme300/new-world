@@ -3,6 +3,40 @@
 Last updated: 2026-09-21. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1e8. Torso follow-up from play-test — close the crown band hole, reveal the shoulder joints
+
+User play-tested 1e7 and reported two things: some torso faces "not loading", and the shoulder joints
+too narrow / overlapping the torso. Both fixed in one pass (no build/CLI run, rule 3 — verified by
+grep + reread; user re-tests in Unity).
+
+- **Crown-cone band was never emitted ("faces not loading").** `BuildTorso`'s band loop was
+  `for (int b = 1; b < bands; b++)` (bands = 8) → it emitted the 7 bands (0,1)…(6,7) and skipped the
+  8th — the steep crown cone between the dome row (t=0.875) and the crown row (t=1.0). The crown disc
+  floated as a disconnected lid and the torso top had an open see-through ring around the neck.
+  Bound is now `b <= bands` so the crown cone is emitted (watertight, same mosaic). The ellipsoid
+  `Generate` loop keeps `b < Rings` (its lat=0/Rings rows are degenerate poles — no such hole).
+- **Top of the dome pulled in so the shoulder joints read (user chose "narrow the dome").** After 1e7
+  the standing dome surface at the shoulder-pivot band was W≈0.79 → world **0.347** (male) — the
+  existing ±0.28 `JShoulder` ball (radius 0.07) sat flush/buried → "too narrow, overlap with torso".
+  1e8 narrows the top rows so the SAME balls poke out as caps; joints and pivots untouched:
+  - `Body`: shoulder shelf row 0.80→0.70, dome row 0.74→0.60 (crown 0.20 unchanged); depth rows
+    0.48→0.44 and 0.44→0.38. New reach at pivots (t≈0.78): world 0.299 (male) / 0.268 (female) → the
+    ball pokes ~5 cm / ~8 cm. Chest 0.72 stays the widest upper point.
+  - `Chest` (sit model): mid rows 0.72→0.66, 0.70→0.62, 0.66→0.60 → sit pivots (t≈0.43, W 0.64 →
+    world 0.250) poke ~6 cm. `SitTorso` untouched. Seated-in-car `Body` inherits `Body` automatically.
+
+### 1e8-status
+- Implemented; verified by grep + reread (rule 3, no CLI build): band-loop indices for `b = bands`
+  read rows 7–8 (corners length = rows×Segs = 108 → max index 107, valid); silhouette math re-derived
+  for all three models (standing/seated/sit pokes above); no other consumer of `BuildTorso`/torso ids;
+  `EmitQuad`/`EmitTriangle` untouched (shared with ellipsoid parts). game-design + PROGRESS + THINKING
+  updated same pass.
+- Silhouette rows are the tunable knobs if the caps don't read right after play-test (`wB`/`dB` top
+  rows in `PlayerPartMesher.BuildTorso`).
+- Play-test (pending, user runs Unity): torso top fully closed — no see-through ring around the neck
+  in standing/sit/seated poses (also check the crown cone isn't glitchy under the faceted lighting);
+  shoulder joint balls read as small round caps poking out of the dome; sit/seated models consistent.
+
 ## 1e7. Torso routing fix — the shouldered silhouette actually renders now
 
 The 1e2/1e4 shouldered-torso work (V-taper, pinched waist, shoulder dome tucking under the neck

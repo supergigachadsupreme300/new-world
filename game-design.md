@@ -617,7 +617,7 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   applies to the world-discovery flow.)*
 - On change: `PlayerStats` modifiers refresh, the player model **rebuilds** with the race's palette + body ratios (§3.5 Race Visuals), `RaceRig` applies the uniform scale, `RacePassiveManager` re-applies passives. Current HP/FP/stamina preserved as % of their new max.
 
-#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy + 1dz + 1e0 + 1e1 + 1e2 + 1e3 + 1e4 + 1e7)
+#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy + 1dz + 1e0 + 1e1 + 1e2 + 1e3 + 1e4 + 1e7 + 1e8)
 
 - Every body part except the torso/chest silhouette (1e2/1e4 below), the neck cylinder (1e1) and the
   plain joint balls is a **unit-space faceted ellipsoid mesh** instead of a box
@@ -668,30 +668,36 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   `size.x · W`; height still `size.y` exactly). *Historical (see 1e4): the flat plateau read as a
   collar ring / hat brim around the neck base — SUPERSEDED by the 1e4 sloped shoulder-dome + crown
   below; the plateau wording here is kept as history only.*
-- **Shoulder-dome torso silhouette (1e4)**: supersedes the 1e2 flat top plateau / cap-wheel wording:
-  BuildTorso now ends at a small CROWN disc (W ≈ 0.20 ≈ the neck radius, world 0.088, tucked flush
-  under the neck base) instead of a hat-brim flat cap. The upper bands slope deltoid W 0.80 (shelf) →
-  dome band 0.74–0.76 → crown 0.20 along the fine 9-row dome schedule, so the shoulder/collar seam
-  reads as a smooth slope with no plateau ring. Because the shoulder pivots sit at the very TOP of
-  the part's silhouette (standing pivot root (±0.28, 0.40) would be unit t = 1.0 = the crown row;
-  seated pivot (±0.24, 0.47) would be t≈0.94 — where the 1e2 plateau W 0.80 was load-bearing), the
-  `"Body"` parts are BUILT TALLER in MapBuilder so the pivots land on the dome band instead:
+- **Shoulder-dome torso silhouette (1e4, top pulled in 1e8)**: supersedes the 1e2 flat top plateau /
+  hat-brim wording. BuildTorso ends at a small CROWN disc (W ≈ 0.20 ≈ the neck radius, world 0.088,
+  tucked flush under the neck base) instead of a hat-brim flat cap. The upper bands slope shoulder
+  shelf W 0.70 → dome W 0.60 → crown 0.20 along the fine 9-row dome schedule, so the shoulder/collar
+  seam reads as a smooth slope with no plateau ring. 1e8 pulled the top two rows in (deltoid shelf
+  0.80→0.70, dome 0.74→0.60) so the existing ±0.28 shoulder JOINT BALLS poke out of the dome as
+  visible round caps (the 1e4 reach of 0.347 world swallowed them flush). Because the shoulder pivots
+  sit at the very TOP of the part's silhouette, the `"Body"` parts are BUILT TALLER in MapBuilder so
+  the pivots land on the dome band instead:
   - standing `Body` 0.8 tall, torso-local center 0.13 (spans torso-local [−0.27, 0.53]) → pivots sit
-    at t≈0.78 on W 0.79 → world **0.347 ≥ ±0.28** (female body 0.40·0.79 = **0.315** still ≥ ±0.28);
+    at t≈0.78 on W 0.68 → world **0.299** (female 0.40·0.68 = **0.268**) — the ±0.28 ball now pokes
+    ~5 cm (male) / ~8 cm (female) out of the dome as a visible cap; chest 0.72 stays the widest point;
     crown world 0.088 tucks under the neck+head base;
-  - seated `Body` 0.6 tall @ root center 0.25 (spans [−0.05, 0.55]) → pivots sit at t≈0.87 on W 0.74 →
-    world **0.252 ≥ ±0.24**; crown flush under the seated neck base [0.50, 0.60] (radius 0.065);
-  - sit model unchanged: `Chest` already carries its shoulder pivots at t≈0.43 (world 0.28 ≥ ±0.25)
-    and `SitTorso` still tucks its 0.46 top under the Chest bottom.
+  - seated `Body` 0.6 tall @ root center 0.25 (spans [−0.05, 0.55]) → pivots sit at t≈0.87 on W 0.60 →
+    world **0.204** (ball ±0.24 → cap clearly outside the dome); crown flush under the seated neck
+    base [0.50, 0.60] (radius 0.065);
+  - sit model: `Chest` carries its shoulder pivots at t≈0.43 on the pulled-in mid rows (W 0.64 →
+    world **0.250**, ball ±0.25 → ~6 cm cap) and `SitTorso` still tucks its 0.46 top under the Chest
+    bottom.
   Waist taper + shoulder slope both ride the finer 8-band (9-row) torso lattice (`bands = 8` local to
   BuildTorso — other parts still share the 7-band ellipsoid grid). Height still spans y ±0.5 so
   `size.y` scales it exactly like the old cube/ellipsoid.
-- **Torso silhouette actually renders (1e7 routing fix)**: `BuildEllipsoid` remapped the three torso
-  ids (`"Body"`/`"SitTorso"`/`"Chest"`) to the plain-ellipsoid fallback BEFORE `Generate` could reach
-  its `BuildTorso` branch (they are never in `_profiles`), so the 1e2/1e4 silhouette above was dead
-  code from 1dw onward and the torso stayed a plain capsule in-game. The ids now short-circuit to the
-  cached `BuildTorso` build — the world-reach numbers in the 1e2/1e4 bullets are the LIVE shape. No
-  silhouette values were changed.
+- **Torso silhouette actually renders (1e7 routing fix, 1e8 closes the crown band)**: `BuildEllipsoid`
+  remapped the three torso ids (`"Body"`/`"SitTorso"`/`"Chest"`) to the plain-ellipsoid fallback
+  BEFORE `Generate` could reach its `BuildTorso` branch (they are never in `_profiles`), so the 1e2/1e4
+  silhouette above was dead code from 1dw onward and the torso stayed a plain capsule in-game. The ids
+  now short-circuit to the cached `BuildTorso` build. On first real render the top of the torso showed
+  a see-through ring: the band between the dome row (t=0.875) and the crown row (t=1.0) was never
+  emitted (`for b < bands` — the 8th gap was skipped, leaving the crown disc as a floating lid), fixed
+  by emitting `b <= bands`; the crown cone is now connected and watertight.
 - **Scalp-cap hair (1e3)**: hair was 4–6 floating slabs placed against an ideal sphere — the crown
   slab hovered 4 cm above the scalp and the side/back panels drifted off the skull. All `Hair`/
   `HairSide`/`HairBack`/`HairBand`/`Ponytail` parts are retuned to HUG the actual head hull (thin

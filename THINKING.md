@@ -15,6 +15,48 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+---
+
+## 1e8 — Play-test of 1e7: "some faces not loading" + "shoulder joint too narrow" (SHIPPED in `1e8`)
+
+Two user reports right after 1e7 (first real render of the shouldered torso). Two separate root
+causes, both confirmed by reread + silhouette math, no build.
+
+### H1 — "some faces of the torso is not loading" → CONFIRMED: the crown-cone band is never emitted
+Looking for the hole in `BuildTorso`'s emission, not the lighting/winding first. Structure:
+`bands = 8` → 9 rows (lat 0..8), side bands loop `for (int b = 1; b < bands; b++)` → 7 iterations,
+band b connects rows (b−1, b) → bands (0,1)…(6,7). Row 8 (the t=1.0 crown ring, W 0.20) connects to
+nothing below: the cap loop only fans it to the crown CENTRE (closing lid) while row 7 (t=0.875,
+W 0.74) connects down to row 6. So the crown cone — the actual "dome slope" in 1e4's wording — is a
+hole ring around the top; the crown lid floats. That's the visible see-through. The ellipsoid
+`Generate` loop `b < Rings` (1..6) has no such hole because its lat=0/Rings rows are degenerate poles.
+- FIX: `b <= bands` (emits rows 7–8 cone). Indices: corners length = 9×12 = 108, band 8 reads rows
+  7–8 → max index 107 ✓. This restores the intended dome slope geometrically. OPEN (visual, not
+  logical): whether `EmitQuad`'s single-flat-normal cells on the STEEP crown cone render clean — they
+  should (nearly-planar 30° frustum cells; centroid-flip consistent) but is in the play-test list as
+  a contingency (escalate band 7–8 to per-triangle emission if glitchy).
+
+### H2 — "shoulder joint too narrow, overlap with torso" → CONFIRMED: ball buried by the 1e7 dome
+Numbers: standing pivot (±0.28, 0.35) → part-local y 0.22 → t = 0.22/0.8 + 0.5 = 0.775 (NOT 0.90 —
+that was a slip dividing by height wrong; t = localY/sizeY + 0.5 = 0.275+0.5 = 0.775). W(0.775) on the
+old rows (0.80, 0.74) ≈ 0.788 → world 0.44·0.79 = 0.347 (male) / 0.40·0.79 = 0.315 (female). Ball:
+size 0.14 → radius 0.07, center 0.28 → outer edge 0.35. Male surface 0.347 ≥ outer 0.35−ε → ball
+flush/invisible; female shows a 3.5 cm sliver. Matches "too narrow / overlapping the torso".
+- Hypothesis options (asked the user): (A) bigger balls + outward pivots, (B) bigger balls only,
+  (C) narrow the dome so the SAME balls poke out. USER CHOSE C — keep joint sizes/pivots as authored,
+  reduce the silhouette so the ball reads as a cap.
+- FIX (Body): rows t=0.75 0.80→0.70 and t=0.875 0.74→0.60 (D: 0.48→0.44, 0.44→0.38), crown 0.20
+  untouched. New W(0.775) = lerp(0.70, 0.60, 0.2) = 0.68 → world 0.299 male / 0.268 female → poke
+  0.35−0.299 = 0.051 / 0.082. Chest (0.72) stays the widest upper point — taper, not inverted.
+- FIX (Chest for the sit model): sit pivots at t = (0.40−0.42)/0.28 + 0.5 = 0.429; old W ≈ 0.71 →
+  world 0.39·0.71 = 0.277 vs ball outer 0.25+0.065 = 0.315 → 3.8 cm sliver. New mid rows (0.375→0.66,
+  0.5→0.62, 0.625→0.60): W(0.429) ≈ 0.643 → world 0.250 → poke ~6 cm ✓.
+- Seated Body (pivot t = 0.22/0.6 + 0.5 = 0.867) inherits the Body rows: W ≈ 0.607 → world 0.34·0.61
+  = 0.206 → ball clearly outside (−0.24 pivot, radius 0.065) ✓.
+- OPEN (until play-test): cap readability — the ball is shirt-colored on a shirt-colored dome, so it
+  reads through SILHOUETTE + facet normals, not color; if it still reads weak, the knobs are the wB/dB
+  top rows or (revisited) ball size, not the pivots.
+
 ## 1e7 — "The shape of torso is still the same" — why the shouldered torso never changed (SHIPPED in `1e7`)
 
 User report after 1e4 shipped: the torso STILL looks the same. Every prior silhouette change

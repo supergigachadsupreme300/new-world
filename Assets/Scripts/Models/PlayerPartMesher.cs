@@ -365,13 +365,17 @@ public static class PlayerPartMesher
     /// (which is why build sizes matter to this silhouette). Silhouette per profile (t = normalized
     /// height, 0 bottom → 1 top, rows exactly on t = i/8), W = per-axis unit reach along ±x, D along
     /// ±z; world half-width at a band = size.x · W:
-    ///   Body:      hip flare 0.68 → PINCHED WAIST 0.40 → pec chest 0.72 → deltoid 0.80 (shelf) →
-    ///              dome slope 0.74–0.76 → crown 0.20. With the standing part 0.8 tall the pivots land
-    ///              at t≈0.78 (W 0.79 → world 0.347 ≥ ±0.28; female body 0.40·0.79 = 0.315 ≥ ±0.28);
-    ///              the seated body 0.6 tall puts its pivots at t≈0.87 (W 0.74 → world 0.252 ≥ ±0.24).
+    ///   Body:      hip flare 0.68 → PINCHED WAIST 0.40 → pec chest 0.72 → shoulder shelf 0.70 →
+    ///              dome 0.60 → crown 0.20 (1e8: the top two rows were pulled in so the shoulder
+    ///              joint balls read as caps — the standing pivots land at t≈0.78 on W 0.68 → world
+    ///              0.44·0.68 = 0.299, so the ±0.28 ball pokes ~5 cm out of the dome; female
+    ///              0.40·0.68 = 0.268 pokes ~8 cm; the seated body 0.6 tall puts its pivots at
+    ///              t≈0.87 on W 0.60 → world 0.204, ball well outside the dome). Chest stays the
+    ///              widest upper point.
     ///              Crown world 0.088 (0.068 seated) snugs under the neck/head base. Muscular V-taper.
     ///   SitTorso:  hip flare 0.62 → waist 0.50, top 0.46 (tucks under the Chest bottom).
-    ///   Chest:     pec plateau 0.72 at t≈.4 (carries the sit shoulder pivots, world 0.28 ≥ ±0.25)
+    ///   Chest:     pec plateau → shoulders pulled in (0.66→0.62→0.60 across t≈.4–.6 so the sit pivots
+    ///              at t≈0.43 poke out: W 0.64 → world 0.39·0.64 = 0.250 vs ball ±0.25 → ~6 cm cap)
     ///              → shoulders 0.58 → crown 0.18.
     /// Height still spans y ±0.5 so size.y scales it exactly like the old cube/ellipsoid.
     /// </summary>
@@ -387,13 +391,13 @@ public static class PlayerPartMesher
         }
         else if (profileId == "Chest")
         {
-            wB = new[] { .52f, .60f, .68f, .72f, .70f, .66f, .58f, .44f, .18f };
+            wB = new[] { .52f, .60f, .68f, .66f, .62f, .60f, .58f, .44f, .18f };
             dB = new[] { .44f, .48f, .50f, .50f, .48f, .46f, .44f, .40f, .18f };
         }
         else
         {
-            wB = new[] { .55f, .68f, .46f, .40f, .64f, .72f, .80f, .74f, .20f };
-            dB = new[] { .46f, .50f, .44f, .42f, .50f, .50f, .48f, .44f, .20f };
+            wB = new[] { .55f, .68f, .46f, .40f, .64f, .72f, .70f, .60f, .20f };
+            dB = new[] { .46f, .50f, .44f, .42f, .50f, .50f, .44f, .38f, .20f };
         }
 
         var verts = new List<Vector3>();
@@ -437,8 +441,11 @@ public static class PlayerPartMesher
         }
 
         // Bands — the same square-panel / triangle-panel mosaic as the ellipsoid parts, over the
-        // finer 8-band (9-row) torso schedule.
-        for (int b = 1; b < bands; b++)
+        // finer 8-band (9-row) torso schedule. 1e8: bound is `<= bands` so the 8th band (the steep
+        // crown cone between t=0.875 and the t=1.0 crown row) is EMITTED — before, the dome band to
+        // crown ring was skipped and the crown disc floated over an open gap (visible hole ring).
+        // (The ellipsoid Generate loop keeps `b < Rings`: its lat=0/Rings rows are degenerate poles.)
+        for (int b = 1; b <= bands; b++)
         {
             for (int s = 0; s < Segs; s++)
             {
