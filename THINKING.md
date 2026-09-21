@@ -15,6 +15,55 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1e7 — "The shape of torso is still the same" — why the shouldered torso never changed (SHIPPED in `1e7`)
+
+User report after 1e4 shipped: the torso STILL looks the same. Every prior silhouette change
+(1e2 shoulders, 1e4 dome/crown) appeared to do nothing in play. Hypothesis investigation below.
+
+### H1 — "the user just didn't notice / the dome is too subtle" → REJECTED
+The dome slope + crown spans only the top ~12% of the part height above a 0.80-wide shoulder shelf —
+conceivable as "too subtle". BUT the report says the torso looks the SAME as before, not "slightly
+different". The stronger prior: the shape change never reached the renderer.
+
+### H2 — "a stale cached mesh / another model path wins" → REJECTED (dead end, right symptom wrong cause)
+Checked the player-model builders (`MapBuilder.PlayerModels`): the torso parts go through
+`MakePart(name, parent, size, pos, color, profileId)` with profile ids `"Body"`, `"SitTorso"`,
+`"Chest"`. NPCs/enemies use `MakeBlock` (cube) — not the same path. Stale mesh caching is
+impossible (meshes live in an in-memory static cache; a recompile is a fresh domain). So the id path
+itself is the suspect.
+
+### H3 → CONFIRMED — `BuildTorso` was unreachable dead code; every torso part rendered as a plain ellipsoid
+`BuildEllipsoid(profileId)` opens with `if (empty || !_profiles.ContainsKey(profileId)) profileId = "HairBand";`
+then `Generate(profileId)` — and `Generate` only branches to `BuildTorso` when the id is exactly
+`"Body"/"SitTorso"/"Chest"`. The three torso ids are intentionally NOT in `_profiles` (they aren't
+dent-sculpted ellipsoids; they're the separate silhouette builder), so *every* call with a torso id
+was remapped to `"HairBand"` first and the `BuildTorso` branch was unreachable. The torso ≥ 1dw was
+always the plain unsculpted ellipsoid → identical silhouette through 1e2/1e3/1e4. The 1e2/1e4 "taller
+Body so pivots sit on the dome" sizing was sized against a mesh that never drew.
+
+Evidence trail (all grep/read, no build):
+- `_profiles` keys (read): Skirt, SkirtHem, Head, Neck, UpperArm, Forearm, Hand, Thigh, Shin, Shoe,
+  Hair, HairSide, HairBack, HairBand, Cylinder, Ponytail, EyeWhite, EyeIris, Joint — no Body/SitTorso/Chest.
+- `BuildEllipsoid` fallback = "HairBand"; `Generate("HairBand")` skips the BuildTorso branch; HairBand
+  has empty dents → plain ellipsoid. → confirmed reachability failure.
+- Only caller of `BuildEllipsoid` is `MapBuilder.MakePart` (grep) which passes the raw profile id.
+
+### FIX — route torso ids before the fallback (no shape change)
+`BuildEllipsoid` now short-circuits `"Body"/"SitTorso"/"Chest"` to a cached `BuildTorso` build (same
+`_cache` + `HideAndDontSave` pattern as the ellipsoid path). The silhouettes themselves were already
+sized correctly — no values touched. Post-fix pivot-vs-silhouette sanity (reread math):
+- Standing `Body` (size.x 0.44/0.40, centre root y 0.13): shoulder pivot local y = 0.35−0.13 = 0.22 →
+  t = 0.72 → W ≈ 0.78 → world 0.44·0.78 = 0.344 (female 0.312) ≥ pivot ±0.28 → joints sit ON the dome band.
+- Sit `Chest` (centre y 0.42): pivot local y = 0.40−0.42 = −0.02 → t = 0.48 → W ≈ 0.70 → world
+  0.39·0.70 = 0.275 ≥ pivots ±0.25 → shoulders carried by the Chest plateau as designed.
+- Seated-car `Body` (size.x 0.34, centre y 0.25): pivot local y = 0.47−0.25 = 0.22 → t = 0.72 → world
+  0.34·0.78 = 0.266 ≥ ±0.24.
+- `SitTorso` sits under the `Chest` (top W 0.46 tucks under Chest bottom W ≈ 0.70) → reads as layered,
+  no seam.
+
+OPEN (until play-test): visual fit/"reads" of the newly-rendered shoulders vs the joint balls and the
+neck crown — if the silhouette reads wrong on screen, tune the dome/shelf arrays, don't re-plumb.
+
 ## 1e6 — Structural render/physics: is the LOD/pooling layer worth wiring? (SHIPPED in `1e6`)
 
 The second half of the 1e5 audit (render/physics budget + the Phase 9 managers that were never

@@ -617,9 +617,10 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   applies to the world-discovery flow.)*
 - On change: `PlayerStats` modifiers refresh, the player model **rebuilds** with the race's palette + body ratios (§3.5 Race Visuals), `RaceRig` applies the uniform scale, `RacePassiveManager` re-applies passives. Current HP/FP/stamina preserved as % of their new max.
 
-#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy + 1dz + 1e0 + 1e1 + 1e2 + 1e3 + 1e4)
+#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy + 1dz + 1e0 + 1e1 + 1e2 + 1e3 + 1e4 + 1e7)
 
-- Every body part of the player model is a **unit-space faceted ellipsoid mesh** instead of a box
+- Every body part except the torso/chest silhouette (1e2/1e4 below), the neck cylinder (1e1) and the
+  plain joint balls is a **unit-space faceted ellipsoid mesh** instead of a box
   (`PlayerPartMesher`): a chunkier Rings 7 × Segs 12 corner lattice generated once per part profile,
   occupying the same half-extent cube [-0.5, 0.5] as the old shared unit cube — so a part
   GameObject's `localScale` = its size vector reproduces the exact world dimensions. `MakePart`
@@ -685,6 +686,12 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   Waist taper + shoulder slope both ride the finer 8-band (9-row) torso lattice (`bands = 8` local to
   BuildTorso — other parts still share the 7-band ellipsoid grid). Height still spans y ±0.5 so
   `size.y` scales it exactly like the old cube/ellipsoid.
+- **Torso silhouette actually renders (1e7 routing fix)**: `BuildEllipsoid` remapped the three torso
+  ids (`"Body"`/`"SitTorso"`/`"Chest"`) to the plain-ellipsoid fallback BEFORE `Generate` could reach
+  its `BuildTorso` branch (they are never in `_profiles`), so the 1e2/1e4 silhouette above was dead
+  code from 1dw onward and the torso stayed a plain capsule in-game. The ids now short-circuit to the
+  cached `BuildTorso` build — the world-reach numbers in the 1e2/1e4 bullets are the LIVE shape. No
+  silhouette values were changed.
 - **Scalp-cap hair (1e3)**: hair was 4–6 floating slabs placed against an ideal sphere — the crown
   slab hovered 4 cm above the scalp and the side/back panels drifted off the skull. All `Hair`/
   `HairSide`/`HairBack`/`HairBand`/`Ponytail` parts are retuned to HUG the actual head hull (thin
@@ -702,6 +709,10 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   0.13–0.15) so the balls lap over the seam. Pivot names/rotations unchanged → animator/weapon
   contracts unaffected (tucks are visual-scale only, ~2–4 cm). *Superseded by the 1e2 silhouette —
   the dents were no longer the (working) mechanism, but the pucks/tucks + joint sizes still apply.*
+
+  Nb: the `"Body"`/`"SitTorso"`/`"Chest"` profiles carry NO dents at all (they are not in
+  `_profiles`) — their shoulder/waist/hip reach is purely the baked silhouette W — so the "shoulder
+  dents" wording above is history only; see 1e7 for why the silhouette is the mechanism.
 - Part renderers are colored via `ApplyBlockColor` and carry **no collider** (the CharacterController
   owns collision). First/third-person camera culling is unchanged (model on layer 6).
 

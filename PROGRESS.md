@@ -3,6 +3,32 @@
 Last updated: 2026-09-21. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1e7. Torso routing fix — the shouldered silhouette actually renders now
+
+The 1e2/1e4 shouldered-torso work (V-taper, pinched waist, shoulder dome tucking under the neck
+crown) **never rendered**: `PlayerPartMesher.BuildEllipsoid` fell back any profile id not present in
+`_profiles`, and the torso ids (`"Body"`, `"SitTorso"`, `"Chest"`) are deliberately kept OUT of
+`_profiles` (they are not dent-sculpted ellipsoids but the flat-facet silhouette builder
+`BuildTorso`). So the fallback remap to `"HairBand"` sent every torso part to the plain unsculpted
+ellipsoid — `Generate`'s `BuildTorso` branch (PlayerPartMesher.cs:155) was unreachable, which is why
+the torso looked "the same" through 1e2→1e4. Fix: `BuildEllipsoid` now routes those three ids to a
+cached `BuildTorso` build (same cache/HideAndDontSave pattern) before the fallback. No shape-change
+was made — the dome/shelf/crown silhouettes were already sized correctly (verified: standing `Body`
+shoulder pivot lands at t≈0.72 → W 0.78 → world half-width 0.344 at size.x 0.44 ≥ pivot ±0.28;
+female 0.40·0.78 = 0.312 ≥ 0.28; sit `Chest` carry t≈0.48 → 0.275 ≥ pivots ±0.25). NPC/enemy models
+use `MakeBlock` (cube) paths, unaffected.
+
+### 1e7-status
+- Implemented; verified by grep + reread (rule 3, no CLI build): only `MapBuilder.MakePart`
+  (MapBuilder.cs:134) calls `BuildEllipsoid`, and it passes the raw profile id, so the new torso
+  branch is reached by the player model builders and nothing else regresses; `PlayerAnimator`,
+  `ClubPatronAnimator`/`ClubDJAnimator`/`ClubDancer` only `Find("Body")` by name (unchanged); no code
+  keys off the torso mesh identity. game-design + PROGRESS + THINKING updated same pass.
+- Play-test (pending, user runs Unity): standing player torso shows the flat-facet SHOULDERED
+  silhouette for the first time (shoulders the widest point, pinched waist, shoulder joints sitting
+  ON the dome band, small crown under the neck — no capsule); same check for the sitting
+  (`SitTorso`+`Chest` layered) and seated-in-car models; arms hang from the shoulders without a gap.
+
 ## 1e6. Optimization Phase 6b — real chunk LOD, live object pooling, missile-scan throttle
 
 The structural half of the optimization re-audit (the boot/per-frame half shipped in `1e5`). No

@@ -133,11 +133,23 @@ public static class PlayerPartMesher
     private static readonly Dictionary<string, Mesh> _cache = new Dictionary<string, Mesh>();
 
     /// <summary>
-    /// Shared, cached unit-space ellipsoid mesh for a part profile (built once, main thread only).
-    /// Unknown/empty ids fall back to the plain (unsculpted) ellipsoid.
+    /// Shared, cached unit-space part mesh for a profile (built once, main thread only).
+    /// The three torso ids ("Body"/"SitTorso"/"Chest") route to the flat-facet SHOULDERED torso
+    /// builder (1e7 routing fix: they are not in <c>_profiles</c>, so the old code fell back and the
+    /// shouldered silhouette never rendered). Unknown/empty ids fall back to the plain (unsculpted)
+    /// ellipsoid.
     /// </summary>
     public static Mesh BuildEllipsoid(string profileId)
     {
+        if (profileId == "Body" || profileId == "SitTorso" || profileId == "Chest")
+        {
+            if (_cache.TryGetValue(profileId, out var tm) && tm != null)
+                return tm;
+            var torso = BuildTorso(profileId);
+            torso.hideFlags |= HideFlags.HideAndDontSave;
+            _cache[profileId] = torso;
+            return torso;
+        }
         if (string.IsNullOrEmpty(profileId) || !_profiles.ContainsKey(profileId))
             profileId = "HairBand";
         if (_cache.TryGetValue(profileId, out var cached) && cached != null)
