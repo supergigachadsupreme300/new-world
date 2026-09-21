@@ -13,7 +13,7 @@ public class GameBootstrap : MonoBehaviour
         GameInput.Mode = (ControlMode)PlayerPrefs.GetInt("ControlMode", 0);
 
         var root = new GameObject("GameRoot");
-        Object.DontDestroyOnLoad(root);
+        UnityEngine.Object.DontDestroyOnLoad(root);
 
         // --- Managers (1e5) --------------------------------------------------------------
         // Lookups go through ComponentRegistry: the first find per type casts from ONE shared
@@ -30,7 +30,7 @@ public class GameBootstrap : MonoBehaviour
         if (existingPlayer != null)
         {
             playerController = existingPlayer;
-            Object.DontDestroyOnLoad(playerController.gameObject);
+            UnityEngine.Object.DontDestroyOnLoad(playerController.gameObject);
         }
         else
         {
@@ -39,7 +39,7 @@ public class GameBootstrap : MonoBehaviour
             // those managers writing to their own transform would teleport the player.
             var playerObject = new GameObject("Player");
             playerController = playerObject.AddComponent<PlayerController>();
-            Object.DontDestroyOnLoad(playerObject);
+            UnityEngine.Object.DontDestroyOnLoad(playerObject);
         }
         var mainMenuController = Ensure(root, ComponentRegistry.Find<MainMenuController>());
         var saveManager = Ensure(root, ComponentRegistry.Find<SaveManager>());
