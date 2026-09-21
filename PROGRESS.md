@@ -3,6 +3,49 @@
 Last updated: 2026-09-21. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1e6. Optimization Phase 6b — real chunk LOD, live object pooling, missile-scan throttle
+
+The structural half of the optimization re-audit (the boot/per-frame half shipped in `1e5`). No
+build/CLI run (rule 3) — verified by grep + reread; user play-tests in Unity.
+
+- **Chunk LOD actually does something now.** `ChunkObject` builds two decimated child meshes per
+  chunk — `Lod1` (every 2nd tile corner, ~1/4 tris) and `Lod2` (every 3rd tile, ~1/9) — sampled from
+  its own merged top-terrain block as a watertight regular grid (shared grid vertices, exact edge
+  coverage; `step` must divide the 30-tile chunk). They are built **lazily** and marked stale by
+  `ApplyMerged`/`PatchRegion`, so `ChunkLodManager`'s band switch calls `RefreshLodMeshes()` before
+  showing a far band — deformation never renders a pre-excavation hole and near chunks never pay for
+  LOD. `ChunkLodManager.ApplyBand` now **disables the root `MeshRenderer` while a detail band is
+  active** (before, the root stayed enabled and distant chunks drew the full ~1800-tri mesh PLUS the
+  detail — the bands were a no-op for triangle count). Physics untouched: the collider stays on the
+  root/full mesh.
+- **`ObjectPooler` is wired (it had zero consumers since Phase 9).** Created on the GameRoot at boot;
+  `ObjectPooler.SpawnTransient(prefab, pos, rot, lifetime)` pools when available and falls back to
+  plain `Instantiate`+`Destroy` otherwise. Wired the two spell **impact-VFX** sites
+  (`SpellEffect.ResolveProjectileImpact`, `SpellCaster.ApplyHit`) and the per-dig **excavation
+  debris** burst (`WorldStreamer.SpawnCraterDebris`). `Get` now replays a pooled `ParticleSystem`
+  (`Clear`+`Play`) so reused VFX look fresh. Debris keeps its Rigidbody/scale/colour rewrite per use.
+- **Missile guidance throttle:** `SpellEffect`'s homing re-lock scan (`RaycastAll` +
+  `OverlapSphereNonAlloc`) runs every 3rd frame; the per-frame detonation probes and steering are
+  untouched (no collision-continuity change).
+- **Deliberately NOT pooled / not banded (audited + rejected, see THINKING `1e6`):** enemy death
+  debris (the model parts themselves — pooling would restructure the model factory) and loot drops
+  (persistent, pickup-state-bound); a further prop-collider distance band (the 1di prop ring already
+  caps live props to ~160 GOs near the focus, and stripping far colliders would make distant trees
+  walk-through and pass spells through).
+
+### 1e6-status
+- Implemented; verified by grep + reread (rule 3, no CLI build): new `ChunkObject` members are
+  private except `RefreshLodMeshes()` (only caller `ChunkLodManager.ApplyBand`, guarded by
+  `Chunk != null`); `ObjectPooler.SpawnTransient` is a new static helper with an unpooled fallback,
+  and both former `Instantiate(...)` impact sites were re-grepped to confirm no other callers; the
+  debris fallback keeps the explicit `SetActive(true)` the inactive template requires. game-design
+  §2.5 + PROGRESS + THINKING updated same pass.
+- Play-test (pending, user runs Unity): distant terrain visibly simplifies past ~30 m/60 m (no
+  double-drawn full mesh) and re-fills when approached; dig a crater then back away past 60 m — the
+  far LOD must show the pit, not a closed-over surface; chunk seams at LOD distance are clean (no
+  gaps); spell impact VFX still play (and replay correctly on rapid repeated casts); digging/magic
+  debris still scatters and disappears after ~2.5 s without accumulating.
+
 ## 1e5. Optimization Phase 6a — boot path + per-frame hotspots
 
 Closed the last open optimization item: **Phase 6 / startup (#17, #18)** (the documented boot-path

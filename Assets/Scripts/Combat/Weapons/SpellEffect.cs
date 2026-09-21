@@ -27,6 +27,7 @@ public class SpellEffect : MonoBehaviour
     private Transform _casterRoot;
     private bool _launched;
     private float _radiusMult = 1f;
+    private int _missileScanFrame;
     private readonly Collider[] _groundHits = new Collider[8];
     private readonly Collider[] _splashBuffer = new Collider[128];
     private readonly Collider[] _homingBuffer = new Collider[32];
@@ -100,7 +101,11 @@ public class SpellEffect : MonoBehaviour
 
         if (_homing)
         {
-            UpdateMissileTargeting();
+            // 1e6: the guidance re-lock scan (RaycastAll + OverlapSphereNonAlloc, UpdateMissile-
+            // Targeting) runs at ~1/3 frame rate — the detonation probes below stay per-frame, so
+            // collision continuity is untouched and only the soft "who do I chase" read is thinned.
+            if (_missileScanFrame++ % 3 == 0)
+                UpdateMissileTargeting();
             SteerTowardTarget();
         }
 
@@ -273,7 +278,8 @@ public class SpellEffect : MonoBehaviour
         if (hitObject != null)
             _caster?.ResolveHitAt(hitObject, _spell, _power);
         if (_spell != null && _spell.ImpactEffectPrefab != null)
-            Instantiate(_spell.ImpactEffectPrefab, transform.position, Quaternion.identity);
+            ObjectPooler.SpawnTransient(_spell.ImpactEffectPrefab, transform.position,
+                Quaternion.identity, 3f);
 
         // Every magic projectile dents the ground where it strikes. Earth projectiles
         // (TerrainShape.Crater — the school signature) carve a full crater scaled to the

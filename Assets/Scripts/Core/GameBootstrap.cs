@@ -126,6 +126,9 @@ public class GameBootstrap : MonoBehaviour
 
         // --- Phase 8/9 UI, LOD, culling, pooling ---------------------------------------
         Ensure(root, ComponentRegistry.Find<NewWorldSystems>());
+        // 1e6: generic transient pool (impact VFX, excavation debris). Created on the GameRoot so
+        // SpawnTransient call sites never have to worry about a missing singleton.
+        Ensure(root, ComponentRegistry.Find<ObjectPooler>());
 
         // --- Deferred initializers (1e5) -------------------------------------------------
         // Non-critical manager setup that used to run synchronously in this method. Runs after

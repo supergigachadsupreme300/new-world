@@ -15,6 +15,67 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1e6 — Structural render/physics: is the LOD/pooling layer worth wiring? (SHIPPED in `1e6`)
+
+The second half of the 1e5 audit (render/physics budget + the Phase 9 managers that were never
+consumed). Verdict: the LOD layer was a genuine no-op bug and the pooler was pure dead code — both
+worth wiring; the rest of the "audit suggestions" were rejected with evidence.
+
+### H1 — "ChunkLodManager already saves triangles" → REJECTED (it saved nothing)
+Read: `RegisterChunk` only indexes children named `Lod*`; nothing in the codebase ever CREATES a
+`Lod1`/`Lod2` child (grep across Assets: only `RegisterChunk`). So every chunk had an empty Details
+dictionary, `ApplyBand` fell to the `useDetail == false` branch forever, and — worse — the branch
+that DID run only did `root.GetComponent<MeshRenderer>().enabled = true` (already true), never
+disabling the root when a detail *was* present. Net: bands 30/60/120 existed on paper, zero triangle
+saving, ~3.7k chunks at full ~1800 tris each. → CONFIRMED dead; fixed by building real LOD children.
+
+### H2 — "decimate the merged mesh with a simple vertex stride" → REJECTED (layout is not a grid)
+The merged mesh is per-tile quads (4 verts/tile, fixed offset `(lz*cs+lx)*4`) followed by side-wall
+verts — NOT a uniform vertex grid. A naive stride would sample across quad boundaries and tear the
+surface. Also, the top-block corners are DUPLICATED per tile (each tile stores its own 4 corners), so
+a stride over raw vertices is meaningless. FIX: sample the *tile-corner grid* — grid point (gx,gz)
+maps to a specific tile's SW/NE/NW/SE corner via `WorldCornerIndex`, and the decimated mesh shares
+one vertex per grid point → watertight inside itself, exactly on the chunk edges.
+- Sub-bug caught in review: step 4 does NOT divide the 30-tile chunk (0,4,...,28) → Lod2 stopped 2 m
+  short of the edge and would leave a seam against the neighbour. Switched Lod2 to step 3 (0,3,...,30)
+  and documented the "step must divide cs" contract.
+
+### H3 — "build LOD children eagerly in ApplyMerged" → REJECTED (cost for chunks that never use them)
+A radius-30 ring is ~3.7k chunks; most sit in band 0 and never show a detail. Building 2 extra meshes
+per chunk on every apply would ADD work for the majority. FIX: lazy build, `_lodDirty` set by every
+apply/patch, `RefreshLodMeshes()` called from `ApplyBand` only when a detail band is first selected.
+This also solves deformation: a pit dug while near (band 0) marks the LOD stale; walking away past
+60 m triggers the refresh so the far view shows the pit, not a closed-over surface.
+
+### H4 — "ObjectPooler is broken (EntityId keying)" → OPEN-but-safe, left as-is
+`GetEntityId()`/`EntityId` are not defined anywhere under `Assets` (grep) — they resolve from a
+project-wide source the pooler already relied on. If a clone's id differs from its prefab's, pooling
+silently degrades to `CreateNew` every Get (correct, just no reuse); if they match (the pooler's
+authoring assumption), pooling works. Either way the wiring is safe; not worth chasing an external
+type for a perf-only fallback. NOTED as an assumption, not a bug.
+
+### H5 — "pool enemy death debris and loot drops" → REJECTED
+Enemy `ExplodeModel` debris is the enemy's OWN rendered model parts (each `Renderer.gameObject`
+detached + given a Rigidbody), not clones of a prefab — pooling them would mean returning model parts
+to a pool and re-parenting them into the model factory, a structural rewrite for a per-death-only
+burst. Loot drops (`DropDrop`) are persistent (parented to the world, consumed by pickup logic, not
+stateless on wake). Both are low-frequency vs. spell impacts/digs. Skipped.
+
+### H6 — "add a prop-collider distance band" → REJECTED
+The 1di prop ring already restricts live props to a radius-4 Chebyshev ring (~600 m) — roughly 80
+chunks × ~2 props ≈ **~160** live prop GOs/colliders near the focus, not the ~450k broadphase bodies
+of the old full stream. A further band would buy almost nothing while making distant trees
+walk-through and letting spell rays pass through them (contradicting 1di's "everything inside the
+ring keeps its colliders", and the tool ray is only 10 m — `ToolManager.UseRayDistance`). Skipped.
+
+### H7 — "throttle the whole SpellEffect Update to 30 Hz" → REJECTED as stated, narrowed
+Movement + the two detonation probes must stay per-frame or a fast bolt tunnels/overlaps past a
+target between steps. What IS safely throttleable is the homing guidance re-lock scan (RaycastAll +
+OverlapSphereNonAlloc, `UpdateMissileTargeting`) — a soft "who do I chase" read. Throttled that to
+1/3 frames, steering still per-frame. CONFIRMED narrower fix.
+
+---
+
 ## 1e5 — Performance deep-dive: is there real mileage left after Phases 0-5? (SHIPPED in `1e5`, structural work deferred to `1e6`)
 
 Three parallel audits (boot timeline, per-frame hot-path grep, render/physics budget) produced a mix

@@ -51,10 +51,43 @@ public sealed class ObjectPooler : MonoBehaviour
             if (go != null)
             {
                 go.SetActive(true);
+                // Pooled VFX must replay from frame 0 — a returned particle system is stale from
+                // its previous life (1e6). Debris (no ParticleSystem) roams unaffected.
+                if (go.TryGetComponent<ParticleSystem>(out var ps))
+                {
+                    ps.Clear();
+                    ps.Play();
+                }
                 return go;
             }
         }
         return CreateNew(prefab, false);
+    }
+
+    /// <summary>
+    /// Spawn a short-lived effect from a prefab: pooled when a pooler exists (returned to the pool
+    /// after <paramref name="lifetime"/>), otherwise plain <c>Instantiate</c> + delayed
+    /// <c>Destroy</c> exactly like an unpooled spawn. Never throws when the pooler is absent.
+    /// </summary>
+    public static void SpawnTransient(GameObject prefab, Vector3 position, Quaternion rotation, float lifetime)
+    {
+        if (prefab == null)
+            return;
+        GameObject go;
+        if (Instance != null)
+        {
+            go = Instance.Get(prefab);
+            if (go != null)
+            {
+                go.transform.position = position;
+                go.transform.rotation = rotation;
+                Instance.Return(go, lifetime);
+                return;
+            }
+        }
+        go = Object.Instantiate(prefab, position, rotation);
+        if (go != null)
+            Object.Destroy(go, lifetime);
     }
 
     /// <summary>

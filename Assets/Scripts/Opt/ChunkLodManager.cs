@@ -41,18 +41,20 @@ public sealed class ChunkLodManager : MonoBehaviour
     {
         public Transform Root;
         public readonly Dictionary<string, GameObject> Details = new Dictionary<string, GameObject>();
+        public ChunkObject Chunk;
         public int BandIndex = -1;
     }
 
     /// <summary>
     /// Register a chunk root and index its child detail meshes by name. Only children that look
     /// like LOD detail meshes (name starts with "Lod", matching the band DetailNames) are tracked —
-    /// prop children (trees, rocks, etc.) must never be toggled by ApplyBand.
+    /// prop children (trees, rocks, etc.) must never be toggled by ApplyBand. The chunk itself is
+    /// kept so ApplyBand can rebuild a stale decimated LOD before showing it (1e6).
     /// </summary>
     public void RegisterChunk(GameObject root)
     {
         if (root == null) return;
-        var entry = new ChunkEntry { Root = root.transform };
+        var entry = new ChunkEntry { Root = root.transform, Chunk = root.GetComponent<ChunkObject>() };
         if (root.transform.childCount > 0)
         {
             foreach (Transform child in root.transform)
@@ -140,22 +142,53 @@ public sealed class ChunkLodManager : MonoBehaviour
         string name = band < Bands.Count ? Bands[band].DetailName : "";
         bool useDetail = !string.IsNullOrEmpty(name);
 
+        // Cache the root renderer: the FULL mesh stays hidden while a detail band is active and is
+        // restored for band 0 (1e6 fix — previously the root renderer stayed ENABLED in the detail
+        // bands, so a distant chunk drew its ~1800-tri root AND the detail on top; no real saving).
+        // The MeshCollider is untouched — it lives on the root and rides the root mesh, so
+        // collider-on-demand (1dq) physics never depends on which renderer is active.
+        MeshRenderer rootMr = chunk.Root.GetComponent<MeshRenderer>();
+
         // Enable exactly one visual (root mesh or named detail child).
         // Only touch children that are in the Details dictionary (LOD meshes).
         // Props (trees, rocks) are NOT in Details and must stay untouched.
         if (useDetail)
         {
-            if (chunk.Details.TryGetValue(name, out var detail) && detail != null)
+            // Request the decimated data before showing it: deformation (ChunkObject.PatchRegion)
+            // marks LOD stale, so a band switch first refreshes the grid from the current terrain —
+            // a far band never renders a pre-excavation hole.
+            if (chunk.Chunk != null)
+                chunk.Chunk.RefreshLodMeshes();
+
+            GameObject detail = null;
+            if (chunk.Details.TryGetValue(name, out var candidate) && candidate != null)
+                detail = candidate;
+
+            if (detail != null)
+            {
                 detail.SetActive(true);
+                if (rootMr != null)
+                    rootMr.enabled = false;
+            }
+            else if (rootMr != null)
+            {
+                // Named detail missing — keep the full mesh so the chunk never goes invisible.
+                rootMr.enabled = true;
+            }
+
             foreach (var kv in chunk.Details)
-                if (kv.Value != detail) kv.Value.SetActive(false);
+                if (kv.Value != null && kv.Value != detail)
+                    kv.Value.SetActive(false);
         }
         else
         {
             foreach (var kv in chunk.Details)
-                kv.Value.SetActive(false);
-            var mr = chunk.Root.GetComponent<MeshRenderer>();
-            if (mr != null) mr.enabled = true;
+            {
+                if (kv.Value != null)
+                    kv.Value.SetActive(false);
+            }
+            if (rootMr != null)
+                rootMr.enabled = true;
         }
     }
 }

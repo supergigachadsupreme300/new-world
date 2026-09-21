@@ -531,6 +531,7 @@ public partial class WorldStreamer
         Vector3 spawn = new Vector3(center.x, floorY + 0.08f, center.z);
 
         int count = Random.Range(3, 6);
+        ObjectPooler pool = ObjectPooler.Instance;
         for (int i = 0; i < count; i++)
         {
             float s = Random.Range(0.08f, 0.16f);
@@ -538,7 +539,10 @@ public partial class WorldStreamer
             // Mesh per piece; Instantiate(reference) reuses the template's mesh and adds only the
             // GameObject/transform weights the debris visually needs. The cube collider is dropped
             // — debris is cosmetic rigidbody scatter, no functional path reads it.
-            var chunk = Instantiate(SharedDebrisCube);
+            // 1e6: pooled when available — debris is transient, spawned in bursts, and fully
+            // container-agnostic (position/scale/velocity all rewritten on use), so a pool hit
+            // costs a fraction of an Instantiate.
+            GameObject chunk = pool != null ? pool.Get(SharedDebrisCube) : Instantiate(SharedDebrisCube);
             chunk.SetActive(true);
             chunk.name = "DentDebris";
             chunk.transform.position = spawn + Random.insideUnitSphere * 0.15f;
@@ -546,12 +550,16 @@ public partial class WorldStreamer
             chunk.transform.localScale = Vector3.one * s;
             var r = chunk.GetComponent<Renderer>();
             if (r != null) r.material.color = Color.Lerp(band, Color.black, Random.value * 0.5f);
-            var rb = chunk.AddComponent<Rigidbody>();
+            var rb = chunk.GetComponent<Rigidbody>();
+            if (rb == null) rb = chunk.AddComponent<Rigidbody>();
             rb.mass = s * s * s * 1000f;
             rb.linearVelocity = new Vector3(
                 Random.Range(-2.5f, 2.5f), Random.Range(2.5f, 5f), Random.Range(-2.5f, 2.5f));
             rb.angularVelocity = Random.insideUnitSphere * 6f;
-            Destroy(chunk, 2.5f);
+            if (pool != null)
+                pool.Return(chunk, 2.5f);
+            else
+                Destroy(chunk, 2.5f);
         }
     }
 

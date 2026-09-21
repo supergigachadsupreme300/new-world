@@ -52,6 +52,17 @@ public class ChunkObject : MonoBehaviour
     // transient double GPU buffer. Returned to the pool on Release() for the next chunk to reuse.
     private Mesh _mesh;
 
+    // 1e6: LOD children. Each chunk builds two decimated grid meshes ("Lod1"/"Lod2" children, name
+    // matched by ChunkLodManager's band DetailNames) sampled from its own merged top-terrain block,
+    // so the far bands render ~1/4 ("Lod1", every 2nd tile) to ~1/9 ("Lod2", every 3rd tile) of the
+    // full mesh. Built lazily and marked stale by every apply/patch — deformation never shows a hole
+    // because a stale LOD is rebuilt before a band is switched onto it.
+    private GameObject _lod1Go;
+    private GameObject _lod2Go;
+    private MeshFilter _lod1Mf;
+    private MeshFilter _lod2Mf;
+    private bool _lodDirty = true;
+
     // Incremental prop spawning (one deterministic Random per chunk, spread over ticks).
     private long _propSeed;
     private System.Random _propRng;
@@ -119,6 +130,10 @@ public class ChunkObject : MonoBehaviour
         else if (_mc != null)
             _mc.sharedMesh = null;
         _colliderActive = buildCollider;
+
+        // LOD children are stale after any apply; they rebuild lazily on the next band switch
+        // (ApplyBand -> RefreshLodMeshes), so near-band chunks never pay for them.
+        _lodDirty = true;
     }
 
     /// <summary>
@@ -207,6 +222,122 @@ public class ChunkObject : MonoBehaviour
             _mc.sharedMesh = null;
             _mc.sharedMesh = mesh;
         }
+
+        // Deformation changed the heights — a far-band chunk showing stale Lod1/Lod2 would display
+        // a pre-excavation surface. RefreshLodMeshes() is lazy, so this just flags the rebuild.
+        _lodDirty = true;
+    }
+
+    /// <summary>
+    /// Rebuilds the Lod1/Lod2 child meshes from the current merged terrain when they are stale
+    /// (1e6). A regular sample of the 31x31 tile-corner grid (every <c>step</c> tiles) shares
+    /// vertices inside each decimated grid, so the LOD surface is watertight on its own, tracks
+    /// deformation, and costs nothing until a far band actually selects it.
+    /// </summary>
+    public void RefreshLodMeshes()
+    {
+        if (!_lodDirty || _mf == null)
+            return;
+        _lodDirty = false;
+
+        var verts = _merged.Vertices;
+        if (verts == null)
+            return;
+
+        _lod1Go = BuildLodChild(_lod1Go, ref _lod1Mf, "Lod1", 2, verts);
+        _lod2Go = BuildLodChild(_lod2Go, ref _lod2Mf, "Lod2", 3, verts);
+    }
+
+    private GameObject BuildLodChild(GameObject child, ref MeshFilter childMf, string name, int step,
+        Vector3[] source)
+    {
+        if (child == null)
+        {
+            child = new GameObject(name);
+            child.transform.SetParent(transform, false);
+            childMf = child.AddComponent<MeshFilter>();
+            child.AddComponent<MeshRenderer>();
+        }
+        else if (childMf == null)
+        {
+            childMf = child.GetComponent<MeshFilter>();
+        }
+        if (childMf == null)
+            return child;
+
+        int cs = TerrainChunkCoord.ChunkSize;
+        // Grid points every `step` tiles, inclusive of the far edge. `step` MUST divide cs (30) so
+        // the last sample lands exactly on the chunk boundary — otherwise the grid stops short and
+        // the decimated surface leaves a visible seam against the neighbour chunk.
+        int axis = (cs / step) + 1;
+
+        var positions = new Vector3[axis * axis];
+        var uvs = new Vector2[axis * axis];
+        var normals = new Vector3[axis * axis];
+        var colors = new Color[axis * axis];
+
+        for (int gz = 0, v = 0; gz < axis; gz++)
+        {
+            for (int gx = 0; gx < axis; gx++, v++)
+            {
+                int src = WorldCornerIndex(gx * step, gz * step, cs);
+                positions[v] = source[src];
+                uvs[v] = _merged.UV != null && src < _merged.UV.Length ? _merged.UV[src] : Vector2.zero;
+                normals[v] = _merged.Normals != null && src < _merged.Normals.Length
+                    ? _merged.Normals[src] : Vector3.up;
+                colors[v] = _merged.Colors != null && src < _merged.Colors.Length
+                    ? _merged.Colors[src] : Color.white;
+            }
+        }
+
+        int[] indices = new int[(axis - 1) * (axis - 1) * 6];
+        for (int gz = 0, t = 0; gz < axis - 1; gz++)
+        {
+            for (int gx = 0; gx < axis - 1; gx++)
+            {
+                int i00 = gz * axis + gx;
+                int i10 = i00 + 1;   // +X (SE)
+                int i01 = i00 + axis; // +Z (NW)
+                int i11 = i01 + 1;   // NE
+                indices[t++] = i00; indices[t++] = i10; indices[t++] = i11;
+                indices[t++] = i00; indices[t++] = i11; indices[t++] = i01;
+            }
+        }
+
+        // Same pooled-mesh discipline as the full chunk (1dv): upload into a reused instance.
+        Mesh mesh = childMf.sharedMesh;
+        if (mesh == null)
+            mesh = ChunkMeshGenerator.AcquireChunkMesh(name);
+        if (mesh.vertexCount != positions.Length)
+            mesh.Clear();
+        mesh.SetVertices(positions);
+        mesh.SetTriangles(indices, 0);
+        mesh.SetNormals(normals);
+        mesh.SetUVs(0, uvs);
+        mesh.SetColors(colors);
+        mesh.RecalculateBounds();
+        mesh.UploadMeshData(false);
+        childMf.sharedMesh = mesh;
+
+        var mr = child.GetComponent<MeshRenderer>();
+        if (mr != null && _mr != null && _mr.sharedMaterial != null)
+            mr.sharedMaterial = _mr.sharedMaterial;
+
+        return child;
+    }
+
+    /// <summary>Index into the merged mesh's contiguous TOP-QUAD block (tile corners, 4 per tile)
+    /// for the chunk corner at local (x, z), where x/z may equal the chunk size (the east/north
+    /// boundary falls on the boundary tile's NE/NW/SE corner).</summary>
+    private static int WorldCornerIndex(int x, int z, int cs)
+    {
+        if (x >= cs && z >= cs)
+            return ((cs - 1) * cs + (cs - 1)) * 4 + 2;        // chunk NE: boundary tile's SE corner
+        if (z >= cs)
+            return ((cs - 1) * cs + x) * 4;                   // north boundary: tile's NW corner
+        if (x >= cs)
+            return (z * cs + (cs - 1)) * 4 + 1;               // east boundary: tile's NE corner
+        return (z * cs + x) * 4 + 3;                          // interior: tile's SW corner
     }
 
     /// <summary>True while this chunk's props are visible (queued AND inside the prop ring).
@@ -346,6 +477,25 @@ public class ChunkObject : MonoBehaviour
             ChunkMeshGenerator.ReleaseChunkMesh(_mesh);
             _mesh = null;
         }
+        // LOD children (1e6): meshes go back to the same pooled-mesh cache; the lightweight child
+        // GameObjects are destroyed outright.
+        if (_lod1Go != null)
+        {
+            if (_lod1Mf != null && _lod1Mf.sharedMesh != null)
+                ChunkMeshGenerator.ReleaseChunkMesh(_lod1Mf.sharedMesh);
+            Destroy(_lod1Go);
+        }
+        if (_lod2Go != null)
+        {
+            if (_lod2Mf != null && _lod2Mf.sharedMesh != null)
+                ChunkMeshGenerator.ReleaseChunkMesh(_lod2Mf.sharedMesh);
+            Destroy(_lod2Go);
+        }
+        _lod1Go = null;
+        _lod2Go = null;
+        _lod1Mf = null;
+        _lod2Mf = null;
+        _lodDirty = true;
         if (_mf != null)
             _mf.sharedMesh = null;
         if (_mc != null)

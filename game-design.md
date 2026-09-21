@@ -132,6 +132,25 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   mesh whenever the incoming vertex count differs from the retained one (slab side walls add verts;
   a later smaller re-upload must not write channels against a stale larger buffer). Purely an
   implementation detail — zero visual/behavior change.
+- **Chunk LOD (1e6):** every chunk now grows two decimated **child meshes**, `Lod1` (every 2nd tile
+  corner → ~1/4 the triangles) and `Lod2` (every 3rd tile → ~1/9), sampled from its own merged
+  top-terrain block. `ChunkLodManager`'s bands (0-30 m full / 30-60 m `Lod1` / 60 m+ `Lod2`, cull
+  beyond the streamed radius) now actually switch between them: the **root `MeshRenderer` is disabled
+  while a detail band is active** (before this fix the root stayed enabled and every distant chunk
+  drew its full ~1800-tri mesh *plus* the detail). The children are built **lazily** (only when a
+  band first selects them) and marked stale by every `ApplyMerged`/`PatchRegion`, so a band switch
+  refreshes the decimated grid from the current terrain first — deformation never renders a
+  pre-excavation hole, and near-band chunks never pay for LOD at all. Physics is untouched (the
+  collider lives on the root and rides the full mesh, §2.5 collider-on-demand).
+- **Transient-object pooling (1e6):** the generic `ObjectPooler` (Phase 9, previously unused) is now
+  live on the boot root and backs the high-churn cosmetic spawns — spell **impact VFX** (both the
+  projectile-impact and direct-hit paths) and the **excavation debris** burst from `SpawnCraterDebris`.
+  `ObjectPooler.SpawnTransient` uses the pool when present and falls back to plain
+  `Instantiate`+`Destroy` otherwise; pooled particle effects replay from frame 0 on reuse (`Clear`+
+  `Play`). Debris cubes and impact effects are fully rewritten on every use (position/scale/material/
+  velocity), so pooling is invisible apart from the allocation drop. Enemy death debris (the model
+  parts themselves) and loot drops are deliberately **not** pooled — they are structural/persistent,
+  not transient clones.
 
 ### 2.6 Chunk Persistence (File Caching)
 

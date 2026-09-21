@@ -64,7 +64,8 @@ public partial class SpellCaster
         ApplyKnockback(spell, target);
 
         if (spell.ImpactEffectPrefab != null)
-            Instantiate(spell.ImpactEffectPrefab, target.transform.position, Quaternion.identity);
+            ObjectPooler.SpawnTransient(spell.ImpactEffectPrefab, target.transform.position,
+                Quaternion.identity, 3f);
 
         return new DamageResult
         {
