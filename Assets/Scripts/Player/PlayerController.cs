@@ -42,6 +42,10 @@ public bool IgnoreInput { get; private set; }
     private ClassPassiveManager ClassPassivesCached => _classPassivesCached != null ? _classPassivesCached : _classPassivesCached = GetComponent<ClassPassiveManager>();
     private SpellCaster SpellCasterRef => _casterCached != null ? _casterCached : _casterCached = GetComponent<SpellCaster>();
     private Camera MainCam => _mainCamCached != null ? _mainCamCached : _mainCamCached = Camera.main;
+    // Character Info tab sheet (1ee): cached like the rest so Tab open/close never runs a per-press
+    // scene scan. A destroyed object nulls out and re-finds itself on the next Tab.
+    private CharacterInfoUI _charInfoCached;
+    private CharacterInfoUI CharacterInfoRef => _charInfoCached != null ? _charInfoCached : _charInfoCached = Object.FindAnyObjectByType<CharacterInfoUI>();
     // Physics-integrity fail-net (1ca): a corrupted collider (NaN/garbage mesh height) can
     // depenetrate the CharacterController thousands of metres in one step. _lastSafePosition
     // holds the last sane position; EnforcePhysicsSanity reverts any such launch.
@@ -201,7 +205,7 @@ public bool IgnoreInput { get; private set; }
         {
             if (Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame)
             {
-                var info = Object.FindAnyObjectByType<CharacterInfoUI>();
+                var info = CharacterInfoRef;
                 if (info != null && info.IsShown)
                     info.Close();
             }

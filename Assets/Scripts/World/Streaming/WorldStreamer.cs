@@ -89,6 +89,12 @@ public partial class WorldStreamer : MonoBehaviour
     private float _timer;
     private const float PollInterval = 0.05f;
 
+    // Idle-poll gate (1ee): the streaming pipeline re-runs every poll ONLY when something actually
+    // changed — the focus crossed into a new chunk centre, terrain data was marked dirty, or a
+    // chunk is still queued/in-flight/ready-to-finalize. An idle, fully-streamed player pays zero.
+    private TerrainChunkCoord _lastStreamCentre;
+    private bool _worldDirty = true;
+
     // Collider reconcile (1ea): the full-map collider walk runs only when the ring box moved, a
     // collider request changed, or the loaded-chunk set changed; a per-poll cook budget caps PhysX
     // mesh cooking so a ring crossing never bursts a frame. An idle player pays zero for this poll.
@@ -182,6 +188,7 @@ public partial class WorldStreamer : MonoBehaviour
     public void SetFocus(Transform focus)
     {
         _focus = focus;
+        _worldDirty = true; // a new focus object re-arms the next poll
     }
 
     private void Awake()
@@ -210,6 +217,13 @@ public partial class WorldStreamer : MonoBehaviour
 
         int radius = RenderDistance != null ? RenderDistance.Radius : 3;
         TerrainChunkCoord centre = TerrainChunkCoord.FromWorld(_focus.position);
+
+        // 1ee idle gate: skip the whole pipeline while nothing moved and nothing is queued.
+        bool working = _chunkDispatchOrder.Count > 0 || _chunksInFlight.Count > 0 || !_readyChunks.IsEmpty;
+        if (centre == _lastStreamCentre && !_worldDirty && !working)
+            return;
+        _lastStreamCentre = centre;
+        _worldDirty = false;
 
         StreamAround(centre, radius);
         DispatchPending();

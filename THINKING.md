@@ -15,6 +15,57 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1ee — standing-still CPU costs after 1ea/1e6: streaming poll, HUD repaint, player GetComponent leaks (SHIPPED in `1ee`)
+
+Follow-on to the 1ea lag sweep — re-read the per-frame paths in `WorldStreamer` / `UIManager` /
+`PlayerController` hunting work that burns CPU even when the player stands still on the test platform.
+Target: **Unity Editor Play mode** (user's environment), no gameplay change.
+
+### H1 — the 0.05 s streaming poll re-ran the ENTIRE pipeline even when nothing changed → CONFIRMED
+Pre-1ee `WorldStreamer.Update` (WorldStreamer.cs:198-220) recomputed `StreamAround` (walks the whole
+radius ring + `_loadedChunks` dict every poll), `DispatchPending`, `FinalizeChunks`,
+`ReconcileCollidersIfChanged`, `SyncPropRing`, `StepChunkProps` on every poll unconditionally. Of these
+only Reconcile had change-guards (1ea). Evidence: no movement gate existed in the Update body.
+FIX: gate the whole pipeline on (a) focus still in the SAME chunk centre as the last poll, (b)
+`_worldDirty` false, (c) no queued / in-flight / ready-to-finalize chunk. `SetFocus` re-arms dirty. Since
+a chunk box is 30 m, a moving player still re-arms the pipeline every 30 m of travel — streaming cadence
+is unchanged, only the standing-still cost dropped to a timer check + a few comparisons.
+VERDICT: FIXED by `1ee` (working flag extended with the far-shell queues in `1ef`).
+
+### H2 — the HUD clock rebuilt its TMP text every frame → CONFIRMED, root cause a never-matching guard
+`UpdateTimeText(day, hour)` guarded on `Mathf.Approximately(hour, _lastTimeHour)`. `hour` is the game
+clock advancing every frame and `_lastTimeHour` stored the previous RAW value — they can never be
+approximately equal, so the guard never bailed and TMP rebuilt + repainted "Ngày X - HH.MM" every frame.
+The displayed `ToString("00.00")` already rounds to 0.01 h, so the fix quantizes `hour` to that SAME step
+before storing + comparing (`Mathf.Round(hour*100f)/100f`) — the label now repaints only when the shown
+text would change, which is what the guard was supposed to mean.
+VERDICT: FIXED by `1ee`.
+
+### H3 — the player root still ran raw GetComponent<CombatController>() in several hot paths → CONFIRMED
+The 1dr sweep cached Stats/Combat/Passives/Caster/Camera, but later edits added fresh
+`GetComponent<CombatController>()` in `PlayerController.Interactions.cs` (cancel-charge, dual-mode,
+auto-arm, RMB block, two-hand X toggle, pending-rig, fists), `PlayerController.Combat.cs` (EnsureFists
+guard, ReApplyWeaponPose) and `PlayerController.Animation.cs` (model-reload rig capture). All target the
+PLAYER ROOT — exactly the object `CombatCached` (`PlayerController.cs:41`) already caches — so every swap
+is semantically identical and shares the once-per-instance lookup. Verified by grep: after the sweep,
+`GetComponent<CombatController>` in `Assets\Scripts\Player` has exactly ONE hit (the cache initializer).
+`WeaponRigBuilder` / `CharacterInfoUI` / `WeaponDragHandle` / `MagicWheelUI` / skill / AI GetComponent
+calls are on OTHER objects (rigged playerRoot param, UI, enemies) — deliberately untouched, not the same
+cache.
+VERDICT: FIXED by `1ee`.
+
+### H4 — Tab open/close ran a per-press scene scan for CharacterInfoUI → CONFIRMED, cheap fix
+Both Tab consumers (already-open menu → Close at `PlayerController.cs:204`; toggle at
+`PlayerController.Interactions.cs:508`) called `Object.FindAnyObjectByType<CharacterInfoUI>()` per press.
+New `CharacterInfoRef` property caches the component; a destroyed UI object (Unity `==` overload returns
+null) nulls out the cache and re-finds. Grep-verified: only the `CharacterInfoRef` initializer hits remain.
+VERDICT: FIXED by `1ee`.
+
+### H5 — the perf overlay should be visible without a manual tick → CONFIRMED (QA decision)
+`EnableFpsStats` defaulted false since 1ea; the user's workflow is Editor A/B with the overlay. Flipping
+the default to true makes the 1ee baseline immediately readable; it is a read-only screen-space overlay so
+default-on is harmless (flippable off). VERDICT: FIXED by `1ee`.
+
 ## 1ea — "Still too laggy" — where is the mileage actually left after 1e5/1e6? (SHIPPED in `1ea`)
 
 User: "it still is too laggy. Can you do more?" 1e5 covered boot + per-frame HUD hotspots, 1e6 covered

@@ -34,7 +34,7 @@ public partial class PlayerController
         // Remember what was equipped so a model reload (gender/race change) can re-rig the same
         // weapons once the fresh hands exist — but never auto-equips weapons the player unequipped.
         _pendingAutoRig.Clear();
-        var combat = GetComponent<CombatController>();
+        var combat = CombatCached;
         if (combat != null)
         {
             var rh = combat.RightHand != null ? combat.RightHand.GetComponent<WeaponRigHost>() : null;

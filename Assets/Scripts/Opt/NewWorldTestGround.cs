@@ -66,8 +66,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableResetTerrainSaves = false;
     [Tooltip("QA: self-apply every combat status (Burn DoT, Wet, Blind, two wet-conducted Chill stacks) plus the food/drink stamina buff to the local player, so the status strip under the HUD bars can be play-tested. Applies to the player directly — no world placement.")]
     public bool EnableStatusEffectsDemo = false;
-    [Tooltip("QA/perf (1ea): show a screen-space perf readout (avg FPS, frame ms, loaded chunk count, active collider count) refreshed ~4x/second so optimization passes can be A/B'd in the Editor without a profiler. Read-only — no world placement.")]
-    public bool EnableFpsStats = false;
+    [Tooltip("QA/perf (1ea): show a screen-space perf readout (avg FPS, frame ms, loaded chunk count, active collider count) refreshed ~4x/second so optimization passes can be A/B'd in the Editor without a profiler. Read-only — no world placement. On by default since 1ee so the baseline is visible; flip off to hide.")]
+    public bool EnableFpsStats = true;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;

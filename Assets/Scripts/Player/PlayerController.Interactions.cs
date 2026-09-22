@@ -258,7 +258,7 @@ public partial class PlayerController
             // unequip never gets resurrected.
             if (_pendingAutoRig.Count > 0)
             {
-                var combat = GetComponent<CombatController>();
+                var combat = CombatCached;
                 if (combat != null && combat.RightHand == null && combat.LeftHand == null)
                 {
                     foreach (var pending in _pendingAutoRig)
@@ -272,14 +272,14 @@ public partial class PlayerController
                 _pendingAutoRig.Clear();
             }
             // Nothing equipped (fought barehanded before the reload) — put the fists back on.
-            var combatNow = GetComponent<CombatController>();
+            var combatNow = CombatCached;
             if (combatNow != null && combatNow.RightHand == null && combatNow.LeftHand == null)
                 WeaponRigBuilder.EnsureFists(gameObject);
         }
         // Per-hand dual-wield (both hands hold real weapons, NOT both magic): LMB and RMB drive each
         // hand directly instead of the magic aim / RMB-block scheme — so dual loadouts never enter
         // the single-weapon aim flow below. Runs regardless of dialog so a held ranged release fires.
-        var dualCombat = GetComponent<CombatController>();
+        var dualCombat = CombatCached;
         bool dualMode = FightingMode && dualCombat != null && !GameInput.IsMobile &&
                         dualCombat.HasLoadedDual && !dualCombat.BothHandsMagic;
         if (dualMode)
@@ -289,7 +289,7 @@ public partial class PlayerController
         // UI is up so the release isn't mired.
         if (_aiming && !dualMode)
         {
-            var combat = GetComponent<CombatController>();
+            var combat = CombatCached;
             if (ShouldCancelCharge())
             {
                 _aiming = false;
@@ -394,7 +394,7 @@ public partial class PlayerController
         {
             if (FightingMode)
             {
-                var combatPress = GetComponent<CombatController>();
+                var combatPress = CombatCached;
                 // Auto-arm a spell on demand so magic aim/charge/fire works without the Alt wheel first.
                 bool aimable = !GameInput.IsMobile && !WeaponTransitionBusy() &&
                     (MagicWheelUI.EnsureArmedMagic() || IsRangedEquipped(combatPress));
@@ -417,7 +417,7 @@ public partial class PlayerController
         {
             if (FightingMode)
             {
-                var combat = GetComponent<CombatController>();
+                var combat = CombatCached;
                 if (combat != null)
                 {
                     if (IsMeleeEquipped(combat) || IsShieldEquipped(combat))
@@ -505,7 +505,7 @@ public partial class PlayerController
             HorseMount.Instance?.Dismount();
         if (!dialogBlocked && Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame)
         {
-            var info = Object.FindAnyObjectByType<CharacterInfoUI>();
+            var info = CharacterInfoRef;
             if (info != null)
             {
                 if (info.IsShown)
@@ -542,7 +542,7 @@ public partial class PlayerController
         if (!dialogBlocked && Keyboard.current != null && Keyboard.current.xKey.wasPressedThisFrame)
         {
             // Toggle two-hand grip on a single held weapon (no-op while dual-wielding).
-            var combat = GetComponent<CombatController>();
+            var combat = CombatCached;
             if (combat != null)
                 combat.SetTwoHand(!combat.TwoHandIntent);
         }

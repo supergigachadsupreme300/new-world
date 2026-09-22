@@ -3,6 +3,46 @@
 Last updated: 2026-09-22. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1ee. CPU baseline cleanups — idle streaming zero-cost + player caches + HUD repaint fix
+
+The standing-still cost sweep after 1ea/1e6: kill the remaining per-frame CPU work on the test platform
+without changing any gameplay. Verified by grep + reread (rule 3, no CLI build).
+
+- `Assets\Scripts\World\Streaming\WorldStreamer.cs` — **idle-poll gate**: `Update` keeps its 0.05 s poll
+  beat but the whole pipeline (`StreamAround` / `DispatchPending` / `FinalizeChunks` /
+  `ReconcileCollidersIfChanged` / `SyncPropRing` / `StepChunkProps`) now early-outs when the focus is in
+  the same chunk centre as the last poll, nothing re-armed `_worldDirty`, and no chunk is queued /
+  in-flight / ready-to-finalize. `SetFocus` re-arms the flag. After the initial fill, an idle player pays
+  a timer check + a few comparisons per poll; walking still streams normally the moment the focus crosses
+  a chunk boundary (a 30 m chunk box).
+- `Assets\Scripts\UI\UIManager.HUD.cs` — **UpdateTimeText repaint fix**: the guard
+  `Mathf.Approximately(hour, _lastTimeHour)` could never match (hour advances every frame), so TMP
+  rebuilt + repainted the day/time label every frame. Now quantizes `hour` to its displayed 0.01 h step
+  (`Mathf.Round(hour*100)/100`) before storing + comparing → the label repaints only when the shown text
+  actually changes.
+- Player root component-cache sweep (1dr convention): every `GetComponent<CombatController>()` on the
+  player now routes through the existing lazy `CombatCached` property (`PlayerController.cs:41`) —
+  `PlayerController.Interactions.cs` (pending-rig, fists, dual-mode, cancel-charge, auto-arm, RMB block,
+  two-hand X), `PlayerController.Combat.cs` (EnsureFists guard, ReApplyWeaponPose), `PlayerController.
+  Animation.cs` (model-reload rig capture). All were on the SAME player root the cache already covers.
+  `WeaponRigBuilder` / UI / skill / AI `GetComponent` calls are on other objects and stay untouched.
+- `PlayerController.cs` + `PlayerController.Interactions.cs` — Tab open/close no longer runs a per-press
+  `Object.FindAnyObjectByType<CharacterInfoUI>()`; the cached `CharacterInfoRef` property re-finds itself
+  only if the UI object was destroyed (Unity `==` null on destroyed objects covers it).
+- `Assets\Scripts\Opt\NewWorldTestGround.cs` — `EnableFpsStats` defaults **true** so the 1ea/1ee perf
+  baselines are readable on the test platform without a manual tick; flippable off in the Inspector.
+
+### 1ee-status
+- Implemented; verified by grep + reread (rule 3 — no CLI build): grep `GetComponent<CombatController>` in
+  `Assets\Scripts\Player` → exactly ONE hit (the `CombatCached` initializer itself — every call site
+  converted); grep `FindAnyObjectByType<CharacterInfoUI>` → ONE hit (the `CharacterInfoRef` initializer);
+  `WorldStreamer.Update` re-read (idle gate, `_worldDirty` on `SetFocus`, `working` includes
+  queued/in-flight/ready); `UpdateTimeText` re-read (quantize guard). No public API/signature changed.
+- Play-test (pending, Unity): stand still on the test platform with `EnableFpsStats` on — per-frame ms
+  floor should be flat (no terrain-poll load while idle); the HUD clock should not rebuild text every
+  frame; Tab still opens/closes Character Info; fists / dual-wield / RMB block / magic aim / X two-hand
+  all still work after the cache swap. Confirm no compile error in Unity (rule 3).
+
 ## 1ed. Fix CS0236 compile error in WorldStreamer (field init referencing instance method)
 
 Follow-up fix to the 1ea alloc-free sort: `_dispatchSort = CompareDispatchDistance;` was a method-group

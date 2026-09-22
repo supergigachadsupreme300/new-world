@@ -539,7 +539,7 @@ public partial class PlayerController
         bool stowed = animator != null && !animator.IsDrawn;
         if (!stowed)
             WeaponRigBuilder.ReparentToHands(gameObject);
-        var combat = GetComponent<CombatController>();
+        var combat = CombatCached;
         if (combat != null && (combat.RightHand != null || combat.LeftHand != null)) return;
         // No weapon equipped — fight with the innate bare fists instead of auto-equipping an
         // owned or starter weapon. The player chooses real weapons via the gear sheet.
@@ -554,7 +554,7 @@ public partial class PlayerController
     /// </summary>
     public void ReApplyWeaponPose(bool instant = true)
     {
-        var combat = GetComponent<CombatController>();
+        var combat = CombatCached;
         if (combat == null) return;
         WeaponRigBuilder.ApplyPose(gameObject, draw: WeaponsDrawn, instant);
     }

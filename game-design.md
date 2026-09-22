@@ -1665,6 +1665,16 @@ The active PC URP config — QualitySettings level 1 → `PC_RPAsset.asset` guid
   4-collider-per-poll PhysX cook budget; LOD band audits run as a rolling 1024-chunk burst; dispatch
   sort/removal and modified-tile border checks are allocation-free / O(1) set lookups. An idle,
   fully-streamed world pays ~zero per-frame terrain maintenance.
+- **Idle streaming is zero-cost end-to-end** (1ee): `WorldStreamer.Update` keeps the 0.05 s poll beat,
+  but the whole pipeline (`StreamAround` / dispatch / finalize / collider / prop sync) early-outs while
+  the focus stays in the same chunk centre, nothing re-armed the world-dirty flag, and no chunk is
+  queued / in flight / ready to finalize — an idle player pays only the poll timer check and a few
+  comparisons. Walking streams normally the moment the focus crosses into a new 30 m chunk box.
+- **Per-frame leaks removed** (1ee): every `GetComponent<CombatController>()` on the player root routes
+  through the existing lazy `CombatCached` property (the 1dr cache convention); Tab open/close caches
+  `CharacterInfoUI` instead of a per-press scene scan; the HUD day/time label is quantized to its
+  displayed 0.01 h step so TMP stops repainting every frame; and the test-platform perf readout
+  (`EnableFpsStats`) now defaults **on** so the 1ea/1ee baselines are visible without a tick.
 - **Magic projectiles are render-only and static** (1eb): no exhaust `ParticleSystem` (there is no
   per-flight ParticleSystem simulation left in magic) and no per-frame `OrbFx` pulse on projectile
   children — flight costs only the `SpellEffect` behavior, and the impact crater-debris stays pooled.

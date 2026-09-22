@@ -259,10 +259,14 @@ public partial class UIManager
     public void UpdateTimeText(int day, float hour)
     {
         if (_timeText == null) return;
-        if (day == _lastTimeDay && Mathf.Approximately(hour, _lastTimeHour)) return;
+        // 1ee: quantize to the same 0.01 h step the "00.00" format displays before comparing, so the
+        // guard can actually stabilize. The old per-frame Mathf.Approximately(hour, _lastTimeHour)
+        // never matched (hour advances every frame), forcing a TMP repaint every single frame.
+        float qh = Mathf.Round(hour * 100f) / 100f;
+        if (day == _lastTimeDay && qh == _lastTimeHour) return;
         _lastTimeDay = day;
-        _lastTimeHour = hour;
-        _timeText.text = Localization.F("Ngày {0} - {1}", day, hour.ToString("00.00"));
+        _lastTimeHour = qh;
+        _timeText.text = Localization.F("Ngày {0} - {1}", day, qh.ToString("00.00"));
     }
 
     public void UpdatePlayerHud(int hp, int maxHp, float stamina, float maxStamina, long money)
