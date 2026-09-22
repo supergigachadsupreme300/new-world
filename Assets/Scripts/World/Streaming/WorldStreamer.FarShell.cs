@@ -358,9 +358,9 @@ public partial class WorldStreamer
         int step = FarSectorStep(span, maxRing);
         int axis = tilesPerAxis / step + 1;
 
-        // One 31x31 corner grid per covered chunk (build outside the vertex loop so shared edges
-        // between sibling cells see identical worlds). Index: row-major over the chunk grid.
-        float[,][] grids = new float[span, span][];
+        // One (gridSize x gridSize) corner grid per covered chunk (build outside the vertex loop so
+        // shared edges between sibling cells see identical worlds). Index: row-major over the chunks.
+        float[span, span][,] grids = new float[span, span][,];
         for (int cz = 0; cz < span; cz++)
         {
             for (int cx = 0; cx < span; cx++)
