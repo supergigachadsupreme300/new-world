@@ -3,6 +3,43 @@
 Last updated: 2026-09-22. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1eb. Remove magic particles + static projectile bodies (magic FX cost cut)
+
+Follow-on to 1ea. User: "remove the particle effect of magic and make the projectile detail." Scoped
+with the user first: the ONLY real magic `ParticleSystem` in the project is the runtime projectile
+**exhaust** trail (`SpellCaster.AttachProjectileParticles` — cone billboard, up to 700 particles on a
+Fireball). Beams/zones/storms/summons/rings are made of primitives (not particles), and the impact
+"poof" is pooled cube debris + a terrain dent (not particles) — the user chose to **keep** the impact
+debris. On projectile detail the user chose: **remove the particles AND kill the per-frame `OrbFx`
+scale-pulse/spin on every projectile child, but keep the per-shape bodies** (bolt/shard/debris/comet/
+…) so spells stay element-identifiable. All FX helpers were confined to `SpellCaster.Projectiles.cs`
+(grep-verified) → a clean deletion. No build/CLI run (rule 3) — verified by grep + reread.
+
+- `Assets\Scripts\Combat\Weapons\SpellCaster.Projectiles.cs` — deleted `AttachProjectileParticles`
+  plus its `EmissionRate`/`StartLifetime`/`StartSpeed`/`StartSize`/`MaxParticles` switches and the
+  nested `OrbFx` class + `Mode` enum. `AttachDefaultProjectileVisual` no longer spawns the exhaust
+  child; `Orb()` dropped its `mode` parameter and all 13 `AddComponent<OrbFx>()` sites across the
+  shape builders (Shard, Debris chunks+root, Bolt, Lance, Spear, Blade, Splash, Comet, Missile, Dart,
+  and the default fireball Orb) are gone. Bodies are now **fully static** render-only (no collider, no
+  per-frame component) — flight costs only the `SpellEffect`.
+- `CreateProjectileDisplay` (the test-ground magic-model bench, `NewWorldTestGround`) dropped its
+  OrbFx-strip loop — the bench and live casts now share the same static body by construction.
+- Untouched (audited, see THINKING 1eb): `RangedWeaponBehavior`/`RangedProjectile` arrows (not magic,
+  own visual path), cutscene demon smoke (not magic combat), aim previewers (targeting aid), impact
+  crater-debris + dent (kept per user).
+
+### 1eb-status
+- Implemented; verified by grep + reread (rule 3, no CLI build): grep for `OrbFx`/`AttachProjectileParticles`/
+  `EmissionRate(`/`MaxParticles(`/`Particles/Additive` → the only remaining `ParticleSystem` uses are the
+  cutscene smoke (`CutsceneManager.EndingDemon.cs`) and the `ObjectPooler` replay guard — both legit.
+  Full file re-read after edits (581 → 380 lines): no dangling `mode` args, no orphan builders, file
+  braces intact. Public API unchanged (deletions were all private/static within the file).
+- Play-test (pending, user runs Unity): cast a Fireball, frost chip, lightning bolt, Stone Shard
+  debris, a Meteor/Comet, and Arcane Missiles → every projectile still reads as its element but with
+  **no exhaust trail and no flicker/bob/spin** in flight; the magic-model bench still shows one
+  distinct body per spell; impacts still kick the pooled cube debris + dent; ending demon smoke still
+  plays. Expect a small uptick in the bench FPS readout (`EnableFpsStats`) during volleys.
+
 ## 1ea. Performance pass — render config, streaming maintenance, bench stats (the lag sweep)
 
 User: "it still is too laggy. Can you do more?" A follow-on to the 1e5/1e6 optimization phases. Scoped

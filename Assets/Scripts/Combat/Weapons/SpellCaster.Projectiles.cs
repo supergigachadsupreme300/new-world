@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Partial: projectile spawning, body/particle visuals, and the flight-time OrbFx behaviour (§3.8).
+/// Partial: projectile spawning and the static per-shape projectile body visuals (§3.8).
 /// Split from SpellCaster.cs - see the main partial for fields and focus/cooldown state.
 /// </summary>
 public partial class SpellCaster
@@ -59,27 +59,25 @@ public partial class SpellCaster
 
     /// <summary>
     /// Stand-alone render-only spell visual for the test ground's magic model bench (1dk): builds
-    /// the exact projectile body + comet-exhaust particles a live cast carries, with no
-    /// <see cref="SpellEffect"/>, no collider, and no launch — it simply sits at its root so each
-    /// spell's model can be looked at and edited. `shape` resolves like a real cast (Auto → element
-    /// default); <paramref name="rockBody"/> dresses it as the rough burning rock sky-rock spells
-    /// (summonFallingRock: Meteor / Asteroid / Comet) summon.
+    /// the exact static projectile body a live cast carries (1eb — projectiles now carry no
+    /// particles and no in-flight pulse), with no <see cref="SpellEffect"/>, no collider, and no
+    /// launch — it simply sits at its root so each spell's model can be looked at and edited.
+    /// `shape` resolves like a real cast (Auto → element default); <paramref name="rockBody"/>
+    /// dresses it as the rough burning rock sky-rock spells (summonFallingRock: Meteor / Asteroid
+    /// / Comet) summon.
     /// </summary>
     public static GameObject CreateProjectileDisplay(DamageType type, ProjectileShape shape = ProjectileShape.Auto,
         bool rockBody = false)
     {
         var go = new GameObject("MagicModelDisplay");
         AttachDefaultProjectileVisual(go, type, shape, rockBody);
-        // Bench models are static (1dp): live casts carry OrbFx so bolts flicker/crackle in flight,
-        // but on the pedestal the same pulse reads as the model switching between big and small.
-        foreach (var fx in go.GetComponentsInChildren<OrbFx>(true))
-            Destroy(fx);
         return go;
     }
 
     /// <summary>
-    /// Build a shape-aware visible projectile body + comet-exhaust particles for spells with no
-    /// authored CastEffectPrefab, so magic skills read on screen. `shape` is the ProjectileShape
+    /// Build a shape-aware visible projectile body for spells with no authored CastEffectPrefab,
+    /// so magic skills read on screen. Since 1eb the body is fully static — no exhaust particles
+    /// and no per-frame pulse animation. `shape` is the ProjectileShape
     /// from SpellData (§3.8): Auto resolves to the element default so every projectile still has a
     /// sane look; explicit shapes follow the spell's NAME ("Frost Bolt" = a Bolt, "Ice Lance" = a
     /// Lance, "Stone Shard" = a Debris clump...). Renderer-only: the root keeps no collider so
@@ -94,8 +92,6 @@ public partial class SpellCaster
 
         var body = BuildProjectileBody(ResolveShape(type, shape), shader, color, rockBody);
         body.SetParent(go.transform, false);
-
-        AttachProjectileParticles(body, type, color);
     }
 
     /// <summary>Element default shape used when a spell leaves Shape = Auto.</summary>
@@ -133,8 +129,7 @@ public partial class SpellCaster
             case ProjectileShape.Missile: return Missile("ArcaneMissiles", shader, color);
             case ProjectileShape.Dart: return Dart("Dart", shader, color);
             case ProjectileShape.Debris: return Debris("RockDebris", shader);
-            default: return Orb("Orb", PrimitiveType.Sphere, Vector3.one * 0.22f, shader, color,
-                OrbFx.Mode.Ember); // fireball: fast warm flicker, not the plain gentle breathe
+            default: return Orb("Orb", PrimitiveType.Sphere, Vector3.one * 0.22f, shader, color);
         }
     }
 
@@ -154,7 +149,7 @@ public partial class SpellCaster
         => t.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
 
     private static Transform Orb(string name, PrimitiveType shape, Vector3 scale, Shader shader,
-        Color color, OrbFx.Mode mode)
+        Color color)
     {
         var orb = GameObject.CreatePrimitive(shape);
         orb.name = name;
@@ -163,7 +158,6 @@ public partial class SpellCaster
             Destroy(col);
         orb.transform.localScale = scale;
         orb.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
-        orb.AddComponent<OrbFx>().Pulse = mode;
         return orb.transform;
     }
 
@@ -180,17 +174,16 @@ public partial class SpellCaster
         // Translucent glassy frost chip: "Sprites/Default" blends via the material color alpha.
         Color glass = new Color(color.r, color.g, color.b, 0.5f);
         shard.GetComponent<MeshRenderer>().material = new Material(shader) { color = glass };
-        shard.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Shard;
         return shard.transform;
     }
 
     /// <summary>
     /// Tumbling cluster of rock chunks — the Earth school's projectile (Stone Shard / stone shards).
     /// Mirrors the world's breakable-rock debris look (WorldBuilder.SpawnRockDebris): random grey
-    /// <c>Color.Lerp(Color.gray, Color.black, rand)</c> cubes of mixed sizes, each tumbling around its
-    /// own random axis (OrbFx.Tumble), clustered with the leader ahead and the tail trailing so the
-    /// clump reads as one forward-striking debris blob. Two chunks are dusted with the Earth accent
-    /// color so it still reads as magic, not just a terrain chunk.
+    /// <c>Color.Lerp(Color.gray, Color.black, rand)</c> cubes of mixed sizes, clustered with the
+    /// leader ahead and the tail trailing so the clump reads as one forward-striking debris blob.
+    /// Two chunks are dusted with the Earth accent color so it still reads as magic, not just a
+    /// terrain chunk.
     /// </summary>
     private static Transform Debris(string name, Shader shader)
     {
@@ -214,9 +207,7 @@ public partial class SpellCaster
             if (i == 1 || i == count - 1)
                 rock = Color.Lerp(rock, earth, 0.55f); // earthy accent on two chunks
             Materialize(chunk, shader, rock);
-            chunk.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Tumble;
         }
-        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Plain;
         return root;
     }
 
@@ -254,7 +245,6 @@ public partial class SpellCaster
             Materialize(seg, shader, color);
             prev = next;
         }
-        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Bolt;
         return root;
     }
 
@@ -269,7 +259,6 @@ public partial class SpellCaster
         tip.localPosition = new Vector3(0f, 0f, 0.62f);
         tip.localScale = new Vector3(0.12f, 0.12f, 0.22f);
         Materialize(tip, shader, color);
-        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Shard;
         return root;
     }
 
@@ -286,7 +275,6 @@ public partial class SpellCaster
         head.localScale = new Vector3(0.24f, 0.07f, 0.44f);
         head.localRotation = Quaternion.Euler(0f, 45f, 0f);
         Materialize(head, shader, color);
-        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Plain;
         return root;
     }
 
@@ -302,7 +290,6 @@ public partial class SpellCaster
         var b = Primitive(PrimitiveType.Cube, "BladeB", root);
         b.localScale = new Vector3(0.05f, 0.42f, 0.03f);
         Materialize(b, shader, air);
-        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Swirl;
         return root;
     }
 
@@ -323,7 +310,6 @@ public partial class SpellCaster
             trail.localScale = Vector3.one * Mathf.Lerp(0.09f, 0.04f, i / 2f);
             Materialize(trail, shader, color);
         }
-        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Plain;
         return root;
     }
 
@@ -361,7 +347,6 @@ public partial class SpellCaster
         streak.localPosition = new Vector3(0f, 0f, -0.35f);
         streak.localScale = new Vector3(0.07f, 0.07f, 0.6f);
         Materialize(streak, shader, color * 0.6f);
-        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Ember;
         return root;
     }
 
@@ -376,7 +361,6 @@ public partial class SpellCaster
             m.localScale = Vector3.one * 0.12f;
             Materialize(m, shader, color);
         }
-        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Bolt;
         return root;
     }
 
@@ -391,191 +375,6 @@ public partial class SpellCaster
         tip.localPosition = new Vector3(0f, 0f, 0.32f);
         tip.localScale = new Vector3(0.08f, 0.08f, 0.12f);
         Materialize(tip, shader, color);
-        root.gameObject.AddComponent<OrbFx>().Pulse = OrbFx.Mode.Bolt;
         return root;
-    }
-
-    private static float EmissionRate(DamageType type)
-    {
-        switch (type)
-        {
-            case DamageType.Fire: return 150f;
-            case DamageType.Ice: return 45f;
-            case DamageType.Lightning: return 120f;
-            case DamageType.Dark: return 30f;
-            case DamageType.Wind: return 40f;
-            default: return 60f;
-        }
-    }
-
-    private static float StartLifetime(DamageType type)
-    {
-        switch (type)
-        {
-            case DamageType.Fire: return 0.45f;
-            case DamageType.Ice: return 0.70f;
-            case DamageType.Lightning: return 0.25f;
-            case DamageType.Dark: return 0.65f;
-            case DamageType.Wind: return 0.80f;
-            default: return 0.50f;
-        }
-    }
-
-    private static float StartSpeed(DamageType type)
-    {
-        switch (type)
-        {
-            case DamageType.Fire: return 4f;
-            case DamageType.Ice: return 2f;
-            case DamageType.Lightning: return 6f;
-            case DamageType.Dark: return 1.5f;
-            case DamageType.Wind: return 1.5f;
-            default: return 3f;
-        }
-    }
-
-    private static float StartSize(DamageType type)
-    {
-        switch (type)
-        {
-            case DamageType.Fire: return 0.12f;
-            case DamageType.Ice: return 0.06f;
-            case DamageType.Lightning: return 0.04f;
-            case DamageType.Dark: return 0.14f;
-            case DamageType.Wind: return 0.18f;
-            default: return 0.08f;
-        }
-    }
-
-    private static int MaxParticles(DamageType type)
-    {
-        switch (type)
-        {
-            case DamageType.Lightning: return 300;
-            case DamageType.Fire: return 700;
-            default: return 250;
-        }
-    }
-
-    /// <summary>
-    /// Comet-exhaust particle stream on a default projectile: a cone shaped exhaust trailing
-    /// backward from the body so the bolt reads as an energetic magic projectile while flying.
-    /// Emits from the body local origin; the cone is flipped -Z so particles stream behind it.
-    /// </summary>
-    private static void AttachProjectileParticles(Transform body, DamageType type, Color color)
-    {
-        var fxGo = new GameObject(body.name + "_Fx");
-        fxGo.transform.SetParent(body, false);
-
-        var ps = fxGo.AddComponent<ParticleSystem>();
-        var main = ps.main;
-        main.loop = true;
-        main.playOnAwake = true;
-        main.startLifetime = StartLifetime(type);
-        main.startSpeed = StartSpeed(type);
-        main.startSize = StartSize(type);
-        main.gravityModifier = 0f;
-        main.simulationSpace = ParticleSystemSimulationSpace.Local;
-        main.maxParticles = MaxParticles(type);
-
-        var emission = ps.emission;
-        emission.rateOverTime = EmissionRate(type);
-
-        var shape = ps.shape;
-        shape.shapeType = ParticleSystemShapeType.Cone;
-        shape.angle = 18f;
-        shape.radius = 0.1f;
-        shape.rotation = new Vector3(0f, 0f, 180f);
-
-        var colorOverLifetime = ps.colorOverLifetime;
-        colorOverLifetime.enabled = true;
-        var grad = new Gradient();
-        grad.SetKeys(
-            new[] { new GradientColorKey(color, 0f), new GradientColorKey(color, 1f) },
-            new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
-        colorOverLifetime.color = grad;
-
-        var sizeOverLifetime = ps.sizeOverLifetime;
-        sizeOverLifetime.enabled = true;
-        sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f,
-            new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1f, 0.4f)));
-
-        Shader additive = Shader.Find("Particles/Additive") ?? Shader.Find("Sprites/Default");
-        if (additive == null) return;
-        var renderer = ps.GetComponent<ParticleSystemRenderer>();
-        renderer.material = new Material(additive) { color = color };
-        renderer.renderMode = ParticleSystemRenderMode.Billboard;
-    }
-
-    /// <summary>
-    /// Tiny flight animation for a projectile body: a per-type scale pulse (flicker / crackle /
-    /// breathe) and, for the ice shard, a drill spin around its long axis.
-    /// </summary>
-    private sealed class OrbFx : MonoBehaviour
-    {
-        public enum Mode
-        {
-            Plain,  // gentle breathe
-            Ember,  // fast irregular flicker
-            Shard,  // slight breathe + drill spin
-            Bolt,   // fast crackle pulse
-            Wisp,   // slow pulsing
-            Swirl,  // gentle pulse + fast funnel spin
-            Tumble  // gentle pulse + spin around a per-object random axis (rock debris chunks)
-        }
-
-        public Mode Pulse;
-
-        private Vector3 _baseScale;
-        private Vector3 _spinAxis = Vector3.up;
-
-        private void Start()
-        {
-            _baseScale = transform.localScale;
-            if (Pulse == Mode.Tumble)
-                _spinAxis = UnityEngine.Random.onUnitSphere;
-        }
-
-        private void Update()
-        {
-            float t = Time.time;
-            float pulse;
-            float spin = 0f;
-            switch (Pulse)
-            {
-                case Mode.Ember:
-                    pulse = 1f + 0.14f * Mathf.Sin(t * 11f) + 0.08f * Mathf.Sin(t * 17.3f);
-                    break;
-                case Mode.Shard:
-                    pulse = 1f + 0.04f * Mathf.Sin(t * 4.2f);
-                    spin = 160f;
-                    break;
-                case Mode.Bolt:
-                    pulse = 1f + 0.22f * Mathf.Sin(t * 24f) * Mathf.Sin(t * 7f);
-                    break;
-                case Mode.Wisp:
-                    pulse = 1f + 0.10f * Mathf.Sin(t * 2.6f);
-                    break;
-                case Mode.Swirl:
-                    pulse = 1f + 0.10f * Mathf.Sin(t * 5.6f);
-                    spin = 220f;
-                    break;
-                case Mode.Tumble:
-                    pulse = 1f + 0.05f * Mathf.Sin(t * 5.1f);
-                    spin = 120f;
-                    break;
-                default:
-                    pulse = 1f + 0.06f * Mathf.Sin(t * 3.4f);
-                    break;
-            }
-            transform.localScale = _baseScale * Mathf.Max(0.1f, pulse);
-            if (spin != 0f)
-            {
-                if (Pulse == Mode.Tumble)
-                    transform.Rotate(_spinAxis, spin * Time.deltaTime, Space.Self);
-                else
-                    transform.Rotate(0f, spin * Time.deltaTime, 0f, Space.Self);
-            }
-        }
     }
 }

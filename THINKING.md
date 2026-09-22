@@ -102,6 +102,57 @@ too low for this pass. Re-audit with the bench overlay after play-test if it sti
 
 ---
 
+## 1eb — "Remove the particle effect of magic and make the projectile detail" (SHIPPED in `1eb`)
+
+User request riding 1ea's perf pass — a narrow, well-fenced FX cut. Context: the user plays in Editor
+Play mode and said "take the FPS" (1ea), so this is another cost cut, not a fidelity push. First map
+what actually is a "particle" before deleting anything — game code uses the word loosely.
+
+### H1 — what IS the magic "particle effect"? → CONFIRMED: exactly one ParticleSystem, the projectile exhaust
+Project-wide grep of runtime `ParticleSystem` use: (a) `SpellCaster.AttachProjectileParticles` — the
+cone billboard exhaust on every default projectile, up to **700 live particles for a Fireball**,
+simulated per frame while any bolt flies; (b) the bench pedestal exhaust — same builder via
+`CreateProjectileDisplay`; (c) cutscene demon smoke (`CutsceneManager.EndingDemon.cs:117`) — an ending,
+not magic combat; (d) `ObjectPooler`'s replay guard (`TryGetComponent<ParticleSystem>`). Everything
+else that *looks* like FX (SpellBeam, SpellZone funnel, storm bolts, summon pillar, RingFlash/SkillFx)
+is built from primitives/LineRenderer — NOT a ParticleSystem. Verdict: "remove the particle effect of
+magic" = delete (a). (b) follows automatically (shares the builder). (c) and (d) are out of scope.
+
+### H2 — what is the real per-frame cost of projectile "detail"? → CONFIRMED: OrbFx on every child + the ParticleSystem sim
+Every shaped body adds the `OrbFx` MonoBehaviour to the root and most children (Debris adds 5-7 chunk
+`OrbFx` + root). Each runs `Update()` **per frame**: `Mathf.Sin` pulse, `localScale` write, and a
+`Rotate()` for Shard/Swirl/Tumble (Tumble = per-object random-axis rotation). A multi-cast volley or a
+tower of turrets × 9 cube segments per Bolt = a solid per-frame cost. The ParticleSystem itself is the
+second cost (per-frame simulation + billboard batch). Both are pure visual — the projectile root keeps
+no collider and all flight/raycast/damage lives in `SpellEffect` → stripping them touches nothing
+gameplay-adjacent. Verdict: confirmed, both go.
+
+### H3 — delete the code vs. gate behind a toggle? → CONFIRMED: delete
+AGENTS rule 4 puts QA/test knobs on the test platform, but this is a permanent gameplay tuning the
+user asked for (same class as "take the FPS" in 1ea), not a test feature. Every helper is private/
+static and grep-confirmed single-caller (`AttachProjectileParticles` only from
+`AttachDefaultProjectileVisual`; the five switches only from it; `OrbFx` only within this file) → a
+full deletion leaves zero dead code and zero public-API churn. Bench interplay: `CreateProjectileDisplay`
+loses its OrbFx-strip loop because the type ceases to exist — good, bench models and live casts become
+identical by construction. User's projectile-level choice (keep the shaped bodies, kill the animation)
+keeps spell identity while removing all per-frame pulse work.
+
+### H4 — the impact "poof": is it particles? → NO, and the user chose to keep it
+Impact FX = pooled cube debris (`SpawnCraterDebris`, 2.5 s `ObjectPooler` lifetime) + a terrain dent —
+not a ParticleSystem. `SpellEffect`'s `SpawnTransient(_spell.ImpactEffectPrefab, …)` sites are no-ops
+with the default (null) prefab, so there is literally nothing particle-like about the impact left to
+remove. User explicitly picked "keep". `SpellZone`/`SpellStorm`/`SkillFx` flashes are primitive-based
+one-shots — kept (they're brief and pooled).
+
+### Out of scope, recorded so the path isn't walked again
+- Ranged arrows/bolts (`RangedWeaponBehavior`, `RangedProjectile`) — not magic, separate visual path,
+  no shared FX → untouched.
+- Cutscene demon smoke — ending #2's atmosphere, not combat magic → stays.
+- Aim previewers (ProjectilePathPreview/AoeAimPreview/CastingCircle — LineRenderer rings) — targeting
+  aid, not FX → stay.
+
+---
+
 ## 1e9 — "The upper body bending when moving the cursor up/down is reversed" (SHIPPED in `1e9`)
 
 User report right after 1e8 (they now see the torso clearly). One-line class of bug: sign inversion.

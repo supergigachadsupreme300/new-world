@@ -209,9 +209,9 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   body (the exact live-cast visuals via `SpellCaster.CreateProjectileDisplay`; Comet/Earth Meteor show
   the summonFallingRock boulder, zone/beam/storm/summon/instant spells show their school-colored default
   icon) + a world-TMP label — pure visuals (no colliders/interaction) so each spell's magic model can be
-  looked at and edited. Since `1dp` the pedestal models are **static**: `CreateProjectileDisplay` strips
-  the live-cast `OrbFx` scale-pulse/spin components after building, so they no longer bob/crackle
-  between big and small while sitting on the bench (the real casts still flicker in flight).
+  looked at and edited. Since `1dp` the pedestal models are **static** (the real casts still flicker in
+  flight); since `1eb` live projectile visuals are static too — `OrbFx` pulse/spin and the exhaust
+  `ParticleSystem` were removed from the builders, so the bench and live casts share the exact static body.
 - **Player spawns on the test ground (1dn):** the test platform is now the **default spawn point**.
   `GameBootstrap` creates the test ground before placing the player and lands them on
   `NewWorldTestGround.GetSpawnPoint()` (pad top + 2 m) whenever the platform is built
@@ -1044,25 +1044,26 @@ color swap, so each spell looks like its name and not a recolor of the same ball
 
 | Shape | Rendered as |
 |---|---|
-| **Bolt** | Jagged segmented bolt along the flight axis (the same segment technique as the thunder-storm event's `SpawnJaggedBolt`), fast crackle pulse — used by every spell with "Bolt" in the name: Frost Bolt, Chain Lightning, Dark Bolt, Volt, Fork/Leap/Arc/Volt Bolt, Fury Bolt, Shadow/Doom Bolt, Void Rend, and the class-flavored Arcane Bolt. |
-| **Sphere** | Classic orb on a fast warm **flicker** (`OrbFx.Ember`) with the densest ember exhaust in the game — school default / the Fireball (Scorch/Burn/Comet use the Comet shape instead). |
-| **Shard** | Diamond crystal in **translucent glass** that drills forward (spin + breathe) — frost chips (the Ice school default; Chill Touch). |
-| **Debris** | Tumbling cluster of grey rock chunks (mixed sizes, random rotations, one leading chunk) that spins around random axes in flight — the Earth school's Stone Shard. Dressed like the world's breakable-rock debris (`Color.Lerp(gray, black, rand)` cubes) with two chunks dusted in the earthy tan accent so it reads as magic; a short debris burst also kicks out of the crater at impact. |
+| **Bolt** | Jagged segmented bolt along the flight axis (the same segment technique as the thunder-storm event's `SpawnJaggedBolt`) — used by every spell with "Bolt" in the name: Frost Bolt, Chain Lightning, Dark Bolt, Volt, Fork/Leap/Arc/Volt Bolt, Fury Bolt, Shadow/Doom Bolt, Void Rend, and the class-flavored Arcane Bolt. |
+| **Sphere** | Classic orb — school default / the Fireball (Scorch/Burn/Comet use the Comet shape instead). |
+| **Shard** | Diamond crystal in **translucent glass** — frost chips (the Ice school default; Chill Touch). |
+| **Debris** | Clustered grey rock chunks (mixed sizes, random rotations, one leading chunk) — the Earth school's Stone Shard. Dressed like the world's breakable-rock debris (`Color.Lerp(gray, black, rand)` cubes) with two chunks dusted in the earthy tan accent so it reads as magic; a short debris burst also kicks out of the crater at impact. |
 | **Lance** | Long straight pointed spike (shaft + tip), heavier than a bolt — Ice Lance, Frost Pierce, Glacial Impale. |
 | **Spear** | Tapered spear: dark shaft + broad diamond head — Shadow Spear. |
-| **Blade** | Flat cross-blade that spins in its own plane, **translucent** (alpha ~0.4 so wind reads as a ghost of air) — Wind Blade, Razor Blade, Wind Scissor, Laceration. |
+| **Blade** | Flat cross-blade, **translucent** (alpha ~0.4 so wind reads as a ghost of air) — Wind Blade, Razor Blade, Wind Scissor, Laceration. |
 | **Splash** | Oblate droplet with a trailing splash of smaller drops — Water Bolt, Tidal Surge. |
-| **Comet** | Bright core + fading streak tail (ember flicker) — Scorch, Burn, Comet, Frost Bite. The meteor-line **Comet** (`SummonFallingRock`) trades the plain core for a rough **burning boulder** + tail, so it reads as a rock tearing through the sky. |
+| **Comet** | Bright core + fading streak tail — Scorch, Burn, Comet, Frost Bite. The meteor-line **Comet** (`SummonFallingRock`) trades the plain core for a rough **burning boulder** + tail, so it reads as a rock tearing through the sky. |
 | **Missile** | Small clump of darts; **homing** — `SpellEffect.UpdateMissileTargeting` probes the **current trajectory** every frame and prioritizes the target on the flight path (the foe it is about to fly into), otherwise keeps chasing the locked target's last spot (or locks the nearest foe ahead if never locked), steering smoothly at 240°/s so the flight bends; no target = flies straight. Arcane Missiles, Chill Soul. |
 | **Dart** | Sleek thin bolt-line with a tip — physical shots (Archer Wind Shot, Taoist Talisman). |
 
 `Auto` resolves per school: Fire→Sphere, Ice→Shard, Lightning→Bolt, Wind→Blade, Water→Splash,
 Earth→Debris, Physical→Dart, everything else→Sphere. Builders live in `SpellCaster.BuildProjectileBody`
-(primitives + `OrbFx` pulse modes: Plain/Ember/Shard/Bolt/Wisp/Swirl/Tumble), colored per damage type and
-layered with `AttachProjectileParticles` trails; turret summons render the projectile through the same
-call (`SpellSummon` passes the turret spell's shape). Translucency (Wind/Ice) is set via
-`material.color.a` and relies on the `"Sprites/Default"` shader blending (the `"Unlit/Color"`
-fallback would render opaque).
+(primitives only), colored per damage type; **since `1eb` the body is fully static — no exhaust
+particles and no in-flight pulse** (the old `OrbFx` scale-pulse/spin modes and the
+`AttachProjectileParticles` exhaust `ParticleSystem` were removed), so projectiles in flight cost only
+their `SpellEffect`; turret summons render the projectile through the same call (`SpellSummon` passes
+the turret spell's shape). Translucency (Wind/Ice) is set via `material.color.a` and relies on the
+`"Sprites/Default"` shader blending (the `"Unlit/Color"` fallback would render opaque).
 
 #### Casting Flow
 
@@ -1660,6 +1661,9 @@ The active PC URP config — QualitySettings level 1 → `PC_RPAsset.asset` guid
   4-collider-per-poll PhysX cook budget; LOD band audits run as a rolling 1024-chunk burst; dispatch
   sort/removal and modified-tile border checks are allocation-free / O(1) set lookups. An idle,
   fully-streamed world pays ~zero per-frame terrain maintenance.
+- **Magic projectiles are render-only and static** (1eb): no exhaust `ParticleSystem` (there is no
+  per-flight ParticleSystem simulation left in magic) and no per-frame `OrbFx` pulse on projectile
+  children — flight costs only the `SpellEffect` behavior, and the impact crater-debris stays pooled.
 
 ### 9.3 Save System
 
