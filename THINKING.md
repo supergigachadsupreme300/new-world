@@ -15,6 +15,91 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1ea — "Still too laggy" — where is the mileage actually left after 1e5/1e6? (SHIPPED in `1ea`)
+
+User: "it still is too laggy. Can you do more?" 1e5 covered boot + per-frame HUD hotspots, 1e6 covered
+chunk LOD + pooling + missile throttle. This pass re-read the RENDER config and the streaming/frame
+path hunting for standing-still costs. Context shaping every verdict: target = **Unity Editor Play mode**
+(user's play environment), and the user chose **"take the FPS"** for the visual tradeoff. Editor-side
+overhead (GfxDevice, editor passes) is NOT removable by game code and persists regardless — the game-side
+wins below still win, but the overlay A/B should be read with that floor in mind.
+
+### H1 — full-res SSAO is a per-frame GPU tax Editor rendering still pays → CONFIRMED
+`PC_Renderer.asset` (the ACTIVE forward renderer — QualitySettings level 1 → `m_CurrentQuality: 1` →
+PC_RPAsset guid `4b83569d`) ships SSAO **enabled at full res** (`Downsample: 0`, `Samples: 1`, so no
+half-res shortcut) — a full-res depth-sampling + blur pass every frame. The stylized banded terrain
+(`TerrainLayered`, flat colours) barely reads AO; cost-benefit bad. Grep: nothing samples
+`_SCREEN_SPACE_OCCLUSION_TEXTURE`. FIX: `m_Active: 0`. Pure win.
+
+### H2 — MSAA 4x + depth/opaque copies are separate half-frame taxes → CONFIRMED, safe to cut
+`m_MSAA: 1` (4×) = 4x supersampled resolve on every opaque surface + edge work; `m_RequireDepthTexture`
+and `m_RequireOpaqueTexture` author extra full-frame resources (opaque is a real copy). Critical gate
+before killing them: grep the whole project for `_CameraOpaqueTexture` / `_CameraDepthTexture` → **zero
+hits** (the old pick-pixel code never sampled the camera copies). FIX: all three off. No known consum
+er → no visual regression. (HDR kept ON as the safer load-bearing default.)
+
+### H3 — shadow cost is out of proportion for a mostly-solo-directional world → CONFIRMED, value-safe
+2048 main map + **4 cascades** + soft shadows (`m_SoftShadowQuality: 3`) + additional-light shadows ON.
+Main light = the sun; the only non-sun realtime lights are rare torch/POI lamps. FIX: 1024 + 2 cascades
++ soft off + additional-light shadows off (atlas 512 for the rare case); `shadowDistance 40 → 32` so the
+two cascades don't under-resolve out to the old 40 m. User pre-approved the visual trade.
+
+### H4 — the collider reconcile walks the FULL world map every Update → CONFIRMED, the biggest standing-still CPU cost
+1dq introduced collider-on-demand, but its `ReconcileColliders` looped `_loadedChunks` **every frame**,
+computing ring distance + registry probes per chunk. Idle with the world fully streamed → the full O(chunks)
+walk still ran forever. Worse, any new finalize/unload re-triggered it and at that point it cooked EVERY
+collider that had to turn back on **in one frame** — a PhysX mesh-cook burst on a boundary crossing
+(exactly the spike a player on the move feels).
+- H4a (walk-on-change): track `_colliderLastX/Z`, `ColliderRequestRegistry.Version`, and a `_collidersDirty`
+  flag raised by `NoteChunkSetChanged` (`CreateChunkGameObject` + `UnloadChunk`) → `ReconcileCollidersIfChanged`
+  early-outs when nothing relevant changed. The registry is main-thread-only with a monotonic Version bumped
+  in `Request`/`Release` → race-free signal.
+- H4b (cook budget): `MaxColliderCooksPerPoll = 4`; enables spread across polls (excess re-flags dirty so the
+  walk continues), disables still apply instantly. Deadlock check: the deferred path re-runs because dirty
+  stays true for as long as work remains. Open risk (play-test): a runner crossing many chunk boundaries can
+  outrun the budget and land tiles without colliders for a few frames — accepted under the FPS directive.
+
+### H5 — a newly loaded chunk re-materialises every neighbour's full tile list → CONFIRMED, worst-case O(chunks²)
+Old `ChunkHasModifiedTiles` had, when called for border re-stitch, to materialise the full local tile list
+of the neighbour to test for saved edits — on EVERY chunk load, in `ReconcileNewlyLoadedChunk`. On a stream-in
+(N chunks) × (M neighbours) of per-query tile work with no retained state. Grep: the only caller was that
+reconcile. FIX: retained `_modifiedChunks` set + `HadLoadedMods` on `TerrainChunkMeshData` (set by `ChunkBuild`
+only when the save actually contained mods):
+- `ReconcileNewlyLoadedChunk(tc, hadLoadedMods)` seeds the set only when true;
+- `ApplyHeightEdits` does `UnionWith(rebuiltChunks)`; `UnloadChunk` removes; `ResetTerrainSaves` clears;
+- `ChunkHasModifiedTiles(tc)` = `_modifiedChunks.Contains(tc)` — O(1).
+Edge: un-modded worlds now touch nothing extra on load; the modded path decides in O(1) instead of O(tiles×M).
+(1cs strata + 1dq residents re-grepped: `ChunkHasModifiedTiles` had no other callers to keep consistent.)
+
+### H6 — chunk-LOD audit is a full-map scan per refresh + a per-switch GetComponent → CONFIRMED, band rules untouched
+`ChunkLodManager.Update` evaluated every chunk on every refresh frame and `ApplyBand` did
+`GetComponent<MeshRenderer>()` on the root at each band entry/exit. FIX: rolling burst of `ScanBudget = 1024`
+per refresh (`_scanCursor` wrap-around, null roots dropped in place via RemoveAt — the shift keeps the cursor
+valid), squared distances end-to-end (`BandForSq` compares `StartDistance²` against `distSq`, cull is `distSq ≤
+cullSq`), cached `Mr` on `ChunkEntry`. CRITICAL preserve: `ApplyBand` still calls `RefreshLodMeshes()` before
+showing a far band (1e6: deformation must never render a pre-excavation hole). Rolling-burst risk: a newly
+streamed distant chunk's band now corrects up to (count/1024) refresh cycles late — one extra frame of the
+nearer band, not a gameplay issue.
+
+### H7 — POI cull-candidate scan ran unthrottled → CONFIRMED, cheap fix
+The `FindObjectsByType<PointOfInterest>` block (3× per type) under `IncludePoisAsCullCandidates` ran EVERY
+FRAME; `CullManager.AddCandidate` dedupes via `_candidates.Contains`, so re-scanning identical POIs is pure
+waste. FIX: `PoiScanInterval = 2` s + `_poiTimer` gate. POIs still join cull candidates ≤2 s after spawn.
+
+### H8 — EnemyHealthBarHUD 0.5 s scene sweep — examined, NOT changed → OPEN (parked)
+It already sweeps at 0.5 s and re-projects at 30 Hz (1e5). The residual cost is a `FindObjectsByType<Enemy>`
+pass every 0.5 s + per-candidate reads. A proper fix = an enemy/billboard registry (a real refactor); ROI
+too low for this pass. Re-audit with the bench overlay after play-test if it still shows up.
+
+### Measurement / A/B plan
+- `NewWorldTestGround.EnableFpsStats` (default off) → `SpawnFpsStats()`/`UpdateFpsStats()`: 4 Hz readout of
+  avg FPS, frame ms, loaded chunks, active colliders — the user can diff before/after standing still,
+  sprinting a chunk boundary, digging, and on a fresh world stream, without a profiler.
+- Expected: an idle fully-streamed world now has ~zero game-side per-frame maintenance (H2/H4/H6 idle
+  budgets gone, H5 load penalty gone). Residual Editor-side floor remains — that's H-driven: if the overlay
+  still shows spiky low frame times with idle-zero game work, the NEXT levers are HDR off + render-scale,
+  then the H8 registry.
+
 ---
 
 ## 1e9 — "The upper body bending when moving the cursor up/down is reversed" (SHIPPED in `1e9`)

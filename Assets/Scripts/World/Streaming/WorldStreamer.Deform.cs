@@ -286,19 +286,12 @@ public partial class WorldStreamer
         else if (_loadedData.TryGetValue(owners[3], out ChunkData d3)) border[EncodeCorner(wx, wz)] = d3.Heights[1];
     }
 
-    /// <summary>True when any tile of the chunk carries a localised player modification.</summary>
+    /// <summary>True when any tile of the chunk carries a localised player modification. O(1) set
+    /// lookup since 1ea — the set is fed by live edits (ApplyHeightEdits) and by the background
+    /// loader's HadLoadedMods flag (ReconcileNewlyLoadedChunk).</summary>
     private bool ChunkHasModifiedTiles(TerrainChunkCoord tc)
     {
-        tc.GetTileRange(out int minX, out int minZ, out int maxX, out int maxZ);
-        for (int x = minX; x <= maxX; x++)
-        {
-            for (int z = minZ; z <= maxZ; z++)
-            {
-                if (_loadedData.TryGetValue(new ChunkCoord(x, z), out ChunkData d) && d.HasModifications)
-                    return true;
-            }
-        }
-        return false;
+        return _modifiedChunks.Contains(tc);
     }
 
     /// <summary>True when any tile of the chunk is a flat-top block (held any 1cg slab).</summary>
@@ -413,6 +406,10 @@ public partial class WorldStreamer
 
         if (!changedAny)
             return;
+
+        // Track the touched chunks in the O(1) modified set (1ea) so the load-reconcile paths
+        // (ReconcileNewlyLoadedChunk / ReconcileModifiedBorders) never scan 900 tiles again.
+        _modifiedChunks.UnionWith(rebuiltChunks);
 
         // Rebuild only the touched sub-region of each affected chunk in place (mesh + collider)
         // and batch-persist the modified tiles (one file per chunk, not one per tile).

@@ -37,9 +37,15 @@ public sealed class ChunkLodManager : MonoBehaviour
     private WorldStreamer _streamer;
     private int _frame;
 
+    // 1ea: the all-chunk sweep is burst over refresh ticks (a rolling cursor) instead of touching
+    // every streamed chunk every refresh, and distances are compared squared (no per-chunk sqrt).
+    private const int ScanBudget = 1024;
+    private int _scanCursor;
+
     private class ChunkEntry
     {
         public Transform Root;
+        public MeshRenderer Mr;
         public readonly Dictionary<string, GameObject> Details = new Dictionary<string, GameObject>();
         public ChunkObject Chunk;
         public int BandIndex = -1;
@@ -54,7 +60,12 @@ public sealed class ChunkLodManager : MonoBehaviour
     public void RegisterChunk(GameObject root)
     {
         if (root == null) return;
-        var entry = new ChunkEntry { Root = root.transform, Chunk = root.GetComponent<ChunkObject>() };
+        var entry = new ChunkEntry
+        {
+            Root = root.transform,
+            Mr = root.GetComponent<MeshRenderer>(),
+            Chunk = root.GetComponent<ChunkObject>(),
+        };
         if (root.transform.childCount > 0)
         {
             foreach (Transform child in root.transform)
@@ -87,19 +98,29 @@ public sealed class ChunkLodManager : MonoBehaviour
         Camera cam = Camera.main;
         if (cam == null) return;
         Vector3 camPos = cam.transform.position;
+        float cullSq = EffectiveCullDistance();
+        cullSq *= cullSq;
 
-        for (var i = _chunks.Count - 1; i >= 0; i--)
+        // Rolling burst (1ea): evaluate at most ScanBudget chunks per refresh, wrapping around.
+        // Null-root entries are dropped in place (the compacted entry shifts into the cursor slot).
+        int checkedCount = 0;
+        while (checkedCount < ScanBudget && _chunks.Count > 0)
         {
-            var chunk = _chunks[i];
+            if (_scanCursor >= _chunks.Count)
+                _scanCursor = 0;
+            var chunk = _chunks[_scanCursor];
             if (chunk.Root == null)
             {
-                _chunks.RemoveAt(i);
+                _chunks.RemoveAt(_scanCursor);
                 continue;
             }
+            _scanCursor++;
+            checkedCount++;
 
-            float dist = Vector3.Distance(camPos, chunk.Root.position);
-            int band = BandFor(dist);
-            bool wantVisible = dist <= EffectiveCullDistance();
+            Vector3 off = camPos - chunk.Root.position;
+            float distSq = off.x * off.x + off.y * off.y + off.z * off.z;
+            int band = BandForSq(distSq);
+            bool wantVisible = distSq <= cullSq;
             if (chunk.Root.gameObject.activeSelf != wantVisible)
                 chunk.Root.gameObject.SetActive(wantVisible);
             if (band != chunk.BandIndex)
@@ -110,12 +131,12 @@ public sealed class ChunkLodManager : MonoBehaviour
         }
     }
 
-    private int BandFor(float dist)
+    private int BandForSq(float distSq)
     {
         int index = 0;
         for (int b = 0; b < Bands.Count; b++)
         {
-            if (dist >= Bands[b].StartDistance)
+            if (distSq >= Bands[b].StartDistance * Bands[b].StartDistance)
                 index = b;
             else
                 break;
@@ -147,7 +168,7 @@ public sealed class ChunkLodManager : MonoBehaviour
         // bands, so a distant chunk drew its ~1800-tri root AND the detail on top; no real saving).
         // The MeshCollider is untouched — it lives on the root and rides the root mesh, so
         // collider-on-demand (1dq) physics never depends on which renderer is active.
-        MeshRenderer rootMr = chunk.Root.GetComponent<MeshRenderer>();
+        MeshRenderer rootMr = chunk.Mr != null ? chunk.Mr : (chunk.Mr = chunk.Root.GetComponent<MeshRenderer>());
 
         // Enable exactly one visual (root mesh or named detail child).
         // Only touch children that are in the Details dictionary (LOD meshes).

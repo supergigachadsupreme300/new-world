@@ -92,20 +92,19 @@ public partial class WorldStreamer
 
     /// <summary>
     /// Dispatch pending chunks to the ThreadPool. Sorts by distance each tick
-    /// so closest chunks load first.
+    /// so closest chunks load first. Since 1ea the sort is allocation-free (a cached
+    /// comparer reads the current focus via a field) and the whole pass early-outs when
+    /// there is nothing queued, so an idle/fully-streamed world costs zero per poll.
     /// </summary>
     private void DispatchPending()
     {
-        TerrainChunkCoord focus = _focus != null
+        if (_chunkDispatchOrder.Count == 0)
+            return;
+
+        _dispatchFocus = _focus != null
             ? TerrainChunkCoord.FromWorld(_focus.position)
             : default;
-
-        _chunkDispatchOrder.Sort((a, b) =>
-        {
-            int da = Mathf.Abs(a.X - focus.X) + Mathf.Abs(a.Z - focus.Z);
-            int db = Mathf.Abs(b.X - focus.X) + Mathf.Abs(b.Z - focus.Z);
-            return da.CompareTo(db);
-        });
+        _chunkDispatchOrder.Sort(_dispatchSort);
 
         for (int i = 0; i < _chunkDispatchOrder.Count && _chunksInFlight.Count < MaxInFlight; i++)
         {
@@ -118,8 +117,16 @@ public partial class WorldStreamer
             ThreadPool.QueueUserWorkItem(_ => BackgroundGenerateChunk(tc, seed));
         }
 
-        // Drop fully-loaded chunks from the dispatch list.
-        _chunkDispatchOrder.RemoveAll(c => _pendingChunks.Contains(c) && _loadedChunks.ContainsKey(c));
+        // Drop fully-loaded chunks from the dispatch list (was a closure-allocating RemoveAll).
+        for (int i = _chunkDispatchOrder.Count - 1; i >= 0; i--)
+        {
+            TerrainChunkCoord c = _chunkDispatchOrder[i];
+            if (_pendingChunks.Contains(c) && _loadedChunks.ContainsKey(c))
+            {
+                _pendingChunks.Remove(c);
+                _chunkDispatchOrder.RemoveAt(i);
+            }
+        }
     }
 
     // --- Synchronous generation (for startup) ---
@@ -139,7 +146,7 @@ public partial class WorldStreamer
 
         TerrainChunkMeshData chunk = BuildOrLoadChunk(tc, Seed);
         CreateChunkGameObject(chunk, buildCollider: true);
-        ReconcileNewlyLoadedChunk(tc);
+        ReconcileNewlyLoadedChunk(tc, chunk.HadLoadedMods);
     }
 
     /// <summary>
@@ -181,6 +188,8 @@ public partial class WorldStreamer
         if (obj != null)
             Destroy(obj.gameObject);
         _loadedChunks.Remove(tc);
+        _modifiedChunks.Remove(tc);
+        NoteChunkSetChanged();
     }
 
     /// <summary>
@@ -218,6 +227,7 @@ public partial class WorldStreamer
     {
         ChunkSaveManager.ResetWorldSaves(Seed);
         _dirtyTiles.Clear();
+        _modifiedChunks.Clear();
 
         var loaded = new List<TerrainChunkCoord>(_loadedChunks.Keys);
         foreach (TerrainChunkCoord tc in loaded)

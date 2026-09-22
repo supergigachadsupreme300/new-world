@@ -61,6 +61,19 @@ public partial class WorldStreamer : MonoBehaviour
     private readonly ConcurrentDictionary<TerrainChunkCoord, byte> _chunksInFlight = new ConcurrentDictionary<TerrainChunkCoord, byte>();
     private readonly ConcurrentQueue<TerrainChunkMeshData> _readyChunks = new ConcurrentQueue<TerrainChunkMeshData>();
 
+    // Cached distance comparer for the pending sort (1ea): the closure capture allocated a fresh
+    // delegate every poll; the focus is fed through a field instead so Sort is allocation-free.
+    private TerrainChunkCoord _dispatchFocus;
+    private readonly System.Comparison<TerrainChunkCoord> _dispatchSort = CompareDispatchDistance;
+
+    /// <summary>Manhattan distance to <see cref="_dispatchFocus"/>, feeding the cached sort comparer.</summary>
+    private int CompareDispatchDistance(TerrainChunkCoord a, TerrainChunkCoord b)
+    {
+        int da = Mathf.Abs(a.X - _dispatchFocus.X) + Mathf.Abs(a.Z - _dispatchFocus.Z);
+        int db = Mathf.Abs(b.X - _dispatchFocus.X) + Mathf.Abs(b.Z - _dispatchFocus.Z);
+        return da.CompareTo(db);
+    }
+
     // --- Hierarchy container (Terrain > Chunks > Chunk_X_Z) ---
     private Transform _terrainRoot;
     private Transform _chunksRoot;
@@ -68,6 +81,25 @@ public partial class WorldStreamer : MonoBehaviour
     private Transform _focus;
     private float _timer;
     private const float PollInterval = 0.05f;
+
+    // Collider reconcile (1ea): the full-map collider walk runs only when the ring box moved, a
+    // collider request changed, or the loaded-chunk set changed; a per-poll cook budget caps PhysX
+    // mesh cooking so a ring crossing never bursts a frame. An idle player pays zero for this poll.
+    private int _colliderLastX = int.MinValue;
+    private int _colliderLastZ = int.MinValue;
+    private int _colliderLastRequestVersion = -1;
+    private bool _collidersDirty = true;
+    private const int MaxColliderCooksPerPoll = 4;
+
+    // Chunks containing at least one modified tile (locally edited or loaded from a save). O(1)
+    // membership replaces the old per-chunk 900-tile scans in the load-reconcile paths (1ea).
+    private readonly HashSet<TerrainChunkCoord> _modifiedChunks = new HashSet<TerrainChunkCoord>();
+
+    /// <summary>Flags that the loaded-chunk set changed so the next poll recomputes colliders.</summary>
+    private void NoteChunkSetChanged()
+    {
+        _collidersDirty = true;
+    }
 
     /// <summary>Plausible terrain-height band (5-octave noise max ≈ ±63.5 m + ≤ ~4.4 m
     /// deformation headroom). Rejects garbage from a corrupt/non-finite chunk save so it can
@@ -175,22 +207,35 @@ public partial class WorldStreamer : MonoBehaviour
         StreamAround(centre, radius);
         DispatchPending();
         FinalizeChunks();
-        ReconcileColliders(centre);
+        ReconcileCollidersIfChanged(centre);
         SyncPropRing(centre);
         StepChunkProps();
     }
 
     /// <summary>
-    /// Collider-on-demand (1dq): keeps the MeshCollider only on chunks inside the
+    /// Collider-on-demand (1dq + 1ea): keeps the MeshCollider only on chunks inside the
     /// <see cref="ColliderRingRadius"/> ring around the focus and on chunks under active magic
     /// (spell projectile flight paths — <see cref="ColliderRequestRegistry"/>). The far radius-N
     /// world still renders its full meshes; only the physics load (the per-chunk collider cook and
-    /// the ~7k-tri broadphase bodies behind every raycast/overlap) is gated. A full-map scan each
-    /// poll with a state guard: an idle ring toggles nothing, a walking player flips only the ring
-    /// boundary, and a promoted chunk cooks its collider exactly once.
+    /// the ~7k-tri broadphase bodies behind every raycast/overlap) is gated.
+    /// Since 1ea the full-map walk runs ONLY when something that affects the ring actually changed
+    /// (focus crossed a chunk boundary, a collider request was added/removed, or a chunk was
+    /// finalized/unloaded) — an idle player pays nothing. A per-poll cook budget additionally
+    /// spreads a ring crossing so PhysX meshes cook gradually instead of bursting one frame.
     /// </summary>
-    private void ReconcileColliders(TerrainChunkCoord centre)
+    private void ReconcileCollidersIfChanged(TerrainChunkCoord centre)
     {
+        int reqVersion = ColliderRequestRegistry.Version;
+        bool ringMoved = centre.X != _colliderLastX || centre.Z != _colliderLastZ;
+        if (!_collidersDirty && !ringMoved && reqVersion == _colliderLastRequestVersion)
+            return;
+
+        _colliderLastX = centre.X;
+        _colliderLastZ = centre.Z;
+        _colliderLastRequestVersion = reqVersion;
+        _collidersDirty = false;
+
+        int cooked = 0;
         foreach (KeyValuePair<TerrainChunkCoord, ChunkObject> kv in _loadedChunks)
         {
             bool want = ColliderRingRadius > 0
@@ -198,8 +243,24 @@ public partial class WorldStreamer : MonoBehaviour
                 && Mathf.Abs(kv.Key.Z - centre.Z) <= ColliderRingRadius;
             if (!want && ColliderRequestRegistry.HasNear(kv.Key, ColliderRequestExpand))
                 want = true;
-            if (kv.Value.HasCollider != want)
-                kv.Value.SetColliderActive(want);
+            if (kv.Value.HasCollider == want)
+                continue;
+
+            if (want)
+            {
+                if (cooked >= MaxColliderCooksPerPoll)
+                {
+                    // Defer to the next poll; keep walking so disables still apply this tick.
+                    _collidersDirty = true;
+                    continue;
+                }
+                cooked++;
+                kv.Value.SetColliderActive(true);
+            }
+            else
+            {
+                kv.Value.SetColliderActive(false);
+            }
         }
     }
 

@@ -1641,6 +1641,26 @@ Training dummies are `Immortal` and never die, so they never burst.
 | PC (Low) | 30 fps | 5-10 chunks |
 | Mobile | 30 fps | 3-5 chunks |
 
+### 9.2a PC Render Configuration (1ea)
+
+The active PC URP config — QualitySettings level 1 → `PC_RPAsset.asset` guid `4b83569d` with
+`PC_Renderer.asset` — is tuned "take the FPS" (user directive, 1ea) over eye-candy:
+
+- **SSAO — off** (renderer feature `m_Active: 0`). The stylized banded terrain barely reads AO; cost
+  was a full-res pass per frame.
+- **MSAA — off** (`m_MSAA: 0`); **opaque-texture copy and depth-texture passthrough — off**
+  (`m_RequireOpaqueTexture: 0`, `m_RequireDepthTexture: 0`). No shader in the project samples
+  `_CameraOpaqueTexture`/`_CameraDepthTexture`. HDR stays ON.
+- **Shadows** — main-light map 1024, **2 cascades**, soft shadows off (`m_SoftShadowQuality: 0`);
+  additional-light realtime shadows off (`m_AdditionalLightShadowsSupported: 0`, atlas 512);
+  `shadowDistance 40 → 32` so the two cascades don't under-resolve to the horizon. Distant sun-shadow
+  resolution is the accepted trade; the stylized look is otherwise intact.
+- **Streaming maintenance is change-driven** (1ea): the collider ring re-reconciles only when the focus
+  crosses a chunk boundary / a collider request changes / a chunk finalizes or unloads, with a
+  4-collider-per-poll PhysX cook budget; LOD band audits run as a rolling 1024-chunk burst; dispatch
+  sort/removal and modified-tile border checks are allocation-free / O(1) set lookups. An idle,
+  fully-streamed world pays ~zero per-frame terrain maintenance.
+
 ### 9.3 Save System
 
 - Chunks: one binary `.dat` per terrain chunk (`worlds/{seed}/tc_{x}_{z}.dat`), storing only

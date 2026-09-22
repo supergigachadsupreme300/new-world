@@ -1,7 +1,84 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-21. Read this first in a new session; then continue with the
+Last updated: 2026-09-22. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
+
+## 1ea. Performance pass — render config, streaming maintenance, bench stats (the lag sweep)
+
+User: "it still is too laggy. Can you do more?" A follow-on to the 1e5/1e6 optimization phases. Scoped
+with the user first: lag is "everywhere, all the time"; the target profile is **PC / Unity Editor Play
+mode**; and on the visual tradeoff question the user chose **"take the FPS"** (SSAO/MSAA/opaque-copy off,
+shadows trimmed). Four parts, all verified by grep + reread (rule 3, no CLI build), play-tested via the
+new bench overlay. game-design §9.2a + PROGRESS + THINKING updated same pass.
+
+### Part A — URP render configuration (`Assets\Settings` + `ProjectSettings\QualitySettings.asset`)
+The ACTIVE PC config was confirmed: QualitySettings level 1 → `m_CurrentQuality: 1` →
+`PC_RPAsset.asset` guid `4b83569d` with `PC_Renderer.asset` SSAO ON at full res (Downsample 0).
+- `PC_Renderer.asset` — SSAO renderer feature `m_Active: 1 → 0`.
+- `PC_RPAsset.asset` — `m_RequireDepthTexture 1→0`, `m_RequireOpaqueTexture 1→0` (grep: nothing in the
+  project samples `_CameraOpaqueTexture`/`_CameraDepthTexture`, so nothing turns black),
+  `m_MSAA 1→0`, `m_MainLightShadowmapResolution 2048→1024`, `m_ShadowCascadeCount 4→2`,
+  `m_SoftShadowQuality 3→0`, `m_AdditionalLightShadowsSupported 1→0`,
+  `m_AdditionalLightsShadowmapResolution 2048→512`. HDR kept ON (known-good fallback).
+- `ProjectSettings\QualitySettings.asset` (PC level) — `shadowDistance 40→32`.
+- Net: no MSAA resolve, no full-res SSAO pass, no opaque copy, half the shadow-atlas work. Stylized
+  look intact; distant sun shadows resolve earlier (the accepted trade).
+
+### Part B — terrain-streaming CPU (the standing-still costs)
+- **B1+B4 — collider ring maintenance is now change-driven** (`WorldStreamer.cs`). Previously
+  `ReconcileColliders` walked the FULL `_loadedChunks` map every Update regardless of motion. Now
+  `ReconcileCollidersIfChanged(centre)` early-outs unless the focus crossed a chunk boundary, a collider
+  request changed (`ColliderRequestRegistry.Version` bumped in `Request`/`Release`), or a chunk was
+  finalized/unloaded (`NoteChunkSetChanged` wired into `CreateChunkGameObject` + `UnloadChunk`). On a
+  real ring crossing a per-poll cook budget (`MaxColliderCooksPerPoll = 4`) spreads PhysX mesh cooks —
+  disables apply instantly, excess enables re-flag `_collidersDirty` so the walk resumes next poll.
+  An idle, fully-streamed world now pays ZERO per-frame collider maintenance.
+- **B2 — allocation-free dispatch** (`WorldStreamer.Streaming.cs`). `DispatchPending` gained an early-out
+  for an empty queue, replaced the per-poll closure `Sort` with a cached `_dispatchSort` comparer reading
+  a `_dispatchFocus` field, and swapped the closure `RemoveAll` for an indexed backward-loop removal.
+- **B3 — modified-tile lookup is an O(1) set, not a per-load chunk-materialising query** (`Deform.cs`,
+  `WorldStreamer.Mesh.cs`, `TerrainChunkMeshData.cs`, `ChunkBuild.cs`). Old `ChunkHasModifiedTiles`
+  materialised the full local tile list of every neighbour on every newly-loaded chunk — O(chunks²) on a
+  stream-in. New: `TerrainChunkMeshData.HadLoadedMods` (set by `ChunkBuild` only when save mods loaded),
+  `ReconcileNewlyLoadedChunk(tc, hadLoadedMods)` seeds `_modifiedChunks`, `ApplyHeightEdits` does
+  `UnionWith(rebuiltChunks)`, `UnloadChunk` removes, `ResetTerrainSaves` clears, and
+  `ChunkHasModifiedTiles(tc)` is now `_modifiedChunks.Contains(tc)`. Un-modded worlds touch nothing extra
+  on chunk load.
+- **B5 — LOD band audit is a rolling burst** (`ChunkLodManager.cs`). Evaluates at most
+  `ScanBudget = 1024` chunks per refresh (`_scanCursor` wrap; null roots removed in place); squared
+  distances end-to-end (`BandForSq`, cull compare) and the root `MeshRenderer` cached on `ChunkEntry`
+  instead of a per-switch `GetComponent`. Band-switch still calls `RefreshLodMeshes()` before showing a
+  far band (1e6 deformation-correct behaviour preserved).
+
+### Part C — POI cull-candidate scan throttled (`NewWorldSystems.cs`)
+The `FindObjectsByType<PointOfInterest>` block (3× per type, only under `IncludePoisAsCullCandidates`)
+now runs at most once per `PoiScanInterval = 2` s. Deliberately NOT changed: `EnemyHealthBarHUD`'s 0.5 s
+scene sweep (already throttled; fixing it properly is a registry refactor — parked in THINKING 1ea H8).
+
+### Part D — bench overlay on the test platform (`NewWorldTestGround.cs`)
+New `public bool EnableFpsStats` (default off) → `SpawnFpsStats()` builds a TMPro overlay (avg FPS,
+frame ms, loaded chunk count, active collider count) refreshed at 4 Hz by `UpdateFpsStats()`, wired into
+`RunBenchSpawn`. A/B this pass with a running number.
+
+### 1ea-status
+- Implemented; verified by grep + reread (rule 3, no CLI build): every new symbol grepped and call sites
+  re-checked (`ReconcileCollidersIfChanged` single Update caller; `ReconcileNewlyLoadedChunk(tc, bool)`
+  both callers — `FinalizeChunks` + `GenerateChunkSync`; `NoteChunkSetChanged` at `CreateChunkGameObject`
+  + `UnloadChunk`; `_modifiedChunks` set ops incl. `ResetTerrainSaves`; `HadLoadedMods` set only in
+  `ChunkBuild`; `_dispatchSort`/`_dispatchFocus`; `ScanBudget`/`_scanCursor` wrap incl. null-drop;
+  `BandForSq`); no leftover old-signature `ChunkHasModifiedTiles` callers; final asset fields re-read
+  (RequireDepth/Opaque 0, MSAA 0, SSAO 0); no shader references `_CameraOpaqueTexture`/
+  `_CameraDepthTexture`; `EnableFpsStats` uses the existing `HudCanvas`/`ApplyDefaultFont` patterns.
+- Play-test (pending, user runs Unity in Editor Play mode — see CONTEXT note in THINKING 1ea about
+  editor-side overhead being irreducible):
+  - Tick `EnableFpsStats` on NewWorldTestGround; read avg FPS while standing still, sprinting, and
+    digging, and compare a fully-streamed vs freshly-loaded world.
+  - Walk across a chunk boundary → colliders re-enable gradually (4/poll) but never missing on arrival;
+    no one-frame cook hitch.
+  - Reload a world with terraformed saves → seam re-stitch still correct around edited chunks.
+  - Distant sun shadows resolve earlier (cracks at range = expected 1024/2-cascade trade); picking/
+    overlays/terrain colours otherwise unchanged.
+  - LOD bands simplify distant chunks on the same rules as before (only the scan cadence changed).
 
 ## 1e9. PlayerAnimator — upper-body look-pitch direction was inverted
 
@@ -1407,6 +1484,11 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 ## # OPEN TASKS
 
 - **Axe/pickaxe bug** (from earlier sessions) — still open; see older entries below.
+- ~~**Performance sweep (1ea)**~~ — **SHIPPED** (entry at top): render config (SSAO/MSAA/opaque-copy off,
+  1024×2-cascade shadows), change-driven collider reconcile + cook budget, alloc-free dispatch, O(1)
+  modified-tile set, rolling LOD burst, POI-scan gate, bench overlay. Open follow-ups: **play-test the
+  A/B via `EnableFpsStats`**; HDR-off/render-scale and the enemy-bar registry refactor are parked
+  (THINKING 1ea).
 - ~~**Optimization Phase 6 — startup (#17, #18)**: #17 registry + split init (Core/GameBootstrap.cs
   scans, `OPTIMIZATION.md` legacy)~~ — **SHIPPED in 1e5** (see entry at top). #18 — boot spawn-chunk
   is now synchronous only for the non-platform fallback spawn (the default test-platform spawn

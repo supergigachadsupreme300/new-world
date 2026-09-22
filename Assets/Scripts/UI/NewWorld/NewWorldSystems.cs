@@ -30,12 +30,15 @@ public sealed class NewWorldSystems : MonoBehaviour
     [Header("Registration sync")]
     [Tooltip("Seconds between chunk LOD/culling registration re-syncs (delta-diff, not a full sweep).")]
     public float RegSyncInterval = 0.5f;
+    [Tooltip("Seconds between optional POI/culling-candidate FindObjectsByType sweeps (only when IncludePoisAsCullCandidates is ON). Slower than chunk reg-sync — the scene-wide type sweeps are the expensive part (1ea).")]
+    public float PoiScanInterval = 2f;
 
     private WorldStreamer _streamer;
     private ChunkLodManager _lod;
     private CullManager _cull;
     private readonly Dictionary<TerrainChunkCoord, ChunkObject> _registered = new Dictionary<TerrainChunkCoord, ChunkObject>();
     private float _syncTimer;
+    private float _poiTimer;
 
     /// <summary>The lazily-created shared ObjectPooler instance.</summary>
     public ObjectPooler Pool => ObjectPooler.Instance;
@@ -90,6 +93,10 @@ public sealed class NewWorldSystems : MonoBehaviour
     {
         if (!EnableLod && !EnableCulling)
             return;
+
+        _poiTimer -= Time.deltaTime;
+        if (_poiTimer < 0f)
+            _poiTimer = 0f;
 
         _syncTimer += Time.deltaTime;
         if (RegSyncInterval > 0f && _syncTimer < RegSyncInterval)
@@ -153,8 +160,11 @@ public sealed class NewWorldSystems : MonoBehaviour
             }
         }
 
-        if (IncludePoisAsCullCandidates && _cull != null)
+        // POI sweeps (1ea): run no more often than PoiScanInterval and only when opted in, since each
+        // pass performs four scene-wide FindObjectsByType calls.
+        if (IncludePoisAsCullCandidates && _cull != null && _poiTimer <= 0f)
         {
+            _poiTimer = PoiScanInterval > 0f ? PoiScanInterval : 0.25f;
             foreach (var town in Object.FindObjectsByType<Town>(FindObjectsSortMode.None))
                 if (town != null) _cull.AddCandidate(town.gameObject);
             foreach (var node in Object.FindObjectsByType<FastTravelNode>(FindObjectsSortMode.None))

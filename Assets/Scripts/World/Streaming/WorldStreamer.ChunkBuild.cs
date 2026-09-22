@@ -45,6 +45,7 @@ public partial class WorldStreamer
 
         bool loaded = ChunkSaveManager.TryLoadChunk(seed, tc, out ChunkSaveData save);
         Dictionary<int, ChunkTileMod> mods = null;
+        bool hadLoadedMods = false;
         if (loaded && save.Mods.Count > 0)
         {
             mods = new Dictionary<int, ChunkTileMod>();
@@ -54,6 +55,7 @@ public partial class WorldStreamer
                 if (m.LocalX >= 0 && m.LocalX < cs && m.LocalZ >= 0 && m.LocalZ < cs)
                     mods[m.LocalZ * cs + m.LocalX] = m;
             }
+            hadLoadedMods = true;
         }
 
         // Corner grid: NaN marks a corner that must regenerate from noise. Deformed tiles stamp
@@ -136,6 +138,7 @@ public partial class WorldStreamer
             Coord = tc,
             Tiles = tiles,
             Merged = ChunkMeshGenerator.BuildMergedMeshData(tiles, null, seed),
+            HadLoadedMods = hadLoadedMods,
         };
     }
 }

@@ -11,14 +11,26 @@ using UnityEngine;
 public static class ColliderRequestRegistry
 {
     private static readonly HashSet<TerrainChunkCoord> Requests = new HashSet<TerrainChunkCoord>();
+    private static int _version;
 
     public static int Count => Requests.Count;
 
+    /// <summary>Monotonic edit counter — the streamer polls it to skip the collider walk when idle (1ea).</summary>
+    public static int Version => _version;
+
     /// <summary>Mark a chunk as collider-required (idempotent).</summary>
-    public static void Request(TerrainChunkCoord tc) => Requests.Add(tc);
+    public static void Request(TerrainChunkCoord tc)
+    {
+        if (Requests.Add(tc))
+            _version++;
+    }
 
     /// <summary>Drop a previously requested chunk.</summary>
-    public static void Release(TerrainChunkCoord tc) => Requests.Remove(tc);
+    public static void Release(TerrainChunkCoord tc)
+    {
+        if (Requests.Remove(tc))
+            _version++;
+    }
 
     /// <summary>
     /// True when any requested chunk lies within the Chebyshev <paramref name="radius"/> of

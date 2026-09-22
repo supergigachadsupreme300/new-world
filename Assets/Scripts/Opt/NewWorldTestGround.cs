@@ -66,6 +66,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableResetTerrainSaves = false;
     [Tooltip("QA: self-apply every combat status (Burn DoT, Wet, Blind, two wet-conducted Chill stacks) plus the food/drink stamina buff to the local player, so the status strip under the HUD bars can be play-tested. Applies to the player directly — no world placement.")]
     public bool EnableStatusEffectsDemo = false;
+    [Tooltip("QA/perf (1ea): show a screen-space perf readout (avg FPS, frame ms, loaded chunk count, active collider count) refreshed ~4x/second so optimization passes can be A/B'd in the Editor without a profiler. Read-only — no world placement.")]
+    public bool EnableFpsStats = false;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
@@ -76,6 +78,12 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private readonly List<WeaponRackStand> _rackStands = new List<WeaponRackStand>();
     private ContextPromptUI _contextPrompt;
     private PlayerController _playerController;
+
+    // Perf readout (1ea): one screen-space overlay refreshed on a 0.25s coroutine, never per frame.
+    private Canvas _fpsCanvas;
+    private TMPro.TextMeshProUGUI _fpsText;
+    private float _fpsAccum;
+    private int _fpsSamples;
 
     /// <summary>True once the independent floating platform has been built (safe to place the player on).</summary>
     public bool IsArenaReady => _arenaReady && PlatformTopY != float.MinValue;
@@ -142,6 +150,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (EnableDigLayersDemo) { RunSafely("dig layers demo", SpawnDigLayersDemo); yield return null; }
         if (EnableResetTerrainSaves) { RunSafely("terrain saves reset", ResetTerrainSaves); yield return null; }
         if (EnableStatusEffectsDemo) { RunSafely("status effects demo", SpawnStatusEffectsDemo); yield return null; }
+        if (EnableFpsStats) { RunSafely("fps stats", SpawnFpsStats); yield return null; }
         RunSafely("player grants", TryDeferPlayerGrants);
 
         // Safety net: if the platform wasn't ready when the bench started (e.g. built later or
@@ -953,6 +962,74 @@ public sealed class NewWorldTestGround : MonoBehaviour
         var mgr = player.GetComponent<RaceChangeManager>();
         if (mgr == null)
             player.gameObject.AddComponent<RaceChangeManager>();
+    }
+
+    /// <summary>
+    /// Perf readout (1ea): builds a small screen-space overlay and starts a 0.25s coroutine that
+    /// refreshes avg FPS + frame ms + the streamer's loaded chunk count + active collider count.
+    /// Deliberately independent of the new-world HUD (opt-in QA toggle) so optimization passes can
+    /// be compared in the Editor without a profiler. Read-only; never touches the world or platform.
+    /// </summary>
+    private void SpawnFpsStats()
+    {
+        var canvas = HudCanvas.CreateOverlay("BenchStatsCanvas");
+        var root = HudCanvas.CreateBackdrop(canvas.transform, "Stats",
+            new Vector2(0f, 1f), new Vector2(0f, 1f),
+            new Vector2(100f, -28f), new Vector2(300f, 96f));
+        var label = new GameObject("Label");
+        label.transform.SetParent(root, false);
+        var rect = label.AddComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = new Vector2(5f, 3f);
+        rect.offsetMax = new Vector2(-5f, -3f);
+        var tmp = label.AddComponent<TMPro.TextMeshProUGUI>();
+        GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
+        tmp.fontSize = 13f;
+        tmp.color = new Color(1f, 1f, 0.8f);
+        tmp.alignment = TMPro.TextAlignmentOptions.TopLeft;
+        tmp.text = "FPS -";
+        _fpsText = tmp;
+        _fpsCanvas = canvas;
+        _fpsAccum = 0f;
+        _fpsSamples = 0;
+        StartCoroutine(UpdateFpsStats());
+    }
+
+    private System.Collections.IEnumerator UpdateFpsStats()
+    {
+        var wait = new WaitForSecondsRealtime(0.25f);
+        while (true)
+        {
+            yield return wait;
+
+            float fps = 1f / Mathf.Max(Time.deltaTime, 0.0001f);
+            _fpsAccum += fps;
+            _fpsSamples++;
+            float avgFps = _fpsAccum / _fpsSamples;
+            if (_fpsSamples >= 40)
+            {
+                // Slide the rolling average forward instead of growing without bound.
+                _fpsAccum = avgFps;
+                _fpsSamples = 1;
+            }
+
+            int chunks = 0;
+            int colliders = 0;
+            var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+            if (streamer != null)
+            {
+                var loaded = streamer.LoadedChunks;
+                chunks = loaded.Count;
+                foreach (var kv in loaded)
+                    if (kv.Value != null && kv.Value.HasCollider)
+                        colliders++;
+            }
+
+            if (_fpsText != null)
+                _fpsText.text = string.Format("FPS {0:0}  ({1:0.0} ms)\nchunks {2}  colliders {3}",
+                    avgFps, 1000f / avgFps, chunks, colliders);
+        }
     }
 
     private static Material SolidMaterial(Color c)

@@ -56,7 +56,7 @@ public partial class WorldStreamer
             CreateChunkGameObject(chunk);
             // Slab seam walls need BOTH sides of a chunk boundary in memory to render with real
             // neighbour heights — reconcile now that this chunk's tiles exist.
-            ReconcileNewlyLoadedChunk(chunk.Coord);
+            ReconcileNewlyLoadedChunk(chunk.Coord, chunk.HadLoadedMods);
             finalized++;
             if ((Time.realtimeSinceStartup - start) * 1000f >= timeBudgetMs)
                 break;
@@ -101,6 +101,7 @@ public partial class WorldStreamer
         obj.Init(tc);
         obj.ApplyMerged(chunk.Merged, GroundMaterial, buildCollider);
         _loadedChunks[tc] = obj;
+        NoteChunkSetChanged();
 
         for (int i = 0; i < chunk.Tiles.Length; i++)
         {
@@ -113,10 +114,15 @@ public partial class WorldStreamer
     /// <summary>
     /// Full-rebuilds a just-loaded chunk (and any loaded modified neighbour) with real border
     /// heights so seam slab walls are correct once both sides of a seam are in memory.
+    /// Since 1ea the modified-chunk test is an O(1) set lookup (fed by live edits and by the
+    /// <paramref name="hadLoadedMods"/> flag carried out of the background loader) — the old
+    /// per-chunk 900-tile scan is gone.
     /// </summary>
-    private void ReconcileNewlyLoadedChunk(TerrainChunkCoord tc)
+    private void ReconcileNewlyLoadedChunk(TerrainChunkCoord tc, bool hadLoadedMods)
     {
-        if (ChunkHasModifiedTiles(tc))
+        if (hadLoadedMods)
+            _modifiedChunks.Add(tc);
+        if (_modifiedChunks.Contains(tc))
             FullRebuildChunk(tc);
         ReconcileModifiedBorders(tc);
     }

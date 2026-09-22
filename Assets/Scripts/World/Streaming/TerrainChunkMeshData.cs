@@ -23,6 +23,10 @@ public struct TerrainChunkMeshData
     /// GameObject + ONE MeshCollider per chunk instead of 900 tile objects.
     /// </summary>
     public MergedChunkMeshData Merged;
+
+    /// <summary>True when BuildOrLoadChunk restored saved deformation mods from disk. The main
+    /// thread uses it to flag the chunk as modified in O(1) (1ea) instead of re-scanning 900 tiles.</summary>
+    public bool HadLoadedMods;
 }
 
 /// <summary>
