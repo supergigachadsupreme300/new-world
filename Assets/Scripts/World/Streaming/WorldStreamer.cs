@@ -63,8 +63,9 @@ public partial class WorldStreamer : MonoBehaviour
 
     // Cached distance comparer for the pending sort (1ea): the closure capture allocated a fresh
     // delegate every poll; the focus is fed through a field instead so Sort is allocation-free.
+    // A lambda (not a method group) in the field initializer is legal C# and binds once here.
     private TerrainChunkCoord _dispatchFocus;
-    private readonly System.Comparison<TerrainChunkCoord> _dispatchSort = CompareDispatchDistance;
+    private readonly System.Comparison<TerrainChunkCoord> _dispatchSort = (a, b) => CompareDispatchDistance(a, b);
 
     /// <summary>Manhattan distance to <see cref="_dispatchFocus"/>, feeding the cached sort comparer.</summary>
     private int CompareDispatchDistance(TerrainChunkCoord a, TerrainChunkCoord b)

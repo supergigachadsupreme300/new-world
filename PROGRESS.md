@@ -3,6 +3,21 @@
 Last updated: 2026-09-22. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1ed. Fix CS0236 compile error in WorldStreamer (field init referencing instance method)
+
+Follow-up fix to the 1ea alloc-free sort: `_dispatchSort = CompareDispatchDistance;` was a method-group
+field initializer referencing an instance method — illegal C# (error CS0236 on
+`WorldStreamer.cs:67`). The lambda form `(a, b) => CompareDispatchDistance(a, b)` is legal, binds the
+delegate once at construction (still allocation-free per poll), and keeps the per-instance
+`_dispatchFocus` feed intact. No behavior change.
+
+### 1ed-status
+- Implemented; verified by read-back (`WorldStreamer.cs:64-68` and the `DispatchPending` sort at
+  `WorldStreamer.Streaming.cs:104-107` unchanged, so the comparer semantics and the 1ea zero-alloc
+  claim hold). Rule 3 still applies — no CLI build; this restores Unity compilation.
+- Play-test (pending): none — compile-only fix; world streaming continues to load closest-chunks-first
+  with the idle zero-cost early-out. Re-enter Play mode in Unity to confirm the error is gone.
+
 ## 1ec. Rework magic projectiles into voxel cube-clusters (visual revamp, still static)
 
 Follow-on to 1eb. User: "rework the magic projectile model, for example fire ball would be multiple
