@@ -8,6 +8,12 @@ using UnityEngine.InputSystem;
 
 public partial class PlayerController
 {
+    /// <summary>Camera far plane (1ef): must clear the far shell's outer edge at the default
+    /// render radius (67 chunks + 2 keep = 2,070 m) with margin — Unity's default 1,000 would
+    /// clip the whole mid/horizon shell. Sized for the default radius; pushing Render Distance
+    /// far past ~73 chunks clips at this plane.</summary>
+    private const float CameraFarPlane = 2200f;
+
     public void SnapLookYaw(float yaw)
     {
         _yaw = yaw;
@@ -56,6 +62,7 @@ public partial class PlayerController
         cameraObject.tag = "MainCamera";
         var cameraComponent = cameraObject.AddComponent<Camera>();
         cameraComponent.fieldOfView = 60f;
+        cameraComponent.farClipPlane = CameraFarPlane;
         cameraComponent.clearFlags = CameraClearFlags.Skybox;
         cameraObject.transform.position = transform.position + new Vector3(0f, 1.5f, -4f);
         cameraObject.transform.rotation = Quaternion.LookRotation(transform.position + Vector3.up * 1.5f - cameraObject.transform.position);
@@ -76,6 +83,7 @@ public partial class PlayerController
             return;
 
         cam.tag = "MainCamera";
+        cam.farClipPlane = CameraFarPlane;
         if (cam.transform.parent != null)
             cam.transform.SetParent(null);
 

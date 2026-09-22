@@ -11,6 +11,12 @@ Shader "NewWorld/TerrainLayered"
     {
         [MainColor] _Color ("Vertex Color Multiplier", Color) = (1,1,1,1)
         [Toggle] _UseVertexColor ("Use Vertex Colors", Float) = 1
+        // Horizon tonal lift (1ef): subtle distance tint over the outermost band only — aerial
+        // perspective for the ~2 km far shell WITHOUT fog (mid-view stays crisp). Push
+        // _HorizonStart past the far plane to disable.
+        _HorizonColor ("Horizon Tint", Color) = (0.78, 0.83, 0.90, 1)
+        _HorizonStart ("Horizon Tint Start (m)", Float) = 1400
+        _HorizonEnd ("Horizon Tint End (m)", Float) = 2100
     }
 
     SubShader
@@ -41,6 +47,9 @@ Shader "NewWorld/TerrainLayered"
 
             half4 _Color;
             float _UseVertexColor;
+            half4 _HorizonColor;
+            float _HorizonStart;
+            float _HorizonEnd;
 
             struct Attributes
             {
@@ -90,6 +99,14 @@ Shader "NewWorld/TerrainLayered"
                 half3 ambient = albedo * SampleSHVertex(normalWS);
 
                 half3 color = direct + ambient;
+
+                // Horizon tonal lift (1ef): lerp toward a soft horizon tint only across the outer
+                // distance band — atmospheric perspective for the far shell with NO fog, so the
+                // near/mid terrain the player actually plays on stays fully crisp.
+                float horizonDist = distance(_WorldSpaceCameraPos, input.positionWS);
+                half horizonBlend = saturate((horizonDist - _HorizonStart) / max(_HorizonEnd - _HorizonStart, 1.0));
+                color = lerp(color, _HorizonColor.rgb, horizonBlend);
+
                 color = MixFog(color, input.fogFactor);
                 return half4(color, 1.0);
             }

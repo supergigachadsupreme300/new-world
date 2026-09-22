@@ -21,6 +21,13 @@ public partial class WorldStreamer
     /// margin, a chunk at the fill boundary that completes just as the focus moves on gets
     /// unloaded the very next tick — its freshly spawned trees/rocks would disappear a frame
     /// or two after appearing.
+    ///
+    /// Since 1ef the <paramref name="radius"/> passed here is the NEAR real-chunk ring
+    /// (<see cref="NearRingRadius"/>), NOT the render radius — the open ground beyond it is the
+    /// far shell's job (<see cref="FarShellTick"/>), so the real chunk stream is only ever a
+    /// 361-chunk world at the default near ring 9 (vs 18,961 at the 67 render radius). Unloaded ring
+    /// edges hand straight to already-existing far cells in the same poll (FarShellTick's
+    /// active-shadow sync).
     /// </summary>
     public void StreamAround(TerrainChunkCoord centre, int radius)
     {
@@ -222,9 +229,12 @@ public partial class WorldStreamer
     /// file, clears in-memory dirty marks, then unloads + requeues every loaded chunk so the
     /// ground regenerates pristine from noise (no leftover slabs, closed mesh, no holes). The
     /// files are gone afterwards — this is a permanent discard of all terrain edits for the seed.
+    /// The far shell (1ef) is wiped first: its cells were sampled from the old saves, so it must
+    /// regenerate from the pristine noise to stay in sync with the real chunks.
     /// </summary>
     public void ResetTerrainSaves()
     {
+        ClearFarShell();
         ChunkSaveManager.ResetWorldSaves(Seed);
         _dirtyTiles.Clear();
         _modifiedChunks.Clear();

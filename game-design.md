@@ -74,8 +74,27 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
 ### 2.5 Chunk Loading & Render Distance
 
 - The player controls **render distance** in chunk radius.
-- **Default radius:** 30 chunks (3,721 chunks loaded ≈ 900 m half-width; **1dg** — raised from the
-  former 20/1,681/600 m).
+- **Default radius:** 67 chunks ≈ 2,010 m half-width (**1ef**; was 30/≈900 m since **1dg**, raised from
+  the former 20/600 m).
+- **Maximum radius:** 160 chunks (code clamp, `RenderDistanceController.MaxRadius`).
+- **Real chunk ring (near, 1ef):** only chunks inside `NearRingRadius` (default **9** ≈ 270 m) stream as
+  full-fidelity `ChunkObject`s — deformable, collidable, prop-bearing, LOD'd. `StreamAround` receives
+  the NEAR ring, not the render radius, and keeps one hysteresis ring (near+1) loaded, so the real
+  chunk world is 361 chunks (was 3,721 at radius 30) and the LOD/collider/prop wins of 1dq/1di/1e6 ride
+  a fixed-size ring instead of scaling with the render distance.
+- **Far shell (1ef):** from ring near+1 out to the render radius, `WorldStreamer.FarShell.cs` covers
+  the ground with one coarse **cell mesh** per aligned span block — level-of-detail sectors generated on
+  the ThreadPool from the SAME per-chunk corner grid the real chunks use (save stamps + noise), so the
+  map stays watertight and shares the real ring's seam exactly. Cells: **span-1** rim cells (3 m step)
+  at rings 10-14 own the loaded/unloaded **active shadow** (inactive under a real ring-10 chunk, active
+  the same poll it unloads — zero hole, zero z-fight), **span-3** cells (rings ≥15, step 3/6/9 →
+  31/16/11 verts/axis) and **span-6** cells (rings ≥36, step 12/15) cover the open ground, with a
+  coarser required parent suppressing its finer children so every chunk has exactly one cell. Budgets:
+  12 in flight, 3 finalized/poll (~60 cell meshes/s, initial ~1,400-cell fill ~20-25 s), 24 removals/
+  poll with a backlog flag. Far cells have **no colliders, no props, and never re-generate** (digs stay
+  inside the collider ring 8 < rim 10). The camera far plane is **2200 m** (`PlayerController.Camera.cs`)
+  and the terrain shader adds a **horizon tonal lift** starting ~1400 m (no fog — mid-view stays crisp)
+  so the outermost shell reads as atmosphere.
 - **Maximum radius:** 160 chunks (code clamp, `RenderDistanceController.MaxRadius`).
 - At each frame, the system calculates which chunks are within radius of the player.
 - Chunks entering radius: loaded from cache or generated.
@@ -86,11 +105,13 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   other from frame 1, so the first rendered frame no longer pays the 5-20 ms sync chunk. The rest of
   the visible ring builds in an **adaptive burst pass** (poll every 0.05 s, up to
   12 chunks / base ~6 ms finalize budget that self-shrinks while frames hitch, 24 background generations
-  in flight) that fills the full radius-30 ring without dropping a steady 60 fps (**1di** — the earlier
+  in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the far shell fills the
+  rest) without dropping a steady 60 fps (**1di** — the earlier
   16-chunk/12 ms burst shrank the budget so chunk finalization + collider cooking stop competing with the
-  frame). The game bootstrap defaults render radius to **30** with a
+  frame). The game bootstrap defaults render radius to **67** (1ef) with a
   hard clamp of **160** chunks, and the LOD cull distance auto-matches the current render radius so
-  culling never fights the visible ring.
+  culling never fights the visible ring (far cells are static, not LOD-registered, so the cull budget
+  still scales with the REAL near ring).
 - **Boot cost (1e5):** manager lookups go through a `ComponentRegistry` (one shared scene sweep per
   type instead of ~24 `FindAnyObjectByType` scans), `UIManager.InitializeUI` / `SoundManager.
   LoadSoundClips` / `GameManager.AutoResolveReferences` idempotency guards stop the same UI layout /
@@ -1678,6 +1699,16 @@ The active PC URP config — QualitySettings level 1 → `PC_RPAsset.asset` guid
 - **Magic projectiles are render-only and static** (1eb): no exhaust `ParticleSystem` (there is no
   per-flight ParticleSystem simulation left in magic) and no per-frame `OrbFx` pulse on projectile
   children — flight costs only the `SpellEffect` behavior, and the impact crater-debris stays pooled.
+- **Far shell at 2 km** (1ef): the game bootstrap defaults render radius to **67** chunks (~2,010 m)
+  with real `ChunkObject`s only inside `NearRingRadius` 9 (`WorldStreamer.FarShell.cs`) — the open
+  ground out to the radius is background-generated coarse cell meshes (see §2.5), so the render distance
+  grew ~2.2x without growing the real-chunk stream, its LOD layers or its collider/prop rings. Camera
+  far plane **2200 m** and the terrain shader's **horizon tonal lift** (1400-2100 m, `_HorizonColor`)
+  hide the shell edge without fog — the near/mid terrain stays fully crisp.
+- **Idle streaming stays zero-cost with the shell** (1ef): the 1ee idle gate's `working` flag now also
+  covers the far-shell queues (`_farInFlight` / `_farReady` / `_farPending` / `_farUnloadBacklog`), so
+  an initial far fill or a shrinking shell keeps the poll alive only until it settles, then an idle
+  player pays the same timer check + comparisons as before.
 
 ### 9.3 Save System
 

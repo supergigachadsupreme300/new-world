@@ -3,6 +3,77 @@
 Last updated: 2026-09-22. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1ef. Far shell render — deep 2 km view (real near ring + background coarse sectors) + horizon tint
+
+The big-crisp view pass: real full-fidelity chunks only to a near ring (9), the camera far plane to
+2200 m, and a background-generated **far shell** of coarse cell meshes extending the ground out to the
+67-chunk render radius (~2 km) — with no fog, so the near/mid terrain stays fully crisp. Verified by
+grep + reread (rule 3, no CLI build); Unity play-test is pending.
+
+- `Assets\Scripts\World\Streaming\WorldStreamer.FarShell.cs` — **new**, the whole far shell:
+  - `FarCell {X,Z,Span}` (span-1 rim / span-3 band B / span-6 band C) + `FarMeshData` thread handoff.
+  - `RequiredFarCell` — the single generate AND retain predicate: a coarser required parent suppresses
+    its finer children (hierarchical suppression), so every annulus chunk ring 10..69 belongs to
+    exactly one cell. Chunk-coord positive/negative indexing via `FloorDiv` so the grid stays aligned.
+  - `FarCellForChunk` maps one chunk to its owning cell (span-6 parent → span-3 parent → rim cell).
+    Deliberately NO loaded-check here: rim cells also spawn inactive under loaded ring-10 real chunks.
+  - `FarShellTick` per poll: (1) active-shadow sync — span-1 cells toggle `active = !loadedChunk`, so
+    the real ring unload hands straight to the shell in the SAME poll (zero hole, zero z-fight) — plus
+    a removal scan that keeps a rim cell alive while its real chunk is queued/in-flight (no
+    approach-edge hole), capped at 24/poll with a `_farUnloadBacklog` flag; (2) ring walk near+1..keep
+    into a deduped pending list; (3) dispatch to the ThreadPool (`MaxFarInFlight` 12) with seed/epoch/
+    maxRing captured by value; (4) finalize ≤3/poll, dropping stale epochs and no-longer-required
+    cells before creating the GameObject.
+  - `BuildFarSector` — decimated grid mesh from the SAME per-chunk corner grids the real chunks use
+    (`BuildFarChunkCorners`: `ChunkSaveManager.TryLoadChunk` stamps + NaN-seeded noise fill, exact
+    duplication of `BuildOrLoadChunk` because that builder couples the grid to the 900-tile pass);
+    step by span/maxRing (rim 3; B 3/6/9; C 12/15 → 11/31/16/11/16/13 verts/axis); central-difference
+    slope normals; memoized `TerrainBandColor` so far terrain keeps the strata read.
+  - `CreateFarSector` (static GO + pooled mesh + `GroundMaterial`; span-1 starts inactive under a
+    loaded real chunk) / `DestroyFarSector` (pooled-mesh release) / `EnsureFarRoot` /
+    `ClearFarShell` (epoch bump + full wipe, called from world/save reset).
+  - `public int FarSectorCount` — powers the perf readout's new `far cells` line.
+- `Assets\Scripts\World\Streaming\WorldStreamer.cs` — `NearRingRadius = 9` field (`[Header("Far Shell")]`,
+  tooltip: keep ≥ `ColliderRingRadius` 8); `_lastStreamCentre` sentinel (`int.MinValue` so the first
+  poll always runs even at the world origin); `Update` derives `view` (render radius) + `near` and
+  passes them to `StreamAround(centre, near)` then `FarShellTick(centre, view, near)`; the 1ee idle
+  gate's `working` flag now also covers the far queues so an initial fill/shrink keeps the poll alive
+  only until it settles.
+- `Assets\Scripts\World\Streaming\WorldStreamer.Streaming.cs` — `StreamAround` summary now documents
+  that `radius` is the NEAR real ring (the far shell owns the ground beyond); `ResetTerrainSaves`
+  calls `ClearFarShell()` first (the shell's cells were sampled from the old saves).
+- `Assets\Scripts\Core\GameBootstrap.cs` — `rd.Radius = 67` (2,010 m; real chunks only to ring 9;
+  `MaxRadius` 160 kept).
+- `Assets\Scripts\Player\PlayerController.Camera.cs` — `CameraFarPlane = 2200f` applied in
+  `CreateCamera` + `SetupPlayerCamera` (clips clean past radius-73 shell edge).
+- `Assets\Shaders\TerrainLayered.shader` — **horizon tonal lift without fog**: `_HorizonColor`
+  (0.78,0.83,0.90), `_HorizonStart` 1400, `_HorizonEnd` 2100; frag lerps toward the tint by horizontal
+  distance from the camera BEFORE `MixFog`, so the outermost shell reads as atmosphere while near/mid
+  terrain stays fully crisp.
+- `Assets\Scripts\Opt\NewWorldTestGround.cs` — perf readout adds `far cells {n}` (via
+  `streamer.FarSectorCount`).
+
+### 1ef-status
+- Implemented; verified by grep + reread (rule 3 — no CLI build): grep `FarShellTick`/`FarSectorCount`/
+  `NearRingRadius`/`ClearFarShell`/`StreamAround` → all call sites live and signatures match; the
+  `WorldStreamer.Update` pipeline re-read (view/near, far `working` flags, `FarShellTick` after
+  `FinalizeChunks`); `StreamAround` kept at 1 signature (radius = near) with `ResetTerrainSaves` →
+  `ClearFarShell()`; `BuildFarChunkCorners` matches `BuildOrLoadChunk` corner semantics (NaN seed,
+  IsSaneHeight-gated stamps, world-coord noise fill); new structs/methods have no duplicate symbols in
+  the partial class; Camera/shader/bootstrap/test-ground edits re-read. No build/compile run.
+- Design acceptances (play-test should watch for): the initial far fill takes ~20-25 s at 3
+  finalize/poll (12 in flight) while the player moves; micro-seams/T-junctions between adjacent
+  different-step cells sit at ≥600 m (sub-pixel); the horizon tint band intentionally softens the
+  outermost ~700 m only.
+- Play-test (pending, Unity): boot on the test platform with `EnableFpsStats` — per-frame ms should
+  settle flat after the shell fills; the overlay now shows `far cells` climbing to ~1,400 then
+  settling; walk toward any direction and check NO hole/z-fight where the real ring (ring 9) meets the
+  shell (ring 10); run off the real ring's edge — the shell mesh should already be there (no blank);
+  look toward the horizon — terrain extends ~2 km with a soft sky-blue lift and no fog on close
+  terrain; raise/lower Render Distance in settings and confirm the shell grows/shrinks without holes;
+  dig with pickaxe near the real-ring edge — deformation still works and never touches the shell.
+  Confirm no compile error in Unity (rule 3).
+
 ## 1ee. CPU baseline cleanups — idle streaming zero-cost + player caches + HUD repaint fix
 
 The standing-still cost sweep after 1ea/1e6: kill the remaining per-frame CPU work on the test platform

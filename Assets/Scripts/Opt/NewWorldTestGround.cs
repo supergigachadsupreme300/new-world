@@ -1016,19 +1016,21 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
             int chunks = 0;
             int colliders = 0;
+            int farSectors = 0;
             var streamer = Object.FindAnyObjectByType<WorldStreamer>();
             if (streamer != null)
             {
                 var loaded = streamer.LoadedChunks;
                 chunks = loaded.Count;
+                farSectors = streamer.FarSectorCount;
                 foreach (var kv in loaded)
                     if (kv.Value != null && kv.Value.HasCollider)
                         colliders++;
             }
 
             if (_fpsText != null)
-                _fpsText.text = string.Format("FPS {0:0}  ({1:0.0} ms)\nchunks {2}  colliders {3}",
-                    avgFps, 1000f / avgFps, chunks, colliders);
+                _fpsText.text = string.Format("FPS {0:0}  ({1:0.0} ms)\nchunks {2}  colliders {3}\nfar cells {4}",
+                    avgFps, 1000f / avgFps, chunks, colliders, farSectors);
         }
     }
 

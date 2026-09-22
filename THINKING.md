@@ -15,7 +15,80 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
-## 1ee — standing-still CPU costs after 1ea/1e6: streaming poll, HUD repaint, player GetComponent leaks (SHIPPED in `1ee`)
+## 1ef — the far shell: how to get a deep, crisp 2 km view without fog and without an 18.9k-chunk real stream (SHIPPED in `1ef`)
+
+User wanted the view deeper AND crisp (no fog). Working from the 1ee baseline (idle-zero-cost ring at
+radius 67 would be 18,961 real chunks vs 1ee's 31-44 streamed world). Verdict keys are written like the
+rest of this file — raw reasoning, not the shipped-design summary (that lives in PROGRESS §1ef /
+game-design §2.5).
+
+### H1 — raze the real ring to a near ring and fill the far ground with coarse cells → CONFIRMED
+A cheap-but-honest depth trick: keep real `ChunkObject`s (full fidelity, colliders, props, LOD) only
+out to a fixed near ring (9 = 270 m), and let the ground beyond be ONE decimated mesh per aligned cell,
+generated in the background. This scales render distance WITHOUT scaling the real-chunk stream, its LOD
+layers, its collider ring (8) or its prop ring (4) — all the 1a/1dq/1di/1e6 wins stay exactly where the
+player plays, and the far ground costs ~1,400 small static meshes. Evidence the seams line up: real Lod2
+uses a step-3 lattice; the rim cells use step 3 on the same lattice → gapless at the real/shell edge.
+VERDICT: CONFIRMED — shipped as the span hierarchy + ring walk.
+
+### H2 — "no hide logic needed" was WRONG for the chunk the player just left → REJECTED, active-shadow substituted
+First design draft claimed the rim needed no hide logic because the far shell's keep (+1) never loaded
+ring 10, so the rim's first ring was 11. That left a HOLE: real chunks keep one hysteresis ring loaded
+(the near+StreamAround keep pocket), so the chunk the player walks away from is STILL a loaded real
+object at ring 10 while the shell claims ring 10+ — nothing rendered it after the shell went under it.
+Two fixes considered:
+  (a) deactivate the far cell when its real chunk is loaded (active = !loadedChunks), re-activating the
+      same poll the real chunk unloads;
+  (b) exclude ring ≤ near+1 from the shell entirely (keep a permanent real ring 10) — doubles the real
+      stream, no.
+(a) is O(span-1 cells) per poll and needs FarShellTick AFTER FinalizeChunks so a just-materialized real
+chunk hides its cell in the same Update. VERDICT: (a) CONFIRMED — the span-1 "active shadow".
+
+### H3 — a span-3/6 box straddling a band boundary z-fights its own children → hierarchy needed
+First pass chose cells per-chunk: chunk ring R in band B → span-3 cell. But a span-3 CELL whose box
+straddles, say, ring 14/15 (due to the focus being anywhere inside it) can contain chunks in two bands
+— if a child chunk independently decided to be span-1 and the parent also rendered, both draw over the
+same ground. And a span-3 parent whose box reaches ring ≥ FarBandBMin would be required while its
+ring-13 child was also required → overlap. FIX: one `RequiredFarCell` predicate used by BOTH generation
+and the per-chunk mapping — a coarser required parent suppresses its finer children, so every chunk
+maps to exactly one owning cell. Critical comfort check (the "spread facts"): a span-3 box spans ≤2
+rings and a span-6 box ≤5, so a required parent can only suppress fine cells at ring ≥ 12 (B) or ≥ 35
+(C); the rim (≥10), near bands and any shadow the player sees at ring 9-10 are never coarsened. Also
+verified: a required parent box can never contain a hole/loaded chunk (required span-6 has far-ring ≥36
+→ its box is ≥ ~31 away; required span-3 ≥ ~13) so coarse cells never z-fight the real ring either.
+VERDICT: CONFIRMED — `RequiredFarCell` + `FarCellForChunk`.
+
+### H4 — a rim cell destroyed while its real chunk re-loads leaves an approach-edge hole → keep-while-queued added
+Removal scan would destroy the rim cell as soon as the real chunk stops being "required" — but the real
+chunk sits in `_pendingChunks` / `_chunksInFlight` for a moment (the near ring re-approaches), so the
+shell could vanish RIGHT BEFORE the real chunk materializes → a one-or-two-frame hole facing the player.
+FIX: a span-1 cell is never removed while its real coord is queued or in-flight (the real chunk's
+finalize then shadows it next poll). VERDICT: CONFIRMED.
+
+### H5 — how coarse is coarse enough, and which seams are acceptable → step ladder + T-junction accept
+Rim step 3 (matches Lod2, gapless against real Lod2 at ≥60 m AND against ring-10 real chunks), band B
+3/6/9 by far-ring (≤21/≤27/else), band C 12/15 (≤47/else). Steps divide the tile span 30/90/180 so grid
+rows land on chunk boundaries and adjacent same-step cells share their edge lattice. Different-step
+neighbors (e.g. step-6 vs step-3, step-12 vs step-15) have T-junction rows along their shared 90/180 m
+edge — sub-pixel at ≥600 m (band B step rises at radius ≥ ~660 m, band C at ≥ ~1,080 m). Micro-seams
+accepted. The initial fill rate (3 finalized × 20 polls = 60 cells/s) → ~1,400 cells ≈ 20-25 s; the
+teleport/far-jump re-fill is amortized while the player moves. VERDICT: CONFIRMED (blocking on the
+locked `MaxFarFinalizePerPoll = 3` — documented, not "fixed").
+
+### H6 — worker threads must never read shared state → epoch/seed/maxRing passed by value
+`BuildFarSector` computes step from maxRing + span, reads saves via `ChunkSaveManager.TryLoadChunk`
+(static/bg-safe, path pre-cached by the existing `Warmup`), and only touches local arrays + statics —
+consistent with `BuildOrLoadChunk`. `epoch`/`seed`/`maxRing` are captured on the main thread and passed
+in the lambda; `_farEpoch` is bumped on a world reset and a stale `_farReady` entry is dropped at
+finalize (main thread), where `_farInFlight` is also released. One trap avoided: `_farStale` as a field
+would need concurrency care — it is a plain per-poll local list instead. VERDICT: CONFIRMED.
+
+### H7 — the idle gate must not starve a shrinking far shell → far queues join `working`
+Without them, an idle player whose render distance shrank would never destroy the excess sectors (the
+gate returns before the removal scan). `_farPending`/`_farInFlight`/`_farReady`/`_farUnloadBacklog`
+join the 1ee `working` flag; each poll's scan removes ≤24 and clears the backlog when the surplus is
+gone, so the extra polls are finite. The `_lastStreamCentre` default of (0,0) chunk would have also
+skipped the first FarShellTick at the world origin → sentinel `int.MinValue`. VERDICT: CONFIRMED.
 
 Follow-on to the 1ea lag sweep — re-read the per-frame paths in `WorldStreamer` / `UIManager` /
 `PlayerController` hunting work that burns CPU even when the player stands still on the test platform.

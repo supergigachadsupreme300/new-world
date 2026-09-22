@@ -39,6 +39,10 @@ public partial class WorldStreamer : MonoBehaviour
     /// <summary>Chunks around each magic collider request that also keep a collider (1dq).</summary>
     public const int ColliderRequestExpand = 1;
 
+    [Header("Far Shell")]
+    [Tooltip("Size of the REAL chunk ring around the focus (1ef). Within this many chunks terrain streams as full-fidelity ChunkObjects — deformable, collidable, prop-bearing, LOD'd. From this ring out to the render radius the far shell (WorldStreamer.FarShell.cs) covers the ground with coarse background-generated sector meshes. Keep this >= ColliderRingRadius so every collider sits on a real chunk; the real stream additionally keeps one hysteresis ring (near+1) loaded.")]
+    public int NearRingRadius = 9;
+
     [Header("Threading")]
     [Tooltip("Max terrain chunks finalized per poll tick (main-thread work).")]
     public int ChunksPerFrame = 16;
@@ -92,7 +96,9 @@ public partial class WorldStreamer : MonoBehaviour
     // Idle-poll gate (1ee): the streaming pipeline re-runs every poll ONLY when something actually
     // changed — the focus crossed into a new chunk centre, terrain data was marked dirty, or a
     // chunk is still queued/in-flight/ready-to-finalize. An idle, fully-streamed player pays zero.
-    private TerrainChunkCoord _lastStreamCentre;
+    // Sentinel (1ef): never equal to chunk 0,0 so the very first poll always runs the far-shell
+    // pass even if the player spawns at the world origin.
+    private TerrainChunkCoord _lastStreamCentre = new TerrainChunkCoord(int.MinValue, int.MinValue);
     private bool _worldDirty = true;
 
     // Collider reconcile (1ea): the full-map collider walk runs only when the ring box moved, a
@@ -215,19 +221,24 @@ public partial class WorldStreamer : MonoBehaviour
         if (_focus == null)
             return;
 
-        int radius = RenderDistance != null ? RenderDistance.Radius : 3;
+        int view = RenderDistance != null ? RenderDistance.Radius : 3;
+        int near = Mathf.Min(Mathf.Max(NearRingRadius, 0), view);
         TerrainChunkCoord centre = TerrainChunkCoord.FromWorld(_focus.position);
 
-        // 1ee idle gate: skip the whole pipeline while nothing moved and nothing is queued.
-        bool working = _chunkDispatchOrder.Count > 0 || _chunksInFlight.Count > 0 || !_readyChunks.IsEmpty;
+        // 1ee idle gate: skip the whole pipeline while nothing moved and nothing is queued. The
+        // far-shell queues (1ef) participate — an initial far fill or a shrinking shell keeps the
+        // poll alive until it finishes.
+        bool working = _chunkDispatchOrder.Count > 0 || _chunksInFlight.Count > 0 || !_readyChunks.IsEmpty
+            || _farInFlight.Count > 0 || !_farReady.IsEmpty || _farPending.Count > 0 || _farUnloadBacklog;
         if (centre == _lastStreamCentre && !_worldDirty && !working)
             return;
         _lastStreamCentre = centre;
         _worldDirty = false;
 
-        StreamAround(centre, radius);
+        StreamAround(centre, near);
         DispatchPending();
         FinalizeChunks();
+        FarShellTick(centre, view, near);
         ReconcileCollidersIfChanged(centre);
         SyncPropRing(centre);
         StepChunkProps();
