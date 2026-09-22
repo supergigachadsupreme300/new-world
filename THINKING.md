@@ -153,6 +153,55 @@ one-shots — kept (they're brief and pooled).
 
 ---
 
+## 1ec — "Rework the magic projectile model... fire ball would be multiple cubes, smaller stacked on the back" (SHIPPED in `1ec`)
+
+Follow-on to 1eb (static bodies, no particles). User wants the projectile *shape reworked*, and gives
+the model: a fireball = multiple cubes, the smaller ones **stacked on the back**. Reasoning trail below;
+verdicts marked. Not cited as implemented behavior anywhere — docs of record = §3.8 of game-design.md.
+
+### H1 — what exactly reshapes: is this another FX-layer change (like 1eb) or a per-shape restyle? → CONFIRMED = per-shape restyle, all builders, no new state
+The whole visual layer is data-free shape builders in `SpellCaster.Projectiles.cs`; 1eb already removed
+the only FX state (OrbFx). The user's "the projectile detail" from 1eb was the *particles*; now they
+want the *silhouette* itself reworked. Hypothesis: apply the cluster-fade idea to EVERY shape so no
+body contradicts the new look. Confirmed by scoping with the user: all shapes get the cube-cluster
+treatment; bright front / darker back; **fully static** (no animation — preserve the 1eb win). The old
+default `Orb` (stacked shrinking cylinders) and the sphere drops in Splash/Missile/Comet were the
+inconsistent leftovers — `Sphere` primitives retired from projectiles entirely.
+
+### H2 — how should the cluster read? Two candidate formulas → chose save-at-construction static, quadratic taper
+- H2a: keep a per-frame restyle (un-lerp sizes each frame). Rejected — contradicts 1eb's static
+  directive, per-frame cost returns.
+- H2b: build the whole cluster ONCE in the builder (static). Accepted. Formula: `t = i/(count-1)`,
+  `scale = Lerp(lead, minCube, t*t)` → quadratic shrink (front big, fast falloff so the "stack" reads),
+  color `Lerp(color, black, t*fade)` with `fade ≈ 0.75` (darker to the rear), back cubes get jitter +
+  random Z-rotation for a hand-stacked voxel feel. Leader stays full school color, no jitter.
+
+### H3 — what to do with the elongated/composite bodies (Bolt/Lance/Spear/Blade/Dart/Comet-rock/Missile/Debris)?
+Three options considered (reject → adopt):
+- Reject: flatten every shape back to a plain `Cluster` — loses the bolt-diamond/lance/blade reads that
+  the names depend on (§3.8 spells are named after their shapes).
+- **Adopt for composites**: keep the structural silhouette (shaft+tip, cross-blade, segment chain) and
+  add the same dark-fading **trailing flecks** behind it (`AddTrailingFlecks`, 2-3 small cubes,
+  `Lerp(color, black, 0.45+0.2f)`). Bolt/Debris/rock-comet were already cube chains → structural
+  no-change, just doc fix ("Tumbling" clump → "Clustered").
+- **Adopt replacements**: the leftover spheres convert to the cluster look — Splash drop → leading flat
+  cube + 3 darker cube drops; non-rock Comet core → 3-cube mini `Cluster` (`0.2, 3, 0.1, 0.02, fade 0.6`)
+  under the existing streak; Missile volley → each dart a 2-cube mini `Cluster` (`0.12 + 0.07`); Shard
+  → translucent glass lead chip + 2 dimmer glass chips (keeps the glassy frost read, THINKING 1e8-era
+  design) — confirmed via scoping that chipping the "frost = translucent glass" look was NOT wanted.
+- rockBody Comet (Meteor/Asteroid/sky-rocks) stays boulder+cubes+tail: it is deliberately a *rock*, and
+  the user's cluster idea targets the magic-ball silhouettes, not the rock summons.
+
+### H4 — safety: do the reworks risk gameplay, flight, or shared consumers? → CONFIRMED SAFE
+`SpellEffect`'s flight/raycast/damage reads only the root (no collider on bodies; root colliderless per
+1eb). The bench (`CreateProjectileDisplay` in `NewWorldTestGround`) and turret summons (`DecorateProjectile`)
+call the SAME builders → rework propagates for free, no signature change. No public/protected API or
+saved data touched. Verified by grep: `Orb(` gone (only `Cluster(` remain), `PrimitiveType.Sphere` 0
+hits inside `SpellCaster.Projectiles.cs` (remaining spheres are Fishing bobber, world props, cutscene
+eyes, beam end-orb, summon head, storm FX — separate systems, correct to keep as spheres).
+
+---
+
 ## 1e9 — "The upper body bending when moving the cursor up/down is reversed" (SHIPPED in `1e9`)
 
 User report right after 1e8 (they now see the torso clearly). One-line class of bug: sign inversion.

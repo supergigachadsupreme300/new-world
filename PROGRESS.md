@@ -3,6 +3,53 @@
 Last updated: 2026-09-22. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1ec. Rework magic projectiles into voxel cube-clusters (visual revamp, still static)
+
+Follow-on to 1eb. User: "rework the magic projectile model, for example fire ball would be multiple
+cube with smaller on stack on the back." Scoped with the user first (all three locked): (1) **all**
+shapes get the cube-cluster treatment — a **front-leading cube in the school color** with progressively
+**smaller, darker cubes stacked behind it** (-Z, bright core fading into a tapering square tail);
+(2) built once and **fully static** — no per-frame animation, so the 1eb perf win is preserved; (3) the
+cluster idea targets the *magic-ball* silhouettes, not the rock summons (the meteor-line Comet keeps its
+burning boulder). All inside `SpellCaster.Projectiles.cs` — no public API/signature change, so the bench
+(`CreateProjectileDisplay`, `NewWorldTestGround.EnableMagicModels`) and turret summons (`DecorateProjectile`)
+inherit the new bodies for free. No build/CLI run (rule 3) — verified by grep + reread.
+
+- `Assets\Scripts\Combat\Weapons\SpellCaster.Projectiles.cs` —
+  - New `Cluster(name, shader, color, lead, count, spacing, jitter, fade=0.75, minCube=0.05)` helper:
+    leader cube at full school color + `count-1` cubes stacked back at `-i*spacing`, size tapering
+    quadratically `Lerp(lead, minCube, t*t)`, each `Lerp(color, black, t*fade)` dark, jittered and
+    Z-spun. The old `Orb` helper died — the default "fireball/orb" case now returns
+    `Cluster("Orb", …, 0.24, 5, 0.10, 0.03)` (0.24 lead → ~0.05 tail, dark through the stack).
+  - New `AddTrailingFlecks(root, …)` — 2-3 small darker cubes behind any elongated body.
+  - Shape-by-shape (all cubes, **no `Sphere` primitives remain on projectiles**):
+    - **Sphere/orb** → hot voxel Cluster (above). **Shard** → translucent glass lead chip (45° diamond)
+      + 2 dimmer glass chips trailing (keeps the frost = translucent glass read).
+    - **Splash** → water drop cube + 3 smaller darker cube drops. **Comet** (non-rock) → 3-cube mini
+      Cluster core (`0.2, 3, 0.1, 0.02, fade 0.6`) + streak tail; **rockBody** Comet unchanged
+      (boulder+chunks+tail — deliberately a rock, not a ball). **Missile** → three 2-cube mini
+      dart-stacks (`0.12 + 0.07 tail`).
+    - **Lance/Spear/Blade/Dart** → existing silhouette + trailing flecks behind the tail.
+    - **Bolt/Debris** → structural no-change (already cube chains — Bolt tapers 0.17→0.05); stale
+      "Tumbling"/"spins" doc wording fixed to "Clustered"/static.
+  - Grep-verified: `Orb(` has zero remaining call sites; `PrimitiveType.Sphere` no longer appears in
+    this file (remaining spheres in Assets/Scripts are bobbers, world props, cutscene eyes, beam/summon
+    head, storm FX — separate systems, kept).
+
+### 1ec-status
+- Implemented; verified by grep + reread (rule 3, no CLI build): grep for `Orb(` → gone; `Cluster(` /
+  `AddTrailingFlecks(` call sites all within `SpellCaster.Projectiles.cs`; `PrimitiveType.Sphere` → 0
+  hits in the projectiles file, 12 hits elsewhere (all non-projectile and legit). Full file re-read
+  after edits (380 → 434 lines): all 11 shape cases present, braces intact, no orphan builders, no
+  signature changes (public API untouched). game-design §3.8 table rewritten same pass; PROGRESS +
+  THINKING updated same pass.
+- Play-test (pending, user runs Unity): cast every school from a staff/wand/book — Fireball = hot 5-cube
+  stack fading dark; frost chip = 3 glass cubes; Stone Shard = rock clump; Water Bolt = drop + 3 cubes;
+  catch a Meteor/Comet (rock form untouched) and the light Comet; a bolt, Ice Lance, Shadow Spear, Wind
+  Blade, Arcane Missiles, a physical Dart → each reads as its name with the new "bright front stack,
+  darker back" silhouette and **still no particles / no animation / no FPS cost**. Magic-model bench
+  (`EnableMagicModels`) shows the new bodies; impacts unchanged; the 1ea/1eb FPS gains hold.
+
 ## 1eb. Remove magic particles + static projectile bodies (magic FX cost cut)
 
 Follow-on to 1ea. User: "remove the particle effect of magic and make the projectile detail." Scoped

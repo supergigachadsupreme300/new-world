@@ -1040,30 +1040,34 @@ projectile flies as a rough burning boulder). Built by `SkillFx.FallRock` — a 
 Spells: Fire Meteor, Asteroid, Earth Meteor, Comet, Meteor Rain, Rockfall.
 
 Fifth, **Projectile Shapes** — projectile visuals are split into named shapes rather than one element
-color swap, so each spell looks like its name and not a recolor of the same ball:
+color swap, so each spell looks like its name and not a recolor of the same ball. Since `1ec` every
+body is a **voxel cube-cluster**: a front-leading cube in the school color with progressively
+**smaller, darker cubes stacked behind it** (a bright hot core fading into a tapering square tail),
+built once and fully static (no sphere meshes remain on projectiles):
 
 | Shape | Rendered as |
 |---|---|
-| **Bolt** | Jagged segmented bolt along the flight axis (the same segment technique as the thunder-storm event's `SpawnJaggedBolt`) — used by every spell with "Bolt" in the name: Frost Bolt, Chain Lightning, Dark Bolt, Volt, Fork/Leap/Arc/Volt Bolt, Fury Bolt, Shadow/Doom Bolt, Void Rend, and the class-flavored Arcane Bolt. |
-| **Sphere** | Classic orb — school default / the Fireball (Scorch/Burn/Comet use the Comet shape instead). |
-| **Shard** | Diamond crystal in **translucent glass** — frost chips (the Ice school default; Chill Touch). |
-| **Debris** | Clustered grey rock chunks (mixed sizes, random rotations, one leading chunk) — the Earth school's Stone Shard. Dressed like the world's breakable-rock debris (`Color.Lerp(gray, black, rand)` cubes) with two chunks dusted in the earthy tan accent so it reads as magic; a short debris burst also kicks out of the crater at impact. |
-| **Lance** | Long straight pointed spike (shaft + tip), heavier than a bolt — Ice Lance, Frost Pierce, Glacial Impale. |
-| **Spear** | Tapered spear: dark shaft + broad diamond head — Shadow Spear. |
-| **Blade** | Flat cross-blade, **translucent** (alpha ~0.4 so wind reads as a ghost of air) — Wind Blade, Razor Blade, Wind Scissor, Laceration. |
-| **Splash** | Oblate droplet with a trailing splash of smaller drops — Water Bolt, Tidal Surge. |
-| **Comet** | Bright core + fading streak tail — Scorch, Burn, Comet, Frost Bite. The meteor-line **Comet** (`SummonFallingRock`) trades the plain core for a rough **burning boulder** + tail, so it reads as a rock tearing through the sky. |
-| **Missile** | Small clump of darts; **homing** — `SpellEffect.UpdateMissileTargeting` probes the **current trajectory** every frame and prioritizes the target on the flight path (the foe it is about to fly into), otherwise keeps chasing the locked target's last spot (or locks the nearest foe ahead if never locked), steering smoothly at 240°/s so the flight bends; no target = flies straight. Arcane Missiles, Chill Soul. |
-| **Dart** | Sleek thin bolt-line with a tip — physical shots (Archer Wind Shot, Taoist Talisman). |
+| **Bolt** | Jagged 8-segment cube chain along the flight axis (already a cube chain tapering 0.17→0.05, the same segment technique as the thunder-storm event's `SpawnJaggedBolt`) — used by every spell with "Bolt" in the name: Frost Bolt, Chain Lightning, Dark Bolt, Volt, Fork/Leap/Arc/Volt Bolt, Fury Bolt, Shadow/Doom Bolt, Void Rend, and the class-flavored Arcane Bolt. |
+| **Sphere** | Hot voxel orb: a 0.24 lead cube + 4 jittered cubes shrinking to ~0.05 behind it, each darker — the Fireball and every generic orb. (Scorch/Burn/Comet use the Comet shape instead.) |
+| **Shard** | Translucent glass lead chip (45° diamond) + 2 smaller, dimmer glass chips trailing — frost chips (the Ice school default; Chill Touch). |
+| **Debris** | Clustered grey rock cubes (mixed sizes, random rotations, one leading chunk) — the Earth school's Stone Shard. Dressed like the world's breakable-rock debris (`Color.Lerp(gray, black, rand)` cubes) with two chunks dusted in the earthy tan accent so it reads as magic; a short debris burst also kicks out of the crater at impact. |
+| **Lance** | Long straight pointed spike (shaft + tip) with two small trailing flecks behind its tail — Ice Lance, Frost Pierce, Glacial Impale. |
+| **Spear** | Tapered spear: dark shaft + broad diamond head + trailing flecks behind — Shadow Spear. |
+| **Blade** | Flat translucent cross-blade (alpha ~0.4 so wind reads as a ghost of air) + two small ghost cubes trailing — Wind Blade, Razor Blade, Wind Scissor, Laceration. |
+| **Splash** | Water drop cube + a trailing splash of 3 smaller, darker cube drops — Water Bolt, Tidal Surge. |
+| **Comet** | Small voxel core cluster + a fading streak tail cube — Scorch, Burn, Comet, Frost Bite. The meteor-line **Comet** (`SummonFallingRock`) trades the cluster core for a rough **burning boulder** + chunks + tail, so it reads as a rock tearing through the sky. |
+| **Missile** | Three 2-cube mini dart-stacks; **homing** — `SpellEffect.UpdateMissileTargeting` probes the **current trajectory** every frame and prioritizes the target on the flight path (the foe it is about to fly into), otherwise keeps chasing the locked target's last spot (or locks the nearest foe ahead if never locked), steering smoothly at 240°/s so the flight bends; no target = flies straight. Arcane Missiles, Chill Soul. |
+| **Dart** | Sleek thin bolt-line with a tip + small trailing fleck — physical shots (Archer Wind Shot, Taoist Talisman). |
 
 `Auto` resolves per school: Fire→Sphere, Ice→Shard, Lightning→Bolt, Wind→Blade, Water→Splash,
 Earth→Debris, Physical→Dart, everything else→Sphere. Builders live in `SpellCaster.BuildProjectileBody`
-(primitives only), colored per damage type; **since `1eb` the body is fully static — no exhaust
-particles and no in-flight pulse** (the old `OrbFx` scale-pulse/spin modes and the
-`AttachProjectileParticles` exhaust `ParticleSystem` were removed), so projectiles in flight cost only
-their `SpellEffect`; turret summons render the projectile through the same call (`SpellSummon` passes
-the turret spell's shape). Translucency (Wind/Ice) is set via `material.color.a` and relies on the
-`"Sprites/Default"` shader blending (the `"Unlit/Color"` fallback would render opaque).
+(cube primitives only, via the `Cluster` / `AddTrailingFlecks` helpers), colored per damage type;
+**since `1eb` the body is fully static — no exhaust particles and no in-flight pulse** (the old `OrbFx`
+scale-pulse/spin modes and the `AttachProjectileParticles` exhaust `ParticleSystem` were removed), so
+projectiles in flight cost only their `SpellEffect`; turret summons render the projectile through the
+same call (`SpellSummon` passes the turret spell's shape). Translucency (Wind/Ice) is set via
+`material.color.a` and relies on the `"Sprites/Default"` shader blending (the `"Unlit/Color"`
+fallback would render opaque).
 
 #### Casting Flow
 

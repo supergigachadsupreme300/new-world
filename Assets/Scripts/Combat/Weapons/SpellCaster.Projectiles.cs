@@ -77,7 +77,9 @@ public partial class SpellCaster
     /// <summary>
     /// Build a shape-aware visible projectile body for spells with no authored CastEffectPrefab,
     /// so magic skills read on screen. Since 1eb the body is fully static — no exhaust particles
-    /// and no per-frame pulse animation. `shape` is the ProjectileShape
+    /// and no per-frame pulse animation — and since 1ec every body is a **voxel cube-cluster**:
+    /// a front-leading cube in the school color with smaller, darker cubes stacked behind it.
+    /// `shape` is the ProjectileShape
     /// from SpellData (§3.8): Auto resolves to the element default so every projectile still has a
     /// sane look; explicit shapes follow the spell's NAME ("Frost Bolt" = a Bolt, "Ice Lance" = a
     /// Lance, "Stone Shard" = a Debris clump...). Renderer-only: the root keeps no collider so
@@ -104,7 +106,7 @@ public partial class SpellCaster
             case DamageType.Lightning: return ProjectileShape.Bolt; // crackling bolt
             case DamageType.Wind: return ProjectileShape.Blade;     // wind blade
             case DamageType.Water: return ProjectileShape.Splash;   // droplet
-            case DamageType.Earth: return ProjectileShape.Debris;   // tumbling rock chunks
+            case DamageType.Earth: return ProjectileShape.Debris;   // rock chunks
             case DamageType.Physical: return ProjectileShape.Dart;  // arrow / bolt line
             default: return ProjectileShape.Sphere;
         }
@@ -129,7 +131,7 @@ public partial class SpellCaster
             case ProjectileShape.Missile: return Missile("ArcaneMissiles", shader, color);
             case ProjectileShape.Dart: return Dart("Dart", shader, color);
             case ProjectileShape.Debris: return Debris("RockDebris", shader);
-            default: return Orb("Orb", PrimitiveType.Sphere, Vector3.one * 0.22f, shader, color);
+            default: return Cluster("Orb", shader, color, 0.24f, 5, 0.10f, 0.03f); // fireball + generic orbs
         }
     }
 
@@ -148,37 +150,83 @@ public partial class SpellCaster
     private static void Materialize(Transform t, Shader shader, Color color)
         => t.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
 
-    private static Transform Orb(string name, PrimitiveType shape, Vector3 scale, Shader shader,
-        Color color)
+    /// <summary>
+    /// Voxel-cluster projectile body (1ec): one leading cube in the full school color with
+    /// progressively smaller, darker cubes stacked behind it (-Z), so a spell ball reads as a hot
+    /// core fading into a tapering tail. Built once and fully static (1eb) — no per-frame component.
+    /// `count` includes the leader; `fade` pushes each back cube toward black.
+    /// </summary>
+    private static Transform Cluster(string name, Shader shader, Color color, float lead, int count,
+        float spacing, float jitter, float fade = 0.75f, float minCube = 0.05f)
     {
-        var orb = GameObject.CreatePrimitive(shape);
-        orb.name = name;
-        Collider col = orb.GetComponent<Collider>();
-        if (col != null)
-            Destroy(col);
-        orb.transform.localScale = scale;
-        orb.GetComponent<MeshRenderer>().material = new Material(shader) { color = color };
-        return orb.transform;
+        var root = new GameObject(name).transform;
+        for (int i = 0; i < count; i++)
+        {
+            float t = count <= 1 ? 0f : i / (float)(count - 1);
+            float s = Mathf.Lerp(lead, minCube, t * t);
+            Vector3 j = i == 0
+                ? Vector3.zero
+                : new Vector3(
+                    UnityEngine.Random.Range(-jitter, jitter),
+                    UnityEngine.Random.Range(-jitter * 0.6f, jitter * 0.6f),
+                    0f);
+            var cube = Primitive(PrimitiveType.Cube, "Cube" + i, root);
+            cube.localPosition = new Vector3(j.x, j.y, -i * spacing);
+            cube.localScale = Vector3.one * s;
+            if (i > 0)
+                cube.localRotation = Quaternion.Euler(0f, 0f, UnityEngine.Random.Range(0f, 360f));
+            Color c = Color.Lerp(color, Color.black, t * fade);
+            Materialize(cube, shader, c);
+        }
+        return root;
     }
 
-    /// <summary>Diamond-shaped shard that drills forward.</summary>
-    private static Transform Shard(string name, Shader shader, Color color)
+    /// <summary>Append 2-3 small, darker cubes directly behind `root` (-Z) so elongated shapes
+    /// (lance/spear/blade/dart) carry the same voxel fade as the cluster bodies.</summary>
+    private static void AddTrailingFlecks(Transform root, Shader shader, Color color,
+        float fromZ, int count = 2)
     {
-        var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        shard.name = name;
-        Collider col = shard.GetComponent<Collider>();
-        if (col != null)
-            Destroy(col);
-        shard.transform.localScale = new Vector3(0.12f, 0.38f, 0.12f);
-        shard.transform.localRotation = Quaternion.Euler(0f, 45f, 0f);
-        // Translucent glassy frost chip: "Sprites/Default" blends via the material color alpha.
-        Color glass = new Color(color.r, color.g, color.b, 0.5f);
-        shard.GetComponent<MeshRenderer>().material = new Material(shader) { color = glass };
-        return shard.transform;
+        for (int i = 0; i < count; i++)
+        {
+            var fleck = Primitive(PrimitiveType.Cube, "Fleck" + i, root);
+            fleck.localPosition = new Vector3(
+                UnityEngine.Random.Range(-0.02f, 0.02f),
+                UnityEngine.Random.Range(-0.02f, 0.02f),
+                -fromZ - i * 0.09f);
+            float f = count <= 1 ? 0f : i / (float)(count - 1);
+            fleck.localScale = Vector3.one * Mathf.Lerp(0.06f, 0.035f, f);
+            Materialize(fleck, shader, Color.Lerp(color, Color.black, 0.45f + f * 0.2f));
+        }
     }
 
     /// <summary>
-    /// Tumbling cluster of rock chunks — the Earth school's projectile (Stone Shard / stone shards).
+    /// Diamond-shaped shard that drills forward — a translucent glass lead chip with two smaller
+    /// darker glass chips trailing behind it (1ec), keeping the frost chip read fading to the rear.
+    /// </summary>
+    private static Transform Shard(string name, Shader shader, Color color)
+    {
+        var root = new GameObject(name).transform;
+        var lead = Primitive(PrimitiveType.Cube, "Lead", root);
+        lead.localScale = new Vector3(0.12f, 0.38f, 0.12f);
+        lead.localRotation = Quaternion.Euler(0f, 45f, 0f);
+        // Translucent glassy frost chip: "Sprites/Default" blends via the material color alpha.
+        Color glass = new Color(color.r, color.g, color.b, 0.5f);
+        Materialize(lead, shader, glass);
+        for (int i = 0; i < 2; i++)
+        {
+            var chip = Primitive(PrimitiveType.Cube, "Chip" + i, root);
+            float ss = Mathf.Lerp(0.1f, 0.06f, i);
+            chip.localScale = new Vector3(ss, ss * 2.4f, ss);
+            chip.localRotation = Quaternion.Euler(0f, 45f - i * 14f, 0f);
+            chip.localPosition = new Vector3(0f, 0f, -0.16f - i * 0.11f);
+            float dim = 0.85f - i * 0.2f;
+            Materialize(chip, shader, new Color(color.r * dim, color.g * dim, color.b * dim, 0.45f));
+        }
+        return root;
+    }
+
+    /// <summary>
+    /// Clustered rock chunks — the Earth school's projectile (Stone Shard / stone shards).
     /// Mirrors the world's breakable-rock debris look (WorldBuilder.SpawnRockDebris): random grey
     /// <c>Color.Lerp(Color.gray, Color.black, rand)</c> cubes of mixed sizes, clustered with the
     /// leader ahead and the tail trailing so the clump reads as one forward-striking debris blob.
@@ -259,6 +307,7 @@ public partial class SpellCaster
         tip.localPosition = new Vector3(0f, 0f, 0.62f);
         tip.localScale = new Vector3(0.12f, 0.12f, 0.22f);
         Materialize(tip, shader, color);
+        AddTrailingFlecks(root, shader, color, 0.6f);
         return root;
     }
 
@@ -275,10 +324,12 @@ public partial class SpellCaster
         head.localScale = new Vector3(0.24f, 0.07f, 0.44f);
         head.localRotation = Quaternion.Euler(0f, 45f, 0f);
         Materialize(head, shader, color);
+        AddTrailingFlecks(root, shader, color, 0.55f);
         return root;
     }
 
-    /// <summary>Flat slashing cross-blade that spins in its own plane (wind blades / scissor).</summary>
+    /// <summary>Flat slashing cross-blade (wind blades / scissor) with two small ghost cubes trailing
+    /// behind it — translucent ethereal wind.</summary>
     private static Transform Blade(string name, Shader shader, Color color)
     {
         var root = new GameObject(name).transform;
@@ -290,25 +341,27 @@ public partial class SpellCaster
         var b = Primitive(PrimitiveType.Cube, "BladeB", root);
         b.localScale = new Vector3(0.05f, 0.42f, 0.03f);
         Materialize(b, shader, air);
+        AddTrailingFlecks(root, shader, air, 0.24f);
         return root;
     }
 
-    /// <summary>Water droplet (oblate sphere) with a short trailing splash of smaller drops.</summary>
+    /// <summary>Water droplet cube with a short trailing splash of smaller, darker cube drops (1ec —
+    /// spheres retired from projectile visuals in favor of the voxel cluster look).</summary>
     private static Transform Splash(string name, Shader shader, Color color)
     {
         var root = new GameObject(name).transform;
-        var drop = Primitive(PrimitiveType.Sphere, "Drop", root);
+        var drop = Primitive(PrimitiveType.Cube, "Drop", root);
         drop.localScale = new Vector3(0.26f, 0.2f, 0.26f);
         Materialize(drop, shader, color);
         for (int i = 0; i < 3; i++)
         {
-            var trail = Primitive(PrimitiveType.Sphere, "Trail" + i, root);
+            var trail = Primitive(PrimitiveType.Cube, "Trail" + i, root);
             trail.localPosition = new Vector3(
                 UnityEngine.Random.Range(-0.05f, 0.05f),
                 UnityEngine.Random.Range(-0.04f, 0.04f),
                 -0.28f - i * 0.15f);
             trail.localScale = Vector3.one * Mathf.Lerp(0.09f, 0.04f, i / 2f);
-            Materialize(trail, shader, color);
+            Materialize(trail, shader, Color.Lerp(color, Color.black, 0.3f + i * 0.2f));
         }
         return root;
     }
@@ -339,9 +392,10 @@ public partial class SpellCaster
         }
         else
         {
-            var core = Primitive(PrimitiveType.Sphere, "Core", root);
-            core.localScale = new Vector3(0.2f, 0.2f, 0.28f);
-            Materialize(core, shader, color);
+            // The comet core is itself a small voxel cluster (1ec) so its read matches the sphere
+            // default ball spells now use; the streak tail below still fades it to the rear.
+            var core = Cluster("Core", shader, color, 0.2f, 3, 0.1f, 0.02f, fade: 0.6f);
+            core.SetParent(root, false);
         }
         var streak = Primitive(PrimitiveType.Cube, "Streak", root);
         streak.localPosition = new Vector3(0f, 0f, -0.35f);
@@ -350,16 +404,16 @@ public partial class SpellCaster
         return root;
     }
 
-    /// <summary>Cluster of small darts representing a volley (arcane missiles / darts).</summary>
+    /// <summary>Cluster of small voxel darts representing a volley (arcane missiles / darts) — each
+    /// dart is a 2-cube mini stack (1ec).</summary>
     private static Transform Missile(string name, Shader shader, Color color)
     {
         var root = new GameObject(name).transform;
         for (int i = 0; i < 3; i++)
         {
-            var m = Primitive(PrimitiveType.Sphere, "Missile" + i, root);
-            m.localPosition = new Vector3(i * 0.16f - 0.16f, 0f, 0f);
-            m.localScale = Vector3.one * 0.12f;
-            Materialize(m, shader, color);
+            var mini = Cluster("Missile" + i, shader, color, 0.12f, 2, 0.07f, 0.015f, fade: 0.6f);
+            mini.localPosition = new Vector3(i * 0.16f - 0.16f, 0f, 0f);
+            mini.SetParent(root, false);
         }
         return root;
     }
@@ -375,6 +429,7 @@ public partial class SpellCaster
         tip.localPosition = new Vector3(0f, 0f, 0.32f);
         tip.localScale = new Vector3(0.08f, 0.08f, 0.12f);
         Materialize(tip, shader, color);
+        AddTrailingFlecks(root, shader, color, 0.38f);
         return root;
     }
 }
