@@ -6,10 +6,12 @@ Last updated: 2026-09-22. Read this first in a new session; then continue with t
 ## 1ed. Fix CS0236 compile error in WorldStreamer (field init referencing instance method)
 
 Follow-up fix to the 1ea alloc-free sort: `_dispatchSort = CompareDispatchDistance;` was a method-group
-field initializer referencing an instance method — illegal C# (error CS0236 on
-`WorldStreamer.cs:67`). The lambda form `(a, b) => CompareDispatchDistance(a, b)` is legal, binds the
-delegate once at construction (still allocation-free per poll), and keeps the per-instance
-`_dispatchFocus` feed intact. No behavior change.
+field initializer referencing an instance method — illegal C# (error CS0236 on `WorldStreamer.cs:67`,
+so Unity could not compile). First attempt replaced it with a lambda in the initializer, but a lambda
+that captures `this` in a field initializer is equally illegal (same CS0236). Final fix: declare the
+`readonly` field bare and assign it in the constructor (`WorldStreamer() { _dispatchSort =
+CompareDispatchDistance; }`) — legal, binds the delegate exactly once per instance, still
+allocation-free per poll, keeps the per-instance `_dispatchFocus` feed. No behavior change.
 
 ### 1ed-status
 - Implemented; verified by read-back (`WorldStreamer.cs:64-68` and the `DispatchPending` sort at
