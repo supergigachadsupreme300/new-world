@@ -3,6 +3,48 @@
 Last updated: 2026-09-23. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1ep. Player body faces become irregular sizes — non-uniform but covering lattice (±20%), keeping the mosaic watertight
+
+User report: "the faces that make up the player body will be different in sizes but in the final
+still cover all the area, instead of an orderly same-size grid like current." So: an irregular
+hand-cut stone mosaic, verified options via clarifying questions → **all parts** (ellipsoid parts,
+torso silhouette, neck cylinder, hair/eyes) and **subtle ±20% variance**.
+
+- The player part meshes (`Assets\Scripts\Models\PlayerPartMesher.cs`) were a strictly uniform
+  lattice: Rings 7 × Segs 12, every non-pole cell the same 30° × 30° patch (only the 1dx jitter
+  0.03 unit-space + 35% square→triangle split broke it up). Implemented non-uniform spacing by
+  re-emitting the lattice from two deterministic schedules derived from the existing
+  `Hash01`/`AnchorSeed` (so every profile stays byte-identical per build and the cache is unchanged):
+  - `Steps(count, seed, salt, irregularity)` — normalized step weights `1 ± irregularity`
+    (clamped ≥ 0.4, no collapsed slivers); `Positions(weights, total)` — cumulative endpoints,
+    total exact.
+  - **phi/rows** salt `0x1E0F01` (±20% band heights; poles at φ 0/π and torso `t = 0`/`t = 1` —
+    the hip row + crown disc + neck/pivot/dome contracts are untouched), **theta** salt `0x1E0F02`
+    (±20% segment widths, ONE shared schedule per part so cells stay in aligned azimuth planes and
+    quads stay near-planar).
+  - Applied in `Generate` (ellipsoid), `BuildTorso` (rows on the moved `t`, silhouette still
+    piecewise-linear via `Silhouette`), and `BuildCylinder` (facet widths + cap fans).
+  - `CornerUV` now takes the schedule fraction arrays (`θ/2π`, `1−φ/π`) so texel density follows
+    panel size — invisible today (solid-color parts), texture-ready later.
+  - Watertight by construction: every interior corner is a single shared position; only the spacing
+    changes, so each cell still covers its area exactly — the "still covers all the area" requirement.
+- Assets\Scripts\Models\PlayerPartMesher.cs — `BandIrregularity = 0.20f`, `SegIrregularity =
+  0.20f`, `StepWeight`/`Steps`/`Positions` helpers, weighted lattices in `Generate`/`BuildTorso`/
+  `BuildCylinder`, schedule-based `CornerUV`, updated class docblock + constants comments (1ep).
+
+### 1ep-status
+- Implemented; verified by grep + reread (rule 3 — no CLI build). Every `CornerUV` call site now
+  passes the schedule arrays (grep: `CornerUV(lat, s, uf, vf)` in both the ellipsoid and torso band
+  loops + the three fans/caps); no leftover uniform `lat * PI / Rings` / `s * 2PI / Segs` text; the
+  new salts (0x1E0F01/0x1E0F02) are unique vs the existing jitter/split salts; `MapBuilder.MakePart`
+  is still the only consumer (shared cached mesh, sized via localScale — untouched); `MakeBlock`
+  (creatures/vehicles/props) is NOT affected.
+- Play-test (pending, Unity): fresh Play — all body parts read as a hand-cut mosaic with panel sizes
+  visibly varying between cells, yet the surface is fully covered (no see-through/cracks at seams);
+  shoulder dome, crown, hair-over-head and neck-under-crown still overlap exactly as before; pattern
+  is identical on a second Play (deterministic). If the look is wanted stronger, `BandIrregularity` /
+  `SegIrregularity` are single-constant knobs.
+
 ## 1eo. Shrink the loaded range to 900 m (radius 30) and correlate the terrain generation (noise octaves rebalanced) so adjacent tiles track each other
 
 Two requested changes, implemented in one task:

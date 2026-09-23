@@ -536,6 +536,58 @@ DOCS described the old numbers. VERDICT: REJECTED as code work — comments + `g
 - Play-test needs **`ResetTerrainSaves` once** (world look shifts; saved edits persist), then verify
   the 900 m horizon, coherent rolling terrain, no far-edge crack, unchanged near ring/perf.
 
+## 1ep — "the faces that make up the player body will be different in sizes but in the final still cover all the area" = NON-UNIFORM facet lattice, still watertight (FIXED in `1ep`)
+
+The ask, unpacked: the low-poly mosaic should look hand-cut — panels of DIFFERENT sizes — while the
+surface still closes completely (no holes). The current player parts read orderly because the
+`Rings 7 × Segs 12` lattice uses fixed 30°×30° patches everywhere; the 1dx jitter (0.03) and the 35%
+triangle split only break up the interior of that fixed grid. Clarifying questions pinned it: **all
+parts** (ellipsoid, torso, cylinder, hair/eyes) and **subtle ±20%**.
+
+### H1 — the right lever is the parametric LATTICE spacing (not more jitter, not triangulation) → CONFIRMED
+More jitter just wobbles the existing same-size cells without changing their size; splitting cell
+counts (adaptive subdivision) changes sizes but touches adjacency bookkeeping and can crack. The
+minimal, watertight-safe change is to keep the exact same topology and re-emit the corner grid from
+NON-UNIFORM angular/height steps: every interior corner stays one shared position (nothing to
+re-sew), so the surface still covers its area exactly; only the cell sizes change. Two schedules:
+phi (band heights, poles fixed at 0/π) and theta (segment widths; ONE schedule shared by all rows so
+columns stay in vertical planes → quads remain near-planar, flat normals stay valid). VERDICT:
+CONFIRMED — the 1ep implementation.
+
+### H2 — torso rows can also go non-uniform WITHOUT breaking the silhouette/pivot contract → CONFIRMED (endpoints preserved)
+`BuildTorso` places rows at uniform `t` and reads W/D via `Silhouette` (piecewise-linear over the
+control points). Moving the interior rows onto the ±20% `t` schedule with `t[0]=0`, `t[bands]=1`
+fixed keeps the hip row + crown disc exactly where the neck/pivot/dome docs expect them; the moved
+interior rows just sample the piecewise-linear silhouette at new heights, so the shape is
+cosmetically equivalent at finer grain. VERDICT: CONFIRMED — endpoints fixed in code, caps/band loop
+byte-compatible.
+
+### H3 — the seam-caps and part-overlap joints break → REJECTED
+Checked the joints that could show cracks: the hair parts sit OVER the skull (overlap, not joined
+edges), the neck cylinder TUCKS UNDER the crown disc (overlap), the eyeballs seat into dent sockets —
+none of them rely on matching edges between two different meshes; each part is a closed watertight
+surface on its own, and the spacing change keeps every part closed. The only "seams" are within a
+part, exactly where the shared-corner lattice already guarantees adjacency. VERDICT: REJECTED (no
+risk found by reread; play-test will confirm visually).
+
+### H4 — texture mapping: uniform UVs would stretch → handled
+Parts are solid color today, but `CornerUV` used the uniform `s/Segs, lat/Rings` fractions, which
+would no longer match the actual panel sizes once a texture gets added. UVs now come from the same
+schedule arrays (`θ/2π`, `1−φ/π`), so texel density tracks panel size. No visible change now;
+avoids a future texture-stretch bug. VERDICT: handled in-pass.
+
+### Verification (rule 3 — no build)
+- Grep: all 15 `CornerUV(` call sites pass the schedule arrays; no `lat * Mathf.PI / Rings` or
+  `s * (2f * Mathf.PI) / Segs` survive; new salts 0x1E0F01/0x1E0F02 unique vs existing (0x1234AB,
+  0x5678CD, 0x5EEDF, 0xCAFE); only consumer remains `MapBuilder.MakePart` (shared cached mesh), and
+  `MakeBlock` (creatures/props) is untouched.
+- Re-read `Generate` / `BuildTorso` / `BuildCylinder` end-to-end: arrays sized (uf=Segs, vf=Rings+1
+  ellipsoid / rows torso), pole-fan wrap `uf[s % Segs]` matches the old wrap, torso crown index
+  `vf[bands]` in range, cylinder caps use the same theta schedule. All deterministic per profile
+  (same AnchorSeed + Hash01), cached meshes unchanged in contract.
+- Play-test: hand-cut mosaic, no see-through, shoulder dome/crown/hair overlap unchanged, pattern
+  stable across plays; strength knobs are `BandIrregularity`/`SegIrregularity`.
+
 Follow-on to the 1ea lag sweep — re-read the per-frame paths in `WorldStreamer` / `UIManager` /
 `PlayerController` hunting work that burns CPU even when the player stands still on the test platform.
 Target: **Unity Editor Play mode** (user's environment), no gameplay change.

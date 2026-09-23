@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Unit-space, CHUNKY LOW-POLY part meshes for the player model (1dw + 1dx): every body part that
-/// used to be a scaled cube is now a faceted ellipsoid surface that occupies the same half-extent
+/// Unit-space, CHUNKY LOW-POLY part meshes for the player model (1dw + 1dx + 1ep): every body part
+/// that used to be a scaled cube is now a faceted ellipsoid surface that occupies the same half-extent
 /// cube [-0.5, 0.5] as the old shared unit cube, so the part GameObject's localScale = the old size
 /// vector reproduces the exact same world dimensions the cube had. Each part is sculpted with
 /// terrain-style "dent" ops (the WorldStreamer.DeformAt crater carve, generalised to 3D): ellipsoid
@@ -11,7 +11,12 @@ using UnityEngine;
 /// radial. The sculpted corner skeleton is then emitted as FLAT-SHADED low-poly panels (1dx): every
 /// band cell becomes a square panel or a pair of triangle panels (deterministic hash, squares
 /// dominant), with a small deterministic tangent jitter on the SHARED corners so the mosaic reads
-/// hand-cut while staying watertight — no cracks, no see-through.
+/// hand-cut while staying watertight — no cracks, no see-through. Since (1ep) the lattice spacing
+/// itself is NO LONGER UNIFORM: band heights and segment widths follow a deterministic ±20%
+/// schedule, so the panels come out as different-sized cells of a hand-cut stone mosaic instead of
+/// an orderly same-size grid. The shared-corner topology is preserved (every cell still covers its
+/// area exactly — watertight), the poles and the torso endpoints (t = 0 / t = 1) stay fixed, so
+/// silhouettes and pivot contracts are unaffected and every part stays deterministic per profile.
 ///
 /// Meshes are STATIC and SIZE-INDEPENDENT (a cached mesh serves every gender, race ratio and model
 /// variant — the parts are sized purely through Transform.localScale, which is exactly how
@@ -25,6 +30,45 @@ public static class PlayerPartMesher
     private const float Half = 0.5f;
     private const float FacetJitter = 0.03f;  // unit-space tangent nudge per shared corner (1dx)
     private const float SplitChance = 0.35f;  // per-cell chance to become two triangle panels (1dx)
+    // 1ep: NON-UNIFORM lattice — interior band heights (phi / torso-t) and segment widths (theta)
+    // vary deterministically by up to ±Irregularity, so panels differ in size like a hand-cut stone
+    // mosaic. Endpoints (poles, torso t=0/t=1) are preserved and corners stay shared → watertight.
+    private const float BandIrregularity = 0.20f;
+    private const float SegIrregularity = 0.20f;
+
+    /// <summary>1ep: deterministic non-uniform step weight for schedule index i — 1 ± irregularity,
+    /// hash-driven per part, clamped ≥ 0.4 so a row/column can wobble but never collapse to a sliver.</summary>
+    private static float StepWeight(int i, int seed, int salt, float irregularity)
+    {
+        float h = Hash01(i * 37 + 13, seed, salt) - 0.5f; // [-0.5, 0.5]
+        return Mathf.Max(0.4f, 1f + irregularity * (h * 2f));
+    }
+
+    /// <summary>1ep: schedule of <paramref name="count"/> step weights, normalized to sum to 1
+    /// (caller multiplies by the angular/height range). Same seed+salt ⇒ identical every build.</summary>
+    private static float[] Steps(int count, int seed, int salt, float irregularity)
+    {
+        var w = new float[count];
+        float sum = 0f;
+        for (int i = 0; i < count; i++)
+        {
+            w[i] = StepWeight(i, seed, salt, irregularity);
+            sum += w[i];
+        }
+        for (int i = 0; i < count; i++)
+            w[i] /= sum;
+        return w;
+    }
+
+    /// <summary>1ep: cumulative positions from normalized steps — result[0] = 0, result[count] = total.
+    /// Every interior corner stays a single shared position; only the spacing changes (watertight).</summary>
+    private static float[] Positions(float[] weights, float total)
+    {
+        var p = new float[weights.Length + 1];
+        for (int i = 0; i < weights.Length; i++)
+            p[i + 1] = p[i] + weights[i] * total;
+        return p;
+    }
 
     private readonly struct Dent
     {
@@ -171,18 +215,25 @@ public static class PlayerPartMesher
         int grid = (Rings + 1) * Segs;
 
         // Lattice of ellipsoid corners (Rings+1 rows of Segs around), poles handled separately.
+        // 1ep: spacing is no longer uniform — per-band heights (phi) and per-segment widths (theta)
+        // follow a deterministic ±Irregularity schedule, so panels come out as different-sized cells
+        // of a hand-cut stone mosaic. Rows share one theta schedule → cells stay in aligned azimuth
+        // planes (quads near-planar), and endpoints (poles at phi 0/π) are preserved.
+        float[] phi = Positions(Steps(Rings, seed, 0x1E0F01, BandIrregularity), Mathf.PI);
+        float[] theta = Positions(Steps(Segs, seed, 0x1E0F02, SegIrregularity), 2f * Mathf.PI);
         var corners = new Vector3[grid];
         for (int lat = 0; lat <= Rings; lat++)
         {
-            float phi = lat * Mathf.PI / Rings;
-            float py = Mathf.Cos(phi) * Half;
-            float pr = Mathf.Sin(phi) * Half;
+            float py = Mathf.Cos(phi[lat]) * Half;
+            float pr = Mathf.Sin(phi[lat]) * Half;
             for (int s = 0; s < Segs; s++)
-            {
-                float theta = s * (2f * Mathf.PI) / Segs;
-                corners[lat * Segs + s] = new Vector3(Mathf.Cos(theta) * pr, py, Mathf.Sin(theta) * pr);
-            }
+                corners[lat * Segs + s] = new Vector3(Mathf.Cos(theta[s]) * pr, py, Mathf.Sin(theta[s]) * pr);
         }
+        // UVs ride the same schedule (u = θ/2π, v = 1 − φ/π) so texel density follows panel size.
+        var uf = new float[Segs];
+        for (int s = 0; s < Segs; s++) uf[s] = theta[s] / (2f * Mathf.PI);
+        var vf = new float[Rings + 1];
+        for (int lat = 0; lat <= Rings; lat++) vf[lat] = 1f - phi[lat] / Mathf.PI;
         Vector3 poleN = new Vector3(0f, Half, 0f);
         Vector3 poleS = new Vector3(0f, -Half, 0f);
 
@@ -244,7 +295,7 @@ public static class PlayerPartMesher
         // North pole fan (all triangles).
         for (int s = 0; s < Segs; s++)
             EmitTriangle(poleN, corners[Segs + s], corners[Segs + (s + 1) % Segs],
-                CornerUV(0, s), CornerUV(1, s), CornerUV(1, s + 1), verts, uvs, norms, tris);
+                CornerUV(0, s, uf, vf), CornerUV(1, s, uf, vf), CornerUV(1, s + 1, uf, vf), verts, uvs, norms, tris);
 
         // Side bands: each cell becomes a SQUARE panel, or two TRIANGLE panels split along a
         // deterministically chosen diagonal (1dx). Squares dominate; triangles sprinkle in.
@@ -260,22 +311,22 @@ public static class PlayerPartMesher
                     if (Hash01(b * 131 + s, seed, 0xCAFE) < 0.5f) // diagonal TL→BR
                     {
                         EmitTriangle(corners[ctl], corners[ctr], corners[cbr],
-                            CornerUV(b - 1, s), CornerUV(b - 1, s1), CornerUV(b, s1), verts, uvs, norms, tris);
+                            CornerUV(b - 1, s, uf, vf), CornerUV(b - 1, s1, uf, vf), CornerUV(b, s1, uf, vf), verts, uvs, norms, tris);
                         EmitTriangle(corners[ctl], corners[cbr], corners[cbl],
-                            CornerUV(b - 1, s), CornerUV(b, s1), CornerUV(b, s), verts, uvs, norms, tris);
+                            CornerUV(b - 1, s, uf, vf), CornerUV(b, s1, uf, vf), CornerUV(b, s, uf, vf), verts, uvs, norms, tris);
                     }
                     else // diagonal TR→BL
                     {
                         EmitTriangle(corners[ctr], corners[cbr], corners[cbl],
-                            CornerUV(b - 1, s1), CornerUV(b, s1), CornerUV(b, s), verts, uvs, norms, tris);
+                            CornerUV(b - 1, s1, uf, vf), CornerUV(b, s1, uf, vf), CornerUV(b, s, uf, vf), verts, uvs, norms, tris);
                         EmitTriangle(corners[ctr], corners[cbl], corners[ctl],
-                            CornerUV(b - 1, s1), CornerUV(b, s), CornerUV(b - 1, s), verts, uvs, norms, tris);
+                            CornerUV(b - 1, s1, uf, vf), CornerUV(b, s, uf, vf), CornerUV(b - 1, s, uf, vf), verts, uvs, norms, tris);
                     }
                 }
                 else
                 {
                     EmitQuad(corners[ctl], corners[ctr], corners[cbr], corners[cbl],
-                        CornerUV(b - 1, s), CornerUV(b - 1, s1), CornerUV(b, s1), CornerUV(b, s),
+                        CornerUV(b - 1, s, uf, vf), CornerUV(b - 1, s1, uf, vf), CornerUV(b, s1, uf, vf), CornerUV(b, s, uf, vf),
                         verts, uvs, norms, tris);
                 }
             }
@@ -284,7 +335,7 @@ public static class PlayerPartMesher
         // South pole fan (all triangles).
         for (int s = 0; s < Segs; s++)
             EmitTriangle(poleS, corners[(Rings - 1) * Segs + s], corners[(Rings - 1) * Segs + (s + 1) % Segs],
-                CornerUV(Rings, s), CornerUV(Rings - 1, s), CornerUV(Rings - 1, s + 1), verts, uvs, norms, tris);
+                CornerUV(Rings, s, uf, vf), CornerUV(Rings - 1, s, uf, vf), CornerUV(Rings - 1, s + 1, uf, vf), verts, uvs, norms, tris);
 
         var mesh = new Mesh { name = "PlayerPart_" + profileId };
         mesh.SetVertices(verts);
@@ -295,7 +346,10 @@ public static class PlayerPartMesher
         return mesh;
     }
 
-    private static Vector2 CornerUV(int lat, int s) => new Vector2((float)(s % Segs) / Segs, 1f - (float)lat / Rings);
+    /// <summary>UV from the 1ep non-uniform schedule: u follows the segment fractions (wrapping
+    /// at Segs), v follows the height fractions (top = 1) — texel density tracks actual panel size.</summary>
+    private static Vector2 CornerUV(int lat, int s, float[] uf, float[] vf) =>
+        new Vector2(uf[s % Segs], vf[lat]);
 
     /// <summary>
     /// Unit-space round cylinder (1e1): the neck switched from the square masonry pillar to a round
@@ -314,29 +368,33 @@ public static class PlayerPartMesher
         Vector3 botC = new Vector3(0f, -Half, 0f);
 
         // 12 flat side facets (each a quad, per-face outward winding via EmitQuad's centroid check).
+        // 1ep: facets ride the same non-uniform theta schedule as the other parts so the neck's
+        // widths vary in step with the rest of the mosaic.
+        int seed = AnchorSeed("Cylinder");
+        float[] col = Positions(Steps(Segs, seed, 0x1E0F02, SegIrregularity), 2f * Mathf.PI);
+        var uf = new float[Segs];
+        for (int s = 0; s < Segs; s++) uf[s] = col[s] / (2f * Mathf.PI);
         for (int s = 0; s < Segs; s++)
         {
-            float t0 = s * (2f * Mathf.PI) / Segs;
-            float t1 = (s + 1) * (2f * Mathf.PI) / Segs;
-            Vector2 u0 = new Vector2((float)s / Segs, 0f);
-            Vector2 u1 = new Vector2((float)(s + 1) / Segs, 0f);
+            int s1 = (s + 1) % Segs;
+            Vector2 u0 = new Vector2(uf[s], 0f);
+            Vector2 u1 = new Vector2(uf[s1], 0f);
             EmitQuad(
-                new Vector3(Mathf.Cos(t0) * Half, -Half, Mathf.Sin(t0) * Half),
-                new Vector3(Mathf.Cos(t1) * Half, -Half, Mathf.Sin(t1) * Half),
-                new Vector3(Mathf.Cos(t1) * Half, Half, Mathf.Sin(t1) * Half),
-                new Vector3(Mathf.Cos(t0) * Half, Half, Mathf.Sin(t0) * Half),
+                new Vector3(Mathf.Cos(col[s]) * Half, -Half, Mathf.Sin(col[s]) * Half),
+                new Vector3(Mathf.Cos(col[s1]) * Half, -Half, Mathf.Sin(col[s1]) * Half),
+                new Vector3(Mathf.Cos(col[s1]) * Half, Half, Mathf.Sin(col[s1]) * Half),
+                new Vector3(Mathf.Cos(col[s]) * Half, Half, Mathf.Sin(col[s]) * Half),
                 u0, u1, u1, u0, verts, uvs, norms, tris);
         }
 
         // Closed caps (flat triangle fans, no global winding assumption — per-triangle centroid flip).
         for (int s = 0; s < Segs; s++)
         {
-            float t0 = s * (2f * Mathf.PI) / Segs;
-            float t1 = (s + 1) * (2f * Mathf.PI) / Segs;
-            Vector3 a0 = new Vector3(Mathf.Cos(t0) * Half, Half, Mathf.Sin(t0) * Half);
-            Vector3 a1 = new Vector3(Mathf.Cos(t1) * Half, Half, Mathf.Sin(t1) * Half);
-            Vector3 b0 = new Vector3(Mathf.Cos(t0) * Half, -Half, Mathf.Sin(t0) * Half);
-            Vector3 b1 = new Vector3(Mathf.Cos(t1) * Half, -Half, Mathf.Sin(t1) * Half);
+            int s1 = (s + 1) % Segs;
+            Vector3 a0 = new Vector3(Mathf.Cos(col[s]) * Half, Half, Mathf.Sin(col[s]) * Half);
+            Vector3 a1 = new Vector3(Mathf.Cos(col[s1]) * Half, Half, Mathf.Sin(col[s1]) * Half);
+            Vector3 b0 = new Vector3(Mathf.Cos(col[s]) * Half, -Half, Mathf.Sin(col[s]) * Half);
+            Vector3 b1 = new Vector3(Mathf.Cos(col[s1]) * Half, -Half, Mathf.Sin(col[s1]) * Half);
             EmitTriangle(topC, a1, a0, Vector2.zero, Vector2.one, Vector2.zero, verts, uvs, norms, tris);
             EmitTriangle(botC, b0, b1, Vector2.zero, Vector2.one, Vector2.zero, verts, uvs, norms, tris);
         }
@@ -408,19 +466,26 @@ public static class PlayerPartMesher
         int rows = bands + 1;
 
         // Rows are ellipse cross-sections (12 segs) whose width/depth follow the silhouette.
+        // 1ep: rows sit on a deterministic non-uniform height schedule (endpoints t=0 and t=1
+        // FIXED — the hip row, crown disc and the neck/pivot contract are untouched; silhouette is
+        // piecewise-linear so the moved interior rows still interpolate cleanly). Columns share the
+        // same theta schedule as the ellipsoid parts → panel sizes vary, mosaic stays watertight.
+        float[] col = Positions(Steps(Segs, seed, 0x1E0F02, SegIrregularity), 2f * Mathf.PI);
+        float[] tRow = Positions(Steps(bands, seed, 0x1E0F01, BandIrregularity), 1f);
         var corners = new Vector3[rows * Segs];
         for (int lat = 0; lat < rows; lat++)
         {
-            float t = lat / (float)bands;
-            float y = -Half + lat / (float)bands;
+            float t = tRow[lat];
+            float y = -Half + t;
             float W = Silhouette(t, tB, wB);
             float D = Silhouette(t, tB, dB);
             for (int s = 0; s < Segs; s++)
-            {
-                float theta = s * (2f * Mathf.PI) / Segs;
-                corners[lat * Segs + s] = new Vector3(Mathf.Cos(theta) * W, y, Mathf.Sin(theta) * D);
-            }
+                corners[lat * Segs + s] = new Vector3(Mathf.Cos(col[s]) * W, y, Mathf.Sin(col[s]) * D);
         }
+        var uf = new float[Segs];
+        for (int s = 0; s < Segs; s++) uf[s] = col[s] / (2f * Mathf.PI);
+        var vf = new float[rows];
+        for (int lat = 0; lat < rows; lat++) vf[lat] = 1f - tRow[lat];
 
         // Deterministic shared-corner jitter (same scheme/seeds as the ellipsoid lattice → watertight).
         for (int lat = 1; lat < bands; lat++)
@@ -457,22 +522,22 @@ public static class PlayerPartMesher
                     if (Hash01(b * 131 + s, seed, 0xCAFE) < 0.5f)
                     {
                         EmitTriangle(corners[ctl], corners[ctr], corners[cbr],
-                            CornerUV(b - 1, s), CornerUV(b - 1, s1), CornerUV(b, s1), verts, uvs, norms, tris);
+                            CornerUV(b - 1, s, uf, vf), CornerUV(b - 1, s1, uf, vf), CornerUV(b, s1, uf, vf), verts, uvs, norms, tris);
                         EmitTriangle(corners[ctl], corners[cbr], corners[cbl],
-                            CornerUV(b - 1, s), CornerUV(b, s1), CornerUV(b, s), verts, uvs, norms, tris);
+                            CornerUV(b - 1, s, uf, vf), CornerUV(b, s1, uf, vf), CornerUV(b, s, uf, vf), verts, uvs, norms, tris);
                     }
                     else
                     {
                         EmitTriangle(corners[ctr], corners[cbr], corners[cbl],
-                            CornerUV(b - 1, s1), CornerUV(b, s1), CornerUV(b, s), verts, uvs, norms, tris);
+                            CornerUV(b - 1, s1, uf, vf), CornerUV(b, s1, uf, vf), CornerUV(b, s, uf, vf), verts, uvs, norms, tris);
                         EmitTriangle(corners[ctr], corners[cbl], corners[ctl],
-                            CornerUV(b - 1, s1), CornerUV(b, s), CornerUV(b - 1, s), verts, uvs, norms, tris);
+                            CornerUV(b - 1, s1, uf, vf), CornerUV(b, s, uf, vf), CornerUV(b - 1, s, uf, vf), verts, uvs, norms, tris);
                     }
                 }
                 else
                 {
                     EmitQuad(corners[ctl], corners[ctr], corners[cbr], corners[cbl],
-                        CornerUV(b - 1, s), CornerUV(b - 1, s1), CornerUV(b, s1), CornerUV(b, s),
+                        CornerUV(b - 1, s, uf, vf), CornerUV(b - 1, s1, uf, vf), CornerUV(b, s1, uf, vf), CornerUV(b, s, uf, vf),
                         verts, uvs, norms, tris);
                 }
             }
@@ -485,9 +550,9 @@ public static class PlayerPartMesher
         {
             int s1 = (s + 1) % Segs;
             EmitTriangle(new Vector3(0f, Half, 0f), corners[topOff + s1], corners[topOff + s],
-                CornerUV(bands, s), CornerUV(bands, s1), CornerUV(bands, s), verts, uvs, norms, tris);
+                CornerUV(bands, s, uf, vf), CornerUV(bands, s1, uf, vf), CornerUV(bands, s, uf, vf), verts, uvs, norms, tris);
             EmitTriangle(new Vector3(0f, -Half, 0f), corners[s], corners[s1],
-                CornerUV(0, s), CornerUV(0, s), CornerUV(0, s1), verts, uvs, norms, tris);
+                CornerUV(0, s, uf, vf), CornerUV(0, s, uf, vf), CornerUV(0, s1, uf, vf), verts, uvs, norms, tris);
         }
 
         var mesh = new Mesh { name = "PlayerPart_Torso" };

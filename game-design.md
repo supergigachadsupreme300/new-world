@@ -698,11 +698,12 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   applies to the world-discovery flow.)*
 - On change: `PlayerStats` modifiers refresh, the player model **rebuilds** with the race's palette + body ratios (§3.5 Race Visuals), `RaceRig` applies the uniform scale, `RacePassiveManager` re-applies passives. Current HP/FP/stamina preserved as % of their new max.
 
-#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy + 1dz + 1e0 + 1e1 + 1e2 + 1e3 + 1e4 + 1e7 + 1e8)
+#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy + 1dz + 1e0 + 1e1 + 1e2 + 1e3 + 1e4 + 1e7 + 1e8 + 1ep)
 
 - Every body part except the torso/chest silhouette (1e2/1e4 below), the neck cylinder (1e1) and the
   plain joint balls is a **unit-space faceted ellipsoid mesh** instead of a box
-  (`PlayerPartMesher`): a chunkier Rings 7 × Segs 12 corner lattice generated once per part profile,
+  (`PlayerPartMesher`): a chunkier Rings 7 × Segs 12 corner lattice (NON-UNIFORM spacing since 1ep,
+  so the panels come out different sizes) generated once per part profile,
   occupying the same half-extent cube [-0.5, 0.5] as the old shared unit cube — so a part
   GameObject's `localScale` = its size vector reproduces the exact world dimensions. `MakePart`
   (`MapBuilder`) builds these on the same pivot hierarchy the animator/weapon rigs expect;
@@ -720,6 +721,17 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   yet the corners stay shared, so the mosaic is watertight (no cracks/see-through). Each panel
   carries its own flat (face) normal, so the facets visibly catch the light; the dent silhouettes
   still read through the facets.
+- **Irregular facet sizes (1ep)**: the lattice spacing itself is no longer uniform. Band heights
+  (ellipsoid phi rows / torso rows) and segment widths (theta, shared by every row so cells stay in
+  aligned azimuth planes) follow a deterministic **±20%** schedule per part
+  (`Steps`/`Positions` in `PlayerPartMesher`, derived from the same `Hash01`/`AnchorSeed`), so the
+  panels come out as **different-sized cells of a hand-cut stone mosaic** instead of an orderly
+  same-size grid — while every corner stays a single shared position, so each cell still covers its
+  area exactly and the part remains watertight. Poles and the torso endpoints (`t = 0` / `t = 1`,
+  the hip row + crown disc) stay fixed, so silhouettes, the neck/pivot contract and the 1e4 dome
+  geometry are untouched. UVs now ride the same schedule (`θ/2π`, `1−φ/π`), so a future texture's
+  texel density tracks panel size (invisible today — parts are solid colors). All parts share the
+  look: ellipsoids, the torso silhouette, the neck cylinder and hair/eyes.
 - Meshes are **static and size-independent** — one cached mesh per profile serves every gender, race
   ratio and model variant. Sizing happens purely on `Transform.localScale`, so race ratios (§3.5
   below) and weapon hand-scale compensation (`WeaponRigBuilder.ScaleForWorld`) keep working untouched.
