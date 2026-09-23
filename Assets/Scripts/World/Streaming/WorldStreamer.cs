@@ -128,7 +128,7 @@ public partial class WorldStreamer : MonoBehaviour
         _collidersDirty = true;
     }
 
-    /// <summary>Plausible terrain-height band (5-octave noise max ≈ ±63.5 m + ≤ ~4.4 m
+    /// <summary>Plausible terrain-height band (5-octave noise max ≈ ±82.6 m since <c>1eo</c> + ≤ ~4.4 m
     /// deformation headroom). Rejects garbage from a corrupt/non-finite chunk save so it can
     /// never reach a chunk mesh + MeshCollider — a stray ±1000s vertex poisons the physics
     /// broadphase and the Character Controller depenetrates the player thousands of metres on

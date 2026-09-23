@@ -8,10 +8,10 @@ using UnityEngine.InputSystem;
 
 public partial class PlayerController
 {
-    /// <summary>Camera far plane (1ef): must clear the far shell's outer edge at the default
-    /// render radius (67 chunks + 2 keep = 2,070 m) with margin — Unity's default 1,000 would
-    /// clip the whole mid/horizon shell. Sized for the default radius; pushing Render Distance
-    /// far past ~73 chunks clips at this plane.</summary>
+    /// <summary>Camera far plane (1ef; comment updated 1eo): must clear the far shell's outer edge
+    /// at the default render radius (30 chunks + 2 keep = 960 m since 1eo — was 67 + 2 = 2,070 m)
+    /// with margin — Unity's default 1,000 would be borderline. Kept at 2,200 so raising Render
+    /// Distance past the default clamp (~73 chunks) still clears the shell.</summary>
     private const float CameraFarPlane = 2200f;
 
     public void SnapLookYaw(float yaw)

@@ -83,10 +83,12 @@ public class GameBootstrap : MonoBehaviour
         if (worldStreamer.RenderDistance == null)
         {
             var rd = ScriptableObject.CreateInstance<RenderDistanceController>();
-            // 1ef: ~2,000 m horizon (67 chunks). Real ChunkObjects only fill NearRingRadius (9);
-            // the far shell (WorldStreamer.FarShell.cs) covers the rest as coarse sectors.
-            rd.Radius = 67;
-            rd.MaxRadius = 160;
+            // 1eo: ~900 m horizon (30 chunks; was 67 / ~2,000 m since 1ef). Real ChunkObjects only
+            // fill NearRingRadius (9); the far shell (WorldStreamer.FarShell.cs) covers the rest as
+            // coarse sectors. MaxRadius is clamped to the same value so the settings slider cannot
+            // push the loaded range back up (span-6 far cells never appear below radius 36).
+            rd.Radius = 30;
+            rd.MaxRadius = 30;
             worldStreamer.RenderDistance = rd;
         }
         if (worldStreamer.GroundMaterial == null)

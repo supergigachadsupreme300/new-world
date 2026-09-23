@@ -56,11 +56,21 @@ Heights generated using **multiple octaves of Perlin noise**, each layer contrib
 
 | Layer | Purpose | Frequency | Amplitude |
 |-------|---------|-----------|-----------|
-| 1 - Continental | Large-scale landmass shape | 0.001 | 40.0 |
-| 2 - Hills | Rolling terrain | 0.005 | 15.0 |
-| 3 - Detail | Small bumps and dips | 0.02 | 5.0 |
-| 4 - Roughness | Micro-variance | 0.08 | 1.5 |
-| 5 - Pivot Angle | Center vertex offset | 0.01 | 2.0 |
+| 1 - Continental | Large-scale landmass shape | 0.0012 | 55.0 |
+| 2 - Hills | Rolling terrain | 0.004 | 22.0 |
+| 3 - Detail | Small bumps and dips | 0.012 | 3.5 |
+| 4 - Roughness | Micro-variance | 0.03 | 0.6 |
+| 5 - Pivot Angle | Center vertex offset | 0.008 | 1.5 |
+
+**Correlating the generation (1eo):** the 1eo re-weight pushes the octave **mass into the
+long-wavelength layers** (Continental + Hills) and cuts the sub-chunk octaves hard — the old
+Detail 0.02/5 and Roughness 0.08/1.5 ran at wavelengths below a chunk's 30 m, so a raised tile's
+neighbor genuinely did not follow it (the "one tile went up next to a flat tile" checkerboard). Now
+an adjacent tile tracks its neighbors: a raised tile sits among raised tiles and flat runs stay flat,
+the world reads as rolling terrain, and deformation (Earth spell edits, §3.8) feathers into coherent
+land instead of jagged speckle. Net relief is close to before; the ±200 m sanity band is unaffected
+(noise max ≈ ±82.6 m = 55+22+3.5+0.6+1.5). **Recommended: `ResetTerrainSaves` once**, since every
+unmodified generated corner changes (saved edits persist).
 
 **Seed derivation:** Each noise layer uses `seed + layerIndex * 7919` as its seed offset to ensure different patterns per layer.
 
@@ -74,9 +84,13 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
 ### 2.5 Chunk Loading & Render Distance
 
 - The player controls **render distance** in chunk radius.
-- **Default radius:** 67 chunks ≈ 2,010 m half-width (**1ef**; was 30/≈900 m since **1dg**, raised from
-  the former 20/600 m).
-- **Maximum radius:** 160 chunks (code clamp, `RenderDistanceController.MaxRadius`).
+- **Default radius:** 30 chunks ≈ 900 m half-width (**1eo**; was 67/≈2,010 m since **1ef**, and 30/≈900 m
+  before that at **1dg**). The user asked to cut the loaded range: the boot default and the maximum
+  clamp both sit at 30 now (§2.5 note below), so no path — settings slider or scene — can push the
+  far shell past ~900 m.
+- **Maximum radius:** 30 chunks (1eo — was 160; `GameBootstrap` sets `Radius = MaxRadius = 30` and
+  `RenderDistanceController`'s class default/max + inspector range follow, so a future scene asset
+  can't re-widen it either).
 - **Real chunk ring (near, 1ef):** only chunks inside `NearRingRadius` (default **9** ≈ 270 m) stream as
   full-fidelity `ChunkObject`s — deformable, collidable, prop-bearing, LOD'd. `StreamAround` receives
   the NEAR ring, not the render radius, and keeps one hysteresis ring (near+1) loaded, so the real
@@ -86,15 +100,16 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   dropped entries that were BOTH pending AND loaded — but finalize clears the pending mark, so
   finalized chunks were re-dispatched forever, refilling the in-flight slots with the same nearest
   chunks and starving the rest of the ring into a permanent ~24-chunk bubble around the player; the
-  far shell was immune because it skips completed cells, which is why 300 m→2 km rendered while the
-  0-300 m disc stayed empty).
+far shell was immune because it skips completed cells, which is why 300 m→~900 m rendered while the
+   0-300 m disc stayed empty).
 - **Far shell (1ef):** from ring near+1 out to the render radius, `WorldStreamer.FarShell.cs` covers
   the ground with one coarse **cell mesh** per aligned span block — level-of-detail sectors generated on
   the ThreadPool from the SAME per-chunk corner grid the real chunks use (save stamps + noise), so the
   map stays watertight and shares the real ring's seam exactly. Cells: **span-1** rim cells (3 m step)
   at rings 10-14 own the loaded/unloaded **active shadow** (inactive under a real ring-10 chunk, active
   the same poll it unloads — zero hole, zero z-fight), **span-3** cells (rings ≥15, 90 m wide) and
-  **span-6** cells (rings ≥36, 180 m wide) cover the open ground — every cell on the SAME uniform
+  **span-6** cells (rings ≥36, 180 m wide — **1eo: unreachable at the 30-chunk default**, which only
+  exposes span-1 + span-3; span-6 reappears only if the clamp is later raised above 36) cover the open ground — every cell on the SAME uniform
   **3 m step** (11/31/61 verts/axis respectively). One shared lattice means adjacent cells of every span
   carry exact coincident edge rows, so the shell has **no T-junction cracks** (1ej removed the old
   radius step ladder 3/6/9/12/15 whose different-step neighbors left thin visible lines along chunk
@@ -107,7 +122,7 @@ edges), with a
   **96 in flight** (1ek, was 48), 16 finalized/poll but **time-capped at ~2.5 ms/poll on the main
   thread** (1eh — the fast
   fill stays, a single poll never spikes on GameObject/mesh creation; ~120-480 cell meshes/s → initial
-  ~1,400-cell fill ~3-8 s), 32 removals/poll with a backlog flag. Cells are dispatched **near-first**
+  fill ~1.5-4 s at the 30-chunk default, ~1,000 cells — **1eo**, down from ~1,400 at 67), 32 removals/poll with a backlog flag. Cells are dispatched **near-first**
   (1ek, was horizon-first): the pending walk is closest-first and dispatch iterates it forward, so the
   region around the player — where a void is most visible — and the interior close before the distant
   fringe, which fills a moment later (pre-1ek the reverse, horizon-first order let the heavy outer
@@ -118,21 +133,23 @@ edges), with a
   DISABLED** (1eh follow-up): the once-combined batch
    (`StaticBatchingUtility.Combine` via `TryBakeFarShell`, gated by the `FarBakeEnabled` switch) rendered
    the merged far meshes only from below — a back-face/combined-mesh artifact, so every far cell again
-   renders as its own dynamic mesh (known-good from 1ef; **~1,400 draw calls** back). The bake stays in
+   renders as its own dynamic mesh (known-good from 1ef; **~1,000 draw calls** back at the 30-chunk
+   default). The bake stays in
    code behind the switch — re-enable only after a Unity-side root cause on combined-mesh winding. Since
    **1ei** far cells render through a **double-sided (Cull Off) variant** of the ground material
    (`FarGroundMaterial`) so their tops show from above even if a mesh's winding/culling hides the upper
    face — real chunks keep Cull Back — and they **cast no shadows** (`ShadowCastingMode.Off`, 1ei): the
-   ~1,400 far cells no longer draw into the sun's shadow map (no gameplay value beyond 270 m). Collider
+   ~1,000 far cells (1eo; ~1,400 at 67) no longer draw into the sun's shadow map (no gameplay value beyond 270 m). Collider
    ring-crossing cooks are capped at **2/poll** (1ei, was 4) so the synchronous PhysX cooks spread over an
    extra poll. The
    span-1 rim stays dynamic regardless (it owns the active shadow). Far
   cells have **no colliders, no props, and never re-generate** (digs stay
   inside the collider ring 7 < rim 10). The camera far plane is **2200 m** (`PlayerController.Camera.cs`)
-  and the terrain shader adds a **horizon tonal lift** starting ~1600 m at 60% peak strength (no fog —
-  mid-view stays crisp)
-  so the outermost shell reads as atmosphere.
-- **Maximum radius:** 160 chunks (code clamp, `RenderDistanceController.MaxRadius`).
+  — sized back when the default view was ~2 km; at the **1eo** 900 m default it just clears the shell
+  with huge margin, and the shader's **horizon tonal lift** (starts ~1600 m, 60% peak) is now **beyond
+  the loaded world**, so it only engages if the render radius is raised above ~53 chunks. It uses no fog —
+  mid-view stays crisp
+  so the outermost shell reads as atmosphere at the old 2 km range.
 - At each frame, the system calculates which chunks are within radius of the player.
 - Chunks entering radius: loaded from cache or generated.
 - Chunks leaving radius: unloaded from memory (kept in cache on disk).
@@ -146,8 +163,8 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
    rest) without dropping a steady 60 fps (**1di** — the earlier
    16-chunk/12 ms burst shrank the budget so chunk finalization + collider cooking stop competing with the
    frame). Since **1em** this fill actually completes: previously the dispatch loop re-generated the
-   same nearest chunks forever, so the ring stalled at ~24 chunks (see the §2.5 real-ring note). The game bootstrap defaults render radius to **67** (1ef) with a
-  hard clamp of **160** chunks, and the LOD cull distance auto-matches the current render radius so
+   same nearest chunks forever, so the ring stalled at ~24 chunks (see the §2.5 real-ring note). The game bootstrap defaults render radius to **30** (1eo) — was **67** with a
+  hard clamp of **160** (1ef) — and the LOD cull distance auto-matches the current render radius so
   culling never fights the visible ring (far cells are static, not LOD-registered, so the cull budget
   still scales with the REAL near ring).
 - **Boot cost (1e5):** manager lookups go through a `ComponentRegistry` (one shared scene sweep per
@@ -301,7 +318,7 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   (corrupted `bounds` → broken physics broadphase) and the CharacterController gets **depenetrated
   thousands of metres in a single step** ("take one step → teleported to -671, 5164").
 - **Height sanitization:** `WorldStreamer` validates every height read from a `tc_*.dat` save via
-  `IsSaneHeight` (finite **and** inside the ±200 m band — 5-octave noise max ≈ ±63.5 m + deformation
+  `IsSaneHeight` (finite **and** inside the ±200 m band — 5-octave noise max ≈ ±82.6 m **1eo** + deformation
   headroom). Invalid/wild values are treated as **missing corners** and regenerate from noise; a mod
   tile's garbage slot falls back to the (already-sanitized) corner grid. As a final backstop,
   `ChunkMeshGenerator.SanitizeHeight` clamps every vertex Y in `BuildMeshData`,
@@ -1742,13 +1759,15 @@ The active PC URP config — QualitySettings level 1 → `PC_RPAsset.asset` guid
 - **Magic projectiles are render-only and static** (1eb): no exhaust `ParticleSystem` (there is no
   per-flight ParticleSystem simulation left in magic) and no per-frame `OrbFx` pulse on projectile
   children — flight costs only the `SpellEffect` behavior, and the impact crater-debris stays pooled.
-- **Far shell at 2 km** (1ef): the game bootstrap defaults render radius to **67** chunks (~2,010 m)
-  with real `ChunkObject`s only inside `NearRingRadius` 9 (`WorldStreamer.FarShell.cs`) — the open
-  ground out to the radius is background-generated coarse cell meshes (see §2.5), so the render distance
-  grew ~2.2x without growing the real-chunk stream, its LOD layers or its collider/prop rings. Camera
-  far plane **2200 m** and the terrain shader's **horizon tonal lift** (1600-2050 m, ~60% peak,
+- **Far shell at 900 m** (1ef → 1eo): the game bootstrap defaults render radius to **30** chunks (~900 m;
+  **1eo** cut it from 67 / ~2,010 m — the user asked to shrink the loaded range, and the max clamp now
+  equals the default) with real
+  `ChunkObject`s only inside `NearRingRadius` 9 (`WorldStreamer.FarShell.cs`) — the open
+  ground out to the radius is background-generated coarse cell meshes (see §2.5). Camera
+  far plane **2200 m** (kept from the 2 km era; now just clears the shell with margin) and the terrain
+  shader's **horizon tonal lift** (1600-2050 m, ~60% peak,
   `_HorizonColor`)
-  hide the shell edge without fog — the near/mid terrain stays fully crisp.
+  sit **beyond the loaded world** at this default, so no fog — the near/mid terrain stays fully crisp.
 - **Idle streaming stays zero-cost with the shell** (1ef): the 1ee idle gate's `working` flag now also
   covers the far-shell queues (`_farInFlight` / `_farReady` / `_farPending` / `_farUnloadBacklog`), so
   an initial far fill or a shrinking shell keeps the poll alive only until it settles, then an idle

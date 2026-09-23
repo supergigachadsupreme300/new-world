@@ -4,7 +4,8 @@ using System.Threading;
 using UnityEngine;
 
 /// <summary>
-/// Far shell (1ef): extends the streamed terrain out to the ~2 km view at a fraction of the
+/// Far shell (1ef): extends the streamed terrain out to the ~900 m view (30-chunk default since
+    /// 1eo; was ~2 km at 67) at a fraction of the
 /// object/vertex cost by rendering one coarse sector mesh per cell BEYOND the near real-chunk
 /// ring.
 ///
@@ -33,8 +34,9 @@ using UnityEngine;
 ///
 /// Generation: the ring is re-walked each poll (cheap int math) into a pending list (deduped),
 /// dispatched to the ThreadPool like real chunks (MaxFarInFlight cap) and finalized on the main
-/// thread at MaxFarFinalizePerPoll/poll (~320-960 cell meshes/s; the initial ~1,400-cell fill
-/// takes ~1.5-5 s and coasts in the background while the player moves). Cells are dispatched
+/// thread at MaxFarFinalizePerPoll/poll (~320-960 cell meshes/s; the initial ~1,000-cell fill at the
+    /// 30-chunk default — 1eo, down from ~1,400 at 67 — takes ~1.5-4 s and coasts in the background
+    /// while the player moves). Cells are dispatched
 /// near-first (1ek; the pending list is iterated closest-first so the region around the player —
 /// where a void is most visible — closes before the distant fringe, which fills a moment later);
 /// generation AND retention use the
@@ -54,7 +56,8 @@ public partial class WorldStreamer
     /// clear of the rim/near bands; spread <= 2 keeps them off rings &lt; 13).</summary>
     private const int FarBandBMin = 15;
     /// <summary>First ring where span-6 cells may appear (>= FarBandCMin; spread <= 5 keeps them
-    /// off rings &lt; 35 — never over the real/rim bands).</summary>
+    /// off rings &lt; 35 — never over the real/rim bands). 1eo: not reached at the 30-chunk default
+    /// render radius — needs view >= 36 — so span-6 is a high-radius-only band today.</summary>
     private const int FarBandCMin = 36;
     /// <summary>Extra rings beyond the render radius that far cells still generate/retain to, so
     /// the last populated ring clears the nominal view frustum edge with margin.</summary>
@@ -608,7 +611,7 @@ public partial class WorldStreamer
         ChunkMeshGenerator.UploadMerged(merged, mesh);
         mf.sharedMesh = mesh;
         // Far cells render with the double-sided (Cull Off) variant (1ei) — their tops show even if a
-        // mesh's winding/culling would hide the upper face. They cast NO shadows (1ei): ~1,400 cells at
+        // mesh's winding/culling would hide the upper face. They cast NO shadows (1ei): ~1,000 cells at
         // 270 m+ contribute nothing to the sun's shadow map, so dropping them from the shadow pass is a
         // large per-frame cut with zero gameplay change.
         mr.sharedMaterial = FarGroundMaterial != null ? FarGroundMaterial : GroundMaterial;

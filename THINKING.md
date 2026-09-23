@@ -485,6 +485,57 @@ asked for, and the 1/1000 density caps the added bodies at ~5-8k (~1% of the 450
 the untouched 1du keep-alive path. VERDICT: REJECTED (deliberately skipped; re-open only if the body
 count ever shows up in the profiler).
 
+## 1eo — "reduce the max range of terrain loaded" + "change the generate statistic so the tile that went up has a higher chance to generate the same tile as next to it" (FIXED in `1eo`)
+
+Two asks in one ticket: (a) cut the loaded terrain down from 67 chunks, and (b) make the height
+noise COHERENT — a raised tile should sit among raised tiles, not next to a flat one. The user pinned
+the details via clarifying questions: **radius 30 (900 m)** and **noise rebalance only** (no
+deformation-blend/representation change).
+
+### H1 — the live range is `GameBootstrap` only; scene/asset overrides were a red herring → CONFIRMED (range)
+Grep for every `Radius =` / `MaxRadius =` / `RenderDistance` reference: only `GameBootstrap.cs` assigns
+(67/160), `RenderDistanceController` holds class defaults (Radius 30, MaxRadius 160, `[Range(1, 160)]`),
+and no `.unity`/`.asset` file mentions either. So the boot default and the "settings slider ceiling"
+both trace to these two files. The user picked 30 as the max — so the honest move is `Radius = MaxRadius
+= 30` in the bootstrap AND the class default/attribute, so no future scene asset can resurrect 160.
+VERDICT: CONFIRMED — fixed in `1eo`. LOD cull (ChunkLodManager, `(radius+1)*30` ≈ 930 m) and near ring
+(9/keep 10/prop floor `near+1`) all derive from the same `Radius`, hence untouched. Far shell cells at
+radius 30: rings 10..32 ≈ ~900-1,000 vs ~1,400 at 67; span-6 (ring ≥ 36) is now unreachable code-path-
+wise and stays documented as high-radius-only.
+
+### H2 — the "one tile up, one tile flat" speckle came from the high-frequency Perlin octaves → CONFIRMED (correlation)
+`TerrainNoiseGenerator.DefaultLayers` (code-only static array; the far shell, real chunks and saves all
+read heights through the same `GetHeight` corner grid). Detail (0.02 / 5.0) and Roughness (0.08 / 1.5)
+run at wavelengths under a 30 m chunk — a neighbor vertex is dominated by independent ±1.5-5 m noise,
+so an elevated tile need not lift its neighbor. That reads as checkerboard sub-chunk bumps and makes
+deformation edits sit on jagged ground. H2 is only "confirmed" per-mechanism (I cannot run Unity); the
+numeric re-weight is judgment: mass into long wavelengths (Continental 0.0012/55, Hills 0.004/22) while
+cutting the per-1 m slope ~7x (Detail 0.012/3.5, Roughness 0.03/0.6, PivotAngle 0.008/1.5). Same 5
+octaves, same seed derivations, so saves/spells still bind to the same mechanism; amplitudes sum to
+±82.6 m max (was ±63.5) — inside the ±200 m `IsSaneHeight` band, so no sanitization consequence.
+VERDICT: CONFIRMED (mechanism) — fixed in `1eo`.
+
+### H3 — deformation needs a "blend/deform-stat" change too → REJECTED
+The user's wording could be read as "make deformation output correlate" (a spell raising one tile should
+pull neighbors up). The clarifying question resolved it to **noise rebalance only** — deformation stays
+exact per-tile (that's its point: precise craters/pillars/roads). Mixing a correlation term into
+`DeformHeights` would soften edits and conflict with the 1dc/1dd edit semantics. VERDICT: REJECTED by
+user choice; can revisit as a separate magic-design task.
+
+### H4 — shrinking the radius breaks the camera far plane / LOD / shadow expectations → REJECTED (no change needed)
+Far plane 2200 m was sized for 2 km; at 900 m it just clears the shell with margin. LOD cull is derived.
+The horizon tonal lift (1600-2050 m) simply never engages now. All three degrade gracefully; only the
+DOCS described the old numbers. VERDICT: REJECTED as code work — comments + `game-design.md` updated in
+`1eo` only.
+
+### Verification (rule 3 — no build)
+- Grep sweep for `67` / `160` / `2 km` / `2,070` / `1,400` / `±63.5` / `span-6` across `Assets\Scripts`
+  and `game-design.md`: live code clean; every remaining hit is an explicit "was ..." history marker.
+- `DefaultLayers` referenced only via `TerrainNoiseGenerator.GetHeight` (grep) — one shared feed.
+- No scene `.asset`/`.unity` touchpoints for radius or layers (grep).
+- Play-test needs **`ResetTerrainSaves` once** (world look shifts; saved edits persist), then verify
+  the 900 m horizon, coherent rolling terrain, no far-edge crack, unchanged near ring/perf.
+
 Follow-on to the 1ea lag sweep — re-read the per-frame paths in `WorldStreamer` / `UIManager` /
 `PlayerController` hunting work that burns CPU even when the player stands still on the test platform.
 Target: **Unity Editor Play mode** (user's environment), no gameplay change.

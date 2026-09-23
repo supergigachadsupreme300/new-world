@@ -38,13 +38,20 @@ public static class TerrainNoiseGenerator
     // Default spreadsheet for the 5 documented octaves.
     // Layer 1 - Continental landmass, Layer 2 - Hills, Layer 3 - Detail,
     // Layer 4 - Roughness, Layer 5 - Pivot angle offsets.
+    // 1eo: re-weighted for CORRELATION — the mass sits in the long-wavelength layers (Continental /
+    // Hills) and the sub-chunk octaves (Detail / Roughness / PivotAngle) are cut hard, so an
+    // adjacent tile tracks its neighbors: a raised tile sits amid raised tiles, a flat tile amid
+    // flat ones, instead of the old checkerboard of ±1 m bumps (Detail 0.02/5 + Roughness 0.08/1.5
+    // ran at wavelengths below a chunk). Net relief is similar; the world just reads as rolling
+    // terrain and deformation (Earth spells) feathers into it cleanly. Max |height| ≈ 55+22+3.5+
+    // 0.6+1.5 = ±82.6 m (kept well inside the ±200 m sanity band).
     public static readonly NoiseLayerConfig[] DefaultLayers =
     {
-        new NoiseLayerConfig { Name = "Continental", Frequency = 0.001f, Amplitude = 40f },
-        new NoiseLayerConfig { Name = "Hills",        Frequency = 0.005f, Amplitude = 15f },
-        new NoiseLayerConfig { Name = "Detail",       Frequency = 0.02f,  Amplitude = 5f },
-        new NoiseLayerConfig { Name = "Roughness",    Frequency = 0.08f,  Amplitude = 1.5f },
-        new NoiseLayerConfig { Name = "PivotAngle",   Frequency = 0.01f,  Amplitude = 2f },
+        new NoiseLayerConfig { Name = "Continental", Frequency = 0.0012f, Amplitude = 55f },
+        new NoiseLayerConfig { Name = "Hills",        Frequency = 0.004f,  Amplitude = 22f },
+        new NoiseLayerConfig { Name = "Detail",       Frequency = 0.012f,  Amplitude = 3.5f },
+        new NoiseLayerConfig { Name = "Roughness",    Frequency = 0.03f,   Amplitude = 0.6f },
+        new NoiseLayerConfig { Name = "PivotAngle",   Frequency = 0.008f,  Amplitude = 1.5f },
     };
 
     /// <summary>

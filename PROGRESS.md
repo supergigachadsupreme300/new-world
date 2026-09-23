@@ -3,6 +3,52 @@
 Last updated: 2026-09-23. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1eo. Shrink the loaded range to 900 m (radius 30) and correlate the terrain generation (noise octaves rebalanced) so adjacent tiles track each other
+
+Two requested changes, implemented in one task:
+
+1. **Range: 67 (~2,010 m) -> 30 (~900 m), and the max clamp now equals the default.** The
+   user asked to "reduce the max range of terrain loaded" and picked **30 chunks (900 m)**. The
+   only live setter was `GameBootstrap.cs` (`rd.Radius = 67 / rd.MaxRadius = 160`). Now: `Radius =
+   MaxRadius = 30`. `RenderDistanceController`'s class default/max and `[Range]` attributes follow
+   (30), so neither a settings slider nor a future scene asset can re-widen the shell. Real near ring
+   (NearRingRadius 9 / keep 10 / prop ring floor `near+1`) is untouched; the far shell now covers
+   rings 10-32 (~900-1,000 cells, down from ~1,400 at 67); span-6 far cells (ring >= 36) never appear
+   at the default. LOD cull auto-matches (~930 m). Camera far plane stays 2200 m (clears the shell
+   with margin), and the shader's horizon tonal lift (starts ~1600 m) is now beyond the loaded world.
+2. **Generation correlation ("stat" rebalance):** heights come from 5 Perlin octaves
+   (`TerrainNoiseGenerator.DefaultLayers`). Detail (0.02/5) and Roughness (0.08/1.5) ran at
+   wavelengths below a chunk's 30 m, so a raised tile sat next to a flat tile (little ±1 m bumps).
+   Re-weighted so the mass sits in the long-wavelength layers — Continental 0.001/40 -> **0.0012/55**,
+   Hills 0.005/15 -> **0.004/22**, Detail 0.02/5 -> **0.012/3.5**, Roughness 0.08/1.5 -> **0.03/0.6**,
+   PivotAngle 0.01/2 -> **0.008/1.5** — cutting the sub-chunk slope ~7x. Net relief similar; noise max
+   ~±63.5 m -> **±82.6 m** (still well inside the ±200 m `IsSaneHeight` band). This is a **noise
+   rebalance only** (no deformation-blend pass; digs/craters/`DeformHeights` untouched).
+
+- Assets\Scripts\Core\GameBootstrap.cs — `rd.Radius = 30; rd.MaxRadius = 30;` + comment (1eo).
+- Assets\Scripts\World\Streaming\RenderDistanceController.cs — defaults `Radius/MaxRadius = 30`,
+  `[Range(1, 30)]` (was `[Range(1, 160)]` / 160 max).
+- Assets\Scripts\World\Terrain\TerrainNoiseGenerator.cs — `DefaultLayers` rebalanced (values above) +
+  correlation rationale in the doc comment.
+- Assets\Scripts\World\Streaming\WorldStreamer.cs — `MaxTerrainHeight` doc: noise max ±63.5 -> ±82.6.
+- Assets\Scripts\World\Streaming\WorldStreamer.FarShell.cs — class + band-C docs: ~900 m view, ~1,000-
+  cell fill, ~1,000 shadow-less cells, span-6 unreachable below radius 36.
+- Assets\Scripts\Player\PlayerController.Camera.cs — far-plane comment updated (default 960 m now).
+
+### 1eo-status
+- Implemented; verified by grep + reread (rule 3 — no CLI build): every stale `67`/`160`/`2 km`/
+  `1,400`/`±63.5`/`span-6` reference in `Assets\Scripts` and `game-design.md` was updated or marked
+  "was ..." history; grep confirms the only live Radius setters are `GameBootstrap` (30/30) and the
+  `RenderDistanceController` class defaults (30/30) — no scene/.asset override exists; `DefaultLayers`
+  is code-only and feeds the shared corner grid (real chunks + far shell + saves) via `GetHeight`.
+- Play-test (pending, Unity): horizon at ~900 m with the far rim cells around rings 10-32; near-fill
+  unchanged; no crack/hole at the far edge; boot far fill ~1.5-4 s. World look: rolling coherent
+  terrain, a raised tile sits among raised tiles, no ±1 m checkerboard; Earth-spell craters still
+  feather in. **Run `ResetTerrainSaves` once** — every unmodified generated corner shifts (saved edits
+  persist). Perf: fewer far cells (~1,000 vs ~17.5k cells at the old 67 radius) — if the real-ring
+  fill pacing ever matters again, the boot-burst-finalize lever (option A from the pacing analysis)
+  is still available.
+
 ## 1en. Props match the chunk stream — prop ring floored to the real ring (0-330 m) + 15x faster spawn budget (120 -> 1800 tiles/tick)
 
 User report: "the tree and stone generation range is not matching the chunk generation range". Two
