@@ -3,6 +3,64 @@
 Last updated: 2026-09-23. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1el. Far-shell block-coordinate fix — span-3/6 cells were rendered 3x/6x further out, leaving a permanent empty ring past the rim
+
+User play-test after 1ek: "the chunk ring have an offset of 300 x/z there is no chunks loadede in
+there". Clarified by reread (rule 3, no CLI build): the terrain ring visible at ~300 m is the CORRECT
+span-1 rim band (rings 10-14), and everything beyond it was a permanent void — the far shell
+never filled the mid-ground. This is the same "holes / not fully loading / empty interior" family of
+reports behind 1ef→1ek; those passes fixed the fill order / step ladder / starvation, but the root
+cause below was never caught.
+
+Root cause: **`FarCell.X/Z` changed meaning between call sites.** The owning-cell math
+(`FarCellForChunk`, `RequiredFarCell`, `FarCellRings`) treats `FarCell.X/Z` as the block's **min chunk
+coordinate** (chunk units — the parents are built as `FloorDiv(x,6)*6`, `FloorDiv(x,3)*3`, and the
+span-1 rim uses the raw chunk coord, which is provably placed correctly at x·30). But the build +
+placement treated the same value as a **block index** and multiplied by the span again:
+`BuildFarSector` sampled `cell.X * span + cx` (and `cellTileOriginX = cell.X * span * cs`) while
+`CreateFarSector` placed the GO at `cell.X * cell.Span * ChunkData.Size`. Since BOTH the sampled
+chunks and the placement used the same over-scale, each misplaced cell rendered *self-consistent
+correct terrain* — just at the wrong place: every span-3 cell at 3× its true block and every span-6
+cell at 6×, so the shell kept a watertight look wherever a cell landed while leaving the intervening
+rings empty.
+
+Verified arithmetic (grep + reread): a span-3 block owning chunks 15-17 (world 450 m) was sampled +
+drawn at chunk 45 (1,350 m); the nearest visible span-3 strips sat at chunks 45/54/63 (1,350/1,620/
+1,890 m — the "some loaded from far away" of the 1eg report), span-6 cells landed at ring ~216
+(off-view), and the whole 450→~1,300 m band stayed **permanently empty**. The rim band (300-450 m)
+was the only correct far geometry, matching the user's "ring 300 m offset, nothing beyond".
+
+- `Assets\Scripts\World\Streaming\WorldStreamer.FarShell.cs` — removed the over-scale at all three
+  sites, keeping `cell.X/Z` = block min chunk everywhere:
+  - `grids[cz, cx] = BuildFarChunkCorners(new TerrainChunkCoord(cell.X + cx, cell.Z + cz), seed)` (was
+    `cell.X * span + cx`).
+  - `cellTileOriginX/Z = cell.X/Z * cs` (was `* span * cs`) — the cross-seam/boundary world samples now
+    match the corrected chunk mapping.
+  - `CreateFarSector` position = `cell.X/Z * ChunkSize * Size` (was `cell.X/Z * Span * …`). Span-1 rim
+    cells are arithmetically unchanged (Span == 1 makes both formulas identical), so the active-shadow
+    band, `RequiredFarCell`/`FarCellForChunk`/`FarCellRings`, the ring walk, budgets, and dispatch
+    order need no edits (they were already chunk-min based).
+
+### 1el-status
+- Implemented; verified by grep + reread (rule 3 — no CLI build): every `FarCell` construction now
+  follows the chunk-min convention — `FarCellRings` (min X = cell.X, max X + Span - 1), the
+  suppression parents (`FloorDiv(x,6)*6` / `FloorDiv(x,3)*3`), `FarCellForChunk`, the rim active-shadow
+  (`TerrainChunkCoord(cell.X, cell.Z)`), and now the build (`cell.X + cx`), tile origin (`cell.X * cs`)
+  and placement (`cell.X * ChunkSize * Size`). Sample-height cache (`SampleHeight`'s `cxi/lx` clamp),
+  `BuildFarChunkCorners`, bounds, winding, cross-seam `WorldHeight`, and budgets unchanged. No public
+  API/signature change. Watertight re-derivation: adjacent block-min cells × adjacent corners land on
+  shared world coords → heights coincide on the uniform 3 m lattice (sibling watertightness reasoning
+  of §1ej still holds; band B/C suppression boundaries unchanged: span-3 ≤ ring 35, span-6 ≥ 36).
+- Cost note: unchanged — same cell count (~1,400) and per-cell vertex counts; the fill now actually
+  covers the whole visible disc instead of scattering strips.
+- Play-test (pending, Unity): enter Play fresh (full recompile) on the test platform — the far ground
+  must read as ONE continuous surface from the real ring edge (~270 m) out to the ~2 km horizon with
+  **no empty band at any offset**: rim (300-450 m), span-3 mid-band (450→~1,100 m), span-6 outer
+  (→~2 km) all present; no thin lines/cracks at cell or band boundaries; the `far cells` overlay
+  counter should settle near ~1,400; standing/moving FPS unchanged. If any residual hole remains after
+  this pass, the geometry is provably band-complete, so re-check the rim active-shadow interaction with
+  the always-loaded ring-10 hysteresis real chunks (THINKING §1el H3).
+
 ## 1ej. Far shell — permanent "thin lines along every chunk edge" (step-ladder T-junction cracks) → uniform 3 m lattice
 
 User play-test after 1ei reported the far ground beyond the real ring with "spaces" around the loaded

@@ -349,6 +349,54 @@ risk: if a void STILL reads as "interior empty" after near-first, the next suspe
 finalize budget in the Editor starving creation under load, or (b) a specific `FarCellForChunk` mapping
 gap for boundary-adjacent cells — both further re-checks, not the fixed order starve.
 
+## 1el — "the chunk ring has an offset of 300 x/z, there is no chunks loaded in there" = the far-shell cells were placed + sampled 3x/6x too far (FIXED in `1el`)
+
+Play-test of 1ek came back with the far ground STILL not filling beyond a ~300 m ring. This finally
+traced to a coordinate-convention bug in the far shell that had been present since `1ef` — behind the
+"holes / not fully loading / square ring / empty interior" complaints all along. The 1ef→1ek fixes
+(addressed: fill order, budget, step ladder, dispatch starvation, seam normals) were all real but were
+pointing DOWNSTREAM of the same missing band.
+
+### H1 — a ring at EXACTLY 300 m (10 chunks) emptied by the rim active-shadow ↔ hysteresis interplay → REJECTED, replaced by H2
+First reading: ring 10 = 300 m is the near+1 hysteresis ring where real chunks and span-1 far cells
+overlap. Walked the active-shadow sync (`active = !_loadedChunks.ContainsKey`) + StreamAround keep
+(radius+1): a real chunk at ring 10 shows itself, and the far cell activates the same poll it unloads;
+a never-loaded ring-10 far cell renders its mesh directly. No combination of those states leaves ring
+10 permanently bare. VERDICT: REJECTED — the visible ring at ~300 m is simply the *correctly placed*
+rim band (rings 10-14), i.e. the seam between "far shell works (rim)" and "far shell broken (beyond)".
+
+### H2 — span-3/6 cells are RENDERED AND SAMPLED at 3x/6x their true block → CONFIRMED (the bug)
+`FarCellForChunk`/`RequiredFarCell`/`FarCellRings` all read `FarCell.X/Z` as the block's **min chunk
+coordinate** (parents built as `FloorDiv(x,6)*6`, `FloorDiv(x,3)*3`; rim = raw chunk; rings from
+minX=cell.X to maxX+Span-1). But `BuildFarSector` sampled `cell.X * span + cx` and
+`CreateFarSector` placed the GO at `cell.X * cell.Span * ChunkSize` — i.e. the same value used as a
+**block index**, one factor of span too big. Because placement AND sampling share the factor, each
+cell loads *self-consistent correct terrain where it lands* (heights = pure world function of the
+position actually drawn), so nothing looks cracked — the shell just paints the right surface at the
+wrong distance and leaves the unfilled rings behind:
+- span-3 cell owning chunks 15-17 (450 m) → sampled chunks 45-47 + drawn at 1,350 m.
+- Visible span-3 strips land at chunks 45/54/63 = 1,350/1,620/1,890 m ("some loaded from far away",
+  1eg report); span-6 at ring ~216 = 6.5 km (off-view).
+- Band 450 m → ~1,300 m permanently empty → "chunk ring offset, no chunks loaded in there".
+VERDICT: CONFIRMED — root cause.
+
+### H3 — why the rim (span-1) was the only correct band → CONFIRMED, explains every past symptom
+Span-1 makes the two conventions coincide (`cell.X * 1`), so rim cells at rings 10-14 always rendered
+at their true 300-450 m — the persistent "square ring at 300" the user kept describing. The 1ef fill
+slowness, 1eg horizon-first, 1ej step ladder (a REAL separate T-junction bug, fixed), and 1ek
+starvation were each real but each overlapped the empty mid-band; now that near-first (1ek) fills the
+rim instantly, the remaining defect reads plainly. VERDICT: CONFIRMED.
+
+### FIX
+All three over-scale sites now use `cell.X/Z` as the block min chunk: `BuildFarSector` grids
+`cell.X + cx`, `cellTileOriginX/Z = cell.X/Z * cs`, `CreateFarSector` position
+`cell.X/Z * ChunkSize * Size`. Rim cells arithmetically unchanged. Adjacent blocks then abut at
+chunk-min boundaries and siblings share the uniform 3 m lattice world-anchor → the §1ej watertightness
+argument (identical world-anchored corner grids) now actually applies to the WHOLE shell. Re-derived:
+span-3 block 15 → 450 m covering chunks 15-17; block 18 → 540 m (abuts); span-6 block 36 → 1,080 m
+covering 36-41; band suppression unchanged (span-3 ≤ ring 35, span-6 ≥ 36).
+VERDICT: FIXED in `1el`.
+
 Follow-on to the 1ea lag sweep — re-read the per-frame paths in `WorldStreamer` / `UIManager` /
 `PlayerController` hunting work that burns CPU even when the player stands still on the test platform.
 Target: **Unity Editor Play mode** (user's environment), no gameplay change.

@@ -92,8 +92,12 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   **3 m step** (11/31/61 verts/axis respectively). One shared lattice means adjacent cells of every span
   carry exact coincident edge rows, so the shell has **no T-junction cracks** (1ej removed the old
   radius step ladder 3/6/9/12/15 whose different-step neighbors left thin visible lines along chunk
-  edges), with a
-  coarser required parent suppressing its finer children so every chunk has exactly one cell. Budgets:
+edges), with a
+   coarser required parent suppressing its finer children so every chunk has exactly one cell. Cell
+   *block coordinates* `FarCell.X/Z` are the block's **min chunk coordinate in chunk units** everywhere
+   (**1el** — build + placement once multiplied them by the span again, so every span-3/6 cell was
+   rendered 3×/6× further out, leaving the ~450-1350 m mid-band a permanent empty ring).
+   Budgets:
   **96 in flight** (1ek, was 48), 16 finalized/poll but **time-capped at ~2.5 ms/poll on the main
   thread** (1eh — the fast
   fill stays, a single poll never spikes on GameObject/mesh creation; ~120-480 cell meshes/s → initial

@@ -418,12 +418,17 @@ public partial class WorldStreamer
 
         // One (gridSize x gridSize) corner grid per covered chunk (build outside the vertex loop so
         // shared edges between sibling cells see identical worlds). Index: row-major over the chunks.
+        // cell.X/Z are the block's MIN chunk coordinate in chunk units (1el fix: they were multiplied
+        // by span here and in CreateFarSector, so every span-3/6 cell sampled + rendered 3x/6x further
+        // out — the far shell's mid-band stayed permanently empty). The owning-cell math
+        // (FarCellForChunk/RequiredFarCell/FarCellRings) was already chunk-min based, so only this
+        // build + the placement were wrong.
         float[,][,] grids = new float[span, span][,];
         for (int cz = 0; cz < span; cz++)
         {
             for (int cx = 0; cx < span; cx++)
                 grids[cz, cx] = BuildFarChunkCorners(
-                    new TerrainChunkCoord(cell.X * span + cx, cell.Z * span + cz), seed);
+                    new TerrainChunkCoord(cell.X + cx, cell.Z + cz), seed);
         }
 
         float SampleHeight(int gx, int gz)
@@ -456,8 +461,10 @@ public partial class WorldStreamer
 
         // Memoized pristine heights for the band colors exactly like the merged chunk builder.
         var heightMemo = new Dictionary<long, float>(count);
-        int cellTileOriginX = cell.X * span * cs;
-        int cellTileOriginZ = cell.Z * span * cs;
+        // Tile-unit origin of the block's MIN chunk (1el: was cell.X * span, matching the fixed
+        // chunk mapping above — cell.X is already the min chunk coordinate).
+        int cellTileOriginX = cell.X * cs;
+        int cellTileOriginZ = cell.Z * cs;
 
         float minY = float.MaxValue;
         float maxY = float.MinValue;
@@ -586,10 +593,14 @@ public partial class WorldStreamer
         var go = new GameObject($"FarCell_{cell.X}_{cell.Z}_{cell.Span}");
         go.isStatic = true;
         go.transform.SetParent(EnsureFarRoot(), false);
+        // Block-origin placement in world units. cell.X/Z are the block's MIN chunk coordinate and a
+        // chunk is ChunkSize*Size metres, so position = cell.X * 30 exactly (1el: the old
+        // cell.X * cell.Span * … misplaced every span-3/6 cell to 3x/6x its true block). Span-1 rim
+        // cells are unaffected (Span == 1 makes the two formulas identical).
         go.transform.position = new Vector3(
-            cell.X * cell.Span * TerrainChunkCoord.ChunkSize * ChunkData.Size,
+            cell.X * TerrainChunkCoord.ChunkSize * ChunkData.Size,
             0f,
-            cell.Z * cell.Span * TerrainChunkCoord.ChunkSize * ChunkData.Size);
+            cell.Z * TerrainChunkCoord.ChunkSize * ChunkData.Size);
 
         var mf = go.AddComponent<MeshFilter>();
         var mr = go.AddComponent<MeshRenderer>();
