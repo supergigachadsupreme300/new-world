@@ -44,6 +44,55 @@ now REOPENED by the report.
   cannot be far-shell internal seams (geometry is provably watertight) — next check is per-chunk
   save/noise divergence between neighboring corner grids, per THINKING §1ej H3.
 
+## 1ek. Far shell "square ring, inner never fills" = horizon-first dispatch starving the near cells → near-first + 96 in-flight + cross-seam normals
+
+User play-test after 1ej reported the far shell "loads as a **square ring**, not loading the inner
+except for the chunks around the player spot", with "some squares stay **empty forever**"; the ring is
+the boundary at ~270 m around the player. Clarified: these are **missing cells** (not the crease lines
+1ej addressed — those also persist as "still split into grid"). Verified by grep + reread (rule 3, no
+CLI build); Unity play-test pending.
+
+Root cause: `FarShellTick` walks the far rings into `_farPending` closest-first but dispatched it in
+**reverse (horizon-first)**, capped at 48 in-flight — so the farthest, and after 1ej the heaviest,
+outer span-6 cells (36 chunk corner grids + 3,721 verts each) grabbed every flight slot every poll,
+while the near rim/span-3 cells at the front of the list were only dispatched last. Under movement (and
+the Editor) they starved **permanently** → the square outer ring renders while the interior/rim never
+appears. Same mechanism behind the long-running "not fully loading" complaints; 1ej's uniform 3 m step
+(8-14× heavier cells) made it the dominant symptom. Also remains from before: far-cell edge **normals**
+were one-sided (clamped at the cell edge), so the two coincident vertices of every neighbor pair got
+different normals → a permanent lighting crease ("split into grid / thin lines at every chunk edge",
+non-geometric, so 1ej couldn't remove it).
+
+- `Assets\Scripts\World\Streaming\WorldStreamer.FarShell.cs`:
+  - **Near-first dispatch** — the step-(3) loop now iterates `_farPending` FORWARD (closest-first), so
+    the rim/near cells around the player close immediately and the distant fringe fills a moment later
+    (reverses 1eg's horizon-first order; the pending walk was already closest-first). Header + dispatch
+    comments updated.
+  - **`MaxFarInFlight` 48 → 96** — parallelizes the heavy worker builds; finalize stays 2.5 ms/16 cap
+    (no main-thread change).
+  - **Cross-seam normals** — in `BuildFarSector`, when a slope neighbor falls outside the cell
+    (`gx == 0/axis-1`, `gz == 0/axis-1`), the missing side is sampled directly from
+    `TerrainNoiseGenerator.GetHeight(seed, wx ± step, wz)`. The far band has no save mods (collider
+    ring 8 < rim 10), so direct noise equals the neighbor cell's grid value exactly; both cells now
+    compute byte-identical edge normals → no crease at far-cell boundaries or the rim/real junction.
+    Interiors keep the grid read (only boundary rows/cols pay ≤2 extra noise calls).
+
+### 1ek-status
+- Implemented; verified by grep + reread: dispatch loop is the only forward iteration (no other
+  reverse-order caller); `MaxFarInFlight` referenced only by the dispatch loop; `WorldHeight` helper is
+  local to `BuildFarSector` and used only for the out-of-cell seam samples (grid read kept for
+  interiors); no public members touched, no caller signature change; docs in the same pass
+  (game-design §2.5, PROGRESS §1ek, THINKING §1ek H1-H4).
+- Design notes: near-first is the deliberate 1eg reversal — surroundings now fill instantly and the
+  distant fringe shows a transient, out-of-view edge gap on fresh load/teleport (strictly better than a
+  permanent void around the player); 96 worker slots don't touch the main thread's 2.5 ms finalize cap.
+- Play-test (pending, Unity): enter Play fresh (full recompile) — the far shell must fill OUT from the
+  player with **no empty ring/interior**: the rim at 270 m and the mid band appear within the first
+  second, distant fringe a moment later; confirm no cell-boundary fine lines remain (cross-seam
+  normals) and standing/moving FPS is unchanged. If a void still reads "empty interior" after
+  near-first, next check is the 2.5 ms finalize budget starving creation in the Editor or a
+  `FarCellForChunk` mapping gap (THINKING §1ek verdict).
+
 ## 1ei. Far shell "only visible from below" + moving-load hitches
 
 User play-test of the 1eh bake-disable fix **still** reported the far chunks beyond the real ring as

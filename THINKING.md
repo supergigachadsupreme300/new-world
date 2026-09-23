@@ -297,6 +297,58 @@ shipped in `1ej` — see the section header; remaining risk: if thin lines STILL
 source cannot be the far shell's internal seams (geometry provably watertight) and the next check is
 per-chunk save/noise divergence between neighboring `BuildFarChunkCorners` grids — not the step.
 
+## 1ek — "loads as a square ring, the inner stays empty forever" = dispatch-order starvation, not geometry (FIXED in `1ek`)
+
+Play-test after 1ej: "the ring is bigger but still have spaces, and the chunk beyond the ring still
+split into grid". Clarifying answers flipped the diagnosis completely: (a) the far shell "loads as a
+square RING not loading the inner, except the chunks around the player spot"; (b) "some squares stay
+empty FOREVER" standing still; (c) the ring = the boundary at ~270 m around the player. That is NOT a
+crease and NOT a height mismatch — it is **missing cells**: only the outer fringe of the square renders,
+the rim/near-and-mid shell never appears for good. Reasoning trail:
+
+### H1 — geometry still watertight; seams/normals are NOT the "empty interior" → CONFIRMED, then set aside
+Re-read `SampleHeight` (FarShell.cs:424-433) + the chunk-grid slot→world math again: a shared
+edge vertex lands on the same world cell in both neighbors (the `min(t/cs, span-1)` clamp keeps
+`lx = cs` on the far side), and slot→world is byte-identical to the real builder — same deterministic
+GetHeight ⇒ coincident rows. Pool/mesh paths exonerated by direct read too: `AcquireChunkMesh` falls
+back to `new Mesh()` (can never block/exhaust), `UploadMerged` `Clear()`s on size change (safe reuse).
+The far-cell edge normals ARE a real artifact (one-sided clamped difference → a crease line along every
+shared row, "split into grid") — but that explains LINES, not MISSING CELLS. The "empty interior" +
+"permanent" facts force a generation-side cause. VERDICT: normals kept as a secondary fix; the missing
+cells come from H2.
+
+### H2 — horizon-first dispatch starves the near cells → CONFIRMED as the report
+`FarShellTick` walks rings into `_farPending` CLOSEST-first, but dispatch iterates it in
+REVERSE so the farthest cells grab the first 48 flight slots every poll. 1ej's uniform 3 m step
+turned the outer span-6 cells into the heaviest objects in the build: each needs 36 chunk corner grids
+(~34.6k noise samples) + 3,721 vertices, so the 48 slots churn on the slow outer fringe while the near
+(rim/span-3) cells at the FRONT of the list wait — under movement and in the Editor they wait forever →
+the exact "square outer ring + empty interior + permanent empty squares next to the player". All earlier
+"not fully loading" complaints are the same mechanism; 1ej's weight increase made it the dominant
+symptom. VERDICT: CONFIRMED — a dispatch-ORDER bug, not geometry/retention (the requirement predicate
+is provably symmetric between generation and retention).
+
+### H3 — fix: near-first dispatch + more in-flight slots → CONFIRMED, shipped
+Flip dispatch to iterate `_farPending` FORWARD (closest-first), and raise `MaxFarInFlight` 48 → 96.
+Near cells (rim = 11×11, fast) then finalize within one poll, the interior closes immediately, and the
+distant fringe fills as slots free — a transient far-edge gap during fresh load/teleport is far less
+visible than a permanent void around the player. Also confirmed cheap: finalize remains 2.5 ms/16 cap
+(no main-thread change), 96 slots only parallelize worker builds.
+
+### H4 — kill the residual far-cell crease with cross-seam normals → CONFIRMED, shipped as part of 1ek
+For seam rows/cols (`gx == 0/axis-1`, `gz == 0/axis-1`) the missing slope side is now sampled from
+`TerrainNoiseGenerator.GetHeight(seed, wx ± step, wz)` — pure world function, matching exactly what the
+neighbor cell's grid yields (no save mods can exist beyond ring 10), so both cells compute
+byte-identical edge normals. Interiors keep the grid read (no perf cost; only the boundary rows/cols
+take the ≤2 extra noise calls). This removes the lighting crease at far-cell boundaries AND at the
+rim↔real junction, addressing the earlier "split into grid / thin lines at every chunk edge" words that
+survived the 1ej uniform-step fix because they were never geometric.
+
+VERDICT (1ek): near-first + in-flight 96 + cross-seam normals shipped in the section header. Remaining
+risk: if a void STILL reads as "interior empty" after near-first, the next suspects are (a) the 2.5 ms
+finalize budget in the Editor starving creation under load, or (b) a specific `FarCellForChunk` mapping
+gap for boundary-adjacent cells — both further re-checks, not the fixed order starve.
+
 Follow-on to the 1ea lag sweep — re-read the per-frame paths in `WorldStreamer` / `UIManager` /
 `PlayerController` hunting work that burns CPU even when the player stands still on the test platform.
 Target: **Unity Editor Play mode** (user's environment), no gameplay change.

@@ -94,11 +94,18 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   radius step ladder 3/6/9/12/15 whose different-step neighbors left thin visible lines along chunk
   edges), with a
   coarser required parent suppressing its finer children so every chunk has exactly one cell. Budgets:
-  48 in flight, 16 finalized/poll but **time-capped at ~2.5 ms/poll on the main thread** (1eh — the fast
+  **96 in flight** (1ek, was 48), 16 finalized/poll but **time-capped at ~2.5 ms/poll on the main
+  thread** (1eh — the fast
   fill stays, a single poll never spikes on GameObject/mesh creation; ~120-480 cell meshes/s → initial
-  ~1,400-cell fill ~3-8 s), 32 removals/poll with a backlog flag. Cells are dispatched **horizon-first**
-   (the farthest rings finalize before the closer ones) so the distant band the player actually sees
-   closes within seconds. **Static baking is DISABLED** (1eh follow-up): the once-combined batch
+  ~1,400-cell fill ~3-8 s), 32 removals/poll with a backlog flag. Cells are dispatched **near-first**
+  (1ek, was horizon-first): the pending walk is closest-first and dispatch iterates it forward, so the
+  region around the player — where a void is most visible — and the interior close before the distant
+  fringe, which fills a moment later (pre-1ek the reverse, horizon-first order let the heavy outer
+  span-6 cells hog every flight slot, starving the near cells into a permanent-looking empty square
+  ring). Far-cell boundary **normals are cross-seam** (1ek): at cell edges the slope's beyond-sample
+  comes from the pure world heights, so neighboring cells compute byte-identical boundary normals and
+  no lighting crease shows along any far-cell edge or at the rim/real junction. **Static baking is
+  DISABLED** (1eh follow-up): the once-combined batch
    (`StaticBatchingUtility.Combine` via `TryBakeFarShell`, gated by the `FarBakeEnabled` switch) rendered
    the merged far meshes only from below — a back-face/combined-mesh artifact, so every far cell again
    renders as its own dynamic mesh (known-good from 1ef; **~1,400 draw calls** back). The bake stays in

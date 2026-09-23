@@ -35,8 +35,9 @@ using UnityEngine;
 /// dispatched to the ThreadPool like real chunks (MaxFarInFlight cap) and finalized on the main
 /// thread at MaxFarFinalizePerPoll/poll (~320-960 cell meshes/s; the initial ~1,400-cell fill
 /// takes ~1.5-5 s and coasts in the background while the player moves). Cells are dispatched
-/// horizon-first (pending list iterated in reverse) so the far band — what the player sees — closes
-/// before the closer rings; generation AND retention use the
+/// near-first (1ek; the pending list is iterated closest-first so the region around the player —
+/// where a void is most visible — closes before the distant fringe, which fills a moment later);
+/// generation AND retention use the
 /// SAME predicate (is-required), so a cell whose ring falls outside keep while in-flight is dropped
 /// at finalize instead of being created stale. Removals are capped per poll (MaxFarUnloadsPerPoll)
 /// with a backlog flag that keeps the stream working until the excess is destroyed.
@@ -60,8 +61,10 @@ public partial class WorldStreamer
     private const int FarOuterKeep = 2;
 
     // --- Far shell budgets (main thread) ---
-    /// <summary>Max far-sector meshes being built on the ThreadPool simultaneously.</summary>
-    private const int MaxFarInFlight = 48;
+    /// <summary>Max far-sector meshes being built on the ThreadPool simultaneously (1ek: raised from
+    /// 48 so the near-first dispatch keeps the region around the player filling fast even while the
+    /// heavy outer span-6 cells build).</summary>
+    private const int MaxFarInFlight = 96;
     /// <summary>Hard cap: max far-sector GameObjects created per poll tick (~320-960/s at 60 fps).</summary>
     private const int MaxFarFinalizePerPoll = 16;
     /// <summary>Soft cap: far-sector creation is additionally time-budgeted per poll (1eh) so a poll
@@ -310,12 +313,14 @@ public partial class WorldStreamer
         }
 
         // (3) Dispatch. State captured up front: step (uniform 3 m since 1ej) + span passed by value
-        // on the worker, epoch from the field read now. The pending list is walked closest-first
-        // (step 2), so iterating it in reverse dispatches the farthest cells (the visible horizon)
-        // first; near rings fill moments later and are always covered meanwhile by real chunks.
+        // on the worker, epoch from the field read now. The pending list is walked closest-first,
+        // so iterating it FORWARD (1ek) dispatches the rim/near cells that surround the player FIRST —
+        // the void around the player closes immediately and the distant fringe fills a moment later.
+        // (Pre-1ek this iterated in reverse — horizon-first — which let the heavy outer span-6 cells
+        // hog every flight slot and starved the near cells into a permanent-looking empty ring.)
         long seed = Seed;
         int epoch = _farEpoch;
-        for (int i = _farPending.Count - 1; i >= 0 && _farInFlight.Count < MaxFarInFlight; i--)
+        for (int i = 0; i < _farPending.Count && _farInFlight.Count < MaxFarInFlight; i++)
         {
             FarCell cell = _farPending[i];
             if (!_farInFlight.TryAdd(cell, 0))
@@ -432,6 +437,17 @@ public partial class WorldStreamer
             return ChunkMeshGenerator.SanitizeHeight(grids[czi, cxi][lx, lz]);
         }
 
+        // 1ek: at the cell's edge rows/cols the slope's "beyond" side falls outside this cell's
+        // chunk grids, so it is sampled directly from the pure world heights. The far band has no
+        // save mods (collider ring 8 < rim start 10, digs can never reach it), so direct GetHeight
+        // equals exactly what the neighboring cell's grid holds there — both cells then compute
+        // byte-identical boundary normals and no lighting crease shows along any shared edge
+        // (or at the rim/real-junction).
+        float WorldHeight(int tileX, int tileZ)
+        {
+            return ChunkMeshGenerator.SanitizeHeight(TerrainNoiseGenerator.GetHeight(seed, tileX, tileZ));
+        }
+
         int count = axis * axis;
         var vertices = new Vector3[count];
         var normals = new Vector3[count];
@@ -456,13 +472,17 @@ public partial class WorldStreamer
                 colors[v] = ChunkMeshGenerator.TerrainBandColor(seed, wx, wz, h, heightMemo);
                 uvs[v] = Vector2.zero;
 
-                // Central-difference slope normals (one-sided at the grid edges, spacing = step).
-                int a = Mathf.Max(0, gx - 1);
-                int b = Mathf.Min(axis - 1, gx + 1);
-                int c = Mathf.Max(0, gz - 1);
-                int d = Mathf.Min(axis - 1, gz + 1);
-                float dhdx = (SampleHeight(b, gz) - SampleHeight(a, gz)) / (2f * step);
-                float dhdz = (SampleHeight(gx, d) - SampleHeight(gx, c)) / (2f * step);
+                // Central-difference slope normals (spacing = step). Interiors read the chunk grids
+                // as before; the clamped seam side is pulled across the boundary via WorldHeight so
+                // both cells at a shared row agree exactly (no seam crease, no T-junction lighting).
+                int a = gx - 1, b = gx + 1;
+                int c = gz - 1, d = gz + 1;
+                float hl = a < 0 ? WorldHeight(wx - step, wz) : SampleHeight(a, gz);
+                float hr = b >= axis ? WorldHeight(wx + step, wz) : SampleHeight(b, gz);
+                float hu = c < 0 ? WorldHeight(wx, wz - step) : SampleHeight(gx, c);
+                float hd = d >= axis ? WorldHeight(wx, wz + step) : SampleHeight(gx, d);
+                float dhdx = (hr - hl) / (2f * step);
+                float dhdz = (hd - hu) / (2f * step);
                 normals[v] = new Vector3(-dhdx, 1f, -dhdz).normalized;
 
                 if (h < minY) minY = h;
