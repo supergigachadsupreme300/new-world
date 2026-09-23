@@ -3,6 +3,51 @@
 Last updated: 2026-09-23. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1en. Props match the chunk stream — prop ring floored to the real ring (0-330 m) + 15x faster spawn budget (120 -> 1800 tiles/tick)
+
+User report: "the tree and stone generation range is not matching the chunk generation range". Two
+distinct defects, both about the prop stream trailing the terrain stream:
+
+1. **Range:** `PropRingRadius` defaulted to 4 (≈120 m) and nothing ever raised it at runtime — a
+   scene-serialized 4 silently restricted props while the near ring streamed real chunks to ring 9
+   and the far shell covered rings 10-69. Trees/stones stopped at ~120 m while terrain rendered to
+   300 m (real) and beyond (coarse far shell). Fix: `SyncPropRing` now takes `near` and enforces a
+   **floor of `near + 1`** (rings 0..10, ≈ 0-330 m) — the full set of real chunks that actually
+   render full-fidelity geometry incl. the hysteresis keep ring — and the serialized value can only
+   push the ring wider. This also covers the new "mining the ring-8-10 trees" distance, so prop
+   colliders (which mine/axe raycasts hit) reach the same keep-ring chunks the player can now chop.
+2. **Pace:** `PropTilesPerTick` was 120 tiles/tick (20 Hz => ~2.7 chunks/s => a 441-chunk ring would
+   take **~135 s** to fill; even the old ring 4 took ~30 s). That budget was sized for the pre-1dm
+   1/200 density; after the odds fell 5x to 1/1000 the tile scan itself is nano-cheap (two
+   Random.Next per tile) and 120 tiles roll only ~0.24 expected props. Fix: `120 -> 1800` (15x) =>
+   ~26.7 chunks/s => the **whole ring fills in ~11 s**, trailing the ~6 s terrain pace as the docs
+   intend; ~3.6 expected spawns/tick (~1 ms tree/rock building) stays under `PropBudgetMs` 3.
+
+Deliberately NOT done (Part 4 of the plan): tying prop BoxColliders to the terrain collider ring.
+At the 1/1000 density the extend-from-ring-4->ring-10 adds only ~5-8k static bodies (~1% of the
+~450k old worst case that 1di removed), and keeping every spawned prop collidable preserves
+chopping/mining across the whole ring it now reaches.
+
+- Assets\Scripts\World\Streaming\WorldStreamer.Props.cs — `SyncPropRing(centre, near)` ring floor
+  `Mathf.Max(PropRingRadius, near + 1)`; `PropTilesPerTick 120 -> 1800`; doc blocks updated.
+- Assets\Scripts\World\Streaming\WorldStreamer.cs — call site `SyncPropRing(centre, near)`;
+  `PropRingRadius` default 4 -> 9 + tooltip (floor semantics).
+
+### 1en-status
+- Implemented; verified by grep + reread (rule 3 — no CLI build). `SyncPropRing` has one call site
+  (WorldStreamer.cs) and it now passes `near`; the effective ring is `max(9, 9+1) = 10` = 441
+  chunks; chunk-op count unchanged (forest pop-in boundary now sits exactly on the real/far ring
+  seam at 300-330 m where terrain turns into decimated far cells — the last visible pop-in edge).
+  Collider behavior untouched (props keep full colliders, so chop/rock targets stay hit-able at the
+  new range).
+- Play-test (pending, Unity): fresh Play on the test platform — trees/stones must fill the WHOLE
+  0-300 m disc (not just the old 120 m), arriving a few seconds behind the terrain fill (not ~2
+  minutes), tree+rock ~1-in-1000 density visibly unchanged when close, and props on the ring
+  8-10 keep chunks appear/disappear with chunk streaming (no props on the far rim cells beyond). No
+  new hitching during the ~11 s fill; axe/pickaxe still hits props out to the ring edge. If the
+  fill still looks slow, the next lever is `PropTilesPerTick` (each tick remains ~1 ms) — or Part 4
+  (prop colliders follow the terrain collider ring) if the body count ever matters.
+
 ## 1em. Real-ring dispatch starvation — finalized chunks re-dispatched forever, locking the near ring at a ~24-chunk bubble ("no chunks within 300 m except the closest")
 
 New user signature: "within 300 from player spawnpoint there were no chunk spawn beside the one

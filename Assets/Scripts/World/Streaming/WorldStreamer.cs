@@ -34,8 +34,8 @@ public partial class WorldStreamer : MonoBehaviour
     public RenderDistanceController RenderDistance;
 
     [Header("Props")]
-    [Tooltip("Trees/rocks stream only within this many chunks of the focus (Chebyshev ring, 1di). Chunks beyond it keep their terrain mesh + collider but NO props, so the distant radius-N ring never spawns ~33k prop GameObjects — the ~450k BoxCollider physics load and ~33k scene-graph renderers collapse to the ring alone. Pop-in reads as normal streaming since the ring follows the player.")]
-    public int PropRingRadius = 4;
+    [Tooltip("Prop-ring floor: trees/rocks stream on every chunk the REAL chunk stream holds (rings 0..near+1), and this value may push the prop stream wider still (Chebyshev ring, 1di). Since 1en the floor is enforced ({near+1}) so the prop range never trails the chunk range again — a serialized 4 no longer silently limits props to 120 m while terrain renders to 300 m. The terrain mesh + collider stay loaded for the whole ring; only the prop GameObjects follow this ring, so the distant radius-N ring never holds the ~33k prop GOs / ~450k BoxColliders of the old full-stream.")]
+    public int PropRingRadius = 9;
 
     [Header("Colliders")]
     [Tooltip("Collider-on-demand ring (1dq/1eh): terrain MeshColliders exist only on chunks within this many chunks of the focus (plus any chunk under an active spell projectile). Everything further still renders its full mesh but has no physics — the draw stays identical while the collider cooks / 7k-tri broadphase bodies drop ~92% at the default radius. 1eh: 8 -> 7 (289 -> 225 bodies swept by every Move) — still below NearRingRadius so every collider stays on a real chunk.")]
@@ -248,7 +248,7 @@ public partial class WorldStreamer : MonoBehaviour
         FinalizeChunks();
         FarShellTick(centre, view, near);
         ReconcileCollidersIfChanged(centre);
-        SyncPropRing(centre);
+        SyncPropRing(centre, near);
         StepChunkProps();
     }
 

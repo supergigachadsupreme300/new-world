@@ -448,6 +448,43 @@ generation-not-yet-finalized in the first seconds — a pacing check, not a re-b
 from `_chunkDispatchOrder` (+ pending marks). Ring fills nearest-first to completion, then the list
 drains to zero and the stream idles. VERDICT: FIXED in `1em`.
 
+## 1en — "tree and stone generation range does not match the chunk generation range" = prop ring had no runtime floor (serialized 4 left a 120→300 m prop-less band) AND the spawn budget was stale for the 1dm density (FIXED in `1en`)
+
+Two independent causes; the first charmed me for a while because the source default looked fine.
+
+### H1 — `PropRingRadius` default 4 is just a tuning choice the user dislikes → REJECTED (symptom of H2)
+The field sits at 4 with a comment about popping, but nothing assigns it at runtime (grep found no
+`PropRingRadius =` besides the declaration) and Unity serialized it in the scene — so even raising the
+C# default would NOT have changed the game. The effective ring was whatever the scene stored (4),
+baked independently of `NearRingRadius` (9) and `RenderDistance`. Two independent serialized values
+with no derivation = the exact "matches?" bug class. VERDICT: REJECTED as the root cause; it is the
+*manifestation* of H2 (no derivation).
+
+### H2 — props should be a DERIVED ring (floor = real chunk stream), and they weren't → CONFIRMED (the range bug)
+Re-read the real stream: chunks 0..`near` stream as real geometry, PLUS a keep ring `near+1` loaded
+for hysteresis (ring 10 still a real mesh until the far active-shadow takes over). The far shell has
+no props by design (`no props, no deformation` — FarShell.cs; and you can't dig them). So "props
+match chunks" = props on every chunk that renders real geometry = rings 0..`near+1`. The fix is a
+FLOOR, not a value swap: `ring = max(PropRingRadius, near + 1)` so an inspector value can still widen
+the prop-only fringe but can never re-create the trailing mismatch, and scene-serialization is
+irrelevant. VERDICT: CONFIRMED — fixed in `1en`.
+
+### H3 — the ~2-minute prop fill is a separate pace bug: the tile budget was sized for the OLD density → CONFIRMED (the pace bug)
+With `PropTilesPerTick = 120` at 20 Hz the scan moves 2,400 tiles/s ≈ 2.67 chunks/s → a 441-chunk
+ring ≈ 135 s. But that budget predates `1dm`'s 5x density cut (1/200 → 1/1000): each tile costs two
+Random.Next (~nanoseconds) and a spawn fires every ~1000 rolls, so 120 tiles expected ~0.24 props —
+the budget was throughput-bound only in the old 1/200 regime. Scaling the scan 15x (1800 tiles)
+keeps expected spawns at ~3.6/tick ≈ ~1 ms of `BuildTree`/`BuildStone` cube allocation under
+`PropBudgetMs` 3. Fill = 441 × 900 / 1800 ticks = 220 ticks ≈ 11 s — the "props trail the terrain by
+a few seconds" the docs always promised. VERDICT: CONFIRMED — fixed in `1en`.
+
+### H4 — prop colliders must follow the terrain collider ring (Part 4) → REJECTED for now
+Tied-to-terrain-colliders would make ring 8-10 props un-choppable precisely in the new range the user
+asked for, and the 1/1000 density caps the added bodies at ~5-8k (~1% of the 450k the 1di note quotes)
+— physics is not the binding constraint here. Keeping colliders everywhere props render also reuses
+the untouched 1du keep-alive path. VERDICT: REJECTED (deliberately skipped; re-open only if the body
+count ever shows up in the profiler).
+
 Follow-on to the 1ea lag sweep — re-read the per-frame paths in `WorldStreamer` / `UIManager` /
 `PlayerController` hunting work that burns CPU even when the player stands still on the test platform.
 Target: **Unity Editor Play mode** (user's environment), no gameplay change.

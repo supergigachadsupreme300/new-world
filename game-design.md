@@ -156,14 +156,19 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   8× audio loads from running 2-3× at boot, and the non-critical manager setup (menus, save system,
   quests, cutscenes, wife NPC, skill/friendship/fishing/chest) is deferred one batch per frame by
   `BootInitDeferrer` so the first rendered frame only waits on the HUD + tool catalog.
-- **Prop ring (1di):** trees/rocks are only streamed within `PropRingRadius` chunks of the focus
-  (default **4**, Chebyshev ring ≈ 600 m) — `WorldStreamer` (props sync in `SyncPropRing`) queues the
-  deterministic prop stream for chunks that enter the ring and hides their spawned props (`ChunkObject.
-  ReleaseProps`) for chunks that leave it, while the terrain mesh + collider stay loaded for the whole
-  ring. The distant radius-N ring therefore never holds the ~33k prop GameObjects (~450k prop BoxColliders
-  in the physics broadphase) that made the old full-stream "game too lag". Everything inside the ring
-  keeps its colliders, so chopping/mining targets near the player stay fully hit-able. Props pop in/out
-  only at the ring edge (~600 m away); leaving the ring merely **deactivates** them (keep-alive, 1du), so
+- **Prop ring (1di + 1en):** trees/rocks stream on every chunk the real chunk stream holds — since
+  **1en** `SyncPropRing` enforces a **floor of `near + 1`** (≈ **0-330 m**, the 0..near+1 rings that
+  render full-fidelity chunk geometry, incl. the ring-10 hysteresis chunks), and the serialized
+  `PropRingRadius` may only push the ring *wider* (a prop-only fringe), never narrower — so the prop
+  range can never trail the chunk range again (before 1en a scene-serialized **4** left a 120→300 m
+  band of prop-less terrain). ~441 chunks ≈ **~800 prop roots / ~5-8k cubes**, ~1% of the old 1di
+  worst case. `WorldStreamer` queues the deterministic prop stream for chunks that enter the ring and
+  hides their spawned props (`ChunkObject.ReleaseProps`) for chunks that leave it, while the terrain
+  mesh + collider stay loaded for the whole ring. The distant radius-N ring therefore never holds the
+  ~33k prop GameObjects (~450k prop BoxColliders in the physics broadphase) that made the old
+  full-stream "game too lag". Everything inside the ring keeps its colliders, so chopping/mining
+  targets anywhere in the ring (now incl. the 240-300 m keep ring) stay fully hit-able. Props pop
+  in/out at the ring edge; leaving the ring merely **deactivates** them (keep-alive, 1du), so
   re-entering reactivates the SAME GameObjects instantly — no destroy/respawn churn at the edge — and a
   prop you already chopped stays chopped (the stream position is preserved, not re-rolled).
 - **Nature props are sparse (1dm):** trees AND rocks each spawn 1-in-1000 per tile (a fifth of the
