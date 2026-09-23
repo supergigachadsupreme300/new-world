@@ -100,6 +100,48 @@ grids), which matches both `grids[cz, cx] = BuildFarChunkCorners(...)` and
 VERDICT: FIXED by the follow-up commit after `1ef` (PROGRESS §1ef-status); re-grepped the file for
 any other size-in-declaration typos — none.
 
+## 1eg — the far view still reads as "not fully loading" — slow closest-first fill + horizon wash (FIXED in `1eg`)
+
+User play-test of `1ef`: "the map visual is not fully loading, i can see some loaded from far away but
+they're not complete". The 1ef design had explicitly ACCEPTED the slow fill (~20-25 s); the user now
+rejects the acceptance. Reopen + re-derive.
+
+### H1 — the 1ef fill speed/order makes the horizon finish LAST → CONFIRMED (was an accepted tradeoff)
+Evidence: `MaxFarFinalizePerPoll = 3`, `MaxFarInFlight = 12` (WorldStreamer.FarShell.cs:62-64) → ≈60
+cells/poll tie [`~1,400` cells → ~20-25 s] — and the ring walk (steps (2)) + dispatch FIFO (step (3))
+fill **closest ring first**, so the cells at the visible far band are the very last created. Standing on
+the platform looking out, the far view stays patchy for the whole fill; walking lags it further (the
+fill is near-first but the player looks outward). Also the leading-edge cells while walking are exactly
+the high-ring cells — the slowest to appear. VERDICT: CONFIRMED — fixed in `1eg` by (a) raising the
+budgets (48 in flight / 16 finalize / 32 unloads → ~320-960 meshes/s, whole shell ~1.5-5 s) and (b)
+reversing the dispatch iteration so the farthest rings finalize first.
+
+### H2 — the horizon tonal lift washes the outer band toward sky → CONFIRMED (primary "not loaded" look)
+Evidence: `_HorizonStart 1400`, `_HorizonEnd 2100` with a full `lerp(..., horizonBlend)` — since the
+shell edge is ~2,070 m and the far plane 2200, every cell beyond 2,100 m is 100% tinted and 1400-2100
+ramps to it; against the sky color (0.78,0.83,0.90) the outer ~700 m reads as blank/missing geometry
+rather than "atmosphere". Material is runtime-built from shader defaults (GameBootstrap.cs:99
+`Shader.Find("NewWorld/TerrainLayered")`), so editing the defaults is effective (grep found no
+serialized override). VERDICT: CONFIRMED — fixed in `1eg`: band 1600→2050 (removes the full-tint
+plateau below the shell edge) and ×0.6 peak blend.
+
+### H3 — a real coverage hole (required cell never generated) → REJECTED (not observed), watch-list
+Audited the ring walk → dispatch → finalize path for a permanent gap: every poll rebuilds
+`_farPending` from the full ring walk near+1..keep via `RequiredFarCell`; a required cell not yet in
+`_farSectors`/`_farInFlight` is re-added, and once dispatched it stays in `_farInFlight` until its
+`FarMeshData` is finalized or dropped (stale epoch / no-longer-required). There is no "lost cell" state:
+in-flight entries are only removed on finalize or on worker exception (which re-dispatches next poll).
+Stale-epoch drops only occur after `ClearFarShell`. So the fill terminates with every required cell
+created — no permanent holes. VERDICT: REJECTED for the reported symptom (which matched H1+H2).
+REOPEN if play-test shows the `far cells` counter freezing well below ~1,400.
+
+### H4 — reversing the pending dispatch order could open a hole at the near rim → REJECTED
+Dispatching farthest-first delays the span-1 rim cells (rings 10-14). No hole: real chunks keep ONE
+hysteresis ring loaded beyond the near ring (ring 10) in the direction of travel, and the rim cell only
+needs to be active where its real chunk has UNloaded — which requires the focus to move farther, by
+which time the shell is fully filled (≤5 s). Near-mid fill follows within the same window. VERDICT:
+CONFIRMED SAFE — shipped as the reverse iteration in `1eg`.
+
 Follow-on to the 1ea lag sweep — re-read the per-frame paths in `WorldStreamer` / `UIManager` /
 `PlayerController` hunting work that burns CPU even when the player stands still on the test platform.
 Target: **Unity Editor Play mode** (user's environment), no gameplay change.

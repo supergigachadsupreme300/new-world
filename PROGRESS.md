@@ -1,7 +1,45 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-22. Read this first in a new session; then continue with the
+Last updated: 2026-09-23. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
+
+## 1eg. Far shell fills fast, horizon-first + horizon tint softened (follow-up to 1ef)
+
+User play-test of 1ef: "the map visual is not fully loading, i can see some loaded from far away but
+they're not complete". Root cause: the far shell filled at **3 finalized cells/poll (12 in flight)** ≈
+60 cells/s → the ~1,400-cell shell took ~20-25 s, and because cells are ring-walked + dispatched
+closest-first, the **farthest (horizon) cells were created LAST** — exactly the patchy distant view
+reported. It was a 1ef design acceptance, now rejected. Verified by grep + reread (rule 3, no CLI
+build); Unity play-test is pending.
+
+- `Assets\Scripts\World\Streaming\WorldStreamer.FarShell.cs` — budgets: `MaxFarInFlight` 12→48,
+  `MaxFarFinalizePerPoll` 3→16 (≈320-960 cell meshes/s at 60 fps → initial ~1,400-cell fill ~1.5-5 s),
+  `MaxFarUnloadsPerPoll` 24→32. Dispatch (step (3)) now iterates the pending list **in reverse** so the
+  farthest rings finalize FIRST (horizon-first fill); the near rings follow within seconds and are
+  covered meanwhile by the real chunks' hysteresis ring 10 — no hole at the player's feet. Header text
+  updated to the new fill figures.
+- `Assets\Shaders\TerrainLayered.shader` — horizon tonal lift narrowed + weakened so the far band no
+  longer reads as "missing geometry": `_HorizonStart` 1400→1600, `_HorizonEnd` 2100→2050 (removes the
+  full-tint plateau — the shell edge is ~2,070 m), peak blend ×0.6. The terrain material is built at
+  runtime from shader defaults (`GameBootstrap.cs:99` `Shader.Find("NewWorld/TerrainLayered")`), so no
+  serialized material overrides exist to chase.
+- Docs (same pass, rule 2): `game-design.md` §2.5 budgets/fill-time + horizon band; `THINKING.md` §1eg
+  — 1ef's "slow fill is acceptable" story reopened (H1 confirmed) + horizon wash (H2), real-coverage
+  hole REJECTED (H3) and re-checkable via the `far cells` counter.
+
+### 1eg-status
+- Implemented; verified by grep + reread (rule 3 — no CLI build). Budget constants have no other call
+  sites; the reversed dispatch loop was re-read (in-flight mark added before `QueueUserWorkItem`,
+  `_farPending` rebuilt each poll so reverse order is safe, epoch/seed still captured by value); shader
+  defaults edited at their only property definitions; grep confirms no serialized `_HorizonStart` /
+  `_HorizonEnd` / `_HorizonColor` overrides in assets.
+- Play-test (pending, Unity): boot on the test platform with `EnableFpsStats` — the overlay's `far
+  cells` counter should climb to ~1,400 in ~1.5-4 s (not ~20-25 s); glance toward the horizon while it
+  fills — the distant band closes first and a complete ring is visible within seconds; the far ground
+  should read as terrain under a soft lift, not washed-out/sky; walk a long straight line — no holes at
+  the leading edge or the real-ring (9) ↔ shell (10) junction; raise/lower Render Distance in settings
+  — shell grows/shrinks without blanks. If `far cells` ever freezes well below ~1,400, that is a REAL
+  coverage hole — reopen THINKING §1eg H3.
 
 ## 1ef. Far shell render — deep 2 km view (real near ring + background coarse sectors) + horizon tint
 

@@ -90,10 +90,13 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   the same poll it unloads — zero hole, zero z-fight), **span-3** cells (rings ≥15, step 3/6/9 →
   31/16/11 verts/axis) and **span-6** cells (rings ≥36, step 12/15) cover the open ground, with a
   coarser required parent suppressing its finer children so every chunk has exactly one cell. Budgets:
-  12 in flight, 3 finalized/poll (~60 cell meshes/s, initial ~1,400-cell fill ~20-25 s), 24 removals/
-  poll with a backlog flag. Far cells have **no colliders, no props, and never re-generate** (digs stay
+  48 in flight, 16 finalized/poll (~320-960 cell meshes/s, initial ~1,400-cell fill takes ~1.5-5 s),
+  32 removals/poll with a backlog flag. Cells are dispatched **horizon-first** (the farthest rings
+  finalize before the closer ones) so the distant band the player actually sees closes within seconds.
+  Far cells have **no colliders, no props, and never re-generate** (digs stay
   inside the collider ring 8 < rim 10). The camera far plane is **2200 m** (`PlayerController.Camera.cs`)
-  and the terrain shader adds a **horizon tonal lift** starting ~1400 m (no fog — mid-view stays crisp)
+  and the terrain shader adds a **horizon tonal lift** starting ~1600 m at 60% peak strength (no fog —
+  mid-view stays crisp)
   so the outermost shell reads as atmosphere.
 - **Maximum radius:** 160 chunks (code clamp, `RenderDistanceController.MaxRadius`).
 - At each frame, the system calculates which chunks are within radius of the player.
@@ -1703,7 +1706,8 @@ The active PC URP config — QualitySettings level 1 → `PC_RPAsset.asset` guid
   with real `ChunkObject`s only inside `NearRingRadius` 9 (`WorldStreamer.FarShell.cs`) — the open
   ground out to the radius is background-generated coarse cell meshes (see §2.5), so the render distance
   grew ~2.2x without growing the real-chunk stream, its LOD layers or its collider/prop rings. Camera
-  far plane **2200 m** and the terrain shader's **horizon tonal lift** (1400-2100 m, `_HorizonColor`)
+  far plane **2200 m** and the terrain shader's **horizon tonal lift** (1600-2050 m, ~60% peak,
+  `_HorizonColor`)
   hide the shell edge without fog — the near/mid terrain stays fully crisp.
 - **Idle streaming stays zero-cost with the shell** (1ef): the 1ee idle gate's `working` flag now also
   covers the far-shell queues (`_farInFlight` / `_farReady` / `_farPending` / `_farUnloadBacklog`), so

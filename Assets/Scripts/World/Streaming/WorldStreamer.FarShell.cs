@@ -33,8 +33,10 @@ using UnityEngine;
 ///
 /// Generation: the ring is re-walked each poll (cheap int math) into a pending list (deduped),
 /// dispatched to the ThreadPool like real chunks (MaxFarInFlight cap) and finalized on the main
-/// thread at MaxFarFinalizePerPoll/poll (~60 cell meshes/s; the initial ~1,400-cell fill takes
-/// ~20-25 s and coasts in the background while the player moves). Generation AND retention use the
+/// thread at MaxFarFinalizePerPoll/poll (~320-960 cell meshes/s; the initial ~1,400-cell fill
+/// takes ~1.5-5 s and coasts in the background while the player moves). Cells are dispatched
+/// horizon-first (pending list iterated in reverse) so the far band — what the player sees — closes
+/// before the closer rings; generation AND retention use the
 /// SAME predicate (is-required), so a cell whose ring falls outside keep while in-flight is dropped
 /// at finalize instead of being created stale. Removals are capped per poll (MaxFarUnloadsPerPoll)
 /// with a backlog flag that keeps the stream working until the excess is destroyed.
@@ -59,11 +61,11 @@ public partial class WorldStreamer
 
     // --- Far shell budgets (main thread) ---
     /// <summary>Max far-sector meshes being built on the ThreadPool simultaneously.</summary>
-    private const int MaxFarInFlight = 12;
-    /// <summary>Max far-sector GameObjects created per poll tick (initial fill ~60/s).</summary>
-    private const int MaxFarFinalizePerPoll = 3;
+    private const int MaxFarInFlight = 48;
+    /// <summary>Max far-sector GameObjects created per poll tick (~320-960/s at 60 fps).</summary>
+    private const int MaxFarFinalizePerPoll = 16;
     /// <summary>Max far sectors destroyed per poll while the shell shrinks.</summary>
-    private const int MaxFarUnloadsPerPoll = 24;
+    private const int MaxFarUnloadsPerPoll = 32;
 
     // --- Far shell state ---
     private readonly Dictionary<FarCell, GameObject> _farSectors = new Dictionary<FarCell, GameObject>();
@@ -283,10 +285,12 @@ public partial class WorldStreamer
         }
 
         // (3) Dispatch. State captured up front: step is derived on the worker from maxRing + span
-        // (passed by value), epoch from the field read now.
+        // (passed by value), epoch from the field read now. The pending list is walked closest-first
+        // (step 2), so iterating it in reverse dispatches the farthest cells (the visible horizon)
+        // first; near rings fill moments later and are always covered meanwhile by real chunks.
         long seed = Seed;
         int epoch = _farEpoch;
-        for (int i = 0; i < _farPending.Count && _farInFlight.Count < MaxFarInFlight; i++)
+        for (int i = _farPending.Count - 1; i >= 0 && _farInFlight.Count < MaxFarInFlight; i--)
         {
             FarCell cell = _farPending[i];
             if (!_farInFlight.TryAdd(cell, 0))

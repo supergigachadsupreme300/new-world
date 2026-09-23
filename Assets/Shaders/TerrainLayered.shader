@@ -15,8 +15,8 @@ Shader "NewWorld/TerrainLayered"
         // perspective for the ~2 km far shell WITHOUT fog (mid-view stays crisp). Push
         // _HorizonStart past the far plane to disable.
         _HorizonColor ("Horizon Tint", Color) = (0.78, 0.83, 0.90, 1)
-        _HorizonStart ("Horizon Tint Start (m)", Float) = 1400
-        _HorizonEnd ("Horizon Tint End (m)", Float) = 2100
+        _HorizonStart ("Horizon Tint Start (m)", Float) = 1600
+        _HorizonEnd ("Horizon Tint End (m)", Float) = 2050
     }
 
     SubShader
@@ -105,7 +105,7 @@ Shader "NewWorld/TerrainLayered"
                 // near/mid terrain the player actually plays on stays fully crisp.
                 float horizonDist = distance(_WorldSpaceCameraPos, input.positionWS);
                 half horizonBlend = saturate((horizonDist - _HorizonStart) / max(_HorizonEnd - _HorizonStart, 1.0));
-                color = lerp(color, _HorizonColor.rgb, horizonBlend);
+                color = lerp(color, _HorizonColor.rgb, horizonBlend * 0.6);
 
                 color = MixFog(color, input.fogFactor);
                 return half4(color, 1.0);
