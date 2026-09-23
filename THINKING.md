@@ -90,6 +90,16 @@ join the 1ee `working` flag; each poll's scan removes ≤24 and clears the backl
 gone, so the extra polls are finite. The `_lastStreamCentre` default of (0,0) chunk would have also
 skipped the first FarShellTick at the world origin → sentinel `int.MinValue`. VERDICT: CONFIRMED.
 
+### H8 — the committed 1ef "CS0029/CS0022 fix" left an invalid array declarator → REPLACED
+`ac5bb2d` renamed `float[,][] grids` to `float[span, span][,]` in `BuildFarSector` — but C# only
+allows sizes inside the `new` expression; a declaration type carrying `[span, span]` is a compile
+error (CS0650/CS0022 class), so Unity would have failed to compile the far shell again. The working
+tree corrects it to `float[,][,]` (rank-2 array whose elements are the per-chunk `float[,]` corner
+grids), which matches both `grids[cz, cx] = BuildFarChunkCorners(...)` and
+`grids[czi, cxi][lx, lz]`. No semantics change — same index shape, just a valid declarator.
+VERDICT: FIXED by the follow-up commit after `1ef` (PROGRESS §1ef-status); re-grepped the file for
+any other size-in-declaration typos — none.
+
 Follow-on to the 1ea lag sweep — re-read the per-frame paths in `WorldStreamer` / `UIManager` /
 `PlayerController` hunting work that burns CPU even when the player stands still on the test platform.
 Target: **Unity Editor Play mode** (user's environment), no gameplay change.

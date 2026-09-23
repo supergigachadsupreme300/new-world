@@ -360,7 +360,7 @@ public partial class WorldStreamer
 
         // One (gridSize x gridSize) corner grid per covered chunk (build outside the vertex loop so
         // shared edges between sibling cells see identical worlds). Index: row-major over the chunks.
-        float[span, span][,] grids = new float[span, span][,];
+        float[,][,] grids = new float[span, span][,];
         for (int cz = 0; cz < span; cz++)
         {
             for (int cx = 0; cx < span; cx++)

@@ -73,6 +73,12 @@ grep + reread (rule 3, no CLI build); Unity play-test is pending.
   terrain; raise/lower Render Distance in settings and confirm the shell grows/shrinks without holes;
   dig with pickaxe near the real-ring edge — deformation still works and never touches the shell.
   Confirm no compile error in Unity (rule 3).
+- Follow-up fix (new commit after `ac5bb2d`): that commit's `grids` declaration
+  `float[span, span][,]` was itself **invalid C#** (array size expressions are only legal in the
+  `new` expression, never in a declaration type — Unity would fail to compile the file again). The
+  correct container is `float[,][,]` — a rank-2 array of `float[,]` corner grids
+  (`WorldStreamer.FarShell.cs:363`, matching `grids[cz, cx]` writes and `grids[czi, cxi][lx, lz]`
+  reads). Grep + reread confirmed the fix is the only diff; no behavior change; no build (rule 3).
 
 ## 1ee. CPU baseline cleanups — idle streaming zero-cost + player caches + HUD repaint fix
 
