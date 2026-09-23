@@ -24,6 +24,11 @@ public partial class WorldStreamer : MonoBehaviour
 
     [Header("Material")]
     public Material GroundMaterial;
+    /// <summary>Double-sided (Cull Off) sibling of <see cref="GroundMaterial"/> used ONLY by far-shell
+    /// cells (1ei): renders the decimated far terrain from above regardless of mesh winding/culling
+    /// artifacts that once hid it from the upper face. Real chunks keep GroundMaterial (Cull Back).
+    /// Falls back to GroundMaterial if never assigned.</summary>
+    public Material FarGroundMaterial;
 
     [Header("Render Distance")]
     public RenderDistanceController RenderDistance;
@@ -108,7 +113,10 @@ public partial class WorldStreamer : MonoBehaviour
     private int _colliderLastZ = int.MinValue;
     private int _colliderLastRequestVersion = -1;
     private bool _collidersDirty = true;
-    private const int MaxColliderCooksPerPoll = 4;
+    /// <summary>Max chunk MeshColliders enabled (cooked) per poll. 1ei: 4 -> 2 — a synchronous PhysX
+    /// cook can cost 1-3 ms on the main thread, so ring-crossing cooks now spread over an extra poll
+    /// (the same _collidersDirty resume already covers a larger ring change).</summary>
+    private const int MaxColliderCooksPerPoll = 2;
 
     // Chunks containing at least one modified tile (locally edited or loaded from a save). O(1)
     // membership replaces the old per-chunk 900-tile scans in the load-reconcile paths (1ea).

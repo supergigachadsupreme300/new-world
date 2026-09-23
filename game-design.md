@@ -98,7 +98,13 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
    (`StaticBatchingUtility.Combine` via `TryBakeFarShell`, gated by the `FarBakeEnabled` switch) rendered
    the merged far meshes only from below — a back-face/combined-mesh artifact, so every far cell again
    renders as its own dynamic mesh (known-good from 1ef; **~1,400 draw calls** back). The bake stays in
-   code behind the switch — re-enable only after a Unity-side root cause on combined-mesh winding. The
+   code behind the switch — re-enable only after a Unity-side root cause on combined-mesh winding. Since
+   **1ei** far cells render through a **double-sided (Cull Off) variant** of the ground material
+   (`FarGroundMaterial`) so their tops show from above even if a mesh's winding/culling hides the upper
+   face — real chunks keep Cull Back — and they **cast no shadows** (`ShadowCastingMode.Off`, 1ei): the
+   ~1,400 far cells no longer draw into the sun's shadow map (no gameplay value beyond 270 m). Collider
+   ring-crossing cooks are capped at **2/poll** (1ei, was 4) so the synchronous PhysX cooks spread over an
+   extra poll. The
    span-1 rim stays dynamic regardless (it owns the active shadow). Far
   cells have **no colliders, no props, and never re-generate** (digs stay
   inside the collider ring 7 < rim 10). The camera far plane is **2200 m** (`PlayerController.Camera.cs`)

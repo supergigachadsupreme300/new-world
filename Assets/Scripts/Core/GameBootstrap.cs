@@ -100,6 +100,14 @@ public class GameBootstrap : MonoBehaviour
             var mat = new Material(shader != null ? shader : Shader.Find("Universal Render Pipeline/Lit"));
             mat.color = Color.white;
             worldStreamer.GroundMaterial = mat;
+
+            // Double-sided far-shell variant (1ei): renders the decimated far cells from above even if
+            // a mesh's winding/culling would cull the top face (Cull Back -> Cull Off). Copies the
+            // ground material, so keyword/color/band settings stay identical to the real chunks.
+            var far = new Material(worldStreamer.GroundMaterial);
+            if (far.HasProperty("_Cull"))
+                far.SetFloat("_Cull", 0f);
+            worldStreamer.FarGroundMaterial = far;
         }
 
         // --- Testing ground (weapons, enemies, skills, NPCs) ----------------------------

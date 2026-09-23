@@ -3,6 +3,50 @@
 Last updated: 2026-09-23. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1ei. Far shell "only visible from below" + moving-load hitches
+
+User play-test of the 1eh bake-disable fix **still** reported the far chunks beyond the real ring as
+"can only see from the surface below, can't see from the upper face", plus "chunks loading when the
+player moves is too laggy". Verified by grep + reread (rule 3, no CLI build); Unity play-test pending.
+
+Root-cause work: the far-cell winding (`BuildFarSector`, WorldStreamer.FarShell.cs) is **byte-identical**
+to the real-chunk LOD meshes (`BuildLodChild`, ChunkObject.cs) and the far cells share the real
+`GroundMaterial` — so the shape is provably correct and the missing-upper-face symptom is a rendering/
+culling artifact (or stale Editor compile), not the mesh geometry. The bake disable had already restored
+the dynamic per-cell meshes, so this pass makes the far cells immune to winding/culling by construction
+and cuts the move-time load.
+
+- `Assets\Shaders\TerrainLayered.shader` — new `_Cull` property (0=Off/1=Front/2=Back, default Back);
+  all three passes (ForwardLit/ShadowCaster/DepthOnly) now `Cull [_Cull]` so one material instance can
+  flip to double-sided without duplicating passes.
+- `Assets\Scripts\Core\GameBootstrap.cs` — after creating `GroundMaterial`, a sibling
+  `FarGroundMaterial` is built (copies GroundMaterial, `_Cull` = 0) and assigned to the streamer.
+- `Assets\Scripts\World\Streaming\WorldStreamer.cs` — new `public Material FarGroundMaterial;`;
+  `MaxColliderCooksPerPoll` 4 → 2 (synchronous PhysX cooks now spread over an extra poll via the
+  existing `_collidersDirty` resume).
+- `Assets\Scripts\World\Streaming\WorldStreamer.FarShell.cs` — `CreateFarSector` assigns
+  `FarGroundMaterial ?? GroundMaterial` and `shadowCastingMode = ShadowCastingMode.Off` (the ~1,400 far
+  cells stop drawing into the sun's shadow map — a large per-frame cut, no gameplay value beyond 270 m).
+
+### 1ei-status
+- Implemented; verified by grep + reread: `_Cull` defaults 2 and is referenced by all three passes
+  (`Cull [_Cull]` ×3); `FarGroundMaterial` declared once on WorldStreamer, assigned once in GameBootstrap
+  (fallback `?? GroundMaterial` keeps far cells rendering even if never assigned), consumed once in
+  `CreateFarSector`; `ShadowCastingMode.Off` only on far cells (real chunks via ChunkObject/LOD still
+  cast); `MaxColliderCooksPerPoll = 2` used only by `ReconcileCollidersIfChanged`. Public API adds one
+  optional field — no consumer signature break.
+- Design acceptances (watch): far cells now draw backfaces too (double-sided) — a small GPU vertex cost
+  on decimated meshes, no z-fighting since backfaces sit behind the correct front faces; far cells no
+  longer cast shadows, so distant terrain is lit but casts no shadow onto itself (already true of far
+  ground — no shadow receiver elsewhere beyond the real ring); collider ring takes ~2× polls to fully
+  cook after a large jump.
+- Play-test (pending, Unity): enter Play fresh so the Editor fully recompiles, then walk out — the far
+  ground must be visible **from above** from the rim junction (270 m) to the ~2 km horizon; standing FPS
+  and moving hitches should improve (far shadows off + collider cooks spread); confirm real chunks still
+  cast shadows and look unchanged (Cull Back kept), and the far shell fills horizon-first as before.
+  If the far cells STILL hide from above after this pass, pause in Play and inspect a `FarCell_*`
+  MeshRenderer (enabled? material Cull value?) to distinguish "not rendering" vs "culled".
+
 ## 1eh. Performance pass — far-finalize time budget, far-shell static bake, collider ring 8→7, platform + physics trims
 
 User play-test after 1ef/1eg: "too lag to play" — slow even standing still, hitches while moving
@@ -345,7 +389,8 @@ The ACTIVE PC config was confirmed: QualitySettings level 1 → `m_CurrentQualit
   `ReconcileCollidersIfChanged(centre)` early-outs unless the focus crossed a chunk boundary, a collider
   request changed (`ColliderRequestRegistry.Version` bumped in `Request`/`Release`), or a chunk was
   finalized/unloaded (`NoteChunkSetChanged` wired into `CreateChunkGameObject` + `UnloadChunk`). On a
-  real ring crossing a per-poll cook budget (`MaxColliderCooksPerPoll = 4`) spreads PhysX mesh cooks —
+  real ring crossing a per-poll cook budget (`MaxColliderCooksPerPoll = 4` then; now 2 since 1ei)
+  spreads PhysX mesh cooks —
   disables apply instantly, excess enables re-flag `_collidersDirty` so the walk resumes next poll.
   An idle, fully-streamed world now pays ZERO per-frame collider maintenance.
 - **B2 — allocation-free dispatch** (`WorldStreamer.Streaming.cs`). `DispatchPending` gained an early-out

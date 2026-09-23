@@ -574,8 +574,12 @@ public partial class WorldStreamer
         Mesh mesh = ChunkMeshGenerator.AcquireChunkMesh($"FarMesh_{cell.X}_{cell.Z}_{cell.Span}");
         ChunkMeshGenerator.UploadMerged(merged, mesh);
         mf.sharedMesh = mesh;
-        if (GroundMaterial != null)
-            mr.sharedMaterial = GroundMaterial;
+        // Far cells render with the double-sided (Cull Off) variant (1ei) — their tops show even if a
+        // mesh's winding/culling would hide the upper face. They cast NO shadows (1ei): ~1,400 cells at
+        // 270 m+ contribute nothing to the sun's shadow map, so dropping them from the shadow pass is a
+        // large per-frame cut with zero gameplay change.
+        mr.sharedMaterial = FarGroundMaterial != null ? FarGroundMaterial : GroundMaterial;
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
         if (cell.Span == 1 && _loadedChunks.ContainsKey(new TerrainChunkCoord(cell.X, cell.Z)))
             go.SetActive(false);

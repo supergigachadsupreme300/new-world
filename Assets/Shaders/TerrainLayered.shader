@@ -11,6 +11,10 @@ Shader "NewWorld/TerrainLayered"
     {
         [MainColor] _Color ("Vertex Color Multiplier", Color) = (1,1,1,1)
         [Toggle] _UseVertexColor ("Use Vertex Colors", Float) = 1
+        // Cull mode as a material property (1ei): the far shell's decimated cells render with a
+        // Cull-Off variant so they show from above regardless of mesh winding/culling artifacts
+        // (real chunks keep the default Cull [_Cull]). 2 = Back, 0 = Off, 1 = Front.
+        _Cull ("Cull (0=Off,1=Front,2=Back)", Float) = 2
         // Horizon tonal lift (1ef): subtle distance tint over the outermost band only — aerial
         // perspective for the ~2 km far shell WITHOUT fog (mid-view stays crisp). Push
         // _HorizonStart past the far plane to disable.
@@ -27,7 +31,7 @@ Shader "NewWorld/TerrainLayered"
         {
             Name "ForwardLit"
             Tags { "LightMode" = "UniversalForward" }
-            Cull Back
+            Cull [_Cull]
             ZTest LEqual
             ZWrite On
 
@@ -121,7 +125,7 @@ Shader "NewWorld/TerrainLayered"
             ZWrite On
             ZTest LEqual
             ColorMask 0
-            Cull Back
+            Cull [_Cull]
 
             HLSLPROGRAM
             #pragma target 3.0
@@ -182,7 +186,7 @@ Shader "NewWorld/TerrainLayered"
             Tags { "LightMode" = "DepthOnly" }
             ZWrite On
             ColorMask 0
-            Cull Back
+            Cull [_Cull]
 
             HLSLPROGRAM
             #pragma target 3.0

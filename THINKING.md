@@ -210,6 +210,42 @@ failed` warning (our try/catch swallows the real cause — temporarily log the i
 in Scene view, (c) sanity-test a MINIMAL repro: Combine two sample planes with and without vertex colors
 on the same shader.
 
+## 1ei — bake-disable did NOT clear "only visible from below": the far shell still hides its upper face (FIX in `1ei`)
+
+The §1eh H6 fix (bake disable) shipped, but the next play-test reported the far chunks beyond the real
+ring STILL "can only see from the surface below, can't see from the upper face", plus move-time loading
+"too laggy". Reasoning trail:
+
+### H1 — the far-cell mesh geometry (winding/heights/colors) is wrong → REJECTED by direct re-read
+`BuildFarSector` (FarShell.cs:462-476) builds triangles with the SAME index pattern as the real-chunk
+LOD meshes in `BuildLodChild` (ChunkObject.cs:294-305): `i00,i10,i11 / i00,i11,i01`, row-major +X next
+column, +Z next row — byte-identical. Both share `GroundMaterial` (Cull Back). Since real LOD meshes
+render from above (the player stands on them), the far cells' own faces cannot be mis-wound. Heights
+(GetHeight on world coords) and band colors (TerrainBandColor + memo, FarShell.cs:454 vs
+ChunkMeshGenerator.cs:372) match the real path. VERDICT: REJECTED — geometry is fine.
+
+### H2 — the missing upper face is a winding/culling RENDERING artifact (pooled-mesh or material side); bake was only one trigger → CONFIRMED as the actionable model
+The symptom's only structural explanations left are per-mesh culling (spuriously culled faces) or a
+stale Editor compile of the disabled bake. Both are insensitive to the mesh's own winding. VERDICT:
+partially confirmed — instead of chasing the exact mechanism in the dark, make the far terrain immune:
+render far cells double-sided (Cull Off material variant) so their top surfaces draw regardless of
+winding/culling. Shipped: `_Cull` shader property (all 3 passes `Cull [_Cull]`), a `FarGroundMaterial`
+(Cull Off) created in GameBootstrap next to GroundMaterial, consumed by CreateFarSector with a
+`?? GroundMaterial` fallback. Real chunks keep Cull Back (their upper faces provably render). If the far
+cells STILL hide on the next play-test, that proves the artifact is NOT face-culling — next check is a
+paused-play Hierarchy inspection of a `FarCell_*` renderer (enabled? cull value? bounds?) per PROGRESS
+§1ei-playtest.
+
+### H3 — "too laggy when chunk loading while moving" → the 1ei levers (CONFIRMED cheap)
+The stream is individually budgeted but bursts in one 20 Hz poll: ≤12 chunk finalizes (~6 ms adaptive) +
+≤16 far finalizes (2.5 ms) + ≤120 prop tiles (3 ms) + **≤4 synchronous MeshCollider cooks (~1-3 ms each,
+least-budgeted / worst single spike)**. Two low-risk cuts shipped: (a) far cells `ShadowCastingMode.Off`
+— ~1,400 far cells were drawing into the sun's shadow map every frame via the shader's ShadowCaster pass
+(no gameplay value beyond the real ring; big per-frame relief in the Editor); (b) `MaxColliderCooksPerPoll`
+4 → 2 so ring-crossing cooks spread one extra poll (already resumable via `_collidersDirty`). VERDICT:
+CONFIRMED as taken; further spread (staggering Finalize/FarShell/props across separate polls) is a bigger
+change and stays out of scope unless the next play-test still hitches.
+
 Follow-on to the 1ea lag sweep — re-read the per-frame paths in `WorldStreamer` / `UIManager` /
 `PlayerController` hunting work that burns CPU even when the player stands still on the test platform.
 Target: **Unity Editor Play mode** (user's environment), no gameplay change.
