@@ -3,6 +3,56 @@
 Last updated: 2026-09-23. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1em. Real-ring dispatch starvation — finalized chunks re-dispatched forever, locking the near ring at a ~24-chunk bubble ("no chunks within 300 m except the closest")
+
+New user signature: "within 300 from player spawnpoint there were no chunk spawn beside the one
+closest to player". After 1el fixed the far shell, this is the last hole: the far shell fills 300 m→2
+km, but the real chunk ring inside 300 m never materialized beyond a small patch around the player.
+Diagnosed by grep + reread (rule 3, no build):
+
+- The far shell only covers rings >= 10 (near 9 + 1), so inside 300 m the ground is 100% real
+  `ChunkObject`s. The far shell rendered fine and there were NO background-generation warnings (user
+  confirmed), which isolated the failure to the real-chunk DISPATCH, not generation.
+- Root cause in `DispatchPending` (`Assets\Scripts\World\Streaming\WorldStreamer.Streaming.cs`, code
+  ancient since the 90afbbb/1ea era): the dispatch loop checked only `_chunksInFlight`, never
+  `_loadedChunks`, and the trailing cleanup dropped an entry only when it was BOTH
+  `_pendingChunks.Contains(c)` AND `_loadedChunks.ContainsKey(c)`. But `FinalizeChunks` removes the
+  pending mark at finalize (`WorldStreamer.Mesh.cs`), so a finalized chunk is `loaded AND NOT pending`
+  — the cleanup could never fire, the chunk stayed in `_chunkDispatchOrder`, and dispatch re-queued
+  its regeneration every poll. Because dispatch is nearest-first and `MaxInFlight` (24) saturated
+  with the nearest chunks before the scan passed index ~24, the freed slots were ALWAYS refilled by
+  the same nearest chunks re-generating (work `FinalizeChunks` then discarded via its
+  already-loaded `continue`), so the OUTER rings never got a slot — a permanent ~24-chunk bubble.
+- The far shell was immune (its `FarConsiderCell` skips `_farSectors.ContainsKey` completed cells),
+  which is why 300 m→2 km rendered while the 0-300 m disc stayed empty. This also re-explains the
+  persistent 1ef→1ek "holes / square empty ring / not fully loaded" family: those passes polished
+  the far shell while the real-ring dispatch flaw sat underneath, and the docs' "fills the full near
+  ring" claim was never achieved live.
+
+- `Assets\Scripts\World\Streaming\WorldStreamer.Streaming.cs` — `DispatchPending` only:
+  - dispatch loop: `if (_loadedChunks.ContainsKey(tc)) continue;` (never re-generate a materialized
+    chunk);
+  - trailing cleanup now drops ALL loaded chunks from `_chunkDispatchOrder` (plus their pending
+    marks) instead of only pending-and-loaded.
+
+### 1em-status
+- Implemented; verified by grep + reread (rule 3 — no CLI build). Flow re-derived: poll 1 dispatches
+  the nearest 24 in flight; each finalize frees slots that the next poll's scan now passes outward to
+  the still-unloaded rings (loaded/ in-flight candidates skipped, order shrinks via the cleanup), so
+  the ring fills to completion nearest-first and ends with `_chunkDispatchOrder == 0`, in-flight 0,
+  ready empty — the 1ee idle gate then truly idles (previously the perpetual re-generation churn kept
+  `working` true forever, silently burning CPU every poll). No public API/signature change; far shell,
+  `EnqueueChunkIfNeeded`, `StreamAround` hysteresis, budgets untouched. `FinalizeChunks`'s
+  already-loaded `continue` remains as a cheap belt-and-braces for any straggler.
+- Cost note: total generated chunks unchanged (still 361 in the near ring + far cells); the waste of
+  endlessly regenerating the same ~24 chunks is eliminated.
+- Play-test (pending, Unity): fresh Play on the test platform — the real ground must now fill the
+  WHOLE 0-300 m disc (361 chunks, FPS overlay `chunks` should climb to ~361 then settle; `far cells`
+  ~1,400), seamless into the far shell at ring 10 (300 m) with no gap and no z-fight (active-shadow
+  unchanged), and the loaded-chunk count should STOP near the ring + keep (nothing regenerating in
+  place, idle cost ~0 as the docs intend). If `chunks` still stalls below ~360, re-check the
+  finalize budget under editor load (THINKING §1em H4).
+
 ## 1el. Far-shell block-coordinate fix — span-3/6 cells were rendered 3x/6x further out, leaving a permanent empty ring past the rim
 
 User play-test after 1ek: "the chunk ring have an offset of 300 x/z there is no chunks loadede in

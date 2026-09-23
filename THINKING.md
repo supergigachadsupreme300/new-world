@@ -397,6 +397,57 @@ span-3 block 15 → 450 m covering chunks 15-17; block 18 → 540 m (abuts); spa
 covering 36-41; band suppression unchanged (span-3 ≤ ring 35, span-6 ≥ 36).
 VERDICT: FIXED in `1el`.
 
+## 1em — "within 300 from spawn there were no chunk spawn beside the one closest to player" = real-ring DISPATCH starvation: finalized chunks were re-dispatched forever, locking the ring at a ~24-chunk bubble (FIXED in `1em`)
+
+After 1el the far shell fills 300 m→2 km, so the immediate question was why the real near ring
+(rings 0-9, the ONLY geometry inside 300 m — far cells start at near+1 = ring 10) was still empty
+except around the player's feet.
+
+### H1 — real chunks are generated but hidden by the LOD/cull system → REJECTED
+`ChunkLodManager` is the only system that toggles real-chunk root `SetActive`/renderers
+(`SyncChunkRegistration` registers real chunks; far cells are static and never registered). Traced
+`ApplyBand`: `Details` is populated at `RegisterChunk` time by scanning already-existing children;
+LOD children ("Lod1"/"Lod2") are created LAZILY by `RefreshLodMeshes` only on the first band apply —
+so `TryGetValue` always fails and the fallback keeps `rootMr.enabled = true`. Cull distance
+`EffectiveCullDistance = max(120, (radius+1)*30)` = 2,040 m. So a loaded chunk can NEVER be made
+invisible. VERDICT: REJECTED — if the chunks existed, they would render.
+
+### H2 — background generation throws on worker threads (sync chunk survives) → REJECTED
+`BackgroundGenerateChunk` catches + retries, logging warnings; the user reported NO warnings and the
+far shell (same ThreadPool + same noise path) built hundreds of cells. VERDICT: REJECTED — generation
+is healthy; only the real-chunk DISPATCH lacks a guard the far shell has.
+
+### H3 — real chunks are never GENERATED because the near ring never fills (dispatch loop) → CONFIRMED (the bug)
+In `DispatchPending` (WorldStreamer.Streaming.cs:116-144, logic dating to the 90afbbb merge-era):
+- the dispatch loop checks ONLY `_chunksInFlight.ContainsKey(tc)` — no `_loadedChunks` guard;
+- the trailing cleanup removes an entry only when `_pendingChunks.Contains(c) && _loadedChunks.ContainsKey(c)`;
+- but `FinalizeChunks` removes the pending mark at finalize, so a finalized chunk is `loaded ∧ ¬pending`
+  → the cleanup can NEVER remove it → it stays in `_chunkDispatchOrder` and is re-dispatched (full
+  regeneration) every poll.
+
+Why that starves the ring rather than just wasting work: dispatch is nearest-first
+(`_chunkDispatchOrder.Sort` by distance each poll) and the loop stops once `_chunksInFlight.Count ==
+MaxInFlight` (24). The 24 nearest chunks are permanently in flight; whenever finalize frees k slots,
+the next poll's scan refills them from the FRONT of the sorted order — the same just-finalized nearest
+chunks (which re-generate and are then discarded by `FinalizeChunks`'s already-loaded `continue`).
+The scan never reaches index ≥24 while slots remain, so the outer rings NEVER dispatch → a permanent
+~24-chunk bubble that follows the player. `_pendingChunks` is effectively vestigial in this loop.
+The idle gate never idle-s either (`_chunkDispatchOrder` never drains), so the churn also burned CPU
+every poll — silent, matching "no warnings". VERDICT: CONFIRMED — root cause; fixes the whole 1ef-1ek
+"holes / square ring / not fully loaded" family, which were always the real ring, masked by (1ef+) now-working far shell.
+
+### H4 — why the far shell never showed this (and what to check if a stall persists after the fix) → CONFIRMED (asymmetry)
+`FarConsiderCell` skips `if (_farSectors.ContainsKey(cell)) return;` (FarShell.cs:380) — completed
+cells are excluded from the pending walk, so far dispatch naturally advances. That exact missing
+guard in the real-chunk loop is the bug. Residual risk if `chunks` still stalls below ~360 after
+`1em`: the finalize time-budget (`AdaptiveBudgetMs`, ~6 ms base, shrinks on slow editor frames) pacing
+generation-not-yet-finalized in the first seconds — a pacing check, not a re-block. VERDICT: OPEN follow-up (play-test).
+
+### FIX
+`DispatchPending`: skip `_loadedChunks` in the dispatch loop; trailing cleanup drops ALL loaded chunks
+from `_chunkDispatchOrder` (+ pending marks). Ring fills nearest-first to completion, then the list
+drains to zero and the stream idles. VERDICT: FIXED in `1em`.
+
 Follow-on to the 1ea lag sweep — re-read the per-frame paths in `WorldStreamer` / `UIManager` /
 `PlayerController` hunting work that burns CPU even when the player stands still on the test platform.
 Target: **Unity Editor Play mode** (user's environment), no gameplay change.

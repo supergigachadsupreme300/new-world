@@ -81,7 +81,13 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   full-fidelity `ChunkObject`s — deformable, collidable, prop-bearing, LOD'd. `StreamAround` receives
   the NEAR ring, not the render radius, and keeps one hysteresis ring (near+1) loaded, so the real
   chunk world is 361 chunks (was 3,721 at radius 30) and the LOD/collider/prop wins of 1dq/1di/1e6 ride
-  a fixed-size ring instead of scaling with the render distance.
+  a fixed-size ring instead of scaling with the render distance. Dispatch is **nearest-first and each
+  chunk never regenerates** (**1em**: the dispatch loop had no loaded-chunk guard and its cleanup only
+  dropped entries that were BOTH pending AND loaded — but finalize clears the pending mark, so
+  finalized chunks were re-dispatched forever, refilling the in-flight slots with the same nearest
+  chunks and starving the rest of the ring into a permanent ~24-chunk bubble around the player; the
+  far shell was immune because it skips completed cells, which is why 300 m→2 km rendered while the
+  0-300 m disc stayed empty).
 - **Far shell (1ef):** from ring near+1 out to the render radius, `WorldStreamer.FarShell.cs` covers
   the ground with one coarse **cell mesh** per aligned span block — level-of-detail sectors generated on
   the ThreadPool from the SAME per-chunk corner grid the real chunks use (save stamps + noise), so the
@@ -136,10 +142,11 @@ edges), with a
   other from frame 1, so the first rendered frame no longer pays the 5-20 ms sync chunk. The rest of
   the visible ring builds in an **adaptive burst pass** (poll every 0.05 s, up to
   12 chunks / base ~6 ms finalize budget that self-shrinks while frames hitch, 24 background generations
-  in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the far shell fills the
-  rest) without dropping a steady 60 fps (**1di** — the earlier
-  16-chunk/12 ms burst shrank the budget so chunk finalization + collider cooking stop competing with the
-  frame). The game bootstrap defaults render radius to **67** (1ef) with a
+in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the far shell fills the
+   rest) without dropping a steady 60 fps (**1di** — the earlier
+   16-chunk/12 ms burst shrank the budget so chunk finalization + collider cooking stop competing with the
+   frame). Since **1em** this fill actually completes: previously the dispatch loop re-generated the
+   same nearest chunks forever, so the ring stalled at ~24 chunks (see the §2.5 real-ring note). The game bootstrap defaults render radius to **67** (1ef) with a
   hard clamp of **160** chunks, and the LOD cull distance auto-matches the current render radius so
   culling never fights the visible ring (far cells are static, not LOD-registered, so the cull budget
   still scales with the REAL near ring).

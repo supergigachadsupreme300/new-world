@@ -118,17 +118,25 @@ public partial class WorldStreamer
             TerrainChunkCoord tc = _chunkDispatchOrder[i];
             if (_chunksInFlight.ContainsKey(tc))
                 continue;
+            if (_loadedChunks.ContainsKey(tc))
+                continue; // already materialized — never re-generate (1em)
 
             _chunksInFlight.TryAdd(tc, 0);
             long seed = Seed;
             ThreadPool.QueueUserWorkItem(_ => BackgroundGenerateChunk(tc, seed));
         }
 
-        // Drop fully-loaded chunks from the dispatch list (was a closure-allocating RemoveAll).
+        // Drop already-loaded chunks from the dispatch list. 1em: the old guard required BOTH
+        // pending AND loaded, but FinalizeChunks removes the pending mark at finalize, so a
+        // finalized/loaded chunk could never match — it stayed in the list and was re-dispatched
+        // (regenerated) every poll. Since dispatch is nearest-first and MaxInFlight saturates with
+        // the nearest chunks before the scan reaches the outer rings, the freed slots were always
+        // refilled by those SAME nearest chunks and the rest of the near ring starved forever
+        // (the ~24-chunk bubble; the far shell was unaffected because it skips completed cells).
         for (int i = _chunkDispatchOrder.Count - 1; i >= 0; i--)
         {
             TerrainChunkCoord c = _chunkDispatchOrder[i];
-            if (_pendingChunks.Contains(c) && _loadedChunks.ContainsKey(c))
+            if (_loadedChunks.ContainsKey(c))
             {
                 _pendingChunks.Remove(c);
                 _chunkDispatchOrder.RemoveAt(i);
