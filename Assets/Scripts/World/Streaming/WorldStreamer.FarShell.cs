@@ -72,6 +72,11 @@ public partial class WorldStreamer
     /// <summary>Consecutive fully-settled polls before the far shell bakes its static batch (1eh).
     /// ~20 polls at the 20 Hz beat ≈ 1 s of a settled shell.</summary>
     private const int FarSettlePollsBeforeBake = 20;
+    /// <summary>Far-shell static bake master switch (1eh). DISABLED: the once-combined batch (via
+    /// <see cref="StaticBatchingUtility.Combine"/>) rendered far meshes only from below — a back-face/
+    /// combined-mesh artifact, so the whole shell renders dynamic again (known-good from 1ef). Re-enable
+    /// only after a Unity-side root cause on combined-mesh winding. See §1eh-status in PROGRESS.md.</summary>
+    private const bool FarBakeEnabled = false;
 
     // --- Far shell state ---
     private readonly Dictionary<FarCell, GameObject> _farSectors = new Dictionary<FarCell, GameObject>();
@@ -85,7 +90,8 @@ public partial class WorldStreamer
     private bool _farUnloadBacklog;
     private Transform _farRoot;
     /// <summary>True once the initial far shell has been static-batched (1eh): the bulk (span-3/6
-    /// cells) now render as one combined mesh. Never un-baked; ClearFarShell wipes it wholesale.</summary>
+    /// cells) now render as one combined mesh. Never un-baked; ClearFarShell wipes it wholesale.
+    /// Currently inert — see <see cref="FarBakeEnabled"/> (disabled).</summary>
     private bool _farBaked;
     /// <summary>Combined root of the baked span-3/6 cells, or null before the bake.</summary>
     private Transform _farBatchRoot;
@@ -336,11 +342,14 @@ public partial class WorldStreamer
                 break;
         }
 
-        // (5) Static bake (1eh): once the shell has fully settled, merge all span-3/6 cells into one
-        // combined mesh — the single biggest far-shell draw-call cut. Span-1 rim cells stay dynamic
-        // (they own the active shadow and must be able to hide under a loaded real chunk). Baked
-        // cells stay live on shrink (never torn out of the combined mesh) and ClearFarShell wipes
-        // the batch wholesale.
+        // (5) Static bake (1eh): once the shell has fully settled (and only while baking is enabled),
+        // merge all span-3/6 cells into one combined mesh — the single biggest far-shell draw-call cut.
+        // Span-1 rim cells stay dynamic (they own the active shadow and must be able to hide under a
+        // loaded real chunk). Baked cells stay live on shrink (never torn out of the combined mesh) and
+        // ClearFarShell wipes the batch wholesale. DISABLED for now: the combined batch rendered only
+        // from below, so every generated cell is left dynamic on its own mesh.
+        if (!FarBakeEnabled)
+            return;
         if (_farPending.Count == 0 && _farInFlight.Count == 0 && _farReady.IsEmpty && !_farUnloadBacklog)
         {
             if (++_farIdlePolls >= FarSettlePollsBeforeBake)
@@ -614,6 +623,8 @@ public partial class WorldStreamer
     /// </summary>
     private void TryBakeFarShell()
     {
+        if (!FarBakeEnabled)
+            return;
         if (_farBaked || _farSectors.Count == 0)
             return;
 

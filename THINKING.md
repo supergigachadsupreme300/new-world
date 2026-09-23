@@ -188,6 +188,28 @@ near the player; Discrete suffices, interpolation retained. VERDICT: CONFIRMED �
 are clean (verified re-read), so a settled shell (even baked) costs ~zero per frame in the streamer.
 VERDICT: REJECTED — no change needed beyond the bake gating.
 
+### H6 — the static-baked far shell renders only from below → CONFIRMED by play-test; bake DISABLED, root cause OPEN
+User play-test of the `1eh` commit (bake shipped as H3): "the visuals generated beside the chunks around
+the player can only be seen from the surface under" — confirmed via clarifying question that the WHOLE
+far shell ~250 m+ (i.e. the baked span-3/6 batch, which is every far cell outside the unbaked rim band)
+vanished from above once the shell settled ~1-2 s, and showed only from underneath. Before that, the
+identical dynamic per-cell meshes (1ef/1eg) rendered correctly from above for the same user, and the
+winding of `BuildFarSector` is byte-identical to the real-chunk LOD meshes (both CW-from-below) — so the
+geometry itself is verifiably fine and the delta is `StaticBatchingUtility.Combine` itself (the only
+rendering change in `1eh`; finalize budget / collider ring / pedestals / CCD can't flip winding).
+Root-cause candidates considered (NOT concluded — no Unity access): combined-mesh winding/bounds baked
+from the child world matrices, UV/vertex-color channel reconciliation (our far meshes are UV-less +
+color-rich), or the `TerrainLayered` shader interacting with static-batch lightmap channels. None is
+provable by grep. MITIGATION (shipped): a `FarBakeEnabled = false` switch — `TryBakeFarShell` and the
+(5) settle-hook are gated, so every far cell renders dynamic again (exactly the 1ef/1eg state). H3's
+watch-list items (retention on shrink, bake spike) are moot while disabled. VERDICT: H3's bake =
+CONFIRMED-BROKEN at runtime, REOPENED for root cause. EXPERIMENT to run in Unity before re-enabling:
+flip `FarBakeEnabled` to true, then (a) read the Console for a `[WorldStreamer] Far shell static bake
+failed` warning (our try/catch swallows the real cause — temporarily log the inner exception + stack),
+(b) if no warning, select `FarBaked` and inspect one child's `MeshFilter.mesh` winding/normal direction
+in Scene view, (c) sanity-test a MINIMAL repro: Combine two sample planes with and without vertex colors
+on the same shader.
+
 Follow-on to the 1ea lag sweep — re-read the per-frame paths in `WorldStreamer` / `UIManager` /
 `PlayerController` hunting work that burns CPU even when the player stands still on the test platform.
 Target: **Unity Editor Play mode** (user's environment), no gameplay change.

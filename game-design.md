@@ -93,12 +93,13 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   48 in flight, 16 finalized/poll but **time-capped at ~2.5 ms/poll on the main thread** (1eh — the fast
   fill stays, a single poll never spikes on GameObject/mesh creation; ~120-480 cell meshes/s → initial
   ~1,400-cell fill ~3-8 s), 32 removals/poll with a backlog flag. Cells are dispatched **horizon-first**
-  (the farthest rings finalize before the closer ones) so the distant band the player actually sees
-  closes within seconds. After the shell settles ~1 s, all **span-3/6 cells are static-batched into ONE
-  combined mesh** (1eh `TryBakeFarShell`, `StaticBatchingUtility.Combine`): the ~1,400 per-cell
-  renderers collapse to ~17 batched sub-meshes — the bulk of the shell read as a single renderer. The
-  span-1 rim stays dynamic (it owns the active shadow), and baked cells are retained on shrink rather
-  than torn out of the combined mesh (wiped wholesale by `ClearFarShell` on world/save reset). Far
+   (the farthest rings finalize before the closer ones) so the distant band the player actually sees
+   closes within seconds. **Static baking is DISABLED** (1eh follow-up): the once-combined batch
+   (`StaticBatchingUtility.Combine` via `TryBakeFarShell`, gated by the `FarBakeEnabled` switch) rendered
+   the merged far meshes only from below — a back-face/combined-mesh artifact, so every far cell again
+   renders as its own dynamic mesh (known-good from 1ef; **~1,400 draw calls** back). The bake stays in
+   code behind the switch — re-enable only after a Unity-side root cause on combined-mesh winding. The
+   span-1 rim stays dynamic regardless (it owns the active shadow). Far
   cells have **no colliders, no props, and never re-generate** (digs stay
   inside the collider ring 7 < rim 10). The camera far plane is **2200 m** (`PlayerController.Camera.cs`)
   and the terrain shader adds a **horizon tonal lift** starting ~1600 m at 60% peak strength (no fog —
