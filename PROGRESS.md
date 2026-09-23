@@ -3,6 +3,55 @@
 Last updated: 2026-09-23. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1eh. Performance pass — far-finalize time budget, far-shell static bake, collider ring 8→7, platform + physics trims
+
+User play-test after 1ef/1eg: "too lag to play" — slow even standing still, hitches while moving
+(Editor session, no build). Verified by grep + reread (rule 3, no CLI build); Unity play-test pending.
+Diagnosis: (a) 1eg raised far-cell finalize to 16 GameObjects + mesh uploads/poll on the main thread —
+a per-poll hitch while the shell fills and while walking; (b) steady-state cost in physics bodies
+(289 chunk MeshColliders + the per-branch tree colliders the user chose to keep as-is) and ~1,400
+far-shell draw calls; (c) platform QA lane (~60 magic-pedestal TMP labels) + 7 livestock on CCD.
+
+- `Assets\Scripts\World\Streaming\WorldStreamer.FarShell.cs`:
+  - **Finalize is now time-budgeted** (`FarFinalizeBudgetMs` = 2.5 ms/poll, hard cap `MaxFarFinalizePerPoll`
+    16 kept): the 1eg throughput stays, but a single poll never spikes the main thread on
+    GameObject/mesh creation (mirrors the real-chunk adaptive budget). Fill now ~3-8 s (was 1.5-5).
+  - **Static bake** (`TryBakeFarShell`): once the shell is fully settled for `FarSettlePollsBeforeBake`
+    (20) polls, all span-3/6 cells are moved under one root and merged via
+    `StaticBatchingUtility.Combine` — the ~1,400 per-cell renderers collapse to a handful of batched
+    sub-meshes (Unity auto-splits at 65k). Span-1 rim cells stay dynamic (they own the active shadow
+    and must be able to hide under a loaded real chunk). Baked cells are skipped by the removal scan
+    (never torn out of the combined mesh — `StaticBatchingUtility` cannot re-bake the same GOs); they
+    are retained on shrink/radius-change until `ClearFarShell` wipes the batch wholesale (and does NOT
+    return the combined mesh to the pooled-mesh cache — a pooled combined mesh would corrupt chunk
+    reuse). New cells after the bake stay dynamic.
+- `Assets\Scripts\World\Streaming\WorldStreamer.cs` — `ColliderRingRadius` **8 → 7**: 289 → 225 chunk
+  MeshColliders swept by every `CharacterController.Move`; still below `NearRingRadius` 9 (collider-on-
+  real-chunk constraint intact) and larger than every gameplay probe range.
+- `Assets\Scripts\Opt\NewWorldTestGround.cs` — `EnableMagicModels` default **false** (QA lane off:
+  ~60 world TMP labels + pedestal cubes gone from the Editor session; flip on to inspect).
+- `Assets\Scripts\Livestock\Livestock.cs` — livestock Rigidbody CCD `ContinuousDynamic` → `Discrete`
+  (7 bodies; low-speed animals don't need CCD).
+
+### 1eh-status
+- Implemented; verified by grep + reread (rule 3 — no CLI build): `ColliderRingRadius` used only in
+  `ReconcileCollidersIfChanged` (want = ring box test; 7 < near 9 ✓); `EnableMagicModels` gate at
+  `NewWorldTestGround` coroutine; livestock has no other CCD usage (FlyingCrane keeps CCD — separate
+  system); far-finalize budget + bake re-read end-to-end (removal-scan skip, ClearFarShell order:
+  baked batch first, no pool release of combined meshes, then dynamic sectors; epoch/reset paths
+  reset `_farBaked/_farBakedCells/_farIdlePolls`). New symbols have no duplicates in the partial class.
+- Design acceptances (watch): the fill takes a few seconds longer than 1eg (~3-8 s); after the bake,
+  cells outside the original footprint spawn dynamic (fine while walking); baked cells persist beyond
+  keep when the radius shrinks until a world/save reset; first bake is a short one-off burst once the
+  shell settles (spread across a few frames is not possible with a single Combine — accept the single
+  spike in the Editor, it occurs once while idle).
+- Play-test (pending, Unity): with the FPS overlay — standing-still FPS and per-frame ms after the
+  shell has filled+settled; walking a long line for hitches (finalize budget should smooth the fill
+  and leading-edge); confirm the far cells counter still reaches ~1,400 then settles, the bake logs no
+  warning, and the horizon band is still complete (no hole at the real-ring ↔ shell junction or around
+  a walking path); raise/lower Render Distance — shell grows dynamically, on shrink the baked interior
+  stays until a world reset. Confirm no compile error in Unity (rule 3).
+
 ## 1eg. Far shell fills fast, horizon-first + horizon tint softened (follow-up to 1ef)
 
 User play-test of 1ef: "the map visual is not fully loading, i can see some loaded from far away but

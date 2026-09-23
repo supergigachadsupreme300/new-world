@@ -90,11 +90,17 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   the same poll it unloads — zero hole, zero z-fight), **span-3** cells (rings ≥15, step 3/6/9 →
   31/16/11 verts/axis) and **span-6** cells (rings ≥36, step 12/15) cover the open ground, with a
   coarser required parent suppressing its finer children so every chunk has exactly one cell. Budgets:
-  48 in flight, 16 finalized/poll (~320-960 cell meshes/s, initial ~1,400-cell fill takes ~1.5-5 s),
-  32 removals/poll with a backlog flag. Cells are dispatched **horizon-first** (the farthest rings
-  finalize before the closer ones) so the distant band the player actually sees closes within seconds.
-  Far cells have **no colliders, no props, and never re-generate** (digs stay
-  inside the collider ring 8 < rim 10). The camera far plane is **2200 m** (`PlayerController.Camera.cs`)
+  48 in flight, 16 finalized/poll but **time-capped at ~2.5 ms/poll on the main thread** (1eh — the fast
+  fill stays, a single poll never spikes on GameObject/mesh creation; ~120-480 cell meshes/s → initial
+  ~1,400-cell fill ~3-8 s), 32 removals/poll with a backlog flag. Cells are dispatched **horizon-first**
+  (the farthest rings finalize before the closer ones) so the distant band the player actually sees
+  closes within seconds. After the shell settles ~1 s, all **span-3/6 cells are static-batched into ONE
+  combined mesh** (1eh `TryBakeFarShell`, `StaticBatchingUtility.Combine`): the ~1,400 per-cell
+  renderers collapse to ~17 batched sub-meshes — the bulk of the shell read as a single renderer. The
+  span-1 rim stays dynamic (it owns the active shadow), and baked cells are retained on shrink rather
+  than torn out of the combined mesh (wiped wholesale by `ClearFarShell` on world/save reset). Far
+  cells have **no colliders, no props, and never re-generate** (digs stay
+  inside the collider ring 7 < rim 10). The camera far plane is **2200 m** (`PlayerController.Camera.cs`)
   and the terrain shader adds a **horizon tonal lift** starting ~1600 m at 60% peak strength (no fog —
   mid-view stays crisp)
   so the outermost shell reads as atmosphere.
@@ -136,7 +142,7 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   world reads sparser/cleaner while the prop ring stays light. The odds live in
   `ChunkObject.PropSpawnOdds`.
 - **Collider-on-demand (1dq):** terrain **MeshColliders exist only where gameplay physics needs them**
-  — chunks inside the `ColliderRingRadius` ring around the focus (default **8** ≈ 240 m, covers every
+  — chunks inside the `ColliderRingRadius` ring around the focus (default **7** ≈ 210 m, covers every
   gameplay probe: player ground ray, spell ≤40 m, NavGrid, Tornado, ToolManager, fishing) plus chunks
   under an active spell projectile (`ColliderRequestRegistry`, requested chunk-by-chunk as the bolt
   flies and expanded by one chunk). Every chunk at full render radius still looks identical — the far

@@ -46,7 +46,7 @@ public class Livestock : MonoBehaviour, ITornadoCarried, IDamageable
         _rb.isKinematic = false;
         _rb.useGravity = true;
         _rb.constraints = RigidbodyConstraints.FreezeRotation;
-        _rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        _rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
         _rb.interpolation = RigidbodyInterpolation.Interpolate;
 
         var col = gameObject.AddComponent<SphereCollider>();

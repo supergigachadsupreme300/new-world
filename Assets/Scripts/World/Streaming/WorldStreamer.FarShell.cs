@@ -62,10 +62,16 @@ public partial class WorldStreamer
     // --- Far shell budgets (main thread) ---
     /// <summary>Max far-sector meshes being built on the ThreadPool simultaneously.</summary>
     private const int MaxFarInFlight = 48;
-    /// <summary>Max far-sector GameObjects created per poll tick (~320-960/s at 60 fps).</summary>
+    /// <summary>Hard cap: max far-sector GameObjects created per poll tick (~320-960/s at 60 fps).</summary>
     private const int MaxFarFinalizePerPoll = 16;
+    /// <summary>Soft cap: far-sector creation is additionally time-budgeted per poll (1eh) so a poll
+    /// never spends more than this creating GameObjects + uploading meshes on the main thread.</summary>
+    private const float FarFinalizeBudgetMs = 2.5f;
     /// <summary>Max far sectors destroyed per poll while the shell shrinks.</summary>
     private const int MaxFarUnloadsPerPoll = 32;
+    /// <summary>Consecutive fully-settled polls before the far shell bakes its static batch (1eh).
+    /// ~20 polls at the 20 Hz beat ≈ 1 s of a settled shell.</summary>
+    private const int FarSettlePollsBeforeBake = 20;
 
     // --- Far shell state ---
     private readonly Dictionary<FarCell, GameObject> _farSectors = new Dictionary<FarCell, GameObject>();
@@ -78,6 +84,16 @@ public partial class WorldStreamer
     private int _farEpoch;
     private bool _farUnloadBacklog;
     private Transform _farRoot;
+    /// <summary>True once the initial far shell has been static-batched (1eh): the bulk (span-3/6
+    /// cells) now render as one combined mesh. Never un-baked; ClearFarShell wipes it wholesale.</summary>
+    private bool _farBaked;
+    /// <summary>Combined root of the baked span-3/6 cells, or null before the bake.</summary>
+    private Transform _farBatchRoot;
+    /// <summary>Cells whose geometry is baked into <see cref="_farBatchRoot"/> — skipped by the
+    /// removal scan (a combined mesh cannot be torn apart cell by cell).</summary>
+    private readonly HashSet<FarCell> _farBakedCells = new HashSet<FarCell>();
+    /// <summary>Consecutive polls with a fully settled shell — gates the static bake.</summary>
+    private int _farIdlePolls;
 
     /// <summary>Number of far-shell sector GameObjects currently live (bench readout, 1ef).</summary>
     public int FarSectorCount => _farSectors.Count;
@@ -244,6 +260,8 @@ public partial class WorldStreamer
             FarCell cell = kv.Key;
             if (RequiredFarCell(cell, centre, near, keep))
                 continue;
+            if (_farBakedCells.Contains(cell))
+                continue;                       // baked into the combined mesh — never torn out
             if (cell.Span == 1)
             {
                 TerrainChunkCoord tc = new TerrainChunkCoord(cell.X, cell.Z);
@@ -299,7 +317,10 @@ public partial class WorldStreamer
             ThreadPool.QueueUserWorkItem(_ => BackgroundGenerateFarCell(cell, seed, epoch, maxRing));
         }
 
-        // (4) Finalize.
+        // (4) Finalize. Time-budgeted (1eh): the 1eg throughput stays for the fast fill, but a single
+        // poll never spends more than FarFinalizeBudgetMs creating GameObjects + uploading meshes on
+        // the main thread (mirrors the real-chunk adaptive budget in WorldStreamer.Mesh.cs).
+        System.Diagnostics.Stopwatch farFinalizeSw = System.Diagnostics.Stopwatch.StartNew();
         int finalized = 0;
         while (finalized < MaxFarFinalizePerPoll && _farReady.TryDequeue(out FarMeshData data))
         {
@@ -311,6 +332,23 @@ public partial class WorldStreamer
                 continue;                       // focus moved past it while generating
             CreateFarSector(data.Cell, data.Merged);
             finalized++;
+            if (farFinalizeSw.Elapsed.TotalMilliseconds >= FarFinalizeBudgetMs)
+                break;
+        }
+
+        // (5) Static bake (1eh): once the shell has fully settled, merge all span-3/6 cells into one
+        // combined mesh — the single biggest far-shell draw-call cut. Span-1 rim cells stay dynamic
+        // (they own the active shadow and must be able to hide under a loaded real chunk). Baked
+        // cells stay live on shrink (never torn out of the combined mesh) and ClearFarShell wipes
+        // the batch wholesale.
+        if (_farPending.Count == 0 && _farInFlight.Count == 0 && _farReady.IsEmpty && !_farUnloadBacklog)
+        {
+            if (++_farIdlePolls >= FarSettlePollsBeforeBake)
+                TryBakeFarShell();
+        }
+        else
+        {
+            _farIdlePolls = 0;
         }
     }
 
@@ -564,6 +602,63 @@ public partial class WorldStreamer
     }
 
     /// <summary>
+    /// Static-batches the settled far shell (1eh): moves every span-3/6 sector under a fresh root
+    /// and calls <see cref="StaticBatchingUtility.Combine"/> so the bulk (~1,200 cells) renders as
+    /// ONE combined mesh — the biggest far-shell draw-call cut, with perf win also for moving, since
+    /// the combined geometry is dispatched as a single renderer. Span-1 rim cells are excluded: they
+    /// own the active shadow (toggle active under loaded real chunks) and baking them would keep
+    /// drawing under a materialized chunk. Baked cells are never torn out of the combined mesh (the
+    /// removal scan skips <see cref="_farBakedCells"/>) and are wiped wholesale by
+    /// <see cref="ClearFarShell"/>. Cells spawned later (player movement) stay dynamic. On failure
+    /// the moved cells are re-parented and the shell keeps running dynamic.
+    /// </summary>
+    private void TryBakeFarShell()
+    {
+        if (_farBaked || _farSectors.Count == 0)
+            return;
+
+        var root = new GameObject("FarBaked");
+        root.transform.SetParent(_farRoot != null ? _farRoot : EnsureFarRoot(), false);
+
+        var moved = new List<GameObject>();
+        try
+        {
+            foreach (KeyValuePair<FarCell, GameObject> kv in _farSectors)
+            {
+                if (kv.Key.Span == 1 || kv.Value == null)
+                    continue;
+                if (kv.Value.GetComponent<MeshRenderer>() == null)
+                    continue;
+                kv.Value.transform.SetParent(root.transform, true);
+                _farBakedCells.Add(kv.Key);
+                moved.Add(kv.Value);
+            }
+            if (moved.Count == 0)
+            {
+                Destroy(root);
+                return;
+            }
+            StaticBatchingUtility.Combine(root);
+            _farBatchRoot = root.transform;
+            _farBaked = true;
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogWarning($"[WorldStreamer] Far shell static bake failed: {ex.Message}");
+            for (int i = 0; i < moved.Count; i++)
+            {
+                if (moved[i] != null && moved[i].transform.parent == root.transform)
+                    moved[i].transform.SetParent(EnsureFarRoot(), true);
+            }
+            _farBakedCells.Clear();
+            _farBatchRoot = null;
+            _farBaked = false;
+            if (root != null)
+                Destroy(root);
+        }
+    }
+
+    /// <summary>
     /// Wipe the whole far shell (world/save reset path): bump the epoch so any in-flight or queued
     /// generation is dropped at finalize, destroy every sector, clear all queues, and re-arm the
     /// streaming poll so the shell regenerates from the pristine world next tick.
@@ -571,6 +666,23 @@ public partial class WorldStreamer
     public void ClearFarShell()
     {
         _farEpoch++;
+        // Baked batch first: its cells' MeshFilters may point at the combined mesh, so they are
+        // destroyed WITHOUT returning anything to the pooled-mesh cache (never pool a combined mesh).
+        if (_farBakedCells.Count > 0)
+        {
+            var baked = new List<FarCell>(_farBakedCells);
+            for (int i = 0; i < baked.Count; i++)
+            {
+                if (_farSectors.TryGetValue(baked[i], out GameObject bgo) && bgo != null)
+                    Destroy(bgo);
+                _farSectors.Remove(baked[i]);
+            }
+            _farBakedCells.Clear();
+            if (_farBatchRoot != null)
+                Destroy(_farBatchRoot.gameObject);
+            _farBatchRoot = null;
+            _farBaked = false;
+        }
         if (_farSectors.Count > 0)
         {
             var all = new List<FarCell>(_farSectors.Keys);
@@ -584,6 +696,7 @@ public partial class WorldStreamer
         {
         }
         _farUnloadBacklog = false;
+        _farIdlePolls = 0;
         _worldDirty = true;
     }
 }

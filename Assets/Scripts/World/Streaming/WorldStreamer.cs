@@ -33,8 +33,8 @@ public partial class WorldStreamer : MonoBehaviour
     public int PropRingRadius = 4;
 
     [Header("Colliders")]
-    [Tooltip("Collider-on-demand ring (1dq): terrain MeshColliders exist only on chunks within this many chunks of the focus (plus any chunk under an active spell projectile). Everything further still renders its full mesh but has no physics — the draw stays identical while the collider cooks / 7k-tri broadphase bodies drop ~92% at the default radius.")]
-    public int ColliderRingRadius = 8;
+    [Tooltip("Collider-on-demand ring (1dq/1eh): terrain MeshColliders exist only on chunks within this many chunks of the focus (plus any chunk under an active spell projectile). Everything further still renders its full mesh but has no physics — the draw stays identical while the collider cooks / 7k-tri broadphase bodies drop ~92% at the default radius. 1eh: 8 -> 7 (289 -> 225 bodies swept by every Move) — still below NearRingRadius so every collider stays on a real chunk.")]
+    public int ColliderRingRadius = 7;
 
     /// <summary>Chunks around each magic collider request that also keep a collider (1dq).</summary>
     public const int ColliderRequestExpand = 1;

@@ -142,6 +142,52 @@ needs to be active where its real chunk has UNloaded — which requires the focu
 which time the shell is fully filled (≤5 s). Near-mid fill follows within the same window. VERDICT:
 CONFIRMED SAFE — shipped as the reverse iteration in `1eg`.
 
+## 1eh — "too lag to play": far-finalize main-thread spike, physics body count, far draw calls (SHIPPED in `1eh`)
+
+User play-test right after `1eg`: lag standing still AND hitches while moving (Editor session). No
+profiler access — reasoning from code review only.
+
+### H1 — 1eg's fill-throughput bump made the main thread lighter? NO — heavier per poll → CONFIRMED (main moving hitch)
+`1ef` finalized 3 far cells/poll; `1eg` raised it to **16/poll** (+48 in flight). Each finalize =
+`CreateFarSector` → `new GameObject` + `MeshFilter` + `MeshRenderer` + `AcquireChunkMesh` +
+`UploadMerged` (mesh fill + bounds + upload) on the MAIN thread. At the 20 Hz poll that's up to 320
+GameObject/mesh creations per second during the ~1.5-5 s fill AND at the leading edge while walking —
+a plain per-poll hitch the previous cap had spread thin. Evidence: 1eg shipped 16/poll; the user's
+lag report came immediately after 1eg. FIX: keep the cap but add a **per-poll ms budget**
+(`FarFinalizeBudgetMs` 2.5 — mirrors the real-chunk `AdaptiveBudgetMs`), stop mid-fill when exceeded.
+Fill slows a little (~3-8 s — still ~3-5× faster than 1ef's 20-25 s); hitches bounded. VERDICT:
+CONFIRMED — shipped in `1eh`.
+
+### H2 — standing-still Editor lag is physics bodies + draw calls (trees, chunks, far cells) → PARTIAL
+Physics: ~289 chunk MeshColliders (`ColliderRingRadius` 8) + per-branch tree BoxColliders (user chose
+"keep as-is", so untouched) = every `CharacterController.Move`/interaction ray sweeps a large
+broadphase. Draw calls: ~1,400 far cells + 361 chunks + ~2k prop cubes + ~60 magic-pedestal TMP
+labels (test-platform QA lane on by default). Levers taken: collider ring **8→7** (289→225 — under
+near ring 9 so no collider-on-shell regression), magic models **default off**, livestock CCD
+ContinuousDynamic→Discrete. VERDICT: CONFIRMED for the parts acted on; tree colliders remain per user
+choice (reopen if the profile still shows Physics dominating).
+
+### H3 — static-batch the far shell: ~1,400 renderers → few sub-meshes → CONFIRMED, with a hard constraint
+`StaticBatchingUtility.Combine` can be called ONCE per GameObject (no re-bake). So the design bakes
+only after the shell is fully settled (`_farIdlePolls ≥ 20`), bakes only **span-3/6** cells (span-1
+excluded: they own the active shadow — a baked rim would keep drawing under a loaded real chunk →
+z-fight), and **retains baked cells on shrink** (removal scan skips `_farBakedCells`) — they persist
+past keep until `ClearFarShell` wipes the batch. Two sub-risks checked: (a) if Combine shares the
+combined mesh into each child's `MeshFilter`, `DestroyFarSector`'s pooled-mesh release would corrupt
+the chunk-mesh pool → `ClearFarShell` destroys baked cells WITHOUT pool release; (b) a too-big mesa
+splits automatically at 65k verts (Unity internal), so ~1.1M verts → ~17 sub-meshes, still a massive
+draw-call win. VERDICT: CONFIRMED — shipped in `1eh` (TryBakeFarShell); watch-list: the one-off bake
+spike occurs once while idle in the Editor; baked cells persist on radius shrink until a world reset.
+
+### H4 — livestock CCD cost → CONFIRMED (cheap win)
+7 livestock using `ContinuousDynamic` (most expensive CCD mode) + interpolation. Animals wander slowly
+near the player; Discrete suffices, interpolation retained. VERDICT: CONFIRMED — shipped.
+
+### H5 — far-shell idle gate could still cost per poll → REJECTED
+`FarShellTick` fully closes the idle gate once `_farPending/_farInFlight/_farReady/_farUnloadBacklog`
+are clean (verified re-read), so a settled shell (even baked) costs ~zero per frame in the streamer.
+VERDICT: REJECTED — no change needed beyond the bake gating.
+
 Follow-on to the 1ea lag sweep — re-read the per-frame paths in `WorldStreamer` / `UIManager` /
 `PlayerController` hunting work that burns CPU even when the player stands still on the test platform.
 Target: **Unity Editor Play mode** (user's environment), no gameplay change.
