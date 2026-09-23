@@ -73,7 +73,10 @@ neighbors (e.g. step-6 vs step-3, step-12 vs step-15) have T-junction rows along
 edge — sub-pixel at ≥600 m (band B step rises at radius ≥ ~660 m, band C at ≥ ~1,080 m). Micro-seams
 accepted. The initial fill rate (3 finalized × 20 polls = 60 cells/s) → ~1,400 cells ≈ 20-25 s; the
 teleport/far-jump re-fill is amortized while the player moves. VERDICT: CONFIRMED (blocking on the
-locked `MaxFarFinalizePerPoll = 3` — documented, not "fixed").
+locked `MaxFarFinalizePerPoll = 3` — documented, not "fixed"). ⚠️ **REOPENED by `1ej`**: the "sub-pixel"
+assumption was WRONG — the user later reported permanent thin lines along every chunk edge in the far
+shell, which are exactly these T-junction cracks (the step rises sit at 630/810/1,410/2,100 m, all
+clearly visible). FIXED in `1ej` by removing the ladder entirely (one uniform 3 m step).
 
 ### H6 — worker threads must never read shared state → epoch/seed/maxRing passed by value
 `BuildFarSector` computes step from maxRing + span, reads saves via `ChunkSaveManager.TryLoadChunk`
@@ -245,6 +248,54 @@ least-budgeted / worst single spike)**. Two low-risk cuts shipped: (a) far cells
 4 → 2 so ring-crossing cooks spread one extra poll (already resumable via `_collidersDirty`). VERDICT:
 CONFIRMED as taken; further spread (staggering Finalize/FarShell/props across separate polls) is a bigger
 change and stays out of scope unless the next play-test still hitches.
+
+## 1ej — permanent "thin lines along every chunk edge" in the far shell = the step ladder's T-junction cracks (FIXED in `1ej`)
+
+After 1ei shipped, the play-test came back sharper than before: the far ground beyond the real ring has
+gaps between itself and the loaded chunks around the player, AND cells further out show "gaps with every
+chunks". Follow-up clarifying answers: (a) the gaps are **permanent** — standing still 10-15 s never
+fills them; (b) they look like **thin lines/cracks running along every 30 m chunk-edge**. Those two facts
+rule out the fill-latency theories (1eg horizon-first was about transient banding) and point at a
+systematic per-boundary geometry mismatch. Reasoning trail:
+
+### H1 — same-step sibling far cells are watertight → CONFIRMED (the baseline, not the bug)
+`BuildFarSector` samples heights from one `BuildFarChunkCorners` grid per covered chunk
+(FarShell.cs:414-419); `SampleHeight` clamps a boundary tile to `min(t/cs, span-1)` with
+`lx = t - cxi*cs`. A shared-edge vertex between two sibling cells lands at the same world coordinate in
+BOTH cells' boundary-chunk grids (row `gx=0` on one side, `gx=30` on the other), and both
+`BuildFarChunkCorners` (FarShell.cs:544-556) map slot → world identically (`(tc.X*cs+gx)*ChunkData.Size`)
+— byte-identical to the real chunk builder (ChunkBuild.cs:93-95), same NaN seed + save stamping. Two
+independent samples of the same deterministic function at the same argument → **same height → coincident
+row → no seam**. Also the far corner grid is world-anchored, so "the row is offset by 1" style bugs are
+ruled out by the identical slot→world arithmetic. VERDICT: CONFIRMED — siblings sharing a step are not
+the source.
+
+### H2 — adjacent cells with DIFFERENT steps V-crack along their shared row → CONFIRMED as the report
+`FarSectorStep` (pre-1ej) chose each cell's step from ITS OWN maxRing: 3/6/9 for span-3 (rises at rings
+21/27), 12/15 for span-6 (rise at 47). Two cells that touch across a step-rise ring boundary use
+different lattices along their shared 30 m-aligned row: the finer cell puts vertices every 3 m, the
+coarser every 6/9/12 m. The coarse cell's edge is a straight chord between its sparse vertices while the
+fine cell's edge kinks at every intermediate vertex — along a noisy terrain the heights at the fine
+vertices sit off the coarse chord, so the two edge polylines diverge → an open **T-junction V-crack**
+along the ENTIRE shared row. These cracks are permanent (geometry, not fill), sit on the world-aligned
+30 m lattice, and ring outward at the step-rise radii (~630/810/1,410/2,100 m) — matching "permanent
+thin lines along every chunk edge" and the "spaces in the ring around the player" (the first rise,
+~540-630 m, is just beyond the real ring's 270 m). Note §1ef H5 accepted these as "sub-pixel at ≥600 m"
+— REOPENED and shown WRONG; the fine edge diverges by up to the terrain's per-3 m slope × step, easily
+pixel-width at any distance. VERDICT: CONFIRMED — this is the bug.
+
+### H3 — fix by making EVERY cell share one uniform lattice → CONFIRMED, shipped
+Any two different steps on a shared row V-crack, so no ladder tuning (e.g. only using divisible steps)
+can guarantee watertightness — the coarse chord never respects the fine cell's intermediate detail.
+The bulletproof fix is ONE world-aligned 3 m step for every span/ring: every adjacent pair becomes a
+same-step pair, which H1 proves watertight. Cost check: uniform step 3 → span-6 cells go from 16/13 to
+61×61 = 3,721 verts; total far shell ≈ 2.2 M verts vs the previous ~1.4 M — negligible next to the ~1,400
+draw calls that actually dominate (and strictly cheaper memory-agnostic than a batching win). Kept the
+`span/maxRing` parameters on `FarSectorStep` for call-site stability though the body returns 3. All other
+behavior (budgets, horizon-first dispatch, active-shadow ring, bake disabled) untouched. VERDICT:
+shipped in `1ej` — see the section header; remaining risk: if thin lines STILL show after this, the
+source cannot be the far shell's internal seams (geometry provably watertight) and the next check is
+per-chunk save/noise divergence between neighboring `BuildFarChunkCorners` grids — not the step.
 
 Follow-on to the 1ea lag sweep — re-read the per-frame paths in `WorldStreamer` / `UIManager` /
 `PlayerController` hunting work that burns CPU even when the player stands still on the test platform.

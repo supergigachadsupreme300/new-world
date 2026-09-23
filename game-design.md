@@ -87,8 +87,12 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   the ThreadPool from the SAME per-chunk corner grid the real chunks use (save stamps + noise), so the
   map stays watertight and shares the real ring's seam exactly. Cells: **span-1** rim cells (3 m step)
   at rings 10-14 own the loaded/unloaded **active shadow** (inactive under a real ring-10 chunk, active
-  the same poll it unloads — zero hole, zero z-fight), **span-3** cells (rings ≥15, step 3/6/9 →
-  31/16/11 verts/axis) and **span-6** cells (rings ≥36, step 12/15) cover the open ground, with a
+  the same poll it unloads — zero hole, zero z-fight), **span-3** cells (rings ≥15, 90 m wide) and
+  **span-6** cells (rings ≥36, 180 m wide) cover the open ground — every cell on the SAME uniform
+  **3 m step** (11/31/61 verts/axis respectively). One shared lattice means adjacent cells of every span
+  carry exact coincident edge rows, so the shell has **no T-junction cracks** (1ej removed the old
+  radius step ladder 3/6/9/12/15 whose different-step neighbors left thin visible lines along chunk
+  edges), with a
   coarser required parent suppressing its finer children so every chunk has exactly one cell. Budgets:
   48 in flight, 16 finalized/poll but **time-capped at ~2.5 ms/poll on the main thread** (1eh — the fast
   fill stays, a single poll never spikes on GameObject/mesh creation; ~120-480 cell meshes/s → initial

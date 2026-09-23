@@ -3,6 +3,47 @@
 Last updated: 2026-09-23. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1ej. Far shell — permanent "thin lines along every chunk edge" (step-ladder T-junction cracks) → uniform 3 m lattice
+
+User play-test after 1ei reported the far ground beyond the real ring with "spaces" around the loaded
+chunks, and cells even further out with "gaps with every chunks". Clarified: the gaps are **permanent**
+(standing still 10-15 s never fills them) and look like **thin lines/cracks along every 30 m chunk-edge**
+— a systematic boundary artifact, not fill latency. Verified by grep + reread (rule 3, no CLI build);
+Unity play-test pending.
+
+Root cause: the far shell's decimation **step ladder** (`FarSectorStep`, WorldStreamer.FarShell.cs)
+picked each cell's step from its own far-ring distance (span-3 → 3/6/9 by rings ≤21/≤27, span-6 →
+12/15 by ≤47). Wherever adjacent cells used DIFFERENT steps, their shared 30 m-aligned edge was a
+**T-junction**: the coarse cell's edge-chord skipped the fine cell's intermediate vertices, whose noise
+heights sit off the chord → a permanent open V-crack along the whole row. Same-step siblings were proven
+watertight (identical world-anchored corner grids, byte-identical slot→world math to the real chunk
+builder), so the ladder itself was the only seam source — §1ef H5 had accepted these as "sub-pixel",
+now REOPENED by the report.
+
+- `Assets\Scripts\World\Streaming\WorldStreamer.FarShell.cs` — `FarSectorStep(span, maxRing)` now
+  returns the uniform **3 m** step for every cell (span/maxRing kept for call-site stability). Every
+  cell of every span lives on the one shared world-aligned lattice (rim 11×11, span-3 31×31, span-6
+  61×61), so adjacent cells of every span share exact coincident edge rows — no T-junction cracks by
+  construction; the rim/real Lod2 step-3 seam stays exact. Header + method docs updated (ladder wording,
+  verts/axis figures 31/16/11 and 16/13 removed). Budgets, horizon-first dispatch, active-shadow ring,
+  bake switch (disabled) untouched.
+
+### 1ej-status
+- Implemented; verified by grep + reread: no remaining pre-1ej ladder values anywhere in
+  `WorldStreamer.FarShell.cs` (3/6/9/12/15 only appear inside the "what was removed" doc text);
+  `FarSectorStep` has exactly one caller (`BuildFarSector`, FarShell.cs:409) and a constant body —
+  no caller signature change; `span`/`maxRing` still thread-safe captured values so the worker path is
+  unchanged; no public members touched.
+- Cost note: uniform step 3 raises the far-shell vertex total to ~2.2 M (span-6 cells 16/13 → 61×61
+  verts) — negligible vs the ~1,400 draw calls that dominate; background fill time rises a little
+  (more verts/cell), still horizon-first over the 2.5 ms/poll finalize budget.
+- Play-test (pending, Unity): enter Play fresh (full recompile), walk the far ground — the shell must
+  read as ONE continuous surface with **no thin lines/cracks anywhere** from the rim junction (270 m)
+  out to the horizon; the ring band around the player must show no gaps; confirm fill still closes
+  horizon-first and standing/moving FPS is unchanged. If thin lines STILL appear after this pass, they
+  cannot be far-shell internal seams (geometry is provably watertight) — next check is per-chunk
+  save/noise divergence between neighboring corner grids, per THINKING §1ej H3.
+
 ## 1ei. Far shell "only visible from below" + moving-load hitches
 
 User play-test of the 1eh bake-disable fix **still** reported the far chunks beyond the real ring as

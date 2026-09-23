@@ -17,15 +17,15 @@ using UnityEngine;
 ///     chunks use, so the whole map stays watertight. No colliders, no props, no deformation —
 ///     digs can never reach it (collider ring 8 &lt; rim start 10), so far meshes never re-generate.
 ///
-/// Cell hierarchy (so box spans align deterministically with the shared steps that divide 30 m):
+/// Cell hierarchy (1ej: EVERY cell shares the same world-aligned 3 m grid, so adjacent cells of every
+/// span carry coincident edge rows — no T-junction cracks between different-span/different-ring cells):
 ///   - Span 1 (rim): each chunk ring in [near+1, keep] is its own 3 m-step grid (11x11 verts).
 ///     This band also owns the "active shadow" rule: real chunks and far cells overlap ONLY at
 ///     ring near+1 (the StreamAround hysteresis ring) — a span-1 far cell is created there even
 ///     under a loaded real chunk and simply held inactive (active = !_loadedChunks.ContainsKey),
 ///     so when the real chunk stream moves on the far mesh shows in the SAME poll it unloads.
-///   - Span 3 (band B): 3x3-chunk cells (30/90/180 m wide) at ring >= FarBandBMin, step chosen by
-///     the cell's far-ring distance (3/6/9 -> 31/16/11 verts/axis).
-///   - Span 6 (band C): 6x6-chunk cells at ring >= FarBandCMin, step 12/15 (16/13 verts/axis).
+///   - Span 3 (band B): 3x3-chunk cells (90 m wide) at ring >= FarBandBMin, step 3 (31x31 verts).
+///   - Span 6 (band C): 6x6-chunk cells (180 m wide) at ring >= FarBandCMin, step 3 (61x61 verts).
 ///   A finer cell is suppressed whenever its coarser parent cell is required, so every annulus
 ///   chunk belongs to exactly one generated cell. Spread of a span-3 box is <= 2 rings and of a
 ///   span-6 box <= 5, so a required parent only ever overrides fine cells at >= ring 12 (B) or
@@ -154,7 +154,8 @@ public partial class WorldStreamer
     private static int FloorDiv(int a, int b) => (int)System.Math.Floor((double)a / b);
 
     /// <summary>Chebyshev ring extent of a cell box around the focus. minRing is the distance of
-    /// the box's nearest corner; maxRing of its farthest corner (used to pick the decimation step).</summary>
+    /// the box's nearest corner; maxRing of its farthest corner (kept since 1ej only for call-site
+    /// stability — the survive/reject predicates and the uniform step).</summary>
     private static void FarCellRings(FarCell cell, TerrainChunkCoord centre, out int minRing, out int maxRing)
     {
         int minX = cell.X;
@@ -173,16 +174,16 @@ public partial class WorldStreamer
         maxRing = Mathf.Max(farX, farZ);
     }
 
-    /// <summary>Decimation step (metres between grid vertices) for a cell, from its span and the
-    /// far-ring distance captured at dispatch. Every step divides the cell's tile span (30/90/180),
-    /// so grid rows land exactly on chunk boundaries and chunk-boundary rows are coincident between
-    /// adjacent same-step cells (and match the real Lod2 step-3 lattice at the rim).</summary>
+    /// <summary>Decimation step (metres between grid vertices) for a cell. 1ej: EVERY cell uses the
+    /// uniform 3 m step that matches the real Lod2 lattice at the rim. Because sibling cells of every
+    /// span sample the same world-anchored corner grids, shared edge rows are coincident — watertight
+    /// by construction. The pre-1ej radius ladder (3/6/9/12/15 by maxRing) left different-step
+    /// neighbors with T-junction rows along their shared edges, read as permanent cracks ("thin lines
+    /// along every chunk edge"), so it was removed. Step 3 divides every tile span (30/90/180), keeping
+    /// grid rows exactly on chunk boundaries. <paramref name="span"/>/<paramref name="maxRing"/> remain
+    /// for call-site stability (unused).</summary>
     private static int FarSectorStep(int span, int maxRing)
     {
-        if (span >= 6)
-            return maxRing <= 47 ? 12 : 15;
-        if (span >= 3)
-            return maxRing <= 21 ? 3 : (maxRing <= 27 ? 6 : 9);
         return 3;
     }
 
@@ -308,8 +309,8 @@ public partial class WorldStreamer
                 FarConsiderCell(new TerrainChunkCoord(endX, z), centre, near, keep);
         }
 
-        // (3) Dispatch. State captured up front: step is derived on the worker from maxRing + span
-        // (passed by value), epoch from the field read now. The pending list is walked closest-first
+        // (3) Dispatch. State captured up front: step (uniform 3 m since 1ej) + span passed by value
+        // on the worker, epoch from the field read now. The pending list is walked closest-first
         // (step 2), so iterating it in reverse dispatches the farthest cells (the visible horizon)
         // first; near rings fill moments later and are always covered meanwhile by real chunks.
         long seed = Seed;
@@ -398,7 +399,8 @@ public partial class WorldStreamer
     /// Builds one far sector's decimated grid mesh on a worker thread. Heights come from the SAME
     /// per-chunk corner grid the real chunks use (disk save stamps + pure-noise regeneration), so
     /// the far surface matches what the real chunks would show and seams against them are exact.
-    /// Sampled every <paramref name="maxRing"/>-derived step; vertex colors use the memoized band
+    /// Sampled on the uniform 3 m step (1ej; <paramref name="maxRing"/> kept for signature stability);
+    /// vertex colors use the memoized band
     /// lookup so far terrain keeps the grass/dirt/stone strata read.
     /// </summary>
     private MergedChunkMeshData BuildFarSector(FarCell cell, long seed, int maxRing)
