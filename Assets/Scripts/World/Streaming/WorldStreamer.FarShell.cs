@@ -927,11 +927,10 @@ public partial class WorldStreamer
         var mf = go.AddComponent<MeshFilter>();
         var mr = go.AddComponent<MeshRenderer>();
         Mesh mesh = ChunkMeshGenerator.AcquireChunkMesh($"FarMesh_{cell.X}_{cell.Z}_{cell.Span}");
-        // 1es: markNoLongerReadable — far cells never deform, so the CPU-side vertex/normal/color
-        // arrays are freed right after upload (half the far shell's native mesh memory and less
-        // upload churn while it rebuilds ahead of the player). The pooled buffer is fully
-        // re-specified on every reuse, so the pooled-mesh discipline in UploadMerged is unaffected.
-        ChunkMeshGenerator.UploadMerged(merged, mesh, true);
+        // Far meshes upload READABLE (no markNoLongerReadable) like real chunks — they share the same
+        // pooled-mesh cache (Cap 48), and any pooled mesh is fully re-specified on its next reuse
+        // (a real chunk's ApplyMerged, or another far cell), which would throw on a non-readable mesh.
+        ChunkMeshGenerator.UploadMerged(merged, mesh);
         mf.sharedMesh = mesh;
         // Far cells render with the double-sided (Cull Off) variant (1ei) — their tops show even if a
         // mesh's winding/culling would hide the upper face. They cast NO shadows (1ei): ~1,000 cells at

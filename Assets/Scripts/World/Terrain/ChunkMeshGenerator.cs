@@ -677,12 +677,12 @@ public static class ChunkMeshGenerator
     /// <summary>
     /// Uploads the merged chunk arrays into a Mesh in one pass (trimmed setter sequence + a single
     /// UploadMeshData). Works identically for a fresh Mesh and for a pooled one being re-uploaded in
-    /// place (1dv), so rebuilds never allocate a new Mesh object. <paramref name="markNoLongerReadable"/>
-    /// (1es) passes straight through to UploadMeshData: far-shell cells set it true — they never
-    /// deform, so the CPU-side copy is freed right after upload and the pooled buffer re-specifies
-    /// fully on its next reuse. Real chunks keep the default false (deformation reads/modifies arrays).
+    /// place (1dv), so rebuilds never allocate a new Mesh object. Meshes are NEVER uploaded with
+    /// markNoLongerReadable (a 1es attempt to free CPU buffers on far cells was reverted — the pooled
+    /// meshes are re-specified on every reuse by real chunks (deformation) and far cells alike, and a
+    /// non-readable pooled Mesh throws on the next SetNormals/SetVertices).
     /// </summary>
-    public static void UploadMerged(MergedChunkMeshData md, Mesh mesh, bool markNoLongerReadable = false)
+    public static void UploadMerged(MergedChunkMeshData md, Mesh mesh)
     {
         // Pooled reuse (1dv fix): Unity Mesh buffers only ever GROW through the typed setter
         // APIs — a pooled mesh whose last upload held MORE vertices (e.g. a slab chunk with side
@@ -699,7 +699,7 @@ public static class ChunkMeshGenerator
         if (md.Colors != null)
             mesh.SetColors(md.Colors);
         mesh.bounds = md.Bounds;
-        mesh.UploadMeshData(markNoLongerReadable);
+        mesh.UploadMeshData(false);
     }
 
     /// <summary>

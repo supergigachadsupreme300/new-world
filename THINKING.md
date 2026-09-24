@@ -789,11 +789,15 @@ ground" counterpart of the old re-dispatch bug). VERDICT: cap `MaxChunkUnloadsPe
 The far mesh-upload loop kept its own 2.5 ms slice. A crossing legitimately needs far handoffs TOGETHER
 with real finalize; two separate budgets times two demands = spike again. VERDICT: fold far finalize
 into the shared pool (spend + `!_streamCapped`), and charge the scan phase's elapsed time before the
-finalize loop so the crossing's heavier scan thins the drag. Also: far uploads now use
+finalize loop so the crossing's heavier scan thins the drag. Also considered: far uploads with
 `UploadMeshData(true)` — `CreateFarSector` builds from ThreadPool-written vertex arrays and never
-re-reads them on the main thread, so dropping the CPU mirror is a real saving at crossings (risk: the
-shared pooled Mesh is per-chunk retained — pool reuse must not expect CPU-mirrored buffers; flagged for
-play-test).
+re-reads them on the main thread, so the CPU mirror looked free. VERDICT: **REJECTED by play-test
+(`1es-fix`)** — a far mesh uploaded non-readable is returned to the SAME capped `_chunkMeshPool` as real
+chunks, and a real chunk re-specifies its pooled mesh on load AND on every deformation re-upload
+(`ChunkObject.ApplyMerged`), which throws "Not allowed to access normals/vertices (isReadable is false)".
+The `markNoLongerReadable` flag was removed from `UploadMerged` entirely — pooled meshes MUST stay
+readable for 1dv in-place reuse, so far cells upload `false` like everything else (the "win" was a few MB
+of RAM; not worth a permanent poisoning hazard).
 
 ### H6 — "edit a chunk → walk out → unload flushes its .dat" froze a frame → CONFIRMED, saves moved to a worker
 `ChunkSaveManager.SaveChunk` wrote the file synchronously ON the unload path. The vertex/serialization

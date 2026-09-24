@@ -45,14 +45,16 @@ longer freezes the frame.
     so a heavier scan thins the drag on the crossing that poll.
   - The far finalize loop (mesh uploads) runs against `!_streamCapped` + `SpendStreamBudget` per
     iteration — a crossing that needs several far-to-real handoffs spills across polls instead of one
-    spike. Far cells now upload with `UploadMerged(merged, mesh, true)` (`markNoLongerReadable`),
-    releasing the CPU-side buffers the ThreadPool wrote (cheaper handoff; GPU keeps the mesh).
+    spike.
 - `WorldStreamer.Props.cs`: `StepChunkProps` gets the same entry guard (`_streamCapped`) +
   per-chunk spend + `|| _streamCapped` in its break condition (budget mostly floors its time anyway to
   ~2 ms — `PropBudgetMs` lowered 3 → 2 as the shared pool is now the real ceiling).
 - `Assets\Scripts\World\Terrain\ChunkMeshGenerator.cs`: `UploadMerged(MergedChunkMeshData md, Mesh
-  mesh, bool markNoLongerReadable = false)` — the flag passes through to `mesh.UploadMeshData(...)`.
-  Default callers (real chunks via `CreateMeshFromMerged`) unchanged.
+  mesh)` — unchanged public signature; meshes upload READABLE (`UploadMeshData(false)`) always. The
+  1es attempt to free far-cell CPU buffers via `markNoLongerReadable` was REVERTED in the follow-up
+  `1es-fix` — far-cell meshes share the capped pooled-mesh cache with real chunks, and a real chunk
+  re-specifies its pooled mesh on load/deform, which throws "Not allowed to access normals/vertices"
+  on a non-readable mesh (play-test hit exactly that). Pre-1es behavior for real chunks unchanged.
 - `Assets\Scripts\World\Chunks\ChunkSaveManager.cs`: **chunk saves moved off the main thread** while
   the LINQ/serialization stays on it (per Unity-6 IO rules, the path string stays main-thread-captured
   via `Warmup`):
@@ -77,9 +79,19 @@ longer freezes the frame.
   1 def + 5 call sites (Mesh/Props/FarShell scan/FarShell finalize + reset), `_streamCapped` read at all
   four gated entry points, `MaxChunkUnloadsPerPoll`/`_chunkUnloadBacklog` feed both the sweep and the
   idle gate, `FlushPendingSaves` 1 def + 2 main calls (OnDestroy, ResetTerrainSaves), `SaveChunk`/`UploadMerged`
-  public signatures unchanged for existing callers (`CreateMeshFromMerged` still calls `UploadMerged(md, mesh)`;
-  `CreateFarSector` now passes `true`). Removed `ChunkFinalizeBaseMs` + `StreamFull` — grep confirms no
-  remaining references. Collider/streaming width unchanged (colliders stay capped at 2/poll from 1ei).
+  public signatures default-compatible for existing callers (`CreateMeshFromMerged` + `ChunkObject.ApplyMerged`
+  call `UploadMerged(md, mesh)`; far cells upload READABLE after the `1es-fix` revert). Removed
+  `ChunkFinalizeBaseMs` + `StreamFull` — grep confirms no remaining references. Collider/streaming width
+  unchanged (colliders stay capped at 2/poll from 1ei).
+- **1es-fix (follow-up):** the play-test threw `Not allowed to access normals on mesh ... isReadable is
+  false` from `ChunkObject.ApplyMerged` — a pooled mesh that a far cell had uploaded with
+  `UploadMeshData(true)` was re-acquired by a real chunk and re-specified (`SetNormals`/`SetVertices`
+  throw on a non-readable Mesh). Root cause: far-cell meshes share the SAME `_chunkMeshPool` (cap 48,
+  `ReleaseChunkMesh` on far destroy + real-chunk release), and pooled meshes MUST stay readable for 1dv's
+  in-place re-upload. REVERTED in `1es-fix` (commit 6d…): the `markNoLongerReadable` parameter is gone
+  from `UploadMerged`, far cells upload `UploadMeshData(false)` like real chunks, and the `true` upload is
+  removed — pre-1es pooled behavior restored 1:1. No pool migration needed: the pool is a static in-memory
+  queue, so restarting Play mode clears any already-poisoned mesh.
 - Budget arithmetic reviewed: worst crossing step now contributes finalize (real + far) + collider cooks
   (≤2) + props + unload (≤6) + scan charges — all against ONE 4 ms (`AdaptiveBudgetMs`-scaled) pool, so a
   busy crossing poll ends when the pool dries and DEFERS the rest to the next poll rather than finishing
@@ -95,7 +107,9 @@ longer freezes the frame.
   (the write happens on the background worker; `FlushPendingSaves` only runs at shutdown/New Game);
   standing still stays zero-cost (idle gate untouched); far cells still fill without a blink (1eq/1er
   behaviors unchanged); the debug `frame time`/`cycle times` overlay's max-cycle line should sit flat with
-  no ~30 m teeth; watch for ANY new far/realtime seam z-fight given `UploadMeshData(true)` on far cells.
+  no ~30 m teeth. The 1es `UploadMeshData(true)` experiment is REVERTED (see the 1es-fix note above) —
+  since far cells upload readable again, restart Play mode (the static mesh pool re-inits fresh) and
+  recheck the world renders + deforms with NO "not allowed to access normals/vertices" errors.
 
 ## 1er. Swap-band pre-warm + shadow retention — far-shell "new ground while moving" no longer lags
 
