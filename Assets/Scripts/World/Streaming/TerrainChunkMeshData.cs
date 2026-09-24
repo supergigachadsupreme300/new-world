@@ -27,6 +27,12 @@ public struct TerrainChunkMeshData
     /// <summary>True when BuildOrLoadChunk restored saved deformation mods from disk. The main
     /// thread uses it to flag the chunk as modified in O(1) (1ea) instead of re-scanning 900 tiles.</summary>
     public bool HadLoadedMods;
+
+    /// <summary>The multi-run column store of a VOXEL chunk (1eu), piped from the worker's
+    /// BuildVoxelChunk to the reconstructed ChunkObject's VoxelStore. Null for smooth chunks.
+    /// This is the authoritative edit record: clear-only rebuilds overlay surface tiles onto it and
+    /// saves serialize it, so carved caves/overhangs survive both.</summary>
+    public VoxelChunkData Voxel;
 }
 
 /// <summary>

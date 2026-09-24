@@ -826,6 +826,78 @@ Waste on turn-away: pre-warmed in-flight children of a box the player turns away
 then the removal scan destroys them as stale — small, self-cleaning, bounded by the 2-ring window.
 VERDICT: accepted (cheap vs. the crossing burst it removes).
 
+## 1eu — voxel P2-P4: multi-run column stores, the sculpt API, directed dig, and making voxel the DEFAULT (shipped in `1eu`; play-test pending)
+
+Context: P1 (`1et`) shipped the single-run stepped voxel world. The user asked to "continue until
+complete all phase" — so P2 (real carve/sculpt into the column data), P3 (voxel LOD + far shell),
+P4 (QA lane + voxel-on default + docs) were the plan. This section is the raw reasoning, NOT the
+shipped summary (see PROGRESS §1eu / game-design §2.9).
+
+### H1 — P2 needs multi-run columns, but the 4-corner adapter is sacred → CONFIRMED
+A dig that punches a cave through a hillside cannot be expressed as one `[ColumnBaseY..Top]` run —
+the roof stays solid above the void, the floor stays below. So each column becomes a sorted run list
+(lists, null = pristine, mirroring P1's "null = untouched" trick so saves stay sparse and pristine
+chunks re-roll). The 4-corner `ChunkData` API (tools/spells/save gates) only ever sees the TOP run,
+so the whole legacy pipeline is untouched again. VERDICT: confirmed; implemented as `RemoveSolid`/
+`AddSolid` boolean ops + `RunsAt`/`VisitColumns`/`SetColumnRuns`.
+
+### H2 — a cave = RemoveSolid with a roof shelf → CONFIRMED
+Volume carve per column: remove solid `[topFloor .. givenBottom]` but never cut above
+`surfaceTop - roofThickness`; `SculptVoxelCave(center, radius, roof, height)` is RemoveSolid over the
+sphere's filled range leaving an untouched roof. Raise is the dual AddSolid. Across two adjacent
+chunks each column works in its own store; the per-chunk rebuild + flush handles the seam (real
+border tops). VERDICT: confirmed; public `SculptVoxelCave`/`SculptVoxelRaise` in WorldStreamer.Voxel.cs.
+
+### H3 — surface dig overlay must NOT use SetColumnTop (would collapse caves) → REJECTED mid-implementation
+The rebuild/flush overlay (surface edits via the 4-corner DeformAt path) can't replace the whole
+column — that would destroy a sculpted chamber beneath the new top. Correct: `SetSurfaceTop` diffs
+the current TOP run only (shave `[top..old]` / add `[old..top]`), preserving buried runs below.
+Verified with the negative `lx` case: dig into a chunk from outside, `lx = wx - tc.X*cs`,
+`FromTile` floors negatives (`-1 → 29`), so `lx` lands 0..29 — the same miscalculation traps every
+older "dig near the border" bug. VERDICT: SetSurfaceTop implemented, SetColumnTop kept for the
+v1/v2-migration load path only.
+
+### H4 — directed dig = clip the crater influence sphere to the cast half-space → CONFIRMED
+A shovel "dig forward" must scoop the slope in front, not a full sphere under the player's feet.
+Crater branch in voxel mode: `influence *= Clamp01(along / max(0.25, radius*0.5) + 0.15)` where
+`along > 0` picks tiles ahead of `dir` (signed dot via the existing per-tile delta). Smooth mode
+keeps the old full crater. VERDICT: confirmed at WorldStreamer.Deform.cs Crater branch; the dig tools
+pass `player.transform.forward`.
+
+### H5 — v3 save format vs in-place v2 upgrade → CONFIRMED v3
+The P1 v2 format stored one integer per column (top). Multi-run needs `runCount + (YBot,YTop)*`.
+Tagging it onto v2 would confuse the "version" meaning; a clean `VoxelSaveVersion = 3` reader accepts
+v3 AND migrates v2 AND v1 on read (same load-time conversion, now two callers). Smooth path never
+writes voxel versions; its reader still rejects them (documented). VERDICT: v3 with 3-way read, write
+kept sparse (`VisitColumns` skips pristine).
+
+### H6 — cavity rendering: pass 1b/1c floors+ceilings, walls deferred → CONFIRMED (with a documented hole)
+Per-run floors (every non-topmost run's top) + ceilings (runs whose bottom sits above the column
+floor) give a cave its chamber floor and roof without inventing occlusion. But the existing wall pass
+reads only the TOP run, so the cavity side walls aren't meshed — the rim of a carve reads as a slot
+into the void. Option A: rewrite the wall pass to run per-run (large, risky for P2 review);
+Option B: floors+ceilings now, per-run walls later. VERDICT: B, documented as a P2 limitation.
+
+### H7 — LOD children + far shell in voxel mode → CONFIRMED (both ship in 1eu)
+P1 left LOD children + far shell smooth ("intentionally"). With voxel now default that would relight
+the seam every crossing: near stepped / far smooth + a boxy grid inside a smooth disc. So a
+decimated `BuildVoxelLodChild` (2×2 blocks, rounded-mean top) routes through the same pooled LOD
+mesh, and `BackgroundGenerateFarCell` gains `BuildVoxelFarSector` (steps the same integer column
+tops on the far 3 m grid, merged top rows + terrace walls — a duplicate builder, not a refactor of
+the verified VoxelMesher, keeping the far tri budget independent). The gate fix
+(`if (!_lodDirty || VoxelStore == null)`) covers the voxel branch. VERDICT: confirmed.
+
+### H8 — default ON: safe flip or keep experimental OFF? → CONFIRMED ON, toggle stays
+The whole point of "complete all phase" is the voxel world becoming THE world. The flag flips to
+true; `NewWorldTestGround.EnableVoxelTerrain` still exists for QA and the OFF path keeps the smooth
+streamer entirely (no code path deleted). Legacy WorldBuilder village + streamed terrain untouched
+(rule 4). VERDICT: default flipped, docs updated, deleted-symbol grep clean.
+
+### H9 — QA lane placement: clear of the platform + village → CONFIRMED
+`EnableVoxelSculptDemo` runs directed dig + cave + raise on streamed terrain off the platform's west
+edge (the existing slab/enemy/terrain demo lanes own the south/east), HP-needless (pure
+WorldStreamer public API), markers as simple stone pegs. VERDICT: confirmed.
+
 ## 1es — "player lag when travel the world" — the crossing spike and where it REALLY lives (SHIPPED in `1es`)
 
 Context: after 1er the swap-band build churn is pre-warmed, but the user still reports periodic lag

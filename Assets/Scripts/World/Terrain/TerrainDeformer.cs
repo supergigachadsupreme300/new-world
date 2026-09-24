@@ -28,6 +28,18 @@ public static class TerrainDeformer
     }
 
     /// <summary>
+    /// Excavate a crater pit at a ground point, cut as a DIRECTED niche (1eu): the dig's influence
+    /// is clipped to the half-space in front of the plane through <paramref name="center"/>
+    /// perpendicular to <paramref name="dir"/>, so aiming into a slope carves a near-vertical face
+    /// in the stepped terrain instead of a symmetric bowl that merely follows the slope. Handed the
+    /// player's forward by the tools; pass default for the classic symmetric bowl.
+    /// </summary>
+    public static void Dig(Vector3 center, float radius, Vector3 dir)
+    {
+        Apply(center, radius, TerrainShape.Crater, dir);
+    }
+
+    /// <summary>
     /// Current dig depth below the pristine surface at a ground point (positive = dug down,
     /// ~0 = untouched grass, negative = raised). Tools gate the dirt/stone boundary on this.
     /// </summary>

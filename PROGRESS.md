@@ -3,6 +3,77 @@
 Last updated: 2026-09-24. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1eu. Voxel terrain Phases 2-4 — multi-run columns, sculpt API, directed dig, v3 saves, voxel LOD children + far shell, voxel-on default (voxel is now the default terrain of the world)
+
+P2/P3/P4 of the voxel program (P1 shipped in `1et`), all in one pass. Turns the P1 single-run
+column world into a **true volumetric carve world** and makes it the world's default terrain.
+
+- **Multi-run column store (`VoxelChunkData.cs`, rewritten):** columns are now sorted run lists
+  `(YBot, YTop)` instead of a single `[ColumnBaseY .. Top]` run. New ops: `RemoveSolid`/`AddSolid`
+  (boolean volume insert/remove with run merge + pristine-prune — a column that ends equal to its
+  noise top is dropped and `_modifiedCount` decremented, keeping saves sparse), `SetColumnRuns`
+  (v3 save load), `VisitColumns` (v3 save write), `RunsAt` (per-column runs for cave meshing),
+  `SetSurfaceTop(x, z, top)` — an **overburden-only surface shave/add that preserves buried caves**
+  (diff against the current top run, not a full column replace; used by the dirty-tile overlay in
+  rebuild/flush so live edits never collapse a sculpted chamber).
+- **v3 save format (`ChunkSaveManager.cs`):** `VoxelSaveVersion = 3`; writes each edited column as
+  `idx, runCount, (YBot, YTop)*` via `VisitColumns`; reader accepts v3, migrates v2 (single-run) and
+  v1 (legacy height-field) on read. Smooth path untouched (`CurrentVersion` still 1, its reader still
+  rejects voxel versions).
+- **Chunk pipeline (`TerrainChunkMeshData.cs` + `ChunkObject.cs`):** `TerrainChunkMeshData.Voxel`
+  carries the store through the build; `ChunkObject.VoxelStore` is attached at CreateChunkGameObject
+  and cleared in Release. `WorldStreamer.Voxel.cs` rewritten around the store: `BuildVoxelChunk`
+  ships the store, `FullRebuildVoxelChunk` = live store + dirty-tile `SetSurfaceTop` overlay + real
+  borders (`BuildVoxelBorderTops`), `FlushVoxelChunk` = store + dirty overlay then saves
+  (`SaveVoxelChunk`) or **deletes the file** when the chunk is pristine again.
+- **Sculpt API (`WorldStreamer.Voxel.cs`):** public `SculptVoxelCave(center, radius, roofThickness,
+  chamberHeight)` and `SculptVoxelRaise(center, radius, height)` → `SculptVoxelVolume` (sphere, per
+  column AddSolid/RemoveSolid on loaded chunks only, then rebuild + `FlushDirtyChunk` per touched
+  chunk). A cave keeps an untouched roof shelf above the void (chamber real).
+- **Directed dig (`WorldStreamer.Deform.cs` + `TerrainDeformer.cs` + `ToolManager.cs`):** Crater
+  branch in voxel mode clips the influence sphere to the tiles ahead of the cast direction
+  (`influence *= Clamp01(along / max(0.25, radius*0.5) + 0.15)`), so a shovel/pickaxe swing is a
+  half-space scoop into the slope. New `TerrainDeformer.Dig(center, radius, Vector3 dir)` overload;
+  `ToolManager` passes `player.transform.forward` for both dig tools.
+- **Cave rendering (`VoxelMesher.cs` Pass 1b/1c):** buried runs now render: every non-topmost run
+  emits its top (chamber floor), any run whose bottom sits above the column floor emits a downward
+  **ceiling** quad via new `EmitRunCeiling`. Documented P2 limit: interior cavity side walls are NOT
+  meshed (the wall pass reads only the topmost run) — the rim of a carve reads as a slot into the
+  void until per-run side-wall meshing lands.
+- **Voxel LOD children (`ChunkObject.cs`):** `RefreshLodMeshes` gained a voxel branch +
+  `BuildVoxelLodChild` (decimated 2×2 blocks, rounded-mean top assembled into a coarse full-size
+  `VoxelChunkData` → `VoxelMesher.Build` → pooled LOD mesh) and a shared `EnsureLodChild` with the
+  smooth path. Gate fix: `if (!_lodDirty || VoxelStore == null)`.
+- **Voxel far shell (`WorldStreamer.FarShell.cs`):** new `BuildVoxelFarSector(cell, seed, maxRing)` —
+  stepped twin of `BuildFarSector` sampling the same deterministic integer column tops
+  (`VoxelChunkData.RoundNoiseTop`) on the 3 m far grid with merged row-run tops + terracing walls
+  (`EmitVoxelFarTopRun`/`EmitVoxelFarWallStrip`); `BackgroundGenerateFarCell` routes on
+  `VoxelTerrainEnabled`. The far disc now steps like the near world — no smooth seam at the rim.
+- **Default ON (`WorldStreamer.cs`):** `VoxelTerrainEnabled = true` (voxel is the default terrain;
+  smooth is the opt-out). QA toggle `NewWorldTestGround.EnableVoxelTerrain` unchanged; new QA lane
+  `EnableVoxelSculptDemo` (directed dig + cave + raise with stone markers off the platform's west
+  edge, no-op with a warning if voxel is off).
+
+### 1eu-status
+- Implemented; verified by grep + reread (rule 3 — no CLI build). Confirmed in the tree:
+  `VoxelChunkData` has all of Create/RoundNoiseTop/ColumnTop/RunsAt/PristineRun/VisitColumns/
+  SetColumnRuns/SetColumnTop/SetSurfaceTop/RemoveSolid/AddSolid plus `struct VoxelRun`
+  (VoxelChunkData.cs:326); `ChunkSaveManager.VoxelSaveVersion = 3` with v3-write `WriteVoxelChunk`
+  (L442) and v1/v2/v3 reader guard (L179); `ChunkObject.BuildVoxelLodChild` (L376) + `EnsureLodChild`
+  (L351) + voxel `RefreshLodMeshes` branch (L254-268); `WorldStreamer.Voxel.cs` store-backed
+  build/rebuild/flush + `SculptVoxelVolume`/`SculptVoxelCave`/`SculptVoxelRaise` (L205-224);
+  `TerrainDeformer.Dig` both overloads; `WorldStreamer.Deform.cs` Crater dir clip; `ToolManager`
+  passes `player.transform.forward`; `BuildVoxelFarSector` (FarShell L871) routed at L668;
+  `WorldStreamer.cs` default ON; `NewWorldTestGround.EnableVoxelSculptDemo` lane + marker spawner.
+  Grep of removed symbols: no remaining `ForEachColumnTop`-style overlay callers on the rebuild path;
+  `SaveVoxelChunk`/`VisitColumns`/`SetSurfaceTop` call sites match signatures.
+- Pending play-test (rule 3 = no build): P2 gate = carve a cliff/ridgeline into a slope with the
+  shovel or `SculptVoxelCave` and verify the chamber floor + ceiling read correctly (known slot-rim
+  artifact until per-run walls land); P3 gate = sprint across >10 chunk crossings with voxel ON and
+  no ~30 m spike (LOD + far shell are now voxel-meshing too); P4 = the `EnableVoxelSculptDemo` lane
+  directed-dig scoop clips to the cast direction on a slope; restore a carve exactly to noise and
+  confirm the file deletes; legacy smooth world via the OFF toggle still stream/saves/edits.
+
 ## 1et. Voxel terrain Phase 1 — the height-field-stretch fix behind a stepped 1 m world (render + persistence + adapter, toggle OFF), world unchanged for legacy mode
 
 User problem (picked up after the 1es lag work): the heightfield's single-quad model makes steep

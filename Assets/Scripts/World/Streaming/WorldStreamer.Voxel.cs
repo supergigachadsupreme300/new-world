@@ -2,23 +2,30 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Voxel-terrain experiment (1et) portion of the WorldStreamer partial class: the background chunk
-/// builder, the height-field adapter, the full-rebuild path with real neighbour borders, and the
-/// v2 column-run persistence flush. See <see cref="VoxelChunkData"/> (column store) and
-/// <see cref="VoxelMesher"/> (renderer).
+/// Voxel-terrain (1et; multi-run + sculpt 1eu) portion of the WorldStreamer partial class: the
+/// background chunk builder, the height-field adapter, the store-backed full-rebuild path with real
+/// neighbour borders, the toolbar carving API and the v3 column-run persistence flush. See
+/// <see cref="VoxelChunkData"/> (column store) and <see cref="VoxelMesher"/> (renderer).
 ///
-/// Phase 1 keeps EVERY public entry point intact — <see cref="VoxelTerrainEnabled"/> only switches
-/// how the chunk mesh + save files are produced. Deformation (DeformAt/FlattenAt/ApplyHeightEdits),
-/// the 4-corner ChunkData API, GetDigDepth, collider-on-demand, pooled meshes, budgets, the prop
-/// ring and the far shell all keep their existing contracts; voxel chunks just route rebuilds and
-/// flushes through this partial instead.
+/// The voxel path keeps EVERY public entry point intact — <see cref="VoxelTerrainEnabled"/> only
+/// switches how the chunk mesh + save files are produced. Deformation (DeformAt/FlattenAt/
+/// ApplyHeightEdits), the 4-corner ChunkData API, GetDigDepth, collider-on-demand, pooled meshes,
+/// budgets, the prop ring and the far shell all keep their existing contracts; voxel chunks just
+/// route rebuilds and flushes through this partial instead.
+///
+/// Since 1eu the column store (<see cref="ChunkObject.VoxelStore"/>) is the AUTHORITATIVE edit
+/// record: everything pipes through it. Surface tools move a column's top via volume ops on the
+/// overburden only (<see cref="VoxelChunkData.SetSurfaceTop"/>), the new toolbar SculptVoxel*
+/// volume ops carve multi-run caves/raises directly into it, rebuilds keep it as the baseline and
+/// flushes serialize it — a roofed chamber survives rebuilds and reloads.
 /// </summary>
 public partial class WorldStreamer
 {
     /// <summary>
     /// Background-thread chunk builder for voxel mode (dispatch twin of BuildOrLoadChunk). Loads
-    /// the v2 column-run save (migrating a legacy v1 height-field save on read), builds the 900
-    /// flat-tile adapter entries for _loadedData, and renders the stepped mesh from the columns.
+    /// the v3 multi-run column save (migrating v2 single-run / legacy v1 height-field saves on
+    /// read), builds the 900 flat-tile adapter entries for _loadedData, renders the stepped mesh
+    /// from the columns, and ships the store to the main thread for the ChunkObject (1eu).
     /// </summary>
     private TerrainChunkMeshData BuildVoxelChunk(TerrainChunkCoord tc, long seed)
     {
@@ -61,27 +68,35 @@ public partial class WorldStreamer
             // HadLoadedMods reconcile full-rebuilds the loaded modified neighbour with real border).
             Merged = VoxelMesher.Build(vc),
             HadLoadedMods = vc.HasModifications,
+            // The store ships to the main thread with the mesh (1eu): rebuilds/flushes reuse it.
+            Voxel = vc,
         };
     }
 
-    /// <summary>Full rebuild of one voxel chunk's stepped mesh from the in-memory tiles (authoritative
-    /// edits) and the real neighbour border (cross-chunk seam walls). Main thread only — the voxel
-    /// twin of FullRebuildChunk.</summary>
+    /// <summary>Full rebuild of one voxel chunk's stepped mesh from its LIVE column store (clear-only
+    /// rebuilds keep the store as baseline, 1eu) + the real neighbour border (cross-chunk seam walls).
+    /// Only the tiles that were actually deformed since load are overlaid onto the store (via
+    /// SetSurfaceTop — a surface dig moves the top WITHOUT collapsing any buried cave runs), so a
+    /// sculpted chamber or overhang survives any rebuild the surface tools trigger. Main thread only.</summary>
     private void FullRebuildVoxelChunk(TerrainChunkCoord tc)
     {
         if (!_loadedChunks.TryGetValue(tc, out ChunkObject obj))
             return;
 
-        VoxelChunkData vc = VoxelChunkData.Create(tc, Seed);
+        VoxelChunkData vc = obj.VoxelStore ?? VoxelChunkData.Create(tc, Seed);
+        obj.VoxelStore = vc;
         tc.GetTileRange(out int cminX, out int cminZ, out int cmaxX, out int cmaxZ);
         int cs = TerrainChunkCoord.ChunkSize;
         for (int tz = 0; tz < cs; tz++)
         {
             for (int tx = 0; tx < cs; tx++)
             {
+                var tile = new ChunkCoord(cminX + tx, cminZ + tz);
+                if (!_dirtyTiles.Contains(tile))
+                    continue;
                 int top = VoxelTopFromTile(cminX + tx, cminZ + tz);
                 if (top != int.MinValue)
-                    vc.SetColumnTop(tx, tz, top);
+                    vc.SetSurfaceTop(tx, tz, top);
             }
         }
 
@@ -141,19 +156,24 @@ public partial class WorldStreamer
     }
 
     /// <summary>
-    /// Persist a voxel chunk's edited columns as one v2 file (atomic tmp+swap on the background
-    /// writer). The whole chunk's dirty tile tops are resolved onto the column store (sparse —
-    /// pristine columns stored as nothing), so a flush always writes a complete restorable snapshot
-    /// over the existing file. When every resolved column returns to its pristine top the stale file
-    /// is DELETED, so restoring a carve exactly to noise leaves no ghost edits on reload.
+    /// Persist a voxel chunk's edited column RUNS as one v3 file (atomic tmp+swap on the background
+    /// writer). The base is the chunk's live store (<see cref="ChunkObject.VoxelStore"/>) — the
+    /// authoritative record of surface tops AND sculpted caves — with any still-dirty surface tiles
+    /// overlaid on top before the snapshot, so a flush always writes a complete restorable snapshot
+    /// over the existing file. When the store has returned to fully pristine the stale file is
+    /// DELETED, so restoring a carve exactly to noise leaves no ghost edits on reload.
     /// </summary>
     private void FlushVoxelChunk(TerrainChunkCoord tc)
     {
         if (!ChunkSaveManager.SynchronousWrites)
             return;
+        if (!_loadedChunks.TryGetValue(tc, out ChunkObject obj))
+            return;
+
+        VoxelChunkData vc = obj.VoxelStore ?? VoxelChunkData.Create(tc, Seed);
+        obj.VoxelStore = vc;
         tc.GetTileRange(out int cminX, out int cminZ, out int cmaxX, out int cmaxZ);
         int cs = TerrainChunkCoord.ChunkSize;
-        VoxelChunkData vc = VoxelChunkData.Create(tc, Seed);
         for (int tz = 0; tz < cs; tz++)
         {
             for (int tx = 0; tx < cs; tx++)
@@ -164,12 +184,90 @@ public partial class WorldStreamer
                 _dirtyTiles.Remove(tile);
                 int top = VoxelTopFromTile(cminX + tx, cminZ + tz);
                 if (top != int.MinValue)
-                    vc.SetColumnTop(tx, tz, top);
+                    vc.SetSurfaceTop(tx, tz, top);
             }
         }
         if (vc.HasModifications)
             ChunkSaveManager.SaveVoxelChunk(Seed, tc, vc);
         else if (System.IO.File.Exists(ChunkSaveManager.ChunkFilePath(Seed, tc)))
             ChunkSaveManager.DeleteChunk(Seed, tc);
+    }
+
+    /// <summary>
+    /// Dig a roofed chamber under the terrain (toolbar cave carving, 1eu): within the horizontal
+    /// disc around <paramref name="center"/> each column loses the solid run
+    /// [surfaceTop - roofThickness - chamberHeight, surfaceTop - roofThickness], leaving a ceiling
+    /// of <paramref name="roofThickness"/> metres of earth over a void of <paramref name="chamberHeight"/>
+    /// (its floor is the column's next solid run below — the column splits, creating real overhang).
+    /// Affects the loaded chunks in range only (unloaded terrain has no columns to edit); the chunk
+    /// meshes are rebuilt and flushed immediately so the cave is persistent. Main thread only.
+    /// </summary>
+    public void SculptVoxelCave(Vector3 center, float radius, float roofThickness, float chamberHeight)
+    {
+        SculptVoxelVolume(center, radius, false, roofThickness, chamberHeight);
+    }
+
+    /// <summary>
+    /// Fill a solid step of <paramref name="height"/> metres on top of the terrain (toolbar raise,
+    /// 1eu): within the horizontal disc around <paramref name="center"/> every column grows solid
+    /// volume [surfaceTop, surfaceTop + height] (merging upward runs). Loaded chunks in range only;
+    /// meshes rebuilt + flushed immediately. Main thread only.
+    /// </summary>
+    public void SculptVoxelRaise(Vector3 center, float radius, float height)
+    {
+        SculptVoxelVolume(center, radius, true, 0f, height);
+    }
+
+    /// <summary>Shared toolbar volume op (1eu). <paramref name="add"/>=false carves the top-down
+    /// run (cave), true fills the step (raise). Mutates the loaded chunks' column stores directly,
+    /// then full-rebuilds each affected chunk (borders from its live neighbours) and flushes it.</summary>
+    private void SculptVoxelVolume(Vector3 center, float radius, bool add, float a, float b)
+    {
+        if (radius <= 0f)
+            return;
+        int cs = TerrainChunkCoord.ChunkSize;
+        int minWX = Mathf.FloorToInt(center.x - radius);
+        int maxWX = Mathf.FloorToInt(center.x + radius);
+        int minWZ = Mathf.FloorToInt(center.z - radius);
+        int maxWZ = Mathf.FloorToInt(center.z + radius);
+        float r2 = radius * radius;
+        var touched = new HashSet<TerrainChunkCoord>();
+        for (int wz = minWZ; wz <= maxWZ; wz++)
+        {
+            for (int wx = minWX; wx <= maxWX; wx++)
+            {
+                float dx = wx + 0.5f - center.x;
+                float dz = wz + 0.5f - center.z;
+                if (dx * dx + dz * dz > r2)
+                    continue;
+                var tile = new ChunkCoord(wx, wz);
+                TerrainChunkCoord tc = TerrainChunkCoord.FromTile(tile);
+                if (!_loadedChunks.TryGetValue(tc, out ChunkObject obj))
+                    continue; // unloaded chunk — no column store to edit (regenerates pristine later)
+                VoxelChunkData vc = obj.VoxelStore ?? VoxelChunkData.Create(tc, Seed);
+                obj.VoxelStore = vc;
+                int lx = wx - tc.X * cs;
+                int lz = wz - tc.Z * cs;
+                int top = vc.ColumnTop(lx, lz);
+                if (add)
+                    vc.AddSolid(lx, lz, top, top + Mathf.RoundToInt(b));
+                else
+                {
+                    int roof = Mathf.RoundToInt(a);
+                    int hgt = Mathf.RoundToInt(b);
+                    vc.RemoveSolid(lx, lz, top - roof - hgt, top - roof);
+                }
+                touched.Add(tc);
+            }
+        }
+        foreach (TerrainChunkCoord tc in touched)
+        {
+            if (VoxelTerrainEnabled && _loadedChunks.TryGetValue(tc, out ChunkObject obj))
+            {
+                obj.VoxelMesh = true;
+                FullRebuildVoxelChunk(tc);
+                FlushDirtyChunk(tc);
+            }
+        }
     }
 }

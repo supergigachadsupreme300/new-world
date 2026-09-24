@@ -64,12 +64,19 @@ public class ChunkObject : MonoBehaviour
     private bool _lodDirty = true;
 
     /// <summary>
-    /// True while this chunk renders a stepped voxel mesh (1et). RefreshLodMeshes is a no-op for
-    /// voxel chunks: the decimated grid indexes the smooth TOPS-FIRST top-quad layout via
-    /// WorldCornerIndex, which does not exist in the stepped mesh — so no Lod children are ever
-    /// built and the LOD band fallback keeps the full mesh visible (correct for the experiment).
+    /// True while this chunk renders a stepped voxel mesh (1et). Its LOD children (1eu) are
+    /// decimated COLUMN samples of <see cref="VoxelStore"/> (Built via BuildVoxelLodChild) instead
+    /// of the smooth TOPS-FIRST corner grid — see <see cref="RefreshLodMeshes"/>.
     /// </summary>
     public bool VoxelMesh;
+
+    /// <summary>
+    /// The live column-run store backing this chunk's stepped mesh (1eu). The streamer attaches it
+    /// on build (BuildVoxelChunk) and clear-only rebuilds reuse it, so caves/overhangs carved by the
+    /// volume ops survive rebuilds that merely overlay surface edits. Null for smooth chunks. The
+    /// column run data is also the save source — the file is written from this store at flush.
+    /// </summary>
+    public VoxelChunkData VoxelStore;
 
     // Incremental prop spawning (one deterministic Random per chunk, spread over ticks).
     private long _propSeed;
@@ -246,9 +253,17 @@ public class ChunkObject : MonoBehaviour
     {
         if (VoxelMesh)
         {
-            // No decimated grid exists for the stepped mesh — keep the LOD flag clear so the band
-            // manager's lazily-triggered rebuild is a cheap no-op and the root mesh always renders.
+            // Voxel mode (1eu): the stepped mesh has no TOPS-FIRST corner grid to sample, so the
+            // children are decimated COLUMN samples of the voxel store (VoxelMesher renders ~1/4 /
+            // ~1/9 the detail). Nothing to build when the store is missing.
+            if (!_lodDirty || VoxelStore == null)
+            {
+                _lodDirty = false;
+                return;
+            }
             _lodDirty = false;
+            _lod1Go = BuildVoxelLodChild(_lod1Go, ref _lod1Mf, "Lod1", 2, VoxelStore);
+            _lod2Go = BuildVoxelLodChild(_lod2Go, ref _lod2Mf, "Lod2", 3, VoxelStore);
             return;
         }
         if (!_lodDirty || _mf == null)
@@ -266,17 +281,7 @@ public class ChunkObject : MonoBehaviour
     private GameObject BuildLodChild(GameObject child, ref MeshFilter childMf, string name, int step,
         Vector3[] source)
     {
-        if (child == null)
-        {
-            child = new GameObject(name);
-            child.transform.SetParent(transform, false);
-            childMf = child.AddComponent<MeshFilter>();
-            child.AddComponent<MeshRenderer>();
-        }
-        else if (childMf == null)
-        {
-            childMf = child.GetComponent<MeshFilter>();
-        }
+        child = EnsureLodChild(child, ref childMf, name);
         if (childMf == null)
             return child;
 
@@ -332,6 +337,80 @@ public class ChunkObject : MonoBehaviour
         mesh.SetColors(colors);
         mesh.RecalculateBounds();
         mesh.UploadMeshData(false);
+        childMf.sharedMesh = mesh;
+
+        var mr = child.GetComponent<MeshRenderer>();
+        if (mr != null && _mr != null && _mr.sharedMaterial != null)
+            mr.sharedMaterial = _mr.sharedMaterial;
+
+        return child;
+    }
+
+    /// <summary>Create (or reacquire) a Lod child's GameObject/MeshFilter. Shared by the smooth
+    /// corner-grid builder and the voxel column-sample builder (1eu).</summary>
+    private GameObject EnsureLodChild(GameObject child, ref MeshFilter childMf, string name)
+    {
+        if (child == null)
+        {
+            child = new GameObject(name);
+            child.transform.SetParent(transform, false);
+            childMf = child.AddComponent<MeshFilter>();
+            child.AddComponent<MeshRenderer>();
+        }
+        else if (childMf == null)
+        {
+            childMf = child.GetComponent<MeshFilter>();
+        }
+        return child;
+    }
+
+    /// <summary>
+    /// Rebuilds one stepped-voxel Lod child (1eu): the decimated surface of <paramref name="vc"/> at
+    /// <paramref name="step"/>-metre blocks. Each block (min(bx+step, cs) wide) collapses to ONE
+    /// column top — the rounded mean of the block's real column tops — written into a coarse
+    /// full-size store that VoxelMesher then renders: row-run merging collapses the equal blocks to a
+    /// handful of quads, so the child carries ~1/4 (step 2) to ~1/9 (step 3) of the full mesh detail.
+    /// The mean keeps the block flat, and on flat ground the boundary block equals the real column top
+    /// exactly, so the LOD surface meets the real mesh level at the chunk rim.
+    /// </summary>
+    private GameObject BuildVoxelLodChild(GameObject child, ref MeshFilter childMf, string name, int step,
+        VoxelChunkData vc)
+    {
+        child = EnsureLodChild(child, ref childMf, name);
+        if (childMf == null)
+            return child;
+
+        int cs = TerrainChunkCoord.ChunkSize;
+        var coarse = VoxelChunkData.Create(vc.Coord, vc.Seed);
+        for (int bz = 0; bz < cs; bz += step)
+        {
+            int maxZ = Mathf.Min(bz + step, cs);
+            for (int bx = 0; bx < cs; bx += step)
+            {
+                int maxX = Mathf.Min(bx + step, cs);
+                int sum = 0;
+                int n = 0;
+                for (int z = bz; z < maxZ; z++)
+                {
+                    for (int x = bx; x < maxX; x++)
+                    {
+                        sum += vc.ColumnTop(x, z);
+                        n++;
+                    }
+                }
+                int top = Mathf.RoundToInt((float)sum / n);
+                for (int z = bz; z < maxZ; z++)
+                {
+                    for (int x = bx; x < maxX; x++)
+                        coarse.SetColumnTop(x, z, top);
+                }
+            }
+        }
+
+        Mesh mesh = childMf.sharedMesh;
+        if (mesh == null)
+            mesh = ChunkMeshGenerator.AcquireChunkMesh(name);
+        ChunkMeshGenerator.UploadMerged(VoxelMesher.Build(coarse), mesh);
         childMf.sharedMesh = mesh;
 
         var mr = child.GetComponent<MeshRenderer>();
@@ -484,6 +563,7 @@ public class ChunkObject : MonoBehaviour
         _propCursor = 0;
         _merged = default;
         _colliderActive = false;
+        VoxelStore = null;
 
         // Return this chunk's pooled mesh to the shared freed-mesh pool (1dv) — a later chunk
         // reuses the same GPU buffer instead of allocating a fresh one.

@@ -47,11 +47,12 @@ public class ChunkSaveData
 public static class ChunkSaveManager
 {
     private const int CurrentVersion = 1;
-    /// <summary>Version of the column-run (voxel) chunk format (1et). A v2 file is never written
-    /// by the smooth path and a v1 file is never written by the voxel path; the voxel reader
-    /// accepts both (migrating v1 height-field mods to columns on read), the smooth reader still
-    /// rejects v2 (see TryLoadChunk's version guard).</summary>
-    private const int VoxelSaveVersion = 2;
+    /// <summary>Version of the column-run (voxel) chunk format (1et single-run v2, multi-run v3 1eu).
+    /// A v2/v3 file is never written by the smooth path and a v1 file is never written by the voxel
+    /// path; the voxel reader accepts v1 (migrating height-field mods to columns on read), v2
+    /// (single-run columns) and v3 (multi-run columns, the current format) — the smooth reader still
+    /// rejects v2/v3 (see TryLoadChunk's version guard).</summary>
+    private const int VoxelSaveVersion = 3;
     private static readonly byte[] Magic = { (byte)'N', (byte)'W', (byte)'T', (byte)'C' };
 
     /// <summary>Chunk save-path cache. <see cref="Application.persistentDataPath"/> is
@@ -151,10 +152,11 @@ public static class ChunkSaveManager
     }
 
     /// <summary>
-    /// Try to load a voxel chunk's column-run data (1et). Accepts the v2 column format directly and
-    /// a legacy v1 height-field file (converted to column tops on read — the v1 file is left in
-    /// place until a voxel edit rewrites it as v2, so the smooth path keeps its own format).
-    /// Returns false on missing/corrupt/foreign files so the caller regenerates pristine from noise.
+    /// Try to load a voxel chunk's column-run data (1et; v3 multi-run 1eu). Accepts the v3
+    /// multi-run column format, the v2 single-run column format, and a legacy v1 height-field file
+    /// (converted to column tops on read — a v1 file is left in place until a voxel edit rewrites
+    /// it as v3, so the smooth path keeps its own format). Returns false on missing/corrupt/foreign
+    /// files so the caller regenerates pristine from noise.
     /// </summary>
     public static bool TryLoadVoxelChunk(long seed, TerrainChunkCoord tc, out VoxelChunkData vc)
     {
@@ -174,7 +176,7 @@ public static class ChunkSaveManager
                     return false;
 
                 version = reader.ReadInt32();
-                if (version != VoxelSaveVersion && version != CurrentVersion)
+                if (version < CurrentVersion || version > VoxelSaveVersion)
                     return false;
 
                 long fileSeed = reader.ReadInt64();
@@ -184,6 +186,42 @@ public static class ChunkSaveManager
                     return false;
 
                 if (version == VoxelSaveVersion)
+                {
+                    vc = VoxelChunkData.Create(tc, seed);
+                    int count = reader.ReadInt32();
+                    count = Mathf.Clamp(count, 0, TerrainChunkCoord.ChunkArea);
+                    int cs = TerrainChunkCoord.ChunkSize;
+                    for (int i = 0; i < count; i++)
+                    {
+                        int idx = reader.ReadInt32();
+                        int runCount = reader.ReadInt32();
+                        runCount = Mathf.Clamp(runCount, 0, 256);
+                        int lx = idx % cs;
+                        int lz = idx / cs;
+                        if (lx < 0 || lx >= cs || lz < 0 || lz >= cs)
+                        {
+                            for (int r = 0; r < runCount; r++)
+                            {
+                                reader.ReadInt32();
+                                reader.ReadInt32();
+                            }
+                            continue;
+                        }
+                        var runs = new List<VoxelRun>(runCount);
+                        for (int r = 0; r < runCount; r++)
+                        {
+                            int yBot = reader.ReadInt32();
+                            int yTop = reader.ReadInt32();
+                            if (yBot < yTop && yTop > VoxelChunkData.ColumnBaseY)
+                                runs.Add(new VoxelRun { YBot = yBot, YTop = yTop });
+                        }
+                        if (runs.Count > 0)
+                            vc.SetColumnRuns(lx, lz, runs);
+                    }
+                    return true;
+                }
+
+                if (version == 2)
                 {
                     vc = VoxelChunkData.Create(tc, seed);
                     int count = reader.ReadInt32();
@@ -239,7 +277,7 @@ public static class ChunkSaveManager
     }
 
     /// <summary>A chunk save queued for the background writer (1es; voxel payload 1et). Exactly one
-    /// of <see cref="Data"/> (smooth height-field mods, v1) / <see cref="Voxel"/> (column runs, v2)
+    /// of <see cref="Data"/> (smooth height-field mods, v1) / <see cref="Voxel"/> (column runs, v3)
     /// is set; the voxel ownership is transferred to the worker the same way a ChunkSaveData is —
     /// never touched on the main thread after enqueue.</summary>
     private readonly struct SaveWork
@@ -388,16 +426,18 @@ public static class ChunkSaveManager
         }
     }
 
-    /// <summary>
-    /// Serialized atomic v2 column-run write (tmp+swap), same worker + lock as v1 writes (1et).
+    /// <summary>Serialized atomic v3 multi-run column write (tmp+swap), same worker + lock as v1
+    /// writes (1et single-run v2 → v3 multi-run 1eu). The worker only serializes EDITED columns
+    /// (VisitColumns skips pristine ones), so untouched chunks stay absent from disk.
     /// File layout (little-endian, extends the v1 header):
     ///   Header:  "NWTC"            (4 bytes)
-    ///   Version: int               (2 = column runs)
+    ///   Version: int               (3 = multi-run columns)
     ///   Seed:    long
     ///   ChunkX:  int
     ///   ChunkZ:  int
     ///   ColCount:int
-    ///   Per column: Index:int (localZ*30+localX), Top:int   (single run [ColumnBaseY..Top])
+    ///   Per column: Index:int (localZ*30+localX), RunCount:int,
+    ///               then per run: YBot:int, YTop:int (solid levels YBot &lt; y &lt;= YTop)
     /// </summary>
     private static void WriteVoxelChunk(long seed, TerrainChunkCoord tc, VoxelChunkData voxel)
     {
@@ -412,10 +452,17 @@ public static class ChunkSaveManager
 
             try
             {
-                var columns = new List<KeyValuePair<int, int>>();
-                voxel.ForEachColumnTop((int lx, int lz, int top) =>
-                    columns.Add(new KeyValuePair<int, int>(
-                        lz * TerrainChunkCoord.ChunkSize + lx, top)));
+                var columns = new List<KeyValuePair<int, List<VoxelRun>>>();
+                voxel.VisitColumns((int lx, int lz, IList<VoxelRun> runs) =>
+                {
+                    if (runs == null || runs.Count == 0)
+                        return;
+                    var copy = new List<VoxelRun>(runs.Count);
+                    for (int r = 0; r < runs.Count; r++)
+                        copy.Add(runs[r]);
+                    columns.Add(new KeyValuePair<int, List<VoxelRun>>(
+                        lz * TerrainChunkCoord.ChunkSize + lx, copy));
+                });
 
                 using (FileStream fs = new FileStream(tmp, FileMode.Create, FileAccess.Write))
                 using (BinaryWriter writer = new BinaryWriter(fs))
@@ -429,7 +476,13 @@ public static class ChunkSaveManager
                     for (int i = 0; i < columns.Count; i++)
                     {
                         writer.Write(columns[i].Key);
-                        writer.Write(columns[i].Value);
+                        List<VoxelRun> runs = columns[i].Value;
+                        writer.Write(runs.Count);
+                        for (int r = 0; r < runs.Count; r++)
+                        {
+                            writer.Write(runs[r].YBot);
+                            writer.Write(runs[r].YTop);
+                        }
                     }
                 }
 

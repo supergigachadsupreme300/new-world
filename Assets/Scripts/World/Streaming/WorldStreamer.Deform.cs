@@ -128,6 +128,18 @@ public partial class WorldStreamer
                     influence = fall * fall;
                 }
 
+                // P2 (1eu): directed wall-carve. In voxel mode a Crater handed a real direction
+                // (the tools aim the dig at the ground they hit, not straight down) is clipped to
+                // the half-space AHEAD of the plane through the center perpendicular to the cast —
+                // so one swing into a slope carves a niche with a near-vertical face instead of a
+                // symmetric bowl that just tilts with the ground. Stepped rendering terraces the
+                // one-column influence drop at the plane into a clean retaining wall.
+                if (VoxelTerrainEnabled && shape == TerrainShape.Crater && (dir.x != 0f || dir.z != 0f))
+                {
+                    float along = dx * wallDir.x + dz * wallDir.z;
+                    influence *= Mathf.Clamp01(along / Mathf.Max(0.25f, radius * 0.5f) + 0.15f);
+                }
+
                 if (influence <= 0f)
                     continue;
 

@@ -104,6 +104,9 @@ public partial class WorldStreamer
         // Voxel mode (1et): flag the chunk so its LOD decimation (which indexes the smooth
         // TOPS-FIRST layout) never samples the stepped mesh — the full mesh stays visible.
         obj.VoxelMesh = VoxelTerrainEnabled;
+        // Voxel mode (1eu): attach the column-store so rebuilds/flushes reuse the loaded runs
+        // (caves/overhangs survive) instead of regenerating from the flat tile grid.
+        obj.VoxelStore = chunk.Voxel;
         _loadedChunks[tc] = obj;
         NoteChunkSetChanged();
 

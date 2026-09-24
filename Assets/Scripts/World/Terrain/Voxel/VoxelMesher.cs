@@ -65,6 +65,36 @@ public static class VoxelMesher
             }
         }
 
+        // Pass 1b — buried volumes (1eu): a column with more than one run (a sculpted cave/overhang)
+        // exposes its interior. Every NON-topmost run renders its top (a chamber/void floor); every
+        // run whose bottom sits above the column floor renders its BOTTOM as a downward ceiling (the
+        // roof of the void beneath it). Interior cavity side walls are deliberately NOT rendered in
+        // P2 scope — the surface wall pass reads only the topmost run, so the outer rim of a carve
+        // reads as a slot into the void until per-run side-wall meshing lands.
+        for (int z = 0; z < cs; z++)
+        {
+            for (int x = 0; x < cs; x++)
+            {
+                IList<VoxelRun> runs = vc.RunsAt(x, z);
+                if (runs == null || runs.Count < 2)
+                    continue;
+                for (int r = 0; r < runs.Count; r++)
+                {
+                    VoxelRun run = runs[r];
+                    if (r < runs.Count - 1)
+                    {
+                        EmitTopRun(vertices, triangles, uv, normals, colors, seed, memo,
+                            originX, originZ, x, x + 1, z, run.YTop, ref minY, ref maxY);
+                    }
+                    if (run.YBot > VoxelChunkData.ColumnBaseY)
+                    {
+                        EmitRunCeiling(vertices, triangles, uv, normals, colors, seed, memo,
+                            originX, originZ, x, z, run.YBot, ref minY, ref maxY);
+                    }
+                }
+            }
+        }
+
         // Pass 2 — vertical walls, one X boundary plane at a time (planes local X = 0..cs; the
         // plane at X sits between local column X-1 (-X side) and column X (+X side), with X==0 and
         // X==cs facing the neighbour chunks). Run-merge consecutive z with identical wall shape.
@@ -156,6 +186,36 @@ public static class VoxelMesher
     }
 
     // --- Top faces ---
+
+    /// <summary>Downward-facing (ceiling) 1x1 quad at a buried run's bottom — the roof of the void
+    /// beneath it (1eu). Same slot winding as the top quads (NW, NE, SE, SW) with reversed triangles
+    /// so the normal points down, strata colour sampled at the ceiling height (a cave ceiling shows
+    /// the same dirt/stone bands as any terraced wall).</summary>
+    private static void EmitRunCeiling(
+        List<Vector3> vertices, List<int> triangles, List<Vector2> uv, List<Vector3> normals,
+        List<Color> colors, long seed, Dictionary<long, float> memo,
+        int originX, int originZ, int x, int z, int yBot,
+        ref float minY, ref float maxY)
+    {
+        int v = vertices.Count;
+        VertPoint(vertices, x, yBot, z + 1);
+        VertPoint(vertices, x + 1, yBot, z + 1);
+        VertPoint(vertices, x + 1, yBot, z);
+        VertPoint(vertices, x, yBot, z);
+        triangles.Add(v); triangles.Add(v + 2); triangles.Add(v + 1);
+        triangles.Add(v); triangles.Add(v + 3); triangles.Add(v + 2);
+        uv.Add(new Vector2(0f, 1f));
+        uv.Add(new Vector2(1f, 1f));
+        uv.Add(new Vector2(1f, 0f));
+        uv.Add(new Vector2(0f, 0f));
+        for (int k = 0; k < 4; k++)
+            normals.Add(Vector3.down);
+        colors.Add(ColorAt(seed, memo, originX + x, originZ + z + 1, yBot));
+        colors.Add(ColorAt(seed, memo, originX + x + 1, originZ + z + 1, yBot));
+        colors.Add(ColorAt(seed, memo, originX + x + 1, originZ + z, yBot));
+        colors.Add(ColorAt(seed, memo, originX + x, originZ + z, yBot));
+        TrackY(ref minY, ref maxY, yBot);
+    }
 
     private static void EmitTopRun(
         List<Vector3> vertices, List<int> triangles, List<Vector2> uv, List<Vector3> normals,

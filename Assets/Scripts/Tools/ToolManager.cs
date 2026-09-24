@@ -807,7 +807,7 @@ public partial class ToolManager : MonoBehaviour
 
                 if (!SpendToolStamina(player))
                     return;
-                TerrainDeformer.Dig(hit.point, 0.55f);
+                TerrainDeformer.Dig(hit.point, 0.55f, player.transform.forward);
                 SoundManager.Instance?.Play("shovel");
                 SpawnDigPuff(hit.point, ColorPalette.DirtBrown);
                 return;
@@ -821,7 +821,7 @@ public partial class ToolManager : MonoBehaviour
                 {
                     if (!SpendToolStamina(player))
                         return;
-                    TerrainDeformer.Dig(hit.point, 0.5f);
+                    TerrainDeformer.Dig(hit.point, 0.5f, player.transform.forward);
                     SoundManager.Instance?.Play("pickaxe");
                     SpawnDigPuff(hit.point, ColorPalette.StoneGray);
                     return;

@@ -285,8 +285,8 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   `WorldStreamer.Awake`): `Application.persistentDataPath` is main-thread-only in Unity 6, but chunk
   generation resolves the file path on background threads — they read the cached string only.
 - **Voxel mode writes a second format (1et, §2.9):** with `VoxelTerrainEnabled` on, the same chunk
-  files carry `version=2` column runs instead of `version=1` height-field mods; the two readers are
-  mode-specific (smooth reader rejects v2; voxel reader migrates v1 on read).
+  files carry `version=3` multi-run column saves instead of `version=1` height-field mods; the two
+  readers are mode-specific (smooth reader rejects voxel versions; voxel reader migrates v1/v2 on read).
 
 ### 2.7 Testing Arena — Independent Floating Platform (dev tool)
 
@@ -364,44 +364,57 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   (spawn/respawn, fast travel, sleep, load-game, test-platform entry), which stamps the destination as
   the new "last safe" position so the fail-net never false-positives on legit relocation.
 
-### 2.9 Voxel Terrain — Experimental Stepped-World Mode (1et)
+### 2.9 Voxel Terrain — Stepped-World Mode (1et, now the default since 1eu)
 
-A render-mode toggle for the same chunk/world, added to fix the legacy heightfield's core weakness:
+A render/storage mode for the same chunk/world, added to fix the legacy heightfield's core weakness:
 every tile is a 4-corner blob, so steep natural slopes become one un-editable stretched face. Turning
-`WorldStreamer.VoxelTerrainEnabled` on (serialized bool, **default OFF** — flip it before the world
-streams, or via the test-ground QA toggle `NewWorldTestGround.EnableVoxelTerrain`) re-renders every
-real chunk as a **1-metre stepped voxel world** while keeping the whole streaming/deformation/IO
-pipeline's contracts intact.
+`WorldStreamer.VoxelTerrainEnabled` on (serialized bool, **default ON since 1eu** — flip it before the
+world streams, or via the test-ground QA toggle `NewWorldTestGround.EnableVoxelTerrain`) re-renders
+every real chunk as a **1-metre stepped voxel world** while keeping the whole streaming/deformation/IO
+pipeline's contracts intact. Flip OFF to return to the smooth heightfield world.
 
-- **Terrain model (VoxelChunkData):** a 1 m grid of vertical columns of solid earth; phase 1 stores
-  exactly **one run per column** `[ColumnBaseY .. Top]` (`ColumnBaseY = -1000` gives 200 m+ of solid
-  headroom under any reachable pit; tops are clamped to the same ±200 m mesh-safety band as the
-  heightfield). A **missing column is untouched** — its top re-derives deterministically from the same
-  5-octave world noise, so pristine chunks store zero data and re-roll identically on every load.
+- **Terrain model (VoxelChunkData):** a 1 m grid of vertical columns of solid earth. Since 1eu a column
+  is a **sorted run list** (a cave/overhang = 2+ runs), not a single `[ColumnBaseY .. Top]` run: each
+  edited column stores only the runs that differ from pristine, and a **missing column is untouched** —
+  its top re-derives deterministically from the same 5-octave world noise, so pristine chunks store zero
+  data and re-roll identically on every load. `ColumnBaseY = -1000` gives 200 m+ of solid headroom under
+  any reachable pit; tops are clamped to the same ±200 m mesh-safety band as the heightfield.
 - **Material is derived, never stored:** grass→dirt→stone by dig depth below the pristine noise
-  surface (`ChunkMeshGenerator.TerrainBandColor`), so a run only ever needs two integers.
+  surface (`ChunkMeshGenerator.TerrainBandColor`), so a column run only ever needs two integers (YBot,
+  YTop).
 - **Rendering (VoxelMesher):** merged row-run **top quads** (one quad per equal-height run, per-metre
   UV) plus **terrace walls** — where neighbouring columns top at different heights the higher one emits
   a wall down to the lower, one band per metre (drops beyond 32 m quantize to 16 fixed bands so a deep
   pit never explodes the tri budget). Outer chunk faces use real neighbour column tops when loaded
   (cross-chunk seam walls level) and identical noise rounding when not (no phantom walls on untouched
-  seams).
-- **Deformation stays on the 4-corner API:** voxel chunks fill their 900 tiles with flat 4-corner
-  entries equal to the integer column top, so `DeformAt`/`FlattenAt`/`ApplyHeightEdits`/`GetDigDepth`
-  and every tool/spell/shovel gate keep working unchanged; any edit full-rebuilds the chunk's columns
-  + walls.
+  seams). Since 1eu every non-topmost run also renders its floor (chamber floor) and every raised run
+  renders a downward **ceiling** (roof of the void beneath it), so caves/overhangs expose interiors.
+- **Sculpting (1eu sculpt API):** `SculptVoxelCave(center, radius, roofThickness, chamberHeight)` and
+  `SculptVoxelRaise(center, radius, height)` operate on the run lists of loaded chunks (volume sphere,
+  per-column insert/remove of solid blocks) and full-rebuild + flush each touched chunk — an underground
+  chamber keeps a roof shelf of untouched columns above it. The legacy 4-corner deformation API is kept
+  too: voxel chunks fill their 900 tiles with flat 4-corner entries equal to the integer column top, so
+  `DeformAt`/`FlattenAt`/`ApplyHeightEdits`/`GetDigDepth` and every tool/spell/shovel gate keep working;
+  any edit full-rebuilds the chunk's columns + walls. The directed dig (`TerrainDeformer.Dig` with a
+  direction) clips the crater's influence to the tiles ahead of the digger, so a shovel/pickaxe swing
+  scoops only the slope in front of the player (crater becomes a half-space carve).
 - **Persistence (extends §2.6):** the voxel path writes the same files to
-  `worlds/{seed}/tc_x_y.dat` as the smooth path — as **v2 column runs** (`NWTC | int version=2 | seed |
-  chunkX | chunkZ | colCount | per column: idx=localZ*30+localX : top`). Only edited columns are stored;
-  restoring a carve exactly to noise deletes the file. **Migration:** legacy v1 height-field saves load
-  in voxel mode too (each tile's 4-corner heights reduce to a rounded-avg column top on read; the v1
-  file stays until a voxel edit rewrites it). The smooth path never writes v2 and its reader still
-  rejects v2.
-- **Phase-1 limitations (documented):** LOD children and the far shell intentionally stay smooth
-  (the stepped mesh has no TOPS-FIRST grid to decimate); `ChunkSync` network sync of voxel edits is
-  deferred; two perpendicular walls with different drop sizes can crack cosmetically at a 90° step
-  corner. The legacy heightfield path is still the default and is kept until the voxel experiment
-  reads correctly in play-test.
+  `worlds/{seed}/tc_x_y.dat` as the smooth path — as **v3 multi-run column saves**
+  (`NWTC | int version=3 | seed | chunkX | chunkZ | colCount | per column: idx=localZ*30+localX,
+  runCount, run pairs (YBot, YTop)`). Only edited columns are stored; restoring a carve exactly to noise
+  deletes the file. **Migration:** legacy v1 height-field saves AND v2 single-run saves load in voxel
+  mode (each tile's 4-corner heights reduce to a rounded-avg column top on read; the file stays until a
+  voxel edit rewrites it as v3). The smooth path never writes voxel files and its reader still rejects
+  them.
+- **LOD + far shell follow the mode (1eu):** voxel chunks build stepped **LOD children** now
+  (`BuildVoxelLodChild` — a decimated coarse full-size column grid feeds the same pooled-LOD child
+  mesh), and the far shell's `BuildFarSector` gains a stepped `BuildVoxelFarSector` twin that samples
+  the same deterministic integer column tops on its 3 m grid — no more smooth far disc around a stepped
+  world.
+- **Known limits (documented):** the mesher's side-wall pass reads only the topmost run, so interior
+  cavity side walls are NOT rendered — the rim of a carve reads as a slot into the void until per-run
+  side-wall meshing lands. `ChunkSync` network sync of voxel edits is deferred; two perpendicular walls
+  with different drop sizes can crack cosmetically at a 90° step corner.
 
 ---
 

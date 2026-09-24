@@ -70,6 +70,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableFpsStats = true;
     [Tooltip("QA (1et): render the open world as the 1-metre stepped voxel terrain instead of the smooth heightfield (the experimental terrain model). Applied in Awake, BEFORE the WorldStreamer's first stream poll, so the whole world builds voxel from the start; leave OFF to keep smooth terrain.")]
     public bool EnableVoxelTerrain = false;
+    [Tooltip("QA (1eu): exercise the voxel sculpt API on the streamed terrain just off the platform — a directed crater (toolbar dig with cast direction clips the dent into a slope-front scoop), a SculptVoxelCave under a ridge, and a SculptVoxelRaise pillar. Needs the voxel terrain enabled to be meaningful (no-op on smooth terrain), edits REAL terrain — permanent chunk saves — and never touches the platform or legacy village.")]
+    public bool EnableVoxelSculptDemo = false;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
@@ -165,6 +167,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (EnableDigLayersDemo) { RunSafely("dig layers demo", SpawnDigLayersDemo); yield return null; }
         if (EnableResetTerrainSaves) { RunSafely("terrain saves reset", ResetTerrainSaves); yield return null; }
         if (EnableStatusEffectsDemo) { RunSafely("status effects demo", SpawnStatusEffectsDemo); yield return null; }
+        if (EnableVoxelSculptDemo) { RunSafely("voxel sculpt demo", SpawnVoxelSculptDemo); yield return null; }
         if (EnableFpsStats) { RunSafely("fps stats", SpawnFpsStats); yield return null; }
         RunSafely("player grants", TryDeferPlayerGrants);
 
@@ -281,6 +284,70 @@ public sealed class NewWorldTestGround : MonoBehaviour
             return;
         }
         streamer.ResetTerrainSaves();
+    }
+
+    /// <summary>
+    /// QA lane for the voxel sculpt API (1eu): runs the three public operations against REAL
+    /// streamed terrain just off the platform's west edge:
+    ///   (1) a directed crater — the toolbar dig with a cast direction clips the dent into a
+    ///       slope-front scoop (only the tiles ahead of the digger are hollowed);
+    ///   (2) a SculptVoxelCave under a ridge (an overburden shelf keeps a roof above the void);
+    ///   (3) a SculptVoxelRaise pushing a pillar up out of the ground.
+    /// Each is placed a short walk off the platform, on streamed terrain that is loaded and
+    /// voxel-meshed when the lane runs (SculptVoxel* only touches loaded chunks). Needs the voxel
+    /// terrain enabled — on smooth terrain the operations have nothing to edit, so the lane logs a
+    /// warning and stays put. Off by default; never touches the platform or legacy WorldBuilder
+    /// village.
+    /// </summary>
+    private void SpawnVoxelSculptDemo()
+    {
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (streamer == null)
+        {
+            Debug.LogWarning("[NewWorldTestGround] Voxel sculpt demo skipped — no WorldStreamer found.");
+            return;
+        }
+        if (!streamer.VoxelTerrainEnabled)
+        {
+            Debug.LogWarning("[NewWorldTestGround] Voxel sculpt demo skipped — the voxel terrain is OFF. " +
+                "Tick the voxel terrain toggle to QA the sculpt API on real chunks.");
+            return;
+        }
+
+        float baseX = PlatformCenter.x - PlatformSize * 0.5f - 24f;
+        float baseZ = PlatformCenter.z;
+
+        // (2) Cave shelf first so the directed dig below doesn't collide with the ridge.
+        float caveX = baseX;
+        float caveZ = baseZ - 14f;
+        streamer.SculptVoxelCave(new Vector3(caveX, 0f, caveZ), 6f, 3f, 4f);
+
+        // (1) Directed crater: cast due east, so the scoop opens toward the platform.
+        TerrainDeformer.Dig(new Vector3(baseX + 4f, 0f, baseZ), 3f, Vector3.right);
+
+        // (3) Raise a pillar clear of the other two features.
+        float raiseX = baseX;
+        float raiseZ = baseZ + 14f;
+        streamer.SculptVoxelRaise(new Vector3(raiseX, 0f, raiseZ), 4f, 8f);
+
+        // Stone marker pegs so each feature is findable from the platform edge.
+        SpawnSculptMarker("SculptCave", new Vector3(caveX, PlatformTopY, caveZ));
+        SpawnSculptMarker("SculptDig", new Vector3(baseX + 4f, PlatformTopY, baseZ));
+        SpawnSculptMarker("SculptRaise", new Vector3(raiseX, PlatformTopY, raiseZ));
+    }
+
+    /// <summary>One small stone peg on the platform top marking a sculpt demo feature.</summary>
+    private void SpawnSculptMarker(string name, Vector3 pos)
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        go.name = name;
+        go.transform.position = pos + new Vector3(0f, 0.6f, 0f);
+        go.transform.localScale = new Vector3(0.8f, 1.2f, 0.8f);
+        var col = go.GetComponent<Collider>();
+        if (col != null) Destroy(col);
+        var mr = go.GetComponent<MeshRenderer>();
+        if (mr != null)
+            mr.sharedMaterial = SolidMaterial(new Color(0.5f, 0.5f, 0.5f));
     }
 
     /// <summary>

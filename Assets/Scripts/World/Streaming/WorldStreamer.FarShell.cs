@@ -663,7 +663,12 @@ public partial class WorldStreamer
     {
         try
         {
-            _farReady.Enqueue(new FarMeshData(cell, epoch, BuildFarSector(cell, seed, maxRing), reserved));
+            // Voxel mode renders the far shell with the same stepped language as near chunks
+            // (BuildVoxelFarSector); the flag is read once per spawned cell like the chunk dispatch.
+            MergedChunkMeshData merged = VoxelTerrainEnabled
+                ? BuildVoxelFarSector(cell, seed, maxRing)
+                : BuildFarSector(cell, seed, maxRing);
+            _farReady.Enqueue(new FarMeshData(cell, epoch, merged, reserved));
         }
         catch (System.Exception ex)
         {
@@ -848,6 +853,295 @@ public partial class WorldStreamer
             Colors = colors,
             Bounds = bounds,
         };
+    }
+
+    /// <summary>
+    /// Voxel-mode far sector (1eu): when VoxelTerrainEnabled the far shell renders the same stepped
+    /// 1-metre-terrace language as the near voxel chunks instead of the smooth corner-grid surface.
+    /// The cell's surface is sampled per FarSectorStep (3, dividing 30) on the world integer columns
+    /// the real chunks use via RoundNoiseTop — far bands are pristine by construction (collider ring
+    /// 8 &lt; rim start 10, digs can never reach them), so noise rounding equals what a loaded chunk
+    /// would show. Meshed exactly like VoxelMesher's three passes (merged row-run tops, X-plane and
+    /// Z-plane terraced walls, per-metre bands, memoized strata colours) but at the coarse step.
+    /// Shared boundary planes between sibling cells sample the same deterministic columns, so seams
+    /// stay level; each wall is owned by its higher side (mirroring VoxelMesher) so back-to-back
+    /// usage never double-draws. A deliberate self-contained duplicate of the near builder rather
+    /// than a refactor of the verified path.
+    /// </summary>
+    private MergedChunkMeshData BuildVoxelFarSector(FarCell cell, long seed, int maxRing)
+    {
+        int cs = TerrainChunkCoord.ChunkSize;
+        int span = cell.Span;
+        int step = FarSectorStep(span, maxRing);
+        int tilesPerAxis = span * cs;
+        int cols = tilesPerAxis / step;
+        int cellTileOriginX = cell.X * cs;
+        int cellTileOriginZ = cell.Z * cs;
+
+        int TopAt(int gx, int gz) =>
+            VoxelChunkData.RoundNoiseTop(seed, cellTileOriginX + gx * step, cellTileOriginZ + gz * step);
+
+        int XPlaneTopAt(int planeX, int z, bool leftSide)
+        {
+            int localCol = leftSide ? planeX - 1 : planeX;
+            if (localCol >= 0 && localCol < cols)
+                return TopAt(localCol, z);
+            int wx = leftSide ? cellTileOriginX - step : cellTileOriginX + tilesPerAxis;
+            return VoxelChunkData.RoundNoiseTop(seed, wx, cellTileOriginZ + z * step);
+        }
+
+        int ZPlaneTopAt(int planeZ, int x, bool belowSide)
+        {
+            int localCol = belowSide ? planeZ - 1 : planeZ;
+            if (localCol >= 0 && localCol < cols)
+                return TopAt(x, localCol);
+            int wz = belowSide ? cellTileOriginZ - step : cellTileOriginZ + tilesPerAxis;
+            return VoxelChunkData.RoundNoiseTop(seed, cellTileOriginX + x * step, wz);
+        }
+
+        var vertices = new List<Vector3>(8192);
+        var triangles = new List<int>(16384);
+        var uv = new List<Vector2>(8192);
+        var normals = new List<Vector3>(8192);
+        var colors = new List<Color>(8192);
+        var memo = new Dictionary<long, float>();
+        float minY = float.MaxValue;
+        float maxY = float.MinValue;
+
+        // Pass 1 — top faces: merge equal-height columns into row runs (one quad per run).
+        for (int z = 0; z < cols; z++)
+        {
+            int x = 0;
+            while (x < cols)
+            {
+                int top = TopAt(x, z);
+                int xEnd = x + 1;
+                while (xEnd < cols && TopAt(xEnd, z) == top)
+                    xEnd++;
+                EmitVoxelFarTopRun(vertices, triangles, uv, normals, colors, seed, memo,
+                    cellTileOriginX, cellTileOriginZ, x, xEnd, z, top, step, ref minY, ref maxY);
+                x = xEnd;
+            }
+        }
+
+        // Pass 2 — vertical walls, one X boundary plane at a time (planes local X = 0..cols; the
+        // plane at X sits between local column X-1 (-X side) and column X (+X side), X==0/X==cols
+        // facing the neighbouring far/real cells). Run-merge consecutive z with an identical wall.
+        for (int planeX = 0; planeX <= cols; planeX++)
+        {
+            int z = 0;
+            while (z < cols)
+            {
+                int topA = XPlaneTopAt(planeX, z, true);
+                int topB = XPlaneTopAt(planeX, z, false);
+                if (topA == topB)
+                {
+                    z++;
+                    continue;
+                }
+                bool leftHigher = topA > topB;
+                int hi = leftHigher ? topA : topB;
+                int lo = leftHigher ? topB : topA;
+                Vector3 outward = leftHigher ? Vector3.left : Vector3.right;
+                int zEnd = z + 1;
+                while (zEnd < cols)
+                {
+                    int nA = XPlaneTopAt(planeX, zEnd, true);
+                    int nB = XPlaneTopAt(planeX, zEnd, false);
+                    if (nA == nB || (nA > nB) != leftHigher)
+                        break;
+                    if ((nA > nB ? nA : nB) != hi || (nA > nB ? nB : nA) != lo)
+                        break;
+                    zEnd++;
+                }
+                EmitVoxelFarWallStrip(vertices, triangles, uv, normals, colors, seed, memo,
+                    cellTileOriginX, cellTileOriginZ, hi, lo, outward,
+                    new Vector3(planeX * step, 0f, zEnd * step), new Vector3(planeX * step, 0f, z * step),
+                    ref minY, ref maxY);
+                z = zEnd;
+            }
+        }
+
+        // Pass 3 — the Z boundary planes (planes local Z = 0..cols between column Z-1 and Z),
+        // run-merging consecutive x.
+        for (int planeZ = 0; planeZ <= cols; planeZ++)
+        {
+            int x = 0;
+            while (x < cols)
+            {
+                int topA = ZPlaneTopAt(planeZ, x, true);
+                int topB = ZPlaneTopAt(planeZ, x, false);
+                if (topA == topB)
+                {
+                    x++;
+                    continue;
+                }
+                bool belowHigher = topA > topB;
+                int hi = belowHigher ? topA : topB;
+                int lo = belowHigher ? topB : topA;
+                Vector3 outward = belowHigher ? Vector3.back : Vector3.forward;
+                int xEnd = x + 1;
+                while (xEnd < cols)
+                {
+                    int nA = ZPlaneTopAt(planeZ, xEnd, true);
+                    int nB = ZPlaneTopAt(planeZ, xEnd, false);
+                    if (nA == nB || (nA > nB) != belowHigher)
+                        break;
+                    if ((nA > nB ? nA : nB) != hi || (nA > nB ? nB : nA) != lo)
+                        break;
+                    xEnd++;
+                }
+                EmitVoxelFarWallStrip(vertices, triangles, uv, normals, colors, seed, memo,
+                    cellTileOriginX, cellTileOriginZ, hi, lo, outward,
+                    new Vector3(xEnd * step, 0f, planeZ * step), new Vector3(x * step, 0f, planeZ * step),
+                    ref minY, ref maxY);
+                x = xEnd;
+            }
+        }
+
+        float spanM = span * cs * ChunkData.Size;
+        return new MergedChunkMeshData
+        {
+            Vertices = vertices.ToArray(),
+            Triangles = triangles.ToArray(),
+            UV = uv.ToArray(),
+            Normals = normals.ToArray(),
+            Colors = colors.ToArray(),
+            Bounds = new Bounds(
+                new Vector3(spanM * 0.5f, minY < maxY ? (minY + maxY) * 0.5f : minY, spanM * 0.5f),
+                new Vector3(spanM, Mathf.Max(0.1f, minY < maxY ? (maxY - minY) + 0.1f : 0.1f), spanM)),
+        };
+    }
+
+    /// <summary>Coarse (step-wide) top quad with the same slot winding and per-metre U as the near
+    /// VoxelMesher top runs, rendered as one merged quad over [x0..xEnd) columns at z.</summary>
+    private static void EmitVoxelFarTopRun(
+        List<Vector3> vertices, List<int> triangles, List<Vector2> uv, List<Vector3> normals,
+        List<Color> colors, long seed, Dictionary<long, float> memo,
+        int originX, int originZ, int x0, int xEnd, int z, int top, int step,
+        ref float minY, ref float maxY)
+    {
+        int len = (xEnd - x0) * step;
+        int v = vertices.Count;
+        vertices.Add(new Vector3(x0 * step, top, (z + 1) * step));
+        vertices.Add(new Vector3(xEnd * step, top, (z + 1) * step));
+        vertices.Add(new Vector3(xEnd * step, top, z * step));
+        vertices.Add(new Vector3(x0 * step, top, z * step));
+        triangles.Add(v); triangles.Add(v + 1); triangles.Add(v + 2);
+        triangles.Add(v); triangles.Add(v + 2); triangles.Add(v + 3);
+        uv.Add(new Vector2(0f, 1f));
+        uv.Add(new Vector2(len, 1f));
+        uv.Add(new Vector2(len, 0f));
+        uv.Add(new Vector2(0f, 0f));
+        for (int k = 0; k < 4; k++)
+            normals.Add(Vector3.up);
+        colors.Add(ChunkMeshGenerator.TerrainBandColor(seed, originX + x0 * step, originZ + (z + 1) * step, top, memo));
+        colors.Add(ChunkMeshGenerator.TerrainBandColor(seed, originX + xEnd * step, originZ + (z + 1) * step, top, memo));
+        colors.Add(ChunkMeshGenerator.TerrainBandColor(seed, originX + xEnd * step, originZ + z * step, top, memo));
+        colors.Add(ChunkMeshGenerator.TerrainBandColor(seed, originX + x0 * step, originZ + z * step, top, memo));
+        TrackFarY(ref minY, ref maxY, top);
+    }
+
+    /// <summary>Merged terrace wall strip on a coarse boundary plane — the near VoxelMesher wall
+    /// (per-metre bands, quantized deep drops, per-band strata colours, winding via the outward
+    /// normal) at the step-scaled plane coordinates.</summary>
+    private static void EmitVoxelFarWallStrip(
+        List<Vector3> vertices, List<int> triangles, List<Vector2> uv, List<Vector3> normals,
+        List<Color> colors, long seed, Dictionary<long, float> memo,
+        int originX, int originZ, int hi, int lo, Vector3 outward,
+        Vector3 edgeStart, Vector3 edgeEnd,
+        ref float minY, ref float maxY)
+    {
+        int drop = hi - lo;
+        if (drop <= 0)
+            return;
+        int bands = drop <= 32 ? drop : 16;
+
+        float len = (edgeStart - edgeEnd).magnitude;
+
+        int wxStart = originX + Mathf.RoundToInt(edgeStart.x);
+        int wzStart = originZ + Mathf.RoundToInt(edgeStart.z);
+        int wxEnd = originX + Mathf.RoundToInt(edgeEnd.x);
+        int wzEnd = originZ + Mathf.RoundToInt(edgeEnd.z);
+
+        for (int b = 0; b < bands; b++)
+        {
+            float f0 = (float)b / bands;
+            float f1 = (float)(b + 1) / bands;
+
+            Vector3 p0 = FarEdgePoint(edgeStart, edgeEnd, hi, lo, f0);
+            Vector3 p1 = FarEdgePoint(edgeEnd, edgeStart, hi, lo, f0);
+            Vector3 p2 = FarEdgePoint(edgeEnd, edgeStart, hi, lo, f1);
+            Vector3 p3 = FarEdgePoint(edgeStart, edgeEnd, hi, lo, f1);
+
+            int iv0 = vertices.Count, iv1 = iv0 + 1, iv2 = iv0 + 2, iv3 = iv0 + 3;
+            vertices.Add(p0);
+            vertices.Add(p1);
+            vertices.Add(p2);
+            vertices.Add(p3);
+
+            colors.Add(ChunkMeshGenerator.TerrainBandColor(seed, wxStart, wzStart, p0.y, memo));
+            colors.Add(ChunkMeshGenerator.TerrainBandColor(seed, wxEnd, wzEnd, p1.y, memo));
+            colors.Add(ChunkMeshGenerator.TerrainBandColor(seed, wxEnd, wzEnd, p2.y, memo));
+            colors.Add(ChunkMeshGenerator.TerrainBandColor(seed, wxStart, wzStart, p3.y, memo));
+
+            uv.Add(new Vector2(0f, b));
+            uv.Add(new Vector2(len, b));
+            uv.Add(new Vector2(len, b + 1f));
+            uv.Add(new Vector2(0f, b + 1f));
+
+            Vector3 n = Vector3.Cross(p1 - p0, p2 - p0);
+            if (n.sqrMagnitude > 1e-10f)
+                n = n.normalized;
+            else
+                n = outward;
+            if (Vector3.Dot(n, outward) < 0f)
+                n = -n;
+            normals.Add(n);
+            normals.Add(n);
+            normals.Add(n);
+            normals.Add(n);
+
+            bool ccw = Vector3.Dot(Vector3.Cross(p1 - p0, p2 - p0), outward) >= 0f;
+            if (ccw)
+            {
+                triangles.Add(iv0); triangles.Add(iv1); triangles.Add(iv2);
+                triangles.Add(iv0); triangles.Add(iv2); triangles.Add(iv3);
+            }
+            else
+            {
+                triangles.Add(iv0); triangles.Add(iv2); triangles.Add(iv1);
+                triangles.Add(iv0); triangles.Add(iv3); triangles.Add(iv2);
+            }
+
+            TrackFarY(ref minY, ref maxY, p0.y, p1.y, p2.y, p3.y);
+        }
+    }
+
+    private static Vector3 FarEdgePoint(Vector3 hiEnd, Vector3 loEnd, int hi, int lo, float f)
+    {
+        return new Vector3(
+            Mathf.Lerp(hiEnd.x, loEnd.x, f),
+            Mathf.Lerp(hi, lo, f),
+            Mathf.Lerp(hiEnd.z, loEnd.z, f));
+    }
+
+    private static void TrackFarY(ref float minY, ref float maxY, float a)
+    {
+        if (a < minY) minY = a;
+        if (a > maxY) maxY = a;
+    }
+
+    private static void TrackFarY(ref float minY, ref float maxY, float a, float b, float c, float d)
+    {
+        if (a < minY) minY = a;
+        if (b < minY) minY = b;
+        if (c < minY) minY = c;
+        if (d < minY) minY = d;
+        if (a > maxY) maxY = a;
+        if (b > maxY) maxY = b;
+        if (c > maxY) maxY = c;
+        if (d > maxY) maxY = d;
     }
 
     /// <summary>
