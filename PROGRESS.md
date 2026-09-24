@@ -3,6 +3,39 @@
 Last updated: 2026-09-24. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1ev. Voxel un-defaulted — smooth heightfield is the world's default terrain again; the stepped voxel model is back to opt-in
+
+User report after 1eu shipped: the world now "looks somewhat like Minecraft, terrain made of blocks" —
+and that's not wanted. Root cause: 1eu flipped `WorldStreamer.VoxelTerrainEnabled` to **default ON**,
+so every chunk rendered as a 1-metre stepped column world (flat column tops + terrace walls). The
+smooth height-field path was untouched and is cleanly gated on that one bool (chunk build/rebuild/flush
+in `WorldStreamer.Streaming.cs`, LOD in `WorldStreamer.Mesh.cs`, far shell in `WorldStreamer.FarShell.cs`,
+deformation + sculpt in `WorldStreamer.Deform.cs`), so the fix is a single-flag revert. User approved
+"Revert default, keep opt-in" — voxel XOR deleted (the column store, v3 saves, sculpt API and voxel LOD/
+far-shell work stay for experiments; the 1eu entry below is now historical).
+
+- **Changed:** `WorldStreamer.cs` `VoxelTerrainEnabled = false` (+ tooltip rewritten: smooth is the
+  default again, voxel is the opt-in preview). No voxel code was removed.
+- **Docs:** `game-design.md` §2.9 header/intro corrected (1ev un-defaults voxel); `THINKING.md` §1ev.
+- **Save-format note (documented 1et limitation, unchanged):** the smooth reader rejects voxel v2/v3
+  chunk saves, so any chunk previously saved under voxel mode regenerates from noise under smooth. If
+  the map looks odd after the flip, start a New Game or tick `NewWorldTestGround.EnableResetTerrainSaves`
+  once.
+- **QA lanes unaffected:** `EnableVoxelTerrain` + `EnableVoxelSculptDemo` still work as opt-in to
+  preview/iterate the experimental stepped world.
+
+### 1ev-status
+- Implemented; verified by grep + reread (rule 3 — no CLI build). Confirmed: `VoxelTerrainEnabled`
+  has exactly one definition at `WorldStreamer.cs:53`, now `= false`; every guarded call site still
+  routes on it (Streaming.cs:157/194/317, Mesh.cs:106, FarShell.cs:668, Deform.cs:137/229/462,
+  Voxel.cs:265, TestGround.cs:118/310) so the smooth path is active and voxel stays reachable via the
+  toggle; grep of `game-design.md`/intro shows no remaining "voxel default" claims.
+- Pending play-test (rule 3 = no build): fresh Play renders smooth rolling terrain everywhere (near
+  chunks, LOD, far shell) with no 1 m steps/terrace walls; smooth deformation (crater digs, shovel/
+  pickaxe strata banding, Earth spells) works as before 1eu; a chunk saved in a voxel v3 file
+  regenerates cleanly (or run the reset toggle); optional: tick `EnableVoxelTerrain` once to confirm
+  the stepped experimental world still streams.
+
 ## 1eu. Voxel terrain Phases 2-4 — multi-run columns, sculpt API, directed dig, v3 saves, voxel LOD children + far shell, voxel-on default (voxel is now the default terrain of the world)
 
 P2/P3/P4 of the voxel program (P1 shipped in `1et`), all in one pass. Turns the P1 single-run

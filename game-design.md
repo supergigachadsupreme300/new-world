@@ -364,14 +364,17 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   (spawn/respawn, fast travel, sleep, load-game, test-platform entry), which stamps the destination as
   the new "last safe" position so the fail-net never false-positives on legit relocation.
 
-### 2.9 Voxel Terrain — Stepped-World Mode (1et, now the default since 1eu)
+### 2.9 Voxel Terrain — Stepped-World Mode (1et experimental; smooth is the default again since 1ev)
 
-A render/storage mode for the same chunk/world, added to fix the legacy heightfield's core weakness:
-every tile is a 4-corner blob, so steep natural slopes become one un-editable stretched face. Turning
-`WorldStreamer.VoxelTerrainEnabled` on (serialized bool, **default ON since 1eu** — flip it before the
-world streams, or via the test-ground QA toggle `NewWorldTestGround.EnableVoxelTerrain`) re-renders
-every real chunk as a **1-metre stepped voxel world** while keeping the whole streaming/deformation/IO
-pipeline's contracts intact. Flip OFF to return to the smooth heightfield world.
+An OPT-IN render/storage mode for the same chunk/world, added to fix the legacy heightfield's core
+weakness: every tile is a 4-corner blob, so steep natural slopes become one un-editable stretched face.
+It briefly became the world's default terrain in 1eu, but play-test read the 1-metre stepped columns as
+too Minecraft-like/blocky, so 1ev un-defaulted it: the **smooth heightfield is the default again** and
+voxel is opt-in behind `WorldStreamer.VoxelTerrainEnabled` (serialized bool, **default OFF** — flip it
+before the world streams, or via the test-ground QA toggle `NewWorldTestGround.EnableVoxelTerrain`).
+With it on, every real chunk re-renders as a **1-metre stepped voxel world** while keeping the whole
+streaming/deformation/IO pipeline's contracts intact. It is kept (not deleted) so the stepped model can
+be previewed and iterated on; the smooth world is otherwise untouched.
 
 - **Terrain model (VoxelChunkData):** a 1 m grid of vertical columns of solid earth. Since 1eu a column
   is a **sorted run list** (a cave/overhang = 2+ runs), not a single `[ColumnBaseY .. Top]` run: each

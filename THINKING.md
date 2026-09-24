@@ -826,7 +826,35 @@ Waste on turn-away: pre-warmed in-flight children of a box the player turns away
 then the removal scan destroys them as stale — small, self-cleaning, bounded by the 2-ring window.
 VERDICT: accepted (cheap vs. the crossing burst it removes).
 
-## 1eu — voxel P2-P4: multi-run column stores, the sculpt API, directed dig, and making voxel the DEFAULT (shipped in `1eu`; play-test pending)
+## 1ev — user rejects the voxel-block look: un-default voxel, restore smooth as the default (shipped in `1ev`)
+
+Context: 1eu made `VoxelTerrainEnabled` default ON, so the fresh world renders as 1-metre stepped
+columns. User: "the last work has turn the game to somewhat similar to minecraft where terrain are made
+of blocks, i dont want that." This is the raw reasoning trail, NOT the shipped summary (PROGRESS §1ev /
+game-design §2.9).
+
+### H1 — the blocky look is the 1eu voxel default, not a regression in the smooth mesh → CONFIRMED
+Candidate causes: (a) the smooth height-field mesh regressed, (b) a new shader/step artifact, (c) the
+voxel mode is simply on. Evidence: the smooth path is untouched and fully gated on one bool;
+`WorldStreamer.cs:53` had `VoxelTerrainEnabled = true` since 1eu with a tooltip literally claiming
+"the voxel model is now the world's default terrain"; every branch (build/rebuild/flush Streaming.cs,
+LOD Mesh.cs, far shell FarShell.cs, Deform.cs, sculpt Voxel.cs) routes on that flag. 1eu H8
+("default ON: safe flip or keep experimental OFF?") already flagged exactly this risk. VERDICT:
+confirmed — the Minecraft-ish look IS the voxel path, on by default.
+
+### H2 — reversing the default is one-flag + docs, no code surgery → CONFIRMED
+Debated deleting the voxel system entirely vs. reverting the default. Delete = remove VoxelChunkData/
+VoxelMesher/WorldStreamer.Voxel.cs, voxel far-shell + LOD branches, the v3 save writer/reader, the
+sculpt API and ChunkObject.VoxelStore — high blast radius (grep rule 5) for zero gameplay gain. Revert
+= `VoxelTerrainEnabled = false`; smooth builder/reader/render are the original 1et path and take over
+immediately; the voxel experiment stays reachable via the QA toggle. User picked "Revert default, keep
+opt-in (Recommended)". VERDICT: confirmed; shipped as the one-line flip.
+
+### H3 — voxel save files under the smooth reader regenerate cleanly → CONFIRMED (documented, not new)
+The smooth reader rejects v2/v3 column-run saves (1et limitation), so any chunk persisted in voxel
+format re-derives from noise when the world streams in smooth mode. That is intended behavior, not a new
+hazard; docs point the play-tester at `EnableResetTerrainSaves`/New Game if a leftover chunk looks off.
+VERDICT: confirmed; left to the play-test checklist.
 
 Context: P1 (`1et`) shipped the single-run stepped voxel world. The user asked to "continue until
 complete all phase" — so P2 (real carve/sculpt into the column data), P3 (voxel LOD + far shell),

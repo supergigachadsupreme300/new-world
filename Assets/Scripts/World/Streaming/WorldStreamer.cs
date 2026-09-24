@@ -49,8 +49,8 @@ public partial class WorldStreamer : MonoBehaviour
     public int NearRingRadius = 9;
 
     [Header("Voxel (experiment 1et/1eu)")]
-    [Tooltip("Render terrain as a 1-metre stepped voxel mesh (experimental; ON by default since 1eu — the voxel model is now the world's default terrain). When on, the same chunk grid / pooling / budgets / deformation API / save files are kept, but every chunk mesh renders as flat column tops + terrace walls (VoxelChunkData + VoxelMesher), saves use the v3 multi-run column format (legacy v1 height-field / v2 single-run saves migrate on read; smooth chunks are never written from voxel), LOD children and the far shell render stepped voxel variants, and the sculpt API (SculptVoxelCave/Raise) + directed dig carve actual column runs. Flip OFF (or via the test ground's QA toggle) to get smooth terrain back — flip BEFORE the world streams, mid-run flips produce mixed terrain until the stream reloads.")]
-    public bool VoxelTerrainEnabled = true;
+    [Tooltip("Render terrain as a 1-metre stepped voxel mesh (experimental, OPT-IN). Since 1ev the smooth heightfield is the default again — the stepped column look read as too Minecraft-like/blocky in play-test, so the voxel model was un-defaulted but kept for experiments. Flip ON via this field or the test ground's QA toggle `EnableVoxelTerrain` to preview it. When on, the same chunk grid / pooling / budgets / deformation API / save files are kept, but every chunk mesh renders as flat column tops + terrace walls (VoxelChunkData + VoxelMesher), saves use the v3 multi-run column format (legacy v1 height-field / v2 single-run saves migrate on read; smooth chunks are never written from voxel), LOD children and the far shell render stepped voxel variants, and the sculpt API (SculptVoxelCave/Raise) + directed dig carve actual column runs. Flip BEFORE the world streams — mid-run flips produce mixed terrain until the stream reloads.")]
+    public bool VoxelTerrainEnabled = false;
 
     [Header("Threading")]
     [Tooltip("Max terrain chunks finalized per poll tick (main-thread work).")]
