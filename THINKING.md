@@ -15,6 +15,37 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1ga — Earth Wall "vertical on player view" + "circle preview for some reason": ridge orientation & aim-preview gating (SHIPPED — play-test pending)
+
+Report verbatim: "the earth wall create walls with vertcal on player view, and have circle preview
+for some reason, fix it".
+
+### H-A — wall orientation: ridge built ALONG the cast reads edge-on → CONFIRMED (spec/UX mismatch, not a code fault)
+Evidence: `WorldStreamer.DeformAt` projected `dir` onto XZ (~:61) and the Wall branch used
+`wallDir` directly for the `along`/`perp` split → spine parallel to the cast → looking at the aim
+point, the ridge recedes along the sight line and only its narrow end shows — a screen-vertical
+slab (the user's "vertical on player view"). game-design §3.8 said "along the cast direction", so
+the behavior matched the old spec. Asked along-vs-across in plan mode; user chose **ACROSS**.
+Fix: local `ridge = (-wallDir.z, 0, wallDir.x)` inside the Wall branch only.
+REJECTED alternates: rotating `wallDir` itself (the voxel crater directed clip reuses it at
+~:137-141 — a global rotate would flip that dig half-plane 90°); rotating `dir` at the call site
+(multiple callers: spells, tools, test lane — and the crater clip shares it).
+
+### H-B — circle preview: `UpdateAoePreview` gates only on delivery, ignores TerrainShape → CONFIRMED
+Evidence: `PlayerController.Combat.cs` showed `AoeAimPreview` for any Zone/Vortex/Summon/Storm
+regardless of shape; Earth Wall is Zone → the disc shows while a round footprint is meaningless for
+a directional ridge. User chose **no preview for walls** over a new ridge-shaped footprint (less
+geometry; radial shapes keep their disc). Ruled out as the reported "circle": the `CastingCircle`
+hand halo (legitimately shows for all armed magic) and `SpawnZoneRing` impact flash (post-cast,
+not a preview).
+
+### Verdict
+Both confirmed; fixes shipped together as 1ga (WorldStreamer.Deform.cs ridge rotation,
+PlayerController.Combat.cs preview gate) with docs synced in the same pass. Play-test pending
+(rule 3 — no build).
+
+---
+
 ## 1fz — "magic deformation leaves a see-through hole at the cast site": full-pipeline audit → stale far-band LOD is the only provable defect (SHIPPED — hypothesis pending play-test)
 
 User report: casting an earth spell occasionally leaves an uncovered/see-through area at the cast

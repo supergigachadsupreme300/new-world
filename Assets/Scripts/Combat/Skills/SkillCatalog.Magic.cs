@@ -94,7 +94,7 @@ public static partial class SkillCatalog
         // itself reacts on impact: rings that circle the impact, spires that erupt beneath it,
         // walls/pillars that rear up, and craters dug where boulders and meteors land. Zone
         // impacts deform at the aim point, Storm strikes (Rockfall) dent under each boulder, the
-        // deep Earth Wall (magic_earth_wall, gated behind Landslide) rears a taller ridge along
+        // deep Earth Wall (magic_earth_wall, gated behind Landslide) rears a taller ridge across
         // the cast, and Summons (the golem line) erupt a small rock field where the construct
         // rises — the Projectile root (Stone Shard) carves its crater where the shard strikes.
         bank.L1["magic_earth"] = new BranchSlot[]
@@ -503,7 +503,7 @@ public static partial class SkillCatalog
         {
             S("magic_earth_boulder_crash", "Crash", Spell("magic_earth_boulder_crash_spell", "Crash", DamageType.Earth, 32f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3.2f, knockback: 3f, terrainShape: TerrainShape.Crater), "A colossal boulder that crashes into the enemy, denting the ground.", Focus(22f), DamageType.Earth, true),
             S("magic_earth_boulder_weight", "Boulderweight", Perk(PassivePerkType.StaggerResistPercent, 10f), "Heavy as a boulder — stagger resistance +10%.", passive: true),
-            S("magic_earth_boulder_landslide", "Landslide", Spell("magic_earth_boulder_landslide_spell", "Landslide", DamageType.Earth, 34f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.6f, knockback: 3f, terrainShape: TerrainShape.Wall), "An earth wall rears up along the cast and crashes onto foes.", Focus(24f), DamageType.Earth, true),
+            S("magic_earth_boulder_landslide", "Landslide", Spell("magic_earth_boulder_landslide_spell", "Landslide", DamageType.Earth, 34f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.6f, knockback: 3f, terrainShape: TerrainShape.Wall), "An earth wall rears up across the cast and crashes onto foes.", Focus(24f), DamageType.Earth, true),
             S("magic_earth_boulder_fall", "Rockfall", Spell("magic_earth_boulder_fall_spell", "Rockfall", DamageType.Earth, 30f, 20f, SpellDelivery.Storm, 6f, deliveryRange: 9f, deliveryRadius: 3.2f, duration: 3f, terrainShape: TerrainShape.Crater, summonFallingRock: true), "Boulders rain down over the area, pitting the ground with craters.", Focus(20f), DamageType.Earth, true),
             S("magic_earth_boulder_tectonic", "Tectonic", Spell("magic_earth_boulder_tectonic_spell", "Tectonic", DamageType.Earth, 36f, 26f, SpellDelivery.Zone, 8f, deliveryRadius: 3.8f, knockback: 3.5f, terrainShape: TerrainShape.Crater), "A tectonic blow that shatters the ground, carving a wide crater.", Focus(26f), DamageType.Earth, true),
         };

@@ -300,12 +300,17 @@ public partial class PlayerController
 
     /// <summary>
     /// Show/refresh the AoE landing preview each aim frame — but only for armed zone/vortex
-    /// magic, so projectile/instant spells and ranged weapons get no marker.
+    /// magic on radial shapes, so projectile/instant spells, ranged weapons, and directional
+    /// wall spells get no marker.
     /// </summary>
     private void UpdateAoePreview(float charge)
     {
         var spell = ArmedSpell();
-        if (spell != null && (spell.Delivery == SpellDelivery.Zone || spell.Delivery == SpellDelivery.Vortex
+        // 1ga: no circular disc for directional wall-shaped spells — a round footprint is
+        // meaningless for a ridge that rears across the cast, so walls get no ground preview
+        // (Crater/Ring/Spikes/Pillar are radial and keep their disc).
+        if (spell != null && spell.TerrainShape != TerrainShape.Wall
+            && (spell.Delivery == SpellDelivery.Zone || spell.Delivery == SpellDelivery.Vortex
             || spell.Delivery == SpellDelivery.Summon || spell.Delivery == SpellDelivery.Storm))
         {
             if (TryAoeTarget(spell, charge, out var center, out var radius, out var color))

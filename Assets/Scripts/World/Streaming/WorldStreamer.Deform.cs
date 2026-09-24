@@ -57,7 +57,8 @@ public partial class WorldStreamer
         int minCZ = Mathf.FloorToInt(center.z - reach);
         int maxCZ = Mathf.FloorToInt(center.z + reach);
 
-        // Wall orientation: the cast direction projected onto the XZ plane.
+        // Wall orientation: the cast direction projected onto the XZ plane. The voxel crater
+        // directed-dig clip uses this directly; the Wall ridge rotates it 90° (1ga, below).
         Vector3 wallDir = new Vector3(dir.x, 0f, dir.z);
         if (wallDir.sqrMagnitude < 0.0001f)
             wallDir = Vector3.right;
@@ -65,8 +66,8 @@ public partial class WorldStreamer
 
         // Ring: a raised annulus with its center left level. Spikes: a smooth mound + sparse
         // deterministic peaks so the ground reads jagged but never chessboard-y. Wall: a ridge
-        // band along the cast direction (tall enough to fully block the player). Pillar: a tall
-        // column. Crater: a wide dish, dug down.
+        // band across the cast direction (1ga — perpendicular, a left-right barricade; tall
+        // enough to fully block the player). Pillar: a tall column. Crater: a wide dish, dug down.
         float lift = shape == TerrainShape.Ring ? 0.9f
             : shape == TerrainShape.Pillar ? 1.8f
             : shape == TerrainShape.Wall ? 2.6f
@@ -111,8 +112,13 @@ public partial class WorldStreamer
                 }
                 else if (shape == TerrainShape.Wall)
                 {
-                    // Distance perpendicular to the cast axis (the ridge spine) + rounded length caps.
-                    float along = dx * wallDir.x + dz * wallDir.z;
+                    // Distance perpendicular to the ridge spine + rounded length caps. 1ga: the
+                    // ridge runs ACROSS the cast axis (perpendicular to the projected cast dir),
+                    // so the wall lies left-right in the player's view and reads as a barricade
+                    // facing them instead of a thin edge-on slab receding along their sight line.
+                    // `wallDir` itself is left untouched for the voxel crater clip below.
+                    Vector3 ridge = new Vector3(-wallDir.z, 0f, wallDir.x);
+                    float along = dx * ridge.x + dz * ridge.z;
                     float perp = Mathf.Sqrt(Mathf.Max(0f, dx * dx + dz * dz - along * along));
                     float band = 1f - Mathf.Clamp01((perp - wallHalfThick) / Mathf.Max(0.01f, wallHalfThick));
                     float ends = 1f - Mathf.Clamp01((Mathf.Abs(along) - (wallHalfLen - wallHalfThick)) / Mathf.Max(0.01f, wallHalfThick));

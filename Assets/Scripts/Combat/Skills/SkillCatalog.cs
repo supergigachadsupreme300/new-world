@@ -292,7 +292,7 @@ public static partial class SkillCatalog
         // Earth school (§3.7): Stone Shard roots the school. Earth spells carry NO status effect —
         // they hit like falling rock (heavy knockback) and reshape the ground itself
         // (TerrainShape, via TerrainDeformer): rings that circle the impact, spikes that erupt,
-        // walls/pillars that rear up along the cast axis, and the root Stone Shard projectile
+        // walls/pillars that rear up (walls ACROSS the cast axis, 1ga — a left-right barricade), and the root Stone Shard projectile
         // carves its crater where the shard strikes (never at the caster's footing); the deep
         // Meteor and Earth Wall skills crater / wall the ground where they land.
         Add(list, "magic_earth", "Stone Shard", SkillType.Magic, false, Focus(15f), true, DamageType.Earth,
@@ -311,14 +311,14 @@ public static partial class SkillCatalog
             P("magic_earth_boulder"), "A meteor plunges from the sky, carving a crater into the ground.");
 
         // Earth Wall — the wall-line's deep skill, gated behind Landslide (the Wall-shape branch
-        // of the Boulder Crash line). Zone delivery rears a taller stone ridge along the cast axis
+        // of the Boulder Crash line). Zone delivery rears a taller stone ridge across the cast axis
         // at the aim point (§3.8, TerrainShape.Wall oriented by `fwd`); the solid ridge also blocks
         // movement and projectiles. Landslide (34/24/7) → Earth Wall (36/26/8) reads as the
         // escalating wall family.
         Add(list, "magic_earth_wall", "Earth Wall", SkillType.Magic, false, Focus(26f), true, DamageType.Earth,
             Spell("magic_earth_wall_spell", "Earth Wall", DamageType.Earth, 36f, 26f, SpellDelivery.Zone, 8f,
                 deliveryRange: 10f, deliveryRadius: 3.6f, knockback: 3.5f, terrainShape: TerrainShape.Wall),
-            P("magic_earth_boulder_landslide"), "A towering wall of stone rears up along the cast and crashes down on foes.");
+            P("magic_earth_boulder_landslide"), "A towering wall of stone rears up across the cast and crashes down on foes.");
     }
 
     private static void BuildStealth(List<Skill> list)

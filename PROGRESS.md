@@ -3,6 +3,42 @@
 Last updated: 2026-09-24. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1ga. Earth Wall renders "vertical on the player's view" + spurious circular aim preview — perpendicular ridge, wall preview suppressed
+
+User report: "the earth wall create walls with vertcal on player view, and have circle preview for
+some reason, fix it".
+
+- **Root cause A (orientation):** `WorldStreamer.DeformAt` built the Wall ridge ALONG the projected
+  cast direction — looking at the aim point puts the ridge edge-on, so it reads as a thin
+  screen-vertical slab receding with the view instead of a wall. This matched the old spec
+  (game-design §3.8 "along the cast direction"), so it was a spec/UX disagreement, not a code fault;
+  the user was asked along-vs-across and chose ACROSS. Fix: the Wall influence branch now derives
+  the spine as `ridge = (-wallDir.z, 0, wallDir.x)` (rotated 90°) — a left-right barricade across
+  the cast — while `wallDir` itself still feeds the voxel crater directed-dig clip untouched.
+  Aim point, ~2.6 m height cap, keep-out ring, width bounds all preserved.
+- **Root cause B (circle preview):** `PlayerController.UpdateAoePreview` showed the circular
+  `AoeAimPreview` disc for every Zone/Vortex/Summon/Storm spell, including directional
+  `TerrainShape.Wall` — a round footprint is meaningless for a ridge. Fix: skip the disc when
+  `spell.TerrainShape == TerrainShape.Wall`; Crater/Ring/Spikes/Pillar are radial and keep theirs.
+  (`Hide`/`Lock` already guard the inactive state.) The hand `CastingCircle` halo and the impact
+  `SpawnZoneRing` flash are separate visuals and unchanged.
+- **Docs (same pass):** game-design §3.8 (ridge across the cast, 1ga note), `SpellData.cs` enum doc
+  + tooltip, `SkillCatalog.cs` earth-school comment + Earth Wall/Landslide tooltips,
+  `SkillCatalog.Magic.cs` Landslide tooltip + comment, `SpellCaster.Cast.cs` orient comment,
+  `magic-skills.md` both Wall rows, `THINKING.md` §1ga. Historical PROGRESS entries describing the
+  old "along the cast" behavior are left as-is (they record what shipped then).
+
+### 1ga-status
+- FIXED; verified by grep + reread (rule 3 — no CLI/Unity build). Grep `along the cast` after the
+  edits leaves only non-wall wording (beam aim, vortex placement) and historical entries; `ridge` is
+  local to the Wall branch; `wallDir` remains the sole input of the voxel crater clip.
+- Commit: this one.
+- Pending play-test: (a) cast Earth Wall / Landslide on flat ground and slopes — ridge runs
+  left-right ACROSS the view, reads as a barricade, blocks movement/knockback; (b) no circular disc
+  while aiming the wall; (c) regressions: Crater/Ring/Spikes/Pillar aim discs unchanged, repeat wall
+  still caps ~2.6 m, voxel directed-dig (tool swing into a slope) unchanged, hand casting-circle
+  halo still shows for all armed magic.
+
 ## 1fz. Magic deformation leaves a see-through hole at the cast site (intermittent, persists across reload) — stale far-band LOD hardening shipped
 
 User report: casting an earth spell (Wall/Pillar/etc.) occasionally leaves an uncovered,

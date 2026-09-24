@@ -243,7 +243,8 @@ public partial class SpellCaster
     private DamageResult ResolveZoneImpact(SpellData spell, float power, Vector3 center, Vector3 fwd, float radius, float sizeScale)
     {
         // Earth spells reshape the ground at the impact point before damage resolves (§3.8).
-        // `fwd` orients directional shapes (e.g. the Wall ridge) along the cast axis.
+        // `fwd` defines the cast axis; the Wall ridge rears ACROSS it (1ga) — a left-right
+        // barricade facing the caster — the other terrain shapes are radial.
         //
         // WIDTH is bounded for EVERY shape, DEPTH is not (1cv, 1cw). The deform shape's width is
         // its local delivery dish — the same small bowl a shovel makes — never the full blast

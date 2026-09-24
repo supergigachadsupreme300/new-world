@@ -1091,7 +1091,7 @@ Arcane→**no status** (pure force), Wind→Knockback, Holy→heals (§3.8), Ear
   reshapes terrain itself** (ring / spike / wall / pillar / crater ground deformation on the impact
   point, §3.8; the deep **Meteor** Earth skill strikes the ground and carves a permanent crater
   where it lands, and the deep **Earth Wall** (gated behind Landslide) rears a taller stone ridge
-  along the cast).
+  across the cast).
   **(current build) every damaging Earth spell deforms the ground when it lands** — not just the
   tagged zones: Zone impacts dent (Crater) or rear (Ring/Spikes/Wall/Pillar) at the aim point
   (Boulder Crash, Crash and Tectonic carve craters; Aftershock rears a ring); Storm strikes
@@ -1130,7 +1130,8 @@ A spell is a data asset carrying:
 - **terrain shape** (Earth school signature, §3.8): an optional `TerrainShape` reshapes the tiled
   heightmap before damage resolves — as **smooth feathered per-corner edits**, never flat blocks.
   **Ring** rears a raised annular wall around the impact, **Spikes** erupts rock spikes beneath it,
-  **Wall** rears an elongated ridge along the cast direction (~2.6 m on a first cast, tall enough to
+  **Wall** rears an elongated ridge across the cast direction (1ga — perpendicular to it, so the
+  wall lies left-right in the player's view as a barricade; ~2.6 m on a first cast, tall enough to
   fully block the player's CharacterController), **Pillar** thrusts a tall column up at the center,
   and **Crater** excavates a smooth dish. Heights are written as continuous per-corner
   elevations (4 corners per 1×1 m TILE, shared with neighbours — which is what keeps the
@@ -1194,7 +1195,7 @@ A spell is a data asset carrying:
   **(current build) every damaging Earth spell carries a terrain shape, regardless of delivery:**
   Zone impacts (Boulder Crash, Crash, Tectonic → Crater; Aftershock, the tremor ring family, Spire
   Field etc. → Ring/Spikes/Pillar/Wall; the deep Earth Wall, gated behind Landslide → Wall, rears a
-  taller ridge along the cast) deform at the aim point via `ResolveZone`; Storm strikes
+  taller ridge across the cast) deform at the aim point via `ResolveZone`; Storm strikes
   (Rockfall → Crater) dent under each boulder via `SpellStorm.DeformGround`; Summons (the golem
   line → Spikes) erupt a small rock field where the construct rises via `ResolveSummon`; the
   Projectile root (Stone Shard) carves its crater at the impact point. Because raised shapes cap

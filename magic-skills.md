@@ -351,11 +351,11 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
 - **Boulder Crash** (`magic_earth_boulder`) - Active (Earth) - power 28, FP 18, cd 5s, radius 3, knockback 2.5, terrain:Crater | A tumbling boulder that flattens and shoves foes, carving a dent where it lands.
   - **Crash** (`magic_earth_boulder_crash`) - Active (Earth) - power 32, FP 22, cd 6s, radius 3.2, knockback 3, terrain:Crater | A colossal boulder that crashes into the enemy, denting the ground.
   - **Boulderweight** (`magic_earth_boulder_weight`) - + 5 Strength (passive) | Permanent +5 Strength.
-  - **Landslide** (`magic_earth_boulder_landslide`) - Active (Earth) - power 34, FP 24, cd 7s, radius 3.6, knockback 3, terrain:Wall | An earth wall rears up along the cast and crashes onto foes.
+  - **Landslide** (`magic_earth_boulder_landslide`) - Active (Earth) - power 34, FP 24, cd 7s, radius 3.6, knockback 3, terrain:Wall | An earth wall rears up across the cast and crashes onto foes.
   - **Rockfall** (`magic_earth_boulder_fall`) - Active (Earth) - power 30, FP 20, cd 6s, range 9, radius 3.2, dur 3s, terrain:Crater, rocks-per-strike | Boulders rain down over the area, pitting the ground with craters.
   - **Tectonic** (`magic_earth_boulder_tectonic`) - Active (Earth) - power 36, FP 26, cd 8s, radius 3.8, knockback 3.5, terrain:Crater | A tectonic blow that shatters the ground, carving a wide crater.
   - **Meteor** (`magic_earth_meteor`, deep, requires Boulder Crash) - Active (Earth) - power 40, FP 28, cd 9s, range 12, radius 4, knockback 4, terrain:Crater, falls-a-big-rock | A meteor plunges from the sky, carving a crater into the ground.
-  - **Earth Wall** (`magic_earth_wall`, deep, requires Landslide) - Active (Earth) - power 36, FP 26, cd 8s, range 10, radius 3.6, knockback 3.5, terrain:Wall | A towering wall of stone rears up along the cast and crashes down on foes.
+  - **Earth Wall** (`magic_earth_wall`, deep, requires Landslide) - Active (Earth) - power 36, FP 26, cd 8s, range 10, radius 3.6, knockback 3.5, terrain:Wall | A towering wall of stone rears up across the cast and crashes down on foes.
 - **Tremor** (`magic_earth_quake`) - Active (Earth) - power 26, FP 20, cd 6s, radius 2.8, terrain:Ring | The ground ripples — a stone ring rears up around the impact.
   - **Faultline** (`magic_earth_quake_faultline`) - Active (Earth) - power 30, FP 22, cd 6s, radius 3, terrain:Ring | A second stone ring rears up around the impact.
   - **Stable Ground** (`magic_earth_quake_stable`) - + 5 Defense (passive) | Permanent +5 Defense.
