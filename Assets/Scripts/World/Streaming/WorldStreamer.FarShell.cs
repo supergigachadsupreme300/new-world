@@ -32,6 +32,14 @@ using UnityEngine;
 ///   span-6 box <= 5, so a required parent only ever overrides fine cells at >= ring 12 (B) or
 ///   >= ring 35 (C) — never inside the near/rim bands they would z-fight in.
 ///
+/// Ownership swaps (1eq): requiredness is a hard ring cut relative to the focus, so every 30 m
+/// chunk step the player crosses, boxes around rings 13-16 flip between span-1 and span-3
+/// ownership. The swap is covered, never exposed: a fine cell stays live as the tenant while its
+/// coarser replacement is required-but-not-yet-live (promote retain), a newly live coarser cell
+/// hides its finer siblings the poll it is created, and a demoted coarse cell keeps rendering
+/// until EVERY finer replacement has been generated, then hands ownership to them in one poll
+/// (CompleteFarHandoff). One live owner per region at all times — no hole, no z-fight.
+///
 /// Generation: the ring is re-walked each poll (cheap int math) into a pending list (deduped),
 /// dispatched to the ThreadPool like real chunks (MaxFarInFlight cap) and finalized on the main
 /// thread at MaxFarFinalizePerPoll/poll (~320-960 cell meshes/s; the initial ~1,000-cell fill at the
@@ -236,6 +244,120 @@ public partial class WorldStreamer
         return null;
     }
 
+    /// <summary>True when a coarser far cell that owns this footprint is already live (1eq), so
+    /// <paramref name="cell"/> must render nothing — it is a reserved shadow that takes over the
+    /// instant the coarser owner leaves (promote-hide keeps the pair invisible until the removal
+    /// scan destroys the fine cell; the demote handoff activates these shadows atomically). Checks
+    /// EVERY coarser level, so a span-1 under a live span-6 is shadowed even with no span-3 in
+    /// between.</summary>
+    private bool FarShadowedByCoarse(FarCell cell)
+    {
+        if (cell.Span >= 6)
+            return false;
+        FarCell p6 = new FarCell(FloorDiv(cell.X, 6) * 6, FloorDiv(cell.Z, 6) * 6, 6);
+        if (_farSectors.ContainsKey(p6))
+            return true;
+        if (cell.Span >= 3)
+            return false;
+        FarCell p3 = new FarCell(FloorDiv(cell.X, 3) * 3, FloorDiv(cell.Z, 3) * 3, 3);
+        return _farSectors.ContainsKey(p3);
+    }
+
+    /// <summary>True when every next-finer cell the current ownership predicate would assign to
+    /// <paramref name="cell"/>'s footprint is already live (1eq demote gate). A demoted coarse cell
+    /// must keep rendering as the tenant until ALL of its replacements exist — destroying it sooner
+    /// would open a hole for the async rebuild window.</summary>
+    private bool FarCoverageReady(FarCell cell, TerrainChunkCoord centre, int near, int keep)
+    {
+        bool span3 = cell.Span == 3;
+        int axis = span3 ? 3 : 2;
+        int step = span3 ? 1 : 3;
+        int childSpan = span3 ? 1 : 3;
+        for (int j = 0; j < axis; j++)
+        {
+            for (int i = 0; i < axis; i++)
+            {
+                FarCell child = new FarCell(cell.X + i * step, cell.Z + j * step, childSpan);
+                if (!RequiredFarCell(child, centre, near, keep))
+                    continue;
+                if (!_farSectors.ContainsKey(child))
+                    return false;
+            }
+        }
+        return true;
+    }
+
+    /// <summary>Hide every finer cell still registered inside <paramref name="cell"/>'s footprint —
+    /// a newly live coarser owner takes over without a frame of overlapping render (1eq promote
+    /// handoff). The hidden fine cells are stale and destroyed by the next removal scan.</summary>
+    private void HideFinerChildren(FarCell cell)
+    {
+        bool span3 = cell.Span == 3;
+        int axis = span3 ? 3 : 2;
+        int step = span3 ? 1 : 3;
+        int childSpan = span3 ? 1 : 3;
+        for (int j = 0; j < axis; j++)
+        {
+            for (int i = 0; i < axis; i++)
+            {
+                FarCell child = new FarCell(cell.X + i * step, cell.Z + j * step, childSpan);
+                if (_farSectors.TryGetValue(child, out GameObject g) && g != null && g.activeSelf)
+                    g.SetActive(false);
+            }
+        }
+        if (!span3)
+        {
+            // span-1 grandchildren under the span-3 children (nested case, high-radius only).
+            for (int j = 0; j < 6; j++)
+            {
+                for (int i = 0; i < 6; i++)
+                {
+                    FarCell g = new FarCell(cell.X + i, cell.Z + j, 1);
+                    if (_farSectors.TryGetValue(g, out GameObject gg) && gg != null && gg.activeSelf)
+                        gg.SetActive(false);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Atomically swap a demoted coarse cell's ownership to its (already generated, currently hidden)
+    /// finer replacement cells (1eq): remove the tenant from <see cref="_farSectors"/>, activate
+    /// every replacement that is not itself shadowed by a loaded real chunk or a live coarser owner,
+    /// then tear the tenant's GameObject down. All in one main-thread poll, so the region always has
+    /// exactly one live owner — the swap exposes neither a hole nor double-drawn ground.
+    /// </summary>
+    private void CompleteFarHandoff(FarCell cell)
+    {
+        if (!_farSectors.TryGetValue(cell, out GameObject tenant))
+            return;
+        _farSectors.Remove(cell);
+
+        bool span3 = cell.Span == 3;
+        int axis = span3 ? 3 : 2;
+        int step = span3 ? 1 : 3;
+        int childSpan = span3 ? 1 : 3;
+        for (int j = 0; j < axis; j++)
+        {
+            for (int i = 0; i < axis; i++)
+            {
+                FarCell child = new FarCell(cell.X + i * step, cell.Z + j * step, childSpan);
+                if (!_farSectors.TryGetValue(child, out GameObject g) || g == null)
+                    continue;
+                bool shadow = FarShadowedByCoarse(child)
+                    || (childSpan == 1 && _loadedChunks.ContainsKey(new TerrainChunkCoord(child.X, child.Z)));
+                if (g.activeSelf == shadow)
+                    g.SetActive(!shadow);
+            }
+        }
+
+        // Tear down the removed tenant (its pooled mesh returns to the shared cache).
+        var mf = tenant.GetComponent<MeshFilter>();
+        if (mf != null && mf.sharedMesh != null)
+            ChunkMeshGenerator.ReleaseChunkMesh(mf.sharedMesh);
+        Destroy(tenant);
+    }
+
     /// <summary>
     /// Per-poll far-shell pass, run AFTER <see cref="FinalizeChunks"/> so a just-materialized real
     /// chunk shadows its rim cell in the same Update. Steps:
@@ -252,21 +374,34 @@ public partial class WorldStreamer
     {
         int keep = view + FarOuterKeep;
 
-        // (1a) Active-shadow sync: rim cells render only where no real chunk covers them. A real
-        // chunk loads (FinalizeChunks already ran) -> its far cell goes inactive this poll; a real
-        // chunk unloads -> its far cell activates this poll. Zero hole, zero z-fight at ring near+1.
+        // (1a) Active-shadow sync: a cell renders only where nothing covers it — a span-1 rim cell
+        // under a loaded real chunk, and any cell under a live coarser far owner (1eq ownership
+        // handoff), stay inactive. A real chunk loads (FinalizeChunks already ran) -> its far cell
+        // goes inactive this poll; a real chunk unloads -> its far cell activates this poll. Zero
+        // hole, zero z-fight at ring near+1 and during fine/coarse ownership swaps.
         foreach (KeyValuePair<FarCell, GameObject> kv in _farSectors)
         {
-            if (kv.Key.Span != 1 || kv.Value == null)
-                continue;
-            bool wantActive = !_loadedChunks.ContainsKey(new TerrainChunkCoord(kv.Key.X, kv.Key.Z));
-            if (kv.Value.activeSelf != wantActive)
+            FarCell cell = kv.Key;
+            bool wantActive = true;
+            if (cell.Span == 1 && _loadedChunks.ContainsKey(new TerrainChunkCoord(cell.X, cell.Z)))
+                wantActive = false;
+            if (FarShadowedByCoarse(cell))
+                wantActive = false;
+            if (kv.Value != null && kv.Value.activeSelf != wantActive)
                 kv.Value.SetActive(wantActive);
         }
 
         // (1b) Removal scan. Skip required cells; rim cells also live while their real chunk is
         // mid-stream so the shell never opens a hole ahead of a materializing chunk.
+        // 1eq: ownership changes around the span-1/span-3 boundary (every chunk step the focus
+        // crosses, boxes flip requiredness around rings 13-16) must never expose the ground. A fine
+        // cell stays live as the tenant while its coarser replacement is required but not yet
+        // created (promote retain), and a demoted coarse cell stays live until EVERY finer
+        // replacement has been created, then hands ownership to them in one poll. Without this the
+        // removal scan would destroy the covering cell in the same poll the replacement is only
+        // enqueued, opening a visible hole for the async rebuild window (~50-400 ms).
         List<FarCell> stale = null;
+        List<FarCell> handoffs = null;
         int removed = 0;
         foreach (KeyValuePair<FarCell, GameObject> kv in _farSectors)
         {
@@ -274,12 +409,50 @@ public partial class WorldStreamer
             if (RequiredFarCell(cell, centre, near, keep))
                 continue;
             if (_farBakedCells.Contains(cell))
-                continue;                       // baked into the combined mesh — never torn out
+                continue;
             if (cell.Span == 1)
             {
                 TerrainChunkCoord tc = new TerrainChunkCoord(cell.X, cell.Z);
                 if (_pendingChunks.Contains(tc) || _chunksInFlight.ContainsKey(tc))
                     continue;
+            }
+            // Promote retain: keep a fine cell (or a span-3 under a newly required span-6) rendering
+            // while its coarser replacement is required but not yet live. The check is the same
+            // ownership predicate the ring walk uses, so the tenant and its replacement never both
+            // draw and never leave the region uncovered.
+            FarCell? owner = FarCellForChunk(cell.X, cell.Z, centre, near, keep);
+            if (owner.HasValue && owner.Value.Span > cell.Span && !_farSectors.ContainsKey(owner.Value))
+                continue;
+            if (cell.Span >= 3)
+            {
+                // A live coarser owner (owner.Value.Span > cell.Span — present here because the
+                // promote-retain above already kept the not-yet-live case) renders this footprint
+                // itself, and this cell is hidden by the active-shadow sync — plain destroy below
+                // is safe and the ground stays covered.
+                bool coveredByLiveCoarse = owner.HasValue && owner.Value.Span > cell.Span;
+                if (!coveredByLiveCoarse && !FarCoverageReady(cell, centre, near, keep))
+                {
+                    // Demote tenant retain: ownership is passing to this cell's FINER children
+                    // (span-1 cells, or span-3 cells for a span-6 at high radius), which are
+                    // generated asynchronously. Keep rendering the ground until EVERY required
+                    // replacement exists — destroying it now would open a hole for the async
+                    // rebuild window (~50-400 ms) that reads as far terrain blinking away and back
+                    // while the player moves.
+                    continue;
+                }
+                if (!coveredByLiveCoarse)
+                {
+                    // Every replacement is live: hand ownership to them atomically in one poll.
+                    if (handoffs == null) handoffs = new List<FarCell>();
+                    handoffs.Add(cell);
+                    if (++removed >= MaxFarUnloadsPerPoll)
+                    {
+                        _farUnloadBacklog = true;
+                        break;
+                    }
+                    continue;
+                }
+                // coveredByLiveCoarse: fall through to the stale list (destroyed, already hidden).
             }
             if (stale == null) stale = new List<FarCell>();
             stale.Add(cell);
@@ -293,6 +466,11 @@ public partial class WorldStreamer
         {
             for (int i = 0; i < stale.Count; i++)
                 DestroyFarSector(stale[i]);
+        }
+        if (handoffs != null)
+        {
+            for (int i = 0; i < handoffs.Count; i++)
+                CompleteFarHandoff(handoffs[i]);
         }
         if (removed < MaxFarUnloadsPerPoll)
             _farUnloadBacklog = false;
@@ -617,10 +795,20 @@ public partial class WorldStreamer
         mr.sharedMaterial = FarGroundMaterial != null ? FarGroundMaterial : GroundMaterial;
         mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-        if (cell.Span == 1 && _loadedChunks.ContainsKey(new TerrainChunkCoord(cell.X, cell.Z)))
+        // Active-shadow discipline (1eq): a cell that is already covered — by a loaded real chunk
+        // (rim) or by a live coarser far owner (ownership handoff) — is created hidden and merely
+        // reserved for the moment the covering owner leaves, so a swap never exposes a hole.
+        if (FarShadowedByCoarse(cell)
+            || (cell.Span == 1 && _loadedChunks.ContainsKey(new TerrainChunkCoord(cell.X, cell.Z))))
             go.SetActive(false);
 
         _farSectors.Add(cell, go);
+
+        // Promote handoff: this newly live coarser owner takes over its footprint NOW — hide any
+        // finer cells still registered inside it (they are stale and the next removal scan destroys
+        // them), so a coarse/fine pair never renders the same ground simultaneously.
+        if (cell.Span >= 3)
+            HideFinerChildren(cell);
     }
 
     /// <summary>Tear down one far sector, returning its mesh to the pooled-mesh cache.</summary>

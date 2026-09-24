@@ -114,7 +114,15 @@ far shell was immune because it skips completed cells, which is why 300 m→~900
   carry exact coincident edge rows, so the shell has **no T-junction cracks** (1ej removed the old
   radius step ladder 3/6/9/12/15 whose different-step neighbors left thin visible lines along chunk
 edges), with a
-   coarser required parent suppressing its finer children so every chunk has exactly one cell. Cell
+   coarser required parent suppressing its finer children so every chunk has exactly one cell. Ownership
+   swaps are COVERED (**1eq**): the hard ring-cut flips ownership around the span-1↔span-3 boundary
+   every 30 m chunk step (a band near rings 13-16), and naively destroying the outgoing cell in the SAME
+   poll its replacement is only enqueued blanked the region for the ~50-400 ms async rebuild window
+   ("chunks in range disappear and render right back" while moving). Now a fine tenant keeps rendering
+   while its coarser replacement builds (promote retain), a newly live coarser cell hides its finer
+   siblings the poll it is created, and a demoted coarse cell keeps rendering until EVERY finer
+   replacement exists, then hands ownership to them atomically (`CompleteFarHandoff`) — one live owner
+   per region at all times, no blink, no z-fight. Cell
    *block coordinates* `FarCell.X/Z` are the block's **min chunk coordinate in chunk units** everywhere
    (**1el** — build + placement once multiplied them by the span again, so every span-3/6 cell was
    rendered 3×/6× further out, leaving the ~450-1350 m mid-band a permanent empty ring).

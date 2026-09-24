@@ -588,6 +588,54 @@ avoids a future texture-stretch bug. VERDICT: handled in-pass.
 - Play-test: hand-cut mosaic, no see-through, shoulder dome/crown/hair overlap unchanged, pattern
   stable across plays; strength knobs are `BandIrregularity`/`SegIrregularity`.
 
+## 1eq — "when player move, chunks that in the range disappear and rendered right back" = far-shell ownership-swap holes at the span-1↔span-3 boundary, not the real chunk stream (FIXED in `1eq`)
+
+User play-test of `1ep`: while moving, terrain in range vanishes then comes back. The far shell's
+`RequiredFarCell` is a hard Chebyshev ring cut relative to the INTEGER-chunk focus, so every 30 m chunk
+the player crosses flips ownership of a whole band: span-1 rim cells promote into span-3 boxes on the
+approach side (~rings 13-16) and span-3 boxes demote back into their 9 span-1 children on the trailing
+side. Replacements build asynchronously (~50-400 ms). Reasoning trail:
+
+### H1 — the blink IS the far-shell ownership swap, both directions → CONFIRMED (the bug)
+The committed 1ep removal scan destroyed ANY non-required cell immediately. On a PROMOTE, the span-1
+tenant was destroyed the poll its span-3 box became required — the box only finished generating
+~50-400 ms later → a blank region on the approach side. On a DEMOTE, the span-3 was destroyed the poll
+it lost requiredness — its span-1 children (newly required) were only enqueued → a blank region on the
+trailing side. Both read as "chunks in range disappear and render right back", and they cascade for the
+whole swap band every 30 m step because the ring-cut is absolute (no hysteresis in the far predicate).
+The real-chunk stream was ruled out by re-read first: hysteresis keep ring (near+1), the 1em
+loaded-guard on dispatch, the ring-10 span-1 real-chunk-pending keep and the active-shadow sync all
+prevent real-chunk destruction/reload churn — the blink zone (~400-480 m) is beyond every real-chunk
+guard anyway. VERDICT: CONFIRMED — H1 is the far shell.
+
+### H2 — the 1eq demote branch had a missing tenant-retain → CONFIRMED (found during the fix audit)
+In-progress 1eq code retained the fine tenant on promote (good) and had `CompleteFarHandoff` for the
+demote — but the removal scan's demote branch was `if (cell.Span >= 3 && FarCoverageReady(...)) {
+handoff; continue; }` with NO `else continue`: a demoted span-3 whose replacements were still building
+fell THROUGH to `stale.Add(cell)` and was destroyed immediately. The branch's own comment ("until then it
+keeps rendering the ground") contradicted its behavior — that exact fall-through WAS H1's demote-side
+hole, unfixed. FIX: the span≥3 branch now (a) retains as tenant while `!FarCoverageReady` AND the
+coarser owner is not live, (b) hands off atomically once every replacement is live, (c) plain-destroys
+only when covered by a LIVE coarser owner (already hidden — region covered by the coarser mesh).
+VERDICT: CONFIRMED — the code fix.
+
+### H3 — a leftover fine/coarse pair can double-draw during a swap → REJECTED by construction
+Promote hides siblings the SAME poll the coarse cell is created (`HideFinerChildren`, synchronous inside
+`CreateFarSector`, before any frame renders) and destroy follows next poll; the active-shadow sync
+re-enforces `FarShadowedByCoarse` every poll as belt-and-braces. Demote births children HIDDEN while the
+tenant is still live (reserved shadow); the handoff activates them only AFTER removing the tenant from
+`_farSectors` in the same poll, so `FarShadowedByCoarse` turns false exactly then and the children's
+activation is consistent. No frame can render two owners. VERDICT: REJECTED — no overlap by construction.
+
+### H4 — the new tenant-retain `continue` must not over-retain stale cells → CONFIRMED (safe cases)
+`FarCoverageReady` is vacuous-true when NO child is required, so a demoted box that slid past keep
+handoffs (tenant destroyed, nothing activated — nothing should render beyond keep). A cell under a LIVE
+coarser owner is already hidden by the active-shadow sync and its region is rendered by the coarser mesh
+→ plain destroy. A span-1 whose own ring still holds is `RequiredFarCell`-true (kept at the top of the
+scan); a span-1 whose chunk turned REAL is either pending/in-flight (kept by the span-1 guard) or
+already loaded (hidden + destroy safe). Each was traced so the `continue` only ever retains a cell that
+is genuinely the visible tenant. VERDICT: CONFIRMED — no retention leak.
+
 Follow-on to the 1ea lag sweep — re-read the per-frame paths in `WorldStreamer` / `UIManager` /
 `PlayerController` hunting work that burns CPU even when the player stands still on the test platform.
 Target: **Unity Editor Play mode** (user's environment), no gameplay change.

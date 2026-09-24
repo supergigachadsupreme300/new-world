@@ -1,7 +1,65 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-23. Read this first in a new session; then continue with the
+Last updated: 2026-09-24. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
+
+## 1eq. Far-shell ownership swaps never blink — promote/demote around the span-1↔span-3 ring boundary keep one live cell per region ("chunks in range disappear and render right back" while moving)
+
+User report: "when player move, chunks that in the range disappear and rendered right back". Dialed in
+to the far shell's span-1↔span-3 ownership swaps around rings 13-16 (~400-480 m — well inside the 900 m
+view): requiredness is a hard Chebyshev ring cut relative to the (integer-chunk) focus, so EVERY 30 m
+chunk step the player crosses flips a band of cells. On the approach side span-1 rim cells PROMOTE into
+span-3 boxes; on the trailing side span-3 boxes DEMOTE into their 9 span-1 children. Replacements are
+generated asynchronously (~50-400 ms), and the removal scan destroyed the outgoing cell in the SAME poll
+its replacement was only enqueued — so BOTH swap directions left the region blank for the whole rebuild
+window, then it popped back as the replacements materialized: exactly the "blink away and back" while
+moving.
+
+- `Assets\Scripts\World\Streaming\WorldStreamer.FarShell.cs` — ownership handoff (1eq) so every region
+  always has exactly one live owner and swaps expose neither a hole nor double-drawn ground:
+  - **Promote retain** (removal scan): a fine cell whose footprint flips to a coarser cell that is
+    required but NOT yet live keeps rendering as the tenant (same ownership predicate as the ring walk),
+    so the region never goes blank while the coarse replacement builds.
+  - **Promote handoff** (`CreateFarSector`): the newly live coarser cell takes over the same poll it is
+    created — `HideFinerChildren` deactivates the fine cells still registered inside its footprint; the
+    next removal scan destroys them (stale, already hidden, region covered).
+  - **Demote tenant retain** (removal scan — THE fix): a demoted span-3 (or span-6) cell whose finer
+    replacements are not all generated yet is RETAINED, not destroyed. Previously it fell through to the
+    stale list and was destroyed the poll the ring-cut flipped — the exact hole above.
+  - **Demote handoff** (`CompleteFarHandoff`): once EVERY required finer replacement is live
+    (`FarCoverageReady`), the coarse tenant is removed (so `FarShadowedByCoarse` turns false that exact
+    poll) and ownership is handed to the previously-hidden children atomically in one poll. A stale cell
+    under a LIVE coarser owner stays on the plain-destroy path (already hidden, ground covered by the
+    coarser mesh); a box that slid past keep handoffs away vacuously (no children required → nothing
+    renders — correct).
+  - **Active-shadow sync** now also hides any cell under a live coarser owner (`FarShadowedByCoarse`),
+    and `CreateFarSector` spawns replacement cells hidden when a covering owner is live (reserved
+    shadow) — a later swap never exposes the ground.
+
+### 1eq-status
+- Implemented; verified by grep + reread (rule 3 — no CLI build): removal-scan flow re-derived for every
+  state — required (keep), promote-retain (not-live coarser, keep rendering), demote-retain (finer
+  replacements building, keep rendering), demote-handoff (all replacements live, atomic swap), stale
+  under live coarser (destroy, covered), beyond-keep (vacuous coverage-ready → handoff → destroy).
+  `CompleteFarHandoff` order re-read (tenant removed from `_farSectors` FIRST so the children's
+  `FarShadowedByCoarse` reads false the exact poll they activate; loaded-real-chunk shadow still
+  respected for span-1 children). `HideFinerChildren` runs synchronously inside `CreateFarSector` before
+  any frame renders, so no frame can double-draw a promote pair. No public API/signature change; the
+  real-ring path is untouched (hysteresis keep ring 10 + the 1em loaded-guard + the span-1
+  real-chunk-pending keep already prevent real-chunk churn — re-read StreamAround/DispatchPending — so
+  this pass is far-shell only). New helpers each have their documented single owner (grep above: 1
+  definition, ≤2 call sites each, matching the flow).
+- Cost note: promote/demote around rings 13-16 still rebuild cells as the focus crosses boundaries (the
+  ring-cut is absolute), but the swaps are now COVERED so the churn is invisible. The demote tenant can
+  stay live up to ~0.4 s while its 9 children build (one coarse mesh → 9 fine meshes per boundary, all
+  background). If the swap-band churn ever shows in the profiler, caching retired fine cells instead of
+  destroying them is the lever — not needed for the correctness fix.
+- Play-test (pending, Unity): walk a long straight line on the test platform across several chunk
+  boundaries — the ground around rings 13-16 (~400-480 m, both sides of the player) must NOT blank out
+  and pop back at any point (no "far chunks disappear and render right back" while moving); no z-fight
+  or double-drawn band where a promoted cell just took over; the `far cells` overlay counter stays
+  roughly steady while moving (only the leading/trailing edge cells churn); standing still unchanged
+  (idle gate intact).
 
 ## 1ep. Player body faces become irregular sizes — non-uniform but covering lattice (±20%), keeping the mosaic watertight
 
