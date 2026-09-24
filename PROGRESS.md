@@ -3,6 +3,86 @@
 Last updated: 2026-09-24. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1et. Voxel terrain Phase 1 — the height-field-stretch fix behind a stepped 1 m world (render + persistence + adapter, toggle OFF), world unchanged for legacy mode
+
+User problem (picked up after the 1es lag work): the heightfield's single-quad model makes steep
+adjacent terrain an uneditable stretched face; asked whether to flatten or go volumetric, the user
+chose **full volumetric/voxel terrain** and approved Phase 1. 1et ships the P1 slice behind
+`WorldStreamer.VoxelTerrainEnabled` (serialized bool, **default OFF**): every real chunk renders as a
+**1-metre stepped voxel world** (flat column tops + terrace walls) while keeping the whole streaming /
+pooling / budgets / deformation API / save-file pipeline's public contracts intact. The legacy
+height-field path is untouched and remains the default until play-test reads the voxel world right.
+
+- Render decision: 1 m columns, so the game's voxelate-style visuals (1dx) and the 
+  steep-terrain shape match the horizon idea. Material **derived** from dig depth below the pristine
+  noise surface (`TerrainBandColor`) — never stored, so a column run is two integers.
+- Storage decision: **sparse column-run store** (`VoxelChunkData`), one run
+  `[ColumnBaseY=-1000 .. Top]` per edited column, pristine columns = null → regenerate from the same
+  deterministic noise rounding. Infinite dig via the huge vertical clamp (column floor at -1000,
+  tops clamped ±200 like the heightfield) — a pit is solid as deep as gameplay can reach.
+- `Assets\Scripts\World\Terrain\Voxel\VoxelChunkData.cs` (new): `SetColumnTop` (pristine-value write
+  clears the column back to untouched — keeps saves sparse), `ColumnTop` (stored else noise),
+  `ForEachColumnTop`, `HasModifications` (O(1) counter), static `RoundNoiseTop(seed, wx, wz)` so every
+  chunk touching a world column derives the SAME value (untouched seams always level), `VoxelRun`.
+- `Assets\Scripts\World\Terrain\Voxel\VoxelMesher.cs` (new): stepped mesh builder — merged row-run
+  top quads (one quad per equal-height run, per-metre UV tiling), terrace walls on every
+  higher/lower column pair (one 1 m band per metre of drop; drops > 32 m quantize to 16 bands so deep
+  pits never explode the tri budget), boundary planes run-merged into wall strips, cross-product
+  winding matching the merged builder, memoized band colours, bounds from the sampled y-range.
+- `Assets\Scripts\World\Streaming\WorldStreamer.Voxel.cs` (new partial): the background
+  `BuildVoxelChunk` (column save load → 900 flat 4-corner adapter tiles → stepped mesh),
+  `FullRebuildVoxelChunk` (authoritative tiles → column store → mesh with real neighbour border),
+  `VoxelTopFromTile` (rounded avg of sane corners), `BuildVoxelBorderTops`/`VoxelBorderIfLoaded`
+  (loaded-only ring, falls back to noise for missing neighbours — no phantom walls), `FlushVoxelChunk`
+  (sparse full-chunk v2 snapshot; restores-to-pristine **deletes** the file).
+- Wiring — voxel flag captured ON THE MAIN THREAD at dispatch so a chunk never changes shape
+  mid-build: `WorldStreamer.ChunkBuild.cs` `BackgroundGenerateChunk(tc, seed, bool voxel)` →
+  `BuildVoxelChunk`/`BuildOrLoadChunk`; `WorldStreamer.Streaming.cs` dispatch + `GenerateChunkSync` +
+  `FlushDirtyChunk` branches; `WorldStreamer.Deform.cs` `FullRebuildChunk`/`RebuildChunkRegion` route
+  every edit to a full voxel rebuild; `WorldStreamer.Mesh.cs` sets `obj.VoxelMesh =
+  VoxelTerrainEnabled`. LOD gate: `ChunkObject.VoxelMesh` → `RefreshLodMeshes()` no-ops (stepped mesh
+  has no TOPS-FIRST grid to decimate) and the root mesh always renders; the far shell intentionally
+  stays smooth in P1.
+- `Assets\Scripts\World\Chunks\ChunkSaveManager.cs`: **v2 column-run format** on the same chunk files
+  (`NWTC | int 2 | seed | cx | cz | colCount | per col: idx=localZ*30+localX, top`), written by
+  `WriteVoxelChunk` (atomic tmp+swap, same worker + `_saveWriteLock`); `SaveWork` carries an optional
+  `VoxelChunkData` (ownership transferred like `ChunkSaveData`); `SaveChunkNow`/`DrainSaveQueue`/
+  `FlushPendingSaves` route voxel payloads. **Migration:** `TryLoadVoxelChunk` accepts v2 AND v1 —
+  a legacy height-field save converts on read (per-tile average of sane 4-corner heights → rounded
+  column top) and stays in place until an edit rewrites it as v2. `CurrentVersion` stays 1 for the
+  smooth path (its reader still rejects v2 — documented limitation).
+- QA surface (rule 4): `NewWorldTestGround.EnableVoxelTerrain` serialized toggle, applied in Awake
+  (`streamer.VoxelTerrainEnabled = true`) before the streamer's first poll — flip on to play-test the
+  voxel world on the test platform without touching the inspector.
+
+### 1et-status
+- Implemented; verified by grep + reread (rule 3 — no CLI build). All branch points confirmed:
+  dispatch captures `voxel` at Streaming.cs:157 before queueing, `GenerateChunkSync` branches
+  (Streaming.cs:194), `FlushDirtyChunk` → `FlushVoxelChunk` (Streaming.cs:317), `FullRebuildChunk` +
+  `RebuildChunkRegion` → `FullRebuildVoxelChunk` (Deform.cs:217/450), `Mesh.cs` sets `obj.VoxelMesh`.
+  Save manager re-read clean: `SaveChunk`/`SaveChunkNow` default-compatible for existing callers
+  (`ChunkTileMod`/`ChunkSaveData` untouched), `SaveWork` ctor updated call sites — grep confirms no
+  stale `BackgroundGenerateChunk(tc, seed)` 2-arg callers, `SaveChunkNow(seed, tc, data)` callers
+  still compile via the optional `voxel = null`. Two issues caught in this pass and fixed:
+  `VoxelMesher` wall band lerp had a dead `bandH` variable (removed) and one `TrackY` call missing its
+  `ref` modifier (compile error) — both fixed. ChunkObject gate + far-shell LOD behavior re-read.
+- Memory/CPU notes for P1: calm terrain ≈ merged top runs + 1-band walls (~2-4 k tris/chunk, similar
+  to smooth); the mesher is pure lists (worker-thread safe); bounds sized to the sampled y-range;
+  border maps built per rebuild only.
+- Known trade (accepted): LOD children + far shell stay smooth in voxel mode (decimated grid is
+  TOPS-FIRST only); the 1 m step pattern intentionally replaces the smooth slope look — verify the
+  test-platform lanes (flat ground ⇒ single merged quad) hold their footing.
+- Play-test (pending, Unity): enable `NewWorldTestGround.EnableVoxelTerrain` (or flip the streamer
+  toggle before play) — world builds as stepped 1 m terrain with **no lag/collider corruption**;
+  deform (dig/flatten/spells) still edits and the chunk is the **only** sphere re-rendering (no
+  neighbour seams, no phantom walls on untouched borders); carve a cliff wall then leave the chunk
+  and return — the stepped edit **restores from save**; save + reload the world — edits persist;
+  restore a carve exactly to flat noise then leave — the chunk's save file is deleted (no ghost edit);
+  sprint across >10 crossings — no 1es regression; bench lanes (tilled soil, enclosures, pedestals)
+  sit ON the voxel ground (tools/spells keep working unchanged). Then report: if the stepped world
+  looks right, Phase 2 (multi-run column sculpt + directed carve) is next; legacy height-field
+  deletion happens in the final phase.
+
 ## 1es. Crossing-spike smoothing — one shared main-thread stream budget + off-thread chunk saves (periodic spike at each ~30 m chunk crossing gone)
 
 User report: "player lag when travel the world", "game slow/freeze at every ~30 m chunk boundary".

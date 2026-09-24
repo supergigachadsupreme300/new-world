@@ -101,6 +101,9 @@ public partial class WorldStreamer
         var obj = go.AddComponent<ChunkObject>();
         obj.Init(tc);
         obj.ApplyMerged(chunk.Merged, GroundMaterial, buildCollider);
+        // Voxel mode (1et): flag the chunk so its LOD decimation (which indexes the smooth
+        // TOPS-FIRST layout) never samples the stepped mesh — the full mesh stays visible.
+        obj.VoxelMesh = VoxelTerrainEnabled;
         _loadedChunks[tc] = obj;
         NoteChunkSetChanged();
 

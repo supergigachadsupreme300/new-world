@@ -47,6 +47,11 @@ public class ChunkSaveData
 public static class ChunkSaveManager
 {
     private const int CurrentVersion = 1;
+    /// <summary>Version of the column-run (voxel) chunk format (1et). A v2 file is never written
+    /// by the smooth path and a v1 file is never written by the voxel path; the voxel reader
+    /// accepts both (migrating v1 height-field mods to columns on read), the smooth reader still
+    /// rejects v2 (see TryLoadChunk's version guard).</summary>
+    private const int VoxelSaveVersion = 2;
     private static readonly byte[] Magic = { (byte)'N', (byte)'W', (byte)'T', (byte)'C' };
 
     /// <summary>Chunk save-path cache. <see cref="Application.persistentDataPath"/> is
@@ -145,17 +150,110 @@ public static class ChunkSaveManager
         }
     }
 
-    /// <summary>A chunk save queued for the background writer (1es).</summary>
+    /// <summary>
+    /// Try to load a voxel chunk's column-run data (1et). Accepts the v2 column format directly and
+    /// a legacy v1 height-field file (converted to column tops on read — the v1 file is left in
+    /// place until a voxel edit rewrites it as v2, so the smooth path keeps its own format).
+    /// Returns false on missing/corrupt/foreign files so the caller regenerates pristine from noise.
+    /// </summary>
+    public static bool TryLoadVoxelChunk(long seed, TerrainChunkCoord tc, out VoxelChunkData vc)
+    {
+        vc = null;
+        string path = ChunkFilePath(seed, tc);
+        if (!File.Exists(path))
+            return false;
+
+        int version;
+        try
+        {
+            using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read))
+            using (BinaryReader reader = new BinaryReader(fs))
+            {
+                byte[] magic = reader.ReadBytes(4);
+                if (magic[0] != Magic[0] || magic[1] != Magic[1] || magic[2] != Magic[2] || magic[3] != Magic[3])
+                    return false;
+
+                version = reader.ReadInt32();
+                if (version != VoxelSaveVersion && version != CurrentVersion)
+                    return false;
+
+                long fileSeed = reader.ReadInt64();
+                int fileX = reader.ReadInt32();
+                int fileZ = reader.ReadInt32();
+                if (fileSeed != seed || fileX != tc.X || fileZ != tc.Z)
+                    return false;
+
+                if (version == VoxelSaveVersion)
+                {
+                    vc = VoxelChunkData.Create(tc, seed);
+                    int count = reader.ReadInt32();
+                    count = Mathf.Clamp(count, 0, TerrainChunkCoord.ChunkArea);
+                    int cs = TerrainChunkCoord.ChunkSize;
+                    for (int i = 0; i < count; i++)
+                    {
+                        int idx = reader.ReadInt32();
+                        int top = reader.ReadInt32();
+                        int lx = idx % cs;
+                        int lz = idx / cs;
+                        if (lx >= 0 && lx < cs && lz >= 0 && lz < cs)
+                            vc.SetColumnTop(lx, lz, top);
+                    }
+                    return true;
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[ChunkSaveManager] Failed to load voxel chunk {tc.X},{tc.Z}: {e.Message}");
+            vc = null;
+            return false;
+        }
+
+        // Legacy v1 height-field file: convert each tile's 4-corner mod to a column top (the rounded
+        // average of its sane corners) — the same reduction FullRebuildVoxelChunk applies to live
+        // tiles, so an existing smooth save restores the same stepped chunk.
+        if (!TryLoadChunk(seed, tc, out ChunkSaveData legacy) || legacy.Mods.Count == 0)
+            return false;
+        vc = VoxelChunkData.Create(tc, seed);
+        for (int i = 0; i < legacy.Mods.Count; i++)
+        {
+            ChunkTileMod m = legacy.Mods[i];
+            if (m.Heights == null || m.Heights.Length < ChunkData.VertexCount)
+                continue;
+            float sum = 0f;
+            int count = 0;
+            for (int h = 0; h < ChunkData.VertexCount; h++)
+            {
+                if (float.IsFinite(m.Heights[h]))
+                {
+                    sum += m.Heights[h];
+                    count++;
+                }
+            }
+            if (count == 0)
+                continue;
+            vc.SetColumnTop(m.LocalX, m.LocalZ,
+                Mathf.RoundToInt(Mathf.Clamp(sum / count, VoxelChunkData.MinTop, VoxelChunkData.MaxTop)));
+        }
+        return true;
+    }
+
+    /// <summary>A chunk save queued for the background writer (1es; voxel payload 1et). Exactly one
+    /// of <see cref="Data"/> (smooth height-field mods, v1) / <see cref="Voxel"/> (column runs, v2)
+    /// is set; the voxel ownership is transferred to the worker the same way a ChunkSaveData is —
+    /// never touched on the main thread after enqueue.</summary>
     private readonly struct SaveWork
     {
         public readonly long Seed;
         public readonly TerrainChunkCoord Tc;
         public readonly ChunkSaveData Data;
-        public SaveWork(long seed, TerrainChunkCoord tc, ChunkSaveData data)
+        public readonly VoxelChunkData Voxel;
+        public SaveWork(long seed, TerrainChunkCoord tc, ChunkSaveData data, VoxelChunkData voxel = null)
         {
             Seed = seed;
             Tc = tc;
             Data = data;
+            Voxel = voxel;
         }
     }
 
@@ -185,6 +283,20 @@ public static class ChunkSaveManager
             ThreadPool.QueueUserWorkItem(_ => DrainSaveQueue());
     }
 
+    /// <summary>
+    /// Queue a voxel chunk's edited columns for a background v2 save (1et). The column store was
+    /// fully resolved by the caller and is no longer touched on the main thread, so the worker may
+    /// serialize it freely. Queued exactly like a smooth save (same worker, same atomic tmp+swap).
+    /// </summary>
+    public static void SaveVoxelChunk(long seed, TerrainChunkCoord tc, VoxelChunkData voxel)
+    {
+        if (voxel == null || !voxel.HasModifications)
+            return;
+        _saveQueue.Enqueue(new SaveWork(seed, tc, null, voxel));
+        if (Interlocked.CompareExchange(ref _saveWorkerRunning, 1, 0) == 0)
+            ThreadPool.QueueUserWorkItem(_ => DrainSaveQueue());
+    }
+
     private static void DrainSaveQueue()
     {
         try
@@ -192,7 +304,7 @@ public static class ChunkSaveManager
             while (true)
             {
                 while (_saveQueue.TryDequeue(out SaveWork w))
-                    SaveChunkNow(w.Seed, w.Tc, w.Data);
+                    SaveChunkNow(w.Seed, w.Tc, w.Data, w.Voxel);
                 _saveWorkerRunning = 0;
                 if (_saveQueue.IsEmpty)
                     return;
@@ -218,13 +330,20 @@ public static class ChunkSaveManager
     public static void FlushPendingSaves()
     {
         while (_saveQueue.TryDequeue(out SaveWork w))
-            SaveChunkNow(w.Seed, w.Tc, w.Data);
+            SaveChunkNow(w.Seed, w.Tc, w.Data, w.Voxel);
     }
 
     /// <summary>Serialized atomic write (tmp+swap) for one chunk. Runs on the background writer for
-    /// queued saves, or on the main thread during <see cref="FlushPendingSaves"/>.</summary>
-    private static void SaveChunkNow(long seed, TerrainChunkCoord tc, ChunkSaveData data)
+    /// queued saves, or on the main thread during <see cref="FlushPendingSaves"/>. Routes to the
+    /// v2 column-run writer when a voxel payload is present (1et).</summary>
+    private static void SaveChunkNow(long seed, TerrainChunkCoord tc, ChunkSaveData data,
+        VoxelChunkData voxel = null)
     {
+        if (voxel != null)
+        {
+            WriteVoxelChunk(seed, tc, voxel);
+            return;
+        }
         if (data == null || data.Mods.Count == 0)
             return;
         lock (_saveWriteLock)
@@ -265,6 +384,62 @@ public static class ChunkSaveManager
             catch (Exception e)
             {
                 Debug.LogWarning($"[ChunkSaveManager] Failed to save chunk {tc.X},{tc.Z}: {e.Message}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Serialized atomic v2 column-run write (tmp+swap), same worker + lock as v1 writes (1et).
+    /// File layout (little-endian, extends the v1 header):
+    ///   Header:  "NWTC"            (4 bytes)
+    ///   Version: int               (2 = column runs)
+    ///   Seed:    long
+    ///   ChunkX:  int
+    ///   ChunkZ:  int
+    ///   ColCount:int
+    ///   Per column: Index:int (localZ*30+localX), Top:int   (single run [ColumnBaseY..Top])
+    /// </summary>
+    private static void WriteVoxelChunk(long seed, TerrainChunkCoord tc, VoxelChunkData voxel)
+    {
+        lock (_saveWriteLock)
+        {
+            string dir = Path.Combine(BaseDir, seed.ToString());
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            string path = ChunkFilePath(seed, tc);
+            string tmp = path + ".tmp";
+
+            try
+            {
+                var columns = new List<KeyValuePair<int, int>>();
+                voxel.ForEachColumnTop((int lx, int lz, int top) =>
+                    columns.Add(new KeyValuePair<int, int>(
+                        lz * TerrainChunkCoord.ChunkSize + lx, top)));
+
+                using (FileStream fs = new FileStream(tmp, FileMode.Create, FileAccess.Write))
+                using (BinaryWriter writer = new BinaryWriter(fs))
+                {
+                    writer.Write(Magic);
+                    writer.Write(VoxelSaveVersion);
+                    writer.Write(seed);
+                    writer.Write(tc.X);
+                    writer.Write(tc.Z);
+                    writer.Write(columns.Count);
+                    for (int i = 0; i < columns.Count; i++)
+                    {
+                        writer.Write(columns[i].Key);
+                        writer.Write(columns[i].Value);
+                    }
+                }
+
+                if (File.Exists(path))
+                    File.Delete(path);
+                File.Move(tmp, path);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[ChunkSaveManager] Failed to save voxel chunk {tc.X},{tc.Z}: {e.Message}");
             }
         }
     }

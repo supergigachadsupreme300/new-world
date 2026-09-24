@@ -68,6 +68,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableStatusEffectsDemo = false;
     [Tooltip("QA/perf (1ea): show a screen-space perf readout (avg FPS, frame ms, loaded chunk count, active collider count) refreshed ~4x/second so optimization passes can be A/B'd in the Editor without a profiler. Read-only — no world placement. On by default since 1ee so the baseline is visible; flip off to hide.")]
     public bool EnableFpsStats = true;
+    [Tooltip("QA (1et): render the open world as the 1-metre stepped voxel terrain instead of the smooth heightfield (the experimental terrain model). Applied in Awake, BEFORE the WorldStreamer's first stream poll, so the whole world builds voxel from the start; leave OFF to keep smooth terrain.")]
+    public bool EnableVoxelTerrain = false;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
@@ -102,6 +104,19 @@ public sealed class NewWorldTestGround : MonoBehaviour
             var go = new GameObject("TestNpcPlacer");
             _npcPlacer = go.AddComponent<WorldNpcPlacer>();
             _npcPlacer.AutoPlaceOnStart = false;
+        }
+
+        // Voxel experiment (1et): flip the streamer ON before its first stream poll so the world
+        // builds as stepped columns from the very first chunk. The streamer is a scene object found
+        // in Awake; the flag must be set before the first Update-poll, which every Awake runs before.
+        if (EnableVoxelTerrain)
+        {
+            var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+            if (streamer != null)
+                streamer.VoxelTerrainEnabled = true;
+            else
+                Debug.LogWarning("[NewWorldTestGround] EnableVoxelTerrain: WorldStreamer not found yet — " +
+                    "flip the toggle on the streamer object in the scene instead.");
         }
 
         if (AutoSpawnOnStart)

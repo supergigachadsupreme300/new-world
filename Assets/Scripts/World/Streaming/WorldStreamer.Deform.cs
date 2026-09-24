@@ -212,6 +212,14 @@ public partial class WorldStreamer
         if (!_loadedChunks.TryGetValue(tc, out ChunkObject obj))
             return;
 
+        // Voxel mode (1et): the stepped mesh has no TOPS-FIRST quad layout and no PatchRegion path,
+        // so every rebuild is a full voxel rebuild of the column store with real neighbour border.
+        if (VoxelTerrainEnabled)
+        {
+            FullRebuildVoxelChunk(tc);
+            return;
+        }
+
         tc.GetTileRange(out int cminX, out int cminZ, out int cmaxX, out int cmaxZ);
         int cs = TerrainChunkCoord.ChunkSize;
         var tiles = new ChunkMeshData[cs * cs];
@@ -435,6 +443,15 @@ public partial class WorldStreamer
     {
         int cs = TerrainChunkCoord.ChunkSize;
         tc.GetTileRange(out int cminX, out int cminZ, out int cmaxX, out int cmaxZ);
+
+        // Voxel mode (1et): every rendered tile is flat and side walls change vertex counts, so the
+        // fast in-place PatchRegion (which assumes the TOPS-FIRST quad layout) can never apply —
+        // any edit is a full voxel rebuild.
+        if (VoxelTerrainEnabled)
+        {
+            FullRebuildChunk(tc);
+            return;
+        }
 
         // Any flat slab tile in the chunk forces a full rebuild (side walls change vertex counts).
         if (ChunkContainsFlatTile(tc))

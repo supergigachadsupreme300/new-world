@@ -63,6 +63,14 @@ public class ChunkObject : MonoBehaviour
     private MeshFilter _lod2Mf;
     private bool _lodDirty = true;
 
+    /// <summary>
+    /// True while this chunk renders a stepped voxel mesh (1et). RefreshLodMeshes is a no-op for
+    /// voxel chunks: the decimated grid indexes the smooth TOPS-FIRST top-quad layout via
+    /// WorldCornerIndex, which does not exist in the stepped mesh — so no Lod children are ever
+    /// built and the LOD band fallback keeps the full mesh visible (correct for the experiment).
+    /// </summary>
+    public bool VoxelMesh;
+
     // Incremental prop spawning (one deterministic Random per chunk, spread over ticks).
     private long _propSeed;
     private System.Random _propRng;
@@ -236,6 +244,13 @@ public class ChunkObject : MonoBehaviour
     /// </summary>
     public void RefreshLodMeshes()
     {
+        if (VoxelMesh)
+        {
+            // No decimated grid exists for the stepped mesh — keep the LOD flag clear so the band
+            // manager's lazily-triggered rebuild is a cheap no-op and the root mesh always renders.
+            _lodDirty = false;
+            return;
+        }
         if (!_lodDirty || _mf == null)
             return;
         _lodDirty = false;

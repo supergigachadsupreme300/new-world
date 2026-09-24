@@ -15,6 +15,87 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1et — voxel terrain: how to fix "the height field's one stretched quad" without losing the whole streaming pipeline (SHIPPED as P1 in `1et`; Phase 2+ pending play-test)
+
+Started right after 1es-fix. The user's real complaint (observed in-play): natural steep slopes render
+as a single un-editable stretched face — the heightfield stores 4 corner heights per tile and
+interpolates a quad, so a 100 m cliff over ~2 tiles is one or two huge quad slopes you cannot carve
+into like a wall. Asked flat-vs-volumetric; user chose **volumetric / voxel**. Verdicts below are the
+reasoning, not the shipped summary (PROGRESS §1et / game-design §2.9).
+
+### H1 — flatten the world and call it a day → REJECTED (user)
+I offered flatten-as-fix first (it deletes every cliff, fast, no mesh change). User explicitly wanted
+the terrain to keep its shape AND be editable → volumetric, with a 1 m step look mentioned as fine.
+
+### H2 — dense 3D voxel grid per chunk (900×±something arrays) → REJECTED for P1
+An honest voxel world usually stores a grid of solid flags per cell. 30×200×30 = 180,000 cells/chunk
+light; but the whole live world already runs NO collider per air cell and streams bilboards; the real
+cost here is (a) memory for hundreds of chunks and (b) every tool/ spell/ shovel gate reads the
+4-corner `ChunkData` height API — rewriting all of them to voxel ops is Phase 3+ work.
+
+### H3 — sparse column runs with a height-field ADAPTER (P1) → CONFIRMED
+Store per column ONE run `[ColumnBaseY..Top]` (lists, null = pristine). Every chunk keeps filling its
+900 tiles with flat 4-corner heights (= the integer column top), so DeformAt/FlattenAt/
+ApplyHeightEdits/GetDigDepth/ColliderOnDemand and the save path all keep working UNCHANGED — the
+mesher is the only thing that changes (steps instead of smooth quads). This is the whole P1 trick:
+"volumetric on the inside (columns), height-field on the API surface". P2 adds multi-run sculpt /
+directed carve on top of the same store.
+
+### H4 — material stored per column → REJECTED (derived instead)
+A run that must also store material per level is no longer 2 ints and bloats saves. The game already
+derives grass/dirt/stone from depth below the noise surface in `TerrainBandColor`; depth below the
+PRISTINE surface is deterministic from (seed, wx, wz) — derive it, store nothing. CONFIRMED.
+
+### H5 — pristine columns must be a stored sentinel → REJECTED (null = noise)
+Rounding world-colour noise to integer tops (`RoundNoiseTop`) is deterministic. Null columns re-derive
+it, so (a) saves stay sparse, (b) EVERY chunk touching a world column derives the same value → seams
+level with zero communication. `SetColumnTop` treats "wrote the column's own pristine value" as a
+clear. CONFIRMED.
+
+### H6 — cross-chunk seam walls → real border map when loaded, noise fallback when not → CONFIRMED
+Two edited neighbours share a face: the higher owes a wall (left/right handedness). The border map is
+the one-column ring computed from THIS chunk's sides via `VoxelTopFromTile` (rounded avg of sane
+corners) using only loaded tiles (mirrors BuildBorderCorners' loaded-only policy). Missing neighbour →
+the deterministic RoundNoiseTop the neighbour would itself derive → untouched seams never phantom.
+Full rebuild always recomputes it (cost trivial: ~120 lookups).
+
+### H7 — initial build needs the border too → REJECTED for the first load
+`BuildVoxelChunk` renders the initial mesh WITHOUT a border map (neighbours not in memory yet), then
+the existing border-reconcile (`HadLoadedMods` → FullRebuildX) runs once the second chunk of a pair
+arrives — same mechanism the smooth path already uses to fix seams. Chosen over sampling during build
+(worker thread, neighbours immutable mid-build).
+
+### H8 — save format → v2 column runs, v1 migration on read → CONFIRMED
+Two files per world would lose cross-mode continuity; one file per chunk with a version int keeps
+paths/folders/wipes intact. `Version=2`: NWTC|2|seed|cx|cz|colCount|(idx,top)… The voxel reader
+accepts 2 AND 1 (v1 = reduce each tile's sane 4 corners to rounded-avg top; the ONLY sensible
+height-field→column projection and it matches what FullRebuildVoxelChunk does live). Smooth reader
+stays gated at version 1 (writing v2 from the smooth path is impossible — it has no columns; a v2 file
+found in smooth mode is simply "invalid file → regenerate", documented). Dead-end considered:
+version 3 with a per-chunk "mode" byte — pointless, the mode lives in the mesh toggle, not the file.
+
+### H9 — the mesh itself
+- Top faces merged as row runs (a 30×30 flat pad = ~30 quads, not 900). CONFIRMED.
+- Walls emitted on planes between columns; 1 band per metre of drop (self-similar to the flat-slab
+  walls), >32 m drops quantized to 16 bands. Winding from the band quad cross product (matches merged
+  builder). CONFIRMED — with two fixes found in verification: the first draft lerped bands with a dead
+  `bandH` variable (removed) and a later edit dropped `ref` off a `TrackY(...)` call (compile error,
+  fixed).
+- Concern: two perpendicular walls with different drop sizes subdivide their shared 90° edge into
+  different band counts → a cosmetic crack at that corner. Accepted for P1 (the smooth path's corner
+  bands behave similarly); note for P2 if visible.
+- LOD/far shell: the decimated LOD grid indexes smooth TOPS-FIRST vertex order, so stepping voxel
+  chunks under it corrupts; gate `RefreshLodMeshes` via ChunkObject.VoxelMesh (no-op) and keep root
+  mesh rendering. Far shell stays smooth (P1), so far-smooth→near-stepped transitions are expected.
+
+### H10 — save flush edge case worth NOTING
+A voxel chunk that resolves to full pristine deletes its shared file — but if that file was a legacy
+v1 smooth save, the v1 edits are discarded too (the v2 writer already replaced or will replace it).
+Real risk window: edit a chunk in smooth mode, flip to voxel, restore all its columns exactly to
+noise, unload. Accepted (rare, and the file is being rewritten anyway on an edit); documented in
+PROGRESS. Also: `HasModifications` is authoritative for the delete test, so a pristine chunk with a
+stale v2 file from a previous world wipe-race cleans itself on next flush.
+
 ## 1ef — the far shell: how to get a deep, crisp 2 km view without fog and without an 18.9k-chunk real stream (SHIPPED in `1ef`)
 
 User wanted the view deeper AND crisp (no fog). Working from the 1ee baseline (idle-zero-cost ring at

@@ -153,7 +153,9 @@ public partial class WorldStreamer
 
             _chunksInFlight.TryAdd(tc, 0);
             long seed = Seed;
-            ThreadPool.QueueUserWorkItem(_ => BackgroundGenerateChunk(tc, seed));
+            // Capture the mesh mode here (main thread) so the worker builds a consistent chunk.
+            bool voxel = VoxelTerrainEnabled;
+            ThreadPool.QueueUserWorkItem(_ => BackgroundGenerateChunk(tc, seed, voxel));
         }
 
         // Drop already-loaded chunks from the dispatch list. 1em: the old guard required BOTH
@@ -189,7 +191,9 @@ public partial class WorldStreamer
         if (_loadedChunks.ContainsKey(tc))
             return;
 
-        TerrainChunkMeshData chunk = BuildOrLoadChunk(tc, Seed);
+        TerrainChunkMeshData chunk = VoxelTerrainEnabled
+            ? BuildVoxelChunk(tc, Seed)
+            : BuildOrLoadChunk(tc, Seed);
         CreateChunkGameObject(chunk, buildCollider: true);
         ReconcileNewlyLoadedChunk(tc, chunk.HadLoadedMods);
     }
@@ -310,6 +314,11 @@ public partial class WorldStreamer
     /// </summary>
     private void FlushDirtyChunk(TerrainChunkCoord tc)
     {
+        if (VoxelTerrainEnabled)
+        {
+            FlushVoxelChunk(tc);
+            return;
+        }
         if (!ChunkSaveManager.SynchronousWrites)
             return;
 

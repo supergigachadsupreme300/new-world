@@ -48,6 +48,10 @@ public partial class WorldStreamer : MonoBehaviour
     [Tooltip("Size of the REAL chunk ring around the focus (1ef). Within this many chunks terrain streams as full-fidelity ChunkObjects — deformable, collidable, prop-bearing, LOD'd. From this ring out to the render radius the far shell (WorldStreamer.FarShell.cs) covers the ground with coarse background-generated sector meshes. Keep this >= ColliderRingRadius so every collider sits on a real chunk; the real stream additionally keeps one hysteresis ring (near+1) loaded.")]
     public int NearRingRadius = 9;
 
+    [Header("Voxel (experiment 1et)")]
+    [Tooltip("Render terrain as a 1-metre stepped voxel mesh (experimental, OFF by default). When on, the same chunk grid / pooling / budgets / deformation API / save files are kept, but every chunk mesh renders as flat column tops + terrace walls (VoxelChunkData + VoxelMesher) and saves use the v2 column-run format (legacy height-field saves migrate on read; smooth chunks are never written from voxel). LOD children and the far shell intentionally stay smooth in the experiment. Flip BEFORE the world streams (or via the test ground's QA toggle) — mid-run flips produce mixed terrain until the stream reloads.")]
+    public bool VoxelTerrainEnabled = false;
+
     [Header("Threading")]
     [Tooltip("Max terrain chunks finalized per poll tick (main-thread work).")]
     public int ChunksPerFrame = 16;

@@ -284,6 +284,9 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
 - The save path is **captured once on the main thread** (`ChunkSaveManager.Warmup`, called by
   `WorldStreamer.Awake`): `Application.persistentDataPath` is main-thread-only in Unity 6, but chunk
   generation resolves the file path on background threads — they read the cached string only.
+- **Voxel mode writes a second format (1et, §2.9):** with `VoxelTerrainEnabled` on, the same chunk
+  files carry `version=2` column runs instead of `version=1` height-field mods; the two readers are
+  mode-specific (smooth reader rejects v2; voxel reader migrates v1 on read).
 
 ### 2.7 Testing Arena — Independent Floating Platform (dev tool)
 
@@ -360,6 +363,45 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
 - **Teleport routing:** every intentional teleport goes through `PlayerController.TeleportTo`
   (spawn/respawn, fast travel, sleep, load-game, test-platform entry), which stamps the destination as
   the new "last safe" position so the fail-net never false-positives on legit relocation.
+
+### 2.9 Voxel Terrain — Experimental Stepped-World Mode (1et)
+
+A render-mode toggle for the same chunk/world, added to fix the legacy heightfield's core weakness:
+every tile is a 4-corner blob, so steep natural slopes become one un-editable stretched face. Turning
+`WorldStreamer.VoxelTerrainEnabled` on (serialized bool, **default OFF** — flip it before the world
+streams, or via the test-ground QA toggle `NewWorldTestGround.EnableVoxelTerrain`) re-renders every
+real chunk as a **1-metre stepped voxel world** while keeping the whole streaming/deformation/IO
+pipeline's contracts intact.
+
+- **Terrain model (VoxelChunkData):** a 1 m grid of vertical columns of solid earth; phase 1 stores
+  exactly **one run per column** `[ColumnBaseY .. Top]` (`ColumnBaseY = -1000` gives 200 m+ of solid
+  headroom under any reachable pit; tops are clamped to the same ±200 m mesh-safety band as the
+  heightfield). A **missing column is untouched** — its top re-derives deterministically from the same
+  5-octave world noise, so pristine chunks store zero data and re-roll identically on every load.
+- **Material is derived, never stored:** grass→dirt→stone by dig depth below the pristine noise
+  surface (`ChunkMeshGenerator.TerrainBandColor`), so a run only ever needs two integers.
+- **Rendering (VoxelMesher):** merged row-run **top quads** (one quad per equal-height run, per-metre
+  UV) plus **terrace walls** — where neighbouring columns top at different heights the higher one emits
+  a wall down to the lower, one band per metre (drops beyond 32 m quantize to 16 fixed bands so a deep
+  pit never explodes the tri budget). Outer chunk faces use real neighbour column tops when loaded
+  (cross-chunk seam walls level) and identical noise rounding when not (no phantom walls on untouched
+  seams).
+- **Deformation stays on the 4-corner API:** voxel chunks fill their 900 tiles with flat 4-corner
+  entries equal to the integer column top, so `DeformAt`/`FlattenAt`/`ApplyHeightEdits`/`GetDigDepth`
+  and every tool/spell/shovel gate keep working unchanged; any edit full-rebuilds the chunk's columns
+  + walls.
+- **Persistence (extends §2.6):** the voxel path writes the same files to
+  `worlds/{seed}/tc_x_y.dat` as the smooth path — as **v2 column runs** (`NWTC | int version=2 | seed |
+  chunkX | chunkZ | colCount | per column: idx=localZ*30+localX : top`). Only edited columns are stored;
+  restoring a carve exactly to noise deletes the file. **Migration:** legacy v1 height-field saves load
+  in voxel mode too (each tile's 4-corner heights reduce to a rounded-avg column top on read; the v1
+  file stays until a voxel edit rewrites it). The smooth path never writes v2 and its reader still
+  rejects v2.
+- **Phase-1 limitations (documented):** LOD children and the far shell intentionally stay smooth
+  (the stepped mesh has no TOPS-FIRST grid to decimate); `ChunkSync` network sync of voxel edits is
+  deferred; two perpendicular walls with different drop sizes can crack cosmetically at a 90° step
+  corner. The legacy heightfield path is still the default and is kept until the voxel experiment
+  reads correctly in play-test.
 
 ---
 

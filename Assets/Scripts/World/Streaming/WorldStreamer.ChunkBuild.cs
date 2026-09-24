@@ -15,13 +15,14 @@ public partial class WorldStreamer
     /// <summary>
     /// Runs on a ThreadPool thread. Builds the chunk from disk deformation mods when they
     /// exist, otherwise from noise (a cache-miss), then merges the tile meshes into one
-    /// thread-safe chunk mesh.
+    /// thread-safe chunk mesh. The mesh mode (smooth heightfield vs. stepped voxel, 1et) is
+    /// captured on the MAIN thread at dispatch time so a chunk never changes shape mid-build.
     /// </summary>
-    private void BackgroundGenerateChunk(TerrainChunkCoord tc, long seed)
+    private void BackgroundGenerateChunk(TerrainChunkCoord tc, long seed, bool voxel)
     {
         try
         {
-            _readyChunks.Enqueue(BuildOrLoadChunk(tc, seed));
+            _readyChunks.Enqueue(voxel ? BuildVoxelChunk(tc, seed) : BuildOrLoadChunk(tc, seed));
         }
         catch (System.Exception ex)
         {
