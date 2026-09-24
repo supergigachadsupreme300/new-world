@@ -15,6 +15,66 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1fx — "the map under the player no longer loads": real-chunk ring near the player missing (OPEN — diagnostic instrumented, awaiting user's Console read)
+
+User report right after 1ew shipped (previous session): "only chunks near the player are missing" —
+distant terrain still shows. This is exactly the profile of a chunk-stream failure that the streamer
+SWALLOWS (the world keeps rendering the far shell, the near real ring stays empty). Full audit of the
+shipped 1ew diff (ChunkMeshGenerator.cs +336, ChunkObject.cs, Deform.cs, ChunkBuild.cs,
+TerrainChunkMeshData.cs, WorldStreamer.cs) found NO throwing line by review. Trail:
+
+### H1 — worker-thread throw in the 1ew build path → OPEN, instrumented
+Evidence for: `BackgroundGenerateChunk` catch (`ChunkBuild.cs:27-32`) logs only `ex.Message` (stack
+discarded), removes from `_chunksInFlight`, and the chunk re-dispatches EVERY poll (still in
+`_pendingChunks` + `_chunkDispatchOrder`, not loaded) → a per-chunk deterministic throw = warning spam +
+a chunk that NEVER materializes while all the others load. Fits "only near-player chunks missing"
+when those chunks' data is what throws.
+Evidence against: the refined builder (`BuildRefinedMeshData`) is pure arithmetic on self-allocated
+arrays — CANNOT throw; every 1ew consumer (`TileVertexBase/Count`, `Corners`, `PatchCornerGrid`,
+`IsTileRefined`) is null/bounds-guarded (grep-verified, all 28 call sites); `CornerGridSize=31`,
+`ChunkSize=30`, `VertexCount=4` all resolve (no missing-symbol compile error).
+NEXT: the catch now prints `ex.ToString()` (full stack) — one Play session names or clears this line.
+
+### H2 — main-thread throw in FinalizeChunks/CreateChunkGameObject freezing the whole poll → OPEN, instrumented
+Evidence for: any throw in the finalize path previously aborted Update() BEFORE FarShellTick/Colliders/
+Props ran. Far shell cells ALREADY BUILT stay visible while the real ring never materializes — matches
+"map under player missing, distant terrain still there" almost perfectly if the throw hits per chunk.
+Evidence against: static review of `ApplyMerged`/`UploadMerged`/`BuildLodChild`(Corners)/
+`ReconcileNewlyLoadedChunk` shows all guarded (LOD `s = gz*step*31 + gx*step` max 960 < 961; pooled mesh
+reuse clear-when-count-changes sound; tiles always non-null in the smooth path).
+NEXT: `FinalizeChunks` body is now inside try/catch + `Debug.LogException` — a per-poll red stack will
+name the exact line.
+
+### H3 — boot chunk (`GenerateChunkSync`) throws, aborting the spawn sequence → OPEN, instrumented
+The boot chunk built on the MAIN thread with NO catch. If `BuildOrLoadChunk`/`CreateChunkGameObject`
+throws for the spawn-area chunk (e.g. near a steep/deformed region), the caller's Start dies mid-way and
+the chunk under the player never appears; the streamer itself keeps ticking afterwards (Update still
+runs, far shell fills) → "under-player missing". Fits well; 1ew reworked exactly these two methods.
+NEXT: `GenerateChunkSync` now guards with try/catch + `Debug.LogException` (and StreamAround re-enqueues
+the boot chunk next poll, so the world still comes up).
+
+### H4 — not an exception at all (rendering/collider side) → OPEN, pivot branch
+If the instrumented Play session shows NO errors, the chunk stream is healthy and the symptom is a
+render/physics artifact: frustum-culling of chunks via a wrong `Bounds` (but bounds are recomputed from
+the actual vertex min/max in both BuildMergedMeshData and PatchRegion), pooled-mesh reuse uploading
+stale/empty buffers (`UploadMerged` clear-when-`vertexCount != Vertices.Length` looks right but a
+Triangles-only change would not clear), or `ReconcileCollidersIfChanged` never cooking the near ring
+(player falls through a visible-but-collider-less ground). Decided only after (a)-(c) are cleared.
+
+### Dead ends (checked, likely irrelevant)
+- **FarShell**: builds its own lattice/meshes (`BuildFarChunkCorners` etc.) — INDEPENDENT of the 1ew
+  merged block table/Corners; confirmed by grep (no shared symbols) → not the "near" failure.
+- **Deform height sampling** (`CurrentHeightOf`/`GetDigDepth`/`DeformAt`): reads `_loadedData`
+  (4-corner `ChunkData`), not the merged layout → not implicated.
+- **`Editor.log`**: only entry is a Unity LICENSING startup crash BEFORE the 1ew push ("return code 1") —
+  no logged play session of the regression exists to mine a stack from (this drove the decision to
+  instrument rather than guess).
+- **Idle-gate / budgets**: `FinalizeChunks` early-outs on `_streamCapped` but the pooled budget and caps
+  are unchanged by 1ew; a permanently capped stream would starve ALL stages equally, not just the near
+  ring.
+
+---
+
 ## 1et — voxel terrain: how to fix "the height field's one stretched quad" without losing the whole streaming pipeline (SHIPPED as P1 in `1et`; Phase 2+ pending play-test)
 
 Started right after 1es-fix. The user's real complaint (observed in-play): natural steep slopes render

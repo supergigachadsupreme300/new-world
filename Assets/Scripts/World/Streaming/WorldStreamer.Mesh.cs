@@ -54,10 +54,23 @@ public partial class WorldStreamer
             if (_loadedChunks.ContainsKey(chunk.Coord))
                 continue;
 
-            CreateChunkGameObject(chunk);
-            // Slab seam walls need BOTH sides of a chunk boundary in memory to render with real
-            // neighbour heights — reconcile now that this chunk's tiles exist.
-            ReconcileNewlyLoadedChunk(chunk.Coord, chunk.HadLoadedMods);
+            // 1fx diagnostic guard: a main-thread throw here used to abort the WHOLE poll silently
+            // (Update dies before FarShellTick/Colliders/Props run) — the real ring stays empty while
+            // the already-built far shell keeps showing = 'only chunks near the player missing'.
+            // Log the full exception, skip the chunk, and keep the poll alive; the chunk re-enqueues
+            // via StreamAround next poll, so a persistent thrower shows a per-poll stack to read.
+            try
+            {
+                CreateChunkGameObject(chunk);
+                // Slab seam walls need BOTH sides of a chunk boundary in memory to render with real
+                // neighbour heights — reconcile now that this chunk's tiles exist.
+                ReconcileNewlyLoadedChunk(chunk.Coord, chunk.HadLoadedMods);
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogException(ex);
+                continue;
+            }
             finalized++;
             SpendStreamBudget((Time.realtimeSinceStartup - chunkStart) * 1000f);
             chunkStart = Time.realtimeSinceStartup;

@@ -191,11 +191,23 @@ public partial class WorldStreamer
         if (_loadedChunks.ContainsKey(tc))
             return;
 
-        TerrainChunkMeshData chunk = VoxelTerrainEnabled
-            ? BuildVoxelChunk(tc, Seed)
-            : BuildOrLoadChunk(tc, Seed);
-        CreateChunkGameObject(chunk, buildCollider: true);
-        ReconcileNewlyLoadedChunk(tc, chunk.HadLoadedMods);
+        // 1fx diagnostic guard: the boot chunk builds on the MAIN thread with no worker catch, so a
+        // throw here aborts the caller's Start sequence mid-way and the spawn chunk silently never
+        // appears (while the far shell keeps the rest of the view). Log the full exception instead of
+        // dying; StreamAround re-enqueues the chunk on the next poll so it still arrives via the
+        // background path.
+        try
+        {
+            TerrainChunkMeshData chunk = VoxelTerrainEnabled
+                ? BuildVoxelChunk(tc, Seed)
+                : BuildOrLoadChunk(tc, Seed);
+            CreateChunkGameObject(chunk, buildCollider: true);
+            ReconcileNewlyLoadedChunk(tc, chunk.HadLoadedMods);
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogException(ex);
+        }
     }
 
     /// <summary>

@@ -26,7 +26,11 @@ public partial class WorldStreamer
         }
         catch (System.Exception ex)
         {
-            Debug.LogWarning($"[WorldStreamer] Background chunk generation failed for {tc}: {ex.Message}");
+            // Full stack (ex.ToString()), not just ex.Message: a persistent per-chunk failure drops
+            // the chunk from in-flight and it re-dispatches every poll, so the repeated warning here
+            // must NAME the exact line throwing (1fx diagnostic) or a 'chunks near the player missing'
+            // bug is invisible.
+            Debug.LogWarning($"[WorldStreamer] Background chunk generation failed for {tc}; it will retry. {ex}");
             byte _;
             _chunksInFlight.TryRemove(tc, out _);
         }

@@ -3,6 +3,44 @@
 Last updated: 2026-09-24. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1fx. DIAGNOSTIC (in progress): "the map under the player no longer loads" — the real chunk ring near the player is missing
+
+User report right after 1ew shipped: only the chunks near the player fail to appear; distant terrain
+(far shell) still shows. 1ew's 1.5k-line chunk-mesh rework is the prime suspect, but a full grep+re-read
+audit of the shipped 1ew diff found NO throwing path (all new consumers bounds/null-guarded; the refined
+builder is pure arithmetic on self-allocated arrays). To keep the world loading, the streamer swallows
+real failures in exactly the spots that would produce this symptom, so this task ADDS instrumentation to
+capture the actual exception + stack in one Play session instead of guessing. Three guards (1fx):
+
+- **`BackgroundGenerateChunk` catch** (WorldStreamer.ChunkBuild.cs): now logs the FULL `ex.ToString()`
+  instead of `ex.Message`. This is the key spot: a persistent per-chunk throw drops the chunk from
+  in-flight and it re-dispatches every poll → warning spam + a chunk that never materializes while
+  everything else loads.
+- **`FinalizeChunks` body** (WorldStreamer.Mesh.cs): wrapped in try/catch + `Debug.LogException`.
+  Previously ANY main-thread throw here aborted the whole poll silently (Update dies before
+  FarShellTick/Colliders/Props) → real ring stays empty while the already-built far shell keeps
+  showing = exactly the reported symptom.
+- **`GenerateChunkSync` boot** (WorldStreamer.Streaming.cs): the boot chunk built on the main thread had
+  NO catch — a throw aborted the spawn controller's Start mid-sequence. Now logs via `Debug.LogException`
+  and StreamAround re-enqueues the chunk on the next poll.
+
+Timeline note: the only on-disk `Editor.log` is a pre-1ew-commit Unity LICENSING startup crash
+("Application will terminate with return code 1"), so there is no logged play session of the regression
+to read a stack from — the user's next Play + Console read is the ground truth this task needs.
+
+### 1fx-status
+- IN PROGRESS (diagnostic commit counterSHIPS with the fix commit this time — no fix identified yet).
+- Implemented + verified by grep/reread (rule 3): the three hunks above compile-clean (all in files with
+  `using UnityEngine;`; loop variable scoping intact; chunk stays in pipeline after a skip on catch).
+- NEXT: user plays once and pastes the Console. Deterministic outcomes + pivot actions:
+  - (a) repeating `Background chunk generation failed` warnings → the stack names the worker-thread line.
+  - (b) one `Exception` per poll from `FinalizeChunks` → main-thread `CreateChunkGameObject`/reconcile line.
+  - (c) `LogException` at boot → spawn chunk build/`CreateChunkGameObject` line.
+  - (d) NO errors at all → not an exception: hunt switches to rendering (frustum culling / pooled-mesh
+    reuse / collider ring) — next candidates: `UploadMerged` clear-when-count-changes, `RecalculateBounds`,
+    `ReconcileCollidersIfChanged` cook order.
+- Waiting on: user Play session + Console output. Do NOT mark complete until root cause fixed and verified.
+
 ## 1ew. Smooth terrain adaptive stretch-split (Phase A: refinement data + rendering) — no more single stretched faces on steep slopes
 
 User report (prior problem this supersedes): after the 1ev smooth revert, a steep slope renders a
