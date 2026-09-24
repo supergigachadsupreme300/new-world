@@ -12,6 +12,20 @@ public partial class WorldStreamer
 
     // --- Chunk-level streaming ---
 
+    /// <summary>Max ChunkObjects released by the StreamAround trailing-edge sweep per poll (1es).
+    /// The uncapped sweep released the whole out-of-ring column (~21 chunks at keep 10) in a single
+    /// poll — 900 tiles x 3 dictionary removals per chunk plus the mesh/LOD teardown — the biggest
+    /// frame spike when travelling. A cap of 6 spreads a crossing's drain over ~4 polls (~0.2 s);
+    /// nothing needs the trailing chunks gone instantly, and <see cref="_chunkUnloadBacklog"/> keeps
+    /// the poll alive until every last one is gone.</summary>
+    private const int MaxChunkUnloadsPerPoll = 6;
+
+    /// <summary>True while out-of-ring chunks still await the capped unload sweep (1es). Works like
+    /// <see cref="_farUnloadBacklog"/>: participates in the Update idle gate so a partially-drained
+    /// crossing keeps polling — <see cref="StreamAround"/> re-collects the remainder each poll and
+    /// clears the flag once the sweep fully catches up.</summary>
+    private bool _chunkUnloadBacklog;
+
     /// <summary>
     /// Unloads out-of-range chunks and populates the pending chunk queue
     /// for background generation.
@@ -49,8 +63,24 @@ public partial class WorldStreamer
         }
         if (toUnload != null)
         {
-            foreach (TerrainChunkCoord tc in toUnload)
-                UnloadChunk(tc);
+            // 1es: the trailing column (~21 chunks at keep 10) is released at a CAPPED rate. An
+            // unlimited sweep destroyed the whole column in one poll — every UnloadChunk walks 900
+            // tiles through _dirtyTiles/_loadedObjects/_loadedData (3 dictionary removals per tile)
+            // plus the Release mesh/LOD teardown, which burst exactly when the player crossed a chunk
+            // boundary. Capping spreads the drain over ~4 polls; _chunkUnloadBacklog keeps the idle
+            // gate alive until the last trailing chunk is gone (Unity defers the actual GameObjects'
+            // Destroy anyway, so nothing disappears late).
+            int unloaded = 0;
+            for (int i = 0; i < toUnload.Count && unloaded < MaxChunkUnloadsPerPoll; i++)
+            {
+                UnloadChunk(toUnload[i]);
+                unloaded++;
+            }
+            _chunkUnloadBacklog = unloaded < toUnload.Count;
+        }
+        else
+        {
+            _chunkUnloadBacklog = false;
         }
 
         // Remove pending chunks that fell outside the (extended) radius
@@ -243,6 +273,10 @@ public partial class WorldStreamer
     public void ResetTerrainSaves()
     {
         ClearFarShell();
+        // 1es: drain queued saves BEFORE the wipe — the background writer could otherwise write a
+        // chunk's file back AFTER ResetWorldSaves deletes it, resurrecting the very edits the reset
+        // is meant to discard.
+        ChunkSaveManager.FlushPendingSaves();
         ChunkSaveManager.ResetWorldSaves(Seed);
         _dirtyTiles.Clear();
         _modifiedChunks.Clear();
@@ -266,8 +300,13 @@ public partial class WorldStreamer
     /// <summary>
     /// Persist every modified tile of a terrain chunk as ONE chunk file, atomically.
     /// Snapshots the heights so the write is safe even if more deformation happens later.
-    /// Respects ChunkSaveManager.SynchronousWrites: when false, the write defers to
-    /// unload/session-end instead of happening immediately.
+    /// Gated by ChunkSaveManager.SynchronousWrites (default true): when false, the snapshot is
+    /// skipped entirely and the dirty marks are simply dropped (the deferred-save path is currently
+    /// unused). Since 1es the actual file write ALWAYS runs on a background worker — SaveChunk only
+    /// pushes the snapshot into the writer queue — so persisting a chunk costs the main thread a few
+    /// array clones and a ConcurrentQueue push, never a disk write. The write cannot be lost
+    /// silently on quit: WorldStreamer.OnDestroy drains the queue via
+    /// ChunkSaveManager.FlushPendingSaves.
     /// </summary>
     private void FlushDirtyChunk(TerrainChunkCoord tc)
     {

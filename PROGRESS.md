@@ -3,6 +3,100 @@
 Last updated: 2026-09-24. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1es. Crossing-spike smoothing — one shared main-thread stream budget + off-thread chunk saves (periodic spike at each ~30 m chunk crossing gone)
+
+User report: "player lag when travel the world", "game slow/freeze at every ~30 m chunk boundary".
+Asked-and-answered first: is the spike periodic (every chunk) or random? Answer: **periodic, every
+chunk (~30 m)** → the offender is the boundary-crossing STORM of work, not one random system. Trade
+decision: user chose **smoothness wins over fill speed** — the fill may trail slightly when sprinting,
+but no hitch. 1es removes the spike by (a) pooling every main-thread streaming step against ONE shared
+`StreamBudgetMs` (4 ms) poll-wide budget so a crossing spill cannot leak into the frame, and
+(b) moving chunk save-file writes off the main thread so "edit terrain → walk out → unload flush" no
+longer freezes the frame.
+
+- `Assets\Scripts\World\Streaming\WorldStreamer.cs`:
+  - **Shared stream budget (1es core):** `StreamBudgetMs = 4f` + `_streamBudgetRemaining` +
+    `_streamCapped`. `SpendStreamBudget(float ms)` charges elapsed wall time to the pool and flips
+    `_streamCapped` once it is dry. Reset to `AdaptiveBudgetMs(StreamBudgetMs)` (the self-shrinking
+    adaptive factor from 1di) each poll, right before streaming runs, in `Update`.
+  - Idle gate now folds the unload drain into `working`: `_chunkUnloadBacklog` keeps the spread-out
+    unload sweep from being skipped by the "nothing dirty, skip work" idle check.
+  - `OnDestroy` calls `ChunkSaveManager.FlushPendingSaves()` after clearing dirty tiles — shutdown
+    still lands every pending save before teardown. The idle-throttle work-skips (`_worldDirty`,
+    `BuildOrLoadChunk`/`FinalizeChunks` guards) stay untouched, so standing still is still zero-cost.
+- `WorldStreamer.Streaming.cs`:
+  - The **unload burst** (the incoming half of a crossing — the trailing arc of out-of-range chunks was
+    destroyed ALL in one poll) is now capped at `MaxChunkUnloadsPerPoll = 6`; the poll that can't finish
+    sets `_chunkUnloadBacklog`, the sweep continues next polls and the idle gate stays busy until it
+    drains. The entry cap comment on the "capped unload sweep" block updated. Worst-case ~60-chunk turn
+    drains over ~10 polls instead of one 60-destroy spike.
+  - `ResetTerrainSaves` (New Game) now calls `ChunkSaveManager.FlushPendingSaves()` BEFORE
+    `ResetWorldSaves()` wipes the discarded-file bookkeeping — pending writes for the old world finish
+    on their own files, not re-targeted at the reset files.
+- `WorldStreamer.Mesh.cs`: `FinalizeChunks` (real-chunk mesh upload) is now gated by `_streamCapped`
+  and spends per-chunk into the shared pool (the old `ChunkFinalizeBaseMs = 6f` const is deleted — 1es
+  replaced the fixed per-pass slice with the poll-wide pool). `AdaptiveBudgetMs` doc updated: it both
+  sizes its own burst AND the shared `StreamBudgetMs` pool.
+- `WorldStreamer.FarShell.cs`:
+  - Step (1a) active-shadow sync (per cell elapsing the retained inactive set) restricted to
+    `cell.Span == 1` — the span-3/6 cells span multiple rings and their sync was walking the whole
+    retained set every poll; span-1 is the only layer that owns the loaded/unloaded shadow.
+  - The far scan phase Charges its own elapsed wall time into the shared pool BEFORE step (4) finalize,
+    so a heavier scan thins the drag on the crossing that poll.
+  - The far finalize loop (mesh uploads) runs against `!_streamCapped` + `SpendStreamBudget` per
+    iteration — a crossing that needs several far-to-real handoffs spills across polls instead of one
+    spike. Far cells now upload with `UploadMerged(merged, mesh, true)` (`markNoLongerReadable`),
+    releasing the CPU-side buffers the ThreadPool wrote (cheaper handoff; GPU keeps the mesh).
+- `WorldStreamer.Props.cs`: `StepChunkProps` gets the same entry guard (`_streamCapped`) +
+  per-chunk spend + `|| _streamCapped` in its break condition (budget mostly floors its time anyway to
+  ~2 ms — `PropBudgetMs` lowered 3 → 2 as the shared pool is now the real ceiling).
+- `Assets\Scripts\World\Terrain\ChunkMeshGenerator.cs`: `UploadMerged(MergedChunkMeshData md, Mesh
+  mesh, bool markNoLongerReadable = false)` — the flag passes through to `mesh.UploadMeshData(...)`.
+  Default callers (real chunks via `CreateMeshFromMerged`) unchanged.
+- `Assets\Scripts\World\Chunks\ChunkSaveManager.cs`: **chunk saves moved off the main thread** while
+  the LINQ/serialization stays on it (per Unity-6 IO rules, the path string stays main-thread-captured
+  via `Warmup`):
+  - `SaveChunk` (public signature UNCHANGED: `(long, TerrainChunkCoord, ChunkSaveData)`) now enqueues a
+    `SaveWork` (path + serialized chunk bytes) into `_saveQueue` (ConcurrentQueue), then starts ONE
+    background drain worker via `Interlocked.CompareExchange(ref _saveWorkerRunning, 1, 0)` +
+    `ThreadPool.QueueUserWorkItem(DrainSaveQueue)`.
+  - `DrainSaveQueue` drains until empty (with a near-empty re-check after the drain loop, since enqueues
+    may race the loop). Vertex/serialization cost stays on the caller (main thread);
+    only `File.WriteAllBytes` moves to the worker.
+  - `FlushPendingSaves()` (new public) drains the queue synchronously on the current thread — called at
+    shutdown (`WorldStreamer.OnDestroy`), at New Game (`ResetTerrainSaves`), and available for the
+    legacy save path. The worker's own writes serialise with the flush thread through `_saveWriteLock`.
+  - `SaveChunkNow` is now an internal step that performs the actual locked file write; `SynchronousWrites`
+    toggle doc updated (still exists for the gated legacy full-flush-on-unload path). Concurrency note:
+    a flush and a worker can never write the same chunk file concurrently (lock + the flush drains the
+    queue first). Each await-return path re-checks the queue because `DrainSaveQueue` may have claimed
+    the worker flag between the check and the start call (the loop-end re-check pattern).
+
+### 1es-status
+- Implemented; verified by grep + reread (rule 3 — no CLI build). Symbols check out: `SpendStreamBudget`
+  1 def + 5 call sites (Mesh/Props/FarShell scan/FarShell finalize + reset), `_streamCapped` read at all
+  four gated entry points, `MaxChunkUnloadsPerPoll`/`_chunkUnloadBacklog` feed both the sweep and the
+  idle gate, `FlushPendingSaves` 1 def + 2 main calls (OnDestroy, ResetTerrainSaves), `SaveChunk`/`UploadMerged`
+  public signatures unchanged for existing callers (`CreateMeshFromMerged` still calls `UploadMerged(md, mesh)`;
+  `CreateFarSector` now passes `true`). Removed `ChunkFinalizeBaseMs` + `StreamFull` — grep confirms no
+  remaining references. Collider/streaming width unchanged (colliders stay capped at 2/poll from 1ei).
+- Budget arithmetic reviewed: worst crossing step now contributes finalize (real + far) + collider cooks
+  (≤2) + props + unload (≤6) + scan charges — all against ONE 4 ms (`AdaptiveBudgetMs`-scaled) pool, so a
+  busy crossing poll ends when the pool dries and DEFERS the rest to the next poll rather than finishing
+  them in-frame. Because `_streamBudgetRemaining` resets every frame and only the pieces that actually
+  RAN spend, several crosses in a row cannot starve progress to zero (each poll refills; each poll makes
+  at least the entry-level progress of every step's first unit).
+- Known trade (accepted per user choice): the ring FILL is allowed to lag slightly when sprinting — the
+  first stream of a new crossing may appear a fraction of a second later than pre-1es, in exchange for
+  pattern, the spike (every ~30 m) is gone.
+- Play-test (pending, Unity): sprint/walk straight for >10 crossings — **no periodic ~30 m frame spike**;
+  goround corners / 180° turn — the trailing unload storms ("until the sweep catches up" is fine) with no
+  one-frame freeze; edit terrain then walk out of its chunk immediately — no freeze at the unload flush
+  (the write happens on the background worker; `FlushPendingSaves` only runs at shutdown/New Game);
+  standing still stays zero-cost (idle gate untouched); far cells still fill without a blink (1eq/1er
+  behaviors unchanged); the debug `frame time`/`cycle times` overlay's max-cycle line should sit flat with
+  no ~30 m teeth; watch for ANY new far/realtime seam z-fight given `UploadMeshData(true)` on far cells.
+
 ## 1er. Swap-band pre-warm + shadow retention — far-shell "new ground while moving" no longer lags
 
 User report after 1eq: "it is causing lag to render new ground when player moving, cant you use async

@@ -417,17 +417,25 @@ public partial class WorldStreamer
     private void FarShellTick(TerrainChunkCoord centre, int view, int near)
     {
         int keep = view + FarOuterKeep;
+        float farTickStart = Time.realtimeSinceStartup;
 
         // (1a) Active-shadow sync: a cell renders only where nothing covers it — a span-1 rim cell
         // under a loaded real chunk, and any cell under a live coarser far owner (1eq ownership
         // handoff), stay inactive. A real chunk loads (FinalizeChunks already ran) -> its far cell
         // goes inactive this poll; a real chunk unloads -> its far cell activates this poll. Zero
         // hole, zero z-fight at ring near+1 and during fine/coarse ownership swaps.
+        // 1es: only span-1 cells are scanned here. The coarser shadowing (span-1/3 under a live
+        // span-6, span-1 under a live span-3) is applied ONCE at create/promote/handoff and only ever
+        // re-toggled by CompleteFarHandoff, so re-checking ~1,000 box cells every poll re-reads a
+        // state that cannot change; only the rim cell under a loaded real chunk needs this poll's
+        // reaction, and that is span-1 by construction.
         foreach (KeyValuePair<FarCell, GameObject> kv in _farSectors)
         {
             FarCell cell = kv.Key;
+            if (cell.Span != 1)
+                continue;
             bool wantActive = true;
-            if (cell.Span == 1 && _loadedChunks.ContainsKey(new TerrainChunkCoord(cell.X, cell.Z)))
+            if (_loadedChunks.ContainsKey(new TerrainChunkCoord(cell.X, cell.Z)))
                 wantActive = false;
             if (FarShadowedByCoarse(cell))
                 wantActive = false;
@@ -583,12 +591,19 @@ public partial class WorldStreamer
             ThreadPool.QueueUserWorkItem(_ => BackgroundGenerateFarCell(cell, seed, epoch, maxRing, reserved));
         }
 
+        // (1es) Charge the bounded scan/dispatch phases (shadow sync, removal scan, ring walk,
+        // pre-warm, dispatch) against the shared stream budget, so a poll that already spent heavily
+        // on real-chunk finalize does not then also run this pass at full width.
+        SpendStreamBudget((Time.realtimeSinceStartup - farTickStart) * 1000f);
+
         // (4) Finalize. Time-budgeted (1eh): the 1eg throughput stays for the fast fill, but a single
         // poll never spends more than FarFinalizeBudgetMs creating GameObjects + uploading meshes on
-        // the main thread (mirrors the real-chunk adaptive budget in WorldStreamer.Mesh.cs).
+        // the main thread, and per-cell it additionally draws from the shared stream budget (1es) so
+        // real-chunk finalize and this pass share one ceiling (mirrors WorldStreamer.Mesh.cs).
         System.Diagnostics.Stopwatch farFinalizeSw = System.Diagnostics.Stopwatch.StartNew();
         int finalized = 0;
-        while (finalized < MaxFarFinalizePerPoll && _farReady.TryDequeue(out FarMeshData data))
+        float farFinalizeStart = Time.realtimeSinceStartup;
+        while (finalized < MaxFarFinalizePerPoll && !_streamCapped && _farReady.TryDequeue(out FarMeshData data))
         {
             byte _;
             _farInFlight.TryRemove(data.Cell, out _);
@@ -600,6 +615,8 @@ public partial class WorldStreamer
             finalized++;
             if (farFinalizeSw.Elapsed.TotalMilliseconds >= FarFinalizeBudgetMs)
                 break;
+            SpendStreamBudget((Time.realtimeSinceStartup - farFinalizeStart) * 1000f);
+            farFinalizeStart = Time.realtimeSinceStartup;
         }
 
         // (5) Static bake (1eh): once the shell has fully settled (and only while baking is enabled),
@@ -910,7 +927,11 @@ public partial class WorldStreamer
         var mf = go.AddComponent<MeshFilter>();
         var mr = go.AddComponent<MeshRenderer>();
         Mesh mesh = ChunkMeshGenerator.AcquireChunkMesh($"FarMesh_{cell.X}_{cell.Z}_{cell.Span}");
-        ChunkMeshGenerator.UploadMerged(merged, mesh);
+        // 1es: markNoLongerReadable — far cells never deform, so the CPU-side vertex/normal/color
+        // arrays are freed right after upload (half the far shell's native mesh memory and less
+        // upload churn while it rebuilds ahead of the player). The pooled buffer is fully
+        // re-specified on every reuse, so the pooled-mesh discipline in UploadMerged is unaffected.
+        ChunkMeshGenerator.UploadMerged(merged, mesh, true);
         mf.sharedMesh = mesh;
         // Far cells render with the double-sided (Cull Off) variant (1ei) — their tops show even if a
         // mesh's winding/culling would hide the upper face. They cast NO shadows (1ei): ~1,000 cells at

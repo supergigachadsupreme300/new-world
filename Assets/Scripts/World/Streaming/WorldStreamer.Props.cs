@@ -25,9 +25,11 @@ public partial class WorldStreamer
     /// </summary>
     private const int PropTilesPerTick = 1800;
 
-    /// <summary>Wall-clock ceiling for one prop-spawn tick (~a few dozen prop GameObjects), so a
-    /// heavily-populated ring can never extend a frame past the budget.</summary>
-    private const float PropBudgetMs = 3f;
+    /// <summary>Wall-clock backstop for one prop-spawn tick (~a few dozen prop GameObjects), so a
+    /// heavily-populated ring can never extend a frame past the budget. Lowered 3 -> 2 ms by 1es:
+    /// the shared stream budget (SpendStreamBudget) is now the primary ceiling and props keep this
+    /// per-stage backstop so a single dense poll cannot be more than the largest allowed stage.</summary>
+    private const float PropBudgetMs = 2f;
 
     /// <summary>
     /// Keeps trees/rocks streamed for every chunk the real chunk stream holds. Since 1en the prop
@@ -68,17 +70,21 @@ public partial class WorldStreamer
 
     private void StepChunkProps()
     {
+        if (_streamCapped)
+            return;                              // 1es: props are deferrable — skip when the shared budget is dry
         int remaining = PropTilesPerTick;
-        float start = Time.realtimeSinceStartup;
+        float chunkStart = Time.realtimeSinceStartup;
         foreach (KeyValuePair<TerrainChunkCoord, ChunkObject> kv in _loadedChunks)
         {
             ChunkObject obj = kv.Value;
             if (obj == null || !obj.PropsOn || !obj.PropsPending)
                 continue;
             remaining -= obj.StepProps(Mathf.Max(1, remaining));
-            if (remaining <= 0)
+            SpendStreamBudget((Time.realtimeSinceStartup - chunkStart) * 1000f);
+            chunkStart = Time.realtimeSinceStartup;
+            if (remaining <= 0 || _streamCapped)
                 break;
-            if ((Time.realtimeSinceStartup - start) * 1000f >= PropBudgetMs)
+            if ((Time.realtimeSinceStartup - chunkStart) * 1000f >= PropBudgetMs)
                 break;
         }
     }

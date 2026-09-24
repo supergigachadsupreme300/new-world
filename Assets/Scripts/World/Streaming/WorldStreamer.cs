@@ -118,6 +118,28 @@ public partial class WorldStreamer : MonoBehaviour
     /// (the same _collidersDirty resume already covers a larger ring change).</summary>
     private const int MaxColliderCooksPerPoll = 2;
 
+    // Shared stream budget (1es): ONE wall-clock ceiling across the load-bearing streaming stages in
+    // a poll (real-chunk finalize, the far-shell pass, prop spawning). Every stage measures its own
+    // elapsed wall time and charges it to the shared pool (SpendStreamBudget); when the pool runs
+    // dry the remaining DEFERRABLE stages hold until the next poll, so a poll can never legally sum
+    // 6 ms chunks + 2.5 ms far + 3 ms props on top of a frame. The scaled floor keeps at least one
+    // unit of work flowing every poll, so the stream always makes progress (same guarantee the old
+    // per-stage caps gave). Visibility-critical passes (far-shell shadow sync, the collider walk,
+    // the capped unload sweep) are NOT gated at entry — they run every live poll but keep their own
+    // hard caps.
+    private const float StreamBudgetMs = 4f;
+    private float _streamBudgetRemaining;
+    private bool _streamCapped;
+
+    /// <summary>Charge <paramref name="ms"/> of main-thread wall time against the shared stream
+    /// budget, flagging <see cref="_streamCapped"/> once the pool is dry (1es).</summary>
+    private void SpendStreamBudget(float ms)
+    {
+        _streamBudgetRemaining -= ms;
+        if (_streamBudgetRemaining <= 0f)
+            _streamCapped = true;
+    }
+
     // Chunks containing at least one modified tile (locally edited or loaded from a save). O(1)
     // membership replaces the old per-chunk 900-tile scans in the load-reconcile paths (1ea).
     private readonly HashSet<TerrainChunkCoord> _modifiedChunks = new HashSet<TerrainChunkCoord>();
@@ -237,11 +259,18 @@ public partial class WorldStreamer : MonoBehaviour
         // far-shell queues (1ef) participate — an initial far fill or a shrinking shell keeps the
         // poll alive until it finishes.
         bool working = _chunkDispatchOrder.Count > 0 || _chunksInFlight.Count > 0 || !_readyChunks.IsEmpty
-            || _farInFlight.Count > 0 || !_farReady.IsEmpty || _farPending.Count > 0 || _farUnloadBacklog;
+            || _farInFlight.Count > 0 || !_farReady.IsEmpty || _farPending.Count > 0 || _farUnloadBacklog
+            || _chunkUnloadBacklog;
         if (centre == _lastStreamCentre && !_worldDirty && !working)
             return;
         _lastStreamCentre = centre;
         _worldDirty = false;
+
+        // (1es) reset the pooled stream budget for this poll. The adaptive scale keeps a fast frame
+        // spending the full 4 ms and a hitched frame shrinking to its floor (0.35x) — never zero, so
+        // the stream still progresses on the worst frame.
+        _streamBudgetRemaining = Mathf.Max(1f, AdaptiveBudgetMs(StreamBudgetMs));
+        _streamCapped = false;
 
         StreamAround(centre, near);
         DispatchPending();
@@ -316,5 +345,8 @@ public partial class WorldStreamer : MonoBehaviour
                 FlushDirtyChunk(tc);
         }
         _dirtyTiles.Clear();
+        // (1es) drain every queued save on the main thread before the app tears down — the
+        // background writer may still hold unflushed chunks.
+        ChunkSaveManager.FlushPendingSaves();
     }
 }

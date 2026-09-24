@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using UnityEngine;
 
 /// <summary>
@@ -75,9 +77,11 @@ public static class ChunkSaveManager
     }
 
     /// <summary>
-    /// If true, deformation flushes dirty tiles to disk immediately (batched per terrain chunk,
-    /// so a cast writes 1-2 files, not 250+), which is the safe default. When false the write is
-    /// deferred until the chunk unloads or the world closes.
+    /// If true, deformation flushes dirty tiles by queueing a save at unload time (batched per
+    /// terrain chunk, so a cast schedules 1-2 files, not 250+), which is the safe default. When
+    /// false the snapshot is skipped entirely and the dirty marks ride until the world closes
+    /// (WorldStreamer.OnDestroy) — either way, since 1es, the actual file write happens on a
+    /// background worker and never blocks the main thread.
     /// </summary>
     public static bool SynchronousWrites = true;
 
@@ -141,48 +145,127 @@ public static class ChunkSaveManager
         }
     }
 
-    /// <summary>Write a terrain chunk's deformation mods to disk (atomic tmp+swap).</summary>
+    /// <summary>A chunk save queued for the background writer (1es).</summary>
+    private readonly struct SaveWork
+    {
+        public readonly long Seed;
+        public readonly TerrainChunkCoord Tc;
+        public readonly ChunkSaveData Data;
+        public SaveWork(long seed, TerrainChunkCoord tc, ChunkSaveData data)
+        {
+            Seed = seed;
+            Tc = tc;
+            Data = data;
+        }
+    }
+
+    /// <summary>Saves waiting for the background writer (1es): enqueueing never blocks the main
+    /// thread on disk. <see cref="FlushPendingSaves"/> drains the queue synchronously at shutdown /
+    /// before a world-reset wipe so nothing queued is lost.</summary>
+    private static readonly ConcurrentQueue<SaveWork> _saveQueue = new ConcurrentQueue<SaveWork>();
+    private static int _saveWorkerRunning;
+
+    /// <summary>Serializes file writes across the background writer and a synchronous
+    /// <see cref="FlushPendingSaves"/> (both may target the same chunk's tmp path).</summary>
+    private static readonly object _saveWriteLock = new object();
+
+    /// <summary>
+    /// Queue a terrain chunk's deformation for a background save (1es). The snapshot (
+    /// <see cref="ChunkSaveData"/>) was fully built by the caller and is no longer touched on the
+    /// main thread, so the worker may serialize it freely. The actual write drains on a single
+    /// ThreadPool worker; the interlocked flag + re-check pattern handles the near-empty race (an
+    /// item enqueued just as the worker gives up always spawns a fresh drain).
+    /// </summary>
     public static void SaveChunk(long seed, TerrainChunkCoord tc, ChunkSaveData data)
     {
         if (data == null || data.Mods.Count == 0)
             return;
+        _saveQueue.Enqueue(new SaveWork(seed, tc, data));
+        if (Interlocked.CompareExchange(ref _saveWorkerRunning, 1, 0) == 0)
+            ThreadPool.QueueUserWorkItem(_ => DrainSaveQueue());
+    }
 
-        string dir = Path.Combine(BaseDir, seed.ToString());
-        if (!Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
-
-        string path = ChunkFilePath(seed, tc);
-        string tmp = path + ".tmp";
-
+    private static void DrainSaveQueue()
+    {
         try
         {
-            using (FileStream fs = new FileStream(tmp, FileMode.Create, FileAccess.Write))
-            using (BinaryWriter writer = new BinaryWriter(fs))
+            while (true)
             {
-                writer.Write(Magic);
-                writer.Write(CurrentVersion);
-                writer.Write(seed);
-                writer.Write(tc.X);
-                writer.Write(tc.Z);
-                writer.Write(data.Mods.Count);
-                for (int i = 0; i < data.Mods.Count; i++)
-                {
-                    ChunkTileMod mod = data.Mods[i];
-                    writer.Write(mod.LocalX);
-                    writer.Write(mod.LocalZ);
-                    writer.Write(mod.Version);
-                    for (int h = 0; h < ChunkData.VertexCount; h++)
-                        writer.Write(mod.Heights[h]);
-                }
+                while (_saveQueue.TryDequeue(out SaveWork w))
+                    SaveChunkNow(w.Seed, w.Tc, w.Data);
+                _saveWorkerRunning = 0;
+                if (_saveQueue.IsEmpty)
+                    return;
+                if (Interlocked.CompareExchange(ref _saveWorkerRunning, 1, 0) != 0)
+                    return;
             }
-
-            if (File.Exists(path))
-                File.Delete(path);
-            File.Move(tmp, path);
         }
         catch (Exception e)
         {
-            Debug.LogWarning($"[ChunkSaveManager] Failed to save chunk {tc.X},{tc.Z}: {e.Message}");
+            Debug.LogWarning($"[ChunkSaveManager] Background chunk save failed: {e.Message}");
+        }
+        finally
+        {
+            _saveWorkerRunning = 0;
+        }
+    }
+
+    /// <summary>
+    /// Flush every queued save synchronously on the calling thread (1es). Used by
+    /// WorldStreamer.OnDestroy so quitting never loses a chunk, and by ResetTerrainSaves BEFORE the
+    /// save-file wipe so a queued write can't resurrect the edits being discarded.
+    /// </summary>
+    public static void FlushPendingSaves()
+    {
+        while (_saveQueue.TryDequeue(out SaveWork w))
+            SaveChunkNow(w.Seed, w.Tc, w.Data);
+    }
+
+    /// <summary>Serialized atomic write (tmp+swap) for one chunk. Runs on the background writer for
+    /// queued saves, or on the main thread during <see cref="FlushPendingSaves"/>.</summary>
+    private static void SaveChunkNow(long seed, TerrainChunkCoord tc, ChunkSaveData data)
+    {
+        if (data == null || data.Mods.Count == 0)
+            return;
+        lock (_saveWriteLock)
+        {
+            string dir = Path.Combine(BaseDir, seed.ToString());
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            string path = ChunkFilePath(seed, tc);
+            string tmp = path + ".tmp";
+
+            try
+            {
+                using (FileStream fs = new FileStream(tmp, FileMode.Create, FileAccess.Write))
+                using (BinaryWriter writer = new BinaryWriter(fs))
+                {
+                    writer.Write(Magic);
+                    writer.Write(CurrentVersion);
+                    writer.Write(seed);
+                    writer.Write(tc.X);
+                    writer.Write(tc.Z);
+                    writer.Write(data.Mods.Count);
+                    for (int i = 0; i < data.Mods.Count; i++)
+                    {
+                        ChunkTileMod mod = data.Mods[i];
+                        writer.Write(mod.LocalX);
+                        writer.Write(mod.LocalZ);
+                        writer.Write(mod.Version);
+                        for (int h = 0; h < ChunkData.VertexCount; h++)
+                            writer.Write(mod.Heights[h]);
+                    }
+                }
+
+                if (File.Exists(path))
+                    File.Delete(path);
+                File.Move(tmp, path);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[ChunkSaveManager] Failed to save chunk {tc.X},{tc.Z}: {e.Message}");
+            }
         }
     }
 

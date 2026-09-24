@@ -745,6 +745,86 @@ Waste on turn-away: pre-warmed in-flight children of a box the player turns away
 then the removal scan destroys them as stale — small, self-cleaning, bounded by the 2-ring window.
 VERDICT: accepted (cheap vs. the crossing burst it removes).
 
+## 1es — "player lag when travel the world" — the crossing spike and where it REALLY lives (SHIPPED in `1es`)
+
+Context: after 1er the swap-band build churn is pre-warmed, but the user still reports periodic lag
+"every chunk boundary". First move was to nail down the shape of the report (periodic → crossing-bound
+vs random → a rogue system). User confirmed: **periodic spike roughly every ~30 m**, and chose
+**smoothness over fill speed**. So: what actually fires at a 30 m crossing, and can it be made to
+spill instead of spike?
+
+### H1 — "it's the CPU generating the new chunk" → TRIVIALLY TRUE but already async, so not the fix
+Chunk generation (real + far) already runs on the ThreadPool; "use async" can't move Unity's
+main-thread mesh uploads. The periodic ~30 m signal points at everything that REACTS to a ring cut on
+the main thread in one poll. Not the root candidate by itself — the real question is why it doesn't
+already spread.
+
+### H2 — the budget pieces were each capped, but they were independent and all re-zeroed the same frame → CONFIRMED, the actual architecture bug
+Walking 1 world/edge leaves the old ring: the next poll hits `StreamAround` (already-dirty), the
+trailing arc of out-of-range chunks UNLOADS **all at once** (no cap at all — `UnloadChunk` destroys the
+whole list), `FinalizeChunks` drains pending real meshes its own fixed slice, `StepChunkProps` builds
+props its own 3 ms, far finalize its own 2.5 ms, collider cooks 2/poll. Every slice was individually
+bounded, so per-pass arithmetic SAID "constant", but at a crossing all of them fire at their cap in the
+SAME poll and the pieces that ran all finish in that poll. The spike is a RE-SYNC: the crossing is a
+phase where many independently-capped streams legitimately need work, and there was no shared limit.
+VERDICT: the fix must pool ALL main-thread streaming spend against ONE budget so a crossing spreads
+over polls.
+
+### H3 — one shared wall-clock budget, charged by whatever ran, with a deferral flag → CHOSEN
+`StreamBudgetMs` (4 ms) pool reset each poll; every streaming step spends its measured wall time; when
+dry, `_streamCapped` makes each step stop before its next unit. Entry/conclusion gates per step
+(`if (_streamCapped) return;`, `while (... && !_streamCapped ...)`). Frame-time benefit survives even
+with rough measurements because the DRY signal is what stops the storm — not the precision of each
+charge. Not gated at entry (deliberate): the far-shell pass itself and the step-1a shape sync are
+visibility-critical; they keep their own caps and only charge their scan time. The idle-throttle gate
+(`_worldDirty`/`working`) is orthogonal and preserved, so resting is still zero-cost.
+
+### H4 — the unload storm (incoming half of the crossing) was uncapped → CONFIRMED, capped
+One `deactivateAndUnload` sweep destroyed the ENTIRE trailing arc in one poll (the outgoing "new
+ground" counterpart of the old re-dispatch bug). VERDICT: cap `MaxChunkUnloadsPerPoll = 6`, flag
+`_chunkUnloadBacklog`, fold it into the `working` idle gate so the spread-out drain isn't skipped as
+"idle". A ~60-chunk turn spills over ~10 polls instead of one GIANT unmount.
+
+### H5 — far finalize could still breathe around the shared pool, worst at crossings → CONFIRMED, same pool
+The far mesh-upload loop kept its own 2.5 ms slice. A crossing legitimately needs far handoffs TOGETHER
+with real finalize; two separate budgets times two demands = spike again. VERDICT: fold far finalize
+into the shared pool (spend + `!_streamCapped`), and charge the scan phase's elapsed time before the
+finalize loop so the crossing's heavier scan thins the drag. Also: far uploads now use
+`UploadMeshData(true)` — `CreateFarSector` builds from ThreadPool-written vertex arrays and never
+re-reads them on the main thread, so dropping the CPU mirror is a real saving at crossings (risk: the
+shared pooled Mesh is per-chunk retained — pool reuse must not expect CPU-mirrored buffers; flagged for
+play-test).
+
+### H6 — "edit a chunk → walk out → unload flushes its .dat" froze a frame → CONFIRMED, saves moved to a worker
+`ChunkSaveManager.SaveChunk` wrote the file synchronously ON the unload path. The vertex/serialization
+stays main-thread (it's cheap and needs the tile data), but the disk `File.WriteAllBytes` is now queued
+(`_saveQueue` ConcurrentQueue) and drained by ONE ThreadPool worker per batch
+(`Interlocked` flag + `QueueUserWorkItem`). Flush-at-shutdown / New Game drain the queue synchronously
+(locks serialize the worker's writes). Path rule respected: the file path string is still captured once
+on the main thread (`Warmup`) — background threads read the cached string only, per Unity 6 rules.
+VERDICT: on-unload flushes become near-0 ms on the crossing.
+- Sharp-edge subclass: `ResetTerrainSaves` must flush BEFORE `ResetWorldSaves` clears the move/remove
+  bookkeeping, or a reset could drop (or worse, re-route) a pending write for the OLD world. Confirmed
+  by reading both code paths before wiring the order.
+
+### H7 — was any crossing-phase earlier slice BROKEN by the unification? → RECHECKED
+- `_streamBudgetRemaining` resets every poll and only spent-ran pieces reduce it → a long chain of
+  crossings each starts a full budget, so no starvation; deferral is to the NEXT poll, never to "never".
+- Props' own `PropBudgetMs` (2) and the shared pool now BOTH cap it — redundant but harmless ceilings
+  (time-based slice already dominates).
+- `AdaptiveBudgetMs` (the 1di self-shrinker during hitches) now sizes the shared pool too, so the whole
+  system tightens together on a bad frame.
+- Unload cap can momentarily keep collider-scan/OOB tiles registered a poll longer than "instantly gone"
+  — acceptable; the idle gate holds `working` until the backlog clears, so the hysteresis keep can't
+  be skipped.
+
+### H8 — why didn't the previous per-pass caps already do this? (post-mortem)
+Each cap was sized for ITS OWN step's normal load ("a prop poll should take ~3 ms", "a finalize poll
+~2.5 ms"); nobody summed them because each was "under budget" individually. The design never had a
+crossing as a budgeted phase, so a crossing showed up as the arithmetic sum of every step's cap in one
+frame. 1es changes the unit of measurement: budget by poll, spend by what ran. VERDICT: post-mortem
+recorded; doc note in `WorldStreamer.Mesh.cs` `AdaptiveBudgetMs` says the pool is the primary ceiling.
+
 ## 1ea — "Still too laggy" — where is the mileage actually left after 1e5/1e6? (SHIPPED in `1ea`)
 
 User: "it still is too laggy. Can you do more?" 1e5 covered boot + per-frame HUD hotspots, 1e6 covered

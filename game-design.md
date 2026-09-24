@@ -136,7 +136,16 @@ edges), with a
   **96 in flight** (1ek, was 48), 16 finalized/poll but **time-capped at ~2.5 ms/poll on the main
   thread** (1eh — the fast
   fill stays, a single poll never spikes on GameObject/mesh creation; ~120-480 cell meshes/s → initial
-  fill ~1.5-4 s at the 30-chunk default, ~1,000 cells — **1eo**, down from ~1,400 at 67), 32 removals/poll with a backlog flag. Cells are dispatched **near-first**
+  fill ~1.5-4 s at the 30-chunk default, ~1,000 cells — **1eo**, down from ~1,400 at 67), 32 removals/poll with a backlog flag. Since **1es**
+   every main-thread streaming step — real-chunk finalize, far finalize + the far scan charge, props, the
+   real-chunk unload sweep — spends measured wall time against ONE shared **~4 ms poll budget**
+   (`StreamBudgetMs`, scaled by the same adaptive factor as the boot burst): no individual bound was wrong,
+   but at a ~30 m chunk crossing every step legitimately wants work in the SAME poll and the sum used to
+   spike the frame (the highest-value periodic hitch the sweep found). Now a crossing DEFERS the remainder
+   to the next poll instead of finishing it in-frame — the fill may trail a fraction of a second while
+   sprinting (the player chose smoothness over fill speed at **1es**), the periodic per-boundary spike is
+   gone, and real-chunk **unloads are capped at 6/poll** (spread over a few polls with a backlog flag that
+   keeps the idle gate busy), with **chunk save files written on a background worker** (§2.6). Cells are dispatched **near-first**
   (1ek, was horizon-first): the pending walk is closest-first and dispatch iterates it forward, so the
   region around the player — where a void is most visible — and the interior close before the distant
   fringe, which fills a moment later (pre-1ek the reverse, horizon-first order let the heavy outer
@@ -266,8 +275,11 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   noise + saves **without writing to any `tc_*.dat` file**. Auto-fired on New Game and bound to
   editor **F12**; `GameManager` holds the streamer reference (resolved by `AutoResolveReferences`,
   the streamer is created by `GameBootstrap`).
-- Dirty tiles record at **mark-time** (no IO); each chunk's accumulated tiles flush **batched** into
-  one file write (default synchronous, one write per chunk per cast; unload and shutdown also flush).
+- Dirty tiles record at **mark-time** (no IO); each chunk's accumulated tiles flush **batched** into one
+  file write per chunk (1es: the disk write itself runs on a background worker — the main thread keeps
+  only the (cheap) vertex/serialization work, queues the bytes, and one ThreadPool worker writes the
+  file, so an unload flush no longer freezes the frame; shutdown and New Game call
+  `FlushPendingSaves()` to drain the queue synchronously, so no save is ever lost).
 - Player modifications (terrain deformation) are delta-patched into the chunk file on flush.
 - The save path is **captured once on the main thread** (`ChunkSaveManager.Warmup`, called by
   `WorldStreamer.Awake`): `Application.persistentDataPath` is main-thread-only in Unity 6, but chunk
