@@ -186,9 +186,16 @@ public class ChunkObject : MonoBehaviour
             for (int lx = localMinX; lx <= localMaxX; lx++)
             {
                 ChunkMeshData tile = region[(lz - localMinZ) * w + (lx - localMinX)];
-                int baseIndex = (lz * cs + lx) * 4;
+                // 1ew: coarse quads and refined 2x2 blocks mix in one chunk mesh, so the block's
+                // start inside the merged buffer comes from the TileVertexBase table, not a fixed
+                // (tileIndex * 4) stride (the count is whatever the builder emitted).
+                int tileIdx = lz * cs + lx;
+                int baseIndex = _merged.TileVertexBase != null && tileIdx < _merged.TileVertexBase.Length
+                    ? _merged.TileVertexBase[tileIdx]
+                    : tileIdx * ChunkData.VertexCount;
                 Vector3 offset = new Vector3(lx, 0f, lz);
-                for (int k = 0; k < 4; k++)
+                int count = tile.Vertices != null ? tile.Vertices.Length : ChunkData.VertexCount;
+                for (int k = 0; k < count; k++)
                 {
                     Vector3 p = tile.Vertices[k] + offset;
                     p.y = ChunkMeshGenerator.SanitizeHeight(p.y);
@@ -196,18 +203,22 @@ public class ChunkObject : MonoBehaviour
                     _merged.Vertices[v] = p;
                     if (k < tile.UV.Length) _merged.UV[v] = tile.UV[k];
                     if (k < tile.Normals.Length) _merged.Normals[v] = tile.Normals[k];
-                    int wx, wz;
-                    switch (k)
-                    {
-                        case 0: wx = tile.Coord.X; wz = tile.Coord.Z + 1; break;      // NW
-                        case 1: wx = tile.Coord.X + 1; wz = tile.Coord.Z + 1; break;  // NE
-                        case 2: wx = tile.Coord.X + 1; wz = tile.Coord.Z; break;      // SE
-                        default: wx = tile.Coord.X; wz = tile.Coord.Z; break;         // SW
-                    }
+                    // Strata by the world corner under the vertex (refined sub-quads sit at
+                    // fractional local coords but are coloured by the tile cell they occupy).
+                    float tileLocalX = p.x - offset.x;
+                    float tileLocalZ = p.z - offset.z;
+                    int wx = tile.Coord.X + Mathf.FloorToInt(tileLocalX + 0.0001f);
+                    int wz = tile.Coord.Z + Mathf.FloorToInt(tileLocalZ + 0.0001f);
                     _merged.Colors[v] = ChunkMeshGenerator.TerrainBandColor(seed, wx, wz, p.y);
                 }
             }
         }
+
+        // Keep the LOD corner lattice in sync with the patch (1ew): re-stamp every lattice node
+        // whose canonical owner tile lives inside the region, so far-band children reflect the edit.
+        if (_merged.Corners.Y != null)
+            ChunkMeshGenerator.PatchCornerGrid(_merged.Corners, region, cs,
+                localMinX, localMinZ, w, h, seed);
 
         // Bounds from the full CPU vertex array (cheap, 3600 scans).
         for (int i = 0; i < _merged.Vertices.Length; i++)
@@ -270,16 +281,18 @@ public class ChunkObject : MonoBehaviour
             return;
         _lodDirty = false;
 
-        var verts = _merged.Vertices;
-        if (verts == null)
+        // 1ew: the coarse 31x31 corner lattice carried by the merged data. The old sampler walked
+        // the merged vertex array on a fixed per-tile stride; refined (16-vertex) blocks break that.
+        var corners = _merged.Corners;
+        if (corners.Y == null)
             return;
 
-        _lod1Go = BuildLodChild(_lod1Go, ref _lod1Mf, "Lod1", 2, verts);
-        _lod2Go = BuildLodChild(_lod2Go, ref _lod2Mf, "Lod2", 3, verts);
+        _lod1Go = BuildLodChild(_lod1Go, ref _lod1Mf, "Lod1", 2, corners);
+        _lod2Go = BuildLodChild(_lod2Go, ref _lod2Mf, "Lod2", 3, corners);
     }
 
     private GameObject BuildLodChild(GameObject child, ref MeshFilter childMf, string name, int step,
-        Vector3[] source)
+        ChunkCornerGrid corners)
     {
         child = EnsureLodChild(child, ref childMf, name);
         if (childMf == null)
@@ -300,13 +313,15 @@ public class ChunkObject : MonoBehaviour
         {
             for (int gx = 0; gx < axis; gx++, v++)
             {
-                int src = WorldCornerIndex(gx * step, gz * step, cs);
-                positions[v] = source[src];
-                uvs[v] = _merged.UV != null && src < _merged.UV.Length ? _merged.UV[src] : Vector2.zero;
-                normals[v] = _merged.Normals != null && src < _merged.Normals.Length
-                    ? _merged.Normals[src] : Vector3.up;
-                colors[v] = _merged.Colors != null && src < _merged.Colors.Length
-                    ? _merged.Colors[src] : Color.white;
+                // Sample the corner lattice at (gx*step, gz*step): node order is corner-grid
+                // (gz * 31 + gx) order (1ew), so decimation is a plain axis-aligned stride.
+                int s = gz * step * TerrainChunkCoord.CornerGridSize + gx * step;
+                positions[v] = new Vector3(gx * step, corners.Y[s], gz * step);
+                uvs[v] = corners.UV != null && s < corners.UV.Length ? corners.UV[s] : Vector2.zero;
+                normals[v] = corners.Normals != null && s < corners.Normals.Length
+                    ? corners.Normals[s] : Vector3.up;
+                colors[v] = corners.Colors != null && s < corners.Colors.Length
+                    ? corners.Colors[s] : Color.white;
             }
         }
 
@@ -420,18 +435,17 @@ public class ChunkObject : MonoBehaviour
         return child;
     }
 
-    /// <summary>Index into the merged mesh's contiguous TOP-QUAD block (tile corners, 4 per tile)
-    /// for the chunk corner at local (x, z), where x/z may equal the chunk size (the east/north
-    /// boundary falls on the boundary tile's NE/NW/SE corner).</summary>
-    private static int WorldCornerIndex(int x, int z, int cs)
+    /// <summary>True when the tile at local (lx, lz) currently renders as the 1ew refined 2x2 block
+    /// (16 vertices) instead of the coarse 4-corner quad. RebuildChunkRegion compares this against
+    /// the freshly built tile before Patching so a rebuild that changes a tile's split state falls
+    /// back to a full chunk rebuild (the merged block table must not be re-skinned in place).</summary>
+    public bool IsTileRefined(int lx, int lz)
     {
-        if (x >= cs && z >= cs)
-            return ((cs - 1) * cs + (cs - 1)) * 4 + 2;        // chunk NE: boundary tile's SE corner
-        if (z >= cs)
-            return ((cs - 1) * cs + x) * 4;                   // north boundary: tile's NW corner
-        if (x >= cs)
-            return (z * cs + (cs - 1)) * 4 + 1;               // east boundary: tile's NE corner
-        return (z * cs + x) * 4 + 3;                          // interior: tile's SW corner
+        if (_merged.TileVertexCount == null)
+            return false;
+        int idx = lz * TerrainChunkCoord.ChunkSize + lx;
+        return idx >= 0 && idx < _merged.TileVertexCount.Length
+            && _merged.TileVertexCount[idx] > ChunkData.VertexCount;
     }
 
     /// <summary>True while this chunk's props are visible (queued AND inside the prop ring).

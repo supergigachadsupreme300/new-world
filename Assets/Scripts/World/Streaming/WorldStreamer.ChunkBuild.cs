@@ -130,7 +130,7 @@ public partial class WorldStreamer
                 // Re-smooth legacy flat-slab tiles toward their noise on load (1cj) BEFORE the
                 // mesh is built, so the rendered terrain matches the heights.
                 RelaxLegacySlabTile(ref data);
-                tiles[tz * cs + tx] = ChunkMeshGenerator.BuildMeshData(data, TerrainNoiseGenerator.DefaultLayers);
+                tiles[tz * cs + tx] = ChunkMeshGenerator.BuildMeshData(data, TerrainNoiseGenerator.DefaultLayers, RefineThreshold);
             }
         }
 

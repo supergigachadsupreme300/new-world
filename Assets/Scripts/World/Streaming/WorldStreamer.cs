@@ -52,6 +52,10 @@ public partial class WorldStreamer : MonoBehaviour
     [Tooltip("Render terrain as a 1-metre stepped voxel mesh (experimental, OPT-IN). Since 1ev the smooth heightfield is the default again — the stepped column look read as too Minecraft-like/blocky in play-test, so the voxel model was un-defaulted but kept for experiments. Flip ON via this field or the test ground's QA toggle `EnableVoxelTerrain` to preview it. When on, the same chunk grid / pooling / budgets / deformation API / save files are kept, but every chunk mesh renders as flat column tops + terrace walls (VoxelChunkData + VoxelMesher), saves use the v3 multi-run column format (legacy v1 height-field / v2 single-run saves migrate on read; smooth chunks are never written from voxel), LOD children and the far shell render stepped voxel variants, and the sculpt API (SculptVoxelCave/Raise) + directed dig carve actual column runs. Flip BEFORE the world streams — mid-run flips produce mixed terrain until the stream reloads.")]
     public bool VoxelTerrainEnabled = false;
 
+    [Header("Smooth Terrain Refinement (1ew)")]
+    [Tooltip("Adaptive stretch-split of the smooth heightfield: a 1x1 tile whose 4 corner heights differ by MORE than this many metres renders as a 2x2 sub-quad grid (bilinear interior heights) instead of one hugely stretched quad. The face count of a steep slope splits into several smaller faces so the corner-grab editor lands a fine handle on a real corner again — the world stays a smooth heightfield at every zoom, never stepped like the voxel mode. 0 disables refinement entirely (full 1m quads everywhere). Derived from the corners (never stored), interior-of-chunk only (the 1 m border ring stays one quad per tile so cross-chunk shared corners stay untouched).")]
+    public float RefineThreshold = ChunkMeshGenerator.DefaultRefineThreshold;
+
     [Header("Threading")]
     [Tooltip("Max terrain chunks finalized per poll tick (main-thread work).")]
     public int ChunksPerFrame = 16;

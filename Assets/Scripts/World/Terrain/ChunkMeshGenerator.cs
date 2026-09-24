@@ -15,6 +15,11 @@ using UnityEngine;
 ///   |   /              |
 ///   SW --------------- SE
 ///
+/// 1ew: a tile whose 4 corner heights differ by more than the refine threshold renders instead as
+/// a 2x2 sub-quad grid (bilinear interior heights) so stretched faces split into several smaller
+/// faces — same smooth height field, but steep slopes become a cluster of small editable faces
+/// instead of one stretched membrane.
+///
 /// Corner-height contract (VERY important for a gapless mesh):
 ///   Every tile computes its 4 corner heights from pure world-space noise at the
 ///   exact corner coordinates. A neighbouring tile shares those same corners and
@@ -44,6 +49,28 @@ public static class ChunkMeshGenerator
     public const float DirtBandEnd = 0.65f;
     public const float StoneBandStart = 2.3f;
     public const float StoneBandEnd = 2.7f;
+
+    // --- 1ew: adaptive stretch-split refinement ---
+    //
+    // When adjacent corners of a 1x1 tile differ by more than this many metres the single quad is
+    // one huge stretched membrane the editor cannot bite into (it can only push the 4 corners).
+    // A tile whose max corner delta exceeds the threshold renders as a 2x2 sub-quad grid (16
+    // vertices / 8 triangles) whose interior heights are bilinear interpolations of the 4 coarse
+    // corners — the split faces are exactly on the coarse surface (edge midpoints are linear in
+    // the shared corners, so a refined tile meets its coarse neighbours with ZERO cracks) and the
+    // world stays a smooth height field, never steps. Refinement is DERIVED from the corners in
+    // 1ew (never stored): persistence, collision and the coarse corners are identical either way,
+    // so pristine chunks still store zero data.
+    public const float DefaultRefineThreshold = 2.5f;
+
+    /// <summary>Sub-division factor of one refined tile (2x2 = 4 sub-quads).</summary>
+    public const int RefineSubdiv = 2;
+
+    /// <summary>Vertices of a refined tile block: 4 sub-quads x 4 corners = 16.</summary>
+    public const int RefinedVertexCount = RefineSubdiv * RefineSubdiv * 4;
+
+    /// <summary>Triangle indices of a refined tile block: 4 sub-quads x 2 triangles x 3.</summary>
+    public const int RefinedTriangleIndexCount = RefineSubdiv * RefineSubdiv * 2 * 3;
 
     /// <summary>
     /// Per-vertex surface color by dig depth below the pristine noise surface at the corner's
@@ -99,7 +126,7 @@ public static class ChunkMeshGenerator
     /// Builds pure C# arrays for the mesh — safe to call from a background thread.
     /// No Unity API types are allocated; only arrays and a Bounds struct.
     /// </summary>
-    public static ChunkMeshData BuildMeshData(ChunkData data, NoiseLayerConfig[] layers = null)
+    public static ChunkMeshData BuildMeshData(ChunkData data, NoiseLayerConfig[] layers = null, float refineThreshold = 0f)
     {
         float worldScale = ChunkData.Size;
 
@@ -115,6 +142,12 @@ public static class ChunkMeshGenerator
                 ? data.Heights[i]
                 : SampleCornerHeight(data, i, layers));
         }
+
+        // 1ew: adaptive stretch-split. A tile whose corners spread more than the threshold emits the
+        // refined 2x2 sub-quad block instead of the single stretched quad. Derived (never stored) and
+        // interior-of-chunk only (the 1 m border ring keeps the unchanged cross-chunk contract).
+        if (refineThreshold > 0f && IsRefinable(data, h, refineThreshold))
+            return BuildRefinedMeshData(data, h);
 
         Vector3[] vertices =
         {
@@ -159,6 +192,136 @@ public static class ChunkMeshGenerator
             Normals = normals,
             Bounds = bounds,
         };
+    }
+
+    /// <summary>
+    /// True when a tile should render as the refined 2x2 sub-quad block (1ew): its 4 corners differ
+    /// by more than <paramref name="threshold"/> metres AND it is not on the chunk border ring.
+    /// The interior-only rule keeps refinement strictly intra-chunk: the 1 m border ring stays the
+    /// standard 4-corner quad so the cross-chunk shared-corner contract (and the 1ex fine-edit lattice)
+    /// never needs to reason about a fine node duplicated across two chunks.
+    /// </summary>
+    private static bool IsRefinable(ChunkData data, float[] h, float threshold)
+    {
+        float minV = h[0], maxV = h[0];
+        for (int i = 1; i < h.Length; i++)
+        {
+            if (h[i] < minV) minV = h[i];
+            if (h[i] > maxV) maxV = h[i];
+        }
+        if (maxV - minV <= threshold)
+            return false;
+
+        int cs = TerrainChunkCoord.ChunkSize;
+        int gx = data.ChunkX % cs;
+        if (gx < 0) gx += cs;
+        int gz = data.ChunkZ % cs;
+        if (gz < 0) gz += cs;
+        return gx > 0 && gx < cs - 1 && gz > 0 && gz < cs - 1;
+    }
+
+    /// <summary>
+    /// Refined 2x2 sub-quad block for one tile (1ew). The 3x3 fine heights are the bilinear
+    /// interpolation of the tile's 4 coarse corners, so every interior/mod-edge point lies exactly
+    /// on the coarse bilinear surface — a refined tile grafts onto its coarse neighbours with zero
+    /// cracks (edge midpoints are linear in the two shared corners, which is what the neighbour's
+    /// straight edge passes through). Each sub-quad keeps the whole-tile 1m UV so texture density
+    /// never changes; normals are flat per sub-quad (same style as the coarse quad).
+    /// Vertex slots: 4 sub-quads in row-major order (jq=0 south row first), each 4 verts NW/NE/SE/SW.
+    /// </summary>
+    private static ChunkMeshData BuildRefinedMeshData(ChunkData data, float[] h)
+    {
+        // Fine lattice: idx = j * 3 + i, i (0..2) = localX 0/0.5/1, j (0..2) = localZ 0/0.5/1.
+        // Bilinear over SW h3, SE h2, NW h0, NE h1: h(u,v) = lerp(lerp(h3,h2,u), lerp(h0,h1,u), v).
+        float[] fine = new float[3 * 3];
+        for (int j = 0; j < 3; j++)
+        {
+            float v = j * 0.5f;
+            for (int i = 0; i < 3; i++)
+            {
+                float u = i * 0.5f;
+                float southToNorth = Mathf.Lerp(Mathf.Lerp(h[3], h[2], u), Mathf.Lerp(h[0], h[1], u), v);
+                fine[j * 3 + i] = SanitizeHeight(southToNorth);
+            }
+        }
+
+        var vertices = new Vector3[RefinedVertexCount];
+        var triangles = new int[RefinedTriangleIndexCount];
+        var uv = new Vector2[RefinedVertexCount];
+        var normals = new Vector3[RefinedVertexCount];
+
+        float minY = float.MaxValue, maxY = float.MinValue;
+        for (int jq = 0; jq < RefineSubdiv; jq++)
+        {
+            for (int iq = 0; iq < RefineSubdiv; iq++)
+            {
+                int quad = jq * RefineSubdiv + iq;
+                int baseV = quad * 4;
+
+                // Sub-quad local corner coords (X rows go south->north; vertex slots NW,NE,SE,SW).
+                float lxNw = iq * 0.5f,        lzNw = (jq + 1) * 0.5f;
+                float lxNe = (iq + 1) * 0.5f,  lzNe = (jq + 1) * 0.5f;
+                float lxSe = (iq + 1) * 0.5f,  lzSe = jq * 0.5f;
+                float lxSw = iq * 0.5f,        lzSw = jq * 0.5f;
+
+                // Mapping to the fine lattice: local(lx,lz) -> (i = lx*2, j = lz*2).
+                float yNw = fine[(int)(lzNw * 2f) * 3 + (int)(lxNw * 2f)];
+                float yNe = fine[(int)(lzNe * 2f) * 3 + (int)(lxNe * 2f)];
+                float ySe = fine[(int)(lzSe * 2f) * 3 + (int)(lxSe * 2f)];
+                float ySw = fine[(int)(lzSw * 2f) * 3 + (int)(lxSw * 2f)];
+
+                vertices[baseV + 0] = new Vector3(lxNw, yNw, lzNw);
+                vertices[baseV + 1] = new Vector3(lxNe, yNe, lzNe);
+                vertices[baseV + 2] = new Vector3(lxSe, ySe, lzSe);
+                vertices[baseV + 3] = new Vector3(lxSw, ySw, lzSw);
+
+                uv[baseV + 0] = new Vector2(lxNw, 1f - lzNw);
+                uv[baseV + 1] = new Vector2(lxNe, 1f - lzNe);
+                uv[baseV + 2] = new Vector2(lxSe, 1f - lzSe);
+                uv[baseV + 3] = new Vector2(lxSw, 1f - lzSw);
+
+                Vector3 a = vertices[baseV + 1] - vertices[baseV + 0];
+                Vector3 b = vertices[baseV + 2] - vertices[baseV + 0];
+                Vector3 n = Vector3.Cross(a, b).normalized;
+                normals[baseV + 0] = n;
+                normals[baseV + 1] = n;
+                normals[baseV + 2] = n;
+                normals[baseV + 3] = n;
+
+                triangles[baseV + 0] = baseV + 0; triangles[baseV + 1] = baseV + 1; triangles[baseV + 2] = baseV + 2;
+                triangles[baseV + 3] = baseV + 0; triangles[baseV + 4] = baseV + 2; triangles[baseV + 5] = baseV + 3;
+
+                for (int k = 0; k < 4; k++)
+                {
+                    float y = vertices[baseV + k].y;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+
+        Bounds bounds = new Bounds(
+            new Vector3(0.5f, minY < maxY ? (minY + maxY) * 0.5f : minY, 0.5f),
+            new Vector3(1f, Mathf.Max(0.1f, minY < maxY ? (maxY - minY) + 0.1f : 0.1f), 1f));
+
+        return new ChunkMeshData
+        {
+            Coord = new ChunkCoord(data.ChunkX, data.ChunkZ),
+            Data = data,
+            Vertices = vertices,
+            Triangles = triangles,
+            UV = uv,
+            Normals = normals,
+            Bounds = bounds,
+        };
+    }
+
+    /// <summary>True when a tile block is the refined 2x2 variant (1ew). The merged builder and the
+    /// editor derive refinement from the emitted vertex count, so the block table and the per-tile
+    /// mesh data can never disagree.</summary>
+    public static bool IsRefined(ChunkMeshData tile)
+    {
+        return tile.Vertices != null && tile.Vertices.Length > ChunkData.VertexCount;
     }
 
     /// <summary>
@@ -251,10 +414,13 @@ public static class ChunkMeshGenerator
     /// Merges the per-tile mesh arrays of a terrain chunk into one thread-safe chunk-local mesh
     /// (ONE GameObject + ONE collider per chunk). Runs on the background thread; no Unity API
     /// objects are touched. Per-tile top-quad UVs/normals are preserved unchanged.
-    /// The buffer layout is TOPS-FIRST: the 4 * tileCount top-quad vertices occupy a contiguous
-    /// block, then all vertical side-wall vertices follow. ChunkObject.PatchRegion exploits the
-    /// fixed top layout ((lz * cs + lx) * 4) to re-skin just one region after a height edit, so the
-    /// two groups must never interleave.
+    /// The buffer layout is TOPS-FIRST: every tile's top block — 4 vertices (coarse quad) or 16
+    /// vertices (1ew refined 2x2 block) — occupies a contiguous block in tile order, then all
+    /// vertical side-wall vertices follow. <see cref="MergedChunkMeshData.TileVertexBase"/> /
+    /// <see cref="MergedChunkMeshData.TileVertexCount"/> record each block's offset + size
+    /// (ChunkObject.PatchRegion re-skis just one region through the table, so refined and coarse
+    /// tiles can safely mix), and <see cref="MergedChunkMeshData.Corners"/> samples the coarse 31x31
+    /// corner lattice for the LOD children, whose fixed per-tile stride would otherwise break.
     ///
     /// On top of the top-surface quads, wherever a height discontinuity sits between two
     /// neighbouring tiles (only legacy flat-slab tiles, whole-metre or older fractional carves),
@@ -274,8 +440,6 @@ public static class ChunkMeshGenerator
     {
         int cs = TerrainChunkCoord.ChunkSize;
         int tileCount = cs * cs;
-        int topVertsPerTile = ChunkData.VertexCount;      // 4
-        int topTrisPerTile = ChunkData.TriangleCount * 3; // 6
 
         // Defensive fill: a null tile (partial chunk bookkeeping under unload/reload races) MUST
         // still emit its quad, or the merged mesh gets a literal hole in it — a fall-through the
@@ -302,6 +466,24 @@ public static class ChunkMeshGenerator
             tiles = resolved;
         }
 
+        // Per-tile TOP block table (1ew): refined tiles emit 16 vertices, coarse tiles 4, so the
+        // merged mesh is a sequence of variable-size blocks the patch/lod paths index through this
+        // table instead of a fixed (tileIndex * 4) stride. Built AFTER the defensive fill so every
+        // tile contributes its real vertex/index count.
+        int[] tileVertBase = new int[tileCount];
+        int[] tileVertCount = new int[tileCount];
+        int topVerts = 0;
+        int topTriIndices = 0;
+        for (int i = 0; i < tileCount; i++)
+        {
+            ChunkMeshData tile = tiles[i];
+            int verts = tile.Vertices != null ? tile.Vertices.Length : ChunkData.VertexCount;
+            tileVertBase[i] = topVerts;
+            tileVertCount[i] = verts;
+            topVerts += verts;
+            topTriIndices += tile.Triangles != null ? tile.Triangles.Length : 0;
+        }
+
         // Pass 1 — count the side-wall bands (4 verts + 6 tris each) so the arrays fit exactly.
         // Per-build pristine-height memo (1dt): the band colors and the out-of-chunk seam corners
         // share the 31×31 grid of 5-octave samples instead of re-sampling the noise per vertex.
@@ -325,8 +507,8 @@ public static class ChunkMeshGenerator
             }
         }
 
-        int vertCount = tileCount * topVertsPerTile + wallBands * 4;
-        int triCount = tileCount * topTrisPerTile + wallBands * 6;
+        int vertCount = topVerts + wallBands * 4;
+        int triCount = topTriIndices + wallBands * 6;
 
         Vector3[] vertices = new Vector3[vertCount];
         int[] triangles = new int[triCount];
@@ -340,9 +522,9 @@ public static class ChunkMeshGenerator
         int vertex = 0;
         int tri = 0;
 
-        // Pass 2 — emit every tile's top quad first. All 4 * tileCount top vertices stay in one
-        // contiguous block so PatchRegion's fixed quad offsets ((lz * cs + lx) * 4) are always
-        // valid, even when a chunk mixes flat slab tiles (side walls) with smooth deforms.
+        // Pass 2 — emit every tile's top block first. All top vertices stay in one contiguous sequence
+        // of per-tile blocks (4 or 16 verts each, 1ew), indexed by the table built above, so the
+        // two kind of blocks can never interleave with the later side-wall vertices.
         for (int i = 0; i < tileCount; i++)
         {
             ChunkMeshData tile = tiles[i];
@@ -353,7 +535,8 @@ public static class ChunkMeshGenerator
             if (tile.Vertices == null)
                 continue;
 
-            for (int k = 0; k < topVertsPerTile; k++)
+            int count = tile.Vertices.Length;
+            for (int k = 0; k < count; k++)
             {
                 Vector3 p = tile.Vertices[k] + offset;
                 p.y = SanitizeHeight(p.y);
@@ -361,14 +544,12 @@ public static class ChunkMeshGenerator
                 vertices[v] = p;
                 uv[v] = k < tile.UV.Length ? tile.UV[k] : Vector2.zero;
                 normals[v] = k < tile.Normals.Length ? tile.Normals[k] : Vector3.up;
-                int wx, wz;
-                switch (k)
-                {
-                    case 0: wx = tile.Coord.X; wz = tile.Coord.Z + 1; break;      // NW
-                    case 1: wx = tile.Coord.X + 1; wz = tile.Coord.Z + 1; break;  // NE
-                    case 2: wx = tile.Coord.X + 1; wz = tile.Coord.Z; break;      // SE
-                    default: wx = tile.Coord.X; wz = tile.Coord.Z; break;         // SW
-                }
+                // Strata by the world corner under the vertex; refined sub-quad corners land on
+                // fractional world coords, floored to the same tile cell they stand in.
+                float tileLocalX = p.x - offset.x;
+                float tileLocalZ = p.z - offset.z;
+                int wx = tile.Coord.X + Mathf.FloorToInt(tileLocalX + 0.0001f);
+                int wz = tile.Coord.Z + Mathf.FloorToInt(tileLocalZ + 0.0001f);
                 colors[v] = TerrainBandColor(seed, wx, wz, p.y, heightMemo);
                 if (p.y < minY) minY = p.y;
                 if (p.y > maxY) maxY = p.y;
@@ -377,11 +558,17 @@ public static class ChunkMeshGenerator
             for (int k = 0; k < tile.Triangles.Length; k++)
                 triangles[tri++] = tile.Triangles[k] + vertex;
 
-            vertex += topVertsPerTile;
+            vertex += count;
         }
 
-        // Pass 3 — emit the vertical side walls after every top quad so the 4 * tileCount top
-        // vertices stay one contiguous block (PatchRegion's fixed quad offsets stay valid even
+        // Coarse 31x31 corner lattice for the LOD children (1ew): the LOD decimation can no longer
+        // sample the merged arrays by a fixed per-tile stride (refined blocks break it), so the
+        // merged data carries the lattice the children resample. Canonical owner per corner mirrors
+        // the old WorldCornerIndex rule, so the LOD surface is identical to the pre-1ew build.
+        ChunkCornerGrid corners = BuildCornerGrid(tiles, cs, seed, heightMemo);
+
+        // Pass 3 — emit the vertical side walls after every top block so the merged shallow vertices
+        // stay one contiguous sequence of per-tile blocks (the TileVertexBase table stays valid even
         // when walls exist). Same iteration and per-edge order as Pass 1 keeps counts aligned.
         for (int i = 0; i < tileCount; i++)
         {
@@ -491,7 +678,108 @@ public static class ChunkMeshGenerator
             Normals = normals,
             Colors = colors,
             Bounds = bounds,
+            TileVertexBase = tileVertBase,
+            TileVertexCount = tileVertCount,
+            Corners = corners,
         };
+    }
+
+    /// <summary>
+    /// Builds the coarse (axes x axes per chunk, axes = <see cref="TerrainChunkCoord.CornerGridSize"/>)
+    /// world-corner lattice the LOD children sample from (1ew). Each lattice node copies the EXACT
+    /// merged shallow-block slot that used to sit at a fixed (gz * cs + gx) * 4 + slot offset, so a
+    /// LOD child stays pixel-identical to the pre-refinement build. Ownership per corner mirrors the
+    /// retired WorldCornerIndex rule: interior corner (gx,gz) → tile(gx,gz) SW (slot 3), north
+    /// boundary (gz==cs) → tile(gx, cs-1) NW (slot 0), east boundary (gx==cs) → tile(cs-1, gz) NE
+    /// (slot 1), the far corner (cs,cs) → tile(cs-1,cs-1) SE (slot 2). Band colors are recomputed
+    /// here from the same world corner each node stands on.
+    /// </summary>
+    private static ChunkCornerGrid BuildCornerGrid(ChunkMeshData[] tiles, int cs, long seed,
+        System.Collections.Generic.Dictionary<long, float> heightMemo)
+    {
+        int axes = TerrainChunkCoord.CornerGridSize;
+        var grid = new ChunkCornerGrid(axes * axes);
+        for (int gz = 0; gz < axes; gz++)
+        {
+            for (int gx = 0; gx < axes; gx++)
+            {
+                int ownerIdx, slot;
+                if (gx < cs && gz < cs) { ownerIdx = gz * cs + gx; slot = 3; }        // SW of tile
+                else if (gz == cs)     { ownerIdx = (cs - 1) * cs + gx; slot = 0; }   // NW of tile
+                else if (gx == cs)     { ownerIdx = gz * cs + (cs - 1); slot = 1; }   // NE of tile
+                else                   { ownerIdx = (cs - 1) * cs + (cs - 1); slot = 2; } // SE
+
+                ChunkMeshData owner = tiles[ownerIdx];
+                int idx = gz * axes + gx;
+
+                float y = 0f;
+                if (owner.Vertices != null && slot < owner.Vertices.Length)
+                    y = SanitizeHeight(owner.Vertices[slot].y);
+                else if (owner.Vertices != null && owner.Vertices.Length > 0)
+                    y = SanitizeHeight(owner.Vertices[0].y);   // defensive: resize-block safety fallback
+                grid.Y[idx] = y;
+
+                grid.Normals[idx] = (owner.Normals != null && slot < owner.Normals.Length)
+                    ? owner.Normals[slot] : Vector3.up;
+                grid.UV[idx] = (owner.UV != null && slot < owner.UV.Length)
+                    ? owner.UV[slot] : Vector2.zero;
+
+                int wx = owner.Coord.X + (slot == 1 || slot == 2 ? 1 : 0);
+                int wz = owner.Coord.Z + (slot < 2 ? 1 : 0);
+                grid.Colors[idx] = TerrainBandColor(seed, wx, wz, y, heightMemo);
+            }
+        }
+        return grid;
+    }
+
+    /// <summary>
+    /// Restamps only the <paramref name="region"/>'s corner-grid nodes after ChunkObject.PatchRegion
+    /// had re-skimmed those tiles (1ew). A node is re-stamped when its canonical owner tile lives
+    /// inside the patched region; nodes owned by tiles outside the region keep their old values.
+    /// <paramref name="region"/> is a row-major (w x h) array of re-built tiles starting at chunk-local
+    /// tile (<paramref name="regionX"/>, <paramref name="regionZ"/>).
+    /// </summary>
+    public static void PatchCornerGrid(ChunkCornerGrid grid, ChunkMeshData[] region,
+        int cs, int regionX, int regionZ, int w, int h, long seed,
+        System.Collections.Generic.Dictionary<long, float> heightMemo = null)
+    {
+        int axes = TerrainChunkCoord.CornerGridSize;
+        for (int gz = regionZ; gz <= regionZ + h; gz++)
+        {
+            if (gz < 0 || gz >= axes) continue;
+            for (int gx = regionX; gx <= regionX + w; gx++)
+            {
+                if (gx < 0 || gx >= axes) continue;
+
+                int ownerLx, ownerLz, slot;
+                if (gx < cs && gz < cs) { ownerLx = gx; ownerLz = gz; slot = 3; }
+                else if (gz == cs)     { ownerLx = gx; ownerLz = cs - 1; slot = 0; }
+                else if (gx == cs)     { ownerLx = cs - 1; ownerLz = gz; slot = 1; }
+                else                   { ownerLx = cs - 1; ownerLz = cs - 1; slot = 2; }
+
+                if (ownerLx < regionX || ownerLx > regionX + w - 1 ||
+                    ownerLz < regionZ || ownerLz > regionZ + h - 1)
+                    continue; // owner lives outside the patched tiles — corner unchanged
+
+                int ri = (ownerLz - regionZ) * w + (ownerLx - regionX);
+                ChunkMeshData owner = region[ri];
+                if (owner.Vertices == null || slot >= owner.Vertices.Length)
+                    continue;
+
+                int idx = gz * axes + gx;
+                float y = SanitizeHeight(owner.Vertices[slot].y);
+                grid.Y[idx] = y;
+                grid.Normals[idx] = (owner.Normals != null && slot < owner.Normals.Length)
+                    ? owner.Normals[slot] : Vector3.up;
+                grid.UV[idx] = (owner.UV != null && slot < owner.UV.Length)
+                    ? owner.UV[slot] : Vector2.zero;
+                int wx = owner.Coord.X + (slot == 1 || slot == 2 ? 1 : 0);
+                int wz = owner.Coord.Z + (slot < 2 ? 1 : 0);
+                grid.Colors[idx] = heightMemo != null
+                    ? TerrainBandColor(seed, wx, wz, y, heightMemo)
+                    : TerrainBandColor(seed, wx, wz, y);
+            }
+        }
     }
 
     /// <summary>Number of 1 m horizontal bands for a side wall between a high edge and a low edge.</summary>

@@ -3,6 +3,55 @@
 Last updated: 2026-09-24. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1ew. Smooth terrain adaptive stretch-split (Phase A: refinement data + rendering) — no more single stretched faces on steep slopes
+
+User report (prior problem this supersedes): after the 1ev smooth revert, a steep slope renders a
+1x1 tile as ONE hugely stretched quad — the corner-grab editor grabs only world-corner keys, so an
+interior face has no vertex to bite ("one surface only") and a cliff reads as un-editable. Fix chosen
+by user: model A adaptive stretch-split (split exactly the over-stretched tiles), NOT a uniform finer
+grid, NOT the blocky voxel mode. This task (1ew) is Phase A: derived refinement + merged block table +
+LOD-from-lattice; Phase B (1ex: fine-lattice editor writes + v4 saves) is queued; 1ey (normals shading
+smoothing + budget sanity) after that.
+
+- **Refinement rule (`ChunkMeshGenerator`):** a tile whose 4 corners differ by more than
+  `WorldStreamer.RefineThreshold` (serialized, default `ChunkMeshGenerator.DefaultRefineThreshold` =
+  2.5 m; 0 = off) emits a **2x2 sub-quad block** (16 verts / 8 tris, row-major, non-welded like legacy)
+  instead of the coarse 4-corner quad. Interior fine heights are **bilinear from the 4 coarse corners**
+  (edge midpoints = linear in the shared corners ⇒ zero cracks against coarse neighbours). Interior-of-
+  chunk only (local index 1..28) so the 1 m border ring keeps the cross-chunk shared-corner contract.
+- **DERIVED, never stored in 1ew:** pristine corners re-derive from noise and edits still store coarse
+  4-corner heights only (DeformAt/FlattenAt/GetDigDepth unchanged) — the save format is byte-identical
+  to pre-1ew. The planned v4 fine-lattice save section MOVED to 1ex per the phased plan.
+- **Merged block table:** `MergedChunkMeshData.TileVertexBase/TileVertexCount` (per 900 tiles, built
+  after the defensive fill so fallback tiles count correctly) replace the fixed `(tileIndex * 4)`
+  stride; `ChunkObject.PatchRegion` re-skims the region through the table + re-stamps the LOD lattice
+  via `ChunkMeshGenerator.PatchCornerGrid`.
+- **LOD from lattice:** `MergedChunkMeshData.Corners` (31x31 `ChunkCornerGrid` of
+  Y/Normals/UV/Colors; ownership per corner mirrors the retired `WorldCornerIndex` rule) is built by
+  `BuildCornerGrid` and re-stamped per patch; `BuildLodChild` decimates from it (`WorldCornerIndex`
+  removed — refined blocks broke the fixed merged stride).
+- **Edit flips split state ⇒ full rebuild:** `RebuildChunkRegion` compares fresh
+  `ChunkMeshGenerator.IsRefined(tile)` vs `obj.IsTileRefined(lx,lz)`; any flip → `FullRebuildChunk`
+  (block table cannot resize in place).
+- **No wall conflicts:** `EdgeIsRaised` only fires on flat slabs; slabs are flat (delta≈0 ⇒ never
+  refined) and refined steep tiles have equal shared corners (no walls) — verified by reasoning + grep.
+- **Docs:** `game-design.md` §2.2 rewritten (stale 5-vertex/center-vertex chunk → real 900-tile /
+  31x31-corner model + merged mesh + LOD-from-lattice) and new §2.10 (adaptive stretch-split);
+  `THINKING.md` §1ew.
+
+### 1ew-status
+- Implemented; verified by grep + reread (rule 3 — no CLI/Unity build). Grep confirms: `RefineThreshold`
+  defined (WorldStreamer.cs:57) and passed at all three BuildMeshData sites (ChunkBuild.cs:133,
+  Deform.cs:246 + FullRebuildChunk, Deform.cs:499 RebuildChunkRegion); `TileVertexBase`/`TileVertexCount`
+  set in BuildMergedMeshData and consumed only by PatchRegion/IsTileRefined (voxel builders leave them
+  null and every reader null-guards); `ChunkCornerGrid` built by BuildCornerGrid, re-stamped by
+  PatchCornerGrid (called from PatchRegion), decimated by BuildLodChild; `WorldCornerIndex`,
+  `topVertsPerTile`, `ChunkMeshData.DefaultY` removed with no remaining references.
+- Pending play-test (rule 3 = no build): steep slopes show multiple small faces (no blocky steps, no
+  holes/seams at splits), corner edits still move coarse corners, revisiting an area restores it
+  exactly; try digging a 2.5 m+ surface and see the 4→16 split flip; a voxel-opt-in run still
+  streams stepped meshes (smooth path untouched).
+
 ## 1ev. Voxel un-defaulted — smooth heightfield is the world's default terrain again; the stepped voxel model is back to opt-in
 
 User report after 1eu shipped: the world now "looks somewhat like Minecraft, terrain made of blocks" —

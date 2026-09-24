@@ -826,6 +826,84 @@ Waste on turn-away: pre-warmed in-flight children of a box the player turns away
 then the removal scan destroys them as stale — small, self-cleaning, bounded by the 2-ring window.
 VERDICT: accepted (cheap vs. the crossing burst it removes).
 
+## 1ew — smooth terrain: why a steep slope is ONE un-editable stretched face, and how to split it into multiple faces without the blocky voxel look (SHIPPED Phase A `1ew`; editor lattice + v4 saves `1ex`; polish `1ey`) — section OPEN until 1ex ships
+
+Context: 1ev restored the smooth default, but that leaves the ORIGINAL `1et` complaint unfixed in
+smooth mode — natural steep slopes render as one huge stretched quad. User requirement this time:
+"NOT a blocky world — turn the stretched face into MULTIPLE faces so it can interact normal again".
+That explicitly REJECTS the voxel route (1eu's blocky read is what 1ev reverted). Researched the real
+pipeline by reading the code, not the (stale) docs.
+
+### Evidence gathered (all confirmed by reread)
+- Chunk = 30x30 tiles of 1x1 m, each tile ONE quad from 4 corner heights (`ChunkData.Heights`,
+  `BuildMeshData` = 4 verts/6 indices). **`game-design.md` §2.2 was STALE** (claimed a 5-vertex +
+  center-vertex chunk — an older design); fixed in the same pass.
+- Editing (`WorldStreamer.Deform.DeformAt`) is a vertical XZ cylinder grabbing **world-corner keys**
+  (`EncodeCorner`) → `ApplyHeightEdits` → `RebuildChunkRegion` → `ChunkObject.PatchRegion`. So an
+  interior face point has NO representable height in the smooth API — only the 4 corners are levers.
+  `GetDigDepth` samples the tile's SW corner under the point → meaningless mid-cliff.
+- CONCLUSION: splitting faces only helps if (a) the MESH gets interior points and (b) EDITS can move
+  those points. (a) ships in 1ew, (b) is 1ex.
+
+### H1 — uniform finer grid (every tile → NxN) → REJECTED (user chose adaptive)
+Would pay ~16x tri/collider cost across a mostly-flat world, and a finer lattice would have to span
+the chunk border ring (shared cross-chunk nodes duplicated in two chunks' saves) for zero benefit on
+flat land. User picked model A: split ONLY the over-stretched tiles.
+
+### H2 — adaptive stretch-split: delta > threshold → 2x2 sub-quad block → CONFIRMED
+`max(corner) - min(corner) > RefineThreshold` (default 2.5 m) → emit 16-vert/8-tri block; else the
+coarse 4-vert quad. Flat world pays nothing; a cliff pays 4 faces instead of 1. `0` disables.
+
+### H3 — derived (bilinear) interiors in 1ew, STORED fine lattice in 1ex → CONFIRMED (phased)
+- Derived: fine heights = bilinear of the 4 coarse corners → deterministic, saves byte-identical
+  (no format change in 1ew), pristine re-rolls exact, an edit that moves a coarse corner moves the
+  whole refined patch with it.
+- CRACK PROOF: a bilinear surface's EDGE is linear in its two edge corners, so a refined tile's
+  mid-edge point equals the coarse neighbour's straight-edge point ⇒ zero gaps, and cross-chunk
+  shared corner heights are untouched by refinement.
+- Stored lattice (v4 save + DeformAt/FlattenAt/GetDigDepth fine writes) deferred to 1ex because it
+  changes the save format AND the edit API — the phased plan user approved.
+- Dead end noted: persisting fine nodes but only for interior sub-quads in 1ew would have forced an
+  asymmetric save reader; derived-first keeps 1ew format-neutral (v1 saves keep loading).
+
+### H4 — refine across the chunk border ring → DEFERRED (interior-only rule in 1ew)
+Refining a border tile would put a fine node ON the shared edge that both chunks must agree on.
+1ew restricts refinement to local index 1..28 so the cross-chunk contract is unchanged. Note (checked):
+the derived midpoints would ALREADY match across chunks (edge-linearity), so the interior-only rule is
+about the future EDIT-ownership of fine nodes, not crack-safety — 1ex can lift it later.
+
+### H5 — merged mesh fixed stride breaks → block table → CONFIRMED (and one bug caught)
+`BuildMergedMeshData` laid tops at fixed `(tileIndex * 4)`; refined tiles are 16 verts ⇒ stride dies.
+Fix: `TileVertexBase`/`TileVertexCount` per tile, `PatchRegion` re-skims through the table.
+**Caught in reread:** the first draft built the table BEFORE the defensive null-tile fill, so fallback
+tiles' triangle indices were undercounted (allocation too small → IndexOutOfRange risk). Moved the
+table build to AFTER the fill.
+
+### H6 — LOD children break too → 31x31 corner lattice (ChunkCornerGrid) → CONFIRMED
+`BuildLodChild` sampled merged verts via `WorldCornerIndex(gx*step, gz*step, cs)` — fixed stride again.
+Fix: `MergedChunkMeshData.Corners` (31x31 Y/Normals/UV/Colors) whose ownership rule mirrors the
+retired `WorldCornerIndex` exactly ⇒ LOD surface bit-identical pre/post 1ew; `PatchRegion` re-stamps
+nodes it owns via `PatchCornerGrid`. Value-type trap checked: `ChunkCornerGrid` is a struct copied by
+value, but the arrays INSIDE are references ⇒ `PatchCornerGrid`'s writes land in `_merged.Corners`.
+
+### H7 — an edit can flip a tile's split state → FULL REBUILD on mismatch → CONFIRMED
+`PatchRegion` re-skims but cannot RESIZE a block, so `RebuildChunkRegion` compares fresh
+`ChunkMeshGenerator.IsRefined(tile)` vs `obj.IsTileRefined(lx,lz)`; any flip → `FullRebuildChunk`
+(which passes `RefineThreshold`). The fallback-tile build path omits the threshold → mismatch → full
+rebuild — safe by construction.
+
+### H8 — walls vs refinement → no conflict → CONFIRMED
+`EdgeIsRaised` fires only at whole-metre discontinuities (legacy slabs). Slab tiles are flat (delta≈0)
+⇒ never refined; refined tiles are steep ⇒ shared corners stay equal ⇒ never raise. Checked against
+both wall passes.
+
+### Verification (rule 3: grep + reread, no build)
+`RefineThreshold` def + all 3 `BuildMeshData` call sites; `TileVertexBase`/`TileVertexCount` writers/
+readers (voxel builders leave null, all readers null-guard); `ChunkCornerGrid` build/patch/LOD paths;
+`WorldCornerIndex`/`topVertsPerTile`/`ChunkMeshData.DefaultY` removed with zero remaining references;
+stale §2.2 doc fixed. Verdicts: H1 rejected; H2/H3a/H5/H6/H7/H8 confirmed; H3b+H4 deferred to `1ex`.
+Section stays OPEN pending user play-test + `1ex`.
+
 ## 1ev — user rejects the voxel-block look: un-default voxel, restore smooth as the default (shipped in `1ev`)
 
 Context: 1eu made `VoxelTerrainEnabled` default ON, so the fresh world renders as 1-metre stepped

@@ -20,35 +20,38 @@ Seamless open-world with real-time action combat, classless progression via a **
 - Each chunk identified by **(chunkX, chunkZ)** integer pair.
 - Same seed + coordinate always produces identical chunk (shared worlds on dedicated server).
 
-### 2.2 Chunk Structure (4 Triangles, Heightmap)
+### 2.2 Chunk Structure (900 Flat Tiles, 31x31 Corner Grid)
 
-Each chunk: **5 vertices** (4 corners + 1 center), split into **4 triangles** by X-diagonal.
+A terrain **chunk** is a 30x30 metre area (**TerrainChunkCoord.ChunkSize = 30**) divided into
+**900 tiles of 1x1 m**. Each tile is a single **flat quad** built from its **4 corner heights**
+(NW/NE/SE/SW), split into 2 triangles:
 
 ```
-C1─────────C2
- │ ╲  T1  ╱ │
- │   ╲   ╱  │
- │ T4 ╲╱ T2 │
- │     CE    │
- │ T3 ╱╲    │
- │   ╱   ╲  │
- │ ╱       ╲│
-C3─────────C4
+NW ────────── NE          NW = corner (x,   z+1)
+ │          ╱  │          NE = corner (x+1, z+1)
+ │      T1 ╱    │          SE = corner (x+1, z)
+ │        ╱      │          SW = corner (x,   z)   ← tile-local (0…1), X+S is origin
+ │     ╱   T2    │
+ │  ╱            │
+SW ────────── SE
 ```
 
-- **Corner vertices** shared with adjacent chunks (deterministic, never recalculated) → **zero gaps**.
-- **Center vertex** unique per chunk, influenced by corners + noise.
-- **Random angle pivot** applied to center vertex position offset for organic feel.
-- **Strict edge matching:** edges computed from shared world coordinates → guaranteed seamless stitching.
-
-#### Triangle Connectivity Rules
-
-Each chunk has **5 vertices**:
-- 4 corner vertices: shared between adjacent chunks (deterministic based on world coordinates)
-- 1 center vertex: unique to the chunk
-- 4 triangles: Top-Left, Top-Right, Bottom-Left, Bottom-Right
-
-**No gaps allowed.** Edge vertices are deterministic based on world coordinates, guaranteeing seamless stitching between any two adjacent chunks regardless of load order.
+- The chunk holds a **31x31 world-corner grid** (`CornerGridSize = 31`) of heights; each interior
+  corner is shared by 4 neighbouring tiles, boundary corners by 2, so adjacent tiles blend into a
+  smooth heightfield with **zero gaps**.
+- Pristine heights come from the 5-octave Perlin surface (§2.3) sampled per world corner; persisted
+  edits (§2.6) override whole tiles (4 corners each) or whole corners across tiles.
+- Each chunk is finalized as **ONE merged mesh** (single GameObject + single MeshCollider): all 900
+  top quads first (contiguous per-tile blocks), then vertical side walls only where a whole-metre
+  slab/older-carve discontinuity sits between neighbours. `ChunkObject.PatchRegion` re-skims a
+  touched tile rectangle in place through the per-tile block table (`TileVertexBase`/`TileVertexCount`),
+  so deformation never re-runs a full 900-tile rebuild.
+- LOD children (Lod1/Lod2) decimate the **31x31 corner grid** (a regular axis-aligned sample —
+  every 2nd/3rd corner), so far render bands cost ~1/4 / ~1/9 of the full mesh and always meet the
+  neighbour chunk at the shared boundary.
+- A tile whose 4 corners differ by more than the **refine threshold** (§2.10) renders as a 2x2
+  sub-quad grid instead of one quad — same smooth heightfield, but steep slopes split into several
+  smaller faces so the corner-grab editor (§3.8) can bite them level by level.
 
 ### 2.3 Perlin Noise Layers (5 octaves)
 
@@ -418,6 +421,54 @@ be previewed and iterated on; the smooth world is otherwise untouched.
   cavity side walls are NOT rendered — the rim of a carve reads as a slot into the void until per-run
   side-wall meshing lands. `ChunkSync` network sync of voxel edits is deferred; two perpendicular walls
   with different drop sizes can crack cosmetically at a 90° step corner.
+
+### 2.10 Smooth Terrain Refinement — Adaptive Stretch-Split (1ew)
+
+Fixes the smooth heightfield's core weakness **without** the blocky voxel look of §2.9: each tile is one
+quad from 4 corner heights, so a steep natural slope turns a 1x1 tile into one huge stretched membrane —
+the corner-grab deformation (§3.8) grabs only world-corner keys, so an interior face has no vertex to
+bite and a cliff reads as a single un-editable surface.
+
+- **Rule:** a tile whose 4 corner heights differ by more than `WorldStreamer.RefineThreshold`
+  (serialized, default `ChunkMeshGenerator.DefaultRefineThreshold` = **2.5 m**, `0` disables) renders
+  as a **2x2 sub-quad grid** (16 vertices / 8 triangles) instead of one quad. Flat tiles stay coarse
+  (one quad), so only genuinely steep tiles split — face count on a cliff goes 1 → 4 while the whole
+  world stays a continuous smooth heightfield at every zoom.
+- **Derived, never stored (1ew):** the 3x3 fine heights are the **bilinear interpolation of the tile's
+  4 coarse corners** — deterministic from the same coarse heights the save already stores. Saves are
+  byte-identical to pre-1ew (no format change), collision cooks from the same refined mesh, and a
+  pristine chunk still stores zero data. (1ex will persist fine lattice nodes as a v4 save section so
+  an edit can move a mid-face point directly.)
+- **Crack-free by construction:** every sub-quad edge lies exactly on the coarse bilinear surface — an
+  edge midpoint is the linear average of the two shared corners, which is precisely what the coarse
+  neighbour's straight edge passes through — so a refined tile meets a coarse neighbour (or another
+  refined tile) with **zero gap**, and cross-chunk shared corner heights are untouched by refinement.
+- **Interior-of-chunk only:** tiles on the 1 m border ring (local index 0 or 29) never refine, keeping
+  the cross-chunk shared-corner contract exactly as it was; the fine-edit lattice of 1ex therefore stays
+  strictly intra-chunk. Known limit: a cliff running exactly along a chunk edge keeps its 1 m border
+  strip coarse.
+- **Merged mesh is a sequence of variable-size per-tile blocks:** `MergedChunkMeshData.TileVertexBase`
+  / `TileVertexCount` record each tile's block offset + length (4 or 16 verts), and
+  `ChunkObject.PatchRegion` re-skims a touched rectangle through that table (the old fixed
+  `tileIndex * 4` stride is gone). The **31x31 corner lattice** rides along as
+  `MergedChunkMeshData.Corners` — LOD children (§2.2) decimate from the lattice now that the merged
+  per-tile stride is variable, and `PatchCornerGrid` re-stamps lattice nodes owned by a patched region
+  so far bands track deformation.
+- **Edit flips split state ⇒ full rebuild:** `RebuildChunkRegion` compares each region tile's fresh
+  refinedness (`ChunkMeshGenerator.IsRefined`) against `ChunkObject.IsTileRefined`; any flip (an edit
+  pushed a tile across the threshold) falls back to `FullRebuildChunk`, because the block table cannot
+  be resized in place by a patch.
+- **No wall conflicts:** refined steep tiles never emit side walls (shared-edge corners stay equal ⇒
+  `EdgeIsRaised` is false) and slab tiles are flat (delta ≈ 0 ⇒ never refined).
+- **UVs/normals:** sub-quads keep whole-tile 1 m UVs (texture density unchanged) and flat per-sub-quad
+  normals (same style as the coarse quad).
+- **Edit granularity in 1ew:** the split is **render + hit granularity** — `DeformAt`/`FlattenAt`/
+  `GetDigDepth` still move/sample the 4 coarse corners and the fine points re-derive from them
+  (corners move → the whole refined patch follows). 1ex adds the fine lattice writes so a dig can move
+  a mid-face point on its own.
+- **Play-test gate (1ew):** steep slopes show multiple small faces (never blocky steps like §2.9, no
+  holes or seams at splits), corner edits still move terrain coarsely, and revisiting an area restores
+  it exactly.
 
 ---
 

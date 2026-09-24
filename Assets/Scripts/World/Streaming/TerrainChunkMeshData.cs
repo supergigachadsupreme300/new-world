@@ -47,4 +47,48 @@ public struct MergedChunkMeshData
     public Vector3[] Normals;
     public Color[] Colors;
     public Bounds Bounds;
+
+    /// <summary>
+    /// Start index into <see cref="Vertices"/> of each tile's merged shallow block (1ew). May be
+    /// null for non-terrain merged builders (e.g. the voxel path).
+    /// </summary>
+    public int[] TileVertexBase;
+
+    /// <summary>
+    /// Vertex count of each tile's merged shallow block: 4 (coarse quad, legacy layout) or 16
+    /// (1ew refined 2x2 block). Consumers use the base+count pair instead of the old fixed
+    /// (tileIndex * 4) stride so refined and coarse tiles can safely mix inside one chunk mesh.
+    /// </summary>
+    public int[] TileVertexCount;
+
+    /// <summary>
+    /// Coarse (31x31) world-corner lattice the LOD children sample from (1ew). Built by the chunk
+    /// mesh generator on the worker thread, then re-stamped per patched region by PatchCornerGrid.
+    /// Y is tile-relative height (0..1), mirrors the merged shallow block exactly. Null on
+    /// non-terrain builders (voxel path builds its own LOD).
+    /// </summary>
+    public ChunkCornerGrid Corners;
+}
+
+/// <summary>
+/// The coarse lattice of a terrain chunk's world corners (1ew): one node per corner of the 31x31
+/// corner grid (TerrainChunkCoord.CornerGridSize), stored in corner-lattice order gz * 31 + gx so a
+/// LOD child can sample axis-aligned strides without ever touching the merged block table. Carried
+/// by MergedChunkMeshData because refined (16-vertex) shallow blocks break the fixed stride the old
+/// LOD sampler used on the merged vertex array.
+/// </summary>
+public struct ChunkCornerGrid
+{
+    public float[] Y;
+    public Vector3[] Normals;
+    public Vector2[] UV;
+    public Color[] Colors;
+
+    public ChunkCornerGrid(int size)
+    {
+        Y = new float[size];
+        Normals = new Vector3[size];
+        UV = new Vector2[size];
+        Colors = new Color[size];
+    }
 }

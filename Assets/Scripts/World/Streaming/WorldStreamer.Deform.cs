@@ -243,7 +243,7 @@ public partial class WorldStreamer
                 var tileCoord = new ChunkCoord(cminX + localX, cminZ + localZ);
                 if (_loadedData.TryGetValue(tileCoord, out ChunkData tileData))
                     tiles[localZ * cs + localX] =
-                        ChunkMeshGenerator.BuildMeshData(tileData, TerrainNoiseGenerator.DefaultLayers);
+                        ChunkMeshGenerator.BuildMeshData(tileData, TerrainNoiseGenerator.DefaultLayers, RefineThreshold);
                 else
                     anyMissing = true;
             }
@@ -448,7 +448,9 @@ public partial class WorldStreamer
     /// the merged mesh's vertex counts, so once a chunk holds any flat-top block tile it is FULL
     /// rebuilt (with real neighbour border heights); otherwise the fast in-place region patch
     /// (smooth blending — e.g. farm-plot flattening) is used, falling back to a full rebuild when
-    /// the patch would cover nearly the whole chunk.
+    /// the patch would cover nearly the whole chunk OR (1ew) when any region tile's adaptive
+    /// stretch-split state would change the merged block sizes (PatchRegion re-skims through the
+    /// block table but cannot resize it).
     /// </summary>
     private void RebuildChunkRegion(TerrainChunkCoord tc, ChunkObject obj,
         int minCX, int minCZ, int maxCX, int maxCZ)
@@ -456,9 +458,9 @@ public partial class WorldStreamer
         int cs = TerrainChunkCoord.ChunkSize;
         tc.GetTileRange(out int cminX, out int cminZ, out int cmaxX, out int cmaxZ);
 
-        // Voxel mode (1et): every rendered tile is flat and side walls change vertex counts, so the
-        // fast in-place PatchRegion (which assumes the TOPS-FIRST quad layout) can never apply —
-        // any edit is a full voxel rebuild.
+        // Voxel mode (1et): the stepped mesh has no per-tile TOP quad layout at all (VoxelMesher
+        // emits its own whole-chunk buffer), so there is nothing for the in-place PatchRegion path
+        // to re-skin — any edit is a full voxel rebuild.
         if (VoxelTerrainEnabled)
         {
             FullRebuildChunk(tc);
@@ -487,6 +489,7 @@ public partial class WorldStreamer
         }
 
         var region = new ChunkMeshData[w * h];
+        bool refinednessMismatch = false;
         for (int localZ = lMinZ; localZ <= lMaxZ; localZ++)
         {
             for (int localX = lMinX; localX <= lMaxX; localX++)
@@ -495,9 +498,33 @@ public partial class WorldStreamer
                 if (!_loadedData.TryGetValue(tileCoord, out ChunkData tileData))
                     tileData = ChunkMeshGenerator.BuildFallbackTileData(cminX + localX, cminZ + localZ, Seed);
                 region[(localZ - lMinZ) * w + (localX - lMinX)] =
-                    ChunkMeshGenerator.BuildMeshData(tileData, TerrainNoiseGenerator.DefaultLayers);
+                    ChunkMeshGenerator.BuildMeshData(tileData, TerrainNoiseGenerator.DefaultLayers, RefineThreshold);
             }
         }
+
+        // 1ew: adaptive stretch-split means an edit can flip a tile between coarse (4 verts) and
+        // refined (16 verts) in the middle of a chunk, changing the merged buffer's block sizes.
+        // PatchRegion re-skims through the block table but cannot resize it, so any tile whose
+        // refinedness changed falls back to a full chunk rebuild (feeds the same block table anew).
+        for (int localZ = lMinZ; localZ <= lMaxZ && !refinednessMismatch; localZ++)
+        {
+            for (int localX = lMinX; localX <= lMaxX; localX++)
+            {
+                bool wasRefined = obj.IsTileRefined(localX, localZ);
+                bool nowRefined = ChunkMeshGenerator.IsRefined(region[(localZ - lMinZ) * w + (localX - lMinX)]);
+                if (wasRefined != nowRefined)
+                {
+                    refinednessMismatch = true;
+                    break;
+                }
+            }
+        }
+        if (refinednessMismatch)
+        {
+            FullRebuildChunk(tc);
+            return;
+        }
+
         obj.PatchRegion(lMinX, lMinZ, lMaxX, lMaxZ, region, Seed);
     }
 
