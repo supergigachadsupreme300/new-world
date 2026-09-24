@@ -128,6 +128,17 @@ public sealed class ChunkLodManager : MonoBehaviour
                 chunk.BandIndex = band;
                 ApplyBand(chunk, band);
             }
+            else if (band > 0 && chunk.Chunk != null && chunk.Chunk.LodDirty)
+            {
+                // 1fz: deformation (PatchRegion -> _lodDirty) can hit a chunk that ALREADY shows a
+                // detail band, and the refresh above only ran on band CHANGE — so the active Lod
+                // child kept the pre-deform surface until the player crossed a band boundary (a
+                // visible hole at the cast site, healed only by getting close). Honor the
+                // no-stale-far-surface invariant directly: rebuild the dirty grids in place while
+                // the detail stays selected. RefreshLodMeshes early-outs when the flag is clear, so
+                // this costs one bool read per scan tick for clean chunks.
+                chunk.Chunk.RefreshLodMeshes();
+            }
         }
     }
 

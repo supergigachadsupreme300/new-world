@@ -63,6 +63,12 @@ public class ChunkObject : MonoBehaviour
     private MeshFilter _lod2Mf;
     private bool _lodDirty = true;
 
+    /// <summary>True when either Lod child is stale (a merged apply/patch dirtied the surface and the
+    /// decimated grids have not been rebuilt yet). ChunkLodManager polls this so a chunk already
+    /// showing a detail band refreshes its active child after deformation without waiting for the
+    /// next band change (1fz).</summary>
+    public bool LodDirty => _lodDirty;
+
     /// <summary>
     /// True while this chunk renders a stepped voxel mesh (1et). Its LOD children (1eu) are
     /// decimated COLUMN samples of <see cref="VoxelStore"/> (Built via BuildVoxelLodChild) instead

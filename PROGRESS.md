@@ -3,6 +3,55 @@
 Last updated: 2026-09-24. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1fz. Magic deformation leaves a see-through hole at the cast site (intermittent, persists across reload) — stale far-band LOD hardening shipped
+
+User report: casting an earth spell (Wall/Pillar/etc.) occasionally leaves an uncovered,
+see-through area in the terrain at the cast site; walking closer makes it disappear; it persists
+after unload/reload; intermittent ("sometime", "close up").
+
+- **Full audit verdict (see THINKING §1fz for the trail):** the entire pipeline
+  `DeformAt` → `ApplyHeightEdits` → `RebuildChunkRegion` → `PatchRegion` → `PatchCornerGrid`/
+  `BuildCornerGrid` → `BuildMergedMeshData` → `BuildOrLoadChunk` → `FlushDirtyChunk` →
+  `BuildLodChild` was line-by-line verified clean — including the original suspect (refined-lattice
+  corner-slot mapping), which was FALSIFIED: `IsRefinable` (ChunkMeshGenerator.cs:220) restricts
+  refinement to strictly interior tiles, so border tiles are always coarse and interior lattice nodes
+  only ever read slot 3 (= SW corner, exact in both layouts). Worker race ruled out (`_loadedData`
+  is main-thread-only); unload destroys chunk GOs (no pooling reuse).
+- **The one provable defect found & fixed:** `ChunkLodManager.Update` refreshed LOD children only
+  when the distance band *changed* (`ApplyBand`) — a chunk already showing a detail band (Lod1
+  30-60 m, Lod2 60 m+) that got deformed kept a **stale pre-deform surface** until the player
+  crossed a band boundary, contradicting the invariant documented at ChunkObject.cs:58-59 /
+  ChunkLodManager.cs:178-180 / game-design §2.2 ("a far band never renders a pre-excavation hole").
+  **Fix:** expose `ChunkObject.LodDirty` (reads the existing `_lodDirty` flag set by every
+  `ApplyMerged`/`PatchRegion`) and, in the manager's per-scan `else` branch, call
+  `RefreshLodMeshes()` for any `band > 0` chunk whose flag is set — one bool read per scan tick
+  for clean chunks; `RefreshLodMeshes` itself early-outs when the flag is clear.
+- **Hypothesis status:** shipped, UNCONFIRMED against the "persists after reload" symptom (reload
+  builds fresh chunk GOs, so a stale child alone doesn't obviously survive it). Alternates still
+  open if play-test shows the hole persists: (a) legacy/corrupt pre-1fx save tile heights
+  regenerated as noise inside deformed regions (deterministic → persists); (b) sub-LOD-step thin
+  deform features vanishing in decimated far-band sampling; (c) `RegisterChunk` snapshot timing
+  showing stale children (`entry.Details` captured before lazy child build).
+- **Docs:** `game-design.md` §2.2 LOD bullet (band-switch-only wording → also polls `LodDirty`
+  per scan tick, 1fz); `THINKING.md` §1fz (audit trail, falsified hypothesis, alternates).
+- Out-of-scope observations noted but NOT changed: `RegisterChunk` snapshot timing; FarShell far
+  cells never invalidated by deform (live ≥~300 m, contradicts "close up").
+
+### 1fz-status
+- SHIPPED (hypothesis pending validation); verified by grep + reread (rule 3 — no CLI/Unity build).
+  Grep confirms `LodDirty` has exactly two references (declaration + the new poll site);
+  `RefreshLodMeshes` clears `_lodDirty` on every path (ChunkObject.cs:272/275/282) so the new
+  branch cannot spin per-frame; diff of both files inspected byte-level (em-dashes intact, no BOM
+  corruption from an aborted PowerShell edit — that file was `git checkout`-restored and re-edited).
+- Diagnostic/fix commit: this one (new commit, not amended).
+- Pending play-test (rule 3 = no build): (a) cast Wall/Pillar/Spikes/Ring/Crater at 30-120 m —
+  no see-through hole at the cast site when viewed from range, close up, and after
+  unload/reload; (b) cross a band boundary (walk from 60 m+ toward the cast site) — no stale
+  pre-deform surface flash before the refresh; (c) regressions: normal LOD banding still
+  simplifies distant chunks, collider behavior unchanged; (d) if the hole PERSISTS in play-test,
+  investigate save integrity next (ChunkTileMod NaN/garbage vs `IsSaneHeight` noise-fallback —
+  the "persists after reload" lead).
+
 ## 1fx. World-load regression ("map under the player no longer loads") — root cause found + fixed: BuildCornerGrid far-corner index out of bounds (1ew regression)
 
 User report right after 1ew shipped, in three zooms: (1) "the map under the player no longer loads",

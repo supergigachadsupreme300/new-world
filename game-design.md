@@ -246,7 +246,9 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   while a detail band is active** (before this fix the root stayed enabled and every distant chunk
   drew its full ~1800-tri mesh *plus* the detail). The children are built **lazily** (only when a
   band first selects them) and marked stale by every `ApplyMerged`/`PatchRegion`, so a band switch
-  refreshes the decimated grid from the current terrain first — deformation never renders a
+  refreshes the decimated grid from the current terrain first — and a chunk already showing a detail
+  band refreshes its active child as soon as a patch dirties it (1fz: the manager polls `LodDirty`
+  each scan tick instead of only reacting to band *changes*) — deformation never renders a
   pre-excavation hole, and near-band chunks never pay for LOD at all. Physics is untouched (the
   collider lives on the root and rides the full mesh, §2.5 collider-on-demand).
 - **Transient-object pooling (1e6):** the generic `ObjectPooler` (Phase 9, previously unused) is now

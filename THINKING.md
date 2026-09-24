@@ -15,6 +15,68 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1fz — "magic deformation leaves a see-through hole at the cast site": full-pipeline audit → stale far-band LOD is the only provable defect (SHIPPED — hypothesis pending play-test)
+
+User report: casting an earth spell occasionally leaves an uncovered/see-through area at the cast
+site; walking closer makes it disappear; it persists after unload/reload; intermittent ("sometime",
+"close up"). Working hypothesis list and the evidence trail:
+
+### H0 — refined-lattice corner-slot mapping (`BuildCornerGrid`/`PatchCornerGrid` refined vertices) → REJECTED (falsified)
+Was the original plan's premise: refined tiles place tile-corners at slots {NW:8, NE:13, SE:6, SW:3},
+so the lattice sampler supposedly read the wrong vertex on refined tiles. Falsified by reading
+`IsRefinable` (ChunkMeshGenerator.cs:204-221): refinement is restricted to **strictly interior**
+tiles (`gx > 0 && gx < cs-1 && gz > 0 && gz < cs-1`); border-ring tiles are ALWAYS coarse. Interior
+lattice nodes only ever read slot 3 (= SW corner), which is exact in BOTH the coarse
+(NW,NE,SE,SW = 0-3) and refined (row-major sub-quads) layouts. Mapping table would have been a
+no-op. Also confirmed by construction: `BuildMergedMeshData`'s defensive fill + `BuildOrLoadChunk`'s
+NaN-guarded corner stamping.
+
+### H1 — worker-thread race on `_loadedData` → REJECTED
+`DeformAt`/`ApplyHeightEdits` run main-thread only; `BackgroundGenerateChunk` (worker) reads save +
+noise only, never `_loadedData`. `FlushDirtyChunk` clones heights per-tile before publish.
+
+### H2 — chunk-GO pooling reuse of stale meshes → REJECTED
+`UnloadChunk` (Streaming.cs:228-254) does `obj.Release()` + `Destroy(obj.gameObject)` — no pool;
+reload builds a fresh GO, fresh `BuildOrLoadChunk` (deterministic from save+noise).
+
+### H3 — far shell never invalidated by deform → NOTED, OUT OF SCOPE
+Far cells (≥~300 m) never get deform invalidation, but the report says the hole is at the cast
+site seen "close up" — far shell can't be what the user is seeing. Recorded, not changed.
+
+### H4 — `RegisterChunk` snapshot timing (`entry.Details` empty) → OPEN alternate
+`NewWorldSystems.SyncChunkRegistration` snapshots LOD children at registration, but children are
+built lazily post-registration → `entry.Details` may be empty → some far bands fall back to the
+full Lod0 mesh (a performance bug, not a hole). Not the reported symptom; left as an open lead.
+
+### H5 — stale far-band LOD child after deformation → CONFIRMED as the only provable defect, SHIPPED
+`ChunkLodManager.Update` called `RefreshLodMeshes` only inside `ApplyBand`, which runs only when
+`band != chunk.BandIndex`. A chunk already showing Lod1/Lod2 (30-60 m / 60 m+) that got deformed
+kept its **pre-deform decimated surface** until the player happened to cross a band boundary —
+directly contradicting the invariant the code itself documents (ChunkObject.cs:58-59,
+ChunkLodManager.cs:178-180: "a far band never renders a pre-excavation hole") and game-design §2.2.
+FIX: `ChunkObject.LodDirty => _lodDirty` accessor; manager `else if (band > 0 && chunk.Chunk != null
+&& chunk.Chunk.LodDirty) chunk.Chunk.RefreshLodMeshes();` — polled every scan tick; cheap (one bool
+read) because `RefreshLodMeshes` early-outs when the flag is clear, and every path clears the flag.
+This matches three of the four reported symptoms (visible hole at range, disappears when walking
+closer across a band boundary, intermittent — only when the cast lands in an already-degraded far
+band). **"Persists after reload" is NOT explained by H5** (fresh GO on reload) — so the section
+stays with open alternates:
+
+### OPEN alternates if play-test still shows the hole
+- (a) legacy/corrupt pre-1fx save `ChunkTileMod` heights regenerating as noise inside deformed
+  regions — deterministic across reloads → persists; check `IsSaneHeight` noise-fallback paths.
+- (b) sub-LOD-step thin deform features (a narrow wall line) vanishing in the 2x/3x decimated
+  far-band sampling — feature is below the LOD sample rate, so the mesh simply doesn't resolve it
+  (would "persist" as long as the band stays selected).
+- (c) H4 registration timing showing stale/empty detail children.
+
+### Verdict
+H5 shipped as the 1fz fix (see PROGRESS §1fz for the play-test checklist); H0-H3 rejected with
+evidence; H4 + (a)-(c) remain open leads for the "persists after reload" symptom. Section marked
+SHIPPED-with-open-alternates (task committed; play-test validation pending).
+
+---
+
 ## 1fx — "the map under the player no longer loads": real-chunk ring near the player missing (CLOSED — root cause CONFIRMED + fixed in the 1fx commit)
 
 User report right after 1ew shipped (previous session): "only chunks near the player are missing" —
