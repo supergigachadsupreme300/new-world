@@ -122,7 +122,13 @@ edges), with a
    while its coarser replacement builds (promote retain), a newly live coarser cell hides its finer
    siblings the poll it is created, and a demoted coarse cell keeps rendering until EVERY finer
    replacement exists, then hands ownership to them atomically (`CompleteFarHandoff`) — one live owner
-   per region at all times, no blink, no z-fight. Cell
+   per region at all times, no blink, no z-fight. The rebuild churn at the boundary is also **taken off
+   the crossing** (**1er**): the swap band is **pre-warmed** — a live coarse cell whose farthest corner
+   is within 2 rings of its demote ring generates its finer children AHEAD of the cut as **reserved
+   shadows** (built on the ThreadPool over the preceding polls, created inactive), and fine cells under a
+   live coarser owner are **retained** (never destroyed) while their box lives — so promote/demote while
+   moving is almost always a `SetActive` toggle rather than a fresh build, and dispatches are paced
+   (36 on-demand + 12 reserved per poll) so no chunk step storms the workers. Cell
    *block coordinates* `FarCell.X/Z` are the block's **min chunk coordinate in chunk units** everywhere
    (**1el** — build + placement once multiplied them by the span again, so every span-3/6 cell was
    rendered 3×/6× further out, leaving the ~450-1350 m mid-band a permanent empty ring).

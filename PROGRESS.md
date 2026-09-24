@@ -3,6 +3,73 @@
 Last updated: 2026-09-24. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1er. Swap-band pre-warm + shadow retention — far-shell "new ground while moving" no longer lags
+
+User report after 1eq: "it is causing lag to render new ground when player moving, cant you use async
+or smth" (confirmed: mid-far band ~330-480 m — the 1eq swap band around rings 13-16). Generation was
+ALREADY async: the hitches were the swap band REBUILDING on the crossing — moving one chunk step flips
+a band of boxes, the ring walk re-discovers ~90-135 brand-new span-1 cells that had been suppressed
+under their span-3 boxes, dispatches up to 96 workers at once, then drains them through the main thread
+(16 cells / 2.5 ms per poll for ~6-8 polls) right on top of the real-chunk finalize + collider cooks +
+prop spawns. Unity mesh uploads must stay on the main thread, so "more async" can't move the last hop —
+1er ERASES the on-crossing build instead: build the swap band AHEAD of the cut, and never destroy the
+fine cells a live box replaces.
+
+- `Assets\Scripts\World\Streaming\WorldStreamer.FarShell.cs`:
+  - **Swap-band pre-warm** (`PreWarmFarShadowCells`, new step 2b after the ring walk): every live
+    span-3/6 cell whose farthest corner is within `FarPrebuildAhead` (=2) rings of its demote ring
+    (`FarBandBMin+2`/`FarBandCMin+2`) appends its finer children to `_farPending` marked in
+    `_farReserved`. They generate over the polls BEFORE the crossing, so `CompleteFarHandoff` at demote
+    time finds every replacement already live-hidden — a pure SetActive swap at the ring cut. Ring 32+
+    fringe cells still use the normal ring walk.
+  - **Reserved payload**: `FarMeshData.Reserved` carries the flag from dispatch to finalize (not re-read
+    from shared state, so it survives the in-flight period). `BackgroundGenerateFarCell(..., bool
+    reserved)`; finalize accepts reserved cells even when not (yet) required and creates them via
+    `CreateFarSector(cell, merged, reserved)` INACTIVE (`go.SetActive(false)`). A reserved cell that
+    became genuinely required while building activates via the very next poll's active-shadow sync.
+  - **Shadow retention** (removal scan, covers ALL spans now): a cell under a LIVE coarser owner
+    (`owner.Span > cell.Span` with the owner present in `_farSectors`) is RETAINED as an inactive
+    shadow instead of destroyed — promoted-away rim cells and pre-warmed children keep their meshes, so
+    trailing demotes and turn-arounds reactivate the SAME bytes. Bounded: retention only exists inside
+    live boxes (a subset of the shell); cells beyond keep still destroy wholesale. (The previous
+    keep-alive sat inside the `cell.Span >= 3` branch only, so span-1-under-span-3 still got destroyed —
+    restructured to generic `coveredByLiveCoarse` retain above the span check.)
+  - **Dispatch pacing**: `MaxFarDispatchPerPoll` (36) on-demand + `MaxFarPrebuildPerPoll` (12) reserved
+    per poll, shared `MaxFarInFlight` (96). On-demand cells precede reserved ones in `_farPending`
+    (ring walk first, pre-warm appends last), so a ring cut never spawns a 96-job storm and the prefill
+    ramp can never starve the near void. `_farReserved` is cleared every poll with `_farPending`/
+    `_farVisited` and by `ClearFarShell`.
+  - All 1eq guarantees preserved: promote retain, demote tenant retain while coverage builds, atomic
+    `CompleteFarHandoff`, one live owner per region — no hole, no z-fight. Idle behavior unchanged
+    (idle gate skips the whole tick).
+
+### 1er-status
+- Implemented; verified by grep + reread (rule 3 — no CLI build): pre-warm dedupe path walked
+  (`_farSectors`/`_farInFlight`/`RequiredFarCell`/`_farVisited`), dispatch-order invariant (ring-walk
+  on-demand cells strictly precede pre-warm reserved cells, so the `break` after
+  `MaxFarDispatchPerPoll` is safe), reserved flag survives the async period via `FarMeshData`, finalize
+  accepts reserved-not-required cells and creates them inactive, and every swap path re-derived:
+  demote-with-retained-children (coverage ready → instant handoff), demote-before-prewarm-finishes
+  (tenant retains until coverage, children finalize inactive then sync activates), turn-away waste
+  (reserved in-flight cells create inactive, then the next removal scan destroys them as stale — small,
+  self-cleaning, bounded by the 2-ring prewarm window). New/changed symbols have single definitions and
+  matching call sites (`PreWarmFarShadowCells` 1 def + 1 call, `CreateFarSector` 1 def + 1 call,
+  `BackgroundGenerateFarCell` 1 def + 1 call); `CompleteFarHandoff`/`HideFinerChildren`/
+  `FarCoverageReady` untouched. No public API/signature change; real-ring path untouched.
+- Cost note: steady-state `_farSectors` grows slightly (retained inactive shadows inside the live-box
+  region, ~hundreds of small 11x11-vert GOs) and step-1a sync + step-1b scan iterate them — bounded by
+  the shell geography, never the distance walked. Trade: swap-band movement cost drops from bursty
+  rebuild + dispatch + finalize storms (~90-135 cells per crossing) to a steady pre-warm trickle
+  (≤12 reserved dispatches/poll) + SetActive toggles at each cut. If the retained-shadow count ever
+  shows in the profiler, prefer hiding the box's own shadow rather than retaining (kept for now so
+  trailing swaps never rebuild).
+- Play-test (pending, Unity): sprint a long straight line on the test platform across ≥10 chunk
+  boundaries — the far shell at ~330-480 m must fill continuously with NO hitch/frame spike as each
+  crossing's demote/promote fires (ground no longer "renders with lag" — it should be already there as
+  a pre-warmed shadow and merely swap in); no new blank/blink or z-fight anywhere in the swap band;
+  the `far cells` overlay should stay roughly steady while walking; turn around 180° and walk back — no
+  rebuild hitch on re-approach (retained shadows reactivate); idle must be unchanged.
+
 ## 1eq. Far-shell ownership swaps never blink — promote/demote around the span-1↔span-3 ring boundary keep one live cell per region ("chunks in range disappear and render right back" while moving)
 
 User report: "when player move, chunks that in the range disappear and rendered right back". Dialed in

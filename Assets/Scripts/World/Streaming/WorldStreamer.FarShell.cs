@@ -40,6 +40,17 @@ using UnityEngine;
 /// until EVERY finer replacement has been generated, then hands ownership to them in one poll
 /// (CompleteFarHandoff). One live owner per region at all times — no hole, no z-fight.
 ///
+/// Swap pre-warm (1er): the movement hitches that showed once the swaps stopped blinking came from
+/// rebuilding the demoted children AT the crossing (~90-135 new span-1 cells around rings 13-16 into
+/// the dispatch+finalize pipeline the poll a chunk boundary was crossed). The rebuild must stay on
+    /// the main thread (Unity mesh upload), so instead of attempting "more async" the demote side is
+    /// ERASED:
+/// the finer children under a live span-3/6 whose farthest corner is within FarPrebuildAhead bands of
+/// its demote ring are generated AHEAD of the cut as reserved shadows (inactive until their owner
+/// leaves), and a fine cell under a live coarser owner is RETAINED (never destroyed) while its box
+/// lives. Every swap then only toggles active flags — rebuild churn while moving drops to a steady
+/// trickle spread over the polls leading up to each crossing.
+///
 /// Generation: the ring is re-walked each poll (cheap int math) into a pending list (deduped),
 /// dispatched to the ThreadPool like real chunks (MaxFarInFlight cap) and finalized on the main
 /// thread at MaxFarFinalizePerPoll/poll (~320-960 cell meshes/s; the initial ~1,000-cell fill at the
@@ -83,6 +94,24 @@ public partial class WorldStreamer
     private const float FarFinalizeBudgetMs = 2.5f;
     /// <summary>Max far sectors destroyed per poll while the shell shrinks.</summary>
     private const int MaxFarUnloadsPerPoll = 32;
+    /// <summary>How many ring-bands ahead of a demote the swap band pre-warms its finer children
+    /// (1er): a live span-3/6 cell whose farthest corner is within
+    /// (FarBandBMin/CMin + this) of the focus starts generating its span-1/3 children as reserved
+    /// shadows, so by the time the box demotes (a chunk step or two later) every replacement already
+    /// exists and the handoff is a pure SetActive swap — the "new ground while moving" rebuild burst
+    /// (up to ~90-135 span-1 cells at rings 13-16 per crossing) is ramped as a steady async trickle
+    /// instead. Pre-warm windows of exactly this width keep the waste small when the player turns
+    /// away.</summary>
+    private const int FarPrebuildAhead = 2;
+    /// <summary>Max on-demand far-sector dispatches per poll (1er pacing). Defends the crossing
+    /// moment: a shift fires at most this many real workers (plus <see cref="MaxFarPrebuildPerPoll"/>
+    /// reserved ones), so the ThreadPool never gets a 96-job storm in one poll. The cap is generous
+    /// over the steady 16 cells/poll finalize drain.</summary>
+    private const int MaxFarDispatchPerPoll = 36;
+    /// <summary>Max reserved (pre-warmed swap-band) far-sector dispatches per poll (1er). Kept well
+    /// below the on-demand share so a prefill ramp can never starve the near-void cells that surround
+    /// the player.</summary>
+    private const int MaxFarPrebuildPerPoll = 12;
     /// <summary>Consecutive fully-settled polls before the far shell bakes its static batch (1eh).
     /// ~20 polls at the 20 Hz beat ≈ 1 s of a settled shell.</summary>
     private const int FarSettlePollsBeforeBake = 20;
@@ -98,6 +127,12 @@ public partial class WorldStreamer
     private readonly ConcurrentQueue<FarMeshData> _farReady = new ConcurrentQueue<FarMeshData>();
     private readonly List<FarCell> _farPending = new List<FarCell>();
     private readonly HashSet<FarCell> _farVisited = new HashSet<FarCell>();
+    /// <summary>Cells listed in <see cref="_farPending"/> that are RESERVED pre-warmed shadows (1er):
+    /// the finer cells a live coarse owner will hand ownership to when it demotes. They are built off
+    /// the critical crossing (ahead of the ring cut) and finalized INACTIVE — never rendered until
+    /// their owner leaves or they become genuinely required. Rebuilt every poll alongside
+    /// <see cref="_farPending"/>.</summary>
+    private readonly HashSet<FarCell> _farReserved = new HashSet<FarCell>();
     /// <summary>Generation epoch — bumped by <see cref="ClearFarShell"/> so stale worker output is
     /// dropped at finalize instead of creating sectors over a wiped/regenerating world.</summary>
     private int _farEpoch;
@@ -154,12 +189,17 @@ public partial class WorldStreamer
         public readonly FarCell Cell;
         public readonly int Epoch;
         public readonly MergedChunkMeshData Merged;
+        /// <summary>True for a pre-warmed swap-band shadow (1er): the cell was built ahead of the
+        /// ring cut and must be created INACTIVE — reserved until its covering coarse owner leaves
+        /// or it becomes genuinely required on its own.</summary>
+        public readonly bool Reserved;
 
-        public FarMeshData(FarCell cell, int epoch, MergedChunkMeshData merged)
+        public FarMeshData(FarCell cell, int epoch, MergedChunkMeshData merged, bool reserved)
         {
             Cell = cell;
             Epoch = epoch;
             Merged = merged;
+            Reserved = reserved;
         }
     }
 
@@ -246,8 +286,9 @@ public partial class WorldStreamer
 
     /// <summary>True when a coarser far cell that owns this footprint is already live (1eq), so
     /// <paramref name="cell"/> must render nothing — it is a reserved shadow that takes over the
-    /// instant the coarser owner leaves (promote-hide keeps the pair invisible until the removal
-    /// scan destroys the fine cell; the demote handoff activates these shadows atomically). Checks
+    /// instant the coarser owner leaves (promote-hide keeps the pair invisible; 1er the fine cell is
+    /// then RETAINED as the shadow rather than destroyed, and the demote handoff reactivates these
+    /// shadows atomically). Checks
     /// EVERY coarser level, so a span-1 under a live span-6 is shadowed even with no span-3 in
     /// between.</summary>
     private bool FarShadowedByCoarse(FarCell cell)
@@ -366,9 +407,12 @@ public partial class WorldStreamer
     ///       queued or in-flight so the approach edge never shows a hole), capped per poll with a
     ///       backlog flag;
     ///   (2) re-walk the annulus ring near+1..keep into a deduped pending list;
+    ///   (2b) pre-warm the swap band: finer children of coarse cells about to demote are appended as
+    ///       RESERVED builds (1er), generated in the polls before the ring cut so the handoff that
+    ///       follows is a SetActive toggle rather than an on-the-crossing rebuild;
     ///   (3) dispatch to the ThreadPool (MaxFarInFlight), passing seed/epoch/step by value;
     ///   (4) finalize up to MaxFarFinalizePerPoll — dropping stale epochs and cells that are no
-    ///       longer required, then creating the sector GameObject.
+    ///       longer required, then creating the sector GameObject (inactive when reserved).
     /// </summary>
     private void FarShellTick(TerrainChunkCoord centre, int view, int near)
     {
@@ -400,6 +444,9 @@ public partial class WorldStreamer
         // replacement has been created, then hands ownership to them in one poll. Without this the
         // removal scan would destroy the covering cell in the same poll the replacement is only
         // enqueued, opening a visible hole for the async rebuild window (~50-400 ms).
+        // 1er: fine cells under a LIVE coarser owner are RETAINED as inactive shadows (the demote
+        // reactivates the same mesh), and the swap band is pre-warmed by step 2b — so while a
+        // demote still keeps its tenant until coverage, nearly every swap is a SetActive toggle.
         List<FarCell> stale = null;
         List<FarCell> handoffs = null;
         int removed = 0;
@@ -423,36 +470,37 @@ public partial class WorldStreamer
             FarCell? owner = FarCellForChunk(cell.X, cell.Z, centre, near, keep);
             if (owner.HasValue && owner.Value.Span > cell.Span && !_farSectors.ContainsKey(owner.Value))
                 continue;
+            if (owner.HasValue && owner.Value.Span > cell.Span)
+            {
+                // Covered by a LIVE coarser owner (1er): RETAIN the fine cell as an inactive shadow.
+                // This owner IS its eventual replacement — when the box demotes on a later chunk
+                // step the handoff reactivates the SAME mesh, so trailing swaps and turn-arounds
+                // never rebuild. Bounded: retention only covers cells inside live boxes (a subset of
+                // the shell); cells beyond keep are destroyed wholesale at the trailing ring cut.
+                continue;
+            }
             if (cell.Span >= 3)
             {
-                // A live coarser owner (owner.Value.Span > cell.Span — present here because the
-                // promote-retain above already kept the not-yet-live case) renders this footprint
-                // itself, and this cell is hidden by the active-shadow sync — plain destroy below
-                // is safe and the ground stays covered.
-                bool coveredByLiveCoarse = owner.HasValue && owner.Value.Span > cell.Span;
-                if (!coveredByLiveCoarse && !FarCoverageReady(cell, centre, near, keep))
+                if (!FarCoverageReady(cell, centre, near, keep))
                 {
                     // Demote tenant retain: ownership is passing to this cell's FINER children
                     // (span-1 cells, or span-3 cells for a span-6 at high radius), which are
-                    // generated asynchronously. Keep rendering the ground until EVERY required
-                    // replacement exists — destroying it now would open a hole for the async
-                    // rebuild window (~50-400 ms) that reads as far terrain blinking away and back
-                    // while the player moves.
+                    // generated asynchronously (pre-warmed ahead by step 2b, 1er). Keep rendering the
+                    // ground until EVERY required replacement exists — destroying it now would open a
+                    // hole for the async rebuild window (~50-400 ms) that reads as far terrain
+                    // blinking away and back while the player moves.
                     continue;
                 }
-                if (!coveredByLiveCoarse)
+                // Every replacement is live (pre-warm made this the common case — a pure SetActive
+                // swap): hand ownership to them atomically in one poll.
+                if (handoffs == null) handoffs = new List<FarCell>();
+                handoffs.Add(cell);
+                if (++removed >= MaxFarUnloadsPerPoll)
                 {
-                    // Every replacement is live: hand ownership to them atomically in one poll.
-                    if (handoffs == null) handoffs = new List<FarCell>();
-                    handoffs.Add(cell);
-                    if (++removed >= MaxFarUnloadsPerPoll)
-                    {
-                        _farUnloadBacklog = true;
-                        break;
-                    }
-                    continue;
+                    _farUnloadBacklog = true;
+                    break;
                 }
-                // coveredByLiveCoarse: fall through to the stale list (destroyed, already hidden).
+                continue;
             }
             if (stale == null) stale = new List<FarCell>();
             stale.Add(cell);
@@ -478,6 +526,7 @@ public partial class WorldStreamer
         // (2) Ring walk near+1..keep, closest first (same 4-edge pattern as StreamAround).
         _farPending.Clear();
         _farVisited.Clear();
+        _farReserved.Clear();
         for (int r = near + 1; r <= keep; r++)
         {
             int startX = centre.X - r, endX = centre.X + r;
@@ -493,21 +542,45 @@ public partial class WorldStreamer
                 FarConsiderCell(new TerrainChunkCoord(endX, z), centre, near, keep);
         }
 
+        // (2b) Swap-band pre-warm (1er). Appends the finer children of live coarse cells that are
+        // within FarPrebuildAhead bands of their demote ring to the END of _farPending (after all
+        // closest-first on-demand cells), marked in _farReserved. They generate asynchronously in
+        // the polls BEFORE the player crosses the ring cut, so on the actual demote
+        // CompleteFarHandoff finds every replacement already live-hidden and the swap is just a
+        // SetActive toggle — the "new ground while moving" rebuild burst becomes a steady trickle.
+        PreWarmFarShadowCells(centre, near, keep);
+
         // (3) Dispatch. State captured up front: step (uniform 3 m since 1ej) + span passed by value
         // on the worker, epoch from the field read now. The pending list is walked closest-first,
         // so iterating it FORWARD (1ek) dispatches the rim/near cells that surround the player FIRST —
         // the void around the player closes immediately and the distant fringe fills a moment later.
         // (Pre-1ek this iterated in reverse — horizon-first — which let the heavy outer span-6 cells
         // hog every flight slot and starved the near cells into a permanent-looking empty ring.)
+        // Pacing (1er): on-demand cells take their own per-poll cap (MaxFarDispatchPerPoll) and the
+        // pre-warmed shadows a smaller one (MaxFarPrebuildPerPoll), so a ring cut never spawns a
+        // 96-job storm and a prefill ramp can never starve the near void.
         long seed = Seed;
         int epoch = _farEpoch;
+        int dispatched = 0;
+        int prebuilt = 0;
         for (int i = 0; i < _farPending.Count && _farInFlight.Count < MaxFarInFlight; i++)
         {
             FarCell cell = _farPending[i];
+            bool reserved = _farReserved.Contains(cell);
+            if (reserved)
+            {
+                if (prebuilt >= MaxFarPrebuildPerPoll)
+                    continue;
+            }
+            else if (dispatched >= MaxFarDispatchPerPoll)
+            {
+                break;                          // close-first on-demand cells precede reserved ones
+            }
             if (!_farInFlight.TryAdd(cell, 0))
                 continue;
+            if (reserved) prebuilt++; else dispatched++;
             FarCellRings(cell, centre, out _, out int maxRing);
-            ThreadPool.QueueUserWorkItem(_ => BackgroundGenerateFarCell(cell, seed, epoch, maxRing));
+            ThreadPool.QueueUserWorkItem(_ => BackgroundGenerateFarCell(cell, seed, epoch, maxRing, reserved));
         }
 
         // (4) Finalize. Time-budgeted (1eh): the 1eg throughput stays for the fast fill, but a single
@@ -521,9 +594,9 @@ public partial class WorldStreamer
             _farInFlight.TryRemove(data.Cell, out _);
             if (data.Epoch != _farEpoch)
                 continue;                       // stale generation after ClearFarShell
-            if (!RequiredFarCell(data.Cell, centre, near, keep))
+            if (!data.Reserved && !RequiredFarCell(data.Cell, centre, near, keep))
                 continue;                       // focus moved past it while generating
-            CreateFarSector(data.Cell, data.Merged);
+            CreateFarSector(data.Cell, data.Merged, data.Reserved);
             finalized++;
             if (farFinalizeSw.Elapsed.TotalMilliseconds >= FarFinalizeBudgetMs)
                 break;
@@ -566,18 +639,68 @@ public partial class WorldStreamer
     }
 
     /// <summary>ThreadPool entry: builds the sector's merged arrays and queues them for the main
-    /// thread. Failure removes the in-flight mark so the cell can be re-dispatched next poll.</summary>
-    private void BackgroundGenerateFarCell(FarCell cell, long seed, int epoch, int maxRing)
+    /// thread. Failure removes the in-flight mark so the cell can be re-dispatched next poll.
+    /// <paramref name="reserved"/> marks a pre-warmed swap-band shadow (1er) — created inactive at
+    /// finalize, never rendered until its covering coarse owner leaves.</summary>
+    private void BackgroundGenerateFarCell(FarCell cell, long seed, int epoch, int maxRing, bool reserved)
     {
         try
         {
-            _farReady.Enqueue(new FarMeshData(cell, epoch, BuildFarSector(cell, seed, maxRing)));
+            _farReady.Enqueue(new FarMeshData(cell, epoch, BuildFarSector(cell, seed, maxRing), reserved));
         }
         catch (System.Exception ex)
         {
             Debug.LogWarning($"[WorldStreamer] Far shell generation failed for {cell}: {ex.Message}");
             byte _;
             _farInFlight.TryRemove(cell, out _);
+        }
+    }
+
+    /// <summary>
+    /// Pre-warm the swap band ahead of the player's own progress (1er): for every live span-3/6
+    /// coarse cell whose farthest corner is within <see cref="FarPrebuildAhead"/> bands of its demote
+    /// ring, enqueue the finer children it will hand ownership to when the player crosses the ring
+    /// cut. The children are generated asynchronously over the polls BEFORE the crossing and finalized
+    /// INACTIVE (marked in <see cref="_farReserved"/>), so <see cref="CompleteFarHandoff"/> at demote
+    /// time finds every replacement already live-hidden and becomes a pure SetActive swap — the
+    /// "new ground while moving" rebuild burst (~90-135 span-1 cells around rings 13-16 per chunk
+    /// step) dissolves into a steady trickle. Ring 32+ cells are handled by the normal ring walk; only
+    /// the suppressed (fine-under-coarse) footprints land here. Children that already exist/in-flight
+    /// are skipped, and a child the normal path now requires is left to it (created via the reserved
+    /// path it would still land inactive for one poll — the active-shadow sync activates it next poll).
+    /// </summary>
+    private void PreWarmFarShadowCells(TerrainChunkCoord centre, int near, int keep)
+    {
+        foreach (KeyValuePair<FarCell, GameObject> kv in _farSectors)
+        {
+            FarCell cell = kv.Key;
+            if (cell.Span != 3 && cell.Span != 6)
+                continue;
+            FarCellRings(cell, centre, out _, out int maxRing);
+            int buildMax = cell.Span == 3 ? FarBandBMin + FarPrebuildAhead : FarBandCMin + FarPrebuildAhead;
+            if (maxRing > buildMax)
+                continue;
+            bool span3 = cell.Span == 3;
+            int axis = span3 ? 3 : 2;
+            int step = span3 ? 1 : 3;
+            int childSpan = span3 ? 1 : 3;
+            for (int j = 0; j < axis; j++)
+            {
+                for (int i = 0; i < axis; i++)
+                {
+                    FarCell child = new FarCell(cell.X + i * step, cell.Z + j * step, childSpan);
+                    if (_farSectors.ContainsKey(child))
+                        continue;
+                    if (_farInFlight.ContainsKey(child))
+                        continue;
+                    if (RequiredFarCell(child, centre, near, keep))
+                        continue;                   // the normal ring-walk path owns it
+                    if (!_farVisited.Add(child))
+                        continue;
+                    _farReserved.Add(child);
+                    _farPending.Add(child);
+                }
+            }
         }
     }
 
@@ -768,8 +891,9 @@ public partial class WorldStreamer
     }
 
     /// <summary>Create the far-sector GameObject (static, pooled mesh, shared ground material).
-    /// Span-1 cells start inactive when their real chunk is present (active shadow).</summary>
-    private void CreateFarSector(FarCell cell, MergedChunkMeshData merged)
+    /// Span-1 cells start inactive when their real chunk is present (active shadow), and a
+    /// pre-warmed swap-band shadow (1er) starts inactive too.</summary>
+    private void CreateFarSector(FarCell cell, MergedChunkMeshData merged, bool reserved)
     {
         var go = new GameObject($"FarCell_{cell.X}_{cell.Z}_{cell.Span}");
         go.isStatic = true;
@@ -795,18 +919,22 @@ public partial class WorldStreamer
         mr.sharedMaterial = FarGroundMaterial != null ? FarGroundMaterial : GroundMaterial;
         mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-        // Active-shadow discipline (1eq): a cell that is already covered — by a loaded real chunk
-        // (rim) or by a live coarser far owner (ownership handoff) — is created hidden and merely
-        // reserved for the moment the covering owner leaves, so a swap never exposes a hole.
-        if (FarShadowedByCoarse(cell)
+        // Active-shadow discipline (1eq/1er): a cell that is already covered — by a loaded real chunk
+        // (rim), by a live coarser far owner (ownership handoff), or because it is a pre-warmed
+        // swap-band shadow built AHEAD of the ring cut — is created hidden and merely reserved for
+        // the moment the covering owner leaves, so a swap never exposes a hole.
+        if (reserved
+            || FarShadowedByCoarse(cell)
             || (cell.Span == 1 && _loadedChunks.ContainsKey(new TerrainChunkCoord(cell.X, cell.Z))))
             go.SetActive(false);
 
         _farSectors.Add(cell, go);
 
         // Promote handoff: this newly live coarser owner takes over its footprint NOW — hide any
-        // finer cells still registered inside it (they are stale and the next removal scan destroys
-        // them), so a coarse/fine pair never renders the same ground simultaneously.
+        // finer cells still registered inside it (1er: they are RETAINED as inactive shadows — the
+        // removal scan skips them while this owner is live, so the demote on the next chunk step
+        // reactivates the same meshes — rather than destroyed and rebuilt), so a coarse/fine pair
+        // never renders the same ground simultaneously.
         if (cell.Span >= 3)
             HideFinerChildren(cell);
     }
@@ -930,6 +1058,7 @@ public partial class WorldStreamer
         }
         _farPending.Clear();
         _farVisited.Clear();
+        _farReserved.Clear();
         _farInFlight.Clear();
         while (_farReady.TryDequeue(out _))
         {

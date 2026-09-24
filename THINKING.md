@@ -685,6 +685,66 @@ VERDICT: FIXED by `1ee`.
 the default to true makes the 1ee baseline immediately readable; it is a read-only screen-space overlay so
 default-on is harmless (flippable off). VERDICT: FIXED by `1ee`.
 
+## 1er — "it is causing lag to render new ground when player moving, cant you use async or smth" (SHIPPED in `1er`)
+
+Context: incoming hot on the tail of `1eq` (which stopped the swap band from BLINKING). Same symptom
+area — the ~330-480 m far band the player confirmed as "mid-far band" when asked. `1eq` made the rebuild
+churn covered, not removed: the demote path still BUILT ~90-135 fresh span-1 cells right at the crossing.
+
+### H1 — the generation itself wasn't async, so adding "async" would fix it → REJECTED
+The far shell ALREADY generates on the ThreadPool (`BackgroundGenerateFarCell` under
+`MaxFarInFlight=96`) — same as the real chunks. The main-thread hop is `CreateFarSector` →
+`AcquireChunkMesh` + `UploadMerged` (`Mesh.SetVertices/Normals/UVs/Colors` + `UploadMeshData(false)`),
+which Unity requires on the main thread. So the honest answer to "use async" is: the last hop can't be
+moved; the fix has to make the main-thread work a trickle instead of a storm.
+
+### H2 — the hitch is the swap band rebuilding on the crossing → CONFIRMED (by construction)
+Ring-cut requiredness flips a WHOLE band of boxes each 30 m step. The ring walk (`FarConsiderCell` over
+`_farSectors`-missing cells) discovers every suppressed span-1 replacement the same poll the player
+crosses: per step that is the leading ring-13-16 arc ≈ ~90-135 cells. Step 3 then fires up to 96
+`ThreadPool.QueueUserWorkItem` jobs in ONE poll, and step 4 drains them at 16/2.5 ms for ~6-8 polls,
+all at the exact moment the player is moving — stacked on the real-chunk finalize, collider cooks, and
+prop spawns. That is "lag to render new ground while moving", and 1eq's retention did not touch it.
+Verdict: the churn is a burst AT the cut, so pre-compute off the critical path.
+
+### H3 — dropping the span hierarchy (all span-1 rim cells to ring 32) would kill the swap entirely, chosen? → REJECTED
+Removing span-3 means every chunk ring 10..32 gets its own 11x11 cell ≈ ~3,800 GameObjects/draw calls
+vs ~1,000 today (earlier perf passes fought draw-call count at 1,400). Not acceptable at radius 30.
+The swap is inherent to having a coarse band; the lever is to make each swap cost ~0 (SetActive).
+
+### H4 — pre-warm the swap band ahead of the cut + retain fine shadows → CHOSEN
+- **Pre-warm**: a live span-3/6 box whose `maxRing <= FarBandBMin/CMin + FarPrebuildAhead` (2 rings
+  ahead of its demote) enqueues its finer children as RESERVED builds every poll until they exist.
+  The window is 1-2 ring cuts early ≈ long enough to finish on the ThreadPool, and player speed
+  (~1 chunk per 2-6 s) gives far more than the ~50-400 ms per-cell build. On the demote,
+  `FarCoverageReady` is true → `CompleteFarHandoff` becomes a SetActive swap in one poll.
+- **Reserved flag must ride the payload**: `_farPending` and `_farReserved` are rebuilt every poll, so
+  a cell that sits in-flight across a poll boundary would lose its reservation if dispatch re-read the
+  set. `FarMeshData.Reserved` is captured at dispatch (closure) and survives to finalize — verified
+  by following the lifecycle poll N (prewarm) → N+k (finalize create-inactive).
+- **Retention**: extend keep-alive to ALL spans (the first-draft restructure only kept
+  `cell.Span >= 3` under a live span-6 — the span-1-under-span-3 case, the important one, still fell
+  to stale and was destroyed; caught on re-read before commit). Retained fine cells are hidden by the
+  existing active-shadow sync and reactivated by the demote handoff, so trailing demotes and
+  turn-arounds re-use the SAME meshes. Bounded: fine cells under a live box only ever exist inside
+  the shell's live-box region (~hundreds), never the distance walked.
+
+### H5 — dispatch pacing so the ramp itself doesn't storm → CONFIRMED NEEDED, added
+Per-poll caps: 36 on-demand + 12 reserved (`MaxFarDispatchPerPoll`/`MaxFarPrebuildPerPoll`), shared
+`MaxFarInFlight` still gates the total. Invariant checked: ring-walk on-demand cells strictly precede
+pre-warm reserved cells in `_farPending` (ring walk fills first, pre-warm appends last), so the
+`break` on the on-demand cap can't skip reserved work.
+
+### H6 — movement-only concern: idle must be unchanged → CONFIRMED
+The idle gate skips `FarShellTick` entirely when the focus hasn't crossed a chunk, so pre-warm and the
+slightly larger `_farSectors` (retained shadows) cost nothing at rest; step-1a sync iterates the
+retained set only while streaming. VERDICT: OPEN → shipped without idle regression; play-test will
+confirm the standing-still baseline.
+
+Waste on turn-away: pre-warmed in-flight children of a box the player turns away from finalize inactive,
+then the removal scan destroys them as stale — small, self-cleaning, bounded by the 2-ring window.
+VERDICT: accepted (cheap vs. the crossing burst it removes).
+
 ## 1ea — "Still too laggy" — where is the mileage actually left after 1e5/1e6? (SHIPPED in `1ea`)
 
 User: "it still is too laggy. Can you do more?" 1e5 covered boot + per-frame HUD hotspots, 1e6 covered
