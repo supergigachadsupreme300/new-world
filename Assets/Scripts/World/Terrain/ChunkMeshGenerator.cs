@@ -704,10 +704,15 @@ public static class ChunkMeshGenerator
             for (int gx = 0; gx < axes; gx++)
             {
                 int ownerIdx, slot;
+                // Exact-corner arithmetic: the boundary branches require the OTHER axis inside the
+                // chunk, so the far corner (cs,cs) falls through to the corner case below. Pre-1fx
+                // the `else if (gz == cs)` matched (gx=cs, gz=cs) FIRST and indexed tiles[900] (out
+                // of bounds) on every build — which killed the entire real-chunk ring (the whole near
+                // world never materialized; only the far shell rendered past ~300 m).
                 if (gx < cs && gz < cs) { ownerIdx = gz * cs + gx; slot = 3; }        // SW of tile
-                else if (gz == cs)     { ownerIdx = (cs - 1) * cs + gx; slot = 0; }   // NW of tile
-                else if (gx == cs)     { ownerIdx = gz * cs + (cs - 1); slot = 1; }   // NE of tile
-                else                   { ownerIdx = (cs - 1) * cs + (cs - 1); slot = 2; } // SE
+                else if (gx < cs)       { ownerIdx = (cs - 1) * cs + gx; slot = 0; } // north edge: NW of tile
+                else if (gz < cs)       { ownerIdx = gz * cs + (cs - 1); slot = 1; } // east edge: NE of tile
+                else                    { ownerIdx = (cs - 1) * cs + (cs - 1); slot = 2; } // corner (cs,cs): SE of tile
 
                 ChunkMeshData owner = tiles[ownerIdx];
                 int idx = gz * axes + gx;
@@ -752,10 +757,15 @@ public static class ChunkMeshGenerator
                 if (gx < 0 || gx >= axes) continue;
 
                 int ownerLx, ownerLz, slot;
+                // Must mirror BuildCornerGrid's exact-corner ownership (1fx): the boundary branches
+                // key on the OUTER axis being at the chunk edge, so the far corner (cs,cs) resolves
+                // to the corner case — owner tile (cs-1,cs-1) SE. The pre-fix `else if (gz == cs)`
+                // claimed (cs,cs) for tile (gx, cs-1) = also (30, 29), which the region bounds check
+                // then skipped, so the chunk's NE lattice node was never re-stamped after a patch.
                 if (gx < cs && gz < cs) { ownerLx = gx; ownerLz = gz; slot = 3; }
-                else if (gz == cs)     { ownerLx = gx; ownerLz = cs - 1; slot = 0; }
-                else if (gx == cs)     { ownerLx = cs - 1; ownerLz = gz; slot = 1; }
-                else                   { ownerLx = cs - 1; ownerLz = cs - 1; slot = 2; }
+                else if (gx < cs)       { ownerLx = gx; ownerLz = cs - 1; slot = 0; }
+                else if (gz < cs)       { ownerLx = cs - 1; ownerLz = gz; slot = 1; }
+                else                    { ownerLx = cs - 1; ownerLz = cs - 1; slot = 2; }
 
                 if (ownerLx < regionX || ownerLx > regionX + w - 1 ||
                     ownerLz < regionZ || ownerLz > regionZ + h - 1)

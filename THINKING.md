@@ -15,51 +15,55 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
-## 1fx — "the map under the player no longer loads": real-chunk ring near the player missing (OPEN — diagnostic instrumented, awaiting user's Console read)
+## 1fx — "the map under the player no longer loads": real-chunk ring near the player missing (CLOSED — root cause CONFIRMED + fixed in the 1fx commit)
 
 User report right after 1ew shipped (previous session): "only chunks near the player are missing" —
-distant terrain still shows. This is exactly the profile of a chunk-stream failure that the streamer
-SWALLOWS (the world keeps rendering the far shell, the near real ring stays empty). Full audit of the
-shipped 1ew diff (ChunkMeshGenerator.cs +336, ChunkObject.cs, Deform.cs, ChunkBuild.cs,
-TerrainChunkMeshData.cs, WorldStreamer.cs) found NO throwing line by review. Trail:
+distant terrain still shows; then after the diagnostic commit: a ~300×300 m hole around the spawn
+point, only that region missing, no invisible ground. Root cause CONFIRMED by the instrumented worker
+stack in one session:
 
-### H1 — worker-thread throw in the 1ew build path → OPEN, instrumented
-Evidence for: `BackgroundGenerateChunk` catch (`ChunkBuild.cs:27-32`) logs only `ex.Message` (stack
-discarded), removes from `_chunksInFlight`, and the chunk re-dispatches EVERY poll (still in
-`_pendingChunks` + `_chunkDispatchOrder`, not loaded) → a per-chunk deterministic throw = warning spam +
-a chunk that NEVER materializes while all the others load. Fits "only near-player chunks missing"
-when those chunks' data is what throws.
-Evidence against: the refined builder (`BuildRefinedMeshData`) is pure arithmetic on self-allocated
-arrays — CANNOT throw; every 1ew consumer (`TileVertexBase/Count`, `Corners`, `PatchCornerGrid`,
-`IsTileRefined`) is null/bounds-guarded (grep-verified, all 28 call sites); `CornerGridSize=31`,
-`ChunkSize=30`, `VertexCount=4` all resolve (no missing-symbol compile error).
-NEXT: the catch now prints `ex.ToString()` (full stack) — one Play session names or clears this line.
+```
+System.IndexOutOfRangeException … at ChunkMeshGenerator.BuildCornerGrid
+  at ChunkMeshGenerator.BuildMergedMeshData at WorldStreamer.BuildOrLoadChunk at BackgroundGenerateChunk
+```
 
-### H2 — main-thread throw in FinalizeChunks/CreateChunkGameObject freezing the whole poll → OPEN, instrumented
-Evidence for: any throw in the finalize path previously aborted Update() BEFORE FarShellTick/Colliders/
-Props ran. Far shell cells ALREADY BUILT stay visible while the real ring never materializes — matches
-"map under player missing, distant terrain still there" almost perfectly if the throw hits per chunk.
-Evidence against: static review of `ApplyMerged`/`UploadMerged`/`BuildLodChild`(Corners)/
-`ReconcileNewlyLoadedChunk` shows all guarded (LOD `s = gz*step*31 + gx*step` max 960 < 961; pooled mesh
-reuse clear-when-count-changes sound; tiles always non-null in the smooth path).
-NEXT: `FinalizeChunks` body is now inside try/catch + `Debug.LogException` — a per-poll red stack will
-name the exact line.
+**ROOT CAUSE (1ew regression): `BuildCornerGrid`'s corner-ownership branch order.** The loop visits
+all 961 lattice nodes including the far corner (gx=cs, gz=cs)=(30,30). The old order:
+`if (gx<cs && gz<cs) … else if (gz == cs) … else if (gx == cs) … else …` matched (30,30) with the
+`gz == cs` branch FIRST and computed `ownerIdx = (cs-1)*cs + gx = 29*30 + 30 = 900` — indexing the
+900-length tiles array out of bounds. That fired for EVERY chunk build, so EVERY real chunk failed to
+build → the entire near real-chunk ring (NearRingRadius 9 ≈ 300 m) never materialized → the far shell
+(independent, skips cells over pending/in-flight chunks, FarShell.cs:468-472) rendered everything past
+~300 m → the "300×300 hole at spawn" (the user's three reports — "under the player", "near-player
+chunks missing", "300×300 hole" — are the same single defect at different zoom/scales).
 
-### H3 — boot chunk (`GenerateChunkSync`) throws, aborting the spawn sequence → OPEN, instrumented
-The boot chunk built on the MAIN thread with NO catch. If `BuildOrLoadChunk`/`CreateChunkGameObject`
-throws for the spawn-area chunk (e.g. near a steep/deformed region), the caller's Start dies mid-way and
-the chunk under the player never appears; the streamer itself keeps ticking afterwards (Update still
-runs, far shell fills) → "under-player missing". Fits well; 1ew reworked exactly these two methods.
-NEXT: `GenerateChunkSync` now guards with try/catch + `Debug.LogException` (and StreamAround re-enqueues
-the boot chunk next poll, so the world still comes up).
+The 1fx instrumentation that exposed it (full `ex.ToString()` in the worker catch, main-thread
+try/catch+`LogException` in `FinalizeChunks`/boot `GenerateChunkSync`) stays in place as safety nets.
 
-### H4 — not an exception at all (rendering/collider side) → OPEN, pivot branch
-If the instrumented Play session shows NO errors, the chunk stream is healthy and the symptom is a
-render/physics artifact: frustum-culling of chunks via a wrong `Bounds` (but bounds are recomputed from
-the actual vertex min/max in both BuildMergedMeshData and PatchRegion), pooled-mesh reuse uploading
-stale/empty buffers (`UploadMerged` clear-when-`vertexCount != Vertices.Length` looks right but a
-Triangles-only change would not clear), or `ReconcileCollidersIfChanged` never cooking the near ring
-(player falls through a visible-but-collider-less ground). Decided only after (a)-(c) are cleared.
+### H1 — worker-thread throw in the 1ew build path → CONFIRMED (the one real defect)
+Was OPEN/instrumented. The user's Console read produced the exact stack: `BuildCornerGrid` OOB (line
+712 pre-fix). Mechanism matched prediction: the worker catch dropped the chunk from in-flight and it
+re-dispatched every poll → persistent missing chunks + warning spam; most chunks "worked" only in the
+sense that nothing told us they failed (stack was discarded pre-fix).
+FIX (this commit): make the boundary branches mutually exclusive — `else if (gx < cs)` (north edge),
+`else if (gz < cs)` (east edge), final `else` = far corner → `tiles[(cs-1)*cs+(cs-1)]` slot 2 (SE),
+exactly what the retired `WorldCornerIndex` produced → LOD surfaces bit-identical to pre-1ew. Applied
+the SAME exact-corner ownership to `PatchCornerGrid` (the pre-fix `gz == cs` branch there claimed
+(30,30) for tile (30,29); the region-bounds check then skipped it, so the chunk's NE lattice node was
+never re-stamped after a patch — silent stale-LOD-corner bug, same root).
+Verified by grep+reread: no other `(cs-1)*cs` / `== cs` owner-index site remains in Assets\Scripts.
+
+### H2 — main-thread throw in FinalizeChunks freezing the whole poll → NOT the cause (guard kept)
+The new `FinalizeChunks` try/catch+`LogException` never fired — the failure was on the worker. Guard
+stays as a resilience net.
+
+### H3 — boot chunk (`GenerateChunkSync`) throws → NOT the cause (guard kept)
+Boot completed; the hole was the whole near ring, not one spawn chunk. Guard stays.
+
+### H4 — not an exception at all (rendering/collider side) → NOT the cause (never reached)
+The instrumented session produced an exception, so the render/culling/collider pivot branch was never
+exercised — and the user's "no invisible ground" observation (standing in the hole means falling
+through, chunks genuinely absent) is consistent with the confirmed absence cause.
 
 ### Dead ends (checked, likely irrelevant)
 - **FarShell**: builds its own lattice/meshes (`BuildFarChunkCorners` etc.) — INDEPENDENT of the 1ew

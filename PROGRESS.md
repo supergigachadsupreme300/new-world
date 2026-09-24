@@ -3,43 +3,56 @@
 Last updated: 2026-09-24. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
-## 1fx. DIAGNOSTIC (in progress): "the map under the player no longer loads" — the real chunk ring near the player is missing
+## 1fx. World-load regression ("map under the player no longer loads") — root cause found + fixed: BuildCornerGrid far-corner index out of bounds (1ew regression)
 
-User report right after 1ew shipped: only the chunks near the player fail to appear; distant terrain
-(far shell) still shows. 1ew's 1.5k-line chunk-mesh rework is the prime suspect, but a full grep+re-read
-audit of the shipped 1ew diff found NO throwing path (all new consumers bounds/null-guarded; the refined
-builder is pure arithmetic on self-allocated arrays). To keep the world loading, the streamer swallows
-real failures in exactly the spots that would produce this symptom, so this task ADDS instrumentation to
-capture the actual exception + stack in one Play session instead of guessing. Three guards (1fx):
+User report right after 1ew shipped, in three zooms: (1) "the map under the player no longer loads",
+(2) "only chunks near the player are missing", (3) after the diagnostic instrumentation commit, the
+smoking gun: a ~300×300 m hole around the spawn with no invisible ground, plus the Console line:
 
-- **`BackgroundGenerateChunk` catch** (WorldStreamer.ChunkBuild.cs): now logs the FULL `ex.ToString()`
-  instead of `ex.Message`. This is the key spot: a persistent per-chunk throw drops the chunk from
-  in-flight and it re-dispatches every poll → warning spam + a chunk that never materializes while
-  everything else loads.
-- **`FinalizeChunks` body** (WorldStreamer.Mesh.cs): wrapped in try/catch + `Debug.LogException`.
-  Previously ANY main-thread throw here aborted the whole poll silently (Update dies before
-  FarShellTick/Colliders/Props) → real ring stays empty while the already-built far shell keeps
-  showing = exactly the reported symptom.
-- **`GenerateChunkSync` boot** (WorldStreamer.Streaming.cs): the boot chunk built on the main thread had
-  NO catch — a throw aborted the spawn controller's Start mid-sequence. Now logs via `Debug.LogException`
-  and StreamAround re-enqueues the chunk on the next poll.
+```
+[WorldStreamer] Background chunk generation failed for TChunk(-1,3); it will retry.
+System.IndexOutOfRangeException: Index was outside the bounds of the array.
+  at ChunkMeshGenerator.BuildCornerGrid … ChunkMeshGenerator.cs:712
+  at ChunkMeshGenerator.BuildMergedMeshData … at WorldStreamer.BuildOrLoadChunk …
+```
 
-Timeline note: the only on-disk `Editor.log` is a pre-1ew-commit Unity LICENSING startup crash
-("Application will terminate with return code 1"), so there is no logged play session of the regression
-to read a stack from — the user's next Play + Console read is the ground truth this task needs.
+- **ROOT CAUSE (1ew regression): `BuildCornerGrid`'s corner-ownership branch order.** The lattice loop
+  visits all 31×31 nodes including the far corner (gx=cs, gz=cs)=(30,30). The shipped order
+  `if (gx<cs && gz<cs) … else if (gz == cs) …` matched (30,30) with the **`gz == cs` branch first** and
+  computed `ownerIdx = (cs-1)*cs + gx = 29*30 + 30 = 900` on the 900-length tiles array →
+  `IndexOutOfRangeException` on **EVERY** chunk build → every real chunk failed to materialize → the
+  whole near real-chunk ring (`NearRingRadius=9`, ~300 m) was a hole while the INDEPENDENT far shell
+  kept rendering past ~300 m (it only skips cells whose real chunk is pending/in-flight —
+  FarShell.cs:468-472 — so the hole was bounded exactly at the ring cut, hence "300×300"). The worker
+  catch had logged only `ex.Message` (stack discarded) pre-diagnostic, which is why the first pass
+  didn't surface it.
+- **Fix (ChunkMeshGenerator.cs):** boundary branches made mutually exclusive — `else if (gx < cs)` =
+  north edge (owner tile (cs-1, gx) NW), `else if (gz < cs)` = east edge (owner tile (gx, cs-1) NE),
+  final `else` = far corner → owner tile (cs-1, cs-1) SE slot 2 — exactly the retired
+  `WorldCornerIndex` result, so LOD surfaces stay bit-identical to pre-1ew. The SAME exact-corner
+  ownership applied to `PatchCornerGrid`, whose pre-fix `gz == cs` branch claimed (30,30) for tile
+  (30,29); the region-bounds check then skipped it, silently never re-stamping the chunk's NE lattice
+  node after a patch (stale far-LOD corner) — same root, no throw.
+- **Kept from the diagnostic pass:** full `ex.ToString()` in the worker catch, main-thread
+  try/catch+`Debug.LogException` around `FinalizeChunks` and the boot `GenerateChunkSync` — safety nets
+  that never fired for H2/H3 but stay for future regressions.
+- **Docs:** `THINKING.md` §1fx (H1 CONFIRMED, H2/H3 not-the-cause, H4 never reached; far shell /
+  Deform sampling / idle-gate dead ends recorded).
 
 ### 1fx-status
-- IN PROGRESS (diagnostic commit counterSHIPS with the fix commit this time — no fix identified yet).
-- Implemented + verified by grep/reread (rule 3): the three hunks above compile-clean (all in files with
-  `using UnityEngine;`; loop variable scoping intact; chunk stays in pipeline after a skip on catch).
-- NEXT: user plays once and pastes the Console. Deterministic outcomes + pivot actions:
-  - (a) repeating `Background chunk generation failed` warnings → the stack names the worker-thread line.
-  - (b) one `Exception` per poll from `FinalizeChunks` → main-thread `CreateChunkGameObject`/reconcile line.
-  - (c) `LogException` at boot → spawn chunk build/`CreateChunkGameObject` line.
-  - (d) NO errors at all → not an exception: hunt switches to rendering (frustum culling / pooled-mesh
-    reuse / collider ring) — next candidates: `UploadMerged` clear-when-count-changes, `RecalculateBounds`,
-    `ReconcileCollidersIfChanged` cook order.
-- Waiting on: user Play session + Console output. Do NOT mark complete until root cause fixed and verified.
+- FIXED; verified by grep + reread (rule 3 — no CLI/Unity build). Grep confirms no other
+  `(cs-1)*cs` / `== cs` owner-index site remains in `Assets\Scripts` (the pattern existed only in the two
+  fixed methods); `WorldCornerIndex` still only appears in doc comments (symbol remains removed);
+  branch coverage of both fixed 4-way lattices re-checked exhaustively (all nodes in [0..cs]² map
+  exactly once; (30,30) → tile (29,29) slot 2).
+- Diagnostic commit: `2369f4c` (1fx instrumentation). Fix commit: this one.
+- Pending play-test (rule 3 = no build): (a) near ring around spawn FILLS with real terrain (no
+  300 m hole) on a fresh Play + also after re-enqueue; (b) the whole radius renders smoothly to the
+  horizon — real chunks near, far shell beyond, no seam/step at the ring cut; (c) dig/corner-edit a
+  tile near a chunk's NE edge, then check the far-band LOD re-stamps (no stale corner) once the patch
+  applies; (d) no `[WorldStreamer] Background chunk generation failed` warnings in Console during a
+  few minutes of walking; (e) 1ew checks still valid: steep slopes show split small faces, revisit
+  restores exactly, voxel opt-in unaffected.
 
 ## 1ew. Smooth terrain adaptive stretch-split (Phase A: refinement data + rendering) — no more single stretched faces on steep slopes
 
