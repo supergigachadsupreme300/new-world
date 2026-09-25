@@ -70,10 +70,23 @@ public partial class WorldStreamer : MonoBehaviour
     [Tooltip("QA/render (1hi): LOW-POLY FACET look. When ON the far shell emits FLAT per-quad normals (crisp facets instead of the smooth sample-grid haze — triangles unchanged; vertices 4x but far cells upload once per cell lifetime, never per frame) AND the 1ew adaptive refinement passes a 0 threshold so steep near slopes keep big flat quads instead of splitting into 2x2 sub-quads. Pure render/geometry-read change (1hi): saves, the 1m tile grid, props, draw calls and the budgeted collider pipeline are untouched. Flip BEFORE the far shell builds (like the voxel toggle) for a clean read.")]
     public bool LowPolyFacets = true;
 
+    [Tooltip("Low-poly facet size for the REAL near chunks (1hi.1): every LowPolyStep-th node of the 31x31 world-corner lattice becomes one flat facet (2 or 3 — must divide the 30 m chunk side). 3 m matches the far shell exactly: the whole world reads one uniform facet language and near/far share world corner nodes across the seam, so the boundary is invisible. The 1 m corner grid remains the source of truth for saves, edits and prop heights; the collider rides the same step so you stand exactly on the visual. Only read while LowPolyFacets is on.")]
+    public int LowPolyStep = 3;
+
     /// <summary>Effective refinement threshold routed through every build path (1hi): the low-poly
     /// look disables the 1ew adaptive stretch-split (0 = full 1m quads everywhere), so far-band
     /// facets and near-band steep slopes read as the same chunky language.</summary>
     private float EffectiveRefineThreshold => LowPolyFacets ? 0f : RefineThreshold;
+
+    /// <summary>Effective low-poly facet step routed through every BuildMergedMeshData call site
+    /// (1hi.1): 0 = full-resolution 1 m root (the smooth look), &gt;0 = the near ring's root renders
+    /// as coarse flat facets while the far shell already matches. Captured on the main thread and
+    /// snapshotted into worker jobs like the voxel flag. A step that does not divide the 30 m chunk
+    /// side would leave the last facet short of the chunk border (a visible seam), so such values
+    /// fall back to 0 (full-res) rather than emitting a broken grid.</summary>
+    private int EffectiveLowPolyStep => LowPolyFacets && LowPolyStep > 0
+        && TerrainChunkCoord.ChunkSize % LowPolyStep == 0
+        ? LowPolyStep : 0;
 
     [Header("Threading")]
     [Tooltip("Max terrain chunks finalized per poll tick (main-thread work).")]

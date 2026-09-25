@@ -265,11 +265,11 @@ public partial class WorldStreamer
             // edge or the arena-lane rebuild race) must NOT rebuild sparse: null entries are
             // filled with noise by the merged-mesh builder, which is better than a gap, but the
             // cleanest result is a whole-chunk rebuild from saves/noise — every quad emitted.
-            merged = BuildOrLoadChunk(tc, Seed).Merged;
+            merged = BuildOrLoadChunk(tc, Seed, EffectiveLowPolyStep).Merged;
         }
         else
         {
-            merged = ChunkMeshGenerator.BuildMergedMeshData(tiles, BuildBorderCorners(tc), Seed);
+            merged = ChunkMeshGenerator.BuildMergedMeshData(tiles, BuildBorderCorners(tc), Seed, EffectiveLowPolyStep);
         }
         // Preserve the chunk's collider-on-demand state (1dq): a far collider-less chunk that gets
         // reconciled/rebuild for a border corner stays collider-less; a live ring chunk re-cooks.

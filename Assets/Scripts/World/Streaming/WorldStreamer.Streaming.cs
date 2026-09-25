@@ -170,6 +170,7 @@ public partial class WorldStreamer
         job.Tiles = snap;
         job.Seed = Seed;
         job.Refine = EffectiveRefineThreshold;
+        job.LowPolyStep = EffectiveLowPolyStep;
         job.Border = BuildBorderCorners(tc);
         return job;
     }
@@ -191,7 +192,7 @@ public partial class WorldStreamer
                 if (cd.IsValid)
                     tiles[i] = ChunkMeshGenerator.BuildMeshData(cd, TerrainNoiseGenerator.DefaultLayers, job.Refine);
             }
-            MergedChunkMeshData merged = ChunkMeshGenerator.BuildMergedMeshData(tiles, job.Border, job.Seed);
+            MergedChunkMeshData merged = ChunkMeshGenerator.BuildMergedMeshData(tiles, job.Border, job.Seed, job.LowPolyStep);
             _readyRebuilds.Enqueue(new ChunkRebuildResult(job.Coord, job.Stamp, merged));
         }
         catch (System.Exception ex)
@@ -241,6 +242,7 @@ public partial class WorldStreamer
         public ChunkData[] Tiles;
         public long Seed;
         public float Refine;
+        public int LowPolyStep;
         public Dictionary<long, float> Border;
     }
 
@@ -503,7 +505,8 @@ public partial class WorldStreamer
             long seed = Seed;
             // Capture the mesh mode here (main thread) so the worker builds a consistent chunk.
             bool voxel = VoxelTerrainEnabled;
-            ThreadPool.QueueUserWorkItem(_ => BackgroundGenerateChunk(tc, seed, voxel));
+            int lowPolyStep = EffectiveLowPolyStep;
+            ThreadPool.QueueUserWorkItem(_ => BackgroundGenerateChunk(tc, seed, voxel, lowPolyStep));
         }
 
         // Drop already-loaded chunks from the dispatch list. 1em: the old guard required BOTH
@@ -548,7 +551,7 @@ public partial class WorldStreamer
         {
             TerrainChunkMeshData chunk = VoxelTerrainEnabled
                 ? BuildVoxelChunk(tc, Seed)
-                : BuildOrLoadChunk(tc, Seed);
+                : BuildOrLoadChunk(tc, Seed, EffectiveLowPolyStep);
             CreateChunkGameObject(chunk, buildCollider: true);
             ReconcileNewlyLoadedChunk(tc, chunk.HadLoadedMods);
         }

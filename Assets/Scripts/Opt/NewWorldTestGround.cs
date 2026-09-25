@@ -74,6 +74,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableVoxelTerrain = false;
     [Tooltip("QA/render (1hi): LOW-POLY FACET world. Applied in Awake, BEFORE the WorldStreamer's first stream poll, so the whole smooth world reads as crisp flat facets: the far shell emits per-quad flat normals (crisp mesas on the horizon) and the 1ew adaptive stretch-split passes a 0 threshold so steep near slopes stay big flat quads instead of sub-dividing. Pure render/geometry-read change — saves, the 1 m tile grid, props, draw calls and the budgeted collider pipeline are untouched. Leave ON (default) to see the new look; flip OFF only to A/B the old smooth haze.")]
     public bool EnableLowPolyTerrain = true;
+    [Tooltip("QA/render (1hi.1): coarse facet size for the REAL near chunks — every LowPolyStep-th world corner becomes one flat facet (2 or 3; must divide the 30 m chunk side). 3 m matches the far shell exactly, so the whole world reads one uniform low-poly language with an invisible near/far seam; 2 m is a subtler chunky read. Only meaningful while EnableLowPolyTerrain is on: the 1 m corner grid, saves, props and edits are untouched — an edit only visibly moves a facet vertex when the edited corner lands on this grid.")]
+    public int LowPolyStep = 3;
     [Tooltip("QA (1eu): exercise the voxel sculpt API on the streamed terrain just off the platform — a directed crater (toolbar dig with cast direction clips the dent into a slope-front scoop), a SculptVoxelCave under a ridge, and a SculptVoxelRaise pillar. Needs the voxel terrain enabled to be meaningful (no-op on smooth terrain), edits REAL terrain — permanent chunk saves — and never touches the platform or legacy village.")]
     public bool EnableVoxelSculptDemo = false;
     [Tooltip("QA/perf (1gd): wire the WorldStreamer's speed-decoupled renderer clock — the streaming/render loop runs on its OWN coroutine beat (StreamHz, default 20 Hz) and yields one cool-down frame after any busy poll, and edited-terrain seam rebuilds run on background threads instead of holding the gameplay frame. That is exactly the 'immense lag at high player speed' scenario. Config-only lane: no world placement — any WorldStreamer found in the scene gets StreamInUpdate=true + DecoupleRenderFromGameplay=true (it just uses the scene's own toggle values otherwise).")]
@@ -139,7 +141,11 @@ public sealed class NewWorldTestGround : MonoBehaviour
         // block's local above — C# forbids shadowing an enclosing-scope local.
         var polyStreamer = Object.FindAnyObjectByType<WorldStreamer>();
         if (polyStreamer != null)
+        {
             polyStreamer.LowPolyFacets = EnableLowPolyTerrain;
+            // 1hi.1: the lane also drives the near-chunk facet step (see the field tooltip).
+            polyStreamer.LowPolyStep = EnableLowPolyTerrain ? LowPolyStep : 0;
+        }
         else
             Debug.LogWarning("[NewWorldTestGround] EnableLowPolyTerrain: WorldStreamer not found yet — " +
                 "flip the toggle on the streamer object in the scene instead.");

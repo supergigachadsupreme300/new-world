@@ -3,6 +3,68 @@
 Last updated: 2026-09-25. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1hi.1. Coarse near-ring facets — real chunks now render the 3 m lattice surface (follow-up to 1hi "too smooth" report)
+
+User: "the surface is currently too smooth to be called low poly terrain." 1hi only flat-shaded the
+existing **1 m** mesh + far shell; 1 m flat quads over a continuous heightfield still read smooth. Real
+low-poly = COARSER rendered faces, so this task makes the real chunks' ROOT mesh the lattice-facet
+surface itself.
+
+**Design (approved):** facet step **3 m** (matches the far shell exactly — the whole world reads ONE
+uniform 3 m facet language with the near/far seam sharing exact world corners); Lod1/Lod2 children
+**skipped** in low-poly mode (the root already exceeds their density; `ChunkLodManager.ApplyBand`
+falls back to `rootMr.enabled = true` when the named detail is missing — verified at ChunkLodManager.
+cs:259-263).
+
+**Changes:**
+- `ChunkMeshGenerator.BuildMergedMeshData(tiles, border, seed, int lowPolyStep = 0)`: step > 0
+  short-circuits to `BuildLowPolyMerged` — `BuildCornerGrid` (same 31x31 lattice) → flat per-quad
+  facet emission (`EmitLowPolySurface`: 4 verts/quad, +Y-dominant cross normal, UV + strata colors
+  sampled from the lattice itself, no side walls, bounds) + `EmitLowPolyIndices` (shared winding) +
+  `BuildDecimatedCollider(corners, step)` so the collider rides the SAME step. Patch tables are null
+  (no per-tile blocks). `ResampleLowPolySurface(md, step)` (returns the updated struct — value type)
+  re-emits the tiny root from a re-stamped lattice for `PatchRegion`.
+- `WorldStreamer.LowPolyStep` (serialized, default 3) + `EffectiveLowPolyStep` (0 = full-res root);
+  routed through all three merged-build sites: Streaming.cs:195 (seam-rebuild job — new
+  `ChunkRebuildJob.LowPolyStep` snapshot, mirrored after the voxel snapshot pattern at line 505-509),
+  ChunkBuild.cs:145 (dispatch worker — `BuildOrLoadChunk(tc, seed, lowPolyStep)`), Deform.cs:272
+  (FullRebuildChunk) + :268. `GenerateChunkSync` passes `EffectiveLowPolyStep`.
+- `ChunkObject`: `_meshStep` from `md.LowPolyStep` on apply; `ColliderStep` (root step when coarse,
+  else 2 m) drives `RefreshCollider`/`RebuildColliderSurface`/`PatchRegion` collider builds;
+  `PatchRegion` low-poly branch — skips the per-tile skim, re-stamps the lattice via `PatchCornerGrid`
+  as before, then re-samples the whole root (`_merged = ResampleLowPolySurface(...)`); `RefreshLodMeshes`
+  early-outs when `_meshStep > 0`.
+- Test ground (rule 4): `NewWorldTestGround.LowPolyStep` (serialized, default 3) applied with the
+  existing `EnableLowPolyTerrain` block in Awake.
+- `MergedChunkMeshData.LowPolyStep` field (0 = full-res 1 m root).
+
+**Trade-offs (accepted):** a 1 m corner edit only VISIBLY moves a facet vertex when the edited corner
+lands on the 3 m grid (heights still save/restore the 1 m lattice); collider surface coarsens to match
+the render; no side walls on the coarse root (consistent with the far shell's flat bands).
+
+### 1hi.1-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build). New symbols:
+  `LowPolyStep` (WorldStreamer + test ground), `EffectiveLowPolyStep` (private),
+  `MergedChunkMeshData.LowPolyStep`, `BuildLowPolyMerged`/`EmitLowPolySurface`/`EmitLowPolyIndices`/
+  `ResampleLowPolySurface` (ChunkMeshGenerator), `ChunkRebuildJob.LowPolyStep`,
+  `ChunkObject._meshStep`/`ColliderStep`. Grep confirms: all 3 `BuildMergedMeshData` call sites + both
+  `BuildOrLoadChunk` call sites thread the step; `ColliderDecimation` survives only as the smooth-mode
+  fallback inside `ColliderStep`; `_merged.Vertices` readers in PatchRegion are low-poly-safe (null
+  table → `IsTileRefined` false → no refinedness mismatch at Deform.cs:525-533); `IsTileRefined`
+  null-guards (ChunkObject.cs:643-646); `UploadMerged` clears on vertex-count change so the pooled
+  mesh handles root-mode flips (ChunkMeshGenerator.cs:1230); `ChunkLodManager` band sweep tolerates
+  missing Lod children (ApplyBand fallback). Far shell untouched; voxel path untouched (never calls
+  the merged builder with a step; `_meshStep` stays 0 there).
+- PENDING PLAY-TEST: (1) the near ground reads as crisp 3 m facets everywhere (not smooth), matching
+  the horizon; (2) walk over the near/far seam (ring 9-10) — the facet language and sizes match, no
+  seam/hole; (3) dig / corner-edit — the facet under the edit moves when the edited corner lands on the
+  3 m grid and you STAND on the new surface (collider step = 3); (4) walk a chunk border — watertight,
+  no side-wall gaps at cliffs between low-poly chunks (expected look: slanted facets, no vertical
+  walls); (5) flip `EnableLowPolyTerrain` OFF and rebuild — the full 1 m surface + 2 m collider
+  returns; (6) voxel mode unchanged.
+- Docs synced same pass: this PROGRESS 1hi.1, THINKING 1hi.1, game-design §2.5 (coarse near-ring
+  facets + decimated-collider step note) + §2.10 (coarse root facets).
+
 ## 1hi. Low-poly facet terrain (look) + decimated 2 m colliders (perf) — far-shell flat facets, refine knockout, cheap PhysX cooks
 
 Requested: "make the terrain more low poly vibe" — asks whether that also wins performance. Honest

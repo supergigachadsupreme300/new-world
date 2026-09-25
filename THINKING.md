@@ -15,6 +15,77 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1hi.1 — "the surface is currently too smooth to be called low poly terrain" (coarse near-ring facets; shipped)
+
+### Hypothesis A — "1hi's flat-shading still reads smooth because normals aren't flat enough" → REJECTED
+Check by re-read of the emitted surfaces: the near ring was ALREADY per-tile flat quads (1 h threshold
+knockout), and flat normals on a **1 m-dense grid** over a continuous 1 m corner heightfield produce a
+perceptually smooth slope — the human eye integrates 1 m facets into a smooth surface. The far shell
+(at 3 m facets) is what already read chunky. So the missing ingredient is not shading/normals — it is
+**geometric density**: the rendered faces themselves must be bigger. Verdict: coarsen the near ring's
+GEOMETRY, not its normals.
+
+### Hypothesis B — "make the whole 1 m grid coarser (2-3 m world grid everywhere)" → REJECTED
+That rewires saves, edits, props, deformation and colliders away from the 1 m corner lattice — exactly
+the "too Minecraft-like/blocky" rejection that un-defaulted the voxel model at 1ev. The 1 m lattice is
+the single source of truth the rest of the game touches (DeformAt/FlattenAt corner heap, ChunkSave,
+prop heights, PatchCornerGrid). Keep it canonical.
+
+### Hypothesis C (adopted) — "render the REAL chunk roots as the lattice facets themselves" → CONFIRMED
+Reuse the exact recipe `ChunkObject.BuildLodChild` already implements (ChunkObject.cs:455-480):
+sample the 31x31 corner lattice every `step` nodes (`s = gz*step*31 + gx*step`), flat +Y-dominant
+per-quad normals, seamless at chunk borders because `step` divides 30 (the far corner lands exactly on
+the boundary). The far shell's 1hi flat branch emits EXACTLY this at 3 m — so the near root at the same
+step shares the identical market language AND identical world corner nodes across the near/far seam.
+Extra wins that fell out:
+- The collider already IS a lattice decimation (`BuildDecimatedCollider`, 1hi) with a step parameter →
+  just pass the root step so you stand on the visual (no new machinery).
+- `PatchCornerGrid` (1ew) already re-stamps the lattice on every deformation → the coarse root can just
+  re-emit from the restamped lattice; `PatchRegion`'s whole 1 m per-tile skim becomes unnecessary.
+- The root at 3 m is ~121 quads (vs ~1800 tris full) → the only per-chunk render surface, so the
+  Lod1/Lod2 bands add nothing.
+
+### Sub-decisions (evidence)
+- **Step = 3, not 2** (user picked 3): 3 divides 30 (seam-safe) *and* matches the far shell's `FarSectorStep`,
+  giving a single uniform facet language across ring 0→horizon; a 2 m root would read subtly nearer-band
+  than the 3 m far band and would require children at 6m/10m for the divisor rule. `EffectiveLowPolyStep`
+  default 3, test-ground knob allows 2.
+- **Skip LOD children** (user picked skip): the root already sits at Lod2 density; keeping bands would
+  need divisor-safe coarser steps (6/10) for a negligible save. Verified `ChunkLodManager.ApplyBand`
+  is null-safe — when the tracked detail is missing it falls back to `rootMr.enabled = true`
+  (ChunkLodManager.cs:259-263), and `FetchVisual` only registers children whose name starts with "Lod"
+  (ChunkLodManager.cs:82), so zero children → Details empty → no toggling. `SetVisualActive`/
+  `Release` already null-guard `_lod1Go/_lod2Go`.
+- **Side walls dropped on the coarse root**: the 1 m builder emits vertical walls only where a tile is
+  taller than its neighbour; the heightfield is a *function*, so a coarse facet between a high and a
+  low node is a slanted face — never a hole. The far shell's flat band also emits no walls, so
+  dropping them keeps the whole world visually consistent; a vertical cliff-face between two adjacent
+  3 m corners is bridged by the facet (look, not watertightness issue).
+- **UV/colors sampled from the lattice, not recomputed**: `BuildCornerGrid`/`PatchCornerGrid` already
+  stamp per-node `UV` + `Colors` (TerrainBandColor) — sampling them makes the build, patch and
+  far-shell paths read identical colors with zero extra noise samples, and PatchRegion can re-emit
+  without a height memo or tile origin.
+
+### Pitfall caught in review (value-type mutation)
+`ResampleLowPolySurface` was first written `void (MergedChunkMeshData md, ...)` writing into the
+parameter — but `MergedChunkMeshData` is a struct, so writes would vanish on return and `PatchRegion`
+would keep the pre-edit arrays. Flipped to return the updated struct and assign:
+`_merged = ChunkMeshGenerator.ResampleLowPolySurface(_merged, _meshStep);`. (grep-verified the
+call site.)
+
+### Pitfall caught (pooled-mesh vertex-count flips)
+A chunk that toggles between full-res (961+ verts) and low-poly (400 verts) roots reuses its pooled
+`Mesh` — `UploadMerged` clears whenever `mesh.vertexCount != md.Vertices.Length`
+(ChunkMeshGenerator.cs:1230), so the mode is switchable mid-session without buffer corruption.
+PatchRegion's re-upload for the low-poly path keeps equal lengths (400) → no clear, cheap.
+
+### Open risk to record
+- 1 m corner-grab edits: a corner that does NOT sit on the 3 m grid moves no visible vertex of the
+  low-poly root (heights still save/restore on the 1 m lattice). This is the accepted edit-granularity
+  trade-off; watch it in play-test (item 3 in the 1hi.1 status checklist).
+- Hot mid-session toggling of `LowPolyStep` only affects chunks built AFTER the flip (workers snapshot
+  the step like the voxel flag); play-test guidance says flip before streaming (same as 1hi/voxel).
+
 ## 1hi — "low poly terrain + does it speed things up?" (look + perf; shipped)
 
 ### Question and the honest frame

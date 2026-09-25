@@ -436,7 +436,8 @@ public static class ChunkMeshGenerator
     /// pristine corner grid uses (no phantom walls on untouched seams).
     /// </summary>
     public static MergedChunkMeshData BuildMergedMeshData(ChunkMeshData[] tiles,
-        System.Collections.Generic.IReadOnlyDictionary<long, float> border = null, long seed = 0)
+        System.Collections.Generic.IReadOnlyDictionary<long, float> border = null, long seed = 0,
+        int lowPolyStep = 0)
     {
         int cs = TerrainChunkCoord.ChunkSize;
         int tileCount = cs * cs;
@@ -465,6 +466,16 @@ public static class ChunkMeshGenerator
             }
             tiles = resolved;
         }
+
+        // (1hi.1) LOW-POLY ROOT: when the streamer asks for coarse facets (LowPolyStep > 0) the whole
+        // merged mesh IS the decimated lattice surface — flat per-quad facets sampled every
+        // `step`-th node of the same 31x31 corner grid the far shell and LOD children share, so the
+        // near ring reads as crisp facets and the seam to the far shell is exact by construction.
+        // This skips the per-tile top blocks and side walls entirely; the 1 m lattice still tracks
+        // every edit (PatchCornerGrid restamps it) and the collider rides the SAME step, so
+        // deformation and physics need no special-casing here.
+        if (lowPolyStep > 0)
+            return BuildLowPolyMerged(tiles, cs, seed, lowPolyStep);
 
         // Per-tile TOP block table (1ew): refined tiles emit 16 vertices, coarse tiles 4, so the
         // merged mesh is a sequence of variable-size blocks the patch/lod paths index through this
@@ -692,6 +703,175 @@ public static class ChunkMeshGenerator
             ColliderVertices = colliderVertices,
             ColliderTriangles = colliderTriangles,
         };
+    }
+
+    /// <summary>
+    /// Builds a chunk root from the coarse corner lattice when low-poly facets are enabled (1hi.1):
+    /// every <paramref name="step"/>-th node of the 31x31 world-corner grid (step MUST divide
+    /// TerrainChunkCoord.ChunkSize so the last sample lands exactly on the chunk border) emits one
+    /// flattened quad with a +Y-dominant cross normal — the same facet language as the 3 m far shell
+    /// (1hi), so near and far surfaces read identically and share world corner nodes across the seam.
+    /// The 1 m lattice is still canonical (saves, edits, prop heights); only what is rendered and
+    /// cooked for the collider decimates to the step. The patch tables are intentionally null — the
+    /// low-poly PatchRegion re-samples this root from the restamped lattice instead of a per-tile
+    /// skim. Pure arrays — thread-safe.
+    /// </summary>
+    private static MergedChunkMeshData BuildLowPolyMerged(ChunkMeshData[] tiles, int cs, long seed,
+        int step)
+    {
+        int grid = TerrainChunkCoord.CornerGridSize;
+        var heightMemo = new System.Collections.Generic.Dictionary<long, float>(grid * grid);
+        ChunkCornerGrid corners = BuildCornerGrid(tiles, cs, seed, heightMemo);
+
+        EmitLowPolySurface(corners, cs, step,
+            out Vector3[] vertices, out Vector3[] normals, out Vector2[] uv, out Color[] colors,
+            out Bounds bounds);
+
+        // Collider at the SAME step so the stand-surface matches the visible facets exactly.
+        BuildDecimatedCollider(corners, step,
+            out Vector3[] colliderVertices, out int[] colliderTriangles);
+
+        return new MergedChunkMeshData
+        {
+            Vertices = vertices,
+            Triangles = EmitLowPolyIndices(cs, step),
+            UV = uv,
+            Normals = normals,
+            Colors = colors,
+            Bounds = bounds,
+            TileVertexBase = null,
+            TileVertexCount = null,
+            Corners = corners,
+            ColliderVertices = colliderVertices,
+            ColliderTriangles = colliderTriangles,
+            LowPolyStep = step,
+        };
+    }
+
+    /// <summary>Flat-facet quad arrays over the lattice (1hi.1): every `step`-th node of the 31x31
+    /// corner grid, four vertices per quad sharing one +Y-dominant flat normal, UV and strata colors
+    /// sampled from the lattice itself (they are already the canonical per-corner values, so the
+    /// build, patch and far-shell paths read identical colors). Pure arrays — thread-safe.</summary>
+    private static void EmitLowPolySurface(ChunkCornerGrid corners, int cs, int step,
+        out Vector3[] vertices, out Vector3[] normals, out Vector2[] uv, out Color[] colors,
+        out Bounds bounds)
+    {
+        int axis = (cs / step) + 1;
+        int quads = (axis - 1) * (axis - 1);
+        int grid = TerrainChunkCoord.CornerGridSize;
+        int cornerCount = grid * grid;
+
+        var verts = new Vector3[quads * 4];
+        var nrm = new Vector3[quads * 4];
+        var uvs = new Vector2[quads * 4];
+        var cols = new Color[quads * 4];
+
+        float minY = float.MaxValue;
+        float maxY = float.MinValue;
+
+        for (int gz = 0; gz < axis - 1; gz++)
+        {
+            for (int gx = 0; gx < axis - 1; gx++)
+            {
+                // Sample the same lattice the LOD children / far shell use (1e6 winding: +X next
+                // column, +Z next row), so edited corners re-appear here via the patch restamp.
+                int s00 = (gz * step) * grid + (gx * step);
+                int s10 = s00 + step;
+                int s01 = s00 + step * grid;
+                int s11 = s01 + step;
+
+                Vector3 p00 = new Vector3(gx * step, SanitizeHeight(corners.Y[s00]), gz * step);
+                Vector3 p10 = new Vector3((gx + 1) * step, SanitizeHeight(corners.Y[s10]), gz * step);
+                Vector3 p01 = new Vector3(gx * step, SanitizeHeight(corners.Y[s01]), (gz + 1) * step);
+                Vector3 p11 = new Vector3((gx + 1) * step, SanitizeHeight(corners.Y[s11]), (gz + 1) * step);
+
+                // Flat +Y-dominant facet normal — the far-shell rule (1hi), so steep faces never
+                // shade upside-down.
+                Vector3 n = Vector3.Cross(p10 - p00, p01 - p00);
+                if (n.sqrMagnitude > 1e-12f)
+                    n = n.normalized;
+                else
+                    n = Vector3.up;
+                if (n.y < 0f)
+                    n = -n;
+
+                int v = (gx + gz * (axis - 1)) * 4;
+                verts[v + 0] = p00; verts[v + 1] = p10; verts[v + 2] = p11; verts[v + 3] = p01;
+                nrm[v + 0] = n; nrm[v + 1] = n; nrm[v + 2] = n; nrm[v + 3] = n;
+                uvs[v + 0] = s00 < cornerCount ? corners.UV[s00] : Vector2.zero;
+                uvs[v + 1] = s10 < cornerCount ? corners.UV[s10] : Vector2.zero;
+                uvs[v + 2] = s11 < cornerCount ? corners.UV[s11] : Vector2.zero;
+                uvs[v + 3] = s01 < cornerCount ? corners.UV[s01] : Vector2.zero;
+                cols[v + 0] = s00 < cornerCount ? corners.Colors[s00] : Color.white;
+                cols[v + 1] = s10 < cornerCount ? corners.Colors[s10] : Color.white;
+                cols[v + 2] = s11 < cornerCount ? corners.Colors[s11] : Color.white;
+                cols[v + 3] = s01 < cornerCount ? corners.Colors[s01] : Color.white;
+
+                if (p00.y < minY) minY = p00.y;
+                if (p00.y > maxY) maxY = p00.y;
+                if (p10.y < minY) minY = p10.y;
+                if (p10.y > maxY) maxY = p10.y;
+                if (p01.y < minY) minY = p01.y;
+                if (p01.y > maxY) maxY = p01.y;
+                if (p11.y < minY) minY = p11.y;
+                if (p11.y > maxY) maxY = p11.y;
+            }
+        }
+
+        float span = cs * ChunkData.Size;
+        bounds = new Bounds(
+            new Vector3(span * 0.5f, minY < maxY ? (minY + maxY) * 0.5f : minY, span * 0.5f),
+            new Vector3(span, Mathf.Max(0.1f, minY < maxY ? (maxY - minY) + 0.1f : 0.1f), span));
+
+        vertices = verts;
+        normals = nrm;
+        uv = uvs;
+        colors = cols;
+    }
+
+    /// <summary>Shared index windup for the low-poly facet grid (1hi.1): two CCW triangles per
+    /// lattice quad — p00, p10, p11 / p00, p11, p01 (the same winding the far shell and LOD children
+    /// use, so the surface faces +Y). Pure array — thread-safe.</summary>
+    private static int[] EmitLowPolyIndices(int cs, int step)
+    {
+        int axis = (cs / step) + 1;
+        int quads = (axis - 1) * (axis - 1);
+        int[] triangles = new int[quads * 6];
+        for (int gz = 0; gz < axis - 1; gz++)
+        {
+            for (int gx = 0; gx < axis - 1; gx++)
+            {
+                int v = (gx + gz * (axis - 1)) * 4;
+                int t = (gx + gz * (axis - 1)) * 6;
+                triangles[t + 0] = v + 0; triangles[t + 1] = v + 1; triangles[t + 2] = v + 2;
+                triangles[t + 3] = v + 0; triangles[t + 4] = v + 2; triangles[t + 5] = v + 3;
+            }
+        }
+        return triangles;
+    }
+
+    /// <summary>
+    /// Re-samples a chunk's low-poly ROOT surface from its (already patch-restamped) lattice and
+    /// returns the updated merged data (1hi.1). PatchRegion re-stamps the corners with
+    /// PatchCornerGrid, then this rewrites the root's vertex/normal/UV/color arrays + bounds from
+    /// them — the coarse mesh is tiny (~121 quads at 3 m) so a full re-emit is far cheaper than the
+    /// 1 m per-tile skim it replaces. Returns a fresh struct because MergedChunkMeshData is a
+    /// value type; the render arrays are replaced with fresh equal-length arrays (vertex count
+    /// never changes for a fixed step), and the collider is re-cooked separately at the same step.
+    /// Main thread only.
+    /// </summary>
+    public static MergedChunkMeshData ResampleLowPolySurface(MergedChunkMeshData md, int step)
+    {
+        EmitLowPolySurface(md.Corners, TerrainChunkCoord.ChunkSize, step,
+            out Vector3[] vertices, out Vector3[] normals, out Vector2[] uv, out Color[] colors,
+            out Bounds bounds);
+        md.Vertices = vertices;
+        md.Normals = normals;
+        md.UV = uv;
+        md.Colors = colors;
+        md.Bounds = bounds;
+        md.LowPolyStep = step;
+        return md;
     }
 
     /// <summary>

@@ -18,11 +18,11 @@ public partial class WorldStreamer
     /// thread-safe chunk mesh. The mesh mode (smooth heightfield vs. stepped voxel, 1et) is
     /// captured on the MAIN thread at dispatch time so a chunk never changes shape mid-build.
     /// </summary>
-    private void BackgroundGenerateChunk(TerrainChunkCoord tc, long seed, bool voxel)
+    private void BackgroundGenerateChunk(TerrainChunkCoord tc, long seed, bool voxel, int lowPolyStep)
     {
         try
         {
-            _readyChunks.Enqueue(voxel ? BuildVoxelChunk(tc, seed) : BuildOrLoadChunk(tc, seed));
+            _readyChunks.Enqueue(voxel ? BuildVoxelChunk(tc, seed) : BuildOrLoadChunk(tc, seed, lowPolyStep));
         }
         catch (System.Exception ex)
         {
@@ -43,7 +43,7 @@ public partial class WorldStreamer
     /// miss path). Shared-edge contract is preserved because every tile whose corner a deformed
     /// tile touches is saved/handled together by DeformAt.
     /// </summary>
-    private TerrainChunkMeshData BuildOrLoadChunk(TerrainChunkCoord tc, long seed)
+    private TerrainChunkMeshData BuildOrLoadChunk(TerrainChunkCoord tc, long seed, int lowPolyStep = 0)
     {
         int cs = TerrainChunkCoord.ChunkSize;
         int gridSize = TerrainChunkCoord.CornerGridSize; // 31
@@ -142,7 +142,7 @@ public partial class WorldStreamer
         {
             Coord = tc,
             Tiles = tiles,
-            Merged = ChunkMeshGenerator.BuildMergedMeshData(tiles, null, seed),
+            Merged = ChunkMeshGenerator.BuildMergedMeshData(tiles, null, seed, lowPolyStep),
             HadLoadedMods = hadLoadedMods,
         };
     }

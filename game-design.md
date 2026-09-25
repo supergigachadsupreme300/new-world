@@ -204,9 +204,22 @@ mid-view stays crisp
    adaptive 2x2 sub-quads. The look is a QA knob like the voxel toggle — flip BEFORE the far shell
    builds for a clean read (`NewWorldTestGround.EnableLowPolyTerrain`, default on; off restores the
    smooth haze).
-- **Decimated 2 m colliders (1hi):** smooth real chunks cook their MeshCollider from a **decimated
-   2 m lattice** — every 2nd node of the same 31x31 corner grid (`ChunkMeshGenerator.BuildDecimatedCollider`,
-   256 verts / 450 tris) — instead of the full merged render surface, so the synchronous PhysX cook on
+- **Coarse near-ring facets (1hi.1, default ON):** with `LowPolyFacets` on, the REAL chunks' root
+   mesh is no longer the 1 m per-tile surface — the merged builder emits the lattice facets
+   themselves: every `WorldStreamer.LowPolyStep`-th node of the 31x31 world-corner grid (default
+   **3 m** = the far shell's step, so the whole world — near ring + far shell — reads ONE uniform
+   3 m facet language with the near/far seam sharing exact world corners; **2 m** is the subtler
+   alternative), one flattened quad per cell with a +Y-dominant cross normal, lattice UV/colors and
+   no side walls. The 1 m corner grid stays the single source of truth: saves, edits, props and
+   deformation are untouched (`PatchCornerGrid` restamps the lattice and the ~121-quad root re-emits
+   from it), and the **collider rides the same step** (colliders below) so the player stands exactly
+   on the visual. Trade-off: a 1 m corner edit only visibly moves a facet vertex when the edited
+   corner lands on the coarse grid. Tune via `NewWorldTestGround.LowPolyStep`.
+- **Decimated colliders (1hi, step follows the root 1hi.1):** smooth real chunks cook their
+   MeshCollider from a **decimated lattice** — every 2nd node of the 31x31 corner grid
+   (`ChunkMeshGenerator.BuildDecimatedCollider`, 256 verts / 450 tris) by default, or the chunk's
+   OWN low-poly root step when coarse (3 m, so you stand exactly on the visible facets) — instead
+   of the full merged render surface, so the synchronous PhysX cook on
    the gameplay frame (capped at 2/poll above) drops ~4x. The lattice shares the EXACT world corners
    the LOD children (and neighbour chunks) use, so the physics surface is seam-proof across chunks by
    construction; `PatchRegion` re-derives it from the patch-re-stamped lattice so the collider tracks
@@ -589,6 +602,14 @@ bite and a cliff reads as a single un-editable surface.
    `EffectiveRefineThreshold = 0`, so no tile ever stretch-splits — the whole near band renders as
    one flat quad per tile (the same chunky language as the far facets, §2.5), and `IsTileRefined` is
    uniformly false. Threshold editing (DeformAt etc.) still works — coarse 1 m corner granularity.
+- **Coarse root facets (1hi.1):** when low-poly is on the ROOT is the 3 m lattice surface anyway
+   (`BuildMergedMeshData(..., lowPolyStep)`: flat per-facet quads sampled from the 31x31 corner grid,
+   no side walls, no per-tile blocks), so the merged patch-table pointers are null and `PatchRegion`
+   skips the per-tile skim — it re-samples the whole tiny root from the re-stamped lattice
+   (`ChunkMeshGenerator.ResampleLowPolySurface`). The Lod1/Lod2 children are skipped entirely
+   (the root already exceeds their density; `ChunkLodManager` falls back to the root renderer when
+   a named detail is missing), and edits land coarsened: a 1 m corner move only visibly lifts a facet
+   vertex on the 3 m grid (the 1 m heights still save/restore exactly).
 
 ---
 

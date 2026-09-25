@@ -71,9 +71,10 @@ public class ChunkObject : MonoBehaviour
     }
 
     /// <summary>
-    /// Assignment point for the chunk's MeshCollider (1hi). Smooth chunks cook a DECIMATED 2 m
-    /// lattice (every 2nd node of the 31x31 world-corner grid) instead of the full render mesh, so
-    /// the per-enable PhysX cook on the gameplay frame is ~4x cheaper; the lattice shares the EXACT
+    /// Assignment point for the chunk's MeshCollider (1hi). Smooth chunks cook a DECIMATED lattice
+    /// instead of the full render mesh — 2 m by default, or the chunk's OWN low-poly facet step
+    /// (1hi.1 <see cref="ColliderStep"/>, so you stand exactly on the visible 3 m facets) — so the
+    /// per-enable PhysX cook on the gameplay frame is ~4x cheaper; the lattice shares the EXACT
     /// world corners the LOD children (and neighbour chunks) use, so the physics surface is
     /// seam-proof across chunks by construction. Voxel mode (already chunky 1 m columns) keeps the
     /// render mesh as its collider, unchanged from pre-1hi. <paramref name="md"/> carries
@@ -104,7 +105,7 @@ public class ChunkObject : MonoBehaviour
                 UploadCollider(md.ColliderVertices, md.ColliderTriangles);
             else if (_merged.Corners.Y != null)
             {
-                ChunkMeshGenerator.BuildDecimatedCollider(_merged.Corners, ColliderDecimation,
+                ChunkMeshGenerator.BuildDecimatedCollider(_merged.Corners, ColliderStep,
                     out Vector3[] cv, out int[] ct);
                 UploadCollider(cv, ct);
             }
@@ -145,7 +146,7 @@ public class ChunkObject : MonoBehaviour
             return;
         if (_merged.Corners.Y != null)
         {
-            ChunkMeshGenerator.BuildDecimatedCollider(_merged.Corners, ColliderDecimation,
+            ChunkMeshGenerator.BuildDecimatedCollider(_merged.Corners, ColliderStep,
                 out Vector3[] cv, out int[] ct);
             UploadCollider(cv, ct);
         }
@@ -188,6 +189,17 @@ public class ChunkObject : MonoBehaviour
     // so its vertex indices bear no relation to the render mesh's.
     private Mesh _colliderMesh;
     private const int ColliderDecimation = ChunkMeshGenerator.ChunkColliderDecimation;
+
+    // (1hi.1) Coarse facet step this chunk's ROOT mesh was built at (0 = full-resolution 1 m per-tile
+    // surface — the smooth look). Set from MergedChunkMeshData.LowPolyStep on every apply; drives
+    // both the low-poly PatchRegion re-sample (the root is re-emitted from the restamped lattice
+    // instead of a per-tile skim) and the collider decimation, so physics always rides the SAME step
+    // as the visible facets.
+    private int _meshStep;
+
+    /// <summary>Collider decimation step for THIS chunk (1hi.1): the low-poly root's own step when
+    /// coarse (stand exactly on the visual facets), else the standard 2 m decimation.</summary>
+    private int ColliderStep => _meshStep > 0 ? _meshStep : ColliderDecimation;
 
     // 1e6: LOD children. Each chunk builds two decimated grid meshes ("Lod1"/"Lod2" children, name
     // matched by ChunkLodManager's band DetailNames) sampled from its own merged top-terrain block,
@@ -256,6 +268,7 @@ public class ChunkObject : MonoBehaviour
     public void ApplyMerged(MergedChunkMeshData md, Material material, bool buildCollider = true)
     {
         _merged = md;
+        _meshStep = md.LowPolyStep;
         // Pooled mesh (1dv): a chunk owns one Mesh instance. The first apply acquires it from the
         // freed-mesh pool (or allocates when the pool is empty); rebuilds re-upload into the SAME
         // instance, so FullRebuildChunk/etc. stop spinning new Mesh objects + Destroying the old.
@@ -311,6 +324,12 @@ public class ChunkObject : MonoBehaviour
         float minY = float.MaxValue;
         float maxY = float.MinValue;
 
+        // (1hi.1) Low-poly roots have NO per-tile blocks: the merged arrays are the whole
+        // coarse facet surface (~121 quads at 3 m), so a patch cannot skim `count` vertices per
+        // tile — it re-samples the whole root from the restamped lattice below (far cheaper than
+        // the 1 m skim anyway).
+        bool lowPoly = _meshStep > 0;
+
         // The color channel tracks the strata bands per corner; lazily back-fill it so a patched
         // region always has a writable array even if a mesh was built without one.
         if (_merged.Colors == null)
@@ -320,10 +339,12 @@ public class ChunkObject : MonoBehaviour
                 _merged.Colors[i] = ColorPalette.GrassGreen;
         }
 
-        for (int lz = localMinZ; lz <= localMaxZ; lz++)
+        if (!lowPoly)
         {
-            for (int lx = localMinX; lx <= localMaxX; lx++)
+            for (int lz = localMinZ; lz <= localMaxZ; lz++)
             {
+                for (int lx = localMinX; lx <= localMaxX; lx++)
+                {
                 ChunkMeshData tile = region[(lz - localMinZ) * w + (lx - localMinX)];
                 // 1ew: coarse quads and refined 2x2 blocks mix in one chunk mesh, so the block's
                 // start inside the merged buffer comes from the TileVertexBase table, not a fixed
@@ -352,6 +373,7 @@ public class ChunkObject : MonoBehaviour
                 }
             }
         }
+        }
 
         // Keep the LOD corner lattice in sync with the patch (1ew): re-stamp every lattice node
         // whose canonical owner tile lives inside the region, so far-band children reflect the edit.
@@ -359,17 +381,26 @@ public class ChunkObject : MonoBehaviour
             ChunkMeshGenerator.PatchCornerGrid(_merged.Corners, region, cs,
                 localMinX, localMinZ, w, h, seed);
 
-        // Bounds from the full CPU vertex array (cheap, 3600 scans).
-        for (int i = 0; i < _merged.Vertices.Length; i++)
+        // Low-poly root (1hi.1): re-sample the WHOLE surface from the just-restamped lattice — ~121 quads
+        // at 3 m, cheaper than the 1 m per-tile skim it replaces, and it rebuilds the bounds too.
+        // Full-res path: bounds from the full CPU vertex array as before.
+        if (lowPoly)
         {
-            float y = _merged.Vertices[i].y;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
+            _merged = ChunkMeshGenerator.ResampleLowPolySurface(_merged, _meshStep);
         }
-        float span = cs * ChunkData.Size;
-        _merged.Bounds = new Bounds(
-            new Vector3(span * 0.5f, minY < maxY ? (minY + maxY) * 0.5f : minY, span * 0.5f),
-            new Vector3(span, Mathf.Max(0.1f, (maxY - minY) + 0.1f), span));
+        else
+        {
+            for (int i = 0; i < _merged.Vertices.Length; i++)
+            {
+                float y = _merged.Vertices[i].y;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+            float span = cs * ChunkData.Size;
+            _merged.Bounds = new Bounds(
+                new Vector3(span * 0.5f, minY < maxY ? (minY + maxY) * 0.5f : minY, span * 0.5f),
+                new Vector3(span, Mathf.Max(0.1f, (maxY - minY) + 0.1f), span));
+        }
 
         // Re-upload the modified channels once.
         mesh.SetVertices(_merged.Vertices);
@@ -396,7 +427,7 @@ public class ChunkObject : MonoBehaviour
                 {
                     // Collider going live with this first patch (rare: enabled mid-edit) — build once.
                     _colliderMesh = ChunkMeshGenerator.AcquireChunkMesh($"ColliderMesh_{ChunkCoord.X}_{ChunkCoord.Z}");
-                    ChunkMeshGenerator.BuildDecimatedCollider(_merged.Corners, ColliderDecimation,
+                    ChunkMeshGenerator.BuildDecimatedCollider(_merged.Corners, ColliderStep,
                         out Vector3[] cv, out int[] ct);
                     UploadCollider(cv, ct);
                     _mc.sharedMesh = null;
@@ -436,6 +467,15 @@ public class ChunkObject : MonoBehaviour
             _lodDirty = false;
             _lod1Go = BuildVoxelLodChild(_lod1Go, ref _lod1Mf, "Lod1", 2, VoxelStore);
             _lod2Go = BuildVoxelLodChild(_lod2Go, ref _lod2Mf, "Lod2", 3, VoxelStore);
+            return;
+        }
+        // (1hi.1) Low-poly mode skips the Lod1/Lod2 bands entirely: the root IS already the
+        // decimated surface (e.g. 3 m facets — ~1/9 the 1 m mesh), so the children would duplicate
+        // or exceed its density; ChunkLodManager.ApplyBand falls back to the root renderer when a
+        // named detail is missing, and the far shell covers distance instead.
+        if (_meshStep > 0)
+        {
+            _lodDirty = false;
             return;
         }
         if (!_lodDirty || _mf == null)

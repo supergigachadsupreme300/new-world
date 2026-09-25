@@ -79,6 +79,15 @@ public struct MergedChunkMeshData
 
     /// <summary>Triangles of the decimated collider surface (1hi, see <see cref="ColliderVertices"/>).</summary>
     public int[] ColliderTriangles;
+
+    /// <summary>
+    /// Low-poly facet step the ROOT mesh was built at (1hi.1): 0 = full-resolution 1 m per-tile
+    /// surface (top blocks + side walls); &gt;0 (e.g. 3) = this chunk's root IS the lattice facets,
+    /// sampled every <paramref name="LowPolyStep"/>-th node of <see cref="Corners"/> with flat normals,
+    /// and <see cref="TileVertexBase"/>/<see cref="TileVertexCount"/> are null (no per-tile blocks).
+    /// The patch path re-samples the root from the restamped lattice instead of a per-tile skim.
+    /// </summary>
+    public int LowPolyStep;
 }
 
 /// <summary>
