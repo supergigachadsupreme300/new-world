@@ -135,10 +135,11 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
         // Low-poly facet look (1hi): same pre-first-poll contract as the voxel toggle above — the
         // lane sets the streamer's knob to this lane's value (and the far shell + near build paths
-        // read it before any far cell or chunk is built).
-        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
-        if (streamer != null)
-            streamer.LowPolyFacets = EnableLowPolyTerrain;
+        // read it before any far cell or chunk is built). Note: named differently from the voxel
+        // block's local above — C# forbids shadowing an enclosing-scope local.
+        var polyStreamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (polyStreamer != null)
+            polyStreamer.LowPolyFacets = EnableLowPolyTerrain;
         else
             Debug.LogWarning("[NewWorldTestGround] EnableLowPolyTerrain: WorldStreamer not found yet — " +
                 "flip the toggle on the streamer object in the scene instead.");
