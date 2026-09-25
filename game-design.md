@@ -190,8 +190,30 @@ gone, and real-chunk **unloads are capped at 6/poll** (spread over a few polls w
   — sized back when the default view was ~2 km; at the **1eo** 900 m default it just clears the shell
   with huge margin, and the shader's **horizon tonal lift** (starts ~1600 m, 60% peak) is now **beyond
   the loaded world**, so it only engages if the render radius is raised above ~53 chunks. It uses no fog —
-  mid-view stays crisp
-  so the outermost shell reads as atmosphere at the old 2 km range.
+mid-view stays crisp
+   so the outermost shell reads as atmosphere at the old 2 km range.
+- **Low-poly facet look (1hi, default ON):** `WorldStreamer.LowPolyFacets` switches the smooth
+   world's chunky language on, render/geometry-read only (saves, the 1 m tile grid, props, draw calls
+   and the budgeted collider pipeline untouched): (a) the far shell's 3 m cells emit **flat per-quad
+   normals** — 4 corner vertices per quad sharing one +Y-dominant flat normal instead of the smooth
+   central-difference haze (crisp mesas on the horizon; triangle count unchanged, vertices 4x, but a
+   far cell uploads once per cell lifetime, never a per-frame cost; boundary quads are built from the
+   SAME world corners on both sides of a shared edge, so flat facets stay seam-proof by construction —
+   no cross-cell pull needed); (b) the near 1ew stretch-split receives a **0 threshold**
+   (`EffectiveRefineThreshold`), so steep near slopes keep ONE big flat quad per tile instead of the
+   adaptive 2x2 sub-quads. The look is a QA knob like the voxel toggle — flip BEFORE the far shell
+   builds for a clean read (`NewWorldTestGround.EnableLowPolyTerrain`, default on; off restores the
+   smooth haze).
+- **Decimated 2 m colliders (1hi):** smooth real chunks cook their MeshCollider from a **decimated
+   2 m lattice** — every 2nd node of the same 31x31 corner grid (`ChunkMeshGenerator.BuildDecimatedCollider`,
+   256 verts / 450 tris) — instead of the full merged render surface, so the synchronous PhysX cook on
+   the gameplay frame (capped at 2/poll above) drops ~4x. The lattice shares the EXACT world corners
+   the LOD children (and neighbour chunks) use, so the physics surface is seam-proof across chunks by
+   construction; `PatchRegion` re-derives it from the patch-re-stamped lattice so the collider tracks
+   every excavation. Each chunk holds a second pooled Mesh (`ChunkObject._colliderMesh`, same
+   acquire/release discipline as the render mesh; lazily allocated — a chunk that never enters the
+   collider ring owns nothing; uploads re-specified in place, overwrite-only). Voxel mode is unchanged
+   (its chunky 1 m render columns stay the collider).
 - **Speed-decoupled renderer clock (1gd, cadence tuned 1xd):** the streaming/render loop no longer runs
   inside the gameplay `Update`. `WorldStreamer` starts a coroutine (`StreamLoop`, started in
   `OnEnable`) ticked on its OWN wall-clock beat at `StreamHz` (default **20 Hz** == the legacy
@@ -560,8 +582,13 @@ bite and a cliff reads as a single un-editable surface.
   (corners move → the whole refined patch follows). 1ex adds the fine lattice writes so a dig can move
   a mid-face point on its own.
 - **Play-test gate (1ew):** steep slopes show multiple small faces (never blocky steps like §2.9, no
-  holes or seams at splits), corner edits still move terrain coarsely, and revisiting an area restores
-  it exactly.
+   holes or seams at splits), corner edits still move terrain coarsely, and revisiting an area restores
+   it exactly.
+- **Low-poly knockout (1hi):** when `WorldStreamer.LowPolyFacets` is on (default), every build path
+   (chunk dispatch, 1ea save-scan rebuilds, Deform re-skims, seam rebuilds) receives
+   `EffectiveRefineThreshold = 0`, so no tile ever stretch-splits — the whole near band renders as
+   one flat quad per tile (the same chunky language as the far facets, §2.5), and `IsTileRefined` is
+   uniformly false. Threshold editing (DeformAt etc.) still works — coarse 1 m corner granularity.
 
 ---
 

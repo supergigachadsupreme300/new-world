@@ -169,7 +169,7 @@ public partial class WorldStreamer
         }
         job.Tiles = snap;
         job.Seed = Seed;
-        job.Refine = RefineThreshold;
+        job.Refine = EffectiveRefineThreshold;
         job.Border = BuildBorderCorners(tc);
         return job;
     }

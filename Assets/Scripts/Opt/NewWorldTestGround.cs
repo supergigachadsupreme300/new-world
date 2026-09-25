@@ -72,6 +72,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnablePollStageStats = true;
     [Tooltip("QA (1et): render the open world as the 1-metre stepped voxel terrain instead of the smooth heightfield (the experimental terrain model). Applied in Awake, BEFORE the WorldStreamer's first stream poll, so the whole world builds voxel from the start; leave OFF to keep smooth terrain.")]
     public bool EnableVoxelTerrain = false;
+    [Tooltip("QA/render (1hi): LOW-POLY FACET world. Applied in Awake, BEFORE the WorldStreamer's first stream poll, so the whole smooth world reads as crisp flat facets: the far shell emits per-quad flat normals (crisp mesas on the horizon) and the 1ew adaptive stretch-split passes a 0 threshold so steep near slopes stay big flat quads instead of sub-dividing. Pure render/geometry-read change — saves, the 1 m tile grid, props, draw calls and the budgeted collider pipeline are untouched. Leave ON (default) to see the new look; flip OFF only to A/B the old smooth haze.")]
+    public bool EnableLowPolyTerrain = true;
     [Tooltip("QA (1eu): exercise the voxel sculpt API on the streamed terrain just off the platform — a directed crater (toolbar dig with cast direction clips the dent into a slope-front scoop), a SculptVoxelCave under a ridge, and a SculptVoxelRaise pillar. Needs the voxel terrain enabled to be meaningful (no-op on smooth terrain), edits REAL terrain — permanent chunk saves — and never touches the platform or legacy village.")]
     public bool EnableVoxelSculptDemo = false;
     [Tooltip("QA/perf (1gd): wire the WorldStreamer's speed-decoupled renderer clock — the streaming/render loop runs on its OWN coroutine beat (StreamHz, default 20 Hz) and yields one cool-down frame after any busy poll, and edited-terrain seam rebuilds run on background threads instead of holding the gameplay frame. That is exactly the 'immense lag at high player speed' scenario. Config-only lane: no world placement — any WorldStreamer found in the scene gets StreamInUpdate=true + DecoupleRenderFromGameplay=true (it just uses the scene's own toggle values otherwise).")]
@@ -130,6 +132,16 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 Debug.LogWarning("[NewWorldTestGround] EnableVoxelTerrain: WorldStreamer not found yet — " +
                     "flip the toggle on the streamer object in the scene instead.");
         }
+
+        // Low-poly facet look (1hi): same pre-first-poll contract as the voxel toggle above — the
+        // lane sets the streamer's knob to this lane's value (and the far shell + near build paths
+        // read it before any far cell or chunk is built).
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (streamer != null)
+            streamer.LowPolyFacets = EnableLowPolyTerrain;
+        else
+            Debug.LogWarning("[NewWorldTestGround] EnableLowPolyTerrain: WorldStreamer not found yet — " +
+                "flip the toggle on the streamer object in the scene instead.");
 
         if (AutoSpawnOnStart)
             StartCoroutine(RunBenchSpawn());

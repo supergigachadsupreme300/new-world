@@ -68,6 +68,17 @@ public struct MergedChunkMeshData
     /// non-terrain builders (voxel path builds its own LOD).
     /// </summary>
     public ChunkCornerGrid Corners;
+
+    /// <summary>
+    /// Decimated 2 m collider surface (1hi): every 2nd node of <see cref="Corners"/> re-indexed with
+    /// the LOD winding — 256 verts / 450 tris vs. the full merged render mesh (up to ~1800+ tris).
+    /// Built on the worker thread so the chunk's MeshCollider can be ~4x cheaper to cook on the
+    /// gameplay frame. Null on non-terrain builders (voxel path re-cooks its render mesh).
+    /// </summary>
+    public Vector3[] ColliderVertices;
+
+    /// <summary>Triangles of the decimated collider surface (1hi, see <see cref="ColliderVertices"/>).</summary>
+    public int[] ColliderTriangles;
 }
 
 /// <summary>

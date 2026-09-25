@@ -67,8 +67,90 @@ public class ChunkObject : MonoBehaviour
         if (_colliderActive == active)
             return;
         _colliderActive = active;
-        if (_mc != null)
-            _mc.sharedMesh = active && _mf != null ? _mf.sharedMesh : null;
+        RefreshCollider(active);
+    }
+
+    /// <summary>
+    /// Assignment point for the chunk's MeshCollider (1hi). Smooth chunks cook a DECIMATED 2 m
+    /// lattice (every 2nd node of the 31x31 world-corner grid) instead of the full render mesh, so
+    /// the per-enable PhysX cook on the gameplay frame is ~4x cheaper; the lattice shares the EXACT
+    /// world corners the LOD children (and neighbour chunks) use, so the physics surface is
+    /// seam-proof across chunks by construction. Voxel mode (already chunky 1 m columns) keeps the
+    /// render mesh as its collider, unchanged from pre-1hi. <paramref name="md"/> carries
+    /// worker-thread-built collider arrays on the merge path (0 main-thread build); enabling a
+    /// collider later (1dq collider ring, 1gg exempt cooks) derives them here — 256 verts, once per
+    /// enable. Disabling nulls the collider (zero physics) but KEEPS the pooled collider mesh, so a
+    /// re-enable re-cooks the same instance.
+    /// </summary>
+    private void RefreshCollider(bool active, MergedChunkMeshData md = default)
+    {
+        if (_mc == null)
+            return;
+        if (!active)
+        {
+            _mc.sharedMesh = null;
+            return;
+        }
+        if (VoxelMesh)
+        {
+            _mc.sharedMesh = null;
+            _mc.sharedMesh = _mf != null ? _mf.sharedMesh : null;
+            return;
+        }
+        if (_colliderMesh == null)
+        {
+            _colliderMesh = ChunkMeshGenerator.AcquireChunkMesh($"ColliderMesh_{ChunkCoord.X}_{ChunkCoord.Z}");
+            if (md.ColliderVertices != null)
+                UploadCollider(md.ColliderVertices, md.ColliderTriangles);
+            else if (_merged.Corners.Y != null)
+            {
+                ChunkMeshGenerator.BuildDecimatedCollider(_merged.Corners, ColliderDecimation,
+                    out Vector3[] cv, out int[] ct);
+                UploadCollider(cv, ct);
+            }
+        }
+        else if (md.ColliderVertices != null)
+        {
+            // A rebuild (FullRebuildChunk / 1ea save-scan) re-applied FRESH merged arrays while the
+            // chunk already had a collider — always re-upload, or the cooked surface silently stays
+            // the pre-rebuild geometry until the next patch/Deform.
+            UploadCollider(md.ColliderVertices, md.ColliderTriangles);
+        }
+        _mc.sharedMesh = null;
+        _mc.sharedMesh = _colliderMesh;
+    }
+
+    /// <summary>Uploads the decimated collider arrays into <see cref="_colliderMesh"/> (overwrite-only
+    /// reuse, same discipline as UploadMerged: the clear handles the vertex-count change) — then
+    /// UploadMeshData(false) publishes once instead of per-setter dirty passes. Main thread only.</summary>
+    private void UploadCollider(Vector3[] vertices, int[] triangles)
+    {
+        if (_colliderMesh.vertexCount != vertices.Length)
+            _colliderMesh.Clear();
+        _colliderMesh.SetVertices(vertices);
+        _colliderMesh.SetTriangles(triangles, 0);
+        _colliderMesh.RecalculateBounds();
+        _colliderMesh.UploadMeshData(false);
+    }
+
+    /// <summary>Re-cooks the collider against the CURRENT lattice after a patch (1hi). The smooth
+    /// path re-derives the decimated surface from <see cref="_merged.Corners"/> (PatchCornerGrid just
+    /// re-stamped it), so the physics surface tracks every excavation; 256 verts, main thread, safe
+    /// per patch. The null→assign pair runs inside this single synchronous call, so no physics step
+    /// ever observes the null collider. No-op for collider-less chunks (1dq) and voxel mode never
+    /// reaches here.</summary>
+    private void RebuildColliderSurface()
+    {
+        if (_mc == null || _colliderMesh == null)
+            return;
+        if (_merged.Corners.Y != null)
+        {
+            ChunkMeshGenerator.BuildDecimatedCollider(_merged.Corners, ColliderDecimation,
+                out Vector3[] cv, out int[] ct);
+            UploadCollider(cv, ct);
+        }
+        _mc.sharedMesh = null;
+        _mc.sharedMesh = _colliderMesh;
     }
 
     /// <summary>
@@ -95,6 +177,17 @@ public class ChunkObject : MonoBehaviour
     // first ApplyMerged, then re-uploaded in place on every rebuild — no new+Destroy churn and no
     // transient double GPU buffer. Returned to the pool on Release() for the next chunk to reuse.
     private Mesh _mesh;
+
+    // (1hi) One pooled Mesh for this chunk's DECIMATED collider surface (smooth path only). The
+    // MeshCollider cooks this ~256-vert / ~450-tri lattice (every 2nd node of the 31x31 corner grid)
+    // instead of the full render surface, so the gameplay-frame per-enable PhysX cook is ~4x cheaper
+    // — the MeshCollider only needs a surface the player stands on. Lazily acquired on first enable
+    // (a chunk that never enters the collider ring allocates nothing), retained across en/disables,
+    // and returned to the pool on Release — the same pool/discipline as _mesh (1dv). Voxel mode
+    // never uses it (its chunky 1 m render columns stay the collider). It is a SEPARATE input mesh,
+    // so its vertex indices bear no relation to the render mesh's.
+    private Mesh _colliderMesh;
+    private const int ColliderDecimation = ChunkMeshGenerator.ChunkColliderDecimation;
 
     // 1e6: LOD children. Each chunk builds two decimated grid meshes ("Lod1"/"Lod2" children, name
     // matched by ChunkLodManager's band DetailNames) sampled from its own merged top-terrain block,
@@ -184,16 +277,9 @@ public class ChunkObject : MonoBehaviour
         // Collider is assigned only for chunks the streamer has routed into the near ring (1dq).
         // Keeping the flag in sync means a later FullRebuildChunk preserves the intended state
         // and PatchRegion only re-cooks colliders that are actually live.
-        // Re-cook must be explicit: the pooled mesh (1dv) keeps the SAME sharedMesh reference across
-        // rebuilds, and a MeshCollider only republishes its baked physics mesh on a reference change
-        // — the null→assign pair (same as PatchRegion) forces it regardless.
-        if (_mc != null && buildCollider)
-        {
-            _mc.sharedMesh = null;
-            _mc.sharedMesh = _mesh;
-        }
-        else if (_mc != null)
-            _mc.sharedMesh = null;
+        // (1hi) Smooth chunks cook the DECIMATED collider lattice carried on md (worker-thread built,
+        // ~4x cheaper than the render mesh); voxel mode keeps the render mesh as its collider.
+        RefreshCollider(buildCollider, md);
         _colliderActive = buildCollider;
 
         // LOD children are stale after any apply; they rebuild lazily on the next band switch
@@ -293,13 +379,32 @@ public class ChunkObject : MonoBehaviour
             mesh.SetColors(_merged.Colors);
         mesh.bounds = _merged.Bounds;
 
-        // Force the collider to re-cook against the new heights. The null→assign pair runs inside a
-        // single synchronous call, so no physics step ever observes the null collider (Unity only
-        // re-cooks when the mesh reference actually changes). Skipped for collider-less chunks (1dq).
+        // Force the collider to re-cook against the new heights (PatchCornerGrid above already re-stamped
+        // the lattice). Smooth chunks re-skim the DECIMATED 2 m surface (256 verts) so the physical
+        // ground tracks the excavation exactly; voxel chunks re-cook their render mesh. Skipped for
+        // collider-less chunks (1dq).
         if (_mc != null && _colliderActive)
         {
-            _mc.sharedMesh = null;
-            _mc.sharedMesh = mesh;
+            if (VoxelMesh)
+            {
+                _mc.sharedMesh = null;
+                _mc.sharedMesh = mesh;
+            }
+            else
+            {
+                if (_colliderMesh == null && _merged.Corners.Y != null)
+                {
+                    // Collider going live with this first patch (rare: enabled mid-edit) — build once.
+                    _colliderMesh = ChunkMeshGenerator.AcquireChunkMesh($"ColliderMesh_{ChunkCoord.X}_{ChunkCoord.Z}");
+                    ChunkMeshGenerator.BuildDecimatedCollider(_merged.Corners, ColliderDecimation,
+                        out Vector3[] cv, out int[] ct);
+                    UploadCollider(cv, ct);
+                    _mc.sharedMesh = null;
+                    _mc.sharedMesh = _colliderMesh;
+                }
+                else
+                    RebuildColliderSurface();
+            }
         }
 
         // Deformation changed the heights — a far-band chunk showing stale Lod1/Lod2 would display
@@ -641,6 +746,13 @@ public class ChunkObject : MonoBehaviour
         {
             ChunkMeshGenerator.ReleaseChunkMesh(_mesh);
             _mesh = null;
+        }
+        // (1hi) The decimated collider mesh is its own pooled instance (smooth path): release it
+        // here too; voxel mode never allocates one.
+        if (_colliderMesh != null)
+        {
+            ChunkMeshGenerator.ReleaseChunkMesh(_colliderMesh);
+            _colliderMesh = null;
         }
         // LOD children (1e6): meshes go back to the same pooled-mesh cache; the lightweight child
         // GameObjects are destroyed outright.

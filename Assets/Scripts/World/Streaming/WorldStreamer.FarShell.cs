@@ -711,7 +711,7 @@ public partial class WorldStreamer
             // (BuildVoxelFarSector); the flag is read once per spawned cell like the chunk dispatch.
             MergedChunkMeshData merged = VoxelTerrainEnabled
                 ? BuildVoxelFarSector(cell, seed, maxRing)
-                : BuildFarSector(cell, seed, maxRing);
+                : BuildFarSector(cell, seed, maxRing, LowPolyFacets);
             _farReady.Enqueue(new FarMeshData(cell, epoch, merged, reserved));
         }
         catch (System.Exception ex)
@@ -777,8 +777,11 @@ public partial class WorldStreamer
     /// Sampled on the uniform 3 m step (1ej; <paramref name="maxRing"/> kept for signature stability);
     /// vertex colors use the memoized band
     /// lookup so far terrain keeps the grass/dirt/stone strata read.
+    /// <paramref name="flatFacets"/> (1hi) requests the LOW-POLY variant: every cell quad emits four
+    /// corner vertices sharing ONE flat normal, so the horizon reads as crisp facets instead of the
+    /// smooth central-difference haze.
     /// </summary>
-    private MergedChunkMeshData BuildFarSector(FarCell cell, long seed, int maxRing)
+    private MergedChunkMeshData BuildFarSector(FarCell cell, long seed, int maxRing, bool flatFacets)
     {
         int cs = TerrainChunkCoord.ChunkSize;
         int span = cell.Span;
@@ -823,63 +826,141 @@ public partial class WorldStreamer
             return ChunkMeshGenerator.SanitizeHeight(TerrainNoiseGenerator.GetHeight(seed, tileX, tileZ));
         }
 
-        int count = axis * axis;
-        var vertices = new Vector3[count];
-        var normals = new Vector3[count];
-        var uvs = new Vector2[count];
-        var colors = new Color[count];
-
         // Memoized pristine heights for the band colors exactly like the merged chunk builder.
-        var heightMemo = new Dictionary<long, float>(count);
+        var heightMemo = new Dictionary<long, float>(axis * axis);
+
+        Vector3[] vertices;
+        Vector2[] uvs;
+        Vector3[] normals;
+        Color[] colors;
+        int[] triangles;
+        float minY = float.MaxValue;
+        float maxY = float.MinValue;
         // Tile-unit origin of the block's MIN chunk (1el: was cell.X * span, matching the fixed
         // chunk mapping above — cell.X is already the min chunk coordinate).
         int cellTileOriginX = cell.X * cs;
         int cellTileOriginZ = cell.Z * cs;
 
-        float minY = float.MaxValue;
-        float maxY = float.MinValue;
-        for (int gz = 0, v = 0; gz < axis; gz++)
+        if (flatFacets)
         {
-            for (int gx = 0; gx < axis; gx++, v++)
+            // (1hi) LOW-POLY facet band: every cell quad emits 4 corner vertices sharing ONE flat
+            // normal (cross of the +X/+Z edges, flipped to +Y so steep faces never shade
+            // upside-down), so far terrain reads as crisp facets instead of the smooth
+            // central-difference haze. Boundary quads are built from the SAME world corners on both
+            // sides of a shared edge (SampleHeight/WorldHeight resolve exact world corners), so
+            // adjacent cells compute byte-identical boundary quads — flat facets are seam-proof by
+            // construction, simpler than the 1ek cross-cell pull. Triangle count is unchanged;
+            // vertices grow 4x, but a far cell uploads once per cell lifetime (finalize), never per
+            // frame, and the budgeted per-frame render stages are untouched.
+            int quads = (axis - 1) * (axis - 1);
+            int flatCount = quads * 4;
+            vertices = new Vector3[flatCount];
+            uvs = new Vector2[flatCount];
+            normals = new Vector3[flatCount];
+            colors = new Color[flatCount];
+            triangles = new int[quads * 6];
+
+            int v = 0, t = 0;
+            for (int gz = 0; gz < axis - 1; gz++)
             {
-                float h = SampleHeight(gx, gz);
-                int wx = cellTileOriginX + gx * step;
-                int wz = cellTileOriginZ + gz * step;
-                vertices[v] = new Vector3(gx * step, h, gz * step);
-                colors[v] = ChunkMeshGenerator.TerrainBandColor(seed, wx, wz, h, heightMemo);
-                uvs[v] = Vector2.zero;
+                for (int gx = 0; gx < axis - 1; gx++)
+                {
+                    Vector3 p00 = new Vector3(gx * step, SampleHeight(gx, gz), gz * step);
+                    Vector3 p10 = new Vector3((gx + 1) * step, SampleHeight(gx + 1, gz), gz * step);
+                    Vector3 p01 = new Vector3(gx * step, SampleHeight(gx, gz + 1), (gz + 1) * step);
+                    Vector3 p11 = new Vector3((gx + 1) * step, SampleHeight(gx + 1, gz + 1), (gz + 1) * step);
 
-                // Central-difference slope normals (spacing = step). Interiors read the chunk grids
-                // as before; the clamped seam side is pulled across the boundary via WorldHeight so
-                // both cells at a shared row agree exactly (no seam crease, no T-junction lighting).
-                int a = gx - 1, b = gx + 1;
-                int c = gz - 1, d = gz + 1;
-                float hl = a < 0 ? WorldHeight(wx - step, wz) : SampleHeight(a, gz);
-                float hr = b >= axis ? WorldHeight(wx + step, wz) : SampleHeight(b, gz);
-                float hu = c < 0 ? WorldHeight(wx, wz - step) : SampleHeight(gx, c);
-                float hd = d >= axis ? WorldHeight(wx, wz + step) : SampleHeight(gx, d);
-                float dhdx = (hr - hl) / (2f * step);
-                float dhdz = (hd - hu) / (2f * step);
-                normals[v] = new Vector3(-dhdx, 1f, -dhdz).normalized;
+                    // Same winding as the smooth grid path below; the authored normal is the quad's
+                    // flat +Y-dominant cross so lighting never goes dark-side-down.
+                    Vector3 n = Vector3.Cross(p10 - p00, p01 - p00);
+                    if (n.sqrMagnitude > 1e-12f)
+                        n = n.normalized;
+                    else
+                        n = Vector3.up;
+                    if (n.y < 0f)
+                        n = -n;
 
-                if (h < minY) minY = h;
-                if (h > maxY) maxY = h;
+                    vertices[v + 0] = p00; vertices[v + 1] = p10; vertices[v + 2] = p11; vertices[v + 3] = p01;
+                    normals[v + 0] = n; normals[v + 1] = n; normals[v + 2] = n; normals[v + 3] = n;
+                    uvs[v + 0] = Vector2.zero; uvs[v + 1] = Vector2.zero;
+                    uvs[v + 2] = Vector2.zero; uvs[v + 3] = Vector2.zero;
+
+                    int wx0 = cellTileOriginX + gx * step;
+                    int wz0 = cellTileOriginZ + gz * step;
+                    int wx1 = wx0 + step;
+                    int wz1 = wz0 + step;
+                    colors[v + 0] = ChunkMeshGenerator.TerrainBandColor(seed, wx0, wz0, p00.y, heightMemo);
+                    colors[v + 1] = ChunkMeshGenerator.TerrainBandColor(seed, wx1, wz0, p10.y, heightMemo);
+                    colors[v + 2] = ChunkMeshGenerator.TerrainBandColor(seed, wx1, wz1, p11.y, heightMemo);
+                    colors[v + 3] = ChunkMeshGenerator.TerrainBandColor(seed, wx0, wz1, p01.y, heightMemo);
+
+                    triangles[t++] = v + 0; triangles[t++] = v + 1; triangles[t++] = v + 2;
+                    triangles[t++] = v + 0; triangles[t++] = v + 2; triangles[t++] = v + 3;
+
+                    if (p00.y < minY) minY = p00.y;
+                    if (p00.y > maxY) maxY = p00.y;
+                    if (p10.y < minY) minY = p10.y;
+                    if (p10.y > maxY) maxY = p10.y;
+                    if (p11.y < minY) minY = p11.y;
+                    if (p11.y > maxY) maxY = p11.y;
+                    if (p01.y < minY) minY = p01.y;
+                    if (p01.y > maxY) maxY = p01.y;
+
+                    v += 4;
+                }
             }
         }
-
-        // Same grid winding as the chunk LOD children (BuildLodChild): +X is the next column,
-        // +Z is the next row.
-        int[] triangles = new int[(axis - 1) * (axis - 1) * 6];
-        for (int gz = 0, t = 0; gz < axis - 1; gz++)
+        else
         {
-            for (int gx = 0; gx < axis - 1; gx++)
+            int count = axis * axis;
+            vertices = new Vector3[count];
+            normals = new Vector3[count];
+            uvs = new Vector2[count];
+            colors = new Color[count];
+
+            for (int gz = 0, v = 0; gz < axis; gz++)
             {
-                int i00 = gz * axis + gx;
-                int i10 = i00 + 1;
-                int i01 = i00 + axis;
-                int i11 = i01 + 1;
-                triangles[t++] = i00; triangles[t++] = i10; triangles[t++] = i11;
-                triangles[t++] = i00; triangles[t++] = i11; triangles[t++] = i01;
+                for (int gx = 0; gx < axis; gx++, v++)
+                {
+                    float h = SampleHeight(gx, gz);
+                    int wx = cellTileOriginX + gx * step;
+                    int wz = cellTileOriginZ + gz * step;
+                    vertices[v] = new Vector3(gx * step, h, gz * step);
+                    colors[v] = ChunkMeshGenerator.TerrainBandColor(seed, wx, wz, h, heightMemo);
+                    uvs[v] = Vector2.zero;
+
+                    // Central-difference slope normals (spacing = step). Interiors read the chunk grids
+                    // as before; the clamped seam side is pulled across the boundary via WorldHeight so
+                    // both cells at a shared row agree exactly (no seam crease, no T-junction lighting).
+                    int a = gx - 1, b = gx + 1;
+                    int c = gz - 1, d = gz + 1;
+                    float hl = a < 0 ? WorldHeight(wx - step, wz) : SampleHeight(a, gz);
+                    float hr = b >= axis ? WorldHeight(wx + step, wz) : SampleHeight(b, gz);
+                    float hu = c < 0 ? WorldHeight(wx, wz - step) : SampleHeight(gx, c);
+                    float hd = d >= axis ? WorldHeight(wx, wz + step) : SampleHeight(gx, d);
+                    float dhdx = (hr - hl) / (2f * step);
+                    float dhdz = (hd - hu) / (2f * step);
+                    normals[v] = new Vector3(-dhdx, 1f, -dhdz).normalized;
+
+                    if (h < minY) minY = h;
+                    if (h > maxY) maxY = h;
+                }
+            }
+
+            // Same grid winding as the chunk LOD children (BuildLodChild): +X is the next column,
+            // +Z is the next row.
+            triangles = new int[(axis - 1) * (axis - 1) * 6];
+            for (int gz = 0, t = 0; gz < axis - 1; gz++)
+            {
+                for (int gx = 0; gx < axis - 1; gx++)
+                {
+                    int i00 = gz * axis + gx;
+                    int i10 = i00 + 1;
+                    int i01 = i00 + axis;
+                    int i11 = i01 + 1;
+                    triangles[t++] = i00; triangles[t++] = i10; triangles[t++] = i11;
+                    triangles[t++] = i00; triangles[t++] = i11; triangles[t++] = i01;
+                }
             }
         }
 

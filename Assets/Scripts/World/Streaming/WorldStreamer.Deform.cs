@@ -252,7 +252,7 @@ public partial class WorldStreamer
                 var tileCoord = new ChunkCoord(cminX + localX, cminZ + localZ);
                 if (_loadedData.TryGetValue(tileCoord, out ChunkData tileData))
                     tiles[localZ * cs + localX] =
-                        ChunkMeshGenerator.BuildMeshData(tileData, TerrainNoiseGenerator.DefaultLayers, RefineThreshold);
+                        ChunkMeshGenerator.BuildMeshData(tileData, TerrainNoiseGenerator.DefaultLayers, EffectiveRefineThreshold);
                 else
                     anyMissing = true;
             }
@@ -510,7 +510,7 @@ public partial class WorldStreamer
                 if (!_loadedData.TryGetValue(tileCoord, out ChunkData tileData))
                     tileData = ChunkMeshGenerator.BuildFallbackTileData(cminX + localX, cminZ + localZ, Seed);
                 region[(localZ - lMinZ) * w + (localX - lMinX)] =
-                    ChunkMeshGenerator.BuildMeshData(tileData, TerrainNoiseGenerator.DefaultLayers, RefineThreshold);
+                    ChunkMeshGenerator.BuildMeshData(tileData, TerrainNoiseGenerator.DefaultLayers, EffectiveRefineThreshold);
             }
         }
 

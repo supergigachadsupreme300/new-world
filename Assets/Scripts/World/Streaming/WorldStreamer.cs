@@ -66,6 +66,15 @@ public partial class WorldStreamer : MonoBehaviour
     [Tooltip("Adaptive stretch-split of the smooth heightfield: a 1x1 tile whose 4 corner heights differ by MORE than this many metres renders as a 2x2 sub-quad grid (bilinear interior heights) instead of one hugely stretched quad. The face count of a steep slope splits into several smaller faces so the corner-grab editor lands a fine handle on a real corner again — the world stays a smooth heightfield at every zoom, never stepped like the voxel mode. 0 disables refinement entirely (full 1m quads everywhere). Derived from the corners (never stored), interior-of-chunk only (the 1 m border ring stays one quad per tile so cross-chunk shared corners stay untouched).")]
     public float RefineThreshold = ChunkMeshGenerator.DefaultRefineThreshold;
 
+    [Header("Low-Poly Facets (1hi)")]
+    [Tooltip("QA/render (1hi): LOW-POLY FACET look. When ON the far shell emits FLAT per-quad normals (crisp facets instead of the smooth sample-grid haze — triangles unchanged; vertices 4x but far cells upload once per cell lifetime, never per frame) AND the 1ew adaptive refinement passes a 0 threshold so steep near slopes keep big flat quads instead of splitting into 2x2 sub-quads. Pure render/geometry-read change (1hi): saves, the 1m tile grid, props, draw calls and the budgeted collider pipeline are untouched. Flip BEFORE the far shell builds (like the voxel toggle) for a clean read.")]
+    public bool LowPolyFacets = true;
+
+    /// <summary>Effective refinement threshold routed through every build path (1hi): the low-poly
+    /// look disables the 1ew adaptive stretch-split (0 = full 1m quads everywhere), so far-band
+    /// facets and near-band steep slopes read as the same chunky language.</summary>
+    private float EffectiveRefineThreshold => LowPolyFacets ? 0f : RefineThreshold;
+
     [Header("Threading")]
     [Tooltip("Max terrain chunks finalized per poll tick (main-thread work).")]
     public int ChunksPerFrame = 16;

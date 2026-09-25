@@ -567,6 +567,14 @@ public static class ChunkMeshGenerator
         // the old WorldCornerIndex rule, so the LOD surface is identical to the pre-1ew build.
         ChunkCornerGrid corners = BuildCornerGrid(tiles, cs, seed, heightMemo);
 
+        // (1hi) Decimated 2 m collider arrays, sampled from the SAME lattice above so the physics
+        // surface is seam-proof by construction. Built on this worker thread and carried on the
+        // merged data — the main-thread collider upload cooks a 256-vert mesh instead of the full
+        // render surface (~4x cheaper per enable). Re-derivable after deformation via
+        // BuildDecimatedCollider over the patch-restamped lattice.
+        BuildDecimatedCollider(corners, ChunkColliderDecimation,
+            out Vector3[] colliderVertices, out int[] colliderTriangles);
+
         // Pass 3 — emit the vertical side walls after every top block so the merged shallow vertices
         // stay one contiguous sequence of per-tile blocks (the TileVertexBase table stays valid even
         // when walls exist). Same iteration and per-edge order as Pass 1 keeps counts aligned.
@@ -681,6 +689,8 @@ public static class ChunkMeshGenerator
             TileVertexBase = tileVertBase,
             TileVertexCount = tileVertCount,
             Corners = corners,
+            ColliderVertices = colliderVertices,
+            ColliderTriangles = colliderTriangles,
         };
     }
 
@@ -735,6 +745,50 @@ public static class ChunkMeshGenerator
             }
         }
         return grid;
+    }
+
+    /// <summary>
+    /// Builds the DECIMATED collider lattice for a chunk (1hi): every <paramref name="step"/>-th node
+    /// of the 31x31 world-corner grid (<see cref="ChunkCornerGrid"/>, every 2nd by default),
+    /// indexed with the same winding as the LOD children (+X = next column, +Z = next row). The
+    /// MeshCollider only needs a surface the player stands on, so the per-enable PhysX cook on the
+    /// gameplay frame drops ~4x (256 verts / 450 tris vs. up to ~1800+ tris of the full merged render
+    /// mesh). The lattice holds the EXACT world corners the LOD children (and neighbour chunks) use,
+    /// so the physics surface is seam-proof across chunks by construction — and re-derivable from the
+    /// patch-restamped lattice after deformation. Pure arrays — thread-safe.
+    /// </summary>
+    public static void BuildDecimatedCollider(ChunkCornerGrid corners, int step,
+        out Vector3[] vertices, out int[] triangles)
+    {
+        int cs = TerrainChunkCoord.ChunkSize;
+        int axis = (cs / step) + 1;
+        int grid = TerrainChunkCoord.CornerGridSize;
+        var verts = new Vector3[axis * axis];
+        for (int gz = 0, v = 0; gz < axis; gz++)
+        {
+            for (int gx = 0; gx < axis; gx++, v++)
+            {
+                int s = gz * step * grid + gx * step;
+                verts[v] = new Vector3(gx * step,
+                    s < corners.Y.Length ? SanitizeHeight(corners.Y[s]) : 0f,
+                    gz * step);
+            }
+        }
+        var tris = new int[(axis - 1) * (axis - 1) * 6];
+        for (int gz = 0, t = 0; gz < axis - 1; gz++)
+        {
+            for (int gx = 0; gx < axis - 1; gx++)
+            {
+                int i00 = gz * axis + gx;
+                int i10 = i00 + 1;
+                int i01 = i00 + axis;
+                int i11 = i01 + 1;
+                tris[t++] = i00; tris[t++] = i10; tris[t++] = i11;
+                tris[t++] = i00; tris[t++] = i11; tris[t++] = i01;
+            }
+        }
+        vertices = verts;
+        triangles = tris;
     }
 
     /// <summary>
@@ -936,6 +990,11 @@ public static class ChunkMeshGenerator
     /// <summary>Cap on pooled chunk Mesh objects (1dv) — bounds the GPU memory held by the
     /// freed-mesh pool; anything beyond the cap is destroyed outright on release.</summary>
     private const int PooledChunkMeshCap = 48;
+
+    /// <summary>Decimation step (m) of the smooth chunk's decimated collider lattice (1hi): every
+    /// 2nd node of the 31x31 corner grid → 256 verts / 450 tris vs. the full merged render surface.
+    /// 2 divides 30 (ChunkSize), so the collider plane tiles the chunk exactly.</summary>
+    public const int ChunkColliderDecimation = 2;
 
     private static readonly System.Collections.Generic.Queue<Mesh> _chunkMeshPool =
         new System.Collections.Generic.Queue<Mesh>();

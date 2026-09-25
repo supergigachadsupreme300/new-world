@@ -15,6 +15,83 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1hi — "low poly terrain + does it speed things up?" (look + perf; shipped)
+
+### Question and the honest frame
+User asked: make the terrain "more low poly vibe", and would that somehow increase performance.
+First hypothesis worth killing: "low-poly ⇒ fewer draw calls ⇒ faster". Evidence against: the whole
+view is ~150k triangles of trivially-clipped mesh; each far cell/real chunk is ONE draw call already.
+GPU raster cost is noise. The REAL costs that scale with triangle count (read at the four poll-stage
+call sites): (a) the synchronous **MeshCollider cook** of the full merged surface on the gameplay
+frame (`MaxColliderCooksPerPoll = 2`, WorldStreamer.cs:144; MeshCollider rides the render mesh — all
+`_mc.sharedMesh = ...` writes at ChunkObject :71/:192-196/:302-303 feed the render mesh); (b) the
+**finalize / LOD runway** mesh upload + `lodSweep` band switches; (c) background chunk/far generation.
+Verdict: flat-shading alone is LOOK only; making the actual collider/lattice coarser is where real
+perf lands. → shipped both (A visual facets, B decimated collider) as one knob.
+
+### Hypothesis — "fewer triangles changes draw calls" → REJECTED
+Every cell is one mesh = one draw call regardless of density; vertex count has no per-frame cost at
+this scale. Frame time is dominated by the synchronous cook + uploads (above), which DO scale with
+triangle count → so decimation (B) is a real win while (A) alone is cosmetic.
+
+### Where exactly does the smooth haze live? FAKTEN (evidence gathered by re-read)
+- Near ring = per-tile flat quads (already flat); 1ew adaptive refinement subdivides steep tiles
+  (2x2) into sub-quads.
+- Lod1 (2 m) / Lod2 (3 m) children sample the 31x31 corner lattice → already flat facets.
+- **Far shell = the ONLY smooth layer**: coarse 3 m geometry with central-difference normals
+  (FarShell.cs smooth path, seam instead via WorldHeight cross-cell pulls).
+- So the flat-facet branch belongs in `BuildFarSector` ONLY; near-band "flat language" = knock out the
+  1ew split via threshold 0. `BuildMeshData`'s 0-threshold branch is the documented disable mode
+  ("0 disables refinement" in the field tooltip, checked at ChunkMeshGenerator.cs:149
+  `refineThreshold > 0f && IsRefinable`) — no degenerate path.
+
+### Facet-branch design decisions (and why)
+- **Keep step 3 (the uniform lattice) for flat band.** `FarSectorStep` returns constant 3 for all
+  spans (verified FarShell.cs:244-247): span-1 axis=11, span-3 axis=31, span-6 axis=61. Building flats
+  at the SAME step keeps triangle count identical and lets adjacent cells agree on the world corners
+  → seam-proof by construction. Cost: vertices 4x for far cells — accepted because a far cell uploads
+  ONCE per cell lifetime (finalize), never per frame, so the per-frame budget (1ei/1eh time-caps) is
+  untouched.
+- Normal = cross of the +X/+Z edges, flipped to +Y for steep faces, degenerate-safe (`1e-12` guard).
+  Same winding as the smooth path `(00,10,11)+(00,11,01)`.
+- Colors from `TerrainBandColor` per world corner under each vertex (mirrors the merged builder),
+  height memo shared. Bounds reuse the existing tail formula.
+
+### Decimated-collider design decisions
+- Source = the SAME `ChunkCornerGrid` the LOD children sample (31x31), stride 2 → 16x16 = 256 verts /
+  450 tris. Sharing the lattice means the physics surface is seam-proof across chunks BY CONSTRUCTION
+  (neighbours agree on boundary nodes), and after a patch `PatchCornerGrid` restamps the lattice so
+  the collider re-derives and tracks excavations. Initial dead-end avoided: sampling the merged VERTEX
+  array fails post-1ew because refined blocks break the fixed stride — the lattice is the right source.
+- Thread-safety: build arrays on the worker thread (in `BuildMergedMeshData` right after
+  `BuildCornerGrid`) and carry them on `MergedChunkMeshData`; `ChunkObject` uploads on the main thread
+  into a second pooled `Mesh _colliderMesh` (same acquire/release + overwrite-only discipline as the
+  render mesh; `vertexCount`-changed clear). Lazy: a chunk that never enters the collider ring
+  allocates nothing.
+- **Bug found in review:** crib RefreshCollider v1 skipped re-upload when `_colliderMesh` already
+  existed — but a rebuild (FullRebuildChunk / 1ea save-scan) re-applies FRESH merged arrays onto a
+  chunk that's already collider-enabled, so the cooked surface would silently stay pre-rebuild
+  geometry until the next patch/Deform. FIX: the apply path (`md.ColliderVertices != null`) always
+  re-uploads before the null→assign cook. (This is the "hypotheses/evidence/verdict" dead-end→fix the
+  task's THINKING log earns noting.)
+- Guard `VoxelMesh`: voxel columns are already chunky + its merged data has no collider arrays; render
+  mesh stays the collider there, identical to pre-1hi.
+
+### Threshold routing — all 4 consumers swapped to the property
+`job.Refine` (Streaming.cs:172), dispatch builder (ChunkBuild.cs:137), Deform re-skims (Deform.cs:255
+and :513). `RefineThreshold` keeps its serialized field identity (save/scene ABI stable); only the
+routed reads go through `EffectiveRefineThreshold`, so the look flips via the knob without touching
+the serialized value. Grep-verified zero remaining raw consumers.
+
+### Verification performed (rule 3 — no build)
+grep + reread: `LowPolyFacets` reads only in FarShell.cs:714 (worker, same pattern as the voxel flag)
+and the property; `BuildFarSector` has exactly one call site; every `_mc.sharedMesh` write is inside
+the three new methods + Release; new symbols collision-free; far-cell/VoxelMesher producers never set
+collider arrays; the 1ew 0-threshold disable path confirmed clean. Docs synced (PROGRESS 1hi,
+game-design §2.5/§2.10).
+
+---
+
 ## 1gh — "chunk -8_3 is invisible for no reason" (FIXED by the cull invariant — play-test pending)
 
 ### The report

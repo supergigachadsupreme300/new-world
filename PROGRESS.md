@@ -3,6 +3,72 @@
 Last updated: 2026-09-25. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1hi. Low-poly facet terrain (look) + decimated 2 m colliders (perf) — far-shell flat facets, refine knockout, cheap PhysX cooks
+
+Requested: "make the terrain more low poly vibe" — asks whether that also wins performance. Honest
+answer first: GPU rasterization is already trivial (~150k tris total), so low-poly does NOT cut draw
+calls; the REAL per-triangle costs are the synchronous **collider cooks** (full merged mesh, 2/poll
+cap), the **finalize / LOD-sweep mesh uploads**, and background generation. So the task shipped BOTH:
+a low-poly LOOK (A) and a real perf win (B), as one opt-in QA lane with the look defaulting ON.
+
+**A — Low-poly look (`WorldStreamer.LowPolyFacets`, default true):**
+- Far shell (`WorldStreamer.FarShell.cs BuildFarSector(cell, seed, maxRing, bool flatFacets)`) emits
+  **flat per-quad normals** instead of the smooth central-difference haze: 4 corner vertices per 3 m
+  quad sharing one +Y-dominant flat normal (cross of the +X/+Z edges, flipped up, degenerate-safe).
+  Triangles unchanged; vertices 4x BUT a far cell uploads once per cell lifetime (finalize), never per
+  frame — the budgeted per-frame render stages are untouched. Seam-proof by construction: boundary
+  quads are built from the SAME world corners on both sides of a shared edge (SampleHeight/WorldHeight
+  resolve exact world corners), so adjacent cells compute byte-identical boundary quads — simpler than
+  the 1ek cross-cell pull (which stays in the smooth path, now the `else` branch).
+- Near band: `EffectiveRefineThreshold = LowPolyFacets ? 0 : RefineThreshold` (new private property)
+  routes through ALL four build paths (Streaming.cs:172 `job.Refine`, ChunkBuild.cs:137,
+  Deform.cs:255, Deform.cs:513) so the 1ew adaptive stretch-split never fires — steep near slopes
+  keep ONE flat 1 m quad per tile, matching the far facets. `BuildMeshData`(threshold 0) is the
+  documented disable mode (4-vert quads, per-tile flat normals) — verified clean, no degenerate path.
+
+**B — Decimated 2 m colliders (`ChunkMeshGenerator.BuildDecimatedCollider`):**
+- Physical surface = every 2nd node of the SAME 31x31 world-corner grid the LOD children use →
+  256 verts / 450 tris vs. up to ~1800+ tris of the full merged render mesh → the per-enable PhysX
+  cook on the gameplay frame (capped 2/poll) drops ~4x. Seam-proof across chunks by construction
+  (shared lattice), and tracks deformation: `PatchRegion` re-derives it from the patch-re-stamped
+  lattice.
+- Thread-safety: collider arrays (`MergedChunkMeshData.ColliderVertices/Triangles`) are built on the
+  worker thread inside `BuildMergedMeshData` right after `BuildCornerGrid`; `ChunkObject` uploads them
+  into a SECOND pooled `Mesh _colliderMesh` (same acquire/release discipline as the render mesh,
+  release in `Release()`; lazily allocated — collider-less chunks own nothing).
+- `ChunkObject` routing: `SetColliderActive`/`ApplyMerged`/`PatchRegion` all go through new
+  `RefreshCollider(bool active, MergedChunkMeshData md = default)` + `UploadCollider` +
+  `RebuildColliderSurface`; apply path always re-uploads when fresh arrays are present (a rebuild on
+  an already-collider-enabled chunk must not keep a stale cooked surface); voxel mode unchanged (its
+  chunky 1 m render columns stay the collider, guarded by `VoxelMesh`).
+
+Test ground (rule 4): `NewWorldTestGround.EnableLowPolyTerrain` (default **on**) sets the streamer
+knob in Awake before the first stream poll, mirroring the `EnableVoxelTerrain` wiring — off restores
+the old smooth haze.
+
+### 1hi-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build). New symbols:
+  `LowPolyFacets` (WorldStreamer), `EffectiveRefineThreshold` (private), `BuildFarSector(cell, seed,
+  maxRing, flatFacets)` (only call site updated — FarShell.cs:714, matches the VoxelTerrainEnabled
+  read-per-cell pattern), `ChunkMeshGenerator.BuildDecimatedCollider` (public),
+  `ChunkColliderDecimation` (public const 2), `ColliderVertices/ColliderTriangles` (merged data,
+  only set by the smooth builder — FarShell's coarse cells & VoxelMesher never set them, so nothing
+  else reads these), `ChunkObject.RefreshCollider/UploadCollider/RebuildColliderSurface/_colliderMesh/
+  ColliderDecimation`. Grep confirms: `RefineThreshold` now only remains as the serialized field +
+  the property; all 4 build-site consumers route through `EffectiveRefineThreshold`; every
+  `_mc.sharedMesh` write site in ChunkObject is inside the three methods + Release; far-cell producers
+  never touch collider arrays. The `Streaming.cs:172 job.Refine` executes on the dispatch (main) thread.
+- PENDING PLAY-TEST: (1) run a long sprint at max speed — the look reads as crisp flat facets on the
+  horizon AND on steep near slopes, with no frame hitch from the collider ring (the ~4x cook cut should
+  be visible in the 1gf per-stage poll split, `colliders` ms); (2) walk across chunk boundaries and dig/
+  corner-edit right at a seam — the ground surface stays watertight and you stand on it everywhere
+  (collider tracks the excavation); (3) flip `EnableLowPolyTerrain` OFF and re-run — the old smooth
+  central-difference haze returns on a fresh far shell (A/B check); (4) voxel mode (`EnableVoxelTerrain`)
+  still stands/collides identically (render-mesh collider guard); (5) the far-shell flat bands show no
+  lighting seams along cell edges or at the rim/real junction.
+- Docs synced same pass: PROGRESS 1hi, THINKING 1hi, game-design §2.5 (low-poly look + decimated
+  collider bullets) + §2.10 (knockout note).
+
 ## 1gh. Report: "chunk -8_3 is invisible for no reason" — LOD cull hid retained terrain + chunk diagnostics (fixed)
 
 Report: the chunk `-8_3` (world x ≈ -240..-210, z ≈ 90..120, Chebyshev ring 8 from the platform) is
