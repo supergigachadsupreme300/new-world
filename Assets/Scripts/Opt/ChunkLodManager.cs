@@ -42,6 +42,15 @@ public sealed class ChunkLodManager : MonoBehaviour
     private const int ScanBudget = 1024;
     private int _scanCursor;
 
+    // (1gf) QA readout: main-thread wall time (ms) of the last full band sweep + the rolling peak
+    // since the manager was created. Band switches rebuild decimated LOD meshes synchronously
+    // (RefreshLodMeshes -> BuildLodChild + UploadMeshData), so this surfaces the gameplay-frame LOD
+    // cost of a sprint on the bench HUD without a profiler.
+    private float _lastSweepMs;
+    private float _peakSweepMs;
+    public float LastSweepMs => _lastSweepMs;
+    public float PeakSweepMs => _peakSweepMs;
+
     private class ChunkEntry
     {
         public Transform Root;
@@ -101,6 +110,10 @@ public sealed class ChunkLodManager : MonoBehaviour
         float cullSq = EffectiveCullDistance();
         cullSq *= cullSq;
 
+        // (1gf) sweep timing for the bench readout: frames skipped by the refresh gate are no-op
+        // (~nothing to time), so the stopwatch starts here and records only real sweep frames.
+        float sweepStart = Time.realtimeSinceStartup;
+
         // Rolling burst (1ea): evaluate at most ScanBudget chunks per refresh, wrapping around.
         // Null-root entries are dropped in place (the compacted entry shifts into the cursor slot).
         int checkedCount = 0;
@@ -148,6 +161,11 @@ public sealed class ChunkLodManager : MonoBehaviour
                 chunk.Chunk.RefreshLodMeshes();
             }
         }
+
+        // (1gf) record the sweep spend for the bench readout (rolling peak, never resets).
+        _lastSweepMs = (Time.realtimeSinceStartup - sweepStart) * 1000f;
+        if (_lastSweepMs > _peakSweepMs)
+            _peakSweepMs = _lastSweepMs;
     }
 
     private int BandForSq(float distSq)

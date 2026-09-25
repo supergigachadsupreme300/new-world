@@ -3,6 +3,49 @@
 Last updated: 2026-09-25. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1gf. Per-stage poll ms instrument — the "still the lag" A/B baseline
+
+After 1gd (decoupled renderer clock + async seam rebuilds) and 1ge (demote gate + heavy-only
+cool-down + budgeted collider cooks + monotonic stamps), play-test still reported the sprint/fast
+crossing lag ("still the lag"). Next step in the trail: STOP guessing which stage eats the frame and
+MEASURE it. This task adds a QA-only read-only instrument (rule 4 — the bench overlay; no legacy
+world changes, and NO behavior change: every stage's timing is pure wall-clock capture around the
+existing calls).
+
+- **Per-poll stage split (WorldStreamer.cs):** new nested `public readonly struct PollStageStats`
+  (allocation-free value snapshot) with one float per stage — StreamAround, Dispatch (+ rebuild
+  dispatch), Finalize (chunk GameObjects + mesh uploads), RebuildDrain (async seam-rebuild apply),
+  FarScan (far shadow-sync / removal-scan / ring-walk / pre-warm / dispatch), FarFinalize (far sector
+  creation + uploads), Colliders (ring walk + PhysX cooks), PropSync, Props. `StreamOnce` wraps every
+  stage call with `Time.realtimeSinceStartup` boundaries, records `LastPollStats`, and folds each
+  stage into a rolling `PeakPollStats` (per-stage max since last read) + `HeavyPollsSinceLastRead`.
+  `ResetPollStagePeaks()` clears the window (the HUD calls it each refresh so each visible window
+  covers just the current run).
+- **Far pass split (WorldStreamer.FarShell.cs):** `FarShellTick` now takes `out float scanMs, out
+  float finalMs` (single call site, updated) — the scan/management half (up to the dispatch charge)
+  vs the finalize half are reported separately, so the HUD can distinguish "always-on full-width far
+  scan overhead" from "per-crossing cell creation cost".
+- **LOD sweep readout (ChunkLodManager.cs):** the band sweep still runs in `Update()` on the
+  GAMEPLAY frame (not the decoupled coroutine) and rebuilds decimated LOD meshes synchronously on
+  band change. Exposes `LastSweepMs`/`PeakSweepMs` (rolling peak per manager) so a sprint's LOD
+  rebuild burst is visible on the HUD.
+- **Bench overlay (NewWorldTestGround.cs):** `EnablePollStageStats` (default **on**, needs
+  `EnableFpsStats`) appends the last-poll split, the worst-poll peaks + heavy-poll count, and the LOD
+  sweep peak to the 4 Hz FPS readout, then resets the peak window.
+
+### 1gf-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build). Grepped every new symbol
+  (`PollStageStats`/`Zero`/`Max`, `LastPollStats`, `PeakPollStats`, `HeavyPollsSinceLastRead`,
+  `ResetPollStagePeaks`, the `FarShellTick` out params, `LastSweepMs`/`PeakSweepMs`,
+  `EnablePollStageStats`): the ONLY `FarShellTick` call site is `StreamOnce` (updated to the new
+  signature; no stale 2-arg call remains); the ChunkLodManager `sweepStart` is frame-local (no clash
+  with the StreamAround deep-unload `sweepStart` in Streaming.cs); the struct is declared inside the
+  `WorldStreamer` class so the fields referencing it compile regardless of member order.
+- PENDING PLAY-TEST: with `EnableFpsStats` + `EnablePollStageStats` on, long-sprint across the
+  dormant band and through edited terrain; read which line peaks under a hitch — expected candidates
+  `farScan` (full-width far scan overhead every poll), `final`/`farFinal` (per-crossing creation) or
+  `lod sweep` (gameplay-frame LOD rebuilds). Bring the numbers back; 1gg then targets the winner.
+
 ## 1ge. 1gd play-test follow-up — demote-cover gate, heavy-poll cool-down, budgeted collider cooks, monotonic rebuild stamps
 
 Play-test after 1gd (user reported): the speed lag PERSISTED ("still the lag") and a NEW regression

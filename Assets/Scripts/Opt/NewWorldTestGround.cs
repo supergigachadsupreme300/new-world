@@ -68,6 +68,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableStatusEffectsDemo = false;
     [Tooltip("QA/perf (1ea): show a screen-space perf readout (avg FPS, frame ms, loaded chunk count, active collider count) refreshed ~4x/second so optimization passes can be A/B'd in the Editor without a profiler. Read-only — no world placement. On by default since 1ee so the baseline is visible; flip off to hide.")]
     public bool EnableFpsStats = true;
+    [Tooltip("QA/perf (1gf): extend the FPS overlay with the WorldStreamer poll's per-stage ms split (near/finalize/colliders/farManage/farFinalize/props/rebuild drain) + the rolling worst-poll peaks and heavy-poll count, plus the ChunkLodManager band-sweep ms (last + peak). Read-only; needs EnableFpsStats on to display. Lets a long-sprint run show WHICH stage actually eats the gameplay frame instead of guessing. On by default so the baseline is visible; flip off to hide the extra lines.")]
+    public bool EnablePollStageStats = true;
     [Tooltip("QA (1et): render the open world as the 1-metre stepped voxel terrain instead of the smooth heightfield (the experimental terrain model). Applied in Awake, BEFORE the WorldStreamer's first stream poll, so the whole world builds voxel from the start; leave OFF to keep smooth terrain.")]
     public bool EnableVoxelTerrain = false;
     [Tooltip("QA (1eu): exercise the voxel sculpt API on the streamed terrain just off the platform — a directed crater (toolbar dig with cast direction clips the dent into a slope-front scoop), a SculptVoxelCave under a ridge, and a SculptVoxelRaise pillar. Needs the voxel terrain enabled to be meaningful (no-op on smooth terrain), edits REAL terrain — permanent chunk saves — and never touches the platform or legacy village.")]
@@ -1118,8 +1120,32 @@ public sealed class NewWorldTestGround : MonoBehaviour
             }
 
             if (_fpsText != null)
-                _fpsText.text = string.Format("FPS {0:0}  ({1:0.0} ms)\nchunks {2}  dormant {3}  colliders {4}\nfar cells {5}\nrebuilds {6}",
+            {
+                string stats = string.Format("FPS {0:0}  ({1:0.0} ms)\nchunks {2}  dormant {3}  colliders {4}\nfar cells {5}\nrebuilds {6}",
                     avgFps, 1000f / avgFps, chunks, dormant, colliders, farSectors, rebuilds);
+
+                // (1gf) per-stage poll split: which stage eats a sprint crossing. Read the rolling
+                // peaks + heavy-poll count, then reset the window so the next refresh shows only the
+                // polls since this one. The LOD band sweep runs on the gameplay frame (outside the
+                // streamer coroutine), so it is reported separately as its own worst-case.
+                if (EnablePollStageStats)
+                {
+                    var last = streamer != null ? streamer.LastPollStats : WorldStreamer.PollStageStats.Zero;
+                    var peak = streamer != null ? streamer.PeakPollStats : WorldStreamer.PollStageStats.Zero;
+                    stats += string.Format(
+                        "\nlast poll {0:0.00} ms  heavy {1}\n  near {2:0.00}  final {3:0.00}  coll {4:0.00}  props {5:0.00}\n  farScan {6:0.00}  farFinal {7:0.00}  rebrd {8:0.00}  disp {9:0.00}\npeaks {10:0.00} ms  far {11:0.00}  final {12:0.00}",
+                        last.TotalMs, streamer != null ? streamer.HeavyPollsSinceLastRead : 0,
+                        last.StreamAroundMs, last.FinalizeMs, last.CollidersMs, last.PropsMs,
+                        last.FarScanMs, last.FarFinalizeMs, last.RebuildDrainMs, last.DispatchMs,
+                        peak.TotalMs, peak.FarMs, peak.FinalizeMs);
+                    var lod = Object.FindAnyObjectByType<ChunkLodManager>();
+                    if (lod != null)
+                        stats += string.Format("\nlod sweep {0:0.00} / {1:0.00} ms", lod.LastSweepMs, lod.PeakSweepMs);
+                    streamer?.ResetPollStagePeaks();
+                }
+
+                _fpsText.text = stats;
+            }
         }
     }
 

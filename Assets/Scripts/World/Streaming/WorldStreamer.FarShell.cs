@@ -432,7 +432,8 @@ public partial class WorldStreamer
     ///   (4) finalize up to MaxFarFinalizePerPoll — dropping stale epochs and cells that are no
     ///       longer required, then creating the sector GameObject (inactive when reserved).
     /// </summary>
-    private void FarShellTick(TerrainChunkCoord centre, int view, int near)
+    private void FarShellTick(TerrainChunkCoord centre, int view, int near,
+        out float scanMs, out float finalMs)
     {
         int keep = view + FarOuterKeep;
         float farTickStart = Time.realtimeSinceStartup;
@@ -605,6 +606,9 @@ public partial class WorldStreamer
         // pre-warm, dispatch) against the shared stream budget, so a poll that already spent heavily
         // on real-chunk finalize does not then also run this pass at full width.
         SpendStreamBudget((Time.realtimeSinceStartup - farTickStart) * 1000f);
+        // (1gf) split marker: everything up to here is the scan/management half of the pass; the
+        // finalize half below is charged separately and reported on the bench per-stage readout.
+        float scanDoneAt = Time.realtimeSinceStartup;
 
         // (4) Finalize. Time-budgeted (1eh): the 1eg throughput stays for the fast fill, but a single
         // poll never spends more than FarFinalizeBudgetMs creating GameObjects + uploading meshes on
@@ -628,6 +632,10 @@ public partial class WorldStreamer
             SpendStreamBudget((Time.realtimeSinceStartup - farFinalizeStart) * 1000f);
             farFinalizeStart = Time.realtimeSinceStartup;
         }
+        // (1gf) report the far-pass split for the bench per-stage readout (set before the bake early
+        // return so the quiet shell still fills the fields).
+        scanMs = (scanDoneAt - farTickStart) * 1000f;
+        finalMs = (Time.realtimeSinceStartup - scanDoneAt) * 1000f;
 
         // (5) Static bake (1eh): once the shell has fully settled (and only while baking is enabled),
         // merge all span-3/6 cells into one combined mesh — the single biggest far-shell draw-call cut.

@@ -15,6 +15,45 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1gf — residual sprint lag after 1ge: instrument before guessing (SHIPPED — verdict per-hypothesis pending play-test numbers)
+
+### Where we are
+1ge (and 1xd before it) closed the invisible-chunk-hole, the cadence cut, the collider-cook burst and
+the stamp paths. The user still reads the sprint / fast-crossing hitching ("still the lag"). Every
+heavyweight stage now runs on the decoupled 20 Hz coroutine under one shared 4 ms budget + per-stage
+caps + hard slices, so a pure code read can no longer point at one guilty stage with confidence — the
+remaining cost distribution needs measurement. Hence: $0 behavior change this task, just a read-only
+per-stage ms split on the bench HUD.
+
+### Hypotheses still on the table (each gets confirmed/rejected by the readout)
+- **H-1 — always-on far-shell scan width.** `FarShellTick` step 1a (shadow sync over the ~1,000 live
+  cell boxes — though trimmed to span-1 re-checks per 1es), removal scan, ring walk (~3.9k
+  consider-calls), pre-warm and dispatch all run at FULL WIDTH every live poll and only CHARGE the
+  shared budget after the fact; they are never interrupted mid-pass (visibility-critical). If
+  `farScan` reads high on EVERY poll (even while walking), the fix is dirty-flagging the shadow-sync
+  or widening the far step near the player.
+- **H-2 — per-crossing real-chunk finalize burst.** `FinalizeChunks` (ChunksPerFrame ≤ 12 new GOs +
+  merged-mesh uploads + 900-tile×3 dict registration each) is the fill column at a sprint. If `final`
+  peaks only at crossings, throughput is already capped by the shared budget; further spread would
+  shrink per-poll work, slowing fill.
+- **H-3 — far finalize burst at ring cuts.** 1er pre-warm was supposed to dissolve it; `farFinal`
+  peaking at a crossing proves the pre-warm is not keeping up at top speed.
+- **H-4 — gameplay-frame LOD builds.** `ChunkLodManager.Update` (NOT on the decoupled clock) rebuilds
+  decimated LOD meshes synchronously on band change (`RefreshLodMeshes` → `BuildLodChild` +
+  `UploadMeshData`) for every newly registered chunk. `lod sweep` peak is the ^-proof; if high, LOD
+  builds must move onto the streamer cadence or be deferred.
+
+### Why instrument BEFORE the third targeted fix
+1gd and 1ge were both aimed at "the obvious stage" from code reading; the lag outlived both. A ~40
+line read-only split (one `public` value struct + out-params at the single `FarShellTick` call site +
+four floats on the LOD manager) localizes the third round and keeps the eventual A/B fix minimal.
+
+### 1gf verdict
+Instrument shipped (`656b6cf`). H-1..H-4 each await the sprint readout numbers; status OPEN until the
+user reports the peak line under a hitch.
+
+---
+
 ## 1ge — 1gd follow-up: "still the lag" + a group of chunks goes invisible (FIXED by 1xd — play-test pending)
 
 Pre-plan questions (from user): what terrain the run used (SMOOTH), the shape of the loss (a GROUP of

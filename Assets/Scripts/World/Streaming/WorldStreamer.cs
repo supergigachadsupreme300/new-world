@@ -156,6 +156,93 @@ public partial class WorldStreamer : MonoBehaviour
     private float _streamBudgetRemaining;
     private bool _streamCapped;
 
+    // --- Per-stage poll ms instrument (1gf, QA readout) ---
+    // One stream loop poll's main-thread wall time split by stage, so the bench HUD can show WHICH
+    // stage a long-sprint crossing actually eats instead of guessing. Value-type snapshot — allocation
+    // free every poll. Read-only for consumers (the only writer is StreamOnce/ResetPollStagePeaks).
+    private PollStageStats _pollStats;
+    private PollStageStats _peakPollStats;
+    private int _heavyPollsSinceRead;
+
+    /// <summary>The last live poll's stage split (ms), or zero before the first poll (1gf).</summary>
+    public PollStageStats LastPollStats => _pollStats;
+
+    /// <summary>Running per-stage maxima across polls since the last <see cref="ResetPollStagePeaks"/>
+    /// (the readout refresh resets them each window, so the HUD always shows the worst poll in view).</summary>
+    public PollStageStats PeakPollStats => _peakPollStats;
+
+    /// <summary>Heavy polls (budget-exhausting, cool-down yielding) since the last reset (1gf).</summary>
+    public int HeavyPollsSinceLastRead => _heavyPollsSinceRead;
+
+    /// <summary>Clears the rolling peak stage split + heavy-poll counter (called by the bench HUD each
+    /// refresh window so the peaks cover only the visible sprint).</summary>
+    public void ResetPollStagePeaks()
+    {
+        _peakPollStats = PollStageStats.Zero;
+        _heavyPollsSinceRead = 0;
+    }
+
+    /// <summary>One poll's main-thread wall time (ms) split by stream stage (1gf QA readout).</summary>
+    public readonly struct PollStageStats
+    {
+        /// <summary>StreamAround: wake/demote (far-cover gate)/deep-unload + ring-walk enqueue.</summary>
+        public readonly float StreamAroundMs;
+        /// <summary>DispatchPending + DispatchRebuilds (background job dispatch only).</summary>
+        public readonly float DispatchMs;
+        /// <summary>FinalizeChunks: create chunk GameObjects + merged-mesh uploads.</summary>
+        public readonly float FinalizeMs;
+        /// <summary>DrainRebuildResults: apply async seam-rebuild meshes.</summary>
+        public readonly float RebuildDrainMs;
+        /// <summary>FarShellTick scan phases: shadow sync, removal scan, ring walk, pre-warm, dispatch.</summary>
+        public readonly float FarScanMs;
+        /// <summary>FarShellTick finalize: far sector GameObject creation + mesh uploads.</summary>
+        public readonly float FarFinalizeMs;
+        /// <summary>ReconcileCollidersIfChanged: collider ring walk + PhysX cooks.</summary>
+        public readonly float CollidersMs;
+        /// <summary>SyncPropRing: prop ring begin/release toggles.</summary>
+        public readonly float PropSyncMs;
+        /// <summary>StepChunkProps: budgeted prop spawning.</summary>
+        public readonly float PropsMs;
+
+        /// <summary>Whole far-shell pass (scan + finalize).</summary>
+        public float FarMs => FarScanMs + FarFinalizeMs;
+
+        /// <summary>Whole poll (all stages summed).</summary>
+        public float TotalMs =>
+            StreamAroundMs + DispatchMs + FinalizeMs + RebuildDrainMs + FarMs
+            + CollidersMs + PropSyncMs + PropsMs;
+
+        public static readonly PollStageStats Zero = new PollStageStats(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
+
+        public PollStageStats(float streamAroundMs, float dispatchMs, float finalizeMs, float rebuildDrainMs,
+            float farScanMs, float farFinalizeMs, float collidersMs, float propSyncMs, float propsMs)
+        {
+            StreamAroundMs = streamAroundMs;
+            DispatchMs = dispatchMs;
+            FinalizeMs = finalizeMs;
+            RebuildDrainMs = rebuildDrainMs;
+            FarScanMs = farScanMs;
+            FarFinalizeMs = farFinalizeMs;
+            CollidersMs = collidersMs;
+            PropSyncMs = propSyncMs;
+            PropsMs = propsMs;
+        }
+
+        public static PollStageStats Max(PollStageStats a, PollStageStats b)
+        {
+            return new PollStageStats(
+                Mathf.Max(a.StreamAroundMs, b.StreamAroundMs),
+                Mathf.Max(a.DispatchMs, b.DispatchMs),
+                Mathf.Max(a.FinalizeMs, b.FinalizeMs),
+                Mathf.Max(a.RebuildDrainMs, b.RebuildDrainMs),
+                Mathf.Max(a.FarScanMs, b.FarScanMs),
+                Mathf.Max(a.FarFinalizeMs, b.FarFinalizeMs),
+                Mathf.Max(a.CollidersMs, b.CollidersMs),
+                Mathf.Max(a.PropSyncMs, b.PropSyncMs),
+                Mathf.Max(a.PropsMs, b.PropsMs));
+        }
+    }
+
     /// <summary>Charge <paramref name="ms"/> of main-thread wall time against the shared stream
     /// budget, flagging <see cref="_streamCapped"/> once the pool is dry (1es).</summary>
     private void SpendStreamBudget(float ms)
@@ -342,15 +429,43 @@ public partial class WorldStreamer : MonoBehaviour
         _streamBudgetRemaining = Mathf.Max(1f, AdaptiveBudgetMs(StreamBudgetMs));
         _streamCapped = false;
 
+        // (1gf) per-stage wall-clock boundaries for the poll ms readout. Time.realtimeSinceStartup is
+        // monotonic and cheap to read per stage; the split records where a sprint crossing actually
+        // spends its main-thread time without touching any stage's budget behavior.
+        float t0 = Time.realtimeSinceStartup;
         StreamAround(centre, near);
+        float t1 = Time.realtimeSinceStartup;
         DispatchPending();
         DispatchRebuilds();
+        float t3 = Time.realtimeSinceStartup;
         FinalizeChunks();
+        float t4 = Time.realtimeSinceStartup;
         DrainRebuildResults();
-        FarShellTick(centre, view, near);
+        float t5 = Time.realtimeSinceStartup;
+        FarShellTick(centre, view, near, out float farScanMs, out float farFinalMs);
+        float t6 = Time.realtimeSinceStartup;
         ReconcileCollidersIfChanged(centre);
+        float t7 = Time.realtimeSinceStartup;
         SyncPropRing(centre, near);
+        float t8 = Time.realtimeSinceStartup;
         StepChunkProps();
+        float t9 = Time.realtimeSinceStartup;
+
+        // (1gf) record this poll's split + rolling peaks for the bench overlay (read-only QA readout).
+        _pollStats = new PollStageStats(
+            t1 - t0,
+            t3 - t1,
+            t4 - t3,
+            t5 - t4,
+            farScanMs,
+            farFinalMs,
+            t7 - t6,
+            t8 - t7,
+            t9 - t8);
+        _peakPollStats = PollStageStats.Max(_peakPollStats, _pollStats);
+        if (_streamCapped)
+            _heavyPollsSinceRead++;
+
         // (1xd) Return whether this poll was a HEAVY beat (it exhausted the shared stream budget) so
         // StreamLoop's cool-down frame only follows polls that actually stacked main-thread render
         // work. Busy-but-light polls (dispatch-only, small finalizes, gate re-checks) keep the full

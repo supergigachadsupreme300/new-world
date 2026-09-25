@@ -404,6 +404,14 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   (axe, pickaxe, hoe, hammer, scythe, watering_can, fertilizer, club, rosary, fishing_rod) + 5 food
   stacks (banh_mi, com_tam, nuoc_dau, mi_chinh, xap_phong ×5) — press E on a drop to collect it. The
   west edge hosts the weapon pedestals; a `PickupAmount` tag lets a single drop hand over a stack.
+- **Perf readout — 4 Hz screen overlay (1ea / 1gf):** `NewWorldTestGround.EnableFpsStats` (default
+  **on**) draws avg FPS + frame ms, loaded/dormant chunk + active-collider counts, the far-cell count,
+  and the seam-rebuild back-queue. Since `1gf` the optional `EnablePollStageStats` (default **on**, and
+  needs `EnableFpsStats`) extends it with the world streamer poll's **per-stage ms split** (near ring,
+  finalize, colliders, far scan vs far finalize, props, rebuild drain) + rolling worst-poll peaks +
+  heavy-poll count, and the `ChunkLodManager` band-sweep ms — so a long-sprint hitch shows on screen
+  WHICH stage ate the frame. Read-only; it never touches the world, the platform, or the streamer's
+  budget behavior.
 
 ### 2.8 Physics Integrity Guard Rails
 
