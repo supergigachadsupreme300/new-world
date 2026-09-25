@@ -484,6 +484,10 @@ public partial class WorldStreamer : MonoBehaviour
     /// (focus crossed a chunk boundary, a collider request was added/removed, or a chunk was
     /// finalized/unloaded) — an idle player pays nothing. A per-poll cook budget additionally
     /// spreads a ring crossing so PhysX meshes cook gradually instead of bursting one frame.
+    /// 1gg: chunks within <see cref="ReconcileCollidersIfChanged"/>'s must-collide ring (the centre
+    /// cell + a 2-chunk floor around the focus) cook UNCONDITIONALLY (budget-exempt, bounded), and
+    /// every poll advances the closest deferred cook anyway — so the ground the player is standing
+    /// on / just stepping onto is never left collider-less by a budget-starved heavy sprint.
     /// </summary>
     private void ReconcileCollidersIfChanged(TerrainChunkCoord centre)
     {
@@ -498,6 +502,23 @@ public partial class WorldStreamer : MonoBehaviour
         _collidersDirty = false;
 
         int cooked = 0;
+        // (1gg) "player-floor" guarantee: chunks within this many chunks (Chebyshev) of the focus are
+        // COLLISION-CRITICAL — their collider must exist no matter how loaded the stream is, because
+        // the falling player is standing on exactly these cells. Without the exemption, a heavy
+        // sprint (every poll _streamCapped) defers a chunk's first cook for as long as the budget
+        // stays dry, and the player then steps onto RENDERED but collider-less ground and falls
+        // through the world. Exemption is bounded (MustCollideCap, above the ring-fill cap) and
+        // charged to the shared stream budget afterwards, so correctness wins a frame slice but the
+        // queue still shows up in the poll accounting.
+        const int MustCollideRadius = 2;
+        const int MustCollideCap = 6;
+        // If budget/cap forces a defer, cook the single CLOSEST pending chunk anyway at the end, so
+        // the approach fill (and the centre cell when the cap batch runs long) advances at least one
+        // chunk every poll regardless of stream load.
+        ChunkObject closestPending = null;
+        int closestCheb = int.MaxValue;
+        bool deferredAny = false;
+
         foreach (KeyValuePair<TerrainChunkCoord, ChunkObject> kv in _loadedChunks)
         {
             bool want = ColliderRingRadius > 0
@@ -510,19 +531,30 @@ public partial class WorldStreamer : MonoBehaviour
 
             if (want)
             {
+                int cheb = Mathf.Max(Mathf.Abs(kv.Key.X - centre.X), Mathf.Abs(kv.Key.Z - centre.Z));
+                if (ColliderRingRadius > 0 && cheb <= MustCollideRadius && cooked < MustCollideCap)
+                {
+                    // 1gg: under/just-ahead-of-the-player cells cook unconditionally (bounded).
+                    float cookStart = Time.realtimeSinceStartup;
+                    cooked++;
+                    kv.Value.SetColliderActive(true);
+                    // Charge the shared pool so the (already-scheduled) prop stage still sees the
+                    // real frame spend; never gates further must-collide cooks this poll.
+                    SpendStreamBudget((Time.realtimeSinceStartup - cookStart) * 1000f);
+                    continue;
+                }
                 // (1xd) The per-poll cook cap spreads a ring crossing, and the stream budget gates
                 // it further: once this poll's shared pool is dry (finalize/far work ate it), cooks
                 // defer to the next poll instead of stacking unbudgeted PhysX time on top of a heavy
                 // beat. _collidersDirty keeps the walk alive so the deferred cooks still land.
-                if (_streamCapped)
+                if (_streamCapped || cooked >= MaxColliderCooksPerPoll)
                 {
-                    _collidersDirty = true;
-                    continue;
-                }
-                if (cooked >= MaxColliderCooksPerPoll)
-                {
-                    // Defer to the next poll; keep walking so disables still apply this tick.
-                    _collidersDirty = true;
+                    deferredAny = true;
+                    if (cheb < closestCheb)
+                    {
+                        closestCheb = cheb;
+                        closestPending = kv.Value;
+                    }
                     continue;
                 }
                 cooked++;
@@ -530,8 +562,20 @@ public partial class WorldStreamer : MonoBehaviour
             }
             else
             {
+                // Disables are instant and cheap (sharedMesh = null, no cook) — the player already
+                // left these cells, so they never need the exemption, only the re-enabled ring-fill.
                 kv.Value.SetColliderActive(false);
             }
+        }
+
+        if (deferredAny)
+        {
+            // 1gg: always advance the approach fill at least one cell per poll — the centre cell
+            // (cheb 0) wins the closest test even when the must-collide cap batch ran long, so the
+            // player's own chunk can never stay collider-less across polls.
+            if (closestPending != null)
+                closestPending.SetColliderActive(true);
+            _collidersDirty = true;
         }
     }
 

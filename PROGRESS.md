@@ -3,6 +3,56 @@
 Last updated: 2026-09-25. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1gg. Player falls through the ground — collider "not loading" (fixed: player-floor guarantee + void-fall rescue)
+
+Report: while sprinting, the player can fall right through the ground — the chunk under them is
+rendered but has **no MeshCollider**. Root cause traced to the collider-on-demand queue
+(WorldStreamer.cs `ReconcileCollidersIfChanged`, 1dg/1dq/1es/1ge):
+
+- Every streaming chunk is created **collider-less** (`CreateChunkGameObject` buildCollider=false);
+  `ReconcileCollidersIfChanged` is the only place that later assigns the MeshCollider, once the chunk
+  enters the `ColliderRingRadius` (7) ring or sits under an active spell request.
+- Since the shared stream budget (`_streamCapped`) started gating the walk (1es, tightened 1ge), every
+  enable was deferred whenever earlier stages (finalize/far/props) had drained the pool — which is
+  **almost every poll during a heavy sprint**. The ring-fill also capped at `MaxColliderCooksPerPoll`
+  = 2, and the walk ran in dictionary order with **no spatial priority**.
+- Net effect: a chunk entering ring 7 could have its first cook deferred for the whole duration of a
+  budget-starved crossing; when the player then stepped onto it (it was the centre chunk by then, or a
+  freshly-finalized-at-feet chunk), it still had no collider → the CharacterController passed through
+  the visible mesh and the player fell. Far cells have no collider and the PlayerController fail-net
+  (150 m blast / NaN) can't catch a *gradual* fall, so nothing stopped the descent.
+
+Fix (two layers):
+
+- **A. Player-floor collider guarantee (WorldStreamer.cs):** the collider walk now treats the focus
+  cell + its 2-chunk Chebyshev floor as **COLLISION-CRITICAL** — those enables are budget-EXEMPT
+  (bounded at 6/poll, charged to the budget afterwards for honest accounting) and cook unconditionally
+  even while `_streamCapped`. Additionally, whenever any enable deferred, the walk cooks the single
+  **closest** pending chunk at the end — so the fill front advances ≥1 cell per poll and the centre
+  cell (cheb 0) can never stay collider-less across polls. Everything beyond the floor keeps the
+  existing budgeted fill; disables stay instant. Result: the ground under / just ahead of a sprinting
+  player can never lack a collider for more than one poll, no matter how loaded the stream is.
+- **B. Void-fall rescue (PlayerController.cs):** `EnforcePhysicsSanity` now also reverts the player to
+  `_lastSafePosition` when Y drops below `VoidFallFloor` = **-300 m** — beneath the ±200 m sanitized
+  terrain band (noise ±82.6 m + deform headroom), so only a true missing-collider void reaches it.
+  Backstop for any residual hole (e.g. a genuinely missing chunk) instead of an infinite fall; doesn't
+  disturb legitimate platform falls onto the terrain below.
+
+### 1gg-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build). New symbols collision-free:
+  `MustCollideRadius`, `MustCollideCap`, `closestPending`, `closestCheb`, `deferredAny`,
+  `VoidFallFloor` all fresh in their scopes; `ReconcileCollidersIfChanged` is the only cook-gating
+  walk (single call site in StreamOnce); `SpendStreamBudget` reuse is unchanged; the PlayerController
+  const+check sit inside `EnforcePhysicsSanity` (runs every Update pre-input) with no false-positive
+  path for legit terrain (floor -300 < sanitized -200). Docs synced same pass: PROGRESS 1gg, THINKING
+  1gg, game-design §2.5 collider-on-demand + §2.8 physics rails.
+- PENDING PLAY-TEST: (1) hard sprint through a heavy stream + the dormant band — no fall-through, no
+  new per-poll hitch at the collider front; (2) sprint then turn around immediately and run back — a
+  trailing-edge chunk that lost its collider re-enables by the time you reach it; (3) walk onto a
+  region while the stream is visibly catching up — ground you see is ground you stand on; (4) if a
+  fall-through still happens, expect the console `Fell below the world floor` warning and report the
+  coordinates — that helps find the residual hole.
+
 ## 1gf. Per-stage poll ms instrument — the "still the lag" A/B baseline
 
 After 1gd (decoupled renderer clock + async seam rebuilds) and 1ge (demote gate + heavy-only

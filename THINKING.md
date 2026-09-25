@@ -15,6 +15,52 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1gg — "player can fall right through the ground with the collider not loading" (FIXED — play-test pending)
+
+### The report
+During sprinting, the player falls through visibly rendered ground — no collider under them. This
+shipped as a distinct bug DURING the 1gf window (user message after 1gf was pushed).
+
+### Hypothesis 1 — "the far shell / dormant band has no collider and the player reaches it"
+Far cells are render-only (no collider), and `DemoteChunk` switches a real chunk's collider off when
+it sleeps. But both live OUTSIDE the real near ring (NearRingRadius 9) and outside the collider ring
+(7): the player is the walk's centre, so physically they can only ever stand at cheb ~0 — the dormant
+band/far shell is 300-450 m out. REJECTED as the trigger (the player can't reach it without already
+standing on collidable ground).
+
+### Hypothesis 2 — "the collider walk's budget gating starves the player's own chunk" — CONFIRMED
+Tracing the collider-on-demand queue:
+- `CreateChunkGameObject` builds streaming chunks **collider-less** (`buildCollider` false). The ONLY
+  assigner is `ReconcileCollidersIfChanged`, once the chunk enters ring 7 (≈3-14 s before a walker
+  arrives — normally plenty of lead time).
+- The 1es/1ge shared-budget gate (`if (_streamCapped) defer`) skips **every** enable on a heavy poll,
+  and `MaxColliderCooksPerPoll = 2` caps the fill regardless. During a sustained heavy sprint
+  (finalize/far/props draining the pool every poll) the lead time collapses: a chunk that entered ring
+  7 mid-crossing can keep failing its first cook for the whole crossing, and by the moment the player
+  steps onto it (it is now cheb 0, or it finalized at their feet), `_collidersDirty` has been
+  re-arming the walk but `_streamCapped` has kept blocking it. The order of the walk is a
+  dictionary iteration — no spatial priority, so the centre cell is not specially favoured.
+- The fall itself is physically "sane": gradual descent, no blast — so `EnforcePhysicsSanity`'s
+  150 m / NaN tolerance never fires, no far-cell collider exists below, and the player falls forever.
+
+### Why the fix is two layers
+- **A (root cause):** player-floor exemption + closest-deferred guarantee in `ReconcileCollidersIfChanged`
+  makes the centre cell + 2-chunk floor cook unconditionally (bounded 6/poll) and keeps BOTH the
+  centre cell and the approach-front ≥1 cook per poll no matter the budget. Trade: up to ~3-4
+  synchronous PhysX cooks can run on a crossing's heavy poll (~1-3 ms each) — the price of physical
+  correctness over streaming smoothness; charged to the shared budget so the accounting stays honest
+  and the prop stage still sees the real spend. Bounded, so it cannot regress the frame.
+- **B (backstop, user-confirmed):** `VoidFallFloor` -300 m revert in `EnforcePhysicsSanity`. Any real
+  surface lives above the sanitized -200 m band; crossing -300 unambiguously means void. Chosen as a
+  fixed constant (not a per-sample terrain comparison) so it never depends on noise evaluation during
+  a fall and can't misfire on carved pits (SanitizeHeight keeps those ≥ -200).
+
+### 1gg verdict
+Hyp-H2 confirmed; fix A + B shipped. Both pending play-test confirmation; status OPEN until the
+sprint/no-fall-through checks pass.
+
+---
+
 ## 1gf — residual sprint lag after 1ge: instrument before guessing (SHIPPED — verdict per-hypothesis pending play-test numbers)
 
 ### Where we are

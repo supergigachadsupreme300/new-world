@@ -276,12 +276,18 @@ public bool IgnoreInput { get; private set; }
             Physics.SyncTransforms();
     }
 
+    /// Below the world floor (1gg): the 5-octave noise band is ~±82.6 m and deformation clamps inside
+    /// the ±200 m sanity band, so any real surface lives above -300 — crossing it means a
+    /// missing-collider void fall, and the player is reverted (see <see cref="EnforcePhysicsSanity"/>).
+    private const float VoidFallFloor = -300f;
+
     /// <summary>
     /// Physics-integrity fail-net (1ca/1cc). Reverts the player to the last sane position when a
     /// single frame moved them farther than the tolerable step: at least 150 m, scaled up by the
     /// last frame's effective speed (max(speed×1.5, 150)) so fast-but-legit movement during frame
     /// hitches never trips it, while every corrupted-collider depenetration launch (thousands of
-    /// metres) still does. Non-finite coordinates always revert.
+    /// metres) still does. Non-finite coordinates always revert. Falling below the world floor
+    /// (missing-collider void, 1gg) also reverts.
     /// </summary>
     private void EnforcePhysicsSanity()
     {
@@ -290,6 +296,20 @@ public bool IgnoreInput { get; private set; }
         {
             Vector3 safe = _hadSafePosition ? _lastSafePosition : BootSpawnPosition();
             Debug.LogWarning($"[PlayerController] Non-finite position {p} — restored to {safe}.");
+            TeleportTo(safe);
+            return;
+        }
+
+        // (1gg) Void-fall rescue: a chunk whose MeshCollider is missing (deferred-collider bug under
+        // a heavy sprint) lets the controller sink straight through the visible ground and never
+        // stop — the motion is gradual, so the blast tolerance above never trips. Real surfaces never
+        // live below here: the 5-octave noise band is ~±82.6 m and deformation is clamped inside the
+        // ±200 m sanity band, so crossing -300 means the player is in the void. Revert to the last
+        // safe position before the drop instead of falling forever.
+        if (p.y < VoidFallFloor)
+        {
+            Vector3 safe = _hadSafePosition ? _lastSafePosition : BootSpawnPosition();
+            Debug.LogWarning($"[PlayerController] Fell below the world floor ({VoidFallFloor:0}) at {p} — restored to {safe}.");
             TeleportTo(safe);
             return;
         }

@@ -287,6 +287,13 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   a cheap state-guarded toggle per poll (no re-meshing), rebuilds (`FullRebuildChunk`/`PatchRegion`)
   and unloads preserve each chunk's collider state, and the synchronous boot chunk keeps its collider
   so the player lands before the first poll.
+  - **Player-floor guarantee (1gg):** the collider walk treats the focus cell **and its 2-chunk
+    floor** (Chebyshev) as collision-critical — those cooks are budget-exempt (bounded) so a
+    budget-starved heavy sprint can never leave the chunk under/just-ahead of the player collider-less
+    for more than one poll, and every poll additionally advances the single **closest** deferred cook
+    regardless of stream load. (This closed the 1gg fall-through: stream-budget gating since `1es`/`1ge`
+    could defer a chunk's first cook indefinitely during a sprint, so a player could step onto rendered
+    but uncollidable ground.)
 - **Chunk mesh pooling (1dv):** each chunk owns ONE `Mesh` for its entire life — acquired from a small
   capped freed-mesh pool (`ChunkMeshGenerator`, cap 48) on first stream, then **re-uploaded in place**
   on every rebuild and unload→reload instead of allocating + destroying a fresh Mesh each time
@@ -432,6 +439,11 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   never trip it even during a ~1 s frame hitch, while every real corrupted-collider launch
   (thousands of metres) still does. On a revert it logs the blast position, the local terrain height
   there, and sweeps nearby colliders for non-finite/oversized bounds to identify the culprit chunk.
+  Since `1gg` it ALSO reverts the player when Y drops **below the world floor** (`VoidFallFloor`,
+  -300 m — beneath the ±200 m sanitized band, so only a true missing-collider void reaches it): a
+  gradual fall-through of rendered-but-uncollidable ground is perfectly "sane" per-frame, so the
+  blast tolerance alone would never catch it; the floor reverts to `_lastSafePosition` instead of
+  letting the player fall forever.
 - **Teleport routing:** every intentional teleport goes through `PlayerController.TeleportTo`
   (spawn/respawn, fast travel, sleep, load-game, test-platform entry), which stamps the destination as
   the new "last safe" position so the fail-net never false-positives on legit relocation.
