@@ -3,6 +3,55 @@
 Last updated: 2026-09-25. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1ge. 1gd play-test follow-up — demote-cover gate, heavy-poll cool-down, budgeted collider cooks, monotonic rebuild stamps
+
+Play-test after 1gd (user reported): the speed lag PERSISTED ("still the lag") and a NEW regression
+appeared — "a group of chunks goes invisible for no reason". Session Q&A confirmed: running SMOOTH
+terrain (so the 1gd async seam path IS live), the loss reads as a whole GROUP of chunks going
+invisible, HUD was not watched, and `EnableSpeedDecoupleRender` had not been A/B'd.
+
+- **Root cause (mesh loss, confirmed by code):** `DemoteChunk` hides a real chunk the moment it passes
+  `keep` with NO cover check (StreamAround → DemoteChunk, Streaming.cs), while the far shell's OWN
+  tenant demotes ARE guarded (`FarCoverageReady`, FarShell.cs). The demote removes the chunk from
+  `_loadedChunks`; `FarShellTick`'s active-shadow sync then activates the span-1 cell under it the same
+  poll — but ONLY if that cell already exists in `_farSectors`. When the async far build for the
+  position hasn't landed yet (a ~50-400 ms window, widened by the 1gd cadence cut), the hidden chunk
+  has no cover at all → a whole trailing group reads as invisible until the far finalize catches up.
+- **Fix A — demote gate (1xd):** the StreamAround demote pass resolves each chunk's required far cell
+  via `FarCellForDemote()` (same near/keep bounds `FarShellTick` uses) and demotes only once the cell
+  is already live in `_farSectors` (inactive is fine — the sync flips it in the same poll). A skipped
+  chunk stays visible and the new `_demoteBacklog` flag (joins the idle gate in WorldStreamer.cs) keeps
+  the loop polling until the cover lands. Null cover = the position is outside the far annulus (small
+  render distance) → demote proceeds under legacy behavior — no deadlock.
+- **Fix B — restore loading cadence (1xd):** `StreamOnce()` now returns HEAVY (`_streamCapped`, the
+  shared stream budget was exhausted) instead of "did any work"; `StreamLoop` cool-downs only after a
+  heavy poll. Light-busy polls (dispatch-only, small finalizes, gate re-checks) keep the full
+  `StreamHz` beat — undoing the ~15-30% throughput cut that let the player outrun the far fill.
+- **Fix C — budget the collider cooks (1xd):** `ReconcileCollidersIfChanged` defers a cook
+  (`_collidersDirty = true`) when `_streamCapped`, instead of cooking up to `MaxColliderCooksPerPoll`
+  (2) unbudgeted on top of a heavy poll — PhysX cooks can no longer stack ~2-6 ms onto arbitrary
+  gameplay frames at speed.
+- **Fix D — rebuild drain hardening (1xd):** `ChunkObject.MeshRebuildStamp` now takes values from a
+  GLOBAL monotonic counter (`NextMeshRebuildStamp`) instead of a per-object `++` (per-object restarted
+  at 0 on every chunk lifecycle, so a reload could re-issue a stamp a stale in-flight result already
+  held). `DrainRebuildResults` additionally rejects results whose chunk is `Dormant`.
+- **Docs (same pass):** game-design §2.5 (speed-decoupled bullet updated to heavy-only + new demote
+  gate / collider budget / monotonic stamp bullets); THINKING §1ge; this entry. Tooltip on
+  `DecoupleRenderFromGameplay` corrected (heavy-only) in the same pass.
+
+### 1ge-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build). Grepped every new/changed
+  symbol (`_demoteBacklog`, `FarCellForDemote`, `NextMeshRebuildStamp`/`_meshRebuildStampCounter`, the
+  `StreamOnce` heavy-return + `StreamLoop` cadence, the collider `_streamCapped` gate, the
+  `DrainRebuildResults` `obj.Dormant` guard): all call sites + signatures confirmed; no
+  `MeshRebuildStamp++` remains. Extent check: far ring walk is `near+1 .. view+FarOuterKeep` (no static
+  coverage gap over the dormant band at default) — the invisible group is a build-lag hole, closed by
+  the demote gate.
+- PENDING PLAY-TEST: sprint across the dormant band with AND without `EnableSpeedDecoupleRender`;
+  confirm no group of chunks goes invisible either way; watch the FPS HUD at the moment a group used to
+  vanish (is the span-1 cell under a hidden chunk live? do `far cells` stay ahead of `dormant`?); confirm
+  a wide crossing no longer spikes a gameplay frame (collider cooks deferred on heavy polls).
+
 ## 1gd. "Immense lag at higher player speed" — speed-decoupled renderer clock + async edited-terrain seam rebuilds
 
 User reports: the game is smooth while walking but lags immensely when you move faster (player speed).

@@ -192,12 +192,15 @@ gone, and real-chunk **unloads are capped at 6/poll** (spread over a few polls w
   the loaded world**, so it only engages if the render radius is raised above ~53 chunks. It uses no fog —
   mid-view stays crisp
   so the outermost shell reads as atmosphere at the old 2 km range.
-- **Speed-decoupled renderer clock (1gd):** the streaming/render loop no longer runs inside the
-  gameplay `Update`. `WorldStreamer` starts a coroutine (`StreamLoop`, started in `OnEnable`) ticked
-  on its OWN wall-clock beat at `StreamHz` (default **20 Hz** == the legacy 0.05 s poll), and when a
-  poll does real work it yields **one cool-down frame** before the next slice — a busy map-render beat
-  can never double-load the gameplay frame it lands next to. `StreamInUpdate` stays the master switch
-  (the coroutine checks it every iteration, so the scene toggle still works at runtime);
+- **Speed-decoupled renderer clock (1gd, cadence tuned 1xd):** the streaming/render loop no longer runs
+  inside the gameplay `Update`. `WorldStreamer` starts a coroutine (`StreamLoop`, started in
+  `OnEnable`) ticked on its OWN wall-clock beat at `StreamHz` (default **20 Hz** == the legacy
+  0.05 s poll), and when a poll exhausts the shared stream budget (a HEAVY beat) it yields **one
+  cool-down frame** before the next slice — a heavy map-render beat can never double-load the gameplay
+  frame it lands next to. Since 1xd the cool-down no longer follows *every busy* poll (that halved the
+  effective rate during catch-up and let the player outrun the far fill): light busy polls
+  (dispatch-only, small finalizes) keep the full `StreamHz` cadence. `StreamInUpdate` stays the master
+  switch (the coroutine checks it every iteration, so the scene toggle still works at runtime);
   `DecoupleRenderFromGameplay` gates the cool-down frame only. All per-stage budgets/slices are
   unchanged — loading speed is NOT reduced, only the render/maintenance work is decoupled from the
   gameplay frame. The per-poll temp lists are also pooled (1gd): the `StreamAround` wake/demote/
@@ -214,6 +217,23 @@ gone, and real-chunk **unloads are capped at 6/poll** (spread over a few polls w
   results are dropped via `ChunkObject.MeshRebuildStamp` (bumped on every apply/patch), so a slow
   worker can never overwrite fresher edits. Loading rate is unchanged; only the seam fix stops holding
   the gameplay frame. Voxel mode keeps its synchronous rebuild path (experimental model unchanged).
+- **Chunk demote is gated on far-shell cover (1xd):** a real chunk that passes the hysteresis ring is
+  hidden in place (`DemoteChunk`), and `FarShellTick`'s active-shadow sync activates the coarser cell
+  under it in the SAME poll — but only if that cell already exists. If the async far build for the
+  position hasn't landed yet, hiding the chunk would open a **group-sized invisible hole** for the
+  ~50-400 ms build window. `StreamAround`'s demote pass therefore resolves the required far cell
+  (`FarCellForDemote`, same near/keep bounds as `FarShellTick`) and only demotes once it is live in
+  `_farSectors` (inactive is fine — the sync flips it). A skipped chunk stays visible and
+  `_demoteBacklog` (a new idle-gate member) keeps the loop polling until the cover arrives; positions
+  outside the far annulus (small render distances) have no required cell and demote un-gated.
+- **MeshCollider cooks are budget-gated (1xd):** `ReconcileCollidersIfChanged` defers a cook when the
+  poll's shared `StreamBudgetMs` pool is already dry (`_streamCapped`) instead of cooking up to
+  `MaxColliderCooksPerPoll` (2) unbudgeted on top of a heavy beat — PhysX cooks can no longer stack
+  ~2-6 ms onto arbitrary gameplay frames at speed.
+- **Rebuild stamps are globally monotonic (1xd):** `ChunkObject.MeshRebuildStamp` values come from a
+  shared counter (`NextMeshRebuildStamp`), not a per-object increment. A per-object counter restarted
+  at 0 on every chunk lifecycle, so a reloaded chunk could re-issue a stamp a stale in-flight result
+  already held; the drain check now also rejects results whose chunk is `Dormant`.
 - At each frame, the system calculates which chunks are within radius of the player.
 - Chunks entering radius: loaded from cache or generated.
 - Chunks leaving radius: unloaded from memory (kept in cache on disk).

@@ -15,7 +15,64 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
-## 1gd — "immense lag at higher player speed" (SHIPPED — play-test pending)
+## 1ge — 1gd follow-up: "still the lag" + a group of chunks goes invisible (FIXED by 1xd — play-test pending)
+
+Pre-plan questions (from user): what terrain the run used (SMOOTH), the shape of the loss (a GROUP of
+chunks goes invisible), HUD watched? (no), toggle A/B'd? (not yet). Answers shape below.
+
+### H-1 — seam-rebuild stamp collision makes a chunk's mesh vanish → WEAK
+Evidence AGAINST: a rebuilt/ApplyMerged mesh is a REAL mesh on the object; a wrong apply changes the
+surface, it cannot make the chunk INVISIBLE. Invisibility == `SetVisualActive(false)` with nothing
+covering it — a State made only by DemoteChunk. Stamp collision can't produce it. Kept only as a latent
+hardening bug (see H-5).
+
+### H-2 — rebuild applied to a dormant chunk re-surfaces it → WEAK
+Evidence AGAINST: that would show EXTRA chunks (a visible chunk inside the dormant band + z-fight with
+the far cell), not missing ones. Fix D (drain rejects `obj.Dormant`) is belt-and-braces only.
+
+### H-3 — far-shell static extent gap over the dormant band → REJECTED
+Checked `FarShellTick`: `keep = view + FarOuterKeep`; ring walk is `near+1 .. keep`, and `RequiredFarCell`
+for span-1 needs `maxRing >= near+1` with no required coarser owner. At default (view 30, near 9) the
+span-1 cells over rings 10-14 (covering the dormant band 11-12) ARE required and built as inactive
+shadows. The removal scan retains required cells; nothing deletes them at demote ring. No static gap.
+
+### H-4 — demote runs while the required far cell's async build hasn't landed → CONFIRMED (the visible-group hole)
+Evidence FOR: `DemoteChunk` (Streaming.cs) hides the chunk and removes it from `_loadedChunks` with NO
+cover check; the far active-shadow sync then activates the span-1 cell under it THE SAME POLL — but
+only if that cell is already in `_farSectors`. If the far finalize is still pending/backlogged (the 1gd
+"cool-down after any busy poll" cut the effective poll rate ~15-30% at speed), there is NO cover and
+the region reads invisible until the far build lands (~50-400 ms). A whole trailing column crossing
+together = "a group of chunks goes invisible". The far shell's own coarse tenant demote is guarded
+(`FarCoverageReady`); the real-chunk demote path had NO such guard — an asymmetry, not an accident of
+timing.
+Verdict: root cause. Fix A = gate the demote on `_farSectors` containing `FarCellForDemote(...)`; a null
+cover (position beyond the far annulus, small render distance) must NOT backlog forever → treat null as
+un-gated demote.
+
+### H-5 — stale reload stamp collision (latent, kept as hardening) → CONFIRMED as a bug, fixed cheaply
+`MeshRebuildStamp` was a per-object int starting at 0 each lifecycle; two lifetimes of the same coord
+could both reach 1, letting a stale in-flight result pass the drain's stamp check over a fresh chunk.
+Now the stamp comes from a shared monotonic counter (`NextMeshRebuildStamp`) — values never repeat.
+
+### H-R1 — remaining lag = every-busy-poll cool-down → CONFIRMED (cadence)
+`StreamLoop` cooked `yield return null` after ANY busy poll (StreamOnce returned "did work") → ~10 Hz
+effective during catch-up → rings filled slower → player keeps closing on unready ground → polls keep
+hitting. Fix B: StreamOnce returns HEAVY (`_streamCapped`) so only budget-exhausting polls cool down;
+light busy polls keep 20 Hz.
+
+### H-R2 — remaining lag = unbudgeted collider cooks → CONFIRMED (partial)
+`ReconcileCollidersIfChanged` cooked up to `MaxColliderCooksPerPoll` (2) synchronous PhysX meshes per
+poll AFTER all budgeted stages — every poll the ring moves at speed. Now gated on `_streamCapped`
+(defer, `_collidersDirty` keeps the walk alive).
+
+### 1ge status:
+- All four fixes implemented (demote gate, heavy-only cool-down, collider budget gate, global stamp +
+  drain dormant-reject). Verified by grep + reread. Play-test still required: sprint the dormant band
+  with/without the toggle; confirm no invisible group + no frame spike on a wide crossing.
+
+---
+
+## 1gd — "immense lag at higher player speed" (SHIPPED — first play-test reported lag-kept + invisible group; root cause found in 1ge)
 
 User reports: smooth while walking, immense lag at higher player speed. "Player map renderer" =
 the 3D terrain renderer (`WorldStreamer`), NOT the corner minimap. Pre-plan asked to "separate the map

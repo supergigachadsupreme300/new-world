@@ -27,6 +27,16 @@ public partial class WorldStreamer
     /// clears the flag once the sweep fully catches up.</summary>
     private bool _chunkUnloadBacklog;
 
+    /// <summary>True while an out-of-keep chunk is being held visible because its far cover cell is
+    /// not live yet (1xd demote gate). DemoteChunk hides the real chunk and FarShellTick's
+    /// active-shadow sync activates the span-1 cell under it the SAME poll — but only if that cell
+    /// already exists in <c>_farSectors</c>. When the async far build for the position hasn't landed
+    /// yet, demoting anyway would leave the region with no cover at all = a group of chunks going
+    /// invisible until the far finalize catches up. The gate skips the demote (keeping the chunk
+    /// visible) and sets this flag so the idle gate keeps the poll alive until the cover arrives.
+    /// Cleared at the start of each StreamAround pass and re-set by any still-uncovered skip.</summary>
+    private bool _demoteBacklog;
+
     // (1gd) Per-poll temp lists, pooled so a live poll never allocates transient lists for the
     // wake/demote/deep-unload scans or the rebuild dispatch scan. Each is used within a single call
     // and cleared by the caller before reuse.
@@ -192,8 +202,9 @@ public partial class WorldStreamer
     }
 
     /// <summary>Applies finished seam rebuilds under the shared stream budget. A result is dropped if
-    /// its chunk was unloaded/demoted while generating or if a newer apply (MeshRebuildStamp) already
-    /// superseded it, so a stale upload can never revert fresher edits.</summary>
+    /// its chunk was unloaded/demoted (or is dormant) while generating or if a newer apply
+    /// (MeshRebuildStamp) already superseded it, so a stale upload can never revert fresher edits or
+    /// re-surface a hidden chunk.</summary>
     private void DrainRebuildResults()
     {
         int applied = 0;
@@ -201,7 +212,7 @@ public partial class WorldStreamer
         while (applied < MaxRebuildFinalizePerPoll && !_streamCapped && _readyRebuilds.TryDequeue(out ChunkRebuildResult res))
         {
             _rebuildsInFlight.TryRemove(res.Coord, out _);
-            if (!_loadedChunks.TryGetValue(res.Coord, out ChunkObject obj) || obj == null)
+            if (!_loadedChunks.TryGetValue(res.Coord, out ChunkObject obj) || obj == null || obj.Dormant)
                 continue;
             if (obj.MeshRebuildStamp != res.Stamp)
                 continue;
@@ -308,13 +319,29 @@ public partial class WorldStreamer
         // dict move (no 900-tile teardown), so the whole trailing column can demote in one poll —
         // the far cell under it activates in the same poll, so the view is unchanged. The destroy
         // work stays capped (1es) so a deep crossing never bursts a frame.
+        // (1xd) Demote gate: a demote is only allowed when the far shell's required cell for the
+        // position ALREADY exists (even inactive — the active-shadow sync flips it live in the same
+        // poll). If the async far build hasn't landed yet, hiding the real chunk would open an
+        // invisible hole for the build window (~50-400 ms), reading as a group of chunks going
+        // missing while the player outruns the far fill. The skipped chunk stays visible and
+        // _demoteBacklog keeps the loop polling until its cover is present. A null cover means the
+        // position is OUTSIDE the far annulus (no cell is due there at all — small render
+        // distances) so the demote proceeds with the pre-gate behaviour and cannot deadlock.
         _tempDemote.Clear();
+        _demoteBacklog = false;
         foreach (TerrainChunkCoord tc in _loadedChunks.Keys)
         {
             int dx = Mathf.Abs(tc.X - centre.X);
             int dz = Mathf.Abs(tc.Z - centre.Z);
-            if (dx > keep || dz > keep)
-                _tempDemote.Add(tc);
+            if (dx <= keep && dz <= keep)
+                continue;
+            FarCell? cover = FarCellForDemote(tc.X, tc.Z, centre);
+            if (cover.HasValue && !_farSectors.ContainsKey(cover.Value))
+            {
+                _demoteBacklog = true;
+                continue;
+            }
+            _tempDemote.Add(tc);
         }
         for (int i = 0; i < _tempDemote.Count; i++)
             DemoteChunk(_tempDemote[i]);

@@ -23,7 +23,7 @@ public partial class WorldStreamer : MonoBehaviour
     [Tooltip("Master switch for the streaming/render loop (the scene's live/legacy stream).")]
     public bool StreamInUpdate = true;
 
-    [Tooltip("1gd: decouple the streaming/render loop from the gameplay Update. The map runs on its OWN coroutine clock (StreamHz) instead of the gameplay frame, and after any busy poll it yields one cool-down frame before the next slice — so map-render maintenance can never double-load a gameplay frame. Loading speed is unchanged: the real-chunk/far rings still chase the player at every tick; only the main-thread render work is gated by the per-stage budgets and slices.")]
+    [Tooltip("1gd/1xd: decouple the streaming/render loop from the gameplay Update. The map runs on its OWN coroutine clock (StreamHz) instead of the gameplay frame, and after a HEAVY poll (one that exhausted the shared stream budget) it yields one cool-down frame before the next slice — so a heavy map-render beat can never double-load a gameplay frame. Light busy polls keep the full StreamHz cadence. Loading speed is unchanged: the real-chunk/far rings still chase the player at every tick; only the main-thread render work is gated by the per-stage budgets and slices.")]
     public bool DecoupleRenderFromGameplay = true;
 
     [Tooltip("Renderer clock (1gd): polls per second of the decoupled streaming loop. 20 = the legacy 20 Hz beat.")]
@@ -276,8 +276,10 @@ public partial class WorldStreamer : MonoBehaviour
     // 1gd decouples the two:
     //   * The loop lives in a coroutine ticked at StreamHz (renderer's own clock); it checks
     //     StreamInUpdate itself, so the scene toggle still works at runtime.
-    //   * After any busy poll the loop yields ONE cool-down frame before the next slice, so a
-    //     heavy map-render beat can never double-load the frame right next to it.
+    //   * After a heavy poll (one that exhausted the shared stream budget) the loop yields ONE
+    //     cool-down frame before the next slice, so a heavy map-render beat can never double-load the
+    //     frame right next to it. Light busy polls (dispatch-only, small finalizes) keep the full
+    //     StreamHz beat so the ring fill rate at speed is unchanged (1xd).
     //   * Heavy seam rebuilds (edits re-emitting merged chunks when the stream passes) moved to
     //     ThreadPool workers (see RequestChunkRebuild/DrainRebuildResults). Loading speed is
     //     unchanged: the real-chunk/far rings still chase the player every tick; only the main-
@@ -309,12 +311,13 @@ public partial class WorldStreamer : MonoBehaviour
             if (!StreamInUpdate || _focus == null)
                 continue;
             if (StreamOnce() && DecoupleRenderFromGameplay)
-                yield return null; // renderer cool-down frame: never stack a busy poll onto the next gameplay frame
+                yield return null; // cool-down frame: never stack a HEAVY poll onto the next gameplay frame
         }
     }
 
-    /// <summary>One streaming/render poll on the decoupled clock. Returns true when the poll did real
-    /// work so <see cref="StreamLoop"/> can spread a heavy beat across its own frames.</summary>
+    /// <summary>One streaming/render poll on the decoupled clock. Returns true when the poll was a HEAVY
+    /// beat (it exhausted the shared stream budget) so <see cref="StreamLoop"/> spreads heavy render
+    /// work across its own frames instead of stacking it onto adjacent gameplay frames.</summary>
     private bool StreamOnce()
     {
         int view = RenderDistance != null ? RenderDistance.Radius : 3;
@@ -326,7 +329,7 @@ public partial class WorldStreamer : MonoBehaviour
         // a shrinking shell or a trailing rebuild keeps the poll alive until it finishes.
         bool working = _chunkDispatchOrder.Count > 0 || _chunksInFlight.Count > 0 || !_readyChunks.IsEmpty
             || _farInFlight.Count > 0 || !_farReady.IsEmpty || _farPending.Count > 0 || _farUnloadBacklog
-            || _chunkUnloadBacklog
+            || _chunkUnloadBacklog || _demoteBacklog
             || _rebuildPending.Count > 0 || _rebuildsInFlight.Count > 0 || !_readyRebuilds.IsEmpty;
         if (centre == _lastStreamCentre && !_worldDirty && !working)
             return false;
@@ -348,7 +351,12 @@ public partial class WorldStreamer : MonoBehaviour
         ReconcileCollidersIfChanged(centre);
         SyncPropRing(centre, near);
         StepChunkProps();
-        return true;
+        // (1xd) Return whether this poll was a HEAVY beat (it exhausted the shared stream budget) so
+        // StreamLoop's cool-down frame only follows polls that actually stacked main-thread render
+        // work. Busy-but-light polls (dispatch-only, small finalizes, gate re-checks) keep the full
+        // StreamHz cadence — restoring the loading throughput the "cool-down after every busy poll"
+        // cut at speed (rings filled slower, so the player kept closing on unready ground).
+        return _streamCapped;
     }
 
     /// <summary>
@@ -387,6 +395,15 @@ public partial class WorldStreamer : MonoBehaviour
 
             if (want)
             {
+                // (1xd) The per-poll cook cap spreads a ring crossing, and the stream budget gates
+                // it further: once this poll's shared pool is dry (finalize/far work ate it), cooks
+                // defer to the next poll instead of stacking unbudgeted PhysX time on top of a heavy
+                // beat. _collidersDirty keeps the walk alive so the deferred cooks still land.
+                if (_streamCapped)
+                {
+                    _collidersDirty = true;
+                    continue;
+                }
                 if (cooked >= MaxColliderCooksPerPoll)
                 {
                     // Defer to the next poll; keep walking so disables still apply this tick.

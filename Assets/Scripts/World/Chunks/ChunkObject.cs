@@ -39,12 +39,24 @@ public class ChunkObject : MonoBehaviour
     [System.NonSerialized] public bool Dormant;
 
     /// <summary>
-    /// Monotonic counter bumped on EVERY mesh apply/upload (ApplyMerged + PatchRegion, 1gd). A
-    /// background seam-rebuild result captures this stamp when it is dispatched and the streamer's
+    /// Globally-unique counter bumped on EVERY mesh apply/upload (ApplyMerged + PatchRegion, 1gd).
+    /// A background seam-rebuild result captures this stamp when it is dispatched and the streamer's
     /// DrainRebuildResults rejects any finished result whose stamp no longer matches — so a stale
     /// async upload can never overwrite a newer edit or a chunk that unloaded and reloaded anew.
+    /// Values come from the shared monotonic counter (<see cref="NextMeshRebuildStamp"/>), not a
+    /// per-object increment: a per-object counter restarted at 0 on every chunk lifecycle, so a
+    /// reloaded chunk could re-issue a stamp a stale in-flight result already held and slip past the
+    /// drains check to overwrite fresh geometry.
     /// </summary>
     [System.NonSerialized] public int MeshRebuildStamp;
+
+    /// <summary>Shared monotonic source for <see cref="MeshRebuildStamp"/> (main thread only).</summary>
+    private static int _meshRebuildStampCounter;
+
+    private static int NextMeshRebuildStamp()
+    {
+        return ++_meshRebuildStampCounter;
+    }
 
     /// <summary>
     /// Toggle the chunk's physics collider without touching the mesh or re-running the merged
@@ -189,7 +201,7 @@ public class ChunkObject : MonoBehaviour
         _lodDirty = true;
 
         // (1gd) Any in-flight async seam rebuild snapshot taken before this apply is now stale.
-        MeshRebuildStamp++;
+        MeshRebuildStamp = NextMeshRebuildStamp();
     }
 
     /// <summary>
@@ -295,7 +307,7 @@ public class ChunkObject : MonoBehaviour
         _lodDirty = true;
 
         // (1gd) Any in-flight async seam rebuild snapshot taken before this patch is now stale.
-        MeshRebuildStamp++;
+        MeshRebuildStamp = NextMeshRebuildStamp();
     }
 
     /// <summary>

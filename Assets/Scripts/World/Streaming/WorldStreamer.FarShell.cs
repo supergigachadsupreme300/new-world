@@ -333,6 +333,19 @@ public partial class WorldStreamer
         return true;
     }
 
+    /// <summary>The far cell that must be live before a real chunk at <paramref name="x"/>/<paramref
+    /// name="z"/> may be demoted (1xd). Resolves the far shell's required owner for the position
+    /// using the SAME near/keep bounds FarShellTick applies, so the demote gate and the shadow-sync
+    /// activation agree on what covers a hidden chunk. Null means NO cell is due there — inside the
+    /// near ring, or beyond the far annulus (small render distance) — so `StreamAround` demotes
+    /// un-gated (nothing to wait for, and no cover was going to appear anyway).</summary>
+    private FarCell? FarCellForDemote(int x, int z, TerrainChunkCoord centre)
+    {
+        int view = RenderDistance != null ? RenderDistance.Radius : 3;
+        int near = Mathf.Min(Mathf.Max(NearRingRadius, 0), view);
+        return FarCellForChunk(x, z, centre, near, view + FarOuterKeep);
+    }
+
     /// <summary>Hide every finer cell still registered inside <paramref name="cell"/>'s footprint —
     /// a newly live coarser owner takes over without a frame of overlapping render (1eq promote
     /// handoff). The hidden fine cells are stale and destroyed by the next removal scan.</summary>
