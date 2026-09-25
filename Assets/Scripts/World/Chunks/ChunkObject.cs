@@ -31,6 +31,14 @@ public class ChunkObject : MonoBehaviour
     public bool HasCollider => _colliderActive;
 
     /// <summary>
+    /// True while the chunk is DORMANT (hidden-but-retained, 1gc): the streamer demoted it out of the
+    /// loaded ring but keeps its data/mesh/GameObject alive so re-entry wakes it instantly.
+    /// ChunkLodManager skips dormant entries so the band sweep can never re-enable a hidden chunk's
+    /// visuals during the timer-gated unregister gap.
+    /// </summary>
+    [System.NonSerialized] public bool Dormant;
+
+    /// <summary>
     /// Toggle the chunk's physics collider without touching the mesh or re-running the merged
     /// builder (1dq). Enabling cooks the cached collider once; disabling drops it to zero physics.
     /// </summary>
@@ -41,6 +49,22 @@ public class ChunkObject : MonoBehaviour
         _colliderActive = active;
         if (_mc != null)
             _mc.sharedMesh = active && _mf != null ? _mf.sharedMesh : null;
+    }
+
+    /// <summary>
+    /// Show/hide the chunk's visuals (root merged mesh + LOD children) without releasing anything
+    /// (1gc dormant keep-ring): a dormant chunk keeps its pooled mesh, tile data and LOD children so
+    /// a wake is an instant re-show. Does NOT touch the collider (the streamer's collider ring owns
+    /// that) or the props (the prop ring owns those) — its mirror image is the single merged surface.
+    /// </summary>
+    public void SetVisualActive(bool active)
+    {
+        if (_mr != null)
+            _mr.enabled = active;
+        if (_lod1Go != null)
+            _lod1Go.SetActive(active);
+        if (_lod2Go != null)
+            _lod2Go.SetActive(active);
     }
 
     // CPU-side copy of the merged chunk mesh arrays, kept so terrain deformation can patch only

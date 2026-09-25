@@ -117,6 +117,14 @@ public sealed class ChunkLodManager : MonoBehaviour
             _scanCursor++;
             checkedCount++;
 
+            // 1gc: dormant (hidden-but-retained) chunks must never be re-enabled by the band sweep.
+            // WorldStreamer demotes them out of LoadedChunks and NewWorldSystems unregisters them on
+            // its timer-gated delta-diff, but in the gap between demote and unregister the sweep here
+            // runs first — skipping keeps the visuals exactly as the demote left them (root + LOD off,
+            // the coarse far cell covers). Costs one bool read per scan tick.
+            if (chunk.Chunk != null && chunk.Chunk.Dormant)
+                continue;
+
             Vector3 off = camPos - chunk.Root.position;
             float distSq = off.x * off.x + off.y * off.y + off.z * off.z;
             int band = BandForSq(distSq);

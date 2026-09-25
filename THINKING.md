@@ -15,6 +15,59 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1gc — chunks "disappear then generated right back" at the edge of the close range (SHIPPED — play-test pending)
+
+Report: while moving, at the edge of the close range the chunks would disappear then be generated
+right back. Initial lead handed in pre-plan: "the collider-on-demand system destroys/recreates
+chunks when moving." User asked: "can't it just remove or add the mesh directly?"
+
+### H-A — the collider ring destroys/recreates chunks → REJECTED (initial wrong lead)
+Evidence AGAINST: `ChunkObject.SetColliderActive` (ChunkObject.cs:37) only assigns/clears
+`MeshCollider.sharedMesh` on the same long-lived chunk object; it never destroys or regenerates the
+chunk. `ReconcileCollidersIfChanged` iterates `_loadedChunks` and only flips that sharedMesh field
+(paid by a 1-3 ms PhysX re-cook per toggle; capped 2/poll). The collider ring (7 ≈ 210 m) is INSIDE
+the mesh ring (9 ≈ 270 m), so its toggling cannot make a chunk visibly vanish. Verdict: rejected as
+the causal path; it only matched the phrase "close range" coincidentally. (Kept as a perf note:
+colliders were already never the destroy/regen source.)
+
+### H-B — the pop is the real-chunk ↔ far-shell handoff at the near+1 hysteresis ring → CONFIRMED
+Evidence FOR: `StreamAround` keeps chunks loaded to `keep = near+1 = 10` (WorldStreamer.Streaming.cs:50),
+then `UnloadChunk` (:228) flushes dirty tiles, drops 900 per-tile dict entries, `obj.Release()`
+(destroys props, returns the pooled mesh, destroys Lod children) and `Destroy(gameObject)`. Walking
+back one chunk re-enqueues the coord → `BuildOrLoadChunk` on a worker → new GameObject → mesh upload.
+Sequential destroy + full regenerate on every boundary crossing == the exact symptom, and the band
+(~270-390 m) reads as "the edge of the close range". The far cell fills the gap the same poll
+(active-shadow sync), so there is no void — only the resolution swap + the rebuild hitch/churn.
+Evidence AGAINST alternatives: LOD band swaps at 30/60 m are too near and belong to the dense LOD
+system (not destroy/regen); far-shell span-3/span-6 ownership swaps at rings 13-36 are farther and
+1eq/1er already pre-warm + retain them. Verdict: the near+1 boundary is the destroy/regen source.
+
+### H-C — the fix shape: "keep the chunk, just add/remove the mesh" → dormant keep-ring CONFIRMED
+User asked "how about disable the collider instead?" — answered NO: the collider toggle and the mesh
+lifecycle are separate rings; disabling colliders (already ring 7) cannot keep a chunk from being
+destroyed at ring 10. Three variants costed + offered (plan): (1) dormant keep-ring — retain the
+loaded chunk hidden out to keep+DormantRingDepth while the coarse far cell covers it; (2) keep fully
+rendered + collider-only within a radius — fixes the pop but returns full draw/mesh/prop cost;
+(3) near-ring bump — moves and rarifies the churn, still regenerates on crossing. User chose (1).
+KEY design decision: REMOVE dormant chunks from `_loadedChunks` (into `_dormantChunks`) rather than
+overlay a flag on the loaded ring — then every existing "does the real chunk cover this?" consumer
+(far active-shadow FarShell.cs:389/438/1242, prop ring Props.cs:52/77, collider reconcile
+WorldStreamer.cs:316, LOD registration NewWorldSystems.cs:116) automatically treats the chunk as
+absent, so the far cell shows over the hidden chunk with ZERO far-shell/prop/collider edits.
+Retaining the tile dicts + pooled mesh + VoxelStore makes wake a pure dict move + SetActive
+(`DemoteChunk`/`WakeChunk`), and since wake re-enters `LoadedChunks`, `NewWorldSystems` re-registers
+with `RegisterChunk` (BandIndex=-1) → the LOD band re-applies correctly with no staleness.
+Bug caught during implementation (verified by reread): `NewWorldSystems.Update` only diffs LOD
+registration every `RegSyncInterval` seconds, so between demote and unregister the `ChunkLodManager`
+band sweep could `ApplyBand` and leave a dormant chunk's renderer enabled over the far cell — the
+exact z-fight the active-shadow rule exists to prevent. Fixed with `ChunkObject.Dormant`
+(`[System.NonSerialized] public bool`) + a one-bool skip in the sweep scan loop.
+Verdict: dormant keep-ring implemented; destroy churn eliminated inside the dormant band (rings
+11-12 at default depth 2); the only destroy left is the deep-unload past keep+DormantRingDepth
+(capped 6/poll with the existing backlog gate).
+
+---
+
 ## 1gb — "magic projectile hit → 3 object floating up then disappear": identify the floating-object effect and replace it with an exploding, fading sphere (SHIPPED — play-test pending)
 
 Report verbatim: "currently when magic projectile hit something it will generate an effect of 3

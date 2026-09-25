@@ -1097,6 +1097,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
             }
 
             int chunks = 0;
+            int dormant = 0;
             int colliders = 0;
             int farSectors = 0;
             var streamer = Object.FindAnyObjectByType<WorldStreamer>();
@@ -1104,6 +1105,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
             {
                 var loaded = streamer.LoadedChunks;
                 chunks = loaded.Count;
+                dormant = streamer.DormantChunkCount;
                 farSectors = streamer.FarSectorCount;
                 foreach (var kv in loaded)
                     if (kv.Value != null && kv.Value.HasCollider)
@@ -1111,8 +1113,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
             }
 
             if (_fpsText != null)
-                _fpsText.text = string.Format("FPS {0:0}  ({1:0.0} ms)\nchunks {2}  colliders {3}\nfar cells {4}",
-                    avgFps, 1000f / avgFps, chunks, colliders, farSectors);
+                _fpsText.text = string.Format("FPS {0:0}  ({1:0.0} ms)\nchunks {2}  dormant {3}  colliders {4}\nfar cells {5}",
+                    avgFps, 1000f / avgFps, chunks, dormant, colliders, farSectors);
         }
     }
 

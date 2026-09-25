@@ -3,6 +3,59 @@
 Last updated: 2026-09-25. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1gc. Chunks "disappear then generated right back" at the close-range edge — dormant keep-ring stops the destroy/regenerate churn
+
+User report: while moving, at the edge of the close range the chunks would disappear then be
+generated right back; asked for "can't it just remove or add the mesh directly".
+
+- **Root cause:** real chunks stream only to ring `NearRingRadius` 9 and stay loaded through the
+  +1 hysteresis ring (`keep = near+1` = ring 10); the instant a chunk passes ring 10 the
+  `StreamAround` sweep called `UnloadChunk` → `obj.Release()` (props destroyed, pooled mesh
+  returned, LOD children destroyed) + `Destroy(gameObject)` + 900-tile bookkeeping dropped
+  (WorldStreamer.Streaming.cs:228). Walking back across the boundary re-dispatched the coord →
+  background regenerate → new GameObject + mesh upload. Sequential destroy + full regenerate on
+  every boundary crossing ≡ "disappear then generated right back". The collider ring (7, 1dq) only
+  toggles `MeshCollider.sharedMesh` on the same object (no visual change, no destroy) — a separate
+  ring, NOT the source. Asked-in-plan: user chose the **dormant keep-ring** variant (hide the chunk,
+  never destroy it) over a near-ring bump or a full-render-collider-only option.
+- **Fix:** dormant keep-ring (`DormantRingDepth`, default 2 → rings 11-12 ≈ 270-390 m).
+  `StreamAround`'s passes are now wake → demote → deep-unload:
+  - **Demote** — chunk passing `keep` moves `_loadedChunks → _dormantChunks`, visuals off
+    (`ChunkObject.SetVisualActive(false)`), props `ReleaseProps()`, collider off, `Dormant` flag set.
+    Tile data / pooled mesh / GameObject / VoxelStore retained. Leaving `_loadedChunks` makes every
+    "does the real chunk cover this?" check (far active-shadow, prop ring, collider reconcile, LOD
+    registration) treat it as absent → the coarse far cell covers it the SAME poll, zero far-shell
+    code change.
+  - **Wake** — dormant chunk re-entering ring ≤ `keep` is re-added to `_loadedChunks` + visuals on,
+    in place; collider/props/LOD return through their own ring passes the same poll. Never re-dispatched.
+  - **Deep-unload** — only a dormant chunk past `keep + DormantRingDepth` is truly `UnloadChunk`ed,
+    via the existing 1es capped sweep (6/poll + `_chunkUnloadBacklog`). `UnloadChunk` now also reads
+    the dormant set; `ResetTerrainSaves` unions both sets.
+- **LOD gap guard (caught in implementation):** `NewWorldSystems`' LOD registration delta-diff runs
+  on a timer (`RegSyncInterval`), so between demote and unregister the `ChunkLodManager` band sweep
+  could re-enable a dormant chunk's visuals and leave them visible over the far cell (the z-fight
+  the shadow rule prevents). Guarded with `ChunkObject.Dormant` + a one-bool skip in the sweep.
+- **Docs (same pass):** game-design §2.5 (new dormant keep-ring bullet; capped-sweep + active-shadow
+  notes updated); THINKING §1gc; the QA FPS HUD (`NewWorldTestGround.EnableFpsStats`) now also shows
+  a `dormant` chunk count.
+
+### 1gc-status
+- FIXED; verified by grep + reread (rule 3 — no CLI/Unity build). Re-grepped every `_loadedChunks`
+  consumer (Voxel :83/170/245/265, Props :52/77, Mesh :54, FarShell :389/438/1242, Deform
+  :233/358/448, Reconcile :316, NewWorldSystems :116, QA HUD :1105): dormant chunks are excluded by
+  construction and each site reads "absent" — the intended behavior, with no far-shell / prop /
+  collider edits needed. `_dormantChunks` / `Dormant` / `SetVisualActive` / `DemoteChunk` /
+  `WakeChunk` / `DormantRingDepth` / `DormantChunkCount` are fresh symbols (no collisions in
+  Assets\Scripts).
+- Commit: this one.
+- Pending play-test: (a) walk straight out past ~270 m to ~390 m and back — the close-range-edge
+  chunks must no longer disappear-then-regenerate; the swap to the coarse far cell is smooth and the
+  return is instant; (b) zig-zag across the boundary (fast facing) — no blank frames, no
+  double-draw/z-fight flicker; (c) stand still at the boundary a few seconds — nothing changes (idle
+  gate holds); (d) QA FPS HUD `dormant` climbs while you leave and falls on return, bounded well
+  under ~184 at depth 2; (e) a one-way sprint past ~390 m deep-unloads without a hitch (capped
+  6/poll); (f) F5 reset-terrain / F12 flow with dormant chunks in memory still works.
+
 ## 1gb. Magic projectile impact "3 objects floating up then disappear" — replaced with an exploding, fading sphere
 
 User report: "currently when magic projectile hit something it will generate an effect of 3 object

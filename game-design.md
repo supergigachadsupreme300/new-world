@@ -104,13 +104,26 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   finalized chunks were re-dispatched forever, refilling the in-flight slots with the same nearest
   chunks and starving the rest of the ring into a permanent ~24-chunk bubble around the player; the
 far shell was immune because it skips completed cells, which is why 300 m→~900 m rendered while the
-   0-300 m disc stayed empty).
+    0-300 m disc stayed empty).
+- **Dormant keep-ring (1gc):** a real chunk passing the near+1 hysteresis ring is no longer DESTROYED
+  at the boundary it was just generated at. It is **demoted to a dormant state** (root mesh + LOD +
+  props + collider off; 900-tile bookkeeping, pooled mesh, GameObject and VoxelStore retained) out to
+  ring near+1+DormantRingDepth (**default depth 2** ≈ 270-390 m), and the coarse far cell covers the
+  hidden chunk exactly as it covered the old destroyed chunk — the dormancy drops the chunk out of
+  `_loadedChunks`, so the existing active-shadow rule shows the far cell over it with zero far-shell
+  code change. Re-crossing the boundary **wakes the same object in place** (no dispatch, no background
+  build, no mesh upload), so walking back and forth across the close-range edge no longer churns
+  destroy + regenerate. Only a chunk past the dormant band is truly unloaded, via the capped sweep
+  (1es, 6/poll + backlog). Cost: the retained band holds at worst ~184 chunks (rings 11-12) of cached
+  mesh + tile data — tens of MB RAM while parked — while physics and render cost stay identical to the
+  destroyed case (no collider, no draw; the far cell provides both covers). `DormantRingDepth` is a
+  serialized knob (1-4).
 - **Far shell (1ef):** from ring near+1 out to the render radius, `WorldStreamer.FarShell.cs` covers
   the ground with one coarse **cell mesh** per aligned span block — level-of-detail sectors generated on
   the ThreadPool from the SAME per-chunk corner grid the real chunks use (save stamps + noise), so the
   map stays watertight and shares the real ring's seam exactly. Cells: **span-1** rim cells (3 m step)
-  at rings 10-14 own the loaded/unloaded **active shadow** (inactive under a real ring-10 chunk, active
-  the same poll it unloads — zero hole, zero z-fight), **span-3** cells (rings ≥15, 90 m wide) and
+at rings 10-14 own the loaded/unloaded **active shadow** (inactive under a real ring-10 chunk, active
+   the same poll its real chunk unloads **or goes dormant (1gc)** — zero hole, zero z-fight), **span-3** cells (rings ≥15, 90 m wide) and
   **span-6** cells (rings ≥36, 180 m wide — **1eo: unreachable at the 30-chunk default**, which only
   exposes span-1 + span-3; span-6 reappears only if the clamp is later raised above 36) cover the open ground — every cell on the SAME uniform
   **3 m step** (11/31/61 verts/axis respectively). One shared lattice means adjacent cells of every span
@@ -148,7 +161,8 @@ edges), with a
    to the next poll instead of finishing it in-frame — the fill may trail a fraction of a second while
    sprinting (the player chose smoothness over fill speed at **1es**), the periodic per-boundary spike is
    gone, and real-chunk **unloads are capped at 6/poll** (spread over a few polls with a backlog flag that
-   keeps the idle gate busy), with **chunk save files written on a background worker** (§2.6). Cells are dispatched **near-first**
+   keeps the idle gate busy; **1gc** reframes the sweep as the DEEP unload past the dormant band — the
+   out-of-keep column cheaply demotes to dormant instead of tearing down), with **chunk save files written on a background worker** (§2.6). Cells are dispatched **near-first**
   (1ek, was horizon-first): the pending walk is closest-first and dispatch iterates it forward, so the
   region around the player — where a void is most visible — and the interior close before the distant
   fringe, which fills a moment later (pre-1ek the reverse, horizon-first order let the heavy outer

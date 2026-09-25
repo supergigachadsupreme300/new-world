@@ -48,6 +48,9 @@ public partial class WorldStreamer : MonoBehaviour
     [Tooltip("Size of the REAL chunk ring around the focus (1ef). Within this many chunks terrain streams as full-fidelity ChunkObjects — deformable, collidable, prop-bearing, LOD'd. From this ring out to the render radius the far shell (WorldStreamer.FarShell.cs) covers the ground with coarse background-generated sector meshes. Keep this >= ColliderRingRadius so every collider sits on a real chunk; the real stream additionally keeps one hysteresis ring (near+1) loaded.")]
     public int NearRingRadius = 9;
 
+    [Tooltip("Dormant keep-ring depth (1gc): real chunks passing the near+1 hysteresis ring are no longer destroyed outright — they are hidden (visuals off; collider already off by the collider ring) and retained as dormant out to ring near+1+DormantRingDepth, while the coarse far shell covers the view exactly as it did when the chunk was destroyed. Re-entering the active ring wakes the SAME object (no background regeneration / mesh upload). Depth 2 retains at worst ~184 chunks (~tens of MB of cached mesh+data) so the player can bounce across the close-range edge without destroy/regenerate churn. Beyond the dormant band chunks unload as before.")]
+    public int DormantRingDepth = 2;
+
     [Header("Voxel (experiment 1et/1eu)")]
     [Tooltip("Render terrain as a 1-metre stepped voxel mesh (experimental, OPT-IN). Since 1ev the smooth heightfield is the default again — the stepped column look read as too Minecraft-like/blocky in play-test, so the voxel model was un-defaulted but kept for experiments. Flip ON via this field or the test ground's QA toggle `EnableVoxelTerrain` to preview it. When on, the same chunk grid / pooling / budgets / deformation API / save files are kept, but every chunk mesh renders as flat column tops + terrace walls (VoxelChunkData + VoxelMesher), saves use the v3 multi-run column format (legacy v1 height-field / v2 single-run saves migrate on read; smooth chunks are never written from voxel), LOD children and the far shell render stepped voxel variants, and the sculpt API (SculptVoxelCave/Raise) + directed dig carve actual column runs. Flip BEFORE the world streams — mid-run flips produce mixed terrain until the stream reloads.")]
     public bool VoxelTerrainEnabled = false;
@@ -71,6 +74,14 @@ public partial class WorldStreamer : MonoBehaviour
 
     // --- Chunk-level state (authoritative object identity; one entry per loaded chunk) ---
     private readonly Dictionary<TerrainChunkCoord, ChunkObject> _loadedChunks = new Dictionary<TerrainChunkCoord, ChunkObject>();
+
+    // --- Dormant keep-ring (1gc): chunks within the retained band between the hysteresis ring and
+    // the dormant band (ring keep .. keep+DormantRingDepth). They are REMOVED from _loadedChunks so
+    // every "is the real chunk covering here?" check (far-shell active-shadow, prop ring, collider
+    // reconcile, LOD registration) treats them as absent and the coarse far cell renders over them —
+    // but their tile data / pooled mesh / GameObject / VoxelStore / LOD children are retained, so a
+    // wake back into the active ring is an instant re-show instead of destroy + regenerate churn.
+    private readonly Dictionary<TerrainChunkCoord, ChunkObject> _dormantChunks = new Dictionary<TerrainChunkCoord, ChunkObject>();
 
     // --- Chunk-level dispatch ---
     private readonly HashSet<TerrainChunkCoord> _pendingChunks = new HashSet<TerrainChunkCoord>();
@@ -219,6 +230,10 @@ public partial class WorldStreamer : MonoBehaviour
 
     /// <summary>Loaded terrain chunks keyed by chunk coord (one object per chunk).</summary>
     public IReadOnlyDictionary<TerrainChunkCoord, ChunkObject> LoadedChunks => _loadedChunks;
+
+    /// <summary>Dormant (hidden-but-retained) chunk coords, 1gc. Not in <see cref="LoadedChunks"/>.</summary>
+    public IReadOnlyCollection<TerrainChunkCoord> DormantChunks => _dormantChunks;
+    public int DormantChunkCount => _dormantChunks.Count;
 
     // --- Public tile-level API ---
 
