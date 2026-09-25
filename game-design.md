@@ -252,9 +252,10 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   pre-excavation hole, and near-band chunks never pay for LOD at all. Physics is untouched (the
   collider lives on the root and rides the full mesh, §2.5 collider-on-demand).
 - **Transient-object pooling (1e6):** the generic `ObjectPooler` (Phase 9, previously unused) is now
-  live on the boot root and backs the high-churn cosmetic spawns — spell **impact VFX** (both the
-  projectile-impact and direct-hit paths) and the **excavation debris** burst from `SpawnCraterDebris`.
-  `ObjectPooler.SpawnTransient` uses the pool when present and falls back to plain
+  live on the boot root and backs the high-churn cosmetic spawns — spell **impact VFX** (the
+  direct-hit `ImpactEffectPrefab` path) and the **excavation debris** burst from `SpawnCraterDebris`
+  (tool digs and zone/storm/summon strikes; magic projectile impacts pass `emitDebris:false` and
+  instead play the script-built exploding sphere below, §3.7). `ObjectPooler.SpawnTransient` uses the pool when present and falls back to plain
   `Instantiate`+`Destroy` otherwise; pooled particle effects replay from frame 0 on reuse (`Clear`+
   `Play`). Debris cubes and impact effects are fully rewritten on every use (position/scale/material/
   velocity), so pooling is invisible apart from the allocation drop. Enemy death debris (the model
@@ -1104,6 +1105,12 @@ Arcane→**no status** (pure force), Wind→Knockback, Holy→heals (§3.8), Ear
   disturb the terrain; Earth's craters stay larger and depth-notable (the school's signature) —
   and a crater digs progressively deeper on repeat casts, descending through the
   grass → dirt → stone strata bands revealed in the pit walls (§3.8).
+  **Every projectile impact — Earth or not — plays a school-colored exploding sphere (1gb):**
+  `SkillFx.ImpactSphere` grows a solid sphere at the hit point from a quarter to the spell's
+  radius while its transparency increases to fully transparent over ~0.45 s, then vanishes. It
+  replaces the crater excavation's floating cube burst (`SpawnCraterDebris`, which now only fires
+  for tool digs and zone/storm/summon strikes — projectile dents pass `emitDebris:false`), so a
+  bolt reads as a clean expanding blast instead of thrown dirt.
 
 ### 3.8 Spell-Casting Pipeline
 
@@ -1169,7 +1176,10 @@ A spell is a data asset carrying:
   the floor digs through grass/dirt, rock (grey, the same look as pickaxe rock destruction,
   `WorldBuilder.SpawnRockDebris`) once the pit reaches the stone band — tinted by the same
   `TerrainBandColor` the pit walls render and destroyed after ~2.5 s so repeated digs never litter.
-  Only a Crater throws debris; the raised shapes never do.
+  Only a Crater throws debris; the raised shapes never do. **Projectile impacts suppress this cube
+  burst (1gb)** — they carve the same dent but pass `emitDebris:false` and play a school-colored
+  exploding sphere (`SkillFx.ImpactSphere`) that expands while fading to transparent instead; only
+  tool digs and zone/storm/summon strikes still eject the cubes.
   A Crater-shaped projectile (the root Stone Shard) carves its crater where the rock **strikes** —
   `SpellEffect.ResolveProjectileImpact` down-probes the ground at impact and deforms it there — so a
   cast never dents the caster's own feet; the pit is permanent. **Every non-Earth magic projectile
@@ -1281,7 +1291,7 @@ built once and fully static (no sphere meshes remain on projectiles):
 | **Bolt** | Jagged 8-segment cube chain along the flight axis (already a cube chain tapering 0.17→0.05, the same segment technique as the thunder-storm event's `SpawnJaggedBolt`) — used by every spell with "Bolt" in the name: Frost Bolt, Chain Lightning, Dark Bolt, Volt, Fork/Leap/Arc/Volt Bolt, Fury Bolt, Shadow/Doom Bolt, Void Rend, and the class-flavored Arcane Bolt. |
 | **Sphere** | Hot voxel orb: a 0.24 lead cube + 4 jittered cubes shrinking to ~0.05 behind it, each darker — the Fireball and every generic orb. (Scorch/Burn/Comet use the Comet shape instead.) |
 | **Shard** | Translucent glass lead chip (45° diamond) + 2 smaller, dimmer glass chips trailing — frost chips (the Ice school default; Chill Touch). |
-| **Debris** | Clustered grey rock cubes (mixed sizes, random rotations, one leading chunk) — the Earth school's Stone Shard. Dressed like the world's breakable-rock debris (`Color.Lerp(gray, black, rand)` cubes) with two chunks dusted in the earthy tan accent so it reads as magic; a short debris burst also kicks out of the crater at impact. |
+| **Debris** | Clustered grey rock cubes (mixed sizes, random rotations, one leading chunk) — the Earth school's Stone Shard. Dressed like the world's breakable-rock debris (`Color.Lerp(gray, black, rand)` cubes) with two chunks dusted in the earthy tan accent so it reads as magic; at impact the crater plays the school-colored exploding sphere (`SkillFx.ImpactSphere`, 1gb) instead of a cube burst — the cubes only remain as the pickaxe/mining look (1de). |
 | **Lance** | Long straight pointed spike (shaft + tip) with two small trailing flecks behind its tail — Ice Lance, Frost Pierce, Glacial Impale. |
 | **Spear** | Tapered spear: dark shaft + broad diamond head + trailing flecks behind — Shadow Spear. |
 | **Blade** | Flat translucent cross-blade (alpha ~0.4 so wind reads as a ghost of air) + two small ghost cubes trailing — Wind Blade, Razor Blade, Wind Scissor, Laceration. |

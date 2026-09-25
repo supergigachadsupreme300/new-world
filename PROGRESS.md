@@ -1,7 +1,49 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-24. Read this first in a new session; then continue with the
+Last updated: 2026-09-25. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
+
+## 1gb. Magic projectile impact "3 objects floating up then disappear" — replaced with an exploding, fading sphere
+
+User report: "currently when magic projectile hit something it will generate an effect of 3 object
+floating up then disappear, change that effect into an exploding sphere then disappear, as it
+explode the transparency will increase".
+
+- **Root cause:** the "3 objects floating up" was NOT the `spell.ImpactEffectPrefab` impact-prefab
+  path (SpellEffect.cs:280 — dead: grep finds no assignment of `ImpactEffectPrefab` anywhere, and
+  the project has zero `.prefab` files). It was `WorldStreamer.SpawnCraterDebris` (Deform.cs:584),
+  fired from every Crater excavation at `DeformAt` — which every magic projectile triggers by
+  carving its impact dent. It spawns `Random.Range(3, 6)` up-biased rigidbody cubes ("floating up")
+  destroyed after ~2.5 s ("then disappear"). Tool digs and zone/storm/summon strikes share the path.
+- **Fix:** new `SkillFx.ImpactSphere(worldPos, color, radius, lifetime = 0.45f)` + nested
+  `ImpactSphereFader`: a collider-stripped `PrimitiveType.Sphere` (script-built, prefab-free like
+  all combat FX) grows from 0.25× to full radius ("explodes") while its per-instance material
+  alpha ramps 0.9 → 0 ("as it explodes, transparency increases"), then destroys itself. Hooked in
+  `SpellEffect.ResolveProjectileImpact`: the impact dent is KEPT (gameplay carve + Earth signature)
+  but now passes `emitDebris:false`, and the sphere spawns at the impact point tinted
+  `DamageNumber.ColorFor(_spell.Type)` and scaled to `Mathf.Max(0.8f, _spell.Radius)`.
+- **Plumbing (zero-breakage, rule 5):** `WorldStreamer.DeformAt(..., bool emitDebris = true)` gates
+  `SpawnCraterDebris`; `TerrainDeformer.Apply(..., bool emitDebris = true)` forwards it. All other
+  callers (tools `Dig`, zone/summon/storm casts, test-ground lanes) keep the default — the cube
+  burst remains for digs and zone/storm/summon strikes only.
+- Asked-in-plan choices: sphere color = spell element color; dent kept (sphere replaces the cubes,
+  not additive); size scales with the spell's radius.
+- **Docs (same pass):** game-design §3.7 (new impact-sphere paragraph after the projectile-dent
+  description), §3.8 crater-debris note + Debris shape table row, §2.5 pooling bullet;
+  `SpellEffect.cs` / `WorldStreamer.Deform.cs` / `TerrainDeformer.cs` comments; THINKING §1gb.
+
+### 1gb-status
+- FIXED; verified by grep + reread (rule 3 — no CLI/Unity build). Grep `DeformAt(` /
+  `TerrainDeformer.Apply(`: only SpellEffect passes `emitDebris:false`; the other 11 call sites use
+  the default. `ImpactSphere` / `ImpactSphereFader` / `emitDebris` are fresh symbols — no collisions
+  in Assets\Scripts.
+- Commit: this one.
+- Pending play-test: (a) cast any projectile (fireball, frost bolt, Stone Shard, lightning, wind
+  blade…) at the ground near you — a school-colored sphere explodes outward at the hit point and
+  fades to fully transparent instead of 3-6 floating cubes; (b) the terrain dent still carves (walk
+  over the pit after); (c) hit a standing enemy — sphere plays at the impact point and the ground
+  below still dents; (d) shovel/pickaxe swings still pop the stratum-tinted cubes (tools keep
+  debris); (e) zone/storm/summon casts (Meteor, Rockfall, golem, Earth Wall) still throw debris.
 
 ## 1ga. Earth Wall renders "vertical on the player's view" + spurious circular aim preview — perpendicular ridge, wall preview suppressed
 

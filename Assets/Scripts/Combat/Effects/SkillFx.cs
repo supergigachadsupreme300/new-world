@@ -77,6 +77,68 @@ public static class SkillFx
         ring.AddComponent<RingFader>().Init(radius, lifetime);
     }
 
+    /// <summary>
+    /// Spawn an expanding, fading solid sphere at a magic projectile's impact point. The sphere
+    /// grows from a quarter to full <paramref name="radius"/> ("explodes outward") while its
+    /// per-face material fades to transparent — "as it explodes, transparency increases" — then
+    /// removes itself. No collider, pure visual; each instance owns its material so the fade never
+    /// races a shared cached one.
+    /// </summary>
+    public static void ImpactSphere(Vector3 worldPos, Color color, float radius, float lifetime = 0.45f)
+    {
+        GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        sphere.name = "FxImpactSphere";
+        sphere.transform.position = worldPos;
+
+        Collider col = sphere.GetComponent<Collider>();
+        if (col != null)
+            Object.Destroy(col);
+
+        Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+        Renderer renderer = sphere.GetComponent<MeshRenderer>();
+        if (renderer != null && shader != null)
+            renderer.material = new Material(shader) { color = color };
+
+        sphere.AddComponent<ImpactSphereFader>().Init(radius, lifetime);
+    }
+
+    /// <summary>Grows the impact sphere to full radius while fading to transparent, then removes it.</summary>
+    private sealed class ImpactSphereFader : MonoBehaviour
+    {
+        private float _radius;
+        private float _age;
+        private float _lifetime = 0.45f;
+        private Material _mat;
+
+        public void Init(float radius, float lifetime)
+        {
+            _radius = Mathf.Max(radius, 0.05f);
+            _lifetime = Mathf.Max(lifetime, 0.05f);
+        }
+
+        private void Start()
+        {
+            var renderer = GetComponent<MeshRenderer>();
+            _mat = renderer != null ? renderer.material : null;
+        }
+
+        private void Update()
+        {
+            _age += Time.deltaTime;
+            float t = Mathf.Clamp01(_age / _lifetime);
+            float s = Mathf.Lerp(0.25f, 1f, Mathf.SmoothStep(0f, 0.45f, t));
+            transform.localScale = Vector3.one * (_radius * 2f * s);
+            if (_mat != null)
+            {
+                Color c = _mat.color;
+                c.a = 1f - t;
+                _mat.color = c;
+            }
+            if (t >= 1f)
+                Destroy(gameObject);
+        }
+    }
+
     /// <summary>Expands the ring to full radius while fading to transparent, then removes it.</summary>
     private sealed class RingFader : MonoBehaviour
     {

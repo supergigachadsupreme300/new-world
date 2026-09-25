@@ -301,12 +301,17 @@ public class SpellEffect : MonoBehaviour
             if (Physics.Raycast(probe, Vector3.down, out RaycastHit groundHit, 30f))
             {
                 impactGround = groundHit.point;
-                TerrainDeformer.Apply(impactGround, dentRadius, TerrainShape.Crater, _dir);
+                // emitDebris:false — this dent is a magic projectile impact, and its visual burst is
+                // the school-colored exploding sphere below (1gb), not the tool-dig cube debris.
+                TerrainDeformer.Apply(impactGround, dentRadius, TerrainShape.Crater, _dir, emitDebris: false);
             }
 
-            // The crater excavation itself kicks up layer-tinted debris — WorldStreamer.SpawnCraterDebris
-            // pops dirt blocks near the surface and rock once the pit reaches the stone band, the same
-            // way dug terrain does — so no separate impact burst is spawned here.
+            // Every projectile impact plays an exploding, fading sphere at the hit point (1gb).
+            // The sphere scales outward to the spell's radius while its transparency increases to
+            // fully transparent over ~0.45 s, then vanishes — the replacement for the crater
+            // excavation's floating cube burst (SpawnCraterDebris), which tools/zone-strikes keep.
+            SkillFx.ImpactSphere(transform.position, DamageNumber.ColorFor(_spell.Type),
+                Mathf.Max(0.8f, _spell.Radius));
         }
 
         Destroy(gameObject);

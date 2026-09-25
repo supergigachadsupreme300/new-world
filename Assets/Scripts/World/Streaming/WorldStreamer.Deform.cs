@@ -32,7 +32,8 @@ public partial class WorldStreamer
     /// terrain the streamer has in memory.
     /// </para>
     /// </summary>
-    public void DeformAt(Vector3 center, float radius, TerrainShape shape, Vector3 dir = default)
+    public void DeformAt(Vector3 center, float radius, TerrainShape shape, Vector3 dir = default,
+        bool emitDebris = true)
     {
         if (shape == TerrainShape.None || radius <= 0f) return;
 
@@ -215,8 +216,10 @@ public partial class WorldStreamer
         // near the surface, stone-grey once the pit reaches the stone band) — the same physical
         // cube-burst look as pickaxe rock destruction (WorldBuilder.SpawnRockDebris), short-lived
         // so repeated digs and spells don't litter. Only a Crater dent throws debris; the raised
-        // shapes (Wall/Ring/Pillar/Spikes) never do.
-        if (shape == TerrainShape.Crater)
+        // shapes (Wall/Ring/Pillar/Spikes) never do. Magic projectile impacts pass emitDebris:false
+        // (1gb): they carve the same dent but skip the cubes, playing their own exploding,
+        // fading sphere blast instead — only tool digs / zone-strikes keep the cube burst.
+        if (shape == TerrainShape.Crater && emitDebris)
             SpawnCraterDebris(center);
     }
 

@@ -8,13 +8,16 @@ using UnityEngine;
 public static class TerrainDeformer
 {
     /// <summary>Raise/lower the terrain according to the spell's shape at a world-space ground point.
-    /// <paramref name="dir"/> orients directional shapes (the Wall ridge follows the cast axis).</summary>
-    public static void Apply(Vector3 center, float radius, TerrainShape shape, Vector3 dir = default)
+    /// <paramref name="dir"/> orients directional shapes (the Wall ridge follows the cast axis).
+    /// <paramref name="emitDebris"/> suppresses the Crater excavation's cube-debris burst — magic
+    /// projectile impacts pass false and play their own exploding sphere blast instead (1gb).</summary>
+    public static void Apply(Vector3 center, float radius, TerrainShape shape, Vector3 dir = default,
+        bool emitDebris = true)
     {
         if (shape == TerrainShape.None || radius <= 0f) return;
         var streamer = Object.FindAnyObjectByType<WorldStreamer>();
         if (streamer == null) return;
-        streamer.DeformAt(center, radius, shape, dir);
+        streamer.DeformAt(center, radius, shape, dir, emitDebris);
     }
 
     /// <summary>

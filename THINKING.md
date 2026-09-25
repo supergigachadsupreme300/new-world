@@ -15,6 +15,51 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1gb — "magic projectile hit → 3 object floating up then disappear": identify the floating-object effect and replace it with an exploding, fading sphere (SHIPPED — play-test pending)
+
+Report verbatim: "currently when magic projectile hit something it will generate an effect of 3
+object floating up then disappear, change that effect into an exploding sphere then disappear, as
+it explode the transparency will increase".
+
+### H-A — the "3 objects" is the crater excavation's cube burst (SpawnCraterDebris), NOT the impact-prefab path → CONFIRMED
+Evidence FOR: every projectile impact carves an impact dent via
+`TerrainDeformer.Apply(..., TerrainShape.Crater, ...)` (SpellEffect.cs); `DeformAt` (Crater) then
+calls `SpawnCraterDebris(center)` which spawns `Random.Range(3, 6)` (so "3" matches the minimum)
+up-biased rigidbody cubes ("floating up") destroyed after ~2.5 s ("then disappear"), tinted by the
+terrain band — matches the report exactly.
+Evidence AGAINST the alternatives: `SpellEffect.cs:280` spawns `spell.ImpactEffectPrefab`, but grep
+finds NO assignment of `ImpactEffectPrefab` anywhere (code/scene/asset) and glob finds ZERO
+`.prefab` files in the project → that call is null-inert. `SkillFx.FallRock` shards are a sky-rock
+landing (Cast.cs:227), not a projectile hit. `WorldBuilder.SpawnRockDebris` is pickaxe rock-mining
+only. Verdict: the debris burst is the effect to change.
+
+### H-B — scope: projectiles only; tools/zones/strikes unchanged → CONFIRMED by user answers
+Same `SpawnCraterDebris` fires for shovel/pickaxe digs, storm strikes (SpellStorm.cs:117), summon
+dents (SpellCaster.Cast.cs:117), zone impacts (Cast.cs:263), and the test-ground lanes
+(NewWorldTestGround.cs). Changing DeformAt's default would alter tool feel the user never mentioned.
+Fix: new trailing `bool emitDebris = true` on `DeformAt` + `TerrainDeformer.Apply`; only
+`SpellEffect.ResolveProjectileImpact` passes `emitDebris:false`. The user's "keep both" answer was
+read as keep the dent + replace the cubes (sphere replaces, not stacks) — confirmed by the
+dent-question wording.
+REJECTED alternates: removing the dent entirely (user re-affirmed keeping it); replacing debris
+globally (touches tool digs / zone strikes); wiring up the dead `ImpactEffectPrefab` prefab path
+(no prefab to assign; adding one contradicts the prefab-free FX convention).
+
+### H-C — effect design: expanding sphere whose transparency increases as it explodes → CONFIRMED (user choice: element color, dent kept, scale with spell radius)
+Implemented as `SkillFx.ImpactSphere` + `ImpactSphereFader`, pattern cloned from the existing
+`RingFader`/`ShardFader` (per-instance material so the alpha fade never races the shared
+`SharedSpriteMaterial` cache; `Sprites/Default` shader; collider stripped; self-`Destroy` at t=1).
+Local scale grows 0.25× → 1× radius (SmoothStep from 0 to 0.45 of lifetime) while material alpha
+goes 0.9 → 0 — transparency increases as it explodes, then it vanishes. Scale = spell radius; color
+= `DamageNumber.ColorFor(_spell.Type)` so fireball/frost/stone shard read school-colored.
+
+### Verdict
+H-A confirmed; H-B/H-C implement the user-asked scope. Fix shipped as 1gb (SkillFx.cs,
+SpellEffect.cs, WorldStreamer.Deform.cs, TerrainDeformer.cs, docs). Play-test pending (rule 3 — no
+build).
+
+---
+
 ## 1ga — Earth Wall "vertical on player view" + "circle preview for some reason": ridge orientation & aim-preview gating (SHIPPED — play-test pending)
 
 Report verbatim: "the earth wall create walls with vertcal on player view, and have circle preview
