@@ -178,7 +178,7 @@ public partial class WorldStreamer
             for (int i = 0; i < job.Tiles.Length; i++)
             {
                 ChunkData cd = job.Tiles[i];
-                if (cd != null)
+                if (cd.IsValid)
                     tiles[i] = ChunkMeshGenerator.BuildMeshData(cd, TerrainNoiseGenerator.DefaultLayers, job.Refine);
             }
             MergedChunkMeshData merged = ChunkMeshGenerator.BuildMergedMeshData(tiles, job.Border, job.Seed);

@@ -237,8 +237,8 @@ public partial class WorldStreamer : MonoBehaviour
     /// <summary>Loaded terrain chunks keyed by chunk coord (one object per chunk).</summary>
     public IReadOnlyDictionary<TerrainChunkCoord, ChunkObject> LoadedChunks => _loadedChunks;
 
-    /// <summary>Dormant (hidden-but-retained) chunk coords, 1gc. Not in <see cref="LoadedChunks"/>.</summary>
-    public IReadOnlyCollection<TerrainChunkCoord> DormantChunks => _dormantChunks;
+    /// <summary>Dormant (hidden-but-retained) chunk objects, 1gc. Not in <see cref="LoadedChunks"/>.</summary>
+    public IReadOnlyDictionary<TerrainChunkCoord, ChunkObject> DormantChunks => _dormantChunks;
     public int DormantChunkCount => _dormantChunks.Count;
 
     // --- Public tile-level API ---
