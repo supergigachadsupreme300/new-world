@@ -829,9 +829,13 @@ public static class ChunkMeshGenerator
         colors = cols;
     }
 
-    /// <summary>Shared index windup for the low-poly facet grid (1hi.1): two CCW triangles per
-    /// lattice quad — p00, p10, p11 / p00, p11, p01 (the same winding the far shell and LOD children
-    /// use, so the surface faces +Y). Pure array — thread-safe.</summary>
+    /// <summary>Shared index windup for the low-poly facet grid (1hi.1). Each lattice quad is
+    /// emitted in the SAME corner order as the smooth tile builder — NW, NE, SE, SW (v+3, v+2,
+    /// v+1, v+0) with BuildMeshData's exact two-triangle pattern (0,1,2)/(0,2,3) — so every facet
+    /// front-faces +Y like the 1 m tiles. (1hi.2: the original build used the back-facing p00-first
+    /// winding that the far shell/LOD children share; the far shell masked it with a double-sided
+    /// material, but with one-sided GroundMaterial the upper face was culled — the reported
+    /// upside-down root.) Pure array — thread-safe.</summary>
     private static int[] EmitLowPolyIndices(int cs, int step)
     {
         int axis = (cs / step) + 1;
@@ -843,8 +847,8 @@ public static class ChunkMeshGenerator
             {
                 int v = (gx + gz * (axis - 1)) * 4;
                 int t = (gx + gz * (axis - 1)) * 6;
-                triangles[t + 0] = v + 0; triangles[t + 1] = v + 1; triangles[t + 2] = v + 2;
-                triangles[t + 3] = v + 0; triangles[t + 4] = v + 2; triangles[t + 5] = v + 3;
+                triangles[t + 0] = v + 3; triangles[t + 1] = v + 2; triangles[t + 2] = v + 1;
+                triangles[t + 3] = v + 3; triangles[t + 4] = v + 1; triangles[t + 5] = v + 0;
             }
         }
         return triangles;
@@ -930,7 +934,10 @@ public static class ChunkMeshGenerator
     /// <summary>
     /// Builds the DECIMATED collider lattice for a chunk (1hi): every <paramref name="step"/>-th node
     /// of the 31x31 world-corner grid (<see cref="ChunkCornerGrid"/>, every 2nd by default),
-    /// indexed with the same winding as the LOD children (+X = next column, +Z = next row). The
+    /// indexed with the same up-facing winding as the smooth tile builder (1hi.2: NW, NE, SE, SW —
+    /// i01, i11, i10, i00 — triangles (01,11,10)/(01,10,00), so the surface the player stands on
+    /// fronts the MeshCollider like the pre-1hi full-mesh collider; the original p00-first winding
+    /// was back-facing and cast the player through). The
     /// MeshCollider only needs a surface the player stands on, so the per-enable PhysX cook on the
     /// gameplay frame drops ~4x (256 verts / 450 tris vs. up to ~1800+ tris of the full merged render
     /// mesh). The lattice holds the EXACT world corners the LOD children (and neighbour chunks) use,
@@ -963,8 +970,8 @@ public static class ChunkMeshGenerator
                 int i10 = i00 + 1;
                 int i01 = i00 + axis;
                 int i11 = i01 + 1;
-                tris[t++] = i00; tris[t++] = i10; tris[t++] = i11;
-                tris[t++] = i00; tris[t++] = i11; tris[t++] = i01;
+                tris[t++] = i01; tris[t++] = i11; tris[t++] = i10;
+                tris[t++] = i01; tris[t++] = i10; tris[t++] = i00;
             }
         }
         vertices = verts;

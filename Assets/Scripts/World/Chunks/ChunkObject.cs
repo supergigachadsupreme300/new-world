@@ -535,8 +535,12 @@ public class ChunkObject : MonoBehaviour
                 int i10 = i00 + 1;   // +X (SE)
                 int i01 = i00 + axis; // +Z (NW)
                 int i11 = i01 + 1;   // NE
-                indices[t++] = i00; indices[t++] = i10; indices[t++] = i11;
-                indices[t++] = i00; indices[t++] = i11; indices[t++] = i01;
+                // 1hi.2: emit in the smooth-tile up-facing corner order (NW, NE, SE first) — the
+                // original p00-first winding was back-facing and culled by the one-sided ground
+                // material, so Lod1/Lod2 rendered only from below. Same grid topology +X = next
+                // column, +Z = next row.
+                indices[t++] = i01; indices[t++] = i11; indices[t++] = i10;
+                indices[t++] = i01; indices[t++] = i10; indices[t++] = i00;
             }
         }
 

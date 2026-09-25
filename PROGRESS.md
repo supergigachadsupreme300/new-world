@@ -3,6 +3,45 @@
 Last updated: 2026-09-25. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1hi.2. Regression fix: the low-poly root, LOD children and decimated collider were wound BACKWARDS
+
+User: "the chunk around player is upside down, invisible from the top but visible from below, and player
+fall right through." Post-1hi.1 the real chunks' root + collider became the lattice surface, and it
+rendered only from below + let the player fall — the lattice-family mesh winding was upside down.
+
+**Root cause (THINKING 1hi.2 for the trail):** the decimated lattice family (far shell flat AND smooth
+grid, `BuildLodChild`, `BuildDecimatedCollider`, and the 1hi.1 root's `EmitLowPolyIndices`) all emit
+p00/first-corner-first — quad corners SW, SE, NE, NW with triangles (00,10,11)/(00,11,01). The smooth 1 m
+tile family emits the opposite ordering — NW, NE, SE, SW with (0,1,2)/(0,2,3) (`BuildMeshData`,
+ChunkMeshGenerator.cs:152-164) — the project's proven up-facing winding (the one-sided `GroundMaterial`
+surface the player has always stood on). The far shell masked its own copy of the inversion with the
+**double-sided** `FarGroundMaterial` (1ei: "renders the decimated far terrain ... regardless of mesh
+winding/culling artifacts that once hid it from the upper face", GameBootstrap.cs:106-112), so real chunks
+kept Cull Back and culled the upper face.
+
+**Changes (all three real-chunk lattice emitters now use the smooth-tile up-facing order; normals already
++Y and untouched):**
+- `ChunkMeshGenerator.EmitLowPolyIndices` (:846-847) → each lattice quad emitted NW, NE, SE, SW with
+  `BuildMeshData`'s exact (0,1,2)/(0,2,3) pattern: `(v+3, v+2, v+1)` / `(v+3, v+1, v+0)`. Fixes the
+  upside-down 1hi.1 root render.
+- `ChunkMeshGenerator.BuildDecimatedCollider` (:966-967) → `(i01, i11, i10)` / `(i01, i10, i00)`. Fixes
+  the fall-through for BOTH the 3 m low-poly collider and the 2 m smooth-mode collider
+  (ChunkMeshGenerator.cs:586 — never play-tested since 1hi).
+- `ChunkObject.BuildLodChild` (:538-543) → `(i01, i11, i10)` / `(i01, i10, i00)`, so smooth-mode
+  Lod1/Lod2 (back-facing since 1e6, historically masked by the double-sided far shell) finally face up.
+- Far shell left UNTOUCHED (its double-sided material already renders it correctly from above).
+
+### 1hi.2-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build): the three real-chunk lattice
+  emitters now match `BuildMeshData`'s up-facing order; every `BuildDecimatedCollider` call site routes
+  through the fixed function (ChunkMeshGenerator.cs:586/:731; ChunkObject.cs:108/:149/:430); voxel path
+  and far shell untouched; docs updated in the same pass (this file + THINKING + game-design §2.5).
+- PENDING PLAY-TEST: (1) the near ground renders from above again as crisp 3 m facets (not upside down);
+  (2) the player STANDS on the 3 m collider — and on smooth mode's 2 m collider (check a near chunk after
+  a dig/refit too); (3) smooth mode (`LowPolyFacets` OFF, then let the stream reload): the Lod1/Lod2 band
+  ground at 30-270 m now renders ON TOP — it may have read invisible/holey before; confirm the midband is
+  ground, not a hole; (4) dig / corner-edit still re-stamps facets + collider correctly.
+
 ## 1hi.1. Coarse near-ring facets — real chunks now render the 3 m lattice surface (follow-up to 1hi "too smooth" report)
 
 User: "the surface is currently too smooth to be called low poly terrain." 1hi only flat-shaded the

@@ -215,7 +215,16 @@ mid-view stays crisp
    from it), and the **collider rides the same step** (colliders below) so the player stands exactly
    on the visual. Trade-off: a 1 m corner edit only visibly moves a facet vertex when the edited
    corner lands on the coarse grid. Tune via `NewWorldTestGround.LowPolyStep`.
-- **Decimated colliders (1hi, step follows the root 1hi.1):** smooth real chunks cook their
+- **Up-facing lattice winding (1hi.2):** the lattice-family surfaces (far shell flat/smooth, Lod1/Lod2
+   children, decimated colliders, the 1hi.1 coarse roots) were originally emitted first-corner-first (SW,
+   SE, NE, NW; tris (00,10,11)/(00,11,01)). The far shell masked that with its double-sided Cull Off
+   material (above), but real chunks keep `GroundMaterial` (Cull Back), so the 1hi.1 root rendered only
+   from below and its collider let the player drop through. 1hi.2 re-emits the three REAL-chunk lattice
+   surfaces — `EmitLowPolyIndices` (coarse-root facets), `BuildDecimatedCollider`, and
+   `ChunkObject.BuildLodChild` (smooth-mode LOD bands) — in the smooth tile's up-facing corner order
+   NW, NE, SE, SW with `BuildMeshData`'s exact (0,1,2)/(0,2,3) two-triangle pattern; normals stay +Y. The
+   far shell keeps its (double-sided-visible) winding.
+- **Decimated colliders (1hi, step follows the root 1hi.1, wound up-facing 1hi.2):** smooth real chunks cook their
    MeshCollider from a **decimated lattice** — every 2nd node of the 31x31 corner grid
    (`ChunkMeshGenerator.BuildDecimatedCollider`, 256 verts / 450 tris) by default, or the chunk's
    OWN low-poly root step when coarse (3 m, so you stand exactly on the visible facets) — instead

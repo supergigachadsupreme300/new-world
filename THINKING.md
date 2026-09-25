@@ -15,6 +15,44 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1hi.2 — "the chunk around the player is upside down, invisible from the top, visible from below, and the player falls right through"
+
+### Hypothesis A — "the 1hi.1 root winding is back-facing" — CONFIRMED (shipped in 1hi.2)
+Symptoms = textbook ONE-SIDED backface-culled surface. `GroundMaterial` keeps Cull Back ("Real chunks keep
+GroundMaterial (Cull Back)", WorldStreamer.cs:34-38), so a mesh whose winding fronts DOWN is invisible from
+above and visible from below. The 1hi.1 root's `EmitLowPolyIndices` copied the far-shell/LOD-child winding
+verbatim; that family is emitted first-corner-first (SW, SE, NE, NW; tris (00,10,11)/(00,11,01)) — the
+OPPOSITE geometric ordering of the proven smooth tile family (NW, NE, SE, SW; tris (0,1,2)/(0,2,3),
+ChunkMeshGenerator.cs:152-164), which is the one-sided surface the player has always stood on. The collider
+(`BuildDecimatedCollider`) shares the lattice winding — hence the fall-through. DECISIVE evidence the far
+shell's SAME winding is the known-bad one: it needed the Cull Off `FarGroundMaterial` (1ei) — the comments
+literally say it renders the decimated far terrain "from above regardless of mesh winding/culling artifacts
+that once hid it from the upper face" (GameBootstrap.cs:106-112; FarShell.cs~1354). So the inversion is a
+FAMILY trait — masked for the far shell by its double-sided material, latent in the smooth-mode Lod1/Lod2
+children since 1e6 (never zoomed in on the 30-270 m band under one-sided culling in view, and the
+double-sided far shell covers the same angle from ring 10 out).
+
+### Dead ends REJECTED
+- NaN heights / flipped bounds: `SanitizeHeight` clamps every corner (ChunkMeshGenerator.cs:118-123) and
+  `BuildDecimatedCollider` sanitizes again — no NaN path; `EmitLowPolySurface` bounds track min/max of the
+  sanitized lattice only.
+- Collider-cook / threading: collider arrays are produced on the worker and uploaded main-thread via the
+  pooled mesh; no negative-scale transform exists anywhere in the pipeline, so no non-winding mechanism
+  can flip the surface. A down-facing winding is the only production path matching the report.
+- "Same winding as the far shell, which the user SAW work in 1hi": the far shell is double-sided (Cull
+  Off), so its winding tells us nothing about orientation under one-sided culling — the user's far-visuals
+  praise was satisfied by the double-sided material, not by a correct winding. This was the trap that made
+  the original 1hi.1 review overlook the inversion.
+
+### Fix (shipped 1hi.2)
+Re-emit the three REAL-chunk lattice surfaces in the smooth-tile up-facing ordering (NW, NE, SE, SW;
+exact BuildMeshData (0,1,2)/(0,2,3) two-triangle pattern): `EmitLowPolyIndices` → (v+3, v+2, v+1)/(v+3,
+v+1, v+0); `BuildDecimatedCollider` → (i01, i11, i10)/(i01, i10, i00); `BuildLodChild` → same grid form.
+Normals were already authored +Y and stay untouched. Far shell deliberately left alone (double-sided is
+already correct from above). Verdict: closed by `1hi.2`.
+
+---
+
 ## 1hi.1 — "the surface is currently too smooth to be called low poly terrain" (coarse near-ring facets; shipped)
 
 ### Hypothesis A — "1hi's flat-shading still reads smooth because normals aren't flat enough" → REJECTED
