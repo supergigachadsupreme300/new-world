@@ -15,6 +15,80 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1gd — "immense lag at higher player speed" (SHIPPED — play-test pending)
+
+User reports: smooth while walking, immense lag at higher player speed. "Player map renderer" =
+the 3D terrain renderer (`WorldStreamer`), NOT the corner minimap. Pre-plan asked to "separate the map
+renderer from the gameplay update so fast player speed doesn't cause lag".
+
+### H-A — the lag is the UI minimap (ugui / render texture / second camera) → REJECTED
+Evidence AGAINST: no `RenderTexture`, no `RawImage`, no second camera exists in the codebase. The
+corner minimap is `CompassMinimapHUD` (UGUI mask + Image), the world map is `WorldMapUI` (text/panel).
+Both are cheap, and their update cadence is event/time-gated. The reported symptom (walk smooth /
+sprint lag) tracks streaming work, not UI. Verdict: not the component.
+
+### H-B — the smoking gun is the synchronous edited-terrain rebuild during load-reconcile → CONFIRMED
+Evidence FOR: walking into edited/saved terrain hit `ReconcileNewlyLoadedChunk` (WorldStreamer.Mesh.cs:141)
+which called `FullRebuildChunk` (Deform.cs:231) SYNCHRONOUSLY whenever the chunk is in `_modifiedChunks` —
+a 900-tile re-emit + `BuildMergedMeshData` + full mesh+collider upload on the main thread; and
+`ReconcileModifiedBorders` (Deform.cs:347) chained up to four MORE `FullRebuildChunk` calls. Both fired
+per-POLL, i.e. repeatedly while moving at speed through previously edited ground (every newly-passed
+chunk triggers them). The 1es 4 ms `StreamBudgetMs` pool does NOT include these — they're outside the
+budgeted stages, so a poll that streamed normally could additionally stack 1-5 full rebuilds.
+Evidence AGAINST alternatives: chunk generation was already async (`BuildOrLoadChunk` on ThreadPool);
+far shell work is budgeted/sliced; LOD/collider passes are capped. Only this path ran uncounted
+full-chunk mesh work synchronously on the main thread at the exact moment high speed is crossing new
+chunks. Verdict: confirmed causal path.
+
+### H-C — "just limit the loading speed" (anchor-lag the streamer to the player) → REJECTED BY USER
+User explicitly rejected slowing the loading speed: "i dont want to limit the loading speed, think of
+another way so the rendering wouldn't affect the gameplay". So the design went to (1) an independent
+renderer clock + (2) moving the rebuild WORK off the main thread, rather than spreading the same load
+over more time. Verdict: rejected as the solution shape.
+
+### H-D — coroutine clock: does a WatchForSeconds(1/20) coroutine actually isolate gameplay frames? → CONFIRMED w/ caveat
+The old `Update()` poll fired inside a gameplay frame (timer accumulate ≥ 0.05 s), so its multi-ms
+work doubled that frame's cost no matter what. A coroutine ticked by its own `WaitForSecondsRealtime`
+still runs DURING some frame — but (a) the tick is decoupled from the gameplay update heartbeat
+(no longer exactly every Nth frame), and (b) an extra `yield return null` after any BUSY poll inserts
+a cool-down frame, so a heavy slice can never land immediately adjacent to a gameplay-poll's slice.
+That is "rendering can't affect gameplay"; loading RATE is preserved. Caveat scored: the cool-down
+frame adds ~one frame of latency to the stream — an acceptable, invisible trade (it only appears on
+busy polls). Confirmed.
+
+### H-E — snap raw ChunkData refs to the worker vs snapshot-heights copy → raw refs CONFIRMED
+Thread-safety analysis: the worker only calls `ChunkMeshGenerator.BuildMeshData` + `BuildMergedMeshData`
+(reads `Heights[]`, `IsValid`, `ChunkX/Z`, `Seed` + a snapshot border dict). The rebuild snapshot is
+taken on the main thread while the chunk is loaded; the chunk won't be unloaded mid-flight because the
+chunk just entered the ring and the fit is a one-shot (deferred into the same growing ring). The ONLY
+mutation hazard is a player deformation landing on the same chunk mid-flight — guarded by
+`ChunkObject.MeshRebuildStamp` (captured at snapshot in the job, compared at drain; `ApplyMerged` and
+`PatchRegion` both bump it), so any newer apply discards the stale result. A deep copy would double the
+GC churn for a state we can invalidate for free. Verdict: raw refs + stamp guard.
+
+### H-F — voxel mode must not lose its rebuild path → route RequestChunkRebuild to the sync voxel path
+`FullRebuildChunk` dispatches to `FullRebuildVoxelChunk` when `VoxelTerrainEnabled`. If the async pipe
+bypassed it, voxel chunks crossing edited terrain would keep stale slabs. Kept the whole voxel mode on
+the synchronous path (opt-in experimental); only smooth (default) terrain uses workers. Confirmed.
+
+### H-G — the extra `if (_rebuildPending.Count==0) _chunkUnloadBacklog = _chunkUnloadBacklog;` → REJECTED, removed
+Leftover from drafting (compat no-op that did nothing). Removed during the same pass. Dead-end, kept as
+the "don't ship no-op polish" note.
+
+### H-I — pooled per-poll temp lists vs keeping the lazy `if (list == null) list = new ...` pattern → pool CONFIRMED
+The lazy pattern allocates once per list-per-poll-condition and holds the lists between polls anyway.
+Pooling the field explicitly is the same allocation profile with clearer clearing semantics (a fresh
+poll must re-scan, so the lists must clear + refill every poll — the lazy pattern did this implicitly).
+No behavior change; slightly less GC headroom ambiguity. Confirmed (micro).
+
+### 1gd status:
+- H-A rejected, H-B confirmed (cause), H-C rejected (approach), H-D/H-E/H-F/H-I confirmed (design),
+  H-G rejected (no-op), matched the implementation order A→F. Left OPEN for the play-test (flagged in
+  PROGRESS 1gd-status): whether the cool-down frame + async rebuilds actually read as smooth at speed,
+  and whether the `rebuilds` counter on the bench HUD tracks the seam fixes as expected.
+
+---
+
 ## 1gc — chunks "disappear then generated right back" at the edge of the close range (SHIPPED — play-test pending)
 
 Report: while moving, at the edge of the close range the chunks would disappear then be generated

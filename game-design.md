@@ -160,9 +160,11 @@ edges), with a
    spike the frame (the highest-value periodic hitch the sweep found). Now a crossing DEFERS the remainder
    to the next poll instead of finishing it in-frame — the fill may trail a fraction of a second while
    sprinting (the player chose smoothness over fill speed at **1es**), the periodic per-boundary spike is
-   gone, and real-chunk **unloads are capped at 6/poll** (spread over a few polls with a backlog flag that
-   keeps the idle gate busy; **1gc** reframes the sweep as the DEEP unload past the dormant band — the
-   out-of-keep column cheaply demotes to dormant instead of tearing down), with **chunk save files written on a background worker** (§2.6). Cells are dispatched **near-first**
+gone, and real-chunk **unloads are capped at 6/poll** (spread over a few polls with a backlog flag that
+    keeps the idle gate busy; **1gc** reframes the sweep as the DEEP unload past the dormant band — the
+    out-of-keep column cheaply demotes to dormant instead of tearing down), with an added **~1.2 ms
+    wall-clock slice** on the deep-unload sweep (1gd — a single `UnloadChunk` can run past 1 ms and six
+    of them stack; the slice bounds the sweep's effect on the poll that owns it, backlog carries over), with **chunk save files written on a background worker** (§2.6). Cells are dispatched **near-first**
   (1ek, was horizon-first): the pending walk is closest-first and dispatch iterates it forward, so the
   region around the player — where a void is most visible — and the interior close before the distant
   fringe, which fills a moment later (pre-1ek the reverse, horizon-first order let the heavy outer
@@ -190,6 +192,28 @@ edges), with a
   the loaded world**, so it only engages if the render radius is raised above ~53 chunks. It uses no fog —
   mid-view stays crisp
   so the outermost shell reads as atmosphere at the old 2 km range.
+- **Speed-decoupled renderer clock (1gd):** the streaming/render loop no longer runs inside the
+  gameplay `Update`. `WorldStreamer` starts a coroutine (`StreamLoop`, started in `OnEnable`) ticked
+  on its OWN wall-clock beat at `StreamHz` (default **20 Hz** == the legacy 0.05 s poll), and when a
+  poll does real work it yields **one cool-down frame** before the next slice — a busy map-render beat
+  can never double-load the gameplay frame it lands next to. `StreamInUpdate` stays the master switch
+  (the coroutine checks it every iteration, so the scene toggle still works at runtime);
+  `DecoupleRenderFromGameplay` gates the cool-down frame only. All per-stage budgets/slices are
+  unchanged — loading speed is NOT reduced, only the render/maintenance work is decoupled from the
+  gameplay frame. The per-poll temp lists are also pooled (1gd): the `StreamAround` wake/demote/
+  deep-unload scans and the far-shell stale/handoff removal scan reuse module fields instead of
+  allocating transient lists on every live poll.
+- **Edited-terrain seam fixes are asynchronous (1gd):** walking into previously-edited terrain used to
+  run **synchronous 900-tile full merged-chunk rebuilds** (`FullRebuildChunk`) on the main thread —
+  `ReconcileNewlyLoadedChunk` on the loaded chunk itself PLUS up to four more from
+  `ReconcileModifiedBorders`, fired every poll the stream passed an edited chunk (a `_modifiedChunks`
+  O(1) set lookup). At high player speed that stacked into the "immense lag" report. 1gd moves the
+  heavy re-emit + merged-mesh merge onto **ThreadPool workers**: request → main-thread snapshot job →
+  worker (`BuildMeshData` + `BuildMergedMeshData`) → main-thread drain under the shared
+  `StreamBudgetMs` accounting (caps `MaxRebuildInFlight` 8 / `MaxRebuildFinalizePerPoll` 3). Stale
+  results are dropped via `ChunkObject.MeshRebuildStamp` (bumped on every apply/patch), so a slow
+  worker can never overwrite fresher edits. Loading rate is unchanged; only the seam fix stops holding
+  the gameplay frame. Voxel mode keeps its synchronous rebuild path (experimental model unchanged).
 - At each frame, the system calculates which chunks are within radius of the player.
 - Chunks entering radius: loaded from cache or generated.
 - Chunks leaving radius: unloaded from memory (kept in cache on disk).
@@ -1920,7 +1944,8 @@ The active PC URP config — QualitySettings level 1 → `PC_RPAsset.asset` guid
   4-collider-per-poll PhysX cook budget; LOD band audits run as a rolling 1024-chunk burst; dispatch
   sort/removal and modified-tile border checks are allocation-free / O(1) set lookups. An idle,
   fully-streamed world pays ~zero per-frame terrain maintenance.
-- **Idle streaming is zero-cost end-to-end** (1ee): `WorldStreamer.Update` keeps the 0.05 s poll beat,
+- **Idle streaming is zero-cost end-to-end** (1ee): the stream loop keeps the 0.05 s poll beat (now on
+  the 1gd decoupled coroutine clock, `StreamHz` 20),
   but the whole pipeline (`StreamAround` / dispatch / finalize / collider / prop sync) early-outs while
   the focus stays in the same chunk centre, nothing re-armed the world-dirty flag, and no chunk is
   queued / in flight / ready to finalize — an idle player pays only the poll timer check and a few

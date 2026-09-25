@@ -132,18 +132,24 @@ public partial class WorldStreamer
     }
 
     /// <summary>
-    /// Full-rebuilds a just-loaded chunk (and any loaded modified neighbour) with real border
-    /// heights so seam slab walls are correct once both sides of a seam are in memory.
-    /// Since 1ea the modified-chunk test is an O(1) set lookup (fed by live edits and by the
+    /// Rebuilds a just-loaded chunk (and any loaded modified neighbour) with real border heights so
+    /// seam slab walls are correct once both sides of a seam are in memory. Since 1ea the
+    /// modified-chunk test is an O(1) set lookup (fed by live edits and by the
     /// <paramref name="hadLoadedMods"/> flag carried out of the background loader) — the old
     /// per-chunk 900-tile scan is gone.
+    /// Since 1gd the rebuild is ASYNC: <see cref="RequestChunkRebuild"/> moves the heavy 900-tile
+    /// re-emit + merged-mesh merge onto a ThreadPool worker (applied later under the shared
+    /// finalize budget). This was the load-burst source at high player speed — walking into edited
+    /// terrain used to run a full synchronous FullRebuildChunk here EVERY poll the stream passed,
+    /// plus several more through the modified borders. Loading rate is unchanged; only the seam fix
+    /// stops holding the gameplay frame. (RequestChunkRebuild keeps the voxel-mode synchronous path.)
     /// </summary>
     private void ReconcileNewlyLoadedChunk(TerrainChunkCoord tc, bool hadLoadedMods)
     {
         if (hadLoadedMods)
             _modifiedChunks.Add(tc);
         if (_modifiedChunks.Contains(tc))
-            FullRebuildChunk(tc);
+            RequestChunkRebuild(tc);
         ReconcileModifiedBorders(tc);
     }
 }

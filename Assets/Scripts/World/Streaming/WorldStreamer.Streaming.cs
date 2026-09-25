@@ -27,6 +27,228 @@ public partial class WorldStreamer
     /// clears the flag once the sweep fully catches up.</summary>
     private bool _chunkUnloadBacklog;
 
+    // (1gd) Per-poll temp lists, pooled so a live poll never allocates transient lists for the
+    // wake/demote/deep-unload scans or the rebuild dispatch scan. Each is used within a single call
+    // and cleared by the caller before reuse.
+    private readonly List<TerrainChunkCoord> _tempWake = new List<TerrainChunkCoord>();
+    private readonly List<TerrainChunkCoord> _tempDemote = new List<TerrainChunkCoord>();
+    private readonly List<TerrainChunkCoord> _tempUnload = new List<TerrainChunkCoord>();
+    private readonly List<TerrainChunkCoord> _tempRebuildScan = new List<TerrainChunkCoord>();
+
+    // (1gd) Hard wall-clock interrupter for the deep-unload sweep (ms). Even ONE UnloadChunk can
+    // run past 1 ms (~900-tile teardown); the slice bounds the sweep's effect on the poll that owns
+    // it. The cap (MaxChunkUnloadsPerPoll) and the backlog flag still spread the drain over polls;
+    // the slice just adds the slow-machine/edge-case bound.
+    private const float DeepUnloadSliceMs = 1.2f;
+
+    // --- Async seam rebuild (1gd) ---
+    //
+    // A chunk that loads into territory the player previously edited (or sits next to such a chunk
+    // — modified BORDER corners) must re-emit its merged surface with the REAL neighbour border
+    // corners so cross-chunk slab walls are seamless. Before 1gd this ran synchronously on the main
+    // thread: ReconcileNewlyLoadedChunk -> FullRebuildChunk, a 900-tile re-emit + merged-mesh merge
+    // + full upload, and ReconcileModifiedBorders could chain several of them, fired EVERY poll the
+    // stream passed an edited chunk. At high player speed that stacked into the "immense lag".
+    // 1gd moves the heavy part (per-tile re-emit + merged-mesh merge) onto ThreadPool workers and
+    // leaves the main thread only a budgeted finalize cap (MaxRebuildFinalizePerPoll) that reuses
+    // the shared StreamBudget accounting. Loading speed is unchanged — edges still load at the same
+    // rate; only the seam fixes stop holding the gameplay frame. The flow mirrors the existing
+    // BuildOrLoadChunk pipeline: request -> snapshot job on the main thread -> worker builds mesh
+    // data off-thread -> main thread drains and uploads.
+    //
+    // Thread-safety contract (mirrors ChunkBuild): the worker reads only the exact fields
+    // ChunkMeshGenerator reads (Heights float[], IsValid, ChunkX/ChunkZ, Seed) from raw ChunkData
+    // references plus an immutable border-corners dictionary. It NEVER touches _loadedData,
+    // _loadedChunks or any ChunkObject. The main thread must not mutate a snapped chunk's tiles
+    // while jobs are in flight (same discipline as a generated chunk awaiting finalize).
+    private readonly HashSet<TerrainChunkCoord> _rebuildPending = new HashSet<TerrainChunkCoord>();
+    private readonly ConcurrentDictionary<TerrainChunkCoord, byte> _rebuildsInFlight = new ConcurrentDictionary<TerrainChunkCoord, byte>();
+    private readonly ConcurrentQueue<ChunkRebuildResult> _readyRebuilds = new ConcurrentQueue<ChunkRebuildResult>();
+
+    /// <summary>Max seam rebuilds generating on ThreadPool workers at once (1gd). Small cap — each
+    /// is a full chunk re-emit that competes with the chunk-generation pool for CPU.</summary>
+    private const int MaxRebuildInFlight = 8;
+
+    /// <summary>Max rebuild results applied (mesh + collider upload) per poll (1gd). They reuse the
+    /// shared <see cref="SpendStreamBudget"/> accounting, so a trailing rebuild never stacks a full
+    /// upload burst on a busy poll.</summary>
+    private const int MaxRebuildFinalizePerPoll = 3;
+
+    /// <summary>QA readout: seam rebuilds in the back-queue (used by the bench HUD).</summary>
+    public int RebuildPendingCount => _rebuildPending.Count;
+
+    /// <summary>
+    /// Requests an asynchronous full rebuild of <paramref name="tc"/> so its merged surface uses the
+    /// CURRENT neighbour border corners (edited terrain staying seamless as the stream passes). The
+    /// heavy 900-tile re-emit + merge run on a ThreadPool worker; the result is applied later under
+    /// the shared finalize budget (see <see cref="DrainRebuildResults"/>). Dedupes against pending
+    /// and in-flight work. Voxel-mode chunks (opt-in experimental) keep the old synchronous path so
+    /// the voxel mesh pipeline is never bypassed.
+    /// </summary>
+    private void RequestChunkRebuild(TerrainChunkCoord tc)
+    {
+        if (!_loadedChunks.ContainsKey(tc))
+            return;
+        if (VoxelTerrainEnabled)
+        {
+            FullRebuildChunk(tc);
+            return;
+        }
+        if (_rebuildPending.Contains(tc) || _rebuildsInFlight.ContainsKey(tc))
+            return;
+        _rebuildPending.Add(tc);
+    }
+
+    /// <summary>Snapshot + dispatch any pending seam rebuilds up to the in-flight cap. Runs on the
+    /// main thread so the data reads are safe; the worker only touches the snapshotted refs.</summary>
+    private void DispatchRebuilds()
+    {
+        if (_rebuildPending.Count == 0 || _rebuildsInFlight.Count >= MaxRebuildInFlight)
+            return;
+
+        _tempRebuildScan.Clear();
+        foreach (TerrainChunkCoord tc in _rebuildPending)
+            _tempRebuildScan.Add(tc);
+
+        for (int i = 0; i < _tempRebuildScan.Count && _rebuildsInFlight.Count < MaxRebuildInFlight; i++)
+        {
+            TerrainChunkCoord tc = _tempRebuildScan[i];
+            if (_rebuildsInFlight.ContainsKey(tc))
+            {
+                _rebuildPending.Remove(tc);
+                continue;
+            }
+            if (!_loadedChunks.TryGetValue(tc, out ChunkObject obj) || obj == null)
+            {
+                _rebuildPending.Remove(tc);
+                continue;
+            }
+            _rebuildPending.Remove(tc);
+            _rebuildsInFlight.TryAdd(tc, 0);
+
+            ChunkRebuildJob job = SnapshotRebuildJob(tc, obj.MeshRebuildStamp);
+            if (!ThreadPool.QueueUserWorkItem(BackgroundChunkRebuild, job))
+            {
+                // Thread pool refused — fall back to the synchronous path rather than losing the seam.
+                _rebuildsInFlight.TryRemove(tc, out _);
+                FullRebuildChunk(tc);
+                continue;
+            }
+        }
+    }
+
+    /// <summary>Captures everything a worker needs to re-emit one chunk off-thread: raw tile data
+    /// refs (shallow read-only contract), the real border corners, and the ChunkObject's
+    /// <see cref="ChunkObject.MeshRebuildStamp"/> at snapshot time so stale results are rejected.</summary>
+    private ChunkRebuildJob SnapshotRebuildJob(TerrainChunkCoord tc, int stamp)
+    {
+        tc.GetTileRange(out int cminX, out int cminZ, out int cmaxX, out int cmaxZ);
+        int cs = TerrainChunkCoord.ChunkSize;
+        int tiles = cs * cs;
+        var job = new ChunkRebuildJob { Coord = tc, Stamp = stamp };
+
+        var snap = new ChunkData[tiles];
+        for (int lz = 0; lz < cs; lz++)
+        {
+            for (int lx = 0; lx < cs; lx++)
+            {
+                var tileCoord = new ChunkCoord(cminX + lx, cminZ + lz);
+                if (_loadedData.TryGetValue(tileCoord, out ChunkData cd))
+                    snap[lz * cs + lx] = cd;
+            }
+        }
+        job.Tiles = snap;
+        job.Seed = Seed;
+        job.Refine = RefineThreshold;
+        job.Border = BuildBorderCorners(tc);
+        return job;
+    }
+
+    /// <summary>ThreadPool worker: re-emits every tile of the chunk + merges them against the border
+    /// corners, exactly the heavy half of the old synchronous FullRebuildChunk. The main thread
+    /// drains the result under the shared budget (see <see cref="DrainRebuildResults"/>).
+    /// Instance method (not static) because it enqueues into this streamer's
+    /// <see cref="_readyRebuilds"/>; the job payload itself is plain snapshot data.</summary>
+    private void BackgroundChunkRebuild(object state)
+    {
+        var job = (ChunkRebuildJob)state;
+        try
+        {
+            var tiles = new ChunkMeshData[job.Tiles.Length];
+            for (int i = 0; i < job.Tiles.Length; i++)
+            {
+                ChunkData cd = job.Tiles[i];
+                if (cd != null)
+                    tiles[i] = ChunkMeshGenerator.BuildMeshData(cd, TerrainNoiseGenerator.DefaultLayers, job.Refine);
+            }
+            MergedChunkMeshData merged = ChunkMeshGenerator.BuildMergedMeshData(tiles, job.Border, job.Seed);
+            _readyRebuilds.Enqueue(new ChunkRebuildResult(job.Coord, job.Stamp, merged));
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogWarning("[WorldStreamer] Seam rebuild for " + job.Coord + " failed — surface keeps its last state.\n" + ex);
+            _rebuildsInFlight.TryRemove(job.Coord, out _);
+        }
+    }
+
+    /// <summary>Applies finished seam rebuilds under the shared stream budget. A result is dropped if
+    /// its chunk was unloaded/demoted while generating or if a newer apply (MeshRebuildStamp) already
+    /// superseded it, so a stale upload can never revert fresher edits.</summary>
+    private void DrainRebuildResults()
+    {
+        int applied = 0;
+        float drainStart = Time.realtimeSinceStartup;
+        while (applied < MaxRebuildFinalizePerPoll && !_streamCapped && _readyRebuilds.TryDequeue(out ChunkRebuildResult res))
+        {
+            _rebuildsInFlight.TryRemove(res.Coord, out _);
+            if (!_loadedChunks.TryGetValue(res.Coord, out ChunkObject obj) || obj == null)
+                continue;
+            if (obj.MeshRebuildStamp != res.Stamp)
+                continue;
+            try
+            {
+                obj.ApplyMerged(res.Merged, GroundMaterial, buildCollider: obj.HasCollider);
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogException(ex);
+                continue;
+            }
+            applied++;
+            SpendStreamBudget((Time.realtimeSinceStartup - drainStart) * 1000f);
+            drainStart = Time.realtimeSinceStartup;
+        }
+    }
+
+    /// <summary>Working state handed to a seam-rebuild worker. All member refs are snapshot data:
+    /// raw ChunkData refs (read-only contract) + an immutable border-corners dictionary. Safe to
+    /// pass across threads because neither side mutates it during flight.</summary>
+    private sealed class ChunkRebuildJob
+    {
+        public TerrainChunkCoord Coord;
+        public int Stamp;
+        public ChunkData[] Tiles;
+        public long Seed;
+        public float Refine;
+        public Dictionary<long, float> Border;
+    }
+
+    /// <summary>Finished rebuild payload: the merged mesh data plus the snapshot stamp that gates
+    /// whether the result is still current when it is applied on the main thread.</summary>
+    private readonly struct ChunkRebuildResult
+    {
+        public readonly TerrainChunkCoord Coord;
+        public readonly int Stamp;
+        public readonly MergedChunkMeshData Merged;
+
+        public ChunkRebuildResult(TerrainChunkCoord coord, int stamp, MergedChunkMeshData merged)
+        {
+            Coord = coord;
+            Stamp = stamp;
+            Merged = merged;
+        }
+    }
+
     /// <summary>
     /// Unloads out-of-range chunks and populates the pending chunk queue
     /// for background generation.
@@ -65,22 +287,20 @@ public partial class WorldStreamer
         // (1gc) Wake pass: dormant chunks that slid back inside the hysteresis ring are re-shown in
         // place — the same GameObject, same pooled mesh, same tile data. Runs FIRST so the demote /
         // deep-unload scans below already see the woken chunk as loaded again.
+        // (1gd) The wake/demote/unload scans now reuse pooled per-poll lists instead of allocating
+        // fresh ones every live poll.
+        _tempWake.Clear();
         if (_dormantChunks.Count > 0)
         {
-            List<TerrainChunkCoord> wake = null;
             foreach (TerrainChunkCoord tc in _dormantChunks.Keys)
             {
                 int dx = Mathf.Abs(tc.X - centre.X);
                 int dz = Mathf.Abs(tc.Z - centre.Z);
                 if (dx <= keep && dz <= keep)
-                {
-                    if (wake == null) wake = new List<TerrainChunkCoord>();
-                    wake.Add(tc);
-                }
+                    _tempWake.Add(tc);
             }
-            if (wake != null)
-                for (int i = 0; i < wake.Count; i++)
-                    WakeChunk(wake[i]);
+            for (int i = 0; i < _tempWake.Count; i++)
+                WakeChunk(_tempWake[i]);
         }
 
         // (1gc) Demote + deep-unload: chunks that fell outside the hysteresis ring sleep as dormant;
@@ -88,22 +308,18 @@ public partial class WorldStreamer
         // dict move (no 900-tile teardown), so the whole trailing column can demote in one poll —
         // the far cell under it activates in the same poll, so the view is unchanged. The destroy
         // work stays capped (1es) so a deep crossing never bursts a frame.
-        List<TerrainChunkCoord> toDemote = null;
+        _tempDemote.Clear();
         foreach (TerrainChunkCoord tc in _loadedChunks.Keys)
         {
             int dx = Mathf.Abs(tc.X - centre.X);
             int dz = Mathf.Abs(tc.Z - centre.Z);
             if (dx > keep || dz > keep)
-            {
-                if (toDemote == null) toDemote = new List<TerrainChunkCoord>();
-                toDemote.Add(tc);
-            }
+                _tempDemote.Add(tc);
         }
-        if (toDemote != null)
-            for (int i = 0; i < toDemote.Count; i++)
-                DemoteChunk(toDemote[i]);
+        for (int i = 0; i < _tempDemote.Count; i++)
+            DemoteChunk(_tempDemote[i]);
 
-        List<TerrainChunkCoord> toUnload = null;
+        _tempUnload.Clear();
         if (_dormantChunks.Count > 0)
         {
             foreach (TerrainChunkCoord tc in _dormantChunks.Keys)
@@ -111,28 +327,32 @@ public partial class WorldStreamer
                 int dx = Mathf.Abs(tc.X - centre.X);
                 int dz = Mathf.Abs(tc.Z - centre.Z);
                 if (dx > deep || dz > deep)
-                {
-                    if (toUnload == null) toUnload = new List<TerrainChunkCoord>();
-                    toUnload.Add(tc);
-                }
+                    _tempUnload.Add(tc);
             }
         }
         int unloaded = 0;
-        if (toUnload != null)
+        if (_tempUnload.Count > 0)
         {
-            // 1es: the deep-unload sweep drains a far column at a CAPPED rate. Every UnloadChunk
-            // walks 900 tiles through _dirtyTiles/_loadedObjects/_loadedData (3 dictionary removals
-            // per tile) plus the Release mesh/LOD/prop teardown — a burst exactly when the player
-            // leaves the dormant band. Capping spreads the drain over polls and _chunkUnloadBacklog
-            // keeps the idle gate alive until the last dormant chunk is gone (Unity defers the
-            // actual GameObjects' Destroy anyway, so nothing disappears late).
-            for (int i = 0; i < toUnload.Count && unloaded < MaxChunkUnloadsPerPoll; i++)
+            // 1es + 1gd: the deep-unload sweep drains a far column at a CAPPED rate AND a hard
+            // wall-clock slice. Every UnloadChunk walks 900 tiles through
+            // _dirtyTiles/_loadedObjects/_loadedData (3 dictionary removals per tile) plus the
+            // Release mesh/LOD/prop teardown — a burst exactly when the player leaves the dormant
+            // band. Capping spreads the drain over polls and _chunkUnloadBacklog keeps the idle
+            // gate alive until the last dormant chunk is gone (Unity defers the actual
+            // GameObjects' Destroy anyway, so nothing disappears late). The 1gd slice interrupter
+            // additionally stops mid-sweep on a slow machine: even ONE UnloadChunk can run past
+            // 1 ms, and six of them would stack into a 6 ms+ hit on the frame that leaves the band.
+            // Wall-clock-checking each iteration bounds the sweep's effect on the poll that owns it.
+            float sweepStart = Time.realtimeSinceStartup;
+            for (int i = 0; i < _tempUnload.Count && unloaded < MaxChunkUnloadsPerPoll; i++)
             {
-                UnloadChunk(toUnload[i]);
+                UnloadChunk(_tempUnload[i]);
                 unloaded++;
+                if ((Time.realtimeSinceStartup - sweepStart) * 1000f >= DeepUnloadSliceMs)
+                    break;
             }
         }
-        _chunkUnloadBacklog = toUnload != null && unloaded < toUnload.Count;
+        _chunkUnloadBacklog = unloaded < _tempUnload.Count;
 
         // Remove pending chunks that fell outside the (extended) radius
         for (int i = _chunkDispatchOrder.Count - 1; i >= 0; i--)

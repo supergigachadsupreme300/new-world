@@ -72,6 +72,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableVoxelTerrain = false;
     [Tooltip("QA (1eu): exercise the voxel sculpt API on the streamed terrain just off the platform — a directed crater (toolbar dig with cast direction clips the dent into a slope-front scoop), a SculptVoxelCave under a ridge, and a SculptVoxelRaise pillar. Needs the voxel terrain enabled to be meaningful (no-op on smooth terrain), edits REAL terrain — permanent chunk saves — and never touches the platform or legacy village.")]
     public bool EnableVoxelSculptDemo = false;
+    [Tooltip("QA/perf (1gd): wire the WorldStreamer's speed-decoupled renderer clock — the streaming/render loop runs on its OWN coroutine beat (StreamHz, default 20 Hz) and yields one cool-down frame after any busy poll, and edited-terrain seam rebuilds run on background threads instead of holding the gameplay frame. That is exactly the 'immense lag at high player speed' scenario. Config-only lane: no world placement — any WorldStreamer found in the scene gets StreamInUpdate=true + DecoupleRenderFromGameplay=true (it just uses the scene's own toggle values otherwise).")]
+    public bool EnableSpeedDecoupleRender = false;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
@@ -169,6 +171,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         if (EnableStatusEffectsDemo) { RunSafely("status effects demo", SpawnStatusEffectsDemo); yield return null; }
         if (EnableVoxelSculptDemo) { RunSafely("voxel sculpt demo", SpawnVoxelSculptDemo); yield return null; }
         if (EnableFpsStats) { RunSafely("fps stats", SpawnFpsStats); yield return null; }
+        if (EnableSpeedDecoupleRender) { RunSafely("speed-decoupled renderer", ApplySpeedDecoupleSettings); yield return null; }
         RunSafely("player grants", TryDeferPlayerGrants);
 
         // Safety net: if the platform wasn't ready when the bench started (e.g. built later or
@@ -1057,7 +1060,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         var canvas = HudCanvas.CreateOverlay("BenchStatsCanvas");
         var root = HudCanvas.CreateBackdrop(canvas.transform, "Stats",
             new Vector2(0f, 1f), new Vector2(0f, 1f),
-            new Vector2(100f, -28f), new Vector2(300f, 96f));
+            new Vector2(100f, -28f), new Vector2(300f, 126f));
         var label = new GameObject("Label");
         label.transform.SetParent(root, false);
         var rect = label.AddComponent<RectTransform>();
@@ -1100,6 +1103,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
             int dormant = 0;
             int colliders = 0;
             int farSectors = 0;
+            int rebuilds = 0;
             var streamer = Object.FindAnyObjectByType<WorldStreamer>();
             if (streamer != null)
             {
@@ -1107,15 +1111,42 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 chunks = loaded.Count;
                 dormant = streamer.DormantChunkCount;
                 farSectors = streamer.FarSectorCount;
+                rebuilds = streamer.RebuildPendingCount;
                 foreach (var kv in loaded)
                     if (kv.Value != null && kv.Value.HasCollider)
                         colliders++;
             }
 
             if (_fpsText != null)
-                _fpsText.text = string.Format("FPS {0:0}  ({1:0.0} ms)\nchunks {2}  dormant {3}  colliders {4}\nfar cells {5}",
-                    avgFps, 1000f / avgFps, chunks, dormant, colliders, farSectors);
+                _fpsText.text = string.Format("FPS {0:0}  ({1:0.0} ms)\nchunks {2}  dormant {3}  colliders {4}\nfar cells {5}\nrebuilds {6}",
+                    avgFps, 1000f / avgFps, chunks, dormant, colliders, farSectors, rebuilds);
         }
+    }
+
+    /// <summary>
+    /// QA/perf lane (1gd): speed-decoupled renderer. Forces the scene's WorldStreamer onto the
+    /// decoupled clock (StreamInUpdate on + DecoupleRenderFromGameplay on) and confirms the streamer
+    /// found. Combined with the FPS stats readout (which now also shows the seam-rebuild back-queue)
+    /// this is the direct A/B for the "immense lag at high player speed" report: with the toggle on,
+    /// moving fast should no longer drag the gameplay frame, and the rebuild count should pulse
+    /// through the edited-terrain ring instead of hitches. Config-only — no world placement.
+    /// </summary>
+    private void ApplySpeedDecoupleSettings()
+    {
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (streamer == null)
+        {
+            Debug.LogWarning("[NewWorldTestGround] EnableSpeedDecoupleRender: WorldStreamer not found — nothing to configure.");
+            return;
+        }
+        bool wasEnabled = streamer.StreamInUpdate;
+        bool wasDecoupled = streamer.DecoupleRenderFromGameplay;
+        streamer.StreamInUpdate = true;
+        streamer.DecoupleRenderFromGameplay = true;
+        Debug.Log($"\n[NewWorldTestGround] Speed-decoupled renderer (1gd) applied: " +
+            $"StreamHz={streamer.StreamHz}, DecoupleRenderFromGameplay: {wasDecoupled} -> true, " +
+            $"StreamInUpdate: {wasEnabled} -> true. Seam rebuilds now run in the background " +
+            "(RebuildPendingCount visible in the FPS readout).");
     }
 
     private static Material SolidMaterial(Color c)

@@ -20,7 +20,14 @@ public partial class WorldStreamer : MonoBehaviour
     [Tooltip("Shared world seed. Same seed + coords => same terrain everywhere.")]
     public long Seed = 1337;
 
+    [Tooltip("Master switch for the streaming/render loop (the scene's live/legacy stream).")]
     public bool StreamInUpdate = true;
+
+    [Tooltip("1gd: decouple the streaming/render loop from the gameplay Update. The map runs on its OWN coroutine clock (StreamHz) instead of the gameplay frame, and after any busy poll it yields one cool-down frame before the next slice — so map-render maintenance can never double-load a gameplay frame. Loading speed is unchanged: the real-chunk/far rings still chase the player at every tick; only the main-thread render work is gated by the per-stage budgets and slices.")]
+    public bool DecoupleRenderFromGameplay = true;
+
+    [Tooltip("Renderer clock (1gd): polls per second of the decoupled streaming loop. 20 = the legacy 20 Hz beat.")]
+    public int StreamHz = 20;
 
     [Header("Material")]
     public Material GroundMaterial;
@@ -114,7 +121,6 @@ public partial class WorldStreamer : MonoBehaviour
     private Transform _chunksRoot;
 
     private Transform _focus;
-    private float _timer;
     private const float PollInterval = 0.05f;
 
     // Idle-poll gate (1ee): the streaming pipeline re-runs every poll ONLY when something actually
@@ -259,33 +265,71 @@ public partial class WorldStreamer : MonoBehaviour
         ChunkSaveManager.Warmup();
     }
 
-    // --- Main loop ---
+    // --- Main loop (1gd: speed-decoupled renderer clock) ---
 
-    private void Update()
+    // The streaming/render loop runs on ITS OWN coroutine clock instead of the gameplay Update.
+    // Before 1gd every poll happened inside Update(): when the player moved fast (vehicle/jet), the
+    // 20 Hz poll fired on a random gameplay frame backed by a multi-ms budget (chunk finalize +
+    // far shell + props + collider cooks), and crossing into edited terrain stacked synchronous
+    // 900-tile full rebuilds — each one re-emitted and re-uploaded a whole merged chunk on the main
+    // thread, PER POLL, at speed. Player speed therefore directly dragged the gameplay frame.
+    // 1gd decouples the two:
+    //   * The loop lives in a coroutine ticked at StreamHz (renderer's own clock); it checks
+    //     StreamInUpdate itself, so the scene toggle still works at runtime.
+    //   * After any busy poll the loop yields ONE cool-down frame before the next slice, so a
+    //     heavy map-render beat can never double-load the frame right next to it.
+    //   * Heavy seam rebuilds (edits re-emitting merged chunks when the stream passes) moved to
+    //     ThreadPool workers (see RequestChunkRebuild/DrainRebuildResults). Loading speed is
+    //     unchanged: the real-chunk/far rings still chase the player every tick; only the main-
+    //     thread render work is gated by the per-stage budgets, slices and finalize cap.
+    private Coroutine _streamLoop;
+
+    private void OnEnable()
     {
-        if (!StreamInUpdate)
-            return;
+        if (_streamLoop == null)
+            _streamLoop = StartCoroutine(StreamLoop());
+    }
 
-        _timer += Time.deltaTime;
-        if (_timer < PollInterval)
-            return;
-        _timer = 0f;
+    private void OnDisable()
+    {
+        if (_streamLoop != null)
+        {
+            StopCoroutine(_streamLoop);
+            _streamLoop = null;
+        }
+    }
 
-        if (_focus == null)
-            return;
+    private System.Collections.IEnumerator StreamLoop()
+    {
+        float delay = StreamHz > 0 ? 1f / StreamHz : PollInterval;
+        var wait = new WaitForSecondsRealtime(delay);
+        while (true)
+        {
+            yield return wait;
+            if (!StreamInUpdate || _focus == null)
+                continue;
+            if (StreamOnce() && DecoupleRenderFromGameplay)
+                yield return null; // renderer cool-down frame: never stack a busy poll onto the next gameplay frame
+        }
+    }
 
+    /// <summary>One streaming/render poll on the decoupled clock. Returns true when the poll did real
+    /// work so <see cref="StreamLoop"/> can spread a heavy beat across its own frames.</summary>
+    private bool StreamOnce()
+    {
         int view = RenderDistance != null ? RenderDistance.Radius : 3;
         int near = Mathf.Min(Mathf.Max(NearRingRadius, 0), view);
         TerrainChunkCoord centre = TerrainChunkCoord.FromWorld(_focus.position);
 
         // 1ee idle gate: skip the whole pipeline while nothing moved and nothing is queued. The
-        // far-shell queues (1ef) participate — an initial far fill or a shrinking shell keeps the
-        // poll alive until it finishes.
+        // far-shell queues (1ef) and the 1gd seam-rebuild queues participate — an initial far fill,
+        // a shrinking shell or a trailing rebuild keeps the poll alive until it finishes.
         bool working = _chunkDispatchOrder.Count > 0 || _chunksInFlight.Count > 0 || !_readyChunks.IsEmpty
             || _farInFlight.Count > 0 || !_farReady.IsEmpty || _farPending.Count > 0 || _farUnloadBacklog
-            || _chunkUnloadBacklog;
+            || _chunkUnloadBacklog
+            || _rebuildPending.Count > 0 || _rebuildsInFlight.Count > 0 || !_readyRebuilds.IsEmpty;
         if (centre == _lastStreamCentre && !_worldDirty && !working)
-            return;
+            return false;
         _lastStreamCentre = centre;
         _worldDirty = false;
 
@@ -297,11 +341,14 @@ public partial class WorldStreamer : MonoBehaviour
 
         StreamAround(centre, near);
         DispatchPending();
+        DispatchRebuilds();
         FinalizeChunks();
+        DrainRebuildResults();
         FarShellTick(centre, view, near);
         ReconcileCollidersIfChanged(centre);
         SyncPropRing(centre, near);
         StepChunkProps();
+        return true;
     }
 
     /// <summary>

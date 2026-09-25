@@ -343,6 +343,9 @@ public partial class WorldStreamer
     /// After a chunk loads/changes, rebuild any loaded modified orthogonal neighbour so a slab
     /// wall that straddles a chunk seam gets the true neighbour edge as its wall bottom (the
     /// neighbour owns the wall when it is the higher side). Bounded — only modified chunks.
+    /// Since 1gd each rebuild is ASYNC (<see cref="RequestChunkRebuild"/>) — this used to chain
+    /// synchronous 900-tile FullRebuildChunk calls, up to four per reconcile, stacking exactly when
+    /// the stream passed a cluster of edited chunks at speed (the "immense lag" on fast movement).
     /// </summary>
     private void ReconcileModifiedBorders(TerrainChunkCoord tc)
     {
@@ -357,7 +360,7 @@ public partial class WorldStreamer
         {
             if (!_loadedChunks.ContainsKey(n) || !ChunkHasModifiedTiles(n))
                 continue;
-            FullRebuildChunk(n);
+            RequestChunkRebuild(n);
         }
     }
 

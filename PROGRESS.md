@@ -3,6 +3,73 @@
 Last updated: 2026-09-25. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1gd. "Immense lag at higher player speed" — speed-decoupled renderer clock + async edited-terrain seam rebuilds
+
+User reports: the game is smooth while walking but lags immensely when you move faster (player speed).
+Clarified the target is the WorldStreamer 3D-terrain renderer, NOT the UI minimap (no RenderTexture /
+second camera exists; `CompassMinimapHUD` + `WorldMapUI` are UGUI, cheap). User directive: do NOT limit
+the loading speed — decouple rendering from gameplay another way.
+
+- **Root cause (confirmed):** every streaming/render poll ran inside the gameplay `Update()` at 20 Hz.
+  Walking into edited terrain ran **synchronous** 900-tile rebuilt merged chunks on the main thread —
+  `ReconcileNewlyLoadedChunk` (WorldStreamer.Mesh.cs:141) called `FullRebuildChunk` (= re-emit 900
+  tiles + `BuildMergedMeshData` + full mesh/collider upload, Deform.cs:231) for every modified chunk
+  entering the ring, and `ReconcileModifiedBorders` (Deform.cs:347) chained up to four MORE per
+  reconcile. At speed, each poll crossing new chunks triggered these bursts; stacked multi-ms the
+  gameplay frame dragged. Budgets (1es, 4 ms) did not cover them because they were uncounted
+  synchronous rebuilds, not finalize-stage work.
+- **Fix A — renderer on its own clock:** `Update()` → `StartCoroutine(StreamLoop())` in `OnEnable`.
+  The loop ticks on `WaitForSecondsRealtime(1/StreamHz)` (`StreamHz` default 20) and checks
+  `StreamInUpdate` itself (runtime toggle still works). After any BUSY poll it `yield return null`
+  (cool-down frame) when `DecoupleRenderFromGameplay` is on, so a heavy map-render beat can never
+  stack onto the next gameplay frame. Poll body moved to `StreamOnce()`; the `_timer`/`PollInterval`
+  accumulator was removed.
+- **Fix B — edited-terrain seam rebuilds are async:** new pipeline in WorldStreamer.Streaming.cs:
+  `_rebuildPending` (HashSet) → `DispatchRebuilds` (main-thread snapshot of raw `ChunkData` refs +
+  real border corners via `BuildBorderCorners`, then `ThreadPool.QueueUserWorkItem`) →
+  `BackgroundChunkRebuild` (worker re-emits `BuildMeshData` + `BuildMergedMeshData`) →
+  `_readyRebuilds` (ConcurrentQueue) → `DrainRebuildResults` under the shared `SpendStreamBudget`
+  accounting (caps `MaxRebuildInFlight` 8, `MaxRebuildFinalizePerPoll` 3). `ReconcileNewlyLoadedChunk`
+  + `ReconcileModifiedBorders` now call `RequestChunkRebuild(tc)` instead of `FullRebuildChunk`.
+  Stale-result guard: `ChunkObject.MeshRebuildStamp` bumps in `ApplyMerged` + `PatchRegion`; a result
+  applies only if its snapshot stamp still matches (a chunk that unloaded+reloaded, or that got
+  edited meanwhile, discards the old result). Dedupe against pending/in-flight. Voxel-mode chunks
+  keep the synchronous path (`FullRebuildChunk`) — experimental model unchanged. Thread discipline
+  unchanged: the worker never touches `_loadedData`/`_loadedChunks`/ChunkObject members.
+- **Fix C — hard slices:** deep-unload sweep gets a wall-clock interrupter (`DeepUnloadSliceMs` 1.2 ms,
+  checked per iteration) — a single `UnloadChunk` can run past 1 ms and six stacked; the backlog flag
+  already carried the drain over polls (`MaxChunkUnloadsPerPoll` 6 kept).
+- **Fix D — collider reconcile:** already tracks the player's exact chunk (centre == player chunk, no
+  anchor lag) — satisfied by design; no code change.
+- **Fix E — allocations:** pooled per-poll temp lists (`_tempWake`/`_tempDemote`/`_tempUnload`/
+  `_tempRebuildScan` in Streaming.cs; `_tempFarStale`/`_tempFarHandoffs` in FarShell.cs) replace the
+  lazy `new List<>()` in the wake/demote/unload scans and the far removal scan.
+- **QA (rule 4, test platform only):** `NewWorldTestGround.EnableSpeedDecoupleRender` (default OFF) +
+  `RunSafely("speed-decoupled renderer", ApplySpeedDecoupleSettings)` lane — config-only, forces
+  `StreamInUpdate` + `DecoupleRenderFromGameplay` on any WorldStreamer found and logs the settings.
+  The FPS readout (`EnableFpsStats`, default ON) now also prints the rebuild back-queue
+  (`RebuildPendingCount`) and its backdrop grew to fit the 4th line.
+- **Docs (same pass):** game-design §2.5 (new speed-decoupled-clock + async-seam bullets; deep-unload
+  slice note; 1ee "Update" phrasing → decoupled clock; temp-list pooling note); THINKING §1gd.
+
+### 1gd-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build). Grepped all new symbols
+  (`RequestChunkRebuild`, `DispatchRebuilds`, `DrainRebuildResults`, `RebuildPendingCount`,
+  `DecoupleRenderFromGameplay`, `StreamHz`, `MeshRebuildStamp`, pooled `_temp*` fields): every call
+  site + signature confirmed (WorldStreamer.cs StreamOnce/StreamLoop, Streaming.cs pipeline,
+  Mesh.cs/Deform.cs reconcile, ChunkObject.ApplyMerged/PatchRegion, NewWorldTestGround QA + FPS
+  readout). No `Update()`/`_timer` references remain in the streamer partials; `FullRebuildChunk`
+  still exists (edit paths + voxel + thread-pool-refused fallback).
+- Commit: this one.
+- Pending play-test: (a) toggle `EnableSpeedDecoupleRender` on + FPS stats on, sprint near/far on the
+  test ground (and ideally a fast vehicle across real edited terrain) — gameplay frames must stay
+  smooth where they used to hitch, while the `rebuilds` counter pulses in the readout instead of
+  frame spikes; (b) repeat WITHOUT the toggle to confirm the old hitching path returns (A/B); (c) dig/
+  edit then walk across the seam — slab walls still seal (no phantom walls / gaps), rebuild results
+  still applied; (d) quick out-and-back through the dormant band rotates chunks without a burst (the
+  1.2 ms slice); (e) voxel mode still rebuilds synchronously and looks unchanged; (f) `StreamInUpdate`
+  off → no streaming at all (master switch intact).
+
 ## 1gc. Chunks "disappear then generated right back" at the close-range edge — dormant keep-ring stops the destroy/regenerate churn
 
 User report: while moving, at the edge of the close range the chunks would disappear then be

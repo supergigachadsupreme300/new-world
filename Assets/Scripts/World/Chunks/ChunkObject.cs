@@ -39,6 +39,14 @@ public class ChunkObject : MonoBehaviour
     [System.NonSerialized] public bool Dormant;
 
     /// <summary>
+    /// Monotonic counter bumped on EVERY mesh apply/upload (ApplyMerged + PatchRegion, 1gd). A
+    /// background seam-rebuild result captures this stamp when it is dispatched and the streamer's
+    /// DrainRebuildResults rejects any finished result whose stamp no longer matches — so a stale
+    /// async upload can never overwrite a newer edit or a chunk that unloaded and reloaded anew.
+    /// </summary>
+    [System.NonSerialized] public int MeshRebuildStamp;
+
+    /// <summary>
     /// Toggle the chunk's physics collider without touching the mesh or re-running the merged
     /// builder (1dq). Enabling cooks the cached collider once; disabling drops it to zero physics.
     /// </summary>
@@ -179,6 +187,9 @@ public class ChunkObject : MonoBehaviour
         // LOD children are stale after any apply; they rebuild lazily on the next band switch
         // (ApplyBand -> RefreshLodMeshes), so near-band chunks never pay for them.
         _lodDirty = true;
+
+        // (1gd) Any in-flight async seam rebuild snapshot taken before this apply is now stale.
+        MeshRebuildStamp++;
     }
 
     /// <summary>
@@ -282,6 +293,9 @@ public class ChunkObject : MonoBehaviour
         // Deformation changed the heights — a far-band chunk showing stale Lod1/Lod2 would display
         // a pre-excavation surface. RefreshLodMeshes() is lazy, so this just flags the rebuild.
         _lodDirty = true;
+
+        // (1gd) Any in-flight async seam rebuild snapshot taken before this patch is now stale.
+        MeshRebuildStamp++;
     }
 
     /// <summary>

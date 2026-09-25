@@ -137,6 +137,11 @@ public partial class WorldStreamer
     /// dropped at finalize instead of creating sectors over a wiped/regenerating world.</summary>
     private int _farEpoch;
     private bool _farUnloadBacklog;
+    /// <summary>Pooled per-poll lists for the removal scan (1gd): destroyed cells and handoffs. A
+    /// live poll's removal pass reuses these instead of allocating transient lists when a removal or
+    /// handoff first matches.</summary>
+    private readonly List<FarCell> _tempFarStale = new List<FarCell>();
+    private readonly List<FarCell> _tempFarHandoffs = new List<FarCell>();
     private Transform _farRoot;
     /// <summary>True once the initial far shell has been static-batched (1eh): the bulk (span-3/6
     /// cells) now render as one combined mesh. Never un-baked; ClearFarShell wipes it wholesale.
@@ -455,8 +460,8 @@ public partial class WorldStreamer
         // 1er: fine cells under a LIVE coarser owner are RETAINED as inactive shadows (the demote
         // reactivates the same mesh), and the swap band is pre-warmed by step 2b — so while a
         // demote still keeps its tenant until coverage, nearly every swap is a SetActive toggle.
-        List<FarCell> stale = null;
-        List<FarCell> handoffs = null;
+        _tempFarStale.Clear();
+        _tempFarHandoffs.Clear();
         int removed = 0;
         foreach (KeyValuePair<FarCell, GameObject> kv in _farSectors)
         {
@@ -501,8 +506,7 @@ public partial class WorldStreamer
                 }
                 // Every replacement is live (pre-warm made this the common case — a pure SetActive
                 // swap): hand ownership to them atomically in one poll.
-                if (handoffs == null) handoffs = new List<FarCell>();
-                handoffs.Add(cell);
+                _tempFarHandoffs.Add(cell);
                 if (++removed >= MaxFarUnloadsPerPoll)
                 {
                     _farUnloadBacklog = true;
@@ -510,24 +514,17 @@ public partial class WorldStreamer
                 }
                 continue;
             }
-            if (stale == null) stale = new List<FarCell>();
-            stale.Add(cell);
+            _tempFarStale.Add(cell);
             if (++removed >= MaxFarUnloadsPerPoll)
             {
                 _farUnloadBacklog = true;
                 break;
             }
         }
-        if (stale != null)
-        {
-            for (int i = 0; i < stale.Count; i++)
-                DestroyFarSector(stale[i]);
-        }
-        if (handoffs != null)
-        {
-            for (int i = 0; i < handoffs.Count; i++)
-                CompleteFarHandoff(handoffs[i]);
-        }
+        for (int i = 0; i < _tempFarStale.Count; i++)
+            DestroyFarSector(_tempFarStale[i]);
+        for (int i = 0; i < _tempFarHandoffs.Count; i++)
+            CompleteFarHandoff(_tempFarHandoffs[i]);
         if (removed < MaxFarUnloadsPerPoll)
             _farUnloadBacklog = false;
 
