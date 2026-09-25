@@ -163,9 +163,9 @@ public sealed class WeaponAnimator : MonoBehaviour
             // iron_sword — balanced 1H blade: slash L→R, slash R→L, overhead chop, forward thrust.
             {
                 "iron_sword", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, -55f, 0f, -15f, 45f, -90f), K(0.62f, -80f, 45f, 0f, -5f, 95f, -90f), K(1f, 0f, 0f, 0f, 0f)),   // 1. wind left/back → slash across right, wrist rolls into the cut
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, 55f, 0f, -15f, 45f, 90f), K(0.62f, -80f, -45f, 0f, -5f, 95f, 90f), K(1f, 0f, 0f, 0f, 0f)),  // 2. wind right/back → slash across left, wrist rolls through
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -150f, 0f, 0f, 10f, 45f, 0f), K(0.68f, -65f, 0f, 0f, 6f, 95f, 0f), K(1f, 0f, 0f, 0f, 0f)),     // 3. overhead chop — wrist flexes into the swing then settles
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, -55f, 0f, -15f, 45f, -90f), K(0.52f, -80f, 45f, 0f, -5f, 95f, -90f), K(1f, 0f, 0f, 0f, 0f)),   // 1. wind left/back → slash across right, wrist rolls into the cut
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, 55f, 0f, -15f, 45f, 90f), K(0.52f, -80f, -45f, 0f, -5f, 95f, 90f), K(1f, 0f, 0f, 0f, 0f)),  // 2. wind right/back → slash across left, wrist rolls through
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -150f, 0f, 0f, 10f, 45f, 0f), K(0.68f, -65f, 0f, 0f, 6f, 125f, 0f), K(1f, 0f, 0f, 0f, 0f)),     // 3. overhead chop — wrist flexes into the swing then settles
                     T(K(0f, 0f, 0f, 0f, 0f), K(0.38f, -88f, -12f, 0f, -42f, 45f, 0f), K(0.58f, -62f, -8f, 0f, -4f, 95f, 0f), K(1f, 0f, 0f, 0f, 0f))), // 4. forward thrust — wrist flattens as the arm extends
                     null, K_None, 0.30f, 0.50f, true)
             },
@@ -175,7 +175,7 @@ public sealed class WeaponAnimator : MonoBehaviour
                 "greatsword", new WeaponAnimDef(OffArm.Mirror, V(
                     T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -150f, 0f, 0f, 8f, 60f, 0f), K(0.70f, -55f, 0f, 0f, 14f, 30f, 0f), K(1f, 0f, 0f, 0f, 0f)),       // 1. overhead slam — wrists flex through the smash
                     T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -70f, -75f, 0f, 8f, 30f, -90f), K(0.70f, -80f, 35f, 0f, 12f, 20f, -90f), K(1f, 0f, 0f, 0f, 0f)),   // 2. low sweep from the left across to the right — wrists roll into the cut
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -100f, 70f, 0f, 18f, 40f, 90f), K(0.68f, -70f, -55f, 0f, -10f, 25f, 90f), K(1f, 0f, 0f, 0f, 0f)),// 3. reverse-grip right wind, hard backswing to the left — wrists roll through
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -100f, 70f, 0f, 8f, 40f, 90f), K(0.68f, -50f, -55f, 0f, -10f, 25f, 90f), K(1f, 0f, 0f, 0f, 0f)),// 3. reverse-grip right wind, hard backswing to the left — wrists roll through
                     T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -120f, 30f, 0f, -30f, 50f, 0f), K(0.75f, -160f, 0f, 0f, -20f, 20f, 0f), K(1f, 0f, 0f, 0f, 0f))),// 4. rising spin uppercut (finisher) — wrists flex to whip the spin
                     null, K_None, 0.45f, 0.65f)
             },
