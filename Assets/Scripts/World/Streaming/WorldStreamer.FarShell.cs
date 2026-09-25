@@ -289,6 +289,32 @@ public partial class WorldStreamer
         return null;
     }
 
+    /// <summary>
+    /// QA diagnostics (1gh): one-line readout of what covers terrain chunk (x, z) around the CURRENT
+    /// focus — whether the real chunk is loaded (with its render/collider flags) or dormant, and
+    /// which far cell owns it (span + coords, and whether that cell is LIVE or missing). The bench
+    /// HUD calls this for the inspected coord so a "chunk invisible for no reason" report is one
+    /// screenshot, not a guessing session.
+    /// </summary>
+    public string ChunkDiagnostics(TerrainChunkCoord tc)
+    {
+        int view = RenderDistance != null ? RenderDistance.Radius : 3;
+        int near = Mathf.Min(Mathf.Max(NearRingRadius, 0), view);
+        TerrainChunkCoord centre = _focus != null
+            ? TerrainChunkCoord.FromWorld(_focus.position)
+            : new TerrainChunkCoord(0, 0);
+        FarCell? cell = FarCellForChunk(tc.X, tc.Z, centre, near, near + 1);
+        string far = cell.HasValue
+            ? "far span" + cell.Value.Span + "(" + cell.Value.X + "," + cell.Value.Z + ")"
+                + (_farSectors.ContainsKey(cell.Value) ? " live" : " MISSING")
+            : "far none";
+        if (_loadedChunks.TryGetValue(tc, out ChunkObject c))
+            return $"{tc}: real loaded — collider {c.HasCollider}, dormant {c.Dormant}, voxel {c.VoxelMesh} | {far}";
+        if (_dormantChunks.TryGetValue(tc, out ChunkObject d))
+            return $"{tc}: real DORMANT (retained) | {far}";
+        return $"{tc}: real NOT LOADED | {far}";
+    }
+
     /// <summary>True when a coarser far cell that owns this footprint is already live (1eq), so
     /// <paramref name="cell"/> must render nothing — it is a reserved shadow that takes over the
     /// instant the coarser owner leaves (promote-hide keeps the pair invisible; 1er the fine cell is

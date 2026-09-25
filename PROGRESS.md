@@ -3,6 +3,56 @@
 Last updated: 2026-09-25. Read this first in a new session; then continue with the
 `# OPEN TASKS` section (especially the axe/pickaxe bug).
 
+## 1gh. Report: "chunk -8_3 is invisible for no reason" — LOD cull hid retained terrain + chunk diagnostics (fixed)
+
+Report: the chunk `-8_3` (world x ≈ -240..-210, z ≈ 90..120, Chebyshev ring 8 from the platform) is
+invisible "for no reason". User confirmed the GameObject `TerrainChunk_-8_3` EXISTS in the hierarchy
+but the ground isn't shown — so this is a render-state bug, not a missing chunk.
+
+Root cause traced to `ChunkLodManager`:
+
+- `EffectiveCullDistance` = `max(CullDistance, (RenderDistance.Radius + 1) * 30)`: with a small
+  render-distance asset the render term alone dips BELOW the real-chunk streaming extent
+  (`NearRingRadius` 9 + hysteresis keep ring 10). E.g. radius 7 → cull 240 m, while `-8_3` sits at
+  ring 8 (~250 m from the platform) and IS loaded/retained by the streamer.
+- The LOD sweep then `SetActive(false)`s the whole root over the cull…
+- …but **far cells only exist BEYOND the near ring** (`FarCellForChunk` ring ≥ near+1), so nothing
+  covers that cell — an invisible hole. `SetActive(false)` also silently removes the chunk's collider,
+  matching the earlier fall-through at the same frontier (1gg).
+
+Fix — the invariant (ChunkLodManager.cs `EffectiveCullDistance`, 1gh):
+
+- The cull now floors at the ENTIRE retained-chunk extent:
+  `max(CullDistance, (Radius+1)*30, (NearRingRadius + 1 + DormantRingDepth)*30)`. The sole legitimate
+  cover for a real chunk is its far cell, which only exists beyond the near ring — so LOD can never
+  hide ground the streamer is the only owner of. With a full render-distance asset the value is
+  unchanged (930 m+); with a small one the frontier hole (and its collider) is repaired. Dormant
+  chunks are skipped by the sweep regardless, and beyond near+dormant the far cell is the cover.
+
+QA diagnostics (rule 4 — opt-in readout):
+
+- `NewWorldTestGround.EnableChunkDiagnostics` (default **on**) + `ChunkInspectX/Z` (default −8/3)
+  append one line to the FPS overlay: `WorldStreamer.ChunkDiagnostics(tc)` — real loaded/dormant/
+  absent, collider, dormant flag, voxel flag, and the owning far cell (span + live/MISSING) — plus
+  the root's `activeSelf` / renderer+mesh presence / `Lod1`+`Lod2` on-off / LOD band
+  (`ChunkLodManager.BandIndexOf`, new) / collider. One screenshot resolves any future
+  "chunk invisible" report (missing vs LOD-hidden vs far-cell-dead) without a guessing session.
+
+### 1gh-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build). New symbols:
+  `ChunkDiagnostics` (WorldStreamer public), `BandIndexOf` (ChunkLodManager public),
+  `EnableChunkDiagnostics` + `ChunkInspectX/Z` (test ground) — all fresh and collision-free;
+  `FarCellForChunk` call signature matches (`x, z, centre, near, keep`); `LoadedChunks`/
+  `DormantChunks`/`DormantChunkCount`/'FarSectorCount'/`RebuildPendingCount` are already public;
+  `ChunkObject.HasCollider/Dormant/VoxelMesh` confirmed; global namespace throughout (no using
+  needed). Docs synced same pass: PROGRESS 1gh, THINKING 1gh, game-design §2.2 cull invariant +
+  §2.7 diagnostics.
+- PENDING PLAY-TEST: (1) look/show the west edge at ring 8-9 with a SMALL render distance — chunk
+  -8_3's ground returns (and its collider, no fall-through there); (2) with a full render distance the
+  fix must be a no-op — no visual change; (3) if any chunk STILL looks missing, walk near it and send
+  the new `chunk -8_3:` HUD line (says loaded vs dormant vs absent, root active/renderer/mesh/lod
+  band/collider, far live/MISSING) — that pinpoints it.
+
 ## 1gg. Player falls through the ground — collider "not loading" (fixed: player-floor guarantee + void-fall rescue)
 
 Report: while sprinting, the player can fall right through the ground — the chunk under them is

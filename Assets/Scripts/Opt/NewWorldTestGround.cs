@@ -76,6 +76,12 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableVoxelSculptDemo = false;
     [Tooltip("QA/perf (1gd): wire the WorldStreamer's speed-decoupled renderer clock — the streaming/render loop runs on its OWN coroutine beat (StreamHz, default 20 Hz) and yields one cool-down frame after any busy poll, and edited-terrain seam rebuilds run on background threads instead of holding the gameplay frame. That is exactly the 'immense lag at high player speed' scenario. Config-only lane: no world placement — any WorldStreamer found in the scene gets StreamInUpdate=true + DecoupleRenderFromGameplay=true (it just uses the scene's own toggle values otherwise).")]
     public bool EnableSpeedDecoupleRender = false;
+    [Tooltip("QA (1gh): extend the FPS overlay with a chunk-diagnostics line for ChunkInspectX/Z — that chunk's real load state (loaded/dormant/absent), root GameObject active, renderer+mesh present, Lod1/Lod2 children on/off, LOD band, collider, and which far cell owns it (and whether that cell is LIVE or MISSING). For any 'chunk invisible for no reason' report: one screenshot answers whether it is missing, hidden by the LOD sweep, or under a dead far cell. Read-only; needs EnableFpsStats on to display.")]
+    public bool EnableChunkDiagnostics = true;
+    [Tooltip("QA (1gh): chunk coords inspected by the diagnostics line (the coords of the reported monster/relic chunk −8_3 in chunk-space, X −8, Z 3).")]
+    public int ChunkInspectX = -8;
+    [Tooltip("QA (1gh): chunk coords inspected by the diagnostics line (the coords of the reported monster/relic chunk −8_3 in chunk-space, X −8, Z 3).")]
+    public int ChunkInspectZ = 3;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
@@ -1142,6 +1148,32 @@ public sealed class NewWorldTestGround : MonoBehaviour
                     if (lod != null)
                         stats += string.Format("\nlod sweep {0:0.00} / {1:0.00} ms", lod.LastSweepMs, lod.PeakSweepMs);
                     streamer?.ResetPollStagePeaks();
+                }
+
+                // (1gh) chunk diagnostics: for any "chunk X is invisible for no reason" report this
+                // single line says whether it is missing, retained-dormant, hidden (root/inactive),
+                // mesh-less, at a LOD band, or under a dead far cell — one screenshot resolves it.
+                if (EnableChunkDiagnostics && streamer != null)
+                {
+                    var tc = new TerrainChunkCoord(ChunkInspectX, ChunkInspectZ);
+                    string diag = "\n" + streamer.ChunkDiagnostics(tc);
+                    if (streamer.LoadedChunks.TryGetValue(tc, out var co) && co != null)
+                    {
+                        diag += co.gameObject.activeSelf ? "  active" : "  **[hidden root]**";
+                        var mr = co.GetComponent<MeshRenderer>();
+                        var mf = co.GetComponent<MeshFilter>();
+                        diag += (mr != null && mr.enabled) ? "  ren" : "  renOFF";
+                        diag += (mf != null && mf.sharedMesh != null) ? "  mesh+Vtx" : "  noMesh";
+                        Transform lod1 = co.transform.Find("Lod1");
+                        Transform lod2 = co.transform.Find("Lod2");
+                        diag += lod1 != null ? "  lod1:" + (lod1.gameObject.activeSelf ? "on" : "off") : "  lod1:null";
+                        diag += lod2 != null ? "  lod2:" + (lod2.gameObject.activeSelf ? "on" : "off") : "  lod2:null";
+                        var lod = Object.FindAnyObjectByType<ChunkLodManager>();
+                        if (lod != null)
+                            diag += "  band " + lod.BandIndexOf(co.gameObject);
+                        diag += "  coll " + co.HasCollider + "  dorm " + co.Dormant;
+                    }
+                    stats += diag;
                 }
 
                 _fpsText.text = stats;

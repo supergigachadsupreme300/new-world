@@ -98,6 +98,19 @@ public sealed class ChunkLodManager : MonoBehaviour
         }
     }
 
+    /// <summary>QA diagnostics (1gh): the current LOD band index of a registered chunk root,
+    /// or -1 if the root is not registered here (bench readout for invisible-chunk reports).</summary>
+    public int BandIndexOf(GameObject root)
+    {
+        if (root == null) return -1;
+        for (int i = 0; i < _chunks.Count; i++)
+        {
+            if (_chunks[i].Root == root.transform)
+                return _chunks[i].BandIndex;
+        }
+        return -1;
+    }
+
     private void Update()
     {
         _frame++;
@@ -185,14 +198,29 @@ public sealed class ChunkLodManager : MonoBehaviour
     /// Effective cull distance auto-matches the streaming render radius: a chunk extends
     /// (radius + 1) chunk-steps from the focus (hysteresis keep-margin), so chunks are only
     /// hidden once they fall beyond the streamed area, never while still being streamed in.
+    /// (1gh) Invariant: the cull must ALSO cover the real-chunk extent the streamer retains
+    /// (NearRingRadius + 1 hysteresis + DormantRingDepth). Far cells only exist BEYOND the near
+    /// ring (WorldStreamer.FarShell.FarCellForChunk), so a chunk inside it is the ONLY surface its
+    /// cell has — culling it opens a real hole. With a small RenderDistance asset the render term
+    /// alone used to dip below the near ring (e.g. radius 7 => 240 m < ring-8/9 chunks at ~250 m),
+    /// hiding loaded ground that no far cell could cover. The max guarantees the sweep never hides
+    /// ground the streamer is the sole owner of.
     /// </summary>
     private float EffectiveCullDistance()
     {
         if (_streamer == null)
             _streamer = Object.FindAnyObjectByType<WorldStreamer>();
-        if (_streamer != null && _streamer.RenderDistance != null)
-            return Mathf.Max(CullDistance, (_streamer.RenderDistance.Radius + 1) * TerrainChunkCoord.ChunkSize);
-        return CullDistance;
+        float streamSize = TerrainChunkCoord.ChunkSize;
+        float extent = CullDistance;
+        if (_streamer != null)
+        {
+            if (_streamer.RenderDistance != null)
+                extent = Mathf.Max(extent, (_streamer.RenderDistance.Radius + 1) * streamSize);
+            // (1gh) The streamed real-chunk extent (near ring + hysteresis keep + dormant depth)
+            // is what the streamer may RETAIN loaded; LOD must never cull those.
+            extent = Mathf.Max(extent, (_streamer.NearRingRadius + 1 + _streamer.DormantRingDepth) * streamSize);
+        }
+        return extent;
     }
 
     private void ApplyBand(ChunkEntry chunk, int band)

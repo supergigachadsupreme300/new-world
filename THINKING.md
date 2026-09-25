@@ -15,6 +15,62 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1gh — "chunk -8_3 is invisible for no reason" (FIXED by the cull invariant — play-test pending)
+
+### The report
+Inside the 1gg window, the user reported terrain chunk `-8_3` (world x ≈ -240..-210, z ≈ 90..120;
+Chebyshev ring 8 from the platform) is invisible. Asked two discriminating questions: the GameObject
+`TerrainChunk_-8_3` **exists but is invisible** (ruling out a never-finalized chunk), and console
+generation-failure spam is unknown/not noticed.
+
+### Hypothesis 1 — "the chunk never finalized (corrupt tc_-8_3.dat save → infinite retry)" → REJECTED
+`BackgroundGenerateChunk`'s catch re-enqueues every poll, so a persistent failure would mean NO real
+chunk — but the user confirmed the GameObject exists. Far cells only exist beyond the near ring, so a
+missing real chunk inside ring 8 would be a bare hole; that matches the FALL-THROUGH symptom but NOT
+"exists but invisible". Ruled out by the user's hierarchy check.
+
+### Hypothesis 2 — "the LOD sweep cull hides a chunk the streamer still retains" → CONFIRMED (the trigger)
+`ChunkLodManager.Update` hides (whole-root `SetActive(false)`) any registered chunk beyond
+`EffectiveCullDistance`. The old formula: `max(CullDistance, (RenderDistance.Radius + 1) * ChunkSize)`.
+Evidence:
+- The streamer LOADS real chunks out to `NearRingRadius` 9 and KEEPS them through ring 10 (hysteresis
+  + dormant depth). The LOD cull term is driven by the scene's `RenderDistance` asset only.
+- With a small asset (e.g. radius 7 → cull 240 m), a ring-8 chunk at ~250 m IS inside the retained
+  real-chunk band but BEYOND the cull → sweep deactivates it.
+- No far cell exists inside the near ring (`FarCellForChunk` span-1 requires ring ≥ near+1), so no
+  cover replaces it → invisible hole.
+- `SetActive(false)` also kills the collider — consistent with the 1gg fall-through report at the
+  same frontier.
+- The class default radius (30 → 930 m cull) makes this invisible at defaults, which is why it
+  presents as "this ONE chunk is gone for no reason" only around ring 8-9 whenever the scene asset is
+  small -- exactly where -8_3 sits.
+
+### Hypothesis 3 — "coarse far cell z-fights/obscures the real chunk at rings 6-9" → LEFT OPEN
+The span-6 far cell covering rings 6-12 draws coarse ground under live real chunks at the frontier;
+the 1es-era shadow re-scan was scoped to span-1 rims. If the real chunk were OVERDRAWN it would
+FLICKER, not sit consistently invisible — and the user said invisible. Not needed once H2 is fixed,
+but if H2's fix shows no change, this is the next suspect (would present as widespread frontier
+flicker, not a single chunk).
+
+### Why the fix is the invariant, not a band-aid
+`EffectiveCullDistance` now floors at `max(CullDistance, (Radius+1)*30, (NearRingRadius + 1 +
+DormantRingDepth)*30)`: LOD may only hide a real chunk where a coarse far cell LEGITIMATELY takes
+over (beyond the near ring); inside the near ring the real chunk is the sole surface for its cell. At
+full render distance the floor is dominated by the render term (no behavior change); at small
+distances the retained ring-8/9 frontier can no longer be culled, and dormant chunks were already
+skipped by the sweep.
+
+### Diagnostics so it is never a guessing session again
+`WorldStreamer.ChunkDiagnostics(tc)` (public, reuses the private `FarCellForChunk` + live-sector
+check) plus `ChunkLodManager.BandIndexOf(root)` feed a `NewWorldTestGround.EnableChunkDiagnostics`
+overlay line for `ChunkInspectX/Z` (default -8/3): real loaded/dormant/absent, root active, renderer+
+mesh, Lod1/Lod2 on/off, LOD band, collider, far owner live/MISSING. Read-only; no world writes.
+
+### 1gh verdict
+H1 rejected (user check), H2 confirmed and fixed by the cull invariant, H3 held open as a fallback
+suspect. Diagnostic line shipped for confirmation. Status OPEN until play-test confirms ring-8/9
+ground returns with a small render distance.
+
 ## 1gg — "player can fall right through the ground with the collider not loading" (FIXED — play-test pending)
 
 ### The report

@@ -316,6 +316,14 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   each scan tick instead of only reacting to band *changes*) — deformation never renders a
   pre-excavation hole, and near-band chunks never pay for LOD at all. Physics is untouched (the
   collider lives on the root and rides the full mesh, §2.5 collider-on-demand).
+- **Cull invariant (1gh):** the sweep's `EffectiveCullDistance` can never hide a real chunk the
+  streamer is the ONLY surface for. It floors at the streamed real-chunk extent —
+  `max((Radius+1)*30, (NearRingRadius + 1 + DormantRingDepth)*30)` — because far cells only exist
+  BEYOND the near ring (§2.3 far shell): with a small render-distance asset the render term alone
+  used to dip below the near ring (e.g. radius 7 → 240 m < ring-8/9 chunks at ~250 m), so the sweep
+  `SetActive(false)`-ed loaded ground that no far cell covered — a real invisible hole, with its
+  collider silently gone too. A chunk at < near ring is now never culled; beyond the near ring the far
+  cell is the cover, and dormant chunks are skipped by the sweep entirely.
 - **Transient-object pooling (1e6):** the generic `ObjectPooler` (Phase 9, previously unused) is now
   live on the boot root and backs the high-churn cosmetic spawns — spell **impact VFX** (the
   direct-hit `ImpactEffectPrefab` path) and the **excavation debris** burst from `SpawnCraterDebris`
@@ -418,7 +426,11 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   finalize, colliders, far scan vs far finalize, props, rebuild drain) + rolling worst-poll peaks +
   heavy-poll count, and the `ChunkLodManager` band-sweep ms — so a long-sprint hitch shows on screen
   WHICH stage ate the frame. Read-only; it never touches the world, the platform, or the streamer's
-  budget behavior.
+  budget behavior. Since `1gh` the optional `EnableChunkDiagnostics` (default **on**) adds a single
+  line for `ChunkInspectX/Z` (default the reported chunk −8/3): real load state (loaded/dormant/
+  absent), root GameObject active, renderer+mesh present, `Lod1`/`Lod2` children on/off, LOD band,
+  collider, and the far cell that owns it (live or MISSING) — one screenshot resolves any
+  "chunk invisible for no reason" report.
 
 ### 2.8 Physics Integrity Guard Rails
 
