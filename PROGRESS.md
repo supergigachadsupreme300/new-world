@@ -3,6 +3,42 @@
 Last updated: 2026-09-26. Read this first in a new session; then continue with the
 `# OPEN TASKS` section.
 
+## 1hp. Test lane - the three faith NPCs stood on the platform with their feet 0.915 m under it
+
+The last item of the church/shrine rebuild (`1hm–1hp`). Reasoning trail: `THINKING.md` §1hm–1hp.
+
+**What was wrong** (`NewWorldTestGround.SpawnReligion`): all three worship NPCs were placed with
+their root at bare `PlatformTopY`, but the `MapBuilder` rigs are authored around a **body origin** —
+the taoist's shoes are at local `y −0.88` with height 0.07, so the rig's lowest point is **0.915 m
+below its root**. Every one of the three stood sunk to the knees in the platform. Two further
+placement faults in the same lane, both consequences of the structures' real footprints:
+- the **taoist at 8.6 m south of the shrine** stood **on the shrine's new stair** (1ho's treads run out
+  to `z = −9.6` on site);
+- the **monk at 2 m west of the pagoda's centre** stood **inside the pagoda's 14 m podium**, and faced
+  `Euler(0, −90, 0)` — i.e. **away** from the pagoda.
+
+### 1hp-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build). `NewWorldTestGround.cs`
+  braces 146/146, `StandOnGround` defined once and called 3 times, and no other lane places a faith NPC.
+- `StandOnGround(npc, groundY)` **measures** the rig's lowest renderer bound and drops the root so the
+  feet land on the ground — deliberately **not** a hardcoded `0.915`, because only the rig knows where
+  its own lowest block is and a literal would silently go stale the next time a shoe or hem moves. It
+  also survives a rig that later gains a skirt or a longer robe.
+- Moved: taoist to `z = −50.5` (2.9 m clear of the stair foot, still facing the shrine), monk to
+  `x = cx − 39.5` at the pagoda's own `z` and turned to `Euler(0, 90, 0)` so he faces the pagoda. The
+  priest was already clear of the church and already facing it — unchanged apart from the height.
+- **Out of scope, recorded not fixed (rule 4 — the legacy world is not this project's test surface):**
+  `WorldBuilder.CreateWorld` places the same three NPCs at `y 0.93 / 0.93 / 1.815` against
+  `ShrineBasePos`/`ChurchBasePos`/`PagodaBasePos` at `y 0`, so if the legacy ground under those spots
+  is at those values the legacy NPCs are sunk by the same 0.915 m. Not verified (needs a legacy-world
+  play-test) and deliberately untouched.
+- PENDING PLAY-TEST (fresh test platform, `EnableReligion`): all three faith NPCs stand **on** the
+  platform with their shoes touching it (previously knee-deep); the taoist is on flat ground south of
+  the shrine's stair, not on a tread; the monk is off the pagoda's podium and **facing** the pagoda;
+  each NPC's interaction trigger still reaches the player (the rigs' trigger boxes are authored in the
+  same body-origin frame, so they move up with the figure — check the priest and monk can be talked to
+  without standing on top of them).
+
 ## 1ho. Shrine rebuild - single-storey hall, Three Pure Ones, ridge lantern (task 3 of the church/shrine rebuild)
 
 Finishes the rebuild the user asked for ("redo the taoist temple", "Taoism has 3 gods, so 3 statues

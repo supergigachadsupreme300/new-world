@@ -1754,7 +1754,11 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
   ends, a ridge lantern straddling the ridge, and the Three Pure Ones on a rear dais with a yin-yang back
   wall, offering altar and tripod censer). Exclude-radii were raised (church 15, shrine 14)
   and the worship NPCs stand in front of each entrance (priest west of the church, taoist south of the
-  shrine).
+  shrine). **Test-lane NPC heights (1hp)**: the `MapBuilder` faith rigs are authored around a **body
+  origin** (shoes at local `y −0.88`), so a root placed at the ground plane sinks them to the knees —
+  0.915 m for all three. `NewWorldTestGround.StandOnGround` **measures** each rig's lowest renderer
+  bound and drops the root so the feet rest on the platform, so no literal 0.915 can go stale. The
+  taoist stands 2.9 m clear of the shrine's stair foot and the monk off the pagoda's podium, facing it.
 - **Church rebuild (1hn)** — the church is now authored on one explicit datum ladder, so every block's
   support is readable in the source and none of the previously reported gaps remain:
   `slab 0.35 → terrace cap 0.40 → nave floor 0.50 → wall plinth 1.10 → wall band 4.30 → cornice 4.60

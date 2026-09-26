@@ -679,17 +679,47 @@ public sealed class NewWorldTestGround : MonoBehaviour
         float cx = PlatformCenter.x;
         float cz = PlatformCenter.z;
 
+        // The three NPCs stand on the platform, not on a structure: the taoist 2.9 m
+        // clear of the shrine's stair foot (the rebuilt shrine's treads run to
+        // z = -9.6 on site) and the monk 9.5 m west of the pagoda's centre, outside
+        // its 14 m podium, which he was previously standing inside.
         wb.BuildShrine(new Vector3(cx - 30f, baseY, cz - 38f));
-        var taoist = MapBuilder.BuildTaoistNpc(wb.WorldRoot.transform, new Vector3(cx - 30f, baseY, cz - 46.6f), Quaternion.identity);
+        var taoist = MapBuilder.BuildTaoistNpc(wb.WorldRoot.transform, new Vector3(cx - 30f, baseY, cz - 50.5f), Quaternion.identity);
+        StandOnGround(taoist, baseY);
         taoist.AddComponent<TaoistPriestNPC>();
 
         wb.BuildChurch(new Vector3(cx + 30f, baseY, cz - 35f));
         var priest = MapBuilder.BuildPriestNpc(wb.WorldRoot.transform, new Vector3(cx + 17.5f, baseY, cz - 35f), Quaternion.Euler(0f, 90f, 0f));
+        StandOnGround(priest, baseY);
         priest.AddComponent<PriestNPC>();
 
         wb.BuildPagoda(new Vector3(cx - 30f, baseY, cz + 44f));
-        var monk = MapBuilder.BuildMonkNpc(wb.WorldRoot.transform, new Vector3(cx - 32f, baseY, cz + 46f), Quaternion.Euler(0f, -90f, 0f));
+        var monk = MapBuilder.BuildMonkNpc(wb.WorldRoot.transform, new Vector3(cx - 39.5f, baseY, cz + 44f), Quaternion.Euler(0f, 90f, 0f));
+        StandOnGround(monk, baseY);
         monk.AddComponent<PagodaMonkNPC>();
+    }
+
+    /// <summary>
+    /// Drop a block-built NPC so its FEET rest on <paramref name="groundY"/>. The rigs are
+    /// authored around a body origin - head at local +0.52, shoes at local -0.88 - so a root
+    /// placed at the ground plane sinks the figure to the knees: 0.915 m for all three faith
+    /// NPCs. Measured, never hardcoded: only the rig knows where its own lowest block is, and a
+    /// literal 0.915 here would silently go stale the next time a shoe or a hem moves. Renderer
+    /// bounds are read after the hierarchy is built, so this also survives a rig that later gains
+    /// a skirt or a longer robe.
+    /// </summary>
+    private static void StandOnGround(GameObject npc, float groundY)
+    {
+        if (npc == null) return;
+        var renderers = npc.GetComponentsInChildren<Renderer>();
+        float minY = float.MaxValue;
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] == null) continue;
+            minY = Mathf.Min(minY, renderers[i].bounds.min.y);
+        }
+        if (minY == float.MaxValue) return;
+        npc.transform.position += Vector3.up * (groundY - minY);
     }
 
     private void SpawnNpcs()

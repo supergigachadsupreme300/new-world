@@ -15,7 +15,7 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
-## 1hm–1hp — "redo the taoist temple and the church; the church has gaps in the structure; Taoism has 3 gods, so 3 statues not 1" — 1hm + 1hn + 1ho shipped, 1hp queued (section stays OPEN until 1hp ships)
+## 1hm–1hp — "redo the taoist temple and the church; the church has gaps in the structure; Taoism has 3 gods, so 3 statues not 1" — SHIPPED (1hm helpers, 1hn church, 1ho shrine, 1hp test-lane NPC heights); pagoda deferred by the user
 
 User request, three parts: redo the Taoist temple, redo the church, and put **three** statues in the
 Taoist temple instead of one. The user declined the rule-7 measurement lane (the gaps are provable
@@ -226,6 +226,20 @@ contain their own geometry. Also corrected the church table's comment, which cla
 used for damage volumes, never for placement" — it is used by the placement test; there are no damage
 volumes at all.
 
+### 1hp — whose datum is the NPC's feet? (the last item of 1hm–1hp)
+The queued fix said "raise the three faith NPCs by 0.915 m". **Rejected as stated**, for the reason
+rule 8 exists: 0.915 is a *number copied out of a rig* (`shoes at local y −0.88`, height 0.07), and a
+copy is only correct until its source moves. The honest fix is to ask the rig where its own lowest
+point is — `StandOnGround` reads `Renderer.bounds.min.y` over the built hierarchy and drops the root
+by `groundY − minY`, so the figure's feet land on the platform *by construction* and a future skirt or
+a taller hem changes nothing. Two more faults in the same three lines, both only visible once you ask
+what the structures' footprints actually are: the taoist at 8.6 m south of the shrine was standing **on
+1ho's new stair** (its treads reach `z = −9.6`), and the monk 2 m west of the pagoda's centre was
+standing **inside the pagoda's 14 m podium** and facing `Euler(0, −90, 0)` — away from the pagoda he
+belongs to. `WorldBuilder.CreateWorld` places the same three NPCs at `y 0.93/0.93/1.815`, which is
+*probably* the same 0.915 m sink in the legacy world, but the legacy ground height there is unverified
+and rule 4 keeps this project off the legacy village — recorded, not touched.
+
 ### Open / not done
 - **Pagoda butterfly roofs + `Roof1`'s centre cap floating 0.57–1.44 m over its own panels** — a real
   defect of the same class, found while auditing, **deferred by the user's choice**. Recorded as a
@@ -237,7 +251,8 @@ volumes at all.
   compromise, not an oversight.
 - The three faith NPCs in the test lane are sunk 0.915 m into the platform (`NewWorldTestGround.cs:682`
   places the roots at bare `baseY`; every rig puts its feet 0.915 m below the root, `MapBuilder.NPCs.cs`
-  `:203/258/313`). Queued as 1hp.
+  `:203/258/313`). Queued as 1hp. → **SHIPPED in 1hp**, and the number was replaced by a measurement
+  (`StandOnGround`) rather than a literal, per rule 8.
 - **Shrine (1ho) — SHIPPED.** Single-storey hall on one datum ladder, the four tier-2 part keys
   repurposed as a ridge lantern, a real front facade with a doorway, and three Sanqing figures on a
   dais at `z = 2.20`. The gable helper gained a separate `gableHalfSpan` (see above), the interior was
