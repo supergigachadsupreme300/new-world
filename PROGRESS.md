@@ -72,6 +72,10 @@ A `VERDICT` line names the first thing that failed, so one screenshot answers th
 - Left alone deliberately: LOD children (`Lod1`/`Lod2`) and the far shell are NOT in this pass. A
   corner gap at the near/far rim is section D of the seam audit; a gap that appears only when a LOD
   band is active is a third question, and neither should be folded in before the first readout.
+- Housekeeping: the new partial also got its `WorldStreamer.CornerAudit.cs.meta` (new unique GUID),
+  because every other script in `Assets\Scripts` is tracked with one and a missing one would leave
+  untracked churn the first time the editor imports it. The class is only ever referenced by name
+  (never serialized into a scene or prefab), so no existing GUID reference is affected.
 
 ## 1hu. AGENTS rule 11 — editing the terrain RENDER algorithm must drop the resident terrain (loaded + dormant + far shell), keeping the saves
 
