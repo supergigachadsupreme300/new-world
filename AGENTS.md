@@ -38,3 +38,12 @@
    then state the verification performed (grep/reread — no build) and list the pending play-test items
    the user should check in Unity. Do not add this summary until every requested task is actually
    committed and pushed.
+
+7. **Measure before fixing a visual/geometry report.** When the user reports something you cannot see
+   from the code (gaps, holes, invisible meshes, z-fighting, popping), add a read-only on-demand
+   measurement lane to `NewWorldTestGround.cs` FIRST — one key, one number, cached on the HUD and
+   logged — and let the readout name the mechanism before changing behaviour. Ship the measurement and
+   the fix as SEPARATE tasks so the readout that justified the fix stays in history. A fix chosen
+   without a measurement is a guess: it can be correct and still change nothing, and then the real
+   cause is still unmeasured for the next attempt. Read-only means read-only: no rebuild, no patch,
+   no re-stamp, no forced poll — the report must describe the frame the key was pressed on.

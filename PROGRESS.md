@@ -1,7 +1,70 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-25. Read this first in a new session; then continue with the
-`# OPEN TASKS` section (especially the axe/pickaxe bug).
+Last updated: 2026-09-26. Read this first in a new session; then continue with the
+`# OPEN TASKS` section.
+
+## 1hj. Seam audit — measure the "gaps between terrain chunks" report before fixing it
+
+User report: **permanent see-through slits/holes at ground level between terrain chunks** (seen up
+close while walking, not only on a horizon). No dig, no far rim, no LOD band was named as the
+trigger — the symptom is near ground, all the time. The user approved the audit-first plan: measure,
+then pick the fix from the readout.
+
+**Why an audit and not a fix.** This codebase's seam design is watertight *by construction* (canonical
+noise re-derived per corner, exact block origins, node spacing that divides 30), so the classic
+causes are already ruled out by reading the code — which is exactly why guessing is dangerous here. A
+fix chosen without a number can be correct and still change nothing, leaving the real cause still
+unmeasured. Per new AGENTS rule 7, measurement ships as its own task so the readout that justifies the
+fix stays in history.
+
+**The four mechanisms measured** (a see-through slit is identical from the player's side in all four):
+- **A real↔real corner divergence** — the 31 shared lattice nodes of every loaded chunk pair compared
+  node-by-node. Pristine ⇒ exactly 0. Any max ⇒ one side was re-stamped by an edit its neighbour
+  never received.
+- **B loaded-but-not-drawing root** — root inactive, no mesh on the filter, vertex count ≠ the count
+  the step implies, or X/Z bounds that no longer reach the chunk's 0..30 m footprint.
+- **C interior hole** — a chunk position inside the loaded ring that is uncovered while ≥3 of its
+  orthogonal neighbours are LOADED. The streaming frontier (0 loaded neighbours) is counted
+  separately, and a non-empty ready queue is flagged as a transient caveat, so normal loading never
+  reads as a hole.
+- **D far/real rim step** — every far cell meeting the last real ring (plus the ring past it, which is
+  what catches the diagonal corner cells) has its lattice vertices compared against the real chunks
+  they meet; outer-ring chunks with no far cell beyond them are listed.
+
+**Changes:**
+- `WorldStreamer.SeamAudit()` + helpers (`AuditRealToReal`, `CompareSharedEdge`, `AuditRoots`,
+  `AuditInteriorHoles`, `AuditFarRim`) in the NEW `Assets\Scripts\World\Streaming\
+  WorldStreamer.SeamAudit.cs` (partial class, + .meta). Returns a 5-line report (header + A–D +
+  VERDICT) where VERDICT names the first section that failed. Strictly read-only — no rebuild, no
+  patch, no re-stamp, no forced poll.
+- `ChunkObject`: four read-only QA accessors — `MeshStep`, `HasLattice`, `LatticeY(gx, gz)`
+  (chunk-local 0..30, NaN when absent), `RootMesh`.
+- Test ground (rule 4): `NewWorldTestGround.EnableSeamAudit` (serialized, default true) +
+  `SeamAuditKey` (serialized, **F2** — F5–F12 are the editor cutscene shortcuts in `GameManager`,
+  F8 included, and F1 is a skill hotkey), polled at the top of `Update()` so it works regardless of
+  the other lanes' config; the report is cached in `_seamAuditText`, shown on the bench overlay
+  (needs `EnableFpsStats`) and logged to the Console. Uses the new Input System
+  (`Keyboard.current`, `UnityEngine.InputSystem`) — the project has no legacy `Input.*` calls at all.
+- Docs: `game-design.md` §2.2 now carries the **seam contract** (one owner rule per corner + the
+  four-cause table) and points at the audit; `AGENTS.md` rule 7 (measure before fixing a visual
+  report); this file; `THINKING.md` §1hj (still OPEN — no readout yet).
+
+### 1hj-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build): every member the audit
+  touches exists with a matching signature (`_loadedChunks`/`_dormantChunks`/`_pendingChunks`/
+  `_chunksInFlight`/`_readyChunks`/`_farSectors`/`_focus`, `EffectiveLowPolyStep`, `NearRingRadius`,
+  `RenderDistance`, `FarCellForChunk`, `FarCellRings`, `FarSectorStep`, `FloorDiv`, `ChunkData.Size`,
+  `FarCell`); `FarCellForChunk` used as-is (no duplicate lookup helper added); far-mesh node step read
+  from `FarSectorStep` rather than hard-coded; world offsets use `ChunkData.Size`; the real ring
+  extent (0..`keep = NearRingRadius+1`) confirmed from `StreamAround` (`int keep = radius + 1`) so the
+  hole scan cannot flag the far shell's own frontier.
+- **ROOT CAUSE STILL UNKNOWN** — this task ships the measurement only. The fix (1hk) is chosen from
+  the user's readout, per the audit-first plan.
+- PENDING PLAY-TEST: stand near a reported gap (inside the loaded ring) and press **F2**; screenshot
+  the bench overlay. Expected on a healthy world: `A worst dY 0`, `B bad 0`, `C interior 0`,
+  `D missing 0 / noFarCell 0 / worst dY 0` and a `VERDICT clean` line. Which of A–D is non-zero
+  names the mechanism for 1hk. (Also confirm F2 does not collide with a gameplay binding; F2 is free
+  in the codebase today, and `SeamAuditKey` is repointable in the inspector.)
 
 ## 1hi.2. Regression fix: the low-poly root, LOD children and decimated collider were wound BACKWARDS
 
@@ -3297,7 +3360,9 @@ Companion docs: `game-design.md` (design), `GAME_DESCRIPTION.md` (player pitch).
 ---
 ## # OPEN TASKS
 
-- **Axe/pickaxe bug** (from earlier sessions) — still open; see older entries below.
+- **Axe/pickaxe bug** — the CODE fix shipped 2026-09-11 (see "Fix applied 2026-09-11" further down:
+  lazy tree/rock registration + chunk-parent walk-up for the infinite-world spawn path). The only
+  thing left is the **Unity play-test** (chop a tree, mine a rock). No known code gap.
 - ~~**Performance sweep (1ea)**~~ — **SHIPPED** (entry at top): render config (SSAO/MSAA/opaque-copy off,
   1024×2-cascade shadows), change-driven collider reconcile + cook budget, alloc-free dispatch, O(1)
   modified-tile set, rolling LOD burst, POI-scan gate, bench overlay. Open follow-ups: **play-test the

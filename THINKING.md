@@ -15,6 +15,98 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1hj — "permanent see-through slits/holes at ground level between terrain chunks" — **OPEN** (audit shipped, no readout yet)
+
+User report, in their own framing: the terrain has **permanent gaps/holes you can see through when
+you are up close**, not a distant-horizon artefact and not something that follows a dig. Asked what
+triggers it they declined to pick from my menu (dig / far rim / LOD band / moving), which is itself
+information: the symptom is *always* there, near ground.
+
+### Where I started: the design says this cannot happen — which is exactly the trap
+Re-read the seam path end to end and it is watertight **by construction**:
+- **One owner per corner.** Pristine heights come from the 5-octave Perlin surface sampled at world
+  corner positions (§2.3), NOT from the neighbour's mesh. `BuildCornerGrid` stamps a 31x31 lattice per
+  chunk from canonical noise + persisted whole-corner edits. Neighbour A and neighbour B at a shared
+  world tile run the same function on the same inputs ⇒ the same float.
+- **Exact placement.** A chunk's root GO sits at `chunk.X * 30 m` (1el fixed the span-cell
+  misplacement), so node (30, k) of chunk (cx, cz) *is* node (0, k) of chunk (cx+1, cz) in world
+  space, not approximately.
+- **Node spacing divides 30.** `EffectiveLowPolyStep` rejects any step that does not divide 30 (only
+  1/2/3/5/6/10/15/30 survive, in practice 3), LOD children use 2 m, the smooth root is 1 m. No
+  T-junction can be created by a mismatched step.
+- **Mesh pooling is whole-mesh.** `AcquireChunkMesh`/`ReleaseChunkMesh` re-specify every channel on
+  reuse; there is no partial/lazy upload that could leave half a chunk's geometry behind.
+
+So every "obvious" cause is already refuted by the code, and the two defects I *can* see
+(`ApplyHeightEdits` not writing corners to the owner tile at `cx-1`/`cz-1` when the bbox edge is a
+whole metre, and `CurrentHeightOf`'s half-tile noise fallback) only bite **after a dig**. The user
+did not report a dig. **That is the whole reason I refused to just fix those two**: a correct fix for
+a cause that isn't the cause is indistinguishable from a no-op, and it burns the session's only real
+instrument — the user's eyes on the gap.
+
+### Hypotheses carried into the audit (each is a mechanism the readout can name, not a belief)
+- **A — corner divergence.** A deformed chunk's lattice disagrees with its neighbour's at a shared
+  world tile ⇒ a slit along the boundary. *Pro:* the seam is a *slit*, which is what a lattice
+  mismatch looks like. *Against:* only reachable via an edit, and the user named no edit. **OPEN.**
+- **B — short/hidden root.** 1hi.1/1hi.2 rewrote the real-chunk root twice (coarse lattice surface,
+  then a winding fix) and `PatchRegion` re-samples the *whole* root from the lattice
+  (`ResampleLowPolySurface`) on every patch. A bad re-sample or a stale LOD/collider interaction
+  could leave a root that renders a partial footprint — "hole where a chunk should be" without any
+  lattice problem. *Pro:* recent root rewrites; the symptom is "at ground level" (a partial top face
+  with a side wall missing shows sky under the lip). *Against:* unverified. **OPEN.**
+- **C — interior hole.** A chunk position in the loaded ring with nothing in it. *Pro:* streaming is
+  dictionary-driven, and `StreamAround`'s unload/demote/dormant handoff has several passes; a
+  mis-ordered demote could leave a ring-`keep` position with neither a real chunk nor a live far cell.
+  *Against:* the user says permanent and visible from ground level, which suggests looking *down* —
+  consistent. **OPEN.**
+- **D — far/real rim step.** The far shell is built from the same canonical noise at 3 m, so an
+  *undeformed* rim is seamless; a dug chunk at the rim would step. *Against:* the user is near ground
+  and did not name the rim. **OPEN, low prior.**
+- Also carried, rejected: **backface/winding** (1hi.2 already fixed the whole lattice family, and a
+  one-sided backface reads as "invisible from above", not "see-through hole"); **LOD band** (Lod1/Lod2
+  are decimations of the same lattice and always meet the neighbour at the shared boundary — and the
+  user would have named the 30–270 m band, not the ground underfoot); **z-fighting** (a coplanar seam
+  sparkles, it doesn't look through).
+
+### Why the audit is shaped the way it is
+- **Read-only, hard line.** No rebuild, no patch, no re-stamp, no forced poll. A measurement that
+  perturbs the thing it measures is worthless: the number would describe the audit, not the frame.
+- **Node-by-node, not per-tile.** A corner mismatch is a *node* property; comparing rendered vertices
+  would fold two 3 m facets into one number and hide a 1-node slit.
+- **A skipped node must never read as a passing node.** Voxel chunks have no lattice, so they are
+  counted (`noLattice`) and excluded rather than silently contributing 0.
+- **Section C's hole test is deliberately biased against false positives.** A position is a hole only
+  if ≥3 orthogonal neighbours are LOADED. The streaming frontier has unloaded neighbours by
+  definition, and a chunk sitting in `_readyChunks` is in neither `_pendingChunks` nor
+  `_chunksInFlight` for one poll — a weaker test would flag normal loading as a hole and train me to
+  ignore the section. A non-empty ready queue prints an explicit transient caveat instead.
+- **Section D scans ring `keep` as well as ring `near`**, because the far cell covering the diagonal
+  chunk `(cx+1, cz+1)` is no axis-neighbour of any ring-`near` chunk — a missing *corner* cell is the
+  most visible hole of all, and it is exactly the one an axis-only scan misses.
+- **Far-mesh reads are guarded** (`isReadable`) and the far step comes from `FarSectorStep` rather
+  than a hard-coded 3, so the audit follows the pipeline instead of a snapshot of it.
+- **One number per mechanism + a VERDICT line**, listed offenders capped at 6 per section: a readout
+  that names a few offenders is a screenshot; one that names 400 hides them.
+
+### Dead end worth recording
+- I started to add a public `TryGetFarCellForChunk` helper to the streamer. `ChunkDiagnostics`
+  (1gh) already answers exactly that question for a single coord, and the audit can call the private
+  `FarCellForChunk` directly as part of the same partial class. **Dropped it** — a second public way
+  to ask the same thing is future drift, not feature.
+- The user's chosen key was **F8**; F8 is bound to an editor cutscene ending in `GameManager`
+  (`#if UNITY_EDITOR`, F5–F12 all taken, F1 is a skill hotkey). Kept the key serialized, defaulted to
+  **F2** (free in the codebase today), and used the **new Input System** — this project has zero
+  legacy `Input.*` calls, so `Input.GetKeyDown` was not even an option.
+
+### Verdict: OPEN
+Measurement shipped in 1hj; **the mechanism is not yet identified.** Next: the user presses F2 at a
+gap and sends the readout. A→ fix the owner-write defect in `ApplyHeightEdits`/`CurrentHeightOf`.
+B→ fix the root re-sample/activation path. C→ fix the demote/dormant handoff. D→ fix the far/real
+handoff. Verdict stays open until then — and the THINKING 1hj trail is the only place that says
+"likely A" out loud, because that is a guess, not implemented behavior.
+
+---
+
 ## 1hi.2 — "the chunk around the player is upside down, invisible from the top, visible from below, and the player falls right through"
 
 ### Hypothesis A — "the 1hi.1 root winding is back-facing" — CONFIRMED (shipped in 1hi.2)

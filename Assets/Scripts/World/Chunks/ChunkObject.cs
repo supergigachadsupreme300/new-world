@@ -201,6 +201,38 @@ public class ChunkObject : MonoBehaviour
     /// coarse (stand exactly on the visual facets), else the standard 2 m decimation.</summary>
     private int ColliderStep => _meshStep > 0 ? _meshStep : ColliderDecimation;
 
+    // --- QA read-only accessors (1hj) ---
+    // The terrain seam audit (WorldStreamer.SeamAudit) compares a chunk's own corner lattice against
+    // its neighbours' — and against the far cells at the rim — to measure the "gaps between chunks"
+    // report instead of guessing at it. Strictly read-only: nothing here mutates chunk state, and
+    // every accessor is null/NaN-safe so the audit can walk a half-torn-down streamer.
+
+    /// <summary>Coarse facet step this chunk's root mesh was built at (0 = full 1 m surface).</summary>
+    public int MeshStep => _meshStep;
+
+    /// <summary>True when this chunk carries a 31x31 world-corner lattice (smooth / low-poly terrain
+    /// chunks). Voxel chunks build their own stepped mesh and have none.</summary>
+    public bool HasLattice => _merged.Corners.Y != null;
+
+    /// <summary>
+    /// Height (world metres) of one node of this chunk's 31x31 world-corner lattice, addressed by
+    /// CHUNK-LOCAL lattice coords gx/gz in 0..30 — the same addressing <c>BuildCornerGrid</c> stamps,
+    /// so node (30, k) is the chunk's east edge row and (k, 30) its north edge row. Returns NaN when
+    /// the lattice is absent or the index is out of range, which the audit skips.
+    /// </summary>
+    public float LatticeY(int gx, int gz)
+    {
+        float[] y = _merged.Corners.Y;
+        if (y == null)
+            return float.NaN;
+        int idx = gz * TerrainChunkCoord.CornerGridSize + gx;
+        return idx >= 0 && idx < y.Length ? y[idx] : float.NaN;
+    }
+
+    /// <summary>The chunk's live root mesh (what its MeshFilter and MeshCollider point at), or null
+    /// before the first apply / after release.</summary>
+    public Mesh RootMesh => _mf != null ? _mf.sharedMesh : null;
+
     // 1e6: LOD children. Each chunk builds two decimated grid meshes ("Lod1"/"Lod2" children, name
     // matched by ChunkLodManager's band DetailNames) sampled from its own merged top-terrain block,
     // so the far bands render ~1/4 ("Lod1", every 2nd tile) to ~1/9 ("Lod2", every 3rd tile) of the

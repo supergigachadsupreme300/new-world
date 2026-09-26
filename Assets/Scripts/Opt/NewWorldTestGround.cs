@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// Testing ground for the open world. Drop this ONE component on a GameObject and it builds an
@@ -86,6 +87,11 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public int ChunkInspectX = -8;
     [Tooltip("QA (1gh): chunk coords inspected by the diagnostics line (the coords of the reported monster/relic chunk −8_3 in chunk-space, X −8, Z 3).")]
     public int ChunkInspectZ = 3;
+    [Tooltip("QA (1hj): press SeamAuditKey to run the WorldStreamer's read-only terrain seam audit — the worst shared-corner height mismatch across every loaded chunk pair, loaded roots that are hidden / mesh-less / vertex-short, interior load holes, and whether the far cells at the real/far rim still agree with the real chunks they meet. For any 'gaps between the terrain chunks' report: one screenshot separates the four possible causes instead of a guessing session. Read-only; needs EnableFpsStats on to display.")]
+    public bool EnableSeamAudit = true;
+    [Tooltip("QA (1hj): key that runs the terrain seam audit. Defaults to F2 because F5-F12 are already taken by the editor cutscene shortcuts in GameManager (F8 fires a cutscene ending) and F1 is a skill hotkey. Repoint it here if you prefer another key — the audit is opt-in and off the player's bindings either way.")]
+    public Key SeamAuditKey = Key.F2;
+    private string _seamAuditText;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
@@ -867,6 +873,15 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     private void Update()
     {
+        // (1hj) terrain seam audit — first thing in Update so the key works no matter how the rest
+        // of the bench lanes are configured, and never depends on the streamer's poll coroutine.
+        if (EnableSeamAudit)
+        {
+            Keyboard kb = Keyboard.current;
+            if (kb != null && kb[SeamAuditKey] != null && kb[SeamAuditKey].wasPressedThisFrame)
+                RunSeamAudit();
+        }
+
         RunPendingPlayerGrants();
         if (!EnableWeapons || _rackStands.Count == 0) return;
         var gm = GameManager.Instance;
@@ -899,6 +914,31 @@ public sealed class NewWorldTestGround : MonoBehaviour
             string name = weapon != null && !string.IsNullOrEmpty(weapon.displayName) ? weapon.displayName : nearStand.WeaponId;
             prompt.ShowPrompt(Localization.F("E - {0}", name), 0.2f);
         }
+    }
+
+    /// <summary>
+    /// QA lane (1hj): run the streamer's read-only terrain seam audit and cache the report for the
+    /// bench overlay (also logged to the Console, since it is multi-line). Measures what a "gaps
+    /// between the chunks" report cannot be eyeballed for: the worst shared-corner height mismatch
+    /// over every loaded chunk pair, loaded roots that are not drawing their full 30 m, interior
+    /// load holes, and whether the far cells at the rim agree with the real chunks they meet.
+    /// Read-only — it never rebuilds, patches or re-stamps anything, so a report describes exactly
+    /// the frame the key was pressed on. Stand near the gap (or anywhere inside the loaded ring)
+    /// and press the key: sections A-D each name one mechanism, and the VERDICT line names the first
+    /// one that failed.
+    /// </summary>
+    private void RunSeamAudit()
+    {
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (streamer == null)
+        {
+            _seamAuditText = "seam audit: no WorldStreamer in the scene";
+            Debug.LogWarning("[NewWorldTestGround] " + _seamAuditText);
+            return;
+        }
+
+        _seamAuditText = streamer.SeamAudit();
+        Debug.Log("[NewWorldTestGround] " + _seamAuditText);
     }
 
     /// <summary>
@@ -1194,6 +1234,12 @@ public sealed class NewWorldTestGround : MonoBehaviour
                     }
                     stats += diag;
                 }
+
+                // (1hj) the seam-audit report stays on the HUD until the next press, so a screenshot
+                // taken after walking up to the reported gap still shows the numbers for where the
+                // player was standing when the key was pressed.
+                if (EnableSeamAudit && !string.IsNullOrEmpty(_seamAuditText))
+                    stats += "\n" + _seamAuditText;
 
                 _fpsText.text = stats;
             }

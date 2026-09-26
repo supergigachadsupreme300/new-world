@@ -53,6 +53,31 @@ SW ────────── SE
   sub-quad grid instead of one quad — same smooth heightfield, but steep slopes split into several
   smaller faces so the corner-grab editor (§3.8) can bite them level by level.
 
+**Seam contract (ownership + audit).** A corner is owned by exactly ONE rule, and that rule is a
+pure function of world position: the canonical Perlin surface (§2.3) plus whatever whole-corner
+edits are persisted for it (§2.6). A neighbour is never asked "what height did you end up with" —
+it re-derives the same number itself. Every chunk is then placed at its exact block origin
+(`chunk.X * 30 m`) on a lattice whose node spacing divides 30 (3 m facets, 2 m LOD, 1 m tiles), so
+two adjacent chunks sample identical nodes at identical world tiles. **Consequence: a pristine
+world is seam-free by construction, and any see-through gap has exactly one of four causes:**
+
+| # | Cause | What it means |
+|---|-------|--------------|
+| A | **Corner divergence** — a chunk's lattice was re-stamped by an edit that never reached its neighbour | the two surfaces part by a sliver along a shared boundary |
+| B | **Short/hidden root** — the chunk is loaded but does not draw its whole 30 m (inactive root, missing mesh, vertex- or bounds-short rebuild) | ground is missing where a chunk is supposed to be |
+| C | **Interior hole** — a chunk position inside the loaded ring holds nothing at all | not a seam: a chunk never arrived, or was dropped |
+| D | **Far/real rim step** — the far-shell cell meeting the last real ring renders its own heights | a step at the near/far boundary, both meshes locally correct |
+
+`WorldStreamer.SeamAudit()` measures all four on demand (§2.7 test ground, `EnableSeamAudit` +
+`SeamAuditKey`, F2 by default) from the live chunk dictionaries and the uploaded far-cell meshes: A
+compares the 31 shared nodes of every loaded pair, B checks root active state + vertex count + X/Z
+bounds against the chunk it stands for, C scans the loaded ring for uncovered positions with ≥3
+loaded neighbours (the streaming frontier and the ready queue are excluded, so normal loading never
+reads as a hole), D compares far-cell lattice vertices against the real chunks they meet. It is
+strictly read-only and is a QA readout, **not** a load-path validator — a per-chunk cross-chunk
+comparison would serialise the poll, and correctness stays with the per-chunk build/accept step.
+
+
 ### 2.3 Perlin Noise Layers (5 octaves)
 
 Heights generated using **multiple octaves of Perlin noise**, each layer contributing to final terrain shape:
