@@ -3,6 +3,88 @@
 Last updated: 2026-09-26. Read this first in a new session; then continue with the
 `# OPEN TASKS` section.
 
+## 1hn. Church rebuild - every structural gap closed on one datum ladder (task 2 of the church/shrine rebuild)
+
+Continues 1hm (helpers, no call sites). This commit is the first **call site** for all three helpers, and
+the proof that stating geometry by its support makes the gaps unauthorable rather than merely fixed.
+Reasoning trail and the hand-derived defect list: `THINKING.md` §1hm–1hp.
+
+**What was actually broken** (re-derived by hand from the authored coordinates, not guessed): the nave
+roof covered only `z ±4.02` of a nave whose walls are at `z ±6.15` (≈4.3 m open at each end); the spire
+roof was centred near `z = 0` while the belfry and spire stood at `z = −6.2` (the spire had **no** roof
+over it and a 1.00 m vertical gap); the ridge beam floated ~0.45 m above the panels and the eave bars
+~2.46 m outside them; both side walls had a 0.50 m slot under them and ~0.425×0.475 m holes at all four
+corners; 12 pillar bases, 6 pews, the altar (1.02 m), the buttresses (0.50 m), the rear buttresses (off
+the podium entirely), the nave floor (0.08 m), the censer-equivalent internals and the spire stages
+(0.15/0.05 m) all floated; and the stained glass was **buried inside** the solid wall slabs, so six
+windows showed nothing. A prior sub-agent's claim that the roof panels interpenetrate by 4.43 m was
+checked by hand and **rejected** — the panels met correctly at the ridge; that item was not "fixed".
+
+**Changes — `WorldBuilder.Blueprints.cs` `BuildChurchPart` (all 13 cases) + `WorldBuilder.cs`
+`_churchSubBuildings`:**
+- One datum ladder, named as consts at the top of the method, y = 0 at the platform top:
+  `slabTop 0.35 → capTop 0.40 → floorTop 0.50 → plinthTop 1.10 → wallTop 4.30 → corniceTop 4.60
+  (the roof's bearing) → ridge underside 7.35`. Every block is now a `CreatePartBoxOn` call, so its
+  support is the previous line's named top.
+- All 13 `_churchSubBuildings` offsets are now `Vector3.zero` and the geometry is authored in **site
+  coordinates**; the declared `Size` fields are the rebuilt truth (documentation only — nothing reads
+  `Size` for these three arrays; verified by grep).
+- **Roof**: two `CreatePartPanelBetween` panels, each from an eave underside buried 6 cm in the cornice
+  at `|z| = 6.15` up to the ridge underside at `z = 0` (pitch 24.56°, `tan` = 0.4571, vertical depth
+  0.550 = `0.50·√(1+tan²)`) — the panel now spans the full nave, and the pitch cannot be written
+  backwards. A ridge cap is laid along each panel's own top surface (same helper, sunk 5 cm) instead of a
+  horizontal beam, because a horizontal beam on a peaked roof only touches along the peak line and
+  opens a gap at its own ends. Both side walls get `CreatePartGableSteps` infill built from **the same
+  eave/ridge numbers the panels were built from**, so the steps cannot drift off the real pitch.
+- **One axis**: `towerZ = −6.20` is a const shared by the tower, belfry, spire roof and spire, and the
+  spire is stacked on the spire roof's own apex (`apexY = eaveY + sprHalf·tan38°`, apex top
+  `= apexY + 0.45·√(1+tan²)`), every stage overlapping the one below by 0.10.
+- **Windows**: the side walls are a sill band (1.10–1.75), a lintel band (3.45–4.30) and seven piers,
+  which leaves **six real openings**; the glass sits in the hole with gold sill/head/mullions and a
+  projecting stone sill. The front/back walls are solid bands, so their lancets are *applied* proud of
+  the face (5 cm proud, 30 cm deep ⇒ 10 cm buried) — stated as a rule in the code so it cannot drift.
+- **Contacts**: wall corners are closed by overlapping panels + pilasters + returns; the stair treads are
+  solid blocks from −0.05 (not thin slabs on air); the podium was extended to `z ±7.4` so the rear
+  buttresses bear on it; the buttress stages are pulled inboard far enough to stay buried in the stage
+  below; the front buttresses bear on the tower apron (widened to 7.8 for them) instead of beside it.
+- **Interior**: altar, pulpit and its two steps (the step nearest the pulpit is the taller one, so the
+  climb rises toward the platform), 12 pillars, 6 pews and 2 candles are all seated on `floorTop`.
+
+### 1hn-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build). Reread case by case against the
+  ladder and found and fixed four contact defects the first draft introduced: (a) the **front buttresses
+  were off the 7.0-wide apron** and floating over the podium; (b) the tower's **applied door, rose window
+  and side lancets were centred on the face plane** and therefore buried in the solid tower; (c) the
+  **spire's third gold ring** sat 0.9 m above the shaft; (d) the **belfry cornice and the spire panels
+  had coplanar edges** (z-fighting) until the cornice was widened to 5.60 against the panels' 5.44.
+- **Rejected on re-derivation, deliberately not "fixed":** the old roof panels' apparent 4.43 m
+  interpenetration (they met correctly); `Euler(+24)` on the +Z nave panel (a **correct** hip for a +Z
+  rise under Unity's X rotation, unlike the pagoda's `Euler(+14)`).
+- Brace-balance and duplicate-local scan of the whole file: depth 0, no duplicate declarations at method
+  or switch-section scope (the only repeats are `for`-scoped loop variables). All `CreatePartBoxOn` calls
+  use the 5-arg float overload; `CreatePartPanelBetween` is called with 7 args in 4 places (2 nave
+  panels, 2 ridge caps) and 8 for the spire pyramid's 4 panels.
+- Docs: `game-design.md` §5.7 (church rebuild + the gable-helper correction); `AGENTS.md` rule 9 already
+  covers the convention; `THINKING.md` §1hm–1hp (1hn marked resolved, two new findings recorded); this
+  file.
+- **Save caveat:** parts are stored with absolute world positions, so an **old save** re-loads these parts
+  at their pre-rebuild offsets (up to 0.5 m out) and shows a mix of old and new geometry. A fresh test
+  platform run is unaffected. Nothing migrates old saves.
+- PENDING PLAY-TEST (fresh test platform, `EnableReligion`): walk up the front steps and through the door;
+  stand inside the nave and look up at **both** roof ends — no daylight gap at `z ±6`; look at the tower
+  from the front and confirm the spire rises out of the spire roof on the same axis (previously it stood
+  beside it); check the six side windows show glass, not blank wall; check the four corners of the nave
+  at ground level; check the rear buttresses touch the podium; walk the aisle and confirm no floating
+  furniture; look into both gable ends and confirm the corbel steps close the triangle.
+- **Queued, in order:** 1ho shrine rebuild + three Sanqing statues replacing the single `Shrine_Deity`
+  figure; 1hp the three faith NPCs sunk 0.915 m into the test platform.
+- **STILL OPEN (deferred by the user's choice):** the pagoda's four roofs are authored with an inverted
+  pitch (`Euler(+14)` on the +Z panel raises the outer eave) and `Pagoda_Roof1`'s centre cap floats
+  0.57–1.44 m above its panels. Same fix as 1hn, re-author the panels through `CreatePartPanelBetween`.
+  Details in THINKING §1hm–1hp.
+- **STILL OPEN (separate, earlier):** 1hk needs a post-restart F2 check for `worst dY 0`; the terrain rim
+  discrepancy (`worst dY 9.6813`) is unaddressed and is the reserved "candidate 1hl".
+
 ## 1hm. Bottom-referenced geometry helpers for the hand-authored structures (task 1 of the church/shrine rebuild)
 
 User request (one of three threads): **redo the taoist temple and the church** — the church "has gaps in
@@ -46,11 +128,11 @@ arithmetic. Same shape as AGENTS rule 8 one layer up: the copied value is the bo
   so a hip roof's +Z panel takes a **negative** authored angle. The pagoda's `Euler(+14)` (`:1144`) is
   therefore inverted (butterfly roof), while the church's `Euler(+24)` and the shrine's `Euler(+14)`
   are correct hips.
-- Hand-verified the gable helper against the church numbers it will be used with: halfSpan 6.15, rise
-  2.738, courses 10 ⇒ band 0.559, every step's top = ridge − rise·(zHalf/halfSpan) + 0.06 (i.e. 6 cm
-  into the roof), and the closure block (half-width 0.559) overshoots the roof underside by at most
-  2.738/11 = 0.25 m, which stays inside the roof panel's 0.547 m vertical depth rather than emerging
-  through its top face.
+- Hand-verified the gable helper against the church numbers it was used with (halfSpan 6.15, rise
+  2.811, courses 10 ⇒ band 0.615). **Correction landed in 1hn:** the centred-step formula shipped here
+  was wrong — a centred step's *inner* edge is `z = 0`, so its top must reach `ridgeY` to cover the
+  roof, which makes every step as tall as the peak; the helper now emits uncentred bands mirrored about
+  `z = 0`, each reaching the roof underside at its own inner edge. See 1hn.
 - Docs: `AGENTS.md` **new rule 9** (state hand-authored geometry by its support; the three helpers; the
   site-origin convention; never rename a structure part type because the string is the save/load key);
   `game-design.md` §5.7 (the convention, with the pagoda tilt-sign bug as the worked example);

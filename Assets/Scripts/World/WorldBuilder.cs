@@ -401,21 +401,25 @@ new BuildingPartDefinition { PartName = "Wall_FrontL",  LocalPosition = new Vect
     // ------------------------------------------------------------════════
     //  CHURCH MEGA STRUCTURE DEFINITION  (Batch 20b: Church + Priest)
     // ------------------------------------------------------------════════
+    // Every church part is authored in SITE coordinates with y = 0 at the
+    // platform top, so the whole assembly is auditable in one frame and the
+    // Offset stays at the origin. Sizes are the rebuilt truth (x, y, z) and are
+    // only used for damage volumes, never for placement.
     private static readonly SubBuildingDefinition[] _churchSubBuildings = new SubBuildingDefinition[]
     {
-        new SubBuildingDefinition { PartName = "Church_Foundation", Offset = new Vector3(0f, 0.1f, 0f),    Size = new Vector3(16f, 0.5f, 13f),   WoodCost = 0,   StoneCost = 90, Color = new Color(0.52f, 0.51f, 0.5f) },
-        new SubBuildingDefinition { PartName = "Church_NaveFloor",  Offset = new Vector3(0f, 0.5f, 0f),    Size = new Vector3(13f, 0.2f, 10f),   WoodCost = 30, StoneCost = 0,  Color = new Color(0.8f, 0.78f, 0.74f) },
-        new SubBuildingDefinition { PartName = "Church_Pillars",    Offset = new Vector3(0f, 0.85f, 0f),   Size = new Vector3(11f, 3.9f, 7f),    WoodCost = 40, StoneCost = 45, Color = new Color(0.93f, 0.91f, 0.86f) },
-        new SubBuildingDefinition { PartName = "Church_SideWalls",  Offset = new Vector3(0f, 0.9f, 0f),    Size = new Vector3(0.35f, 4.2f, 11f), WoodCost = 35, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
-        new SubBuildingDefinition { PartName = "Church_FrontWall",  Offset = new Vector3(0f, 0.9f, 0f),    Size = new Vector3(10f, 4.2f, 0.35f), WoodCost = 20, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
-        new SubBuildingDefinition { PartName = "Church_BackWall",   Offset = new Vector3(0f, 0.9f, 0f),    Size = new Vector3(13.2f, 4.2f, 0.35f), WoodCost = 20, StoneCost = 0, Color = new Color(0.93f, 0.91f, 0.86f) },
-        new SubBuildingDefinition { PartName = "Church_Roof",       Offset = new Vector3(0f, 5.2f, 0f),    Size = new Vector3(17f, 0.5f, 6.5f),  WoodCost = 0,   StoneCost = 70, Color = new Color(0.5f, 0.14f, 0.11f) },
-        new SubBuildingDefinition { PartName = "Church_Tower",      Offset = new Vector3(0f, 0.5f, 0f),    Size = new Vector3(7.2f, 6.6f, 7.2f), WoodCost = 40, StoneCost = 20, Color = new Color(0.93f, 0.91f, 0.86f) },
-        new SubBuildingDefinition { PartName = "Church_Belfry",     Offset = new Vector3(0f, 7.3f, 0f),    Size = new Vector3(4.6f, 2.4f, 4.6f), WoodCost = 20, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
-        new SubBuildingDefinition { PartName = "Church_SpireRoof",  Offset = new Vector3(0f, 10f, 0f),    Size = new Vector3(5.6f, 0.5f, 5.6f), WoodCost = 0,  StoneCost = 35, Color = new Color(0.32f, 0.09f, 0.08f) },
-        new SubBuildingDefinition { PartName = "Church_Spire",      Offset = new Vector3(0f, 12.5f, 0f),   Size = new Vector3(1.1f, 7.2f, 1.1f), WoodCost = 5,  StoneCost = 0,  Color = new Color(1f, 0.84f, 0.2f) },
-        new SubBuildingDefinition { PartName = "Church_Buttresses", Offset = new Vector3(0f, 0.9f, 0f),    Size = new Vector3(1f, 4.4f, 4f),    WoodCost = 15, StoneCost = 0,  Color = new Color(0.52f, 0.51f, 0.5f) },
-        new SubBuildingDefinition { PartName = "Church_Interior",   Offset = new Vector3(0f, 0.6f, 0f),    Size = new Vector3(11f, 1.6f, 9f),    WoodCost = 35, StoneCost = 0,  Color = new Color(0.38f, 0.24f, 0.14f) },
+        new SubBuildingDefinition { PartName = "Church_Foundation", Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(16f, 0.50f, 14.8f),   WoodCost = 0,   StoneCost = 90, Color = new Color(0.52f, 0.51f, 0.5f) },
+        new SubBuildingDefinition { PartName = "Church_NaveFloor",  Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(13.6f, 0.28f, 12.3f),  WoodCost = 30, StoneCost = 0,  Color = new Color(0.8f, 0.78f, 0.74f) },
+        new SubBuildingDefinition { PartName = "Church_Pillars",    Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(10.3f, 4.12f, 6.9f),   WoodCost = 40, StoneCost = 45, Color = new Color(0.93f, 0.91f, 0.86f) },
+        new SubBuildingDefinition { PartName = "Church_SideWalls",  Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(0.55f, 4.25f, 12.6f),  WoodCost = 35, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
+        new SubBuildingDefinition { PartName = "Church_FrontWall",  Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(13.9f, 4.25f, 0.55f),  WoodCost = 20, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
+        new SubBuildingDefinition { PartName = "Church_BackWall",   Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(14f, 4.25f, 0.55f),    WoodCost = 20, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
+        new SubBuildingDefinition { PartName = "Church_Roof",       Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(16.9f, 2.81f, 12.3f),  WoodCost = 0,   StoneCost = 70, Color = new Color(0.5f, 0.14f, 0.11f) },
+        new SubBuildingDefinition { PartName = "Church_Tower",      Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(7.8f, 7.6f, 9.7f),    WoodCost = 40, StoneCost = 20, Color = new Color(0.93f, 0.91f, 0.86f) },
+        new SubBuildingDefinition { PartName = "Church_Belfry",     Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(5.6f, 2.8f, 5.6f),    WoodCost = 20, StoneCost = 0,  Color = new Color(0.93f, 0.91f, 0.86f) },
+        new SubBuildingDefinition { PartName = "Church_SpireRoof",  Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(5.44f, 2.13f, 5.44f),  WoodCost = 0,  StoneCost = 35, Color = new Color(0.32f, 0.09f, 0.08f) },
+        new SubBuildingDefinition { PartName = "Church_Spire",      Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(1.8f, 8.5f, 1.8f),    WoodCost = 5,  StoneCost = 0,  Color = new Color(1f, 0.84f, 0.2f) },
+        new SubBuildingDefinition { PartName = "Church_Buttresses", Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(15.1f, 3.6f, 12.2f),  WoodCost = 15, StoneCost = 0,  Color = new Color(0.52f, 0.51f, 0.5f) },
+        new SubBuildingDefinition { PartName = "Church_Interior",   Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(11f, 1.6f, 9f),       WoodCost = 35, StoneCost = 0,  Color = new Color(0.38f, 0.24f, 0.14f) },
     };
 
     // ------------------------------------------------------------════════

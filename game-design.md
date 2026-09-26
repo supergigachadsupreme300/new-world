@@ -1746,13 +1746,30 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
   platform (`NewWorldTestGround.EnableReligion`) places all three structures and worship NPCs so the
   Faith tab is testable without the legacy village.
 - **Structure scale (1cz)**: all three holy sites now match the pagoda in size and detail —
-  **church** is 16×13 (~20 tall, 13 parts: nave + arcade columns, gothic side windows + rose window,
-  gold-cross apse, gabled nave roof, tall front steeple tower with belfry + gold spire + cross, stepped
-  buttresses, interior pews/pulpit/altar); **shrine** is 14×12 (~14 tall, 12 parts: two-tier pagoda-style
-  hall — tiled tier-1 roof, upper tier floor/balustrade + tier-2 roof — topped by a jewelled gold spire,
-  with a yin-yang back wall, deity statue, offering altar, and a large tripod incense censer at the
-  entrance). Exclude-radii were raised (church 15, shrine 14) and the worship NPCs stand in front of
-  each entrance (priest west of the church, taoist south of the shrine).
+  **church** is 16×14.8 for the podium (~21 tall, 13 parts: nave + arcade columns, gothic side windows +
+  rose window, gold-cross apse, gabled nave roof with corbel-stepped gable ends, tall front steeple tower
+  with belfry + gold spire + cross, stepped buttresses, interior pews/pulpit/altar); **shrine** is 14×12
+  (~14 tall, 12 parts: two-tier pagoda-style hall — tiled tier-1 roof, upper tier floor/balustrade +
+  tier-2 roof — topped by a jewelled gold spire, with a yin-yang back wall, deity statue, offering altar,
+  and a large tripod incense censer at the entrance). Exclude-radii were raised (church 15, shrine 14)
+  and the worship NPCs stand in front of each entrance (priest west of the church, taoist south of the
+  shrine).
+- **Church rebuild (1hn)** — the church is now authored on one explicit datum ladder, so every block's
+  support is readable in the source and none of the previously reported gaps remain:
+  `slab 0.35 → terrace cap 0.40 → nave floor 0.50 → wall plinth 1.10 → wall band 4.30 → cornice 4.60
+  (the roof's bearing) → ridge underside 7.35`. All 13 part roots sit at the site origin. Specifics:
+  - the nave roof now spans the **full** nave (two `CreatePartPanelBetween` panels from an eave underside
+    buried 6 cm in the cornice at `|z| = 6.15` to the ridge underside at `z = 0`), with a ridge cap laid
+    along each panel's own top surface and corbel-stepped gable infill on both side walls;
+  - **one axis**: the tower, belfry, spire roof and spire all share `z = −6.20`, so the spire sits on its
+    own spire roof (previously the spire roof was centred near `z = 0` and the spire floated beside it);
+  - the side walls carry **six real window openings** (sill band + lintel band + seven piers) with the
+    glass inside the hole instead of buried in a solid slab, plus gold tracery and a projecting sill;
+  - wall corners are closed by overlapping wall panels, corner pilasters and returns, stair treads are
+    solid blocks from below grade, and the podium was extended in `z` to 14.8 so the **rear buttresses
+    have a support** (they previously stood off the back of the podium);
+  - every interior fitting (12 pillar bases, 6 pews, altar, pulpit and its two steps, candles) is seated
+    on the walking surface; the tower landing meets the nave with one 0.20 m step instead of a 0.40 m drop.
 - **Hand-authored geometry convention (1hm)** — the three holy places are built from raw cubes by
   `WorldBuilder.Build{Pagoda,Church,Shrine}Part`, one `StructurePart_<Type>` root per part (13/12/14
   parts). Two authoring mistakes caused every structural gap ever reported in them, so geometry is
@@ -1761,8 +1778,10 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
   - roofs/ramps/stairs go in through `CreatePartPanelBetween` (**the two ends of the underside**),
     which makes an inverted pitch unauthorable — the four pagoda roofs had been authored as a tilt
     sign that pitched their outer eaves up, reading as butterfly roofs;
-  - gable triangles close with `CreatePartGableSteps`, each step overshooting 6 cm into the roof
-    underside (an intersection is invisible, a gap is a slit).
+  - gable triangles close with `CreatePartGableSteps`: **uncentred** bands, each reaching the roof
+    underside at its own **inner** edge (a centred step's inner edge is the ridge, so it would have to
+    be as tall as the peak) and overshooting 6 cm into the slab — an intersection is invisible, a gap
+    is a slit.
   The rebuilt church and shrine author every part in **site coordinates** (y = 0 = platform top, all
   part roots at the site origin) so the whole assembly is auditable in one frame. Part **type strings
   are the save/load keys** — never rename one; a renamed part silently builds nothing.

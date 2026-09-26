@@ -15,7 +15,7 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
-## 1hm–1hp — "redo the taoist temple and the church; the church has gaps in the structure; Taoism has 3 gods, so 3 statues not 1" — helpers shipped, rebuild in progress
+## 1hm–1hp — "redo the taoist temple and the church; the church has gaps in the structure; Taoism has 3 gods, so 3 statues not 1" — 1hm + 1hn shipped, 1ho/1hp queued (section stays OPEN until 1ho ships)
 
 User request, three parts: redo the Taoist temple, redo the church, and put **three** statues in the
 Taoist temple instead of one. The user declined the rule-7 measurement lane (the gaps are provable
@@ -99,26 +99,67 @@ the sky at each end. Then, in the order I found them:
 ### Design for the rebuild (1hn/1ho) — one frame, one datum ladder
 All church/shrine part roots move to the site origin (Offset 0) and every part is authored in **site
 coordinates** (y = 0 = platform top), so the assembly is auditable in a single frame instead of
-thirteen overlapping local frames. Datum ladder for the church: `SLAB_TOP 0.35` → `CAP_TOP 0.40` →
-`FLOOR_TOP 0.50` (interior) → `WALL_TOP 4.60` → roof. Roof solved from its contact points rather than
-its angle: underside at the wall line 4.60, ridge underside 7.351, 24° pitch ⇒ panel underside length
-6.15/cos24 = 7.152, eave oversails the footing by ~0.65 m, and the ridge beam seats 6 cm into the peak
-instead of hovering over it. Gable triangles appear on the **side** walls (a Z-sloping roof's gable ends
-are the X-normal walls) and close with 10 steps + a ridge block; checked that the closure's top edge
-(ridge + 6 cm) stays *inside* the 0.5 m panel (vertical depth 0.547) rather than emerging through it.
+thirteen overlapping local frames. Datum ladder for the church: `slabTop 0.35` → `capTop 0.40` →
+`floorTop 0.50` → `plinthTop 1.10` → `wallTop 4.30` → `corniceTop 4.60` (the roof's bearing) → ridge
+underside 7.351. Roof solved from its contact points rather than its angle: eave underside 6 cm **inside**
+the cornice (4.54) so the panel cannot leave a slit at the wall, ridge underside 4.54 + 6.15·0.4571 =
+7.351, and the vertical depth `0.50·√(1+0.4571²) = 0.550` is what puts the panel's top face at 7.901.
+Gable triangles appear on the **side** walls (a Z-sloping roof's gable ends are the X-normal walls) and
+close with `CreatePartGableSteps` built from **the same eave/ridge numbers the panels were built from**,
+so the steps cannot drift off the real pitch.
+
+### 1hn resolved — and the gable helper I shipped in 1hm was wrong
+Confirmed on the 1hn build: the *centred*-step gable formula cannot work, and I had hand-verified it
+against the wrong criterion. Reasoning: a centred step spans `|z| ≤ zHalf`, so its **inner edge is
+`z = 0`**, where the roof underside is at its maximum (`ridgeY`). To cover the strip `[−zHalf, zHalf]`
+its top must therefore be ≥ `ridgeY` — every step becomes as tall as the peak and the corbel profile
+degenerates into a solid triangle. My 1hm check only asked "does the step's top stay inside the panel's
+vertical depth" (yes, 0.256 < 0.547) and never asked "does it cover the roof *between* the step's outer
+edge and the next step" (no — the gap at the closure's edge was 6.8 cm). **Rejected:** keeping centred
+steps and just adding a wider full-span first step; that only fixes the eave strip, and the same
+argument then fails one band in. **Confirmed fix:** *uncentred* bands, mirrored about `z = 0`, each
+reaching the roof underside at its **own inner edge** (the highest point of the roof anywhere over that
+band), plus the 6 cm drive-in. Checked with courses 10, halfSpan 6.15, rise 2.811: band 0.615, band 0
+covers `|z| 5.535..6.15` with its top at 4.951 (the roof there spans 4.54..4.90 ⇒ covered, and 4.951 <
+the panel's top 5.09 so it stays inside the slab); the last band covers `|z| 0..0.615` with its top at
+`ridgeY + 0.06`; no band is left uncovered. Lesson for AGENTS rule 8's cousin: a validator that checks
+only "does the copy stay inside its container" is not a validator for "does the copy cover its target".
+
+### 1hn — four more contact defects the first draft introduced, caught by rereading case by case
+Rule 8's arithmetic-of-the-copy discipline applied to my *own* new numbers, which is where it earns its
+keep: all four were invisible in the source and would have been visible in the world.
+1. **Front buttresses off the apron.** Authored at `|X| 4.70` on a 7.00-wide apron (`|X| ≤ 3.5`) — they
+   floated over the podium. Fixed by widening the apron to 7.80 (a wider stepped base reads better
+   anyway) and moving the buttresses to `|X| 3.35` so they hug the 6.20-wide tower body.
+2. **Applied detail centred on the face plane.** The tower's door, rose window and side lancets were
+   authored at the face centre, which puts them *inside* the solid tower — the exact bug the old side
+   walls had. Fixed by a stated rule: applied pieces sit 5 cm proud of the face and are 30 cm deep, so
+   they bury 10 cm. The solid-band walls (front/back) get applied lancets for the same reason; only the
+   side walls are built with real openings, because they are the ones built from piers.
+3. **Spire's third gold ring** landed 0.9 m above the shaft (the loop stepped 2.00 m from a 5.40 m
+   shaft's start). Re-anchored the three rings to `apexTop + 1.80 + i·1.70` and checked all three sit
+   inside 13.746..19.146.
+4. **Coplanar eave edges.** The belfry cornice was 5.20 wide and the spire panels 5.44 — the panel ends
+   and the cornice edge were coplanar below 10.60 (z-fighting on a 0.15 m sliver). Widened the cornice to
+   5.60 so the panels finish inside it. Same class found elsewhere and fixed the same way: the pew backs
+   were flush with the seat's outer face (moved 0.09 inboard), the ridge beam was replaced outright
+   because a horizontal beam on a peaked roof can only touch along the peak line, and the pulpit's second
+   step was *higher* than the first (flipped, so the climb rises toward the platform).
 
 ### Open / not done
 - **Pagoda butterfly roofs + `Roof1`'s centre cap floating 0.57–1.44 m over its own panels** — a real
   defect of the same class, found while auditing, **deferred by the user's choice**. Recorded as a
   follow-up in PROGRESS so it is not lost. `Roof2/3/4`'s caps happen to plug their own valleys, so only
   Roof1 visibly floats; the inverted pitch affects all four.
-- **Stained glass is buried inside a solid wall.** The side walls are one solid 0.35 m slab and the
-  glass plates (`:1457`) sit at |X| 6.62, i.e. *within* 6.625..6.975 — invisible, so the windows the
-  design doc claims the church has are not actually rendered. A rebuild has to build the wall around
-  real openings (piers + sill + lintel), not draw glass on a solid slab.
+- **Stained glass is buried inside a solid wall** — **FIXED in 1hn** for the church's side walls (sill
+  band + lintel band + seven piers leave six real openings, glass inside the hole). The front/back walls
+  remain solid bands, so their lancets are applied proud of the face; that is a deliberate, stated
+  compromise, not an oversight.
 - The three faith NPCs in the test lane are sunk 0.915 m into the platform (`NewWorldTestGround.cs:682`
   places the roots at bare `baseY`; every rig puts its feet 0.915 m below the root, `MapBuilder.NPCs.cs`
   `:203/258/313`). Queued as 1hp.
+- **Shrine (1ho) is not started**: the same ladder treatment, plus the three Sanqing figures inside
+  `Shrine_Deity` (never renamed — the string is the save/load key).
 
 ---
 

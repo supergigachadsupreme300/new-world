@@ -1007,25 +1007,26 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
     /// <summary>
     /// Corbel-stepped gable infill in the plane x = xCentre, closing the triangle
     /// between a wall top and a roof whose underside falls from ridgeY at z = 0
-    /// to eaveY at |z| = halfSpan. Emits <paramref name="courses"/> steps of
-    /// decreasing width plus a ridge closure block. Every step's top edge
-    /// overshoots 6 cm into the roof underside, so the stepped profile can never
-    /// leave a slit. The closure block is halfSpan/(courses+1) wide, which keeps
-    /// its top edge inside the roof slab rather than through it - the overshoot
-    /// there is at most rise/(courses+1), so keep courses large enough that
-    /// rise/(courses+1) stays under the panel's vertical depth.
+    /// to eaveY at |z| = halfSpan. Emits <paramref name="courses"/> uncentred
+    /// bands per side, mirrored about z = 0. A band's top reaches the roof
+    /// underside at that band's INNER edge, which is the highest point of the
+    /// roof anywhere over the band, so the union of bands has no gap; the extra
+    /// 6 cm then drives each band up into the roof slab instead of leaving a slit
+    /// at its outer edge. A centred step cannot do this - its inner edge is
+    /// z = 0, so it would have to be as tall as the ridge.
     /// </summary>
     private void CreatePartGableSteps(Transform parent, float xCentre, float thickness, float wallTop, float eaveY, float ridgeY, float halfSpan, int courses, Color color)
     {
         float rise = ridgeY - eaveY;
-        float band = halfSpan / (courses + 1);
+        float band = halfSpan / courses;
         for (int k = 0; k < courses; k++)
         {
-            float zHalf = halfSpan - band * (k + 1);
-            float top = ridgeY - rise * (zHalf / halfSpan) + 0.06f;
-            CreatePartBoxOn(parent, xCentre, wallTop, 0f, new Vector3(thickness, top - wallTop, zHalf * 2f), color);
+            float outer = halfSpan - band * k;
+            float inner = outer - band;
+            float top = ridgeY - rise * (inner / halfSpan) + 0.06f;
+            for (int sz = -1; sz <= 1; sz += 2)
+                CreatePartBoxOn(parent, xCentre, wallTop, sz * (inner + outer) * 0.5f, new Vector3(thickness, top - wallTop, outer - inner), color);
         }
-        CreatePartBoxOn(parent, xCentre, wallTop, 0f, new Vector3(thickness, ridgeY + 0.06f - wallTop, band * 2f), color);
     }
 
     private void BuildPagodaPart(Transform root, string partType)
@@ -1475,227 +1476,326 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
         Color glassC = new Color(0.55f, 0.7f, 0.85f);
         Color flameC = new Color(0.95f, 0.85f, 0.5f);
 
+        // Site datum ladder, y = 0 at the platform top. Every block below is
+        // stated by the face that rests on something, never by a centre, so the
+        // support of each block is readable on adjacent lines.
+        const float slabTop = 0.35f;   // main foundation slab top (terrace)
+        const float capTop = 0.40f;    // interior terrace cap top
+        const float floorTop = 0.50f;  // nave walking surface
+        const float plinthTop = 1.10f; // top of the wall plinth band
+        const float wallTop = 4.30f;   // top of the white wall band
+        const float corniceTop = 4.60f;// top of the wall cornice = roof bearing
+        const float wallX = 6.80f;     // side wall centre plane
+        const float wallZ = 6.15f;     // front/back wall centre plane
+        const float roofHalfW = 8.40f; // nave roof half width
+        const float roofThick = 0.50f;
+        const float towerZ = -6.20f;   // every spire-stage part shares this axis
+        const float roofTan = 0.4571f;   // nave pitch, tan(24.56 deg)
+        const float roofVert = 0.550f;   // roofThick * sqrt(1 + roofTan^2)
+        const float sprTan = 0.7813f;    // spire pitch, tan(38 deg)
+        const float sprVert = 0.571f;    // spire thickness * sqrt(1 + sprTan^2)
+
         switch (partType)
         {
             case "Church_Foundation":
-                CreatePartCube(root, new Vector3(0f, 0f, 0f), new Vector3(16f, 0.5f, 13f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 0.22f, 0f), new Vector3(15f, 0.16f, 12f), lightStoneC);
-                CreatePartCube(root, new Vector3(0f, 0.4f, -8.2f), new Vector3(7.2f, 0.8f, 3.2f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 0.82f, -9.7f), new Vector3(3.6f, 0.16f, 0.7f), lightStoneC);
-                CreatePartCube(root, new Vector3(0f, 0.62f, -10.3f), new Vector3(4.4f, 0.3f, 0.9f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 0.42f, -10.85f), new Vector3(5.2f, 0.3f, 0.9f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 0.22f, -11.4f), new Vector3(6f, 0.3f, 0.9f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 0.05f, -11.95f), new Vector3(6.8f, 0.2f, 0.9f), stoneBase);
-                break;
-
-            case "Church_NaveFloor":
-                CreatePartCube(root, new Vector3(0f, 0.08f, 0f), new Vector3(13f, 0.2f, 10f), lightStoneC);
-                CreatePartCube(root, new Vector3(0f, 0.16f, 0f), new Vector3(1.8f, 0.08f, 8.6f), stoneBase);
-                break;
-
-            case "Church_Pillars":
-                for (int ring = 0; ring < 2; ring++)
-                {
-                    float px = ring == 0 ? 1.7f : 4.7f;
-                    for (int pz = -1; pz <= 1; pz++)
-                    {
-                        CreatePartCube(root, new Vector3(px, 0.4f, pz * 3f), new Vector3(0.9f, 0.45f, 0.9f), stoneBase);
-                        CreatePartCube(root, new Vector3(-px, 0.4f, pz * 3f), new Vector3(0.9f, 0.45f, 0.9f), stoneBase);
-                        CreatePartCube(root, new Vector3(px, 2.4f, pz * 3f), new Vector3(0.6f, 3.4f, 0.6f), whiteWallC);
-                        CreatePartCube(root, new Vector3(-px, 2.4f, pz * 3f), new Vector3(0.6f, 3.4f, 0.6f), whiteWallC);
-                        CreatePartCube(root, new Vector3(px, 4.3f, pz * 3f), new Vector3(0.8f, 0.4f, 0.8f), goldC);
-                        CreatePartCube(root, new Vector3(-px, 4.3f, pz * 3f), new Vector3(0.8f, 0.4f, 0.8f), goldC);
-                    }
-                }
-                break;
-
-            case "Church_SideWalls":
-                CreatePartCube(root, new Vector3(-6.8f, 2f, 0f), new Vector3(0.35f, 4f, 11f), whiteWallC);
-                CreatePartCube(root, new Vector3(6.8f, 2f, 0f), new Vector3(0.35f, 4f, 11f), whiteWallC);
-                CreatePartCube(root, new Vector3(-6.72f, 0.5f, 0f), new Vector3(0.5f, 0.7f, 11.2f), stoneBase);
-                CreatePartCube(root, new Vector3(6.72f, 0.5f, 0f), new Vector3(0.5f, 0.7f, 11.2f), stoneBase);
-                CreatePartCube(root, new Vector3(-6.72f, 4.2f, 0f), new Vector3(0.42f, 0.4f, 11.2f), lightStoneC);
-                CreatePartCube(root, new Vector3(6.72f, 4.2f, 0f), new Vector3(0.42f, 0.4f, 11.2f), lightStoneC);
-                for (int sx = -1; sx <= 1; sx += 2)
-                {
-                    for (int wz = -1; wz <= 1; wz++)
-                    {
-                        float zw = wz * 3.2f;
-                        for (int side = -1; side <= 1; side += 2)
-                        {
-                            float x = side * 6.62f;
-                            CreatePartCube(root, new Vector3(x, 0.95f, zw), new Vector3(0.5f, 0.2f, 1.6f), lightStoneC);
-                            CreatePartCube(root, new Vector3(x, 2.1f, zw), new Vector3(0.1f, 1.7f, 1.3f), glassC);
-                            CreatePartCube(root, new Vector3(x, 2.1f, zw - 0.66f), new Vector3(0.14f, 1.7f, 0.14f), goldC);
-                            CreatePartCube(root, new Vector3(x, 2.1f, zw + 0.66f), new Vector3(0.14f, 1.7f, 0.14f), goldC);
-                            CreatePartCubeRotated(root, new Vector3(x, 3.0f, zw - 0.35f), new Vector3(0.14f, 0.7f, 0.4f), whiteWallC, Quaternion.Euler(35f, 0f, 0f));
-                            CreatePartCubeRotated(root, new Vector3(x, 3.0f, zw + 0.35f), new Vector3(0.14f, 0.7f, 0.4f), whiteWallC, Quaternion.Euler(-35f, 0f, 0f));
-                            CreatePartCube(root, new Vector3(x, 3.7f, zw), new Vector3(0.16f, 0.22f, 1.6f), lightStoneC);
-                        }
-                    }
-                    CreatePartCube(root, new Vector3(sx * 6.75f, 2.05f, -5f), new Vector3(0.45f, 4f, 0.45f), lightStoneC);
-                    CreatePartCube(root, new Vector3(sx * 6.75f, 2.05f, 5f), new Vector3(0.45f, 4f, 0.45f), lightStoneC);
-                }
-                break;
-
-            case "Church_FrontWall":
-                CreatePartCube(root, new Vector3(-4.7f, 2f, -6.15f), new Vector3(3f, 4f, 0.35f), whiteWallC);
-                CreatePartCube(root, new Vector3(4.7f, 2f, -6.15f), new Vector3(3f, 4f, 0.35f), whiteWallC);
-                CreatePartCube(root, new Vector3(-4.8f, 2f, -5f), new Vector3(0.5f, 4f, 0.45f), lightStoneC);
-                CreatePartCube(root, new Vector3(4.8f, 2f, -5f), new Vector3(0.5f, 4f, 0.45f), lightStoneC);
-                CreatePartCube(root, new Vector3(-4.7f, 4.25f, -6.15f), new Vector3(3.2f, 0.35f, 0.45f), lightStoneC);
-                CreatePartCube(root, new Vector3(4.7f, 4.25f, -6.15f), new Vector3(3.2f, 0.35f, 0.45f), lightStoneC);
-                for (int fw = -1; fw <= 1; fw += 2)
-                {
-                    float x = fw * 4.7f;
-                    CreatePartCube(root, new Vector3(x, 0.95f, -6.3f), new Vector3(1.7f, 0.2f, 0.4f), lightStoneC);
-                    CreatePartCube(root, new Vector3(x, 2.1f, -6.35f), new Vector3(1.3f, 1.7f, 0.08f), glassC);
-                    CreatePartCube(root, new Vector3(x, 2.1f, -6.22f), new Vector3(0.14f, 1.7f, 0.14f), goldC);
-                    CreatePartCubeRotated(root, new Vector3(x, 3.0f, -6.35f), new Vector3(0.7f, 0.6f, 0.3f), whiteWallC, Quaternion.Euler(0f, 0f, 35f));
-                }
-                break;
-
-            case "Church_BackWall":
-                CreatePartCube(root, new Vector3(0f, 2f, 6.15f), new Vector3(13.2f, 4f, 0.35f), whiteWallC);
-                CreatePartCube(root, new Vector3(0f, 0.4f, 6.15f), new Vector3(13.6f, 0.7f, 0.5f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 4.2f, 6.15f), new Vector3(13.6f, 0.35f, 0.42f), lightStoneC);
-                CreatePartCubeRotated(root, new Vector3(-5.6f, 2f, 6.1f), new Vector3(2.4f, 4f, 0.35f), whiteWallC, Quaternion.Euler(0f, 35f, 0f));
-                CreatePartCubeRotated(root, new Vector3(5.6f, 2f, 6.1f), new Vector3(2.4f, 4f, 0.35f), whiteWallC, Quaternion.Euler(0f, -35f, 0f));
-                CreatePartCube(root, new Vector3(0f, 2.5f, 6.4f), new Vector3(0.5f, 3f, 0.22f), goldC);
-                CreatePartCube(root, new Vector3(0f, 2.9f, 6.4f), new Vector3(1.9f, 0.5f, 0.22f), goldC);
-                CreatePartCube(root, new Vector3(0f, 0.9f, 6.42f), new Vector3(12.4f, 0.18f, 0.06f), darkWoodC);
-                CreatePartCube(root, new Vector3(0f, 3.5f, 6.42f), new Vector3(12.4f, 0.18f, 0.06f), darkWoodC);
-                break;
-
-            case "Church_Roof":
-                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, 0.9f), new Vector3(16.6f, 0.5f, 6.6f), roofRedC, Quaternion.Euler(24f, 0f, 0f));
-                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, -0.9f), new Vector3(16.6f, 0.5f, 6.6f), roofRedC, Quaternion.Euler(-24f, 0f, 0f));
-                CreatePartCube(root, new Vector3(0f, 2.35f, 0f), new Vector3(16.8f, 0.45f, 0.8f), roofDarkC);
-                CreatePartCube(root, new Vector3(0f, 2.3f, -6.6f), new Vector3(14f, 0.4f, 0.25f), lightStoneC);
-                CreatePartCube(root, new Vector3(0f, 2.3f, 6.6f), new Vector3(14f, 0.4f, 0.25f), lightStoneC);
-                CreatePartCubeRotated(root, new Vector3(0f, 2.55f, -6.75f), new Vector3(0.7f, 0.4f, 0.7f), goldC, Quaternion.Euler(0f, 45f, 0f));
-                break;
-
-            case "Church_Tower":
-                CreatePartCube(root, new Vector3(0f, 3.3f, -6.2f), new Vector3(6.2f, 6.6f, 6.2f), whiteWallC);
-                CreatePartCube(root, new Vector3(0f, 0.4f, -6.2f), new Vector3(7f, 0.8f, 7f), stoneBase);
-                CreatePartCube(root, new Vector3(-2.9f, 3.3f, -6.2f - 2.9f), new Vector3(0.6f, 6.6f, 0.6f), lightStoneC);
-                CreatePartCube(root, new Vector3(2.9f, 3.3f, -6.2f - 2.9f), new Vector3(0.6f, 6.6f, 0.6f), lightStoneC);
-                CreatePartCube(root, new Vector3(-2.9f, 3.3f, -6.2f + 2.9f), new Vector3(0.6f, 6.6f, 0.6f), lightStoneC);
-                CreatePartCube(root, new Vector3(2.9f, 3.3f, -6.2f + 2.9f), new Vector3(0.6f, 6.6f, 0.6f), lightStoneC);
-                CreatePartCube(root, new Vector3(0f, 6.8f, -6.2f), new Vector3(6.8f, 0.4f, 6.8f), lightStoneC);
-                CreatePartCube(root, new Vector3(0f, 2.2f, -9.6f), new Vector3(3.2f, 3.6f, 0.35f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 2f, -9.71f), new Vector3(2.8f, 3.1f, 0.18f), darkWoodC);
-                CreatePartCube(root, new Vector3(-1.55f, 2f, -9.5f), new Vector3(0.16f, 3.1f, 0.12f), goldC);
-                CreatePartCube(root, new Vector3(1.55f, 2f, -9.5f), new Vector3(0.16f, 3.1f, 0.12f), goldC);
-                CreatePartCubeRotated(root, new Vector3(0f, 4.35f, -9.55f), new Vector3(1.6f, 0.6f, 0.3f), stoneBase, Quaternion.Euler(35f, 0f, 0f));
-                CreatePartCubeRotated(root, new Vector3(0f, 4.35f, -9.55f), new Vector3(1.6f, 0.6f, 0.3f), stoneBase, Quaternion.Euler(-35f, 0f, 0f));
-                CreatePartCube(root, new Vector3(0f, 4.85f, -9.6f), new Vector3(0.5f, 0.35f, 0.35f), goldC);
-                CreatePartCube(root, new Vector3(0f, 5.4f, -9.32f), new Vector3(1.5f, 1.5f, 0.08f), goldC);
-                CreatePartCube(root, new Vector3(0f, 5.4f, -9.26f), new Vector3(1.1f, 1.1f, 0.06f), glassC);
-                CreatePartCube(root, new Vector3(0f, 5.4f, -9.2f), new Vector3(0.06f, 1.2f, 0.06f), darkWoodC);
-                CreatePartCube(root, new Vector3(0f, 5.4f, -9.2f), new Vector3(1.2f, 0.06f, 0.06f), darkWoodC);
-                CreatePartCube(root, new Vector3(3.22f, 3f, -6.2f), new Vector3(0.12f, 1.8f, 1.2f), glassC);
-                CreatePartCube(root, new Vector3(-3.22f, 3f, -6.2f), new Vector3(0.12f, 1.8f, 1.2f), glassC);
-                CreatePartCube(root, new Vector3(0f, 2f, -3.28f), new Vector3(2.8f, 3.6f, 0.4f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 1.85f, -3.15f), new Vector3(2.4f, 3f, 0.18f), darkWoodC);
-                CreatePartCube(root, new Vector3(-1.25f, 1.85f, -3.15f), new Vector3(0.14f, 3f, 0.12f), goldC);
-                CreatePartCube(root, new Vector3(1.25f, 1.85f, -3.15f), new Vector3(0.14f, 3f, 0.12f), goldC);
-                CreatePartCube(root, new Vector3(0f, 4.45f, -3.28f), new Vector3(1.4f, 0.9f, 0.12f), glassC);
-                break;
-
-            case "Church_Belfry":
-                CreatePartCube(root, new Vector3(0f, 1.2f, -6.2f), new Vector3(4.6f, 2.4f, 4.6f), whiteWallC);
-                for (int bz = -1; bz <= 1; bz++)
-                    CreatePartCube(root, new Vector3(2.31f, 1.3f, -6.2f + bz * 0.55f), new Vector3(0.08f, 1.8f, 0.12f), darkWoodC);
-                for (int bz = -1; bz <= 1; bz++)
-                    CreatePartCube(root, new Vector3(-2.31f, 1.3f, -6.2f + bz * 0.55f), new Vector3(0.08f, 1.8f, 0.12f), darkWoodC);
-                for (int bx = -1; bx <= 1; bx++)
-                    CreatePartCube(root, new Vector3(bx * 0.55f, 1.3f, -8.42f), new Vector3(0.12f, 1.8f, 0.08f), darkWoodC);
-                for (int bx = -1; bx <= 1; bx++)
-                    CreatePartCube(root, new Vector3(bx * 0.55f, 1.3f, -3.98f), new Vector3(0.12f, 1.8f, 0.08f), darkWoodC);
-                CreatePartCube(root, new Vector3(-2.2f, 2.75f, -6.2f - 2.2f), new Vector3(0.45f, 0.5f, 0.45f), roofDarkC);
-                CreatePartCube(root, new Vector3(2.2f, 2.75f, -6.2f - 2.2f), new Vector3(0.45f, 0.5f, 0.45f), roofDarkC);
-                CreatePartCube(root, new Vector3(-2.2f, 2.75f, -6.2f + 2.2f), new Vector3(0.45f, 0.5f, 0.45f), roofDarkC);
-                CreatePartCube(root, new Vector3(2.2f, 2.75f, -6.2f + 2.2f), new Vector3(0.45f, 0.5f, 0.45f), roofDarkC);
-                CreatePartCube(root, new Vector3(0f, 2.6f, -6.2f), new Vector3(5.2f, 0.3f, 5.2f), lightStoneC);
-                break;
-
-            case "Church_SpireRoof":
-                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, -2.2f), new Vector3(5.2f, 0.45f, 3f), roofDarkC, Quaternion.Euler(-38f, 0f, 0f));
-                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, 2.2f), new Vector3(5.2f, 0.45f, 3f), roofDarkC, Quaternion.Euler(38f, 0f, 0f));
-                CreatePartCubeRotated(root, new Vector3(-2.2f, 0.5f, 0f), new Vector3(3f, 0.45f, 5.2f), roofDarkC, Quaternion.Euler(0f, 0f, 38f));
-                CreatePartCubeRotated(root, new Vector3(2.2f, 0.5f, 0f), new Vector3(3f, 0.45f, 5.2f), roofDarkC, Quaternion.Euler(0f, 0f, -38f));
-                CreatePartCube(root, new Vector3(0f, 0.02f, -4.4f), new Vector3(5.4f, 0.16f, 0.2f), goldC);
-                CreatePartCube(root, new Vector3(0f, 0.02f, 4.4f), new Vector3(5.4f, 0.16f, 0.2f), goldC);
-                CreatePartCube(root, new Vector3(-4.4f, 0.02f, 0f), new Vector3(0.2f, 0.16f, 5.4f), goldC);
-                CreatePartCube(root, new Vector3(4.4f, 0.02f, 0f), new Vector3(0.2f, 0.16f, 5.4f), goldC);
+                // Main slab reaches past the rear buttresses so they have a
+                // support, and sinks 0.15 into the platform so it cannot float.
+                CreatePartBoxOn(root, 0f, -0.15f, 0f, new Vector3(16f, 0.50f, 14.80f), stoneBase);
+                // Terrace cap, inset from the slab edge so the side buttresses
+                // land on bare slab, not half-sunk into the cap.
+                CreatePartBoxOn(root, 0f, capTop - 0.16f, 0f, new Vector3(13f, 0.16f, 11f), lightStoneC);
+                // Solid stair down from the tower landing: each tread is a full
+                // block from below grade, never a thin slab on air.
+                float[] treadTop = { 0.72f, 0.54f, 0.36f, 0.18f };
+                float[] treadZ = { -10.15f, -11.05f, -11.95f, -12.85f };
+                float[] treadW = { 6.40f, 7.00f, 7.60f, 8.20f };
+                for (int i = 0; i < 4; i++)
+                    CreatePartBoxOn(root, 0f, -0.05f, treadZ[i], new Vector3(treadW[i], treadTop[i] + 0.05f, 0.90f), lightStoneC);
+                // Terrace corner bollards on bare slab.
                 for (int sx = -1; sx <= 1; sx += 2)
                     for (int sz = -1; sz <= 1; sz += 2)
-                        CreatePartCubeRotated(root, new Vector3(sx * 3.95f, 1.2f, sz * 3.95f), new Vector3(0.4f, 0.7f, 0.4f), goldC, Quaternion.Euler(0f, 45f, 0f));
+                        CreatePartBoxOn(root, sx * 7.2f, slabTop, sz * 6.9f, new Vector3(0.40f, 0.50f, 0.40f), lightStoneC);
                 break;
-
+            case "Church_NaveFloor":
+                // Runs under both side walls and into the front/back walls.
+                CreatePartBoxOn(root, 0f, 0.30f, 0.20f, new Vector3(13.60f, 0.20f, 12.30f), lightStoneC);
+                // Aisle runner, seated on the walking surface.
+                CreatePartBoxOn(root, 0f, floorTop, 0.20f, new Vector3(1.80f, 0.08f, 8.60f), stoneBase);
+                // Tower landing meets the nave with one 0.20 step instead of a drop.
+                CreatePartBoxOn(root, 0f, floorTop, -2.95f, new Vector3(3.00f, 0.20f, 0.50f), lightStoneC);
+                break;
+            case "Church_Pillars":
+                // Three pieces, bottom-referenced, so a base cannot hover.
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int ix = 0; ix < 2; ix++)
+                        for (int iz = 0; iz < 3; iz++)
+                        {
+                            float px = sx * (ix == 0 ? 1.70f : 4.70f);
+                            float pz = (iz - 1) * 3.0f;
+                            CreatePartBoxOn(root, px, floorTop, pz, new Vector3(0.90f, 0.45f, 0.90f), stoneBase);
+                            CreatePartBoxOn(root, px, 0.95f, pz, new Vector3(0.60f, 3.20f, 0.60f), lightStoneC);
+                            CreatePartBoxOn(root, px, 4.15f, pz, new Vector3(0.80f, 0.35f, 0.80f), lightStoneC);
+                            CreatePartBoxOn(root, px, 4.45f, pz, new Vector3(0.84f, 0.17f, 0.84f), goldC);
+                        }
+                break;
+            case "Church_SideWalls":
+                for (int sx = -1; sx <= 1; sx += 2)
+                {
+                    float x = sx * wallX;
+                    // Plinth, wall band and cornice; the cornice is what the roof
+                    // bears on, so its top is the roof's bearing datum.
+                    CreatePartBoxOn(root, x, slabTop, 0f, new Vector3(0.55f, plinthTop - slabTop, 12.20f), stoneBase);
+                    // Sill band and lintel band span the full wall; the piers
+                    // between them leave six real window openings, so the glass
+                    // is inside a hole rather than buried in a solid slab.
+                    CreatePartBoxOn(root, x, plinthTop, 0f, new Vector3(0.35f, 0.65f, 12.20f), lightStoneC);
+                    CreatePartBoxOn(root, x, 3.45f, 0f, new Vector3(0.35f, wallTop - 3.45f, 12.20f), whiteWallC);
+                    float[] pierZ = { -5.825f, -4f, -2f, 0f, 2f, 4f, 5.825f };
+                    float[] pierW = { 0.35f, 0.70f, 0.70f, 0.70f, 0.70f, 0.70f, 0.35f };
+                    for (int i = 0; i < pierZ.Length; i++)
+                        CreatePartBoxOn(root, x, plinthTop, pierZ[i], new Vector3(0.35f, 3.45f - plinthTop, pierW[i]), whiteWallC);
+                    // Six traceried openings, glass in the middle of the gap.
+                    for (int iz = 0; iz < 6; iz++)
+                    {
+                        float wz = (iz - 2.5f) * 2.0f;
+                        CreatePartBoxOn(root, x, 1.75f, wz, new Vector3(0.10f, 1.70f, 1.30f), glassC);
+                        // Gold frame: sill, head and two mullions.
+                        CreatePartBoxOn(root, x, 1.70f, wz, new Vector3(0.30f, 0.12f, 1.44f), goldC);
+                        CreatePartBoxOn(root, x, 3.39f, wz, new Vector3(0.30f, 0.12f, 1.44f), goldC);
+                        CreatePartBoxOn(root, x, 1.75f, wz - 0.43f, new Vector3(0.28f, 1.70f, 0.10f), goldC);
+                        CreatePartBoxOn(root, x, 1.75f, wz + 0.43f, new Vector3(0.28f, 1.70f, 0.10f), goldC);
+                        // Stone sill projecting outboard of the wall face.
+                        CreatePartBoxOn(root, x + sx * 0.22f, 1.63f, wz, new Vector3(0.30f, 0.12f, 1.60f), lightStoneC);
+                    }
+                    // Corner pilasters, seated on the plinth, closing the end piers
+                    // and clear of the outermost window reveal.
+                    for (int sz = -1; sz <= 1; sz += 2)
+                        CreatePartBoxOn(root, x, slabTop, sz * 5.90f, new Vector3(0.45f, wallTop - slabTop, 0.45f), whiteWallC);
+                    CreatePartBoxOn(root, x, wallTop, 0f, new Vector3(0.45f, corniceTop - wallTop, 12.60f), lightStoneC);
+                }
+                break;
+            case "Church_FrontWall":
+                for (int sx = -1; sx <= 1; sx += 2)
+                {
+                    float cx = sx * 4.85f; // 3.9 wide, overlapping the tower face
+                    CreatePartBoxOn(root, cx, slabTop, -wallZ, new Vector3(3.90f, plinthTop - slabTop, 0.55f), stoneBase);
+                    CreatePartBoxOn(root, cx, plinthTop, -wallZ, new Vector3(3.90f, wallTop - plinthTop, 0.40f), whiteWallC);
+                    // Tall lancet with a pointed head, applied to the outer face:
+                    // the band is solid, so the reveal is proud and overlaps it.
+                    float fz = -wallZ - 0.20f;
+                    CreatePartBoxOn(root, cx, 1.70f, fz, new Vector3(1.30f, 2.00f, 0.30f), glassC);
+                    CreatePartBoxOn(root, cx, 1.64f, fz, new Vector3(1.44f, 0.14f, 0.40f), goldC);
+                    CreatePartBoxOn(root, cx, 3.64f, fz, new Vector3(1.44f, 0.14f, 0.40f), goldC);
+                    CreatePartBoxOn(root, cx, 1.70f, fz, new Vector3(0.12f, 2.00f, 0.40f), goldC);
+                    // Pointed head: two slabs leaning in to a point above the head.
+                    CreatePartCubeRotated(root, new Vector3(cx - 0.33f, 4.05f, fz - 0.05f), new Vector3(0.80f, 0.30f, 0.30f), lightStoneC, Quaternion.Euler(0f, 0f, 35f));
+                    CreatePartCubeRotated(root, new Vector3(cx + 0.33f, 4.05f, fz - 0.05f), new Vector3(0.80f, 0.30f, 0.30f), lightStoneC, Quaternion.Euler(0f, 0f, -35f));
+                    // Corner pilaster and cornice return.
+                    CreatePartBoxOn(root, sx * 6.60f, slabTop, -wallZ, new Vector3(0.50f, wallTop - slabTop, 0.50f), whiteWallC);
+                    CreatePartBoxOn(root, sx * 4.95f, wallTop, -wallZ, new Vector3(4.10f, corniceTop - wallTop, 0.50f), lightStoneC);
+                }
+                break;
+            case "Church_BackWall":
+                CreatePartBoxOn(root, 0f, slabTop, wallZ, new Vector3(13.80f, plinthTop - slabTop, 0.55f), stoneBase);
+                CreatePartBoxOn(root, 0f, plinthTop, wallZ, new Vector3(13.80f, wallTop - plinthTop, 0.40f), whiteWallC);
+                // The band's inner face is at wallZ - 0.20, so every applied piece
+                // is deep enough to bury 0.10 in the wall instead of hovering.
+                float inZ = wallZ - 0.30f;
+                // Four tall lancets flanking a central gold cross panel.
+                for (int ix = 0; ix < 4; ix++)
+                {
+                    float wx = (ix - 1.5f) * 2.20f;
+                    CreatePartBoxOn(root, wx, 1.75f, inZ, new Vector3(1.00f, 1.90f, 0.40f), glassC);
+                    CreatePartBoxOn(root, wx, 1.69f, inZ, new Vector3(1.14f, 0.14f, 0.46f), goldC);
+                    CreatePartBoxOn(root, wx, 3.59f, inZ, new Vector3(1.14f, 0.14f, 0.46f), goldC);
+                    CreatePartBoxOn(root, wx, 1.75f, inZ, new Vector3(0.10f, 1.90f, 0.46f), goldC);
+                }
+                CreatePartBoxOn(root, 0f, floorTop, inZ, new Vector3(2.60f, 2.60f, 0.40f), lightStoneC);
+                CreatePartBoxOn(root, 0f, 2.60f, inZ - 0.25f, new Vector3(0.18f, 1.10f, 0.16f), goldC);
+                CreatePartBoxOn(root, 0f, 2.90f, inZ - 0.25f, new Vector3(0.80f, 0.18f, 0.16f), goldC);
+                // Reredos wings, seated on the floor (rotation is about Y only, so
+                // the centre Y arithmetic stays exact).
+                for (int sx = -1; sx <= 1; sx += 2)
+                {
+                    CreatePartCubeRotated(root, new Vector3(sx * 5.40f, floorTop + 0.95f, inZ - 0.30f), new Vector3(1.90f, 1.90f, 0.30f), lightStoneC, Quaternion.Euler(0f, sx * 35f, 0f));
+                    CreatePartCubeRotated(root, new Vector3(sx * 5.10f, floorTop + 0.50f, inZ - 0.48f), new Vector3(1.60f, 1.00f, 0.18f), whiteWallC, Quaternion.Euler(0f, sx * 35f, 0f));
+                }
+                CreatePartBoxOn(root, 0f, wallTop, wallZ, new Vector3(14.00f, corniceTop - wallTop, 0.50f), lightStoneC);
+                break;
+            case "Church_Roof":
+                // Two panels, each stated by the two ends of its underside: the
+                // eave is buried 6 cm into the cornice and the ridge underside is
+                // roofVert above the panel tops. No tilt sign is involved.
+                float eaveUnder = corniceTop - 0.06f;
+                float ridgeUnder = eaveUnder + wallZ * roofTan;
+                for (int sz = -1; sz <= 1; sz += 2)
+                    CreatePartPanelBetween(root, new Vector3(0f, eaveUnder, sz * wallZ), new Vector3(0f, ridgeUnder, 0f), roofHalfW, roofThick, Vector3.right, roofRedC);
+                // Ridge cap laid along each panel's own top surface, sunk 5 cm.
+                float peakTop = ridgeUnder + roofVert;
+                for (int sz = -1; sz <= 1; sz += 2)
+                    CreatePartPanelBetween(root, new Vector3(0f, peakTop - 0.05f, 0f), new Vector3(0f, peakTop - 0.05f - 1.2f * roofTan, sz * 1.2f), 8.45f, 0.22f, Vector3.right, roofDarkC);
+                CreatePartBoxOn(root, 0f, peakTop - 0.20f, 0f, new Vector3(0.50f, 0.40f, 0.50f), goldC);
+                // Gable infill on both side walls: the same eave/ridge undersides
+                // the panels were built from, so the steps track the real pitch.
+                for (int sx = -1; sx <= 1; sx += 2)
+                    CreatePartGableSteps(root, sx * wallX, 0.45f, wallTop, eaveUnder, ridgeUnder, wallZ, 10, whiteWallC);
+                break;
+            case "Church_Tower":
+                // Apron is the raised landing and it is wider than the tower so the
+                // front buttresses have something to bear on; it sinks below grade
+                // so its overhang past the slab still has a support.
+                CreatePartBoxOn(root, 0f, -0.05f, towerZ, new Vector3(7.80f, 0.95f, 7.00f), stoneBase);
+                CreatePartBoxOn(root, 0f, 0.90f, towerZ, new Vector3(6.20f, 6.60f, 6.20f), lightStoneC);
+                // Corner pilasters, seated on the apron and standing proud of the top.
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int sz = -1; sz <= 1; sz += 2)
+                        CreatePartBoxOn(root, sx * 2.90f, 0.90f, towerZ + sz * 2.90f, new Vector3(0.60f, 6.70f, 0.60f), whiteWallC);
+                // Door: real opening framed by jambs, seated on the landing. Every
+                // applied piece is centred 5 cm proud of the tower face and 30 cm
+                // deep, so it buries 10 cm in the solid face instead of hovering.
+                float faceZ = towerZ - 3.10f;
+                for (int sx = -1; sx <= 1; sx += 2)
+                    CreatePartBoxOn(root, sx * 0.95f, 0.90f, faceZ - 0.01f, new Vector3(0.25f, 2.80f, 0.30f), stoneBase);
+                CreatePartBoxOn(root, 0f, 3.70f, faceZ - 0.01f, new Vector3(2.30f, 0.30f, 0.35f), stoneBase);
+                CreatePartBoxOn(root, 0f, 0.90f, faceZ - 0.05f, new Vector3(1.50f, 2.60f, 0.24f), darkWoodC);
+                for (int i = 0; i < 3; i++)
+                    CreatePartBoxOn(root, 0f, 1.30f + i * 0.70f, faceZ - 0.20f, new Vector3(1.50f, 0.12f, 0.14f), goldC);
+                CreatePartBoxOn(root, 0f, 3.50f, faceZ - 0.25f, new Vector3(0.20f, 0.30f, 0.20f), goldC);
+                // Rose window over the door, applied proud of the solid tower face.
+                CreatePartBoxOn(root, 0f, 4.65f, faceZ - 0.05f, new Vector3(1.50f, 1.50f, 0.30f), glassC);
+                for (int i = 0; i < 4; i++)
+                {
+                    float a = 22.5f + i * 45f;
+                    CreatePartCubeRotated(root, new Vector3(0f, 5.40f, faceZ - 0.18f), new Vector3(0.10f, 1.90f, 0.20f), goldC, Quaternion.Euler(0f, 0f, a));
+                }
+                CreatePartCubeRotated(root, new Vector3(0f, 5.40f, faceZ - 0.18f), new Vector3(1.90f, 0.12f, 0.20f), goldC, Quaternion.Euler(0f, 0f, 45f));
+                CreatePartCubeRotated(root, new Vector3(0f, 5.40f, faceZ - 0.18f), new Vector3(1.90f, 0.12f, 0.20f), goldC, Quaternion.Euler(0f, 0f, -45f));
+                CreatePartBoxOn(root, 0f, 6.05f, faceZ - 0.15f, new Vector3(1.80f, 0.16f, 0.30f), goldC);
+                // Applied side lancets on the tower flanks, same proud-face rule.
+                for (int sx = -1; sx <= 1; sx += 2)
+                {
+                    CreatePartBoxOn(root, sx * 3.12f, 2.10f, towerZ, new Vector3(0.24f, 1.80f, 1.20f), glassC);
+                    CreatePartBoxOn(root, sx * 3.15f, 1.98f, towerZ, new Vector3(0.28f, 0.16f, 1.36f), goldC);
+                    CreatePartBoxOn(root, sx * 3.15f, 3.84f, towerZ, new Vector3(0.28f, 0.16f, 1.36f), goldC);
+                    CreatePartBoxOn(root, sx * 3.15f, 2.10f, towerZ - 0.62f, new Vector3(0.28f, 1.80f, 0.16f), goldC);
+                    CreatePartBoxOn(root, sx * 3.15f, 2.10f, towerZ + 0.62f, new Vector3(0.28f, 1.80f, 0.16f), goldC);
+                }
+                // Rear arch panel facing the nave.
+                CreatePartBoxOn(root, 0f, 0.90f, towerZ + 3.05f, new Vector3(2.40f, 2.60f, 0.30f), whiteWallC);
+                CreatePartBoxOn(root, 0f, 3.50f, towerZ + 3.05f, new Vector3(2.80f, 0.25f, 0.35f), lightStoneC);
+                // Cornice, bearing the belfry.
+                CreatePartBoxOn(root, 0f, 7.50f, towerZ, new Vector3(6.80f, 0.40f, 6.80f), lightStoneC);
+                break;
+            case "Church_Belfry":
+                CreatePartBoxOn(root, 0f, 7.80f, towerZ, new Vector3(4.60f, 2.50f, 4.60f), lightStoneC);
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int sz = -1; sz <= 1; sz += 2)
+                        CreatePartBoxOn(root, sx * 2.20f, 7.80f, towerZ + sz * 2.20f, new Vector3(0.45f, 2.50f, 0.45f), whiteWallC);
+                // Louvres stand proud of the solid belfry faces so they read.
+                for (int side = 0; side < 4; side++)
+                {
+                    bool onX = side < 2;
+                    float sgn = (side % 2 == 0) ? 1f : -1f;
+                    for (int i = 0; i < 3; i++)
+                    {
+                        float o = (i - 1) * 0.55f;
+                        if (onX) CreatePartBoxOn(root, sgn * 2.33f, 8.20f, towerZ + o, new Vector3(0.20f, 1.80f, 0.12f), darkWoodC);
+                        else CreatePartBoxOn(root, o, 8.20f, towerZ + sgn * 2.33f, new Vector3(0.12f, 1.80f, 0.20f), darkWoodC);
+                    }
+                }
+                // Cornice is wider than the spire panels it carries, so their
+                // edges finish inside it instead of coplanar with its edge.
+                CreatePartBoxOn(root, 0f, 10.30f, towerZ, new Vector3(5.60f, 0.30f, 5.60f), lightStoneC);
+                break;
+            case "Church_SpireRoof":
+                // Square pyramid: every eave start shares the belfry axis, and
+                // the four panels are stated as underside endpoints so the pitch
+                // cannot be written backwards. Eave is buried in the cornice.
+                float sprHalf = 2.72f;
+                float eaveY = 10.45f;
+                float apexY = eaveY + sprHalf * sprTan;
+                float sprThick = 0.45f;
+                for (int sz = -1; sz <= 1; sz += 2)
+                    CreatePartPanelBetween(root, new Vector3(0f, eaveY, towerZ + sz * sprHalf), new Vector3(0f, apexY, towerZ), sprHalf, sprThick, Vector3.right, roofRedC);
+                for (int sx = -1; sx <= 1; sx += 2)
+                    CreatePartPanelBetween(root, new Vector3(sx * sprHalf, eaveY, towerZ), new Vector3(0f, apexY, towerZ), sprHalf, sprThick, Vector3.forward, roofRedC);
+                // Gold eave trim capping each panel's end, and hip corner blocks.
+                for (int sz = -1; sz <= 1; sz += 2)
+                    CreatePartBoxOn(root, 0f, eaveY + 0.05f, towerZ + sz * 2.76f, new Vector3(5.44f, 0.55f, 0.16f), goldC);
+                for (int sx = -1; sx <= 1; sx += 2)
+                    CreatePartBoxOn(root, sx * 2.76f, eaveY + 0.05f, towerZ, new Vector3(0.16f, 0.55f, 5.44f), goldC);
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int sz = -1; sz <= 1; sz += 2)
+                        CreatePartBoxOn(root, sx * sprHalf, eaveY + 0.05f, towerZ + sz * sprHalf, new Vector3(0.34f, 0.60f, 0.34f), goldC);
+                break;
             case "Church_Spire":
-                CreatePartCube(root, new Vector3(0f, 0.5f, -6.2f), new Vector3(1.8f, 0.8f, 1.8f), roofDarkC);
-                CreatePartCube(root, new Vector3(0f, 4f, -6.2f), new Vector3(1.1f, 6.2f, 1.1f), roofDarkC);
-                CreatePartCube(root, new Vector3(0f, 2.4f, -6.2f), new Vector3(1.25f, 0.16f, 1.25f), goldC);
-                CreatePartCube(root, new Vector3(0f, 4.6f, -6.2f), new Vector3(1.25f, 0.16f, 1.25f), goldC);
-                CreatePartCube(root, new Vector3(0f, 6.4f, -6.2f), new Vector3(1.25f, 0.16f, 1.25f), goldC);
-                CreatePartCube(root, new Vector3(0f, 7.6f, -6.2f), new Vector3(0.9f, 0.7f, 0.9f), roofDarkC);
-                CreatePartCube(root, new Vector3(0f, 8.4f, -6.2f), new Vector3(0.9f, 0.9f, 0.9f), goldC);
-                CreatePartCubeRotated(root, new Vector3(0f, 8.9f, -6.2f), new Vector3(0.35f, 0.35f, 0.35f), goldC, Quaternion.Euler(45f, 0f, 45f));
-                CreatePartCube(root, new Vector3(0f, 9.8f, -6.2f), new Vector3(0.14f, 1.2f, 0.14f), goldC);
-                CreatePartCube(root, new Vector3(0f, 9.7f, -6.2f), new Vector3(0.75f, 0.14f, 0.14f), goldC);
+                // Stacked on the spire roof's own apex, on the shared axis. Each
+                // stage overlaps the one below by 0.10 so no seam can open.
+                float apexTop = apexY + sprVert;
+                CreatePartBoxOn(root, 0f, apexTop - 0.15f, towerZ, new Vector3(1.80f, 0.85f, 1.80f), roofDarkC);
+                CreatePartBoxOn(root, 0f, apexTop + 0.60f, towerZ, new Vector3(1.10f, 5.40f, 1.10f), roofDarkC);
+                for (int i = 0; i < 3; i++)
+                    CreatePartBoxOn(root, 0f, apexTop + 1.80f + i * 1.70f, towerZ, new Vector3(1.25f, 0.16f, 1.25f), goldC);
+                CreatePartBoxOn(root, 0f, apexTop + 5.90f, towerZ, new Vector3(0.90f, 0.80f, 0.90f), roofDarkC);
+                CreatePartBoxOn(root, 0f, apexTop + 6.60f, towerZ, new Vector3(0.90f, 1.00f, 0.90f), goldC);
+                CreatePartCubeRotated(root, new Vector3(0f, apexTop + 7.45f, towerZ), new Vector3(0.35f, 0.35f, 0.35f), goldC, Quaternion.Euler(45f, 0f, 45f));
+                CreatePartBoxOn(root, 0f, apexTop + 7.30f, towerZ, new Vector3(0.14f, 1.20f, 0.14f), goldC);
+                CreatePartBoxOn(root, 0f, apexTop + 8.00f, towerZ, new Vector3(0.75f, 0.14f, 0.14f), goldC);
                 break;
-
             case "Church_Buttresses":
-                for (int bz = 0; bz < 4; bz++)
-                {
-                    float z = -4.8f + bz * 3.2f;
-                    for (int sd = -1; sd <= 1; sd += 2)
+                // Side buttresses clear the terrace cap and bear on bare slab; every
+                // stage is pulled inboard far enough to stay buried in the one below.
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int i = 0; i < 4; i++)
                     {
-                        CreatePartCube(root, new Vector3(sd * 7.1f, 0.9f, z), new Vector3(0.9f, 1.8f, 1.1f), stoneBase);
-                        CreatePartCube(root, new Vector3(sd * 7.25f, 2.7f, z), new Vector3(0.5f, 1.8f, 0.8f), stoneBase);
-                        CreatePartCube(root, new Vector3(sd * 7.4f, 3.9f, z), new Vector3(0.3f, 1f, 0.5f), lightStoneC);
+                        float bz = (i - 1.5f) * 3.2f;
+                        CreatePartBoxOn(root, sx * 7.10f, slabTop, bz, new Vector3(0.90f, 1.80f, 1.10f), stoneBase);
+                        CreatePartBoxOn(root, sx * 7.15f, 2.05f, bz, new Vector3(0.50f, 1.30f, 0.80f), stoneBase);
+                        CreatePartBoxOn(root, sx * 7.15f, 3.25f, bz, new Vector3(0.50f, 0.35f, 0.70f), lightStoneC);
                     }
-                }
-                for (int fx = -1; fx <= 1; fx += 2)
+                // Front buttresses bear on the tower apron and hug the tower face.
+                for (int sx = -1; sx <= 1; sx += 2)
                 {
-                    CreatePartCube(root, new Vector3(fx * 4.7f, 0.9f, -7.7f), new Vector3(1.1f, 1.8f, 0.9f), stoneBase);
-                    CreatePartCube(root, new Vector3(fx * 4.8f, 2.7f, -7.85f), new Vector3(0.5f, 1.8f, 0.7f), stoneBase);
-                    CreatePartCube(root, new Vector3(fx * 4.9f, 3.9f, -8f), new Vector3(0.3f, 1f, 0.4f), lightStoneC);
+                    CreatePartBoxOn(root, sx * 3.35f, 0.90f, -7.70f, new Vector3(0.70f, 1.80f, 1.10f), stoneBase);
+                    CreatePartBoxOn(root, sx * 3.40f, 2.60f, -7.70f, new Vector3(0.50f, 1.30f, 0.80f), stoneBase);
+                    CreatePartBoxOn(root, sx * 3.40f, 3.80f, -7.70f, new Vector3(0.50f, 0.35f, 0.70f), lightStoneC);
                 }
-                for (int bx = -1; bx <= 1; bx += 2)
+                // Rear buttresses reach the slab, which was extended for them, and
+                // overlap the back wall's outer face instead of meeting it flush.
+                for (int sx = -1; sx <= 1; sx += 2)
                 {
-                    CreatePartCube(root, new Vector3(bx * 6.4f, 0.9f, 7.2f), new Vector3(1.1f, 1.8f, 0.9f), stoneBase);
-                    CreatePartCube(root, new Vector3(bx * 6.5f, 2.7f, 7.35f), new Vector3(0.5f, 1.8f, 0.7f), stoneBase);
-                    CreatePartCube(root, new Vector3(bx * 6.6f, 3.9f, 7.5f), new Vector3(0.3f, 1f, 0.4f), lightStoneC);
+                    CreatePartBoxOn(root, sx * 6.40f, slabTop, 6.75f, new Vector3(0.90f, 1.80f, 1.00f), stoneBase);
+                    CreatePartBoxOn(root, sx * 6.55f, 2.05f, 6.75f, new Vector3(0.50f, 1.30f, 0.90f), stoneBase);
+                    CreatePartBoxOn(root, sx * 6.60f, 3.25f, 6.75f, new Vector3(0.50f, 0.35f, 0.90f), lightStoneC);
                 }
                 break;
-
             case "Church_Interior":
-                CreatePartCube(root, new Vector3(-4.2f, 1f, 1.5f), new Vector3(1.5f, 1.6f, 1.2f), darkWoodC);
-                CreatePartCube(root, new Vector3(-3.4f, 0.25f, 1.6f), new Vector3(1f, 0.5f, 1.2f), darkWoodC);
-                CreatePartCube(root, new Vector3(-4.4f, 2f, 1.5f), new Vector3(0.12f, 0.3f, 1.2f), darkWoodC);
-                CreatePartCube(root, new Vector3(0f, 1.4f, 4.3f), new Vector3(3f, 0.6f, 1.1f), darkWoodC);
-                CreatePartCube(root, new Vector3(0f, 1.75f, 4.3f), new Vector3(3.1f, 0.08f, 1.2f), lightStoneC);
-                CreatePartCube(root, new Vector3(0f, 2.6f, 4.65f), new Vector3(0.3f, 1.2f, 0.1f), goldC);
-                CreatePartCube(root, new Vector3(0f, 3f, 4.65f), new Vector3(1f, 0.3f, 0.1f), goldC);
-                for (int cdx = -1; cdx <= 1; cdx += 2)
+                // Altar, seated on the walking surface.
+                CreatePartBoxOn(root, 0f, floorTop, 4.30f, new Vector3(3.00f, 0.80f, 1.10f), stoneBase);
+                CreatePartBoxOn(root, 0f, 1.20f, 4.30f, new Vector3(3.10f, 0.15f, 1.20f), lightStoneC);
+                CreatePartBoxOn(root, 0f, 1.30f, 4.30f, new Vector3(0.16f, 0.80f, 0.16f), goldC);
+                CreatePartBoxOn(root, 0f, 1.85f, 4.30f, new Vector3(0.60f, 0.14f, 0.16f), goldC);
+                for (int sx = -1; sx <= 1; sx += 2)
                 {
-                    CreatePartCube(root, new Vector3(cdx * 1f, 2.1f, 4.3f), new Vector3(0.18f, 0.7f, 0.18f), goldC);
-                    CreatePartCube(root, new Vector3(cdx * 1f, 2.48f, 4.3f), new Vector3(0.08f, 0.14f, 0.08f), flameC);
-                    CreatePartCube(root, new Vector3(-4.4f, 3.3f, 1.5f), new Vector3(0.3f, 0.4f, 1.2f), darkWoodC);
+                    CreatePartBoxOn(root, sx * 1.10f, 1.30f, 4.30f, new Vector3(0.14f, 0.45f, 0.14f), flameC);
+                    CreatePartBoxOn(root, sx * 1.10f, 1.75f, 4.30f, new Vector3(0.08f, 0.30f, 0.08f), goldC);
                 }
-                for (int prow = 0; prow < 3; prow++)
-                {
-                    float z = -2.8f + prow * 2.8f;
-                    for (int pp = -1; pp <= 1; pp += 2)
+                // Pulpit and its two approach steps, all seated on the floor. The
+                // step nearest the pulpit is the taller one, so the climb rises
+                // toward the platform instead of away from it.
+                CreatePartBoxOn(root, -4.20f, floorTop, 1.50f, new Vector3(1.50f, 1.60f, 1.20f), stoneBase);
+                CreatePartBoxOn(root, -4.20f, 2.00f, 1.50f, new Vector3(1.62f, 0.30f, 1.32f), lightStoneC);
+                CreatePartBoxOn(root, -3.30f, floorTop, 1.60f, new Vector3(0.60f, 0.25f, 1.00f), stoneBase);
+                CreatePartBoxOn(root, -2.80f, floorTop, 1.60f, new Vector3(0.60f, 0.15f, 1.00f), stoneBase);
+                CreatePartBoxOn(root, -3.55f, 2.20f, 1.50f, new Vector3(0.20f, 0.45f, 0.20f), goldC);
+                // Six pews, seat and back both referenced to the floor.
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int i = 0; i < 3; i++)
                     {
-                        CreatePartCube(root, new Vector3(pp * 3.2f, 0.55f, z), new Vector3(1.5f, 0.5f, 2.4f), darkWoodC);
-                        CreatePartCube(root, new Vector3(pp * 3.2f, 1.05f, z + (pp > 0 ? -1.2f : 1.2f)), new Vector3(1.5f, 0.7f, 0.16f), darkWoodC);
+                        float pz = (i - 1) * 2.80f;
+                        CreatePartBoxOn(root, sx * 3.20f, floorTop, pz, new Vector3(1.50f, 0.45f, 2.40f), darkWoodC);
+                        CreatePartBoxOn(root, sx * 3.20f + sx * 0.58f, floorTop + 0.35f, pz, new Vector3(0.16f, 0.60f, 2.40f), darkWoodC);
                     }
-                }
                 break;
         }
     }
