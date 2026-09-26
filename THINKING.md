@@ -15,7 +15,7 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
-## 1hj — "permanent see-through slits/holes at ground level between terrain chunks" — **OPEN** (audit shipped, no readout yet)
+## 1hj — "permanent see-through slits/holes at ground level between terrain chunks" — measurement shipped, readout received (resolved in 1hk)
 
 User report, in their own framing: the terrain has **permanent gaps/holes you can see through when
 you are up close**, not a distant-horizon artefact and not something that follows a dig. Asked what
@@ -98,12 +98,84 @@ instrument — the user's eyes on the gap.
   **F2** (free in the codebase today), and used the **new Input System** — this project has zero
   legacy `Input.*` calls, so `Input.GetKeyDown` was not even an option.
 
-### Verdict: OPEN
-Measurement shipped in 1hj; **the mechanism is not yet identified.** Next: the user presses F2 at a
-gap and sends the readout. A→ fix the owner-write defect in `ApplyHeightEdits`/`CurrentHeightOf`.
-B→ fix the root re-sample/activation path. C→ fix the demote/dormant handoff. D→ fix the far/real
-handoff. Verdict stays open until then — and the THINKING 1hj trail is the only place that says
-"likely A" out loud, because that is a guess, not implemented behavior.
+### Verdict: A CONFIRMED and fixed in 1hk; the "pristine ⇒ 0" premise was WRONG; D measured, still open
+
+**The readout (user pressed F2, 361 loaded chunks, 684 pairs, 21204 nodes, zero skipped):**
+```
+A real<->real  pairs 684  nodes 21204  WORST dY 0.5693 m at TChunk(1,-2)-NTChunk(1,-1) node 30
+B roots  checked 361  bad 0  OK         C holes  interior 0  frontier 4  OK
+D rim  rimChunks 72  cells 76  missing 0  noFarCell 0  compared 758  worst dY 9.6813
+VERDICT A: real<->real corner mismatch
+```
+A ⇒ hypothesis A is the mechanism, and 0.5693 m is exactly the right order for the 1 m height gradient
+of the 5-octave surface — which is what a **positional off-by-one** predicts.
+
+**Hypothesis A as I wrote it was wrong in its evidence line, and that is the interesting part.** I had
+written "only reachable via an edit" — the shared corner could only diverge if a re-stamp reached one
+side and not the other. The trace killed that: `BuildCornerGrid` never samples noise at all. It
+**copies a vertex out of an owner tile's stored mesh data** (`:911-919`), so the lattice agrees with
+the neighbour only if the owner rule picks the tile corner standing on the node's own world corner.
+And it didn't:
+
+```
+node (cs, gz)  ->  owner tile (cs-1, gz), slot 1 (NE)  ->  world corner (Ox+cs, Oz+gz+1)   WRONG
+node (0,  gz)  ->  owner tile (0,  gz), slot 3 (SW)  ->  world corner (Ox+cs, Oz+gz)       right
+```
+Same lattice position in space, two different world corners, **always** — no dig, no save, no race.
+The fix is one token: `slot = 1` → `slot = 2` (SE) in the build path and its patch twin. I spent all
+of 1hj refusing to "fix the deform bug" on the grounds that it was the wrong suspect, while the right
+suspect was a single wrong constant in a function I had already read twice. **Lesson: when a
+seam-invariant argument says "these cannot differ", check the arithmetic of the claim before looking
+for a race.** I had verified *placement* (exact block origin) and *step* (divides 30) and treated
+"canonical noise" as an automatic guarantee — it is not, when the value is *copied* rather than
+re-derived. game-design §2.2 asserted the guarantee in writing and was wrong; it now states the
+ownership rule itself as the contract.
+
+**Why the readout's location matched the bug so precisely** (this is what made me confident before
+touching anything): the worst node was index 30 of a **north** edge — the 4-chunk corner (30,30). Its
+four owners stamp it as (30,30)→SE ✓, (0,30)→NW ✓, (0,0)→SW ✓, and (30,0)→ the broken east column's
+`gz == 0` row, reading `h(60,-59)` instead of `h(60,-60)`. So the loudest error in the whole ring
+appears on the north seam of the chunk *below* the broken column. The readout pointing at a **north**
+pair for an **east-column** bug is exactly what the mapping predicts; guessing at "north seams" would
+never have found it.
+
+**Why it presented as a see-through HOLE, not a step.** The low-poly root is built from this lattice and
+emits no side walls, and `BuildBorderCorners` feeds only the side-wall pass, which the low-poly path
+drops entirely (`:477-478` short-circuits before `border` is read). A 0.5 m disagreement with nothing
+to close it = a slit you can see through from ground level, permanently, everywhere. The smooth 1 m
+root is unaffected (it renders from tile data, always exact) — which is why this read as a mystery
+rather than a bug with an obvious blast radius: the broken surface is the DEFAULT one.
+
+**Also refuted on the way:** `ChunkValidator` checks **tile** heights tile-vs-tile (`:60-77`) and tiles
+are exact, so the project's own no-gap validator passed the whole time. A validator on the wrong layer
+is worse than none — it manufactures confidence. Section A exists because that layer is unvalidated by
+construction.
+
+### Section D's 9.6813 m — a real disagreement, and NOT this fix
+~30× too large for a 1 m gradient, and the non-voxel far builder emits **tops only** (the wall/skirt
+code belongs to the voxel path, off by default), so there is no wall vertex to blame. Surviving
+mechanisms: (i) a far cell built before a dig was flushed — the far shell's own comment calls this
+expected; (ii) `RelaxLegacySlabTile` relaxing a legacy flat-modified tile's corners in memory only,
+which the real lattice inherits via `owner.Vertices[slot].y` while the far grid re-reads the unrelaxed
+save ⇒ dY = 0.5·|slab − noise|, so 9.6813 implies a ~19.4 m legacy slab step at a chunk border.
+**OPEN**, candidate 1hl. Part of D's number was also the east-column bug (far grid correct, real east
+column not) and should shrink after 1hk — the remainder is the open part.
+
+### Two defects in my own audit, found by reading the readout instead of trusting it
+- Section D addressed the real lattice with **cell**-local coords. Safe only because every gathered
+  cell is span-1; a coarser cell at the boundary would read a shifted node, get skipped as NaN, and
+  report a **false clean**. Now derived from the world node.
+- Section D compared every vertex on a node position with no surface test. Now top-surface only
+  (`n.y <= 0` ⇒ wall), inert while voxel is off but it would have produced a huge phantom if the flag
+  were flipped. **A measurement that can report a confident wrong answer is worse than no
+  measurement** — the same reason rule 7 demands the readout name a mechanism, not just a number.
+
+### Verdict: CLOSED for the reported symptom
+A confirmed (positional ownership bug) → fixed in 1hk. B and C measured clean. D measured, real,
+**open** (1hl candidate). The three edit-dependent seam defects from the 1hj trace (deform bbox
+low-edge owners, seam-straddling persistence, `CurrentHeightOf`'s tile-centre fallback) remain **open
+and unmeasured** — they only bite after a dig, the user reported no dig, and shipping them unmeasured
+would repeat the exact mistake this task was built to avoid.
 
 ---
 

@@ -882,11 +882,12 @@ public static class ChunkMeshGenerator
     /// Builds the coarse (axes x axes per chunk, axes = <see cref="TerrainChunkCoord.CornerGridSize"/>)
     /// world-corner lattice the LOD children sample from (1ew). Each lattice node copies the EXACT
     /// merged shallow-block slot that used to sit at a fixed (gz * cs + gx) * 4 + slot offset, so a
-    /// LOD child stays pixel-identical to the pre-refinement build. Ownership per corner mirrors the
-    /// retired WorldCornerIndex rule: interior corner (gx,gz) → tile(gx,gz) SW (slot 3), north
-    /// boundary (gz==cs) → tile(gx, cs-1) NW (slot 0), east boundary (gx==cs) → tile(cs-1, gz) NE
-    /// (slot 1), the far corner (cs,cs) → tile(cs-1,cs-1) SE (slot 2). Band colors are recomputed
-    /// here from the same world corner each node stands on.
+    /// LOD child stays pixel-identical to the pre-refinement build. Ownership per corner: interior
+    /// corner (gx,gz) → tile(gx,gz) SW (slot 3), north boundary (gz==cs) → tile(gx, cs-1) NW
+    /// (slot 0), east boundary (gx==cs) → tile(cs-1, gz) **SE (slot 2)**, the far corner
+    /// (cs,cs) → tile(cs-1,cs-1) SE (slot 2). Every rule reads the corner the node actually STANDS
+    /// ON: 1hk corrected the east column from NE to SE, which had been stamping it one metre north
+    /// of itself. Band colors are recomputed here from the same world corner each node stands on.
     /// </summary>
     private static ChunkCornerGrid BuildCornerGrid(ChunkMeshData[] tiles, int cs, long seed,
         System.Collections.Generic.Dictionary<long, float> heightMemo)
@@ -903,9 +904,19 @@ public static class ChunkMeshGenerator
                 // the `else if (gz == cs)` matched (gx=cs, gz=cs) FIRST and indexed tiles[900] (out
                 // of bounds) on every build — which killed the entire real-chunk ring (the whole near
                 // world never materialized; only the far shell rendered past ~300 m).
+                //
+                // 1hk: the east column is the tile's SE corner, NOT its NE. Node (cs, gz) stands on
+                // world corner (Ox+cs, Oz+gz), and tile (cs-1, gz)'s SE corner is exactly that
+                // point; its NE corner is one metre further north. The old `slot = 1` therefore
+                // stamped the whole east column (rows 0..cs-1) with the height of the corner BEHIND
+                // it, so every east seam paired a node against a different world corner than its
+                // west-side twin: 0.5 m holes in the low-poly root, a stepped collider seam, LOD
+                // children sheared 1 m, and a matching step against the far shell. The far-side node
+                // (0, gz) is tile (0, gz)'s SW = the same point, which is why only ONE side of the
+                // seam looked wrong and why ChunkValidator (tile-vs-tile) never caught it.
                 if (gx < cs && gz < cs) { ownerIdx = gz * cs + gx; slot = 3; }        // SW of tile
                 else if (gx < cs)       { ownerIdx = (cs - 1) * cs + gx; slot = 0; } // north edge: NW of tile
-                else if (gz < cs)       { ownerIdx = gz * cs + (cs - 1); slot = 1; } // east edge: NE of tile
+                else if (gz < cs)       { ownerIdx = gz * cs + (cs - 1); slot = 2; } // east edge: SE of tile
                 else                    { ownerIdx = (cs - 1) * cs + (cs - 1); slot = 2; } // corner (cs,cs): SE of tile
 
                 ChunkMeshData owner = tiles[ownerIdx];
@@ -1003,9 +1014,12 @@ public static class ChunkMeshGenerator
                 // to the corner case — owner tile (cs-1,cs-1) SE. The pre-fix `else if (gz == cs)`
                 // claimed (cs,cs) for tile (gx, cs-1) = also (30, 29), which the region bounds check
                 // then skipped, so the chunk's NE lattice node was never re-stamped after a patch.
+                // 1hk: east column is the owner's SE (was NE) — same rule as the build path above,
+                // or a patch would stamp the column differently from a fresh build and the two would
+                // drift apart by exactly the 1 m the old build rule was off by.
                 if (gx < cs && gz < cs) { ownerLx = gx; ownerLz = gz; slot = 3; }
                 else if (gx < cs)       { ownerLx = gx; ownerLz = cs - 1; slot = 0; }
-                else if (gz < cs)       { ownerLx = cs - 1; ownerLz = gz; slot = 1; }
+                else if (gz < cs)       { ownerLx = cs - 1; ownerLz = gz; slot = 2; }
                 else                    { ownerLx = cs - 1; ownerLz = cs - 1; slot = 2; }
 
                 if (ownerLx < regionX || ownerLx > regionX + w - 1 ||

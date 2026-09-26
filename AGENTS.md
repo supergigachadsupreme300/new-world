@@ -47,3 +47,14 @@
    without a measurement is a guess: it can be correct and still change nothing, and then the real
    cause is still unmeasured for the next attempt. Read-only means read-only: no rebuild, no patch,
    no re-stamp, no forced poll — the report must describe the frame the key was pressed on.
+
+8. **A seam invariant is only as good as the arithmetic of the COPY, not the source.** When a value is
+   copied out of another structure instead of re-derived (the corner lattice copies a tile's stored
+   vertex; a cache copies a source array; a lookup indexes by another system's key), the addressing
+   rule of that copy IS the seam contract. Do not infer correctness from how pure the source is — pure
+   noise sampled per corner is exact, the same noise *copied through a wrong owner slot* is off by a
+   whole metre, permanently, in an unedited world. Two habits follow: check the copy's index/owner
+   arithmetic with a concrete worked example at a boundary node (the 4-chunk corner catches what
+   mid-edge checks miss), and never let a validator stand in for a layer it does not read —
+   `ChunkValidator` compares tile heights tile-vs-tile and is structurally blind to a lattice bug, so
+   a green validator is not evidence about the lattice.

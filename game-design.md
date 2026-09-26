@@ -53,17 +53,23 @@ SW ────────── SE
   sub-quad grid instead of one quad — same smooth heightfield, but steep slopes split into several
   smaller faces so the corner-grab editor (§3.8) can bite them level by level.
 
-**Seam contract (ownership + audit).** A corner is owned by exactly ONE rule, and that rule is a
-pure function of world position: the canonical Perlin surface (§2.3) plus whatever whole-corner
-edits are persisted for it (§2.6). A neighbour is never asked "what height did you end up with" —
-it re-derives the same number itself. Every chunk is then placed at its exact block origin
-(`chunk.X * 30 m`) on a lattice whose node spacing divides 30 (3 m facets, 2 m LOD, 1 m tiles), so
-two adjacent chunks sample identical nodes at identical world tiles. **Consequence: a pristine
-world is seam-free by construction, and any see-through gap has exactly one of four causes:**
+**Seam contract (ownership + audit).** A world corner has exactly ONE value: the canonical Perlin
+surface (§2.3) plus whatever whole-corner edits are persisted for it (§2.6). Every chunk is placed at
+its exact block origin (`chunk.X * 30 m`) on a lattice whose node spacing divides 30 (3 m facets, 2 m
+LOD, 1 m tiles), so two adjacent chunks sample identical nodes at identical world tiles. The 31x31
+**corner lattice** is not re-derived from noise at mesh time — it is copied out of the *owning tile's*
+stored corner, so the contract rests entirely on the **ownership rule** holding: node (gx,gz) stands
+on world corner (Ox+gx, Oz+gz) and must copy the corner of exactly that point from the tile that
+carries it (interior → tile (gx,gz) SW; north row → tile (gx,cs-1) NW; **east column → tile (cs-1,gz)
+SE**; far corner → tile (cs-1,cs-1) SE). A rule that reads a *different* corner of the owner tile
+silently shears the column and breaks the seam while every tile-vs-tile check still passes.
+
+**Consequence: a pristine world is seam-free by construction, and any see-through gap has exactly one
+of four causes:**
 
 | # | Cause | What it means |
 |---|-------|--------------|
-| A | **Corner divergence** — a chunk's lattice was re-stamped by an edit that never reached its neighbour | the two surfaces part by a sliver along a shared boundary |
+| A | **Corner divergence** — a chunk's lattice was stamped with a height that is not the corner the node stands on (wrong owner slot, or an edit that never reached the owner tile) | the two surfaces part by a sliver along a shared boundary |
 | B | **Short/hidden root** — the chunk is loaded but does not draw its whole 30 m (inactive root, missing mesh, vertex- or bounds-short rebuild) | ground is missing where a chunk is supposed to be |
 | C | **Interior hole** — a chunk position inside the loaded ring holds nothing at all | not a seam: a chunk never arrived, or was dropped |
 | D | **Far/real rim step** — the far-shell cell meeting the last real ring renders its own heights | a step at the near/far boundary, both meshes locally correct |
@@ -73,9 +79,13 @@ world is seam-free by construction, and any see-through gap has exactly one of f
 compares the 31 shared nodes of every loaded pair, B checks root active state + vertex count + X/Z
 bounds against the chunk it stands for, C scans the loaded ring for uncovered positions with ≥3
 loaded neighbours (the streaming frontier and the ready queue are excluded, so normal loading never
-reads as a hole), D compares far-cell lattice vertices against the real chunks they meet. It is
-strictly read-only and is a QA readout, **not** a load-path validator — a per-chunk cross-chunk
-comparison would serialise the poll, and correctness stays with the per-chunk build/accept step.
+reads as a hole), D compares far-cell lattice vertices against the real chunks they meet, top-surface
+vertices only (a wall vertex on a node position carries a base-level Y and would read as a huge false
+disagreement). It is strictly read-only and is a QA readout, **not** a load-path validator — a
+per-chunk cross-chunk comparison would serialise the poll, and correctness stays with the per-chunk
+build/accept step. Note that the load-path validator (`ChunkValidator`) checks **tile** heights
+tile-vs-tile, which are exact by construction; it therefore cannot see a lattice ownership bug, which
+is why A exists as a separate measurement rather than as a validator extension.
 
 
 ### 2.3 Perlin Noise Layers (5 octaves)

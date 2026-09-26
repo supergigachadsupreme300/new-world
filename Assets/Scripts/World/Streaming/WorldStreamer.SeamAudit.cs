@@ -82,6 +82,8 @@ public partial class WorldStreamer
 
         sb.Append("VERDICT ").Append(verdict
             ?? "clean: corner lattice consistent, all roots full-span, no interior holes, rim agrees");
+        if (verdict == null && VoxelTerrainEnabled)
+            sb.Append("  (voxel far cells: no corner lattice, section D is top-surface only)");
         return sb.ToString();
     }
 
@@ -428,8 +430,9 @@ public partial class WorldStreamer
             int step = FarSectorStep(cell.Span, maxRing);
             int originX = Mathf.RoundToInt(cell.X * TerrainChunkCoord.ChunkSize * ChunkData.Size);
             int originZ = Mathf.RoundToInt(cell.Z * TerrainChunkCoord.ChunkSize * ChunkData.Size);
-
             Vector3[] verts = mesh.vertices;
+            Vector3[] norms = mesh.normals;
+
             for (int v = 0; v < verts.Length; v++)
             {
                 // Far-cell vertex -> the world lattice node it renders, and that node's address
@@ -438,9 +441,19 @@ public partial class WorldStreamer
                 // far step, so a vertex that is NOT on a lattice node is a facet interior point.
                 int worldX = originX + Mathf.RoundToInt(verts[v].x);
                 int worldZ = originZ + Mathf.RoundToInt(verts[v].z);
-                int localX = worldX - originX;
-                int localZ = worldZ - originZ;
-                if (localX % step != 0 || localZ % step != 0)
+                int cellLocalX = worldX - originX;
+                int cellLocalZ = worldZ - originZ;
+                if (cellLocalX % step != 0 || cellLocalZ % step != 0)
+                    continue;
+
+                // Top-surface vertices only. A far surface's normals are +Y (top) or +Y-dominant
+                // (sloped facet); any wall geometry it grows is exactly horizontal (n.y <= 0). A wall
+                // vertex can sit on a lattice node X/Z while carrying a base-level Y, which would
+                // read as a huge "disagreement" that is really just the wall. The cut is `n.y <= 0`
+                // rather than a steepness threshold, because a legitimate cliff facet still has a
+                // small POSITIVE n.y. Inert while VoxelTerrain is off (the non-voxel far builder
+                // emits tops only) — it is here so this section stays honest if that flag is flipped.
+                if (norms != null && norms.Length == verts.Length && norms[v].y <= 0f)
                     continue;
 
                 int chunkX = FloorDiv(worldX, TerrainChunkCoord.ChunkSize);
@@ -449,7 +462,14 @@ public partial class WorldStreamer
                         new TerrainChunkCoord(chunkX, chunkZ), out ChunkObject real) || real == null)
                     continue;
 
-                float realY = real.LatticeY(localX, localZ);
+                // LatticeY is addressed in CHUNK-local coords, which for a span-1 cell happen to
+                // equal the cell-local ones — every cell gathered here is span-1 (keep = near + 1
+                // puts the boundary inside the span-1 band). Deriving it from the world node instead
+                // of trusting that coincidence: a coarser cell at the boundary would otherwise read a
+                // shifted node and get skipped as NaN, i.e. report a false "clean".
+                float realY = real.LatticeY(
+                    worldX - chunkX * TerrainChunkCoord.ChunkSize,
+                    worldZ - chunkZ * TerrainChunkCoord.ChunkSize);
                 if (float.IsNaN(realY))
                     continue;
                 compared++;

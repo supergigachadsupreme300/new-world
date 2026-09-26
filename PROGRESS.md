@@ -3,6 +3,99 @@
 Last updated: 2026-09-26. Read this first in a new session; then continue with the
 `# OPEN TASKS` section.
 
+## 1hk. Fix the east-column corner ownership — the measured cause of the see-through seams
+
+Follow-up to the 1hj audit. The user pressed F2 inside the loaded ring and sent the readout; **section
+A failed** and named the mechanism:
+
+```
+A real<->real  pairs 684  nodes 21204  WORST dY 0.5693 m at TChunk(1,-2)-NTChunk(1,-1) node 30
+B roots  checked 361  bad 0  OK        C holes  interior 0  frontier 4  OK
+D rim  rimChunks 72  cells 76  missing 0  noFarCell 0  compared 758  worst dY 9.6813
+VERDICT A: real<->real corner mismatch (worst 0.5693 m at TChunk(1,-2)-NTChunk(1,-1) node 30)
+```
+
+684 pairs × 31 nodes = 21204 compared, **zero skipped** — the whole loaded ring was measured, so this
+is not a localised artefact. B and C are structurally clean (every loaded root draws its full 30 m,
+nothing is missing inside the ring), which is why the fix is in the lattice and not in streaming.
+
+**Root cause (one wrong slot in the ownership rule).** `BuildCornerGrid` copies each lattice node out
+of the tile that **carries** the node's world corner, and the east column read the wrong corner of the
+right tile: node (cs, gz) stands on world corner (Ox+cs, Oz+gz), which is tile (cs-1, gz)'s **SE**
+corner, but the code took its **NE** corner — one metre further north. So chunk A's east column
+carried `h(Ox+cs, Oz+gz+1)` while its east neighbour's west column (`(0, gz)` = tile (0, gz) SW)
+carried `h(Ox+cs, Oz+gz)`: same lattice position in space, two different world corners, on **every
+east seam of every chunk, in a pristine world** (no dig, no save, no loading order required). The
+magnitude is the surface's 1 m height gradient — the 0.5693 m measured, decimetres typically, metres
+on steep ground. North seams were already exact, which is why the symptom read as a *lattice* bug with
+no obvious culprit.
+
+The audit's own location confirms it: the worst node was index 30 of a **north** edge, i.e. the 4-chunk
+corner (30,30). Three of that corner's four owners stamp it correctly; the fourth — the east column's
+`gz == 0` row — was reading `h(60, -59)` instead of `h(60, -60)`. The fix therefore shows up on the
+north edge of the chunk BELOW the broken column, exactly where the readout pointed.
+
+**Why it was a see-through hole and not just a step.** The low-poly root (default, `LowPolyFacets`) is
+built from this lattice and emits **no side walls**, so a sub-metre corner disagreement is an open
+slit between two surfaces rather than a covered crack — and `BuildBorderCorners`' neighbour data
+reaches only the side-wall pass, which the low-poly path drops entirely. Section D's step is the same
+defect seen from the far side: the far grid samples `GetHeight(seed, Ox+gx, Oz+gz)` (correct), the
+real chunk's east column did not.
+
+**Changes:**
+- `ChunkMeshGenerator.BuildCornerGrid` — east branch `slot = 1` (NE) → **`slot = 2` (SE)**, the corner
+  the node actually stands on. Doc comment updated to state the rule as "reads the corner the node
+  stands on" rather than "mirrors the retired WorldCornerIndex".
+- `ChunkMeshGenerator.PatchCornerGrid` — the identical change, because the patch path mirrors the
+  build ownership; leaving it at NE would make a patched chunk drift from a freshly built one by
+  exactly the 1 m the build rule was off by.
+- Band colours self-correct: they are derived from the owner tile's `slot` (`:939-941`, `:1040-1042`),
+  so the east column is now coloured at the corner it renders.
+- No save migration: **tile** data was always exact (tiles are cut from the same corner grid), only
+  the lattice copy was wrong. Only the derived surfaces change — low-poly root, decimated collider
+  (`BuildDecimatedCollider`), LOD children, and the rim step.
+- `WorldStreamer.SeamAudit` corrections found while reading the readout: section D addressed the real
+  lattice with **cell**-local coords (safe only because every gathered cell is span-1 — a coarser cell
+  would read a shifted node and be skipped as NaN, i.e. report a false "clean") now derived from the
+  world node; section D now compares **top-surface vertices only** (`n.y <= 0` = wall geometry, which
+  can sit on a node position at a base-level Y), inert while `VoxelTerrainEnabled` is off; the
+  VERDICT notes voxel far cells. Read-only throughout — no behaviour change.
+- Docs: `game-design.md` §2.2 (the seam contract now states the real rule — the lattice copies the
+  owning tile's corner, so correctness rests on the ownership rule, not on re-deriving noise — plus a
+  note that `ChunkValidator` checks tiles and therefore cannot see a lattice bug); this file;
+  `THINKING.md` §1hk.
+
+### 1hk-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build): the ownership rule exists at
+  exactly two sites (`ChunkMeshGenerator.cs:906-909` build, `:1006-1009` patch) and both now read SE;
+  every lattice consumer is **position-based** (`EmitLowPolySurface:783-786`,
+  `BuildDecimatedCollider:958-961`, `ChunkObject.BuildLodChild:551-552`, `ResampleLowPolySurface`),
+  i.e. places node (gx,gz) at local (gx·step, gz·step), so correcting the stamp corrects all of them
+  at once with no consumer change; the owner tiles for boundary nodes are never refined
+  (`IsRefinable:215-220` confines refinement to interior tiles 1..cs-2), so slot 2 always exists on
+  the 4-vertex block it is read from; no other copy of the rule exists anywhere in `Assets\Scripts`.
+- PENDING PLAY-TEST: (1) **restart Play mode** (or walk far away and back) so chunks re-stream and pick
+  up the corrected lattice — chunks already in memory keep the old stamp until they are rebuilt, since
+  nothing invalidates a live lattice on a code change; (2) press **F2** and confirm
+  `A real<->real ... worst dY 0` — that is the single number that proves the fix, and the north-seam
+  pairs must read 0 too; (3) walk to ground level and confirm the see-through slits along east–west
+  chunk seams are gone (this was the reported symptom); (4) the player still stands on the ground and
+  no crack/hole appears at a seam from a low angle; (5) dig/cut a corner and confirm the facets +
+  collider still track it (the patch path changed too); (6) section D should DROP to 0 or near 0 for
+  the east-column part of its 9.68 m — see the open item below.
+- **STILL OPEN (measured, not this task's cause):** D's `worst dY 9.6813` at the rim is a *real*
+  far/real surface disagreement, ~30× too large for a 1 m gradient, and the non-voxel far builder
+  emits tops only (no wall vertices to blame). The surviving mechanisms are (i) a far cell built
+  before a dig was flushed (staleness — the code's own comment calls this expected), or (ii)
+  `RelaxLegacySlabTile` (`WorldStreamer.cs:319-342`) relaxing a legacy flat-modified tile's corners
+  in memory **only**, which the real lattice inherits while the far grid re-reads the unrelaxed save
+  ⇒ dY = 0.5·|slab − noise|, implying a ~19.4 m legacy slab step at a chunk border. Candidate 1hl,
+  after this fix is confirmed.
+- **Also open from the 1hj trace** (proven code defects, edit-dependent, NOT measured in this world):
+  `ApplyHeightEdits` not writing corner owners at `cx-1`/`cz-1` on the low edge of its own bbox;
+  a seam-straddling dig persisting only in the loaded side's save; `CurrentHeightOf`'s tile-centre
+  noise fallback (`Deform.cs:566`). Details in THINKING §1hj/§1hk.
+
 ## 1hj. Seam audit — measure the "gaps between terrain chunks" report before fixing it
 
 User report: **permanent see-through slits/holes at ground level between terrain chunks** (seen up
