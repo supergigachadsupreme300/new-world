@@ -3,6 +3,33 @@
 Last updated: 2026-09-26. Read this first in a new session; then continue with the
 `# OPEN TASKS` section.
 
+## 1hq. Fix the two compile errors Unity found in 1hm/1hn (follow-up to 1ho/1hp)
+
+Unity was the first compiler to run over `1hm`–`1hp`; it reported two errors in
+`WorldBuilder.Blueprints.cs`, both shipped by earlier commits in this thread.
+**Fixed in `ebad1c9`** (a new commit, not an amend, per rule 1).
+
+- **CS0029 — `CreatePartPanelBetween` returned a `void`.** Line 1005 does
+  `return CreatePartCubeRotated(...)`, but `CreatePartCubeRotated` was declared `void` in 1hm — the
+  caller and the callee were written in the same commit and never compiled together. **Fix:** it now
+  returns the `GameObject` it creates, matching `CreatePartCube`. This broke *every* roof panel, ramp
+  and stair in all three holy places, so nothing in 1hm–1hp could have run.
+- **CS0165 — `Church_Spire` read a case-local of `Church_SpireRoof`.** A switch section's locals are
+  scoped to the whole switch, so `float apexY` in the roof case was readable from the spire case —
+  but definite assignment fails on a path that enters `Church_Spire` directly. **Fix:**
+  `sprHalf / sprThick / sprEaveY / sprApexY` are now method-scope consts beside `sprTan`/`sprVert`, so
+  both cases read the same named numbers and the spire cannot drift off its own roof's apex.
+  `sprApexY = 10.45 + 2.72·0.7813 = 12.575` — **geometry unchanged**.
+- **Class swept, not just the two:** scanned all three structure builders (`BuildPagodaPart`,
+  `BuildChurchPart`, `BuildShrinePart`) for a local declared in one `case` and read in another, and
+  for a name declared twice across cases. One instance (the one above), no duplicates, no other
+  `return <void helper>(...)` anywhere in the file.
+- **Why review missed it, recorded so it isn't missed again:** grep confirms a symbol *exists*, not
+  that a signature *matches*; and a per-case local is a hidden dependency between cases that no
+  geometry reading can see. Brace balance, part-name matching and hand-derived arithmetic are not
+  compilation. Unity's console is the only compiler this project has — **paste its errors into the
+  next session's handoff instead of fixing them silently.**
+
 ## 1hp. Test lane - the three faith NPCs stood on the platform with their feet 0.915 m under it
 
 The last item of the church/shrine rebuild (`1hm–1hp`). Reasoning trail: `THINKING.md` §1hm–1hp.

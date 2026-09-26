@@ -240,6 +240,25 @@ belongs to. `WorldBuilder.CreateWorld` places the same three NPCs at `y 0.93/0.9
 *probably* the same 0.915 m sink in the legacy world, but the legacy ground height there is unverified
 and rule 4 keeps this project off the legacy village — recorded, not touched.
 
+### Two compile errors I shipped in 1hm/1hn — and why review missed them
+Unity was the first compiler to run over 1hm/1hn/1ho; it reported exactly two errors, and both are
+invisible to every check this project uses. `CreatePartPanelBetween` does
+`return CreatePartCubeRotated(...)` while `CreatePartCubeRotated` is declared `void` (**CS0029**) —
+a mismatch introduced in the same commit that created the caller, missed because the convention here
+is "grep the symbol, confirm the signature", and grep confirms the name exists in both places. And
+`Church_Spire` read `apexY`, a local declared inside `Church_SpireRoof`'s case (**CS0165**): a
+switch section's locals are scoped to the *whole switch*, so the read looks legal and the
+definite-assignment analysis only fails on the path that enters `Church_Spire` without the roof case
+— i.e. exactly the case the compiler is *for*, and the one thing hand-review cannot see, because
+"did the other case run first?" is not a question anyone asks while reading geometry. Fixed by
+promoting `sprHalf / sprThick / sprEaveY / sprApexY` to method-scope consts beside `sprTan`/`sprVert`
+(`sprApexY = 10.45 + 2.72·0.7813 = 12.575`, unchanged), so both cases read the same names — the 1hn
+"one datum ladder" rule applied to a case boundary. Then scanned all three structure builders for the
+whole class (a name declared in one case and read in another): **one** instance, and no name declared
+twice across cases. **The lesson, generalisable:** signature agreement and brace balance are not
+compilation, and a per-case local is a *hidden* dependency between cases — the geometry reads fine
+and only the control flow disagrees.
+
 ### Open / not done
 - **Pagoda butterfly roofs + `Roof1`'s centre cap floating 0.57–1.44 m over its own panels** — a real
   defect of the same class, found while auditing, **deferred by the user's choice**. Recorded as a

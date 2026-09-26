@@ -21,6 +21,11 @@
 
 3. **No CLI/Unity build is run in this project.** Compile and behavior are verified by code review;
    the user play-tests in Unity afterwards. Note that verification status in each task's status block.
+   **Review is not compilation:** grep confirms a symbol exists, not that two signatures agree, and a
+   local declared inside a `switch` case is in scope for the *whole* switch, so a read from a sibling
+   case looks legal and only fails definite assignment. When the user pastes Unity console errors,
+   fix them in a **new commit** (never an amend) and sweep the whole class — every
+   `return <void helper>(...)`, and every name declared in one `case` and read in another.
 
 4. **QA/test features go on the independent test platform**, never in the legacy world: add an opt-in
    lane + serialized toggle in `Assets\Scripts\Opt\NewWorldTestGround.cs` (`RunBenchSpawn`,
