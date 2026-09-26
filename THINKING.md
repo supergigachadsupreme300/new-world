@@ -141,6 +141,77 @@ measurement ships as its own task (1hv) and the fix waits for the readout. A zer
 exists: a fresh play session rebuilds every chunk through `BuildOrLoadChunk`, so **if the gaps
 survive a restart, staleness is ruled out** and the cause is in the render path itself.
 
+## 1hv — "in every chunk corner it wont match the edge so player can see the void through that gap" — MEASUREMENT SHIPPED, fix withheld pending the readout
+
+Rule 7: a report I cannot see gets a read-only measurement lane FIRST, and the measurement and the
+fix ship as separate tasks so the readout that justified the fix stays in history. So this task adds
+the lane and changes **no** terrain geometry. Reasoning trail: `THINKING.md` §1hu H5 (the leading
+hypothesis).
+
+### H1 — "is there already a measurement for this?" — YES, and it reads the wrong layer
+`WorldStreamer.SeamAudit()` (1hj) is exactly the "gaps between terrain chunks" instrument, on F2. It
+has four sections: A real↔real corner heights, B roots, C interior holes, D far rim. So the first
+move is not to add a lane but to ask what A *reads*: `ChunkObject.LatticeY(gx, gz)` — the **31x31
+corner lattice**. That is the data layer.
+
+**And that is exactly the trap AGENTS rule 8 warns about**, in a new costume: a validator is only
+evidence about the layer it reads. A green "worst dY 0 OK" means the lattices agree; it says nothing
+about whether the renderer drew those corners. A renderer that copies its corner vertex from the
+wrong place produces a perfectly clean section A and a visible slit. B is no help either: it checks
+root active state, vertex COUNT and X/Z bounds — it catches a root that is short or hidden, and
+cannot see whether the four vertices meeting at a corner agree with each other. (Credit where due:
+the 4-chunk corner node IS covered by A, because A walks both the east and the north edge of every
+chunk, so all four chunks' values at a shared node are forced equal transitively. The gap is not in
+A's edge coverage — it is in A's layer.)
+
+### H2 — what should the lane measure? — the two questions A cannot answer
+- **R1 coverage.** For each loaded chunk, is there a rendered vertex AT each of its four corners? A
+  corner the surface never reaches is a hole no height comparison can reveal (both sides can agree
+  on a height that is never drawn). "Expected" is the number of loaded chunks touching the node, so a
+  chunk that is loaded but has no mesh is counted as *missing* rather than quietly excluded.
+- **R2 agreement.** Two separate numbers, because they have different causes: the **cross-chunk
+  spread** at a node (the render path is not sharing one corner height) and the **own-lattice delta**
+  (the render path copies the corner from the wrong place — rule 8's "copy" contract, measured).
+- **Staleness fingerprint**, from 1hu: the (facet step, vertex count) buckets, plus a step-drift
+  count against the current `EffectiveLowPolyStep`. Buckets > 1 catches a MIXED resident set. Buckets
+  == 1 does **not** clear it, because the other staleness shape is a *uniformly old* set where nothing
+  ever streams in — hence the separate drift count. This is the one mechanism the repo can create on
+  demand and it is indistinguishable from a renderer bug by eye, so it gets its own line.
+
+### H3 — addressing arithmetic (the part that could have made the readout lie)
+A chunk root sits at `(tc.X * 30 * ChunkData.Size, 0, tc.Z * 30 * ChunkData.Size)` (verified in
+`CreateChunkGameObject`) and `ChunkData.Size == 1`, so mesh-local X/Z + `tc*30` == world X/Z and
+**mesh-local Y == world Y**. That is what makes "compare the rendered corner against `LatticeY`" a
+legal comparison at all, and it is the same assumption the seam audit's bounds check already makes.
+Corners are mesh-local (0|30, 0|30); a world node is `tc*30 + local`; the chunks touching node (nx,nz)
+are X,Z ∈ {n/30, n/30−1}, exact because nx/nz are multiples of 30 and C# integer division truncates
+toward zero (so negative nodes still name the right pair).
+
+### H4 — min or max vertex at a corner? — max, and the first answer was wrong
+My first pass folded `min`/`max` over the vertices at a corner and compared the min to the lattice.
+But a *smooth* root also carries **side walls** hanging down from the same edge, so the min at a
+corner is the *bottom of a wall*, not the surface — a guaranteed false "own-lattice mismatch" on
+every chunk. The low-poly root has no walls (1hi.1 skips them), which is why this would have looked
+fine on one setting and lied on the other. Fixed to use the **topmost** vertex as the corner height;
+the cross-chunk spread then folds min/max of those per-chunk tops.
+
+### H5 — cheap enough to be honest, and still read-only
+One `Mesh.GetVertices` per loaded chunk (~50–80 chunks × 121–961 verts) through ONE reused list, and
+`GetVertices` fills the caller's list rather than allocating a fresh array — so the lane is a single
+frame of scanning and mutates nothing: no rebuild, no re-stamp, no forced poll, per rule 7. Two
+dictionary-enumeration hazards were designed out rather than assumed safe: the first pass writes
+existing keys (legal for `Dictionary`, but the second pass does not write at all), and the node
+accumulator is a `struct` written back explicitly, so there is no reference-type aliasing.
+
+### Open
+- **The fix is deliberately not written.** If the user presses F3 and reads
+  `VERDICT R1: …` the cause is coverage and the fix is in the surface emitter; `R2` puts it in the
+  corner-derivation arithmetic; `R-stale` puts it in rule 11's missing public "re-render everything,
+  keep the saves" entry point, and the fix is a new API rather than a geometry change. The readout
+  picks the branch; guessing would have picked all three.
+- Zero-code A/B available meanwhile: **restart the play session** (every chunk then rebuilds through
+  `BuildOrLoadChunk`) and press F3 again. Gaps gone ⇒ staleness. Gaps remain ⇒ the render path.
+
 ## 1hs — "reduce the tab button in the tab menu height and put their center higher" — SHIPPED (band 84@36 → 40@10; Skills header row + Faith status re-datumed)
 
 Rule 7 says measure a report I cannot see. This one I *could* derive from the code, so no

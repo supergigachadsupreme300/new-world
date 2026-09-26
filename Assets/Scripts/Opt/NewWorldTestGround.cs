@@ -92,6 +92,11 @@ public sealed class NewWorldTestGround : MonoBehaviour
     [Tooltip("QA (1hj): key that runs the terrain seam audit. Defaults to F2 because F5-F12 are already taken by the editor cutscene shortcuts in GameManager (F8 fires a cutscene ending) and F1 is a skill hotkey. Repoint it here if you prefer another key — the audit is opt-in and off the player's bindings either way.")]
     public Key SeamAuditKey = Key.F2;
     private string _seamAuditText;
+    [Tooltip("QA (1hv): press CornerAuditKey to run the read-only RENDERED-corner audit — the layer the seam audit above does not read. It walks the actual chunk meshes and reports, per world corner node: whether every loaded chunk places a vertex at its own corners (a corner the surface never reaches is a hole), whether the chunks meeting at a node agree on the corner HEIGHT, and whether each rendered corner matches that chunk's own lattice. Plus a build fingerprint: more than one vertex-count bucket means the resident terrain was built by more than one version of the generator (AGENTS rule 11). For any 'gap at the chunk corners / I can see void through the seam' report: one screenshot separates a missing corner, a render path that disagrees, and stale chunks. Read-only — no rebuild, no re-stamp, no forced poll. Needs EnableFpsStats on to display.")]
+    public bool EnableCornerAudit = true;
+    [Tooltip("QA (1hv): key that runs the rendered-corner audit. F3 because F1 is a skill hotkey, F2 is the seam audit, and F5-F12 are editor cutscene shortcuts.")]
+    public Key CornerAuditKey = Key.F3;
+    private string _cornerAuditText;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
@@ -912,6 +917,15 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 RunSeamAudit();
         }
 
+        // (1hv) rendered-corner audit — same contract as the seam audit above, one frame, read-only.
+        // It reads the RENDERED mesh layer, which the seam audit's lattice comparison cannot see.
+        if (EnableCornerAudit)
+        {
+            Keyboard kb = Keyboard.current;
+            if (kb != null && kb[CornerAuditKey] != null && kb[CornerAuditKey].wasPressedThisFrame)
+                RunCornerAudit();
+        }
+
         RunPendingPlayerGrants();
         if (!EnableWeapons || _rackStands.Count == 0) return;
         var gm = GameManager.Instance;
@@ -969,6 +983,27 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
         _seamAuditText = streamer.SeamAudit();
         Debug.Log("[NewWorldTestGround] " + _seamAuditText);
+    }
+
+    /// <summary>
+    /// QA (1hv): run the WorldStreamer's read-only RENDERED-corner audit and keep it on the HUD.
+    /// The seam audit (1hj) compares the corner LATTICE; this one walks the uploaded chunk meshes,
+    /// so a renderer that draws a corner from somewhere other than the lattice it stamps is caught
+    /// instead of reporting clean. One key, one report, no rebuild and no re-stamp — the numbers
+    /// describe the frame the key was pressed on (rule 7).
+    /// </summary>
+    private void RunCornerAudit()
+    {
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (streamer == null)
+        {
+            _cornerAuditText = "corner audit: no WorldStreamer in the scene";
+            Debug.LogWarning("[NewWorldTestGround] " + _cornerAuditText);
+            return;
+        }
+
+        _cornerAuditText = streamer.RenderedCornerAudit();
+        Debug.Log("[NewWorldTestGround] " + _cornerAuditText);
     }
 
     /// <summary>
@@ -1270,6 +1305,12 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 // player was standing when the key was pressed.
                 if (EnableSeamAudit && !string.IsNullOrEmpty(_seamAuditText))
                     stats += "\n" + _seamAuditText;
+
+                // (1hv) same for the rendered-corner report: it stays up until the next press, so a
+                // screenshot taken after walking up to the reported gap still shows the numbers for
+                // where the player stood when the key was pressed.
+                if (EnableCornerAudit && !string.IsNullOrEmpty(_cornerAuditText))
+                    stats += "\n" + _cornerAuditText;
 
                 _fpsText.text = stats;
             }

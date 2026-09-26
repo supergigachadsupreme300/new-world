@@ -4,6 +4,75 @@ Last updated: 2026-09-26. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1hv. Rendered-corner audit lane (F3) — the layer the seam audit cannot read, shipped BEFORE any fix for the corner-gap report
+
+User report: "in every chunk corner it wont match the edge so player can see the void through that
+gap." Rule 7 applies — a report I cannot see gets a read-only measurement lane FIRST, and the fix is a
+separate task. Reasoning trail: `THINKING.md` §1hv.
+
+**Why the existing seam audit was not enough.** `WorldStreamer.SeamAudit()` (1hj, F2) already
+measures "gaps between terrain chunks", and its section A already covers the 4-chunk corner node
+transitively (it walks both the east and the north edge of every chunk). But A compares
+`ChunkObject.LatticeY` — the **lattice**, i.e. the DATA layer. A renderer that draws its corner
+vertex from somewhere other than the lattice it stamps reports "worst dY 0 OK" and still parts at the
+corner. Section B catches a short/hidden root (active state, vertex count, X/Z bounds) and cannot see
+whether the four vertices meeting at a corner agree. This is rule 8's "never let a validator stand in
+for a layer it does not read" in a new costume.
+
+**What shipped** — `Assets\Scripts\World\Streaming\WorldStreamer.CornerAudit.cs` (new partial) +
+`NewWorldTestGround.cs` (`EnableCornerAudit` default on, `CornerAuditKey` default **F3**,
+`RunCornerAudit()`, HUD line that persists like the seam audit's). `RenderedCornerAudit()` walks the
+**uploaded chunk meshes** and reports:
+
+- **R1 coverage** — for every loaded chunk, whether a rendered vertex sits AT each of its four
+  corners (mesh-local 0/30 within 0.05 m). A node's *expected* contributor count is the number of
+  loaded chunks touching it (up to four: `n/30` and `n/30 − 1` per axis), so a chunk that is loaded
+  with no mesh is counted as missing rather than quietly skipped.
+- **R2 cross-chunk spread** — at each node, how far apart the corner heights of the chunks meeting
+  there are. "The render path is not sharing one corner height."
+- **R2 own-lattice delta** — each rendered corner against **its own** chunk's `LatticeY`. "The render
+  path copies the corner from the wrong place" (rule 8's copy contract, measured).
+- **Staleness fingerprint** — distinct `(facet step, vertex count)` buckets across the loaded set plus
+  a step-drift count against the current `EffectiveLowPolyStep`. Buckets > 1 = a mixed resident set;
+  drift > 0 = a uniformly old one. Both are the rule-11 failure mode and are invisible by eye.
+
+A `VERDICT` line names the first thing that failed, so one screenshot answers the question.
+
+**Two things the measurement had to get right, both found by deriving rather than assuming:**
+- **The corner height is the TOPMOST vertex, not the min.** A *smooth* root also carries side walls
+  hanging down from the same edge, so the min at a corner is the bottom of a wall and would have
+  reported a false own-lattice mismatch on every chunk. The low-poly root has no walls, so this would
+  have looked fine on one setting and lied on the other.
+- **The address arithmetic** (rule 8): a chunk root sits at
+  `(tc.X*30*ChunkData.Size, 0, tc.Z*30*ChunkData.Size)` and `ChunkData.Size == 1`, so mesh-local Y ==
+  world Y — which is what makes "rendered corner vs `LatticeY`" a legal comparison, the same
+  assumption the seam audit's bounds check already makes.
+
+### 1hv-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build). Braces/parens balance in both
+  edited files (`WorldStreamer.CornerAudit.cs` 23/23 and 173/173, `NewWorldTestGround.cs` 149/149 and
+  737/737); all seven new symbols are declared exactly once across the `WorldStreamer*` partials (no
+  collision with `SeamAudit`); `ChunkObject.VoxelMesh` and `WorldStreamer.VoxelTerrainEnabled` were
+  grep-confirmed to exist before being referenced. `tools\StaticChecks.ps1` reports **0 candidates**
+  (it does cover `NewWorldTestGround.cs`, so that edit is inside its checks).
+- Cost/contract: one `Mesh.GetVertices` per loaded chunk through a single reused list; strictly
+  read-only — no rebuild, no re-stamp, no forced poll — so the numbers describe the frame the key was
+  pressed on. The second dictionary pass does not write at all, so no enumerator can be invalidated.
+- **NO fix ships in this task, by design.** Which branch fires decides where the fix goes: `R1` ⇒ the
+  surface emitter never reaches the corner; `R2` ⇒ corner-derivation arithmetic in the render path;
+  `R-stale` ⇒ rule 11's missing public "re-render everything, keep the saves" API. The readout picks
+  the branch; guessing would have picked all three.
+- Play-test (needs `EnableFpsStats` on, which is default):
+  1. Stand near a corner where the void shows, press **F3**, screenshot the HUD. The `VERDICT` line
+     names the mechanism; paste it back.
+  2. Press **F2** as well — if A reports clean while F3 reports R1/R2, that pair is the proof the
+     lattice is fine and the render path is not.
+  3. Zero-code A/B: restart the play session (every chunk then rebuilds through `BuildOrLoadChunk`)
+     and press F3 again. **Gaps gone ⇒ staleness (rule 11). Gaps remain ⇒ the render path.**
+- Left alone deliberately: LOD children (`Lod1`/`Lod2`) and the far shell are NOT in this pass. A
+  corner gap at the near/far rim is section D of the seam audit; a gap that appears only when a LOD
+  band is active is a third question, and neither should be folded in before the first readout.
+
 ## 1hu. AGENTS rule 11 — editing the terrain RENDER algorithm must drop the resident terrain (loaded + dormant + far shell), keeping the saves
 
 User request: "whenever edit the map rendering algorithm then clear the cached map so it would create
