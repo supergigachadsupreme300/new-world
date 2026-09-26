@@ -82,6 +82,65 @@ the cap cannot drift apart the way the two tab-band write sites had drifted in 1
   class/race text at 22.5pt inside a 26-tall box looks right. If the border reads as too faint, raise
   `FieldBorderThickness`; if the text reads as cramped, raise the row height rather than the inset.
 
+## 1hu — "whenever you edit the map rendering algorithm, clear the cached map so it creates anew" (terrain) — SHIPPED as AGENTS rule 11 (no code change)
+
+The user said "map"; they meant the terrain. The request looked like a one-line rule, but the
+interesting part is that the rule has to be *wrong in two directions* to be useful, and I only found
+both by reading what actually holds render output.
+
+### H1 — "what is the cached map?" — the obvious candidates are all wrong
+`WorldMapUI` is a text list of POIs. `CompassMinimapHUD` is a compass strip, a circle sprite and a
+player dot — it never samples terrain, so there is no cache to clear. `MapBuilder.*` is the legacy
+village prop builder despite the name. The first three greps for "map + cache" returned nothing that
+holds rendered terrain, which is the point: **the cache is not a map cache, it is the streaming
+chunks themselves.** Everything else (the `ChunkMeshGenerator` mesh pool, the
+`TerrainNoiseGenerator._offsetCache`) was a false positive — see H3.
+
+### H2 — which holders of render output survive a code edit? — three, and they fail differently
+- `_loadedChunks`: every `ChunkObject` owns an uploaded `RootMesh`, and the generator is only run
+  inside `BuildOrLoadChunk`, which a loaded chunk never re-enters. CONFIRMED by reading the load
+  path.
+- `_dormantChunks` is the one I would have missed. The wake pass comment says dormant chunks are
+  re-shown "in place — the same GameObject, same pooled mesh, same tile data", and
+  `EnqueueChunkIfNeeded` *wakes* a dormant chunk instead of re-dispatching it. So a chunk that
+  demoted 200 m ago still holds the mesh it was built with, and walking back re-activates it. This
+  is also the reason the "just call ForceRebuild" instinct is wrong: `EnqueueChunkIfNeeded` alone
+  would *wake* rather than rebuild, so the pair must be `UnloadChunk` first (which is why
+  `ResetTerrainSaves` and `ForceRebuildChunk` both unload before re-enqueueing).
+- the far shell's cells are sampled from the real chunks' surfaces, so they carry the old heights
+  too — and a drop that skips `ClearFarShell()` leaves the rim disagreeing with the new near chunks,
+  i.e. it *creates* a seam at the ring boundary while fixing the interior.
+
+### H3 — is the mesh pool the cache? — REJECTED, and it is the intuitive answer
+`_chunkMeshPool` (`ChunkMeshGenerator`, cap 48) is the only thing in the terrain system that looks
+like a cache of rendered output. It isn't: `UploadMerged` re-specifies vertices and indices on every
+upload and `Mesh.Clear()`s whenever the vertex count changed, so a pooled `Mesh` is a *buffer*.
+Emptying the pool would show nothing and cost a little. Confirmed from `UploadMerged`'s own comment
+and the `AcquireChunkMesh`/`ReleaseChunkMesh` pair.
+
+### H4 — "clear the cache" — which existing API is it? — the obvious one is destructive
+`ResetTerrainSaves()` does the right *sequence* (`ClearFarShell()` → flush pending saves → wipe save
+files → clear dirty marks → unload + requeue every loaded **and** dormant chunk), and it is already
+wired to the `EnableResetTerrainSaves` QA lane for a deliberate clean map. But `ChunkSaveManager.
+ResetWorldSaves(Seed)` deletes the `tc_*.dat` files, and those files hold **heights** — data, not
+render output. Using it after a renderer change silently throws away the player's terrain edits.
+So the rule has to say: for a render edit, drop the render output and keep the saves, which is
+`UnloadChunk(tc)` + `EnqueueChunkIfNeeded(tc)` per chunk — and that pair only exists privately, as
+`ForceRebuildChunk`, with `ForceRebuildArenaLane` as the public single-lane precedent. **There is no
+public "re-render everything, keep the saves" entry point.** That gap is now written down as the
+reason the drop is a manual step, rather than left as something the next session re-derives.
+
+### H5 — is the user's corner-gap report explained by this? — HYPOTHESIS, not confirmed
+The user reported, in the same breath: "in every chunk corner it wont match the edge so player can
+see the void through that gap." A mid-session render edit produces exactly that: chunks built by
+two different versions of the generator, parting at their shared edges and worst at the corners
+where four of them meet. It is the one mechanism this repo can *create* on demand, which makes it
+the leading candidate — but it is a hypothesis, because it requires that the algorithm was edited
+without a drop, and I cannot see the session that produced it. Rule 7 therefore applies: the
+measurement ships as its own task (1hv) and the fix waits for the readout. A zero-code A/B also
+exists: a fresh play session rebuilds every chunk through `BuildOrLoadChunk`, so **if the gaps
+survive a restart, staleness is ruled out** and the cause is in the render path itself.
+
 ## 1hs — "reduce the tab button in the tab menu height and put their center higher" — SHIPPED (band 84@36 → 40@10; Skills header row + Faith status re-datumed)
 
 Rule 7 says measure a report I cannot see. This one I *could* derive from the code, so no

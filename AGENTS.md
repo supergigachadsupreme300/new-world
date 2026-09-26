@@ -137,3 +137,38 @@
       create the strips *before* the text child, and give every strip `raycastTarget = false` or it
       silently steals clicks from the input field it is decorating.
 
+11. **Editing the terrain's RENDER algorithm changes nothing that is already on screen, and half the
+    world keeps the old geometry until the resident terrain is dropped.** Three holders of render
+    output all outlive a code edit:
+    - `_loadedChunks` — every `ChunkObject` owns an uploaded `RootMesh`, and nothing re-runs the
+      generator for a chunk that is already loaded.
+    - `_dormantChunks` — the wake pass re-shows a demoted chunk "in place — the same GameObject,
+      same pooled mesh, same tile data", and `EnqueueChunkIfNeeded` *wakes* a dormant chunk rather
+      than re-dispatching it. So returning to a region re-activates the mesh that region was built
+      with, however old.
+    - the far shell — its cells are sampled from the real chunks' surfaces, so they keep the old
+      heights as well.
+    A mid-session render edit therefore leaves a world where the resident chunks are OLD-algorithm and
+    the chunks that stream in later are NEW-algorithm, and the two part along their shared edges.
+    Four habits follow:
+    - **The drop covers every loaded AND every dormant chunk, plus the far shell.** Both halves
+      matter: a dormant chunk you never wake is a landmine that pops the stale mesh back the moment
+      the player walks into that region again.
+    - **`WorldStreamer.ResetTerrainSaves()` is the right sequence and the wrong tool.** It does
+      exactly the right thing in order (`ClearFarShell()` → unload + requeue every loaded and
+      dormant chunk) but first calls `ChunkSaveManager.ResetWorldSaves(Seed)`, which **permanently
+      deletes the player's terrain edits** — the save files hold *heights*, which are data, not
+      render output. Use it only when a pristine world is the actual goal. For a renderer change,
+      drop the render output and keep the saves: `UnloadChunk(tc)` + `EnqueueChunkIfNeeded(tc)` per
+      chunk (that pair is `ForceRebuildChunk`, which is private; `ForceRebuildArenaLane` is the
+      public single-lane precedent). There is still **no public "re-render everything, keep the
+      saves" entry point**, so this is a manual step until one is added.
+    - **Do not bother clearing `ChunkMeshGenerator`'s mesh pool.** `UploadMerged` re-specifies
+      vertices and indices on every upload and `Mesh.Clear()`s whenever the vertex count changed, so
+      a pooled `Mesh` is a *buffer*, never a stale cache. Emptying it costs a little and shows
+      nothing.
+    - **An algorithm edit is not verified by watching chunks stream in.** That only ever exercises
+      the new code. Stream one chunk, then walk back and forth across a boundary so a resident chunk
+      and a freshly built one are on screen together, and read the seam/corner measurement lanes
+      with both in frame.
+

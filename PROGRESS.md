@@ -4,6 +4,57 @@ Last updated: 2026-09-26. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1hu. AGENTS rule 11 — editing the terrain RENDER algorithm must drop the resident terrain (loaded + dormant + far shell), keeping the saves
+
+User request: "whenever edit the map rendering algorithm then clear the cached map so it would create
+anew" (clarified: terrain, not the world-map menu). Reasoning trail: `THINKING.md` §1hu.
+
+**Docs-only task** — no code change. It is a rule because the *sequence* was missing, and the
+missing part is not the obvious one.
+
+- **What "the cached map" actually is**: not a map cache. `WorldMapUI` is a POI text list,
+  `CompassMinimapHUD` is a compass + dot that never samples terrain, and `MapBuilder.*` is the legacy
+  village prop builder. The holders of terrain render output are the streaming chunks themselves.
+- **Three of them, and each fails differently.** (1) `_loadedChunks` — every `ChunkObject` owns an
+  uploaded `RootMesh`; the generator only runs inside `BuildOrLoadChunk`, which a loaded chunk never
+  re-enters. (2) `_dormantChunks` — a demoted chunk is re-shown *in place* ("same GameObject, same
+  pooled mesh, same tile data") and `EnqueueChunkIfNeeded` **wakes** a dormant chunk instead of
+  re-dispatching it, so it is a landmine that pops the stale mesh back when the player returns.
+  (3) the far shell — its cells are sampled from the real chunks' surfaces, so a drop that omits
+  `ClearFarShell()` moves the seam out to the ring boundary instead of removing it.
+- **The consequence, written into the rule**: a mid-session render edit leaves a world where
+  resident chunks are OLD-algorithm and newly streamed chunks are NEW-algorithm, and the two part
+  along their shared edges.
+- **`ResetTerrainSaves()` is named as the wrong tool for this job**: its sequence is exactly right
+  (`ClearFarShell()` → unload + requeue every loaded *and* dormant chunk) but it first calls
+  `ChunkSaveManager.ResetWorldSaves(Seed)`, deleting the `tc_*.dat` files — which hold **heights**,
+  i.e. data, not render output. It stays correct for its own job (the opt-in
+  `EnableResetTerrainSaves` clean-map lane). For a renderer change the rule names
+  `UnloadChunk(tc)` + `EnqueueChunkIfNeeded(tc)` per chunk and records that this pair exists only
+  privately (`ForceRebuildChunk`), with `ForceRebuildArenaLane` as the public precedent.
+- **The mesh pool is explicitly excluded**, because it is the intuitive answer and it is wrong:
+  `UploadMerged` re-specifies every channel and `Mesh.Clear()`s on a vertex-count change, so a
+  pooled `Mesh` is a buffer, not a stale cache.
+- Recorded as a **known gap**: there is no public "re-render everything, keep the saves" entry
+  point, so the drop stays a manual step. If a future task wants one, `ForceRebuildChunk` is the
+  private pair to promote.
+
+### 1hu-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build). Docs-only: `AGENTS.md` (new
+  rule 11), `game-design.md` §2.3 (the re-render bullet beside the existing force-rebuild API entry),
+  `PROGRESS.md`, `THINKING.md`. No `.cs` file was touched, so nothing was compiled and nothing can
+  have broken.
+- All the code claims in the rule were read out of the files before being written down:
+  `WorldStreamer.Streaming.cs` (`WakeChunk`, `EnqueueChunkIfNeeded`, `UnloadChunk`,
+  `ForceRebuildChunk`, `ResetTerrainSaves`, the wake-pass comment), `ChunkMeshGenerator.cs`
+  (`AcquireChunkMesh` / `ReleaseChunkMesh` / `UploadMerged`).
+- **Open and deliberately unresolved**: the user's corner-gap report in the same message. A
+  mid-session render edit is the one mechanism this repo can create on demand that matches it, but
+  that is a hypothesis (see `THINKING.md` §1hu H5). Rule 7 applies — the measurement is task 1hv and
+  no fix ships until its readout names the mechanism.
+- Play-test: none for this task (nothing to see). The user should do the zero-code A/B from 1hv:
+  press the corner lane, then restart the play session and press it again.
+
 ## 1ht. Character Info tab band 40@10 → 32@8, full button art on every button, and framed value fields
 
 User request: reduce the Info / Skills / Inventory / Map / Faith button height further, make Change

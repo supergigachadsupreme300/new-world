@@ -433,6 +433,19 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   noise + saves **without writing to any `tc_*.dat` file**. Auto-fired on New Game and bound to
   editor **F12**; `GameManager` holds the streamer reference (resolved by `AutoResolveReferences`,
   the streamer is created by `GameBootstrap`).
+- **Re-rendering the whole world after a render-algorithm edit (1hu):** the resident terrain holds
+  render output in three places — each loaded `ChunkObject`'s uploaded `RootMesh`, the **dormant**
+  set (a demoted chunk is re-shown *in place*, same GameObject and same pooled mesh, and
+  `EnqueueChunkIfNeeded` wakes a dormant chunk instead of re-dispatching it), and the **far shell**
+  (its cells are sampled from the real chunks' surfaces). None of them re-runs the generator, so a
+  code edit mid-session leaves old-algorithm chunks beside new-algorithm ones that part along their
+  shared edges. The drop therefore covers **every loaded and every dormant chunk plus
+  `ClearFarShell()`**; the chunk mesh pool needs nothing (`UploadMerged` re-specifies every channel
+  and `Mesh.Clear()`s on a count change, so a pooled `Mesh` is a buffer, not a cache).
+  `ResetTerrainSaves()` performs exactly that sequence but first wipes the `tc_*.dat` saves, so it
+  **discards the player's terrain edits** — correct only when a pristine world is the goal. There is
+  no public "re-render everything, keep the saves" entry point; that sequence is `UnloadChunk` +
+  `EnqueueChunkIfNeeded` per chunk, which is what `ForceRebuildChunk` (private) does.
 - Dirty tiles record at **mark-time** (no IO); each chunk's accumulated tiles flush **batched** into one
   file write per chunk (1es: the disk write itself runs on a background worker — the main thread keeps
   only the (cheap) vertex/serialization work, queues the bytes, and one ThreadPool worker writes the
