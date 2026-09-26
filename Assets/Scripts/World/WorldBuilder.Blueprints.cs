@@ -946,7 +946,7 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
         return cube;
     }
 
-    private void CreatePartCubeRotated(Transform parent, Vector3 localPos, Vector3 scale, Color color, Quaternion rotation)
+    private GameObject CreatePartCubeRotated(Transform parent, Vector3 localPos, Vector3 scale, Color color, Quaternion rotation)
     {
         var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
         cube.transform.SetParent(parent);
@@ -955,6 +955,7 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
         cube.transform.localRotation = rotation;
         cube.GetComponent<MeshRenderer>().material.color = color;
         if (cube.GetComponent<BoxCollider>() == null) cube.AddComponent<BoxCollider>();
+        return cube;
     }
 
     // ── Structure-part geometry helpers ───────────────────────────────────
@@ -1519,6 +1520,15 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
         const float roofVert = 0.550f;   // roofThick * sqrt(1 + roofTan^2)
         const float sprTan = 0.7813f;    // spire pitch, tan(38 deg)
         const float sprVert = 0.571f;    // spire thickness * sqrt(1 + sprTan^2)
+        const float sprHalf = 2.72f;     // spire roof half width
+        const float sprThick = 0.45f;
+        const float sprEaveY = 10.45f;   // spire roof eave underside, buried in the cornice
+        const float sprApexY = sprEaveY + sprHalf * sprTan;  // 12.575, underside at the peak
+        // sprEaveY / sprApexY / sprVert are named at method scope, not inside
+        // Church_SpireRoof's case, because Church_Spire stacks on that same apex:
+        // a case-local is invisible to the definite-assignment analysis, so the
+        // spire read CS0165 "use of unassigned local variable" for a number the
+        // roof case had already computed. Both cases must read the same names.
 
         switch (partType)
         {
@@ -1736,27 +1746,23 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
                 // Square pyramid: every eave start shares the belfry axis, and
                 // the four panels are stated as underside endpoints so the pitch
                 // cannot be written backwards. Eave is buried in the cornice.
-                float sprHalf = 2.72f;
-                float eaveY = 10.45f;
-                float apexY = eaveY + sprHalf * sprTan;
-                float sprThick = 0.45f;
                 for (int sz = -1; sz <= 1; sz += 2)
-                    CreatePartPanelBetween(root, new Vector3(0f, eaveY, towerZ + sz * sprHalf), new Vector3(0f, apexY, towerZ), sprHalf, sprThick, Vector3.right, roofRedC);
+                    CreatePartPanelBetween(root, new Vector3(0f, sprEaveY, towerZ + sz * sprHalf), new Vector3(0f, sprApexY, towerZ), sprHalf, sprThick, Vector3.right, roofRedC);
                 for (int sx = -1; sx <= 1; sx += 2)
-                    CreatePartPanelBetween(root, new Vector3(sx * sprHalf, eaveY, towerZ), new Vector3(0f, apexY, towerZ), sprHalf, sprThick, Vector3.forward, roofRedC);
+                    CreatePartPanelBetween(root, new Vector3(sx * sprHalf, sprEaveY, towerZ), new Vector3(0f, sprApexY, towerZ), sprHalf, sprThick, Vector3.forward, roofRedC);
                 // Gold eave trim capping each panel's end, and hip corner blocks.
                 for (int sz = -1; sz <= 1; sz += 2)
-                    CreatePartBoxOn(root, 0f, eaveY + 0.05f, towerZ + sz * 2.76f, new Vector3(5.44f, 0.55f, 0.16f), goldC);
+                    CreatePartBoxOn(root, 0f, sprEaveY + 0.05f, towerZ + sz * 2.76f, new Vector3(5.44f, 0.55f, 0.16f), goldC);
                 for (int sx = -1; sx <= 1; sx += 2)
-                    CreatePartBoxOn(root, sx * 2.76f, eaveY + 0.05f, towerZ, new Vector3(0.16f, 0.55f, 5.44f), goldC);
+                    CreatePartBoxOn(root, sx * 2.76f, sprEaveY + 0.05f, towerZ, new Vector3(0.16f, 0.55f, 5.44f), goldC);
                 for (int sx = -1; sx <= 1; sx += 2)
                     for (int sz = -1; sz <= 1; sz += 2)
-                        CreatePartBoxOn(root, sx * sprHalf, eaveY + 0.05f, towerZ + sz * sprHalf, new Vector3(0.34f, 0.60f, 0.34f), goldC);
+                        CreatePartBoxOn(root, sx * sprHalf, sprEaveY + 0.05f, towerZ + sz * sprHalf, new Vector3(0.34f, 0.60f, 0.34f), goldC);
                 break;
             case "Church_Spire":
                 // Stacked on the spire roof's own apex, on the shared axis. Each
                 // stage overlaps the one below by 0.10 so no seam can open.
-                float apexTop = apexY + sprVert;
+                float apexTop = sprApexY + sprVert;
                 CreatePartBoxOn(root, 0f, apexTop - 0.15f, towerZ, new Vector3(1.80f, 0.85f, 1.80f), roofDarkC);
                 CreatePartBoxOn(root, 0f, apexTop + 0.60f, towerZ, new Vector3(1.10f, 5.40f, 1.10f), roofDarkC);
                 for (int i = 0; i < 3; i++)
