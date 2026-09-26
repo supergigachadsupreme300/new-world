@@ -3,6 +3,47 @@
 Last updated: 2026-09-26. Read this first in a new session; then continue with the
 `# OPEN TASKS` section.
 
+## 1hr. Static compile-risk sweep + faith-lane placement audit, and `tools/StaticChecks.ps1`
+
+Unity is the only compiler this project has (rule 3), and 1hq proved that a session's
+hand-written grep can miss a whole error class. So the checks were mechanised into
+**`tools/StaticChecks.ps1`** (outside `Assets/`, so Unity never compiles it) and run over
+every file this thread touched. **It is not a compiler** — it reports candidates, Unity
+decides. Current result: **0 candidates.**
+
+- **Run it:** `powershell -ExecutionPolicy Bypass -File tools\StaticChecks.ps1` from the repo
+  root. Six checks:
+  1. brace/paren balance in `WorldBuilder.Blueprints.cs`, `WorldBuilder.cs`, `NewWorldTestGround.cs`;
+  2. **arity** — every call of the six structure helpers must match *some* declared overload
+     (this is the check that would have caught the CS0029, and it is overload-aware:
+     `CreatePartBoxOn` legitimately has a 5-arg and a 6-arg form);
+  3. `return <void helper>(...)` anywhere in the file (the CS0029 class);
+  4. locals declared with no initializer, each reported with whether it is assigned later in
+     the block (the CS0165 heuristic — both current hits, `partColor` and `learnedAny`, are
+     assigned before use, so they are *not* errors);
+  5. **cross-case local reads and duplicate case-scope names in every switch** of the three
+     files (the CS0165 that 1hq fixed, generalised from one method to all switches);
+  6. **part-key parity** — every `Shrine_*`/`Church_*`/`Pagoda_*` key in the `_shrineSubBuildings`
+     -style tables must have a `case`, and every `case` must be in a table. This is the
+     silent no-build failure of rule 9, and it now covers all three structures, not just the
+     shrine: **Shrine 12/12, Church 13/13, Pagoda 14/14**.
+- **1hp placement audit (rule 4's "measure before fixing", applied to my own fix).** `PlatformSize`
+  is 120, so the platform spans `cx ± 60`, `cz ± 60`. Checked the three new NPC positions against
+  every other lane rather than assuming they were clear:
+  - taoist `(cx − 30, cz − 50.5)` — the rebuilt shrine's foundation ends at `cz − 47.6` and its
+    stair foot at site `z = −9.6`, so 2.9 m clear of the stair; the boss (`SpawnBoss`, box
+    2.4 × 1.6 m) is at `(cx, cz − 50.4)`, i.e. the **same Z** but 30 m east, so no overlap; the
+    NPC lane sits at `cz − 21.6`, far north.
+  - monk `(cx − 39.5, cz + 44)` — the pagoda's 14 m podium ends at `cx − 37`, so 2.5 m clear;
+    nothing else is placed at `cz + 44` (the buildings and spell lanes are at `cz + 36`).
+  - priest unchanged at `(cx + 17.5, cz − 35)`.
+  - 11 m and 20.5 m of platform margin remain on the far axes, so nothing was moved off the slab.
+- **Verification:** the script (0 candidates) plus a re-read of `StandOnGround` — it measures
+  world-space `Renderer.bounds.min.y` and writes `transform.position`, so it is correct whether or
+  not the rig is parented under an offset root. No Unity build; play-test still pending.
+- **Follow-up for the next session:** add the script's file list to itself when a new
+  `WorldBuilder`/`TestGround` file appears, otherwise check 1–5 silently stop covering it.
+
 ## 1hq. Fix the two compile errors Unity found in 1hm/1hn (follow-up to 1ho/1hp)
 
 Unity was the first compiler to run over `1hm`–`1hp`; it reported two errors in

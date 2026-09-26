@@ -259,6 +259,26 @@ twice across cases. **The lesson, generalisable:** signature agreement and brace
 compilation, and a per-case local is a *hidden* dependency between cases — the geometry reads fine
 and only the control flow disagrees.
 
+### 1hr — can the review that missed two compile errors be *mechanised* instead of retyped?
+The 1hq lesson ("grep proves a symbol exists, not that a signature matches") only helps if the
+next session reads it before writing the same grep again, and a session that retypes a check is a
+session that eventually retypes it wrong — my first arity script searched for the call's `(` using an
+index computed on the **untrimmed** line and so counted `new Vector3(`'s commas as arguments: 486
+false mismatches, which is how a check becomes noise and gets ignored. Two conclusions, one about
+the tool and one about the thing the tool was checking. The tool: a check that can emit hundreds of
+false positives is worse than no check, so the script lives in `tools/StaticChecks.ps1` with the
+paren-matching done by a real scan (so index drift cannot happen) and it is *overload-aware*
+(`CreatePartBoxOn` has both a 5-arg and a 6-arg form — a naive "declared 5" reading invents
+mismatches that are not there). The thing being checked: check 6 turned out to matter more than
+expected, because rule 9's silent no-build is the one failure in this project that produces **no
+error at all** — a renamed part key compiles perfectly, runs perfectly, and draws nothing. Extending
+it from the shrine's 12 keys to all three structures (12/12, 13/13, 14/14) costs one regex. And the
+1hp placement audit is the same instinct applied to my own fix: I moved three NPCs to new coordinates
+and verified them against *every* other lane on a 120 m platform rather than against the one
+obstruction I had already found — the taoist's new Z (`cz − 50.5`) happens to be within a metre of
+`SpawnBoss`'s Z (`cz − 50.4`), which is harmless only because the boss is 30 m east. **A fix verified
+against the bug it fixes, and not against the field it moved into, is half a fix.**
+
 ### Open / not done
 - **Pagoda butterfly roofs + `Roof1`'s centre cap floating 0.57–1.44 m over its own panels** — a real
   defect of the same class, found while auditing, **deferred by the user's choice**. Recorded as a

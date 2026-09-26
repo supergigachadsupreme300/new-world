@@ -26,6 +26,12 @@
    case looks legal and only fails definite assignment. When the user pastes Unity console errors,
    fix them in a **new commit** (never an amend) and sweep the whole class — every
    `return <void helper>(...)`, and every name declared in one `case` and read in another.
+   **Run `powershell -ExecutionPolicy Bypass -File tools\StaticChecks.ps1` before committing any
+   change to `WorldBuilder*.cs` or `NewWorldTestGround.cs`** — it mechanises exactly those checks
+   (balance, overload-aware arity, void-return, unassigned locals, cross-case locals, part-key parity).
+   It reports *candidates*, not verdicts: 0 candidates still means "not compiled", so paste Unity's
+   output into the handoff rather than fixing errors silently. If you add a file in those areas, add
+   it to the script's `$files` list or checks 1–5 stop covering it.
 
 4. **QA/test features go on the independent test platform**, never in the legacy world: add an opt-in
    lane + serialized toggle in `Assets\Scripts\Opt\NewWorldTestGround.cs` (`RunBenchSpawn`,
