@@ -224,6 +224,96 @@ public sealed partial class CharacterInfoUI : MenuPanelBase
         }
     }
 
+    /// <summary>Border colour of a value field (the stat inputs, the class row, the race row).</summary>
+    private static readonly Color FieldBorderColor = new Color(0.60f, 0.64f, 0.76f, 0.95f);
+
+    /// <summary>Field border thickness in design units — the SAME on every side at any field size.</summary>
+    private const float FieldBorderThickness = 1.5f;
+
+    /// <summary>
+    /// Inset between a framed row's border and the glyphs it frames, so the border never sits on
+    /// the first character (the labels are TopLeft in their box, so their ink starts at the corner).
+    /// </summary>
+    private const float FieldFramePad = 4f;
+
+    /// <summary>One solid edge strip. A null-sprite <see cref="Image"/> renders a flat rect, so a
+    /// border needs no texture at all.</summary>
+    private static void AddBorderStrip(Transform host, string name,
+        Vector2 anchorMin, Vector2 anchorMax, Vector2 offsetMin, Vector2 offsetMax)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(host, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = anchorMin;
+        rt.anchorMax = anchorMax;
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.offsetMin = offsetMin;
+        rt.offsetMax = offsetMax;
+        var img = go.AddComponent<Image>();
+        img.sprite = null;
+        img.color = FieldBorderColor;
+        img.raycastTarget = false;   // decoration only: it must never steal a click from the field
+    }
+
+    /// <summary>
+    /// Outline a rect with four strips of <see cref="FieldBorderThickness"/>, drawn INSIDE it.
+    ///
+    /// Deliberately NOT a 9-sliced sprite: Unity scales a slice border by the drawn rect's OWN
+    /// dimension, so a 2-texel ring on a 24px sprite is ~2 units on a 64-wide field and ~58 on a
+    /// 700-wide one — these fields are 64x26 and 700x34 in the same column, so one sliced sprite
+    /// cannot serve both. Strips keep the thickness constant and cost five GameObjects.
+    /// </summary>
+    private static void AddFieldBorder(RectTransform host)
+    {
+        if (host == null) return;
+        float t = FieldBorderThickness;
+        AddBorderStrip(host, "BorderTop", new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -t), new Vector2(0f, 0f));
+        AddBorderStrip(host, "BorderBottom", new Vector2(0f, 0f), new Vector2(1f, 0f), Vector2.zero, new Vector2(0f, t));
+        AddBorderStrip(host, "BorderLeft", new Vector2(0f, 0f), new Vector2(0f, 1f), Vector2.zero, new Vector2(t, 0f));
+        AddBorderStrip(host, "BorderRight", new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(-t, 0f), Vector2.zero);
+    }
+
+    /// <summary>
+    /// Frame a value row (the class / race lines): a border inside the box the caller states. The
+    /// text is inset INTO that box by <see cref="FieldFramePad"/> with <see cref="InsetBoxPos"/>
+    /// / <see cref="InsetBoxSize"/>. The border is inside rather than hung outside because these
+    /// rows have no room outside — they sit 4 units apart and the last one is 2 units from the
+    /// buttons under it, so an outside border lands on the neighbour's glyphs. Create the frame
+    /// BEFORE the label so the glyphs draw over it.
+    /// </summary>
+    private static RectTransform MakeFieldFrame(Transform parent, string name, Vector2 pos, Vector2 size)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var frame = go.AddComponent<RectTransform>();
+        frame.anchorMin = new Vector2(0.5f, 0.5f);
+        frame.anchorMax = new Vector2(0.5f, 0.5f);
+        frame.pivot = new Vector2(0f, 1f);      // same pivot as MakeBodyText, so pos/size are the row's
+        frame.anchoredPosition = pos;
+        frame.sizeDelta = size;
+        AddFieldBorder(frame);
+        return frame;
+    }
+
+    /// <summary>Inset a top-left-pivoted box (<see cref="MakeBodyText"/>'s convention: it grows
+    /// down and right from <paramref name="pos"/>) by a margin on every side.</summary>
+    private static Vector2 InsetBoxPos(Vector2 pos, float m) => new Vector2(pos.x + m * S, pos.y - m * S);
+
+    /// <summary>Size counterpart of <see cref="InsetBoxPos"/>.</summary>
+    private static Vector2 InsetBoxSize(Vector2 size, float m) => new Vector2(size.x - m * 2f * S, size.y - m * 2f * S);
+
+    /// <summary>
+    /// Font size for a framed value line: the old resolution-scaled size, capped so the glyphs stay
+    /// inside the row's INSET text box. The rows grew 30 -> 34 to pay for the border and the inset
+    /// takes 4 off each edge, so the cap is on (34 - 8); capping on 34 would let the line's
+    /// descent cross the border it just paid for.
+    /// </summary>
+    private static float ValueLineFontSize(float rowHeight)
+    {
+        float fits = (rowHeight - FieldFramePad * 2f) * 0.9f;
+        return Mathf.Min(fits, Mathf.Max(16f, Screen.height / 48f));
+    }
+
     private static Sprite _categoryNodeSprite;
     private static Sprite CategoryNodeSprite()
     {
@@ -354,17 +444,18 @@ public sealed partial class CharacterInfoUI : MenuPanelBase
     /// The row hangs from the canvas TOP (pivot 0.5, 1), so <see cref="TabBarTopY"/> is the top
     /// edge's distance BELOW the top edge and the band occupies [top - height, top]. Design space
     /// is 1066x600 (1280/720 over <see cref="MenuPanelBase.UiScale"/>), so the top edge is y +300
-    /// and the band's own extent is y 250..290.
+    /// and the band's own extent is y 260..292.
     ///
-    /// The size is bounded by the panels' top rows, which this band must NOT cover: it is a later
-    /// sibling of the body row, so it DRAWS OVER them. The tallest content row under it is the
-    /// Skills sub-tab row at y 236 and the Faith title at y 238, so the band's bottom edge has to
-    /// stay above ~250 — hence 40 tall, not 84, and why the panels were authored blind to it.
+    /// The size is bounded from BOTH ends: below by the panels' top rows, which this band must not
+    /// cover (it is a later sibling of the body row, so it DRAWS OVER them), and above by its own
+    /// label — <see cref="TabLabelFontSize"/> only holds a 22.5pt glyph while the label box is at
+    /// least 22.5/0.95 ≈ 24, i.e. while the band is at least 24 + 8 = 32. Any shorter and the tab
+    /// words start reading smaller than the value text sitting under them.
     /// </summary>
-    private const float TabBarHeight = 40f;
+    private const float TabBarHeight = 32f;
 
     /// <summary>Top edge of the tab row, in design units below the canvas top edge.</summary>
-    private const float TabBarTopY = 10f;
+    private const float TabBarTopY = 8f;
 
     /// <summary>Bottom inset of a tab label inside its button (text box = height - this).</summary>
     private const float TabLabelInsetY = 8f;
@@ -372,15 +463,15 @@ public sealed partial class CharacterInfoUI : MenuPanelBase
     /// <summary>
     /// Top edge (pivot is the top) of the Skills panel's header row: the Skill Points / Learned
     /// readouts plus the General / Class / Race sub-toggles. It lives in the corridor between the
-    /// tab band's bottom edge (y 250) and the tree viewport's top edge (y 200) — 30 tall, so it
-    /// clears the band by 14 and the viewport by 6. Keep it in that corridor: the viewport is a
+    /// tab band's bottom edge (y 260) and the tree viewport's top edge (y 200) — 30 tall, so it
+    /// clears the band by 24 and the viewport by 6. Keep it in that corridor: the viewport is a
     /// RectMask2D built AFTER this row, so any overlap clips the buttons' bottom edge.
     /// </summary>
     private const float SkillsHeaderY = 236f;
 
     /// <summary>
     /// Tab label size: the resolution-scaled size, but never taller than the box it sits in. The
-    /// band is 40 units on a height-matched canvas, so a raw Screen.height/44 outgrows the button
+    /// band is 32 units on a height-matched canvas, so a raw Screen.height/44 outgrows the button
     /// on a 1440p+ window and the glyphs spill past the border art.
     /// </summary>
     private static float TabLabelFontSize()
@@ -638,8 +729,13 @@ public sealed partial class CharacterInfoUI : MenuPanelBase
         rt.anchoredPosition = new Vector2(x, y);
         rt.sizeDelta = Sz(64f, 26f);
 
+        // Bordered field. The border is four strips on this SAME rect (not a second Image): this
+        // image is the field's targetGraphic, so it has to stay the dark, clickable fill, and the
+        // strips are built before the text child so the value draws over them. The text inset is 4
+        // because the border is 1.5 — a border flush with a digit is a slit, not a frame.
         var img = go.AddComponent<Image>();
         img.color = new Color(0.08f, 0.08f, 0.12f, 0.9f);
+        AddFieldBorder(rt);
 
         var field = go.AddComponent<TMP_InputField>();
         field.targetGraphic = img;
@@ -678,8 +774,8 @@ public sealed partial class CharacterInfoUI : MenuPanelBase
         var crt = child.AddComponent<RectTransform>();
         crt.anchorMin = new Vector2(0f, 0f);
         crt.anchorMax = new Vector2(1f, 1f);
-        crt.offsetMin = new Vector2(4f, 2f);
-        crt.offsetMax = new Vector2(-4f, -2f);
+        crt.offsetMin = new Vector2(5f, 4f);
+        crt.offsetMax = new Vector2(-5f, -4f);
         var tmp = child.AddComponent<TextMeshProUGUI>();
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
         tmp.fontSize = Mathf.Max(15f, Screen.height / 50f);

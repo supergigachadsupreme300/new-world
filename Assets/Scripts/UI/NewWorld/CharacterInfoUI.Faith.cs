@@ -315,6 +315,9 @@ public sealed partial class CharacterInfoUI
         _perksText.lineSpacing = 1.25f;
 
         _switchFaithBtn = MakeButton(parent, "SwitchFaithBtn", "Switch Faith", P(0f, -208f), OpenFaithDialog);
+        // MakeButton lays down the short "stats menu button" art; every other call site overrides
+        // it with the full frame, and this one never did. Same convention as Change Class / Race.
+        ApplyFullButtonSprite(_switchFaithBtn.GetComponent<Image>());
         var footer = MakeBodyText(parent, "FaithFooter", P(0f, -242f), Sz(920f, 22f));
         footer.alignment = TextAlignmentOptions.Center;
         footer.fontSize = Mathf.Max(12f, Screen.height / 68f);

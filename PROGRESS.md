@@ -4,6 +4,58 @@ Last updated: 2026-09-26. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1ht. Character Info tab band 40@10 → 32@8, full button art on every button, and framed value fields
+
+User request: reduce the Info / Skills / Inventory / Map / Faith button height further, make Change
+Class and Change Race use the same PNG as the other buttons, and put a border on the text fields that
+hold race / class / stats. Reasoning trail: `THINKING.md` A1ht.
+
+**What changed**
+
+- `TabBarHeight` 40 → **32**, `TabBarTopY` 10 → **8**. Band is now y 260–292 (16 units shorter, its
+  centre 10 units higher). `TabLabelInsetY` stays 8, so the label box is 16 tall and the clamped font
+  is `min(0.95 × (32 − 8), max(24, h/44))` = 22.8 at 1080p. The Skills header row at 236 and the tree
+  viewport top at 200 are untouched — 1hs already moved the rows into the 200–250 corridor, and the
+  new corridor is simply 10 units taller at the top, so nothing had to move again.
+- **Every `MakeButton` call site now applies the full frame.** The audit found exactly three that
+  did not: Change Class, Change Race and the Faith panel's Switch Faith. All three were still wearing
+  the short "stats menu button" art that `MakeButton` lays down by default, which is why the two
+  buttons the user named looked different from their neighbours. The three now call
+  `ApplyFullButtonSprite(...)` like the other six, so there is one rule at the eight call sites rather
+  than an exception list.
+- **Value fields are framed** (11 stat inputs + the class and race rows): a 1.5-unit border drawn
+  *inside* the field's own rect as four flat `Image` strips (`AddBorderStrip` / `AddFieldBorder`),
+  with the field's text inset 4 so the border never touches the first character. The stat inputs keep
+  their dark fill — the border is a child of the *field's* rect, not a second `Image`, because that
+  rect is the `TMP_InputField`'s `targetGraphic` and has to stay the clickable fill.
+- **Class / race rows moved and grew**: −96 / −130 → **−80 / −118**, and 30 → **34** tall. Both
+  follow from the same arithmetic. The border has to be *inside* the box (the rows are 4 apart and
+  the last is 2 from the buttons below, so an outside border lands on a neighbour), which costs 4 of
+  inset on every edge, which leaves a 22-tall text box on a 30-tall row — too short for a 22.5pt
+  line, whose descent would then cross the border. 34 leaves 26. `ValueLineFontSize(rowHeight)` caps
+  the font against the *inset* box, and both call sites use it, so this cannot drift.
+- Rejected along the way, with reasons in `THINKING.md`: a 9-sliced border sprite (Unity scales a
+  slice by the drawn rect's own dimension — ~2 units on a 64-wide field, ~58 on a 700-wide row), and
+  padding the frame *outside* the class/race label (the top border then lands exactly on the first
+  line of glyphs, because a pivot-top rect grows downward, not upward).
+
+### 1ht-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build). Braces and parens balance in
+  all three edited partials (`CharacterInfoUI.cs` 75/75 and 580/580, `CharacterInfoUI.Stats.cs` 32/32
+  and 218/218, `CharacterInfoUI.Faith.cs` 61/61 and 241/241), no `ApplyFieldFrame` call survives
+  anywhere, all 9 `MakeButton` call sites are followed by `ApplyFullButtonSprite`, and the new helpers
+  (`AddBorderStrip` / `AddFieldBorder` / `MakeFieldFrame` / `InsetBoxPos` / `InsetBoxSize` /
+  `ValueLineFontSize`) are each declared exactly once across the `CharacterInfoUI*` partials.
+  `tools\StaticChecks.ps1` reports **0 candidates** (it does not cover these files — a guard that
+  nothing else broke, not a check of this change).
+- Play-test: open Character Info and confirm (a) the 5 tabs read correctly with no glyph clipped at
+  1080p and at 1440p+, (b) Change Class / Change Race / Switch Faith look like the other buttons,
+  (c) the stat fields, class row and race row are visibly framed and the digits/text do not touch
+  the frame, (d) typing in a stat field still selects/edits normally — the border strips are
+  `raycastTarget = false` specifically so they cannot steal the click.
+- Left alone deliberately: the stat *name* / *value* labels and the "+" allocators are not framed —
+  only the fields are, since the request was about the fields.
+
 ## 1hs. Character Info tab bar — 84 units tall at 36 → 40 at 10, and the rows it was covering
 
 User request: "reduce the tab button in the tab menu height and put their center higher". The two

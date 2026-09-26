@@ -123,4 +123,17 @@
     - A metric that **two code paths must agree on** (a build pass and an aspect-fit pass) is one
       named constant. The band carried `36` in one site and `34` in the other, so it used to change
       position the first time the window was resized.
+    - **A field's border is drawn INSIDE the field, and the field's text is inset to clear it.** A
+      border hung *outside* the rect is a collision waiting to happen: the class/race rows are 4 units
+      apart and the last one is 2 units from the buttons under it, so an outside border lands on the
+      neighbour's glyphs. The inset costs the row height it is paid for — a 30-tall row minus 2×4
+      leaves 22 for a 22.5pt line, whose descent then crosses the border it just paid for — so the
+      row grows to 34 and the font cap is stated against the *inset* box, never the outer one.
+    - **Never 9-slice a border that has to serve two different rect shapes.** Unity scales a slice by
+      the drawn rect's *own* dimension, so a 2-texel ring is ~2 units on a 64-wide stat field and ~58
+      on the 700-wide class row. Four flat `Image` strips of a constant thickness cost five
+      GameObjects and are correct at every size; a sliced sprite is correct at exactly one shape.
+    - A border strip is a child of the rect it outlines, so **draw order is the caller's problem**:
+      create the strips *before* the text child, and give every strip `raycastTarget = false` or it
+      silently steals clicks from the input field it is decorating.
 

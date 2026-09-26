@@ -15,6 +15,73 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1ht — "make the tab buttons shorter, Change Class/Race use the same png, border the race/class/stats fields" — SHIPPED (band 40@10 → 32@8; 3 buttons re-arted; 13 fields framed)
+
+A follow-up to 1hs, and a smaller one — but two of the three asks hid a layout decision, and both
+of my first answers were wrong in a way only arithmetic caught.
+
+### H1 — "the band just needs to be shorter again" — CONFIRMED, and it was nearly free
+`TabBarHeight` / `TabBarTopY` are already single constants read by both write sites (1hs), so this is
+two numbers. The real question was *does anything have to move?* In 1hs I had put the Skills header
+row at 236 to live in the 200–250 corridor. 40@10 gave a band bottom of 250; 32@8 gives 260. The
+corridor is 10 units taller at the top and the same at the bottom, so the row at 236 and the viewport
+top at 200 are both still clear — **no row moves.** That is the payoff of having measured the
+constraint in 1hs instead of picking a number: the second shrink was free. The label box drops to
+(32 − 8) = 16, so the existing clamp `min(0.95 × (height − inset), …)` yields 22.8 instead of 24.5 at
+1080p — the label shrinks a little too, which is the correct consequence of a shorter button, and the
+clamp already existed to make exactly that arithmetic.
+
+### H2 — "Change Class and Change Race use a different png" — CONFIRMED, and it was not just those two
+The interesting find: `MakeButton` lays down the **short** "stats menu button" art as a default, and
+call sites are expected to override it with the full frame. Grepping every `MakeButton` call rather
+than the two named ones found **three** exceptions: Change Class, Change Race, and — which the user
+did not name — the Faith panel's **Switch Faith**. So the pattern was "8 of 11 correct", and the
+user was describing a symptom of a convention that was applied by hand at each site. Fixed by
+overriding all three; the remaining alternative (make `MakeButton` apply the full sprite itself and
+delete the 8 overrides) was rejected as out of scope — it would touch 4 more files to remove 8 lines.
+
+### H3 — "border the fields" → how to draw a border? — 9-SLICING REJECTED, twice
+First instinct was a 9-sliced ring sprite, which is the obvious Unity answer. Rule 10's last bullet
+already records why it is wrong here, and the fields are the exact case that rule was written for:
+the stat inputs are **64×26** and the class/race rows are **700×30**, in the same column of the same
+panel. Unity scales a slice by the drawn rect's *own* dimension, so a 2-texel ring on a 24px sprite
+is ~2 units on the 64-wide field and ~58 on the 700-wide one — the class row's "border" would be a
+solid slab with a hole in it. **A sliced border is correct at exactly one shape.** Rejected;
+four flat `Image` strips at a constant 1.5 instead. Five GameObjects per field, 13 fields, 65
+GameObjects of decoration — acceptable, and correct at every size and every resolution.
+
+### H4 — "where does the border go: inside the box or outside it?" — my first answer was WRONG
+I first wrote the frame as `labelBox + pad on all four sides`, reasoning that a border should not
+consume the row's own interior. That is geometrically wrong for a **pivot-top** rect: `MakeBodyText`
+anchors at (0,1), so the box grows *downward* from `pos`. Growing the height pushes the bottom edge
+down, not the top edge up — so the top border still lands exactly on `pos`, which is exactly where
+the first line of glyphs starts. Caught by writing out the worked example: frame at y −96, top strip
+at −96…−97.5, class label ink starting at −96. **Flush is a slit, not a frame.**
+Rejected; the border goes *inside* the caller's box, and the label is inset into it. The rows have
+no room outside anyway: they are 4 units apart and the last is 2 units from the buttons under it, so
+an outside border would land on a neighbour's glyphs (the exact collision rule 10 warns about, and
+the class row is 4 units from the race row — one number, two neighbours).
+
+### H5 — "if the border is inside, does the row still fit its text?" — NO, and this is what moved the rows
+Inset 4 on every edge of a 30-tall row leaves a **22-tall** text box. The class/race font is
+`max(16, Screen.height / 48)` = 22.5pt at 1080p, and a 22.5pt line box is ~27 — so the descent
+crosses the bottom border the inset just paid for. The first fix I reached for was to shrink the
+font, which would have made the class and race text visibly smaller than everything around it for
+the sake of a decorative 1.5-unit line. Rejected.
+Second fix: **grow the row to 34** (inset box 26, cap 23.4, so the resolution-scaled 22.5 still wins
+at 1080p and nothing gets smaller). That needs vertical room, and there was none below — but there
+was 33 units of empty space *above* the class row (the stat block ends at y −63). So the rows moved
+up: −96/−130 → −80/−118. Checked the new extents: stat block −63 vs class row top −80 (17 clear),
+class bottom −114 vs race top −118 (4 clear), race bottom −152 vs the buttons' top −158 (6 clear).
+The font cap is `ValueLineFontSize(rowHeight)`, stated against the *inset* box, so the row height and
+the cap cannot drift apart the way the two tab-band write sites had drifted in 1hs.
+
+### Open
+- Shipped, but the user has not looked at it yet. The two things I cannot verify without eyes: that
+  a 1.5-unit border at 1080p is *visible* (it is 1.4 px — thin by design, but thin) and that the
+  class/race text at 22.5pt inside a 26-tall box looks right. If the border reads as too faint, raise
+  `FieldBorderThickness`; if the text reads as cramped, raise the row height rather than the inset.
+
 ## 1hs — "reduce the tab button in the tab menu height and put their center higher" — SHIPPED (band 84@36 → 40@10; Skills header row + Faith status re-datumed)
 
 Rule 7 says measure a report I cannot see. This one I *could* derive from the code, so no

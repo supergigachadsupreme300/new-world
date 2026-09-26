@@ -2107,14 +2107,23 @@ Training dummies are `Immortal` and never die, so they never burst.
   show each class/race's compact radial tree.
 - Character Creation (race select + stat/passive preview)
 - **Character Info tab bar** — the 5 top tabs (Info / Skills / Inventory / Map / Faith) hang from
-  the canvas top edge as a **40-unit band whose top edge is 10 units below it** (was 84 tall at
-  36). The band is a later sibling of the panel body, so it **draws over** it — the panels' own top
-  rows are therefore authored to live in the corridor *below* it: Skills' Skill Points / Learned
-  readouts and the General / Class / Race sub-toggles share one row at y 236, between the band's
-  bottom edge (250) and the skill-tree viewport's top edge (200). Band height, top offset and label
-  inset are single named constants (`TabBarHeight` / `TabBarTopY` / `TabLabelInsetY`) read by both
-  the build pass and the aspect-fit pass, and the tab label font is clamped to its own box so a
-  1440p+ window cannot push glyphs past the button border.
+  the canvas top edge as a **32-unit band whose top edge is 8 units below it** (was 84 tall at 36,
+  then 40 at 10). The band is a later sibling of the panel body, so it **draws over** it — the
+  panels' own top rows are therefore authored to live in the corridor *below* it: Skills' Skill
+  Points / Learned readouts and the General / Class / Race sub-toggles share one row at y 236,
+  between the band's bottom edge (260) and the skill-tree viewport's top edge (200). Band height,
+  top offset and label inset are single named constants (`TabBarHeight` / `TabBarTopY` /
+  `TabLabelInsetY`) read by both the build pass and the aspect-fit pass, and the tab label font is
+  clamped to its own box so a 1440p+ window cannot push glyphs past the button border. Every button
+  in the menu — including Change Class / Change Race and the Faith panel's Switch Faith — is drawn
+  with the full `stats menu full button` frame, not the short default art.
+- **Info tab value fields** — the 11 stat inputs and the class / race summary rows are **framed**:
+  a 1.5-unit border drawn *inside* each field's own rect as four flat strips, with the field's text
+  inset 4 so the border never sits on the first character. The class / race rows are 34 tall for
+  that inset (a 22.5pt line does not fit the 22 that a 30-tall row leaves) and sit above their
+  original y −96 / −130. A border is never a 9-sliced sprite here: Unity scales a slice by the
+  drawn rect's own dimension, so one ring cannot serve both a 64-wide stat field and a 700-wide
+  summary row.
 - Race & Stat Sheet (current race, stats, skill XP, classes)
 - Inventory Menu (equipment, items, materials, consumables)
 - Map Menu (world map with biome overlay, POIs, player markers)

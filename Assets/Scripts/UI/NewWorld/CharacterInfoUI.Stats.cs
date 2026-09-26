@@ -100,14 +100,31 @@ public sealed partial class CharacterInfoUI
         }
 
         // Class / race summaries + change buttons.
-        _classLine = MakeBodyText(parent, "ClassLine", P(-330f, -96f), Sz(700f, 30f));
-        _classLine.fontSize = Mathf.Max(16f, Screen.height / 48f);
-        _raceLine = MakeBodyText(parent, "RaceLine", P(-330f, -130f), Sz(700f, 30f));
-        _raceLine.fontSize = Mathf.Max(16f, Screen.height / 48f);
+        // The class and race values are read-only, but they are the same KIND of thing as the stat
+        // fields above, so they get the same border: built BEFORE the label so the glyphs draw
+        // over it, and the label INSET 4 into the row's own box so the border never sits on the
+        // first character. That inset is why the rows are 34 tall, not 30 — a 30-tall row leaves a
+        // 22-tall text box, and a 22.5pt line is 27, so the descent would cross the bottom border;
+        // 34 leaves 26, which ValueLineFontSize() fits. They moved UP from -96/-130 for the same
+        // reason the border went inside: 4 units apart, and 2 units from the buttons below, there
+        // was no room to hang a border outside the box.
+        var valueRowSize = Sz(700f, 34f);
+        var classRowPos = P(-330f, -80f);
+        MakeFieldFrame(parent, "ClassField", classRowPos, valueRowSize);
+        _classLine = MakeBodyText(parent, "ClassLine",
+            InsetBoxPos(classRowPos, FieldFramePad), InsetBoxSize(valueRowSize, FieldFramePad));
+        _classLine.fontSize = ValueLineFontSize(34f);
+        var raceRowPos = P(-330f, -118f);
+        MakeFieldFrame(parent, "RaceField", raceRowPos, valueRowSize);
+        _raceLine = MakeBodyText(parent, "RaceLine",
+            InsetBoxPos(raceRowPos, FieldFramePad), InsetBoxSize(valueRowSize, FieldFramePad));
+        _raceLine.fontSize = ValueLineFontSize(34f);
         var classBtn = MakeButton(parent, "ChangeClassBtn", "Change Class", P(-120f, -158f), () => OpenChangeDialog("class"));
         classBtn.GetComponent<RectTransform>().sizeDelta = Sz(150f, 32f);
+        ApplyFullButtonSprite(classBtn.GetComponent<Image>());
         var raceBtn = MakeButton(parent, "ChangeRaceBtn", "Change Race", P(120f, -158f), () => OpenChangeDialog("race"));
         raceBtn.GetComponent<RectTransform>().sizeDelta = Sz(150f, 32f);
+        ApplyFullButtonSprite(raceBtn.GetComponent<Image>());
     }
 
     // ── Talents view (rankable XP/stat perks) ─────────────────────────────
