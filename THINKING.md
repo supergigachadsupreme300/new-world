@@ -15,6 +15,113 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1hm–1hp — "redo the taoist temple and the church; the church has gaps in the structure; Taoism has 3 gods, so 3 statues not 1" — helpers shipped, rebuild in progress
+
+User request, three parts: redo the Taoist temple, redo the church, and put **three** statues in the
+Taoist temple instead of one. The user declined the rule-7 measurement lane (the gaps are provable
+from the authored coordinates) and declined a pagoda fix in this pass.
+
+### Which building is "the taoist temple"? — asked, because the codebase says two things
+Two structures could be meant, and the iconography does not disambiguate: `BuildShrine` (`:186`) is
+labelled "taoist shrine" by the test ground itself (`NewWorldTestGround.cs:46`) and holds the
+**Taoist priest**; `BuildPagoda` (`:156`) holds the **Buddhist monk** and one seated gold Buddha
+(`:1022`). Both hold exactly one statue, so "3 instead of 1" fits either. Asked; the user confirmed
+**the shrine**, which is also the project's own naming and the only structure where the Three Pure
+One**s** are iconographically at home. → the shrine's `Shrine_Deity` becomes the Sanqing altar.
+
+### The parts are dead data — a trap I nearly walked into
+`_pagodaSubBuildings` / `_churchSubBuildings` / `_shrineSubBuildings` (`WorldBuilder.cs:368-437`) declare
+`PartName`, `Offset`, `Size`, `Color`, `WoodCost`, `StoneCost` per part — and `BuildChurch` (`:171`)
+reads **only `PartName` and `Offset`**, forwarding them to `SpawnStructurePart` (`:662`), which builds
+geometry from a `switch` on the type name. So every declared `Size` in the table is documentation that
+is already wrong, and `SpawnStructurePart` instantiates **no prefab** — each part is raw primitives via
+`CreatePartCube` (`:937`). Two consequences:
+- Reading the table to "fix the sizes" would have changed **nothing** in the world. Real geometry lives
+  in the `switch` bodies (`:960-1818`).
+- A part name that has no `case` falls into the generic `else switch` and builds nothing, **silently**.
+  Since part type strings are what `SaveManager` persists and replays, renaming a part is a silent
+  content-deleting change. → new content goes **inside** existing parts; no renames (now AGENTS rule 9).
+
+### Root cause of the gaps: two authoring conventions, not two bugs
+Every gap reduces to one of: a block placed by its **centre** Y, so the bottom face has to be re-derived
+by hand and misses its support; or a roof panel placed by a **tilt sign**, which hides an inverted
+pitch. Both are invisible at authoring time and obvious in the world, and both are invisible to review
+because a reader has to redo the arithmetic. That is the same failure shape as rule 8 (a copy whose
+addressing rule is the contract), one layer up: here the "copy" is the bottom face, copied out of a
+hand-computed centre.
+
+**Decision (1hm):** fix the convention, not just the instances. `CreatePartBoxOn` (bottom-referenced),
+`CreatePartPanelBetween` (underside-endpoint-referenced — the roof's two contact points *are* the
+authored data, so an inverted pitch is no longer expressible), and `CreatePartGableSteps` (the stepped
+closure, each step overshooting 6 cm because **a 6 cm intersection is invisible and a 6 cm gap is a
+slit**). `CreatePartPanelBetween` derives its rotation from `Quaternion.LookRotation(slope, width)`,
+which maps the panel's local +Z onto the slope and its local +X onto `width`; for a Z-rising panel
+`LookRotation(0, sin, cos)` gives `Euler(-atan2(dy,dz),0,0)`, which is why the +Z panel's correct
+authored sign is **negative** — the pagoda's positive sign is the bug, not the church's.
+
+### Unity rotation signs, worked out once (this is where the pagoda's roofs die)
+`R_x(θ)·(0,y,z) = (0, y·cosθ − z·sinθ, y·sinθ + z·cosθ)`. For a panel at +Z, the **+Z end goes UP when
+θ < 0**. So `Euler(+14)` at Z=+4.2 (`:1144`) raises the outer eave and lowers the ridge: a **valley**.
+Corner check on `Pagoda_Roof1` (half-extents 8.6/0.275/4.7, centre local (0, 0.425, 4.2)): top-inner
+corner → local (x, −0.445, −0.427), top-outer → (x, 1.829, 8.694) — monotonically *rising* outward, so
+the four pagoda roofs are butterfly roofs. The church (`Euler(+24)` at Z=+0.9) and the shrine
+(`Euler(+14)` at Z=+3.2) use the opposite sign and are correct hip roofs; I confirmed the church's two
+panels meet exactly on the ridge (top surfaces at Z=0, y 1.174 local, both sides) — **rejecting** the
+sub-agent's claim that they interpenetrate by 4.43 m. It confused each slab's Z extent with its
+surface position: two slabs meeting at a ridge always overlap in extent and that is what a gable *is*.
+Cost of the mistake if believed: I would have "fixed" a correct roof.
+
+### The church defect list (all re-derived by hand, `WorldBuilder.Blueprints.cs:1395-1630`)
+Headline, and the thing the user is actually seeing: **the roof only covers the middle 8 m of a 13 m
+nave.** Panels reach Z ±4.02 (`:1500`); the front/back walls are at Z ±6.15. ~4.3 m of nave is open to
+the sky at each end. Then, in the order I found them:
+- **The gold spire is 6.2 m off-axis from its own spire roof.** `Belfry` (`:1537`) and `Spire` (`:1568`)
+  build at local Z = −6.2 (on the tower); `SpireRoof` (`:1554`) builds at Z ≈ 0. Spire footprint
+  Z −7.1..−5.3; spire-roof panels reach Z −4.39 (3·cos38 + 0.45·sin38 = 2.188, centred at ±2.2) ⇒
+  0.91 m of horizontal gap, no overlap in Z at all, plus a 1.00 m vertical gap (spire base bottom
+  12.60 vs spire-roof top 11.601) — the spire + cross hangs 2.30 m in the air beside the tower. Four
+  separate `Offset`s each looked locally right; nothing ever checked that a stack shares an axis.
+- **Ridge beam floats 0.45 m** above the roof (I re-derived this; the sub-agent's "0.054 m" compared the
+  beam against each panel's highest *corner* at Z=∓2.01, which is not on the ridge) and the two 14 m
+  eave trim bars at Z ±6.6 sit 2.46 m outside the roof's reach and ~2 m above the wall tops, touching
+  nothing.
+- **0.50 m slot under both side walls** — bottoms 0.90, foundation cap top 0.40, floor only ±6.5 wide
+  so it never reaches the walls at |X| 6.625. Open to the sky, 11 m long, both sides.
+- **0.425 × 0.475 m hole at all four wall corners** — side walls end at Z ±5.5, front/back panels start
+  at |X| 6.2 vs the side wall's inner face 6.625. 4 m tall, open. The nearest bridging candidates are
+  1.475 m apart, so nothing covers it.
+- **Floating furniture:** 12 pillar bases 0.345 m, 6 pews 0.22 m, altar **1.02 m**, 12 buttresses 0.50 m;
+  the 2 rear buttresses (Z 6.75..7.65) are off the back of the foundation entirely and hang over bare
+  ground; rear tower pieces 0.15 m; nave floor 0.08 m; internal spire gaps 0.15 m and 0.05 m.
+- The **nave floor is 13 × 10 inside a 13.6 × 12.3 wall box**, so 0.95 m of bare foundation shows at the
+  altar end and the entrance.
+
+### Design for the rebuild (1hn/1ho) — one frame, one datum ladder
+All church/shrine part roots move to the site origin (Offset 0) and every part is authored in **site
+coordinates** (y = 0 = platform top), so the assembly is auditable in a single frame instead of
+thirteen overlapping local frames. Datum ladder for the church: `SLAB_TOP 0.35` → `CAP_TOP 0.40` →
+`FLOOR_TOP 0.50` (interior) → `WALL_TOP 4.60` → roof. Roof solved from its contact points rather than
+its angle: underside at the wall line 4.60, ridge underside 7.351, 24° pitch ⇒ panel underside length
+6.15/cos24 = 7.152, eave oversails the footing by ~0.65 m, and the ridge beam seats 6 cm into the peak
+instead of hovering over it. Gable triangles appear on the **side** walls (a Z-sloping roof's gable ends
+are the X-normal walls) and close with 10 steps + a ridge block; checked that the closure's top edge
+(ridge + 6 cm) stays *inside* the 0.5 m panel (vertical depth 0.547) rather than emerging through it.
+
+### Open / not done
+- **Pagoda butterfly roofs + `Roof1`'s centre cap floating 0.57–1.44 m over its own panels** — a real
+  defect of the same class, found while auditing, **deferred by the user's choice**. Recorded as a
+  follow-up in PROGRESS so it is not lost. `Roof2/3/4`'s caps happen to plug their own valleys, so only
+  Roof1 visibly floats; the inverted pitch affects all four.
+- **Stained glass is buried inside a solid wall.** The side walls are one solid 0.35 m slab and the
+  glass plates (`:1457`) sit at |X| 6.62, i.e. *within* 6.625..6.975 — invisible, so the windows the
+  design doc claims the church has are not actually rendered. A rebuild has to build the wall around
+  real openings (piers + sill + lintel), not draw glass on a solid slab.
+- The three faith NPCs in the test lane are sunk 0.915 m into the platform (`NewWorldTestGround.cs:682`
+  places the roots at bare `baseY`; every rig puts its feet 0.915 m below the root, `MapBuilder.NPCs.cs`
+  `:203/258/313`). Queued as 1hp.
+
+---
+
 ## 1hj — "permanent see-through slits/holes at ground level between terrain chunks" — measurement shipped, readout received (resolved in 1hk)
 
 User report, in their own framing: the terrain has **permanent gaps/holes you can see through when

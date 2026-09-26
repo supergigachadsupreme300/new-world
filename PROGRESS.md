@@ -3,6 +3,73 @@
 Last updated: 2026-09-26. Read this first in a new session; then continue with the
 `# OPEN TASKS` section.
 
+## 1hm. Bottom-referenced geometry helpers for the hand-authored structures (task 1 of the church/shrine rebuild)
+
+User request (one of three threads): **redo the taoist temple and the church** — the church "has gaps in
+structure" and the Taoist temple should have **three statues, not one** (the user remembered the Taoist
+trinity; confirmed as the **Sanqing / Three Pure Ones**). The user chose: the Taoist temple is the
+**shrine** (not the Buddhist pagoda), **no** measurement lane (the gaps are provable from the authored
+coordinates), and the **pagoda's** separate roof defect is **not** fixed in this pass.
+
+Reasoning trail + the full hand-derived defect list: `THINKING.md` §1hm–1hp.
+
+**Root cause of the gaps: two authoring conventions, not two bugs.** Every gap reduces to a block placed
+by its **centre** Y (so its bottom face must be re-derived by hand and misses its support by a fraction
+of a metre) or a roof panel placed by a **tilt sign** (which hides an inverted pitch). Both are invisible
+in the source and obvious in the world, and both survive review because the reader has to redo the
+arithmetic. Same shape as AGENTS rule 8 one layer up: the copied value is the bottom face.
+
+**Changes — `WorldBuilder.Blueprints.cs`, three new helpers next to `CreatePartCube`:**
+- `CreatePartBoxOn(root, xz | x, bottomY, z, size, colour)` — a block placed by its **bottom** face, so
+  a support's top and the block resting on it are written on adjacent lines and the gap between them is
+  visible in the source. Two overloads (Vector3 xz, float x/z).
+- `CreatePartPanelBetween(root, a, b, halfWidth, thickness, across, colour)` — a slab whose **underside
+  runs from a to b**; `across` is the horizontal width direction, `thickness` is measured perpendicular to
+  the slope, and the rotation comes from `Quaternion.LookRotation(slope, width)`. Roofs, ramps and stairs
+  are now stated as their two contact points, so an inverted pitch is **no longer expressible**.
+- `CreatePartGableSteps(root, xCentre, thickness, wallTop, eaveY, ridgeY, halfSpan, courses, colour)` —
+  a corbel-stepped gable closure; every step's top overshoots **6 cm** into the roof underside, because
+  a 6 cm intersection is invisible and a 6 cm gap is a slit.
+- No call sites yet, so this commit changes nothing in the world — it exists so the church and shrine
+  rebuilds (1hn/1ho) are reviewable line-by-line.
+
+### 1hm-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build). `CreatePartCubeRotated` takes
+  `(Transform, Vector3 localPos, Vector3 scale, Color, Quaternion)` and returns `void`, so the panel
+  helper passes `rot` straight through; `CreatePartCube` returns `GameObject` and `CreatePartBoxOn`
+  forwards it. `Vector3.ProjectOnPlane` + `Quaternion.LookRotation(forward, upwards)` are both
+  `UnityEngine` members already in scope (`using UnityEngine;` at the top of the partial). Unity's
+  `LookRotation` requires `upwards` not parallel to `forward`; `across` is projected onto the plane
+  normal to the slope first, so the two are perpendicular by construction.
+- Worked example checked by hand (the rotation identity the helper relies on): for a panel rising toward
+  +Z, `LookRotation((0, sinθ, cosθ), (1,0,0))` = `Euler(−θ,0,0)`, and `R_x(−θ)` puts the +Z end **up** —
+  so a hip roof's +Z panel takes a **negative** authored angle. The pagoda's `Euler(+14)` (`:1144`) is
+  therefore inverted (butterfly roof), while the church's `Euler(+24)` and the shrine's `Euler(+14)`
+  are correct hips.
+- Hand-verified the gable helper against the church numbers it will be used with: halfSpan 6.15, rise
+  2.738, courses 10 ⇒ band 0.559, every step's top = ridge − rise·(zHalf/halfSpan) + 0.06 (i.e. 6 cm
+  into the roof), and the closure block (half-width 0.559) overshoots the roof underside by at most
+  2.738/11 = 0.25 m, which stays inside the roof panel's 0.547 m vertical depth rather than emerging
+  through its top face.
+- Docs: `AGENTS.md` **new rule 9** (state hand-authored geometry by its support; the three helpers; the
+  site-origin convention; never rename a structure part type because the string is the save/load key);
+  `game-design.md` §5.7 (the convention, with the pagoda tilt-sign bug as the worked example);
+  `THINKING.md` §1hm–1hp (trail, still OPEN for the rebuild); this file.
+- PENDING PLAY-TEST: **nothing to check yet** — no visual change in this commit. The next commits
+  (1hn church, 1ho shrine + Sanqing altar, 1hp test-lane NPC heights) carry the play-test list.
+- **Queued, in order:** 1hn church rebuild (roof covers the nave, spire onto its own spire roof, wall
+  corners closed, gable ends, buttresses/foundation, interior re-seated); 1ho shrine rebuild + three
+  Sanqing statues replacing the single `Shrine_Deity` figure; 1hp the three faith NPCs sunk 0.915 m into
+  the test platform.
+- **STILL OPEN (deferred by the user's choice, recorded so it is not lost):** the pagoda's four roofs are
+  authored with an inverted pitch — `Euler(+14)` on the +Z panel raises the outer eave, so all four read
+  as butterfly roofs — and `Pagoda_Roof1`'s centre cap (`:1163`) floats 0.57–1.44 m above its own
+  panels. `Roof2/3/4`'s caps plug their valleys, so only Roof1 visibly floats. Same fix as 1hn: re-author
+  the panels through `CreatePartPanelBetween` from eave underside to ridge underside. Details in THINKING
+  §1hm–1hp.
+- Task numbering note: the terrain rim follow-up already referred to itself as "candidate 1hl" in the
+  1hk entry, so this rebuild is numbered **1hm–1hp** to leave 1hl free for it.
+
 ## 1hk. Fix the east-column corner ownership — the measured cause of the see-through seams
 
 Follow-up to the 1hj audit. The user pressed F2 inside the loaded ring and sent the readout; **section

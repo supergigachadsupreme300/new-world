@@ -957,6 +957,77 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
         if (cube.GetComponent<BoxCollider>() == null) cube.AddComponent<BoxCollider>();
     }
 
+    // ── Structure-part geometry helpers ───────────────────────────────────
+    // The holy places are hand-authored out of raw cubes. Every gap ever found
+    // in them traced back to one of two authoring mistakes: a block placed by
+    // its CENTRE, so its bottom face had to be re-derived by hand and missed the
+    // support underneath by a fraction of a metre, or a roof panel written as a
+    // tilt SIGN, so an inverted pitch was invisible in the source. These helpers
+    // take the numbers a human can actually reason about instead - a bottom
+    // face, or the two ends of a slope - and do the arithmetic once, here.
+    // Authoring convention for the rebuilt holy places: geometry is written in
+    // SITE coordinates (y = 0 is the platform top) with every part root sitting
+    // at the site origin, so the whole assembly is auditable in a single frame
+    // and a support's top surface is always written next to what rests on it.
+    // See THINKING.md 1hm for the derivations these replace.
+
+    /// <summary>
+    /// Block placed by its bottom face, so the gap to whatever supports it is
+    /// the difference of two numbers written on the same line.
+    /// </summary>
+    private GameObject CreatePartBoxOn(Transform parent, Vector3 xz, float bottomY, Vector3 size, Color color)
+    {
+        return CreatePartCube(parent, new Vector3(xz.x, bottomY + size.y * 0.5f, xz.y), size, color);
+    }
+
+    private GameObject CreatePartBoxOn(Transform parent, float x, float bottomY, float z, Vector3 size, Color color)
+    {
+        return CreatePartCube(parent, new Vector3(x, bottomY + size.y * 0.5f, z), size, color);
+    }
+
+    /// <summary>
+    /// Slab whose UNDERSIDE runs from a to b - the workhorse for roofs, ramps and
+    /// stairs. <paramref name="across"/> is the slab's horizontal width
+    /// direction: (1,0,0) for a panel that slopes along Z, (0,0,1) for one that
+    /// slopes along X. a and b must differ only in the vertical plane
+    /// perpendicular to it. The slab is <paramref name="thickness"/> deep
+    /// measured perpendicular to the slope, so handing it the eave's underside
+    /// and the ridge's underside makes it touch both by construction - there is
+    /// no tilt sign left to get backwards.
+    /// </summary>
+    private GameObject CreatePartPanelBetween(Transform parent, Vector3 a, Vector3 b, float halfWidth, float thickness, Vector3 across, Color color)
+    {
+        Vector3 slope = (b - a).normalized;
+        Vector3 width = Vector3.ProjectOnPlane(across, slope).normalized;
+        var rot = Quaternion.LookRotation(slope, width);
+        Vector3 mid = (a + b) * 0.5f + (rot * Vector3.up) * (thickness * 0.5f);
+        return CreatePartCubeRotated(parent, mid, new Vector3(halfWidth * 2f, thickness, Vector3.Distance(a, b)), color, rot);
+    }
+
+    /// <summary>
+    /// Corbel-stepped gable infill in the plane x = xCentre, closing the triangle
+    /// between a wall top and a roof whose underside falls from ridgeY at z = 0
+    /// to eaveY at |z| = halfSpan. Emits <paramref name="courses"/> steps of
+    /// decreasing width plus a ridge closure block. Every step's top edge
+    /// overshoots 6 cm into the roof underside, so the stepped profile can never
+    /// leave a slit. The closure block is halfSpan/(courses+1) wide, which keeps
+    /// its top edge inside the roof slab rather than through it - the overshoot
+    /// there is at most rise/(courses+1), so keep courses large enough that
+    /// rise/(courses+1) stays under the panel's vertical depth.
+    /// </summary>
+    private void CreatePartGableSteps(Transform parent, float xCentre, float thickness, float wallTop, float eaveY, float ridgeY, float halfSpan, int courses, Color color)
+    {
+        float rise = ridgeY - eaveY;
+        float band = halfSpan / (courses + 1);
+        for (int k = 0; k < courses; k++)
+        {
+            float zHalf = halfSpan - band * (k + 1);
+            float top = ridgeY - rise * (zHalf / halfSpan) + 0.06f;
+            CreatePartBoxOn(parent, xCentre, wallTop, 0f, new Vector3(thickness, top - wallTop, zHalf * 2f), color);
+        }
+        CreatePartBoxOn(parent, xCentre, wallTop, 0f, new Vector3(thickness, ridgeY + 0.06f - wallTop, band * 2f), color);
+    }
+
     private void BuildPagodaPart(Transform root, string partType)
     {
         Color woodC = new Color(0.6f, 0.28f, 0.14f);

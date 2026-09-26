@@ -1753,6 +1753,19 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
   with a yin-yang back wall, deity statue, offering altar, and a large tripod incense censer at the
   entrance). Exclude-radii were raised (church 15, shrine 14) and the worship NPCs stand in front of
   each entrance (priest west of the church, taoist south of the shrine).
+- **Hand-authored geometry convention (1hm)** — the three holy places are built from raw cubes by
+  `WorldBuilder.Build{Pagoda,Church,Shrine}Part`, one `StructurePart_<Type>` root per part (13/12/14
+  parts). Two authoring mistakes caused every structural gap ever reported in them, so geometry is
+  now stated by its support instead of by a hand-computed centre:
+  - blocks go in through `CreatePartBoxOn` (**bottom** face authored, never the centre);
+  - roofs/ramps/stairs go in through `CreatePartPanelBetween` (**the two ends of the underside**),
+    which makes an inverted pitch unauthorable — the four pagoda roofs had been authored as a tilt
+    sign that pitched their outer eaves up, reading as butterfly roofs;
+  - gable triangles close with `CreatePartGableSteps`, each step overshooting 6 cm into the roof
+    underside (an intersection is invisible, a gap is a slit).
+  The rebuilt church and shrine author every part in **site coordinates** (y = 0 = platform top, all
+  part roots at the site origin) so the whole assembly is auditable in one frame. Part **type strings
+  are the save/load keys** — never rename one; a renamed part silently builds nothing.
 
 ### 5.8 NPCs & Relationships
 
