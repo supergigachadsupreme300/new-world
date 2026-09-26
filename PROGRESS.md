@@ -4,6 +4,69 @@ Last updated: 2026-09-26. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1hw. Resident-terrain drop key (F4) + public `DropResidentTerrainKeepSaves()` — the executable form of AGENTS rule 11
+
+Chosen while 1hv's measurement was waiting on the user's readout: the drop was, until now, a manual
+"restart the play session", which destroys the A/B it is supposed to enable (a restart rebuilds
+everything at once, so "the corner gap is gone" proves nothing about *which* chunk was stale).
+
+**Shipped** — `WorldStreamer.DropResidentTerrainKeepSaves()` (new, in `WorldStreamer.Streaming.cs`
+beside `ResetTerrainSaves`) + bench lane `EnableResidentDrop` (default **off**, like every other
+world-mutating lane) / `ResidentDropKey` (**F4**) / `RunResidentDrop()` / HUD line.
+
+The method is deliberately `ResetTerrainSaves()` **minus the destructive middle**: `ClearFarShell()`,
+then a snapshot of loaded **and** dormant keys, then `UnloadChunk` + `EnqueueChunkIfNeeded` per chunk
+(the `ForceRebuildChunk` pair, private, now reachable from outside). Nothing else: no
+`ResetWorldSaves`, no `FlushPendingSaves`, no `_dirtyTiles.Clear()`. `UnloadChunk` *persists* pending
+edits on its way out, so a sculpted world comes back sculpted — the save files are the contract, and
+this call cannot touch them.
+
+Two things that are easy to get wrong and are handled explicitly:
+- **Dormant chunks must be unloaded, not just re-queued.** `EnqueueChunkIfNeeded` WAKES a dormant
+  chunk instead of re-dispatching it (`WakeChunk`: same GameObject, same pooled mesh, same tile
+  data), so a loaded-only loop would leave every dormant chunk holding the old geometry until the
+  player walked back into that region. `UnloadChunk`'s dormant branch removes it from the dictionary
+  and destroys the object, which is what makes the re-queue a real rebuild.
+- **A chunk mid-build cannot be caught, and the code says so.** `DispatchPending` snapshots
+  `VoxelTerrainEnabled` + `EffectiveLowPolyStep` at *dispatch* time and hands them to the worker, so
+  an in-flight chunk is in neither dictionary yet (nothing to unload), and `EnqueueChunkIfNeeded`
+  refuses to re-dispatch it. Re-dispatching it anyway would be a coin flip — `FinalizeChunks` keeps
+  whichever result arrives first and discards the other (`if (_loadedChunks.ContainsKey(...)) continue;`).
+  Making that deterministic needs a per-chunk generation counter in the streaming core, which is not
+  a bench-key's business. So the method logs the straggler count and asks for a second press once a
+  readout shows `inflight 0` — both audits already print it.
+
+### 1hw-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build). `tools\StaticChecks.ps1`
+  reports **0 candidates** (it covers `NewWorldTestGround.cs`). `WorldStreamer.Streaming.cs` is not
+  in the script's file list, so its edit was hand-checked: braces 69/69, parens 334/334, every local
+  declared before use, and the `UnloadChunk(keys[i])` overload is unambiguous (`TerrainChunkCoord`
+  argument, exactly as `ResetTerrainSaves` calls it two methods above).
+- One check came back **misleading and was redone**: `Select-String -Path Assets\Scripts\**\*.cs`
+  only reaches two directory levels in PowerShell, so it never saw `World\Streaming\` at all and
+  reported `DropResidentTerrainKeepSaves` as declared zero times when the call existed. Redone over
+  `git ls-files "*.cs"` (431 files): the symbol has exactly 2 hits (definition + call),
+  `RunResidentDrop` 2, `EnableResidentDrop` 3, `ResidentDropKey` 3. A second bug in the same pass:
+  combining `-Pattern ([regex]::Escape($s))` with `-SimpleMatch` made `Key.F4` (the dot) search for a
+  literal `Key\.F4` and report 0 hits; re-run as a regex, `Key.F4` is used exactly once in the project
+  — the new field — and F1/F2/F3 are the skill hotkey and the two audits, so F4 was genuinely free.
+- Contract: one call, no saves touched, returns the re-queued count. The bench HUD line carries that
+  count plus the collider warning, so a screenshot after the rebuild says how much was thrown away.
+- **Hazard, documented in the tooltip and on the HUD rather than hidden**: the drop removes every
+  chunk collider until the rebuild lands (~1–2 s at the per-poll budget), so pressing it while
+  standing on streamed terrain means falling through the world. Press it from the bench platform or
+  in flight. This is why the toggle defaults **off** while the two audits default on.
+- Play-test:
+  1. Tick `EnableResidentDrop` on the bench, stand on the platform, press **F4**. HUD shows
+     `resident drop: N chunk(s) requeued, saves kept`.
+  2. Press **F3**. Its fingerprint should collapse to a single `(step, verts)` bucket and
+     `stepDrift 0` — that is what "the drop worked" looks like. Then walk to the corner gap and press
+     F3 again: gaps gone ⇒ staleness confirmed; gaps remain ⇒ the render path (1hv's other branches).
+  3. Optional: sculpt or dig something on the terrain, then F4 — the edit must still be there. That
+     is the "keeps the saves" half of the claim, and it is the half `ResetTerrainSaves` gets wrong.
+- Not done, deliberately: no generation counter for in-flight builds, and no automatic re-press. Both
+  would change streaming behaviour for every player to serve a QA key.
+
 ## 1hv. Rendered-corner audit lane (F3) — the layer the seam audit cannot read, shipped BEFORE any fix for the corner-gap report
 
 User report: "in every chunk corner it wont match the edge so player can see the void through that

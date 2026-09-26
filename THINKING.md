@@ -141,6 +141,64 @@ measurement ships as its own task (1hv) and the fix waits for the readout. A zer
 exists: a fresh play session rebuilds every chunk through `BuildOrLoadChunk`, so **if the gaps
 survive a restart, staleness is ruled out** and the cause is in the render path itself.
 
+## 1hw — making the rule-11 drop a key instead of a play-session restart — SHIPPED
+
+Triggered while 1hv waited on the user's readout. The drop itself was already known to be correct
+(1hu H1–H3); what was missing was a way to *do* it without restarting, because a restart is the one
+action that cannot answer the question the user is asking.
+
+### H1 — why a restart is not a valid A/B — it rebuilds everything at once
+The user's report is "gaps at chunk corners". If the fix for that is a renderer change, then
+restarting the session rebuilds every chunk through the new code, and a world that comes back
+seam-free is consistent with **both** "the render path was wrong and is now fixed" and "those chunks
+were stale the whole time". The measurement (1hv) separates the two only if the stale chunks are
+dropped *on demand*, while the player stands at the gap. So the drop has to be a key, and it has to
+keep the saves — otherwise the second press erases the evidence (a sculpted/deformed world that
+disappears is its own confound).
+
+### H2 — the pair is private, so this is a small API addition, not just a bench toggle
+`ForceRebuildChunk` (`UnloadChunk` + `EnqueueChunkIfNeeded`) is private; only
+`ForceRebuildArenaLane` (three fixed coords) is public. So the honest shape is a public
+`DropResidentTerrainKeepSaves()` in the same file as `ResetTerrainSaves`, written as *that method
+minus its destructive middle* — which is the whole point of the exercise, and makes the diff
+self-documenting: the two operations differ by exactly `FlushPendingSaves` + `ResetWorldSaves` +
+`_dirtyTiles.Clear()`.
+
+### H3 — is the dormant half real, or am I cargo-culting my own rule?
+Checked, and it is real: `EnqueueChunkIfNeeded` returns early via `WakeChunk` when the coord is in
+`_dormantChunks`, and `WakeChunk` re-shows the *same* GameObject with the *same pooled mesh*. A
+loaded-only loop would therefore be a no-op for every dormant chunk — the exact half rule 11 says
+matters, and the half you cannot see. `UnloadChunk`'s dormant branch (added in 1gc) removes it from
+the dictionary and destroys the object, which is what converts the re-queue into a real rebuild. The
+pair is also already proven in production by `ForceRebuildArenaLane`, so the sequence is not my
+invention.
+
+### H4 — what the drop CANNOT fix, and whether to make it fix it anyway — no
+`DispatchPending` snapshots `VoxelTerrainEnabled` and `EffectiveLowPolyStep` at dispatch and passes
+them to the worker (deliberately: "a chunk never changes shape mid-build"). An in-flight chunk is
+therefore in neither dictionary — there is nothing to unload — and `EnqueueChunkIfNeeded` refuses to
+re-dispatch it. I considered removing it from `_chunksInFlight` and re-queuing it, and rejected it:
+the abandoned worker still enqueues its result, `FinalizeChunks` keeps whichever arrives FIRST and
+discards the other, so that is a coin flip, not a fix. Determinism needs a per-chunk generation
+counter compared at finalize — a change to the streaming core that every player would pay for, to
+serve a QA key. **Verdict: report the straggler count and ask for a second press** (both audits
+already print `inflight`, so "press again when it reads 0" is checkable, not a vibe). Rule 7's
+"let the readout name the mechanism" applies to the limits of a tool too.
+
+### H5 — two of my own verification steps were wrong, and said so in PROGRESS
+- `Select-String -Path Assets\Scripts\**\*.cs` does **not** recurse in PowerShell — it reached two
+  directory levels and never saw `World\Streaming\`, so it reported the new API as "declared zero
+  times" while its call site sat in `Opt\`. Redone over `git ls-files "*.cs"` (431 files).
+- `-Pattern ([regex]::Escape($s))` together with `-SimpleMatch` searches for the *escaped* text
+  literally, so `Key.F4` returned "0 hits" because it looked for `Key\.F4`. Re-run as a regex.
+  Both were caught only because the count I expected (a definition) came back as zero. A check that
+  passes is not evidence; a check that returns a *suspicious* number is worth re-running.
+
+### Open
+- The corner fix itself is still withheld pending the F3 verdict. If that verdict is `R-stale`, this
+  task supplies the remedy; if it is `R1`/`R2`, this task is what makes the eventual fix visible
+  instead of invisible — a rebuilt-by-the-new-code world is checkable either way.
+
 ## 1hv — "in every chunk corner it wont match the edge so player can see the void through that gap" — MEASUREMENT SHIPPED, fix withheld pending the readout
 
 Rule 7: a report I cannot see gets a read-only measurement lane FIRST, and the measurement and the

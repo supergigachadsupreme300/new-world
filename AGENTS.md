@@ -161,8 +161,12 @@
       render output. Use it only when a pristine world is the actual goal. For a renderer change,
       drop the render output and keep the saves: `UnloadChunk(tc)` + `EnqueueChunkIfNeeded(tc)` per
       chunk (that pair is `ForceRebuildChunk`, which is private; `ForceRebuildArenaLane` is the
-      public single-lane precedent). There is still **no public "re-render everything, keep the
-      saves" entry point**, so this is a manual step until one is added.
+      public single-lane precedent). That pair is now wrapped by the public
+      `DropResidentTerrainKeepSaves()` (**1hw**), so the drop is one call instead of a manual step —
+      the bench also binds it to a key (`ResidentDropKey`, F4). It reports, rather than hides, the
+      one thing it cannot catch: a chunk **mid-build** captured its mesh mode at dispatch time, so it
+      lands after the drop carrying the old settings — press again once a readout shows
+      `inflight 0`.
     - **Do not bother clearing `ChunkMeshGenerator`'s mesh pool.** `UploadMerged` re-specifies
       vertices and indices on every upload and `Mesh.Clear()`s whenever the vertex count changed, so
       a pooled `Mesh` is a *buffer*, never a stale cache. Emptying it costs a little and shows

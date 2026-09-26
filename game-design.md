@@ -472,9 +472,18 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   `ClearFarShell()`**; the chunk mesh pool needs nothing (`UploadMerged` re-specifies every channel
   and `Mesh.Clear()`s on a count change, so a pooled `Mesh` is a buffer, not a cache).
   `ResetTerrainSaves()` performs exactly that sequence but first wipes the `tc_*.dat` saves, so it
-  **discards the player's terrain edits** — correct only when a pristine world is the goal. There is
-  no public "re-render everything, keep the saves" entry point; that sequence is `UnloadChunk` +
-  `EnqueueChunkIfNeeded` per chunk, which is what `ForceRebuildChunk` (private) does.
+  **discards the player's terrain edits** — correct only when a pristine world is the goal. The
+  non-destructive form is public as **`WorldStreamer.DropResidentTerrainKeepSaves()`** (1hw,
+  returns the re-queued count): `ClearFarShell()` then `UnloadChunk` + `EnqueueChunkIfNeeded` per
+  chunk over a snapshot of loaded **and** dormant keys. It deletes nothing and clears no dirty mark —
+  `UnloadChunk` even *persists* pending edits on its way out, so a sculpted world returns sculpted.
+  The bench exposes it as **`ResidentDropKey` (F4, `EnableResidentDrop`, off by default like every
+  other world-mutating lane)**, which is the one-key A/B for any render-algorithm change: no play
+  session restart, so "the terrain came back different" is an observation rather than a coincidence.
+  Two honest limits: a chunk **mid-build** captured its mesh mode (voxel / facet step) at *dispatch*
+  time, so it lands after the drop with the old settings and the key says so and asks for a second
+  press once a readout shows `inflight 0`; and the drop removes every chunk collider until the
+  rebuild lands over the next few polls, so it is meant to be pressed from a platform or in flight.
 - Dirty tiles record at **mark-time** (no IO); each chunk's accumulated tiles flush **batched** into one
   file write per chunk (1es: the disk write itself runs on a background worker — the main thread keeps
   only the (cheap) vertex/serialization work, queues the bytes, and one ThreadPool worker writes the

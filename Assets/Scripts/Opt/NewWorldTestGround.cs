@@ -97,6 +97,11 @@ public sealed class NewWorldTestGround : MonoBehaviour
     [Tooltip("QA (1hv): key that runs the rendered-corner audit. F3 because F1 is a skill hotkey, F2 is the seam audit, and F5-F12 are editor cutscene shortcuts.")]
     public Key CornerAuditKey = Key.F3;
     private string _cornerAuditText;
+    [Tooltip("QA (1hw): press ResidentDropKey to drop every piece of RESIDENT terrain render output — the far shell plus every loaded AND dormant chunk — and re-queue them for a fresh build, KEEPING all terrain saves and edits. This is the executable form of AGENTS rule 11: it is what you press after editing the terrain render algorithm (or flipping LowPolyStep / voxel) so the change is actually visible, instead of restarting the play session. Off by default like every other world-mutating lane. WARNING: it removes every chunk collider until the rebuild lands over the next few polls, so press it from the bench platform or in flight, never while standing on streamed terrain. Not the same as EnableResetTerrainSaves, which additionally DELETES the saves.")]
+    public bool EnableResidentDrop = false;
+    [Tooltip("QA (1hw): key that runs the resident-terrain drop. F4 because F1 is a skill hotkey, F2 is the seam audit, F3 the rendered-corner audit, and F5-F12 are editor cutscene shortcuts.")]
+    public Key ResidentDropKey = Key.F4;
+    private string _residentDropText;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
@@ -926,6 +931,16 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 RunCornerAudit();
         }
 
+        // (1hw) resident-terrain drop — the one key here that MUTATES the world, so it sits behind
+        // its own toggle (off by default, like every other world-mutating lane) and says on the HUD
+        // what it just did. Saves and edits survive; only the built geometry is thrown away.
+        if (EnableResidentDrop)
+        {
+            Keyboard kb = Keyboard.current;
+            if (kb != null && kb[ResidentDropKey] != null && kb[ResidentDropKey].wasPressedThisFrame)
+                RunResidentDrop();
+        }
+
         RunPendingPlayerGrants();
         if (!EnableWeapons || _rackStands.Count == 0) return;
         var gm = GameManager.Instance;
@@ -1004,6 +1019,32 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
         _cornerAuditText = streamer.RenderedCornerAudit();
         Debug.Log("[NewWorldTestGround] " + _cornerAuditText);
+    }
+
+    /// <summary>
+    /// QA (1hw): throw away every piece of resident terrain RENDER OUTPUT and let it rebuild from
+    /// the current generator, keeping the saves. This is the one-key form of AGENTS rule 11 — the
+    /// alternative is restarting the play session, which hides whether a change actually fixed
+    /// anything because everything is rebuilt at once.
+    ///
+    /// The HUD line carries the two things that decide whether the A/B is trustworthy: how many
+    /// chunks were re-queued, and the standing warning that their colliders are gone until the
+    /// rebuild lands (so the key is pressed from the platform, not from under the player's feet).
+    /// </summary>
+    private void RunResidentDrop()
+    {
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (streamer == null)
+        {
+            _residentDropText = "resident drop: no WorldStreamer in the scene";
+            Debug.LogWarning("[NewWorldTestGround] " + _residentDropText);
+            return;
+        }
+
+        int dropped = streamer.DropResidentTerrainKeepSaves();
+        _residentDropText = "resident drop: " + dropped + " chunk(s) requeued, saves kept — ground is GONE "
+            + "until the rebuild lands (a few polls); press again if a readout still shows inflight > 0";
+        Debug.Log("[NewWorldTestGround] " + _residentDropText);
     }
 
     /// <summary>
@@ -1311,6 +1352,12 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 // where the player stood when the key was pressed.
                 if (EnableCornerAudit && !string.IsNullOrEmpty(_cornerAuditText))
                     stats += "\n" + _cornerAuditText;
+
+                // (1hw) the drop's own line, so a screenshot taken after the rebuild shows how many
+                // chunks were thrown away — the number that makes "the terrain came back different"
+                // a measurement instead of an impression.
+                if (EnableResidentDrop && !string.IsNullOrEmpty(_residentDropText))
+                    stats += "\n" + _residentDropText;
 
                 _fpsText.text = stats;
             }
