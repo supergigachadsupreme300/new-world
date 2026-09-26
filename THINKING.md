@@ -15,6 +15,82 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1hs — "reduce the tab button in the tab menu height and put their center higher" — SHIPPED (band 84@36 → 40@10; Skills header row + Faith status re-datumed)
+
+Rule 7 says measure a report I cannot see. This one I *could* derive from the code, so no
+measurement lane — but the derivation is the interesting part, because the two numbers the user
+asked for turned out to be the visible symptom of a layout that had no constraint in it at all.
+
+### H1 — "the tab bar is just a big button; shrink it" — REJECTED as a complete answer
+The two write sites are `BuildTopButtons` (anchoredPosition y 36, height 84·S) and
+`OnLayoutFitted` (y **34**, height 84·S). Note they already disagree by 2: the bar is laid out
+twice, from two private copies of the same numbers, and only `OnLayoutFitted` runs on a resize.
+So "shrink the height" has two edit sites and a silent drift, and the drift is the more interesting
+defect. → whatever the new numbers are, they become named constants read by both sites. This is
+the same shape as rule 9's helpers: a value that two places must agree on is stated once.
+
+### H2 — "why is 84 tall?" — the band was sized by nothing, and it covers live content
+Design space is 1066×600 (1280/720 over `UiScale` 1.2) with the top edge at y +300. `Body` is inset
+60/60, so panel content is centred on the same origin. The band: pivot is the TOP edge, so
+y 36 → 120 from the top → **180…264** centred.
+
+Then I listed every widget whose y extent reaches into 180…264 (`grep ", 2xxf)"` +
+`, 1[7-9]xf)` across the five partials):
+
+- Skills sub-tabs `P(-160, 250)`, `MakeButton` pivot (0.5, **1**) → **220…250** — inside the band.
+- Skills readouts `P(-450, 222)` / `P(250, 222)`, `MakeBodyText` pivot (0, **1**) → **194…222** — inside.
+- Faith title/status `P(0, 238)` / `P(0, 206)` → **204…238** / **180…206** — inside.
+- Info level `P(-330, 210)` 64 tall → 146…**210** — its top 30 units inside.
+- Inventory equipment heading / storage header → top of each inside.
+
+Which raises the question that decides the whole task: **which of those is on top?** `Build()`
+creates the panel then `Body`; `OnEnable` then calls `BuildTopButtons()` and only then
+`BuildPanels()`. So the `Tab_*` buttons are the **later sibling** of `Body`, and Unity draws the
+later sibling on top. → the band was **covering** the Skills sub-tabs, both Skills readouts, the
+Faith title/status and the top of the Info/Inventory headings. They were not "ugly", they were
+invisible. Confirmed by draw order, not guessed from a screenshot.
+
+### H3 — "so how short, how high?" — read the constraint off the panels, don't pick a number
+The band cannot be sized in isolation; its bottom edge has to clear the tallest content row beneath
+it. Two more datum lookups were needed:
+- the skill tree viewport: `P(0, -80)`, 1000×560, pivot centre → top edge **y 200**, and it is a
+  `RectMask2D`, so an overlap would clip the sub-buttons' bottom border, not merely overlap them;
+- the Faith title: `MakeBodyText` is TopLeft in a 34 box, so its glyphs grow **downward** from
+  y 238 — the box height is not the ink height. Same for the Skills readouts (22.5pt at 1080p).
+
+So the usable corridor is y 200…250, **50 units**, and the row that has to live in it is 30 tall.
+Band 40 @ top 10 → bottom edge 250 → 14 units of air above the Skills row, 6 below it before the
+viewport. Rejected alternatives: 52 @ 14 (bottom 234, row at 236 → only 8 of air, and the Faith
+title at 238 would sit 4 under the band); 44 @ 6 (bottom 250 but 6 from the screen top, cramped);
+"band only, 56 @ 24" (the sub-tabs still under it — this is the option the user declined in favour
+of fixing the rows too).
+
+### H4 — "the two readouts and the three sub-buttons are two rows; can they be one?" — YES
+Sub-tabs span x −220…160 (120 wide, centred at −160/−30/100); the readouts span −450…−250 and
+250…470. **Horizontally disjoint**, so they never needed two rows — they were stacked because the
+author put the readouts at 222 and the buttons at 250 for no reason the geometry can explain. One
+`SkillsHeaderY = 236` for all five widgets removes the second row *and* the choice. (Earlier I
+briefly had the readouts at 200 to "sit under" the buttons — that is 4 units above the viewport
+top, i.e. the readouts would sit **on** the dark tree box that is drawn after them. Caught by
+re-deriving the viewport's top edge; the single row is the version that has no such collision.)
+
+### H5 — "raising the band can only reveal things, so it is safe" — REJECTED, it created one defect
+Revealing the Faith pair exposed a latent collision: title ink 200…238 vs status ink 179…206 at
+1080p → **6 units of overlapping glyphs**, hidden until now because the band covered both. Left
+alone, my "cosmetic" change would have shipped a new visible defect, so the status moves 206 → 192
+(8 of air). Checked the other three revealed rows for the same trap and found none: the Info level
+ink ends ~24 above the XP bar, the equipment heading (x −450…30) is left of the storage grid
+(x ≥ 120) on the same visual row, and the storage header keeps its existing 4-unit gap.
+
+### H6 — "a 40-tall button can be outgrown by its own label" — CONFIRMED, clamped
+`lt.fontSize = max(24, Screen.height / 44)` on a **height-matched** canvas is a second scaling on
+top of the CanvasScaler's: 24.5 at 1080p, 32.7 at 1440p, 49 at 2160p. The old 84-tall box
+(76 of text box) absorbed that up to ~3168 px of screen height; a 40-tall box (32) does not — 1440p
+would already spill. → `TabLabelFontSize()` = `min(0.95 × (height − inset), max(24, h/44))`, which
+is **bit-identical to the old value at 1080p and 1440p** and only differs where the old value was
+about to overflow. Unclamped `MakeBodyText`/`MakeButton` fonts elsewhere in the file are a
+pre-existing, separate issue — not touched here.
+
 ## 1hm–1hp — "redo the taoist temple and the church; the church has gaps in the structure; Taoism has 3 gods, so 3 statues not 1" — SHIPPED (1hm helpers, 1hn church, 1ho shrine, 1hp test-lane NPC heights); pagoda deferred by the user
 
 User request, three parts: redo the Taoist temple, redo the church, and put **three** statues in the

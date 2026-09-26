@@ -345,6 +345,50 @@ public sealed partial class CharacterInfoUI : MenuPanelBase
         RefreshSkillTree();
     }
 
+    /// <summary>
+    /// Top tab-bar metrics in design units — ONE source of truth. <see cref="BuildTopButtons"/>
+    /// lays the row out and <see cref="OnLayoutFitted"/> re-lays it on every aspect change; they
+    /// each used to carry their own copy of the height and of the top offset (36 here, 34 there),
+    /// which is how a bar silently differs between the first frame and the first window resize.
+    ///
+    /// The row hangs from the canvas TOP (pivot 0.5, 1), so <see cref="TabBarTopY"/> is the top
+    /// edge's distance BELOW the top edge and the band occupies [top - height, top]. Design space
+    /// is 1066x600 (1280/720 over <see cref="MenuPanelBase.UiScale"/>), so the top edge is y +300
+    /// and the band's own extent is y 250..290.
+    ///
+    /// The size is bounded by the panels' top rows, which this band must NOT cover: it is a later
+    /// sibling of the body row, so it DRAWS OVER them. The tallest content row under it is the
+    /// Skills sub-tab row at y 236 and the Faith title at y 238, so the band's bottom edge has to
+    /// stay above ~250 — hence 40 tall, not 84, and why the panels were authored blind to it.
+    /// </summary>
+    private const float TabBarHeight = 40f;
+
+    /// <summary>Top edge of the tab row, in design units below the canvas top edge.</summary>
+    private const float TabBarTopY = 10f;
+
+    /// <summary>Bottom inset of a tab label inside its button (text box = height - this).</summary>
+    private const float TabLabelInsetY = 8f;
+
+    /// <summary>
+    /// Top edge (pivot is the top) of the Skills panel's header row: the Skill Points / Learned
+    /// readouts plus the General / Class / Race sub-toggles. It lives in the corridor between the
+    /// tab band's bottom edge (y 250) and the tree viewport's top edge (y 200) — 30 tall, so it
+    /// clears the band by 14 and the viewport by 6. Keep it in that corridor: the viewport is a
+    /// RectMask2D built AFTER this row, so any overlap clips the buttons' bottom edge.
+    /// </summary>
+    private const float SkillsHeaderY = 236f;
+
+    /// <summary>
+    /// Tab label size: the resolution-scaled size, but never taller than the box it sits in. The
+    /// band is 40 units on a height-matched canvas, so a raw Screen.height/44 outgrows the button
+    /// on a 1440p+ window and the glyphs spill past the border art.
+    /// </summary>
+    private static float TabLabelFontSize()
+    {
+        float fits = (TabBarHeight * S - TabLabelInsetY) * 0.95f;
+        return Mathf.Min(fits, Mathf.Max(24f, Screen.height / 44f));
+    }
+
     private void BuildTopButtons()
     {
         string[] names = { "Info", "Skills", "Inventory", "Map", "Faith" };
@@ -361,8 +405,8 @@ public sealed partial class CharacterInfoUI : MenuPanelBase
             rt.anchorMin = new Vector2(0.5f, 1f);
             rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 36f);
-            rt.sizeDelta = new Vector2(bw - 6f, 84f * S);
+            rt.anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), TabBarTopY);
+            rt.sizeDelta = new Vector2(bw - 6f, TabBarHeight * S);
             _tabButtonRects.Add(rt);
             var img = go.AddComponent<Image>();
             ApplyFullButtonSprite(img);
@@ -376,12 +420,12 @@ public sealed partial class CharacterInfoUI : MenuPanelBase
             var lr = label.AddComponent<RectTransform>();
             lr.anchorMin = Vector2.zero;
             lr.anchorMax = Vector2.one;
-            lr.offsetMin = new Vector2(0f, -8f);
-            lr.offsetMax = new Vector2(0f, -8f);
+            lr.offsetMin = new Vector2(0f, -TabLabelInsetY);
+            lr.offsetMax = new Vector2(0f, -TabLabelInsetY);
             var lt = label.AddComponent<TextMeshProUGUI>();
             GameManager.Instance?.UIManager?.ApplyDefaultFont(lt);
             lt.text = name;
-            lt.fontSize = Mathf.Max(24f, Screen.height / 44f);
+            lt.fontSize = TabLabelFontSize();
             lt.color = Color.white;
             lt.alignment = TextAlignmentOptions.Center;
         }
@@ -397,17 +441,22 @@ public sealed partial class CharacterInfoUI : MenuPanelBase
 
         // Skills panel: draggable skill tree + detail pane.
         _panels[Tab.Skills] = MakePanel("SkillsPanel");
-        _skillPointsText = MakeBodyText(_panels[Tab.Skills].transform, "SkillPoints", P(-450f, 222f), Sz(200f, 28f));
-        _categoryLevelText = MakeBodyText(_panels[Tab.Skills].transform, "Learned", P(250f, 222f), Sz(220f, 28f));
+        // SkillsHeaderY is the one datum for this panel's top row: the two readouts and the three
+        // sub-toggles are horizontally disjoint (labels at x -450 / +250, buttons at -160/-30/100)
+        // so they share a single row, sized to sit between the tab band's bottom edge (y 250) and
+        // the tree viewport's top edge (y 200) without touching either. The row was at 250/222,
+        // i.e. inside the old 180..264 band, which drew over it.
+        _skillPointsText = MakeBodyText(_panels[Tab.Skills].transform, "SkillPoints", P(-450f, SkillsHeaderY), Sz(200f, 28f));
+        _categoryLevelText = MakeBodyText(_panels[Tab.Skills].transform, "Learned", P(250f, SkillsHeaderY), Sz(220f, 28f));
 
         // General / Class / Race sub-toggle inside the skills panel.
-        _generalTabBtn = MakeButton(_panels[Tab.Skills].transform, "GenTabBtn", "General", P(-160f, 250f), OnGeneralTab);
+        _generalTabBtn = MakeButton(_panels[Tab.Skills].transform, "GenTabBtn", "General", P(-160f, SkillsHeaderY), OnGeneralTab);
         _generalTabBtn.GetComponent<RectTransform>().sizeDelta = Sz(120f, 30f);
         ApplyFullButtonSprite(_generalTabBtn.GetComponent<Image>());
-        _classTabBtn = MakeButton(_panels[Tab.Skills].transform, "ClassTabBtn", "Class", P(-30f, 250f), OnClassTab);
+        _classTabBtn = MakeButton(_panels[Tab.Skills].transform, "ClassTabBtn", "Class", P(-30f, SkillsHeaderY), OnClassTab);
         _classTabBtn.GetComponent<RectTransform>().sizeDelta = Sz(120f, 30f);
         ApplyFullButtonSprite(_classTabBtn.GetComponent<Image>());
-        _raceTabBtn = MakeButton(_panels[Tab.Skills].transform, "RaceTabBtn", "Race", P(100f, 250f), OnRaceTab);
+        _raceTabBtn = MakeButton(_panels[Tab.Skills].transform, "RaceTabBtn", "Race", P(100f, SkillsHeaderY), OnRaceTab);
         _raceTabBtn.GetComponent<RectTransform>().sizeDelta = Sz(120f, 30f);
         ApplyFullButtonSprite(_raceTabBtn.GetComponent<Image>());
 
@@ -474,8 +523,8 @@ public sealed partial class CharacterInfoUI : MenuPanelBase
         float bw = w / _tabButtonRects.Count;
         for (int i = 0; i < _tabButtonRects.Count; i++)
         {
-            _tabButtonRects[i].anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), 34f);
-            _tabButtonRects[i].sizeDelta = new Vector2(bw - 6f, 84f * S);
+            _tabButtonRects[i].anchoredPosition = new Vector2(-w * 0.5f + bw * (0.5f + i), TabBarTopY);
+            _tabButtonRects[i].sizeDelta = new Vector2(bw - 6f, TabBarHeight * S);
         }
     }
 

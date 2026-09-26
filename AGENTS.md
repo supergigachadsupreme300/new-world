@@ -96,8 +96,31 @@
       is inside out. Any helper that subtracts one structure's datum from another's must decide inside
       itself what happens when they cross, and every caller must then be re-checked, because "the fix
       changed the church's band width" means the church was passing the clamp by luck.
-   Related invariants for the same structures: all parts of one structure share the site origin
-   (author in site coordinates, y = 0 at the platform top) so the assembly is auditable in one frame;
-   and **never rename a structure part type** (`Church_*` / `Shrine_*` / `Pagoda_*`) — those strings are
-   the save/load keys, and a renamed part falls through `SpawnStructurePart`'s dispatch to the generic
-   `else switch` and builds *nothing*, silently. Put new content inside an existing part instead.
+    Related invariants for the same structures: all parts of one structure share the site origin
+    (author in site coordinates, y = 0 at the platform top) so the assembly is auditable in one frame;
+    and **never rename a structure part type** (`Church_*` / `Shrine_*` / `Pagoda_*`) — those strings are
+    the save/load keys, and a renamed part falls through `SpawnStructurePart`'s dispatch to the generic
+    `else switch` and builds *nothing*, silently. Put new content inside an existing part instead.
+
+10. **A menu's own chrome is not in its panels' coordinate system, and it is drawn LAST.** The
+    panels under `MenuPanelBase` share the canvas origin (`Body` is inset 60/60, so the origin is
+    the canvas centre) and are built *before* the subclass's own chrome — so a tab bar or band is
+    the **later sibling** and Unity draws it **over** the content, with nothing in the content's
+    coordinates saying so. A band that no panel mentions is a band whose height is set by nothing:
+    the 84-unit Character Info band silently covered the Skills sub-tabs, both Skills readouts, the
+    Faith title/status and the top of the Info/Inventory headings. Three habits follow:
+    - **Size a band from the rows under it, not from taste.** Read every widget whose extent
+      reaches it (`grep` the `P(…, yyy)` literals in the partials), then place the band's *bottom*
+      edge above the tallest one and keep the band in a named constant. The band is a *later
+      sibling* of the content, so an overlap hides the content; it is never the other way round.
+    - **A row's real height is its INK, not its box.** `MakeBodyText` is TopLeft in a fixed box
+      (`MakeButton` is pivot-top), so glyphs grow *downward* from the declared y — a title at 238 in
+      a 34 box reaches ~200. Two rows that "don't overlap" as boxes can overlap as text; the Faith
+      title/status pair did, invisibly, for as long as the band covered it.
+    - **Anything that must not be clipped is a mask, and a mask built later wins.**
+      `TreeViewport` is a `RectMask2D` added after the Skills header row, so a row that overlaps it
+      loses its bottom border — check the mask's edge as if it were solid.
+    - A metric that **two code paths must agree on** (a build pass and an aspect-fit pass) is one
+      named constant. The band carried `36` in one site and `34` in the other, so it used to change
+      position the first time the window was resized.
+

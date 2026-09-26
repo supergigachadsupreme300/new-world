@@ -1,7 +1,70 @@
 # PROGRESS / Session Handoff Notes
 
 Last updated: 2026-09-26. Read this first in a new session; then continue with the
-`# OPEN TASKS` section.
+newest `## 1xx` entry at the top (they are ordered newest-first) and its
+`### 1xx-status` play-test list.
+
+## 1hs. Character Info tab bar — 84 units tall at 36 → 40 at 10, and the rows it was covering
+
+User request: "reduce the tab button in the tab menu height and put their center higher". The two
+numbers were a 2-minute edit; the *reason* the band was 84 tall is that nothing constrained it, and
+it was covering live content. Reasoning trail: `THINKING.md` §1hs.
+
+**Measured first (all figures design units; the design space is 1066×600, top edge y +300, and
+`Body` is inset 60 top / 60 bottom so panel content shares the canvas centre):**
+
+| element | y extent before | drawn |
+|---|---|---|
+| tab band (5 buttons) | 180…264 | over everything below |
+| Skills General/Class/Race sub-tabs (`P(-160, 250)`, pivot top, 30 tall) | 220…250 | **behind the band** |
+| Skills Skill Points / Learned (`P(∓, 222)`, pivot top-left, 28 tall) | 194…222 | **behind the band** |
+| Faith title / status (`P(0, 238)` / `P(0, 206)`) | 204…238 / 180…206 | **behind the band** |
+| Info level readout (`P(-330, 210)`, 64 tall) | 146…210 | top 30 units behind the band |
+| Inventory "Equipment" heading + storage header | 178…222 / 210…238 | top of each behind the band |
+
+The band is created by `BuildTopButtons` *after* `Build()` made the body row, so it is the later
+sibling and Unity draws it **on top** — the Skills sub-buttons and both top readouts were simply
+not visible, and the Faith title/status were not either. The panels were authored blind to the
+band because nothing in their coordinate system mentions it.
+
+**What changed**
+
+- `TabBarHeight` 84 → **40**, `TabBarTopY` 36 → **10** (34 in the fit pass). Band is now y 250…290:
+  **40 units shorter, its centre 48 units higher** (30 below the screen top, was 78).
+- Those two numbers are now **constants read by both write sites**. They were duplicated — and
+  already disagreed (36 at build, 34 on the first resize), so the bar used to change height position
+  the first time the window was resized.
+- **Skills header row** → one named `SkillsHeaderY = 236` for all five widgets. The sub-tabs
+  (250) and the two readouts (222) are horizontally disjoint — x −450…−250 and 250…470 against the
+  buttons' −220…160 — so they now **share one row** in the corridor between the band's bottom edge
+  (250) and the tree viewport's top edge (200): 14 clear of the band, 6 clear of the viewport.
+  `TreeViewport` is a `RectMask2D` built *after* this row, so any overlap would clip the buttons.
+- **Faith status** 206 → **192**. The title's glyphs grow *down* from y 238, so at 206 the two ink
+  blocks overlapped by ~6 units. That was invisible while the band covered the pair; raising the
+  band would have turned a hidden collision into a visible one, so it is fixed here.
+- **Tab label font is clamped** to its own box: `min(0.95 × (height − inset), max(24, h/44))`. At
+  1080p/1440p this is the old value unchanged (24.5 / 32.7 → 30.4 capped); without it a 40-tall
+  button would be outgrown by the raw `Screen.height / 44` term on a 1440p+ window.
+
+### 1hs-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build). Braces balance in both
+  edited files (`CharacterInfoUI.cs` 71/71, `CharacterInfoUI.Faith.cs` 61/61), no remaining literal
+  `84f` / `36f` / `34f` tab geometry anywhere in the `CharacterInfoUI*` partials, and
+  `tools\StaticChecks.ps1` still reports **0 candidates** (it does not cover this file — it is a
+  guard that nothing else broke, not a check of this change).
+- Revealed by raising the band, deliberately left alone: the Info level readout, the Inventory
+  "Equipment" heading and the storage header were partly hidden and are now fully visible. All
+  three are horizontally or vertically clear of what sits under them (checked: level ink ends ~24
+  above the XP bar; the equipment heading spans x −450…30 while the storage grid starts at x 120).
+- Not touched: the panel `TabDesignBox` rects, which are declared independently of the band and are
+  already looser than the content they cover.
+- PENDING PLAY-TEST (open the Character Info panel, each tab): the 5 top tabs are a **shorter row
+  hugging the top of the screen**, all five labels centred in their buttons and none clipped; on
+  **Skills** the General/Class/Race sub-buttons and the Skill Points / Learned readouts are now
+  **visible and clickable** (they were behind the band) with clear air above and below the row, and
+  switching sub-tabs still repaints; on **Faith** the title and status read as two separate lines;
+  on **Info** and **Inventory** the top readouts are fully visible; resize the window (aspect
+  change) and confirm the bar does **not** jump — that is the duplicated-literal bug this removes.
 
 ## 1hr. Static compile-risk sweep + faith-lane placement audit, and `tools/StaticChecks.ps1`
 

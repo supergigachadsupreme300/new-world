@@ -281,7 +281,11 @@ public sealed partial class CharacterInfoUI
         _faithTitle.alignment = TextAlignmentOptions.Center;
         _faithTitle.fontSize = Mathf.Max(22f, Screen.height / 34f);
 
-        _faithStatus = MakeBodyText(parent, "FaithStatus", P(0f, 206f), Sz(920f, 26f));
+        // 192, not 206: the title's glyphs grow DOWN from y 238 (TopLeft in a 34 box), so at
+        // 192 the status starts 8 below them. At the old 206 the two lines' ink overlapped by
+        // ~6 units — invisible while the 84-tall tab band drew over the pair, a visible collision
+        // once the band was raised. Same corridor rule as SkillsHeaderY: band bottom 250.
+        _faithStatus = MakeBodyText(parent, "FaithStatus", P(0f, 192f), Sz(920f, 26f));
         _faithStatus.alignment = TextAlignmentOptions.Center;
 
         string[] rowNames = { "Taoism", "Buddhism", "Church" };

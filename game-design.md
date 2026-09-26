@@ -2106,6 +2106,15 @@ Training dummies are `Immortal` and never die, so they never burst.
   direct parent→child links **light up white** so grouping is readable while idle. Class & Race tabs
   show each class/race's compact radial tree.
 - Character Creation (race select + stat/passive preview)
+- **Character Info tab bar** — the 5 top tabs (Info / Skills / Inventory / Map / Faith) hang from
+  the canvas top edge as a **40-unit band whose top edge is 10 units below it** (was 84 tall at
+  36). The band is a later sibling of the panel body, so it **draws over** it — the panels' own top
+  rows are therefore authored to live in the corridor *below* it: Skills' Skill Points / Learned
+  readouts and the General / Class / Race sub-toggles share one row at y 236, between the band's
+  bottom edge (250) and the skill-tree viewport's top edge (200). Band height, top offset and label
+  inset are single named constants (`TabBarHeight` / `TabBarTopY` / `TabLabelInsetY`) read by both
+  the build pass and the aspect-fit pass, and the tab label font is clamped to its own box so a
+  1440p+ window cannot push glyphs past the button border.
 - Race & Stat Sheet (current race, stats, skill XP, classes)
 - Inventory Menu (equipment, items, materials, consumables)
 - Map Menu (world map with biome overlay, POIs, player markers)
