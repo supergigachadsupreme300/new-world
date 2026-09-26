@@ -15,7 +15,7 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
-## 1hm–1hp — "redo the taoist temple and the church; the church has gaps in the structure; Taoism has 3 gods, so 3 statues not 1" — 1hm + 1hn shipped, 1ho/1hp queued (section stays OPEN until 1ho ships)
+## 1hm–1hp — "redo the taoist temple and the church; the church has gaps in the structure; Taoism has 3 gods, so 3 statues not 1" — 1hm + 1hn + 1ho shipped, 1hp queued (section stays OPEN until 1hp ships)
 
 User request, three parts: redo the Taoist temple, redo the church, and put **three** statues in the
 Taoist temple instead of one. The user declined the rule-7 measurement lane (the gaps are provable
@@ -146,6 +146,86 @@ keep: all four were invisible in the source and would have been visible in the w
    because a horizontal beam on a peaked roof can only touch along the peak line, and the pulpit's second
    step was *higher* than the first (flipped, so the climb rises toward the platform).
 
+### 1ho resolved — the shrine stops being a pagoda, and three things I had to re-derive
+The old shrine was a two-tier pagoda-style hall: tier 1 at `y 0.85`, an upper floor part at `5.9`,
+walls at `6.5`, a second roof at `8.2` and a 6.5 m spire from `9.8`, under a roof part declared
+`14.4 × 0.5 × 5.2`. Two things are wrong with that on its own terms, before any gap: a **5.2 m deep
+roof on a 12 m podium** does not cover the hall (it is 2.6 m deep per side of a 10.8 m interior), and
+the tier-2 floor at `5.9` leaves a **3.1 m** ceiling over the deity — which is exactly the "statues
+floating under a low lid" the user was describing. → **CONFIRMED**, by arithmetic on the declared
+sizes alone. **Decision:** a single-storey hall with the ridge lantern doing the vertical accent, and
+the second tier's four part keys **repurposed rather than renamed or deleted** (they are save keys;
+`Shrine_Tier2Floor` / `Shrine_Tier2Walls` / `Shrine_Roof2` / `Shrine_Spire` are the lantern's plate,
+walls, roof and spire). That is the only way to get a tall silhouette without a save-breaking rename
+and without a second storey to cramp the Three Pure Ones.
+
+**The gable helper I generalised in 1hm was still wrong — three times, and the third one bites.**
+(1) The 1hm signature took the wall's half-width *as* the roof's half-span, because the church's side
+walls and its eave happened to be the same 6.15. The shrine's are not: the back wall is 6.0 wide and
+the facade piers 6.1, under a 6.60 eave. With one number the bands trace the **roof's** line, not the
+wall's, and the closure's outer edge stops 0.6 m short of where the wall actually is. **Fixed** by
+taking the wall's plane point + normal and a **separate `gableHalfSpan`** (`roofHalfSpan` only sets the
+pitch), and by re-checking the church's own call: its two numbers are equal, so its pitch is unchanged.
+(2) Each band's **bottom** is `wallTop` and its top is the roof's underside at the band's inner edge —
+two different datums, and I had only ever tested them where they are 6 cm apart (the church). The
+shrine's eave hangs **64 cm below** its wall top, so out at `|x| > roofHalfSpan·(1 − 0.58/2.144)
+= 4.815` the underside is already *under* the wall top and the band's height goes **negative**: a
+mirrored cube whose BoxCollider is inside out. **Fixed in the helper**, not at the call site, because
+the pagoda and anything after it have the same exposure and the church is safe only by 6 cm of luck:
+clamp the run to where the underside meets `wallTop`, re-band inside that span, and `continue` on any
+band that would still invert. (3) `courses` was silently a *maximum*, not a count, once (2) applies —
+the church drops from 10 bands of 0.615 over 6.15 to 10 of 0.602 over 6.019 (that 0.13 m of board was
+inside the roof slab either way, so nothing visible changes) and the shrine's back gable from 10 of
+0.600 to 9 of 0.535 over 4.815. This is rule 8 exactly: the pitch and the extent are two different
+pieces of data that happened to be equal once, and the band's height is a *derived* value whose two
+inputs live on different ladders.
+
+**The roof has to bear on the architrave, and "hanging it below" is what makes it bear.** The eave
+underside is placed **64 cm below** the plate's top (`plateTop − 0.64 = 4.05`), *not* the 14 cm the
+church's cornice uses. Reason: the rake rises 0.3249 per metre, so the underside reaches the plate's
+top plane at `6.60 − 0.64/0.3249 = 4.63`; the architrave beams run to 6.20, so the panel is embedded
+0–51 cm over **1.57 m of bearing**. **REJECTED first:** the church-style 14 cm drop, on the reasoning
+that a smaller drop means a shallower bite. It is the opposite — a smaller drop moves the crossing
+**outward**, to `6.60 − 0.14/0.3249 = 6.17`, and the beams stop at 6.20, so the panel's underside would
+reach the plate's top only at the very tip of a beam, about 1 cm deep: a tangent, not a seat. (My first
+note of this comparison claimed the crossing lands at 6.77, "past the end of every beam" — wrong
+arithmetic, caught re-deriving it; 6.77 corresponds to *adding* 0.17 m, not subtracting 0.14. The
+conclusion survives, the number did not.) Deeper is the only direction that buys bearing.
+**Same class, one level up:** the eave drop is not a free parameter — it is `bearing length × tan`, and
+picking it by eye ("hang it just below, it looks right") is how the 1.0 cm tangent gets authored.
+
+**The lantern is a saddle on the cap, and "straddling the ridge" is a slot.** First draft sank the
+lantern plate 0.45 m into the roof to make it bear on both slopes. **REJECTED by arithmetic:** the
+ridge underside is 6.194 and the plate's bottom became 6.229 — **3.5 cm above the roof's own ceiling**,
+so the plate had a 3.5 cm slot running its whole 3.2 m length along the ridge, visible from inside the
+hall. Two ways out: bury it deeper (worse — the plate's top then clears the roof's top surface and the
+plate *floats*), or **sit it on the ridge cap**: bottom at `ridgeTop − 0.08`, i.e. 0.23 m of overlap
+with the cap's own 0.22 m depth, overhanging 0.8 m each side. Also narrowed the plate 3.0 → 2.6 for the
+same reason in miniature: the crown drops 32 cm a side, so every centimetre of width past the cap is
+cantilever. (A 0.8 m corbel overhang with a shadow under it is a deliberate cornice, not a slit.)
+
+**The interior pass found two solids occupying the same space, both caused by my own new facade.**
+Rule 8's discipline again, applied to numbers I had just written: (1) the censer at `z = −3.60` has a
+2.0 m bowl spanning `−4.6..−2.6`, which runs straight **through** the new facade at `z = −3.9` → moved
+to `−2.60`, still in the entrance's path but inside the door line; (2) the Three Pure Ones' dais at
+`z = 3.60` spans `2.6..4.6` and the **rear centre column's 0.95 base** occupies `3.425..4.375`, so the
+middle figure was standing inside a column → dais and figures to `z = 2.20`, altar to `−0.20`, its
+step to `−1.30`, kneeling mat to `+0.70`. Also dropped the floor part's own threshold strip: the facade
+already carries one, and two overlapping gold lips on the same line is a doubled step.
+
+**A latent ship-stopper in the offset plan, found by asking what `Offset` is *for*.** Setting all 12
+offsets to zero (the 1hn convention) puts every part's root at the site origin, so all 12 footprint
+boxes test the same spot. If `CanPlaceBuilding` tested a part against its *siblings*, the shrine could
+never be placed at all. **CONFIRMED it does not**: `PlaceStructureBlueprint` (`:88-105`) collects every
+sub-plan — testing each against the world — and only then adds them, so siblings never see each other.
+Checked before committing, because the failure mode is "the shrine silently does not build" rather than
+anything visible. The corollary, recorded in the table comment: since the boxes are all centred on the
+origin, the plan reservation is carried by the outer parts (Foundation 13.2 × 19.2, Roof 13.2 × 13.2);
+the interior parts state their true sizes for the ghost and the footprint test but do not need to
+contain their own geometry. Also corrected the church table's comment, which claimed `Size` was "only
+used for damage volumes, never for placement" — it is used by the placement test; there are no damage
+volumes at all.
+
 ### Open / not done
 - **Pagoda butterfly roofs + `Roof1`'s centre cap floating 0.57–1.44 m over its own panels** — a real
   defect of the same class, found while auditing, **deferred by the user's choice**. Recorded as a
@@ -158,8 +238,11 @@ keep: all four were invisible in the source and would have been visible in the w
 - The three faith NPCs in the test lane are sunk 0.915 m into the platform (`NewWorldTestGround.cs:682`
   places the roots at bare `baseY`; every rig puts its feet 0.915 m below the root, `MapBuilder.NPCs.cs`
   `:203/258/313`). Queued as 1hp.
-- **Shrine (1ho) is not started**: the same ladder treatment, plus the three Sanqing figures inside
-  `Shrine_Deity` (never renamed — the string is the save/load key).
+- **Shrine (1ho) — SHIPPED.** Single-storey hall on one datum ladder, the four tier-2 part keys
+  repurposed as a ridge lantern, a real front facade with a doorway, and three Sanqing figures on a
+  dais at `z = 2.20`. The gable helper gained a separate `gableHalfSpan` (see above), the interior was
+  re-spaced around the new facade and the rear column, and `_shrineSubBuildings` moved to
+  zero offsets with true sizes.
 
 ---
 

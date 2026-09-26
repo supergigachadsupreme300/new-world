@@ -403,8 +403,10 @@ new BuildingPartDefinition { PartName = "Wall_FrontL",  LocalPosition = new Vect
     // ------------------------------------------------------------════════
     // Every church part is authored in SITE coordinates with y = 0 at the
     // platform top, so the whole assembly is auditable in one frame and the
-    // Offset stays at the origin. Sizes are the rebuilt truth (x, y, z) and are
-    // only used for damage volumes, never for placement.
+    // Offset stays at the origin. Sizes are the rebuilt truth (x, y, z) and drive
+    // the blueprint ghost, CanPlaceBuilding's footprint test, and the ghost that
+    // comes back when a part is destroyed - never the geometry, which is authored
+    // in the switch bodies.
     private static readonly SubBuildingDefinition[] _churchSubBuildings = new SubBuildingDefinition[]
     {
         new SubBuildingDefinition { PartName = "Church_Foundation", Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(16f, 0.50f, 14.8f),   WoodCost = 0,   StoneCost = 90, Color = new Color(0.52f, 0.51f, 0.5f) },
@@ -425,20 +427,26 @@ new BuildingPartDefinition { PartName = "Wall_FrontL",  LocalPosition = new Vect
     // ------------------------------------------------------------════════
     //  TAOIST SHRINE MEGA STRUCTURE DEFINITION  (Batch 20c: shrine + Taoist priest)
     // ------------------------------------------------------------════════
+    // Every part is authored in site coordinates with y = 0 at the platform top
+    // (see BuildShrinePart), so the Offset stays at the origin and the whole
+    // assembly is auditable in one frame. Sizes are the rebuilt truth (x, y, z)
+    // and drive both CanPlaceBuilding's footprint test and the damage volumes;
+    // the Foundation's 19.2 depth and the Roof's 13.2 span are what reserve the
+    // shrine's plan, the interior parts sit inside them.
     private static readonly SubBuildingDefinition[] _shrineSubBuildings = new SubBuildingDefinition[]
     {
-        new SubBuildingDefinition { PartName = "Shrine_Foundation", Offset = new Vector3(0f, 0.1f, 0f),    Size = new Vector3(14f, 0.6f, 12f),    WoodCost = 0,   StoneCost = 90, Color = new Color(0.4f, 0.38f, 0.36f) },
-        new SubBuildingDefinition { PartName = "Shrine_Floor",      Offset = new Vector3(0f, 0.55f, 0f),   Size = new Vector3(12f, 0.25f, 10f),   WoodCost = 30, StoneCost = 0,  Color = new Color(0.42f, 0.28f, 0.16f) },
-        new SubBuildingDefinition { PartName = "Shrine_Pillars",    Offset = new Vector3(0f, 0.85f, 0f),   Size = new Vector3(10f, 3.6f, 8f),     WoodCost = 35, StoneCost = 35, Color = new Color(0.45f, 0.44f, 0.42f) },
-        new SubBuildingDefinition { PartName = "Shrine_BackWall",   Offset = new Vector3(0f, 0.85f, 0f),   Size = new Vector3(9.2f, 3.2f, 0.4f),  WoodCost = 0,   StoneCost = 50, Color = new Color(0.34f, 0.33f, 0.31f) },
-        new SubBuildingDefinition { PartName = "Shrine_Roof",       Offset = new Vector3(0f, 4.6f, 0f),    Size = new Vector3(14.4f, 0.5f, 5.2f), WoodCost = 0,   StoneCost = 65, Color = new Color(0.35f, 0.45f, 0.38f) },
-        new SubBuildingDefinition { PartName = "Shrine_Tier2Floor", Offset = new Vector3(0f, 5.9f, 0f),    Size = new Vector3(8.6f, 0.25f, 7.6f), WoodCost = 25, StoneCost = 0,  Color = new Color(0.42f, 0.28f, 0.16f) },
-        new SubBuildingDefinition { PartName = "Shrine_Tier2Walls", Offset = new Vector3(0f, 6.5f, 0f),    Size = new Vector3(7.6f, 1.1f, 6.6f),  WoodCost = 25, StoneCost = 20, Color = new Color(0.45f, 0.44f, 0.42f) },
-        new SubBuildingDefinition { PartName = "Shrine_Roof2",      Offset = new Vector3(0f, 8.2f, 0f),    Size = new Vector3(10.4f, 0.45f, 3.8f), WoodCost = 0,  StoneCost = 45, Color = new Color(0.35f, 0.45f, 0.38f) },
-        new SubBuildingDefinition { PartName = "Shrine_Spire",      Offset = new Vector3(0f, 9.8f, 0f),    Size = new Vector3(1.4f, 6.5f, 1.4f),  WoodCost = 5,   StoneCost = 0,  Color = new Color(1f, 0.84f, 0.2f) },
-        new SubBuildingDefinition { PartName = "Shrine_Incense",    Offset = new Vector3(0f, 0.85f, 0f),   Size = new Vector3(2f, 1.6f, 2f),      WoodCost = 10, StoneCost = 15, Color = new Color(0.55f, 0.52f, 0.48f) },
-        new SubBuildingDefinition { PartName = "Shrine_Deity",      Offset = new Vector3(0f, 0.85f, 0f),   Size = new Vector3(2.4f, 3.9f, 1.6f),  WoodCost = 0,   StoneCost = 30, Color = new Color(0.62f, 0.12f, 0.16f) },
-        new SubBuildingDefinition { PartName = "Shrine_Altar",      Offset = new Vector3(0f, 0.85f, 0f),   Size = new Vector3(2.8f, 0.8f, 1.5f),  WoodCost = 20, StoneCost = 5,  Color = new Color(0.3f, 0.18f, 0.1f) },
+        new SubBuildingDefinition { PartName = "Shrine_Foundation", Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(13.2f, 0.75f, 19.2f), WoodCost = 0,  StoneCost = 90, Color = new Color(0.4f, 0.38f, 0.36f) },
+        new SubBuildingDefinition { PartName = "Shrine_Floor",      Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(11.6f, 0.20f, 10.0f),  WoodCost = 30, StoneCost = 0,  Color = new Color(0.42f, 0.28f, 0.16f) },
+        new SubBuildingDefinition { PartName = "Shrine_Pillars",    Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(12.4f, 3.94f, 8.8f),  WoodCost = 35, StoneCost = 35, Color = new Color(0.45f, 0.44f, 0.42f) },
+        new SubBuildingDefinition { PartName = "Shrine_BackWall",   Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(12.2f, 4.09f, 9.4f),  WoodCost = 0,  StoneCost = 50, Color = new Color(0.34f, 0.33f, 0.31f) },
+        new SubBuildingDefinition { PartName = "Shrine_Roof",       Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(13.2f, 2.81f, 13.2f), WoodCost = 0,  StoneCost = 65, Color = new Color(0.35f, 0.45f, 0.38f) },
+        new SubBuildingDefinition { PartName = "Shrine_Tier2Floor", Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(2.7f, 0.40f, 3.3f),   WoodCost = 25, StoneCost = 0,  Color = new Color(0.3f, 0.18f, 0.1f) },
+        new SubBuildingDefinition { PartName = "Shrine_Tier2Walls", Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(2.96f, 1.22f, 3.16f), WoodCost = 25, StoneCost = 20, Color = new Color(0.45f, 0.44f, 0.42f) },
+        new SubBuildingDefinition { PartName = "Shrine_Roof2",      Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(3.6f, 1.51f, 3.8f),   WoodCost = 0,  StoneCost = 45, Color = new Color(0.35f, 0.45f, 0.38f) },
+        new SubBuildingDefinition { PartName = "Shrine_Spire",      Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(1.5f, 4.88f, 1.5f),   WoodCost = 5,  StoneCost = 0,  Color = new Color(1f, 0.84f, 0.2f) },
+        new SubBuildingDefinition { PartName = "Shrine_Incense",    Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(2.1f, 3.25f, 2.1f),   WoodCost = 10, StoneCost = 15, Color = new Color(0.45f, 0.24f, 0.12f) },
+        new SubBuildingDefinition { PartName = "Shrine_Deity",      Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(7.7f, 3.12f, 2.2f),   WoodCost = 0,  StoneCost = 30, Color = new Color(0.62f, 0.12f, 0.16f) },
+        new SubBuildingDefinition { PartName = "Shrine_Altar",      Offset = new Vector3(0f, 0f, 0f), Size = new Vector3(3.1f, 1.57f, 1.4f),   WoodCost = 20, StoneCost = 5,  Color = new Color(0.3f, 0.18f, 0.1f) },
     };
 
     private int _currentBuildingIndex;

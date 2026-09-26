@@ -3,6 +3,89 @@
 Last updated: 2026-09-26. Read this first in a new session; then continue with the
 `# OPEN TASKS` section.
 
+## 1ho. Shrine rebuild - single-storey hall, Three Pure Ones, ridge lantern (task 3 of the church/shrine rebuild)
+
+Finishes the rebuild the user asked for ("redo the taoist temple", "Taoism has 3 gods, so 3 statues
+not 1"). Reasoning trail, including the three defects this draft introduced and the rejected
+alternatives: `THINKING.md` §1hm–1hp.
+
+**What was actually wrong with the old shrine** (from its own declared numbers, before any gap): the
+tier-1 roof was `14.4 × 0.5 × 5.2` — a **2.6 m deep eave per side on a 10.8 m interior**, so it did
+not cover the hall; the tier-2 floor at `y 5.9` left a **3.1 m ceiling** over the deity, i.e. statues
+under a low lid; and every part root sat at its own offset, so no two blocks shared a readable datum.
+Fixed by making it a **single-storey hall with a ridge lantern**.
+
+**Changes — `WorldBuilder.Blueprints.cs` (`BuildShrinePart`, all 12 cases, + new
+`CreateShrineSanqingFigure`) and `WorldBuilder.cs` (`_shrineSubBuildings`):**
+- One datum ladder, y = 0 at the platform top: `podium 0.45 → cap 0.60 → floor 0.75 → column top 4.20
+  → architrave 4.69 → eave underside 4.05 → ridge underside 6.194 → ridge top 6.679 → lantern plate
+  6.599 → lantern deck 6.899 → lantern eave 7.879 → lantern ridge 8.607 → spire base 8.791` (top 12.67).
+- **The four tier-2 part keys are repurposed, not renamed and not deleted** — `Shrine_Tier2Floor` is
+  now the lantern's sole plate, `Shrine_Tier2Walls` its four walls, `Shrine_Roof2` its gable roof and
+  `Shrine_Spire` the spire on that roof's own apex. Renaming a part would make it fall through
+  `SpawnStructurePart`'s dispatch and build nothing, silently (AGENTS rule 9).
+- **Roof**: 18° gable, two `CreatePartPanelBetween` panels from an eave underside **64 cm below** the
+  architrave's top at `|x| = 6.60` to the ridge underside at `x = 0`, so the rake crosses the plate's
+  top plane at `4.63` and the panel is buried 0–51 cm across **1.57 m of bearing** on beams that run
+  out to 6.20. A 14 cm drop (the church's cornice) would move that crossing to 6.17, i.e. a 1 cm graze
+  at the tip of a beam. Both gable ends are closed with `CreatePartGableSteps` at 6.00 (back wall) and
+  6.10 (facade) wide.
+- **Facade**: two piers either side of a 3.0 m doorway, a lintel whose ends run 20 cm into them,
+  pilasters 5 cm proud, a gold threshold, and a gable board over the whole front. The old colonnade's
+  front-centre column position **is** that doorway (7 columns now, not 8).
+- **Three Pure Ones** on one dais: Yuanshi in gold (ruyi + fan), Lingbao in jade (pearl), Daode in white
+  over purple (whisk + beard), each with a lotus throne, mantle, sash, eyes and diadem, told apart by a
+  `variant` argument.
+- `_shrineSubBuildings`: all 12 offsets now `Vector3.zero`, sizes are the rebuilt truth.
+
+### 1ho-status
+- IMPLEMENTED; verified by grep + reread + hand-derived arithmetic (rule 3 — no CLI/Unity build).
+  Brace balance of the file: 188/188. No duplicate declarations in `BuildShrinePart`. All 12 table
+  part names compared against the 12 `case "Shrine_*"` labels: **agree**. `CreatePartGableSteps` is
+  called in 5 places (1 church, 2 shrine gables, 2 lantern gables) and all 5 pass both half-spans.
+- **Four defects this draft introduced, found on reread:** (a) the front gable board was 6.60 wide
+  under a 6.60 eave while the facade piers end at 6.10 — the board overhung the wall it stands on;
+  (b) the censer's 2.0 m bowl at `z = −3.60` ran **through** the new facade — moved to `−2.60`;
+  (c) the dais at `z = 3.60` put the middle figure **inside the rear centre column** (its 0.95 base
+  occupies `z 3.425..4.375`) — dais and figures moved to `2.20`, with the altar/step/mat re-spaced to
+  `−0.20 / −1.30 / +0.70`; (d) **the gable helper emitted inverted bands here**: it sized every band
+  from `wallTop`, but with the eave 64 cm under the architrave the roof's underside is already *below*
+  the wall top out at `|x| > 4.815`, so the outer band came out **0.13–0.16 m tall the wrong way** — a
+  mirrored cube with an inside-out collider. Fixed in the helper (clamp the run to where the underside
+  meets `wallTop`, re-band inside it, skip any band that still inverts). The church's gable is affected
+  only cosmetically: it now stops at 6.019 instead of 6.15, and that 0.13 m of board was inside the
+  roof slab either way. The lantern's gable is unchanged (its triangle reaches the wall's full width).
+  The lantern plate was also moved off "45 cm into the ridge": that put its bottom 3.5 cm above the
+  roof's own ceiling at the crown, a slot along the ridge visible from inside.
+- **Generalised the gable helper twice over**: it now takes the wall's plane point + normal and a
+  **separate `gableHalfSpan`**, because the shrine's gables (6.0/6.1) are narrower than its eave (6.60)
+  and the old single-number signature traced the roof's line instead of the wall's; and it now clamps
+  the band run to where the roof's underside meets the wall's top (see defect (d)). The church's two
+  half-spans are equal, so its pitch is unchanged.
+- **Verified a latent ship-stopper before committing:** zero offsets put all 12 part roots on the same
+  point, so the footprint test would have failed if a part tested against its siblings. It does not —
+  `PlaceStructureBlueprint` collects every sub-plan and only then adds them, so siblings never see each
+  other. (`WorldBuilder.Blueprints.cs:88-105`.)
+- Corrected a false claim carried from 1hn in two places: the part tables' `Size` is **not**
+  "documentation only" — `CanPlaceBuilding` and both blueprint ghosts read it. There are no damage
+  volumes.
+- Docs: `game-design.md` §5.7 (shrine structure line + a "Shrine rebuild (1ho)" block); `AGENTS.md`
+  unchanged (rule 9 already covers the convention); `THINKING.md` §1hm–1hp; this file.
+- **Save caveat:** unchanged from 1hn — parts are stored with absolute world positions, so an **old
+  save** re-loads the shrine's parts at their pre-rebuild offsets (up to 5.9 m out) and shows a mix of
+  old and new geometry. Nothing migrates old saves.
+- PENDING PLAY-TEST (fresh test platform, `EnableReligion`): approach the shrine from the south and
+  confirm the 4 treads step down to the platform and the 5.0 m gold inlay sits on the ground; walk
+  through the doorway and confirm it is **open** (no column in the middle of the front row) with a
+  threshold under your feet; look up inside and confirm the roof bears on the architrave with no
+  daylight slot along either rake or at the ridge; look at the front and back from outside and confirm
+  the gable triangles are closed and sit on the facade/wall; check the ridge lantern straddles the
+  ridge with no gap under its plate and no gap between the roof and the lantern walls; confirm the
+  spire rises out of the lantern roof; check the three statues stand clear of the rear column and are
+  visible from the doorway; confirm the censer is inside the door line and the altar is between the
+  censer and the dais; look for coplanar z-fighting on the yin-yang disc, the gold bands and the two
+  threshold strips.
+
 ## 1hn. Church rebuild - every structural gap closed on one datum ladder (task 2 of the church/shrine rebuild)
 
 Continues 1hm (helpers, no call sites). This commit is the first **call site** for all three helpers, and
@@ -27,8 +110,8 @@ checked by hand and **rejected** — the panels met correctly at the ridge; that
   (the roof's bearing) → ridge underside 7.35`. Every block is now a `CreatePartBoxOn` call, so its
   support is the previous line's named top.
 - All 13 `_churchSubBuildings` offsets are now `Vector3.zero` and the geometry is authored in **site
-  coordinates**; the declared `Size` fields are the rebuilt truth (documentation only — nothing reads
-  `Size` for these three arrays; verified by grep).
+  coordinates**; the declared `Size` fields are the rebuilt truth and drive the blueprint ghost and
+  `CanPlaceBuilding`'s footprint test (corrected in 1ho — they are not "documentation only").
 - **Roof**: two `CreatePartPanelBetween` panels, each from an eave underside buried 6 cm in the cornice
   at `|z| = 6.15` up to the ridge underside at `z = 0` (pitch 24.56°, `tan` = 0.4571, vertical depth
   0.550 = `0.50·√(1+tan²)`) — the panel now spans the full nave, and the pitch cannot be written
@@ -76,8 +159,8 @@ checked by hand and **rejected** — the panels met correctly at the ridge; that
   beside it); check the six side windows show glass, not blank wall; check the four corners of the nave
   at ground level; check the rear buttresses touch the podium; walk the aisle and confirm no floating
   furniture; look into both gable ends and confirm the corbel steps close the triangle.
-- **Queued, in order:** 1ho shrine rebuild + three Sanqing statues replacing the single `Shrine_Deity`
-  figure; 1hp the three faith NPCs sunk 0.915 m into the test platform.
+- **Queued, in order:** ~~1ho shrine rebuild + three Sanqing statues~~ **SHIPPED (see the 1ho entry at the
+  top)**; then 1hp, the three faith NPCs sunk 0.915 m into the test platform.
 - **STILL OPEN (deferred by the user's choice):** the pagoda's four roofs are authored with an inverted
   pitch (`Euler(+14)` on the +Z panel raises the outer eave) and `Pagoda_Roof1`'s centre cap floats
   0.57–1.44 m above its panels. Same fix as 1hn, re-author the panels through `CreatePartPanelBetween`.
@@ -136,13 +219,11 @@ arithmetic. Same shape as AGENTS rule 8 one layer up: the copied value is the bo
 - Docs: `AGENTS.md` **new rule 9** (state hand-authored geometry by its support; the three helpers; the
   site-origin convention; never rename a structure part type because the string is the save/load key);
   `game-design.md` §5.7 (the convention, with the pagoda tilt-sign bug as the worked example);
-  `THINKING.md` §1hm–1hp (trail, still OPEN for the rebuild); this file.
-- PENDING PLAY-TEST: **nothing to check yet** — no visual change in this commit. The next commits
-  (1hn church, 1ho shrine + Sanqing altar, 1hp test-lane NPC heights) carry the play-test list.
-- **Queued, in order:** 1hn church rebuild (roof covers the nave, spire onto its own spire roof, wall
-  corners closed, gable ends, buttresses/foundation, interior re-seated); 1ho shrine rebuild + three
-  Sanqing statues replacing the single `Shrine_Deity` figure; 1hp the three faith NPCs sunk 0.915 m into
-  the test platform.
+  `THINKING.md` §1hm–1hp (trail, still OPEN for 1hp); this file.
+- PENDING PLAY-TEST: **nothing to check yet** — no visual change in this commit. The commits that carry
+  the play-test list are 1hn (church), 1ho (shrine) and 1hp (test-lane NPC heights).
+- **Queued, in order:** ~~1hn church rebuild~~ shipped; ~~1ho shrine rebuild + three Sanqing statues~~ 
+  shipped; then 1hp, the three faith NPCs sunk 0.915 m into the test platform.
 - **STILL OPEN (deferred by the user's choice, recorded so it is not lost):** the pagoda's four roofs are
   authored with an inverted pitch — `Euler(+14)` on the +Z panel raises the outer eave, so all four read
   as butterfly roofs — and `Pagoda_Roof1`'s centre cap (`:1163`) floats 0.57–1.44 m above its own

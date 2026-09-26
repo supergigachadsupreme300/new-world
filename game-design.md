@@ -1748,10 +1748,11 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
 - **Structure scale (1cz)**: all three holy sites now match the pagoda in size and detail —
   **church** is 16×14.8 for the podium (~21 tall, 13 parts: nave + arcade columns, gothic side windows +
   rose window, gold-cross apse, gabled nave roof with corbel-stepped gable ends, tall front steeple tower
-  with belfry + gold spire + cross, stepped buttresses, interior pews/pulpit/altar); **shrine** is 14×12
-  (~14 tall, 12 parts: two-tier pagoda-style hall — tiled tier-1 roof, upper tier floor/balustrade +
-  tier-2 roof — topped by a jewelled gold spire, with a yin-yang back wall, deity statue, offering altar,
-  and a large tripod incense censer at the entrance). Exclude-radii were raised (church 15, shrine 14)
+  with belfry + gold spire + cross, stepped buttresses, interior pews/pulpit/altar); **shrine** is 13.2×12
+  for the podium with a 4-tread stair running out to `z = −9.6` (~12.7 tall, 12 parts: single-storey Taoist
+  hall — seven-column colonnade, front facade with a 3.0 m doorway, 18° gable roof with corbel-stepped gable
+  ends, a ridge lantern straddling the ridge, and the Three Pure Ones on a rear dais with a yin-yang back
+  wall, offering altar and tripod censer). Exclude-radii were raised (church 15, shrine 14)
   and the worship NPCs stand in front of each entrance (priest west of the church, taoist south of the
   shrine).
 - **Church rebuild (1hn)** — the church is now authored on one explicit datum ladder, so every block's
@@ -1770,6 +1771,32 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
     have a support** (they previously stood off the back of the podium);
   - every interior fitting (12 pillar bases, 6 pews, altar, pulpit and its two steps, candles) is seated
     on the walking surface; the tower landing meets the nave with one 0.20 m step instead of a 0.40 m drop.
+- **Shrine rebuild (1ho)** — the two-tier shrine became a **single-storey hall with a ridge lantern**, on
+  one explicit datum ladder, all 12 part roots at the site origin:
+  `podium 0.45 → cap 0.60 → floor 0.75 → column top 4.20 → architrave 4.69 (the roof's bearing) →
+  eave underside 4.05 → ridge underside 6.194 → ridge top 6.679 → lantern plate 6.599 → lantern deck 6.899
+  → lantern eave 7.879 → lantern ridge 8.607 → spire base 8.791`. The old `Shrine_Tier2Floor` /
+  `Shrine_Tier2Walls` / `Shrine_Roof2` / `Shrine_Spire` keys are **kept and repurposed** as the ridge
+  lantern, not renamed (they are save keys) and not deleted. Specifics:
+  - the **18° gable roof** bears on the architrave instead of balancing on it: the rake crosses the
+    plate's top plane at `|x| = 4.63` and the beams run out to `6.20`, so the panel is buried 0–51 cm
+    into the plate across 1.57 m. Hanging the eave 14 cm below the plate (as the church's cornice does)
+    would put that crossing at 6.77, past the end of every beam — a roof bearing on nothing;
+  - the lantern is a **saddle on the ridge cap**, 8 cm into it. Sinking it 45 cm to "straddle" the ridge
+    put its bottom 3 cm under the roof's own ceiling at the crown: a 3.5 cm slot along the ridge, visible
+    from inside the hall;
+  - the front is a real **facade**: two piers either side of a 3.0 m doorway with a lintel whose ends
+    run 20 cm into them, pilasters, a gold threshold and a gable board on top; the old colonnade's
+    front-centre column position is now that doorway;
+  - `CreatePartGableSteps` was generalised to take the wall's plane point and normal plus a **separate
+    `gableHalfSpan`** — the shrine's gables are 6.0/6.1 wide under a 6.60 eave, and the helper had
+    assumed the wall and the roof were the same width, which would have traced the wrong line (and,
+    with the eave 64 cm below the wall top, produced negative-height bands);
+  - the **Three Pure Ones** stand on one dais at `z = 2.20` (not 3.60, which put the middle figure inside
+    the rear centre column): Yuanshi in gold with a ruyi and a fan, Lingbao in jade with a pearl, Daode
+    in white over purple with a whisk and a beard, each with a lotus throne, mantle, sash and diadem;
+  - the censer moved to `z = −2.60` (at −3.60 its bowl ran through the new facade), and the altar, its
+    step and the kneeling mat to `z = −0.20 / −1.30 / +0.70`, keeping the whole interior walkable.
 - **Hand-authored geometry convention (1hm)** — the three holy places are built from raw cubes by
   `WorldBuilder.Build{Pagoda,Church,Shrine}Part`, one `StructurePart_<Type>` root per part (13/12/14
   parts). Two authoring mistakes caused every structural gap ever reported in them, so geometry is
@@ -1781,7 +1808,11 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
   - gable triangles close with `CreatePartGableSteps`: **uncentred** bands, each reaching the roof
     underside at its own **inner** edge (a centred step's inner edge is the ridge, so it would have to
     be as tall as the peak) and overshooting 6 cm into the slab — an intersection is invisible, a gap
-    is a slit.
+    is a slit. The helper takes the wall's plane and a `gableHalfSpan` **separate** from the roof's
+    `roofHalfSpan` (a wall narrower than the eave must trace the wall's line, not the roof's), and
+    clamps the run to where the roof underside meets the wall top — otherwise, when the eave hangs
+    below the wall's top line, the outer band's derived height goes negative and it builds a mirrored
+    cube with an inside-out collider.
   The rebuilt church and shrine author every part in **site coordinates** (y = 0 = platform top, all
   part roots at the site origin) so the whole assembly is auditable in one frame. Part **type strings
   are the save/load keys** — never rename one; a renamed part silently builds nothing.

@@ -61,9 +61,9 @@
 
 9. **Hand-authored block geometry is stated by its support, not by its centre.** The block-built
    structures (holy places, NPC rigs, `CreatePartCube` call sites) are positioned by a hand-computed
-   **centre** Y, so the bottom face has to be re-derived by every reader and misses its support by a
-   fraction of a metre without anything looking wrong. When adding or editing geometry there, use the
-   bottom-referenced helpers in `WorldBuilder.Blueprints.cs` and keep these three conventions:
+      **centre** Y, so the bottom face has to be re-derived by every reader and misses its support by a
+      fraction of a metre without anything looking wrong. When adding or editing geometry there, use the
+      bottom-referenced helpers in `WorldBuilder.Blueprints.cs` and keep these conventions:
    - `CreatePartBoxOn(root, x, bottomY, z, size, colour)` — never hand-compute a centre from a bottom;
      write the support's top and the block that rests on it on adjacent lines.
    - `CreatePartPanelBetween(root, a, b, halfWidth, thickness, across, colour)` — roofs, ramps and
@@ -71,9 +71,20 @@
      an inverted pitch: the pagoda's four roofs were authored `Euler(+14)` for the +Z panel, which in
      Unity pitches the outer eave *up*, so all four read as a butterfly roof with the centre cap
      floating 0.57–1.44 m above its own panels — invisible in the source, obvious in the world.
-   - `CreatePartGableSteps(...)` — the stepped profile that closes a gable triangle; each step's top
-     overshoots 6 cm into the roof underside, because **a 6 cm intersection is invisible and a 6 cm
-     gap is a slit** — never place two solids flush.
+    - `CreatePartGableSteps(...)` — the stepped profile that closes a gable triangle; each step's top
+      overshoots 6 cm into the roof underside, because **a 6 cm intersection is invisible and a 6 cm
+      gap is a slit** — never place two solids flush. Its `gableHalfSpan` (the wall) and
+      `roofHalfSpan` (the eave) are separate arguments for a reason: they were one number only because
+      the church's wall and eave happened to agree, and one number traces the roof's line on a narrower
+      wall.
+   - **A derived dimension whose inputs sit on different ladders is clamped in the helper, never at the
+      call site.** A gable band's height is `roofUnderside(innerEdge) − wallTop`: the first datum belongs
+      to the roof, the second to the wall, and they are only guaranteed ordered while the eave stays
+      *above* the wall's top line. The church cleared that by 6 cm, the shrine's 64 cm eave drop does not,
+      and the un-clamped helper answered with a **negative height** — a mirrored cube whose BoxCollider
+      is inside out. Any helper that subtracts one structure's datum from another's must decide inside
+      itself what happens when they cross, and every caller must then be re-checked, because "the fix
+      changed the church's band width" means the church was passing the clamp by luck.
    Related invariants for the same structures: all parts of one structure share the site origin
    (author in site coordinates, y = 0 at the platform top) so the assembly is auditable in one frame;
    and **never rename a structure part type** (`Church_*` / `Shrine_*` / `Pagoda_*`) — those strings are

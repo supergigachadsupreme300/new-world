@@ -1005,27 +1005,52 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
     }
 
     /// <summary>
-    /// Corbel-stepped gable infill in the plane x = xCentre, closing the triangle
-    /// between a wall top and a roof whose underside falls from ridgeY at z = 0
-    /// to eaveY at |z| = halfSpan. Emits <paramref name="courses"/> uncentred
-    /// bands per side, mirrored about z = 0. A band's top reaches the roof
-    /// underside at that band's INNER edge, which is the highest point of the
-    /// roof anywhere over the band, so the union of bands has no gap; the extra
-    /// 6 cm then drives each band up into the roof slab instead of leaving a slit
-    /// at its outer edge. A centred step cannot do this - its inner edge is
-    /// z = 0, so it would have to be as tall as the ridge.
+    /// Corbel-stepped gable infill filling the triangle between a wall top and a
+    /// roof whose underside falls from ridgeY on the centre plane to eaveY at
+    /// <paramref name="roofHalfSpan"/> from it. The wall lies in the plane through
+    /// <paramref name="planePoint"/> whose normal is <paramref name="normal"/> (a
+    /// horizontal unit axis), and the bands step along the other horizontal axis.
+    /// The wall covers |offset| &lt;= <paramref name="gableHalfSpan"/>, which is NOT
+    /// the roof's eave offset - a wall narrower than the eave leaves open air under
+    /// the overhang, and a band sized from the wall would then trace the wrong line.
+    /// Emits at most <paramref name="courses"/> uncentred bands per side (fewer if
+    /// the triangle ends before the wall does), mirrored about the centre; a band's
+    /// top reaches the roof underside at that band's INNER edge, the highest point
+    /// of the roof anywhere over the band, so the union of bands has no gap, and the
+    /// extra 6 cm drives each band up into the roof slab instead of leaving a slit at
+    /// its outer edge. A centred step cannot do this - its inner edge is the ridge,
+    /// so it would have to be as tall as the peak.
+    /// The triangle only exists where the roof underside is still ABOVE the wall
+    /// top: once the eave hangs below the wall's top line (the shrine's eave is
+    /// 64 cm under its architrave) the outer bands would come out with a
+    /// NEGATIVE height - a mirrored cube with an inside-out collider - so the run
+    /// is clamped to where the underside meets <paramref name="wallTop"/> and
+    /// re-banded inside that. Bands whose top still falls below the wall top are
+    /// skipped rather than emitted inverted.
     /// </summary>
-    private void CreatePartGableSteps(Transform parent, float xCentre, float thickness, float wallTop, float eaveY, float ridgeY, float halfSpan, int courses, Color color)
+    private void CreatePartGableSteps(Transform parent, Vector3 planePoint, Vector3 normal, float thickness, float wallTop, float eaveY, float ridgeY, float gableHalfSpan, float roofHalfSpan, int courses, Color color)
     {
         float rise = ridgeY - eaveY;
-        float band = halfSpan / courses;
-        for (int k = 0; k < courses; k++)
+        if (rise <= 0f || gableHalfSpan <= 0f) return;
+        float span = gableHalfSpan;
+        float meet = roofHalfSpan * (1f - (wallTop - eaveY) / rise);
+        if (meet < span) span = meet;
+        if (span <= 0f) return;
+        int n = Mathf.Max(1, Mathf.CeilToInt(span * courses / gableHalfSpan));
+        float band = span / n;
+        Vector3 across = Vector3.Cross(Vector3.up, normal);
+        for (int k = 0; k < n; k++)
         {
-            float outer = halfSpan - band * k;
+            float outer = span - band * k;
             float inner = outer - band;
-            float top = ridgeY - rise * (inner / halfSpan) + 0.06f;
-            for (int sz = -1; sz <= 1; sz += 2)
-                CreatePartBoxOn(parent, xCentre, wallTop, sz * (inner + outer) * 0.5f, new Vector3(thickness, top - wallTop, outer - inner), color);
+            float top = ridgeY - rise * (inner / roofHalfSpan) + 0.06f;
+            if (top <= wallTop) continue;
+            for (int s = -1; s <= 1; s += 2)
+            {
+                Vector3 c = planePoint + across * (s * (inner + outer) * 0.5f);
+                Vector3 size = normal * thickness + Vector3.up * (top - wallTop) + across * (outer - inner);
+                CreatePartBoxOn(parent, c.x, wallTop, c.z, size, color);
+            }
         }
     }
 
@@ -1638,7 +1663,7 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
                 // Gable infill on both side walls: the same eave/ridge undersides
                 // the panels were built from, so the steps track the real pitch.
                 for (int sx = -1; sx <= 1; sx += 2)
-                    CreatePartGableSteps(root, sx * wallX, 0.45f, wallTop, eaveUnder, ridgeUnder, wallZ, 10, whiteWallC);
+                    CreatePartGableSteps(root, new Vector3(sx * wallX, 0f, 0f), Vector3.right, 0.45f, wallTop - 0.06f, eaveUnder, ridgeUnder, wallZ, wallZ, 10, whiteWallC);
                 break;
             case "Church_Tower":
                 // Apron is the raised landing and it is wider than the tower so the
@@ -1800,8 +1825,62 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
         }
     }
 
+    /// <summary>
+    /// Site datum ladder for the Taoist shrine, y = 0 at the platform top.
+    /// slabTop/capTop  - podium and its cap
+    /// floorTop        - the hall's walking surface
+    /// plateTop        - top of the architrave, and the tier-1 roof's bearing
+    /// ridgeUnder      - tier-1 roof ridge underside
+    /// ridgeTop        - tier-1 roof ridge top, which the ridge lantern straddles
+    /// The lantern (Shrine_Tier2*) sits ON the ridge rather than as a second
+    /// storey: a storey over the colonnade would leave the hall 3.9 m of headroom
+    /// with the Three Pure Ones standing in it, and its own roof would have to
+    /// pass through the big roof to be seen at all.
+    /// </summary>
     private void BuildShrinePart(Transform root, string partType)
     {
+        const float slabTop = 0.45f;
+        const float capTop = 0.60f;
+        const float floorTop = 0.75f;
+        const float colTop = 4.20f;
+        const float plateTop = 4.69f;
+        const float colX = 4.90f;
+        const float colZ = 3.90f;
+        const float backZ = 4.90f;
+        const float roofEaveX = 6.60f;
+        const float roofHalfZ = 6.60f;
+        const float roofThick = 0.45f;
+        const float roofTan = 0.3249f;   // 18 deg
+        const float roofVert = 0.485f;   // 0.45 * sqrt(1 + tan^2)
+        // The eave is 64 cm below the architrave top, and at 18 deg the rake
+        // crosses the plate's top plane at |x| = 4.63 while the architrave beams
+        // run out to 6.20: the panel is buried 0-51 cm into the plate across 1.57 m
+        // of bearing. Hanging the eave only 14 cm below the plate, as the church's
+        // cornice does, moves that crossing out to 6.17 - the beams end at 6.20, so
+        // the panel would graze the plate's top at the very tip of a beam, 1 cm
+        // deep. Deeper is the only direction that buys bearing: a 14 cm drop is a
+        // tangent, not a seat, and the roof would hang off the architrave.
+        const float eaveUnder = plateTop - 0.64f;
+        const float ridgeUnder = eaveUnder + roofEaveX * roofTan;   // 6.194
+        const float ridgeTop = ridgeUnder + roofVert;               // 6.679
+        // The lantern is a saddle ON the ridge, not a box buried in it: the ridge
+        // cap's top is at ridgeTop + 0.18, so sinking the plate 45 cm would put its
+        // bottom 3 cm under the roof's own ceiling at the crown - a 3.5 cm slot
+        // along the ridge, visible from inside the hall. 8 cm into the cap instead:
+        // the plate bears on the cap and the crown and overhangs 0.8 m each side.
+        const float lanternBase = ridgeTop - 0.08f;
+        const float lanternDeck = lanternBase + 0.30f;
+        const float lanternTop = ridgeTop + 1.30f;
+        const float lanternX = 1.30f;
+        const float lanternZ = 1.40f;
+        const float lanternEaveX = 1.80f;
+        const float lanternHalfZ = 1.90f;
+        const float lanternTan = 0.4040f;                      // 22 deg
+        const float lanternVert = 0.485f;
+        const float lanternEaveUnder = lanternTop - 0.10f;
+        const float lanternRidgeUnder = lanternEaveUnder + lanternEaveX * lanternTan;
+        const float lanternRidgeTop = lanternRidgeUnder + lanternVert;
+
         Color stoneBase = new Color(0.4f, 0.38f, 0.36f);
         Color stoneDark = new Color(0.34f, 0.33f, 0.31f);
         Color woodFloorC = new Color(0.42f, 0.28f, 0.16f);
@@ -1814,179 +1893,268 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
         Color robeC = new Color(0.62f, 0.12f, 0.16f);
         Color bronzeC = new Color(0.45f, 0.24f, 0.12f);
         Color woodDarkC = new Color(0.3f, 0.18f, 0.1f);
-        Color skinC = new Color(0.55f, 0.5f, 0.45f);
         Color flameC = new Color(0.95f, 0.85f, 0.5f);
         Color smokeC = new Color(0.85f, 0.82f, 0.78f);
+        Color jadeC = new Color(0.30f, 0.55f, 0.42f);
 
         switch (partType)
         {
             case "Shrine_Foundation":
-                CreatePartCube(root, new Vector3(0f, 0f, 0f), new Vector3(14f, 0.6f, 12f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 0.3f, 0f), new Vector3(13f, 0.25f, 11f), new Color(0.52f, 0.5f, 0.48f));
-                CreatePartCube(root, new Vector3(0f, 0.15f, -6f), new Vector3(8f, 0.35f, 0.9f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 0.45f, -6.55f), new Vector3(6.4f, 0.35f, 0.9f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 0.75f, -7.1f), new Vector3(4.8f, 0.35f, 0.9f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 1.02f, -7.6f), new Vector3(3.4f, 0.16f, 0.8f), goldC);
-                break;
+                // Podium, cap and a stair of four solid treads. Each tread is stated
+                // by the ground it stands on and overlaps the tread behind it by
+                // 5 cm, so the head of the stair is neither a 15 cm notch nor a
+                // butt joint between two solids.
+                CreatePartBoxOn(root, 0f, -0.15f, 0f, new Vector3(13.2f, slabTop + 0.15f, 12.0f), stoneBase);
+                CreatePartBoxOn(root, 0f, capTop - 0.27f, 0f, new Vector3(12.6f, 0.27f, 11.0f), new Color(0.52f, 0.5f, 0.48f));
+                float treadZ = -5.55f;
+                for (int s = 0; s < 4; s++)
+                {
+                    float treadTop = capTop - s * 0.15f;
+                    CreatePartBoxOn(root, 0f, -0.10f, treadZ - s * 0.9f, new Vector3(8.2f - s * 0.6f, treadTop + 0.10f, 0.95f), stoneBase);
+                }
+                CreatePartBoxOn(root, 0f, 0f, -9.15f, new Vector3(5.0f, 0.06f, 0.9f), goldC);
+                return;
 
             case "Shrine_Floor":
-                CreatePartCube(root, new Vector3(0f, 0f, 0f), new Vector3(12f, 0.25f, 10f), woodFloorC);
-                CreatePartCube(root, new Vector3(0f, 0.22f, 0f), new Vector3(10.4f, 0.05f, 8.4f), new Color(0.5f, 0.34f, 0.2f));
-                CreatePartCube(root, new Vector3(0f, 0.24f, -4.4f), new Vector3(2.6f, 0.06f, 0.9f), goldC);
-                break;
+                // Sits on the cap and fills the hall. No threshold strip of its
+                // own - the facade's threshold, in the wall case, sits on this.
+                CreatePartBoxOn(root, 0f, capTop, 0.1f, new Vector3(11.6f, floorTop - capTop, 10.0f), woodFloorC);
+                CreatePartBoxOn(root, 0f, floorTop, 0.1f, new Vector3(10.0f, 0.05f, 8.4f), new Color(0.5f, 0.34f, 0.2f));
+                return;
 
             case "Shrine_Pillars":
+                // Seven columns on one ladder: base, shaft, capital, gold band, and
+                // the architrave that carries the roof, all off the same floor top.
+                // The eighth position of the old colonnade, the centre of the front
+                // row, is now the hall's doorway, so it is left open.
+                int[] colXs = { -1, 1, -1, 1, -1, 1, 0 };
+                int[] colZs = { -1, -1, 1, 1, 0, 0, 1 };
+                for (int ci = 0; ci < colXs.Length; ci++)
+                {
+                    float colPx = colXs[ci] * colX;
+                    float colPz = colZs[ci] * colZ;
+                    CreatePartBoxOn(root, colPx, floorTop, colPz, new Vector3(0.95f, 0.40f, 0.95f), stoneDark);
+                    CreatePartBoxOn(root, colPx, floorTop + 0.40f, colPz, new Vector3(0.60f, 3.00f, 0.60f), pillarC);
+                    CreatePartBoxOn(root, colPx, floorTop + 3.40f, colPz, new Vector3(0.95f, 0.20f, 0.95f), stoneDark);
+                    CreatePartBoxOn(root, colPx, colTop, colPz, new Vector3(0.80f, 0.14f, 0.80f), goldC);
+                }
+                for (int sz = -1; sz <= 1; sz += 2)
+                {
+                    CreatePartBoxOn(root, 0f, colTop + 0.14f, sz * colZ, new Vector3(12.4f, 0.35f, 0.45f), ridgeC);
+                    CreatePartBoxOn(root, 0f, colTop + 0.14f, sz * colZ, new Vector3(12.4f, 0.10f, 0.50f), goldC);
+                }
                 for (int sx = -1; sx <= 1; sx += 2)
                 {
-                    for (int sz = -1; sz <= 1; sz += 2)
-                    {
-                        CreatePartCube(root, new Vector3(sx * 4.9f, 0.4f, sz * 3.9f), new Vector3(0.95f, 0.4f, 0.95f), stoneDark);
-                        CreatePartCube(root, new Vector3(sx * 4.9f, 2.3f, sz * 3.9f), new Vector3(0.6f, 3.6f, 0.6f), pillarC);
-                        CreatePartCube(root, new Vector3(sx * 4.9f, 4.2f, sz * 3.9f), new Vector3(0.95f, 0.4f, 0.95f), stoneDark);
-                        CreatePartCube(root, new Vector3(sx * 4.9f, 4.35f, sz * 3.9f), new Vector3(0.8f, 0.14f, 0.8f), goldC);
-                    }
-                    CreatePartCube(root, new Vector3(sx * 4.9f, 0.4f, 0f), new Vector3(0.95f, 0.4f, 0.95f), stoneDark);
-                    CreatePartCube(root, new Vector3(sx * 4.9f, 2.3f, 0f), new Vector3(0.6f, 3.6f, 0.6f), pillarC);
-                    CreatePartCube(root, new Vector3(sx * 4.9f, 4.2f, 0f), new Vector3(0.95f, 0.4f, 0.95f), stoneDark);
-                    CreatePartCube(root, new Vector3(sx * 4.9f, 4.35f, 0f), new Vector3(0.8f, 0.14f, 0.8f), goldC);
+                    CreatePartBoxOn(root, sx * colX, colTop + 0.14f, 0f, new Vector3(0.45f, 0.35f, 8.8f), ridgeC);
+                    CreatePartBoxOn(root, sx * colX, colTop + 0.14f, 0f, new Vector3(0.50f, 0.10f, 8.8f), goldC);
                 }
-                for (int mz = -1; mz <= 1; mz += 2)
-                {
-                    CreatePartCube(root, new Vector3(0f, 0.4f, mz * 3.9f), new Vector3(0.95f, 0.4f, 0.95f), stoneDark);
-                    CreatePartCube(root, new Vector3(0f, 2.3f, mz * 3.9f), new Vector3(0.6f, 3.6f, 0.6f), pillarC);
-                    CreatePartCube(root, new Vector3(0f, 4.2f, mz * 3.9f), new Vector3(0.95f, 0.4f, 0.95f), stoneDark);
-                    CreatePartCube(root, new Vector3(0f, 4.35f, mz * 3.9f), new Vector3(0.8f, 0.14f, 0.8f), goldC);
-                    CreatePartCube(root, new Vector3(0f, 4.5f, mz * 3.9f), new Vector3(10.2f, 0.45f, 0.35f), ridgeC);
-                }
-                for (int mx = -1; mx <= 1; mx += 2)
-                    CreatePartCube(root, new Vector3(mx * 4.9f, 4.5f, 0f), new Vector3(0.35f, 0.45f, 7.8f), ridgeC);
-                break;
+                return;
 
             case "Shrine_BackWall":
-                CreatePartCube(root, new Vector3(0f, 2f, 4.9f), new Vector3(9.2f, 4.2f, 0.4f), stoneDark);
-                CreatePartCube(root, new Vector3(-4.5f, 2f, 4.9f), new Vector3(0.45f, 4.2f, 0.45f), robeC);
-                CreatePartCube(root, new Vector3(4.5f, 2f, 4.9f), new Vector3(0.45f, 4.2f, 0.45f), robeC);
-                CreatePartCube(root, new Vector3(0f, 4.5f, 4.9f), new Vector3(8.6f, 0.3f, 0.1f), goldC);
-                CreatePartCube(root, new Vector3(0f, 2.6f, 4.7f), new Vector3(2.2f, 2.2f, 0.1f), goldC);
-                CreatePartCube(root, new Vector3(0f, 2.6f, 4.64f), new Vector3(1.9f, 1.9f, 0.08f), whiteC);
-                CreatePartCube(root, new Vector3(0f, 2.6f, 4.59f), new Vector3(0.95f, 1.9f, 0.05f), blackC);
-                CreatePartCube(root, new Vector3(0.48f, 3.18f, 4.56f), new Vector3(0.34f, 0.34f, 0.06f), whiteC);
-                CreatePartCube(root, new Vector3(-0.48f, 2.02f, 4.56f), new Vector3(0.34f, 0.34f, 0.06f), blackC);
-                break;
+                // 12.0 wide so its ends bear on the 12.6 cap - buried 30 cm, not
+                // flush with its edge. The triangle above is closed by the roof
+                // case's gable steps, not by a floating triangle.
+                CreatePartBoxOn(root, 0f, capTop, backZ, new Vector3(12.0f, plateTop - capTop, 0.40f), stoneDark);
+                for (int sx = -1; sx <= 1; sx += 2)
+                    CreatePartBoxOn(root, sx * 5.00f, capTop, backZ, new Vector3(0.45f, plateTop - capTop, 0.50f), robeC);
+                CreatePartBoxOn(root, 0f, plateTop - 0.15f, backZ, new Vector3(10.4f, 0.30f, 0.50f), goldC);
+                // Yin-yang disc, layered down the wall's inner face: each layer is
+                // 15 cm deep and centred 2.5 cm in front of the face it sits on, so
+                // every one of them is 5 cm proud and 10 cm buried.
+                float yinZ = backZ - 0.20f;
+                CreatePartBoxOn(root, 0f, 2.90f, yinZ - 0.025f, new Vector3(2.20f, 2.20f, 0.15f), goldC);
+                yinZ -= 0.10f;
+                CreatePartBoxOn(root, 0f, 2.90f, yinZ - 0.025f, new Vector3(1.90f, 1.90f, 0.15f), whiteC);
+                yinZ -= 0.10f;
+                CreatePartBoxOn(root, 0f, 2.90f, yinZ - 0.025f, new Vector3(0.95f, 1.90f, 0.15f), blackC);
+                yinZ -= 0.10f;
+                CreatePartBoxOn(root, 0.48f, 3.48f, yinZ - 0.025f, new Vector3(0.34f, 0.34f, 0.15f), whiteC);
+                CreatePartBoxOn(root, -0.48f, 2.32f, yinZ - 0.025f, new Vector3(0.34f, 0.34f, 0.15f), blackC);
+                // Front facade: two piers either side of a 3.0 m doorway, a lintel
+                // over it whose ends run 20 cm into the piers, and a threshold.
+                // Both stand on the cap, not the floor - the piers reach out to
+                // 6.10, past the 5.80 floor edge.
+                for (int px = -1; px <= 1; px += 2)
+                {
+                    CreatePartBoxOn(root, px * 3.80f, capTop, -colZ, new Vector3(4.60f, plateTop - capTop, 0.45f), stoneDark);
+                    CreatePartBoxOn(root, px * 5.80f, capTop, -colZ, new Vector3(0.30f, plateTop - capTop, 0.55f), robeC);
+                }
+                CreatePartBoxOn(root, 0f, 4.13f, -colZ, new Vector3(3.40f, plateTop - 4.13f, 0.45f), stoneDark);
+                CreatePartBoxOn(root, 0f, plateTop - 0.15f, -colZ, new Vector3(3.40f, 0.30f, 0.55f), goldC);
+                CreatePartBoxOn(root, 0f, floorTop, -colZ - 0.10f, new Vector3(3.00f, 0.10f, 0.60f), goldC);
+                return;
 
             case "Shrine_Roof":
-                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, -3.2f), new Vector3(14.4f, 0.5f, 5.4f), tileC, Quaternion.Euler(-14f, 0f, 0f));
-                CreatePartCubeRotated(root, new Vector3(0f, 0.5f, 3.2f), new Vector3(14.4f, 0.5f, 5.4f), tileC, Quaternion.Euler(14f, 0f, 0f));
-                CreatePartCubeRotated(root, new Vector3(-3.2f, 0.5f, 0f), new Vector3(5.4f, 0.5f, 13.2f), tileC, Quaternion.Euler(0f, 0f, 14f));
-                CreatePartCubeRotated(root, new Vector3(3.2f, 0.5f, 0f), new Vector3(5.4f, 0.5f, 13.2f), tileC, Quaternion.Euler(0f, 0f, -14f));
-                CreatePartCube(root, new Vector3(0f, 1.6f, 0f), new Vector3(7f, 0.45f, 7f), ridgeC);
-                CreatePartCube(root, new Vector3(0f, 2.15f, 0f), new Vector3(0.75f, 0.5f, 0.75f), goldC);
+                // Gable roof with the ridge along Z, so its gable ends face the
+                // entrance and the back wall. Each panel is stated by the two ends
+                // of its underside; eaveUnder places the rake on the architrave.
                 for (int sx = -1; sx <= 1; sx += 2)
-                    for (int sz = -1; sz <= 1; sz += 2)
-                        CreatePartCubeRotated(root, new Vector3(sx * 4.9f, -0.2f, sz * 4.9f), new Vector3(0.7f, 0.2f, 0.7f), goldC, Quaternion.Euler(0f, 45f, 0f));
-                break;
+                    CreatePartPanelBetween(root, new Vector3(sx * roofEaveX, eaveUnder, 0f), new Vector3(0f, ridgeUnder, 0f), roofHalfZ, roofThick, Vector3.forward, tileC);
+                for (int sx = -1; sx <= 1; sx += 2)
+                    CreatePartPanelBetween(root, new Vector3(0f, ridgeTop - 0.05f, 0f), new Vector3(1.2f * roofTan, ridgeTop - 0.05f - 1.2f * roofTan, 0f), roofHalfZ, 0.22f, Vector3.forward, ridgeC);
+                CreatePartBoxOn(root, 0f, ridgeTop - 0.20f, 0f, new Vector3(0.50f, 0.40f, 0.50f), goldC);
+                // Both gable ends are closed above the plate: the back one rides the
+                // wall, the front one the facade's piers. Each gable is 6.0-6.1 wide
+                // under a 6.60 eave, so its two half-widths differ - the first sets
+                // how far the bands reach, the second sets the pitch.
+                CreatePartGableSteps(root, new Vector3(0f, 0f, backZ), Vector3.forward, 0.40f, plateTop - 0.06f, eaveUnder, ridgeUnder, 6.00f, roofEaveX, 10, stoneDark);
+                CreatePartGableSteps(root, new Vector3(0f, 0f, -colZ), Vector3.forward, 0.45f, plateTop - 0.06f, eaveUnder, ridgeUnder, 6.10f, roofEaveX, 10, ridgeC);
+                return;
 
             case "Shrine_Tier2Floor":
-                CreatePartCube(root, new Vector3(0f, 0.1f, 0f), new Vector3(8.6f, 0.25f, 7.6f), woodFloorC);
-                for (int ex = -1; ex <= 1; ex += 2)
-                    CreatePartCube(root, new Vector3(ex * 4.3f, 0.3f, 0f), new Vector3(0.16f, 0.12f, 7.6f), ridgeC);
-                for (int ez = -1; ez <= 1; ez += 2)
-                    CreatePartCube(root, new Vector3(0f, 0.3f, ez * 3.8f), new Vector3(8.6f, 0.12f, 0.16f), ridgeC);
-                CreatePartCube(root, new Vector3(0f, 0.4f, -3.92f), new Vector3(8.6f, 0.2f, 0.12f), ridgeC);
-                for (int px = -3; px <= 3; px += 2)
-                    CreatePartCube(root, new Vector3(px, 0.55f, -3.92f), new Vector3(0.12f, 0.5f, 0.12f), goldC);
-                break;
+                // The ridge lantern's sole plate: a 2.6 x 3.2 saddle sitting on the
+                // ridge cap, 8 cm into it. 2.6 and not 3.0 because the plate has to
+                // overhang the cap by as little as possible - every centimetre of
+                // width past 0.5 is cantilever, and the crown drops 32 cm a side.
+                CreatePartBoxOn(root, 0f, lanternBase, 0f, new Vector3(2.6f, 0.30f, 3.2f), woodDarkC);
+                CreatePartBoxOn(root, 0f, lanternDeck, 0f, new Vector3(2.7f, 0.10f, 3.3f), goldC);
+                return;
 
             case "Shrine_Tier2Walls":
+                // Four walls on the lantern deck, hollow, with a gold band and
+                // corner posts, so the lantern reads as a lit box on the ridge.
                 for (int cx = -1; cx <= 1; cx += 2)
-                    for (int cz = -1; cz <= 1; cz += 2)
-                        CreatePartCube(root, new Vector3(cx * 3.6f, 1f, cz * 3f), new Vector3(0.5f, 2f, 0.5f), pillarC);
-                CreatePartCube(root, new Vector3(0f, 0.95f, -3.05f), new Vector3(7.4f, 0.9f, 0.16f), ridgeC);
-                CreatePartCube(root, new Vector3(0f, 0.95f, 3.05f), new Vector3(7.4f, 0.9f, 0.16f), ridgeC);
-                CreatePartCube(root, new Vector3(-3.6f, 0.95f, 0f), new Vector3(0.16f, 0.9f, 6f), ridgeC);
-                CreatePartCube(root, new Vector3(3.6f, 0.95f, 0f), new Vector3(0.16f, 0.9f, 6f), ridgeC);
-                CreatePartCube(root, new Vector3(0f, 1.45f, -3.05f), new Vector3(7.4f, 0.1f, 0.2f), goldC);
-                CreatePartCube(root, new Vector3(0f, 1.45f, 3.05f), new Vector3(7.4f, 0.1f, 0.2f), goldC);
-                CreatePartCube(root, new Vector3(-3.6f, 1.45f, 0f), new Vector3(0.2f, 0.1f, 6f), goldC);
-                CreatePartCube(root, new Vector3(3.6f, 1.45f, 0f), new Vector3(0.2f, 0.1f, 6f), goldC);
+                    CreatePartBoxOn(root, cx * lanternX, lanternDeck, 0f, new Vector3(0.20f, lanternTop - lanternDeck, lanternZ * 2f - 0.2f), stoneDark);
+                for (int cz = -1; cz <= 1; cz += 2)
+                    CreatePartBoxOn(root, 0f, lanternDeck, cz * lanternZ, new Vector3(lanternX * 2f - 0.2f, lanternTop - lanternDeck, 0.20f), stoneDark);
+                for (int cx = -1; cx <= 1; cx += 2)
+                    CreatePartBoxOn(root, cx * lanternX, lanternDeck + 0.62f, 0f, new Vector3(0.26f, 0.10f, lanternZ * 2f), goldC);
+                for (int cz = -1; cz <= 1; cz += 2)
+                    CreatePartBoxOn(root, 0f, lanternDeck + 0.62f, cz * lanternZ, new Vector3(lanternX * 2f, 0.10f, 0.26f), goldC);
                 for (int lx = -1; lx <= 1; lx += 2)
                     for (int lz = -1; lz <= 1; lz += 2)
                     {
-                        CreatePartCube(root, new Vector3(lx * 3.85f, 1.15f, lz * 3.25f), new Vector3(0.5f, 0.6f, 0.5f), goldC);
-                        CreatePartCube(root, new Vector3(lx * 3.85f, 1.5f, lz * 3.25f), new Vector3(0.14f, 0.16f, 0.14f), goldC);
+                        CreatePartBoxOn(root, lx * lanternX, lanternDeck, lz * lanternZ, new Vector3(0.36f, lanternTop - lanternDeck, 0.36f), pillarC);
+                        CreatePartBoxOn(root, lx * lanternX, lanternTop, lz * lanternZ, new Vector3(0.16f, 0.14f, 0.16f), goldC);
                     }
-                break;
+                return;
 
             case "Shrine_Roof2":
-                CreatePartCubeRotated(root, new Vector3(0f, 0.45f, -2.4f), new Vector3(10.4f, 0.45f, 4f), tileC, Quaternion.Euler(-18f, 0f, 0f));
-                CreatePartCubeRotated(root, new Vector3(0f, 0.45f, 2.4f), new Vector3(10.4f, 0.45f, 4f), tileC, Quaternion.Euler(18f, 0f, 0f));
-                CreatePartCubeRotated(root, new Vector3(-2.4f, 0.45f, 0f), new Vector3(4f, 0.45f, 9.6f), tileC, Quaternion.Euler(0f, 0f, 18f));
-                CreatePartCubeRotated(root, new Vector3(2.4f, 0.45f, 0f), new Vector3(4f, 0.45f, 9.6f), tileC, Quaternion.Euler(0f, 0f, -18f));
-                CreatePartCube(root, new Vector3(0f, 1.5f, 0f), new Vector3(4.4f, 0.4f, 4.4f), ridgeC);
-                CreatePartCube(root, new Vector3(0f, 2f, 0f), new Vector3(0.6f, 0.4f, 0.6f), goldC);
-                break;
+                for (int sx = -1; sx <= 1; sx += 2)
+                    CreatePartPanelBetween(root, new Vector3(sx * lanternEaveX, lanternEaveUnder, 0f), new Vector3(0f, lanternRidgeUnder, 0f), lanternHalfZ, roofThick, Vector3.forward, tileC);
+                for (int sx = -1; sx <= 1; sx += 2)
+                    CreatePartPanelBetween(root, new Vector3(0f, lanternRidgeTop - 0.05f, 0f), new Vector3(0.8f * lanternTan, lanternRidgeTop - 0.05f - 0.8f * lanternTan, 0f), lanternHalfZ, 0.18f, Vector3.forward, ridgeC);
+                CreatePartBoxOn(root, 0f, lanternRidgeTop - 0.18f, 0f, new Vector3(0.34f, 0.30f, 0.34f), goldC);
+                // Gable boards on the lantern's own ends: the walls stop 1.40 short
+                // of the eaves, so both triangles need closing.
+                for (int sz = -1; sz <= 1; sz += 2)
+                    CreatePartGableSteps(root, new Vector3(0f, 0f, sz * lanternZ), Vector3.forward, 0.20f, lanternTop - 0.06f, lanternEaveUnder, lanternRidgeUnder, lanternX, lanternEaveX, 6, ridgeC);
+                return;
 
             case "Shrine_Spire":
-                CreatePartCube(root, new Vector3(0f, 0.6f, 0f), new Vector3(1.2f, 0.6f, 1.2f), ridgeC);
-                CreatePartCube(root, new Vector3(0f, 1.1f, 0f), new Vector3(1.5f, 0.18f, 1.5f), goldC);
-                CreatePartCube(root, new Vector3(0f, 2.6f, 0f), new Vector3(0.95f, 2.8f, 0.95f), goldC);
-                CreatePartCube(root, new Vector3(0f, 4.4f, 0f), new Vector3(1.2f, 0.16f, 1.2f), goldC);
-                CreatePartCube(root, new Vector3(0f, 5f, 0f), new Vector3(1f, 0.14f, 1f), goldC);
-                CreatePartCube(root, new Vector3(0f, 5.5f, 0f), new Vector3(0.8f, 0.12f, 0.8f), goldC);
-                CreatePartCube(root, new Vector3(0f, 6.2f, 0f), new Vector3(0.9f, 0.7f, 0.9f), goldC);
-                CreatePartCubeRotated(root, new Vector3(0f, 6.9f, 0f), new Vector3(0.4f, 0.4f, 0.4f), goldC, Quaternion.Euler(45f, 0f, 45f));
-                break;
+                // Stacked on the lantern roof's own apex, so the spire cannot drift
+                // off the axis of the thing it is bolted to. It is the top 6 m of
+                // the shrine, and the only part of it above the big roof besides
+                // the lantern itself.
+                float spireBase = lanternRidgeTop - 0.30f;
+                CreatePartBoxOn(root, 0f, spireBase, 0f, new Vector3(1.20f, 0.50f, 1.20f), ridgeC);
+                CreatePartBoxOn(root, 0f, spireBase + 0.50f, 0f, new Vector3(1.50f, 0.18f, 1.50f), goldC);
+                CreatePartBoxOn(root, 0f, spireBase + 0.68f, 0f, new Vector3(0.95f, 2.40f, 0.95f), goldC);
+                for (int r = 0; r < 3; r++)
+                    CreatePartBoxOn(root, 0f, spireBase + 1.30f + r * 0.60f, 0f, new Vector3(1.20f - r * 0.20f, 0.16f, 1.20f - r * 0.20f), goldC);
+                CreatePartBoxOn(root, 0f, spireBase + 3.08f, 0f, new Vector3(0.90f, 0.60f, 0.90f), goldC);
+                CreatePartCubeRotated(root, new Vector3(0f, spireBase + 3.68f, 0f), new Vector3(0.40f, 0.40f, 0.40f), goldC, Quaternion.Euler(45f, 0f, 45f));
+                return;
 
             case "Shrine_Incense":
-                CreatePartCube(root, new Vector3(0f, 0.25f, -3.6f), new Vector3(2f, 0.6f, 2f), stoneBase);
-                CreatePartCube(root, new Vector3(-0.55f, 0.15f, -3.55f), new Vector3(0.3f, 0.7f, 0.3f), bronzeC);
-                CreatePartCube(root, new Vector3(0.55f, 0.15f, -3.55f), new Vector3(0.3f, 0.7f, 0.3f), bronzeC);
-                CreatePartCube(root, new Vector3(0f, 0.15f, -4.1f), new Vector3(0.3f, 0.7f, 0.3f), bronzeC);
-                CreatePartCube(root, new Vector3(0f, 1.05f, -3.6f), new Vector3(1.9f, 0.8f, 1.9f), bronzeC);
-                CreatePartCube(root, new Vector3(0f, 1.5f, -3.6f), new Vector3(2f, 0.1f, 2f), goldC);
-                CreatePartCube(root, new Vector3(0f, 1.9f, -3.6f), new Vector3(1.3f, 0.7f, 1.3f), bronzeC);
-                CreatePartCube(root, new Vector3(0f, 2.4f, -3.6f), new Vector3(0.32f, 0.35f, 0.32f), goldC);
-                CreatePartCube(root, new Vector3(0f, 2.9f, -3.6f), new Vector3(0.14f, 0.6f, 0.14f), smokeC);
-                CreatePartCube(root, new Vector3(0f, 3.3f, -3.6f), new Vector3(0.1f, 0.5f, 0.1f), smokeC);
-                CreatePartCube(root, new Vector3(0f, 1.75f, -2.95f), new Vector3(0.8f, 0.15f, 0.5f), stoneBase);
-                CreatePartCube(root, new Vector3(-0.2f, 2f, -2.95f), new Vector3(0.04f, 0.4f, 0.04f), goldC);
-                CreatePartCube(root, new Vector3(0.2f, 2f, -2.95f), new Vector3(0.04f, 0.4f, 0.04f), goldC);
-                break;
+                // Tripod censer just inside the doorway, in the entrance's path. It
+                // stands on floorTop at Z = -2.60, not on the terrace: the terrace
+                // cap is only 0.5 m wider than the facade, and at Z = -5.2 the
+                // censer's rear legs would hang off the podium.
+                const float censerZ = -2.60f;
+                for (int lx = -1; lx <= 1; lx += 2)
+                    for (int lz = -1; lz <= 1; lz += 2)
+                        CreatePartBoxOn(root, lx * 0.75f, floorTop, censerZ + lz * 0.75f, new Vector3(0.22f, 0.70f, 0.22f), bronzeC);
+                CreatePartBoxOn(root, 0f, floorTop + 0.70f, censerZ, new Vector3(2.0f, 0.70f, 2.0f), bronzeC);
+                CreatePartBoxOn(root, 0f, floorTop + 1.40f, censerZ, new Vector3(2.1f, 0.12f, 2.1f), goldC);
+                CreatePartBoxOn(root, 0f, floorTop + 1.52f, censerZ, new Vector3(1.5f, 0.60f, 1.5f), bronzeC);
+                CreatePartBoxOn(root, 0f, floorTop + 2.12f, censerZ, new Vector3(0.32f, 0.35f, 0.32f), goldC);
+                CreatePartBoxOn(root, 0f, floorTop + 2.50f, censerZ, new Vector3(0.14f, 0.50f, 0.14f), smokeC);
+                CreatePartBoxOn(root, 0f, floorTop + 2.85f, censerZ, new Vector3(0.10f, 0.40f, 0.10f), smokeC);
+                return;
 
             case "Shrine_Deity":
-                CreatePartCube(root, new Vector3(0f, 0.5f, 3f), new Vector3(2.4f, 0.9f, 1.5f), stoneBase);
-                CreatePartCube(root, new Vector3(0f, 1f, 3f), new Vector3(2.5f, 0.1f, 1.6f), goldC);
-                CreatePartCube(root, new Vector3(0f, 1.35f, 2.95f), new Vector3(2f, 0.35f, 1.3f), robeC);
-                CreatePartCube(root, new Vector3(0f, 2.15f, 2.9f), new Vector3(1.2f, 1.1f, 0.9f), robeC);
-                CreatePartCube(root, new Vector3(0f, 2.15f, 2.45f), new Vector3(0.24f, 1.1f, 0.2f), goldC);
-                CreatePartCube(root, new Vector3(0f, 2.8f, 2.95f), new Vector3(1.9f, 0.5f, 0.95f), robeC);
-                CreatePartCube(root, new Vector3(0f, 2.45f, 2.35f), new Vector3(0.5f, 0.5f, 0.3f), goldC);
-                CreatePartCube(root, new Vector3(0f, 3.3f, 2.95f), new Vector3(0.75f, 0.7f, 0.75f), skinC);
-                CreatePartCube(root, new Vector3(-0.16f, 3.35f, 3.28f), new Vector3(0.05f, 0.08f, 0.05f), blackC);
-                CreatePartCube(root, new Vector3(0.16f, 3.35f, 3.28f), new Vector3(0.05f, 0.08f, 0.05f), blackC);
-                CreatePartCube(root, new Vector3(0f, 3.7f, 2.95f), new Vector3(0.9f, 0.45f, 0.9f), blackC);
-                CreatePartCube(root, new Vector3(0f, 3.55f, 2.95f), new Vector3(0.95f, 0.1f, 0.95f), goldC);
-                CreatePartCube(root, new Vector3(0f, 3.95f, 2.95f), new Vector3(0.2f, 0.18f, 0.2f), goldC);
-                CreatePartCube(root, new Vector3(1f, 2.15f, 2.9f), new Vector3(0.12f, 1.7f, 0.12f), goldC);
-                CreatePartCubeRotated(root, new Vector3(1f, 3.05f, 2.9f), new Vector3(0.2f, 0.2f, 0.2f), goldC, Quaternion.Euler(45f, 0f, 45f));
-                break;
+                // The Three Pure Ones on one dais facing the doorway: left Yuanshi
+                // Tianzun (gold), centre Lingbao Tianzun (jade), right Daode Tianzun
+                // (white over purple). The dais is at Z = 2.20, not 3.60 - the rear
+                // centre column's 0.95 base occupies Z 3.425-4.375, so a dais
+                // centred at 3.60 would stand the middle figure inside a column.
+                CreatePartBoxOn(root, 0f, floorTop, 2.20f, new Vector3(8.4f, 0.30f, 2.0f), stoneBase);
+                CreatePartBoxOn(root, 0f, floorTop + 0.30f, 2.20f, new Vector3(8.6f, 0.08f, 2.2f), goldC);
+                CreateShrineSanqingFigure(root, -3.0f, 2.20f, floorTop + 0.38f, goldC, new Color(0.90f, 0.78f, 0.35f), 0);
+                CreateShrineSanqingFigure(root, 0f, 2.20f, floorTop + 0.38f, jadeC, new Color(0.92f, 0.90f, 0.86f), 1);
+                CreateShrineSanqingFigure(root, 3.0f, 2.20f, floorTop + 0.38f, whiteC, new Color(0.35f, 0.18f, 0.42f), 2);
+                return;
 
             case "Shrine_Altar":
-                CreatePartCube(root, new Vector3(0f, 0.45f, 1.6f), new Vector3(2.6f, 0.9f, 1.2f), woodDarkC);
-                CreatePartCube(root, new Vector3(0f, 0.95f, 1.6f), new Vector3(2.7f, 0.08f, 1.3f), goldC);
+                // Offering table between the doorway and the dais, on the floor.
+                CreatePartBoxOn(root, 0f, floorTop, -0.20f, new Vector3(3.0f, 0.85f, 1.3f), woodDarkC);
+                CreatePartBoxOn(root, 0f, floorTop + 0.85f, -0.20f, new Vector3(3.1f, 0.08f, 1.4f), goldC);
                 for (int cdx = -1; cdx <= 1; cdx += 2)
                 {
-                    CreatePartCube(root, new Vector3(cdx * 0.7f, 1.25f, 1.6f), new Vector3(0.14f, 0.5f, 0.14f), goldC);
-                    CreatePartCube(root, new Vector3(cdx * 0.7f, 1.55f, 1.6f), new Vector3(0.07f, 0.14f, 0.07f), flameC);
+                    CreatePartBoxOn(root, cdx * 0.90f, floorTop + 0.93f, -0.20f, new Vector3(0.14f, 0.50f, 0.14f), goldC);
+                    CreatePartBoxOn(root, cdx * 0.90f, floorTop + 1.43f, -0.20f, new Vector3(0.07f, 0.14f, 0.07f), flameC);
                 }
-                CreatePartCube(root, new Vector3(0f, 1.1f, 1.6f), new Vector3(0.5f, 0.3f, 0.5f), bronzeC);
-                CreatePartCube(root, new Vector3(-0.55f, 1.05f, 2f), new Vector3(0.4f, 0.2f, 0.4f), blackC);
-                CreatePartCube(root, new Vector3(0.55f, 1.05f, 2f), new Vector3(0.4f, 0.2f, 0.4f), blackC);
-                CreatePartCube(root, new Vector3(0f, 0.15f, 0.6f), new Vector3(2.2f, 0.1f, 1.2f), robeC);
-                CreatePartCube(root, new Vector3(0f, 0.3f, 2.3f), new Vector3(1.8f, 0.3f, 0.6f), stoneBase);
-                break;
+                CreatePartBoxOn(root, 0f, floorTop + 0.93f, -0.20f, new Vector3(0.5f, 0.3f, 0.5f), bronzeC);
+                CreatePartBoxOn(root, -0.80f, floorTop + 0.93f, -0.20f, new Vector3(0.4f, 0.2f, 0.4f), blackC);
+                CreatePartBoxOn(root, 0.80f, floorTop + 0.93f, -0.20f, new Vector3(0.4f, 0.2f, 0.4f), blackC);
+                CreatePartBoxOn(root, 0f, floorTop, 0.70f, new Vector3(2.2f, 0.10f, 0.9f), robeC);
+                CreatePartBoxOn(root, 0f, floorTop, -1.30f, new Vector3(1.8f, 0.30f, 0.6f), stoneBase);
+                return;
         }
     }
+
+    /// <summary>
+    /// One of the Three Pure Ones, stated by its own base: lotus throne, robe,
+    /// mantle, head, headdress and the attribute that tells the three apart.
+    /// <paramref name="variant"/> 0 Yuanshi (gold, ruyi scepter and fan),
+    /// 1 Lingbao (jade, ruyi and a pearl), 2 Daode (white robe, whisk and beard).
+    /// </summary>
+    private void CreateShrineSanqingFigure(Transform root, float x, float z, float baseY, Color robe, Color mantle, int variant)
+    {
+        Color goldC = new Color(1f, 0.84f, 0.2f);
+        Color skinC = new Color(0.55f, 0.5f, 0.45f);
+        Color blackC = new Color(0.08f, 0.08f, 0.09f);
+        Color whiteC = new Color(0.95f, 0.95f, 0.94f);
+        Color jadeC = new Color(0.30f, 0.55f, 0.42f);
+
+        float throneTop = baseY + 0.35f;
+        CreatePartBoxOn(root, x, baseY, z, new Vector3(1.50f, 0.35f, 1.50f), goldC);
+        CreatePartBoxOn(root, x, baseY, z, new Vector3(1.10f, 0.18f, 1.10f), whiteC);
+        // Robe: a body block and a wider shoulder yoke, both off the throne.
+        CreatePartBoxOn(root, x, throneTop, z, new Vector3(1.10f, 1.90f, 0.90f), robe);
+        CreatePartBoxOn(root, x, throneTop + 1.90f, z, new Vector3(1.30f, 0.35f, 0.95f), robe);
+        // Mantle over the shoulders, a sash down the front, all proud of the robe.
+        CreatePartBoxOn(root, x, throneTop + 1.62f, z - 0.48f, new Vector3(1.36f, 0.55f, 0.06f), mantle);
+        CreatePartBoxOn(root, x, throneTop + 0.95f, z - 0.50f, new Vector3(0.24f, 1.30f, 0.05f), goldC);
+        // Head, eyes, and a gold diadem.
+        float headTop = throneTop + 2.25f;
+        CreatePartBoxOn(root, x, headTop - 0.70f, z, new Vector3(0.62f, 0.62f, 0.62f), skinC);
+        CreatePartBoxOn(root, x - 0.14f, headTop - 0.60f, z - 0.33f, new Vector3(0.05f, 0.08f, 0.05f), blackC);
+        CreatePartBoxOn(root, x + 0.14f, headTop - 0.60f, z - 0.33f, new Vector3(0.05f, 0.08f, 0.05f), blackC);
+        CreatePartBoxOn(root, x, headTop - 0.34f, z, new Vector3(0.80f, 0.14f, 0.80f), goldC);
+        CreatePartBoxOn(root, x, headTop - 0.27f, z, new Vector3(0.20f, 0.18f, 0.20f), goldC);
+        // Attribute, in the hands, proud of the robe.
+        if (variant == 0)
+        {
+            CreatePartBoxOn(root, x - 0.62f, throneTop + 0.75f, z - 0.52f, new Vector3(0.10f, 1.50f, 0.10f), goldC);
+            CreatePartCubeRotated(root, new Vector3(x - 0.62f, throneTop + 1.58f, z - 0.52f), new Vector3(0.24f, 0.24f, 0.24f), goldC, Quaternion.Euler(45f, 0f, 45f));
+            CreatePartBoxOn(root, x + 0.58f, throneTop + 1.20f, z - 0.50f, new Vector3(0.40f, 0.50f, 0.05f), whiteC);
+        }
+        else if (variant == 1)
+        {
+            CreatePartBoxOn(root, x, throneTop + 1.10f, z - 0.55f, new Vector3(0.45f, 0.45f, 0.06f), jadeC);
+            CreatePartBoxOn(root, x - 0.60f, throneTop + 0.70f, z - 0.52f, new Vector3(0.10f, 1.40f, 0.10f), goldC);
+            CreatePartCubeRotated(root, new Vector3(x - 0.60f, throneTop + 1.48f, z - 0.52f), new Vector3(0.22f, 0.22f, 0.22f), jadeC, Quaternion.Euler(45f, 0f, 45f));
+        }
+        else
+        {
+            CreatePartBoxOn(root, x - 0.60f, throneTop + 0.70f, z - 0.52f, new Vector3(0.10f, 1.40f, 0.10f), goldC);
+            CreatePartBoxOn(root, x - 0.60f, throneTop + 1.52f, z - 0.52f, new Vector3(0.18f, 0.30f, 0.18f), whiteC);
+            CreatePartBoxOn(root, x, headTop - 1.00f, z - 0.36f, new Vector3(0.40f, 0.50f, 0.05f), whiteC);
+        }
+    }
+
 
     private GameObject RebuildEssentialBuilding(BlueprintState bp)
     {
