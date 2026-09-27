@@ -709,7 +709,7 @@ public static class ChunkMeshGenerator
     /// Builds a chunk root from the coarse corner lattice when low-poly facets are enabled (1hi.1):
     /// every <paramref name="step"/>-th node of the 31x31 world-corner grid (step MUST divide
     /// TerrainChunkCoord.ChunkSize so the last sample lands exactly on the chunk border) emits one
-    /// flattened quad with a +Y-dominant cross normal — the same facet language as the 3 m far shell
+    /// flattened quad with a +Y-dominant cross normal — the same facet language as the 6 m far shell
     /// (1hi), so near and far surfaces read identically and share world corner nodes across the seam.
     /// The 1 m lattice is still canonical (saves, edits, prop heights); only what is rendered and
     /// cooked for the collider decimates to the step. The patch tables are intentionally null — the
@@ -858,7 +858,7 @@ public static class ChunkMeshGenerator
     /// Re-samples a chunk's low-poly ROOT surface from its (already patch-restamped) lattice and
     /// returns the updated merged data (1hi.1). PatchRegion re-stamps the corners with
     /// PatchCornerGrid, then this rewrites the root's vertex/normal/UV/color arrays + bounds from
-    /// them — the coarse mesh is tiny (~121 quads at 3 m) so a full re-emit is far cheaper than the
+    /// them — the coarse mesh is tiny (25 quads / 36 verts at 6 m since 1hx) so a full re-emit is far cheaper than the
     /// 1 m per-tile skim it replaces. Returns a fresh struct because MergedChunkMeshData is a
     /// value type; the render arrays are replaced with fresh equal-length arrays (vertex count
     /// never changes for a fixed step), and the collider is re-cooked separately at the same step.

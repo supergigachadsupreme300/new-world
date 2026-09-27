@@ -73,7 +73,7 @@ public class ChunkObject : MonoBehaviour
     /// <summary>
     /// Assignment point for the chunk's MeshCollider (1hi). Smooth chunks cook a DECIMATED lattice
     /// instead of the full render mesh — 2 m by default, or the chunk's OWN low-poly facet step
-    /// (1hi.1 <see cref="ColliderStep"/>, so you stand exactly on the visible 3 m facets) — so the
+    /// (1hi.1 <see cref="ColliderStep"/>, so you stand exactly on the visible 6 m facets) — so the
     /// per-enable PhysX cook on the gameplay frame is ~4x cheaper; the lattice shares the EXACT
     /// world corners the LOD children (and neighbour chunks) use, so the physics surface is
     /// seam-proof across chunks by construction. Voxel mode (already chunky 1 m columns) keeps the
@@ -202,10 +202,11 @@ public class ChunkObject : MonoBehaviour
     private int ColliderStep => _meshStep > 0 ? _meshStep : ColliderDecimation;
 
     // --- QA read-only accessors (1hj) ---
-    // The terrain seam audit (WorldStreamer.SeamAudit) compares a chunk's own corner lattice against
-    // its neighbours' — and against the far cells at the rim — to measure the "gaps between chunks"
-    // report instead of guessing at it. Strictly read-only: nothing here mutates chunk state, and
-    // every accessor is null/NaN-safe so the audit can walk a half-torn-down streamer.
+    // Exposed for diagnostics that compare a chunk's own corner lattice against its neighbours' — and
+    // against the far cells at the rim — to measure the "gaps between chunks" report instead of
+    // guessing at it. Strictly read-only: nothing here mutates chunk state, and every accessor is
+    // null/NaN-safe so a diagnostic can walk a half-torn-down streamer. (1hx removed the F2/F3/F4
+    // audit lanes; these accessors stay because they are the only safe way to ask these questions.)
 
     /// <summary>Coarse facet step this chunk's root mesh was built at (0 = full 1 m surface).</summary>
     public int MeshStep => _meshStep;
@@ -357,7 +358,7 @@ public class ChunkObject : MonoBehaviour
         float maxY = float.MinValue;
 
         // (1hi.1) Low-poly roots have NO per-tile blocks: the merged arrays are the whole
-        // coarse facet surface (~121 quads at 3 m), so a patch cannot skim `count` vertices per
+        // coarse facet surface (25 quads / 36 verts at 6 m since 1hx), so a patch cannot skim `count` vertices per
         // tile — it re-samples the whole root from the restamped lattice below (far cheaper than
         // the 1 m skim anyway).
         bool lowPoly = _meshStep > 0;
@@ -414,7 +415,7 @@ public class ChunkObject : MonoBehaviour
                 localMinX, localMinZ, w, h, seed);
 
         // Low-poly root (1hi.1): re-sample the WHOLE surface from the just-restamped lattice — ~121 quads
-        // at 3 m, cheaper than the 1 m per-tile skim it replaces, and it rebuilds the bounds too.
+        // at 6 m, cheaper than the 1 m per-tile skim it replaces, and it rebuilds the bounds too.
         // Full-res path: bounds from the full CPU vertex array as before.
         if (lowPoly)
         {
@@ -502,7 +503,7 @@ public class ChunkObject : MonoBehaviour
             return;
         }
         // (1hi.1) Low-poly mode skips the Lod1/Lod2 bands entirely: the root IS already the
-        // decimated surface (e.g. 3 m facets — ~1/9 the 1 m mesh), so the children would duplicate
+        // decimated surface (6 m facets since 1hx — ~1/36 the 1 m mesh), so the children would duplicate
         // or exceed its density; ChunkLodManager.ApplyBand falls back to the root renderer when a
         // named detail is missing, and the far shell covers distance instead.
         if (_meshStep > 0)

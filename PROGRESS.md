@@ -1,8 +1,81 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-26. Read this first in a new session; then continue with the
+Last updated: 2026-09-27. Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
+
+## 1hx. Coarser facet step (3 m -> 6 m) and the removal of the F2/F3/F4 measurement lanes
+
+Two changes in one pass, because they are the same decision seen from two sides: **the world should
+read as low-poly, and the instruments that measured the old look are gone at the user's request.**
+
+**The facet step moved 3 -> 6, in lockstep in the two places it lives.** `WorldStreamer.LowPolyStep`
+(near chunks) and `FarSectorStep` (`WorldStreamer.FarShell.cs`) are one constant wearing two hats, so
+only one may move: `WorldStreamer.cs` `LowPolyStep = 3 -> 6`, `NewWorldTestGround.cs` (the bench copy
+applied in `Awake`) `3 -> 6`, `FarSectorStep` `return 3 -> 6`. 6 is legal because it divides all three
+spans — 30 (chunk side), 90 and 180 (the far cells' span-3/span-6 boxes) — so every grid row still
+lands exactly on a chunk boundary. Cell vertex counts follow: a rim cell 6x6 (was 11x11), a band-B
+cell 16x16 (was 31x31), a band-C cell 31x31 (was 61x61); a near chunk root is 25 quads / 36 verts
+(was ~121 quads). The cost is the collider, which rides the same step, so footing is lumpier and prop
+heights (still sampled on the 1 m lattice) float/sink by up to the facet error.
+
+**Why 6 and not "more triangles":** facet shading contrast scales with `curvature x span`, and on
+this 5-octave field (base octave amplitude 55 m at frequency 0.0012) 3 m facets came out
+near-coplanar — adjacent flat normals barely differed, so the world still read as smooth haze. The
+span was the lever, not the triangle count. That is now **AGENTS rule 12**, written so the next
+edit cannot change one file and invert the world's density.
+
+**Removed, at the user's request** (they are still in git history, with their measurement findings):
+- `Assets\Scripts\World\Streaming\WorldStreamer.SeamAudit.cs` (1hj, F2) — lattice cross-chunk
+  comparison, hidden roots, interior holes, far/real rim step.
+- `Assets\Scripts\World\Streaming\WorldStreamer.CornerAudit.cs` (1hv, F3) — the rendered-mesh
+  corner audit plus the resident-staleness fingerprint.
+- `WorldStreamer.DropResidentTerrainKeepSaves()` (1hw, F4) — the one-key resident drop that kept the
+  saves, and the whole `EnableResidentDrop` / `ResidentDropKey` / `RunResidentDrop` bench lane.
+- Their `NewWorldTestGround.cs` wiring: 3 toggles, 3 keys, 3 cached strings, 3 HUD lines, and the
+  `Update()` blocks. The `ChunkObject` QA accessors those audits read **stay** — they are the only
+  safe way to ask those questions, and nothing else uses them.
+
+**The consequence, stated where it will be read:** rule 11's remedy is now a **play-session restart**.
+`ResetTerrainSaves()` would do the same drop in the right order but first calls
+`ChunkSaveManager.ResetWorldSaves(Seed)`, which permanently deletes the player's terrain edits, and
+the non-destructive wrapper is what 1hx removed. So a render-algorithm change is not observable until
+every chunk has been rebuilt from scratch — and two things make that worse: an inspector tweak to
+`LowPolyStep` / `VoxelTerrainEnabled` mid-session silently does nothing (the value is only read at
+dispatch), and a chunk **mid-build** captured its mesh mode at dispatch, so it lands after any unload
+with the old settings.
+
+### 1hx-status
+- IMPLEMENTED; verified by grep + reread (rule 3 — no CLI/Unity build). `tools\StaticChecks.ps1`
+  reports **0 candidates** (it covers `NewWorldTestGround.cs`, the only edited file in its list;
+  balance 143/143 braces, 695/695 parens). The three deleted `WorldStreamer` partials plus the
+  `DropResidentTerrainKeepSaves` removal were checked by hand: **all 15 removed symbols
+  (`SeamAudit`, `RenderedCornerAudit`, `DropResidentTerrainKeepSaves`, `EnableSeamAudit`,
+  `SeamAuditKey`, `EnableCornerAudit`, `CornerAuditKey`, `EnableResidentDrop`, `ResidentDropKey`,
+  `_seamAuditText`, `_cornerAuditText`, `_residentDropText`, `RunSeamAudit`, `RunCornerAudit`,
+  `RunResidentDrop`) now have 0 hits** over `git ls-files "*.cs"` — the whole-repo form, because
+  `Assets\Scripts\**\*.cs` does not reach `World\Streaming\` in PowerShell (1hw's lesson).
+  `WorldStreamer.Streaming.cs` balance was hand-checked after the 51-line excision.
+- **No scene or serialized-asset reference was touched**: neither deleted partial nor the removed
+  method was GUID-referenced by any serialized asset (the only scripts that are are the 12 in
+  `SampleScene.unity`, none of them in this change).
+- Docs in the same pass: `AGENTS.md` rule 11 (restart-only remedy + the mid-dispatch and
+  inspector-tick traps) and **new rule 12** (the facet size is one decision in two files; it must
+  divide 30/90/180; a coarser step is not free); `game-design.md` §2.2 keeps the four-cause gap
+  taxonomy and the "a check only speaks for the layer it reads" lesson, and records that the lanes
+  that measured it are gone.
+- Play-test (nothing about this is visible without a **restarted** session):
+  1. Enter play, let the near ring and the far shell build, and look at the horizon and at your feet.
+     The facets should read as flat plates with clear normal breaks, not smooth haze.
+  2. Walk to a chunk boundary and across it: no density break, no crack — 6 divides 30.
+  3. Check footing on a slope (lumpier by design) and that trees/rocks sit on the ground rather than
+     floating (a 6 m facet can differ from the 1 m lattice by more than a 3 m one did).
+  4. Press **F1-F4** in the bench: F1 is the skill hotkey, F2/F3/F4 are now unbound — that is the
+     removal, not a bug.
+- Not done, deliberately: no automatic re-drop, no generation counter for in-flight builds, and the
+  audit findings themselves are not re-litigated here — 1hj/1hv/1hw measured a corner-gap report and
+  the F3 staleness fingerprint was never read back. A future gap fix should expect to **rebuild** a
+  measurement rather than read cause A off an existing validator (rule 8).
 
 ## 1hw. Resident-terrain drop key (F4) + public `DropResidentTerrainKeepSaves()` — the executable form of AGENTS rule 11
 

@@ -70,8 +70,8 @@ public partial class WorldStreamer : MonoBehaviour
     [Tooltip("QA/render (1hi): LOW-POLY FACET look. When ON the far shell emits FLAT per-quad normals (crisp facets instead of the smooth sample-grid haze — triangles unchanged; vertices 4x but far cells upload once per cell lifetime, never per frame) AND the 1ew adaptive refinement passes a 0 threshold so steep near slopes keep big flat quads instead of splitting into 2x2 sub-quads. Pure render/geometry-read change (1hi): saves, the 1m tile grid, props, draw calls and the budgeted collider pipeline are untouched. Flip BEFORE the far shell builds (like the voxel toggle) for a clean read.")]
     public bool LowPolyFacets = true;
 
-    [Tooltip("Low-poly facet size for the REAL near chunks (1hi.1): every LowPolyStep-th node of the 31x31 world-corner lattice becomes one flat facet (2 or 3 — must divide the 30 m chunk side). 3 m matches the far shell exactly: the whole world reads one uniform facet language and near/far share world corner nodes across the seam, so the boundary is invisible. The 1 m corner grid remains the source of truth for saves, edits and prop heights; the collider rides the same step so you stand exactly on the visual. Only read while LowPolyFacets is on.")]
-    public int LowPolyStep = 3;
+    [Tooltip("Low-poly facet size for the REAL near chunks (1hi.1): every LowPolyStep-th node of the 31x31 world-corner lattice becomes one flat facet (must divide the 30 m chunk side). 1hx moved the default 3 -> 6: at 3 m the sampled facets on this 5-octave field (base octave amplitude 55 m at frequency 0.0012) came out near-coplanar, so adjacent flat normals barely differed and the world still read as smooth haze. Facet shading contrast scales with curvature x span, so 6 m roughly doubles the break between neighbouring facets and the low-poly read finally lands. The far shell MUST use the same value (FarSectorStep), which also has to divide the 90 m and 180 m cell spans so every far grid row still lands on a chunk boundary. The 1 m corner grid remains the source of truth for saves, edits and prop heights; the collider rides the same step so you stand exactly on the visual — coarser facets mean lumpier footing and more prop float/sink. Only read while LowPolyFacets is on.")]
+    public int LowPolyStep = 6;
 
     /// <summary>Effective refinement threshold routed through every build path (1hi): the low-poly
     /// look disables the 1ew adaptive stretch-split (0 = full 1m quads everywhere), so far-band
@@ -83,7 +83,9 @@ public partial class WorldStreamer : MonoBehaviour
     /// as coarse flat facets while the far shell already matches. Captured on the main thread and
     /// snapshotted into worker jobs like the voxel flag. A step that does not divide the 30 m chunk
     /// side would leave the last facet short of the chunk border (a visible seam), so such values
-    /// fall back to 0 (full-res) rather than emitting a broken grid.</summary>
+    /// fall back to 0 (full-res) rather than emitting a broken grid. (1hx) The far shell runs its own
+    /// copy of this rule in <c>FarSectorStep</c> (WorldStreamer.FarShell.cs); the two must be changed
+    /// together or the far band renders at a different density than the near ring.</summary>
     private int EffectiveLowPolyStep => LowPolyFacets && LowPolyStep > 0
         && TerrainChunkCoord.ChunkSize % LowPolyStep == 0
         ? LowPolyStep : 0;

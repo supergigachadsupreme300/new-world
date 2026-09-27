@@ -158,21 +158,44 @@
       exactly the right thing in order (`ClearFarShell()` → unload + requeue every loaded and
       dormant chunk) but first calls `ChunkSaveManager.ResetWorldSaves(Seed)`, which **permanently
       deletes the player's terrain edits** — the save files hold *heights*, which are data, not
-      render output. Use it only when a pristine world is the actual goal. For a renderer change,
-      drop the render output and keep the saves: `UnloadChunk(tc)` + `EnqueueChunkIfNeeded(tc)` per
-      chunk (that pair is `ForceRebuildChunk`, which is private; `ForceRebuildArenaLane` is the
-      public single-lane precedent). That pair is now wrapped by the public
-      `DropResidentTerrainKeepSaves()` (**1hw**), so the drop is one call instead of a manual step —
-      the bench also binds it to a key (`ResidentDropKey`, F4). It reports, rather than hides, the
-      one thing it cannot catch: a chunk **mid-build** captured its mesh mode at dispatch time, so it
-      lands after the drop carrying the old settings — press again once a readout shows
-      `inflight 0`.
+      render output. Use it only when a pristine world is the actual goal.
+    - **Since 1hx the only remedy is a play-session restart** — the non-destructive wrapper
+      (`DropResidentTerrainKeepSaves`) and its bench key were removed at the user's request, so a
+      renderer change is not observable until every chunk has been rebuilt from scratch. Two things
+      that makes worse, both worth saying out loud before editing render code: an inspector tweak to
+      `LowPolyStep` / `VoxelTerrainEnabled` mid-session **silently does nothing** (the value is only
+      read at dispatch), and a chunk **mid-build** captured its mesh mode at dispatch time, so it
+      lands after any unload with the old settings. Treat "restart, then look" as the verification
+      procedure, and do not report a render change as verified from a session that was already
+      running when the edit landed.
     - **Do not bother clearing `ChunkMeshGenerator`'s mesh pool.** `UploadMerged` re-specifies
       vertices and indices on every upload and `Mesh.Clear()`s whenever the vertex count changed, so
       a pooled `Mesh` is a *buffer*, never a stale cache. Emptying it costs a little and shows
       nothing.
     - **An algorithm edit is not verified by watching chunks stream in.** That only ever exercises
       the new code. Stream one chunk, then walk back and forth across a boundary so a resident chunk
-      and a freshly built one are on screen together, and read the seam/corner measurement lanes
-      with both in frame.
+      and a freshly built one are on screen together. (1hx removed the F2/F3/F4 measurement lanes
+      that used to be read here, so this check is by eye against a restarted session — another
+      reason the restart in the bullet above is the whole procedure now.)
+
+12. **The facet size is ONE decision living in two files, and the step must divide three numbers.**
+    The near chunks and the far shell render the same facet language, so `WorldStreamer.LowPolyStep`
+    and `FarSectorStep` (`WorldStreamer.FarShell.cs`) are the same constant wearing two hats — change
+    one and the world reads *inverted*: chunky underfoot, finer at the horizon, with a density break
+    at the rim. Two invariants ride on the value:
+    - **It must divide 30, 90 AND 180** — the near chunk side and the far cells' span-3 and span-6
+      boxes. That set is {1, 2, 3, 5, 6, 10, 15, 30}; anything else leaves the last grid row short
+      of a chunk boundary, which is a visible crack along every chunk edge. (A *non*-uniform ladder
+      is worse still: the pre-1ej 3/6/9/12/15-by-radius version produced T-junction rows on every
+      shared cell edge, read as permanent "thin lines" — which is why `FarSectorStep` ignores its
+      `span`/`maxRing` arguments on purpose.)
+    - **A coarser step is not free.** The collider rides the same step, so footing gets lumpier, and
+      prop heights still sample the 1 m lattice, so props float/sink by up to the facet error. The 1 m
+      grid stays canonical for saves and edits either way, but the *edit granularity* is the step:
+      a 1 m dig only moves a facet vertex when the edited corner happens to land on the grid.
+    1hx moved the default 3 → 6 because 3 m facets sampled this 5-octave field (base octave amplitude
+    55 m at frequency 0.0012) came out near-coplanar, and facet shading contrast scales with
+    `curvature × span` — so at 3 m the normals barely differed and the world still read as smooth
+    haze. The lesson generalises: **"low-poly" is a normal-contrast problem, not a triangle-count
+    problem**, so reach for the span before reaching for the shading.
 

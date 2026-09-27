@@ -665,57 +665,6 @@ public partial class WorldStreamer
         Debug.Log($"[WorldStreamer] Reset terrain saves for seed {Seed} — {loaded.Count} loaded/dormant chunk(s) requeued to regenerate from noise.");
     }
 
-    /// <summary>
-    /// 1hw: drop every piece of RESIDENT RENDER OUTPUT and rebuild it, KEEPING the saves. This is
-    /// <see cref="ResetTerrainSaves"/> minus the destructive middle: the far shell is cleared, then
-    /// every loaded AND every dormant chunk is unloaded and re-queued through the normal
-    /// <c>BuildOrLoadChunk</c> path, so its mesh is generated again by whatever the generator says
-    /// today. No <c>tc_*.dat</c> is deleted and no dirty mark is cleared — <see cref="UnloadChunk"/>
-    /// even PERSISTS pending edits on its way out, so a sculpted world comes back sculpted.
-    ///
-    /// Why it has to cover the DORMANT set too: a dormant chunk is re-shown in place by
-    /// <see cref="WakeChunk"/> ("the same GameObject, same pooled mesh, same tile data"), and
-    /// <see cref="EnqueueChunkIfNeeded"/> deliberately WAKES a dormant chunk instead of
-    /// re-dispatching it — so a loaded-only drop leaves every dormant chunk holding the old
-    /// geometry until the player walks back into that region, and the stale mesh pops in then. The
-    /// <see cref="UnloadChunk(TerrainChunkCoord)"/> dormant branch removes it from the dormant
-    /// dictionary and destroys the object, which is what makes the re-queue below a real rebuild.
-    ///
-    /// Known limit, reported in the log rather than hidden: a chunk that is mid-build right now
-    /// captured its mesh mode (voxel / facet step) at DISPATCH time, so it lands AFTER this call
-    /// carrying the pre-drop snapshot. Its coordinate is in neither dictionary yet, so there is
-    /// nothing to unload. Press the key again once a readout shows <c>inflight 0</c> — or simply
-    /// let the poll drain; the next drop then catches them.
-    ///
-    /// Returns how many loaded+dormant chunks were re-queued.
-    /// </summary>
-    public int DropResidentTerrainKeepSaves()
-    {
-        // First, exactly as ResetTerrainSaves does: the far shell's cells were sampled from the
-        // surfaces we are about to destroy, so it must be rebuilt from the new ones.
-        ClearFarShell();
-
-        // Snapshot the keys FIRST — the loop mutates both dictionaries through UnloadChunk.
-        var keys = new List<TerrainChunkCoord>(_loadedChunks.Keys);
-        keys.AddRange(_dormantChunks.Keys);
-        int stragglers = _chunksInFlight.Count;
-
-        for (int i = 0; i < keys.Count; i++)
-        {
-            UnloadChunk(keys[i]);
-            EnqueueChunkIfNeeded(keys[i]);
-        }
-
-        Debug.Log($"[WorldStreamer] Dropped resident terrain render output, saves KEPT — {keys.Count} "
-            + "loaded/dormant chunk(s) requeued for a fresh build, far shell cleared."
-            + (stragglers > 0
-                ? $" NOTE: {stragglers} chunk(s) were mid-build and carry the mesh mode captured at their own "
-                  + "dispatch, so they land after this call with the old settings — press again once a readout "
-                  + "shows inflight 0."
-                : ""));
-        return keys.Count;
-    }
-
     public void MarkDirty(ChunkCoord coord)
     {
         // Record only; the actual write is batched per terrain chunk (FlushDirtyChunk),

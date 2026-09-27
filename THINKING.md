@@ -15,6 +15,61 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1hx — the low-poly look still read as smooth, and the measurement lanes came out — SHIPPED (facet step 3 → 6; F2/F3/F4 removed)
+
+Two asks that looked unrelated and turned out to be the same statement about the same thing.
+
+### H1 — "the world still looks smooth" — CONFIRMED, and the triangle count was the wrong suspect
+The instinct is to add detail: subdivide, or raise the facet count. Rejected on the spot by 1hi.1's
+own numbers — the low-poly root at 3 m is already ~121 quads for a 30 m chunk, i.e. a quarter of a
+triangle per square metre. The problem is not density, it is that **neighbouring facets are nearly
+coplanar**, so the flat-shaded normal barely changes across a facet and the eye reads a smooth
+gradient. Facet read = `curvature x span` over the facet, and the second factor is the one we control
+by fiat.
+
+### H2 — how coarse can the step get? — the divisor set, not taste
+`LowPolyStep` and `FarSectorStep` are the same decision in two files (near chunks vs far shell). The
+tempting failure is to move one and leave the other: the world then reads *inverted* (chunky
+underfoot, fine at the horizon) with a density break at the rim. So the candidate values are
+constrained by the grid, not by looks: the step must divide **30** (chunk side) *and* **90** *and*
+**180** (the far cells' span-3 and span-6 boxes), else the last grid row falls short of a chunk
+boundary and every chunk edge shows a crack. That set is {1, 2, 3, 5, 6, 10, 15, 30}. 6 is the
+smallest step that doubles the span, which is exactly the lever H1 says is needed. Rejected 10/15/30:
+each buys more curvature contrast but the collider rides the same step, so footing and prop
+heights degrade with it. **6 is the first rung that fixes the look and still divides everything.**
+
+### H3 — is 3 m really near-coplanar here? — plausible, not measured (and it does not need to be)
+I did not sample the field to prove it. The reasoning stands on the recorded noise parameters alone
+(base octave amplitude 55 m at frequency 0.0012, five octaves): a 3 m facet is far inside the
+smallest octave's wavelength, so its two edges differ in height by a small fraction of a metre and
+the cross normal is dominated by the local slope rather than by the facet's own tilt. If the user
+reports the world *still* reads smooth at 6 m, the next lever is shading (flat-shade strength, a
+height-ramp colour term), not a coarser step — and that is the honest fallback to record here,
+because "reach for the span first" is a rule with a stopping point.
+
+### H4 — the audit lanes: keep or remove? — the user removed them, and the docs must not pretend otherwise
+1hj (F2) and 1hv (F3) exist because of rule 7: a report I cannot see gets a read-only measurement
+first. 1hw (F4) then made rule 11 executable in one key. The user had all three taken out. That is a
+legitimate call — three keys, three toggles and ~860 lines of measurement code is a lot of surface for
+a QA affordance — but the *rule* the lanes served does not go away with them, and the honest way to
+record it is: a gap report is now read **by eye against a freshly restarted session**, and a future
+fix should expect to rebuild a measurement rather than read a cause off an existing validator.
+Kept in `game-design.md` §2.2 as the lesson ("a check only speaks for the layer it reads"), dropped
+as tooling. Also kept: `ChunkObject`'s QA accessors, because they are the only null-safe way to ask
+those questions of a half-torn-down streamer, and nothing else uses them.
+
+### H5 — the cost I am knowingly accepting
+The collider rides the facet step, so 6 m means lumpier footing than 3 m; prop heights still sample
+the **1 m** lattice, so a prop can float or sink by up to the facet error (roughly twice what it was
+at 3 m). The 1 m grid stays canonical for saves and edits either way — but that is also the *edit
+granularity* caveat: a 1 m dig only moves a facet vertex when the edited corner lands on the 6 m
+grid. Recording it so a later "why did my 1 m dig do nothing" report is answerable from this section.
+
+### Verdict
+SHIPPED as documented in `PROGRESS.md` §1hx, and the two rules it forced into `AGENTS.md` are the
+part that outlives it: rule 11 (a render edit needs a **restart**, and the two ways a session lies
+about it) and rule 12 (the facet size is one decision in two files and must divide 30/90/180).
+
 ## 1ht — "make the tab buttons shorter, Change Class/Race use the same png, border the race/class/stats fields" — SHIPPED (band 40@10 → 32@8; 3 buttons re-arted; 13 fields framed)
 
 A follow-up to 1hs, and a smaller one — but two of the three asks hid a layout decision, and both

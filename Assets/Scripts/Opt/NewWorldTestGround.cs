@@ -75,8 +75,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableVoxelTerrain = false;
     [Tooltip("QA/render (1hi): LOW-POLY FACET world. Applied in Awake, BEFORE the WorldStreamer's first stream poll, so the whole smooth world reads as crisp flat facets: the far shell emits per-quad flat normals (crisp mesas on the horizon) and the 1ew adaptive stretch-split passes a 0 threshold so steep near slopes stay big flat quads instead of sub-dividing. Pure render/geometry-read change — saves, the 1 m tile grid, props, draw calls and the budgeted collider pipeline are untouched. Leave ON (default) to see the new look; flip OFF only to A/B the old smooth haze.")]
     public bool EnableLowPolyTerrain = true;
-    [Tooltip("QA/render (1hi.1): coarse facet size for the REAL near chunks — every LowPolyStep-th world corner becomes one flat facet (2 or 3; must divide the 30 m chunk side). 3 m matches the far shell exactly, so the whole world reads one uniform low-poly language with an invisible near/far seam; 2 m is a subtler chunky read. Only meaningful while EnableLowPolyTerrain is on: the 1 m corner grid, saves, props and edits are untouched — an edit only visibly moves a facet vertex when the edited corner lands on this grid.")]
-    public int LowPolyStep = 3;
+    [Tooltip("QA/render (1hi.1): coarse facet size for the REAL near chunks — every LowPolyStep-th world corner becomes one flat facet (must divide the 30 m chunk side; the far shell uses the same value and must also divide 90/180). 1hx moved the default 3 -> 6 because 3 m facets came out near-coplanar on this terrain and the world still read as smooth; 6 m roughly doubles the shading break between neighbouring facets. Coarser facets also mean lumpier footing (the collider rides the same step) and more prop float/sink. Only meaningful while EnableLowPolyTerrain is on: the 1 m corner grid, saves, props and edits are untouched — an edit only visibly moves a facet vertex when the edited corner lands on this grid.")]
+    public int LowPolyStep = 6;
     [Tooltip("QA (1eu): exercise the voxel sculpt API on the streamed terrain just off the platform — a directed crater (toolbar dig with cast direction clips the dent into a slope-front scoop), a SculptVoxelCave under a ridge, and a SculptVoxelRaise pillar. Needs the voxel terrain enabled to be meaningful (no-op on smooth terrain), edits REAL terrain — permanent chunk saves — and never touches the platform or legacy village.")]
     public bool EnableVoxelSculptDemo = false;
     [Tooltip("QA/perf (1gd): wire the WorldStreamer's speed-decoupled renderer clock — the streaming/render loop runs on its OWN coroutine beat (StreamHz, default 20 Hz) and yields one cool-down frame after any busy poll, and edited-terrain seam rebuilds run on background threads instead of holding the gameplay frame. That is exactly the 'immense lag at high player speed' scenario. Config-only lane: no world placement — any WorldStreamer found in the scene gets StreamInUpdate=true + DecoupleRenderFromGameplay=true (it just uses the scene's own toggle values otherwise).")]
@@ -87,21 +87,6 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public int ChunkInspectX = -8;
     [Tooltip("QA (1gh): chunk coords inspected by the diagnostics line (the coords of the reported monster/relic chunk −8_3 in chunk-space, X −8, Z 3).")]
     public int ChunkInspectZ = 3;
-    [Tooltip("QA (1hj): press SeamAuditKey to run the WorldStreamer's read-only terrain seam audit — the worst shared-corner height mismatch across every loaded chunk pair, loaded roots that are hidden / mesh-less / vertex-short, interior load holes, and whether the far cells at the real/far rim still agree with the real chunks they meet. For any 'gaps between the terrain chunks' report: one screenshot separates the four possible causes instead of a guessing session. Read-only; needs EnableFpsStats on to display.")]
-    public bool EnableSeamAudit = true;
-    [Tooltip("QA (1hj): key that runs the terrain seam audit. Defaults to F2 because F5-F12 are already taken by the editor cutscene shortcuts in GameManager (F8 fires a cutscene ending) and F1 is a skill hotkey. Repoint it here if you prefer another key — the audit is opt-in and off the player's bindings either way.")]
-    public Key SeamAuditKey = Key.F2;
-    private string _seamAuditText;
-    [Tooltip("QA (1hv): press CornerAuditKey to run the read-only RENDERED-corner audit — the layer the seam audit above does not read. It walks the actual chunk meshes and reports, per world corner node: whether every loaded chunk places a vertex at its own corners (a corner the surface never reaches is a hole), whether the chunks meeting at a node agree on the corner HEIGHT, and whether each rendered corner matches that chunk's own lattice. Plus a build fingerprint: more than one vertex-count bucket means the resident terrain was built by more than one version of the generator (AGENTS rule 11). For any 'gap at the chunk corners / I can see void through the seam' report: one screenshot separates a missing corner, a render path that disagrees, and stale chunks. Read-only — no rebuild, no re-stamp, no forced poll. Needs EnableFpsStats on to display.")]
-    public bool EnableCornerAudit = true;
-    [Tooltip("QA (1hv): key that runs the rendered-corner audit. F3 because F1 is a skill hotkey, F2 is the seam audit, and F5-F12 are editor cutscene shortcuts.")]
-    public Key CornerAuditKey = Key.F3;
-    private string _cornerAuditText;
-    [Tooltip("QA (1hw): press ResidentDropKey to drop every piece of RESIDENT terrain render output — the far shell plus every loaded AND dormant chunk — and re-queue them for a fresh build, KEEPING all terrain saves and edits. This is the executable form of AGENTS rule 11: it is what you press after editing the terrain render algorithm (or flipping LowPolyStep / voxel) so the change is actually visible, instead of restarting the play session. Off by default like every other world-mutating lane. WARNING: it removes every chunk collider until the rebuild lands over the next few polls, so press it from the bench platform or in flight, never while standing on streamed terrain. Not the same as EnableResetTerrainSaves, which additionally DELETES the saves.")]
-    public bool EnableResidentDrop = false;
-    [Tooltip("QA (1hw): key that runs the resident-terrain drop. F4 because F1 is a skill hotkey, F2 is the seam audit, F3 the rendered-corner audit, and F5-F12 are editor cutscene shortcuts.")]
-    public Key ResidentDropKey = Key.F4;
-    private string _residentDropText;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
@@ -913,34 +898,6 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     private void Update()
     {
-        // (1hj) terrain seam audit — first thing in Update so the key works no matter how the rest
-        // of the bench lanes are configured, and never depends on the streamer's poll coroutine.
-        if (EnableSeamAudit)
-        {
-            Keyboard kb = Keyboard.current;
-            if (kb != null && kb[SeamAuditKey] != null && kb[SeamAuditKey].wasPressedThisFrame)
-                RunSeamAudit();
-        }
-
-        // (1hv) rendered-corner audit — same contract as the seam audit above, one frame, read-only.
-        // It reads the RENDERED mesh layer, which the seam audit's lattice comparison cannot see.
-        if (EnableCornerAudit)
-        {
-            Keyboard kb = Keyboard.current;
-            if (kb != null && kb[CornerAuditKey] != null && kb[CornerAuditKey].wasPressedThisFrame)
-                RunCornerAudit();
-        }
-
-        // (1hw) resident-terrain drop — the one key here that MUTATES the world, so it sits behind
-        // its own toggle (off by default, like every other world-mutating lane) and says on the HUD
-        // what it just did. Saves and edits survive; only the built geometry is thrown away.
-        if (EnableResidentDrop)
-        {
-            Keyboard kb = Keyboard.current;
-            if (kb != null && kb[ResidentDropKey] != null && kb[ResidentDropKey].wasPressedThisFrame)
-                RunResidentDrop();
-        }
-
         RunPendingPlayerGrants();
         if (!EnableWeapons || _rackStands.Count == 0) return;
         var gm = GameManager.Instance;
@@ -973,78 +930,6 @@ public sealed class NewWorldTestGround : MonoBehaviour
             string name = weapon != null && !string.IsNullOrEmpty(weapon.displayName) ? weapon.displayName : nearStand.WeaponId;
             prompt.ShowPrompt(Localization.F("E - {0}", name), 0.2f);
         }
-    }
-
-    /// <summary>
-    /// QA lane (1hj): run the streamer's read-only terrain seam audit and cache the report for the
-    /// bench overlay (also logged to the Console, since it is multi-line). Measures what a "gaps
-    /// between the chunks" report cannot be eyeballed for: the worst shared-corner height mismatch
-    /// over every loaded chunk pair, loaded roots that are not drawing their full 30 m, interior
-    /// load holes, and whether the far cells at the rim agree with the real chunks they meet.
-    /// Read-only — it never rebuilds, patches or re-stamps anything, so a report describes exactly
-    /// the frame the key was pressed on. Stand near the gap (or anywhere inside the loaded ring)
-    /// and press the key: sections A-D each name one mechanism, and the VERDICT line names the first
-    /// one that failed.
-    /// </summary>
-    private void RunSeamAudit()
-    {
-        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
-        if (streamer == null)
-        {
-            _seamAuditText = "seam audit: no WorldStreamer in the scene";
-            Debug.LogWarning("[NewWorldTestGround] " + _seamAuditText);
-            return;
-        }
-
-        _seamAuditText = streamer.SeamAudit();
-        Debug.Log("[NewWorldTestGround] " + _seamAuditText);
-    }
-
-    /// <summary>
-    /// QA (1hv): run the WorldStreamer's read-only RENDERED-corner audit and keep it on the HUD.
-    /// The seam audit (1hj) compares the corner LATTICE; this one walks the uploaded chunk meshes,
-    /// so a renderer that draws a corner from somewhere other than the lattice it stamps is caught
-    /// instead of reporting clean. One key, one report, no rebuild and no re-stamp — the numbers
-    /// describe the frame the key was pressed on (rule 7).
-    /// </summary>
-    private void RunCornerAudit()
-    {
-        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
-        if (streamer == null)
-        {
-            _cornerAuditText = "corner audit: no WorldStreamer in the scene";
-            Debug.LogWarning("[NewWorldTestGround] " + _cornerAuditText);
-            return;
-        }
-
-        _cornerAuditText = streamer.RenderedCornerAudit();
-        Debug.Log("[NewWorldTestGround] " + _cornerAuditText);
-    }
-
-    /// <summary>
-    /// QA (1hw): throw away every piece of resident terrain RENDER OUTPUT and let it rebuild from
-    /// the current generator, keeping the saves. This is the one-key form of AGENTS rule 11 — the
-    /// alternative is restarting the play session, which hides whether a change actually fixed
-    /// anything because everything is rebuilt at once.
-    ///
-    /// The HUD line carries the two things that decide whether the A/B is trustworthy: how many
-    /// chunks were re-queued, and the standing warning that their colliders are gone until the
-    /// rebuild lands (so the key is pressed from the platform, not from under the player's feet).
-    /// </summary>
-    private void RunResidentDrop()
-    {
-        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
-        if (streamer == null)
-        {
-            _residentDropText = "resident drop: no WorldStreamer in the scene";
-            Debug.LogWarning("[NewWorldTestGround] " + _residentDropText);
-            return;
-        }
-
-        int dropped = streamer.DropResidentTerrainKeepSaves();
-        _residentDropText = "resident drop: " + dropped + " chunk(s) requeued, saves kept — ground is GONE "
-            + "until the rebuild lands (a few polls); press again if a readout still shows inflight > 0";
-        Debug.Log("[NewWorldTestGround] " + _residentDropText);
     }
 
     /// <summary>
@@ -1340,24 +1225,6 @@ public sealed class NewWorldTestGround : MonoBehaviour
                     }
                     stats += diag;
                 }
-
-                // (1hj) the seam-audit report stays on the HUD until the next press, so a screenshot
-                // taken after walking up to the reported gap still shows the numbers for where the
-                // player was standing when the key was pressed.
-                if (EnableSeamAudit && !string.IsNullOrEmpty(_seamAuditText))
-                    stats += "\n" + _seamAuditText;
-
-                // (1hv) same for the rendered-corner report: it stays up until the next press, so a
-                // screenshot taken after walking up to the reported gap still shows the numbers for
-                // where the player stood when the key was pressed.
-                if (EnableCornerAudit && !string.IsNullOrEmpty(_cornerAuditText))
-                    stats += "\n" + _cornerAuditText;
-
-                // (1hw) the drop's own line, so a screenshot taken after the rebuild shows how many
-                // chunks were thrown away — the number that makes "the terrain came back different"
-                // a measurement instead of an impression.
-                if (EnableResidentDrop && !string.IsNullOrEmpty(_residentDropText))
-                    stats += "\n" + _residentDropText;
 
                 _fpsText.text = stats;
             }

@@ -74,47 +74,18 @@ of four causes:**
 | C | **Interior hole** — a chunk position inside the loaded ring holds nothing at all | not a seam: a chunk never arrived, or was dropped |
 | D | **Far/real rim step** — the far-shell cell meeting the last real ring renders its own heights | a step at the near/far boundary, both meshes locally correct |
 
-`WorldStreamer.SeamAudit()` measures all four on demand (§2.7 test ground, `EnableSeamAudit` +
-`SeamAuditKey`, F2 by default) from the live chunk dictionaries and the uploaded far-cell meshes: A
-compares the 31 shared nodes of every loaded pair, B checks root active state + vertex count + X/Z
-bounds against the chunk it stands for, C scans the loaded ring for uncovered positions with ≥3
-loaded neighbours (the streaming frontier and the ready queue are excluded, so normal loading never
-reads as a hole), D compares far-cell lattice vertices against the real chunks they meet, top-surface
-vertices only (a wall vertex on a node position carries a base-level Y and would read as a huge false
-disagreement). It is strictly read-only and is a QA readout, **not** a load-path validator — a
-per-chunk cross-chunk comparison would serialise the poll, and correctness stays with the per-chunk
-build/accept step. Note that the load-path validator (`ChunkValidator`) checks **tile** heights
-tile-vs-tile, which are exact by construction; it therefore cannot see a lattice ownership bug, which
-is why A exists as a separate measurement rather than as a validator extension.
-
-**The rendered layer is a fifth question, and it is not A (1hv).** Every cause above is a statement about
-the *data* — the lattice, the loaded set, the far cells. A is measured by comparing `LatticeY`
-between chunks, so a renderer that draws its corner vertex from somewhere other than the lattice it
-stamps reports **"worst dY 0 OK"** and still parts at the corner; that is the same trap as
-`ChunkValidator` (tile-vs-tile) being structurally blind to a lattice bug. So
-`WorldStreamer.RenderedCornerAudit()` walks the **uploaded chunk meshes** — the layer the seam audit
-does not read — and reports, per world corner node (1hv; §2.7 test ground, `EnableCornerAudit` +
-`CornerAuditKey`, F3 by default):
-
-- **R1 coverage** — does every loaded chunk place a rendered vertex **at** each of its four chunk
-  corners (mesh-local 0/30, within 0.05 m)? A corner the surface never reaches is a hole, whatever
-  the lattice says. A node's *expected* contributor count is the number of loaded chunks touching it
-  (up to four: `n/30` and `n/30 − 1` on each axis).
-- **R2 agreement** — at each node, do the chunks meeting there agree on the corner **height**
-  (cross-chunk spread), and does each rendered corner match **its own chunk's** lattice (own-lattice
-  delta)? The first says the render path is not sharing one corner height; the second says it copies
-  the corner from the wrong place. The comparison uses each corner's **topmost** vertex, because a
-  smooth root also carries side walls that hang down from the same edge.
-- **Staleness fingerprint** — distinct `(facet step, vertex count)` buckets across the loaded set, plus
-  a step-drift count against the generator's current `LowPolyStep`. More than one bucket, or any
-  drift, means the resident terrain was built by more than one version of the generator or predates
-  the current settings — the AGENTS-rule-11 failure mode, which is indistinguishable from a renderer
-  bug by eye.
-
-Strictly read-only (no rebuild, no re-stamp, no forced poll), so the report describes exactly the
-frame the key was pressed on. Its cost is one `Mesh.GetVertices` per loaded chunk through a reused
-list. **A fix for a corner report ships only after one of these numbers names the mechanism** — the
-measurement stays in history as the evidence for the change.
+**(1hx removed the on-demand measurement of these four causes.)** The taxonomy above is still the
+complete list of why a pristine world can show a see-through gap, and the reasoning that produced it
+still stands — but the F2/F3 audit lanes that used to measure A–D and the rendered layer are gone at
+the user's request, so a gap report is now read by eye against a freshly restarted session (AGENTS
+rule 11: a mixed old/new world looks exactly like A while every height in memory agrees). What the
+removed lanes established is worth keeping, because it is about *the question*, not the tool: **a
+check only speaks for the layer it reads.** `ChunkValidator` compares TILE heights tile-vs-tile, which
+are exact by construction, so it is structurally blind to a lattice-ownership bug (cause A); a
+lattice comparison is in turn blind to a renderer that draws its corner vertex from somewhere other
+than the lattice it stamps — that case reported "worst dY 0 OK" and still parted at the corner. A
+future gap fix should therefore expect to *rebuild* one of these measurements rather than to read
+cause A off an existing validator.
 
 
 ### 2.3 Perlin Noise Layers (5 octaves)
