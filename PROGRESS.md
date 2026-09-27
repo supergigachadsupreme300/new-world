@@ -4,6 +4,59 @@ Last updated: 2026-09-27. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1hy. Weapon combo-track pass (iron_sword / dagger / fist / gauntlets) — committed as found, three spots flagged for the play-test
+
+An animation edit that was sitting uncommitted in the working tree through 1hv/1hw/1hx. The user
+asked for it to be folded in and committed rather than discarded, so this entry exists to say exactly
+what is in the file now and which three places read like a copy-paste slip rather than tuning. **No
+keyframe was changed by this task** — the values are shipped as found.
+
+Pose keys are `K(t, shX, shY, shZ, elX[, wrX, wrY])` (`WeaponAnimator.cs:114-115`) and each weapon
+def is `WeaponAnimDef(mode, ownerTracks, otherTracks, accent, timeLight, timeHeavy, slashLead)`
+(`:97`). What changed:
+
+- **`iron_sword`** — clips 1 and 2: the strike key's wrist X `95f -> 125f` (a harder wrist roll into
+  the cut). Clips 3 and 4 **swapped**: the overhead chop and the forward thrust exchanged places in
+  the combo order. `SlashLead` stays `true`.
+- **`dagger`** — all four combo variants replaced with **byte-identical copies of `iron_sword`'s four
+  tracks**, comments included. The dagger's own jabs (low jab / high jab / quick double / lunging
+  stab, with its faster `0.24f/0.34f` timings) are gone, while `SlashLead` is left `false` and the
+  timings are unchanged — so the def now carries slashing poses with non-slash lead behaviour.
+- **`fist`** — clips 1/3 keep the jab (a double jab repeating the jab was already true). Clip 2 is
+  now a side cross driven by **shoulder Z** (`shZ 90f`, then `shY -90f`/`shZ 45f` on the follow
+  through). Clip 4's wind-up key is now `K(0.01f, 360f, ...)` — a full **360° shoulder-X rotation at
+  t=0.01** unwinding to rest by t=0.99, where it used to be a `-140f` uppercut cock.
+- **`gauntlets`** — all four variants are now effectively the **same pose pair** (`-72f/0f/0f/-90f`
+  then `-72f/0f/0f/0f`); variant 2 differs only by a missing space in the source. Jab, cross, double
+  and uppercut are visually indistinguishable.
+- Cosmetic only: `lance` variant 1 re-indented to column 0, `longbow`'s two `V(T(...))` collapsed
+  from two lines to one.
+
+### 1hy-status
+- COMMITTED AS FOUND at the user's request; **not** independently reviewed as an animation change.
+  Verified by grep + reread only (rule 3 — no CLI/Unity build): `WeaponAnimator.cs` balances
+  97/97 braces, 656/656 parens; the diff touches only pose-track literals and two reformats inside
+  the `Catalog` table, no signature, no call site, no serialized field. `WeaponAnimator` is **not** in
+  `tools\StaticChecks.ps1`'s file list and this task adds nothing to `WorldBuilder*.cs` or
+  `NewWorldTestGround.cs`, so the script was not re-run for it.
+- Nothing outside this file references these tracks: the defs are a private static table keyed by
+  weapon id, and `WeaponRigBuilder` mounts the animator. No GUID, save key or part key is involved.
+- **Flagged, not fixed** (each is a judgement call about intent that only the play-test can settle):
+  1. `dagger` playing `iron_sword`'s slash tracks with `SlashLead = false` — either the clips were
+     pasted in by mistake, or the dagger is meant to become a slashing weapon and `SlashLead` was
+     missed.
+  2. `gauntlets` — four variants, one pose pair. The boxer chain (jab, cross, double, uppercut) is
+     not readable.
+  3. `fist` clip 4 — a 360° shoulder spin as an uppercut wind-up, versus the `-140f` cock it
+     replaced.
+  Also worth an eye: `iron_sword`'s chop/thrust order swap changes which swing the **third** combo
+  hit plays.
+- Play-test: equip an `iron_sword`, a `dagger`, `fist` and `gauntlets` on the bench rack
+  (`EnableWeapons` lane) and swing the full light combo on each. Confirm (a) the sword's third hit is
+  the one you want, (b) the dagger reads as a dagger and not a short sword, (c) the fist finisher does
+  not corkscrew the shoulder, (d) the gauntlets show four distinguishable swings. If any fails, it is
+  a one-line keyframe fix in a follow-up commit (never an amend).
+
 ## 1hx. Coarser facet step (3 m -> 6 m) and the removal of the F2/F3/F4 measurement lanes
 
 Two changes in one pass, because they are the same decision seen from two sides: **the world should

@@ -15,6 +15,50 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1hy — an uncommitted weapon-animation edit found in the tree — COMMITTED AS FOUND (dagger/gauntlets read as pastes, not tuning)
+
+Not an investigation I ran: a diff in the working tree that had survived 1hv, 1hw and 1hx uncommitted.
+The user chose to commit it rather than discard it, so the only question worth asking was **what is
+actually in the file**, and whether it is safe to ship as-is.
+
+### H1 — is it a compile risk? — NO, and the reason is structural
+`WeaponAnimator`'s combo table is a `private static readonly` array of `WeaponAnimDef`s built from
+`K`/`T`/`V` helpers. Nothing outside the file can see it: no signature changes, no public member, no
+serialized field, no GUID, no save key, no part key. So the whole blast radius of a mistake here is
+one frame of animation — which is exactly why it is worth committing with an accurate description
+rather than "fixing" values whose intent I cannot know. Balance check: 97/97 braces, 656/656 parens.
+
+### H2 — are the changed values *wrong*, or just different? — three of them read as wrong
+The tempting move is to "tidy" the numbers. Rejected: these are the user's animation intent, and three
+specific shapes are the kind a paste produces rather than a hand tunes:
+- **`dagger`'s four variants are byte-identical to `iron_sword`'s four, comments and all.** A hand
+  edit changes numbers; it does not copy the trailing `// 1. wind left/back -> slash across right`
+  comment from another weapon. And the def kept `SlashLead = false` while wearing slashing poses —
+  the signature of a copy that did not carry its flag.
+- **`gauntlets`: four variants, one pose pair.** Variant 2 differs from 1/3/4 only by a missing space
+  (`0f,0f,-90f` vs `0f, 0f, 0f`) — the fingerprint of four edits made by pasting the same line four
+  times. A boxer chain that reads jab = cross = double = uppercut is not a tuning pass.
+- **`fist` clip 4 opens with `K(0.01f, 360f, ...)`** — a full 360° shoulder-X rotation at t=0.01,
+  unwinding to rest by t=0.99, replacing a `-140f` uppercut cock. Could be a deliberate spin-into the
+  punch; could be a mistyped magnitude. Only the play-test distinguishes them.
+
+**Not flagged:** `fist` clips 1 and 3 being identical (a *double jab* repeating the jab is correct,
+and was true before the edit), `iron_sword`'s wrist `95 -> 125`, the chop/thrust swap, and the two
+reformats. Those are all ordinary hand edits.
+
+### H3 — the parameter trap that nearly produced a false flag
+My first pass called the `fist` clip-2 value "a 90 in the wrong slot". Wrong: `K`'s 4th positional
+argument is **`shZ` (shoulder Z)**, not a wrist or elbow axis (`WeaponAnimator.cs:114-115`), and a
+shoulder-Z rotation is exactly what a side cross is. Reading the argument list before calling a value
+out-of-range is the same discipline as every other "that number looks wrong" moment in this repo —
+the check has to be against the *contract*, not the intuition.
+
+### Verdict
+SHIPPED AS FOUND (`PROGRESS.md` §1hy), with the three shapes named as play-test items rather than
+quietly corrected. Lesson recorded for the next uncommitted-diff handoff: **describing an edit
+precisely is worth more than repairing it**, because only the user knows which of "paste slip" and
+"deliberate" a number is.
+
 ## 1hx — the low-poly look still read as smooth, and the measurement lanes came out — SHIPPED (facet step 3 → 6; F2/F3/F4 removed)
 
 Two asks that looked unrelated and turned out to be the same statement about the same thing.

@@ -163,10 +163,10 @@ public sealed class WeaponAnimator : MonoBehaviour
             // iron_sword — balanced 1H blade: slash L→R, slash R→L, overhead chop, forward thrust.
             {
                 "iron_sword", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, -55f, 0f, -15f, 45f, -90f), K(0.52f, -80f, 45f, 0f, -5f, 95f, -90f), K(1f, 0f, 0f, 0f, 0f)),   // 1. wind left/back → slash across right, wrist rolls into the cut
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, 55f, 0f, -15f, 45f, 90f), K(0.52f, -80f, -45f, 0f, -5f, 95f, 90f), K(1f, 0f, 0f, 0f, 0f)),  // 2. wind right/back → slash across left, wrist rolls through
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, -55f, 0f, -15f, 45f, -90f), K(0.52f, -80f, 45f, 0f, -5f, 125f, -90f), K(1f, 0f, 0f, 0f, 0f)),   // 1. wind left/back → slash across right, wrist rolls into the cut
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, 55f, 0f, -15f, 45f, 90f), K(0.52f, -80f, -45f, 0f, -5f, 125f, 90f), K(1f, 0f, 0f, 0f, 0f)),  // 2. wind right/back → slash across left, wrist rolls through
                     T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -150f, 0f, 0f, 10f, 45f, 0f), K(0.68f, -65f, 0f, 0f, 6f, 125f, 0f), K(1f, 0f, 0f, 0f, 0f)),     // 3. overhead chop — wrist flexes into the swing then settles
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.38f, -88f, -12f, 0f, -42f, 45f, 0f), K(0.58f, -62f, -8f, 0f, -4f, 95f, 0f), K(1f, 0f, 0f, 0f, 0f))), // 4. forward thrust — wrist flattens as the arm extends
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -65f, 0f, 0f, 6f, 125f, 0f), K(0.68f, -150f, 0f, 0f, 10f, 45f, 0f), K(1f, 0f, 0f, 0f, 0f))), // 4. forward thrust — wrist flattens as the arm extends
                     null, K_None, 0.30f, 0.50f, true)
             },
 
@@ -183,10 +183,10 @@ public sealed class WeaponAnimator : MonoBehaviour
             // dagger — fast stabs: low jab, high jab, quick double, lunging stab.
             {
                 "dagger", new WeaponAnimDef(OffArm.None, V(
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.20f, -58f, 6f, 0f, -28f, 55f, 0f), K(0.34f, 12f, 0f, 0f, 18f, 90f, 0f), K(1f, 0f, 0f, 0f, 0f)),    // 1. low jab — wrist snap drives the point
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.20f, -70f, 6f, 0f, -24f, 55f, 0f), K(0.34f, 10f, 0f, 0f, 20f, 95f, 0f), K(1f, 0f, 0f, 0f, 0f)),    // 2. high jab
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.20f, -58f, 6f, 0f, -28f, 55f, 0f), K(0.34f, 12f, 0f, 0f, 18f, 90f, 0f), K(0.55f, -58f, 6f, 0f, -28f, 55f, 0f), K(0.70f, 12f, 0f, 0f, 18f, 90f, 0f), K(1f, 0f, 0f, 0f, 0f)), // 3. quick double jab — two wrist snaps
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.42f, -60f, 0f, 0f, -45f, 45f, 0f), K(0.62f, -48f, 0f, 0f, -10f, 80f, 0f), K(1f, 0f, 0f, 0f, 0f))),// 4. lunging stab (finisher) — wrist flattens as the arm extends
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, -55f, 0f, -15f, 45f, -90f), K(0.52f, -80f, 45f, 0f, -5f, 125f, -90f), K(1f, 0f, 0f, 0f, 0f)),   // 1. wind left/back → slash across right, wrist rolls into the cut
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -75f, 55f, 0f, -15f, 45f, 90f), K(0.52f, -80f, -45f, 0f, -5f, 125f, 90f), K(1f, 0f, 0f, 0f, 0f)),  // 2. wind right/back → slash across left, wrist rolls through
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -150f, 0f, 0f, 10f, 45f, 0f), K(0.68f, -65f, 0f, 0f, 6f, 125f, 0f), K(1f, 0f, 0f, 0f, 0f)),     // 3. overhead chop — wrist flexes into the swing then settles
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -65f, 0f, 0f, 6f, 125f, 0f), K(0.68f, -150f, 0f, 0f, 10f, 45f, 0f), K(1f, 0f, 0f, 0f, 0f))),// 4. lunging stab (finisher) — wrist flattens as the arm extends
                     null, K_None, 0.24f, 0.34f)
             },
 
@@ -213,7 +213,7 @@ public sealed class WeaponAnimator : MonoBehaviour
             // lance — mounted-style: low thrust, high lunge, couched charge, overhead riposte.
             {
                 "lance", new WeaponAnimDef(OffArm.Mirror, V(
-T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, 20f, 0f, 0f, 38f, 35f, 0f), K(0.75f, -65f, 0f, 0f, -10f, 85f, 0f), K(1f, 0f, 0f, 0f, 0f)),     // 1. pull back → low thrust — wrist drives the tip down
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, 20f, 0f, 0f, 38f, 35f, 0f), K(0.75f, -65f, 0f, 0f, -10f, 85f, 0f), K(1f, 0f, 0f, 0f, 0f)),     // 1. pull back → low thrust — wrist drives the tip down
                     T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, 10f, 15f, 0f, 42f, 35f, 0f), K(0.75f, -75f, 0f, 0f, -14f, 90f, 0f), K(1f, 0f, 0f, 0f, 0f)),   // 2. high lunge
                     T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -20f, 0f, 0f, 30f, 20f, 0f), K(0.45f, -20f, 0f, 0f, 34f, 20f, 0f), K(0.80f, -70f, 0f, 0f, -6f, 90f, 0f), K(1f, 0f, 0f, 0f, 0f)), // 3. couched charge (hold then drive) — wrist from hold to snap
                     T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -120f, 0f, 0f, 18f, 55f, 0f), K(0.60f, -70f, 0f, 0f, -16f, 85f, 0f), K(1f, 0f, 0f, 0f, 0f))),  // 4. overhead-to-thrust riposte (finisher)
@@ -224,30 +224,29 @@ T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, 20f, 0f, 0f, 38f, 35f, 0f), K(0.75f, -65f, 0f,
             // dual fists alternate hands off-phase and hold the ready guard at idle. No weapon visual.
             {
                 "fist", new WeaponAnimDef(OffArm.None, V(
-T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 0f, 0f, 34f, 95f, 20f), K(1f, 0f, 0f, 0f, 0f)),    // 1. straight jab — fist snaps with the wrist
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -65f, 28f, 0f, -22f, 60f, -40f), K(0.48f, -20f, 0f, 0f, 30f, 95f, -40f), K(1f, 0f, 0f, 0f, 0f)), // 2. side cross — wrist rolls through the hook
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 0f, 0f, 34f, 95f, 20f), K(1f, 0f, 0f, 0f, 0f)), // 3. quick double jab — two wrist snaps
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -140f, -10f, 0f, -35f, 65f, 50f), K(0.55f, -60f, 8f, 0f, -18f, 90f, 50f), K(1f, 0f, 0f, 0f, 0f))), // 4. heavy uppercut (finisher) — wrist cocks then drives
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -45f, 0f, 0f, -90f, 70f, 20f), K(0.48f, -105f, 0f, 0f, 0f, 95f, 20f), K(1f, 0f, 0f, 0f, 0f)),    // 1. straight jab — fist snaps with the wrist
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, 0f, 0f, 90f, -90f, 70f, 20f), K(0.48f, 0f, -90f, 45f,-90f, 95f, 20f), K(1f, 0f, 0f, 0f, 0f)), // 2. side cross — wrist rolls through the hook
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -45f, 0f, 0f, -90f, 70f, 20f), K(0.48f, -105f, 0f, 0f, 0f, 95f, 20f), K(1f, 0f, 0f, 0f, 0f)), // 3. quick double jab — two wrist snaps
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.01f, 360f, 0f, 0f, 0f, 70f, 20f), K(0.99f, 0f, 0f, 0f, 0f, 95f, 20f), K(1f, 0f, 0f, 0f, 0f))), // 4. heavy uppercut (finisher) — wrist cocks then drives
                     null, K_Dual, 0.26f, 0.36f)
             },
 
             // gauntlets — boxer chain: jab, cross, double, uppercut (dual-wield alternates hands).
             {
                 "gauntlets", new WeaponAnimDef(OffArm.None, V(
-T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 0f, 0f, 34f, 95f, 20f), K(1f, 0f, 0f, 0f, 0f)),    // 1. straight jab — fist snaps with the wrist
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -65f, 28f, 0f, -22f, 60f, -40f), K(0.48f, -20f, 0f, 0f, 30f, 95f, -40f), K(1f, 0f, 0f, 0f, 0f)), // 2. side cross — wrist rolls through the hook
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -24f, 70f, 20f), K(0.48f, -24f, 0f, 0f, 34f, 95f, 20f), K(1f, 0f, 0f, 0f, 0f)), // 3. quick double jab — two wrist snaps
-                    T(K(0f, 0f, 0f, 0f, 0f), K(0.35f, -140f, -10f, 0f, -35f, 65f, 50f), K(0.55f, -60f, 8f, 0f, -18f, 90f, 50f), K(1f, 0f, 0f, 0f, 0f))), // 4. heavy uppercut (finisher) — wrist cocks then drives
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -90f, 70f, 20f), K(0.48f, -72f, 0f, 0f, 0f, 95f, 20f), K(1f, 0f, 0f, 0f, 0f)),    // 1. straight jab — fist snaps with the wrist
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -90f, 70f, 20f), K(0.48f, -72f, 0f, 0f,-90f, 95f, 20f), K(1f, 0f, 0f, 0f, 0f)), // 2. side cross — wrist rolls through the hook
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -90f, 70f, 20f), K(0.48f, -72f, 0f, 0f, 0f, 95f, 20f), K(1f, 0f, 0f, 0f, 0f)), // 3. quick double jab — two wrist snaps
+                    T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -72f, 0f, 0f, -90f, 70f, 20f), K(0.48f, -72f, 0f, 0f, 0f, 95f, 20f), K(1f, 0f, 0f, 0f, 0f))), // 4. heavy uppercut (finisher) — wrist cocks then drives
                     null, K_Dual, 0.26f, 0.36f)
             },
+
 
             // longbow — one aim-draw-loose: draw to full hold, loose on the shot, recover.
             {
                 "longbow", new WeaponAnimDef(OffArm.Asym,
-                    V(
-                        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -25f, -20f, 0f, -120f, 10f, 0f), K(0.60f, -25f, -20f, 0f, -120f, 10f, 0f), K(0.80f, -55f, 0f, 0f, -15f, 70f, 0f), K(1f, 0f, 0f, 0f, 0f))),
-                    V(
-                        T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -85f, 0f, 0f, -6f), K(0.60f, -85f, 0f, 0f, -6f), K(0.80f, -82f, 0f, 0f, -4f), K(1f, 0f, 0f, 0f, 0f))),
+                    V(T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -25f, -20f, 0f, -120f, 10f, 0f), K(0.60f, -25f, -20f, 0f, -120f, 10f, 0f), K(0.80f, -55f, 0f, 0f, -15f, 70f, 0f), K(1f, 0f, 0f, 0f, 0f))),
+                    V(T(K(0f, 0f, 0f, 0f, 0f), K(0.30f, -85f, 0f, 0f, -6f), K(0.60f, -85f, 0f, 0f, -6f), K(0.80f, -82f, 0f, 0f, -4f), K(1f, 0f, 0f, 0f, 0f))),
                     K_None, 0.50f, 0.80f)
             },
 
