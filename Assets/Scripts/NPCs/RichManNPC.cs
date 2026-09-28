@@ -83,7 +83,13 @@ private Transform _myTransform;
     private bool _dealCamRefused;
     private Camera _dealCam;
     private CameraFollow _dealCamFollow;
-    private Transform _clubCenter;
+
+    /// <summary>
+    /// Where the night club stood in the legacy village. 1hz removed the club and its builder, so the
+    /// dealer-story "is the player near the club" window now reads this fixed site instead of looking
+    /// up a NightClubController that no longer exists.
+    /// </summary>
+    private static readonly Vector3 ClubCenter = new Vector3(0f, 0f, 95f);
 
     private bool _debugForceDeal;
 
@@ -567,13 +573,7 @@ private Transform _myTransform;
         var gm = GameManager.Instance;
         if (gm == null || gm.Player == null)
             return false;
-        if (_clubCenter == null)
-        {
-            var ctrl = Object.FindAnyObjectByType<NightClubController>();
-            if (ctrl != null) _clubCenter = ctrl.transform;
-        }
-        Vector3 club = _clubCenter != null ? _clubCenter.position : new Vector3(0f, 0f, 95f);
-        Vector3 d = gm.Player.transform.position - club;
+        Vector3 d = gm.Player.transform.position - ClubCenter;
         return Mathf.Abs(d.x) < 12f && Mathf.Abs(d.z) < 8f;
     }
     private void UpdateDeal()

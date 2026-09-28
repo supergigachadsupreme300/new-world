@@ -1,8 +1,98 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-27. Read this first in a new session; then continue with the
+Last updated: 2026-09-28. Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
+
+## 1hz. The 1hz feature-removal pass, finished — multiplayer, night club, fast travel, horse, and the `Recovery` scene dump all gone; the tree compiles again
+
+The removal itself was already staged in the working tree (29 scripts staged-deleted) when the session
+started; what was missing was the half that makes it *ship*. Deleting a type and grepping its **name**
+finds the call sites but not the code that existed only to **feed** the deleted system, so the tree
+did not compile: four POI files were still constructing `FastTravelSign` objects for a
+`FastTravelMenu` that no longer existed. There was also a **silent** bug, not a loud one — see the
+second bullet under "The two things grep could not tell me".
+
+**What shipped in this pass**
+
+- **POI sign producers stripped** (`Town.cs`, `DungeonSystem.cs`, `FastTravelNode.cs`,
+  `POIGenerator.cs`): the `TravelSign` properties, the sign GameObjects + trigger colliders +
+  `SignPost`/`Board` cubes, `POIGenerator.AssignTravel`, the `_nextTravelIndex` counter and its four
+  mutations, and the now-unused `int index` parameter on `FastTravelNode.Build`. All stale
+  `<see cref="FastTravelSign"/>` / `<see cref="FastTravelMenu"/>` XML doc references are gone too.
+  `FastTravelNode` and `PoiKind.FastTravel` **deliberately stay** — `POIGenerator.PlaceFastTravel`
+  and the streaming cull sweep (`NewWorldSystems.cs:166`) still reach them; they simply have no
+  registry entry, so no bonfire spawns. `POIDefinition`'s tooltip was corrected too: it claimed a
+  `"?"` marker, but `WorldMapUI.Refresh:52` appends `✈`.
+- **The save-key trap closed.** `WorldBuilder.Persistence.LoadBuildingsFromSave` still listed
+  `"NightClub"` in the essential-building restore branch while its `RebuildEssentialBuilding` case
+  was deleted. That branch rebuilds the building, then stamps
+  `_buildings[_buildings.Count - 1]` with the saved health / maxHealth / part healths / door state —
+  so a pre-1hz save stamped the **night club's** condition onto the **previous** building in the
+  list. Not a compile error; a save that loads "successfully" and corrupts a building. The key is
+  dropped, so an old `NightClub` entry falls through to the generic path, where
+  `CreateBuildingEntity` returns `null` for an unknown type (`WorldBuilder.Blueprints.cs:429-430`) →
+  `SpawnBuildingDirect` returns `false` (`:551`) → the entry is skipped untouched.
+- **14 dead localization keys removed** (`Localization.cs`, the `// Horse & fast travel (Phase 3D)`
+  block). Every key was checked unreferenced by exact `-SimpleMatch` across all `.cs` files, and
+  `Localization.T` is a one-way Vietnamese→English lookup, so the second dictionary column is not
+  independently reachable. No `.json`/`.asset` data file supplies them either. This is what took
+  `"Hộp Đêm & Nhà Hàng"` ("Night Club & Restaurant") out of the build.
+- **Orphan folder metas removed**: `Assets/Scripts/{Networking,NightClub,Vehicles}.meta` were still
+  tracked and clean in `git status` while their folders were already gone.
+- **`Assets/_Recovery/` gitignored** and its 50 tracked files (`0.unity` … `0 (24).unity` + metas)
+  untracked via `git rm -r --cached`. All 52 files remain on disk — nothing was deleted from the
+  user's machine. This also silently cleaned up two loose ends: the stray edit to
+  `0 (24).unity.meta` and the untracked `0 (25).unity` pair.
+- **`tools/StaticChecks.ps1` now covers the two `WorldBuilder*.cs` files this task edited**
+  (`WorldBuilder.Persistence.cs`, `WorldBuilder.NPCs.cs`). Per rule 3, a `WorldBuilder*.cs` that
+  is not in `$files` silently falls out of checks 1, 4 and 5.
+
+**The two things grep could not tell me** — both are now the new `AGENTS.md` rule 13:
+
+1. *Producers outlive their consumer.* `FastTravelSign` was deleted along with its menu, and the
+   grep for `FastTravelSign` "succeeded" — it found only the four producers, which is exactly what
+   needed deleting. There was no signal that anything was left over.
+2. *A save key outlives its builder.* `RebuildEssentialBuilding` has no `NightClub` case and no
+   compiler complains, because a missing `case` in a `switch` over a string is legal. The corruption
+   is a runtime data bug visible only in an old save file.
+
+**Also left for the follow-up commit** (not in this one): `RichManNPC`'s club hangout — a whole
+state machine (`ClubHangState`/`ClubIdleState`, pacing spots, `HandleClubHangout`) pacing a
+building 1hz deleted. The 21:00 dealer story, its camera gate and the `DEAL_HOUR` constant are kept.
+That is a *behavioural* orphan, invisible to both greps above.
+
+### 1hz-status
+- **Verified by grep + reread only** (rule 3 — no CLI/Unity build in this project; Unity is the
+  compiler). `tools\StaticChecks.ps1` → **0 candidates** across all five files, including the two
+  newly added. Brace/paren balance re-checked by hand on the 6 POI files, `RichManNPC.cs` and
+  `WorldBuilder.Persistence.cs` (e.g. `RichManNPC` 140/140 braces, 739/739 parens).
+- **A real bug caught during the edit**: `DungeonSystem.BuildLayout`'s `doorDir` local is declared
+  next to the sign block that was removed but *read* 20 lines later at `:71` (`enemy spawn offset`).
+  Deleting the block's `Vector3 doorDir = ...` would have compiled only as a definite-assignment
+  error — exactly the class of thing rule 3 exists for, found here by grepping the removed block's
+  identifiers for other readers rather than trusting the delete.
+- **GUID scan clean**: every deleted `.meta` GUID was searched across all 41 `.unity` / `.prefab` /
+  `.asset` files in `Assets`; zero references. The scan itself was probe-tested (it does find
+  `WorldBuilder.cs.meta`'s 10 real references), so a zero is a real zero and not a broken search.
+  One stale serialized field remains in a now-gitignored file (`Assets/_Recovery/0 (8).unity`
+  `RideSpeed: 13`), which is harmless and untracked now.
+- **Not a runtime check.** Nothing here has been seen on screen. Play-test:
+  1. **Load a pre-1hz save that contains a night club** and walk the village — every building's
+     walls and door should be intact, and specifically the building *before* the old club site must
+     not carry the club's health. This is the only way to observe the save-key fix.
+  2. Spawn a town / dungeon / boss-arena / fishing / treasure POI and confirm it still builds with
+     no console errors and no missing-component warnings, and that `Town`/`DungeonSystem` no longer
+     report a null `TravelSign`.
+  3. Open the world map: POI rows should still show the `✈` marker and `FT`/`Town`/etc. kind names.
+  4. Confirm the fast-travel menu and the multiplayer menu are genuinely gone from the main menu.
+  5. `Assets/_Recovery/` should be absent from `git status` but the files should still be in the
+     folder on disk.
+- **Left for the follow-up commit**: the `RichManNPC` club hangout removal + the `DEAL_HOUR`
+  constant, and the two remaining "bar" localization strings.
+- **Left deliberately in place**: `Packages/manifest.json` still lists
+  `com.unity.multiplayer.center: 1.0.1`. Nothing references it (verified), but removing a package
+  is a separate call from removing code, so it was not touched here.
 
 ## 1hy. Weapon combo-track pass (iron_sword / dagger / fist / gauntlets) — committed as found, three spots flagged for the play-test
 

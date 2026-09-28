@@ -163,22 +163,6 @@ public partial class WorldBuilder
         librarian.AddComponent<LibrarianNPC>();
     }
 
-    private void BuildNightClub()
-    {
-        var club = MapBuilder.BuildNightClub(_worldRoot.transform, new Vector3(0f, 0f, 95f), 1f, Quaternion.Euler(0f, 90f, 0f));
-        _buildings.Add(new BuildingState
-        {
-            Entity = club,
-            Type = "NightClub",
-            Position = club.transform.position,
-            Rotation = 90,
-            PartStates = CollectColliderParts(club, "NightClub"),
-            CurrentHealth = 100,
-            MaxHealth = 100,
-            IsEssential = true
-        });
-    }
-
     private void BuildWifeHouse()
     {
         var wifeHouse = MapBuilder.BuildWifeHouse(_worldRoot.transform, new Vector3(33f, 0f, 0f));
@@ -260,12 +244,10 @@ bool nearHouse = Mathf.Abs(x) <= 9 && Mathf.Abs(z) <= 9;
         bool nearShrine = Mathf.Abs(x - ShrineBasePos.x) <= ShrineExcludeHalf && Mathf.Abs(z - ShrineBasePos.z) <= ShrineExcludeHalf;
         bool nearCafe = Mathf.Abs(x) <= 10 && z >= 33 && z <= 57;
         bool nearLibrary = x >= -9 && x <= 6 && z >= 24 && z <= 38;
-        bool nearClub = x >= -12 && x <= 12 && z >= 84 && z <= 106;
-        bool nearClubCorridor = x >= -12 && x <= 40 && z >= 84 && z <= 106;
         bool nearSouthBranch = x >= -123 && x <= 17 && z >= -54 && z <= -46;
         bool nearNorthBranch = x >= 11 && x <= 153 && z >= 173 && z <= 187;
         bool nearBossArena = Mathf.Abs(x - _bossArenaCenter.x) <= 12 && Mathf.Abs(z - _bossArenaCenter.z) <= 12;
-        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearFishingShop || nearMansion || nearPagoda || nearChurch || nearShrine || nearCafe || nearLibrary || nearClub || nearClubCorridor || nearSouthBranch || nearNorthBranch || nearBossArena;
+        return nearHouse || nearShop || nearStore || nearRestaurant || nearRoad || nearRoadTurn || nearPolicePost || nearWifeHouse || nearRichMansion || nearFishingShop || nearMansion || nearPagoda || nearChurch || nearShrine || nearCafe || nearLibrary || nearSouthBranch || nearNorthBranch || nearBossArena;
     }
 
     private void BuildPolicePost()

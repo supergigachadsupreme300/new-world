@@ -230,7 +230,14 @@ _unlockedBlueprints.Clear();
                 continue;
             }
 
-            if (build.type == "PlayerHouse" || build.type == "Shop" || build.type == "WifeHouse" || build.type == "RichMansion" || build.type == "Restaurant" || build.type == "Cafe" || build.type == "Library" || build.type == "NightClub")
+            // Only types with a RebuildEssentialBuilding case may be listed here. 1hz removed
+            // "NightClub" and its builder case: an old save still carries a NightClub entry, and
+            // if it reached this branch RebuildEssentialBuilding would append nothing while
+            // _buildings[_buildings.Count - 1] silently stamped the club's health/door/part state
+            // onto the PREVIOUS building. Dropping the key instead lets the entry fall through to
+            // the generic path, where SpawnBuildingDirect returns false for an unknown type and
+            // the entry is skipped without touching any building.
+            if (build.type == "PlayerHouse" || build.type == "Shop" || build.type == "WifeHouse" || build.type == "RichMansion" || build.type == "Restaurant" || build.type == "Cafe" || build.type == "Library")
             {
                 RebuildEssentialBuilding(new BlueprintState
                 {

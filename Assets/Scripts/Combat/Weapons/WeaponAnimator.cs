@@ -781,7 +781,7 @@ public sealed class WeaponAnimator : MonoBehaviour
     {
         if (_playerAnim == null || _playerAnim.Controller == null) return false;
         var pc = _playerAnim.Controller;
-        if (pc.IsSitting || pc.IsRiding || pc.IsMoving) return false;
+        if (pc.IsSitting || pc.IsMoving) return false;
         if (_stow == null || !_stow.IsDrawn || _stow.IsBusy) return false;
         ResolvePivots();
         return _ownerShoulder != null;

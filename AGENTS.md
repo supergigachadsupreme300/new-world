@@ -199,3 +199,45 @@
     haze. The lesson generalises: **"low-poly" is a normal-contrast problem, not a triangle-count
     problem**, so reach for the span before reaching for the shading.
 
+13. **A removal has three failure modes, and only one of them is a compile error.** Deleting a feature
+    leaves behind more than references to the deleted *name*, and the three residue classes fail in
+    three different ways — 1hz removed the multiplayer layer, the night club, fast travel and horse
+    riding in one pass and hit all three:
+    - **Producers outlive their consumer.** Grepping the deleted type's name finds the *call sites*;
+      it cannot find code that existed only to **feed** the deleted system, because that code is
+      perfectly correct on its own. `FastTravelSign` went away with `FastTravelMenu` and four POI
+      files went on building sign GameObjects, colliders and `SignPost` cubes for a list nothing
+      would ever read. The grep "passed" — it found exactly the four files that needed deleting and
+      reported nothing left over. So for each hit ask **what is this line for**, not *does it name the
+      deleted type*; and when a type disappears, list what it was *fed by*, not just what read it.
+    - **A save key outlives its builder, and a missing `case` never fails to compile.** A `switch`
+      dispatching on a save key is legal with any subset of its cases, so deleting a building's
+      builder leaves the key live and silent. `WorldBuilder.Persistence` still listed `"NightClub"`
+      in the essential-restore branch, whose body is `RebuildEssentialBuilding(...)` followed by
+      `_buildings[_buildings.Count - 1]` — no case, nothing appended, and the club's health, part
+      healths and **door state** were written onto the *previous* building. A compile error stops the
+      game; this loads a village that looks fine and has one ruined building. This is rule 9's part-key
+      concern one level out, and unlike part keys it has **no** parity check in `StaticChecks.ps1` §6.
+      When a builder is deleted, grep for its *save key* as well as its type — and verify the fall-through
+      is actually inert before relying on it (read `CreateBuildingEntity`/`SpawnBuildingDirect`, don't
+      assume a missing definition is a safe skip).
+    - **A behavioural orphan is invisible to every grep.** `RichManNPC` kept an entire state machine
+      (`ClubHangState`, `ClubIdleState`, pace spots, `HandleClubHangout`, a 19:00–21:00 window) pacing
+      the player around a building 1hz deleted. Every symbol resolved, the file compiled, the code
+      ran — it was just an NPC walking an empty lot. Removing a *place* means re-reading whatever
+      *story* pointed at it, and that is a human read, not a search.
+    Two corollaries for the mechanics of the sweep itself:
+    - **Deleting a block deletes its locals, and a local is in scope for the whole method.** Removing
+      `DungeonSystem`'s sign block took `Vector3 doorDir` with it, but `doorDir` is read 20 lines
+      later for the enemy spawn offset. Grep the removed block's *identifiers* for other readers
+      instead of trusting that the block looked self-contained — this caught the error in my own edit,
+      and it is the same reflex that finds the first bullet's leftovers.
+    - **A localized string is a runtime key, so "no reference" needs the dynamic path checked too.**
+      14 dead `Localization` keys looked removable from the comment above them, but `Localization.T`
+      resolves by string at runtime, so a key is live if *any* code passes that Vietnamese text —
+      including the ~60 non-literal `T()` call sites and any `.asset`/`.json`. Use exact
+      (`-SimpleMatch`) matching, not a regex: a `.`-wildcarded Vietnamese pattern returned 50 008
+      "matches" against a mangled console, which is worse than no search because it looks like a
+      result. Confirm a reference-counting grep can find something real before trusting a zero.
+
+

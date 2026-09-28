@@ -66,11 +66,6 @@ public partial class PlayerController
         {
             if (ePressed)
             {
-                if (IsRiding)
-                {
-                    HorseMount.Instance?.Dismount();
-                    return;
-                }
                 var wb = WorldBuilder.Instance;
                 if (RichManNPC.Instance != null && RichManNPC.Instance.TryEavesdropDeal(transform.position))
                     return;
@@ -210,18 +205,6 @@ public partial class PlayerController
                         if (chestHit != null)
                         {
                             PlayerChestMenu.Ensure().OpenAt(chestHit.position);
-                            return;
-                        }
-                        var rideHorse = hit.collider.GetComponentInParent<HorseMount>();
-                        if (rideHorse != null)
-                        {
-                            rideHorse.ToggleMount();
-                            return;
-                        }
-                        var roadSign = hit.collider.GetComponentInParent<FastTravelSign>();
-                        if (roadSign != null)
-                        {
-                            FastTravelMenu.Ensure().Open();
                             return;
                         }
                         if (CraftingManager.ResolveStationCategory(hit.collider) != null)
@@ -501,8 +484,6 @@ public partial class PlayerController
             GameManager.Instance?.UIManager?.ToggleFriendPanel();
         if (!dialogBlocked && Keyboard.current != null && Keyboard.current.oKey.wasPressedThisFrame)
             ToolManager.Instance?.SortInventory();
-        if (!dialogBlocked && Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
-            HorseMount.Instance?.Dismount();
         if (!dialogBlocked && Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame)
         {
             var info = CharacterInfoRef;

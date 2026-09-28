@@ -674,7 +674,6 @@ public static class Localization
         { "Đang Kéo...", "Reeling..." },
         { "Đã bắt được {0}!", "Captured {0}!" },
         { "Sai loại lồng!", "Wrong cage size!" },
-        { "Lái xe: W/A/D — E để xuống", "Riding: W/A/D — E to dismount" },
         { "Phú Ông lén lút tiến về phía quán bar giữa đêm...", "The rich man sneaks late at night toward the bar..." },
         { "Goblin đã gieo hạt giống giúp bạn!", "The goblin planted seeds for you!" },
         { "Mở kho", "Open storage" },
@@ -1013,22 +1012,6 @@ public static class Localization
         { "Đã cất {0} vào rương.", "Stored {0} into the chest." },
         { "Trong rương: {0}/{1} loại — {2}", "In the chest: {0}/{1} types - {2}" },
         { "Chọn Lấy hoặc Cất", "Choose Take or Store" },
-
-        // Horse & fast travel (Phase 3D)
-        { "Cưỡi ngựa", "Mount horse" },
-        { "Di chuyển nhanh", "Fast travel" },
-        { "Di Chuyển Nhanh", "Fast Travel" },
-        { "Đã cưỡi ngựa. Ấn E hoặc R để xuống.", "You mount the horse. Press E or R to dismount." },
-        { "Đã xuống ngựa.", "You dismount." },
-        { "Đã di chuyển đến {0}!", "Moved to {0}!" },
-        { "Đi {0}", "Go {0}" },
-        { "Chưa có biển báo nào trên bản đồ.", "No road signs on the map yet." },
-        { "Trang Trại", "Farm" },
-        { "Chùa Làng", "Village Pagoda" },
-        { "Khu Chợ", "Market" },
-        { "Hộp Đêm & Nhà Hàng", "Night Club & Restaurant" },
-        { "Dinh Phú Ông", "The Rich Man's Mansion" },
-        { "Võ Đài Quỷ Vương", "Demon Arena" },
 
         // Event Test Panel
         { "Sự Kiện", "Events" },

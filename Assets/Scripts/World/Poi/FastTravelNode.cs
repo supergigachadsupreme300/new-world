@@ -3,24 +3,22 @@ using UnityEngine;
 
 /// <summary>
 /// A standalone fast-travel node (planning Task 5.3 "Fast travel network (bonfires, signs)").
-/// Wraps a <see cref="FastTravelSign"/> marker plus a small generated bonfire/sign visual so the
-/// existing fast-travel menu (which auto-discovers FastTravelSign components) lists this node.
+/// 1hz removed <c>FastTravelSign</c> and <c>FastTravelMenu</c>: the node survives only as a
+/// world-map marker for <see cref="PoiKind.FastTravel"/>, so it now owns a generated bonfire/sign
+/// visual and nothing else. <see cref="POIGenerator"/> builds it and the streaming cull sweep
+/// disables it; no menu reads it any more.
 /// </summary>
 public class FastTravelNode : MonoBehaviour
 {
     public POIDefinition Definition;
-    public FastTravelSign TravelSign { get; private set; }
 
-    public static FastTravelNode Build(Transform parent, POIDefinition poi, int index)
+    public static FastTravelNode Build(Transform parent, POIDefinition poi)
     {
         var root = new GameObject("FastTravel_" + poi.Id);
         root.transform.SetParent(parent);
         root.transform.position = poi.LocalPosition;
         var node = root.AddComponent<FastTravelNode>();
         node.Definition = poi;
-        node.TravelSign = root.AddComponent<FastTravelSign>();
-        node.TravelSign.Index = index;
-        node.TravelSign.Label = poi.DisplayName;
         node.BuildVisual();
         return node;
     }

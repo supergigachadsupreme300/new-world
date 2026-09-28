@@ -8,7 +8,6 @@ public partial class PlayerController : MonoBehaviour, IHealable
 {
     public float MoveSpeed = 5f;
     public float SprintMultiplier = 2f;
-    public float RideSpeed = 13f;
     public float Gravity = -9.81f;
     public float JumpHeight = 1.5f;
     public int HP = 100;

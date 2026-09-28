@@ -24,9 +24,13 @@ $root = Split-Path -Parent $PSScriptRoot
 Push-Location $root
 
 $blueprints = 'Assets\Scripts\World\WorldBuilder.Blueprints.cs'
+$persistence = 'Assets\Scripts\World\WorldBuilder.Persistence.cs'
+$npcs       = 'Assets\Scripts\World\WorldBuilder.NPCs.cs'
 $world      = 'Assets\Scripts\World\WorldBuilder.cs'
 $testground = 'Assets\Scripts\Opt\NewWorldTestGround.cs'
-$files = @($blueprints, $world, $testground)
+# AGENTS.md rule 3: any WorldBuilder*.cs edited here belongs in $files, or checks 1, 4
+# and 5 silently stop covering it. 1hz added Persistence + NPCs.
+$files = @($blueprints, $persistence, $npcs, $world, $testground)
 
 # Types a structure-part helper can be declared with, plus local declarations.
 $retAlt  = '(?:static\s+)?(?:GameObject|void|int|float|bool|string|Vector3|Color|Vector2|Quaternion|Transform)'

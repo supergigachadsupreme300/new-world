@@ -2190,9 +2190,6 @@ else if (!string.IsNullOrEmpty(bp.StructureId))
             case "Library":
                 root = MapBuilder.BuildLibrary(_worldRoot.transform, bp.Position, 1f, Quaternion.Euler(0f, bp.Rotation, 0f));
                 break;
-            case "NightClub":
-                root = MapBuilder.BuildNightClub(_worldRoot.transform, bp.Position, 1f, Quaternion.Euler(0f, bp.Rotation, 0f));
-                break;
         }
 if (root != null)
         {

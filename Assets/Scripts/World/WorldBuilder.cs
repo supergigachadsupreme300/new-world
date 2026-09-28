@@ -508,7 +508,6 @@ CreateSkyAndLight();
         BuildRestaurant();
         BuildCafe();
         BuildLibrary();
-        BuildNightClub();
         MapBuilder.BuildConvenienceStore(_worldRoot.transform, new Vector3(24f, 0f, 60f), 1f, Quaternion.Euler(0f, 180f, 0f));
         BuildWifeHouse();
         BuildRichManMansion();
@@ -528,8 +527,6 @@ BuildPagoda(PagodaBasePos);
         taoist.AddComponent<TaoistPriestNPC>();
         BuildBossArena();
 PruneTreesAndRocksNearStructures();
-        ClearFastTravelSpots();
-        SpawnFastTravelSigns();
 
         SpawnInitialClouds();
 

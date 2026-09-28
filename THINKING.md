@@ -15,6 +15,177 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1hz — the staged feature removal did not compile, and one of the two failures was invisible — VERDICT: both fixed
+
+A removal was already sitting in the working tree (29 scripts staged-deleted: all of
+`Networking/` and `NightClub/`, `FastTravelSign`, `FastTravelMenu`, `HorseMount`,
+`WorldBuilder.FastTravel`, `ClubExteriorBuilder`, `MapBuilder.Nightclub`, the two multiplayer UI
+scripts). The user asked me to finish it rather than discard it. So this log is about the two
+failures I had to find first — one loud, one silent — plus the questions I had to answer before
+touching anything.
+
+### H1 — the loud failure: grep `FastTravelSign` and delete every hit? — NO, three of the nine hits are documentation
+
+`grep FastTravelSign Assets/Scripts` returned 9 lines across 4 files. The obvious move is delete all
+nine. Rejected: **five are `<see cref="FastTravelSign"/>` XML doc comments**, not code. Deleting
+them is right, but deleting them the same *way* as code is wrong — and one of them
+(`POIGenerator.cs:14`) referenced `FastTravelMenu`, a *second* deleted type that the type-level grep
+never surfaced. So: reword the doc references to `<c>` prose, delete the code. Confirmed the clean
+state with a second grep that returns only `<c>` mentions.
+
+The deeper point: **the grep for the deleted type's name succeeded and found exactly the right four
+files.** Nothing about that grep said "you are not done". The signal that the removal was incomplete
+came from a *different* observation — that the four files were producers feeding a deleted consumer
+— and I only made that observation by asking, per hit, *what is this line for?* rather than *does it
+name the deleted type?*. **CONFIRMED**, and it is the first clause of the new `AGENTS.md` rule 13.
+
+### H2 — is `FastTravelNode` a producer too, and should it go with them? — NO, it is a separate consumer
+
+`FastTravelNode` holds a `TravelSign` field and passes an `int index` into
+`FastTravelSign.Index`, so it looked like the same category of leftover. But:
+- it is still built by `POIGenerator.PlaceFastTravel` (`:145-150`),
+- it is still found by the streaming cull sweep (`NewWorldSystems.cs:166`,
+  `FindObjectsByType<FastTravelNode>`),
+- and `PoiKind.FastTravel` still exists in the enum.
+
+So it is reachable, just unpopulated — `POIRegistry.BuildAll()` registers **no** `PoiKind.FastTravel`
+entry (I enumerated every `PoiKind.` in the roster: 4 Town, 4 Dungeon, 4 BossArena, 4 Fishing, 1
+HiddenCave, 1 SkillBook, zero FastTravel). Deleting the class would have broken the cull sweep for
+no gain. **REJECTED deletion; kept the class, dropped only its `TravelSign` and the `index`
+parameter.** I dropped the parameter because with the sign gone nothing consumed the index — leaving
+an `int index` in a 2-arg-shaped signature is exactly the kind of "looks intentional" residue that
+invites the next reader to wonder what it was for.
+
+### H3 — does `PoiKind.FastTravel` with no producer count as dead code? — NO, it is dormant, and the doc now says so
+
+An enum member nothing constructs is a candidate for deletion, and deleting it would also let
+`POIDefinition.IsFastTravelPoint` and `WorldMapUI`'s `✈` go. But `IsFastTravelPoint` defaults to
+`true` and `POIRegistry.Make` sets it for **every** roster POI, so the `✈` marker is live on the
+world map right now. The enum member is the hook a future fast-travel implementation would use.
+**REJECTED deletion; documented in game-design §5.15 and §7.2 as "dormant, not dead code"** so the
+next session doesn't "clean up" the marker and break the map.
+
+### H4 — the silent failure: what happens to a pre-1hz save that contains a `NightClub`? — it corrupts the PREVIOUS building (this was the real find)
+
+This is the one I would have missed. `WorldBuilder.Persistence.cs:233` had:
+
+```csharp
+if (build.type == "PlayerHouse" || ... || build.type == "Library" || build.type == "NightClub")
+{
+    RebuildEssentialBuilding(...);          // no NightClub case any more -> appends nothing
+    var lastEssential = _buildings[_buildings.Count - 1];   // <- the PREVIOUS building
+    lastEssential.CurrentHealth = build.currentHealth;
+    ...
+    ApplySavedDoorState(lastEssential.Entity, build.doorOpen);
+}
+```
+
+No compiler error: a string `switch` with no matching `case` is perfectly legal, and `RebuildEssentialBuilding`
+returns void so nothing about the call shape is wrong either. The game loads, the player sees a
+village, and one building has the night club's health and an open club door.
+
+Before fixing it I checked the alternative is actually safe, rather than assuming. The candidate fix
+was to drop `"NightClub"` from the condition and let the entry fall through to the generic path at
+`:254`. That path is safe **if and only if** `SpawnBuildingDirect` returns `false` for an unknown
+type — so I read it: `CreateBuildingEntity` (`:429-430`) does
+`Array.Find(_availableBuildings, d => d.Name == typeName); if (def == null) return null;`, and
+`SpawnBuildingDirect` (`:551`) does `if (building == null) return false;`. The caller guards with
+`if (SpawnBuildingDirect(...)) { ... }`, so nothing is stamped. **Chain verified end to end before
+relying on it. CONFIRMED and fixed.**
+
+This is the second clause of rule 13, and the general form is the nasty part: **a `switch` that
+dispatches on a save key cannot fail to compile when a case disappears, so save keys need the same
+discipline as struct part keys** (rule 9's existing concern) — one more level out, because part keys
+at least have the builder-case parity check in `tools\StaticChecks.ps1` §6, and this one did not.
+
+### H5 — 14 dead localization keys, but is a key really dead? — yes, after checking the *dynamic* lookup path
+
+`Localization.cs` had a `// Horse & fast travel (Phase 3D)` block of 14 keys. Tempting to just delete
+it: the comment names two features 1hz removed. But **localization keys are looked up by string at
+runtime**, and I had just spent H1 learning that "the grep found what I expected" proves nothing.
+`Localization.T(vn)` is a one-way `Translations.TryGetValue(vn)` — so a key is live if *any* code
+passes that Vietnamese string, and the first grep I ran (regex with `.` wildcards against a
+mangled console) returned **50008 matches**, i.e. useless.
+
+So I re-ran it properly: `Select-String -SimpleMatch` per exact key, across all `.cs`. All 14 → 0
+references outside `Localization.cs`. Then, because "no literal in code" still isn't proof for a
+*string-keyed* dictionary, I checked the two remaining ways a key could arrive from data:
+- **dynamic `T()` call sites** — enumerated all 60+ non-literal `Localization.T`/`F` calls
+  (`CraftingManager:158`, `MapBuilder:268`, `QuestManager`, `UIManager.Endings`, the NPC `_dialogQueue`
+  dequeue pattern, `RandomEventManager:293`, …). The building-name ones that mattered were
+  `Localization.BuildingName(key)`, which is a **separate** dictionary keyed by *building type*
+  (`"wood_wall"`, `"library"`, …), not by these display strings. `MapBuilder._signDefs` uses
+  `"NHÀ HÀNG"` / `"CỬA HÀNG"`, not `"Trang Trại"` / `"Hộp Đêm & Nhà Hàng"`.
+- **data files** — only two JSON files under `Assets/Resources` (performance-test settings) and no
+  `.asset` carries these strings.
+
+**CONFIRMED dead, deleted.** Worth recording *how* the first attempt failed, because a regex grep that
+matches 50k lines is worse than no grep: it looks like a result.
+
+### H6 — the folder metas: are they really orphans, or is Unity about to recreate the folders? — orphans
+
+`git status` was clean for `Assets/Scripts/{Networking,NightClub,Vehicles}.meta` while the folders
+themselves were staged-deleted. So the metas were tracked, still on disk, and pointing at nothing.
+If Unity ever recreates one of those folders it would generate a *new* GUID anyway, so keeping the
+old meta has no upside and risks a GUID collision later. **CONFIRMED, `git rm`-ed all three.**
+
+### H7 — `_Recovery`: is deleting it from git the right call? — untrack, don't delete
+
+`Assets/_Recovery/` held 50 tracked files (`0.unity` … `0 (24).unity` and their metas) plus 2
+untracked. Two sub-questions:
+- *gitignore or delete?* The user chose ignore. Independently: these are Unity **recovery** scenes —
+  by definition throwaway artifacts of a crash or a bad scene edit, and the user still had 2 newer
+  ones on disk (`0 (25).unity`), which is the behaviour of a folder that keeps being written to.
+  Ignoring it stops the churn; deleting it would destroy the user's local safety net.
+- *`git rm --cached` or `git rm`?* `--cached` — the point is to stop tracking, not to take the
+  files away. Verified after the fact: 50 staged deletions, **52 files still on disk**, and
+  `git check-ignore -v` confirms all of them (including the 2 untracked and the previously-modified
+  `0 (24).unity.meta`) are now covered by `.gitignore:12`.
+
+Nice side effect: the two loose ends I'd flagged — the stray `0 (24).unity.meta` edit and the
+untracked `0 (25).unity` pair — stopped being problems without a separate decision.
+
+### H8 — could I have removed `com.unity.multiplayer.center` too? — deliberately no
+
+`Packages/manifest.json` still lists it. Nothing references it. Tempting to delete the line, but a
+package removal is a different kind of change from a code removal: it can re-resolve transitive
+dependencies and it is the kind of edit whose failure mode is "the editor reimports for ten
+minutes", not "one line is wrong". It also wasn't part of the removal the user asked for. **Left
+in place and documented in game-design §9.1 as unreferenced**, so it's a visible leftover rather
+than a forgotten one. OPEN if the user wants it gone.
+
+### H9 — the behavioural orphan, which neither grep can see
+
+`RichManNPC` had a full club-hangout state machine — `ClubHangState` {None, WalkingToClub, AtClub},
+`ClubIdleState` {Watching, Pacing}, `_clubStandSpot (8.5, 0, 98)`, two pace spots, `HandleClubHangout`,
+`FaceToward`, and a 19:00–21:00 window — all of it pacing around a building 1hz deleted. **No grep
+finds this.** The strings compile, the types exist, the code runs; it is simply walking an NPC around
+in an empty lot. It's the third clause of rule 13 and it is being removed in the follow-up commit,
+together with the two "quán bar" (bar) localization strings it owned.
+
+**One design consequence I had to decide rather than guess.** The hint at `RichManNPC.cs:228-231`
+("Phú Ông đang ở quán bar... chờ đến đêm khuya") is the player's *only* in-game cue for where and
+when the 21:00 dealer meeting happens — the other bar string (`:531`, in `StartDealCamera`) only
+fires once the player is already inside the ±12×±8 window, so it is a confirmation, not a discovery
+aid. Deleting the hangout therefore deletes the *only* breadcrumb. Two options: leave the story
+undiscoverable, or replace it with a day-gated, location-agnostic message. I chose the latter and
+flagged it for the user rather than silently dropping a quest step or silently inventing new text.
+
+### H10 — a bug my own edit introduced, caught by grep rather than by reasoning
+
+I removed the dungeon entrance sign block in `DungeonSystem.BuildLayout` including its
+`Vector3 doorDir = new Vector3(1f, 0f, 0f);` local, on the reasoning that the sign was the only
+thing placing anything along `doorDir`. Then, habit from rule 3, I grepped the removed block's
+identifiers for *other* readers instead of trusting the delete: `doorDir` is read 20 lines later at
+`:71` for the enemy spawn offset. Restored the declaration. This is the mirror image of H1/H9 — the
+same discipline (grep the thing you removed for readers elsewhere) that found the incomplete removal
+also caught the incompleteness of my own removal. Worth stating plainly because the alternative was
+shipping a definite-assignment error on the theory that the local "looked" unused.
+
+**Verdict: all hypotheses resolved except H8 (left open deliberately). 1hz shipped.**
+
+---
+
 ## 1hy — an uncommitted weapon-animation edit found in the tree — COMMITTED AS FOUND (dagger/gauntlets read as pastes, not tuning)
 
 Not an investigation I ran: a diff in the working tree that had survived 1hv, 1hw and 1hx uncommitted.

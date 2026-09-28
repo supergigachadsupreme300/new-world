@@ -4,7 +4,8 @@ using UnityEngine;
 /// <summary>
 /// Kinds of point of interest placed by <see cref="POIGenerator"/> (planning Task 5.3,
 /// game-design §7.2). Towns host NPCs/shops/crafting; dungeons hold rooms/enemies/boss/loot;
-/// boss arenas isolate a boss; fishing spots sit on water; fast-travel nodes become signs.
+/// boss arenas isolate a boss; fishing spots sit on water; fast-travel nodes become bonfire
+/// markers on the world map.
 /// </summary>
 public enum PoiKind
 {
@@ -21,7 +22,7 @@ public enum PoiKind
 /// <summary>
 /// A single point of interest definition (planning Task 5.3). Data-only so the generator can
 /// place it without hero-coding; <see cref="POIGenerator"/> turns each definition into a world
-/// object (fast-travel signs, town/shop/craft stations markers, dungeon spawns, boss, loot).
+/// object (town/shop/craft station markers, dungeon spawns, boss, loot).
 /// </summary>
 [CreateAssetMenu(fileName = "POI", menuName = "New World/World/Point of Interest", order = 71)]
 public class POIDefinition : ScriptableObject
@@ -48,7 +49,7 @@ public class POIDefinition : ScriptableObject
     public bool HasBoss;
 
     [Header("Fast Travel")]
-    [Tooltip("Register a FastTravelSign here so the fast-travel menu can list this POI.")]
+    [Tooltip("Mark this POI as a fast-travel point. 1hz removed the fast-travel menu, so this now only drives the \u2708 marker and the \"FT\" kind name on the world map (see WorldMapUI.Refresh).")]
     public bool IsFastTravelPoint = true;
 
     [Header("Content")]

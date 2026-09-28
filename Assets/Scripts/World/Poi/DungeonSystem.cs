@@ -6,8 +6,8 @@ using UnityEngine;
 /// A dungeon point of interest (planning Task 5.3, game-design §7.2 "Dungeons (combat, loot)").
 /// Builds a chain of rooms (procedural stand-ins), spawns biome-standard enemies per room via
 /// <see cref="EnemySpawner"/>, optionally seeds a <see cref="BossController"/> in the final room,
-/// drops a <see cref="LootContainer"/> on the boss, and registers a <see cref="FastTravelSign"/>
-/// so the fast-travel menu can reach the entrance.
+/// drops a <see cref="LootContainer"/> on the boss. 1hz removed the <c>FastTravelSign</c> it used to
+/// register, so the entrance is now just the entry room floor.
 /// </summary>
 public class DungeonSystem : MonoBehaviour
 {
@@ -26,7 +26,6 @@ public class DungeonSystem : MonoBehaviour
 
     public BossController Boss { get; private set; }
     public LootContainer BossChest { get; private set; }
-    public FastTravelSign TravelSign { get; private set; }
 
     public static DungeonSystem Build(Transform parent, Vector3 worldPosition, POIDefinition poi)
     {
@@ -49,15 +48,6 @@ public class DungeonSystem : MonoBehaviour
         Vector3 direction = new Vector3(0f, 0f, 1f);
         Vector3 doorDir = new Vector3(1f, 0f, 0f);
 
-        // Entrance fast-travel sign.
-        var signGo = new GameObject("DungeonSign");
-        signGo.transform.SetParent(transform);
-        signGo.transform.position = entry + doorDir * Definition.Radius * 0.9f;
-        TravelSign = signGo.AddComponent<FastTravelSign>();
-        TravelSign.Label = Definition.DisplayName;
-        var scol = signGo.AddComponent<BoxCollider>();
-        scol.isTrigger = true;
-        scol.size = new Vector3(1.2f, 1.6f, 0.5f);
         BuildRoomFloor(transform, "DungeonEntry", entry, Definition.Radius, new Color(0.42f, 0.42f, 0.46f));
 
         var spawner = EnemySpawner.Instance;

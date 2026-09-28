@@ -5,20 +5,20 @@ using UnityEngine;
 /// <summary>
 /// Places all points of interest on the world map (planning Task 5.3, game-design §7.2).
 /// Reads the <see cref="POIRegistry"/> roster and:
-///   • towns      → <see cref="Town"/> (NPCs/shops/crafting markers + fast travel + chest)
-///   • dungeons   → <see cref="DungeonSystem"/> (rooms, enemies, boss, loot, fast travel)
-///   • boss arenas→ <see cref="BossController"/> on a platform + fast travel
-///   • fishing    → a water marker + fast travel
+///   • towns      → <see cref="Town"/> (NPC/shop/crafting markers + chest)
+///   • dungeons   → <see cref="DungeonSystem"/> (rooms, enemies, boss, loot)
+///   • boss arenas→ <see cref="BossController"/> on a platform
+///   • fishing    → a water marker
 ///   • fast travel→ <see cref="FastTravelNode"/> (bonfire/sign)
-///   • caves/books→ a <see cref="LootContainer"/> treasure + fast travel
-/// Fast-travel indices are assigned in order so <see cref="FastTravelMenu"/> lists them cleanly.
+///   • caves/books→ a <see cref="LootContainer"/> treasure
+/// 1hz removed <c>FastTravelSign</c> and <c>FastTravelMenu</c>, so no POI carries a travel index
+/// any more: <see cref="FastTravelNode"/> survives purely as a world-map marker for
+/// <see cref="PoiKind.FastTravel"/>, and the per-POI sign props are gone.
 /// </summary>
 public class POIGenerator : MonoSingleton<POIGenerator>
 {
     [Tooltip("Where POIs are placed relative to; usually the world origin (0,0,0).")]
     public Vector3 Anchor = Vector3.zero;
-
-    private int _nextTravelIndex = 1;
 
     private readonly List<GameObject> _placed = new List<GameObject>();
 
@@ -62,14 +62,12 @@ public class POIGenerator : MonoSingleton<POIGenerator>
     private void PlaceTown(POIDefinition poi)
     {
         var town = Town.Build(transform, Anchor + poi.LocalPosition, poi);
-        AssignTravel(town.TravelSign);
         _placed.Add(town.gameObject);
     }
 
     private void PlaceDungeon(POIDefinition poi)
     {
         var dungeon = DungeonSystem.Build(transform, Anchor + poi.LocalPosition, poi);
-        AssignTravel(dungeon.TravelSign);
         _placed.Add(dungeon.gameObject);
     }
 
@@ -101,17 +99,6 @@ public class POIGenerator : MonoSingleton<POIGenerator>
         var player = GameObject.FindGameObjectWithTag("Player");
         if (player != null) boss.SetTarget(player.transform);
         bossGo.SetActive(true);
-
-        var signGo = new GameObject("ArenaSign");
-        signGo.transform.SetParent(root.transform);
-        signGo.transform.position = at + new Vector3(poi.Radius * 0.85f, 0f, poi.Radius * 0.85f);
-        _placed.Add(signGo);
-        var sign = signGo.AddComponent<FastTravelSign>();
-        sign.Label = poi.DisplayName;
-        AssignTravel(sign);
-        var scol = signGo.AddComponent<BoxCollider>();
-        scol.isTrigger = true;
-        scol.size = new Vector3(1.2f, 1.6f, 0.5f);
     }
 
     private void PlaceFishing(POIDefinition poi, Vector3 at)
@@ -129,23 +116,11 @@ public class POIGenerator : MonoSingleton<POIGenerator>
         var wcol = water.GetComponent<BoxCollider>();
         wcol.isTrigger = true;
         water.AddComponent<WaterVolume>();
-
-        var signGo = new GameObject("FishingSign");
-        signGo.transform.SetParent(root.transform, false);
-        signGo.transform.localPosition = new Vector3(poi.Radius * 1.1f, 0.5f, 0f);
-        _placed.Add(signGo);
-        var sign = signGo.AddComponent<FastTravelSign>();
-        sign.Label = poi.DisplayName;
-        AssignTravel(sign);
-        var scol = signGo.AddComponent<BoxCollider>();
-        scol.isTrigger = true;
-        scol.size = new Vector3(1.2f, 1.6f, 0.5f);
     }
 
     private void PlaceFastTravel(POIDefinition poi)
     {
-        var node = FastTravelNode.Build(transform, poi, _nextTravelIndex);
-        _nextTravelIndex++;
+        var node = FastTravelNode.Build(transform, poi);
         _placed.Add(node.gameObject);
     }
 
@@ -159,24 +134,6 @@ public class POIGenerator : MonoSingleton<POIGenerator>
         chest.GuaranteedItemId = poi.Kind == PoiKind.SkillBook ? "skill_book_heal" : "healing_potion";
         chest.GuaranteedCount = 1;
         chest.RequiresInteract = false;
-
-        var signGo = new GameObject("TreasureSign");
-        signGo.transform.SetParent(transform);
-        signGo.transform.position = at + new Vector3(poi.Radius, 0f, 0f);
-        _placed.Add(signGo);
-        var sign = signGo.AddComponent<FastTravelSign>();
-        sign.Label = poi.DisplayName;
-        AssignTravel(sign);
-        var scol = signGo.AddComponent<BoxCollider>();
-        scol.isTrigger = true;
-        scol.size = new Vector3(1.2f, 1.6f, 0.5f);
-    }
-
-    private void AssignTravel(FastTravelSign sign)
-    {
-        if (sign == null) return;
-        sign.Index = _nextTravelIndex;
-        _nextTravelIndex++;
     }
 
     private void OnDrawGizmosSelected()

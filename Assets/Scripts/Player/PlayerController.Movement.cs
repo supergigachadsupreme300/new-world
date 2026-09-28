@@ -17,8 +17,6 @@ public partial class PlayerController
 
     public bool InWater { get; private set; }
 
-    public bool IsRiding => HorseMount.Instance != null && HorseMount.Instance.IsMounted;
-
     public bool IsMoving
     {
         get
@@ -62,7 +60,7 @@ public partial class PlayerController
             mag = 1f;
         }
 
-        bool canSprint = !InWater && !IsRiding;
+        bool canSprint = !InWater;
         bool flying = IsFlying;
         bool sprint = canSprint && !flying &&
             ((Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed) ||
@@ -71,12 +69,12 @@ public partial class PlayerController
         var playerStats = StatsCached;
         float moveSpeedPerkMult = playerStats != null && playerStats.BaseMoveSpeed > 0f
             ? playerStats.MaxMoveSpeed / playerStats.BaseMoveSpeed : 1f;
-        float speed = IsRiding
-            ? RideSpeed * _waterSpeedMul
-            : (flying ? FlightSpeed : MoveSpeed * _waterSpeedMul * (sprint ? SprintMultiplier : 1f) * moveSpeedPerkMult);
+        float speed = flying
+            ? FlightSpeed
+            : MoveSpeed * _waterSpeedMul * (sprint ? SprintMultiplier : 1f) * moveSpeedPerkMult;
         _lastEffectiveSpeed = speed;
 
-        bool dodgePressed = !dialogBlocked && !IsRiding && !flying && _controller != null && _controller.isGrounded &&
+        bool dodgePressed = !dialogBlocked && !flying && _controller != null && _controller.isGrounded &&
             ((Keyboard.current != null && Keyboard.current.cKey.wasPressedThisFrame) ||
              (GameInput.IsMobile && MobileInputController.Consume("dodge")));
         if (dodgePressed && !_dodging && Stamina >= DodgeCost)
@@ -115,7 +113,7 @@ public partial class PlayerController
                     _velocity.y = -1f;
 
                 bool jumpPressed =
-                    _waterAllowJump && !dialogBlocked && !IsRiding && !_dodging &&
+                    _waterAllowJump && !dialogBlocked && !_dodging &&
                     ((Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame) ||
                      MobileInputController.Consume("jump"));
                 if (jumpPressed)

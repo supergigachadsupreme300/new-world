@@ -134,7 +134,7 @@ public sealed class PlayerAnimator : MonoBehaviour
             if (_pc == null) return;
         }
 
-        bool skip = _pc.IsSitting || _pc.IsRiding;
+        bool skip = _pc.IsSitting;
         if (skip)
         {
             RestoreIdle(0f);

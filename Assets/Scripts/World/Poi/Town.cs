@@ -5,7 +5,6 @@ using UnityEngine;
 /// <summary>
 /// A town point of interest (planning Task 5.3, game-design §7.2 "Towns (NPCs, shops,
 /// crafting)"). Composes the existing interaction contracts:
-///   • a <see cref="FastTravelSign"/> (+ trigger) lets the fast-travel menu list the town;
 ///   • shop NPC markers named "GroceryShopNPC"/"VendorNPC" open the existing vendor UI;
 ///   • crafting-station markers named per <see cref="CraftingManager.StationCategories"/>
 ///     (crafting_stove / preserve_jar / brewing_kettle) resolve through the player interaction;
@@ -24,7 +23,6 @@ public class Town : MonoBehaviour
     [Tooltip("Crafting station collider names resolved by CraftingManager.")]
     public string[] StationMarkers = { "crafting_stove", "preserve_jar", "brewing_kettle" };
 
-    public FastTravelSign TravelSign { get; private set; }
     public GameObject ShopRoot { get; private set; }
     public LootContainer Chest { get; private set; }
     public CraftingStation DiscoveryStation { get; private set; }
@@ -44,19 +42,6 @@ public class Town : MonoBehaviour
     private void PlaceMarkers(Transform root)
     {
         Vector3 origin = Vector3.zero;
-
-        // Fast travel sign (index assigned by the POI generator; label from display name).
-        var signGo = new GameObject("FastTravelSign");
-        signGo.transform.SetParent(root, false);
-        signGo.transform.localPosition = origin + new Vector3(0f, 0f, Definition.Radius * 0.8f);
-        TravelSign = signGo.AddComponent<FastTravelSign>();
-        TravelSign.Label = Definition.DisplayName;
-        var col = signGo.AddComponent<BoxCollider>();
-        col.isTrigger = true;
-        col.center = new Vector3(0f, 0.9f, 0f);
-        col.size = new Vector3(1.2f, 1.6f, 0.5f);
-        BuildMarkerCube("SignPost", signGo.transform, new Vector3(0.12f, 1.3f, 0.12f), new Vector3(0f, 0.65f, 0f),
-            new Color(0.55f, 0.4f, 0.22f));
 
         // Shop NPC marker that opens the existing vendor UI.
         ShopRoot = new GameObject(ShopMarkers.Length > 0 ? ShopMarkers[0] : "VendorNPC");

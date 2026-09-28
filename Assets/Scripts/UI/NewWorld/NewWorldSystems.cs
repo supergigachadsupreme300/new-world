@@ -16,8 +16,6 @@ public sealed class NewWorldSystems : MonoBehaviour
     public bool EnableInteraction = true;
     [Tooltip("Hide the legacy UIManager stat-text HUD, which the new HUD (bars, skill bar, menus) replaces. The 10-slot inventory bar, message/crosshair/quest panels are kept.")]
     public bool UseNewHud = true;
-    [Tooltip("Multiplayer overlay is a specialized HUD indicator; disable to avoid an idle poller by default.")]
-    public bool EnableMultiplayerIndicator = false;
 
     [Header("Phase 9 - Optimization")]
     public bool EnableObjectPooler = true;
@@ -54,7 +52,6 @@ public sealed class NewWorldSystems : MonoBehaviour
             Ensure<CompassMinimapHUD>();
             Ensure<SkillBarHUD>();
             Ensure<EnemyHealthBarHUD>();
-            if (EnableMultiplayerIndicator) Ensure<MultiplayerIndicatorHUD>();
         }
 
         if (EnableMenus)
@@ -64,7 +61,6 @@ public sealed class NewWorldSystems : MonoBehaviour
             Ensure<RaceStatSheetUI>();
             Ensure<InventoryEquipmentUI>();
             Ensure<WorldMapUI>();
-            Ensure<MultiplayerBrowserUI>();
             Ensure<CharacterInfoUI>();
         }
 
@@ -190,7 +186,6 @@ public sealed class NewWorldSystems : MonoBehaviour
     public void ShowRaceStatSheet() => Menu<RaceStatSheetUI>()?.Show();
     public void ShowInventory() => Menu<InventoryEquipmentUI>()?.Show();
     public void ShowWorldMap() => Menu<WorldMapUI>()?.Show();
-    public void ShowMultiplayerBrowser() => Menu<MultiplayerBrowserUI>()?.Show();
     public void ShowCharacterInfo() => Menu<CharacterInfoUI>()?.Show();
 
     private T Menu<T>() where T : MenuPanelBase

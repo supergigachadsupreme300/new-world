@@ -4,7 +4,7 @@
 
 **Genre:** Open-World Action RPG (Elden Ring-inspired)
 **Platform:** Unity (PC primary, Mobile secondary)
-**Multiplayer:** Dedicated server with co-op/invasion/arena
+**Multiplayer:** None — single-player. 1hz removed the whole networking layer (see §4, §6.4).
 **Core Loop:** Explore → Fight → Grow → Craft → Dominate
 
 Seamless open-world with real-time action combat, classless progression via a **6-category skill-XP system**, an **11-stat** system, **15 unlockable classes**, and a **22-race system** (with passive-only racial kits), procedurally generated seed-based chunk terrain, and all existing CountryLife systems retained as optional side content. Combat is built on a **3-genre equipment** set (21 slots), an expandable **weapon architecture** (§3.6, Melee/Ranged/Magic), a **spell-casting pipeline** (§3.8) for magic, and **10 damage types** with **7 status effects** (§3.7).
@@ -18,7 +18,7 @@ Seamless open-world with real-time action combat, classless progression via a **
 - Every world defined by a **numeric seed** (long).
 - World infinite in XZ plane, divided into **1x1 unit chunks**.
 - Each chunk identified by **(chunkX, chunkZ)** integer pair.
-- Same seed + coordinate always produces identical chunk (shared worlds on dedicated server).
+- Same seed + coordinate always produces identical chunk (so a seed alone is enough to describe a world).
 
 ### 2.2 Chunk Structure (900 Flat Tiles, 31x31 Corner Grid)
 
@@ -558,7 +558,7 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   blast tolerance alone would never catch it; the floor reverts to `_lastSafePosition` instead of
   letting the player fall forever.
 - **Teleport routing:** every intentional teleport goes through `PlayerController.TeleportTo`
-  (spawn/respawn, fast travel, sleep, load-game, test-platform entry), which stamps the destination as
+  (spawn/respawn, sleep, load-game, test-platform entry), which stamps the destination as
   the new "last safe" position so the fail-net never false-positives on legit relocation.
 
 ### 2.9 Voxel Terrain — Stepped-World Mode (1et experimental; smooth is the default again since 1ev)
@@ -1599,40 +1599,24 @@ progression-by-progression grows.
 
 ---
 
-## 4. Multiplayer System (Dedicated Server)
+## 4. Multiplayer System (Dedicated Server) — REMOVED in 1hz
 
-### 4.1 Architecture
+**This whole section is removed code, not planned work.** 1hz deleted the networking layer outright;
+see §6.4 for the exact set. The section number is kept only so the surviving `§4` cross-reference
+in §5.11 (player trading) still resolves.
 
-- **Dedicated server** runs the authoritative world state.
-- Players connect as **clients**.
-- Server handles: chunk generation, enemy AI, loot drops, world state, anti-cheat.
-- Client handles: input, rendering, audio, local effects.
+What went:
 
-### 4.2 Multiplayer Modes
+| Removed | Was |
+|---------|-----|
+| `Assets/Scripts/Networking/*` (16 scripts) | connection/session/server/anti-cheat plumbing |
+| `UI/NewWorld/MultiplayerBrowserUI` | server browser, friends, party |
+| `UI/NewWorld/MultiplayerIndicatorHUD` | player nameplates, health bars, cast bars |
+| `Packages/manifest.json: com.unity.multiplayer.center` | still present; no code referenced it |
 
-| Mode | Description | Players |
-|------|-------------|---------|
-| **Solo** | Play alone on a server (local or remote) | 1 |
-| **Co-op** | Invite friends to your world | 2-4 |
-| **Invasion** | Hostile players enter your world to fight | 1-6 |
-| **Arena** | PvP duel zones with matchmaking | 2-8 |
-| **World Boss** | Open-world bosses with multiplayer participation | 4-16 |
-
-### 4.3 Networking Requirements
-
-- Chunk synchronization (server generates, clients receive height data).
-- Player position/action synchronization.
-- Enemy state sync (AI, health, attacks).
-- Loot synchronization.
-- Chat/text communication.
-- Matchmaking and session management.
-
-### 4.4 Anti-Cheat
-
-- Server-authoritative damage calculation.
-- Position validation (no teleport hacking).
-- Action rate limiting.
-- Chunk data integrity checks.
+There is **no** multiplayer mode, co-op, invasion, arena, matchmaking or chat in this project.
+"Open-world" refers to the streamed terrain (§2), not to shared worlds. Player trading is not
+implemented and was never shippable without a server (§5.11).
 
 ---
 
@@ -1877,7 +1861,10 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
   and **locked** state; LMB place, F cancel. Blueprint type selection is via the UI menu —
   the legacy **B/N** cycling key is **not implemented**.
 - **Blueprints** are learned at the **library** for gold 🪙.
-- Buildings: house, mansion, restaurant, café, library, night club, watchtower, walls (plus the pagoda).
+- Buildings: house, mansion, restaurant, café, library, watchtower, walls (plus the pagoda).
+  The **night club** was removed in 1hz (see §6.4) — `ClubExteriorBuilder` and
+  `MapBuilder.Nightclub` are gone, and no blueprint, `RebuildEssentialBuilding` case, or
+  registry entry remains.
 - Player homes can be built/decorated; **chests** for storage (`ChestStorageManager`), with
   **crafting stations** and **farming plots** attached.
 - Walls and watchtowers defend the farm; **storms/earthquakes/tornadoes** (events) can damage buildings.
@@ -1887,7 +1874,8 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
 - Gold (🪙) is the unit; earn by selling produce, fish, quest rewards, and restaurant/café income.
 - **Vendors and shops** in towns (`VendorShopManager`, `BuffaloShopManager`) with buy/sell tabs
   and price multipliers.
-- Player trading intended via dedicated server (`§4`).
+- Player trading is **not implemented**; it was designed around a dedicated server, which 1hz
+  removed (`§4`), so there is nothing to trade *with* any more.
 
 ### 5.12 Quests
 
@@ -1927,7 +1915,13 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
 
 ### 5.15 Meta Systems
 
-- **Fast travel**: road **signs** (`FastTravelSign`) open `FastTravelMenu` (scrollable list).
+- **Fast travel is REMOVED in 1hz** (`FastTravelSign` + `FastTravelMenu` deleted; see §6.4). What
+  survives is the *map marker* half: `PoiKind.FastTravel` / `POIDefinition.IsFastTravelPoint` still
+  drive the `✈` glyph and the `FT` kind name in `WorldMapUI.Refresh`, and `FastTravelNode` is still
+  built by `POIGenerator` as a bonfire stand-in. `POIRegistry` currently registers **no**
+  `PoiKind.FastTravel` entry, so no bonfire actually spawns — the marker path is dormant, not dead
+  code, and is what a future fast-travel implementation would hang off. Nothing teleports the
+  player any more: the road signs only ever opened the menu that no longer exists.
 - **Save/Load**: multi-slot `SaveManager` (PlayerPrefs last-slot memory); **sleep on the bed** to save.
 - **Settings**: mouse/touch sensitivity, invert Y, language (**Tiếng Việt / English**), PC / Mobile mode.
 - **Game Stats** (`UIManager.HUD`): wheat harvested, enemies defeated, money earned, money stolen.
@@ -2008,6 +2002,30 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
 - **B/N building-type cycling key** in the build menu — not implemented; blueprint selection is
   done through the UI menu only (§5.10).
 
+#### 1hz — the feature-removal pass
+
+Five features were deleted in one pass. 29 scripts, 16 of them the `Networking/` folder, plus 29
+`.meta` files and the three now-orphaned folder metas (`Networking.meta`, `NightClub.meta`,
+`Vehicles.meta`).
+
+| Removed | Files | What replaced it |
+|---------|-------|------------------|
+| **Multiplayer / dedicated server** | `Scripts/Networking/*` (16), `UI/NewWorld/MultiplayerBrowserUI`, `UI/NewWorld/MultiplayerIndicatorHUD` | nothing — the project is single-player (§4) |
+| **Night club** | `Models/ClubExteriorBuilder`, `Models/MapBuilder.Nightclub`, the whole `Scripts/NightClub/` folder | nothing; the club site is now a fixed vector on the rich-man dealer path (§5.8) |
+| **Fast travel** | `Vehicles/FastTravelSign`, `UI/FastTravelMenu`, `World/WorldBuilder.FastTravel` | the `✈` map marker only (§5.15, §7.2) |
+| **Horse riding** | `Vehicles/HorseMount` | `Models/HorseModelBuilder` survives — the ending cutscene still spawns a horse |
+| **The `Recovery` scene dump** | 50 tracked files under `Assets/_Recovery/` | `.gitignore`d; the files stay on disk, untracked |
+
+Two consequences worth naming, because neither is a compile error:
+
+- **A save key outlived its builder.** `"NightClub"` was still in the essential-building restore
+  list in `WorldBuilder.Persistence.cs` while its `RebuildEssentialBuilding` case was gone, so a
+  pre-1hz save stamped the club's health/door/part state onto the *previous* building. Fixed in
+  `LoadBuildingsFromSave` (see §9.3).
+- **Producers outlived their consumer.** Four POI files kept constructing `FastTravelSign` objects
+  for a menu that no longer existed, so the deletion did not compile until each producer was
+  removed too. This is the subject of the new `AGENTS.md` rule 13.
+
 ---
 
 ## 7. World Design
@@ -2079,12 +2097,15 @@ Training dummies are `Immortal` and never die, so they never burst.
 - Towns (NPCs, shops, crafting)
 - Dungeons (combat, loot)
 - Boss arenas
-- Fast travel points
 - Fishing spots
 - Farming zones
 - Player housing plots
 - Hidden caves and secrets
 - Skill book locations
+
+Fast travel points are **not** a placed POI in 1hz: `PoiKind.FastTravel` has no registry entry
+(see §5.15, §6.4). The `✈` marker still keys off `POIDefinition.IsFastTravelPoint`, which every
+roster POI sets, so the world map still annotates towns/dungeons/arena/fishing/treasure with it.
 
 ### 7.3 Day/Night Cycle
 
@@ -2109,14 +2130,14 @@ Training dummies are `Immortal` and never die, so they never burst.
 - Compass/map (top)
 - Skill bar (bottom center, 6-8 slots)
 - Minimap with chunk boundaries (toggle)
-- Multiplayer indicators (player names, health bars)
 - Enemy health bars (anchored to each enemy's model head during combat — the bar height is measured
   per enemy from the model's highest renderer, not a fixed offset, so small enemies (slime, bat) don't
   get bars floating far above them; bars stay glued to the head while the enemy moves)
 
 ### 8.2 Menus
 
-- Main Menu (New Game, Continue, Multiplayer, Settings)
+- Main Menu (New Game, Continue, Settings) — the **Multiplayer** entry and
+  `MultiplayerBrowserUI` were removed in 1hz (§6.4)
 - Pause Menu (Inventory, Skills, Map, Quests, Settings, Quit)
 - **Skills menu** — one **giant radial skill tree** (hub + branching layers) per SkillCatalog category,
   built in code (no asset files), grouped into colored sectors (Melee / Ranged / Magic / Stealth /
@@ -2148,8 +2169,8 @@ Training dummies are `Immortal` and never die, so they never burst.
   summary row.
 - Race & Stat Sheet (current race, stats, skill XP, classes)
 - Inventory Menu (equipment, items, materials, consumables)
-- Map Menu (world map with biome overlay, POIs, player markers)
-- Multiplayer Menu (server browser, friends, party)
+- Map Menu (world map with biome overlay, POIs, player markers) — POI rows carry the `✈`
+  fast-travel marker from `IsFastTravelPoint`; see §5.15 for why the feature behind it is gone.
 
 ### 8.3 Interaction Prompts
 
@@ -2166,7 +2187,8 @@ Training dummies are `Immortal` and never die, so they never burst.
   absorbed: `Object.GetEntityId()` replaces the now-obsolete `GetInstanceID()`, and
   `Physics.OverlapBoxNonAlloc` takes the results buffer before the orientation.
 - Universal Render Pipeline (URP) for performance
-- Dedicated server framework (Netcode structure)
+- No Netcode / networking package; `com.unity.multiplayer.center` remains in `Packages/manifest.json`
+  but nothing references it (1hz §4, §6.4)
 
 ### 9.2 Target Performance
 
@@ -2228,7 +2250,13 @@ The active PC URP config — QualitySettings level 1 → `PC_RPAsset.asset` guid
 - Chunks: one binary `.dat` per terrain chunk (`worlds/{seed}/tc_{x}_{z}.dat`), storing only
   locally-deformed tiles (§2.6)
 - Player: JSON save file (stats, inventory, position, skills, world flags)
-- Server: authoritative world state stored server-side
+- Buildings: the `NightClub` entry is **no longer** in the essential-building restore list in
+  `WorldBuilder.Persistence.LoadBuildingsFromSave`, so a pre-1hz save carrying one falls through
+  to the generic path, where `SpawnBuildingDirect` returns `false` for an unknown type and the
+  entry is skipped. Listing a type there without a matching `RebuildEssentialBuilding` case was
+  worse than a compile error: the builder appended nothing and
+  `_buildings[_buildings.Count - 1]` stamped the club's health/door/part state onto the
+  **previous** building.
 
 ---
 
