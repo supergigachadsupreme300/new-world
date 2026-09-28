@@ -154,14 +154,15 @@ minutes", not "one line is wrong". It also wasn't part of the removal the user a
 in place and documented in game-design §9.1 as unreferenced**, so it's a visible leftover rather
 than a forgotten one. OPEN if the user wants it gone.
 
-### H9 — the behavioural orphan, which neither grep can see
+### H9 — the behavioural orphan, which neither grep can see — CONFIRMED, REMOVED in the follow-up
 
 `RichManNPC` had a full club-hangout state machine — `ClubHangState` {None, WalkingToClub, AtClub},
 `ClubIdleState` {Watching, Pacing}, `_clubStandSpot (8.5, 0, 98)`, two pace spots, `HandleClubHangout`,
 `FaceToward`, and a 19:00–21:00 window — all of it pacing around a building 1hz deleted. **No grep
 finds this.** The strings compile, the types exist, the code runs; it is simply walking an NPC around
-in an empty lot. It's the third clause of rule 13 and it is being removed in the follow-up commit,
-together with the two "quán bar" (bar) localization strings it owned.
+in an empty lot. It's the third clause of rule 13, and the follow-up commit removed it: the state
+machine, the pace spots, the idle timer, the watch/pace loop and both "quán bar" (bar) strings are
+all gone.
 
 **One design consequence I had to decide rather than guess.** The hint at `RichManNPC.cs:228-231`
 ("Phú Ông đang ở quán bar... chờ đến đêm khuya") is the player's *only* in-game cue for where and
@@ -170,6 +171,18 @@ fires once the player is already inside the ±12×±8 window, so it is a confirm
 aid. Deleting the hangout therefore deletes the *only* breadcrumb. Two options: leave the story
 undiscoverable, or replace it with a day-gated, location-agnostic message. I chose the latter and
 flagged it for the user rather than silently dropping a quest step or silently inventing new text.
+**Shipped as chosen**: one toast per evening from `DEAL_HOUR - 2f`, day 3+, undiscovered — "Phú Ông
+hay ra ngoài vào ban đêm... hãy tìm hắn." / "The rich man slips out at night... find him." It names
+no building, because the building is gone; the deal site stays a hard-coded vector the player is
+expected to find by exploring, which is a weaker quest than the deleted hangout but a live one.
+
+**Second thing the removal forced, and it is a rule 10 shape.** The hour 21:00 was written **twice**,
+independently: `TryStartDeal` had a bare `TimeOfDay < 21f` and `ForceStartDealForWatch` had
+`SetTimeOfDay(CLUB_WINDOW_END)` where `CLUB_WINDOW_END == 21f`. Deleting the window left the second
+site with no constant to name, and keeping the first would have left a bare magic number guarding
+the whole deal. Both now read `DEAL_HOUR`, and the hint's 19:00 is derived as `DEAL_HOUR - 2f` so
+there is exactly one hour in the file. Same failure mode as the 84-unit Character Info band: a
+metric two code paths must agree on, written twice, where the two only agreed by luck.
 
 ### H10 — a bug my own edit introduced, caught by grep rather than by reasoning
 
@@ -182,7 +195,8 @@ same discipline (grep the thing you removed for readers elsewhere) that found th
 also caught the incompleteness of my own removal. Worth stating plainly because the alternative was
 shipping a definite-assignment error on the theory that the local "looked" unused.
 
-**Verdict: all hypotheses resolved except H8 (left open deliberately). 1hz shipped.**
+**Verdict: all hypotheses resolved except H8 (left open deliberately). 1hz shipped; H9 shipped in
+the follow-up commit (`1hz follow-up` in PROGRESS.md).**
 
 ---
 

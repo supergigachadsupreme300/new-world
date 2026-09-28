@@ -18,8 +18,7 @@ private Transform _myTransform;
     private const float VISIT_DURATION = 6f;
     private const float DEAL_RANGE = 7f;
     private const int DEAL_START_DAY = 3;
-    private const float CLUB_WINDOW_START = 19f;
-    private const float CLUB_WINDOW_END = 21f;
+    private const float DEAL_HOUR = 21f;
     private const float DEAL_CAM_MAX_TIME = 40f;
     private const float DEAL_CAM_REVEAL_DELAY = 3f;
     private static readonly Vector3 DealCamOffset = new Vector3(0f, 4f, 5.5f);
@@ -49,20 +48,7 @@ private Transform _myTransform;
     private float _meetingTimer;
     private int _lastDealDay = -1;
     private bool _richAtMeeting;
-    private int _clubHintedDay = -1;
-
-    private enum ClubHangState { None, WalkingToClub, AtClub }
-    private ClubHangState _clubHangState = ClubHangState.None;
-    private readonly Vector3 _clubStandSpot = new Vector3(8.5f, 0f, 98f);
-    private readonly Vector3[] _clubPaceSpots =
-    {
-        new Vector3(8.2f, 0f, 95.6f),
-        new Vector3(8.5f, 0f, 101.4f),
-    };
-    private enum ClubIdleState { Watching, Pacing }
-    private ClubIdleState _clubIdleState = ClubIdleState.Watching;
-    private float _clubIdleTimer;
-    private int _clubPaceIndex;
+    private int _dealHintedDay = -1;
 
     private readonly List<Vector3> _waypoints = new List<Vector3>();
     private int _waypointIndex;
@@ -85,11 +71,12 @@ private Transform _myTransform;
     private CameraFollow _dealCamFollow;
 
     /// <summary>
-    /// Where the night club stood in the legacy village. 1hz removed the club and its builder, so the
-    /// dealer-story "is the player near the club" window now reads this fixed site instead of looking
-    /// up a NightClubController that no longer exists.
+    /// The dealer meeting site. 1hz removed the night club that used to stand here and its
+    /// controller, so the story's "is the player near the site" window reads this fixed vector
+    /// instead of asking a building that no longer exists. The 21:00 deal, its camera and the
+    /// bribe/leave rows all still key off it - only the club vocabulary is gone.
     /// </summary>
-    private static readonly Vector3 ClubCenter = new Vector3(0f, 0f, 95f);
+    private static readonly Vector3 DealSiteCenter = new Vector3(0f, 0f, 95f);
 
     private bool _debugForceDeal;
 
@@ -184,14 +171,13 @@ private Transform _myTransform;
         bool night = hour >= 18f || hour < 6f;
         int today = GameManager.Instance.CurrentDay;
 
-        // The nightly drug deal takes priority: after 21h (day 3+) it starts,
-        // interrupting any wife visit or club hangout so the player can catch him.
-        // Dealt with before the proximity check so standing close to him (e.g. in
-        // the club) never stalls the deal or the cinematic.
+        // The nightly drug deal takes priority: from DEAL_HOUR on (day 3+) it starts,
+        // interrupting any wife visit so the player can catch him. Dealt with before
+        // the proximity check so standing close to him (e.g. at the deal site) never
+        // stalls the deal or the cinematic.
         if (TryStartDeal())
         {
             _visitState = VisitState.AtHome;
-            _clubHangState = ClubHangState.None;
             _hasPatrolTarget = false;
             _pathDirty = true;
         }
@@ -217,51 +203,19 @@ private Transform _myTransform;
             return;
         }
 
-        // Day 3+: hang out at the club entrance 19:00-21:00 so the player can
-        // spot him at night and follow him to the drug deal at 21:00.
-        bool clubWindow = today >= DEAL_START_DAY && !Discovered && hour >= CLUB_WINDOW_START && hour < CLUB_WINDOW_END;
-        if (clubWindow && IsPlayerInClub())
+        // 1hz removed the night club this NPC used to hang out in front of, and with it the
+        // 19:00-21:00 window that walked him out to the entrance. The DEAL_HOUR meeting is
+        // unchanged, but its only in-game breadcrumb went with the hangout, so this stays as
+        // a one-per-day, location-agnostic nudge: it tells the player he is out at night
+        // without naming a building that no longer exists or a spot they have no way to find.
+        if (today >= DEAL_START_DAY && !Discovered && hour >= DEAL_HOUR - 2f && hour < DEAL_HOUR)
         {
-            if (_clubHintedDay != today)
+            if (_dealHintedDay != today)
             {
-                _clubHintedDay = today;
+                _dealHintedDay = today;
                 GameManager.Instance?.UIManager?.ShowMessage(
-                    Localization.T("Phú Ông đang ở quán bar... chờ đến trong đêm khuya."), 3.5f);
+                    Localization.T("Phú Ông hay ra ngoài vào ban đêm... hãy tìm hắn."), 3.5f);
             }
-        }
-        if (clubWindow)
-        {
-            if (_clubHangState == ClubHangState.None)
-            {
-                _clubHangState = ClubHangState.WalkingToClub;
-                _visitState = VisitState.AtHome;
-                _hasPatrolTarget = false;
-                _pathDirty = true;
-            }
-        }
-        else if (_clubHangState != ClubHangState.None)
-        {
-            _clubHangState = ClubHangState.None;
-            _visitState = VisitState.WalkingHome;
-            _hasPatrolTarget = false;
-            _pathDirty = true;
-        }
-
-        if (_clubHangState == ClubHangState.WalkingToClub)
-        {
-            if (_pathDirty)
-            {
-                BuildPath(_clubStandSpot);
-                _pathDirty = false;
-            }
-            if (MoveAlongPath(WALK_SPEED))
-                _clubHangState = ClubHangState.AtClub;
-            return;
-        }
-        if (_clubHangState == ClubHangState.AtClub)
-        {
-            HandleClubHangout();
-            return;
         }
 
         switch (_visitState)
@@ -335,52 +289,7 @@ private Transform _myTransform;
         GameManager.Instance?.UIManager?.ShowMessage(
             Localization.T("Ông chú giàu có lại sang nhà Jessica giữa đêm..."), 3f);
     }
-    private void HandleClubHangout()
-    {
-        switch (_clubIdleState)
-        {
-            case ClubIdleState.Watching:
-            {
-                if (_clubIdleTimer <= 0f) _clubIdleTimer = 2.5f;
-                _clubIdleTimer -= Time.deltaTime;
-                FaceToward(new Vector3(26f, 0f, 95f), 2.5f);
-                if (_clubIdleTimer <= 0f)
-                {
-                    _clubIdleState = ClubIdleState.Pacing;
-                    _pathDirty = true;
-                }
-                break;
-            }
-            case ClubIdleState.Pacing:
-            {
-                if (_pathDirty)
-                {
-                    BuildPath(_clubPaceSpots[_clubPaceIndex]);
-                    _pathDirty = false;
-                }
-                if (MoveAlongPath(WALK_SPEED * 0.85f))
-                {
-                    _clubPaceIndex = 1 - _clubPaceIndex;
-                    _clubIdleState = ClubIdleState.Watching;
-                    _clubIdleTimer = 2f + UnityEngine.Random.value * 2.5f;
-                }
-                break;
-            }
-        }
-    }
-    private void FaceToward(Vector3 worldPos, float speed)
-    {
-        if (_myTransform == null)
-            return;
-        Vector3 to = worldPos - _myTransform.position;
-        to.y = 0f;
-        if (to.sqrMagnitude < 0.001f)
-            return;
-        _myTransform.rotation = Quaternion.Slerp(
-            _myTransform.rotation,
-            Quaternion.LookRotation(-to.normalized),
-            speed * Time.deltaTime);
-    }
+
     private bool TryStartDeal()
     {
         if (_dealState != DealState.None) return false;
@@ -389,7 +298,7 @@ private Transform _myTransform;
         int today = GameManager.Instance.CurrentDay;
         if (today < DEAL_START_DAY) return false;
         if (_lastDealDay == today) return false;
-        if (GameManager.Instance.TimeOfDay < 21f) return false;
+        if (GameManager.Instance.TimeOfDay < DEAL_HOUR) return false;
         _lastDealDay = today;
         _dealState = DealState.WalkingToMeeting;
         _richAtMeeting = false;
@@ -409,7 +318,6 @@ private Transform _myTransform;
         _lastDealDay = -1;
         _dealState = DealState.None;
         _richAtMeeting = false;
-        _clubHangState = ClubHangState.None;
         _visitState = VisitState.AtHome;
         _hasPatrolTarget = false;
         _pathDirty = true;
@@ -429,7 +337,7 @@ private Transform _myTransform;
 
         if (gm.CurrentDay < DEAL_START_DAY)
             gm.CurrentDay = DEAL_START_DAY;
-        gm.SetTimeOfDay(CLUB_WINDOW_END);
+        gm.SetTimeOfDay(DEAL_HOUR);
 
         var pc = gm.Player;
         if (pc != null)
@@ -476,7 +384,7 @@ private Transform _myTransform;
                 _dealCamLeaveTimer = 0f;
                 return;
             }
-            if (!IsPlayerInClub())
+        if (!IsPlayerAtDealSite())
             {
                 StopDealCamera();
                 return;
@@ -495,7 +403,7 @@ private Transform _myTransform;
         if (Discovered) return;
         if (_dealCamRefused) return;
         if (_dealState != DealState.WalkingToMeeting && _dealState != DealState.Meeting) return;
-        if (!IsPlayerInClub()) return;
+        if (!IsPlayerAtDealSite()) return;
         StartDealCamera();
     }
     private void StartDealCamera()
@@ -528,7 +436,7 @@ private Transform _myTransform;
         _dealAutoRevealed = false;
         FrameDealCamera();
         GameManager.Instance?.UIManager?.ShowMessage(
-            Localization.T("Phú Ông lén lút tiến về phía quán bar giữa đêm..."), 2.5f);
+            Localization.T("Phú Ông lén lút đến chỗ hẹn giữa đêm..."), 2.5f);
     }
     private void StopDealCamera()
     {
@@ -568,12 +476,12 @@ private Transform _myTransform;
         _dealCam.transform.rotation = Quaternion.LookRotation(
             focus + DealCamLookUp - _dealCam.transform.position);
     }
-    private bool IsPlayerInClub()
+    private bool IsPlayerAtDealSite()
     {
         var gm = GameManager.Instance;
         if (gm == null || gm.Player == null)
             return false;
-        Vector3 d = gm.Player.transform.position - ClubCenter;
+        Vector3 d = gm.Player.transform.position - DealSiteCenter;
         return Mathf.Abs(d.x) < 12f && Mathf.Abs(d.z) < 8f;
     }
     private void UpdateDeal()
@@ -669,7 +577,6 @@ private Transform _myTransform;
         }
         _dealState = DealState.None;
         _richAtMeeting = false;
-        _clubHangState = ClubHangState.None;
         _visitState = VisitState.WalkingHome;
         _hasPatrolTarget = false;
         _pathDirty = true;

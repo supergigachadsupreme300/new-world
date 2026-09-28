@@ -1832,7 +1832,13 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
 - **Jessica** (the neighbor girl): befriend via gifting, romance, and **marry** her — `WifeNPC`
   (marriage gated at **day 5**; wife lives in the mansion, dialog + per-day events).
 - **Phú Ông / The Rich Man**: guards a secret behind the mansion — stake out at night and
-  **report to the police** (story quest "Bí Mật Của Phú Ông").
+  **report to the police** (story quest "Bí Mật Của Phú Ông"). The nightly drug deal starts from
+  **21:00 on day 3** (`DEAL_HOUR` / `DEAL_START_DAY` in `RichManNPC`); the camera, bribe and leave
+  rows all trigger inside a ±12 × ±8 m box around the **deal site** at `(0, 0, 95)` — the plot of
+  land the night club used to occupy. 1hz removed the club *and* the NPC's 19:00–21:00 hangout
+  routine that walked him to its entrance, so the breadcrumb is now one location-agnostic
+  message per evening ("The rich man slips out at night... find him.") rather than a sign pointing
+  at a building that is no longer there. See §6.4.
 - **The Monk** (pagoda meditation/exorcism), **The Librarian** (holds every blueprint),
   and village merchants: **Fishing Shop**, **Chef**, **Café**, **Buffalo Shop**.
 - **Friendship system**: gift villagers with hotbar items via number keys; some NPCs dislike
@@ -2025,6 +2031,13 @@ Two consequences worth naming, because neither is a compile error:
 - **Producers outlived their consumer.** Four POI files kept constructing `FastTravelSign` objects
   for a menu that no longer existed, so the deletion did not compile until each producer was
   removed too. This is the subject of the new `AGENTS.md` rule 13.
+- **A behavioural outlived its place.** `RichManNPC` kept a full nightly routine — a 19:00–21:00
+  window, a path to the club entrance, a watch/pace idle loop, and a "he is at the bar" toast —
+  pacing the player around a lot 1hz had emptied. Removed in the 1hz follow-up: the state machine,
+  the pace spots, the idle timer and both bar strings are gone, and `IsPlayerInClub` /
+  `ClubCenter` are now `IsPlayerAtDealSite` / `DealSiteCenter` (same coordinates, §5.8). The deal
+  itself is untouched — `DEAL_HOUR` (21:00) is now the single named constant for the hour, so
+  `TryStartDeal` and `ForceStartDealForWatch` cannot drift apart again.
 
 ---
 

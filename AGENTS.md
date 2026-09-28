@@ -224,8 +224,15 @@
     - **A behavioural orphan is invisible to every grep.** `RichManNPC` kept an entire state machine
       (`ClubHangState`, `ClubIdleState`, pace spots, `HandleClubHangout`, a 19:00–21:00 window) pacing
       the player around a building 1hz deleted. Every symbol resolved, the file compiled, the code
-      ran — it was just an NPC walking an empty lot. Removing a *place* means re-reading whatever
-      *story* pointed at it, and that is a human read, not a search.
+      ran — it was just an NPC walking an empty lot; the 1hz follow-up commit removed it. Removing a
+      *place* means re-reading whatever *story* pointed at it, and that is a human read, not a search.
+      Two things a removal like this also takes with it that no compile error names: **the breadcrumb
+      the behaviour was the player's only lead for** (that hangout's "he is at the bar" toast was the
+      only in-game cue for the 21:00 deal, so the deletion silently made a quest step
+      undiscoverable — replace it or say so), and **any constant the deleted block shared with
+      surviving code** (its `CLUB_WINDOW_END` was a second, independent spelling of the deal's 21:00,
+      so removing it left `TryStartDeal`'s bare `TimeOfDay < 21f` as the only remaining hour; both now
+      read one `DEAL_HOUR`).
     Two corollaries for the mechanics of the sweep itself:
     - **Deleting a block deletes its locals, and a local is in scope for the whole method.** Removing
       `DungeonSystem`'s sign block took `Vector3 doorDir` with it, but `doorDir` is read 20 lines

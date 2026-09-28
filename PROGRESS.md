@@ -4,6 +4,61 @@ Last updated: 2026-09-28. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1hz follow-up. The behavioural orphan: `RichManNPC`'s night-club hangout is gone, the 21:00 deal is not
+
+The 1hz pass deleted the night club and then handed me three greps. All three came back clean,
+and the tree still shipped a **behavioural orphan** — the third residue class of the new rule 13:
+every symbol resolved, the file compiled, the code ran, and it was just an NPC walking an empty lot.
+`RichManNPC` had carried a complete nightly routine aimed at the deleted building: a 19:00–21:00
+window (`CLUB_WINDOW_START` / `CLUB_WINDOW_END`), a path out to the club entrance, a
+`ClubHangState` → `ClubIdleState` machine with watch/pace spots, and a toast saying he was at the
+bar. The *type* was gone, so the grep for the type said there was nothing left to do.
+
+**What shipped**
+
+- **The routine is deleted, not renamed**: `ClubHangState`, `ClubIdleState`, `_clubHangState`,
+  `_clubIdleState`, `_clubIdleTimer`, `_clubPaceSpots`, `_clubPaceIndex`, `_clubStandSpot`,
+  `_clubHintedDay`, `HandleClubHangout()` and `FaceToward()` are all gone, along with the
+  19:00–21:00 window and the two `_clubHangState = ClubHangState.None` resets. This is the
+  rule 13 corollary in action: deleting the block took its locals with it, so the sweep grepped the
+  *removed block's* identifiers (`CLUB_WINDOW_END`, `IsPlayerInClub`) for readers elsewhere in the
+  file rather than assuming the block was self-contained.
+- **The deal is untouched, and its hour is now one constant.** `TryStartDeal` had a bare
+  `TimeOfDay < 21f` and `ForceStartDealForWatch` had `SetTimeOfDay(CLUB_WINDOW_END)` — the rule 10
+  shape: a metric two code paths must agree on, written twice. Both now read `DEAL_HOUR` (21:00), so
+  the hint window, the start gate and the watch harness cannot drift apart. The hint's own `19:00`
+  is written `DEAL_HOUR - 2f` so it is derived rather than a third literal.
+- **Vocabulary renamed to match the surviving thing**: `IsPlayerInClub` → `IsPlayerAtDealSite`,
+  `ClubCenter` → `DealSiteCenter`. Same coordinates, same ±12 × ±8 m box — the plot is the deal
+  site now, not a club entrance, and a method that says `InClub` over a lot with no building on it
+  is the kind of lie that survives three more features.
+- **The breadcrumb is location-agnostic.** Removing the hangout also removed the quest's *only*
+  in-game lead ("he is at the bar…"), and the player has no other way to find `(0, 0, 95)`. The
+  replacement is one message per evening from 19:00, day 3+, undiscovered:
+  *"Phú Ông hay ra ngoài vào ban đêm... hãy tìm hắn."* / *"The rich man slips out at night... find
+  him."* — no building named, because none is there. The deal camera's own toast was reworded from
+  "sneaks toward the bar" to "slips to the meeting spot", and the old bar key is deleted.
+
+### 1hz follow-up-status
+- **Verified by grep + reread only** (rule 3 — no CLI/Unity build; Unity is the compiler).
+  `tools\StaticChecks.ps1` → **0 candidates**. Brace/paren balance re-checked: `RichManNPC.cs`
+  123/123 and 710/710, `Localization.cs` 1223/1223 and 136/136. An exact scan for all fifteen removed
+  identifiers returns zero hits, and `VisitState.WalkingHome` was confirmed to still have a writer
+  and a reader after the block that used to set it went away.
+- **Localization was checked on both sides of the runtime lookup** (rule 13's last corollary): the
+  reworded key and the new key are each present in the dictionary *and* referenced from exactly one
+  `T()` call site, and a `-SimpleMatch` sweep for `quán bar` across every `.cs` returns nothing.
+- **Not a runtime check.** Nothing here has been seen on screen. Play-test:
+  1. Reach day 3 undiscovered and watch the clock pass 19:00 — the hint should appear **once**, with
+     no NPC walking anywhere, and not again until the next day.
+  2. At 21:00 he should still walk to `(13, 0, 95)` and start the deal; use the bench's
+     `Watch Deal Scene (Test)` to skip the wait. The camera, eavesdrop, bribe and leave rows must
+     all still work, and the camera toast should no longer mention a bar.
+  3. Stand in the ±12 × ±8 m box around `(0, 0, 95)` during the walk and confirm he does not stall
+     (the deal is handled before the proximity check precisely so this cannot happen).
+  4. Confirm nothing in the console mentions a removed symbol — Unity's compiler is the only real
+     check for that.
+
 ## 1hz. The 1hz feature-removal pass, finished — multiplayer, night club, fast travel, horse, and the `Recovery` scene dump all gone; the tree compiles again
 
 The removal itself was already staged in the working tree (29 scripts staged-deleted) when the session
@@ -57,10 +112,10 @@ second bullet under "The two things grep could not tell me".
    compiler complains, because a missing `case` in a `switch` over a string is legal. The corruption
    is a runtime data bug visible only in an old save file.
 
-**Also left for the follow-up commit** (not in this one): `RichManNPC`'s club hangout — a whole
-state machine (`ClubHangState`/`ClubIdleState`, pacing spots, `HandleClubHangout`) pacing a
-building 1hz deleted. The 21:00 dealer story, its camera gate and the `DEAL_HOUR` constant are kept.
-That is a *behavioural* orphan, invisible to both greps above.
+**Left for a follow-up commit** (shipped separately, see the `1hz follow-up` entry above): `RichManNPC`'s
+club hangout — a whole state machine (`ClubHangState`/`ClubIdleState`, pacing spots,
+`HandleClubHangout`) pacing a building 1hz deleted. The 21:00 dealer story and its camera gate were
+kept. That is a *behavioural* orphan, invisible to both greps above.
 
 ### 1hz-status
 - **Verified by grep + reread only** (rule 3 — no CLI/Unity build in this project; Unity is the
@@ -88,8 +143,8 @@ That is a *behavioural* orphan, invisible to both greps above.
   4. Confirm the fast-travel menu and the multiplayer menu are genuinely gone from the main menu.
   5. `Assets/_Recovery/` should be absent from `git status` but the files should still be in the
      folder on disk.
-- **Left for the follow-up commit**: the `RichManNPC` club hangout removal + the `DEAL_HOUR`
-  constant, and the two remaining "bar" localization strings.
+- **Left for the follow-up commit** (now shipped — see the `1hz follow-up` entry above): the `RichManNPC`
+  club hangout removal + the `DEAL_HOUR` constant, and the two remaining "bar" localization strings.
 - **Left deliberately in place**: `Packages/manifest.json` still lists
   `com.unity.multiplayer.center: 1.0.1`. Nothing references it (verified), but removing a package
   is a separate call from removing code, so it was not touched here.
