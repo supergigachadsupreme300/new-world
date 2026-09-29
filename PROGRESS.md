@@ -4,6 +4,69 @@ Last updated: 2026-09-29. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1i3. The fix: a far cell must read the LIVE grid for the chunks it overlaps
+
+Third F3 run, and it is the first trustworthy one:
+
+```
+A fingerprint  buckets 1  [step 6 verts 100 x361]  stepDrift 0/361 (want step 6)
+B void  ring 0..32  footprints 4225  real+far 0  real only 361  far only 3864  NOT DRAWN 0
+C corners  nodes 400  rendered 1444/1444  no-vertex nodes 0  cross-chunk dY 0.2859 (345 nodes)
+              own-lattice dY 0
+D boundary  nodes 76  no-far-surface 0  real-vs-far dY 0.2084  (under 2cm noise floor 1)
+    worst at (-240,330)  [cause: one-sided edit 16 (first at (300,0)) NO side edited 19]
+VERDICT D-R1: the near/far boundary steps by 0.2084 m at (-240,330)
+```
+
+- **`B` is clean — `NOT DRAWN 0`, `far only 3864`.** The 2965 was entirely 1i2's `FarShadowedByCoarse`
+  bug; a corrected walk over the identical band finds every footprint covered. The band is sound.
+- **The 19 "no side edited" nodes are still arithmetic.** `under 2cm noise floor 1` means only one node
+  fell below the 2 cm gate and nineteen sat just above it — that is float rounding on a pair of values
+  each within 1 cm of pristine, i.e. a ~2 cm disagreement. The gate sits in the rounding regime; the
+  count is not evidence about the lattice. Read them as noise.
+- **`C` and `D` agree**: 345 of 400 interior shared corners and 16 of 76 boundary nodes are one-sided
+  edits, and the boundary steps by `0.2084 m`. The mechanism is confirmed on both seams.
+
+**The fix.** The gap is at the seam where a far cell's domain **overlaps** the loaded ring — a span-6
+cell spans six chunks, so the ring it borders lives inside the same block. For those chunks
+`BuildFarChunkCorners` was reading `ChunkTileMod`s out of the **save files**, while the real chunk
+renders its **live** corner grid (`ApplyHeightEdits` writes that all session). Two sources, one world
+node, and neither surface has side walls in low-poly — so the difference is a see-through crack at
+exactly the corner the player reported.
+
+`BuildFarChunkCorners` now prefers `ChunkObject.LatticeY` — the live `_merged.Corners` grid, the same
+one the real chunk renders from — for a loaded chunk's **boundary** corners. Those are the only nodes
+it shares with another surface, so that is the whole of the defect. Interior nodes are deliberately
+left on the disk path: they sit behind the real chunk, and their lattice indices can differ on a
+refined tile, which is a risk this fix does not need to take.
+
+**Known limitation, stated rather than hidden.** A far cell is built once and cached, so an edit made
+to a rim chunk *after* the cell was built still leaves the seam stale until that cell is rebuilt. This
+is the same class of staleness as the rest of the renderer (rule 11) and is strictly better than the
+old behaviour, where the source was a save file that was stale by construction.
+
+**Second, separate defect — not fixed here.** The 345 interior one-sided edits are between two *real*
+chunks and are untouched by this change. `ApplyHeightEdits` writes every loaded tile at a world
+coordinate, so both sides should have been written together; the one-sided cases are where one side
+was not yet loaded. That needs a load-time reconciliation (an extension of
+`ReconcileModifiedBorders` to corner heights), and it is a `0.2859 m` step the player has not
+reported seeing. Deliberately left for 1i4 rather than folded in here.
+
+### 1i3-status
+- [ ] **Restart the play session before looking.** This is a change to how the far shell is built, so
+      per rule 11 nothing already resident is rebuilt — a cell already in `_farSectors` keeps the
+      heights it was built with. Restart, walk to the near/far boundary of the loaded ring (about
+      270–300 m out), and check the corner tiles.
+- [ ] Expect `D boundary  real-vs-far dY 0` and `cause of those N node(s)` to disappear from the
+      verdict. Press F3 to confirm the number rather than trusting the eye.
+- [ ] `C` will still report `cross-chunk dY 0.2859 (345 nodes)` — that is the separate interior
+      defect described above and is expected to remain.
+- [ ] Watch for a lighting crease along far-cell shared edges: a cell that uses live data for a
+      loaded chunk can now differ from its neighbour cell, which uses the disk path. This is a real
+      trade-off of the fix; if it shows, it is a narrower follow-up, not a regression to roll back.
+- [ ] Verification: code review + `tools\StaticChecks.ps1` (0 candidates). No Unity build was run —
+      confirm the project compiles and that the far shell still builds.
+
 ## 1i2. The 1i1 readout's two loudest results were both the audit's own bugs
 
 ```

@@ -15,6 +15,59 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1i3 — the fix, and what it deliberately does not fix — VERDICT: OPEN (shipped, awaiting play-test)
+
+### H18 — is 1i1's "far side is pristine by construction" actually the mechanism? — CONFIRMED, and it is smaller than I assumed
+
+The run says `NO side edited 19` with `under 2cm noise floor 1`. I expected the corrected gate to
+move most of those 19 into the noise floor. It did not — 19 stayed out. So the classification is not
+simply being noisy, and the obvious conclusion ("2 cm is small, look elsewhere") is the one I should
+refuse, because **small is not the question; attributable is.** A 0.21 m step that comes from a known
+broken source is more worth fixing than a 0.4 m step that comes from a sound one.
+
+### H19 — the third readout, read properly — CONFIRMED
+
+Three things are now settled and none of them is the hole:
+
+1. `B` reads `NOT DRAWN 0` over the identical band. The 2965 is gone entirely, so it was
+   `FarShadowedByCoarse` and nothing else. **A retracted number that reappears as zero on re-measure
+   is the only acceptable way to retire one** — and it is why I refused to write a replacement value
+   in 1i2 rather than guessing one.
+2. `D` still steps by `0.2084 m` with `no-far-surface 0`. The shell reaches the ring; it arrives at a
+   different height.
+3. `C` still shows 345 of 400 interior shared corners as one-sided edits.
+
+Mechanism confirmed on both seams. Time to fix rather than measure.
+
+### H20 — the fix, and the reason it is this shape — CONFIRMED by code, one asymmetry only
+
+`BuildFarChunkCorners` reads mods from the **save file**; the real chunk renders its **live** corner
+grid. That is the whole defect, and the reason it is *here* and not in the seam reconciliation is
+positional: a span-6 far cell spans six chunks, so **the chunks at the inner edge of its own domain
+are the loaded ring itself**. The far cell is not adjacent to the seam, it *contains* it. Which also
+explains why the defect could only ever show at the rim: it is the one place where a far cell's grid
+is built from a different source than the real chunk's, and the far cell's domain reaches back far
+enough to touch a loaded chunk.
+
+So the fix is not "reconcile the seam" — it is "stop reading a stale source". Prefer the live lattice
+for loaded chunks' boundary corners. Two consequences I chose deliberately:
+
+- **Boundary corners only.** Interior nodes of a loaded chunk are drawn *under* the real chunk, so
+  correcting them changes nothing visible, and their lattice indices can differ on a refined tile.
+  Paying an unverified risk for no visible gain is a bad trade even when the risk is small.
+- **Not the interior 345.** Those are real-vs-real and this change cannot touch them. Bundling an
+  unrelated fix into the one that is confirmed would make the next readout ambiguous about which
+  change moved the number, and would deny the user a clean before/after on the gap they reported.
+  Split them.
+
+**The limitation I am shipping with.** Far cells are built once and cached, so a rim edit made after
+a cell was built leaves the seam stale until that cell rebuilds. I considered invalidating far cells
+on deform and rejected it: it widens the change into the streaming lifecycle, and the current source
+was stale *by construction* (a save file), so this is a strict improvement with a known, bounded
+residue. Recorded in the status block rather than buried.
+
+---
+
 ## 1i2 — the readout's two loudest lines were both my own bugs — VERDICT: OPEN (lane corrected, awaiting clean run)
 
 ### H15 — "2965 footprints are not drawn" — REJECTED, and it was never about the world

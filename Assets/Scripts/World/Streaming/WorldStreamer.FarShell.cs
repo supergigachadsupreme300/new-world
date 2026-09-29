@@ -1328,6 +1328,31 @@ public partial class WorldStreamer
                 }
             }
         }
+        // 1i3: a far cell's domain OVERLAPS the loaded ring - a span-6 cell spans six chunks, so the
+        // ring it borders is inside the same block. For those chunks the disk mods above are simply
+        // the WRONG SOURCE: they are whatever was last flushed, while the real chunk renders its
+        // LIVE corner grid, which is what ApplyHeightEdits has been writing all session. The two
+        // then arrive at different heights for the same world node, and since neither surface has
+        // side walls in low-poly, the difference is a see-through crack - at the near/far corner,
+        // which is exactly where the player reported it. Prefer the live grid on the chunk's
+        // BOUNDARY corners: those are the only nodes it shares with another surface. Interior nodes
+        // are left alone deliberately - they sit behind the real chunk, and their lattice indices
+        // can differ on a refined tile, which is a risk this fix does not need to take.
+        int last = gridSize - 1;
+        if (_loadedChunks.TryGetValue(tc, out ChunkObject live) && live != null)
+        {
+            for (int gz = 0; gz <= last; gz++)
+            {
+                for (int gx = 0; gx <= last; gx++)
+                {
+                    if (gx != 0 && gx != last && gz != 0 && gz != last)
+                        continue;
+                    float liveY = live.LatticeY(gx, gz);
+                    if (!float.IsNaN(liveY) && IsSaneHeight(liveY))
+                        corners[gx, gz] = liveY;
+                }
+            }
+        }
         return corners;
     }
 
