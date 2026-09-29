@@ -4,6 +4,66 @@ Last updated: 2026-09-29. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1i6. The 1i4 fix resolved the seam ONE owner deep, and one edge short
+
+Found by walking 1i4's addressing instead of trusting its comment. A world node is a corner of **four
+tiles in up to four chunks**, and 1i4 asked only one of them.
+
+For a node on this chunk's west edge the four touching tiles split 2+2:
+
+| slot | tile | lives in |
+|---|---|---|
+| NE `Heights[1]` | (wx-1, wz-1) | **west neighbour** |
+| NW `Heights[0]` | (wx, wz-1) | west neighbour |
+| SE `Heights[2]` | (wx-1, wz) | this chunk |
+| SW `Heights[3]` | (wx, wz) | this chunk |
+
+1i4 read the NE tile only. So:
+
+- **Half the neighbour's contributors were never asked.** A dig that lands on the NW or SE tile was
+  invisible to the resolver.
+- **The east and north edges were never scanned at all** (`if (fx != 0 && fx != gridSize-1 && ...)`).
+  The west-east case only worked *by accident*: the eastern chunk scans its own west edge and finds
+  this chunk. The reverse — edit in the east, western neighbour still pristine — was never asked, and
+  a local dig produces exactly that.
+
+So the seam propagated in one direction and not the other. This is rule 7's "a scope is a claim about
+the mechanism, so name which owner(s) the walk admits": 1i4 admitted one owner and called the pass a
+resolution.
+
+### What changed
+
+- All four edges are scanned; every NaN boundary node calls `TryResolveSeamCorner`.
+- That walks the four touching tiles, reading two from `mods` and two from cached neighbour **saves**
+  (max three save reads per boundary chunk, memoised in `foreignMods`).
+- **Preference order is a real edit over an untouched corner.** A mod stores all four corners of its
+  tile, including ones the edit never reached, so "this tile has a sane value here" ≠ "this tile
+  edited here". The node's pristine height is sampled once and any value differing by more than
+  `SeamPristineTol` (0.01) wins outright. The audit measured exactly this shape — 345 of 400 nodes
+  one side edited against pristine — so the rule reads the measured fault, it does not guess.
+- If nothing was edited, the first sane value is used rather than letting each chunk roll its own
+  noise sample, which keeps the four chunks bit-identical at unedited seams too.
+- Tie-break order is the table above, fixed, so two tiles edited to different heights still converge
+  deterministically. The canonical (wx-1,wz-1) tile still wins ties, so this is a strict
+  generalisation of 1i4, not a redefinition.
+
+### Verification of the addressing
+
+Rule 8 asks for a worked example at a 4-chunk node, because mid-edge checks miss the wrap. Checked
+all four tiles at four nodes — the 4-chunk corner (30,30), a west edge (30,15), a south edge (45,30)
+and an interior node (17,17) — recomputing each tile's stored corner and confirming it lands on the
+node: 16/16 correct. Two harness bugs surfaced first (PowerShell's case-insensitive `$SLOT`/`$slot`
+collapsing into one variable, then comparing a *local* corner to a *world* node); both were harness
+faults, and the same shape of slip is exactly what the worked example is for.
+
+### 1i6-status
+- [ ] **Confirm it compiles**, then **restart** and press F3. `C corners cross-chunk dY` should drop
+      from `0.2859 (345 nodes)` toward 0, with `[cause: one-sided edit N]` emptying.
+- [ ] **Watch the seam load cost.** Up to three extra save reads per boundary chunk. If streaming
+      stalls at chunk borders, memoise `ForeignTileMods` across the build instead of per call site.
+- [ ] Verification: code review + `tools\StaticChecks.ps1` (**0 candidates**) + the 16/16 worked
+      example above. No Unity build was run.
+
 ## 1i5. Two errors 1i4 shipped: a member outside the class, and a data race on the build thread
 
 Unity reported `CS0106: The modifier 'private' is not valid for this item` at

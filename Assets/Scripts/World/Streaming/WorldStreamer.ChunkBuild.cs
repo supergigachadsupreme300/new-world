@@ -38,6 +38,102 @@ public partial class WorldStreamer
     }
 
     /// <summary>
+    /// A neighbour's saved height differs from pristine noise by more than this, so it is treated
+    /// as a real edit rather than as an untouched corner that a mod stored verbatim. A mod holds
+    /// all four corners of its tile, including the ones the edit never reached, so "this tile has a
+    /// sane value for the node" is NOT the same as "this tile edited the node" - and preferring the
+    /// first sane value alone would let an untouched corner outvote the one real edit. The audit
+    /// classified 345 of 400 seam nodes as exactly one side edited against pristine, so preferring
+    /// the non-pristine value is reading the measured shape of the fault, not guessing at it.
+    /// </summary>
+    private const float SeamPristineTol = 0.01f;
+
+    // The four tiles sharing world node (wx,wz), and the Heights slot each stores it in.
+    // Read left-to-right, top-to-bottom: (wx-1,wz-1) NE, (wx,wz-1) NW, (wx-1,wz) SE, (wx,wz) SW.
+    private static readonly int[] SeamTileDX = { -1, 0, -1, 0 };
+    private static readonly int[] SeamTileDZ = { -1, -1, 0, 0 };
+    private static readonly int[] SeamTileSlot = { 1, 0, 2, 3 };
+
+    /// <summary>
+    /// Resolves world node (wx,wz) from the four tiles that share it, across this chunk and up to
+    /// three neighbours, and reports the agreed height. Every chunk that borders the node runs this
+    /// with the same inputs, so all four arrive at the same value regardless of build order.
+    /// Ties are broken by <see cref="SeamTileDX"/> order, which is fixed, so the result is
+    /// deterministic even if two tiles were edited to different heights.
+    ///
+    /// Neighbour mods are read from SAVE FILES only, never from the live <c>_loadedChunks</c>
+    /// dictionary: this runs on a ThreadPool thread (BackgroundGenerateChunk) while the main thread
+    /// builds, unloads and demotes, and Dictionary&lt;TKey,TValue&gt; is not safe to read during a
+    /// write. The whole build path is already disk-driven - this chunk is itself built from
+    /// ChunkSaveManager.TryLoadChunk - so reading a neighbour from disk is the same source the
+    /// neighbour itself was built from, and it costs no fidelity. The residue is an edit still in
+    /// memory and not yet flushed, which keeps the old value until the save lands: the same bounded,
+    /// self-correcting staleness 1i3 documents for the far shell.
+    /// </summary>
+    private bool TryResolveSeamCorner(int wx, int wz, TerrainChunkCoord tc, int cs,
+        Dictionary<int, ChunkTileMod> ownMods,
+        Dictionary<TerrainChunkCoord, Dictionary<int, ChunkTileMod>> foreignMods,
+        long seed, out float height)
+    {
+        height = 0f;
+        // The node's pristine height, so an untouched corner carried by a mod cannot outvote the
+        // one tile that actually edited this node. Sampled once per node, and only for the handful
+        // of boundary nodes this chunk's own tiles left NaN.
+        float pristine = TerrainNoiseGenerator.GetHeight(seed,
+            wx * ChunkData.Size, wz * ChunkData.Size);
+        bool havePristine = false;
+        for (int t = 0; t < 4; t++)
+        {
+            int tileX = wx + SeamTileDX[t];
+            int tileZ = wz + SeamTileDZ[t];
+            TerrainChunkCoord owner =
+                new TerrainChunkCoord(FloorDiv(tileX, cs), FloorDiv(tileZ, cs));
+            int lx = tileX - owner.X * cs;
+            int lz = tileZ - owner.Z * cs;
+            Dictionary<int, ChunkTileMod> map;
+            if (owner.X == tc.X && owner.Z == tc.Z)
+            {
+                map = ownMods;
+            }
+            else
+            {
+                if (!foreignMods.TryGetValue(owner, out map))
+                {
+                    map = ForeignTileMods(owner, seed);
+                    foreignMods[owner] = map;
+                }
+            }
+            if (map == null)
+                continue;
+            if (!map.TryGetValue(lz * cs + lx, out ChunkTileMod m))
+                continue;
+            if (m.Heights == null || m.Heights.Length < ChunkData.VertexCount)
+                continue;
+            float v = m.Heights[SeamTileSlot[t]];
+            if (!IsSaneHeight(v))
+                continue;
+            // A real edit beats an untouched corner outright, and returns here, so a later
+            // pristine tile cannot undo it.
+            if (Mathf.Abs(v - pristine) > SeamPristineTol)
+            {
+                height = v;
+                return true;
+            }
+            // Otherwise remember the first sane value as the fallback, and keep looking: a second
+            // tile may hold the actual edit.
+            if (!havePristine)
+            {
+                height = v;
+                havePristine = true;
+            }
+        }
+        // Nothing was edited at this node; every tile that holds it holds the untouched value.
+        // That is still a real answer, and it beats each chunk regenerating the node from noise
+        // independently.
+        return havePristine;
+    }
+
+    /// <summary>
     /// Runs on a ThreadPool thread. Builds the chunk from disk deformation mods when they
     /// exist, otherwise from noise (a cache-miss), then merges the tile meshes into one
     /// thread-safe chunk mesh. The mesh mode (smooth heightfield vs. stepped voxel, 1et) is
@@ -126,21 +222,29 @@ public partial class WorldStreamer
         // The fix resolves a shared corner from the WORLD instead of from this chunk's own tiles, so
         // every chunk computes the same height for a node no matter which was built first.
         //
-        // Addressing (rule 8: the copy's arithmetic IS the seam contract, so it is checked with a
-        // worked example at world (30,30), where four chunks meet). The tile that OWNS a world node
-        // is always the tile one metre back in each axis, and always writes it as its NE slot - the
-        // stamp above is corners[LocalX+1, LocalZ+1] = Heights[1]. So the owning chunk is the chunk
-        // of tile (wx-1, wz-1) and the value is that chunk's tile (wx-1, wz-1)'s NE height. Worked
-        // example at world (30,30), where four chunks meet: the owner is chunk (0,0), the owning
-        // tile is its local (29,29) and the value is Heights[1]. The other three chunks at that node
-        // adopt it from there, and chunk (0,0) already stamped it locally. On a west edge the same
-        // rule gives owner (tx-1, tz) and local tile (29, gz-1) - NOT (29,29) - which is why the
-        // local tile coords below are derived from the node and never assumed.
+        // 1i5. ALL FOUR edges, and ALL FOUR touching tiles. 1i4 scanned only the west and south
+        // edges and, for each node, asked only the tile one metre back in BOTH axes - tile
+        // (wx-1,wz-1), stored as its NE slot. That is one of the four tiles that share a node, and
+        // it is only correct when the edit happens to have landed in that one:
+        //  - The node has four touching tiles, in up to four chunks. Two are in this chunk (which
+        //    already stamped them, or left them NaN), and TWO are in the neighbour. 1i4 read one
+        //    of the neighbour's two, so an edit held by the other went unseen.
+        //  - 1i4 never scanned the east and north edges at all. Its west-east case worked only
+        //    because the EASTERN chunk scans its own west edge and finds this chunk. The reverse -
+        //    edit in the east, western neighbour still pristine - was never asked, and a local dig
+        //    produces exactly that.
+        // So the seam propagated one way and not the other, which is rule 7's "a scope is a claim
+        // about the mechanism, so name which owner(s) the walk admits": 1i4 admitted ONE owner and
+        // called the pass a resolution.
         //
-        // Only the WEST and SOUTH edges need this. The east and north edges are owned by this
-        // chunk's own tile (29,_) or (_ ,29), and a node with fx>0 and fz>0 is interior and can
-        // never be foreign - so the foreign lookup runs on at most ~61 boundary nodes, touching
-        // at most four neighbouring chunks.
+        // The four touching tiles of node (wx,wz), and the Heights slot each stores it in
+        // (SW=3, NE=1, NW=0, SE=2, per the stamp above):
+        //     (wx-1,wz-1) NE | (wx,wz-1) NW
+        //     (wx-1,wz  ) SE | (wx,wz  ) SW
+        //
+        // Preference order is that table read left-to-right, top-to-bottom, so the canonical
+        // (wx-1,wz-1) tile still wins a node where several carry a value - a strict generalisation
+        // of 1i4 rather than a redefinition, and a deterministic tie-break.
         var foreignMods = new Dictionary<TerrainChunkCoord, Dictionary<int, ChunkTileMod>>(4);
         for (int fz = 0; fz < gridSize; fz++)
         {
@@ -150,38 +254,17 @@ public partial class WorldStreamer
                 // of truth and wins; never overwrite it with a neighbour's copy of the same edit.
                 if (!float.IsNaN(corners[fx, fz]))
                     continue;
-                if (fx != 0 && fz != 0)
+                // Interior node: it has exactly one owner and it is this chunk, so there is nothing
+                // to ask. Only a boundary node can be shared, and that is all four edges.
+                if (fx != 0 && fx != gridSize - 1 && fz != 0 && fz != gridSize - 1)
                     continue;
                 int wx = tc.X * cs + fx;
                 int wz = tc.Z * cs + fz;
-                TerrainChunkCoord owner =
-                    new TerrainChunkCoord(FloorDiv(wx - 1, cs), FloorDiv(wz - 1, cs));
-                if (owner.X == tc.X && owner.Z == tc.Z)
-                    continue;
-
-                // The owner is read from its SAVE FILE only, never from the live _loadedChunks
-                // dictionary. This method runs on a ThreadPool thread (BackgroundGenerateChunk)
-                // while the main thread builds, unloads and demotes chunks, and
-                // Dictionary<TKey,TValue> is not safe to read during a write - a concurrent read can
-                // throw or hand back a torn entry. The whole build path is already disk-driven
-                // (this chunk is built from ChunkSaveManager.TryLoadChunk above), so reading a
-                // neighbour from disk is not a downgrade: it is the same source the owner chunk
-                // itself was built from. The residue is an edit that is in memory and not yet
-                // flushed - the seam keeps its old value until the owner's save lands, which is the
-                // same bounded staleness 1i3 documents for the far shell, and it self-corrects on
-                // the next load.
-                int ltx = wx - 1 - owner.X * cs;
-                int ltz = wz - 1 - owner.Z * cs;
-                if (!foreignMods.TryGetValue(owner, out Dictionary<int, ChunkTileMod> fm))
-                {
-                    fm = ForeignTileMods(owner, seed);
-                    foreignMods[owner] = fm;
-                }
-                if (fm != null
-                    && fm.TryGetValue(ltz * cs + ltx, out ChunkTileMod om)
-                    && om.Heights != null && om.Heights.Length >= ChunkData.VertexCount
-                    && IsSaneHeight(om.Heights[1]))
-                    corners[fx, fz] = om.Heights[1];
+                if (TryResolveSeamCorner(wx, wz, tc, cs, mods, foreignMods, seed,
+                        out float seamH))
+                    corners[fx, fz] = seamH;
+                // Still NaN: no chunk holds a sane value, so the regeneration loop below rolls it
+                // from noise exactly as before.
             }
         }
 

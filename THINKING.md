@@ -15,6 +15,56 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1i6 — how many owners does a shared corner have? Four, not one — VERDICT: OPEN (fixed, awaiting runtime)
+
+### H25 — was 1i4's "canonical owner" the right single owner? No, and I had not enumerated them
+
+1i4's comment asserted a rule: *the tile that owns a world node is the tile one metre back in each
+axis, always as its NE slot.* That reads like a law of the lattice. It is not — it is **one of four
+tiles** that share the node, and the lattice has no notion of an owner at all. A node is simultaneously:
+
+    (wx-1,wz-1) NE | (wx,wz-1) NW
+    (wx-1,wz  ) SE | (wx,wz  ) SW
+
+The one-metre-back tile is merely the first, and picking it is a *policy*, not a derivation. Having
+written the rule down, I treated my own policy as a property of the data and stopped looking.
+
+I only caught it by doing the thing rule 8 asks for and 1i4 did not: enumerating the owners and
+checking a concrete boundary node. On a west edge the split is 2+2 — two tiles in this chunk, two in
+the neighbour — and 1i4 read one of the neighbour's two. And `if (fx != 0 && fz != 0)` skipped the
+east and north edges entirely, so the seam only propagated west→east, and only because the eastern
+chunk happens to scan its own west edge. A local dig produces precisely the unhandled direction.
+
+**The tell I should have caught immediately:** 1i4's fix was for a bug the user described as *"every
+corner tile of real chunk"*, and the fix only ran on two of the four edges. The fix's scope did not
+match the report's scope. AGENTS rule 7 already says this — *a scope is a claim about the mechanism,
+so name which owner(s) the walk admits* — and I had written that lesson into the rules **two commits
+earlier** after 1hy made the identical error by scoping a void walk to one owner. Same mistake, same
+session, and the rule was in my own head.
+
+### H26 — "this tile has a sane value here" vs "this tile edited here" — CONFIRMED, they differ
+
+A `ChunkTileMod` stores **all four corners** of its tile, including corners the edit never reached.
+So a tile edited *somewhere* still hands back a sane, correct-looking height for a node it never
+touched — and it is that tile's *pre-edit* value, i.e. pristine noise. Taking the first sane value
+would let an untouched corner outvote the one real edit and reintroduce the exact 0.29 m step the fix
+exists to remove.
+
+The fix therefore samples the node's pristine height once and treats any value differing by more than
+0.01 m as the real edit, preferring it over any pristine-looking sibling. This is safe because the
+audit already measured the shape: 345 of 400 nodes were *one side edited against pristine*, so
+"exactly one non-pristine value" is the observed case, not an assumption. When nothing is edited the
+first sane value is used rather than rolling independent noise per chunk, which keeps unedited seams
+bit-identical too.
+
+**Harness honesty.** The worked example failed twice before it passed — PowerShell's case-insensitive
+variables made `$SLOT` and `$slot` the same variable, and then I compared a *local* tile corner
+against a *world* node. Both were bugs in the throwaway check, not in the C#. Worth recording because
+the instinct on a red check is to suspect the code, and here the code was right twice: a check that
+reports FAIL is asking which of the two is wrong, and "my harness" has to stay on the list.
+
+---
+
 ## 1i5 — CS0106, and the race hiding behind it — VERDICT: OPEN (fixed, awaiting compile)
 
 ### H23 — why did three checks miss a member declared outside the class? — because the error is not a balance error
