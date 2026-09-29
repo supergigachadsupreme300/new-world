@@ -4,6 +4,68 @@ Last updated: 2026-09-29. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1i5. Two errors 1i4 shipped: a member outside the class, and a data race on the build thread
+
+Unity reported `CS0106: The modifier 'private' is not valid for this item` at
+`WorldStreamer.ChunkBuild.cs(12,5)`. Reading it, there were two problems, and the compile error was
+the *smaller* one.
+
+### 1. The helper landed outside the class (CS0106)
+
+The method was inserted by anchoring on the first `/// <summary>` in the file — which belonged to the
+**partial class header**, not to a method. The result sat between the `using` block and
+`public partial class WorldStreamer`, so it was a top-level member. Three things failed to catch it:
+
+- **Grep** found `ForeignTileMods` at its call site and confirmed the definition existed.
+- **Brace/paren balance was 25/25 and 101/101** — the method body balanced *and* the class body
+  balanced, because they were two separate, independently well-formed constructs.
+- **My read of the diff** went past it, because a method is a familiar shape and the anchor I had
+  used to insert it felt verified.
+
+CS0106 does not even name the class, which is the tell: the parser found a member where no type was
+open. This is now **check 7** in `tools/StaticChecks.ps1` — a member declared at brace depth 0. It has
+no false-positive shape, because there is no valid C# that trips it, and it is verified by
+reintroducing the exact bug and confirming the check fires.
+
+`ChunkBuild.cs` and `FarShell.cs` are also added to the script's `$files`, so checks 1 and 4 now cover
+the two files 1i3/1i4 changed. That immediately surfaced a **pre-existing** imbalance in
+`FarShell.cs`: a doc comment at the top of `EmitVoxelFarTopRun` wrote the half-open interval
+`[x0..xEnd)`, which has a `)` and no `(`. It had been invisible because the file was never checked.
+Rewritten as prose.
+
+### 2. The real bug: a `Dictionary` read from the build thread
+
+`BuildChunkMeshData` is reached through `BackgroundGenerateChunk`, which runs on a **ThreadPool
+thread** while the main thread builds, unloads and demotes chunks. The 1i4 fix preferred a *live*
+`_loadedChunks` lookup for the owning chunk. `Dictionary<TKey,TValue>` is not safe to read during a
+write — a concurrent read can throw or hand back a torn entry. The audit is main-thread-only and read
+`_loadedChunks` freely, so the pattern looked safe; it is safe *there* and not here, which is the
+second rule-7 shape this session: **a safe idiom in one thread is not evidence it is safe in another.**
+
+Removed. The owner is now read from its **save file only**, which is not a downgrade:
+
+- the whole build path is already disk-driven — `BuildChunkMeshData` builds *this* chunk from
+  `ChunkSaveManager.TryLoadChunk`, so reading a neighbour from disk is the same source the owner chunk
+  itself was built from;
+- it removes the race entirely, and the helper now touches nothing but `ChunkSaveManager` and its own
+  locals;
+- the residue is an edit in memory and not yet flushed. The seam keeps its old value until the owner's
+  save lands — the same bounded, self-correcting staleness 1i3 documents for the far shell.
+
+The fix's correctness does not depend on the live path: the owner chunk is the one that *has* the mod
+on disk, and a chunk that has the mod on disk is the chunk the edit reached. The save flush, not the
+lookup, is the clock.
+
+### 1i5-status
+- [ ] **Confirm it compiles** — the CS0106 is fixed; the only outstanding risk is a signature the
+      static checks cannot see. Paste anything else Unity reports and it gets its own commit.
+- [ ] Then **restart** and press F3. `C corners cross-chunk dY` should drop from `0.2859 (345 nodes)`
+      toward `0` and the `[cause: one-sided edit N]` bracket should empty. `D boundary` should stay at
+      `0` from 1i3.
+- [ ] Verification: code review + `tools\StaticChecks.ps1` (**0 candidates**, including the new
+      check 7, which was verified by reintroducing the bug and watching it fire). No Unity build was
+      run.
+
 ## 1i4. The actual fix — and a misreading that cost three measurement rounds
 
 The player answered the scoping question with one line that overturned the framing:

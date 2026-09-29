@@ -29,11 +29,16 @@ $npcs       = 'Assets\Scripts\World\WorldBuilder.NPCs.cs'
 $world      = 'Assets\Scripts\World\WorldBuilder.cs'
 $testground = 'Assets\Scripts\Opt\NewWorldTestGround.cs'
 $corneraudit = 'Assets\Scripts\World\Streaming\WorldStreamer.CornerAudit.cs'
+$chunkbuild  = 'Assets\Scripts\World\Streaming\WorldStreamer.ChunkBuild.cs'
+$farshell    = 'Assets\Scripts\World\Streaming\WorldStreamer.FarShell.cs'
 
 # AGENTS.md rule 3: any WorldBuilder*.cs edited here belongs in $files, or checks 1, 4
 # and 5 silently stop covering it. 1hz added Persistence + NPCs. 1hy added the
 # WorldStreamer corner/void audit (checks 1 and 4 apply to it; 2/3/5/6 are builder-specific).
-$files = @($blueprints, $persistence, $npcs, $world, $testground, $corneraudit)
+# 1i4 added ChunkBuild + FarShell - the seam fix and the far-cell source fix - and
+# check 7 below, which exists because of ChunkBuild.
+$files = @($blueprints, $persistence, $npcs, $world, $testground, $corneraudit,
+           $chunkbuild, $farshell)
 
 # Types a structure-part helper can be declared with, plus local declarations.
 $retAlt  = '(?:static\s+)?(?:GameObject|void|int|float|bool|string|Vector3|Color|Vector2|Quaternion|Transform)'
@@ -218,6 +223,42 @@ foreach ($p in @('Shrine', 'Church', 'Pagoda')) {
     if ($noTable.Count -gt 0) { Bad "$p cases not in any table (dead geometry): $($noTable -join ', ')" }
     if ($noCase.Count -eq 0 -and $noTable.Count -eq 0) { Ok "$p : $($keys.Count) keys == $($cases.Count) cases" }
 }
+
+Section '7. a member must be INSIDE a class body (CS0106 / CS1519)'
+# 1i4 shipped a helper method declared above `public partial class WorldStreamer`, between
+# the usings and the class. Grep found the symbol, brace/paren counts balanced (the method
+# and the class simply each balance), and the review read straight past it. Only Unity's
+# parser objected, with CS0106 'the modifier private is not valid for this item' - a line
+# that does not even name the class. A member at brace depth 0 is illegal in C# full stop,
+# so this check has no false-positive shape: there is no valid C# that trips it.
+$declRe = '^\s*(?:private|public|internal|protected)\s+(?:static\s+|sealed\s+|override\s+|virtual\s+|async\s+|extern\s+|unsafe\s+|partial\s+)*[A-Za-z_][\w<>\[\],\.\?]*\s+[A-Za-z_]\w*\s*\('
+$outside = 0
+foreach ($f in $files) {
+    $lines = [System.IO.File]::ReadAllLines((Resolve-Path $f))
+    $d = 0
+    $inBlock = $false
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $ln = $lines[$i]
+        $t = $ln.Trim()
+        if ($inBlock) {
+            if ($t -match '\*/') { $inBlock = $false }
+            continue
+        }
+        if ($t.StartsWith('/*')) { if ($t -notmatch '\*/') { $inBlock = $true }; continue }
+        if ($t.StartsWith('//')) { continue }
+        if ($d -eq 0 -and $t -match $declRe) {
+            # depth 0 + an access modifier + a call-shaped signature: there is nowhere in C#
+            # this can legally sit, so report the class declaration that follows it.
+            $cls = ($lines | Select-String -Pattern '^\s*(?:public|internal|private)?\s*(?:partial\s+)?(?:class|struct)\s' | Select-Object -First 1)
+            Bad "$f L$($i + 1): member declared OUTSIDE the class body (depth 0) - $($t.Substring(0, [Math]::Min(60, $t.Length)))"
+            $outside++
+        }
+        foreach ($c in $ln.ToCharArray()) {
+            if ($c -eq '{') { $d++ } elseif ($c -eq '}') { $d-- }
+        }
+    }
+}
+if ($outside -eq 0) { Ok "every member sits inside a class body" }
 
 Section 'summary'
 if ($problems -eq 0) { Write-Output '  0 candidates. Still not a compile: Unity is the compiler.' }

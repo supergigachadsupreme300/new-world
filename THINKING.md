@@ -15,6 +15,54 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1i5 — CS0106, and the race hiding behind it — VERDICT: OPEN (fixed, awaiting compile)
+
+### H23 — why did three checks miss a member declared outside the class? — because the error is not a balance error
+
+`CS0106: The modifier 'private' is not valid for this item` at line 12. The method sat between the
+`using` block and `public partial class WorldStreamer`. I had anchored the insertion on the first
+`/// <summary>` in the file, which was the **partial class header** — the most plausible-looking
+anchor in the file and the wrong one.
+
+The interesting part is that every check I had was *satisfied*:
+
+- grep found the symbol defined and called.
+- brace and paren counts balanced, **because the method body and the class body were two separate
+  well-formed constructs**. A balance check cannot see a construct in the wrong place; it only asks
+  whether each construct is internally consistent. My "braces 25/25" line in the 1i4 commit was true
+  and worthless.
+- the review passed over it.
+
+So the class of bug is not "I skimmed" — it is **every cheap check I have is blind to nesting, and the
+one thing nesting determines is whether a member has a type to live in.** That is now check 7 (a
+member at brace depth 0), and I verified it by putting the exact bug back and watching it fire, which
+is the only way to know a green check means anything.
+
+**Also surfaced by widening coverage.** Adding `FarShell.cs` to `$files` immediately reported a
+pre-existing paren imbalance: a doc comment writing `[x0..xEnd)`, a half-open interval with a `)` and
+no `(`. It had been in the file all along and invisible for exactly the reason above — a file nobody
+was checking. Rule 3's "$files" instruction exists because coverage gaps look identical to passes.
+
+### H24 — the race, and the idiom that made it invisible — CONFIRMED
+
+`BuildChunkMeshData` is reached via `BackgroundGenerateChunk` on a **ThreadPool thread**. 1i4 preferred
+a live `_loadedChunks` lookup for the owning chunk, and `Dictionary<K,V>` is not safe to read during a
+concurrent write. The F3 audit reads `_loadedChunks` constantly and never races, because it is
+main-thread-only and the lane is invoked from a key press. **The same line, in the same file, is safe
+in one caller and a data race in the other.** A safe idiom is evidence about a call site, not about a
+symbol.
+
+Dropped the live path; the owner is read from its save file, which is what *this chunk* is already
+built from one line earlier, so it costs nothing in fidelity. The residue — an un-flushed in-memory
+edit — is the same bounded, self-correcting staleness 1i3 accepted, and it names a different root
+cause (the save flush, not the lookup).
+
+**Worth stating plainly:** I introduced this while writing a comment arguing that the live path was
+"strictly better". It was strictly better *and* racy, and the argument had no thread in it. Speed of
+reasoning and breadth of context are independent, and the second one is what the other habits buy.
+
+---
+
 ## 1i4 — "every corner tile of real chunk" — the misreading, and the fix that should have been 1i3
 
 ### H21 — was the gap at the near/far boundary? — REJECTED. It was never there.

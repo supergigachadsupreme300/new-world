@@ -107,6 +107,22 @@
      nodes at 1–2 cm under `not an edit - look at the lattice/seed`, which reads like a finding and
      is noise from two facets rounded to one lattice. Any threshold comparison used to *enter* a
      classification must be at least the sum of the tolerances used *inside* it.
+   - **A check is only evidence if you have seen it fail on the thing it is for.** A check that flags a
+     false positive on the first file you add it to is a check whose silence has stopped meaning
+     anything. 1hy's `StaticChecks.ps1` check 4 reported every `out` parameter as an unassigned local;
+     a reader trained by 4 false candidates waves through the next real CS0165. **A balance check
+     cannot see a construct in the wrong place** — 1i4 declared a method between the `using` block and
+     `partial class WorldStreamer` and reported braces 25/25, because the method body and the class
+     body were two separate well-formed constructs. Grep found the symbol, balance passed, review
+     passed, and only Unity's parser objected (CS0106, which does not even name the class). Check 7
+     now flags any member at brace depth 0, and was verified by **reintroducing that exact bug and
+     watching it fire** — a green check nobody has seen fail is not a check.
+   - **A safe idiom in one caller is not evidence it is safe in another.** 1i4 read `_loadedChunks` from
+     `BuildChunkMeshData`, which runs on a **ThreadPool thread** via `BackgroundGenerateChunk`, while
+     the main thread builds/unloads/demotes — and `Dictionary<TKey,TValue>` is not safe to read during
+     a write. The F3 audit reads the same dictionary constantly and never races, because it is
+     main-thread-only, so the pattern looked safe. **Check the thread the code runs on before reusing
+     an idiom, and never argue that a data source is "strictly better" without naming the thread.**
    - Also: a check that flags a false positive on the first file you add it to is a check whose
      silence has stopped meaning anything. 1hy's `StaticChecks.ps1` check 4 reported every `out`
      parameter as an unassigned local; a reader trained by 4 false candidates waves through the

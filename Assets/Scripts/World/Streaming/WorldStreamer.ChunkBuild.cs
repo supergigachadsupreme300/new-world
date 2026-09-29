@@ -2,12 +2,23 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
+
+/// <summary>
+/// Background-thread chunk generation (noise or disk-saved mods) portion of the WorldStreamer partial class.
+/// </summary>
+
+public partial class WorldStreamer
+{
+
+    // --- Background thread: generate entire chunk ---
+
     /// <summary>
     /// Tile mods of a NEIGHBOURING chunk, read from its save file and keyed localZ*cs+localX the
     /// same way this file's own build path keys them. Returns null when the chunk has no save or no
     /// usable mods, which leaves the caller's corner as NaN so the ordinary noise regeneration still
     /// runs for it. Split out of <c>BuildChunkMeshData</c> so the foreign-corner pass can read a
-    /// neighbour's mods without duplicating the filtering rules.
+    /// neighbour's mods without duplicating the filtering rules. Safe on the build thread: it
+    /// touches nothing but <c>ChunkSaveManager</c> and its own locals.
     /// </summary>
     private Dictionary<int, ChunkTileMod> ForeignTileMods(TerrainChunkCoord tc, long seed)
     {
@@ -25,16 +36,6 @@ using UnityEngine;
         }
         return map;
     }
-
-    /// <summary>
-
-/// Background-thread chunk generation (noise or disk-saved mods) portion of the WorldStreamer partial class.
-/// </summary>
-
-public partial class WorldStreamer
-{
-
-    // --- Background thread: generate entire chunk ---
 
     /// <summary>
     /// Runs on a ThreadPool thread. Builds the chunk from disk deformation mods when they
@@ -128,7 +129,7 @@ public partial class WorldStreamer
         // Addressing (rule 8: the copy's arithmetic IS the seam contract, so it is checked with a
         // worked example at world (30,30), where four chunks meet). The tile that OWNS a world node
         // is always the tile one metre back in each axis, and always writes it as its NE slot - the
-        // the stamp above is corners[LocalX+1, LocalZ+1] = Heights[1]. So the owning chunk is the chunk
+        // stamp above is corners[LocalX+1, LocalZ+1] = Heights[1]. So the owning chunk is the chunk
         // of tile (wx-1, wz-1) and the value is that chunk's tile (wx-1, wz-1)'s NE height. Worked
         // example at world (30,30), where four chunks meet: the owner is chunk (0,0), the owning
         // tile is its local (29,29) and the value is Heights[1]. The other three chunks at that node
@@ -137,7 +138,7 @@ public partial class WorldStreamer
         // local tile coords below are derived from the node and never assumed.
         //
         // Only the WEST and SOUTH edges need this. The east and north edges are owned by this
-        // chunk's own tile (29,_) or (_ ,29), and a node with gx>0 and gz>0 is interior and can
+        // chunk's own tile (29,_) or (_ ,29), and a node with fx>0 and fz>0 is interior and can
         // never be foreign - so the foreign lookup runs on at most ~61 boundary nodes, touching
         // at most four neighbouring chunks.
         var foreignMods = new Dictionary<TerrainChunkCoord, Dictionary<int, ChunkTileMod>>(4);
@@ -158,20 +159,17 @@ public partial class WorldStreamer
                 if (owner.X == tc.X && owner.Z == tc.Z)
                     continue;
 
-                // Resident neighbour: its live corner grid is the same array the real chunk
-                // renders, so it is strictly better than a save file that may predate the session.
-                if (_loadedChunks.TryGetValue(owner, out ChunkObject liveOwner) && liveOwner != null)
-                {
-                    float ly = liveOwner.LatticeY(wx - owner.X * cs, wz - owner.Z * cs);
-                    if (!float.IsNaN(ly) && IsSaneHeight(ly))
-                        corners[fx, fz] = ly;
-                    continue;
-                }
-
-                // Otherwise its save. One load per owner chunk, keyed like the build path's own
-                // lookup. The owning tile is local (29, _) on a west edge and (_, 29) on a south
-                // edge - it is only (29,29) at a corner - so the local tile coords are derived from
-                // the node rather than assumed, which is the whole of the seam's addressing rule.
+                // The owner is read from its SAVE FILE only, never from the live _loadedChunks
+                // dictionary. This method runs on a ThreadPool thread (BackgroundGenerateChunk)
+                // while the main thread builds, unloads and demotes chunks, and
+                // Dictionary<TKey,TValue> is not safe to read during a write - a concurrent read can
+                // throw or hand back a torn entry. The whole build path is already disk-driven
+                // (this chunk is built from ChunkSaveManager.TryLoadChunk above), so reading a
+                // neighbour from disk is not a downgrade: it is the same source the owner chunk
+                // itself was built from. The residue is an edit that is in memory and not yet
+                // flushed - the seam keeps its old value until the owner's save lands, which is the
+                // same bounded staleness 1i3 documents for the far shell, and it self-corrects on
+                // the next load.
                 int ltx = wx - 1 - owner.X * cs;
                 int ltz = wz - 1 - owner.Z * cs;
                 if (!foreignMods.TryGetValue(owner, out Dictionary<int, ChunkTileMod> fm))

@@ -1144,7 +1144,8 @@ public partial class WorldStreamer
     }
 
     /// <summary>Coarse (step-wide) top quad with the same slot winding and per-metre U as the near
-    /// VoxelMesher top runs, rendered as one merged quad over [x0..xEnd) columns at z.</summary>
+    /// VoxelMesher top runs, rendered as one merged quad from column x0 to xEnd minus one, at
+    /// z.</summary>
     private static void EmitVoxelFarTopRun(
         List<Vector3> vertices, List<int> triangles, List<Vector2> uv, List<Vector3> normals,
         List<Color> colors, long seed, Dictionary<long, float> memo,
