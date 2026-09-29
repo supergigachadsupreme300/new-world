@@ -49,6 +49,17 @@ public struct MergedChunkMeshData
     public Bounds Bounds;
 
     /// <summary>
+    /// Which revision of the chunk generator produced this mesh (1i7). A render-algorithm edit
+    /// changes nothing already on screen (AGENTS rule 11) - loaded and dormant chunks keep their old
+    /// geometry until they are rebuilt - so a mid-session mix of two revisions is indistinguishable
+    /// from a broken generator unless something says so. The F3 fingerprint reports the distribution
+    /// of this stamp, which turns "did the player restart?" from a guess into a reading.
+    /// Bump <see cref="WorldStreamer.TerrainBuildStamp"/> whenever a change alters the geometry a
+    /// chunk build produces.
+    /// </summary>
+    public int BuildStamp;
+
+    /// <summary>
     /// Start index into <see cref="Vertices"/> of each tile's merged shallow block (1ew). May be
     /// null for non-terrain merged builders (e.g. the voxel path).
     /// </summary>

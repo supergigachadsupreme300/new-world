@@ -197,6 +197,8 @@ public class ChunkObject : MonoBehaviour
     // as the visible facets.
     private int _meshStep;
 
+    private int _buildStamp;
+
     /// <summary>Collider decimation step for THIS chunk (1hi.1): the low-poly root's own step when
     /// coarse (stand exactly on the visual facets), else the standard 2 m decimation.</summary>
     private int ColliderStep => _meshStep > 0 ? _meshStep : ColliderDecimation;
@@ -210,6 +212,12 @@ public class ChunkObject : MonoBehaviour
 
     /// <summary>Coarse facet step this chunk's root mesh was built at (0 = full 1 m surface).</summary>
     public int MeshStep => _meshStep;
+
+    /// <summary>
+    /// Generator revision this chunk's mesh was built by (1i7), read from the build data at apply
+    /// time exactly like <see cref="MeshStep"/>. Stays 0 for a chunk whose mesh predates the stamp.
+    /// </summary>
+    public int BuildStamp => _buildStamp;
 
     /// <summary>True when this chunk carries a 31x31 world-corner lattice (smooth / low-poly terrain
     /// chunks). Voxel chunks build their own stepped mesh and have none.</summary>
@@ -302,6 +310,7 @@ public class ChunkObject : MonoBehaviour
     {
         _merged = md;
         _meshStep = md.LowPolyStep;
+        _buildStamp = md.BuildStamp;
         // Pooled mesh (1dv): a chunk owns one Mesh instance. The first apply acquires it from the
         // freed-mesh pool (or allocates when the pool is empty); rebuilds re-upload into the SAME
         // instance, so FullRebuildChunk/etc. stop spinning new Mesh objects + Destroying the old.

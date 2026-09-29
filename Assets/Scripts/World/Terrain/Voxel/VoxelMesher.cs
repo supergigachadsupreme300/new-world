@@ -182,6 +182,10 @@ public static class VoxelMesher
             Bounds = new Bounds(
                 new Vector3(span * 0.5f, minY < maxY ? (minY + maxY) * 0.5f : minY, span * 0.5f),
                 new Vector3(span, Mathf.Max(0.1f, (maxY - minY) + 0.1f), span)),
+            // 1i7: the stepped path is a different generator, but it must still declare WHICH
+            // revision built it, or the F3 fingerprint reports an unversioned bucket and a mixed
+            // resident set hides inside it.
+            BuildStamp = WorldStreamer.TerrainBuildStamp,
         };
     }
 

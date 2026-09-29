@@ -158,6 +158,21 @@ public partial class WorldStreamer
     }
 
     /// <summary>
+    /// Revision of the chunk geometry generator, stamped into every chunk mesh it builds (1i7).
+    /// Editing a render algorithm changes nothing already on screen (AGENTS rule 11): loaded chunks
+    /// keep their uploaded <c>RootMesh</c>, and dormant chunks wake in place with the same pooled
+    /// mesh, so a mid-session world can be a mix of two revisions that renders identically at a
+    /// glance and measures completely differently. The F3 fingerprint prints the distribution of
+    /// this stamp, so "is this world even built by the code I just shipped?" is a reading rather
+    /// than an assumption.
+    ///
+    /// <b>Bump this whenever a change alters the geometry a chunk build produces</b> - the seam
+    /// resolver below, the voxel mesher, noise rounding, corner stamping. A pure gameplay or UI
+    /// change does not need it.
+    /// </summary>
+    public const int TerrainBuildStamp = 1;
+
+    /// <summary>
     /// Builds a terrain chunk's 900 tile meshes plus the merged chunk mesh. Reads the terrain
     /// chunk's save file first: deformed tiles restore their saved heights (so revisiting an
     /// edited area is fast and exact); every other corner regenerates from noise (the cache

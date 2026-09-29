@@ -82,6 +82,10 @@ public partial class WorldStreamer
         public int PristineHits;   // contributors whose height EQUALS untouched world noise here
         public int EditedHits;     // contributors whose height differs from it
         public int ModifiedChunks; // contributors whose chunk carries any saved tile mod
+        public int PristineFromModified; // 1i7: contributors that are BOTH pristine and modified —
+                                         // the signature of a mod's stored pre-edit corner being
+                                         // stamped over a shared node, which is 1i6's short-circuit
+                                         // rather than a missing owner.
     }
 
     /// <summary>
@@ -112,7 +116,9 @@ public partial class WorldStreamer
 
         Dictionary<string, int> buckets;
         int stepDrift, stepDriftCounted, noMesh;
-        AppendFingerprint(sb, out buckets, out stepDrift, out stepDriftCounted, out noMesh);
+        Dictionary<int, int> stamps;
+        AppendFingerprint(sb, out buckets, out stepDrift, out stepDriftCounted, out noMesh,
+            out stamps);
 
         int voidCount, voidClaimedDead, voidUnowned;
         int nearestVoidRing;
@@ -199,9 +205,11 @@ public partial class WorldStreamer
     /// did not change" symptom.
     /// </summary>
     private void AppendFingerprint(StringBuilder sb, out Dictionary<string, int> buckets,
-        out int stepDrift, out int stepDriftCounted, out int noMesh)
+        out int stepDrift, out int stepDriftCounted, out int noMesh,
+        out Dictionary<int, int> stamps)
     {
         buckets = new Dictionary<string, int>(8);
+        stamps = new Dictionary<int, int>(4);
         stepDrift = 0;
         stepDriftCounted = 0;
         noMesh = 0;
@@ -215,7 +223,13 @@ public partial class WorldStreamer
             Mesh mesh = c.RootMesh;
             if (mesh == null)
                 noMesh++;
-            string label = "step " + c.MeshStep + " verts " + (mesh != null ? mesh.vertexCount : -1);
+            // 1i7: bucket by GENERATOR REVISION as well as by shape. A render-algorithm edit leaves
+            // every already-loaded chunk on the old geometry (AGENTS rule 11), so a world that has
+            // not been restarted is a mix of two revisions that looks seamless and measures like a
+            // broken generator. Every later section is a claim about the resident set, so this has
+            // to be readable before them, not inferred afterwards.
+            string label = "stamp " + c.BuildStamp + " step " + c.MeshStep
+                + " verts " + (mesh != null ? mesh.vertexCount : -1);
             int seen;
             buckets.TryGetValue(label, out seen);
             buckets[label] = seen + 1;
@@ -247,6 +261,36 @@ public partial class WorldStreamer
               .Append(" (want step ").Append(wantStep).Append(')');
         if (noMesh > 0)
             sb.Append("  noMesh ").Append(noMesh);
+
+        // 1i7: name the build-mix explicitly. One stamp means every loaded chunk came from the code
+        // now running; two or more means the resident set straddles a generator edit, and then NO
+        // section below describes the world a fresh session would build.
+        stamps.Clear();
+        foreach (KeyValuePair<TerrainChunkCoord, ChunkObject> kv in _loadedChunks)
+        {
+            ChunkObject c = kv.Value;
+            if (c == null)
+                continue;
+            stamps.TryGetValue(c.BuildStamp, out int n);
+            stamps[c.BuildStamp] = n + 1;
+        }
+        if (stamps.Count == 0)
+        {
+            sb.Append("  buildStamp none");
+        }
+        else if (stamps.Count == 1)
+        {
+            foreach (KeyValuePair<int, int> kv in stamps)
+                sb.Append("  buildStamp ").Append(kv.Key).Append(" x").Append(kv.Value)
+                  .Append(" (uniform: resident set matches the code now running)");
+        }
+        else
+        {
+            sb.Append("  buildStamp MIXED:");
+            foreach (KeyValuePair<int, int> kv in stamps)
+                sb.Append(' ').Append(kv.Key).Append(" x").Append(kv.Value);
+            sb.Append("  <-- sections B/C/D span two generator revisions; restart before trusting them");
+        }
         sb.Append('\n');
     }
 
@@ -457,13 +501,31 @@ public partial class WorldStreamer
                     // structural cause (wrong owner slot, different seed) would move BOTH off the
                     // pristine value or leave both exactly on it. A disagreement where one side sits
                     // on pristine noise is therefore proof that only one side was written.
-                    if (Mathf.Abs(topY - TerrainNoiseGenerator.GetHeight(Seed, nx, nz)) <= RenderedCornerTolerance)
+                    bool isPristine = Mathf.Abs(topY - TerrainNoiseGenerator.GetHeight(Seed, nx, nz))
+                        <= RenderedCornerTolerance;
+                    if (isPristine)
                         node.PristineHits++;
                     else
                         node.EditedHits++;
 
-                    if (_modifiedChunks.Contains(kv.Key))
+                    bool isModified = _modifiedChunks.Contains(kv.Key);
+                    if (isModified)
                         node.ModifiedChunks++;
+
+                    // 1i7. "one-sided edit" alone does not say WHY the pristine side stayed
+                    // pristine, and the two candidates need opposite fixes:
+                    //  - The pristine side is itself a MODIFIED chunk. It holds a mod, so its build
+                    //    stamped this node from that mod's stored corner - which is the tile's
+                    //    PRE-EDIT height - and then 1i6's `continue` short-circuited the seam walk
+                    //    because the corner was no longer NaN. The edit was available; the
+                    //    short-circuit refused to look.
+                    //  - The pristine side is NOT modified. Nothing stamped it, so the seam walk
+                    //    either never ran (stale mesh) or ran and failed to find the edit (save
+                    //    not flushed, or the wrong owner consulted).
+                    // Those are different bugs, and a count that merges them can only be argued
+                    // about, so they are counted separately.
+                    if (isPristine && isModified)
+                        node.PristineFromModified++;
 
                     // The chunk's OWN lattice at the same local corner. NaN when absent (voxel
                     // chunks have no lattice) — skip rather than report a fake mismatch.
@@ -502,7 +564,11 @@ public partial class WorldStreamer
 
         // Classification of the disagreeing nodes (1i0). The mechanism is named, not guessed.
         int oneSidedEdit = 0, bothEdited = 0, neitherEdited = 0;
+        int oneSidedStampClobber = 0;   // 1i7: the pristine side is itself modified, so a mod's
+                                        // stored pre-edit corner was stamped over the node.
+        int oneSidedNoOwner = 0;        // 1i7: the pristine side is untouched, so no stamp happened.
         string oneSidedAt = "-";
+        string stampClobberAt = "-";
         foreach (KeyValuePair<long, RenderedCornerNode> kv in nodes)
         {
             RenderedCornerNode n = kv.Value;
@@ -513,6 +579,16 @@ public partial class WorldStreamer
                 oneSidedEdit++;
                 if (oneSidedAt == "-")
                     oneSidedAt = "(" + n.Nx + "," + n.Nz + ")";
+                if (n.PristineFromModified > 0)
+                {
+                    oneSidedStampClobber++;
+                    if (stampClobberAt == "-")
+                        stampClobberAt = "(" + n.Nx + "," + n.Nz + ")";
+                }
+                else
+                {
+                    oneSidedNoOwner++;
+                }
             }
             else if (n.PristineHits == 0)
                 bothEdited++;
@@ -571,7 +647,11 @@ public partial class WorldStreamer
         sb.Append("  own-lattice dY ").Append(worstDelta.ToString("0.####")).Append('\n');
         if (worstSpread > RenderedCornerTolerance)
             sb.Append("    worst cross-chunk at ").Append(worstSpreadAt)
-              .Append(CrossCause(crossOneSided, crossBothEdited, crossNeitherEdited, crossOneSidedAt))
+                .Append(CrossCause(crossOneSided, crossBothEdited, crossNeitherEdited, crossOneSidedAt))
+                .Append("  [1i7 split: stamp-clobbered ").Append(oneSidedStampClobber)
+                .Append(" (first at ").Append(stampClobberAt)
+                .Append(") no-owner ").Append(oneSidedNoOwner).Append(']')
+
               .Append('\n');
         if (worstDelta > RenderedCornerTolerance)
             sb.Append("    worst own-lattice at ").Append(worstDeltaAt).Append('\n');
