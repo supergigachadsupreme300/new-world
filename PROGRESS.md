@@ -4,6 +4,81 @@ Last updated: 2026-09-29. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1i9. The dent was never deleted — 1hx deleted the resolution it was drawn at
+
+The user reported "the dent function is gone now", clarified as the dent a projectile leaves in the
+terrain. This one I could reason to a proof rather than to a measurement, because the renderer's
+decimation is arithmetic.
+
+### What I nearly shipped wrong, and the check that killed it
+
+My first mechanism was the directed-dig clip at `Deform.cs:144` — `SpellEffect.cs:306` passes the
+projectile's *flight direction* `_dir`, and that clip multiplies a crater's influence by
+`Clamp01(along / (radius*0.5) + 0.15)`, which zeroes everything behind the cast plane. Real code,
+and it would turn a projectile crater into a forward-facing sliver about 6.7 cm deep at its centre.
+
+**It is gated on `VoxelTerrainEnabled`, which is `false` in normal play** — the only assignment in
+the project is `NewWorldTestGround.cs:138`, the opt-in test-ground lane, and no `.unity`/`.prefab`
+serialises it. So the clip never ran. **A mechanism that cannot be live is not a cause**, and the
+gate was one grep of a boolean away from shipping as "the fix". Worth remembering next to 1i4's
+construct-in-the-wrong-place: this time the code was fine and the *premise* was false.
+
+### The actual cause
+
+`LowPolyStep = 6`, and `EmitLowPolySurface` (`ChunkMeshGenerator.cs:757`) builds the visible
+surface from every `step`-th node of the 31×31 lattice at world positions `gx*step, gz*step` — so
+`axis = 30/6 + 1 = 6`, **25 quads / 100 vertices**. That `verts 100` was in the user's own F3
+readout, which is what made this a proof instead of a guess: the render carries a vertex only every
+6 m in x and z.
+
+The projectile dent's reach is `radius + feather = 1.4 + 0.5 = 1.9 m` (`Deform.cs:55`). A carve
+only changes the render if a sampled node falls within that reach, and the worst case is
+`3√2 ≈ 4.24 m`. So **~69% of impacts moved no rendered vertex at all**, and the rest produced a
+partial dish.
+
+**And this is why it worked "before".** At `step = 3` the worst case was `1.5√2 = 2.12 m`, so a
+1.9 m reach essentially always contained a sampled node and the dent rendered. 1hx moved the step
+3 → 6 for facet-shading contrast, and put the dent below the floor. This is rule 12's own sentence —
+*"the edit granularity is the step"* — applied to a deform that was never revisited when the step
+moved. The dent was deleted by a **rendering** decision, in a **deform** file, with no error and
+perfectly correct data underneath.
+
+### The fix
+
+`CraterFacetSkirt` + widened write bounds in `DeformAt`:
+
+- When low-poly is on, find the nearest node the renderer samples (both coords multiples of the
+  step) and its distance `toSampledNode`. If the authored reach contains none, the carve is
+  provably invisible, so additionally dip that node with a skirt that dies one step out (squared).
+- Combined by `Mathf.Max` with the authored influence, and `Max` against `CurrentHeightOf` per
+  cast as before, so the authored radius, the 1.1 m depth and the per-cast ratchet are untouched and
+  a crater that already reaches a sampled node is bit-for-bit unchanged.
+- **The loop's write bounds widen to `toSampledNode + step`** — the guarantee was computed outside
+  the region the loop writes, and a guarantee outside the written region writes nothing.
+- The skirt measures the corner as world node `(cx, cz)`, not `cx + 0.5`. The deform loop samples
+  influence at tile centres (pre-existing half-metre quirk), but the corner it *writes* is a
+  lattice point and the facets sit at exactly those integer multiples — measuring in the target's
+  own space is what makes the peak land on the node it is aimed at.
+- Scoped to `Crater` alone. The raised shapes are not silently re-footprinted; see rule 12.
+
+Deliberately **rejected**: widening `dentRadius` (also widens the gameplay crater, and a Crater
+ratchets `CraterStep` per cast, so a "small universal dent" becomes a deep pit) and reverting
+`LowPolyStep` to 3 (that is the visual decision 1hx was made to get).
+
+### 1i9-status
+- [ ] **Play-test: fire any non-Earth bolt at the ground — a dent must now appear.** Repeat at a
+      spot roughly midway between two facet lines (the ~69% case) and at one near a facet line
+      (the ~31% case): both must show a mark, and the near-line case must be unchanged.
+- [ ] Confirm the dent still ratchets deeper on repeat casts, and that the shovel/pickaxe dig is
+      still a tight bowl (it now also gets a skirt when its 1.05 m reach catches no sampled node).
+- [ ] `tools\StaticChecks.ps1`: **`WorldStreamer.Deform.cs` added to `$files`** (it was unchecked,
+      so the run above covered none of this edit), braces 60/60, parens 366/366, 0 candidates;
+      `influence` is the pre-existing declare-then-assign-in-if-chain pattern. No Unity build was
+      run — verification is code review + grep + the static script.
+- [ ] Note for the running session: this is a **deform** change, not a render-algorithm change, so
+      it applies to carves made *after* the recompile. Existing resident chunks keep their meshes,
+      but no resident drop is required because nothing about the already-built geometry changed.
+
 ## 1i8. Reading the saves, so the next fix is chosen by data instead of by my next guess
 
 1i7's two additions did their job in a single readout and immediately narrowed the field:

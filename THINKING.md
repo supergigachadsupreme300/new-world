@@ -15,6 +15,69 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1i9 — why did the impact dent stop existing? — VERDICT: CONFIRMED (fix shipped, awaiting play-test)
+
+### H30 — the directed-dig clip is eating the projectile crater — REJECTED by its own gate
+
+`SpellEffect.cs:306` passes `_dir`, the projectile's *flight direction*, as the carve direction.
+`Deform.cs:144` then multiplies a voxel-mode crater's influence by
+`Clamp01(along / (radius*0.5) + 0.15)`, which is **exactly 0** for anything behind the cast plane,
+and 0.15 at the centre → an authored 1.1 m crater rendered as a 6.7 cm forward sliver. The
+`1eu` commit that added the clip updated only the *tool* path (`TerrainDeformer.Dig` overload,
+`ToolManager` passes `player.transform.forward`) — `SpellEffect.cs` is not in its file list, so the
+projectile was never considered.
+
+This had the shape of a real bug and I was one step from shipping a "fix" for it. It is gated on
+`VoxelTerrainEnabled`, which is `false` in normal play: the only assignment in the project is the
+opt-in test-ground lane, and no scene or prefab serialises it. **The clip cannot run, so it cannot
+be the cause.**
+
+The lesson, distinct from 1i4's: 1i4's defect was a construct in the wrong place, where every check
+approved a thing that was not happening. Here the construct was in the right place and correctly
+written — the *premise* was false. Both are invisible to reading, because both are statements about
+whether code executes rather than about what it computes. So the habit is not "read more carefully"
+but **"find the gate and read its value"** — a mechanism is only a cause once its enabling condition
+is known to hold in the reported session.
+
+### H31 — the crater is written to nodes the renderer never samples — CONFIRMED
+
+`LowPolyStep = 6`; `EmitLowPolySurface` emits the visible surface from every `step`-th lattice node
+at world `gx*step, gz*step`, giving `axis = 30/6 + 1 = 6` → **25 quads, 100 vertices**. The user's
+own F3 line read `verts 100 x243`, which is the readout that turned this from a hypothesis into
+arithmetic. The dent's reach is `1.4 + 0.5 = 1.9 m`; the worst-case distance from an arbitrary
+impact to a sampled node is `3√2 ≈ 4.24 m`. So ~69% of impacts move no rendered node, and the carve
+is invisible however deep it is.
+
+The "now" in the report is explained by the same number: at `step = 3` the worst case is 2.12 m,
+so a 1.9 m reach *always* contained a sampled node and the dent rendered. 1hx moved 3 → 6 for
+facet-shading contrast and deleted the dent as collateral. Rule 12 already said "the edit
+granularity is the step"; what it did not say is that a step change is a **deform** change, because
+the deform's own reach is now below the sampling floor.
+
+Two things I checked that would have spoiled the fix if I had skipped them:
+
+- **The FX is outside the carve's gate.** The user saw the exploding sphere, which is spawned
+  *after* the raycast branch (`SpellEffect.cs:313`). So "sphere plays, terrain does not" is not
+  even evidence that the carve ran — it is the signature of a carve that was skipped, a carve that
+  no-oped, and a carve that reverted alike. Two candidate mechanisms, one observation. The
+  free measurement that separated them was asking whether the *shovel* still dug, because
+  `TerrainDeformer.Dig` has no raycast gate: it would have located the fault in one step, and I
+  asked it as a sub-question and then started reading instead of waiting for the answer.
+- **A fix is not the widened reach.** The obvious move — make `reach` exceed `4.24` — silently
+  multiplies the excavation rate, because a Crater ratchets `CraterStep` per cast: the "small
+  universal dent" of 1bp becomes a deep pit, and the same widened bounds would re-footprint every
+  raised shape. `Max` with the authored influence keeps the guarantee to exactly the case where the
+  carve had no rendered geometry at all, which is the only case worth changing.
+
+### H32 — the two coordinate spaces are not the same space — CONFIRMED, and it would have half-missed
+
+The deform loop measures influence at `cx + 0.5` (a tile centre) but writes
+`newHeights[EncodeCorner(cx, cz)]`, a corner *node* at world `(cx, cz)`. The facets are emitted at
+`gx*step`, integers. So a skirt computed in the loop's own distance space peaks half a metre from
+the node it is aimed at — which, against a 6 m falloff, would have left the guarantee technically
+present and visually weak. The skirt measures the corner in the target's space instead. **A
+guarantee must be expressed in the coordinates of the thing it guarantees.**
+
 ## 1i8 — is the edit in the save, or not? — VERDICT: OPEN (measurement shipped, awaiting readout)
 
 ### H27 — the resolver "cannot find" an edit that is provably in the file — the contradiction

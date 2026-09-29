@@ -1365,6 +1365,16 @@ Arcane→**no status** (pure force), Wind→Knockback, Holy→heals (§3.8), Ear
   disturb the terrain; Earth's craters stay larger and depth-notable (the school's signature) —
   and a crater digs progressively deeper on repeat casts, descending through the
   grass → dirt → stone strata bands revealed in the pit walls (§3.8).
+  **The dent's radius is coupled to the low-poly facet step (1i9).** The visible surface is
+  emitted from every `LowPolyStep`-th node of the 1 m corner lattice (6 m since 1hx), so a carve
+  narrower than half a facet writes its whole shape into nodes no triangle is built from and
+  renders as nothing. The 1.4 m projectile dent (1.9 m reach) sat inside the 4.24 m worst-case
+  distance to a sampled node, so the universal dent silently stopped existing when 1hx moved the
+  step 3 → 6. `DeformAt` now guarantees a rendered mark: when the authored reach contains no
+  sampled node it additionally dips the nearest one (and dies one step out), combined with the
+  authored influence by `Max` — so the authored radius, depth and per-cast ratchet are unchanged
+  and a crater that already reaches a sampled node keeps exactly its shape. Crater only: the
+  raised shapes are untouched.
   **Every projectile impact — Earth or not — plays a school-colored exploding sphere (1gb):**
   `SkillFx.ImpactSphere` grows a solid sphere at the hit point from a quarter to the spell's
   radius while its transparency increases to fully transparent over ~0.45 s, then vanishes. It

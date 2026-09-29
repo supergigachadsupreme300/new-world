@@ -268,6 +268,34 @@
     `curvature × span` — so at 3 m the normals barely differed and the world still read as smooth
     haze. The lesson generalises: **"low-poly" is a normal-contrast problem, not a triangle-count
     problem**, so reach for the span before reaching for the shading.
+    - **Raising the step SILENTLY DELETES every carve narrower than half a facet — check this
+      before changing the step, and again after.** The rendered surface holds only every
+      `step`-th lattice node, so a deform whose *reach* is smaller than the worst-case distance to
+      a sampled node (`step/√2`, and 3 m at step 3 vs 4.24 m at step 6) writes its entire shape
+      into nodes no triangle is built from. It does not look wrong, does not error, and leaves the
+      data layer perfectly correct — it simply stops existing on screen. 1hx (3 → 6) deleted the
+      universal projectile impact dent this way: its 1.9 m reach fell inside the new 4.24 m
+      worst case, and the user reported "the dent function is gone now" with the impact sphere
+      still playing, which is the tell — **the FX is outside the carve's gate, so a crater that
+      vanishes while its effect plays is a resolution problem, not a hit-detection problem.**
+      Three habits:
+      - **Compare a deform's reach to `step/√2`, not to `step` or to the step's value.** The
+        bound is the *diagonal* of the sampled cell, because the nearest sampled node can be half
+        a step away in BOTH axes.
+      - **A carve guarantee must be a `Max` with the authored influence, never a replacement for
+        it.** `DeformAt`'s `CraterFacetSkirt` returns 0 unless the carve would move *no* rendered
+        node, so it can only ever turn an invisible carve into a visible one — the authored radius,
+        depth and per-cast ratchet stay untouched, and a carve that already reaches a sampled node
+        keeps exactly its shape. Widening the reach instead would have multiplied the excavation
+        rate with it (a Crater ratchets `CraterStep` per cast), turning a "small dent" into a pit.
+      - **Widen the loop's WRITE bounds to cover the guarantee, or the skirt targets nodes the loop
+        never visits** — a guarantee computed outside the region being written is a guarantee that
+        writes nothing.
+      - Unfixed consequence of the same coupling: the RAISED shapes (`Wall`/`Ring`/`Pillar`/
+        `Spikes`) use the same radii and are subject to the same invisibility, but 1i9 scoped
+        itself to `Crater` deliberately. If a raised shape is reported invisible, that is this
+        same bug, not a new one — and the fix must keep the shapes' `Max(current, target)`
+        idempotency intact.
 
 13. **A removal has three failure modes, and only one of them is a compile error.** Deleting a feature
     leaves behind more than references to the deleted *name*, and the three residue classes fail in

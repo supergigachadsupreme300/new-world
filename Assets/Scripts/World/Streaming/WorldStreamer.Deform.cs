@@ -53,10 +53,29 @@ public partial class WorldStreamer
 
         float feather = 0.5f;
         float reach = radius + feather;
-        int minCX = Mathf.FloorToInt(center.x - reach);
-        int maxCX = Mathf.FloorToInt(center.x + reach);
-        int minCZ = Mathf.FloorToInt(center.z - reach);
-        int maxCZ = Mathf.FloorToInt(center.z + reach);
+
+        // 1i9. The low-poly surface is emitted from every EffectiveLowPolyStep-th node of the 1 m
+        // corner lattice (ChunkMeshGenerator.EmitLowPolySurface) — world nodes whose x AND z are
+        // both multiples of the step. A carve whose reach happens to contain none of those nodes
+        // therefore writes its entire shape into lattice that no triangle is built from, and the
+        // dent is invisible no matter how deep it is. 1hx moved the step 3 -> 6, which put the
+        // projectile dent's 1.9 m reach inside the 4.24 m worst-case distance to a sampled node,
+        // so the universal impact dent stopped existing. Widen the WRITE bounds for craters to
+        // cover the skirt that guarantees a visible mark; the authored influence curve below still
+        // uses `reach` unchanged, so the authored shape and depth are untouched.
+        int facetStep = shape == TerrainShape.Crater ? EffectiveLowPolyStep : 0;
+        float toSampledNode = 0f;
+        if (facetStep > 0)
+        {
+            float sx = center.x - Mathf.Round(center.x / facetStep) * facetStep;
+            float sz = center.z - Mathf.Round(center.z / facetStep) * facetStep;
+            toSampledNode = Mathf.Sqrt(sx * sx + sz * sz);
+        }
+        float loopReach = toSampledNode > reach ? toSampledNode + facetStep : reach;
+        int minCX = Mathf.FloorToInt(center.x - loopReach);
+        int maxCX = Mathf.FloorToInt(center.x + loopReach);
+        int minCZ = Mathf.FloorToInt(center.z - loopReach);
+        int maxCZ = Mathf.FloorToInt(center.z + loopReach);
 
         // Wall orientation: the cast direction projected onto the XZ plane. The voxel crater
         // directed-dig clip uses this directly; the Wall ridge rotates it 90° (1ga, below).
@@ -167,6 +186,11 @@ public partial class WorldStreamer
 
                 if (shape == TerrainShape.Crater)
                 {
+                    // 1i9: guarantee the carve reaches a RENDERED node. Max'd with the authored
+                    // influence, never replacing it, so this can only ADD visible geometry in the one
+                    // case where the carve had none — and the deep 1.1 m core at the impact point,
+                    // its radius and its per-cast ratchet are all unchanged.
+                    s = Mathf.Max(s, CraterFacetSkirt(cx, cz, center, reach, facetStep, toSampledNode));
                     // Deliberate per-cast excavation: lower each corner by s*CraterStep below its
                     // CURRENT floor. Repeating the cast (or swinging a digging tool) deepens the pit
                     // each time — the inverse of the raised shapes' idempotency — so the player can
@@ -221,6 +245,42 @@ public partial class WorldStreamer
         // fading sphere blast instead — only tool digs / zone-strikes keep the cube burst.
         if (shape == TerrainShape.Crater && emitDebris)
             SpawnCraterDebris(center);
+    }
+
+    /// <summary>
+    /// 1i9: influence a crater places on the nearest RENDERED node when its authored reach contains
+    /// none, so that a carve can never be provably invisible. Sized as a fraction of the same
+    /// <c>CraterStep</c> the authored dish uses, which is what it renders as: the surface
+    /// interpolates linearly between sampled nodes, so dipping one of them by s*CraterStep tilts
+    /// the surrounding facet into a visible dish of that depth.
+    /// </summary>
+    private const float CraterFacetSkirtDepth = 0.5f;
+
+    /// <summary>
+    /// 1i9: extra crater influence to write onto the nodes around the nearest sampled (rendered)
+    /// lattice node, or 0 when the authored reach already contains one.
+    ///
+    /// The invariant that makes this safe: it returns 0 unless the carve would otherwise move no
+    /// rendered geometry whatsoever, so it can only ever turn an invisible carve into a visible one.
+    /// A crater that already reaches a sampled node keeps exactly its authored shape.
+    ///
+    /// The falloff dies one step out, squared, so the mark reads as THIS crater rather than a
+    /// regional tilt, and it is combined with the authored influence by Max at the call site.
+    /// </summary>
+    private static float CraterFacetSkirt(int cx, int cz, Vector3 center, float reach,
+        int facetStep, float toSampledNode)
+    {
+        if (facetStep <= 0 || toSampledNode < reach)
+            return 0f;
+        // The corner this writes is world node (cx, cz) — a node is a lattice point, not a tile
+        // centre — and the rendered facets sit at exactly those integer multiples of facetStep
+        // (EmitLowPolySurface emits gx*step). Measuring the skirt in the target's own space is what
+        // makes "t == 0 at the nearest sampled node" exact rather than half a metre out.
+        float dx = cx - center.x;
+        float dz = cz - center.z;
+        float t = Mathf.Clamp01((Mathf.Sqrt(dx * dx + dz * dz) - toSampledNode) / facetStep);
+        float f = 1f - t;
+        return CraterFacetSkirtDepth * f * f;
     }
 
     /// <summary>
