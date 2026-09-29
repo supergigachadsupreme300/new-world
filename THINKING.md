@@ -15,7 +15,52 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
-## 1i3 — the fix, and what it deliberately does not fix — VERDICT: OPEN (shipped, awaiting play-test)
+## 1i4 — "every corner tile of real chunk" — the misreading, and the fix that should have been 1i3
+
+### H21 — was the gap at the near/far boundary? — REJECTED. It was never there.
+
+I asked the player to disambiguate "the outer z/x corner tile" and offered two options: the corner of
+the loaded square, or the far rim. They answered with a third thing I had not offered: **"every corner
+tile of real chunk."** That is the original 1hy report, word for word — *"in every chunk corner the
+edge will not match"*. It was in the title of the very first entry.
+
+**REJECTED, and the reason matters more than the fact.** My question was not wrong, it was
+**leading**: I had two locations derived from my own hypothesis, and I asked which one, so the answer
+selected between my theories instead of telling me the truth. The player chose the nearest of my
+options rather than either, and I read their answer as confirmation. When a location cannot be
+resolved from code, the useful question is what the artifact *looks like* — where it is in the world
+is a conclusion, not a question.
+
+The cost was concrete: 1i1 and 1i3 were both built and aimed at the near/far seam, and 1i3's own
+commit message defers the 345 interior nodes as "a step the player has not reported seeing". I wrote
+that sentence while the player was, in fact, reporting it. **Deferring a finding because I re-read
+the report more narrowly than the reporter did is the worst of the rule-7 habits** — it inverts the
+measurement back into a theory.
+
+### H22 — the fix, and the arithmetic that nearly shipped wrong — CONFIRMED
+
+The ownership rule turned out to be one line long: the stamp that writes a tile's corners is
+`corners[LocalX+1, LocalZ+1] = Heights[1]`, so **the tile that owns a world node is always the tile
+one metre back in each axis, always as its NE slot.** Every chunk at a seam can therefore ask the same
+question — "what does the owner of this node say?" — and get the same answer, which is what makes the
+seam converge regardless of build order. No reconciliation pass, no ordering constraint, no
+`ReconcileNewlyLoadedChunk` hook: the corner becomes a *function of the world* instead of a *copy of
+local state*. That is the actual difference between the two, and it is why this is a different shape
+of fix from the `ReconcileModifiedBorders` approach I had been circling.
+
+I hardcoded the owning tile as `(29,29)` in the first draft, on the strength of the four-chunk
+worked example. Working a **west edge** through the same rule gives `(29, gz-1)`. The four-chunk
+example is the one rule 8 tells you to use, and it is the one that hides this: at a corner every
+quadrant happens to agree on the tile, and only an edge distinguishes them. Deriving the local tile
+coords from the node is not defensive style, it is the contract — the copy's addressing *is* the
+seam, and a seam rule verified at one node class is a seam rule verified at one node class.
+
+**Shipped.** Boundary corners only, local writes never overwritten, resident owner preferred over
+disk so the fix also self-heals the 1i3 class of staleness at the rim.
+
+---
+
+## 1i3 — the fix, and what it deliberately does not fix — VERDICT: OPEN (superseded in scope by 1i4)
 
 ### H18 — is 1i1's "far side is pristine by construction" actually the mechanism? — CONFIRMED, and it is smaller than I assumed
 

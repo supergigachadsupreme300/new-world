@@ -2,8 +2,32 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
+    /// <summary>
+    /// Tile mods of a NEIGHBOURING chunk, read from its save file and keyed localZ*cs+localX the
+    /// same way this file's own build path keys them. Returns null when the chunk has no save or no
+    /// usable mods, which leaves the caller's corner as NaN so the ordinary noise regeneration still
+    /// runs for it. Split out of <c>BuildChunkMeshData</c> so the foreign-corner pass can read a
+    /// neighbour's mods without duplicating the filtering rules.
+    /// </summary>
+    private Dictionary<int, ChunkTileMod> ForeignTileMods(TerrainChunkCoord tc, long seed)
+    {
+        if (!ChunkSaveManager.TryLoadChunk(seed, tc, out ChunkSaveData fsave))
+            return null;
+        if (fsave.Mods.Count == 0)
+            return null;
+        int fcs = TerrainChunkCoord.ChunkSize;
+        var map = new Dictionary<int, ChunkTileMod>();
+        for (int i = 0; i < fsave.Mods.Count; i++)
+        {
+            ChunkTileMod m = fsave.Mods[i];
+            if (m.LocalX >= 0 && m.LocalX < fcs && m.LocalZ >= 0 && m.LocalZ < fcs)
+                map[m.LocalZ * fcs + m.LocalX] = m;
+        }
+        return map;
+    }
 
-/// <summary>
+    /// <summary>
+
 /// Background-thread chunk generation (noise or disk-saved mods) portion of the WorldStreamer partial class.
 /// </summary>
 
@@ -88,6 +112,81 @@ public partial class WorldStreamer
                 corners[m.LocalX, m.LocalZ] = IsSaneHeight(m.Heights[3]) ? m.Heights[3] : float.NaN;         // SW
             }
         }
+        // 1i4. A corner on a chunk seam is a corner of up to four chunks, and until now each chunk
+        // filled its own copy of that height from its OWN tiles. ApplyHeightEdits writes every
+        // LOADED tile at a world coordinate, so two chunks that were both loaded when the edit
+        // landed agree with each other - which is why most of the world looks right and the fault
+        // hides. Where one side was not loaded, that side keeps pristine noise FOREVER, because
+        // nothing reconciles it: ReconcileModifiedBorders repairs slab-wall bottoms, not corner
+        // heights. The audit found 345 of 400 corner nodes in that state, so it is the NORMAL
+        // state of a seam rather than an edge case - and with no side walls in low-poly a 0.29 m
+        // step at a corner is a see-through crack, not a terrace.
+        //
+        // The fix resolves a shared corner from the WORLD instead of from this chunk's own tiles, so
+        // every chunk computes the same height for a node no matter which was built first.
+        //
+        // Addressing (rule 8: the copy's arithmetic IS the seam contract, so it is checked with a
+        // worked example at world (30,30), where four chunks meet). The tile that OWNS a world node
+        // is always the tile one metre back in each axis, and always writes it as its NE slot - the
+        // the stamp above is corners[LocalX+1, LocalZ+1] = Heights[1]. So the owning chunk is the chunk
+        // of tile (wx-1, wz-1) and the value is that chunk's tile (wx-1, wz-1)'s NE height. Worked
+        // example at world (30,30), where four chunks meet: the owner is chunk (0,0), the owning
+        // tile is its local (29,29) and the value is Heights[1]. The other three chunks at that node
+        // adopt it from there, and chunk (0,0) already stamped it locally. On a west edge the same
+        // rule gives owner (tx-1, tz) and local tile (29, gz-1) - NOT (29,29) - which is why the
+        // local tile coords below are derived from the node and never assumed.
+        //
+        // Only the WEST and SOUTH edges need this. The east and north edges are owned by this
+        // chunk's own tile (29,_) or (_ ,29), and a node with gx>0 and gz>0 is interior and can
+        // never be foreign - so the foreign lookup runs on at most ~61 boundary nodes, touching
+        // at most four neighbouring chunks.
+        var foreignMods = new Dictionary<TerrainChunkCoord, Dictionary<int, ChunkTileMod>>(4);
+        for (int fz = 0; fz < gridSize; fz++)
+        {
+            for (int fx = 0; fx < gridSize; fx++)
+            {
+                // A non-NaN corner was written by this chunk's own tile, which is the local source
+                // of truth and wins; never overwrite it with a neighbour's copy of the same edit.
+                if (!float.IsNaN(corners[fx, fz]))
+                    continue;
+                if (fx != 0 && fz != 0)
+                    continue;
+                int wx = tc.X * cs + fx;
+                int wz = tc.Z * cs + fz;
+                TerrainChunkCoord owner =
+                    new TerrainChunkCoord(FloorDiv(wx - 1, cs), FloorDiv(wz - 1, cs));
+                if (owner.X == tc.X && owner.Z == tc.Z)
+                    continue;
+
+                // Resident neighbour: its live corner grid is the same array the real chunk
+                // renders, so it is strictly better than a save file that may predate the session.
+                if (_loadedChunks.TryGetValue(owner, out ChunkObject liveOwner) && liveOwner != null)
+                {
+                    float ly = liveOwner.LatticeY(wx - owner.X * cs, wz - owner.Z * cs);
+                    if (!float.IsNaN(ly) && IsSaneHeight(ly))
+                        corners[fx, fz] = ly;
+                    continue;
+                }
+
+                // Otherwise its save. One load per owner chunk, keyed like the build path's own
+                // lookup. The owning tile is local (29, _) on a west edge and (_, 29) on a south
+                // edge - it is only (29,29) at a corner - so the local tile coords are derived from
+                // the node rather than assumed, which is the whole of the seam's addressing rule.
+                int ltx = wx - 1 - owner.X * cs;
+                int ltz = wz - 1 - owner.Z * cs;
+                if (!foreignMods.TryGetValue(owner, out Dictionary<int, ChunkTileMod> fm))
+                {
+                    fm = ForeignTileMods(owner, seed);
+                    foreignMods[owner] = fm;
+                }
+                if (fm != null
+                    && fm.TryGetValue(ltz * cs + ltx, out ChunkTileMod om)
+                    && om.Heights != null && om.Heights.Length >= ChunkData.VertexCount
+                    && IsSaneHeight(om.Heights[1]))
+                    corners[fx, fz] = om.Heights[1];
+            }
+        }
+
         for (int gz = 0; gz < gridSize; gz++)
         {
             for (int gx = 0; gx < gridSize; gx++)

@@ -4,6 +4,66 @@ Last updated: 2026-09-29. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1i4. The actual fix — and a misreading that cost three measurement rounds
+
+The player answered the scoping question with one line that overturned the framing:
+
+> every corner tile of real chunk
+
+That is what the **original** 1hy report already said — *"in every chunk corner the edge will not
+match"*. I read "outer z/x corner tile" as the corner of the loaded chunk square, built 1i1 and 1i3
+against the near/far seam, and explicitly deferred the 345 interior nodes as "a step the player has
+not reported seeing". **They were reporting it from the start.** The deferral was a mistake, and it is
+worth recording as one: 1i1's question was not wrong, it was *leading* — it offered the loaded
+square's corner and the far rim as the only two readings, and the player picked the one nearest the
+truth without either being right. The right move on a location I could not resolve was to ask what
+the artifact looks like, not to enumerate locations and let the answer pick my hypothesis.
+
+**The fix.** A corner on a chunk seam is a corner of up to four chunks, and each was filling its own
+copy of that height from its **own** tiles. `ApplyHeightEdits` writes every *loaded* tile at a world
+coordinate, so two chunks that were both loaded when an edit landed agree — which is exactly why the
+fault hides in a world that mostly looks right. Where one side was not loaded, it keeps pristine
+noise **forever**, because nothing reconciles it: `ReconcileModifiedBorders` repairs slab-wall
+bottoms, not corner heights. The audit's 345 of 400 says this is the *normal* state of a seam, not an
+edge case.
+
+`BuildChunkMeshData` now resolves an unwritten **boundary** corner from the world rather than from
+this chunk's own tiles:
+
+- **Resident owner first.** If the chunk that owns the node is loaded, adopt its live
+  `LatticeY` — the same grid it renders, strictly better than a save that may predate the session.
+- **Otherwise its save**, loaded once per neighbour and filtered by the same rules the build path
+  already uses.
+- **Interior nodes and locally-written corners are never touched.** A non-NaN corner is this chunk's
+  own tile's value and wins; `gx>0 && gz>0` is interior and can never be foreign, because the
+  east and north edges are owned by this chunk's own tile.
+
+**Addressing, worked through (rule 8 — the copy's arithmetic *is* the seam contract).** The stamp
+above it is `corners[LocalX+1, LocalZ+1] = Heights[1]`, so the tile that owns a world node is always
+the tile one metre back in each axis, always as its NE slot. Owner chunk = chunk of tile
+`(wx-1, wz-1)`; value = that tile's `Heights[1]`. Worked example at world `(30,30)`, where four
+chunks meet: owner is chunk `(0,0)`, owning tile is its local `(29,29)`, value is `Heights[1]`. The
+first draft of this fix hardcoded the owning tile as `(29,29)`; working a **west edge** through the
+same rule gave `(29, gz-1)`, so the local tile coords are derived from the node rather than assumed.
+That is the mistake rule 8 exists to catch, and it was caught before the commit rather than in
+Unity.
+
+Only ~61 boundary nodes per chunk can be foreign, touching at most four neighbours, so the cost is a
+handful of save loads per chunk build.
+
+### 1i4-status
+- [ ] **Restart the play session.** Chunk corner grids are built once and cached; a resident world
+      will not show this either way.
+- [ ] Press F3. `C corners cross-chunk dY` should drop from `0.2859 (345 nodes)` toward `0`, and the
+      `[cause: one-sided edit N]` bracket should empty. Confirm with the number rather than the eye.
+- [ ] `D boundary real-vs-far dY 0` from 1i3 should stay at 0 — the two fixes are independent and
+      both should hold.
+- [ ] Watch for a one-time hitch while chunks build: a chunk build may now load up to four neighbour
+      saves. If it is noticeable, the follow-up is to cache those per stream pass, not to remove the
+      lookup.
+- [ ] Verification: code review + `tools\StaticChecks.ps1` (0 candidates), braces 25/25, parens
+      101/101. No Unity build was run — confirm the project compiles and the world still builds.
+
 ## 1i3. The fix: a far cell must read the LIVE grid for the chunks it overlaps
 
 Third F3 run, and it is the first trustworthy one:
