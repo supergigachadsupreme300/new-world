@@ -58,6 +58,29 @@
    without a measurement is a guess: it can be correct and still change nothing, and then the real
    cause is still unmeasured for the next attempt. Read-only means read-only: no rebuild, no patch,
    no re-stamp, no forced poll — the report must describe the frame the key was pressed on.
+   Three conventions 1hy added, all of them about making a *positive* result mean something:
+   - **Order the sections by whether their PREMISE holds, not by how much they look like a test.**
+     The F3 corner/void audit runs its build fingerprint *first*, ahead of the two sections that
+     look more like tests, because if the resident set was built by two versions of the generator
+     (rule 11) then those two sections are evidence about a world that is not on screen. A static
+     proof about a generator is a claim about the premise, not about the screen: 1hy could prove the
+     4-chunk node emits four coincident vertices, and that proof is void under a mixed resident set.
+     Cheapest-check-first and premise-check-first coincide here; do not let the aesthetic ordering win.
+   - **Scope the walk to the band where a positive result is *possible*, and print the band.** The
+     void walk covers rings `0 .. view + FarOuterKeep` because that is the union of what the two
+     owners promise, so a hole in it means something. Scanning everything visible instead pulls in
+     real chunks that are dormant-and-hidden past that ring with no far-cell owner — ~84 correct,
+     expected, invisible "voids" at 630 m that bury the one real finding. A measurement that reports
+     known-absent things is not conservative, it is unreadable.
+   - **Never re-derive another component's private formula to define that scope.** The visible radius
+     is `ChunkLodManager.EffectiveCullDistance()` and it is private; copying that expression into the
+     lane would be rule 8 in reverse (a second spelling that rots when the LOD side changes, and
+     silently mis-scopes the audit when it does). Find the invariant both sides already agree on —
+     here, the ownership band — and scope to that instead.
+   - Also: a check that flags a false positive on the first file you add it to is a check whose
+     silence has stopped meaning anything. 1hy's `StaticChecks.ps1` check 4 reported every `out`
+     parameter as an unassigned local; a reader trained by 4 false candidates waves through the
+     next real CS0165. Fix the check rather than filing the candidates as "expected".
 
 8. **A seam invariant is only as good as the arithmetic of the COPY, not the source.** When a value is
    copied out of another structure instead of re-derived (the corner lattice copies a tile's stored
@@ -174,9 +197,10 @@
       nothing.
     - **An algorithm edit is not verified by watching chunks stream in.** That only ever exercises
       the new code. Stream one chunk, then walk back and forth across a boundary so a resident chunk
-      and a freshly built one are on screen together. (1hx removed the F2/F3/F4 measurement lanes
-      that used to be read here, so this check is by eye against a restarted session — another
-      reason the restart in the bullet above is the whole procedure now.)
+      and a freshly built one are on screen together. (1hx removed the F2/F3/F4 measurement lanes;
+      **1hy restored F3** as a read-only rendered-corner + void audit — see the last bullet of rule 7
+      — so this is measurable again, but only for the near/far resident set, and F2's cross-chunk seam
+      measurement is still gone. F4 was not restored.)
 
 12. **The facet size is ONE decision living in two files, and the step must divide three numbers.**
     The near chunks and the far shell render the same facet language, so `WorldStreamer.LowPolyStep`

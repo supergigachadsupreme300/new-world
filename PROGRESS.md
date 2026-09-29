@@ -1,8 +1,82 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-28. Read this first in a new session; then continue with the
+Last updated: 2026-09-29. Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
+
+## 1hy. Measurement first: the read-only rendered-corner + void audit, for "in every chunk corner the edge will not match — the player can see the void through that gap"
+
+The report survived a clean play-session restart, which killed the staleness hypothesis (rule 11) and
+left a static pass that found **no defect**: `BuildCornerGrid`'s owner/slot arithmetic is correct in
+all four branches, the low-poly root covers local `0..30` inclusive (max lattice index 960), the four
+chunks meeting at a 2x2 junction all emit a *coincident* vertex at the same world point, and
+`GetHeight` is sampled from world coordinates so the lattice is shared by construction. Rule 8 is
+explicit that this is exactly the situation where a proof is not enough: the four-chunk node cannot be
+a hole **conditional on the drawn mesh being the step-6 facet root**, and nothing had measured whether
+it is. So per rule 7 this task ships the measurement *only* — no behaviour change.
+
+**What shipped**
+
+- **`WorldStreamer.CornerAudit.cs` (new partial), `RenderedCornerAudit()`, bench key F3.** The 1hv
+  F3 lane, restored and extended. Three sections, asked in the order the questions depend on each
+  other, and a `VERDICT` line naming the first failure with the world XZ to walk to.
+  - **A fingerprint** — distinct `(MeshStep, vertexCount)` buckets across the loaded set, plus
+    step-drift against `EffectiveLowPolyStep`. **This runs first because it is the premise test:**
+    more than one bucket means two versions of the generator built this world, which makes B and C
+    evidence about a world that is not on screen.
+  - **B void** — the direct test of "a gap", and the only failure mode that can open a hole in an
+    otherwise watertight chunk set. Walks every chunk footprint in the band the streamer and far
+    shell jointly own and asks one question per footprint: does *anything* draw it? Real chunk =
+    in `_loadedChunks` with an active hierarchy; far cell = the owning cell exists, is active, and is
+    not shadowed by a live coarser cell (1er retention). Neither => a void, listed nearest-first.
+  - **C corners** — R1: does every loaded chunk place a rendered vertex AT each of its four corners
+    (coverage, vs the number of loaded chunks that *should* meet at the node). R2: do the chunks at a
+    node agree on the corner height, and does each rendered corner match **its own** `LatticeY` — the
+    rule 8 copy contract, measured rather than assumed.
+- **The void walk is scoped to rings `0 .. view + FarOuterKeep`, and that is the point.** It is
+  exactly the union of what the two owners promise (real chunks to `view + 1`, far cells from
+  `near + 1` to `view + FarOuterKeep`), so the band is covered by construction and a hole in it means
+  something. Past it, real chunks are DORMANT and hidden and no far cell owns them — a ring of
+  "voids" at 630 m that is correct, expected, and not what anyone is looking at. The band is printed
+  so the number cannot be misread. It deliberately does **not** re-derive
+  `ChunkLodManager.EffectiveCullDistance`: that formula is private, and a second spelling here would
+  be a copy that rots when the LOD side changes (rule 8 again).
+- **Two read-side judgement calls, both recorded in the file.** A disabled root `MeshRenderer` is
+  counted as its own `rootHidden` signal and is *not* treated as a void, because a LOD detail band
+  deliberately disables the root and draws a child instead. And the corner match takes the **topmost**
+  vertex at the corner, not the min, because a smooth root carries side walls hanging off the same
+  edge — the 1hv lesson, kept.
+- **`tools\StaticChecks.ps1` now covers the new file, and its check 4 was wrong.** Adding the file to
+  `$files` immediately reported 4 CS0165 candidates, all false: the check could not see that an `out`
+  parameter is assigned by the callee's contract, nor that a bare local written only through an `out`
+  call argument (the `TryGetValue` pattern) is assigned. A check that flags every `out` param trains
+  its reader to ignore the section, so both shapes are now recognised. Note the reported lines are the
+  *caller's* locals in `RenderedCornerAudit()`, not the callee's parameters — both are now correct.
+
+### 1hy-status
+- **Verified by grep + reread only** (rule 3 — no CLI/Unity build; Unity is the compiler).
+  `tools\StaticChecks.ps1` → **0 candidates** (after the check-4 fix). Brace/paren balance on
+  `WorldStreamer.CornerAudit.cs` 33/33 and 271/271. Every referenced symbol confirmed present and
+  accessible: `RenderDistance`, `NearRingRadius`, `VoxelTerrainEnabled`, `EffectiveLowPolyStep`,
+  `_focus`, `_loadedChunks`, `_dormantChunks`, `_farSectors`, `FarOuterKeep` (const), `FarCellForChunk`,
+  `FarShadowedByCoarse`, and on `ChunkObject` `RootMesh` / `MeshStep` / `LatticeY` / `VoxelMesh`. All
+  11 new `WorldStreamer` symbols are declared exactly once and confined to the new file; all 4 bench
+  symbols are confined to `NewWorldTestGround.cs`. `LatticeY(30,30)` -> index 960 of 961, in range.
+  `WorldStreamer.SeamAudit.cs` is confirmed still deleted (1hx), and the new file references nothing
+  from it.
+- **Pending play-test (user side):** press **F3** standing next to a visible gap, screenshot the
+  report, then walk to the XZ it names.
+  - If `A fingerprint` shows **more than one bucket**, the resident world is mixed-version and B/C
+    describe nothing — restart again and re-press.
+  - If `B void` shows `NOT DRAWN > 0` inside the near ring, that is the hole; the listed chunk coords
+    and world XZ are the place to look.
+  - If both are clean, the gap is in the corner layer only, and section C's numbers say which of R1
+    (a corner the surface never reaches) or R2 (a corner height that disagrees) it is.
+  - Still worth one look, because it decides where the search goes next: does the gap sit where
+    **four** chunk borders radiate from it, or only **one**?
+- **Not done, deliberately:** no fix. Rule 7 requires the measurement and the fix to ship as separate
+  tasks so the readout that justified the fix stays in history. The fix is 1hz+1, chosen by the
+  `VERDICT`.
 
 ## 1hz follow-up. The behavioural orphan: `RichManNPC`'s night-club hangout is gone, the 21:00 deal is not
 

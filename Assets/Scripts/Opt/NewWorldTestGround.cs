@@ -87,6 +87,11 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public int ChunkInspectX = -8;
     [Tooltip("QA (1gh): chunk coords inspected by the diagnostics line (the coords of the reported monster/relic chunk −8_3 in chunk-space, X −8, Z 3).")]
     public int ChunkInspectZ = 3;
+    [Tooltip("QA (1hy): press CornerAuditKey for a read-only audit of the terrain the player is actually LOOKING at, for the 'in every chunk corner the edge will not match — the player can see the void through that gap' report. Three sections, asked in the order the questions depend on each other. A fingerprint: more than one (facet step, vertex count) bucket means the resident world was built by two versions of the generator, which voids the other two as evidence. B void: any chunk footprint in the fully-owned ring with neither a visible real chunk nor a live far cell — the only failure mode that opens a real hole in an otherwise watertight chunk set, and the direct test of a visible 'gap'. C corners: does every loaded chunk place a rendered vertex AT each of its four corners, do the chunks meeting at a node agree on the corner height, and does each rendered corner match that chunk's own lattice. The VERDICT line names the first failure and the world XZ to walk to. Read-only — no rebuild, no re-stamp, no forced poll, so it describes the frame the key was pressed on. Needs EnableFpsStats on to display.")]
+    public bool EnableCornerAudit = true;
+    [Tooltip("QA (1hy): key that runs the rendered-corner + void audit. F3 because F1 is a skill hotkey and F5-F12 are editor cutscene shortcuts.")]
+    public Key CornerAuditKey = Key.F3;
+    private string _cornerAuditText;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
@@ -898,6 +903,16 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     private void Update()
     {
+        // (1hy) Rendered-corner + void audit: one key, one frame, no side effects. Polled FIRST
+        // because the weapon-rack logic below returns early on its own conditions, and a lane that
+        // could be skipped by an unrelated early return would report the wrong frame.
+        if (EnableCornerAudit)
+        {
+            Keyboard kb = Keyboard.current;
+            if (kb != null && kb[CornerAuditKey] != null && kb[CornerAuditKey].wasPressedThisFrame)
+                RunCornerAudit();
+        }
+
         RunPendingPlayerGrants();
         if (!EnableWeapons || _rackStands.Count == 0) return;
         var gm = GameManager.Instance;
@@ -930,6 +945,28 @@ public sealed class NewWorldTestGround : MonoBehaviour
             string name = weapon != null && !string.IsNullOrEmpty(weapon.displayName) ? weapon.displayName : nearStand.WeaponId;
             prompt.ShowPrompt(Localization.F("E - {0}", name), 0.2f);
         }
+    }
+
+    /// <summary>
+    /// QA (1hy): run the WorldStreamer's read-only rendered-corner + void audit and keep it on the
+    /// HUD. The 1gh chunk-diagnostics line above reads ONE chunk's lifecycle state; this reads the
+    /// drawn mesh layer of the WHOLE resident set, which is the layer that the report needs and the
+    /// one no lattice comparison can stand in for (rule 8: a green lattice is not evidence about what
+    /// is drawn). One key, one report — no rebuild, no re-stamp and no forced poll, so the numbers
+    /// describe the frame the key was pressed on (rule 7).
+    /// </summary>
+    private void RunCornerAudit()
+    {
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (streamer == null)
+        {
+            _cornerAuditText = "corner audit: no WorldStreamer in the scene";
+            Debug.LogWarning("[NewWorldTestGround] " + _cornerAuditText);
+            return;
+        }
+
+        _cornerAuditText = streamer.RenderedCornerAudit();
+        Debug.Log("[NewWorldTestGround] " + _cornerAuditText);
     }
 
     /// <summary>
@@ -1225,6 +1262,12 @@ public sealed class NewWorldTestGround : MonoBehaviour
                     }
                     stats += diag;
                 }
+
+                // (1hy) The rendered-corner + void report stays up until the next press, so a
+                // screenshot taken after walking up to the gap the report named still shows the
+                // numbers for the frame the key was pressed on.
+                if (EnableCornerAudit && !string.IsNullOrEmpty(_cornerAuditText))
+                    stats += "\n" + _cornerAuditText;
 
                 _fpsText.text = stats;
             }

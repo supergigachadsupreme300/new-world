@@ -28,9 +28,12 @@ $persistence = 'Assets\Scripts\World\WorldBuilder.Persistence.cs'
 $npcs       = 'Assets\Scripts\World\WorldBuilder.NPCs.cs'
 $world      = 'Assets\Scripts\World\WorldBuilder.cs'
 $testground = 'Assets\Scripts\Opt\NewWorldTestGround.cs'
+$corneraudit = 'Assets\Scripts\World\Streaming\WorldStreamer.CornerAudit.cs'
+
 # AGENTS.md rule 3: any WorldBuilder*.cs edited here belongs in $files, or checks 1, 4
-# and 5 silently stop covering it. 1hz added Persistence + NPCs.
-$files = @($blueprints, $persistence, $npcs, $world, $testground)
+# and 5 silently stop covering it. 1hz added Persistence + NPCs. 1hy added the
+# WorldStreamer corner/void audit (checks 1 and 4 apply to it; 2/3/5/6 are builder-specific).
+$files = @($blueprints, $persistence, $npcs, $world, $testground, $corneraudit)
 
 # Types a structure-part helper can be declared with, plus local declarations.
 $retAlt  = '(?:static\s+)?(?:GameObject|void|int|float|bool|string|Vector3|Color|Vector2|Quaternion|Transform)'
@@ -142,19 +145,30 @@ Ok "no void helper is returned"
 
 # ------------------------------------------- 4. bare local declarations
 Section '4. locals declared with no initializer (CS0165 candidates - confirm each is assigned before use)'
+# An `out` PARAMETER is assigned by the callee's contract, and a bare local that is only ever
+# written through an `out` CALL ARGUMENT (the TryGetValue / TryParse pattern) is assigned too.
+# Neither is a CS0165 candidate. 1hy added a file whose every method reports through out params,
+# and a check that flags all of them trains its reader to ignore the section — so both shapes are
+# recognised here instead. The trailing separator accepts `,` as well as `;` because a wrapped
+# signature puts the final out param on a line ending in `)`.
+$declPat = '^\s*(out\s+)?' + $typeAlt + '\s+(\w+)\s*[,;]\s*$'
 foreach ($f in $files) {
     $ls = [System.IO.File]::ReadAllLines((Resolve-Path $f))
     for ($i = 0; $i -lt $ls.Count; $i++) {
-        $m = [regex]::Match($ls[$i], '^\s*' + $typeAlt + '\s+(\w+)\s*;\s*$')
+        $m = [regex]::Match($ls[$i], $declPat)
         if (-not $m.Success) { continue }
-        $n = $m.Groups[1].Value
-        $assigned = $false
-        for ($k = $i; $k -lt $ls.Count; $k++) {
+        $isOutParam = $m.Groups[1].Success
+        $n = $m.Groups[2].Value
+        $assigned = $isOutParam
+        for ($k = $i; $k -lt $ls.Count -and -not $assigned; $k++) {
             if ($ls[$k] -match ('\b' + [regex]::Escape($n) + '\s*=[^=]')) { $assigned = $true; break }
+            if ($ls[$k] -match ('\bout\s+' + [regex]::Escape($n) + '\b')) { $assigned = $true; break }
             if ($ls[$k] -match 'return\b|throw\b') { break }
         }
         $label = '{0}:{1} {2}' -f $f.Split('\')[-1], ($i + 1), $n
-        if ($assigned) { Ok "$label (assigned later in the same block)" } else { Bad "$label never assigned" }
+        if ($isOutParam) { Ok "$label (out parameter - assigned by the callee's contract)" }
+        elseif ($assigned) { Ok "$label (assigned later in the same block)" }
+        else { Bad "$label never assigned" }
     }
 }
 

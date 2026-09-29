@@ -55,7 +55,7 @@ SW ────────── SE
 
 **Seam contract (ownership + audit).** A world corner has exactly ONE value: the canonical Perlin
 surface (§2.3) plus whatever whole-corner edits are persisted for it (§2.6). Every chunk is placed at
-its exact block origin (`chunk.X * 30 m`) on a lattice whose node spacing divides 30 (3 m facets, 2 m
+its exact block origin (`chunk.X * 30 m`) on a lattice whose node spacing divides 30 (6 m facets, 2 m
 LOD, 1 m tiles), so two adjacent chunks sample identical nodes at identical world tiles. The 31x31
 **corner lattice** is not re-derived from noise at mesh time — it is copied out of the *owning tile's*
 stored corner, so the contract rests entirely on the **ownership rule** holding: node (gx,gz) stands
@@ -65,7 +65,7 @@ SE**; far corner → tile (cs-1,cs-1) SE). A rule that reads a *different* corne
 silently shears the column and breaks the seam while every tile-vs-tile check still passes.
 
 **Consequence: a pristine world is seam-free by construction, and any see-through gap has exactly one
-of four causes:**
+of five causes:**
 
 | # | Cause | What it means |
 |---|-------|--------------|
@@ -73,19 +73,44 @@ of four causes:**
 | B | **Short/hidden root** — the chunk is loaded but does not draw its whole 30 m (inactive root, missing mesh, vertex- or bounds-short rebuild) | ground is missing where a chunk is supposed to be |
 | C | **Interior hole** — a chunk position inside the loaded ring holds nothing at all | not a seam: a chunk never arrived, or was dropped |
 | D | **Far/real rim step** — the far-shell cell meeting the last real ring renders its own heights | a step at the near/far boundary, both meshes locally correct |
+| E | **Mixed-version resident set** — the loaded chunks were not all built by the same version of the generator (AGENTS rule 11) | *not a bug in the code at all*: a stale screen. Every height in memory agrees with itself; the world on screen is simply not the world the code describes |
 
-**(1hx removed the on-demand measurement of these four causes.)** The taxonomy above is still the
-complete list of why a pristine world can show a see-through gap, and the reasoning that produced it
-still stands — but the F2/F3 audit lanes that used to measure A–D and the rendered layer are gone at
-the user's request, so a gap report is now read by eye against a freshly restarted session (AGENTS
-rule 11: a mixed old/new world looks exactly like A while every height in memory agrees). What the
-removed lanes established is worth keeping, because it is about *the question*, not the tool: **a
-check only speaks for the layer it reads.** `ChunkValidator` compares TILE heights tile-vs-tile, which
-are exact by construction, so it is structurally blind to a lattice-ownership bug (cause A); a
-lattice comparison is in turn blind to a renderer that draws its corner vertex from somewhere other
-than the lattice it stamps — that case reported "worst dY 0 OK" and still parted at the corner. A
-future gap fix should therefore expect to *rebuild* one of these measurements rather than to read
-cause A off an existing validator.
+Cause **E** was added in 1hy. It is listed as a cause rather than a footnote because it is the one
+that makes every other reading invalid: it looks exactly like A or C by eye, and no in-memory check
+can detect it, because nothing in memory is wrong.
+
+**(1hy restored the on-demand measurement of these causes — the F3 lane, and the letter collision is
+deliberate.)** `WorldStreamer.RenderedCornerAudit()` (bench key **F3**,
+`WorldStreamer.CornerAudit.cs`) walks the DRAWN state of the whole resident set and prints a `VERDICT`
+naming the first failure plus the world XZ to walk to. Its section letters are **its own, not the
+taxonomy's** — the mapping is:
+
+| Lane section | Measures | Cause(s) it can confirm or clear |
+|---|---|---|
+| **A fingerprint** | distinct `(MeshStep, vertexCount)` buckets + step drift across the loaded set | **E** |
+| **B void** | any chunk footprint in the fully-owned ring (`0 .. view + FarOuterKeep`) with neither a visible real chunk nor a live, unshadowed far cell | **B** and **C** |
+| **C-R1 coverage** | does every loaded chunk place a rendered vertex AT each of its four corners | **B** (vertex-short root) |
+| **C-R2 agreement** | do the chunks at a world node agree on the corner height, and does each rendered corner match its **own** lattice | **A** |
+
+So the lane's "B" is the taxonomy's B *and* C, and the lane's "C" is the taxonomy's A — the letters are
+positional, not semantic, and the tables are the authority. Ordering is **not** causal: the fingerprint
+runs first because it is the cheapest check *and* the premise test for the rest — if the resident set
+is mixed, the other two sections describe a world that is not on screen.
+
+Two properties of the void walk that are load-bearing, not incidental. It is scoped to the band the two
+owners **promise** (real chunks to `view + 1`, far cells to `view + FarOuterKeep`) rather than to the
+visible radius, because past that band real chunks are dormant-and-hidden with no far cell owner and a
+naive scan would report ~84 correct, expected, invisible "voids" at 630 m that drown the signal; and it
+does not re-derive `ChunkLodManager.EffectiveCullDistance()` (private) into a second copy, because a
+second spelling of a private constant is a copy that rots when the LOD side changes.
+
+**What the removed lanes established is worth keeping, because it is about *the question*, not the
+tool: a check only speaks for the layer it reads.** `ChunkValidator` compares TILE heights
+tile-vs-tile, which are exact by construction, so it is structurally blind to a lattice-ownership bug
+(cause A); a lattice comparison is in turn blind to a renderer that draws its corner vertex from
+somewhere other than the lattice it stamps — that case reported "worst dY 0 OK" and still parted at
+the corner, which is why section C reads `Mesh.vertices` and not the lattice. A future gap fix should
+expect to *rebuild* one of these measurements rather than to read cause A off an existing validator.
 
 
 ### 2.3 Perlin Noise Layers (5 octaves)

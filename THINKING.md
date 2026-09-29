@@ -15,6 +15,130 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1hy — "in every chunk corner the edge will not match, the player can see the void through that gap" — VERDICT: OPEN (measurement shipped, awaiting readout)
+
+The report is old; the same report has been open since 1hj/1hk. What is new in 1hy is that the user
+did the thing I asked for — **restarted the play session** — and the gap survived. That is worth a
+whole section, because it deletes a hypothesis I had been treating as the default explanation.
+
+### H1 — staleness: the resident chunks were built by an older generator (rule 11) — REJECTED
+
+Rule 11 makes this the first thing to suspect for any terrain report: three holders of render output
+outlive a code edit (`_loadedChunks`, `_dormantChunks`, the far shell), so a mid-session render change
+leaves a world where resident chunks are OLD and later arrivals are NEW. It was also the standing
+explanation for "in EVERY chunk corner", which reads like a systematic generator defect rather than
+something that happens where you happen to be standing.
+
+**For:** 1hx changed `LowPolyStep` 3 -> 6 in the same pass that deleted the F2/F3/F4 lanes, and the
+earlier 1hv fingerprint existed precisely because this failure is indistinguishable from a renderer
+bug by eye.
+
+**Against:** the user restarted, and the post-restart HUD read `chunks 361  dormant 0  colliders 225
+far cells 1224  rebuilds 0` — a complete, uniform, freshly-built ring with nothing dormant. Note
+`rebuilds 0` is not the point; the point is that nothing had streamed in *over* anything, so there was
+no population for a second version to have overwritten. **REJECTED**, and note what it cost: the 1hx
+restart is the only way to observe a render change now (`DropResidentTerrainKeepSaves` was removed at
+the user's request), so this was an expensive test. It was worth it — it is the one hypothesis a
+static pass could never have closed.
+
+### H2 — the corner lattice is stamped wrong (the 1hk bug class) — REJECTED, and I re-read it twice
+
+The 1hk fix was exactly this signature: the east column stamped one metre north of itself, so the
+NE/SE pair met at the wrong Y and a crack opened down the seam. Same shape, "every chunk corner".
+Re-read `BuildCornerGrid` against the canonical slot order (`ChunkData`: 0=NW, 1=NE, 2=SE, 3=SW):
+owner X/Z is correct in all four branches. Four-chunk node arithmetic: for a node at world multiple
+30, the chunks touching it are X,Z in {n/30, n/30 - 1}. All four emit the same world vertex.
+`LatticeY(30,30)` -> index 960 of a 961-entry grid, in range. **REJECTED.**
+
+The low-poly root does not even go through that path for positions — it takes `corners.Y[s]` for
+heights and computes positions as `gx*step`, so a position cannot be off by the lattice's mistakes.
+**REJECTED twice**, and this is where I have to be careful, because of rule 8.
+
+### H3 — the proof above is conditional, and the condition is the whole problem — OPEN, this is what 1hy measures
+
+Here is the trap, and it is the reason rule 8 exists. I have proved the four-chunk node is
+watertight **on the assumption that the mesh being drawn is the step-6 facet root**. Rule 8's exact
+wording: *do not infer correctness from how pure the source is; a validator is only as good as the
+arithmetic of the copy.* I was about to treat a static proof about a *generator* as a conclusion
+about a *screen* — and the one mechanism this repo can produce on demand, a resident set built by two
+versions, is exactly the thing that would break the assumption. 1hx is recent enough that this is
+not hypothetical.
+
+So the fingerprint is **section A and it runs first**, ahead of the two sections that look more like
+tests. This is a deliberate ordering: it is the cheapest check and it validates the premise of
+everything after it. If buckets > 1, sections B and C are evidence about a world that is not on
+screen, and reading them first would be a category error.
+
+### H4 — "a gap" is not "a slit", and the word picks the branch — CONFIRMED, and it reshaped the lane
+
+I had been treating "gap" loosely. The user answered the question with one word: **"its a gap"** —
+a void with nothing behind it, not a centimetre-scale crack. That is not pedantry; the two have
+disjoint causes:
+
+- A **slit** is a height disagreement — two surfaces that should coincide sit at slightly different Y.
+  It is caught by R2 (cross-chunk or own-lattice delta), and it is a *rendering* defect.
+- A **gap** is no surface at all. In a chunk set whose corners are provably coincident, only a
+  **lifecycle** failure can produce one: a footprint that is neither drawn as a real chunk nor covered
+  by a live far cell.
+
+The second has no counterpart in the 1hv code, which only ever looked at corner vertices. So section
+B is new, and it is the only section that can return a hole.
+
+**The scope decision was the interesting part.** My first instinct was to scan "everything the player
+can see", which needs the visible radius — and the only number for that is
+`ChunkLodManager.EffectiveCullDistance()`, which is **private**. I nearly copied the formula, which is
+rule 8's exact failure mode in reverse: a second spelling of a private constant in another class,
+which rots the day the LOD side changes, and which would then silently mis-scope the audit.
+
+Instead: scope by what the two owners **promise**. Real chunks to `view + 1` (hysteresis keep), far
+cells from `near + 1` to `view + FarOuterKeep`. Their union is a band that is covered *by
+construction*, which makes it the only place a "void" readout means anything. And it avoids the
+nearest trap in the whole area: past that band, real chunks are DORMANT and hidden and no far cell
+owns them, so a naive scan prints a ring of ~84 "voids" at 630 m. Correct, expected, invisible, and
+completely drowning the signal. The band is printed in the readout so the number cannot be misread.
+**CONFIRMED**, and it is the second rule-8 lesson of this task.
+
+### H5 — two read-side judgement calls that would have produced confident nonsense — CONFIRMED, both from earlier history
+
+1. **Disabled root renderer != void.** I first wrote the void test as "loaded + root renderer
+   enabled". That is wrong, and it is wrong *by design of the LOD system*: `ChunkLodManager` disables
+   the full root mesh while a detail band is active and draws a child mesh instead. Several rings
+   would have reported as voids, all of them drawing perfectly. Split into a separate `rootHidden`
+   count.
+2. **Take the topmost vertex at a corner, not the min.** 1hv learned this the hard way: a smooth
+   chunk's root carries side walls hanging *down* from the same edge, so a `min` reads the bottom of
+   a wall as the corner's height and reports a false delta on every chunk. The low-poly root has no
+   walls, so top == the only height there. Kept, and commented, because the next person to "simplify"
+   it will not know.
+
+### H6 — the static-check tool was wrong, and it was wrong in the direction that trains you to ignore it
+
+Adding the new file to `StaticChecks.ps1` per rule 3 produced 4 immediate CS0165 candidates, all
+false. Check 4 matches a bare local declaration and scans forward for `name =`. It cannot see that
+**an `out` parameter is assigned by the callee's contract**, nor that a bare local written only
+through an `out` call argument (the `TryGetValue` pattern) is assigned. Worth noting *where* they
+were reported: the caller's locals in `RenderedCornerAudit()`, not the callee's parameters.
+
+I could have written it off as "candidates, not verdicts" and moved on — the rule explicitly allows
+that. But the failure mode is asymmetric and that is why I fixed it: a check that flags every `out`
+parameter on the first file you add is a check whose "0 candidates" stops meaning anything, and the
+next real CS0165 gets waved through with the rest of the noise. A tool's value is entirely in whether
+its silence is trustworthy. Fixed both shapes; back to 0.
+
+**H3/H4 remain OPEN until the user presses F3 and pastes the `VERDICT`.** The four live candidates
+after the readout, in the order the lane tests them:
+- **A** — mixed-version resident set (fingerprint buckets > 1). Would void the rest.
+- **B** — a footprint with nothing drawing it. The real "gap", and a lifecycle bug, not a render one.
+- **C-R1** — a chunk corner the surface never reaches. Coverage, not height.
+- **C-R2** — a corner height that disagrees across chunks or with its own lattice. A crack/slit, which
+  the user's "gap" answer argues against but which the lane will still rule in or out.
+
+One question I could not answer from code and did not want to guess at: does the gap sit where **four**
+chunk borders radiate from it or only **one**? Four means the 4-chunk node, where H3's proof applies
+and section C is the place to look; one means a two-chunk mid-edge seam, where the proof never applied
+at all and the search has to move. I raised it, and proceeded without it — the readout's worst-node
+world XZ answers it by measurement instead of by eye, which is the better instrument anyway.
+
 ## 1hz — the staged feature removal did not compile, and one of the two failures was invisible — VERDICT: both fixed
 
 A removal was already sitting in the working tree (29 scripts staged-deleted: all of
