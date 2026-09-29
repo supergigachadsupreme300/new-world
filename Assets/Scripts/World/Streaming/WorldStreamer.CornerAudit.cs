@@ -114,9 +114,10 @@ public partial class WorldStreamer
         int stepDrift, stepDriftCounted, noMesh;
         AppendFingerprint(sb, out buckets, out stepDrift, out stepDriftCounted, out noMesh);
 
-        int voidCount;
+        int voidCount, voidClaimedDead, voidUnowned;
         int nearestVoidRing;
-        AppendVoidWalk(sb, centre, near, view, out voidCount, out nearestVoidRing);
+        AppendVoidWalk(sb, centre, near, view, out voidCount, out nearestVoidRing,
+            out voidClaimedDead, out voidUnowned);
 
         float worstSpread, worstDelta;
         string worstSpreadAt, worstDeltaAt;
@@ -147,15 +148,20 @@ public partial class WorldStreamer
             verdict = "A-stale: " + stepDrift + " of " + stepDriftCounted + " loaded chunk(s) were built "
                 + "at a facet step the generator is no longer configured for (want " + EffectiveLowPolyStep
                 + ") — the resident terrain predates the current settings; needs a full drop (rule 11)";
-        else if (voidCount > 0)
-            verdict = "B: " + voidCount + " footprint(s) inside the fully-owned ring have NEITHER a "
-                + "visible real chunk NOR a live far cell — nothing draws there. Nearest is ring "
-                + nearestVoidRing + "; the listed XZ are the coordinates to walk to";
+        else if (voidClaimedDead > 0)
+            verdict = "B: " + voidClaimedDead + " footprint(s) are CLAIMED by a far cell but have no live "
+                + "cell drawing them - the shell owns ground it is not rendering, which is a true hole. "
+                + "Nearest is ring " + nearestVoidRing + "; the listed XZ are the coordinates to walk to";
+        else if (voidUnowned > 0)
+            verdict = "B-band: " + voidUnowned + " footprint(s) have no live far cell AND no far cell "
+                + "claims them - the far shell does not reach as far as the owned ring (keep "
+                + (view + FarOuterKeep) + "), so this is a shorter horizon rather than a missing "
+                + "surface. Nearest is ring " + nearestVoidRing;
         else if (bndNoFar > 0)
             verdict = "D-R0: " + bndNoFar + " near/far boundary node(s) have no live far cell on their "
                 + "far side — the shell does not reach back to the loaded ring, so the boundary is a "
                 + "true edge with nothing beyond it";
-        else if (worstRealFar > RenderedCornerTolerance)
+        else if (worstRealFar > 2f * RenderedCornerTolerance)
             verdict = "D-R1: the near/far boundary steps by " + worstRealFar.ToString("0.####")
                 + " m at " + worstRealFarAt + " (worst of " + bndNodes + " boundary node(s)) — a loaded "
                 + "chunk's corner and the far cell's grid disagree on the height of the SAME world "
@@ -265,11 +271,11 @@ public partial class WorldStreamer
     /// that persists once the world has settled, is not that.</para>
     /// </summary>
     private void AppendVoidWalk(StringBuilder sb, TerrainChunkCoord centre, int near, int view,
-        out int voidCount, out int nearestVoidRing)
+        out int voidCount, out int nearestVoidRing, out int claimedDeadOut, out int unownedOut)
     {
         int keepFar = view + FarOuterKeep;
         int maxRing = keepFar;
-        int total = 0, realOnly = 0, farOnly = 0, both = 0, noOwner = 0, rootHidden = 0;
+        int total = 0, realOnly = 0, farOnly = 0, both = 0, unowned = 0, claimedDead = 0, rootHidden = 0;
         var voids = new List<TerrainChunkCoord>();
 
         for (int z = centre.Z - maxRing; z <= centre.Z + maxRing; z++)
@@ -290,27 +296,38 @@ public partial class WorldStreamer
                         rootHidden++;
                 }
 
-                // Same predicate the renderer itself uses, so this asks "what does the far shell
-                // actually draw here" rather than a second opinion of it.
-                bool farOk = false;
+                // 1i2: ask the DIRECT question - is ANY far cell active over this footprint - rather
+                // than running the ownership predicate and then also demanding its cell be switched
+                // on. Those are different things. FarShadowedByCoarse exists precisely because the
+                // owning cell is usually a reserved shadow while a COARSER live cell covers the same
+                // ground (1eq/1er demote handoff), so requiring !FarShadowedByCoarse reported every
+                // such footprint as a void. The 1i1 readout turned that into 2965 false positives -
+                // the same rule-7 mistake 1hy made, one level in: the walk admitted ONE family of
+                // owner and called everything else absent.
                 FarCell? owner = FarCellForChunk(x, z, centre, near, keepFar);
-                if (owner.HasValue && _farSectors.TryGetValue(owner.Value, out GameObject go)
-                    && go != null && go.activeSelf && !FarShadowedByCoarse(owner.Value))
-                    farOk = true;
+                bool farOk = AnyFarCellDrawsAt(x, z);
 
                 if (realOk && farOk) both++;
                 else if (realOk) realOnly++;
                 else if (farOk) farOnly++;
                 else
                 {
+                    // Two different failures, and conflating them is what made the previous report
+                    // unreadable. Claimed-dead is a hole: the shell says it owns this ground and
+                    // nothing is drawing it. Unowned is a band that stops short of the promised
+                    // radius - worth knowing, but not a missing surface.
                     if (owner.HasValue)
-                        noOwner++;
+                        claimedDead++;
+                    else
+                        unowned++;
                     voids.Add(new TerrainChunkCoord(x, z));
                 }
             }
         }
 
         voidCount = voids.Count;
+        claimedDeadOut = claimedDead;
+        unownedOut = unowned;
         nearestVoidRing = int.MaxValue;
         if (voidCount > 0)
         {
@@ -336,8 +353,12 @@ public partial class WorldStreamer
           .Append("  real only ").Append(realOnly)
           .Append("  far only ").Append(farOnly)
           .Append("  NOT DRAWN ").Append(voidCount);
-        if (noOwner > 0)
-            sb.Append(" (of which no far cell claims ").Append(noOwner).Append(')');
+        if (claimedDead > 0)
+            sb.Append("  (claimed-dead ").Append(claimedDead)
+              .Append(" = the shell claims this ground and NOTHING is drawing it: a real hole)");
+        if (unowned > 0)
+            sb.Append("  (unowned ").Append(unowned)
+              .Append(" = no far cell claims this; the band stops short of the promised radius)");
         if (rootHidden > 0)
             sb.Append("  rootHidden ").Append(rootHidden);
         sb.Append('\n');
@@ -584,7 +605,7 @@ public partial class WorldStreamer
         bndNoFar = 0;
         worstRealFar = 0f;
         worstRealFarAt = "-";
-        int oneSided = 0, bothEdited = 0, neitherEdited = 0;
+        int oneSided = 0, bothEdited = 0, neitherEdited = 0, noiseFloor = 0;
         string oneSidedAt = "-";
         var missing = new List<string>();
 
@@ -625,6 +646,19 @@ public partial class WorldStreamer
             if (d <= RenderedCornerTolerance)
                 continue;
 
+            // 1i2: the pristine test has a WIDTH, so a node can be "stepped" and "both sides
+            // pristine" at the same time. Two values each within tol of the same pristine value can
+            // differ by up to 2*tol, so anything at or below 2*tol cannot be classified and must
+            // not be filed under a mechanism name - the 1i1 readout called 19 such nodes
+            // "NO side edited (not an edit - look at the lattice/seed)", which read as a finding
+            // and was arithmetic: those nodes are 1-2 cm and are the noise floor of two facets
+            // rounded to the same lattice. Only above 2*tol is the classification forced.
+            if (d <= 2f * RenderedCornerTolerance)
+            {
+                noiseFloor++;
+                continue;
+            }
+
             // Same pristine test as section C, applied across the seam instead of within it: the
             // far band has no save mods of its own (a dig cannot reach past the near ring), so a far
             // surface sitting exactly on pristine noise against an edited real corner is a corner
@@ -651,7 +685,8 @@ public partial class WorldStreamer
 
         sb.Append("D boundary  nodes ").Append(bndNodes)
           .Append("  no-far-surface ").Append(bndNoFar)
-          .Append("  real-vs-far dY ").Append(worstRealFar.ToString("0.####")).Append('\n');
+          .Append("  real-vs-far dY ").Append(worstRealFar.ToString("0.####"))
+          .Append("  (under 2cm noise floor ").Append(noiseFloor).Append(')').Append('\n');
         if (worstRealFar > RenderedCornerTolerance)
             sb.Append("    worst at ").Append(worstRealFarAt)
               .Append(CrossCause(oneSided, bothEdited, neitherEdited, oneSidedAt)).Append('\n');
@@ -660,7 +695,30 @@ public partial class WorldStreamer
     }
 
     /// <summary>
-    /// Topmost rendered vertex of the live far cell that owns this world point, read from the
+    /// Is ANY far cell switched on over this chunk? Deliberately does not consult
+    /// <c>FarCellForChunk</c>: the three cell levels that can geometrically cover a chunk are
+    /// checked directly, because the ownership predicate and "is anything drawn" answer different
+    /// questions. A cell's owner is routinely inactive *on purpose* — <c>FarShadowedByCoarse</c> is
+    /// true whenever a live coarser cell already covers the same ground — so asking only about the
+    /// owner asks about a shadow and misses the surface. This reads the three levels and stops at
+    /// the first live one; it never re-derives the renderer's shadow rule, it only enumerates the
+    /// candidates (rule 7).
+    /// </summary>
+    private bool AnyFarCellDrawsAt(int x, int z)
+    {
+        if (_farSectors.TryGetValue(new FarCell(x, z, 1), out GameObject g1)
+            && g1 != null && g1.activeSelf)
+            return true;
+        if (_farSectors.TryGetValue(new FarCell(FloorDiv(x, 3) * 3, FloorDiv(z, 3) * 3, 3),
+            out GameObject g3) && g3 != null && g3.activeSelf)
+            return true;
+        if (_farSectors.TryGetValue(new FarCell(FloorDiv(x, 6) * 6, FloorDiv(z, 6) * 6, 6),
+            out GameObject g6) && g6 != null && g6.activeSelf)
+            return true;
+        return false;
+    }
+
+    /// <summary>Topmost rendered vertex of the live far cell that owns this world point, read from the
     /// cell's own uploaded mesh. Topmost, for the same reason section C is: a far cell's mesh can
     /// carry side walls on some builds, and the bottom of a wall is not the surface.
     /// </summary>
