@@ -123,9 +123,20 @@ public partial class WorldStreamer
         int shortCorners;
         int crossOneSided, crossBothEdited, crossNeitherEdited;
         string crossOneSidedAt;
+        Dictionary<long, RenderedCornerNode> nodes;
         AppendCornerPass(sb, out shortCorners, out worstSpread, out worstSpreadAt,
             out worstDelta, out worstDeltaAt, out crossOneSided, out crossBothEdited,
-            out crossNeitherEdited, out crossOneSidedAt);
+            out crossNeitherEdited, out crossOneSidedAt, out nodes);
+
+        // 1i1. C compares real chunks against real chunks, so it is blind to the seam the player
+        // actually reports: the near/far boundary, where the outer ring of loaded chunks meets a
+        // far cell. Section D reads the far cell's own mesh and compares the two surfaces.
+        int bndNodes, bndNoFar, bndOneSided, bndBothEdited, bndNeither;
+        float worstRealFar;
+        string worstRealFarAt;
+        AppendBoundaryPass(sb, centre, near, view, nodes, out bndNodes, out bndNoFar,
+            out worstRealFar, out worstRealFarAt, out bndOneSided, out bndBothEdited,
+            out bndNeither);
 
         string verdict = null;
         if (buckets.Count > 1)
@@ -140,6 +151,16 @@ public partial class WorldStreamer
             verdict = "B: " + voidCount + " footprint(s) inside the fully-owned ring have NEITHER a "
                 + "visible real chunk NOR a live far cell — nothing draws there. Nearest is ring "
                 + nearestVoidRing + "; the listed XZ are the coordinates to walk to";
+        else if (bndNoFar > 0)
+            verdict = "D-R0: " + bndNoFar + " near/far boundary node(s) have no live far cell on their "
+                + "far side — the shell does not reach back to the loaded ring, so the boundary is a "
+                + "true edge with nothing beyond it";
+        else if (worstRealFar > RenderedCornerTolerance)
+            verdict = "D-R1: the near/far boundary steps by " + worstRealFar.ToString("0.####")
+                + " m at " + worstRealFarAt + " (worst of " + bndNodes + " boundary node(s)) — a loaded "
+                + "chunk's corner and the far cell's grid disagree on the height of the SAME world "
+                + "point, which is a see-through crack because neither surface has a wall"
+                + CrossCause(bndOneSided, bndBothEdited, bndNeither, null);
         else if (shortCorners > 0)
             verdict = "C-R1: " + shortCorners + " world corner node(s) with no rendered vertex on at "
                 + "least one chunk — the surface does not reach the chunk corner";
@@ -156,8 +177,9 @@ public partial class WorldStreamer
             verdict = "C: " + noMesh + " loaded chunk(s) have no root mesh at all";
 
         sb.Append("VERDICT ").Append(verdict
-            ?? "clean: one generator version, every footprint in the owned band draws something, and "
-             + "every chunk corner is rendered at one height matching its own lattice");
+            ?? "clean: one generator version, every footprint in the owned band draws something, every "
+             + "chunk corner is rendered at one height matching its own lattice, and the near/far "
+             + "boundary is flush to " + worstRealFar.ToString("0.####") + " m");
         return sb.ToString();
     }
 
@@ -337,7 +359,7 @@ public partial class WorldStreamer
     private void AppendCornerPass(StringBuilder sb, out int shortCorners, out float worstSpread,
         out string worstSpreadAt, out float worstDelta, out string worstDeltaAt,
         out int crossOneSided, out int crossBothEdited, out int crossNeitherEdited,
-        out string crossOneSidedAt)
+        out string crossOneSidedAt, out Dictionary<long, RenderedCornerNode> nodesOut)
     {
         var nodes = new Dictionary<long, RenderedCornerNode>(256);
         int corners = 0;
@@ -534,6 +556,166 @@ public partial class WorldStreamer
             sb.Append("    worst own-lattice at ").Append(worstDeltaAt).Append('\n');
         for (int i = 0; i < listed.Count; i++)
             sb.Append("    ").Append(listed[i]).Append('\n');
+
+        nodesOut = nodes;
+    }
+
+    /// <summary>
+    /// Section D (1i1). The near/far boundary. Section C is blind here by construction: it walks
+    /// <c>_loadedChunks</c> only, so the seam where the outer ring of loaded chunks meets a far
+    /// cell — which is exactly where the player reports the gap — is never compared against
+    /// anything. This reads the far cell's own uploaded mesh and compares the two surfaces at the
+    /// same world point.
+    ///
+    /// A boundary node is one where at least one of the four chunks touching it is NOT loaded, so
+    /// the far side of that node is the far shell's to draw. The far cell is located with the
+    /// renderer's own <c>FarCellForChunk</c> and read at world minus the cell's block origin
+    /// (<c>cell.X*30</c>, per <c>CreateFarSector</c>), which is the same local-origin convention a
+    /// real chunk uses — so no second spelling of the placement is introduced here (rule 7).
+    /// </summary>
+    private void AppendBoundaryPass(StringBuilder sb, TerrainChunkCoord centre, int near, int view,
+        Dictionary<long, RenderedCornerNode> nodes, out int bndNodes, out int bndNoFar,
+        out float worstRealFar, out string worstRealFarAt, out int bndOneSided,
+        out int bndBothEdited, out int bndNeither)
+    {
+        int keepFar = view + FarOuterKeep;
+        int cs = TerrainChunkCoord.ChunkSize;
+        bndNodes = 0;
+        bndNoFar = 0;
+        worstRealFar = 0f;
+        worstRealFarAt = "-";
+        int oneSided = 0, bothEdited = 0, neitherEdited = 0;
+        string oneSidedAt = "-";
+        var missing = new List<string>();
+
+        foreach (KeyValuePair<long, RenderedCornerNode> kv in nodes)
+        {
+            RenderedCornerNode n = kv.Value;
+            if (n.Present == 0)
+                continue;
+
+            // A node is on the near/far boundary exactly when a loaded chunk does not occupy all
+            // four quadrants. LoadedChunksTouchingCorner is the renderer-side count of the loaded
+            // quadrants; 4 means purely real-vs-real, which is section C's business.
+            if (LoadedChunksTouchingCorner(n.Nx, n.Nz) >= 4)
+                continue;
+            bndNodes++;
+
+            float farY;
+            if (!TryReadFarHeight(n.Nx, n.Nz, centre, near, keepFar, out farY))
+            {
+                bndNoFar++;
+                if (missing.Count < RenderedCornerMaxListed)
+                    missing.Add("no far surface at (" + n.Nx + "," + n.Nz + ")");
+                continue;
+            }
+
+            // Compare against the far edge of the real surface. On a straight boundary edge the two
+            // loaded quadrants agree, so Min==Max; at a square CORNER only one quadrant is loaded
+            // and Min==Max too. Taking the larger of the two deltas therefore covers both without
+            // caring which shape the node is.
+            float dLo = Mathf.Abs(farY - n.MinTopY);
+            float dHi = Mathf.Abs(farY - n.MaxTopY);
+            float d = Mathf.Max(dLo, dHi);
+            if (d > RenderedCornerTolerance && d > worstRealFar)
+            {
+                worstRealFar = d;
+                worstRealFarAt = "(" + n.Nx + "," + n.Nz + ")";
+            }
+            if (d <= RenderedCornerTolerance)
+                continue;
+
+            // Same pristine test as section C, applied across the seam instead of within it: the
+            // far band has no save mods of its own (a dig cannot reach past the near ring), so a far
+            // surface sitting exactly on pristine noise against an edited real corner is a corner
+            // whose edit never reached the shell.
+            bool farPristine = Mathf.Abs(farY - TerrainNoiseGenerator.GetHeight(Seed, n.Nx, n.Nz))
+                <= RenderedCornerTolerance;
+            bool realPristine = Mathf.Abs(n.MaxTopY
+                - TerrainNoiseGenerator.GetHeight(Seed, n.Nx, n.Nz)) <= RenderedCornerTolerance;
+            if (farPristine && !realPristine)
+            {
+                oneSided++;
+                if (oneSidedAt == "-")
+                    oneSidedAt = "(" + n.Nx + "," + n.Nz + ")";
+            }
+            else if (!farPristine && !realPristine)
+                bothEdited++;
+            else
+                neitherEdited++;
+        }
+
+        bndOneSided = oneSided;
+        bndBothEdited = bothEdited;
+        bndNeither = neitherEdited;
+
+        sb.Append("D boundary  nodes ").Append(bndNodes)
+          .Append("  no-far-surface ").Append(bndNoFar)
+          .Append("  real-vs-far dY ").Append(worstRealFar.ToString("0.####")).Append('\n');
+        if (worstRealFar > RenderedCornerTolerance)
+            sb.Append("    worst at ").Append(worstRealFarAt)
+              .Append(CrossCause(oneSided, bothEdited, neitherEdited, oneSidedAt)).Append('\n');
+        for (int i = 0; i < missing.Count; i++)
+            sb.Append("    ").Append(missing[i]).Append('\n');
+    }
+
+    /// <summary>
+    /// Topmost rendered vertex of the live far cell that owns this world point, read from the
+    /// cell's own uploaded mesh. Topmost, for the same reason section C is: a far cell's mesh can
+    /// carry side walls on some builds, and the bottom of a wall is not the surface.
+    /// </summary>
+    private bool TryReadFarHeight(int nx, int nz, TerrainChunkCoord centre, int near, int keepFar,
+        out float y)
+    {
+        y = 0f;
+        int cs = TerrainChunkCoord.ChunkSize;
+
+        // Any of the four quadrants will do when it is not loaded — they all describe the same
+        // world point — but only an ACTIVE cell is actually drawing, so an inactive one is skipped
+        // in favour of a sibling that is live.
+        for (int q = 0; q < 4; q++)
+        {
+            int qx = (q & 1) == 0 ? -1 : 0;
+            int qz = (q & 2) == 0 ? -1 : 0;
+            TerrainChunkCoord probe =
+                new TerrainChunkCoord(FloorDiv(nx, cs) + qx, FloorDiv(nz, cs) + qz);
+            if (_loadedChunks.ContainsKey(probe))
+                continue;
+
+            FarCell? owner = FarCellForChunk(probe.X, probe.Z, centre, near, keepFar);
+            if (!owner.HasValue)
+                continue;
+            if (!_farSectors.TryGetValue(owner.Value, out GameObject go) || go == null)
+                continue;
+            if (!go.activeSelf || FarShadowedByCoarse(owner.Value))
+                continue;
+            MeshFilter mf = go.GetComponent<MeshFilter>();
+            Mesh mesh = mf != null ? mf.sharedMesh : null;
+            if (mesh == null)
+                continue;
+
+            // World minus the cell's block origin, which is the cell's own local frame.
+            float lx = nx - owner.Value.X * cs;
+            float lz = nz - owner.Value.Z * cs;
+            _renderedCornerScan.Clear();
+            mesh.GetVertices(_renderedCornerScan);
+            float top = float.MinValue;
+            for (int v = 0; v < _renderedCornerScan.Count; v++)
+            {
+                Vector3 p = _renderedCornerScan[v];
+                if (Mathf.Abs(p.x - lx) > RenderedCornerReach
+                    || Mathf.Abs(p.z - lz) > RenderedCornerReach)
+                    continue;
+                if (p.y > top)
+                    top = p.y;
+            }
+            if (top == float.MinValue)
+                continue;
+            // The far GameObject sits at y=0, so local height is world height.
+            y = top;
+            return true;
+        }
+        return false;
     }
 
     /// <summary>Names the MECHANISM behind a cross-chunk corner disagreement from how its

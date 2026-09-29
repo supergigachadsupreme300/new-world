@@ -108,6 +108,21 @@ repairs slab-wall bottoms, not corner heights. So the pair (write) and (repair) 
 whose job a shared corner is, and that gap is exactly cause A showing up as a visible crack rather
 than the sliver the original 1hk bug produced.
 
+**Section D (1i1) — the near/far boundary.** The player's report that the gap appears *only* at the
+outer x/z corner tile put the seam between two different **owners**: the outer ring of loaded chunks
+meets a far cell, and there only one quadrant is a real chunk. Section C is blind to this by
+construction — it walks `_loadedChunks` and compares loaded chunks to each other — so section D
+compares the loaded ring's corners against **the far cell's own uploaded mesh** at the same world
+point, and reports `real-vs-far dY`.
+
+Note that "the far cell is live there" and "the far cell is at the same height" are different
+properties. Section B tests the first and correctly passes; a see-through crack satisfies the first
+and fails the second, and the low-poly root has no side walls to hide the difference. The mechanism
+the design predicts is a split source of truth: a far cell's corner grids are built from
+`ChunkTileMod`s read out of the **save files**, while a real chunk renders from its **live** tile
+data — and at the rim the far side is past every ring a dig can reach, so it is pristine noise by
+construction while the loaded side may be edited. Nothing reconciles the pair.
+
 So the lane's "B" is the taxonomy's B *and* C, and the lane's "C" is the taxonomy's A — the letters are
 positional, not semantic, and the tables are the authority. Ordering is **not** causal: the fingerprint
 runs first because it is the cheapest check *and* the premise test for the rest — if the resident set

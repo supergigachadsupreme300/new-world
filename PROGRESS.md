@@ -4,6 +4,66 @@ Last updated: 2026-09-29. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1i1. The gap is at the near/far boundary — a seam section C was structurally unable to see
+
+The player localised it, and that answer was worth more than the next column of 1i0:
+
+> the gap still happen, and to be precise the gap only appear at the outer z/x corner tile
+
+"Outer x/z corner tile" is the **corner of the loaded square**, which is precisely where the loaded
+set stops and the far shell takes over. And that is a seam 1hy's lane never measured. Section C walks
+`_loadedChunks` and compares real chunks against each other, so it is blind there *by construction*:
+the loaded set's outer ring meets the far shell, and section C has no opinion about that meeting.
+
+This is the lesson worth keeping, and it is a rule-7 lesson rather than a bug: **a walk's scope is a
+hypothesis, not just a radius.** 1hy was careful to scope section B to the band where a void is even
+*possible* — and then scoped section C to the loaded set, which silently encoded "the defect is
+between two real chunks" as an assumption nobody had checked. The premise-first ordering of rule 7
+was right about *staleness* and was blind to this, because a walk can be correctly scoped for a
+cause and still be scoped to the wrong **family of owner**.
+
+**What shipped (measurement only, still no fix).** Section D:
+
+- Walks every corner node where the loaded set does not occupy all four quadrants
+  (`LoadedChunksTouchingCorner < 4`) — the whole perimeter of the loaded square, including all four
+  outer corner tiles.
+- Locates the far side with the renderer's own `FarCellForChunk` and reads the **far cell's own
+  uploaded mesh** at that world point, taking the topmost vertex for the same reason section C does.
+  A far cell is placed at `cell.X*30` with a local-origin mesh (per `CreateFarSector`), so the read
+  is `world - cell.X*30` and no second spelling of the placement is introduced.
+- Reports `real-vs-far dY` — the step between a loaded chunk's corner and the shell's grid on the
+  same world point. **Neither surface has side walls in low-poly (1hi.1), so any step here is a
+  see-through crack, not a terrace.**
+- Reuses 1i0's pristine test across the seam instead of within it, which is a sharper test than in C:
+  the far band has no save mods of its own (a dig cannot reach past the near ring), so a far surface
+  sitting exactly on pristine noise against an edited real corner is a corner whose edit never
+  reached the shell.
+
+The mechanism this is hunting is already visible in the code and is the same one-sided-edit family as
+1i0, one level out: `BuildFarChunkCorners` builds a far cell's grids from `ChunkTileMod`s read out of
+the **save files**, while a real chunk renders from its **live** tile data. At an outer corner tile the
+real side is loaded and edited and the far side — chunk (10,10) and its neighbours — is past the
+loaded ring, so it is pristine noise, and nothing reconciles the pair. Section D measures that rather
+than asserting it.
+
+**Deliberately not done.** No fix. The two candidate causes (one-sided edit at the seam vs. a lattice
+error) imply completely different fixes, and the magnitude will say which: a step of centimetres is an
+edit; a step of metres is structural.
+
+### 1i1-status
+- [ ] **Press F3 again and paste the two new lines:** `D boundary` and its `worst at …` line. The
+      `VERDICT` will now be `D-R1` if the boundary is stepped, and will carry the pristine
+      classification in brackets.
+- [ ] If `D-R1` reports a large delta (metres), the cause is structural — the corner lattice, not
+      saves. If it is centimetres, it is the one-sided edit and the fix belongs in the seam
+      reconciliation.
+- [ ] `1i0`'s section-C classification bracket should come back in the same readout; it is still
+      valid evidence about the interior seams and is independent of section D.
+- [ ] 1hy/1i0/1i1 are all read-only. Nothing about the world's behaviour has changed yet, so the
+      gap is expected to persist until the fix lands.
+- [ ] Verification: code review + `tools\StaticChecks.ps1` (0 candidates). No Unity build was run —
+      confirm F3 still compiles and runs.
+
 ## 1i0. The F3 readout answered *where*; this adds the one column that answers *why*
 
 1hy's lane ran and returned a clean three-section report, and it eliminated most of the field:

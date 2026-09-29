@@ -77,6 +77,18 @@
      lane would be rule 8 in reverse (a second spelling that rots when the LOD side changes, and
      silently mis-scopes the audit when it does). Find the invariant both sides already agree on —
      here, the ownership band — and scope to that instead.
+   - **A scope is a claim about the mechanism, so write it down as one — and a correct scope for the
+     wrong *family of owner* still reports "clean" confidently.** 1hy scoped section B to the band
+     where a void is possible and printed the band, which is why B's zero was trustworthy. It then
+     scoped section C to `_loadedChunks`, comparing real chunks against each other — and never stated
+     that this *presupposed the defect is between two loaded chunks*. The player then reported the
+     gap **only at the outer x/z corner tile**, which is the near/far boundary: one loaded quadrant
+     and three far ones. C could not see it at any depth, and it printed real numbers the whole time,
+     which made a wrong premise look like evidence. So when scoping, name **which owner(s) the walk
+     admits** as well as the radius, and if the report is about a seam, check that the walk contains
+     both sides of it before concluding anything. "Drawn" and "flush" are separate properties: a
+     surface that is live but one step off is exactly the failure a "is anything drawn here" check
+     cannot see.
    - Also: a check that flags a false positive on the first file you add it to is a check whose
      silence has stopped meaning anything. 1hy's `StaticChecks.ps1` check 4 reported every `out`
      parameter as an unassigned local; a reader trained by 4 false candidates waves through the

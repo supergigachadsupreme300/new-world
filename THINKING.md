@@ -15,6 +15,78 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1i1 — "the gap only appears at the outer x/z corner tile" — VERDICT: OPEN (D shipped, awaiting readout)
+
+1i0 was built to answer "why do 345 interior shared corners disagree by 0.29 m". The player's answer
+redirected the whole entry, and it is worth recording how, because the redirect is the lesson.
+
+### H12 — the reported location is the *near/far boundary* — CONFIRMED by the report, and it invalidates the framing of 1hy
+
+I had spent 1hy–1i0 treating this as a real-chunk-vs-real-chunk problem. Section C walks
+`_loadedChunks` and compares chunks to each other, so "outer x/z corner tile" should have been
+impossible to report against it. It is not — and the reason is that the outer corner of the loaded
+square is exactly where the loaded set **stops** and the far shell takes over. A corner tile on the
+rim of the 19x19 square has one loaded quadrant and three far ones. My lane compares only the
+quadrants that are loaded, so the seam the player is looking at was never a candidate for a finding.
+
+**Confirmed, and it kills my own framing.** H10 was about edits not propagating between two *real*
+chunks. This seam is between a *real* chunk and a *far cell* — a different owner, a different build
+path, and a different question.
+
+### H13 — is section B contradicted? — NO, and the two now fit together
+
+It is tempting to treat "B said 0 voids" as wrong. It is not. The far cell **is** live at the
+boundary, so the footprint *is* drawn and B is correct. What B cannot say is whether the far surface
+is at the same **height** as the real one. "Drawn" and "flush" are different properties, and a
+see-through crack satisfies the first while failing the second. The low-poly root has no side walls,
+so a step here shows sky.
+
+That is the reframing that makes 1i1 obvious in hindsight: the defect is a **discontinuity between two
+surfaces that both exist**, not a missing surface. My 1hy framing ("only a lifecycle failure can
+produce a hole") was right about the hole and wrong about there being a hole.
+
+### H14 — the mechanism, and why it is sharper here than in 1i0 — STRONG, measured by section D
+
+`BuildFarSector` builds each far cell from `BuildFarChunkCorners`, which fills a corner grid out of
+`ChunkTileMod`s read from the **save files**, falling back to `GetHeight` for anything unwritten. A
+real chunk, by contrast, renders from its **live** `_loadedData`. So the two surfaces at the boundary
+are not two readings of one thing — they are a save and a live buffer.
+
+At an outer corner the asymmetry is forced. The loaded side may be edited; the far side is chunk
+(10,10) and its neighbours, **past the loaded ring**, where `ChunkTileMod` can never exist — the far
+band is outside collider ring 8 and the rim starts at 10, so a dig cannot reach it (the 1ek comment
+in `BuildFarSector` says so explicitly). So the far surface is pristine noise by construction, and
+one-sided edits are guaranteed to disagree with it. No far-side reconciliation exists:
+`ReconcileModifiedBorders` repairs slab-wall bottoms between real chunks and is not in this code path
+at all.
+
+The pristine test from 1i0 is *sharper* here than it was in section C, which is the part I did not
+expect. In C both sides could plausibly be edited, so "one side on pristine" narrowed the field. On
+this seam the far side is **known** to be pristine, so a step with an edited real corner is not a
+hint, it is a confirmation — and the expected result is the boring one: a few centimetres, a
+`FlattenAt` feather rim applied while the far side had no save entry.
+
+**OPEN until the readout.** The delta is the whole decision. Centimetres ⇒ one-sided edit ⇒ fix the
+seam by giving the far cell's corners the same saved-mod reach the real chunks get (or reconciling
+the loaded ring's outer edge against the shell). Metres ⇒ this is not an edit at all, H10/H14 are
+both wrong, and the corner lattice itself is broken in a way rule 8 warned about.
+
+### The methodological entry, which is the one I will actually keep
+
+1hy's rule-7 discipline was "scope the walk to the band where a positive result is *possible*, and
+print the band." I did that for section B and it worked exactly as designed. Then I scoped section C
+to the loaded set — and **the scope silently encoded a hypothesis I never stated**: that the defect
+is between two chunks that are both loaded. A correctly-scoped walk for the wrong family of owner
+reports "clean" just as confidently as a correctly-scoped walk for the right one, and section C did
+report numbers, which made it feel like evidence.
+
+The generalisable form: **a measurement's scope is a claim about the mechanism, and it should be
+written down as one.** 1hy printed B's band because B's band was a considered choice about void
+possibility. C's scope was never printed and never argued, and it was the wrong one. Rule 7 has been
+updated with this.
+
+---
+
 ## 1i0 — the F3 readout: it eliminated the hole, and pointed at the save path instead — VERDICT: OPEN (one column short of a verdict)
 
 The lane shipped in 1hy and the user ran it. Getting the numbers was worth more than the code was.
