@@ -4,6 +4,81 @@ Last updated: 2026-09-29. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1i2. The 1i1 readout's two loudest results were both the audit's own bugs
+
+```
+D boundary  nodes 76  no-far-surface 0  real-vs-far dY 0.2084
+    worst at (-240,330)  [cause of those 36 node(s): one-sided edit 17 (first at (300,0))
+                          NO side edited 19 (not an edit - look at the lattice/seed)]
+VERDICT B: 2965 footprint(s) inside the fully-owned ring ... nothing draws there
+```
+
+The `VERDICT` and the `NO side edited` line were both **defects in the measurement**, and both had
+to be fixed before the gap could be worked on. What survives is narrower and more useful.
+
+### Defect 1 — B demanded `!FarShadowedByCoarse`, which is a hole in the renderer's own design
+
+`FarShadowedByCoarse(cell)` is true whenever a **live coarser cell already covers the same ground**
+(1eq/1er demote handoff) — it means "this cell is a reserved shadow and something else is drawing
+here", not "nothing is here". B required it to be *false* for a footprint to count as covered, so
+every reserved shadow was reported as a missing surface. All 2965 were this.
+
+This is **1hy's rule-7 mistake one level in**. 1hy's walk admitted one family of owner (chunks with
+a live mesh) and called everything else absent; 1i1's walk admitted one family of *far owner* (the
+cell the ownership predicate named) and called everything else absent. A coverage check has to admit
+every owner that can draw. `AnyFarCellDrawsAt` now asks the direct question — is any of the three
+cell levels that can geometrically cover this chunk switched on — enumerating the candidates rather
+than re-deriving the renderer's shadow rule.
+
+**The 2965 is retracted, not resolved.** How much of that band is genuinely covered is unknown until
+the corrected walk runs; only that the previous number was meaningless.
+
+### Defect 2 — the label was inverted, and it conflated two different failures
+
+`(of which no far cell claims 2965)` was printed from the counter for footprints that **do** have an
+owner. Voids are now split:
+
+- **claimed-dead** — a far cell claims this ground and nothing is drawing it. A true hole.
+- **unowned** — no far cell claims it; the horizon stops short of the promised `keep` radius. Not a
+  missing surface, just a shorter one.
+
+These get separate `VERDICT` lines. One alarming number that mixes "broken" with "smaller than
+promised" is worse than two honest ones.
+
+### Defect 3 — the pristine classification has a width, and it swallowed the noise floor
+
+Two values each within `RenderedCornerTolerance` (0.01 m) of the same pristine value can differ by up
+to **2 × tol**. So a node could be "stepped" and "both sides pristine" simultaneously — and 19 nodes
+1–2 cm apart were filed under `not an edit - look at the lattice/seed`, which reads like a finding
+and is arithmetic: they are the noise floor of two facets rounded to the same lattice. Classification
+and the `D-R1` verdict now both require `> 2 × tol`, and the sub-2 cm count prints as a noise floor.
+
+### What actually survives the readout
+
+- **A: clean** — one bucket, no step drift. Premise holds.
+- **C is the real finding, and it is large: 345 of 400 shared corner nodes are one-sided edits**, worst
+  `0.2859 m`, first at `(30,60)`. Not a handful of seams — essentially every interior seam in the
+  loaded square.
+- **D confirms the same mechanism one level out: 17 of 76 boundary nodes are one-sided edits**, worst
+  `0.2084 m`, and `no-far-surface 0` — the shell does reach the loaded ring, it just arrives at a
+  different height. The 19 "lattice/seed" nodes are retracted per defect 3.
+
+So the mechanism proposed in 1i0/1i1 is **confirmed on both seams**: a corner is written on one side
+of a seam and its neighbour keeps the pristine value. `BuildChunkMeshData` fills a chunk's corner grid
+from that chunk's own `ChunkTileMod`s, `ApplyHeightEdits` reaches only loaded tiles, and
+`ReconcileModifiedBorders` repairs slab walls rather than corner heights. Nothing reconciles the pair.
+
+### 1i2-status
+- [ ] **Press F3 again.** Three things to read: (a) does `B` now show `claimed-dead 0`; (b) `D`'s
+      `under 2cm noise floor` count, which tells us how much of the old 36 was arithmetic; (c) `D`'s
+      cause bracket with the corrected threshold.
+- [ ] Then implement the reconciliation as **1i3**. It is the confirmed mechanism, so this is the
+      first point at which a fix is justified — and it must still be its own commit.
+- [ ] Nothing in the world's behaviour has changed across 1hy/1i0/1i1/1i2. The gap is still there and
+      is expected to persist until 1i3.
+- [ ] Verification: code review + `tools\StaticChecks.ps1` (0 candidates), braces 46/46, parens 406/406.
+      No Unity build was run — confirm F3 still compiles and runs.
+
 ## 1i1. The gap is at the near/far boundary — a seam section C was structurally unable to see
 
 The player localised it, and that answer was worth more than the next column of 1i0:

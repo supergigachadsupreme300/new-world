@@ -89,6 +89,24 @@
      both sides of it before concluding anything. "Drawn" and "flush" are separate properties: a
      surface that is live but one step off is exactly the failure a "is anything drawn here" check
      cannot see.
+   - **A verdict line that conflated "broken" with "smaller than promised" is the same bug as a
+     coverage walk that admits one owner — and the conflation is what makes a number unusable.**
+     1i1's section B reported 2965 undrawn footprints because it demanded `!FarShadowedByCoarse` on a
+     footprint's owner, but that helper is *true* when a live coarser cell already covers the same
+     ground — it names a reserved shadow, not an absence. So all 2965 were reserved shadows being
+     called holes. Two habits: ask coverage questions directly (enumerate every owner that can draw,
+     take the first live one) instead of inferring them from the ownership predicate, and split the
+     remainder into **claimed-dead** (an owner exists and nothing is drawing: a hole) and **unowned**
+     (nothing claims it: a shorter horizon) with separate verdicts. When a number is retracted, say
+     the replacement is *unknown*, not zero — 1i2 retracted 2965 and had no number to put in its
+     place.
+   - **Gate a classifier on the WIDTH of its own test, or it will name a mechanism for arithmetic
+     noise.** 1i1's section D used `RenderedCornerTolerance` both as the "is this stepped" threshold
+     and as the "is this side on pristine noise" test, so two values each within tol of the same
+     pristine value could differ by up to `2*tol` — stepped *and* both-pristine at once. It filed 19
+     nodes at 1–2 cm under `not an edit - look at the lattice/seed`, which reads like a finding and
+     is noise from two facets rounded to one lattice. Any threshold comparison used to *enter* a
+     classification must be at least the sum of the tolerances used *inside* it.
    - Also: a check that flags a false positive on the first file you add it to is a check whose
      silence has stopped meaning anything. 1hy's `StaticChecks.ps1` check 4 reported every `out`
      parameter as an unassigned local; a reader trained by 4 false candidates waves through the

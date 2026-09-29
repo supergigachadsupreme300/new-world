@@ -15,6 +15,69 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1i2 — the readout's two loudest lines were both my own bugs — VERDICT: OPEN (lane corrected, awaiting clean run)
+
+### H15 — "2965 footprints are not drawn" — REJECTED, and it was never about the world
+
+The verdict said 2965 footprints had nothing drawing them, at ring 16 and beyond. That is a
+half-kilometre-wide void ring, and the player, who had just pointed at a gap barely a chunk wide,
+had not mentioned it. The two facts do not fit, so I read my own code instead of the world.
+
+B required `!FarShadowedByCoarse(owner)` for a footprint to count as covered.
+`FarShadowedByCoarse` is documented as "a coarser far cell that owns this footprint is already live
+(1eq), so this cell must render nothing — it is a reserved shadow that takes over the instant the
+coarser owner leaves". **It means the opposite of what I used it for.** I read it as "this cell draws
+nothing and nothing replaces it" and used it as a precondition for coverage. Every reserved shadow in
+the shell was therefore filed as a hole — 2965 of them.
+
+**REJECTED as a world finding; confirmed as a lane bug.** And the shape of the bug is the point:
+1hy's walk admitted loaded chunks with a live mesh and called everything else absent; 1i1's walk
+admitted the one far cell the ownership predicate named and called everything else absent. Same
+mistake, one level down. I had written the rule into AGENTS ("name which owner(s) the walk admits")
+and then immediately committed it again one layer deeper. A rule you write down and then violate in
+the next commit is worth less than a check that mechanically refuses the violation.
+
+The honest residue: the corrected number is **unknown**, not zero. I retracted a wrong number; I did
+not replace it.
+
+### H16 — "19 nodes: no side edited, look at the lattice/seed" — REJECTED by arithmetic, not by evidence
+
+This one nearly sent me after the corner lattice, which would have been an expensive dead end. It was
+my own tolerance. `RenderedCornerTolerance` is 0.01 m, and I used it *both* as the "is this stepped"
+threshold and as the "is this side pristine" test. Two values each within 0.01 of the same pristine
+value can differ by up to 0.02 — so a node can be stepped *and* have both sides pristine. The
+classification is only forced above **2 × tol**, and 19 nodes fell in the 1–2 cm band where it is
+not. They are the noise floor of two facets rounded to the same lattice, and the scary wording was
+mine.
+
+**REJECTED.** A classifier that can emit a confident mechanism name for arithmetic noise is worse
+than no classifier, because it costs a real investigation. Gate it on the width of its own test.
+
+### H17 — the surviving mechanism — CONFIRMED on both seams, and it is not a corner case
+
+C: **345 of 400** shared corner nodes are one-sided edits, worst 0.2859 m, first at (30,60).
+D: **17 of 76** boundary nodes are one-sided edits, worst 0.2084 m, `no-far-surface 0`.
+
+Not a handful of seams — essentially every interior seam in the loaded square, plus the same fault
+again at the near/far corner the player is actually looking at. Two independent seams, one mechanism,
+and the D numbers are decisive on a point I had been treating as open: the far shell **does** reach
+the loaded ring (`no-far-surface 0`), it simply arrives at a different height, because it reads
+`ChunkTileMod`s out of the save files while the real chunk renders from live tile data.
+
+**CONFIRMED.** 1i0's mechanism is real; 1i1's framing of where to look was wrong and is now
+corrected. The fix is reconciliation, and 1i3 is where it belongs.
+
+### Still open
+
+- How much of the ring-16+ band is genuinely uncovered, now that the false positives are gone.
+- Whether the one-sided edits are *all* from a single large flatten (plausible: the bench, the village
+  pad, roads) or scattered. If scattered, the fix must handle per-tile cases; if one region, the
+  geometry is incidental. **The fix's shape depends on this and the lane does not yet measure it** —
+  that is the next thing to add, and it should be a count of one-sided nodes per contributing chunk,
+  not a picture.
+
+---
+
 ## 1i1 — "the gap only appears at the outer x/z corner tile" — VERDICT: OPEN (D shipped, awaiting readout)
 
 1i0 was built to answer "why do 345 interior shared corners disagree by 0.29 m". The player's answer
