@@ -154,6 +154,17 @@ public partial class WorldStreamer
             verdict = "A-stale: " + stepDrift + " of " + stepDriftCounted + " loaded chunk(s) were built "
                 + "at a facet step the generator is no longer configured for (want " + EffectiveLowPolyStep
                 + ") — the resident terrain predates the current settings; needs a full drop (rule 11)";
+        else if (voidClaimedDead > 0 && _farSectors.Count == 0)
+            // 1i8. The void walk's "claimed" test is the OWNERSHIP predicate (FarCellForChunk says
+            // a cell belongs here), not a test that a cell EXISTS. Those come apart whenever the
+            // shell has not filled yet: with zero live cells, every footprint in the owned band is
+            // "claimed and undrawn", which is not a hole, it is a shell that has not arrived. A
+            // measurement that reports known-absent things is not conservative, it is unreadable -
+            // so this refuses to call it one rather than sending the player to walk to ring 6.
+            verdict = "B-unfilled: " + voidClaimedDead + " footprint(s) in the owned band have no live "
+                + "cell, but the far shell has built NONE at all (" + _farSectors.Count + " cells) - "
+                + "this is an unfilled shell, not a hole. Walk outwards until far cells appear, then "
+                + "press F3 again";
         else if (voidClaimedDead > 0)
             verdict = "B: " + voidClaimedDead + " footprint(s) are CLAIMED by a far cell but have no live "
                 + "cell drawing them - the shell owns ground it is not rendering, which is a true hole. "
@@ -569,11 +580,15 @@ public partial class WorldStreamer
         int oneSidedNoOwner = 0;        // 1i7: the pristine side is untouched, so no stamp happened.
         string oneSidedAt = "-";
         string stampClobberAt = "-";
+        // 1i8: every disagreeing node, worst first, so the probe can both aggregate a verdict and
+        // print worked examples of the actual worst cracks.
+        var disagreeing = new List<RenderedCornerNode>();
         foreach (KeyValuePair<long, RenderedCornerNode> kv in nodes)
         {
             RenderedCornerNode n = kv.Value;
             if (n.Present < 2 || (n.MaxTopY - n.MinTopY) <= RenderedCornerTolerance)
                 continue;
+            disagreeing.Add(n);
             if (n.PristineHits > 0 && n.EditedHits > 0)
             {
                 oneSidedEdit++;
@@ -599,6 +614,47 @@ public partial class WorldStreamer
         crossBothEdited = bothEdited;
         crossNeitherEdited = neitherEdited;
         crossOneSidedAt = oneSidedAt;
+
+        // 1i8. Read the four owning chunks' SAVE FILES for each disagreeing node and count how many
+        // of the four sharing tiles hold an edited height there. This is the one number that
+        // separates "the resolver had it and did not take it" from "the edit was never written",
+        // and those two need opposite fixes. Worst-first so the printed examples are the real cracks.
+        disagreeing.Sort((a, b) => (b.MaxTopY - b.MinTopY).CompareTo(a.MaxTopY - a.MinTopY));
+        var seamSaveCache = new Dictionary<TerrainChunkCoord, Dictionary<int, ChunkTileMod>>(64);
+        int inSaves = 0, notInSaves = 0;
+        int slotNE = 0, slotNW = 0, slotSE = 0, slotSW = 0;
+        string inSavesAt = "-", notInSavesAt = "-";
+        var probes = new List<string>();
+        for (int i = 0; i < disagreeing.Count; i++)
+        {
+            RenderedCornerNode n = disagreeing[i];
+            var detail = new List<string>(4);
+            int nonPristine = ProbeSeamSaves(n.Nx, n.Nz, seamSaveCache, out int firstSlot, detail);
+            if (nonPristine > 0)
+            {
+                inSaves++;
+                if (inSavesAt == "-")
+                    inSavesAt = "(" + n.Nx + "," + n.Nz + ")";
+                // Which of the four sharing tiles carried the edit. If the build's addressing is
+                // wrong, the edit will pile up in a slot the resolver never consults first.
+                switch (SeamTileSlot[firstSlot])
+                {
+                    case 1: slotNE++; break;
+                    case 0: slotNW++; break;
+                    case 2: slotSE++; break;
+                    default: slotSW++; break;
+                }
+            }
+            else
+            {
+                notInSaves++;
+                if (notInSavesAt == "-")
+                    notInSavesAt = "(" + n.Nx + "," + n.Nz + ")";
+            }
+            if (probes.Count < RenderedCornerMaxListed)
+                probes.Add("    seam-save probe at (" + n.Nx + "," + n.Nz + ")  dY "
+                    + (n.MaxTopY - n.MinTopY).ToString("0.####") + "  " + string.Join(" ", detail));
+        }
 
         foreach (KeyValuePair<long, RenderedCornerNode> kv in nodes)
         {
@@ -651,8 +707,17 @@ public partial class WorldStreamer
                 .Append("  [1i7 split: stamp-clobbered ").Append(oneSidedStampClobber)
                 .Append(" (first at ").Append(stampClobberAt)
                 .Append(") no-owner ").Append(oneSidedNoOwner).Append(']')
-
+                .Append("  [1i8 saves: in-save ").Append(inSaves)
+                .Append(" (first at ").Append(inSavesAt)
+                .Append(") not-in-save ").Append(notInSaves)
+                .Append(" (first at ").Append(notInSavesAt)
+                .Append(") edit held by NE ").Append(slotNE)
+                .Append(" NW ").Append(slotNW)
+                .Append(" SE ").Append(slotSE)
+                .Append(" SW ").Append(slotSW).Append(']')
               .Append('\n');
+        for (int i = 0; i < probes.Count; i++)
+            sb.Append(probes[i]).Append('\n');
         if (worstDelta > RenderedCornerTolerance)
             sb.Append("    worst own-lattice at ").Append(worstDeltaAt).Append('\n');
         for (int i = 0; i < listed.Count; i++)
@@ -766,7 +831,13 @@ public partial class WorldStreamer
         sb.Append("D boundary  nodes ").Append(bndNodes)
           .Append("  no-far-surface ").Append(bndNoFar)
           .Append("  real-vs-far dY ").Append(worstRealFar.ToString("0.####"))
-          .Append("  (under 2cm noise floor ").Append(noiseFloor).Append(')').Append('\n');
+          .Append("  (under 2cm noise floor ").Append(noiseFloor).Append(')');
+        // 1i8. With no far cells at all, dY 0 and "no-far-surface N" are both vacuous - there is
+        // nothing on the far side to compare against. Say so on the line, so the number is not
+        // mistaken for a clean result.
+        if (_farSectors.Count == 0)
+            sb.Append("  [VACUOUS: far shell has built 0 cells; dY 0 means nothing here]");
+        sb.Append('\n');
         if (worstRealFar > RenderedCornerTolerance)
             sb.Append("    worst at ").Append(worstRealFarAt)
               .Append(CrossCause(oneSided, bothEdited, neitherEdited, oneSidedAt)).Append('\n');
@@ -862,6 +933,108 @@ public partial class WorldStreamer
     /// be a corner that was written on ONE side — the other chunk's tile still holds the pristine
     /// value because nothing propagated across the chunk seam. If instead every contributor is off
     /// pristine, the cause is not an edit at all and the edit path is not where to look.</summary>
+    /// <summary>NE/NW/SE/SW name for a ChunkTileMod Heights slot (SW=3, NE=1, NW=0, SE=2).</summary>
+    private static string SeamSlotName(int slot)
+    {
+        switch (slot)
+        {
+            case 1: return "NE";
+            case 0: return "NW";
+            case 2: return "SE";
+            default: return "SW";
+        }
+    }
+
+    /// <summary>
+    /// 1i8. The discriminating probe. For world node (wx,wz) this reads the mods of the four tiles
+    /// that share it <b>straight out of each owning chunk's save file</b>, and counts how many hold
+    /// a value that differs from pristine noise by more than <see cref="SeamPristineTol"/> - the
+    /// exact test the build-time seam resolver applies when it decides what to copy.
+    ///
+    /// The point is that the two surviving explanations for a one-sided seam look identical from
+    /// the rendered set and need opposite fixes:
+    /// <list type="bullet">
+    /// <item><b>count &gt; 0</b> - the value was on disk, so the resolver had it available and
+    /// declined to take it. That is a bug in the resolver's addressing or its filters.</item>
+    /// <item><b>count == 0</b> - the edit is in nobody's save. Then no build-time resolver can fix
+    /// it, because the data was never written; the fault is the live-edit path not reconciling
+    /// neighbours.</item>
+    /// </list>
+    /// The comparison deliberately uses the resolver's own tolerance rather than
+    /// <see cref="RenderedCornerTolerance"/>, so this answers "would the walk have copied it?"
+    /// instead of "do these two rendered surfaces differ?".
+    ///
+    /// Read-only and main-thread. Save reads are memoised per chunk for the whole audit, so the
+    /// cost is roughly one file read per loaded chunk, not four per node.
+    /// </summary>
+    private int ProbeSeamSaves(int wx, int wz,
+        Dictionary<TerrainChunkCoord, Dictionary<int, ChunkTileMod>> cache,
+        out int firstNonPristineSlot, List<string> detail)
+    {
+        firstNonPristineSlot = -1;
+        int nonPristine = 0;
+        int cs = TerrainChunkCoord.ChunkSize;
+        float pristine = TerrainNoiseGenerator.GetHeight(Seed,
+            wx * ChunkData.Size, wz * ChunkData.Size);
+
+        for (int t = 0; t < 4; t++)
+        {
+            int tileX = wx + SeamTileDX[t];
+            int tileZ = wz + SeamTileDZ[t];
+            TerrainChunkCoord owner =
+                new TerrainChunkCoord(FloorDiv(tileX, cs), FloorDiv(tileZ, cs));
+            int lx = tileX - owner.X * cs;
+            int lz = tileZ - owner.Z * cs;
+
+            if (!cache.TryGetValue(owner, out Dictionary<int, ChunkTileMod> map))
+            {
+                map = null;
+                if (ChunkSaveManager.TryLoadChunk(Seed, owner, out ChunkSaveData sd)
+                    && sd.Mods.Count > 0)
+                {
+                    map = new Dictionary<int, ChunkTileMod>();
+                    for (int i = 0; i < sd.Mods.Count; i++)
+                    {
+                        ChunkTileMod m = sd.Mods[i];
+                        if (m.LocalX >= 0 && m.LocalX < cs && m.LocalZ >= 0 && m.LocalZ < cs)
+                            map[m.LocalZ * cs + m.LocalX] = m;
+                    }
+                }
+                cache[owner] = map;
+            }
+
+            int slot = SeamTileSlot[t];
+            float v = float.NaN;
+            if (map != null
+                && map.TryGetValue(lz * cs + lx, out ChunkTileMod om)
+                && om.Heights != null && om.Heights.Length >= ChunkData.VertexCount
+                && IsSaneHeight(om.Heights[slot]))
+            {
+                v = om.Heights[slot];
+            }
+
+            string tag;
+            if (float.IsNaN(v))
+            {
+                tag = "no mod";
+            }
+            else if (Mathf.Abs(v - pristine) > SeamPristineTol)
+            {
+                tag = "EDITED";
+                nonPristine++;
+                if (firstNonPristineSlot < 0)
+                    firstNonPristineSlot = t;
+            }
+            else
+            {
+                tag = "pristine";
+            }
+            detail.Add(SeamSlotName(slot) + "=" + (float.IsNaN(v) ? "-" : v.ToString("0.##"))
+                + "(" + tag + ")@" + owner);
+        }
+        return nonPristine;
+    }
+
     private static string CrossCause(int oneSided, int bothEdited, int neitherEdited, string oneSidedAt)
     {
         int total = oneSided + bothEdited + neitherEdited;

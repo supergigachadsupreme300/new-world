@@ -4,6 +4,73 @@ Last updated: 2026-09-29. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1i8. Reading the saves, so the next fix is chosen by data instead of by my next guess
+
+1i7's two additions did their job in a single readout and immediately narrowed the field:
+
+- `buildStamp 1 x243 (uniform: resident set matches the code now running)` — **you did restart, and
+  1i6's code is genuinely running.** The "the new code never ran" explanation, which I could not
+  rule out by reading, is now closed by measurement rather than assumed.
+- `[1i7 split: stamp-clobbered 9 … no-owner 220]` — **my short-circuit theory was wrong.** I claimed
+  `!float.IsNaN(corners[fx, fz])` was bypassing the seam walk, and it accounts for 4% of the fault.
+  So the 1i5/1i6 resolver is running and declining to fix 96% of the nodes it is aimed at.
+
+The user's own observation is the other half of the narrowing: the gap is at **every chunk corner
+within 300 m**, which is a *systematic* failure, not an occasional one. A systematic failure has very
+few candidate causes, so I checked the cheap ones by reading and eliminated them without a round-trip:
+
+| candidate | result |
+|---|---|
+| walk never runs (ordering) | cleared — the walk is at `ChunkBuild.cs:264`, the noise fill at `:290` |
+| walk reads a different world | cleared — `seed = Seed` is captured at dispatch (`Streaming.cs:505`) |
+| `IsSaneHeight` silently rejects a dig | cleared — the band is ±200 m (`WorldStreamer.cs:294`) |
+| unit mismatch in the pristine test | cleared — `ChunkData.Size = 1f`, so tile == metre |
+| wrong owner arithmetic | cleared — verified 16/16 against a worked example in 1i6 |
+
+Which leaves a genuine contradiction, and it is the reason this is a measurement rather than a fix:
+on a uniform-stamp fresh restart, a chunk's **rendered** edited height *is* its **saved** height,
+because a fresh build reads nothing else. So the edited side's save provably holds a non-pristine
+height at a tile touching the node, the walk reads that save, examines exactly those four tiles, and
+prefers any non-pristine value. It should have adopted it. On 220 nodes it did not, and every check I
+have passes. That is the same shape as 1i4, where a check passed on a member in the wrong place — so
+the check is what's untrustworthy, not the reasoning.
+
+### What this adds
+
+1. **The save probe** (`ProbeSeamSaves`) — for every disagreeing node, read the mods of the four
+   tiles that share it **straight out of each owning chunk's save file**, and count how many hold a
+   value differing from pristine by more than `SeamPristineTol`. It uses the *resolver's own*
+   tolerance, so it answers "would the walk have copied this?" rather than "do these two surfaces
+   differ?". Memoised per chunk, so ~1 file read per loaded chunk rather than 4 per node.
+   - `[1i8 saves: in-save N … not-in-save M …]` — the two outcomes need **opposite** fixes.
+2. **Which of the four slots held the edit** (`NE/NW/SE/SW` histogram). If the build's addressing is
+   wrong, the edit piles up in a slot the resolver does not consult first — which is directly
+   checkable now, against reality rather than against my own arithmetic.
+3. **Up to `RenderedCornerMaxListed` worked examples**, worst cracks first, each printing all four
+   sides: slot, value, `EDITED`/`pristine`/`no mod`, and the owning chunk. This is the part that ends
+   the guessing.
+4. **B/D stop reporting known-absent things.** That run had `far cells 0` and B still printed
+   `claimed-dead 3858` plus `VERDICT B: … which is a true hole`. B's "claimed" test is the
+   *ownership* predicate (`FarCellForChunk` — a cell belongs here), not a test that a cell *exists*;
+   the two come apart whenever the shell has not filled. B now returns `B-unfilled` when
+   `_farSectors.Count == 0` rather than sending the player to walk to ring 6, and D's line is tagged
+   `[VACUOUS: … dY 0 means nothing here]` for the same reason. Rule 7 again: a measurement that
+   reports things which are known-absent is not conservative, it is unreadable — and that verdict is
+   what I have been chasing for two rounds.
+
+### 1i8-status
+- [ ] **Press F3 and paste the `C` line plus the `seam-save probe` lines.** The verdict depends on
+      which of `in-save` / `not-in-save` dominates.
+- [ ] If `not-in-save` dominates, **1i9 is not a resolver fix.** It is the live-edit channel:
+      `ApplyHeightEdits` rebuilds only chunks owning a touched tile (`Deform.cs:448`) and
+      `ReconcileModifiedBorders` is gated on the neighbour being in `_modifiedChunks` (`:361`) and is
+      called *only* from the chunk-load path (`Mesh.cs:153`) — so an unmodified neighbour is never
+      reconciled, ever. Seam correctness would have to move to the edit path, which is a larger
+      change than a resolver.
+- [ ] Verification: code review + `tools\StaticChecks.ps1` (**0 candidates**), braces 67/67 and parens
+      525/525 on the audit file. `FloorDiv(int,int)` signature confirmed by reading, and inline `out`
+      declarations confirmed as existing project style. No Unity build was run.
+
 ## 1i6. The 1i4 fix resolved the seam ONE owner deep, and one edge short
 
 Found by walking 1i4's addressing instead of trusting its comment. A world node is a corner of **four

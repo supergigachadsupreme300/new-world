@@ -15,6 +15,56 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1i8 — is the edit in the save, or not? — VERDICT: OPEN (measurement shipped, awaiting readout)
+
+### H27 — the resolver "cannot find" an edit that is provably in the file — the contradiction
+
+On a uniform-stamp fresh restart, a chunk's *rendered* height **is** its *saved* height: a fresh
+build reads nothing else. So for a `no-owner` node — edited side, pristine side, pristine side not
+even modified — the edited chunk's save provably holds a non-pristine height at a tile touching that
+node. The walk reads that save, examines exactly the four sharing tiles, and prefers any non-pristine
+value over pristine. It should adopt. On 220 of 229 nodes it did not.
+
+I eliminated every cause I could reach by reading: ordering (walk at :264 precedes the noise fill at
+:290), seed (`Seed` captured at dispatch, `Streaming.cs:505`), the sanity band (±200 m, so it cannot
+reject a 0.29 m dig), the unit question (`ChunkData.Size = 1f`), and the owner arithmetic (16/16 in
+1i6). All pass. The measurement moved zero.
+
+**That is the 1i4 shape again.** There, a check passed on a construct that was in the wrong place;
+here, every check passes on behaviour that is not happening. The recurring lesson is not "read more
+carefully" — it is that **a check I have never watched fail is not evidence.** I have now twice
+derived a mechanism that every existing check approved and the world refuted, and both times the
+defect was in something no check was watching. The response is to name the check the hypothesis
+predicts should fail and go watch it, not to add a third mechanism to the list.
+
+### H28 — I was wrong about the short-circuit, and the split said so in one line — CONFIRMED WRONG
+
+I asserted `if (!float.IsNaN(corners[fx, fz])) continue;` was bypassing the seam walk, and I had a
+plausible story: a mod stores all four corners, so a chunk modded nearby stamps the shared node with
+a pre-edit height and the walk never runs. The measurement: `stamp-clobbered 9`, `no-owner 220`. Four
+percent.
+
+The story was not unreasonable, which is the useful part. It was a *hypothesis derived from reading
+code* presented with the confidence of a conclusion, and it would have sent me to patch a loop
+condition while the real fault sat elsewhere. The 1i7 split existed precisely to catch this, and it
+did so within one readout. That is the argument for instrumenting before fixing: the split cost one
+commit and one keypress, and it saved a wrong fix outright.
+
+### H29 — my own verdict line has been the most expensive thing on screen — CONFIRMED
+
+`far cells 0`, and the report still said `claimed-dead 3858 … which is a true hole`, with a nearest
+ring and coordinates to walk to. B's "claimed" test is `FarCellForChunk`, the **ownership**
+predicate — a cell *belongs* here — not a test that a cell *exists*. The two come apart exactly when
+the shell has not filled, which is precisely when a player is most likely to press the key.
+
+I have spent two rounds chasing a verdict that described ground the far shell had not reached yet. It
+was ranked above the corner measurement because it was first, not because it was first *in importance*
+— the same ordering error rule 7 warns about, where the aesthetic order of sections overrides the
+premise order. Now B returns `B-unfilled` and D is tagged `[VACUOUS]`. **A verdict that cannot be
+wrong about a premise is the most expensive line in a diagnostic.**
+
+---
+
 ## 1i6 — how many owners does a shared corner have? Four, not one — VERDICT: OPEN (fixed, awaiting runtime)
 
 ### H25 — was 1i4's "canonical owner" the right single owner? No, and I had not enumerated them
