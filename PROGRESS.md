@@ -4,6 +4,80 @@ Last updated: 2026-09-29. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1i0. The F3 readout answered *where*; this adds the one column that answers *why*
+
+1hy's lane ran and returned a clean three-section report, and it eliminated most of the field:
+
+```
+A fingerprint  buckets 1  [step 6 verts 100 x361]  stepDrift 0/361 (want step 6)
+B void  ring 0..32  footprints 4225  real+far 0  real only 361  far only 3864  NOT DRAWN 0
+C corners  nodes 400  rendered 1444/1444  no-vertex nodes 0
+              cross-chunk dY 0.2859 (345 nodes)  own-lattice dY 0
+    worst cross-chunk at (60,-30)
+VERDICT C-R2: rendered corner heights disagree ACROSS chunks by 0.2859 m at (60,-30)
+```
+
+- **A is clean** (one bucket, no drift) — the mixed-resident-set premise fails, so B and C are real
+  evidence rather than evidence about a world that is not on screen. This is exactly what the
+  premise-first ordering was for.
+- **B is clean** — 0 voids across all 4225 footprints in the owned band. **There is no hole.** The
+  whole lifecycle hypothesis (a footprint with nothing drawing it) is dead, and with it the idea
+  that the fix belongs in the streaming/dormant path.
+- **C-R1 is clean** — `rendered 1444/1444` is exactly 361 chunks x 4 corners, so every chunk places
+  a rendered vertex at all four of its corners, and 400 nodes is the correct corner count for a
+  19x19 chunk square.
+- **`own-lattice dY 0` with `cross-chunk dY 0.2859` is the whole finding.** Each chunk's rendered
+  corner matches its own lattice *exactly*, and adjacent chunks disagree at shared corners. So the
+  render path is not the culprit: each 31x31 lattice faithfully reproduces its own tile data, and
+  the two tiles that own the same world corner hold different heights for it.
+
+**What shipped (measurement only, no fix).** `cross-chunk dY` said *where* but not *why*, and the
+cause is not a single thing, so section C now classifies every disagreeing node by where its
+contributors sit relative to pristine world noise — read straight off the data, not inferred:
+
+- **one-sided edit** — one contributor exactly on untouched `GetHeight(seed, nx, nz)`, another off
+  it. This can only mean the corner was written on ONE side and nothing propagated across the seam.
+- **all sides edited apart** — no contributor is pristine; both were written and they differ.
+- **no side edited** — every contributor sits exactly on pristine noise yet they disagree, which
+  would rule the edit path out entirely and point at the lattice or the seed instead.
+
+The pristine test is exact, not a proxy: it calls the same 3-argument `GetHeight` overload
+(`baseHeight = 0f`) that `BuildChunkMeshData` uses to fill its corner grid, so "pristine" means the
+identical value the build would have produced. A `_modifiedChunks` membership count is collected
+alongside as a coarser corroborating signal.
+
+**Why this is where I stopped.** Code review does point at a mechanism, and it is in the save/edit
+path rather than the mesh path: `WorldStreamer.ChunkBuild.cs` assembles its `corners` grid from
+**this chunk's own** `ChunkTileMod`s at chunk-local indices, so a world corner on a chunk boundary
+is stamped by a modified tile in the edited chunk while the neighbouring chunk fills the same world
+corner from its own grid. `ApplyHeightEdits` *does* propagate across chunk boundaries — it iterates
+world tile coords, not chunks — but its own doc says "**Unloaded tiles are ignored**", and
+`ReconcileModifiedBorders` only fixes side-wall bottoms, not corner heights. So an edit applied
+where the far side was not yet loaded leaves a one-sided corner forever, because nothing reconciles
+it after the fact. 0.2859 m is the right magnitude for that: a `FlattenAt` rim edit, whose feather
+drives the per-corner delta to a few centimetres, and far too small for a seed or slot error (those
+would be metres).
+
+That is a strong inference, not a measurement, and the two candidate fixes are very different in
+scope — a per-corner reconciliation against neighbouring chunks' saves is a save-format-adjacent
+change. So the classifier ships alone, and the fix waits for its readout.
+
+### 1i0-status
+- **Verified by grep + reread only** (rule 3 — no CLI/Unity build). `tools\StaticChecks.ps1` ->
+  **0 candidates**; `WorldStreamer.CornerAudit.cs` braces 36/36, parens 296/296. The 3-argument
+  `GetHeight(long, float, float, float baseHeight = 0f)` overload confirmed present, and `int` ->
+  `float` narrows it at the call. `CrossCause` declared once, called twice (printed line + verdict).
+  `Seed` confirmed `public long Seed`, `_modifiedChunks` a readable `HashSet<TerrainChunkCoord>`.
+  The new `RenderedCornerNode` fields are written in the first pass and read in a second read-only
+  pass, so no enumerator is mutated mid-walk.
+- **Pending play-test:** press **F3** again anywhere. Only the `C corners` line changes; it now ends
+  with a `[cause of those N node(s): ...]` bracket.
+  - `one-sided edit N` dominant -> confirmed. The fix is the cross-chunk corner reconciliation, and
+    the `first at (x,z)` coordinate is a corner to walk to and look down.
+  - `NO side edited N` dominant -> the edit path is innocent and the lattice/seed is the real
+    suspect; nothing else in this entry's analysis applies.
+- **Not done, deliberately:** the fix, per rule 7.
+
 ## 1hy. Measurement first: the read-only rendered-corner + void audit, for "in every chunk corner the edge will not match — the player can see the void through that gap"
 
 The report survived a clean play-session restart, which killed the staleness hypothesis (rule 11) and

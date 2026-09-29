@@ -15,6 +15,96 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1i0 — the F3 readout: it eliminated the hole, and pointed at the save path instead — VERDICT: OPEN (one column short of a verdict)
+
+The lane shipped in 1hy and the user ran it. Getting the numbers was worth more than the code was.
+
+### H7 — the void hypothesis (section B) — REJECTED, and the rejection is the most valuable result
+
+`B void  ring 0..32  footprints 4225  ...  NOT DRAWN 0`. Not one footprint in the entire owned band
+has nothing drawing it.
+
+I had put real weight on this one. The user's word was "**gap**", a void and not a crack, and I
+argued in 1hy that in a chunk set whose corners are provably coincident, only a *lifecycle* failure
+could produce a hole — a footprint that is neither a live real chunk nor a live far cell. I even
+scoped the walk specifically so the answer would be unambiguous. The answer is: there is no such
+footprint. **REJECTED.**
+
+What this kills is not just the hypothesis, it is the whole *category*. The fix is not in streaming,
+not in the dormant pass, not in far-shell shadowing. Those 4225 footprints are all drawn. **The gap
+is not a hole — it is a step you can see the void *through*, on a mesh with no side walls.** The
+low-poly root (1hi.1) deliberately emits no walls, so a height discontinuity at a corner is a genuine
+see-through crack rather than a visible terrace step. That reframing is what made the rest readable.
+
+### H8 — the corner lattice, the 1hk bug class, and the low-poly root — REJECTED AGAIN, now with the numbers
+
+`own-lattice dY 0`. Every rendered corner vertex equals its own chunk's `LatticeY` to within
+0.01 m, everywhere, in all 1444 corners. If `BuildCornerGrid` had an ownership bug, the *mesh* would
+be built from the same wrong grid and this check would still read 0 — which is precisely rule 8, and
+precisely why the cross-chunk check had to exist separately. It did its job.
+
+### H9 — pristine noise, and why the MAGNITUDE was the tell — REJECTED, and the number did the work
+
+Could adjacent chunks simply be sampling different noise? `SampleCornerHeight` and the pristine fill
+both call `GetHeight(seed, exactWorldCorner)`, so only a per-chunk *seed* would do it. But that
+predicts uncorrelated values — **metres** apart, since a different Perlin seed at the same point is
+a different landscape. The observed worst delta is **0.2859 m**.
+
+That single number is what collapsed the hypothesis, and it is worth being explicit about why: a
+*small* delta is not a weak signal, it is a positive identification. Large deltas are ambiguous (any
+big error fits); a delta of a few centimetres at a world corner has almost no candidates left. I did
+not reason my way to "edits" — the magnitude eliminated everything else.
+
+### H10 — where does a few-centimetres-at-a-shared-corner come from? — the save path. STRONG, not yet measured
+
+`WorldStreamer.ChunkBuild.cs` assembles the `corners` grid from **this chunk's own** `ChunkTileMod`s
+at chunk-local indices. So a world corner on a chunk boundary is written only by whichever chunk
+holds the modified tile; the neighbour regenerates that same world corner from pristine noise.
+
+I went looking for the mechanism that was supposed to prevent this, expecting to find it and be done.
+`ApplyHeightEdits` *does* iterate world tile coordinates rather than chunks, so it propagates across
+seams — but its own doc says "**Unloaded tiles are ignored**", and there is a caller contract
+("callers must wait for the patch's chunks before flattening") that makes this a timing bug rather
+than a logic bug. Then I looked for the load-time reconciler: `ReconcileModifiedBorders` exists, and
+its name is exactly what I wanted, but it only rebuilds neighbours so a **slab wall** gets the right
+bottom. Nothing anywhere reconciles a one-sided corner height.
+
+`FlattenAt` closes the loop on the magnitude. Its feather drives per-corner influence `s` toward 0
+at the rim, so a flattened region's boundary contributes edits of a few centimetres — a 0.29 m
+one-sided delta is a feathered-rim edit that landed while the far side was unloaded, and 345 of 396
+shared corners is a big edited region, which is entirely plausible around the test ground.
+
+**This is still an inference.** The honest state is that I have a mechanism that explains the
+magnitude, the locality and the count, and no measurement that confirms it. The two candidate fixes
+are wildly different in scope — reconcile a one-sided corner against the neighbour's save data on
+load, versus something in the lattice — so guessing would be expensive. Hence H11.
+
+### H11 — measuring *why*, using the value the build itself uses — OPEN, this is 1i0's one column
+
+The lane already had everything needed except one comparison. For each disagreeing node, ask of every
+contributor: does your height equal **untouched world noise at this node**?
+
+The test is exact rather than a proxy, and that is the part I care about. It calls the same
+three-argument `GetHeight` overload (`baseHeight = 0f`) that `BuildChunkMeshData` uses to fill its
+corner grid, so "pristine" means *the identical value the build would have produced had nothing been
+written*. From that one number per contributor the class is forced:
+
+- one on pristine, one off it -> a corner **written on one side only**. Confirms H10.
+- none on pristine -> both sides were written and differ. Different bug, edit path still involved.
+- all on pristine -> they are not actually different, or the disagreement is not in the heights. This
+  would **destroy H10** and send the search back to the lattice and the seed.
+
+I added a `_modifiedChunks` membership count beside it purely as a corroborating signal, and I noted
+in the file that it is the coarse one — it says a chunk holds *some* mod, not that it holds *this*
+corner's mod. The pristine comparison is the one that carries the argument; the set membership only
+narrows down which of the two files to open next.
+
+**Remaining OPEN until the readout.** If `one-sided edit` dominates, the fix is the cross-chunk
+reconciliation and the cause is a save-path timing bug with no self-healing. If `NO side edited`
+dominates, H10 is wrong and this whole entry's analysis is wrong with it.
+
+---
+
 ## 1hy — "in every chunk corner the edge will not match, the player can see the void through that gap" — VERDICT: OPEN (measurement shipped, awaiting readout)
 
 The report is old; the same report has been open since 1hj/1hk. What is new in 1hy is that the user

@@ -92,6 +92,22 @@ taxonomy's** — the mapping is:
 | **C-R1 coverage** | does every loaded chunk place a rendered vertex AT each of its four corners | **B** (vertex-short root) |
 | **C-R2 agreement** | do the chunks at a world node agree on the corner height, and does each rendered corner match its **own** lattice | **A** |
 
+Since 1i0 the C-R2 line also carries a `[cause of those N node(s): ...]` classification, read off
+whether each contributor's height equals **untouched world noise** at that node — the same
+3-argument `GetHeight` overload the pristine corner fill uses, so "pristine" means the identical
+value the build would have produced had nothing been written. That is what separates a corner
+**written on one side only** from one where every side was written and differs, and — the case that
+would refute the save-path explanation outright — from a node where every side sits exactly on
+pristine noise and the chunks still disagree.
+
+Worth recording as design, because it is a contract and not an implementation detail: a corner edit
+writes into every **loaded** tile that touches it, and it crosses chunk seams (`ApplyHeightEdits`
+iterates world tile coordinates, not chunks), so a corner is *not* per-chunk data. But it reaches
+only what is loaded, and nothing reconciles the far side afterwards — `ReconcileModifiedBorders`
+repairs slab-wall bottoms, not corner heights. So the pair (write) and (repair) disagree about
+whose job a shared corner is, and that gap is exactly cause A showing up as a visible crack rather
+than the sliver the original 1hk bug produced.
+
 So the lane's "B" is the taxonomy's B *and* C, and the lane's "C" is the taxonomy's A — the letters are
 positional, not semantic, and the tables are the authority. Ordering is **not** causal: the fingerprint
 runs first because it is the cheapest check *and* the premise test for the rest — if the resident set

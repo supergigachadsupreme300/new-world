@@ -79,6 +79,9 @@ public partial class WorldStreamer
         public float MaxTopY;     // highest per-chunk TOP height contributed here
         public float WorstDelta;  // worst |rendered top - own lattice| among the contributors
         public TerrainChunkCoord WorstDeltaChunk;
+        public int PristineHits;   // contributors whose height EQUALS untouched world noise here
+        public int EditedHits;     // contributors whose height differs from it
+        public int ModifiedChunks; // contributors whose chunk carries any saved tile mod
     }
 
     /// <summary>
@@ -118,8 +121,11 @@ public partial class WorldStreamer
         float worstSpread, worstDelta;
         string worstSpreadAt, worstDeltaAt;
         int shortCorners;
+        int crossOneSided, crossBothEdited, crossNeitherEdited;
+        string crossOneSidedAt;
         AppendCornerPass(sb, out shortCorners, out worstSpread, out worstSpreadAt,
-            out worstDelta, out worstDeltaAt);
+            out worstDelta, out worstDeltaAt, out crossOneSided, out crossBothEdited,
+            out crossNeitherEdited, out crossOneSidedAt);
 
         string verdict = null;
         if (buckets.Count > 1)
@@ -140,7 +146,8 @@ public partial class WorldStreamer
         else if (worstSpread > RenderedCornerTolerance)
             verdict = "C-R2: rendered corner heights disagree ACROSS chunks by "
                 + worstSpread.ToString("0.####") + " m at " + worstSpreadAt
-                + " — the render path is not sharing one corner height";
+                + " — the render path is not sharing one corner height"
+                + CrossCause(crossOneSided, crossBothEdited, crossNeitherEdited, crossOneSidedAt);
         else if (worstDelta > RenderedCornerTolerance)
             verdict = "C-R2: rendered corners disagree with their OWN lattice by "
                 + worstDelta.ToString("0.####") + " m (" + worstDeltaAt
@@ -328,7 +335,9 @@ public partial class WorldStreamer
     /// chunks that meet at each world node.
     /// </summary>
     private void AppendCornerPass(StringBuilder sb, out int shortCorners, out float worstSpread,
-        out string worstSpreadAt, out float worstDelta, out string worstDeltaAt)
+        out string worstSpreadAt, out float worstDelta, out string worstDeltaAt,
+        out int crossOneSided, out int crossBothEdited, out int crossNeitherEdited,
+        out string crossOneSidedAt)
     {
         var nodes = new Dictionary<long, RenderedCornerNode>(256);
         int corners = 0;
@@ -398,6 +407,21 @@ public partial class WorldStreamer
                     if (topY > node.MaxTopY)
                         node.MaxTopY = topY;
 
+                    // Does this contributor's height equal UNTOUCHED world noise at the node? This is
+                    // the discriminator between the two families of cause for a cross-chunk
+                    // disagreement, and it is exact rather than inferred: a one-sided edit leaves
+                    // one chunk on the pristine value and the other on the edited one, whereas a
+                    // structural cause (wrong owner slot, different seed) would move BOTH off the
+                    // pristine value or leave both exactly on it. A disagreement where one side sits
+                    // on pristine noise is therefore proof that only one side was written.
+                    if (Mathf.Abs(topY - TerrainNoiseGenerator.GetHeight(Seed, nx, nz)) <= RenderedCornerTolerance)
+                        node.PristineHits++;
+                    else
+                        node.EditedHits++;
+
+                    if (_modifiedChunks.Contains(kv.Key))
+                        node.ModifiedChunks++;
+
                     // The chunk's OWN lattice at the same local corner. NaN when absent (voxel
                     // chunks have no lattice) — skip rather than report a fake mismatch.
                     float lat = c.LatticeY(lx, lz);
@@ -432,6 +456,30 @@ public partial class WorldStreamer
         worstDeltaAt = "-";
         int presentTotal = 0;
         var listed = new List<string>();
+
+        // Classification of the disagreeing nodes (1i0). The mechanism is named, not guessed.
+        int oneSidedEdit = 0, bothEdited = 0, neitherEdited = 0;
+        string oneSidedAt = "-";
+        foreach (KeyValuePair<long, RenderedCornerNode> kv in nodes)
+        {
+            RenderedCornerNode n = kv.Value;
+            if (n.Present < 2 || (n.MaxTopY - n.MinTopY) <= RenderedCornerTolerance)
+                continue;
+            if (n.PristineHits > 0 && n.EditedHits > 0)
+            {
+                oneSidedEdit++;
+                if (oneSidedAt == "-")
+                    oneSidedAt = "(" + n.Nx + "," + n.Nz + ")";
+            }
+            else if (n.PristineHits == 0)
+                bothEdited++;
+            else
+                neitherEdited++;
+        }
+        crossOneSided = oneSidedEdit;
+        crossBothEdited = bothEdited;
+        crossNeitherEdited = neitherEdited;
+        crossOneSidedAt = oneSidedAt;
 
         foreach (KeyValuePair<long, RenderedCornerNode> kv in nodes)
         {
@@ -479,11 +527,34 @@ public partial class WorldStreamer
             sb.Append(" (").Append(spreadCorners).Append(" nodes)");
         sb.Append("  own-lattice dY ").Append(worstDelta.ToString("0.####")).Append('\n');
         if (worstSpread > RenderedCornerTolerance)
-            sb.Append("    worst cross-chunk at ").Append(worstSpreadAt).Append('\n');
+            sb.Append("    worst cross-chunk at ").Append(worstSpreadAt)
+              .Append(CrossCause(crossOneSided, crossBothEdited, crossNeitherEdited, crossOneSidedAt))
+              .Append('\n');
         if (worstDelta > RenderedCornerTolerance)
             sb.Append("    worst own-lattice at ").Append(worstDeltaAt).Append('\n');
         for (int i = 0; i < listed.Count; i++)
             sb.Append("    ").Append(listed[i]).Append('\n');
+    }
+
+    /// <summary>Names the MECHANISM behind a cross-chunk corner disagreement from how its
+    /// contributors sit relative to pristine world noise. Read straight off the counts, never
+    /// guessed: a node with one contributor exactly on untouched noise and another off it can only
+    /// be a corner that was written on ONE side — the other chunk's tile still holds the pristine
+    /// value because nothing propagated across the chunk seam. If instead every contributor is off
+    /// pristine, the cause is not an edit at all and the edit path is not where to look.</summary>
+    private static string CrossCause(int oneSided, int bothEdited, int neitherEdited, string oneSidedAt)
+    {
+        int total = oneSided + bothEdited + neitherEdited;
+        if (total == 0)
+            return "";
+        string m = "  [cause of those " + total + " node(s):";
+        if (oneSided > 0)
+            m += " one-sided edit " + oneSided + " (first at " + oneSidedAt + ")";
+        if (bothEdited > 0)
+            m += " ALL sides edited apart " + bothEdited;
+        if (neitherEdited > 0)
+            m += " NO side edited " + neitherEdited + " (not an edit - look at the lattice/seed)";
+        return m + "]";
     }
 
     /// <summary>Unique key for a world corner node. nx/nz are multiples of 30, so packing the two
