@@ -480,9 +480,10 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
 
 ### 2.5a Terrain Render Algorithm Reverted to Pre-1hi (1ia)
 
-The world renders with the **pre-low-poly** algorithm again. 1hi added a flat-facet render path
-whose default was on, and 1ia turns that default **off** so the render algorithm is byte-for-byte the
-one the world ran before 1hi. The change is three values, and nothing was deleted:
+The world renders with the **pre-low-poly** algorithm again. 1hi added a flat-facet render path whose
+default was on, and 1ia turns that default **off**, so the terrain **surface** is the pre-1hi surface
+again — with one deliberate exception noted below (the 1hi decimated collider, which is not render
+output). Nothing was deleted; the change is three values plus their two test-platform mirrors.
 
 | Value | 1hx (before) | 1ia (now) | Effect while off |
 | --- | --- | --- | --- |
