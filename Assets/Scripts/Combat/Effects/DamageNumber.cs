@@ -80,22 +80,14 @@ public class DamageNumber : MonoBehaviour
     }
 
     /// <summary>Display color for a damage type (used by popups).</summary>
-    public static Color ColorFor(DamageType type)
-    {
-        switch (type)
-        {
-            case DamageType.Fire: return new Color(1f, 0.5f, 0.2f);
-            case DamageType.Ice: return new Color(0.5f, 0.85f, 1f);
-            case DamageType.Lightning: return new Color(1f, 0.95f, 0.4f);
-            case DamageType.Holy: return new Color(1f, 0.95f, 0.7f);
-            case DamageType.Dark: return new Color(0.85f, 0.45f, 1f);
-            case DamageType.Wind: return new Color(0.7f, 1f, 0.95f);
-            case DamageType.Earth: return new Color(0.78f, 0.62f, 0.42f);
-            case DamageType.Water: return new Color(0.4f, 0.65f, 1f);
-            case DamageType.Arcane: return new Color(1f, 0.5f, 1f);
-            default: return new Color(1f, 0.9f, 0.3f);
-        }
-    }
+    /// <remarks>
+    /// 1ib: the table moved to <see cref="SpellLook.SchoolColor"/> and this is now a thin delegate.
+    /// It was the second of THREE independently spelled DamageType palettes (the third was
+    /// MagicTestMatrix.SchoolColor, deleted) — and the copies had already drifted, so the canonical
+    /// one has to live with the look resolver that consumes it. Behaviour is unchanged: identical
+    /// literals, in the same order.
+    /// </remarks>
+    public static Color ColorFor(DamageType type) => SpellLook.SchoolColor(type);
 
     /// <summary>Configure and display this number.</summary>
     public void Show(Vector3 worldPos, float amount, bool critical)

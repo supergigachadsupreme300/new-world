@@ -370,22 +370,7 @@ public sealed class MagicTestMatrix : MonoBehaviour
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
     }
 
-    private static Color SchoolColor(DamageType school)
-    {
-        switch (school)
-        {
-            case DamageType.Fire: return new Color(1f, 0.50f, 0.20f, 1f);
-            case DamageType.Ice: return new Color(0.55f, 0.85f, 1f, 1f);
-            case DamageType.Lightning: return new Color(1f, 0.90f, 0.40f, 1f);
-            case DamageType.Holy: return new Color(1f, 1f, 0.70f, 1f);
-            case DamageType.Dark: return new Color(0.70f, 0.55f, 1f, 1f);
-            case DamageType.Wind: return new Color(0.65f, 1f, 0.85f, 1f);
-            case DamageType.Earth: return new Color(0.70f, 0.60f, 0.40f, 1f);
-            case DamageType.Water: return new Color(0.40f, 0.70f, 1f, 1f);
-            case DamageType.Arcane: return new Color(1f, 0.55f, 0.90f, 1f);
-            default: return Color.white;
-        }
-    }
+    private static Color SchoolColor(DamageType school) => SpellLook.SchoolColor(school);
 
     private static float CanvasScale() => Screen.width / (1280f / MenuPanelBase.UiScale);
     private static Vector2 CanvasUnits(Vector2 pixels) => new Vector2(pixels.x / CanvasScale(), pixels.y / CanvasScale());

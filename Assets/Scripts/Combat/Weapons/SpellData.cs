@@ -135,8 +135,10 @@ public class SpellData : ScriptableObject
     [Header("Presentation")]
     public GameObject CastEffectPrefab;
     public GameObject ImpactEffectPrefab;
-    [Tooltip("Projectile-delivery visual shape. Auto = element default (SpellCaster).")]
+    [Tooltip("Projectile-delivery visual shape. Auto = element default (SpellCaster). NOTE: this is ALSO behaviour — ProjectileShape.Missile turns on homing (SpellEffect.cs:75-76). Per-spell look variation goes in Look.DisplayShape, never here (1ib).")]
     public ProjectileShape Shape = ProjectileShape.Auto;
+    [Tooltip("Hand-authored per-spell visual identity (1ib). Null = fully deterministic from the spell id. Every field is a multiplier or an Inherit sentinel, so a profile can shift a spell within its school but never repaint it out of its school.")]
+    public SpellLookProfile Look;
 
     [Header("Mechanics")]
     [Tooltip("Restores health to friendly (Player/companion) targets instead of damaging them. Zone healing also heals allies while still damaging enemies.")]
