@@ -15,6 +15,162 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1ib–1ij — per-spell visual identity for all 172 spells — VERDICT: OPEN (plan of record)
+
+### The request
+
+"Since you got a new skill set now, remodel the magics so each can be unique." Read as: **visual
+identity**, not mechanical divergence — the user picked "Visual identity" when offered the layers.
+Scope answered in the same round: impact + cast + projectile, and **deterministic-from-id plus ~21
+hand-authored overrides**, because 172 hand-tuned profiles cannot be maintained honestly.
+
+### H34 — the new Scenario skills give me asset generation — REJECTED
+
+The premise is wrong in a way that changes the whole approach, so it is checked first rather than
+assumed. `C:\Users\antic\.config\opencode\opencode.jsonc` contains `{"$schema": "..."}` and **no MCP
+servers**; the 128 `scenario-*` skills are **markdown guidance** (patterns, pitfalls, checklists),
+not generators, and no Scenario MCP or image/VFX tool is exposed in this session. So this task is
+**code-authored**, which happens to be the project's stated house style: `SkillFx.cs:4-8` says it is
+"Deliberately prefab-free so skills read without authored assets."
+
+Worth keeping in the record because it is the kind of premise that silently produces a plan full of
+"generate a prefab for each spell" steps that nothing can execute.
+
+### H35 — "impact FX is one shared function for all 172 spells" — REJECTED, and this was the load-bearing catch
+
+This was my central claim, and it was **false in its reach while true in its letter**. The call site
+is exactly where I said (`SkillFx.ImpactSphere` at `SpellEffect.cs:313`, inside
+`ResolveProjectileImpact`) and it is indeed the **only** `ImpactSphere` call site in the codebase.
+But only the **39 Projectile** spells reach it. The real shared seam is **`SkillFx.RingFlash`, ~121
+spells, from 13 call sites across 8 files** — three times the reach of the function I had built the
+plan around.
+
+The corrected map (`SpellDelivery` → strike visual):
+
+| Delivery | # | Strike visual today |
+| --- | --- | --- |
+| Zone | **77** | `RingFlash` at spawn + persistent geometry; **no per-tick FX** |
+| Projectile | 39 | `ImpactSphere` |
+| Storm | 14 | private pooled `StrikeFlash` + `RingFlash` per strike |
+| Instant | 13 | 1 self-buff ring; ~12 have **no visual at all** |
+| Beam | 11 | `RingFlash` at spawn; **no per-tick FX** |
+| Summon | 10 | `RingFlash` at spawn; turret bolts → `ImpactSphere` |
+| Vortex | 8 | `RingFlash` at spawn; **no per-tick FX** |
+
+Two things fell out that the wrong claim had hidden. First, the ordering of value is inverted from
+what I assumed — the win is `RingFlash`, not `ImpactSphere`. Second, **Beam/Zone/Vortex/Storm give
+no on-hit flash per tick at all**, only a damage number: that is a *feedback* gap, and answering
+whether to fix it is a scope fork, not a detail. The user chose to fix it (see 1ih).
+
+The lesson is 1i1's, one level up: a correct claim about a code path is a claim about a *premise*, and
+I had the premise ("one function serves everything") without ever counting deliveries. Reach has to
+be measured, never inferred from reading one call site.
+
+### H36 — `SpellData.Shape` is only a visual — REJECTED, and it would have broken homing
+
+`SpellEffect.cs:75-76`:
+
+```csharp
+if (_spell != null && _spell.Shape == ProjectileShape.Missile)
+    _homing = true;
+```
+
+So `Shape` is **partly behaviour**. A deterministic shape picker that wrote back to `spell.Shape`
+would silently turn **homing on** for arcane-missile-family spells — a gameplay change disguised as
+a look change, invisible in a screenshot and lethal in play. Therefore `SpellLook` carries a
+**separate `DisplayShape`** and the resolver **never writes `spell.Shape`**. The 36 explicitly
+authored shapes are also real design work, so they win outright; determinism only fills the
+`Auto` gap (3 spells: `magic_fireball_spell`, `magic_frostbolt_chill_spell`, `cls_mage_fireball`).
+
+### H37 — a second colour map already exists, so adding a third would be rule 12 — CONFIRMED
+
+`MagicTestMatrix.SchoolColor` (`MagicTestMatrix.cs:373-388`) re-spells the DamageType→RGB table with
+**different values** from `DamageNumber.ColorFor`: Dark `(0.70,0.55,1)` vs `(0.85,0.45,1)`; Wind
+`(0.65,1,0.85)` vs `(0.7,1,0.95)`; Arcane `(1,0.55,0.90)` vs `(1,0.5,1)`; Ice `(0.55,0.85,1)` vs
+`(0.5,0.85,1)`. Thirty-plus `ColorFor` call sites already exist. Shipping a new palette without
+folding these in would leave **three** independently spelled tables drifting — exactly rule 12's
+"second spelling that rots", and this work would be the one that tips it over. Folded in (user
+confirmed).
+
+### H38 — pooled FX can go through `ObjectPooler` — REJECTED
+
+`ObjectPooler.SpawnTransient` keys its pool by **prefab** (`prefab.GetEntityId()`), and every one of
+these FX is **built at runtime from primitives**, so there is no prefab to key on. The precedent to
+follow is `SpellStorm.StrikeFlash` (`SpellStorm.cs:246-320`): a private static list, an `Acquire`
+scan for an inactive instance, and an `Update` that fades then either re-pools or destroys.
+
+Two constraints carried from reading it. **Its `PoolCap = 32` was sized for 14 storm spells** — with
+Zone 77 + Beam 11 + Vortex 8 also flashing, ~101 spells share the load, so copying the cap would
+thrash; 1id raises it and adds a **per-frame spawn budget**. And **each instance allocates its own
+`Material`**, which is why it must never use the shared `SkillFx.SharedSpriteMaterial`: fades write
+to the material in place, so a shared one would corrupt every live flash of that colour
+(`SkillFx.cs:17` says this in as many words).
+
+### H39 — put the Zone tick flash in the damage loop — REJECTED
+
+`SpellZone.Tick` (`SpellZone.cs:67-104`) iterates **overlapping colliders**, not ticks. A flash placed
+inside that loop fires **once per target per tick** — a Blizzard over eight enemies spawns eight
+spheres every 0.5 s, i.e. 16/s from one spell, which is how "add per-tick feedback" turns into a
+frame-rate problem. The tick FX therefore goes **outside** the loop: one flash per tick per zone.
+
+### The plan of record
+
+One file, one resolution site. New `Assets\Scripts\Combat\Effects\SpellLook.cs` holds a `SpellLook`
+struct (core colour, scale, tempo, impact style, cast style, display shape) resolved in exactly three
+steps — **authored → deterministic (FNV-1a over `spell.id`) → school default** — with a per-school
+family table so a Fire spell never draws a crystalline shatter. `MagicTestMatrix.SchoolColor` folds
+into it. Two invariants: `DisplayShape` never writes `spell.Shape` (H36), and the resolver is the
+only thing in the project that derives a spell's colour or shape.
+
+| # | Task | Ships |
+| --- | --- | --- |
+| 1ib | `SpellLook` + resolver + school family table; `SchoolColor` folded in | new file, zero behaviour change |
+| 1ic | read-only collision audit on the test platform | distinct tuples vs spell count |
+| 1id | pooled tick/impact FX, per-frame budget, raised cap | the ~101-spell load `StrikeFlash` can't take |
+| 1ie | `RingFlash` seam | **~121 spells — the real win** |
+| 1if | `ImpactSphere` + `CastingCircle` seams | |
+| 1ig | projectile `DisplayShape`; identity-less fallbacks for `DecorateProjectile` / `CreateProjectileDisplay` | |
+| 1ih | per-tick flashes on Zone / Beam / Vortex | newly accepted scope |
+| 1ii | 21 authored overrides via trailing optional param; `RaceSkillCatalog.MakeSpell` twin parity | |
+| 1ij | bench shows full identity; `game-design.md` §3.8 + AGENTS + PROGRESS + THINKING sync | |
+
+### How this will be judged
+
+**172 spells → N distinct `(impact, cast, display-shape, core-colour)` tuples, with colliding pairs
+printed.** If N is not 172, the deterministic jitter is under-tuned and 1ib is not done, no matter how
+it looks on any single pedestal. That number is task **1ic**, and it ships *before* the visual work
+precisely so the jitter is tuned against a measurement rather than against taste — the 1i-series'
+standing lesson. Eyeballing 172 pedestals is not verification.
+
+Two things that make this cheaper to ship than 1ia: **no restart is needed** (projectiles, rings and
+flashes are built fresh per cast, so nothing is a stale resident mesh), and **no prefab, asset, shader
+or `SpellData` serialization is introduced** — all 172 spells keep their delivery, damage, cost and
+school, and the 167 `Spell(...)` plus 5 `MakeSpell(...)` call sites keep working untouched, because
+every one passes ≤7 positional args and names every optional.
+
+### Verified fact base for whoever implements this
+
+- `ProjectileShape` (`SpellData.cs:50-88`): `Auto=0, Bolt=1, Sphere=2, Shard=3, Lance=4, Spear=5,
+  Blade=6, Splash=7, Comet=8, Missile=9, Dart=10, Debris=11`. **Exactly one** switch on it —
+  `BuildProjectileBody` (`SpellCaster.Projectiles.cs:120-136`) — and note **`Sphere` and `Auto` have
+  no case**, both falling to `default` → `Cluster("Orb", …)`. "Authored shape" and "rendered body" are
+  therefore not 1:1.
+- `DamageType`: `Physical=0, Fire=1, Ice=2, Lightning=3, Holy=4, Dark=5, Wind=6, Earth=7, Water=8,
+  Arcane=9`. `DamageNumber.ColorFor` has 30+ callers, listed in the 1ib log entry.
+- `Spell(...)` (`SkillCatalog.cs:124-131`): 167 call sites (16 `SkillCatalog.cs` + 151
+  `SkillCatalog.Magic.cs`), all ≤7 positional args, so a trailing optional param is additive.
+- `MakeSpell(...)` exists **twice**: `ClassSkillCatalog.cs:126` (5 live call sites) and a
+  byte-identical **dead twin** at `RaceSkillCatalog.cs:133-135` (0 call sites). Change one signature
+  without the other and the twin goes stale silently — rule 12 again, pre-existing.
+- `ObjectPooler` queues are **unbounded**; the cap of 32 belongs to `StrikeFlash`, and `DamageNumber`
+  has its own pool capped at 256.
+- Only **6 of the 16** "base" spells in `BuildMagic` are true Layer-0 roots (Fireball, Frost Bolt,
+  Dark Bolt, Wind Gust, Water Bolt, Stone Shard); the other 10 resolve to L1–L3 via `ExpandTree`'s
+  prereq-depth walk. The authored-override set is "the 16 hand-authored base pass", **not** "the 16
+  Layer-0 spells".
+
+---
+
 ## 1ia — revert the terrain render algorithm to pre-1hi — VERDICT: OPEN (shipped as a default flip, awaiting restart + F3)
 
 ### The request, and the reading I chose

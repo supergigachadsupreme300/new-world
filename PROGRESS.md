@@ -4,6 +4,56 @@ Last updated: 2026-09-30. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1ib–1ij. Per-spell visual identity for all 172 spells — PLAN (executing)
+
+**Status: plan of record, written down before implementation.** Full reasoning trail, including the
+claim that turned out to be false, is in `THINKING.md` §1ib (H34–H39). Summary of the shape:
+
+- **New file `Assets\Scripts\Combat\Effects\SpellLook.cs`** — a `SpellLook` (core colour, scale, tempo,
+  impact style, cast style, display shape) resolved in exactly three steps: **authored → deterministic
+  (FNV-1a over `spell.id`) → school default**, with a per-school family table so a Fire spell never
+  draws a crystalline shatter. It becomes the **single** place a spell's colour or shape is derived.
+- **Why deterministic, not 172 hand-authored rows:** a hand-maintained 172-row table is precisely
+  rule 12's "second spelling that rots" — rename a spell and it desyncs. Determinism can never
+  drift; the ~21 hand-authored overrides (16 base-pass spells + 5 class spells) sit on top for the
+  spells whose look is a design decision.
+- **~121 spells, not 39, is the win.** `SkillFx.RingFlash` is the dominant shared strike visual
+  (13 call sites across 8 files); `ImpactSphere` is one call site reached only by Projectile spells.
+- **Also fixing a feedback gap:** Beam (11), Zone (77), Vortex (8) and Storm (14) play **no per-tick
+  on-hit flash today** — only a damage number. 1ih adds per-spell tick flashes.
+
+### Two invariants the implementation must hold
+
+1. **`DisplayShape` never writes back to `spell.Shape`.** `Shape == ProjectileShape.Missile` sets
+   `_homing = true` (`SpellEffect.cs:75-76`), so `Shape` is partly **behaviour**. A shape picker
+   that wrote to it would silently switch homing on — a gameplay change disguised as a look change.
+   The 36 explicitly authored shapes win outright; determinism only fills the `Auto` gap (3 spells).
+2. **Key off `spell.id`, never `displayName`** — rename-safe (1hz's lesson).
+
+### The number that decides whether this worked
+
+`172 spells → N distinct (impact, cast, display-shape, core-colour) tuples`, with colliding pairs
+printed. If N ≠ 172 the jitter is under-tuned and 1ib is not done. That readout is task **1ic** and
+ships *before* the visual work, so the jitter is tuned against a measurement rather than taste.
+
+### Task order
+
+| # | Task |
+| --- | --- |
+| 1ib | `SpellLook` + resolver + school family table; fold `MagicTestMatrix.SchoolColor` in |
+| 1ic | read-only collision audit lane on the test platform |
+| 1id | pooled tick/impact FX with per-frame spawn budget + raised cap |
+| 1ie | `RingFlash` seam (~121 spells) |
+| 1if | `ImpactSphere` + `CastingCircle` seams |
+| 1ig | projectile `DisplayShape` + identity-less fallbacks |
+| 1ih | per-tick flashes on Zone / Beam / Vortex |
+| 1ii | 21 authored overrides; `RaceSkillCatalog.MakeSpell` twin parity |
+| 1ij | bench shows full identity + docs sync |
+
+Nothing here changes delivery, damage, cost or school for any spell, and no prefab, asset, shader or
+`SpellData` serialization is introduced. Unlike 1ia's terrain revert, **no restart is needed** — FX are
+built fresh per cast.
+
 ## 1ia. Terrain render algorithm reverted to pre-1hi (the facet look is now OFF by default)
 
 The user asked for the terrain's rendering algorithm to be reverted to what it was **before the first
