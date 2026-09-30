@@ -99,6 +99,49 @@ me which of the two the low-poly path was getting wrong. The revert separates *r
 *data layer* — a coarse but useful first cut. If F3 is clean after the restart, the next step is to
 re-enable the look and instrument the seam, not to declare the side walls the cause.
 
+### H36 — "refresh the map cache" means wipe the terrain save cache — CONFIRMED by the user, with a caveat
+
+Asked what was meant rather than guessing, because the obvious target is destructive and irreversible
+while the revert did not cause it. The four candidates and why the answer mattered:
+
+1. **`worlds/{seed}/tc_*.dat`** — holds **heights**, i.e. data. 1ia was render-only and changed no
+   heights, so nothing in here was stale; refreshing it could only ever lose edits.
+2. **`_loadedChunks` / `_dormantChunks` / far shell** — the real holders of old-algorithm geometry, and
+   rule 11 already says the remedy is a restart (the non-destructive wrapper was removed at the user's
+   own request).
+3. **`ChunkMeshGenerator`'s pooled-mesh pool** — rule 11: a `Mesh` there is a *buffer*, never a stale
+   cache, because `UploadMerged` re-specifies every vertex and index on each upload.
+4. **Minimap / `WorldMapUI`** — a compass strip and POI markers; neither samples terrain geometry, so
+   the render revert cannot reach them. (Worth noting the *absence*: there is no terrain-render cache
+   in this project by that name, which is why the request was ambiguous at all.)
+
+The user chose the save cache and confirmed the edits are expendable — which is exactly the condition
+rule 11 names for `ResetTerrainSaves()` being the right tool ("use it only when a pristine world is
+the actual goal"). So the warning in the rule is satisfied rather than overridden.
+
+Two things I checked before deleting rather than after:
+
+- **Was Unity running?** No. This was the real hazard, and it is a trap worth writing down:
+  `WorldStreamer.OnDestroy` flushes in-memory dirty chunks to disk "so quitting never loses a chunk",
+  and there is a background save writer besides. Deleting the files under a live editor would have
+  been silently undone by the next quit. `ResetTerrainSaves()` guards this internally with
+  `FlushPendingSaves()` **before** the wipe (the 1es fix) — a raw file delete from outside has no such
+  guard, so "Unity is closed" is a precondition, not a nicety.
+- **What else lives in that save tree?** Rule 13's producer-outlives-consumer habit applied to a
+  directory instead of a type: the seed dir held *only* the 13 `tc_*.dat` files, and
+  `savegame.json` (a separate player save) was checked for terrain keys before being left alone —
+  `time, player, inventory, gunAmmo, fields, buildings, quests`, no heights, so it cannot resurrect
+  the edits being discarded. Deleting the whole `country life` folder would have taken the player
+  save and Unity's analytics with it; deleting the whole seed dir would have been equivalent *this*
+  time only by luck, and the code's own narrower `tc_*.dat` pattern is the defensible choice.
+
+The wipe has a side effect worth noting because it is not obvious: **it retires the restart
+requirement by accident rather than by design.** With the editor closed there is no resident terrain
+to drop, so the next launch is already pristine *and* on the new algorithm — the two things rule 11
+says cannot be had together. Had the user asked for this mid-session, the same wipe would have left
+a mixed resident set that looked seamless and measured like a single generator, which is exactly the
+premise failure F3's generator-revision fingerprint exists to catch.
+
 ### Verification stance
 
 No build, per the project rule. What I did check: every gate that the flag controls, read by name —

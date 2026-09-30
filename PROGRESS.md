@@ -47,12 +47,34 @@ root emits no side walls, so a height disagreement between a loaded chunk and a 
 see-through rather than filled, and the 3 m step is a second candidate. The revert is the cheapest way
 to tell the mechanism apart from the data layer — **F3 after a restart is the readout that decides it.**
 
+### Terrain save cache — WIPED at the user's request (edits are gone)
+
+The user authorised discarding all terrain edits so the world comes up pristine. Deleted **13**
+`tc_*.dat` files (7 616 bytes) from
+`%USERPROFILE%\AppData\LocalLow\DefaultCompany\country life\worlds\1337\` — the exact pattern
+`ChunkSaveManager.ResetWorldSaves(seed)` deletes. No Unity process was running, so nothing could
+write them back from a live session's in-memory dirty state.
+
+**Consequences to remember:**
+- **All terrain edits for seed 1337 are permanently gone** — every dig, tool crater, zone/storm/summon
+  strike and projectile dent since the seed was created. Do not go looking for them, and do not treat a
+  missing crater as a regression.
+- `savegame.json` was **deliberately left alone** (separate player save: `time, player, inventory,
+  gunAmmo, fields, buildings, quests` — verified to carry no heights, so it cannot resurrect edits).
+- The `worlds\1337\` directory itself was kept, exactly as `ResetWorldSaves` keeps it.
+- Deleting files from disk also removes the need for the in-session resident drop: with Unity closed
+  there is no `_loadedChunks`/`_dormantChunks`/far shell to drop, so **the next launch is already a
+  clean, fully-regenerated, pre-1hi-render world.** If a reset is ever wanted mid-session instead,
+  the in-game path is `NewWorldTestGround.EnableResetTerrainSaves` (default off, runs in `Awake`).
+
 ### 1ia-status — NOT verified, no Unity run in this project
 
-- [ ] **Restart the play session** before looking at anything. Per rule 11 this is the only remedy:
-      `_loadedChunks`, `_dormantChunks` and the far shell all hold geometry built by the old
-      generator, and `EnqueueChunkIfNeeded` *wakes* a dormant chunk in place. A session that was
-      already running keeps the facet world.
+- [x] Terrain save cache wiped (above) — the world will regenerate pristine from noise.
+- [ ] **Start a fresh play session** before looking at anything. Per rule 11 a restart is the only
+      remedy for a render change: `_loadedChunks`, `_dormantChunks` and the far shell all hold geometry
+      built by the old generator, and `EnqueueChunkIfNeeded` *wakes* a dormant chunk in place. A
+      session that was already running keeps the facet world. This is satisfied simply because Unity
+      was closed for the cache wipe.
 - [ ] After restart, the world should read as the **pre-1hi smooth** look: 1 m ground, Lod bands back,
       1ew splitting on steep slopes.
 - [ ] Walk out to the near/far rim and press **F3**. Report all sections, especially the corner/void
