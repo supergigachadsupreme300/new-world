@@ -18,16 +18,16 @@ using UnityEngine;
 ///     chunks use, so the whole map stays watertight. No colliders, no props, no deformation —
 ///     digs can never reach it (collider ring 8 &lt; rim start 10), so far meshes never re-generate.
 ///
-/// Cell hierarchy (1ej: EVERY cell shares the same world-aligned facet grid — 6 m since 1hx, see
-/// FarSectorStep — so adjacent cells of every span carry coincident edge rows: no T-junction cracks
-/// between different-span/different-ring cells):
-///   - Span 1 (rim): each chunk ring in [near+1, keep] is its own 6 m-step grid (6x6 verts).
+/// Cell hierarchy (1ej: EVERY cell shares the same world-aligned facet grid — 3 m again since 1ia,
+/// see FarSectorStep — so adjacent cells of every span carry coincident edge rows: no T-junction
+/// cracks between different-span/different-ring cells):
+///   - Span 1 (rim): each chunk ring in [near+1, keep] is its own 3 m-step grid (11x11 verts).
 ///     This band also owns the "active shadow" rule: real chunks and far cells overlap ONLY at
 ///     ring near+1 (the StreamAround hysteresis ring) — a span-1 far cell is created there even
 ///     under a loaded real chunk and simply held inactive (active = !_loadedChunks.ContainsKey),
 ///     so when the real chunk stream moves on the far mesh shows in the SAME poll it unloads.
-///   - Span 3 (band B): 3x3-chunk cells (90 m wide) at ring >= FarBandBMin, 6 m step (16x16 verts).
-///   - Span 6 (band C): 6x6-chunk cells (180 m wide) at ring >= FarBandCMin, 6 m step (31x31 verts).
+///   - Span 3 (band B): 3x3-chunk cells (90 m wide) at ring >= FarBandBMin, step 3 (31x31 verts).
+///   - Span 6 (band C): 6x6-chunk cells (180 m wide) at ring >= FarBandCMin, step 3 (61x61 verts).
 ///   A finer cell is suppressed whenever its coarser parent cell is required, so every annulus
 ///   chunk belongs to exactly one generated cell. Spread of a span-3 box is <= 2 rings and of a
 ///   span-6 box <= 5, so a required parent only ever overrides fine cells at >= ring 12 (B) or
@@ -240,15 +240,18 @@ public partial class WorldStreamer
     /// watertight by construction. The pre-1ej radius ladder (3/6/9/12/15 by maxRing) left
     /// different-step neighbors with T-junction rows along their shared edges, read as permanent
     /// cracks ("thin lines along every chunk edge"), so it was removed and the step was made
-    /// uniform. <b>1hx moved it 3 -&gt; 6, in lockstep with
-    /// <see cref="LowPolyStep"/>/<see cref="EffectiveLowPolyStep"/> on the near chunks.</b> The step
-    /// must divide EVERY tile span (30/90/180) so grid rows land exactly on chunk boundaries: 6
-    /// gives 6x6 verts for a span-1 rim cell, 16x16 for a span-3 band-B cell and 31x31 for a span-6
-    /// band-C cell. <paramref name="span"/>/<paramref name="maxRing"/> remain for call-site stability
+    /// uniform. <b>History of the value: 3 m from 1ej until 1hx moved it to 6, in lockstep with
+    /// <see cref="LowPolyStep"/>/<see cref="EffectiveLowPolyStep"/> on the near chunks; 1ia moved it
+    /// back to 3, together with that field's default and with
+    /// <see cref="LowPolyFacets"/> going false — the whole terrain algorithm is back at its
+    /// pre-1hi render state.</b> The step must divide EVERY tile span (30/90/180) so grid rows land
+    /// exactly on chunk boundaries: 3 gives 11x11 verts for a span-1 rim cell, 31x31 for a span-3
+    /// band-B cell and 61x61 for a span-6 band-C cell.
+    /// <paramref name="span"/>/<paramref name="maxRing"/> remain for call-site stability
     /// (unused).</summary>
     private static int FarSectorStep(int span, int maxRing)
     {
-        return 6;
+        return 3;
     }
 
     /// <summary>True when <paramref name="cell"/> must exist as a far sector (generation AND
@@ -600,7 +603,8 @@ public partial class WorldStreamer
         // SetActive toggle — the "new ground while moving" rebuild burst becomes a steady trickle.
         PreWarmFarShadowCells(centre, near, keep);
 
-        // (3) Dispatch. State captured up front: step (uniform across all cells since 1ej; 6 m since 1hx) + span passed by value
+        // (3) Dispatch. State captured up front: step (uniform across all cells since 1ej; 3 m, back
+        // to the pre-1hx value since 1ia) + span passed by value
         // on the worker, epoch from the field read now. The pending list is walked closest-first,
         // so iterating it FORWARD (1ek) dispatches the rim/near cells that surround the player FIRST —
         // the void around the player closes immediately and the distant fringe fills a moment later.
@@ -779,7 +783,8 @@ public partial class WorldStreamer
     /// Builds one far sector's decimated grid mesh on a worker thread. Heights come from the SAME
     /// per-chunk corner grid the real chunks use (disk save stamps + pure-noise regeneration), so
     /// the far surface matches what the real chunks would show and seams against them are exact.
-    /// Sampled on the uniform 6 m step (1ej; 1hx; <paramref name="maxRing"/> kept for signature stability);
+    /// Sampled on the uniform 3 m step (1ej; 1hx moved it to 6 and 1ia moved it back;
+    /// <paramref name="maxRing"/> kept for signature stability);
     /// vertex colors use the memoized band
     /// lookup so far terrain keeps the grass/dirt/stone strata read.
     /// <paramref name="flatFacets"/> (1hi) requests the LOW-POLY variant: every cell quad emits four
@@ -988,7 +993,7 @@ public partial class WorldStreamer
     /// <summary>
     /// Voxel-mode far sector (1eu): when VoxelTerrainEnabled the far shell renders the same stepped
     /// 1-metre-terrace language as the near voxel chunks instead of the smooth corner-grid surface.
-    /// The cell's surface is sampled per FarSectorStep (6 since 1hx, dividing 30/90/180) on the world integer columns
+    /// The cell's surface is sampled per FarSectorStep (3 since 1ia, dividing 30/90/180) on the world integer columns
     /// the real chunks use via RoundNoiseTop — far bands are pristine by construction (collider ring
     /// 8 &lt; rim start 10, digs can never reach them), so noise rounding equals what a loaded chunk
     /// would show. Meshed exactly like VoxelMesher's three passes (merged row-run tops, X-plane and

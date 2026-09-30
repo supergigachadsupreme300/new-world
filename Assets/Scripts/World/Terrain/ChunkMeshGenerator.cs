@@ -710,12 +710,15 @@ public static class ChunkMeshGenerator
     /// Builds a chunk root from the coarse corner lattice when low-poly facets are enabled (1hi.1):
     /// every <paramref name="step"/>-th node of the 31x31 world-corner grid (step MUST divide
     /// TerrainChunkCoord.ChunkSize so the last sample lands exactly on the chunk border) emits one
-    /// flattened quad with a +Y-dominant cross normal — the same facet language as the 6 m far shell
-    /// (1hi), so near and far surfaces read identically and share world corner nodes across the seam.
-    /// The 1 m lattice is still canonical (saves, edits, prop heights); only what is rendered and
+    /// flattened quad with a +Y-dominant cross normal — the same facet language as the far shell
+    /// (1hi; 3 m again since 1ia), so near and far surfaces read identically and share world corner
+    /// nodes across the seam. The 1 m lattice is still canonical (saves, edits, prop heights); only
+    /// what is rendered and
     /// cooked for the collider decimates to the step. The patch tables are intentionally null — the
     /// low-poly PatchRegion re-samples this root from the restamped lattice instead of a per-tile
-    /// skim. Pure arrays — thread-safe.
+    /// skim. Pure arrays — thread-safe. NOT REACHED by default since 1ia: <c>WorldStreamer.LowPolyFacets</c>
+    /// is false, so <c>BuildMergedMeshData</c> takes the full 1 m per-tile path and this is dead until
+    /// the flag is turned back on.
     /// </summary>
     private static MergedChunkMeshData BuildLowPolyMerged(ChunkMeshData[] tiles, int cs, long seed,
         int step)
@@ -860,7 +863,8 @@ public static class ChunkMeshGenerator
     /// Re-samples a chunk's low-poly ROOT surface from its (already patch-restamped) lattice and
     /// returns the updated merged data (1hi.1). PatchRegion re-stamps the corners with
     /// PatchCornerGrid, then this rewrites the root's vertex/normal/UV/color arrays + bounds from
-    /// them — the coarse mesh is tiny (25 quads / 36 verts at 6 m since 1hx) so a full re-emit is far cheaper than the
+    /// them — the coarse mesh is tiny (100 quads / 121 verts at 3 m, the 1ia default; 25 quads /
+    /// 36 verts at 6 m) so a full re-emit is far cheaper than the
     /// 1 m per-tile skim it replaces. Returns a fresh struct because MergedChunkMeshData is a
     /// value type; the render arrays are replaced with fresh equal-length arrays (vertex count
     /// never changes for a fixed step), and the collider is re-cooked separately at the same step.

@@ -73,7 +73,8 @@ public class ChunkObject : MonoBehaviour
     /// <summary>
     /// Assignment point for the chunk's MeshCollider (1hi). Smooth chunks cook a DECIMATED lattice
     /// instead of the full render mesh — 2 m by default, or the chunk's OWN low-poly facet step
-    /// (1hi.1 <see cref="ColliderStep"/>, so you stand exactly on the visible 6 m facets) — so the
+    /// (1hi.1 <see cref="ColliderStep"/>, so you stand exactly on the visible facets — 3 m if
+    /// <c>WorldStreamer.LowPolyFacets</c> is on, which it is not by default since 1ia) — so the
     /// per-enable PhysX cook on the gameplay frame is ~4x cheaper; the lattice shares the EXACT
     /// world corners the LOD children (and neighbour chunks) use, so the physics surface is
     /// seam-proof across chunks by construction. Voxel mode (already chunky 1 m columns) keeps the
@@ -367,9 +368,10 @@ public class ChunkObject : MonoBehaviour
         float maxY = float.MinValue;
 
         // (1hi.1) Low-poly roots have NO per-tile blocks: the merged arrays are the whole
-        // coarse facet surface (25 quads / 36 verts at 6 m since 1hx), so a patch cannot skim `count` vertices per
+        // coarse facet surface (100 quads / 121 verts at 3 m, the 1ia default; 25 at 6 m), so a patch cannot skim `count` vertices per
         // tile — it re-samples the whole root from the restamped lattice below (far cheaper than
-        // the 1 m skim anyway).
+        // the 1 m skim anyway). Dead since 1ia unless LowPolyFacets is turned back on: _meshStep
+        // is 0 for every chunk again, so this branch never runs.
         bool lowPoly = _meshStep > 0;
 
         // The color channel tracks the strata bands per corner; lazily back-fill it so a patched
@@ -423,8 +425,9 @@ public class ChunkObject : MonoBehaviour
             ChunkMeshGenerator.PatchCornerGrid(_merged.Corners, region, cs,
                 localMinX, localMinZ, w, h, seed);
 
-        // Low-poly root (1hi.1): re-sample the WHOLE surface from the just-restamped lattice — ~121 quads
-        // at 6 m, cheaper than the 1 m per-tile skim it replaces, and it rebuilds the bounds too.
+        // Low-poly root (1hi.1): re-sample the WHOLE surface from the just-restamped lattice — ~121
+        // quads at 3 m (the 1ia default), cheaper than the 1 m per-tile skim it replaces, and it
+        // rebuilds the bounds too. Not reached by default since 1ia (LowPolyFacets is false).
         // Full-res path: bounds from the full CPU vertex array as before.
         if (lowPoly)
         {
@@ -512,9 +515,10 @@ public class ChunkObject : MonoBehaviour
             return;
         }
         // (1hi.1) Low-poly mode skips the Lod1/Lod2 bands entirely: the root IS already the
-        // decimated surface (6 m facets since 1hx — ~1/36 the 1 m mesh), so the children would duplicate
+        // decimated surface (3 m facets at the 1ia default — ~1/9 the 1 m mesh), so the children would duplicate
         // or exceed its density; ChunkLodManager.ApplyBand falls back to the root renderer when a
         // named detail is missing, and the far shell covers distance instead.
+        // Not taken by default since 1ia: _meshStep is 0, so the Lod1/Lod2 children build again.
         if (_meshStep > 0)
         {
             _lodDirty = false;
