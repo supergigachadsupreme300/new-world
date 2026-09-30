@@ -15,6 +15,104 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1ia — revert the terrain render algorithm to pre-1hi — VERDICT: OPEN (shipped as a default flip, awaiting restart + F3)
+
+### The request, and the reading I chose
+
+"Revert the terrain algorithm to what it was before the first low-poly request, only that." The
+interesting word is **algorithm**, and it is ambiguous in a way that changes the size of the change.
+
+**Reading A — delete the 1hi work.** `git revert` the range, or hand-remove the flat-facet path, the
+coarse root, the resample, the 1hi.2 winding fix. This is the most literal "undo".
+
+**Reading B — make the world render the pre-1hi way again, by flipping defaults.** The code stays, one
+boolean and two constants move.
+
+I chose B, and I want the reason on the record rather than buried: **1i0-1i9 are about the corner
+void, and deleting the render path would have destroyed the instrument.** F3 is a read-only
+rendered-corner + void audit; it measures *what the renderer emitted*, so removing the renderer makes
+the measurement meaningless and the experiment uninterpretable. Rule 7 says a fix chosen without a
+measurement is a guess — but the converse also holds: a *revert* that deletes the thing being measured
+is not a test, it is an unrecorded variable. And the user's goal is the corner gap, not a smaller
+source tree. Under B, `LowPolyFacets = true` still brings the whole look back, byte-identical, so the
+change is reversible in one edit and the deletion can be done later, deliberately, once the corner gap
+is understood.
+
+The cost of B, stated honestly: the source still contains a dormant render path, and a future reader
+who greps for the facet code finds code that does not run. That is a real cost, and it is why the
+dormancy is now written down in three places (the two tooltips, `AGENTS.md` rule 12, and `game-design.md`
+§2.5a) instead of being left as a comment.
+
+### H31 — "revert" is one value, `LowPolyFacets` — REJECTED, and this was the load-bearing catch
+
+`LowPolyFacets` gates the flat-facet *path*, but not the far shell's *sampling step*.
+`FarSectorStep(int span, int maxRing)` returns a constant with no reference to the flag — it ignores
+its own parameters on purpose (that is the 1ej fix for T-junctions). So flipping the flag alone would
+have left the far shell sampling every 6 m while every near chunk rendered at 1 m. Not a crash, and
+not obviously wrong on screen: a coarser shell sampling is just a smoother, blurrier horizon. But it
+means **the revert would not have been a revert** — the surface density of the far half of the world
+would not have matched pre-1hi. Moved together: both to 3.
+
+### H32 — the flag is the whole story, so the test platform can be skipped — REJECTED
+
+`NewWorldTestGround.Awake` pushes `EnableLowPolyTerrain` and `LowPolyStep` onto the scene's
+`WorldStreamer` *before* the first stream poll. It is the QA lane, and its two fields were still
+`true` / `6`. So on the test platform the facet look would have been re-applied on every single
+session, the revert would have appeared not to work, and the obvious next conclusion — "the revert is
+broken" — would have been wrong. A mirror left stale is a silent inverse of the change. This is the
+same shape as 1i9's H30 (a mechanism that cannot be live is not a cause; a mirror that cannot be
+stale is not a mirror), and it is why the mirrors are in the same commit rather than "next task".
+
+### H33 — no scene or asset overrides these fields, so the defaults are what runs — CONFIRMED
+
+Checked rather than assumed, because a serialised `true` in a scene would have made the whole change
+inert and invisible: `SampleScene.unity` contains neither `WorldStreamer` nor
+`NewWorldTestGround`, and no `.unity`/`.prefab`/`.asset` in the project serialises `LowPolyFacets` or
+`LowPolyStep`. The fields are plain C# defaults, so the defaults are live.
+
+### H34 — the collider should be reverted too, for a clean pre-1hi — REJECTED, on purpose
+
+Tempting, because "pre-1hi" is a clean boundary and the decimated collider arrived in 1hi alongside
+the facets. But the collider is not a render-algorithm artifact: it is a **physics and budget** feature
+(~4x cheaper PhysX cook), it has no visual effect, and the coarse-root coupling that made it
+"ride the facets" is a fallback branch (`ColliderStep` returns the root's step *when coarse*). With the
+facet path off, every chunk's step is 0 and the collider is the 2 m decimated lattice — which is exactly
+what 1hi's smooth path did, i.e. what pre-1hi's *rendering* cares about. Reverting it would have thrown
+away a performance win to make a diff look tidier, and would have made the A/B asymmetric in a way that
+hides rather than reveals the cause under test.
+
+### H35 — the missing side walls on the coarse root are the corner-gap cause — OPEN
+
+This is the hypothesis the whole revert exists to test, and I am **not** claiming it. What is known:
+1i1-1i8 localised the void to the near/far boundary, at the outer x/z corner tile of the loaded square
+— one loaded quadrant meeting three far ones. The coarse-root path emits **no side walls** (documented
+in §2.5: "no side walls, no per-tile blocks"), so wherever a loaded chunk and a far cell disagree in
+height, the gap is see-through; the 1 m per-tile path *has* side walls, so the same disagreement is
+filled. That is consistent with "a gap, not a crack".
+
+What is not known, and what I want to be careful about: (a) whether the disagreement is a data-layer
+error at all, as opposed to two owners legitimately describing the same surface at different
+resolutions; (b) whether the 3 m vs 6 m step matters independently of the side walls — the revert
+changes both, so a positive result does **not** by itself isolate the mechanism; and (c) per rule 7's
+own warning, "drawn" and "flush" are separate properties, and a positive revert result would not tell
+me which of the two the low-poly path was getting wrong. The revert separates *render path* from
+*data layer* — a coarse but useful first cut. If F3 is clean after the restart, the next step is to
+re-enable the look and instrument the seam, not to declare the side walls the cause.
+
+### Verification stance
+
+No build, per the project rule. What I did check: every gate that the flag controls, read by name —
+`EffectiveRefineThreshold` returns `RefineThreshold` again; `EffectiveLowPolyStep` returns 0, so
+`BuildMergedMeshData` cannot enter `BuildLowPolyMerged`; `FarSectorStep` returns 3; `ChunkObject`
+derives `_meshStep` from it, so the patch branch and the LOD skip are both dead; and
+`CraterFacetSkirt` early-returns on `facetStep <= 0` **before** its division, so 1i9's skirt is inert
+with no divide-by-zero. `tools\StaticChecks.ps1` reports 0 candidates (and it does balance
+`NewWorldTestGround.cs` and `WorldStreamer.FarShell.cs`, the two files with code changes). Per rule 11,
+**none of this says the world on screen changed** — that requires a restart, and the F3 readout is the
+only thing that can settle H35.
+
+---
+
 ## 1i9 — why did the impact dent stop existing? — VERDICT: CONFIRMED (fix shipped, awaiting play-test)
 
 ### H30 — the directed-dig clip is eating the projectile crater — REJECTED by its own gate

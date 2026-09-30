@@ -247,6 +247,11 @@
       **1hy restored F3** as a read-only rendered-corner + void audit — see the last bullet of rule 7
       — so this is measurable again, but only for the near/far resident set, and F2's cross-chunk seam
       measurement is still gone. F4 was not restored.)
+    - **1ia is itself an instance of this rule, and the reason its verification cannot be claimed in
+      the same session.** Reverting the render algorithm to pre-1hi is exactly the edit this rule
+      describes, so the facet world stays on screen until the next launch no matter how obviously the
+      code says otherwise. Do not report the revert as seen working from a session that was already
+      running — the *only* honest statement is "restarted, then observed".
 
 12. **The facet size is ONE decision living in two files, and the step must divide three numbers.**
     The near chunks and the far shell render the same facet language, so `WorldStreamer.LowPolyStep`
@@ -268,6 +273,19 @@
     `curvature × span` — so at 3 m the normals barely differed and the world still read as smooth
     haze. The lesson generalises: **"low-poly" is a normal-contrast problem, not a triangle-count
     problem**, so reach for the span before reaching for the shading.
+    - **1ia: the facet language is DORMANT (`LowPolyFacets = false`), and `FarSectorStep` is NOT one
+      of the gated values.** The flag governs the *flat-facet render path* (flat per-quad far normals,
+      the 1ew split at threshold 0, and the 1hi.1 coarse roots) — but `FarSectorStep` returns a
+      constant with no reference to the flag, so the far shell samples every 3 m whether or not the
+      look is on. That means a "revert the look" change is **two edits, not one**: flipping the flag
+      alone leaves the far shell at whatever step it was left on, and the shell's sampling density is
+      then describing a surface nobody is drawing. 1ia moved both to 3 together. When you next move
+      this step, grep for `FarSectorStep` as well as the field — and remember `NewWorldTestGround`
+      mirrors **both** (`EnableLowPolyTerrain`, `LowPolyStep`) and pushes them onto the streamer in
+      `Awake` *before* the first stream poll, so a mirror left at the old value silently re-applies
+      the look on the test platform every session. The 1i9 `CraterFacetSkirt` is likewise dormant
+      (it is gated on `EffectiveLowPolyStep`, which is `0` while the flag is off), which is why the
+      1 m-resolution world needs no skirt at all.
     - **Raising the step SILENTLY DELETES every carve narrower than half a facet — check this
       before changing the step, and again after.** The rendered surface holds only every
       `step`-th lattice node, so a deform whose *reach* is smaller than the worst-case distance to
@@ -278,6 +296,9 @@
       worst case, and the user reported "the dent function is gone now" with the impact sphere
       still playing, which is the tell — **the FX is outside the carve's gate, so a crater that
       vanishes while its effect plays is a resolution problem, not a hit-detection problem.**
+      (This bullet only bites while the facet look is ON; at the 1ia default the surface holds every
+      1 m node, so a carve under 4.24 m renders normally. Check the flag before diagnosing a
+      "missing" carve.)
       Three habits:
       - **Compare a deform's reach to `step/√2`, not to `step` or to the step's value.** The
         bound is the *diagonal* of the sampled cell, because the nearest sampled node can be half

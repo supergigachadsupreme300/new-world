@@ -1,8 +1,71 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-29. Read this first in a new session; then continue with the
+Last updated: 2026-09-30. Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
+
+## 1ia. Terrain render algorithm reverted to pre-1hi (the facet look is now OFF by default)
+
+The user asked for the terrain's rendering algorithm to be reverted to what it was **before the first
+low-poly request** (1hi), as the only change — a test of the corner void gap, not a cleanup. I read
+"revert the algorithm" as "the world must render exactly as it did pre-1hi", and implemented it as a
+**default flip rather than a deletion**: no low-poly code was removed, so `LowPolyFacets = true`
+still restores the facet look exactly, with the F3 audit and all 1i0-1i9 work untouched.
+
+### The change (three values, plus their test-platform mirrors)
+
+| Value | Was | Now |
+| --- | --- | --- |
+| `WorldStreamer.LowPolyFacets` | `true` | **`false`** |
+| `WorldStreamer.LowPolyStep` | `6` | **`3`** (pre-1hx) |
+| `WorldStreamer.FarSectorStep()` | `6` | **`3`** |
+| `NewWorldTestGround.EnableLowPolyTerrain` | `true` | **`false`** |
+| `NewWorldTestGround.LowPolyStep` | `6` | **`3`** |
+
+`FarSectorStep` is **not** gated on the flag, so the far shell samples 3 m whether or not the look is
+on — a one-value revert would have left the shell describing a surface nobody draws. And
+`NewWorldTestGround` pushes both mirrored values onto the streamer in `Awake`, before the first stream
+poll, so leaving them at the old values would have silently re-enabled the look on the test platform
+every session.
+
+### What the world renders now
+
+- Far shell: smooth central-difference normals, `flatFacets = false`, 3 m sampling. `Cull Off`
+  material unchanged.
+- Near chunks: the full **1 m per-tile** merged surface **with the per-tile side walls** the coarse
+  root omits. `EffectiveLowPolyStep` is `0`, so `BuildLowPolyMerged` is unreachable.
+- 1ew stretch-split: back on (`EffectiveRefineThreshold` returns `RefineThreshold` again).
+- Lod1/Lod2 children build again; `PatchRegion` takes its per-tile skim.
+- Colliders are **unchanged** and deliberately not part of the revert: smooth chunks still cook the
+  decimated 2 m lattice from 1hi. It is a physics/budget feature with no visual effect.
+
+### What this does and does not settle
+
+This is a **hypothesis test for the corner void**, not a fix. 1i1-1i8 located the void at the near/far
+boundary (the outer x/z corner of the loaded square); one candidate contributor is that the coarse
+root emits no side walls, so a height disagreement between a loaded chunk and a far cell is
+see-through rather than filled, and the 3 m step is a second candidate. The revert is the cheapest way
+to tell the mechanism apart from the data layer — **F3 after a restart is the readout that decides it.**
+
+### 1ia-status — NOT verified, no Unity run in this project
+
+- [ ] **Restart the play session** before looking at anything. Per rule 11 this is the only remedy:
+      `_loadedChunks`, `_dormantChunks` and the far shell all hold geometry built by the old
+      generator, and `EnqueueChunkIfNeeded` *wakes* a dormant chunk in place. A session that was
+      already running keeps the facet world.
+- [ ] After restart, the world should read as the **pre-1hi smooth** look: 1 m ground, Lod bands back,
+      1ew splitting on steep slopes.
+- [ ] Walk out to the near/far rim and press **F3**. Report all sections, especially the corner/void
+      counts at the outer x/z corner tile, and compare against the 1i1-1i8 numbers.
+- [ ] Confirm the projectile dent is back (1i9 is moot at step 1, but the dent should be plainly
+      visible) and that craters still ratchet on repeat casts.
+- [ ] Confirm no cracks along chunk edges and none at the near/far rim (3 must divide 30/90/180 — it
+      does).
+- [ ] If the corner void is GONE: the facet path's missing side walls (or the 6 m step) were the
+      cause, and the fix belongs on the low-poly side — re-enable the look and close it there. If it
+      is STILL THERE: the cause is in the data/ownership layer, the render algorithm is exonerated, and
+      the next step is to instrument that seam rather than keep re-rendering it.
+- Verification performed here: grep + reread, plus `tools\StaticChecks.ps1` (0 candidates). No build.
 
 ## 1i9. The dent was never deleted — 1hx deleted the resolution it was drawn at
 

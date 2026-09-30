@@ -55,7 +55,8 @@ SW ────────── SE
 
 **Seam contract (ownership + audit).** A world corner has exactly ONE value: the canonical Perlin
 surface (§2.3) plus whatever whole-corner edits are persisted for it (§2.6). Every chunk is placed at
-its exact block origin (`chunk.X * 30 m`) on a lattice whose node spacing divides 30 (6 m facets, 2 m
+its exact block origin (`chunk.X * 30 m`) on a lattice whose node spacing divides 30 (3 m facets when
+the 1hi facet look is on — dormant since 1ia, 6 m while 1hx was default; 2 m
 LOD, 1 m tiles), so two adjacent chunks sample identical nodes at identical world tiles. The 31x31
 **corner lattice** is not re-derived from noise at mesh time — it is copied out of the *owning tile's*
 stored corner, so the contract rests entirely on the **ownership rule** holding: node (gx,gz) stands
@@ -283,19 +284,26 @@ gone, and real-chunk **unloads are capped at 6/poll** (spread over a few polls w
   the loaded world**, so it only engages if the render radius is raised above ~53 chunks. It uses no fog —
 mid-view stays crisp
    so the outermost shell reads as atmosphere at the old 2 km range.
-- **Low-poly facet look (1hi, default ON):** `WorldStreamer.LowPolyFacets` switches the smooth
-   world's chunky language on, render/geometry-read only (saves, the 1 m tile grid, props, draw calls
-   and the budgeted collider pipeline untouched): (a) the far shell's 3 m cells emit **flat per-quad
-   normals** — 4 corner vertices per quad sharing one +Y-dominant flat normal instead of the smooth
-   central-difference haze (crisp mesas on the horizon; triangle count unchanged, vertices 4x, but a
-   far cell uploads once per cell lifetime, never a per-frame cost; boundary quads are built from the
-   SAME world corners on both sides of a shared edge, so flat facets stay seam-proof by construction —
-   no cross-cell pull needed); (b) the near 1ew stretch-split receives a **0 threshold**
-   (`EffectiveRefineThreshold`), so steep near slopes keep ONE big flat quad per tile instead of the
-   adaptive 2x2 sub-quads. The look is a QA knob like the voxel toggle — flip BEFORE the far shell
-   builds for a clean read (`NewWorldTestGround.EnableLowPolyTerrain`, default on; off restores the
-   smooth haze).
-- **Coarse near-ring facets (1hi.1, default ON):** with `LowPolyFacets` on, the REAL chunks' root
+- **Low-poly facet look (1hi, DEFAULT OFF since 1ia):** `WorldStreamer.LowPolyFacets` switches the
+   smooth world's chunky language on, render/geometry-read only (saves, the 1 m tile grid, props, draw
+   calls and the budgeted collider pipeline untouched): (a) the far shell's cells emit **flat
+   per-quad normals** — 4 corner vertices per quad sharing one +Y-dominant flat normal instead of the
+   smooth central-difference haze (crisp mesas on the horizon; triangle count unchanged, vertices 4x,
+   but a far cell uploads once per cell lifetime, never a per-frame cost; boundary quads are built
+   from the SAME world corners on both sides of a shared edge, so flat facets stay seam-proof by
+   construction — no cross-cell pull needed); (b) the near 1ew stretch-split receives a **0
+   threshold** (`EffectiveRefineThreshold`), so steep near slopes keep ONE big flat quad per tile
+   instead of the adaptive 2x2 sub-quads; and with 1hi.1 on, (c) the near chunks' root mesh is the
+   coarse lattice surface rather than the 1 m per-tile one. The look is a QA knob like the voxel
+   toggle — flip BEFORE the far shell builds for a clean read
+   (`NewWorldTestGround.EnableLowPolyTerrain`, **off since 1ia**).
+   **1ia reverted the whole terrain render algorithm to its pre-1hi state by flipping this default
+   off** (see §2.5a). The code is untouched and the knob still works; off means: smooth
+   central-difference far-shell normals, the 1ew stretch-split running at `RefineThreshold` again,
+   the full 1 m per-tile near root **with side walls**, Lod1/Lod2 children building again, and
+   `PatchRegion` taking its per-tile skim.
+- **Coarse near-ring facets (1hi.1, dormant since 1ia):** with `LowPolyFacets` on (**off by
+   default since 1ia**, see §2.5a), the REAL chunks' root
    mesh is no longer the 1 m per-tile surface — the merged builder emits the lattice facets
    themselves: every `WorldStreamer.LowPolyStep`-th node of the 31x31 world-corner grid (default
    **3 m** = the far shell's step, so the whole world — near ring + far shell — reads ONE uniform
@@ -469,6 +477,60 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   velocity), so pooling is invisible apart from the allocation drop. Enemy death debris (the model
   parts themselves) and loot drops are deliberately **not** pooled — they are structural/persistent,
   not transient clones.
+
+### 2.5a Terrain Render Algorithm Reverted to Pre-1hi (1ia)
+
+The world renders with the **pre-low-poly** algorithm again. 1hi added a flat-facet render path
+whose default was on, and 1ia turns that default **off** so the render algorithm is byte-for-byte the
+one the world ran before 1hi. The change is three values, and nothing was deleted:
+
+| Value | 1hx (before) | 1ia (now) | Effect while off |
+| --- | --- | --- | --- |
+| `WorldStreamer.LowPolyFacets` | `true` | **`false`** | the gate for the whole flat-facet path |
+| `WorldStreamer.LowPolyStep` | `6` | **`3`** | only read when the gate is on |
+| `WorldStreamer.FarSectorStep()` | `6` | **`3`** | far-shell sampling step (never gated — see below) |
+| `NewWorldTestGround.EnableLowPolyTerrain` | `true` | **`false`** | test-platform mirror; re-enabled the look every session |
+| `NewWorldTestGround.LowPolyStep` | `6` | **`3`** | test-platform mirror |
+
+What the terrain renders now, with the flag off:
+
+- **Far shell** — smooth central-difference haze normals, `flatFacets = false`, sampled every **3 m**
+  on the world integer columns. The `Cull Off` material is unchanged.
+- **Near chunks** — the full **1 m per-tile** merged surface **including the per-tile side walls** that
+  the coarse-root path omits, built by `BuildMeshData` as before 1hi. `EffectiveLowPolyStep` is `0`, so
+  `BuildMergedMeshData` never enters `BuildLowPolyMerged`.
+- **1ew adaptive stretch-split** — back on: `EffectiveRefineThreshold` returns `RefineThreshold` again
+  (the low-poly path passed `0`), so steep near slopes subdivide into 2x2 sub-quads again.
+- **Lod1/Lod2 children** — built again, because `ChunkObject._meshStep` is `0` for every chunk.
+- **Edits** — `ChunkObject.PatchRegion` takes its per-tile skim and rebuilds bounds from the CPU vertex
+  array; `ResampleLowPolySurface` is unreachable.
+- **Colliders** — unchanged and deliberately *not* part of the revert: smooth chunks still cook the
+  decimated 2 m lattice from 1hi (`ColliderDecimation`). It is a physics/budget feature with no visual
+  effect, so reverting it would trade away the ~4x cheaper cook for no algorithmic reason. When the
+  facet look is re-enabled the collider follows the root's own step, as it always did.
+
+Everything from 1hi is still in the source and still works — `LowPolyFacets = true` restores the
+1hi.1/1hi.2 look at 3 m facets (the pre-1hx facet size, not 1hx's 6 m). Nothing was deleted, so the
+revert is a **default**, not a removal.
+
+Two things this revert does **not** change, deliberately:
+
+- **The corner-gap defect is not fixed by this.** 1i1-1i8 located the void at the near/far boundary
+  (the outer x/z corner of the loaded square). One hypothesised contributor is that the coarse-root
+  path emits **no side walls**, so where a loaded chunk and a far cell disagree in height you look
+  straight through the gap; the 1 m per-tile path has side walls, so the same disagreement is filled
+  rather than see-through. That is a hypothesis, not a measurement, and the 3 m step is itself a
+  candidate. **F3 is the instrument that settles it** — run it after a restart (§2.5) and read the
+  corner/void sections.
+- **The decimated collider stays**, per the row above.
+
+Per rule 11 this is a render-algorithm change: **nothing on screen changes until the play session is
+restarted.** `_loadedChunks`, `_dormantChunks` and the far shell all hold geometry built by the old
+generator, and `EnqueueChunkIfNeeded` *wakes* a dormant chunk in place rather than re-dispatching it,
+so a session that was already running keeps the facet world. Toggling the inspector field mid-session
+also does nothing — it is only read at chunk dispatch, and a chunk mid-build captured its mode at
+dispatch time. Verification procedure: restart, walk out to the rim, then walk back and forth across
+the near/far boundary so a resident chunk and a freshly built one are on screen together.
 
 ### 2.6 Chunk Persistence (File Caching)
 
@@ -719,19 +781,22 @@ bite and a cliff reads as a single un-editable surface.
 - **Play-test gate (1ew):** steep slopes show multiple small faces (never blocky steps like §2.9, no
    holes or seams at splits), corner edits still move terrain coarsely, and revisiting an area restores
    it exactly.
-- **Low-poly knockout (1hi):** when `WorldStreamer.LowPolyFacets` is on (default), every build path
+- **Low-poly knockout (1hi, dormant since 1ia):** when `WorldStreamer.LowPolyFacets` is on
+   (**off by default since 1ia**, §2.5a), every build path
    (chunk dispatch, 1ea save-scan rebuilds, Deform re-skims, seam rebuilds) receives
    `EffectiveRefineThreshold = 0`, so no tile ever stretch-splits — the whole near band renders as
    one flat quad per tile (the same chunky language as the far facets, §2.5), and `IsTileRefined` is
    uniformly false. Threshold editing (DeformAt etc.) still works — coarse 1 m corner granularity.
-- **Coarse root facets (1hi.1):** when low-poly is on the ROOT is the 3 m lattice surface anyway
+- **Coarse root facets (1hi.1, dormant since 1ia):** when low-poly is on the ROOT is the 3 m lattice surface anyway
    (`BuildMergedMeshData(..., lowPolyStep)`: flat per-facet quads sampled from the 31x31 corner grid,
    no side walls, no per-tile blocks), so the merged patch-table pointers are null and `PatchRegion`
    skips the per-tile skim — it re-samples the whole tiny root from the re-stamped lattice
    (`ChunkMeshGenerator.ResampleLowPolySurface`). The Lod1/Lod2 children are skipped entirely
    (the root already exceeds their density; `ChunkLodManager` falls back to the root renderer when
    a named detail is missing), and edits land coarsened: a 1 m corner move only visibly lifts a facet
-   vertex on the 3 m grid (the 1 m heights still save/restore exactly).
+   vertex on the 3 m grid (the 1 m heights still save/restore exactly). All of the above is dead
+   while the flag is off: the 1ew split runs at `RefineThreshold`, the root is the full 1 m per-tile
+   surface with side walls, the Lod children build, and `PatchRegion` takes its per-tile skim.
 
 ---
 
@@ -1365,8 +1430,10 @@ Arcane→**no status** (pure force), Wind→Knockback, Holy→heals (§3.8), Ear
   disturb the terrain; Earth's craters stay larger and depth-notable (the school's signature) —
   and a crater digs progressively deeper on repeat casts, descending through the
   grass → dirt → stone strata bands revealed in the pit walls (§3.8).
-  **The dent's radius is coupled to the low-poly facet step (1i9).** The visible surface is
-  emitted from every `LowPolyStep`-th node of the 1 m corner lattice (6 m since 1hx), so a carve
+  **The dent's radius is coupled to the low-poly facet step (1i9).** With the facet look on, the
+  visible surface is
+  emitted from every `LowPolyStep`-th node of the 1 m corner lattice (6 m while 1hx was default; 3 m
+  again since 1ia), so a carve
   narrower than half a facet writes its whole shape into nodes no triangle is built from and
   renders as nothing. The 1.4 m projectile dent (1.9 m reach) sat inside the 4.24 m worst-case
   distance to a sampled node, so the universal dent silently stopped existing when 1hx moved the
@@ -1374,7 +1441,10 @@ Arcane→**no status** (pure force), Wind→Knockback, Holy→heals (§3.8), Ear
   sampled node it additionally dips the nearest one (and dies one step out), combined with the
   authored influence by `Max` — so the authored radius, depth and per-cast ratchet are unchanged
   and a crater that already reaches a sampled node keeps exactly its shape. Crater only: the
-  raised shapes are untouched.
+  raised shapes are untouched. **Dormant since 1ia:** the skirt is gated on `EffectiveLowPolyStep`,
+  which is `0` while `LowPolyFacets` is off, so with the render algorithm reverted the dent renders
+  at full 1 m resolution and needs no skirt at all. The guarantee stays in the source and returns
+  with the facet look.
   **Every projectile impact — Earth or not — plays a school-colored exploding sphere (1gb):**
   `SkillFx.ImpactSphere` grows a solid sphere at the hit point from a quarter to the spell's
   radius while its transparency increases to fully transparent over ~0.45 s, then vanishes. It
