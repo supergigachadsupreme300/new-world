@@ -318,7 +318,37 @@
         same bug, not a new one — and the fix must keep the shapes' `Max(current, target)`
         idempotency intact.
 
-13. **A removal has three failure modes, and only one of them is a compile error.** Deleting a feature
+13. **A spell's colour, shape and halo are derived in exactly one place — and "one place" is not the
+    same as "one colour everywhere".** 1ib added `SpellLook.Resolve` so no consumer re-derives a
+    spell's identity, which is rule 8's "second spelling that rots" applied to look rather than
+    geometry. This codebase had already shipped **two** drifting `DamageType` palettes, so the
+    convention is not theoretical. Three habits:
+    - **Resolution has exactly three steps, and a named fallback is not a fourth.** authored
+      `SpellLookProfile` on the `SpellData` → deterministic pick from the school's family → the
+      identity-less `Resolve(DamageType, ProjectileShape)`. That last one exists for callers that
+      genuinely have no spell. Anything else needs its own resolution step *stated*, because "just
+      resolve it again, differently" is how the second spelling appears.
+    - **A field that means gameplay and a field that means drawn must not be merged.**
+      `spell.Shape` is homing/large-projectile behaviour; `SpellLook.DisplayShape` is the body the
+      player sees. A spell can be a homing missile and still want its school's family body, so
+      nothing writes `spell.Shape` from the look. When one value needs to be both, it stops being one
+      value.
+    - **A swatch is not a readout, and that is the sanctioned exception.** `MagicTestMatrix`'s school
+      header keeps its own palette rather than calling `SpellLook.SchoolColor`. 1ib merged them and
+      silently recoloured four schools — and the merge destroyed the QA signal, because a header
+      tinted the same colour as the thing it labels cannot show you that the thing is mis-coloured.
+      **Before deduplicating a colour, ask what would catch the bug if that value were wrong.** If the
+      answer is "the same table, because it is tinted to match", the two tables must stay separate and
+      the exception gets a comment. Debug-only and save-invisible surfaces need no parity check; a
+      building save key does (rule 13's other half).
+    - **Asymmetry between two adjacent code paths can be correct, and the comment must say so.**
+      1if made the spell-backed release burst look-derived and the *no-spell-armed* burst Arcane-pink
+      on the grounds that the two look inconsistent. They are not the same event: pink there asserts
+      "an Arcane spell was cast", which is false. When you fix a colour regression, check whether the
+      two neighbouring lines actually share an identity before restoring the symmetry — and if they
+      do not, say so in a comment or the next reader will "fix" it again.
+
+14. **A removal has three failure modes, and only one of them is a compile error.** Deleting a feature
     leaves behind more than references to the deleted *name*, and the three residue classes fail in
     three different ways — 1hz removed the multiplayer layer, the night club, fast travel and horse
     riding in one pass and hit all three:

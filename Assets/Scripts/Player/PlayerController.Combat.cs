@@ -430,7 +430,7 @@ public partial class PlayerController
             float c = Mathf.Clamp01(charge);
             float reach = Mathf.Max(armedSpell.ProjectileSpeed, 1f) * 4f; // SpellEffect flight envelope
             PathPreview().Show(pos + fwd * 0.5f, fwd, reach,
-                8f * (1f - c), DamageNumber.ColorFor(armedSpell.Type), transform);
+                8f * (1f - c), SpellLook.Resolve(armedSpell).Core, transform);
             return;
         }
 
@@ -536,7 +536,7 @@ public partial class PlayerController
         var caster = SpellCasterRef;
         float sizeBonus = caster != null ? caster.ChargeSizeBonus : 0.8f;
         radius = spell.Radius * (1f + charge * sizeBonus);
-        color = DamageNumber.ColorFor(spell.Type);
+        color = SpellLook.Resolve(spell).Core;
         return true;
     }
 

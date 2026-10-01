@@ -143,10 +143,15 @@ public readonly struct SpellLook
 
     /// <summary>
     /// The canonical DamageType palette — the ONE place a school's base colour is spelled (1ib).
-    /// <c>DamageNumber.ColorFor</c> delegates here and <c>MagicTestMatrix</c>'s private
-    /// <c>SchoolColor</c> was deleted in favour of this, because the project had two independently
-    /// spelled tables that had already drifted (Dark was (0.70,0.55,1) in one and (0.85,0.45,1) in
-    /// the other). Adding a third would have made it worse.
+    /// <c>DamageNumber.ColorFor</c> delegates here, because the project had two independently spelled
+    /// tables that had already drifted (Dark was (0.70,0.55,1) in one and (0.85,0.45,1) in the
+    /// other). Adding a third would have made it worse.
+    /// <para><b>1ij: <c>MagicTestMatrix</c>'s private <c>SchoolColor</c> was un-deleted.</b> 1ib
+    /// folded it in here and the table stayed merged through 1id–1ih; 1ij restored it, because that
+    /// matrix's school header is a QA <b>swatch</b> rather than a readout, and a header tinted the same
+    /// colour as the spell it labels cannot show you that the spell is mis-coloured. Two palettes here
+    /// is the fix, not the disease — see <c>AGENTS.md</c> rule 13's third bullet. Gameplay colours come
+    /// from here and only here.</para>
     /// </summary>
     public static Color SchoolColor(DamageType type)
     {

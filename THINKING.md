@@ -124,6 +124,72 @@ screen). `M == N` is therefore **necessary, not sufficient** — the play-test s
 spell per school and confirm the halo, impact family and body shape read as different and each match
 its school's family.
 
+## 1ij — the last colour consumers, and the bench that was lying about its own subject — VERDICT: OPEN (shipped, awaiting the 1ic number)
+
+### H49 — "the bench can keep using the (DamageType, ProjectileShape) overload; it shows the shape" — REJECTED
+
+`SpawnMagicModels` called `CreateProjectileDisplay(skill.DamageKind, spell.Shape, …)`. It looks
+correct: it passes `spell.Shape`. But **that argument is dead on arrival** — the identity-less overload
+calls `SpellLook.Resolve(type, shape)`, and `Resolve` treats any non-`Auto` shape as authoritative:
+`display = shape != Auto ? shape : Pick(fam.Shapes, 0.5f)`. So the bench passed the *behavioural*
+shape flag into a slot the resolver treats as the *drawn* body, which is the exact
+`Shape` vs `DisplayShape` conflation 1ih was written to prevent. It is the rule-13 field-merge bug
+reaching the QA surface.
+
+**The part I should have caught before writing the loader.** The bench is the one screen whose entire
+purpose is comparing per-spell bodies. It was rendering every Fire spell through the school stand-in —
+so the bench could not have shown me the thing 1ih changed, and if the families had collided I would
+have seen it as "identical bodies" and blamed the family tables. **A QA surface that takes a shortcut
+around the feature it exists to inspect is worse than no QA surface**, because it produces a confident
+wrong answer. This is the same shape as 1hy's section C: the check was running, printing real numbers,
+and its premise was false.
+
+Knock-on found by the grep: `CreateProjectileDisplay(SpellData)` — written in 1ig, documented as "the
+bench's per-spell display" — had **zero callers**. So the loader is why the old overload was still
+alive, and why `DecorateProjectile(DamageType, …)` was genuinely dead rather than merely unused. The
+"unused API" was the *new* API; the live one was the legacy path. **When something looks dead, check
+whether the thing that replaced it was ever wired up** — the dead member and its replacement are often
+the same bug.
+
+### H50 — "SpellZone.BuildVisual(type) should take the spell's DamageType" — REJECTED: it was never
+missing, it was a duplicate
+
+`Initialize` already resolved the identity-less fallback into `_look`:
+
+```csharp
+_look = spell != null ? SpellLook.Resolve(spell) : SpellLook.Resolve(DamageType.Wind, ProjectileShape.Auto);
+BuildVisual(spell != null ? spell.Type : DamageType.Wind);   // same information, again
+```
+
+and `BuildVisual` then did `_spell != null ? _look.Core : DamageNumber.ColorFor(type)`. Two sources of
+identity, differing on the null path: `Resolve`'s fallback for `DamageType.Wind` versus a literal
+`Wind` re-resolved through `ColorFor`. They agree today, and they would keep agreeing until someone
+changed one.
+
+**The habit:** a parameter whose only purpose is to feed a value already computed one line above is
+either a leftover or a symptom of the resolver not being trusted. Here it was both. Deleting the
+parameter deleted the possibility rather than documenting it — but the *class-level* lesson (1ie) is the
+one in `AGENTS.md` rule 13: seed the fallback unconditionally into the field, read the field.
+
+### H51 — the labels on the bench should keep school colour, because they label the SCHOOL — REJECTED
+
+The row is labelled `skill.displayName` — the **spell's** name, not the school's. So a school-tinted
+label next to a per-spell body is simply wrong: it claims the row is one Fire thing when it is a
+specific spell. Same failure as the body, one layer up, and the same fix. (The *swatch* case is
+`MagicTestMatrix`'s school header, which genuinely does label a school — that is why those two look
+similar and are not the same edit. H48 vs H51.)
+
+### The remaining `DamageNumber.ColorFor` sites are all non-spell — verified, not assumed
+
+20 sites survive, and each was read rather than pattern-matched: class/race **skill** slash flashes and
+rings (`ClassEffect`, `IEffect`, `RaceEffect` — `SkillEffect`s with a `DamageType`, no `SpellData`), the
+**ranged-weapon** flight cone (`ranged.ShotType`), the skill-tree node tint and the UI node legend
+(`CharacterInfoUI.Skills`), the Earth **debris accent** inside a projectile body builder, and the
+identity-less fallback's own definition. None of them has a spell to resolve, which is exactly the
+condition under which `SpellLook.Resolve(DamageType, ProjectileShape)` exists. Converting them would
+mean *manufacturing* a spell-less identity to throw away — rule 13's precedence step 3 is for that,
+not a general "use SpellLook everywhere" sweep.
+
 ## 1id–1ii — the six visual-family tasks — VERDICT: OPEN (shipped, awaiting the 1ic number)
 
 ### The split, and what it cost

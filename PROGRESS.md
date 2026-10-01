@@ -4,6 +4,61 @@ Last updated: 2026-10-01. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1ij. Bench fidelity + the last three colour consumers — shipped, NOT verified
+
+**Status: code + docs complete.** This is the last of the three commits the 1ic split produced, and
+it is the one that closes the "no consumer re-derives a colour" claim: after it, **zero spell-facing
+sites** call `DamageNumber.ColorFor`.
+
+### The three sites, and why each was still wrong
+
+All three drew a colour that the player's spell has already had an opinion about, so they were the
+last places where a Fire spell could show a non-Fire preview, or where two spells of one school could
+look identical *while aiming at each other*:
+
+1. **Flight-path cone** (`PlayerController.Combat.cs`) — the charge preview was tinted by school
+   colour, so two different Fire spells aimed identically.
+2. **Ground AoE preview ring** (`PlayerController.Combat.cs`) — same.
+3. **Falling-rock tint** (`SpellCaster.Cast.cs`) — Meteor and Comet both dropped a rock tinted by
+   school colour, losing the per-spell body colour the rock itself already got in 1ih.
+
+A fourth was found and fixed in passing: **`SpellZone.BuildVisual` took a `DamageType type` argument
+purely to re-derive a colour on the null-spell path** — while `Initialize` had *already* resolved the
+identity-less fallback into `_look`. Two sources of identity where one was enough, able to disagree
+with itself. The parameter is gone; `BuildVisual()` reads `_look.Core` once.
+
+### The bench now shows the real body (`SpawnMagicModels`)
+
+It called `CreateProjectileDisplay(skill.DamageKind, spell.Shape, …)`, i.e. the **identity-less
+school fallback** — so every Fire spell on the bench showed the same body no matter what its own
+`DisplayShape` said, on the one screen whose entire job is comparing per-spell bodies. It now passes
+the `SpellData`. Labels were tinted by `skill.DamageKind` for the same reason and now use
+`SpellLook.Resolve(spell).Core`, so a label cannot disagree with the body above it.
+
+**Two knock-ons worth naming.** `CreateProjectileDisplay(SpellData)` had **zero callers** until this —
+it was written in 1ig and never wired up, which is why the *old* two-arg overload was still live.
+And `CreateProjectileDisplay(DamageType, ProjectileShape, bool)` now has no callers at all; it is
+retained because it is the named identity-less fallback's public entry point and `MagicTestMatrix` is
+the natural future caller, but if a grep confirms zero at the next cleanup it should go.
+
+### 1ij-status — NOT verified
+
+- [ ] **Press F4 first.** Same gate as 1id–1ii.
+- [ ] On the bench, confirm two spells of the **same school** now show **different bodies**, and that
+      each label matches the body above it (a Fire sphere next to a Fire shard, two different labels).
+- [ ] Charge a Fire spell and an Ice spell: the flight cone and the ground AoE ring must differ in
+      colour *before* release, not only after.
+- [ ] Cast Meteor and Comet: the falling rock must wear each spell's own core colour, not one Earth
+      orange.
+- [ ] Cast a zone with no spell behind it (the fallback path) and confirm it still draws — the
+      `BuildVisual` signature change is a compile-level edit, and the null-spell branch is the one the
+      play-test is for.
+- Verification here: `tools\StaticChecks.ps1` 0 candidates, string-stripped balance on all 6 touched
+  files, full `DamageNumber.ColorFor` sweep reviewed (remaining 20 sites are all **non-spell**:
+  class/race skill slash flashes, the ranged-shot cone, the skill-tree node tint, the Earth debris
+  accent, and the UI node legend — none has a `SpellData`), grep for `CreateProjectileDisplay` and
+  `BuildVisual` call sites. **No build.**
+
 ## 1id–1ii. Per-spell impact / cast / body families — shipped, NOT verified (1ic's number unmeasured)
 
 **Status: code + docs complete, verification OPEN.** These six tasks were written as one batch in the

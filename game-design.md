@@ -1634,7 +1634,9 @@ high above the ground target and reads as the spell landing: the burst (damage, 
 deform) is deferred until the rock hits the ground (Zone deliveries ~0.6-0.8 s drop; Storm strikes
 drop a smaller rock per strike and fire their flash/damage/deform on landing; the meteor-line Comet
 projectile flies as a rough burning boulder). Built by `SkillFx.FallRock` — a collider-less visual
-(never triggers the knockback-terrain-root bug 1cx), self-destroying, shards + ring flash on impact.
+(never triggers the knockback-terrain-root bug 1cx), self-destroying, shards + ring flash on impact,
+and tinted with the **spell's own resolved core colour** (1ij) rather than the Earth school colour, so
+Meteor and Comet drop visibly different rocks.
 Spells: Fire Meteor, Asteroid, Earth Meteor, Comet, Meteor Rain, Rockfall.
 
 Fifth, **Projectile Shapes** — projectile visuals are split into named shapes rather than one element
@@ -1705,12 +1707,15 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   at the rig/hand origin (a small forward muzzle offset only, no vertical lift), so the flight
   trajectory passes through the circle's heart. The pre-cast **path preview** mirrors the exact launch
   (`SpellCaster.FireProjectile` ↔ `PlayerController.UpdatePathPreview` share the same origin math).
-- Zone/vortex spells additionally show a **ground AoE preview** ring that also grows with charge.
+- Zone/vortex spells additionally show a **ground AoE preview** ring that also grows with charge,
+  tinted by the spell's resolved core colour (1ij), matching the cone above so a charge reads in one
+  colour from aim to release.
 - Projectile deliveries (magic **projectile** spells, and ranged draws — regular and per-hand dual) show a
   **flight-path cone** while charging: a stack of translucent rings from the hand along the aim line that
   **narrows as the charge builds**, collapsing to a thin centre ray of the exact predicted trajectory at
-  full charge, and clipped at the first solid hit. Magic previews are tinted by the spell's element;
-  ranged previews are tinted by shot type and spread outward with low accuracy. (`ProjectilePathPreview.cs`,
+  full charge, and clipped at the first solid hit. **Magic previews are tinted by the spell's resolved
+  core colour** (1ij — per-spell, so two spells of one school aim visibly differently); ranged previews
+  are tinted by shot type and spread outward with low accuracy. (`ProjectilePathPreview.cs`,
   driven by `PlayerController`; hidden on cancel/release/weapon switch.) Ranged weapons with no projectile
   prefab fire a runtime-generated arrow instead of a hit-scan tracer.
 

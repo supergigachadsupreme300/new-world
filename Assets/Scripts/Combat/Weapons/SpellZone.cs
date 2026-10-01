@@ -40,7 +40,7 @@ public class SpellZone : MonoBehaviour
         radiusMult = Mathf.Max(radiusMult, 0.01f);
         Radius = spell != null && spell.Radius > 0f ? spell.Radius * radiusMult : Radius;
         _look = spell != null ? SpellLook.Resolve(spell) : SpellLook.Resolve(DamageType.Wind, ProjectileShape.Auto);
-        BuildVisual(spell != null ? spell.Type : DamageType.Wind);
+        BuildVisual();
 
         if (_spell != null && Radius > 0f)
             SkillFx.RingFlash(transform.position, Vector3.up, _look.Core, Radius, 0.4f, _look.Scale);
@@ -119,14 +119,19 @@ public class SpellZone : MonoBehaviour
 
     /// <summary>Funnel: tapering stack of spinning flat rings + orbiting debris (tornado / vortex).
     /// Disc: a single wide flat ring on the ground for persistent AoE zones.</summary>
-    private void BuildVisual(DamageType type)
+    private void BuildVisual()
     {
         // 1ie: the persistent zone body takes the per-spell Core colour, not the school colour, so a
         // zone is identifiable while it lives. Side effect worth naming: SharedSpriteMaterial is a
         // cache keyed by colour, so the key space grows from 10 school colours to ~172 spell
         // colours. That is 162 extra small Materials held for the session, not a leak (each is one
         // shader instance and they are all live-bounded by the zones that use them).
-        Color color = _spell != null ? _look.Core : DamageNumber.ColorFor(type);
+        //
+        // 1ij: no ternary any more. `type` is redundant as a second source of identity — Initialize
+        // already resolved the identity-less fallback INTO _look on the null-spell path (it passes
+        // DamageType.Wind there too), so `_spell != null ? _look.Core : ColorFor(type)` was asking
+        // two questions and could only disagree with itself. One resolved look, read once.
+        Color color = _look.Core;
         Material sharedMat = SkillFx.SharedSpriteMaterial(color);
 
         if (PullSpeed > 0f)

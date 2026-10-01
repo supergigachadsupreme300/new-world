@@ -65,13 +65,18 @@ public partial class SpellCaster
     }
 
     /// <summary>
-    /// Stand-alone render-only spell visual for the test ground's magic model bench (1dk): builds
-    /// the exact static projectile body a live cast carries (1eb — projectiles now carry no
-    /// particles and no in-flight pulse), with no <see cref="SpellEffect"/>, no collider, and no
-    /// launch — it simply sits at its root so each spell's model can be looked at and edited.
-    /// `shape` resolves like a real cast (Auto → element default); <paramref name="rockBody"/>
-    /// dresses it as the rough burning rock sky-rock spells (summonFallingRock: Meteor / Asteroid
-    /// / Comet) summon.
+    /// Stand-alone render-only spell visual with <b>no spell behind it</b>: the identity-less school
+    /// stand-in. Builds the exact static projectile body a live cast carries (1eb — projectiles now
+    /// carry no particles and no in-flight pulse), with no <see cref="SpellEffect"/>, no collider and
+    /// no launch — it simply sits at its root.
+    ///
+    /// <para><b>1ij: currently zero callers.</b> The magic-model bench used this one, which is why
+    /// every Fire spell on it drew the same school stand-in body regardless of its own display shape
+    /// (THINKING.md 1ij H49); it now calls the <see cref="SpellData"/> overload. Kept because it is the
+    /// public entry point to <c>SpellLook.Resolve(DamageType, ProjectileShape)</c> — rule 13's
+    /// precedence step 3 — and a spell-less caller (a non-spell turret bolt, a QA strip) will want it.
+    /// <b>If a grep still finds nothing at the next cleanup, delete it</b> rather than letting it sit
+    /// as an unread alternative next to the per-spell overload.</para>
     /// </summary>
     public static GameObject CreateProjectileDisplay(DamageType type, ProjectileShape shape = ProjectileShape.Auto,
         bool rockBody = false)
@@ -85,6 +90,11 @@ public partial class SpellCaster
     /// 1ig/1ij: the bench's per-spell display. Takes the <see cref="SpellData"/> so the bench shows
     /// the SAME body a real cast produces for that spell, rather than a school stand-in — which is
     /// the whole point of a per-spell identity bench.
+    /// <para><b>This is the overload a caller should reach for by default.</b> Written in 1ig with no
+    /// caller and not wired up until 1ij — which is exactly why the identity-less overload above was
+    /// still live and why <c>DecorateProjectile(GameObject, DamageType, ProjectileShape)</c> looked
+    /// merely unused rather than superseded. <paramref name="rockBody"/> defaults from the spell's own
+    /// <c>SummonFallingRock</c>, so callers normally pass just the spell.</para>
     /// </summary>
     public static GameObject CreateProjectileDisplay(SpellData spell, bool rockBody = false)
     {

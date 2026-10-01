@@ -228,7 +228,7 @@ public partial class SpellCaster
         if (spell != null && spell.SummonFallingRock)
         {
             float rockScale = Mathf.Max(radius, 1.5f);
-            SkillFx.FallRock(center, rockScale, DamageNumber.ColorFor(spell.Type),
+            SkillFx.FallRock(center, rockScale, SpellLook.Resolve(spell).Core,
                 () =>
                 {
                     if (this == null) return;

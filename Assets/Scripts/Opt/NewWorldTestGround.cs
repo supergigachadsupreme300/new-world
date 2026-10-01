@@ -1238,7 +1238,13 @@ public sealed class NewWorldTestGround : MonoBehaviour
             var modelRoot = new GameObject("Model");
             modelRoot.transform.SetParent(cell.transform, false);
             modelRoot.transform.localPosition = new Vector3(0f, 1.35f, 0f);
-            SpellCaster.CreateProjectileDisplay(skill.DamageKind, spell.Shape, spell.SummonFallingRock)
+            // 1ij: hand it the SpellData, not (skill.DamageKind, spell.Shape). The two-arg overload
+            // resolves through the identity-less school fallback, so every Fire spell on this bench
+            // showed the same body regardless of its own DisplayShape - which is precisely the thing
+            // the per-spell bench exists to let you compare. This overload is now the only caller
+            // that needs it, which is what makes the deleted DamageType/ProjectileShape version
+            // dead. rockBody is read from the spell itself, so the argument is redundant here.
+            SpellCaster.CreateProjectileDisplay(spell)
                 .transform.SetParent(modelRoot.transform, false);
 
             var labelGo = new GameObject("Label");
@@ -1248,7 +1254,11 @@ public sealed class NewWorldTestGround : MonoBehaviour
             tmp.text = skill.displayName ?? skill.id;
             tmp.fontSize = 1.6f;
             tmp.alignment = TMPro.TextAlignmentOptions.Center;
-            tmp.color = DamageNumber.ColorFor(skill.DamageKind);
+            // 1ij: the label states which spell you are looking at, so it wears that spell's OWN
+            // core colour. The school colour made every spell of a school share a label tint, so the
+            // labels could not tell you which identity you were actually looking at - and the body
+            // above is now per-spell, so a label that disagrees with its body is worse than useless.
+            tmp.color = SpellLook.Resolve(spell).Core;
             tmp.outlineWidth = 0.1f;
             tmp.outlineColor = Color.black;
             tmp.rectTransform.sizeDelta = new Vector3(3f, 0.6f);
