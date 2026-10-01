@@ -3,6 +3,7 @@ using Unity.Profiling;
 using Unity.Profiling.LowLevel;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
 
 /// <summary>
 /// Testing ground for the open world. Drop this ONE component on a GameObject and it builds an
@@ -1131,10 +1132,13 @@ public sealed class NewWorldTestGround : MonoBehaviour
               .Append("  setpass ").Append(Fb(_fbSetPassSum * inv))
               .Append("  tris ").Append(Fb(_fbTriSum * inv / 1000f)).Append('k');
         }
+        bool haveScale = FbRenderScale(out float renderScale);
         sb.Append("\n  settings  shadowDist ").Append(QualitySettings.shadowDistance.ToString("0"))
           .Append("  shadowRes ").Append(QualitySettings.shadowResolution)
           .Append("  aa ").Append(QualitySettings.antiAliasing)
-          .Append("  renderScale ").Append(QualitySettings.renderScale.ToString("0.00"));
+          .Append(haveScale
+              ? "  renderScale " + renderScale.ToString("0.00")
+              : "  renderScale n/a (active pipeline is not URP / asset unreadable)");
 
         // --- The verdict. The clamp state from section A DECIDES which comparison is legitimate,
         // because the two questions are different numbers:
@@ -1236,6 +1240,51 @@ public sealed class NewWorldTestGround : MonoBehaviour
     /// <summary>Format a millisecond probe for the report: a real average, or an explicit "n/a" when
     /// the source was never visible. Never prints a bare 0 for a missing source.</summary>
     private static string Fb(float ms) => ms >= 0f ? ms.ToString("0.0") : "n/a";
+
+    /// <summary>
+    /// (1ik) Render scale, read from the ACTIVE pipeline asset rather than from QualitySettings.
+    /// <para>
+    /// Unity has no <c>QualitySettings.renderScale</c> — that is a CS0117 the first build of this lane
+    /// caught. Render scale lives on the render-pipeline asset: URP's
+    /// <c>UniversalRenderPipelineAsset.renderScale</c>. Reading it off QualitySettings is not just a
+    /// wrong member, it is the wrong OBJECT: this project ships two quality levels with two different
+    /// pipeline assets (PC = 1.0, Mobile = 0.8), so a single hard-coded number would report the wrong
+    /// one on half the quality levels. Reading it from the live asset means the lane reports the value
+    /// that is actually in force.
+    /// </para>
+    /// <para>
+    /// The URP type is reached by REFLECTION, deliberately, for two reasons. First, this file is a QA
+    /// lane and URP is not otherwise referenced anywhere in the project (grep: zero hits before this
+    /// line), so a direct type reference would add an assembly dependency to the test platform that
+    /// exists only to print one diagnostic number. Second, reflection degrades honestly: if the
+    /// pipeline is not URP, or the asset cannot be read, the probe returns false and the report prints
+    /// "n/a" rather than a fabricated value — the same absent-vs-zero discipline the probe uses
+    /// everywhere else (rule 7).
+    /// </para>
+    /// </summary>
+    private static bool FbRenderScale(out float value)
+    {
+        value = -1f;
+        var rp = GraphicsSettings.currentRenderPipeline;
+        if (rp == null) return false;
+        // Walk to the BASE asset: a quality level may point at a renderer data sub-asset rather than
+        // the pipeline asset itself, and only the pipeline asset carries renderScale.
+        object asset = rp;
+        while (asset != null)
+        {
+            var t = asset.GetType();
+            var prop = t.GetProperty("renderScale");
+            if (prop != null && prop.PropertyType == typeof(float))
+            {
+                value = (float)prop.GetValue(asset);
+                return value > 0f;
+            }
+            var baseProp = t.GetProperty("baseScriptableObject");
+            if (baseProp == null) return false;
+            asset = baseProp.GetValue(asset);
+        }
+        return false;
+    }
 
     private void OnDisable()
     {

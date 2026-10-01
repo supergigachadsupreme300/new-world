@@ -36,6 +36,43 @@ has **no CPU/GPU instrumentation at all** — grep for `FrameTimingManager`, `Pr
 fork before anything else touches it, which is the plan agreed with the user: *measure first, name the
 mechanism, then fix in a separate commit.*
 
+### H55 — "`QualitySettings.renderScale`" — REJECTED at compile time, and StaticChecks saw nothing
+
+**What happened.** The first build of 1ik returned exactly one error:
+`QualitySettings does not contain a definition for 'renderScale'` (CS0117). Render scale is not a
+QualitySettings member at all — it belongs to the render-pipeline asset
+(`UniversalRenderPipelineAsset.renderScale`).
+
+**The part worth keeping.** `tools\StaticChecks.ps1` returned **0 candidates on the file that did not
+compile**. Rule 3 says "review is not compilation" as a standing warning; this is the cleanest possible
+demonstration of *what* review misses. The balance check counts braces and parens — it cannot know
+which *type* a member is being looked up on, so an invented member name is invisible to it. There is no
+amount of rereading that substitutes for a compiler here; the check was working exactly as specified
+and still certified a broken file.
+
+**A second finding fell out of fixing it properly.** The obvious fix is to reference the URP type
+directly — but URP is referenced **nowhere** in `Assets\Scripts` (grep: zero hits), and this project
+ships **two quality levels pointing at two different pipeline assets** (PC = render scale 1.0, Mobile =
+0.8). So a single hard-coded number would report the wrong value on half the quality levels, and a
+direct type reference would add an assembly dependency to a QA lane that exists to print one
+diagnostic. The lane therefore reads it by **reflection off `GraphicsSettings.currentRenderPipeline`**
+— the asset actually in force — and prints `n/a` when the pipeline is not URP. Degrading honestly is
+the same absent-vs-zero rule the probe applies everywhere else (H54's sibling).
+
+**What the settings dump revealed, which is not a renderScale story at all.** Both quality levels are
+already favourable on paper: **vSyncCount = 0**, `antiAliasing = 0`, `m_SupportsDynamicBatching = 0`,
+main light shadows **on at 1024**, and URP shadow distance 50. And the readout's `33.9 ms` with vSync
+**off** means the frame is *not* quantised — so rule 7's clamp/bracket section should report "unclamped"
+and section A's bracket never fires on this platform. The `lod sweep 0.62 / 60.56` reading remains the
+1hk finding: a since-start monotonic max, most likely the initial fill sweep.
+
+**The number that actually deserves suspicion.** `QualitySettings.shadowDistance` is **32 (PC) / 40
+(Mobile)** while the streamed world spans ~300 m. Shadows are cheap here (a third of the frame budget at
+1k) and the terrain is low-poly, so shadow *resolution* is not the problem — but this is the kind of
+world-scale-versus-budget mismatch worth having a lane measure. It is **recorded, not acted on**: 1ik
+measures, and changing a shadow distance is a separate task with its own before/after (rule 7 — never
+ship the measurement and the fix in the same commit).
+
 ### H54 — "the fix is to re-enable `LowPolyFacets` (1ia left it off), so the near chunks go back to flat facets" — OPEN, and deliberately NOT acted on
 
 **The hypothesis.** `LowPolyFacets = false` by default (1ia) means the near chunks render the *full 1 m

@@ -54,8 +54,16 @@ a share of a quantised frame is not a share of work:
 
 ### 1ik-status — NOT verified, no Unity run in this project
 
-- [ ] Let Unity compile. **Paste any console errors** — this lane is the first code in the project to
-      touch `Unity.Profiling`, and that API surface is unverified here (rule 3: no CLI build).
+- [ ] Let Unity compile. **First build of this lane returned exactly one error and it is FIXED**
+      (`41db254` → follow-up commit): `QualitySettings.renderScale` does not exist — render scale lives
+      on the **URP asset** (`UniversalRenderPipelineAsset.renderScale`). `tools\StaticChecks.ps1`
+      reported **0 candidates on the broken file**, so this is rule 3's "review is not compilation"
+      landing exactly as written: the balance check cannot see that a member is on the wrong type.
+      Now read by reflection off `GraphicsSettings.currentRenderPipeline`, printing `n/a` if the
+      active pipeline is not URP. **Recompile and confirm it is clean before anything else.**
+- [ ] Report which **quality level** you are on (PC or Mobile) alongside the readout — the two ship
+      different pipeline assets and different render scales, so the settings row is only meaningful
+      with that context.
 - [ ] Stand still on the test platform, press **F2**, screenshot the block. Then walk ~5 s, press F2
       again, screenshot. Two numbers, two conditions — that comparison is the whole deliverable.
 - [ ] Read the **VERDICT** line first, then the bracketed clamp line. If section A says the frame is a

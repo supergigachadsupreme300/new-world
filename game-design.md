@@ -1754,6 +1754,11 @@ rather than calling `SpellLook.SchoolColor`. It is a QA surface, not a readout �
 the thing being judged are the same colour, a mis-coloured spell becomes invisible on the very screen
 built to catch it. It is debug-only and save-invisible, so it needs no parity check.
 
+**Shadow distance is 32 m (PC) / 40 m (Mobile), and the streamed world is ~300 m across.** That
+mismatch is a standing candidate for the sub-20 FPS report and is *not* resolved by anything in the
+1ik lane — 1ik measures and attributes, it does not change a render setting. Fixing it is a separate
+task with its own measurement.
+
 **How this is judged (1ic):** the test ground's **F4** lane resolves every reachable spell and reports
 `N spells / M distinct identities / C colliding groups`, where identical means impact + cast + shape +
 core RGB at 8 bits. `Scale`/`Tempo` are excluded — counting them would let a number read "unique"
