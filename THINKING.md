@@ -126,6 +126,27 @@ its school's family.
 
 ## 1ij — the last colour consumers, and the bench that was lying about its own subject — VERDICT: OPEN (shipped, awaiting the 1ic number)
 
+### H52 — "no skill was loaded for 1ib–1ij" — CONFIRMED as an omission, not a decision
+
+**The fact.** Three commits (`de09e10`, `97175e8`, `c209956`), ~20 C# files, zero Skill tool calls. The
+user noticed and asked. That is the correct outcome of asking, and the wrong outcome of shipping.
+
+**Why it is worth writing down rather than just fixing.** I had a *reason* — the installed set is
+Scenario's DCC-heavy skills (Blender/Maya/ZBrush/Unreal/image-video-audio), and the nearest Unity ones
+drive an editor over MCP or `-batchmode`, which rule 3 forbids. So the reason existed. What did not
+exist was the habit of **saying** it, and `AGENTS.md` rule 6 requires a stated verification basis in
+every closing summary. A reader of that handoff could not distinguish "I checked the set and nothing
+governs a C# code-review task" from "I never thought about it" — and in my own reading of the
+transcript, the second was the truth, with the first constructed afterwards. That is the failure: a
+post-hoc rationalisation is indistinguishable in the record from a prior decision, so only a
+**pre-commit** statement carries information. `AGENTS.md` rule 15 now requires the line
+(`skills: none applied — <reason>`) at handoff time, and this entry is the counter-example.
+
+**The distinction rule 15 asks for, stated once so it is reusable:** *authoritative* means the skill
+governs both the artifact and the verification path. *Informative* means it can sharpen an approach but
+cannot confirm the result. Loading an informative-only skill is allowed and sometimes worth it; the
+failure is not the omission, it is the unstated omission.
+
 ### H49 — "the bench can keep using the (DamageType, ProjectileShape) overload; it shows the shape" — REJECTED
 
 `SpawnMagicModels` called `CreateProjectileDisplay(skill.DamageKind, spell.Shape, …)`. It looks

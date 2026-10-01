@@ -41,6 +41,15 @@ And `CreateProjectileDisplay(DamageType, ProjectileShape, bool)` now has no call
 retained because it is the named identity-less fallback's public entry point and `MagicTestMatrix` is
 the natural future caller, but if a grep confirms zero at the next cleanup it should go.
 
+**skills: none applied — read the task as C# code review, not as an engine or DCC artifact.** The
+installed set is Scenario's Blender/Maya/ZBrush/Unreal/Unity/image-video-audio skills. The nearest
+candidates (`scenario-unity-expert`, `scenario-unity-architecture`, `scenario-unity-gameplay`) all drive
+a running Unity 6.3 editor over MCP or in `-batchmode`, which rule 3 forbids here, so they could have
+been informative about engine APIs but could not have *verified* anything — exactly the
+informative/authoritative split rule 11 draws. The deliverable here was 20 files of reviewed C# plus
+docs, with the repo's own `tools/StaticChecks.ps1` as the mechanised check. Recorded in `AGENTS.md`
+rule 15, added after the user asked; see `THINKING.md` §1ij for the same note.
+
 ### 1ij-status — NOT verified
 
 - [ ] **Press F4 first.** Same gate as 1id–1ii.

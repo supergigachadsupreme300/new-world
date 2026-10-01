@@ -347,6 +347,9 @@
       "an Arcane spell was cast", which is false. When you fix a colour regression, check whether the
       two neighbouring lines actually share an identity before restoring the symmetry — and if they
       do not, say so in a comment or the next reader will "fix" it again.
+    - **Rule 15's other exception: a skill may shape the approach but still lose to a project rule.**
+      "Derived in one place" is a source-level invariant; a skill that says "call the factory" does not
+      get to decide where the factory lives. State which side won.
 
 14. **A removal has three failure modes, and only one of them is a compile error.** Deleting a feature
     leaves behind more than references to the deleted *name*, and the three residue classes fail in
@@ -395,5 +398,38 @@
       (`-SimpleMatch`) matching, not a regex: a `.`-wildcarded Vietnamese pattern returned 50 008
       "matches" against a mangled console, which is worse than no search because it looks like a
       result. Confirm a reference-counting grep can find something real before trusting a zero.
+
+15. **The globally installed skill set is a tool, and reaching for it is not optional.** Every session
+    runs with skills available outside this repo (Blender, Maya, ZBrush, Unreal, Unity, asset and
+    pipeline skills, plus `skill-creator` for authoring new ones). Rule 2 lists the docs you must
+    update; it does not list this. **Before starting a task, check whether a skill covers it, and load
+    it if one does** — the Skill tool costs one call, and re-deriving a domain workflow from scratch is
+    both slower and more likely to be wrong than following the shipped one.
+    - **Silence is not a verdict.** 1ib–1ij shipped in three commits without a single skill loaded, and
+      the omission only surfaced when the user asked afterwards. Not loading a skill is a *decision*;
+      it has to be made deliberately and **stated in the handoff**, the same way rule 3's "no build" is.
+      A future reader cannot tell "I checked and none applied" from "I forgot" — the two are identical
+      in the transcript. Write one line: `skills: none applied — <reason>`, or name what was loaded and
+      what it changed about the approach.
+    - **A skill that contradicts this project's rules loses to this project's rules, and the conflict
+      gets stated.** The Unity skills are the obvious case: `scenario-unity-expert` and its siblings
+      target driving a running editor over MCP or in `-batchmode`, while rule 3 says **no Unity build or
+      CLI run happens in this project**. Loading one is still allowed — it may carry real API and
+      architecture knowledge — but it cannot *verify* anything here, and the difference between
+      "informative" and "authoritative" is exactly what rule 11 is about for render changes. Say which
+      of the two it was.
+    - **Match the skill to the artifact, not to the topic.** Most of the installed set is DCC-side (Maya,
+      Blender, ZBrush, Unreal, image/video/audio generation). A task that merely *mentions* Unity, or
+      the phrase "a skill", is not a match. Ask what artifact the task produces — a `.blend`, a `.ma`
+      scene, an Unreal `.uasset`, a C# edit reviewed by a human — and load only when the skill governs
+      that artifact. The failure this prevents is loading a heavyweight 3D-DCC workflow to edit 12 lines
+      of `PlayerController.Combat.cs`: a near-miss skill burns context and contributes nothing.
+    - **The repo's own tooling is not a substitute, and does not excuse skipping the set.**
+      `tools/StaticChecks.ps1` (rule 3) is mandatory on its own terms, but it checks *this codebase's*
+      invariants — brace/paren balance, overload arity, CS0165 candidates, part-key parity,
+      member-at-depth-0. It is not a general engineering skill, and "the project has a script" is not a
+      reason to skip the skill set.
+    - **When a skill's guidance is what you actually followed, name it in `PROGRESS.md`** so the next
+      session can reproduce the reasoning instead of re-deriving whether it was followed at all.
 
 
