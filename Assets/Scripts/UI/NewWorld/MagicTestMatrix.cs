@@ -370,7 +370,43 @@ public sealed class MagicTestMatrix : MonoBehaviour
         GameManager.Instance?.UIManager?.ApplyDefaultFont(tmp);
     }
 
-    private static Color SchoolColor(DamageType school) => SpellLook.SchoolColor(school);
+    /// <summary>
+    /// The QA swatch for a school HEADER in this matrix, restored in 1ij to the pre-1ib literals.
+    ///
+    /// <para><b>Deliberately NOT <c>SpellLook.SchoolColor</c>, and this is the one sanctioned
+    /// exception to "no consumer re-derives a colour".</b> 1ib folded this into the canonical
+    /// palette, which silently recoloured every header on this debug screen. Two reasons that was
+    /// wrong rather than merely redundant:</para>
+    /// <list type="number">
+    /// <item><b>It is a swatch, not a readout.</b> The whole point of a per-school header is to name
+    /// the school at a glance. When the swatch and the thing being judged are the same colour, a
+    /// mis-coloured spell is invisible here — the panel stops being able to catch the bug it exists
+    /// to catch. Four of the nine schools drifted visibly (Dark, Wind, Arcane, Ice).</item>
+    /// <item><b>1ib's own claim was "change nothing on screen".</b> This screen is not the game, so
+    /// a colour change here is pure unrequested diff — the one place where inheriting the canonical
+    /// palette bought nothing at all.</item>
+    /// </list>
+    /// <para>Gameplay colours all come from <see cref="SpellLook"/>; this is the one place that keeps
+    /// its own table, and it is QA-only (the matrix is a debug screen, not a save-scoped surface), so
+    /// it needs no parity check. If a school's canonical colour is being tuned, update BOTH tables —
+    /// that is the cost of the exception, stated so it is not a surprise.</para>
+    /// </summary>
+    private static Color SchoolColor(DamageType school)
+    {
+        switch (school)
+        {
+            case DamageType.Fire: return new Color(1f, 0.50f, 0.20f, 1f);
+            case DamageType.Ice: return new Color(0.55f, 0.85f, 1f, 1f);
+            case DamageType.Lightning: return new Color(1f, 0.90f, 0.40f, 1f);
+            case DamageType.Holy: return new Color(1f, 1f, 0.70f, 1f);
+            case DamageType.Dark: return new Color(0.70f, 0.55f, 1f, 1f);
+            case DamageType.Wind: return new Color(0.65f, 1f, 0.85f, 1f);
+            case DamageType.Earth: return new Color(0.70f, 0.60f, 0.40f, 1f);
+            case DamageType.Water: return new Color(0.40f, 0.70f, 1f, 1f);
+            case DamageType.Arcane: return new Color(1f, 0.55f, 0.90f, 1f);
+            default: return Color.white;
+        }
+    }
 
     private static float CanvasScale() => Screen.width / (1280f / MenuPanelBase.UiScale);
     private static Vector2 CanvasUnits(Vector2 pixels) => new Vector2(pixels.x / CanvasScale(), pixels.y / CanvasScale());

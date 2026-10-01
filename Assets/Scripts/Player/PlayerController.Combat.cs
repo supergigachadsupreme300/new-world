@@ -354,13 +354,17 @@ public partial class PlayerController
             return;
         }
         var spell = ArmedSpell();
-        Color color;
-        if (spell != null) color = DamageNumber.ColorFor(spell.Type);
-        else
+        // 1if: with a spell behind it, the halo takes the full per-spell look (colour, family,
+        // size, tempo) instead of just the school colour. Without one — the preview and ranged-draw
+        // paths — it keeps the plain colour overload, which draws the Circle family.
+        if (spell != null)
         {
-            var skill = SkillCatalog.Find(MagicWheelUI.ArmedSkillId);
-            color = skill != null ? DamageNumber.ColorFor(skill.DamageKind) : Color.white;
+            var look = SpellLook.Resolve(spell);
+            Casting().Show(hand.transform, charge, look);
+            return;
         }
+        var skill = SkillCatalog.Find(MagicWheelUI.ArmedSkillId);
+        Color color = skill != null ? DamageNumber.ColorFor(skill.DamageKind) : Color.white;
         Casting().Show(hand.transform, charge, color);
     }
 
@@ -371,9 +375,22 @@ public partial class PlayerController
         var hand = MagicHand(combat);
         if (hand == null) return;
         var spell = ArmedSpell();
-        Color color = spell != null ? DamageNumber.ColorFor(spell.Type) : Color.white;
-        float radius = spell != null ? spell.Radius : 1.5f;
-        Casting().Burst(radius * (0.6f + charge * 0.5f), color, hand.transform.up);
+        if (spell != null)
+        {
+            // 1if: the release burst takes the same look, so the ring that leaves the weapon is the
+            // spell's own colour and size.
+            var look = SpellLook.Resolve(spell);
+            float r = spell.Radius * (0.6f + charge * 0.5f);
+            Casting().Burst(r, look.Core, hand.transform.up, look.Scale);
+            HideCastingCircle();
+            return;
+        }
+        // No spell armed: this is the plain weapon-release burst, not a spell, so it keeps the plain
+        // white it had before per-spell looks. Resolving it through SpellLook would hand it Arcane's
+        // pink, which reads as "an Arcane spell was cast" — a lie about an identity-less release.
+        // (1if changed this line; restoring it. The sibling burst above stays look-derived.)
+        float radius = 1.5f;
+        Casting().Burst(radius * (0.6f + charge * 0.5f), Color.white, hand.transform.up);
         HideCastingCircle();
     }
 

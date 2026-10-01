@@ -124,6 +124,112 @@ screen). `M == N` is therefore **necessary, not sufficient** — the play-test s
 spell per school and confirm the halo, impact family and body shape read as different and each match
 its school's family.
 
+## 1id–1ii — the six visual-family tasks — VERDICT: OPEN (shipped, awaiting the 1ic number)
+
+### The split, and what it cost
+
+The working tree had 1ic–1ii already merged across the same eight files. The user chose to pull 1ic
+out first (shipped as `de09e10`), which left the other six to be repaired and shipped as one commit.
+Hunk-splitting six tasks inside eight files would have been guesswork; batching them is honest as long
+as the batch's status says plainly that **none of it is verified until the 1ic readout lands**.
+
+**The real cost of splitting 1ic out was a compile-order bug I introduced and then caught.** The
+audit's HUD line originally printed `SpellImpactFx.DroppedSinceLaunch` — a class that does not exist
+until 1id. Commit A alone would not have compiled. It only showed up because the staged file had to
+be read line by line to confirm the audit's scope, not because any check fired. That is the same class
+of near-miss as rule 3's "review is not compilation": a check that counts braces cannot tell you that
+commit A depends on commit B.
+
+### H45 — "`_look` is a field, so assigning it inside `if (spell != null)` is fine" — REJECTED
+
+`SpellStorm` and `SpellSummon` both read `_look.Scale` *after* the guard. On the null path `_look` is
+`default(SpellLook)`, whose `Scale` is `0f` (a struct field default, not a resolved fallback). So the
+failure is not a crash — it is worse, a **silently wrong scale**: a spell-less storm's spawn ring drew
+5× too small, and a spell-less summon handed `SpellImpactFx.Spawn` the `Inherit` impact style, which
+returns immediately, so it got no flash at all.
+
+**The habit this exposes.** A nullable/conditional initialisation is only safe if you audit every
+*reader* of the field, not every writer. Grep for `_look =` shows one assignment and looks correct;
+grep for `_look.` shows the read outside the guard. `SpellZone`, `SpellBeam` and `SpellTornado` all
+seed a named identity-less fallback on one line, which is what made the two outliers visible on a
+sibling read rather than needing a null-check argument. **Prefer seeding a fallback unconditionally
+over conditionally assigning**, because the fallback line is the thing a reader can see.
+
+### H46 — "the rune ticks are guarded by `_runeTicks != null`" — REJECTED (this was live, not theoretical)
+
+`CastingCircle.Build()`:
+
+```csharp
+_runeGroup = NewGroup("Rune");
+_runeTicks = _runeGroup.transform;   // always assigned
+if (shader != null) { ... create 8 tick cubes as children ... }   // conditional
+```
+
+and `Apply()`:
+
+```csharp
+if (wantRune && _runeTicks != null) { for (i < RuneTicks) _runeTicks.GetChild(i); }
+```
+
+Both `Shader.Find` calls returning null is not exotic — it is what a stripped URP build looks like —
+and then `_runeTicks` is a **valid, empty** transform. The null check passes. `GetChild` throws
+`ArgumentOutOfRangeException` every frame from `Apply`.
+
+**The lesson, which is the general one:** `x != null` asks "do I have a reference?", but the code
+needs "do I have the N things I am about to index?". Those are different questions and the second is
+the one the loop is asking. A guard written against a weaker question than the code asks will pass
+exactly when the code is broken. Counting (`childCount >= RuneTicks`) states the actual precondition.
+This is rule 7's *"a check is only evidence if you have seen it fail on the thing it is for"*, applied
+to an assertion: the assertion that was there had never been tested against an empty parent.
+
+### H47 — "the identity-less release burst should get the Arcane school colour, since it is a
+weapon and weapons are Arcane-flavoured" — REJECTED, and this one was my own regression
+
+1if changed `Color color = DamageNumber.ColorFor(DamageType.Arcane)` in `PlayerController.Combat.cs`
+to nothing (leaving `Color.white`) — or rather, 1if left `Color.white` and the uncommitted tree had
+already turned it pink. The *reason* to change it is plausible: the sibling burst 20 lines above is
+now look-derived, so the pair looked inconsistent, and "these two are the same event" is exactly the
+kind of symmetry that makes a change look like a fix.
+
+But the two bursts are **not** the same event. The one above is a *spell release* — there is a
+`SpellData` and it has a look. The one below runs when **no spell is armed**: it is the plain weapon
+release, and its whole job is to say "you released the weapon". A white burst reads as that. Arcane
+pink reads as "an Arcane spell was cast", which is a false statement about what happened, and it is
+the exact failure mode 1ib exists to prevent (a colour that asserts an identity nobody has).
+
+**Kept from the sibling read, dropped from the sibling change:** matching the *shape* of the code
+(one `var look = SpellLook.Resolve(spell)` + `float r` above, one plain literal below) is good. Matching
+its *colour derivation* across a boundary where one side has no spell is not. Asymmetry is sometimes
+the correct answer, and the comment has to say so or the next reader will "fix" it.
+
+### H48 — "MagicTestMatrix should call `SpellLook.SchoolColor`; one palette is the whole point" — REJECTED
+(user's call, and the reasoning was already in the codebase's own favour)
+
+This is the one place where "no consumer re-derives a colour" has to yield, and the argument is not
+about duplication at all:
+
+- **It is a swatch, not a readout.** The matrix's per-school header exists so a tester can name the
+  school at a glance. 1ib made the swatch identical to the thing being judged, so a mis-coloured
+  spell became **invisible on the screen built to catch mis-coloured spells**. The dedup actively
+  removed the QA signal. Four of nine schools drifted visibly.
+- **1ib's own claim was "change nothing on screen".** This screen is not the game. Inheriting the
+  palette bought nothing at all here, so the change was pure unrequested diff.
+
+The cost is real and is stated in the comment: tuning a school colour now means touching two tables.
+That is worth it, because the second table is the *control* in an experiment. It is debug-only and
+save-invisible, so unlike a building save key there is no parity check needed — but the exception is
+written down so the next reader treats it as deliberate rather than as the drift rule 13 is about.
+
+### What this batch still cannot tell me
+
+None of the six tasks has a runtime verdict. The families are **static tables** — a school owns N
+members, a spell deterministically picks one — so "Fire and Ice cannot collide" is a claim about
+tables, not about the screen. Only 1ic's readout speaks to the tables, and even that is necessary and
+not sufficient: it resolves looks and prints, so it cannot see a family that resolves correctly and
+then fails in `SpellImpactFx` (an `Inherit` leak, a material that fails to spawn, a pool that refuses).
+The play-test list in `PROGRESS.md` is not a formality after the F4 number; it is the other half of
+the evidence.
+
 ## 1ib–1ij — per-spell visual identity for all 172 spells — VERDICT: OPEN (plan of record)
 
 ### The request

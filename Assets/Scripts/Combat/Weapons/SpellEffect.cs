@@ -44,6 +44,13 @@ public class SpellEffect : MonoBehaviour
     private TerrainChunkCoord _requestedChunk;
     private bool _requestActive;
 
+    /// <summary>
+    /// 1ie/1if: resolved once in <see cref="Initialize"/>. A flight effect can only die once, so
+    /// there is no reason to hash on the impact path — and the per-spell Core colour it carries is
+    /// what both the impact flash and the zone-splash ring read.
+    /// </summary>
+    private SpellLook _look;
+
     /// <summary>Configure the effect with spell + resolved power. Returns this for chaining.
     /// <paramref name="radiusMult"/> scales the splash/zone radius (charged casts).</summary>
     public SpellEffect Initialize(SpellData spell, float power, Vector3 dir, SpellCaster caster,
@@ -55,6 +62,7 @@ public class SpellEffect : MonoBehaviour
         _caster = caster;
         _casterRoot = caster != null ? caster.transform.root : null;
         _radiusMult = Mathf.Max(radiusMult, 0.01f);
+        _look = SpellLook.Resolve(spell);
         return this;
     }
 
@@ -306,12 +314,12 @@ public class SpellEffect : MonoBehaviour
                 TerrainDeformer.Apply(impactGround, dentRadius, TerrainShape.Crater, _dir, emitDebris: false);
             }
 
-            // Every projectile impact plays an exploding, fading sphere at the hit point (1gb).
-            // The sphere scales outward to the spell's radius while its transparency increases to
-            // fully transparent over ~0.45 s, then vanishes — the replacement for the crater
-            // excavation's floating cube burst (SpawnCraterDebris), which tools/zone-strikes keep.
-            SkillFx.ImpactSphere(transform.position, DamageNumber.ColorFor(_spell.Type),
-                Mathf.Max(0.8f, _spell.Radius));
+            // Every projectile impact plays an exploding, fading body at the hit point (1gb).
+            // 1if: the family is now the spell's own SpellImpactStyle rather than a fixed sphere —
+            // a fireball's Burst, a lance's Cross, a boulder storm's Pillar all read differently,
+            // and the shape choice is per-spell while the fade/lifetime stay shared. The sphere
+            // survives as the Sphere family, so no spell lost its old look by accident.
+            SpellImpactFx.Spawn(transform.position, Vector3.up, _look, Mathf.Max(0.8f, _spell.Radius));
         }
 
         Destroy(gameObject);
@@ -333,8 +341,8 @@ public class SpellEffect : MonoBehaviour
         if (Physics.Raycast(transform.position + Vector3.up * 0.1f, Vector3.down, out RaycastHit hit, 4f))
             ground = hit.point;
         SkillFx.RingFlash(ground, Vector3.up,
-            _spell != null ? DamageNumber.ColorFor(_spell.Type) : Color.white,
-            Radius, 0.5f);
+            _spell != null ? _look.Core : Color.white,
+            Radius, 0.5f, _look.Scale);
 
         int count = Physics.OverlapSphereNonAlloc(transform.position, Radius, _splashBuffer, HitLayers);
         for (int i = 0; i < count; i++)

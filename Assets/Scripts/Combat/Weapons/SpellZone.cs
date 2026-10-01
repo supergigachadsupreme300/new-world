@@ -24,6 +24,10 @@ public class SpellZone : MonoBehaviour
     private Transform _casterRoot;
     private readonly Collider[] _tickBuffer = new Collider[128];
 
+    /// <summary>1ie: the zone's resolved visual identity, resolved once in Initialize. Every
+    /// RingFlash and every 1ih tick flash reads this, so the zone never re-derives its own look.</summary>
+    private SpellLook _look;
+
     public void Initialize(SpellCaster caster, SpellData spell, float power,
         float radiusMult = 1f, float tickMultiplier = 1f, float pullSpeed = 0f)
     {
@@ -35,10 +39,11 @@ public class SpellZone : MonoBehaviour
         _casterRoot = caster != null ? caster.transform.root : null;
         radiusMult = Mathf.Max(radiusMult, 0.01f);
         Radius = spell != null && spell.Radius > 0f ? spell.Radius * radiusMult : Radius;
+        _look = spell != null ? SpellLook.Resolve(spell) : SpellLook.Resolve(DamageType.Wind, ProjectileShape.Auto);
         BuildVisual(spell != null ? spell.Type : DamageType.Wind);
 
         if (_spell != null && Radius > 0f)
-            SkillFx.RingFlash(transform.position, Vector3.up, DamageNumber.ColorFor(_spell.Type), Radius, 0.4f);
+            SkillFx.RingFlash(transform.position, Vector3.up, _look.Core, Radius, 0.4f, _look.Scale);
     }
 
     private void Update()
@@ -65,6 +70,7 @@ public class SpellZone : MonoBehaviour
         if (_caster == null || _spell == null) return;
 
         int count = Physics.OverlapSphereNonAlloc(transform.position, Radius, _tickBuffer);
+        bool struck = false;
         for (int i = 0; i < count; i++)
         {
             var col = _tickBuffer[i];
@@ -89,6 +95,7 @@ public class SpellZone : MonoBehaviour
             float tickDamage = _power * _tickMultiplier;
             if (tickDamage > 0f)
                 _caster.ResolveHitAt(target, _spell, tickDamage);
+            struck = true;
 
             bool isEnemy = root.TryGetComponent<EnemyController>(out _)
                 || root.TryGetComponent<BossController>(out _);
@@ -102,13 +109,24 @@ public class SpellZone : MonoBehaviour
                         Mathf.Min(PullSpeed * Time.deltaTime, dist));
             }
         }
+
+        // 1ih: ONE flash per zone tick, not per collider. A blizzard (magic_blizzard) is a Zone with a
+        // 0.5 s interval inside a 6 m radius, so an unpooled per-collider flash would fire ~20x per
+        // second per victim — which is what SpellImpactFx's PerFrameBudget exists to bound.
+        if (struck)
+            SpellImpactFx.Spawn(transform.position, Vector3.up, _look, Radius);
     }
 
     /// <summary>Funnel: tapering stack of spinning flat rings + orbiting debris (tornado / vortex).
     /// Disc: a single wide flat ring on the ground for persistent AoE zones.</summary>
     private void BuildVisual(DamageType type)
     {
-        Color color = DamageNumber.ColorFor(type);
+        // 1ie: the persistent zone body takes the per-spell Core colour, not the school colour, so a
+        // zone is identifiable while it lives. Side effect worth naming: SharedSpriteMaterial is a
+        // cache keyed by colour, so the key space grows from 10 school colours to ~172 spell
+        // colours. That is 162 extra small Materials held for the session, not a leak (each is one
+        // shader instance and they are all live-bounded by the zones that use them).
+        Color color = _spell != null ? _look.Core : DamageNumber.ColorFor(type);
         Material sharedMat = SkillFx.SharedSpriteMaterial(color);
 
         if (PullSpeed > 0f)

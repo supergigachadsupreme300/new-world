@@ -83,7 +83,8 @@ public sealed class SpellLookProfile
 ///
 /// <para><b>Why this type exists.</b> Before 1ib a spell's whole on-screen identity came from three
 /// shared things: <c>DamageNumber.ColorFor(Type)</c> (10 colours for 172 spells), one
-/// <c>SkillFx.ImpactSphere</c> call, and one <c>CastingCircle</c>. 172 spells could not look
+/// <c>SkillFx.ImpactSphere</c> call (deleted in 1ig, now <c>SpellImpactFx</c>), and one
+/// <c>CastingCircle</c>. 172 spells could not look
 /// different. This resolves each spell's look once, in one place, so no consumer re-derives a colour
 /// or a shape — the rule-12 "second spelling that rots" failure, in a codebase that already had two
 /// drifting DamageType palettes.</para>
@@ -241,8 +242,8 @@ public readonly struct SpellLook
 
     /// <summary>
     /// Identity-less fallback for callers that have a DamageType and a shape but no
-    /// <see cref="SpellData"/> — <c>SpellCaster.DecorateProjectile</c> (summoned turret bolts) and
-    /// <c>SpellCaster.CreateProjectileDisplay</c> (the magic-model bench). These deliberately get
+    /// <see cref="SpellData"/> — <c>SpellCaster.CreateProjectileDisplay(DamageType,
+    /// ProjectileShape)</c> and any other spell-less caller. These deliberately get
     /// the <b>school default</b> with no id hash, so every such projectile looks like its school
     /// rather than pretending to be a specific spell. This is a named fallback, not a fourth
     /// precedence step: the whole point of the resolver is that there is only one rule, and callers
@@ -257,29 +258,11 @@ public readonly struct SpellLook
             fam.Impact[0], fam.Cast[0], display, false);
     }
 
-    /// <summary>
-    /// Hash of the fields that define this spell's identity, quantised to 8 bits per colour channel.
-    /// The 1ic collision audit counts distinct fingerprints; two spells sharing one is the whole
-    /// thing 1ib is meant to prevent. <c>Scale</c>/<c>Tempo</c> are deliberately excluded — they are
-    /// sub-perceptual, and including them would let a number look "unique" while reading identically.
-    /// </summary>
-    public int Fingerprint
-    {
-        get
-        {
-            unchecked
-            {
-                int h = 17;
-                h = h * 31 + (int)Impact;
-                h = h * 31 + (int)Cast;
-                h = h * 31 + (int)DisplayShape;
-                h = h * 31 + (int)(Core.r * 255f);
-                h = h * 31 + (int)(Core.g * 255f);
-                h = h * 31 + (int)(Core.b * 255f);
-                return h;
-            }
-        }
-    }
+    // (1ig: `Fingerprint` was deleted here. 1ib built it as the 1ic audit's measuring instrument
+    //  and 1ic refused to use it — grouping by a 32-bit hash reports a bucket-full collision as
+    //  "two spells look the same", a claim about the instrument rather than the world. The audit
+    //  packs the real axes into 34 bits instead (NewWorldTestGround.LookKey). This is also the
+    //  admission that 1ib's plan named the wrong measuring device; THINKING.md 1ic H40.)
 
     // ------------------------------------------------------------------ families
 

@@ -192,7 +192,10 @@ public partial class SpellCaster
             if (pc != null && spell.Duration > 0f)
             {
                 pc.BeginFlight(spell.Duration);
-                SkillFx.RingFlash(transform.position, Vector3.up, DamageNumber.ColorFor(spell.Type), 2.5f, 0.5f);
+                // 1ie: the caster's self-buff ring takes the per-spell look, so a flight buff reads
+                // differently from every other ring in the game.
+                var selfLook = SpellLook.Resolve(spell);
+                SkillFx.RingFlash(transform.position, Vector3.up, selfLook.Core, 2.5f, 0.5f, selfLook.Scale);
             }
             return new DamageResult { HitTargets = true };
         }
@@ -315,6 +318,10 @@ public partial class SpellCaster
         Vector3 ground = pos;
         if (Physics.Raycast(pos + Vector3.up * 0.1f, Vector3.down, out RaycastHit hit, 4f))
             ground = hit.point;
-        SkillFx.RingFlash(ground, Vector3.up, DamageNumber.ColorFor(spell.Type), radius, 0.5f);
+        // 1ie: per-spell Core colour + scale. This is the shared zone-spawn ring used by
+        // ResolveZone and the ground-target path, so it is the highest-leverage of the RingFlash
+        // seams (77 zone spells reach it).
+        var look = SpellLook.Resolve(spell);
+        SkillFx.RingFlash(ground, Vector3.up, look.Core, radius, 0.5f, look.Scale);
     }
 }

@@ -132,7 +132,7 @@ public static class RaceSkillCatalog
 
     private static SpellData MakeSpell(string raceId, string name, DamageType type, float power,
         float fp, SpellDelivery delivery, float cooldown, float range = 10f, float radius = 1.5f,
-        ProjectileShape shape = ProjectileShape.Auto)
+        ProjectileShape shape = ProjectileShape.Auto, SpellLookProfile look = null)
     {
         var sd = ScriptableObject.CreateInstance<SpellData>();
         sd.name = "rac_" + raceId + "_" + name.ToLower().Replace(" ", "_");
@@ -147,6 +147,10 @@ public static class RaceSkillCatalog
         sd.Range = range;
         sd.Radius = radius;
         sd.Shape = shape;
+        // 1ii: kept in lockstep with ClassSkillCatalog.MakeSpell, which has the identical body and
+        // the identical live signature. This twin has zero call sites today, so nothing would have
+        // complained if the two drifted — a rule-12 second spelling, pre-existing, fixed here.
+        sd.Look = look;
         return sd;
     }
 

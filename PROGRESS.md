@@ -4,6 +4,82 @@ Last updated: 2026-10-01. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1id–1ii. Per-spell impact / cast / body families — shipped, NOT verified (1ic's number unmeasured)
+
+**Status: code + docs complete, verification OPEN.** These six tasks were written as one batch in the
+working tree (they interleave inside the same eight files, so hunk-splitting them would be
+guesswork), and they ship as one commit. **Nothing here is verified until F4 reports
+`distinct identities == spells`.** That is not a formality — 1ib's commit message claimed "172/172
+distinct fingerprints" from a code reading, and 1ic's whole existence is that no such number had ever
+been *measured*. Do not report this work as done.
+
+### What shipped
+
+| Task | Change |
+|---|---|
+| **1id** | `SpellImpactFx` — a pooled per-family impact-flash dispatcher replacing `SkillFx.ImpactSphere`. 8 `SpellImpactStyle` families, pool cap 96 idle per family, `PerFrameBudget = 24` drops (never queues) the excess. Owns its materials so the in-place fade cannot corrupt a sibling flash |
+| **1ie** | Zone / Beam / Vortex / Storm / Summon on-hit flashes + per-spell body colour and spawn-ring colour from the resolved look |
+| **1if** | `CastingCircle` — 7 `SpellCastStyle` families driving which halo parts exist (Disc / outer Halo / Rune / HexRing / inner segments), plus per-spell halo tint and `Scale`/`Tempo` |
+| **1ig** | Projectile body shape comes from `SpellLook.DisplayShape` instead of the deleted `AutoShapeFor`; the `Shape` (gameplay/homing) vs `DisplayShape` (drawn) split |
+| **1ih** | `spell.Shape` never written; `SummonFallingRock` + per-spell rock tint; 1 authored `SpellLookProfile` per named-family spell |
+| **1ii** | **21** authored `look:` profiles — 16 in `SkillCatalog.cs`, 5 in `ClassSkillCatalog.cs`. The other 151 spells resolve deterministically from their school family |
+
+Also: `SpellLook.cs.meta` committed (1ib shipped the `.cs` without it), `SpellImpactFx.cs` + `.meta`
+added, and `SpellLook.Fingerprint` deleted (see below).
+
+### Repairs made in this pass — three of them were real defects, not tidy-ups
+
+- **`CastingCircle` threw every frame with a stripped shader.** `Build()` assigns `_runeTicks`
+  unconditionally but creates the 8 tick cubes only inside `if (shader != null)`, so when both
+  `Shader.Find` calls return null the transform is **empty** and `Apply()`'s
+  `_runeTicks.GetChild(i)` raises `ArgumentOutOfRangeException` per frame — the halo draws nothing and
+  the console fills. The pre-existing `_runeTicks != null` check passed *while the ticks were
+  missing*. Fixed by guarding on `childCount >= RuneTicks`: the real invariant is "as many children as
+  I am about to index", not "the reference is non-null".
+- **`SpellStorm` and `SpellSummon` left `_look` at `default`.** Both resolved it only inside
+  `if (spell != null)` and then read `_look.Scale` unconditionally after the block — `Scale` is `0` on
+  a default `SpellLook`, so a spell-less storm drew a 5×-too-small spawn ring, and a spell-less summon
+  passed the `Inherit` impact style to `SpellImpactFx.Spawn`, which returns immediately (no flash at
+  all). Both now seed the same identity-less fallback `SpellZone`/`SpellBeam`/`SpellTornado` use.
+- **An undeclared behaviour regression.** 1if had changed the identity-less release burst from
+  `Color.white` to `DamageNumber.ColorFor(DamageType.Arcane)`. Restored to white: a plain weapon
+  release now reads as "no spell was cast", where pink reads as "an Arcane spell was cast". The
+  sibling burst, which *is* spell-backed, stays look-derived.
+- `SpellImpactFx`'s constants block was re-indented 8 → 4 spaces.
+
+### `SpellLook.Fingerprint` deleted
+
+1ib built it as 1ic's measuring instrument and **1ic refused to use it** (THINKING.md 1ic, H40): a
+32-bit hash collision is a claim about the instrument, not about two spells looking alike. Zero callers
+remained. This is also the admission that 1ib's plan named the wrong measuring device, and it is why
+1ib's commit-message claim is not repeated here — `PROGRESS.md` records the *expected* denominator
+(172) and the gate, not a number that has not been read.
+
+### `MagicTestMatrix`'s school swatch keeps its own palette
+
+1ib folded this QA header colour into `SpellLook.SchoolColor`, silently recolouring four of nine
+schools. Restored to the pre-1ib literals behind a comment saying why: it is a **swatch, not a
+readout**. When the swatch and the thing being judged are the same colour, a mis-coloured spell is
+invisible on the very screen built to catch it. This is the single sanctioned exception to "no consumer
+re-derives a colour"; it is debug-only and save-invisible, so it needs no parity check.
+
+### 1id–1ii-status — NOT verified
+
+- [ ] **Press F4 first.** Everything below is meaningless until `M == N` (see 1ic).
+- [ ] If `M < N`: retune the per-school family tables in `SpellLook` (widen the member lists) or the
+      jitter band. Paste the console's `COLLISION x<n>:` blocks.
+- [ ] Fire one spell per school on the bench: halo family, impact family and body shape must differ
+      from each other, and a Fire spell must never draw a crystalline impact.
+- [ ] Watch the **impact flashes dropped** HUD line while casting several Blizzards + a storm at
+      once. A non-zero climbing number means `PerFrameBudget = 24` is below the real peak rate — that
+      is what the counter is for.
+- [ ] Cast Blizzard and Tornado, and count flashes: **one per tick**, not one per victim.
+- [ ] Cast on a stripped-shader build (or temporarily force `Shader.Find` to null) and confirm the
+      Rune halo no longer spams exceptions.
+- Verification here: `tools\StaticChecks.ps1` 0 candidates, string-stripped `(){}[]` balance on all 17
+  touched files, grep sweep for all three deleted members across `.cs`/`.asset`/`.prefab`/`.unity`,
+  21 `look:` sites confirmed, 172 = 167 + 5 re-counted. **No build.**
+
 ## 1ic. Read-only per-spell look-collision audit (F4) — the measurement 1ib–1ij is judged by
 
 **Status: shipped, NOT run. The number does not exist yet — pressing F4 is what produces it.** This

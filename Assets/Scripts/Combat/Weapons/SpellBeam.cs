@@ -39,6 +39,9 @@ public class SpellBeam : MonoBehaviour
     private Vector3 _orbBaseScale;
     private readonly Collider[] _tickBuffer = new Collider[64];
 
+    /// <summary>1ie/1ih: the beam's resolved look, cached at Initialize.</summary>
+    private SpellLook _look;
+
     // 1e5: cached main camera (re-fetch only when the cache goes stale), instead of Camera.main
     // per channeled frame.
     private Camera _mainCam;
@@ -58,9 +61,12 @@ public class SpellBeam : MonoBehaviour
         if (spell != null) ChannelDrainPerSecond = Mathf.Max(spell.ChannelDrainPerSecond, 0f);
 
         Vector3 end = EndPoint();
-        Color color = spell != null ? DamageNumber.ColorFor(spell.Type) : Color.white;
+        // 1ie: per-spell Core colour + scale. Resolved once here rather than per tick, so the beam's
+        // channeled frames do no hashing at all.
+        _look = spell != null ? SpellLook.Resolve(spell) : SpellLook.Resolve(DamageType.Arcane, ProjectileShape.Auto);
+        Color color = spell != null ? _look.Core : Color.white;
         if (spell != null)
-            SkillFx.RingFlash(end, Vector3.up, color, Mathf.Max(Width * 1.5f, 0.4f), 0.3f);
+            SkillFx.RingFlash(end, Vector3.up, color, Mathf.Max(Width * 1.5f, 0.4f), 0.3f, _look.Scale);
         BuildVisual(color);
     }
 
@@ -167,6 +173,7 @@ public class SpellBeam : MonoBehaviour
         if (_caster == null || _spell == null) return;
 
         int count = Physics.OverlapCapsuleNonAlloc(transform.position, EndPoint(), Width, _tickBuffer);
+        bool struck = false;
         for (int i = 0; i < count; i++)
         {
             var col = _tickBuffer[i];
@@ -185,8 +192,17 @@ public class SpellBeam : MonoBehaviour
             if (!col.gameObject.TryGetComponent<IDamageable>(out _)) continue;
 
             _caster.ResolveHitAt(col.gameObject, _spell, _power);
+            struck = true;
         }
+
+        // 1ih: ONE flash per tick, not one per target — the loop above is a collider walk, so a
+        // beam through six enemies must not spawn six flashes (H39).
+        if (struck)
+            SpellImpactFx.Spawn(MidPoint(), Vector3.up, _look, Width * 1.2f);
     }
+
+    /// <summary>Halfway along the beam, where the flash is most visible.</summary>
+    private Vector3 MidPoint() => (transform.position + EndPoint()) * 0.5f;
 
     /// <summary>Force-end the channel immediately (new cast, etc.).</summary>
     public void StopChannel()

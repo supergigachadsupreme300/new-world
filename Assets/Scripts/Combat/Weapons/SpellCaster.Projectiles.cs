@@ -37,7 +37,10 @@ public partial class SpellCaster
             go = new GameObject("SpellProjectile");
             go.transform.position = pos;
             go.transform.rotation = Quaternion.LookRotation(fwd);
-            AttachDefaultProjectileVisual(go, spell.Type, spell.Shape, spell.SummonFallingRock);
+            // 1ig: the body's shape, colour and size all come from the spell's resolved look, not
+            // from the school. A cast with an authored CastEffectPrefab above still bypasses this
+            // entirely, so the prefab hook keeps top precedence.
+            AttachDefaultProjectileVisual(go, SpellLook.Resolve(spell), spell.SummonFallingRock);
             go.AddComponent<SpellEffect>().Initialize(spell, power, fwd, this, sizeScale);
         }
 
@@ -51,10 +54,14 @@ public partial class SpellCaster
         return new DamageResult();
     }
 
-    /// <summary>Public access to the default projectile visual (used by summoned turrets).</summary>
-    public void DecorateProjectile(GameObject go, DamageType type, ProjectileShape shape = ProjectileShape.Auto)
+    /// <summary>1ig: the summoning spell's real identity, for a summoned turret's bolt.</summary>
+    /// <para>(1ig: the sibling <c>DecorateProjectile(GameObject, DamageType, ProjectileShape)</c> was
+    /// deleted. It had no callers, and the two overloads sat adjacent enough that a future call site
+    /// could pick either — silently getting a school stand-in instead of the summoning spell's own
+    /// identity, which is the exact confusion 1ib exists to remove. One name, one identity.)</para>
+    public void DecorateProjectile(GameObject go, SpellData spell)
     {
-        AttachDefaultProjectileVisual(go, type, shape);
+        AttachDefaultProjectileVisual(go, SpellLook.Resolve(spell));
     }
 
     /// <summary>
@@ -70,7 +77,20 @@ public partial class SpellCaster
         bool rockBody = false)
     {
         var go = new GameObject("MagicModelDisplay");
-        AttachDefaultProjectileVisual(go, type, shape, rockBody);
+        AttachDefaultProjectileVisual(go, SpellLook.Resolve(type, shape), rockBody);
+        return go;
+    }
+
+    /// <summary>
+    /// 1ig/1ij: the bench's per-spell display. Takes the <see cref="SpellData"/> so the bench shows
+    /// the SAME body a real cast produces for that spell, rather than a school stand-in — which is
+    /// the whole point of a per-spell identity bench.
+    /// </summary>
+    public static GameObject CreateProjectileDisplay(SpellData spell, bool rockBody = false)
+    {
+        var go = new GameObject("MagicModelDisplay");
+        AttachDefaultProjectileVisual(go, SpellLook.Resolve(spell),
+            rockBody || (spell != null && spell.SummonFallingRock));
         return go;
     }
 
@@ -79,41 +99,34 @@ public partial class SpellCaster
     /// so magic skills read on screen. Since 1eb the body is fully static — no exhaust particles
     /// and no per-frame pulse animation — and since 1ec every body is a **voxel cube-cluster**:
     /// a front-leading cube in the school color with smaller, darker cubes stacked behind it.
-    /// `shape` is the ProjectileShape
-    /// from SpellData (§3.8): Auto resolves to the element default so every projectile still has a
-    /// sane look; explicit shapes follow the spell's NAME ("Frost Bolt" = a Bolt, "Ice Lance" = a
-    /// Lance, "Stone Shard" = a Debris clump...). Renderer-only: the root keeps no collider so
-    /// SpellEffect's flight raycast never self-hits. Static — the visual has no instance state.
+    ///
+    /// <para><b>1ig: every input comes from <see cref="SpellLook"/>.</b> This method used to take
+    /// <c>(DamageType, ProjectileShape)</c> and resolve the shape itself through
+    /// <c>AutoShapeFor</c>. That was a SECOND independent spelling of "what shape does an Auto
+    /// projectile wear" — the exact rule-12 rot, one layer out from the palette. The per-school
+    /// shape families in <see cref="SpellLook"/> are now the only such table, and
+    /// <c>AutoShapeFor</c>/<c>ResolveShape</c> were deleted with it (rule 13: the table outlived
+    /// the lookup).</para>
+    ///
+    /// Renderer-only: the root keeps no collider so SpellEffect's flight raycast never self-hits.
+    /// Static — the visual has no instance state beyond the per-spell colour and scale.
     /// </summary>
-    private static void AttachDefaultProjectileVisual(GameObject go, DamageType type, ProjectileShape shape, bool rockBody = false)
+    private static void AttachDefaultProjectileVisual(GameObject go, in SpellLook look, bool rockBody = false)
     {
-        Color color = DamageNumber.ColorFor(type);
+        Color color = look.Core;
         Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
         if (shader == null)
             return;
 
-        var body = BuildProjectileBody(ResolveShape(type, shape), shader, color, rockBody);
+        // DisplayShape is display-only by contract: an authored spell.Shape won inside Resolve, and
+        // the deterministic pick never returns Missile (that value also means homing). The root
+        // SpellEffect still reads spell.Shape for _homing, untouched.
+        var body = BuildProjectileBody(look.DisplayShape, shader, color, rockBody);
         body.SetParent(go.transform, false);
+        float s = Mathf.Max(0.2f, look.Scale);
+        if (Mathf.Abs(s - 1f) > 0.001f)
+            body.localScale = Vector3.one * s;
     }
-
-    /// <summary>Element default shape used when a spell leaves Shape = Auto.</summary>
-    private static ProjectileShape AutoShapeFor(DamageType type)
-    {
-        switch (type)
-        {
-            case DamageType.Fire: return ProjectileShape.Sphere;    // fireball
-            case DamageType.Ice: return ProjectileShape.Shard;      // generic frost chip
-            case DamageType.Lightning: return ProjectileShape.Bolt; // crackling bolt
-            case DamageType.Wind: return ProjectileShape.Blade;     // wind blade
-            case DamageType.Water: return ProjectileShape.Splash;   // droplet
-            case DamageType.Earth: return ProjectileShape.Debris;   // rock chunks
-            case DamageType.Physical: return ProjectileShape.Dart;  // arrow / bolt line
-            default: return ProjectileShape.Sphere;
-        }
-    }
-
-    private static ProjectileShape ResolveShape(DamageType type, ProjectileShape shape)
-        => shape == ProjectileShape.Auto ? AutoShapeFor(type) : shape;
 
     /// <summary>Color-matched visual body for a projectile by resolved shape. <paramref name="rockBody"/>
     /// dresses the shape as a rough burning rock (sky-rock spells like Comet that summon a boulder).</summary>

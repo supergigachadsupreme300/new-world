@@ -5,16 +5,38 @@ using UnityEngine;
 /// aimed/charged (driven by <see cref="PlayerController"/>). The ring plane lies perpendicular
 /// to the weapon's up axis so it tilts with the weapon like a halo, growing brighter and
 /// spinning faster as the charge level (0..1) builds. Released on cast with a quick outward
-/// ring burst. Prefab-free, built from a translucent disc + two LineRenderer rings. Pure
+/// ring burst. Prefab-free, built from a translucent disc + LineRenderer rings. Pure
 /// visual: no colliders and nothing blocking gameplay.
+///
+/// <para><b>1if: the halo family is per-spell.</b> There are seven <see cref="SpellCastStyle"/>
+/// families and this component draws all of them. They are built ONCE in <see cref="Build"/> and
+/// then only toggled in <see cref="Apply"/> — never rebuilt per style change, which is what makes
+/// it safe to call <see cref="Show(Vector3, float, in SpellLook)"/> from the aim frame.</para>
+///
+/// <para><b>Why one GameObject per renderer.</b> Unity permits a single <c>Renderer</c> component
+/// per GameObject, so the second <c>LineRenderer</c> this class wants is on its own child. The
+/// per-style groups below each own their own children for the same reason; that is also why the
+/// group <c>GameObject</c>s exist at all, since <c>SetActive</c> is the cheapest way to switch a
+/// whole family off.</para>
+///
+/// <para><b>The identity-less overloads are kept.</b> <see cref="Show(Transform, float, Color)"/>
+/// and <see cref="Burst(float, Color, Vector3)"/> are still used by the preview and ranged-draw
+/// paths, which have a colour but no <see cref="SpellData"/>; they draw the plain
+/// <see cref="SpellCastStyle.Circle"/> family.</para>
 /// </summary>
 public sealed class CastingCircle : MonoBehaviour
 {
     private static CastingCircle _instance;
 
+    // Segment counts are named constants, not inline literals, because the build pass and the
+    // per-frame Apply pass BOTH read them — a length that disagreed between the two is a ring that
+    // is shaped one way and coloured another (rule 10: one named constant per shared metric).
     private const int OuterSegments = 48;
     private const int InnerSegments = 36;
-
+    private const int HexSegments = 6;
+    private const int ArcSegments = 24;
+    private const int WaveSegments = 24;
+    private const int RuneTicks = 8;
     private const float BaseRadius = 0.35f;
     private const float FullRadius = 0.75f;
 
@@ -26,10 +48,30 @@ public sealed class CastingCircle : MonoBehaviour
     private LineRenderer _innerRing;
     private Material _innerMat;
 
+    // --- 1if per-style groups. Each is a child GameObject toggled by Apply(). ---
+    private GameObject _runeGroup;
+    private Transform _runeTicks;
+    private Material _runeMat;
+    private LineRenderer _hexRing;
+    private Material _hexMat;
+    private LineRenderer _crossA;
+    private LineRenderer _crossB;
+    private Material _crossMatA;
+    private Material _crossMatB;
+    private LineRenderer _arc;
+    private Material _arcMat;
+    private LineRenderer _waveB;
+    private LineRenderer _waveC;
+    private Material _waveMatB;
+    private Material _waveMatC;
+
     private bool _active;
     private Transform _anchor;
     private float _charge;
     private Color _color = Color.white;
+    private SpellCastStyle _style = SpellCastStyle.Circle;
+    private float _scale = 1f;
+    private float _tempo = 1f;
     private float _spin;
     private float _pulse;
 
@@ -63,11 +105,32 @@ public sealed class CastingCircle : MonoBehaviour
     /// <summary>Show/refresh the halo around the anchor weapon with a charge level (0..1).</summary>
     public void Show(Transform anchor, float charge, Color color)
     {
+        // No spell behind this colour — draw the plain family rather than inventing an identity.
         if (anchor == null) { Hide(); return; }
         _active = true;
         _anchor = anchor;
         _charge = Mathf.Clamp01(charge);
         _color = color;
+        _style = SpellCastStyle.Circle;
+        _scale = 1f;
+        _tempo = 1f;
+        transform.position = anchor.position + anchor.up * 0.05f;
+        transform.rotation = Quaternion.FromToRotation(Vector3.up, anchor.up);
+        gameObject.SetActive(true);
+        Apply();
+    }
+
+    /// <summary>1if: the per-spell path — colour, family, size and tempo all come from the look.</summary>
+    public void Show(Transform anchor, float charge, in SpellLook look)
+    {
+        if (anchor == null) { Hide(); return; }
+        _active = true;
+        _anchor = anchor;
+        _charge = Mathf.Clamp01(charge);
+        _color = look.Core;
+        _style = look.Cast == SpellCastStyle.Inherit ? SpellCastStyle.Circle : look.Cast;
+        _scale = Mathf.Max(0.2f, look.Scale);
+        _tempo = Mathf.Max(0.2f, look.Tempo);
         transform.position = anchor.position + anchor.up * 0.05f;
         transform.rotation = Quaternion.FromToRotation(Vector3.up, anchor.up);
         gameObject.SetActive(true);
@@ -76,9 +139,13 @@ public sealed class CastingCircle : MonoBehaviour
 
     /// <summary>One-shot expanding ring at the current anchor, sized by the charge level.</summary>
     public void Burst(float radius, Color color, Vector3 upDir)
+        => Burst(radius, color, upDir, 1f);
+
+    /// <summary>1if: the per-spell burst, taking the look's size multiplier.</summary>
+    public void Burst(float radius, Color color, Vector3 upDir, float scaleMul)
     {
         Vector3 at = _anchor != null ? _anchor.position : transform.position;
-        SkillFx.RingFlash(at, upDir, color, Mathf.Max(radius, 0.4f), 0.35f);
+        SkillFx.RingFlash(at, upDir, color, Mathf.Max(radius, 0.4f), 0.35f, scaleMul);
     }
 
     /// <summary>Hide the halo immediately (aim cancelled, cast released, no magic, etc.).</summary>
@@ -97,8 +164,8 @@ public sealed class CastingCircle : MonoBehaviour
         transform.position = _anchor.position + _anchor.up * 0.05f;
         transform.rotation = Quaternion.FromToRotation(Vector3.up, _anchor.up);
 
-        _spin += Time.deltaTime * (18f + _charge * 60f);
-        _pulse += Time.deltaTime * 2.4f;
+        _spin += Time.deltaTime * (18f + _charge * 60f) * _tempo;
+        _pulse += Time.deltaTime * 2.4f * _tempo;
         Apply();
     }
 
@@ -106,7 +173,7 @@ public sealed class CastingCircle : MonoBehaviour
     {
         Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
 
-        // Translucent disc filling the inner halo (flat cylinder, no collider).
+        // --- shared core: the translucent disc and the two original rings (Circle / Halo) ---
         var discGo = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         discGo.name = "Disc";
         var dcol = discGo.GetComponent<Collider>();
@@ -130,12 +197,7 @@ public sealed class CastingCircle : MonoBehaviour
         var outerGo = new GameObject("OuterRing");
         outerGo.transform.SetParent(transform, false);
         _outerRing = outerGo.AddComponent<LineRenderer>();
-        _outerRing.useWorldSpace = false;
-        _outerRing.loop = true;
-        _outerRing.positionCount = OuterSegments;
-        _outerRing.startWidth = 0.06f;
-        _outerRing.endWidth = 0.06f;
-        _outerRing.numCapVertices = 2;
+        ConfigureRing(_outerRing, OuterSegments, 0.06f, loop: true);
         if (shader != null)
         {
             _outerMat = new Material(shader);
@@ -146,29 +208,159 @@ public sealed class CastingCircle : MonoBehaviour
         var innerGo = new GameObject("InnerRing");
         innerGo.transform.SetParent(transform, false);
         _innerRing = innerGo.AddComponent<LineRenderer>();
-        _innerRing.useWorldSpace = false;
-        _innerRing.loop = true;
-        _innerRing.positionCount = InnerSegments;
-        _innerRing.startWidth = 0.03f;
-        _innerRing.endWidth = 0.03f;
-        _innerRing.numCapVertices = 2;
+        ConfigureRing(_innerRing, InnerSegments, 0.03f, loop: true);
         if (shader != null)
         {
             _innerMat = new Material(shader);
             _innerRing.material = _innerMat;
         }
+
+        // --- 1if: Rune — the spinning ring plus radial tick marks.
+        _runeGroup = NewGroup("Rune");
+        _runeTicks = _runeGroup.transform;
+        if (shader != null)
+        {
+            _runeMat = new Material(shader);
+            for (int i = 0; i < RuneTicks; i++)
+            {
+                // One cube per tick rather than one LineRenderer: a LineRenderer draws a CONTINUOUS
+                // line, so N separate marks would need N renderers. Eight tiny cubes cost less than
+                // eight extra Renderer components and are toggled by their parent's SetActive.
+                var tickGo = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                var tc = tickGo.GetComponent<Collider>();
+                if (tc != null) Destroy(tc);
+                tickGo.name = "Tick" + i;
+                tickGo.transform.SetParent(_runeTicks, false);
+                tickGo.GetComponent<MeshRenderer>().material = _runeMat;
+                var tr = tickGo.transform;
+                tr.localPosition = Vector3.zero;   // positioned each frame in Apply()
+                tr.localScale = new Vector3(0.02f, 0.02f, 0.12f);
+            }
+        }
+
+        // --- 1if: HexRing — a six-sided outline.
+        var hexGo = new GameObject("HexRing");
+        hexGo.transform.SetParent(transform, false);
+        _hexRing = hexGo.AddComponent<LineRenderer>();
+        ConfigureRing(_hexRing, HexSegments, 0.05f, loop: true);
+        if (shader != null)
+        {
+            _hexMat = new Material(shader);
+            _hexRing.material = _hexMat;
+        }
+
+        // --- 1if: Cross — two spokes through the centre.
+        var crossGoA = new GameObject("CrossA");
+        crossGoA.transform.SetParent(transform, false);
+        _crossA = crossGoA.AddComponent<LineRenderer>();
+        ConfigureSpoke(_crossA, 0.04f);
+        var crossGoB = new GameObject("CrossB");
+        crossGoB.transform.SetParent(transform, false);
+        _crossB = crossGoB.AddComponent<LineRenderer>();
+        ConfigureSpoke(_crossB, 0.04f);
+        if (shader != null)
+        {
+            _crossMatA = new Material(shader);
+            _crossMatB = new Material(shader);
+            _crossA.material = _crossMatA;
+            _crossB.material = _crossMatB;
+        }
+
+        // --- 1if: Arc — a partial sweep that rotates with the charge.
+        var arcGo = new GameObject("Arc");
+        arcGo.transform.SetParent(transform, false);
+        _arc = arcGo.AddComponent<LineRenderer>();
+        ConfigureRing(_arc, ArcSegments, 0.05f, loop: false);
+        if (shader != null)
+        {
+            _arcMat = new Material(shader);
+            _arc.material = _arcMat;
+        }
+
+        // --- 1if: Wave — two extra rings that chase outward.
+        _waveB = NewRing("WaveB", WaveSegments, 0.03f, shader, out _waveMatB);
+        _waveC = NewRing("WaveC", WaveSegments, 0.025f, shader, out _waveMatC);
+    }
+
+    private void ConfigureRing(LineRenderer lr, int segments, float width, bool loop)
+    {
+        lr.useWorldSpace = false;
+        lr.loop = loop;
+        lr.positionCount = segments;
+        lr.startWidth = width;
+        lr.endWidth = width;
+        lr.numCapVertices = 2;
+    }
+
+    /// <summary>A straight centre-out spoke: two points, not a loop, drawn each frame in Apply().</summary>
+    private void ConfigureSpoke(LineRenderer lr, float width)
+    {
+        lr.useWorldSpace = false;
+        lr.loop = false;
+        lr.positionCount = 2;
+        lr.startWidth = width;
+        lr.endWidth = width;
+        lr.numCapVertices = 2;
+    }
+
+    private LineRenderer NewRing(string name, int segments, float width, Shader shader,
+        out Material mat)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(transform, false);
+        var lr = go.AddComponent<LineRenderer>();
+        ConfigureRing(lr, segments, width, loop: true);
+        mat = shader != null ? new Material(shader) : null;
+        if (mat != null) lr.material = mat;
+        return lr;
+    }
+
+    private GameObject NewGroup(string name)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(transform, false);
+        return go;
     }
 
     private void Apply()
     {
-        float r = Mathf.Lerp(BaseRadius, FullRadius, _charge);
+        float r = Mathf.Lerp(BaseRadius, FullRadius, _charge) * _scale;
         float a = Mathf.Lerp(0.35f, 1f, _charge);
         float pulse = 1f + 0.03f * Mathf.Sin(_pulse);
 
+        // --- 1if: which family is on. Exactly one of the seven is active; the shared disc and
+        // outer ring stay on for every style, so no family is ever an empty circle.
+        bool wantInner = _style == SpellCastStyle.Circle || _style == SpellCastStyle.Rune;
+        bool wantRune = _style == SpellCastStyle.Rune;
+        bool wantHex = _style == SpellCastStyle.HexRing;
+        bool wantCross = _style == SpellCastStyle.Cross;
+        bool wantArc = _style == SpellCastStyle.Arc;
+        bool wantWaves = _style == SpellCastStyle.Wave;
+        // Circle = the original disc+outer+inner. Halo = disc+outer only, i.e. the soft filled
+        // disc with a bright rim and no spinning inner ring.
         if (_disc != null)
             _disc.localScale = new Vector3(r * 2f * pulse, 0.02f, r * 2f * pulse);
         if (_discMat != null)
             _discMat.color = new Color(_color.r, _color.g, _color.b, 0.05f + 0.08f * _charge);
+        if (_innerRing != null && _innerRing.gameObject.activeSelf != wantInner)
+            _innerRing.gameObject.SetActive(wantInner);
+        if (_runeGroup != null && _runeGroup.activeSelf != wantRune)
+            _runeGroup.SetActive(wantRune);
+        if (_hexRing != null && _hexRing.gameObject.activeSelf != wantHex)
+            _hexRing.gameObject.SetActive(wantHex);
+        if (_crossA != null && _crossA.gameObject.activeSelf != wantCross)
+            _crossA.gameObject.SetActive(wantCross);
+        // Both spokes are the same family: toggling only CrossA left CrossB on screen after the
+        // style moved on, and a build that creates it active means "never switched" is visible
+        // rather than hypothetical.
+        if (_crossB != null && _crossB.gameObject.activeSelf != wantCross)
+            _crossB.gameObject.SetActive(wantCross);
+        if (_arc != null && _arc.gameObject.activeSelf != wantArc)
+            _arc.gameObject.SetActive(wantArc);
+        if (_waveB != null && _waveB.gameObject.activeSelf != wantWaves)
+            _waveB.gameObject.SetActive(wantWaves);
+        if (_waveC != null && _waveC.gameObject.activeSelf != wantWaves)
+            _waveC.gameObject.SetActive(wantWaves);
 
         if (_outerRing != null)
             for (int i = 0; i < OuterSegments; i++)
@@ -179,7 +371,30 @@ public sealed class CastingCircle : MonoBehaviour
         if (_outerMat != null)
             _outerMat.color = new Color(_color.r, _color.g, _color.b, a);
 
-        if (_innerRing != null)
+        // Rune ticks: eight short radial marks sitting on the inner ring's radius.
+        //
+        // The childCount guard is not defensive noise, it is the fix for a real per-frame throw.
+        // Build() assigns _runeTicks unconditionally but only CREATES the ticks inside
+        // `if (shader != null)`, so when both Shader.Find calls return null (a stripped
+        // URP project's Sprites/Default and Unlit/Color) _runeTicks is an EMPTY transform and
+        // GetChild(i) throws ArgumentOutOfRangeException every frame — the circle draws nothing and
+        // the console fills. The null check alone passed `while the ticks were missing`; the
+        // invariant is "as many children as we are about to index", so it is counted.
+        if (wantRune && _runeTicks != null && _runeTicks.childCount >= RuneTicks)
+        {
+            float ir = r * 0.86f;
+            for (int i = 0; i < RuneTicks; i++)
+            {
+                var tick = _runeTicks.GetChild(i);
+                float ang = _spin * Mathf.Deg2Rad + (i / (float)RuneTicks) * Mathf.PI * 2f;
+                tick.localPosition = new Vector3(Mathf.Cos(ang) * ir, 0f, Mathf.Sin(ang) * ir);
+                tick.localRotation = Quaternion.Euler(0f, -ang * Mathf.Rad2Deg, 0f);
+            }
+            if (_runeMat != null)
+                _runeMat.color = new Color(_color.r, _color.g, _color.b, a * 0.9f);
+        }
+
+        if (wantInner && _innerRing != null)
         {
             float ir = r * 0.72f * pulse;
             for (int i = 0; i < InnerSegments; i++)
@@ -188,7 +403,70 @@ public sealed class CastingCircle : MonoBehaviour
                 _innerRing.SetPosition(i, new Vector3(Mathf.Cos(ang) * ir, 0f, Mathf.Sin(ang) * ir));
             }
         }
-        if (_innerMat != null)
+        if (_innerMat != null && wantInner)
             _innerMat.color = new Color(_color.r, _color.g, _color.b, a * 0.8f);
+
+        if (wantHex && _hexRing != null)
+        {
+            // Flat-top hexagon: angles offset 30 degrees so the flat sides face the rim.
+            for (int i = 0; i < HexSegments; i++)
+            {
+                float ang = (i / (float)HexSegments) * Mathf.PI * 2f + Mathf.PI / 6f;
+                _hexRing.SetPosition(i, new Vector3(Mathf.Cos(ang) * r, 0f, Mathf.Sin(ang) * r));
+            }
+            if (_hexMat != null)
+                _hexMat.color = new Color(_color.r, _color.g, _color.b, a);
+        }
+
+        if (wantCross)
+        {
+            float cr = r * 0.95f;
+            _crossA.SetPosition(0, new Vector3(-cr, 0f, 0f));
+            _crossA.SetPosition(1, new Vector3(cr, 0f, 0f));
+            _crossB.SetPosition(0, new Vector3(0f, 0f, -cr));
+            _crossB.SetPosition(1, new Vector3(0f, 0f, cr));
+            if (_crossMatA != null) _crossMatA.color = new Color(_color.r, _color.g, _color.b, a);
+            if (_crossMatB != null) _crossMatB.color = new Color(_color.r, _color.g, _color.b, a);
+        }
+
+        if (wantArc && _arc != null)
+        {
+            // Sweep grows with charge, so a partial cast shows a partial halo.
+            float sweep = Mathf.Lerp(0.5f, 2.4f, _charge);
+            float start = _spin * Mathf.Deg2Rad;
+            for (int i = 0; i < ArcSegments; i++)
+            {
+                float t = i / (float)(ArcSegments - 1);
+                float ang = start + t * sweep;
+                float rr = r * (0.8f + 0.2f * Mathf.Sin(t * Mathf.PI));
+                _arc.SetPosition(i, new Vector3(Mathf.Cos(ang) * rr, 0f, Mathf.Sin(ang) * rr));
+            }
+            if (_arcMat != null)
+                _arcMat.color = new Color(_color.r, _color.g, _color.b, a);
+        }
+
+        if (wantWaves)
+        {
+            // Two waves chasing outward, phase-shifted by the pulse. Phase is a function of
+            // _pulse, so a slower tempo (lower _tempo) visibly slows the ripples.
+            DrawWave(_waveB, _waveMatB, r, 0f, a);
+            DrawWave(_waveC, _waveMatC, r, Mathf.PI, a);
+        }
+    }
+
+    private void DrawWave(LineRenderer lr, Material mat, float r, float phase, float a)
+    {
+        if (lr == null) return;
+        // Sawtooth: one wave crosses the halo then restarts, rather than shrinking to nothing.
+        float t = Mathf.Repeat((_pulse * 0.5f) + phase / (Mathf.PI * 2f), 1f);
+        float rr = r * Mathf.Lerp(0.25f, 1.15f, t);
+        float fade = (1f - Mathf.Abs(t * 2f - 1f)) * 0.9f;
+        for (int i = 0; i < WaveSegments; i++)
+        {
+            float ang = (i / (float)WaveSegments) * Mathf.PI * 2f;
+            lr.SetPosition(i, new Vector3(Mathf.Cos(ang) * rr, 0f, Mathf.Sin(ang) * rr));
+        }
+        if (mat != null)
+            mat.color = new Color(_color.r, _color.g, _color.b, a * fade);
     }
 }

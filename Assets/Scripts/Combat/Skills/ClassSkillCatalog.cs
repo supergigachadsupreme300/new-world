@@ -123,9 +123,25 @@ public static class ClassSkillCatalog
 
     private static ClassMod M(ClassModType kind, float amount) => new ClassMod { kind = kind, amount = amount };
 
+    /// <summary>1ii: class-spell look profiles, same all-multiplier contract as SkillCatalog.Look.</summary>
+    private static SpellLookProfile Look(SpellImpactStyle impact, SpellCastStyle cast,
+        float scale = 1f, float tempo = 1f, float hueShift = 0f, float value = 1f, float sat = 1f,
+        ProjectileShape shape = ProjectileShape.Auto)
+        => new SpellLookProfile
+        {
+            Impact = impact,
+            Cast = cast,
+            Scale = scale,
+            Tempo = tempo,
+            HueShift = hueShift,
+            ValueScale = value,
+            SaturationScale = sat,
+            DisplayShape = shape
+        };
+
     private static SpellData MakeSpell(string classId, string name, DamageType type, float power,
         float fp, SpellDelivery delivery, float cooldown, float range = 10f, float radius = 1.5f,
-        ProjectileShape shape = ProjectileShape.Auto)
+        ProjectileShape shape = ProjectileShape.Auto, SpellLookProfile look = null)
     {
         var sd = ScriptableObject.CreateInstance<SpellData>();
         sd.name = "cls_" + classId + "_" + name.ToLower().Replace(" ", "_");
@@ -140,6 +156,8 @@ public static class ClassSkillCatalog
         sd.Range = range;
         sd.Radius = radius;
         sd.Shape = shape;
+        // 1ii: same contract as SkillCatalog.Spell — null means "fully deterministic from sd.id".
+        sd.Look = look;
         return sd;
     }
 
@@ -236,7 +254,8 @@ public static class ClassSkillCatalog
             "+8% spell power.", mods: M(ClassModType.SpellPowerMul, 0.08f));
         Make(list, "mage", "fire3", "Fireball", 2, false, Focus(15f), P(N("mage", "fire1")),
             "Launch a fireball.",
-            new ClassSpellEffect { Spell = MakeSpell("mage", "Fireball", DamageType.Fire, 30f, 15f, SpellDelivery.Projectile, 4f) },
+            new ClassSpellEffect { Spell = MakeSpell("mage", "Fireball", DamageType.Fire, 30f, 15f, SpellDelivery.Projectile, 4f,
+                look: Look(SpellImpactStyle.Bloom, SpellCastStyle.Wave, scale: 1.12f, tempo: 1.15f)) },
             M(ClassModType.SpellPowerMul, 0.08f));
 
         // Frost — control. Ice Giant (cold immune, freeze aura stacks with Frost Nova).
@@ -258,7 +277,7 @@ public static class ClassSkillCatalog
         Make(list, "mage", "arc3", "Arcane Bolt", 2, false, Focus(12f), P(N("mage", "arc1")),
             "Hurl a bolt of raw arcane energy.",
             new ClassSpellEffect { Spell = MakeSpell("mage", "Arcane Bolt", DamageType.Arcane, 26f, 12f, SpellDelivery.Projectile, 3f,
-                shape: ProjectileShape.Bolt) });
+                shape: ProjectileShape.Bolt, look: Look(SpellImpactStyle.Burst, SpellCastStyle.HexRing, sat: 1.15f)) });
     }
 
     // ── Rogue ───────────────────────────────────────────────────────────────
@@ -565,7 +584,7 @@ public static class ClassSkillCatalog
         Make(list, "archer", "wi3", "Wind Shot", 2, false, Focus(8f), P(N("archer", "wi1")),
             "An arrow guided by wind force.",
             new ClassSpellEffect { Spell = MakeSpell("archer", "Wind Shot", DamageType.Wind, 18f, 8f, SpellDelivery.Projectile, 4f,
-                shape: ProjectileShape.Dart) });
+                shape: ProjectileShape.Dart, look: Look(SpellImpactStyle.Cross, SpellCastStyle.Arc, tempo: 1.2f)) });
 
         // Trapper — CC/zone. Goblin (+20% loot, 15% smaller hitbox), Fishmen (End+15, water theme).
         Make(list, "archer", "ho1", "Concussive Arrow", 1, false, Stamina(10f), Chain("archer"),
@@ -692,7 +711,8 @@ public static class ClassSkillCatalog
             "+8% healing power.", mods: M(ClassModType.HealPowerMul, 0.08f));
         Make(list, "paladin", "sm3", "Smite", 2, false, Focus(16f), P(N("paladin", "sm1")),
             "Smite a foe with holy light.",
-            new ClassSpellEffect { Spell = MakeSpell("paladin", "Smite", DamageType.Holy, 34f, 16f, SpellDelivery.Instant, 6f) });
+            new ClassSpellEffect { Spell = MakeSpell("paladin", "Smite", DamageType.Holy, 34f, 16f, SpellDelivery.Instant, 6f,
+                look: Look(SpellImpactStyle.Pillar, SpellCastStyle.Rune, scale: 1.15f, value: 1.1f, sat: 0.8f)) });
     }
 
     // ── Bard ────────────────────────────────────────────────────────────────
@@ -751,7 +771,7 @@ public static class ClassSkillCatalog
         Make(list, "taoist", "qi3", "Talisman", 2, false, Focus(14f), P(N("taoist", "qi1")),
             "Channel qi into a sealing talisman bolt.",
             new ClassSpellEffect { Spell = MakeSpell("taoist", "Talisman", DamageType.Arcane, 26f, 14f, SpellDelivery.Projectile, 6f,
-                shape: ProjectileShape.Dart) });
+                shape: ProjectileShape.Dart, look: Look(SpellImpactStyle.Ring, SpellCastStyle.Rune, hueShift: 0.03f, value: 0.9f)) });
 
         // Symbol — spell/heal. Celestial (Faith+25, healing miracles +20%), Elf (+8% XP).
         Make(list, "taoist", "sy1", "Ba Gua Symbols", 1, true, None(), Chain("taoist"),

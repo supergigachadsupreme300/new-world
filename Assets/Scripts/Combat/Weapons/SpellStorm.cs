@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -26,6 +25,9 @@ public class SpellStorm : MonoBehaviour
     private DamageType _type;
     private readonly Collider[] _strikeBuffer = new Collider[128];
 
+    /// <summary>1ie/1ih: the storm's resolved look, cached at Initialize.</summary>
+    private SpellLook _look;
+
     public void Initialize(SpellCaster caster, SpellData spell, float power, float radiusMult = 1f)
     {
         _caster = caster;
@@ -33,16 +35,26 @@ public class SpellStorm : MonoBehaviour
         _power = power;
         _casterRoot = caster != null ? caster.transform.root : null;
         radiusMult = Mathf.Max(radiusMult, 0.01f);
+        // 1ie: the storm's body colour and its spawn ring both come from the per-spell look, so a
+        // lightning storm and a frost storm are told apart by their Core hue as well as by
+        // their shape. _type is kept as-is — it still gates the bolt-vs-sphere FX branch.
+        //
+        // Resolved OUTSIDE the spell != null guard because RingFlash below reads _look.Scale
+        // unconditionally. In the guard it would stay default(SpellLook), whose Scale is 0 —
+        // so a spell-less storm spawned one ring at scale 0 (5x too small) while its body
+        // used the real Radius. Zone/Beam/Tornado all seed the fallback for this reason;
+        // read as a sibling rather than re-derived per class.
+        _look = spell != null ? SpellLook.Resolve(spell) : SpellLook.Resolve(DamageType.Wind, ProjectileShape.Auto);
         if (spell != null)
         {
             Radius = Mathf.Max(spell.Radius * radiusMult, 1.5f);
             if (spell.Duration > 0f) Lifetime = spell.Duration;
             if (spell.TickInterval > 0f) TickInterval = spell.TickInterval;
-            _color = DamageNumber.ColorFor(spell.Type);
+            _color = _look.Core;
             _type = spell.Type;
         }
 
-        SkillFx.RingFlash(transform.position, Vector3.up, _color, Radius, 0.5f);
+        SkillFx.RingFlash(transform.position, Vector3.up, _color, Radius, 0.5f, _look.Scale);
     }
 
     private void Update()
@@ -202,8 +214,13 @@ public class SpellStorm : MonoBehaviour
             }
         }
 
-        StrikeFlash.Spawn(at, c, 1.6f);
-        SkillFx.RingFlash(ground, Vector3.up, c, Random.Range(0.8f, 1.4f), 0.35f);
+        // 1ih: the per-strike flash is now the shared per-spell impact family instead of a
+        // sphere-only StrikeFlash. 14 storm spells share it, which is what sized PoolCap at 96 —
+        // StrikeFlash's 32 was sized for the same spells but is now retired, so its cap has no
+        // remaining owner. The ring stays: a strike with a flash AND a ring is the strongest
+        // on-screen read, and only the sphere is redundant.
+        SpellImpactFx.Spawn(at, Vector3.up, _look, 1.6f);
+        SkillFx.RingFlash(ground, Vector3.up, c, Random.Range(0.8f, 1.4f), 0.35f, _look.Scale);
     }
 
     private static void AssembleBolt(GameObject bolt, Material sharedMat)
@@ -243,79 +260,4 @@ public class SpellStorm : MonoBehaviour
         }
     }
 
-    /// <summary>Short-lived bright burst sphere that scales up and fades. Pooled so heavy
-    /// storms (strikes every ~0.5s) stop allocating new spheres + materials per strike.</summary>
-    private sealed class StrikeFlash : MonoBehaviour
-    {
-        private float _age;
-        private float _lifetime = 0.3f;
-        private float _scale = 1f;
-        private Material _mat;
-        private static readonly List<StrikeFlash> _pool = new List<StrikeFlash>();
-        private const int PoolCap = 32;
-
-        public static void Spawn(Vector3 at, Color color, float scale)
-        {
-            StrikeFlash flash = Acquire();
-            if (flash == null) return;
-            flash.transform.position = at;
-            flash._scale = scale;
-            flash._age = 0f;
-            if (flash._mat == null)
-                return;
-            flash._mat.color = color;
-            flash.gameObject.SetActive(true);
-        }
-
-        private static StrikeFlash Acquire()
-        {
-            for (int i = 0; i < _pool.Count; i++)
-            {
-                var f = _pool[i];
-                if (f == null)
-                {
-                    _pool.RemoveAt(i);
-                    i--;
-                    continue;
-                }
-                if (f.gameObject.activeSelf) continue;
-                _pool.RemoveAt(i);
-                return f;
-            }
-
-            Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
-            if (shader == null) return null;
-            var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            go.name = "StormFlash";
-            DestroyCollider(go.transform);
-            var flash = go.AddComponent<StrikeFlash>();
-            flash._mat = new Material(shader);
-            var r = go.GetComponent<MeshRenderer>();
-            if (r != null)
-                r.material = flash._mat;
-            return flash;
-        }
-
-        private void Update()
-        {
-            _age += Time.deltaTime;
-            float t = Mathf.Clamp01(_age / _lifetime);
-            float s = Mathf.Lerp(0.3f, 1f, Mathf.SmoothStep(0f, 0.4f, t));
-            transform.localScale = Vector3.one * (_scale * s);
-            if (_mat != null)
-            {
-                Color c = _mat.color;
-                c.a = 1f - t;
-                _mat.color = c;
-            }
-            if (t >= 1f)
-            {
-                gameObject.SetActive(false);
-                if (_pool.Count < PoolCap)
-                    _pool.Add(this);
-                else
-                    Destroy(gameObject);
-            }
-        }
-    }
 }

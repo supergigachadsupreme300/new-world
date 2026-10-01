@@ -1446,12 +1446,20 @@ Arcane→**no status** (pure force), Wind→Knockback, Holy→heals (§3.8), Ear
   which is `0` while `LowPolyFacets` is off, so with the render algorithm reverted the dent renders
   at full 1 m resolution and needs no skirt at all. The guarantee stays in the source and returns
   with the facet look.
-  **Every projectile impact — Earth or not — plays a school-colored exploding sphere (1gb):**
-  `SkillFx.ImpactSphere` grows a solid sphere at the hit point from a quarter to the spell's
-  radius while its transparency increases to fully transparent over ~0.45 s, then vanishes. It
-  replaces the crater excavation's floating cube burst (`SpawnCraterDebris`, which now only fires
-  for tool digs and zone/storm/summon strikes — projectile dents pass `emitDebris:false`), so a
-  bolt reads as a clean expanding blast instead of thrown dirt.
+  **Every spell impact plays its spell's OWN impact family (1id), not one shared sphere (1gb).**
+  1gb gave every projectile hit a solid sphere growing from a quarter to the spell's radius while
+  fading out over ~0.45 s; `SkillFx.ImpactSphere` was deleted in 1ig and
+  `SpellImpactFx.Spawn(worldPos, upDir, look, radius, scaleMul)` took its place, choosing one of the
+  impact families in §3.8.3 from the spell's resolved look. **The per-tick load is why it had to go:**
+  the old path was reached only by Projectile spells, and it allocated a fresh primitive *and a fresh
+  `Material`* per impact; 1ih adds on-hit flashes to Zone (77), Beam (11) and Vortex (8) spells that
+  had none, so a single blizzard alone is ~2 flashes/s and a screen with several is where one
+  primitive per impact stops being affordable. Flashes are pooled per family (cap 96 idle instances
+  each) and a per-frame budget of 24 drops the excess rather than queuing it — a queued flash would
+  arrive after the event that caused it, which is worse than no flash. The drop counter is on the test
+  ground's HUD (F4 lane), because a cap cannot be judged from taste. `SpawnCraterDebris` still only
+  fires for tool digs and zone/storm/summon strikes, so a bolt reads as a clean blast, not thrown
+  dirt.
 
 ### 3.8 Spell-Casting Pipeline
 
@@ -1473,8 +1481,16 @@ A spell is a data asset carrying:
 - **summonFallingRock** (sky spells: a big rock drops from the sky onto the target and the burst
   resolves on landing — see §3.8.1 Delivery Behaviors "Sky spells")
 - **projectile shape** (`ProjectileShape`, §3.8.1): the *visual* built for a Projectile-delivery
-  spell. When a spell leaves it `Auto`, `SpellCaster.AutoShapeFor` picks the school default; every
-  bolt/lance/blade/spear-named spell sets it explicitly so projectiles read as their name.
+  spell. When a spell leaves it `Auto`, the body shape comes from the spell's resolved **display
+  shape** (§3.8.3) — picked from its school's shape family by `SpellLook`, deterministically per
+  spell so it never changes between casts. Every bolt/lance/blade/spear-named spell sets `Shape`
+  explicitly so projectiles read as their name. **`Shape` never writes `spell.Shape`**: it is a
+  gameplay flag (homing/large-projectile behaviour), while the drawn body is `SpellLook.DisplayShape`
+  — two fields with different jobs, so a spell can be a homing missile and still draw as its family
+  demands.
+- **look profile** (`SpellLookProfile`, §3.8.3, 1ib): an optional authored override pinning this
+  spell's impact family, cast family, body shape, core/edge colour and scale/tempo. 21 spells carry
+  one; the other 151 resolve from their school.
 - **terrain shape** (Earth school signature, §3.8): an optional `TerrainShape` reshapes the tiled
   heightmap before damage resolves — as **smooth feathered per-corner edits**, never flat blocks.
   **Ring** rears a raised annular wall around the impact, **Spikes** erupts rock spikes beneath it,
@@ -1518,8 +1534,8 @@ A spell is a data asset carrying:
   `WorldBuilder.SpawnRockDebris`) once the pit reaches the stone band — tinted by the same
   `TerrainBandColor` the pit walls render and destroyed after ~2.5 s so repeated digs never litter.
   Only a Crater throws debris; the raised shapes never do. **Projectile impacts suppress this cube
-  burst (1gb)** — they carve the same dent but pass `emitDebris:false` and play a school-colored
-  exploding sphere (`SkillFx.ImpactSphere`) that expands while fading to transparent instead; only
+  burst (1gb)** — they carve the same dent but pass `emitDebris:false` and play their spell's own
+  impact family from the pooled `SpellImpactFx` dispatcher instead (§3.7 "Every spell impact"); only
   tool digs and zone/storm/summon strikes still eject the cubes.
   A Crater-shaped projectile (the root Stone Shard) carves its crater where the rock **strikes** —
   `SpellEffect.ResolveProjectileImpact` down-probes the ground at impact and deforms it there — so a
@@ -1632,7 +1648,7 @@ built once and fully static (no sphere meshes remain on projectiles):
 | **Bolt** | Jagged 8-segment cube chain along the flight axis (already a cube chain tapering 0.17→0.05, the same segment technique as the thunder-storm event's `SpawnJaggedBolt`) — used by every spell with "Bolt" in the name: Frost Bolt, Chain Lightning, Dark Bolt, Volt, Fork/Leap/Arc/Volt Bolt, Fury Bolt, Shadow/Doom Bolt, Void Rend, and the class-flavored Arcane Bolt. |
 | **Sphere** | Hot voxel orb: a 0.24 lead cube + 4 jittered cubes shrinking to ~0.05 behind it, each darker — the Fireball and every generic orb. (Scorch/Burn/Comet use the Comet shape instead.) |
 | **Shard** | Translucent glass lead chip (45° diamond) + 2 smaller, dimmer glass chips trailing — frost chips (the Ice school default; Chill Touch). |
-| **Debris** | Clustered grey rock cubes (mixed sizes, random rotations, one leading chunk) — the Earth school's Stone Shard. Dressed like the world's breakable-rock debris (`Color.Lerp(gray, black, rand)` cubes) with two chunks dusted in the earthy tan accent so it reads as magic; at impact the crater plays the school-colored exploding sphere (`SkillFx.ImpactSphere`, 1gb) instead of a cube burst — the cubes only remain as the pickaxe/mining look (1de). |
+| **Debris** | Clustered grey rock cubes (mixed sizes, random rotations, one leading chunk) — the Earth school's Stone Shard. Dressed like the world's breakable-rock debris (`Color.Lerp(gray, black, rand)` cubes) with two chunks dusted in the earthy tan accent so it reads as magic; at impact the crater plays the spell's own impact family from the pooled `SpellImpactFx` dispatcher (1id) instead of a cube burst — the cubes only remain as the pickaxe/mining look (1de). |
 | **Lance** | Long straight pointed spike (shaft + tip) with two small trailing flecks behind its tail — Ice Lance, Frost Pierce, Glacial Impale. |
 | **Spear** | Tapered spear: dark shaft + broad diamond head + trailing flecks behind — Shadow Spear. |
 | **Blade** | Flat translucent cross-blade (alpha ~0.4 so wind reads as a ghost of air) + two small ghost cubes trailing — Wind Blade, Razor Blade, Wind Scissor, Laceration. |
@@ -1641,8 +1657,9 @@ built once and fully static (no sphere meshes remain on projectiles):
 | **Missile** | Three 2-cube mini dart-stacks; **homing** — `SpellEffect.UpdateMissileTargeting` probes the **current trajectory** every frame and prioritizes the target on the flight path (the foe it is about to fly into), otherwise keeps chasing the locked target's last spot (or locks the nearest foe ahead if never locked), steering smoothly at 240°/s so the flight bends; no target = flies straight. Arcane Missiles, Chill Soul. |
 | **Dart** | Sleek thin bolt-line with a tip + small trailing fleck — physical shots (Archer Wind Shot, Taoist Talisman). |
 
-`Auto` resolves per school: Fire→Sphere, Ice→Shard, Lightning→Bolt, Wind→Blade, Water→Splash,
-Earth→Debris, Physical→Dart, everything else→Sphere. Builders live in `SpellCaster.BuildProjectileBody`
+`Auto` picks from the spell's **school family** via `SpellLook.Resolve` (§3.8.3): Fire→Sphere,
+Ice→Shard, Lightning→Bolt, Wind→Blade, Water→Splash, Earth→Debris, Physical→Dart, everything
+else→Sphere. Builders live in `SpellCaster.BuildProjectileBody`
 (cube primitives only, via the `Cluster` / `AddTrailingFlecks` helpers), colored per damage type;
 **since `1eb` the body is fully static — no exhaust particles and no in-flight pulse** (the old `OrbFx`
 scale-pulse/spin modes and the `AttachProjectileParticles` exhaust `ParticleSystem` were removed), so
@@ -1673,12 +1690,17 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   builds a **charge level** (0–100%, ~2 s, no auto-fire). **Releasing LMB** fires at the frozen level.
   Charge scales the cast: FP cost (up to ×1.6), damage (up to ×2.0), and AoE radius (up to ×1.8), so
   a deeper charge is always a gamble for more FP — never a dud.
-- While aiming/charging, the held **magic weapon shows a "casting circle" halo**: a translucent disc
-  beneath the tip plus an outer ring and a spinning inner rune ring wrapping the weapon, ramping its
-  radius, brightness, and spin speed with charge level and tinted by the **armed spell's element**.
-  Releasing the cast pops a one-shot expanding ring at the weapon. (`CastingCircle.cs`, driven by
-  `PlayerController`; split aim → charge → release is used by both magic and ranged.) Unarmed casts
-  still play a plain hand glow instead of the halo.
+- While aiming/charging, the held **magic weapon shows a "casting circle" halo** tinted by the armed
+  spell's **resolved look** (§3.8.3). It is no longer one ring: the halo picks one of **seven cast
+  families** from the spell's look, and the *parts* that family enables differ — Disc / outer Halo /
+  spinning Rune (8 radial tick marks) / HexRing / inner segments. So the same Wind spell and the same
+  Earth spell no longer wear the same halo, and the family is visible before the cast resolves. Radius,
+  brightness and spin still ramp with charge level; `Scale`/`Tempo` from the look scale it.
+  Releasing the cast pops a one-shot expanding ring **in the spell's own colour and size**. (`CastingCircle.cs`,
+  driven by `PlayerController`; split aim → charge → release is used by both magic and ranged.)
+  **Unarmed / no-spell-armed casts still play a plain white hand glow** — a weapon release with no
+  spell behind it keeps the neutral colour rather than borrowing a school's, because a white burst
+  reads as "released the weapon" and an Arcane-pink one would read as "cast an Arcane spell".
 - Projectile spells launch **from the casting circle's center**: the spawn point sits on the aim line
   at the rig/hand origin (a small forward muzzle offset only, no vertical lift), so the flight
   trajectory passes through the circle's heart. The pre-cast **path preview** mirrors the exact launch
@@ -1691,6 +1713,47 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   ranged previews are tinted by shot type and spread outward with low accuracy. (`ProjectilePathPreview.cs`,
   driven by `PlayerController`; hidden on cancel/release/weapon switch.) Ranged weapons with no projectile
   prefab fire a runtime-generated arrow instead of a hit-scan tracer.
+
+#### 3.8.3 Per-Spell Visual Identity — `SpellLook` (1ib)
+
+**One rule, one place.** A spell's on-screen identity is resolved by `SpellLook.Resolve` and by
+nothing else. There is no second spelling of "what colour is this spell" or "what shape does it draw"
+anywhere in the codebase — that is the rule-12 "second spelling that rots" failure, and this codebase
+had already shipped two drifting `DamageType` palettes. `DamageNumber.ColorFor(Type)` still exists
+but **delegates** to `SpellLook.SchoolColor`.
+
+**Precedence is exactly three steps** (1ib):
+
+1. **Authored `SpellLookProfile`** on the `SpellData` (`look:`) — 21 spells carry one, because a
+   named family behaviour should not be inferred from a school.
+2. **School family** with a per-spell deterministic pick from that family's member list — this is what
+   makes 151 spells differ without 151 hand-authored profiles.
+3. **`SpellLook.Resolve(DamageType, ProjectileShape)`** — the named identity-less fallback for callers
+   that genuinely have no spell (a non-spell turret bolt, the magic-model bench). It is deliberately
+   *not* a fourth precedence step: it is what you get by falling off the end of the rule on purpose.
+
+**What one look carries:** `Impact` family, `Cast` family, `DisplayShape` (the body actually drawn),
+`Core` + `Edge` colours, `Scale`, `Tempo`.
+
+- **Impact families** (`SpellImpactStyle`, 1id) drive `SpellImpactFx`'s pooled flash: Burst, Ring,
+  Sphere, Cross, Shards, Bloom, Pillar. `Inherit` means "no authored opinion — take the school
+  family's pick", and `SpellImpactFx.Spawn` returns immediately on it.
+- **Cast families** (`SpellCastStyle`, 1if) drive which parts the `CastingCircle` halo builds and
+  shows: Circle, Rune, HexRing, Cross, Arc, Wave, Halo.
+- **`Shape` vs `DisplayShape`** — `spell.Shape` is a *gameplay* flag (`Missile` = homing, see
+  §3.8.1); `DisplayShape` is what gets drawn. They are separate fields because a spell can be a
+  homing missile and still want its school's family body.
+
+**The single sanctioned exception:** `MagicTestMatrix`'s school **header swatch** keeps its own table
+rather than calling `SpellLook.SchoolColor`. It is a QA surface, not a readout — when the swatch and
+the thing being judged are the same colour, a mis-coloured spell becomes invisible on the very screen
+built to catch it. It is debug-only and save-invisible, so it needs no parity check.
+
+**How this is judged (1ic):** the test ground's **F4** lane resolves every reachable spell and reports
+`N spells / M distinct identities / C colliding groups`, where identical means impact + cast + shape +
+core RGB at 8 bits. `Scale`/`Tempo` are excluded — counting them would let a number read "unique"
+while two spells look identical on screen. **`M` must equal `N` (172: 167 magic + 5 class).** Until
+that number is read in a session, 1id–1ii are not verified.
 
 #### Spell Sources
 

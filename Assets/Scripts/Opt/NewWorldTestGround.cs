@@ -98,6 +98,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
     [Tooltip("QA (1ic): key that runs the per-spell look-collision audit. F4: F1 is a skill hotkey, F3 is the 1hy corner/void audit, and the F2/F4 lanes 1hx removed were not restored.")]
     public Key LookAuditKey = Key.F4;
     private string _lookAuditText;
+    private bool _lookAuditRun;
 
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
@@ -1079,6 +1080,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
           .Append(" (worst ").Append(worstText).Append("), ").Append(authored)
           .Append(" authored profiles. axes = impact+cast+shape+coreRGB@8bit (scale/tempo excluded)");
         _lookAuditText = sb.ToString();
+        _lookAuditRun = true;
         Debug.Log("[NewWorldTestGround] " + _lookAuditText);
 
         sb.Append('\n').Append("  impact families: ").Append(CountLine(byImpact));
@@ -1428,6 +1430,16 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 // the number is evidence for the frame the key was pressed on.
                 if (EnableLookAudit && !string.IsNullOrEmpty(_lookAuditText))
                     stats += "\n" + _lookAuditText;
+
+                // 1id: SpellImpactFx's per-frame budget REFUSES flashes past PerFrameBudget in one
+                // frame and counts the refusals. That counter was write-only until here — the budget
+                // is a cap, and a cap cannot be judged from taste (rule 7). Read LIVE every frame,
+                // unlike the frozen audit headline above, and on its own line so a rising count is
+                // legible against the frame instead of reading as part of the identity number.
+                // _lookAuditRun gates it: the audit must have been pressed once for the lane to arm.
+                if (EnableLookAudit && _lookAuditRun)
+                    stats += "\n" + SpellImpactFx.DroppedSinceLaunch + " impact flashes dropped"
+                        + " (budget " + SpellImpactFx.PerFrameBudget + "/frame)";
 
                 _fpsText.text = stats;
             }

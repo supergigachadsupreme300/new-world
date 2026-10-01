@@ -22,6 +22,9 @@ public class SpellTornado : MonoBehaviour
     private Transform _casterRoot;
     private readonly Collider[] _tickBuffer = new Collider[128];
 
+    /// <summary>1ie/1ih: resolved once in Initialize; drives the spawn ring and the 1ih tick flash.</summary>
+    private SpellLook _look;
+
     public void Initialize(SpellCaster caster, SpellData spell, float power, float radiusMult = 1f, float tickMultiplier = 1f)
     {
         _caster = caster;
@@ -56,8 +59,12 @@ public class SpellTornado : MonoBehaviour
             tb.AddDebrisBlock(new Vector3(0.9f, 0.5f, 0.9f), new Color(0.35f, 0.27f, 0.19f));
         }
 
+        _look = spell != null
+            ? SpellLook.Resolve(spell)
+            : SpellLook.Resolve(DamageType.Wind, ProjectileShape.Auto);
+
         if (spell != null && Radius > 0f)
-            SkillFx.RingFlash(transform.position, Vector3.up, DamageNumber.ColorFor(spell.Type), Radius * 2f, 0.4f);
+            SkillFx.RingFlash(transform.position, Vector3.up, _look.Core, Radius * 2f, 0.4f, _look.Scale);
     }
 
     private void Update()
@@ -80,6 +87,7 @@ public class SpellTornado : MonoBehaviour
 
         Vector3 center = transform.position;
         int count = Physics.OverlapSphereNonAlloc(center, Radius, _tickBuffer);
+        bool struck = false;
         for (int i = 0; i < count; i++)
         {
             var col = _tickBuffer[i];
@@ -93,6 +101,7 @@ public class SpellTornado : MonoBehaviour
             float tickDamage = _power * _tickMultiplier;
             if (tickDamage > 0f)
                 _caster.ResolveHitAt(col.gameObject, _spell, tickDamage);
+            struck = true;
 
             bool isEnemy = root.TryGetComponent<EnemyController>(out _)
                 || root.TryGetComponent<BossController>(out _);
@@ -106,5 +115,11 @@ public class SpellTornado : MonoBehaviour
                         Mathf.Min(PullSpeed * Time.deltaTime, dist));
             }
         }
+
+        // 1ih: one flash per tick at the funnel base, not one per pulled enemy. The tornado's own
+        // funnel body is already the loudest thing on screen, so this is the low-key ground thump
+        // that says "the tick connected" without stacking flashes on top of it.
+        if (struck)
+            SpellImpactFx.Spawn(center, Vector3.up, _look, Radius * 0.8f);
     }
 }

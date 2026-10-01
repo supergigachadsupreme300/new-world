@@ -24,6 +24,9 @@ public class SpellSummon : MonoBehaviour
     private Vector3 _headBaseScale;
     private readonly Collider[] _hitBuffer = new Collider[32];
 
+    /// <summary>1ie: the summon's resolved look, cached at Initialize.</summary>
+    private SpellLook _look;
+
     public void Initialize(SpellCaster caster, SpellData spell, float power, float radiusMult = 1f)
     {
         _caster = caster;
@@ -31,16 +34,22 @@ public class SpellSummon : MonoBehaviour
         _power = power;
         _casterRoot = caster != null ? caster.transform.root : null;
         radiusMult = Mathf.Max(radiusMult, 0.01f);
+        // 1ie: resolved OUTSIDE the spell != null guard — BuildVisual and the RingFlash below both
+        // read _look (Scale, and the impact style it hands to SpellImpactFx). Assigned only inside
+        // the guard, a spell-less summon drew at default(SpellLook).Scale == 0 and, worse, asked
+        // SpellImpactFx for the Inherit style, which Spawn returns on — no flash at all. Same
+        // fallback Zone/Beam/Tornado seed.
+        _look = spell != null ? SpellLook.Resolve(spell) : SpellLook.Resolve(DamageType.Arcane, ProjectileShape.Auto);
         if (spell != null)
         {
             Radius = Mathf.Max(spell.Radius * radiusMult, 1f);
             if (spell.Duration > 0f) Lifetime = spell.Duration;
             if (spell.TickInterval > 0f) TickInterval = spell.TickInterval;
-            _color = DamageNumber.ColorFor(spell.Type);
+            _color = _look.Core;
         }
 
         BuildVisual();
-        SkillFx.RingFlash(transform.position, Vector3.up, _color, Radius * 0.8f, 0.45f);
+        SkillFx.RingFlash(transform.position, Vector3.up, _color, Radius * 0.8f, 0.45f, _look.Scale);
     }
 
     private void Update()
@@ -113,7 +122,7 @@ public class SpellSummon : MonoBehaviour
         var go = new GameObject("SummonBolt");
         go.transform.position = muzzle;
         go.transform.rotation = Quaternion.LookRotation(dir);
-        _caster.DecorateProjectile(go, _spell.Type, _spell.Shape);
+        _caster.DecorateProjectile(go, _spell);
         float speed = _spell.ProjectileSpeed > 0f ? _spell.ProjectileSpeed : 18f;
         var fx = go.AddComponent<SpellEffect>().Initialize(_spell, _power * BoltPowerMultiplier, dir, _caster, 1f);
         fx.Launch(speed);
