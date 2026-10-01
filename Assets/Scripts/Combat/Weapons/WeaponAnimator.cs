@@ -315,10 +315,24 @@ public sealed class WeaponAnimator : MonoBehaviour
     private PoseKey[] _set;       // currently selected combo variant (owner/throwing arm)
     private PoseKey[] _otherSet;  // currently selected combo variant (support arm, Asym only)
 
-    // Rest pose snapshots, re-captured each attack (re-parent safe).
+    // Per-phase base: where the weapon sits when THIS phase began. Derived from the authored rest
+    // below - never from a live animated transform.
     private Vector3 _basePos;
     private Vector3 _baseEuler;
     private Vector3 _baseScale;
+
+    // The AUTHORED rest pose, and the one value that must never be sampled from an animated frame.
+    // 1im: every animated frame writes `_baseEuler + aEuler` onto the transform, so a phase that
+    // began while the previous phase's pose was still applied used to capture that accent offset as
+    // its new rest - and since End/StopSway/AbandonSway all restore TO the base, the error could
+    // never unwind and the weapon stayed permanently rolled. Only the magic weapons could drift:
+    // they are the only defs with a rotation accent (staff 14, book 16, wand 10, orb 30 degrees),
+    // while every melee/ranged/shield def is K_None or a no-op.
+    private bool _restValid;
+    private Vector3 _restPos;
+    private Quaternion _restRot;
+    private Vector3 _restScale;
+
     private Quaternion _ownerShBase;
     private Quaternion _ownerElBase;
     private Quaternion _ownerWrBase;
@@ -671,12 +685,52 @@ public sealed class WeaponAnimator : MonoBehaviour
     }
 
     /// <summary>
-    /// Capture the per-phase rest state (weapon transform + arm pivots) and claim the arms. The
-    /// weapon transform is re-captured so re-parenting onto a hand (ReparentToHands) is harmless;
-    /// the arm pivots' rest is always local identity.
+    /// (1im) The ONE place the authored rest is written. Call only while no phase owns the
+    /// transform, i.e. while the live pose genuinely IS the rest rather than an animated offset on
+    /// top of it.
+    /// </summary>
+    private void SyncRestFromIdle()
+    {
+        _restPos = transform.localPosition;
+        _restRot = transform.localRotation;
+        _restScale = transform.localScale;
+        _restValid = true;
+    }
+
+    /// <summary>
+    /// (1im) Put the transform back on the authored rest. Restores nothing when the rest is not yet
+    /// known, so a first capture taken before it exists degrades to a plain live sample rather than
+    /// snapping the weapon to identity.
+    /// </summary>
+    private void RestoreAuthoredRest()
+    {
+        if (!_restValid) return;
+        transform.localRotation = _restRot;
+        transform.localPosition = _restPos;
+        transform.localScale = _restScale;
+    }
+
+    /// <summary>
+    /// Capture the per-phase rest state (weapon transform + arm pivots) and claim the arms. The arm
+    /// pivots' rest is always local identity (see <see cref="RestoreArms"/>); the weapon's rest is
+    /// the authored one below, NOT a fresh sample.
+    /// <para>
+    /// 1im: this used to re-sample the live transform, which is what let the magic weapons drift.
+    /// Because every animated frame is written as `_baseEuler + aEuler`, a phase that began while
+    /// the previous phase was still on screen captured that accent offset as its own rest - and since
+    /// End/StopSway/AbandonSway all restore TO `_baseEuler`, each cast compounded the last and the
+    /// weapon stayed rolled forever. The rest is now re-sampled only while idle (which keeps
+    /// re-parenting onto a hand harmless, because a re-parent rewrites the local pose and an idle
+    /// rig is by definition sitting on that new pose) and restored otherwise, so the capture can
+    /// never read its own output.
+    /// </para>
     /// </summary>
     private void CaptureRest()
     {
+        if (!_active && !_charging && !_guarding && !_swayActive)
+            SyncRestFromIdle();
+        RestoreAuthoredRest();
+
         _basePos = transform.localPosition;
         _baseEuler = transform.localRotation.eulerAngles;
         _baseScale = transform.localScale;
@@ -753,6 +807,9 @@ public sealed class WeaponAnimator : MonoBehaviour
         // rest — stale attack/charge/guard holds must never leak their arm ownership.
         if (_ownsArms)
             End();
+        // 1im: a rig that was disabled may have been re-parented or re-posed meanwhile, so the rest
+        // authored before that is stale. Drop it and let the next idle frame re-author it.
+        _restValid = false;
     }
 
     // ──────────────────────────────────────────────────────────
@@ -798,9 +855,13 @@ public sealed class WeaponAnimator : MonoBehaviour
             _swayOtherShBase = Quaternion.identity;
             _swayOtherElBase = Quaternion.identity;
         }
-        _basePos = transform.localPosition;
-        _baseEuler = transform.localRotation.eulerAngles;
-        _baseScale = transform.localScale;
+        // 1im: same rule as CaptureRest - never re-base from a live frame. The sway only ever starts
+        // from an idle rig, so the live pose IS the authored rest, but routing it through the shared
+        // helper keeps one place that writes the rest and one place that reads it.
+        SyncRestFromIdle();
+        _basePos = _restPos;
+        _baseEuler = _restRot.eulerAngles;
+        _baseScale = _restScale;
         _swayGuard = 0f;
         _swayActive = true;
         Acquire();

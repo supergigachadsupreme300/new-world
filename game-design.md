@@ -1348,6 +1348,17 @@ keyframed pose tracks driving the arm pivots — "the animation pack lives on th
   90° yaw so the length reads side-on to the camera plus a 30° off-vertical cant, so the staff grips
   exactly like the sword rather than hanging dead-vertical. Other magic focuses (book / wand / orb /
   lute) keep their own natural upright hold at a short grip-height below the hand.
+- **The rest pose is authored, never re-sampled from an animated frame** (1im). `WeaponAnimator`
+  writes every animated frame as `_baseEuler + accent`, and each phase begins by capturing `_baseEuler`
+  from the live transform. If that capture is allowed to run while the *previous* phase's pose is
+  still on the weapon, the accent offset becomes the new permanent rest — and because `End`/`StopSway`/
+  `AbandonSway` all restore *to* the base, nothing ever unwinds it. The magic weapons were the only
+  ones that could drift, and the reason is structural rather than per-weapon: they are the only defs
+  with a **rotation** accent (staff 14° roll, holy_book 16° yaw, bone_wand 10° roll, control_orb 30°
+  roll; lute is scale-only) — every melee/ranged/shield def is `K_None` or a no-op accent. So the rest
+  is now authored once (`SyncRestFromIdle`, only while no phase owns the transform) and restored
+  before any capture (`RestoreAuthoredRest`), which also makes a drifted session self-heal on the
+  next cast.
 - **Defense set (guard)** — holding RMB (block) eases the arms into a held guard pose
   (`PlayGuard` / `EndGuard`, ~0.18 s grab-in) that stays raised while blocking:
   - **Shields** raise the shield face up in front — the cover stance.
@@ -1362,7 +1373,9 @@ keyframed pose tracks driving the arm pivots — "the animation pack lives on th
   ready-sway; each phase owns the arms exactly once and releases on `End`/`OnDisable`), and the arm
   rest is always the model's local identity. Rapid attack spam, charge-cancel, and guard→attack
   juggling can never leak arm ownership or bake an altered pose into the model; a `PlayerAnimator`
-  watchdog force-releases a hung arm-owner claim as a backstop.
+  watchdog force-releases a hung arm-owner claim as a backstop. **1im** extended the same invariant
+  from the arms to the weapon transform itself — see *The rest pose is authored* above, which is what
+  the magic-weapon drift was made of.
 
 ### 3.7 Damage & Status Types
 
