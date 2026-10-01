@@ -144,6 +144,33 @@ somewhere other than the lattice it stamps — that case reported "worst dY 0 OK
 the corner, which is why section C reads `Mesh.vertices` and not the lattice. A future gap fix should
 expect to *rebuild* one of these measurements rather than to read cause A off an existing validator.
 
+**The F1 lane (1in) — dents, and whether a missing rim is a resolution problem or an unauthored
+shape.** `WorldStreamer.CraterAudit()` (bench key **F1**, `WorldStreamer.CraterAudit.cs`) answers a
+question the F3 lane cannot: a carve *is* in the data and *is* drawn, so every seam-cause reading is
+clean while the shape is still wrong. Read-only, like F3 — no rebuild, no re-stamp, no poll — so the
+numbers describe the frame the key was pressed on.
+
+| Lane section | Measures | What it separates |
+|---|---|---|
+| **A fingerprint** | `(BuildStamp, MeshStep, vertexCount)` buckets across the loaded set | the premise (rule 11) for the other three |
+| **B resolution** | deepest dished corner, corners spanned, dish radius vs the render path's sampling gap | "drawn" from "smaller than promised" |
+| **C profile** | per-ring min/mean/max dig out to the dish edge | monotone cone from bowl-with-rim |
+| **D expressibility** | corner spread vs the 1ew trigger, corners **above** pristine, adjacent gaps | "not authored" from "authored but coarse" |
+
+Section D counts corners *above* pristine rather than inferring a rim from the profile, because a
+rim is a **positive raise** and the crater profile in `WorldStreamer.Deform.cs` is a monotone
+smoothstep dish (`target = current - s * CraterStep`) that can only lower. That is the reason a
+resolution-only fix would be wrong: no amount of sub-tile geometry produces a raise that is never
+written. Section D is also scoped to the crater's own footprint rather than the search band, since
+the band locates the crater and is not the crater, and the `Wall`/`Ring`/`Pillar` deform profiles do
+raise — an unrelated one nearby would otherwise be read as this crater's rim.
+
+At the 1ia default (`LowPolyFacets` off, `EffectiveLowPolyStep` = 0) section B reports
+`nodeGap n/a (every corner drawn)`: the dish is drawn **in full**, and the limit is shape, not
+resolution. The follow-up is **1ex**, a stored fine lattice — interior fine nodes only, with tile
+edges left bilinear so the edge-linearity no-crack proof and cross-chunk seams are untouched. That
+is the same infrastructure the user wants for caves; **caves are deferred**, and the existing
+`SculptVoxelCave` path stays dormant.
 
 ### 2.3 Perlin Noise Layers (5 octaves)
 
@@ -492,6 +519,7 @@ output). Nothing was deleted; the change is three values plus their two test-pla
 | `WorldStreamer.FarSectorStep()` | `6` | **`3`** | far-shell sampling step (never gated — see below) |
 | `NewWorldTestGround.EnableLowPolyTerrain` | `true` | **`false`** | test-platform mirror; re-enabled the look every session |
 | `NewWorldTestGround.LowPolyStep` | `6` | **`3`** | test-platform mirror |
+| `NewWorldTestGround.EnableCraterAudit` | n/a | **`true`** | F1 read-only crater/deform audit (`CraterAuditKey` = `Key.F1`) |
 
 What the terrain renders now, with the flag off:
 

@@ -15,6 +15,82 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1in - "the dent looks like the ground was pulled down" - VERDICT: OPEN (measurement shipped, awaiting readout)
+
+The user asked for a raised-rim crater instead of stretching the surrounding tiles, and mentioned
+caves. **No behaviour has been changed.** This is the reasoning trail behind the F1 measurement.
+
+### H54 - "the dish is written to nodes the render path never samples, so it is invisible" - REJECTED as the default
+
+Tempting, because rule 12 makes it a real failure mode and the seam work (1i9) had just been bitten
+by it. But it does not fit the default configuration: `EffectiveLowPolyStep` is **0** when
+`LowPolyFacets` is false, and at step 0 the surface holds **every** 1 m lattice node, so every corner
+a carve writes *is* drawn. The rule-12 trap needs `step > 0`.
+
+The residual worry is that `LowPolyFacets` is set **at runtime** (the test ground pushes its own
+mirrored value in `Awake` before the first poll), and I found no serialized override in any
+`.unity`/`.prefab` in the repo. So the value in the session the user is looking at is UNKNOWN to me.
+That is a premise question, not a hole in the theory - which is why it is a fingerprint line, not an
+assumption baked into the audit.
+
+### H55 - "1ew's adaptive refinement should already be subdividing the crater" - REJECTED
+
+`ChunkMeshGenerator` emits a refined 2x2 block when a tile's corner SPREAD exceeds
+`DefaultRefineThreshold = 2.5f`. A 1.9 m-reach, 1.1 m-deep crater over a 1 m lattice produces a corner
+spread on the order of the depth, around 1 m - comfortably under 2.5. So no refined block is emitted.
+
+Worse for the purpose even if it were: the refined block's 3x3 fine heights are **bilinear** samples of
+the *same four coarse corners*. It adds normal variation; it cannot add shape. So "the crater needs
+subdivision" was wrong twice - it would not trigger, and it would not help if it did.
+
+### H56 - "the shape is missing because a cone has no rim" - CONFIRMED as the mechanism, and it is the one that matters
+
+The crater profile in `WorldStreamer.Deform.cs` is a smoothstep **monotone** dish:
+`target = current - s * CraterStep`, with `s` the smoothstep falloff and no term anywhere that RAISES.
+A rim is a positive raise. A function that can only lower cannot produce one, at any resolution, by
+any amount of subdivision. Section D of the audit therefore counts corners **above** pristine rather
+than inferring a missing rim from the shape's appearance.
+
+This is the finding that made me stop and measure rather than fix: the obvious "make it sub-tile so it
+looks better" fix does not touch the thing the user actually named.
+
+### H57 - "the crater reaches far enough to be worth sub-tile geometry" - SUPPORTED
+
+A 1.9 m reach is 3-4 coarse nodes across. That is genuinely below the resolution where a floor, a wall
+and a rim are separately expressible - which is also exactly why the user expects caves to be easier
+afterwards. It is the reason the user chose the fine-lattice architecture over a crater-only overlay.
+
+### H58 - "1ex can store sub-tile heights without breaking the seam proof" - CONFIRMED, with one carve-out
+
+The no-crack proof rests on every tile edge being **linear** and continuous across a shared edge. A
+naive per-tile 3x3 fine grid breaks it: each tile interpolates its own edge nodes, and two tiles
+sharing an edge would disagree about the vertices along it. So 1ex stores **interior** fine nodes only
+and leaves every edge node bilinear. Corner-lattice saves, cross-chunk seams and the existing
+`ChunkMeshGenerator` edge pass are all untouched. Cost: geometry stops exactly at the tile boundary,
+which is why this is a resolution change and not a seam fix.
+
+### DEAD END - a half-metre bias I nearly shipped
+
+The first profile ring used `FloorToInt(cx + 0.5 + cos*r)`. `ChunkData.Size` is 1 and the chunk
+builder seeds corner `(gx,gz)` from `GetHeight(seed, tc.X*cs+gx, tc.Z*cs+gz)` - corners sit AT integer
+world coords, so every ring sat half a metre out. I had been reading `CurrentHeightOf`, which uses
+`(cx + 0.5, cz + 0.5)`, and carried its convention over. Two spellings of "a corner's height" in one
+codebase; I picked the wrong one and the numbers would have been quietly plausible.
+
+Lesson recorded in AGENTS rule 8's family: when a copy's arithmetic is the contract, read the
+*writer*, not the reader that looks like it.
+
+### DEAD END - assuming StaticChecks would catch the next mistake
+
+It did not. `dishSpan = span;` written above `float span = 0f;` is CS0103, and the script reported
+`braces 44/44 parens 263/263` on a file that could not compile - balance is not reachability. Rule 7
+already warns that a check nobody has seen fail is not a check; the converse also holds. I did not add
+a naive declaration-order scanner, because a detector that fires on every legitimate field read would
+train the next reader to ignore it - which is the exact failure mode rule 7 documents. Found by
+rereading; recorded as a known blind spot.
+
+---
+
 ## 1ik â€” the frame-budget lane, and a report that named the wrong denominator first â€” VERDICT: OPEN (shipped, awaiting readout)
 
 ### H53 â€” "30 FPS with every streamer counter near zero means the streamer is the cost" â€” REJECTED

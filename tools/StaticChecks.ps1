@@ -41,6 +41,7 @@ $corneraudit = 'Assets\Scripts\World\Streaming\WorldStreamer.CornerAudit.cs'
 $chunkbuild  = 'Assets\Scripts\World\Streaming\WorldStreamer.ChunkBuild.cs'
 $farshell    = 'Assets\Scripts\World\Streaming\WorldStreamer.FarShell.cs'
 $deform      = 'Assets\Scripts\World\Streaming\WorldStreamer.Deform.cs'
+$crateraudit = 'Assets\Scripts\World\Streaming\WorldStreamer.CraterAudit.cs'
 
 # AGENTS.md rule 3: any WorldBuilder*.cs edited here belongs in $files, or checks 1, 4
 # and 5 silently stop covering it. 1hz added Persistence + NPCs. 1hy added the
@@ -49,8 +50,11 @@ $deform      = 'Assets\Scripts\World\Streaming\WorldStreamer.Deform.cs'
 # check 7 below, which exists because of ChunkBuild.
 # 1i9 added Deform - the facet-visibility skirt, three new locals read across a loop
 # and a new static helper, so it needs the same coverage rather than shipping unchecked.
+# 1in added CraterAudit - the same partial-class shape as CornerAudit, with an `out`
+# parameter set read across four helper calls (check 4's CS0165 surface) and a private
+# TryGet-style helper (check 2's void-return surface).
 $files = @($blueprints, $persistence, $npcs, $world, $testground, $corneraudit,
-           $chunkbuild, $farshell, $deform)
+           $chunkbuild, $farshell, $deform, $crateraudit)
 
 # Types a structure-part helper can be declared with, plus local declarations.
 $retAlt  = '(?:static\s+)?(?:GameObject|void|int|float|bool|string|Vector3|Color|Vector2|Quaternion|Transform)'

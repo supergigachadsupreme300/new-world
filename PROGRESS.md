@@ -1,4 +1,86 @@
-﻿## 1im. Magic weapon permanently drifts sideways after repeated casts — shipped, NOT play-tested
+﻿## 1in. Crater/deform audit lane (F1) - shipped as a MEASUREMENT, not a fix
+
+**Status: measurement shipped, NO behaviour changed. Awaiting the user's Unity compile and the F1
+readout (rule 3 - no build or play-test runs in this project; rule 7 - measure before fixing).**
+The user reports that spell and tool dents "look like the ground got pulled down" rather than like
+craters, and asked for a raised rim instead of stretching the surrounding tiles, which would also
+make caves easier later. This task ships **only the measurement**. The fix is 1ex and is not started.
+
+### Why the measurement came first
+
+The shape question has three live candidate mechanisms, and they are indistinguishable by eye:
+1. the dish is written to 1 m corners the render path samples, and reads as displaced material;
+2. it is written but only partly sampled, so part of it is not drawn at all (rule 12);
+3. it is drawn correctly and the fault is purely that a **cone has no rim** - the shape was never
+   authored, so no amount of extra resolution would produce one.
+Picking one of these by looking would be a guess, so F1 measures all three and names them.
+
+### What shipped
+
+`Assets\Scripts\World\Streaming\WorldStreamer.CraterAudit.cs` (new partial of `WorldStreamer`,
+`CraterAudit()`) - read-only: it reads tile data and the resident mesh, and rebuilds, re-stamps and
+polls nothing, so every number describes the frame the key was pressed on.
+
+- **A. fingerprint (premise first).** Distinct `(BuildStamp, MeshStep, vertexCount)` buckets across
+  the loaded set, plus a loud `buildStamp MIXED` line. Rule 11: an un-restarted session can hold
+  chunks from two generator versions, which would make B/C/D evidence about a world that is not on
+  screen - so this section runs **before** the three that look more like tests.
+- **B. resolution.** Deepest dished corner, how many corners the dish spans, and the dish radius
+  against the render path's own visibility bound (`step/sqrt(2)`, not `step`). At step 0 it prints
+  `nodeGap n/a (every corner drawn)` on purpose: the dish is drawn **in full**, so the limit is
+  SHAPE, not resolution. Saying so stops the next reader "fixing" a carve that is already visible.
+- **C. profile.** Per-ring min/mean/max dig out to the dish edge, so "monotone cone" and "bowl with a
+  rim" are separable from the numbers. Untouched corners read exactly `0.000` because the chunk
+  builder seeds corner `(gx,gz)` from `GetHeight(seed, cx, cz)` - the same sample the dig is measured
+  against, so the zero is real and not noise.
+- **D. expressibility.** Max corner spread vs the 1ew refinement trigger, corners above pristine (a
+  rim is a *positive raise*, and a crater that only lowers can never have one), and adjacent-corner
+  gaps. **Scoped to the crater's own footprint**, not the search band: the band finds the crater, it
+  is not the crater, and the Wall/Ring/Pillar deform profiles do raise - an unrelated one nearby
+  would otherwise be read as "this crater has a rim".
+- **VERDICT.** Keeps "no loaded terrain in band" (an absent measurement) distinct from "no dished
+  corner" (a real observation of zero), per rule 7's unit rule.
+
+`Assets\Scripts\Opt\NewWorldTestGround.cs`: `EnableCraterAudit` (on), `CraterAuditKey = Key.F1`, a
+cached headline on the HUD plus the full table to the console. **F1** was picked after grep confirmed
+no `Key.F1` binding exists - F2 is the frame budget, F3 the corner/void audit, F4 the look audit, F5
+the camera toggle.
+
+### Two things the first draft got wrong that no automated check would have caught
+
+- **A half-metre bias.** The profile sampled `FloorToInt(cx + 0.5 + cos*r)`. Corners sit *at* integer
+  world coords (`ChunkData.Size == 1`; `WorldStreamer.ChunkBuild.cs:293-295` seeds corner `(gx,gz)`
+  from `GetHeight(seed, tc.X*cs+gx, tc.Z*cs+gz)`), so every ring was pushed outward by half a step.
+  Found by reading the seeding code rather than assuming it, because the *other* half of the codebase
+  (`CurrentHeightOf`) really does sample `(cx + 0.5, cz + 0.5)` - two spellings of "the height of a
+  corner" exist, and picking the wrong one is silent.
+- **A use-before-declaration.** `dishSpan = span;` was written above `float span = 0f;` (CS0103).
+  **`tools\StaticChecks.ps1` did not catch it** - it covers balance, arity, void-return, CS0165,
+  cross-case, part-key and member-depth, but has **no declaration-order check**, so brace/paren
+  balance passed at 44/44 while the file could not compile. Found by rereading, not by a check.
+  Left as a known blind spot rather than adding a naive detector: a false-positive-prone
+  "use before declare" scan is worse than none (rule 7).
+
+### Verified
+
+`tools\StaticChecks.ps1`: 0 candidates; `WorldStreamer.CraterAudit.cs braces 44/44 parens 263/263`;
+`NewWorldTestGround.cs braces 163/163 parens 967/967`. Plus grep/reread of every referenced member:
+`_loadedData`, `VoxelTerrainEnabled`, `EffectiveLowPolyStep`, `EffectiveRefineThreshold`,
+`ChunkData.IsValid`, `TerrainNoiseGenerator.GetHeight(long,float,float)`, and the corner owner table
+against `CurrentHeightOf` slot-for-slot. **Not compiled** - the user is the compiler.
+
+### Pending play-test
+
+1. Compile; paste any console errors (fixed in a new commit, never an amend).
+2. Stand next to a **fresh** dent from each of the three sources (projectile, Earth Crater, tool) and
+   press **F1**; paste the whole table. Read section A before B/C/D.
+3. Report which look you are chasing: the missing rim, the sinking neighbours, or the walls.
+Then 1ex (interior-only stored fine nodes, tile edges left bilinear so the no-crack proof survives)
+and the bounded raised-rim profile ship as a **separate** change.
+
+---
+
+## 1im. Magic weapon permanently drifts sideways after repeated casts — shipped, NOT play-tested
 
 **Status: shipped, not verified in Unity (rule 3 — no build or play-test runs in this project).**
 The user reported the magic weapon rotating a little every time it is used and staying permanently

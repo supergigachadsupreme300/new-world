@@ -109,6 +109,12 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public Key FrameBudgetKey = Key.F2;
     private string _frameBudgetText;
 
+    [Tooltip("QA (1in): press CraterAuditKey for a read-only measurement of a terrain dent - what the crater is actually made of, asked premise-first. A fingerprint: if the resident world was built by two versions of the generator, the sections below describe a world that is not on screen. B resolution: for the deepest dished corner near you, how deep it is, how many 1 m corners it spans, and the render path's worst-case node gap (rule 12) - this is the number that decides whether the dent exists at all on screen. C profile: the radial depth profile ring by ring, so a monotone cone and a bowl-with-rim are distinguishable as numbers rather than by eye. D expressibility: the largest corner spread against the adaptive-refinement trigger, how many corners rose ABOVE pristine (a rim), and whether any whole-metre discontinuity exists (side walls) - i.e. whether the shape could exist in the data model at all. Search band and its radius are printed; corners with no loaded tile are excluded, so a zero means 'not measured here', never 'no crater'. Read-only by rule 7: no rebuild, no re-stamp, no forced poll. Needs EnableFpsStats on to display.")]
+    public bool EnableCraterAudit = true;
+    [Tooltip("QA (1in): key that runs the crater/deform audit. F1: grep-verified rather than inherited - F2 is the 1ik frame-budget lane, F3 the 1hy corner/void audit, F4 the 1ic look audit, F5 the CameraModeSwitch camera toggle. F1 has NO Key.F1 binding anywhere in Assets\\Scripts; the only F1 mentions are tooltip prose claiming it is a skill hotkey, which 1ik already flagged as unsourced, plus unrelated 'F1' format strings and block-name literals.")]
+    public Key CraterAuditKey = Key.F1;
+    private string _craterAuditText;
+
     // ---------------------------------------------------------------------------------------------
     // (1ik) Frame-budget attribution lane: a continuous passive sampler plus one snapshot key.
     //
@@ -1338,6 +1344,17 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 RunLookAudit();
         }
 
+        // (1in) The crater/deform audit. Polled here for the same reason as the lanes above: this
+        // Update returns early on weapon-rack and GamePaused conditions, so a lane placed after
+        // them could silently report nothing. Stand next to a dent and press.
+        if (EnableCraterAudit)
+        {
+            Keyboard kbCrater = Keyboard.current;
+            if (kbCrater != null && kbCrater[CraterAuditKey] != null
+                && kbCrater[CraterAuditKey].wasPressedThisFrame)
+                RunCraterAudit();
+        }
+
         RunPendingPlayerGrants();
         if (!EnableWeapons || _rackStands.Count == 0) return;
         var gm = GameManager.Instance;
@@ -1392,6 +1409,42 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
         _cornerAuditText = streamer.RenderedCornerAudit();
         Debug.Log("[NewWorldTestGround] " + _cornerAuditText);
+    }
+
+    /// <summary>
+    /// QA (1in): run the crater/deform audit and cache it on the HUD.
+    ///
+    /// <para>The report is multi-line, so it goes to the console verbatim (that is where a table of
+    /// per-ring numbers can be read) and a one-line headline is cached for the HUD, matching how the
+    /// other multi-section lanes behave. It is read-only inside the streamer - nothing is rebuilt,
+    /// re-stamped or polled - so the numbers describe exactly the frame the key was pressed on.</para>
+    /// </summary>
+    private void RunCraterAudit()
+    {
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (streamer == null)
+        {
+            _craterAuditText = "crater audit: no WorldStreamer in the scene";
+            Debug.LogWarning("[NewWorldTestGround] " + _craterAuditText);
+            return;
+        }
+
+        string report = streamer.CraterAudit();
+        // HUD gets the headline only: the full report is a per-ring table that would bury every other
+        // line on the diagnostics strip. The console keeps all of it.
+        string headline = report;
+        int nl = report.IndexOf('\n');
+        if (nl >= 0) headline = report.Substring(0, nl);
+        int verdict = report.IndexOf("VERDICT ");
+        if (verdict >= 0)
+        {
+            string v = report.Substring(verdict);
+            int vnl = v.IndexOf('\n');
+            if (vnl > 0) v = v.Substring(0, vnl);
+            headline = headline + "\n" + v.TrimEnd();
+        }
+        _craterAuditText = headline;
+        Debug.Log("[NewWorldTestGround] " + report);
     }
 
     /// <summary>
@@ -1849,6 +1902,12 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 // the number is evidence for the frame the key was pressed on.
                 if (EnableLookAudit && !string.IsNullOrEmpty(_lookAuditText))
                     stats += "\n" + _lookAuditText;
+
+                // (1in) Same persistence rule as the two audits above: the crater headline stays up
+                // until the next press, so a screenshot taken after walking up to the dent the
+                // report named still shows the numbers for the frame the key was pressed on.
+                if (EnableCraterAudit && !string.IsNullOrEmpty(_craterAuditText))
+                    stats += "\n" + _craterAuditText;
 
                 // 1id: SpellImpactFx's per-frame budget REFUSES flashes past PerFrameBudget in one
                 // frame and counts the refusals. That counter was write-only until here — the budget

@@ -31,7 +31,14 @@
    (balance, overload-aware arity, void-return, unassigned locals, cross-case locals, part-key parity).
    It reports *candidates*, not verdicts: 0 candidates still means "not compiled", so paste Unity's
    output into the handoff rather than fixing errors silently. If you add a file in those areas, add
-   it to the script's `$files` list or checks 1â€“5 stop covering it.
+   it to the script's `$files` list or checks 1â€“5 stop covering it. **Balance is not
+   reachability.** 1in wrote `dishSpan = span;` above `float span = 0f;` (CS0103) and the script
+   reported `braces 44/44 parens 263/263` on a file that could not compile: the script has no
+   declaration-order check, so a clean run says nothing about use-before-declaration. Reread for that
+   class specifically. Do not "fix" it by adding a naive use-before-declare scanner - one that fires
+   on every legitimate field read trains the next reader to ignore it, which is the false-positive
+   failure rule 7 already documents. 1in added `WorldStreamer.CraterAudit.cs` to `$files`; it is a
+   `WorldStreamer` partial, so only checks 1, 4 and 7 apply to it.
 
 4. **QA/test features go on the independent test platform**, never in the legacy world: add an opt-in
    lane + serialized toggle in `Assets\Scripts\Opt\NewWorldTestGround.cs` (`RunBenchSpawn`,
@@ -165,6 +172,16 @@
    mid-edge checks miss), and never let a validator stand in for a layer it does not read â€”
    `ChunkValidator` compares tile heights tile-vs-tile and is structurally blind to a lattice bug, so
    a green validator is not evidence about the lattice.
+   **Two spellings of "a corner's height" exist here, and they disagree by half a metre.** Corners sit
+   *at* integer world coords (`ChunkData.Size == 1`, and `WorldStreamer.ChunkBuild.cs:293-295` seeds
+   corner `(gx,gz)` from `GetHeight(seed, tc.X*cs+gx, tc.Z*cs+gz)`), so pristine-at-a-corner is
+   `GetHeight(Seed, cx, cz)`. But `CurrentHeightOf` samples `(cx + 0.5f, cz + 0.5f)`, and
+   `GetDigDepth` mixes both - it references pristine at `(cx,cz)` against a *fallback* height at
+   `(cx+0.5, cz+0.5)`. Both spellings are correct **for their own use**, and 1in shipped a profile
+   ring biased half a metre outward by copying the reader's convention instead of checking the
+   writer's. So: **read the code that WRITES the value before reusing the one that READS it**, and
+   when a measurement compares a current height against a pristine reference, assert the two are
+   sampled at the *same* point - a mismatch reads as a phantom dig that no threshold will ever clear.
 
 9. **Hand-authored block geometry is stated by its support, not by its centre.** The block-built
    structures (holy places, NPC rigs, `CreatePartCube` call sites) are positioned by a hand-computed
