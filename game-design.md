@@ -144,8 +144,9 @@ somewhere other than the lattice it stamps — that case reported "worst dY 0 OK
 the corner, which is why section C reads `Mesh.vertices` and not the lattice. A future gap fix should
 expect to *rebuild* one of these measurements rather than to read cause A off an existing validator.
 
-**The F1 lane (1in) — dents, and whether a missing rim is a resolution problem or an unauthored
-shape.** `WorldStreamer.CraterAudit()` (bench key **F1**, `WorldStreamer.CraterAudit.cs`) answers a
+**The crater lane (1in/1io) — dents, and whether a missing rim is a resolution problem or an
+unauthored shape.** `WorldStreamer.CraterAudit()` (bench key **F13**, `WorldStreamer.CraterAudit.cs`)
+answers a
 question the F3 lane cannot: a carve *is* in the data and *is* drawn, so every seam-cause reading is
 clean while the shape is still wrong. Read-only, like F3 — no rebuild, no re-stamp, no poll — so the
 numbers describe the frame the key was pressed on.
@@ -171,6 +172,17 @@ resolution. The follow-up is **1ex**, a stored fine lattice — interior fine no
 edges left bilinear so the edge-linearity no-crack proof and cross-chunk seams are untouched. That
 is the same infrastructure the user wants for caves; **caves are deferred**, and the existing
 `SculptVoxelCave` path stays dormant.
+
+**The lane key moved F1 → F13 (1io).** 1in chose F1 by grepping for `Key.F1` and `KeyCode.F1`,
+finding no references, and documenting the key as free. It was bound — the **combat-mode toggle**
+binds it as `Keyboard.current.f1Key` (`Player\PlayerController.Interactions.cs:521`), the
+*property-name* spelling, which neither grep pattern matches. Pressing F1 therefore ran the audit
+**and** toggled fighting mode, so any readout taken that way was measured with weapons drawing and
+`ToolManager` resetting selection underneath it. F13 is free in both spellings; **F1 is the combat
+toggle, not a skill hotkey** — that claim sat in four tooltips and two older task entries and was
+never true. `tools\StaticChecks.ps1` check 8 now derives the QA lane keys from their declarations
+and fails on any second binding in `Assets\Scripts` across all three Input System spellings, so
+this class of collision cannot ship silently again.
 
 ### 2.3 Perlin Noise Layers (5 octaves)
 
@@ -519,7 +531,7 @@ output). Nothing was deleted; the change is three values plus their two test-pla
 | `WorldStreamer.FarSectorStep()` | `6` | **`3`** | far-shell sampling step (never gated — see below) |
 | `NewWorldTestGround.EnableLowPolyTerrain` | `true` | **`false`** | test-platform mirror; re-enabled the look every session |
 | `NewWorldTestGround.LowPolyStep` | `6` | **`3`** | test-platform mirror |
-| `NewWorldTestGround.EnableCraterAudit` | n/a | **`true`** | F1 read-only crater/deform audit (`CraterAuditKey` = `Key.F1`) |
+| `NewWorldTestGround.EnableCraterAudit` | n/a | **`true`** | **F13** read-only crater/deform audit (`CraterAuditKey` = `Key.F13`; moved off F1 in 1io — F1 is the combat-mode toggle) |
 
 What the terrain renders now, with the flag off:
 

@@ -130,9 +130,27 @@
      a write. The F3 audit reads the same dictionary constantly and never races, because it is
      main-thread-only, so the pattern looked safe. **Check the thread the code runs on before reusing
      an idiom, and never argue that a data source is "strictly better" without naming the thread.**
+- **"No references found" is a claim about the PATTERNS YOU TYPED, and a key has three
+      spellings.** 1in shipped the crater audit on **F1** after grepping `Key.F1` and `KeyCode.F1`,
+      finding nothing, and documenting the key as free. It was bound: the combat-mode toggle uses
+      `Keyboard.current.f1Key` (`Player\PlayerController.Interactions.cs:521`), the **property-name**
+      spelling. The lane and the toggle both fired on one press, so the measurement was taken with
+      weapons drawing underneath it. Three habits:
+     - **Search for the CONCEPT across every spelling its API offers, not the one you remember.**
+       The Input System (used exclusively here — zero legacy `Input.*` calls) binds a key as
+       `Keyboard.current.f1Key`, as `Keyboard.current[Key.F1]`, or indirectly as `kb[SomeLaneKey]`.
+       Grepping the enum literal alone only ever matches the second of those three.
+     - **A key choice recorded as a reason is a claim that outlives the task that made it.** The
+       false "F1 is a skill hotkey" note propagated from 1hy through four tooltips and two older
+       `PROGRESS.md` entries, where it was still doing duty as a *justification* long after the
+       lane it belonged to was gone. When a key is free because "F1-F4 are already taken", record
+       *who* takes each one, or the next reader repeats the claim without re-deriving it.
+     - **Check 8 now mechanises this**: it reads the QA lane keys out of their declarations and
+       fails on any second binding in `Assets\Scripts` across all three spellings. Verified by
+       reverting the lane to F1 and watching it name `Interactions.cs:521`.
    - Also: a check that flags a false positive on the first file you add it to is a check whose
-     silence has stopped meaning anything. 1hy's `StaticChecks.ps1` check 4 reported every `out`
-     parameter as an unassigned local; a reader trained by 4 false candidates waves through the
+      silence has stopped meaning anything. 1hy's `StaticChecks.ps1` check 4 reported every `out`
+      parameter as an unassigned local; a reader trained by 4 false candidates waves through the
      next real CS0165. Fix the check rather than filing the candidates as "expected".
    - **An absent measurement and a measurement of zero are different, and the UNIT decides which is
      which.** 1ik's frame-budget probe reads a `ProfilerRecorder` per source, and the trap is that a

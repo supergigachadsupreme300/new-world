@@ -329,6 +329,79 @@ foreach ($f in $files) {
 }
 if ($outside -eq 0) { Ok "every member sits inside a class body" }
 
+Section '8. a QA lane key must not already be bound elsewhere (one key, two owners)'
+# 1io. 1in shipped the crater/deform audit on F1 after grepping for 'Key.F1' and
+# 'KeyCode.F1', finding nothing, and documenting the key as free. It was not free:
+# PlayerController.Interactions.cs:521 binds it as 'Keyboard.current.f1Key' -> the
+# combat-mode toggle. Pressing F1 therefore ran the audit AND toggled fighting mode,
+# so every readout was taken while weapons drew and ToolManager reset selection.
+#
+# WHY THE GREP MISSED IT: the project uses the Input System exclusively (no legacy
+# Input.* anywhere), and that API spells a binding three ways -
+#     Keyboard.current.f1Key          (property name)
+#     Keyboard.current[Key.F1]        (indexer)
+#     someKeyboard[SomeLaneKey]       (indirection through a serialized field)
+# Searching for the ENUM LITERAL alone only matches the second. A "no references"
+# result from that one pattern is not evidence a key is free; it is evidence nobody
+# spelled it the way you happened to search for.
+#
+# So this check takes the lane keys as declared (`public Key <x>Key = Key.F1`) and asks
+# every OTHER site in Assets\Scripts whether it binds the same key in ANY of the three
+# spellings. The lane's own indirection site (`kbCrater[CraterAuditKey]`) is skipped,
+# or the check would fire on all four lanes forever.
+#
+# Verified both ways (AGENTS.md rule 7 - a check nobody has seen fail is not a check):
+# reverting CraterAuditKey to Key.F1 fires this check naming Interactions.cs:521, and
+# restoring Key.F13 goes quiet.
+# Collect the lane keys as DECLARED, from comment/string-stripped code so a key
+# merely NAMED in a tooltip does not become a lane.
+$laneRe = 'public\s+Key\s+(\w+Key)\s*=\s*Key\.(\w+)\s*;'
+$laneKeys = [ordered]@{}
+foreach ($f in $files) {
+    $t = StripNonCode ([System.IO.File]::ReadAllText((Resolve-Path $f)))
+    foreach ($m in [regex]::Matches($t, $laneRe)) {
+        $laneKeys[$m.Groups[2].Value] = "$([System.IO.Path]::GetFileName($f)) $($m.Groups[1].Value)"
+    }
+}
+
+# A REAL key binding is a member access on a Keyboard-typed expression. Anchoring on
+# `Keyboard.current` / any *Keyboard* identifier is what keeps this from matching an
+# unrelated `f4` inside "Leaf4" or "#44FF44" - a substring search on the bare key name
+# fired 54 times on the first run, which is rule 7's false-positive failure exactly.
+# The three spellings, all anchored on a Keyboard-typed expression:
+#     Keyboard.current.f1Key        -> property name (the one 1in's grep missed)
+#     Keyboard.current[Key.F1]      -> indexer, enum literal
+#     someKeyboard[SomeLaneKey]     -> indirection through a serialized field
+# 'current' is an optional middle segment because `Keyboard.current` is the singleton
+# every call site goes through here.
+$bindRe = '\b\w*[Kk]eyboard\w*\s*[.\[]\s*(?:current\s*\.\s*)?(?:Key\s*\.\s*)?(\w+)'
+$collide = 0
+foreach ($f in (Get-ChildItem -Path 'Assets\Scripts' -Recurse -Filter '*.cs' -File)) {
+    $lines = (StripNonCode ([System.IO.File]::ReadAllText($f.FullName))) -split "`n"
+    $short = $f.Name
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        foreach ($m in [regex]::Matches($lines[$i], $bindRe)) {
+            $k = $m.Groups[1].Value
+            # Ignore middle tokens like 'current' or the field name `kbCrater`
+            if ($k -eq 'current') { continue }
+            if ($k -match 'Key$' -and -not ($k -match '^f\d+Key$|^numpad\w+Key$|^oem\w+Key$')) { continue }
+            # Normalize to key enum name without suffix if it's a property: f1Key -> F1
+            if ($k -match '^([a-zA-Z])([a-z0-9]*)Key$') {
+                $kNorm = ($matches[1].ToUpper() + $matches[2])
+            }
+            else {
+                $kNorm = $k
+            }
+            if (-not $laneKeys.Contains($kNorm)) { continue }
+            Bad "$short L$($i + 1): lane $($laneKeys[$kNorm]) binds Key.$kNorm and this site does too: $($lines[$i].Trim())"
+            $collide++
+        }
+    }
+}
+if ($collide -eq 0) {
+    Ok "$($laneKeys.Count) lane keys ($((@($laneKeys.Keys)) -join ', ')) - no second binding anywhere in Assets\Scripts"
+}
+
 Section 'summary'
 if ($problems -eq 0) { Write-Output '  0 candidates. Still not a compile: Unity is the compiler.' }
 else { Write-Output "  $problems candidate(s) above - fix or explain each before committing." }

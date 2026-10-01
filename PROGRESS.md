@@ -1,7 +1,83 @@
-﻿## 1in. Crater/deform audit lane (F1) - shipped as a MEASUREMENT, not a fix
+﻿## 1io. Crater/deform audit lane moved F1 -> F13 (F1 was the combat-mode toggle) + StaticChecks check 8
 
-**Status: measurement shipped, NO behaviour changed. Awaiting the user's Unity compile and the F1
-readout (rule 3 - no build or play-test runs in this project; rule 7 - measure before fixing).**
+**Status: shipped, NOT play-tested (rule 3 - no build or play-test runs in this project). No
+terrain behaviour changed; this is a QA-key rebind plus a static check.**
+The user reported that F1 is the button they use for the fighting-mode switch. They were right, and
+the lane shipped on a key that was already taken.
+
+### The bug 1in shipped
+
+1in picked **F1** after grepping for `Key.F1` and `KeyCode.F1`, finding no references, and
+documented the key as free in both the code and `HANDOFF-1in.md`. It is bound:
+`Player\PlayerController.Interactions.cs:521` reads `Keyboard.current.f1Key` and calls
+`ToggleCombatMode()`. That is the Input System's **property-name** spelling, which neither grep
+pattern matches. Pressing F1 therefore fired **both** the audit and the combat-mode toggle, so any
+readout taken that way was measured while weapons drew and `ToolManager` reset the selection
+underneath the player. Any F1 readout from before this commit should be treated as suspect.
+
+The corollary is a lie that had been propagating since 1hy: **"F1 is a skill hotkey"**, recorded as
+the *reason* F2/F3/F4 were considered free. It appears in four tooltips (`NewWorldTestGround.cs`
+F3/F4/F2 lanes plus prose) and in `PROGRESS.md:1511`, `:2284` and `THINKING.md:2434`. 1ik had
+already flagged it as unsourced and declined to repeat it; it now has an answer and it was wrong.
+F1 is the **combat toggle**. Those older entries are left as history, corrected here.
+
+### What changed
+
+`Assets\Scripts\Opt\NewWorldTestGround.cs`:
+- `CraterAuditKey = Key.F1` -> **`Key.F13`**. F13 verified free in both spellings against the
+  Input System 1.19 `Key` enum (`Library\PackageCache\...InputSystem\Devices\Keyboard.cs` lists
+  `F13`-`F24`), and against every binding form in `Assets\Scripts`.
+- Four tooltips corrected. The F13 tooltip now records *why* the key moved and names the binding
+  that was missed, so the next reader does not re-derive it.
+
+`tools\StaticChecks.ps1` — **new check 8**, "a QA lane key must not already be bound elsewhere
+(one key, two owners)". It parses every `public Key <x>Key = Key.<Y>;` lane default out of
+`$files`, then scans all of `Assets\Scripts` for any second binding of that key across all three
+Input System spellings (`Keyboard.current.f1Key`, `Keyboard.current[Key.F1]`, `kb[SomeLaneKey]`),
+skipping each lane's own declaration and its own indirection site.
+
+Two false-positive rounds got it wrong first and both are recorded in the script's header:
+- A bare substring search on the key name (`f4`, `Key.F4`) matched `Leaf4`, `#44FF44`,
+  `Pagoda_Roof4` and four tooltip strings: **54 candidates**. Rule 7's false-positive failure,
+  reached immediately. Fixed by anchoring the pattern on a `Keyboard`-typed expression.
+- The anchored pattern still missed the real bug because `Keyboard.current` is two member hops,
+  so the captured token was `current` rather than `f1Key`. Fixed by allowing `current.` as a
+  middle segment and by normalising `f1Key` -> `F1`.
+
+**Verified both ways, per rule 7** (a check nobody has seen fail is not a check): reverting
+`CraterAuditKey` to `Key.F1` fires check 8 naming `PlayerController.Interactions.cs L521`; the
+restored `Key.F13` goes quiet.
+
+Docs: `game-design.md` §2.2 (lane key paragraph) and the QA-toggle table; `AGENTS.md` rule 7 (new
+bullet on key-grep spellings and on a recorded justification outliving its task); `THINKING.md` 1io.
+
+### Verified
+
+`tools\StaticChecks.ps1`: **0 candidates** after restoring F13 (1 candidate while the bug was
+deliberately reintroduced); `NewWorldTestGround.cs braces 163/163 parens 967/967`. Grep of
+`Assets\Scripts` for `F13` / `f13Key` in both spellings: zero. **Not compiled, not play-tested.**
+
+### Pending play-test
+
+1. Compile; paste any console errors (fixed in a new commit, never an amend).
+2. Stand next to a **fresh** dent from each of the three sources (projectile, Earth Crater, tool)
+   and press **F13**; paste the whole table. Read section A before B/C/D - if it says
+   `buildStamp MIXED`, restart Unity before trusting the rest.
+3. Confirm **F1 still only toggles fighting mode** and no longer prints a crater report.
+4. Then 1ex (interior-only stored fine nodes, tile edges left bilinear so the no-crack proof
+   survives) and the bounded raised-rim profile ship as a **separate** change.
+
+Carried over: **F2** (`e658acb`) standing/walking captures; **magic weapon rest pose**
+(`10f2500`) staff/book/orb/wand, reparent-and-equip, ready sway, melee regression.
+
+---
+
+## 1in. Crater/deform audit lane (originally F1, now F13) - shipped as a MEASUREMENT, not a fix
+
+**Status: measurement shipped, NO behaviour changed. Awaiting the user's Unity compile and the
+crater-audit readout (rule 3 - no build or play-test runs in this project; rule 7 - measure before
+fixing). 1in put this lane on F1, which was already bound - see 1io; it is now on F13, so any
+readout taken on F1 is void.**
 The user reports that spell and tool dents "look like the ground got pulled down" rather than like
 craters, and asked for a raised rim instead of stretching the surrounding tiles, which would also
 make caves easier later. This task ships **only the measurement**. The fix is 1ex and is not started.
@@ -41,10 +117,11 @@ polls nothing, so every number describes the frame the key was pressed on.
 - **VERDICT.** Keeps "no loaded terrain in band" (an absent measurement) distinct from "no dished
   corner" (a real observation of zero), per rule 7's unit rule.
 
-`Assets\Scripts\Opt\NewWorldTestGround.cs`: `EnableCraterAudit` (on), `CraterAuditKey = Key.F1`, a
-cached headline on the HUD plus the full table to the console. **F1** was picked after grep confirmed
-no `Key.F1` binding exists - F2 is the frame budget, F3 the corner/void audit, F4 the look audit, F5
-the camera toggle.
+`Assets\Scripts\Opt\NewWorldTestGround.cs`: `EnableCraterAudit` (on), `CraterAuditKey` (**now F13**,
+was F1 - see 1io), a cached headline on the HUD plus the full table to the console. F1 was picked
+after grep confirmed no `Key.F1` binding exists - which was **wrong**: the combat-mode toggle binds
+it as `Keyboard.current.f1Key` (see 1io). F2 is the frame budget, F3 the corner/void audit, F4 the
+look audit, F5 the camera toggle.
 
 ### Two things the first draft got wrong that no automated check would have caught
 
@@ -73,7 +150,7 @@ against `CurrentHeightOf` slot-for-slot. **Not compiled** - the user is the comp
 
 1. Compile; paste any console errors (fixed in a new commit, never an amend).
 2. Stand next to a **fresh** dent from each of the three sources (projectile, Earth Crater, tool) and
-   press **F1**; paste the whole table. Read section A before B/C/D.
+   press **F13** (not F1 - see 1io); paste the whole table. Read section A before B/C/D.
 3. Report which look you are chasing: the missing rim, the sinking neighbours, or the walls.
 Then 1ex (interior-only stored fine nodes, tile edges left bilinear so the no-crack proof survives)
 and the bounded raised-rim profile ship as a **separate** change.
@@ -169,9 +246,10 @@ rather than on the keypress, because a frame time over one frame is noise and a 
 meaningful as a distribution. The key is the **snapshot boundary**, so the report describes the frames
 that ran *up to* the press. F2 was chosen by grep, not inherited: it has zero references in
 `Assets\Scripts` and was vacated when 1hx removed its lane without restoring it; F5 is the
-`CameraModeSwitch` toggle (`Player\CameraModeSwitch.cs:120`). *(Correction: the F3/F4 tooltips call F1
-"a skill hotkey", but grep finds no `Key.F1` reference â€” so that claim is not repeated in F2's tooltip
-until someone sources it.)*
+`CameraModeSwitch` toggle (`Player\CameraModeSwitch.cs:120`). *(Correction, resolved in 1io: the
+F3/F4 tooltips called F1 "a skill hotkey". It is not - F1 is the **combat-mode toggle**,
+`Keyboard.current.f1Key` at `PlayerController.Interactions.cs:521`, the property-name spelling that
+the 1ik grep did not cover.)*
 
 ### What the report says, and in what order
 

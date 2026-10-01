@@ -1,3 +1,8 @@
+> **SUPERSEDED IN PART BY 1io.** The lane key changed: **F1 was already bound** to the combat-mode
+> toggle (`Player\PlayerController.Interactions.cs:521`, `Keyboard.current.f1Key`), so pressing F1
+> ran the audit AND toggled fighting mode. The lane is now **F13**. Any readout taken on F1 is
+> void - re-take it on F13. See `PROGRESS.md` 1io and `THINKING.md` H59-H61.
+
 # Handoff - 1in crater audit lane
 
 **Written:** end of session, 2026-10-01
@@ -55,7 +60,8 @@ is sampled, so the dish is drawn **in full** and the limit is SHAPE, not resolut
 the next reader "fixing" a carve that is already visible.
 
 ### Modified: `Assets/Scripts/Opt/NewWorldTestGround.cs`
-- `EnableCraterAudit` (default **on**), `CraterAuditKey = Key.F1`, `_craterAuditText`
+- `EnableCraterAudit` (default **on**), `CraterAuditKey` (**F13** now; F1 as shipped - see banner),
+  `_craterAuditText`
 - Poll inserted before the unrelated early returns
 - `RunCraterAudit()` - caches a headline for the HUD, logs the full table to the console
 - HUD append, same persistence rule as F3/F4: the headline stays up until the next press
@@ -98,8 +104,10 @@ scanner, because one that fires on every legitimate field read trains the next r
   `EffectiveLowPolyStep`, `EffectiveRefineThreshold`, `ChunkData.IsValid`,
   `TerrainNoiseGenerator.GetHeight(long,float,float)`, and the corner owner table against
   `CurrentHeightOf` slot-for-slot
-- grep confirmed **no `Key.F1` binding** anywhere in `Assets/Scripts` (F2 frame budget, F3 corner
-  audit, F4 look audit, F5 camera toggle)
+- grep "confirmed" **no `Key.F1` binding** anywhere in `Assets/Scripts` — **this was wrong.** The
+  combat-mode toggle binds it as `Keyboard.current.f1Key` (`PlayerController.Interactions.cs:521`),
+  the property-name spelling, which the grep pattern did not cover. 1io moved the lane to F13 and
+  added `StaticChecks.ps1` check 8 so this cannot recur.
 - **NOT compiled. NOT play-tested.** No Unity build runs in this project.
 
 ---
@@ -108,8 +116,9 @@ scanner, because one that fires on every legitimate field read trains the next r
 
 1. **Compile.** Paste any console errors - I will fix them in a **new** commit, never an amend, and
    will sweep the whole class rather than patching the one line.
-2. **Stand next to a fresh dent** and press **F1**. Do it for each of the three sources:
-   projectile impact, Earth Crater spell, tool dig. Paste the whole table each time.
+2. **Stand next to a fresh dent** and press **F13** (F1 also toggles fighting mode - see 1io). Do it
+   for each of the three sources: projectile impact, Earth Crater spell, tool dig. Paste the whole
+   table each time.
 3. **Read section A first.** If it says `buildStamp MIXED`, restart Unity before trusting B/C/D.
 4. **Tell me which look you are chasing:** the missing rim, the sinking neighbours, or the walls.
 

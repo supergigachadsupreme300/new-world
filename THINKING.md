@@ -15,10 +15,81 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1io - "F1 is free, grep says so" - VERDICT: REJECTED (the lane was on a bound key; check 8 now mechanises it)
+
+The user said F1 is their fighting-mode switch. They were right, and the finding is worth more than
+the rebind: **"grep found no references" was a claim about the patterns I typed, not about the code.**
+
+### H59 - "no `Key.F1` and no `KeyCode.F1` means F1 is unbound" - REJECTED
+
+The project uses the Input System exclusively (zero legacy `Input.*` calls anywhere in
+`Assets\Scripts`), and that API binds a key three ways:
+
+```csharp
+Keyboard.current.f1Key          // property name  <-- the one 1in's grep did not match
+Keyboard.current[Key.F1]        // indexer + enum literal  <-- the one it DID match
+someKeyboard[SomeLaneKey]       // indirection through a serialized field
+```
+
+`Player\PlayerController.Interactions.cs:521` uses the first: `Keyboard.current.f1Key` ->
+`ToggleCombatMode()`. So 1in grepped the enum literal, found nothing, wrote "F1 has NO binding
+anywhere in `Assets\Scripts`" into both the tooltip and `HANDOFF-1in.md`, and shipped the lane.
+Pressing F1 ran the audit **and** toggled fighting mode, which draws weapons and resets the
+`ToolManager` selection — so the measurement was taken under a moving scene. This is rule 7's
+"measure before fixing" being satisfied in form and void in substance: the number existed, and it
+described a frame in which the player had just been disarmed.
+
+### H60 - "F1 is a skill hotkey" - REJECTED; it is the combat-mode toggle
+
+This claim had been sitting in the codebase since 1hy as the *reason* F2/F3/F4 were considered
+available, appearing in four tooltips and three older task entries. 1ik noticed it was unsourced
+and deliberately declined to repeat it — correct call, wrong conclusion, because the right move was
+to go find the binding rather than to stop quoting it. The answer was one grep away the whole time
+and nobody asked the question in the right vocabulary. **A recorded justification outlives its task
+and keeps doing duty long after the thing it justified is gone** (rule 7's "producers outlive their
+consumer", one level out).
+
+### H61 - "F13 is free" - SUPPORTED, and now enforced rather than asserted
+
+Grep of both spellings (`Key.F13`, `f13Key`) across `Assets\Scripts` returns zero, verified against
+the Input System 1.19 `Key` enum in `Library\PackageCache` (which lists `F13`-`F24`). `F13` is the
+user's choice over `Numpad1`: it keeps the QA keys together on the F-row, at the cost of needing an
+external keyboard or `Fn` on a laptop.
+
+### DEAD END - the check that fired 54 false positives on its first run
+
+`StaticChecks.ps1` check 8 exists because of the above. The first version searched each lane key
+as a bare substring and reported **54 candidates**: `Leaf4` contained `f4`, `#44FF44` contained
+`ff4` -> `f4`, `Pagoda_Roof4` contained `f4`, and four tooltip strings named the key in prose. That
+is precisely the failure rule 7 documents — a check that cries wolf on the first file it is added
+to has a silence nobody can read any more — and I had walked straight into it by treating a key name
+as if it were a token. Anchoring the pattern on a `Keyboard`-typed expression (`\b\w*[Kk]eyboard\w*\s*[.\[]`)
+cut it to zero.
+
+The second dead end is the more interesting one: the anchored pattern still reported **clean**,
+because `Keyboard.current.f1Key` is two member hops and the capture stopped at `current`. A check
+that is green on the exact bug it was written for is worse than no check, because it buys false
+confidence rather than an absence of it. Fixed by making `current.` an optional middle segment and
+normalising `f1Key` -> `F1`.
+
+Only then was it verified in the direction rule 7 asks for: revert the lane to `Key.F1`, watch it
+name `Interactions.cs:521`, restore `Key.F13`, watch it go quiet.
+
+### What this cost, concretely
+
+Nothing shipped *broken* — the crater audit itself is read-only and its arithmetic is unchanged.
+But the readout it was built to produce cannot be trusted if it was taken on F1, so the measurement
+has to be re-taken on F13 before 1ex can be scoped from it. A wrong key is cheap; a wrong key that
+silently contaminates the measurement it was introduced to protect is not.
+
+---
+
 ## 1in - "the dent looks like the ground was pulled down" - VERDICT: OPEN (measurement shipped, awaiting readout)
 
 The user asked for a raised-rim crater instead of stretching the surrounding tiles, and mentioned
-caves. **No behaviour has been changed.** This is the reasoning trail behind the F1 measurement.
+caves. **No behaviour has been changed.** This is the reasoning trail behind the crater measurement.
+Note the lane shipped on **F1**, which was already bound to the combat-mode toggle — see **1io** for
+that; the lane is now F13 and any F1 readout is void.
 
 ### H54 - "the dish is written to nodes the render path never samples, so it is invisible" - REJECTED as the default
 
