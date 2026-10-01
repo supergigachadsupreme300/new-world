@@ -127,6 +127,33 @@
      silence has stopped meaning anything. 1hy's `StaticChecks.ps1` check 4 reported every `out`
      parameter as an unassigned local; a reader trained by 4 false candidates waves through the
      next real CS0165. Fix the check rather than filing the candidates as "expected".
+   - **An absent measurement and a measurement of zero are different, and the UNIT decides which is
+     which.** 1ik's frame-budget probe reads a `ProfilerRecorder` per source, and the trap is that a
+     *valid* recorder which has never been filled still returns 0 — so printing that 0 into a
+     millisecond column reads "this side costs nothing" about the one side the Editor cannot see,
+     which sends the next reader to the wrong subsystem. The rule generalises: **in a time-valued
+     column, 0 means "no sample" and must print `n/a`; in a count-valued column, 0 is a real
+     observation** (0 draw calls is the frame that proves nothing is being drawn). Decide this per
+     source from that source's own declared unit, never from which field is being read — hard-coding
+     "divide by 1e6" at each call site is rule 8's rotting second spelling in numeric form. Print the
+     sample count beside every averaged source, and when nothing could be measured, say the
+     measurement failed — never let an absent column read as a fast frame.
+   - **A verdict's DENOMINATOR must mean the same thing as its numerator, and a clamp breaks
+     that.** 1ik's first version divided measured work by the *frame* time to decide which side
+     owned the frame. Under vsync that is not a share of anything: a frame can only be a whole number
+     of present intervals, so 20 ms of work behind a 33.3 ms frame is a full lost present yet reads
+     as 0.60, and a majority threshold on it would refuse to name the side that did it. Three habits:
+     (a) prefer a comparison between the **sides** (CPU vs GPU), which needs no reference frame and
+     is clamp-proof; (b) when the denominator is quantised, report the **bracket** ("work in (1
+     interval, 2.0 intervals]"), not a point estimate; (c) label the residual per regime — under a
+     clamp up to one interval of residual is arithmetic, and calling it "unexplained" files a finding
+     against nothing.
+   - **Two counters with different windows must not sit on adjacent lines.** `peaks` in the QA HUD
+     resets every refresh while `lod sweep`'s peak is a monotonic max since scene start that nothing
+     resets — so `peaks 0.00` directly above `lod sweep 0.62 / 60.56` compares a window against a
+     since-boot figure and reads as one quantity. 1ik is how that 60 ms was traced to the initial
+     fill sweep instead of a recurring cost. State each counter's window in its own label, and reset
+     per-window peaks on the same cadence as the counters beside them.
 
 8. **A seam invariant is only as good as the arithmetic of the COPY, not the source.** When a value is
    copied out of another structure instead of re-derived (the corner lattice copies a tile's stored

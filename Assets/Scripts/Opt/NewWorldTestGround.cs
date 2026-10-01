@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using Unity.Profiling;
+using Unity.Profiling.LowLevel;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -100,6 +102,50 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private string _lookAuditText;
     private bool _lookAuditRun;
 
+    [Tooltip("QA/perf (1ik): press FrameBudgetKey for a read-only attribution of WHERE the frame is going - CPU main thread vs render thread vs GPU - plus the draw/batch/triangle counts the render side is paying for, and whether the frame is vsync-pinned (which means the reported FPS is a multiple of the refresh interval rather than a measurement of the work). Sampled continuously and cheaply (a few recorder reads per frame, no allocation, nothing touched); the key snapshots the frames that ran UP TO the press and prints them. Read-only by rule 7: no rebuild, no patch, no forced poll, no setting changed. A timing source that never produced a sample prints 'n/a' rather than 0, because 0 reads as 'that side is free'. Press standing still, read; then walk and press again - two numbers, two conditions, no mode switch.")]
+    public bool EnableFrameBudgetAudit = true;
+    [Tooltip("QA/perf (1ik): key that snapshots the frame-budget window. F2, and the choice is grep-verified rather than inherited: F2 has zero references anywhere in Assets\\Scripts and was vacated when 1hx removed its lane without restoring it; F3 is the 1hy corner/void audit, F4 is the 1ic look audit, F5 is the CameraModeSwitch camera toggle (Player\\CameraModeSwitch.cs:120), and F6-F12 are editor cutscene shortcuts. The F3/F4 tooltips next to this one claim F1 is a skill hotkey; grep finds no Key.F1 reference in Assets\\Scripts, so that claim is NOT repeated here until someone sources it.")]
+    public Key FrameBudgetKey = Key.F2;
+    private string _frameBudgetText;
+
+    // ---------------------------------------------------------------------------------------------
+    // (1ik) Frame-budget attribution lane: a continuous passive sampler plus one snapshot key.
+    //
+    // WHY A WINDOW AND NOT THE SINGLE FRAME: a frame time over one frame is noise, and a CPU/GPU
+    // split is only meaningful as a distribution. So the sampler runs every frame and the KEY is the
+    // snapshot boundary - the report describes the frames that ran UP TO the press, which is what
+    // keeps rule 7's "describe the frame the key was pressed on" intact without pretending one frame
+    // is a measurement.
+    //
+    // WHY THE WINDOW RESETS ON PRESS rather than being a true ring buffer: a ring buffer needs every
+    // field copied out per frame; resetting gives the same comparison for the workflow that matters
+    // (stand, read; walk, read) at a fraction of the cost. The frame count is printed with the
+    // result, because a reader who does not know the window's width cannot read the average.
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>Frames in the snapshot window. At the 15-60 fps this lane exists to diagnose, 90
+    /// frames is 1.5-6 s: long enough to stop chasing a single hitch, short enough that one walk
+    /// between two presses still fits inside a window.</summary>
+    private const int FrameBudgetWindow = 90;
+
+    /// <summary>A side must own at least this share of the WORK before the verdict names it.
+    /// Deliberately conservative: the test compares two recorder readings whose accuracy is unknown
+    /// in the Editor, so a threshold near 0.5 would name a mechanism for arithmetic noise (rule 7 -
+    /// gate a classifier on the width of its own test). Below this the verdict says "no single side"
+    /// instead of picking the larger of two close numbers.</summary>
+    private const float FbDominantShare = 0.6f;
+
+    private int _fbFrames;
+    private float _fbFrameSum, _fbFrameMax;
+    private float _fbCpuSum, _fbMainSum, _fbRenderSum, _fbGpuSum, _fbGpuFtSum;
+    private int _fbCpuN, _fbMainN, _fbRenderN, _fbGpuN, _fbGpuFtN;
+    private float _fbDrawSum, _fbBatchSum, _fbSetPassSum, _fbTriSum;
+    private bool _fbCountedDraws;
+
+    private ProfilerRecorder _fbTotalCpu, _fbMainThread, _fbRenderThread;
+    private ProfilerRecorder _fbGpuTime, _fbDrawCalls, _fbBatches, _fbSetPass, _fbTriangles;
+    private readonly FrameTiming[] _fbFrameTimings = new FrameTiming[1];
+
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
     private bool _toolKitSpawned;
@@ -133,6 +179,25 @@ public sealed class NewWorldTestGround : MonoBehaviour
             var go = new GameObject("TestNpcPlacer");
             _npcPlacer = go.AddComponent<WorldNpcPlacer>();
             _npcPlacer.AutoPlaceOnStart = false;
+        }
+
+        // (1ik) Frame-budget sampler's recorders. Opened here so the window that F5 later prints
+        // covers real play, not the keypress. StartNew returns an INVALID recorder when the marker
+        // does not exist in this build/platform (there is no "Render Thread" marker under
+        // single-threaded player settings, and "GPU Frame Time" needs GPU profiling support, which
+        // the Editor does not always provide). That is not an error to throw on: the lane's whole
+        // job is to say which sides it can and cannot see, so an invalid recorder is carried through
+        // to the report as "n/a" and counted, never as a zero.
+        if (EnableFrameBudgetAudit)
+        {
+            _fbTotalCpu = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "Total CPU", FrameBudgetWindow);
+            _fbMainThread = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "Main Thread", FrameBudgetWindow);
+            _fbRenderThread = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "Render Thread", FrameBudgetWindow);
+            _fbGpuTime = ProfilerRecorder.StartNew(ProfilerCategory.Render, "GPU Frame Time", FrameBudgetWindow);
+            _fbDrawCalls = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Draw Calls Count", FrameBudgetWindow);
+            _fbBatches = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Batches Count", FrameBudgetWindow);
+            _fbSetPass = ProfilerRecorder.StartNew(ProfilerCategory.Render, "SetPass Calls Count", FrameBudgetWindow);
+            _fbTriangles = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Triangles Count", FrameBudgetWindow);
         }
 
         // Voxel experiment (1et): flip the streamer ON before its first stream poll so the world
@@ -908,8 +973,303 @@ public sealed class NewWorldTestGround : MonoBehaviour
         return _playerController;
     }
 
+    /// <summary>
+    /// (1ik) Read one probe value in MILLISECONDS from a profiler recorder, or -1 when the recorder
+    /// could not see it. Counters (draw calls, triangles) are returned as their raw value, so the
+    /// unit is decided by the marker's own declared unit rather than by which field is being read —
+    /// hard-coding "divide by 1e6" per call site would be six independent spellings of one fact
+    /// (rule 8), and the six would drift the first time a marker changed units.
+    /// </summary>
+    private static double FbProbeMs(ProfilerRecorder rec)
+    {
+        if (!rec.Valid) return -1d;
+        long last = rec.LastValue;
+        if (rec.UnitType == ProfilerMarkerDataUnit.TimeNanoseconds)
+        {
+            // A VALID recorder that has never been filled still returns 0, and 0 ms of CPU or GPU work
+            // is not a measurement — it is a source that produced no sample. Reporting it as 0 would
+            // print "this side costs nothing" for the side the Editor cannot see, which is the exact
+            // misreading that sends the next reader to the wrong place (rule 7: a positive result has
+            // to mean something). Time sources therefore treat 0 as n/a.
+            if (last <= 0) return -1d;
+            return last * 1e-6;
+        }
+        // COUNTS are the opposite case: 0 draw calls in a frame is a real, meaningful number, so a
+        // zero is passed through untouched. Treating it as "unavailable" would delete the one frame
+        // that proves nothing is being drawn.
+        return last;
+    }
+
+    /// <summary>
+    /// (1ik) Accumulate one frame into the snapshot window. Read-only and allocation-free: recorder
+    /// reads, a handful of adds, no scene walk, no allocation, nothing touched. Deliberately does NOT
+    /// enumerate renderers to count them — <c>FindObjects</c>-style walks cost real milliseconds on a
+    /// world with ~380 chunks and ~1224 far cells, and a probe that perturbs the frame it measures
+    /// cannot be quoted as a frame cost. Draw/batch/triangle counts come from the render profiler's
+    /// own per-frame counters instead, which is both cheaper and the number Unity actually bills.
+    /// </summary>
+    private void SampleFrameBudget()
+    {
+        // Capture first, read after: FrameTimingManager fills the ring during the frame, so this is
+        // the only place in the method where ordering matters.
+        FrameTimingManager.CaptureFrameTimings();
+
+        float frameMs = Time.unscaledDeltaTime * 1000f;
+        _fbFrames++;
+        _fbFrameSum += frameMs;
+        if (frameMs > _fbFrameMax) _fbFrameMax = frameMs;
+
+        double cpu = FbProbeMs(_fbTotalCpu);
+        if (cpu >= 0d) { _fbCpuSum += (float)cpu; _fbCpuN++; }
+        double main = FbProbeMs(_fbMainThread);
+        if (main >= 0d) { _fbMainSum += (float)main; _fbMainN++; }
+        double render = FbProbeMs(_fbRenderThread);
+        if (render >= 0d) { _fbRenderSum += (float)render; _fbRenderN++; }
+
+        // Two independent GPU sources on purpose. "GPU Frame Time" is a profiler marker that needs
+        // GPU profiling support (commonly absent in the Editor), while FrameTimingManager reports the
+        // GPU's own submission timestamp. Printing both means a disagreement is visible instead of
+        // silently averaging into a number nobody can source.
+        double gpu = FbProbeMs(_fbGpuTime);
+        if (gpu >= 0d) { _fbGpuSum += (float)gpu; _fbGpuN++; }
+        if (FrameTimingManager.GetLatestTimings(1, _fbFrameTimings) > 0)
+        {
+            float gpuFt = (float)_fbFrameTimings[0].gpuFrameTime;
+            if (gpuFt > 0f) { _fbGpuFtSum += gpuFt; _fbGpuFtN++; }
+        }
+
+        // Render-work counters. Counted together so the printed row cannot mix a triangle average
+        // from one window with a draw-call average from another.
+        double draws = FbProbeMs(_fbDrawCalls);
+        if (draws >= 0d)
+        {
+            _fbCountedDraws = true;
+            // Each counter is gated on its OWN validity, not on draws being visible: the four markers
+            // can be independently absent (e.g. setpass/batches stripped in some players), and
+            // accumulating -1 for a missing marker would silently drag the averages negative.
+            _fbDrawSum += (float)draws;
+            double batches = FbProbeMs(_fbBatches);
+            if (batches >= 0d) _fbBatchSum += (float)batches;
+            double setPass = FbProbeMs(_fbSetPass);
+            if (setPass >= 0d) _fbSetPassSum += (float)setPass;
+            double tris = FbProbeMs(_fbTriangles);
+            if (tris >= 0d) _fbTriSum += (float)tris;
+        }
+    }
+
+    /// <summary>
+    /// (1ik) Print the window, then clear it. Section order follows rule 7 — cheapest check first,
+    /// and PREMISE before measurement:
+    /// <list type="number">
+    /// <item>A. the clamp: is the reported frame time a multiple of the refresh interval? If so the
+    /// headline FPS is a presentation quantum, not a measurement, and every share below it is
+    /// meaningless — a frame can only ever be N presents long.</item>
+    /// <item>B. the fork: which side owns the work (CPU main / CPU render / GPU), with an explicit
+    /// n/a per source so "could not measure" is never printed as 0.</item>
+    /// <item>C. the owners: what the render side is being billed for, plus the render settings that
+    /// govern it — so a fix has a lever to move, not just a number to admire.</item>
+    /// <item>VERDICT: one line naming the side, or saying that no single side owns the frame.</item>
+    /// </list>
+    /// </summary>
+    private void SnapshotFrameBudget()
+    {
+        int frames = _fbFrames;
+        if (frames <= 0)
+        {
+            _frameBudgetText = "budget: no frames sampled yet — press again after the world has run";
+            return;
+        }
+
+        float inv = 1f / frames;
+        float frameAvg = _fbFrameSum * inv;
+        float cpuAvg = _fbCpuN > 0 ? _fbCpuSum / _fbCpuN : -1f;
+        float mainAvg = _fbMainN > 0 ? _fbMainSum / _fbMainN : -1f;
+        float renderAvg = _fbRenderN > 0 ? _fbRenderSum / _fbRenderN : -1f;
+        float gpuAvg = _fbGpuN > 0 ? _fbGpuSum / _fbGpuN : -1f;
+        float gpuFtAvg = _fbGpuFtN > 0 ? _fbGpuFtSum / _fbGpuFtN : -1f;
+
+        var sb = new System.Text.StringBuilder(256);
+        sb.Append("budget: ").Append(frames).Append(" frames  avg ").Append(frameAvg.ToString("0.0"))
+          .Append(" ms  max ").Append(_fbFrameMax.ToString("0.0"))
+          .Append("  (fps ").Append(frameAvg > 0.01f ? (1000f / frameAvg).ToString("0") : "-").Append(")");
+
+        // --- A. The clamp. A vsync'd frame can only be a whole number of presents long, so a frame
+        // sitting at 2x or 3x the refresh interval is not "33 ms of work" — it is "more than one
+        // present interval of work, quantised". The bracket below is the honest reading: the work is
+        // somewhere in (one interval, this frame], and the slack is up to one interval wide.
+        float refresh = (float)Screen.currentResolution.refreshRateRatio.value;
+        int vsync = QualitySettings.vSyncCount;
+        int targetFps = Application.targetFrameRate;
+        float interval = refresh > 1f ? 1000f / refresh : 0f;
+        sb.Append("\nclamp: vsync ").Append(vsync).Append(" @ ").Append(refresh.ToString("0"))
+          .Append(" Hz  targetFps ").Append(targetFps);
+        if (vsync > 0 && interval > 0.01f)
+        {
+            float presents = frameAvg / interval;
+            sb.Append("  -> ").Append(presents.ToString("0.0")).Append(" presents/frame");
+            sb.Append(presents > 1.05f
+                ? "  WORK IS NOT this number: true cost is in (" + (presents - 1f).ToString("0.0") + "x interval, " + frameAvg.ToString("0.0") + "]"
+                : "  (on the refresh beat)");
+        }
+
+        // --- B. The fork. "n/a" is spelled out for every source, with the sample count, because a
+        // bare 0 in a timing column is indistinguishable from "that side costs nothing" — the exact
+        // reading that would send the next reader looking in the wrong place.
+        sb.Append("\n  cpu  main ").Append(Fb(mainAvg)).Append("  render ").Append(Fb(renderAvg))
+          .Append("  total ").Append(Fb(cpuAvg))
+          .Append("   [n ").Append(_fbMainN).Append('/').Append(_fbRenderN).Append('/').Append(_fbCpuN).Append("]");
+        sb.Append("\n  gpu  profiler ").Append(Fb(gpuAvg)).Append("  frameTiming ").Append(Fb(gpuFtAvg))
+          .Append("   [n ").Append(_fbGpuN).Append('/').Append(_fbGpuFtN).Append("]");
+
+        // --- C. The owners the render side is billed for, and the settings that govern them. A
+        // number with no lever attached cannot be acted on, so shadow distance / resolution scale /
+        // MSAA travel with the counts.
+        if (_fbCountedDraws)
+        {
+            sb.Append("\n  draw ").Append((_fbDrawSum * inv).ToString("0"))
+              .Append("  batches ").Append(Fb(_fbBatchSum * inv))
+              .Append("  setpass ").Append(Fb(_fbSetPassSum * inv))
+              .Append("  tris ").Append(Fb(_fbTriSum * inv / 1000f)).Append('k');
+        }
+        sb.Append("\n  settings  shadowDist ").Append(QualitySettings.shadowDistance.ToString("0"))
+          .Append("  shadowRes ").Append(QualitySettings.shadowResolution)
+          .Append("  aa ").Append(QualitySettings.antiAliasing)
+          .Append("  renderScale ").Append(QualitySettings.renderScale.ToString("0.00"));
+
+        // --- The verdict. The clamp state from section A DECIDES which comparison is legitimate,
+        // because the two questions are different numbers:
+        //   - unclamped: a share of the frame is a share of the work, so work/frame is meaningful.
+        //   - clamped:   the frame is quantised, so work/frame UNDERSTATES the cause. 20 ms of work
+        //                behind a 33.3 ms frame is a full extra present, yet reads as only 0.60 —
+        //                and a 0.5-threshold on it would refuse to name the side that did it.
+        // So dominance is measured between the SIDES (which needs no reference frame and so is
+        // clamp-proof), and the residual is interpreted rather than absorbed: under a clamp, up to
+        // one interval of slack is expected and must NOT be reported as unexplained work, while
+        // unclamped it is a real mystery and stays visibly unexplained.
+        float cpuSide = cpuAvg > 0f ? cpuAvg : 0f;
+        float gpuSide = gpuAvg > 0f ? gpuAvg : gpuFtAvg > 0f ? gpuFtAvg : 0f;
+        float sideSum = cpuSide + gpuSide;
+        float work = sideSum > 0f ? (cpuSide > gpuSide ? cpuSide : gpuSide) : -1f;
+        bool gpuOwner = gpuSide > cpuSide;
+        bool clamped = vsync > 0 && interval > 0.01f && frameAvg > interval * 1.05f;
+
+        if (work > 0f)
+        {
+            float shareOfWork = sideSum > 0f ? work / sideSum : 0f;
+            float residual = frameAvg - work;
+            sb.Append("\n  work ").Append(work.ToString("0.0")).Append(" ms  residual ").Append(residual.ToString("0.0")).Append(" ms");
+            sb.Append(clamped
+                ? "  (residual is CLAMP SLACK, not mystery work: one interval = " + interval.ToString("0.0") + " ms)"
+                : "  (unclamped: residual is unexplained work)");
+
+            sb.Append("\nVERDICT: ");
+            if (shareOfWork < FbDominantShare)
+            {
+                sb.Append("BOTH SIDES COMPARABLE (cpu ").Append(cpuSide.ToString("0.0"))
+                  .Append(" vs gpu ").Append(gpuSide.ToString("0.0"))
+                  .Append(") — the split is the story, not one side.");
+            }
+            else if (clamped)
+            {
+                // The dominant side is named for exceeding ONE interval, which is the mechanism a
+                // clamped frame actually has. 20 ms behind a 33.3 ms frame is a whole lost present,
+                // and this is the sentence that says so instead of reporting 0.60 of a quantised total.
+                sb.Append(gpuOwner ? "GPU" : "CPU").Append(" work (").Append(work.ToString("0.0"))
+                  .Append(" ms) alone exceeds the ").Append(interval.ToString("0.0"))
+                  .Append(" ms interval, so the frame is a clamped multiple");
+                if (!gpuOwner)
+                {
+                    if (mainAvg > 0f && renderAvg > 0f && mainAvg >= (mainAvg + renderAvg) * FbDominantShare)
+                        sb.Append(" — driven by the MAIN THREAD (").Append(mainAvg.ToString("0.0")).Append(" ms)");
+                    else if (mainAvg > 0f && renderAvg > 0f)
+                        sb.Append(" — main ").Append(mainAvg.ToString("0.0")).Append(" ms vs render ")
+                          .Append(renderAvg.ToString("0.0")).Append(" ms, split between both");
+                }
+                sb.Append(". That is what misses the present.");
+            }
+            else if (gpuOwner)
+            {
+                sb.Append("GPU owns the frame (").Append(work.ToString("0.0")).Append(" ms of ")
+                  .Append(frameAvg.ToString("0.0")).Append(").");
+            }
+            else
+            {
+                sb.Append("CPU owns the frame (").Append(work.ToString("0.0")).Append(" ms of ")
+                  .Append(frameAvg.ToString("0.0")).Append(")");
+                // Name WHICH cpu: a render-thread-dominant frame is a completely different problem
+                // from a main-thread one, and a bare "CPU" would hide that distinction.
+                if (mainAvg > 0f && renderAvg > 0f)
+                {
+                    float mainShare = mainAvg / (mainAvg + renderAvg);
+                    if (mainShare >= FbDominantShare)
+                        sb.Append(" — MAIN THREAD ").Append(mainAvg.ToString("0.0")).Append(" ms.");
+                    else if (mainShare <= 1f - FbDominantShare)
+                        sb.Append(" — RENDER THREAD ").Append(renderAvg.ToString("0.0"))
+                          .Append(" ms vs main ").Append(mainAvg.ToString("0.0")).Append(" ms.");
+                    else
+                        sb.Append(" — main ").Append(mainAvg.ToString("0.0")).Append(" ms vs render ")
+                          .Append(renderAvg.ToString("0.0")).Append(" ms, split between both.");
+                }
+                else
+                    sb.Append(".");
+            }
+        }
+        else
+        {
+            sb.Append("\nVERDICT: CANNOT SPLIT — no CPU or GPU source produced a sample in this session. ")
+              .Append("This is a measurement gap, not a fast frame: the counters the Editor exposes did not report. ")
+              .Append("Do NOT read the absent columns as 0 ms.");
+        }
+
+        _frameBudgetText = sb.ToString();
+        Debug.Log("[NewWorldTestGround] " + _frameBudgetText.Replace("\n", " | "));
+
+        // Clear for the next window: press, walk, press.
+        _fbFrames = 0;
+        _fbFrameSum = 0f; _fbFrameMax = 0f;
+        _fbCpuSum = _fbMainSum = _fbRenderSum = _fbGpuSum = _fbGpuFtSum = 0f;
+        _fbCpuN = _fbMainN = _fbRenderN = _fbGpuN = _fbGpuFtN = 0;
+        _fbDrawSum = _fbBatchSum = _fbSetPassSum = _fbTriSum = 0f;
+        _fbCountedDraws = false;
+    }
+
+    /// <summary>Format a millisecond probe for the report: a real average, or an explicit "n/a" when
+    /// the source was never visible. Never prints a bare 0 for a missing source.</summary>
+    private static string Fb(float ms) => ms >= 0f ? ms.ToString("0.0") : "n/a";
+
+    private void OnDisable()
+    {
+        // (1ik) ProfilerRecorder is an IDisposable holding native counters; letting the play-mode
+        // teardown drop it without Dispose leaks the recorder for the lifetime of the domain. Each is
+        // gated on Valid so a lane that never opened them (toggle off) still tears down cleanly.
+        FbDispose(ref _fbTotalCpu);
+        FbDispose(ref _fbMainThread);
+        FbDispose(ref _fbRenderThread);
+        FbDispose(ref _fbGpuTime);
+        FbDispose(ref _fbDrawCalls);
+        FbDispose(ref _fbBatches);
+        FbDispose(ref _fbSetPass);
+        FbDispose(ref _fbTriangles);
+    }
+
+    private static void FbDispose(ref ProfilerRecorder rec)
+    {
+        if (rec.Valid) rec.Dispose();
+    }
+
     private void Update()
     {
+        // (1ik) Sampled FIRST, before any of the early returns below, because a passive sampler that
+        // an unrelated `return` can skip is not a sampler — it is a counter that quietly stops, and a
+        // stopped counter reports an average over the frames it happened to catch.
+        if (EnableFrameBudgetAudit)
+        {
+            SampleFrameBudget();
+            Keyboard kbBudget = Keyboard.current;
+            if (kbBudget != null && kbBudget[FrameBudgetKey] != null && kbBudget[FrameBudgetKey].wasPressedThisFrame)
+                SnapshotFrameBudget();
+        }
+
         // (1hy) Rendered-corner + void audit: one key, one frame, no side effects. Polled FIRST
         // because the weapon-rack logic below returns early on its own conditions, and a lane that
         // could be skipped by an unrelated early return would report the wrong frame.
@@ -1450,6 +1810,14 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 if (EnableLookAudit && _lookAuditRun)
                     stats += "\n" + SpellImpactFx.DroppedSinceLaunch + " impact flashes dropped"
                         + " (budget " + SpellImpactFx.PerFrameBudget + "/frame)";
+
+                // (1ik) Frame-budget snapshot. It stays up until the NEXT press replaces it, not
+                // forever like the corner/look headlines above: a stale standing-still number sitting
+                // under a walking frame is worse than no number, because it reads as current. The
+                // window's frame count is printed with the averages so the reader knows whether this
+                // is 90 frames or 12.
+                if (!string.IsNullOrEmpty(_frameBudgetText))
+                    stats += "\n" + _frameBudgetText;
 
                 _fpsText.text = stats;
             }

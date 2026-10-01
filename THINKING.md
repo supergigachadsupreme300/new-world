@@ -15,6 +15,73 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1ik — the frame-budget lane, and a report that named the wrong denominator first — VERDICT: OPEN (shipped, awaiting readout)
+
+### H53 — "30 FPS with every streamer counter near zero means the streamer is the cost" — REJECTED
+
+**The premise I brought in.** The user screenshotted the HUD: `FPS 30 (33.9 ms)`, `chunks 380`, `far
+cells 1224`, `last poll 3.39 ms`, `lod sweep 0.62 / 60.56 ms`, and then told me FPS "mostly falls under
+20". Every counter on that overlay is a *streamer* counter, and the streamer total was 3.39 ms of a
+33.9 ms frame. The obvious reading is "the streamer is fine, the frame cost is elsewhere".
+
+**Why the obvious reading is not yet evidence.** `peaks 0.00 ms` and `rebuilds 0` mean the player was
+**standing still** and no poll had run inside the window — so 3.39 ms is the last poll from some earlier
+moment, not a per-frame cost. Under that premise, "the streamer costs 3.39 ms" is a claim about a frame
+that is not on screen. Rule 7 again: cheapest-check-first and premise-check-first coincide; a number
+read out of an idle window describes the idle window.
+
+**What is actually unknown.** The ~30 ms that is not streaming is unattributable, because the project
+has **no CPU/GPU instrumentation at all** — grep for `FrameTimingManager`, `ProfilerRecorder`,
+`Unity.Profiling` returns zero hits. So there is no fork to even ask the question with. 1ik builds the
+fork before anything else touches it, which is the plan agreed with the user: *measure first, name the
+mechanism, then fix in a separate commit.*
+
+### H54 — "the fix is to re-enable `LowPolyFacets` (1ia left it off), so the near chunks go back to flat facets" — OPEN, and deliberately NOT acted on
+
+**The hypothesis.** `LowPolyFacets = false` by default (1ia) means the near chunks render the *full 1 m
+per-tile surface* with side walls and LOD children, and `PatchRegion` takes its per-tile skim. That is
+a plausible cause of a heavy frame at 380 chunks. It is the single biggest lever I can name from the
+code alone.
+
+**Why I am not touching it in 1ik.** Two independent reasons, and the second is the important one:
+1. It is a **render-algorithm** change, and rule 11 says that changes nothing already on screen —
+   `_loadedChunks`, `_dormantChunks` and the far shell all hold old geometry until the resident terrain
+   is dropped, and since 1hx the only honest remedy is a **play-session restart**. An A/B I cannot see
+   in-session is not an A/B.
+2. I have **no measurement** of which side owns the frame. Flipping a facet flag on a hypothesis, with
+   a CPU/GPU fork unmeasured, is exactly the "a fix chosen without a measurement is a guess" failure
+   rule 7 names. It may be correct and still change nothing.
+
+So the flag stays off until 1ik's readout names the side. If the readout says GPU with a large
+triangle count, this hypothesis graduates; if it says main-thread CPU, this hypothesis is irrelevant
+and the lane points somewhere else entirely.
+
+### The denominator bug, caught by rereading rather than by the check
+
+My first verdict divided measured work by the **frame** time and thresholded it at a majority. Under
+vsync that is not a share of anything: a frame can only be a whole number of present intervals, so
+20 ms of work behind a 33.3 ms frame is a **full lost present** that reads as 0.60 — and a 0.5
+threshold would refuse to name the side that actually did it. This is rule 7's "a verdict line that
+conflates two different things makes a number unusable", in a new costume: same denominator, different
+quantities. The fix was to measure dominance **between the sides** (CPU vs GPU), which needs no
+reference frame and is clamp-proof, and to report the cost as a **bracket** under a clamp. Both habits
+are now rule 7 bullets.
+
+I also wrote a `sb.Clear()` mid-report while restructuring — which would have wiped every earlier line
+of the readout — and caught it on reread, not from a check. StaticChecks is 0 candidates; it cannot see
+a semantic mistake in string-building, which is exactly the class rule 7 warns about (a green check is
+not evidence about the thing it does not model).
+
+### The absent-vs-zero trap, and why the unit decides
+
+The first `FbProbeMs` returned the raw value, so a **valid-but-never-filled** `ProfilerRecorder` would
+have printed `0.0 ms` for the GPU — reading as "the GPU is free" for the one side the Editor cannot
+see, which is the misreading that sends the next reader to the wrong subsystem. The fix: a time-valued
+source maps 0 → `n/a`; a count-valued source passes 0 through (0 draw calls is a real observation). The
+branch is on the marker's own declared `UnitType`, not on which field is being read — the six call sites
+would otherwise be six spellings of "is this a time or a count", which is rule 8's rotting second
+spelling in numeric form.
+
 ## 1ic — the per-spell look-collision audit (F4) — VERDICT: OPEN (measurement shipped, awaiting readout)
 
 ### Why this section is separate from 1ib–1ij

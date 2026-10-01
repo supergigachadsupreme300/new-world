@@ -4,6 +4,76 @@ Last updated: 2026-10-01. Read this first in a new session; then continue with t
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
 
+## 1ik. Frame-budget attribution lane (F2) — shipped, NOT verified
+
+**Status: shipped, not run. The FPS number you reported has no attribution behind it yet, and this is
+the lane that produces one.** The user reports FPS "mostly falls under 20" — but the overlay showed 30
+FPS at the moment it was screenshotted, and every counter on that overlay is a *streamer* counter. There
+is no CPU/GPU instrumentation anywhere in the project (grep for `FrameTimingManager`,
+`ProfilerRecorder`, `Unity.Profiling` returns **zero** hits outside this lane), so the ~30 ms that is
+not streaming was unattributable. That is the gap this closes.
+
+**Rule 7's discipline, and why the key is F2.** The lane is read-only (recorder reads and a
+`StringBuilder`; no rebuild, no patch, no forced poll, no setting changed) and samples **continuously**
+rather than on the keypress, because a frame time over one frame is noise and a CPU/GPU split is only
+meaningful as a distribution. The key is the **snapshot boundary**, so the report describes the frames
+that ran *up to* the press. F2 was chosen by grep, not inherited: it has zero references in
+`Assets\Scripts` and was vacated when 1hx removed its lane without restoring it; F5 is the
+`CameraModeSwitch` toggle (`Player\CameraModeSwitch.cs:120`). *(Correction: the F3/F4 tooltips call F1
+"a skill hotkey", but grep finds no `Key.F1` reference — so that claim is not repeated in F2's tooltip
+until someone sources it.)*
+
+### What the report says, and in what order
+
+Sections are ordered by whether the **premise** holds before the measurement is read (rule 7), because
+a share of a quantised frame is not a share of work:
+
+- **A. The clamp.** `vsync N @ R Hz` + presents-per-frame. If the frame is a clamped multiple, the
+  readout says the true cost is a *bracket* — "work in (1 interval, this frame]" — not a point
+  estimate, since a vsync'd frame can only be a whole number of present intervals.
+- **B. The fork.** `cpu main / render / total` and `gpu profiler / frameTiming`, each with its sample
+  count `[n …]`. A source that never reported prints `n/a`, never `0`.
+- **C. The owners.** draw / batches / setpass / tris, plus the render settings that govern them
+  (shadow distance, shadow resolution, AA, render scale) — a number with no lever attached cannot be
+  acted on.
+- **VERDICT.** Names CPU-main, CPU-render, or GPU, or says both sides are comparable, or says the
+  split failed. Dominance is measured **between the sides** (clamp-proof), not against the frame.
+
+### Two traps the lane is built to avoid (both are now `AGENTS.md` rule 7 bullets)
+
+- **Absent ≠ zero, and the unit decides.** A *valid* `ProfilerRecorder` that has never been filled
+  still returns 0, so a bare 0 in a time column would read "this side costs nothing" about the one
+  side the Editor can't see. Time sources map 0 → `n/a`; count sources pass 0 through (0 draw calls is
+  a real observation). The unit comes from the marker's own declared `UnitType`, not from the call
+  site.
+- **A clamp breaks the denominator.** The first version divided work by frame time; under vsync that is
+  not a share of anything (20 ms behind a 33.3 ms frame is a full lost present but reads 0.60). Fixed:
+  dominance is side-vs-side, and the residual is labelled *clamp slack* vs *unexplained work* per
+  regime. I also caught myself calling `sb.Clear()` mid-report, which would have wiped every earlier
+  line — rewritten as clean branches instead.
+
+### 1ik-status — NOT verified, no Unity run in this project
+
+- [ ] Let Unity compile. **Paste any console errors** — this lane is the first code in the project to
+      touch `Unity.Profiling`, and that API surface is unverified here (rule 3: no CLI build).
+- [ ] Stand still on the test platform, press **F2**, screenshot the block. Then walk ~5 s, press F2
+      again, screenshot. Two numbers, two conditions — that comparison is the whole deliverable.
+- [ ] Read the **VERDICT** line first, then the bracketed clamp line. If section A says the frame is a
+      clamped multiple, the headline FPS is a presentation quantum and the real cost is the bracket.
+- [ ] If GPU prints `n/a` on both sources, that is a **measurement gap, not a fast frame** — say so,
+      and the lane's answer is "this platform's Editor does not expose GPU timing", which is a
+      different conclusion from "the GPU is fine".
+- [ ] Report the `draw / tris` counts and the `settings` row verbatim; those decide whether the next
+      task is a draw-call/geometry lever or a CPU-scripting lever.
+- [ ] **Follow-up (1il, not done):** the 1ic verdict close-out. Its 4 checklist items are all resolved
+      by the F4 readout (`172/172/0`, `worst none`), but 1ic is measured-not-play-tested, and I am
+      deliberately **not** closing 1ic before the <20 FPS picture is understood — a doc that says
+      "verified" while the frame budget is unexplained is the stale-text failure rule 2 warns about.
+- Verification here: `tools\StaticChecks.ps1` 0 candidates (incl. brace/paren balance on
+  `NewWorldTestGround.cs` at 156/156, 932/932), grep for `Key.F2` (no conflict), grep for `OnDisable`
+  (none existed; added for `ProfilerRecorder.Dispose`), grep confirming no pre-existing
+  `FrameTimingManager`/`ProfilerRecorder` use. **No build.**
+
 ## 1ij. Bench fidelity + the last three colour consumers — shipped, NOT verified
 
 **Status: code + docs complete.** This is the last of the three commits the 1ic split produced, and

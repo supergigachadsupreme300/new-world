@@ -1757,8 +1757,22 @@ built to catch it. It is debug-only and save-invisible, so it needs no parity ch
 **How this is judged (1ic):** the test ground's **F4** lane resolves every reachable spell and reports
 `N spells / M distinct identities / C colliding groups`, where identical means impact + cast + shape +
 core RGB at 8 bits. `Scale`/`Tempo` are excluded — counting them would let a number read "unique"
-while two spells look identical on screen. **`M` must equal `N` (172: 167 magic + 5 class).** Until
-that number is read in a session, 1id–1ii are not verified.
+while two spells look identical on screen. **`M` must equal `N` (172: 167 magic + 5 class).** A session
+has now read that number (`172 / 172 / 0`, `(worst none)`), so the identity tables are collision-free
+and no jitter retune is needed — but `M == N` is a **static** result: the audit resolves looks into a
+dictionary and spawns nothing, so 1id–1ii stay **play-test-open** until one spell per school is fired
+and the halo, impact family and body shape are confirmed on screen.
+
+**Where the frame time goes (1ik):** a separate read-only lane on **F2** attributes the frame to CPU
+main thread, CPU render thread, or GPU, and prints the draw/batch/triangle counts and the render
+settings that govern them. It samples continuously and the key is the snapshot boundary, so the report
+describes the frames that ran *up to* the press — a frame time over one frame is noise. Two reading
+rules are baked in because they change what the numbers mean: a source that never reported prints
+`n/a` and never `0` (a valid-but-empty profiler counter returns 0, which would read as "this side is
+free" about the one side the Editor cannot see), and under vsync the frame is a whole number of present
+intervals, so the cost is reported as a **bracket** rather than a share of a quantised total. This
+matters because the FPS overlay's own counters are all *streamer* counters — they cannot see the cost
+of drawing 380 chunks and ~1,200 far cells.
 
 #### Spell Sources
 
