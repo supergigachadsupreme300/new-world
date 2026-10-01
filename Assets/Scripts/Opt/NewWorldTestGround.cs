@@ -93,6 +93,12 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public Key CornerAuditKey = Key.F3;
     private string _cornerAuditText;
 
+    [Tooltip("QA (1ic): press LookAuditKey for a read-only audit of the per-spell visual identity — how many of the spell roster's resolved looks are actually distinguishable. Two spells count as the SAME identity when their impact family, cast family, projectile body shape and core colour (quantised to 8 bits per channel) all match; Scale and Tempo are excluded because they are sub-perceptual, and including them would let the number read 'unique' while two spells look identical. Groups the LIVE rosters (SkillCatalog magic + ClassSkillCatalog), so it measures what the player can actually cast. Read-only — resolves looks and prints, spawns nothing.")]
+    public bool EnableLookAudit = true;
+    [Tooltip("QA (1ic): key that runs the per-spell look-collision audit. F4: F1 is a skill hotkey, F3 is the 1hy corner/void audit, and the F2/F4 lanes 1hx removed were not restored.")]
+    public Key LookAuditKey = Key.F4;
+    private string _lookAuditText;
+
     private WorldNpcPlacer _npcPlacer;
     private bool _spawned;
     private bool _toolKitSpawned;
@@ -913,6 +919,15 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 RunCornerAudit();
         }
 
+        // 1ic: the look-collision audit. Polled next, and for the same reason: this Update has early
+        // returns below, so a lane after them could report nothing at all.
+        if (EnableLookAudit)
+        {
+            Keyboard kb2 = Keyboard.current;
+            if (kb2 != null && kb2[LookAuditKey] != null && kb2[LookAuditKey].wasPressedThisFrame)
+                RunLookAudit();
+        }
+
         RunPendingPlayerGrants();
         if (!EnableWeapons || _rackStands.Count == 0) return;
         var gm = GameManager.Instance;
@@ -967,6 +982,146 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
         _cornerAuditText = streamer.RenderedCornerAudit();
         Debug.Log("[NewWorldTestGround] " + _cornerAuditText);
+    }
+
+    /// <summary>
+    /// QA (1ic): the per-spell look-collision audit. Resolves every spell the player can actually
+    /// cast and reports how many DISTINGUISHABLE identities came out.
+    ///
+    /// <para><b>Why the axes are named in the output.</b> "172 unique" is only meaningful next to
+    /// the definition of unique, and the definition is the part that can quietly flatter the result.
+    /// Two spells are the same identity here when impact family, cast family, body shape and core
+    /// RGB all match at 8 bits per channel. Scale and Tempo are deliberately left OUT: they are
+    /// sub-perceptual, so counting them would let a number read unique while two spells look the
+    /// same on screen (the rule-7 "gate a classifier on the width of its own test" habit, applied to
+    /// an identity metric instead of a spatial one).</para>
+    ///
+    /// <para><b>Why it groups by the axes and not by <c>SpellLook.Fingerprint</c>.</b> The
+    /// fingerprint is a 32-bit hash of those same axes. Grouping on it would report a genuine
+    /// 32-bit hash collision as "two spells look the same", which is a different claim about a
+    /// different thing. The key below packs the real axes, so a reported collision is a real
+    /// identity collision.</para>
+    ///
+    /// <para><b>Scope names its owners.</b> It walks the two LIVE rosters — SkillCatalog's magic
+    /// castables and ClassSkillCatalog's spell effects — because those are what a player can cast.
+    /// The dead <c>RaceSkillCatalog.MakeSpell</c> twin builds no reachable spell and is excluded;
+    /// it is kept in signature parity with the live one, not in the audit's denominator.</para>
+    ///
+    /// Read-only: it resolves looks into a local dictionary, prints, and places nothing.
+    /// </summary>
+    private void RunLookAudit()
+    {
+        SkillCatalog.EnsureBuilt();
+        ClassSkillCatalog.EnsureBuilt();
+
+        var groups = new Dictionary<ulong, List<string>>();
+        var byImpact = new Dictionary<SpellImpactStyle, int>();
+        var byCast = new Dictionary<SpellCastStyle, int>();
+        var byShape = new Dictionary<ProjectileShape, int>();
+        int total = 0;
+        int authored = 0;
+        var seen = new HashSet<string>();
+
+        void Add(SpellData spell, string owner)
+        {
+            if (spell == null) return;
+            // Guard against double counting a SpellData reachable from two rosters: the denominator
+            // is SPELLS, and a roster bug that lists one spell twice must not inflate the count.
+            if (spell.id != null && !seen.Add(spell.id)) return;
+            total++;
+            var look = SpellLook.Resolve(spell);
+            if (look.Authored) authored++;
+            Bump(byImpact, look.Impact);
+            Bump(byCast, look.Cast);
+            Bump(byShape, look.DisplayShape);
+            ulong key = LookKey(look);
+            if (!groups.TryGetValue(key, out var list))
+            {
+                list = new List<string>();
+                groups[key] = list;
+            }
+            list.Add((owner + "|" + spell.id) + " " + Describe(look));
+        }
+
+        foreach (var skill in SkillCatalog.OfType(SkillType.Magic))
+        {
+            if (skill == null || skill.IsPassive) continue;
+            if (skill.Effect is SpellCastEffect cast && cast.Spell != null)
+                Add(cast.Spell, "skill");
+        }
+        if (ClassSkillCatalog.All != null)
+        {
+            foreach (var cs in ClassSkillCatalog.All)
+            {
+                if (cs == null || cs.IsPassive || cs.Effects == null) continue;
+                foreach (var eff in cs.Effects)
+                    if (eff is ClassSpellEffect ce && ce.Spell != null)
+                        Add(ce.Spell, "class");
+            }
+        }
+
+        int colliding = 0;
+        int worst = 1;
+        foreach (var kv in groups)
+        {
+            if (kv.Value.Count < 2) continue;
+            colliding++;
+            if (kv.Value.Count > worst) worst = kv.Value.Count;
+        }
+
+        // A clean run must not print "worst 1" - that reads like a finding when it is the
+        // absence of one, and a number that flatters the result is worse than no number.
+        string worstText = colliding > 0 ? worst.ToString() : "none";
+
+        var sb = new System.Text.StringBuilder(512);
+        sb.Append("look audit: ").Append(total).Append(" spells, ").Append(groups.Count)
+          .Append(" distinct identities, ").Append(colliding).Append(" colliding groups")
+          .Append(" (worst ").Append(worstText).Append("), ").Append(authored)
+          .Append(" authored profiles. axes = impact+cast+shape+coreRGB@8bit (scale/tempo excluded)");
+        _lookAuditText = sb.ToString();
+        Debug.Log("[NewWorldTestGround] " + _lookAuditText);
+
+        sb.Append('\n').Append("  impact families: ").Append(CountLine(byImpact));
+        sb.Append('\n').Append("  cast families:   ").Append(CountLine(byCast));
+        sb.Append('\n').Append("  body shapes:     ").Append(CountLine(byShape));
+        foreach (var kv in groups)
+        {
+            if (kv.Value.Count < 2) continue;
+            sb.Append("\n  COLLISION x").Append(kv.Value.Count).Append(':');
+            foreach (string member in kv.Value) sb.Append("\n    ").Append(member);
+        }
+        Debug.Log("[NewWorldTestGround] " + sb.ToString());
+    }
+
+    /// <summary>Packs the perceptual axes into one key. 34 bits: 3+3+4 for the enums, 8 per channel.</summary>
+    private static ulong LookKey(in SpellLook look)
+    {
+        int r = Mathf.Clamp(Mathf.RoundToInt(look.Core.r * 255f), 0, 255);
+        int g = Mathf.Clamp(Mathf.RoundToInt(look.Core.g * 255f), 0, 255);
+        int b = Mathf.Clamp(Mathf.RoundToInt(look.Core.b * 255f), 0, 255);
+        return ((ulong)(int)look.Impact << 31)
+             | ((ulong)(int)look.Cast << 28)
+             | ((ulong)(int)look.DisplayShape << 24)
+             | ((ulong)r << 16) | ((ulong)g << 8) | (ulong)b;
+    }
+
+    private static string Describe(in SpellLook look)
+        => "(" + look.Impact + "/" + look.Cast + "/" + look.DisplayShape + "/"
+           + look.Core.r.ToString("F2") + "," + look.Core.g.ToString("F2") + "," + look.Core.b.ToString("F2")
+           + (look.Authored ? " AUTHORED)" : ")");
+
+    private static void Bump<TKey>(Dictionary<TKey, int> map, TKey key) where TKey : notnull
+    {
+        map.TryGetValue(key, out int n);
+        map[key] = n + 1;
+    }
+
+    private static string CountLine<TKey>(Dictionary<TKey, int> map) where TKey : notnull
+    {
+        var parts = new List<string>(map.Count);
+        foreach (var kv in map) parts.Add(kv.Key + "=" + kv.Value);
+        parts.Sort();
+        return string.Join(" ", parts);
     }
 
     /// <summary>
@@ -1268,6 +1423,11 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 // numbers for the frame the key was pressed on.
                 if (EnableCornerAudit && !string.IsNullOrEmpty(_cornerAuditText))
                     stats += "\n" + _cornerAuditText;
+
+                // 1ic: same persistence — the look-collision headline stays up so a screenshot of
+                // the number is evidence for the frame the key was pressed on.
+                if (EnableLookAudit && !string.IsNullOrEmpty(_lookAuditText))
+                    stats += "\n" + _lookAuditText;
 
                 _fpsText.text = stats;
             }

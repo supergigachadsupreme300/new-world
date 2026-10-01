@@ -15,6 +15,115 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1ic — the per-spell look-collision audit (F4) — VERDICT: OPEN (measurement shipped, awaiting readout)
+
+### Why this section is separate from 1ib–1ij
+
+1ib–1ij was planned as one block, and the plan's own step 1 was the audit: *"Add the read-only
+per-spell look-collision audit lane **first** — one key, one number, cached on the HUD and logged —
+so the jitter is tuned against a measurement rather than taste."* The working tree had 1id–1ii
+already written on top of the same eight files, so the audit's diff was indistinguishable from theirs.
+
+Rule 7 says ship the measurement and the fix as **separate** tasks so the readout that justified the
+fix stays in history. The user chose the split. Keeping 1ic alone also has a property I did not plan
+for and only noticed while editing: the audit references `SpellLook` / `SpellImpactStyle` /
+`SpellCastStyle` / `ProjectileShape` / `SkillCatalog.OfType` / `ClassSkillCatalog.All` — all of which
+1ib committed — but the fx-budget HUD line I first wrote referenced `SpellImpactFx`, which does not
+exist until 1id. That line would have made commit A non-compiling **on its own**, which is exactly
+the kind of thing that only review catches and that a single squashed commit would have hidden. The
+fx-budget line moved to 1id.
+
+### H40 — "the collision metric can be `SpellLook.Fingerprint`, the hash 1ib already built" — REJECTED
+
+**Hypothesis.** 1ib built `SpellLook.Fingerprint` for this purpose. Group the roster by it.
+
+**Why it looked right.** It exists, it is a uint32 over the right axes, and it was written by me two
+commits earlier with the audit in mind.
+
+**Why it is wrong, and it is a category error.** A fingerprint is a *hash*. Hash collisions are
+expected at 32 bits across 172 keys in the birthday sense, and more to the point a collision in the
+hash says nothing whatsoever about whether two spells look alike — it says the buckets are full. So a
+reported collision would be a claim about the instrument, not about the world. Rule 7's habit: *a
+verdict line that conflates two different things makes a number unusable*. `LookKey` packs the actual
+axes into 34 bits (3+3+4 for the enums, 8 per channel) instead, so "same key" means literally
+"identical axes".
+
+**Knock-on.** `SpellLook.Fingerprint` has **zero** callers after this and was only ever the measuring
+instrument, so it is deleted in 1ig rather than left as an unused public API. That is also an
+admission about 1ib: the plan said the audit would use it and the audit refused it.
+
+### H41 — "Scale and Tempo should be part of the identity" — REJECTED
+
+**Hypothesis.** Two spells differing only in `Scale` are different enough that the metric should see
+them, since they are authored fields and the player can read a size difference.
+
+**Evidence against.** A tick at scale 1.00 and a tick at scale 1.08 are the same picture. If the
+metric counted them, `M` would report "distinct" while the screen shows two identical flashes — which
+is precisely rule 7's *"gate a classifier on the width of its own test"*, where the test width (the
+8-bit colour quantisation plus the excluded axes) is smaller than the real threshold the player is
+being asked to see. The audit states its own axes in the headline so a screenshot cannot be
+misread: `axes = impact+cast+shape+coreRGB@8bit (scale/tempo excluded)`.
+
+**The cost, stated plainly:** the metric is therefore *blind* to a spell that differs only in tempo.
+That is an accepted false-negative, and it is the correct direction to err — the failure mode is "the
+audit says clean and the player sees a near-duplicate", not a fabricated finding.
+
+### H42 — "colliding groups should be a count of spells, not groups" — REJECTED as the headline
+
+A number of *groups* and a number of *colliding spells* are both true and they answer different
+questions. "3 colliding groups" reads as severity (three places to go look); "14 spells collide" reads
+as scope. The headline carries both the group count and the worst group size, which is what you need
+to decide whether to retune one family or split one school. Also: `worst` was seeded at 1, so a run
+with zero collisions printed `(worst 1)` — a number that looks like a finding and is the absence of
+one. Now prints `(worst none)`.
+
+### H43 — "group by the roster's own `Spell` objects, not by resolved looks" — CONFIRMED
+
+The walk has to be the set of spells the player can *reach*. `SkillCatalog.OfType(SkillType.Magic)`
+gives the 16 + 151 = 167 magic `Spell(...)` call sites; `ClassSkillCatalog.All` yields 6 constructed
+class spells, **5 of which are reachable** — `MakeSpell` is called with `summon == true` from one site
+that is commented out. The dead twin in `RaceSkillCatalog.MakeSpell` is kept for signature parity
+with `ClassSkillCatalog.MakeSpell` and is *excluded from the denominator*: a duplicate signature is
+not a second reachable spell, and including it would make `N` wrong in a way that looks like a
+collision.
+
+### H44 — StaticChecks check 1 reported the new audit as `parens 840/841` — FALSE POSITIVE, and it was on its first file
+
+**What happened.** The audit's summary line ends `.Append("), ")`. Check 1 counted raw characters, so
+a `)` inside a **string literal** read as an unmatched paren.
+
+**Why this one mattered more than the number.** Rule 7's standing lesson, twice written down now: a
+check that flags a false positive on the first file you add it to is a check whose silence has stopped
+meaning anything. 1hy's check 4 reported every `out` parameter as an unassigned local; a reader
+trained by false candidates waves through the next real CS0165. My first instinct on seeing
+`840/841` was to write "expected" next to it in the doc. That instinct is the failure mode. The
+number was wrong and the check was wrong, in that order of importance — the file was fine, and so was
+my code in it.
+
+**The fix.** Character-wise strip of comments (`//`, `/* */`), regular strings/chars (with `\` escape
+handling, bailing at EOL on an unterminated literal), and verbatim `@"..."` (with `""` escapes). One
+pass, not a regex: a regex cannot tell an escaped quote from a closing one, and it is exactly the
+escaped quote that a naive `".*?"` would get wrong in a *different* file, which is a quieter way to be
+wrong than the first one.
+
+**Verified in both directions**, since a check that has never failed has not been tested:
+- injected `if ((shape == TerrainShape.None || radius <= 0f) return;` into
+  `WorldStreamer.Deform.cs:38` → `!! Deform.cs braces 60/60 parens 278/277`, then
+- `git checkout --` the file → `ok Deform.cs braces 60/60 parens 277/277`.
+
+The tree is 0 candidates. Note the second number: the raw count before stripping was 840 open / 841
+close, and **after** stripping the audit file balances at all four — so nothing else was hiding behind
+the one visible candidate.
+
+### What 1ic does NOT establish
+
+It is a *static* walk. It resolves looks into a dictionary and prints. It spawns nothing, casts
+nothing, and reads no `SkillFx` state, so it cannot see a family that is chosen correctly but fails at
+runtime (the 1hy lesson: a static proof about a generator is a claim about the premise, not about the
+screen). `M == N` is therefore **necessary, not sufficient** — the play-test still has to fire one
+spell per school and confirm the halo, impact family and body shape read as different and each match
+its school's family.
+
 ## 1ib–1ij — per-spell visual identity for all 172 spells — VERDICT: OPEN (plan of record)
 
 ### The request

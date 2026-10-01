@@ -13,6 +13,15 @@
     or prove definite assignment on every path - it reports CANDIDATES for a human
     to confirm. Run it from the repo root:
 
+    Check 1 counts braces and parens over code with comments, string literals and
+    char literals STRIPPED. 1ic added a readout whose summary line ends
+    `.Append("), ")` - a ')' inside a string - and the raw character count reported
+    it as parens 840/841, i.e. one candidate on the very first file it was run
+    against. A check that cries wolf on its first file has a silence nobody can read
+    any more, so the count is literal-aware (AGENTS.md rule 7). Verified both ways:
+    an extra '(' injected into WorldStreamer.Deform.cs:38 fires the check, and the
+    restored file goes quiet.
+
         powershell -ExecutionPolicy Bypass -File tools\StaticChecks.ps1
 
     Lives outside Assets/ on purpose: a script under Assets/ is compiled by Unity
@@ -80,14 +89,67 @@ foreach ($f in $files) {
     if (-not (Test-Path $f)) { Write-Output "MISSING: $f"; $problems++ }
 }
 
+# Strip everything the C# lexer would not count as a delimiter, so a '{' or ')' inside a
+# string, a char literal or a comment cannot manufacture a candidate. Character-level,
+# in one pass, because a regex cannot tell an escaped quote from a closing one.
+function StripNonCode([string]$s) {
+    $sb = New-Object System.Text.StringBuilder $s.Length
+    $i = 0; $n = $s.Length
+    while ($i -lt $n) {
+        $c = $s[$i]
+        if ($c -eq '/' -and ($i + 1) -lt $n) {
+            $next = $s[$i + 1]
+            if ($next -eq '/') {                       # line comment
+                while ($i -lt $n -and $s[$i] -ne "`n") { $i++ }
+                continue
+            }
+            if ($next -eq '*') {                       # block comment
+                $i += 2
+                while ($i -lt $n -and -not ($s[$i] -eq '*' -and ($i + 1) -lt $n -and $s[$i + 1] -eq '/')) { $i++ }
+                $i += 2
+                continue
+            }
+        }
+        if ($c -eq '@' -and ($i + 1) -lt $n -and $s[$i + 1] -eq '"') {   # verbatim @"..."
+            $i += 2
+            while ($i -lt $n) {
+                if ($s[$i] -eq '"') {
+                    if (($i + 1) -lt $n -and $s[$i + 1] -eq '"') { $i += 2; continue }
+                    $i++; break
+                }
+                $i++
+            }
+            [void]$sb.Append(' ')
+            continue
+        }
+        if ($c -eq '"' -or $c -eq "'") {                # regular string / char literal
+            $q = $c
+            $i++
+            while ($i -lt $n) {
+                if ($s[$i] -eq '\') { $i += 2; continue }
+                if ($s[$i] -eq $q) { $i++; break }
+                if ($s[$i] -eq "`n") { break }         # unterminated: bail at EOL
+                $i++
+            }
+            [void]$sb.Append(' ')
+            continue
+        }
+        [void]$sb.Append($c)
+        $i++
+    }
+    return $sb.ToString()
+}
+
 # ---------------------------------------------------------------- 1. balance
 Section '1. brace / paren balance'
 foreach ($f in $files) {
-    $t = [System.IO.File]::ReadAllText((Resolve-Path $f))
-    $ob = ($t.ToCharArray() | Where-Object { $_ -eq '{' }).Count
-    $cb = ($t.ToCharArray() | Where-Object { $_ -eq '}' }).Count
-    $op = ($t.ToCharArray() | Where-Object { $_ -eq '(' }).Count
-    $cp = ($t.ToCharArray() | Where-Object { $_ -eq ')' }).Count
+    $t = StripNonCode ([System.IO.File]::ReadAllText((Resolve-Path $f)))
+    $chars = $t.ToCharArray()
+    $ob = 0; $cb = 0; $op = 0; $cp = 0
+    foreach ($c in $chars) {
+        if ($c -eq '{') { $ob++ } elseif ($c -eq '}') { $cb++ }
+        elseif ($c -eq '(') { $op++ } elseif ($c -eq ')') { $cp++ }
+    }
     if ($ob -ne $cb -or $op -ne $cp) { Bad "$f braces $ob/$cb parens $op/$cp" }
     else { Ok ("{0} braces {1}/{1} parens {2}/{2}" -f $f.Split('\')[-1], $ob, $op) }
 }

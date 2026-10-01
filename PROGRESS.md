@@ -1,8 +1,75 @@
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-09-30. Read this first in a new session; then continue with the
+Last updated: 2026-10-01. Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list.
+
+## 1ic. Read-only per-spell look-collision audit (F4) — the measurement 1ib–1ij is judged by
+
+**Status: shipped, NOT run. The number does not exist yet — pressing F4 is what produces it.** This
+is deliberate and is the whole reason it is its own commit: 1ib's plan ordered the audit *before* the
+visual work "so the jitter is tuned against a measurement rather than taste", and the working tree had
+already merged 1ic with 1id–1ii. Splitting it out keeps the readout that judges the other six tasks in
+history where rule 7 can find it.
+
+### What it measures
+
+Press **F4** on the test platform. It resolves the look of every spell the player can actually cast
+and reports `N spells / M distinct identities / C colliding groups`, plus a full list of colliding
+pairs in the console. The HUD keeps the headline line so a screenshot of the number is evidence for
+the frame the key was pressed on.
+
+**Two spells are the same identity when impact family + cast family + body shape + core RGB all match
+at 8 bits per channel.** `Scale` and `Tempo` are deliberately excluded — they are sub-perceptual, and
+counting them would let the number read "unique" while the two spells look identical on screen. That
+is rule 7's "gate a classifier on the width of its own test", applied to an identity metric instead of
+a spatial one.
+
+**The gate: `M` must equal `N`.** Expected `N` is **172** (167 magic `Spell(...)` call sites — 16 in
+`SkillCatalog.cs` + 151 in `SkillCatalog.Magic.cs` — plus 5 live `ClassSkillCatalog.MakeSpell` sites).
+`N` below 172 means the audit's walk missed reachable spells, not that spells collided; the readout
+prints `N` precisely so that distinction is visible. `M < N` means the family tables or the jitter
+band are under-tuned and 1id–1ii are **not** done.
+
+### Three things it deliberately does not do
+
+- **It does not group by `SpellLook.Fingerprint`.** That property is a 32-bit hash of the same axes;
+  grouping on it would report a genuine hash collision as "two spells look the same", which is a
+  different claim about a different thing. `LookKey` packs the real axes instead (34 bits), so a
+  reported collision is a real identity collision. **`SpellLook.Fingerprint` is now dead** — it was
+  built in 1ib as the measuring instrument and the audit refused it. It is deleted in 1ig.
+- **It excludes the dead `RaceSkillCatalog.MakeSpell` twin.** That twin builds no reachable spell. It
+  is kept in signature parity with the live `ClassSkillCatalog.MakeSpell`, not in the denominator.
+- **It spawns nothing.** It resolves looks into a local dictionary and prints.
+
+### The StaticChecks false positive this commit had to fix first
+
+The new readout's summary line ends `.Append("), ")` — a `)` inside a string literal — and
+`tools\StaticChecks.ps1` check 1 counted raw characters, so it reported the file as
+`parens 840/841`. **That was a false positive on the very first file the fix was run against**, which
+is the situation rule 7 calls out: a check that cries wolf on its first file has a silence no reader
+can trust any more. Check 1 now counts braces and parens with comments, string literals and char
+literals stripped, character-wise (a regex cannot tell an escaped quote from a closing one, and
+`@"..."` verbatim strings need their own rule).
+
+**Verified both directions**, because a green check nobody has seen fail is not a check: an extra `(`
+injected into `WorldStreamer.Deform.cs:38` fires the check (`parens 278/277`), and the restored file
+goes quiet (`277/277`). The whole tree is now **0 candidates**.
+
+### 1ic-status — NOT verified, no Unity run in this project
+
+- [ ] Launch the test platform and press **F4**. Report the whole headline line verbatim.
+- [ ] If `distinct identities` < `spells`: paste the console's `COLLISION x<n>:` blocks. Those are the
+      spell pairs to retune — widen the per-school family tables or the jitter band in `SpellLook`,
+      not the audit.
+- [ ] If `spells` < 172: the walk is missing reachable spells; check whether `ExpandTree` fails to
+      materialise every `DesignBank` slot.
+- [ ] Confirm a clean run prints `(worst none)` rather than `(worst 1)` — the old code seeded the
+      worst-group counter at 1, so a run with zero collisions printed "worst 1", which reads like a
+      finding when it is the absence of one.
+- Verification performed here: `tools\StaticChecks.ps1` (0 candidates, after being watched fire on an
+  injected imbalance), string-stripped `(){}[]` balance on every touched file, grep for the audit's
+  roster symbols. **No build.**
 
 ## 1ib–1ij. Per-spell visual identity for all 172 spells — PLAN (executing)
 
