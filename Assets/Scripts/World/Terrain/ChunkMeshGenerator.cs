@@ -578,11 +578,13 @@ public static class ChunkMeshGenerator
         // the old WorldCornerIndex rule, so the LOD surface is identical to the pre-1ew build.
         ChunkCornerGrid corners = BuildCornerGrid(tiles, cs, seed, heightMemo);
 
-        // (1hi) Decimated 2 m collider arrays, sampled from the SAME lattice above so the physics
-        // surface is seam-proof by construction. Built on this worker thread and carried on the
-        // merged data — the main-thread collider upload cooks a 256-vert mesh instead of the full
-        // render surface (~4x cheaper per enable). Re-derivable after deformation via
-        // BuildDecimatedCollider over the patch-restamped lattice.
+        // (1hi) Collider arrays, sampled from the SAME lattice above so the physics surface is
+        // seam-proof by construction. Built on this worker thread and carried on the merged data —
+        // the main-thread collider upload then cooks a mesh with no side walls and no refined
+        // blocks, instead of the full render surface. Re-derivable after deformation via
+        // BuildDecimatedCollider over the patch-restamped lattice. Since 1ex this is the full 1 m
+        // lattice (961 verts / 1800 tris), so the cook is no longer ~4x cheaper — see
+        // ChunkColliderDecimation for why the size claim changed and what the path still buys.
         BuildDecimatedCollider(corners, ChunkColliderDecimation,
             out Vector3[] colliderVertices, out int[] colliderTriangles);
 
@@ -950,15 +952,20 @@ public static class ChunkMeshGenerator
 
     /// <summary>
     /// Builds the DECIMATED collider lattice for a chunk (1hi): every <paramref name="step"/>-th node
-    /// of the 31x31 world-corner grid (<see cref="ChunkCornerGrid"/>, every 2nd by default),
-    /// indexed with the same up-facing winding as the smooth tile builder (1hi.2: NW, NE, SE, SW —
-    /// i01, i11, i10, i00 — triangles (01,11,10)/(01,10,00), so the surface the player stands on
-    /// fronts the MeshCollider like the pre-1hi full-mesh collider; the original p00-first winding
-    /// was back-facing and cast the player through). The
-    /// MeshCollider only needs a surface the player stands on, so the per-enable PhysX cook on the
-    /// gameplay frame drops ~4x (256 verts / 450 tris vs. up to ~1800+ tris of the full merged render
-    /// mesh). The lattice holds the EXACT world corners the LOD children (and neighbour chunks) use,
-    /// so the physics surface is seam-proof across chunks by construction — and re-derivable from the
+    /// of the 31x31 world-corner grid (<see cref="ChunkCornerGrid"/>; <b>every node since 1ex</b>,
+    /// <see cref="ChunkColliderDecimation"/> = 1), indexed with the same up-facing winding as the smooth
+    /// tile builder (1hi.2: NW, NE, SE, SW — i01, i11, i10, i00 — triangles (01,11,10)/(01,10,00), so the
+    /// surface the player stands on fronts the MeshCollider like the pre-1hi full-mesh collider; the
+    /// original p00-first winding was back-facing and cast the player through).
+    ///
+    /// <para><b>Horizontal quads ONLY</b> — there is no vertical strip pass in this method (the RENDER
+    /// mesh has one for cliff faces). A vertical step is therefore sampled as a ramp, and that ramp's
+    /// gradient is what the player climbs: at step 2 a 1 m cliff presented as ~26.6°, at step 1 it is
+    /// exactly 45° — the <c>CharacterController</c>'s default <c>slopeLimit</c>, which this project never
+    /// assigns (only <c>skinWidth</c> and <c>stepOffset</c>). <b>Cliff traversal is a 1ex play-test item.</b>
+    ///
+    /// <para>The lattice holds the EXACT world corners the LOD children (and neighbour chunks) use, so the
+    /// physics surface is seam-proof across chunks by construction — and re-derivable from the
     /// patch-restamped lattice after deformation. Pure arrays — thread-safe.
     /// </summary>
     public static void BuildDecimatedCollider(ChunkCornerGrid corners, int step,
@@ -1198,10 +1205,25 @@ public static class ChunkMeshGenerator
     /// freed-mesh pool; anything beyond the cap is destroyed outright on release.</summary>
     private const int PooledChunkMeshCap = 48;
 
-    /// <summary>Decimation step (m) of the smooth chunk's decimated collider lattice (1hi): every
-    /// 2nd node of the 31x31 corner grid → 256 verts / 450 tris vs. the full merged render surface.
-    /// 2 divides 30 (ChunkSize), so the collider plane tiles the chunk exactly.</summary>
-    public const int ChunkColliderDecimation = 2;
+    /// <summary>Decimation step (m) of the smooth chunk's decimated collider lattice (1hi).
+    ///
+    /// <para><b>1ex: 2 → 1.</b> The player has NO separate ground raycast — <c>CharacterController.Move</c>
+    /// sweeps this MeshCollider directly (<c>PlayerController.Movement.cs</c>), so this lattice IS the
+    /// ground the player stands on. At step 2 a carve was sampled at its worst case (every 2nd node, so a
+    /// footprint centred on an odd x or z had NO sampled node inside it at all) and the player walked
+    /// over a visible 1.1 m crater. Step 1 samples every corner, so the physics surface now carries the
+    /// full 1 m render resolution: 961 verts / 1800 tris.
+    ///
+    /// <para><b>The 1hi "~4x cheaper cook" premise is DEAD at this value</b> — 961/1800 is the same size
+    /// as the full render surface, so the decimation buys nothing in cook cost on the smooth default.
+    /// What it still buys is <i>topology</i>: this is horizontal quads only, no side walls and no
+    /// refined blocks, so it stays smaller than the render mesh that carries both. The mechanism is kept
+    /// deliberately rather than inlined as a literal 1: <c>ColliderStep</c> still prefers the chunk's own
+    /// low-poly facet step (1hi.1), and this stays the one place the fallback is stated.
+    ///
+    /// <para><b>Invariant:</b> the step must divide 30 (ChunkSize) or the last grid row falls short of the
+    /// chunk boundary — a visible crack along every chunk edge. Any legal value is {1, 2, 3, 5, 6, 10, 15, 30}.</summary>
+    public const int ChunkColliderDecimation = 1;
 
     private static readonly System.Collections.Generic.Queue<Mesh> _chunkMeshPool =
         new System.Collections.Generic.Queue<Mesh>();

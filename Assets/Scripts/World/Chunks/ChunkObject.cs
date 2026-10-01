@@ -24,7 +24,9 @@ public class ChunkObject : MonoBehaviour
 
     // Collider-on-demand (1dq): only chunks near the player or near active magic carry a
     // MeshCollider. The far radius-N world still renders its full meshes; its physics load
-    // (collider cooks + ~7k-tri broadphase bodies) is gated to what the gameplay uses.
+    // (collider cooks + the broadphase bodies) is gated to what the gameplay uses. Since 1ex each
+    // ring collider is 1800 tris (was 450), so the ring-7 square's full broadphase cost is ~405k
+    // triangles rather than ~101k — a deliberate trade for not walking through visible craters.
     private bool _colliderActive;
 
     /// <summary>True while this chunk's MeshCollider is assigned (near the player or magic, 1dq).</summary>
@@ -71,18 +73,19 @@ public class ChunkObject : MonoBehaviour
     }
 
     /// <summary>
-    /// Assignment point for the chunk's MeshCollider (1hi). Smooth chunks cook a DECIMATED lattice
-    /// instead of the full render mesh — 2 m by default, or the chunk's OWN low-poly facet step
-    /// (1hi.1 <see cref="ColliderStep"/>, so you stand exactly on the visible facets — 3 m if
-    /// <c>WorldStreamer.LowPolyFacets</c> is on, which it is not by default since 1ia) — so the
-    /// per-enable PhysX cook on the gameplay frame is ~4x cheaper; the lattice shares the EXACT
-    /// world corners the LOD children (and neighbour chunks) use, so the physics surface is
-    /// seam-proof across chunks by construction. Voxel mode (already chunky 1 m columns) keeps the
-    /// render mesh as its collider, unchanged from pre-1hi. <paramref name="md"/> carries
-    /// worker-thread-built collider arrays on the merge path (0 main-thread build); enabling a
-    /// collider later (1dq collider ring, 1gg exempt cooks) derives them here — 256 verts, once per
-    /// enable. Disabling nulls the collider (zero physics) but KEEPS the pooled collider mesh, so a
-    /// re-enable re-cooks the same instance.
+    /// Assignment point for the chunk's MeshCollider (1hi). Smooth chunks cook a lattice sampled from
+    /// the same world corners as the render mesh — every 1 m node since 1ex, or the chunk's OWN low-poly
+    /// facet step (1hi.1 <see cref="ColliderStep"/>, so you stand exactly on the visible facets — 3 m if
+    /// <c>WorldStreamer.LowPolyFacets</c> is on, which it is not by default since 1ia). 1ex raised this
+    /// from every-2nd-node because the player has no separate ground raycast (CharacterController sweeps
+    /// this collider directly), so at step 2 a carve centred on an odd coordinate had no sampled node in
+    /// its footprint and you walked over a visible crater. The lattice shares the EXACT world corners the
+    /// LOD children (and neighbour chunks) use, so the physics surface is seam-proof across chunks by
+    /// construction. Voxel mode (already chunky 1 m columns) keeps the render mesh as its collider,
+    /// unchanged from pre-1hi. <paramref name="md"/> carries worker-thread-built collider arrays on the
+    /// merge path (0 main-thread build); enabling a collider later (1dq collider ring, 1gg exempt cooks)
+    /// derives them here — 961 verts since 1ex, once per enable. Disabling nulls the collider (zero
+    /// physics) but KEEPS the pooled collider mesh, so a re-enable re-cooks the same instance.
     /// </summary>
     private void RefreshCollider(bool active, MergedChunkMeshData md = default)
     {
@@ -122,7 +125,7 @@ public class ChunkObject : MonoBehaviour
         _mc.sharedMesh = _colliderMesh;
     }
 
-    /// <summary>Uploads the decimated collider arrays into <see cref="_colliderMesh"/> (overwrite-only
+    /// <summary>Uploads the collider arrays into <see cref="_colliderMesh"/> (overwrite-only
     /// reuse, same discipline as UploadMerged: the clear handles the vertex-count change) — then
     /// UploadMeshData(false) publishes once instead of per-setter dirty passes. Main thread only.</summary>
     private void UploadCollider(Vector3[] vertices, int[] triangles)
@@ -136,9 +139,9 @@ public class ChunkObject : MonoBehaviour
     }
 
     /// <summary>Re-cooks the collider against the CURRENT lattice after a patch (1hi). The smooth
-    /// path re-derives the decimated surface from <see cref="_merged.Corners"/> (PatchCornerGrid just
-    /// re-stamped it), so the physics surface tracks every excavation; 256 verts, main thread, safe
-    /// per patch. The null→assign pair runs inside this single synchronous call, so no physics step
+    /// path re-derives the surface from <see cref="_merged.Corners"/> (PatchCornerGrid just
+    /// re-stamped it), so the physics surface tracks every excavation — 961 verts since 1ex (was 256),
+    /// main thread, safe per patch. The null→assign pair runs inside this single synchronous call, so no physics step
     /// ever observes the null collider. No-op for collider-less chunks (1dq) and voxel mode never
     /// reaches here.</summary>
     private void RebuildColliderSurface()
@@ -180,13 +183,14 @@ public class ChunkObject : MonoBehaviour
     // transient double GPU buffer. Returned to the pool on Release() for the next chunk to reuse.
     private Mesh _mesh;
 
-    // (1hi) One pooled Mesh for this chunk's DECIMATED collider surface (smooth path only). The
-    // MeshCollider cooks this ~256-vert / ~450-tri lattice (every 2nd node of the 31x31 corner grid)
-    // instead of the full render surface, so the gameplay-frame per-enable PhysX cook is ~4x cheaper
-    // — the MeshCollider only needs a surface the player stands on. Lazily acquired on first enable
-    // (a chunk that never enters the collider ring allocates nothing), retained across en/disables,
-    // and returned to the pool on Release — the same pool/discipline as _mesh (1dv). Voxel mode
-    // never uses it (its chunky 1 m render columns stay the collider). It is a SEPARATE input mesh,
+    // (1hi) One pooled Mesh for this chunk's collider surface (smooth path only). The MeshCollider
+    // cooks this ~961-vert / ~1800-tri 1 m lattice (every node of the 31x31 corner grid since 1ex)
+    // instead of the full render surface. It is no longer a cheaper COOK (1ex raised it from 256/450 to
+    // render-resolution to stop the player walking through visible craters) — what it still saves is the
+    // render mesh's side walls and refined blocks, which physics has no use for. Lazily acquired on
+    // first enable (a chunk that never enters the collider ring allocates nothing), retained across
+    // en/disables, and returned to the pool on Release — the same pool/discipline as _mesh (1dv). Voxel
+    // mode never uses it (its chunky 1 m render columns stay the collider). It is a SEPARATE input mesh,
     // so its vertex indices bear no relation to the render mesh's.
     private Mesh _colliderMesh;
     private const int ColliderDecimation = ChunkMeshGenerator.ChunkColliderDecimation;
@@ -333,8 +337,9 @@ public class ChunkObject : MonoBehaviour
         // Collider is assigned only for chunks the streamer has routed into the near ring (1dq).
         // Keeping the flag in sync means a later FullRebuildChunk preserves the intended state
         // and PatchRegion only re-cooks colliders that are actually live.
-        // (1hi) Smooth chunks cook the DECIMATED collider lattice carried on md (worker-thread built,
-        // ~4x cheaper than the render mesh); voxel mode keeps the render mesh as its collider.
+        // (1hi) Smooth chunks cook the 1 m collider lattice carried on md (worker-thread built; since 1ex
+        // render-resolution, 961 verts — no longer a cheaper cook than the render mesh, but still skips
+        // its side walls and refined blocks); voxel mode keeps the render mesh as its collider.
         RefreshCollider(buildCollider, md);
         _colliderActive = buildCollider;
 
@@ -456,9 +461,10 @@ public class ChunkObject : MonoBehaviour
         mesh.bounds = _merged.Bounds;
 
         // Force the collider to re-cook against the new heights (PatchCornerGrid above already re-stamped
-        // the lattice). Smooth chunks re-skim the DECIMATED 2 m surface (256 verts) so the physical
-        // ground tracks the excavation exactly; voxel chunks re-cook their render mesh. Skipped for
-        // collider-less chunks (1dq).
+        // the lattice). Smooth chunks re-skim the 1 m surface (961 verts since 1ex) so the physical
+        // ground tracks the excavation at the render resolution; at the pre-1ex 2 m step it did not,
+        // which was the walk-through-a-visible-crater bug 1ex fixed. Voxel chunks re-cook their
+        // render mesh. Skipped for collider-less chunks (1dq).
         if (_mc != null && _colliderActive)
         {
             if (VoxelMesh)

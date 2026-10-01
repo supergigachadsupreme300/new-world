@@ -15,6 +15,72 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1ex - "a 0.5 m lattice fixes the crater" - VERDICT: the render resolution was never the blocker; the COLLIDER resolution was (shipped 1 m collider; lattice deferred to 1ey; caves split to 1ew)
+
+The task began as "the projectile dent is a monotone cone; give it a rim and enough resolution to hold
+one". The plan was going to be "add a 0.5 m stored fine lattice, then author the rim into it". Halfway
+through reading the mesh path that premise broke, and the break is the whole finding.
+
+**Hypothesis 1 - the crater is invisible/wrong because the render lattice is 1 m. REJECTED as the cause.**
+1 m renders the dish fine (the user can see it); the reason it *reads* as a flat cone is that the
+profile has no positive term at all - `DeformAt`'s crater branch is `target = current - s * CraterStep`,
+a monotone subtraction, so no amount of resolution produces a rim. Resolution and *shape* were being
+conflated. The rim is a 1ez change, not a lattice change.
+
+**Hypothesis 2 - reach vs. sampled node is the reason a crater can be invisible. CONFIRMED, but on the
+COLLIDER, not the mesh.** Reading `ChunkObject`/`PlayerController` together: the player has **no ground
+raycast** - `CharacterController.Move` sweeps the chunk `MeshCollider` (`Movement.cs:143`). That collider
+is built by `BuildDecimatedCollider` at `ChunkColliderDecimation = 2` - **every 2nd node of the 31×31
+corner grid**. A 1 m crater has reach `radius + feather = 1.4 + 0.5 = 1.9 m`, which *does* cover the 1 m
+mesh node spacing, so the mesh always shows the dish. But the 2 m collider's nearest node can be 1 m
+away in the worst case (√2 m diagonally), and a footprint centred on an odd x or z has **no sampled
+collider node inside it at all**. So the player walks over a visible pit. This is a live bug today and it
+is what actually stood between the player and the crater - not the render resolution.
+
+**Hypothesis 3 - "just add the 0.5 m lattice and the crater becomes physical." REJECTED - it would have
+made the mismatch WORSE.** A finer *render* lattice while the *collider* stays coarse moves the two
+surfaces further apart, not closer. The render/collider pairing is the invariant; the render step alone
+is not. This redirected the task: fix the collider first (1ex), independently.
+
+**Hypothesis 4 - the collider should be 1 m. CONFIRMED by the user's choice.** Three options were put
+up (stay 2 m; global 1 m; 1 m only in the budget-exempt `MustCollideRadius = 2` zone). The hybrid looked
+attractive - the exempt zone already cooks unconditionally - but the collider is cooked **once per
+chunk** and cached, so a radius-dependent step needs a live re-cook/swap on an already-cooked
+`MeshCollider`: new machinery, for a rim (0.33 m) that is below `stepOffset = 0.5 m` and steps over
+regardless. Global 1 m is one constant; the user picked it and accepted the F2 cost (~405k collider tris
+at full ring vs ~101k).
+
+**Dead end - the "~7k-tri broadphase" figure.** Three separate comments claimed the collider ring is
+"~7k-tri". Recomputed: ring 7 Chebyshev = (2·7+1)² = 225 bodies; at step 2 that is 225·450 = **101k**
+tris, at step 1 it is **405k**. The "~7k" was wrong even before 1ex and is now replaced with the real
+number. Lesson repeated from rule 7: a stale number in a comment is a claim that outlives its task.
+
+**Hypothesis 5 - the fine lattice needs `RefineSubdiv` 2 → 3 (0.25 m). REJECTED for now - this is the
+important one.** A research pass flagged a landmine: `IsRefined` and `ChunkObject.IsTileRefined` are
+**boolean** tests, and `RebuildChunkRegion` compares vertex counts, so a 16 → 25 vert change is invisible
+to both and the merged block table is silently mis-indexed. The intended fix was "make the predicates
+count-based". The better fix is to **not change the vertex count**: `BuildRefinedMeshData` already builds
+a 3×3 grid whose centre entry sits at local (0.5, 0.5). Storing *just that one node* yields a
+half-offset lattice (2× the angular resolution for a rim ring) at 16 verts / 24 tris - so `IsRefined`,
+`IsTileRefined`, `PatchRegion`'s count logic and `BuildCornerGrid`'s border-slot coincidence are all left
+exactly as they are. **Resolution is not the same quantity as DOF count.** Waiting for a measured reason
+to go to 0.25 m.
+
+**Hypothesis 6 - caves are part of the same "finer terrain" job. REJECTED.** `ChunkData` holds **one
+height per column** (`Size = 1f`, `VertexCount = 4`); every mesh and collider derived from it is a
+heightfield `y = f(x,z)`, which **cannot have a roof**. `TerrainShape` has no `Cave`. The only cave that
+ever existed, `SculptVoxelCave`, is a **sealed bubble** (its remove range opens no column's overburden)
+and the voxel mesher admits it renders **no cavity side walls** (`VoxelMesher.cs:71-73`). So "caves" is
+a *different data model* (a second surface, or the voxel run-list path re-litigated), not a resolution
+setting. Split to 1ew; the user agreed.
+
+**Why 1ex shipped alone.** It fixes a bug that is live *now*, needs no lattice, and is one constant.
+Sequencing it ahead of 1ey keeps the F2 before/after attributable to the collider alone. If 1ex and the
+lattice had shipped together and F2 regressed, the collider cost and the lattice cost would have been
+one number.
+
+---
+
 ## 1io - "F1 is free, grep says so" - VERDICT: REJECTED (the lane was on a bound key; check 8 now mechanises it)
 
 The user said F1 is their fighting-mode switch. They were right, and the finding is worth more than

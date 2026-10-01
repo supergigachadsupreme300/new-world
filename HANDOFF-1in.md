@@ -1,7 +1,19 @@
-> **SUPERSEDED IN PART BY 1io.** The lane key changed: **F1 was already bound** to the combat-mode
-> toggle (`Player\PlayerController.Interactions.cs:521`, `Keyboard.current.f1Key`), so pressing F1
-> ran the audit AND toggled fighting mode. The lane is now **F13**. Any readout taken on F1 is
-> void - re-take it on F13. See `PROGRESS.md` 1io and `THINKING.md` H59-H61.
+> **SUPERSEDED IN PART BY 1io AND 1ex.**
+>
+> **1io:** the lane key changed. **F1 was already bound** to the combat-mode toggle
+> (`Player\PlayerController.Interactions.cs:521`, `Keyboard.current.f1Key`), so pressing F1 ran the
+> audit AND toggled fighting mode. The lane is now **F13**. Any readout taken on F1 is void - re-take
+> it on F13. See `PROGRESS.md` 1io and `THINKING.md` H59-H61.
+>
+> **1ex (this file's fix plan is now 4 tasks):** the "fix is one stored fine lattice" plan below is
+> split. The blocker was never the render resolution - it was the **collider**, which was sampled at
+> 2 m while the player has no ground raycast (they sweep the `MeshCollider` directly). **1ex shipped
+> the collider at 1 m**; the fine lattice is **1ey**, the raised rim **1ez**, and caves **1ew** (the
+> smooth model is a single-valued heightfield, so no roof is possible; the one existing cave,
+> `SculptVoxelCave`, is a sealed voxel chamber with no entrance). The F13
+> readout was waived by the user: the monotone-profile diagnosis is arithmetic (`reach 1.9 m`,
+> `CraterStep` subtraction, no positive term), not something F13 has to confirm. The F13 lane still
+> exists and remains useful for 1ez's acceptance. See `PROGRESS.md`/`THINKING.md` 1ex.
 
 # Handoff - 1in crater audit lane
 

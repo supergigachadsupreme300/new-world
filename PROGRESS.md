@@ -1,4 +1,100 @@
-﻿## 1io. Crater/deform audit lane moved F1 -> F13 (F1 was the combat-mode toggle) + StaticChecks check 8
+﻿## 1ex. Collider lattice 2 m -> 1 m (the player no longer walks through visible craters)
+
+**Status: shipped, NOT play-tested (rule 3 — no build or play-test runs in this project). One constant
+changed; the rest of the commit is stale-comment repair + one static-check coverage extension.**
+
+This is the first of four craters/terrain tasks (1ex collider, 1ey stored fine lattice, 1ez raised rim,
+1ew caves). It is deliberately first and standalone because it fixes a bug that exists **now**, with no
+dependence on the other three.
+
+### The bug
+
+The player has **no separate ground raycast**. `PlayerController.Movement.cs:143` calls
+`CharacterController.Move`, which sweeps the chunk `MeshCollider` directly. That collider was built at
+**2 m** (`ChunkColliderDecimation = 2`, every 2nd node of the 31×31 corner grid → 256 verts / 450 tris),
+while the *render* surface samples every 1 m node.
+
+So the ground you stand on was a quarter of the render's resolution, and the failure is not merely
+"blocky": a **1.1 m-deep crater centred on an odd x or z had no sampled collider node anywhere inside
+its footprint**. The visual dish sat entirely between four collider vertices, so the player walked
+straight over a pit they could see. Roughly half of all carved craters (those with an odd footprint
+centre) were non-physical. This is visible today, before any fine-lattice work, and is why 1ex was
+sequenced ahead of 1ey/1ez rather than bundled with them.
+
+### What changed
+
+`Assets\Scripts\World\Terrain\ChunkMeshGenerator.cs`:
+- `ChunkColliderDecimation` **2 → 1**. At 1 m the collider is 961 verts / 1800 tris per chunk.
+- The constant's doc comment now states the real premise: the player sweeps this collider directly, the
+  2 m step is what let a visible crater have no collider node, and **the 1hi "~4x cheaper cook" claim is
+  dead at this value** (961/1800 is render-resolution). The mechanism is kept — not inlined as a literal
+  `1` — because `ColliderStep` must keep preferring the chunk's own low-poly facet step, and because it
+  still drops the render mesh's side walls and refined blocks.
+- The build-site and `BuildDecimatedCollider` comments updated, plus the 1 m vertical-step warning.
+
+Stale-comment sweep, same pass (all now derive from the 1 m value):
+- `ChunkObject.cs`: `RefreshCollider`, `RebuildColliderSurface`, `_colliderMesh`, the `ApplyMerged`
+  (1hi) note, and the `PatchRegion` re-cook note. The last one had claimed the 2 m surface tracked the
+  excavation "exactly", which was the bug restated as a feature.
+- `TerrainChunkMeshData.cs`: `ColliderVertices` / `ColliderTriangles`.
+- `WorldStreamer.cs`: the `ColliderRingRadius` tooltip's stale `~7k-tri` figure replaced with the real
+  ring-7 number (225 bodies × 1800 tris ≈ **405k** collider triangles, was ≈101k).
+
+`tools\StaticChecks.ps1`:
+- `$files` gained `ChunkMeshGenerator.cs` and `ChunkObject.cs`. This commit only changed a constant and
+  comments in them, but **1ey/1ez edit `ChunkMeshGenerator` (fine-node read, `IsRefinable`) and 1ez edits
+  `Deform`**, so they belong in coverage before they carry a real edit (rule 3: a file absent from
+  `$files` is silently outside checks 1/4/5/7). Added now, verified: both report balanced and produce
+  **0 new candidates**, so the addition adds coverage without noise.
+
+`game-design.md`:
+- §2.5's collider bullet and the §3.x "collider lattice" bullet rewritten to the 1 m value, the dead
+  `~4x` claim, and the two carried constraints (horizontal-quads-only ⇒ 45° ramp at 1 m cliffs; step must
+  divide 30 ⇒ legal set {1,2,3,5,6,10,15,30}).
+
+### Why 1 m and not something cleverer
+
+Three options were put to the user: leave 2 m (rim/craters stay visual-only), drop to 1 m globally, or
+1 m only inside the budget-exempt `MustCollideRadius` zone. The user chose **global 1 m**. The hybrid was
+rejected because the collider is cooked **once per chunk** and cached; a radius-dependent step would need
+a live re-cook/swap mechanism on an already-cooked `MeshCollider`, i.e. new machinery, for a 0.33 m rim
+already below `stepOffset = 0.5 m`. Global 1 m is one constant and is measured on the existing F2 lane.
+
+### 1ex-status — play-test in Unity
+
+- [ ] **Crater on an odd-centre footprint now sinks.** Fire a magic projectile at ground whose impact
+      footprint centres on an odd integer x or z; walk into the middle. Before 1ex you stand *on* the
+      dish; now you drop into it. (This is the whole point of the task.)
+- [ ] **F2 frame budget, before/after the constant.** The ring is 225 bodies at 1800 tris each. Confirm
+      the collider cook and the per-`Move` broadphase cost are acceptable; 1ik's lane is the instrument.
+- [ ] **Cliff traversal.** Climb a 1 m vertical terrain step. The collider is horizontal quads only, so
+      the step is a 45° ramp — exactly the default `CharacterController.slopeLimit` (never assigned in
+      this project). If cliffs now refuse to climb, that is this, not a streaming bug.
+- [ ] Stream in / walk out normally around the ring-7 boundary; confirm no falling through rendered
+      ground as colliders cook at 2/poll.
+- [ ] Fast-travel-less sprint across a chunk boundary (ring crossing) — the deferred-cook path
+      (`MaxColliderCooksPerPoll`) with the larger cook must still keep the ground under the player.
+
+### Verification performed
+
+Grep + reread, no build (rule 3). `tools\StaticChecks.ps1`: **0 candidates** across all 12 files,
+including the two newly added. The only source-token change is `2` → `1`; every other edit is a comment.
+Reread the wording of each of the 9 comment sites and the constant against the actual arithmetic
+(`axis = 30/1 + 1 = 31` → 961 verts, 5400 indices = 1800 tris; max corner index 960 < `Corners.Y.Length`
+961). `NewWorldTestGround` mirrors neither value, so no test-platform mirror to chase.
+
+**Rule 3 caveat, stated: `ChunkMeshGenerator.cs`/`ChunkObject.cs` were outside `$files` until this
+commit, and a balance/paren scan is not a compile.** The change is one integer literal, so the only
+realistic compile risk would be a type/const mismatch, and `ChunkObject.ColliderDecimation` is a `const`
+alias of the same `int` — no signature crosses the edit. Unity is still the compiler.
+
+`skills: none applied` — this is a Unity C# constant + comment change reviewed by a human, not a DCC
+artifact; the `scenario-unity-*` skills drive a running editor over MCP/`-batchmode`, which rule 3 bars
+here (informative at best, never authoritative).
+
+---
+
+## 1io. Crater/deform audit lane moved F1 -> F13 (F1 was the combat-mode toggle) + StaticChecks check 8
 
 **Status: shipped, NOT play-tested (rule 3 - no build or play-test runs in this project). No
 terrain behaviour changed; this is a QA-key rebind plus a static check.**

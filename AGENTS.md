@@ -379,6 +379,27 @@
         itself to `Crater` deliberately. If a raised shape is reported invisible, that is this
         same bug, not a new one â€” and the fix must keep the shapes' `Max(current, target)`
         idempotency intact.
+    - **The COLLIDER is the ground, and it is a separate decision from the render step (1ex).** The
+      player has no ground raycast â€” `CharacterController.Move` sweeps the chunk `MeshCollider`
+      directly (`PlayerController.Movement.cs`) â€” so `ChunkColliderDecimation` *is* the surface
+      underfoot. It is not the facet step: `ColliderStep` is `_meshStep > 0 ? _meshStep :
+      ChunkColliderDecimation`, so the low-poly look borrows the facet step while the default uses its
+      own value (1 m since 1ex). Three habits:
+      - **Never refine the render surface while leaving the collider coarse** â€” that *widens* the
+        mismatch, it does not close it. 1ex raised the collider 2 â†’ 1 after the
+        walk-through-a-visible-crater bug: at 2 m a 1 m crater centred on an odd x or z had **no
+        sampled collider node inside its footprint**, so the player crossed a pit they could see. The
+        pairing (render step : collider step) is the invariant; the render step alone is not. A
+        "finer mesh" change that does not touch the collider is a visual-only change and must be
+        stated as one.
+      - **A collider-step change owes a number on F2.** The recipe is ring bodies Ã— tris-per-collider:
+        `ColliderRingRadius = 7` Chebyshev = 225 bodies, each `(30/step + 1)Â²` verts, so 1 m â‡’
+        961 verts / 1800 tris and **~405k** ring triangles (2 m â‡’ 256 / 450 and ~101k). Do not carry
+        a stale figure forward â€” three comments claimed "~7k-tri" and were wrong at *every* step.
+      - **The lattice is horizontal quads only â€” there is no vertical strip pass** (the render mesh
+        has one for cliffs). A vertical step is therefore sampled as a ramp whose slope is
+        step-dependent: 1 m â‡’ 45Â°, exactly the default `CharacterController.slopeLimit`, which this
+        project never assigns. Cliff traversal is a play-test item on any collider-step change.
 
 13. **A spell's colour, shape and halo are derived in exactly one place â€” and "one place" is not the
     same as "one colour everywhere".** 1ib added `SpellLook.Resolve` so no consumer re-derives a

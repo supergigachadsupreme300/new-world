@@ -362,18 +362,28 @@ mid-view stays crisp
    `ChunkObject.BuildLodChild` (smooth-mode LOD bands) — in the smooth tile's up-facing corner order
    NW, NE, SE, SW with `BuildMeshData`'s exact (0,1,2)/(0,2,3) two-triangle pattern; normals stay +Y. The
    far shell keeps its (double-sided-visible) winding.
-- **Decimated colliders (1hi, step follows the root 1hi.1, wound up-facing 1hi.2):** smooth real chunks cook their
-   MeshCollider from a **decimated lattice** — every 2nd node of the 31x31 corner grid
-   (`ChunkMeshGenerator.BuildDecimatedCollider`, 256 verts / 450 tris) by default, or the chunk's
-   OWN low-poly root step when coarse (3 m, so you stand exactly on the visible facets) — instead
-   of the full merged render surface, so the synchronous PhysX cook on
-   the gameplay frame (capped at 2/poll above) drops ~4x. The lattice shares the EXACT world corners
-   the LOD children (and neighbour chunks) use, so the physics surface is seam-proof across chunks by
-   construction; `PatchRegion` re-derives it from the patch-re-stamped lattice so the collider tracks
-   every excavation. Each chunk holds a second pooled Mesh (`ChunkObject._colliderMesh`, same
+- **Collider lattice (1hi, step raised to 1 m by 1ex; step still follows the root per 1hi.1, wound
+   up-facing 1hi.2):** smooth real chunks cook their MeshCollider from a lattice sampled every
+   `ChunkColliderDecimation`-th node of the 31×31 corner grid (`ChunkMeshGenerator.BuildDecimatedCollider`)
+   — **every node (1 m, 961 verts / 1800 tris) since 1ex**, or the chunk's OWN low-poly root step when
+   coarse (3 m, so you stand exactly on the visible facets). The player has **no separate ground
+   raycast**: `CharacterController.Move` sweeps this collider directly, so its resolution *is* the
+   ground. 1ex raised it from 1hi's 2 m because the 2 m sampling let the player walk over a visible 1.1 m
+   crater (a footprint centred on an odd x or z had no sampled node inside it). The pre-1ex
+   `~4x cheaper cook` no longer holds — the collider is now render-resolution — but the path still omits
+   the render mesh's side walls and refined blocks, which physics never uses. It shares the EXACT world
+   corners the LOD children (and neighbour chunks) use, so the physics surface is seam-proof across
+   chunks by construction; `PatchRegion` re-derives it from the patch-re-stamped lattice so the collider
+   tracks every excavation. Each chunk holds a second pooled Mesh (`ChunkObject._colliderMesh`, same
    acquire/release discipline as the render mesh; lazily allocated — a chunk that never enters the
    collider ring owns nothing; uploads re-specified in place, overwrite-only). Voxel mode is unchanged
    (its chunky 1 m render columns stay the collider).
+   **Two notes carried with the 1 m value:** (a) the lattice is **horizontal quads only** — no vertical
+   strip pass — so a 1 m vertical step is sampled as a 45° ramp, which is exactly the default
+   `CharacterController.slopeLimit` (never assigned in this project), making cliff traversal a play-test
+   item; (b) the step must divide 30 or the last grid row falls short of the chunk boundary, so the legal
+   set is {1, 2, 3, 5, 6, 10, 15, 30}. Ring-7 is 225 bodies, so full-ring broadphase is ≈405k collider
+   triangles (was ≈101k) — measure on F2.
 - **Speed-decoupled renderer clock (1gd, cadence tuned 1xd):** the streaming/render loop no longer runs
   inside the gameplay `Update`. `WorldStreamer` starts a coroutine (`StreamLoop`, started in
   `OnEnable`) ticked on its OWN wall-clock beat at `StreamHz` (default **20 Hz** == the legacy
@@ -545,10 +555,17 @@ What the terrain renders now, with the flag off:
 - **Lod1/Lod2 children** — built again, because `ChunkObject._meshStep` is `0` for every chunk.
 - **Edits** — `ChunkObject.PatchRegion` takes its per-tile skim and rebuilds bounds from the CPU vertex
   array; `ResampleLowPolySurface` is unreachable.
-- **Colliders** — unchanged and deliberately *not* part of the revert: smooth chunks still cook the
-  decimated 2 m lattice from 1hi (`ColliderDecimation`). It is a physics/budget feature with no visual
-  effect, so reverting it would trade away the ~4x cheaper cook for no algorithmic reason. When the
-  facet look is re-enabled the collider follows the root's own step, as it always did.
+- **Colliders** — decoupled from the revert, and **changed again in 1ex**: smooth chunks now cook a
+  **1 m** collider lattice (`ChunkColliderDecimation = 1`, up from 1hi's 2 m). The player has no
+  separate ground raycast — `CharacterController.Move` sweeps the chunk `MeshCollider` directly — so
+  the 2 m step meant a carve centred on an odd x or z had no sampled collider node inside its
+  footprint and the player **walked through a visible crater**. At 1 m the physics surface carries the
+  full render resolution (961 verts / 1800 tris per chunk, up from 256 / 450). The `~4x cheaper cook`
+  claim that justified the 2 m step is **dead** at this value; the path is kept because it still drops
+  the render mesh's side walls and refined blocks, and because `ColliderStep` must keep preferring the
+  low-poly facet step when the look is re-enabled. Cost is real and is measured on the **F2**
+  frame-budget lane: the ring-7 Chebyshev square is 225 bodies × 1800 tris ≈ **405k collider
+  triangles** at full ring (was ≈101k).
 
 Everything from 1hi is still in the source and still works — `LowPolyFacets = true` restores the
 1hi.1/1hi.2 look at 3 m facets (the pre-1hx facet size, not 1hx's 6 m). Nothing was deleted, so the
@@ -563,7 +580,8 @@ Two things this revert does **not** change, deliberately:
   rather than see-through. That is a hypothesis, not a measurement, and the 3 m step is itself a
   candidate. **F3 is the instrument that settles it** — run it after a restart (§2.5) and read the
   corner/void sections.
-- **The decimated collider stays**, per the row above.
+- **The collider resolution is independent of the look**, per the row above — 1ex moved it to 1 m
+  while the facet look stays off, so the two are now decided separately.
 
 Per rule 11 this is a render-algorithm change: **nothing on screen changes until the play session is
 restarted.** `_loadedChunks`, `_dormantChunks` and the far shell all hold geometry built by the old

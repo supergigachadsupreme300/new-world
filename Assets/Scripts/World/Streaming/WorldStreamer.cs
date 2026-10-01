@@ -45,7 +45,7 @@ public partial class WorldStreamer : MonoBehaviour
     public int PropRingRadius = 9;
 
     [Header("Colliders")]
-    [Tooltip("Collider-on-demand ring (1dq/1eh): terrain MeshColliders exist only on chunks within this many chunks of the focus (plus any chunk under an active spell projectile). Everything further still renders its full mesh but has no physics — the draw stays identical while the collider cooks / 7k-tri broadphase bodies drop ~92% at the default radius. 1eh: 8 -> 7 (289 -> 225 bodies swept by every Move) — still below NearRingRadius so every collider stays on a real chunk.")]
+    [Tooltip("Collider-on-demand ring (1dq/1eh): terrain MeshColliders exist only on chunks within this many chunks of the focus (plus any chunk under an active spell projectile). Everything further still renders its full mesh but has no physics — the draw stays identical while the collider cooks / broadphase body count is gated to what the gameplay uses. 1eh: 8 -> 7 (289 -> 225 bodies swept by every Move) — still below NearRingRadius so every collider stays on a real chunk. 1ex raised each ring collider from 450 to 1800 tris (2 m -> 1 m, so the player stops walking through visible craters): expect ~405k collider triangles at full ring, and measure it on the F2 frame-budget lane.")]
     public int ColliderRingRadius = 7;
 
     /// <summary>Chunks around each magic collider request that also keep a collider (1dq).</summary>
@@ -503,7 +503,10 @@ public partial class WorldStreamer : MonoBehaviour
     /// <see cref="ColliderRingRadius"/> ring around the focus and on chunks under active magic
     /// (spell projectile flight paths — <see cref="ColliderRequestRegistry"/>). The far radius-N
     /// world still renders its full meshes; only the physics load (the per-chunk collider cook and
-    /// the ~7k-tri broadphase bodies behind every raycast/overlap) is gated.
+    /// the broadphase bodies behind every raycast/overlap) is gated. Since 1ex each ring collider is
+    /// 1800 tris rather than 450, so the <see cref="ColliderRingRadius"/>-7 Chebyshev square
+    /// (15x15 = 225 chunks) carries ~405k collider triangles at full ring — this is the number to
+    /// watch on the F2 frame-budget lane, not a claim that it is free.
     /// Since 1ea the full-map walk runs ONLY when something that affects the ring actually changed
     /// (focus crossed a chunk boundary, a collider request was added/removed, or a chunk was
     /// finalized/unloaded) — an idle player pays nothing. A per-poll cook budget additionally

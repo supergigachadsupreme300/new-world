@@ -53,8 +53,15 @@ $crateraudit = 'Assets\Scripts\World\Streaming\WorldStreamer.CraterAudit.cs'
 # 1in added CraterAudit - the same partial-class shape as CornerAudit, with an `out`
 # parameter set read across four helper calls (check 4's CS0165 surface) and a private
 # TryGet-style helper (check 2's void-return surface).
+# 1ex added ChunkMeshGenerator + ChunkObject - the terrain mesh/collider pair. 1ex itself
+# only changed a constant and comments, but 1ey/1ez edit ChunkMeshGenerator (new fine-node
+# read, IsRefinable) and Deform, so they belong in coverage BEFORE they carry a real edit.
+# ChunkMeshGenerator has no switch and no WorldBuilder helpers, so checks 2/3/5/6 are
+# structurally inapplicable to it; 1 and 4 still bite, which is why it is added now.
 $files = @($blueprints, $persistence, $npcs, $world, $testground, $corneraudit,
-           $chunkbuild, $farshell, $deform, $crateraudit)
+           $chunkbuild, $farshell, $deform, $crateraudit,
+           'Assets\Scripts\World\Terrain\ChunkMeshGenerator.cs',
+           'Assets\Scripts\World\Chunks\ChunkObject.cs')
 
 # Types a structure-part helper can be declared with, plus local declarations.
 $retAlt  = '(?:static\s+)?(?:GameObject|void|int|float|bool|string|Vector3|Color|Vector2|Quaternion|Transform)'
