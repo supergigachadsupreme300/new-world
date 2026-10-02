@@ -224,11 +224,13 @@ public partial class SpellCaster
         // drops from high above; the burst resolves in ResolveZoneImpact only when the rock lands,
         // so the cast reads as "a meteor fell here" rather than an instant ground flash. The rock
         // itself is pure visual (no collider) — damage/knockback/deform still go through the normal
-        // pipeline, on impact, so this never touches the terrain root (1cx).
+        // pipeline, on impact, so this never touches the terrain root (1cx). Which rock it is comes
+        // from the spell's own resolved look (1f7), so Asteroid drops a swarm and Meteor a boulder.
         if (spell != null && spell.SummonFallingRock)
         {
             float rockScale = Mathf.Max(radius, 1.5f);
-            SkillFx.FallRock(center, rockScale, SpellLook.Resolve(spell).Core,
+            var skyLook = SpellLook.Resolve(spell);
+            SkillFx.FallRock(center, rockScale, skyLook.Core, skyLook.SkyRock,
                 () =>
                 {
                     if (this == null) return;

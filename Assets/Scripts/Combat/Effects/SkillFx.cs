@@ -164,15 +164,22 @@ public static class SkillFx
     }
 
     /// <summary>
-    /// Summon a big rubble rock that drops from high above <paramref name="groundTarget"/> (the
+    /// Summon a falling rock that drops from high above <paramref name="groundTarget"/> (the
     /// sky/rock spell family: Meteor, Asteroid, Earth Meteor as Zone; Meteor Rain / Rockfall as
-    /// Storm; Comet as a burning projectile). The rock accelerates to the ground, then on landing
+    /// Storm). The rock accelerates to the ground, then on landing
     /// fires <paramref name="onImpact"/> (the spell defers its burst/terrain to that moment),
     /// throws off small shards and a ring flash, and fades away. Purely visual — the rock and its
     /// shards carry NO collider, so it can never shove the terrain root or ragdoll foes (1cx) and
     /// never takes part in damage resolution (which stays on the spell's own pipeline).
+    ///
+    /// <para><b><paramref name="scale"/> is the spell's BLAST RADIUS, not the rock's size</b> — it is
+    /// spent on the spawn height, the rock body, the shard size and the impact ring alike. 1f7 keeps
+    /// that meaning and lets <paramref name="style"/> decide only how the body is spent: a
+    /// <see cref="SkyRockStyle.Boulder"/> spends the whole radius on one rock, a
+    /// <see cref="SkyRockStyle.Swarm"/> spends the same radius on seven smaller ones.</para>
     /// </summary>
-    public static void FallRock(Vector3 groundTarget, float scale, Color tint, System.Action onImpact)
+    public static void FallRock(Vector3 groundTarget, float scale, Color tint, SkyRockStyle style,
+        System.Action onImpact)
     {
         if (scale <= 0f) scale = 1f;
 
@@ -186,8 +193,38 @@ public static class SkillFx
             return;
         }
 
+        BuildRockBody(root, scale, tint, style, shader);
+        root.gameObject.AddComponent<RockDrop>().Init(root, groundTarget, scale, tint, onImpact);
+    }
+
+    /// <summary>
+    /// 1f7: build the falling body under <paramref name="root"/> without any fall behaviour, so a
+    /// caller that only wants to SHOW the model can. Split out of <see cref="FallRock"/> because the
+    /// magic-model bench can only draw projectile bodies, and the one sky spell whose falling body
+    /// changed in 1f7 (Fire Asteroid) is a Zone spell — without this the new model would have been
+    /// the one visual in the game that existed only in a live cast and nowhere you could look at it.
+    ///
+    /// <para>The bench mounts this on a pedestal at a fixed height, so it is sized by the same
+    /// <c>scale</c> contract as the live drop: pass the blast radius, get the body that would fall
+    /// for a spell of that radius.</para>
+    /// </summary>
+    public static void BuildRockBody(Transform root, float scale, Color tint, SkyRockStyle style,
+        Shader shader = null)
+    {
+        if (root == null) return;
+        if (scale <= 0f) scale = 1f;
+        if (shader == null) shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+        if (shader == null) return;
+
+        if (style == SkyRockStyle.Swarm)
+        {
+            BuildRockSwarm(root, scale, tint, shader);
+            return;
+        }
+
         // Ragged boulder: a chunky core plus a few off-angle ridge cubes so it reads as a rock,
-        // warm-tinted for fire variants; one shared material, colliders stripped.
+        // warm-tinted for fire variants; one shared material, colliders stripped. Unchanged since
+        // 1cy — Meteor / Meteor Rain / Earth Meteor / Rockfall must keep drawing exactly this.
         var rockMat = new Material(shader) { color = Color.Lerp(Color.gray, tint, 0.45f) };
         var core = CubeChild("RockCore", root);
         core.localScale = new Vector3(scale * 1.1f, scale * 0.9f, scale);
@@ -203,8 +240,53 @@ public static class SkillFx
             ridge.localScale = Vector3.one * UnityEngine.Random.Range(scale * 0.35f, scale * 0.6f);
             Apply(ridge, rockMat);
         }
+    }
 
-        root.gameObject.AddComponent<RockDrop>().Init(root, groundTarget, scale, tint, onImpact);
+    /// <summary>
+    /// 1f7: the <see cref="SkyRockStyle.Swarm"/> body — one smaller lead rock on the target point
+    /// plus a flat fan of six around it, so the mass covers the spell's blast radius instead of
+    /// sitting in the middle of it. Same warm rock tint and one shared material as the boulder, so
+    /// it still reads as the same school; only the silhouette changed.
+    ///
+    /// <para><b>The spread is deliberately flat (X/Z only).</b> <see cref="RockDrop"/> lands the whole
+    /// formation by snapping the ROOT to one ground height, so any vertical scatter would leave the
+    /// outer rocks floating above or sunk into sloping ground — and with seven rocks there are seven
+    /// chances to see it, against the boulder's one core. A flat fan also reads better: it arrives
+    /// as a spread.</para>
+    ///
+    /// <para>No per-rock fall offset and no tumble: <see cref="RockDrop"/> has no instance state per
+    /// child, and adding spin to the shared root would have changed the boulder's look too (it is
+    /// the model three spells keep). Random initial rotations match what the boulder already does
+    /// for its ridges.</para>
+    /// </summary>
+    private static void BuildRockSwarm(Transform root, float scale, Color tint, Shader shader)
+    {
+        var rockMat = new Material(shader) { color = Color.Lerp(Color.gray, tint, 0.45f) };
+
+        // Lead rock: still the thing that hits the aimed point, but 0.62x the radius rather than the
+        // boulder's 1.1x, which is the single clearest read that this is no longer "a big meteor".
+        var lead = CubeChild("SwarmLead", root);
+        lead.localScale = new Vector3(scale * 0.62f, scale * 0.5f, scale * 0.58f);
+        lead.localRotation = UnityEngine.Random.rotation;
+        Apply(lead, rockMat);
+
+        const int fan = 6;
+        for (int i = 0; i < fan; i++)
+        {
+            // Even angles with an alternating radial nudge: a perfect ring of six reads as a
+            // formation graphic, and the nudge keeps the ring from closing into a hexagon.
+            float ang = i * (360f / fan) + (i % 2) * 11f;
+            float orbit = scale * 0.75f * (i % 2 == 0 ? 1f : 0.86f);
+            float a = ang * Mathf.Deg2Rad;
+            float s = scale * UnityEngine.Random.Range(0.26f, 0.38f);
+            var rock = CubeChild("SwarmRock" + i, root);
+            rock.localPosition = new Vector3(Mathf.Cos(a) * orbit,
+                UnityEngine.Random.Range(-0.06f, 0.06f) * scale, // tiny: see the flat-spread note
+                Mathf.Sin(a) * orbit);
+            rock.localRotation = UnityEngine.Random.rotation;
+            rock.localScale = new Vector3(s, s * 0.8f, s * 0.95f);
+            Apply(rock, rockMat);
+        }
     }
 
     /// <summary>Primitive cube with its collider stripped, parented at local zero.</summary>

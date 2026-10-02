@@ -1,4 +1,77 @@
-﻿## 1f6. The detail LOD bands are deleted - a chunk's root mesh is its only surface at every distance
+﻿## 1f7. The falling rock was the one spell visual with no per-spell hook - Comet gets an ember tail, Asteroid a swarm
+
+**Status: shipped, NOT play-tested (rule 3 - no build or play-test runs in this project). Purely a
+visual-identity change: no delivery, no damage, no timing and no deform value was touched.**
+
+### What changed
+
+- **Added `SkyRockStyle { Inherit, Boulder, Swarm }`** (`SpellLook.cs`) as a fourth per-spell look
+  axis, resolved through the existing `SpellLookProfile.SkyRock` -> `SpellLook.SkyRock` path. Both
+  `SpellLook` constructors and all three `Resolve` return sites carry it.
+- **`SkillFx.BuildRockBody(root, scale, tint, style, shader = null)`** extracted from `FallRock`, so
+  the body can be built without a fall. `FallRock` gained a `style` parameter and now delegates.
+  The **boulder branch is byte-for-byte the 1cy body** - Meteor, Meteor Rain, Earth Meteor and
+  Rockfall draw exactly what they drew before. `BuildRockSwarm` is the new one: a lead rock at 0.62x
+  the radius plus a flat fan of six at 0.75x.
+- **Comet moved off `ProjectileShape.Comet` onto a new `ProjectileShape.EmberStreak = 12`** with an
+  `EmberStreak` body builder: a stretched bright head plus six tapering ember cubes. Reached through
+  `SpellLookProfile.DisplayShape`, never `spell.Shape`. **Comet also dropped
+  `summonFallingRock`**, so it left the sky-rock family entirely - that flag was what made it draw a
+  boulder in the first place.
+- **Asteroid authored `skyRock: SkyRockStyle.Swarm`** and kept its `summonFallingRock` flag, so its
+  blast radius, damage, knockback and Zone delivery are untouched; only the falling body changed.
+- **Bench (`NewWorldTestGround.SpawnMagicModels`)**: a `SummonFallingRock` spell now mounts its real
+  `BuildRockBody` formation instead of calling `CreateProjectileDisplay`. `LookKey` gained SkyRock's
+  2 bits (34 -> 36) and `Describe` prints it; the F4 lane also counts the split per style.
+
+### Why the axis is authored-only
+
+`Inherit` always resolves to `Boulder`, and there is deliberately no `Families` array and no `Pick()`
+for this axis. Impact and cast families jitter between looks that are all equally valid; a sky-rock
+style is a *structural* statement about how the spell reads. Jittering it would have given Meteor a
+swarm half the time. Same rule that keeps `DisplayShape` from ever handing a spell `Missile`'s homing.
+
+### Deviations from the plan, stated
+
+1. **The tail is ~2.0 m, not the planned ~2.3 m.** Measured off the shipped literals (head front at
+   z=+0.31, last ember rear at z=-1.70). The doc comments carry the measured figures, not the plan's.
+2. **The bench draws the formations at 0.35x the live blast radius**, which the plan did not specify.
+   At true size a radius-4 formation is 7-9 m wide in a 3 m grid cell and swamps its neighbours, which
+   are the whole point of a comparison bench. It is a stated bench constant, not a second opinion of
+   the live value - `RockBodyBenchScale` names the reason in its own doc comment.
+
+### Verification (grep + reread, no build)
+
+- `tools\StaticChecks.ps1`: **0 candidates**, all 8 checks pass.
+- Grepped `Assets\Scripts` for `FallRock` (declared in `SkillFx.cs`, **2** call sites -
+  `SpellCaster.Cast.cs:233` and `SpellStorm.cs:106`; the bench calls `BuildRockBody`, not `FallRock`),
+  `BuildRockBody` (2 call sites - `FallRock` and the bench), `SummonFallingRock` (now **5** spells),
+  `ProjectileShape` switch exhaustiveness (`EmberStreak` case added), `spell.Shape` readers (exactly
+  one, `SpellEffect.cs:83`, and only for `Missile` - so Comet's move to `EmberStreak` cannot have
+  changed homing), and the `look: Look(` profile count (21 -> 23).
+- **Reread every edited region** for declaration order and signature agreement (rule 3: review is not
+  compilation). Caught and fixed three stale claims this way: the `SkyRockStyle` doc said "five"
+  spells where it was six, "two different sizes" where the two ladders are 3-4 and 1.6-1.8, and the
+  `EmberStreak` doc described a `rockBody` parameter the method does not take.
+- skills: none applied - the artifact is a C# edit reviewed by a human; the installed set is DCC-side
+  and the Unity skills target driving a live editor, which rule 3 forbids.
+
+### Pending play-test items (needs the user in Unity)
+
+1. **Fire Comet** - must read as a swift streak of burning light with a long tapering ember tail, and
+   must no longer drop a boulder. Its tooltip says exactly this, so the model should now agree with it.
+2. **Fire Asteroid** - must land as a spread: one rock on the aim point with six around it, all
+   flush with the ground. Check it on a **slope** - the fan is deliberately flat, so no rock may float
+   or sink.
+3. **Fire Meteor, Meteor Rain, Earth Meteor, Rockfall** - must be visually **unchanged**. Any
+   difference is a regression in the extracted `BuildRockBody` boulder branch.
+4. **Bench**: on the magic-model grid, Asteroid shows the swarm and Meteor the boulder, drawn at a
+   stated 0.35x of live blast radius. Confirm the swarm still fits its 3 m cell.
+5. **F4 look audit**: `172 / 172 / 0` should still read. The reasoning for why adding an axis cannot
+   move it is in `game-design.md` §3.8.4; the lane was **not** re-run by this task.
+6. **Neither spell should feel different to fight**: same range, FP, cooldown, damage, knockback.
+
+## 1f6. The detail LOD bands are deleted - a chunk's root mesh is its only surface at every distance
 
 **Status: shipped, NOT play-tested (rule 3 - no build or play-test runs in this project). Render-path
 change: it affects every real chunk at every distance, so rule 11 applies - you must restart the

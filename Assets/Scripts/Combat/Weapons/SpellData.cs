@@ -84,7 +84,15 @@ public enum ProjectileShape
 
     /// <summary>Tumbling cluster of rock chunks (the Earth school / stone shards). Dressed like the
     /// world's breakable-rock debris (grey <c>Color.Lerp(Color.gray, Color.black, rand)</c> cubes).</summary>
-    Debris = 11
+    Debris = 11,
+
+    /// <summary>1f7: a long bright head with a tapering ember tail (~2.3 m), authored for the
+    /// meteor-line <b>Comet</b> so it is no longer the shared light-streak <see cref="Comet"/> dressed
+    /// as a boulder. Reachable ONLY through <c>SpellLookProfile.DisplayShape</c>, never
+    /// <c>spell.Shape</c> (which is behaviour), and deliberately absent from every
+    /// <c>SpellLook</c> school family so determinism cannot hand it out — see
+    /// <see cref="SpellLook.DisplayShape"/> for the same rule applied to homing.</summary>
+    EmberStreak = 12
 }
 
 /// <summary>

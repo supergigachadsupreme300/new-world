@@ -272,9 +272,12 @@ public static partial class SkillCatalog
         bank.L2["magic_fireball_meteor"] = new BranchSlot[]
         {
             S("magic_fireball_meteor_rain", "Meteor Rain", Spell("magic_fireball_meteor_rain_spell", "Meteor Rain", DamageType.Fire, 36f, 26f, SpellDelivery.Storm, 8f, deliveryRange: 10f, deliveryRadius: 3.6f, duration: 3.5f, summonFallingRock: true), "A storm of falling meteors that bombards the area.", Focus(26f), DamageType.Fire, true),
-            S("magic_fireball_meteor_comet", "Comet", Spell("magic_fireball_meteor_comet_spell", "Comet", DamageType.Fire, 34f, 24f, SpellDelivery.Projectile, 6f, projectileShape: ProjectileShape.Comet, summonFallingRock: true), "A swift streak of burning light.", Focus(24f), DamageType.Fire, true),
+            S("magic_fireball_meteor_comet", "Comet", Spell("magic_fireball_meteor_comet_spell", "Comet", DamageType.Fire, 34f, 24f, SpellDelivery.Projectile, 6f, look: Look(SpellImpactStyle.Inherit, SpellCastStyle.Inherit, shape: ProjectileShape.EmberStreak)), "A swift streak of burning light.", Focus(24f), DamageType.Fire, true),
             S("magic_fireball_meteor_impact", "Impact", Perk(PassivePerkType.SpellDamagePercent, 6f), "Impact magnified — spell damage +6%.", passive: true),
-            S("magic_fireball_meteor_astroid", "Asteroid", Spell("magic_fireball_meteor_astroid_spell", "Asteroid", DamageType.Fire, 40f, 30f, SpellDelivery.Zone, 9f, deliveryRadius: 4f, knockback: 3f, summonFallingRock: true), "A colossal mass of burning rock that levels everything it lands on.", Focus(30f), DamageType.Fire, true),
+            // 1f7: Asteroid drops a Swarm (a flat fan of seven rocks over the blast radius) instead
+            // of the boulder Meteor and Meteor Rain keep. Impact/Cast stay Inherit so ONLY the
+            // falling body changes — the profile exists solely to carry SkyRock.
+            S("magic_fireball_meteor_astroid", "Asteroid", Spell("magic_fireball_meteor_astroid_spell", "Asteroid", DamageType.Fire, 40f, 30f, SpellDelivery.Zone, 9f, deliveryRadius: 4f, knockback: 3f, summonFallingRock: true, look: Look(SpellImpactStyle.Inherit, SpellCastStyle.Inherit, skyRock: SkyRockStyle.Swarm)), "A colossal mass of burning rock that levels everything it lands on.", Focus(30f), DamageType.Fire, true),
             S("magic_fireball_meteor_ember", "Ember Effigy", Spell("magic_fireball_meteor_ember_spell", "Ember Effigy", DamageType.Fire, 30f, 20f, SpellDelivery.Summon, 6f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, statusEffect: StatusEffectType.Burn, projectileSpeed: 18f), "Summon a burning effigy that hurls embers at nearby foes.", Focus(20f), DamageType.Fire, true),
         };
 

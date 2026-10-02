@@ -125,10 +125,11 @@ public static partial class SkillCatalog
     /// 1ii: the one hand-authored look profile factory. Every field is a *multiplier or a
     /// sentinel*, so a profile can only move a spell inside its school's family — it can never
     /// repaint a Fire spell purple, and it can never grant a delivery the spell does not have.
+    /// 1f7 adds <paramref name="skyRock"/>, the falling-body shape for a sky spell.
     /// </summary>
     private static SpellLookProfile Look(SpellImpactStyle impact, SpellCastStyle cast,
         float scale = 1f, float tempo = 1f, float hueShift = 0f, float value = 1f, float sat = 1f,
-        ProjectileShape shape = ProjectileShape.Auto)
+        ProjectileShape shape = ProjectileShape.Auto, SkyRockStyle skyRock = SkyRockStyle.Inherit)
         => new SpellLookProfile
         {
             Impact = impact,
@@ -138,7 +139,8 @@ public static partial class SkillCatalog
             HueShift = hueShift,
             ValueScale = value,
             SaturationScale = sat,
-            DisplayShape = shape
+            DisplayShape = shape,
+            SkyRock = skyRock
         };
 
     private static SpellCastEffect Spell(string spellId, string spellName, DamageType type,

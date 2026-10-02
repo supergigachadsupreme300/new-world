@@ -52,6 +52,32 @@ public enum SpellCastStyle
 }
 
 /// <summary>
+/// Falling-body family for a sky spell (1f7) — what shape the rock that drops from above is built
+/// as by <see cref="SkillFx.FallRock"/>. This is the one spell visual that had **no** per-spell hook
+/// until 1f7 (<see cref="SpellImpactStyle"/>, <see cref="SpellCastStyle"/> and the display shape all
+/// existed), and the cost of that gap was concrete: all six <c>SummonFallingRock</c> spells fell as
+/// the same one-boulder body, on two different size ladders (a Zone spell spends its full blast
+/// radius, 3-4; a Storm spell spends half of its radius, 1.6-1.8).
+///
+/// <para><b>Unlike <see cref="SpellImpactStyle"/> and <see cref="SpellCastStyle"/>, this family has
+/// NO deterministic pick and no school array</b> — <see cref="Inherit"/> always resolves to
+/// <see cref="Boulder"/>. Impact/cast families are jitter between looks that are all equally valid;
+/// a sky-rock style is a <i>structural</i> choice about how the spell reads, so only an authored
+/// profile may make it. That is the same rule that keeps <see cref="SpellLook.DisplayShape"/> from
+/// ever handing a spell <see cref="ProjectileShape.Missile"/>'s homing.</para>
+/// </summary>
+public enum SkyRockStyle
+{
+    /// <summary>No authored opinion — always the 1cy single ragged boulder.</summary>
+    Inherit = 0,
+    /// <summary>The 1cy one-boulder drop (Fire Meteor, Meteor Rain; Earth Meteor, Rockfall).</summary>
+    Boulder = 1,
+    /// <summary>1f7: a flat fan of smaller flaming rocks that covers the blast radius instead of one
+    /// rock covering the middle of it (Fire Asteroid).</summary>
+    Swarm = 2
+}
+
+/// <summary>
 /// Hand-authored per-spell nudges on top of the deterministic look (1ib). Every field is a
 /// *multiplier or a sentinel*, never an absolute colour: a profile can shift a spell within its
 /// school's family but cannot repaint it out of it, which is what keeps a Fire spell reading as fire.
@@ -76,6 +102,8 @@ public sealed class SpellLookProfile
     public SpellCastStyle Cast = SpellCastStyle.Inherit;
     [Tooltip("Projectile body shape. Auto = inherit (never Missile — see SpellLook.DisplayShape).")]
     public ProjectileShape DisplayShape = ProjectileShape.Auto;
+    [Tooltip("Falling-body shape for a sky spell (SummonFallingRock). Inherit = the 1cy boulder.")]
+    public SkyRockStyle SkyRock = SkyRockStyle.Inherit;
 }
 
 /// <summary>
@@ -125,11 +153,16 @@ public readonly struct SpellLook
     /// <summary>Projectile body shape. Authored shapes always win; deterministic picks exclude
     /// <see cref="ProjectileShape.Missile"/> because that value means "homing" (see type remarks).</summary>
     public readonly ProjectileShape DisplayShape;
+    /// <summary>Falling-body shape for a sky spell (1f7). <see cref="SkyRockStyle.Inherit"/> is a
+    /// write-only profile sentinel — a resolved look is always a real style, because there is no
+    /// deterministic pick for this axis (see the enum's remarks).</summary>
+    public readonly SkyRockStyle SkyRock;
     /// <summary>True when an authored <see cref="SpellLookProfile"/> supplied at least one field.</summary>
     public readonly bool Authored;
 
     private SpellLook(Color core, Color edge, float scale, float tempo,
-        SpellImpactStyle impact, SpellCastStyle cast, ProjectileShape displayShape, bool authored)
+        SpellImpactStyle impact, SpellCastStyle cast, ProjectileShape displayShape,
+        SkyRockStyle skyRock, bool authored)
     {
         Core = core;
         Edge = edge;
@@ -138,6 +171,7 @@ public readonly struct SpellLook
         Impact = impact;
         Cast = cast;
         DisplayShape = displayShape;
+        SkyRock = skyRock;
         Authored = authored;
     }
 
@@ -223,6 +257,12 @@ public readonly struct SpellLook
 
         // A profile that merely exists is an authored decision even if every field is at its default.
         bool authored = p != null;
+
+        // 1f7: the sky-rock axis is authored-only, so it is resolved BEFORE the profile block and
+        // then overridden — there is deliberately no `Families` array for it and no Pick() here. See
+        // SkyRockStyle's remarks for why this one axis does not jitter.
+        SkyRockStyle skyRock = SkyRockStyle.Boulder;
+
         if (p != null)
         {
             if (p.HueShift != 0f) hueShift += p.HueShift;
@@ -236,13 +276,14 @@ public readonly struct SpellLook
             // headline spell, so an author asking for Missile means it. The deterministic path
             // above may never pick it, because a look layer must not grant homing on its own.
             if (p.DisplayShape != ProjectileShape.Auto) display = p.DisplayShape;
+            if (p.SkyRock != SkyRockStyle.Inherit) skyRock = p.SkyRock;
         }
 
         Color baseColor = SchoolColor(type);
         Color core = Tint(baseColor, hueShift, satScale, valueScale);
         Color edge = EdgeFor(core, rC);
         return new SpellLook(core, edge, Mathf.Clamp(scale, 0.55f, 1.7f), Mathf.Clamp(tempo, 0.6f, 1.6f),
-            impact, cast, display, authored);
+            impact, cast, display, skyRock, authored);
     }
 
     /// <summary>
@@ -260,7 +301,7 @@ public readonly struct SpellLook
         Color baseColor = SchoolColor(type);
         ProjectileShape display = shape != ProjectileShape.Auto ? shape : Pick(fam.Shapes, 0.5f);
         return new SpellLook(baseColor, EdgeFor(baseColor, 0.5f), 1f, 1f,
-            fam.Impact[0], fam.Cast[0], display, false);
+            fam.Impact[0], fam.Cast[0], display, SkyRockStyle.Boulder, false);
     }
 
     // (1ig: `Fingerprint` was deleted here. 1ib built it as the 1ic audit's measuring instrument

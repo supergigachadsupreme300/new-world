@@ -10,7 +10,7 @@ Source: `Assets/Scripts/Combat/Skills/SkillCatalog.cs` (base skills) + `SkillCat
 |---|---|
 | **Instant** | No travel. If `SelfBuff` is set -> applies a timed buff to the caster (e.g. Wind Walk flight for `Duration`s). If `Heals` is set -> instant holy-touch heal on the caster. Otherwise a straight hitscan raycast up to `Range`, damaging the first target hit. |
 | **Projectile** | Casts a bolt that flies along the aim at `ProjectileSpeed` up to `Range`; explodes/damages within `Radius` (explosion or direct hit). Applies status/knockback on contact. **Every projectile dents the terrain where it strikes** (`SpellEffect.ResolveProjectileImpact`): Earth craters (TerrainShape) are spell-scaled, every other magic bolt leaves a small ~1.4 m impact dent. |
-| **Zone** | Ground-targeted AoE at aim point. Instant burst if `Duration`=0, else a persistent `SpellZone` that ticks damage every `TickInterval` for `Duration`. Earth school applies its `TerrainShape` (Crater / Ring / Spikes / Wall / Pillar, §3.8) first. `Heals` is set -> also mends allies inside. **Sky spells** (`summonFallingRock`, e.g. Meteor / Asteroid / Earth Meteor) defer the burst ~0.6-0.8s: a big rock summons high above, falls, and damage/knockback/terrain resolve when it lands. |
+| **Zone** | Ground-targeted AoE at aim point. Instant burst if `Duration`=0, else a persistent `SpellZone` that ticks damage every `TickInterval` for `Duration`. Earth school applies its `TerrainShape` (Crater / Ring / Spikes / Wall / Pillar, §3.8) first. `Heals` is set -> also mends allies inside. **Sky spells** (`summonFallingRock`, e.g. Meteor / Asteroid / Earth Meteor) defer the burst ~0.6-0.8s: a rock formation summons high above, falls, and damage/knockback/terrain resolve when it lands (which formation is the spell's SkyRock axis). |
 | **Vortex** | Ground-targeted funnel. The Great Tornado (`magic_tornado`) = old environmental Tornado behavior (tall drifting funnel, physics drag/pull). All other Vortex spells = persistent `SpellZone` that ticks damage and drags enemies toward the center. Lifetime = `Duration` (or 5s). |
 | **Beam** | Channeled beam while the sustain input is held and focus upkeep (`ChannelDrainPerSecond`) is affordable. Ticks damage along the line; charge widens it and boosts tick power. Fades on release or when focus runs dry. |
 | **Summon** | Spawns a persistent object at the ground target. Damage summons = turret firing (projectile) at nearest foe; `Heals` summons = persistent heal aura. |
@@ -46,11 +46,23 @@ Every spell that uses the **Projectile** delivery has a `projectileShape:` visua
 | **Spear** | Thick dark spear, the heaviest of the linear shapes | Shadow Spear |
 | **Blade** | Flat translucent cross-blade (alpha ~0.4) that spins in-plane with a shimmer envelope | Wind Blade, Razor Blade, Wind Scissor, Laceration |
 | **Splash** | Rolling surge with a splash envelope that soaks on contact | Tidal Surge |
-| **Comet** | Streaking fire with a trailing ember tail. **Sky-rock Comet** (`summonFallingRock`, the meteor-line Comet) trades the plain core for a rough burning boulder + tail | Scorch, Burn, Comet, Frost Bite |
+| **Comet** | Streaking fire with a trailing ember tail | Scorch, Burn, Frost Bite |
+| **Ember Streak** | 1f7: stretched bright head + a long tapering ember tail (six cubes, shrinking and darkening to the rear), ~2.0 m against Comet's ~0.85 m. Authored via `look: shape:`, never `projectileShape:`, because it is display-only | Comet |
 | **Missile** | Small dart with a soft halo; **homing** - re-evaluates its trajectory every frame and prioritizes the target that ends up on the flight path, bending to chase it | Arcane Missiles, Chill Soul |
 | **Dart** | Sleek single dart, thin and fast | physical shots (Archer Wind Shot, Taoist Talisman) |
 
-Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto` to resolve by school: Fire=Sphere, Ice=Shard, Lightning=Bolt, Wind=Blade, Water=Splash, Earth=Debris, anything else=Sphere.
+Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto` to resolve by school: Fire=Sphere, Ice=Shard, Lightning=Bolt, Wind=Blade, Water=Splash, Earth=Debris, anything else=Sphere. `Auto` can never resolve to `Ember Streak` (1f7): it is authored-only, exactly like `Missile`, because the look layer must not grant a body a spell never asked for.
+
+### Falling formations (1f7)
+
+A `summonFallingRock` spell's rock comes from the spell's own resolved look, not from the delivery:
+
+| Style | Body | Spells |
+| --- | --- | --- |
+| `Boulder` | one ragged rock (core + 4 ridges) | Fire Meteor, Meteor Rain, Earth Meteor, Rockfall |
+| `Swarm` | a smaller lead rock on the aim point + a flat fan of six around it | Fire Asteroid |
+
+The style is authored through `look: skyRock:`. Its `scale` is always the spell's **blast radius** — the style only decides how that radius is spent. The fan is flat (X/Z only) because the whole formation lands at one ground height, so vertical scatter would leave outer rocks floating on a slope.
 
 ## Base skills (roots)
 
@@ -134,11 +146,11 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
 
 ### Fireball (magic_fireball)
 
-- **Meteor** (`magic_fireball_meteor`) - Active (Fire) - power 30, FP 22, cd 6s, radius 3, knockback 2, falls-a-big-rock | A burning meteor falls from the sky, scattering the blast.
-  - **Meteor Rain** (`magic_fireball_meteor_rain`) - Active (Fire) - power 36, FP 26, cd 8s, range 10, radius 3.6, dur 3.5s, rocks-per-strike | A storm of falling meteors that bombards the area.
-  - **Comet** (`magic_fireball_meteor_comet`) - Active (Fire) - power 34, FP 24, cd 6s, shape:Comet (burning-rock body) | A swift streak of burning light.
+- **Meteor** (`magic_fireball_meteor`) - Active (Fire) - power 30, FP 22, cd 6s, radius 3, knockback 2, falls-a-boulder | A burning meteor falls from the sky, scattering the blast.
+  - **Meteor Rain** (`magic_fireball_meteor_rain`) - Active (Fire) - power 36, FP 26, cd 8s, range 10, radius 3.6, dur 3.5s, rocks-per-strike, falls-a-boulder | A storm of falling meteors that bombards the area.
+  - **Comet** (`magic_fireball_meteor_comet`) - Active (Fire) - power 34, FP 24, cd 6s, shape:EmberStreak (long ember tail) | A swift streak of burning light.
   - **Impact** (`magic_fireball_meteor_impact`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
-  - **Asteroid** (`magic_fireball_meteor_astroid`) - Active (Fire) - power 40, FP 30, cd 9s, radius 4, knockback 3, falls-a-big-rock | A colossal mass of burning rock that levels everything it lands on.
+  - **Asteroid** (`magic_fireball_meteor_astroid`) - Active (Fire) - power 40, FP 30, cd 9s, radius 4, knockback 3, falls-a-swarm | A colossal mass of burning rock that levels everything it lands on.
   - **Ember Effigy** (`magic_fireball_meteor_ember`) - Active (Fire) - power 30, FP 20, cd 6s, range 8, radius 6, dur 6s, Burn | Summon a burning effigy that hurls embers at nearby foes.
 - **Inferno** (`magic_fireball_inferno`) - Active (Fire) - power 32, FP 24, cd 7s, radius 3.4, dur 3.5s, Burn | An expanding ring of fire that lingers, scorching all it touches.
   - **Conflagration** (`magic_fireball_inferno_conflagration`) - Active (Fire) - power 38, FP 28, cd 8s, range 7, radius 2.6, dur 3s, Burn | A blazing whirl of fire that drags foes in and burns them alive.
@@ -352,9 +364,9 @@ Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto
   - **Crash** (`magic_earth_boulder_crash`) - Active (Earth) - power 32, FP 22, cd 6s, radius 3.2, knockback 3, terrain:Crater | A colossal boulder that crashes into the enemy, denting the ground.
   - **Boulderweight** (`magic_earth_boulder_weight`) - + 5 Strength (passive) | Permanent +5 Strength.
   - **Landslide** (`magic_earth_boulder_landslide`) - Active (Earth) - power 34, FP 24, cd 7s, radius 3.6, knockback 3, terrain:Wall | An earth wall rears up across the cast and crashes onto foes.
-  - **Rockfall** (`magic_earth_boulder_fall`) - Active (Earth) - power 30, FP 20, cd 6s, range 9, radius 3.2, dur 3s, terrain:Crater, rocks-per-strike | Boulders rain down over the area, pitting the ground with craters.
+  - **Rockfall** (`magic_earth_boulder_fall`) - Active (Earth) - power 30, FP 20, cd 6s, range 9, radius 3.2, dur 3s, terrain:Crater, rocks-per-strike, falls-a-boulder | Boulders rain down over the area, pitting the ground with craters.
   - **Tectonic** (`magic_earth_boulder_tectonic`) - Active (Earth) - power 36, FP 26, cd 8s, radius 3.8, knockback 3.5, terrain:Crater | A tectonic blow that shatters the ground, carving a wide crater.
-  - **Meteor** (`magic_earth_meteor`, deep, requires Boulder Crash) - Active (Earth) - power 40, FP 28, cd 9s, range 12, radius 4, knockback 4, terrain:Crater, falls-a-big-rock | A meteor plunges from the sky, carving a crater into the ground.
+  - **Meteor** (`magic_earth_meteor`, deep, requires Boulder Crash) - Active (Earth) - power 40, FP 28, cd 9s, range 12, radius 4, knockback 4, terrain:Crater, falls-a-boulder | A meteor plunges from the sky, carving a crater into the ground.
   - **Earth Wall** (`magic_earth_wall`, deep, requires Landslide) - Active (Earth) - power 36, FP 26, cd 8s, range 10, radius 3.6, knockback 3.5, terrain:Wall | A towering wall of stone rears up across the cast and crashes down on foes.
 - **Tremor** (`magic_earth_quake`) - Active (Earth) - power 26, FP 20, cd 6s, radius 2.8, terrain:Ring | The ground ripples — a stone ring rears up around the impact.
   - **Faultline** (`magic_earth_quake_faultline`) - Active (Earth) - power 30, FP 22, cd 6s, radius 3, terrain:Ring | A second stone ring rears up around the impact.

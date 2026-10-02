@@ -776,9 +776,10 @@ the near/far boundary so a resident chunk and a freshly built one are on screen 
   distinct stats (§7.1.0) — the test-ground rows + dummies are the fastest way to diff every race.
 - **Magic-model grid (1dk):** `NewWorldTestGround.EnableMagicModels` (default **on**) places **every
   castable magic spell** on the platform's middle band — one pedestal + school-colored projectile-style
-  body (the exact live-cast visuals via `SpellCaster.CreateProjectileDisplay`; Comet/Earth Meteor show
-  the summonFallingRock boulder, zone/beam/storm/summon/instant spells show their school-colored default
-  icon) + a world-TMP label — pure visuals (no colliders/interaction) so each spell's magic model can be
+  body (the exact live-cast visuals via `SpellCaster.CreateProjectileDisplay`; the five
+  `summonFallingRock` spells show their real falling formation via `SkillFx.BuildRockBody` — Asteroid's
+  Swarm since 1f7, drawn at a stated 0.35× of the live blast radius so the 3 m grid stays legible —
+  and zone/beam/storm/summon/instant spells show their school-colored default icon) + a world-TMP label — pure visuals (no colliders/interaction) so each spell's magic model can be
   looked at and edited. Since `1dp` the pedestal models are **static** (the real casts still flicker in
   flight); since `1eb` live projectile visuals are static too — `OrbFx` pulse/spin and the exhaust
   `ParticleSystem` were removed from the builders, so the bench and live casts share the exact static body.
@@ -1663,8 +1664,9 @@ A spell is a data asset carrying:
 - **selfbuff** (Instant delivery grants a timed caster effect instead of damage/heal — e.g. **Wind Walk**: `PlayerController.BeginFlight(Duration)`, free vertical movement for the buff's seconds)
 - **heals** (Holy/utility spells: instant/self-heal, or an ally-heal aura when on a zone; only `IHealable` targets — the player — are ever healed, enemies still take damage)
 - **knockback** (impulse applied to enemies; the Wind school signature)
-- **summonFallingRock** (sky spells: a big rock drops from the sky onto the target and the burst
-  resolves on landing — see §3.8.1 Delivery Behaviors "Sky spells")
+- **summonFallingRock** (sky spells: a rock formation drops from the sky onto the target and the
+  burst resolves on landing — which formation is the spell's own resolved `SkyRock` axis, §3.8.4;
+  see §3.8.1 Delivery Behaviors "Sky spells")
 - **projectile shape** (`ProjectileShape`, §3.8.1): the *visual* built for a Projectile-delivery
   spell. When a spell leaves it `Auto`, the body shape comes from the spell's resolved **display
   shape** (§3.8.3) — picked from its school's shape family by `SpellLook`, deterministically per
@@ -1822,15 +1824,29 @@ zone on a distant ridge or a summoned turret near a far road). The landing previ
 (`PlayerController.TryAoeTarget`) mirrors the same compute. Projectile / instant / beam deliveries
 keep their spell `Range` cap, so only ground placement is unbounded.
 
-**Sky spells** (`SummonFallingRock`, the meteor/boulder family) summon a **big rock** that drops from
-high above the ground target and reads as the spell landing: the burst (damage, knockback, terrain
-deform) is deferred until the rock hits the ground (Zone deliveries ~0.6-0.8 s drop; Storm strikes
-drop a smaller rock per strike and fire their flash/damage/deform on landing; the meteor-line Comet
-projectile flies as a rough burning boulder). Built by `SkillFx.FallRock` — a collider-less visual
-(never triggers the knockback-terrain-root bug 1cx), self-destroying, shards + ring flash on impact,
-and tinted with the **spell's own resolved core colour** (1ij) rather than the Earth school colour, so
-Meteor and Comet drop visibly different rocks.
-Spells: Fire Meteor, Asteroid, Earth Meteor, Comet, Meteor Rain, Rockfall.
+**Sky spells** (`SummonFallingRock`, the meteor/boulder family) drop a **rock formation** from high
+above the ground target and read as the spell landing: the burst (damage, knockback, terrain
+deform) is deferred until it hits the ground (Zone deliveries ~0.6-0.8 s drop; Storm strikes drop a
+smaller formation per strike and fire their flash/damage/deform on landing). Built by
+`SkillFx.FallRock` — a collider-less visual (never triggers the knockback-terrain-root bug 1cx),
+self-destroying, shards + ring flash on impact, and tinted with the **spell's own resolved core
+colour** (1ij) rather than the Earth school colour, so Fire and Earth rocks read differently.
+
+**Which formation** is a per-spell look axis, `SkyRockStyle` (§3.8.4), resolved through
+`SpellLookProfile.SkyRock` like every other visual axis. `scale` stays the spell's **blast radius** in
+both cases — the axis decides only how that radius is spent:
+
+| Style | Body | Spells |
+| --- | --- | --- |
+| **Boulder** | one ragged rock, core + 4 off-angle ridges (1cy, unchanged) | Fire Meteor, Meteor Rain, Earth Meteor, Rockfall |
+| **Swarm** | a smaller lead rock on the aim point + a flat fan of six around it, covering the blast radius instead of the middle of it (1f7) | Fire Asteroid |
+
+The Swarm's spread is deliberately **flat (X/Z only)**: `RockDrop` lands the whole formation by
+snapping the root to one ground height, so vertical scatter would leave the outer rocks floating or
+sunk on a slope — seven chances to see it, against the boulder's one core.
+
+**Spells:** Fire Meteor, Asteroid, Earth Meteor, Meteor Rain, Rockfall. (Fire Comet left this family
+in 1f7 — see the Ember Streak shape below.)
 
 Fifth, **Projectile Shapes** — projectile visuals are split into named shapes rather than one element
 color swap, so each spell looks like its name and not a recolor of the same ball. Since `1ec` every
@@ -1841,14 +1857,15 @@ built once and fully static (no sphere meshes remain on projectiles):
 | Shape | Rendered as |
 |---|---|
 | **Bolt** | Jagged 8-segment cube chain along the flight axis (already a cube chain tapering 0.17→0.05, the same segment technique as the thunder-storm event's `SpawnJaggedBolt`) — used by every spell with "Bolt" in the name: Frost Bolt, Chain Lightning, Dark Bolt, Volt, Fork/Leap/Arc/Volt Bolt, Fury Bolt, Shadow/Doom Bolt, Void Rend, and the class-flavored Arcane Bolt. |
-| **Sphere** | Hot voxel orb: a 0.24 lead cube + 4 jittered cubes shrinking to ~0.05 behind it, each darker — the Fireball and every generic orb. (Scorch/Burn/Comet use the Comet shape instead.) |
+| **Sphere** | Hot voxel orb: a 0.24 lead cube + 4 jittered cubes shrinking to ~0.05 behind it, each darker — the Fireball and every generic orb. (Scorch/Burn/Frost Bite use the Comet shape instead.) |
 | **Shard** | Translucent glass lead chip (45° diamond) + 2 smaller, dimmer glass chips trailing — frost chips (the Ice school default; Chill Touch). |
 | **Debris** | Clustered grey rock cubes (mixed sizes, random rotations, one leading chunk) — the Earth school's Stone Shard. Dressed like the world's breakable-rock debris (`Color.Lerp(gray, black, rand)` cubes) with two chunks dusted in the earthy tan accent so it reads as magic; at impact the crater plays the spell's own impact family from the pooled `SpellImpactFx` dispatcher (1id) instead of a cube burst — the cubes only remain as the pickaxe/mining look (1de). |
 | **Lance** | Long straight pointed spike (shaft + tip) with two small trailing flecks behind its tail — Ice Lance, Frost Pierce, Glacial Impale. |
 | **Spear** | Tapered spear: dark shaft + broad diamond head + trailing flecks behind — Shadow Spear. |
 | **Blade** | Flat translucent cross-blade (alpha ~0.4 so wind reads as a ghost of air) + two small ghost cubes trailing — Wind Blade, Razor Blade, Wind Scissor, Laceration. |
 | **Splash** | Water drop cube + a trailing splash of 3 smaller, darker cube drops — Water Bolt, Tidal Surge. |
-| **Comet** | Small voxel core cluster + a fading streak tail cube — Scorch, Burn, Comet, Frost Bite. The meteor-line **Comet** (`SummonFallingRock`) trades the cluster core for a rough **burning boulder** + chunks + tail, so it reads as a rock tearing through the sky. |
+| **Comet** | Small voxel core cluster + a fading streak tail cube — Scorch, Burn, Frost Bite. The meteor-line **Comet** no longer wears this shape (1f7): it is **Ember Streak** below, and it no longer sets `SummonFallingRock`, so it also left the sky-rock family. The `rockBody` boulder variant of this shape survives for a future sky-rock projectile that wants it. |
+| **Ember Streak** | 1f7: a stretched bright head (0.18×0.18×0.42) with a **long tapering ember tail** — six cubes marching back 0.3 apart, shrinking 0.15→0.03 and darkening toward the rear, ~2.0 m end to end against Comet's ~0.85 m. Read-only via `SpellLookProfile.DisplayShape`, never `spell.Shape`. The meteor-line **Comet** only ("A swift streak of burning light" — 1f7 made the model agree with the tooltip instead of fighting it). |
 | **Missile** | Three 2-cube mini dart-stacks; **homing** — `SpellEffect.UpdateMissileTargeting` probes the **current trajectory** every frame and prioritizes the target on the flight path (the foe it is about to fly into), otherwise keeps chasing the locked target's last spot (or locks the nearest foe ahead if never locked), steering smoothly at 240°/s so the flight bends; no target = flies straight. Arcane Missiles, Chill Soul. |
 | **Dart** | Sleek thin bolt-line with a tip + small trailing fleck — physical shots (Archer Wind Shot, Taoist Talisman). |
 
@@ -1922,8 +1939,9 @@ but **delegates** to `SpellLook.SchoolColor`.
 
 **Precedence is exactly three steps** (1ib):
 
-1. **Authored `SpellLookProfile`** on the `SpellData` (`look:`) — 21 spells carry one, because a
-   named family behaviour should not be inferred from a school.
+1. **Authored `SpellLookProfile`** on the `SpellData` (`look:`) — 23 spells carry one (21 before
+   1f7 added Comet and Asteroid), because a named family behaviour should not be inferred from a
+   school.
 2. **School family** with a per-spell deterministic pick from that family's member list — this is what
    makes 151 spells differ without 151 hand-authored profiles.
 3. **`SpellLook.Resolve(DamageType, ProjectileShape)`** — the named identity-less fallback for callers
@@ -1931,7 +1949,7 @@ but **delegates** to `SpellLook.SchoolColor`.
    *not* a fourth precedence step: it is what you get by falling off the end of the rule on purpose.
 
 **What one look carries:** `Impact` family, `Cast` family, `DisplayShape` (the body actually drawn),
-`Core` + `Edge` colours, `Scale`, `Tempo`.
+`SkyRock` (the falling formation, §3.8.4), `Core` + `Edge` colours, `Scale`, `Tempo`.
 
 - **Impact families** (`SpellImpactStyle`, 1id) drive `SpellImpactFx`'s pooled flash: Burst, Ring,
   Sphere, Cross, Shards, Bloom, Pillar. `Inherit` means "no authored opinion — take the school
@@ -1954,12 +1972,14 @@ task with its own measurement.
 
 **How this is judged (1ic):** the test ground's **F4** lane resolves every reachable spell and reports
 `N spells / M distinct identities / C colliding groups`, where identical means impact + cast + shape +
-core RGB at 8 bits. `Scale`/`Tempo` are excluded — counting them would let a number read "unique"
+sky rock + core RGB at 8 bits. `Scale`/`Tempo` are excluded — counting them would let a number read "unique"
 while two spells look identical on screen. **`M` must equal `N` (172: 167 magic + 5 class).** A session
 has now read that number (`172 / 172 / 0`, `(worst none)`), so the identity tables are collision-free
 and no jitter retune is needed — but `M == N` is a **static** result: the audit resolves looks into a
 dictionary and spawns nothing, so 1id–1ii stay **play-test-open** until one spell per school is fired
-and the halo, impact family and body shape are confirmed on screen.
+and the halo, impact family and body shape are confirmed on screen. 1f7 added SkyRock to that key
+and did **not** re-run the lane: the change is argued inert in §3.8.4, so treat the figure as
+covering 1ib–1ii only and re-press F4 to confirm it.
 
 **Where the frame time goes (1ik):** a separate read-only lane on **F2** attributes the frame to CPU
 main thread, CPU render thread, or GPU, and prints the draw/batch/triangle counts and the render
@@ -1971,6 +1991,40 @@ free" about the one side the Editor cannot see), and under vsync the frame is a 
 intervals, so the cost is reported as a **bracket** rather than a share of a quantised total. This
 matters because the FPS overlay's own counters are all *streamer* counters — they cannot see the cost
 of drawing 380 chunks and ~1,200 far cells.
+
+#### 3.8.4 Sky-Rock Bodies — `SkyRockStyle` (1f7)
+
+**The axis that had no per-spell hook.** Until 1f7 a spell's visual identity was carried by three
+enums, a colour pair and two scalars — and the *falling rock* was not one of them, so all six
+`SummonFallingRock` spells fell as the same one-boulder body on two different size ladders (a Zone
+spell spends its full blast radius, 3-4; a Storm spell half of it, 1.6-1.8). The 1f7 fix added
+`SkyRockStyle` as a fourth enum resolved exactly like the others, with the values in the sky-spells
+table in §3.8.1.
+
+**It is authored-only, and that is the point.** Unlike `SpellImpactStyle` and `SpellCastStyle`,
+`SkyRockStyle` has **no school family and no deterministic pick**: `Inherit` always resolves to
+`Boulder`. Impact and cast families jitter between looks that are all equally valid, whereas a
+sky-rock style is a *structural* statement about how the spell reads — the same reason
+`DisplayShape` may never hand a spell `Missile`'s homing (§3.8.1). Jittering this axis would have
+given Meteor a swarm half the time.
+
+**Three habits from it:**
+
+- **A new visual axis is not automatically a new family.** Ask whether the value is a *choice
+  between equally-valid looks* (impact, cast — jitter these) or a *statement about the spell*
+  (sky rock, display shape — author these). The first kind needs a school array to make 151 spells
+  differ; the second needs one author who means it.
+- **An authored-only axis cannot perturb an existing collision audit.** The F4 lane's identity key
+  gained SkyRock's 2 bits in 1f7. Because every non-authored spell resolves it to `Boulder`, every
+  other spell got the *same* two bits — and adding a discriminating axis can only split a group,
+  never merge one, so the recorded `172 / 172 / 0` still holds. State that reasoning when an audit
+  key changes, because "the numbers should not have moved" is otherwise indistinguishable from
+  "the numbers were not re-run".
+- **A shape that only a live cast can draw is a shape with no acceptance readout.** The magic-model
+  bench draws `SpellCaster.CreateProjectileDisplay`, which a Zone spell has no answer for — so Fire
+  Asteroid's new swarm would have been the one 1f7 visual that existed only during a cast, invisible
+  on the bench built to compare it. `SkillFx.BuildRockBody` was extracted from `FallRock` so the
+  bench can mount the real formation on its pedestal, and `LookKey`/`Describe` now print the axis.
 
 #### Spell Sources
 

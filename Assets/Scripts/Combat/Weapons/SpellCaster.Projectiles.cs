@@ -139,7 +139,11 @@ public partial class SpellCaster
     }
 
     /// <summary>Color-matched visual body for a projectile by resolved shape. <paramref name="rockBody"/>
-    /// dresses the shape as a rough burning rock (sky-rock spells like Comet that summon a boulder).</summary>
+    /// dresses the shape as a rough burning rock (the 1cy sky-rock projectile body). 1f7: no spell
+    /// uses it any more — the meteor-line Comet moved to <see cref="ProjectileShape.EmberStreak"/> and
+    /// dropped its <c>SummonFallingRock</c> flag — but the parameter stays, because it is a property
+    /// of the <see cref="Comet"/> shape rather than of any one spell, and removing it would mean
+    /// deleting the boulder body a future sky-rock projectile may want.</summary>
     private static Transform BuildProjectileBody(ProjectileShape shape, Shader shader, Color color, bool rockBody = false)
     {
         switch (shape)
@@ -151,6 +155,7 @@ public partial class SpellCaster
             case ProjectileShape.Blade: return Blade("WindBlade", shader, color);
             case ProjectileShape.Splash: return Splash("WaterSplash", shader, color);
             case ProjectileShape.Comet: return Comet("Comet", shader, color, rockBody);
+            case ProjectileShape.EmberStreak: return EmberStreak("EmberStreak", shader, color);
             case ProjectileShape.Missile: return Missile("ArcaneMissiles", shader, color);
             case ProjectileShape.Dart: return Dart("Dart", shader, color);
             case ProjectileShape.Debris: return Debris("RockDebris", shader);
@@ -390,8 +395,10 @@ public partial class SpellCaster
     }
 
     /// <summary>Streaking fire/energy comet: bright core + fading tail (hard to miss on screen).
-    /// For sky-rock spells (summonFallingRock, e.g. the meteor-line Comet) the core becomes a
-    /// rough burning boulder so it reads as a rock tearing through the sky, not a light streak.</summary>
+    /// The <paramref name="rockBody"/> variant dresses the core as a rough burning boulder; 1f7 moved
+    /// the meteor-line Comet off this shape entirely (it is <see cref="ProjectileShape.EmberStreak"/>
+    /// now, and no longer sets <c>SummonFallingRock</c>), so in practice every caller takes the
+    /// light-streak branch — kept because Scorch / Burn / Frost Bite all wear this shape.</summary>
     private static Transform Comet(string name, Shader shader, Color color, bool rockBody = false)
     {
         var root = new GameObject(name).transform;
@@ -424,6 +431,48 @@ public partial class SpellCaster
         streak.localPosition = new Vector3(0f, 0f, -0.35f);
         streak.localScale = new Vector3(0.07f, 0.07f, 0.6f);
         Materialize(streak, shader, color * 0.6f);
+        return root;
+    }
+
+    /// <summary>
+    /// 1f7: a bright elongated head with a long tapering ember tail — the meteor-line <b>Comet</b>'s
+    /// own body. ~2.0 m end to end against <see cref="Comet"/>'s ~0.85 m (both measured off the
+    /// literals below: head front at z=+0.31, last ember rear at z=-1.70), and built from a stretched
+    /// head rather than a voxel cluster so it reads as a swift streak of burning light rather than a
+    /// rock with a stub of tail. That is the spell's own tooltip, so the 1f7 change made the model
+    /// agree with the description instead of fighting it.
+    ///
+    /// <para>It deliberately has NO <c>rockBody</c> parameter, unlike <see cref="Comet"/>: the flag's
+    /// only 1f7-era user was the meteor-line Comet, which no longer sets
+    /// <c>SummonFallingRock</c>, so there is nothing left for it to dress.</para>
+    /// </summary>
+    private static Transform EmberStreak(string name, Shader shader, Color color)
+    {
+        var root = new GameObject(name).transform;
+
+        // Head: bright and stretched along the flight axis, so it is the widest part of the streak.
+        var head = Primitive(PrimitiveType.Cube, "Head", root);
+        head.localPosition = new Vector3(0f, 0f, 0.1f);
+        head.localScale = new Vector3(0.18f, 0.18f, 0.42f);
+        Materialize(head, shader, color);
+
+        // Tail: six cubes marching back and shrinking, darkening toward the rear. The lateral wander
+        // is small on purpose — a perfectly straight tail reads as a ruler, but a wide one stops
+        // reading as one projectile at all.
+        const int tail = 6;
+        const float spacing = 0.3f;
+        for (int i = 0; i < tail; i++)
+        {
+            float t = i / (float)(tail - 1);
+            var ember = Primitive(PrimitiveType.Cube, "Ember" + i, root);
+            ember.localPosition = new Vector3(
+                UnityEngine.Random.Range(-0.03f, 0.03f),
+                UnityEngine.Random.Range(-0.03f, 0.03f),
+                -0.18f - i * spacing);
+            float s = Mathf.Lerp(0.15f, 0.03f, t);
+            ember.localScale = new Vector3(s, s, s * 1.6f);
+            Materialize(ember, shader, Color.Lerp(color, Color.black, 0.25f + t * 0.6f));
+        }
         return root;
     }
 

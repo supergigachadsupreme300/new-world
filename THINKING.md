@@ -15,6 +15,87 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1f7 - the falling rock was the last spell visual with no per-spell hook (OPEN: awaiting play-test)
+
+**This one started from a design request, not a bug report**, so there is no measurement lane and
+nothing to attribute. What follows is the reasoning that picked the design, recorded because two of
+the conclusions are reusable and one of them was wrong on the first pass.
+
+### The gap, stated precisely
+
+Mapped every visual axis a spell carries: `SpellImpactStyle`, `SpellCastStyle`, `ProjectileShape`,
+`Core`/`Edge`, `Scale`, `Tempo`. All resolve through `SpellLook.Resolve` and all have a
+`SpellLookProfile` field. Then mapped what `SkillFx.FallRock` draws: **one ragged boulder**, decided
+by nothing on the spell.
+
+- **Hypothesis A (confirmed):** the falling body is the one spell visual with no per-spell hook.
+  Evidence: `FallRock`'s body came from `scale` alone, and `scale` is the *blast radius* - so the
+  spell's gameplay number was silently doubling as its art budget, and every sky spell drew the same
+  silhouette. Confirmed by reading the call sites: 6 spells set `summonFallingRock`.
+- **Hypothesis B (confirmed):** the flag was doing more than "spawn a rock". Comet's
+  `projectileShape: ProjectileShape.Comet` plus `summonFallingRock: true` meant Comet's *in-flight*
+  body was the `Comet(rockBody: true)` boulder core. So a single flag was selecting between two
+  different bodies in two different places, and "keep Meteor as-is" had to mean fixing both sites.
+- **Hypothesis C (rejected):** `magic_earth_meteor` was listed in the docs but missing from the
+  catalog. I carried a stale memory that Earth Meteor did not exist. It does, at
+  `SkillCatalog.cs:346-353`, with its own authored profile. I was reading the docs, not the code -
+  the exact failure rule 8 warns about, caught only because I grepped before writing prose about the
+  roster.
+
+### Why a new axis rather than a spell-side boolean
+
+A `bool rockSwarm` on `SpellData` would have been three lines. Rejected: it would be a fourth
+spelling of "what does this spell look like" living *outside* the resolution rule, which is the
+rule-13 failure this codebase already shipped twice (two drifting `DamageType` palettes, then
+`AutoShapeFor` next to the school shape families).
+
+- **Hypothesis D (confirmed):** this axis must be `Inherit`-resolvable and authored-only. Adding it
+  to a school `Families` array would be wrong for a specific reason, not a stylistic one: a
+  sky-rock style is a *structural* statement about the spell, not a look that is equally valid
+  either way. Jittering it would have given Meteor a swarm on roughly half its casts. Same argument
+  that keeps `DisplayShape` from handing out `Missile`'s homing.
+- **Hypothesis E (rejected, and it nearly shipped):** put `Swarm` in the Fire school's family array
+  so it "just falls out of the existing picker". Rejected by D. Worth writing down because it is the
+  tempting version - it needs no new authored field and the picker already exists.
+
+### The shape-vs-flag trap
+
+- **Hypothesis F (rejected):** give Comet a `ProjectileShape.CometEmber` and leave
+  `projectileShape:` on the spell. That would have made Comet *homing-free but shape-bearing* - and
+  the real risk was elsewhere: `spell.Shape` is read at exactly **one** behavioural site
+  (`SpellEffect.cs:83`, for `Missile`), so a new enum value is safe there. But the habit is the
+  point: a display value written into a behaviour field is how rule 13's "a field that means
+  gameplay and a field that means drawn must not be merged" gets violated by accident. Routed
+  through `SpellLookProfile.DisplayShape` so `spell.Shape` stays `Auto` and no behaviour path
+  changes. Verified by grepping every `.Shape` reader rather than trusting the argument.
+- **Hypothesis G (confirmed):** the flat fan is not a taste call. `RockDrop` snaps the whole
+  formation to one ground height on landing, so any per-rock Y offset means the outer rocks float or
+  sink on a slope - seven chances to see it against the boulder's one core. X/Z spread only. This is
+  why the swarm needed no per-rock fall state, which in turn is why `BuildRockBody` could stay a
+  pure builder with no `RockDrop` coupling.
+
+### The bench had no way to see the new body
+
+- **Hypothesis H (confirmed, and this is the one that would have shipped a silent hole):** the
+  magic-model bench draws `SpellCaster.CreateProjectileDisplay`. A **Zone** spell has no projectile
+  display, so Asteroid would have fallen through to the generic orb - the bench would have kept
+  reporting the *old* model for the exact spell 1f7 changed. Extracting `BuildRockBody` out of
+  `FallRock` was not a tidiness refactor; it was the only way to give the new visual an acceptance
+  readout. Rule 7's "an audit must ask the question the PROPOSAL is about" - the proposal was about
+  a *falling* body, and the audit could only draw a *flying* one.
+
+### Where I got numbers wrong
+
+- The plan estimated the comet tail at ~2.3 m. Shipped, it measures ~2.0 m off the literals. The
+  comment now carries the measured figure and says which literals produced it.
+- The first draft of the `SkyRockStyle` doc claimed "all five `SummonFallingRock` spells fell as the
+  same boulder at two different sizes". Grepping the actual roster: it was **six** spells, and the
+  ladders are **3-4** (Zone spends the full blast radius) and **1.6-1.8** (Storm spends half). Both
+  halves of that sentence were wrong, and neither could have failed a compile or a static check -
+  the narrative around a change is precisely what no tool in this repo reads (rule 8).
+
+---
+
 ## 1f6 - "Lod1/Lod2 visually cover some chunks" - VERDICT: the whole detail-LOD is deleted, and the report that named it is UNMEASURED (OPEN: awaiting play-test)
 
 **Note on discipline, because this one skipped a rule.** Rule 7 wants a measurement lane FIRST on a

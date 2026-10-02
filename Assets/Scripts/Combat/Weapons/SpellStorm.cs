@@ -97,11 +97,13 @@ public class SpellStorm : MonoBehaviour
         // Sky storms (summonFallingRock: Meteor Rain, Rockfall) send a big rock down to each strike
         // point; the strike's flash/damage/deform fire when it lands, so the storm reads as boulders
         // raining in rather than instant ground pings. Purely visual rock — no collider (1cx).
+        // `_look` is already resolved above (:47), so the sky-rock style rides along with the tint
+        // rather than being re-resolved here (1f7).
         if (_spell != null && _spell.SummonFallingRock)
         {
             float scale = Mathf.Max(_spell.Radius * 0.5f, 1.2f);
             Color tint = _color;
-            SkillFx.FallRock(at, scale, tint, () =>
+            SkillFx.FallRock(at, scale, tint, _look.SkyRock, () =>
             {
                 if (this == null) return;
                 SpawnStrikeFx(at);

@@ -529,6 +529,29 @@
     - **Rule 15's other exception: a skill may shape the approach but still lose to a project rule.**
       "Derived in one place" is a source-level invariant; a skill that says "call the factory" does not
       get to decide where the factory lives. State which side won.
+    - **A new visual axis needs the resolution pattern AND a way to SEE it, and the second half is the
+      one that gets forgotten.** 1f7 added `SkyRockStyle` because the falling rock was the last spell
+      visual with no per-spell hook. Two habits, both from shipping it:
+      - **Ask whether the axis is a CHOICE BETWEEN EQUALLY-VALID LOOKS or a STATEMENT ABOUT THE
+        SPELL.** Impact and cast families jitter between looks that are all fine, so they get a school
+        array and a deterministic `Pick()`. `SkyRockStyle` and `DisplayShape` are structural - a swarm
+        instead of a boulder, or homing - so only an authored profile may grant them. 1f7 nearly put
+        `Swarm` in the Fire school array because "the picker already exists"; that would have given
+        **Meteor** a swarm on half its casts. `Inherit` resolving to one named default is the correct
+        shape for an authored-only axis, not an oversight.
+      - **Before adding a value to a look layer, check that every existing readout can render it.** The
+        magic-model bench drew `CreateProjectileDisplay`, so the new Swarm body - belonging to a *Zone*
+        spell, which has no projectile display - would have fallen through to the generic orb and the
+        bench would have kept reporting the OLD model for the exact spell that changed. The fix was
+        structural, not a workaround: `BuildRockBody` was split out of `FallRock` so a non-falling
+        caller can mount the real body. **A visual that exists only inside a live cast has no
+        acceptance readout**, and rule 7's "the audit must ask the question the proposal is about" is
+        the same failure one layer out.
+      - Corollary for the collision audit: adding an axis to a packed identity key **cannot** lower the
+        distinct count (a new axis can only split a group, never merge one), so if every spell
+        previously resolved the axis to the *same* default, no verdict can move. Say that reasoning
+        out loud when you change the key - "the numbers should not have moved" is otherwise
+        indistinguishable from "the numbers were never re-run".
 
 14. **A removal has three failure modes, and only one of them is a compile error.** Deleting a feature
     leaves behind more than references to the deleted *name*, and the three residue classes fail in

@@ -1481,6 +1481,9 @@ public sealed class NewWorldTestGround : MonoBehaviour
         var byImpact = new Dictionary<SpellImpactStyle, int>();
         var byCast = new Dictionary<SpellCastStyle, int>();
         var byShape = new Dictionary<ProjectileShape, int>();
+        // 1f7: counted so the readout shows the sky-rock split (Boulder=N Swarm=M). Without it a
+        // wrongly-authored Swarm on the wrong spell would change nothing visible in the audit.
+        var bySkyRock = new Dictionary<SkyRockStyle, int>();
         int total = 0;
         int authored = 0;
         var seen = new HashSet<string>();
@@ -1497,6 +1500,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
             Bump(byImpact, look.Impact);
             Bump(byCast, look.Cast);
             Bump(byShape, look.DisplayShape);
+            Bump(bySkyRock, look.SkyRock);
             ulong key = LookKey(look);
             if (!groups.TryGetValue(key, out var list))
             {
@@ -1540,7 +1544,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         sb.Append("look audit: ").Append(total).Append(" spells, ").Append(groups.Count)
           .Append(" distinct identities, ").Append(colliding).Append(" colliding groups")
           .Append(" (worst ").Append(worstText).Append("), ").Append(authored)
-          .Append(" authored profiles. axes = impact+cast+shape+coreRGB@8bit (scale/tempo excluded)");
+          .Append(" authored profiles. axes = impact+cast+shape+skyrock+coreRGB@8bit (scale/tempo excluded)");
         _lookAuditText = sb.ToString();
         _lookAuditRun = true;
         Debug.Log("[NewWorldTestGround] " + _lookAuditText);
@@ -1548,6 +1552,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
         sb.Append('\n').Append("  impact families: ").Append(CountLine(byImpact));
         sb.Append('\n').Append("  cast families:   ").Append(CountLine(byCast));
         sb.Append('\n').Append("  body shapes:     ").Append(CountLine(byShape));
+        sb.Append('\n').Append("  sky rocks:       ").Append(CountLine(bySkyRock))
+          .Append("   (only SummonFallingRock spells draw one; the rest resolve to Boulder)");
         foreach (var kv in groups)
         {
             if (kv.Value.Count < 2) continue;
@@ -1557,20 +1563,25 @@ public sealed class NewWorldTestGround : MonoBehaviour
         Debug.Log("[NewWorldTestGround] " + sb.ToString());
     }
 
-    /// <summary>Packs the perceptual axes into one key. 34 bits: 3+3+4 for the enums, 8 per channel.</summary>
+    /// <summary>Packs the perceptual axes into one key. 36 bits: 3+3+4+2 for the enums, 8 per channel.
+    /// 1f7 added SkyRock's 2 bits. Because determinism always resolves that axis to
+    /// <see cref="SkyRockStyle.Boulder"/> (see the enum remarks), every non-authored spell gets the
+    /// SAME two bits, so no existing collision verdict moved - the axis only separates the spells
+    /// that actually wear a different falling body, which is exactly the pair 1f7 authored.</summary>
     private static ulong LookKey(in SpellLook look)
     {
         int r = Mathf.Clamp(Mathf.RoundToInt(look.Core.r * 255f), 0, 255);
         int g = Mathf.Clamp(Mathf.RoundToInt(look.Core.g * 255f), 0, 255);
         int b = Mathf.Clamp(Mathf.RoundToInt(look.Core.b * 255f), 0, 255);
-        return ((ulong)(int)look.Impact << 31)
-             | ((ulong)(int)look.Cast << 28)
-             | ((ulong)(int)look.DisplayShape << 24)
+        return ((ulong)(int)look.Impact << 33)
+             | ((ulong)(int)look.Cast << 30)
+             | ((ulong)(int)look.DisplayShape << 26)
+             | ((ulong)(int)look.SkyRock << 24)
              | ((ulong)r << 16) | ((ulong)g << 8) | (ulong)b;
     }
 
     private static string Describe(in SpellLook look)
-        => "(" + look.Impact + "/" + look.Cast + "/" + look.DisplayShape + "/"
+        => "(" + look.Impact + "/" + look.Cast + "/" + look.DisplayShape + "/" + look.SkyRock + "/"
            + look.Core.r.ToString("F2") + "," + look.Core.g.ToString("F2") + "," + look.Core.b.ToString("F2")
            + (look.Authored ? " AUTHORED)" : ")");
 
@@ -1635,12 +1646,12 @@ public sealed class NewWorldTestGround : MonoBehaviour
     /// model can be looked at and edited on the test ground (1dk). The roster mirrors the
     /// MagicTestMatrix grid: every <see cref="SkillType.Magic"/> skill that isn't passive and casts
     /// a real <see cref="SpellData"/>, grouped by school then display name. Each display reuses the
-    /// exact live-cast body builders via <see cref="SpellCaster.CreateProjectileDisplay"/> — Comet /
-    /// Earth Meteor show the rough rock body (SummonFallingRock), explicit shapes (Ice Lance, Shadow
-    /// Spear, Arcane Missiles...) show their real body, and zone/beam/vortex/storm/summon/instant
-    /// spells show their school-colored default icon (those deliveries have no static projectile).
-    /// The label uses the world-TMP pattern from the legacy building signs. Pure visuals — pedestals
-    /// and bodies get no collider, so the grid stays walkable and nothing is interactable.
+    /// exact live-cast body builders — Comet / explicit shapes (Ice Lance, Shadow Spear, Arcane
+    /// Missiles...) show their real projectile body, sky spells show their real falling-rock body
+    /// (1f7), and beam/vortex/storm/summon/instant spells show their school-colored default icon
+    /// (those deliveries have no static projectile). The label uses the world-TMP pattern from the
+    /// legacy building signs. Pure visuals — pedestals and bodies get no collider, so the grid stays
+    /// walkable and nothing is interactable.
     /// </summary>
     private void SpawnMagicModels()
     {
@@ -1706,8 +1717,23 @@ public sealed class NewWorldTestGround : MonoBehaviour
             // the per-spell bench exists to let you compare. This overload is now the only caller
             // that needs it, which is what makes the deleted DamageType/ProjectileShape version
             // dead. rockBody is read from the spell itself, so the argument is redundant here.
-            SpellCaster.CreateProjectileDisplay(spell)
-                .transform.SetParent(modelRoot.transform, false);
+            //
+            // 1f7: a sky spell shows its FALLING ROCK instead, via the same live builders
+            // FallRock uses. Without this the one body 1f7 changed (Fire Asteroid's Swarm) would have
+            // been the only spell model in the game that existed solely in a live cast - and a Zone
+            // spell has no projectile display to fall back on, so it would have shown the generic
+            // orb instead, i.e. the bench would have kept reporting the old model.
+            if (spell.SummonFallingRock)
+            {
+                var rockLook = SpellLook.Resolve(spell);
+                SkillFx.BuildRockBody(modelRoot.transform, RockBodyBenchScale(spell),
+                    rockLook.Core, rockLook.SkyRock);
+            }
+            else
+            {
+                SpellCaster.CreateProjectileDisplay(spell)
+                    .transform.SetParent(modelRoot.transform, false);
+            }
 
             var labelGo = new GameObject("Label");
             labelGo.transform.SetParent(cell.transform, false);
@@ -1727,12 +1753,29 @@ public sealed class NewWorldTestGround : MonoBehaviour
         }
     }
 
+/// <summary>
+    /// 1f7: the <c>scale</c> a falling rock is drawn at on the magic-model bench.
+    ///
+    /// <para>A live rock body's <c>scale</c> is the spell's BLAST RADIUS (3 for Meteor, 4 for
+    /// Asteroid), so drawing it at that value puts a 7-9 m wide rock in a 3 m grid cell — it would
+    /// swamp its neighbours, which are the whole point of a comparison bench. This is a STATED
+    /// fraction of the real value rather than a second opinion of it, so the bench still shows the
+    /// real body's proportions and only its size differs.</para>
+    ///
+    /// <para>Note the 0.35 here is NOT the 0.5 the Storm sky path applies
+    /// (<c>SpellStorm.StrikeDelayed</c>: <c>Radius * 0.5f</c>, a per-strike gameplay decision about
+    /// how big each strike's rock reads). This one exists only so the bench grid stays legible, so it
+    /// is a bench constant and not a second gameplay spelling.</para>
+    /// </summary>
+    private static float RockBodyBenchScale(SpellData spell)
+        => spell == null ? 1f : Mathf.Max(spell.Radius * 0.35f, 0.8f);
+
     /// <summary>
     /// Equip a representative starter set into the player's 21-slot equipment system (testing),
-///     so the humanoid Equipment tab has something to show. Also wires up the ClassUnlocker for
-    ///     the Class tab — under its exclusive single-choice model the Wanderer baseline is active
-    ///     until the player picks a class.
-    /// </summary>
+/// so the humanoid Equipment tab has something to show. Also wires up the ClassUnlocker for
+/// the Class tab — under its exclusive single-choice model the Wanderer baseline is active
+/// until the player picks a class.
+/// </summary>
     private void GrantStarterGear()
     {
         var player = GameManager.Instance?.Player;
