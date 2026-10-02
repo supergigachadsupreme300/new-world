@@ -73,18 +73,20 @@ public struct MergedChunkMeshData
     public int[] TileVertexCount;
 
     /// <summary>
-    /// Coarse (31x31) world-corner lattice the LOD children sample from (1ew). Built by the chunk
+    /// Coarse (31x31) world-corner lattice of the chunk (1ew). Built by the chunk
     /// mesh generator on the worker thread, then re-stamped per patched region by PatchCornerGrid.
-    /// Y is tile-relative height (0..1), mirrors the merged shallow block exactly. Null on
-    /// non-terrain builders (voxel path builds its own LOD).
+    /// Y is tile-relative height (0..1), mirrors the merged shallow block exactly. Its readers are
+    /// the collider cook, the patch restamp, the low-poly root re-emit and the F3 corner audit.
+    /// Null on non-terrain builders (voxel path re-cooks its render mesh).
     /// </summary>
     public ChunkCornerGrid Corners;
 
     /// <summary>
     /// Collider surface (1hi): every <c>ChunkColliderDecimation</c>-th node of <see cref="Corners"/>
-    /// re-indexed with the LOD winding — <b>961 verts / 1800 tris since 1ex</b> (was 256/450 at the 2 m
-    /// step). Built on the worker thread so the chunk's MeshCollider can skip the render mesh's side
-    /// walls and refined blocks. Null on non-terrain builders (voxel path re-cooks its render mesh).
+    /// re-indexed with the lattice winding — <b>961 verts / 1800 tris since 1ex</b> (was 256/450 at
+    /// the 2 m step). Built on the worker thread so the chunk's MeshCollider can skip the render
+    /// mesh's side walls and refined blocks. Null on non-terrain builders (voxel path re-cooks its
+    /// render mesh).
     /// </summary>
     public Vector3[] ColliderVertices;
 
@@ -103,22 +105,21 @@ public struct MergedChunkMeshData
 
 /// <summary>
 /// The coarse lattice of a terrain chunk's world corners (1ew): one node per corner of the 31x31
-/// corner grid (TerrainChunkCoord.CornerGridSize), stored in corner-lattice order gz * 31 + gx so a
-/// LOD child can sample axis-aligned strides without ever touching the merged block table. Carried
-/// by MergedChunkMeshData because refined (16-vertex) shallow blocks break the fixed stride the old
-/// LOD sampler used on the merged vertex array.
+/// corner grid (TerrainChunkCoord.CornerGridSize), stored in corner-lattice order gz * 31 + gx.
+/// Carried by MergedChunkMeshData because refined (16-vertex) shallow blocks break a fixed stride
+/// taken over the merged vertex array. Since 1f6 its readers are the collider cook
+/// (BuildDecimatedCollider), the patch restamp (PatchCornerGrid), the low-poly root re-emit and the
+/// F3 corner audit — the detail-LOD children that used to stride it axis-aligned are gone.
 /// </summary>
 public struct ChunkCornerGrid
 {
     public float[] Y;
-    public Vector3[] Normals;
     public Vector2[] UV;
     public Color[] Colors;
 
     public ChunkCornerGrid(int size)
     {
         Y = new float[size];
-        Normals = new Vector3[size];
         UV = new Vector2[size];
         Colors = new Color[size];
     }

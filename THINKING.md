@@ -15,7 +15,67 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
-## 1f5 - "the crater was good on first load then it got altered" (VERDICT: fixed by 1f5 as the LOD band stride, NOT the carve)
+## 1f6 - "Lod1/Lod2 visually cover some chunks" - VERDICT: the whole detail-LOD is deleted, and the report that named it is UNMEASURED (OPEN: awaiting play-test)
+
+**Note on discipline, because this one skipped a rule.** Rule 7 wants a measurement lane FIRST on a
+geometry report you cannot see from the code. The user was offered it and chose not to: the report
+was treated as a design defect with a known mechanism rather than as an unknown. So **there is no
+readout behind this change**, and the "covered" claim below is a mechanism I can *derive*, not a
+measurement I took. Rule 7's last habit applies with full force: a check you have never seen fail has
+stopped meaning anything, and here I have not even got a check.
+
+**Hypotheses, in the order I considered them:**
+
+1. **CONFIRMED (by reading, not by looking).** The band children are a *different surface* from the
+   root. `BuildLodChild` strides the 31x31 lattice to every 2nd/3rd corner while the root mesh keeps
+   every 1 m corner, so the two agree only where the heightfield is smooth, and the band is switched on
+   by *disabling the root renderer* (1e6's fix). That is a mechanism for both symptoms in the user's
+   report - a shape change at 30 m/60 m (1f5, already reported and half-fixed) and a coarse triangle
+   **covering** the real surface wherever it spans convex ground, because the coarse surface is a
+   different surface, not a coarser view of the same one.
+2. **CONFIRMED, and the reason this is a deletion.** No threshold can fix hypothesis 1. 1f5's
+   `NeedsLodDetail` gate already took the best available shot and it was genuinely *derived* (a
+   discrete Laplacian is exactly zero for any planar surface at any stride - it measured relief, not
+   scale), and it still made the terrain passable at two different shapes. Worse, the one place the
+   band child could sit in FRONT of the real surface has nothing to do with sub-cell relief at all:
+   a 3 m lattice triangle over convex ground is in front of the 1 m surface by construction, at any
+   stride and any gate. And `BuildVoxelLodChild` decayed unconditionally with no gate at all. So the
+   second surface is only ever honest by luck, and a second surface that needs a gate to be honest is
+   the bug.
+3. **OPEN / not investigated, and worth naming.** Why the user saw it as *covering* rather than as
+   *reshaped*. A band switch is a hard, discrete event at 30 m and 60 m, so a chunk crossing either
+   boundary should visibly *pop*, not quietly cover. Covering implies the coarse surface sits above
+   the fine one over some region - which is exactly the convex-ground case - and would have to have
+   been seen while crossing a band, or after walking back. No readback exists to confirm which.
+4. **REJECTED, recorded so it is not walked again.** "Just push the bands further out" / "raise the
+   cull distance". The bands are at fixed distances, not at the cull; moving the cull changes nothing
+   about what a band draws, and the cull has its own 1gh invariant that must not be loosened for this.
+5. **REJECTED.** "Keep the bands but make them render *alongside* the root instead of instead of it."
+   That is strictly more geometry for the same wrong picture, and it keeps the resampling seam.
+6. **REJECTED, and it is the tempting one.** "Replace the fixed stride with an adaptive one, and put
+   a uniform whole-chunk decision behind it." 1f5 already built that (`NeedsLodDetail`, whole-chunk so
+   no T-junction row). Rejected now for the reason in hypothesis 2, plus a cost: it is a mesh
+   rewrite with no compiler behind it (rule 3) whose failure mode is a crack.
+
+**What the deletion costs, so it is a decision and not a shrug:** ~+400k resident triangles
+(~336 chunks x the ~1350-triangle difference between a decimated child and the full root), draw calls
+unchanged. The honest alternative - a genuinely *distant* owner that is allowed to be coarse because
+it is far enough that nobody is standing on it - already exists: the far shell. If the frame budget
+cannot take the trade, the fix is there, not a near band.
+
+**Also folded into the same pass, and both are rule 14 residue rather than new design:**
+`ChunkCornerGrid.Normals` was written in two places and read by nothing once the builders went (the
+array had no owning corner under the 1ew rule either - a corner's *normal* is not a property of a
+corner), and the QA HUD's `lod1`/`lod2`/`band` fields described children that no longer exist, which
+would have made the F3 line quietly useless for the next "why is a chunk invisible" report.
+
+**Verdict:** shipped as a deletion, mechanism derived from the code, **report unmeasured**. Open
+until the user restarts the session and confirms both that the covering is gone and that the frame
+budget survived the triangle count.
+
+---
+
+## 1f5 - "the crater was good on first load then it got altered" (VERDICT: fixed by 1f5 as the LOD band stride, NOT the carve — **superseded by 1f6, which deleted the stride, the gate and the whole band**)
 
 The report has no distance, no direction and no timing. That is the whole difficulty: "altered" is
 compatible with at least four unrelated mechanisms, and three of them are one-line greps away.

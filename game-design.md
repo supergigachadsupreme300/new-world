@@ -46,10 +46,12 @@ SW ────────── SE
   slab/older-carve discontinuity sits between neighbours. `ChunkObject.PatchRegion` re-skims a
   touched tile rectangle in place through the per-tile block table (`TileVertexBase`/`TileVertexCount`),
   so deformation never re-runs a full 900-tile rebuild.
-- LOD children (Lod1/Lod2) decimate the **31x31 corner grid** (a regular axis-aligned sample —
-  every 2nd/3rd corner), so far render bands cost ~1/4 / ~1/9 of the full mesh and always meet the
-  neighbour chunk at the shared boundary. **Exception (1f5):** a chunk holding relief finer than a
-  decimated cell (a crater's terraces) keeps the full 1 m stride at both bands — see §2.5.
+- The **31x31 corner lattice** was built so the detail-LOD children could decimate it (a regular
+  axis-aligned sample — every 2nd/3rd corner) at ~1/4 / ~1/9 of the full mesh cost. **Since 1f6 those
+  children are gone** and so is their exception: a chunk now draws its ONE root mesh at every
+  distance, so there is no band to hold a finer stride for. The lattice itself is retained because
+  the collider cook, the patch restamp, the low-poly root re-emit and the F3 corner audit all read
+  it.
 - A tile whose 4 corners differ by more than the **refine threshold** (§2.10) renders as a 2x2
   sub-quad grid instead of one quad — same smooth heightfield, but steep slopes split into several
   smaller faces so the corner-grab editor (§3.8) can bite them level by level.
@@ -57,8 +59,9 @@ SW ────────── SE
 **Seam contract (ownership + audit).** A world corner has exactly ONE value: the canonical Perlin
 surface (§2.3) plus whatever whole-corner edits are persisted for it (§2.6). Every chunk is placed at
 its exact block origin (`chunk.X * 30 m`) on a lattice whose node spacing divides 30 (3 m facets when
-the 1hi facet look is on — dormant since 1ia, 6 m while 1hx was default; 2 m
-LOD, 1 m tiles), so two adjacent chunks sample identical nodes at identical world tiles. The 31x31
+the 1hi facet look is on — dormant since 1ia, 6 m while 1hx was default; 1 m tiles; the 2 m detail
+LOD stride is gone with 1f6), so two adjacent chunks sample identical nodes at identical world
+tiles. The 31x31
 **corner lattice** is not re-derived from noise at mesh time — it is copied out of the *owning tile's*
 stored corner, so the contract rests entirely on the **ownership rule** holding: node (gx,gz) stands
 on world corner (Ox+gx, Oz+gz) and must copy the corner of exactly that point from the tile that
@@ -134,8 +137,8 @@ Two properties of the void walk that are load-bearing, not incidental. It is sco
 owners **promise** (real chunks to `view + 1`, far cells to `view + FarOuterKeep`) rather than to the
 visible radius, because past that band real chunks are dormant-and-hidden with no far cell owner and a
 naive scan would report ~84 correct, expected, invisible "voids" at 630 m that drown the signal; and it
-does not re-derive `ChunkLodManager.EffectiveCullDistance()` (private) into a second copy, because a
-second spelling of a private constant is a copy that rots when the LOD side changes.
+does not re-derive `ChunkDistanceCull.EffectiveCullDistance()` (private) into a second copy, because a
+second spelling of a private constant is a copy that rots when the cull side changes.
 
 **What the removed lanes established is worth keeping, because it is about *the question*, not the
 tool: a check only speaks for the layer it reads.** `ChunkValidator` compares TILE heights
@@ -307,9 +310,10 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
   `RenderDistanceController`'s class default/max + inspector range follow, so a future scene asset
   can't re-widen it either).
 - **Real chunk ring (near, 1ef):** only chunks inside `NearRingRadius` (default **9** ≈ 270 m) stream as
-  full-fidelity `ChunkObject`s — deformable, collidable, prop-bearing, LOD'd. `StreamAround` receives
+  full-fidelity `ChunkObject`s — deformable, collidable, prop-bearing, one full-detail mesh each.
+  `StreamAround` receives
   the NEAR ring, not the render radius, and keeps one hysteresis ring (near+1) loaded, so the real
-  chunk world is 361 chunks (was 3,721 at radius 30) and the LOD/collider/prop wins of 1dq/1di/1e6 ride
+  chunk world is 361 chunks (was 3,721 at radius 30) and the collider/prop wins of 1dq/1di ride
   a fixed-size ring instead of scaling with the render distance. Dispatch is **nearest-first and each
   chunk never regenerates** (**1em**: the dispatch loop had no loaded-chunk guard and its cleanup only
   dropped entries that were BOTH pending AND loaded — but finalize clears the pending mark, so
@@ -318,7 +322,7 @@ Each chunk's generation is influenced by its **4 direct neighbors** (N, S, E, W)
 far shell was immune because it skips completed cells, which is why 300 m→~900 m rendered while the
     0-300 m disc stayed empty).
 - **Dormant keep-ring (1gc):** a real chunk passing the near+1 hysteresis ring is no longer DESTROYED
-  at the boundary it was just generated at. It is **demoted to a dormant state** (root mesh + LOD +
+  at the boundary it was just generated at. It is **demoted to a dormant state** (root mesh +
   props + collider off; 900-tile bookkeeping, pooled mesh, GameObject and VoxelStore retained) out to
   ring near+1+DormantRingDepth (**default depth 2** ≈ 270-390 m), and the coarse far cell covers the
   hidden chunk exactly as it covered the old destroyed chunk — the dormancy drops the chunk out of
@@ -420,8 +424,8 @@ mid-view stays crisp
    **1ia reverted the whole terrain render algorithm to its pre-1hi state by flipping this default
    off** (see §2.5a). The code is untouched and the knob still works; off means: smooth
    central-difference far-shell normals, the 1ew stretch-split running at `RefineThreshold` again,
-   the full 1 m per-tile near root **with side walls**, Lod1/Lod2 children building again, and
-   `PatchRegion` taking its per-tile skim.
+    the full 1 m per-tile near root **with side walls**, and `PatchRegion` taking its per-tile skim.
+    (1f6 removed the detail LOD band entirely, so "off" no longer buys back any child meshes.)
 - **Coarse near-ring facets (1hi.1, dormant since 1ia):** with `LowPolyFacets` on (**off by
    default since 1ia**, see §2.5a), the REAL chunks' root
    mesh is no longer the 1 m per-tile surface — the merged builder emits the lattice facets
@@ -434,15 +438,16 @@ mid-view stays crisp
    from it), and the **collider rides the same step** (colliders below) so the player stands exactly
    on the visual. Trade-off: a 1 m corner edit only visibly moves a facet vertex when the edited
    corner lands on the coarse grid. Tune via `NewWorldTestGround.LowPolyStep`.
-- **Up-facing lattice winding (1hi.2):** the lattice-family surfaces (far shell flat/smooth, Lod1/Lod2
-   children, decimated colliders, the 1hi.1 coarse roots) were originally emitted first-corner-first (SW,
-   SE, NE, NW; tris (00,10,11)/(00,11,01)). The far shell masked that with its double-sided Cull Off
-   material (above), but real chunks keep `GroundMaterial` (Cull Back), so the 1hi.1 root rendered only
-   from below and its collider let the player drop through. 1hi.2 re-emits the three REAL-chunk lattice
-   surfaces — `EmitLowPolyIndices` (coarse-root facets), `BuildDecimatedCollider`, and
-   `ChunkObject.BuildLodChild` (smooth-mode LOD bands) — in the smooth tile's up-facing corner order
-   NW, NE, SE, SW with `BuildMeshData`'s exact (0,1,2)/(0,2,3) two-triangle pattern; normals stay +Y. The
-   far shell keeps its (double-sided-visible) winding.
+- **Up-facing lattice winding (1hi.2):** the lattice-family surfaces (far shell flat/smooth,
+  decimated colliders, the 1hi.1 coarse roots) were originally emitted first-corner-first (SW,
+    SE, NE, NW; tris (00,10,11)/(00,11,01)). The far shell masked that with its double-sided Cull Off
+    material (above), but real chunks keep `GroundMaterial` (Cull Back), so the 1hi.1 root rendered only
+    from below and its collider let the player drop through. 1hi.2 re-emits the two REAL-chunk lattice
+    surfaces that still exist — `EmitLowPolyIndices` (coarse-root facets) and `BuildDecimatedCollider`
+    — in the smooth tile's up-facing corner order
+    NW, NE, SE, SW with `BuildMeshData`'s exact (0,1,2)/(0,2,3) two-triangle pattern; normals stay +Y. The
+    far shell keeps its (double-sided-visible) winding. (The third, `ChunkObject.BuildLodChild`, was
+    deleted with the detail LOD in 1f6.)
 - **Collider lattice (1hi, step raised to 1 m by 1ex; step still follows the root per 1hi.1, wound
    up-facing 1hi.2):** smooth real chunks cook their MeshCollider from a lattice sampled every
    `ChunkColliderDecimation`-th node of the 31×31 corner grid (`ChunkMeshGenerator.BuildDecimatedCollider`)
@@ -453,7 +458,7 @@ mid-view stays crisp
    crater (a footprint centred on an odd x or z had no sampled node inside it). The pre-1ex
    `~4x cheaper cook` no longer holds — the collider is now render-resolution — but the path still omits
    the render mesh's side walls and refined blocks, which physics never uses. It shares the EXACT world
-   corners the LOD children (and neighbour chunks) use, so the physics surface is seam-proof across
+    corners the neighbour chunks use, so the physics surface is seam-proof across
    chunks by construction; `PatchRegion` re-derives it from the patch-re-stamped lattice so the collider
    tracks every excavation. Each chunk holds a second pooled Mesh (`ChunkObject._colliderMesh`, same
    acquire/release discipline as the render mesh; lazily allocated — a chunk that never enters the
@@ -521,9 +526,10 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
    16-chunk/12 ms burst shrank the budget so chunk finalization + collider cooking stop competing with the
    frame). Since **1em** this fill actually completes: previously the dispatch loop re-generated the
    same nearest chunks forever, so the ring stalled at ~24 chunks (see the §2.5 real-ring note). The game bootstrap defaults render radius to **30** (1eo) — was **67** with a
-  hard clamp of **160** (1ef) — and the LOD cull distance auto-matches the current render radius so
-  culling never fights the visible ring (far cells are static, not LOD-registered, so the cull budget
-  still scales with the REAL near ring).
+   hard clamp of **160** (1ef) — and the chunk distance-cull distance auto-matches the current render
+   radius so
+   culling never fights the visible ring (far cells are static, not registered as cull candidates, so
+   the cull budget still scales with the REAL near ring).
 - **Boot cost (1e5):** manager lookups go through a `ComponentRegistry` (one shared scene sweep per
   type instead of ~24 `FindAnyObjectByType` scans), `UIManager.InitializeUI` / `SoundManager.
   LoadSoundClips` / `GameManager.AutoResolveReferences` idempotency guards stop the same UI layout /
@@ -577,32 +583,32 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   mesh whenever the incoming vertex count differs from the retained one (slab side walls add verts;
   a later smaller re-upload must not write channels against a stale larger buffer). Purely an
   implementation detail — zero visual/behavior change.
-- **Chunk LOD (1e6):** every chunk now grows two decimated **child meshes**, `Lod1` (every 2nd tile
-  corner → ~1/4 the triangles) and `Lod2` (every 3rd tile → ~1/9), sampled from its own merged
-  top-terrain block. `ChunkLodManager`'s bands (0-30 m full / 30-60 m `Lod1` / 60 m+ `Lod2`, cull
-  beyond the streamed radius) now actually switch between them: the **root `MeshRenderer` is disabled
-  while a detail band is active** (before this fix the root stayed enabled and every distant chunk
-  drew its full ~1800-tri mesh *plus* the detail). The children are built **lazily** (only when a
-  band first selects them) and marked stale by every `ApplyMerged`/`PatchRegion`, so a band switch
-  refreshes the decimated grid from the current terrain first — and a chunk already showing a detail
-  band refreshes its active child as soon as a patch dirties it (1fz: the manager polls `LodDirty`
-  each scan tick instead of only reacting to band *changes*) — deformation never renders a
-  pre-excavation hole, and near-band chunks never pay for LOD at all. Physics is untouched (the
-  collider lives on the root and rides the full mesh, §2.5 collider-on-demand).
-- **Sub-cell relief keeps the full lattice (1f5):** the strides above are a fixed decimation, and a
-  fixed stride silently **drops any relief narrower than its cell** — the same coupling the facet step
-  has (rule 12), one dimension down. A 1f3 crater (reach ≈1.9 m, treads 0.475 m apart) lands inside
-  one or two 2 m/3 m cells, so `Lod1`/`Lod2` redrew the excavation as a single smoothed dent and the
-  ground visibly **changed shape** as the player crossed 30 m / 60 m and walked back. `ChunkObject`
-  now measures the chunk first: `NeedsLodDetail` flags any lattice node whose height departs from the
-  average of its four 1 m neighbours by more than `LodDetailCurvature` (0.20 m), and a flagged chunk
-  builds **both** children at stride 1. The gate is derived, not chosen — a discrete Laplacian is zero
-  for any planar surface at any stride, and the five-octave field's worst case is ≈0.016 m, so untouched
-  ground never refines while a terraced wall (≈0.24–0.95 m) always does. Refinement is **whole-chunk**,
-  never per cell: a refined cell beside a decimated one leaves the shared edge as a polyline against a
-  chord (the pre-1ej T-junction row), so a carved chunk keeps the root's 900 quads out to the last band
-  and untouched chunks are unaffected. `BuildVoxelLodChild` still decimates unconditionally (§2.9) —
-  same coupling, still open.
+- **Chunk distance cull (`ChunkDistanceCull`, formerly `ChunkLodManager`; detail LOD REMOVED in
+  1f6):** the class does one thing — it hides a streamed chunk root once the chunk falls past the
+  distance the world promises to be covered. Its 1gh floor (§ below) and the 1ea rolling 1024-entry
+  burst are unchanged. What is gone is everything 1e6 put in the same class:
+  - ~~**Chunk LOD (1e6):** every chunk grows two decimated **child meshes**, `Lod1` (every 2nd tile
+    corner) and `Lod2` (every 3rd tile), with bands at 0-30 m / 30-60 m / 60 m+ and the root
+    `MeshRenderer` disabled while a detail band was active.~~ **1f6 deleted it.** Each child was a
+    *different surface* from the root — a 2 m / 3 m resample of the corner lattice drawn **instead
+    of** the mesh the player was standing on — so the terrain visibly changed shape when crossing
+    30 m and 60 m, and where a coarse triangle spanned convex ground the child could sit in front
+    of the real surface and cover it. A chunk's root mesh is now its **only** render output at every
+    distance.
+  - ~~**Sub-cell relief keeps the full lattice (1f5):** the 0.20 m `LodDetailCurvature` /
+    `NeedsLodDetail` gate that let a chunk holding sub-cell relief keep stride 1.~~ **1f6 deleted it
+    with the thing it was protecting.** `ChunkObject.RefreshLodMeshes`, `BuildLodChild`,
+    `BuildVoxelLodChild`, `EnsureLodChild`, `LodDirty` and the 31x31 `ChunkCornerGrid.Normals` copy
+    (only ever read by those builders) are all gone. The **lesson it recorded still stands** and is
+    the reason 1f6 was the fix rather than a retune: a fixed decimation stride silently drops any
+    relief narrower than its cell, so a *fixed-stride* second surface of a heightfield is a
+    resolution bug before it is a performance win. Note also that the resampling hazard 1f5 named is
+    not gone from the world — it is simply no longer expressed as a *decimated child of the same
+    chunk*. The decimation that remains is a **step of its own**: the 1hi.1 facet root and the
+    decimated collider (§2.5), which are separate decisions with their own pairing rule.
+  - The trade: draw-call count is unchanged (one root renderer per chunk either way), but the
+    ~336 chunks that used to draw a decimated child now draw their full ~1800-triangle root, i.e.
+    roughly **+400k triangles** resident. That is the price of one surface instead of two.
 - **Cull invariant (1gh):** the sweep's `EffectiveCullDistance` can never hide a real chunk the
   streamer is the ONLY surface for. It floors at the streamed real-chunk extent —
   `max((Radius+1)*30, (NearRingRadius + 1 + DormantRingDepth)*30)` — because far cells only exist
@@ -647,7 +653,9 @@ What the terrain renders now, with the flag off:
   `BuildMergedMeshData` never enters `BuildLowPolyMerged`.
 - **1ew adaptive stretch-split** — back on: `EffectiveRefineThreshold` returns `RefineThreshold` again
   (the low-poly path passed `0`), so steep near slopes subdivide into 2x2 sub-quads again.
-- **Lod1/Lod2 children** — built again, because `ChunkObject._meshStep` is `0` for every chunk.
+- **Detail LOD children** — no longer built at all, because `ChunkObject._meshStep` is `0` for every
+  chunk **and 1f6 deleted the builder**. The 1ia revert note is kept for the record: at the time, the
+  band children came back with it.
 - **Edits** — `ChunkObject.PatchRegion` takes its per-tile skim and rebuilds bounds from the CPU vertex
   array; `ResampleLowPolySurface` is unreachable.
 - **Colliders** — decoupled from the revert, and **changed again in 1ex**: smooth chunks now cook a
@@ -797,12 +805,12 @@ the near/far boundary so a resident chunk and a freshly built one are on screen 
   and the seam-rebuild back-queue. Since `1gf` the optional `EnablePollStageStats` (default **on**, and
   needs `EnableFpsStats`) extends it with the world streamer poll's **per-stage ms split** (near ring,
   finalize, colliders, far scan vs far finalize, props, rebuild drain) + rolling worst-poll peaks +
-  heavy-poll count, and the `ChunkLodManager` band-sweep ms — so a long-sprint hitch shows on screen
+   heavy-poll count, and the `ChunkDistanceCull` sweep ms — so a long-sprint hitch shows on screen
   WHICH stage ate the frame. Read-only; it never touches the world, the platform, or the streamer's
   budget behavior. Since `1gh` the optional `EnableChunkDiagnostics` (default **on**) adds a single
   line for `ChunkInspectX/Z` (default the reported chunk −8/3): real load state (loaded/dormant/
-  absent), root GameObject active, renderer+mesh present, `Lod1`/`Lod2` children on/off, LOD band,
-  collider, and the far cell that owns it (live or MISSING) — one screenshot resolves any
+   absent), root GameObject active, renderer+mesh present, collider,
+   and the far cell that owns it (live or MISSING) — one screenshot resolves any
   "chunk invisible for no reason" report.
 
 ### 2.8 Physics Integrity Guard Rails
@@ -878,11 +886,15 @@ be previewed and iterated on; the smooth world is otherwise untouched.
   mode (each tile's 4-corner heights reduce to a rounded-avg column top on read; the file stays until a
   voxel edit rewrites it as v3). The smooth path never writes voxel files and its reader still rejects
   them.
-- **LOD + far shell follow the mode (1eu):** voxel chunks build stepped **LOD children** now
-  (`BuildVoxelLodChild` — a decimated coarse full-size column grid feeds the same pooled-LOD child
-  mesh), and the far shell's `BuildFarSector` gains a stepped `BuildVoxelFarSector` twin that samples
+- **Far shell follows the mode (1eu; LOD half REMOVED in 1f6):** the far shell's `BuildFarSector`
+  gains a stepped `BuildVoxelFarSector` twin that samples
   the same deterministic integer column tops on its 3 m grid — no more smooth far disc around a stepped
-  world.
+  world. Voxel chunks used to also build stepped **LOD children** (`BuildVoxelLodChild` — a decimated
+  coarse full-size column grid feeding a pooled child mesh); **1f6 deleted that with the rest of the
+  detail LOD**, so a voxel chunk now draws its own stepped mesh at every distance. Its side note —
+  the 1f5 hazard that "a decimated child is a different surface from the root" is *sharpest* in
+  voxel mode, where a decimated column grid is a 2x/3x coarser version of a stepped surface — is why
+  the deletion is the right outcome and not a loss.
 - **Known limits (documented):** the mesher's side-wall pass reads only the topmost run, so interior
   cavity side walls are NOT rendered — the rim of a carve reads as a slot into the void until per-run
   side-wall meshing lands. `ChunkSync` network sync of voxel edits is deferred; two perpendicular walls
@@ -917,9 +929,10 @@ bite and a cliff reads as a single un-editable surface.
   / `TileVertexCount` record each tile's block offset + length (4 or 16 verts), and
   `ChunkObject.PatchRegion` re-skims a touched rectangle through that table (the old fixed
   `tileIndex * 4` stride is gone). The **31x31 corner lattice** rides along as
-  `MergedChunkMeshData.Corners` — LOD children (§2.2) decimate from the lattice now that the merged
-  per-tile stride is variable, and `PatchCornerGrid` re-stamps lattice nodes owned by a patched region
-  so far bands track deformation.
+  `MergedChunkMeshData.Corners` — the collider cook (§2.5) decimates from the lattice, the low-poly
+  root re-emit samples it, and `PatchCornerGrid` re-stamps lattice nodes owned by a patched region
+  so both track deformation. (1f6: its only other consumer, the detail-LOD children of §2.2, is
+  deleted, which is why `ChunkCornerGrid.Normals` went with it — nothing read that array.)
 - **Edit flips split state ⇒ full rebuild:** `RebuildChunkRegion` compares each region tile's fresh
   refinedness (`ChunkMeshGenerator.IsRefined`) against `ChunkObject.IsTileRefined`; any flip (an edit
   pushed a tile across the threshold) falls back to `FullRebuildChunk`, because the block table cannot
@@ -945,12 +958,11 @@ bite and a cliff reads as a single un-editable surface.
    (`BuildMergedMeshData(..., lowPolyStep)`: flat per-facet quads sampled from the 31x31 corner grid,
    no side walls, no per-tile blocks), so the merged patch-table pointers are null and `PatchRegion`
    skips the per-tile skim — it re-samples the whole tiny root from the re-stamped lattice
-   (`ChunkMeshGenerator.ResampleLowPolySurface`). The Lod1/Lod2 children are skipped entirely
-   (the root already exceeds their density; `ChunkLodManager` falls back to the root renderer when
-   a named detail is missing), and edits land coarsened: a 1 m corner move only visibly lifts a facet
-   vertex on the 3 m grid (the 1 m heights still save/restore exactly). All of the above is dead
-   while the flag is off: the 1ew split runs at `RefineThreshold`, the root is the full 1 m per-tile
-   surface with side walls, the Lod children build, and `PatchRegion` takes its per-tile skim.
+    (`ChunkMeshGenerator.ResampleLowPolySurface`). There are no detail children left to skip (1f6
+    deleted them), and edits land coarsened: a 1 m corner move only visibly lifts a facet
+    vertex on the 3 m grid (the 1 m heights still save/restore exactly). All of the above is dead
+    while the flag is off: the 1ew split runs at `RefineThreshold`, the root is the full 1 m per-tile
+    surface with side walls, and `PatchRegion` takes its per-tile skim.
 
 ---
 
@@ -2632,7 +2644,8 @@ The active PC URP config — QualitySettings level 1 → `PC_RPAsset.asset` guid
   resolution is the accepted trade; the stylized look is otherwise intact.
 - **Streaming maintenance is change-driven** (1ea): the collider ring re-reconciles only when the focus
   crosses a chunk boundary / a collider request changes / a chunk finalizes or unloads, with a
-  4-collider-per-poll PhysX cook budget; LOD band audits run as a rolling 1024-chunk burst; dispatch
+  4-collider-per-poll PhysX cook budget; the distance-cull visibility sweep runs as a rolling
+  1024-chunk burst; dispatch
   sort/removal and modified-tile border checks are allocation-free / O(1) set lookups. An idle,
   fully-streamed world pays ~zero per-frame terrain maintenance.
 - **Idle streaming is zero-cost end-to-end** (1ee): the stream loop keeps the 0.05 s poll beat (now on

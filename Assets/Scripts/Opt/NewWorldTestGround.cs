@@ -72,7 +72,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableStatusEffectsDemo = false;
     [Tooltip("QA/perf (1ea): show a screen-space perf readout (avg FPS, frame ms, loaded chunk count, active collider count) refreshed ~4x/second so optimization passes can be A/B'd in the Editor without a profiler. Read-only — no world placement. On by default since 1ee so the baseline is visible; flip off to hide.")]
     public bool EnableFpsStats = true;
-    [Tooltip("QA/perf (1gf): extend the FPS overlay with the WorldStreamer poll's per-stage ms split (near/finalize/colliders/farManage/farFinalize/props/rebuild drain) + the rolling worst-poll peaks and heavy-poll count, plus the ChunkLodManager band-sweep ms (last + peak). Read-only; needs EnableFpsStats on to display. Lets a long-sprint run show WHICH stage actually eats the gameplay frame instead of guessing. On by default so the baseline is visible; flip off to hide the extra lines.")]
+    [Tooltip("QA/perf (1gf): extend the FPS overlay with the WorldStreamer poll's per-stage ms split (near/finalize/colliders/farManage/farFinalize/props/rebuild drain) + the rolling worst-poll peaks and heavy-poll count, plus the ChunkDistanceCull sweep ms (last + peak). Read-only; needs EnableFpsStats on to display. Lets a long-sprint run show WHICH stage actually eats the gameplay frame instead of guessing. On by default so the baseline is visible; flip off to hide the extra lines.")]
     public bool EnablePollStageStats = true;
     [Tooltip("QA (1et): render the open world as the 1-metre stepped voxel terrain instead of the smooth heightfield (the experimental terrain model). Applied in Awake, BEFORE the WorldStreamer's first stream poll, so the whole world builds voxel from the start; leave OFF to keep smooth terrain.")]
     public bool EnableVoxelTerrain = false;
@@ -84,7 +84,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableVoxelSculptDemo = false;
     [Tooltip("QA/perf (1gd): wire the WorldStreamer's speed-decoupled renderer clock — the streaming/render loop runs on its OWN coroutine beat (StreamHz, default 20 Hz) and yields one cool-down frame after any busy poll, and edited-terrain seam rebuilds run on background threads instead of holding the gameplay frame. That is exactly the 'immense lag at high player speed' scenario. Config-only lane: no world placement — any WorldStreamer found in the scene gets StreamInUpdate=true + DecoupleRenderFromGameplay=true (it just uses the scene's own toggle values otherwise).")]
     public bool EnableSpeedDecoupleRender = false;
-    [Tooltip("QA (1gh): extend the FPS overlay with a chunk-diagnostics line for ChunkInspectX/Z — that chunk's real load state (loaded/dormant/absent), root GameObject active, renderer+mesh present, Lod1/Lod2 children on/off, LOD band, collider, and which far cell owns it (and whether that cell is LIVE or MISSING). For any 'chunk invisible for no reason' report: one screenshot answers whether it is missing, hidden by the LOD sweep, or under a dead far cell. Read-only; needs EnableFpsStats on to display.")]
+    [Tooltip("QA (1gh): extend the FPS overlay with a chunk-diagnostics line for ChunkInspectX/Z — that chunk's real load state (loaded/dormant/absent), root GameObject active, renderer+mesh present, collider, and which far cell owns it (and whether that cell is LIVE or MISSING). For any 'chunk invisible for no reason' report: one screenshot answers whether it is missing, hidden by the distance cull, or under a dead far cell. Read-only; needs EnableFpsStats on to display.")]
     public bool EnableChunkDiagnostics = true;
     [Tooltip("QA (1gh): chunk coords inspected by the diagnostics line (the coords of the reported monster/relic chunk −8_3 in chunk-space, X −8, Z 3).")]
     public int ChunkInspectX = -8;
@@ -1848,8 +1848,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
                 // (1gf) per-stage poll split: which stage eats a sprint crossing. Read the rolling
                 // peaks + heavy-poll count, then reset the window so the next refresh shows only the
-                // polls since this one. The LOD band sweep runs on the gameplay frame (outside the
-                // streamer coroutine), so it is reported separately as its own worst-case.
+                // polls since this one. The chunk distance-cull sweep runs on the gameplay frame
+                // (outside the streamer coroutine), so it is reported separately as its own worst-case.
                 if (EnablePollStageStats)
                 {
                     var last = streamer != null ? streamer.LastPollStats : WorldStreamer.PollStageStats.Zero;
@@ -1860,15 +1860,17 @@ public sealed class NewWorldTestGround : MonoBehaviour
                         last.StreamAroundMs, last.FinalizeMs, last.CollidersMs, last.PropsMs,
                         last.FarScanMs, last.FarFinalizeMs, last.RebuildDrainMs, last.DispatchMs,
                         peak.TotalMs, peak.FarMs, peak.FinalizeMs);
-                    var lod = Object.FindAnyObjectByType<ChunkLodManager>();
-                    if (lod != null)
-                        stats += string.Format("\nlod sweep {0:0.00} / {1:0.00} ms", lod.LastSweepMs, lod.PeakSweepMs);
+                    var cull = Object.FindAnyObjectByType<ChunkDistanceCull>();
+                    if (cull != null)
+                        stats += string.Format("\ncull sweep {0:0.00} / {1:0.00} ms", cull.LastCullMs, cull.PeakCullMs);
                     streamer?.ResetPollStagePeaks();
                 }
 
                 // (1gh) chunk diagnostics: for any "chunk X is invisible for no reason" report this
                 // single line says whether it is missing, retained-dormant, hidden (root/inactive),
-                // mesh-less, at a LOD band, or under a dead far cell — one screenshot resolves it.
+                // mesh-less, or under a dead far cell — one screenshot resolves it. 1f6 removed the
+                // lod1/lod2 and band fields with the LOD children they described: the root mesh is the
+                // chunk's only render surface, so there is no second thing to be covering it.
                 if (EnableChunkDiagnostics && streamer != null)
                 {
                     var tc = new TerrainChunkCoord(ChunkInspectX, ChunkInspectZ);
@@ -1880,13 +1882,6 @@ public sealed class NewWorldTestGround : MonoBehaviour
                         var mf = co.GetComponent<MeshFilter>();
                         diag += (mr != null && mr.enabled) ? "  ren" : "  renOFF";
                         diag += (mf != null && mf.sharedMesh != null) ? "  mesh+Vtx" : "  noMesh";
-                        Transform lod1 = co.transform.Find("Lod1");
-                        Transform lod2 = co.transform.Find("Lod2");
-                        diag += lod1 != null ? "  lod1:" + (lod1.gameObject.activeSelf ? "on" : "off") : "  lod1:null";
-                        diag += lod2 != null ? "  lod2:" + (lod2.gameObject.activeSelf ? "on" : "off") : "  lod2:null";
-                        var lod = Object.FindAnyObjectByType<ChunkLodManager>();
-                        if (lod != null)
-                            diag += "  band " + lod.BandIndexOf(co.gameObject);
                         diag += "  coll " + co.HasCollider + "  dorm " + co.Dormant;
                     }
                     stats += diag;

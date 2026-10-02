@@ -1,4 +1,93 @@
-﻿## 1f5. Lod1/Lod2 silently redrew the crater - a decimated lattice drops relief narrower than its cell
+﻿## 1f6. The detail LOD bands are deleted - a chunk's root mesh is its only surface at every distance
+
+**Status: shipped, NOT play-tested (rule 3 - no build or play-test runs in this project). Render-path
+change: it affects every real chunk at every distance, so rule 11 applies - you must restart the
+session to see it.** Reported as "Lod1/Lod2 visually cover some chunks"; **no measurement was taken
+first** (the user's explicit choice, so rule 7's measure-first habit is knowingly skipped and the
+mechanism below is argued from the code, not from a readout).
+
+### What changed
+
+- **`ChunkLodManager` → `ChunkDistanceCull`** (file `git mv`'d with its `.meta`, GUID preserved).
+  The class now does exactly one thing: hide a chunk root past the distance the world promises to be
+  covered. The 1gh `EffectiveCullDistance` floor and the 1ea rolling 1024-entry burst are untouched.
+  Renamed with it, because a cull that still says "LOD" invites the second surface back:
+  `EnableLod` → `EnableChunkDistanceCull`, `LastSweepMs`/`PeakSweepMs` → `LastCullMs`/`PeakCullMs`,
+  and the HUD line `lod sweep` → `cull sweep`. (Checked for collisions: `NewWorldSystems` already has
+  an unrelated `EnableCulling` + `CullManager` for POI/enemy occlusion, so the cull names had to
+  stay distinct from those.)
+- **Deleted from `ChunkObject`:** `RefreshLodMeshes`, `BuildLodChild`, `EnsureLodChild`,
+  `BuildVoxelLodChild`, `LodDetailCurvature`, `NeedsLodDetail`, the `LodDirty` flag, the
+  `_lod1Go`/`_lod2Go`/`_lod1Mf`/`_lod2Mf` fields, the child toggles in `SetVisualActive` and the child
+  teardown in `Release`. `ApplyMerged`/`PatchRegion` no longer set a staleness flag - and note that
+  flag was **never the bug** (1f5 said so): a passing staleness test is not evidence that a surface
+  carries the feature you are looking at.
+- **Deleted `ChunkCornerGrid.Normals`.** Grepped first: the array was written in `BuildCornerGrid`
+  and `PatchCornerGrid` and read by nothing else once the LOD builders went, so it was pure
+  per-build waste (~961 Vector3s per chunk). Its removal also removes a seam-shaped trap - a corner's
+  *normal* had no single owning corner under the 1ew ownership rule, so the array could only ever
+  have held a plausible-looking wrong value.
+- **Deleted the QA readout fields** (`Lod1`/`Lod2` child states, `band N`) from the F3 chunk-diagnostics
+  line and updated both tooltips.
+- **Kept deliberately:** `MergedChunkMeshData.Corners` (the collider cook, `PatchCornerGrid`, the
+  low-poly root re-emit and the F3 corner audit all still read it), `VoxelMesher`/`VoxelChunkData`,
+  and the distance cull itself.
+
+### Why deletion and not a retune
+
+1f5 measured the right thing and still shipped the wrong answer: a **fixed decimation stride silently
+drops any relief narrower than its cell**, so a decimated child of a heightfield is a resolution bug
+before it is a performance win. The 0.20 m Laplacian gate was genuinely *derived* (a discrete
+Laplacian is exactly zero for any planar surface at any stride, so it measured relief rather than
+scale), which is what made it safe to ship unmeasured - and it was still wrong, because it made the
+terrain passable at **two different shapes** instead of one. Two further problems had no threshold at
+all: a coarse triangle spanning convex ground sits in front of the real surface and **covers** it
+(the report), and `BuildVoxelLodChild` decimated unconditionally with no gate to fix it. When the
+second surface is only honest because a derived gate holds it honest, the surface is the bug.
+
+### The trade, stated
+
+Draw calls are **unchanged** (one root renderer per chunk either way - the bands disabled the root
+rather than adding to it), but the ~336 chunks that used to draw a decimated child now draw their
+full ~1800-triangle root: roughly **+400k triangles resident**. That is the price of one surface.
+
+### Verification
+
+- `tools\StaticChecks.ps1`: **0 candidates**, all 8 checks pass. `ChunkDistanceCull.cs` and
+  `NewWorldSystems.cs` were **added to `$files`** by this task, so checks 1/4/7 cover them.
+- Grepped `Assets\Scripts` for every removed symbol - `ChunkLodManager`, `RefreshLodMeshes`,
+  `BuildLodChild`, `BuildVoxelLodChild`, `EnsureLodChild`, `LodDirty`, `LodDetailCurvature`,
+  `NeedsLodDetail`, `LodMeshMode`, `BandIndexOf`, `LastSweepMs`, `PeakSweepMs`, `EnableLod`,
+  `Corners.Normals` - plus a case-insensitive sweep for `lod`. Every survivor is an intentional
+  historical note (`ChunkDistanceCull`, `ChunkObject` and `game-design.md`).
+- **Not compiled** - Unity is the compiler (rule 3), and rule 11 means even a clean console would not
+  show this: chunks already resident keep their uploaded mesh, so the change is only observable after
+  a restart. skills: none applied - the artifact is a C# edit reviewed by a human; the installed set is
+  DCC-side (Maya/Blender/ZBrush/Unreal) and the Unity skills target driving a live editor, which
+  rule 3 forbids.
+
+### Pending play-test items (needs the user in Unity)
+
+1. **Restart the session** before looking at anything (rule 11).
+2. Stand still and walk forward 40 m. Terrain must not change shape at 30 m or 60 m any more - those
+   band switches are gone.
+3. Confirm no chunk is visibly "covered" by a decimated surface (the original report), especially at
+   the near/far boundary and over convex ground.
+4. Watch `cull sweep` on the FPS overlay: unchanged in steady state, peak still dominated by the
+   initial fill (1ik).
+5. **Frame budget is the risk this trade creates** - ~+400k resident triangles. Check the frame time
+   standing still and while sprinting; if it is worse, that is the cost of one surface, and the answer
+   is a genuinely different far surface (a real decimated far shell), not re-adding a near band.
+6. The 1f5 items are obsolete: there are no longer any LOD children to inspect.
+
+## 1f5. Lod1/Lod2 silently redrew the crater - a decimated lattice drops relief narrower than its cell
+
+> **SUPERSEDED by 1f6.** Everything this entry describes - the band children, `RefreshLodMeshes`,
+> `NeedsLodDetail`/`LodDetailCurvature`, `BuildVoxelLodChild` - was deleted in 1f6, on the grounds this
+> entry itself recorded: a decimated child of a heightfield is a resolution bug before it is a
+> performance win, and a derived gate that keeps a second surface honest is a mitigation, not a
+> licence. Its play-test list is void. Kept for the reasoning (the stride/surface argument and the
+> per-cell-refinement rejection), not as a description of the world.
 
 **Status: shipped, NOT play-tested (rule 3 - no build or play-test runs in this project). Render-path
 change: it only affects chunks that already contain sub-cell relief, i.e. chunks someone has carved.**
@@ -685,9 +774,11 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-01. Read this first in a new session; then continue with the
+Last updated: 2026-10-02. Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
-`### 1xx-status` play-test list.
+`### 1xx-status` play-test list. **1f5 is superseded by 1f6** - the LOD bands and the
+`NeedsLodDetail` gate it added were both deleted; read 1f6 for the current design and 1f5 only
+for the reasoning it recorded.
 
 ## 1ik. Frame-budget attribution lane (F2) â€” shipped, NOT verified
 

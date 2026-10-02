@@ -11,7 +11,8 @@ using UnityEngine;
 ///
 /// Split of responsibilities around the focus:
 ///   - Real ring (rings 0..NearRingRadius, default 9): normal full-fidelity ChunkObjects —
-///     deformable, collidable, prop-bearing, LOD'd. (StreamAround(near) keeps them loaded one extra
+///     deformable, collidable, prop-bearing, each drawn as one full-detail mesh. (StreamAround(near)
+///     keeps them loaded one extra
 ///     ring for hysteresis, i.e. through ring 10.)
 ///   - Far shell (rings near+1 .. view+FarOuterKeep, default 10..69): one GameObject per cell
 ///     carrying a decimated grid mesh sampled from the same pure-noise/save corner grid the real
@@ -957,8 +958,9 @@ public partial class WorldStreamer
                 }
             }
 
-            // Same grid winding as the chunk LOD children (BuildLodChild): +X is the next column,
-            // +Z is the next row.
+            // Same grid winding as the chunk corner lattice (+X is the next column, +Z is the next
+            // row) — the ordering a top quad needs to face up, identical for the far cell and the
+            // real chunks it may sit under.
             triangles = new int[(axis - 1) * (axis - 1) * 6];
             for (int gz = 0, t = 0; gz < axis - 1; gz++)
             {

@@ -5,7 +5,7 @@ using UnityEngine;
 /// Phase 8/9 bootstrap: single entry-point MonoBehaviour. Drop this ONE component on a GameObject
 /// in the Hierarchy and it auto-builds the UI/UX overlays (Phase 8) plus the optimization managers
 /// (Phase 9) on the same object — no per-component scene wiring required. Every subsystem is opted
-/// in/out with a serialized toggle; the running registration of chunk LOD/culling candidates is
+/// in/out with a serialized toggle; the running registration of chunk distance-cull candidates is
 /// optimized to a time-throttled delta scan (low cadence, O(changed), no per-frame sweeps).
 /// </summary>
 public sealed class NewWorldSystems : MonoBehaviour
@@ -20,19 +20,20 @@ public sealed class NewWorldSystems : MonoBehaviour
     [Header("Phase 9 - Optimization")]
     public bool EnableObjectPooler = true;
     public bool EnableAudio = true;
-    public bool EnableLod = true;
+    [Tooltip("1f6: toggles ChunkDistanceCull, which hides a streamed chunk root past the distance the world promises to be covered. It no longer switches any detail LOD — every chunk draws its own root mesh at every distance.")]
+    public bool EnableChunkDistanceCull = true;
     public bool EnableCulling = true;
     [Tooltip("Also register POI/enemy roots as culling candidates. More thorough but costs a FindObjectsOfType sweep.")]
     public bool IncludePoisAsCullCandidates = false;
 
     [Header("Registration sync")]
-    [Tooltip("Seconds between chunk LOD/culling registration re-syncs (delta-diff, not a full sweep).")]
+    [Tooltip("Seconds between chunk distance-cull registration re-syncs (delta-diff, not a full sweep).")]
     public float RegSyncInterval = 0.5f;
     [Tooltip("Seconds between optional POI/culling-candidate FindObjectsByType sweeps (only when IncludePoisAsCullCandidates is ON). Slower than chunk reg-sync — the scene-wide type sweeps are the expensive part (1ea).")]
     public float PoiScanInterval = 2f;
 
     private WorldStreamer _streamer;
-    private ChunkLodManager _lod;
+    private ChunkDistanceCull _chunkCull;
     private CullManager _cull;
     private readonly Dictionary<TerrainChunkCoord, ChunkObject> _registered = new Dictionary<TerrainChunkCoord, ChunkObject>();
     private float _syncTimer;
@@ -70,7 +71,7 @@ public sealed class NewWorldSystems : MonoBehaviour
             Ensure<NpcDialogueUI>();
         }
 
-        if (EnableLod) _lod = Ensure<ChunkLodManager>();
+        if (EnableChunkDistanceCull) _chunkCull = Ensure<ChunkDistanceCull>();
         if (EnableCulling) _cull = Ensure<CullManager>();
 
         // Focus the streaming system on the player if the world bootstrap did not already.
@@ -87,7 +88,7 @@ public sealed class NewWorldSystems : MonoBehaviour
 
     private void Update()
     {
-        if (!EnableLod && !EnableCulling)
+        if (!EnableChunkDistanceCull && !EnableCulling)
             return;
 
         _poiTimer -= Time.deltaTime;
@@ -114,7 +115,7 @@ public sealed class NewWorldSystems : MonoBehaviour
             return;
 
         // Delta-diff on the loaded chunk set; runs in O(changed), not a full sweep.
-        // Added chunks: register their root into LOD + culling. One entry per chunk
+        // Added chunks: register their root into the distance cull. One entry per chunk
         // (the streamer now emits a single merged object per 30x30 chunk, not per tile).
         foreach (var pair in loaded)
         {
@@ -122,7 +123,7 @@ public sealed class NewWorldSystems : MonoBehaviour
             if (obj == null) continue;
             if (!_registered.ContainsKey(pair.Key))
             {
-                _lod?.RegisterChunk(obj.gameObject);
+                _chunkCull?.RegisterChunk(obj.gameObject);
                 // Terrain chunks must NOT be registered with CullManager —
                 // occlusion raycasts incorrectly hide distant-but-visible terrain.
                 // Only discrete objects (NPCs, buildings) are culled.
@@ -150,7 +151,7 @@ public sealed class NewWorldSystems : MonoBehaviour
                     _registered.Remove(tc);
                     if (obj != null)
                     {
-                        _lod?.UnregisterChunk(obj.gameObject);
+                        _chunkCull?.UnregisterChunk(obj.gameObject);
                     }
                 }
             }

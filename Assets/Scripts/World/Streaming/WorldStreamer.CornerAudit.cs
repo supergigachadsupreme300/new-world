@@ -32,8 +32,8 @@ using UnityEngine;
 /// chunks out to <c>view + 1</c> (the hysteresis keep) and far cells from <c>near + 1</c> to
 /// <c>view + FarOuterKeep</c>. That band is covered by construction and must therefore never contain
 /// a hole, which makes it the only place a "void" readout means something. It deliberately does NOT
-/// re-derive <c>ChunkLodManager.EffectiveCullDistance</c>: that formula is private, and a second
-/// spelling of it here would be a copy that rots the moment the LOD side changes (rule 8). Footprints
+/// re-derive <c>ChunkDistanceCull.EffectiveCullDistance</c>: that formula is private, and a second
+/// spelling of it here would be a copy that rots the moment the cull side changes (rule 8). Footprints
 /// past the band are invisible by design — the real chunks there are DORMANT and hidden and no far
 /// cell owns them, so including them would print a ring of "voids" at 630 m that is correct, expected
 /// and not what the player is looking at. The band is printed so the number cannot be misread.
@@ -314,10 +314,10 @@ public partial class WorldStreamer
     /// A footprint with neither is a hole the player can see the void through, and that is the only
     /// failure mode that can open in an otherwise watertight chunk set.
     ///
-    /// <para>The root-renderer state is reported separately rather than folded into the test: a LOD
-    /// detail band deliberately disables the root mesh and draws a child mesh instead, so a disabled
-    /// root is not a void. It is counted as its own signal because a root that is disabled with no
-    /// band active would be.</para>
+    /// <para>The root-renderer state is reported separately rather than folded into the test: a
+    /// dormant chunk deliberately hides its own root mesh (<c>SetVisualActive(false)</c>), so a
+    /// disabled root is not a void. It is counted as its own signal because a root that is disabled
+    /// while the chunk is neither dormant nor past the cull distance would be.</para>
     ///
     /// <para><b>Reading a positive result.</b> The far shell fills asynchronously (its initial fill
     /// is documented at roughly 1.5-4 s, and it coasts in the background), so a report taken in the

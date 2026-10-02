@@ -38,7 +38,10 @@
    class specifically. Do not "fix" it by adding a naive use-before-declare scanner - one that fires
    on every legitimate field read trains the next reader to ignore it, which is the false-positive
    failure rule 7 already documents. 1in added `WorldStreamer.CraterAudit.cs` to `$files`; it is a
-   `WorldStreamer` partial, so only checks 1, 4 and 7 apply to it.
+   `WorldStreamer` partial, so only checks 1, 4 and 7 apply to it. 1f6 added `ChunkDistanceCull.cs`
+   and `NewWorldSystems.cs` — the cull is the class the streamer *skips dormant entries for*, so a
+   wrong signature there is a silent visibility bug rather than an error, which is exactly the
+   failure review cannot see.
 
 4. **QA/test features go on the independent test platform**, never in the legacy world: add an opt-in
    lane + serialized toggle in `Assets\Scripts\Opt\NewWorldTestGround.cs` (`RunBenchSpawn`,
@@ -80,8 +83,8 @@
      expected, invisible "voids" at 630 m that bury the one real finding. A measurement that reports
      known-absent things is not conservative, it is unreadable.
    - **Never re-derive another component's private formula to define that scope.** The visible radius
-     is `ChunkLodManager.EffectiveCullDistance()` and it is private; copying that expression into the
-     lane would be rule 8 in reverse (a second spelling that rots when the LOD side changes, and
+      is `ChunkDistanceCull.EffectiveCullDistance()` and it is private; copying that expression into
+      the lane would be rule 8 in reverse (a second spelling that rots when the cull side changes, and
      silently mis-scopes the audit when it does). Find the invariant both sides already agree on â€”
      here, the ownership band â€” and scope to that instead.
    - **A scope is a claim about the mechanism, so write it down as one â€” and a correct scope for the
@@ -173,12 +176,13 @@
      interval, 2.0 intervals]"), not a point estimate; (c) label the residual per regime â€” under a
      clamp up to one interval of residual is arithmetic, and calling it "unexplained" files a finding
      against nothing.
-   - **Two counters with different windows must not sit on adjacent lines.** `peaks` in the QA HUD
-     resets every refresh while `lod sweep`'s peak is a monotonic max since scene start that nothing
-     resets â€” so `peaks 0.00` directly above `lod sweep 0.62 / 60.56` compares a window against a
-     since-boot figure and reads as one quantity. 1ik is how that 60 ms was traced to the initial
-     fill sweep instead of a recurring cost. State each counter's window in its own label, and reset
-     per-window peaks on the same cadence as the counters beside them.
+    - **Two counters with different windows must not sit on adjacent lines.** `peaks` in the QA HUD
+      resets every refresh while `cull sweep`'s peak (the 1ea rolling cull's, `PeakCullMs`) is a
+      monotonic max since scene start that nothing
+      resets — so `peaks 0.00` directly above `cull sweep 0.62 / 60.56` compares a window against a
+      since-boot figure and reads as one quantity. 1ik is how that 60 ms was traced to the initial
+      fill sweep instead of a recurring cost. State each counter's window in its own label, and reset
+      per-window peaks on the same cadence as the counters beside them.
    - **An audit must ask the question the PROPOSAL is about, or the fix ships with no acceptance
      readout.** Sections A-D of the F13 crater lane measure depth, radial profile, resolution and
      expressibility; every one of them can read clean on a perfectly **smooth** cone, which is exactly
@@ -425,42 +429,52 @@
         itself to `Crater` deliberately. If a raised shape is reported invisible, that is this
         same bug, not a new one â€” and the fix must keep the shapes' `Max(current, target)`
         idempotency intact.
-    - **A LOD band is a THIRD owner of the surface, and it resamples the same lattice the facet step
-      does â€” one dimension down (1f5).** `ChunkLodManager` switches detail at **30 m and 60 m**, and
-      `ChunkObject.BuildLodChild` decimates the 31x31 corner grid to every 2nd/3rd corner. So the
-      `step/âˆš2` test above applies to the LOD stride too, and at a distance that needs no commitment:
-      a 1.9 m-reach crater clears Lod1's 1.41 m worst case by 0.5 m and falls **inside** Lod2's 2.12 m,
-      so backing up while playing silently swaps the surface you are looking at for a resampled one.
-      Four habits, all from 1f5:
+- **A second surface for the same ground is a resolution bug before it is a performance win
+      (1f5, resolved by deletion in 1f6).** This used to be written as "a LOD band is a THIRD owner of
+      the surface": `ChunkLodManager` switched detail at **30 m and 60 m** and
+      `ChunkObject.BuildLodChild` decimated the 31x31 corner lattice to every 2nd/3rd corner — the same
+      `step/√2` resample as the facet step, one dimension down. So the `step/√2` test above applied to
+      the LOD stride too, and at a distance that needs no commitment:
+      a 1.9 m-reach crater cleared Lod1's 1.41 m worst case by 0.5 m and fell **inside** Lod2's 2.12 m,
+      so backing up while playing silently swapped the surface you were looking at for a resampled one.
+      **1f6 deleted the whole thing** — the band children, `RefreshLodMeshes`/`BuildLodChild`/
+      `BuildVoxelLodChild`, the `LodDirty` staleness flag, the `NeedsLodDetail`/`LodDetailCurvature`
+      gate, and the `ChunkCornerGrid.Normals` copy only those builders read. A chunk's root mesh is now
+      its only render output at every distance (~+400k resident triangles for ~336 chunks; draw calls
+      unchanged). The habits survive the deletion, because the same shape of bug is still available
+      anywhere a *stride* is introduced:
       - **A coarse surface is not a stale one, and the two fixes are opposites.** Rule 11's remedy for a
         stale mesh is *rebuild*; a decimated mesh is perfectly fresh and rebuilding changes nothing,
         because the information was never in it. Check whether the value is *wrong* or *absent* before
-        reaching for a refresh. Conversely a carve's staleness guard (`_lodDirty`, `LodDirty`) already
-        existed and worked fine here â€” it was never the bug, and a passing staleness test is not
-        evidence that a surface carries the feature you are looking at.
+        reaching for a refresh. Conversely the carve's staleness guard (`_lodDirty`, `LodDirty`) worked
+        fine and was never the bug — a passing staleness test is not evidence that a surface carries
+        the feature you are looking at.
       - **A feature change can expose a dormant defect, and then the feature gets blamed.** 1f3 did
         not create this: pre-1f3 the crater was a smooth cone, and a smooth cone resampled at 2 m
         still looks like itself. Terraces are the highest-frequency content in the shape and decimation
         deletes high frequencies first, so 1f3 turned an invisible LOD defect into a reported one. When
         a shape change produces a "it used to be fine" report, suspect the coupling it made legible
-        rather than the shape â€” and say so in the handoff, or the next reader hunts in the wrong file.
-      - **Fixing this class of thing needs a threshold DERIVED from the generator, not chosen, because
-        there is often no readout.** Rule 7 wants a measurement first; 1f5 had none (the user has no F13
-        key). The gate had to come from `TerrainNoiseGenerator`'s octave table, which is possible
-        because a **discrete Laplacian is exactly zero for any planar surface at any stride** â€” so
-        `NeedsLodDetail` measures relief, not scale. Natural floor â‰ˆ0.016 m over one 1 m cell; the
-        terraced crater â‰ˆ0.24â€“0.95 m; gate 0.20 m. That property is what makes such a gate safe to
-        ship unmeasured, so look for it before reaching for a hand-picked epsilon.
+        rather than the shape — and say so in the handoff, or the next reader hunts in the wrong file.
+      - **A derived gate is a mitigation, never a licence: ask whether the second surface is worth
+        its own identity.** 1f5's `NeedsLodDetail` gate was genuinely derived, not chosen — a
+        **discrete Laplacian is exactly zero for any planar surface at any stride**, so it measured
+        relief, not scale (natural floor ≈0.016 m over one 1 m cell; terraced crater ≈0.24–0.95 m;
+        gate 0.20 m). That derivation is what made it safe to ship *unmeasured*, and it was still the
+        wrong answer: it made the terrain passable at two different shapes instead of one. If a gate
+        exists only to keep a second surface honest, delete the surface. Keep the derivation skill for
+        the cases where the second surface is genuinely a different owner (the far shell, the
+        decimated collider).
       - **Adaptive detail is where a resolution bug turns into a GEOMETRY bug, and the cheap version is
         the wrong one.** Subdividing only the distorting cells leaves each refined cell's shared edge as
-        a polyline against its neighbour's straight chord â€” the T-junction row rule 12 records from the
+        a polyline against its neighbour's straight chord — the T-junction row rule 12 records from the
         pre-1ej far shell, now with a visible crack instead of thin lines. With no compiler (rule 3)
         that is not a gamble worth taking, so 1f5 refined **whole-chunk**: a uniform stride has no
         transitions and therefore cannot crack. Ask which failure you would rather ship before
         optimising the *scope* of a refinement rather than its *cost*.
-      - `BuildVoxelLodChild` still decimates to 2/3 unconditionally (`VoxelTerrainEnabled` is false by
-        default). Same coupling, still open â€” if a carved voxel chunk looks wrong at distance, that is
-        this bug, not a new one.
+      - The 1f5 remark "a refined chunk keeps the root's 900 quads out to the last band" describes a
+        world that no longer exists. If you find yourself reasoning about which stride a chunk is on
+        because of its DISTANCE, you are looking at the deleted design; the only distance-driven
+        question left is the cull (§2.5, `ChunkDistanceCull`).
     - **The COLLIDER is the ground, and it is a separate decision from the render step (1ex).** The
       player has no ground raycast â€” `CharacterController.Move` sweeps the chunk `MeshCollider`
       directly (`PlayerController.Movement.cs`) â€” so `ChunkColliderDecimation` *is* the surface

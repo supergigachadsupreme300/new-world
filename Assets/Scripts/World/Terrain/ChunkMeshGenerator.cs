@@ -937,8 +937,6 @@ public static class ChunkMeshGenerator
                     y = SanitizeHeight(owner.Vertices[0].y);   // defensive: resize-block safety fallback
                 grid.Y[idx] = y;
 
-                grid.Normals[idx] = (owner.Normals != null && slot < owner.Normals.Length)
-                    ? owner.Normals[slot] : Vector3.up;
                 grid.UV[idx] = (owner.UV != null && slot < owner.UV.Length)
                     ? owner.UV[slot] : Vector2.zero;
 
@@ -1047,8 +1045,6 @@ public static class ChunkMeshGenerator
                 int idx = gz * axes + gx;
                 float y = SanitizeHeight(owner.Vertices[slot].y);
                 grid.Y[idx] = y;
-                grid.Normals[idx] = (owner.Normals != null && slot < owner.Normals.Length)
-                    ? owner.Normals[slot] : Vector3.up;
                 grid.UV[idx] = (owner.UV != null && slot < owner.UV.Length)
                     ? owner.UV[slot] : Vector2.zero;
                 int wx = owner.Coord.X + (slot == 1 || slot == 2 ? 1 : 0);

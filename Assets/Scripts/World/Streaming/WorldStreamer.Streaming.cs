@@ -16,7 +16,7 @@ public partial class WorldStreamer
     /// reframed by 1gc). 1gc demotes each out-of-ring chunk to a dormant hide instead of destroying
     /// it, so the trailing-edge sweep no longer tears anything down; only a chunk past the dormant
     /// band (keep + DormantRingDepth) goes through UnloadChunk. That still walks 900 tiles x 3
-    /// dictionary removals plus the mesh/LOD prop teardown, so the cap of 6 spreads a deep crossing's
+    /// dictionary removals plus the mesh/collider/prop teardown, so the cap of 6 spreads a deep crossing's
     /// drain over ~4 polls (~0.2 s); <see cref="_chunkUnloadBacklog"/> keeps the poll alive until
     /// every last one is gone.</summary>
     private const int MaxChunkUnloadsPerPoll = 6;
@@ -282,8 +282,8 @@ public partial class WorldStreamer
     /// 1gc dormant keep-ring: a chunk passing <c>keep</c> is no longer DESTROYED the tick it leaves
     /// the loaded ring. It is demoted to a dormant (hidden-but-retained) state out to ring
     /// <c>keep + DormantRingDepth</c> — removed from <c>_loadedChunks</c> so the coarse far cell
-    /// covers it exactly as the destroyed chunk was, but its tile data / pooled mesh / GameObject /
-    /// LOD children stay alive. Re-crossing the boundary wakes the SAME object in place (no
+    /// covers it exactly as the destroyed chunk was, but its tile data / pooled mesh / GameObject
+    /// stay alive. Re-crossing the boundary wakes the SAME object in place (no
     /// background regeneration, no mesh upload), killing the destroy+regenerate churn the player
     /// saw at the close-range edge. Only a dormant chunk passing the dormant band is finally
     /// unloaded, via the same capped sweep as before. Pass order: wake -> demote -> deep-unload.
@@ -365,7 +365,7 @@ public partial class WorldStreamer
             // 1es + 1gd: the deep-unload sweep drains a far column at a CAPPED rate AND a hard
             // wall-clock slice. Every UnloadChunk walks 900 tiles through
             // _dirtyTiles/_loadedObjects/_loadedData (3 dictionary removals per tile) plus the
-            // Release mesh/LOD/prop teardown — a burst exactly when the player leaves the dormant
+            // Release mesh/collider/prop teardown — a burst exactly when the player leaves the dormant
             // band. Capping spreads the drain over polls and _chunkUnloadBacklog keeps the idle
             // gate alive until the last dormant chunk is gone (Unity defers the actual
             // GameObjects' Destroy anyway, so nothing disappears late). The 1gd slice interrupter
@@ -415,7 +415,7 @@ public partial class WorldStreamer
 
     /// <summary>
     /// Hide a loaded chunk in place and move it to the dormant set (1gc). Its 900-tile bookkeeping,
-    /// pooled mesh, LOD children and VoxelStore are retained — only its visuals + collider turn off.
+    /// pooled mesh and VoxelStore are retained — only its visuals + collider turn off.
     /// Leaving <c>_loadedChunks</c> makes every "does the real chunk cover this?" check treat it as
     /// absent, so FarShellTick's active-shadow sync activates the coarse cell under it in the SAME
     /// poll — the identical view the old destroy-and-cover showed, minus the teardown.
@@ -426,9 +426,9 @@ public partial class WorldStreamer
         if (!_loadedChunks.TryGetValue(tc, out obj))
             return;
         obj.ReleaseProps();            // hide trees/rocks (RNG/cursor kept, 1du)
-        obj.SetVisualActive(false);    // hide root merged mesh + LOD children
+        obj.SetVisualActive(false);    // hide the root merged mesh
         obj.SetColliderActive(false);  // dormant chunks never carry physics
-        obj.Dormant = true;            // ChunkLodManager skips dormant entries (LOD sweep gap guard)
+        obj.Dormant = true;            // ChunkDistanceCull skips dormant entries (cull sweep gap guard)
         _loadedChunks.Remove(tc);
         _dormantChunks.Add(tc, obj);
     }
@@ -436,9 +436,9 @@ public partial class WorldStreamer
     /// <summary>
     /// Re-show a dormant chunk in place (1gc): move it back into the loaded ring and turn its visuals
     /// on. The collider and props return through their own ring passes (ReconcileColliders /
-    /// SyncPropRing) later in the same poll, and the LOD manager re-registers via NewWorldSystems'
-    /// LoadedChunks delta-diff (RegisterChunk starts BandIndex=-1, so the correct band is applied on
-    /// its next sweep). No dispatch, no background build, no mesh upload — the chunk was never gone.
+    /// SyncPropRing) later in the same poll, and the distance cull re-registers via NewWorldSystems'
+    /// LoadedChunks delta-diff (RegisterChunk re-adds the root, so the next sweep measures its
+    /// distance afresh). No dispatch, no background build, no mesh upload — the chunk was never gone.
     /// </summary>
     private void WakeChunk(TerrainChunkCoord tc)
     {
@@ -449,7 +449,7 @@ public partial class WorldStreamer
             return;
         }
         _dormantChunks.Remove(tc);
-        obj.SetVisualActive(true);     // band-0 look; LOD re-applies on re-registration
+        obj.SetVisualActive(true);     // the chunk's one full-detail surface is back
         obj.Dormant = false;
         _loadedChunks[tc] = obj;
         NoteChunkSetChanged();

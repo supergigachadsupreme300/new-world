@@ -136,7 +136,7 @@ public class GameBootstrap : MonoBehaviour
 
         worldStreamer.SetFocus(playerController != null ? playerController.transform : null);
 
-        // --- Phase 8/9 UI, LOD, culling, pooling ---------------------------------------
+        // --- Phase 8/9 UI, distance cull, culling, pooling -------------------------------
         Ensure(root, ComponentRegistry.Find<NewWorldSystems>());
         // 1e6: generic transient pool (impact VFX, excavation debris). Created on the GameRoot so
         // SpawnTransient call sites never have to worry about a missing singleton.
