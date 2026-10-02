@@ -324,7 +324,7 @@ public static partial class SkillCatalog
         /* magic_frostbolt_freeze children */
         bank.L2["magic_frostbolt_freeze"] = new BranchSlot[]
         {
-            S("magic_frostbolt_freeze_deep", "Deep Freeze", Spell("magic_frostbolt_freeze_deep_spell", "Deep Freeze", DamageType.Ice, 34f, 24f, SpellDelivery.Zone, 6f, deliveryRadius: 2.6f, duration: 3.5f, statusEffect: StatusEffectType.Frost), "A lingering cold that freezes foes solid.", Focus(24f), DamageType.Ice, true),
+            S("magic_frostbolt_freeze_deep", "Deep Freeze", Spell("magic_frostbolt_freeze_deep_spell", "Deep Freeze", DamageType.Ice, 34f, 24f, SpellDelivery.Zone, 6f, deliveryRadius: 2.6f, duration: 3.5f, statusEffect: StatusEffectType.Frost, look: Look(SpellImpactStyle.Pillar, SpellCastStyle.Halo)), "A lingering cold that freezes foes solid.", Focus(24f), DamageType.Ice, true),
             S("magic_frostbolt_freeze_snap", "Cold Snap", Spell("magic_frostbolt_freeze_snap_spell", "Cold Snap", DamageType.Ice, 32f, 20f, SpellDelivery.Instant, 5f, statusEffect: StatusEffectType.Frost), "A sudden snap-freeze of whatever you look at.", Focus(20f), DamageType.Ice, true),
             S("magic_frostbolt_freeze_chill", "Frozen Will", Perk(PassivePerkType.StaminaRegenPercent, 8f), "Cold discipline — stamina recovery +8%.", passive: true),
             S("magic_frostbolt_freeze_tundra", "Tundra", Spell("magic_frostbolt_freeze_tundra_spell", "Tundra", DamageType.Ice, 32f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, duration: 3.5f, statusEffect: StatusEffectType.Chill), "The ground becomes frozen tundra — a wide field that slows all inside.", Focus(22f), DamageType.Ice, true),
