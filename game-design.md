@@ -183,14 +183,56 @@ at all, so a copy of either number in the lane would be a second spelling that r
 tallest riser is quoted as a slope at the 1 m lattice pitch because the collider is built from the
 same lattice with **no vertical strip pass** — the player meets the *shape*, not a wall.
 
-**E is a measurement, not a claim about shipped behaviour.** The carve is still
-`target = current - s * CraterStep` with a smoothstepped cone plus 1ez's lip; nothing is quantised
-yet. E exists so the *proposed* scale-derived terraced ball-cap is measured against the terrain
-actually resident before any of it ships, and so a claim like "it is now stepped" has a number
-attached to it. E's own sub-check for spurious chunk-rim side-wall bands is the same rule-7 shape:
+**E shipped before the change it measures, and 1f3 is the change it was measuring.** E was written
+against the pre-1f3 carve: `target = current - s * CraterStep` with a smoothstepped **cone** plus 1ez's
+lip, nothing quantised. The user then read that carve as a "smoothed out blanket", which is a
+complaint about the profile's *continuity* that no amount of depth or rim fixes — so 1f3 changed the
+two things E can tell stepped from continuous, and E is now the acceptance readout for them:
+- the profile is a **spherical cap**, not a cone. `capR = (reach² + capDepth²) / (2·capDepth)` with
+  `capDepth = min(CraterStep, reach)`, dug as `sqrt(capR² − d²) − (capR − capDepth)` — `capDepth` at
+  the impact point and exactly 0 at `reach`, so the feather to untouched ground is unchanged and only
+  the shape between them moved. `reach` is radius + 0.5 m of feather, so the smallest real dig
+  (pickaxe, radius 1.0) reaches 1.5 m against a 1.1 m `CraterStep` and the `min` is defensive only.
+- the signed `offset` is **snapped to a terrace ladder** of `clamp(reach · 0.25, 0.30, 0.80)` m before
+  it is written — a fraction of reach so one ratio reads as terracing at every size.
+
+Acceptance on F13: section E's ladder verdict turns from `CONTINUOUS (no terrace exists)` to
+`UNIFORM LADDER (quantised carve)`, with `riserEdges > 0` and a net rim terrace of `+0.475 m` at
+`t ≈ 0.80`. Numbers are derived, not measured — the readout has to confirm them on the resident set.
+
+**The snap is applied to the OFFSET, not to the write**, which is what keeps both invariants: the lip
+still `Max`es against `current` (repeat cast → same offset → same target, still idempotent) and the
+excavation still subtracts a non-negative amount (still an unbounded downward ratchet, §1cv). The
+cost is stated rather than hidden — a cast now moves the floor by its offset rounded to the nearest
+terrace, so the per-cast depth is `CraterStep` **within ± half a terrace** (0.30–0.80 m over the clamp
+range) rather than exactly 1.1 m; a 1.9 m-reach projectile's first cast digs 0.95 m, not 1.1 m. The
+deep core cannot round away (`CraterStep / terrace ≥ 1.375`), so the ratchet stays unbounded in
+practice, not merely in intent.
+
+**Why the offset and not the absolute height.** Quantising the *absolute* Y would give genuinely flat
+treads on a *slope* (two adjacent corners land on the same rung of a world-wide ladder). It was
+rejected for two reasons, both of which are the reason this is a 1m lattice and not a data model: it
+makes the crater's depth a function of the ground's absolute elevation (± half a terrace, varying
+across the map), and — the expensive one — it floods `ChunkMeshGenerator.IsFlatTile`, whose
+`FullRebuildChunk` path is sized for slab side walls. Offset snap keeps flat treads to ground that is
+genuinely flat (including the test platform) and leaves sloped ground on ramps-with-hard-breaks.
+
+**1f3 re-derived `CraterRimLift` (0.55 → 0.90 m).** The cap digs deeper than the cone did at every
+radius (≈0.94 m at the lip's inner edge where the cone reached ≈0.47 m), so the old lift would have
+left 1ez's rim barely proud of grade (~0.10 m) — a new profile silently regressing an old feature.
+0.90 m restores the net ≈0.44 m the cone produced, still under `stepOffset` (0.5 m), so the lip stays
+a bump you walk over rather than a wall. The lip/depression crossover moves out slightly, t ≈ 0.68 →
+≈0.72. **The rim wall is now steep by design**: 60° at a 1.9 m reach, 73° at a 1.5 m tool dig, against
+a cone's 34°. The user does not need a walkable bowl; a walkable crater is a *different shape*, not a
+tuning of this one. Slope is quoted at the 1 m lattice pitch because the collider is built from the
+same lattice with **no vertical strip pass** — the player meets the *shape*, not a wall, and above
+`slopeLimit` (never assigned by this project) they cannot climb out. Cliff traversal off a crater is
+a play-test item.
+
+E's own sub-check for spurious chunk-rim side-wall bands is the same rule-7 shape:
 `EdgeHeights` falls back to pristine noise outside the chunk, so a *raised* rim on a chunk-rim tile
-emits a real slab face that a *depressed* one never does — dormant for a smooth carve, reachable the
-moment the rim gains a terrace.
+emits a real slab face that a *depressed* one never does — dormant for a smooth carve, and now
+**reachable**, because the terraced lip writes a raised terrace that lands on a chunk-rim tile.
 
 Section D counts corners *above* pristine to identify the rim directly rather than inferring it from
 the profile, because a rim is a **positive raise**. Until **1ez** the crater profile in
@@ -1613,9 +1655,10 @@ A spell is a data asset carrying:
   **Wall** rears an elongated ridge across the cast direction (1ga — perpendicular to it, so the
   wall lies left-right in the player's view as a barricade; ~2.6 m on a first cast, tall enough to
   fully block the player's CharacterController), **Pillar** thrusts a tall column up at the center,
-  and **Crater** excavates a smooth dish ringed by a raised, idempotent lip (1ez). Heights are written as continuous per-corner
-  elevations (4 corners per 1×1 m TILE, shared with neighbours — which is what keeps the
-  triangulated mesh gapless), smoothstep-blended at the rim so a deform reads as genuine terrain;
+and **Crater** excavates a **terraced spherical cap** ringed by a raised, idempotent lip (1ez rim,
+   1f3 cap + terraces). Heights are written as continuous per-corner
+   elevations (4 corners per 1×1 m TILE, shared with neighbours — which is what keeps the
+   triangulated mesh gapless), smoothstep-blended at the rim so a deform reads as genuine terrain;
   `ChunkMeshGenerator` only emits slab side-wall bands for *legacy saved flat tiles*, so smooth
   deforms build no artificial walls. Ground deform runs via `TerrainDeformer` → `WorldStreamer
   .DeformAt`, which writes the corner heights, rebuilds the affected region of the merged chunk
@@ -1636,16 +1679,19 @@ A spell is a data asset carrying:
   is **WIDTH-bounded but DEPTH-unbounded** (1cv). The crater's **width** is always the spell's small
   local delivery dish (`DeliveryRadius * 0.5`, ~2 m for Earth Meteor) — never the full blast splash —
   so one cast carves a bounded local bowl in the ground and never reads as "the whole chunk / the
-  whole terrain moved." Its **depth** ratchets **a `CraterStep` (~1.1 m at full influence) deeper per
-  cast or tool swing, with NO floor cap of its own** — repeated craters dig progressively deeper pits,
-  with no limit (the player's "i want no limit on my game"); the only global backstop is
-  WorldStreamer's ±200 m mesh-safety sanity band. Vertex colors painted at build time then reveal the dug depth
-  below the pristine noise surface as discrete strata bands: **grass (surface) → dirt (~0.65–2.3 m
-  down) → stone (≥ 2.7 m down)**, small blends between bands (1cs). The shovel can only dig the
-  soft bands and stops at stone; the pickaxe excavates at any depth. Every crater is a genuine
-  smooth dish ringed by a raised lip (1ez): the dish's floor ratchets down per cast while the lip is
-  idempotent and capped, and corners keep their own slope throughout, so no tile collapses to a slab.
-  Every crater is permanent (1cs).
+whole terrain moved." Its **depth** ratchets **a `CraterStep` (~1.1 m at full influence) deeper per
+   cast or tool swing, with NO floor cap of its own** — repeated craters dig progressively deeper pits,
+   with no limit (the player's "i want no limit on my game"); the only global backstop is
+   WorldStreamer's ±200 m mesh-safety sanity band. Since **1f3** that step is applied to a
+   **quantised** offset, so a cast moves the floor by `CraterStep` within ± half a terrace rather than
+   exactly (see §2.2's crater lane); the ratchet itself is unchanged. Vertex colors painted at build time then reveal the dug depth
+   below the pristine noise surface as discrete strata bands: **grass (surface) → dirt (~0.65–2.3 m
+   down) → stone (≥ 2.7 m down)**, small blends between bands (1cs). The shovel can only dig the
+   soft bands and stops at stone; the pickaxe excavates at any depth. Every crater is a genuine
+   **terraced cap** — a sphere pressed into the ground, its interior quantised into level treads —
+   ringed by a raised lip (1ez): the floor ratchets down per cast while the lip is
+   idempotent and capped, and corners keep their own slope throughout, so no tile collapses to a slab.
+   Every crater is permanent (1cs).
   **Excavation ejects debris matching the stratum it just reached (1de):** `WorldStreamer
   .SpawnCraterDebris` pops 3–5 physical cubes out of the fresh dent — dirt blocks (dirt-brown) while
   the floor digs through grass/dirt, rock (grey, the same look as pickaxe rock destruction,

@@ -13,11 +13,18 @@ using UnityEngine;
 /// tiles" is the load-bearing phrase: it is a statement about which mesh carries the shape, not
 /// about how deep the shape is.</para>
 ///
+/// <para><b>What the user reported, second time (1f2).</b> The rim existed by then and the dent was
+/// deep enough; it still read as a "smoothed out blanket". That is a complaint about the PROFILE'S
+/// CONTINUITY, which no amount of depth or rim fixes, and section E exists because of it: A/B/C/D
+/// can all describe a smooth bowl in detail and none of them can tell one from a terraced cap.</para>
+///
 /// <para><b>Why a static read of the code cannot close this.</b> The deformation path is small
 /// enough to read end to end, and reading it says a crater writes per-corner elevations on the 1 m
-/// lattice (<c>WorldStreamer.Deform.cs</c> Crater branch: <c>target = current - s * CraterStep</c>
-/// with a smoothstepped cone). But three separate mechanisms decide whether that becomes the
-/// picture the player is looking at, and each can silently be NOT the one on screen:
+/// lattice (<c>WorldStreamer.Deform.cs</c> Crater branch: <c>target = current + offset</c> with
+/// <c>offset = lipBump * CraterRimLift - s * CraterStep</c>, where <c>s</c> is a smoothstepped
+/// spherical cap as of 1f3 and the offset is snapped to a terrace ladder). But three separate
+/// mechanisms decide whether that becomes the picture the player is looking for, and each can
+/// silently be NOT the one on screen:
 ///   <b>(a)</b> whether the carve reaches a node the render path actually samples (1hx moved the
 ///   facet step 3 -&gt; 6 and the dent silently stopped existing — the FX still played, so the
 ///   tell was an absent carve, not a broken one);

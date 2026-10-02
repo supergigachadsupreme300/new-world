@@ -229,6 +229,23 @@
    writer's. So: **read the code that WRITES the value before reusing the one that READS it**, and
    when a measurement compares a current height against a pristine reference, assert the two are
    sampled at the *same* point - a mismatch reads as a phantom dig that no threshold will ever clear.
+   - **A comment that NAMES an identifier is a copy of that identifier, and it rots like any other
+     copy.** 1f3 introduced three stale claims in a single edit and caught all three only by rereading:
+     the block comment documented `CraterCapRadius` and `CraterTerraceStep` when the code declares
+     `craterCapR` (a local) and `CraterTerraceFraction`/`Min`/`Max`; it described the
+     `min(CraterStep, reach)` clamp as a live tool-dig path when `reach` is `radius + feather`, so no
+     real dig ever clamps; and the `game-design.md` pointer said `Â§5.7` for a lane that lives under
+     `Â§2.2`. None of these can fail a compile or a static check - they are the *narrative* around a
+     change, which is precisely what no tool in this repo reads. So when an edit introduces or renames
+     a symbol, **grep the new comment for the symbol it names and confirm the declaration exists**, and
+     when it cites a doc section, confirm the heading is still where it was. A comment that documents
+     a path that is not taken is worse than no comment: the next reader sizes a decision on it.
+   - **State which inputs are on different ladders, or the derived number is silently a different
+     number at every call site.** 1f3's cap depth is `min(CraterStep, reach)`, and `reach` is
+     `radius + feather`, so the clamp that looked necessary (a sphere deeper than its rim radius) is
+     unreachable in practice. The habit is not "check the arithmetic" - the arithmetic was right - but
+     **name where each input's ladder starts before concluding a guard is live**, and if it cannot be
+     reached, say so in the comment instead of leaving it to look load-bearing.
 
 9. **Hand-authored block geometry is stated by its support, not by its centre.** The block-built
    structures (holy places, NPC rigs, `CreatePartCube` call sites) are positioned by a hand-computed

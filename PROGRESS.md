@@ -1,4 +1,93 @@
-﻿## 1f2. F13 section E — is the crater STEPPED at all? (read-only; measures the proposal, changes nothing)
+﻿## 1f3. The crater is a terraced spherical cap, not a smooth cone (behaviour change)
+
+**Status: shipped, NOT play-tested (rule 3 — no build or play-test runs in this project). This is a
+behaviour change to the shared deform path: every Crater in the game is affected — projectile dents,
+Earth spells/zones and tool digs all funnel through `WorldStreamer.DeformAt`.**
+
+The 1f2 measurement shipped and the user acted on it: the crater read as a "smoothed out blanket".
+That is a complaint about the profile's **continuity**, which no amount of depth or rim fixes — 1ez's
+rim was already there. Two changes, both of them the ones F13 section E was built to judge.
+
+### What changed
+
+- **The profile is a spherical cap.** `capR = (reach² + capDepth²) / (2·capDepth)` with
+  `capDepth = min(CraterStep, reach)`; depth at radius `d` is `sqrt(capR² − d²) − (capR − capDepth)`,
+  which is `capDepth` at the impact point and exactly **0** at `reach`. The old cone
+  (`1 − dist/reach`) was a straight line, so every node in the footprint held a distinct height and
+  the 1 m lattice had no level breaks to draw. The feather to untouched ground is unchanged; only the
+  shape between the centre and the rim moved.
+- **The signed offset is snapped to a terrace ladder** of `clamp(reach · 0.25, 0.30, 0.80)` m before it
+  is written. A fraction of reach, so one ratio reads as terracing at every size.
+- **`CraterRimLift` 0.55 → 0.90 m.** Re-derived, not nudged: the cap digs deeper than the cone at
+  every radius (≈0.94 m at the lip's inner edge where the cone reached ≈0.47 m), so the old lift would
+  have left 1ez's rim barely proud of grade (~0.10 m) — a new profile silently regressing an old
+  feature. Net rim is back to ≈0.44 m continuous / **+0.475 m** as a snapped terrace, still under
+  `stepOffset` (0.5 m).
+
+### Three decisions that are not obvious from the diff
+
+- **The snap is on the OFFSET, not on the write.** That placement is what keeps both invariants: the
+  lip still `Max`es against `current` (repeat cast → same offset → same target, idempotent) and the
+  excavation still subtracts a non-negative amount (unbounded downward ratchet, 1cv). The declared
+  cost: a cast moves the floor by `CraterStep` **within ± half a terrace** rather than exactly — a
+  1.9 m-reach projectile digs **0.95 m** on its first cast, not 1.1 m. The deep core cannot round away
+  (`CraterStep / terrace ≥ 1.375`), so the ratchet stays unbounded in practice, not just in intent.
+- **Absolute-Y quantisation was rejected, and the expensive reason is `IsFlatTile`.** Snapping the
+  height instead of the offset gives genuinely flat treads on a *slope* (two adjacent corners on one
+  rung of a world-wide ladder), but it makes depth a function of absolute elevation, and it floods
+  `ChunkMeshGenerator.IsFlatTile` → `ChunkContainsFlatTile` → **`FullRebuildChunk`**, a path sized for
+  slab side walls. Offset snap keeps flat treads to ground that is genuinely flat (including the test
+  platform) and leaves sloped ground on ramps-with-hard-breaks. **If the terrace read is too weak on a
+  slope, that is the trade to revisit — not a smaller epsilon.**
+- **The rim wall is now steep by design:** 60° at a 1.9 m reach, 73° at a 1.5 m tool dig, against the
+  cone's 34°. The user does not need a walkable bowl; a walkable crater is a *different shape*, not a
+  tuning of this one. Above `slopeLimit` (never assigned by this project) the player cannot climb out.
+
+### Verification
+
+- `tools\StaticChecks.ps1`: **0 candidates**, all 8 checks pass.
+- Derived by hand and cross-checked twice (see `THINKING.md` 1f3): rim/depression crossover
+  t ≈ 0.68 → **0.72**, peak net rim **+0.443 m** continuous (**+0.475 m** snapped), centre dig
+  **−0.95 m** snapped, rim-wall slope 60.1° / 72.5°, and the identity `sqrt(capR² − reach²) = capR −
+  capDepth` confirmed numerically for both a projectile and a tool reach. These are **derived, not
+  measured** — F13 has to confirm them on the resident set.
+- `Mathf.Max(0f, capR² − dist²)` guards `dist > capR`, which `loopReach` can reach when the 1i9 facet
+  skirt is live; for `dist > reach` the cap is negative, so `Clamp01` yields the 0 the cone gave.
+- **A dormant interaction is documented, not pre-empted:** 1i9's `CraterFacetSkirt` returns 0 unless
+  `EffectiveLowPolyStep > 0`, and 1ia holds that flag false, so the skirt contributes nothing to
+  `offset` today. If facets are ever re-enabled, a skirt under half a terrace would snap back to 0 and
+  lose its guarantee. Recorded in the code next to the snap.
+- Grepped every consumer of the crater profile (`CraterRim*`, `CraterStep`) across
+  `Assets\Scripts` — no other site re-derives the profile, so there is no second spelling to update.
+- **Not compiled** — Unity is the compiler (rule 3). skills: none applied — the installed set is
+  DCC-side (Blender/Maya/ZBrush/Unreal/Scenario) and the installed Unity skills target driving a live
+  editor or `-batchmode`, which rule 3 forbids; this change is a reviewed C# edit.
+
+### Pending play-test items (needs the user in Unity)
+
+1. **Restart the session** — this is a deform-path change, so it is visible immediately, but a crater
+   already in the resident set keeps its old geometry until re-carved.
+2. Cast a crater and press **F13**. Expect section E's ladder verdict to flip from `CONTINUOUS (no
+   terrace exists)` to **`UNIFORM LADDER (quantised carve)`**, with `riserEdges > 0`, `flatTreads > 0`
+   on the test platform's flat ground, and `maxRiser` ≈ one terrace (0.30–0.48 m).
+3. Re-cast the **same spot** and confirm the floor still drops every cast (the ratchet) and the rim does
+   **not** grow (1ez idempotency). Both are invariants this change deliberately preserved.
+4. Cast a crater **on a chunk boundary** and read `bandsAtChunkRim`. It was structurally 0 for a
+   depression; the snapped **raised** rim terrace is the first thing in this path that can emit a real
+   slab face against the pristine-noise fallback. Non-zero here is a finding, not noise.
+5. Try to walk out of a crater. Expect to fail on the 60°+ wall — that is the agreed trade; report it
+   only if it is a *hard* trap (stuck with no way out) rather than a slow climb.
+
+### Not done, deliberately
+
+- **1f4 (the literal sub-metre facet shell) is untouched.** A shell overlay cannot survive a 3–6 m
+  sampled lattice without its own poke-through problem, and a proper version needs a render-hole data
+  path, a shell mesh + collider, lifecycle handling and a save-format `1 → 2` bump. That is a separate
+  task, and 1f3's readout is what decides whether it is still wanted.
+
+---
+
+## 1f2. F13 section E — is the crater STEPPED at all? (read-only; measures the proposal, changes nothing)
 
 **Status: shipped, NOT play-tested (rule 3 — no build or play-test runs in this project). Strictly
 read-only: no chunk, lattice, mesh, collider, save or deform state is touched, no rebuild, no
@@ -64,6 +153,10 @@ missing question and prints a verdict line into the same VERDICT block.
 
 1. Press **F13** standing next to an existing crater. Expect `E terraces` with a **CONTINUOUS** verdict
    and `flatTreads 0/N` — the current carve is a smooth cone, so this is the "before" number.
+   **(Superseded by 1f3, which changed the carve: a crater cast *after* 1f3 reads `UNIFORM LADDER`
+   instead. A crater that existed before the change keeps its old geometry until re-carved, so it
+   still reads `CONTINUOUS` — which is exactly the rule-11 mixed-resident-set case the fingerprint
+   section exists to catch.)**
 2. Press F13 on untouched ground. Expect `<no crater in band: nothing to step>`, not a ladder.
 3. Cast a crater **on a chunk boundary** and read the seam line; expect `bandsAtChunkRim 0` today
    (a depression never sits above the noise fallback) — that is the number that must stay 0 after the

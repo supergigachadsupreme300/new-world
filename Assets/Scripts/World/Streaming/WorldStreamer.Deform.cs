@@ -15,12 +15,13 @@ public partial class WorldStreamer
     /// <summary>
     /// Reshape the loaded heightmap around a world-space center (main thread only).
     /// <para>
-    /// Earth spells carry no status effect — instead they deform the ground as smooth feathered
-    /// terrain edits (Ring: a raised annular wall; Spikes: scattered stone spikes; Wall: an
-    /// elongated ridge rearing along <paramref name="dir"/>; Pillar: a tall column at the
-    /// center; Crater: a wide shallow dish excavated downward). Heights are written as
-    /// continuous per-corner elevations — never quantized blocks — so a deform blends into the
-    /// untouched turf with a smoothstep rim. Raised shapes (Wall/Ring/Pillar/Spikes) are bounded
+    /// Earth spells carry no status effect — instead they deform the ground as terrain edits (Ring: a
+    /// raised annular wall; Spikes: scattered stone spikes; Wall: an elongated ridge rearing along
+    /// <paramref name="dir"/>; Pillar: a tall column at the center; Crater: a terraced spherical cap
+    /// excavated downward). Heights are written as continuous per-corner elevations, so a deform
+    /// blends into the untouched turf with a smoothstep rim; a Crater's own offset is additionally
+    /// snapped to a terrace ladder (1f3) so its interior breaks into level treads instead of
+    /// interpolating into one smooth funnel. Raised shapes (Wall/Ring/Pillar/Spikes) are bounded
     /// AND idempotent: they raise toward a per-corner target of (original noise height + blended
     /// lift) applied with Max against the current height, so a repeat cast reproduces the same
     /// profile and can never stack higher. A Crater is deliberately the inverse — each cast/swing
@@ -104,31 +105,80 @@ public partial class WorldStreamer
         // how deep an excavator may go.
         const float CraterStep = 1.1f;
 
+        // 1f3: the crater profile is a SPHERICAL CAP, not a cone, and its carve is quantised into
+        // terraces. Both halves exist because of the same observation: the smooth cone read as a
+        // "smoothed out blanket" (1f2's readout) — its profile is straight from the impact point to
+        // the footprint edge, so every sample along it is a different height and the 1 m lattice
+        // bilinear-blends the whole thing into one continuous funnel with no level breaks in it.
+        //
+        // CAP. `craterCapR` (below) solves for the sphere whose lower cap is
+        // `craterCapDepth` deep at the centre and exactly meets grade at `reach`:
+        //     capR = (reach^2 + capDepth^2) / (2 * capDepth),   capDepth = min(CraterStep, reach)
+        // and the dig depth at radius d is `sqrt(capR^2 - d^2) - (capR - capDepth)`, which is
+        // `capDepth` at d = 0 and 0 at d = `reach` by construction. The profile is a CURVE now, not
+        // a line: steepest at the rim, flattest at the floor, which is what a sphere pressed into
+        // ground does. `craterCapDepth` is clamped to `reach` because a sphere deeper than its own
+        // rim radius cannot be a cap at all — its centre drops below grade, the lower hemisphere
+        // stops intersecting grade anywhere, and the carve keeps a residual depth at the footprint
+        // edge instead of feathering to 0. It is defensive, not a live path: `reach` is radius +
+        // 0.5 m of feather, so the smallest real dig (pickaxe, radius 1.0) reaches 1.5 m against a
+        // 1.1 m CraterStep and takes the unmodified cap.
+        // The rim wall is steep by construction: `d(depth)/dd` at the rim is `reach / sqrt(capR^2 -
+        // reach^2)` = 60 deg for a 1.9 m projectile reach, 73 deg for a 1.5 m tool dig. That is the
+        // requested shape (the user does not need a walkable bowl), and it is a deliberate trade:
+        // the previous cone was 34 deg, walkable, and read as smooth. A walkable crater is a
+        // DIFFERENT shape, not a tuning of this one.
+        //
+        // TERRACES. `offset` is snapped to a multiple of `craterTerrace` before it is written, so the
+        // surface breaks into level treads instead of interpolating. The snap is applied to the signed
+        // OFFSET (the write itself is unchanged), so the 1ez lip's `Max` idempotency and the
+        // excavation ratchet both survive untouched; the only cost is that a cast moves the floor by
+        // its offset rounded to the nearest terrace, i.e. within half a step of CraterStep.
+        // `craterTerrace` is a FRACTION of reach, clamped by `CraterTerraceMin`/`Max`, so a big cast
+        // gets a coarse ladder and a small one a fine ladder: one ratio reads as terracing at every
+        // size, and the clamp stops a tiny dig from quantising to nothing at all.
+        const float CraterTerraceFraction = 0.25f;
+        const float CraterTerraceMin = 0.30f;
+        const float CraterTerraceMax = 0.80f;
+
         // 1ez: the raised crater rim. A downward-only dish is a monotone cone (the 1in report): no
         // term anywhere raises, so no resolution can produce a lip. The rim is that positive term.
         // It is a smooth bump across the OUTER band of the dish footprint (fractions of `reach`),
         // zero at BOTH ends, so it adds no step at the footprint boundary and meets the dish
         // continuously at the crossover (~0.68 x reach). A hard Max of two separate curves would
         // jump at the crossover; a signed profile (lip - depression) does not.
-        //   inner 0.55 x reach  — bowl is ~0.47 m down here
-        //   peak  0.80 x reach  — bowl is only ~0.11 m down, so the lip shows ~0.44 m above grade
+        //   inner 0.55 x reach  — bowl is ~0.94 m down here (1f3: was ~0.47 m under the cone)
+        //   peak  0.80 x reach  — bowl is only ~0.46 m down (1f3: was ~0.11 m)
         //   outer reach         — meets untouched ground at 0
         // CraterRimLift is an ABSOLUTE lift in metres, NOT a fraction of CraterStep. The lip height
         // is `lift` minus a fraction-only depression, so it is scale-independent: a bigger crater
-        // gets a WIDER rim, not a taller one. It is kept absolute and small so the net rim (~0.44 m
-        // at the current CraterStep) stays under the player's stepOffset (0.5 m) at every size — the
-        // lip is a bump you walk over, not a wall. The inner band is deliberately outside the 0.9 m
-        // caster keep-out ring (0.55 * reach >= 0.935 m for radius >= 1.2), and the raise branch
-        // re-checks the ring anyway (see below).
+        // gets a WIDER rim, not a taller one. It is kept absolute and small so the net rim stays
+        // under the player's stepOffset (0.5 m) at every size — the lip is a bump you walk over, not
+        // a wall. 1f3 re-derived it: the cap digs DEEPER than the cone did at every radius, so the
+        // old 0.55 m lift would have left the lip barely proud of grade (~0.10 m) and 1ez's rim would
+        // have regressed to invisible as a side effect of the new profile. 0.90 m restores the net
+        // ~0.44 m the cone produced. The inner band is deliberately outside the 0.9 m caster keep-out
+        // ring (0.55 * reach >= 0.935 m for radius >= 1.2), and the raise branch re-checks the ring
+        // anyway (see below).
         const float CraterRimInner = 0.55f;
         const float CraterRimPeak = 0.80f;
-        const float CraterRimLift = 0.55f;
+        const float CraterRimLift = 0.90f;
 
         float ringMid = radius * 0.72f;
         float ringHalfWidth = Mathf.Max(0.6f, radius * 0.28f);
         float pillarCore = radius * 0.45f;
         float wallHalfThick = Mathf.Max(0.6f, radius * 0.25f);
         float wallHalfLen = radius;
+
+        // 1f3 cap + terrace terms. Both depend only on `reach`, so they are solved once per cast
+        // rather than per node; the loop body costs one sqrt and one round. `craterCapR` is the
+        // sphere radius, `craterCapCentre` the height of its centre ABOVE grade (grade - capDepth,
+        // which is positive for every cap shallower than a hemisphere), and `craterTerrace` the snap
+        // the signed offset is rounded to. Non-crater shapes never read them.
+        float craterCapDepth = Mathf.Min(CraterStep, reach);
+        float craterCapR = (reach * reach + craterCapDepth * craterCapDepth) / (2f * craterCapDepth);
+        float craterCapCentre = craterCapR - craterCapDepth;
+        float craterTerrace = Mathf.Clamp(reach * CraterTerraceFraction, CraterTerraceMin, CraterTerraceMax);
 
         // New height for every world corner (integer x/z) inside the reach. Continuous values,
         // smoothstep-blended at the rim, so the deform reads as genuine terrain (not blocks).
@@ -171,7 +221,16 @@ public partial class WorldStreamer
                 }
                 else if (shape == TerrainShape.Crater)
                 {
-                    influence = 1f - Mathf.Clamp01(dist / reach);
+                    // 1f3 spherical cap. The cone this replaced was `1 - dist/reach`: a straight
+                    // line, so every node in the footprint sat at its own distinct height and the
+                    // lattice had no level breaks to draw. This is the lower cap of a circle of
+                    // radius `craterCapR` whose centre sits `craterCapCentre` above grade: it is
+                    // `craterCapDepth` below grade at dist = 0 and exactly 0 at dist = `reach`, by
+                    // the identity 2*R*d = reach^2 + d^2 that `craterCapR` is built from — so the
+                    // feather to untouched ground is unchanged and only the shape between moves.
+                    float depthBelowGrade = Mathf.Sqrt(Mathf.Max(0f,
+                        craterCapR * craterCapR - dist * dist)) - craterCapCentre;
+                    influence = Mathf.Clamp01(depthBelowGrade / craterCapDepth);
                 }
                 else // Spikes
                 {
@@ -232,6 +291,26 @@ public partial class WorldStreamer
                         lipBump = u * u * (3f - 2f * u); // smoothstep, u in [0,1] by construction
                     }
                     float offset = lipBump * CraterRimLift - depression;
+
+                    // 1f3: snap the SIGNED offset to the terrace ladder. This is the only thing
+                    // between the profile above and a continuous funnel: the cap decides WHERE the
+                    // break happens and the snap decides that it is a level. Applied to `offset`,
+                    // never to the write, so both invariants below are untouched — the lip still
+                    // Max's against `current` (repeat cast -> same offset -> same target, still
+                    // idempotent) and the excavation still subtracts a non-negative amount from
+                    // `current` (still an unbounded downward ratchet). The cost is stated rather
+                    // than hidden: a cast now moves the floor by its offset rounded to the nearest
+                    // terrace, so the per-cast depth is CraterStep within +/- half a terrace
+                    // (0.30-0.80 m over the clamp range) instead of exactly CraterStep. The deep
+                    // core cannot round away (CraterStep / terrace >= 1.375, so the centre always
+                    // moves at least one whole terrace), which is what keeps the ratchet unbounded
+                    // in practice and not merely in intent.
+                    // KNOWN INTERACTION, dormant today: 1i9's `CraterFacetSkirt` returns 0 unless
+                    // `EffectiveLowPolyStep > 0`, and 1ia holds that flag false, so the skirt adds
+                    // nothing to `offset` now. If the facet path is ever re-enabled, a skirt whose
+                    // whole influence is under half a terrace would snap back to 0 and lose its
+                    // guarantee — that is the interaction to re-measure, not to pre-empt here.
+                    offset = Mathf.Round(offset / craterTerrace) * craterTerrace;
 
                     if (offset > 0f)
                     {

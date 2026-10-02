@@ -15,6 +15,89 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1f3 - the blanket is a CONTINUITY complaint, and continuity has exactly two owners on a 1 m lattice (OPEN: awaiting 1f3 play-test output)
+
+The user's read on the 1f2 world: the crater is a "smoothed out blanket". Before writing code I
+re-derived what could possibly be making it smooth, because 1f2's own section E had already told me
+the shape was *expressible* (deep enough, rimmed, drawn) — so "make it bigger" and "make it faceted"
+were both guesses.
+
+### Hypothesis 1 - the normals are interpolated, so the facets need flat shading. REJECTED before any edit.
+
+`ChunkMeshGenerator.cs:174-179` assigns a quad's four corner normals from the same face, i.e. the mesh
+is **already flat-shaded per quad**. 1hy said so too ("far normals are flat per-quad"), and I had
+half-remembered it as a far-shell-only property. So the "low-poly look" was never missing: the mesh
+has been flat all along. Rejected on the code, not on taste — and this is why reaching for a material
+or normal change would have been a second task with nothing to fix in it.
+
+### Hypothesis 2 - the blanket is the profile's shape: a cone has no level breaks. CONFIRMED, shipped.
+
+The cone was `1 - dist/reach`: a straight line from the impact point to the footprint edge. Every
+sample along it holds a *different* height, so on a 1 m lattice there is nothing for the renderer to
+draw as a step — it is one continuous ramp, bilinearly interpolated. That is precisely "smoothed out".
+A sphere's lower cap is a **curve**, and the interesting part is that the curve is steepest at the rim
+and flattest at the floor, so quantising it produces treads in the middle and risers on the wall.
+
+Deriving the cap honestly cost one wrong turn worth recording. I first wrote
+`depth = sqrt(capR^2 - d^2) + (capR - capDepth)`, i.e. I put the sphere's centre *below* grade when it
+is above it, and got influence ≈ 0 at the impact point — the exact inverse of the intent. The
+identity that fixes it and is worth keeping in the code comment: `sqrt(capR^2 - reach^2) = capR -
+capDepth`, i.e. `capR = (reach^2 + capDepth^2) / (2*capDepth)`. That single equation is what makes the
+cap meet grade at exactly `reach`, which is why the feather to untouched ground is unchanged and only
+the interior moved.
+
+I also nearly wrote a comment claiming tool digs clamp to a hemisphere. Wrong, and only a reread of
+`reach = radius + feather` caught it: `reach` is radius **+ 0.5 m**, so the smallest real dig (pickaxe,
+radius 1.0) reaches 1.5 m against a 1.1 m `CraterStep` and the `min()` is defensive only. A comment
+that states a live path which is not live is the same class of error as the wrong `§5.7` pointer I
+also had to fix in `game-design.md` this pass.
+
+### Hypothesis 3 - quantise the ABSOLUTE height, so treads are flat even on a slope. REJECTED, and the reason is a perf cliff, not taste.
+
+Snapping the height to a world-wide Y ladder does give genuinely flat treads on sloped ground (two
+adjacent corners land on one rung). It is the stronger visual. I rejected it on two counts:
+- it makes the crater's **depth a function of the ground's absolute elevation** (± half a terrace,
+  varying across the map), which is a strange thing for an impact crater to have; and
+- it floods `ChunkMeshGenerator.IsFlatTile`, whose consumer `ChunkContainsFlatTile` escalates to
+  `FullRebuildChunk` — a 900-tile rebuild plus a collider re-cook, sized for **slab side walls**. A
+  quantised crater emits no side walls, so that escalation would be pure cost, on every cast, in
+  every chunk the crater touches.
+
+This is 1i4's lesson wearing different clothes: I had read `IsFlatTile`/`ChunkContainsFlatTile` in
+1f2 while reasoning about `EdgeIsRaised`, and reusing that reading felt safe. The extra step was
+asking *who consumes a flat tile* rather than only what produces one. So offset snap it is — flat
+treads where the ground is genuinely flat (including the test platform), hard breaks with ramps
+between them where it is not. **If the user finds the terrace read too weak on a slope, that is the
+trade to revisit — and the revisit is to `IsFlatTile`'s predicate, not to a smaller epsilon.**
+
+### Hypothesis 4 - the terrace can round the deep core away and silently kill the ratchet. REJECTED, arithmetically.
+
+If the snap could take the centre's offset to 0, the floor would stop dropping per cast and 1cv's
+"unbounded downward ratchet" would become "unbounded in intent only". It cannot: the centre's offset
+is `-CraterStep` and `CraterStep / terrace >= 1.1 / 0.8 = 1.375`, so it always rounds to at least one
+whole terrace. Worth stating in the code because it is the invariant a future edit to the terrace
+clamp could quietly break (raise `CraterTerraceMax` past `2 * CraterStep` and it breaks).
+
+### The interaction I found but did NOT fix
+
+1i9's `CraterFacetSkirt` only contributes when `EffectiveLowPolyStep > 0`, and 1ia holds
+`LowPolyFacets = false`, so today the skirt adds nothing to `offset` and the question is moot. If the
+facet path is re-enabled (1ia revert / 1f4), a skirt whose entire influence is under half a terrace
+snaps back to **0** and its guarantee — "the carve reaches a rendered node" — quietly fails, with the
+crater becoming invisible for exactly the reason 1hx documented. I left it as a comment beside the snap
+rather than guarding it: guarding a dormant path is speculative work, and rule 7 says measure first.
+
+### Still open
+
+- Whether the snap's `flatTreads`/`riserEdges` readout lands as derived. **Every number in the 1f3
+  handoff is hand-derived**, including the rim crossover (t ≈ 0.72), the snapped net rim (+0.475 m) and
+  the centre dig (−0.95 m). F13 on a freshly cast crater is the only thing that confirms them.
+- Whether the 60°/73° rim wall traps the player in a way that reads as a bug rather than as a crater.
+- Whether 1f4 (the literal sub-metre facet shell) is still wanted once 1f3's readout lands, or
+  whether the terraced cap already answers "faceted" well enough.
+
+---
+
 ## 1f2 - "make the crater a low-poly ball-cap": the fix is a cube-sphere facet shell, NOT per-tile verticals; and the lane needed a question none of A-D asked (OPEN: awaiting 1f2 play-test output)
 
 The request: every scale-derived crater should read as a low-poly spherical cap at its **actual
