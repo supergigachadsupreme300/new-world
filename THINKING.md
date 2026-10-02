@@ -15,7 +15,59 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
-## 1ex - "a 0.5 m lattice fixes the crater" - VERDICT: the render resolution was never the blocker; the COLLIDER resolution was (shipped 1 m collider; lattice deferred to 1ey; caves split to 1ew)
+## 1ez - the raised crater rim - VERDICT: shaped by a signed (lip - dish) profile, not two Max'd curves; shipped without any lattice or save change (OPEN: not play-tested)
+
+1in proved the crater reads as a flat cone because `DeformAt`'s crater branch is a monotone
+subtraction. 1ez is the shape fix. The whole question was **how to add the positive term without
+introducing a step**, and the answer is a signed radial profile.
+
+**Hypothesis 1 - author the rim as an independent raised bump and `Mathf.Max` it against the dish.
+REJECTED.** The dish target near the inner edge of the rim band is still ~0.47 m below pristine, while
+a bump starting at zero there is ~0. A `Max` would therefore snap from dish to bump the instant the
+bump's own smoothstep clears the dish — a visible ledge, not a blend. The two curves are far apart
+where the band begins, so any pointwise combine of *separate* dish and lip curves jumps somewhere.
+
+**Hypothesis 2 - one signed radial profile, `offset = lipBump*CraterRimLift - depression`, written as
+`current + offset` when negative and `Max(current, pristine + offset)` when positive. CONFIRMED.** The
+two terms share one `t = dist/reach`, so `offset` passes continuously through zero (measured crossover
+~0.68 x reach at radius 1.4): the ground neither pops nor double-counts. The sign also picks the right
+idempotency rule per side automatically — negative = excavation (ratchets down, the deliberate inverse
+of raised shapes), positive = raise (idempotent, `Max` against pristine-based target). `lipBump` is a
+smoothstep that is zero at BOTH ends of the band (`0.55*reach` and `reach`), so the footprint boundary
+is untouched and the dish still feathers to grade exactly as before.
+
+**Hypothesis 3 - the rim height should scale with `CraterStep`. REJECTED.** The code comment initially
+claimed `CraterRimLift` was "a fraction of `CraterStep`", and it is not — it is an absolute lift. That
+turned out to be the *better* behaviour: the lip height is `lift` minus a fraction-only depression, so
+it is scale-independent (bigger crater ⇒ wider rim, not taller), and an absolute ~0.44 m net rim stays
+under the player's `stepOffset = 0.5 m` at every crater size, so the lip is a bump you walk over
+rather than a wall. Keeping it a fraction would let a `CraterStep` bump turn the rim into an obstacle.
+The comment was corrected to say absolute; the code is unchanged.
+
+**Hypothesis 4 - the rim needs the stored fine lattice (1ey) to render. REJECTED.** The rim is written
+as ordinary 1 m corner heights through the existing `ApplyHeightEdits` path, and 1ex already re-cooks
+the collider from that lattice, so the rim is both rendered and physical today. The lattice's payoff is
+sub-tile sharpness for a crater landing *between* nodes — real, but marginal, and unmeasured; it stays
+deferred until a measurement justifies the v2 save migration.
+
+**Hypothesis 5 - the rim must be excluded from the caster keep-out ring. CONFIRMED (defensively).** The
+band starts at `0.55 * reach`; for the smallest authored crater (`radius >= 1.2`) that is `>= 0.935 m`,
+already outside the `0.9 m` ring, so the guard never fires in practice. It is kept because the constant
+could move, and a rim rearing under the capsule is exactly the depenetration "teleport" the ring exists
+to prevent.
+
+**Dead end - `reach`/`feather` arithmetic for the lip's own bounds.** First pass quoted the inner bowl
+as 0.39 m; recomputing `s = smootherstep(1 - t)` gives 0.47 m. The interior figures in the code comment
+were stale and were corrected against the live formula. This is rule 3's "grep is not compilation"
+one level down: the numbers in a comment are a claim, and a claim about arithmetic can be checked.
+
+**Still open.** 1ez is emitted but play-test is Unity-only (rule 3), and the verified-by-hand geometry
+here is about `DeformAt`, not about the frame the user will see. The F13 section D readout (corners
+above pristine) is the instrument that will confirm the lip exists; it should be non-zero now.
+
+---
+
+## 1ex - "a 0.5 m lattice fixes the crater" - VERDICT: the render resolution was never the blocker; the COLLIDER resolution was (shipped 1 m collider; rim shipped as 1ez; lattice deferred to 1ey; caves split out — NOT 1ew, which is already the adaptive stretch-split)
 
 The task began as "the projectile dent is a monotone cone; give it a rim and enough resolution to hold
 one". The plan was going to be "add a 0.5 m stored fine lattice, then author the rim into it". Halfway

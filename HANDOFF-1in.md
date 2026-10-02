@@ -5,15 +5,16 @@
 > audit AND toggled fighting mode. The lane is now **F13**. Any readout taken on F1 is void - re-take
 > it on F13. See `PROGRESS.md` 1io and `THINKING.md` H59-H61.
 >
-> **1ex (this file's fix plan is now 4 tasks):** the "fix is one stored fine lattice" plan below is
-> split. The blocker was never the render resolution - it was the **collider**, which was sampled at
-> 2 m while the player has no ground raycast (they sweep the `MeshCollider` directly). **1ex shipped
-> the collider at 1 m**; the fine lattice is **1ey**, the raised rim **1ez**, and caves **1ew** (the
-> smooth model is a single-valued heightfield, so no roof is possible; the one existing cave,
-> `SculptVoxelCave`, is a sealed voxel chamber with no entrance). The F13
-> readout was waived by the user: the monotone-profile diagnosis is arithmetic (`reach 1.9 m`,
-> `CraterStep` subtraction, no positive term), not something F13 has to confirm. The F13 lane still
-> exists and remains useful for 1ez's acceptance. See `PROGRESS.md`/`THINKING.md` 1ex.
+> **1ex / 1ez / 1ey (this file's fix plan is now several tasks):** the "fix is one stored fine lattice"
+> plan below is split. The blocker was never the render resolution - it was the **collider**, which was
+> sampled at 2 m while the player has no ground raycast (they sweep the `MeshCollider` directly). **1ex
+> shipped the collider at 1 m**, and **1ez shipped the raised rim** (the missing positive term in
+> `DeformAt`); the fine lattice is **1ey**; caves are a later task (NOT `1ew` - that id is already the
+> adaptive stretch-split). The smooth model is a single-valued heightfield, so no roof is possible; the
+> one existing cave, `SculptVoxelCave`, is a sealed voxel chamber with no entrance. The F13 readout was
+> waived by the user for the *diagnosis* (arithmetic: `reach 1.9 m`, `CraterStep` subtraction, no
+> positive term), but the lane remains useful for 1ez's acceptance. See `PROGRESS.md`/`THINKING.md`
+> 1ex and 1ez.
 
 # Handoff - 1in crater audit lane
 

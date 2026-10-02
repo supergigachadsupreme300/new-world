@@ -26,7 +26,9 @@ public partial class WorldStreamer
     /// profile and can never stack higher. A Crater is deliberately the inverse — each cast/swing
     /// excavates another CraterStep below the current floor, so pits dig progressively deeper
     /// (revealing the dirt/stone strata bands) with no cap of their own: only the ±MaxTerrainHeight
-    /// sanity band bounds them. Each touched tile is marked modified/dirty so it persists and syncs
+    /// sanity band bounds them. Since 1ez a Crater also raises a bounded, idempotent LIP around the
+    /// dish (the positive term the monotone cone lacked — see <see cref="DeformAt"/>'s rim constants),
+    /// so it reads as an impact, not a smooth funnel. Each touched tile is marked modified/dirty so it persists and syncs
     /// (deformations last forever — chunk save files, §2.6), and the affected region of each chunk is
     /// rebuilt (merged mesh + collider) in place. Unloaded tiles are ignored — spells only deform
     /// terrain the streamer has in memory.
@@ -40,12 +42,14 @@ public partial class WorldStreamer
         // Never raise the ground directly beneath the player's feet: a Wall/ring/pillar rearing
         // up under the capsule embeds it in the rebuilt chunk collider, and the next physics step
         // depenetrates it violently — reads as a teleport. Raised shapes skip tiles inside a small
-        // keep-out ring around the player's feet; Crater (excavation) is unaffected.
+        // keep-out ring around the player's feet. A Crater's DISH is unaffected (falling into a pit
+        // does not depenetrate), but its 1ez rim is a raise and is guarded separately below.
         float keepOutR = 0.9f; // player capsule radius + margin
         bool protectCaster = shape != TerrainShape.Crater;
         Vector3? casterFeet = null;
-        if (protectCaster)
         {
+            // Looked up for every shape (a crater's rim now raises too), but only the raised shapes
+            // skip whole tiles here; the crater raise is ringed inside its branch.
             var player = Object.FindAnyObjectByType<PlayerController>();
             if (player != null)
                 casterFeet = player.transform.position;
@@ -99,6 +103,27 @@ public partial class WorldStreamer
         // sanity band (SanitizeHeight), which exists to protect the mesh/collider, not to limit
         // how deep an excavator may go.
         const float CraterStep = 1.1f;
+
+        // 1ez: the raised crater rim. A downward-only dish is a monotone cone (the 1in report): no
+        // term anywhere raises, so no resolution can produce a lip. The rim is that positive term.
+        // It is a smooth bump across the OUTER band of the dish footprint (fractions of `reach`),
+        // zero at BOTH ends, so it adds no step at the footprint boundary and meets the dish
+        // continuously at the crossover (~0.68 x reach). A hard Max of two separate curves would
+        // jump at the crossover; a signed profile (lip - depression) does not.
+        //   inner 0.55 x reach  — bowl is ~0.47 m down here
+        //   peak  0.80 x reach  — bowl is only ~0.11 m down, so the lip shows ~0.44 m above grade
+        //   outer reach         — meets untouched ground at 0
+        // CraterRimLift is an ABSOLUTE lift in metres, NOT a fraction of CraterStep. The lip height
+        // is `lift` minus a fraction-only depression, so it is scale-independent: a bigger crater
+        // gets a WIDER rim, not a taller one. It is kept absolute and small so the net rim (~0.44 m
+        // at the current CraterStep) stays under the player's stepOffset (0.5 m) at every size — the
+        // lip is a bump you walk over, not a wall. The inner band is deliberately outside the 0.9 m
+        // caster keep-out ring (0.55 * reach >= 0.935 m for radius >= 1.2), and the raise branch
+        // re-checks the ring anyway (see below).
+        const float CraterRimInner = 0.55f;
+        const float CraterRimPeak = 0.80f;
+        const float CraterRimLift = 0.55f;
+
         float ringMid = radius * 0.72f;
         float ringHalfWidth = Mathf.Max(0.6f, radius * 0.28f);
         float pillarCore = radius * 0.45f;
@@ -191,14 +216,45 @@ public partial class WorldStreamer
                     // case where the carve had none — and the deep 1.1 m core at the impact point,
                     // its radius and its per-cast ratchet are all unchanged.
                     s = Mathf.Max(s, CraterFacetSkirt(cx, cz, center, reach, facetStep, toSampledNode));
-                    // Deliberate per-cast excavation: lower each corner by s*CraterStep below its
-                    // CURRENT floor. Repeating the cast (or swinging a digging tool) deepens the pit
-                    // each time — the inverse of the raised shapes' idempotency — so the player can
-                    // dig indefinitely deep (revealing the dirt/stone strata bands). The rim stays
-                    // feathered (s ~ 0 at influence edge) so the pit is a smooth bowl, never a cliff;
-                    // corners keep their own slope, so the dish is never a flat slab floor.
-                    float target = current - s * CraterStep;
-                    newHeights[EncodeCorner(cx, cz)] = target;
+                    // Old behaviour (1ez keeps it as the bowl's negative term): lower each corner by
+                    // s*CraterStep below its CURRENT floor, deepening the pit each cast (the inverse
+                    // of the raised shapes' idempotency). The rim is now the missing positive term.
+                    float depression = s * CraterStep;
+
+                    // 1ez raised rim: a smooth bump across the outer band of the footprint.
+                    float t = dist / reach;
+                    float lipBump = 0f;
+                    if (t > CraterRimInner && t < 1f)
+                    {
+                        float u = t < CraterRimPeak
+                            ? (t - CraterRimInner) / (CraterRimPeak - CraterRimInner)
+                            : (1f - t) / (1f - CraterRimPeak);
+                        lipBump = u * u * (3f - 2f * u); // smoothstep, u in [0,1] by construction
+                    }
+                    float offset = lipBump * CraterRimLift - depression;
+
+                    if (offset > 0f)
+                    {
+                        // Raised lip: IDEMPOTENT and bounded. Target is pristine noise + offset,
+                        // Max'd with the current floor so a repeat cast reproduces the same profile
+                        // and a lip can never lower terrain that already stands above it.
+                        // Never rear it up inside the caster keep-out ring (same teleport guard as
+                        // the other raised shapes); the ring is outside the lip band regardless.
+                        if (casterFeet.HasValue)
+                        {
+                            float pdx = wx - casterFeet.Value.x;
+                            float pdz = wz - casterFeet.Value.z;
+                            if (pdx * pdx + pdz * pdz <= keepOutR * keepOutR)
+                                continue;
+                        }
+                        float baseY = TerrainNoiseGenerator.GetHeight(Seed, cx, cz);
+                        newHeights[EncodeCorner(cx, cz)] = Mathf.Max(current, baseY + offset);
+                    }
+                    else
+                    {
+                        // Excavation: ratchet the current floor DOWN by |offset| (unchanged).
+                        newHeights[EncodeCorner(cx, cz)] = current + offset;
+                    }
                 }
                 else
                 {

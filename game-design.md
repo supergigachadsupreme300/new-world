@@ -158,20 +158,24 @@ numbers describe the frame the key was pressed on.
 | **C profile** | per-ring min/mean/max dig out to the dish edge | monotone cone from bowl-with-rim |
 | **D expressibility** | corner spread vs the 1ew trigger, corners **above** pristine, adjacent gaps | "not authored" from "authored but coarse" |
 
-Section D counts corners *above* pristine rather than inferring a rim from the profile, because a
-rim is a **positive raise** and the crater profile in `WorldStreamer.Deform.cs` is a monotone
-smoothstep dish (`target = current - s * CraterStep`) that can only lower. That is the reason a
-resolution-only fix would be wrong: no amount of sub-tile geometry produces a raise that is never
-written. Section D is also scoped to the crater's own footprint rather than the search band, since
-the band locates the crater and is not the crater, and the `Wall`/`Ring`/`Pillar` deform profiles do
-raise — an unrelated one nearby would otherwise be read as this crater's rim.
+Section D counts corners *above* pristine to identify the rim directly rather than inferring it from
+the profile, because a rim is a **positive raise**. Until **1ez** the crater profile in
+`WorldStreamer.Deform.cs` was a monotone smoothstep dish (`target = current - s * CraterStep`) that
+could only lower — which is the reason a resolution-only fix would have been wrong: no amount of
+sub-tile geometry produces a raise that is never written. 1ez added the missing positive term (a
+bounded, idempotent lip across the outer band of the footprint, below), so section D's above-pristine
+count is now the acceptance readout for the rim. Section D is also scoped to the crater's own footprint
+rather than the search band, since the band only locates the crater — and the `Wall`/`Ring`/`Pillar`
+deform profiles do raise, so an unrelated one nearby would otherwise be read as this crater's rim.
 
 At the 1ia default (`LowPolyFacets` off, `EffectiveLowPolyStep` = 0) section B reports
 `nodeGap n/a (every corner drawn)`: the dish is drawn **in full**, and the limit is shape, not
-resolution. The follow-up is **1ex**, a stored fine lattice — interior fine nodes only, with tile
-edges left bilinear so the edge-linearity no-crack proof and cross-chunk seams are untouched. That
-is the same infrastructure the user wants for caves; **caves are deferred**, and the existing
-`SculptVoxelCave` path stays dormant.
+resolution. **1ez** supplied the shape (the raised, idempotent lip below); the **stored fine lattice is
+1ey** — interior fine nodes only, with tile edges left bilinear so the edge-linearity no-crack proof
+and cross-chunk seams are untouched — and is deferred until a measurement justifies its save-format
+change (a v2 migration; it must also decouple `TryLoadVoxelChunk`'s `version < CurrentVersion` guard
+so v1 voxel saves survive the bump). That is the same infrastructure the user wants for caves; **caves
+are deferred**, and the existing `SculptVoxelCave` path stays dormant.
 
 **The lane key moved F1 → F13 (1io).** 1in chose F1 by grepping for `Key.F1` and `KeyCode.F1`,
 finding no references, and documenting the key as free. It was bound — the **combat-mode toggle**
@@ -1568,7 +1572,7 @@ A spell is a data asset carrying:
   **Wall** rears an elongated ridge across the cast direction (1ga — perpendicular to it, so the
   wall lies left-right in the player's view as a barricade; ~2.6 m on a first cast, tall enough to
   fully block the player's CharacterController), **Pillar** thrusts a tall column up at the center,
-  and **Crater** excavates a smooth dish. Heights are written as continuous per-corner
+  and **Crater** excavates a smooth dish ringed by a raised, idempotent lip (1ez). Heights are written as continuous per-corner
   elevations (4 corners per 1×1 m TILE, shared with neighbours — which is what keeps the
   triangulated mesh gapless), smoothstep-blended at the rim so a deform reads as genuine terrain;
   `ChunkMeshGenerator` only emits slab side-wall bands for *legacy saved flat tiles*, so smooth
@@ -1598,7 +1602,9 @@ A spell is a data asset carrying:
   below the pristine noise surface as discrete strata bands: **grass (surface) → dirt (~0.65–2.3 m
   down) → stone (≥ 2.7 m down)**, small blends between bands (1cs). The shovel can only dig the
   soft bands and stops at stone; the pickaxe excavates at any depth. Every crater is a genuine
-  smooth dish — corners keep their own slope, the rim feathers out — and it is permanent (1cs).
+  smooth dish ringed by a raised lip (1ez): the dish's floor ratchets down per cast while the lip is
+  idempotent and capped, and corners keep their own slope throughout, so no tile collapses to a slab.
+  Every crater is permanent (1cs).
   **Excavation ejects debris matching the stratum it just reached (1de):** `WorldStreamer
   .SpawnCraterDebris` pops 3–5 physical cubes out of the fresh dent — dirt blocks (dirt-brown) while
   the floor digs through grass/dirt, rock (grey, the same look as pickaxe rock destruction,
@@ -1636,9 +1642,9 @@ A spell is a data asset carrying:
   taller ridge across the cast) deform at the aim point via `ResolveZone`; Storm strikes
   (Rockfall → Crater) dent under each boulder via `SpellStorm.DeformGround`; Summons (the golem
   line → Spikes) erupt a small rock field where the construct rises via `ResolveSummon`; the
-  Projectile root (Stone Shard) carves its crater at the impact point. Because raised shapes cap
-  and only craters excavate, no raised shape — zone, storm, summon, or projectile — can ever stack
-  unbounded, and craters dig as deep as the player has patience for.
+  Projectile root (Stone Shard) carves its crater at the impact point. Every raise is capped and
+  idempotent — including the crater's own 1ez lip — so no shape, zone, storm, summon, or projectile,
+  can ever stack unbounded, while crater floors dig as deep as the player has patience for.
 - cast animation reference
 - optional status-effect application with a proc chance (e.g., applies Burn/Frost/Stagger; §3.7)
 
@@ -1650,9 +1656,11 @@ the exact same shape and changes nothing. (Earlier, the raise added `s·lift` to
 every cast, so the second+ cast kept lifting the whole influence footprint toward the cap — the
 ground visibly rose across the chunk, reported as "the entire chunk moving"; craters grinded deeper
 the same way.) `Max` also means a raised deform can never *lower* terrain that already sits above the
-target. A **Crater** is the deliberate inverse (see the terrain-shape bullet): each cast/swing lowers
-the floor one `CraterStep` below its current height, so excavation is bounded only by the mesh-safety
-sanity band. Two robustness fixes ride along: `SpellCaster`'s zone aim probe skips **raised terrain taller than
+target. A **Crater**'s DISH is the deliberate inverse (see the terrain-shape bullet): each cast/swing
+lowers the floor one `CraterStep` below its current height, so excavation is bounded only by the
+mesh-safety sanity band. The crater's raised **lip** (1ez), by contrast, follows the raised-shape rule
+exactly — it targets pristine noise + a bounded offset and is `Max`'d against the current floor — so
+the lip is idempotent and can never stack higher. Two robustness fixes ride along: `SpellCaster`'s zone aim probe skips **raised terrain taller than
 pristine noise** (a wall the spell itself reared) so a repeat cast targets the ground the player is
 looking at rather than the wall face, and `ChunkObject` re-points the mesh filter/collider at the new
 mesh **before** destroying the old one (no frame ever references a destroyed mesh).

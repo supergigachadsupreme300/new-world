@@ -1,11 +1,84 @@
-﻿## 1ex. Collider lattice 2 m -> 1 m (the player no longer walks through visible craters)
+﻿## 1ez. Raised crater rim (the monotone cone gets its missing positive term)
+
+**Status: shipped, NOT play-tested (rule 3 — no build or play-test runs in this project). One branch of
+`DeformAt` changed; no save format, no version bump, no lattice.**
+
+This is the shape half of the 1in report, shipped on its own after 1ex (collider). The user chose
+rim-first over bundling it with the stored fine lattice (1ey) precisely so the collider cost (1ex) and
+the shape change (1ez) stay separately attributable, and so the save-format migration in 1ey waits for
+a measured reason.
+
+### The bug (1in / THINKING H56)
+
+`WorldStreamer.Deform.cs`'s crater branch was `target = current - s * CraterStep` — a **monotone
+subtraction with no positive term anywhere**. A rim is a positive raise, so no amount of resolution
+could produce one; the dent could only read as a smooth funnel. H55 also showed 1ew's adaptive
+refinement never fires for a crater (a 1.9 m-reach, 1.1 m-deep dish lowers a tile's worst corner by
+~0.76 m, far under `DefaultRefineThreshold = 2.5`), so the shape, not the geometry, was the finding.
+
+### What changed
+
+`Assets\Scripts\World\Streaming\WorldStreamer.Deform.cs`:
+- New rim constants next to `CraterStep`: `CraterRimInner = 0.55`, `CraterRimPeak = 0.80` (fractions of
+  `reach`) and `CraterRimLift = 0.55` (an **absolute** metre lift, deliberately not a fraction of
+  `CraterStep`, so the net ~0.44 m rim stays under the 0.5 m `stepOffset` at every crater size). The lip is a smooth bump across the
+  outer band of the footprint, **zero at both ends**.
+- The crater branch now computes a **signed profile** `offset = lipBump * CraterRimLift - depression`:
+  - `offset > 0` → raised lip, target `Mathf.Max(current, baseY + offset)` — **idempotent** (target
+    relative to pristine noise) and bounded, exactly the raised-shape rule.
+  - `offset <= 0` → the original per-cast excavation (`current + offset`, ratchets down), unchanged.
+  A signed profile is used instead of `Max(dishTarget, lipTarget)` of two separate curves, because the
+  two curves are far apart where the lip support begins and a hard `Max` jumps there; the signed form
+  crosses zero continuously (~0.68 × reach).
+- The raise is ringed by the same 0.9 m caster keep-out as the other raised shapes (the lip band starts
+  at `0.55 × reach ≥ 0.935 m`, so the guard never actually fires, but it makes the invariant explicit
+  if the constants move). The player lookup now runs for every shape, not only raised ones.
+- XML doc updated to describe the lip.
+
+### Why no save/lattice change is needed
+
+The rim is written as ordinary **1 m corner heights** through the existing `ApplyHeightEdits` path, and
+the collider is re-cooked from the restamped lattice, so it is automatically physical at 1ex's 1 m
+resolution. The old crater dish already had this property; the lip inherits it for free.
+
+### 1ez-status — play-test in Unity
+
+- [ ] Fire the projectile at flat ground. The dent should now read as **bowl-with-rim**, not a smooth
+      funnel: a ring of raised ground (~0.4 m) around the pit, tapering back to grade.
+- [ ] **Repeat-cast the same spot.** The pit deepens (unchanged); the rim does **not** grow taller —
+      that is the idempotency of the raise branch.
+- [ ] **F13 (1in/1io lane), section D**: corners **above** pristine should now be non-zero in the
+      crater footprint. Before 1ez section D was the "is a rim authored" answer, and it read zero.
+- [ ] Cast a crater with the player standing inside the footprint; confirm no violent depenetration
+      (the keep-out ring covers the raise).
+- [ ] Earth Wall / Ring / Pillar / Spikes still behave (the non-crater branch is untouched).
+
+### Verification performed
+
+Grep + reread, no build (rule 3). `tools\StaticChecks.ps1`: **0 candidates** across all 12 files.
+Hand-evaluated the profile at several radii (t = 0.55, 0.67, 0.68, 0.80, 1.0) to confirm the
+signed-profile crossover is continuous (~0.68 x reach), the bowl is ~0.47 m down at the inner band,
+and the rim peaks ~0.44 m above pristine at `reach = 1.9` (Radius 1.4 + feather 0.5). Corrected the
+in-code figures, which had quoted a stale 0.39 m inner bowl and called `CraterRimLift` a fraction of
+`CraterStep` when it is absolute. No save/version/tile-format token changed, so persistence is untouched
+by construction.
+
+`skills: none applied` — a single self-contained Unity C# numeric branch reviewed by a human, not a DCC
+artifact; the `scenario-unity-*` skills drive a running editor over MCP/`-batchmode`, which rule 3 bars
+here (informative at best, never authoritative).
+
+---
+
+## 1ex. Collider lattice 2 m -> 1 m (the player no longer walks through visible craters)
 
 **Status: shipped, NOT play-tested (rule 3 — no build or play-test runs in this project). One constant
 changed; the rest of the commit is stale-comment repair + one static-check coverage extension.**
 
-This is the first of four craters/terrain tasks (1ex collider, 1ey stored fine lattice, 1ez raised rim,
-1ew caves). It is deliberately first and standalone because it fixes a bug that exists **now**, with no
-dependence on the other three.
+This is the first of the craters/terrain tasks (1ex collider; then **1ez raised rim**, then the
+deferred **1ey stored fine lattice**; **caves** split out to their own later task — `1ew` is **already
+taken** by the adaptive stretch-split at line 3140, so caves must take a fresh id). It is deliberately
+first and standalone because it fixes a bug that exists **now**, with no
+dependence on the others.
 
 ### The bug
 
