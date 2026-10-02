@@ -32,7 +32,9 @@ using UnityEngine;
 /// <para><b>Section order is premise-first, not prettiness-first (rule 7).</b> A. fingerprint runs
 /// BEFORE the shape sections, because if the resident set was built by two versions of the generator
 /// then B/C/D are evidence about a world that is not on screen — the same mistake 1hy made when two
-/// sections that "looked more like tests" ran ahead of the premise check.</para>
+/// sections that "looked more like tests" ran ahead of the premise check. E runs last of the shape
+/// sections because it is the only one that needs a well-formed footprint to mean anything: it reads
+/// the carve's own height LADDER, which is a null question when there is no carve.</para>
 ///
 /// <para><b>Scope, and which owners the walk admits.</b> The crater walk admits exactly one owner
 /// family: corners owned by a LOADED chunk tile (<c>_loadedData</c>). It deliberately does not read
@@ -78,6 +80,19 @@ public partial class WorldStreamer
     /// <summary>Radial samples taken per profile ring.</summary>
     private const int CraterAuditProfileSamples = 8;
 
+    /// <summary>Two corner heights are the SAME terrace level when they are within this of each
+    /// other. Not an arbitrary epsilon: 1 mm is the gate <c>ChunkMeshGenerator.EdgeIsRaised</c>
+    /// itself uses to decide an edge carries a real step, so "distinct" in section E means
+    /// "distinct to the renderer that has to draw it". A threshold chosen independently of the
+    /// renderer's own would let a level look distinct here while the mesh reads it as one face.</summary>
+    private const float CraterAuditLevelEpsilon = 0.001f;
+
+    /// <summary>Gap spread across the ladder, in metres, below which the levels are reported as a
+    /// UNIFORM ladder rather than as unrelated depths. Generous on purpose: the claim being tested
+    /// is "every riser is the same height", and a carve that quantises a slope by hand still lands
+    /// inside a few centimetres of one value.</summary>
+    private const float CraterAuditLadderUniform = 0.1f;
+
     /// <summary>Accumulator for one profile ring (a circle of radius r around the impact point).</summary>
     private struct CraterProfileRing
     {
@@ -85,6 +100,21 @@ public partial class WorldStreamer
         public float MinDig;
         public float MaxDig;
         public float SumDig;
+    }
+
+    /// <summary>
+    /// Sorts one corner height into an ascending, de-duplicated level list. De-duplication uses
+    /// <see cref="CraterAuditLevelEpsilon"/>, so a level is a height the RENDERER would draw as its
+    /// own face, not a float that happens to differ in the last bit.
+    /// </summary>
+    private static void CraterAuditAddLevel(List<float> levels, float height)
+    {
+        // The footprint holds a few dozen corners, so a linear insert is cheaper than a sort per
+        // sample and keeps the list ordered for the gap walk without a second pass.
+        int i = 0;
+        while (i < levels.Count && levels[i] < height - CraterAuditLevelEpsilon) i++;
+        if (i < levels.Count && Mathf.Abs(levels[i] - height) <= CraterAuditLevelEpsilon) return;
+        levels.Insert(i, height);
     }
 
     /// <summary>
@@ -100,6 +130,10 @@ public partial class WorldStreamer
     ///   D. expressibility — whether the shape could exist AT ALL in the current data model: the
     ///                     maximum corner spread inside the dish against the adaptive-refinement
     ///                     trigger, and whether any corner rose above pristine (a rim).
+    ///   E. terraces     — whether the carve is STEPPED AT ALL: does it collapse onto a ladder of
+    ///                     equal levels, are there flat treads, how tall is the tallest riser, and
+    ///                     what slope does the collider turn that into. A/B/C/D all describe a
+    ///                     smooth bowl in detail and none of them can tell it from a terraced one.
     /// A VERDICT line names the mechanism, with the world XZ to walk to.
     /// </summary>
     public string CraterAudit()
@@ -120,8 +154,9 @@ public partial class WorldStreamer
             out float dishSpan, out int bandCorners);
         AppendCraterProfile(sb, deepestCX, deepestCZ, dishSpan);
         AppendCraterExpressibility(sb, deepestCX, deepestCZ, dishSpan, voxel);
+        string terrace = AppendCraterTerraces(sb, deepestCX, deepestCZ, dishSpan, deepestDig);
         AppendCraterVerdict(sb, focus, deepestDig, deepestCX, deepestCZ, dishSpan,
-            bandCorners, voxel);
+            bandCorners, voxel, terrace);
 
         return sb.ToString();
     }
@@ -447,12 +482,339 @@ public partial class WorldStreamer
     }
 
     /// <summary>
+    /// Section E — is the shape STEPPED AT ALL? Sections B/C/D all describe a smooth bowl in
+    /// detail: how deep, how far out, whether the data model could hold a rim. None of them can
+    /// tell a terraced crater from a smooth one, because a terraced crater has a smooth per-tile
+    /// profile too — the difference is whether corner heights collapse onto a few rungs or spread
+    /// across a continuum. That is the question this section asks, and it is asked on RAW corner
+    /// heights, not against pristine.
+    ///
+    /// <para><b>Membership and value use DIFFERENT references, on purpose.</b> A carve writes
+    /// <c>refY + offset</c> against ONE reference height taken at the impact point, so the pristine
+    /// slope underneath is overwritten rather than added to — the set of carved heights is therefore
+    /// exactly the set of authored offsets plus a constant, which is the ladder, directly. But the
+    /// footprint reaches half a metre past the last dished corner, so it also contains untouched
+    /// terrain sitting at whatever height the 5-octave noise put there; measured as raw heights those
+    /// would drown the authored levels in a continuum. So: <i>membership</i> is decided by deviation
+    /// from pristine, while the <i>value</i> measured is the raw height. Reading a dig below pristine
+    /// as the value instead — the obvious shortcut — folds the untouched slope back in and reports
+    /// "CONTINUOUS" for a perfectly quantised carve.</para>
+    ///
+    /// <para><b>Scope.</b> The crater's own footprint, the same bound section D walks (the dish
+    /// span plus half a metre so the rim ring is in), for D's reason: a second deform nearby
+    /// (<c>Wall</c>/<c>Ring</c>/<c>Pillar</c> all raise) would otherwise contribute its own levels
+    /// and this crater would be credited with a staircase it does not have. Membership admits EITHER
+    /// direction of deviation, because the 1ez rim is raised and a rim terrace is as much a step as a
+    /// dish terrace. Every count below is over carved corners or touched tiles, never over the raw
+    /// band, and the band size is printed beside them so the scope is visible.</para>
+    ///
+    /// <para><b>Walkability, and why the thresholds are read rather than written.</b> The collider
+    /// is built from this same lattice with no vertical strip pass, so a riser of R metres over the
+    /// 1 m lattice pitch is a ramp of atan(R) — the player meets the SHAPE, not a wall. This
+    /// section prints that angle next to the live <c>CharacterController</c>'s own
+    /// <c>stepOffset</c> and <c>slopeLimit</c> rather than against literals: this project writes
+    /// <c>stepOffset = 0.5</c> in exactly one place and never assigns <c>slopeLimit</c> at all, so
+    /// a copy of either number here would be a second spelling that rots silently (rule 8).</para>
+    /// </summary>
+    private string AppendCraterTerraces(StringBuilder sb, int cx, int cz, float dishSpan,
+        float deepestDig)
+    {
+        // A ladder is a null question when there is no carve. Walking the footprint anyway would
+        // report the UNTOUCHED terrain's own micro-relief as a "continuous" verdict, which is a
+        // positive-looking number about nothing — the failure mode rule 7 exists to prevent. So E
+        // states its own premise first and refuses to classify without it.
+        if (deepestDig <= CraterAuditDigThreshold)
+        {
+            sb.Append("\nE terraces  <no crater in band: nothing to step, ladder not measured>");
+            return null;
+        }
+
+        float r = Mathf.Max(dishSpan + 0.5f, 1f);
+        int reach = Mathf.CeilToInt(r);
+        int minX = cx - reach, maxX = cx + reach;
+        int minZ = cz - reach, maxZ = cz + reach;
+
+        // --- membership: which corners did the carve actually WRITE? ---
+        // A carve touches a corner iff it moved it away from pristine, in EITHER direction: the dish
+        // lowers and the 1ez rim raises, and a rim terrace is as much a step as a dish terrace. The
+        // footprint deliberately reaches half a metre past the last dished corner, so it also
+        // contains untouched terrain — and untouched terrain sits at whatever height the 5-octave
+        // noise put there. Folding those into the ladder would drown the authored levels in a
+        // continuum and make a perfectly quantised carve read as "CONTINUOUS". So membership is
+        // decided by deviation from pristine, while the VALUE measured is the raw height.
+        var carved = new Dictionary<long, float>();
+        int corners = 0;
+        for (int cz2 = minZ; cz2 <= maxZ; cz2++)
+        {
+            for (int cx2 = minX; cx2 <= maxX; cx2++)
+            {
+                if (!TryLoadedCornerHeight(cx2, cz2, out float y)) continue;
+                corners++;
+                float delta = y - TerrainNoiseGenerator.GetHeight(Seed, cx2, cz2);
+                if (Mathf.Abs(delta) > CraterAuditDigThreshold)
+                    carved[((long)cx2 << 32) | (uint)cz2] = y;
+            }
+        }
+
+        // --- the ladder: distinct heights among the CARVED corners only ---
+        var levels = new List<float>();
+        foreach (KeyValuePair<long, float> kv in carved) CraterAuditAddLevel(levels, kv.Value);
+
+        // --- treads, counted only on tiles the carve touched ---
+        // An untouched tile on a genuinely flat patch of noise is flat too; crediting it to the
+        // crater's staircase would be a false positive, so the denominator is touched tiles.
+        int tiles = 0, flatTreads = 0;
+        for (int cz2 = minZ; cz2 <= maxZ; cz2++)
+        {
+            for (int cx2 = minX; cx2 <= maxX; cx2++)
+            {
+                if (!_loadedData.TryGetValue(new ChunkCoord(cx2, cz2), out ChunkData tile)
+                    || !tile.IsValid) continue;
+                bool touched =
+                    carved.ContainsKey(((long)cx2 << 32) | (uint)(cz2 + 1))
+                    || carved.ContainsKey(((long)(cx2 + 1) << 32) | (uint)(cz2 + 1))
+                    || carved.ContainsKey(((long)(cx2 + 1) << 32) | (uint)cz2)
+                    || carved.ContainsKey(((long)cx2 << 32) | (uint)cz2);
+                if (!touched) continue;
+                tiles++;
+                float mn = tile.Heights[0], mx = tile.Heights[0];
+                for (int k = 1; k < tile.Heights.Length; k++)
+                {
+                    if (tile.Heights[k] < mn) mn = tile.Heights[k];
+                    if (tile.Heights[k] > mx) mx = tile.Heights[k];
+                }
+                if (mx - mn <= CraterAuditLevelEpsilon) flatTreads++;
+            }
+        }
+
+        // --- risers and the carve's outer boundary, from the LATTICE ---
+        // A step lives on a 1 m lattice edge, not on a tile boundary: adjacent tiles share their edge
+        // corners, so a "riser between two tiles" is not a thing the data can hold. Counted over +X
+        // and +Z only so every lattice edge is visited once. Section D already reports the LARGEST
+        // adjacent gap and how many clear a whole metre ("is there a cliff"); this is the same walk at
+        // a threshold fine enough to also see a single terrace, plus the count D never gave.
+        // boundaryEdges — one carved endpoint, one untouched — is the sub-step band: quantising a
+        // profile to a step leaves the outermost sliver rounding to zero, and this is where that
+        // shows up as an edge rather than as a silently narrower crater.
+        int riserEdges = 0, boundaryEdges = 0;
+        for (int cz2 = minZ; cz2 <= maxZ; cz2++)
+        {
+            for (int cx2 = minX; cx2 <= maxX; cx2++)
+            {
+                if (!carved.TryGetValue(((long)cx2 << 32) | (uint)cz2, out float y)) continue;
+                for (int e = 0; e < 2; e++)
+                {
+                    int nx = e == 0 ? cx2 + 1 : cx2;
+                    int nz = e == 1 ? cz2 + 1 : cz2;
+                    if (!carved.TryGetValue(((long)nx << 32) | (uint)nz, out float ny))
+                    {
+                        boundaryEdges++;
+                        continue;
+                    }
+                    if (Mathf.Abs(y - ny) > CraterAuditLevelEpsilon) riserEdges++;
+                }
+            }
+        }
+
+        float minGap = float.MaxValue, maxGap = 0f;
+        for (int i = 1; i < levels.Count; i++)
+        {
+            float gap = levels[i] - levels[i - 1];
+            if (gap < minGap) minGap = gap;
+            if (gap > maxGap) maxGap = gap;
+        }
+        if (levels.Count < 2) minGap = 0f;
+
+        int steps = Mathf.Max(levels.Count - 1, 0);
+        bool uniform = steps > 0 && (maxGap - minGap) <= CraterAuditLadderUniform;
+
+        sb.Append("\nE terraces  footprint r ").Append(r.ToString("0.#")).Append(" m");
+        sb.Append("\n     corners ").Append(corners).Append(" in band, ")
+          .Append(carved.Count).Append(" written by the carve, ")
+          .Append("-> ").Append(levels.Count).Append(" distinct level(s)");
+        sb.Append("\n     ladder gaps ").Append(minGap.ToString("0.###")).Append("..")
+          .Append(maxGap.ToString("0.###")).Append(" m over ").Append(steps).Append(" step(s)  -> ");
+        sb.Append(uniform ? "UNIFORM LADDER (quantised carve)"
+                          : (steps == 0 ? "single level (nothing stepped)"
+                                        : "CONTINUOUS (no terrace exists)"));
+        sb.Append("\n     flatTreads ").Append(flatTreads).Append('/').Append(tiles)
+          .Append(" touched tile(s)");
+        if (tiles > 0) sb.Append(" (").Append((flatTreads * 100 / tiles)).Append("%)");
+        sb.Append("  riserEdges ").Append(riserEdges)
+          .Append("  boundaryEdges ").Append(boundaryEdges)
+          .Append("  maxRiser ").Append(maxGap.ToString("0.###")).Append(" m");
+
+        // Slope is quoted at the 1 m lattice pitch (ChunkData.Size), which is the FINEST the collider
+        // ever samples. When the facet path is on the collider borrows the coarser facet step and the
+        // real angle is shallower; section A prints MeshStep, so the reader can see which case this is.
+        float pitch = ChunkData.Size;
+        float angle = Mathf.Atan(maxGap / Mathf.Max(pitch, 0.001f)) * Mathf.Rad2Deg;
+        sb.Append("  collider slope ").Append(angle.ToString("0.#")).Append(" deg @ ")
+          .Append(pitch.ToString("0.#")).Append(" m pitch");
+
+        // Thresholds read from the live controller, never copied (see the method doc). Held as locals
+        // because the verdict below needs the same pair, and reading them twice could straddle a
+        // change between the table and the finding.
+        float stepOffset = 0f, slopeLimit = 0f;
+        bool haveThresholds = false;
+        CharacterController cc = Object.FindAnyObjectByType<CharacterController>();
+        if (cc != null)
+        {
+            haveThresholds = true;
+            stepOffset = cc.stepOffset;
+            slopeLimit = cc.slopeLimit;
+            sb.Append("\n     player stepOffset ").Append(stepOffset.ToString("0.###"))
+              .Append(" m  slopeLimit ").Append(slopeLimit.ToString("0.#")).Append(" deg");
+            if (maxGap > stepOffset + CraterAuditLevelEpsilon)
+                sb.Append("  <-- tallest riser EXCEEDS stepOffset: not climbable as a step");
+            if (angle > slopeLimit)
+                sb.Append("  <-- ramp steeper than slopeLimit: the player slides on this face");
+        }
+        else
+        {
+            sb.Append("\n     player stepOffset/slopeLimit n/a (no CharacterController resident)");
+        }
+
+        int seamBands = AppendCraterSeamBands(sb, minX, minZ, maxX, maxZ);
+        return CraterTerraceVerdict(levels.Count, steps, uniform, flatTreads, tiles, corners,
+            carved.Count, riserEdges, boundaryEdges, seamBands, maxGap, angle, stepOffset,
+            slopeLimit, haveThresholds);
+    }
+
+    /// <summary>
+    /// The seam sub-check of section E. <c>ChunkMeshGenerator.EdgeHeights</c> resolves a neighbour
+    /// that is outside the chunk from the border corner map and then from PRISTINE NOISE, and
+    /// <c>EdgeIsRaised</c> fires when this tile's edge is more than 1 mm above that fallback — so a
+    /// chunk-rim tile that has been edited UPWARD emits a real side-wall band, while the same tile
+    /// edited downward emits nothing.
+    ///
+    /// <para>That asymmetry is dormant for a smooth carve (a crater is a depression, so it always
+    /// sits below the noise it is compared against) and becomes reachable the moment a carve gains
+    /// a raised terrace OR lands on a chunk boundary. The band is not a seam gap — both surfaces
+    /// are solid — it is a slab face that does not belong to the shape anyone asked for, and it is
+    /// only visible if it is measured before the change that starts producing it.</para>
+    ///
+    /// <para>Only edges whose neighbour is BOTH outside the terrain chunk AND has no loaded owner
+    /// are counted: that is the only case where the lookup falls through to noise. A loaded
+    /// neighbour is read from its real corners and cannot disagree.</para>
+    /// </summary>
+    private int AppendCraterSeamBands(StringBuilder sb, int minX, int minZ, int maxX, int maxZ)
+    {
+        int abovePristine = 0, bandsAtRim = 0;
+        float tallest = 0f;
+
+        for (int cz2 = minZ; cz2 <= maxZ; cz2++)
+        {
+            for (int cx2 = minX; cx2 <= maxX; cx2++)
+            {
+                if (!_loadedData.TryGetValue(new ChunkCoord(cx2, cz2), out ChunkData tile)
+                    || !tile.IsValid) continue;
+
+                // Edge -> this tile's two corners ON that edge (world coords, straight from
+                // ChunkData's [0]=NW [1]=NE [2]=SE [3]=SW at tile (cx,cz) = (cx,cz)..(cx+1,cz+1)),
+                // and the neighbour tile across it. The neighbour pairing is EdgeHeights' own
+                // (N->+z, E->+x, S->-z, W->-x).
+                //
+                // The pristine fallback is evaluated at THIS tile's own two edge corners, which is
+                // not a shortcut: EdgeHeights keys its out-of-chunk lookup by exactly those world
+                // positions, so a shared edge resolves to the same two corners read from noise
+                // instead of from the neighbour's copies.
+                for (int e = 0; e < 4; e++)
+                {
+                    // Per edge: the two world corners of THIS tile that sit on the edge, the
+                    // neighbour tile across it, and the two Height slots those corners occupy.
+                    // Slots and corners are returned together so the pairing cannot drift — it is the
+                    // one thing a hand-written table gets wrong silently.
+                    var edge = e switch
+                    {
+                        // North: NW,NE -> neighbour +z
+                        0 => (ax: cx2, az: cz2 + 1, bx: cx2 + 1, bz: cz2 + 1, nx: cx2, nz: cz2 + 1, sa: 0, sb: 1),
+                        // East: NE,SE -> neighbour +x
+                        1 => (ax: cx2 + 1, az: cz2 + 1, bx: cx2 + 1, bz: cz2, nx: cx2 + 1, nz: cz2 + 1, sa: 1, sb: 2),
+                        // South: SW,SE -> neighbour -z
+                        2 => (ax: cx2, az: cz2, bx: cx2 + 1, bz: cz2, nx: cx2, nz: cz2, sa: 3, sb: 2),
+                        // West: NW,SW -> neighbour -x
+                        _ => (ax: cx2, az: cz2 + 1, bx: cx2, bz: cz2, nx: cx2 - 1, nz: cz2 + 1, sa: 0, sb: 3),
+                    };
+
+                    float top = Mathf.Max(tile.Heights[edge.sa], tile.Heights[edge.sb]);
+                    float pristine = Mathf.Max(
+                        TerrainNoiseGenerator.GetHeight(Seed, edge.ax, edge.az),
+                        TerrainNoiseGenerator.GetHeight(Seed, edge.bx, edge.bz));
+                    if (top - pristine <= CraterAuditLevelEpsilon) continue;
+                    abovePristine++;
+
+                    // A LOADED neighbour is read from its real corners and can never disagree, so it
+                    // is not a fallback case. Nor is an in-chunk neighbour. Only an unloaded
+                    // out-of-chunk edge resolves to noise — and only there can a band appear.
+                    if (_loadedData.TryGetValue(new ChunkCoord(edge.nx, edge.nz), out ChunkData nbr)
+                        && nbr.IsValid) continue;
+                    if (TerrainChunkCoord.FromTile(new ChunkCoord(cx2, cz2))
+                        == TerrainChunkCoord.FromTile(new ChunkCoord(edge.nx, edge.nz))) continue;
+
+                    bandsAtRim++;
+                    if (top - pristine > tallest) tallest = top - pristine;
+                }
+            }
+        }
+
+        sb.Append("\n     seam  edgesAbovePristine ").Append(abovePristine)
+          .Append("  bandsAtChunkRim ").Append(bandsAtRim)
+          .Append("  tallestBand ").Append(tallest.ToString("0.###")).Append(" m");
+        if (bandsAtRim > 0)
+            sb.Append("  <-- side-wall band(s) the mesh WILL emit at a chunk boundary");
+        else
+            sb.Append("  (no band: nothing is raised against the noise fallback)");
+
+        return bandsAtRim;
+    }
+
+    /// <summary>
+    /// The one-line finding section E contributes to the verdict, or null when E declined to
+    /// classify. Kept separate from the printed table so the verdict cannot drift out of sync with
+    /// the numbers above it — it is computed from the same variables, in the same pass.
+    /// </summary>
+    private static string CraterTerraceVerdict(int levels, int steps, bool uniform, int flatTreads,
+        int tiles, int corners, int carved, int riserEdges, int boundaryEdges, int bandsAtRim,
+        float maxGap, float angle, float stepOffset, float slopeLimit, bool haveThresholds)
+    {
+        if (tiles == 0) return "terraces: no loaded tile in the footprint, ladder not measured";
+
+        // Section B cleared the dig threshold and E found no corner that deviates by it. Those two
+        // read the same corner grid through the same gate, so this is a contradiction, not a result:
+        // it means the walk and the dig are looking at different places. Naming it beats printing a
+        // ladder built from zero corners.
+        if (carved == 0)
+            return "terraces: UNKNOWN — section B found a dig past the threshold but no corner here "
+                + "deviates from pristine by it, so the band and the dig disagree; the replacement "
+                + "number is not zero, it is unmeasured";
+
+        string shape = uniform
+            ? "TERRACED: heights collapse onto " + levels + " level(s) " + steps
+                + " step(s) apart, " + flatTreads + "/" + tiles + " touched tiles flat"
+            : (steps == 0
+                ? "NOT STEPPED: a single level, nothing to terrace"
+                : "NOT STEPPED: " + levels + " levels spread as a continuum, no terrace exists");
+
+        if (haveThresholds && (maxGap > stepOffset + CraterAuditLevelEpsilon || angle > slopeLimit))
+            return shape + " -- and the tallest riser is not traversable as authored (see E)";
+
+        if (riserEdges == 0)
+            return shape + " -- and no lattice edge carries a step, so nothing is drawn as one";
+
+        if (bandsAtRim > 0)
+            return shape + " -- plus " + bandsAtRim + " spurious side-wall band(s) at a chunk boundary";
+
+        return shape;
+    }
+
+    /// <summary>
     /// The VERDICT line. Names the mechanism in the order the evidence supports it, and keeps the
     /// three outcomes distinct: no crater in band / crater present but reaching no sampled node /
     /// crater present and rendered.
     /// </summary>
     private void AppendCraterVerdict(StringBuilder sb, Vector3 focus, float deepestDig,
-        int cx, int cz, float dishSpan, int bandCorners, bool voxel)
+        int cx, int cz, float dishSpan, int bandCorners, bool voxel, string terrace)
     {
         sb.Append("\nVERDICT ");
         if (bandCorners == 0)
@@ -485,6 +847,13 @@ public partial class WorldStreamer
         }
         sb.Append("\n     the dish IS in the data. Whether it reads as displaced material or as");
         sb.Append("\n     sinking neighbours is decided by sections C and D, not by this line.");
+        if (!string.IsNullOrEmpty(terrace))
+        {
+            sb.Append("\n     ").Append(terrace);
+            sb.Append("\n     a stepped shape is a separate property from a deep one: C and D can both");
+            sb.Append("\n     be clean while this line says the carve is a smooth cone. That is the");
+            sb.Append("\n     whole reason section E exists.");
+        }
     }
 
     /// <summary>

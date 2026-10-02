@@ -1,4 +1,79 @@
-﻿## 1f1. Standing torso was a flat slab — depth raised to a volume (both genders)
+﻿## 1f2. F13 section E — is the crater STEPPED at all? (read-only; measures the proposal, changes nothing)
+
+**Status: shipped, NOT play-tested (rule 3 — no build or play-test runs in this project). Strictly
+read-only: no chunk, lattice, mesh, collider, save or deform state is touched, no rebuild, no
+re-stamp, no forced poll. Behaviour change is deliberately NOT in this commit.**
+
+Follow-up to 1in/1io/1iz. The user wants every crater to become a scale-derived low-poly ball-cap
+with a stepped, faceted surface — "facet shell over a low-poly ball-cap, no dish" — with depth and
+step both scaling from the projectile, later hits re-centring on their own collision point and
+carving deeper, and the 1ez rim kept and terraced too. Rule 7 requires the measurement first and the
+fix in a **separate** task, so this commit only adds the lane section that will judge the fix.
+
+### The gap sections A–D could not close
+
+A/B/C/D all describe a *smooth* bowl in detail — deepest dig, radial profile, corner spread above the
+1ew refinement trigger, above-pristine rim count. Every one of them can be clean while the shape is a
+smooth cone, because **none of them asks whether the carve is stepped at all**. "Deep" and "stepped"
+are separate properties, exactly as 1hy's "drawn" is separate from "flush" (rule 7). E asks the
+missing question and prints a verdict line into the same VERDICT block.
+
+### What section E measures
+
+- **The level ladder** — distinct carved corner heights, min/max gap, and a `UNIFORM LADDER` verdict
+  when the gap spread is under `CraterAuditLadderUniform` (0.1 m). Gated on the carve's own premise:
+  with no dig past the threshold it prints `<no crater in band>` and classifies nothing, because a
+  ladder built from untouched terrain is a positive-looking number about nothing.
+- **Flat treads** — fraction of *touched* tiles whose four corners are equal.
+- **Riser and boundary edges** — lattice edges with a step between two carved corners, and edges with
+  one carved endpoint (the sub-step band, i.e. where quantising shrinks the effective radius).
+- **Walkability** — the tallest riser as a collider slope at the 1 m lattice pitch, printed against
+  the **live** `CharacterController.stepOffset` / `slopeLimit`.
+- **Chunk-rim side-wall bands** — how many of the footprint's tile edges sit above the pristine-noise
+  fallback that `ChunkMeshGenerator.EdgeHeights` uses for an unloaded out-of-chunk neighbour.
+
+### Three decisions that are not obvious from the diff
+
+- **Membership and value use different references, on purpose.** Membership is *deviation from
+  pristine* (either direction — the 1ez rim is a raise, and a rim terrace is as much a step as a dish
+  terrace); the value measured is the *raw* height. A carve writes `refY + offset` against ONE
+  reference height, so the pristine slope underneath is overwritten rather than added to and the
+  carved heights are exactly the authored offsets plus a constant — the ladder, directly. Measuring
+  dig-below-pristine as the value (the obvious shortcut) folds the untouched slope back in and
+  reports "CONTINUOUS" for a perfectly quantised carve.
+- **A zero is reported as `UNKNOWN`, never as `0`.** If B clears the dig threshold and E finds no
+  corner deviating by it, the two read the same corner grid through the same gate, so it is a
+  contradiction, not a result: the band and the dig disagree. Per 1i2's retraction, the replacement
+  for a retracted number is *unknown*, not zero.
+- **Thresholds are read, not copied** (rule 8). This project writes `stepOffset = 0.5f` in exactly
+  one place and never assigns `slopeLimit` at all, so a literal copy in the lane would be a second
+  spelling that rots silently.
+
+### Verification
+
+- `tools\StaticChecks.ps1`: **0 candidates**, all 8 checks pass. Check 4 initially flagged the
+  `top` local in the seam walk; that was a genuine false positive (every switch arm assigns it), so
+  the edge table was rewritten as a switch **expression** returning corners, neighbour and Height
+  slots as one value — a check that flags a false positive on the first file it covers is a check
+  whose silence has stopped meaning anything (rule 3).
+- `ChunkData.Size` (1 m), `ChunkData.IsValid`, `TerrainChunkCoord.FromTile` and its `==` operator
+  confirmed by grep against the declaring files before use.
+- **Not compiled** — Unity is the compiler (rule 3).
+
+### Pending play-test items (needs the user in Unity)
+
+1. Press **F13** standing next to an existing crater. Expect `E terraces` with a **CONTINUOUS** verdict
+   and `flatTreads 0/N` — the current carve is a smooth cone, so this is the "before" number.
+2. Press F13 on untouched ground. Expect `<no crater in band: nothing to step>`, not a ladder.
+3. Cast a crater **on a chunk boundary** and read the seam line; expect `bandsAtChunkRim 0` today
+   (a depression never sits above the noise fallback) — that is the number that must stay 0 after the
+   rim becomes terraced.
+4. Report the F13 output verbatim; it is the acceptance readout for 1f3 and the baseline 1f4's facet
+   section is built against.
+
+---
+
+## 1f1. Standing torso was a flat slab — depth raised to a volume (both genders)
 
 **Status: shipped, NOT play-tested (rule 3 — no build or play-test runs in this project). One
 `MakePart` size scalar changed; no mesh, pivot, name, hierarchy or save change.**

@@ -179,6 +179,35 @@
      since-boot figure and reads as one quantity. 1ik is how that 60 ms was traced to the initial
      fill sweep instead of a recurring cost. State each counter's window in its own label, and reset
      per-window peaks on the same cadence as the counters beside them.
+   - **An audit must ask the question the PROPOSAL is about, or the fix ships with no acceptance
+     readout.** Sections A-D of the F13 crater lane measure depth, radial profile, resolution and
+     expressibility; every one of them can read clean on a perfectly **smooth** cone, which is exactly
+     the current shape, so a proposal whose entire point is "now make it *stepped*" had no section
+     that could see it. 1hy already stated the general form ("drawn" and "flush" are separate
+     properties); 1f2 is the second instance, on a different pair - **deep** and **stepped**. So when a
+     request changes one property of a shape, first name every property the existing lane already
+     reports, and ask which of them the request is *not* about. That gap is the new section.
+   - **The same audit must check its own premise before classifying, and report a contradiction as
+     `UNKNOWN`.** 1f2's first draft walked the footprint regardless of whether a crater was there, and
+     would have reported untouched terrain's micro-relief as a `CONTINUOUS` verdict - a
+     positive-looking number about nothing. Two follow-ons from that: (a) **membership and the value
+     measured may legitimately use different references** - the crater lane picks membership by
+     deviation from pristine and measures the raw height, because a carve writes `refY + offset`
+     against ONE reference so the slope is overwritten not added, and measuring dig-below-pristine
+     folds the untouched slope back in and reports a quantised carve as a continuum; (b) when two
+     sections that read the same data through the same gate disagree, the verdict is a contradiction
+     about **where** they disagree, never a number - per 1i2, a retracted number's replacement is
+     *unknown*, not zero.
+   - **A data model that cannot express a shape cannot be coaxed into it by tuning tolerances.** 1f2
+     wanted vertical risers between flat terraces, and the mesh path seemed to offer them
+     (`EdgeIsRaised` / `SideBandCount`). They do not exist: `ChunkData` stores one height per
+     **shared** corner, so adjacent tiles' edge vertices are the same two floats - for tile A to be
+     flat at `h0` and tile B flat at `h1`, those shared corners would have to equal both, so **adjacent
+     flat tiles at different levels are inexpressible** and `EdgeIsRaised` never fires in-chunk. Before
+     sizing a tolerance to make a shape appear, check whether the data can *hold* it; if not, the
+     answer is a data-model change (per-tile tops, the voxel path) or a **separate draw owner** (1f4's
+     cube-sphere facet shell) - not a smaller epsilon. Shared corners are also why the lattice yields
+     a *ramp* and never a *wall*, which is rule 12's "no vertical strip pass" seen from the data side.
 
 8. **A seam invariant is only as good as the arithmetic of the COPY, not the source.** When a value is
    copied out of another structure instead of re-derived (the corner lattice copies a tile's stored

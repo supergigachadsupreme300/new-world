@@ -15,6 +15,99 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1f2 - "make the crater a low-poly ball-cap": the fix is a cube-sphere facet shell, NOT per-tile verticals; and the lane needed a question none of A-D asked (OPEN: awaiting 1f2 play-test output)
+
+The request: every scale-derived crater should read as a low-poly spherical cap at its **actual
+collision point**, with face count and size scaling from the magic, stepped/terraced, re-centring and
+deepening on later hits, keeping the 1ez rim. Chosen representation, in the user's words:
+**"facet shell over a low-poly ball-cap, no dish."**
+
+### Hypothesis 1 — the terrace can be made by writing the low-poly cap's heights onto the lattice and letting the existing mesh draw the risers. REJECTED, and the reason is structural.
+
+The plan was to quantise each carved corner to `refY + step*floor(offset/step)`, giving flat treads
+and step risers, and let `EdgeIsRaised` / `SideBandCount` build the vertical faces. That reads like it
+should work, and it is wrong for a reason that took a second pass to see: **flat treads and vertical
+risers are mutually exclusive on this data model.**
+
+`ChunkData` holds **one height per shared corner** (4 slots, `[0]=NW [1]=NE [2]=SE [3]=SW`, 1 m
+pitch). Two adjacent tiles share an entire edge of two corners, so both tiles' edge vertices are the
+*same two floats*. For tile A's tread to be flat at height `h0` and tile B's to be flat at `h1`, those
+two shared corners would have to equal `h0` for A and `h1` for B — so `h0 == h1`, and if the four
+corners of A are all `h0` and B's are all `h1`, A's shared edge is at `h0` and B's is at `h1` while
+being literally the same two numbers. **Therefore adjacent flat tiles at different levels are not
+expressible, at all**, and `EdgeIsRaised` never fires in-chunk: it is reached only for a seam or
+legacy flat case.
+
+I initially wrote this up as "the side-wall path automatically produces vertical risers" and that was
+flatly incorrect. The correct statement is the opposite: the lattice gives you a *ramp*, never a
+*wall*.
+
+### Hypothesis 2 — give each tile its own top, so the render mesh can draw per-tile flats and verticals. REJECTED as a cost/risk verdict, not a correctness one.
+
+This is the voxel model. It works, and it is the reason the global voxel path exists. But the same
+`ChunkCornerGrid` feeds the render mesh, `BuildDecimatedCollider`, LOD, and the far shell — so per-tile
+tops means a vertical strip pass in the collider, a save-format bump, a new `ChunkValidator`, and the
+per-vertex vertex-count cost that got the global voxel path deprecated in 1ev (~2M tris against
+~405k). Rule 12's "a coarser step is not free" and rule 7's "one owner per claim" both point the same
+way. Rejected: it changes the whole data layer to draw one shape.
+
+### Hypothesis 3 — a separate cube-sphere facet shell owns the surface, the lattice owns the data. CONFIRMED as the design (not yet implemented; 1f4).
+
+Lower-hemisphere cube-sphere, `N = round(radius / step)` per cube edge so facet edge ≈ `step` and
+facet *count* scales with the spell (fireball N=4, Meteor N=5, pickaxe N=2), flat tangent-plane
+facets, and vertical skirts dropped to the exact lattice corner heights so the shell meets the
+terrain it was carved from. The lattice underneath holds the quantised low-poly cap — hence "no
+dish": there is no smooth surface under the shell, the surface *is* the stepped cap.
+
+Two sub-questions this answered cheaply:
+- *Does the shell need to be in the raycast path?* No. `ResolveGroundTarget` already raycasts `~0`
+  with `QueryTriggerInteraction.Ignore`, so a **solid, non-trigger, normal-layer** `MeshCollider` is
+  already hittable. It must NOT carry a `ChunkObject`, or `ResolveGroundTarget` will report it as
+  raised terrain and apply a raised-shape step offset.
+- *Does the shell need a save format?* No, if it is rebuilt from saved heights by flood-filling the
+  connected riser nodes. That keeps rule 8's "one lattice, one owner" and avoids a v2 migration. OPEN:
+  the flood-fill detection is the fragile part and is the first thing 1f4 must prove.
+
+### The measurement question — why the lane needed a new section at all
+
+Sections A–D measure depth, profile, resolution and expressibility. Every one of them can read clean
+on a **perfectly smooth cone**, which is exactly the current shape. None of them asks whether the
+carve is *stepped*, so a proposal whose entire point is "stepped" would have had **no acceptance
+readout** — the 1hy/1i1 class of mistake, where a measurement cannot see the thing it was built to
+judge. Hence section E, and hence the rule-7 sub-decisions inside it:
+
+- **E's own premise is checked first.** With no dig past the threshold it prints
+  `<no crater in band>` and classifies nothing. The first version walked the footprint regardless and
+  would have reported untouched terrain's micro-relief as a `CONTINUOUS` verdict — a
+  positive-looking number about nothing.
+- **Membership and value use different references.** This is the subtle one. Membership = deviation
+  from pristine (either direction: the 1ez rim is a *raise*, and a rim terrace is a step too); value
+  = raw height. A carve writes `refY + offset` against one reference height, so the pristine slope is
+  *overwritten*, not added to, and carved heights are exactly the authored offsets plus a constant —
+  the ladder directly. The obvious shortcut, measuring dig-below-pristine, folds the untouched slope
+  back in and reports CONTINUOUS for a perfectly quantised carve. I hit this bug in the first draft.
+- **A contradiction is `UNKNOWN`, never `0`.** If B clears the threshold and E finds no deviating
+  corner, both read the same grid through the same gate, so they disagree about *where* — a
+  contradiction. 1i2 retracted 2965 and had nothing to put in its place; the rule here is that a
+  retracted number's replacement is *unknown*, not zero.
+- **Thresholds are read, not written.** `stepOffset = 0.5f` is set in exactly one place and
+  `slopeLimit` is never assigned at all, so hardcoding either would be rule 8's second spelling.
+
+### Scope still open
+
+- The plan scopes 1f3 to `TerrainShape.Crater`. `TerrainShape.Projectile` dents, `FlattenAt` and the
+  raised shapes (`Wall`/`Ring`/`Pillar`/`Spikes`) are untouched, and **it is not confirmed** that the
+  user means the projectile dent path should take the new cap too.
+- Quantising to a step **shrinks the effective radius**: the outermost sub-step band rounds to zero.
+  That is inherent to quantisation and must be stated in 1f3 rather than discovered as "the crater
+  got smaller".
+- Terraced tiles are flat, so `ChunkContainsFlatTile` (`WorldStreamer.Deform.cs:443`) can route
+  craters through `FullRebuildChunk`. A cost to measure in 1f3, not a blocker.
+- Props and any lattice query can now disagree with the shell by up to one step (rule 12's
+  "a carve guarantee must be a `Max`" reasoning, applied to what sits on top).
+
+---
+
 ## 1ez - the raised crater rim - VERDICT: shaped by a signed (lip - dish) profile, not two Max'd curves; shipped without any lattice or save change (OPEN: not play-tested)
 
 1in proved the crater reads as a flat cone because `DeformAt`'s crater branch is a monotone

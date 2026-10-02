@@ -153,10 +153,44 @@ numbers describe the frame the key was pressed on.
 
 | Lane section | Measures | What it separates |
 |---|---|---|
-| **A fingerprint** | `(BuildStamp, MeshStep, vertexCount)` buckets across the loaded set | the premise (rule 11) for the other three |
+| **A fingerprint** | `(BuildStamp, MeshStep, vertexCount)` buckets across the loaded set | the premise (rule 11) for the other four |
 | **B resolution** | deepest dished corner, corners spanned, dish radius vs the render path's sampling gap | "drawn" from "smaller than promised" |
 | **C profile** | per-ring min/mean/max dig out to the dish edge | monotone cone from bowl-with-rim |
 | **D expressibility** | corner spread vs the 1ew trigger, corners **above** pristine, adjacent gaps | "not authored" from "authored but coarse" |
+| **E terraces** | level ladder + gap spread over **carved** corners, flat-tread fraction of touched tiles, riser/boundary lattice edges, tallest riser as a collider slope vs the live `CharacterController`, chunk-rim side-wall bands | "deep" from "**stepped**" — A/B/C/D all describe a smooth bowl in detail and none of them can tell it from a terraced one |
+
+Section order is premise-first, not prettiness-first (rule 7): A runs before the shape sections because
+if the resident set was built by two versions of the generator, B–E are evidence about a world that is
+not on screen. E runs last of the shape sections because it is the only one that needs a well-formed
+footprint to mean anything — it reads the carve's own height ladder, which is a null question when
+there is no carve, so **E states its own premise and refuses to classify without it**.
+
+**E's membership and value deliberately use different references.** A carve writes `refY + offset`
+against ONE reference height taken at the impact point, so the pristine slope underneath is
+*overwritten* rather than added to, and the set of carved heights is exactly the set of authored
+offsets plus a constant — the ladder, directly. But E's footprint deliberately reaches half a metre
+past the last dished corner, so it also contains untouched terrain sitting at arbitrary noise heights.
+Measured as raw heights, those would drown the authored levels in a continuum and report
+"CONTINUOUS" for a perfectly quantised carve. So membership is decided by deviation from pristine
+(**either direction** — the 1ez rim is a raise and a rim terrace is as much a step as a dish terrace)
+while the value measured stays the raw height. Every count is over carved corners or touched tiles,
+never the raw band, and the band size is printed beside them. When B clears the dig threshold and E
+finds no corner deviating by it, that is a **contradiction** reported as `UNKNOWN`, never as `0`.
+
+E reads `stepOffset`/`slopeLimit` off the live `CharacterController` rather than against literals
+(rule 8): this project writes `stepOffset = 0.5` in exactly one place and never assigns `slopeLimit`
+at all, so a copy of either number in the lane would be a second spelling that rots silently. The
+tallest riser is quoted as a slope at the 1 m lattice pitch because the collider is built from the
+same lattice with **no vertical strip pass** — the player meets the *shape*, not a wall.
+
+**E is a measurement, not a claim about shipped behaviour.** The carve is still
+`target = current - s * CraterStep` with a smoothstepped cone plus 1ez's lip; nothing is quantised
+yet. E exists so the *proposed* scale-derived terraced ball-cap is measured against the terrain
+actually resident before any of it ships, and so a claim like "it is now stepped" has a number
+attached to it. E's own sub-check for spurious chunk-rim side-wall bands is the same rule-7 shape:
+`EdgeHeights` falls back to pristine noise outside the chunk, so a *raised* rim on a chunk-rim tile
+emits a real slab face that a *depressed* one never does — dormant for a smooth carve, reachable the
+moment the rim gains a terrace.
 
 Section D counts corners *above* pristine to identify the rim directly rather than inferring it from
 the profile, because a rim is a **positive raise**. Until **1ez** the crater profile in
