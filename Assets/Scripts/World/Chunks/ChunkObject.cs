@@ -503,6 +503,8 @@ public class ChunkObject : MonoBehaviour
     /// vertices inside each decimated grid, so the LOD surface is watertight on its own, tracks
     /// deformation, and costs nothing until a far band actually selects it.
     /// </summary>
+    /// <remarks>1f5: <paramref name="step"/> may be 1, not just the 2/3 band strides - a chunk whose
+    /// relief is finer than a decimated cell can hold keeps the full lattice at every band.</remarks>
     public void RefreshLodMeshes()
     {
         if (VoxelMesh)
@@ -540,8 +542,50 @@ public class ChunkObject : MonoBehaviour
         if (corners.Y == null)
             return;
 
-        _lod1Go = BuildLodChild(_lod1Go, ref _lod1Mf, "Lod1", 2, corners);
-        _lod2Go = BuildLodChild(_lod2Go, ref _lod2Mf, "Lod2", 3, corners);
+        // 1f5: a uniform stride silently DROPS relief narrower than its cell - the pre-1ej coupling
+        // one dimension down. ChunkLodManager switches bands at 30 m / 60 m, and a 1f3 crater (reach
+        // ~1.9 m, treads 0.475 m apart) lands inside one or two 2 m / 3 m cells, so Lod1/Lod2 redrew
+        // the excavation as a single smoothed dent and the terrain visibly CHANGED shape as the
+        // player walked away from it. 1f3 did not cause that, it made it legible: a smooth dish
+        // resampled at 2 m still looks like itself, a terraced cone obviously does not. Any chunk
+        // holding sub-cell relief keeps the 1 m lattice at both bands, so a crater is drawn at the
+        // same fidelity the player saw up close. Costs the root mesh's 900 quads for THAT chunk.
+        bool detail = NeedsLodDetail(corners.Y, TerrainChunkCoord.CornerGridSize);
+        _lod1Go = BuildLodChild(_lod1Go, ref _lod1Mf, "Lod1", detail ? 1 : 2, corners);
+        _lod2Go = BuildLodChild(_lod2Go, ref _lod2Mf, "Lod2", detail ? 1 : 3, corners);
+    }
+
+    /// <summary>Discrete-curvature threshold above which a chunk's LOD children keep the full 1 m
+    /// lattice (1f5).</summary>
+    /// <remarks>A locally planar surface has a ZERO discrete Laplacian at any stride, so this measures
+    /// relief rather than scale. The five-octave field's worst-case 1 m Laplacian is A*(kd)^2/4 summed
+    /// over Continental/Hills/Detail/Roughness/PivotAngle - about 0.016 m (TerrainNoiseGenerator's table,
+    /// 1 m spacing). 1f3's terraced crater puts ~0.475 m into a single lattice cell, so the gate sits ~12x
+    /// above the natural floor and ~2.4x below the authored terrace step: untouched ground never refines,
+    /// and every terrace crossing does. A smooth un-terraced dish (curvature ~0.15 m) deliberately does
+    /// NOT refine - looking slightly smoothed at 60 m is what LOD is for.</remarks>
+    private const float LodDetailCurvature = 0.20f;
+
+    /// <summary>True when any lattice node departs from the average of its four 1 m neighbours by more
+    /// than <see cref="LodDetailCurvature"/> - i.e. the chunk holds relief a decimated LOD lattice cannot
+    /// carry.</summary>
+    /// <remarks>Whole-CHUNK, never per-cell. A cell that refined while its neighbour stayed decimated
+    /// would leave the shared edge as a polyline against a straight chord - exactly the T-junction row
+    /// that read as permanent thin lines before 1ej, one dimension down. A uniform stride cannot crack,
+    /// so the whole chunk refines or none of it does.</remarks>
+    private static bool NeedsLodDetail(float[] y, int grid)
+    {
+        for (int gz = 1; gz < grid - 1; gz++)
+        {
+            for (int gx = 1; gx < grid - 1; gx++)
+            {
+                int s = gz * grid + gx;
+                float avg = (y[s - 1] + y[s + 1] + y[s - grid] + y[s + grid]) * 0.25f;
+                if (Mathf.Abs(y[s] - avg) > LodDetailCurvature)
+                    return true;
+            }
+        }
+        return false;
     }
 
     private GameObject BuildLodChild(GameObject child, ref MeshFilter childMf, string name, int step,

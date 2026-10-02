@@ -425,6 +425,42 @@
         itself to `Crater` deliberately. If a raised shape is reported invisible, that is this
         same bug, not a new one â€” and the fix must keep the shapes' `Max(current, target)`
         idempotency intact.
+    - **A LOD band is a THIRD owner of the surface, and it resamples the same lattice the facet step
+      does â€” one dimension down (1f5).** `ChunkLodManager` switches detail at **30 m and 60 m**, and
+      `ChunkObject.BuildLodChild` decimates the 31x31 corner grid to every 2nd/3rd corner. So the
+      `step/âˆš2` test above applies to the LOD stride too, and at a distance that needs no commitment:
+      a 1.9 m-reach crater clears Lod1's 1.41 m worst case by 0.5 m and falls **inside** Lod2's 2.12 m,
+      so backing up while playing silently swaps the surface you are looking at for a resampled one.
+      Four habits, all from 1f5:
+      - **A coarse surface is not a stale one, and the two fixes are opposites.** Rule 11's remedy for a
+        stale mesh is *rebuild*; a decimated mesh is perfectly fresh and rebuilding changes nothing,
+        because the information was never in it. Check whether the value is *wrong* or *absent* before
+        reaching for a refresh. Conversely a carve's staleness guard (`_lodDirty`, `LodDirty`) already
+        existed and worked fine here â€” it was never the bug, and a passing staleness test is not
+        evidence that a surface carries the feature you are looking at.
+      - **A feature change can expose a dormant defect, and then the feature gets blamed.** 1f3 did
+        not create this: pre-1f3 the crater was a smooth cone, and a smooth cone resampled at 2 m
+        still looks like itself. Terraces are the highest-frequency content in the shape and decimation
+        deletes high frequencies first, so 1f3 turned an invisible LOD defect into a reported one. When
+        a shape change produces a "it used to be fine" report, suspect the coupling it made legible
+        rather than the shape â€” and say so in the handoff, or the next reader hunts in the wrong file.
+      - **Fixing this class of thing needs a threshold DERIVED from the generator, not chosen, because
+        there is often no readout.** Rule 7 wants a measurement first; 1f5 had none (the user has no F13
+        key). The gate had to come from `TerrainNoiseGenerator`'s octave table, which is possible
+        because a **discrete Laplacian is exactly zero for any planar surface at any stride** â€” so
+        `NeedsLodDetail` measures relief, not scale. Natural floor â‰ˆ0.016 m over one 1 m cell; the
+        terraced crater â‰ˆ0.24â€“0.95 m; gate 0.20 m. That property is what makes such a gate safe to
+        ship unmeasured, so look for it before reaching for a hand-picked epsilon.
+      - **Adaptive detail is where a resolution bug turns into a GEOMETRY bug, and the cheap version is
+        the wrong one.** Subdividing only the distorting cells leaves each refined cell's shared edge as
+        a polyline against its neighbour's straight chord â€” the T-junction row rule 12 records from the
+        pre-1ej far shell, now with a visible crack instead of thin lines. With no compiler (rule 3)
+        that is not a gamble worth taking, so 1f5 refined **whole-chunk**: a uniform stride has no
+        transitions and therefore cannot crack. Ask which failure you would rather ship before
+        optimising the *scope* of a refinement rather than its *cost*.
+      - `BuildVoxelLodChild` still decimates to 2/3 unconditionally (`VoxelTerrainEnabled` is false by
+        default). Same coupling, still open â€” if a carved voxel chunk looks wrong at distance, that is
+        this bug, not a new one.
     - **The COLLIDER is the ground, and it is a separate decision from the render step (1ex).** The
       player has no ground raycast â€” `CharacterController.Move` sweeps the chunk `MeshCollider`
       directly (`PlayerController.Movement.cs`) â€” so `ChunkColliderDecimation` *is* the surface

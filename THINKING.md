@@ -15,6 +15,89 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1f5 - "the crater was good on first load then it got altered" (VERDICT: fixed by 1f5 as the LOD band stride, NOT the carve)
+
+The report has no distance, no direction and no timing. That is the whole difficulty: "altered" is
+compatible with at least four unrelated mechanisms, and three of them are one-line greps away.
+
+**H1 - the far shell re-owns the surface.** *Initially my leading theory, and it was WRONG.* The far
+cell's corner grid comes from disk save mods with a pristine-noise fallback
+(`WorldStreamer.FarShell.cs:1333`), and 1i3 deliberately prefers the LIVE grid on **boundary corners
+only** - interior nodes stay on disk/noise. A crater is almost all interior, so this looked like a
+strong candidate. **Rejected on arithmetic**: the far shell starts at ring 10 (~300 m) while
+`ChunkLodManager.CullDistance` auto-scales to the render radius (~120 m). Streamed chunks are culled
+before the shell is ever the owner of anything. I had not checked the *distances* when I wrote this
+theory down - the data-source asymmetry is real but it is unreachable at any distance a player can
+stand. (Dead end worth keeping: the asymmetry itself is still true, it just cannot be the report.)
+
+**H2 - a repeated cast re-carved the same spot.** Both QA crater lanes exist and both re-cast: `SpawnTerrainSlabDemo`
+casts one Crater, `SpawnDigLayersDemo` casts 2 at one spot and 4 at another, so a single press of that
+lane digs ~6 CraterSteps into the same two pits, and every cast re-snaps the ladder so the treads MOVE
+between casts. **Rejected as the default**: both `EnableTerrainSlabDemo` and `EnableDigLayersDemo` are
+`false` (`NewWorldTestGround.cs:66,68`), and `RunSafely` is a try/catch, not a re-entry guard - a lane
+runs once per press. Retained as a conditional: if the user has that toggle ticked on, it is a
+sufficient explanation on its own and would need no code change.
+
+**H3 - the near chunk's own mesh resolves out-of-chunk corners from pristine noise.** *True, and still
+true.* `BuildBorderCorners` only fills the border map for tiles present in `_loadedData`
+(`CornerIfLoaded`, `WorldStreamer.Deform.cs:498-510`); when the owner is absent,
+`ChunkMeshGenerator.CornerHeight` substitutes `TerrainNoiseGenerator.GetHeight`. So a rebuild can draw
+a 1 m ring of pristine ground along a chunk seam while the data is correct. **Rejected as the report**:
+it needs a rebuild to land while the neighbour is unloaded, it only affects the seam ring, and the user
+described the crater's shape changing, not its edge. Kept as a separate open item - it is a real
+data/drawn split and F13 is structurally blind to it.
+
+**H4 - saves lose the carve on reload.** **Rejected**: the NaN-stamped corner grid
+(`WorldStreamer.ChunkBuild.cs:202-226`) preserves every saved corner and only regenerates unstamped
+ones; `ApplyHeightEdits`'s `CornerOrBase` falls back to `CurrentHeightOf`, not to pristine, so it cannot
+erase an untouched corner; `ReconcileModifiedBorders` only *requests* neighbour mesh rebuilds and never
+writes a height; and `ChunkValidator` is a read-only logging MonoBehaviour the streamer never calls.
+
+**H5 - the LOD band children.** *Confirmed.* `ChunkLodManager.cs:26-28` switches detail at **30 m and
+60 m**, and `BuildLodChild` decimates the 31x31 corner lattice to every 2nd and every 3rd tile. The
+comparison that matters is rule 12's own - a deform's reach against `step/sqrt(2)`, not `step`:
+
+| surface | lattice | worst node distance | crater (reach 1.9 m) |
+|---|---|---|---|
+| root (<30 m) | 1 m | 0.71 m | terraces intact |
+| Lod1 (30-60 m) | 2 m | 1.41 m | reach barely clears it, treads erased |
+| Lod2 (>60 m) | 3 m | 2.12 m | **reach 1.9 m < 2.12 m** - can vanish |
+
+Back up 30 m while playing, which needs no commitment, and the surface you are looking at silently
+switches to a resampled one. This is the 1hx/1ia coupling one dimension down, and it is the only
+mechanism in the render path that resamples a carve below its own reach.
+
+**The part that made it a *1f3* story rather than an old bug: 1f3 did not cause it, it made it
+legible.** Pre-1f3 the crater was a smooth cone; a smooth cone resampled at 2 m still looks like
+itself, so the defect was invisible. A terraced cone obviously does not - the treads are the highest
+frequency content in the shape, and decimation deletes the highest frequencies first. So 1f3 turned a
+dormant LOD defect into a reported one. Anyone reading 1f3's symptom as "1f3 broke the crater" would be
+wrong about the cause and would go looking in the deform path.
+
+**Sizing the gate, without a measurement.** Rule 7 wants a readout first, and there is none available:
+the user has no F13 key, so F13 section E cannot be pressed or read. A tolerance guessed here would be
+the exact failure 1i1 hit (a gate on the width of its own test, naming a mechanism for noise). So the
+threshold had to come from the generator instead: `TerrainNoiseGenerator`'s five octaves
+(55/22/3.5/0.6/1.5 m at 833/250/83/33/125 m) give a worst-case 1 m discrete Laplacian of about
+**0.016 m**, because a discrete Laplacian is exactly zero for any planar surface at any stride. The
+crater's staircase puts 0.475 m into one cell, so `LodDetailCurvature = 0.20 m` has ~12x clearance over
+noise and ~2.4x under the authored step. A smooth un-terraced dish (~0.15 m) falls below it **on
+purpose**: that is what LOD is for, and chasing it would make every shallow dent refine.
+
+**The trap I walked into and backed out of.** The elegant fix is per-cell: test each LOD cell against
+the bilinear surface of its four corners and subdivide only the ones that distort. It is local, cheap,
+and it is wrong here - a refined cell meets its decimated neighbour along a polyline against a straight
+chord, which is the T-junction row rule 12 records from the pre-1ej far shell ("permanent thin lines").
+With no compiler (rule 3) I was not willing to ship a mesh rewrite whose failure mode is a visible
+crack. Hence whole-chunk refinement: uniform stride, no transition, cannot crack. That is a real cost
+(900 quads instead of 225/100, per carved chunk, only out to the last band) paid for a guarantee.
+
+**Still open.** Nothing here was observed. The user never confirmed a distance, so H5 is the mechanism
+that fits every detail of the report that I could check, not a measured cause. `BuildVoxelLodChild`
+has the identical coupling and is still hard-coded to 2/3.
+
+---
+
 ## 1f3 - the blanket is a CONTINUITY complaint, and continuity has exactly two owners on a 1 m lattice (OPEN: awaiting 1f3 play-test output)
 
 The user's read on the 1f2 world: the crater is a "smoothed out blanket". Before writing code I

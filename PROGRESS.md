@@ -1,4 +1,72 @@
-﻿## 1f3. The crater is a terraced spherical cap, not a smooth cone (behaviour change)
+﻿## 1f5. Lod1/Lod2 silently redrew the crater - a decimated lattice drops relief narrower than its cell
+
+**Status: shipped, NOT play-tested (rule 3 - no build or play-test runs in this project). Render-path
+change: it only affects chunks that already contain sub-cell relief, i.e. chunks someone has carved.**
+
+The user reported: the crater looked right on first load and then "got altered". The far shell, the
+near-chunk border fallback and a repeated cast were each checked and ruled out (see `THINKING.md` 1f5).
+The mechanism that survived is the one nobody had looked at: **the LOD band children**.
+
+### What changed
+
+- **`ChunkObject.RefreshLodMeshes` now picks the stride.** `BuildLodChild` was called with hard-coded
+  strides 2 and 3. It now passes `1` for both when `NeedsLodDetail` says the chunk holds relief finer
+  than a decimated cell can carry, so a carved chunk draws the 1 m lattice at every band.
+- **`NeedsLodDetail(corners.Y, grid)` is a discrete Laplacian**: it flags a chunk when any lattice node
+  departs from the average of its four 1 m neighbours by more than `LodDetailCurvature` = **0.20 m**.
+
+### Why the threshold is derived, not chosen
+
+`NeedsLodDetail` measures relief rather than scale because a locally planar surface has a **zero**
+discrete Laplacian at any stride, so untouched ground scores 0 however far away it is. Both sides of
+the 0.20 m gate come from `TerrainNoiseGenerator`'s octave table:
+
+| | 1 m Laplacian |
+|---|---|
+| five-octave field, worst case over `Continental/Hills/Detail/Roughness/PivotAngle` (`A·(kd)²/4`) | **≈0.016 m** |
+| 1f3's terraced crater wall, 0.475 m of rise inside one lattice cell | **≈0.24–0.95 m** |
+| a smooth *un-terraced* dish (curvature ≈0.15 m) | ≈0.15 m - deliberately **below** the gate |
+
+So the gate sits ~12x above the natural floor and ~2.4x below the authored terrace step. A smooth dish
+that still looks slightly softened at 60 m is what LOD is for; the gate does not chase it.
+
+### The decision that was not available: per-cell refinement
+
+The obvious version subdivides only the distorting cells. **Rejected**: a cell that refines while its
+neighbour stays decimated leaves the shared edge as a polyline against a straight chord - the T-junction
+row this project already fought in the far shell before 1ej, and it reads as permanent thin lines
+rather than as a resolution change. With no compiler available (rule 3) a mesh rewrite that can crack is
+not a gamble worth taking. Refinement is therefore **whole-chunk**, which cannot crack: a uniform stride
+has no transitions. The cost is honest and bounded - a carved chunk keeps the root mesh's 900 quads out
+to the last band instead of 225/100. Untouched chunks are unaffected.
+
+### Verification
+
+- `tools\StaticChecks.ps1`: **0 candidates**, all 8 checks pass. `ChunkObject.cs` was already in `$files`
+  (line 64, added by 1ex), so checks 1, 4 and 7 covered this edit rather than skipping it.
+- Brace balance re-counted by hand on the edited file: 80/80.
+- `BuildLodChild` has exactly one caller (updated); `TerrainChunkCoord.CornerGridSize` was already the
+  lattice stride used at line 615. With `step = 1`, `axis = 31` and the node index runs to 960, which is
+  the last slot of a 31x31 grid - checked, because a stride that misses the chunk rim leaves a seam.
+- **Not compiled** - Unity is the compiler (rule 3). **No measurement was possible**: the user has no
+  F13 key, so the read-only lane that rule 7 asks for on a geometry report could not be run or read. The
+  mechanism was established by reading instead, and the threshold was derived from the octave table so
+  that it does not depend on a readout. skills: none applied - the installed set is DCC-side and the
+  Unity skills target driving a live editor, which rule 3 forbids.
+
+### Pending play-test items (needs the user in Unity)
+
+1. **Restart the session** (rule 11: render-path change, and this one is read off `_merged.Corners`).
+2. Cast a crater, walk **backwards 35 m**, and confirm the crater has **not** changed shape. Repeat at
+   70 m for the Lod2 band. This is the whole bug.
+3. Walk back to it and confirm nothing pops.
+4. Watch the `lod sweep` ms line on the FPS overlay after carving several craters - a carved chunk now
+   builds a 961-vertex child instead of a 256/121-vertex one, on band switch only.
+5. **Untested, recorded as the same class of defect:** `BuildVoxelLodChild` still decimates to 2/3
+   unconditionally, and `VoxelTerrainEnabled` is false by default. Same coupling, one dimension down
+   again; not touched here.
+
+## 1f3. The crater is a terraced spherical cap, not a smooth cone (behaviour change)
 
 **Status: shipped, NOT play-tested (rule 3 — no build or play-test runs in this project). This is a
 behaviour change to the shared deform path: every Crater in the game is affected — projectile dents,

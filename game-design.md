@@ -48,7 +48,8 @@ SW ────────── SE
   so deformation never re-runs a full 900-tile rebuild.
 - LOD children (Lod1/Lod2) decimate the **31x31 corner grid** (a regular axis-aligned sample —
   every 2nd/3rd corner), so far render bands cost ~1/4 / ~1/9 of the full mesh and always meet the
-  neighbour chunk at the shared boundary.
+  neighbour chunk at the shared boundary. **Exception (1f5):** a chunk holding relief finer than a
+  decimated cell (a crater's terraces) keeps the full 1 m stride at both bands — see §2.5.
 - A tile whose 4 corners differ by more than the **refine threshold** (§2.10) renders as a 2x2
   sub-quad grid instead of one quad — same smooth heightfield, but steep slopes split into several
   smaller faces so the corner-grab editor (§3.8) can bite them level by level.
@@ -588,6 +589,20 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   each scan tick instead of only reacting to band *changes*) — deformation never renders a
   pre-excavation hole, and near-band chunks never pay for LOD at all. Physics is untouched (the
   collider lives on the root and rides the full mesh, §2.5 collider-on-demand).
+- **Sub-cell relief keeps the full lattice (1f5):** the strides above are a fixed decimation, and a
+  fixed stride silently **drops any relief narrower than its cell** — the same coupling the facet step
+  has (rule 12), one dimension down. A 1f3 crater (reach ≈1.9 m, treads 0.475 m apart) lands inside
+  one or two 2 m/3 m cells, so `Lod1`/`Lod2` redrew the excavation as a single smoothed dent and the
+  ground visibly **changed shape** as the player crossed 30 m / 60 m and walked back. `ChunkObject`
+  now measures the chunk first: `NeedsLodDetail` flags any lattice node whose height departs from the
+  average of its four 1 m neighbours by more than `LodDetailCurvature` (0.20 m), and a flagged chunk
+  builds **both** children at stride 1. The gate is derived, not chosen — a discrete Laplacian is zero
+  for any planar surface at any stride, and the five-octave field's worst case is ≈0.016 m, so untouched
+  ground never refines while a terraced wall (≈0.24–0.95 m) always does. Refinement is **whole-chunk**,
+  never per cell: a refined cell beside a decimated one leaves the shared edge as a polyline against a
+  chord (the pre-1ej T-junction row), so a carved chunk keeps the root's 900 quads out to the last band
+  and untouched chunks are unaffected. `BuildVoxelLodChild` still decimates unconditionally (§2.9) —
+  same coupling, still open.
 - **Cull invariant (1gh):** the sweep's `EffectiveCullDistance` can never hide a real chunk the
   streamer is the ONLY surface for. It floors at the streamed real-chunk extent —
   `max((Radius+1)*30, (NearRingRadius + 1 + DormantRingDepth)*30)` — because far cells only exist
