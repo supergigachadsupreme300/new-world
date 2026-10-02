@@ -1,4 +1,57 @@
-﻿## 1ez. Raised crater rim (the monotone cone gets its missing positive term)
+﻿## 1f1. Standing torso was a flat slab — depth raised to a volume (both genders)
+
+**Status: shipped, NOT play-tested (rule 3 — no build or play-test runs in this project). One
+`MakePart` size scalar changed; no mesh, pivot, name, hierarchy or save change.**
+
+Follow-up to the 1e2/1e4/1e8 shouldered-torso work: the user reported the whole torso "too
+slab-like/flat". Root cause is a depth scale, not the silhouette tables.
+
+### The bug
+
+Standing `Body` is `size = (0.44, 0.80, 0.25)` (female `0.40`), `MapBuilder.PlayerModels.cs:135`.
+With `dB` peaking at `0.50`, the world half-depth never exceeds `0.50·0.25 = 0.125`, while half-width
+reaches `0.72·0.44 = 0.317` — a **2.4–2.8:1 flat plate**. `dB` only ranges `0.42–0.50`, so the front
+and back faces are nearly parallel and every silhouette bulge in `wB` is width-only. The seated body
+(`0.34, 0.60, 0.28` → ≈1.75:1) is the rounder one, confirming the standing part is the outlier.
+
+Width cannot be reduced to fix it: the shoulder shelf must reach the ±0.28 pivot, i.e.
+`0.68·size.x ≥ 0.28` → `size.x ≥ 0.412`, so width is pinned. Depth is the only free lever.
+
+### What changed
+
+`Assets\Scripts\Models\MapBuilder.PlayerModels.cs:135` — standing `Body` `size.z 0.25 → 0.32`
+(both genders; `size.x`/`size.y` unchanged).
+
+| row | now (half-depth, w:d) | after (half-depth, w:d) |
+|---|---|---|
+| chest t=.625 | .125, 2.54 | .160, **1.98** |
+| hip t=.125 | .125, 2.39 | .160, **1.87** |
+| waist t=.375 | .105, 1.68 | .134, 1.31 |
+| shoulder t=.775 | .110, 2.80 | .141, 2.19 |
+| female chest | .125, 2.30 | .160, **1.80** |
+
+### Why it is safe / scoped
+
+- The part mesh is **size-independent and cached**; `MakePart` applies `localScale` per instance, so
+  only the standing instance changes. Seated has its own `size.z = 0.28` line (`:258`) and `SitTorso`
+  uses the `"SitTorso"`/`"Chest"` tables — untouched.
+- The standing `Body` size is read only at this one `MakePart` call (grep).
+- Clearances re-derived: crown row `0.20·0.32 = .064` still tucks under the neck radius `.075`;
+  female skirt `.15` still laps the bottom cap `.147`; back hair still protrudes; arms/thighs
+  (`.06`/`.07` half-depth) sit inside the torso.
+
+### 1f1-status
+- Implemented; verified by grep + reread (rule 3, no CLI build): the one edited line reads
+  `size.z 0.32`; `wB`/`dB` arrays unchanged (9 entries each); no other consumer of the standing
+  `Body` size; no pivot/joint/name/hierarchy touched. `tools\StaticChecks.ps1` does not cover
+  `MapBuilder.PlayerModels.cs`, so this is grep + reread only. game-design §3.5 + PROGRESS updated
+  same pass (THINKING omitted — trivial arithmetic).
+- Play-test (pending, user runs Unity): standing male + female torso reads as a volume, not a plate;
+  side view chest/hips depth ≈ width; shoulder/hip joint balls still read as caps; arms don't clip the
+  deeper chest while swinging; neck/crown seam intact; female skirt still covers the pelvis; seated/
+  sit visually unchanged.
+
+## 1ez. Raised crater rim (the monotone cone gets its missing positive term)
 
 **Status: shipped, NOT play-tested (rule 3 — no build or play-test runs in this project). One branch of
 `DeformAt` changed; no save format, no version bump, no lattice.**

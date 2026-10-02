@@ -132,7 +132,7 @@ public static partial class MapBuilder
         Color shoeC = race != null ? race.ShoeColor : new Color(0.2f, 0.2f, 0.2f);
         Color dressC = shirtC;
 
-        MakePart("Body", torso.transform, new Vector3(female ? 0.40f : 0.44f, 0.8f, 0.25f), new Vector3(0f, 0.13f, 0f), shirtC, "Body");
+        MakePart("Body", torso.transform, new Vector3(female ? 0.40f : 0.44f, 0.8f, 0.32f), new Vector3(0f, 0.13f, 0f), shirtC, "Body");
         if (female)
         {
             MakePart("Skirt", torso.transform, new Vector3(0.52f, 0.28f, 0.3f), new Vector3(0f, -0.27f, 0f), dressC, "Skirt");

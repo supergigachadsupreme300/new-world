@@ -1287,6 +1287,13 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   `size.x · W`; height still `size.y` exactly). *Historical (see 1e4): the flat plateau read as a
   collar ring / hat brim around the neck base — SUPERSEDED by the 1e4 sloped shoulder-dome + crown
   below; the plateau wording here is kept as history only.*
+- **Fuller torso depth (1f1)**: the standing torso read as a flat slab — standing `Body` was
+  `(0.44, 0.80, 0.25)`, so with `dB ≤ 0.50` the world half-depth never passed `0.125` against a
+  half-width of `0.72·0.44 = 0.317` (**2.4–2.8:1**). Width is pinned by the shoulder reach
+  (`0.68·size.x ≥ 0.28` → `size.x ≥ 0.412`), so the fix is depth: standing `Body` `size.z 0.25 → 0.32`
+  (both genders). Ratios land at ≈1.9 chest/hips and ≈2.2 shoulder (was 2.4–2.8), matching the seated
+  body's ≈1.75. One size scalar only — the mesh is size-independent, so seated/sit are untouched
+  (seated keeps its own `size.z = 0.28`).
 - **Shoulder-dome torso silhouette (1e4, top pulled in 1e8)**: supersedes the 1e2 flat top plateau /
   hat-brim wording. BuildTorso ends at a small CROWN disc (W ≈ 0.20 ≈ the neck radius, world 0.088,
   tucked flush under the neck base) instead of a hat-brim flat cap. The upper bands slope shoulder
