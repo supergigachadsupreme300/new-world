@@ -64,6 +64,34 @@ the familiar's body and its lifetime are one thing to the player ("how long is t
 *mine*"), and splitting them across two ladders produces a charge that grows the body but not the
 duration - which reads as a bug. 17.6s at full charge, ~44 bolts.
 
+**Follow-up (post-`824952f`): I made this ladder `static`, which does not compile.** `ChargeSizeBonus`
+is a public *instance* field, so `public static float SizeScale(float charge) => 1f + charge *
+ChargeSizeBonus;` is CS0120. Both ladders are now instance methods.
+
+What I got wrong was not the static keyword - it was the sentence I wrote next to it: *"It is static
+because it never read instance state."* I asserted a fact about the code while writing the code that
+contradicted it, so the comment was born stale rather than becoming stale. Review could not see it
+either, and here is the mechanism worth generalising:
+
+- Every caller **inside** `SpellCaster` sits in an instance method (`Execute` reads
+  `transform.position`), so unqualified `SizeScale(charge)` resolves and looks correct.
+- `SizeScale` and its only input live on the *same class*, so the declaration reads as self-consistent.
+- `StaticChecks.ps1` reported 0 candidates. Check 4 is CS0165 (unassigned locals), check 5 is cross-case
+  locals, check 7 is depth-0 members. **None of them asks whether a static member reads instance state**,
+  because that is a type question, not a brace/paren/flow question. Rule 3's own warning applies with
+  full force: a green check I have never seen *fail* on this failure mode is not a check.
+
+So the whole class of error is only visible at **class-qualified call sites** - `Type.Member(...)` -
+because that is the one spelling where static-ness is load-bearing, and because the preview was the
+only caller outside the class. Hypothesis I did not run and should have: after adding any `static`
+member, grep for the qualified spelling of that member across the project. One command, and it is the
+only thing that would have caught this.
+
+The fix itself is uninteresting; the tell was not. Second-order note: I also left a play-test item
+saying the charged familiar's "bolt size" should grow, which contradicts H4 three sections below -
+the bolts are deliberately fixed at 1.6 m. The play-test list is prose nobody diffs, and it had
+already inherited the symmetry assumption that H4 rejected on evidence.
+
 ### H4 - the summon's burst radius should scale with the charge. REJECTED after tracing the call sites.
 
 My first instinct was symmetry: the familiar grows 2.2x, so its 1.6 m bolt burst should too. Then I

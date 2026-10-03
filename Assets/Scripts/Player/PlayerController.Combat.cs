@@ -481,17 +481,23 @@ public partial class PlayerController
             var beamCombat = CombatCached;
             var beamHand = MagicHand(beamCombat);
             var beamCam = MainCam;
-            if (beamHand == null || beamCam == null) { HidePathPreview(); return; }
+            var beamCaster = SpellCasterRef;
+            // beamCaster is in this guard because the reach below READS its charge ladder. With no
+            // caster there is no ladder to read, and the alternatives are both worse: inventing a
+            // fallback constant here would be a second spelling of ChargeSizeBonus (rule 8), which is
+            // exactly the defect TryAoeTarget above already papers over with its own 0.8f fallback.
+            // Hiding the preview is the honest answer — it reports nothing rather than a wrong reach.
+            if (beamHand == null || beamCam == null || beamCaster == null) { HidePathPreview(); return; }
 
             Vector3 bpos = beamHand.transform.position;
             Vector3 bfwd = beamCam.transform.position + beamCam.transform.forward * Mathf.Max(armedSpell.Range, 5f) - bpos;
             if (bfwd.sqrMagnitude < 0.0001f) bfwd = beamHand.transform.forward; else bfwd = bfwd.normalized;
 
             // The beam's length is Range * sizeScale (SpellCaster.Channels.cs passes sizeScale as
-            // lengthMult), and sizeScale is the caster's SizeScale ladder. This preview omits the
-            // weapon-stat RadiusMult that the caster also folds in, because it has no stats context
-            // here — the same honest under-report the flight branch documents.
-            float beamReach = armedSpell.Range * SpellCaster.SizeScale(charge);
+            // lengthMult), and sizeScale is the caster's own SizeScale ladder — called, not restated.
+            // This preview omits the weapon-stat RadiusMult that the caster also folds in, because it
+            // has no stats context here — the same honest under-report the flight branch documents.
+            float beamReach = armedSpell.Range * beamCaster.SizeScale(charge);
             PathPreview().Show(bpos + bfwd * 0.5f, bfwd, beamReach,
                 SpellBeam.ConeFullAngleDegrees(armedSpell), SpellLook.Resolve(armedSpell).Core, transform);
             return;

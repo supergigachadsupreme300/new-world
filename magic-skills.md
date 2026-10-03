@@ -17,7 +17,10 @@ Source: `Assets/Scripts/Combat/Skills/SkillCatalog.cs` (base skills) + `SkillCat
 | **Follower upkeep** | 1ir: a **caster-anchored** summon lives for `Duration`, and its lifetime **and** body size both scale on the charge ladder (`SpellCaster.DurationScale`, which is `SizeScale` — charging one fully is meant to buy both a longer stream and a bigger familiar, not one at the cost of the other). A full charge on Continuous Fireball is `2.2×` size / `2.6×` damage for `17.6s`, ≈44 bolts at 0.4s each. Ground-targeted summons are **not** affected: Ember Effigy keeps its 6 s however you charge. |
 | **Storm** | Persistent storm over the ground target: repeated element-styled strikes inside `Radius` for `Duration`, ticking every `TickInterval`. **Sky storms** (`summonFallingRock`, e.g. Meteor Rain / Rockfall) drop a small rock to each strike point; the strike's flash/damage/deform fire when that rock lands. |
 
-Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size; **ProjectileSpeed** = bolt speed (default 20); **Duration** = persistent-zone lifetime (0 = instant); **TickInterval** = seconds between ticks (default 0.5); **ChannelDrainPerSecond** = focus upkeep for Beams (0 = none).
+Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size; **ProjectileSpeed** = bolt speed (default 20); **Duration** = persistent-zone lifetime (0 = instant); **TickInterval** = seconds between ticks (default 0.5); **ChannelDrainPerSecond** = focus upkeep for Beams (0 = none); **BeamHalfAngle** = swept-cone half-angle in degrees for Beams (0 = legacy single-capsule line); **CasterAnchored** = Summon spawns at the caster and follows it; **BoltSplashRadius** = a follower's own burst radius.
+
+`SizeScale`/`DurationScale` (`SpellCaster`) are **instance** methods over the inspector-tunable
+`ChargeSizeBonus` field — do not make them `static`, which is CS0120.
 
 Every terrain shape renders as **smooth feathered terrain**, written as continuous per-corner
 heights and smoothstep-blended at the rim — never flat slabs. Raised caps are sampled **per-corner**

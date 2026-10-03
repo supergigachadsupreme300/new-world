@@ -93,8 +93,38 @@ the ratio and rot.
   handed, so a chargeable projectile setting the field would scale correctly. Changing the summon to
   pass its scale would also widen Ember Effigy's bolts - out of scope, deliberately not done.
 
+### Follow-up commit: `SizeScale`/`DurationScale` cannot be static (CS0120)
+
+Fixed in the commit immediately after `824952f`. The first version declared both ladders
+`public static` while reading `ChargeSizeBonus` — a **public instance field** (`SpellCaster.cs:27`,
+there to stay inspector-tunable) — which is CS0120, "an object reference is required". Unity
+rejected the whole assembly on it.
+
+The instructive half is the comment I wrote *beside* the bug: "It is static because it never read
+instance state", which the very next line contradicts. Rule 8 again — a comment naming a fact about
+the code is a copy of that fact, and it was wrong from the moment it was typed. What made it survive
+review is that the line *looks* legal: `SizeScale` is on the same class as the field, and every
+internal caller sits in an instance method (`Execute` reads `transform.position` at line 49), so
+nothing local to the file reveals the mistake. Only the one **cross-class, class-qualified** caller
+could have — and that call site is the thing that broke.
+
+Fixed by making both **instance** methods (the internal callers needed no change), and by
+correcting the comment to record why they must stay instance rather than re-asserting a falsehood.
+The preview call site (`PlayerController.Combat.cs`) became `beamCaster.SizeScale(charge)` off a
+`SpellCasterRef` it now fetches in the existing guard — deliberately **not** a fallback constant,
+because a fallback here would be a second spelling of `ChargeSizeBonus` (the same defect the
+pre-existing `TryAoeTarget` guard already papers over with its own `0.8f`). With no caster the
+preview hides itself rather than reporting a wrong reach.
+
+**Lesson worth keeping: a class-qualified call (`Type.Member(...)`) is the only place CS0120 on an
+instance member can show up, and it is also the only place the static-ness of a member is *visible at
+all.** Grep for that spelling specifically after writing anything `static` that is in the same class
+as its inputs.
+
 ### Play-test items (user, in Unity)
 
+0. **First: does the project compile at all?** Everything below assumes the CS0120 fix landed; if
+   Unity still reports an error, paste it and the whole sweep repeats rather than this list.
 1. **Flamethrower**: hold to spray. Must read as a 44-degree wedge opening outward (0.84 m mouth -> 2.4 m
    tip), one impact flash per 0.5s tick, and **one** enemy must not take several ticks' worth of damage
    for standing in the wide end. Focus must drain ~11/s and stop cleanly on release or on empty.
@@ -103,8 +133,10 @@ the ratio and rot.
 3. **Continuous Fireball**: cast it and walk away from the cast point - the familiar must come to you,
    sit on the ground (not hover, not sink), and keep firing. The circle must stay under it for the whole
    life, and must sit at your feet rather than on a nearby rooftop when you walk past a building.
-4. **Charged Continuous Fireball**: confirm the body, the bolt size and the lifetime all grow together,
-   and that it ends on its own at ~17.6s rather than running forever.
+4. **Charged Continuous Fireball**: confirm the body and the lifetime both grow together, and that it
+   ends on its own at ~17.6s rather than running forever. **The bolts must NOT grow** — they are the
+   fixed 1.6m burst by design, so bolt size staying put while the body grows is the correct read, not
+   a missing scale.
 5. **Save migration**: with a save that has Comet/Asteroid learned, load it and confirm both are the new
    spells at their old levels, and that `skillLevelsJson` keys came across.
 6. **F4 spell-identity audit**: `172 / 172 / 0` must still hold, and both new ids must appear exactly
