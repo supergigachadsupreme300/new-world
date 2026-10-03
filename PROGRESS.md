@@ -1,4 +1,78 @@
-﻿## 1ip. The player's base weapon is the Mage's Staff, not the Wanderer's Iron Sword
+﻿## 1iq. The aiming cone is the bow's alone - projectile magic and the throwing hammer keep the ray, and the cone is reporting a spread the game does not apply
+
+**Status: shipped, NOT play-tested (rule 3 - no build or play-test runs in this project). Behaviour
+change is visual-only: no damage, spread, range, speed or projectile behaviour was touched. One
+known pre-existing defect was found and deliberately NOT fixed - see "The defect this exposed".**
+
+### What changed
+
+- **The spread cone is drawn only for a drawn flight** (`AmmoItemId != null` - arrows today, i.e.
+  exactly the longbow). Every other projectile delivery now draws the straight trajectory ray alone.
+- **Projectile magic loses the cone** (`PlayerController.UpdatePathPreview` now passes `spreadDeg = 0`
+  instead of `8f * (1f - c)`). Magic's flight reach is **unchanged** - the preview still mirrors
+  `SpellEffect`'s envelope and is deliberately not charge-scaled.
+- **The throwing hammer loses the cone** (same gate, inside `ShowRangedPathPreview`).
+- **The bow keeps its cone**, narrowing with the draw as before.
+- The gate lives in **one place** - inside `ShowRangedPathPreview` - so both preview callers are
+  covered by it: the aim-frame path (`UpdatePathPreview`) and the per-hand dual draw
+  (`PlayerController.Combat.cs:249`). Neither caller gained a private copy of the decision.
+
+### Why `spreadDeg = 0` is the whole mechanism
+
+`ProjectilePathPreview.Apply` derives everything from `narrow = Clamp01(1 - halfAngle / 45°)`, so a
+zero angle is not "hide the cone" by special-casing - it is the existing collapse path taken to its
+end: ring material alpha `Lerp(0.55, 0, 1) = 0`, ring `widthMultiplier = 0`, ray alpha
+`Lerp(0.12, 0.95, 1) = 0.95`. The cone and the trajectory therefore became **two independent claims**
+a caller can ask for separately, rather than one shape whose presence also asserted a spread.
+
+### Two reasons to drop the cone from magic, kept apart
+
+They are not the same statement, so they are not the same edit:
+
+1. **Magic has no spread at all.** Nothing in the spell path ever offsets the fire direction - there
+   is no `insideUnitSphere` anywhere under `Spell*.cs`. The old `8°` fan was drawing outcomes the game
+   does not have; the straight ray is the truthful readout. Aim feedback was not the thing being
+   removed.
+2. **The hammer is thrown, not drawn.** It consumes no ammo and has no draw-accuracy notion.
+
+### The gate is ammo, not a hardcoded id - and the coupling that comes with it
+
+`"longbow"` would be a second spelling of the weapon's identity that rots on a rename (rule 8), so the
+gate reads `AmmoItemId != null` - which also hands a future crossbow the cone with no second edit.
+**Stated cost of that choice:** the gate means "consumes ammo", so a future ammunition firearm would
+inherit a *charge-narrowing* cone it has no mechanic for. If one is ever added this wants a real
+`IsDrawnProjectile` flag on `WeaponData` instead.
+
+### The defect this exposed (reported, not fixed)
+
+**The cone does not describe the shot, for the bow either.** Two separate reasons, both read from the
+code rather than inferred:
+
+- `RangedWeaponBehavior.BeginAttack` applies `ApplySpread(dir, Clamp01(1 / accuracy))` at **every**
+  charge level - `charge` is not in that expression. It scales damage (x2.5), speed (x1.5), lifetime
+  (x2) and reach (x2), but never the spread. The preview's `spread * (1f - c)` claims a tightening
+  the fire path never performs.
+- `AccuracyFromDex` is `0` on **both** ranged weapons: nothing in `WeaponCatalog.Make()` sets it, so
+  `RangedAccuracy = 1 + Dex * 0 = 1` and the cone both *starts* at maximum spread (~8.5°) and
+  narrows to zero, while the fired shot stays at maximum spread forever. Dexterity's documented
+  "ranged accuracy" scaling (`game-design.md` §3.4) is therefore inert for both weapons.
+
+So 1iq scopes a visual that overstates the truth, and scoping it does not make it true. Making it
+true - feed `charge` into the spread, and give the longbow a non-zero `AccuracyFromDex` - is a
+**gameplay** change with real hit-outcome consequences, so it is left as an explicit decision rather
+than done silently under cover of a visual task. This is AGENTS rule 7's "drawn and flush are
+separate properties" one layer out: the cone was the *drawn* claim, and nothing checked the *shot*.
+
+### Play-test items (user, in Unity)
+
+1. Aim the **longbow** and hold: the cone must still be present and must still narrow with the draw.
+2. Aim a **projectile magic spell** (Firebolt/Frostbolt): a straight ray, **no ring fan**, tinted in
+   the spell's resolved colour, clipped at the first solid hit.
+3. Aim the **throwing hammer**: a straight ray, no cone.
+4. Dual per-hand draw must behave the same as the single-weapon aim path (both callers share the gate).
+5. Confirm the ground AoE ring on zone spells is unchanged and still colour-matched.
+
+## 1ip. The player's base weapon is the Mage's Staff, not the Wanderer's Iron Sword
 
 **Status: shipped, NOT play-tested (rule 3 - no build or play-test runs in this project). Data-only
 change: one constant's value. No weapon's stats, model, animation or combo track was touched.**

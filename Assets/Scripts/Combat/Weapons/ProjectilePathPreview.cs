@@ -1,12 +1,24 @@
 using UnityEngine;
 
 /// <summary>
-/// World-space flight-path preview for chargeable projectile weapons (bow pull, throwing-hammer
-/// wind-up) and projectile magic (firebolt/frostbolt). While the player aims, a ribbed cone of
-/// translucent rings fans out from the muzzle, filling the possible flight paths; as the draw/
-/// charge builds, accuracy improves and the cone narrows until it collapses into a thin center
-/// ray marking the exact predicted trajectory. The path clips at the first solid hit so the cone
-/// and ray read as the real impact point.
+/// World-space flight-path preview for drawn projectile weapons (the bow's pull) and for projectile
+/// magic (firebolt/frostbolt). While the player aims, a ribbed cone of translucent rings fans out
+/// from the muzzle, filling the possible flight paths; as the draw/charge builds, the cone narrows
+/// until it collapses into the thin center ray marking the exact predicted trajectory. The path
+/// clips at the first solid hit so the cone and ray read as the real impact point.
+///
+/// <para><b>1iq: the cone and the ray are now separate claims.</b> Passing <c>spreadDeg = 0</c>
+/// collapses every ring to zero width and leaves the ray at full opacity, so a caller can ask for
+/// "where does this go" without also claiming "it could go anywhere in a fan". <b>Only the drawn
+/// flight (a weapon that consumes ammo) asks for the cone</b> - see
+/// <c>PlayerController.UpdatePathPreview</c>, which owns that decision and states why. Projectile
+/// magic and thrown weapons pass 0 and keep the ray, because neither has a spread to draw.
+/// </para>
+///
+/// <para><b>The ray is not a promise about accuracy.</b> It is the trajectory line, clipped to the
+/// first solid hit. Nothing here feeds the spread the projectile is actually fired with, so treat the
+/// cone as an intent readout rather than a guarantee - and note that the narrowing-on-charge is
+/// currently a claim the ranged fire path does not honour.</para>
 ///
 /// Driven by <see cref="PlayerController"/> each aim frame. Pure visual: no colliders and nothing
 /// blocking gameplay. Prefab-free, built from LineRenderer rings on first access.

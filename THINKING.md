@@ -15,6 +15,104 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1iq - the aiming cone belongs to the bow alone (OPEN: awaiting play-test)
+
+**The request was small ("the projectile cone should only apply to bow") and carried a stated reason
+("its the only one need charging to increase accuracy"). That reason turned out to be false, and
+checking it is most of the work. Had I taken the reason as given, I would have shipped a bow-only cone
+that still lies.**
+
+### H1 - the cone and the ray are one shape, so hiding the cone hides the aim aid. REJECTED.
+
+First instinct: dropping the cone from magic/throwing-hammer would leave projectile spells with no aim
+feedback at all, so I nearly gated `HidePathPreview()` for them instead of passing a zero angle. Read
+`ProjectilePathPreview.Apply` before editing: everything derives from
+`narrow = Clamp01(1 - halfAngle / 45°)`, so `halfAngle = 0` is not a special case - it is the existing
+collapse path taken to its end. Rings: alpha `Lerp(0.55,0,1)=0`, width `Lerp(0.06,0,1)=0`. Ray: alpha
+`Lerp(0.12,0.95,1)=0.95`. So `spreadDeg = 0` gives exactly ray-only, and cone/ray become two claims a
+caller can make independently. Confirmed by arithmetic on the code, not by running it (rule 3).
+
+### H2 - "projectile magic" here means spells whose accuracy varies with charge. REJECTED.
+
+The reason I was handed says the cone expresses charge-improved accuracy, so the natural reading was
+"whoever has charge-dependent accuracy". Grepped `insideUnitSphere` under `Spell*.cs`: **zero matches**.
+Nothing in the spell path ever offsets the fire direction. Magic has no spread whatsoever, so the old
+`8° × (1-charge)` fan was drawing outcomes the game does not have. Magic loses the cone because the
+cone is *false* there, not because magic is imprecise.
+
+### H3 - charge improves the shot's accuracy for the bow, as stated. **REJECTED - the premise is wrong.**
+
+Read `RangedWeaponBehavior.BeginAttack` rather than trusting the doc comment on
+`ShowRangedPathPreview`:
+
+```
+float accuracy = 1f + Stats.GetStat(Dexterity) * Data.AccuracyFromDex;
+Vector3 aimed = ApplySpread(dir, Mathf.Clamp01(1f / Mathf.Max(accuracy, 0.01f)));
+```
+
+`charge` is **not in that expression**. `charge` feeds damage (x2.5), speed (x1.5), lifetime (x2) and
+reach (x2) - four scalars - and not the spread. So `spread * (1f - c)` in the preview claims a
+tightening the fire path never performs.
+
+### H4 - so at least the base spread is meaningful and Dexterity tightens it. **REJECTED, and worse.**
+
+`AccuracyFromDex` defaults to `0` (`WeaponData.cs:74`) and grep found only three references total: the
+declaration and two *readers*. `WeaponCatalog.Make()` - the sole builder for both `longbow` and
+`throwing_hammer` - has no parameter for it. So `accuracy = 1 + Dex*0 = 1` and
+`spread = Clamp01(1/1) = 1.0`, i.e. `ApplySpread` adds `Random.insideUnitSphere * 0.15` at **every**
+charge level. The preview's cone starts at `atan(0.15) = 8.53°` (maximum) and narrows to 0° at full
+charge, while the actual shot stays at 8.53°-equivalent scatter forever. Dexterity's documented "ranged
+accuracy" role (`game-design.md` §3.4, `RangedAccuracy = 1 + Dexterity × k_racc`) is **inert**.
+
+Consequence: scoping the cone to the bow does not make the bow's cone true. It is the *same* lie, now
+confined to the one weapon that was supposed to justify it.
+
+### H5 - then fix it here, since I am already in the file. REJECTED - deliberately not done.
+
+Tempting and cheap: pass `charge` into `ApplySpread`, and set a non-zero `AccuracyFromDex` on the
+longbow. Both change real hit outcomes - that is a gameplay change (damage feel, encounter
+difficulty, ranged viability) wearing a visual task's clothes, and the user's request was about *which
+weapon draws a cone*. Doing it silently would also destroy the distinction between "I scoped a readout"
+and "I changed ranged combat", and the second claim would ride along in a commit titled the first.
+Shipped as a **reported finding** instead, with the numbers, in `PROGRESS.md` and `game-design.md`.
+
+This is AGENTS rule 7's "drawn and flush are separate properties" one layer out: the cone was the
+*drawn* claim, and no audit had ever compared it against the *shot*. Also rule 13's "ask what would
+catch the bug if this value were wrong" - the answer here was "nothing", which is why it survived.
+
+### H6 - gate on the weapon id (`id == "longbow"`). REJECTED as a second spelling.
+
+Rule 8: a hardcoded id is a copy of identity that rots on a rename, and this repo has already been
+burned by that (`craterCapR` vs the documented `CraterCapRadius` in 1f3). Instead gated on
+`AmmoItemId != null`, which is *semantic* - "consumes a drawn projectile" - and hands a future crossbow
+the cone with no second edit. **Stated its cost in the comment and in `game-design.md`:** that gate
+means "consumes ammo", so a future ammunition firearm inherits a charge-narrowing cone it has no
+mechanic for. A copy whose failure mode is nameable is fine; an unnameable one is not.
+
+### H7 - the magic branch should also gain charge-scaled reach, since the cone used to shrink. REJECTED.
+
+Mid-edit I "improved" the magic ray's reach by multiplying by `Lerp(1, 2, charge)`, reasoning that the
+old `8° × (1-c)` cone implied charge lengthened flight. Nothing in `SpellEffect` says charge extends
+spell flight, and I had not verified it - so this was rule 8's exact failure (re-deriving another
+component's private formula as a second spelling, then scaling it by a guess). **Caught it on reread of
+my own diff and reverted it before committing.** The preview's job is to mirror what the spell actually
+flies; if charge ever does extend spell flight, that belongs in `SpellEffect` and the preview should
+follow it there.
+
+### Where this landed
+
+`spreadDeg = 0` for magic and for non-ammo ranged; the cone survives for the longbow only, narrowing
+with the draw. Gate in one place (`ShowRangedPathPreview`), so both callers - the aim-frame path and
+the per-hand dual draw at `PlayerController.Combat.cs:249` - inherit it. Also fixed the two class docs
+that named "bow pull, throwing-hammer wind-up" and "projectile magic" as cone consumers (rule 8: a
+comment naming a behaviour you just changed is the most reliable way to ship a stale claim), and the
+adjacent `game-design.md` zone-spell bullet that referred to "the cone above".
+
+Still OPEN: the H3/H4 defect is unfixed by design, and the only way to confirm the visual split is the
+five-item play-test checklist in `PROGRESS.md`.
+
+---
+
 ## 1ip - the player's base weapon: iron sword -> magic staff (OPEN: awaiting play-test)
 
 **A one-line data request, so this section is short. It is here because two of the three things I had

@@ -1919,16 +1919,38 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   trajectory passes through the circle's heart. The pre-cast **path preview** mirrors the exact launch
   (`SpellCaster.FireProjectile` ↔ `PlayerController.UpdatePathPreview` share the same origin math).
 - Zone/vortex spells additionally show a **ground AoE preview** ring that also grows with charge,
-  tinted by the spell's resolved core colour (1ij), matching the cone above so a charge reads in one
-  colour from aim to release.
-- Projectile deliveries (magic **projectile** spells, and ranged draws — regular and per-hand dual) show a
-  **flight-path cone** while charging: a stack of translucent rings from the hand along the aim line that
-  **narrows as the charge builds**, collapsing to a thin centre ray of the exact predicted trajectory at
-  full charge, and clipped at the first solid hit. **Magic previews are tinted by the spell's resolved
-  core colour** (1ij — per-spell, so two spells of one school aim visibly differently); ranged previews
-  are tinted by shot type and spread outward with low accuracy. (`ProjectilePathPreview.cs`,
-  driven by `PlayerController`; hidden on cancel/release/weapon switch.) Ranged weapons with no projectile
-  prefab fire a runtime-generated arrow instead of a hit-scan tracer.
+  tinted by the spell's resolved core colour (1ij), matching the projectile **ray** colour (1iq turned
+  that shared charge readout from a cone into a ray) so a charge reads in one colour from aim to release.
+- Every projectile delivery (magic **projectile** spells, and ranged draws — regular and per-hand dual)
+  shows a **flight-path ray** while charging: a thin centre line from the hand along the aim line, clipped
+  at the first solid hit. **Magic previews are tinted by the spell's resolved core colour** (1ij —
+  per-spell, so two spells of one school aim visibly differently); ranged previews are tinted by shot
+  type. (`ProjectilePathPreview.cs`, driven by `PlayerController`; hidden on cancel/release/weapon
+  switch.) Ranged weapons with no projectile prefab fire a runtime-generated arrow instead of a
+  hit-scan tracer.
+- **1iq: the spread CONE is the drawn flight's alone — only the bow draws it.** A cone claims "your aim
+  is this wide, and holding narrows it", which is a claim about *accuracy*, so it is drawn only by the
+  one weapon whose accuracy is drawn-dependent. Every other projectile delivery gets the ray alone.
+  The gate is `AmmoItemId != null` (arrows today, i.e. exactly the longbow) rather than a hardcoded
+  `"longbow"`, so a future crossbow inherits the cone without a second edit. Two consequences:
+  - **Projectile magic gets no cone because magic has no spread at all** — nothing in the spell path
+    ever offsets the fire direction, so the old `8° × (1 − charge)` fan was drawing outcomes the game
+    does not have. (Its reach is untouched: the preview still mirrors `SpellEffect`'s flight envelope
+    and is deliberately *not* charge-scaled.)
+  - **The throwing hammer gets no cone because it is thrown, not drawn** — it keeps the ray.
+  - Mechanically this is `spreadDeg = 0`, which collapses every ring to zero width and leaves the ray at
+    full opacity, so "cone" and "trajectory" became two independent claims a caller can ask for
+    separately. Note the cone is an **intent** readout, not a guarantee: nothing in
+    `ProjectilePathPreview` feeds the spread the projectile is actually fired with.
+- **Known defect, reported by 1iq and NOT fixed by it:** the bow's cone narrows with charge, but
+  `RangedWeaponBehavior.BeginAttack` applies the same Dexterity spread at *every* charge level —
+  `charge` is not in that expression. And `AccuracyFromDex` is `0` on both ranged weapons (nothing in
+  `WeaponCatalog.Make()` sets it), so `RangedAccuracy = 1 + Dex × 0 = 1` and the cone both *starts* at
+  maximum spread and *narrows to zero* while the fired shot never tightens. The cone is therefore a
+  false promise for the bow too — the same class of lie as rule 7's "drawn and flush are separate
+  properties", one layer out. Making the claim true (feed `charge` into `ApplySpread`, and give the
+  longbow a non-zero `AccuracyFromDex`) is a **gameplay** change and is left as a decision, not done
+  silently.
 
 #### 3.8.3 Per-Spell Visual Identity — `SpellLook` (1ib)
 

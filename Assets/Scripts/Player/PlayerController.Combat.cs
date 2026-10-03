@@ -408,10 +408,34 @@ public partial class PlayerController
     }
 
     /// <summary>
-    /// Show/refresh the projectile flight-path preview each aim frame — a wide cone over the
-    /// possible spread that narrows into a precision ray as the draw/charge builds. Covers the
-    /// bow &amp; throwing hammer (true Dexterity spread) and projectile magic (straight laser,
-    /// shrinking cone is focus feedback).
+    /// Show/refresh the projectile flight-path preview each aim frame.
+    ///
+    /// <para><b>1iq: the CONE is the BOW's alone.</b> The cone is a spread fan - it claims "your aim
+    /// is this wide, and holding narrows it". Only one weapon in the roster earns that claim, so only
+    /// one weapon draws it; everything else gets the straight trajectory ray alone. Two independent
+    /// reasons, and it is worth keeping them apart because they are not the same statement:
+    /// <list type="bullet">
+    /// <item><b>Projectile magic has no spread at all</b> - nothing in the spell path ever offsets the
+    /// fire direction (no <c>insideUnitSphere</c> anywhere under <c>Spell*.cs</c>), so a cone there was
+    /// drawing a fan of outcomes the game does not have. The straight ray is the truthful readout and it
+    /// is kept: aim feedback is not the thing being removed.</item>
+    /// <item><b>The throwing hammer is not drawn</b> - it is thrown, so it gets the ray too.</item>
+    /// </list></para>
+    ///
+    /// <para><b>Spread comes from the drawn flight, not from the weapon being ranged.</b> The gate is
+    /// <c>AmmoItemId != null</c> (arrows today, i.e. exactly the longbow) rather than a hardcoded
+    /// <c>"longbow"</c> string, so a future crossbow inherits the cone without a second edit. The
+    /// coupling to state: that gate means "consumes ammo", so a future ammunition firearm would inherit
+    /// a <i>charge-narrowing</i> cone it has no mechanic for. If one is ever added, this wants a real
+    /// <c>IsDrawnProjectile</c> flag on <see cref="WeaponData"/> instead.</para>
+    ///
+    /// <para><b>Known defect, deliberately NOT fixed here.</b> The cone narrows with charge
+    /// (<c>spread * (1f - c)</c>) but <see cref="RangedWeaponBehavior.BeginAttack"/> applies the same
+    /// Dexterity spread at every charge level - <c>charge</c> is not in that expression. Worse,
+    /// <c>AccuracyFromDex</c> is 0 on both ranged weapons (nothing in <c>Make()</c> sets it), so the
+    /// cone both starts at maximum spread and narrows to zero while the shot never tightens. Scoping
+    /// the visual is what was asked for; making the claim true is a gameplay change and is left as a
+    /// reported finding rather than done silently.</para>
     /// </summary>
     private void UpdatePathPreview(float charge, SpellData armedSpell)
     {
@@ -427,10 +451,12 @@ public partial class PlayerController
             Vector3 fwd = cam.transform.position + cam.transform.forward * Mathf.Max(armedSpell.Range, 5f) - pos;
             if (fwd.sqrMagnitude < 0.0001f) fwd = hand.transform.forward; else fwd = fwd.normalized;
 
-            float c = Mathf.Clamp01(charge);
+            // reach is SpellEffect's flight envelope and is NOT charge-scaled here: this preview
+            // mirrors what the spell actually flies, and re-deriving that ladder here would be a
+            // second spelling of it (rule 8). Only the cone changed in 1iq.
             float reach = Mathf.Max(armedSpell.ProjectileSpeed, 1f) * 4f; // SpellEffect flight envelope
             PathPreview().Show(pos + fwd * 0.5f, fwd, reach,
-                8f * (1f - c), SpellLook.Resolve(armedSpell).Core, transform);
+                0f, SpellLook.Resolve(armedSpell).Core, transform);
             return;
         }
 
@@ -441,23 +467,35 @@ public partial class PlayerController
         ShowRangedPathPreview(ranged, hand2, charge);
     }
 
-    /// <summary>Bounded ranged-weapon preview (regular aim or dual per-hand draw).</summary>
+    /// <summary>
+    /// Bounded ranged-weapon preview (regular aim or dual per-hand draw). 1iq: the spread fan is the
+    /// drawn flight's alone (see <see cref="UpdatePathPreview"/> for why the gate is ammo, and for the
+    /// charge/spread defect this visual currently overstates); every other ranged weapon draws the
+    /// straight ray, and the drawn one's cone still narrows with the draw.
+    /// </summary>
     private void ShowRangedPathPreview(RangedWeaponBehavior ranged, GameObject hand, float charge)
     {
         if (ranged == null) { HidePathPreview(); return; }
-
-        float accuracy = 1f;
-        if (ranged.Stats != null && ranged.Data != null)
-            accuracy = 1f + ranged.Stats.GetStat(WeaponScalingStat.Dexterity) * ranged.Data.AccuracyFromDex;
-        float spread = Mathf.Atan2(0.15f / Mathf.Max(accuracy, 0.01f), 1f) * Mathf.Rad2Deg;
 
         float c = Mathf.Clamp01(charge);
         float speed = ranged.ProjectileSpeed * Mathf.Lerp(1f, 1.5f, c);
         float lifetime = ranged.BaseLifetime * Mathf.Lerp(1f, 2f, c);
         Vector3 origin = ranged.Muzzle != null ? ranged.Muzzle.position
             : hand != null ? hand.transform.position : transform.position;
+
+        // 1iq: cone only for a drawn projectile (consumes ammo). 0f collapses every ring to zero
+        // width in ProjectilePathPreview.Apply and leaves the trajectory ray at full opacity, so the
+        // non-drawn weapons keep their aim readout without gaining a fan they have no spread for.
+        float spread = 0f;
+        if (ranged.Data != null && !string.IsNullOrEmpty(ranged.Data.AmmoItemId)
+            && ranged.Stats != null)
+        {
+            float accuracy = 1f + ranged.Stats.GetStat(WeaponScalingStat.Dexterity) * ranged.Data.AccuracyFromDex;
+            spread = Mathf.Atan2(0.15f / Mathf.Max(accuracy, 0.01f), 1f) * Mathf.Rad2Deg * (1f - c);
+        }
+
         PathPreview().Show(origin, transform.forward, speed * lifetime,
-            spread * (1f - c), DamageNumber.ColorFor(ranged.ShotType), transform);
+            spread, DamageNumber.ColorFor(ranged.ShotType), transform);
     }
 
     private void HidePathPreview()
