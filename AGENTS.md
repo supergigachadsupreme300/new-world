@@ -244,6 +244,18 @@
      a symbol, **grep the new comment for the symbol it names and confirm the declaration exists**, and
      when it cites a doc section, confirm the heading is still where it was. A comment that documents
      a path that is not taken is worse than no comment: the next reader sizes a decision on it.
+   - **A task id is a copy of a fact about the repo's history, and the copy is written LAST — so
+     "grep before you edit" cannot cover it.** 1ip wrote `1io` into four places (the code comment, the
+     `game-design.md` bullet, the `PROGRESS.md` and `THINKING.md` headings) and `1io` is a **real
+     shipped task** (the crater lane's F1 → F13 move); `1im` is taken too. Only a grep of
+     `PROGRESS.md`'s `^## 1..` headings *after* writing them caught it. Three reasons this is worse than
+     a stale symbol name: (a) **nothing in review catches it** — a stale `CraterCapRadius` looks wrong,
+     whereas a stale `1io` looks like an ordinary task reference *precisely because some task called
+     `1io` genuinely exists*; (b) the id is chosen at commit time, i.e. **after every file is edited**,
+     so the pre-edit grep habit structurally cannot see it; (c) the answer lives in the one file a task
+     *adds* to. So: **assign the id by enumerating `PROGRESS.md`'s headings first**, and when a task id
+     has already been pushed out of order (1ip's predecessor shipped as `1il`, between `1ik` and `1im`),
+     leave it and say so in `PROGRESS.md` — rule 1 forbids amending, so renumbering is not on the table.
    - **State which inputs are on different ladders, or the derived number is silently a different
      number at every call site.** 1f3's cap depth is `min(CraterStep, reach)`, and `reach` is
      `radius + feather`, so the clamp that looked necessary (a sphere deeper than its rim radius) is

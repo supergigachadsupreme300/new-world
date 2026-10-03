@@ -38,8 +38,14 @@ public static class WeaponCatalog
         return null;
     }
 
-    /// <summary>Convenience default starter weapon id (Wanderer's Iron Sword).</summary>
-    public const string StarterWeaponId = "iron_sword";
+    /// <summary>
+    /// Convenience default starter weapon id. 1ip: this is the player's base weapon and was the
+    /// Wanderer's Iron Sword; it is now the Mage's Staff, so a fresh character starts on the magic
+    /// path (Arcane damage, <see cref="WeaponCategory.Magic"/> hold and anim) instead of the melee
+    /// one. One id, three readers - the bench spawn, the Character Info cycle fallback, and anything
+    /// that wants "what the player starts holding" - so this stays the only place that says it.
+    /// </summary>
+    public const string StarterWeaponId = "staff";
 
     /// <summary>Base weapon id for the innate bare-fist rigs (not an inventory item).</summary>
     public const string FistWeaponId = "fist";

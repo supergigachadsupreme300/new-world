@@ -1,4 +1,97 @@
-﻿## 1f7. The falling rock was the one spell visual with no per-spell hook - Comet gets an ember tail, Asteroid a swarm
+﻿## 1ip. The player's base weapon is the Mage's Staff, not the Wanderer's Iron Sword
+
+**Status: shipped, NOT play-tested (rule 3 - no build or play-test runs in this project). Data-only
+change: one constant's value. No weapon's stats, model, animation or combo track was touched.**
+
+### What changed
+
+- **`WeaponCatalog.StarterWeaponId` is now `"staff"`** (was `"iron_sword"`). That single constant is the
+  only place that decides what the player starts holding.
+- **The Iron Sword is untouched** and stays in the 15-weapon roster as an ordinary equippable: same
+  stats, same `BuildIronSword` model, same 4-clip combo def. Only what gets *equipped at boot* moved.
+- The constant's doc comment was rewritten. It used to read "Convenience default starter weapon id
+  (Wanderer's Iron Sword)" - a comment that *named* the value, so leaving it would have shipped a stale
+  claim in the same edit that invalidated it.
+
+### Why this is one line and not a feature
+
+The staff was already fully wired for a `WeaponCategory.Magic` weapon, so nothing new was needed:
+`WeaponModelBuilder.BuildStaff` (dispatched at `WeaponModelBuilder.cs:368`), a **staff-specific** hold
+pose in `WeaponRigBuilder.DrawPoseFor`'s Magic branch (`:293-300`, the `weapon.id == "staff"` sub-case),
+a `WeaponAnimDef` with `K_Staff` (`WeaponAnimator.cs:274`), and
+`WeaponDatabase.cs:27` -> `MagicWeaponBehavior`.
+
+### The two readers, and why I checked them
+
+`StarterWeaponId` is consumed in exactly two places, both data-driven:
+
+1. **`NewWorldTestGround.SpawnAllWeapons`** (`:910`) - finds it and `WeaponRigBuilder.EquipInto`s it,
+   then sheathes it. The bench and the legacy world both boot this way now.
+2. **`CharacterInfoUI.CycleWeapon`** (`:365-366`) - inserts the starter at index 0 when the owned list
+   is empty or lacks it, so the cycle-weapon fallback has something to land on.
+
+### What I verified beyond the id (the real risk was category, not value)
+
+A Melee -> Magic swap moves the player into different branches of several category switches, so I
+looked for code that *assumes the starter is melee* rather than for the string:
+
+- `CombatController.BothHandsMagic` requires **both** hands loaded; one staff is single-wield, which is
+  the same loading state the sword was in. Unchanged.
+- `PlayerController.IsMelee` / `IsMagic` and `MagicWheelUI`'s gate read the **equipped** rig's
+  category, not the starter id. They now answer differently - that is the point.
+
+### Verification (grep + reread, no build)
+
+- Grepped `iron_sword` across `Assets\Scripts` (8 hits, 4 files) and confirmed only
+  `StarterWeaponId` decides the starting weapon; the rest are the sword's own roster entry, its model
+  builder + dispatch, its anim defs, and one unrelated doc-comment example in `RecipeData.cs:13`.
+- Grepped `StarterWeaponId` (4 hits) and read both call sites in full.
+- Grepped `WeaponCategory.Magic` / `.Melee` (32 hits) and read every site that could branch on the
+  starter's category: `CombatController.cs:177,199-200,211,328`,
+  `PlayerController.Combat.cs:165,213,228,489`, `MagicWheelUI.cs:255`,
+  `WeaponRigBuilder.cs:293,308,449,552,574`, `WeaponDatabase.cs:25,27`.
+- `tools\StaticChecks.ps1`: **0 candidates**, all 8 checks pass (ran it anyway - the changed file is not
+  in `$files`, but a green run costs nothing and this is a boot-time data path).
+- Reread the edited region for declaration order (rule 3: review is not compilation). The edit is one
+  `const` initializer plus a doc comment - nothing that can fail definite assignment.
+- skills: none applied - the artifact is a one-constant C# edit reviewed by a human; the installed set
+  is DCC-side (Blender/Maya/ZBrush/Unreal) and the Unity skills target driving a live editor over MCP,
+  which rule 3 forbids. Stated per rule 15's "silence is not a verdict".
+
+### Deviations, stated
+
+1. **Task id is 1ip, and it was nearly not.** I first wrote this task as `1io` in the code comment, the
+   `game-design.md` bullet and this entry — and `1io` is a **real shipped task** ("Crater/deform audit
+   lane moved F1 -> F13"). `1im` is also taken (the WeaponAnimator drift task). Caught by grepping
+   `PROGRESS.md`'s `^## 1..` headings after the edits rather than before them, which is the order that
+   let it through. All four mentions are now `1ip`. **Rule 8's "a comment that names an identifier is
+   a copy of it" applies to a task id too** — and the copy is written *after* the fact here, so nothing
+   in the code review would have caught it.
+2. **The previous task (Deep Freeze) shipped as `1il`**, which is genuinely free but sits out of order
+   between `1ik` and `1im`. It is already pushed, and rule 1 forbids amending, so it stays as-is rather
+   than being renumbered. Noted here so the next reader is not confused by the sequence.
+3. **This is a gameplay-visible consequence the user should confirm, not something I decided:** a fresh
+   character now has the **magic wheel available at boot** (`MagicWheelUI.cs:255` gates on the equipped
+   category), and every spell is scaled by the staff's `MagicDamageMult` 1.2 / `CastTimeMod` 1.0 /
+   `CooldownMod` 1.0. That follows from the swap rather than being authored.
+
+### Pending play-test items (needs the user in Unity)
+
+1. **Boot the game** - the staff must be in the right hand, and (casual mode at boot, per the 1cr rule)
+   **sheathed onto the body**, not floating in the hand.
+2. **Draw it** (enter combat) - the staff's forward-lean + cant hold must read correctly in the hand.
+   This pose was authored against the bench rack where it was already drawn; the *sheathed* staff pose
+   is a separate question nobody has looked at.
+3. **Cast a spell** - it must route through `MagicWeaponBehavior` and hit with Arcane damage, drawing
+   FP. Confirm the staff's 1.2x magic-damage multiplier is what you want on the base weapon.
+4. **Magic wheel** - confirm it is available from a fresh boot (this is a consequence of the swap).
+5. **Cycle Weapon in Character Info** - with an empty inventory the fallback must land on the staff,
+   not the sword.
+6. **Iron Sword still works** - equip it from the bench rack: model, 4-clip combo and stats unchanged.
+7. **No save migration is claimed.** If a save already recorded the iron_sword as equipped, that save
+   keeps its sword; this changes what a *fresh* character is handed, and I did not touch any save path.
+
+## 1f7. The falling rock was the one spell visual with no per-spell hook - Comet gets an ember tail, Asteroid a swarm
 
 **Status: shipped, NOT play-tested (rule 3 - no build or play-test runs in this project). Purely a
 visual-identity change: no delivery, no damage, no timing and no deform value was touched.**

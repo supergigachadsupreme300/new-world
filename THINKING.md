@@ -15,6 +15,109 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1ip - the player's base weapon: iron sword -> magic staff (OPEN: awaiting play-test)
+
+**A one-line data request, so this section is short. It is here because two of the three things I had
+to check are the kind that are invisible in the diff.**
+
+### H1 - "the player's base weapon" is one place in the code. CONFIRMED.
+
+Grepped `iron_sword` across `Assets\Scripts`: 8 hits in 4 files, but only **one** of them decides what
+the player starts holding:
+
+- `WeaponCatalog.cs:42` - `public const string StarterWeaponId = "iron_sword"` <- the decision
+- `WeaponCatalog.cs:85-86` - the `iron_sword` roster entry itself (keep it; the sword stays equippable)
+- `WeaponModelBuilder.cs:42,358` - `BuildIronSword` + the model dispatch `case "iron_sword"`
+- `WeaponAnimator.cs:149,165` - the sword's pose key and 4-clip combo def
+- `RecipeData.cs:13` - an unrelated doc-comment example string (`craft_iron_sword`), not a reference
+
+So the change is `StarterWeaponId`, not the roster entry. Changing the sword's *stats* would have been
+a different (wrong) task; changing the id changes only what gets equipped at boot.
+
+### H2 - three readers, and I should not miss one. CONFIRMED, and the "miss one" risk was real.
+
+`StarterWeaponId` is read in exactly two places, both found:
+
+1. `NewWorldTestGround.cs:910` - `SpawnAllWeapons` finds it and `WeaponRigBuilder.EquipInto`s it, then
+   sheaths it (`pc.ReApplyWeaponPose(instant: true)`).
+2. `CharacterInfoUI.Equipment.cs:365-366` - `CycleWeapon`'s fallback: if the owned list is empty or does
+   not contain the starter, it **inserts the starter at index 0** so the cycle has something to land on.
+
+Both resolve through `WeaponCatalog.Find(id)`, so both are data-driven and neither hardcodes a category.
+The doc comment on the old constant also named the weapon in prose ("Wanderer's Iron Sword"), so it was
+a third place in the same sense rule 8 is about - a comment that names an identifier and rots when the
+identifier changes. Rewrote it to say what the id *is* rather than repeat its current value.
+
+### H3 - the staff is fully wired, so this is a data swap and not a feature. CONFIRMED.
+
+Before assuming `"staff"` is a drop-in, checked the four things a Magic-category weapon needs that a
+Melee one does not:
+
+- **Model**: `WeaponModelBuilder.cs:368` - `case "staff": return BuildStaff(parent)`. Exists.
+- **Hold pose**: `WeaponRigBuilder.cs:293-300` - the `WeaponCategory.Magic` branch, with a
+  **staff-specific** sub-case (`weapon.id == "staff"`) that applies the sword-like yaw + roll. Exists.
+- **Animation**: `WeaponAnimator.cs:274` - `"staff"` has a `WeaponAnimDef` with `K_Staff`. Exists.
+- **Behavior**: `WeaponDatabase.cs:27` - `WeaponCategory.Magic -> MagicWeaponBehavior`, which routes
+  to the spell pipeline and applies the weapon's magic mods. Exists.
+
+All four present, so no new code was needed and the change cannot regress the draw.
+
+### H4 - does anything assume the starter is MELEE? REJECTED - it does not, and this was the real risk.
+
+A starter-weapon swap from a Melee to a Magic category changes which branch of several switches the
+player lands in, so I looked for "melee-assuming" code rather than for the id:
+
+- `CombatController.cs:197-200` - `BothHandsMagic` requires **both** hands to hold magic weapons.
+  With one staff equipped the loadout is single-wield, so this is false - but that is the *same* loading
+  state the sword was in (one hand), so nothing changed. Confirmed rather than assumed.
+- `CombatController.cs:211` - `PerHandScheme` is `HasLoadedDual && !BothHandsMagic`, also gated on both
+  hands being loaded. Unchanged.
+- `PlayerController.Combat.cs:165,489` - `IsMelee`/`IsMagic` are per-weapon queries on the **equipped**
+  rig, not on the starter id. They will now answer differently, which is the intended consequence.
+- `MagicWheelUI.cs:255` - gates on the equipped category, so the magic wheel becomes available on a
+  fresh character. That is a *feature unlock from the swap*, and it is the main thing to play-test.
+
+Nothing keys off "the starter is melee". Verdict: the swap is safe, and the interesting consequences
+are gameplay ones (spell scaling, wheel availability), not crashes.
+
+### What this task is NOT
+
+- Not a nerf/buff to the sword - `iron_sword`'s own stats, model, anim and combo def are untouched and
+  it stays in the roster.
+- Not a respec of `WeaponCategory` defaults - `WeaponData.Category` still defaults to `Melee`
+  (`WeaponData.cs:47`), which is correct for hand-authored assets.
+- Not verified in play. Rule 3: no build, no CLI, no Unity run. Everything above is grep + reread.
+
+### H5 - my own task id collided with a shipped one. CONFIRMED (by the check that came too late).
+
+I wrote `1io` into four places — the code comment, the `game-design.md` bullet, and the `PROGRESS.md` /
+`THINKING.md` headings — and **`1io` is a real shipped task**: "Crater/deform audit lane moved F1 -> F13
++ StaticChecks check 8". `1im` is also taken (the WeaponAnimator drift task). I only found it by
+grepping `PROGRESS.md`'s `^## 1..` headings **after** writing all four, not before.
+
+The habit this is an instance of: **a task id is a copy of a fact about the repo's history, and the copy
+rots exactly like a symbol name does** (rule 8's third bullet). Two things make it worse than a symbol:
+
+- **Nothing in code review catches it.** A stale `CraterCapRadius` in a comment looks wrong; a stale
+  `1io` looks like any other task reference, because *some* task called `1io` genuinely exists. The
+  error is invisible precisely when the id is a real one.
+- **The copy is written after the work, so "grep before you edit" does not cover it.** The id is
+  chosen at commit time, which is *after* every file has been edited. So the check has to be
+  "enumerate the ids in use, then assign" — and the enumeration is over `PROGRESS.md`'s headings, which
+  is the one file a task adds to and therefore the one that can answer the question.
+
+Renumbered to `1ip` everywhere. The Deep Freeze commit before it went out as `1il`, which is free but
+out of order; rule 1 forbids amending a pushed commit, so that one stays and is noted in its place.
+
+### Open
+
+- Does the staff's forward-lean hold read correctly both stowed on the back and drawn? It was authored
+  for the bench rack, where it was drawn, but the *sheathed* staff pose is a different question.
+- Is the magic wheel's availability at boot intended? It follows from the swap; it is a consequence
+  the user should confirm rather than something I decided.
+
+---
+
 ## 1f7 - the falling rock was the last spell visual with no per-spell hook (OPEN: awaiting play-test)
 
 **This one started from a design request, not a bug report**, so there is no measurement lane and
