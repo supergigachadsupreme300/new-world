@@ -10,10 +10,11 @@ Source: `Assets/Scripts/Combat/Skills/SkillCatalog.cs` (base skills) + `SkillCat
 |---|---|
 | **Instant** | No travel. If `SelfBuff` is set -> applies a timed buff to the caster (e.g. Wind Walk flight for `Duration`s). If `Heals` is set -> instant holy-touch heal on the caster. Otherwise a straight hitscan raycast up to `Range`, damaging the first target hit. |
 | **Projectile** | Casts a bolt that flies along the aim at `ProjectileSpeed` up to `Range`; explodes/damages within `Radius` (explosion or direct hit). Applies status/knockback on contact. **Every projectile dents the terrain where it strikes** (`SpellEffect.ResolveProjectileImpact`): Earth craters (TerrainShape) are spell-scaled, every other magic bolt leaves a small ~1.4 m impact dent. |
-| **Zone** | Ground-targeted AoE at aim point. Instant burst if `Duration`=0, else a persistent `SpellZone` that ticks damage every `TickInterval` for `Duration`. Earth school applies its `TerrainShape` (Crater / Ring / Spikes / Wall / Pillar, §3.8) first. `Heals` is set -> also mends allies inside. **Sky spells** (`summonFallingRock`, e.g. Meteor / Asteroid / Earth Meteor) defer the burst ~0.6-0.8s: a rock formation summons high above, falls, and damage/knockback/terrain resolve when it lands (which formation is the spell's SkyRock axis). |
+| **Zone** | Ground-targeted AoE at aim point. Instant burst if `Duration`=0, else a persistent `SpellZone` that ticks damage every `TickInterval` for `Duration`. Earth school applies its `TerrainShape` (Crater / Ring / Spikes / Wall / Pillar, §3.8) first. `Heals` is set -> also mends allies inside. **Sky spells** (`summonFallingRock`, e.g. Fire Meteor / Earth Meteor) defer the burst ~0.6-0.8s: a rock formation summons high above, falls, and damage/knockback/terrain resolve when it lands (which formation is the spell's SkyRock axis). 1ir: four spells in this family — the meteor-line Asteroid left it, becoming a `CasterAnchored` following familiar instead. |
 | **Vortex** | Ground-targeted funnel. The Great Tornado (`magic_tornado`) = old environmental Tornado behavior (tall drifting funnel, physics drag/pull). All other Vortex spells = persistent `SpellZone` that ticks damage and drags enemies toward the center. Lifetime = `Duration` (or 5s). |
-| **Beam** | Channeled beam while the sustain input is held and focus upkeep (`ChannelDrainPerSecond`) is affordable. Ticks damage along the line; charge widens it and boosts tick power. Fades on release or when focus runs dry. |
-| **Summon** | Spawns a persistent object at the ground target. Damage summons = turret firing (projectile) at nearest foe; `Heals` summons = persistent heal aura. |
+| **Beam** | Channeled beam while the sustain input is held and focus upkeep (`ChannelDrainPerSecond`) is affordable. Ticks damage along the line; charge widens it and boosts tick power. Fades on release or when focus runs dry. **`BeamHalfAngle` > 0 (1ir) makes it a CONE, not a line**: the sweep becomes `ConeRays` (7) rays across `±BeamHalfAngle` and `ConeSegments` (2) capsule segments each, opening outward from a mouth at 0.35× the tip radius to the full `Width`; one shared impact flash per tick, and each target root is damaged once per tick however many segments touch it. **0 (the default) is the original single-capsule beam, untouched** — the axis is opt-in, so all ten earlier beams are byte-identical. |
+| **Summon** | Spawns a persistent object at the ground target. Damage summons = turret firing (projectile) at nearest foe; `Heals` summons = persistent heal aura. **`CasterAnchored` (1ir) spawns it on the caster instead** and makes it follow: each frame it re-samples the **nearest** ground beneath the caster (skipping their own colliders, so it does not snap to their head) and carries a persistent circle at its targeting `Radius` while it lives. It tracks XZ outright — no wall avoidance, so it clips through walls with you. |
+| **Follower upkeep** | 1ir: a **caster-anchored** summon lives for `Duration`, and its lifetime **and** body size both scale on the charge ladder (`SpellCaster.DurationScale`, which is `SizeScale` — charging one fully is meant to buy both a longer stream and a bigger familiar, not one at the cost of the other). A full charge on Continuous Fireball is `2.2×` size / `2.6×` damage for `17.6s`, ≈44 bolts at 0.4s each. Ground-targeted summons are **not** affected: Ember Effigy keeps its 6 s however you charge. |
 | **Storm** | Persistent storm over the ground target: repeated element-styled strikes inside `Radius` for `Duration`, ticking every `TickInterval`. **Sky storms** (`summonFallingRock`, e.g. Meteor Rain / Rockfall) drop a small rock to each strike point; the strike's flash/damage/deform fire when that rock lands. |
 
 Delivery fields: **Range** = max reach/travel; **Radius** = zone/explosion size; **ProjectileSpeed** = bolt speed (default 20); **Duration** = persistent-zone lifetime (0 = instant); **TickInterval** = seconds between ticks (default 0.5); **ChannelDrainPerSecond** = focus upkeep for Beams (0 = none).
@@ -47,7 +48,6 @@ Every spell that uses the **Projectile** delivery has a `projectileShape:` visua
 | **Blade** | Flat translucent cross-blade (alpha ~0.4) that spins in-plane with a shimmer envelope | Wind Blade, Razor Blade, Wind Scissor, Laceration |
 | **Splash** | Rolling surge with a splash envelope that soaks on contact | Tidal Surge |
 | **Comet** | Streaking fire with a trailing ember tail | Scorch, Burn, Frost Bite |
-| **Ember Streak** | 1f7: stretched bright head + a long tapering ember tail (six cubes, shrinking and darkening to the rear), ~2.0 m against Comet's ~0.85 m. Authored via `look: shape:`, never `projectileShape:`, because it is display-only | Comet |
 | **Missile** | Small dart with a soft halo; **homing** - re-evaluates its trajectory every frame and prioritizes the target that ends up on the flight path, bending to chase it | Arcane Missiles, Chill Soul |
 | **Dart** | Sleek single dart, thin and fast | physical shots (Archer Wind Shot, Taoist Talisman) |
 
@@ -60,9 +60,20 @@ A `summonFallingRock` spell's rock comes from the spell's own resolved look, not
 | Style | Body | Spells |
 | --- | --- | --- |
 | `Boulder` | one ragged rock (core + 4 ridges) | Fire Meteor, Meteor Rain, Earth Meteor, Rockfall |
-| `Swarm` | a smaller lead rock on the aim point + a flat fan of six around it | Fire Asteroid |
+| `Swarm` | 1f7: a smaller lead rock on the aim point + a flat fan of six around it | **removed in 1ir** (its last user, Fire Asteroid, became Continuous Fireball) |
 
-The style is authored through `look: skyRock:`. Its `scale` is always the spell's **blast radius** — the style only decides how that radius is spent. The fan is flat (X/Z only) because the whole formation lands at one ground height, so vertical scatter would leave outer rocks floating on a slope.
+The style is authored through `look: skyRock:`. Its `scale` is always the spell's **blast radius** — the style only decides how that radius is spent. The fan is flat (X/Z only) because the whole formation lands at one ground height, so vertical scatter would leave outer rocks floating on a slope. Every shipped spell resolves this axis to `Boulder` again as of 1ir.
+
+### Beam widths (1ir)
+
+`BeamHalfAngle` is the half-angle of the swept wedge in degrees, so the full angle the player sees is **twice** it:
+
+| Spell | `BeamHalfAngle` | Full angle | Why |
+| --- | --- | --- | --- |
+| Flamethrower | 22 | 44° | the broad jet — opens from 0.84 m at the mouth to 2.4 m at the tip |
+| Searing Ray | 5.625 | 11.25° | the narrow line of fire, deliberately four times tighter than the Flamethrower so two Fire beams are distinguishable by shape alone |
+
+All ten earlier beams leave `BeamHalfAngle` at 0 and keep the original single-capsule line.
 
 ## Base skills (roots)
 
@@ -148,9 +159,9 @@ The style is authored through `look: skyRock:`. Its `scale` is always the spell'
 
 - **Meteor** (`magic_fireball_meteor`) - Active (Fire) - power 30, FP 22, cd 6s, radius 3, knockback 2, falls-a-boulder | A burning meteor falls from the sky, scattering the blast.
   - **Meteor Rain** (`magic_fireball_meteor_rain`) - Active (Fire) - power 36, FP 26, cd 8s, range 10, radius 3.6, dur 3.5s, rocks-per-strike, falls-a-boulder | A storm of falling meteors that bombards the area.
-  - **Comet** (`magic_fireball_meteor_comet`) - Active (Fire) - power 34, FP 24, cd 6s, shape:EmberStreak (long ember tail) | A swift streak of burning light.
+  - **Flamethrower** (`magic_fireball_meteor_flamethrower`) - Active (Fire) - power 36, FP 26, cd 6s, range 11, tip radius 2.4, channel, Burn, knockback 1.5, drains 11 FP/s | A sustained jet of fire that washes over everything in a widening cone.
   - **Impact** (`magic_fireball_meteor_impact`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
-  - **Asteroid** (`magic_fireball_meteor_astroid`) - Active (Fire) - power 40, FP 30, cd 9s, radius 4, knockback 3, falls-a-swarm | A colossal mass of burning rock that levels everything it lands on.
+  - **Continuous Fireball** (`magic_fireball_meteor_continuous`) - Active (Fire) - power 36, FP 28, cd 8s, radius 5, follows caster, dur 8s, Burn, bolt splash 1.6 | A bound flame that follows you, spitting molten bolts at everything it can reach.
   - **Ember Effigy** (`magic_fireball_meteor_ember`) - Active (Fire) - power 30, FP 20, cd 6s, range 8, radius 6, dur 6s, Burn | Summon a burning effigy that hurls embers at nearby foes.
 - **Inferno** (`magic_fireball_inferno`) - Active (Fire) - power 32, FP 24, cd 7s, radius 3.4, dur 3.5s, Burn | An expanding ring of fire that lingers, scorching all it touches.
   - **Conflagration** (`magic_fireball_inferno_conflagration`) - Active (Fire) - power 38, FP 28, cd 8s, range 7, radius 2.6, dur 3s, Burn | A blazing whirl of fire that drags foes in and burns them alive.

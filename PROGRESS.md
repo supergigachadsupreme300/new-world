@@ -1,4 +1,121 @@
-﻿## 1iq. The aiming cone is the bow's alone - projectile magic and the throwing hammer keep the ray, and the cone is reporting a spread the game does not apply
+﻿## 1ir. The meteor line stops being two single-shot rocks: Flamethrower is a 44-degree cone on a channel, Continuous Fireball is a familiar that follows you
+
+**Status: shipped, NOT play-tested (rule 3 - no build or play-test runs in this project). Real
+gameplay change: two spells removed, two added, three new mechanics (swept-cone Beam, caster-anchored
+Summon, charge-scaled summon lifetime), two look axes' only users deleted, and both a behaviour and a
+bench branch fixed as a consequence. `skills: none applied` - the task is a reviewed C# edit, and per
+AGENTS rule 15's "match the skill to the artifact" none of the installed DCC/Unity-driver skills governs
+it (and rule 3 means a Unity skill could not have verified anything here anyway).**
+
+### What changed
+
+- **`magic_fireball_meteor_comet` (Comet) -> `magic_fireball_meteor_flamethrower`.** Beam delivery,
+  power 36, FP 26, cd 6s, range 11, `deliveryRadius` 2.4 (the cone's **tip** radius), Burn, knockback
+  1.5, `ChannelDrainPerSecond` 11, `BeamHalfAngle` 22. Replaces a single-shot ember streak that was
+  its own only `EmberStreak` user.
+- **`magic_fireball_meteor_astroid` (Asteroid) -> `magic_fireball_meteor_continuous`.** Summon
+  delivery, power 36, FP 28, cd 8s, `deliveryRadius` 5 (targeting), `duration` 8s, `tickInterval` 0.4s,
+  `projectileSpeed` 22, Burn, `CasterAnchored`, `BoltSplashRadius` 1.6. Replaces a Zone slam that was
+  the sky-rock family's only `Swarm`.
+- **Spell count is unchanged at 172** - the diff is exactly two `S(...)` lines out and two in.
+- **Old ids self-canonicalise on load** (`SkillProfile.ResolveLegacyId`, called from **both** restore
+  paths): `learnedSkills` entries and `skillLevelsJson` keys are rewritten in place, so a returning
+  player's Comet/Asteroid become the new spells without losing a single level.
+
+### Three new mechanics, each opt-in so nothing else moved
+
+1. **Swept cone (`SpellData.BeamHalfAngle`, default `0`).** `0` keeps the original single-capsule line
+   **byte-identically** - all ten earlier beams, including Searing Ray, are untouched. `> 0` fans
+   `ConeRays` (7) rays across `±BeamHalfAngle` with `ConeSegments` (2) overlapping capsules each,
+   opening from `ConeMouthFraction` (0.35) x tip radius at the mouth to the full `Width` at the tip,
+   flashing **once per tick** like the line, and damaging each target root **once per tick** no matter
+   how many segments overlap it. Searing Ray was given `5.625` so the two Fire beams read differently
+   by shape alone - they are mutually exclusive anyway (`ResolveBeam` calls `StopChannel`).
+2. **Caster-anchored summon (`SpellData.CasterAnchored`).** Spawns on the caster instead of the ground
+   target, follows them with per-frame snapping to the **nearest** ground below (skipping **their own**
+   colliders so it does not snap to their head, and taking the lowest `point.y` rather than the first
+   buffer entry, since `RaycastNonAlloc` does not sort), and carries a persistent ground circle at its
+   targeting radius. It tracks XZ outright with **no wall avoidance** — it clips through walls with
+   you, which is stated in code and in the docs rather than implied by "follows you". The other nine
+   summons keep ground-target placement, and only this one gets the charge-scaled lifetime below.
+3. **Charge-scaled summon lifetime (`SpellCaster.DurationScale`).** A **deliberate user decision**:
+   `DurationScale(charge) => SizeScale(charge)`, so charging a familiar fully buys both a longer stream
+   and a bigger familiar. Full charge on Continuous Fireball is `2.2x` size / `2.6x` damage / `17.6s`,
+   ~44 bolts at `0.4s`. No `ChargeDurationBonus` field exists - an earlier draft proposed one and the
+   user rejected it as one knob too many. `ResolveSummon` hands the multiplier to **every** summon, so
+   `SpellSummon.Initialize` applies it **only** when the summon is caster-anchored; scaling it for all
+   of them would have silently turned Ember Effigy's 6 s into 7.2 s at full charge.
+
+### Two look axes lost their only user, and the removal is the interesting part
+
+- **`SkyRockStyle.Swarm`** existed for exactly one spell. The enum value, `SkillFx.BuildRockSwarm` and the
+  `BuildRockBody` branch are **all deleted**, leaving `Inherit`/`Boulder`. I first wrote that the enum
+  slot should be *kept* as a save-migration guard, then checked what a save actually holds:
+  `SaveManager` persists only `learnedSkills` and `skillLevelsJson`, and a look is authored in
+  `SkillCatalog`, never serialized - so no save can reference the value and there was nothing to
+  migrate. Reserving it would have kept a name nothing could use. The F4 key packs the raw enum value at
+  bits 24+, so dropping an **unused** value cannot split or merge a group and `172 / 172 / 0` stands.
+  `SkillFx.BuildRockBody`'s `style` parameter is now **inert** and is documented as such - kept because
+  it is the seam a future style grows through, which is only defensible if the comment says so.
+- **`ProjectileShape.EmberStreak`** and its builder are deleted. **`ProjectileShape.Comet` stays** -
+  Scorch, Burn and Frost Bite still wear it, which is why 1f7's note about "Comet only" had to be
+  rewritten rather than the shape removed.
+
+### Two bugs found while building this, both fixed in the same pass
+
+- **The cone visual was positioned in world space**, so `BuildConeVisual` ignored its parent - the QA
+  bench would have mounted every cone at the world origin instead of on its pedestal. Now built and
+  pulsed in the parent's **local** frame (`InverseTransformDirection` for the live pulse).
+- **The cone deduped on damage but not on healing.** `TickCollider` returned `false` for the heal
+  branch, so a healing cone never marked a root seen and healed it once per overlapping capsule - up to
+  `7 x 2 = 14` times per tick. `TickCollider` now returns a three-state `BeamHit` (`None` / `Healed` /
+  `Damaged`): any effect consumes the root once per tick, only damage spawns the flash, and a
+  non-damageable child still cannot consume its enemy. No shipped cone heals; the bug was free.
+
+### The bench got a third branch, because 1ir is the 1f7 miss again
+
+`NewWorldTestGround`'s magic-model grid had two cases: falling rock, else `CreateProjectileDisplay`.
+**Both new deliveries have no projectile body**, so both would have fallen through to the generic orb
+and the bench would have reported "unchanged" for exactly the two deliveries that changed. It now has
+three: rock, **cone** (mounting the live `SpellBeam.BuildConeVisual`), and **following circle** (the
+spell's own radius + core). Both mount the **real** runtime builders rather than proxies, which is the
+1f7 `BuildRockBody` precedent; `SpellBeam.ConeMouthFraction` is `public` so the bench cannot restate
+the ratio and rot.
+
+### Two deliberate deviations from the agreed plan, stated rather than buried
+
+- **The familiar's orb is at the circle's CENTRE, not on its rim.** The circle already states the radius,
+  and a central wisp reads as "bound to you" where a rim dot reads as one of several identical marks.
+  The plan said rim; this is the one place the code knowingly differs, and the bench mirrors it.
+- **`BoltSplashRadius` is passed `radiusMult = 1f` by summons**, so Continuous Fireball's 1.6 m burst
+  stays fixed while its familiar grows on a charge. The ratio "bolt bursts smaller than the area it
+  scans" reads better held constant. `SpellEffect.SplashRadius` still multiplies by whatever it is
+  handed, so a chargeable projectile setting the field would scale correctly. Changing the summon to
+  pass its scale would also widen Ember Effigy's bolts - out of scope, deliberately not done.
+
+### Play-test items (user, in Unity)
+
+1. **Flamethrower**: hold to spray. Must read as a 44-degree wedge opening outward (0.84 m mouth -> 2.4 m
+   tip), one impact flash per 0.5s tick, and **one** enemy must not take several ticks' worth of damage
+   for standing in the wide end. Focus must drain ~11/s and stop cleanly on release or on empty.
+2. **Aim preview**: Flamethrower's ghost must be the 44-degree wedge, charge-scaled; Searing Ray's must
+   stay the narrow ~11-degree line. Both from `1iq`'s new preview path.
+3. **Continuous Fireball**: cast it and walk away from the cast point - the familiar must come to you,
+   sit on the ground (not hover, not sink), and keep firing. The circle must stay under it for the whole
+   life, and must sit at your feet rather than on a nearby rooftop when you walk past a building.
+4. **Charged Continuous Fireball**: confirm the body, the bolt size and the lifetime all grow together,
+   and that it ends on its own at ~17.6s rather than running forever.
+5. **Save migration**: with a save that has Comet/Asteroid learned, load it and confirm both are the new
+   spells at their old levels, and that `skillLevelsJson` keys came across.
+6. **F4 spell-identity audit**: `172 / 172 / 0` must still hold, and both new ids must appear exactly
+   once each.
+7. **Bench (magic-model grid)**: Flamethrower must show the wedge on its pedestal (not a generic orb),
+   Continuous Fireball the circle + core.
+8. **Regression**: Searing Ray, Chain Lightning and the other beams must be visually unchanged; Ember
+   Effigy and the other eight summons unchanged; Meteor / Meteor Rain / Earth Meteor / Rockfall must
+   still fall boulders.
+
+## 1iq. The aiming cone is the bow's alone - projectile magic and the throwing hammer keep the ray, and the cone is reporting a spread the game does not apply
 
 **Status: shipped, NOT play-tested (rule 3 - no build or play-test runs in this project). Behaviour
 change is visual-only: no damage, spread, range, speed or projectile behaviour was touched. One
@@ -1014,7 +1131,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-02. Read this first in a new session; then continue with the
+Last updated: 2026-10-03. Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **1f5 is superseded by 1f6** - the LOD bands and the
 `NeedsLodDetail` gate it added were both deleted; read 1f6 for the current design and 1f5 only

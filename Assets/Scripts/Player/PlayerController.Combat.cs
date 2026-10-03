@@ -422,6 +422,15 @@ public partial class PlayerController
     /// <item><b>The throwing hammer is not drawn</b> - it is thrown, so it gets the ray too.</item>
     /// </list></para>
     ///
+    /// <para><b>1ir adds the ONE legitimate second cone, and it does not contradict 1iq.</b> 1iq's
+    /// reasoning was "projectile magic has no spread" - true of every projectile spell, and still true.
+    /// Flamethrower is not a projectile: it is a Beam whose damage genuinely sweeps an area, so a cone
+    /// there is not an overstatement, it is the hit area itself. The distinction 1iq drew is between a
+    /// weapon that is <i>ranged</i> and a flight that is actually <i>spread</i>; a beam cone is the
+    /// second kind. Its branch below keys on <c>SpellBeam.ConeFullAngleDegrees &gt; 0</c> rather than on
+    /// "is a beam", so a LINE beam (Searing Ray) still gets the plain ray and cannot regress into 1iq's
+    /// overstating fan.</para>
+    ///
     /// <para><b>Spread comes from the drawn flight, not from the weapon being ranged.</b> The gate is
     /// <c>AmmoItemId != null</c> (arrows today, i.e. exactly the longbow) rather than a hardcoded
     /// <c>"longbow"</c> string, so a future crossbow inherits the cone without a second edit. The
@@ -457,6 +466,34 @@ public partial class PlayerController
             float reach = Mathf.Max(armedSpell.ProjectileSpeed, 1f) * 4f; // SpellEffect flight envelope
             PathPreview().Show(pos + fwd * 0.5f, fwd, reach,
                 0f, SpellLook.Resolve(armedSpell).Core, transform);
+            return;
+        }
+
+        // 1ir: a cone BEAM is the one magic delivery whose spread is real. A beam has no flight
+        // envelope (SpellCaster.ResolveBeam passes deliveryRange as the beam's length, not a
+        // speed*time), so it gets its own branch rather than borrowing the projectile one above.
+        // The angle comes from SpellBeam.ConeFullAngleDegrees — the same helper the runtime uses —
+        // so the readout cannot drift from the hit area, and reach comes from the caster's own
+        // charge ladder rather than a fourth copy of it.
+        if (armedSpell != null && armedSpell.Delivery == SpellDelivery.Beam
+            && SpellBeam.ConeFullAngleDegrees(armedSpell) > 0f)
+        {
+            var beamCombat = CombatCached;
+            var beamHand = MagicHand(beamCombat);
+            var beamCam = MainCam;
+            if (beamHand == null || beamCam == null) { HidePathPreview(); return; }
+
+            Vector3 bpos = beamHand.transform.position;
+            Vector3 bfwd = beamCam.transform.position + beamCam.transform.forward * Mathf.Max(armedSpell.Range, 5f) - bpos;
+            if (bfwd.sqrMagnitude < 0.0001f) bfwd = beamHand.transform.forward; else bfwd = bfwd.normalized;
+
+            // The beam's length is Range * sizeScale (SpellCaster.Channels.cs passes sizeScale as
+            // lengthMult), and sizeScale is the caster's SizeScale ladder. This preview omits the
+            // weapon-stat RadiusMult that the caster also folds in, because it has no stats context
+            // here — the same honest under-report the flight branch documents.
+            float beamReach = armedSpell.Range * SpellCaster.SizeScale(charge);
+            PathPreview().Show(bpos + bfwd * 0.5f, bfwd, beamReach,
+                SpellBeam.ConeFullAngleDegrees(armedSpell), SpellLook.Resolve(armedSpell).Core, transform);
             return;
         }
 

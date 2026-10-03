@@ -87,7 +87,21 @@ public partial class SpellCaster
     }
 
     /// <summary>Size multiplier applied to deliveries by charge level.</summary>
-    private float SizeScale(float charge) => 1f + charge * ChargeSizeBonus;
+    /// <para>1ir: made <c>public static</c> so the aim preview in PlayerController.Combat READS this
+    /// ladder instead of re-deriving it. 1iq declined to re-derive the flight ladder here for exactly
+    /// this reason; a preview that computed its own copy would be a second spelling that rots the
+    /// moment ChargeSizeBonus changes. It is static because it never read instance state.</para>
+    public static float SizeScale(float charge) => 1f + charge * ChargeSizeBonus;
+
+    /// <summary>
+    /// 1ir: duration multiplier for a caster-anchored summon. This is <b>deliberately the same ladder
+    /// as <see cref="SizeScale"/></b> (user decision): charging a following familiar grows the area it
+    /// covers AND how long it lives, because both are claims about "how much presence you conjured".
+    /// It is one expression calling the other, NOT a copy of the formula — so if the two ever need to
+    /// diverge, this single line is the only thing to change.
+    /// <para>Only affects Summon; a Beam channel lasts as long as Focus holds out and has no Lifetime,
+    /// and Zone/Storm scale their own ticks off TickInterval rather than this.</para></summary>
+    public static float DurationScale(float charge) => SizeScale(charge);
 
     /// <summary>Drop the forward aim onto the ground — shared ground-placement for zone/summon/storm.</summary>
     private static Vector3 GroundTarget(Vector3 pos, Vector3 fwd, float range)
@@ -108,7 +122,11 @@ public partial class SpellCaster
     /// </summary>
     private DamageResult ResolveSummon(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale, float range)
     {
-        Vector3 center = GroundTarget(pos, fwd, range);
+        // 1ir: a caster-anchored summon belongs to the caster, so it is created ON them rather than
+        // at the ground aim point — Spawn follows from there. GroundTarget would otherwise drop it
+        // GroundAimMax metres away, and "follows the player" would visibly snap across the map on
+        // the first frame.
+        Vector3 center = spell != null && spell.CasterAnchored ? pos : GroundTarget(pos, fwd, range);
 
         // Earth summons (the golem line) erupt a small rock field where the construct rises
         // (§3.8). Other schools carry no terrain shape and no-op in TerrainDeformer. A modest
@@ -118,7 +136,7 @@ public partial class SpellCaster
 
         var go = new GameObject("SpellSummon");
         go.transform.position = center;
-        go.AddComponent<SpellSummon>().Initialize(this, spell, power, sizeScale);
+        go.AddComponent<SpellSummon>().Initialize(this, spell, power, sizeScale, DurationScale(charge));
         return new DamageResult { HitTargets = true };
     }
 

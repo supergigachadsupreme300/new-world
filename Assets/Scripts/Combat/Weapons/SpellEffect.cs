@@ -270,11 +270,38 @@ public class SpellEffect : MonoBehaviour
         }
     }
 
+    /// <summary>1ir: the radius this bolt actually bursts at. An authored
+    /// <see cref="SpellData.BoltSplashRadius"/> wins over the fallback value — that is the whole point
+    /// of the field, letting a turret's bolt detonate smaller than the area the turret scans. 0 (every
+    /// pre-1ir spell) falls back to the legacy <c>Radius</c>.
+    /// <para><b>Both branches are multiplied by <c>radiusMult</c>, deliberately.</b> The field chooses
+    /// WHICH authored number answers the question, not whether the charge ladder applies to it — so a
+    /// chargeable projectile setting it would burst proportionally, instead of being the one thing
+    /// on the spell that ignored the charge. Dropping the multiplier from this branch would have been
+    /// legal-looking and free to ship: the fallback branch scales, so the inconsistency would only
+    /// ever show on the single spell that sets the field.</para>
+    /// <para><b>Today this is inert for the only spell that sets the field.</b> Summon bolts pass
+    /// <c>radiusMult = 1f</c> (see <see cref="SpellSummon"/>), so Continuous Fireball's 1.6 m burst is
+    /// fixed while its familiar grows — which is intentional: the field exists to keep a bolt's
+    /// detonation smaller than the area it scans, and that ratio reads better held constant than
+    /// widened on a charge. Changing the summon to pass its scale would also widen Ember Effigy's
+    /// bolts, which is out of scope here.</para>
+    /// <para>Written ONCE here because the impact walk and the terrain dent below both need it, and
+    /// two copies of "how big is this burst" would be free to disagree.</para></summary>
+    private float SplashRadius
+    {
+        get
+        {
+            if (_spell != null && _spell.BoltSplashRadius > 0f)
+                return _spell.BoltSplashRadius * _radiusMult;
+            return _spell != null && _spell.Radius > 0f ? _spell.Radius * _radiusMult : 0.2f;
+        }
+    }
+
     private void ResolveProjectileImpact(GameObject hitObject)
     {
         // Also affect everything in the splash radius factoring in the caster.
-        int count = Physics.OverlapSphereNonAlloc(transform.position,
-            _spell != null && _spell.Radius > 0f ? _spell.Radius * _radiusMult : 0.2f,
+        int count = Physics.OverlapSphereNonAlloc(transform.position, SplashRadius,
             _splashBuffer, HitLayers);
         for (int i = 0; i < count; i++)
         {

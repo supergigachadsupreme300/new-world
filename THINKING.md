@@ -15,6 +15,119 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1ir - the meteor line grows a channel and a familiar (OPEN: awaiting play-test)
+
+**The request was "remove comet and asteroid, add a flamethrower and a continuous fireball", which is
+four words of content and three whole mechanics. Most of the work was not the content - it was noticing
+that two visual axes had exactly one user each, and that the agreed plan and the code disagreed about
+where a familiar's orb sits. Both are recorded here because neither is visible in the diff.**
+
+### H1 - the cone can be built by fanning the existing single capsule. PARTLY CONFIRMED, then rejected.
+
+The obvious implementation is "reuse `OverlapCapsule`, loop 7 angles". Confirmed for collision - that
+is what shipped - but it hid two things I would not have found by reading only the loop.
+
+1. **A fanned capsule overlaps itself at the mouth.** Seven rays at 44 degrees across an 11 m beam put
+   neighbouring capsules ~1.5 m apart at the tip while each has radius 2.4, so an enemy standing between
+   two rays is hit by both. Not a visual artefact - it is up to **double damage** for standing in a
+   gap, and it is invisible because nothing reports "hit twice". Hence the per-tick `HashSet` on
+   `Transform.root`. Rule 8: dedupe on the OUTCOME (after a real hit), not on first contact - marking on
+   contact would let a decoration collider consume its own enemy, which the line path never did because
+   it tested every collider independently.
+2. **The heal branch was the hole in that dedupe.** I first wrote `TickCollider` returning `bool
+   damaged`, and returned `false` from the heal branch - so a healing root never entered the seen set
+   and got healed once per capsule. Found by rereading my own contract, not by any check. The fix is a
+   three-state enum: the walk must stop re-touching a root after the first effect of ANY kind, while
+   only damage may spawn the once-per-tick flash. No shipped cone heals, so the bug was free to ship -
+   which is exactly the shape of bug rule 12's "a check that flags nothing taught me nothing" warns about
+   in the check domain.
+
+### H2 - the cone visual should be positioned like the line visual (position/rotation). REJECTED.
+
+The line builds its body with `position`/`rotation` (world) and I copied that. Then I checked whether
+the same builder could be mounted on the QA bench's model root - and it could not: world positioning
+ignores the parent, so every cone would have appeared at the **world origin**, not on its pedestal. The
+bench was going to be the thing that caught it, which is the 1f7 argument in reverse: the fix is that the
+builder works in the parent's **local** frame so one builder serves both. `_coneHalfRad` fans around
+`Vector3.forward` (local) at build time and around `Direction` (world, then
+`InverseTransformDirection`d) per frame, and the two agree for any parent because the beam transform's
+rotation is `LookRotation(fwd)`. The general lesson: *"reuse the sibling's code"* is not a reason, it is
+a place where the sibling's coordinate convention gets inherited unexamined.*
+
+### H3 - Continuous Fireball wants a new summon lifetime that does NOT scale with charge. REJECTED by the user.
+
+I proposed a separate `ChargeDurationBonus` and a fixed `Duration = 12s`, on the reasoning that a
+duration multiplier is one more knob and the size ladder already exists. The user's answer was to reuse
+the size ladder for **both**: `DurationScale(charge) => SizeScale(charge)`. I implemented that and did
+not add the field I had proposed. Worth recording *why* it is defensible rather than merely accepted:
+the familiar's body and its lifetime are one thing to the player ("how long is this thing going to be
+*mine*"), and splitting them across two ladders produces a charge that grows the body but not the
+duration - which reads as a bug. 17.6s at full charge, ~44 bolts.
+
+### H4 - the summon's burst radius should scale with the charge. REJECTED after tracing the call sites.
+
+My first instinct was symmetry: the familiar grows 2.2x, so its 1.6 m bolt burst should too. Then I
+traced the only two `SpellEffect.Initialize` call sites: `SpellCaster.Projectiles.cs:44` passes the
+player's `sizeScale`, and `SpellSummon.cs:166` passes a hard-coded `1f`. So *every* summon bolt in the
+game - Ember Effigy included - has a fixed burst, and had that forever. Changing it would have been a
+**balance change to an existing spell** disguised as a consistency fix. So the multiplier stays in
+`SpellEffect.SplashRadius` (where it is correct and inert for this spell) and the summon keeps `1f`,
+with both sides stating why. Rule 8's "name where each input's ladder starts": `BoltSplashRadius` and
+`Radius` are authored metres on the same ladder, but the thing that decides whether the ladder applies
+at all is the `radiusMult` argument, and no grep of the field name would have revealed it - I had to
+follow the constructor.
+
+### H5 - a feature that removes a look axis is a removal task (rule 14). CONFIRMED, and it had a third residue class.
+
+Removing Swarm and Ember Streak felt like two deletions. Rule 14 names three residue classes and this
+was all three at once:
+
+- **Producers:** `SkillFx.BuildRockBody`'s `style` parameter became **inert** (both surviving values draw
+  the same boulder). Kept deliberately - it is the seam a future sky-rock style grows through - but that
+  is only defensible if the parameter says so, so the doc comment now states that it is inert and why.
+  A silently-unused parameter is the residue that greps clean and reads as a forgotten branch.
+- **Save keys:** the look axis is packed into the F4 identity key, so deleting the enum value shifts
+  bits. I first wrote that the `Swarm` slot should be **kept** as a migration guard, then asked what a
+  save file can actually hold — and the answer is nothing: looks are authored in `SkillCatalog` and are
+  never serialized, while `SaveManager` persists only `learnedSkills` and `skillLevelsJson`. There was
+  no migration to guard, so reserving a value nothing can reference would have been a decision made
+  from a half-checked premise. The enum value, the body and the branch are all deleted, and because the
+  key packs the **raw** value at bits 24+, dropping a value no spell used cannot split or merge a
+  group — so `172 / 172 / 0` is untouched, which is the same "adding an axis cannot lower the distinct
+  count" argument 1f7 made, run in reverse.
+- **Narrative:** four doc lines and two stale bench comments still described a swarm that no longer
+  exists, and one of them ("Asteroid's Swarm since 1f7") sat inside the paragraph explaining how the
+  bench works. None of that can fail a compile. This is the class rule 8's comment rule covers and no
+  tool in the repo reads.
+
+### H6 - both new deliveries would show the generic orb on the bench. CONFIRMED before shipping, which is the point.
+
+`NewWorldTestGround` mounted `CreateProjectileDisplay` for anything that was not a falling rock - and
+`CreateProjectileDisplay` has no answer for a Beam or a familiar. Both new spells would have been
+invisible to the one surface built to let you look at them, and the F4 readout would have gone on
+reporting "unchanged" for exactly the two deliveries 1ir changed. This is 1f7's finding repeated on a
+different pair, and the confirmation is that I caught it **while writing the bench branch, not after a
+user report** - which is the only version of this check that is worth anything. Both branches mount the
+**live** builders (`SpellBeam.BuildConeVisual`; the summon circle), and `ConeMouthFraction` is public so
+the bench cannot restate the ratio and rot when the cone geometry changes.
+
+### H7 - a task id is a copy written last. CHECKED (rule 8's third bullet).
+
+Enumerated `PROGRESS.md`'s `## 1xx` headings before assigning `1ir`, since `1io` and `1im` are both real
+shipped tasks and a duplicate would read as an ordinary reference. Recorded here because the check is
+the *only* part of this task whose failure mode is invisible to grep, review and every static check.
+
+### Left open
+
+- Whether the familiar's orb belongs at the circle's **centre** (shipped, with a reason) or its rim
+  (the agreed plan). Deliberate, stated in `PROGRESS.md`, and the one place code and plan differ.
+- Whether `BoltSplashRadius` should ever scale for summons - a balance question about Ember Effigy as
+  much as about Continuous Fireball, so it belongs in a play-test, not in this task.
+- Every number in this section is review-derived. Rule 3 bars a build, so the cone's overlap arithmetic,
+  the 44-bolt count and the 17.6 s lifetime are all arithmetic on the code, not observations.
+
+---
+
 ## 1iq - the aiming cone belongs to the bow alone (OPEN: awaiting play-test)
 
 **The request was small ("the projectile cone should only apply to bow") and carried a stated reason

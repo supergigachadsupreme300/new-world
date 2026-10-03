@@ -65,16 +65,18 @@ public enum SpellCastStyle
 /// a sky-rock style is a <i>structural</i> choice about how the spell reads, so only an authored
 /// profile may make it. That is the same rule that keeps <see cref="SpellLook.DisplayShape"/> from
 /// ever handing a spell <see cref="ProjectileShape.Missile"/>'s homing.</para>
+///
+/// <para><b>1ir: the enum is down to two values because its second option lost its only user.</b>
+/// <c>Swarm</c> existed solely for the meteor-line Asteroid (1f7); that slot is Continuous Fireball
+/// now, a caster-anchored Summon that casts no falling rock at all, so the swarm body and its branch
+/// in <c>SkillFx.BuildRockBody</c> were deleted rather than left as a style no spell can select.</para>
 /// </summary>
 public enum SkyRockStyle
 {
     /// <summary>No authored opinion — always the 1cy single ragged boulder.</summary>
     Inherit = 0,
     /// <summary>The 1cy one-boulder drop (Fire Meteor, Meteor Rain; Earth Meteor, Rockfall).</summary>
-    Boulder = 1,
-    /// <summary>1f7: a flat fan of smaller flaming rocks that covers the blast radius instead of one
-    /// rock covering the middle of it (Fire Asteroid).</summary>
-    Swarm = 2
+    Boulder = 1
 }
 
 /// <summary>

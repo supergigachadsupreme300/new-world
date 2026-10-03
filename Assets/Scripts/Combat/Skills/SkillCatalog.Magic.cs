@@ -272,12 +272,27 @@ public static partial class SkillCatalog
         bank.L2["magic_fireball_meteor"] = new BranchSlot[]
         {
             S("magic_fireball_meteor_rain", "Meteor Rain", Spell("magic_fireball_meteor_rain_spell", "Meteor Rain", DamageType.Fire, 36f, 26f, SpellDelivery.Storm, 8f, deliveryRange: 10f, deliveryRadius: 3.6f, duration: 3.5f, summonFallingRock: true), "A storm of falling meteors that bombards the area.", Focus(26f), DamageType.Fire, true),
-            S("magic_fireball_meteor_comet", "Comet", Spell("magic_fireball_meteor_comet_spell", "Comet", DamageType.Fire, 34f, 24f, SpellDelivery.Projectile, 6f, look: Look(SpellImpactStyle.Inherit, SpellCastStyle.Inherit, shape: ProjectileShape.EmberStreak)), "A swift streak of burning light.", Focus(24f), DamageType.Fire, true),
+            // 1ir: Comet's slot becomes Flamethrower — a Beam with an opt-in swept cone
+            // (beamHalfAngle 22 = rays fanned across a 44-degree mouth). It is deliberately the
+            // widest Beam in the game while Searing Ray (scorch_searing) stays a 1.3 m line: the two
+            // are mutually exclusive anyway (ResolveBeam calls StopChannel), so they read as a
+            // wide-versus-focused choice rather than two competing answers to one question.
+            // deliveryRadius 2.4 is the cone's TIP radius — Width keeps one meaning in both Beam modes.
+            // The look is AUTHORED, not left to a deterministic pick, for the reason 1f7 established:
+            // an axis takes a profile only when it is a statement ABOUT the spell. Impact=Bloom +
+            // Cast=Arc is exactly that — a wide soft flare smeared along an arc, not a point burst on
+            // a disc — and tempo 0.8 makes the flicker read as a steady jet instead of a stutter.
+            S("magic_fireball_meteor_flamethrower", "Flamethrower", Spell("magic_fireball_meteor_flamethrower_spell", "Flamethrower", DamageType.Fire, 36f, 26f, SpellDelivery.Beam, 6f, deliveryRange: 11f, deliveryRadius: 2.4f, statusEffect: StatusEffectType.Burn, knockback: 1.5f, channelDrainPerSecond: 11f, beamHalfAngle: 22f, look: Look(SpellImpactStyle.Bloom, SpellCastStyle.Arc, scale: 1.15f, tempo: 0.8f, value: 1.1f)), "Hold to spray a sustained cone of fire that scorches everything in the wedge.", Focus(26f), DamageType.Fire, true),
             S("magic_fireball_meteor_impact", "Impact", Perk(PassivePerkType.SpellDamagePercent, 6f), "Impact magnified — spell damage +6%.", passive: true),
-            // 1f7: Asteroid drops a Swarm (a flat fan of seven rocks over the blast radius) instead
-            // of the boulder Meteor and Meteor Rain keep. Impact/Cast stay Inherit so ONLY the
-            // falling body changes — the profile exists solely to carry SkyRock.
-            S("magic_fireball_meteor_astroid", "Asteroid", Spell("magic_fireball_meteor_astroid_spell", "Asteroid", DamageType.Fire, 40f, 30f, SpellDelivery.Zone, 9f, deliveryRadius: 4f, knockback: 3f, summonFallingRock: true, look: Look(SpellImpactStyle.Inherit, SpellCastStyle.Inherit, skyRock: SkyRockStyle.Swarm)), "A colossal mass of burning rock that levels everything it lands on.", Focus(30f), DamageType.Fire, true),
+            // 1ir: Asteroid's slot becomes Continuous Fireball — a caster-anchored Summon, so it is
+            // created at the player and FOLLOWS them, drawing a ground circle and auto-firing on
+            // whatever walks into it. boltSplashRadius 1.6 is independent of the 5 m targeting
+            // radius, so each bolt bursts smaller than the area it scans. Its look is authored for the
+            // opposite reason to Flamethrower's: ~44 small impacts in 17.6s, and a per-cast
+            // deterministic jitter across that many bolts would read as a different spell every
+            // tick. Impact=Burst (small throw-out per bolt) + Cast=Halo (a soft disc around the
+            // caster, matching a familiar that stays with you) is one steady identity instead.
+            S("magic_fireball_meteor_continuous", "Continuous Fireball", Spell("magic_fireball_meteor_continuous_spell", "Continuous Fireball", DamageType.Fire, 36f, 28f, SpellDelivery.Summon, 8f, deliveryRadius: 5f, duration: 8f, tickInterval: 0.4f, projectileSpeed: 22f, statusEffect: StatusEffectType.Burn, casterAnchored: true, boltSplashRadius: 1.6f, look: Look(SpellImpactStyle.Burst, SpellCastStyle.Halo, scale: 1.1f, value: 1.12f)), "A bound flame that follows you, spitting molten bolts at everything it can reach.", Focus(28f), DamageType.Fire, true),
             S("magic_fireball_meteor_ember", "Ember Effigy", Spell("magic_fireball_meteor_ember_spell", "Ember Effigy", DamageType.Fire, 30f, 20f, SpellDelivery.Summon, 6f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, statusEffect: StatusEffectType.Burn, projectileSpeed: 18f), "Summon a burning effigy that hurls embers at nearby foes.", Focus(20f), DamageType.Fire, true),
         };
 

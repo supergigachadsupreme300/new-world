@@ -133,6 +133,28 @@ public sealed class SkillProfile : MonoBehaviour
 
     private static float XpToNext(int level) => BaseXpToNext + XpGrowthPerLevel * (level - 1);
 
+    /// <summary>
+    /// 1ir: legacy skill-id aliases — ids a save may still hold whose skill has since been renamed.
+    /// A rename that misses the save file does not error: the id simply fails to resolve, the player
+    /// silently loses the skill and its levels, and nothing in the console says why.
+    /// <para><b>Apply this in BOTH read paths.</b> A skill can be recorded twice — once in the
+    /// learned set (RestoreState) and once in the per-skill level blob (RestoreProgress) — and
+    /// aliasing only one of them leaves the player with a levelled skill they cannot cast, or a castable
+    /// skill pinned at level 1. Both read loops alias on the way IN, and both lists are serialized
+    /// straight back out by SaveProgress/SaveState, so the canonical id replaces the stale one on the
+    /// next save with no separate migration pass to keep working.</para>
+    /// </summary>
+    private static string ResolveLegacyId(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return id;
+        switch (id)
+        {
+            case "magic_fireball_meteor_comet": return "magic_fireball_meteor_flamethrower";
+            case "magic_fireball_meteor_astroid": return "magic_fireball_meteor_continuous";
+            default: return id;
+        }
+    }
+
     /// <summary>Serialize per-skill levels to JSON for the save file.</summary>
     public string SaveProgress()
     {
@@ -150,7 +172,10 @@ public sealed class SkillProfile : MonoBehaviour
             if (set?.Progress != null)
                 foreach (var p in set.Progress)
                     if (p != null && !string.IsNullOrEmpty(p.SkillId))
+                    {
+                        p.SkillId = ResolveLegacyId(p.SkillId); // 1ir: alias on the way in.
                         _progress.Add(p);
+                    }
         }
         catch
         {
@@ -249,8 +274,13 @@ public sealed class SkillProfile : MonoBehaviour
         LearnedSkillIds.Clear();
         if (learned != null)
             foreach (var id in learned)
-                if (!string.IsNullOrEmpty(id) && _learned.Add(id))
-                    LearnedSkillIds.Add(id);
+            {
+                // 1ir: alias here so LearnedSkillIds — which is what gets serialized back out —
+                // carries the canonical id, making this self-migrating.
+                string canonical = ResolveLegacyId(id);
+                if (!string.IsNullOrEmpty(canonical) && _learned.Add(canonical))
+                    LearnedSkillIds.Add(canonical);
+            }
 
         SkillCatalog.EnsureBuilt();
         foreach (var id in _learned)

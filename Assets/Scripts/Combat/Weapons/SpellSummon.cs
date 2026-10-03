@@ -23,17 +23,33 @@ public class SpellSummon : MonoBehaviour
     private Color _color;
     private Vector3 _headBaseScale;
     private readonly Collider[] _hitBuffer = new Collider[32];
+    private readonly RaycastHit[] _groundBuffer = new RaycastHit[8];
+
+    /// <summary>1ir: this summon belongs to the caster — it is created at the caster and follows it
+    /// for its whole life, drawing a ground circle. Read from the spell, not passed in, so the three
+    /// coupled behaviours (spawn here / follow / circle) cannot be half-enabled.</summary>
+    private bool _follow;
+
+    /// <summary>1ir: ground probe for the follow. Starts high enough to clear the caster's own
+    /// capsule but must SKIP the caster's colliders outright — a ray started above a standing player
+    /// hits their capsule top before the terrain, which would park the circle at chest height.</summary>
+    private const float GroundProbeUp = 4f;
+    private const float GroundProbeDown = 40f;
 
     /// <summary>1ie: the summon's resolved look, cached at Initialize.</summary>
     private SpellLook _look;
 
-    public void Initialize(SpellCaster caster, SpellData spell, float power, float radiusMult = 1f)
+    /// <summary>Configure the summon. <paramref name="durationMult"/> scales the lifetime only
+    /// (1ir: the caster's DurationScale ladder); radius comes from <paramref name="radiusMult"/>.</summary>
+    public void Initialize(SpellCaster caster, SpellData spell, float power,
+        float radiusMult = 1f, float durationMult = 1f)
     {
         _caster = caster;
         _spell = spell;
         _power = power;
         _casterRoot = caster != null ? caster.transform.root : null;
         radiusMult = Mathf.Max(radiusMult, 0.01f);
+        durationMult = Mathf.Max(durationMult, 0.01f);
         // 1ie: resolved OUTSIDE the spell != null guard — BuildVisual and the RingFlash below both
         // read _look (Scale, and the impact style it hands to SpellImpactFx). Assigned only inside
         // the guard, a spell-less summon drew at default(SpellLook).Scale == 0 and, worse, asked
@@ -43,9 +59,15 @@ public class SpellSummon : MonoBehaviour
         if (spell != null)
         {
             Radius = Mathf.Max(spell.Radius * radiusMult, 1f);
-            if (spell.Duration > 0f) Lifetime = spell.Duration;
+            // 1ir: durationMult applies to CASTER-ANCHORED summons only, and this is the line that
+            // says so. SpellCaster.DurationScale hands it to every summon, so scaling it here would
+            // have quietly lengthened Ember Effigy (6s -> 7.2s at full charge) — an unrequested
+            // rebalance of a shipped spell, invisible in the diff of the new one. The charge ladder
+            // was bought for the spell that has a stream to lengthen, not for every turret.
+            if (spell.Duration > 0f) Lifetime = Mathf.Max(spell.Duration * (_follow ? durationMult : 1f), 0.1f);
             if (spell.TickInterval > 0f) TickInterval = spell.TickInterval;
             _color = _look.Core;
+            _follow = spell.CasterAnchored;
         }
 
         BuildVisual();
@@ -70,12 +92,47 @@ public class SpellSummon : MonoBehaviour
         if (_head != null)
             _head.localScale = _headBaseScale * (1f + 0.18f * Mathf.Sin(Time.time * 3.2f));
 
+        // 1ir: follow BEFORE the tick, so this frame's bolts are aimed from where the circle now is.
+        if (_follow && _casterRoot != null) FollowCaster();
+
         _tick -= Time.deltaTime;
         if (_tick <= 0f)
         {
             _tick = TickInterval > 0f ? TickInterval : 0.5f;
             Tick();
         }
+    }
+
+    /// <summary>1ir: keep the circle under the caster, snapped to the ground so it does not hang in
+    /// the air on a slope or float when they jump. Skips the caster's own colliders — see
+    /// GroundProbeUp.
+    /// <para>Takes the NEAREST hit, not the first. <c>RaycastNonAlloc</c> returns hits in an
+    /// unspecified order, so walking past a building would sometimes park the circle on its roof and
+    /// sometimes on the street, depending on buffer layout. A downward ray's nearest hit is the
+    /// lowest <c>point.y</c>, which is the ground the player is standing on.</para>
+    /// <para><b>No wall avoidance</b> — the circle tracks the caster's XZ outright, so it can pass
+    /// through a wall with them. Stated here because "follows you" reads like it stops at
+    /// obstacles, and a plan said it should. Making it a bound spirit that clips is the cheaper,
+    /// more readable behaviour than a sliding solver, and this is the honest description of what
+    /// ships.</para></summary>
+    private void FollowCaster()
+    {
+        Vector3 p = _casterRoot.position;
+        int n = Physics.RaycastNonAlloc(p + Vector3.up * GroundProbeUp, Vector3.down,
+            _groundBuffer, GroundProbeDown);
+        float best = float.PositiveInfinity;
+        for (int i = 0; i < n; i++)
+        {
+            RaycastHit h = _groundBuffer[i];
+            if (h.collider == null) continue;
+            if (h.collider.transform.root == _casterRoot) continue;
+            if (h.point.y >= best) continue;
+            best = h.point.y;
+        }
+        // No ground found (mid-air, or over a gap the probe missed): keep the caster's own Y rather
+        // than snapping to the last frame's ground or to 0.
+        if (!float.IsPositiveInfinity(best)) p.y = best + 0.02f;
+        transform.position = p;
     }
 
     private void Tick()
@@ -124,6 +181,11 @@ public class SpellSummon : MonoBehaviour
         go.transform.rotation = Quaternion.LookRotation(dir);
         _caster.DecorateProjectile(go, _spell);
         float speed = _spell.ProjectileSpeed > 0f ? _spell.ProjectileSpeed : 18f;
+        // The trailing 1f is the projectile's radiusMult and is deliberately NOT the summon's size
+        // scale: a familiar grows when you charge it, but its bolts keep their authored burst so the
+        // detonation stays smaller than the area the familiar scans. Passing sizeScale here would
+        // also widen every existing summon-turret bolt (Ember Effigy), which is a balance change
+        // outside 1ir. SpellEffect.SplashRadius reads this same field, so the two agree by default.
         var fx = go.AddComponent<SpellEffect>().Initialize(_spell, _power * BoltPowerMultiplier, dir, _caster, 1f);
         fx.Launch(speed);
     }
@@ -156,6 +218,41 @@ public class SpellSummon : MonoBehaviour
 
     /// <summary>Totem: base disc + tapered pillar + pulsing head crystal + orbiting shards.</summary>
     private void BuildVisual()
+    {
+        if (_follow) { BuildCircleVisual(); return; }
+        BuildTotemVisual();
+    }
+
+    /// <summary>1ir: the following-familiar read — a flat ground circle the size of the real
+    /// targeting radius, plus a low orb to fire from. Deliberately NOT SkillFx.RingFlash, which
+    /// self-destructs and would give a one-frame flash instead of a persistent circle, and NOT the
+    /// totem below: a pillar-and-shards totem that walks behind you reads as a carried statue, not
+    /// as an area you are standing in. Radius is the live targeting value, so the drawn circle is
+    /// exactly the area FireAtNearest/NearestEnemy actually scan.</summary>
+    private void BuildCircleVisual()
+    {
+        Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+        if (shader == null) return;
+
+        var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        disc.name = "FollowCircle";
+        DestroyCollider(disc.transform);
+        disc.transform.SetParent(transform, false);
+        disc.transform.localPosition = new Vector3(0f, 0.05f, 0f);
+        disc.transform.localScale = new Vector3(Radius * 2f, 0.05f, Radius * 2f);
+        SetMaterial(disc.transform, shader, _color);
+
+        _head = GameObject.CreatePrimitive(PrimitiveType.Sphere).transform;
+        _head.name = "FollowCore";
+        DestroyCollider(_head);
+        _head.SetParent(transform, false);
+        _head.localPosition = new Vector3(0f, 0.9f, 0f);
+        _head.localScale = Vector3.one * 0.6f;
+        SetMaterial(_head, shader, _color);
+        _headBaseScale = _head.localScale;
+    }
+
+    private void BuildTotemVisual()
     {
         Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
         if (shader == null) return;

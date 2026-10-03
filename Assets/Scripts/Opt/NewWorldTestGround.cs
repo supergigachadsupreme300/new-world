@@ -1481,8 +1481,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
         var byImpact = new Dictionary<SpellImpactStyle, int>();
         var byCast = new Dictionary<SpellCastStyle, int>();
         var byShape = new Dictionary<ProjectileShape, int>();
-        // 1f7: counted so the readout shows the sky-rock split (Boulder=N Swarm=M). Without it a
-        // wrongly-authored Swarm on the wrong spell would change nothing visible in the audit.
+        // 1f7 added this when the axis had two live values (Boulder/Swarm); 1ir deleted Swarm with its
+        // last user, so the split is no longer interesting on its own — the axis stays counted
+        // because SkyRock still occupies 2 bits of the fingerprint below, and an axis that is packed
+        // into the key but not reported is one you cannot tell you moved.
         var bySkyRock = new Dictionary<SkyRockStyle, int>();
         int total = 0;
         int authored = 0;
@@ -1718,16 +1720,58 @@ public sealed class NewWorldTestGround : MonoBehaviour
             // that needs it, which is what makes the deleted DamageType/ProjectileShape version
             // dead. rockBody is read from the spell itself, so the argument is redundant here.
             //
-            // 1f7: a sky spell shows its FALLING ROCK instead, via the same live builders
-            // FallRock uses. Without this the one body 1f7 changed (Fire Asteroid's Swarm) would have
-            // been the only spell model in the game that existed solely in a live cast - and a Zone
-            // spell has no projectile display to fall back on, so it would have shown the generic
-            // orb instead, i.e. the bench would have kept reporting the old model.
+            // 1ir: a sky spell shows its FALLING ROCK instead, via the same live builders
+            // FallRock uses — otherwise a Zone spell has no projectile display to fall back on and
+            // would show the generic orb.
             if (spell.SummonFallingRock)
             {
                 var rockLook = SpellLook.Resolve(spell);
                 SkillFx.BuildRockBody(modelRoot.transform, RockBodyBenchScale(spell),
                     rockLook.Core, rockLook.SkyRock);
+            }
+            // 1ir: the two deliveries that have NO projectile body at all. Without these two branches
+            // a Beam and a Summon both fall through to CreateProjectileDisplay, which draws the generic
+            // orb — so the bench would report "unchanged" for Flamethrower and Continuous Fireball
+            // forever while the live spells drew a cone and a ground circle. That is 1f7's exact
+            // failure (a visual that exists only inside a live cast has no acceptance readout), and
+            // these mount the SAME builders the runtime uses rather than a proxy that could drift:
+            // SpellBeam.BuildConeVisual for the swept wedge, and SpellSummon's own circle below.
+            else if (SpellBeam.ConeFullAngleDegrees(spell) > 0f)
+            {
+                SpellBeam.BuildConeVisual(modelRoot.transform,
+                    spell.Range,                                  // deliveryRange = beam length
+                    spell.Radius * SpellBeam.ConeMouthFraction,  // mouth = a fraction of the tip
+                    spell.Radius,                                 // tip = deliveryRadius
+                    SpellLook.Resolve(spell).Core,
+                    spell.BeamHalfAngle * Mathf.Deg2Rad);
+            }
+            else if (spell.CasterAnchored)
+            {
+                // The following familiar's own read: a flat ground circle at the live targeting
+                // radius plus the low orb it fires from. Sized from the spell, not hardcoded, so a
+                // retuned radius moves the bench model with it.
+                Shader benchShader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+                if (benchShader != null)
+                {
+                    Color core = SpellLook.Resolve(spell).Core;
+                    var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    disc.name = "FollowCircle";
+                    Collider dcol = disc.GetComponent<Collider>();
+                    if (dcol != null) Destroy(dcol);
+                    disc.transform.SetParent(modelRoot.transform, false);
+                    disc.transform.localPosition = new Vector3(0f, -0.95f, 0f);
+                    disc.transform.localScale = new Vector3(spell.Radius * 2f, 0.05f, spell.Radius * 2f);
+                    disc.GetComponent<MeshRenderer>().sharedMaterial = SolidMaterial(core);
+
+                    var orb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    orb.name = "FollowCore";
+                    Collider ocol = orb.GetComponent<Collider>();
+                    if (ocol != null) Destroy(ocol);
+                    orb.transform.SetParent(modelRoot.transform, false);
+                    orb.transform.localPosition = new Vector3(0f, -0.35f, 0f);
+                    orb.transform.localScale = Vector3.one * 0.6f;
+                    orb.GetComponent<MeshRenderer>().sharedMaterial = SolidMaterial(core);
+                }
             }
             else
             {

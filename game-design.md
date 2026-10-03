@@ -776,10 +776,16 @@ the near/far boundary so a resident chunk and a freshly built one are on screen 
   distinct stats (§7.1.0) — the test-ground rows + dummies are the fastest way to diff every race.
 - **Magic-model grid (1dk):** `NewWorldTestGround.EnableMagicModels` (default **on**) places **every
   castable magic spell** on the platform's middle band — one pedestal + school-colored projectile-style
-  body (the exact live-cast visuals via `SpellCaster.CreateProjectileDisplay`; the five
-  `summonFallingRock` spells show their real falling formation via `SkillFx.BuildRockBody` — Asteroid's
-  Swarm since 1f7, drawn at a stated 0.35× of the live blast radius so the 3 m grid stays legible —
-  and zone/beam/storm/summon/instant spells show their school-colored default icon) + a world-TMP label — pure visuals (no colliders/interaction) so each spell's magic model can be
+  body (the exact live-cast visuals via `SpellCaster.CreateProjectileDisplay`; the four
+  `summonFallingRock` spells show their real falling formation via `SkillFx.BuildRockBody` —
+  Fire Asteroid's Swarm left with 1ir, so every one of them is now the boulder, drawn at a stated
+  0.35× of the live blast radius so the 3 m grid stays legible — and zone/beam/storm/summon/instant
+  spells show their school-colored default icon). Since 1ir that last clause has three branches and
+  not one: a **cone beam** mounts the live `SpellBeam.BuildConeVisual` wedge, a **caster-anchored
+  summon** mounts its ground circle + core, and anything else shows the default icon — before 1ir both
+  of the new spells fell through to `CreateProjectileDisplay`, which has no body for a Beam or a
+  familiar, so the bench would have kept reporting the generic orb for exactly the two deliveries
+  1ir changed) + a world-TMP label — pure visuals (no colliders/interaction) so each spell's magic model can be
   looked at and edited. Since `1dp` the pedestal models are **static** (the real casts still flicker in
   flight); since `1eb` live projectile visuals are static too — `OrbFx` pulse/spin and the exhaust
   `ParticleSystem` were removed from the builders, so the bench and live casts share the exact static body.
@@ -1840,14 +1846,14 @@ both cases — the axis decides only how that radius is spent:
 | Style | Body | Spells |
 | --- | --- | --- |
 | **Boulder** | one ragged rock, core + 4 off-angle ridges (1cy, unchanged) | Fire Meteor, Meteor Rain, Earth Meteor, Rockfall |
-| **Swarm** | a smaller lead rock on the aim point + a flat fan of six around it, covering the blast radius instead of the middle of it (1f7) | Fire Asteroid |
+| **Swarm** | 1f7: a smaller lead rock on the aim point + a flat fan of six around it, covering the blast radius instead of the middle of it | **removed in 1ir** — its last user, Fire Asteroid, became Continuous Fireball (a following familiar that casts no rock). The enum value, the `SkillFx.BuildRockSwarm` body and the `BuildRockBody` branch are all gone, leaving `SkyRockStyle` as `Inherit`/`Boulder` only. Nothing in a save can hold this value (looks are authored in `SkillCatalog`, never serialized — `SaveManager` stores only `learnedSkills` and `skillLevelsJson`), so there was no migration argument for reserving the slot; and the F4 identity key packs the raw enum value at bits 24+, so deleting an **unused** value cannot split or merge any group and its `172 / 172 / 0` verdict stands. |
 
-The Swarm's spread is deliberately **flat (X/Z only)**: `RockDrop` lands the whole formation by
-snapping the root to one ground height, so vertical scatter would leave the outer rocks floating or
-sunk on a slope — seven chances to see it, against the boulder's one core.
+The Swarm's spread was deliberately **flat (X/Z only)**: `RockDrop` lands the whole formation by
+snapping the root to one ground height, so vertical scatter would have left the outer rocks floating
+or sunk on a slope — seven chances to see it, against the boulder's one core.
 
-**Spells:** Fire Meteor, Asteroid, Earth Meteor, Meteor Rain, Rockfall. (Fire Comet left this family
-in 1f7 — see the Ember Streak shape below.)
+**Spells:** Fire Meteor, Earth Meteor, Meteor Rain, Rockfall — four. (Fire Comet left this family
+in 1f7; Fire Asteroid left it in 1ir, when its slot became Continuous Fireball.)
 
 Fifth, **Projectile Shapes** — projectile visuals are split into named shapes rather than one element
 color swap, so each spell looks like its name and not a recolor of the same ball. Since `1ec` every
@@ -1865,8 +1871,8 @@ built once and fully static (no sphere meshes remain on projectiles):
 | **Spear** | Tapered spear: dark shaft + broad diamond head + trailing flecks behind — Shadow Spear. |
 | **Blade** | Flat translucent cross-blade (alpha ~0.4 so wind reads as a ghost of air) + two small ghost cubes trailing — Wind Blade, Razor Blade, Wind Scissor, Laceration. |
 | **Splash** | Water drop cube + a trailing splash of 3 smaller, darker cube drops — Water Bolt, Tidal Surge. |
-| **Comet** | Small voxel core cluster + a fading streak tail cube — Scorch, Burn, Frost Bite. The meteor-line **Comet** no longer wears this shape (1f7): it is **Ember Streak** below, and it no longer sets `SummonFallingRock`, so it also left the sky-rock family. The `rockBody` boulder variant of this shape survives for a future sky-rock projectile that wants it. |
-| **Ember Streak** | 1f7: a stretched bright head (0.18×0.18×0.42) with a **long tapering ember tail** — six cubes marching back 0.3 apart, shrinking 0.15→0.03 and darkening toward the rear, ~2.0 m end to end against Comet's ~0.85 m. Read-only via `SpellLookProfile.DisplayShape`, never `spell.Shape`. The meteor-line **Comet** only ("A swift streak of burning light" — 1f7 made the model agree with the tooltip instead of fighting it). |
+| **Comet** | Small voxel core cluster + a fading streak tail cube — Scorch, Burn, Frost Bite. The meteor-line **Comet** no longer wears this shape (1f7): it became **Ember Streak**, and in 1ir that whole spell was replaced by Flamethrower. The `rockBody` boulder variant of this shape survives for a future sky-rock projectile that wants it. |
+| **Ember Streak** | 1f7, **removed in 1ir**: a stretched bright head (0.18×0.18×0.42) with a long tapering ember tail, read-only via `SpellLookProfile.DisplayShape`, never `spell.Shape`. It existed for exactly one spell — the meteor-line Comet — and that spell's slot is now Flamethrower, which is a swept Beam with no projectile body to shape. Flamethrower does **not** reuse the tail: it would have to survive in a delivery that draws nothing but a cone. |
 | **Missile** | Three 2-cube mini dart-stacks; **homing** — `SpellEffect.UpdateMissileTargeting` probes the **current trajectory** every frame and prioritizes the target on the flight path (the foe it is about to fly into), otherwise keeps chasing the locked target's last spot (or locks the nearest foe ahead if never locked), steering smoothly at 240°/s so the flight bends; no target = flies straight. Arcane Missiles, Chill Soul. |
 | **Dart** | Sleek thin bolt-line with a tip + small trailing fleck — physical shots (Archer Wind Shot, Taoist Talisman). |
 
@@ -1962,9 +1968,13 @@ but **delegates** to `SpellLook.SchoolColor`.
 
 **Precedence is exactly three steps** (1ib):
 
-1. **Authored `SpellLookProfile`** on the `SpellData` (`look:`) — 23 spells carry one (21 before
-   1f7 added Comet and Asteroid), because a named family behaviour should not be inferred from a
-   school.
+1. **Authored `SpellLookProfile`** on the `SpellData` (`look:`) — **25 spells** carry one (23 after
+   1f7 added Comet and Asteroid, whose slots 1ir replaced). Both replacements are authored rather than
+   left on a deterministic pick, for two separate reasons: Flamethrower is the only spell whose
+   delivery draws a **cone** (a swept wedge opens outward from the caster, and nothing in the Fire
+   family looks like that by accident), and Continuous Fireball is a steady 44-bolt stream where a
+   deterministic per-cast jitter would read as a different spell. An axis only takes an authored
+   profile when it is a *statement about the spell* — 1f7's rule.
 2. **School family** with a per-spell deterministic pick from that family's member list — this is what
    makes 151 spells differ without 151 hand-authored profiles.
 3. **`SpellLook.Resolve(DamageType, ProjectileShape)`** — the named identity-less fallback for callers
@@ -2048,6 +2058,15 @@ given Meteor a swarm half the time.
   Asteroid's new swarm would have been the one 1f7 visual that existed only during a cast, invisible
   on the bench built to compare it. `SkillFx.BuildRockBody` was extracted from `FallRock` so the
   bench can mount the real formation on its pedestal, and `LookKey`/`Describe` now print the axis.
+- **1ir removed both new-look readouts and then deleted the visuals they described.** The lesson is
+  that a per-spell look and the ability to *see* it are one feature, not two: the SkyRock axis lost
+  its only second value when Continuous Fireball took Asteroid's slot, and Ember Streak lost its only
+  user when Flamethrower took Comet's. Extracting the body out of the live cast (`BuildRockBody`,
+  `SpellBeam.BuildConeVisual`) is what made the swarm inspectable in the first place — and it is why
+  deleting a style that is *still visible elsewhere* stayed a one-file change. The bench branch has
+  three cases now (rock / cone / following circle) rather than one, because a delivery with no
+  projectile body needs its own mount; two new spells both falling through to the generic orb would
+  have been the exact repeat of the 1f7 miss.
 
 #### Spell Sources
 

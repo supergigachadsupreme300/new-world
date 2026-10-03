@@ -74,6 +74,11 @@ public enum ProjectileShape
     Splash = 7,
 
     /// <summary>Streaking fire/energy tail (burning comet line).</summary>
+    /// <para><b>1ir: this shape is NOT the meteor-line Comet skill.</b> That skill was replaced by
+    /// Flamethrower and its dedicated <c>EmberStreak</c> shape deleted with it, but this
+    /// <see cref="Comet"/> member predates that and is still read by Scorch and Burn. Grepping
+    /// "Comet" therefore finds a live shape whose spell no longer exists - do not treat it as
+    /// residue.</para></summary>
     Comet = 8,
 
     /// <summary>Cluster of small darts (arcane missiles).</summary>
@@ -84,15 +89,7 @@ public enum ProjectileShape
 
     /// <summary>Tumbling cluster of rock chunks (the Earth school / stone shards). Dressed like the
     /// world's breakable-rock debris (grey <c>Color.Lerp(Color.gray, Color.black, rand)</c> cubes).</summary>
-    Debris = 11,
-
-    /// <summary>1f7: a long bright head with a tapering ember tail (~2.3 m), authored for the
-    /// meteor-line <b>Comet</b> so it is no longer the shared light-streak <see cref="Comet"/> dressed
-    /// as a boulder. Reachable ONLY through <c>SpellLookProfile.DisplayShape</c>, never
-    /// <c>spell.Shape</c> (which is behaviour), and deliberately absent from every
-    /// <c>SpellLook</c> school family so determinism cannot hand it out — see
-    /// <see cref="SpellLook.DisplayShape"/> for the same rule applied to homing.</summary>
-    EmberStreak = 12
+    Debris = 11
 }
 
 /// <summary>
@@ -129,6 +126,10 @@ public class SpellData : ScriptableObject
     public float TickInterval = 0.5f;
     [Tooltip("Focus points drained per second while a Beam channel is held alive (0 = no upkeep).")]
     public float ChannelDrainPerSecond = 0f;
+    [Tooltip("1ir: Beam delivery — half-angle of the swept cone, in DEGREES. 0 (the default) is the legacy single-capsule LINE, which is how all ten other Beam spells keep working, so a cone is strictly opt-in. The beam covers the FULL 2x this angle (rays span -half..+half), so the aim preview must draw halfAngle * 2 — see SpellBeam.ConeFullAngleDegrees, which is the one place that conversion is written down.")]
+    public float BeamHalfAngle = 0f;
+    [Tooltip("1ir: explosion radius of a Summon/Storm turret's own bolts, independent of the targeting Radius. 0 (the default) falls back to Radius, which is why the nine existing summons are unaffected by this field. Use it when the bolt should detonate smaller than the area the turret scans.")]
+    public float BoltSplashRadius = 0f;
 
     [Header("Status (optional, §3.7)")]
     public bool AppliesStatus;
@@ -157,4 +158,6 @@ public class SpellData : ScriptableObject
     public bool SelfBuff;
     [Tooltip("Sky spell: summon a big rock that falls from above the target and reads as the spell landing. Zone and Storm deliveries defer their damage/terrain resolve to the moment the rock hits the ground. Pure visual rock — no collider.")]
     public bool SummonFallingRock;
+    [Tooltip("1ir: the summon belongs to its caster — it is created AT the caster (not at the ground aim point) and then FOLLOWS the caster for its whole life, drawing its ground circle under itself. One flag for one mechanic (spawn + follow + circle): these are not separable features, they are the same 'this is your familiar' promise. False (the default) keeps the existing ground-anchored turret at the aim point.")]
+    public bool CasterAnchored;
 }
