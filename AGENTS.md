@@ -279,7 +279,33 @@
      sections that read the same data through the same gate disagree, the verdict is a contradiction
      about **where** they disagree, never a number - per 1i2, a retracted number's replacement is
      *unknown*, not zero.
-   - **A data model that cannot express a shape cannot be coaxed into it by tuning tolerances.** 1f2
+   - **A navigation map is a copy of the codebase, and it is the one file nothing in this repo checks.**
+      1iu added `Magic/README.md` and `Animation/README.md`, and every symbol in them was wrong on the
+      first pass: the rest-pose pair (`SyncRestFromIdle` / `RestoreAuthoredRest`, `AGENTS.md` rule 16) was
+      filed under `PlayerAnimator` when it belongs to `WeaponAnimator`; `HolsterPoint` was named as
+      `WeaponStowAnimator`'s sheathe anchor and **does not exist** (the real one is the `AnchorParent`
+      field); and `PlayerAnimator` was described as owning idle/attack/dodge blends when it is a
+      *procedural walk/run* component for the `MapBuilder` model. Nothing errors, and a reader who trusts
+      it is sent to the wrong file with full confidence. Three habits, all mechanical:
+      - **Generate a map; never hand-maintain one.** 1iy's answer was a `tools/Write-Tree.ps1` that
+        writes `TREE.md` from `git ls-files`, and the file's first line says *generated - do not
+        hand-edit* and names the commit it saw. A hand-typed tree of a 1169-file repo rots on the next
+        structural commit; a generated one is at worst out of date and self-reporting. **Prefer a file
+        that can be re-derived over a file that must be remembered.**
+      - **Grep every identifier the doc names, after writing it.** A prose claim about a symbol's
+        *ownership* is exactly as rot-prone as a stale symbol name (rule 8's third bullet) — the name can
+        exist and still be filed under the wrong owner, which is the more expensive error because it
+        sends the reader somewhere plausible.
+      - **Never write a line number.** It is a copy of a fact that dies on the next edit above it, and
+        there is no `cs:line` convention to update. Name the symbol and let the reader jump.
+      - **Do not re-derive a private formula or a dispatch table into a doc.** Same failure as the
+        visible-radius rule 7 records: a second spelling rots silently when the original moves.
+      - Corollary from shipping the generator: **a generated artifact still needs a check that can fail.**
+        1iy's completeness verifier first "passed" with 0 == 0 because its regex swallowed the tree
+        glyphs into the directory names, so both sides of the comparison were empty. Rule 7's "a green
+        check nobody has seen fail is not a check" applies to the verification of the fix, not just the
+        fix. Re-run it wrong on purpose and watch it go red.
+ - **A data model that cannot express a shape cannot be coaxed into it by tuning tolerances.** 1f2
      wanted vertical risers between flat terraces, and the mesh path seemed to offer them
      (`EdgeIsRaised` / `SideBandCount`). They do not exist: `ChunkData` stores one height per
      **shared** corner, so adjacent tiles' edge vertices are the same two floats - for tile A to be

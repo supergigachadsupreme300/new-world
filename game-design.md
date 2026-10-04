@@ -2788,7 +2788,7 @@ The active PC URP config — QualitySettings level 1 → `PC_RPAsset.asset` guid
   `_buildings[_buildings.Count - 1]` stamped the club's health/door/part state onto the
   **previous** building.
 
-### 9.4 Source Layout (1iu)
+### 9.4 Source Layout (1iu, 1iy)
 
 There are **no namespaces and no `.asmdef`**, so a folder is an organisational unit only and moving a
 file can never break compilation. What *can* break is a `.meta`, so every move carries one and the
@@ -2812,6 +2812,17 @@ Assets/Scripts/
 `Assets/Scripts/Magic/README.md` and `Assets/Scripts/Animation/README.md` are the in-tree maps. They
 name **symbols, not line numbers**, deliberately: a line number is a copy of a fact that rots on the
 next edit above it, and a README is the one file no tool in this repo checks.
+
+Those two describe **symbol ownership** — which class owns which behaviour — and no generator can derive
+that, so they stay hand-written. **Structure**, though, is derivable, so 1iy made it a generated file
+rather than a fifth hand-maintained map: `TREE.md` is written by `tools/Write-Tree.ps1` from
+`git ls-files`, names the commit and timestamp it saw, and states on its first line that it must not be
+hand-edited. It omits the 632 `.meta` files (54% of the repo by count), collapses `_ArtSource`,
+`Resources`, `TextMesh Pro` and `ProjectSettings` to `[N files]`, and always expands `Assets/Scripts`
+(367 files) in full. Verified by rebuilding all 537 non-`.meta` paths out of the rendered tree and
+diffing against `git ls-files`: 413 rendered leaves + 124 inside the four collapsed directories = 537,
+with no invented paths. It deliberately asserts **no design or process claim** — it points here and at
+`AGENTS.md` / `PROGRESS.md` / `THINKING.md` rather than duplicating them.
 
 Three placement decisions worth stating, because the "obvious" answer differs:
 

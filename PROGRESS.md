@@ -1,4 +1,57 @@
-﻿## 1iw. `Models/MapBuilder/` exists — and it is load-bearing, contrary to the request's premise
+﻿## 1iy. `TREE.md` — a generated project map, and the verifier that had to be made able to fail
+
+**Status: shipped. New `tools/Write-Tree.ps1` + generated `TREE.md`. No game code touched.
+`skills: none applied` - repo documentation tooling, which no installed skill governs.
+Verified by rebuilding all 537 paths out of the rendered tree and diffing against `git ls-files`.**
+
+Requested: "write down a project file tree into a file." The obvious implementation — type the tree by
+hand — is the one thing that would have made the file worthless, so this ships as a **generator plus its
+output** instead: `powershell -ExecutionPolicy Bypass -File tools\Write-Tree.ps1` rebuilds `TREE.md`
+from `git ls-files`, and the file's own header names the commit and timestamp it saw.
+
+### Why generated rather than maintained
+
+1iu shipped two hand-written navigation maps (`Magic/README.md`, `Animation/README.md`) and **every
+symbol in them was wrong on the first pass** — the rest-pose pair filed under the wrong owner, a
+`HolsterPoint` that does not exist, `PlayerAnimator` described as owning blends it never had. Nothing
+errors when a doc is wrong; the reader just goes to the wrong file confidently. A hand-typed tree of a
+1169-file repo rots on the next structural commit, and unlike C# nothing compiles it. A generated one is
+at worst out of date, and it says so on its first line.
+
+### What it shows, and what it deliberately does not
+
+- Source of truth is `git ls-files`, so untracked and `.gitignore`d clutter (`Library/` alone is 51,903
+  files) **cannot** appear even by accident.
+- **`.meta` files are omitted everywhere** — 632 of them, 54% of the repo by count, and none carries
+  information a reader needs. The header states the count instead of listing them.
+- `Assets/Scripts` is **always expanded in full** (367 files); `_ArtSource` [38], `Assets/Resources`
+  [26], `Assets/TextMesh Pro` [33] and `ProjectSettings` [27] collapse to `[N files]`.
+- The file asserts **no design or process claim**, only structure, because structure is the one thing it
+  can be regenerated to verify. It points at `AGENTS.md` / `game-design.md` / `PROGRESS.md` /
+  `THINKING.md` rather than duplicating their claims into a fifth copy.
+
+### Two bugs the work exposed, both in the tooling rather than the output
+
+- **PowerShell 5.1 has no `` `u{XXXX} `` escape** (that is 6+), so the first render printed the literal
+  text `u{251C}` for every branch. Glyphs are now built with `[char]0x251C`. The file is written UTF-8
+  without a BOM.
+- **A size heuristic must not be able to hide a subtree.** `Assets/` holds 445 files, so it collapsed on
+  the threshold and `Assets/Scripts` — the one directory the force-list exists to protect — was never
+  reached. `Should-Expand` now also expands any *ancestor* of a forced directory.
+
+### Verified, and shown able to fail
+
+Rebuilt every path from the rendered tree's indentation and diffed against `git ls-files`:
+**413 rendered leaves + 124 inside the 4 collapsed directories = 537 tracked non-`.meta` files, zero
+invented paths, and all 4 printed `[N files]` counts match what git holds.**
+
+The first version of that verifier **passed vacuously at 0 == 0** because its regex swallowed the tree
+glyphs into the directory names, so both sides of the comparison were empty; a second version then
+reported two false failures by dropping the `Assets/` ancestor prefix. It only became trustworthy after
+it was observed reporting `BAD` on a real mismatch. That is rule 7 applied to the verification rather
+than the fix: **a check nobody has seen fail is not a check.**
+
+## 1iw. `Models/MapBuilder/` exists — and it is load-bearing, contrary to the request's premise
 
 **Status: shipped, NOT play-tested (rule 3 - no build). Cosmetic file moves + docs; no code edit.
 `skills: none applied` - a folder reorganisation of one static partial class, which no installed

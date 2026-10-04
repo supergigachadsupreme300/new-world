@@ -21,6 +21,65 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+---
+
+## 1iy. A file tree: the deliverable is the generator, not the tree
+
+**OPEN until shipped; closed on commit.**
+
+### H1 - "Write down a project file tree into a file."
+**CONFIRMED as the goal, but the naive form of it is the trap.** The literal reading is "type the tree
+into a markdown file". 1iu is the precedent against that: `Magic/README.md` and `Animation/README.md`
+were hand-written navigation maps and **every symbol in both was wrong on the first pass** — the rest-pose
+pair filed under `PlayerAnimator` instead of `WeaponAnimator`, a `HolsterPoint` that does not exist, and
+`PlayerAnimator` described as owning idle/attack/dodge blends when it is a procedural walk/run component.
+The failure is not carelessness; it is structural. A doc claims things about code, and no compiler,
+analyzer or test in this repo reads a doc. So the doc is the only artifact here with **no feedback loop
+at all**, and hand-maintaining one guarantees it drifts.
+
+### H2 - "So add a test that keeps the tree honest."
+**REJECTED as the primary move - it treats the symptom.** A checker over a hand-typed tree tells you when
+it is stale, which means you now maintain both the tree and the checker, and the checker is a re-derivation
+of the same filesystem. The stronger move is to remove the copy: `tools/Write-Tree.ps1` reads
+`git ls-files` and writes `TREE.md`, so the file is *derived*, not *maintained*. It carries the commit it
+saw and the command to rebuild it. A stale derived file is harmless and self-announcing; a stale
+maintained file is indistinguishable from a correct one.
+
+### H3 - "Include everything, it is only 1169 files."
+**REJECTED - 632 of those are `.meta`, i.e. 54% of the repo is Unity importer bookkeeping.** A tree that
+lists them is 2x longer, unreadable, and rots faster (every add/remove changes it twice). Collapsing them
+and stating the count is strictly better. Then the same question recurses: `_ArtSource` (38),
+`TextMesh Pro` (33), `ProjectSettings` (27) and `Resources` (26) are large and uninteresting, so they
+collapse to `[N files]` - but then **`Assets/Scripts` (367) must still be readable**, which is what
+`-AlwaysExpand` is for.
+
+### H4 - "`-ExpandBelow 25` is a reasonable default."
+**REJECTED once measured - and this is the interesting one.** First render collapsed `Assets/` (445
+files) on the threshold, and because `Assets/` was collapsed, `Assets/Scripts` was never reached. The
+force-list silently did nothing. A size heuristic that can hide a subtree is not a heuristic, it is a
+filter on the thing you cared about, and it produced a *plausible-looking* 62-line file with no error and
+no warning. Fix: expand any **ancestor** of a forced directory, so reaching a protected subtree is
+unconditional. Worth noting the failure was invisible in the output - it read as a short, tidy document.
+
+### H5 - "The output looks right, so it is right."
+**REJECTED - and this is where the real lesson is.** My completeness check rebuilt paths from the
+rendered indentation and diffed against `git ls-files`. It reported **success: 0 == 0**. It was
+comparing two empty sets, because the regex had swallowed the `├`/`└` glyphs into the directory names.
+A second version then reported two *false failures* by dropping the `Assets/` ancestor prefix. Only the
+third version - which I deliberately fed a wrong count to confirm it printed `BAD` - produced a verdict
+worth having. This is the same shape as rule 7's "a check that flags a false positive on the first file
+you add it to is a check whose silence has stopped meaning anything", pointed at myself: **I had written
+a green check for a verification, which is the one place a green check costs nothing to fake.** A check
+has to be shown failing before its passing means anything.
+
+### Verdict
+
+`tools/Write-Tree.ps1` + `TREE.md` at commit `6e25792`: 537 non-`.meta` files described, `.meta` collapsed
+by count, `Assets/Scripts` always expanded, four directories collapsed with counts that are verified
+against git. Verified: 413 rendered leaves + 124 collapsed = 537, zero invented paths. No game code
+touched, no build, no play-test. The tree is a convenience; the generator is the durable part, because it
+is the version that cannot quietly become a lie.
+
 ## 1iw. "MapBuilder isn't used in the game" — a premise, measured before it was acted on
 
 **OPEN until shipped; closed on commit.**
