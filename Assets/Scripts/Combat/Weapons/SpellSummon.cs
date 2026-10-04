@@ -30,6 +30,28 @@ public class SpellSummon : MonoBehaviour
     /// coupled behaviours (spawn here / follow / circle) cannot be half-enabled.</summary>
     private bool _follow;
 
+    /// <summary>1is: this familiar sprays FORWARD along the caster's aim instead of picking the
+    /// nearest enemy in its radius. Deliberately a SEPARATE flag from <see cref="_follow"/>: sharing
+    /// one would silently give any future caster-anchored turret "fire regardless of targets" for
+    /// free, which is a balance change nobody would be looking for. One flag, one meaning.</summary>
+    private bool _sprayForward;
+
+    /// <summary>1is: how far BEHIND the caster the circle sits, in metres. Applied at spawn
+    /// (SpellCaster.ResolveSummon) and again every follow frame, from the same constant, or the
+    /// familiar would visibly jump forward on its first tick.
+    /// <para>Flattened against Y at the call site: an aim pointed at the ground must not bury the
+    /// circle, and one pointed at the sky must not launch it.</para></summary>
+    public const float BackOffset = 1.8f;
+
+    /// <summary>1is: constant upward lead on a forward-sprayed bolt. The old nearest-target path
+    /// computed its rise from the height DIFFERENCE to a target; with no target there is nothing to
+    /// differ from, so this is a fixed nudge that clears the lip of ground the circle sits on.</summary>
+    public const float ForwardSprayRise = 0.18f;
+
+    /// <summary>1is: cached camera for the shared aim derivation — this runs every frame the familiar
+    /// is alive, and Camera.main is a tag lookup (same reason SpellBeam caches one).</summary>
+    private Camera _mainCam;
+
     /// <summary>1ir: ground probe for the follow. Starts high enough to clear the caster's own
     /// capsule but must SKIP the caster's colliders outright — a ray started above a standing player
     /// hits their capsule top before the terrain, which would park the circle at chest height.</summary>
@@ -59,6 +81,11 @@ public class SpellSummon : MonoBehaviour
         if (spell != null)
         {
             Radius = Mathf.Max(spell.Radius * radiusMult, 1f);
+            // 1is: for a FORWARD-SPRAYING familiar, Radius is display-only. The spray has no target
+            // gate at all, so this number no longer bounds what the spell can reach — it only sizes
+            // the drawn circle. Stated here because "radius 5" reads like a range, and the next
+            // reader would otherwise assume the spell still stops at 5 m. (For every other summon it
+            // is still the live targeting reach read by NearestEnemy.)
             // 1ir: durationMult applies to CASTER-ANCHORED summons only, and this is the line that
             // says so. SpellCaster.DurationScale hands it to every summon, so scaling it here would
             // have quietly lengthened Ember Effigy (6s -> 7.2s at full charge) — an unrequested
@@ -68,6 +95,7 @@ public class SpellSummon : MonoBehaviour
             if (spell.TickInterval > 0f) TickInterval = spell.TickInterval;
             _color = _look.Core;
             _follow = spell.CasterAnchored;
+            _sprayForward = spell.SummonFiresForward;
         }
 
         BuildVisual();
@@ -103,21 +131,33 @@ public class SpellSummon : MonoBehaviour
         }
     }
 
-    /// <summary>1ir: keep the circle under the caster, snapped to the ground so it does not hang in
+    /// <summary>1ir/1is: keep the circle BEHIND the caster, snapped to the ground so it does not hang in
     /// the air on a slope or float when they jump. Skips the caster's own colliders — see
     /// GroundProbeUp.
+    /// <para>1is: the offset is applied BEFORE the probe, not after. Probing at the caster and then
+    /// moving the result 1.8 m back would keep the circle at the player's own floor height while it
+    /// sits behind a step or the lip of a slope — the exact "circles at your feet, not where it is"
+    /// read that offsetting was supposed to fix.</para>
     /// <para>Takes the NEAREST hit, not the first. <c>RaycastNonAlloc</c> returns hits in an
     /// unspecified order, so walking past a building would sometimes park the circle on its roof and
     /// sometimes on the street, depending on buffer layout. A downward ray's nearest hit is the
-    /// lowest <c>point.y</c>, which is the ground the player is standing on.</para>
+    /// lowest <c>point.y</c>, which is the ground under the circle.</para>
     /// <para><b>No wall avoidance</b> — the circle tracks the caster's XZ outright, so it can pass
     /// through a wall with them. Stated here because "follows you" reads like it stops at
-    /// obstacles, and a plan said it should. Making it a bound spirit that clips is the cheaper,
-    /// more readable behaviour than a sliding solver, and this is the honest description of what
-    /// ships.</para></summary>
+    /// obstacles. Making it a bound spirit that clips is the cheaper, more readable behaviour than a
+    /// sliding solver, and this is the honest description of what ships.</para></summary>
     private void FollowCaster()
     {
-        Vector3 p = _casterRoot.position;
+        // Same aim derivation the beam uses, so the circle always sits behind the line it sprays
+        // along — one fact, one place (SpellCaster.CurrentAimDirection).
+        if (_mainCam == null) _mainCam = Camera.main;
+        Vector3 aim = SpellCaster.CurrentAimDirection(_casterRoot.position, BackOffset * 3f,
+            _casterRoot.forward, _mainCam);
+        Vector3 back = new Vector3(aim.x, 0f, aim.z);
+        if (back.sqrMagnitude > 0.0001f)
+            back = back.normalized * -BackOffset;
+
+        Vector3 p = _casterRoot.position + back;
         int n = Physics.RaycastNonAlloc(p + Vector3.up * GroundProbeUp, Vector3.down,
             _groundBuffer, GroundProbeDown);
         float best = float.PositiveInfinity;
@@ -145,7 +185,10 @@ public class SpellSummon : MonoBehaviour
             return;
         }
 
-        FireAtNearest();
+        // 1is: three disjoint kinds of summon, chosen by two independent flags. A forward-spraying
+        // familiar has no target concept at all; every other damage summon is still the 1ir turret.
+        if (_sprayForward) FireForward();
+        else FireAtNearest();
     }
 
     private void AuraHeal()
@@ -162,6 +205,23 @@ public class SpellSummon : MonoBehaviour
         }
     }
 
+    /// <summary>1is: spray straight forward along the caster's aim, unconditionally — no target test.
+    /// This is what makes the familiar a stream rather than a turret, and it is why
+    /// <see cref="Radius"/> no longer bounds anything for this spell (see Initialize).
+    /// <para>The muzzle is the circle's own orb, so the bolts visibly leave the familiar.</para></summary>
+    private void FireForward()
+    {
+        if (_mainCam == null) _mainCam = Camera.main;
+        Vector3 from = _head != null ? _head.position : transform.position + Vector3.up * 1.6f;
+        Vector3 aim = SpellCaster.CurrentAimDirection(from, Mathf.Max(_spell.Range, 5f),
+            _spell != null && _casterRoot != null ? _casterRoot.forward : Vector3.forward, _mainCam);
+        Vector3 flat = new Vector3(aim.x, 0f, aim.z);
+        Vector3 dir = flat.sqrMagnitude > 0.0001f
+            ? (flat.normalized + Vector3.up * ForwardSprayRise).normalized
+            : aim;
+        SpawnBolt(from, dir);
+    }
+
     private void FireAtNearest()
     {
         Transform target = NearestEnemy();
@@ -176,6 +236,15 @@ public class SpellSummon : MonoBehaviour
             ? (flat.normalized + Vector3.up * Mathf.Clamp(h * 0.35f, 0f, 0.8f)).normalized
             : Vector3.up;
 
+        SpawnBolt(muzzle, dir);
+    }
+
+    /// <summary>1is: the one place a summon bolt is created, shared by the forward spray and the
+    /// nearest-target turret. Splitting it out is deliberate — the two paths differ only in how they
+    /// choose a direction, and a copy of this block would let the bolt's power, size or launch speed
+    /// drift between a turret and a familiar without anything failing.</summary>
+    private void SpawnBolt(Vector3 muzzle, Vector3 dir)
+    {
         var go = new GameObject("SummonBolt");
         go.transform.position = muzzle;
         go.transform.rotation = Quaternion.LookRotation(dir);

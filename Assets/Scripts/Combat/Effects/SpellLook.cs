@@ -416,6 +416,35 @@ public readonly struct SpellLook
         return outColor;
     }
 
+    /// <summary>
+    /// 1is: the **hot inner core** of a two-tone body — <paramref name="core"/>'s hue rotated toward
+    /// yellow and pushed brighter. This exists because <see cref="Edge"/> is NOT yellow and cannot
+    /// become yellow: <see cref="EdgeFor"/> desaturates by 0.55 and raises value, so Fire's orange
+    /// <c>(1, 0.5, 0.2)</c> lands on a pale peach, and the hue only moves by ±0.03. Yellow sits at
+    /// hue 0.167 against Fire's 0.056, so nothing in the existing pair reaches it.
+    /// <para>Derived here rather than written as <c>Color.yellow</c> at the call site because rule 13
+    /// makes this file the single owner of spell colour: a literal in a beam builder would be the
+    /// second spelling, and it would look correct on a Fire spell and wrong on every other school —
+    /// which is exactly the drift the per-school table exists to prevent.</para>
+    /// <para><paramref name="amount"/> is 0..1 toward yellow, so a caller can ask for a hint of heat
+    /// (0.5) or a white-hot leading edge (1).</para></summary>
+    public static Color HotCore(Color core, float amount = 1f)
+    {
+        const float YellowHue = 0.167f;
+        Color.RGBToHSV(core, out float h, out float s, out float v);
+        // Take the SHORT way round the wheel, so an already-yellow hue (Arcane violet) rotates
+        // through red rather than the long way through green.
+        float delta = YellowHue - h;
+        if (delta > 0.5f) delta -= 1f;
+        else if (delta < -0.5f) delta += 1f;
+        h = Mathf.Repeat(h + delta * Mathf.Clamp01(amount), 1f);
+        s = Mathf.Clamp01(s * Mathf.Lerp(1f, 0.7f, Mathf.Clamp01(amount)));
+        v = Mathf.Clamp01(v * Mathf.Lerp(1f, 1.1f, Mathf.Clamp01(amount)));
+        Color outColor = Color.HSVToRGB(h, s, v);
+        outColor.a = core.a;
+        return outColor;
+    }
+
     /// <summary>Secondary colour: the core hue pushed brighter and cooler, for two-tone FX.</summary>
     private static Color EdgeFor(Color core, float r)
     {

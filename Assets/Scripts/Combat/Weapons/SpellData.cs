@@ -160,4 +160,6 @@ public class SpellData : ScriptableObject
     public bool SummonFallingRock;
     [Tooltip("1ir: the summon belongs to its caster — it is created AT the caster (not at the ground aim point) and then FOLLOWS the caster for its whole life, drawing its ground circle under itself. One flag for one mechanic (spawn + follow + circle): these are not separable features, they are the same 'this is your familiar' promise. False (the default) keeps the existing ground-anchored turret at the aim point.")]
     public bool CasterAnchored;
+    [Tooltip("1is: this summon SPRAYS FORWARD along the caster's aim every tick, with no target test at all — it is a stream, not a turret. Separate from CasterAnchored on purpose: sharing one flag would silently hand any future caster-anchored turret 'fires regardless of targets' for free, which is a balance change nobody would be looking for. Consequence worth knowing: with no target gate, Radius stops bounding the spell and only sizes the drawn circle; the bolts' own flight envelope decides how far it reaches.")]
+    public bool SummonFiresForward;
 }

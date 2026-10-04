@@ -110,6 +110,34 @@ public partial class SpellCaster
     /// and Zone/Storm scale their own ticks off TickInterval rather than this.</para></summary>
     public float DurationScale(float charge) => SizeScale(charge);
 
+    /// <summary>
+    /// 1is: the ONE place the "where am I aiming right now" question is answered. Camera forward,
+    /// aimed from <paramref name="from"/> out to <paramref name="range"/>, falling back to
+    /// <paramref name="fallbackForward"/> when there is no camera or the camera sits exactly on
+    /// <paramref name="from"/>.
+    /// <para>Extracted because two components now need it per frame and a second copy would rot:
+    /// <see cref="SpellBeam"/> (re-aims the beam as the player turns) and <see cref="SpellSummon"/>
+    /// (1is: places its circle behind the player and sprays along this line). When they disagreed,
+    /// the familiar would visibly fire across the beam's own spray — a "the model is wrong" report
+    /// that is actually two derivations of one fact (rule 8).</para>
+    /// <para>Static because it must be callable from the summon, which is not a child of the caster.
+    /// It reads NO instance state — the fallback and the camera are both passed in.</para>
+    /// <para><paramref name="cam"/> is a CACHED reference, not a convenience: <c>Camera.main</c> is a
+    /// tag lookup, and both callers run this every frame they are alive (a channeled beam, a living
+    /// familiar), which is why <see cref="SpellBeam"/> has held a cached camera since 1e5. Pass null
+    /// and it resolves <c>Camera.main</c> itself; pass your cache and it does not.</para></summary>
+    public static Vector3 CurrentAimDirection(Vector3 from, float range, Vector3 fallbackForward,
+        Camera cam = null)
+    {
+        if (cam == null) cam = Camera.main;
+        if (cam != null)
+        {
+            Vector3 dir = (cam.transform.position + cam.transform.forward * range) - from;
+            if (dir.sqrMagnitude > 0.0001f) return dir.normalized;
+        }
+        return fallbackForward.sqrMagnitude > 0.0001f ? fallbackForward.normalized : Vector3.forward;
+    }
+
     /// <summary>Drop the forward aim onto the ground — shared ground-placement for zone/summon/storm.</summary>
     private static Vector3 GroundTarget(Vector3 pos, Vector3 fwd, float range)
     {
@@ -133,7 +161,23 @@ public partial class SpellCaster
         // at the ground aim point — Spawn follows from there. GroundTarget would otherwise drop it
         // GroundAimMax metres away, and "follows the player" would visibly snap across the map on
         // the first frame.
-        Vector3 center = spell != null && spell.CasterAnchored ? pos : GroundTarget(pos, fwd, range);
+        // 1is: and specifically BEHIND them, along the aim line they are about to spray down. The
+        // offset is flattened, because this spell sprays forward (SpellSummon._sprayForward) and a
+        // circle parked on the aim line would be standing in its own fire. SpellSummon.BackOffset
+        // is applied again on every follow frame, so the two must not drift apart.
+        Vector3 center;
+        if (spell != null && spell.CasterAnchored)
+        {
+            Vector3 flat = new Vector3(fwd.x, 0f, fwd.z);
+            Vector3 back = flat.sqrMagnitude > 0.0001f
+                ? flat.normalized * -SpellSummon.BackOffset
+                : Vector3.zero;
+            center = pos + back;
+        }
+        else
+        {
+            center = GroundTarget(pos, fwd, range);
+        }
 
         // Earth summons (the golem line) erupt a small rock field where the construct rises
         // (§3.8). Other schools carry no terrain shape and no-op in TerrainDeformer. A modest

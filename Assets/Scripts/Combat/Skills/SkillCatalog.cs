@@ -151,7 +151,8 @@ public static partial class SkillCatalog
         float tickInterval = 0.5f, float channelDrainPerSecond = 0f, bool selfBuff = false,
         TerrainShape terrainShape = TerrainShape.None, ProjectileShape projectileShape = ProjectileShape.Auto,
         bool summonFallingRock = false, SpellLookProfile look = null,
-        float beamHalfAngle = 0f, bool casterAnchored = false, float boltSplashRadius = 0f)
+        float beamHalfAngle = 0f, bool casterAnchored = false, float boltSplashRadius = 0f,
+        bool summonFiresForward = false)
     {
         var spell = ScriptableObject.CreateInstance<SpellData>();
         spell.name = spellId;
@@ -183,6 +184,7 @@ public static partial class SkillCatalog
         spell.BeamHalfAngle = beamHalfAngle;
         spell.CasterAnchored = casterAnchored;
         spell.BoltSplashRadius = boltSplashRadius;
+        spell.SummonFiresForward = summonFiresForward;
         // 1ii: null (the default) means "fully deterministic from spell.id" — the resolver treats a
         // profile that merely EXISTS as authored, so these 21 must be a deliberate list and not a
         // blanket default. Assigning a null here is the same as leaving the field at its default.
