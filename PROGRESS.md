@@ -1,4 +1,76 @@
-﻿## 1it. Dead scaffolding, vestigial folders and the stale `_Archived/` fork are gone
+﻿## 1iu. `Magic/` and `Animation/` exist; `Combat/Effects/` is gone
+
+**Status: shipped, NOT play-tested (rule 3 - no build). Moves + two new READMEs + docs only; zero
+behaviour change. `skills: scenario-unity-architecture` (its `.meta`-travels-with-the-asset rule is
+informative here, not authoritative - rule 3 means it could not have verified anything).
+Verified by grep + reread + `StaticChecks.ps1` 0 candidates + `.cs`/`.cs.meta` 365/365.**
+
+34 files moved, each with its `.meta`. Two new trees and a `Combat/Effects/` split:
+
+| Was | Now | n |
+|---|---|---|
+| `Combat\Effects\SpellLook.cs` | `Magic\Look\` | 1 |
+| `Combat\Effects\{SkillFx,SpellImpactFx,CastingCircle}.cs` | `Magic\Fx\` | 3 |
+| `Combat\Effects\SpellDoT.cs` | `Magic\Cast\` | 1 |
+| `Combat\Weapons\{SpellCaster + 4 partials,SpellData,SpellEffect,SpellZone,SpellStorm,SpellSummon,SpellTornado,SpellBeam}.cs` | `Magic\Cast\` | 12 |
+| `UI\NewWorld\{MagicWheelUI,MagicTestMatrix}.cs` | `Magic\Ui\` | 2 |
+| `Player\PlayerAnimator.cs`, `Combat\Weapons\{WeaponAnimator,WeaponStowAnimator}.cs` | `Animation\` | 3 |
+| `Combat\Effects\{StatusEffectType,BlindStatus,ChillStatus,WetStatus,CCZone,ElementSignatureStatus}.cs` | `Combat\Status\` | 6 |
+| `Combat\Effects\{DamageNumber,HitStop,ScreenShake,CombatFeedback}.cs` | `Combat\Feedback\` | 4 |
+| `Combat\Effects\{SummonedAlly,StaminaSystem}.cs` | `Combat\Skills\`, `Combat\` | 2 |
+
+`Combat\Effects` held 19 files; 1it deleted 2, so all 17 survivors went elsewhere and the folder +
+its meta are gone. Combat went from two catch-all folders to five named ones.
+
+### What deliberately did NOT move, and why
+
+- **`Models\WeaponModelBuilder.cs` stayed put.** It builds **all twenty** weapons, four of them magic
+  (`BuildStaff`/`BuildHolyBook`/`BuildBoneWand`/`BuildControlOrb`, dispatched by `Build(weaponId, …)`),
+  so the magic four cannot be split out by a path move - that needs the *file* split. Same for
+  `MagicWeaponBehavior` / `MagicWeaponMods`, which are a `WeaponCategory` driven by `WeaponData`, not
+  part of the spell pipeline.
+- **`Player\PlayerController.Animation.cs` stayed in `Player\`.** It is a `partial class
+  PlayerController`. The test used: group **independent components** (all three animators stand
+  alone), and leave a class's own partials with their class.
+- **Spell geometry stayed split by *when* it draws** - `SpellCaster.Projectiles.cs` owns in-flight
+  bodies, `SkillFx.cs` owns the falling rock. Both are mounted by `MagicTestMatrix`, so each still has
+  an acceptance readout.
+
+### Why this was low-risk, and what was checked instead
+
+There are **no namespaces and no `.asmdef`** anywhere in the project, no reflection, no
+`[SerializeReference]` and no string-keyed component lookup, so a folder is an organisational unit
+and a move cannot break compilation. The things a move *can* break were checked instead:
+
+- `.meta` travelled with every file (`.cs`/`.cs.meta` 365/365, unchanged), 8 new folder metas and 2
+  README metas authored with fresh GUIDs, and every one of the 71 folders under `Assets/Scripts` has a
+  meta.
+- `tools\StaticChecks.ps1`: 0 candidates; its `$files` list references no moved file.
+- Every path string in `Assets`, `game-design.md`, `AGENTS.md` and the tools script was scanned for
+  the old locations: **zero** hits outside `PROGRESS.md`/`THINKING.md` history, which is left alone
+  because rewriting a past task record falsifies what was true then.
+- Found and removed an orphan: **`Assets/Scripts/Audio.meta`**, tracked but with no `Audio/` folder.
+  See the 1it entry - it survived that task because "is this folder empty" cannot ask about a folder
+  that is absent.
+
+### The two new READMEs were wrong on the first pass
+
+`Magic\README.md` and `Animation\README.md` shipped only after every symbol they name was grepped,
+and **four claims had to be corrected** - all caught by grepping after writing, none by rereading:
+
+| Claim as first written | Truth |
+|---|---|
+| `SyncRestFromIdle` / `RestoreAuthoredRest` owned by `PlayerAnimator` | `WeaponAnimator` (`AGENTS.md` rule 16 is about `WeaponAnimator`) |
+| `WeaponStowAnimator`'s sheathe anchor is `HolsterPoint` | `HolsterPoint` **does not exist**; the field is `AnchorParent` |
+| `PlayerAnimator` owns idle/attack/dodge blends and the melee swing arc | it is a *procedural* walk/run/idle component for the `MapBuilder` model; the attack/swing states live in `PlayerController.Animation.cs` / `WeaponAnimator` |
+| `SpellLook` is documented at `§3.13`; `MagicTestMatrix` bench at `§2.2` | `§3.8.3` for both - and `3.13` is not a section that exists |
+
+New `AGENTS.md` rule 8 bullet: a navigation map is a copy of the codebase, it is the one file nothing
+checks, and **never write a line number** in one. New rule 7 bullet: a scan reporting absences must be
+shown able to report presences - the first verification pass here reported 9 of 22 symbols MISSING,
+all nine depth artefacts (`**` in a PowerShell `-Path` glob descends exactly one level).
+
+## 1it. Dead scaffolding, vestigial folders and the stale `_Archived/` fork are gone
 
 **Status: shipped, NOT play-tested (rule 3 - no build). Pure deletion + one doc line; no gameplay
 change. `skills: scenario-unity-architecture` loaded for the `.meta`-travels-with-the-asset rule (a
@@ -26,13 +98,18 @@ All seven are `GAMEPLAY_IMPROVEMENT_PLAN.txt` "planning Task N.M" reference impl
 **zero** docs. Also deleted: `World\WorldBuilder.Inspection.cs`, an empty
 `public partial class WorldBuilder {}` shell.
 
-### Deleted: 17 vestigial empty folders (+ their folder `.meta`s)
+### Deleted: 18 vestigial empty folders (+ their folder `.meta`s)
 
 `Scripts\_Archived`, `Combat\AI`, `Player\Combat`, `Player\Inventory`, `Utils`, `Multiplayer` +
 `Client`/`Server`/`Sync`, `SideContent` + 7 empty subfolders - residue of the 1hz multiplayer
-removal and an abandoned regroup that was planned and never populated. `SideContent`/`Multiplayer`
+removal and an abandoned regroup that was planned and never populated - plus `Player\Creation`,
+which became empty **in this same pass** when `CharacterCreation.cs` went. `SideContent`/`Multiplayer`
 were counted by an `-Recurse -File` emptiness test that found only their *subfolders' own* `.meta`
 files; the `.cs` count is what says "empty".
+
+A **nineteenth** tracked folder meta was found still live after 1it and removed in 1iu:
+`Assets/Scripts/Audio.meta`, a meta whose `Audio/` folder was already gone - an orphan of an earlier
+removal, invisible to any "is the folder empty" test because the folder is not there to ask about.
 
 ### Deleted: `_Archived/` at the repo root (67 tracked files)
 

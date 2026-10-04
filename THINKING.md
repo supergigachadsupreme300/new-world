@@ -15,6 +15,95 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+---
+
+## 1iu. Moving 34 files for "findability": what could go wrong that a grep for the class name would not
+
+**OPEN until shipped; closed on commit.** Written while the moves and READMEs were in flight.
+
+### H1 - "A folder move cannot break this project, so a grep for the class name is the whole check."
+**CONFIRMED, and it is why this task was cheap.** Searched `Assets\Scripts` for `namespace `,
+`.asmdef`, `SerializeReference`, `Assembly-CSharp` and string-keyed `GetComponent`/`AddComponent`
+lookups: zero hits. No namespaces, one implicit assembly, no reflection. So the mechanical risk of a
+pure move is **zero**, and 34 files moved with no signature edits. Worth writing down: the check that
+*matters* is not "does it still compile" but "did every `.meta` travel", because a lost `.meta` is a
+silent GUID re-issue rather than an error.
+
+### H2 - "New folders just need `git mv`; Unity will generate the folder metas."
+**REJECTED, and the project's own tree says so.** `git ls-files` over `Assets/Scripts` shows 63
+non-`.cs` metas that are *all* folder metas - every folder is tracked. Leaving 8 new ones untracked
+means the next person to open the project gets 8 Unity-assigned GUIDs nobody else has. Authored 8
+folder metas + 2 README metas with fresh GUIDs, then checked **both** directions: every one of the 71
+on-disk folders has a meta, and every tracked non-`.cs` meta has a folder behind it. That second
+direction is the one that found the real bug (H4).
+
+### H3 - "Every file is accounted for, so `Combat/Effects` is fully redistributed."
+**CONFIRMED, but only after counting *files* and not folders.** 19 pre-1it, minus 2 deleted by 1it =
+17, and the move list accounts for exactly 17 (1 + 3 + 1 + 4 + 6 + 2). The check that would have lied:
+`-Recurse -File | Measure` on the *parent* (`Combat\`) is non-zero while `Effects\` is empty, so "is
+there anything left under Combat" answers *no* when the answer is *yes*.
+
+### H4 - "The orphan `Assets/Scripts/Audio.meta` was already handled."
+**REJECTED - this is the one real find.** After 1it I listed every tracked non-`.cs` meta and asked
+whether a folder of that name exists. `Audio.meta` had none. This is a residue of the 1is isolation
+dance: `Audio.meta` was *already* deleted on disk before this session began, and I **restored** it to
+keep an unrelated WIP out of the 1is commit - right for that commit, and it left a tracked meta
+pointing at a folder that does not exist. Generalisable, and it is the mirror image of 1ii's rule:
+*"is this folder empty" cannot ask about a folder that is absent.* An orphan meta is invisible to every
+emptiness test; only the reverse question finds it. Removed in 1iu, and 1it's folder count corrected
+17 -> 18, because `Player/Creation` became empty in that same pass and the entry had omitted it.
+
+### H5 - "`WeaponModelBuilder` builds the magic models, so it belongs in `Magic/`."
+**REJECTED - the premise is false.** It builds **all twenty** weapons; four are magic
+(`BuildStaff`/`BuildHolyBook`/`BuildBoneWand`/`BuildControlOrb`). A path move cannot separate them,
+because the magic bodies are methods inside one dispatcher; moving the file would cost `Models\` its
+single source of truth for every weapon shape. Same question killed moving `MagicWeaponBehavior` to
+`Magic\`: it is a `WeaponCategory` driven by `WeaponData` - a *weapon* fact, not a spell-pipeline fact.
+The rule that decided all three: **group by what decides the behaviour, not by which folder a reader
+would guess.** A near-miss in the other direction: `MagicTestMatrix` + `MagicWheelUI` *did* move to
+`Magic\Ui\` even though they only *read* spells, because they are the pipeline's own readouts - it is
+the writer relationship that counts.
+
+### H6 - "`PlayerController.Animation.cs` is animation code, so it goes in `Animation/`."
+**REJECTED.** It is a `partial class PlayerController` (model build/reload, race-change, draw/stow,
+arm-chain checks). Splitting a class's partials away from the class costs the reader more than it
+saves, because every other partial must stay adjacent for the same reason. Test recorded: group
+**independent components** (all three animators stand alone); leave a class's partials with their
+class. The animators group for exactly that reason.
+
+### H7 - "The READMEs are prose, so they will be right."
+**REJECTED, four times over.** Grepping every symbol *after* writing found: `SyncRestFromIdle` /
+`RestoreAuthoredRest` filed under `PlayerAnimator` when rule 16 is about `WeaponAnimator`;
+`HolsterPoint` named as `WeaponStowAnimator`'s anchor when **no such symbol exists** (the field is
+`AnchorParent`); `PlayerAnimator` described as owning attack/dodge/swing state when it is a
+*procedural* walk/run component; and two invented section refs (`§3.13` does not exist; the bench is
+`§3.8.3`, not `§2.2`). Each is the more expensive kind of doc bug: the name either does not exist, or
+exists and is filed under the **wrong owner**, so the reader is sent somewhere plausible with full
+confidence. Prose about ownership is a copy of the codebase, and rule 8's stale-comment rule applies to
+prose. Hence the three mechanical habits now in rule 8: grep each identifier after writing, **never
+write a line number**, and never re-derive a private formula or dispatch table into a doc.
+
+### H8 - "I verified the READMEs' symbols with a recursive grep."
+**REJECTED - the verification was itself the bug, and it nearly shipped.** The first pass used
+`Select-String -Path 'Assets\Scripts\*.cs','Assets\Scripts\**\*.cs'` and reported **9 of 22 symbols
+MISSING**, including `MagicWeaponBehavior`, `FallRock` and `BuildProjectileBody`. `**` in a PowerShell
+`-Path` glob descends exactly **one** level, so files 2-3 levels deep (`Combat\Weapons\`, `Magic\Fx\`)
+were invisible while call sites 1 level deep were found. That combination yields a scan reporting 29
+hits for `Resolve(` and 0 for `HolsterPoint` on the same tree - internally impossible, and the only
+reason to notice. This is rule 7's "a green check nobody has seen fail is not a check" running in the
+direction that *looks like a finding*: absences are evidence only if the same scan has demonstrably
+found presences. Fixed by building the list once with `Get-ChildItem -Recurse` (`scanned 365 .cs
+files`, sanity-checked against the `.cs.meta` count) - which is also why `StaticChecks.ps1` keeps its
+own `$files` list instead of a glob. New rule 7 bullet records it.
+
+### Verdict
+
+34 files moved, no behaviour change, `.cs`/`.cs.meta` 365/365, 0 static-check candidates, zero stale
+path strings outside deliberately-preserved history. The only behaviour-adjacent change is removing
+the orphan `Audio.meta`. Both deliverables needed four factual and two section-reference corrections
+before they were honest - **all** caught by grepping after writing, none by rereading. They are now
+symbol-named and line-number-free by construction.
+
 ## 1it - what is actually dead, and in which direction (SHIPPED)
 
 **Verdict: confirmed.** Seven whole files and two declarations were unreachable and are deleted; two

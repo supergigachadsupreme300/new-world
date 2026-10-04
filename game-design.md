@@ -2788,6 +2788,47 @@ The active PC URP config — QualitySettings level 1 → `PC_RPAsset.asset` guid
   `_buildings[_buildings.Count - 1]` stamped the club's health/door/part state onto the
   **previous** building.
 
+### 9.4 Source Layout (1iu)
+
+There are **no namespaces and no `.asmdef`**, so a folder is an organisational unit only and moving a
+file can never break compilation. What *can* break is a `.meta`, so every move carries one and the
+invariant check is that the `.cs` count and the `.cs.meta` count under `Assets/Scripts` are equal
+(365/365 after 1it, unchanged by 1iu). Two trees were added:
+
+```
+Assets/Scripts/
+  Magic/          Look/  SpellLook            - the ONE place a spell's look is resolved (§3.8.3)
+                  Fx/    SkillFx, SpellImpactFx, CastingCircle
+                  Cast/  SpellCaster (+4 partials), SpellData, SpellEffect, SpellZone,
+                         SpellStorm, SpellSummon, SpellTornado, SpellBeam, SpellDoT
+                  Ui/    MagicWheelUI, MagicTestMatrix
+  Animation/      PlayerAnimator, WeaponAnimator, WeaponStowAnimator
+  Combat/         StaminaSystem.cs
+                  Feedback/  DamageNumber, HitStop, ScreenShake, CombatFeedback
+                  Status/    StatusEffectType, BlindStatus, ChillStatus, WetStatus,
+                             CCZone, ElementSignatureStatus
+```
+
+`Assets/Scripts/Magic/README.md` and `Assets/Scripts/Animation/README.md` are the in-tree maps. They
+name **symbols, not line numbers**, deliberately: a line number is a copy of a fact that rots on the
+next edit above it, and a README is the one file no tool in this repo checks.
+
+Three placement decisions worth stating, because the "obvious" answer differs:
+
+- **`Models/WeaponModelBuilder.cs` did not move into `Magic/`.** It builds **all twenty** weapons,
+  four of which are magic (`BuildStaff`, `BuildHolyBook`, `BuildBoneWand`, `BuildControlOrb` in its
+  dispatch), so the magic four cannot be separated by a path move without splitting the file. Same
+  reasoning keeps `MagicWeaponBehavior` / `MagicWeaponMods` in `Combat/Weapons/`: they are a
+  `WeaponCategory`, driven by `WeaponData` (§3.6), not part of the spell pipeline.
+- **`PlayerController.Animation.cs` did not move into `Animation/`.** It is a
+  `partial class PlayerController`, so it stays with the class it *is*. The test applied: group
+  **independent components** (the three animators each stand alone), and leave a class's partials
+  with their class.
+- **Spell geometry stays split by *when* it is drawn.** In-flight bodies are in
+  `SpellCaster.Projectiles.cs` (`CreateProjectileDisplay` / `BuildProjectileBody`); the falling rock
+  and its SkyRock styles are in `SkillFx.cs` (`FallRock` / `BuildRockBody`). Both are on the
+  `MagicTestMatrix` bench (§3.8.3), which is why a change to either has an acceptance readout.
+
 ---
 
 ## 10. Monetization (Future Consideration)

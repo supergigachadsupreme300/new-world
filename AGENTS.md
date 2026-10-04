@@ -127,7 +127,18 @@
      passed, and only Unity's parser objected (CS0106, which does not even name the class). Check 7
      now flags any member at brace depth 0, and was verified by **reintroducing that exact bug and
      watching it fire** â€” a green check nobody has seen fail is not a check.
-   - **A safe idiom in one caller is not evidence it is safe in another.** 1i4 read `_loadedChunks` from
+   - **A scan that reports ABSENCES must first be shown able to report PRESENCES, or its misses mean
+     nothing.** The same class of error running the other way, and it is easy to mistake for a finding:
+     verifying 1iu's two READMEs, `Select-String -Path 'Assets\Scripts\*.cs',
+     'Assets\Scripts\**\*.cs'` reported **9 of the symbols MISSING** - including
+     `MagicWeaponBehavior`, `FallRock` and `BuildProjectileBody`, all of which exist. `**` in a
+     PowerShell `-Path` glob descends exactly **one** level, so a scan only as deep as the files it is
+     looking for reports absences forever. The tell is internal: a scan that finds `Resolve(` 29 times
+     and `HolsterPoint` 0 times is claiming to have read a tree that cannot contain the callers it just
+     counted. **Build the file list once, explicitly and recursively**, and sanity-check it against a
+     total (1iu: `scanned 365 .cs files`, equal to the `.cs.meta` count) before believing any zero.
+     This is why `StaticChecks.ps1` uses its own `$files` list instead of a glob.
+  - **A safe idiom in one caller is not evidence it is safe in another.** 1i4 read `_loadedChunks` from
      `BuildChunkMeshData`, which runs on a **ThreadPool thread** via `BackgroundGenerateChunk`, while
      the main thread builds/unloads/demotes â€” and `Dictionary<TKey,TValue>` is not safe to read during
      a write. The F3 audit reads the same dictionary constantly and never races, because it is
@@ -260,8 +271,24 @@
      number at every call site.** 1f3's cap depth is `min(CraterStep, reach)`, and `reach` is
      `radius + feather`, so the clamp that looked necessary (a sphere deeper than its rim radius) is
      unreachable in practice. The habit is not "check the arithmetic" - the arithmetic was right - but
-     **name where each input's ladder starts before concluding a guard is live**, and if it cannot be
-     reached, say so in the comment instead of leaving it to look load-bearing.
+**name where each input's ladder starts before concluding a guard is live**, and if it cannot be
+      reached, say so in the comment instead of leaving it to look load-bearing.
+    - **A navigation map is a copy of the codebase, and it is the one file nothing in this repo checks.**
+      1iu added `Magic/README.md` and `Animation/README.md`, and every symbol in them was wrong on the
+      first pass: the rest-pose pair (`SyncRestFromIdle` / `RestoreAuthoredRest`, `AGENTS.md` rule 16) was
+      filed under `PlayerAnimator` when it belongs to `WeaponAnimator`; `HolsterPoint` was named as
+      `WeaponStowAnimator`'s sheathe anchor and **does not exist** (the real one is the `AnchorParent`
+      field); and `PlayerAnimator` was described as owning idle/attack/dodge blends when it is a
+      *procedural walk/run* component for the `MapBuilder` model. Nothing errors, and a reader who trusts
+      it is sent to the wrong file with full confidence. Three habits, all mechanical:
+      - **Grep every identifier the doc names, after writing it.** A prose claim about a symbol's
+        *ownership* is exactly as rot-prone as a stale symbol name (rule 8's third bullet) — the name can
+        exist and still be filed under the wrong owner, which is the more expensive error because it
+        sends the reader somewhere plausible.
+      - **Never write a line number.** It is a copy of a fact that dies on the next edit above it, and
+        there is no `cs:line` convention to update. Name the symbol and let the reader jump.
+      - **Do not re-derive a private formula or a dispatch table into a doc.** Same failure as the
+        visible-radius rule 7 records: a second spelling rots silently when the original moves.
 
 9. **Hand-authored block geometry is stated by its support, not by its centre.** The block-built
    structures (holy places, NPC rigs, `CreatePartCube` call sites) are positioned by a hand-computed
