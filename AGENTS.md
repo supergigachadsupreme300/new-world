@@ -185,7 +185,32 @@
      a write. The F3 audit reads the same dictionary constantly and never races, because it is
      main-thread-only, so the pattern looked safe. **Check the thread the code runs on before reusing
      an idiom, and never argue that a data source is "strictly better" without naming the thread.**
-- **"No references found" is a claim about the PATTERNS YOU TYPED, and a key has three
+- **"Not used" is a claim about a CALL GRAPH, and a folder that dominates a directory is exactly
+      where that claim is most tempting and least true.** 1iw was asked to move `MapBuilder` out of
+      `Assets/Scripts/Models/` because it "takes up too much space and isn't used in the game" - it was
+      10 of that folder's 17 files and 5,153 lines, so both halves of the premise felt checkable. The
+      move itself is cosmetic and harmless; the *reason* was false, and had it been acted on (`rm`
+      instead of `git mv`) it would have deleted the player model (`RaceRig`,
+      `PlayerController.Animation`, `PlayerAnimator` -> `BuildPlayerModel`), sitting
+      (`PlayerSitController`), the **tornado spell** (`SpellTornado`/`SpellBeam`/`SpellCaster.Cast`),
+      pets, random events and world sign text - and ~40 files would have failed to compile. Three habits:
+      - **Do the cosmetic move, but report the premise failure in the same pass.** A refactor that is
+        safe on its own is still the right moment to say "these are load-bearing", because the next
+        reader inherits the tidy folder as evidence for the deletion that did not happen.
+      - **The surprising caller is the one worth grepping for, and it is usually a layering inversion.**
+        `World/Chunks/ChunkObject.cs` calls `MapBuilder.BuildTree` and `BuildStone`, so **the streamed
+        terrain draws through a class that lives under `Models/`**. A class's folder describes where it
+        was written, not who depends on it; "under Models" reads as cosmetic-only, and it is not.
+      - **Separate "unused by the game" from "unused by the legacy layer" - they have different
+        partials.** Nine of the ten partials are village buildings and NPCs used only by `WorldBuilder`
+        and the nine `CutsceneManager.Ending*` files, so retiring the legacy content really would orphan
+        them, but `PlayerModels.cs` and `Nature.cs` are in the new world's path and would have to be kept
+        or promoted first. Ask *which member* is unused, never *whether the class* is.
+      - Corollary for the check itself: a path-string grep cannot see a move, so a file moved into a
+        subfolder stays verifiable only if you also confirm nothing addresses it **by path**
+        (`AssetDatabase.LoadAssetAtPath`, an `.asmdef`, an editor tool). Here that grep read 0 and the
+        move was free; had it read non-zero, the move would have needed a rewrite, not a `git mv`.
+ - **"No references found" is a claim about the PATTERNS YOU TYPED, and a key has three
       spellings.** 1in shipped the crater audit on **F1** after grepping `Key.F1` and `KeyCode.F1`,
       finding nothing, and documenting the key as free. It was bound: the combat-mode toggle uses
       `Keyboard.current.f1Key` (`Player\PlayerController.Interactions.cs:521`), the **property-name**

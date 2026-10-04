@@ -2855,6 +2855,36 @@ Three further files were byte-identical to their `Resources/` twins *and* refere
 were deleted outright rather than archived: `grass_blade.png`, `leaves_texture.png`,
 `wood_texture.png`.
 
+### 9.4b `MapBuilder` is 10 files, and it is load-bearing (1iw)
+
+`Assets/Scripts/Models/` held `MapBuilder` as 10 flat `MapBuilder.*.cs` partials - 5,153 lines and
+**10 of the folder's 17 `.cs` files (59%)**. They now live in
+`Assets/Scripts/Models/MapBuilder/`, leaving `Models/` holding the seven single-purpose model
+builders it always meant to hold (`Boss`/`Enemy`/`Goblin`/`Horse`/`Item`/`PlayerPartMesher`/
+`WeaponModelBuilder`).
+
+The grouping is cosmetic - C# does not care about folders, and the class name is unchanged, so no
+caller was edited. **But the files are not unused, and must not be deleted on the strength of their
+old location.** The consumers that make that concrete:
+
+| Consumer | Calls |
+|---|---|
+| `Player/Races/RaceRig.cs`, `PlayerController.Animation.cs`, `Animation/PlayerAnimator.cs` | `BuildPlayerModel` |
+| `Interactions/PlayerSitController.cs` | `BuildSitPlayerModel` |
+| `Magic/Cast/SpellTornado.cs`, `SpellBeam.cs`, `SpellCaster.Cast.cs` | `BuildTornado` |
+| `World/Chunks/ChunkObject.cs` | `BuildTree`, `BuildStone` |
+| `Quests/RandomEventManager.cs` | `BuildCloud`, `BuildTornado` |
+| `Pets/PetController.cs` | `MakeBlock` |
+| `UI/UIManager.cs` | `RefreshWorldSignTexts` |
+| `CutsceneManager.Ending*` (9 files), `WorldBuilder.*` (6), `NewWorldTestGround` | the village, cars, NPCs, benches |
+
+The one that is easy to miss is `ChunkObject`: **the streamed terrain draws its trees and stones
+through `MapBuilder`**, so the class is inside the new world's critical path, not just the legacy
+village's model kit. Nine of the ten partials are buildings and NPCs that only the village and the
+cutscenes use, so if the legacy content is ever retired those partials become genuinely dead - but
+`PlayerModels.cs` (races, sitting) and `Nature.cs` (`BuildTree`/`BuildStone`/`BuildCloud`) would have
+to be kept or promoted out first.
+
 ---
 
 ## 10. Monetization (Future Consideration)

@@ -19,6 +19,57 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+---
+
+## 1iw. "MapBuilder isn't used in the game" — a premise, measured before it was acted on
+
+**OPEN until shipped; closed on commit.**
+
+### H1 - "It takes up too much space in `Models`, so put it in a folder."
+**CONFIRMED, and this half was checkable by counting.** 10 of `Models/`'s 17 `.cs` files, 5,153 lines,
+59% of the folder, for one static partial class. Grouping is the right fix for that, and it is free:
+C# is folder-agnostic, the class name is unchanged, and the one thing that *could* break a move - a
+path-string reference (`AssetDatabase.LoadAssetAtPath`, an `.asmdef`, an editor tool) - grepped **0**.
+
+### H2 - "And it isn't used in the game, so while we're here it could just go."
+**REJECTED — and this is the half worth pushing back on.** Enumerating `MapBuilder.<symbol>` across
+`Assets/Scripts` returned **~40 calling files**, including things that have nothing to do with the
+legacy village:
+
+- `RaceRig` / `PlayerController.Animation` / `PlayerAnimator` -> `BuildPlayerModel`. **The player model
+  is this class.** Deleting it breaks the thing you are looking at.
+- `SpellTornado` / `SpellBeam` / `SpellCaster.Cast` -> `BuildTornado`. A live spell body, and one of the
+  display shapes 1ib gave a `SpellLook` axis to.
+- `ChunkObject` -> `BuildTree`, `BuildStone`. This is the one that reframed the task: **the streamed
+  terrain draws its foliage through a class filed under `Models/`.** I had been treating "under
+  Models" as a proxy for "cosmetic, models-only", and that proxy was wrong by exactly one dependency
+  edge, pointing at the most important caller in the codebase.
+- `PlayerSitController`, `PetController`, `RandomEventManager`, `UIManager.RefreshWorldSignTexts`.
+
+So the honest decomposition is not "used / unused" but **"used by the legacy layer" vs "used by the
+new world"**, and those do not split along file boundaries: nine of the ten partials really are
+village-only (`.Houses`, `.Mansion`, `.Restaurants`, `.Stores`, `.Police`, `.Vehicles`, `.NPCs`), but
+`PlayerModels.cs` and `Nature.cs` are in the new world's path. Retiring the legacy layer would orphan
+most of this class and still require keeping two partials. **Ask which member is unused, never whether
+the class is** - the unit that turned out to be indivisible is the *class*, and the unit that would
+actually be individually dead is the *partial*.
+
+### H3 - "Since the premise was wrong, refuse the move."
+**REJECTED — a wrong reason does not make a safe edit unsafe.** The request had two parts, one true
+(files dominate the folder) and one false (unused). The true part is a pure win with zero call-site
+edits, and refusing it would have cost the user the tidying they asked for while protecting nothing.
+The move went ahead; the measurement went into `game-design.md` §9.4b, `AGENTS.md` rule 7 and `PROGRESS.md`
+in the same pass. That ordering is the whole point: **the next reader of a tidy folder inherits it as
+evidence for the deletion that didn't happen**, so the correction has to land while the move is being
+explained, not in a follow-up commit.
+
+### Verdict
+
+10 partials grouped into `Models/MapBuilder/` with metas and GUIDs intact, 7 builders left in `Models/`,
+zero code edits, `.cs` parity 365/365, 633 unique metas, 0 orphan metas, StaticChecks 0 candidates. The
+stated reason for the request was false and is now documented in three places, so a later reader
+proposing `rm -r Models/MapBuilder` meets the counter-evidence before the tidy folder.
+
 ## 1iv. Moving source art out of `Assets/`: the GUID survives, the reference does not
 
 **OPEN until shipped; closed on commit.** Written while the moves were being scoped.

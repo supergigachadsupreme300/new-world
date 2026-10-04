@@ -1,4 +1,53 @@
-﻿## 1iv. 34 MB of source art moved out of `Assets/` — and the four files that had to stay
+﻿## 1iw. `Models/MapBuilder/` exists — and it is load-bearing, contrary to the request's premise
+
+**Status: shipped, NOT play-tested (rule 3 - no build). Cosmetic file moves + docs; no code edit.
+`skills: none applied` - a folder reorganisation of one static partial class, which no installed
+skill governs. Verified by caller enumeration + GUID/meta parity + `StaticChecks.ps1` 0 candidates.**
+
+Requested: "MapBuilder's files take up too much space in `Models` while not being used in the game,
+create a folder and put them in there." The premise was measured before the move and is **false**;
+the move was done anyway because it is safe, and the measurement is recorded so the tidy folder is
+not later read as licence to delete.
+
+**Done:** `Assets/Scripts/Models/MapBuilder/` holds all 10 `MapBuilder.*.cs` partials (5,153 lines),
+each moved with its `.meta` (GUIDs preserved). `Models/` is left with the 7 builders it is actually
+about: `Boss`/`Enemy`/`Goblin`/`Horse`/`Item`/`PlayerPartMesher`/`WeaponModelBuilder`. New folder meta
+`d1446c600a04472dba884fa5d7edbe7e`. **Zero callers were edited** - the class name is unchanged, C# is
+folder-agnostic, and 0 path-string references exist.
+
+**The premise: ~40 files call it, and the important ones are not village content.**
+
+| Live consumer | Calls |
+|---|---|
+| `Player/Races/RaceRig.cs`, `PlayerController.Animation.cs`, `Animation/PlayerAnimator.cs` | `BuildPlayerModel` |
+| `Interactions/PlayerSitController.cs` | `BuildSitPlayerModel` |
+| `Magic/Cast/SpellTornado.cs`, `SpellBeam.cs`, `SpellCaster.Cast.cs` | `BuildTornado` |
+| **`World/Chunks/ChunkObject.cs`** | `BuildTree`, `BuildStone` |
+| `Quests/RandomEventManager.cs` | `BuildCloud`, `BuildTornado` |
+| `Pets/PetController.cs` | `MakeBlock` |
+| `UI/UIManager.cs` | `RefreshWorldSignTexts` |
+
+`ChunkObject` is the one worth knowing: **the streamed terrain draws its trees and stones through
+`MapBuilder`**, so the class sits in the new world's critical path despite living under `Models/`.
+Deleting it would have removed the player model, sitting, a spell, pets and the terrain's own foliage.
+
+The honest partial truth: 9 of the 10 partials (`.Houses`, `.Mansion`, `.Restaurants`, `.Stores`,
+`.Police`, `.Vehicles`, `.NPCs`, and the village half of `.Nature`/`.PlayerModels`) really are only
+used by `WorldBuilder` and the nine `CutsceneManager.Ending*` files, so retiring the legacy layer would
+orphan them. But `PlayerModels.cs` and `Nature.cs` would have to be kept or promoted first, so the
+class as a unit is not dead.
+
+### Verified
+
+- 10/10 partials present with paired `.meta`; 633 tracked metas hold 633 distinct GUIDs; 0 orphan metas
+  under `Assets/`; `.cs`/`.cs.meta` unchanged at 365/365; 0 stale `Models/MapBuilder.cs` path refs.
+- `tools/StaticChecks.ps1` does not cover `Models/` (checks 1-5 cover `WorldBuilder*.cs` +
+  `NewWorldTestGround.cs`), so no `$files` update was needed.
+- New `AGENTS.md` rule 7 bullet: "not used" is a claim about a call graph, and a folder that dominates
+  a directory is where that claim is most tempting and least true — do the cosmetic move, but report
+  the premise failure in the same pass. New `game-design.md` §9.4b records the consumer table.
+
+## 1iv. 34 MB of source art moved out of `Assets/` — and the four files that had to stay
 
 **Status: shipped, NOT play-tested (rule 3 - no build). File moves/deletes + docs; no code change.
 `skills: scenario-unity-architecture` for the GUID-resolution rule (informative, not authoritative).
