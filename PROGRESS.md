@@ -1,4 +1,84 @@
-﻿## 1iz. `ARCHITECTURE.md` — the magic models were never missing, they were unnamed
+﻿## 1ja. `Models/Magic/MagicWeaponModelBuilder.cs` - the four magic models get the file 1iz said they needed
+
+**Status: SHIPPED.** `Models/WeaponModelBuilder.cs` 379 -> 321 lines; new
+`Models/Magic/MagicWeaponModelBuilder.cs` (107 lines). `Assets/Scripts` is now 366 `.cs` / 366 `.cs.meta`.
+`skills: none applied` - a pure code relocation plus doc corrections; no installed skill governs file
+layout. **Verified by grep + reread + a verbatim body diff against `HEAD` - NOT compiled** (rule 3: no
+Unity build runs in this project). `tools\StaticChecks.ps1` -> **0 candidates**.
+
+### What actually moved
+
+The four section-`// 11.`-`// 14.` bodies, **verbatim**, out of `Models/WeaponModelBuilder.cs` into
+`public static class MagicWeaponModelBuilder`. A diff of the four method bodies against `HEAD` reports
+**0 differences**; the comparison harness was confirmed able to fail by mutating one line and watching it
+report the change.
+
+The source file changed in exactly four ways, and none of them is gameplay:
+
+- the four `switch` cases now call `MagicWeaponModelBuilder.BuildStaff/BuildHolyBook/BuildBoneWand/
+  BuildControlOrb(parent)` - so `Build*` references are 8 total: 4 declarations + 4 qualified calls, and
+  there are **no unqualified external callers** to break;
+- `MakeBlock` `private static` -> `internal static` (still reaches `MapBuilder.CreateSolidMaterial`);
+- the **11** palette fields the magic bodies use `private` -> `internal`, reached via
+  `using static WeaponModelBuilder;`. The palette itself **did not move and was not copied**;
+- the class summary, which had claimed "all 15 weapons".
+
+### Two access changes, not a duplicated helper
+
+The 1iz plan called the blocker "`MakeBlock` is `private`". Both halves are now widened rather than
+duplicated, because there is **no `.asmdef` anywhere in the repo** (measured: 0), so `internal` +
+`using static` is the same assembly and needs no forwarding wrapper. The palette is **15**
+`static readonly Color` fields; the magic four use **11**; the remaining four (`SteelSilver`,
+`DarkGold`, `WoodBrown`, `WarmBrown`) are used only by the non-magic builders and stay `private`.
+
+### The section numbers were NOT renumbered
+
+`// 11.`-`// 14.` stay as they are, and `// 15.`-`// 18.` still follow `BuildLute`. The numbers mirror
+registration order in `Assets/Scripts/Combat/Weapons/WeaponCatalog.cs`, so they are documentation of
+catalog order rather than a within-file sequence; renumbering to a tidy 1-14 would silently break that
+correspondence.
+
+### `BuildLute` stayed, deliberately
+
+`WeaponCategory.Magic` contains **five** weapons, not four. `lute` is the fifth, and it is **not**
+contiguous with the other four - the block ends at `BuildControlOrb`, `// 15.` is the lute. The
+selection criterion was 1iz's measured one: these four are the only weapon defs carrying a **rotation**
+accent, which is why 1im's rest-pose drift appeared on magic alone. `BuildLute` is scale-only. Moving it
+would have meant moving a method that is not part of the reported defect.
+
+### Numbers in the docs were wrong, and are now measured
+
+Five documents carried 1iz's counts; several were incorrect and are corrected in this pass:
+**18** weapon builders (19 `Build*` symbols counting the dispatch), **14** non-magic builders,
+**15** palette colours, and the block span **L199-275** in the 379-line file (`// 11.` at L199,
+`// 15.` at L276, with a rule line at each boundary). `TREE.md` regenerated from the staged tree:
+tracked 1173 / non-`.meta` 539 / `.meta` 634, `Assets/Scripts` 368.
+
+### Files
+
+- `Assets/Scripts/Models/Magic/MagicWeaponModelBuilder.cs` + `.meta` (guid `0d168455f6404d6295e622a90091d9bb`)
+- `Assets/Scripts/Models/Magic.meta` (guid `31e3cdc380f24021a0c35bd93f9475e2`)
+- `Assets/Scripts/Models/WeaponModelBuilder.cs`
+- `ARCHITECTURE.md`, `AGENTS.md`, `game-design.md`, `PROGRESS.md`, `THINKING.md`, `TREE.md`
+
+### Verification performed
+- verbatim body diff vs `HEAD`: 0 differences (mutation control fires)
+- GUID uniqueness: 20,376 `.meta` scanned, 20,375 distinct, **0 duplicates**
+- `.cs` / `.cs.meta` parity under `Assets/Scripts`: **366 / 366**
+- brace + paren balance on both `.cs`; exactly one class declaration each
+- `Build*` reference count = 8 (4 declarations + 4 qualified calls), 0 unqualified callers
+- `TREE.md` completeness rebuilt from the rendered tree: 415 rendered + 124 collapsed = **539** =
+  `git ls-files` non-`.meta`, 0 invented paths
+- `tools\StaticChecks.ps1`: 0 candidates
+
+### Pending play-test items
+- Open the magic weapon rack / spawn each of staff, holy book, bone wand, control orb and confirm all
+  four still build and animate. A move like this cannot fail at load time in review - only in the editor.
+- Confirm the four look **identical** to before (same palette, same geometry): any difference means an
+  `internal` widening was missed and a default `Color` is being substituted.
+- Confirm the combat-mode toggle (`Keyboard.current.f1Key`) and weapon rig seating are unaffected.
+
+## 1iz. `ARCHITECTURE.md` — the magic models were never missing, they were unnamed
 
 **Status: plan written, nothing moved. New `ARCHITECTURE.md`. No code touched (365 `.cs` still 365
 `.cs.meta`). `skills: none applied` — measured source-layout analysis; no installed skill governs it.
@@ -20,15 +100,15 @@ mistake in a new folder.
 
 ### "I don't see magic models" — they exist, and they are four adjacent methods
 
-`Models/WeaponModelBuilder.cs` is 379 lines with 19 `Build*` weapons. The magic four are **contiguous**,
+`Models/WeaponModelBuilder.cs` was 379 lines with 18 weapon builders (19 `Build*` symbols, counting the dispatch). The magic four are **contiguous**,
 and the boundaries were read out of the file rather than inferred:
 
 | Method | Body | Header |
 |---|---|---|
-| `BuildStaff` | 201–215 | `// 11. MAGE'S STAFF` @ 198 |
-| `BuildHolyBook` | 220–233 | `// 12. HOLY BOOK` @ 217 |
-| `BuildBoneWand` | 238–253 | `// 13. BONE WAND` @ 235 |
-| `BuildControlOrb` | 258–273 | `// 14. CONTROL ORB` @ 255 |
+| `BuildStaff` | 201–215 | `// 11. MAGE'S STAFF` @ 199 |
+| `BuildHolyBook` | 220–233 | `// 12. HOLY BOOK` @ 218 |
+| `BuildBoneWand` | 238–253 | `// 13. BONE WAND` @ 236 |
+| `BuildControlOrb` | 258–273 | `// 14. CONTROL ORB` @ 256 |
 
 Nothing in the repo — no file, no folder, no symbol — says "magic model", which is exactly why a search
 for one returns a folder about something else. These four are also the only weapon defs carrying a
@@ -38,10 +118,10 @@ for one returns a folder about something else. These four are also the only weap
 
 First draft of the plan said the shared palette and the `MakeBlock` helper "must move or become
 accessible". Reading the source corrected that: the **palette cannot move** — it is 14
-`private static readonly Color` fields of which the magic four use 11, and the other fifteen weapons
+`private static readonly Color` fields of which the magic four use 11, and the other fourteen weapons
 share the same fields. The only real blocker is `MakeBlock` being `private static` (it also reaches into
 `MapBuilder.CreateSolidMaterial`, so it is not self-contained). Stage 1 is therefore "widen one
-accessibility modifier and move 76 lines", not "untangle a shared helper".
+accessibility modifier and move 77 lines", not "untangle a shared helper".
 
 ### The plan
 

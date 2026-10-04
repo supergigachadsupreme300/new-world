@@ -308,8 +308,8 @@
    - **"I can't find X" is a claim about NAMES, not about existence — and grep only ever proves
      existence.** 1iz was asked to "group models and animations together, I don't see magic models." The
      magic models existed, worked, and had been shipping the whole time: `BuildStaff`, `BuildHolyBook`,
-     `BoneWand` and `BuildControlOrb` are four **contiguous methods at L198–273 of the 379-line
-     `Models/WeaponModelBuilder.cs`**, numbered 11–14 among fifteen melee/ranged/shield weapons, with no
+     `BoneWand` and `BuildControlOrb` are four **contiguous methods at L199-275 of the 379-line
+     `Models/WeaponModelBuilder.cs`**, numbered 11–14 among fourteen melee/ranged/shield weapons, with no
      file, folder, or symbol anywhere in the repo that says "magic model". So the report read as a
      missing feature and was actually a **discoverability** failure, and the two demand opposite fixes
      (build it vs. name it). Three habits:
@@ -319,7 +319,7 @@
        the code is there; nothing in the toolchain can prove it is *findable*, so the fix is a name and a
        home, not an implementation.
      - **A contiguous block of methods is a latent file, and the tell is that it is contiguous.** Four
-       adjacent sections with their own numbering (`// 11.` … `// 14.`) inside a 19-method file is a
+       adjacent sections with their own numbering (`// 11.` … `// 14.`) inside an 18-weapon-builder file is a
        category that has not been split yet. Scrolling a file top to bottom is how you find these; a
        directory listing never shows them, which is why the user noticed and the code review did not.
      - **"Group A and B together" is usually a report that A and B are not separable.** Both this and

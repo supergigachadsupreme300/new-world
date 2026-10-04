@@ -2827,30 +2827,33 @@ Three measured findings drive it, and one of them contradicts the obvious readin
 - **Weapon *visuals* live under `Combat/`.** `Combat/Weapons/` is 28 files of combat logic, three of
   which decide where a sword sits in a hand: `WeaponRigBuilder`, `WeaponRigHost`, and the magic weapon
   behaviours.
-- **The magic models have no file.** `BuildStaff` / `BuildHolyBook` / `BuildBoneWand` / `BuildControlOrb`
-  are four **contiguous** methods at **L198–273** of the 379-line `Models/WeaponModelBuilder.cs`,
-  numbered `// 11.`–`// 14.` among fifteen melee/ranged/shield weapons. Nothing in the repo is named
-  "magic model", which is why they could not be found. Extraction is blocked by one thing only:
-  `MakeBlock` is `private static`; the 14-colour palette **cannot move** because the other fifteen
-  weapons share it.
+- **The magic models had no file — now fixed (1ja).** `BuildStaff` / `BuildHolyBook` / `BuildBoneWand` /
+  `BuildControlOrb` were four **contiguous** methods at **L199-275** of the then-379-line
+  `Models/WeaponModelBuilder.cs`, numbered `// 11.`–`// 14.` among fourteen melee/ranged/shield weapons.
+  Nothing in the repo was named "magic model", which is why they could not be found. Extraction was
+  blocked by one thing only: `MakeBlock` was `private static`. 1ja moved the four verbatim into
+  `Models/Magic/MagicWeaponModelBuilder.cs`, widened `MakeBlock` to `internal static`, and made the **11**
+  palette entries they use `internal` (imported via `using static`) rather than copying them — the
+  **15**-colour palette **cannot move**, because the other fourteen weapons share it.
 
 The two in-tree READMEs above and `ARCHITECTURE.md` all describe **symbol ownership** — which class owns
 which behaviour — and no generator can derive that, so they stay hand-written. **Structure**, though, is
 derivable, so 1iy made it a generated file
 rather than a fifth hand-maintained map: `TREE.md` is written by `tools/Write-Tree.ps1` from
 `git ls-files`, names the commit and timestamp it saw, and states on its first line that it must not be
-hand-edited. It omits the 632 `.meta` files (54% of the repo by count), collapses `_ArtSource`,
+hand-edited. It omits the 634 `.meta` files (54% of the repo by count), collapses `_ArtSource`,
 `Resources`, `TextMesh Pro` and `ProjectSettings` to `[N files]`, and always expands `Assets/Scripts`
-(367 files) in full. Verified by rebuilding all 537 non-`.meta` paths out of the rendered tree and
-diffing against `git ls-files`: 413 rendered leaves + 124 inside the four collapsed directories = 537,
+(368 files) in full. Verified by rebuilding all 539 non-`.meta` paths out of the rendered tree and
+diffing against `git ls-files`: 415 rendered leaves + 124 inside the four collapsed directories = 539,
 with no invented paths. It deliberately asserts **no design or process claim** — it points here and at
 `AGENTS.md` / `PROGRESS.md` / `THINKING.md` rather than duplicating them.
 
 Three placement decisions worth stating, because the "obvious" answer differs:
 
-- **`Models/WeaponModelBuilder.cs` did not move into `Magic/`.** It builds **all twenty** weapons,
+- **`Models/WeaponModelBuilder.cs` did not move into `Magic/`.** It builds **18** weapons,
   four of which are magic (`BuildStaff`, `BuildHolyBook`, `BuildBoneWand`, `BuildControlOrb` in its
-  dispatch), so the magic four cannot be separated by a path move without splitting the file. Same
+  dispatch), so the magic four could not be separated by a path move without splitting the file — which is
+  what 1ja did, and is the reason `Models/Magic/` exists beside it rather than instead of it. Same
   reasoning keeps `MagicWeaponBehavior` / `MagicWeaponMods` in `Combat/Weapons/`: they are a
   `WeaponCategory`, driven by `WeaponData` (§3.6), not part of the spell pipeline.
 - **`PlayerController.Animation.cs` did not move into `Animation/`.** It is a

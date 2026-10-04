@@ -23,6 +23,66 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1ja. Moving four methods out of a file: what had to be measured rather than assumed
+
+**OPEN until shipped; closed on commit.** The hypotheses 1iz rejected are re-tested here against the
+actual edit, because "widen the modifier" is exactly the kind of plan that turns out to need three more
+things on contact.
+
+### H1 - "Create the file, delete the methods, repoint the four callers."
+**CONFIRMED.** It was four edits to the source and one new file. The only real risk was silently
+dropping a body during the excision, which is why the method bodies were diffed against `HEAD`
+rather than eyeballed - 0 differences, with the harness mutated once to prove it could fail.
+
+### H2 - "The palette has to move, or duplicate, or the magic bodies lose their colours."
+**REJECTED again, and now for a structural reason rather than a count.** There are **0 `.asmdef`
+files** in the repo, so every script is in one assembly: widening the 11 fields the magic bodies read
+from `private` to `internal` and importing them with `using static WeaponModelBuilder;` is sufficient.
+No copy, no wrapper, no forwarding class. The thing that would have forced a copy - an assembly
+boundary - does not exist here. I had assumed a "shared palette" implied a boundary; it only implies
+shared accessibility.
+
+### H3 - "The section numbers can be tidied to 1-14 now that the four are contiguous."
+**REJECTED.** The numbers are not a within-file sequence, they are a mirror of registration order in
+`WeaponCatalog.cs`. After the move the file reads 1-10, then 15-18, which *looks* like a mistake and is
+actually the surviving record of where the magic entries sit in the catalog. A tidy renumber would have
+made the file tidier and the documentation wrong.
+
+### H4 - "`lute` is `WeaponCategory.Magic`, so it belongs in the magic file too."
+**REJECTED, and this is where I nearly used the wrong criterion.** `WeaponCategory.Magic` has five
+members. What makes the other four a *block* is not the category - it is that 1iz measured them as the
+only weapon defs carrying a **rotation accent**, and that is also the mechanism behind 1im's rest-pose
+drift. `BuildLute` is scale-only and is not adjacent to the block (`// 15.` is the lute). So the honest
+statement is "four of the five magic weapons moved", and the lute's category is a separate question.
+
+### H5 - "The destination is `Geometry/Weapons/Magic/` - that is what `ARCHITECTURE.md` says."
+**REJECTED.** That path came from 1iz's stage-3 target tree, which was a *prediction*, not a decision.
+1ja is stage 1 and its whole content is "give the block a file next to the block". Writing the prediction
+into the plan as the destination would have moved a file to satisfy a document I wrote days earlier.
+Recorded in `ARCHITECTURE.md` as a correction rather than quietly followed.
+
+### H6 - "The docs' line numbers and counts can be carried forward from 1iz."
+**REJECTED - and this is the part that had already started rotting.** 1iz's prose said the block was
+`L198-273` and the file had "fifteen" / "nineteen `Build*` weapons" / a "14-colour palette" / "all twenty
+weapons". Measured against `HEAD`: the block is **L199-275** (rule line, `// 11.` at L199, `// 15.` at
+L276), there are **18** builders plus a dispatch, and the palette has **15** fields. Four of the five
+numbers were wrong in a document written to be authoritative, and my first correction pass *introduced* a
+literal `$1275` into five files by writing `$1` immediately followed by digits into a .NET regex
+replacement - which is not a group reference, so it survived verbatim. The rule that finally caught it
+was re-grepping for the old strings afterwards rather than trusting that the edit reported success.
+
+### The generalisable parts
+- **A "shared X" does not imply a boundary.** Before planning to move or duplicate shared state, check
+  for the thing that would actually force it (here: an `.asmdef`). The measurement was one grep and it
+  deleted two thirds of the plan.
+- **Select a block by the property that makes it a defect, not by the enum that names it.** Two different
+  criteria ("is it `WeaponCategory.Magic`", "does it carry a rotation accent") pick different sets, and
+  only one of them is the reason the user reported it.
+- **Counts written by an earlier task are hypotheses until re-measured**, and a bulk
+  find-and-replace across five files needs a grep afterwards: the failure mode is a silently plausible
+  string, not an error.
+
+
 ## 1iy. A file tree: the deliverable is the generator, not the tree
 
 **OPEN until shipped; closed on commit.**
@@ -91,7 +151,7 @@ is the version that cannot quietly become a lie.
 exist, they have been shipping, and the magic weapons visibly render. They were never absent.
 
 ### H2 - "Then they're just hard to find; point at them."
-**CONFIRMED, and it is the actual finding.** The four are **contiguous at L198–273** of the 379-line
+**CONFIRMED, and it is the actual finding.** The four are **contiguous at L199-275** of the 379-line
 `Models/WeaponModelBuilder.cs`, numbered `// 11.`–`// 14.` between a greatsword and a bard's lute. So
 the report is not a missing feature, it is a **missing name**: nothing in the repo — no file, no folder,
 no symbol — contains the word "magic" in connection with a model. `grep` can prove the code exists;
@@ -116,16 +176,16 @@ animation bridge is a **single 92-line partial**, `PlayerController.Animation.cs
 jobs (build the model, wire the animator, re-seat and pose weapon rigs).
 
 ### H4 - "Extract the magic models; the shared palette moves with them."
-**REJECTED — and this is where a plausible plan was wrong.** My first draft said the 14-colour palette and
+**REJECTED — and this is where a plausible plan was wrong.** My first draft said the 15-colour palette and
 the `MakeBlock` helper "must move or become accessible". Reading `WeaponModelBuilder.cs` says otherwise:
-the magic four use **11** of the 14 fields, and **the other fifteen weapons use the same fields**. The
+the magic four use **11** of the 15 fields, and **the other fourteen weapons use the same fields**. The
 palette cannot move. The only genuine blocker is `MakeBlock` being `private static` — and even that is
 narrower than it looks, because it also reaches into `MapBuilder.CreateSolidMaterial`, so it was never a
 self-contained helper to begin with. Stage 1 collapses from "untangle shared state" to "widen one
-modifier, move 76 lines".
+modifier, move 77 lines".
 
 The generalisable part: **I wrote the dependency claim from the four methods I was looking at, and the
-other fifteen methods falsified it.** A claim about what a helper *depends on* is only as good as the
+other fourteen methods falsified it.** A claim about what a helper *depends on* is only as good as the
 number of callers you checked.
 
 ### H5 - "Do it all in one pass, it's only folders."
