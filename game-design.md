@@ -1484,7 +1484,7 @@ Weapons are built on a **4-category base — Melee, Ranged, Magic, Shield** — 
 
 #### Layers
 
-- **Layer 1 — `WeaponData` (ScriptableObject, data-only).** Shared fields: id, display name, weight (equip-load), Str requirement (weight class, §5.5), hand usage (single / dual / two-hand), base damage, speed, attack reach, scaling stat(s) + coefficients, `WeaponCategory`, `DamageType` (one of the 10 damage types, §3.7), and a Weapon Art reference. **Magic weapons** additionally carry magic mods — `MagicDamageMult`, `CastTimeMod`, `CooldownMod` (staff/wand/book scale spells). **Shield weapons** additionally carry guard mods — `BlockAbsorbPercent` (fraction of a blocked hit absorbed) and `BlockStaminaDrainMult` (multiplier on per-hit block stamina cost).
+- **Layer 1 — `WeaponData` (ScriptableObject, data-only).** Shared fields: id, display name, weight (equip-load), Str requirement (weight class, §5.5), base damage, speed, attack reach, scaling stat(s) + coefficients, `WeaponCategory`, `DamageType` (one of the 10 damage types, §3.7), and a Weapon Art reference. **Magic weapons** additionally carry magic mods — `MagicDamageMult`, `CastTimeMod`, `CooldownMod` (staff/wand/book scale spells). **Shield weapons** additionally carry guard mods — `BlockAbsorbPercent` (fraction of a blocked hit absorbed) and `BlockStaminaDrainMult` (multiplier on per-hit block stamina cost).
 - **Layer 2 — `WeaponCategory` enum (expandable).** `Melee`, `Ranged`, `Magic`, `Shield`. Future values (Thrown, Summon, Hybrid, …) slot in as new enum entries + one behavior class each.
 - **Layer 3 — Behavior modules via `IWeaponBehavior`.** A minimal contract: `BeginAttack(cmd)`, `ActiveFrame()`, `Cancel()`. One concrete module per category:
   - **`MeleeWeaponBehavior`** → existing `HitboxSystem` arc sweep.
@@ -2484,9 +2484,11 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
 
 > **Correction to earlier drafts:** the old-game systems below were previously described as fully
 > removed. Verifying the current code shows most were **kept** (often behind a runtime flag) rather
-> than deleted. Legacy code copied out of use lives in the **project-root `_Archived/`** folder
-> (`WorldBuilder/`, `CutsceneManager/`, `Quests/`, `Enemies/`, `README.md`) — not under
-> `Assets/Scripts/_Archived/` (that path is empty).
+> than deleted. There is no archive copy: 1it deleted the project-root `_Archived/` folder, because
+> every one of its `.cs` files except `Mob.cs` and `WorldBuilder.FastTravel.cs` had a live
+> counterpart already in `Assets/Scripts` (its `README.md` claimed the opposite — that `CutsceneManager`,
+> `WorldBuilder`, `QuestManager` and `EnemyController` were retired), and git history keeps the two
+> unique files.
 
 ### 6.1 World Builder (Voxel Cube System) — **legacy generation disabled, content retained**
 
@@ -2494,7 +2496,7 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
   with the chunk-based terrain system (§2).
 - The WorldBuilder **content systems remain in use**: its blueprint list powers the build menu
   (§5.10), and its farming fields/pagoda are live.
-- Legacy generation code is archived at `_Archived/WorldBuilder/` for reference/re-implementation.
+- Legacy generation is disabled by `EnableLegacyGeneration = false`; there is no archive copy (1it).
 
 ### 6.2 Endings System — **implemented but gated**
 
@@ -2504,7 +2506,8 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
 - They are **disabled at runtime**: `CutsceneManager.RemoveEndings = true` short-circuits every
   ending entry point to `EndingsRemoved`. The shipped game therefore plays as an ongoing
   open-world RPG; flip the gate (or delete the early-return) to re-enable endings.
-- Cutscene helpers/road-driving partials remain active; reference copy at `_Archived/CutsceneManager/`.
+- Cutscene helpers/road-driving partials remain active in `Scripts/Cutscenes/` (1it removed the stale
+  archive copy).
 
 ### 6.3 Story Quests — **retained**
 

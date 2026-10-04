@@ -1,4 +1,119 @@
-﻿## 1ir. The meteor line stops being two single-shot rocks: Flamethrower is a 44-degree cone on a channel, Continuous Fireball is a familiar that follows you
+﻿## 1it. Dead scaffolding, vestigial folders and the stale `_Archived/` fork are gone
+
+**Status: shipped, NOT play-tested (rule 3 - no build). Pure deletion + one doc line; no gameplay
+change. `skills: scenario-unity-architecture` loaded for the `.meta`-travels-with-the-asset rule (a
+Unity skill is informative here, not authoritative - rule 3 means it could not have verified
+anything). Verified by grep + reread + `StaticChecks.ps1` 0 candidates.**
+
+### Deleted: 7 unreferenced scaffolding files (373 -> 365 `.cs`)
+
+Every one had its own declaration as the **only** occurrence of its name in the whole `Assets` tree
+(scripts, scenes, prefabs, assets, JSON), with **zero** `AddComponent<T>` / `GetComponent<T>` /
+`new T` producers, and no `[SerializeReference]`, no reflection and no string-based type lookup
+anywhere in the project to hide behind:
+
+| File | What it was |
+|---|---|
+| `Combat\Effects\CombatAnimation.cs` | planned Task 3.3 Animator bridge |
+| `Combat\Effects\RagdollEnabler.cs` | planned Task 3.3 ragdoll enable |
+| `Player\Controller\OpenWorldGrounding.cs` | planned Task 4.2 terrain-snapping helper |
+| `Player\Creation\CharacterCreation.cs` | planned Task 4.4 creation/roll screen |
+| `World\Housing\HousePlotPlacer.cs` | planned Task 6.5 plot placement |
+| `World\Loot\WorldLootPlacement.cs` | planned Task 5.2 chest seeding |
+| `World\Npcs\EconomyProvider.cs` | planned Task 6.4 pricing path (shops price their own) |
+
+All seven are `GAMEPLAY_IMPROVEMENT_PLAN.txt` "planning Task N.M" reference implementations named by
+**zero** docs. Also deleted: `World\WorldBuilder.Inspection.cs`, an empty
+`public partial class WorldBuilder {}` shell.
+
+### Deleted: 17 vestigial empty folders (+ their folder `.meta`s)
+
+`Scripts\_Archived`, `Combat\AI`, `Player\Combat`, `Player\Inventory`, `Utils`, `Multiplayer` +
+`Client`/`Server`/`Sync`, `SideContent` + 7 empty subfolders - residue of the 1hz multiplayer
+removal and an abandoned regroup that was planned and never populated. `SideContent`/`Multiplayer`
+were counted by an `-Recurse -File` emptiness test that found only their *subfolders' own* `.meta`
+files; the `.cs` count is what says "empty".
+
+### Deleted: `_Archived/` at the repo root (67 tracked files)
+
+A stale fork, and its `README.md` was making **four false claims**: `CutsceneManager` "retired, no
+endings" (live: `Scripts\Cutscenes\`, 11 files), `WorldBuilder` "legacy voxel world" (live:
+`Scripts\World\`), `QuestManager`/`RandomEventManager` "retired" (live: `Scripts\Quests\`), and
+`EnemyController` moved to `Scripts/Combat/AI/` (that folder was **empty**; it lives at
+`Scripts\Enemies\_Shared\`). Its one true claim - a `RemoveEndings` compatibility shim - describes a
+live flag on a live class that has nothing to do with the archive. Only `Mob.cs` and
+`WorldBuilder.FastTravel.cs` had no live counterpart, and git history keeps both.
+
+### Two judgement calls that went the other way from "delete"
+
+- **`RaceSpellEffect` (in `RaceEffect.cs`) is KEPT.** Unreferenced, but it is one of ten
+  `IRaceEffect` implementations and the only natural slot for "a racial ability casts a spell" - a
+  reader looking for that mechanism should find it. Deleting an unused member of a *live*
+  polymorphic family is not the same as deleting an orphaned file.
+- **`CombatController.OnStateChanged` is KEPT**, and now has **zero subscribers** in-tree
+  (`CombatAnimation` was the only one) with its 7 `?.Invoke` sites intact. It is a public extension
+  point and a null delegate invoke is free; stripping the event would be a second, unrelated
+  behavioural edit to a live combat file riding along in a delete-dead-code diff. Recorded here
+  rather than in a code comment, because "nobody subscribes" is a fact about today.
+
+### Deletion side-effects recorded, not chased
+
+- **`World\Housing` is a dead sub-tree, reported as the next candidate.** `HousePlotPlacer` was the
+  only thing that ever did `AddComponent<HousePlot>()`, and `HomeBuilder.TryBuild(HousePlot, ...)`
+  already had zero callers - so removing the placer leaves `HousePlot` with no creator at all.
+  Following it would cascade into `CraftingStation`, `HomeChest` and `FarmPlot`, so 1it stops here.
+- **`RaceDatabase.Roll()` loses its only caller** (`CharacterCreation`). It is a public method on a
+  ScriptableObject, left in place.
+- **`game-design.md:1487` corrected in the same pass.** It listed `WeaponData`'s shared fields as
+  including "hand usage (single / dual / two-hand)" - a field that does not exist. The `HandUsage`
+  enum that gave the claim its name is deleted (no field on `WeaponData` used it), and the doc's own
+  §2208-2216 states wielding is governed by `Weight` + `StrengthRequirement`. The enum's header also
+  cited §5.4, which is *Crafting*; the wielding section is §5.5.
+
+### Verification
+
+- **`.cs` count 365, `.cs.meta` count 365 - the GUID invariant.** Every deletion removed the `.cs`
+  and its `.meta` together.
+- Zero residual references to any deleted symbol across `Assets\**\*.cs|unity|asset|json`.
+- `tools\StaticChecks.ps1`: **0 candidates** (run because `WorldBuilder.Inspection.cs` was a
+  `WorldBuilder*.cs` file).
+- **NOT compiled** (rule 3).
+
+### Pending play-test items for the user
+- Nothing to observe in game - this task deletes only unreachable code and empty folders. The one
+  thing worth confirming is that Unity's console is still clean on load (no missing-script warning),
+  which is the only externally visible consequence of touching 98 tracked paths.
+
+## 1is. The Great Tornado silhouette (funnel beam) + a familiar that sprays down your aim line
+
+**Status: shipped as found (the user's in-flight work, committed unchanged in substance), NOT
+play-tested. `skills: none applied` - reviewed C# only.**
+
+- **Beam:** `SpellBeam.BuildConeVisual` -> `BuildFunnelVisual`: 9 chunky discs stacked along the beam
+  axis (`FunnelChunks`) + 3 orbiting debris chunks (`FunnelDebris`), so the 44-degree Flamethrower cone
+  reads as a funnel with a twist instead of a fan of flat wedge sprites. The hot end is
+  `SpellLook.HotCore(Core)`, not `Edge` - `Edge` desaturates Fire's core toward white, the opposite of
+  a burning throat. `YawFor(seed)` is deterministic per index so the twist survives a rebuild.
+- **Aim derivation unified:** the cone's forward vector moved to `SpellCaster.CurrentAimDirection`, so
+  `SpellBeam` and `SpellSummon` cannot disagree about where "forward" is - the drift 1ir invited by
+  giving the familiar its own copy.
+- **`SummonFiresForward` is a NEW flag, separate from `CasterAnchored`** - one flag would have handed
+  every future caster-anchored turret "fires regardless of targets" for free. With no target gate,
+  `Radius` stops bounding the spell and only sizes the drawn circle; the bolts' own flight envelope
+  decides reach. `SpellSummon.FireForward` + the single `SpawnBolt` site keep the spray and the
+  nearest-target path from drifting on muzzle or lead.
+- **Bench:** `NewWorldTestGround` mounts `BuildFunnelVisual` rather than a proxy cone (rule 7 - a
+  visual that exists only inside a live cast has no acceptance readout).
+- **Isolated from unrelated WIP** that was in the tree: a stale `GAME_DESCRIPTION.md` deletion and a
+  half-done `Scripts\Audio` -> `Scripts\Combat\Audio` folder move (both folders are empty; they
+  belonged to 1it's dead-folder sweep, where `Combat\Audio` was already gone).
+- `tools\StaticChecks.ps1`: **0 candidates**. **NOT compiled** (rule 3).
+
+### Pending play-test items for the user
+- Cast Flamethrower: the cone should read as a solid funnel with a swirl, hottest at the caster.
+- Continuous Fireball should take station **behind** you and pour bolts down your aim line.
+
+## 1ir. The meteor line stops being two single-shot rocks: Flamethrower is a 44-degree cone on a channel, Continuous Fireball is a familiar that follows you
 
 **Status: shipped, NOT play-tested (rule 3 - no build or play-test runs in this project). Real
 gameplay change: two spells removed, two added, three new mechanics (swept-cone Beam, caster-anchored

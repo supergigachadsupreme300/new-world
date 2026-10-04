@@ -15,6 +15,99 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+## 1it - what is actually dead, and in which direction (SHIPPED)
+
+**Verdict: confirmed.** Seven whole files and two declarations were unreachable and are deleted; two
+further "dead-looking" symbols were audited and **deliberately kept**; and one deletion was left
+unfinished on purpose because its blast radius had not been measured.
+
+### The scan, and the two ways it lied
+
+Hypothesis: reference counting over `Assets\Scripts` identifies dead code. Confirmed - with two
+traps found first, both of which had produced *false positives* before I trusted a number:
+
+1. **A one-level glob.** `Select-String -Path "Assets\Scripts\**\*.cs"` does **not** recurse in
+   PowerShell - `**` behaves like a single `*` there. My first scan reported `PlayerController`,
+   `NewWorldSystems`, `CharacterCreationUI`, `WorldBuilder`, `UIManager` and `MagicWheelUI` as
+   *unreferenced*, which is obviously wrong for a project's entry points. Had I trusted it I would
+   have deleted the game's wiring. `Get-ChildItem -Recurse` fixed it.
+2. **Substring matching.** `SimpleMatch` for `CharacterCreation` hits `CharacterCreationUI` (7 hits in
+   4 files, all false). Word-bounded `\bName\b` drops it to 1 hit - the declaration. This is the same
+   trap rule 14 records about wild-carded Vietnamese text in `Localization` keys.
+
+A third one I nearly shipped: the O(n^2) reference scan timed out at 120 s. I did not raise the
+timeout and re-run the slow version; I cached each file's text in a hashtable first, which turned a
+multi-minute scan into a few seconds. Worth remembering that "the tool timed out" and "the answer is
+unknown" are different states.
+
+### Which number actually decides deadness
+
+The first corrected pass counted *all* occurrences per type and reported `Total <= 2`, which read as
+"nine dead". But `Total = 2` is ambiguous: it is both "declaration + one real use" (LIVE) and
+"declaration + a mention in a doc comment" (DEAD). Re-running with the declaring file's own count
+subtracted left a clean discriminator: **`Total = 1`**, i.e. the declaration is the only occurrence
+anywhere. That is the only figure that means dead. Every `Total = 2` row I had worried about
+(`CombatFeedback`, `ElementSignatureStatus`, all 20 enemy scripts, the `RaceTauntEffect` family) was
+live.
+
+### The direction I had not planned to check
+
+The brief was "delete the dead files", and the obvious audit is *who reads this*. Grepping that way
+finds the call sites and cannot find **producers** - code that existed only to feed the deleted
+system, which is perfectly correct on its own. Two checks in the other direction, neither of which a
+reference count would have flagged:
+
+- **`HousePlot`.** Three types mention it (`HousePlot`, `HomeBuilder`, `HousePlotPlacer`) - a healthy
+  count. But `AddComponent<HousePlot>()` existed *only inside the placer I was deleting*, and
+  `HomeBuilder.TryBuild(HousePlot, ...)` already had zero callers. So `World\Housing` is a dead
+  sub-tree, not one orphan file, and the reference count of 3 was measuring a closed loop.
+  **Rejected** the cascade: `HousePlot` references `CraftingStation`, `HomeChest` and `FarmPlot`, and
+  I have not audited who creates *those*. Rule 14's own warning is that an unaudited removal stops
+  being a sweep and starts being a rewrite. Reported as the next candidate instead.
+- **`CombatController.OnStateChanged`.** `CombatAnimation` was the only subscriber, so deleting it
+  leaves a public event with 7 `?.Invoke` sites and nobody listening. Tempting to strip both
+  together. **Rejected**: it is a public extension point, the invoke is free, and removing it is a
+  behavioural edit to a live combat file that has nothing to do with a dead-code sweep. Recorded the
+  zero-subscriber state in `PROGRESS.md` instead, because a code comment saying "nobody subscribes"
+  rots the moment someone does.
+
+### Two "dead" symbols that survived the audit
+
+- **`RaceSpellEffect`** (in `RaceEffect.cs`): unreferenced, but one of ten `IRaceEffect`
+  implementations. It is the only natural slot for "a racial ability casts a spell" - the mechanism
+  a future author would look for. **Kept.** An unused member of a live polymorphic family is a
+  different object from an orphaned file, and "delete all unused" would have quietly removed the
+  extension point.
+- **`HandUsage`** (in `WeaponData.cs`): also unreferenced, and *this* one is a genuine leftover - no
+  field on `WeaponData` uses it, and wielding is really governed by `Weight` +
+  `StrengthRequirement`. But deleting it exposed the failure that decided the task's shape:
+  `game-design.md:1487` listed "hand usage (single / dual / two-hand)" as a `WeaponData` field. The
+  doc described a field that did not exist, and after the deletion it would have described one that
+  still does not. A missing `case` never fails to compile and an over-documented field never fails to
+  compile either; both just quietly make the next reader size a decision on something false.
+
+### The `_Archived/` README as a worked example of a rotting doc
+
+Four claims, all false, each checkable in one grep: `CutsceneManager` is live in `Scripts\Cutscenes\`
+(11 files); `WorldBuilder` is live in `Scripts\World\`; `QuestManager`/`RandomEventManager` are live
+in `Scripts\Quests\`; and `EnemyController` was said to live in `Scripts/Combat/AI/` - **the folder
+that had been empty all along**, which is how I found it in the empty-folder sweep in the first
+place. The archive's one true claim (a `RemoveEndings` shim) describes a flag on a live class with
+no relationship to the archive. A README is the one document nobody re-reads *because* it describes
+something nobody touches any more.
+
+### What I could not establish here
+
+No build and no play-test (rule 3), so "dead" means *unreachable by every mechanism this project
+actually uses* - direct reference, `AddComponent`, serialized field, scene GUID, `Resources.Load`,
+reflection, string-keyed lookup. I verified the last three are absent project-wide (zero
+`[SerializeReference]`, zero `Type.GetType`, zero string `AddComponent`/`GetComponent`, zero
+`Shader.Find`/`Resources.Load` by type name), and that only 11 project scripts are scene-referenced.
+What I cannot rule out is an external tool or a future asset authored in the Editor that names one of
+these types; the honest statement is "unreachable from any root in this repository", not "dead".
+
+---
+
 ## 1ir - the meteor line grows a channel and a familiar (OPEN: awaiting play-test)
 
 **The request was "remove comet and asteroid, add a flamethrower and a continuous fireball", which is

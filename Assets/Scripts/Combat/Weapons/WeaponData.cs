@@ -2,21 +2,6 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// How a weapon is wielded (§5.4). Every weapon is one-hand capable.
-/// </summary>
-public enum HandUsage
-{
-    /// <summary>One hand — full Str requirement, other hand free.</summary>
-    Single = 0,
-
-    /// <summary>One weapon per hand — roughly 2× the single-hand Str requirement.</summary>
-    Dual = 1,
-
-    /// <summary>Both hand slots — roughly half the Str requirement.</summary>
-    TwoHand = 2
-}
-
-/// <summary>
 /// The stat(s) a weapon's damage scales with and the per-point coefficient.
 /// Str scales heavy/melee; Dex scales light/one-handed (see §3.4).
 /// </summary>

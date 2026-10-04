@@ -612,6 +612,38 @@
       (`-SimpleMatch`) matching, not a regex: a `.`-wildcarded Vietnamese pattern returned 50 008
       "matches" against a mangled console, which is worse than no search because it looks like a
       result. Confirm a reference-counting grep can find something real before trusting a zero.
+    - **Ask what CREATES the thing you are keeping, not only what reads it - a dead type's only
+      constructor can be the dead type you are deleting.** 1it removed `HousePlotPlacer` (planning
+      Task 6.5 scaffolding, unreferenced) and in doing so discovered that `AddComponent<HousePlot>()`
+      existed **only** inside it, while `HomeBuilder.TryBuild(HousePlot, ...)` already had zero
+      callers: `World\Housing` was a dead *sub-tree*, not one orphan file. The direction that bites is
+      the opposite of "producers outlive their consumer" - the **creator** is the orphan, so a
+      reference count of 3 (`HomeBuilder` + `HousePlot` + the placer) reads as healthy while the
+      whole chain is unreachable from any root. So for each deletion, walk **down** the graph too:
+      for every type that *declares* an `AddComponent`/`new`/factory of a surviving type, ask whether
+      that factory is itself reachable. A surviving type whose only creator is being deleted is a
+      cascade decision, not a cleanup - and each hop opens new ones (`HousePlot` references
+      `CraftingStation`, `HomeChest`, `FarmPlot`), which is exactly where an unaudited removal stops
+      being a sweep and starts being a rewrite. 1it therefore deleted only what it had audited and
+      **reported** the `World\Housing` sub-tree as the next candidate instead of following it.
+    - **An enum or field with no reader can still be a doc's promise - deleting it orphans the
+      DOCUMENT, and that is a removal failure no compile reports.** 1it deleted the `HandUsage` enum
+      (3 cases, no field on `WeaponData` used it) and found `game-design.md` listing "hand usage
+      (single / dual / two-hand)" as a `WeaponData` shared field, with the doc's own §2208-2216
+      saying wielding is governed by `Weight` + `StrengthRequirement`. The doc described a field that
+      did not exist, and deleting the enum would have left it describing one that still does not. The
+      enum's own header also cited §5.4, which is *Crafting* - the wielding section is §5.5. So when
+      a deletion removes a name that appears in a design doc as an implemented field, **fix the doc
+      in the same pass** (rule 2), and check the section number the comment cites still holds that
+      heading. Rule 8's stale-comment rule, applied to prose instead of C#.
+    - **A public event with zero subscribers is not a defect, and removing its invocations IS a
+      behavioural edit.** `CombatAnimation` was the only subscriber of
+      `CombatController.OnStateChanged`, which `CombatController` invokes at 7 sites. Deleting the
+      subscriber leaves 7 `?.Invoke` calls on a null delegate - free, and a public extension point
+      someone may subscribe from outside the tree. Stripping the event and its 7 invocations would be
+      a second, unrelated change to a live combat file riding along in a "delete dead code" diff, so
+      1it left both in place and recorded the zero-subscriber state in `PROGRESS.md` instead. Say
+      which of the two you chose; a silent choice reads as an oversight.
 
 15. **The globally installed skill set is a tool, and reaching for it is not optional.** Every session
     runs with skills available outside this repo (Blender, Maya, ZBrush, Unreal, Unity, asset and
