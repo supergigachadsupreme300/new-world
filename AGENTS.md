@@ -305,6 +305,30 @@
         glyphs into the directory names, so both sides of the comparison were empty. Rule 7's "a green
         check nobody has seen fail is not a check" applies to the verification of the fix, not just the
         fix. Re-run it wrong on purpose and watch it go red.
+   - **"I can't find X" is a claim about NAMES, not about existence — and grep only ever proves
+     existence.** 1iz was asked to "group models and animations together, I don't see magic models." The
+     magic models existed, worked, and had been shipping the whole time: `BuildStaff`, `BuildHolyBook`,
+     `BoneWand` and `BuildControlOrb` are four **contiguous methods at L198–273 of the 379-line
+     `Models/WeaponModelBuilder.cs`**, numbered 11–14 among fifteen melee/ranged/shield weapons, with no
+     file, folder, or symbol anywhere in the repo that says "magic model". So the report read as a
+     missing feature and was actually a **discoverability** failure, and the two demand opposite fixes
+     (build it vs. name it). Three habits:
+     - **A feature with no name is invisible, and no search will find it.** Before concluding a feature
+       is absent, ask *what a reader would have typed*. Here every plausible query — "magic", "staff",
+       "wand", "orb", "book" — returns a folder or a method that is about something else. `grep` proves
+       the code is there; nothing in the toolchain can prove it is *findable*, so the fix is a name and a
+       home, not an implementation.
+     - **A contiguous block of methods is a latent file, and the tell is that it is contiguous.** Four
+       adjacent sections with their own numbering (`// 11.` … `// 14.`) inside a 19-method file is a
+       category that has not been split yet. Scrolling a file top to bottom is how you find these; a
+       directory listing never shows them, which is why the user noticed and the code review did not.
+     - **"Group A and B together" is usually a report that A and B are not separable.** Both this and
+       1iw's request had the shape *move these files, the premise is wrong*: here `Models/` is a
+       **procedural geometry factory** (`BuildCloud`, `BuildTornado`, `BuildCafe`, `BuildPoliceCar` sit
+       beside `BuildPlayerModel` in one 40-dependent `MapBuilder` class), so "group the models" has no
+       single target. **Measure what each file actually is before naming a destination** — and when the
+       answer is "this folder is three categories wearing one name", write that down instead of moving
+       files into a differently-shaped pile.
  - **A data model that cannot express a shape cannot be coaxed into it by tuning tolerances.** 1f2
      wanted vertical risers between flat terraces, and the mesh path seemed to offer them
      (`EdgeIsRaised` / `SideBandCount`). They do not exist: `ChunkData` stores one height per

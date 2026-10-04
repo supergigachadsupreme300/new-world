@@ -2788,12 +2788,15 @@ The active PC URP config — QualitySettings level 1 → `PC_RPAsset.asset` guid
   `_buildings[_buildings.Count - 1]` stamped the club's health/door/part state onto the
   **previous** building.
 
-### 9.4 Source Layout (1iu, 1iy)
+### 9.4 Source Layout (1iu, 1iy, 1iz)
+
+**The controller / modelling / animation split is planned in `ARCHITECTURE.md`** — read that for the
+target layout and the staged migration. This section keeps only the load-bearing invariants.
 
 There are **no namespaces and no `.asmdef`**, so a folder is an organisational unit only and moving a
 file can never break compilation. What *can* break is a `.meta`, so every move carries one and the
 invariant check is that the `.cs` count and the `.cs.meta` count under `Assets/Scripts` are equal
-(365/365 after 1it, unchanged by 1iu). Two trees were added:
+(365/365 after 1it, unchanged by 1iu, 1iy and 1iz — 1iz changed no code). Two trees were added:
 
 ```
 Assets/Scripts/
@@ -2813,8 +2816,27 @@ Assets/Scripts/
 name **symbols, not line numbers**, deliberately: a line number is a copy of a fact that rots on the
 next edit above it, and a README is the one file no tool in this repo checks.
 
-Those two describe **symbol ownership** — which class owns which behaviour — and no generator can derive
-that, so they stay hand-written. **Structure**, though, is derivable, so 1iy made it a generated file
+1iz added `ARCHITECTURE.md`, which plans to split the three concerns the folders currently blur.
+Three measured findings drive it, and one of them contradicts the obvious reading of `Models/`:
+
+- **`Models/` is a procedural geometry factory, not a model folder.** `Models/MapBuilder/` is 10
+  partials of one class referenced by **40 files** — the most depended-on symbol in the codebase — and it
+  builds `BuildCloud`, `BuildTornado`, `BuildCafe`, `BuildPoliceCar` and `BuildPlayerHouse` beside
+  `BuildPlayerModel`. Only 7 files in `Models/` are genuinely per-thing model builders, and they have
+  2–7 referrers each.
+- **Weapon *visuals* live under `Combat/`.** `Combat/Weapons/` is 28 files of combat logic, three of
+  which decide where a sword sits in a hand: `WeaponRigBuilder`, `WeaponRigHost`, and the magic weapon
+  behaviours.
+- **The magic models have no file.** `BuildStaff` / `BuildHolyBook` / `BuildBoneWand` / `BuildControlOrb`
+  are four **contiguous** methods at **L198–273** of the 379-line `Models/WeaponModelBuilder.cs`,
+  numbered `// 11.`–`// 14.` among fifteen melee/ranged/shield weapons. Nothing in the repo is named
+  "magic model", which is why they could not be found. Extraction is blocked by one thing only:
+  `MakeBlock` is `private static`; the 14-colour palette **cannot move** because the other fifteen
+  weapons share it.
+
+The two in-tree READMEs above and `ARCHITECTURE.md` all describe **symbol ownership** — which class owns
+which behaviour — and no generator can derive that, so they stay hand-written. **Structure**, though, is
+derivable, so 1iy made it a generated file
 rather than a fifth hand-maintained map: `TREE.md` is written by `tools/Write-Tree.ps1` from
 `git ls-files`, names the commit and timestamp it saw, and states on its first line that it must not be
 hand-edited. It omits the 632 `.meta` files (54% of the repo by count), collapses `_ArtSource`,

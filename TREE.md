@@ -9,9 +9,9 @@ powershell -ExecutionPolicy Bypass -File tools\Write-Tree.ps1
 | | |
 |---|---|
 | Source of truth | `git ls-files` (untracked and `.gitignore`d paths cannot appear) |
-| Generated at commit | `6e25792` (HEAD when written - the commit *before* the one this file lands in) |
-| Generated on | 2026-10-04 09:15 |
-| Tracked files | 1169 = 537 non-`.meta` + 632 `.meta` |
+| Generated at commit | `f86101c` (HEAD when written - the commit *before* the one this file lands in) |
+| Generated on | 2026-10-04 09:38 |
+| Tracked files | 1170 = 538 non-`.meta` + 632 `.meta` |
 | C# files | 367 |
 
 Reading the tree:
@@ -516,6 +516,7 @@ regenerated to verify.
 ├── __azurite_db_queue_extent__.json
 ├── __azurite_db_table__.json
 ├── AGENTS.md
+├── ARCHITECTURE.md
 ├── Assembly-CSharp.csproj
 ├── Assembly-CSharp-Editor.csproj
 ├── AzuriteConfig

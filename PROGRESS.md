@@ -1,4 +1,61 @@
-﻿## 1iy. `TREE.md` — a generated project map, and the verifier that had to be made able to fail
+﻿## 1iz. `ARCHITECTURE.md` — the magic models were never missing, they were unnamed
+
+**Status: plan written, nothing moved. New `ARCHITECTURE.md`. No code touched (365 `.cs` still 365
+`.cs.meta`). `skills: none applied` — measured source-layout analysis; no installed skill governs it.
+Verified by grep over an explicitly-built recursive list of all 365 `.cs`, plus rereading the extracted
+source at its real line boundaries.**
+
+Requested, in three parts: *group models and animations close together; I don't see magic models; split
+the controller, the modelling and the animation apart; write down a structural project.*
+
+### The premise failure, reported first
+
+**"Group the models and animations together" has no single target, because `Models/` is not one
+category.** `Models/MapBuilder/` is 10 partials of one class referenced by **40 files** — the most
+depended-on symbol in the repo — and its public surface includes `BuildCloud`, `BuildTornado`,
+`BuildCafe`, `BuildPoliceCar` and `BuildPlayerHouse` sitting beside `BuildPlayerModel`. So `Models/`
+means *procedural geometry*, and only 7 of its 17 `.cs` are per-thing model builders (2–7 referrers
+each). **Measured before naming any destination**; a differently-shaped pile would have been the same
+mistake in a new folder.
+
+### "I don't see magic models" — they exist, and they are four adjacent methods
+
+`Models/WeaponModelBuilder.cs` is 379 lines with 19 `Build*` weapons. The magic four are **contiguous**,
+and the boundaries were read out of the file rather than inferred:
+
+| Method | Body | Header |
+|---|---|---|
+| `BuildStaff` | 201–215 | `// 11. MAGE'S STAFF` @ 198 |
+| `BuildHolyBook` | 220–233 | `// 12. HOLY BOOK` @ 217 |
+| `BuildBoneWand` | 238–253 | `// 13. BONE WAND` @ 235 |
+| `BuildControlOrb` | 258–273 | `// 14. CONTROL ORB` @ 255 |
+
+Nothing in the repo — no file, no folder, no symbol — says "magic model", which is exactly why a search
+for one returns a folder about something else. These four are also the only weapon defs carrying a
+*rotation* accent, which is why 1im's rest-pose drift appeared on magic alone.
+
+### The extraction blocker is narrower than it looks
+
+First draft of the plan said the shared palette and the `MakeBlock` helper "must move or become
+accessible". Reading the source corrected that: the **palette cannot move** — it is 14
+`private static readonly Color` fields of which the magic four use 11, and the other fifteen weapons
+share the same fields. The only real blocker is `MakeBlock` being `private static` (it also reaches into
+`MapBuilder.CreateSolidMaterial`, so it is not self-contained). Stage 1 is therefore "widen one
+accessibility modifier and move 76 lines", not "untangle a shared helper".
+
+### The plan
+
+Four stages, smallest blast radius first, each one commit: **1** extract the magic weapons (fixes the
+actual complaint); **2** `Models/` → `Geometry/{Actors,World,Weapons}`, pure moves; **3** extract the
+92-line `PlayerController.Animation.cs` bridge into an `Avatar/PlayerAvatar` component — the only stage
+that changes signatures, so it goes last and alone; **4** optional, pull `WeaponRigBuilder`/`WeaponRigHost`
+out of `Combat/`.
+
+Two invariants are stated as non-negotiable: a class's partials stay with its class (`PlayerController.*`
+×6, `MapBuilder.*` ×10 are never separated), and `.cs`/`.cs.meta` parity is the real check, because with
+no namespaces and no `.asmdef` a path move cannot break compilation.
+
+## 1iy. `TREE.md` — a generated project map, and the verifier that had to be made able to fail
 
 **Status: shipped. New `tools/Write-Tree.ps1` + generated `TREE.md`. No game code touched.
 `skills: none applied` - repo documentation tooling, which no installed skill governs.

@@ -80,6 +80,69 @@ against git. Verified: 413 rendered leaves + 124 collapsed = 537, zero invented 
 touched, no build, no play-test. The tree is a convenience; the generator is the durable part, because it
 is the version that cannot quietly become a lie.
 
+---
+
+## 1iz. "I don't see magic models" — the feature was never missing, only unnamed
+
+**OPEN until the plan ships. Closed on the commit that adds `ARCHITECTURE.md`.**
+
+### H1 - "Magic models are missing; build them."
+**REJECTED on the first grep.** `BuildStaff`, `BuildHolyBook`, `BuildBoneWand` and `BuildControlOrb` all
+exist, they have been shipping, and the magic weapons visibly render. They were never absent.
+
+### H2 - "Then they're just hard to find; point at them."
+**CONFIRMED, and it is the actual finding.** The four are **contiguous at L198–273** of the 379-line
+`Models/WeaponModelBuilder.cs`, numbered `// 11.`–`// 14.` between a greatsword and a bard's lute. So
+the report is not a missing feature, it is a **missing name**: nothing in the repo — no file, no folder,
+no symbol — contains the word "magic" in connection with a model. `grep` can prove the code exists;
+nothing in this toolchain can prove it is *findable*. Those need opposite fixes, and the request as
+phrased ("I don't see them") points at the one that would have shipped nothing.
+
+Worth stating plainly: the give-away is a **contiguous block with its own numbering** inside a
+19-method file. A directory listing never shows that. A scroll does.
+
+### H3 - "Move `Animation/` into `Models/` so models and animations sit together."
+**REJECTED as a move, KEPT as a diagnosis.** Before naming a destination, measure what each file *is*.
+`Models/MapBuilder/` is 10 partials of one class referenced by **40 files** — the most depended-on symbol
+in the repo — and it builds `BuildCloud`, `BuildTornado`, `BuildCafe`, `BuildPoliceCar` and
+`BuildPlayerHouse` next to `BuildPlayerModel`. So `Models/` is not "models", it is a procedural geometry
+factory, and moving `Animation/` into it would make the ambiguity worse rather than fix it. Same shape as
+1iw's request: *move these files, the premise is wrong.* The correct output is not a tidier folder, it is
+the observation that this folder is three categories wearing one name.
+
+Two smaller misplacements fell out of the same measurement: weapon **visuals** live under `Combat/`
+(`WeaponRigBuilder`, `WeaponRigHost` decide where a sword sits in a hand), and the controller → model →
+animation bridge is a **single 92-line partial**, `PlayerController.Animation.cs`, doing three separable
+jobs (build the model, wire the animator, re-seat and pose weapon rigs).
+
+### H4 - "Extract the magic models; the shared palette moves with them."
+**REJECTED — and this is where a plausible plan was wrong.** My first draft said the 14-colour palette and
+the `MakeBlock` helper "must move or become accessible". Reading `WeaponModelBuilder.cs` says otherwise:
+the magic four use **11** of the 14 fields, and **the other fifteen weapons use the same fields**. The
+palette cannot move. The only genuine blocker is `MakeBlock` being `private static` — and even that is
+narrower than it looks, because it also reaches into `MapBuilder.CreateSolidMaterial`, so it was never a
+self-contained helper to begin with. Stage 1 collapses from "untangle shared state" to "widen one
+modifier, move 76 lines".
+
+The generalisable part: **I wrote the dependency claim from the four methods I was looking at, and the
+other fifteen methods falsified it.** A claim about what a helper *depends on* is only as good as the
+number of callers you checked.
+
+### H5 - "Do it all in one pass, it's only folders."
+**REJECTED.** Stage 3 (`PlayerController.Animation.cs` → an `Avatar/PlayerAvatar` component) changes
+signatures rather than paths, and with no compiler (rule 3) a signature error is invisible to review. It
+also invalidates the paragraph in `Animation/README.md` that currently *justifies* keeping the partial
+where it is — which has to be rewritten in the same commit, not left to rot. So the stages are ordered by
+blast radius, each is one commit, and the path-only stages come first where review is actually evidence.
+
+### Verdict
+
+`ARCHITECTURE.md`: three measured category errors, a target layout split on *what decides the value*
+(read input / write a transform / construct a mesh), and four migration stages. No code touched —
+365 `.cs` and 365 `.cs.meta`, unchanged. The user asked to be able to edit the structure by hand; the
+honouring of that is a document they can argue with, not a set of moves made on their behalf. The first
+stage is the one that fixes the thing they actually reported.
+
 ## 1iw. "MapBuilder isn't used in the game" — a premise, measured before it was acted on
 
 **OPEN until shipped; closed on commit.**
