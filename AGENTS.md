@@ -127,17 +127,58 @@
      passed, and only Unity's parser objected (CS0106, which does not even name the class). Check 7
      now flags any member at brace depth 0, and was verified by **reintroducing that exact bug and
      watching it fire** â€” a green check nobody has seen fail is not a check.
-   - **A scan that reports ABSENCES must first be shown able to report PRESENCES, or its misses mean
-     nothing.** The same class of error running the other way, and it is easy to mistake for a finding:
-     verifying 1iu's two READMEs, `Select-String -Path 'Assets\Scripts\*.cs',
-     'Assets\Scripts\**\*.cs'` reported **9 of the symbols MISSING** - including
-     `MagicWeaponBehavior`, `FallRock` and `BuildProjectileBody`, all of which exist. `**` in a
-     PowerShell `-Path` glob descends exactly **one** level, so a scan only as deep as the files it is
-     looking for reports absences forever. The tell is internal: a scan that finds `Resolve(` 29 times
-     and `HolsterPoint` 0 times is claiming to have read a tree that cannot contain the callers it just
-     counted. **Build the file list once, explicitly and recursively**, and sanity-check it against a
-     total (1iu: `scanned 365 .cs files`, equal to the `.cs.meta` count) before believing any zero.
-     This is why `StaticChecks.ps1` uses its own `$files` list instead of a glob.
+- **A scan that reports ABSENCES must first be shown able to report PRESENCES, or its misses mean
+      nothing.** The same class of error running the other way, and it is easy to mistake for a
+      finding: verifying 1iu's two READMEs, `Select-String -Path 'Assets\Scripts\*.cs',
+      'Assets\Scripts\**\*.cs'` reported **9 of the symbols MISSING** - including
+      `MagicWeaponBehavior`, `FallRock` and `BuildProjectileBody`, all of which exist. `**` in a
+      PowerShell `-Path` glob descends exactly **one** level, so a scan only as deep as the files it is
+      looking for reports absences forever. The tell is internal: a scan that finds `Resolve(` 29 times
+      and `HolsterPoint` 0 times is claiming to have read a tree that cannot contain the callers it just
+      counted. **Build the file list once, explicitly and recursively**, and sanity-check it against a
+      total (1iu: `scanned 365 .cs files`, equal to the `.cs.meta` count) before believing any zero.
+      This is why `StaticChecks.ps1` uses its own `$files` list instead of a glob. Two more instances of
+      the same mistake, both in 1iv: **`Get-ChildItem -Recurse -Include *.unity,*.prefab` does not
+      filter** unless the path ends in `\*` or you pass `-Filter`, so a "which scenes reference this"
+      scan returned 1131 files *including every `.meta`* - and a `.meta` always contains its own GUID, so
+      the scan "found" 63 references that were self-matches; and a **greedy `-replace ".*guid:\s*",""`**
+      silently returned the wrong field plus trailing text, printing a PASS for a check that had not run.
+      Filter by extension after collecting, match `^guid:` not `guid:`, and treat any reference count you
+      did not recompute as unmeasured.
+    - **A move that changes a path's MEANING is not a move - a GUID only resolves inside `Assets/`.**
+      1iv moved 90 source-art files (34 MB) to a repo-root `_ArtSource/`, and the `.meta` travelled with
+      each one, which keeps the GUID stable - but a GUID means nothing to Unity unless the asset sits
+      under `Assets/`, so the move turns a live reference into a **missing** one silently. Nothing
+      errors, the scene still lists the object, and the texture is simply gone at runtime. So before
+      moving any asset out of `Assets/`, enumerate **every serialized referrer** (`.unity`, `.prefab`,
+      `.asset`, `.mat`, `.controller`) and grep it for the asset's GUID. Two habits fall out:
+      - **Ask which referrers are actually live, not merely present.** The first scan found 10 referrers
+        and 8 of them were `0 (N).unity` scenes inside the gitignored `Assets/_Recovery/` - already
+        slated for deletion. The real constraint was **one** file, `Scenes/SampleScene.unity`, the only
+        scene in `EditorBuildSettings`. Ten referrers would have meant "don't move anything"; one live
+        one meant "move the other 9".
+      - **A folder name is not evidence of what a file is for.** `Assets/xoanvnmexel/` is an
+        unpronounceable pack name and looked exactly like junk to relocate; its `.ttf` is the source font
+        of `Resources/VietPixel.asset`, which `UiAssetCache` loads as the shared default UI font and which
+        TMP's own default font asset references. Three textures in `Assets/texture/` were referenced
+        by that one scene as the named fields `FieldTexture`, `FertilizerTexture` and
+        `PeashooterSeedTexture`. Junk-looking is not the same as unreferenced, and
+        the reference count is the only thing that tells them apart.
+      - **A count has a magnitude, and so does a string count: sanity-check it against the size of the
+        file being counted.** 1iv's "how often is this texture referenced" check reported
+        **7717 / 5292 / 7374 occurrences** for three GUIDs in a 29,003-character scene file. A 32-char
+        GUID cannot occur 7717 times in 29 KB, and that arithmetic was available *before* the scan ran.
+        The cause: `"$text".Split($guid)` splits on every **character** of the GUID, so it counts hex
+        digits in the file, not the GUID. Those numbers reached `game-design.md`, `AGENTS.md`,
+        `PROGRESS.md` and a commit message before anything caught them; the true counts are **1 each**,
+        confirmed twice (regex `Matches`, then an `IndexOf` walk) against bogus-GUID controls. So:
+        **count with `([regex]::Matches($text,[regex]::Escape($g))).Count`, never `String.Split` on a
+        multi-char needle**, and **print a known-zero control beside every count** — a check that has
+        never been shown able to report 0 for a string it does not contain is not a count.
+      - Corollary for the *inverse* edit: relocating a live asset "properly" (into `Resources/`, say) means
+        hand-editing a serialized GUID inside a scene file, which no review here can verify
+        without opening the editor (rule 3). **Leave a duplicated-but-live pair alone and say so**, rather
+        than dedupe it on paper.
   - **A safe idiom in one caller is not evidence it is safe in another.** 1i4 read `_loadedChunks` from
      `BuildChunkMeshData`, which runs on a **ThreadPool thread** via `BackgroundGenerateChunk`, while
      the main thread builds/unloads/demotes â€” and `Dictionary<TKey,TValue>` is not safe to read during

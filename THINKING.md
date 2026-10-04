@@ -17,6 +17,101 @@ When an investigation closes, keep its section but mark the verdict (confirmed /
 
 ---
 
+---
+
+## 1iv. Moving source art out of `Assets/`: the GUID survives, the reference does not
+
+**OPEN until shipped; closed on commit.** Written while the moves were being scoped.
+
+### H1 - "These four folders are unreferenced junk; move them to `_ArtSource/`."
+**REJECTED as stated - and it is the finding, not a correction.** A GUID scan of the 4 folders
+(59 GUIDs) against every `.unity/.prefab/.asset/.mat/.controller` returned **10 live referrers**. So
+the premise was false for two of the four folders. This is rule 7's whole shape: a folder's *name* is
+not evidence of what is inside it, and "34 MB of art" reads as dead weight until something counts the
+references. The `.meta` travelling with each file keeps the GUID **stable**, which is exactly what
+makes this dangerous - a stable GUID outside `Assets/` is a reference Unity cannot resolve, so nothing
+errors and the texture is simply absent at runtime.
+
+### H2 - "10 referrers means don't move any of it."
+**REJECTED - it asked whether a referrer exists, not whether it is live.** 8 of the 10 were
+`0 (N).unity` scenes inside `Assets/_Recovery/`, a gitignored folder 1hz had already abandoned and
+which was on this task's own delete list. The real constraint was **one** file,
+`Scenes/SampleScene.unity`, the only scene in `EditorBuildSettings`. Ten referrers would have meant
+"don't move anything"; one live referrer meant "move the other 9 and report the constraint". So the
+question is never "is this referenced" but "by something that can still be opened".
+
+### H3 - "`Assets/xoanvnmexel/` is junk by name."
+**REJECTED - it is the live UI font.** `Resources/VietPixel.asset` carries
+`m_SourceFontFileGUID: 2632940b8efd5fc4087c070078a1a871`, which is that folder's `.ttf`;
+`UiAssetCache` does `Resources.Load<TMP_FontAsset>("VietPixel")` and TMP's own default font asset
+references it too. Moving the folder would have removed every glyph in the game. Confirmed by
+re-resolving the GUID after the move rather than by trusting the earlier scan. The general rule, now
+in `AGENTS.md`: **a folder name is not evidence of what a file is for** - an unpronounceable pack
+name is not a synonym for unreferenced, and the reference count is the only thing that tells them
+apart. The same scan also caught 3 textures referenced by `SampleScene.unity` as the named fields
+`FieldTexture`, `FertilizerTexture` and `PeashooterSeedTexture` - so `Assets/texture/` going from 12
+files to 3 was the finding, not a rounding error.
+
+### H3b - "The three textures are referenced 7717 / 5292 / 7374 times, so they are load-bearing."
+**REJECTED - the count was fabricated by the measuring command, and it nearly became a finding.**
+`"$text".Split($guid)` splits on every **character** of the GUID, so it counted hex digits in the
+file rather than the GUID, and returned a different huge number per texture (which is exactly why it
+looked plausible - three textures, three different numbers). The tell was arithmetic available before
+the scan ever ran: `SampleScene.unity` is 29,003 characters, and a 32-char GUID cannot occur 7717 times
+in 29 KB. Recounted with `[regex]::Matches(..., [regex]::Escape($g))` and again with an `IndexOf`
+walk: **1 occurrence each**, with mixed-char bogus controls reading 0. Those inflated numbers had
+already reached `game-design.md`, `AGENTS.md`, `PROGRESS.md` and the drafted commit message.
+**The verdict survived; the number did not.** That is the good case and the bad case at once - the
+decision was right (those textures are live) on evidence that was wrong, which is the situation where a
+reader is most likely to keep the conclusion and discard the correction. Note the shape of the fix: the
+control has to be a GUID that is *absent*, and it has to be printed, because "0" is the only output
+that proves a counter can fail.
+
+### H4 - "`dirt_texture.png` duplicates `Resources/texture/dirt_texture.png`, so dedupe it."
+**REJECTED - identical content is not one owner.** Both copies are **live**: the scene holds one GUID
+as a named field, `Resources.Load` resolves the other. Merging them means hand-editing a serialized
+GUID in a scene file, which under rule 3 is exactly the edit that cannot be verified without opening the
+editor. So the pair stayed and the doc says it is a deliberate duplicate. Contrast with `grass_blade` /
+`leaves_texture` / `wood_texture`: byte-identical, *and* zero referrers, so the twin in `Resources` is
+unambiguously the live copy and the `Assets/texture` one was deleted rather than archived. **"Identical"
+is not a verdict; "identical AND unreferenced" is.**
+
+### H5 - "My first reference scan is fine - it reported 63 hits."
+**REJECTED - the scan was broken twice, and both failures pointed at a *finding*.**
+`Get-ChildItem -Recurse -Include *.unity,*.prefab` **does not filter** unless the path ends in `\*` or
+you pass `-Filter`, so it returned 1131 files including every `.meta` - and a `.meta` contains its own
+GUID, so 63 of the "hits" were the files matching themselves. The corrected scan (filter by extension
+*after* collecting) found 10. Second bug, same session: `.Split("guid:")[1]` on a line already extracts
+an empty string for the same char-split reason as H3b, which is how an empty "GUID" came to be counted
+29004 times against a 29,003-character file - the arithmetic again, again available in advance. Both are
+rule 7's "a check nobody has seen fail is not a check" wearing a pass as a disguise: **an unmeasured
+reference count is not a small number, it is an unknown.** Now written into rule 7 with the two
+mechanical fixes.
+
+### H6 - "A folder leaving `Assets/` takes its folder `.meta` with it."
+**REJECTED on the target side.** Each moved *asset*'s meta travelled - that is what keeps the GUID
+stable if the folder is ever dropped back into `Assets/`. But the moved *folders'* own metas
+(`Assets/model.meta`, `Assets/UI component.meta`) were deleted, because a folder meta is the importer
+record for a folder Unity can no longer see; carrying it to `_ArtSource/` would leave a Unity asset
+record for a non-Unity directory. Deleting the `_Recovery` *folder* created a new orphan
+(`Assets/_Recovery.meta`), which the post-move orphan sweep caught - the class of residue a deletion
+leaves behind when the deleted thing had a sibling, and another instance of rule 14's "a save key
+outlives its builder". Verified afterwards in both directions: every tracked non-`.cs` meta under
+`Assets/` has a folder behind it, every folder under `Assets/Scripts` has a meta, and all 639 tracked
+metas hold 639 distinct GUIDs.
+
+### Verdict
+
+90 files / 34 MB out of `Assets/`, 3 dead duplicates + 3 root clutter files deleted, 52 untracked
+recovery files removed from disk, and **four files left in place because measurement said they are
+load-bearing**. `.cs`/`.cs.meta` 365/365 untouched, StaticChecks 0 candidates. The plan I started from
+("move all four folders out") was wrong in a way that would have shipped a game with no fonts and three
+missing terrain textures, and the only reason it did not is that the reference scan ran before the
+move. Rule 7's first line - measure before you fix, and let the readout name the mechanism - is what
+caught it. The second-order lesson is H3b: the measurement that saved the textures was itself broken,
+and it was the *magnitude check* rather than the tool that caught it, so "the scan said 63" and "the
+scan said 7717" were both the scan's opinion, not a fact about the repo.
+
 ## 1iu. Moving 34 files for "findability": what could go wrong that a grep for the class name would not
 
 **OPEN until shipped; closed on commit.** Written while the moves and READMEs were in flight.

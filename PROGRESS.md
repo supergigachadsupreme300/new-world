@@ -1,4 +1,64 @@
-﻿## 1iu. `Magic/` and `Animation/` exist; `Combat/Effects/` is gone
+﻿## 1iv. 34 MB of source art moved out of `Assets/` — and the four files that had to stay
+
+**Status: shipped, NOT play-tested (rule 3 - no build). File moves/deletes + docs; no code change.
+`skills: scenario-unity-architecture` for the GUID-resolution rule (informative, not authoritative).
+Verified by GUID-level reference scan + re-resolve after the move + `StaticChecks.ps1` 0 candidates +
+`.cs`/`.cs.meta` 365/365 unchanged.**
+
+The plan was "move `Assets/model`, `Assets/texture`, `Assets/UI component`, `Assets/xoanvnmexel` out".
+**The reference scan said that would have broken the game**, and the plan was wrong in an instructive
+way. Moved to repo-root `_ArtSource/` (outside `Assets/`, so Unity stops importing it; git keeps it):
+
+| Moved | n | Size |
+|---|---|---|
+| `Assets/model/` (all) | 52 | 32.8 MB |
+| `Assets/UI component/` (all) | 24 | 0.06 MB |
+| `Assets/texture/` — 6 unreferenced textures | 12 (6 + metas) | 1.2 MB |
+| `Assets/xoanvnmexel/Readme.txt` | 2 | - |
+
+Deleted outright, not archived: 3 byte-identical duplicates whose twins already live in
+`Resources/texture/` and which nothing referenced (`grass_blade`, `leaves_texture`, `wood_texture`); the
+root `xoanvnmexel.zip` (25 KB, the un-extracted pack); and root `sound.meta`, a second orphan meta.
+Removed from disk only: `Assets/_Recovery/` (52 untracked files incl. 27 abandoned `0 (N).unity`
+scenes), gitignored since 1hz.
+
+### The four files that stayed, and why the folder names were no evidence
+
+| Kept in `Assets/` | Evidence |
+|---|---|
+| `Assets/texture/{dirt_texture, fertilize, peashooter_seed}.png` | referenced **exactly once each** by `Scenes/SampleScene.unity` - the only scene in `EditorBuildSettings` - as the named fields `FieldTexture`, `FertilizerTexture`, `PeashooterSeedTexture` |
+| `Assets/xoanvnmexel/XoanVnmexelStandard.ttf` | `m_SourceFontFileGUID` in `Resources/VietPixel.asset`; `UiAssetCache` does `Resources.Load<TMP_FontAsset>("VietPixel")` and TMP's default font asset references it. This is the **live UI font**. |
+
+`Assets/xoanvnmexel/` is an unpronounceable pack name that read as pure junk, and moving it would have
+removed every glyph in the game. Re-resolved all four after the move: still 1 occurrence each, font GUID
+still present in `VietPixel.asset`.
+
+> **The first count was wrong and is retracted.** The pre-move scan reported 7717 / 5292 / 7374
+> occurrences for the three textures, which is impossible in a 29,003-char scene file — `"$text".Split($g)`
+> splits on each *character* of the GUID. True counts are **1 each**, confirmed by regex `Matches` and an
+> `IndexOf` walk, against bogus-GUID controls reading 0. The numbers had already reached `game-design.md`,
+> `AGENTS.md` and this entry before being caught; all are corrected. The scope did not change: 3 textures
+> genuinely are live, each as a single named field.
+
+### What was verified
+
+- Collected the 59 GUIDs in the 4 folders, then grepped every `.unity/.prefab/.asset/.mat/.controller`
+  for them: **10 referrers, of which 8 were the gitignored `_Recovery/` scenes** and 1 was
+  `SampleScene.unity`. `.cs`/`.cs.meta` parity unchanged at 365/365 (no `.cs` was touched).
+- Each moved asset's `.meta` travelled with it. The moved **folder** metas were deleted rather than moved:
+  Unity cannot resolve a folder GUID for a folder outside `Assets/`. `Assets/_Recovery.meta` was also
+  caught and deleted as a newly-orphaned folder meta.
+- After the move: 0 tracked files left under the old paths; every tracked non-`.cs` meta under `Assets/`
+  has a folder behind it; all 639 tracked metas hold 639 distinct GUIDs.
+- `Assets/texture/` is now 3 files. `dirt_texture.png` is byte-identical to its `Resources/` twin and
+  **both copies are live** (scene field vs `Resources.Load`), so the pair was left alone and said so
+  rather than deduped on paper — merging it means hand-editing a serialized GUID in a scene file,
+  unverifiable without the editor (rule 3).
+- New `AGENTS.md` rule 7 bullets: a GUID only resolves inside `Assets/`, so moving an asset out turns a
+  live reference into a silently-missing one — measure referrers first, ask which referrers are *live*
+  rather than merely present, and never trust a `String.Split` count without a known-zero control.
+
+## 1iu. `Magic/` and `Animation/` exist; `Combat/Effects/` is gone
 
 **Status: shipped, NOT play-tested (rule 3 - no build). Moves + two new READMEs + docs only; zero
 behaviour change. `skills: scenario-unity-architecture` (its `.meta`-travels-with-the-asset rule is

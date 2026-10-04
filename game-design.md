@@ -2536,7 +2536,7 @@ Five features were deleted in one pass. 29 scripts, 16 of them the `Networking/`
 | **Night club** | `Models/ClubExteriorBuilder`, `Models/MapBuilder.Nightclub`, the whole `Scripts/NightClub/` folder | nothing; the club site is now a fixed vector on the rich-man dealer path (§5.8) |
 | **Fast travel** | `Vehicles/FastTravelSign`, `UI/FastTravelMenu`, `World/WorldBuilder.FastTravel` | the `✈` map marker only (§5.15, §7.2) |
 | **Horse riding** | `Vehicles/HorseMount` | `Models/HorseModelBuilder` survives — the ending cutscene still spawns a horse |
-| **The `Recovery` scene dump** | 50 tracked files under `Assets/_Recovery/` | `.gitignore`d; the files stay on disk, untracked |
+| **The `Recovery` scene dump** | 50 tracked files under `Assets/_Recovery/` | `.gitignore`d and **deleted from disk in 1iv** (27 of them abandoned `0 (N).unity` sample scenes); history keeps them |
 
 Two consequences worth naming, because neither is a compile error:
 
@@ -2828,6 +2828,32 @@ Three placement decisions worth stating, because the "obvious" answer differs:
   `SpellCaster.Projectiles.cs` (`CreateProjectileDisplay` / `BuildProjectileBody`); the falling rock
   and its SkyRock styles are in `SkillFx.cs` (`FallRock` / `BuildRockBody`). Both are on the
   `MagicTestMatrix` bench (§3.8.3), which is why a change to either has an acceptance readout.
+
+### 9.4a Source art lives outside `Assets/` (1iv)
+
+90 files / 34 MB of source art moved to a repo-root **`_ArtSource/`** (`model/`, `UI component/`,
+`texture/`, `xoanvnmexel/`). Outside `Assets/` Unity does not import them, so they cost no import
+time, while git keeps them. Each moved asset's `.meta` travelled with it, so a folder dropped back
+into `Assets/` keeps its GUIDs. Their former **folder** metas were deleted rather than moved: Unity
+cannot resolve a folder GUID for a folder it cannot see.
+
+**Four files stayed in `Assets/` because they are live, and the scan is what proved it** - the folder
+names are the worst possible evidence, since all four sat in folders that look like pack junk:
+
+| Kept | Why |
+|---|---|
+| `Assets/texture/{dirt_texture, fertilize, peashooter_seed}.png` | referenced **exactly once each** by `Assets/Scenes/SampleScene.unity`, the only scene in `EditorBuildSettings`, as the named fields `FieldTexture`, `FertilizerTexture` and `PeashooterSeedTexture` |
+| `Assets/xoanvnmexel/XoanVnmexelStandard.ttf` | the source font of `Resources/VietPixel.asset` (`m_SourceFontFileGUID`), which `UiAssetCache` loads as the shared default UI font and TMP's own default font asset references |
+
+So `Assets/texture/` is now three files rather than twelve. `dirt_texture.png` is **also** a
+byte-identical duplicate of `Resources/texture/dirt_texture.png`, and both copies are live (the
+scene holds one GUID, `Resources.Load` the other), so that pair was left alone - deduping it means
+re-pointing a serialized GUID inside a scene file by hand, which is not reviewable without opening
+the editor (rule 3).
+
+Three further files were byte-identical to their `Resources/` twins *and* referenced by nothing, and
+were deleted outright rather than archived: `grass_blade.png`, `leaves_texture.png`,
+`wood_texture.png`.
 
 ---
 
