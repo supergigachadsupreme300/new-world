@@ -1,4 +1,4 @@
-# Project tree
+﻿# Project tree
 
 **Generated file - do not hand-edit.** Regenerate after any structural change:
 
@@ -9,14 +9,14 @@ powershell -ExecutionPolicy Bypass -File tools\Write-Tree.ps1
 | | |
 |---|---|
 | Source of truth | `git ls-files` (untracked and `.gitignore`d paths cannot appear) |
-| Generated at commit | `acd6cdd` (HEAD when written - the commit *before* the one this file lands in) |
-| Generated on | 2026-10-05 16:43 |
-| Tracked files | 1199 = 553 non-`.meta` + 646 `.meta` |
-| C# files | 379 |
+| Generated at commit | `cfb5f9e` (HEAD when written - the commit *before* the one this file lands in) |
+| Generated on | 2026-10-05 16:59 |
+| Tracked files | 1201 = 554 non-`.meta` + 647 `.meta` |
+| C# files | 380 |
 
 Reading the tree:
 
-- `.meta` files are omitted everywhere. There are 646 of them and none carries
+- `.meta` files are omitted everywhere. There are 647 of them and none carries
   information a reader needs; every `.cs` has a paired `.cs.meta` and every folder under
   `Assets/` has a folder meta. `tools\StaticChecks.ps1` guards that invariant.
 - `name/   [N files]` means the directory was collapsed for length. Nothing inside it is
@@ -237,6 +237,7 @@ regenerated to verify.
 │   │   │   │   └── SpellZone.cs
 │   │   │   ├── Fx/
 │   │   │   │   ├── CastingCircle.cs
+│   │   │   │   ├── ProjectileTrail.cs
 │   │   │   │   ├── SkillFx.cs
 │   │   │   │   └── SpellImpactFx.cs
 │   │   │   ├── Look/
