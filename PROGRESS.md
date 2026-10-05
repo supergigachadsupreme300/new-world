@@ -1,3 +1,55 @@
+## 1ji. `MakePart` did not exist in PlayerModelBuilder - a `partial` split that git recorded as unchanged
+
+**Status: READY FOR PLAY-TEST.** The user pasted the Unity error (`the name 'MakePart' does not exist`
+in the player model builder). Fixed by qualifying two inherited references; no behaviour change.
+**Verified by grep + reread + `tools\StaticChecks.ps1`; no Unity build** (rule 3), so the compile itself
+is still owed - paste anything else the console reports.
+**skills: none applied** - a C# edit reviewed by a human inside this repo; the Unity skills drive an
+editor or `-batchmode`, which rule 3 forbids.
+
+`Assets/Scripts/Models/Player/PlayerModelBuilder.cs`, 89 call sites, **all of it a prefix**:
+
+| Was | Now | Sites |
+|---|---|---|
+| `MakePart(` | `MapBuilder.MakePart(` | 86 |
+| `ActiveGender` | `MapBuilder.ActiveGender` | 3 |
+| `PlayerGender` | *unchanged* | 3 |
+
+**The cause is old and the diff hid it.** `75fd44d` moved `MapBuilder.PlayerModels.cs` to
+`Models/Player/PlayerModelBuilder.cs` and changed `public static partial class MapBuilder` to
+`public static class PlayerModelBuilder`. A `partial` resolves bare names against its *siblings*, so
+`MakePart` - declared once in `MapBuilder.cs` - used to resolve without a prefix and stopped the instant
+the class stopped being partial. Because the body genuinely did not change, **git recorded that file as
+R100, byte-identical**: the one artifact rule 17 says must agree across a move reported "nothing changed"
+about a file that could not compile.
+
+**Rule 18 shapes the fix.** `MapBuilder` is quarantined read-only, so the repair is entirely on the live
+side and the direction is the sanctioned one (live -> legacy). The alternative - a forwarder on the host -
+is a `Legacy/` edit, and the repo already had the convention to copy: `SaveManager` and
+`UIManager.MainMenu` both write `MapBuilder.ActiveGender`.
+
+**Sweeping found two things the console did not name**, which is the transferable part:
+- `ActiveGender` (3 sites) would have been the *next* compile error - Unity prints what you look at, not
+  what is broken.
+- Two candidates were **false positives, and both are traps worth writing down**: PowerShell's
+  `-contains` is case-insensitive, so this file's own local `headScale` matched MapBuilder's NPC field
+  `HeadScale`; and `PlayerGender` is a **top-level enum in the global namespace** (`public enum
+  PlayerGender` one line *above* the class), which resolves unprefixed from anywhere - "declared in that
+  file" is not "member of that class".
+
+**Same bug class checked and cleared elsewhere.** `MagicImpactModelBuilder`, `MagicProjectileModelBuilder`
+and `MagicWeaponModelBuilder` were split out of their hosts the same way by 1ja/1jb. My first sweep of
+them reported "clean" **while reading zero files** - an inner `$_` shadowed the outer one, so every host
+resolved to nothing and the scan had nothing to compare against. Re-run with a positive control (each host
+resolved to 1 file and yielded 3/6/5/33 members, so a hit was possible), it reports **no bare
+cross-class references**: those extractions were done correctly and needed no change.
+
+**Balance: 22/22 braces and 509/509 parens both before and after** - zero delta, because the edit only
+inserted a prefix. Reported as a delta rather than as "balanced", since that is what the evidence supports.
+
+**Play-test:** the player model, the cutscene car/chair fits and the race proportions render exactly as
+before (they are a pure rename of the call target). Confirm in the console that no further CS0103 remains
+- the next error after `MakePart` was `ActiveGender`, and both are now qualified.
 ## 1jh. Projectile impacts had no debris - grey rock chips thrown forward, not up
 
 **Status: READY FOR PLAY-TEST.** A new `WorldStreamer.SpawnImpactRockDebris` emitter plus a

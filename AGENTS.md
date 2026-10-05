@@ -950,6 +950,32 @@ the handoff.** `MagicImpactModelBuilder` returns its pieces, and the shape it us
       lockstep - an invariant no compiler and no check enforced. That is rule 8's copy-rot in miniature:
       when an extraction forces an interface, return one record per piece (here `Part`, carrying transform +
       material + spin flag together) so the alignment cannot be violated at all.
+    - **A `partial` -> standalone-class split orphans every unqualified sibling reference, and an R100
+      rename diff is structurally blind to it.** 1ji is the instance: `75fd44d` moved
+      `MapBuilder.PlayerModels.cs` to `Models/Player/PlayerModelBuilder.cs` and rewrote
+      `public static partial class MapBuilder` to `public static class PlayerModelBuilder` - and git
+      recorded the file as **R100, byte-identical**, because the body genuinely did not change. But a
+      `partial` resolves bare names against its *siblings*, so all 86 unqualified `MakePart(...)` calls
+      (and 3 `ActiveGender` reads) silently became CS0103 in a file that looked untouched. Rule 17's own
+      comparator - diff the moved body against the pre-move source - is **satisfied perfectly by a file
+      that no longer compiles**, so the one instrument built for moves cannot see this class of move at
+      all. Three habits, all from fixing it:
+      - **A rename that changes the class declaration is not a rename, it is a new class.** So sweep
+        for **all** bare identifiers the file uses that resolve to the former host before fixing the one
+        name on the console: 1ji's report was `MakePart` only, and `ActiveGender` was sitting behind it.
+        Unity prints what you look at, not what is broken.
+      - **Qualify with the former host (`MapBuilder.MakePart`), and never add a forwarder to the host
+        when the host is `Legacy/`** - rule 18 makes that a read-only fence. Live -> legacy calls are
+        the sanctioned direction, and the repo already had the convention (`SaveManager` and
+        `UIManager.MainMenu` both write `MapBuilder.ActiveGender`).
+      - **Two things fake a finding in that sweep, and both cost a wrong edit.** PowerShell's `-contains`
+        is **case-insensitive**, so the file's own local `headScale` "matched" MapBuilder's NPC field
+        `HeadScale`; and a **top-level type in the global namespace** - `public enum PlayerGender` sitting
+        one line *outside* the class - resolves unprefixed from anywhere, so "declared in that file" is not
+        "member of that class" (`PlayerGender` was flagged and needed no change). Finally, **accessibility
+        decides whether qualification can work at all**: a `partial` can see its host's `private` members
+        and a standalone class cannot, so qualifying one would trade CS0103 for CS0122. Check the
+        modifier before editing, not after.
 
 18. **The old game's code is READ-ONLY and quarantined in `Assets\Scripts\Legacy\`, because this is a
     different game that happens to share a repository.** 1jc quarantined 32 files - the ten

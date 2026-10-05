@@ -1,3 +1,71 @@
+## 1ji. "the name MakePart does not exist in model builder"
+
+**OPEN until Unity compiles.** Shipped in the 1ji commit; the fix itself is a rename, so the risk is
+entirely in *which* names get renamed and *how they were found*.
+
+### Where the bug came from - accepted the user's report and then widened it
+The console named one symbol. The instinct is to fix that one line and hand back. That is wrong here for
+a reason that is checkable rather than cautious: **the error class is "name inherited from a sibling no
+longer resolves", and the console reports one instance of a class of reference, not the class.** So the
+first question is not "what does this line need" but "how many bare identifiers in this file resolve to
+the former host".
+
+`git log -L` and `git log -S` answered the "is this mine?" question in one step: `git log -S "static
+GameObject MakePart"` over this file's whole history returned **nothing**, so it never had its own
+`MakePart`; and `75fd44d` showed the rename `public static partial class MapBuilder` ->
+`public static class PlayerModelBuilder` with the body untouched. **A rename that changes the class
+declaration is not a rename, it is a new class** - the body being unchanged is the *evidence*, not the
+alibi.
+
+### The sweep produced 2 false positives out of 3 candidates - both worth more than the 2 real fixes
+Had I trusted the candidate list, I would have written `MapBuilder.PlayerGender` and `MapBuilder.headScale`
+into live code. Both would have been new errors.
+- **`headScale` was matched case-insensitively.** PowerShell's `-contains` is case-insensitive, so the
+  file's own local `var headScale = new Vector3(hd / b, hd / b, hd / b)` matched MapBuilder's NPC field
+  `HeadScale`. The identifier was in fact local *and* a parameter of `ApplyRaceRatioRecurse`. This is
+  rule 7's "report absences/presences only after proving the check can" in a new dress: the sweep claimed
+  to know which names MapBuilder owns, and that ownership test was case-blind. **Fix the instrument
+  before filing its candidates** - `-ccontains` throughout.
+- **`PlayerGender` is not a member of anything.** `public enum PlayerGender` sits at `MapBuilder.cs:5`,
+  one line *above* `public static partial class MapBuilder` at line 7, i.e. it is a **top-level type in
+  the global namespace**. A reader who greps the host's file for the name concludes it is the host's,
+  exactly like the stale-ownership bullet in rule 17. It resolves unprefixed from anywhere, so it needed
+  no change. **"Declared in that file" and "member of that class" are different claims**, and only a
+  top-level type is a member of neither.
+- The rule that would have caught both: a symbol declared at column 0 is not inside the class body.
+  Position is the whole test, and it is not something a name-based sweep can see.
+
+### Accessibility is a gate on the fix, not a detail of it
+The obvious repair - prefix with the former host - only compiles if the member is **accessible**. A
+`partial` can see its host's `private` members, and a standalone class cannot, so qualifying a private one
+**trades CS0103 for CS0122** and reports a different error in the same place. Both real orphans were
+checked and both are `public static` (`MakePart`, `ActiveGender`), so qualification is legal. Worth
+stating because the check is one grep and its failure mode is another red squiggle on the same line.
+
+### Rule 18 decided the *direction*, so it was checked before editing
+The tempting cheaper fix is a forwarder on the host - but the host is `Legacy/`, which rule 18 makes
+read-only in both directions. Live -> legacy is the sanctioned direction and already has precedent
+(`SaveManager`, `UIManager.MainMenu` both write `MapBuilder.ActiveGender`), so the edit belongs entirely on
+the live side. **When a host is quarantined, the orphan's fix location is decided for you.**
+
+### The sweep of the sibling extractions passed for the wrong reason
+1ja/1jb split three more builder classes out of their hosts the same way, which made it worth checking
+for the same bug. The first run reported "no bare cross-class references" for all three - **while reading
+zero files**: an inner `$_` in a `Where-Object` shadowed the outer `$_`, so each host lookup built a
+pattern out of a *file path* and matched nothing. Zero sources in, zero orphans out, green. The tell is
+the same as 1iu's one-level glob: **a scan that finds `Resolve(` 29 times and `HolsterPoint` 0 times is
+claiming to have read a tree that cannot contain the callers it just counted** - here it counted a host
+list of zero and reported the result as a clean bill of health.
+Re-run with a **positive control** (every host must resolve to >=1 file and yield a non-zero member list:
+3 / 6 / 5 / 33 did), the check reports **no bare cross-class references** - those extractions were done
+correctly. So the finding is *absence of this bug elsewhere*, from a check demonstrably able to report
+presence. The control is the deliverable; the clean result is the by-product.
+
+### Not done, deliberately
+Not reverted to a `partial`. It would also compile, and it would keep the file indistinguishable from the
+move that broke it - while `PlayerModelBuilder` is genuinely its own class now, named for what it builds,
+called that way from `PlayerController.Animation.cs` and `PlayerAnimator.cs`. A revert would hide the
+lesson behind a working build.
 ## 1jh. "Collisions have no debris" - the complaint was never about debris existing
 
 **OPEN until the play-test.** Shipped in the 1jh commit; nothing here is verified behaviour yet.

@@ -41,7 +41,7 @@ public static class PlayerModelBuilder
     /// Color matches the adjacent part (arm sleeve / pants leg).</summary>
     private static void AddJoint(string name, Transform pivot, Vector3 size, Color color)
     {
-        MakePart(name, pivot, size, Vector3.zero, color, "Joint");
+        MapBuilder.MakePart(name, pivot, size, Vector3.zero, color, "Joint");
     }
 
     /// <summary>
@@ -121,7 +121,7 @@ public static class PlayerModelBuilder
         torso.transform.localPosition = new Vector3(0f, 0.05f, 0f);
         torso.transform.localRotation = Quaternion.identity;
 
-        bool female = ActiveGender == PlayerGender.Female;
+        bool female = MapBuilder.ActiveGender == PlayerGender.Female;
         var race = ResolvePlayerRace(parent);
 
         Color skinC = race != null ? race.SkinColor : new Color(220f / 255f, 178f / 255f, 132f / 255f);
@@ -132,14 +132,14 @@ public static class PlayerModelBuilder
         Color shoeC = race != null ? race.ShoeColor : new Color(0.2f, 0.2f, 0.2f);
         Color dressC = shirtC;
 
-        MakePart("Body", torso.transform, new Vector3(female ? 0.40f : 0.44f, 0.8f, 0.32f), new Vector3(0f, 0.13f, 0f), shirtC, "Body");
+        MapBuilder.MakePart("Body", torso.transform, new Vector3(female ? 0.40f : 0.44f, 0.8f, 0.32f), new Vector3(0f, 0.13f, 0f), shirtC, "Body");
         if (female)
         {
-            MakePart("Skirt", torso.transform, new Vector3(0.52f, 0.28f, 0.3f), new Vector3(0f, -0.27f, 0f), dressC, "Skirt");
-            MakePart("SkirtHem", torso.transform, new Vector3(0.56f, 0.06f, 0.34f), new Vector3(0f, -0.42f, 0f), Darken(dressC, 0.6f), "SkirtHem");
+            MapBuilder.MakePart("Skirt", torso.transform, new Vector3(0.52f, 0.28f, 0.3f), new Vector3(0f, -0.27f, 0f), dressC, "Skirt");
+            MapBuilder.MakePart("SkirtHem", torso.transform, new Vector3(0.56f, 0.06f, 0.34f), new Vector3(0f, -0.42f, 0f), Darken(dressC, 0.6f), "SkirtHem");
         }
-        MakePart("Head", torso.transform, new Vector3(0.3f, 0.3f, 0.3f), new Vector3(0f, 0.65f, 0f), skinC, "Head");
-        MakePart("Neck", torso.transform, new Vector3(0.15f, 0.16f, 0.15f), new Vector3(0f, 0.4f, 0f), skinC, "Cylinder");
+        MapBuilder.MakePart("Head", torso.transform, new Vector3(0.3f, 0.3f, 0.3f), new Vector3(0f, 0.65f, 0f), skinC, "Head");
+        MapBuilder.MakePart("Neck", torso.transform, new Vector3(0.15f, 0.16f, 0.15f), new Vector3(0f, 0.4f, 0f), skinC, "Cylinder");
 
         // ── Shoulder pivots (rotate from shoulder joint) ──
         // Arm chain: Shoulder -> Elbow -> Forearm + Hand (upper/lower arm split).
@@ -156,23 +156,23 @@ public static class PlayerModelBuilder
         AddJoint("JShoulderL", shoulderL.transform, new Vector3(0.14f, 0.14f, 0.14f), shirtC);
         AddJoint("JShoulderR", shoulderR.transform, new Vector3(0.14f, 0.14f, 0.14f), shirtC);
 
-        MakePart("UpperArmL", shoulderL.transform, new Vector3(0.12f, 0.26f, 0.12f), new Vector3(0f, -0.13f, 0f), shirtC, "UpperArm");
+        MapBuilder.MakePart("UpperArmL", shoulderL.transform, new Vector3(0.12f, 0.26f, 0.12f), new Vector3(0f, -0.13f, 0f), shirtC, "UpperArm");
         var elbowL = new GameObject("ElbowL");
         elbowL.transform.SetParent(shoulderL.transform);
         elbowL.transform.localPosition = new Vector3(0f, -0.26f, 0f);
         elbowL.transform.localRotation = Quaternion.identity;
         AddJoint("JElbowL", elbowL.transform, new Vector3(0.11f, 0.11f, 0.11f), shirtC);
-        MakePart("ForearmL", elbowL.transform, new Vector3(0.12f, 0.22f, 0.12f), new Vector3(0f, -0.12f, 0f), shirtC, "Forearm");
-        MakePart("HandL", elbowL.transform, new Vector3(0.12f, 0.08f, 0.12f), new Vector3(0f, -0.25f, 0f), skinC, "Hand");
+        MapBuilder.MakePart("ForearmL", elbowL.transform, new Vector3(0.12f, 0.22f, 0.12f), new Vector3(0f, -0.12f, 0f), shirtC, "Forearm");
+        MapBuilder.MakePart("HandL", elbowL.transform, new Vector3(0.12f, 0.08f, 0.12f), new Vector3(0f, -0.25f, 0f), skinC, "Hand");
 
-        MakePart("UpperArmR", shoulderR.transform, new Vector3(0.12f, 0.26f, 0.12f), new Vector3(0f, -0.13f, 0f), shirtC, "UpperArm");
+        MapBuilder.MakePart("UpperArmR", shoulderR.transform, new Vector3(0.12f, 0.26f, 0.12f), new Vector3(0f, -0.13f, 0f), shirtC, "UpperArm");
         var elbowR = new GameObject("ElbowR");
         elbowR.transform.SetParent(shoulderR.transform);
         elbowR.transform.localPosition = new Vector3(0f, -0.26f, 0f);
         elbowR.transform.localRotation = Quaternion.identity;
         AddJoint("JElbowR", elbowR.transform, new Vector3(0.11f, 0.11f, 0.11f), shirtC);
-        MakePart("ForearmR", elbowR.transform, new Vector3(0.12f, 0.22f, 0.12f), new Vector3(0f, -0.12f, 0f), shirtC, "Forearm");
-        MakePart("HandR", elbowR.transform, new Vector3(0.12f, 0.08f, 0.12f), new Vector3(0f, -0.25f, 0f), skinC, "Hand");
+        MapBuilder.MakePart("ForearmR", elbowR.transform, new Vector3(0.12f, 0.22f, 0.12f), new Vector3(0f, -0.12f, 0f), shirtC, "Forearm");
+        MapBuilder.MakePart("HandR", elbowR.transform, new Vector3(0.12f, 0.08f, 0.12f), new Vector3(0f, -0.25f, 0f), skinC, "Hand");
 
         // ── Hip pivots (rotate from hip joint) ──
         var hipL = new GameObject("HipL");
@@ -188,44 +188,44 @@ public static class PlayerModelBuilder
         AddJoint("JHipR", hipR.transform, new Vector3(0.13f, 0.13f, 0.13f), pantsC);
 
         // Leg chain: Hip -> Knee -> Shin + Shoe (upper/lower leg split).
-        MakePart("ThighL", hipL.transform, new Vector3(0.14f, 0.3f, 0.14f), new Vector3(0f, -0.15f, 0f), pantsC, "Thigh");
+        MapBuilder.MakePart("ThighL", hipL.transform, new Vector3(0.14f, 0.3f, 0.14f), new Vector3(0f, -0.15f, 0f), pantsC, "Thigh");
         var kneeL = new GameObject("KneeL");
         kneeL.transform.SetParent(hipL.transform);
         kneeL.transform.localPosition = new Vector3(0f, -0.3f, 0f);
         kneeL.transform.localRotation = Quaternion.identity;
         AddJoint("JKneeL", kneeL.transform, new Vector3(0.12f, 0.12f, 0.12f), pantsC);
-        MakePart("ShinL", kneeL.transform, new Vector3(0.14f, 0.24f, 0.14f), new Vector3(0f, -0.12f, 0f), pantsC, "Shin");
-        MakePart("ShoeL", kneeL.transform, new Vector3(0.16f, 0.08f, 0.22f), new Vector3(0f, -0.27f, 0.02f), shoeC, "Shoe");
+        MapBuilder.MakePart("ShinL", kneeL.transform, new Vector3(0.14f, 0.24f, 0.14f), new Vector3(0f, -0.12f, 0f), pantsC, "Shin");
+        MapBuilder.MakePart("ShoeL", kneeL.transform, new Vector3(0.16f, 0.08f, 0.22f), new Vector3(0f, -0.27f, 0.02f), shoeC, "Shoe");
 
-        MakePart("ThighR", hipR.transform, new Vector3(0.14f, 0.3f, 0.14f), new Vector3(0f, -0.15f, 0f), pantsC, "Thigh");
+        MapBuilder.MakePart("ThighR", hipR.transform, new Vector3(0.14f, 0.3f, 0.14f), new Vector3(0f, -0.15f, 0f), pantsC, "Thigh");
         var kneeR = new GameObject("KneeR");
         kneeR.transform.SetParent(hipR.transform);
         kneeR.transform.localPosition = new Vector3(0f, -0.3f, 0f);
         kneeR.transform.localRotation = Quaternion.identity;
         AddJoint("JKneeR", kneeR.transform, new Vector3(0.12f, 0.12f, 0.12f), pantsC);
-        MakePart("ShinR", kneeR.transform, new Vector3(0.14f, 0.24f, 0.14f), new Vector3(0f, -0.12f, 0f), pantsC, "Shin");
-        MakePart("ShoeR", kneeR.transform, new Vector3(0.16f, 0.08f, 0.22f), new Vector3(0f, -0.27f, 0.02f), shoeC, "Shoe");
+        MapBuilder.MakePart("ShinR", kneeR.transform, new Vector3(0.14f, 0.24f, 0.14f), new Vector3(0f, -0.12f, 0f), pantsC, "Shin");
+        MapBuilder.MakePart("ShoeR", kneeR.transform, new Vector3(0.16f, 0.08f, 0.22f), new Vector3(0f, -0.27f, 0.02f), shoeC, "Shoe");
 
-        MakePart("Hair", torso.transform, new Vector3(0.36f, 0.12f, 0.30f), new Vector3(0f, 0.80f, 0f), hairC, "Hair");
-        MakePart("HairL", torso.transform, new Vector3(0.08f, 0.26f, 0.28f), new Vector3(-0.18f, 0.70f, 0f), hairC, "HairSide");
-        MakePart("HairR", torso.transform, new Vector3(0.08f, 0.26f, 0.28f), new Vector3(0.18f, 0.70f, 0f), hairC, "HairSide");
+        MapBuilder.MakePart("Hair", torso.transform, new Vector3(0.36f, 0.12f, 0.30f), new Vector3(0f, 0.80f, 0f), hairC, "Hair");
+        MapBuilder.MakePart("HairL", torso.transform, new Vector3(0.08f, 0.26f, 0.28f), new Vector3(-0.18f, 0.70f, 0f), hairC, "HairSide");
+        MapBuilder.MakePart("HairR", torso.transform, new Vector3(0.08f, 0.26f, 0.28f), new Vector3(0.18f, 0.70f, 0f), hairC, "HairSide");
         if (female)
         {
-            MakePart("HairBack", torso.transform, new Vector3(0.30f, 0.36f, 0.11f), new Vector3(0f, 0.66f, -0.16f), hairC, "HairBack");
-            MakePart("HairBand", torso.transform, new Vector3(0.36f, 0.05f, 0.34f), new Vector3(0f, 0.80f, 0.02f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
-            MakePart("Ponytail1", torso.transform, new Vector3(0.18f, 0.26f, 0.15f), new Vector3(0f, 0.63f, -0.21f), hairC, "Ponytail");
-            MakePart("Ponytail2", torso.transform, new Vector3(0.16f, 0.24f, 0.14f), new Vector3(0f, 0.45f, -0.25f), hairC, "Ponytail");
-            MakePart("Ponytail3", torso.transform, new Vector3(0.13f, 0.22f, 0.13f), new Vector3(0f, 0.27f, -0.27f), hairC, "Ponytail");
+            MapBuilder.MakePart("HairBack", torso.transform, new Vector3(0.30f, 0.36f, 0.11f), new Vector3(0f, 0.66f, -0.16f), hairC, "HairBack");
+            MapBuilder.MakePart("HairBand", torso.transform, new Vector3(0.36f, 0.05f, 0.34f), new Vector3(0f, 0.80f, 0.02f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
+            MapBuilder.MakePart("Ponytail1", torso.transform, new Vector3(0.18f, 0.26f, 0.15f), new Vector3(0f, 0.63f, -0.21f), hairC, "Ponytail");
+            MapBuilder.MakePart("Ponytail2", torso.transform, new Vector3(0.16f, 0.24f, 0.14f), new Vector3(0f, 0.45f, -0.25f), hairC, "Ponytail");
+            MapBuilder.MakePart("Ponytail3", torso.transform, new Vector3(0.13f, 0.22f, 0.13f), new Vector3(0f, 0.27f, -0.27f), hairC, "Ponytail");
         }
         else
         {
-            MakePart("HairBack", torso.transform, new Vector3(0.30f, 0.30f, 0.11f), new Vector3(0f, 0.68f, -0.16f), hairC, "HairBack");
+            MapBuilder.MakePart("HairBack", torso.transform, new Vector3(0.30f, 0.30f, 0.11f), new Vector3(0f, 0.68f, -0.16f), hairC, "HairBack");
         }
         Color eyeWhiteC = new Color(0.95f, 0.95f, 0.97f);
-        MakePart("EyeWhiteL", torso.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(-0.08f, 0.72f, 0.155f), eyeWhiteC, "EyeWhite");
-        MakePart("EyeWhiteR", torso.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(0.08f, 0.72f, 0.155f), eyeWhiteC, "EyeWhite");
-        MakePart("EyeIrisL", torso.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(-0.08f, 0.72f, 0.165f), eyeC, "EyeIris");
-        MakePart("EyeIrisR", torso.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(0.08f, 0.72f, 0.165f), eyeC, "EyeIris");
+        MapBuilder.MakePart("EyeWhiteL", torso.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(-0.08f, 0.72f, 0.155f), eyeWhiteC, "EyeWhite");
+        MapBuilder.MakePart("EyeWhiteR", torso.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(0.08f, 0.72f, 0.155f), eyeWhiteC, "EyeWhite");
+        MapBuilder.MakePart("EyeIrisL", torso.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(-0.08f, 0.72f, 0.165f), eyeC, "EyeIris");
+        MapBuilder.MakePart("EyeIrisR", torso.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(0.08f, 0.72f, 0.165f), eyeC, "EyeIris");
 
         ApplyRaceLook(root.transform, race, calibrateFeet: true);
 
@@ -244,7 +244,7 @@ public static class PlayerModelBuilder
         root.transform.localRotation = Quaternion.identity;
         root.transform.localScale = Vector3.one * (scale * PlayerModelScale);
 
-        bool female = ActiveGender == PlayerGender.Female;
+        bool female = MapBuilder.ActiveGender == PlayerGender.Female;
         var race = ResolvePlayerRace(parent);
 
         Color skinC = race != null ? race.SkinColor : new Color(220f / 255f, 178f / 255f, 132f / 255f);
@@ -255,33 +255,33 @@ public static class PlayerModelBuilder
         Color dressC = shirtC;
 
         // ── Torso (seated, upright) ──
-        MakePart("Body", root.transform, new Vector3(0.34f, 0.6f, 0.28f), new Vector3(0f, 0.25f, 0f), shirtC, "Body");
+        MapBuilder.MakePart("Body", root.transform, new Vector3(0.34f, 0.6f, 0.28f), new Vector3(0f, 0.25f, 0f), shirtC, "Body");
         if (female)
         {
-            MakePart("Skirt", root.transform, new Vector3(0.42f, 0.2f, 0.32f), new Vector3(0f, -0.02f, 0f), dressC, "Skirt");
-            MakePart("SkirtHem", root.transform, new Vector3(0.46f, 0.05f, 0.36f), new Vector3(0f, -0.13f, 0f), Darken(dressC, 0.6f), "SkirtHem");
+            MapBuilder.MakePart("Skirt", root.transform, new Vector3(0.42f, 0.2f, 0.32f), new Vector3(0f, -0.02f, 0f), dressC, "Skirt");
+            MapBuilder.MakePart("SkirtHem", root.transform, new Vector3(0.46f, 0.05f, 0.36f), new Vector3(0f, -0.13f, 0f), Darken(dressC, 0.6f), "SkirtHem");
         }
         // ── Head ──
-        MakePart("Head", root.transform, new Vector3(0.28f, 0.28f, 0.28f), new Vector3(0f, 0.74f, 0f), skinC, "Head");
-        MakePart("Neck", root.transform, new Vector3(0.13f, 0.10f, 0.13f), new Vector3(0f, 0.55f, 0f), skinC, "Cylinder");
+        MapBuilder.MakePart("Head", root.transform, new Vector3(0.28f, 0.28f, 0.28f), new Vector3(0f, 0.74f, 0f), skinC, "Head");
+        MapBuilder.MakePart("Neck", root.transform, new Vector3(0.13f, 0.10f, 0.13f), new Vector3(0f, 0.55f, 0f), skinC, "Cylinder");
         // ── Hair ──
-        MakePart("Hair", root.transform, new Vector3(0.34f, 0.12f, 0.28f), new Vector3(0f, 0.87f, 0f), hairC, "Hair");
-        MakePart("HairL", root.transform, new Vector3(0.07f, 0.24f, 0.24f), new Vector3(-0.17f, 0.79f, 0f), hairC, "HairSide");
-        MakePart("HairR", root.transform, new Vector3(0.07f, 0.24f, 0.24f), new Vector3(0.17f, 0.79f, 0f), hairC, "HairSide");
+        MapBuilder.MakePart("Hair", root.transform, new Vector3(0.34f, 0.12f, 0.28f), new Vector3(0f, 0.87f, 0f), hairC, "Hair");
+        MapBuilder.MakePart("HairL", root.transform, new Vector3(0.07f, 0.24f, 0.24f), new Vector3(-0.17f, 0.79f, 0f), hairC, "HairSide");
+        MapBuilder.MakePart("HairR", root.transform, new Vector3(0.07f, 0.24f, 0.24f), new Vector3(0.17f, 0.79f, 0f), hairC, "HairSide");
         if (female)
         {
-            MakePart("HairBack", root.transform, new Vector3(0.28f, 0.34f, 0.10f), new Vector3(0f, 0.74f, -0.14f), hairC, "HairBack");
-            MakePart("HairBand", root.transform, new Vector3(0.32f, 0.05f, 0.32f), new Vector3(0f, 0.87f, 0.02f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
-            MakePart("Ponytail1", root.transform, new Vector3(0.17f, 0.24f, 0.14f), new Vector3(0f, 0.71f, -0.19f), hairC, "Ponytail");
-            MakePart("Ponytail2", root.transform, new Vector3(0.14f, 0.22f, 0.13f), new Vector3(0f, 0.55f, -0.23f), hairC, "Ponytail");
-            MakePart("Ponytail3", root.transform, new Vector3(0.12f, 0.20f, 0.12f), new Vector3(0f, 0.39f, -0.25f), hairC, "Ponytail");
+            MapBuilder.MakePart("HairBack", root.transform, new Vector3(0.28f, 0.34f, 0.10f), new Vector3(0f, 0.74f, -0.14f), hairC, "HairBack");
+            MapBuilder.MakePart("HairBand", root.transform, new Vector3(0.32f, 0.05f, 0.32f), new Vector3(0f, 0.87f, 0.02f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
+            MapBuilder.MakePart("Ponytail1", root.transform, new Vector3(0.17f, 0.24f, 0.14f), new Vector3(0f, 0.71f, -0.19f), hairC, "Ponytail");
+            MapBuilder.MakePart("Ponytail2", root.transform, new Vector3(0.14f, 0.22f, 0.13f), new Vector3(0f, 0.55f, -0.23f), hairC, "Ponytail");
+            MapBuilder.MakePart("Ponytail3", root.transform, new Vector3(0.12f, 0.20f, 0.12f), new Vector3(0f, 0.39f, -0.25f), hairC, "Ponytail");
         }
         // ── Eyes ──
         Color eyeWhiteC = new Color(0.95f, 0.95f, 0.97f);
-        MakePart("EyeWhiteL", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(-0.07f, 0.77f, 0.145f), eyeWhiteC, "EyeWhite");
-        MakePart("EyeWhiteR", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(0.07f, 0.77f, 0.145f), eyeWhiteC, "EyeWhite");
-        MakePart("EyeIrisL", root.transform, new Vector3(0.05f, 0.05f, 0.04f), new Vector3(-0.07f, 0.77f, 0.155f), eyeC, "EyeIris");
-        MakePart("EyeIrisR", root.transform, new Vector3(0.05f, 0.05f, 0.04f), new Vector3(0.07f, 0.77f, 0.155f), eyeC, "EyeIris");
+        MapBuilder.MakePart("EyeWhiteL", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(-0.07f, 0.77f, 0.145f), eyeWhiteC, "EyeWhite");
+        MapBuilder.MakePart("EyeWhiteR", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(0.07f, 0.77f, 0.145f), eyeWhiteC, "EyeWhite");
+        MapBuilder.MakePart("EyeIrisL", root.transform, new Vector3(0.05f, 0.05f, 0.04f), new Vector3(-0.07f, 0.77f, 0.155f), eyeC, "EyeIris");
+        MapBuilder.MakePart("EyeIrisR", root.transform, new Vector3(0.05f, 0.05f, 0.04f), new Vector3(0.07f, 0.77f, 0.155f), eyeC, "EyeIris");
         // ── Arms (shoulder -> elbow chain, reaching forward to the steering wheel) ──
         // Shoulder carries the reach (-60°), elbow flexes the forearm up toward the wheel so
         // the hands land on it. The driving cutscene rocks these pivots to simulate steering.
@@ -298,23 +298,23 @@ public static class PlayerModelBuilder
         AddJoint("JShoulderL", shoulderL.transform, new Vector3(0.13f, 0.13f, 0.13f), shirtC);
         AddJoint("JShoulderR", shoulderR.transform, new Vector3(0.13f, 0.13f, 0.13f), shirtC);
 
-        MakePart("UpperArmL", shoulderL.transform, new Vector3(0.1f, 0.2f, 0.1f), new Vector3(0f, -0.1f, 0f), shirtC, "UpperArm");
+        MapBuilder.MakePart("UpperArmL", shoulderL.transform, new Vector3(0.1f, 0.2f, 0.1f), new Vector3(0f, -0.1f, 0f), shirtC, "UpperArm");
         var elbowL = new GameObject("ElbowL");
         elbowL.transform.SetParent(shoulderL.transform);
         elbowL.transform.localPosition = new Vector3(0f, -0.2f, 0f);
         elbowL.transform.localRotation = Quaternion.Euler(-40f, 0f, 0f);
         AddJoint("JElbowL", elbowL.transform, new Vector3(0.10f, 0.10f, 0.10f), shirtC);
-        MakePart("ForearmL", elbowL.transform, new Vector3(0.09f, 0.2f, 0.09f), new Vector3(0f, -0.1f, 0f), shirtC, "Forearm");
-        MakePart("HandL", elbowL.transform, new Vector3(0.09f, 0.09f, 0.09f), new Vector3(0f, -0.2f, 0f), skinC, "Hand");
+        MapBuilder.MakePart("ForearmL", elbowL.transform, new Vector3(0.09f, 0.2f, 0.09f), new Vector3(0f, -0.1f, 0f), shirtC, "Forearm");
+        MapBuilder.MakePart("HandL", elbowL.transform, new Vector3(0.09f, 0.09f, 0.09f), new Vector3(0f, -0.2f, 0f), skinC, "Hand");
 
-        MakePart("UpperArmR", shoulderR.transform, new Vector3(0.1f, 0.2f, 0.1f), new Vector3(0f, -0.1f, 0f), shirtC, "UpperArm");
+        MapBuilder.MakePart("UpperArmR", shoulderR.transform, new Vector3(0.1f, 0.2f, 0.1f), new Vector3(0f, -0.1f, 0f), shirtC, "UpperArm");
         var elbowR = new GameObject("ElbowR");
         elbowR.transform.SetParent(shoulderR.transform);
         elbowR.transform.localPosition = new Vector3(0f, -0.2f, 0f);
         elbowR.transform.localRotation = Quaternion.Euler(-40f, 0f, 0f);
         AddJoint("JElbowR", elbowR.transform, new Vector3(0.10f, 0.10f, 0.10f), shirtC);
-        MakePart("ForearmR", elbowR.transform, new Vector3(0.09f, 0.2f, 0.09f), new Vector3(0f, -0.1f, 0f), shirtC, "Forearm");
-        MakePart("HandR", elbowR.transform, new Vector3(0.09f, 0.09f, 0.09f), new Vector3(0f, -0.2f, 0f), skinC, "Hand");
+        MapBuilder.MakePart("ForearmR", elbowR.transform, new Vector3(0.09f, 0.2f, 0.09f), new Vector3(0f, -0.1f, 0f), shirtC, "Forearm");
+        MapBuilder.MakePart("HandR", elbowR.transform, new Vector3(0.09f, 0.09f, 0.09f), new Vector3(0f, -0.2f, 0f), skinC, "Hand");
 
         // ── Legs (hip -> knee chain, thighs forward and shins down in the footwell) ──
         var hipL = new GameObject("HipL");
@@ -329,21 +329,21 @@ public static class PlayerModelBuilder
         hipR.transform.localRotation = Quaternion.Euler(-80f, 0f, 0f);
         AddJoint("JHipR", hipR.transform, new Vector3(0.12f, 0.12f, 0.12f), pantsC);
 
-        MakePart("ThighL", hipL.transform, new Vector3(0.13f, 0.3f, 0.13f), new Vector3(0f, -0.15f, 0f), pantsC, "Thigh");
+        MapBuilder.MakePart("ThighL", hipL.transform, new Vector3(0.13f, 0.3f, 0.13f), new Vector3(0f, -0.15f, 0f), pantsC, "Thigh");
         var kneeL = new GameObject("KneeL");
         kneeL.transform.SetParent(hipL.transform);
         kneeL.transform.localPosition = new Vector3(0f, -0.3f, 0f);
         kneeL.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
         AddJoint("JKneeL", kneeL.transform, new Vector3(0.11f, 0.11f, 0.11f), pantsC);
-        MakePart("ShinL", kneeL.transform, new Vector3(0.11f, 0.26f, 0.11f), new Vector3(0f, -0.13f, 0f), pantsC, "Shin");
+        MapBuilder.MakePart("ShinL", kneeL.transform, new Vector3(0.11f, 0.26f, 0.11f), new Vector3(0f, -0.13f, 0f), pantsC, "Shin");
 
-        MakePart("ThighR", hipR.transform, new Vector3(0.13f, 0.3f, 0.13f), new Vector3(0f, -0.15f, 0f), pantsC, "Thigh");
+        MapBuilder.MakePart("ThighR", hipR.transform, new Vector3(0.13f, 0.3f, 0.13f), new Vector3(0f, -0.15f, 0f), pantsC, "Thigh");
         var kneeR = new GameObject("KneeR");
         kneeR.transform.SetParent(hipR.transform);
         kneeR.transform.localPosition = new Vector3(0f, -0.3f, 0f);
         kneeR.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
         AddJoint("JKneeR", kneeR.transform, new Vector3(0.11f, 0.11f, 0.11f), pantsC);
-        MakePart("ShinR", kneeR.transform, new Vector3(0.11f, 0.26f, 0.11f), new Vector3(0f, -0.13f, 0f), pantsC, "Shin");
+        MapBuilder.MakePart("ShinR", kneeR.transform, new Vector3(0.11f, 0.26f, 0.11f), new Vector3(0f, -0.13f, 0f), pantsC, "Shin");
 
         ApplyRaceLook(root.transform, race, calibrateFeet: false);
 
@@ -361,7 +361,7 @@ public static class PlayerModelBuilder
         root.transform.localRotation = Quaternion.identity;
         root.transform.localScale = Vector3.one * (scale * PlayerModelScale);
 
-        bool female = ActiveGender == PlayerGender.Female;
+        bool female = MapBuilder.ActiveGender == PlayerGender.Female;
         var race = ResolvePlayerRace(parent);
 
         Color skinC = race != null ? race.SkinColor : new Color(220f / 255f, 178f / 255f, 132f / 255f);
@@ -385,52 +385,52 @@ public static class PlayerModelBuilder
         hipR.transform.localRotation = Quaternion.identity;
         AddJoint("JHipR", hipR.transform, new Vector3(0.13f, 0.13f, 0.13f), pantsC);
 
-        MakePart("ThighL", hipL.transform, new Vector3(0.14f, 0.26f, 0.14f), Vector3.zero, pantsC, "Thigh", Quaternion.Euler(-75f, 0f, 0f));
-        MakePart("ThighR", hipR.transform, new Vector3(0.14f, 0.26f, 0.14f), Vector3.zero, pantsC, "Thigh", Quaternion.Euler(-75f, 0f, 0f));
+        MapBuilder.MakePart("ThighL", hipL.transform, new Vector3(0.14f, 0.26f, 0.14f), Vector3.zero, pantsC, "Thigh", Quaternion.Euler(-75f, 0f, 0f));
+        MapBuilder.MakePart("ThighR", hipR.transform, new Vector3(0.14f, 0.26f, 0.14f), Vector3.zero, pantsC, "Thigh", Quaternion.Euler(-75f, 0f, 0f));
 
         var kneeL = new GameObject("KneeL");
         kneeL.transform.SetParent(hipL.transform);
         kneeL.transform.localPosition = new Vector3(0f, -0.13f, 0.08f);
         kneeL.transform.localRotation = Quaternion.identity;
         AddJoint("JKneeL", kneeL.transform, new Vector3(0.12f, 0.12f, 0.12f), pantsC);
-        MakePart("ShinL", kneeL.transform, new Vector3(0.12f, 0.3f, 0.12f), new Vector3(0f, -0.14f, 0f), pantsC, "Shin");
-        MakePart("ShoeL", kneeL.transform, new Vector3(0.16f, 0.08f, 0.24f), new Vector3(0f, -0.31f, 0.02f), shoeC, "Shoe");
+        MapBuilder.MakePart("ShinL", kneeL.transform, new Vector3(0.12f, 0.3f, 0.12f), new Vector3(0f, -0.14f, 0f), pantsC, "Shin");
+        MapBuilder.MakePart("ShoeL", kneeL.transform, new Vector3(0.16f, 0.08f, 0.24f), new Vector3(0f, -0.31f, 0.02f), shoeC, "Shoe");
 
         var kneeR = new GameObject("KneeR");
         kneeR.transform.SetParent(hipR.transform);
         kneeR.transform.localPosition = new Vector3(0f, -0.13f, 0.08f);
         kneeR.transform.localRotation = Quaternion.identity;
         AddJoint("JKneeR", kneeR.transform, new Vector3(0.12f, 0.12f, 0.12f), pantsC);
-        MakePart("ShinR", kneeR.transform, new Vector3(0.12f, 0.3f, 0.12f), new Vector3(0f, -0.14f, 0f), pantsC, "Shin");
-        MakePart("ShoeR", kneeR.transform, new Vector3(0.16f, 0.08f, 0.24f), new Vector3(0f, -0.31f, 0.02f), shoeC, "Shoe");
+        MapBuilder.MakePart("ShinR", kneeR.transform, new Vector3(0.12f, 0.3f, 0.12f), new Vector3(0f, -0.14f, 0f), pantsC, "Shin");
+        MapBuilder.MakePart("ShoeR", kneeR.transform, new Vector3(0.16f, 0.08f, 0.24f), new Vector3(0f, -0.31f, 0.02f), shoeC, "Shoe");
 
         // ── Torso (hips on the seat) ──
-        MakePart("Torso", root.transform, new Vector3(female ? 0.37f : 0.40f, 0.36f, 0.28f), new Vector3(0f, 0.18f, 0f), shirtC, "SitTorso");
+        MapBuilder.MakePart("Torso", root.transform, new Vector3(female ? 0.37f : 0.40f, 0.36f, 0.28f), new Vector3(0f, 0.18f, 0f), shirtC, "SitTorso");
         if (female)
         {
-            MakePart("Skirt", root.transform, new Vector3(0.48f, 0.2f, 0.32f), new Vector3(0f, 0.02f, 0f), dressC, "Skirt");
-            MakePart("SkirtHem", root.transform, new Vector3(0.52f, 0.05f, 0.35f), new Vector3(0f, -0.08f, 0f), Darken(dressC, 0.6f), "SkirtHem");
+            MapBuilder.MakePart("Skirt", root.transform, new Vector3(0.48f, 0.2f, 0.32f), new Vector3(0f, 0.02f, 0f), dressC, "Skirt");
+            MapBuilder.MakePart("SkirtHem", root.transform, new Vector3(0.52f, 0.05f, 0.35f), new Vector3(0f, -0.08f, 0f), Darken(dressC, 0.6f), "SkirtHem");
         }
-        MakePart("Chest", root.transform, new Vector3(0.39f, 0.28f, 0.26f), new Vector3(0f, 0.42f, 0f), shirtC, "Chest");
+        MapBuilder.MakePart("Chest", root.transform, new Vector3(0.39f, 0.28f, 0.26f), new Vector3(0f, 0.42f, 0f), shirtC, "Chest");
 
         // ── Neck + head ──
-        MakePart("Neck", root.transform, new Vector3(0.14f, 0.12f, 0.14f), new Vector3(0f, 0.62f, 0f), skinC, "Cylinder");
-        MakePart("Head", root.transform, new Vector3(0.3f, 0.3f, 0.3f), new Vector3(0f, 0.78f, 0f), skinC, "Head");
-        MakePart("EyeWhiteL", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(-0.08f, 0.85f, 0.155f), new Color(0.95f, 0.95f, 0.97f), "EyeWhite");
-        MakePart("EyeWhiteR", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(0.08f, 0.85f, 0.155f), new Color(0.95f, 0.95f, 0.97f), "EyeWhite");
-        MakePart("EyeIrisL", root.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(-0.08f, 0.85f, 0.165f), eyeC, "EyeIris");
-        MakePart("EyeIrisR", root.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(0.08f, 0.85f, 0.165f), eyeC, "EyeIris");
-        MakePart("Hair", root.transform, new Vector3(0.36f, 0.12f, 0.30f), new Vector3(0f, 0.92f, 0f), hairC, "Hair");
-        MakePart("HairL", root.transform, new Vector3(0.08f, 0.26f, 0.26f), new Vector3(-0.18f, 0.83f, 0f), hairC, "HairSide");
-        MakePart("HairR", root.transform, new Vector3(0.08f, 0.26f, 0.26f), new Vector3(0.18f, 0.83f, 0f), hairC, "HairSide");
+        MapBuilder.MakePart("Neck", root.transform, new Vector3(0.14f, 0.12f, 0.14f), new Vector3(0f, 0.62f, 0f), skinC, "Cylinder");
+        MapBuilder.MakePart("Head", root.transform, new Vector3(0.3f, 0.3f, 0.3f), new Vector3(0f, 0.78f, 0f), skinC, "Head");
+        MapBuilder.MakePart("EyeWhiteL", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(-0.08f, 0.85f, 0.155f), new Color(0.95f, 0.95f, 0.97f), "EyeWhite");
+        MapBuilder.MakePart("EyeWhiteR", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(0.08f, 0.85f, 0.155f), new Color(0.95f, 0.95f, 0.97f), "EyeWhite");
+        MapBuilder.MakePart("EyeIrisL", root.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(-0.08f, 0.85f, 0.165f), eyeC, "EyeIris");
+        MapBuilder.MakePart("EyeIrisR", root.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(0.08f, 0.85f, 0.165f), eyeC, "EyeIris");
+        MapBuilder.MakePart("Hair", root.transform, new Vector3(0.36f, 0.12f, 0.30f), new Vector3(0f, 0.92f, 0f), hairC, "Hair");
+        MapBuilder.MakePart("HairL", root.transform, new Vector3(0.08f, 0.26f, 0.26f), new Vector3(-0.18f, 0.83f, 0f), hairC, "HairSide");
+        MapBuilder.MakePart("HairR", root.transform, new Vector3(0.08f, 0.26f, 0.26f), new Vector3(0.18f, 0.83f, 0f), hairC, "HairSide");
         if (female)
         {
-            MakePart("HairBack", root.transform, new Vector3(0.30f, 0.34f, 0.11f), new Vector3(0f, 0.80f, -0.15f), hairC, "HairBack");
-            MakePart("HairBand", root.transform, new Vector3(0.36f, 0.05f, 0.34f), new Vector3(0f, 0.92f, 0.02f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
+            MapBuilder.MakePart("HairBack", root.transform, new Vector3(0.30f, 0.34f, 0.11f), new Vector3(0f, 0.80f, -0.15f), hairC, "HairBack");
+            MapBuilder.MakePart("HairBand", root.transform, new Vector3(0.36f, 0.05f, 0.34f), new Vector3(0f, 0.92f, 0.02f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
         }
         else
         {
-            MakePart("HairBack", root.transform, new Vector3(0.30f, 0.30f, 0.11f), new Vector3(0f, 0.82f, -0.15f), hairC, "HairBack");
+            MapBuilder.MakePart("HairBack", root.transform, new Vector3(0.30f, 0.30f, 0.11f), new Vector3(0f, 0.82f, -0.15f), hairC, "HairBack");
         }
 
         // ── Arms (shoulder -> elbow chain, hands resting on the lap) ──
@@ -446,24 +446,24 @@ public static class PlayerModelBuilder
         AddJoint("JShoulderL", shoulderL.transform, new Vector3(0.13f, 0.13f, 0.13f), shirtC);
         AddJoint("JShoulderR", shoulderR.transform, new Vector3(0.13f, 0.13f, 0.13f), shirtC);
 
-        MakePart("UpperArmL", shoulderL.transform, new Vector3(0.12f, 0.34f, 0.12f), new Vector3(0f, -0.12f, 0.06f), shirtC, "UpperArm", Quaternion.Euler(-60f, 0f, 0f));
-        MakePart("UpperArmR", shoulderR.transform, new Vector3(0.12f, 0.34f, 0.12f), new Vector3(0f, -0.12f, 0.06f), shirtC, "UpperArm", Quaternion.Euler(-60f, 0f, 0f));
+        MapBuilder.MakePart("UpperArmL", shoulderL.transform, new Vector3(0.12f, 0.34f, 0.12f), new Vector3(0f, -0.12f, 0.06f), shirtC, "UpperArm", Quaternion.Euler(-60f, 0f, 0f));
+        MapBuilder.MakePart("UpperArmR", shoulderR.transform, new Vector3(0.12f, 0.34f, 0.12f), new Vector3(0f, -0.12f, 0.06f), shirtC, "UpperArm", Quaternion.Euler(-60f, 0f, 0f));
 
         var elbowL = new GameObject("ElbowL");
         elbowL.transform.SetParent(shoulderL.transform);
         elbowL.transform.localPosition = new Vector3(0f, -0.085f, 0.147f);
         elbowL.transform.localRotation = Quaternion.identity;
         AddJoint("JElbowL", elbowL.transform, new Vector3(0.11f, 0.11f, 0.11f), shirtC);
-        MakePart("ForearmL", elbowL.transform, new Vector3(0.11f, 0.16f, 0.11f), new Vector3(0f, -0.08f, -0.007f), shirtC, "Forearm");
-        MakePart("HandL", elbowL.transform, new Vector3(0.11f, 0.09f, 0.11f), new Vector3(0f, -0.16f, -0.007f), skinC, "Hand");
+        MapBuilder.MakePart("ForearmL", elbowL.transform, new Vector3(0.11f, 0.16f, 0.11f), new Vector3(0f, -0.08f, -0.007f), shirtC, "Forearm");
+        MapBuilder.MakePart("HandL", elbowL.transform, new Vector3(0.11f, 0.09f, 0.11f), new Vector3(0f, -0.16f, -0.007f), skinC, "Hand");
 
         var elbowR = new GameObject("ElbowR");
         elbowR.transform.SetParent(shoulderR.transform);
         elbowR.transform.localPosition = new Vector3(0f, -0.085f, 0.147f);
         elbowR.transform.localRotation = Quaternion.identity;
         AddJoint("JElbowR", elbowR.transform, new Vector3(0.11f, 0.11f, 0.11f), shirtC);
-        MakePart("ForearmR", elbowR.transform, new Vector3(0.11f, 0.16f, 0.11f), new Vector3(0f, -0.08f, -0.007f), shirtC, "Forearm");
-        MakePart("HandR", elbowR.transform, new Vector3(0.11f, 0.09f, 0.11f), new Vector3(0f, -0.16f, -0.007f), skinC, "Hand");
+        MapBuilder.MakePart("ForearmR", elbowR.transform, new Vector3(0.11f, 0.16f, 0.11f), new Vector3(0f, -0.08f, -0.007f), shirtC, "Forearm");
+        MapBuilder.MakePart("HandR", elbowR.transform, new Vector3(0.11f, 0.09f, 0.11f), new Vector3(0f, -0.16f, -0.007f), skinC, "Hand");
 
         ApplyRaceLook(root.transform, race, calibrateFeet: false);
 
