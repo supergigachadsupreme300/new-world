@@ -5,6 +5,17 @@
    `git add -A; git commit -m "..." ; git push origin main`). Make a new commit for follow-up
    fixes rather than amending. Do not commit unless a task is complete.
 
+## Token cost minimization
+
+- Read small: use `Read` with `offset`/`limit` and read only what's needed (not whole files). Prefer `glob` + targeted `grep` over dumping files.
+- Summarize tool outputs: don't echo full stdout in your answer; report only hits, counts, or a short one-line summary (e.g. "3 hits in X.cs").
+- Batch: combine related commands in one bash call; avoid repeated scans of the same tree.
+- Don't print raw diffs verbatim in text unless necessary to show a concrete failure; state the diff size/summary instead.
+- Prefer targeted searches: include `path`/`include` and search for specific symbols, not broad regex across all files repeatedly.
+- Avoid long explanations in messages: keep responses < 4 lines unless user explicitly asks for detail.
+- Don't dump generated artifacts (e.g. TREE.md full text) - summarize what changed.
+- Skip printing byte dumps, hex walks, or full context for non-failing checks.
+
 2. **Before finishing any implementation, read AND update all "read/update" docs below in the same
    pass as the code change** (never a follow-up commit by itself):
    - `game-design.md` â€” keep it in sync with implemented behavior (section references like Â§3.3,
