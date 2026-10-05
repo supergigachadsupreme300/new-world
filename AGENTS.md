@@ -157,6 +157,21 @@
     enough. `-Mutate` proves the comparison is sensitive; only re-reading the *extracted* text against the
     file proves the extraction is aimed correctly. The first is cheap to add and the second is the one
     that catches a silent redefinition.
+- **A balance count is only a signal if the file was BALANCED to begin with - otherwise read the DELTA,
+    and measure the baseline before you trust the tool.** 1je edited `NewWorldTestGround.cs` and got
+    `parens 1280/1279`, which reads as a broken file. It was not: the committed version is **1216/1215**,
+    because one `Debug.LogWarning` in it contains an unbalanced `(` **inside a string literal**. So the
+    absolute count on that file can never be a pass/fail verdict, and "the balance check is red" would
+    have been a false positive that trains the next reader to ignore the tool on the file most likely to
+    need it. Two habits, both cheap:
+  - **Ask `git show HEAD:<path>` for the baseline before interpreting an absolute count.** Compare
+    before -> after, not after -> perfect. 1je's own delta was **61/61**, i.e. clean, and that is the
+    only claim the evidence supports. (Same shape as rule 7's "a retracted number's replacement is
+    *unknown*, not zero": a count measured against no baseline is not a small number, it is no number.)
+  - **A crutch that counts characters cannot see the difference between code and a string or comment,
+    so treat any imbalance you did not cause as a *finding to locate*, not a defect to fix** - and do not
+    "balance" the file to make the tool green, which would edit pre-existing content to satisfy an
+    instrument that was never measuring it. Locate it (`git show HEAD:` first), record it, move on.
 - **A scan that reports ABSENCES must first be shown able to report PRESENCES, or its misses mean
       nothing.** The same class of error running the other way, and it is easy to mistake for a
       finding: verifying 1iu's two READMEs, `Select-String -Path 'Assets\Scripts\*.cs',

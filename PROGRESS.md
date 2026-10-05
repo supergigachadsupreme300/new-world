@@ -1,4 +1,72 @@
-﻿## 1jd. Nine spell/skill bodies had no model file — one named builder each, and the comparator that proves it
+## 1je. The summoned ally was a bare cube - a real body, and a bench you can actually look at
+
+**Status: READY FOR PLAY-TEST.** A deliberate **addition plus one required handle change**, not a move:
+`SummonedAlly.Spawn` created `GameObject.CreatePrimitive(PrimitiveType.Cube)` and set one material on it,
+so the only summon body in the game with no model file was the one you could only see by fighting.
+**Verified by grep + reread + `tools\StaticChecks.ps1` -> 0 candidates** (including check 8, which read
+the new lane key with no script change); **no Unity build** (rule 3), so the visual read is still owed.
+**skills: none applied** - same reasoning as 1jd: no installed skill governs a C# model/component edit
+inside one repo, and the Unity skills target driving an editor or `-batchmode`, which rule 3 forbids.
+
+The request was the 1iz complaint a third time, and the shape kept repeating: **the feature existed and
+had been shipping; it had no name and no home.** 1ij named the projectile models, 1iz named the weapon
+models, 1jd named nine spell bodies - and `SummonedAlly` was still four lines of cube inside a
+gameplay component, reachable only from `SummonEffect.Execute` (`ClassEffect`) and `RaceEffect`
+(**2 call sites**, both inside live combat). A visual that exists only inside a live cast has no
+acceptance readout (rule 13), so the lane was part of the task, not a follow-up.
+
+| Change | Where | Why |
+|---|---|---|
+| `SummonModelBuilder.BuildAlly` (new) | `Models/Magic/SummonModelBuilder.cs` | the body, beside the totem and familiar circle it belongs with |
+| `SummonModelBuilder.AllyBody` (new) | same | `Root` + `Renderer[]` - one record, not six out-params (rule 17) |
+| `SummonedAlly._renderer` -> `Renderer[]` | `Combat/Skills/SummonedAlly.cs` | **forced**: despawn alpha and the death disable both went through one renderer, so a multi-part body needs the whole set or the head and pods stay standing while the shell vanishes |
+| `AllyColor` (new, `public static readonly`) | `SummonedAlly` | the colour it always used, now one named constant the bench also reads, so there is no second spelling |
+| `SpawnSummonModels` + `EnableSummonModels` + `SummonModelKey` | `Opt/NewWorldTestGround.cs` | the acceptance readout; rule 4's opt-in lane, re-pressable |
+
+**Decisions, with the reason, so the next reader does not re-open them:**
+
+- **It hovers; it does not walk.** `SummonedAlly` moves by `MoveTowards` + `Face` and has no animator,
+  no rig and no walk cycle, so a bipedal skeleton would slide and read as broken. A hovering construct
+  reads correctly while translating and rotating, which is all the component can do. Six parts: ground
+  ring, capsule shell, sphere head, front core, two splayed shoulder pods.
+- **Two colours from one input, derived in the builder.** Trim is RGB x0.55, core is RGB x1.15 clamped
+  with alpha 1. A caller still passes exactly one colour, so rule 13's "resolved in one place" holds.
+- **Size: head top 2.06 authored, 1.65 m live.** A Unity capsule is 2 units tall *before* scaling, so
+  the shell spans 0.5-1.6 and the head caps it. The component's existing `localScale = 0.8f` is
+  **untouched** - the model was sized to fit the line that was already there.
+- **The bench mounts the builder at 1.0, not 0.8**, and the comment says so: a bench that silently
+  rescales is how "the model looks wrong in game" becomes a two-session argument.
+
+**Three things deliberately NOT done** (each is a gameplay or behaviour change riding on a model task):
+
+- **No collider was added.** The cube's collider was destroyed at spawn and nothing replaced it, so the
+  ally has **never** been targetable by enemies. Adding hitboxes would change combat. The class-level
+  `[RequireComponent(typeof(SphereCollider))]` is added by `AddComponent` and never removed - a
+  **pre-existing contradiction**, recorded here and left alone.
+- **No walk cycle / no bob.** Same reason it hovers: animation is behaviour, and the component's
+  `Update` is not this task's surface.
+- **No ground snap.** The component `MoveTowards`es in a straight line, so **on sloped ground the ring
+  will float or sink**. Pre-existing (the half-buried cube hid it; a ground-contact part does not),
+  newly *visible* - rule 7's "a feature change can expose a dormant defect". Left for a movement task.
+
+### 1je-status
+
+- Play-test still owed in Unity (rule 3 runs no build here): the ally's silhouette and scale in-world
+  (1.65 m, hovering, ring on the terrain), that despawn alpha now takes **all six** parts, and that death
+  disables **all six**.
+- The lane: enable `EnableSummonModels` and press **Numpad1**. Band `z = PlatformCenter.z + 11f`, three
+  pedestals 4.5 m apart, clear of the magic grid (z +/- 1.5), the farming band (z + 18+), the dummies
+  (z - 18), the NPC row (z - 0.18*Size) and the +/-0.42*Size rack / tool-kit lines. Re-pressable - each
+  run clears the previous row.
+- Key choice is **measured**, not inherited: `Key.Numpad1`, `.numpad1Key` and `[Key.Numpad1]` all read
+  0 in `Assets\Scripts`, with **F1 as the positive control** proving the property-name spelling was
+  actually searched (rule 7). Check 8 now reports 5 lane keys and no second binding.
+- **Instrument caveat found while verifying:** `NewWorldTestGround.cs` is **not paren-clean at HEAD**
+  (1216/1215 - an unbalanced `(` inside a `Debug.LogWarning` string literal), so its balance count can
+  never be read as pass/fail; only the **delta** is meaningful (this task's delta: 61/61).
+
+
+## 1jd. Nine spell/skill bodies had no model file — one named builder each, and the comparator that proves it
 
 **Status: SHIPPED.** A pure move: no behaviour change, no signature change on any public API. **9** new
 builders (8 in `Models/Magic/`, 1 in `Models/`) + **9** `.meta` (**377** `.cs` / **377** `.cs.meta`

@@ -1,6 +1,102 @@
-﻿## 1jd. Nine model extractions - the move was mechanical, the instrument was the whole task
+## 1je. The summoned ally's cube - the fourth time the same discoverability hole, and the check that
+nearly sent me after a phantom defect
 
-**OPEN until shipped.** Once the first comparator run came back clean the remaining risk was no longer
+**OPEN until shipped.** Shipped = committed, pushed, and the visual read done in Unity.
+
+**Request:** give `SummonedAlly` a real model instead of a bare cube. Small, concrete, and it looked
+like an afternoon. Most of this entry is about the two things that were NOT the model.
+
+**First: is the premise even right?** Rule 7 says measure a report you cannot see from the code, and
+this one I *could* read, so the discipline is inverted: instead of measuring, check that the cube is
+really what ships. **CONFIRMED.** `SummonedAlly.Spawn` was
+`GameObject.CreatePrimitive(PrimitiveType.Cube)` + `Object.Destroy(collider)` + one material, and
+`CreatePrimitive` is visible in the world, so the report was accurate and the fix is real.
+
+**Then the habit question: who else is affected?** Rule 14's "walk down the graph too" and rule 1iz's
+"a contiguous block is a latent file". Two directions came out of this and both changed the task:
+
+- **Who else is a bare cube?** `ClassEffect` and `RaceEffect` are the only `SummonedAlly.Spawn` callers
+  (**2**, both live combat). But `SummonModelBuilder` already held the totem and the familiar circle -
+  two summon bodies that also had **no readout at all**, reachable only by casting a summon spell. So
+  the request's implicit "the summon models" was three bodies, not one. Adding the other two to the lane
+  cost nothing and is the discoverability fix applied consistently rather than to the one cell the user
+  happened to point at. **CONFIRMED, and it widened the task.**
+- **Who reads what the model hands back?** This is where the request turned out to be *forced* rather
+  than additive. `SummonedAlly` had `private MeshRenderer _renderer` and TWO readers: the despawn path
+  (alpha 0) and `TakeDamage` (disable). With one cube, one renderer was correct. With six parts it is a
+  visible bug - the shell vanishes and the head and pods stay standing. So `Renderer[]` was not a
+  nicety; the model change *forces* the handle change, and a task scoped as "just the model" would have
+  shipped a half-faded corpse. **CONFIRMED by grep** (`_renderer` readers: 2; after: 0).
+
+**Design decisions I had to make without asking, and why they are not taste:**
+
+- **Hover, not walk.** Read the component's whole movement surface: `MoveToward` + `Face`, no
+  `Animator`, no rig, no walk cycle anywhere in the file. A bipedal skeleton would translate while
+  upright and read as broken - and the tempting fix (procedural bob, or a lean on velocity) would put
+  *behaviour* into a model task, which is exactly the line 1jd drew ("shape vs. lifetime"). So the body
+  is authored to read while translating and rotating, which is all this component can do. **CONFIRMED**
+  by reading `SummonedAlly.cs` end to end rather than only its `Spawn`.
+- **Size: fit the line that was already there, not the other way round.** The component ends
+  `go.transform.localScale = Vector3.one * 0.8f`. Changing that would have been a second, invisible
+  change; so the model is authored so the line produces a sane size. Getting the number needed the
+  primitive's real height - a Unity **capsule is 2 units tall before scaling**, so the shell spans
+  0.5-1.6 and the head sphere caps it at **2.06** -> **1.65 m** live. My first draft of both the comment
+  and this entry said "head top at 2.0"; grepping my own numbers against the geometry is what caught it
+  (rule 8: a comment that names a number is a copy, and a wrong one is worse than none).
+- **One colour in, two out, derived in the builder.** `SummonEffect.Execute` passes **no `SpellData`** -
+  I checked, because the bench was about to resolve a colour for the ally. So the component hard-codes
+  its tint, the bench must not dress it in a `SpellLook` it never resolves, and the name
+  `SummonedAlly.AllyColor` is now the single spelling of it (rule 13's "resolved in one place").
+  Trim/core are derived *inside* `BuildAlly`, so a future caller still passes one colour.
+
+**Three things I declined to do, each with the reason, because "improve the model" silently allows all
+three and two of them are gameplay:**
+
+- **No collider.** The cube's collider was destroyed and nothing replaced it, so the ally has **never**
+  been targetable by enemies. Giving the new parts hitboxes would be the first time enemies could hit
+  it - a combat change. Meanwhile the class still carries
+  `[RequireComponent(typeof(SphereCollider))]`, which `AddComponent` satisfies and nothing ever removes:
+  a **pre-existing contradiction**. *Open question for the user, deliberately not decided here:* should
+  the attribute go, or should the ally finally take damage? Both are gameplay. Recorded in `PROGRESS.md`
+  1je rather than silently picked.
+- **No ground snap.** The component `MoveTowards`es in a straight line with no raycast, so on a slope
+  the ground ring floats or sinkss. Pre-existing - the half-buried cube hid it - and rule 7's "a feature
+  change can expose a dormant defect" in its purest form: the *model* did not cause this, it made it
+  legible. Left for a movement task.
+- **No animator, no per-frame anything.** Same shape-vs-lifetime line as the hover decision.
+
+**The instrument moment - this is the part worth keeping.** After editing, my balance scan printed
+`parens 1280/1279` on `NewWorldTestGround.cs`, and my first reflex was to go looking for a missing
+paren in code I had just written. `git show HEAD:<path>` says the committed file is **1216/1215**: the
+imbalance was **already there**, from one `Debug.LogWarning` whose string literal contains an unbalanced
+`(` - and it has been there through every task that has edited this file. So the absolute count on this
+file was never a verdict, and reading it as one would have sent me hunting a phantom while the real
+lesson went unrecorded. My own delta was **61/61**, which is the only claim the evidence supports.
+Same shape as rule 7's "a retracted number's replacement is *unknown*, not zero": a count with no
+baseline is not a small number, it is **no number**. Written into `AGENTS.md` as a standing habit,
+because `NewWorldTestGround.cs` is the file most likely to need the check.
+
+**Two smaller instances of the same rule, both caught in-flight:**
+
+- **An absence scan that was structurally incapable of hitting.** Checking whether task id `1je` was
+  free, I ran `'^## (1\w\w)'` and tested `-contains '1je'`, which reported False - and `1jd` "not
+  present" on the same run, which is obviously false. The headings are `## 1jd. Nine spell/skill...`,
+  so the capture kept the title and the containment test could never match anything. **An absence that
+  is an artefact of your own extraction is indistinguishable from an absence in the repo** (rule 7's
+  positive-control habit, applied to the *test* rather than the tool). Re-run with the id alone: 202
+  ids, `1je` free, `1jd` present.
+- **"Fix the encoding" was the wrong move.** The four doc lines I had just written displayed as
+  `�%^` / `�?"` in the console, and my first move was to strip them to ASCII. Two checks first: the
+  `edit` tool matched an em-dash in the file's own text without trouble, so the file is valid UTF-8 and
+  the mangling is the **console's**, not the file's; and `git diff -U0` showed exactly my five intended
+  hunks after a byte-preserving Latin-1 round-trip, i.e. nothing else had moved. Only then did I change
+  those four lines - and I changed them to ASCII anyway, deliberately: a doc line that renders as mojibake
+  in the one tool this repo has is a line half the readers cannot read, and ASCII has no second spelling.
+
+
+## 1jd. Nine model extractions - the move was mechanical, the instrument was the whole task
+
+**SHIPPED** in `62c9968` (pushed). Once the first comparator run came back clean the remaining risk was no longer
 the C# (which the static checks and the literal comparison both cover) but the **claim that the
 comparison meant anything**. Most of this entry is about that, because the failures were all failures of
 the *instrument*, and one of them could have produced a green result about the wrong block of code.

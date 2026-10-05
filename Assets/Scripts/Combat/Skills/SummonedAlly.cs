@@ -26,19 +26,25 @@ public class SummonedAlly : MonoBehaviour, IDamageable
     private float _age;
     private float _attackTimer;
     private Transform _target;
-    private MeshRenderer _renderer;
+    private Renderer[] _renderers;
     private static readonly Collider[] _scanBuffer = new Collider[16];
+
+    /// <summary>Ally tint. Pale blue with 0.9 alpha - the colour this summon has always spawned
+    /// with, kept as a named constant so the bench lane and the model cannot drift apart.</summary>
+    public static readonly Color AllyColor = new Color(0.72f, 0.82f, 0.95f, 0.9f);
 
     /// <summary>Spawn a summon at the owner's side.</summary>
     public static SummonedAlly Spawn(Transform owner, float power, float duration, float followRange)
     {
-        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = "SummonedAlly";
+        // 1je: the root is a bare GameObject, not a primitive. The body is
+        // SummonModelBuilder.BuildAlly - a levitating construct, because this component has no
+        // animator and moves by MoveTowards, so a bipedal rig would slide. Colliders: the cube's own
+        // collider used to be destroyed here and nothing replaced it, so the ally still has NO
+        // collider at all. The class-level [RequireComponent(typeof(SphereCollider))] is added by
+        // AddComponent and is never removed - a pre-existing contradiction, recorded in PROGRESS 1je
+        // and left alone, because making the ally targetable is a gameplay change, not this task.
+        var go = new GameObject("SummonedAlly");
         go.tag = "Companion";
-
-        Collider col = go.GetComponent<Collider>();
-        if (col != null)
-            Object.Destroy(col);
 
         var ally = go.AddComponent<SummonedAlly>();
         ally._owner = owner;
@@ -50,15 +56,8 @@ public class SummonedAlly : MonoBehaviour, IDamageable
         Vector3 side = owner != null ? owner.right * 1.2f : Vector3.right;
         go.transform.position = (owner != null ? owner.position : Vector3.zero) + side;
 
-        var body = go.GetComponent<MeshRenderer>();
-        var mat = Object.Instantiate(body.material);
-        if (Shader.Find("Sprites/Default") != null)
-        {
-            mat.shader = Shader.Find("Sprites/Default");
-            mat.color = new Color(0.72f, 0.82f, 0.95f, 0.9f);
-            body.material = mat;
-        }
-        ally._renderer = body;
+        SummonModelBuilder.AllyBody body = SummonModelBuilder.BuildAlly(go.transform, AllyColor);
+        ally._renderers = body.Renderers;
 
         go.transform.localScale = Vector3.one * 0.8f;
         return ally;
@@ -75,12 +74,10 @@ public class SummonedAlly : MonoBehaviour, IDamageable
         _age += Time.deltaTime;
         if (_age >= _lifetime + DespawnGrace)
         {
-            if (_renderer != null)
-            {
-                Color c = _renderer.material.color;
-                c.a = 0f;
-                _renderer.material.color = c;
-            }
+            // 1je: every part, not one. With a single cube body there was one renderer to fade; the
+            // six-part body needs the whole set, or the head and pods stay opaque while the shell
+            // vanishes. Alpha only - the trim/core colours are preserved relative to each other.
+            SetAlpha(0f);
             Destroy(gameObject, 0.4f);
             return;
         }
@@ -160,10 +157,29 @@ public class SummonedAlly : MonoBehaviour, IDamageable
         if (_health <= 0)
         {
             _health = 0;
-            if (_renderer != null)
-                _renderer.enabled = false;
+            // 1je: all six parts, for the same reason as the despawn above - disabling one renderer
+            // on a multi-part body leaves the rest of it standing.
+            if (_renderers != null)
+            {
+                for (int i = 0; i < _renderers.Length; i++)
+                    if (_renderers[i] != null)
+                        _renderers[i].enabled = false;
+            }
             Destroy(gameObject, 0.2f);
         }
         return _health;
+    }
+
+    /// <summary>Set the same alpha on every part of the body.</summary>
+    private void SetAlpha(float alpha)
+    {
+        if (_renderers == null) return;
+        for (int i = 0; i < _renderers.Length; i++)
+        {
+            if (_renderers[i] == null) continue;
+            Color c = _renderers[i].material.color;
+            c.a = alpha;
+            _renderers[i].material.color = c;
+        }
     }
 }

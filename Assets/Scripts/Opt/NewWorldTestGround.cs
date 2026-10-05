@@ -62,6 +62,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableRaces = true;
     [Tooltip("Place EVERY castable magic spell on the platform's middle band as a static, school-colored projectile-style model on a pedestal with an in-game label (mirrors the MagicTestMatrix roster, 1dk). Pure visuals for looking at/editing each spell's model — no collision, no interaction.")]
     public bool EnableMagicModels = false;
+    [Tooltip("1je: mount all THREE summon bodies side by side on the platform's south-west apron - the following-familiar circle, the standing totem, and the SummonedAlly combat construct. Exists because SummonedAlly.Spawn is reachable only from ClassEffect and RaceEffect (2 call sites, both live combat), so without this lane the ally's model has no readout at all: the one visual 1je changed could not be looked at without casting a class skill at an enemy. Mounts the BUILDERS, not proxies (the 1ij/1jd precedent).")]
+    public bool EnableSummonModels = false;
     [Tooltip("Cast Earth-shape terrain demos (Wall smooth ridge, Pillar, Crater smooth dent) onto the streamed terrain just off the platform. The Wall is cast twice to show repeat casts are CAPPED (smooth feathered deforms, no slab stacking — 1cj). Deforms REAL terrain — permanent chunk saves — so it is off by default and never touches the platform or legacy village.")]
     public bool EnableTerrainSlabDemo = false;
     [Tooltip("QA the layered strata (grass -> dirt -> stone): two craters excavated on the streamed terrain just off the platform by repeating the shared crater digs (each cast ratchets the floor a step deeper, like the shovel/pickaxe path). One pit reaches the dirt band, the other digs through into stone. Deforms REAL terrain — permanent chunk saves — so it is off by default and never touches the platform or legacy village.")]
@@ -114,6 +116,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
     [Tooltip("QA (1io): key that runs the crater/deform audit. F13, and the choice is CHECKED rather than grep-inherited. 1in shipped this lane on F1 after grepping for 'Key.F1' and 'KeyCode.F1', found nothing, and concluded the key was free. It was not: the combat-mode toggle binds it as 'Keyboard.current.f1Key' (Player\\PlayerController.Interactions.cs:521), which is the property-name spelling and matches neither pattern. So pressing F1 ran the audit AND toggled fighting mode - weapons drew and ToolManager reset selection mid-measurement. The 'F1 is a skill hotkey' claim in the F3/F4/F2 tooltips was simply wrong; F1 is the combat toggle. F13 has zero bindings in either spelling (see tools\\StaticChecks.ps1 check 8, which now enforces this for every lane key). F2 is the 1ik frame-budget lane, F3 the 1hy corner/void audit, F4 the 1ic look audit, F5 the CameraModeSwitch camera toggle, F6-F12 the editor cutscene shortcuts; Numpad0-9 are free apart from numpadEnter.")]
     public Key CraterAuditKey = Key.F13;
     private string _craterAuditText;
+
+    [Tooltip("QA (1je): key that spawns the summon-model lane. Numpad1, and the choice is CHECKED the same way F13's was: 'Key.Numpad1', '.numpad1Key' and '[Key.Numpad1]' all read 0 in Assets\\Scripts, with F1 as the positive control proving the property-name spelling is actually being searched. The F13 tooltip's 'Numpad0-9 are free apart from numpadEnter' is now a measured claim rather than a remembered one.")]
+    public Key SummonModelKey = Key.Numpad1;
+    private readonly List<GameObject> _summonModelCells = new List<GameObject>();
 
     // ---------------------------------------------------------------------------------------------
     // (1ik) Frame-budget attribution lane: a continuous passive sampler plus one snapshot key.
@@ -275,6 +281,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         }
         if (EnableSkills) { RunSafely("skills", GrantAllSkills); yield return null; }
         if (EnableMagicModels) { RunSafely("magic models", SpawnMagicModels); yield return null; }
+        if (EnableSummonModels) { RunSafely("summon models", SpawnSummonModels); yield return null; }
         if (EnableGear) { RunSafely("gear", GrantStarterGear); yield return null; }
         if (EnableRaces) { RunSafely("races", GrantRaceAccess); yield return null; }
         if (EnableTerrainSlabDemo) { RunSafely("terrain shapes demo", SpawnTerrainSlabDemo); yield return null; }
@@ -1355,6 +1362,16 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 RunCraterAudit();
         }
 
+        // 1je: summon-model lane. Polled here, above the weapon-rack / GamePaused early returns,
+        // for the same reason as the lanes above - a lane placed after them could report nothing.
+        if (EnableSummonModels)
+        {
+            Keyboard kbSummon = Keyboard.current;
+            if (kbSummon != null && kbSummon[SummonModelKey] != null
+                && kbSummon[SummonModelKey].wasPressedThisFrame)
+                SpawnSummonModels();
+        }
+
         RunPendingPlayerGrants();
         if (!EnableWeapons || _rackStands.Count == 0) return;
         var gm = GameManager.Instance;
@@ -1802,6 +1819,101 @@ public sealed class NewWorldTestGround : MonoBehaviour
             tmp.outlineColor = Color.black;
             tmp.rectTransform.sizeDelta = new Vector3(3f, 0.6f);
         }
+    }
+
+    /// <summary>
+    /// 1je: the summon-model lane. Mounts all THREE summon bodies side by side on pedestals, so
+    /// "summon model" is finally a thing you can look at without casting at something.
+    /// <para><b>Why this lane exists at all.</b> <c>SummonedAlly</c> is created by exactly two call
+    /// sites, <c>SummonEffect.Execute</c> (via ClassEffect) and <c>RaceEffect</c>, both inside live
+    /// combat, so before 1je the ally's body could only be seen by fighting, which is the same
+    /// discoverability hole 1iz describes for the magic models, one layer out. The familiar circle
+    /// and the totem ride along because they had no readout either and they are the two other shapes
+    /// <c>SpellSummon</c> can build.</para>
+    /// <para><b>Band choice, stated.</b> z = centre + 11f: south of the magic-model grid (which spans
+    /// z +/- 1.5 at 3 m spacing with 2 rows) and 7 m north of the farming/livestock/buildings band at
+    /// z + 18+, clear of the dummy row (z - 18), the NPC row (z - 0.18*Size) and the +/-0.42*Size
+    /// weapon-rack / tool-kit lines. Pedestals rather than ground-standing so the 1.65 m ally reads
+    /// against the platform and not against a clump of grass.</para>
+    /// <para><b>Colour honesty.</b> The ally cell wears <c>SummonedAlly.AllyColor</c>, which is its
+    /// REAL spawn colour, because <c>SummonEffect</c> passes no spell and the component hard-codes it
+    /// so the bench is not allowed to dress it in a <c>SpellLook</c> it never resolves. The other two
+    /// cells wear the same colour for SHAPE comparison only; at runtime <c>SpellSummon</c> colours
+    /// them <c>SpellLook.Resolve(spell).Core</c>.</para>
+    /// <para>Re-pressable and idempotent: each run clears the previous row rather than stacking a
+    /// second one, so the key is safe to hit while iterating on the model.</para>
+    /// </summary>
+    private void SpawnSummonModels()
+    {
+        if (_summonModelCells.Count > 0)
+        {
+            for (int i = 0; i < _summonModelCells.Count; i++)
+                if (_summonModelCells[i] != null)
+                    Destroy(_summonModelCells[i]);
+        }
+        float z = PlatformCenter.z + 11f;
+        float spacing = 4.5f;
+        Color tint = SummonedAlly.AllyColor;
+
+        MountSummonModelCell("FamiliarCircle", z - spacing,
+            "Familiar circle (shape only - real colour is SpellLook.Core)", tint,
+            parent => SummonModelBuilder.BuildFamiliarCircle(parent, 3f, tint));
+        MountSummonModelCell("StandingTotem", z,
+            "Standing totem (shape only - real colour is SpellLook.Core)", tint,
+            parent => SummonModelBuilder.BuildTotem(parent, tint));
+        MountSummonModelCell("SummonedAlly", z + spacing,
+            "SummonedAlly - combat construct", tint,
+            parent => SummonModelBuilder.BuildAlly(parent, tint));
+
+        Debug.Log("[NewWorldTestGround] summon-model lane: 3 bodies on pedestals at z=" + z
+            + " (ally colour #" + ColorUtility.ToHtmlStringRGB(tint) + ").");
+    }
+
+    /// <summary>One pedestal + one mounted summon body + one label, parented to the lane root.
+    /// <paramref name="mount"/> takes the mount point and runs the real builder, so the bench cannot
+    /// drift from the live model (1ij/1jd's "mount the builder, not a proxy" rule).</summary>
+    private void MountSummonModelCell(string name, float z, string label, Color tint,
+        System.Action<Transform> mount)
+    {
+        var cell = new GameObject("SummonModel_" + name);
+        _summonModelCells.Add(cell);
+        cell.transform.position = new Vector3(PlatformCenter.x, PlatformTopY + 0.1f, z);
+        Vector3 look = new Vector3(PlatformCenter.x - cell.transform.position.x, 0f,
+            PlatformCenter.z - cell.transform.position.z);
+        if (look.sqrMagnitude > 0.0001f)
+            cell.transform.rotation = Quaternion.LookRotation(look.normalized, Vector3.up);
+
+        var pedestal = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        pedestal.name = "Pedestal";
+        Collider pcol = pedestal.GetComponent<Collider>();
+        if (pcol != null) Destroy(pcol);
+        pedestal.transform.SetParent(cell.transform, false);
+        pedestal.transform.localScale = new Vector3(0.9f, 0.9f, 0.9f);
+        pedestal.transform.localPosition = new Vector3(0f, -0.05f, 0f);
+        var pmr = pedestal.GetComponent<MeshRenderer>();
+        if (pmr != null) pmr.sharedMaterial = SolidMaterial(new Color(0.24f, 0.2f, 0.17f));
+
+        var modelRoot = new GameObject("Model");
+        modelRoot.transform.SetParent(cell.transform, false);
+        modelRoot.transform.localPosition = new Vector3(0f, 0.5f, 0f);
+        // 1je: the ally body is authored with its head top at 2.06 and the component spawns it at
+        // localScale 0.8 (so 1.65 m live). This cell mounts the raw builder output at 1.0 to show
+        // the authored proportions; the label says so, because a bench that silently rescales is
+        // how "the model looks wrong in game" becomes a two-session argument.
+        modelRoot.transform.localScale = Vector3.one;
+        mount(modelRoot.transform);
+
+        var labelGo = new GameObject("Label");
+        labelGo.transform.SetParent(cell.transform, false);
+        labelGo.transform.localPosition = new Vector3(0f, 2.9f, 0f);
+        var tmp = labelGo.AddComponent<TMPro.TextMeshPro>();
+        tmp.text = name + "\n" + label;
+        tmp.fontSize = 0.9f;
+        tmp.alignment = TMPro.TextAlignmentOptions.Center;
+        tmp.color = tint;
+        tmp.outlineWidth = 0.1f;
+        tmp.outlineColor = Color.black;
+        tmp.rectTransform.sizeDelta = new Vector3(4f, 1.2f);
     }
 
 /// <summary>

@@ -50,7 +50,7 @@ component that spawns them, so *"where is the code that builds the casting circl
 | `SpellBeamModelBuilder` | line body, funnel discs + debris, the **shared** tip orb | `SpellBeam.PulseVisual` — the funnel flare and debris orbit |
 | `SpellZoneModelBuilder` | pull funnel, ground zone disc + halo | the zone's own lifetime |
 | `SpellStormModelBuilder` | lightning bar pair, `BoltFader` | `SpellStorm`'s strike scheduling |
-| `SummonModelBuilder` | totem body, familiar summoning circle | `SpellSummon`'s pulse |
+| `SummonModelBuilder` | totem body, familiar summoning circle, **and (1je) the `SummonedAlly` combat construct** | `SpellSummon`'s pulse; for the ally, `SummonedAlly`'s move / face / strike / fade / die |
 | `SkillFxModelBuilder` | slash + ring flash geometry, `SlashFader`, `RingFader` | nothing — these are one-shot |
 | `CastingCircleModelBuilder` | all ten pieces (disc, two rings, rune + ticks, hex, spokes, arc, waves) | `CastingCircle`'s per-frame pulse and rotation |
 | `AoeAimPreviewModelBuilder` | footprint disc, edge ring, beacon | `AoeAimPreview`'s pulsing |

@@ -2791,7 +2791,7 @@ The active PC URP config — QualitySettings level 1 → `PC_RPAsset.asset` guid
   `_buildings[_buildings.Count - 1]` stamped the club's health/door/part state onto the
   **previous** building.
 
-### 9.4 Source Layout (1iu, 1iy, 1iz)
+### 9.4 Source Layout (1iu, 1iy, 1iz, 1ja, 1jb, 1jd, 1je)
 
 **The controller / modelling / animation split is planned in `ARCHITECTURE.md`** — read that for the
 target layout and the staged migration. This section keeps only the load-bearing invariants.
@@ -2877,6 +2877,30 @@ Three measured findings drive it, and one of them contradicts the obvious readin
   | `AoeAimPreviewModelBuilder` | `AoeAimPreview` | the pulsing |
   | `CcZoneFxModelBuilder` | `CCZone` | nothing — one-shot |
   | `WeaponProjectileModelBuilder` | `RangedWeaponBehavior` | aim |
+
+- **The summoned *ally* was the one summon body left unnamed — fixed by 1je, which is an addition, not a
+  move.** The table above covers every body `SpellSummon` builds, but `SummonedAlly` is a separate
+  component and was still four lines of `GameObject.CreatePrimitive(PrimitiveType.Cube)` inside it. Same
+  failure as 1ij/1iz/1jd one layer further out: the model existed and had been shipping; it had no name
+  and no home, and it was reachable only from live combat (`SummonEffect.Execute` in `ClassEffect`, plus
+  `RaceEffect` — 2 call sites), so there was no way to look at it without fighting something.
+  `SummonModelBuilder.BuildAlly` now builds a six-part hovering construct (ground ring, capsule shell,
+  sphere head, front core, two splayed shoulder pods) and returns `AllyBody { Root, Renderer[] }` —
+  one record rather than six out-params, because the component's despawn alpha and death disable both
+  went through a single `MeshRenderer` and a multi-part body needs the whole set or the head and pods
+  stay standing while the shell vanishes.
+  It **hovers rather than walks** because the component moves by `MoveTowards` + `Face` with no animator,
+  rig or walk cycle, so a bipedal rig would slide; head top is 2.06 authored and **1.65 m** live under the
+  component's existing `localScale = 0.8f`, which is why that line was left untouched. Trim (RGB x0.55)
+  and core (RGB x1.15 clamped) are derived inside the builder from the one colour the caller passes —
+  `SummonedAlly.AllyColor`, now a named constant, because `SummonEffect` passes no `SpellData` and the
+  component hard-codes its tint. **No collider was added**: the cube's collider was destroyed at spawn
+  and nothing replaced it, so the ally has never been targetable, and adding hitboxes would change combat.
+  The class-level `[RequireComponent(typeof(SphereCollider))]` is added by `AddComponent` and never
+  removed — a pre-existing contradiction, left alone. Reading it needed an acceptance lane, so
+  `NewWorldTestGround` grew `EnableSummonModels` + `SpawnSummonModels` (key **Numpad1**, three pedestals
+  at `z = PlatformCenter.z + 11f`): the other two summon bodies ride along, because until now none of the
+  three had a readout. See `PROGRESS.md` §1je.
 
   The dividing line is **shape vs. lifetime**: everything that only builds transforms moved; everything
   that decides *when a piece moves next frame* stayed, because that is behaviour. `SkillFx`'s
