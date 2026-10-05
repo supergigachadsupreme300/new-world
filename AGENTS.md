@@ -334,6 +334,36 @@
        slow. Slowing the character is a gameplay change and not the one that was asked for; lengthening
        the stride buys fewer, bigger steps and leaves the feel alone. Two halves of one report being one
        lever is worth establishing before asking the user to choose.
+   - **A one-frame lag is a WRITE ORDER, and the file that reads the value is not the file that writes
+     it.** 1jo's "endlag of the path predict ray" was a phase mismatch, not a smoothing curve: the aim
+     preview is built in `PlayerController.Update`, while `CameraModeSwitch` writes the camera transform in
+     `LateUpdate`, so the preview read **last frame's** camera. Unity runs all `Update`s before all
+     `LateUpdate`s, and the report's own qualifier ("when moving the camera") was the tell - a stale read is
+     only visible while the value is changing fast. Four habits:
+     - **Name the phase of every writer before trusting a reader.** Grep *where* a value is assigned, not
+       just that it exists: `CameraModeSwitch` writes the camera only in `LateUpdate` and never in `Update`,
+       which is what makes the read stale. "It might write in both" is a different bug and a grep settles it.
+     - **Prefer the look SOURCE over the thing that renders it, when they hold the same value.** The pivot
+       and the camera hold the same direction (first person copies the pivot's rotation outright; third
+       person's lateral offset cancels between eye and target), but the pivot is written in the same
+       `Update` the reader runs in. So this was a latency fix, not an aim change - and it cost nothing.
+       Aimed-at-something reads should prefer the look source; only *position* needs the camera, and a
+       raycast from the eye genuinely does.
+     - **Fix the shared function, never one call site, when two consumers must agree.** 1jm made the
+       preview **call** `StraightFlightDirection` precisely so the readout cannot drift from the flight
+       path. Patching the preview's argument alone would have turned "the ray is one frame stale" into
+       "the ray points somewhere the bullet never goes" - worse, and much harder to see. The seam to fix
+       is wherever the consumers are already agreed to meet.
+     - **A report about one instance of a class is not a report about the class, and the fix for the
+       instance is not the fix for the class.** Grepping `cam.transform.forward` found **~35** aim sites
+       carrying the identical one-frame offset (`ToolManager`, interaction rays, `FishingController`, the
+       farming managers). They were *reported*, not fixed: most want the camera's **position**, so the
+         tempting systemic fix (move the camera write into `Update`) would change the camera's own
+         smoothing feel. A defect with one instance named and 35 unnamed is a design decision about the
+         camera, and saying so is cheaper than silently rewriting 35 call sites.
+     - Corollary for art-side numbers: **changing a value invalidates every doc that quotes it, in the same
+       pass.** 1jo changed `ThirdPersonSideOffset` and both `SpellCaster`'s XML doc and `game-design.md`
+       quoted the old figure - grep the *docs* for the value being changed, not just the code for the symbol.
    - **A secant is a claim about a line, so the derivative's sign and units are part of the mechanism.**
      (this is a placeholder, see above)
    - Also: a check that flags a false positive on the first file you add it to is a check whose

@@ -458,8 +458,12 @@ public partial class PlayerController
             // this readout cannot drift from the flight path (rule 8). The old line aimed at a point
             // Range metres ahead of the camera, which skewed sideways in third person; note the preview
             // no longer needs a camera reference at all, since the aim is a direction now.
+            // 1jo: PlayerCameraPivot, not MainCam. Both hold the same direction, but the pivot is written
+            // by HandleMouseLook in THIS Update while CameraModeSwitch writes the camera transform in
+            // LateUpdate - so reading the camera here meant the ray drew with last frame's aim and
+            // trailed the crosshair by a frame whenever the camera moved.
             Vector3 pos = hand.transform.position;
-            Vector3 fwd = SpellCaster.StraightFlightDirection(MainCam, hand.transform.forward);
+            Vector3 fwd = SpellCaster.StraightFlightDirection(MainCam, PlayerCameraPivot, hand.transform.forward);
 
             // reach is SpellEffect's flight envelope and is NOT charge-scaled here: this preview
             // mirrors what the spell actually flies, and re-deriving that ladder here would be a

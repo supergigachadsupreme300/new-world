@@ -1,3 +1,60 @@
+## 1jo. Camera further right (0.6 -> 0.9 m) + the path-preview ray no longer trails the camera
+
+**Status: SHIPPED, both unverified.** `CameraModeSwitch.cs`, `SpellCaster.Cast.cs`, `PlayerController.Combat.cs`
+(+ `game-design.md`, `AGENTS.md`, `PROGRESS.md`, `THINKING.md`). **Verified by grep + reread; no Unity build**
+(rule 3). `tools\StaticChecks.ps1` -> 0 candidates; all three call sites confirmed 3-arg; brace/paren deltas 0.
+**skills: none applied** - the Unity skills target the editor/CLI and Animator/import pipelines, and this is
+a camera-framing field plus a C# aim-source change. The 1jn skill check had already established that the
+installed animation skill cannot verify anything here.
+
+**Part 1 - camera right.** `ThirdPersonSideOffset` 0.6 -> **0.9 m**. One field. It cannot bend a shot: the
+projectile aim is a *direction* off the look pivot, never the camera's position, so this is framing only.
+First person is untouched (it snaps to the pivot and never enters `UpdateThirdPerson`).
+
+**Part 2 - the ray's endlag.** The mechanism, found by reading the call chain rather than guessing: the
+preview is built in `PlayerController.Update` (`HandleMouseLook()` at 225 -> `HandleInteractionKeys()` at 229
+-> `UpdatePathPreview`), and the look pivot is written *there*. `CameraModeSwitch` writes the **camera**
+transform in `LateUpdate` (lines 137-138 first person, 180-182 third). Unity runs all `Update`s before all
+`LateUpdate`s, so anything reading the camera during `Update` - which is exactly what the aim preview did -
+got **last frame's** camera. One frame of lag, and it is only visible when the camera is moving fast, which
+is why the report was "when moving the camera". The pivot and the camera hold the *same direction* (first
+person copies the pivot's rotation outright; third person looks from a point offset along `-pivot.forward`
+back to a target offset along `pivot.right`, and the lateral terms cancel), so this is not an aim change -
+it is reading the same value one frame earlier.
+
+The fix is in `StraightFlightDirection`, **not** in the preview. 1jm made the preview *call* that helper so
+the readout cannot drift from the flight path; patching the preview instead would have re-introduced exactly
+the second spelling rule 8 forbids, and the ray would have shown an aim the bullet no longer used. The
+helper now takes the look pivot (preferred), then the camera (fallback, for a caster with no player), then
+the caller's forward, then `Vector3.forward`. Both call sites pass it; the caster resolves it via the
+existing `transform.root.GetComponent<PlayerController>()` idiom.
+
+### 1jo-status
+- [ ] **Whip the camera around and watch the ray** - this is the check for the endlag half. The ray should
+      now sit under the crosshair immediately instead of trailing it.
+- [ ] **Confirm the framing at 0.9 m** and say if you want it wider or narrower; it is one field, one drag.
+- [ ] **Watch for the new one-frame relationship the other way** - the ray is now drawn from *this* frame's
+      look while the camera settles to it in `LateUpdate`. If the ray and the crosshair ever disagree,
+      the candidate is the camera's `SmoothTime` (0.15 s) smoothing the *position*, not the aim.
+- [ ] **Re-check a projectile's flight** - the shot itself now uses the same current-frame direction, so a
+      thrown bolt is one frame less stale than in 1jm. It should be indistinguishable except during a fast
+      camera swing.
+- [ ] **Check a beam's ray too** - deliberately NOT changed, see below. It should still show the same
+      one-frame trail the projectile ray had.
+
+### Reported, not changed (1jo)
+- **The beam preview still reads the camera** (`PlayerController.Combat.cs`, the `bfwd` line). It is
+  point-based (`cam.position + cam.forward * Range`, minus the hand), which carries the *identical* skew
+  1jm found, and it also keeps the one-frame offset. Fixing only its lag would break the 1jm invariant that
+  the preview mirrors the caster, and fixing both means changing the beam's actual aim - the thing 1jm
+  deliberately deferred. One edit, but it is your call.
+- **~35 other sites read `cam.transform.forward` for aim** and share the identical one-frame offset:
+  `ToolManager` (throw/pickup/dig/club rays), `PlayerController.Interactions` interaction rays,
+  `FishingController`, `FieldManager`/`FarmingManager`, `InteractionPrompt`. This is a property of the
+  write order, not of 1jo, and most of them want the camera's *position* anyway (a ray from the eye), so
+  moving the camera write into `Update` would change the camera's own feel. The clean systemic version is
+  what 1jo did for one ray: aim from the look source. That is a separate, larger decision.
+
 ## 1jn. Player walk/run cycle is slower and its rate follows measured movement speed
 
 **Status: SHIPPED, cadence unverified.** One file: `Assets/Scripts/Animation/PlayerAnimator.cs` (+ `game-design.md`,

@@ -30,8 +30,8 @@ public sealed class CameraModeSwitch : MonoBehaviour
     [Min(0.5f)] public float ThirdPersonDistance = 6.5f;
     [Tooltip("Height of the third-person camera above the player's FEET, not above the pivot: UpdateThirdPerson adds up * (ThirdPersonY - pivot.localPosition.y) to the pivot's world position, so the two terms cancel and the camera lands at feet + this. With the pivot at 1.5 m, 2.6 reads as '2.6 m up the player's body', which is why raising this does NOT raise the look-at point - the camera still looks at the pivot (plus ThirdPersonSideOffset's lateral term, which is horizontal and so cannot change the height).")]
     public float ThirdPersonY = 2.6f;
-    [Tooltip("Lateral offset of the third-person camera in metres. Positive = to the player's RIGHT, negative = to the LEFT, 0 = the pre-1jl centred look. Added as pivot.right * this to BOTH the camera position and the look-at point, so the view direction is unchanged and the character sits off-centre (over the shoulder). Offsetting only the position would not move the character on screen: the camera would just rotate to keep re-centring it. First person is unaffected - it orbits the pivot with no offset.")]
-    public float ThirdPersonSideOffset = 0.6f;
+    [Tooltip("Lateral offset of the third-person camera in metres. Positive = to the player's RIGHT, negative = to the LEFT, 0 = the pre-1jl centred look. Added as pivot.right * this to BOTH the camera position and the look-at point, so the view direction is unchanged and the character sits off-centre (over the shoulder). Offsetting only the position would not move the character on screen: the camera would just rotate to keep re-centring it. First person is unaffected - it orbits the pivot with no offset. This moves FRAMING only: nothing that flies is derived from the camera's position (the projectile aim is a direction off the look pivot, see SpellCaster.StraightFlightDirection), so raising it cannot bend a shot.")]
+    public float ThirdPersonSideOffset = 0.9f;
     [Tooltip("Position smoothing seconds for the third-person camera.")]
     public float SmoothTime = 0.15f;
 

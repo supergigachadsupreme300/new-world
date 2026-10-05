@@ -1887,12 +1887,21 @@ zone on a distant ridge or a summoned turret near a far road). The landing previ
 keep their spell `Range` cap, so only ground placement is unbounded.
 - **Projectile spells fly straight along the look direction (1jm).** A `Projectile` no longer converges
   on a point `Range` metres in front of the camera. It leaves the cast origin along
-  `SpellCaster.StraightFlightDirection(cam, fallback)` — the camera's **forward**, taken as a direction.
+  `SpellCaster.StraightFlightDirection(cam, lookPivot, fallback)` — the **look pivot's** forward, taken as a direction (1jm read the camera's forward; 1jo moved the source onto the pivot, see below).
   The old point-aim's error is the vector from the hand to the *camera* scaled by `1/Range`, so it grew
   with how far behind the camera sat: negligible in first person (the camera is at the pivot), roughly
   `atan(6.5 / Range)` in third person — the reported "weird trajectory" — and 1jl's shoulder offset added
   a lateral term on top. Taking a direction deletes the term and makes the shot independent of where the
-  camera *is*, which is what keeps 1jl from introducing a skew of its own.
+    camera *is*, which is what keeps 1jl from introducing a skew of its own.
+    **1jo: the aim reads the look PIVOT, not the camera.** The two hold the same direction (first person
+    copies the pivot's rotation outright; third person looks from a point offset along `-pivot.forward`
+    back to a target offset along `pivot.right`, so the lateral terms cancel), but they are written at
+    different TIMES: `HandleMouseLook` sets the pivot inside `Update`, while `CameraModeSwitch` writes the
+    camera transform in `LateUpdate`. The aim preview is built in `Update`, so reading the camera gave it
+    **last frame's** aim and the ray trailed the crosshair by a frame whenever the camera moved - the
+    reported endlag. The pivot is the look source and is current-frame, so reading it removes the lag
+    without changing the direction. The camera is kept only as a fallback for a caster that has one but no
+    player pivot. Both the caster and the preview call the same helper, so the ray still mirrors the shot.
   `SpellEffect`/`FireProjectile` consume that vector directly (`pos += fwd * 0.5f`,
   `Quaternion.LookRotation(fwd)`), so the fix needs no change downstream, and the aiming preview
   (`UpdatePathPreview`) now **calls** the same helper rather than re-deriving the formula — it needs no
@@ -3017,14 +3026,17 @@ Three measured findings drive it, and one of them contradicts the obvious readin
   (not above the pivot — `UpdateThirdPerson` adds `up * (ThirdPersonY - pivot.localPosition.y)` to the
   pivot's *world* position, so the two cancel), looking at the 1.5 m pivot **plus the 1jl lateral offset**.
   Player-model layer 6 is culled in first person only; arms stay visible in both.
-- **The third-person camera sits over the player's right shoulder (1jl).** `CameraModeSwitch` gained
-  `ThirdPersonSideOffset = 0.6f` (negative = left, `0` = the pre-1jl centred look). It is added as
+  - **The third-person camera sits over the player's right shoulder (1jl, widened 1jo).** `CameraModeSwitch` gained
+    `ThirdPersonSideOffset` = **0.9 m** (negative = left, `0` = the pre-1jl centred look). 1jl shipped 0.6 m;
+    1jo widened it to 0.9 m at the user's request. It is added as
   `pivot.right * offset` to **both** the camera position **and** the look-at point, so the view direction
   is byte-for-byte the pre-1jl one and the only thing that changes is where the character sits on screen —
   left of centre. Offsetting the position alone would have moved nothing visible: the camera would simply
   rotate to keep re-centring the pivot. First person is untouched (it snaps to the pivot and never enters
   `UpdateThirdPerson`), and the field is a plain initializer with no scene override for the same reason
-  `StartInFirstPerson` is (grep: 0 hits in the one live scene), so 0.6 m is the shipped value.
+    `StartInFirstPerson` is (grep: 0 hits in the one live scene).
+    Raising the offset cannot bend a shot: the projectile aim is a *direction* taken off the look pivot
+    (1jo), never the camera's position, so this field is framing only.
   The collision `SphereCast` still starts at the pivot, so the lateral term is now inside the direction it
   sweeps — a wall beside the player pulls the camera in, which it did not before.
 

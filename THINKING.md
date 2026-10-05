@@ -1,3 +1,78 @@
+## 1jo. "remove the endlag of the path predict ray" - the lag was an execution ORDER, not a smoothing curve
+
+**Shipped.** `CameraModeSwitch.cs` (framing), `SpellCaster.Cast.cs` + `PlayerController.Combat.cs` (aim
+source). OPEN until the user play-tests.
+
+### The report was ambiguous in a way that mattered
+"Endlag of the path predict ray when moving the camera" has at least three candidate mechanisms, and they
+call for different edits, so the first task was to tell them apart rather than pick one:
+- H1: the ray is rebuilt on a throttle, so it is stale between rebuilds. **Rejected** - `UpdatePathPreview`
+  is called unconditionally from `HandleInteractionKeys`; there is no interval anywhere on that path.
+- H2: the ray's *direction* is smoothed (SmoothDamp/Lerp) somewhere between the look input and the preview.
+  **Rejected** - `PlayerAnimator` is the only place in the tree that low-passes anything (1jn, and for
+  speed not aim), and no smoothing exists on the aim path.
+- H3: the value the ray reads is written in a LATER phase of the frame than the ray is built in. **This is
+  it**, and it is not visible by reading either file alone.
+
+### H3 confirmed by reading the call chain, not the two files
+`PlayerController.Update` runs `HandleMouseLook()` (line 225) -> ... -> `HandleInteractionKeys()` (229),
+and `HandleInteractionKeys` is where `UpdatePathPreview` lives (`Interactions.cs:329`). `HandleMouseLook`
+writes both `transform.rotation` (body yaw) and `_cameraPivot.localRotation` (pitch). Meanwhile
+`CameraModeSwitch` writes the **camera** transform in its own `LateUpdate` (137-138 first person, 180-182
+third person) and never in `Update` - grepped, because "it might write in both" would have made this a
+different bug. Unity runs every `Update` before every `LateUpdate`, so the preview, built in `Update`, read
+a camera transform still holding **last frame's** value. One frame of lag, visible only when the camera is
+moving quickly, which is precisely the qualifier in the report. *The qualifier in a bug report is the
+evidence.*
+
+### The fix had to go in the helper, not the preview (1jm's invariant, applied in reverse)
+The tempting one-line change is at the preview. It is wrong: 1jm deliberately made the preview **call**
+`StraightFlightDirection` so the readout cannot drift from the flight path. Patching the preview's
+*argument* while the caster kept the old source would leave the ray drawing a direction the bullet no
+longer flies - turning "the ray is one frame stale" into "the ray is wrong", which is strictly worse and
+harder to see. So the signature changed to `(Camera cam, Transform lookPivot, Vector3 fallbackForward)` and
+both call sites pass the pivot. This is the 1jm/1jk shape again: the seam to fix is the shared function,
+because that is where the two consumers are already agreed to meet.
+
+### Why the pivot is the same answer, not a different one
+Hypothesis: the pivot and the camera hold the *same* direction, so this is a latency fix, not an aim
+change. **Confirmed** by reading `UpdateThirdPerson`: first person assigns `_camera.transform.rotation =
+_pivot.rotation` outright, and third person looks from `pivotPos + up*h - pivot.forward*dist + right*offset`
+back to `pivotPos + right*offset` - the `right*offset` term appears in both the eye and the target, so it
+cancels and the view direction is the pivot's. (The 1jl offset is orthogonal to all of this, which is why
+widening it in part 1 cannot bend a shot.) The only distortion is the collision clamp, which shortens the
+distance and so tilts the camera slightly up when a wall pulls it in - noted, not chased.
+
+### The class of defect is much bigger than the instance I was asked about
+Rule 14's "producers outlive their consumer" in its purest form: I was asked about one ray, and grepping
+`cam.transform.forward` found **~35 aim sites** carrying the identical one-frame offset - `ToolManager`'s
+throw/pickup/dig/club rays, the interaction rays, `FishingController`, `FieldManager`, `FarmingManager`,
+`InteractionPrompt`. The root cause is the write *order*, not any of them, and most of them genuinely want
+the camera's **position** (a raycast from the eye), so the tempting systemic fix - move the camera write
+into `Update` - would change the camera's own smoothing feel and break the "camera follows after the player
+moves" ordering. Reported in `PROGRESS.md` rather than fixed, because it is a design decision about the
+camera, not a bug in the preview.
+
+### Also found, and deliberately not half-fixed
+The **beam** preview (`bfwd`) is point-based *and* camera-based, so it has both the 1jm skew and the 1jo
+lag. Fixing only its lag would break the mirroring invariant; fixing both changes the beam's real aim, which
+1jm explicitly deferred to the user. One edit away, not mine to take unasked. The **ranged-weapon** branch
+uses `transform.forward` (the body), and that one is *already* current-frame - `HandleMouseLook` writes the
+body at line 54, well before `HandleInteractionKeys` runs - so it needs nothing, and saying so is what stops
+the next reader from "fixing" it.
+
+### A stale number I created and caught in the same pass
+`SpellCaster`'s XML doc said "1jl's 0.6 m shoulder offset adds a lateral term on top of it", and
+`game-design.md` said `ThirdPersonSideOffset = 0.6f`. Part 1 changes that field to 0.9, so both sentences
+became false the instant the edit landed. Caught by grepping the *docs* for the value being changed rather
+than only the code for the symbol - rule 8's stale-copy rule applied to a literal, and the second copy
+(the design doc) was the one that would have misled.
+
+### Open
+- The four play-test items in `PROGRESS.md` 1jo-status. The one that would invalidate the diagnosis rather
+  than the tuning is the ray/crosshair disagreement check: if a lag remains, the next candidate is the
+  camera's 0.15 s `SmoothTime` on *position*, not the aim source.
+
 ## 1jn. "the animation too fast player cant really see it" - the rate and the speed-scaling are one lever
 
 **Shipped.** `Assets/Scripts/Animation/PlayerAnimator.cs` only. OPEN until the user play-tests.

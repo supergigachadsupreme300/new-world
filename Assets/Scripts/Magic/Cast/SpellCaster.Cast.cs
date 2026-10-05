@@ -52,12 +52,22 @@ public partial class SpellCaster
     /// hand to the CAMERA, scaled by 1/Range - so it grows with how far the camera sits from the hand.
     /// First person puts the camera at the pivot, near the hand, and so was already close to right;
     /// third person puts it 6.5 m back, which skews the shot by roughly atan(6.5 / Range) and is the
-    /// reported "weird trajectory", and 1jl's 0.6 m shoulder offset adds a lateral term on top of it.
-    /// Using the direction deletes the term instead of shrinking it, and in first person it changes the
-    /// shot by the hand-to-pivot distance only.</para>
+    /// reported "weird trajectory". The 1jl shoulder offset is orthogonal to all of this: it moves where
+    /// the camera IS, and this is a direction, so it can no longer bend the shot. Using the direction
+    /// deletes the term instead of shrinking it.</para>
     /// <para>Taking a direction also makes the shot independent of where the camera <i>is</i>, which is
     /// what stops the 1jl shoulder offset from introducing a skew of its own.</para>
-    /// <para><c>fallbackForward</c> is the caller's own forward, used only when there is no usable camera.
+    /// <para><b>Why <paramref name="lookPivot"/> and not the camera.</b> 1jo: they hold the SAME direction
+    /// (first person copies the pivot's rotation outright; third person looks from a point offset along
+    /// <c>-pivot.forward</c> back to a target offset along <c>pivot.right</c>, and the lateral terms cancel,
+    /// so the view direction is the pivot's). But they are written at DIFFERENT TIMES: the pivot is set by
+    /// <c>HandleMouseLook</c> inside <c>Update</c>, while <c>CameraModeSwitch</c> writes the camera
+    /// transform in <c>LateUpdate</c>. Anything reading the camera during <c>Update</c> - which is what the
+    /// aim preview does - therefore gets LAST frame's camera, so the ray trailed the crosshair by a frame
+    /// whenever the camera moved. The pivot is the look SOURCE, current-frame, so reading it removes the
+    /// lag without changing the direction. The camera is kept only as a fallback, for a caster that has a
+    /// camera but no player pivot.</para>
+    /// <para><c>fallbackForward</c> is the caller's own forward, used only when neither source is usable.
     /// </para>
     /// <para><b>Relation to <see cref="CurrentAimDirection"/>.</b> That is the point-based aim (beam,
     /// summon, ground deliveries) and this is the direction-based one (projectile). Two modes, not two
@@ -66,8 +76,14 @@ public partial class SpellCaster
     /// fact about the game that could drift. Stated here so the pair does not read as an oversight.
     /// </para>
     /// </summary>
-    public static Vector3 StraightFlightDirection(Camera cam, Vector3 fallbackForward)
+    public static Vector3 StraightFlightDirection(Camera cam, Transform lookPivot, Vector3 fallbackForward)
     {
+        if (lookPivot != null)
+        {
+            Vector3 look = lookPivot.forward;
+            if (look.sqrMagnitude > 0.0001f)
+                return look.normalized;
+        }
         if (cam != null)
         {
             Vector3 look = cam.transform.forward;
@@ -95,7 +111,9 @@ public partial class SpellCaster
             // Range metres in front of the camera, which in third person (and again since 1jl moved the
             // camera sideways) is not where the player is standing — the flight line skews off to the
             // side. See StraightFlightDirection for why not the hand's forward either.
-            fwd = StraightFlightDirection(cam, fwd);
+            // 1jo: the pivot is passed so the aim is the CURRENT frame's look (see the helper).
+            var owner = transform.root.GetComponent<PlayerController>();
+            fwd = StraightFlightDirection(cam, owner != null ? owner.PlayerCameraPivot : null, fwd);
         }
         else if (cam != null)
         {
