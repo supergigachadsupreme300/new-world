@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -21,13 +21,13 @@ public class SpellBeam : MonoBehaviour
     /// <summary>1ir: capsule segments per ray. 2 = an expanding pair of overlapping capsules.</summary>
     public const int ConeSegments = 2;
 
-    /// <summary>1ir: mouth radius as a fraction of the tip radius (Width) — the cone opens outward.
+    /// <summary>1ir: mouth radius as a fraction of the tip radius (Width) â€” the cone opens outward.
     /// Public so the QA bench draws the same mouth the live beam does instead of restating the
     /// ratio (1f7's BuildRockBody precedent: mount the real geometry, not a copy of it).</summary>
     public const float ConeMouthFraction = 0.35f;
 
     /// <summary>1is: chunky discs stacked along the beam axis to form the drawn cone body. This is a
-    /// COSMETIC count — it does NOT change the hitbox, which is ConeRays * ConeSegments analytic
+    /// COSMETIC count â€” it does NOT change the hitbox, which is ConeRays * ConeSegments analytic
     /// capsules (see TickCone). It deliberately does not scale with Length: the Great Tornado's
     /// silhouette is a fixed-density stack, and a density that changed with the spell's range would
     /// be a second thing to tune and a second way for the funnel to read differently per spell.</summary>
@@ -85,13 +85,13 @@ public class SpellBeam : MonoBehaviour
     /// for a cone). Replaces the old single _mat/_orbMat pair so one fade path serves both modes
     /// instead of the cone needing a parallel copy of the fade block.
     /// <para>1is: the cone's count is now FunnelChunks + FunnelDebris + ring (13) rather than
-    /// ConeRays * ConeSegments + ring (15) — two fewer fade materials, and the two-tone funnel needs
+    /// ConeRays * ConeSegments + ring (15) â€” two fewer fade materials, and the two-tone funnel needs
     /// one material per chunk precisely BECAUSE each chunk is tinted differently along the gradient,
     /// which the old single-colour fan never was.</para></summary>
     private readonly List<Material> _fadeMats = new List<Material>();
 
     /// <summary>1ir: roots already damaged this tick. Seven rays through one enemy would otherwise
-    /// hit it seven times in the same tick — the overlap capsules are counted per ray, not per
+    /// hit it seven times in the same tick â€” the overlap capsules are counted per ray, not per
     /// victim, so without this a beam through a single large target multiplies its damage by
     /// ConeRays * ConeSegments. 1is: the ray FAN is gone from the drawing, but this dedupe is
     /// untouched and still load-bearing, because TickCone still walks all 14 analytic capsules.</para></summary>
@@ -112,7 +112,7 @@ public class SpellBeam : MonoBehaviour
         if (spell != null) ChannelDrainPerSecond = Mathf.Max(spell.ChannelDrainPerSecond, 0f);
 
         // 1ir: opt-in cone. A half-angle of 0 (or less) leaves _coneHalfRad at 0, which is the
-        // legacy line — see Tick(). Width keeps ONE meaning in both modes: the beam's widest point,
+        // legacy line â€” see Tick(). Width keeps ONE meaning in both modes: the beam's widest point,
         // which for a cone is the tip.
         _coneHalfRad = spell != null && spell.BeamHalfAngle > 0f
             ? spell.BeamHalfAngle * Mathf.Deg2Rad
@@ -143,7 +143,7 @@ public class SpellBeam : MonoBehaviour
 
         // Re-aim with the caster's current aim each frame so the beam sweeps as the player turns.
         // 1is: the derivation itself now lives in SpellCaster.CurrentAimDirection, shared with
-        // SpellSummon — two components needing "which way is the player aiming" is exactly when a
+        // SpellSummon â€” two components needing "which way is the player aiming" is exactly when a
         // second copy starts drifting. The cached camera is still passed in, so the shared helper
         // does not undo 1e5's "no Camera.main per channeled frame".
         if (_mainCam == null) _mainCam = Camera.main;
@@ -192,7 +192,7 @@ public class SpellBeam : MonoBehaviour
                 float cost = ChannelDrainPerSecond * Time.deltaTime;
                 if (cost > 0f && !_caster.TrySpendFocus(cost))
                 {
-                    // Focus pool exhausted — the channel can no longer be paid for.
+                    // Focus pool exhausted â€” the channel can no longer be paid for.
                     _fadeOut = true;
                     return;
                 }
@@ -231,7 +231,7 @@ public class SpellBeam : MonoBehaviour
         for (int i = 0; i < count; i++)
             if (TickCollider(_tickBuffer[i]) == BeamHit.Damaged) struck = true;
 
-        // 1ih: ONE flash per tick, not one per target — the loop above is a collider walk, so a
+        // 1ih: ONE flash per tick, not one per target â€” the loop above is a collider walk, so a
         // beam through six enemies must not spawn six flashes (H39).
         if (struck)
             SpellImpactFx.Spawn(MidPoint(), Vector3.up, _look, Width * 1.2f);
@@ -241,12 +241,12 @@ public class SpellBeam : MonoBehaviour
     /// "was it damage" are different questions: the cone walk must stop re-touching a root after the
     /// FIRST effect of any kind, while only a damage strike may spawn the once-per-tick flash.
     /// <para>An enum rather than a bool because the first version returned a bool and returned
-    /// <c>false</c> for the heal branch — so a healing cone never marked the root seen and healed
+    /// <c>false</c> for the heal branch â€” so a healing cone never marked the root seen and healed
     /// it once per overlapping capsule (up to ConeRays * ConeSegments times per tick). No shipped
     /// cone heals, but the axis is shared and the bug was free to ship.</para></summary>
     private enum BeamHit
     {
-        /// <summary>Nothing happened — skip, but do NOT consume the root.</summary>
+        /// <summary>Nothing happened â€” skip, but do NOT consume the root.</summary>
         None = 0,
         /// <summary>An ally was mended. Consumes the root; no flash.</summary>
         Healed = 1,
@@ -256,7 +256,7 @@ public class SpellBeam : MonoBehaviour
 
     /// <summary>
     /// 1ir: apply one collider's beam tick, reporting which of the three outcomes it was.
-    /// Shared by the line and cone walks so the two cannot drift apart — the heal branch, the
+    /// Shared by the line and cone walks so the two cannot drift apart â€” the heal branch, the
     /// self/ally skip and the damageable test are identical in both, and a beam's "who does this
     /// hit" is a single question with a single answer.
     /// </summary>
@@ -282,7 +282,7 @@ public class SpellBeam : MonoBehaviour
 
     /// <summary>
     /// 1ir: cone tick. Fans <see cref="ConeRays"/> rays across the mouth, each covered by
-    /// <see cref="ConeSegments"/> overlapping capsules whose radius grows mouth→tip, and takes the
+    /// <see cref="ConeSegments"/> overlapping capsules whose radius grows mouthâ†’tip, and takes the
     /// FIRST live owner of each root (see _tickSeen) so one enemy is hit once per tick rather than
     /// once per overlapping capsule. Flashes once per tick, like the line.
     /// </summary>
@@ -313,7 +313,7 @@ public class SpellBeam : MonoBehaviour
                     // Dedupe on the OUTCOME, not on contact, and mark only AFTER a real outcome. Both
                     // halves matter and they are the same idea: marking on first contact would let a
                     // non-damageable child (decoration, a limb with no IDamageable) consume the root
-                    // and make the whole enemy immune — which the line path never did, because it
+                    // and make the whole enemy immune â€” which the line path never did, because it
                     // tested every collider independently.
                     if (_tickSeen.Contains(col.transform.root)) continue;
                     BeamHit hit = TickCollider(col);
@@ -342,9 +342,9 @@ public class SpellBeam : MonoBehaviour
 
     /// <summary>1ir: the cone's swept FULL angle in degrees, which is what the aim preview must draw.
     /// The rays span -half..+half around the axis, so the full angle is TWICE
-    /// <see cref="SpellData.BeamHalfAngle"/> (22° half-angle = a 44° mouth). The preview must not
+    /// <see cref="SpellData.BeamHalfAngle"/> (22Â° half-angle = a 44Â° mouth). The preview must not
     /// draw the half-angle: that understates the real hit area by exactly half, which is the mirror
-    /// of 1iq's overstating cone — an aim readout that lies about how wide the spell is.</summary>
+    /// of 1iq's overstating cone â€” an aim readout that lies about how wide the spell is.</summary>
     public static float ConeFullAngleDegrees(SpellData spell)
     {
         return spell == null || spell.BeamHalfAngle <= 0f ? 0f : spell.BeamHalfAngle * 2f;
@@ -385,7 +385,7 @@ public class SpellBeam : MonoBehaviour
         }
         else if (_funnelChunks != null)
         {
-            // 1is: the funnel's discs sit on the beam axis, so the pulse only scales them radially —
+            // 1is: the funnel's discs sit on the beam axis, so the pulse only scales them radially â€”
             // their Z (distance from the muzzle) must NOT move, or the funnel would breathe ALONG the
             // beam instead of flaring. The 1ir version of this branch recomputed every segment's
             // position from RayDirection each frame, which was right for a fan of capsules on rays and
@@ -410,7 +410,7 @@ public class SpellBeam : MonoBehaviour
                 int idx = FunnelChunks + d;
                 Transform chunk = _funnelChunks[idx];
                 if (chunk == null) continue;
-                float ang = (FunnelOrbitSpeed + d * 55f) * Time.deltaTime * Mathf.Deg2Rad;
+                float ang = (70f + d * 55f) * Time.deltaTime * Mathf.Deg2Rad;
                 float cos = Mathf.Cos(ang), sin = Mathf.Sin(ang);
                 Vector3 lp = chunk.localPosition;
                 // Scale UNIFORMLY: debris is a cube, so scaling only x/z would flatten it into a
@@ -437,7 +437,7 @@ public class SpellBeam : MonoBehaviour
         // 1ir: cone and line are two builders, one shared tip orb.
         if (_coneHalfRad > 0f)
         {
-            // 1is: the funnel's hot end is SpellLook.HotCore, not Edge — Edge desaturates Fire's
+            // 1is: the funnel's hot end is SpellLook.HotCore, not Edge â€” Edge desaturates Fire's
             // orange toward peach, so it can never supply the yellow this reads as.
             Color hot = SpellLook.HotCore(color);
             _funnelChunks = BuildFunnelVisual(transform, Length, _mouthRadius, Width, color, hot);
@@ -482,7 +482,7 @@ public class SpellBeam : MonoBehaviour
     /// <summary>
     /// 1ir: gather every material this beam owns so the one fade loop can drive all of them. Scans
     /// children instead of tracking each primitive by hand, because the cone's segment count is a
-    /// constant the visual builder decides — a hand-kept list would be a second place to update when
+    /// constant the visual builder decides â€” a hand-kept list would be a second place to update when
     /// that constant changes, and would silently leave the cone solid while the line faded.
     /// </summary>
     private void CollectFadeMaterials()
@@ -504,15 +504,15 @@ public class SpellBeam : MonoBehaviour
     /// and a leading ring. Returns the chunk transforms in build order so the live pulse can scale
     /// them radially without re-deriving the taper.
     ///
-    /// <para><b>This is the BODY ONLY. The hitbox is untouched</b> — <see cref="TickCone"/> still
+    /// <para><b>This is the BODY ONLY. The hitbox is untouched</b> â€” <see cref="TickCone"/> still
     /// walks ConeRays * ConeSegments analytic capsules, so nothing here can change what the spell
     /// hits. The colliders on every piece below are destroyed, and no piece is ever queried.
     /// That independence is the whole reason the visual was swappable.</para>
     ///
     /// <para><b>Deliberately NOT <c>MapBuilder.BuildTornado</c>.</b> That model adds
     /// <see cref="TornadoBehavior"/>, which applies real physics pull to rigidbodies (props,
-    /// livestock — and the caster). A channeled beam you hold for its whole Focus cost would drag
-    /// the player around with it. This reproduces the SILHOUETTE — stacked, yawed, widening — and
+    /// livestock â€” and the caster). A channeled beam you hold for its whole Focus cost would drag
+    /// the player around with it. This reproduces the SILHOUETTE â€” stacked, yawed, widening â€” and
     /// nothing else.</para>
     ///
     /// <para><b>Two-tone, and the colours are the spell's.</b> <paramref name="core"/> is the body and
