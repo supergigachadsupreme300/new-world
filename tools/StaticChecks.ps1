@@ -32,10 +32,16 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 Push-Location $root
 
-$blueprints = 'Assets\Scripts\World\WorldBuilder.Blueprints.cs'
-$persistence = 'Assets\Scripts\World\WorldBuilder.Persistence.cs'
-$npcs       = 'Assets\Scripts\World\WorldBuilder.NPCs.cs'
-$world      = 'Assets\Scripts\World\WorldBuilder.cs'
+# 1jc moved the WorldBuilder partials under Assets\Scripts\Legacy\ (AGENTS.md rule 17 read-only
+# legacy). These four are still READ here on purpose: checks 2/3/6 are the only guard over the
+# part-key contract (rule 9 - "Church_*" etc. are save keys, and a renamed key builds NOTHING),
+# and checks 1/4/5/7 would catch a botched edit to legacy code if rule 17 is ever violated.
+# A finding inside a Legacy file is therefore a report of a violation, not a fix queue.
+$legacyDir  = 'Assets\Scripts\Legacy\WorldBuilder'
+$blueprints = "$legacyDir\WorldBuilder.Blueprints.cs"
+$persistence = "$legacyDir\WorldBuilder.Persistence.cs"
+$npcs       = "$legacyDir\WorldBuilder.NPCs.cs"
+$world      = "$legacyDir\WorldBuilder.cs"
 $testground = 'Assets\Scripts\Opt\NewWorldTestGround.cs'
 $corneraudit = 'Assets\Scripts\World\Streaming\WorldStreamer.CornerAudit.cs'
 $chunkbuild  = 'Assets\Scripts\World\Streaming\WorldStreamer.ChunkBuild.cs'
@@ -43,7 +49,7 @@ $farshell    = 'Assets\Scripts\World\Streaming\WorldStreamer.FarShell.cs'
 $deform      = 'Assets\Scripts\World\Streaming\WorldStreamer.Deform.cs'
 $crateraudit = 'Assets\Scripts\World\Streaming\WorldStreamer.CraterAudit.cs'
 
-# AGENTS.md rule 3: any WorldBuilder*.cs edited here belongs in $files, or checks 1, 4
+# AGENTS.md rule 3: any file edited here belongs in $files, or checks 1, 4
 # and 5 silently stop covering it. 1hz added Persistence + NPCs. 1hy added the
 # WorldStreamer corner/void audit (checks 1 and 4 apply to it; 2/3/5/6 are builder-specific).
 # 1i4 added ChunkBuild + FarShell - the seam fix and the far-cell source fix - and

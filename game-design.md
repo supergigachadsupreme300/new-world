@@ -2508,8 +2508,9 @@ Weapons are also **physical bag items** — stack-counted in the ToolManager inv
 - They are **disabled at runtime**: `CutsceneManager.RemoveEndings = true` short-circuits every
   ending entry point to `EndingsRemoved`. The shipped game therefore plays as an ongoing
   open-world RPG; flip the gate (or delete the early-return) to re-enable endings.
-- Cutscene helpers/road-driving partials remain active in `Scripts/Cutscenes/` (1it removed the stale
-  archive copy).
+- Cutscene helpers/road-driving partials remain active in `Scripts/Legacy/Cutscenes/` (1it removed the
+  stale archive copy; **1jc** moved the whole `CutsceneManager.*` family under `Scripts/Legacy/`, which
+  is **read-only** per AGENTS.md rule 18 - see §9.4c).
 
 ### 6.3 Story Quests — **retained**
 
@@ -2821,7 +2822,8 @@ next edit above it, and a README is the one file no tool in this repo checks.
 1iz added `ARCHITECTURE.md`, which plans to split the three concerns the folders currently blur.
 Three measured findings drive it, and one of them contradicts the obvious reading of `Models/`:
 
-- **`Models/` is a procedural geometry factory, not a model folder.** `Models/MapBuilder/` is 10
+- **`Models/` is a procedural geometry factory, not a model folder.** `Legacy/MapBuilder/` (it was
+  `Models/MapBuilder/` until **1jc**) is 10
   partials of one class referenced by **40 files** — the most depended-on symbol in the codebase — and it
   builds `BuildCloud`, `BuildTornado`, `BuildCafe`, `BuildPoliceCar` and `BuildPlayerHouse` beside
   `BuildPlayerModel`. Only 7 files in `Models/` are genuinely per-thing model builders, and they have
@@ -2926,10 +2928,11 @@ were deleted outright rather than archived: `grass_blade.png`, `leaves_texture.p
 ### 9.4b `MapBuilder` is 10 files, and it is load-bearing (1iw)
 
 `Assets/Scripts/Models/` held `MapBuilder` as 10 flat `MapBuilder.*.cs` partials - 5,153 lines and
-**10 of the folder's 17 `.cs` files (59%)**. They now live in
+**10 of the folder's 17 `.cs` files (59%)**. 1iw grouped them into
 `Assets/Scripts/Models/MapBuilder/`, leaving `Models/` holding the seven single-purpose model
 builders it always meant to hold (`Boss`/`Enemy`/`Goblin`/`Horse`/`Item`/`PlayerPartMesher`/
-`WeaponModelBuilder`).
+`WeaponModelBuilder`). **1jc** then moved that folder - unchanged, GUIDs intact - to
+`Assets/Scripts/Legacy/MapBuilder/`, because `MapBuilder` is old-game content (see §9.4c).
 
 The grouping is cosmetic - C# does not care about folders, and the class name is unchanged, so no
 caller was edited. **But the files are not unused, and must not be deleted on the strength of their
@@ -2952,6 +2955,37 @@ village's model kit. Nine of the ten partials are buildings and NPCs that only t
 cutscenes use, so if the legacy content is ever retired those partials become genuinely dead - but
 `PlayerModels.cs` (races, sitting) and `Nature.cs` (`BuildTree`/`BuildStone`/`BuildCloud`) would have
 to be kept or promoted out first.
+
+---
+
+### 9.4c `Scripts/Legacy/` — the old game, quarantined read-only (1jc)
+
+The old game's content is **32 files** in `Assets/Scripts/Legacy/`, and it is **not** part of this game:
+
+| Folder | Files | Owns |
+|---|---|---|
+| `Cutscenes/` | 11 | `CutsceneManager` + the ten `Ending*` / `Driving` / `Helpers` partials (§6.2) |
+| `WorldBuilder/` | 12 | the old block-built village: blueprints + part builders, persistence/save keys, NPCs, farming, mining, lights |
+| `MapBuilder/` | 10 | the old prop kit: houses, mansion, nature, NPCs, police, restaurants, stores, vehicles (§9.4b) |
+
+The move was `git mv` with every `.meta` travelling along, so **GUIDs are unchanged** and every
+serialized reference still resolves — `Assets/Scenes/SampleScene.unity` (the only scene in
+`EditorBuildSettings`) still carries a `WorldBuilder` and a `CutsceneManager` component, so the old game
+still boots. `Assets/Scripts/Legacy/README.md` carries the same contract at the folder level, and
+**AGENTS.md rule 18** is the authority: read-only in both directions, no new code here, no legacy
+symbol resurrected outside.
+
+**This is a fence, not a cleanup.** Nothing is deleted, and the legacy types are the *hub* the new
+systems hang off — 23 live files name `WorldBuilder`, 15 name `MapBuilder`, 11 name `CutsceneManager`
+(`GameManager`, `ToolManager`, `SaveManager`, `GoblinPet`, `PetController`, `ChunkObject`). Live code
+calling into `Legacy/` is normal; the forbidden direction is legacy gaining a **new** dependency on live
+code. If a task needs a legacy behaviour, it gets a new class outside the folder.
+
+Consequence for tooling: `tools/StaticChecks.ps1` had four `Assets\Scripts\World\WorldBuilder*.cs`
+paths, so rule 3's only instrument **died on `Resolve-Path` after the move and no check reported it** —
+the only way it surfaced was running the script (AGENTS.md rule 18). It now reads the `Legacy\` paths on
+purpose: checks 2/3/6 are the part-key parity guard (rule 9), and **a finding inside a `Legacy` file is
+a report of a rule-18 violation, not a fix queue**.
 
 ---
 

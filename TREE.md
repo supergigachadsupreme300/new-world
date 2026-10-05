@@ -9,14 +9,14 @@ powershell -ExecutionPolicy Bypass -File tools\Write-Tree.ps1
 | | |
 |---|---|
 | Source of truth | `git ls-files` (untracked and `.gitignore`d paths cannot appear) |
-| Generated at commit | `456a30d` (HEAD when written - the commit *before* the one this file lands in) |
-| Generated on | 2026-10-04 10:57 |
-| Tracked files | 1177 = 541 non-`.meta` + 636 `.meta` |
+| Generated at commit | `aae400b` (HEAD when written - the commit *before* the one this file lands in) |
+| Generated on | 2026-10-05 11:32 |
+| Tracked files | 1180 = 543 non-`.meta` + 637 `.meta` |
 | C# files | 370 |
 
 Reading the tree:
 
-- `.meta` files are omitted everywhere. There are 636 of them and none carries
+- `.meta` files are omitted everywhere. There are 637 of them and none carries
   information a reader needs; every `.cs` has a paired `.cs.meta` and every folder under
   `Assets/` has a folder meta. `tools\StaticChecks.ps1` guards that invariant.
 - `name/   [N files]` means the directory was collapsed for length. Nothing inside it is
@@ -124,18 +124,6 @@ regenerated to verify.
 │   │   │   └── SettingsManager.cs
 │   │   ├── Crafting/
 │   │   │   └── CraftingManager.cs
-│   │   ├── Cutscenes/
-│   │   │   ├── CutsceneManager.cs
-│   │   │   ├── CutsceneManager.Driving.cs
-│   │   │   ├── CutsceneManager.EndingBlackmail.cs
-│   │   │   ├── CutsceneManager.EndingBossBad.cs
-│   │   │   ├── CutsceneManager.EndingDemon.cs
-│   │   │   ├── CutsceneManager.EndingFated.cs
-│   │   │   ├── CutsceneManager.EndingHappy.cs
-│   │   │   ├── CutsceneManager.EndingJustice.cs
-│   │   │   ├── CutsceneManager.EndingNTR.cs
-│   │   │   ├── CutsceneManager.EndingSad.cs
-│   │   │   └── CutsceneManager.Helpers.cs
 │   │   ├── Enemies/
 │   │   │   ├── _Shared/
 │   │   │   │   ├── EnemyCatalog.cs
@@ -191,6 +179,43 @@ regenerated to verify.
 │   │   ├── Interactions/
 │   │   │   ├── PlayerSitController.cs
 │   │   │   └── SittableSeat.cs
+│   │   ├── Legacy/
+│   │   │   ├── Cutscenes/
+│   │   │   │   ├── CutsceneManager.cs
+│   │   │   │   ├── CutsceneManager.Driving.cs
+│   │   │   │   ├── CutsceneManager.EndingBlackmail.cs
+│   │   │   │   ├── CutsceneManager.EndingBossBad.cs
+│   │   │   │   ├── CutsceneManager.EndingDemon.cs
+│   │   │   │   ├── CutsceneManager.EndingFated.cs
+│   │   │   │   ├── CutsceneManager.EndingHappy.cs
+│   │   │   │   ├── CutsceneManager.EndingJustice.cs
+│   │   │   │   ├── CutsceneManager.EndingNTR.cs
+│   │   │   │   ├── CutsceneManager.EndingSad.cs
+│   │   │   │   └── CutsceneManager.Helpers.cs
+│   │   │   ├── MapBuilder/
+│   │   │   │   ├── MapBuilder.cs
+│   │   │   │   ├── MapBuilder.Houses.cs
+│   │   │   │   ├── MapBuilder.Mansion.cs
+│   │   │   │   ├── MapBuilder.Nature.cs
+│   │   │   │   ├── MapBuilder.NPCs.cs
+│   │   │   │   ├── MapBuilder.Police.cs
+│   │   │   │   ├── MapBuilder.Restaurants.cs
+│   │   │   │   ├── MapBuilder.Stores.cs
+│   │   │   │   └── MapBuilder.Vehicles.cs
+│   │   │   ├── WorldBuilder/
+│   │   │   │   ├── WorldBuilder.Blueprints.cs
+│   │   │   │   ├── WorldBuilder.BuildingDamage.cs
+│   │   │   │   ├── WorldBuilder.cs
+│   │   │   │   ├── WorldBuilder.Environment.cs
+│   │   │   │   ├── WorldBuilder.Farming.cs
+│   │   │   │   ├── WorldBuilder.FunctionalBuildings.cs
+│   │   │   │   ├── WorldBuilder.Lights.cs
+│   │   │   │   ├── WorldBuilder.NPCs.cs
+│   │   │   │   ├── WorldBuilder.Persistence.cs
+│   │   │   │   ├── WorldBuilder.RockMining.cs
+│   │   │   │   ├── WorldBuilder.TreeChop.cs
+│   │   │   │   └── WorldBuilder.WorldEnv.cs
+│   │   │   └── README.md
 │   │   ├── Livestock/
 │   │   │   ├── FlyingCrane.cs
 │   │   │   ├── Livestock.cs
@@ -235,17 +260,8 @@ regenerated to verify.
 │   │   │   │   ├── MagicImpactModelBuilder.cs
 │   │   │   │   ├── MagicProjectileModelBuilder.cs
 │   │   │   │   └── MagicWeaponModelBuilder.cs
-│   │   │   ├── MapBuilder/
-│   │   │   │   ├── MapBuilder.cs
-│   │   │   │   ├── MapBuilder.Houses.cs
-│   │   │   │   ├── MapBuilder.Mansion.cs
-│   │   │   │   ├── MapBuilder.Nature.cs
-│   │   │   │   ├── MapBuilder.NPCs.cs
-│   │   │   │   ├── MapBuilder.PlayerModels.cs
-│   │   │   │   ├── MapBuilder.Police.cs
-│   │   │   │   ├── MapBuilder.Restaurants.cs
-│   │   │   │   ├── MapBuilder.Stores.cs
-│   │   │   │   └── MapBuilder.Vehicles.cs
+│   │   │   ├── Player/
+│   │   │   │   └── PlayerModelBuilder.cs
 │   │   │   ├── BossModelBuilder.cs
 │   │   │   ├── EnemyModelBuilder.cs
 │   │   │   ├── GoblinModelBuilder.cs
@@ -465,19 +481,7 @@ regenerated to verify.
 │   │       ├── ITornadoCarried.cs
 │   │       ├── SteamEffect.cs
 │   │       ├── TornadoBehavior.cs
-│   │       ├── WaterVolume.cs
-│   │       ├── WorldBuilder.Blueprints.cs
-│   │       ├── WorldBuilder.BuildingDamage.cs
-│   │       ├── WorldBuilder.cs
-│   │       ├── WorldBuilder.Environment.cs
-│   │       ├── WorldBuilder.Farming.cs
-│   │       ├── WorldBuilder.FunctionalBuildings.cs
-│   │       ├── WorldBuilder.Lights.cs
-│   │       ├── WorldBuilder.NPCs.cs
-│   │       ├── WorldBuilder.Persistence.cs
-│   │       ├── WorldBuilder.RockMining.cs
-│   │       ├── WorldBuilder.TreeChop.cs
-│   │       └── WorldBuilder.WorldEnv.cs
+│   │       └── WaterVolume.cs
 │   ├── Settings/
 │   │   ├── DefaultVolumeProfile.asset
 │   │   ├── Mobile_Renderer.asset
@@ -519,6 +523,7 @@ regenerated to verify.
 ├── __azurite_db_queue__.json
 ├── __azurite_db_queue_extent__.json
 ├── __azurite_db_table__.json
+├── =0
 ├── AGENTS.md
 ├── ARCHITECTURE.md
 ├── Assembly-CSharp.csproj

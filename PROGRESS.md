@@ -1,4 +1,69 @@
-﻿## 1jb. Models/Magic/MagicProjectileModelBuilder.cs + Models/Magic/MagicImpactModelBuilder.cs - the two remaining magic spell models get their files
+﻿## 1jc. `Assets/Scripts/Legacy/` - the old game's 32 files quarantined read-only, and the tool the move silently killed
+
+**Status: SHIPPED.** The move itself (`git mv`, `.meta` travelling along, GUIDs unchanged) was `aae400b`;
+the rule was `f6b5559` but landed at the top of `AGENTS.md`, above the `# Project Rules` heading, and
+numbered **17** - colliding with the existing rule 17. This commit renumbers it to **18**, moves it into
+the numbered list, adds `Assets/Scripts/Legacy/README.md`, deletes the emptied
+`Assets/Scripts/Cutscenes/` folder + `.meta` (GUID 104c63d6..., **0** serialized referrers), **repairs
+`tools/StaticChecks.ps1`** - which the move had killed - and updates `game-design.md` (new §9.4c),
+`ARCHITECTURE.md`, `TREE.md`. Measured: **32** legacy `.cs` in 3 folders; **368** `.cs` / **368** `.cs.meta`
+parity; **542** `.meta` / **542** unique GUIDs (no duplicate introduced by the new `README.md.meta`).
+**skills: `scenario-unity-architecture` loaded** for the GUID/`.meta`/move question - *informative, not
+authoritative*: its workflow is entirely `-batchmode`/`ArchJobs`/Test-Framework driven, which rule 3
+forbids here, so it verified nothing in this repo. Its one actionable pointer (`merges and moves never
+break references` / `meta_audit`) was checked by hand instead: **no `.gitattributes` and no LFS**, so no
+path-scoped filter could have broken on the move (`git check-attr -a` on a moved file -> empty).
+**Verified by grep + reread + `tools\StaticChecks.ps1` -> 0 candidates; no Unity build** (rule 3).
+
+### The finding that mattered: the move killed rule 3's only instrument, silently
+
+`tools/StaticChecks.ps1` reads four files by absolute-ish path (`$blueprints`, `$persistence`, `$npcs`,
+`$world`), all `Assets\Scripts\World\WorldBuilder*.cs`. The move renamed all four. Running the script
+printed its pre-flight `MISSING:` lines and then **threw on `Resolve-Path` before check 1 printed a
+single result** - so the one instrument that exists to catch "review is not compilation" (rule 3) had
+stopped compiling-checking anything at all. **No check reported it; the only way it surfaced was running
+the script.** Repaired by repointing the four paths at `Legacy\WorldBuilder\` with a comment saying *why*
+they are still read: checks 2/3/6 are the part-key parity guard (rule 9 - a renamed `Church_*` key builds
+nothing, silently), and **a finding inside a `Legacy` file is a report of a rule-18 violation, not a fix
+queue**, because fixing it would be the violation.
+
+### Two failed instruments, kept here so the next reader does not rebuild them
+
+- **GUID reachability is the wrong instrument for the C# call graph.** First audit asked "which live
+  scripts does nothing reference?" by counting each script's GUID inside every other script's text. C#
+  references types **by name**; GUIDs appear only in serialized assets. The scan reported **326 of 336**
+  live scripts as unreferenced - `ChunkObject`, `WorldStreamer`, `NewWorldSystems`, everything. The
+  correct instrument for this question is a type-name grep, which is what actually shipped: **23** live
+  files name `WorldBuilder`, **15** name `MapBuilder`, **11** name `CutsceneManager`. The serialized side
+  is the one GUIDs *are* the right instrument for, and it answered: `Assets/Scenes/SampleScene.unity`
+  (the only scene in `EditorBuildSettings`) carries exactly **2** legacy components - `WorldBuilder` and
+  `CutsceneManager` - so **the old game still boots out of `Legacy/`**. That is why the rule says
+  *untouched has to keep meaning still runs*.
+- **A "known-zero control" that is not zero is worse than no control.** The same scan printed a
+  synthetic-GUID control expecting 0 and got **13678** in the serialized set: Unity writes
+  `guid: 00000000000000000000000000000000` for every null/missing reference, so all-zeros is the single
+  most common 32-hex string in a scene file. Replaced with `0123456789abcdef0123456789abcdef`
+  (0 / 0 / 0) and an `IndexOf` walk instead of `String.Split` (1iv's rule). Second pass: 3.66 M live
+  chars, 0.82 M legacy, 3.0 M serialized.
+
+### Docs, because a move rots the docs that name what moved (rule 17)
+
+`game-design.md` §6.2 (`Scripts/Cutscenes/`), §9.4's `Models/MapBuilder/` claim and §9.4b's "they now
+live in" all named pre-1jc paths; `ARCHITECTURE.md`'s current-state table and §2.1 heading did too.
+Corrected **current-state** claims; **historical** records (1iw/1hz entries, `PROGRESS.md`, `THINKING.md`)
+left as written with a forward note, because rewriting them would falsify what those tasks did.
+`TREE.md` regenerated (`aae400b`, 1178 tracked) - it was two structural commits stale.
+
+### Pending play-test (needs Unity, rule 3)
+- The old game still boots: open `Assets/Scenes/SampleScene.unity` and confirm the village + a cutscene
+  still behave exactly as before the move (GUIDs are unchanged, so this should be a no-op).
+- The new game is unaffected: stream terrain, cast a spell, sit, ride a pet - `MapBuilder.BuildTree` /
+  `BuildStone` are still called from `ChunkObject`, now out of `Legacy/`.
+
+### 1jc-status
+- Shipped. Rule 18 in place, folder fenced, instrument repaired and green. Not compiled.
+
+## 1jb. Models/Magic/MagicProjectileModelBuilder.cs + Models/Magic/MagicImpactModelBuilder.cs - the two remaining magic spell models get their files
 
 **Status: SHIPPED.** Two new files under Models/Magic/ (436 + 203 lines). SpellCaster.Projectiles.cs 413 -> 72, SpellImpactFx.cs 159 -> 253 (net -42). Assets/Scripts 368 .cs / 368 .cs.meta. skills: none applied - pure relocation + interface change (single Part list). **Verified by grep + reread + normalised code-line comparison against pre-move blocks; no Unity build** (rule 3). tools/StaticChecks.ps1 -> 0 candidates.
 
@@ -1679,9 +1744,11 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-03. Read this first in a new session; then continue with the
+Last updated: 2026-10-05. Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
-`### 1xx-status` play-test list. **1f5 is superseded by 1f6** - the LOD bands and the
+`### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
+`Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.
+**1f5 is superseded by 1f6** - the LOD bands and the
 `NeedsLodDetail` gate it added were both deleted; read 1f6 for the current design and 1f5 only
 for the reasoning it recorded.
 

@@ -1,4 +1,76 @@
-﻿## 1jb. Models/Magic/MagicProjectileModelBuilder.cs + Models/Magic/MagicImpactModelBuilder.cs - split spell-model geometry out of SpellCaster/SpellImpactFx
+﻿## 1jc. Quarantining the old game's code - the move is trivial, the four things around it are not
+
+**Request:** "we're doing a new game so the stuff from the old game is unrelated - put up the rule in
+agents to not touch them and put all that into a folder to keep them away."
+
+The literal ask (one rule + one folder) was already half-shipped by `f6b5559` + `aae400b` before this
+session resumed. The interesting part was everything the move *broke quietly*, so this entry is about
+those four things, in the order they were found.
+
+**Hypothesis 1: the folder move is self-contained.** REJECTED, immediately and loudly.
+`tools/StaticChecks.ps1` reads four files by path (`$blueprints`, `$persistence`, `$npcs`, `$world` =
+`Assets\Scripts\World\WorldBuilder*.cs`). All four moved. Running the instrument printed its pre-flight
+`MISSING:` lines and then **died on `Resolve-Path` before check 1 emitted a single result** - so rule 3's
+only compile-risk sweep had silently stopped sweeping anything. Nothing reported it; the script itself,
+run by hand, was the only witness. This is rule 8's "a move is the one edit whose diff proves nothing"
+landing on a *tool* rather than on code: the diff of a `git mv` is 100% renames, and every consumer that
+addresses a file **by path** is invisible in it. Habit: after any move, grep the old path string across
+`Assets`, `tools` and the root `*.md`s, then re-run the instrument - a green run from *before* a move is
+not a green run after it. Corollary: a pre-flight check that *reports* a missing path without *stopping*
+is worse than none, because the output looks like findings.
+
+**Hypothesis 2: "untouched" is cheap because legacy is unreferenced.** REJECTED, and this is the finding
+that shaped the rule. Type-name grep over live files: **23** name `WorldBuilder`, **15** name
+`MapBuilder`, **11** name `CutsceneManager` - `GameManager` (14 + 47 hits), `ToolManager` (46),
+`SaveManager`, `GoblinPet`, `PetController`, `ChunkObject`. The legacy types are the **hub the new
+systems hang off**, not a dead wing. And `Assets/Scenes/SampleScene.unity` - the only scene in
+`EditorBuildSettings` - carries a `WorldBuilder` and a `CutsceneManager` component, so **the old game
+still boots out of `Legacy/`**. Therefore "read-only" cannot mean "we don't care if it breaks"; it means
+**untouched has to keep meaning still runs**, and that is a play-test item, not a claim. The rule says so
+explicitly, because the natural reading of "quarantine" is "ignore it".
+
+**Hypothesis 3: the dependency direction is one-way already, so no rule text is needed about it.**
+REJECTED on the second question asked of it - "what if legacy needs something from the new game?"
+Live→legacy is fine (23 files do it). Legacy→live is the direction that must never be added, because it
+is how old-game behaviour starts failing when *new* code changes, and nothing in the code says "no". So
+the rule states the direction, not just the prohibition: live code may call in, legacy may not gain a new
+dependency outward, and a needed legacy behaviour gets a **new class outside the folder** (copy the idea,
+not the file - rule 17's comparator discipline).
+
+**Hypothesis 4: GUID reachability would tell me which other scripts are legacy-only.** REJECTED twice,
+for two different reasons, both worth keeping:
+- *Wrong instrument.* The scan counted each script's GUID inside every other script's text. C# references
+  types **by name**; GUIDs live only in serialized assets. It reported **326 of 336** live scripts as
+  unreferenced - `ChunkObject`, `WorldStreamer`, `NewWorldSystems`, everything that matters. A scan that
+  reports absences must first be shown able to report presences (rule 7's absence clause, 1iu's version):
+  the tell was internal, 336 "unreferenced" files in a codebase whose every file is live.
+- *The control was not zero.* The synthetic-GUID control printed **13678** hits instead of 0: Unity
+  writes `guid: 00000000000000000000000000000000` for every null/missing reference, so all-zeros is the
+  most common 32-hex string in a scene. A "known-zero control" that is not zero is worse than none - it
+  either cries wolf or, worse, is deleted as broken. Replaced with a synthetic hex string that cannot
+  collide (0/0/0) and an `IndexOf` walk rather than `String.Split` (1iv). Second pass read 3.66 M live /
+  0.82 M legacy / 3.0 M serialized chars.
+  Where GUIDs *are* the right instrument - serialized references - the answer was usable immediately:
+  `SampleScene.unity` -> 2 legacy components; the emptied `Scripts/Cutscenes.meta` GUID -> 0 referrents,
+  which is what licensed deleting it.
+
+**Hypothesis 5: a doc naming a moved path is a stale copy (rule 8/17), so grep the docs.** CONFIRMED.
+`game-design.md` §6.2 (`Scripts/Cutscenes/`), §9.4's `Models/MapBuilder/` claim and §9.4b's "they now
+live in"; `ARCHITECTURE.md`'s current-state table row and its §2.1 heading. A grep for the bare class
+name passes on all of it - the symbol is present, the *location* is wrong, and the reader is sent to a
+folder that no longer exists. Split by claim type, which is the part that matters: **current-state** rows
+get corrected; **historical** records (1iw's `PROGRESS.md` entry, 1hz's removal table, `THINKING.md`
+trails) get a forward note instead, because rewriting them would falsify what those tasks did. Also
+`TREE.md` was two structural commits stale, and it is generated - so regenerated, not hand-patched
+(`aae400b`, 1178 tracked).
+
+**Verdict: CONFIRMED, shipped.** Rule 18 (renumbered - `f6b5559` filed the legacy rule as "17" above the
+`# Project Rules` heading, colliding with the existing rule 17), `Assets/Scripts/Legacy/README.md`, the
+empty `Scripts/Cutscenes/` folder removed, the instrument repaired and green (0 candidates; part-key
+parity 12/12, 13/13, 14/14; check 8 sees 4 lane keys), docs corrected, 368/368 `.cs`/`.cs.meta`, 542/542
+unique GUIDs. **Not compiled** (rule 3) - the two play-test items are in `PROGRESS.md` §1jc-status.
+
+## 1jb. Models/Magic/MagicProjectileModelBuilder.cs + Models/Magic/MagicImpactModelBuilder.cs - split spell-model geometry out of SpellCaster/SpellImpactFx
 
 **Hypothesis:** Moving in-flight projectile bodies and impact flash shapes into named builders improves findability without changing behaviour.
 

@@ -1,6 +1,4 @@
-﻿17. **Do not touch legacy code.** The cutscenes (CutsceneManager.*), WorldBuilder.*, and MapBuilder partials (NPCs, buildings, nature, vehicles, etc.) are legacy content and **must not** be modified, moved, or deleted unless explicitly directed. Do not rename their symbols or update comments referencing them. Treat them as read-only. If we want a "modern" equivalent, create a new class/file in the appropriate `Models/` or `World/` namespace and leave legacy untouched.
-
-# Project Rules
+﻿# Project Rules
 
 1. **Always commit and push after every task.** Commit on Git `main` and push to
    `https://github.com/supergigachadsupreme300/new-world` (PowerShell; e.g.
@@ -885,8 +883,47 @@
      never only the bare name: a bare-name grep passes on stale ownership *by construction*. This is the
      same reason no doc in this repo writes a line number.
    - Corollary on the same seam: **the moment a helper's output has to cross a class boundary, look for
-     the handoff.** `MagicImpactModelBuilder` returns its pieces, and the shape it used to hand back was
-     three *parallel lists* (`_materials`/`_parts`/`_spins`) that a fade loop in another class indexed in
-     lockstep - an invariant no compiler and no check enforced. That is rule 8's copy-rot in miniature:
-     when an extraction forces an interface, return one record per piece (here `Part`, carrying transform +
-     material + spin flag together) so the alignment cannot be violated at all.
+the handoff.** `MagicImpactModelBuilder` returns its pieces, and the shape it used to hand back was
+      three *parallel lists* (`_materials`/`_parts`/`_spins`) that a fade loop in another class indexed in
+      lockstep - an invariant no compiler and no check enforced. That is rule 8's copy-rot in miniature:
+      when an extraction forces an interface, return one record per piece (here `Part`, carrying transform +
+      material + spin flag together) so the alignment cannot be violated at all.
+
+18. **The old game's code is READ-ONLY and quarantined in `Assets\Scripts\Legacy\`, because this is a
+    different game that happens to share a repository.** 1jc quarantined 32 files - the ten
+    `CutsceneManager.*` endings, the twelve `WorldBuilder.*` partials, the ten `MapBuilder.*` partials -
+    under `Assets/Scripts/Legacy/{Cutscenes,WorldBuilder,MapBuilder}/`, with a `README.md` in the folder.
+    Rule 4 already said the legacy world is not the test surface; this says it is not the *subject* either.
+    Four habits, each from a way the quarantine is easy to defeat by accident:
+    - **Read-only means read-only, in both directions.** No edit, rename, move, delete, or drive-by comment
+      fix inside `Legacy/` - including "just a typo" and "just a comment that names a moved file". Live code
+      calling INTO legacy is normal and fine (`GameManager`, `ToolManager`, `GoblinPet`, `PetController` and
+      `ChunkObject` all do); the forbidden direction is legacy gaining a NEW dependency on live code, which
+      is how old-game behaviour starts failing because new code changed. If a task needs a legacy behaviour,
+      implement it as a NEW class outside `Legacy/` and leave the old one exactly as it is - rule 17's
+      comparator discipline applies to anything you copy out of there.
+    - **Deleting legacy is its own task, and it needs rule 14's save-key sweep, not a grep for the type
+      name.** `WorldBuilder.Persistence` writes `"NightClub"`-shaped keys and part keys
+      (`Church_*` / `Shrine_*` / `Pagoda_*`) that `SpawnStructurePart` dispatches on; a missing `case`
+      builds nothing and loads a village that looks fine. Nothing here is going to delete anything, so this
+      is a guard for the day someone is asked to.
+    - **A quarantine MOVES the paths, and every tool and doc that names a path moves with it.** The move
+      left `tools\StaticChecks.ps1` - rule 3's only instrument - pointing at four pre-move
+      `Assets\Scripts\World\WorldBuilder*.cs` paths, so the whole script died on `Resolve-Path` before
+      check 1 printed anything. It was not reported by any check; the only way it surfaced was running the
+      script. So **after moving anything, grep for the OLD PATH string across `Assets`, `tools` and the root
+      `*.md` files**, and re-run rule 3's script - a green instrument from before the move is not a green
+      instrument after it.
+    - **New code never goes in `Legacy/`, and a legacy symbol never gets resurrected outside it.** The
+      folder is a one-way door: `MapBuilder.BuildTree` is still called by `ChunkObject`, so the streamed
+      terrain draws through quarantined code, and that is exactly why the temptation to "just fix it there"
+      is strong. It stays a fence, not a shared workbench.
+    Note what the quarantine is NOT: a claim that legacy is unreferenced. 1jc measured it - the legacy types
+    are the *hub* the new systems hang off (23 live files name `WorldBuilder`, 15 name `MapBuilder`, 11 name
+    `CutsceneManager`), and `Assets/Scenes/SampleScene.unity` - the only scene in `EditorBuildSettings` -
+    still carries a `WorldBuilder` and a `CutsceneManager` component, so the old game still boots. Untouched
+    has to keep meaning *still runs*; a play-test item, not a claim.
+    What the quarantine is verified by: grep + reread + `tools\StaticChecks.ps1` -> 0 candidates. One more
+    instrument detail worth keeping: checks 2/3/6 still READ `Legacy\WorldBuilder\WorldBuilder*.cs`, because
+    the part-key parity check (rule 9) is the only guard over a contract that silently builds nothing when
+    broken - and **a finding inside a `Legacy` file is a report of a rule-17 violation, not a fix queue.**

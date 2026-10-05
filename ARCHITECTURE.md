@@ -16,7 +16,7 @@ staged at the bottom, smallest-blast-radius first, and each one is separately co
 | Folder | `.cs` | What is actually in it |
 |---|---:|---|
 | `Models/` | 7 | `BossModelBuilder`, `EnemyModelBuilder`, `GoblinModelBuilder`, `HorseModelBuilder`, `ItemBuilder`, `PlayerPartMesher`, `WeaponModelBuilder` |
-| `Models/MapBuilder/` | 10 | 10 partials of one class — **and it is not "models"** (see §2.1) |
+| `Models/MapBuilder/` | 10 | 10 partials of one class - **moved in 1jc** to `Legacy/MapBuilder/` (old-game content, read-only: AGENTS.md rule 18) — **and it is not "models"** (see §2.1) |
 | `Animation/` | 3 | `PlayerAnimator`, `WeaponAnimator`, `WeaponStowAnimator` |
 | `Player/` | 32 | 6 `PlayerController` partials + `Races/` (9 files) + rest |
 
@@ -38,7 +38,7 @@ GoblinModelBuilder    3
 
 ## 2. Three category errors, which is why the folders read wrong
 
-### 2.1 `Models/MapBuilder/` is a procedural *geometry factory*, not a model folder
+### 2.1 `Legacy/MapBuilder/` (was `Models/MapBuilder/` before 1jc) is a procedural *geometry factory*, not a model folder
 
 `MapBuilder` is referenced by **40 files** — by far the most depended-on symbol in the codebase — and its
 public surface is not models at all:
