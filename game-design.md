@@ -776,7 +776,7 @@ the near/far boundary so a resident chunk and a freshly built one are on screen 
   distinct stats (§7.1.0) — the test-ground rows + dummies are the fastest way to diff every race.
 - **Magic-model grid (1dk):** `NewWorldTestGround.EnableMagicModels` (default **on**) places **every
   castable magic spell** on the platform's middle band — one pedestal + school-colored projectile-style
-  body (the exact live-cast visuals via `SpellCaster.CreateProjectileDisplay`; the four
+  body (the exact live-cast visuals via `MagicProjectileModelBuilder.CreateProjectileDisplay`; the four
   `summonFallingRock` spells show their real falling formation via `SkillFx.BuildRockBody` —
   Fire Asteroid's Swarm left with 1ir, so every one of them is now the boulder, drawn at a stated
   0.35× of the live blast radius so the 3 m grid stays legible — and zone/beam/storm/summon/instant
@@ -1878,7 +1878,7 @@ built once and fully static (no sphere meshes remain on projectiles):
 
 `Auto` picks from the spell's **school family** via `SpellLook.Resolve` (§3.8.3): Fire→Sphere,
 Ice→Shard, Lightning→Bolt, Wind→Blade, Water→Splash, Earth→Debris, Physical→Dart, everything
-else→Sphere. Builders live in `SpellCaster.BuildProjectileBody`
+else→Sphere. Builders live in `MagicProjectileModelBuilder.BuildProjectileBody`
 (cube primitives only, via the `Cluster` / `AddTrailingFlecks` helpers), colored per damage type;
 **since `1eb` the body is fully static — no exhaust particles and no in-flight pulse** (the old `OrbFx`
 scale-pulse/spin modes and the `AttachProjectileParticles` exhaust `ParticleSystem` were removed), so
@@ -1986,7 +1986,9 @@ but **delegates** to `SpellLook.SchoolColor`.
 
 - **Impact families** (`SpellImpactStyle`, 1id) drive `SpellImpactFx`'s pooled flash: Burst, Ring,
   Sphere, Cross, Shards, Bloom, Pillar. `Inherit` means "no authored opinion — take the school
-  family's pick", and `SpellImpactFx.Spawn` returns immediately on it.
+  family's pick", and `SpellImpactFx.Spawn` returns immediately on it. As of **1jb** the *shapes* are
+  `MagicImpactModelBuilder`'s and the *pooled lifetime* is `SpellImpactFx`'s; the family list and the
+  look are unchanged, so nothing about a spell's impact appearance moved in this split.
 - **Cast families** (`SpellCastStyle`, 1if) drive which parts the `CastingCircle` halo builds and
   shows: Circle, Rune, HexRing, Cross, Arc, Wave, Halo.
 - **`Shape` vs `DisplayShape`** — `spell.Shape` is a *gameplay* flag (`Missile` = homing, see
@@ -2054,7 +2056,7 @@ given Meteor a swarm half the time.
   key changes, because "the numbers should not have moved" is otherwise indistinguishable from
   "the numbers were not re-run".
 - **A shape that only a live cast can draw is a shape with no acceptance readout.** The magic-model
-  bench draws `SpellCaster.CreateProjectileDisplay`, which a Zone spell has no answer for — so Fire
+  bench draws `MagicProjectileModelBuilder.CreateProjectileDisplay`, which a Zone spell has no answer for — so Fire
   Asteroid's new swarm would have been the one 1f7 visual that existed only during a cast, invisible
   on the bench built to compare it. `SkillFx.BuildRockBody` was extracted from `FallRock` so the
   bench can mount the real formation on its pedestal, and `LookKey`/`Describe` now print the axis.
@@ -2835,6 +2837,28 @@ Three measured findings drive it, and one of them contradicts the obvious readin
   `Models/Magic/MagicWeaponModelBuilder.cs`, widened `MakeBlock` to `internal static`, and made the **11**
   palette entries they use `internal` (imported via `using static`) rather than copying them — the
   **15**-colour palette **cannot move**, because the other fourteen weapons share it.
+- **The magic *spell* models had no file either — now fixed (1jb).** Same complaint as 1ja, different
+  subsystem, so it landed in two new files beside `MagicWeaponModelBuilder.cs`:
+  - `Models/Magic/MagicProjectileModelBuilder.cs` — the **18** static methods that were inside the
+    *spawning* class `SpellCaster.Projectiles.cs` (2 `Create` overloads, `Attach`, `Build` + its
+    10-shape switch, 7 primitive helpers). `SpellCaster.Projectiles.cs` keeps `FireProjectile` +
+    `DecorateProjectile`; the file is named after the caster, so geometry was never its job.
+  - `Models/Magic/MagicImpactModelBuilder.cs` — the **8** `SpellImpactStyle` families, which were a
+    32-statement switch inside `SpellImpactFx.ImpactFlash` alongside the pooling.
+  Both moves are behaviour-preserving and were verified statement-by-statement against the pre-move
+  source. **Only the impact one changed a signature**, and only because the builder had to return its
+  output: it used to hand three *parallel lists* (`_materials`/`_parts`/`_spins`) back to a fade loop
+  that indexed all three by the same number. It now returns one `Part` per piece (transform +
+  material + spin flag), so index-alignment is unrepresentable rather than merely correct. The pool,
+  the per-frame budget, growth, tumble and fade stayed with `SpellImpactFx` — the *lifetime* of an
+  effect is behaviour, and belongs to whoever owns the effect.
+  - **Two of the three categories the request named were not files, and that is the finding.** Magic
+    *circles* already had `Magic/Fx/CastingCircle.cs`, and the inline ring code in `SkillFx`
+    (`BuildVisual`/`SpawnZoneRing`) is per-instance behaviour, not a shape library. The skill models
+    are `SkillFx.BuildRockBody` — but `SkillFx` also holds `RingFlash` (22 call sites) and `SlashFlash`
+    (8), which are **shared hit-reaction FX for every weapon class**, not spell identities. Lifting
+    the rock alone would leave that class still unnamed and still mixed, so it is recorded as the next
+    candidate instead of half-done here.
 
 The two in-tree READMEs above and `ARCHITECTURE.md` all describe **symbol ownership** — which class owns
 which behaviour — and no generator can derive that, so they stay hand-written. **Structure**, though, is
@@ -2843,10 +2867,15 @@ rather than a fifth hand-maintained map: `TREE.md` is written by `tools/Write-Tr
 `git ls-files`, names the commit and timestamp it saw, and states on its first line that it must not be
 hand-edited. It omits the 634 `.meta` files (54% of the repo by count), collapses `_ArtSource`,
 `Resources`, `TextMesh Pro` and `ProjectSettings` to `[N files]`, and always expands `Assets/Scripts`
-(368 files) in full. Verified by rebuilding all 539 non-`.meta` paths out of the rendered tree and
-diffing against `git ls-files`: 415 rendered leaves + 124 inside the four collapsed directories = 539,
-with no invented paths. It deliberately asserts **no design or process claim** — it points here and at
-`AGENTS.md` / `PROGRESS.md` / `THINKING.md` rather than duplicating them.
+(370 non-`.meta` files — **368** `.cs` + 2 `README.md`; note its own header's "C# files | 370" is a
+*different* 370, counted repo-wide and so including the two vendored
+`Assets/TutorialInfo/Scripts/` files). Verified by rebuilding all **541** non-`.meta` paths out of the
+rendered tree and diffing against `git ls-files`: **417** rendered leaves + **124** inside the four
+collapsed directories = 541, with no invented paths and nothing uncovered. That verifier carries two
+controls — a bogus path that must read absent and a real new file that must read present — and was
+confirmed able to go red by withholding one real path on purpose, because a check nobody has seen fail
+is not a check (AGENTS rule 7/8). It deliberately asserts **no design or process claim** — it points
+here and at `AGENTS.md` / `PROGRESS.md` / `THINKING.md` rather than duplicating them.
 
 Three placement decisions worth stating, because the "obvious" answer differs:
 
@@ -2860,9 +2889,12 @@ Three placement decisions worth stating, because the "obvious" answer differs:
   `partial class PlayerController`, so it stays with the class it *is*. The test applied: group
   **independent components** (the three animators each stand alone), and leave a class's partials
   with their class.
-- **Spell geometry stays split by *when* it is drawn.** In-flight bodies are in
-  `SpellCaster.Projectiles.cs` (`CreateProjectileDisplay` / `BuildProjectileBody`); the falling rock
-  and its SkyRock styles are in `SkillFx.cs` (`FallRock` / `BuildRockBody`). Both are on the
+- **Spell geometry is split by *when* it is drawn, and as of 1jb by *what draws it*.** The
+  in-flight bodies were in `SpellCaster.Projectiles.cs` (`CreateProjectileDisplay` /
+  `BuildProjectileBody`) and are now `Models/Magic/MagicProjectileModelBuilder.cs`, which is where the
+  caster's two remaining call sites reach them. The falling rock and its SkyRock styles are still in
+  `SkillFx.cs` (`FallRock` / `BuildRockBody`) — a *skill* model, deliberately not swept up by a stage
+  about spell models (see the `SkillFx` note above). The projectile bodies are on the
   `MagicTestMatrix` bench (§3.8.3), which is why a change to either has an acceptance readout.
 
 ### 9.4a Source art lives outside `Assets/` (1iv)

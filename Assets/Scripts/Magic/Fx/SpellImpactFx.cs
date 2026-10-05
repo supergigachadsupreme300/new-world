@@ -32,6 +32,12 @@ using UnityEngine;
 ///
 /// <para>Read-only in the sense that matters: this class never touches terrain, damage or any
 /// gameplay state. It draws.</para>
+///
+/// <para><b>1jb: this class owns the flash's LIFETIME; the shapes moved to
+/// Models/Magic/MagicImpactModelBuilder.cs.</b> The eight per-style part builders used to be private
+/// instance methods on the nested <c>ImpactFlash</c>, so the only way to find the geometry was to
+/// know it was filed under the pool. They are now one static builder that returns what it built, and
+/// <c>ImpactFlash</c> keeps the pool, the budget, the growth curve, the tumble and the fade.</para>
 /// </summary>
 public static class SpellImpactFx
 {
@@ -159,9 +165,13 @@ public static class SpellImpactFx
         private float _scale = 1f;
         private Vector3 _spin;
 
-        private readonly List<Material> _materials = new List<Material>();
-        private readonly List<Transform> _parts = new List<Transform>();
-        private readonly List<bool> _spins = new List<bool>();
+        // 1jb: ONE list of what the builder actually made. This used to be three parallel lists
+        // (_materials/_parts/_spins) that the fade and tumble loops below walked by the same index —
+        // an invariant nothing checked and no compiler enforced. The geometry now returns a single
+        // Part per built piece (transform + material + spin flag together), so "these three lists must
+        // stay index-aligned" is unrepresentable rather than merely correct. See
+        // MagicImpactModelBuilder, which owns the shapes; this class owns the lifetime.
+        private List<MagicImpactModelBuilder.Part> _parts = new List<MagicImpactModelBuilder.Part>();
 
         public SpellImpactStyle Style { get; private set; }
 
@@ -170,42 +180,8 @@ public static class SpellImpactFx
         public void Build(SpellImpactStyle style, Shader shader)
         {
             Style = style;
-            Transform root = transform;
-
-            switch (style)
-            {
-                case SpellImpactStyle.Burst:
-                    ShardCluster(root, shader, 5, 0.62f);
-                    break;
-                case SpellImpactStyle.Ring:
-                    Ring(root, shader, 1f, "Ring");
-                    break;
-                case SpellImpactStyle.Sphere:
-                    Sphere(root, shader, "Core", 0.7f);
-                    Sphere(root, shader, "Halo", 1f);
-                    break;
-                case SpellImpactStyle.Cross:
-                    Disc(root, shader, "Disc", 0.95f);
-                    Blade(root, shader, "BarA", 0f);
-                    Blade(root, shader, "BarB", 90f);
-                    break;
-                case SpellImpactStyle.Shards:
-                    ShardCluster(root, shader, 7, 1f);
-                    Ring(root, shader, 0.55f, "Trace");
-                    break;
-                case SpellImpactStyle.Bloom:
-                    Sphere(root, shader, "Core", 0.55f);
-                    Sphere(root, shader, "Mid", 0.85f);
-                    Sphere(root, shader, "Out", 1.15f);
-                    break;
-                case SpellImpactStyle.Pillar:
-                    Column(root, shader);
-                    Ring(root, shader, 0.8f, "Foot");
-                    break;
-                default:
-                    Ring(root, shader, 1f, "Ring");
-                    break;
-            }
+            // 1jb: the per-style geometry is MagicImpactModelBuilder's. Everything below is lifetime.
+            _parts = MagicImpactModelBuilder.Build(transform, style, shader);
 
             gameObject.SetActive(false);
         }
@@ -226,9 +202,9 @@ public static class SpellImpactFx
 
             // Two-tone: alternating parts take Edge, the rest take Core, so a family reads as one
             // spell family rather than one flat colour.
-            for (int i = 0; i < _materials.Count; i++)
+            for (int i = 0; i < _parts.Count; i++)
             {
-                Material m = _materials[i];
+                Material m = _parts[i].Mat;
                 if (m == null) continue;
                 Color c = ((i & 1) == 1) ? look.Edge : look.Core;
                 c.a = 1f;
@@ -252,14 +228,14 @@ public static class SpellImpactFx
                 // Only the shard parts tumble; the ring/foot must stay flat on the ground.
                 for (int i = 0; i < _parts.Count; i++)
                 {
-                    if (_spins[i]) _parts[i].Rotate(_spin * Time.deltaTime, Space.Self);
+                    if (_parts[i].Spins) _parts[i].T.Rotate(_spin * Time.deltaTime, Space.Self);
                 }
             }
 
             float alpha = 1f - t;
-            for (int i = 0; i < _materials.Count; i++)
+            for (int i = 0; i < _parts.Count; i++)
             {
-                Material m = _materials[i];
+                Material m = _parts[i].Mat;
                 if (m == null) continue;
                 Color c = m.color;
                 c.a = alpha;
@@ -272,101 +248,6 @@ public static class SpellImpactFx
                 transform.localScale = Vector3.one;
                 Recycle(this);
             }
-        }
-
-        // ------------------------------------------------------------ part builders
-
-        private void Ring(Transform parent, Shader shader, float rel, string name)
-            => Cylinder(parent, shader, name, rel, 0.06f);
-
-        private void Disc(Transform parent, Shader shader, string name, float rel)
-            => Cylinder(parent, shader, name, rel, 0.05f);
-
-        private void Cylinder(Transform parent, Shader shader, string name, float rel, float thickness)
-        {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            StripCollider(go);
-            go.name = name;
-            go.transform.SetParent(parent, false);
-            go.transform.localScale = new Vector3(rel, thickness, rel);
-            Register(go.transform, shader, spins: false);
-        }
-
-        private void Sphere(Transform parent, Shader shader, string name, float rel)
-        {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            StripCollider(go);
-            go.name = name;
-            go.transform.SetParent(parent, false);
-            go.transform.localScale = Vector3.one * rel;
-            Register(go.transform, shader, spins: false);
-        }
-
-        private void Blade(Transform parent, Shader shader, string name, float yawDeg)
-        {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            StripCollider(go);
-            go.name = name;
-            go.transform.SetParent(parent, false);
-            go.transform.localRotation = Quaternion.Euler(0f, yawDeg, 0f);
-            go.transform.localScale = new Vector3(1.9f, 0.05f, 0.16f);
-            Register(go.transform, shader, spins: false);
-        }
-
-        private void Column(Transform parent, Shader shader)
-        {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            StripCollider(go);
-            go.name = "Column";
-            go.transform.SetParent(parent, false);
-            // Tall and thin, lifted so it stands ON the hit point rather than straddling it.
-            go.transform.localPosition = new Vector3(0f, 0.9f, 0f);
-            go.transform.localScale = new Vector3(0.34f, 1.15f, 0.34f);
-            Register(go.transform, shader, spins: false);
-        }
-
-        private void ShardCluster(Transform parent, Shader shader, int count, float rel)
-        {
-            for (int i = 0; i < count; i++)
-            {
-                GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                StripCollider(go);
-                go.name = "Shard" + i;
-                go.transform.SetParent(parent, false);
-                float ang = i * (360f / count) + (i % 2) * 12f;
-                float rad = rel * (0.35f + (i % 3) * 0.16f);
-                float a = ang * Mathf.Deg2Rad;
-                go.transform.localPosition = new Vector3(Mathf.Cos(a) * rad, 0.05f + i * 0.03f, Mathf.Sin(a) * rad);
-                go.transform.localRotation = Quaternion.Euler(28f + i * 9f, ang, 12f * i);
-                float s = rel * (0.26f - i * 0.02f);
-                go.transform.localScale = new Vector3(s, s * 0.7f, s);
-                Register(go.transform, shader, spins: true);
-            }
-        }
-
-        private static void StripCollider(GameObject go)
-        {
-            Collider col = go.GetComponent<Collider>();
-            if (col == null) return;
-            // Disable BEFORE Destroy. Destroy is deferred to the end of the frame, so a collider left
-            // enabled stays in the physics scene for the rest of it — harmless only because
-            // Build() deactivates the root before the next FixedUpdate, which is an invariant two
-            // files away. Making the removal immediate keeps it local.
-            col.enabled = false;
-            Object.Destroy(col);
-        }
-
-        private void Register(Transform t, Shader shader, bool spins)
-        {
-            MeshRenderer r = t.GetComponent<MeshRenderer>();
-            if (r == null) return;
-            // Per-instance material: the fade mutates .color in place, so a shared one would
-            // corrupt every other live flash of the same colour.
-            Material mat = new Material(shader);
-            r.material = mat;
-            _materials.Add(mat);
-            _parts.Add(t);
-            _spins.Add(spins);
         }
     }
 }

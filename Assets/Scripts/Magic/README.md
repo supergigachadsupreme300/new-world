@@ -8,30 +8,38 @@ spell pipeline.
 | Folder | Owns | Start here |
 |---|---|---|
 | `Look/` | the single source of a spell's visual identity | **`SpellLook.Resolve(spell)`** — impact/cast/body style, colour, scale. Every consumer resolves through this; do not re-derive a spell's look anywhere else. |
-| `Fx/` | what a spell **emits** | `SkillFx.FallRock` / `SkillFx.BuildRockBody` (the falling rock and its SkyRock styles), `SkillFx.SlashFlash`, `SkillFx.RingFlash`, `SpellImpactFx.Spawn`, `CastingCircle` |
+| `Fx/` | what a spell **emits** | `SpellImpactFx.Spawn` (pooled flash; its *shapes* are `../Models/Magic/MagicImpactModelBuilder.cs`), `SkillFx.FallRock` / `SkillFx.BuildRockBody` (the falling rock and its SkyRock styles), `SkillFx.SlashFlash`, `SkillFx.RingFlash` (shared hit reactions — not spell identities), `CastingCircle` |
 | `Cast/` | the spell pipeline | `SpellCaster` + its partials, `SpellData` (the ScriptableObject every spell is authored on), the delivery components `SpellEffect` / `SpellZone` / `SpellStorm` / `SpellTornado` / `SpellSummon` / `SpellBeam`, and `SpellDoT` |
 | `Ui/` | the two screens that read all of the above | `MagicWheelUI` (in-game picker), `MagicTestMatrix` (the QA bench that mounts the real builders so a visual change has a readout) |
 
 ## "Where is the code that builds a magic model?"
 
-There is no single file, and that is deliberate — the bodies are split by *when* they are drawn, not
-by what they are:
+As of **1jb** most of it does have a name. The bodies are still split by *when* they are drawn, but
+the shape builders are no longer buried in the class that happens to spawn them:
 
-- **In-flight body (orb, swarm, generic bolt)** — `SpellCaster.CreateProjectileDisplay` /
-  `SpellCaster.BuildProjectileBody`, in `Cast/SpellCaster.Projectiles.cs`. This is also the method
-  `MagicTestMatrix` and the QA bench call, so what you change is what you see.
+- **In-flight body (orb, swarm, generic bolt)** — `MagicProjectileModelBuilder`, in
+  `../Models/Magic/MagicProjectileModelBuilder.cs` (1jb). `CreateProjectileDisplay` /
+  `BuildProjectileBody` and their 10-shape switch used to be `static` methods inside the *casting*
+  class, so a bench that only wanted to show a body had to pretend to cast a spell. `SpellCaster`
+  still calls it, and `MagicTestMatrix` / the QA bench call it too, so what you change is what you see.
+- **Impact flash shapes** (Burst, Ring, Sphere, Cross, Shards, Bloom, Pillar) —
+  `MagicImpactModelBuilder`, in `../Models/Magic/MagicImpactModelBuilder.cs` (1jb). Only the *shapes*
+  moved: `SpellImpactFx.Spawn` and the pooled `ImpactFlash` still own the budget, growth, tumble and
+  fade, because the lifetime of an effect belongs to whoever owns the effect.
 - **Falling rock body and its SkyRock styles** — `SkillFx.BuildRockBody` / `SkillFx.FallRock`, in
-  `Fx/SkillFx.cs`.
+  `Fx/SkillFx.cs`. **Still unnamed on purpose.** `SkillFx` also owns `SlashFlash` and `RingFlash`,
+  which are hit reactions for *every* weapon class rather than spell identities, so lifting the rock
+  out would leave the class still mixed. It is a skill model, not a spell model.
 - **The four magic *weapon* models** (staff, holy book, bone wand, control orb) —
-  `Models/WeaponModelBuilder.cs` in `../Models/`. That file builds **all twenty** weapons, so the
-  magic four cannot move here without splitting the file; look for `BuildStaff`, `BuildHolyBook`,
-  `BuildBoneWand`, `BuildControlOrb` (dispatched by `WeaponModelBuilder.Build(weaponId, …)`).
+  `MagicWeaponModelBuilder`, in `../Models/Magic/` (1ja). `Models/WeaponModelBuilder.cs` still holds
+  the shared palette and `MakeBlock` they import, and its dispatch still lists all **18** weapons
+  (14 non-magic here + those 4).
 
 ## Two rules that survive a move
 
-- **Partial classes stay together.** All five `SpellCaster.*` files are in `Cast/` even though only
-  `.Projectiles` owns geometry. Do not split the group to make a body builder easier to find; add a
-  line to this file instead.
+- **Partial classes stay together.** All five `SpellCaster.*` files are in `Cast/`. 1jb moved the
+  geometry *out* of the group rather than splitting it, so this rule and a named model file are not in
+  conflict: do not split the partials to make something easier to find; add a line to this file.
 - **No `using` was needed.** There are no namespaces in this project and no `.asmdef`, so a folder is
   an organisational unit only — moving a file can never break compilation. What *can* break is a
   `.meta`: every move here carries its `.meta` with it, and the check that proves it is that the

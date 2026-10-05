@@ -62,12 +62,19 @@ $crateraudit = 'Assets\Scripts\World\Streaming\WorldStreamer.CraterAudit.cs'
 # and renamed the manager class and its two HUD-facing ms properties, which is a wide
 # edit with no compiler behind it - the class is the one the streamer skips dormant
 # entries for, so a wrong signature here is a silent visibility bug, not an error.
+# 1jb added the two magic model builders: brand-new ~440- and ~200-line files created by
+# MOVING code out of SpellCaster.Projectiles.cs / SpellImpactFx.cs. A move is the one edit
+# with no compiler behind it that can silently drop or duplicate a method, so check 1
+# (balance) is the cheapest thing that can catch a botched relocation. Neither file has a
+# switch or WorldBuilder helpers, so only check 1 structurally applies.
 $files = @($blueprints, $persistence, $npcs, $world, $testground, $corneraudit,
            $chunkbuild, $farshell, $deform, $crateraudit,
            'Assets\Scripts\World\Terrain\ChunkMeshGenerator.cs',
            'Assets\Scripts\World\Chunks\ChunkObject.cs',
            'Assets\Scripts\Opt\ChunkDistanceCull.cs',
-           'Assets\Scripts\UI\NewWorld\NewWorldSystems.cs')
+           'Assets\Scripts\UI\NewWorld\NewWorldSystems.cs',
+           'Assets\Scripts\Models\Magic\MagicProjectileModelBuilder.cs',
+           'Assets\Scripts\Models\Magic\MagicImpactModelBuilder.cs')
 
 # Types a structure-part helper can be declared with, plus local declarations.
 $retAlt  = '(?:static\s+)?(?:GameObject|void|int|float|bool|string|Vector3|Color|Vector2|Quaternion|Transform)'

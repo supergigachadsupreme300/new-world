@@ -1782,7 +1782,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
             }
             else
             {
-                SpellCaster.CreateProjectileDisplay(spell)
+                MagicProjectileModelBuilder.CreateProjectileDisplay(spell)
                     .transform.SetParent(modelRoot.transform, false);
             }
 

@@ -9,14 +9,14 @@ powershell -ExecutionPolicy Bypass -File tools\Write-Tree.ps1
 | | |
 |---|---|
 | Source of truth | `git ls-files` (untracked and `.gitignore`d paths cannot appear) |
-| Generated at commit | `c01d5a7` (HEAD when written - the commit *before* the one this file lands in) |
-| Generated on | 2026-10-04 10:13 |
-| Tracked files | 1173 = 539 non-`.meta` + 634 `.meta` |
-| C# files | 368 |
+| Generated at commit | `456a30d` (HEAD when written - the commit *before* the one this file lands in) |
+| Generated on | 2026-10-04 10:57 |
+| Tracked files | 1177 = 541 non-`.meta` + 636 `.meta` |
+| C# files | 370 |
 
 Reading the tree:
 
-- `.meta` files are omitted everywhere. There are 634 of them and none carries
+- `.meta` files are omitted everywhere. There are 636 of them and none carries
   information a reader needs; every `.cs` has a paired `.cs.meta` and every folder under
   `Assets/` has a folder meta. `tools\StaticChecks.ps1` guards that invariant.
 - `name/   [N files]` means the directory was collapsed for length. Nothing inside it is
@@ -232,6 +232,8 @@ regenerated to verify.
 │   │   │   └── WifeDonationField.cs
 │   │   ├── Models/
 │   │   │   ├── Magic/
+│   │   │   │   ├── MagicImpactModelBuilder.cs
+│   │   │   │   ├── MagicProjectileModelBuilder.cs
 │   │   │   │   └── MagicWeaponModelBuilder.cs
 │   │   │   ├── MapBuilder/
 │   │   │   │   ├── MapBuilder.cs

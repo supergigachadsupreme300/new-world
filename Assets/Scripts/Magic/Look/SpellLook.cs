@@ -290,7 +290,7 @@ public readonly struct SpellLook
 
     /// <summary>
     /// Identity-less fallback for callers that have a DamageType and a shape but no
-    /// <see cref="SpellData"/> — <c>SpellCaster.CreateProjectileDisplay(DamageType,
+    /// <see cref="SpellData"/> — <c>MagicProjectileModelBuilder.CreateProjectileDisplay(DamageType,
     /// ProjectileShape)</c> and any other spell-less caller. These deliberately get
     /// the <b>school default</b> with no id hash, so every such projectile looks like its school
     /// rather than pretending to be a specific spell. This is a named fallback, not a fourth

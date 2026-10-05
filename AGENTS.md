@@ -1,4 +1,4 @@
-﻿# Project Rules
+# Project Rules
 
 1. **Always commit and push after every task.** Commit on Git `main` and push to
    `https://github.com/supergigachadsupreme300/new-world` (PowerShell; e.g.
@@ -847,3 +847,33 @@
       instead of needing a restart. Note the guard's condition — "no phase owns the transform" — is
       also what keeps re-parenting correct: a re-parent rewrites the local pose, so the rest must be
       re-authorable, and an idle rig is exactly when that is safe.
+
+17. **A move is the one edit whose diff proves nothing, and it rots the docs that name what moved.**
+   Rule 7 says measure before fixing a report you cannot see, and rule 8 says a *copy* of a fact rots
+   where the original does not. 1jb was a pure code move - 18 static methods out of one file, 8 shape
+   builders out of another - and it produced two failures that no existing rule covered:
+   - **The two halves of a move are never compared to each other, and a line can be textually
+     IDENTICAL in both places and still have to change.** `Destroy(col)` was correct inside
+     `SpellCaster : MonoBehaviour` and stops resolving inside a `static class`, so the moved copy needs
+     `Object.Destroy(col)`. A `git diff` cannot show this: the line is unchanged text, and the deletion
+     hunk and the new-file hunk live in different files, so a reader diffing either one sees nothing.
+     The same blind spot drops or duplicates a whole method with `braces` and `parens` still balanced.
+     So **diff the moved body against the pre-move source**, comment- and whitespace-normalised, and
+     **prove the comparator can fail** by mutating one line and watching it report the change. 1jb did
+     both: 379 normalised lines, 0 differences, and a `0.38f` -> `0.39f` mutation that fired. Rule 3 is
+     why this matters twice over - with no compiler, the comparator IS the compiler.
+   - **A doc that records OWNERSHIP goes stale invisibly, because grep still finds the symbol.** This is
+     rule 8's stale-comment bullet at documentation scale, and 1jb found the rot in a file 1ja had
+     already shipped: `Magic/README.md` still sent the reader to `Models/WeaponModelBuilder.cs` for the
+     four magic weapon models a whole task after 1ja moved them out of it, and still claimed "all twenty
+     weapons" when the dispatch has **18**. Neither is a missing symbol, so no existence grep can catch
+     either - the symbol is present and the reader is sent to the wrong file with full confidence. So
+     after any move, grep for the **qualified** owner string (`SpellCaster.CreateProjectileDisplay`),
+     never only the bare name: a bare-name grep passes on stale ownership *by construction*. This is the
+     same reason no doc in this repo writes a line number.
+   - Corollary on the same seam: **the moment a helper's output has to cross a class boundary, look for
+     the handoff.** `MagicImpactModelBuilder` returns its pieces, and the shape it used to hand back was
+     three *parallel lists* (`_materials`/`_parts`/`_spins`) that a fade loop in another class indexed in
+     lockstep - an invariant no compiler and no check enforced. That is rule 8's copy-rot in miniature:
+     when an extraction forces an interface, return one record per piece (here `Part`, carrying transform +
+     material + spin flag together) so the alignment cannot be violated at all.

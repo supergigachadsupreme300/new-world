@@ -136,8 +136,10 @@ Assets/Scripts/
     World/                       MapBuilder/ (buildings, vehicles, nature, clouds) - 40-file dep
     Weapons/
       WeaponModelBuilder.cs       the 14 non-magic weapons + dispatch
-      Magic/                      the 4 magic bodies - landed in stage 1, moves here in stage 2
-        MagicWeaponModelBuilder.cs
+      Magic/                      the named magic MODELS - landed in stages 1/1b, move here in stage 2
+        MagicWeaponModelBuilder.cs     the 4 magic weapon bodies (stage 1, 1ja)
+        MagicProjectileModelBuilder.cs the 10 projectile bodies + the bench displays (stage 1b, 1jb)
+        MagicImpactModelBuilder.cs     the 8 impact-flash families (stage 1b, 1jb)
 ```
 
 ### The one-line test for a proposed move
@@ -152,7 +154,7 @@ Assets/Scripts/
    (10 files) are never separated from their class, and `PlayerController.Animation.cs` is *not* moved in
    stages 1–2. This is the existing `Animation/README.md` rule; stage 3 replaces it with something stronger.
 2. **No namespaces, no `.asmdef`** — so a move cannot break compilation. **`.meta` parity is the real
-   check**: `.cs` count == `.cs.meta` count under `Assets/Scripts` (366/366 after stage 1; re-measure,
+   check**: `.cs` count == `.cs.meta` count under `Assets/Scripts` (368/368 after stage 1b; re-measure,
    do not carry the number forward).
 3. **A folder name is not evidence of purpose.** §2.1 and §2.2 are both this mistake. When you move a
    file, re-read what calls it; do not trust the folder it came from.
@@ -187,6 +189,45 @@ Extract `WeaponModelBuilder.cs` **L199-275** (`BuildStaff`, `BuildHolyBook`, `Bu
 - Carried the `// 11.`–`// 14.` section headers with the methods. These are the weapon's index in
   `WeaponCatalog` registration order, **not** a per-file counter, so `WeaponModelBuilder` deliberately
   keeps a visible gap at 11–14 rather than renumbering to close it. Both files say so in a comment.
+
+### Stage 1b — the magic *spell* models  *(SHIPPED in 1jb)*
+
+Same theme as stage 1, different subsystem: give the two remaining unnamed blocks of magic geometry a
+name and a file, so `Models/Magic/` means "the magic models" rather than "the magic weapon models".
+
+The request named three categories. **Only two were files that did not already have one**, and the
+measurement is the reason to say so rather than extract all three:
+
+- **Projectile bodies — moved.** `SpellCaster.Projectiles.cs` held 18 static methods (2 `Create` overloads,
+  `Attach`, `Build` + its 10-shape switch, and 7 primitive helpers) inside a **spawning** class, so a
+  bench or a future projectile wanted to show a body without pretending to cast a spell. That is
+  `MagicProjectileModelBuilder`. `SpellCaster.Projectiles.cs` keeps `FireProjectile` +
+  `DecorateProjectile`; the class is named after the caster, so geometry was never its job.
+- **Impact flashes — moved, and the only structural edit of the stage.** `SpellImpactFx.ImpactFlash`
+  owned both the shapes (a 32-statement `Spawn` switch) and the pooled lifetime. The three shapes are
+  `MagicImpactModelBuilder`. This one could **not** be verbatim, because the builder had to hand its
+  output back across a class boundary, and it had been doing so with **three parallel lists**
+  (`_materials` / `_parts` / `_spins`) that the fade and tumble loops walked by a shared index — an
+  invariant nothing checked and no compiler enforced. The builder now returns one
+  `MagicImpactModelBuilder.Part` per built piece (transform + material + spin flag), so
+  "these three lists must stay index-aligned" is **unrepresentable** rather than merely correct
+  (AGENTS rule 8: the copy, not the source, is what rots). `ImpactFlash` keeps pooling, budget, growth,
+  tumble and fade — the *lifetime* of the effect is behaviour and stays with the effect's owner.
+- **Magic circles — already had a file; premise fails.** `Magic/Fx/CastingCircle.cs` is the caster's
+  stand-in circle, and the casting rings already live there. The inline `BuildVisual`/`SpawnZoneRing`
+  methods left behind in `SkillFx` are per-instance behaviour (a ring that follows a fireball has to be
+  spawned and spun by whoever owns the fireball), not a shape library, so there was nothing to name.
+- **Skill models — not this stage, reported instead.** The candidate is `SkillFx.BuildRockBody`
+  (the spell-backed falling rock). It shares its host with `RingFlash`/`SlashFlash`, which are
+  **shared combat FX, not magic models** — 22 and 8 call sites respectively, every one of them a
+  melee/ranged/spell hit reaction rather than a spell identity. Lifting `BuildRockBody` alone would
+  leave `SkillFx` still unnamed and still a grab-bag, and it is a *different* subsystem from the
+  spell FX this stage was about. It is recorded here as the next candidate, deliberately not taken.
+
+> **One catch worth naming, because a move with no compiler behind it hides it.** The projectile block
+> called `Destroy(col)`; inside a `static class` that no longer inherits `MonoBehaviour`, the bare name
+> stops resolving and has to be `Object.Destroy(col)`. Nothing about this is visible in a diff review of
+> a *move* — the line looks untouched because it is textually identical to what was there before.
 
 ### Stage 2 — `Models/` → `Geometry/{Actors,Weapons,World}`  *(pure moves, zero code edits)*
 
