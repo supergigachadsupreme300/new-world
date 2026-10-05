@@ -1,7 +1,7 @@
 ﻿using System;
 using UnityEngine;
 
-public static partial class MapBuilder
+public static class PlayerModelBuilder
 {
     // ==================== MapBuilderPlayerModel.cs ====================
     // ═══════════════════════════════════════════════════════════════

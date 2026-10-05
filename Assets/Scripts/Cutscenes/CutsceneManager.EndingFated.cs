@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -7,9 +7,9 @@ using TMPro;
 
 public partial class CutsceneManager 
 {
-    // ═══════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     //  FATED ENDING
-    // ═══════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     private IEnumerator FatedEndingRoutine(System.Action onComplete = null)
     {
@@ -62,15 +62,15 @@ public partial class CutsceneManager
         GameManager.Instance?.SetTimeOfDay(12f);
         if (GameManager.Instance != null) GameManager.Instance.TimeSpeed = 0;
 
-        // ── Set: the real mansion (front = -x, facade-left living room) ──
+        // â”€â”€ Set: the real mansion (front = -x, facade-left living room) â”€â”€
 
-        // ── Police car parked on the grass in front of the mansion ──
+        // â”€â”€ Police car parked on the grass in front of the mansion â”€â”€
         var policeCar = MapBuilder.BuildPoliceCar(null, P(new Vector3(-4f, 0f, 13.5f)));
         policeCar.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
         RegisterSpawned(policeCar);
 
-        // ── Dead bodies inside the living room ──
-        var deadPlayer = MapBuilder.BuildPlayerModel(null);
+        // â”€â”€ Dead bodies inside the living room â”€â”€
+        var deadPlayer = PlayerModelBuilder.BuildPlayerModel(null);
         deadPlayer.transform.position = P(new Vector3(-8.2f, 0.69f, 6.4f));
         deadPlayer.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
         foreach (var r in deadPlayer.GetComponentsInChildren<Renderer>())
@@ -86,10 +86,10 @@ public partial class CutsceneManager
         CreateBloodPool(P(new Vector3(-8.2f, 0.53f, 6.4f)));
         CreateBloodPool(P(new Vector3(-5.5f, 0.53f, 5.4f)));
 
-        // ── Robbery / addiction clue props ──
+        // â”€â”€ Robbery / addiction clue props â”€â”€
         BuildRobberyClues(P(new Vector3(-8.5f, 0.50f, 6.2f)));
 
-        // ── Police officers (inside the living room, near the front wall) ──
+        // â”€â”€ Police officers (inside the living room, near the front wall) â”€â”€
         var officerA = MapBuilder.BuildPoliceOfficer(null,
             P(new Vector3(-9f, 1.43f, 7.6f)), Quaternion.Euler(0f, 180f, 0f));
         RegisterSpawned(officerA);
@@ -97,7 +97,7 @@ public partial class CutsceneManager
             P(new Vector3(-4.6f, 1.43f, 7.6f)), Quaternion.Euler(0f, 180f, 0f));
         RegisterSpawned(officerB);
 
-        // ── Demons lurking at the room edges (camera border only) ──
+        // â”€â”€ Demons lurking at the room edges (camera border only) â”€â”€
         var demons = new List<Transform>();
         for (int g = 0; g < 5; g++)
         {
@@ -127,7 +127,7 @@ public partial class CutsceneManager
             StartCoroutine(IdleBob(demons[i], 0.15f));
         }
 
-        // ── PHASE 1: exterior daytime, police car at the mansion front (4s) ──
+        // â”€â”€ PHASE 1: exterior daytime, police car at the mansion front (4s) â”€â”€
         Vector3 camExt = P(new Vector3(-6f, 2.6f, 16f));
         if (_mainCamera != null)
         {
@@ -135,10 +135,10 @@ public partial class CutsceneManager
             _mainCamera.transform.LookAt(P(new Vector3(0f, 1.8f, 8.5f)));
         }
         yield return StartCoroutine(FadeOverlay(0, 2f));
-        yield return StartCoroutine(ShowSubtitle("Cửa dinh thự mở toang... còn chiếc xe cảnh sát đậu bên ngoài.", 3f));
+        yield return StartCoroutine(ShowSubtitle("Cá»­a dinh thá»± má»Ÿ toang... cÃ²n chiáº¿c xe cáº£nh sÃ¡t Ä‘áº­u bÃªn ngoÃ i.", 3f));
         yield return new WaitForSeconds(1f);
 
-        // ── PHASE 2: cut inside the living room, reveal bodies (6s) ──
+        // â”€â”€ PHASE 2: cut inside the living room, reveal bodies (6s) â”€â”€
         yield return StartCoroutine(FadeOverlay(1f, 0.6f));
         Vector3 camIn = P(new Vector3(-6.5f, 4.5f, 7.4f));
         Vector3 lookBodies = P(new Vector3(-6.9f, 0.85f, 5.9f));
@@ -149,33 +149,33 @@ public partial class CutsceneManager
         }
         yield return StartCoroutine(FadeOverlay(0f, 0.6f));
         yield return StartCoroutine(PanCamera(camIn, P(new Vector3(-6.8f, 4.3f, 7.2f)), lookBodies, 2.5f));
-        yield return StartCoroutine(ShowSubtitle("Trong phòng... hai thi thể nằm bất động.", 3.5f));
+        yield return StartCoroutine(ShowSubtitle("Trong phÃ²ng... hai thi thá»ƒ náº±m báº¥t Ä‘á»™ng.", 3.5f));
 
-        // ── PHASE 3: officers walk over, discover (7s) ──
+        // â”€â”€ PHASE 3: officers walk over, discover (7s) â”€â”€
         yield return StartCoroutine(WalkStraight(officerA.transform,
             P(new Vector3(-9f, 1.43f, 7.6f)),
             P(new Vector3(-8.2f, 1.43f, 6.4f)), 3.5f));
         yield return StartCoroutine(WalkStraight(officerB.transform,
             P(new Vector3(-4.6f, 1.43f, 7.6f)),
             P(new Vector3(-5.6f, 1.43f, 5.8f)), 3.5f));
-        yield return StartCoroutine(ShowSubtitle("Cửa bị phá. Đồ đạc vương vãi khắp nơi.", 3.5f));
+        yield return StartCoroutine(ShowSubtitle("Cá»­a bá»‹ phÃ¡. Äá»“ Ä‘áº¡c vÆ°Æ¡ng vÃ£i kháº¯p nÆ¡i.", 3.5f));
         yield return new WaitForSeconds(0.5f);
 
-        // ── PHASE 4: the clue (13s) ──
+        // â”€â”€ PHASE 4: the clue (13s) â”€â”€
         Vector3 camClue = P(new Vector3(-8.6f, 1.75f, 7.6f));
         Vector3 lookClue = P(new Vector3(-8.5f, 0.65f, 6.2f));
         yield return StartCoroutine(PanCamera(camIn, camClue, lookClue, 2.5f));
-        yield return StartCoroutine(ShowSubtitle("Một vụ trộm... nhưng chỉ mất vài đồng vàng vụn.", 3f));
-        yield return StartCoroutine(ShowSubtitle("Khoan đã... bơm kim tiêm. Dấu vết nghiện ngập.", 3f));
-        yield return StartCoroutine(ShowSubtitle("Kẻ nghiện này... có vẻ liên quan đến gia tộc giàu có.", 3.5f));
+        yield return StartCoroutine(ShowSubtitle("Má»™t vá»¥ trá»™m... nhÆ°ng chá»‰ máº¥t vÃ i Ä‘á»“ng vÃ ng vá»¥n.", 3f));
+        yield return StartCoroutine(ShowSubtitle("Khoan Ä‘Ã£... bÆ¡m kim tiÃªm. Dáº¥u váº¿t nghiá»‡n ngáº­p.", 3f));
+        yield return StartCoroutine(ShowSubtitle("Káº» nghiá»‡n nÃ y... cÃ³ váº» liÃªn quan Ä‘áº¿n gia tá»™c giÃ u cÃ³.", 3.5f));
 
-        // ── PHASE 5: lights dim, the demons at the border (6s) ──
+        // â”€â”€ PHASE 5: lights dim, the demons at the border (6s) â”€â”€
         yield return StartCoroutine(FadeOverlay(0.7f, 2.5f));
-        yield return StartCoroutine(ShowSubtitle("Và lũ quỷ... vẫn đứng im ngay rìa bóng tối. Không ai nhìn thấy chúng.", 3.5f));
+        yield return StartCoroutine(ShowSubtitle("VÃ  lÅ© quá»·... váº«n Ä‘á»©ng im ngay rÃ¬a bÃ³ng tá»‘i. KhÃ´ng ai nhÃ¬n tháº¥y chÃºng.", 3.5f));
         yield return new WaitForSeconds(0.5f);
         yield return StartCoroutine(FadeOverlay(1f, 2f));
 
-        // ── PHASE 6: end screen ──
+        // â”€â”€ PHASE 6: end screen â”€â”€
         HideSkipButton();
         DestroySubtitle();
         CleanupSpawned();
@@ -183,8 +183,8 @@ public partial class CutsceneManager
         DestroyOverlay();
 
         FinishEndingScene(onComplete,
-            Localization.T("KẾT THÚC ĐỊNH MỆNH"),
-            Localization.T("Bạn và Jessica đã xây xong dinh thự... nhưng không bao giờ diệt Quỷ Vương,\nkhông lật tẩy bí mật của Phú Ông.\n\nMột đêm, kẻ nghiện ngập do ma túy của Phú Ông đã đột nhập.\nCảnh sát tìm thấy hai thi thể trong chính ngôi nhà bạn xây nên.\nDấu vết: một vụ trộm... do nghiện ngập.\n\nVà lũ quỷ vẫn đứng im ở rìa màn đêm,\nkhông một ai nhìn thấy chúng.\n\nĐịnh mệnh của bạn đã kết thúc ngay trong nhà mình."));
+            Localization.T("Káº¾T THÃšC Äá»ŠNH Má»†NH"),
+            Localization.T("Báº¡n vÃ  Jessica Ä‘Ã£ xÃ¢y xong dinh thá»±... nhÆ°ng khÃ´ng bao giá» diá»‡t Quá»· VÆ°Æ¡ng,\nkhÃ´ng láº­t táº©y bÃ­ máº­t cá»§a PhÃº Ã”ng.\n\nMá»™t Ä‘Ãªm, káº» nghiá»‡n ngáº­p do ma tÃºy cá»§a PhÃº Ã”ng Ä‘Ã£ Ä‘á»™t nháº­p.\nCáº£nh sÃ¡t tÃ¬m tháº¥y hai thi thá»ƒ trong chÃ­nh ngÃ´i nhÃ  báº¡n xÃ¢y nÃªn.\nDáº¥u váº¿t: má»™t vá»¥ trá»™m... do nghiá»‡n ngáº­p.\n\nVÃ  lÅ© quá»· váº«n Ä‘á»©ng im á»Ÿ rÃ¬a mÃ n Ä‘Ãªm,\nkhÃ´ng má»™t ai nhÃ¬n tháº¥y chÃºng.\n\nÄá»‹nh má»‡nh cá»§a báº¡n Ä‘Ã£ káº¿t thÃºc ngay trong nhÃ  mÃ¬nh."));
         }
         finally
         {

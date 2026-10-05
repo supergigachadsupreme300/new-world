@@ -1,4 +1,4 @@
-/// <summary>Partial player controller — visual/animation cluster: player model build/reload,
+﻿/// <summary>Partial player controller â€” visual/animation cluster: player model build/reload,
 /// race-change subscription, drawing/stowing of equipped weapons, and arm-chain layer checks.
 /// Mechanically split from PlayerController.cs; no behavior or signature changes.</summary>
 using System.Collections;
@@ -10,7 +10,7 @@ public partial class PlayerController
 {
     /// <summary>
     /// Whether the equipped weapons should be visually drawn in the hands (vs. stowed on the body).
-    /// Weapons only draw while fighting — casual mode always sheathes them onto the back/waist,
+    /// Weapons only draw while fighting â€” casual mode always sheathes them onto the back/waist,
     /// regardless of camera view (first person included). Reverted from the 1cr rule ("keep drawn
     /// in first person") per play-test feedback: a weapon at port arms is a fighting pose and does
     /// not belong in normal mode.
@@ -32,7 +32,7 @@ public partial class PlayerController
             Destroy(existing.gameObject);
 
         // Remember what was equipped so a model reload (gender/race change) can re-rig the same
-        // weapons once the fresh hands exist — but never auto-equips weapons the player unequipped.
+        // weapons once the fresh hands exist â€” but never auto-equips weapons the player unequipped.
         _pendingAutoRig.Clear();
         var combat = CombatCached;
         if (combat != null)
@@ -45,12 +45,12 @@ public partial class PlayerController
                 _pendingAutoRig.Add((lh.Data.id, true));
         }
 
-        _playerModelInstance = MapBuilder.BuildPlayerModel(transform);
+        _playerModelInstance = PlayerModelBuilder.BuildPlayerModel(transform);
 
         if (_playerModelInstance != null)
         {
-            // Body renderers → layer 6 (culled in first person). Arm/hand renderers (and any
-            // weapon rig parented to a hand, which hangs under the Shoulder pivots) → layer 7,
+            // Body renderers â†’ layer 6 (culled in first person). Arm/hand renderers (and any
+            // weapon rig parented to a hand, which hangs under the Shoulder pivots) â†’ layer 7,
             // which CameraModeSwitch keeps visible so the player sees their own arms in 1st person.
             foreach (var r in _playerModelInstance.GetComponentsInChildren<Renderer>())
                 r.gameObject.layer = IsArmUnderShoulder(r.transform) ? 7 : 6;
@@ -61,12 +61,12 @@ public partial class PlayerController
         // player root (hidden inside the torso); re-seat it onto the fresh hand bones.
         WeaponRigBuilder.ReparentToHands(gameObject);
         // Re-apply the current weapon pose (drawn only while fighting, stowed in casual mode) now
-        // that the model's hand + body anchors exist again. Snap immediately — a fresh model has no
+        // that the model's hand + body anchors exist again. Snap immediately â€” a fresh model has no
         // in-flight draw/stow transition to continue.
         ReApplyWeaponPose(instant: true);
 
         // Subscribe once: a race change rebuilds the model with the new palette/body ratios
-        // (§3.5 Race Visuals). Idempotent — LoadPlayerModel runs on Awake, gender, and respawn.
+        // (Â§3.5 Race Visuals). Idempotent â€” LoadPlayerModel runs on Awake, gender, and respawn.
         if (!_raceSubscribed)
         {
             var rcm = GetComponent<RaceChangeManager>();
@@ -78,7 +78,7 @@ public partial class PlayerController
         }
     }
 
-    /// <summary>True when the renderer sits on the arm chain (Shoulder → Elbow → Hand) or a held
+    /// <summary>True when the renderer sits on the arm chain (Shoulder â†’ Elbow â†’ Hand) or a held
     /// weapon rig parented to it. Declared inline so no top-level helper is added to the class.</summary>
     private static bool IsArmUnderShoulder(Transform t)
     {

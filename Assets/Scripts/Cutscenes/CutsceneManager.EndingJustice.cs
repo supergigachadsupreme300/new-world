@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -39,7 +39,7 @@ public partial class CutsceneManager
                 if (realModel != null)
                     realModel.gameObject.SetActive(false);
             }
-            var justicePlayerModel = MapBuilder.BuildPlayerModel(null);
+            var justicePlayerModel = PlayerModelBuilder.BuildPlayerModel(null);
             justicePlayerModel.transform.position = new Vector3(playerX, 0.82f, playerZ);
             justicePlayerModel.transform.rotation = Quaternion.identity;
             foreach (var r in justicePlayerModel.GetComponentsInChildren<Renderer>())
@@ -53,7 +53,7 @@ public partial class CutsceneManager
                 r.gameObject.layer = 0;
             RegisterSpawned(richModel);
 
-            // ── PHASE 1: OPENING SHOT ──
+            // â”€â”€ PHASE 1: OPENING SHOT â”€â”€
             Vector3 camStart = new Vector3(RoadX, 2.2f, playerZ - 3f);
             if (_mainCamera != null)
             {
@@ -63,7 +63,7 @@ public partial class CutsceneManager
             yield return StartCoroutine(FadeOverlay(0, 2f));
             yield return new WaitForSeconds(2f);
 
-            // ── PHASE 2: POLICE CAR ARRIVES ──
+            // â”€â”€ PHASE 2: POLICE CAR ARRIVES â”€â”€
             float carStopZ = 104f;
             var policeCar = MapBuilder.BuildPoliceCar(null, new Vector3(RoadX, 0f, 116f));
             policeCar.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
@@ -84,7 +84,7 @@ public partial class CutsceneManager
                 r.gameObject.layer = 0;
             RegisterSpawned(officer);
 
-            // ── PHASE 3: THE ARREST ──
+            // â”€â”€ PHASE 3: THE ARREST â”€â”€
             Vector3 officerStart = officer.transform.position;
             Vector3 richPos = richModel.transform.position;
             Vector3 arrestTarget = Vector3.MoveTowards(officerStart, richPos, Mathf.Max(0f, Vector3.Distance(officerStart, richPos) - 1.5f));
@@ -105,7 +105,7 @@ public partial class CutsceneManager
             }
             yield return new WaitForSeconds(1.5f);
 
-            // ── PHASE 4: TAKEN AWAY (walk west to the car, then back toward the doors) ──
+            // â”€â”€ PHASE 4: TAKEN AWAY (walk west to the car, then back toward the doors) â”€â”€
             Vector3 richStart = richModel.transform.position;
             Vector3 officerPhase4Start = officer.transform.position;
             Vector3 carDoor = new Vector3(RoadX - 0.6f, 0.86f, carStopZ - 0.4f);
@@ -158,7 +158,7 @@ public partial class CutsceneManager
             officer.transform.localRotation = Quaternion.identity;
             yield return new WaitForSeconds(1f);
 
-            // ── PHASE 5: DEPARTURE (car drives off-screen with easing) ──
+            // â”€â”€ PHASE 5: DEPARTURE (car drives off-screen with easing) â”€â”€
             float departDur = 6f;
             float departTimer = 0f;
             float departZ = -180f;
@@ -212,7 +212,7 @@ public partial class CutsceneManager
                 Object.Destroy(c);
             RegisterSpawned(nightWife);
 
-            var nightPlayer = MapBuilder.BuildPlayerModel(null);
+            var nightPlayer = PlayerModelBuilder.BuildPlayerModel(null);
             nightPlayer.transform.position = bedPos + new Vector3(-0.55f, 0.35f, 0f);
             nightPlayer.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
             foreach (var r in nightPlayer.GetComponentsInChildren<Renderer>())
@@ -242,12 +242,12 @@ public partial class CutsceneManager
             }
             yield return new WaitForSeconds(2.8f);
 
-            // Close-up on the wife's face — her eyes snap open
+            // Close-up on the wife's face â€” her eyes snap open
             Vector3 camFace = bedPos + new Vector3(0.55f, 1.35f, 0.55f);
             yield return StartCoroutine(PanCamera(camWide, camFace, bedPos + new Vector3(0.55f, 0.35f, 0.55f), 1.5f));
             yield return new WaitForSeconds(1.5f);
 
-            // ── PHASE 7: THE DEMON AT THE BEDSIDE ──
+            // â”€â”€ PHASE 7: THE DEMON AT THE BEDSIDE â”€â”€
             yield return StartCoroutine(FadeOverlay(1, 0.8f));
 
             float enemyY = bedPos.y - 0.7f;
@@ -270,7 +270,7 @@ public partial class CutsceneManager
             yield return StartCoroutine(FadeOverlay(0, 0.8f));
             yield return new WaitForSeconds(2.2f);
 
-            // ── PHASE 8: MORNING — SHE IS GONE ──
+            // â”€â”€ PHASE 8: MORNING â€” SHE IS GONE â”€â”€
             yield return StartCoroutine(FadeOverlay(1, 1.5f));
             GameManager.Instance?.SetTimeOfDay(8f);
             nightWife.SetActive(false);
@@ -283,7 +283,7 @@ public partial class CutsceneManager
             yield return StartCoroutine(FadeOverlay(0, 1.5f));
             yield return new WaitForSeconds(2.8f);
 
-            // ── PHASE 9: MORNING — THE POLICE INVESTIGATE THE WIFE'S HOUSE ──
+            // â”€â”€ PHASE 9: MORNING â€” THE POLICE INVESTIGATE THE WIFE'S HOUSE â”€â”€
             yield return StartCoroutine(FadeOverlay(1, 1.5f));
             GameManager.Instance?.SetTimeOfDay(10f);
             if (bedroomRoot != null)
@@ -326,7 +326,7 @@ public partial class CutsceneManager
             yield return new WaitForSeconds(2.5f);
             StopCoroutine(patrol);
 
-            // ── PHASE 10: THE MONK EXPLAINS AT THE PAGODA ──
+            // â”€â”€ PHASE 10: THE MONK EXPLAINS AT THE PAGODA â”€â”€
             yield return StartCoroutine(FadeOverlay(1, 1.5f));
             GameManager.Instance?.SetTimeOfDay(11f);
             invCar.SetActive(false);
@@ -360,7 +360,7 @@ public partial class CutsceneManager
             }
             yield return new WaitForSeconds(2.5f);
 
-            // ── PHASE 11: FADE + END SCREEN ──
+            // â”€â”€ PHASE 11: FADE + END SCREEN â”€â”€
             yield return StartCoroutine(FadeOverlay(1, 2f));
 
             HideSkipButton();
@@ -369,8 +369,8 @@ public partial class CutsceneManager
             DestroyOverlay();
 
             FinishEndingScene(onComplete,
-                Localization.T("CÔNG LÝ ĐƯỢC THỰC THI NHƯNG HIỂM HỌA CHƯA QUA"),
-                Localization.T("Cậu đã lật tẩy bộ mặt thật của Phú Ông.\nCảnh sát đã đến, và hắn bị bắt ngay trước dinh thự của chính mình.\n\nĐêm ấy, cậu và Jessica trở về nhà, ngủ say.\nGiữa đêm, cô chợt mở mắt...\nmột con quỷ đang nhìn cô chằm chằm.\n\nSáng hôm sau... Jessica đã biến mất.\nCảnh sát kéo đến điều tra căn nhà, nhưng không tìm được dấu vết nào.\n\nCậu chạy lên chùa tìm thầy. Thầy trầm ngâm:\n\"Jessica không bị người bắt... thứ bước vào đêm ấy là quỷ.\nHãy tìm cô ấy trước khi màn đêm buông xuống.\"\nHiểm họa thật sự vẫn chưa qua."));
+                Localization.T("CÃ”NG LÃ ÄÆ¯á»¢C THá»°C THI NHÆ¯NG HIá»‚M Há»ŒA CHÆ¯A QUA"),
+                Localization.T("Cáº­u Ä‘Ã£ láº­t táº©y bá»™ máº·t tháº­t cá»§a PhÃº Ã”ng.\nCáº£nh sÃ¡t Ä‘Ã£ Ä‘áº¿n, vÃ  háº¯n bá»‹ báº¯t ngay trÆ°á»›c dinh thá»± cá»§a chÃ­nh mÃ¬nh.\n\nÄÃªm áº¥y, cáº­u vÃ  Jessica trá»Ÿ vá» nhÃ , ngá»§ say.\nGiá»¯a Ä‘Ãªm, cÃ´ chá»£t má»Ÿ máº¯t...\nmá»™t con quá»· Ä‘ang nhÃ¬n cÃ´ cháº±m cháº±m.\n\nSÃ¡ng hÃ´m sau... Jessica Ä‘Ã£ biáº¿n máº¥t.\nCáº£nh sÃ¡t kÃ©o Ä‘áº¿n Ä‘iá»u tra cÄƒn nhÃ , nhÆ°ng khÃ´ng tÃ¬m Ä‘Æ°á»£c dáº¥u váº¿t nÃ o.\n\nCáº­u cháº¡y lÃªn chÃ¹a tÃ¬m tháº§y. Tháº§y tráº§m ngÃ¢m:\n\"Jessica khÃ´ng bá»‹ ngÆ°á»i báº¯t... thá»© bÆ°á»›c vÃ o Ä‘Ãªm áº¥y lÃ  quá»·.\nHÃ£y tÃ¬m cÃ´ áº¥y trÆ°á»›c khi mÃ n Ä‘Ãªm buÃ´ng xuá»‘ng.\"\nHiá»ƒm há»a tháº­t sá»± váº«n chÆ°a qua."));
         }
         finally
         {

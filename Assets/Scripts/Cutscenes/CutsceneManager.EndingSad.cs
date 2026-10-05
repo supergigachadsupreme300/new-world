@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -27,7 +27,7 @@ public partial class CutsceneManager
         CreateLetterboxBars();
         ShowSkipButton();
 
-        // ── Reposition player on road behind wagon spawn ──
+        // â”€â”€ Reposition player on road behind wagon spawn â”€â”€
         float playerSadZ = SadStartZ + 10f;
         if (_player != null)
         {
@@ -41,14 +41,14 @@ public partial class CutsceneManager
         }
 
         // Spawn a standalone player model on default layer (visible to camera)
-        var sadPlayerModel = MapBuilder.BuildPlayerModel(null);
+        var sadPlayerModel = PlayerModelBuilder.BuildPlayerModel(null);
         sadPlayerModel.transform.position = new Vector3(RoadX, 0.82f, playerSadZ);
         sadPlayerModel.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
         foreach (var r in sadPlayerModel.GetComponentsInChildren<Renderer>())
             r.gameObject.layer = 0;
         RegisterSpawned(sadPlayerModel);
 
-        // ── PHASE 1: THE PLAYER WATCHES (5s) ──
+        // â”€â”€ PHASE 1: THE PLAYER WATCHES (5s) â”€â”€
         // Camera in front of player, looking at his face
         Vector3 camStart = new Vector3(RoadX, 1.8f, playerSadZ - 3f);
         Vector3 lookAtPlayer = new Vector3(RoadX, 1.2f, playerSadZ);
@@ -60,7 +60,7 @@ public partial class CutsceneManager
         yield return StartCoroutine(FadeOverlay(0, 2f));
         yield return new WaitForSeconds(3f);
 
-        // ── PHASE 2: THE WAGON APPEARS (6s) ──
+        // â”€â”€ PHASE 2: THE WAGON APPEARS (6s) â”€â”€
         float wagonStartZ = SadStartZ;
         float wagonEndZ = SadEndZ;
         float deltaZ = wagonEndZ - wagonStartZ;
@@ -96,7 +96,7 @@ public partial class CutsceneManager
             yield return null;
         }
 
-        // ── PHASE 3: THE JOURNEY (16s) ──
+        // â”€â”€ PHASE 3: THE JOURNEY (16s) â”€â”€
         float rideDur = 16f;
         float rideTimer = 0f;
         bool wifeLookedBack = false;
@@ -122,19 +122,19 @@ public partial class CutsceneManager
             yield return null;
         }
 
-        // ── PHASE 4: FADING AWAY (5s) ──
+        // â”€â”€ PHASE 4: FADING AWAY (5s) â”€â”€
         yield return new WaitForSeconds(3f);
         yield return StartCoroutine(FadeOverlay(1, 2f));
 
-        // ── PHASE 5: END SCREEN ──
+        // â”€â”€ PHASE 5: END SCREEN â”€â”€
         HideSkipButton();
         CleanupSpawned();
         DestroyLetterboxBars();
         DestroyOverlay();
 
         FinishEndingScene(onComplete,
-            Localization.T("KẾT THÚC BUỒN"),
-            Localization.T("Bạn đã đến quá muộn.\nTrong khi bạn đi tìm kiếm giàu sang,\nbạn đã quên đi điều thực sự quan trọng.\n\nCô ấy đợi...\ncho đến khi không thể đợi nữa."));
+            Localization.T("Káº¾T THÃšC BUá»’N"),
+            Localization.T("Báº¡n Ä‘Ã£ Ä‘áº¿n quÃ¡ muá»™n.\nTrong khi báº¡n Ä‘i tÃ¬m kiáº¿m giÃ u sang,\nbáº¡n Ä‘Ã£ quÃªn Ä‘i Ä‘iá»u thá»±c sá»± quan trá»ng.\n\nCÃ´ áº¥y Ä‘á»£i...\ncho Ä‘áº¿n khi khÃ´ng thá»ƒ Ä‘á»£i ná»¯a."));
         }
         finally
         {
@@ -143,7 +143,7 @@ public partial class CutsceneManager
         }
     }
 
-    // ── Wagon (sad ending) ──
+    // â”€â”€ Wagon (sad ending) â”€â”€
 
     private Transform CreateWagon(float wx, float wz)
     {

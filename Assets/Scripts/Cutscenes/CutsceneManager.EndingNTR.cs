@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -27,7 +27,7 @@ public partial class CutsceneManager
             CreateLetterboxBars();
             ShowSkipButton();
 
-            // ── Reposition player on road behind the pickup spot ──
+            // â”€â”€ Reposition player on road behind the pickup spot â”€â”€
             float playerZ = SadStartZ + 10f;
             if (_player != null)
             {
@@ -39,14 +39,14 @@ public partial class CutsceneManager
                     realModel.gameObject.SetActive(false);
             }
 
-            var ntrPlayerModel = MapBuilder.BuildPlayerModel(null);
+            var ntrPlayerModel = PlayerModelBuilder.BuildPlayerModel(null);
             ntrPlayerModel.transform.position = new Vector3(RoadX, 0.82f, playerZ);
             ntrPlayerModel.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
             foreach (var r in ntrPlayerModel.GetComponentsInChildren<Renderer>())
                 r.gameObject.layer = 0;
             RegisterSpawned(ntrPlayerModel);
 
-            // ── PHASE 1: THE PLAYER WATCHES (2.5s) ──
+            // â”€â”€ PHASE 1: THE PLAYER WATCHES (2.5s) â”€â”€
             Vector3 camStart = new Vector3(RoadX, 1.8f, playerZ - 3f);
             if (_mainCamera != null)
             {
@@ -56,7 +56,7 @@ public partial class CutsceneManager
             yield return StartCoroutine(FadeOverlay(0, 2f));
             yield return new WaitForSeconds(2.5f);
 
-            // ── PHASE 2: THE GOLD CAR ARRIVES ──
+            // â”€â”€ PHASE 2: THE GOLD CAR ARRIVES â”€â”€
             float stopZ = -6f;
             var carRoot = MapBuilder.BuildCar(null,
                 new Vector3(RoadX, 0f, stopZ), new Color(0.92f, 0.78f, 0.25f));
@@ -79,7 +79,7 @@ public partial class CutsceneManager
             Vector3 camPickup = new Vector3(RoadX - 2f, 2.6f, stopZ + 9f);
             yield return StartCoroutine(PanCamera(camStart, camPickup, new Vector3(RoadX, 1f, stopZ + 2f), 3f));
 
-            // ── PHASE 3: HE TAKES HER AWAY (walk to car) ──
+            // â”€â”€ PHASE 3: HE TAKES HER AWAY (walk to car) â”€â”€
             Vector3 wifeStart = wifeModel.transform.position;
             Vector3 richStart = richModel.transform.position;
             Vector3 wifeDoor = new Vector3(RoadX + 0.6f, 0.86f, stopZ - 1f);
@@ -108,7 +108,7 @@ public partial class CutsceneManager
 
             yield return new WaitForSeconds(1.5f);
 
-            // ── PHASE 4: THE JOURNEY (12s) ──
+            // â”€â”€ PHASE 4: THE JOURNEY (12s) â”€â”€
             float rideDur = 12f;
             float rideTimer = 0f;
             float deltaZ = SadEndZ - stopZ;
@@ -136,19 +136,19 @@ public partial class CutsceneManager
                 yield return null;
             }
 
-            // ── PHASE 5: FADING AWAY (5s) ──
+            // â”€â”€ PHASE 5: FADING AWAY (5s) â”€â”€
             yield return new WaitForSeconds(3f);
             yield return StartCoroutine(FadeOverlay(1, 2f));
 
-            // ── PHASE 6: END SCREEN ──
+            // â”€â”€ PHASE 6: END SCREEN â”€â”€
             HideSkipButton();
             CleanupSpawned();
             DestroyLetterboxBars();
             DestroyOverlay();
 
             FinishEndingScene(onComplete,
-                Localization.T("KẾT THÚC NTR"),
-                Localization.T("Trong lúc cậu mải làm nông, ông chú giàu có đã lặng lẽ đến gần cô ấy.\n\nKhi cậu quay lại...\nJessica đã không còn đợi cậu nữa.\n\nCậu đã để cô ấy ra đi, mãi mãi."));
+                Localization.T("Káº¾T THÃšC NTR"),
+                Localization.T("Trong lÃºc cáº­u máº£i lÃ m nÃ´ng, Ã´ng chÃº giÃ u cÃ³ Ä‘Ã£ láº·ng láº½ Ä‘áº¿n gáº§n cÃ´ áº¥y.\n\nKhi cáº­u quay láº¡i...\nJessica Ä‘Ã£ khÃ´ng cÃ²n Ä‘á»£i cáº­u ná»¯a.\n\nCáº­u Ä‘Ã£ Ä‘á»ƒ cÃ´ áº¥y ra Ä‘i, mÃ£i mÃ£i."));
         }
         finally
         {

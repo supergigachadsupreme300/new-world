@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -35,7 +35,7 @@ public partial class CutsceneManager
             }
 
             // Player model at the mansion front
-            var playerModel = MapBuilder.BuildPlayerModel(null);
+            var playerModel = PlayerModelBuilder.BuildPlayerModel(null);
             playerModel.transform.position = new Vector3(68f, 0.86f, 100f);
             playerModel.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
             foreach (var r in playerModel.GetComponentsInChildren<Renderer>())
@@ -53,7 +53,7 @@ public partial class CutsceneManager
             var sack = BuildBribeSack(new Vector3(69.8f, 0.45f, 100f));
             RegisterSpawned(sack);
 
-            // ── PHASE 1: OPENING SHOT ──
+            // â”€â”€ PHASE 1: OPENING SHOT â”€â”€
             Vector3 camStart = new Vector3(68f, 2.4f, 95f);
             if (_mainCamera != null)
             {
@@ -63,11 +63,11 @@ public partial class CutsceneManager
             yield return StartCoroutine(FadeOverlay(0, 2f));
             yield return new WaitForSeconds(2f);
 
-            // ── PHASE 2: PAN TO THE SACK ──
+            // â”€â”€ PHASE 2: PAN TO THE SACK â”€â”€
             yield return StartCoroutine(PanCamera(camStart, new Vector3(69.8f, 2.2f, 96f), new Vector3(69.8f, 1f, 100f), 2f));
             yield return new WaitForSeconds(1.5f);
 
-            // ── PHASE 3: THE PLAYER TAKES THE BRIBE ──
+            // â”€â”€ PHASE 3: THE PLAYER TAKES THE BRIBE â”€â”€
             Vector3 playerStart = playerModel.transform.position;
             Vector3 sackGrab = new Vector3(69.8f, 0.86f, 100f);
             float walkDur = 2.5f;
@@ -85,7 +85,7 @@ public partial class CutsceneManager
 
             yield return new WaitForSeconds(2f);
 
-            // ── PHASE 4: FADE + END SCREEN ──
+            // â”€â”€ PHASE 4: FADE + END SCREEN â”€â”€
             yield return StartCoroutine(FadeOverlay(1, 2f));
 
             HideSkipButton();
@@ -94,8 +94,8 @@ public partial class CutsceneManager
             DestroyOverlay();
 
             FinishEndingScene(onComplete,
-                Localization.T("KẾT THÚC ĐỒI BẠI"),
-                Localization.T("Cậu đã im lặng. Và cậu đã được trả một cái giá rất hậu hĩnh.\n\nNhưng đêm xuống, những chiếc xe vẫn nối đuôi nhau đến dinh thự.\nJessica vẫn đang trong tầm ngắm của hắn...\n\nVà giờ, cậu là một phần của câu chuyện đó."));
+                Localization.T("Káº¾T THÃšC Äá»’I Báº I"),
+                Localization.T("Cáº­u Ä‘Ã£ im láº·ng. VÃ  cáº­u Ä‘Ã£ Ä‘Æ°á»£c tráº£ má»™t cÃ¡i giÃ¡ ráº¥t háº­u hÄ©nh.\n\nNhÆ°ng Ä‘Ãªm xuá»‘ng, nhá»¯ng chiáº¿c xe váº«n ná»‘i Ä‘uÃ´i nhau Ä‘áº¿n dinh thá»±.\nJessica váº«n Ä‘ang trong táº§m ngáº¯m cá»§a háº¯n...\n\nVÃ  giá», cáº­u lÃ  má»™t pháº§n cá»§a cÃ¢u chuyá»‡n Ä‘Ã³."));
         }
         finally
         {

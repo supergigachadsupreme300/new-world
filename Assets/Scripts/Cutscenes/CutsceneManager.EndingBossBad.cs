@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -37,7 +37,7 @@ public partial class CutsceneManager
                 if (realModel != null)
                     realModel.gameObject.SetActive(false);
             }
-            var playerModel = MapBuilder.BuildPlayerModel(null);
+            var playerModel = PlayerModelBuilder.BuildPlayerModel(null);
             playerModel.transform.position = new Vector3(RoadX, 0.86f, playerZ);
             playerModel.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
             foreach (var r in playerModel.GetComponentsInChildren<Renderer>())
@@ -79,7 +79,7 @@ public partial class CutsceneManager
                     er.material.color = new Color(0.9f, 0.05f, 0.03f);
             }
 
-            // ── PHASE 1: OPENING SHOT ──
+            // â”€â”€ PHASE 1: OPENING SHOT â”€â”€
             Vector3 camStart = new Vector3(RoadX, 1.6f, playerZ - 3f);
             if (_mainCamera != null)
             {
@@ -89,7 +89,7 @@ public partial class CutsceneManager
             yield return StartCoroutine(FadeOverlay(0, 2f));
             yield return new WaitForSeconds(2.2f);
 
-            // ── PHASE 2: THE RISE ──
+            // â”€â”€ PHASE 2: THE RISE â”€â”€
             float riseDur = 3.5f;
             float riseTimer = 0f;
             while (riseTimer < riseDur)
@@ -113,7 +113,7 @@ public partial class CutsceneManager
             }
             yield return new WaitForSeconds(1f);
 
-            // ── PHASE 3: THE LUNGE ──
+            // â”€â”€ PHASE 3: THE LUNGE â”€â”€
             float lungeDur = 2.2f;
             float lungeTimer = 0f;
             Vector3 bossStart = bossRoot.position;
@@ -136,7 +136,7 @@ public partial class CutsceneManager
             }
             yield return new WaitForSeconds(0.5f);
 
-            // ── PHASE 4: BLACKOUT ──
+            // â”€â”€ PHASE 4: BLACKOUT â”€â”€
             yield return StartCoroutine(FadeOverlay(1, 1.2f));
 
             HideSkipButton();
@@ -156,8 +156,8 @@ public partial class CutsceneManager
                     _uiManager = Object.FindAnyObjectByType<UIManager>();
                 if (_uiManager != null)
                     _uiManager.ShowBossEndScreen(
-                        Localization.T("RƠI VÀO BÓNG TỐI"),
-                        Localization.T("Quỷ Vương đã quật ngã con.\nBóng tối nuốt chửng ngôi làng.\n\nSố phận của con dừng lại tại đây...\nHãy quay về nơi lưu gần nhất và đối mặt với nó lần nữa."));
+                        Localization.T("RÆ I VÃ€O BÃ“NG Tá»I"),
+                        Localization.T("Quá»· VÆ°Æ¡ng Ä‘Ã£ quáº­t ngÃ£ con.\nBÃ³ng tá»‘i nuá»‘t chá»­ng ngÃ´i lÃ ng.\n\nSá»‘ pháº­n cá»§a con dá»«ng láº¡i táº¡i Ä‘Ã¢y...\nHÃ£y quay vá» nÆ¡i lÆ°u gáº§n nháº¥t vÃ  Ä‘á»‘i máº·t vá»›i nÃ³ láº§n ná»¯a."));
             }
         }
         finally

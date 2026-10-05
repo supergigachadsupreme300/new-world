@@ -1,9 +1,9 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
 /// Procedural blocky walk/run/idle animation for the MapBuilder player model.
 ///
-/// Sits on the "PlayerModel" root (built by <see cref="MapBuilder.BuildPlayerModel"/>).
+/// Sits on the "PlayerModel" root (built by <see cref="PlayerModelBuilder.BuildPlayerModel"/>).
 /// The standing model is authored with shoulder -> elbow and hip -> knee pivots
 /// (ShoulderL/R, ElbowL/R, HipL/R, KneeL/R) plus a "Torso" pivot that holds the upper body;
 /// this component swings those pivots sinusoidally while the player moves.
@@ -167,14 +167,14 @@ public sealed class PlayerAnimator : MonoBehaviour
         float norm = Mathf.Clamp01((speedH - 0.4f) / Mathf.Max(0.1f, runSpeed));
 
         // Two gaits blended by speed: a calm natural walk and, past ~45% speed, a distinct
-        // exaggerated cartoon run (full at sprint) — high knees, wide pumping arms, forward
+        // exaggerated cartoon run (full at sprint) â€” high knees, wide pumping arms, forward
         // lean and a bouncy bobble.
         float runBlend = Mathf.SmoothStep(0.45f, 0.8f, norm);
 
         float cadence = 1.8f + norm * 2.0f; // Hz
         _phase += cadence * Mathf.PI * 2f * Time.deltaTime;
 
-        // ── Walk pose (natural gait) ──
+        // â”€â”€ Walk pose (natural gait) â”€â”€
         float wLegAmp = (0.32f + norm * 0.3f) * Mathf.Rad2Deg;
         float wArmAmp = (0.3f + norm * 0.35f) * Mathf.Rad2Deg;
         float wLegL = Mathf.Sin(_phase) * wLegAmp;
@@ -193,7 +193,7 @@ public sealed class PlayerAnimator : MonoBehaviour
         float wElbowL = (wArmL / Mathf.Max(0.01f, wArmAmp)) * wElbowAmp;
         float wElbowR = (wArmR / Mathf.Max(0.01f, wArmAmp)) * wElbowAmp;
 
-        // ── Run pose (exaggerated cartoon: big strides, high knees, wide pumping arms) ──
+        // â”€â”€ Run pose (exaggerated cartoon: big strides, high knees, wide pumping arms) â”€â”€
         float rEase = Mathf.Clamp01((norm - 0.45f) / 0.35f); // 0 at run start .. 1 at sprint
         float rLegAmp = (0.5f + rEase * 0.4f) * Mathf.Rad2Deg;
         float rArmAmp = (0.55f + rEase * 0.3f) * Mathf.Rad2Deg;
@@ -232,7 +232,7 @@ public sealed class PlayerAnimator : MonoBehaviour
         // When SuppressArms is set, a WeaponAnimator fully owns the shoulders AND elbows
         // (windup/strike/charge pose tracks), so nothing is written here mid-attack.
 
-        // Cartoon run top body: forward lean, gentle bob — the upper body stays stable so only the
+        // Cartoon run top body: forward lean, gentle bob â€” the upper body stays stable so only the
         // arms and legs carry the motion (no wild torso/head swinging). The + lookTilt bends the
         // torso up/down with the camera's vertical aim.
         if (_torso != null)
