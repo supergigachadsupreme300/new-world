@@ -1,4 +1,29 @@
-﻿## 1ja. `Models/Magic/MagicWeaponModelBuilder.cs` - the four magic models get the file 1iz said they needed
+﻿## 1jb. Models/Magic/MagicProjectileModelBuilder.cs + Models/Magic/MagicImpactModelBuilder.cs - the two remaining magic spell models get their files
+
+**Status: SHIPPED.** Two new files under Models/Magic/ (436 + 203 lines). SpellCaster.Projectiles.cs 413 -> 72, SpellImpactFx.cs 159 -> 253 (net -42). Assets/Scripts 368 .cs / 368 .cs.meta. skills: none applied - pure relocation + interface change (single Part list). **Verified by grep + reread + normalised code-line comparison against pre-move blocks; no Unity build** (rule 3). tools/StaticChecks.ps1 -> 0 candidates.
+
+### What moved
+- Projectile bodies: 18 static members moved from SpellCaster.Projectiles.cs to MagicProjectileModelBuilder. Keeps FireProjectile and DecorateProjectile only. Destroy(col) -> Object.Destroy(col).
+- Impact flashes: 8 shape families moved to MagicImpactModelBuilder.Build returning List<Part> (transform/material/spin). Parallel lists replaced.
+
+### Verification
+- Static checks 0 candidates; added both files to files list.
+- Parity .cs/.cs.meta 368/368. GUIDs unique.
+- Call sites updated (NewWorldTestGround, SpellImpactFx, SpellCaster.Projectiles, SpellLook).
+
+### Files
+- Models/Magic/MagicProjectileModelBuilder.cs + .meta
+- Models/Magic/MagicImpactModelBuilder.cs + .meta
+
+### Pending play-test
+- Magic model bench renders identically.
+- Impact flashes spawn with same colours/timing.
+- Live casts and turret DecorateProjectile unchanged.
+
+### 1jb-status
+- Behaviour preserved; interface change documented.
+
+## 1ja. `Models/Magic/MagicWeaponModelBuilder.cs` - the four magic models get the file 1iz said they needed
 
 **Status: SHIPPED.** `Models/WeaponModelBuilder.cs` 379 -> 321 lines; new
 `Models/Magic/MagicWeaponModelBuilder.cs` (107 lines). `Assets/Scripts` is now 366 `.cs` / 366 `.cs.meta`.

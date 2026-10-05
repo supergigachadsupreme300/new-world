@@ -1,4 +1,18 @@
-﻿# THINKING â€” Working Reasoning Log
+﻿## 1jb. Models/Magic/MagicProjectileModelBuilder.cs + Models/Magic/MagicImpactModelBuilder.cs - split spell-model geometry out of SpellCaster/SpellImpactFx
+
+**Hypothesis:** Moving in-flight projectile bodies and impact flash shapes into named builders improves findability without changing behaviour.
+
+**Evidence:** 1iz showed magic weapon models had no file; same applies to projectile/impact shapes. SpellCaster.Projectiles.cs was 413 lines named after the caster (spawning), SpellImpactFx had parallel lists (_materials/_parts/_spins).
+
+**Changes:** Created MagicProjectileModelBuilder (436 lines, 18 members) and MagicImpactModelBuilder (203 lines, returns Part record). SpellCaster keeps FireProjectile+DecorateProjectile. ImpactFlash uses single list. Call sites updated; StaticChecks extended.
+
+**Why not verbatim:** Destroy(col) needs Object.Destroy in static class; impact returns Part to enforce alignment.
+
+**Verdict: CONFIRMED.** Behaviour preserved; parity 368/368. 0 StaticChecks candidates.
+
+**Open:** None. Await Unity play-test.
+
+# THINKING â€” Working Reasoning Log
 
 This file stores the **raw reasoning trail** behind tough investigations: every hypothesis
 considered, the evidence for/against it, dead ends, and why the surviving candidates survived. It is
